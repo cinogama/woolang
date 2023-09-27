@@ -554,8 +554,6 @@ void wo_set_bool(wo_value value, wo_bool_t val)
 }
 void wo_set_gchandle(wo_value value, wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t))
 {
-    WO_VAL(value)->type = wo::value::valuetype::gchandle_type;
-
     wo_assert(resource_ptr != nullptr && destruct_func != nullptr);
 
     wo::gchandle_t* handle_ptr;
@@ -566,7 +564,7 @@ void wo_set_gchandle(wo_value value, wo_vm vm, wo_ptr_t resource_ptr, wo_value h
         // NOTE: This function may defined in other libraries,
         //      so we need store gc vm for decrease.
         WO_VM(vm)->inc_destructable_instance_count();
-        WO_VAL(value)->gchandle = handle_ptr;
+        WO_VAL(value)->set_gcunit<wo::value::valuetype::gchandle_type>(handle_ptr);
     }
 
     handle_ptr->m_gc_vm = wo_gc_vm(vm);
@@ -590,28 +588,28 @@ void wo_set_val(wo_value value, wo_value val)
 void wo_set_struct(wo_value value, wo_vm vm, uint16_t structsz)
 {
     auto* _rsvalue = WO_VAL(value);
-    _rsvalue->type = (wo::value::valuetype::struct_type);
 
     _wo_enter_gc_guard g(vm);
-    _rsvalue->structs = wo::struct_t::gc_new<wo::gcbase::gctype::young>(structsz);
+    _rsvalue->set_gcunit<wo::value::valuetype::struct_type>(
+        wo::struct_t::gc_new<wo::gcbase::gctype::young>(structsz));
 }
 
 void wo_set_arr(wo_value value, wo_vm vm, wo_int_t count)
 {
     auto* _rsvalue = WO_VAL(value);
-    _rsvalue->type = wo::value::valuetype::array_type;
 
     _wo_enter_gc_guard g(vm);
-    _rsvalue->array = wo::array_t::gc_new<wo::gcbase::gctype::young>((size_t)count);
+    _rsvalue->set_gcunit<wo::value::valuetype::array_type>(
+        wo::array_t::gc_new<wo::gcbase::gctype::young>((size_t)count));
 }
 
 void wo_set_map(wo_value value, wo_vm vm)
 {
     auto _rsvalue = WO_VAL(value);
-    _rsvalue->type = (wo::value::valuetype::dict_type);
 
     _wo_enter_gc_guard g(vm);
-    _rsvalue->dict = wo::dict_t::gc_new<wo::gcbase::gctype::young>();
+    _rsvalue->set_gcunit<wo::value::valuetype::dict_type>(
+        wo::dict_t::gc_new<wo::gcbase::gctype::young>());
 }
 
 wo_integer_t wo_cast_int(wo_value value)
@@ -858,9 +856,7 @@ wo_bool_t _wo_cast_array(wo::value* value, wo::lexer* lex)
         if (lex->peek(nullptr) == +wo::lex_type::l_comma)
             lex->next(nullptr);
     }
-
-    value->type = wo::value::valuetype::array_type;
-    value->array = rsarr;
+    value->set_gcunit<wo::value::valuetype::array_type>(rsarr);
     return true;
 }
 wo_bool_t _wo_cast_map(wo::value* value, wo::lexer* lex)
@@ -893,8 +889,7 @@ wo_bool_t _wo_cast_map(wo::value* value, wo::lexer* lex)
             lex->next(nullptr);
     }
 
-    value->type = wo::value::valuetype::dict_type;
-    value->dict = rsmap;
+    value->set_gcunit<wo::value::valuetype::dict_type>(rsmap);
     return true;
 }
 wo_bool_t _wo_cast_value(wo::value* value, wo::lexer* lex, wo::value::valuetype except_type)
@@ -1352,13 +1347,12 @@ void wo_set_option_void(wo_value val, wo_vm vm)
 {
     auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
-    target_val->type = (wo::value::valuetype::struct_type);
 
     wo::struct_t* structptr;
     {
         _wo_enter_gc_guard g(vm);
         structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(2);
-        target_val->structs = structptr;
+        target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     }
 
     structptr->m_values[0].set_integer(1);
@@ -1368,13 +1362,12 @@ void wo_set_option_bool(wo_value val, wo_vm vm, wo_bool_t result)
 {
     auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
-    target_val->type = (wo::value::valuetype::struct_type);
 
     wo::struct_t* structptr;
     {
         _wo_enter_gc_guard g(vm);
         structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(2);
-        target_val->structs = structptr;
+        target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     }
 
     structptr->m_values[0].set_integer(1);
@@ -1389,13 +1382,12 @@ void wo_set_option_int(wo_value val, wo_vm vm, wo_integer_t result)
 {
     auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
-    target_val->type = (wo::value::valuetype::struct_type);
 
     wo::struct_t* structptr;
     {
         _wo_enter_gc_guard g(vm);
         structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(2);
-        target_val->structs = structptr;
+        target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     }
 
     structptr->m_values[0].set_integer(1);
@@ -1407,13 +1399,12 @@ void wo_set_option_real(wo_value val, wo_vm vm, wo_real_t result)
 {
     auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
-    target_val->type = (wo::value::valuetype::struct_type);
 
     wo::struct_t* structptr;
     {
         _wo_enter_gc_guard g(vm);
         structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(2);
-        target_val->structs = structptr;
+        target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     }
 
     structptr->m_values[0].set_integer(1);
@@ -1425,31 +1416,27 @@ void wo_set_option_float(wo_value val, wo_vm vm, float result)
 {
     auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
-    target_val->type = (wo::value::valuetype::struct_type);
 
     wo::struct_t* structptr;
     {
         _wo_enter_gc_guard g(vm);
         structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(2);
-        target_val->structs = structptr;
+        target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     }
 
     structptr->m_values[0].set_integer(1);
     structptr->m_values[1].set_real((wo_real_t)result);
-
-    
 }
 void wo_set_option_handle(wo_value val, wo_vm vm, wo_handle_t result)
 {
     auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
-    target_val->type = (wo::value::valuetype::struct_type);
 
     wo::struct_t* structptr;
     {
         _wo_enter_gc_guard g(vm);
         structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(2);
-        target_val->structs = structptr;
+        target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     }
 
     structptr->m_values[0].set_integer(1);
@@ -1461,13 +1448,12 @@ void wo_set_option_string(wo_value val, wo_vm vm, wo_string_t result)
 {
     auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
-    target_val->type = (wo::value::valuetype::struct_type);
 
     wo::struct_t* structptr;
     {
         _wo_enter_gc_guard g(vm);
         structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(2);
-        target_val->structs = structptr;
+        target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
         structptr->m_values[1].set_string(result);
     }
     structptr->m_values[0].set_integer(1);
@@ -1479,51 +1465,44 @@ void wo_set_option_buffer(wo_value val, wo_vm vm, const void* result, size_t len
 {
     auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
-    target_val->type = (wo::value::valuetype::struct_type);
 
     wo::struct_t* structptr;
     {
         _wo_enter_gc_guard g(vm);
         structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(2);
-        target_val->structs = structptr;
+        target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
 
         structptr->m_values[1].set_buffer(result, len);
     }
-
-    structptr->m_values[0].set_integer(1);
-    
+    structptr->m_values[0].set_integer(1);  
 }
 void wo_set_option_pointer(wo_value val, wo_vm vm, wo_ptr_t result)
 {
     auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
-    target_val->type = (wo::value::valuetype::struct_type);
 
     wo::struct_t* structptr;
     {
         _wo_enter_gc_guard g(vm);
         structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(2);
-        target_val->structs = structptr;
+        target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     }
 
     structptr->m_values[0].set_integer(1);
     structptr->m_values[1].set_handle((wo_handle_t)result);
     if (nullptr == result)
         wo_fail(WO_FAIL_ACCESS_NIL, "Cannot return nullptr");
-
-    
 }
 void wo_set_option_ptr(wo_value val, wo_vm vm, wo_ptr_t result)
 {
     auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
-    target_val->type = (wo::value::valuetype::struct_type);
 
     wo::struct_t* structptr;
     {
         _wo_enter_gc_guard g(vm);
         structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(2);
-        target_val->structs = structptr;
+        target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     }
 
     if (result)
@@ -1533,57 +1512,48 @@ void wo_set_option_ptr(wo_value val, wo_vm vm, wo_ptr_t result)
     }
     else
         structptr->m_values[0].set_integer(2);
-
-    
 }
 void wo_set_option_val(wo_value val, wo_vm vm, wo_value result)
 {
     auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
-    target_val->type = (wo::value::valuetype::struct_type);
 
     wo::struct_t* structptr;
     {
         _wo_enter_gc_guard g(vm);
         structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(2);
-        target_val->structs = structptr;
+        target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     }
 
     structptr->m_values[0].set_integer(1);
     structptr->m_values[1].set_val(WO_VAL(result));
-
-    
 }
 void wo_set_option_gchandle(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t))
 {
     auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
-    target_val->type = (wo::value::valuetype::struct_type);
 
     wo::struct_t* structptr;
     {
         _wo_enter_gc_guard g(vm);
         structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(2);
-        target_val->structs = structptr;
+        target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     }
 
     structptr->m_values[0].set_integer(1);
     wo_set_gchandle(CS_VAL(&structptr->m_values[1]), vm, resource_ptr, holding_val, destruct_func);
-    
 }
 void wo_set_option_none(wo_value val, wo_vm vm)
 {
     auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
-    target_val->type = (wo::value::valuetype::struct_type);
 
     wo::struct_t* structptr;
     {
         _wo_enter_gc_guard g(vm);
         structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(2);
-        target_val->structs = structptr;
+        target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     }
-
     structptr->m_values[0].set_integer(2);
 }
 
@@ -1591,13 +1561,12 @@ void wo_set_err_void(wo_value val, wo_vm vm)
 {
     auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
-    target_val->type = (wo::value::valuetype::struct_type);
 
     wo::struct_t* structptr;
     {
         _wo_enter_gc_guard g(vm);
         structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(2);
-        target_val->structs = structptr;
+        target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     }
 
     structptr->m_values[0].set_integer(2);
@@ -1613,13 +1582,12 @@ void wo_set_err_bool(wo_value val, wo_vm vm, wo_bool_t result)
 {
     auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
-    target_val->type = (wo::value::valuetype::struct_type);
 
     wo::struct_t* structptr;
     {
         _wo_enter_gc_guard g(vm);
         structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(2);
-        target_val->structs = structptr;
+        target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     }
 
     structptr->m_values[0].set_integer(2);
@@ -1631,31 +1599,27 @@ void wo_set_err_int(wo_value val, wo_vm vm, wo_integer_t result)
 {
     auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
-    target_val->type = (wo::value::valuetype::struct_type);
 
     wo::struct_t* structptr;
     {
         _wo_enter_gc_guard g(vm);
         structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(2);
-        target_val->structs = structptr;
+        target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     }
 
     structptr->m_values[0].set_integer(2);
     structptr->m_values[1].set_integer(result);
-
-    
 }
 void wo_set_err_real(wo_value val, wo_vm vm, wo_real_t result)
 {
     auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
-    target_val->type = (wo::value::valuetype::struct_type);
 
     wo::struct_t* structptr;
     {
         _wo_enter_gc_guard g(vm);
         structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(2);
-        target_val->structs = structptr;
+        target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     }
 
     structptr->m_values[0].set_integer(2);
@@ -1667,31 +1631,27 @@ void wo_set_err_float(wo_value val, wo_vm vm, float result)
 {
     auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
-    target_val->type = (wo::value::valuetype::struct_type);
 
     wo::struct_t* structptr;
     {
         _wo_enter_gc_guard g(vm);
         structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(2);
-        target_val->structs = structptr;
+        target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     }
 
     structptr->m_values[0].set_integer(2);
     structptr->m_values[1].set_real((wo_real_t)result);
-
-    
 }
 void wo_set_err_handle(wo_value val, wo_vm vm, wo_handle_t result)
 {
     auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
-    target_val->type = (wo::value::valuetype::struct_type);
 
     wo::struct_t* structptr;
     {
         _wo_enter_gc_guard g(vm);
         structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(2);
-        target_val->structs = structptr;
+        target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     }
 
     structptr->m_values[0].set_integer(2);
@@ -1703,49 +1663,42 @@ void wo_set_err_string(wo_value val, wo_vm vm, wo_string_t result)
 {
     auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
-    target_val->type = (wo::value::valuetype::struct_type);
 
     wo::struct_t* structptr;
     {
         _wo_enter_gc_guard g(vm);
         structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(2);
-        target_val->structs = structptr;
+        target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
         structptr->m_values[1].set_string(result);
     }
 
     structptr->m_values[0].set_integer(2);
-
-    
 }
 void wo_set_err_buffer(wo_value val, wo_vm vm, const void* result, size_t len)
 {
     auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
-    target_val->type = (wo::value::valuetype::struct_type);
 
     wo::struct_t* structptr;
     {
         _wo_enter_gc_guard g(vm);
         structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(2);
-        target_val->structs = structptr;
+        target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
         structptr->m_values[1].set_buffer(result, len);
     }
 
     structptr->m_values[0].set_integer(2);
-
-    
 }
 void wo_set_err_pointer(wo_value val, wo_vm vm, wo_ptr_t result)
 {
     auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
-    target_val->type = (wo::value::valuetype::struct_type);
 
     wo::struct_t* structptr;
     {
         _wo_enter_gc_guard g(vm);
         structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(2);
-        target_val->structs = structptr;
+        target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     }
 
     structptr->m_values[0].set_integer(2);
@@ -1753,20 +1706,17 @@ void wo_set_err_pointer(wo_value val, wo_vm vm, wo_ptr_t result)
 
     if (nullptr == result)
         wo_fail(WO_FAIL_ACCESS_NIL, "Cannot return nullptr");
-
-    
 }
 void wo_set_err_val(wo_value val, wo_vm vm, wo_value result)
 {
     auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
-    target_val->type = (wo::value::valuetype::struct_type);
 
     wo::struct_t* structptr;
     {
         _wo_enter_gc_guard g(vm);
         structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(2);
-        target_val->structs = structptr;
+        target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     }
 
     structptr->m_values[0].set_integer(2);
@@ -1778,13 +1728,12 @@ void wo_set_err_gchandle(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, wo_value
 {
     auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
-    target_val->type = (wo::value::valuetype::struct_type);
 
     wo::struct_t* structptr;
     {
         _wo_enter_gc_guard g(vm);
         structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(2);
-        target_val->structs = structptr;
+        target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     }
 
     structptr->m_values[0].set_integer(2);
@@ -2450,10 +2399,10 @@ wo_value wo_push_val(wo_vm vm, wo_value val)
 wo_value wo_push_arr(wo_vm vm, wo_int_t count)
 {
     auto* _rsvalue = WO_VM(vm)->sp--;
-    _rsvalue->type = wo::value::valuetype::array_type;
 
     _wo_enter_gc_guard g(vm);
-    _rsvalue->array = wo::array_t::gc_new<wo::gcbase::gctype::young>((size_t)count);
+    _rsvalue->set_gcunit<wo::value::valuetype::array_type>(
+        wo::array_t::gc_new<wo::gcbase::gctype::young>((size_t)count));
 
     return CS_VAL(_rsvalue);
 
@@ -2461,10 +2410,10 @@ wo_value wo_push_arr(wo_vm vm, wo_int_t count)
 wo_value wo_push_struct(wo_vm vm, uint16_t count)
 {
     auto* _rsvalue = WO_VM(vm)->sp--;
-    _rsvalue->type = (wo::value::valuetype::struct_type);
 
     _wo_enter_gc_guard g(vm);
-    _rsvalue->structs = wo::struct_t::gc_new<wo::gcbase::gctype::young>(count);
+    _rsvalue->set_gcunit<wo::value::valuetype::struct_type>(
+        wo::struct_t::gc_new<wo::gcbase::gctype::young>(count));
 
     return CS_VAL(_rsvalue);
 }
@@ -2474,7 +2423,8 @@ wo_value wo_push_map(wo_vm vm)
     _rsvalue->type = (wo::value::valuetype::dict_type);
 
     _wo_enter_gc_guard g(vm);
-    _rsvalue->dict = wo::dict_t::gc_new<wo::gcbase::gctype::young>();
+    _rsvalue->set_gcunit<wo::value::valuetype::dict_type>(
+        wo::dict_t::gc_new<wo::gcbase::gctype::young>());
 
     return CS_VAL(_rsvalue);
 }

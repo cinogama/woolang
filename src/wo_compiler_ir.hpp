@@ -218,7 +218,8 @@ namespace wo
             {
                 v->type = type();
                 if constexpr (meta::is_string<T>::value)
-                    v->string = string_t::gc_new<gcbase::gctype::no_gc>(val);
+                    v->set_gcunit<wo::value::valuetype::string_type>(
+                        string_t::gc_new<gcbase::gctype::no_gc>(val));
                 else if constexpr (std::is_pointer<T>::value)
                     v->handle = (uint64_t)val;
                 else if constexpr (std::is_integral<T>::value)
