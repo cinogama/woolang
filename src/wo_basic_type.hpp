@@ -106,23 +106,20 @@ namespace wo
 
         inline value* set_string(const char* str)
         {
-            type = valuetype::string_type;
-            string = string_t::gc_new<gcbase::gctype::young>(str);
+            set_gcunit<wo::value::valuetype::string_type>(
+                string_t::gc_new<gcbase::gctype::young>(str));
             return this;
         }
-
         inline value* set_buffer(const void* buf, size_t sz)
         {
-            type = valuetype::string_type;
-            string = string_t::gc_new<gcbase::gctype::young>((const char*)buf, sz);
+            set_gcunit<wo::value::valuetype::string_type>(
+                string_t::gc_new<gcbase::gctype::young>((const char*)buf, sz));
             return this;
         }
-
         inline value* set_string_nogc(const char* str)
         {
             // You must 'delete' it manual
-            type = valuetype::string_type;
-            gcunit = new string_t(str);
+            set_gcunit<wo::value::valuetype::string_type>(new string_t(str));
             return this;
         }
         inline value* set_val_compile_time(value* val)
@@ -174,6 +171,30 @@ namespace wo
             return type == valuetype::invalid || (is_gcunit() && gcunit == nullptr);
         }
 
+        template<valuetype ty, typename T>
+        inline value* set_gcunit(T* unit)
+        {
+            static_assert((uint8_t)ty & (uint8_t)valuetype::need_gc);
+            
+            type = ty;
+            if constexpr (sizeof(gcbase*) < sizeof(wo_handle_t))
+                handle = 0;
+
+            if constexpr (ty == valuetype::string_type)
+                string = unit;
+            else if constexpr (ty == valuetype::array_type)
+                array = unit;
+            else if constexpr (ty == valuetype::dict_type)
+                dict = unit;
+            else if constexpr (ty == valuetype::gchandle_type)
+                gchandle = unit;
+            else if constexpr (ty == valuetype::closure_type)
+                closure = unit;
+            else if constexpr (ty == valuetype::struct_type)
+                structs = unit;
+
+            return this;
+        }
         inline gcbase* get_gcunit_with_barrier(gcbase::unit_attrib** attrib) const
         {
             if ((uint8_t)type & (uint8_t)valuetype::need_gc)
@@ -181,12 +202,10 @@ namespace wo
                     std::launder(reinterpret_cast<womem_attrib_t**>(attrib)))));
             return nullptr;
         }
-
         inline bool is_gcunit() const
         {
             return (uint8_t)type & (uint8_t)valuetype::need_gc;
         }
-
         inline value* set_val(const value* _val)
         {
             type = _val->type;
@@ -340,8 +359,8 @@ namespace wo
             auto* dup_arrray = from->array;
             if (dup_arrray)
             {
-                type = valuetype::array_type;
-                array = array_t::gc_new<gcbase::gctype::young>(dup_arrray->size());
+                set_gcunit<valuetype::array_type>(
+                    array_t::gc_new<gcbase::gctype::young>(dup_arrray->size()));
 
                 gcbase::gc_read_guard g1(dup_arrray);
                 *array->elem() = *dup_arrray->elem();
@@ -355,8 +374,8 @@ namespace wo
             auto* dup_mapping = from->dict;
             if (dup_mapping)
             {
-                type = valuetype::dict_type;
-                dict = dict_t::gc_new<gcbase::gctype::young>();
+                set_gcunit<valuetype::dict_type>(
+                    dict_t::gc_new<gcbase::gctype::young>());
 
                 gcbase::gc_read_guard g1(dup_mapping);
                 *dict->elem() = *dup_mapping->elem();
@@ -369,8 +388,8 @@ namespace wo
             auto* dup_struct = from->structs;
             if (dup_struct)
             {
-                type = valuetype::struct_type;
-                structs = struct_t::gc_new<gcbase::gctype::young>(dup_struct->m_count);
+                set_gcunit<valuetype::struct_type>(
+                    struct_t::gc_new<gcbase::gctype::young>(dup_struct->m_count));
 
                 gcbase::gc_read_guard g1(dup_struct);
                 for (uint16_t i = 0; i < dup_struct->m_count; ++i)

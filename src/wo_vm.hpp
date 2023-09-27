@@ -1314,8 +1314,8 @@ namespace wo
     public:
         inline static value* make_union_impl(value* opnum1, value* opnum2, uint16_t id)
         {
-            opnum1->type = (value::valuetype::struct_type);
-            opnum1->structs = struct_t::gc_new<gcbase::gctype::young>(2);
+            opnum1->set_gcunit<value::valuetype::struct_type>(
+                struct_t::gc_new<gcbase::gctype::young>(2));
 
             opnum1->structs->m_values[0].set_integer((wo_integer_t)id);
             opnum1->structs->m_values[1].set_val(opnum2);
@@ -1324,8 +1324,8 @@ namespace wo
         }
         inline static value* make_array_impl(value* opnum1, uint16_t size, value* rt_sp)
         {
-            opnum1->type = (value::valuetype::array_type);
-            opnum1->array = array_t::gc_new<gcbase::gctype::young>((size_t)size);
+            opnum1->set_gcunit<value::valuetype::array_type>(
+                array_t::gc_new<gcbase::gctype::young>((size_t)size));
 
             for (size_t i = 0; i < (size_t)size; i++)
             {
@@ -1336,8 +1336,8 @@ namespace wo
         }
         inline static value* make_map_impl(value* opnum1, uint16_t size, value* rt_sp)
         {
-            opnum1->type = (value::valuetype::dict_type);
-            opnum1->dict = dict_t::gc_new<gcbase::gctype::young>();
+            opnum1->set_gcunit<value::valuetype::dict_type>(
+                dict_t::gc_new<gcbase::gctype::young>());
 
             for (size_t i = 0; i < (size_t)size; i++)
             {
@@ -1349,8 +1349,8 @@ namespace wo
         }
         inline static value* make_struct_impl(value* opnum1, uint16_t size, value* rt_sp)
         {
-            opnum1->type = (value::valuetype::struct_type);
-            opnum1->structs = struct_t::gc_new<gcbase::gctype::young>(size);
+            opnum1->set_gcunit<value::valuetype::struct_type>(
+                struct_t::gc_new<gcbase::gctype::young>(size));
 
             for (size_t i = 0; i < size; i++)
                 opnum1->structs->m_values[size - i - 1].set_val(rt_sp + 1 + i);
@@ -1635,7 +1635,8 @@ namespace wo
                     WO_VM_ASSERT(opnum1->type == opnum2->type
                         && opnum1->type == value::valuetype::string_type, "Operand should be string in 'adds'.");
 
-                    opnum1->string = string_t::gc_new<gcbase::gctype::young>(*opnum1->string + *opnum2->string);
+                    opnum1->set_gcunit<wo::value::valuetype::string_type>(
+                         string_t::gc_new<gcbase::gctype::young>(*opnum1->string + *opnum2->string));
                     break;
                 }
                 /// OPERATE
@@ -2414,7 +2415,6 @@ namespace wo
                     WO_VM_ASSERT((dr & 0b01) == 0,
                         "Found broken ir-code in 'mkclos'.");
 
-                    rt_cr->type = (value::valuetype::closure_type);
                     auto* created_closure = closure_t::gc_new<gcbase::gctype::young>(closure_arg_count);
                     created_closure->m_native_call = !!dr;
 
@@ -2431,7 +2431,7 @@ namespace wo
                         auto* arg_val = ++rt_sp;
                         created_closure->m_closure_args[i].set_val(arg_val);
                     }
-                    rt_cr->closure = created_closure;
+                    rt_cr->set_gcunit<wo::value::valuetype::closure_type>(created_closure);
                     break;
                 }
                 case instruct::opcode::ext:
@@ -2455,14 +2455,13 @@ namespace wo
                             WO_ADDRESSING_N1;
                             WO_ADDRESSING_N2;
 
-                            opnum1->type = (value::valuetype::array_type);
                             auto* packed_array = array_t::gc_new<gcbase::gctype::young>();
                             packed_array->resize((size_t)(tc->integer - opnum2->integer));
                             for (auto argindex = 0 + opnum2->integer; argindex < tc->integer; argindex++)
                             {
                                 (*packed_array)[(size_t)(argindex - opnum2->integer)].set_val(rt_bp + 2 + argindex + skip_closure_arg_count);
                             }
-                            opnum1->array = packed_array;
+                            opnum1->set_gcunit<wo::value::valuetype::array_type>(packed_array);
                             break;
                         }
                         case instruct::extern_opcode_page_0::unpackargs:

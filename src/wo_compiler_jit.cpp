@@ -475,7 +475,8 @@ namespace wo
             wo_assert(opnum1->type == opnum2->type
                 && opnum1->type == value::valuetype::string_type);
 
-            opnum1->string = string_t::gc_new<gcbase::gctype::young>(*opnum1->string + *opnum2->string);
+            opnum1->set_gcunit<wo::value::valuetype::string_type>(
+                string_t::gc_new<gcbase::gctype::young>(*opnum1->string + *opnum2->string));
         }
         static void _vmjitcall_modr(wo::value* opnum1, wo::value* opnum2)
         {
