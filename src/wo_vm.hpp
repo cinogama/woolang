@@ -373,14 +373,14 @@ namespace wo
             {
                 std::lock_guard g1(_alive_vm_list_mx);
 
-                if (_self_stack_reg_mem_buf)
-                    free(_self_stack_reg_mem_buf);
-
                 wo_assert(_alive_vm_list.find(this) != _alive_vm_list.end(),
                     "This vm not exists in _alive_vm_list, that is illegal.");
 
                 _alive_vm_list.erase(this);
             } while (0);
+
+            if (_self_stack_reg_mem_buf)
+                free(_self_stack_reg_mem_buf);
 
             if (compile_info)
                 delete compile_info;
@@ -931,6 +931,14 @@ namespace wo
 
                     base_callstackinfo_ptr = this->stack_mem_begin - base_callstackinfo_ptr->vmcallstack.bp;
                     base_callstackinfo_ptr++;
+
+                    // When dumping call stack if specify vm is running(during GC), the stack data might be
+                    // modified. We will get broken call stack info and we should stop.
+                    if (base_callstackinfo_ptr > stack_mem_begin || base_callstackinfo_ptr < stack_mem_begin - (stack_size - 1))
+                    {
+                        os << call_trace_count + 1  << ": ??" << std::endl;
+                        break;
+                    }
                 }
                 else if (base_callstackinfo_ptr->type == value::valuetype::nativecallstack)
                 {
