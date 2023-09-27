@@ -373,14 +373,14 @@ namespace wo
             {
                 std::lock_guard g1(_alive_vm_list_mx);
 
+                wo_assert(_alive_vm_list.find(this) != _alive_vm_list.end(),
+                    "This vm not exists in _alive_vm_list, that is illegal.");
+
                 _alive_vm_list.erase(this);
             } while (0);
 
             if (_self_stack_reg_mem_buf)
                 free(_self_stack_reg_mem_buf);
-
-            wo_assert(_alive_vm_list.find(this) != _alive_vm_list.end(),
-                "This vm not exists in _alive_vm_list, that is illegal.");
 
             if (compile_info)
                 delete compile_info;
