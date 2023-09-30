@@ -4568,10 +4568,10 @@ namespace wo
                     for (auto* template_arg : arg_func_template_args)
                         fully_update_type(template_arg, false);
 
-                    auto* reificated = analyze_pass_template_reification(function_define, arg_func_template_args);
-
                     if (template_defines && template_args)
                         end_template_scope();
+
+                    auto* reificated = analyze_pass_template_reification(function_define, arg_func_template_args);
 
                     if (reificated != nullptr)
                     {

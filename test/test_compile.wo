@@ -1234,6 +1234,46 @@ func main()
             alias A<T> = struct{a: T<int>};
             let a = []: array<A<int>>;
             "@);
+
+        assure_compile_fail(@"
+            import woo::std;
+            let a = option::value(nil: dynamic)
+                =>> \e = e is T? option::value(e as T) | option::none;
+                ;
+            "@);
+        assure_compile_success(@"
+            import woo::std;
+            func foo<T>()
+            {
+                let a = option::value(nil: dynamic)
+                    =>> \e = e is T? option::value(e as T) | option::none;
+                    ;
+                do a as option<int>;
+            }
+            foo:<int>();
+            "@);
+        assure_compile_success(@"
+            import woo::std;
+            func foo<T>()
+            {
+                let a = option::value(nil: dynamic)
+                    =>> \e = e is T? option::value(e as T) | option::none;
+                    ;
+                do a as option<string>;
+            }
+            foo:<string>();
+            "@);
+            assure_compile_fail(@"
+            import woo::std;
+            func foo<T>()
+            {
+                let a = option::value(nil: dynamic)
+                    =>> \e = e is T? option::value(e as T) | option::none;
+                    ;
+                do a as option<string>;
+            }
+            foo:<int>();
+            "@);
     }
 
     func main()
