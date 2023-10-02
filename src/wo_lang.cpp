@@ -1473,6 +1473,20 @@ namespace wo
                 a_value_assi->left->value_type->get_type_name(false).c_str(),
                 a_value_assi->right->value_type->get_type_name(false).c_str());
         }
+        else
+        {
+            if ((a_value_assi->operate == +lex_type::l_div_assign
+                || a_value_assi->operate == +lex_type::l_value_div_assign
+                || a_value_assi->operate == +lex_type::l_mod_assign
+                || a_value_assi->operate == +lex_type::l_value_mod_assign) &&
+                a_value_assi->right->is_constant &&
+                a_value_assi->right->value_type->is_integer() &&
+                a_value_assi->right->get_constant_value().integer == 0)
+            {
+                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_assi->right,
+                    WO_ERR_CANNOT_DIV_ZERO);
+            }
+        }
 
         if (!a_value_assi->left->can_be_assign)
             lang_anylizer->lang_error(lexer::errorlevel::error, a_value_assi->left, WO_ERR_CANNOT_ASSIGN_TO_UNASSABLE_ITEM);
@@ -1704,7 +1718,9 @@ namespace wo
                     a_value_bin->operate
                 );
                 if (lnr_type != nullptr)
+                {
                     a_value_bin->value_type->set_type(lnr_type);
+                }
                 else
                     a_value_bin->value_type->set_type_with_name(WO_PSTR(pending));
             }
@@ -1723,6 +1739,13 @@ namespace wo
                 a_value_bin->left->value_type->get_type_name(false).c_str(),
                 a_value_bin->right->value_type->get_type_name(false).c_str());
             a_value_bin->value_type->set_type_with_name(WO_PSTR(pending));
+        }
+        else if ((a_value_bin->operate == +lex_type::l_div || a_value_bin->operate == +lex_type::l_mod) &&
+            a_value_bin->right->is_constant &&
+            a_value_bin->right->value_type->is_integer() &&
+            a_value_bin->right->get_constant_value().integer == 0)
+        {
+            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_bin->right, WO_ERR_CANNOT_DIV_ZERO);
         }
         return true;
     }

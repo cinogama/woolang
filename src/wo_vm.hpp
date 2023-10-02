@@ -1538,6 +1538,7 @@ namespace wo
                     WO_VM_ASSERT(opnum1->type == opnum2->type
                         && opnum1->type == value::valuetype::integer_type, "Operand should be integer in 'divi'.");
 
+                    WO_VM_ASSERT(opnum2->integer != 0, "The divisor cannot be 0.");
                     opnum1->integer /= opnum2->integer;
                     break;
                 }
@@ -1549,6 +1550,7 @@ namespace wo
                     WO_VM_ASSERT(opnum1->type == opnum2->type
                         && opnum1->type == value::valuetype::integer_type, "Operand should be integer in 'modi'.");
 
+                    WO_VM_ASSERT(opnum2->integer != 0, "The divisor cannot be 0.");
                     opnum1->integer %= opnum2->integer;
                     break;
                 }

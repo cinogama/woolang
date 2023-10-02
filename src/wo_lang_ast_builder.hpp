@@ -108,7 +108,7 @@ namespace wo
             ast_type* complex_type = nullptr;
 
             value::valuetype value_type;
-           
+
             std::vector<ast_type*> argument_types;
             std::vector<ast_type*> template_arguments;
 
@@ -315,7 +315,7 @@ namespace wo
         struct ast_value_typeid : virtual public ast_value
         {
             ast_type* type;
-            ast_value_typeid(): ast_value(new ast_type(WO_PSTR(int)))
+            ast_value_typeid() : ast_value(new ast_type(WO_PSTR(int)))
             {
 
             }
@@ -585,7 +585,17 @@ namespace wo
                 case lex_type::l_div:
                     if constexpr (!std::is_same<T, wo_string_t>::value
                         && !std::is_same<T, wo_handle_t>::value)
+                    {
+                        if constexpr (std::is_same<T, wo_integer_t>::value)
+                        {
+                            if (right == 0)
+                            {
+                                *out_result = false;
+                                return T{};
+                            }
+                        }
                         return left / right;
+                    }
                 case lex_type::l_mod:
                     if constexpr (!std::is_same<T, wo_string_t>::value
                         && !std::is_same<T, wo_handle_t>::value)
@@ -595,7 +605,17 @@ namespace wo
                             return fmod(left, right);
                         }
                         else
+                        {
+                            if constexpr (std::is_same<T, wo_integer_t>::value)
+                            {
+                                if (right == 0)
+                                {
+                                    *out_result = false;
+                                    return T{};
+                                }
+                            }
                             return left % right;
+                        }
                     }
                 default:
                     *out_result = false;
@@ -868,7 +888,7 @@ namespace wo
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
                 if (!child_instance) *dumm = *this;
-                 // Write self copy functions here..
+                // Write self copy functions here..
                 WO_REINSTANCE(dumm->return_value);
                 dumm->located_function = nullptr;
 
@@ -2291,7 +2311,7 @@ namespace wo
                         else if (attrib->tokens.identifier == L"fast")
                             extern_symb->leaving_call = false;
                         else
-                            lex.lang_error(lexer::errorlevel::error, attrib, 
+                            lex.lang_error(lexer::errorlevel::error, attrib,
                                 WO_ERR_UNKNOWN_EXTERN_ATTRIB, attrib->tokens.identifier.c_str());
 
                         attrib = dynamic_cast<ast_token*>(attrib->sibling);
@@ -3035,7 +3055,7 @@ namespace wo
                     result->template_arguments = template_args;
                     if (result->is_array() || result->is_vec())
                         if (result->template_arguments.size() != 1)
-                            lex.parser_error(lexer::errorlevel::error, WO_ERR_TYPE_NEED_N_TEMPLATE_ARG, 
+                            lex.parser_error(lexer::errorlevel::error, WO_ERR_TYPE_NEED_N_TEMPLATE_ARG,
                                 result->type_name->c_str(), 1);
                     if (result->is_dict() || result->is_map())
                         if (result->template_arguments.size() != 2)
@@ -3504,7 +3524,7 @@ namespace wo
                     while (member_iter)
                     {
                         auto& member = value->target_built_types->struct_member_index[member_iter->member_name];
-                        
+
                         member.member_type = new ast_type(WO_PSTR(pending));
                         member.offset = member_idx++;
 
