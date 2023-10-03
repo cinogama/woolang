@@ -55,6 +55,7 @@ namespace test_thread
                 for (;;)
                 {
                     i += 1;
+                    do i;
 
                     if (abort_flag->get)
                         break;
