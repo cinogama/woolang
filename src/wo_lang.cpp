@@ -300,13 +300,18 @@ namespace wo
     {
         auto* ast_value_check = WO_AST();
 
-        if (ast_value_check->aim_type->is_pending())
+        if (ast_value_check->aim_type->is_pure_pending())
+            lang_anylizer->begin_trying_block();
+        else if (ast_value_check->aim_type->is_pending())
         {
             // ready for update..
             fully_update_type(ast_value_check->aim_type, true);
         }
 
         analyze_pass1(ast_value_check->_be_check_value_node);
+
+        if (ast_value_check->aim_type->is_pure_pending())
+            lang_anylizer->end_trying_block();
 
         ast_value_check->update_constant_value(lang_anylizer);
         return true;
@@ -1556,9 +1561,21 @@ namespace wo
         if (a_value_type_check->is_constant)
             return true;
 
+        if (a_value_type_check->aim_type->is_pure_pending())
+            lang_anylizer->begin_trying_block();
+
         analyze_pass2(a_value_type_check->_be_check_value_node);
 
-        if (a_value_type_check->aim_type->is_pending())
+        if (a_value_type_check->aim_type->is_pure_pending())
+        {
+            a_value_type_check->is_constant = true;
+
+            a_value_type_check->constant_value.set_bool(a_value_type_check->aim_type->is_pending()
+                || !lang_anylizer->get_cur_error_frame().empty());
+
+            lang_anylizer->end_trying_block();
+        }
+        else if (a_value_type_check->aim_type->is_pending())
             lang_anylizer->lang_error(lexer::errorlevel::error, a_value_type_check, WO_ERR_UNKNOWN_TYPE,
                 a_value_type_check->aim_type->get_type_name(false).c_str()
             );
