@@ -300,13 +300,18 @@ namespace wo
     {
         auto* ast_value_check = WO_AST();
 
-        if (ast_value_check->aim_type->is_pending())
+        if (ast_value_check->aim_type->is_pure_pending())
+            lang_anylizer->begin_trying_block();
+        else if (ast_value_check->aim_type->is_pending())
         {
             // ready for update..
             fully_update_type(ast_value_check->aim_type, true);
         }
 
         analyze_pass1(ast_value_check->_be_check_value_node);
+
+        if (ast_value_check->aim_type->is_pure_pending())
+            lang_anylizer->end_trying_block();
 
         ast_value_check->update_constant_value(lang_anylizer);
         return true;
@@ -1556,12 +1561,28 @@ namespace wo
         if (a_value_type_check->is_constant)
             return true;
 
+        fully_update_type(a_value_type_check->aim_type, false);
+
+        if (a_value_type_check->aim_type->is_pure_pending())
+            lang_anylizer->begin_trying_block();
+
         analyze_pass2(a_value_type_check->_be_check_value_node);
 
-        if (a_value_type_check->aim_type->is_pending())
+        if (a_value_type_check->aim_type->is_pure_pending())
+        {
+            a_value_type_check->is_constant = true;
+
+            a_value_type_check->constant_value.set_bool(a_value_type_check->aim_type->is_pending()
+                || !lang_anylizer->get_cur_error_frame().empty());
+
+            lang_anylizer->end_trying_block();
+        }
+        else if (a_value_type_check->aim_type->is_pending())
+        {
             lang_anylizer->lang_error(lexer::errorlevel::error, a_value_type_check, WO_ERR_UNKNOWN_TYPE,
                 a_value_type_check->aim_type->get_type_name(false).c_str()
             );
+        }
 
         a_value_type_check->update_constant_value(lang_anylizer);
         return true;
@@ -4782,32 +4803,6 @@ namespace wo
                         }
                     }
                 }
-                if (ast_value_type_check* ast_value_check = dynamic_cast<ast_value_type_check*>(a_value))
-                {
-                    // ready for update..
-                    fully_update_type(ast_value_check->aim_type, false);
-
-                    if (ast_value_check->aim_type->is_pending())
-                    {
-                        lang_anylizer->lang_error(lexer::errorlevel::error, ast_value_check, WO_ERR_UNKNOWN_TYPE
-                            , ast_value_check->aim_type->get_type_name().c_str());
-
-                        auto fuzz_symbol = find_symbol_in_this_scope(ast_value_check->aim_type, ast_value_check->aim_type->type_name, lang_symbol::symbol_type::typing | lang_symbol::symbol_type::type_alias, true);
-                        if (fuzz_symbol)
-                        {
-                            auto fuzz_symbol_full_name = str_to_wstr(get_belong_namespace_path_with_lang_scope(fuzz_symbol));
-                            if (!fuzz_symbol_full_name.empty())
-                                fuzz_symbol_full_name += L"::";
-                            fuzz_symbol_full_name += *fuzz_symbol->name;
-                            lang_anylizer->lang_error(lexer::errorlevel::infom,
-                                fuzz_symbol->type_informatiom,
-                                WO_INFO_IS_THIS_ONE,
-                                fuzz_symbol_full_name.c_str());
-                        }
-                    }
-                    ast_value_check->update_constant_value(lang_anylizer);
-                }
-                //
 
                 WO_TRY_BEGIN;
                 //
