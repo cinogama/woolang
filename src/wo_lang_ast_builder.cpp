@@ -1181,11 +1181,7 @@ namespace wo
 
             if (nullptr == (value_type = binary_upper_type_with_operator(left->value_type, right->value_type, operate)))
             {
-                // Donot give error here.
-
-                // lex->lang_error(lexer::errorlevel::error, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R);
                 value_type = new ast_type(WO_PSTR(pending));
-
                 return;
             }
 
@@ -1199,33 +1195,33 @@ namespace wo
                 switch (value_type->value_type)
                 {
                 case value::valuetype::integer_type:
+                {
                     constant_value.set_integer(
                         binary_operate(*lex,
-                            wo_cast_int((wo_value)&_left_val),
-                            wo_cast_int((wo_value)&_right_val),
+                            _left_val.integer,
+                            _right_val.integer,
                             operate, &is_constant));
                     break;
+                }
                 case value::valuetype::real_type:
                     constant_value.set_real(
                         binary_operate(*lex,
-                            wo_cast_real((wo_value)&_left_val),
-                            wo_cast_real((wo_value)&_right_val),
+                            _left_val.real,
+                            _right_val.real,
                             operate, &is_constant));
                     break;
                 case value::valuetype::handle_type:
                     constant_value.set_handle(
                         binary_operate(*lex,
-                            wo_cast_handle((wo_value)&_left_val),
-                            wo_cast_handle((wo_value)&_right_val),
+                            _left_val.handle,
+                            _right_val.handle,
                             operate, &is_constant));
                     break;
                 case value::valuetype::string_type:
                 {
-                    std::string left_str = wo_cast_string((wo_value)&_left_val);
-                    std::string right_str = wo_cast_string((wo_value)&_right_val);
                     const char* val = binary_operate(*lex,
-                        (wo_string_t)left_str.c_str(),
-                        (wo_string_t)right_str.c_str(),
+                        (wo_string_t)_left_val.string->c_str(),
+                        (wo_string_t)_right_val.string->c_str(),
                         operate, &is_constant);
                     if (is_constant)
                         constant_value.set_string_nogc(val);

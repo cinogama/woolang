@@ -46,19 +46,24 @@ namespace test_thread
 
         // Thread should be abort-able..
         let mut this_should_be_false = false;
+        let abort_flag = mutable::create(false);
         let __pack = [mut this_should_be_false];
         let th = thread::create(
             func(mut i: int)
             {
                 __pack[0] = true;
-                while (i <= 1_0000_0000)
+                for (;;)
                 {
                     i += 1;
+                    do i;
+
+                    if (abort_flag->get)
+                        break;
                 }
             }, (summ,));
-        std::sleep(0.2);
-        do th->abort();
-        do th->wait();
+
+        abort_flag->set(true);
+        test_assure(th->wait == true);
 
         test_assure(this_should_be_false == false && summ == 0 && __pack[0] == true);
 

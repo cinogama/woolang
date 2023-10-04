@@ -1588,7 +1588,11 @@ namespace result
         match(self)
         {
         ok(v)? return v;
-        err(e)? std::panic(F"An error was found when 'unwarp': {e}");
+        err(e)? 
+            if (e is void)
+                std::panic("An error was found in 'unwarp'.");
+            else
+                std::panic(F"An error was found in 'unwarp': {e}");
         }
     }
     public func unwarpor<T, F>(self: result<T, F>, default_val: T)
@@ -1636,14 +1640,22 @@ namespace result
         match(self)
         {
         ok(v)? return ok(v);
-        err(e)? std::panic(F"An error was found in 'succ': {e}");
+        err(e)?
+            if (e is void)
+                std::panic(F"An error was found in 'succ'.");
+            else
+                std::panic(F"An error was found in 'succ': {e}");
         }
     }
     public func fail<T, F>(self: result<T, F>)=> result<nothing, F>
     {
         match(self)
         {
-        ok(v)? std::panic(F"Current result is ok({v}), is not failed.");
+        ok(v)?
+            if (v is void)
+                std::panic(F"Expected result::err in 'fail'.");
+            else
+                std::panic(F"Expected result::err in 'fail', but get result::ok: {v}.");
         err(e)? return err(e);
         }
     }

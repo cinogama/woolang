@@ -92,6 +92,10 @@ namespace test_basic
 
     func main()
     {
+        test_equal(noexist_foo() is pending, true);
+        test_equal(noexist_foo() is pending == false, false);
+
+
         let a_empty_st = empty_st{};
         let b_empty_st = struct{};
 
