@@ -566,8 +566,14 @@ func main()
 
             foo(func(x: string){do x;}, "Helloworld");
         "@);
-        assure_compile_fail(@"
+        assure_compile_success(@"
             let x = std::declval:<nothing>() is pending;
+        "@);
+        assure_compile_success(@"
+            let x = std::declval:<pending>() is pending;
+        "@);
+        assure_compile_success(@"
+            let x = fooexist() is pending;
         "@);
         assure_compile_fail(@"
             func foo(x:string){}
