@@ -1572,7 +1572,8 @@ namespace wo
         {
             a_value_type_check->is_constant = true;
 
-            a_value_type_check->constant_value.set_bool(a_value_type_check->aim_type->is_pending()
+            a_value_type_check->constant_value.set_bool(
+                a_value_type_check->_be_check_value_node->value_type->is_pending()
                 || !lang_anylizer->get_cur_error_frame().empty());
 
             lang_anylizer->end_trying_block();
