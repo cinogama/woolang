@@ -91,7 +91,7 @@
 
 #define WO_ERR_ARGUMENT_TOO_MANY L"无法调用 '%ls': 参数过多"
 
-#define WO_ERR_TYPE_CANNOT_BE_CALL L"无法调用 '%ls'."
+#define WO_ERR_TYPE_CANNOT_BE_CALL L"无法如同函数一般调用 '%ls'类型的值"
 
 #define WO_ERR_UNKNOWN_TYPE L"未知或不完整的类型 '%ls'."
 
@@ -361,7 +361,7 @@
 
 #define WO_ERR_ARGUMENT_TOO_MANY L"Argument count too many to call '%ls'."
 
-#define WO_ERR_TYPE_CANNOT_BE_CALL L"Cannot call '%ls'."
+#define WO_ERR_TYPE_CANNOT_BE_CALL L"Cannot invoke value of '%ls' type."
 
 #define WO_ERR_UNKNOWN_TYPE L"Unknown type '%ls'."
 
