@@ -47,6 +47,8 @@ option(BUILD_SHARED_LIBS "Build woo as shared lib" ON)
 option(WO_BUILD_FOR_COVERAGE_TEST "Build woo for code coverage test" OFF)
 option(WO_BUILD_FOR_ASAN_TEST "Build woo for code asan test" OFF)
 
+# Support jit for 64bit arch(x86_64, aarch64)
+# TODO: Disable jit by default if arch is not x86/arm
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)
     option(WO_SUPPORT_ASMJIT "Support asmjit for compile" ON)
 else()

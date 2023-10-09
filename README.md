@@ -65,7 +65,7 @@ del CMakeCache.txt
 cmake .. -DWO_MAKE_OUTPUT_IN_SAME_PATH=ON -DCMAKE_BUILD_TYPE=RELWITHDEBINFO -DBUILD_SHARED_LIBS=ON
 ```
 
-如果在尝试构建时出错，可能是由于系统平台 ( 如 `ARM-x64` 等 ) 不支持 `JIT`, 导致构建失败, 详见 [#145](https://git.cinogama.net/cinogamaproject/woolang/-/issues/145)。
+如果在尝试构建时出错，可能是由于系统平台不支持 `JIT`（目前仅支持 x86_64 和 aarch64）, 导致构建失败, 详见 [#145](https://git.cinogama.net/cinogamaproject/woolang/-/issues/145)。
 
 若要禁用 `JIT` 支持, 只需将最后一句命令改为:
 
@@ -73,9 +73,9 @@ cmake .. -DWO_MAKE_OUTPUT_IN_SAME_PATH=ON -DCMAKE_BUILD_TYPE=RELWITHDEBINFO -DBU
 cmake .. -DWO_MAKE_OUTPUT_IN_SAME_PATH=ON -DCMAKE_BUILD_TYPE=RELWITHDEBINFO -DBUILD_SHARED_LIBS=ON -DWO_SUPPORT_ASMJIT=OFF
 ```
 
-*禁用 JIT **可能** 导致少量的性能损失*
+*禁用 JIT 仅导致性能损失*
 
-4. 使用 `MSBuild` 构建 `.exe` 文件
+1. 使用 `MSBuild` 构建 `.exe` 文件
 
 打开 `Developer PowerShell for VS`, 一般情况下它位于 `开始菜单` -> `程序` -> `Visual Studio`
 

@@ -1,4 +1,4 @@
 [submodule "3rd/asmjit"]
 	path = 3rd/asmjit
 	url = https://git.cinogama.net/cinogamaproject/asmjit.git
-	branch = oldstable
+	branch = master
