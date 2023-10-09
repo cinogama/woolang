@@ -2089,9 +2089,9 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             state->m_jitfunc->setArg(1, ctx->_vmsbp);
             wo_asure(!ctx->c.sub(ctx->_vmsbp, ctx->_vmsbp, 2 * sizeof(wo::value)));
             wo_asure(!ctx->c.mov(ctx->_vmssp, ctx->_vmsbp));                    // let sp = bp;
-            wo_asure(!ctx->c.loadAddressOf(ctx->_vmreg, intptr_ptr(ctx->_vmbase, offsetof(vmbase, register_mem_begin))));
-            wo_asure(!ctx->c.loadAddressOf(ctx->_vmcr, intptr_ptr(ctx->_vmbase, offsetof(vmbase, cr))));
-            wo_asure(!ctx->c.loadAddressOf(ctx->_vmtc, intptr_ptr(ctx->_vmbase, offsetof(vmbase, tc))));
+            wo_asure(!ctx->c.ldr(ctx->_vmreg, intptr_ptr(ctx->_vmbase, offsetof(vmbase, register_mem_begin))));
+            wo_asure(!ctx->c.ldr(ctx->_vmcr, intptr_ptr(ctx->_vmbase, offsetof(vmbase, cr))));
+            wo_asure(!ctx->c.ldr(ctx->_vmtc, intptr_ptr(ctx->_vmbase, offsetof(vmbase, tc))));
 
             return ctx;
         }
