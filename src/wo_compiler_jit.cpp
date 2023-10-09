@@ -2097,7 +2097,9 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             delete context;
         }
 
-        void a64_set_imm(asmjit::a64::Compiler& a64compiler, may_constant_aarch64Gp& target, wo::value* immval)
+        inline static const wo::value NIL_VALUE = {};
+
+        void a64_set_imm(asmjit::a64::Compiler& a64compiler, may_constant_aarch64Gp& target, const wo::value* immval)
         {
             auto tmp = a64compiler.newInt64();
             wo_asure(!a64compiler.mov(tmp, immval->handle));
@@ -2115,7 +2117,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             wo_asure(!a64compiler.ldrb(tmp, val.m_type));
             wo_asure(!a64compiler.strb(tmp, target.m_type));
         }
-        void a64_set_imm_to_addr(asmjit::a64::Compiler& a64compiler, asmjit::a64::Gp& addr, wo::value* immval)
+        void a64_set_imm_to_addr(asmjit::a64::Compiler& a64compiler, asmjit::a64::Gp& addr, const wo::value* immval)
         {
             auto tmp = a64compiler.newInt64();
             wo_asure(!a64compiler.mov(tmp, immval->handle));
@@ -2249,7 +2251,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                 uint16_t psh_repeat = WO_IPVAL_MOVE_2;
                 for (uint32_t i = 0; i < psh_repeat; i++)
                 {
-                    a64_set_imm_to_addr(ctx->c, ctx->_vmssp, {});
+                    a64_set_imm_to_addr(ctx->c, ctx->_vmssp, &NIL_VALUE);
                     wo_asure(!ctx->c.sub(ctx->_vmssp, ctx->_vmssp, sizeof(value)));
                 }
             }
