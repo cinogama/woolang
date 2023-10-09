@@ -30,7 +30,7 @@ main(); // Execute `main`
 
 <del>推荐使用 [Chief_Reloaded](https://github.com/BiDuang/Chief_Reloaded) 来自动化管理和安装 Woolang 编译器。  
 
-**注意: [Chief](https://github.com/BiDuang/Chief) 已不赞成使用, 其源码已过时且有较大性能问题, 请尽快迁移至 [Chief_Reloaded](https://github.com/BiDuang/Chief_Reloaded)。**</del>
+注意: [Chief](https://github.com/BiDuang/Chief) 已不赞成使用, 其源码已过时且有较大性能问题, 请尽快迁移至 [Chief_Reloaded](https://github.com/BiDuang/Chief_Reloaded)。</del>
 
 新版本 Chief 开发中，在此之前请先手动构建或下载现成产物。
 
