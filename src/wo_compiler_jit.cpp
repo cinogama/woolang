@@ -2110,6 +2110,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto tmp = a64compiler.newInt64();
             wo_asure(!a64compiler.mov(tmp, immval->handle));
             wo_asure(!a64compiler.str(tmp, target.m_value));
+            tmp = a64compiler.newGpw();
             wo_asure(!a64compiler.mov(tmp, immval->type));
             wo_asure(!a64compiler.strb(tmp, target.m_type));
         }
@@ -2118,6 +2119,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto tmp = a64compiler.newInt64();
             wo_asure(!a64compiler.ldr(tmp, val.m_value));
             wo_asure(!a64compiler.str(tmp, target.m_value));
+            tmp = a64compiler.newGpw();
             wo_asure(!a64compiler.ldrb(tmp, val.m_type));
             wo_asure(!a64compiler.strb(tmp, target.m_type));
         }
@@ -2299,7 +2301,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             if (dr != 0)
                 (void)WO_IPVAL_MOVE_2;
 
-            ctx->c.ret();
+            wo_asure(!ctx->c.ret());
             return true;
         }
         virtual bool ir_jt(AArch64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
