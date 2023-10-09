@@ -192,25 +192,13 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                 return label_table[ipoffset] = compiler->newLabel();
         }
 
-        function_jit_state& analyze_function(const byte_t* rt_ip, runtime_env* env) noexcept
+        function_jit_state& _analyze_function(
+            const byte_t* rt_ip, 
+            runtime_env* env, 
+            function_jit_state& state, 
+            CompileContextT* ctx, 
+            asmjit::BaseCompiler* compiler) noexcept
         {
-            using namespace asmjit;
-
-            function_jit_state& state = m_compiling_functions[rt_ip];
-            if (state.m_state != function_jit_state::state::BEGIN)
-                return state;
-
-            state.m_state = function_jit_state::state::COMPILING;
-
-            WooJitErrorHandler woo_jit_error_handler;
-
-            CodeHolder code_buffer;
-            code_buffer.init(get_jit_runtime().environment());
-            code_buffer.setErrorHandler(&woo_jit_error_handler);
-
-            asmjit::BaseCompiler* compiler;
-            auto* ctx = this->prepare_compiler(&compiler, &code_buffer, &state, env);
-
             byte_t              opcode_dr = (byte_t)(instruct::abrt << 2);
             instruct::opcode    opcode = (instruct::opcode)(opcode_dr & 0b11111100u);
             unsigned int        dr = opcode_dr & 0b00000011u;
@@ -267,7 +255,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                             {
                                 // This function work end!
                                 this->finish_compiler(ctx);
-                                wo_asure(!get_jit_runtime().add(&state.m_func, &code_buffer));
                                 state.m_state = function_jit_state::state::FINISHED;
 
                                 return state;
@@ -292,6 +279,35 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             // Should not be here!
             abort();
         }
+
+        function_jit_state& analyze_function(const byte_t* rt_ip, runtime_env* env) noexcept
+        {
+            using namespace asmjit;
+
+            function_jit_state& state = m_compiling_functions[rt_ip];
+            if (state.m_state != function_jit_state::state::BEGIN)
+                return state;
+
+            state.m_state = function_jit_state::state::COMPILING;
+
+            WooJitErrorHandler woo_jit_error_handler;
+
+            CodeHolder code_buffer;
+            code_buffer.init(get_jit_runtime().environment());
+            code_buffer.setErrorHandler(&woo_jit_error_handler);
+
+            asmjit::BaseCompiler* compiler;
+            auto* ctx = this->prepare_compiler(&compiler, &code_buffer, &state, env);
+            
+            auto& result = _analyze_function(rt_ip, env, state, ctx, compiler);
+
+            if (result.m_state == function_jit_state::state::FINISHED)
+                wo_asure(!get_jit_runtime().add(&result.m_func, &code_buffer));
+
+            this->free_compiler(ctx);
+            return result;
+        }
+
         void analyze_jit(byte_t* codebuf, runtime_env* env) noexcept
         {
             m_codes = codebuf;
@@ -1981,6 +1997,92 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
     struct asmjit_compiler_aarch64 : public asmjit_backend<AArch64CompileContext>
     {
+        struct may_constant_aarch64Gp
+        {
+            asmjit::a64::Compiler* compiler;
+            bool                    m_is_constant;
+            value* m_constant;
+            asmjit::a64::Gp         m_value;
+
+            // ---------------------------------
+            bool                    already_valued = false;
+
+            bool is_constant() const
+            {
+                return m_is_constant;
+            }
+
+            asmjit::a64::Gp gp_value()
+            {
+                if (m_is_constant && !already_valued)
+                {
+                    already_valued = true;
+
+                    m_value = compiler->newUIntPtr();
+                    wo_asure(!compiler->mov(m_value, (size_t)m_constant));
+                }
+                return m_value;
+            }
+
+            value* const_value() const
+            {
+                wo_assert(m_is_constant);
+                return m_constant;
+            }
+        };
+
+        //static may_constant_aarch64Gp get_opnum_ptr(
+        //    asmjit::a64::Compiler& a64compiler,
+        //    const byte_t*& rt_ip,
+        //    bool dr,
+        //    asmjit::a64::Gp stack_bp,
+        //    asmjit::a64::Gp reg,
+        //    runtime_env* env)
+        //{
+        //    if (dr)
+        //    {
+        //        // opnum from bp-offset or regist
+        //        if ((*rt_ip) & (1 << 7))
+        //        {
+        //            // from bp-offset
+        //            auto result = a64compiler.newUIntPtr();
+        //            wo_asure(!a64compiler.lea(result, intptr_ptr(stack_bp, WO_SIGNED_SHIFT(WO_IPVAL_MOVE_1) * sizeof(value))));
+        //            return may_constant_aarch64Gp{ &a64compiler,false,nullptr,result };
+        //        }
+        //        else
+        //        {
+        //            // from reg
+        //            auto result = a64compiler.newUIntPtr();
+        //            wo_asure(!a64compiler.lea(result, intptr_ptr(reg, WO_IPVAL_MOVE_1 * sizeof(value))));
+        //            return may_constant_aarch64Gp{ &a64compiler,false,nullptr,result };
+        //        }
+        //    }
+        //    else
+        //    {
+        //        // opnum from global_const
+
+        //        auto const_global_index = WO_SAFE_READ_MOVE_4;
+
+        //        if (const_global_index < env->constant_value_count)
+        //        {
+        //            //Is constant
+        //            return may_constant_aarch64Gp{ &a64compiler, true, env->constant_global_reg_rtstack + const_global_index };
+        //        }
+        //        else
+        //        {
+        //            auto result = a64compiler.newUIntPtr();
+        //            wo_asure(!a64compiler.mov(result, (size_t)(env->constant_global_reg_rtstack + const_global_index)));
+        //            return may_constant_aarch64Gp{ &a64compiler,false,nullptr,result };
+        //        }
+        //    }
+        //}
+
+        template<typename T>
+        static asmjit::a64::Mem intptr_ptr(const T& opgreg, int32_t offset = 0)
+        {
+            return asmjit::a64::Mem(opgreg, offset);
+        }
+
         virtual AArch64CompileContext* prepare_compiler(
             asmjit::BaseCompiler** out_compiler,
             asmjit::CodeHolder* code,
@@ -1995,13 +2097,13 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             // void _jit_(vmbase*  vm , value* bp, value* reg, value* const_global);
 
             // 0. Get vmptr reg stack base global ptr.
-            // state->m_jitfunc->setArg(0, ctx->_vmbase);
-            // state->m_jitfunc->setArg(1, ctx->_vmsbp);
-            //wo_asure(!ctx->c.sub(ctx->_vmsbp, ctx->_vmsbp, 2 * sizeof(wo::value)));
-            //wo_asure(!ctx->c.mov(ctx->_vmssp, ctx->_vmsbp));                    // let sp = bp;
-            //wo_asure(!ctx->c.mov(ctx->_vmreg, intptr_ptr(ctx->_vmbase, offsetof(vmbase, register_mem_begin))));
-            //wo_asure(!ctx->c.mov(ctx->_vmcr, intptr_ptr(ctx->_vmbase, offsetof(vmbase, cr))));
-            //wo_asure(!ctx->c.mov(ctx->_vmtc, intptr_ptr(ctx->_vmbase, offsetof(vmbase, tc))));
+            state->m_jitfunc->setArg(0, ctx->_vmbase);
+            state->m_jitfunc->setArg(1, ctx->_vmsbp);
+            wo_asure(!ctx->c.sub(ctx->_vmsbp, ctx->_vmsbp, 2 * sizeof(wo::value)));
+            wo_asure(!ctx->c.mov(ctx->_vmssp, ctx->_vmsbp));                    // let sp = bp;
+            wo_asure(!ctx->c.loadAddressOf(ctx->_vmreg, intptr_ptr(ctx->_vmbase, offsetof(vmbase, register_mem_begin))));
+            wo_asure(!ctx->c.loadAddressOf(ctx->_vmcr, intptr_ptr(ctx->_vmbase, offsetof(vmbase, cr))));
+            wo_asure(!ctx->c.loadAddressOf(ctx->_vmtc, intptr_ptr(ctx->_vmbase, offsetof(vmbase, tc))));
 
             return ctx;
         }
@@ -2022,7 +2124,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
         virtual bool ir_nop(AArch64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
-            return false;
+            return true;
         }
         virtual bool ir_mov(AArch64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
@@ -2182,6 +2284,10 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
         }
         virtual bool ir_ret(AArch64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
+            if (dr != 0)
+                (void)WO_IPVAL_MOVE_2;
+
+            ctx->c.ret();
             return false;
         }
         virtual bool ir_jt(AArch64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
