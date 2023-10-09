@@ -2087,6 +2087,9 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
             return ctx;
         }
+
+
+
         virtual void finish_compiler(AArch64CompileContext* context)override
         {
             wo_asure(!context->c.endFunc());
@@ -2167,18 +2170,15 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             WO_JIT_ADDRESSING_N2;
 
             auto tmp = ctx->c.newInt64();
+            auto tmp2 = ctx->c.newInt64();
             wo_asure(!ctx->c.ldr(tmp, opnum1.m_value));
 
             if (opnum2.m_is_constant)
-            {
-                wo_asure(!ctx->c.add(tmp, tmp, opnum2.m_constant->integer));
-            }
+                wo_asure(!ctx->c.mov(tmp2, opnum2.m_constant->integer));
             else
-            {
-                auto tmp2 = ctx->c.newInt64();
                 wo_asure(!ctx->c.ldr(tmp2, opnum2.m_value));
-                wo_asure(!ctx->c.add(tmp, tmp, tmp2));
-            }
+
+            wo_asure(!ctx->c.add(tmp, tmp, tmp2));
             wo_asure(!ctx->c.str(tmp, opnum1.m_value));
             return true;
         }
@@ -2300,26 +2300,27 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             wo_asure(!ctx->c.strb(type_tmp, asmjit::a64::Mem(ctx->_vmcr, offsetof(value, type))));
 
             auto tmp = ctx->c.newInt64();
+            auto tmp2 = ctx->c.newInt64();
+
             if (opnum1.m_is_constant)
             {
-                wo_asure(!ctx->c.ldr(tmp, opnum2.m_value));
-                wo_asure(!ctx->c.cmp(tmp, opnum1.m_constant->integer));
-                wo_asure(!ctx->c.b_lt(x86_cmp_fail));
+                wo_asure(!ctx->c.mov(tmp, opnum1.m_constant->integer));
+                wo_asure(!ctx->c.ldr(tmp2, opnum2.m_value));
             }
             else if (opnum2.m_is_constant)
             {
                 wo_asure(!ctx->c.ldr(tmp, opnum1.m_value));
-                wo_asure(!ctx->c.cmp(tmp, opnum2.m_constant->integer));
-                wo_asure(!ctx->c.b_ge(x86_cmp_fail));
+                wo_asure(!ctx->c.mov(tmp2, opnum2.m_constant->integer));
             }
             else
             {
-                auto tmp2 = ctx->c.newInt64();
                 wo_asure(!ctx->c.ldr(tmp, opnum1.m_value));
                 wo_asure(!ctx->c.ldr(tmp2, opnum2.m_value));
-                wo_asure(!ctx->c.cmp(tmp, tmp2));
-                wo_asure(!ctx->c.b_ge(x86_cmp_fail));
             }
+
+            wo_asure(!ctx->c.cmp(tmp, tmp2));
+            wo_asure(!ctx->c.b_ge(x86_cmp_fail));
+
             wo_asure(!ctx->c.mov(type_tmp, 1));
             wo_asure(!ctx->c.b(x86_cmp_end));
             wo_asure(!ctx->c.bind(x86_cmp_fail));
