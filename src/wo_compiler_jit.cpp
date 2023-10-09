@@ -2300,7 +2300,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                 (void)WO_IPVAL_MOVE_2;
 
             ctx->c.ret();
-            return false;
+            return true;
         }
         virtual bool ir_jt(AArch64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
