@@ -193,10 +193,10 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
         }
 
         function_jit_state& _analyze_function(
-            const byte_t* rt_ip, 
-            runtime_env* env, 
-            function_jit_state& state, 
-            CompileContextT* ctx, 
+            const byte_t* rt_ip,
+            runtime_env* env,
+            function_jit_state& state,
+            CompileContextT* ctx,
             asmjit::BaseCompiler* compiler) noexcept
         {
             byte_t              opcode_dr = (byte_t)(instruct::abrt << 2);
@@ -298,7 +298,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
             asmjit::BaseCompiler* compiler;
             auto* ctx = this->prepare_compiler(&compiler, &code_buffer, &state, env);
-            
+
             auto& result = _analyze_function(rt_ip, env, state, ctx, compiler);
 
             if (result.m_state == function_jit_state::state::FINISHED)
@@ -2000,82 +2000,70 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
         struct may_constant_aarch64Gp
         {
             asmjit::a64::Compiler* compiler;
-            bool                    m_is_constant;
+            bool m_is_constant;
             value* m_constant;
-            asmjit::a64::Gp         m_value;
 
-            // ---------------------------------
-            bool                    already_valued = false;
+            asmjit::a64::Gp  m_addr;
+            asmjit::a64::Mem m_value;
+            asmjit::a64::Mem m_type;
 
-            bool is_constant() const
+            may_constant_aarch64Gp(
+                asmjit::a64::Compiler& a64compiler,
+                const byte_t*& rt_ip,
+                bool dr,
+                asmjit::a64::Gp stack_bp,
+                asmjit::a64::Gp reg,
+                runtime_env* env)
+                : compiler(&a64compiler)
+                , m_is_constant(false)
+                , m_constant(nullptr)
             {
-                return m_is_constant;
-            }
-
-            asmjit::a64::Gp gp_value()
-            {
-                if (m_is_constant && !already_valued)
+                if (dr)
                 {
-                    already_valued = true;
-
-                    m_value = compiler->newUIntPtr();
-                    wo_asure(!compiler->mov(m_value, (size_t)m_constant));
+                    // opnum from bp-offset or regist
+                    auto offset_1b = WO_IPVAL_MOVE_1;
+                    if (offset_1b & (1 << 7))
+                    {
+                        // from bp-offset
+                        m_addr = a64compiler.newIntPtr();
+                        wo_asure(!a64compiler.mov(m_addr, WO_SIGNED_SHIFT(offset_1b) * sizeof(value)));
+                        wo_asure(!a64compiler.add(m_addr, m_addr, stack_bp));
+                        m_value = intptr_ptr(stack_bp, WO_SIGNED_SHIFT(offset_1b) * sizeof(value) + offsetof(value, value_space));
+                        m_type = intptr_ptr(stack_bp, WO_SIGNED_SHIFT(offset_1b) * sizeof(value) + offsetof(value, type));
+                    }
+                    else
+                    {
+                        // from reg
+                        m_addr = a64compiler.newIntPtr();
+                        wo_asure(!a64compiler.mov(m_addr, offset_1b * sizeof(value)));
+                        wo_asure(!a64compiler.add(m_addr, m_addr, reg));
+                        m_value = intptr_ptr(reg, offset_1b * sizeof(value) + offsetof(value, value_space));
+                        m_type = intptr_ptr(reg, offset_1b * sizeof(value) + offsetof(value, type));
+                    }
                 }
-                return m_value;
-            }
+                else
+                {
+                    // opnum from global_const
 
-            value* const_value() const
-            {
-                wo_assert(m_is_constant);
-                return m_constant;
+                    auto const_global_index = WO_SAFE_READ_MOVE_4;
+
+                    if (const_global_index < env->constant_value_count)
+                    {
+                        //Is constant
+                        m_is_constant = true;
+                        m_constant = env->constant_global_reg_rtstack + const_global_index;
+                    }
+                    m_addr = a64compiler.newIntPtr();
+                    wo_asure(!a64compiler.mov(m_addr, (intptr_t)(env->constant_global_reg_rtstack + const_global_index)));
+                    m_value = asmjit::a64::Mem((intptr_t)(env->constant_global_reg_rtstack + const_global_index) + offsetof(value, value_space));
+                    m_type = asmjit::a64::Mem((intptr_t)(env->constant_global_reg_rtstack + const_global_index) + offsetof(value, type));
+                }
             }
+            may_constant_aarch64Gp(const may_constant_aarch64Gp&) = delete;
+            may_constant_aarch64Gp(may_constant_aarch64Gp&&) = delete;
+            may_constant_aarch64Gp& operator = (const may_constant_aarch64Gp&) = delete;
+            may_constant_aarch64Gp& operator = (may_constant_aarch64Gp&&) = delete;
         };
-
-        //static may_constant_aarch64Gp get_opnum_ptr(
-        //    asmjit::a64::Compiler& a64compiler,
-        //    const byte_t*& rt_ip,
-        //    bool dr,
-        //    asmjit::a64::Gp stack_bp,
-        //    asmjit::a64::Gp reg,
-        //    runtime_env* env)
-        //{
-        //    if (dr)
-        //    {
-        //        // opnum from bp-offset or regist
-        //        if ((*rt_ip) & (1 << 7))
-        //        {
-        //            // from bp-offset
-        //            auto result = a64compiler.newUIntPtr();
-        //            wo_asure(!a64compiler.lea(result, intptr_ptr(stack_bp, WO_SIGNED_SHIFT(WO_IPVAL_MOVE_1) * sizeof(value))));
-        //            return may_constant_aarch64Gp{ &a64compiler,false,nullptr,result };
-        //        }
-        //        else
-        //        {
-        //            // from reg
-        //            auto result = a64compiler.newUIntPtr();
-        //            wo_asure(!a64compiler.lea(result, intptr_ptr(reg, WO_IPVAL_MOVE_1 * sizeof(value))));
-        //            return may_constant_aarch64Gp{ &a64compiler,false,nullptr,result };
-        //        }
-        //    }
-        //    else
-        //    {
-        //        // opnum from global_const
-
-        //        auto const_global_index = WO_SAFE_READ_MOVE_4;
-
-        //        if (const_global_index < env->constant_value_count)
-        //        {
-        //            //Is constant
-        //            return may_constant_aarch64Gp{ &a64compiler, true, env->constant_global_reg_rtstack + const_global_index };
-        //        }
-        //        else
-        //        {
-        //            auto result = a64compiler.newUIntPtr();
-        //            wo_asure(!a64compiler.mov(result, (size_t)(env->constant_global_reg_rtstack + const_global_index)));
-        //            return may_constant_aarch64Gp{ &a64compiler,false,nullptr,result };
-        //        }
-        //    }
-        //}
 
         template<typename T>
         static asmjit::a64::Mem intptr_ptr(const T& opgreg, int32_t offset = 0)
@@ -2117,9 +2105,26 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             delete context;
         }
 
-#define WO_JIT_ADDRESSING_N1 auto opnum1 = TODO
-#define WO_JIT_ADDRESSING_N2 auto opnum2 = TODO
-#define WO_JIT_ADDRESSING_N3_REG_BPOFF auto opnum3 = TODO
+        void a64_set_imm(asmjit::a64::Compiler& a64compiler, may_constant_aarch64Gp& target, wo::value* immval)
+        {
+            auto tmp = a64compiler.newInt64();
+            wo_asure(!a64compiler.mov(tmp, immval->handle));
+            wo_asure(!a64compiler.str(tmp, target.m_value));
+            wo_asure(!a64compiler.mov(tmp, immval->type));
+            wo_asure(!a64compiler.strb(tmp, target.m_type));
+        }
+        void a64_set_val(asmjit::a64::Compiler& a64compiler, may_constant_aarch64Gp& target, may_constant_aarch64Gp& val)
+        {
+            auto tmp = a64compiler.newInt64();
+            wo_asure(!a64compiler.ldr(tmp, val.m_value));
+            wo_asure(!a64compiler.str(tmp, target.m_value));
+            wo_asure(!a64compiler.ldrb(tmp, val.m_type));
+            wo_asure(!a64compiler.strb(tmp, target.m_type));
+        }
+
+#define WO_JIT_ADDRESSING_N1 may_constant_aarch64Gp opnum1(ctx->c, rt_ip, (dr & 0b10), ctx->_vmsbp, ctx->_vmreg, ctx->env)
+#define WO_JIT_ADDRESSING_N2 may_constant_aarch64Gp opnum2(ctx->c, rt_ip, (dr & 0b01), ctx->_vmsbp, ctx->_vmreg, ctx->env)
+#define WO_JIT_ADDRESSING_N3_REG_BPOFF may_constant_aarch64Gp opnum3(ctx->c, rt_ip, true, ctx->_vmsbp, ctx->_vmreg, ctx->env)
 #define WO_JIT_NOT_SUPPORT do{ return false; }while(0)
 
         virtual bool ir_nop(AArch64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -2128,7 +2133,14 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
         }
         virtual bool ir_mov(AArch64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
-            return false;
+            WO_JIT_ADDRESSING_N1;
+            WO_JIT_ADDRESSING_N2;
+
+            if (opnum2.m_is_constant)
+                a64_set_imm(ctx->c, opnum1, opnum2.m_constant);
+            else
+                a64_set_val(ctx->c, opnum1, opnum2);
+            return true;
         }
         virtual bool ir_addi(AArch64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
@@ -2376,7 +2388,14 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
         }
         virtual bool ir_ext_panic(AArch64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
-            return false;
+            WO_JIT_ADDRESSING_N1;
+ 
+            asmjit::InvokeNode* invoke_node;
+            wo_asure(!ctx->c.invoke(&invoke_node, (size_t)&_vmjitcall_panic,
+                asmjit::FuncSignatureT<void, wo::value*>()));
+
+            invoke_node->setArg(0, opnum1.m_addr);
+            return true;
         }
 
 #undef WO_JIT_ADDRESSING_N1
