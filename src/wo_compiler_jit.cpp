@@ -2008,6 +2008,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             _vmbase = c.newUIntPtr();
             _vmsbp = c.newUIntPtr();
             _vmssp = c.newUIntPtr();
+            _vmglb = c.newUIntPtr();
             _vmreg = c.newUIntPtr();
             _vmcr = c.newUIntPtr();
             _vmtc = c.newUIntPtr();
