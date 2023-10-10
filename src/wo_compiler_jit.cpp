@@ -2153,37 +2153,21 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
         inline static const wo::value NIL_VALUE = {};
 
-        void a64_set_imm(AArch64CompileContext* ctx, const aarch64_addresing& target, const wo::value* immval)
+        void a64_set_imm(AArch64CompileContext* ctx, asmjit::a64::Gp target, const wo::value* immval)
         {
-            wo_asure(!ctx->c.str(ctx->load_int64(immval->integer), asmjit::a64::Mem(target.get_addr(), offsetof(value, integer))));
+            wo_asure(!ctx->c.str(ctx->load_int64(immval->integer), asmjit::a64::Mem(target, offsetof(value, integer))));
             auto tmp = ctx->c.newGpw();
             wo_asure(!ctx->c.mov(tmp, immval->type));
-            wo_asure(!ctx->c.strb(tmp, asmjit::a64::Mem(target.get_addr(), offsetof(value, type))));
+            wo_asure(!ctx->c.strb(tmp, asmjit::a64::Mem(target, offsetof(value, type))));
         }
-        void a64_set_val(AArch64CompileContext* ctx, const aarch64_addresing& target, const aarch64_addresing& val)
+        void a64_set_val(AArch64CompileContext* ctx, asmjit::a64::Gp target, asmjit::a64::Gp val)
         {
             auto tmp = ctx->c.newInt64();
-            wo_asure(!ctx->c.ldr(tmp, asmjit::a64::Mem(val.get_addr(), offsetof(value, integer))));
-            wo_asure(!ctx->c.str(tmp, asmjit::a64::Mem(target.get_addr(), offsetof(value, integer))));
+            wo_asure(!ctx->c.ldr(tmp, asmjit::a64::Mem(val, offsetof(value, integer))));
+            wo_asure(!ctx->c.str(tmp, asmjit::a64::Mem(target, offsetof(value, integer))));
             tmp = ctx->c.newGpw();
-            wo_asure(!ctx->c.ldrb(tmp, asmjit::a64::Mem(val.get_addr(), offsetof(value, type))));
-            wo_asure(!ctx->c.strb(tmp, asmjit::a64::Mem(target.get_addr(), offsetof(value, type))));
-        }
-        void a64_set_imm_to_addr(AArch64CompileContext* ctx, asmjit::a64::Gp& addr, const wo::value* immval)
-        {
-            wo_asure(!ctx->c.str(ctx->load_int64(immval->integer), asmjit::a64::Mem(addr, offsetof(value, integer))));
-            auto tmp = ctx->c.newGpw();
-            wo_asure(!ctx->c.mov(tmp, immval->type));
-            wo_asure(!ctx->c.strb(tmp, asmjit::a64::Mem(addr, offsetof(value, type))));
-        }
-        void a64_set_val_to_addr(AArch64CompileContext* ctx, asmjit::a64::Gp& addr, const aarch64_addresing& val)
-        {
-            auto tmp = ctx->c.newInt64();
-            wo_asure(!ctx->c.ldr(tmp, asmjit::a64::Mem(val.get_addr(), offsetof(value, integer))));
-            wo_asure(!ctx->c.str(tmp, asmjit::a64::Mem(addr, offsetof(value, integer))));
-            tmp = ctx->c.newGpw();
-            wo_asure(!ctx->c.ldrb(tmp, asmjit::a64::Mem(val.get_addr(), offsetof(value, type))));
-            wo_asure(!ctx->c.strb(tmp, asmjit::a64::Mem(addr, offsetof(value, type))));
+            wo_asure(!ctx->c.ldrb(tmp, asmjit::a64::Mem(val, offsetof(value, type))));
+            wo_asure(!ctx->c.strb(tmp, asmjit::a64::Mem(target, offsetof(value, type))));
         }
 
         static void make_checkpoint(asmjit::a64::Compiler& x86compiler, asmjit::a64::Gp rtvm, asmjit::a64::Gp stack_sp, asmjit::a64::Gp stack_bp, const byte_t* ip)
@@ -2208,9 +2192,9 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             ctx->generate([=]()
                 {
                     if (opnum2.m_constant != nullptr)
-                        a64_set_imm(ctx, opnum1, opnum2.m_constant);
+                        a64_set_imm(ctx, opnum1.get_addr(), opnum2.m_constant);
                     else
-                        a64_set_val(ctx, opnum1, opnum2);
+                        a64_set_val(ctx, opnum1.get_addr(), opnum2.get_addr());
                 });
 
             return true;
@@ -2237,11 +2221,43 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
         }
         virtual bool ir_subi(AArch64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
-            return false;
+            WO_JIT_ADDRESSING_N1;
+            WO_JIT_ADDRESSING_N2;
+
+            auto tmp = ctx->c.newInt64();
+            auto tmp2 = opnum2.m_constant != nullptr
+                ? ctx->load_int64(opnum2.m_constant->integer)
+                : ctx->c.newInt64();
+            ctx->generate([=]()
+                {
+                    wo_asure(!ctx->c.ldr(tmp, asmjit::a64::Mem(opnum1.get_addr(), offsetof(value, integer))));
+                    if (opnum2.m_constant == nullptr)
+                        wo_asure(!ctx->c.ldr(tmp2, asmjit::a64::Mem(opnum2.get_addr(), offsetof(value, integer))));
+
+                    wo_asure(!ctx->c.sub(tmp, tmp, tmp2));
+                    wo_asure(!ctx->c.str(tmp, asmjit::a64::Mem(opnum1.get_addr(), offsetof(value, integer))));
+                });
+            return true;
         }
         virtual bool ir_muli(AArch64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
-            return false;
+            WO_JIT_ADDRESSING_N1;
+            WO_JIT_ADDRESSING_N2;
+
+            auto tmp = ctx->c.newInt64();
+            auto tmp2 = opnum2.m_constant != nullptr
+                ? ctx->load_int64(opnum2.m_constant->integer)
+                : ctx->c.newInt64();
+            ctx->generate([=]()
+                {
+                    wo_asure(!ctx->c.ldr(tmp, asmjit::a64::Mem(opnum1.get_addr(), offsetof(value, integer))));
+                    if (opnum2.m_constant == nullptr)
+                        wo_asure(!ctx->c.ldr(tmp2, asmjit::a64::Mem(opnum2.get_addr(), offsetof(value, integer))));
+
+                    wo_asure(!ctx->c.mul(tmp, tmp, tmp2));
+                    wo_asure(!ctx->c.str(tmp, asmjit::a64::Mem(opnum1.get_addr(), offsetof(value, integer))));
+                });
+            return true;
         }
         virtual bool ir_divi(AArch64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
@@ -2295,9 +2311,9 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                 ctx->generate([=]()
                     {
                         if (opnum1.m_constant != nullptr)
-                            a64_set_imm_to_addr(ctx, ctx->_vmssp, opnum1.m_constant);
+                            a64_set_imm(ctx, ctx->_vmssp, opnum1.m_constant);
                         else
-                            a64_set_val_to_addr(ctx, ctx->_vmssp, opnum1);
+                            a64_set_val(ctx, ctx->_vmssp, opnum1.get_addr());
                         wo_asure(!ctx->c.sub(ctx->_vmssp, ctx->_vmssp, sizeof(value)));
                     });
             }
@@ -2312,7 +2328,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                     {
                         for (uint32_t i = 0; i < psh_repeat; i++)
                         {
-                            a64_set_imm_to_addr(ctx, ctx->_vmssp, &NIL_VALUE);
+                            a64_set_imm(ctx, ctx->_vmssp, &NIL_VALUE);
                             wo_asure(!ctx->c.sub(ctx->_vmssp, ctx->_vmssp, sizeof(value)));
                         }});
             }
@@ -2320,7 +2336,27 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
         }
         virtual bool ir_pop(AArch64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
-            return false;
+            if (dr & 0b01)
+            {
+                // WO_ADDRESSING_N1_REF;
+                // opnum1->set_val((++rt_sp));
+                WO_JIT_ADDRESSING_N1;
+
+                ctx->generate([=]()
+                    {
+                        wo_asure(!ctx->c.add(ctx->_vmssp, ctx->_vmssp, sizeof(value)));
+                        a64_set_val(ctx, opnum1.get_addr(), ctx->_vmssp);
+                    });
+            }
+            else
+            {
+                size_t pop_count = (size_t)WO_IPVAL_MOVE_2;
+                ctx->generate([=]()
+                    {
+                        wo_asure(!ctx->c.add(ctx->_vmssp, ctx->_vmssp, pop_count * sizeof(value)));
+                    });
+            }
+            return true;
         }
         virtual bool ir_sidarr(AArch64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
