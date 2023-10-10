@@ -17,7 +17,7 @@
 #include "asmjit/a64.h"
 
 #include <unordered_map>
-
+#include <list>
 namespace wo
 {
 #define WO_SAFE_READ_OFFSET_GET_QWORD (*(uint64_t*)(rt_ip-8))
@@ -2107,6 +2107,9 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
         virtual void finish_compiler(AArch64CompileContext* context)override
         {
+            for (auto& f : context->m_generate_list)
+                f();
+
             wo_asure(!context->c.endFunc());
             wo_asure(!context->c.finalize());
         }
