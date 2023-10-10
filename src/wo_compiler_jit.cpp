@@ -207,7 +207,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             {
                 uint32_t current_ip_byteoffset = (uint32_t)(rt_ip - m_codes);
 
-                bind_ip(compiler, current_ip_byteoffset);
+                bind_ip(ctx, compiler, current_ip_byteoffset);
 
                 opcode_dr = *(rt_ip++);
                 opcode = (instruct::opcode)(opcode_dr & 0b11111100u);
