@@ -900,8 +900,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
                 x86_set_imm(x86compiler, rt_sp, callstack);
                 auto bpoffset = x86compiler.newUInt64();
-                wo_asure(!x86compiler.mov(bpoffset, intptr_ptr(vm, offsetof(value, vmcallstack) + offsetof(value::callstack, bp))));
-                wo_asure(!x86compiler.sub(bpoffset, rt_bp));
+                wo_asure(!x86compiler.mov(bpoffset, rt_bp));
+                wo_asure(!x86compiler.sub(bpoffset, intptr_ptr(vm, offsetof(vmbase, stack_mem_begin))));
                 wo_asure(!x86compiler.mov(asmjit::x86::dword_ptr(rt_sp, offsetof(value, vmcallstack) + offsetof(value::callstack, bp)), bpoffset));
 
                 auto callargptr = x86compiler.newUIntPtr();
@@ -2091,6 +2091,102 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             }
         };
 
+        static void a64_do_calln_native_func(
+            AArch64CompileContext* ctx,
+            asmjit::a64::Gp vm,
+            asmjit::a64::Gp call_aim_native_func,
+            asmjit::a64::Gp rt_ip,
+            asmjit::a64::Gp rt_sp,
+            asmjit::a64::Gp rt_bp)
+        {
+            asmjit::InvokeNode* invoke_node;
+            wo_asure(!ctx->c.invoke(&invoke_node, (size_t)&native_do_calln_nativefunc,
+                asmjit::FuncSignatureT<void, vmbase*, wo_extern_native_func_t, const byte_t*, value*, value*>()));
+
+            invoke_node->setArg(0, vm);
+            invoke_node->setArg(1, call_aim_native_func);
+            invoke_node->setArg(2, rt_ip);
+            invoke_node->setArg(3, rt_sp);
+            invoke_node->setArg(4, rt_bp);
+        }
+
+        static void a64_do_calln_native_func_fast(
+            AArch64CompileContext* ctx,
+            asmjit::a64::Gp vm,
+            asmjit::a64::Gp call_aim_native_func,
+            asmjit::a64::Gp rt_ip,
+            asmjit::a64::Gp rt_sp,
+            asmjit::a64::Gp rt_bp)
+        {
+            asmjit::InvokeNode* invoke_node;
+            wo_asure(!ctx->c.invoke(&invoke_node, (size_t)&native_do_calln_nativefunc_fast,
+                asmjit::FuncSignatureT<void, vmbase*, wo_extern_native_func_t, const byte_t*, value*, value*>()));
+
+            invoke_node->setArg(0, vm);
+            invoke_node->setArg(1, call_aim_native_func);
+            invoke_node->setArg(2, rt_ip);
+            invoke_node->setArg(3, rt_sp);
+            invoke_node->setArg(4, rt_bp);
+        }
+
+        static void a64_do_calln_vm_func(
+            AArch64CompileContext* ctx,
+            asmjit::a64::Gp vm,
+            function_jit_state& vm_func,
+            asmjit::a64::Gp codes,
+            asmjit::a64::Gp rt_ip,
+            asmjit::a64::Gp rt_sp,
+            asmjit::a64::Gp rt_bp,
+            asmjit::a64::Gp rt_tc)
+        {
+            if (vm_func.m_state == function_jit_state::state::FINISHED)
+            {
+                wo_assert(vm_func.m_func);
+
+                asmjit::InvokeNode* invoke_node;
+                wo_asure(!ctx->c.invoke(&invoke_node, (size_t)&native_do_calln_vmfunc,
+                    asmjit::FuncSignatureT<void, vmbase*, wo_extern_native_func_t, const byte_t*, value*, value*>()));
+
+                invoke_node->setArg(0, vm);
+                invoke_node->setArg(1, vm_func.m_func);
+                invoke_node->setArg(2, rt_ip);
+                invoke_node->setArg(3, rt_sp);
+                invoke_node->setArg(4, rt_bp);
+            }
+            else
+            {
+                wo_assert(vm_func.m_state == function_jit_state::state::COMPILING);
+                wo_assert(vm_func.m_jitfunc);
+
+                // Set calltrace info here!
+
+                auto type = ctx->c.newGpw();
+                wo_asure(!ctx->c.mov(type, wo::value::valuetype::callstack));
+                wo_asure(!ctx->c.strb(type, intptr_ptr(rt_sp, offsetof(value, type))));
+                auto bpdiff = ctx->c.newUInt64();
+                auto bpoffset = ctx->c.newUInt32();
+                wo_asure(!ctx->c.ldr(bpdiff, intptr_ptr(vm, offsetof(vmbase, stack_mem_begin))));
+                wo_asure(!ctx->c.sub(bpoffset, rt_bp, bpdiff));
+                wo_asure(!ctx->c.str(bpoffset, intptr_ptr(rt_sp, offsetof(value, vmcallstack) + offsetof(value::callstack, bp))));
+
+                wo_asure(!ctx->c.sub(bpdiff, rt_ip, codes));
+                wo_asure(!ctx->c.str(bpdiff, intptr_ptr(rt_sp, offsetof(value, vmcallstack) + offsetof(value::callstack, ret_ip))));
+                
+                auto callargptr = ctx->c.newUIntPtr();
+                auto targc = ctx->c.newInt64();
+                wo_asure(!ctx->c.add(callargptr, rt_sp, sizeof(value)));
+                wo_asure(!ctx->c.add(targc, rt_bp, offsetof(value, integer)));
+
+                asmjit::InvokeNode* invoke_node;
+                wo_asure(!ctx->c.invoke(&invoke_node, vm_func.m_jitfunc->label(),
+                    asmjit::FuncSignatureT<wo_result_t, vmbase*, value*, size_t>()));
+
+                invoke_node->setArg(0, vm);
+                invoke_node->setArg(1, callargptr);
+                invoke_node->setArg(2, targc);
+            }
+        }
+
         template<typename T>
         static asmjit::a64::Mem intptr_ptr(const T& opgreg, int32_t offset = 0)
         {
@@ -2153,14 +2249,14 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
         inline static const wo::value NIL_VALUE = {};
 
-        void a64_set_imm(AArch64CompileContext* ctx, asmjit::a64::Gp target, const wo::value* immval)
+        static void a64_set_imm(AArch64CompileContext* ctx, asmjit::a64::Gp target, const wo::value* immval)
         {
             wo_asure(!ctx->c.str(ctx->load_int64(immval->integer), asmjit::a64::Mem(target, offsetof(value, integer))));
             auto tmp = ctx->c.newGpw();
             wo_asure(!ctx->c.mov(tmp, immval->type));
             wo_asure(!ctx->c.strb(tmp, asmjit::a64::Mem(target, offsetof(value, type))));
         }
-        void a64_set_val(AArch64CompileContext* ctx, asmjit::a64::Gp target, asmjit::a64::Gp val)
+        static void a64_set_val(AArch64CompileContext* ctx, asmjit::a64::Gp target, asmjit::a64::Gp val)
         {
             auto tmp = ctx->c.newInt64();
             wo_asure(!ctx->c.ldr(tmp, asmjit::a64::Mem(val, offsetof(value, integer))));
@@ -2435,7 +2531,50 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
         }
         virtual bool ir_elti(AArch64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
-            return false;
+            WO_JIT_ADDRESSING_N1;
+            WO_JIT_ADDRESSING_N2;
+
+            // <=
+
+            auto tmp = opnum1.m_constant != nullptr
+                ? ctx->load_int64(opnum1.m_constant->integer)
+                : ctx->c.newInt64();
+            auto tmp2 = opnum2.m_constant != nullptr
+                ? ctx->load_int64(opnum2.m_constant->integer)
+                : ctx->c.newInt64();
+
+            auto x86_cmp_fail = ctx->c.newLabel();
+            auto x86_cmp_end = ctx->c.newLabel();
+
+            auto type_tmp = ctx->c.newGpw();
+
+            ctx->generate([=]() {
+                wo_asure(!ctx->c.mov(type_tmp, (uint8_t)value::valuetype::bool_type));
+                wo_asure(!ctx->c.strb(type_tmp, asmjit::a64::Mem(ctx->_vmcr, offsetof(value, type))));
+
+                if (opnum1.m_constant == nullptr)
+                {
+                    wo_asure(!ctx->c.ldr(tmp, asmjit::a64::Mem(opnum1.get_addr(), offsetof(value, integer))));
+                }
+                if (opnum2.m_constant == nullptr)
+                {
+                    wo_asure(!ctx->c.ldr(tmp2, asmjit::a64::Mem(opnum2.get_addr(), offsetof(value, integer))));
+                }
+
+                wo_asure(!ctx->c.cmp(tmp, tmp2));
+                wo_asure(!ctx->c.b_gt(x86_cmp_fail));
+
+                auto result = ctx->c.newInt64();
+
+                wo_asure(!ctx->c.mov(result, 1));
+                wo_asure(!ctx->c.b(x86_cmp_end));
+                wo_asure(!ctx->c.bind(x86_cmp_fail));
+                wo_asure(!ctx->c.mov(result, 0));
+                wo_asure(!ctx->c.bind(x86_cmp_end));
+
+                wo_asure(!ctx->c.str(result, asmjit::a64::Mem(ctx->_vmcr, offsetof(value, integer))));
+                });
+            return true;
         }
         virtual bool ir_egti(AArch64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
@@ -2491,7 +2630,53 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
         }
         virtual bool ir_calln(AArch64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
-            return false;
+            if (dr)
+            {
+                // Call native
+                jit_packed_func_t call_aim_native_func = (jit_packed_func_t)(WO_IPVAL_MOVE_8);
+
+                auto target_function = ctx->load_int64((int64_t)(intptr_t)call_aim_native_func);
+                auto return_ip = ctx->load_int64((int64_t)(intptr_t)rt_ip);
+
+                ctx->generate([=] {
+                    if (dr & 0b10)
+                        a64_do_calln_native_func_fast(ctx, ctx->_vmbase, target_function, return_ip, ctx->_vmssp, ctx->_vmsbp);
+                    else
+                        a64_do_calln_native_func(ctx, ctx->_vmbase, target_function, return_ip, ctx->_vmssp, ctx->_vmsbp);
+                    });
+            }
+            else
+            {
+                uint32_t call_aim_vm_func = WO_IPVAL_MOVE_4;
+                rt_ip += 4; // skip empty space;
+
+                // Try compile this func
+                auto& compiled_funcstat = analyze_function(ctx->env->rt_codes + call_aim_vm_func, ctx->env);
+                if (compiled_funcstat.m_state == function_jit_state::state::FAILED)
+                {
+                    WO_JIT_NOT_SUPPORT;
+                }
+
+                auto codes = ctx->load_int64((int64_t)(intptr_t)ctx->env->rt_codes);
+                auto return_ip = ctx->load_int64((int64_t)(intptr_t)rt_ip);
+                auto* compiled_funcstat_addr = &compiled_funcstat;
+                ctx->generate([=] {
+                    a64_do_calln_vm_func(
+                        ctx, ctx->_vmbase,
+                        *compiled_funcstat_addr,
+                        codes,
+                        return_ip,
+                        ctx->_vmssp,
+                        ctx->_vmsbp,
+                        ctx->_vmtc);
+                    });
+            }
+
+            // ATTENTION: AFTER CALLING VM FUNCTION, DONOT MODIFY SP/BP/IP CONTEXT, HERE MAY HAPPEND/PASS BREAK INFO!!!
+            ctx->generate([=] {
+                make_checkpoint(ctx->c, ctx->_vmbase, ctx->_vmssp, ctx->_vmsbp, rt_ip);
+                });
+            return true;
         }
         virtual bool ir_ret(AArch64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
@@ -2603,7 +2788,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
         virtual bool ir_jnequb(AArch64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
             return false;
-        }
+    }
         virtual bool ir_idstruct(AArch64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
             return false;
@@ -2626,7 +2811,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 #undef WO_JIT_ADDRESSING_N2
 #undef WO_JIT_ADDRESSING_N3_REG_BPOFF
 #undef WO_JIT_NOT_SUPPORT
-    };
+};
 
     void analyze_jit(byte_t* codebuf, runtime_env* env)
     {
