@@ -1970,6 +1970,23 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
         runtime_env* env;
 
+        std::unordered_map<wo_integer_t, asmjit::a64::Gp> m_int_constant_pool;
+        std::list<std::function<void(void)>> m_generate_list;
+        asmjit::a64::Gp load_int64(wo_integer_t val)
+        {
+            auto fnd = m_int_constant_pool.find(val);
+            if (fnd != m_int_constant_pool.end())
+                return fnd->second;
+
+            auto gp = c.newInt64();
+            c.mov(gp, val);
+            return m_int_constant_pool[val] = gp;
+        }
+        void generate(const std::function<void(void)>& opt)
+        {
+            m_generate_list.push_back(opt);
+        }
+
         AArch64CompileContext(asmjit::CodeHolder* code, runtime_env* _env)
             : c(code)
             , env(_env)
@@ -2051,10 +2068,10 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                     m_type = asmjit::a64::Mem((intptr_t)(env->constant_global_reg_rtstack + const_global_index) + offsetof(value, type));
                 }
             }
-            may_constant_aarch64Gp(const may_constant_aarch64Gp&) = delete;
-            may_constant_aarch64Gp(may_constant_aarch64Gp&&) = delete;
-            may_constant_aarch64Gp& operator = (const may_constant_aarch64Gp&) = delete;
-            may_constant_aarch64Gp& operator = (may_constant_aarch64Gp&&) = delete;
+            may_constant_aarch64Gp(const may_constant_aarch64Gp&) = default;
+            may_constant_aarch64Gp(may_constant_aarch64Gp&&) = default;
+            may_constant_aarch64Gp& operator = (const may_constant_aarch64Gp&) = default;
+            may_constant_aarch64Gp& operator = (may_constant_aarch64Gp&&) = default;
         };
 
         template<typename T>
@@ -2088,8 +2105,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             return ctx;
         }
 
-
-
         virtual void finish_compiler(AArch64CompileContext* context)override
         {
             wo_asure(!context->c.endFunc());
@@ -2102,7 +2117,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
         inline static const wo::value NIL_VALUE = {};
 
-        void a64_set_imm(asmjit::a64::Compiler& a64compiler, may_constant_aarch64Gp& target, const wo::value* immval)
+        void a64_set_imm(asmjit::a64::Compiler& a64compiler, const may_constant_aarch64Gp& target, const wo::value* immval)
         {
             auto tmp = a64compiler.newInt64();
             wo_asure(!a64compiler.mov(tmp, immval->handle));
@@ -2111,7 +2126,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             wo_asure(!a64compiler.mov(tmp, immval->type));
             wo_asure(!a64compiler.strb(tmp, target.m_type));
         }
-        void a64_set_val(asmjit::a64::Compiler& a64compiler, may_constant_aarch64Gp& target, may_constant_aarch64Gp& val)
+        void a64_set_val(asmjit::a64::Compiler& a64compiler, const may_constant_aarch64Gp& target, const may_constant_aarch64Gp& val)
         {
             auto tmp = a64compiler.newInt64();
             wo_asure(!a64compiler.ldr(tmp, val.m_value));
@@ -2129,7 +2144,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             wo_asure(!a64compiler.mov(tmp, immval->type));
             wo_asure(!a64compiler.strb(tmp, asmjit::a64::Mem(addr, offsetof(value, type))));
         }
-        void a64_set_val_to_addr(asmjit::a64::Compiler& a64compiler, asmjit::a64::Gp& addr, may_constant_aarch64Gp& val)
+        void a64_set_val_to_addr(asmjit::a64::Compiler& a64compiler, asmjit::a64::Gp& addr, const may_constant_aarch64Gp& val)
         {
             auto tmp = a64compiler.newInt64();
             wo_asure(!a64compiler.ldr(tmp, val.m_value));
@@ -2158,10 +2173,14 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
-            if (opnum2.m_is_constant)
-                a64_set_imm(ctx->c, opnum1, opnum2.m_constant);
-            else
-                a64_set_val(ctx->c, opnum1, opnum2);
+            ctx->generate([=]()
+                {
+                    if (opnum2.m_is_constant)
+                        a64_set_imm(ctx->c, opnum1, opnum2.m_constant);
+                    else
+                        a64_set_val(ctx->c, opnum1, opnum2);
+                });
+
             return true;
         }
         virtual bool ir_addi(AArch64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -2170,16 +2189,19 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             WO_JIT_ADDRESSING_N2;
 
             auto tmp = ctx->c.newInt64();
-            auto tmp2 = ctx->c.newInt64();
-            wo_asure(!ctx->c.ldr(tmp, opnum1.m_value));
+            auto tmp2 = opnum2.m_is_constant
+                ? ctx->load_int64(opnum2.m_constant->integer)
+                : ctx->c.newInt64();
+            ctx->generate([=]()
+                {
+                    wo_asure(!ctx->c.ldr(tmp, opnum1.m_value));
 
-            if (opnum2.m_is_constant)
-                wo_asure(!ctx->c.mov(tmp2, opnum2.m_constant->integer));
-            else
-                wo_asure(!ctx->c.ldr(tmp2, opnum2.m_value));
+                    if (!opnum2.m_is_constant)
+                        wo_asure(!ctx->c.ldr(tmp2, opnum2.m_value));
 
-            wo_asure(!ctx->c.add(tmp, tmp, tmp2));
-            wo_asure(!ctx->c.str(tmp, opnum1.m_value));
+                    wo_asure(!ctx->c.add(tmp, tmp, tmp2));
+                    wo_asure(!ctx->c.str(tmp, opnum1.m_value));
+                });
             return true;
         }
         virtual bool ir_subi(AArch64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -2239,8 +2261,11 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
                 WO_JIT_ADDRESSING_N1;
 
-                a64_set_val_to_addr(ctx->c, ctx->_vmssp, opnum1);
-                wo_asure(!ctx->c.sub(ctx->_vmssp, ctx->_vmssp, sizeof(value)));
+                ctx->generate([=]()
+                    {
+                        a64_set_val_to_addr(ctx->c, ctx->_vmssp, opnum1);
+                        wo_asure(!ctx->c.sub(ctx->_vmssp, ctx->_vmssp, sizeof(value)));
+                    });
             }
             else
             {
@@ -2249,11 +2274,13 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                 //      (rt_sp--)->set_nil();
 
                 uint16_t psh_repeat = WO_IPVAL_MOVE_2;
-                for (uint32_t i = 0; i < psh_repeat; i++)
-                {
-                    a64_set_imm_to_addr(ctx->c, ctx->_vmssp, &NIL_VALUE);
-                    wo_asure(!ctx->c.sub(ctx->_vmssp, ctx->_vmssp, sizeof(value)));
-                }
+                ctx->generate([=]()
+                    {
+                        for (uint32_t i = 0; i < psh_repeat; i++)
+                        {
+                            a64_set_imm_to_addr(ctx->c, ctx->_vmssp, &NIL_VALUE);
+                            wo_asure(!ctx->c.sub(ctx->_vmssp, ctx->_vmssp, sizeof(value)));
+                        }});
             }
             return true;
         }
@@ -2292,42 +2319,43 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
             // <
 
+            auto tmp = opnum1.m_is_constant ? ctx->load_int64(opnum1.m_constant->integer) : ctx->c.newInt64();
+            auto tmp2 = opnum2.m_is_constant ? ctx->load_int64(opnum2.m_constant->integer) : ctx->c.newInt64();
+
             auto x86_cmp_fail = ctx->c.newLabel();
             auto x86_cmp_end = ctx->c.newLabel();
 
             auto type_tmp = ctx->c.newGpw();
-            wo_asure(!ctx->c.mov(type_tmp, (uint8_t)value::valuetype::bool_type));
-            wo_asure(!ctx->c.strb(type_tmp, asmjit::a64::Mem(ctx->_vmcr, offsetof(value, type))));
 
-            auto tmp = ctx->c.newInt64();
-            auto tmp2 = ctx->c.newInt64();
+            ctx->generate([=]() {
+                wo_asure(!ctx->c.mov(type_tmp, (uint8_t)value::valuetype::bool_type));
+                wo_asure(!ctx->c.strb(type_tmp, asmjit::a64::Mem(ctx->_vmcr, offsetof(value, type))));
 
-            if (opnum1.m_is_constant)
-            {
-                wo_asure(!ctx->c.mov(tmp, opnum1.m_constant->integer));
-                wo_asure(!ctx->c.ldr(tmp2, opnum2.m_value));
-            }
-            else if (opnum2.m_is_constant)
-            {
-                wo_asure(!ctx->c.ldr(tmp, opnum1.m_value));
-                wo_asure(!ctx->c.mov(tmp2, opnum2.m_constant->integer));
-            }
-            else
-            {
-                wo_asure(!ctx->c.ldr(tmp, opnum1.m_value));
-                wo_asure(!ctx->c.ldr(tmp2, opnum2.m_value));
-            }
+                if (opnum1.m_is_constant)
+                {
+                    wo_asure(!ctx->c.ldr(tmp2, opnum2.m_value));
+                }
+                else if (opnum2.m_is_constant)
+                {
+                    wo_asure(!ctx->c.ldr(tmp, opnum1.m_value));
+                }
+                else
+                {
+                    wo_asure(!ctx->c.ldr(tmp, opnum1.m_value));
+                    wo_asure(!ctx->c.ldr(tmp2, opnum2.m_value));
+                }
 
-            wo_asure(!ctx->c.cmp(tmp, tmp2));
-            wo_asure(!ctx->c.b_ge(x86_cmp_fail));
+                wo_asure(!ctx->c.cmp(tmp, tmp2));
+                wo_asure(!ctx->c.b_ge(x86_cmp_fail));
 
-            wo_asure(!ctx->c.mov(type_tmp, 1));
-            wo_asure(!ctx->c.b(x86_cmp_end));
-            wo_asure(!ctx->c.bind(x86_cmp_fail));
-            wo_asure(!ctx->c.mov(type_tmp, 0));
-            wo_asure(!ctx->c.bind(x86_cmp_end));
+                wo_asure(!ctx->c.mov(type_tmp, 1));
+                wo_asure(!ctx->c.b(x86_cmp_end));
+                wo_asure(!ctx->c.bind(x86_cmp_fail));
+                wo_asure(!ctx->c.mov(type_tmp, 0));
+                wo_asure(!ctx->c.bind(x86_cmp_end));
 
-            wo_asure(!ctx->c.strb(type_tmp, asmjit::a64::Mem(ctx->_vmcr, offsetof(value, integer))));
+                wo_asure(!ctx->c.strb(type_tmp, asmjit::a64::Mem(ctx->_vmcr, offsetof(value, integer))));
+                });
             return true;
         }
         virtual bool ir_gti(AArch64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -2399,7 +2427,9 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             if (dr != 0)
                 (void)WO_IPVAL_MOVE_2;
 
-            wo_asure(!ctx->c.ret());
+            ctx->generate([=]() {
+                wo_asure(!ctx->c.ret());
+                });
             return true;
         }
         virtual bool ir_jt(AArch64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -2411,13 +2441,15 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto check_point_ipaddr = rt_ip - 1;
             uint32_t jmp_place = WO_IPVAL_MOVE_4;
 
-            if (jmp_place < rt_ip - ctx->env->rt_codes)
-                make_checkpoint(ctx->c, ctx->_vmbase, ctx->_vmssp, ctx->_vmsbp, check_point_ipaddr);
+            ctx->generate([=]() {
+                if (jmp_place < rt_ip - ctx->env->rt_codes)
+                    make_checkpoint(ctx->c, ctx->_vmbase, ctx->_vmssp, ctx->_vmsbp, check_point_ipaddr);
 
-            auto tmp = ctx->c.newInt64();
-            wo_asure(!ctx->c.ldr(tmp, asmjit::a64::Mem(ctx->_vmcr, offsetof(value, handle))));
-            wo_asure(!ctx->c.cmp(tmp, 0));
-            wo_asure(!ctx->c.b_eq(jump_ip(&ctx->c, jmp_place)));
+                auto tmp = ctx->c.newInt64();
+                wo_asure(!ctx->c.ldr(tmp, asmjit::a64::Mem(ctx->_vmcr, offsetof(value, handle))));
+                wo_asure(!ctx->c.cmp(tmp, 0));
+                wo_asure(!ctx->c.b_eq(jump_ip(&ctx->c, jmp_place)));
+                });
             return true;
         }
         virtual bool ir_jmp(AArch64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -2425,10 +2457,12 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto check_point_ipaddr = rt_ip - 1;
             uint32_t jmp_place = WO_IPVAL_MOVE_4;
 
-            if (jmp_place < rt_ip - ctx->env->rt_codes)
-                make_checkpoint(ctx->c, ctx->_vmbase, ctx->_vmssp, ctx->_vmsbp, check_point_ipaddr);
+            ctx->generate([=]() {
+                if (jmp_place < rt_ip - ctx->env->rt_codes)
+                    make_checkpoint(ctx->c, ctx->_vmbase, ctx->_vmssp, ctx->_vmsbp, check_point_ipaddr);
 
-            wo_asure(!ctx->c.b(jump_ip(&ctx->c, jmp_place)));
+                wo_asure(!ctx->c.b(jump_ip(&ctx->c, jmp_place)));
+                });
             return true;
         }
         virtual bool ir_mkunion(AArch64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -2507,11 +2541,13 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
         {
             WO_JIT_ADDRESSING_N1;
 
-            asmjit::InvokeNode* invoke_node;
-            wo_asure(!ctx->c.invoke(&invoke_node, (size_t)&_vmjitcall_panic,
-                asmjit::FuncSignatureT<void, wo::value*>()));
+            ctx->generate([=]() {
+                asmjit::InvokeNode* invoke_node;
+                wo_asure(!ctx->c.invoke(&invoke_node, (size_t)&_vmjitcall_panic,
+                    asmjit::FuncSignatureT<void, wo::value*>()));
 
-            invoke_node->setArg(0, opnum1.m_addr);
+                invoke_node->setArg(0, opnum1.m_addr);
+                });
             return true;
         }
 
