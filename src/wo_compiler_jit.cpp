@@ -170,7 +170,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 #undef WO_ASMJIT_IR_ITERFACE_DECL
 
         std::map<uint32_t, asmjit::Label> label_table;
-        void bind_ip(asmjit::BaseCompiler* compiler, uint32_t ipoffset)
+        virtual void bind_ip(CompileContextT* ctx, asmjit::BaseCompiler* compiler, uint32_t ipoffset)
         {
             if (auto fnd = label_table.find(ipoffset);
                 fnd != label_table.end())
@@ -2126,6 +2126,21 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
         static asmjit::a64::Mem intptr_ptr(const T& opgreg, int32_t offset = 0)
         {
             return asmjit::a64::Mem(opgreg, offset);
+        }
+
+        virtual void bind_ip(AArch64CompileContext* ctx, asmjit::BaseCompiler* compiler, uint32_t ipoffset)override
+        {
+            asmjit::Label label;
+            if (auto fnd = label_table.find(ipoffset);
+                fnd != label_table.end())
+            {
+                label = fnd->second;
+            }
+            else
+            {
+                label = label_table[ipoffset] = compiler->newLabel();
+            }
+            ctx->generate([=] { compiler->bind(label); });
         }
 
         virtual AArch64CompileContext* prepare_compiler(
