@@ -1973,6 +1973,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
         runtime_env* env;
 
         std::unordered_map<wo_integer_t, asmjit::a64::Gp> m_int_constant_pool;
+        std::unordered_map<wo_real_t, asmjit::a64::Vec> m_f64_constant_pool;
         std::list<std::function<void(void)>> m_generate_list;
         asmjit::a64::Gp load_int64(wo_integer_t val)
         {
@@ -1983,6 +1984,16 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto gp = c.newInt64();
             c.mov(gp, val);
             return m_int_constant_pool[val] = gp;
+        }
+        asmjit::a64::Vec load_float64(wo_real_t val)
+        {
+            auto fnd = m_f64_constant_pool.find(val);
+            if (fnd != m_f64_constant_pool.end())
+                return fnd->second;
+
+            auto dvec = c.newVecD();
+            c.fmov(dvec, val);
+            return m_f64_constant_pool[val] = dvec;
         }
         void generate(const std::function<void(void)>& opt)
         {
@@ -2049,7 +2060,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                     if (offset < env->constant_value_count)
                     {
                         m_constant = env->constant_global_reg_rtstack + offset;
-                        wo_assert(m_constant->type != value::valuetype::real_type);// TODO: Cache real?
+                        if(m_constant->type != value::valuetype::real_type);// TODO: Cache real?
                         context->load_int64(m_constant->integer);
                     }
                     m_offset = (ptrdiff_t)env->constant_global_reg_rtstack + offset;
@@ -2597,20 +2608,20 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
     void analyze_jit(byte_t* codebuf, runtime_env* env)
     {
-        /*if constexpr (platform_info::ARCH_TYPE == (platform_info::ArchType::X86 | platform_info::ArchType::BIT64))
+        if constexpr (platform_info::ARCH_TYPE == (platform_info::ArchType::X86 | platform_info::ArchType::BIT64))
         {
             asmjit_compiler_x64 compiler;
             compiler.analyze_jit(codebuf, env);
         }
         else if constexpr (platform_info::ARCH_TYPE == (platform_info::ArchType::ARM | platform_info::ArchType::BIT64))
-        {*/
-        asmjit_compiler_aarch64 compiler;
-        compiler.analyze_jit(codebuf, env);
-        /*}
+        {
+            asmjit_compiler_aarch64 compiler;
+            compiler.analyze_jit(codebuf, env);
+        }
         else
         {
             wo_error("No jit function support.");
-        }*/
+        }
     }
     void free_jit(runtime_env* env)
     {
