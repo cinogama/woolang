@@ -2418,13 +2418,15 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                 wo_asure(!ctx->c.cmp(tmp, tmp2));
                 wo_asure(!ctx->c.b_ge(x86_cmp_fail));
 
-                wo_asure(!ctx->c.mov(type_tmp, 1));
+                auto result = ctx->c.newInt64();
+
+                wo_asure(!ctx->c.mov(result, 1));
                 wo_asure(!ctx->c.b(x86_cmp_end));
                 wo_asure(!ctx->c.bind(x86_cmp_fail));
-                wo_asure(!ctx->c.mov(type_tmp, 0));
+                wo_asure(!ctx->c.mov(result, 0));
                 wo_asure(!ctx->c.bind(x86_cmp_end));
 
-                wo_asure(!ctx->c.strb(type_tmp, asmjit::a64::Mem(ctx->_vmcr, offsetof(value, integer))));
+                wo_asure(!ctx->c.str(result, asmjit::a64::Mem(ctx->_vmcr, offsetof(value, integer))));
                 });
             return true;
         }
