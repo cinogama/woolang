@@ -1983,7 +1983,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                 return fnd->second;
 
             auto gp = c.newInt64();
-            c.mov(gp, val);
+            c.ldr(gp, c.newInt64Const(asmjit::ConstPoolScope::kLocal, val));
             return m_int_constant_pool[val] = gp;
         }
         asmjit::a64::Vec load_float64(wo_real_t val)
@@ -1993,7 +1993,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                 return fnd->second;
 
             auto dvec = c.newVecD();
-            c.fmov(dvec, val);
+            c.ldr(dvec, c.newDoubleConst(asmjit::ConstPoolScope::kLocal, val));
             return m_f64_constant_pool[val] = dvec;
         }
         void generate(const std::function<void(void)>& opt)
