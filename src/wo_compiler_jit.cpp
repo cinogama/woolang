@@ -800,8 +800,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
         static asmjit::x86::Gp x86_set_imm(asmjit::x86::Compiler& x86compiler, asmjit::x86::Gp val, const wo::value& instance)
         {
-            // ATTENTION:
-            //  Here will no thread safe and mem-branch prevent.
             wo_asure(!x86compiler.mov(asmjit::x86::byte_ptr(val, offsetof(value, type)), (uint8_t)instance.type));
 
             auto data_of_val = x86compiler.newUInt64();
@@ -812,8 +810,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
         }
         static asmjit::x86::Gp x86_set_val(asmjit::x86::Compiler& x86compiler, asmjit::x86::Gp val, asmjit::x86::Gp val2)
         {
-            // ATTENTION:
-            //  Here will no thread safe and mem-branch prevent.
             auto type_of_val2 = x86compiler.newUInt8();
             wo_asure(!x86compiler.mov(type_of_val2, asmjit::x86::byte_ptr(val2, offsetof(value, type))));
             wo_asure(!x86compiler.mov(asmjit::x86::byte_ptr(val, offsetof(value, type)), type_of_val2));
@@ -2166,24 +2162,28 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
         }
         void a64_set_val(AArch64CompileContext* ctx, const aarch64_addresing& target, const aarch64_addresing& val)
         {
-            auto tmp1 = ctx->c.newInt64();
-            auto tmp2 = ctx->c.newInt64();
-            wo_asure(!ctx->c.ldp(tmp1, tmp2, asmjit::a64::Mem(val.get_addr())));
-            wo_asure(!ctx->c.stp(tmp1, tmp2, asmjit::a64::Mem(val.get_addr())));
+            auto tmp = ctx->c.newInt64();
+            wo_asure(!ctx->c.ldr(tmp, asmjit::a64::Mem(val.get_addr(), offsetof(value, integer))));
+            wo_asure(!ctx->c.str(tmp, asmjit::a64::Mem(target.get_addr(), offsetof(value, integer))));
+            tmp = ctx->c.newGpw();
+            wo_asure(!ctx->c.ldrb(tmp, asmjit::a64::Mem(val.get_addr(), offsetof(value, type))));
+            wo_asure(!ctx->c.strb(tmp, asmjit::a64::Mem(target.get_addr(), offsetof(value, type))));
         }
         void a64_set_imm_to_addr(AArch64CompileContext* ctx, asmjit::a64::Gp& addr, const wo::value* immval)
         {
-            wo_asure(!ctx->c.str(ctx->load_int64(immval->integer), asmjit::a64::Mem(addr, offsetof(value, handle))));
+            wo_asure(!ctx->c.str(ctx->load_int64(immval->integer), asmjit::a64::Mem(addr, offsetof(value, integer))));
             auto tmp = ctx->c.newGpw();
             wo_asure(!ctx->c.mov(tmp, immval->type));
             wo_asure(!ctx->c.strb(tmp, asmjit::a64::Mem(addr, offsetof(value, type))));
         }
         void a64_set_val_to_addr(AArch64CompileContext* ctx, asmjit::a64::Gp& addr, const aarch64_addresing& val)
         {
-            auto tmp1 = ctx->c.newInt64();
-            auto tmp2 = ctx->c.newInt64();
-            wo_asure(!ctx->c.ldp(tmp1, tmp2, asmjit::a64::Mem(val.get_addr())));
-            wo_asure(!ctx->c.stp(tmp1, tmp2, asmjit::a64::Mem(addr)));
+            auto tmp = ctx->c.newInt64();
+            wo_asure(!ctx->c.ldr(tmp, asmjit::a64::Mem(val.get_addr(), offsetof(value, integer))));
+            wo_asure(!ctx->c.str(tmp, asmjit::a64::Mem(addr, offsetof(value, integer))));
+            tmp = ctx->c.newGpw();
+            wo_asure(!ctx->c.ldrb(tmp, asmjit::a64::Mem(val.get_addr(), offsetof(value, type))));
+            wo_asure(!ctx->c.strb(tmp, asmjit::a64::Mem(addr, offsetof(value, type))));
         }
 
         static void make_checkpoint(asmjit::a64::Compiler& x86compiler, asmjit::a64::Gp rtvm, asmjit::a64::Gp stack_sp, asmjit::a64::Gp stack_bp, const byte_t* ip)
