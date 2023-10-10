@@ -63,7 +63,6 @@ namespace wo
             // If vm's type is GC_DESTRUCTOR, GC_THREAD will not trying to pause it.
             GC_DESTRUCTOR,
         };
-        vm_type virtual_machine_type = vm_type::NORMAL;
 
         enum vm_interrupt_type
         {
@@ -138,15 +137,6 @@ namespace wo
         };
         static_assert(sizeof(std::atomic<uint32_t>) == sizeof(uint32_t));
         static_assert(std::atomic<uint32_t>::is_always_lock_free);
-
-    private:
-        std::mutex _vm_hang_mx;
-        std::condition_variable _vm_hang_cv;
-        std::atomic_int8_t _vm_hang_flag = 0;
-
-        bool _vm_br_yieldable = false;
-        bool _vm_br_yield_flag = false;
-
     protected:
         inline static debuggee_base* attaching_debuggee = nullptr;
 
@@ -389,11 +379,6 @@ namespace wo
                 --env->_running_on_vm_count;
         }
 
-        lexer* compile_info = nullptr;
-
-        // next ircode pointer
-        const byte_t* ip = nullptr;
-
         // special regist
         value* cr = nullptr;  // op result trace & function return;
         value* tc = nullptr;  // arugument count
@@ -403,16 +388,31 @@ namespace wo
         value* sp = nullptr;
         value* bp = nullptr;
 
-        value* stack_mem_begin = nullptr;
         value* register_mem_begin = nullptr;
         value* const_global_begin = nullptr;
+        value* stack_mem_begin = nullptr;
 
         value* _self_stack_reg_mem_buf = nullptr;
         size_t stack_size = 0;
 
         vmbase* gc_vm;
 
+        lexer* compile_info = nullptr;
+
+        // next ircode pointer
+        const byte_t* ip = nullptr;
+
         shared_pointer<runtime_env> env;
+
+        vm_type virtual_machine_type = vm_type::NORMAL;
+    private:
+        std::mutex _vm_hang_mx;
+        std::condition_variable _vm_hang_cv;
+        std::atomic_int8_t _vm_hang_flag = 0;
+
+        bool _vm_br_yieldable = false;
+        bool _vm_br_yield_flag = false;
+    public:
         void set_runtime(shared_pointer<runtime_env>& runtime_environment)
         {
             wo_asure(wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
