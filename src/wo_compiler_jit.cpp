@@ -1967,6 +1967,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
         asmjit::a64::Gp _vmsbp;
         asmjit::a64::Gp _vmssp;
         asmjit::a64::Gp _vmreg;
+        asmjit::a64::Gp _vmglb;
         asmjit::a64::Gp _vmcr;
         asmjit::a64::Gp _vmtc;
 
@@ -2060,10 +2061,12 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                     if (offset < env->constant_value_count)
                     {
                         m_constant = env->constant_global_reg_rtstack + offset;
-                        if(m_constant->type != value::valuetype::real_type);// TODO: Cache real?
-                        context->load_int64(m_constant->integer);
+                        if (m_constant->type != value::valuetype::real_type)
+                            context->load_int64(m_constant->integer);
+                        else
+                            context->load_float64(m_constant->real);
                     }
-                    m_offset = (ptrdiff_t)env->constant_global_reg_rtstack + offset;
+                    m_offset = offset * sizeof(value);
                 }
             }
             asmjit::a64::Gp get_addr(AArch64CompileContext* context)const
@@ -2081,7 +2084,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                 }
                 else
                 {
-                    wo_asure(!context->c.mov(addr, (intptr_t)m_offset));
+                    wo_asure(!context->c.mov(addr, m_offset));
+                    wo_asure(!context->c.add(addr, addr, context->_vmglb));
                 }
                 return addr;
             }
@@ -2089,30 +2093,30 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             {
                 if (m_type == addressing_type::BPOFFSET)
                 {
-                    return asmjit::a64::Mem(context->_vmsbp, m_offset + offsetof(value, integer));
+                    return asmjit::a64::Mem(context->_vmsbp, (int32_t)(m_offset + offsetof(value, integer)));
                 }
                 else if (m_type == addressing_type::REGISTER)
                 {
-                    return asmjit::a64::Mem(context->_vmreg, m_offset + offsetof(value, integer));
+                    return asmjit::a64::Mem(context->_vmreg, (int32_t)(m_offset + offsetof(value, integer)));
                 }
                 else
                 {
-                    return asmjit::a64::Mem((intptr_t)m_offset + offsetof(value, integer));
+                    return asmjit::a64::Mem(context->_vmglb, (int32_t)(m_offset + offsetof(value, integer)));
                 }
             }
             asmjit::a64::Mem get_type(AArch64CompileContext* context) const
             {
                 if (m_type == addressing_type::BPOFFSET)
                 {
-                    return asmjit::a64::Mem(context->_vmsbp, m_offset + offsetof(value, type));
+                    return asmjit::a64::Mem(context->_vmsbp, (int32_t)(m_offset + offsetof(value, type)));
                 }
                 else if (m_type == addressing_type::REGISTER)
                 {
-                    return asmjit::a64::Mem(context->_vmreg, m_offset + offsetof(value, type));
+                    return asmjit::a64::Mem(context->_vmreg, (int32_t)(m_offset + offsetof(value, type)));
                 }
                 else
                 {
-                    return asmjit::a64::Mem((intptr_t)m_offset + offsetof(value, type));
+                    return asmjit::a64::Mem(context->_vmglb, (int32_t)(m_offset + offsetof(value, type)));
                 }
             }
         };
@@ -2141,6 +2145,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             state->m_jitfunc->setArg(1, ctx->_vmsbp);
             wo_asure(!ctx->c.sub(ctx->_vmsbp, ctx->_vmsbp, 2 * sizeof(wo::value)));
             wo_asure(!ctx->c.mov(ctx->_vmssp, ctx->_vmsbp));                    // let sp = bp;
+            wo_asure(!ctx->c.ldr(ctx->_vmglb, intptr_ptr(ctx->_vmbase, offsetof(vmbase, const_global_begin))));
             wo_asure(!ctx->c.ldr(ctx->_vmreg, intptr_ptr(ctx->_vmbase, offsetof(vmbase, register_mem_begin))));
             wo_asure(!ctx->c.ldr(ctx->_vmcr, intptr_ptr(ctx->_vmbase, offsetof(vmbase, cr))));
             wo_asure(!ctx->c.ldr(ctx->_vmtc, intptr_ptr(ctx->_vmbase, offsetof(vmbase, tc))));

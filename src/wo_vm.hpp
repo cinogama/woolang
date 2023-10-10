@@ -405,6 +405,8 @@ namespace wo
 
         value* stack_mem_begin = nullptr;
         value* register_mem_begin = nullptr;
+        value* const_global_begin = nullptr;
+
         value* _self_stack_reg_mem_buf = nullptr;
         size_t stack_size = 0;
 
@@ -419,6 +421,7 @@ namespace wo
             
             stack_mem_begin = runtime_environment->stack_begin;
             register_mem_begin = runtime_environment->reg_begin;
+            const_global_begin = runtime_environment->constant_global_reg_rtstack;
             stack_size = runtime_environment->runtime_stack_count;
 
             ip = runtime_environment->rt_codes;
@@ -448,6 +451,8 @@ namespace wo
             new_vm->gc_vm = get_or_alloc_gcvm();
 
             wo_asure(wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(new_vm))));
+
+            new_vm->const_global_begin = const_global_begin;
 
             if (!stack_sz)
                 stack_sz = env->runtime_stack_count;
@@ -1394,7 +1399,7 @@ namespace wo
             const byte_t* rt_ip;
             value* rt_bp,
                 * rt_sp;
-            value* const_global_begin = rt_env->constant_global_reg_rtstack;
+            value* global_begin = const_global_begin;
             value* reg_begin = register_mem_begin;
             value* const    rt_cr = cr;
 
@@ -1422,7 +1427,7 @@ namespace wo
                             )\
                         :\
                         (\
-                            WO_IPVAL_MOVE_4 + const_global_begin\
+                            WO_IPVAL_MOVE_4 + global_begin\
                         ))
 
 #define WO_ADDRESSING_N2 value * opnum2 = ((dr & 0b01) ?\
@@ -1434,7 +1439,7 @@ namespace wo
                             )\
                         :\
                         (\
-                            WO_IPVAL_MOVE_4 + const_global_begin\
+                            WO_IPVAL_MOVE_4 + global_begin\
                         ))
 #define WO_ADDRESSING_N3_REG_BPOFF value * opnum3 = \
                             (WO_IPVAL & (1 << 7)) ?\
