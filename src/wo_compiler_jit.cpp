@@ -2336,8 +2336,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
         static void make_checkpoint(AArch64CompileContext* ctx, const byte_t* ip)
         {
-            return;
-
             auto no_interrupt_label = ctx->c.newLabel();
             static_assert(sizeof(wo::vmbase::fast_ro_vm_interrupt) == 4);
 
@@ -2347,6 +2345,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             wo_asure(!ctx->c.b_eq(no_interrupt_label));
 
             auto interrupt = ctx->c.newInt32();
+            auto ipaddr = ctx->load_int64((intptr_t)ip);
 
             asmjit::InvokeNode* invoke_node;
             wo_asure(!ctx->c.invoke(&invoke_node, ctx->load_int64((intptr_t)&_invoke_vm_checkpoint),
@@ -2354,7 +2353,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             invoke_node->setArg(0, ctx->_vmbase);
             invoke_node->setArg(1, ctx->_vmssp);
             invoke_node->setArg(2, ctx->_vmsbp);
-            invoke_node->setArg(3, asmjit::Imm((intptr_t)ip));
+            invoke_node->setArg(3, ipaddr);
 
             invoke_node->setRet(0, interrupt);
 
