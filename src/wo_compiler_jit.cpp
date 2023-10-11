@@ -450,7 +450,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                 delete holder;
         }
 
-        static int32_t _invoke_vm_checkpoint(wo::vmbase* vmm, wo::value* rt_sp, wo::value* rt_bp, const byte_t* rt_ip)
+        static int64_t _invoke_vm_checkpoint(wo::vmbase* vmm, wo::value* rt_sp, wo::value* rt_bp, const byte_t* rt_ip)
         {
             if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::GC_INTERRUPT)
             {
@@ -834,7 +834,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             wo_asure(!x86compiler.cmp(asmjit::x86::dword_ptr(rtvm, offsetof(wo::vmbase, fast_ro_vm_interrupt)), 0));
             wo_asure(!x86compiler.je(no_interrupt_label));
 
-            auto interrupt = x86compiler.newInt32();
+            auto interrupt = x86compiler.newInt64();
 
             asmjit::InvokeNode* invoke_node;
             wo_asure(!x86compiler.invoke(&invoke_node, (intptr_t)&_invoke_vm_checkpoint,
@@ -2342,6 +2342,17 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
         static void make_checkpoint(AArch64CompileContext* ctx, const byte_t* ip)
         {
+            auto ipaddr = ctx->load_int64((intptr_t)ip);
+
+            asmjit::InvokeNode* invoke_node;
+            wo_asure(!ctx->c.invoke(&invoke_node, ctx->load_int64((intptr_t)&_invoke_fake_vm_checkpoint),
+                asmjit::FuncSignatureT<int64_t, vmbase*, value*, value*, const byte_t*>()));
+            invoke_node->setArg(0, ctx->_vmbase);
+            invoke_node->setArg(1, ctx->_vmssp);
+            invoke_node->setArg(2, ctx->_vmsbp);
+            invoke_node->setArg(3, ipaddr);
+
+            return;
             auto no_interrupt_label = ctx->c.newLabel();
             static_assert(sizeof(wo::vmbase::fast_ro_vm_interrupt) == 4);
 
@@ -2351,8 +2362,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             wo_asure(!ctx->c.b_eq(no_interrupt_label));
 
             auto interrupt = ctx->c.newInt64();
-            auto ipaddr = ctx->load_int64((intptr_t)ip);
-
+            
             asmjit::InvokeNode* invoke_node;
             wo_asure(!ctx->c.invoke(&invoke_node, ctx->load_int64((intptr_t)&_invoke_fake_vm_checkpoint),
                 asmjit::FuncSignatureT<int64_t, vmbase*, value*, value*, const byte_t*>()));
