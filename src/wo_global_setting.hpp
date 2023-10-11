@@ -45,15 +45,19 @@ namespace wo
 #if defined(_M_IX86) || defined(__i386__)
             ArchType::X86 | 0;
 #           define WO_PLATFORM_32 
+#           define WO_PLATFORM_X86
 #elif  defined(__x86_64__) || defined(_M_X64) 
             ArchType::X86 | ArchType::BIT64;
 #           define WO_PLATFORM_64
+#           define WO_PLATFORM_X64
 #elif  defined(_M_ARM)||defined(__arm__)
             ArchType::ARM | 0;
 #           define WO_PLATFORM_32 
+#           define WO_PLATFORM_ARM
 #elif  defined(__aarch64__) ||defined(_M_ARM64) 
             ArchType::ARM | ArchType::BIT64;
 #           define WO_PLATFORM_64
+#           define WO_PLATFORM_ARM64
 #else
             ArchType::UNKNOWN | (sizeof(size_t) == 64 ? ArchType::BIT64 : ArchType::UNKNOWN);
 #endif

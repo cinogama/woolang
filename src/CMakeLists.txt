@@ -33,6 +33,9 @@ endif()
 
 if(${WO_SUPPORT_ASMJIT})
     list(APPEND woo_system_libs asmjit)
+    if (NOT WIN32)
+        target_compile_options (asmjit PRIVATE -fPIC)
+    endif()
 endif()
 
 target_link_libraries(woolang ${woo_system_libs})

@@ -28,9 +28,11 @@ main(); // Execute `main`
 
 ### 自动构建与安装
 
-推荐使用 [Chief_Reloaded](https://github.com/BiDuang/Chief_Reloaded) 来自动化管理和安装 Woolang 编译器。  
+<del>推荐使用 [Chief_Reloaded](https://github.com/BiDuang/Chief_Reloaded) 来自动化管理和安装 Woolang 编译器。  </del>
 
-**注意: [Chief](https://github.com/BiDuang/Chief) 已不赞成使用, 其源码已过时且有较大性能问题, 请尽快迁移至 [Chief_Reloaded](https://github.com/BiDuang/Chief_Reloaded)。**
+<del>注意: [Chief](https://github.com/BiDuang/Chief) 已不赞成使用, 其源码已过时且有较大性能问题, 请尽快迁移至 [Chief_Reloaded](https://github.com/BiDuang/Chief_Reloaded)。</del>
+
+新版本 Chief 开发中，在此之前请先手动构建或下载现成产物。
 
 ### 手动构建
 
@@ -65,7 +67,7 @@ del CMakeCache.txt
 cmake .. -DWO_MAKE_OUTPUT_IN_SAME_PATH=ON -DCMAKE_BUILD_TYPE=RELWITHDEBINFO -DBUILD_SHARED_LIBS=ON
 ```
 
-如果在尝试构建时出错，可能是由于系统平台 ( 如 `ARM-x64` 等 ) 不支持 `JIT`, 导致构建失败, 详见 [#145](https://git.cinogama.net/cinogamaproject/woolang/-/issues/145)。
+如果在尝试构建时出错，可能是由于系统平台不支持 `JIT`（目前仅支持 x86_64 和 aarch64）, 导致构建失败, 详见 [#145](https://git.cinogama.net/cinogamaproject/woolang/-/issues/145)。
 
 若要禁用 `JIT` 支持, 只需将最后一句命令改为:
 
@@ -73,9 +75,9 @@ cmake .. -DWO_MAKE_OUTPUT_IN_SAME_PATH=ON -DCMAKE_BUILD_TYPE=RELWITHDEBINFO -DBU
 cmake .. -DWO_MAKE_OUTPUT_IN_SAME_PATH=ON -DCMAKE_BUILD_TYPE=RELWITHDEBINFO -DBUILD_SHARED_LIBS=ON -DWO_SUPPORT_ASMJIT=OFF
 ```
 
-*禁用 JIT **可能** 导致少量的性能损失*
+*禁用 JIT 仅导致性能损失*
 
-4. 使用 `MSBuild` 构建 `.exe` 文件
+1. 使用 `MSBuild` 构建 `.exe` 文件
 
 打开 `Developer PowerShell for VS`, 一般情况下它位于 `开始菜单` -> `程序` -> `Visual Studio`
 

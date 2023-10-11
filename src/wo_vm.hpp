@@ -63,7 +63,6 @@ namespace wo
             // If vm's type is GC_DESTRUCTOR, GC_THREAD will not trying to pause it.
             GC_DESTRUCTOR,
         };
-        vm_type virtual_machine_type = vm_type::NORMAL;
 
         enum vm_interrupt_type
         {
@@ -138,15 +137,6 @@ namespace wo
         };
         static_assert(sizeof(std::atomic<uint32_t>) == sizeof(uint32_t));
         static_assert(std::atomic<uint32_t>::is_always_lock_free);
-
-    private:
-        std::mutex _vm_hang_mx;
-        std::condition_variable _vm_hang_cv;
-        std::atomic_int8_t _vm_hang_flag = 0;
-
-        bool _vm_br_yieldable = false;
-        bool _vm_br_yield_flag = false;
-
     protected:
         inline static debuggee_base* attaching_debuggee = nullptr;
 
@@ -389,11 +379,6 @@ namespace wo
                 --env->_running_on_vm_count;
         }
 
-        lexer* compile_info = nullptr;
-
-        // next ircode pointer
-        const byte_t* ip = nullptr;
-
         // special regist
         value* cr = nullptr;  // op result trace & function return;
         value* tc = nullptr;  // arugument count
@@ -403,22 +388,40 @@ namespace wo
         value* sp = nullptr;
         value* bp = nullptr;
 
-        value* stack_mem_begin = nullptr;
         value* register_mem_begin = nullptr;
+        value* const_global_begin = nullptr;
+        value* stack_mem_begin = nullptr;
+
         value* _self_stack_reg_mem_buf = nullptr;
         size_t stack_size = 0;
 
         vmbase* gc_vm;
 
+        lexer* compile_info = nullptr;
+
+        // next ircode pointer
+        const byte_t* ip = nullptr;
+
         shared_pointer<runtime_env> env;
+
+        vm_type virtual_machine_type = vm_type::NORMAL;
+    private:
+        std::mutex _vm_hang_mx;
+        std::condition_variable _vm_hang_cv;
+        std::atomic_int8_t _vm_hang_flag = 0;
+
+        bool _vm_br_yieldable = false;
+        bool _vm_br_yield_flag = false;
+    public:
         void set_runtime(shared_pointer<runtime_env>& runtime_environment)
         {
             wo_asure(wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
 
             wo_assert(nullptr == _self_stack_reg_mem_buf);
-            
+
             stack_mem_begin = runtime_environment->stack_begin;
             register_mem_begin = runtime_environment->reg_begin;
+            const_global_begin = runtime_environment->constant_global_reg_rtstack;
             stack_size = runtime_environment->runtime_stack_count;
 
             ip = runtime_environment->rt_codes;
@@ -448,6 +451,8 @@ namespace wo
             new_vm->gc_vm = get_or_alloc_gcvm();
 
             wo_asure(wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(new_vm))));
+
+            new_vm->const_global_begin = const_global_begin;
 
             if (!stack_sz)
                 stack_sz = env->runtime_stack_count;
@@ -941,7 +946,7 @@ namespace wo
                     // modified. We will get broken call stack info and we should stop.
                     if (base_callstackinfo_ptr > stack_mem_begin || base_callstackinfo_ptr < stack_mem_begin - (stack_size - 1))
                     {
-                        os << call_trace_count + 1  << ": ??" << std::endl;
+                        os << call_trace_count + 1 << ": ??" << std::endl;
                         break;
                     }
                 }
@@ -1300,10 +1305,14 @@ namespace wo
 #define WO_IPVAL_MOVE_1 (*(rt_ip++))
 
             // X86 support non-alligned addressing, so just do it!
+#define WO_FAST_READ_MOVE_2 (*(uint16_t*)((rt_ip += 2) - 2))
+#define WO_FAST_READ_MOVE_4 (*(uint32_t*)((rt_ip += 4) - 4))
+#define WO_FAST_READ_MOVE_8 (*(uint64_t*)((rt_ip += 8) - 8))
 
-#define WO_IPVAL_MOVE_2 ((ARCH & platform_info::ArchType::X86)?(*(uint16_t*)((rt_ip += 2) - 2)):((uint16_t)WO_SAFE_READ_MOVE_2))
-#define WO_IPVAL_MOVE_4 ((ARCH & platform_info::ArchType::X86)?(*(uint32_t*)((rt_ip += 4) - 4)):((uint32_t)WO_SAFE_READ_MOVE_4))
-#define WO_IPVAL_MOVE_8 ((ARCH & platform_info::ArchType::X86)?(*(uint64_t*)((rt_ip += 8) - 8)):((uint64_t)WO_SAFE_READ_MOVE_8))
+
+#define WO_IPVAL_MOVE_2 ((ARCH & platform_info::ArchType::X86)?(WO_FAST_READ_MOVE_2):((uint16_t)WO_SAFE_READ_MOVE_2))
+#define WO_IPVAL_MOVE_4 ((ARCH & platform_info::ArchType::X86)?(WO_FAST_READ_MOVE_4):((uint32_t)WO_SAFE_READ_MOVE_4))
+#define WO_IPVAL_MOVE_8 ((ARCH & platform_info::ArchType::X86)?(WO_FAST_READ_MOVE_8):((uint64_t)WO_SAFE_READ_MOVE_8))
 
     };
 
@@ -1317,6 +1326,78 @@ namespace wo
         }
 
     public:
+        inline static void ltx_impl(value* result, value* opnum1, value* opnum2)
+        {
+            switch (opnum1->type)
+            {
+            case value::valuetype::integer_type:
+                result->set_bool(opnum1->integer < opnum2->integer); break;
+            case value::valuetype::handle_type:
+                result->set_bool(opnum1->handle < opnum2->handle); break;
+            case value::valuetype::real_type:
+                result->set_bool(opnum1->real < opnum2->real); break;
+            case value::valuetype::string_type:
+                result->set_bool(*opnum1->string < *opnum2->string); break;
+            default:
+                result->set_bool(false);
+                wo_fail(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
+                break;
+            }
+        }
+        inline static void eltx_impl(value* result, value* opnum1, value* opnum2)
+        {
+            switch (opnum1->type)
+            {
+            case value::valuetype::integer_type:
+                result->set_bool(opnum1->integer <= opnum2->integer); break;
+            case value::valuetype::handle_type:
+                result->set_bool(opnum1->handle <= opnum2->handle); break;
+            case value::valuetype::real_type:
+                result->set_bool(opnum1->real <= opnum2->real); break;
+            case value::valuetype::string_type:
+                result->set_bool(*opnum1->string <= *opnum2->string); break;
+            default:
+                result->set_bool(false);
+                wo_fail(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
+                break;
+            }
+        }
+        inline static void gtx_impl(value* result, value* opnum1, value* opnum2)
+        {
+            switch (opnum1->type)
+            {
+            case value::valuetype::integer_type:
+                result->set_bool(opnum1->integer > opnum2->integer); break;
+            case value::valuetype::handle_type:
+                result->set_bool(opnum1->handle > opnum2->handle); break;
+            case value::valuetype::real_type:
+                result->set_bool(opnum1->real > opnum2->real); break;
+            case value::valuetype::string_type:
+                result->set_bool(*opnum1->string > *opnum2->string); break;
+            default:
+                result->set_bool(false);
+                wo_fail(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
+                break;
+            }
+        }
+        inline static void egtx_impl(value* result, value* opnum1, value* opnum2)
+        {
+            switch (opnum1->type)
+            {
+            case value::valuetype::integer_type:
+                result->set_bool(opnum1->integer >= opnum2->integer); break;
+            case value::valuetype::handle_type:
+                result->set_bool(opnum1->handle >= opnum2->handle); break;
+            case value::valuetype::real_type:
+                result->set_bool(opnum1->real >= opnum2->real); break;
+            case value::valuetype::string_type:
+                result->set_bool(*opnum1->string >= *opnum2->string); break;
+            default:
+                result->set_bool(false);
+                wo_fail(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
+                break;
+            }
+        }
         inline static value* make_union_impl(value* opnum1, value* opnum2, uint16_t id)
         {
             opnum1->set_gcunit<value::valuetype::struct_type>(
@@ -1326,6 +1407,47 @@ namespace wo
             opnum1->structs->m_values[1].set_val(opnum2);
 
             return opnum1;
+        }
+        inline static value* make_closure_fast_impl(value* opnum1, const byte_t* rt_ip, value* rt_sp)
+        {
+            bool is_native_call = !!(0b0011 & *(rt_ip - 1));
+            uint16_t closure_arg_count = WO_FAST_READ_MOVE_2;
+
+            auto* created_closure = closure_t::gc_new<gcbase::gctype::young>(closure_arg_count);
+            created_closure->m_native_call = is_native_call;
+
+            if (is_native_call)
+                created_closure->m_native_func = (wo_native_func)WO_FAST_READ_MOVE_8;
+            else
+                created_closure->m_vm_func = WO_FAST_READ_MOVE_4;
+
+            for (size_t i = 0; i < (size_t)closure_arg_count; i++)
+            {
+                auto* arg_val = ++rt_sp;
+                created_closure->m_closure_args[i].set_val(arg_val);
+            }
+            opnum1->set_gcunit<wo::value::valuetype::closure_type>(created_closure);
+            return rt_sp;
+        }
+        inline static value* make_closure_safe_impl(value* opnum1, const byte_t* rt_ip, value* rt_sp)
+        {
+            uint16_t closure_arg_count = WO_FAST_READ_MOVE_2;
+
+            auto* created_closure = closure_t::gc_new<gcbase::gctype::young>(closure_arg_count);
+            created_closure->m_native_call = !!(0b0011 & *(rt_ip - 1));
+
+            if (created_closure->m_native_call)
+                created_closure->m_native_func = (wo_native_func)WO_FAST_READ_MOVE_8;
+            else
+                created_closure->m_vm_func = WO_FAST_READ_MOVE_4;
+
+            for (size_t i = 0; i < (size_t)closure_arg_count; i++)
+            {
+                auto* arg_val = ++rt_sp;
+                created_closure->m_closure_args[i].set_val(arg_val);
+            }
+            opnum1->set_gcunit<wo::value::valuetype::closure_type>(created_closure);
+            return rt_sp;
         }
         inline static value* make_array_impl(value* opnum1, uint16_t size, value* rt_sp)
         {
@@ -1362,7 +1484,37 @@ namespace wo
 
             return rt_sp + size;
         }
+        inline static void movcast_impl(value* opnum1, value* opnum2, value::valuetype aim_type)
+        {
+            if (aim_type == opnum2->type)
+                opnum1->set_val(opnum2);
+            else
+                switch (aim_type)
+                {
+                case value::valuetype::integer_type:
+                    opnum1->set_integer(wo_cast_int(std::launder(reinterpret_cast<wo_value>(opnum2)))); break;
+                case value::valuetype::real_type:
+                    opnum1->set_real(wo_cast_real(std::launder(reinterpret_cast<wo_value>(opnum2)))); break;
+                case value::valuetype::handle_type:
+                    opnum1->set_handle(wo_cast_handle(std::launder(reinterpret_cast<wo_value>(opnum2)))); break;
+                case value::valuetype::string_type:
+                    opnum1->set_string(wo_cast_string(std::launder(reinterpret_cast<wo_value>(opnum2)))); break;
+                case value::valuetype::bool_type:
+                    opnum1->set_bool(wo_cast_bool(std::launder(reinterpret_cast<wo_value>(opnum2)))); break;
+                case value::valuetype::array_type:
+                    wo_fail(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'array'.").c_str());
+                    break;
+                case value::valuetype::dict_type:
+                    wo_fail(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'map'.").c_str());
+                    break;
+                case value::valuetype::gchandle_type:
+                    wo_fail(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'gchandle'.").c_str());
+                    break;
+                default:
+                    wo_fail(WO_FAIL_TYPE_FAIL, "Unknown type.");
+                }
 
+        }
         // used for restoring local state
         template<typename T>
         struct _restore_raii
@@ -1394,7 +1546,7 @@ namespace wo
             const byte_t* rt_ip;
             value* rt_bp,
                 * rt_sp;
-            value* const_global_begin = rt_env->constant_global_reg_rtstack;
+            value* global_begin = const_global_begin;
             value* reg_begin = register_mem_begin;
             value* const    rt_cr = cr;
 
@@ -1422,7 +1574,7 @@ namespace wo
                             )\
                         :\
                         (\
-                            WO_IPVAL_MOVE_4 + const_global_begin\
+                            WO_IPVAL_MOVE_4 + global_begin\
                         ))
 
 #define WO_ADDRESSING_N2 value * opnum2 = ((dr & 0b01) ?\
@@ -1434,7 +1586,7 @@ namespace wo
                             )\
                         :\
                         (\
-                            WO_IPVAL_MOVE_4 + const_global_begin\
+                            WO_IPVAL_MOVE_4 + global_begin\
                         ))
 #define WO_ADDRESSING_N3_REG_BPOFF value * opnum3 = \
                             (WO_IPVAL & (1 << 7)) ?\
@@ -1643,7 +1795,7 @@ namespace wo
                         && opnum1->type == value::valuetype::string_type, "Operand should be string in 'adds'.");
 
                     opnum1->set_gcunit<wo::value::valuetype::string_type>(
-                         string_t::gc_new<gcbase::gctype::young>(*opnum1->string + *opnum2->string));
+                        string_t::gc_new<gcbase::gctype::young>(*opnum1->string + *opnum2->string));
                     break;
                 }
                 /// OPERATE
@@ -1659,36 +1811,9 @@ namespace wo
                 {
                     WO_ADDRESSING_N1;
                     WO_ADDRESSING_N2;
-
                     value::valuetype aim_type = static_cast<value::valuetype>(WO_IPVAL_MOVE_1);
-                    if (aim_type == opnum2->type)
-                        opnum1->set_val(opnum2);
-                    else
-                        switch (aim_type)
-                        {
-                        case value::valuetype::integer_type:
-                            opnum1->set_integer(wo_cast_int(std::launder(reinterpret_cast<wo_value>(opnum2)))); break;
-                        case value::valuetype::real_type:
-                            opnum1->set_real(wo_cast_real(std::launder(reinterpret_cast<wo_value>(opnum2)))); break;
-                        case value::valuetype::handle_type:
-                            opnum1->set_handle(wo_cast_handle(std::launder(reinterpret_cast<wo_value>(opnum2)))); break;
-                        case value::valuetype::string_type:
-                            opnum1->set_string(wo_cast_string(std::launder(reinterpret_cast<wo_value>(opnum2)))); break;
-                        case value::valuetype::bool_type:
-                            opnum1->set_bool(wo_cast_bool(std::launder(reinterpret_cast<wo_value>(opnum2)))); break;
-                        case value::valuetype::array_type:
-                            WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'array'.").c_str());
-                            break;
-                        case value::valuetype::dict_type:
-                            WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'map'.").c_str());
-                            break;
-                        case value::valuetype::gchandle_type:
-                            WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'gchandle'.").c_str());
-                            break;
-                        default:
-                            WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Unknown type.");
-                        }
 
+                    movcast_impl(opnum1, opnum2, aim_type);
                     break;
                 }
                 case instruct::opcode::typeas:
@@ -1912,21 +2037,7 @@ namespace wo
                     WO_VM_ASSERT(opnum1->type == opnum2->type,
                         "Operand type should be same in 'ltx'.");
 
-                    switch (opnum1->type)
-                    {
-                    case value::valuetype::integer_type:
-                        rt_cr->set_bool(opnum1->integer < opnum2->integer); break;
-                    case value::valuetype::handle_type:
-                        rt_cr->set_bool(opnum1->handle < opnum2->handle); break;
-                    case value::valuetype::real_type:
-                        rt_cr->set_bool(opnum1->real < opnum2->real); break;
-                    case value::valuetype::string_type:
-                        rt_cr->set_bool(*opnum1->string < *opnum2->string); break;
-                    default:
-                        rt_cr->set_bool(false);
-                        WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
-                        break;
-                    }
+                    ltx_impl(rt_cr, opnum1, opnum2);
 
                     break;
                 }
@@ -1937,22 +2048,8 @@ namespace wo
 
                     WO_VM_ASSERT(opnum1->type == opnum2->type,
                         "Operand type should be same in 'gtx'.");
-                    switch (opnum1->type)
-                    {
-                    case value::valuetype::integer_type:
-                        rt_cr->set_bool(opnum1->integer > opnum2->integer); break;
-                    case value::valuetype::handle_type:
-                        rt_cr->set_bool(opnum1->handle > opnum2->handle); break;
-                    case value::valuetype::real_type:
-                        rt_cr->set_bool(opnum1->real > opnum2->real); break;
-                    case value::valuetype::string_type:
-                        rt_cr->set_bool(*opnum1->string > *opnum2->string); break;
-                    default:
-                        rt_cr->set_bool(false);
-                        WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
-                        break;
-                    }
-
+                    
+                    gtx_impl(rt_cr, opnum1, opnum2);
 
                     break;
                 }
@@ -1964,21 +2061,7 @@ namespace wo
                     WO_VM_ASSERT(opnum1->type == opnum2->type,
                         "Operand type should be same in 'eltx'.");
 
-                    switch (opnum1->type)
-                    {
-                    case value::valuetype::integer_type:
-                        rt_cr->set_bool(opnum1->integer <= opnum2->integer); break;
-                    case value::valuetype::handle_type:
-                        rt_cr->set_bool(opnum1->handle <= opnum2->handle); break;
-                    case value::valuetype::real_type:
-                        rt_cr->set_bool(opnum1->real <= opnum2->real); break;
-                    case value::valuetype::string_type:
-                        rt_cr->set_bool(*opnum1->string <= *opnum2->string); break;
-                    default:
-                        rt_cr->set_bool(false);
-                        WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
-                        break;
-                    }
+                    eltx_impl(rt_cr, opnum1, opnum2);
 
                     break;
                 }
@@ -1990,21 +2073,7 @@ namespace wo
                     WO_VM_ASSERT(opnum1->type == opnum2->type,
                         "Operand type should be same in 'egtx'.");
 
-                    switch (opnum1->type)
-                    {
-                    case value::valuetype::integer_type:
-                        rt_cr->set_bool(opnum1->integer >= opnum2->integer); break;
-                    case value::valuetype::handle_type:
-                        rt_cr->set_bool(opnum1->handle >= opnum2->handle); break;
-                    case value::valuetype::real_type:
-                        rt_cr->set_bool(opnum1->real >= opnum2->real); break;
-                    case value::valuetype::string_type:
-                        rt_cr->set_bool(*opnum1->string >= *opnum2->string); break;
-                    default:
-                        rt_cr->set_bool(false);
-                        WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
-                        break;
-                    }
+                    egtx_impl(rt_cr, opnum1, opnum2);
 
                     break;
                 }
@@ -2396,8 +2465,6 @@ namespace wo
                     WO_VM_ASSERT(nullptr != opnum1->gcunit,
                         "Unable to index null in 'idstr'.");
 
-                    gcbase::gc_read_guard gwg1(opnum1->gcunit);
-
                     WO_VM_ASSERT(opnum2->type == value::valuetype::integer_type,
                         "Unable to index string by non-integer value in 'idstr'.");
                     wchar_t out_str = wo_str_get_char(opnum1->string->c_str(), opnum2->integer);
@@ -2417,28 +2484,16 @@ namespace wo
                 }
                 case instruct::opcode::mkclos:
                 {
-                    uint16_t closure_arg_count = WO_IPVAL_MOVE_2;
-
                     WO_VM_ASSERT((dr & 0b01) == 0,
                         "Found broken ir-code in 'mkclos'.");
 
-                    auto* created_closure = closure_t::gc_new<gcbase::gctype::young>(closure_arg_count);
-                    created_closure->m_native_call = !!dr;
-
-                    if (dr)
-                        created_closure->m_native_func = (wo_native_func)WO_IPVAL_MOVE_8;
+                    if constexpr(ARCH & platform_info::ArchType::X86)
+                        rt_sp = make_closure_fast_impl(rt_cr, rt_ip, rt_sp);
                     else
-                    {
-                        created_closure->m_vm_func = WO_IPVAL_MOVE_4;
-                        ip += 4;
-                    }
+                        rt_sp = make_closure_safe_impl(rt_cr, rt_ip, rt_sp);
 
-                    for (size_t i = 0; i < (size_t)closure_arg_count; i++)
-                    {
-                        auto* arg_val = ++rt_sp;
-                        created_closure->m_closure_args[i].set_val(arg_val);
-                    }
-                    rt_cr->set_gcunit<wo::value::valuetype::closure_type>(created_closure);
+                    rt_ip += (2 + 8);
+
                     break;
                 }
                 case instruct::opcode::ext:

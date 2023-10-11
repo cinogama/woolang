@@ -361,6 +361,8 @@ namespace test_template
         let result = invokable(fib:<int>, 10);
 
         test_equal(result, 55);
+        test_equal(fib:<int>(10), 55);
+        test_equal(fib:<real>(10.), fib:<real>(10.));
 
         test_cost_time:<int>();
         test_cost_time:<int>();
