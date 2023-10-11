@@ -2336,7 +2336,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
         static void make_checkpoint(AArch64CompileContext* ctx, const byte_t* ip)
         {
-            // TODO: OPTIMIZE!
+            return;
+
             auto no_interrupt_label = ctx->c.newLabel();
             static_assert(sizeof(wo::vmbase::fast_ro_vm_interrupt) == 4);
 
