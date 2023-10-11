@@ -1396,7 +1396,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto x86_equ_jmp_label = ctx->c.newLabel();
             auto x86_nequ_jmp_label = ctx->c.newLabel();
 
-            wo_asure(!ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type));
 
             auto int_of_op1 = ctx->c.newInt64();
             wo_asure(!ctx->c.mov(int_of_op1, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
@@ -1408,6 +1407,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             wo_asure(!ctx->c.bind(x86_nequ_jmp_label));
             wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
             wo_asure(!ctx->c.bind(x86_equ_jmp_label));
+
+            wo_asure(!ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type));
 
             return true;
         }
@@ -1421,8 +1422,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto x86_equ_jmp_label = ctx->c.newLabel();
             auto x86_nequ_jmp_label = ctx->c.newLabel();
 
-            wo_asure(!ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type));
-
             auto int_of_op1 = ctx->c.newInt64();
             wo_asure(!ctx->c.mov(int_of_op1, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
             wo_asure(!ctx->c.cmp(int_of_op1, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
@@ -1433,6 +1432,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             wo_asure(!ctx->c.bind(x86_nequ_jmp_label));
             wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 1));
             wo_asure(!ctx->c.bind(x86_equ_jmp_label));
+
+            wo_asure(!ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type));
 
             return true;
         }
@@ -1445,8 +1446,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
             auto x86_cmp_fail = ctx->c.newLabel();
             auto x86_cmp_end = ctx->c.newLabel();
-
-            ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
 
             if (opnum1.is_constant())
             {
@@ -1471,7 +1470,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             wo_asure(!ctx->c.bind(x86_cmp_fail));
             wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
             wo_asure(!ctx->c.bind(x86_cmp_end));
-
+            ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
             return true;
         }
         virtual bool ir_gti(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -1483,8 +1482,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
             auto x86_cmp_fail = ctx->c.newLabel();
             auto x86_cmp_end = ctx->c.newLabel();
-
-            ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
 
             if (opnum1.is_constant())
             {
@@ -1509,6 +1506,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             ctx->c.bind(x86_cmp_fail);
             wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
             ctx->c.bind(x86_cmp_end);
+            ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
 
             return true;
         }
@@ -1522,8 +1520,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto x86_cmp_fail = ctx->c.newLabel();
             auto x86_cmp_end = ctx->c.newLabel();
 
-            ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
-
             if (opnum1.is_constant())
             {
                 wo_asure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer)), opnum1.m_constant->integer));
@@ -1547,7 +1543,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             ctx->c.bind(x86_cmp_fail);
             wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
             ctx->c.bind(x86_cmp_end);
-
+            ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
             return true;
         }
         virtual bool ir_egti(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -1559,8 +1555,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
             auto x86_cmp_fail = ctx->c.newLabel();
             auto x86_cmp_end = ctx->c.newLabel();
-
-            ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
 
             if (opnum1.is_constant())
             {
@@ -1585,6 +1579,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             ctx->c.bind(x86_cmp_fail);
             wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
             ctx->c.bind(x86_cmp_end);
+            ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
 
             return true;
         }
@@ -1593,7 +1588,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
-            ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
             if (opnum1.is_constant() && opnum2.is_constant())
             {
                 if (opnum1.const_value()->integer && opnum2.const_value()->integer)
@@ -1638,6 +1632,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                 wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
                 wo_asure(!ctx->c.bind(land_end));
             }
+            ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
             return true;
         }
         virtual bool ir_lor(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -1645,7 +1640,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
-            ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
             if (opnum1.is_constant() && opnum2.is_constant())
             {
                 if (opnum1.const_value()->integer || opnum2.const_value()->integer)
@@ -1690,6 +1684,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                 wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 1));
                 wo_asure(!ctx->c.bind(land_end));
             }
+            ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
             return true;
         }
         virtual bool ir_sidmap(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -1795,7 +1790,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto x86_cmp_fail = ctx->c.newLabel();
             auto x86_cmp_end = ctx->c.newLabel();
 
-            ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
             auto real_of_op1 = ctx->c.newXmm();
             wo_asure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, real))));
             wo_asure(!ctx->c.comisd(real_of_op1, asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, real))));
@@ -1807,6 +1801,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             wo_asure(!ctx->c.bind(x86_cmp_fail));
             wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
             wo_asure(!ctx->c.bind(x86_cmp_end));
+            ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
 
             return true;
         }
@@ -1820,18 +1815,19 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto x86_cmp_fail = ctx->c.newLabel();
             auto x86_cmp_end = ctx->c.newLabel();
 
-            ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
             auto real_of_op1 = ctx->c.newXmm();
             wo_asure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, real))));
             wo_asure(!ctx->c.comisd(real_of_op1, asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, real))));
 
             wo_asure(!ctx->c.jbe(x86_cmp_fail));
-
+            
             wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 1));
             wo_asure(!ctx->c.jmp(x86_cmp_end));
             wo_asure(!ctx->c.bind(x86_cmp_fail));
+
             wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
             wo_asure(!ctx->c.bind(x86_cmp_end));
+            ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
 
             return true;
         }
@@ -1845,7 +1841,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto x86_cmp_fail = ctx->c.newLabel();
             auto x86_cmp_end = ctx->c.newLabel();
 
-            ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
             auto real_of_op1 = ctx->c.newXmm();
             wo_asure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, real))));
             wo_asure(!ctx->c.comisd(real_of_op1, asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, real))));
@@ -1857,6 +1852,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             wo_asure(!ctx->c.bind(x86_cmp_fail));
             wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
             wo_asure(!ctx->c.bind(x86_cmp_end));
+            ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
 
             return true;
         }
@@ -1870,7 +1866,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto x86_cmp_fail = ctx->c.newLabel();
             auto x86_cmp_end = ctx->c.newLabel();
 
-            ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
             auto real_of_op1 = ctx->c.newXmm();
             wo_asure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, real))));
             wo_asure(!ctx->c.comisd(real_of_op1, asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, real))));
@@ -1882,6 +1877,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             wo_asure(!ctx->c.bind(x86_cmp_fail));
             wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
             wo_asure(!ctx->c.bind(x86_cmp_end));
+            ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
 
             return true;
         }
@@ -2033,11 +2029,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             WO_JIT_ADDRESSING_N1;
             value::valuetype type = (value::valuetype)(WO_IPVAL_MOVE_1);
 
-            if (dr & 0b01)
-                wo_asure(!ctx->c.mov(
-                    asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)),
-                    (uint8_t)value::valuetype::bool_type));
-
             auto typeas_failed = ctx->c.newLabel();
             auto typeas_end = ctx->c.newLabel();
             wo_asure(!ctx->c.cmp(
@@ -2068,6 +2059,12 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                 invoke_node->setArg(1, (intptr_t)"The given value is not the same as the requested type.");
             }
             wo_asure(!ctx->c.bind(typeas_end));
+            if (dr & 0b01)
+            {
+                wo_asure(!ctx->c.mov(
+                    asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)),
+                    (uint8_t)value::valuetype::bool_type));
+            }
             return true;
         }
         virtual bool ir_mkstruct(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -2195,7 +2192,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto x86_cmp_fail = ctx->c.newLabel();
             auto x86_cmp_end = ctx->c.newLabel();
 
-            ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
             auto real_of_op1 = ctx->c.newXmm();
             wo_asure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, real))));
             wo_asure(!ctx->c.comisd(real_of_op1, asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, real))));
@@ -2209,6 +2205,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
             wo_asure(!ctx->c.bind(x86_cmp_end));
 
+            ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
+
             return true;
         }
         virtual bool ir_nequr(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -2221,7 +2219,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto x86_cmp_fail = ctx->c.newLabel();
             auto x86_cmp_end = ctx->c.newLabel();
 
-            ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
             auto real_of_op1 = ctx->c.newXmm();
             wo_asure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, real))));
             wo_asure(!ctx->c.comisd(real_of_op1, asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, real))));
@@ -2235,8 +2232,9 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
             wo_asure(!ctx->c.bind(x86_cmp_end));
 
-            return true;
+            ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
 
+            return true;
         }
         virtual bool ir_equs(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {

@@ -91,9 +91,28 @@ namespace test_helloworld
         test_assure(invoker(\n: int=a[n];) == 3);
     }
 
+    func foo_jit_bug_0(val: array<dynamic>)
+    {
+        if (val[0] is int)
+        {
+        }
+        else if (val[0] is real)
+        {
+        }
+        else
+            std::panic("invalid uniform type when restore.");
+    }
+
     func main()
     {
         using std;
+        
+        foo_jit_bug_0([
+            0.300000,
+            0.300000,
+            0.300000,
+            1.000000
+        ]: dynamic: array<dynamic>);
 
         func foo(_)
         {
