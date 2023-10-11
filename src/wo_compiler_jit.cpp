@@ -2171,7 +2171,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             asmjit::a64::Gp rt_bp)
         {
             asmjit::InvokeNode* invoke_node;
-            wo_asure(!ctx->c.invoke(&invoke_node, ctx->load_int64_mem((int64_t)&native_do_calln_nativefunc),
+            wo_asure(!ctx->c.invoke(&invoke_node, ctx->load_int64((int64_t)&native_do_calln_nativefunc),
                 asmjit::FuncSignatureT<void, vmbase*, wo_extern_native_func_t, const byte_t*, value*, value*>()));
 
             invoke_node->setArg(0, vm);
@@ -2190,7 +2190,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             asmjit::a64::Gp rt_bp)
         {
             asmjit::InvokeNode* invoke_node;
-            wo_asure(!ctx->c.invoke(&invoke_node, ctx->load_int64_mem((int64_t)&native_do_calln_nativefunc_fast),
+            wo_asure(!ctx->c.invoke(&invoke_node, ctx->load_int64((int64_t)&native_do_calln_nativefunc_fast),
                 asmjit::FuncSignatureT<void, vmbase*, wo_extern_native_func_t, const byte_t*, value*, value*>()));
 
             invoke_node->setArg(0, vm);
@@ -2217,7 +2217,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                     && *vm_func->m_func != nullptr);
 
                 asmjit::InvokeNode* invoke_node;
-                wo_asure(!ctx->c.invoke(&invoke_node, ctx->load_int64_mem((int64_t)&native_do_calln_vmfunc),
+                wo_asure(!ctx->c.invoke(&invoke_node, ctx->load_int64((int64_t)&native_do_calln_vmfunc),
                     asmjit::FuncSignatureT<void, vmbase*, wo_extern_native_func_t, const byte_t*, value*, value*>()));
 
                 invoke_node->setArg(0, vm);
@@ -2348,7 +2348,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto interrupt = ctx->c.newInt32();
 
             asmjit::InvokeNode* invoke_node;
-            wo_asure(!ctx->c.invoke(&invoke_node, ctx->load_int64_mem((intptr_t)&_invoke_vm_checkpoint),
+            wo_asure(!ctx->c.invoke(&invoke_node, ctx->load_int64((intptr_t)&_invoke_vm_checkpoint),
                 asmjit::FuncSignatureT<int32_t, vmbase*, value*, value*, const byte_t*>()));
             invoke_node->setArg(0, ctx->_vmbase);
             invoke_node->setArg(1, ctx->_vmssp);
@@ -3062,7 +3062,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
             ctx->generate([=]() {
                 asmjit::InvokeNode* invoke_node;
-                wo_asure(!ctx->c.invoke(&invoke_node, ctx->load_int64_mem((int64_t)&_vmjitcall_panic),
+                wo_asure(!ctx->c.invoke(&invoke_node, ctx->load_int64((int64_t)&_vmjitcall_panic),
                     asmjit::FuncSignatureT<void, wo::value*>()));
 
                 invoke_node->setArg(0, opnum1.get_addr());
