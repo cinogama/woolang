@@ -2334,7 +2334,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             wo_asure(!ctx->c.strb(tmp, asmjit::a64::Mem(target, offsetof(value, type))));
         }
 
-        static int32_t _invoke_fake_vm_checkpoint(wo::vmbase* vmm, wo::value* rt_sp, wo::value* rt_bp, const byte_t* rt_ip)
+        static int64_t _invoke_fake_vm_checkpoint(wo::vmbase* vmm, wo::value* rt_sp, wo::value* rt_bp, const byte_t* rt_ip)
         {
             printf(ANSI_HIC "\n\nFAKE_CHECK_POINT(%p)(%p)(%p)(%p)\n\n" ANSI_RST, vmm, rt_sp, rt_bp, rt_ip);
             return 0;
@@ -2350,12 +2350,12 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             wo_asure(!ctx->c.cmp(checkflag, 0));
             wo_asure(!ctx->c.b_eq(no_interrupt_label));
 
-            auto interrupt = ctx->c.newInt32();
+            auto interrupt = ctx->c.newInt64();
             auto ipaddr = ctx->load_int64((intptr_t)ip);
 
             asmjit::InvokeNode* invoke_node;
             wo_asure(!ctx->c.invoke(&invoke_node, ctx->load_int64((intptr_t)&_invoke_fake_vm_checkpoint),
-                asmjit::FuncSignatureT<int32_t, vmbase*, value*, value*, const byte_t*>()));
+                asmjit::FuncSignatureT<int64_t, vmbase*, value*, value*, const byte_t*>()));
             invoke_node->setArg(0, ctx->_vmbase);
             invoke_node->setArg(1, ctx->_vmssp);
             invoke_node->setArg(2, ctx->_vmsbp);
