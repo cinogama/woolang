@@ -2392,6 +2392,5 @@ namespace wo
     void free_jit(runtime_env* env)
     {
     }
-
-
+}
 #endif
