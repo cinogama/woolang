@@ -10,7 +10,7 @@
 #if WO_JIT_SUPPORT_ASMJIT
 
 #ifndef ASMJIT_STATIC
-#error Woolang should link asmjit statically.
+#define ASMJIT_STATIC
 #endif
 #include "asmjit/asmjit.h"
 
@@ -2098,6 +2098,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                     asmjit::FuncSignatureT< void, const char*>()));
                 invoke_node->setArg(0, (intptr_t)"executed 'abrt'.");
             }
+            return true;
         }
         virtual bool ir_idarr(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
