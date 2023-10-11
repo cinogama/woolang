@@ -1326,6 +1326,78 @@ namespace wo
         }
 
     public:
+        inline static void ltx_impl(value* result, value* opnum1, value* opnum2)
+        {
+            switch (opnum1->type)
+            {
+            case value::valuetype::integer_type:
+                result->set_bool(opnum1->integer < opnum2->integer); break;
+            case value::valuetype::handle_type:
+                result->set_bool(opnum1->handle < opnum2->handle); break;
+            case value::valuetype::real_type:
+                result->set_bool(opnum1->real < opnum2->real); break;
+            case value::valuetype::string_type:
+                result->set_bool(*opnum1->string < *opnum2->string); break;
+            default:
+                result->set_bool(false);
+                wo_fail(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
+                break;
+            }
+        }
+        inline static void eltx_impl(value* result, value* opnum1, value* opnum2)
+        {
+            switch (opnum1->type)
+            {
+            case value::valuetype::integer_type:
+                result->set_bool(opnum1->integer <= opnum2->integer); break;
+            case value::valuetype::handle_type:
+                result->set_bool(opnum1->handle <= opnum2->handle); break;
+            case value::valuetype::real_type:
+                result->set_bool(opnum1->real <= opnum2->real); break;
+            case value::valuetype::string_type:
+                result->set_bool(*opnum1->string <= *opnum2->string); break;
+            default:
+                result->set_bool(false);
+                wo_fail(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
+                break;
+            }
+        }
+        inline static void gtx_impl(value* result, value* opnum1, value* opnum2)
+        {
+            switch (opnum1->type)
+            {
+            case value::valuetype::integer_type:
+                result->set_bool(opnum1->integer > opnum2->integer); break;
+            case value::valuetype::handle_type:
+                result->set_bool(opnum1->handle > opnum2->handle); break;
+            case value::valuetype::real_type:
+                result->set_bool(opnum1->real > opnum2->real); break;
+            case value::valuetype::string_type:
+                result->set_bool(*opnum1->string > *opnum2->string); break;
+            default:
+                result->set_bool(false);
+                wo_fail(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
+                break;
+            }
+        }
+        inline static void egtx_impl(value* result, value* opnum1, value* opnum2)
+        {
+            switch (opnum1->type)
+            {
+            case value::valuetype::integer_type:
+                result->set_bool(opnum1->integer >= opnum2->integer); break;
+            case value::valuetype::handle_type:
+                result->set_bool(opnum1->handle >= opnum2->handle); break;
+            case value::valuetype::real_type:
+                result->set_bool(opnum1->real >= opnum2->real); break;
+            case value::valuetype::string_type:
+                result->set_bool(*opnum1->string >= *opnum2->string); break;
+            default:
+                result->set_bool(false);
+                wo_fail(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
+                break;
+            }
+        }
         inline static value* make_union_impl(value* opnum1, value* opnum2, uint16_t id)
         {
             opnum1->set_gcunit<value::valuetype::struct_type>(
@@ -1338,12 +1410,13 @@ namespace wo
         }
         inline static value* make_closure_fast_impl(value* opnum1, const byte_t* rt_ip, value* rt_sp)
         {
+            bool is_native_call = !!(0b0011 & *(rt_ip - 1));
             uint16_t closure_arg_count = WO_FAST_READ_MOVE_2;
 
             auto* created_closure = closure_t::gc_new<gcbase::gctype::young>(closure_arg_count);
-            created_closure->m_native_call = !!(0b0011 & *(rt_ip - 1));
+            created_closure->m_native_call = is_native_call;
 
-            if (created_closure->m_native_call)
+            if (is_native_call)
                 created_closure->m_native_func = (wo_native_func)WO_FAST_READ_MOVE_8;
             else
                 created_closure->m_vm_func = WO_FAST_READ_MOVE_4;
@@ -1964,21 +2037,7 @@ namespace wo
                     WO_VM_ASSERT(opnum1->type == opnum2->type,
                         "Operand type should be same in 'ltx'.");
 
-                    switch (opnum1->type)
-                    {
-                    case value::valuetype::integer_type:
-                        rt_cr->set_bool(opnum1->integer < opnum2->integer); break;
-                    case value::valuetype::handle_type:
-                        rt_cr->set_bool(opnum1->handle < opnum2->handle); break;
-                    case value::valuetype::real_type:
-                        rt_cr->set_bool(opnum1->real < opnum2->real); break;
-                    case value::valuetype::string_type:
-                        rt_cr->set_bool(*opnum1->string < *opnum2->string); break;
-                    default:
-                        rt_cr->set_bool(false);
-                        WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
-                        break;
-                    }
+                    ltx_impl(rt_cr, opnum1, opnum2);
 
                     break;
                 }
@@ -1989,22 +2048,8 @@ namespace wo
 
                     WO_VM_ASSERT(opnum1->type == opnum2->type,
                         "Operand type should be same in 'gtx'.");
-                    switch (opnum1->type)
-                    {
-                    case value::valuetype::integer_type:
-                        rt_cr->set_bool(opnum1->integer > opnum2->integer); break;
-                    case value::valuetype::handle_type:
-                        rt_cr->set_bool(opnum1->handle > opnum2->handle); break;
-                    case value::valuetype::real_type:
-                        rt_cr->set_bool(opnum1->real > opnum2->real); break;
-                    case value::valuetype::string_type:
-                        rt_cr->set_bool(*opnum1->string > *opnum2->string); break;
-                    default:
-                        rt_cr->set_bool(false);
-                        WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
-                        break;
-                    }
-
+                    
+                    gtx_impl(rt_cr, opnum1, opnum2);
 
                     break;
                 }
@@ -2016,21 +2061,7 @@ namespace wo
                     WO_VM_ASSERT(opnum1->type == opnum2->type,
                         "Operand type should be same in 'eltx'.");
 
-                    switch (opnum1->type)
-                    {
-                    case value::valuetype::integer_type:
-                        rt_cr->set_bool(opnum1->integer <= opnum2->integer); break;
-                    case value::valuetype::handle_type:
-                        rt_cr->set_bool(opnum1->handle <= opnum2->handle); break;
-                    case value::valuetype::real_type:
-                        rt_cr->set_bool(opnum1->real <= opnum2->real); break;
-                    case value::valuetype::string_type:
-                        rt_cr->set_bool(*opnum1->string <= *opnum2->string); break;
-                    default:
-                        rt_cr->set_bool(false);
-                        WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
-                        break;
-                    }
+                    eltx_impl(rt_cr, opnum1, opnum2);
 
                     break;
                 }
@@ -2042,21 +2073,7 @@ namespace wo
                     WO_VM_ASSERT(opnum1->type == opnum2->type,
                         "Operand type should be same in 'egtx'.");
 
-                    switch (opnum1->type)
-                    {
-                    case value::valuetype::integer_type:
-                        rt_cr->set_bool(opnum1->integer >= opnum2->integer); break;
-                    case value::valuetype::handle_type:
-                        rt_cr->set_bool(opnum1->handle >= opnum2->handle); break;
-                    case value::valuetype::real_type:
-                        rt_cr->set_bool(opnum1->real >= opnum2->real); break;
-                    case value::valuetype::string_type:
-                        rt_cr->set_bool(*opnum1->string >= *opnum2->string); break;
-                    default:
-                        rt_cr->set_bool(false);
-                        WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
-                        break;
-                    }
+                    egtx_impl(rt_cr, opnum1, opnum2);
 
                     break;
                 }

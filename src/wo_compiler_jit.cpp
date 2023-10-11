@@ -738,6 +738,14 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             wchar_t out_str = wo_str_get_char(opnum2->string->c_str(), opnum3->integer);
             opnum1->set_integer((wo_integer_t)(wo_handle_t)out_str);
         }
+        static void _vmjitcall_abrt(const char* msg)
+        {
+            wo_error(msg);
+        }
+        static void _vmjitcall_fail(uint32_t id, const char* msg)
+        {
+            wo_fail(id, msg);
+        }
     };
 
     struct X64CompileContext
@@ -1707,19 +1715,75 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
         virtual bool ir_ltx(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
-            WO_JIT_NOT_SUPPORT;
+            WO_JIT_ADDRESSING_N1;
+            WO_JIT_ADDRESSING_N2;
+
+            auto op1 = opnum1.gp_value();
+            auto op2 = opnum2.gp_value();
+
+            asmjit::InvokeNode* invoke_node;
+            wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::ltx_impl,
+                asmjit::FuncSignatureT< void, wo::value*, wo::value*, wo::value*>()));
+
+            invoke_node->setArg(0, ctx->_vmcr);
+            invoke_node->setArg(1, op1);
+            invoke_node->setArg(2, op2);
+
+            return true;
         }
         virtual bool ir_gtx(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
-            WO_JIT_NOT_SUPPORT;
+            WO_JIT_ADDRESSING_N1;
+            WO_JIT_ADDRESSING_N2;
+
+            auto op1 = opnum1.gp_value();
+            auto op2 = opnum2.gp_value();
+
+            asmjit::InvokeNode* invoke_node;
+            wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::gtx_impl,
+                asmjit::FuncSignatureT< void, wo::value*, wo::value*, wo::value*>()));
+
+            invoke_node->setArg(0, ctx->_vmcr);
+            invoke_node->setArg(1, op1);
+            invoke_node->setArg(2, op2);
+
+            return true;
         }
         virtual bool ir_eltx(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
-            WO_JIT_NOT_SUPPORT;
+            WO_JIT_ADDRESSING_N1;
+            WO_JIT_ADDRESSING_N2;
+
+            auto op1 = opnum1.gp_value();
+            auto op2 = opnum2.gp_value();
+
+            asmjit::InvokeNode* invoke_node;
+            wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::eltx_impl,
+                asmjit::FuncSignatureT< void, wo::value*, wo::value*, wo::value*>()));
+
+            invoke_node->setArg(0, ctx->_vmcr);
+            invoke_node->setArg(1, op1);
+            invoke_node->setArg(2, op2);
+
+            return true;
         }
         virtual bool ir_egtx(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
-            WO_JIT_NOT_SUPPORT;
+            WO_JIT_ADDRESSING_N1;
+            WO_JIT_ADDRESSING_N2;
+
+            auto op1 = opnum1.gp_value();
+            auto op2 = opnum2.gp_value();
+
+            asmjit::InvokeNode* invoke_node;
+            wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::egtx_impl,
+                asmjit::FuncSignatureT< void, wo::value*, wo::value*, wo::value*>()));
+
+            invoke_node->setArg(0, ctx->_vmcr);
+            invoke_node->setArg(1, op1);
+            invoke_node->setArg(2, op2);
+
+            return true;
         }
         virtual bool ir_ltr(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
@@ -1966,7 +2030,45 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
         }
         virtual bool ir_typeas(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
-            WO_JIT_NOT_SUPPORT;
+            WO_JIT_ADDRESSING_N1;
+            value::valuetype type = (value::valuetype)(WO_IPVAL_MOVE_1);
+
+            if (dr & 0b01)
+                wo_asure(!ctx->c.mov(
+                    asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)),
+                    (uint8_t)value::valuetype::bool_type));
+
+            auto typeas_failed = ctx->c.newLabel();
+            auto typeas_end = ctx->c.newLabel();
+            wo_asure(!ctx->c.cmp(
+                asmjit::x86::byte_ptr(opnum1.gp_value(), offsetof(value, type)),
+                (uint8_t)type));
+            wo_asure(!ctx->c.jne(typeas_failed));
+            if (dr & 0b01)
+            {
+                wo_asure(!ctx->c.mov(
+                    asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)),
+                    1));
+            }
+            wo_asure(!ctx->c.jmp(typeas_end));
+            wo_asure(!ctx->c.bind(typeas_failed));
+            if (dr & 0b01)
+            {
+                wo_asure(!ctx->c.mov(
+                    asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)),
+                    0));
+            }
+            else
+            {
+                asmjit::InvokeNode* invoke_node;
+                wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_fail,
+                    asmjit::FuncSignatureT< void, uint32_t, const char*>()));
+
+                invoke_node->setArg(0, WO_FAIL_TYPE_FAIL);
+                invoke_node->setArg(1, (intptr_t)"The given value is not the same as the requested type.");
+            }
+            wo_asure(!ctx->c.bind(typeas_end));
+            return true;
         }
         virtual bool ir_mkstruct(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
@@ -1987,7 +2089,15 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
         }
         virtual bool ir_abrt(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
-            WO_JIT_NOT_SUPPORT;
+            if (dr & 0b10)
+                WO_JIT_NOT_SUPPORT;
+            else
+            {
+                asmjit::InvokeNode* invoke_node;
+                wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_abrt,
+                    asmjit::FuncSignatureT< void, const char*>()));
+                invoke_node->setArg(0, (intptr_t)"executed 'abrt'.");
+            }
         }
         virtual bool ir_idarr(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
