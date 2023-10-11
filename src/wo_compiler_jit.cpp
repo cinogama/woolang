@@ -2353,32 +2353,33 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             invoke_node->setArg(3, ipaddr);
 
             return;
-            auto no_interrupt_label = ctx->c.newLabel();
-            static_assert(sizeof(wo::vmbase::fast_ro_vm_interrupt) == 4);
 
-            auto checkflag = ctx->c.newUInt32();
-            wo_asure(!ctx->c.ldr(checkflag, asmjit::a64::Mem(ctx->_vmbase, offsetof(wo::vmbase, fast_ro_vm_interrupt))));
-            wo_asure(!ctx->c.cmp(checkflag, 0));
-            wo_asure(!ctx->c.b_eq(no_interrupt_label));
+            //auto no_interrupt_label = ctx->c.newLabel();
+            //static_assert(sizeof(wo::vmbase::fast_ro_vm_interrupt) == 4);
 
-            auto interrupt = ctx->c.newInt64();
-            
-            asmjit::InvokeNode* invoke_node;
-            wo_asure(!ctx->c.invoke(&invoke_node, ctx->load_int64((intptr_t)&_invoke_fake_vm_checkpoint),
-                asmjit::FuncSignatureT<int64_t, vmbase*, value*, value*, const byte_t*>()));
-            invoke_node->setArg(0, ctx->_vmbase);
-            invoke_node->setArg(1, ctx->_vmssp);
-            invoke_node->setArg(2, ctx->_vmsbp);
-            invoke_node->setArg(3, ipaddr);
+            //auto checkflag = ctx->c.newUInt32();
+            //wo_asure(!ctx->c.ldr(checkflag, asmjit::a64::Mem(ctx->_vmbase, offsetof(wo::vmbase, fast_ro_vm_interrupt))));
+            //wo_asure(!ctx->c.cmp(checkflag, 0));
+            //wo_asure(!ctx->c.b_eq(no_interrupt_label));
 
-            invoke_node->setRet(0, interrupt);
+            //auto interrupt = ctx->c.newInt64();
+            //
+            //asmjit::InvokeNode* invoke_node;
+            //wo_asure(!ctx->c.invoke(&invoke_node, ctx->load_int64((intptr_t)&_invoke_fake_vm_checkpoint),
+            //    asmjit::FuncSignatureT<int64_t, vmbase*, value*, value*, const byte_t*>()));
+            //invoke_node->setArg(0, ctx->_vmbase);
+            //invoke_node->setArg(1, ctx->_vmssp);
+            //invoke_node->setArg(2, ctx->_vmsbp);
+            //invoke_node->setArg(3, ipaddr);
 
-            wo_asure(!ctx->c.cmp(interrupt, 0));
-            wo_asure(!ctx->c.b_eq(no_interrupt_label));
+            //invoke_node->setRet(0, interrupt);
 
-            wo_asure(!ctx->c.ret()); // break this execute!!!
+            //wo_asure(!ctx->c.cmp(interrupt, 0));
+            //wo_asure(!ctx->c.b_eq(no_interrupt_label));
 
-            wo_asure(!ctx->c.bind(no_interrupt_label));
+            //wo_asure(!ctx->c.ret()); // break this execute!!!
+
+            //wo_asure(!ctx->c.bind(no_interrupt_label));
         }
 
 #define WO_JIT_ADDRESSING_N1 aarch64_addresing opnum1(ctx, rt_ip, (dr & 0b10),  ctx->env)
