@@ -380,11 +380,12 @@ namespace wo
         std::atomic_size_t _created_destructable_instance_count = 0;
 
         std::vector<size_t> _functions_offsets_for_jit;
+        std::vector<size_t> _functions_def_constant_idx_for_jit;
         std::vector<size_t> _calln_opcode_offsets_for_jit;
         std::vector<size_t> _mkclos_opcode_offsets_for_jit;
 
         std::unordered_map<void*, size_t> _jit_functions;
-        std::vector<wo_native_func*> _jit_code_holder;
+        std::unordered_map<size_t, wo_native_func*> _jit_code_holder;
 
         shared_pointer<program_debug_data_info> program_debug_info;
         rslib_extern_symbols::extern_lib_set loaded_libs;

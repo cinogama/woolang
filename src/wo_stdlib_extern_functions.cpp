@@ -1316,7 +1316,14 @@ WO_API wo_api rslib_std_get_extern_symb(wo_vm vm, wo_value args, size_t argc)
 {
     wo_integer_t ext_symb = wo_extern_symb(vm, wo_string(args + 0));
     if (ext_symb)
-        return wo_ret_option_int(vm, ext_symb);
+    {
+        auto* vmptr = std::launder(reinterpret_cast<wo::vmbase*>(vm));
+        auto fnd = vmptr->env->_jit_code_holder.find((size_t)ext_symb);
+        if (fnd != vmptr->env->_jit_code_holder.end())
+            return wo_ret_option_pointer(vm, (void*)*fnd->second);
+        else
+            return wo_ret_option_int(vm, ext_symb);
+    }
     else
         return wo_ret_option_none(vm);
 }

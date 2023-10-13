@@ -339,6 +339,12 @@ namespace wo
             write_binary_to_buffer((uint64_t)function_offset, 8);
         }
 
+        write_binary_to_buffer((uint64_t)_functions_def_constant_idx_for_jit.size(), 8);
+        for (size_t function_constant_offset : _functions_def_constant_idx_for_jit)
+        {
+            write_binary_to_buffer((uint64_t)function_constant_offset, 8);
+        }
+
         write_binary_to_buffer((uint64_t)_calln_opcode_offsets_for_jit.size(), 8);
         for (size_t calln_offset : _calln_opcode_offsets_for_jit)
         {
@@ -668,6 +674,17 @@ namespace wo
             if (!stream->read_elem(&offset))
                 WO_LOAD_BIN_FAILED("Failed to restore functions offset.");
             result->_functions_offsets_for_jit.push_back((size_t)offset);
+        }
+
+        uint64_t _functions_constant_offsets_count = 0;
+        if (!stream->read_elem(&_functions_constant_offsets_count))
+            WO_LOAD_BIN_FAILED("Failed to restore functions constant offset count.");
+        for (uint64_t i = 0; i < _functions_constant_offsets_count; ++i)
+        {
+            uint64_t offset = 0;
+            if (!stream->read_elem(&offset))
+                WO_LOAD_BIN_FAILED("Failed to restore functions offset.");
+            result->_functions_def_constant_idx_for_jit.push_back((size_t)offset);
         }
 
         uint64_t _calln_opcode_offsets_count = 0;
@@ -1071,7 +1088,7 @@ namespace wo
         cxx_vec_t<byte_t> generated_runtime_code_buf; // It will be put to 16 byte allign mem place.
 
         std::map<std::string, cxx_vec_t<size_t>> jmp_record_table;
-        std::map<std::string, cxx_vec_t<value*>> jmp_record_table_for_immtag;
+        std::map<std::string, cxx_vec_t<size_t>> jmp_record_table_for_immtag;
         std::map<std::string, uint32_t> tag_offset_vector_table;
 
         wo_assert(preserved_memory, "Alloc memory fail.");
@@ -1087,7 +1104,8 @@ namespace wo
 
             if (auto* addr_tagimm_rsfunc = dynamic_cast<opnum::tagimm_rsfunc*>(constant_record))
             {
-                jmp_record_table_for_immtag[addr_tagimm_rsfunc->name].push_back(&preserved_memory[constant_record->constant_index]);
+                jmp_record_table_for_immtag[addr_tagimm_rsfunc->name].push_back(
+                    constant_record->constant_index);
             }
         }
 
@@ -1785,13 +1803,14 @@ namespace wo
             }
         }
 
-        for (auto& [tag, imm_values] : jmp_record_table_for_immtag)
+        for (auto& [tag, imm_value_offsets] : jmp_record_table_for_immtag)
         {
             uint32_t offset_val = tag_offset_vector_table[tag];
-            for (auto imm_value : imm_values)
+            for (auto imm_value_offset : imm_value_offsets)
             {
-                wo_assert(imm_value->type == value::valuetype::integer_type);
-                imm_value->integer = (wo_integer_t)offset_val;
+                env->_functions_def_constant_idx_for_jit.push_back(imm_value_offset);
+                wo_assert(preserved_memory[imm_value_offset].type == value::valuetype::integer_type);
+                preserved_memory[imm_value_offset].integer= (wo_integer_t)offset_val;
             }
         }
 

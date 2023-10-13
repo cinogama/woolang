@@ -1122,6 +1122,27 @@ namespace wo
                 (sp--)->set_native_callstack(ip);
                 ip = env->rt_codes + wo_func_addr;
                 tc->set_integer(argc);
+                er->set_integer(argc);
+                bp = sp;
+
+                return return_sp;
+            }
+            return nullptr;
+        }
+        value* co_pre_invoke(wo_handle_t ex_func_addr, wo_int_t argc)
+        {
+            wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
+
+            if (!ex_func_addr)
+                wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
+            else
+            {
+                auto* return_sp = sp;
+
+                (sp--)->set_native_callstack(ip);
+                ip = (const byte_t*)ex_func_addr;
+                tc->set_integer(argc);
+                er->set_integer(argc);
                 bp = sp;
 
                 return return_sp;
@@ -1157,6 +1178,7 @@ namespace wo
                     (sp--)->set_native_callstack(ip);
                     ip = env->rt_codes + vm_sfuncaddr;
                     tc->set_integer(argc);
+                    er->set_integer(argc);
                     bp = sp;
 
                     return return_sp;
@@ -1483,6 +1505,90 @@ namespace wo
                 opnum1->structs->m_values[size - i - 1].set_val(rt_sp + 1 + i);
 
             return rt_sp + size;
+        }
+        inline static void packargs_impl(value* opnum1, value* opnum2, value* tc, value* rt_bp, uint16_t skip_closure_arg_count)
+        {
+            auto* packed_array = array_t::gc_new<gcbase::gctype::young>();
+            packed_array->resize((size_t)(tc->integer - opnum2->integer));
+            for (auto argindex = 0 + opnum2->integer; argindex < tc->integer; argindex++)
+            {
+                (*packed_array)[(size_t)(argindex - opnum2->integer)].set_val(rt_bp + 2 + argindex + skip_closure_arg_count);
+            }
+            opnum1->set_gcunit<wo::value::valuetype::array_type>(packed_array);
+        }
+        inline static value* unpackargs_impl(value* opnum1, value* opnum2, value* tc, value* rt_sp)
+        {
+            if (opnum1->is_nil())
+            {
+                wo_fail(WO_FAIL_INDEX_FAIL, "Only valid array/struct can used in unpack.");
+            }
+            else if (opnum1->type == value::valuetype::struct_type)
+            {
+                auto* arg_tuple = opnum1->structs;
+                gcbase::gc_read_guard gwg1(arg_tuple);
+                if (opnum2->integer > 0)
+                {
+                    if ((size_t)opnum2->integer > (size_t)arg_tuple->m_count)
+                    {
+                        wo_fail(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
+                    }
+                    else
+                    {
+                        for (uint16_t i = (uint16_t)opnum2->integer; i > 0; --i)
+                            (rt_sp--)->set_val(&arg_tuple->m_values[i - 1]);
+                    }
+                }
+                else
+                {
+                    if ((size_t)arg_tuple->m_count < (size_t)(-opnum2->integer))
+                    {
+                        wo_fail(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
+                    }
+                    for (uint16_t i = arg_tuple->m_count; i > 0; --i)
+                        (rt_sp--)->set_val(&arg_tuple->m_values[i - 1]);
+
+                    tc->integer += (wo_integer_t)arg_tuple->m_count;
+                }
+            }
+            else if (opnum1->type == value::valuetype::array_type)
+            {
+                if (opnum2->integer > 0)
+                {
+                    auto* arg_array = opnum1->array;
+                    gcbase::gc_read_guard gwg1(arg_array);
+
+                    if ((size_t)opnum2->integer > arg_array->size())
+                    {
+                        wo_fail(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
+                    }
+                    else
+                    {
+                        for (auto arg_idx = arg_array->rbegin() + (size_t)((wo_integer_t)arg_array->size() - opnum2->integer);
+                            arg_idx != arg_array->rend();
+                            arg_idx++)
+                            (rt_sp--)->set_val(&*arg_idx);
+                    }
+                }
+                else
+                {
+                    auto* arg_array = opnum1->array;
+                    gcbase::gc_read_guard gwg1(arg_array);
+
+                    if (arg_array->size() < (size_t)(-opnum2->integer))
+                    {
+                        wo_fail(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
+                    }
+                    for (auto arg_idx = arg_array->rbegin(); arg_idx != arg_array->rend(); arg_idx++)
+                        (rt_sp--)->set_val(&*arg_idx);
+
+                    tc->integer += arg_array->size();
+                }
+            }
+            else
+            {
+                wo_fail(WO_FAIL_INDEX_FAIL, "Only valid array/struct can used in unpack.");
+            }
+            return rt_sp;
         }
         inline static void movcast_impl(value* opnum1, value* opnum2, value::valuetype aim_type)
         {
@@ -2048,7 +2154,7 @@ namespace wo
 
                     WO_VM_ASSERT(opnum1->type == opnum2->type,
                         "Operand type should be same in 'gtx'.");
-                    
+
                     gtx_impl(rt_cr, opnum1, opnum2);
 
                     break;
@@ -2111,7 +2217,6 @@ namespace wo
 
                     if (opnum1->type == value::valuetype::closure_type)
                     {
-                        gcbase::gc_read_guard gwg1(opnum1->closure);
                         // Call closure, unpack closure captured arguments.
                         // 
                         // NOTE: Closure arguments should be poped by closure function it self.
@@ -2133,12 +2238,10 @@ namespace wo
                         ip = std::launder(reinterpret_cast<byte_t*>(call_aim_native_func));
                         rt_cr->set_nil();
 
-                        wo_asure(wo_leave_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
                         call_aim_native_func(
                             std::launder(reinterpret_cast<wo_vm>(this)),
                             std::launder(reinterpret_cast<wo_value>(rt_sp + 2)),
                             (size_t)tc->integer);
-                        wo_asure(wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
 
                         WO_VM_ASSERT((rt_bp + 1)->type == value::valuetype::callstack,
                             "Found broken stack in 'call'.");
@@ -2487,7 +2590,7 @@ namespace wo
                     WO_VM_ASSERT((dr & 0b01) == 0,
                         "Found broken ir-code in 'mkclos'.");
 
-                    if constexpr(ARCH & platform_info::ArchType::X86)
+                    if constexpr (ARCH & platform_info::ArchType::X86)
                         rt_sp = make_closure_fast_impl(rt_cr, rt_ip, rt_sp);
                     else
                         rt_sp = make_closure_safe_impl(rt_cr, rt_ip, rt_sp);
@@ -2517,13 +2620,7 @@ namespace wo
                             WO_ADDRESSING_N1;
                             WO_ADDRESSING_N2;
 
-                            auto* packed_array = array_t::gc_new<gcbase::gctype::young>();
-                            packed_array->resize((size_t)(tc->integer - opnum2->integer));
-                            for (auto argindex = 0 + opnum2->integer; argindex < tc->integer; argindex++)
-                            {
-                                (*packed_array)[(size_t)(argindex - opnum2->integer)].set_val(rt_bp + 2 + argindex + skip_closure_arg_count);
-                            }
-                            opnum1->set_gcunit<wo::value::valuetype::array_type>(packed_array);
+                            packargs_impl(opnum1, opnum2, tc, rt_bp, skip_closure_arg_count);
                             break;
                         }
                         case instruct::extern_opcode_page_0::unpackargs:
@@ -2531,77 +2628,7 @@ namespace wo
                             WO_ADDRESSING_N1;
                             WO_ADDRESSING_N2;
 
-
-                            if (opnum1->is_nil())
-                            {
-                                WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Only valid array/struct can used in unpack.");
-                            }
-                            else if (opnum1->type == value::valuetype::struct_type)
-                            {
-                                auto* arg_tuple = opnum1->structs;
-                                gcbase::gc_read_guard gwg1(arg_tuple);
-                                if (opnum2->integer > 0)
-                                {
-                                    if ((size_t)opnum2->integer > (size_t)arg_tuple->m_count)
-                                    {
-                                        WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
-                                    }
-                                    else
-                                    {
-                                        for (uint16_t i = (uint16_t)opnum2->integer; i > 0; --i)
-                                            (rt_sp--)->set_val(&arg_tuple->m_values[i - 1]);
-                                    }
-                                }
-                                else
-                                {
-                                    if ((size_t)arg_tuple->m_count < (size_t)(-opnum2->integer))
-                                    {
-                                        WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
-                                    }
-                                    for (uint16_t i = arg_tuple->m_count; i > 0; --i)
-                                        (rt_sp--)->set_val(&arg_tuple->m_values[i - 1]);
-
-                                    tc->integer += (wo_integer_t)arg_tuple->m_count;
-                                }
-                            }
-                            else if (opnum1->type == value::valuetype::array_type)
-                            {
-                                if (opnum2->integer > 0)
-                                {
-                                    auto* arg_array = opnum1->array;
-                                    gcbase::gc_read_guard gwg1(arg_array);
-
-                                    if ((size_t)opnum2->integer > arg_array->size())
-                                    {
-                                        WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
-                                    }
-                                    else
-                                    {
-                                        for (auto arg_idx = arg_array->rbegin() + (size_t)((wo_integer_t)arg_array->size() - opnum2->integer);
-                                            arg_idx != arg_array->rend();
-                                            arg_idx++)
-                                            (rt_sp--)->set_val(&*arg_idx);
-                                    }
-                                }
-                                else
-                                {
-                                    auto* arg_array = opnum1->array;
-                                    gcbase::gc_read_guard gwg1(arg_array);
-
-                                    if (arg_array->size() < (size_t)(-opnum2->integer))
-                                    {
-                                        WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
-                                    }
-                                    for (auto arg_idx = arg_array->rbegin(); arg_idx != arg_array->rend(); arg_idx++)
-                                        (rt_sp--)->set_val(&*arg_idx);
-
-                                    tc->integer += arg_array->size();
-                                }
-                            }
-                            else
-                            {
-                                WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Only valid array/struct can used in unpack.");
-                            }
+                            rt_sp = unpackargs_impl(opnum1, opnum2, tc, rt_sp);
                             break;
                         }
                         case instruct::extern_opcode_page_0::panic:
@@ -2729,7 +2756,13 @@ namespace wo
 
         void run()override
         {
-            run_impl();
+            if (ip >= env->rt_codes && ip < env->rt_codes + env->rt_code_len)
+                run_impl();
+            else
+                ((wo_extern_native_func_t)ip)(
+                    std::launder(reinterpret_cast<wo_vm>(this)),
+                    std::launder(reinterpret_cast<wo_value>(sp + 2)),
+                    (size_t)tc->integer);
         }
     };
 }

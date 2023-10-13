@@ -775,7 +775,7 @@ profiler                        start
                         printf(ANSI_HIR "You must input something to list.\n" ANSI_RST);
                 }
                 else
-                    printf(ANSI_HIR "Unknown debug command, please input 'help' for more information.\n" ANSI_RST);
+                    printf(ANSI_HIR "Unknown debug command, please input 'help' for more informations.\n" ANSI_RST);
             }
 
         need_next_command:
@@ -1081,7 +1081,7 @@ profiler                        start
                     if (first_time_to_breakdown)
                     {
                         first_time_to_breakdown = false;
-                        printf(ANSI_HIY "Note" ANSI_RST ": You can input '" ANSI_HIR "?" ANSI_RST "' for more information.\n");
+                        printf(ANSI_HIY "Note" ANSI_RST ": You can input '" ANSI_HIR "?" ANSI_RST "' for more informations.\n");
                     }
 
                     char _useless_for_clear = 0;
