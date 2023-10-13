@@ -355,6 +355,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                     }
                 }
             }
+            std::unordered_map<size_t, wo_native_func> _offset_jit_addr_records;
             for (auto& [_, stat] : m_compiling_functions)
             {
                 wo_assert(nullptr != stat->m_func);
@@ -365,6 +366,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
                     wo_assert(nullptr != *stat->m_func);
                     env->_jit_functions[(void*)*stat->m_func] = stat->m_func_offset;
+                    _offset_jit_addr_records[stat->m_func_offset] = *stat->m_func;
                     env->_jit_code_holder.push_back(stat->m_func);
                 }
                 else
@@ -374,6 +376,19 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             }
             _dependence_jit_function.clear();
 
+            for (size_t funtions_constant_offset : env->_functions_def_constant_idx_for_jit)
+            {
+                auto* val = &env->constant_global_reg_rtstack[funtions_constant_offset];
+                wo_assert(val->type == value::valuetype::integer_type);
+                
+                auto fnd = _offset_jit_addr_records.find(val->integer);
+                if (fnd != _offset_jit_addr_records.end())
+                {
+                    val->type = value::valuetype::handle_type;
+                    val->handle = (wo_handle_t)(void*)fnd->second;
+                }
+            }
+            // ATTENTION: TODO: After finish support all ir-jit, check if any function failed to compile.
             for (size_t calln_offset : env->_calln_opcode_offsets_for_jit)
             {
                 wo::instruct::opcode* calln = (wo::instruct::opcode*)(codebuf + calln_offset);

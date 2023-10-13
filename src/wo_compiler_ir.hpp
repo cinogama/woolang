@@ -380,6 +380,7 @@ namespace wo
         std::atomic_size_t _created_destructable_instance_count = 0;
 
         std::vector<size_t> _functions_offsets_for_jit;
+        std::vector<size_t> _functions_def_constant_idx_for_jit;
         std::vector<size_t> _calln_opcode_offsets_for_jit;
         std::vector<size_t> _mkclos_opcode_offsets_for_jit;
 
