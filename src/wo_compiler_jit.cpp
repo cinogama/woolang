@@ -496,6 +496,9 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                     vmm->sp = rt_sp;
                     vmm->bp = rt_bp; // store current context, then break out of jit function
                     // NOTE: DONOT CLEAR BR_YIELD_INTERRUPT, IT SHOULD BE CLEAR IN VM-RUN
+
+                    vmm->mark_br_yield();
+
                     return 1; // return 
                 }
                 else
