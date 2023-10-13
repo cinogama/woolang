@@ -133,7 +133,7 @@ void _default_fail_handler(wo_string_t src_file, uint32_t lineno, wo_string_t fu
             switch (choice)
             {
             case 1:
-                wo_error(reason); 
+                wo_error(reason);
                 breakout = true;
                 break;
             case 2:
@@ -1393,7 +1393,7 @@ void wo_set_option_int(wo_value val, wo_vm vm, wo_integer_t result)
     structptr->m_values[0].set_integer(1);
     structptr->m_values[1].set_integer(result);
 
-    
+
 }
 void wo_set_option_real(wo_value val, wo_vm vm, wo_real_t result)
 {
@@ -1410,7 +1410,7 @@ void wo_set_option_real(wo_value val, wo_vm vm, wo_real_t result)
     structptr->m_values[0].set_integer(1);
     structptr->m_values[1].set_real(result);
 
-    
+
 }
 void wo_set_option_float(wo_value val, wo_vm vm, float result)
 {
@@ -1442,7 +1442,7 @@ void wo_set_option_handle(wo_value val, wo_vm vm, wo_handle_t result)
     structptr->m_values[0].set_integer(1);
     structptr->m_values[1].set_handle(result);
 
-    
+
 }
 void wo_set_option_string(wo_value val, wo_vm vm, wo_string_t result)
 {
@@ -1459,7 +1459,7 @@ void wo_set_option_string(wo_value val, wo_vm vm, wo_string_t result)
     structptr->m_values[0].set_integer(1);
 
 
-    
+
 }
 void wo_set_option_buffer(wo_value val, wo_vm vm, const void* result, size_t len)
 {
@@ -1474,7 +1474,7 @@ void wo_set_option_buffer(wo_value val, wo_vm vm, const void* result, size_t len
 
         structptr->m_values[1].set_buffer(result, len);
     }
-    structptr->m_values[0].set_integer(1);  
+    structptr->m_values[0].set_integer(1);
 }
 void wo_set_option_pointer(wo_value val, wo_vm vm, wo_ptr_t result)
 {
@@ -1572,7 +1572,7 @@ void wo_set_err_void(wo_value val, wo_vm vm)
     structptr->m_values[0].set_integer(2);
     structptr->m_values[1].set_nil();
 
-    
+
 }
 void wo_set_err_char(wo_value val, wo_vm vm, wo_char_t result)
 {
@@ -1593,7 +1593,7 @@ void wo_set_err_bool(wo_value val, wo_vm vm, wo_bool_t result)
     structptr->m_values[0].set_integer(2);
     structptr->m_values[1].set_bool(result);
 
-    
+
 }
 void wo_set_err_int(wo_value val, wo_vm vm, wo_integer_t result)
 {
@@ -1625,7 +1625,7 @@ void wo_set_err_real(wo_value val, wo_vm vm, wo_real_t result)
     structptr->m_values[0].set_integer(2);
     structptr->m_values[1].set_real(result);
 
-    
+
 }
 void wo_set_err_float(wo_value val, wo_vm vm, float result)
 {
@@ -1657,7 +1657,7 @@ void wo_set_err_handle(wo_value val, wo_vm vm, wo_handle_t result)
     structptr->m_values[0].set_integer(2);
     structptr->m_values[1].set_handle(result);
 
-    
+
 }
 void wo_set_err_string(wo_value val, wo_vm vm, wo_string_t result)
 {
@@ -1722,7 +1722,7 @@ void wo_set_err_val(wo_value val, wo_vm vm, wo_value result)
     structptr->m_values[0].set_integer(2);
     structptr->m_values[1].set_val(WO_VAL(result));
 
-    
+
 }
 void wo_set_err_gchandle(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t))
 {
@@ -1738,10 +1738,10 @@ void wo_set_err_gchandle(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, wo_value
 
     structptr->m_values[0].set_integer(2);
     wo_set_gchandle(CS_VAL(&structptr->m_values[1]), vm, resource_ptr, holding_val, destruct_func);
-    
+
 }
 
-wo_result_t wo_ret_option_void(wo_vm vm) 
+wo_result_t wo_ret_option_void(wo_vm vm)
 {
     auto* wovm = WO_VM(vm);
     wo_set_option_void(CS_VAL(wovm->cr), vm);
@@ -2480,36 +2480,62 @@ wo_value wo_dispatch_rsfunc(wo_vm vm, wo_int_t vmfunc, wo_int_t argc)
     wo_value result = CS_VAL(vmm->co_pre_invoke(vmfunc, argc));
     return result;
 }
-
-wo_value wo_dispatch_closure(wo_vm vm, wo_value vmfunc, wo_int_t argc)
+wo_value wo_dispatch_exfunc(wo_vm vm, wo_handle_t exfunc, wo_int_t argc)
 {
     _wo_in_thread_vm_guard g(vm);
     _wo_enter_gc_guard g2(vm);
     auto* vmm = WO_VM(vm);
-
-    if (WO_VAL(vmfunc)->type != wo::value::valuetype::closure_type)
-        wo_fail(WO_FAIL_TYPE_FAIL, "Cannot dispatch non-closure value by 'wo_dispatch_closure'.");
-
     vmm->set_br_yieldable(true);
-    wo_value result = CS_VAL(vmm->co_pre_invoke(WO_VAL(vmfunc)->closure, argc));
+    wo_value result = CS_VAL(vmm->co_pre_invoke(exfunc, argc));
     return result;
+}
+wo_value wo_dispatch_value(wo_vm vm, wo_value vmfunc, wo_int_t argc)
+{   
+    switch (WO_VAL(vmfunc)->type)
+    {
+    case wo::value::valuetype::closure_type:
+    {
+        _wo_in_thread_vm_guard g(vm);
+        _wo_enter_gc_guard g2(vm);
+        WO_VM(vm)->set_br_yieldable(true);
+        return CS_VAL(WO_VM(vm)->co_pre_invoke(WO_VAL(vmfunc)->closure, argc));
+        break;
+    }
+    case wo::value::valuetype::integer_type:
+        return wo_dispatch_rsfunc(vm, WO_VAL(vmfunc)->integer, argc);
+    case wo::value::valuetype::handle_type:
+        return wo_dispatch_exfunc(vm, WO_VAL(vmfunc)->handle, argc);
+    default:
+        wo_fail(WO_FAIL_TYPE_FAIL, "Cannot dispatch non-function value by 'wo_dispatch_closure'.");
+    }
+    return nullptr;
 }
 
 wo_value wo_dispatch(wo_vm vm)
 {
     _wo_in_thread_vm_guard g(vm);
     _wo_enter_gc_guard g2(vm);
-    wo_value result = nullptr;
+
     if (WO_VM(vm)->env)
     {
+        wo_assert(WO_VM(vm)->tc->type == wo::value::valuetype::integer_type);
+        auto arg_count = WO_VM(vm)->er->integer;
+
         WO_VM(vm)->run();
 
         if (WO_VM(vm)->get_and_clear_br_yield_flag())
-            result = WO_CONTINUE;
+        {
+            WO_VM(vm)->er->set_integer(arg_count);
+            return WO_CONTINUE;
+        }
         else
-            result = CS_VAL(WO_VM(vm)->cr);
+        {
+            WO_VM(vm)->sp += arg_count;
+            if (!WO_VM(vm)->is_aborted())
+                return CS_VAL(WO_VM(vm)->cr);
+        }
     }
-    return result;
+    return nullptr;
 }
 
 wo_result_t wo_ret_yield(wo_vm vm)
@@ -2538,25 +2564,34 @@ wo_bool_t wo_load_file(wo_vm vm, wo_string_t virtual_src_path)
     return wo_load_file_with_stacksz(vm, virtual_src_path, 0);
 }
 
-wo_value wo_run(wo_vm vm)
+wo_bool_t wo_jit(wo_vm vm)
 {
-    _wo_in_thread_vm_guard g(vm);
     _wo_enter_gc_guard g2(vm);
-    wo_value result = nullptr;
-    if (WO_VM(vm)->env)
+
+    if (wo::config::ENABLE_JUST_IN_TIME)
     {
         // NOTE: other operation for vm must happend after init(wo_run).
         wo_assert(WO_VM(vm)->env->_jit_functions.empty());
 
-        if (wo::config::ENABLE_JUST_IN_TIME)
-            analyze_jit(const_cast<wo::byte_t*>(WO_VM(vm)->env->rt_codes), WO_VM(vm)->env);
+        analyze_jit(const_cast<wo::byte_t*>(WO_VM(vm)->env->rt_codes), WO_VM(vm)->env);
+        return true;
+    }
+    return false;
+}
 
+wo_value wo_run(wo_vm vm)
+{
+    _wo_in_thread_vm_guard g(vm);
+    _wo_enter_gc_guard g2(vm);
+    if (WO_VM(vm)->env)
+    {
         WO_VM(vm)->ip = WO_VM(vm)->env->rt_codes;
         WO_VM(vm)->run();
 
-        result = CS_VAL(WO_VM(vm)->cr);
+        if (!WO_VM(vm)->is_aborted())
+            return CS_VAL(WO_VM(vm)->cr);
     }
-    return result;
+    return nullptr;
 }
 
 // CONTAINER OPERATE

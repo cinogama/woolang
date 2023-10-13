@@ -363,7 +363,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                     }
                 }
             }
-            std::unordered_map<size_t, wo_native_func> _offset_jit_addr_records;
             for (auto& [_, stat] : m_compiling_functions)
             {
                 wo_assert(nullptr != stat->m_func);
@@ -374,8 +373,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
                     wo_assert(nullptr != *stat->m_func);
                     env->_jit_functions[(void*)*stat->m_func] = stat->m_func_offset;
-                    _offset_jit_addr_records[stat->m_func_offset] = *stat->m_func;
-                    env->_jit_code_holder.push_back(stat->m_func);
+                    env->_jit_code_holder[stat->m_func_offset] = stat->m_func;
                 }
                 else
                     delete stat->m_func;
@@ -389,11 +387,11 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                 auto* val = &env->constant_global_reg_rtstack[funtions_constant_offset];
                 wo_assert(val->type == value::valuetype::integer_type);
 
-                auto fnd = _offset_jit_addr_records.find(val->integer);
-                wo_assert(fnd != _offset_jit_addr_records.end());
+                auto holder = env->_jit_code_holder[(size_t)val->integer];
+                wo_assert(holder != nullptr && *holder != nullptr);
 
                 val->type = value::valuetype::handle_type;
-                val->handle = (wo_handle_t)(void*)fnd->second;
+                val->handle = (wo_handle_t)(void*)*holder;
             }
             for (size_t calln_offset : env->_calln_opcode_offsets_for_jit)
             {
@@ -462,10 +460,11 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
         static void free_jit(runtime_env* env)
         {
-            for (auto& [_func, _offset] : env->_jit_functions)
-                wo_asure(!get_jit_runtime().release(_func));
             for (auto& holder : env->_jit_code_holder)
-                delete holder;
+            {
+                wo_asure(!get_jit_runtime().release(*holder.second));
+                delete holder.second;
+            }
         }
 
         static int64_t _invoke_vm_checkpoint(wo::vmbase* vmm, wo::value* rt_sp, wo::value* rt_bp, const byte_t* rt_ip)
@@ -2468,7 +2467,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
         else
         {
             wo_error("Unknown platform.");
-}
+        }
     }
 }
 #else

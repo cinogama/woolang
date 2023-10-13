@@ -32,7 +32,10 @@ int main(int argc, char** argv)
                     out_binary_path = argv[i + 1];
             }
             if (out_binary_path == nullptr)
+            {
+                wo_jit(vmm);
                 return_state = wo_run(vmm);
+            }
             else
             {
                 if (FILE* out_binary_file = fopen(out_binary_path, "wb"))

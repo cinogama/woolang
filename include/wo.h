@@ -300,6 +300,8 @@ WO_API wo_bool_t    wo_load_binary(wo_vm vm, wo_string_t virtual_src_path, const
 WO_API void*        wo_dump_binary(wo_vm vm, wo_bool_t saving_pdi, size_t * out_length);
 WO_API void         wo_free_binary(void* buffer);
 
+WO_API wo_bool_t    wo_jit(wo_vm vm);
+
 // wo_run is used for init a vm.
 WO_API wo_value     wo_run(wo_vm vm);
 
@@ -328,7 +330,8 @@ WO_API wo_value     wo_invoke_exfunc(wo_vm vm, wo_handle_t exfunc, wo_int_t argc
 WO_API wo_value     wo_invoke_value(wo_vm vm, wo_value vmfunc, wo_int_t argc);
 
 WO_API wo_value     wo_dispatch_rsfunc(wo_vm vm, wo_int_t rsfunc, wo_int_t argc);
-WO_API wo_value     wo_dispatch_closure(wo_vm vm, wo_value vmfunc, wo_int_t argc);
+WO_API wo_value     wo_dispatch_exfunc(wo_vm vm, wo_handle_t exfunc, wo_int_t argc);
+WO_API wo_value     wo_dispatch_value(wo_vm vm, wo_value vmfunc, wo_int_t argc);
 
 #define WO_HAPPEND_ERR ((wo_value)NULL)
 #define WO_CONTINUE    ((wo_value)(void*)-1)

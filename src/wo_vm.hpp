@@ -1122,6 +1122,27 @@ namespace wo
                 (sp--)->set_native_callstack(ip);
                 ip = env->rt_codes + wo_func_addr;
                 tc->set_integer(argc);
+                er->set_integer(argc);
+                bp = sp;
+
+                return return_sp;
+            }
+            return nullptr;
+        }
+        value* co_pre_invoke(wo_handle_t ex_func_addr, wo_int_t argc)
+        {
+            wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
+
+            if (!ex_func_addr)
+                wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
+            else
+            {
+                auto* return_sp = sp;
+
+                (sp--)->set_native_callstack(ip);
+                ip = (const byte_t*)ex_func_addr;
+                tc->set_integer(argc);
+                er->set_integer(argc);
                 bp = sp;
 
                 return return_sp;
@@ -1157,6 +1178,7 @@ namespace wo
                     (sp--)->set_native_callstack(ip);
                     ip = env->rt_codes + vm_sfuncaddr;
                     tc->set_integer(argc);
+                    er->set_integer(argc);
                     bp = sp;
 
                     return return_sp;
@@ -2734,7 +2756,13 @@ namespace wo
 
         void run()override
         {
-            run_impl();
+            if (ip >= env->rt_codes && ip < env->rt_codes + env->rt_code_len)
+                run_impl();
+            else
+                ((wo_extern_native_func_t)ip)(
+                    std::launder(reinterpret_cast<wo_vm>(this)),
+                    std::launder(reinterpret_cast<wo_value>(sp + 2)),
+                    (size_t)tc->integer);
         }
     };
 }

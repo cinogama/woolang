@@ -1130,6 +1130,7 @@ namespace wo
                 _macro_action_vm = nullptr;
             }
             else
+                // Donot jit to make debug friendly.
                 wo_run(_macro_action_vm);
         }
         else
