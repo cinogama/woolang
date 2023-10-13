@@ -2111,7 +2111,6 @@ namespace wo
 
                     if (opnum1->type == value::valuetype::closure_type)
                     {
-                        gcbase::gc_read_guard gwg1(opnum1->closure);
                         // Call closure, unpack closure captured arguments.
                         // 
                         // NOTE: Closure arguments should be poped by closure function it self.
@@ -2133,12 +2132,10 @@ namespace wo
                         ip = std::launder(reinterpret_cast<byte_t*>(call_aim_native_func));
                         rt_cr->set_nil();
 
-                        wo_asure(wo_leave_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
                         call_aim_native_func(
                             std::launder(reinterpret_cast<wo_vm>(this)),
                             std::launder(reinterpret_cast<wo_value>(rt_sp + 2)),
                             (size_t)tc->integer);
-                        wo_asure(wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
 
                         WO_VM_ASSERT((rt_bp + 1)->type == value::valuetype::callstack,
                             "Found broken stack in 'call'.");
