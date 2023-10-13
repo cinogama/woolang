@@ -168,6 +168,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 #define WO_ASMJIT_IR_ITERFACE_DECL(IRNAME) virtual bool ir_##IRNAME(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
         IRS
             virtual bool ir_ext_panic(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
+        virtual bool ir_ext_packargs(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
+        virtual bool ir_ext_unpackargs(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
 #undef WO_ASMJIT_IR_ITERFACE_DECL
 
         std::map<uint32_t, asmjit::Label> label_table;
@@ -243,9 +245,15 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                             switch ((instruct::extern_opcode_page_0)(opcode))
                             {
                             case instruct::extern_opcode_page_0::packargs:
-                                WO_JIT_NOT_SUPPORT;
+                                if (ir_ext_packargs(ctx, dr, rt_ip))
+                                    break;
+                                else
+                                    WO_JIT_NOT_SUPPORT;
                             case instruct::extern_opcode_page_0::unpackargs:
-                                WO_JIT_NOT_SUPPORT;
+                                if (ir_ext_unpackargs(ctx, dr, rt_ip))
+                                    break;
+                                else
+                                    WO_JIT_NOT_SUPPORT;
                             case instruct::extern_opcode_page_0::panic:
                                 if (ir_ext_panic(ctx, dr, rt_ip))
                                     break;
@@ -382,13 +390,11 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                 wo_assert(val->type == value::valuetype::integer_type);
 
                 auto fnd = _offset_jit_addr_records.find(val->integer);
-                if (fnd != _offset_jit_addr_records.end())
-                {
-                    val->type = value::valuetype::handle_type;
-                    val->handle = (wo_handle_t)(void*)fnd->second;
-                }
+                wo_assert(fnd != _offset_jit_addr_records.end());
+
+                val->type = value::valuetype::handle_type;
+                val->handle = (wo_handle_t)(void*)fnd->second;
             }
-            // ATTENTION: TODO: After finish support all ir-jit, check if any function failed to compile.
             for (size_t calln_offset : env->_calln_opcode_offsets_for_jit)
             {
                 wo::instruct::opcode* calln = (wo::instruct::opcode*)(codebuf + calln_offset);
@@ -806,6 +812,20 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             {
                 return m_is_constant;
             }
+            bool is_constant_and_not_tag(X64CompileContext* ctx) const
+            {
+                if (is_constant())
+                {
+                    auto offset = (size_t)
+                        (m_constant - ctx->env->constant_global_reg_rtstack);
+                    if (std::find(
+                        ctx->env->_functions_def_constant_idx_for_jit.begin(),
+                        ctx->env->_functions_def_constant_idx_for_jit.end(),
+                        offset) == ctx->env->_functions_def_constant_idx_for_jit.end())
+                        return true;
+                };
+                return false;
+            }
 
             asmjit::x86::Gp gp_value()
             {
@@ -1073,7 +1093,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
-            if (opnum2.is_constant())
+            if (opnum2.is_constant_and_not_tag(ctx))
                 x86_set_imm(ctx->c, opnum1.gp_value(), *opnum2.const_value());
             else
                 x86_set_val(ctx->c, opnum1.gp_value(), opnum2.gp_value());
@@ -1085,9 +1105,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             WO_JIT_ADDRESSING_N2;
 
             if (opnum2.is_constant())
-            {
                 wo_asure(!ctx->c.add(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), opnum2.const_value()->integer));
-            }
             else
             {
                 auto int_of_op2 = ctx->c.newInt64();
@@ -1288,7 +1306,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                 // (rt_sp--)->set_val(opnum1);
 
                 WO_JIT_ADDRESSING_N1;
-                if (opnum1.is_constant())
+                if (opnum1.is_constant_and_not_tag(ctx))
                     x86_set_imm(ctx->c, ctx->_vmssp, *opnum1.const_value());
                 else
                     x86_set_val(ctx->c, ctx->_vmssp, opnum1.gp_value());
@@ -1296,14 +1314,20 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             }
             else
             {
-                // uint16_t psh_repeat = WO_IPVAL_MOVE_2;
-                // for (uint32_t i = 0; i < psh_repeat; i++)
-                //      (rt_sp--)->set_nil();
-
                 uint16_t psh_repeat = WO_IPVAL_MOVE_2;
-                for (uint32_t i = 0; i < psh_repeat; i++)
+
+                if (psh_repeat > 0)
                 {
-                    x86_set_nil(ctx->c, ctx->_vmssp);
+                    wo_asure(!ctx->c.sub(ctx->_vmssp, (psh_repeat - 1) * sizeof(value)));
+
+                    asmjit::InvokeNode* invoke_node;
+                    wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&memset,
+                        asmjit::FuncSignatureT<void, void*, int, size_t>()));
+
+                    invoke_node->setArg(0, ctx->_vmssp);
+                    invoke_node->setArg(1, asmjit::Imm(0));
+                    invoke_node->setArg(2, asmjit::Imm(psh_repeat * sizeof(value)));
+
                     wo_asure(!ctx->c.sub(ctx->_vmssp, sizeof(value)));
                 }
             }
@@ -1897,8 +1921,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
         virtual bool ir_call(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
-            WO_JIT_NOT_SUPPORT;
-
             WO_JIT_ADDRESSING_N1;
 
             auto op1 = opnum1.gp_value();
@@ -1912,7 +1934,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             invoke_node->setArg(2, asmjit::Imm((size_t)rt_ip));
             invoke_node->setArg(3, ctx->_vmssp);
             invoke_node->setArg(4, ctx->_vmsbp);
-            
+
             // ATTENTION: AFTER CALLING VM FUNCTION, DONOT MODIFY SP/BP/IP CONTEXT, HERE MAY HAPPEND/PASS BREAK INFO!!!
             make_checkpoint(ctx->c, ctx->_vmbase, ctx->_vmssp, ctx->_vmsbp, rt_ip);
             return true;
@@ -2368,6 +2390,48 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             invoke_node->setArg(0, op1);
             return true;
         }
+        virtual bool ir_ext_packargs(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip) override
+        {
+            uint16_t skip_closure_arg_count = WO_IPVAL_MOVE_2;
+
+            WO_JIT_ADDRESSING_N1;
+            WO_JIT_ADDRESSING_N2;
+
+            auto op1 = opnum1.gp_value();
+            auto op2 = opnum2.gp_value();
+
+            asmjit::InvokeNode* invoke_node;
+            wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::packargs_impl,
+                asmjit::FuncSignatureT<void, wo::value*, wo::value*, wo::value*, wo::value*, uint16_t>()));
+
+            invoke_node->setArg(0, op1);
+            invoke_node->setArg(1, op2);
+            invoke_node->setArg(2, ctx->_vmtc);
+            invoke_node->setArg(3, ctx->_vmsbp);
+            invoke_node->setArg(4, asmjit::Imm(skip_closure_arg_count));
+
+            return true;
+        }
+        virtual bool ir_ext_unpackargs(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip) override
+        {
+            WO_JIT_ADDRESSING_N1;
+            WO_JIT_ADDRESSING_N2;
+
+            auto op1 = opnum1.gp_value();
+            auto op2 = opnum2.gp_value();
+
+            asmjit::InvokeNode* invoke_node;
+            wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::unpackargs_impl,
+                asmjit::FuncSignatureT<wo::value*, wo::value*, wo::value*, wo::value*, wo::value*>()));
+
+            invoke_node->setArg(0, op1);
+            invoke_node->setArg(1, op2);
+            invoke_node->setArg(2, ctx->_vmtc);
+            invoke_node->setArg(3, ctx->_vmssp);
+            invoke_node->setRet(0, ctx->_vmssp);
+
+            return true;
+        }
 
 #undef WO_JIT_ADDRESSING_N1
 #undef WO_JIT_ADDRESSING_N2
@@ -2404,7 +2468,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
         else
         {
             wo_error("Unknown platform.");
-        }
+}
     }
 }
 #else
