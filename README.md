@@ -4,6 +4,7 @@
 <a href="https://git.cinogama.net/cinogamaproject/woolang/-/commits/master">
 <img src="https://git.cinogama.net/cinogamaproject/woolang/badges/master/pipeline.svg" />
 <img src="https://git.cinogama.net/cinogamaproject/woolang/badges/master/coverage.svg" />
+<img src="https://git.cinogama.net/cinogamaproject/woolang/-/badges/release.svg" />
 </a>
 </div>
   
