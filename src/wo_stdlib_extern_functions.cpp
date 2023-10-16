@@ -490,10 +490,11 @@ WO_API wo_api rslib_std_string_append_cchar(wo_vm vm, wo_value args, size_t argc
 
 wo_real_t _wo_inside_time_sec()
 {
-    static std::chrono::system_clock _sys_clock;
-    static auto _first_invoke_time = _sys_clock.now();
+    static auto _first_invoke_time = std::chrono::system_clock::now();
 
-    return wo_real_t((_sys_clock.now() - _first_invoke_time).count() * std::chrono::system_clock::period::num)
+    return wo_real_t(
+        (std::chrono::system_clock::now() - _first_invoke_time).count()
+        * std::chrono::system_clock::period::num)
         / std::chrono::system_clock::period::den;
 }
 
@@ -2546,7 +2547,7 @@ WO_API wo_api rslib_std_debug_attach_default_debuggee(wo_vm vm, wo_value args, s
 
 WO_API wo_api rslib_std_debug_disattach_default_debuggee(wo_vm vm, wo_value args, size_t argc)
 {
-    wo_disattach_debuggee();
+    wo_detach_debuggee();
     return wo_ret_void(vm);
 }
 
@@ -2573,7 +2574,6 @@ WO_API wo_api rslib_std_debug_empty_func(wo_vm vm, wo_value args, size_t argc)
 {
     return wo_ret_void(vm);
 }
-
 
 const char* wo_stdlib_debug_src_path = u8"woo/debug.wo";
 const char* wo_stdlib_debug_src_data = {

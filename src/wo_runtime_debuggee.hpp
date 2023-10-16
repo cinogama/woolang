@@ -13,8 +13,6 @@ namespace wo
 {
     class default_debuggee : public wo::debuggee_base
     {
-        std::recursive_mutex _mx;
-
         struct _env_context
         {
             struct breakpoint_info
@@ -28,8 +26,9 @@ namespace wo
         };
         std::map<runtime_env*, _env_context> env_context;
 
-        inline static std::atomic_bool stop_attach_debuggee_for_exit_flag = false;
-        inline static std::atomic_bool first_time_to_breakdown = true;
+        bool stop_attach_debuggee_for_exit_flag = false;
+        bool stop_for_detach_debuggee = false;
+        bool first_time_to_breakdown = true;
 
         struct cpu_profiler_record_infornmation
         {
@@ -42,7 +41,7 @@ namespace wo
         double                                  profiler_until = 0.;
         size_t                                  profiler_total_count = 0;
         std::unordered_map<wo::vmbase*, double> profiler_last_sampling_times = {};
-        
+
     public:
         default_debuggee()
         {
@@ -50,8 +49,6 @@ namespace wo
         }
         void set_breakpoint_with_ips(wo::vmbase* vmm, const std::wstring& src_file, size_t rowno, std::vector<size_t> ips)
         {
-            std::lock_guard g1(_mx);
-
             auto& context = env_context[vmm->env];
             for (size_t bip : ips)
                 context.break_ips.insert(bip);
@@ -59,8 +56,6 @@ namespace wo
         }
         bool set_breakpoint(wo::vmbase* vmm, const std::wstring& src_file, size_t rowno)
         {
-            std::lock_guard g1(_mx);
-
             auto& context = env_context[vmm->env];
             auto breakip = vmm->env->program_debug_info->get_ip_by_src_location(src_file, rowno, true, false);
 
@@ -76,8 +71,6 @@ namespace wo
         }
         bool clear_breakpoint(wo::vmbase* vmm, size_t breakid)
         {
-            std::lock_guard g1(_mx);
-
             auto& context = env_context[vmm->env];
             if (context.break_point_traps.size() > breakid)
             {
@@ -139,6 +132,7 @@ profiler                        start
                                             env's profiler data.
                                 'or'
                                 review [fn]   Get exclusive detail after profiler
+detach                                        Detach debuggee.
 )"
 << wo_endl;
         }
@@ -255,7 +249,6 @@ profiler                        start
             else
                 wo_stdout << value_in_stack << " " << wo_cast_string((wo_value)value_in_stack) << wo_endl;
         }
-
         void display_variable(wo::vmbase* vmm, size_t global_offset)
         {
             wo_stdout << "g[" << global_offset << "]: ";
@@ -267,14 +260,17 @@ profiler                        start
             else
                 wo_stdout << "<out of range>" << wo_endl;
         }
-
         bool debug_command(vmbase* vmm)
         {
             printf(ANSI_HIG "> " ANSI_HIY); fflush(stdout);
             char _useless_for_clear = 0;
             auto&& inputbuf = get_and_split_line();
-            
+
             std::string main_command;
+
+            std::cin.clear();
+            while (std::cin.readsome(&_useless_for_clear, 1));
+
             if (need_possiable_input(inputbuf, main_command))
                 last_command = main_command;
             else
@@ -458,7 +454,7 @@ profiler                        start
                                                 auto& src = vmm->env->program_debug_info->get_src_location_by_runtime_ip(
                                                     vmm->env->rt_codes + func_info.rt_ip_begin);
 
-                                                print_src_file(vmm, wstr_to_str(src.source_file), 0,0,0,0,
+                                                print_src_file(vmm, wstr_to_str(src.source_file), 0, 0, 0, 0,
                                                     src.begin_row_no, src.end_row_no, &record);
                                             }
                                         }
@@ -496,8 +492,6 @@ profiler                        start
                                 {
                                     if (!lexer::lex_isdigit(ch))
                                     {
-                                        std::lock_guard g1(_mx);
-
                                         auto&& fndresult = search_function_begin_rtip_scope_with_name(vmm, filename_or_funcname, false);
                                         wo_stdout << "Set breakpoint at " << fndresult.size() << " symbol(s):" << wo_endl;
                                         for (auto& funcinfo : fndresult)
@@ -507,7 +501,7 @@ profiler                        start
                                             auto frtip = vmm->env->rt_codes + vmm->env->program_debug_info->get_runtime_ip_by_ip(funcinfo.command_ip_begin);
                                             auto fip = vmm->env->program_debug_info->get_ip_by_runtime_ip(frtip);
                                             auto& srcinfo = vmm->env->program_debug_info->get_src_location_by_runtime_ip(frtip);
-                                            set_breakpoint_with_ips(vmm, srcinfo.source_file, srcinfo.begin_row_no, {fip});
+                                            set_breakpoint_with_ips(vmm, srcinfo.source_file, srcinfo.begin_row_no, { fip });
                                             //NOTE: some function's reserved stack op may be removed, so get real ir is needed..
                                         }
                                         goto need_next_command;
@@ -531,7 +525,6 @@ profiler                        start
                 }
                 else if (main_command == "quit")
                 {
-                    // exit(0);
                     stop_attach_debuggee_for_exit_flag = true;
                     return false;
                 }
@@ -706,7 +699,7 @@ profiler                        start
                                 size_t id = 0;
                                 for (auto& break_info : context.break_point_traps)
                                 {
-                                    wo_stdout << (id++) << " :\t" << wstr_to_str(break_info.m_filepath) << " (" << break_info.m_row_no  << ")" << wo_endl;;
+                                    wo_stdout << (id++) << " :\t" << wstr_to_str(break_info.m_filepath) << " (" << break_info.m_row_no << ")" << wo_endl;;
                                 }
                             }
                         }
@@ -774,6 +767,15 @@ profiler                        start
                     else
                         printf(ANSI_HIR "You must input something to list.\n" ANSI_RST);
                 }
+                else if (main_command == "detach")
+                {
+                    printf(ANSI_HIY "Detach debuggee, continue run.\n" ANSI_RST);
+                    stop_for_detach_debuggee = true;
+
+                    wo::vmbase::attach_debuggee(nullptr)->abandon();
+
+                    return false;
+                }
                 else
                     printf(ANSI_HIR "Unknown debug command, please input 'help' for more informations.\n" ANSI_RST);
             }
@@ -796,8 +798,6 @@ profiler                        start
         }
         size_t print_src_file_print_lineno(wo::vmbase* vmm, const std::string& filepath, size_t current_row_no, cpu_profiler_record_infornmation* info)
         {
-            std::lock_guard g1(_mx);
-
             auto& context = env_context[vmm->env];
 
             size_t breakpoint_found_id = SIZE_MAX;
@@ -830,12 +830,12 @@ profiler                        start
 
             return breakpoint_found_id;
         }
-        void print_src_file(wo::vmbase* vmm, const std::string& filepath, 
-            size_t hightlight_range_begin_row, 
+        void print_src_file(wo::vmbase* vmm, const std::string& filepath,
+            size_t hightlight_range_begin_row,
             size_t hightlight_range_end_row,
             size_t hightlight_range_begin_col,
             size_t hightlight_range_end_col,
-            size_t from = 0, 
+            size_t from = 0,
             size_t to = SIZE_MAX,
             cpu_profiler_record_infornmation* info = nullptr)
         {
@@ -933,17 +933,14 @@ profiler                        start
             {
                 do
                 {
-                    std::lock_guard g1(_mx);
-                    if (stop_attach_debuggee_for_exit_flag)
+                    if (stop_attach_debuggee_for_exit_flag || stop_for_detach_debuggee)
                         return;
 
                 } while (0);
 
                 if (profiler_enabled)
                 {
-                    std::lock_guard g1(_mx);
-
-                    const auto sampling_interval = 0.00001;
+                    const auto sampling_interval = 0.001;
                     auto current_time = _wo_inside_time_sec();
                     if (current_time > profiler_until)
                     {
@@ -1017,11 +1014,9 @@ profiler                        start
                     loc = &wo::program_debug_data_info::FAIL_LOC;
 
                 // check breakpoint..
-                std::lock_guard g1(_mx);
-
                 auto& context = env_context[vmm->env];
 
-                if (stop_attach_debuggee_for_exit_flag)
+                if (stop_attach_debuggee_for_exit_flag || stop_for_detach_debuggee)
                     return;
 
                 if ((
@@ -1046,8 +1041,6 @@ profiler                        start
                     || context.break_ips.find(command_ip) != context.break_ips.end()
                     || breakdown_temp_immediately)
                 {
-                    block_other_vm_in_this_debuggee();
-
                     breakdown_temp_for_stepir = false;
                     breakdown_temp_for_step = false;
                     breakdown_temp_for_next = false;
@@ -1092,9 +1085,6 @@ profiler                        start
                     {
                         // ...?
                     }
-
-                    unblock_other_vm_in_this_debuggee();
-
                 }
 
             } while (0);

@@ -467,7 +467,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             }
         }
 
-        static int64_t _invoke_vm_checkpoint(wo::vmbase* vmm, wo::value* rt_sp, wo::value* rt_bp, const byte_t* rt_ip)
+        static wo_result_t _invoke_vm_checkpoint(wo::vmbase* vmm, wo::value* rt_sp, wo::value* rt_bp, const byte_t* rt_ip)
         {
             if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::GC_INTERRUPT)
             {
@@ -485,21 +485,26 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             {
                 // ABORTED VM WILL NOT ABLE TO RUN AGAIN, SO DO NOT
                 // CLEAR ABORT_INTERRUPT
-                return 1;
+                // store current context, then break out of jit function
+                vmm->ip = rt_ip;
+                vmm->sp = rt_sp;
+                vmm->bp = rt_bp;
+
+                return wo_result_t::WO_API_RESYNC;
             }
             else if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::BR_YIELD_INTERRUPT)
             {
                 // wo_asure(vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::BR_YIELD_INTERRUPT));
                 if (vmm->get_br_yieldable())
                 {
+                    // store current context, then break out of jit function
                     vmm->ip = rt_ip;
                     vmm->sp = rt_sp;
-                    vmm->bp = rt_bp; // store current context, then break out of jit function
+                    vmm->bp = rt_bp;
                     // NOTE: DONOT CLEAR BR_YIELD_INTERRUPT, IT SHOULD BE CLEAR IN VM-RUN
 
                     vmm->mark_br_yield();
-
-                    return 1; // return 
+                    return wo_result_t::WO_API_RESYNC; // return 
                 }
                 else
                     wo_fail(WO_FAIL_NOT_SUPPORT, "BR_YIELD_INTERRUPT only work at br_yieldable vm.");
@@ -514,28 +519,27 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                 // That should not be happend...
                 wo_error("Virtual machine handled a PENDING_INTERRUPT.");
             }
-            // it should be last interrupt..
+            else if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT)
+            {
+                if (vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT))
+                    vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::DEBUG_INTERRUPT);
+            }
+            // ATTENTION: it should be last interrupt..
             else if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::DEBUG_INTERRUPT)
             {
                 vmm->ip = rt_ip;
                 vmm->sp = rt_sp;
                 vmm->bp = rt_bp;
-                if (auto* debuggee = vmm->current_debuggee())
-                {
-                    // check debuggee here
-                    wo_asure(wo_leave_gcguard(reinterpret_cast<wo_vm>(vmm)));
-                    debuggee->_vm_invoke_debuggee(vmm);
-                    wo_asure(wo_enter_gcguard(reinterpret_cast<wo_vm>(vmm)));
-                }
+                return wo_result_t::WO_API_RESYNC; // return 
             }
             else
             {
                 // a vm_interrupt is invalid now, just roll back one byte and continue~
                 // so here do nothing
             }
-            return 0;
+            return wo_result_t::WO_API_NORMAL;
         }
-        static void native_do_calln_nativefunc(vmbase* vm, wo_extern_native_func_t call_aim_native_func, const byte_t* rt_ip, value* rt_sp, value* rt_bp)
+        static wo_result_t native_do_calln_nativefunc(vmbase* vm, wo_extern_native_func_t call_aim_native_func, const byte_t* rt_ip, value* rt_sp, value* rt_bp)
         {
             rt_sp->type = value::valuetype::callstack;
             rt_sp->vmcallstack.ret_ip = (uint32_t)(rt_ip - vm->env->rt_codes);
@@ -549,15 +553,12 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             vm->ip = reinterpret_cast<byte_t*>(call_aim_native_func);
 
             wo_asure(wo_leave_gcguard(reinterpret_cast<wo_vm>(vm)));
-            call_aim_native_func(reinterpret_cast<wo_vm>(vm), reinterpret_cast<wo_value>(rt_sp + 2), vm->tc->integer);
+            wo_result_t result = call_aim_native_func(reinterpret_cast<wo_vm>(vm), reinterpret_cast<wo_value>(rt_sp + 2), vm->tc->integer);
             wo_asure(wo_enter_gcguard(reinterpret_cast<wo_vm>(vm)));
 
-            wo_assert((rt_bp + 1)->type == value::valuetype::callstack);
-            //value* stored_bp = vm->stack_mem_begin - (++rt_bp)->bp;
-            //rt_sp = rt_bp;
-            //rt_bp = stored_bp;
+            return result;
         }
-        static void native_do_calln_vmfunc(vmbase* vm, wo_extern_native_func_t call_aim_native_func, const byte_t* rt_ip, value* rt_sp, value* rt_bp)
+        static wo_result_t native_do_calln_vmfunc(vmbase* vm, wo_extern_native_func_t call_aim_native_func, const byte_t* rt_ip, value* rt_sp, value* rt_bp)
         {
             rt_sp->type = value::valuetype::callstack;
             rt_sp->vmcallstack.ret_ip = (uint32_t)(rt_ip - vm->env->rt_codes);
@@ -570,35 +571,29 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
             vm->ip = reinterpret_cast<byte_t*>(call_aim_native_func);
 
-            call_aim_native_func(reinterpret_cast<wo_vm>(vm), reinterpret_cast<wo_value>(rt_sp + 2), vm->tc->integer);
-
-            wo_assert((rt_bp + 1)->type == value::valuetype::callstack);
-            //value* stored_bp = vm->stack_mem_begin - (++rt_bp)->bp;
-            //rt_sp = rt_bp;
-            //rt_bp = stored_bp;
+            return call_aim_native_func(reinterpret_cast<wo_vm>(vm), reinterpret_cast<wo_value>(rt_sp + 2), vm->tc->integer);
         }
-        static void native_do_call_vmfunc(vmbase* vm, value* target_function, const byte_t* rt_ip, value* rt_sp, value* rt_bp)
+        static wo_result_t native_do_call_vmfunc(vmbase* vm, value* target_function, const byte_t* rt_ip, value* rt_sp, value* rt_bp)
         {
             switch (target_function->type)
             {
             case value::valuetype::handle_type:
-                native_do_calln_vmfunc(vm, (wo_extern_native_func_t)(void*)target_function->handle, rt_ip, rt_sp, rt_bp);
-                break;
+                return native_do_calln_vmfunc(vm, (wo_extern_native_func_t)(void*)target_function->handle, rt_ip, rt_sp, rt_bp);
             case value::valuetype::closure_type:
             {
                 wo_assert(target_function->closure->m_native_call);
                 for (auto idx = target_function->closure->m_closure_args_count; idx > 0; --idx)
                     (rt_sp--)->set_val(&target_function->closure->m_closure_args[idx - 1]);
-                native_do_calln_vmfunc(vm, target_function->closure->m_native_func, rt_ip, rt_sp, rt_bp);
-                break;
+                return native_do_calln_vmfunc(vm, target_function->closure->m_native_func, rt_ip, rt_sp, rt_bp);
             }
             default:
                 wo_fail(WO_FAIL_CALL_FAIL, "Unexpected function type when invoked in jit.");
             }
+            return wo_result_t::WO_API_NORMAL;
         }
         static void _vmjitcall_panic(wo::value* opnum1)
         {
-            wo_fail(WO_FAIL_DEADLY, wo_cast_string(reinterpret_cast<wo_value>(opnum1)));
+            wo_fail(WO_FAIL_DEADLY, "%s", wo_cast_string(reinterpret_cast<wo_value>(opnum1)));
         }
         static void _vmjitcall_adds(wo::value* opnum1, wo::value* opnum2)
         {
@@ -902,23 +897,21 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             wo_asure(!x86compiler.cmp(asmjit::x86::dword_ptr(rtvm, offsetof(wo::vmbase, fast_ro_vm_interrupt)), 0));
             wo_asure(!x86compiler.je(no_interrupt_label));
 
-            auto interrupt = x86compiler.newInt64();
+            auto result = x86compiler.newInt32();
 
             asmjit::InvokeNode* invoke_node;
             wo_asure(!x86compiler.invoke(&invoke_node, (intptr_t)&_invoke_vm_checkpoint,
-                asmjit::FuncSignatureT<int32_t, vmbase*, value*, value*, const byte_t*>()));
+                asmjit::FuncSignatureT<wo_result_t, vmbase*, value*, value*, const byte_t*>()));
             invoke_node->setArg(0, rtvm);
             invoke_node->setArg(1, stack_sp);
             invoke_node->setArg(2, stack_bp);
             invoke_node->setArg(3, asmjit::Imm((intptr_t)ip));
 
-            invoke_node->setRet(0, interrupt);
+            invoke_node->setRet(0, result);
 
-            wo_asure(!x86compiler.cmp(interrupt, 0));
+            wo_asure(!x86compiler.cmp(result, asmjit::Imm(wo_result_t::WO_API_NORMAL)));
             wo_asure(!x86compiler.je(no_interrupt_label));
-
-            wo_asure(!x86compiler.ret()); // break this execute!!!
-
+            wo_asure(!x86compiler.ret(result)); // break this execute!!!
             wo_asure(!x86compiler.bind(no_interrupt_label));
         }
 
@@ -958,15 +951,23 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             asmjit::x86::Gp rt_sp,
             asmjit::x86::Gp rt_bp)
         {
+            auto result = x86compiler.newInt32();
             asmjit::InvokeNode* invoke_node;
             wo_asure(!x86compiler.invoke(&invoke_node, (intptr_t)&native_do_calln_nativefunc,
-                asmjit::FuncSignatureT<void, vmbase*, wo_extern_native_func_t, const byte_t*, value*, value*>()));
+                asmjit::FuncSignatureT<wo_result_t, vmbase*, wo_extern_native_func_t, const byte_t*, value*, value*>()));
 
             invoke_node->setArg(0, vm);
             invoke_node->setArg(1, asmjit::Imm((size_t)call_aim_native_func));
             invoke_node->setArg(2, asmjit::Imm((size_t)rt_ip));
             invoke_node->setArg(3, rt_sp);
             invoke_node->setArg(4, rt_bp);
+            invoke_node->setRet(0, result);
+
+            auto normal = x86compiler.newLabel();
+            wo_asure(!x86compiler.cmp(result, asmjit::Imm(wo_result_t::WO_API_NORMAL)));
+            wo_asure(!x86compiler.je(normal));
+            wo_asure(!x86compiler.ret(result)); // break this execute!!!
+            wo_asure(!x86compiler.bind(normal));
         }
 
         static void x86_do_calln_native_func_fast(asmjit::x86::Compiler& x86compiler,
@@ -976,15 +977,23 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             asmjit::x86::Gp rt_sp,
             asmjit::x86::Gp rt_bp)
         {
+            auto result = x86compiler.newInt32();
             asmjit::InvokeNode* invoke_node;
             wo_asure(!x86compiler.invoke(&invoke_node, (intptr_t)&native_do_calln_vmfunc,
-                asmjit::FuncSignatureT<void, vmbase*, wo_extern_native_func_t, const byte_t*, value*, value*>()));
+                asmjit::FuncSignatureT<wo_result_t, vmbase*, wo_extern_native_func_t, const byte_t*, value*, value*>()));
 
             invoke_node->setArg(0, vm);
             invoke_node->setArg(1, asmjit::Imm((size_t)call_aim_native_func));
             invoke_node->setArg(2, asmjit::Imm((size_t)rt_ip));
             invoke_node->setArg(3, rt_sp);
             invoke_node->setArg(4, rt_bp);
+            invoke_node->setRet(0, result);
+
+            auto normal = x86compiler.newLabel();
+            wo_asure(!x86compiler.cmp(result, asmjit::Imm(wo_result_t::WO_API_NORMAL)));
+            wo_asure(!x86compiler.je(normal));
+            wo_asure(!x86compiler.ret(result)); // break this execute!!!
+            wo_asure(!x86compiler.bind(normal));
         }
 
         static void x86_do_calln_vm_func(asmjit::x86::Compiler& x86compiler,
@@ -1001,15 +1010,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                 wo_assert(vm_func->m_func != nullptr
                     && *vm_func->m_func != nullptr);
 
-                asmjit::InvokeNode* invoke_node;
-                wo_asure(!x86compiler.invoke(&invoke_node, (intptr_t)&native_do_calln_vmfunc,
-                    asmjit::FuncSignatureT<void, vmbase*, wo_extern_native_func_t, const byte_t*, value*, value*>()));
-
-                invoke_node->setArg(0, vm);
-                invoke_node->setArg(1, asmjit::Imm((size_t)*vm_func->m_func));
-                invoke_node->setArg(2, asmjit::Imm((size_t)rt_ip));
-                invoke_node->setArg(3, rt_sp);
-                invoke_node->setArg(4, rt_bp);
+                x86_do_calln_native_func_fast(x86compiler, vm, *vm_func->m_func, rt_ip, rt_sp, rt_bp);
             }
             else
             {
@@ -1034,6 +1035,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                 wo_asure(!x86compiler.lea(callargptr, asmjit::x86::qword_ptr(rt_sp, 1 * (int32_t)sizeof(value))));
                 wo_asure(!x86compiler.lea(targc, asmjit::x86::qword_ptr(rt_tc, offsetof(value, integer))));
 
+                auto result = x86compiler.newInt32();
+
                 asmjit::InvokeNode* invoke_node;
                 auto funcaddr = x86compiler.newIntPtr();
                 x86compiler.mov(funcaddr, asmjit::x86::qword_ptr((intptr_t)vm_func->m_func));
@@ -1044,6 +1047,13 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                 invoke_node->setArg(0, vm);
                 invoke_node->setArg(1, callargptr);
                 invoke_node->setArg(2, targc);
+                invoke_node->setRet(0, result);
+
+                auto normal = x86compiler.newLabel();
+                wo_asure(!x86compiler.cmp(result, asmjit::Imm(wo_result_t::WO_API_NORMAL)));
+                wo_asure(!x86compiler.je(normal));
+                wo_asure(!x86compiler.ret(result)); // break this execute!!!
+                wo_asure(!x86compiler.bind(normal));
             }
         }
 
@@ -1927,15 +1937,24 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
             auto op1 = opnum1.gp_value();
 
+            auto result = ctx->c.newInt32();
+
             asmjit::InvokeNode* invoke_node;
             wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&native_do_call_vmfunc,
-                asmjit::FuncSignatureT<void, vmbase*, value*, const byte_t*, value*, value*>()));
+                asmjit::FuncSignatureT<wo_result_t, vmbase*, value*, const byte_t*, value*, value*>()));
 
             invoke_node->setArg(0, ctx->_vmbase);
             invoke_node->setArg(1, op1);
             invoke_node->setArg(2, asmjit::Imm((size_t)rt_ip));
             invoke_node->setArg(3, ctx->_vmssp);
             invoke_node->setArg(4, ctx->_vmsbp);
+            invoke_node->setRet(0, result);
+
+            auto normal = ctx->c.newLabel();
+            wo_asure(!ctx->c.cmp(result, asmjit::Imm(wo_result_t::WO_API_NORMAL)));
+            wo_asure(!ctx->c.je(normal));
+            wo_asure(!ctx->c.ret(result)); // break this execute!!!
+            wo_asure(!ctx->c.bind(normal));
 
             // ATTENTION: AFTER CALLING VM FUNCTION, DONOT MODIFY SP/BP/IP CONTEXT, HERE MAY HAPPEND/PASS BREAK INFO!!!
             make_checkpoint(ctx->c, ctx->_vmbase, ctx->_vmssp, ctx->_vmsbp, rt_ip);
@@ -1983,7 +2002,10 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             if (dr != 0)
                 (void)WO_IPVAL_MOVE_2;
 
-            wo_asure(!ctx->c.ret());
+            auto stat = ctx->c.newInt32();
+            static_assert(sizeof(wo_result_t) == sizeof(int32_t));
+            ctx->c.mov(stat, asmjit::Imm(wo_result_t::WO_API_NORMAL));
+            wo_asure(!ctx->c.ret(stat));
             return true;
         }
         virtual bool ir_jt(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -2485,5 +2507,5 @@ namespace wo
     void free_jit(runtime_env* env)
     {
     }
-}
+    }
 #endif

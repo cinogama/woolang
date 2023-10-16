@@ -1288,6 +1288,8 @@ namespace wo
 
                 return token{ +lex_type::l_error };
             }
+
+
             return (ast_basic*)new ast_empty();
         }
 
