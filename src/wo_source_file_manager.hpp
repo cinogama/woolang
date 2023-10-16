@@ -39,6 +39,20 @@ namespace wo
 
         return false;
     }
+    inline bool remove_virtual_binary(const std::wstring& filepath)
+    {
+        std::lock_guard g1(vfile_list_guard);
+        if (auto vffnd = vfile_list.find(filepath);
+            vffnd != vfile_list.end())
+        {
+            if (vffnd->second.enable_modify)
+            {
+                vfile_list.erase(vffnd);
+                return true;
+            }
+        }
+        return false;
+    }
 
     template<bool width>
     struct stream_types

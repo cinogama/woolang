@@ -48,7 +48,7 @@ typedef const char* wo_string_t;
 typedef const wchar_t* wo_wstring_t;
 typedef wchar_t     wo_char_t;
 typedef double      wo_real_t;
-typedef size_t      wo_result_t, wo_api, wo_size_t;
+typedef size_t      wo_size_t;
 typedef bool        wo_bool_t;
 
 #define WO_STRUCT_TAKE_PLACE(BYTECOUNT) uint8_t _take_palce_[BYTECOUNT]
@@ -87,14 +87,29 @@ typedef enum _wo_value_type
 }
 wo_type;
 
+typedef enum _wo_api
+{
+    WO_API_NORMAL = 0,
+    // RSYNC is used for mark an jit-function has been 'yield break' or 'debug break'
+    // and it's state has been stored in vm, we cannot restore rt-state to avoid overwrite.
+    WO_API_RESYNC = 1,
+}wo_api, wo_result_t;
+
 typedef wo_result_t(*wo_native_func)(wo_vm, wo_value, size_t);
 
-typedef void(*wo_fail_handler)(wo_string_t src_file, uint32_t lineno, wo_string_t functionname, uint32_t rterrcode, wo_string_t reason);
+typedef void(*wo_fail_handler)(
+    wo_vm vm,
+    wo_string_t src_file,
+    uint32_t lineno,
+    wo_string_t functionname,
+    uint32_t rterrcode,
+    wo_string_t reason);
 
 WO_API wo_fail_handler wo_regist_fail_handler(wo_fail_handler new_handler);
-WO_API void         wo_cause_fail(wo_string_t src_file, uint32_t lineno, wo_string_t functionname, uint32_t rterrcode, wo_string_t reason);
-
-#define wo_fail(ERRID, REASON) ((void)wo_cause_fail(__FILE__, __LINE__, __func__,ERRID, REASON))
+WO_API void         wo_cause_fail(wo_string_t src_file, uint32_t lineno, wo_string_t functionname, uint32_t rterrcode, wo_string_t reason, ...);
+WO_API void         wo_execute_fail_handler(wo_vm vm, wo_string_t src_file, uint32_t lineno, wo_string_t functionname, uint32_t rterrcode, wo_string_t reason);
+#define wo_fail(ERRID, ...) ((void)wo_cause_fail(__FILE__, __LINE__, __func__,ERRID, __VA_ARGS__))
+#define wo_execute_fail(VM, ERRID, REASON) ((void)wo_execute_fail_handler(VM, __FILE__, __LINE__, __func__, ERRID, REASON))
 
 WO_API wo_string_t  wo_commit_sha(void);
 WO_API wo_string_t  wo_compile_date(void);
@@ -103,7 +118,7 @@ WO_API wo_integer_t wo_version_int(void);
 
 WO_API void         wo_init(int argc, char** argv);
 #define wo_init(argc, argv) do{wo_init(argc, argv); setlocale(LC_CTYPE, wo_locale_name());}while(0)
-WO_API void         wo_finish(void(* do_after_shutdown)(void*), void* custom_data);
+WO_API void         wo_finish(void(*do_after_shutdown)(void*), void* custom_data);
 
 WO_API void         wo_gc_immediately(wo_bool_t fullgc);
 
@@ -122,7 +137,7 @@ WO_API wo_string_t  wo_string(wo_value value);
 WO_API wo_bool_t    wo_bool(wo_value value);
 //WO_API wo_value     wo_value_of_gchandle(wo_value value);
 WO_API float        wo_float(wo_value value);
-WO_API const void*  wo_buffer(wo_value value);
+WO_API const void* wo_buffer(wo_value value);
 
 WO_API void wo_set_char(wo_value value, wo_char_t val);
 WO_API void wo_set_int(wo_value value, wo_integer_t val);
@@ -155,7 +170,7 @@ WO_API wo_string_t  wo_type_name(wo_type value);
 
 WO_API wo_integer_t wo_argc(wo_vm vm);
 
-#define wo_ret_void(vmm) (0)
+#define wo_ret_void(vmm) (WO_API_NORMAL)
 WO_API wo_result_t  wo_ret_char(wo_vm vm, wo_char_t result);
 WO_API wo_result_t  wo_ret_int(wo_vm vm, wo_integer_t result);
 WO_API wo_result_t  wo_ret_real(wo_vm vm, wo_real_t result);
@@ -278,6 +293,7 @@ WO_API wo_bool_t    wo_equal_byte(wo_value a, wo_value b);
 WO_API void         wo_enable_jit(wo_bool_t option);
 WO_API wo_bool_t    wo_virtual_binary(wo_string_t filepath, const void* data, size_t len, wo_bool_t enable_modify);
 WO_API wo_bool_t    wo_virtual_source(wo_string_t filepath, wo_string_t data, wo_bool_t enable_modify);
+WO_API wo_bool_t    wo_remove_virtual_file(wo_string_t filepath);
 WO_API wo_vm        wo_create_vm();
 WO_API wo_vm        wo_sub_vm(wo_vm vm, size_t stacksz);
 WO_API wo_vm        wo_gc_vm(wo_vm vm);
@@ -297,10 +313,12 @@ WO_API wo_bool_t    wo_load_binary_with_stacksz(wo_vm vm, wo_string_t virtual_sr
 WO_API wo_bool_t    wo_load_binary(wo_vm vm, wo_string_t virtual_src_path, const void* buffer, size_t length);
 
 // NOTE: wo_dump_binary must invoke before wo_run.
-WO_API void*        wo_dump_binary(wo_vm vm, wo_bool_t saving_pdi, size_t * out_length);
+WO_API void*        wo_dump_binary(wo_vm vm, wo_bool_t saving_pdi, size_t* out_length);
 WO_API void         wo_free_binary(void* buffer);
 
 WO_API wo_bool_t    wo_jit(wo_vm vm);
+
+WO_API wo_value     wo_execute(wo_string_t src);
 
 // wo_run is used for init a vm.
 WO_API wo_value     wo_run(wo_vm vm);
@@ -411,7 +429,7 @@ WO_API void         wo_gc_resume();
 
 WO_API void         wo_attach_default_debuggee();
 WO_API wo_bool_t    wo_has_attached_debuggee();
-WO_API void         wo_disattach_debuggee();
+WO_API void         wo_detach_debuggee();
 WO_API void         wo_break_immediately();
 WO_API void         wo_break_specify_immediately(wo_vm vmm);
 WO_API void         wo_handle_ctrl_c(void(*handler)(int));
@@ -421,7 +439,6 @@ WO_API wo_string_t  wo_debug_trace_callstack(wo_vm vm, size_t layer);
 WO_API wo_integer_t wo_crc64_u8(uint8_t byte, wo_integer_t crc);
 WO_API wo_integer_t wo_crc64_str(wo_string_t text);
 WO_API wo_integer_t wo_crc64_file(wo_string_t filepath);
-WO_API wo_integer_t wo_crc64_dir(wo_string_t dirpath);
 
 WO_API wo_vm        wo_set_this_thread_vm(wo_vm vm_may_null);
 
@@ -450,7 +467,7 @@ typedef struct _wo_lsp_error_msg
 }wo_lsp_error_msg;
 
 WO_API size_t               wo_lsp_get_compile_error_msg_count_from_vm(wo_vm vmm);
-WO_API wo_lsp_error_msg*    wo_lsp_get_compile_error_msg_detail_from_vm(wo_vm vmm, size_t index);
+WO_API wo_lsp_error_msg* wo_lsp_get_compile_error_msg_detail_from_vm(wo_vm vmm, size_t index);
 WO_API void                 wo_lsp_free_compile_error_msg(wo_lsp_error_msg* msg);
 
 #endif
@@ -473,6 +490,7 @@ WO_API void                 wo_lsp_free_compile_error_msg(wo_lsp_error_msg* msg)
 #define WO_FAIL_MINOR 0xA000
 
 #define WO_FAIL_DEBUGGEE_FAIL 0xA001
+#define WO_FAIL_EXECUTE_FAIL 0xA002
 
 // Medium error:
 // These errors are caused by incorrect coding, some of which may have default

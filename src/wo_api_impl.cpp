@@ -16,6 +16,7 @@
 #include <sstream>
 #include <new>
 #include <chrono>
+#include <cstdarg>
 
 // TODO LIST
 // 1. ALL GC_UNIT OPERATE SHOULD BE ATOMIC
@@ -65,9 +66,9 @@ struct _wo_in_thread_vm_guard
     }
 };
 
-void _default_fail_handler(wo_string_t src_file, uint32_t lineno, wo_string_t functionname, uint32_t rterrcode, wo_string_t reason)
+void _default_fail_handler(wo_vm vm, wo_string_t src_file, uint32_t lineno, wo_string_t functionname, uint32_t rterrcode, wo_string_t reason)
 {
-    auto* cur_thread_vm = wo::vmbase::_this_thread_vm;
+    auto* cur_thread_vm = std::launder(reinterpret_cast<wo::vmbase*>(vm));
     bool leaved_flag = cur_thread_vm != nullptr
         ? wo_leave_gcguard(reinterpret_cast<wo_vm>(cur_thread_vm))
         : false;
@@ -154,7 +155,7 @@ void _default_fail_handler(wo_string_t src_file, uint32_t lineno, wo_string_t fu
                 {
                     if (!wo_has_attached_debuggee())
                         wo_attach_default_debuggee();
-                    wo_break_immediately();
+                    wo_break_specify_immediately(vm);
                     breakout = true;
                 }
                 else
@@ -178,9 +179,24 @@ wo_fail_handler wo_regist_fail_handler(wo_fail_handler new_handler)
 {
     return _wo_fail_handler_function.exchange(new_handler);
 }
-void wo_cause_fail(wo_string_t src_file, uint32_t lineno, wo_string_t functionname, uint32_t rterrcode, wo_string_t reason)
+void wo_execute_fail_handler(wo_vm vm, wo_string_t src_file, uint32_t lineno, wo_string_t functionname, uint32_t rterrcode, wo_string_t reason)
 {
-    _wo_fail_handler_function.load()(src_file, lineno, functionname, rterrcode, reason);
+    _wo_fail_handler_function.load()(
+        vm, src_file, lineno, functionname, rterrcode, reason);
+}
+void wo_cause_fail(wo_string_t src_file, uint32_t lineno, wo_string_t functionname, uint32_t rterrcode, wo_string_t reason, ...)
+{
+    va_list v1, v2;
+    va_start(v1, reason);
+    va_copy(v2, v1);
+    std::vector<char> buf(1 + vsnprintf(nullptr, 0, reason, v1));
+    va_end(v1);
+    std::vsnprintf(buf.data(), buf.size(), reason, v2);
+    va_end(v2);
+
+    wo_execute_fail_handler(
+        reinterpret_cast<wo_vm>(wo::vmbase::_this_thread_vm),
+        src_file, lineno, functionname, rterrcode, buf.data());
 }
 
 void _wo_ctrl_c_signal_handler(int)
@@ -261,8 +277,9 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
             not_unload_lib_warn += "\n\t\t" + path;
         wo_warning(not_unload_lib_warn.c_str());
     }
-
+    
     womem_shutdown();
+    wo::debuggee_base::_free_abandons();
 }
 
 void wo_init(int argc, char** argv)
@@ -1251,62 +1268,71 @@ wo_string_t wo_type_name(wo_type type)
     }
 }
 
-wo_integer_t wo_argc(const wo_vm vm)
+wo_integer_t wo_argc(wo_vm vm)
 {
-    return reinterpret_cast<const wo::vmbase*>(vm)->tc->integer;
+    return WO_VM(vm)->tc->integer;
 }
 wo_result_t wo_ret_bool(wo_vm vm, wo_bool_t result)
 {
-    return reinterpret_cast<wo_result_t>(WO_VM(vm)->cr->set_bool(result));
+    WO_VM(vm)->cr->set_bool(result);
+    return wo_result_t::WO_API_NORMAL;
 }
 wo_result_t wo_ret_int(wo_vm vm, wo_integer_t result)
 {
-    return reinterpret_cast<wo_result_t>(WO_VM(vm)->cr->set_integer(result));
+    WO_VM(vm)->cr->set_integer(result);
+    return wo_result_t::WO_API_NORMAL;
 }
 wo_result_t  wo_ret_char(wo_vm vm, wo_char_t result)
 {
-    return wo_ret_int(vm, (wo_integer_t)result);
+    wo_ret_int(vm, (wo_integer_t)result);
+    return wo_result_t::WO_API_NORMAL;
 }
 wo_result_t wo_ret_real(wo_vm vm, wo_real_t result)
 {
-    return reinterpret_cast<wo_result_t>(WO_VM(vm)->cr->set_real(result));
+    WO_VM(vm)->cr->set_real(result);
+    return wo_result_t::WO_API_NORMAL;
 }
 wo_result_t wo_ret_float(wo_vm vm, float result)
 {
-    return reinterpret_cast<wo_result_t>(WO_VM(vm)->cr->set_real((wo_real_t)result));
+    WO_VM(vm)->cr->set_real((wo_real_t)result);
+    return wo_result_t::WO_API_NORMAL;
 }
 wo_result_t wo_ret_handle(wo_vm vm, wo_handle_t result)
 {
-    return reinterpret_cast<wo_result_t>(WO_VM(vm)->cr->set_handle(result));
+    WO_VM(vm)->cr->set_handle(result);
+    return wo_result_t::WO_API_NORMAL;
 }
 wo_result_t wo_ret_pointer(wo_vm vm, wo_ptr_t result)
 {
     if (result)
-        return reinterpret_cast<wo_result_t>(WO_VM(vm)->cr->set_handle((wo_handle_t)result));
+    {
+        WO_VM(vm)->cr->set_handle((wo_handle_t)result);
+        return wo_result_t::WO_API_NORMAL;
+    }
     return wo_ret_panic(vm, "Cannot return a nullptr");
 }
 wo_result_t wo_ret_string(wo_vm vm, wo_string_t result)
 {
     _wo_enter_gc_guard g(vm);
-    return reinterpret_cast<wo_result_t>(WO_VM(vm)->cr->set_string(result));
+    WO_VM(vm)->cr->set_string(result);
+    return wo_result_t::WO_API_NORMAL;
 }
 wo_result_t wo_ret_buffer(wo_vm vm, const void* result, size_t len)
 {
     _wo_enter_gc_guard g(vm);
-    return reinterpret_cast<wo_result_t>(WO_VM(vm)->cr->set_buffer(result, len));
+    WO_VM(vm)->cr->set_buffer(result, len);
+    return wo_result_t::WO_API_NORMAL;
 }
 wo_result_t wo_ret_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t))
 {
     wo_set_gchandle(CS_VAL(WO_VM(vm)->cr), vm, resource_ptr, holding_val, destruct_func);
-    return reinterpret_cast<wo_result_t>(WO_VM(vm)->cr);
+    return wo_result_t::WO_API_NORMAL;
 }
 wo_result_t wo_ret_val(wo_vm vm, wo_value result)
 {
     wo_assert(result);
-    return reinterpret_cast<wo_result_t>(
-        WO_VM(vm)->cr->set_val(
-            reinterpret_cast<wo::value*>(result)
-        ));
+    WO_VM(vm)->cr->set_val(WO_VAL(result));
+    return wo_result_t::WO_API_NORMAL;
 }
 
 wo_result_t wo_ret_dup(wo_vm vm, wo_value result)
@@ -1316,7 +1342,7 @@ wo_result_t wo_ret_dup(wo_vm vm, wo_value result)
     _wo_enter_gc_guard g(vm);
     WO_VM(vm)->cr->set_dup(val);
 
-    return 0;
+    return wo_result_t::WO_API_NORMAL;
 }
 
 wo_result_t wo_ret_halt(wo_vm vm, wo_string_t reason)
@@ -1329,7 +1355,7 @@ wo_result_t wo_ret_halt(wo_vm vm, wo_string_t reason)
     vmptr->interrupt(wo::vmbase::vm_interrupt_type::ABORT_INTERRUPT);
     wo::wo_stderr << ANSI_HIR "Halt happend: " ANSI_RST << wo_cast_string((wo_value)vmptr->er) << wo::wo_endl;
     vmptr->dump_call_stack(32, true, std::cerr);
-    return 0;
+    return wo_result_t::WO_API_NORMAL;
 }
 
 wo_result_t wo_ret_panic(wo_vm vm, wo_string_t reason)
@@ -1340,7 +1366,7 @@ wo_result_t wo_ret_panic(wo_vm vm, wo_string_t reason)
         vmptr->er->set_string(reason);
     }
     wo_fail(WO_FAIL_DEADLY, reason);
-    return 0;
+    return wo_result_t::WO_API_NORMAL;
 }
 
 void wo_set_option_void(wo_value val, wo_vm vm)
@@ -1745,158 +1771,158 @@ wo_result_t wo_ret_option_void(wo_vm vm)
 {
     auto* wovm = WO_VM(vm);
     wo_set_option_void(CS_VAL(wovm->cr), vm);
-    return 0;
+    return wo_result_t::WO_API_NORMAL;
 }
 wo_result_t  wo_ret_option_bool(wo_vm vm, wo_bool_t result)
 {
     auto* wovm = WO_VM(vm);
     wo_set_option_bool(CS_VAL(wovm->cr), vm, result);
-    return 0;
+    return wo_result_t::WO_API_NORMAL;
 }
 wo_result_t wo_ret_option_char(wo_vm vm, wo_char_t result)
 {
     auto* wovm = WO_VM(vm);
     wo_set_option_char(CS_VAL(wovm->cr), vm, result);
-    return 0;
+    return wo_result_t::WO_API_NORMAL;
 }
 wo_result_t wo_ret_option_int(wo_vm vm, wo_integer_t result)
 {
     auto* wovm = WO_VM(vm);
     wo_set_option_int(CS_VAL(wovm->cr), vm, result);
-    return 0;
+    return wo_result_t::WO_API_NORMAL;
 }
 wo_result_t wo_ret_option_real(wo_vm vm, wo_real_t result)
 {
     auto* wovm = WO_VM(vm);
     wo_set_option_real(CS_VAL(wovm->cr), vm, result);
-    return 0;
+    return wo_result_t::WO_API_NORMAL;
 }
 wo_result_t wo_ret_option_float(wo_vm vm, float result)
 {
     auto* wovm = WO_VM(vm);
     wo_set_option_float(CS_VAL(wovm->cr), vm, result);
-    return 0;
+    return wo_result_t::WO_API_NORMAL;
 }
 wo_result_t  wo_ret_option_handle(wo_vm vm, wo_handle_t result)
 {
     auto* wovm = WO_VM(vm);
     wo_set_option_handle(CS_VAL(wovm->cr), vm, result);
-    return 0;
+    return wo_result_t::WO_API_NORMAL;
 }
 wo_result_t  wo_ret_option_string(wo_vm vm, wo_string_t result)
 {
     auto* wovm = WO_VM(vm);
     wo_set_option_string(CS_VAL(wovm->cr), vm, result);
-    return 0;
+    return wo_result_t::WO_API_NORMAL;
 }
 wo_result_t  wo_ret_option_buffer(wo_vm vm, const void* result, size_t len)
 {
     auto* wovm = WO_VM(vm);
     wo_set_option_buffer(CS_VAL(wovm->cr), vm, result, len);
-    return 0;
+    return wo_result_t::WO_API_NORMAL;
 }
 wo_result_t wo_ret_option_pointer(wo_vm vm, wo_ptr_t result)
 {
     auto* wovm = WO_VM(vm);
     wo_set_option_pointer(CS_VAL(wovm->cr), vm, result);
-    return 0;
+    return wo_result_t::WO_API_NORMAL;
 }
 wo_result_t wo_ret_option_ptr(wo_vm vm, wo_ptr_t result)
 {
     auto* wovm = WO_VM(vm);
     wo_set_option_ptr(CS_VAL(wovm->cr), vm, result);
-    return 0;
+    return wo_result_t::WO_API_NORMAL;
 }
 wo_result_t wo_ret_option_val(wo_vm vm, wo_value result)
 {
     auto* wovm = WO_VM(vm);
     wo_set_option_val(CS_VAL(wovm->cr), vm, result);
-    return 0;
+    return wo_result_t::WO_API_NORMAL;
 }
 wo_result_t wo_ret_option_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t))
 {
     auto* wovm = WO_VM(vm);
     wo_set_option_gchandle(CS_VAL(wovm->cr), vm, resource_ptr, holding_val, destruct_func);
-    return 0;
+    return wo_result_t::WO_API_NORMAL;
 }
 wo_result_t wo_ret_option_none(wo_vm vm)
 {
     auto* wovm = WO_VM(vm);
     wo_set_option_none(CS_VAL(wovm->cr), vm);
-    return 0;
+    return wo_result_t::WO_API_NORMAL;
 }
 
 wo_result_t wo_ret_err_void(wo_vm vm)
 {
     auto* wovm = WO_VM(vm);
     wo_set_err_void(CS_VAL(wovm->cr), vm);
-    return 0;
+    return wo_result_t::WO_API_NORMAL;
 }
 wo_result_t wo_ret_err_char(wo_vm vm, wo_char_t result)
 {
     auto* wovm = WO_VM(vm);
     wo_set_err_char(CS_VAL(wovm->cr), vm, result);
-    return 0;
+    return wo_result_t::WO_API_NORMAL;
 }
 wo_result_t wo_ret_err_bool(wo_vm vm, wo_bool_t result)
 {
     auto* wovm = WO_VM(vm);
     wo_set_err_bool(CS_VAL(wovm->cr), vm, result);
-    return 0;
+    return wo_result_t::WO_API_NORMAL;
 }
 wo_result_t wo_ret_err_int(wo_vm vm, wo_integer_t result)
 {
     auto* wovm = WO_VM(vm);
     wo_set_err_int(CS_VAL(wovm->cr), vm, result);
-    return 0;
+    return wo_result_t::WO_API_NORMAL;
 }
 wo_result_t wo_ret_err_real(wo_vm vm, wo_real_t result)
 {
     auto* wovm = WO_VM(vm);
     wo_set_err_real(CS_VAL(wovm->cr), vm, result);
-    return 0;
+    return wo_result_t::WO_API_NORMAL;
 }
 wo_result_t wo_ret_err_float(wo_vm vm, float result)
 {
     auto* wovm = WO_VM(vm);
     wo_set_err_float(CS_VAL(wovm->cr), vm, result);
-    return 0;
+    return wo_result_t::WO_API_NORMAL;
 }
 wo_result_t wo_ret_err_handle(wo_vm vm, wo_handle_t result)
 {
     auto* wovm = WO_VM(vm);
     wo_set_err_handle(CS_VAL(wovm->cr), vm, result);
-    return 0;
+    return wo_result_t::WO_API_NORMAL;
 }
 wo_result_t wo_ret_err_string(wo_vm vm, wo_string_t result)
 {
     auto* wovm = WO_VM(vm);
     wo_set_err_string(CS_VAL(wovm->cr), vm, result);
-    return 0;
+    return wo_result_t::WO_API_NORMAL;
 }
 wo_result_t wo_ret_err_buffer(wo_vm vm, const void* result, size_t len)
 {
     auto* wovm = WO_VM(vm);
     wo_set_err_buffer(CS_VAL(wovm->cr), vm, result, len);
-    return 0;
+    return wo_result_t::WO_API_NORMAL;
 }
 wo_result_t wo_ret_err_pointer(wo_vm vm, wo_ptr_t result)
 {
     auto* wovm = WO_VM(vm);
     wo_set_err_pointer(CS_VAL(wovm->cr), vm, result);
-    return 0;
+    return wo_result_t::WO_API_NORMAL;
 }
 wo_result_t wo_ret_err_val(wo_vm vm, wo_value result)
 {
     auto* wovm = WO_VM(vm);
     wo_set_err_val(CS_VAL(wovm->cr), vm, result);
-    return 0;
+    return wo_result_t::WO_API_NORMAL;
 }
 wo_result_t wo_ret_err_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t))
 {
     auto* wovm = WO_VM(vm);
     wo_set_err_gchandle(CS_VAL(wovm->cr), vm, resource_ptr, holding_val, destruct_func);
-    return 0;
+    return wo_result_t::WO_API_NORMAL;
 }
 
 void _wo_check_atexit()
@@ -1999,6 +2025,11 @@ wo_bool_t wo_virtual_binary(wo_string_t filepath, const void* data, size_t len, 
 wo_bool_t wo_virtual_source(wo_string_t filepath, wo_string_t data, wo_bool_t enable_modify)
 {
     return wo_virtual_binary(filepath, data, strlen(data), enable_modify);
+}
+
+wo_bool_t wo_remove_virtual_file(wo_string_t filepath)
+{
+    return wo::remove_virtual_binary(wo::str_to_wstr(filepath));
 }
 
 wo_vm wo_create_vm()
@@ -2144,12 +2175,17 @@ wo_bool_t _wo_load_source(wo_vm vm, wo_string_t virtual_src_path, const void* sr
 
 wo_bool_t wo_load_binary_with_stacksz(wo_vm vm, wo_string_t virtual_src_path, const void* buffer, size_t length, size_t stacksz)
 {
+    static std::atomic_size_t vcount = 0;
+    std::string vpath;
     if (virtual_src_path == nullptr)
-        virtual_src_path = "__runtime_script__";
+        vpath = "__runtime_script_" + std::to_string(++vcount) + "__";
+    else
+        vpath = virtual_src_path;
 
-    wo_virtual_binary(virtual_src_path, buffer, length, true);
+    if (!wo_virtual_binary(vpath.c_str(), buffer, length, true))
+        return false;
 
-    return _wo_load_source(vm, virtual_src_path, buffer, length, stacksz);
+    return _wo_load_source(vm, vpath.c_str(), buffer, length, stacksz);
 }
 
 wo_bool_t wo_load_binary(wo_vm vm, wo_string_t virtual_src_path, const void* buffer, size_t length)
@@ -2490,7 +2526,7 @@ wo_value wo_dispatch_exfunc(wo_vm vm, wo_handle_t exfunc, wo_int_t argc)
     return result;
 }
 wo_value wo_dispatch_value(wo_vm vm, wo_value vmfunc, wo_int_t argc)
-{   
+{
     switch (WO_VAL(vmfunc)->type)
     {
     case wo::value::valuetype::closure_type:
@@ -2541,7 +2577,7 @@ wo_value wo_dispatch(wo_vm vm)
 wo_result_t wo_ret_yield(wo_vm vm)
 {
     WO_VM(vm)->interrupt(wo::vmbase::BR_YIELD_INTERRUPT);
-    return 0;
+    return wo_result_t::WO_API_NORMAL;
 }
 
 wo_bool_t wo_load_source_with_stacksz(wo_vm vm, wo_string_t virtual_src_path, wo_string_t src, size_t stacksz)
@@ -3120,7 +3156,7 @@ wo_bool_t wo_has_attached_debuggee()
     return false;
 }
 
-void wo_disattach_debuggee()
+void wo_detach_debuggee()
 {
     if (auto* old_debuggee = wo::vmbase::attach_debuggee(nullptr))
         delete old_debuggee;
@@ -3248,28 +3284,6 @@ wo_integer_t wo_crc64_file(wo_string_t filepath)
     return (wo_integer_t)wo::crc_64(file, 0);
 }
 
-#include<filesystem>
-
-wo_integer_t wo_crc64_dir(wo_string_t dirpath)
-{
-    std::error_code ec;
-    std::filesystem::recursive_directory_iterator di(dirpath, ec);
-    if (ec)
-        return 0;
-
-    uint64_t crc = 0;
-
-    while (di != std::filesystem::recursive_directory_iterator())
-    {
-        crc = wo::crc_64(di->path().string().c_str(), crc);
-        std::ifstream file(di->path(), std::ios_base::in | std::ios_base::binary);
-        if (file.is_open())
-            crc = wo::crc_64(file, crc);
-        ++di;
-    }
-    return (wo_integer_t)crc;
-}
-
 wo_vm wo_set_this_thread_vm(wo_vm vm_may_null)
 {
     auto* old_one = wo::vmbase::_this_thread_vm;
@@ -3339,4 +3353,34 @@ void wo_lsp_free_compile_error_msg(wo_lsp_error_msg* msg)
     delete[] msg->m_describe;
     delete[] msg->m_file_name;
     delete msg;
+}
+
+wo_value wo_execute(wo_string_t src)
+{
+    wo_vm _vm = wo_create_vm();
+
+    static std::atomic_size_t vcount = 0;
+    std::string vpath = "__execute_script_" + std::to_string(++vcount) + "__";
+
+    wo_value result = nullptr;
+    if (wo_load_source(_vm, vpath.c_str(), src))
+    {
+        wo_jit(_vm);
+        result = wo_run(_vm);
+        if (result == nullptr)
+        {
+            std::string err = "Failed to execute: ";
+            err += wo_get_runtime_error(_vm);
+            wo_execute_fail(_vm, WO_FAIL_EXECUTE_FAIL, err.c_str());
+        }
+    }
+    else
+    {
+        std::string err = "Failed to compile: \n";
+        err += wo_get_compile_error(_vm, _wo_inform_style::WO_NEED_COLOR);
+        wo_execute_fail(_vm, WO_FAIL_EXECUTE_FAIL, err.c_str());
+    }
+    wo_close_vm(_vm);
+    wo_remove_virtual_file(vpath.c_str());
+    return result;
 }
