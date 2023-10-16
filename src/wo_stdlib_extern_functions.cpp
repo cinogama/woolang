@@ -2585,9 +2585,9 @@ namespace std
         extern("rslib_std_debug_breakpoint", slow)
             public func breakpoint()=> void;
 
-        extern("rslib_std_debug_attach_default_debuggee")
+        extern("rslib_std_debug_attach_default_debuggee", slow)
             public func attach_debuggee()=> void;
-        extern("rslib_std_debug_disattach_default_debuggee")
+        extern("rslib_std_debug_disattach_default_debuggee", slow)
             public func disattach_debuggee()=> void;
 
         public func breakdown()

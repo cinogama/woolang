@@ -203,7 +203,7 @@ namespace wo
             // Remove old debuggee
             for (auto* vm_instance : _alive_vm_list)
                 if (vm_instance->virtual_machine_type != vmbase::vm_type::GC_DESTRUCTOR)
-                    wo_assert(vm_instance->interrupt(vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT));
+                    wo_asure(vm_instance->interrupt(vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT));
             for (auto* vm_instance : _alive_vm_list)
                 if (vm_instance->virtual_machine_type != vmbase::vm_type::GC_DESTRUCTOR)
                     vm_instance->wait_interrupt(vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT);
@@ -211,23 +211,22 @@ namespace wo
             auto* old_debuggee = attaching_debuggee;
             attaching_debuggee = dbg;
 
-            if (dbg != nullptr)
+
+            for (auto* vm_instance : _alive_vm_list)
             {
-                for (auto* vm_instance : _alive_vm_list)
+                if (vm_instance->virtual_machine_type == vmbase::vm_type::GC_DESTRUCTOR)
+                    continue;
+
+                bool has_handled = !vm_instance->clear_interrupt(
+                    vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT);
+
+                if (dbg != nullptr &&
+                    (old_debuggee == nullptr ||
+                    // Failed to clear DETACH_DEBUGGEE_INTERRUPT? it has been handled!
+                    // Re-set DEBUG_INTERRUPT
+                    has_handled))
                 {
-                    if (vm_instance->virtual_machine_type == vmbase::vm_type::GC_DESTRUCTOR)
-                        break;
-
-                    bool has_handled = !vm_instance->clear_interrupt(
-                        vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT);
-
-                    if (old_debuggee == nullptr ||
-                        // Failed to clear DETACH_DEBUGGEE_INTERRUPT? it has been handled!
-                        // Re-set DEBUG_INTERRUPT
-                        has_handled)
-                    {
-                        wo_assert(vm_instance->interrupt(vm_interrupt_type::DEBUG_INTERRUPT));
-                    }
+                    vm_instance->interrupt(vm_interrupt_type::DEBUG_INTERRUPT);
                 }
             }
             return old_debuggee;
@@ -1267,10 +1266,17 @@ namespace wo
                 tc->set_integer(argc);
                 bp = sp;
 
-                ((wo_native_func)wo_func_addr)(
+                switch (((wo_native_func)wo_func_addr)(
                     std::launder(reinterpret_cast<wo_vm>(this)),
                     std::launder(reinterpret_cast<wo_value>(sp + 2)),
-                    (size_t)argc);
+                    (size_t)argc))
+                {
+                case wo_result_t::WO_API_NORMAL:
+                    break;
+                case wo_result_t::WO_API_RESYNC:
+                    run();
+                    break;
+                }
 
                 ip = return_ip;
                 sp = return_sp;
@@ -1310,10 +1316,17 @@ namespace wo
 
                     if (wo_func_closure->m_native_call)
                     {
-                        wo_func_closure->m_native_func(
+                        switch (wo_func_closure->m_native_func(
                             std::launder(reinterpret_cast<wo_vm>(this)),
                             std::launder(reinterpret_cast<wo_value>(sp + 2)),
-                            (size_t)argc);
+                            (size_t)argc))
+                        {
+                        case wo_result_t::WO_API_NORMAL:
+                            break;
+                        case wo_result_t::WO_API_RESYNC:
+                            run();
+                            break;
+                        }
                     }
                     else
                     {

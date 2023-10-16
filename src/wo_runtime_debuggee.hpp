@@ -769,7 +769,7 @@ detach                                        Detach debuggee.
                 }
                 else if (main_command == "detach")
                 {
-                    printf(ANSI_HIY "Detach debuggee, continue run.\n" ANSI_RST);
+                    printf(ANSI_HIG "Detach debuggee, continue run.\n" ANSI_RST);
                     stop_for_detach_debuggee = true;
 
                     wo::vmbase::attach_debuggee(nullptr)->abandon();
@@ -1036,7 +1036,7 @@ detach                                        Detach debuggee.
                                 || loc->source_file != breakdown_temp_for_step_srcfile))
                         || (breakdown_temp_for_return
                             && vmm->callstack_layer() < breakdown_temp_for_return_callstackdepth)
-                        ) && focus_on_vm == vmm
+                        ) && (focus_on_vm == vmm)
                     )
                     || context.break_ips.find(command_ip) != context.break_ips.end()
                     || breakdown_temp_immediately)
