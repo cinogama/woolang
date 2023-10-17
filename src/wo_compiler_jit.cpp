@@ -1088,7 +1088,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             invoke_node->setArg(2, failreason);
             invoke_node->setArg(3, asmjit::Imm((intptr_t)rt_ip));
             invoke_node->setArg(4, rt_sp);
-            invoke_node->setArg(4, rt_bp);
+            invoke_node->setArg(5, rt_bp);
 
             make_checkpoint(x86compiler, vm, rt_sp, rt_bp, rt_ip);
         }

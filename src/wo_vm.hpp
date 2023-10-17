@@ -1266,16 +1266,19 @@ namespace wo
                 tc->set_integer(argc);
                 bp = sp;
 
-                switch (((wo_native_func)wo_func_addr)(
-                    std::launder(reinterpret_cast<wo_vm>(this)),
-                    std::launder(reinterpret_cast<wo_value>(sp + 2)),
-                    (size_t)argc))
+                if (!is_aborted())
                 {
-                case wo_result_t::WO_API_NORMAL:
-                    break;
-                case wo_result_t::WO_API_RESYNC:
-                    run();
-                    break;
+                    switch (((wo_native_func)wo_func_addr)(
+                        std::launder(reinterpret_cast<wo_vm>(this)),
+                        std::launder(reinterpret_cast<wo_value>(sp + 2)),
+                        (size_t)argc))
+                    {
+                    case wo_result_t::WO_API_NORMAL:
+                        break;
+                    case wo_result_t::WO_API_RESYNC:
+                        run();
+                        break;
+                    }
                 }
 
                 ip = return_ip;
@@ -1316,16 +1319,19 @@ namespace wo
 
                     if (wo_func_closure->m_native_call)
                     {
-                        switch (wo_func_closure->m_native_func(
-                            std::launder(reinterpret_cast<wo_vm>(this)),
-                            std::launder(reinterpret_cast<wo_value>(sp + 2)),
-                            (size_t)argc))
+                        if (!is_aborted())
                         {
-                        case wo_result_t::WO_API_NORMAL:
-                            break;
-                        case wo_result_t::WO_API_RESYNC:
-                            run();
-                            break;
+                            switch (wo_func_closure->m_native_func(
+                                std::launder(reinterpret_cast<wo_vm>(this)),
+                                std::launder(reinterpret_cast<wo_value>(sp + 2)),
+                                (size_t)argc))
+                            {
+                            case wo_result_t::WO_API_NORMAL:
+                                break;
+                            case wo_result_t::WO_API_RESYNC:
+                                run();
+                                break;
+                            }
                         }
                     }
                     else
