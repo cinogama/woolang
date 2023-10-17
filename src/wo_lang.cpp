@@ -13,12 +13,7 @@ namespace wo
 
         begin_namespace(a_namespace);
         a_namespace->add_child(a_namespace->in_scope_sentence);
-        grammar::ast_base* child = a_namespace->in_scope_sentence->children;
-        while (child)
-        {
-            analyze_pass1(child);
-            child = child->sibling;
-        }
+        analyze_pass1(a_namespace->in_scope_sentence);
         end_namespace();
 
         return true;
@@ -328,6 +323,7 @@ namespace wo
             {
                 if (ast_value_arg_define* argdef = dynamic_cast<ast_value_arg_define*>(arg_child))
                 {
+                    argdef->completed_in_pass1 = true;
                     if (!argdef->symbol)
                     {
                         if (argdef->value_type->may_need_update())
@@ -453,6 +449,7 @@ namespace wo
                     a_value_funccall->callee_symbol_in_type_namespace->searching_begin_namespace_in_pass2 = now_scope();
                     a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces = symb_callee->scope_namespaces;
                     // a_value_funccall->callee_symbol_in_type_namespace wiil search in pass2..
+                    a_value_funccall->callee_symbol_in_type_namespace->completed_in_pass1 = true;
                 }
             }
         }
@@ -819,11 +816,14 @@ namespace wo
         {
             // Cannot pass a_match_union_case->union_pattern by analyze_pass1, we will set template in pass2.
             if (a_pattern_union_value->union_expr)
+            {
+                a_pattern_union_value->union_expr->completed_in_pass1 = true;
                 if (!a_pattern_union_value->union_expr->search_from_global_namespace)
                 {
                     a_pattern_union_value->union_expr->searching_begin_namespace_in_pass2 = now_scope();
                     wo_assert(a_pattern_union_value->union_expr->source_file != nullptr);
                 }
+            }
 
             // Calc type in pass2, here just define the variable with ast_value_takeplace
             if (a_pattern_union_value->pattern_arg_in_union_may_nil)
@@ -1369,6 +1369,7 @@ namespace wo
                 {
                     if (ast_value_arg_define* argdef = dynamic_cast<ast_value_arg_define*>(arg_child))
                     {
+                        argdef->completed_in_pass2 = true;
                         if (argdef->symbol)
                             argdef->symbol->has_been_defined_in_pass2 = true;
                     }
@@ -4753,6 +4754,7 @@ namespace wo
         if (ast_node->completed_in_pass2)
             return;
 
+        wo_assert(ast_node->completed_in_pass1 == true);
         ast_node->completed_in_pass2 = true;
 
         using namespace ast;
