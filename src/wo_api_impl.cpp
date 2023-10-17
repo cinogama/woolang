@@ -3190,7 +3190,7 @@ wo_integer_t wo_extern_symb(wo_vm vm, wo_string_t fullname)
 wo_string_t wo_debug_trace_callstack(wo_vm vm, size_t layer)
 {
     std::stringstream sstream;
-    WO_VM(vm)->dump_call_stack(layer, false, sstream);
+    WO_VM(vm)->dump_call_stack(layer, true, sstream);
 
     wo_set_string(CS_VAL(WO_VM(vm)->er), vm, sstream.str().c_str());
     wo_assert(WO_VM(vm)->er->type == wo::value::valuetype::string_type);

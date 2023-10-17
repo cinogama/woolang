@@ -222,9 +222,9 @@ namespace wo
 
                 if (dbg != nullptr &&
                     (old_debuggee == nullptr ||
-                    // Failed to clear DETACH_DEBUGGEE_INTERRUPT? it has been handled!
-                    // Re-set DEBUG_INTERRUPT
-                    has_handled))
+                        // Failed to clear DETACH_DEBUGGEE_INTERRUPT? it has been handled!
+                        // Re-set DEBUG_INTERRUPT
+                        has_handled))
                 {
                     vm_instance->interrupt(vm_interrupt_type::DEBUG_INTERRUPT);
                 }
@@ -1266,16 +1266,19 @@ namespace wo
                 tc->set_integer(argc);
                 bp = sp;
 
-                switch (((wo_native_func)wo_func_addr)(
-                    std::launder(reinterpret_cast<wo_vm>(this)),
-                    std::launder(reinterpret_cast<wo_value>(sp + 2)),
-                    (size_t)argc))
+                if (!is_aborted())
                 {
-                case wo_result_t::WO_API_NORMAL:
-                    break;
-                case wo_result_t::WO_API_RESYNC:
-                    run();
-                    break;
+                    switch (((wo_native_func)wo_func_addr)(
+                        std::launder(reinterpret_cast<wo_vm>(this)),
+                        std::launder(reinterpret_cast<wo_value>(sp + 2)),
+                        (size_t)argc))
+                    {
+                    case wo_result_t::WO_API_NORMAL:
+                        break;
+                    case wo_result_t::WO_API_RESYNC:
+                        run();
+                        break;
+                    }
                 }
 
                 ip = return_ip;
@@ -1316,16 +1319,19 @@ namespace wo
 
                     if (wo_func_closure->m_native_call)
                     {
-                        switch (wo_func_closure->m_native_func(
-                            std::launder(reinterpret_cast<wo_vm>(this)),
-                            std::launder(reinterpret_cast<wo_value>(sp + 2)),
-                            (size_t)argc))
+                        if (!is_aborted())
                         {
-                        case wo_result_t::WO_API_NORMAL:
-                            break;
-                        case wo_result_t::WO_API_RESYNC:
-                            run();
-                            break;
+                            switch (wo_func_closure->m_native_func(
+                                std::launder(reinterpret_cast<wo_vm>(this)),
+                                std::launder(reinterpret_cast<wo_value>(sp + 2)),
+                                (size_t)argc))
+                            {
+                            case wo_result_t::WO_API_NORMAL:
+                                break;
+                            case wo_result_t::WO_API_RESYNC:
+                                run();
+                                break;
+                            }
                         }
                     }
                     else
@@ -1562,10 +1568,13 @@ namespace wo
             }
             opnum1->set_gcunit<wo::value::valuetype::array_type>(packed_array);
         }
-        inline static value* unpackargs_impl(value* opnum1, value* opnum2, value* tc, value* rt_sp)
+        inline static value* unpackargs_impl(vmbase* vm, value* opnum1, value* opnum2, value* tc, const byte_t* rt_ip, value* rt_sp, value* rt_bp)
         {
             if (opnum1->is_nil())
             {
+                vm->ip = rt_ip;
+                vm->sp = rt_sp;
+                vm->bp = rt_bp;
                 wo_fail(WO_FAIL_INDEX_FAIL, "Only valid array/struct can used in unpack.");
             }
             else if (opnum1->type == value::valuetype::struct_type)
@@ -1576,6 +1585,9 @@ namespace wo
                 {
                     if ((size_t)opnum2->integer > (size_t)arg_tuple->m_count)
                     {
+                        vm->ip = rt_ip;
+                        vm->sp = rt_sp;
+                        vm->bp = rt_bp;
                         wo_fail(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
                     }
                     else
@@ -1588,6 +1600,9 @@ namespace wo
                 {
                     if ((size_t)arg_tuple->m_count < (size_t)(-opnum2->integer))
                     {
+                        vm->ip = rt_ip;
+                        vm->sp = rt_sp;
+                        vm->bp = rt_bp;
                         wo_fail(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
                     }
                     for (uint16_t i = arg_tuple->m_count; i > 0; --i)
@@ -1605,6 +1620,9 @@ namespace wo
 
                     if ((size_t)opnum2->integer > arg_array->size())
                     {
+                        vm->ip = rt_ip;
+                        vm->sp = rt_sp;
+                        vm->bp = rt_bp;
                         wo_fail(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
                     }
                     else
@@ -1622,6 +1640,9 @@ namespace wo
 
                     if (arg_array->size() < (size_t)(-opnum2->integer))
                     {
+                        vm->ip = rt_ip;
+                        vm->sp = rt_sp;
+                        vm->bp = rt_bp;
                         wo_fail(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
                     }
                     for (auto arg_idx = arg_array->rbegin(); arg_idx != arg_array->rend(); arg_idx++)
@@ -1632,11 +1653,14 @@ namespace wo
             }
             else
             {
+                vm->ip = rt_ip;
+                vm->sp = rt_sp;
+                vm->bp = rt_bp;
                 wo_fail(WO_FAIL_INDEX_FAIL, "Only valid array/struct can used in unpack.");
             }
             return rt_sp;
         }
-        inline static void movcast_impl(value* opnum1, value* opnum2, value::valuetype aim_type)
+        inline static const char* movcast_impl(value* opnum1, value* opnum2, value::valuetype aim_type)
         {
             if (aim_type == opnum2->type)
                 opnum1->set_val(opnum2);
@@ -1654,18 +1678,18 @@ namespace wo
                 case value::valuetype::bool_type:
                     opnum1->set_bool(wo_cast_bool(std::launder(reinterpret_cast<wo_value>(opnum2)))); break;
                 case value::valuetype::array_type:
-                    wo_fail(WO_FAIL_TYPE_FAIL, "Cannot cast '%s' to 'array'.", opnum2->get_type_name());
+                    return "Cannot cast this value to 'array'.";
                     break;
                 case value::valuetype::dict_type:
-                    wo_fail(WO_FAIL_TYPE_FAIL, "Cannot cast '%s' to 'dict'.", opnum2->get_type_name());
+                    return "Cannot cast this value to 'dict'.";
                     break;
                 case value::valuetype::gchandle_type:
-                    wo_fail(WO_FAIL_TYPE_FAIL, "Cannot cast '%s' to 'gchandle'.", opnum2->get_type_name());
+                    return "Cannot cast this value to 'gchandle'.";
                     break;
                 default:
-                    wo_fail(WO_FAIL_TYPE_FAIL, "Unknown type.");
+                    return "Unknown type.";
                 }
-
+            return nullptr;
         }
         // used for restoring local state
         template<typename T>
@@ -1965,7 +1989,9 @@ namespace wo
                     WO_ADDRESSING_N2;
                     value::valuetype aim_type = static_cast<value::valuetype>(WO_IPVAL_MOVE_1);
 
-                    movcast_impl(opnum1, opnum2, aim_type);
+                    if (auto* err = movcast_impl(opnum1, opnum2, aim_type))
+                        WO_VM_FAIL(WO_FAIL_TYPE_FAIL, err);
+                    
                     break;
                 }
                 case instruct::opcode::typeas:
@@ -2712,7 +2738,7 @@ namespace wo
                             WO_ADDRESSING_N1;
                             WO_ADDRESSING_N2;
 
-                            rt_sp = unpackargs_impl(opnum1, opnum2, tc, rt_sp);
+                            rt_sp = unpackargs_impl(this, opnum1, opnum2, tc, rt_ip, rt_sp, rt_bp);
                             break;
                         }
                         case instruct::extern_opcode_page_0::panic:
