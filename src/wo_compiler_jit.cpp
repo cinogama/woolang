@@ -609,7 +609,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
             opnum1->real = fmod(opnum1->real, opnum2->real);
         }
-        static void _vmjitcall_idarr(wo::value* cr, wo::value* opnum1, wo::value* opnum2)
+        static const char* _vmjitcall_idarr(wo::value* cr, wo::value* opnum1, wo::value* opnum2)
         {
             wo_assert(opnum1->type == value::valuetype::array_type && opnum1->array != nullptr);
             wo_assert(opnum2->type == value::valuetype::integer_type);
@@ -621,16 +621,16 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                 index = opnum1->array->size() + opnum2->integer;
             if (index >= opnum1->array->size())
             {
-                wo_fail(WO_FAIL_INDEX_FAIL, "Index out of range.");
-                cr->set_nil();
+                return "Index out of range.";
             }
             else
             {
                 auto* result = &opnum1->array->at(index);
                 cr->set_val(result);
             }
+            return nullptr;
         }
-        static void _vmjitcall_iddict(wo::value* cr, wo::value* opnum1, wo::value* opnum2)
+        static const char* _vmjitcall_iddict(wo::value* cr, wo::value* opnum1, wo::value* opnum2)
         {
             wo_assert(opnum1->type == value::valuetype::dict_type && opnum1->dict != nullptr);
 
@@ -643,7 +643,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                 cr->set_val(result);
             }
             else
-                wo_fail(WO_FAIL_INDEX_FAIL, "No such key in current dict.");
+                return "No such key in current dict.";
+            return nullptr;
         }
         static void _vmjitcall_idstruct(wo::value* opnum1, wo::value* opnum2, uint16_t offset)
         {
@@ -659,7 +660,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto* result = &opnum2->structs->m_values[offset];
             opnum1->set_val(result);
         }
-        static void _vmjitcall_siddict(wo::value* opnum1, wo::value* opnum2, wo::value* opnum3)
+        static const char* _vmjitcall_siddict(wo::value* opnum1, wo::value* opnum2, wo::value* opnum3)
         {
             wo_assert(opnum1->type == value::valuetype::dict_type && opnum1->dict != nullptr);
 
@@ -674,7 +675,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                 result->set_val(opnum3);
             }
             else
-                wo_fail(WO_FAIL_INDEX_FAIL, "No such key in current dict.");
+                return "No such key in current dict.";
+            return nullptr;
         }
         static void _vmjitcall_sidmap(wo::value* opnum1, wo::value* opnum2, wo::value* opnum3)
         {
@@ -687,7 +689,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                 wo::gcbase::write_barrier(result);
             result->set_val(opnum3);
         }
-        static void _vmjitcall_sidarr(wo::value* opnum1, wo::value* opnum2, wo::value* opnum3)
+        static const char* _vmjitcall_sidarr(wo::value* opnum1, wo::value* opnum2, wo::value* opnum3)
         {
             wo_assert(opnum1->type == value::valuetype::array_type && opnum1->array != nullptr);
             wo_assert(opnum2->type == value::valuetype::integer_type);
@@ -699,7 +701,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                 index = opnum1->array->size() + opnum2->integer;
             if (index >= opnum1->array->size())
             {
-                wo_fail(WO_FAIL_INDEX_FAIL, "Index out of range.");
+                return "Index out of range.";
             }
             else
             {
@@ -708,6 +710,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                     wo::gcbase::write_barrier(result);
                 result->set_val(opnum3);
             }
+            return nullptr;
         }
         static void _vmjitcall_sidstruct(wo::value* opnum1, wo::value* opnum2, uint16_t offset)
         {
@@ -757,8 +760,11 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
         {
             wo_error(msg);
         }
-        static void _vmjitcall_fail(uint32_t id, const char* msg)
+        static void _vmjitcall_fail(wo::vmbase* vmm, uint32_t id, const char* msg, const byte_t* rt_ip, wo::value* rt_sp, wo::value* rt_bp)
         {
+            vmm->ip = rt_ip;
+            vmm->sp = rt_sp;
+            vmm->bp = rt_bp;
             wo_fail(id, msg);
         }
     };
@@ -954,7 +960,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto result = x86compiler.newInt32();
             asmjit::InvokeNode* invoke_node;
             wo_asure(!x86compiler.invoke(&invoke_node, (intptr_t)&native_do_calln_nativefunc,
-                asmjit::FuncSignatureT<wo_result_t, vmbase*, wo_extern_native_func_t, const byte_t* ,const byte_t*, value*, value*>()));
+                asmjit::FuncSignatureT<wo_result_t, vmbase*, wo_extern_native_func_t, const byte_t*, const byte_t*, value*, value*>()));
 
             invoke_node->setArg(0, vm);
             invoke_node->setArg(1, asmjit::Imm((size_t)call_aim_native_func));
@@ -1045,7 +1051,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                     || vm_func->m_state == function_jit_state::state::FINISHED);
                 wo_assert(vm_func->m_jitfunc);
 
-              
+
                 auto funcaddr = x86compiler.newIntPtr();
                 x86compiler.mov(funcaddr, asmjit::x86::qword_ptr((intptr_t)vm_func->m_func));
 
@@ -1062,6 +1068,29 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             wo_asure(!x86compiler.je(normal));
             wo_asure(!x86compiler.ret(result)); // break this execute!!!
             wo_asure(!x86compiler.bind(normal));
+        }
+
+        template <typename T>
+        static void x86_do_fail(asmjit::x86::Compiler& x86compiler,
+            asmjit::x86::Gp vm,
+            uint32_t failcode,
+            T failreason,
+            const byte_t* rt_ip,
+            asmjit::x86::Gp rt_sp,
+            asmjit::x86::Gp rt_bp)
+        {
+            asmjit::InvokeNode* invoke_node;
+            wo_asure(!x86compiler.invoke(&invoke_node, (intptr_t)&_vmjitcall_fail,
+                asmjit::FuncSignatureT<void, wo::vmbase*, uint32_t, const char*, const byte_t*, wo::value*, wo::value*>()));
+
+            invoke_node->setArg(0, vm);
+            invoke_node->setArg(1, asmjit::Imm(failcode));
+            invoke_node->setArg(2, failreason);
+            invoke_node->setArg(3, asmjit::Imm((intptr_t)rt_ip));
+            invoke_node->setArg(4, rt_sp);
+            invoke_node->setArg(4, rt_bp);
+
+            make_checkpoint(x86compiler, vm, rt_sp, rt_bp, rt_ip);
         }
 
         virtual X64CompileContext* prepare_compiler(
@@ -1376,14 +1405,26 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto op1 = opnum1.gp_value();
             auto op2 = opnum2.gp_value();
             auto op3 = opnum3.gp_value();
+            auto err = ctx->c.newIntPtr();
 
             asmjit::InvokeNode* invoke_node;
             wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_sidarr,
-                asmjit::FuncSignatureT< void, wo::value*, wo::value*, wo::value*>()));
+                asmjit::FuncSignatureT<const char*, wo::value*, wo::value*, wo::value*>()));
 
             invoke_node->setArg(0, op1);
             invoke_node->setArg(1, op2);
             invoke_node->setArg(2, op3);
+            invoke_node->setRet(0, err);
+
+            auto noerror_label = ctx->c.newLabel();
+            wo_asure(!ctx->c.cmp(err, asmjit::Imm(0)));
+            wo_asure(!ctx->c.je(noerror_label));
+
+            x86_do_fail(ctx->c, ctx->_vmbase,
+                WO_FAIL_INDEX_FAIL, err,
+                rt_ip, ctx->_vmssp, ctx->_vmsbp);
+
+            wo_asure(!ctx->c.bind(noerror_label));
             return true;
         }
         virtual bool ir_sidstruct(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -2078,17 +2119,28 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
             auto op1 = opnum1.gp_value();
             auto op2 = opnum2.gp_value();
+            auto err = ctx->c.newIntPtr();
 
             asmjit::InvokeNode* invoke_node;
             wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::movcast_impl,
-                asmjit::FuncSignatureT<void, wo::value*, wo::value*, uint8_t>()));
+                asmjit::FuncSignatureT<const char*, wo::value*, wo::value*, uint8_t>()));
 
             static_assert(sizeof(uint8_t) == sizeof(value::valuetype));
 
             invoke_node->setArg(0, op1);
             invoke_node->setArg(1, op2);
             invoke_node->setArg(2, asmjit::Imm((uint8_t)aim_type));
+            invoke_node->setRet(0, err);
 
+            auto noerror_label = ctx->c.newLabel();
+            wo_asure(!ctx->c.cmp(err, asmjit::Imm(0)));
+            wo_asure(!ctx->c.je(noerror_label));
+
+            x86_do_fail(ctx->c, ctx->_vmbase,
+                WO_FAIL_TYPE_FAIL, err,
+                rt_ip, ctx->_vmssp, ctx->_vmsbp);
+
+            wo_asure(!ctx->c.bind(noerror_label));
             return true;
         }
         virtual bool ir_mkclos(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -2132,12 +2184,9 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             }
             else
             {
-                asmjit::InvokeNode* invoke_node;
-                wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_fail,
-                    asmjit::FuncSignatureT< void, uint32_t, const char*>()));
-
-                invoke_node->setArg(0, WO_FAIL_TYPE_FAIL);
-                invoke_node->setArg(1, (intptr_t)"The given value is not the same as the requested type.");
+                x86_do_fail(ctx->c, ctx->_vmbase,
+                    WO_FAIL_TYPE_FAIL, asmjit::Imm((intptr_t)"The given value is not the same as the requested type."),
+                    rt_ip, ctx->_vmssp, ctx->_vmsbp);
             }
             wo_asure(!ctx->c.bind(typeas_end));
             if (dr & 0b01)
@@ -2185,14 +2234,26 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
             auto op1 = opnum1.gp_value();
             auto op2 = opnum2.gp_value();
+            auto err = ctx->c.newIntPtr();
 
             asmjit::InvokeNode* invoke_node;
             wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_idarr,
-                asmjit::FuncSignatureT< void, wo::value*, wo::value*, wo::value*>()));
+                asmjit::FuncSignatureT<const char*, wo::value*, wo::value*, wo::value*>()));
 
             invoke_node->setArg(0, ctx->_vmcr);
             invoke_node->setArg(1, op1);
             invoke_node->setArg(2, op2);
+            invoke_node->setRet(0, err);
+
+            auto noerror_label = ctx->c.newLabel();
+            wo_asure(!ctx->c.cmp(err, asmjit::Imm(0)));
+            wo_asure(!ctx->c.je(noerror_label));
+
+            x86_do_fail(ctx->c, ctx->_vmbase,
+                WO_FAIL_INDEX_FAIL, err,
+                rt_ip, ctx->_vmssp, ctx->_vmsbp);
+
+            wo_asure(!ctx->c.bind(noerror_label));
             return true;
         }
         virtual bool ir_iddict(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -2202,14 +2263,26 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
             auto op1 = opnum1.gp_value();
             auto op2 = opnum2.gp_value();
+            auto err = ctx->c.newIntPtr();
 
             asmjit::InvokeNode* invoke_node;
             wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_iddict,
-                asmjit::FuncSignatureT< void, wo::value*, wo::value*, wo::value*>()));
+                asmjit::FuncSignatureT<const char*, wo::value*, wo::value*, wo::value*>()));
 
             invoke_node->setArg(0, ctx->_vmcr);
             invoke_node->setArg(1, op1);
             invoke_node->setArg(2, op2);
+            invoke_node->setRet(0, err);
+
+            auto noerror_label = ctx->c.newLabel();
+            wo_asure(!ctx->c.cmp(err, asmjit::Imm(0)));
+            wo_asure(!ctx->c.je(noerror_label));
+
+            x86_do_fail(ctx->c, ctx->_vmbase,
+                WO_FAIL_INDEX_FAIL, err,
+                rt_ip, ctx->_vmssp, ctx->_vmsbp);
+
+            wo_asure(!ctx->c.bind(noerror_label));
             return true;
         }
         virtual bool ir_mkarr(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -2360,14 +2433,26 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto op1 = opnum1.gp_value();
             auto op2 = opnum2.gp_value();
             auto op3 = opnum3.gp_value();
+            auto err = ctx->c.newIntPtr();
 
             asmjit::InvokeNode* invoke_node;
             wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_siddict,
-                asmjit::FuncSignatureT< void, wo::value*, wo::value*, wo::value*>()));
+                asmjit::FuncSignatureT<const char*, wo::value*, wo::value*, wo::value*>()));
 
             invoke_node->setArg(0, op1);
             invoke_node->setArg(1, op2);
             invoke_node->setArg(2, op3);
+            invoke_node->setRet(0, err);
+
+            auto noerror_label = ctx->c.newLabel();
+            wo_asure(!ctx->c.cmp(err, asmjit::Imm(0)));
+            wo_asure(!ctx->c.je(noerror_label));
+
+            x86_do_fail(ctx->c, ctx->_vmbase,
+                WO_FAIL_INDEX_FAIL, err,
+                rt_ip, ctx->_vmssp, ctx->_vmsbp);
+
+            wo_asure(!ctx->c.bind(noerror_label));
             return true;
         }
         virtual bool ir_jnequb(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -2420,6 +2505,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                 asmjit::FuncSignatureT<void, wo::value*>()));
 
             invoke_node->setArg(0, op1);
+            make_checkpoint(ctx->c, ctx->_vmbase, ctx->_vmssp, ctx->_vmsbp, rt_ip);
             return true;
         }
         virtual bool ir_ext_packargs(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip) override
@@ -2454,14 +2540,18 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
             asmjit::InvokeNode* invoke_node;
             wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::unpackargs_impl,
-                asmjit::FuncSignatureT<wo::value*, wo::value*, wo::value*, wo::value*, wo::value*>()));
+                asmjit::FuncSignatureT<wo::value*, vmbase*, value*, value*, value*, const byte_t*, value*, value*>()));
 
-            invoke_node->setArg(0, op1);
-            invoke_node->setArg(1, op2);
-            invoke_node->setArg(2, ctx->_vmtc);
-            invoke_node->setArg(3, ctx->_vmssp);
+            invoke_node->setArg(0, ctx->_vmbase);
+            invoke_node->setArg(1, op1);
+            invoke_node->setArg(2, op2);
+            invoke_node->setArg(3, ctx->_vmtc);
+            invoke_node->setArg(4, asmjit::Imm((intptr_t)rt_ip));
+            invoke_node->setArg(5, ctx->_vmssp);
+            invoke_node->setArg(6, ctx->_vmsbp);
             invoke_node->setRet(0, ctx->_vmssp);
 
+            make_checkpoint(ctx->c, ctx->_vmbase, ctx->_vmssp, ctx->_vmsbp, rt_ip);
             return true;
         }
 
@@ -2515,5 +2605,5 @@ namespace wo
     void free_jit(runtime_env* env)
     {
     }
-    }
+}
 #endif
