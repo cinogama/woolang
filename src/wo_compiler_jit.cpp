@@ -2017,9 +2017,9 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                 jit_packed_func_t call_aim_native_func = (jit_packed_func_t)(WO_IPVAL_MOVE_8);
 
                 if (dr & 0b10)
-                    x86_do_calln_native_func_fast(ctx->c, ctx->_vmbase, call_aim_native_func, rt_ip, ctx->env->rt_codes, ctx->_vmssp, ctx->_vmsbp, ctx->_vmtc);
+                    x86_do_calln_native_func_fast(ctx->c, ctx->_vmbase, call_aim_native_func, ctx->env->rt_codes, rt_ip, ctx->_vmssp, ctx->_vmsbp, ctx->_vmtc);
                 else
-                    x86_do_calln_native_func(ctx->c, ctx->_vmbase, call_aim_native_func, rt_ip, ctx->env->rt_codes, ctx->_vmssp, ctx->_vmsbp);
+                    x86_do_calln_native_func(ctx->c, ctx->_vmbase, call_aim_native_func, ctx->env->rt_codes, rt_ip, ctx->_vmssp, ctx->_vmsbp);
             }
             else
             {
