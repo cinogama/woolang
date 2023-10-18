@@ -183,7 +183,7 @@ namespace wo
 
         if (a_value_assi->is_value_assgin)
         {
-            auto lsymb = dynamic_cast<ast_value_symbolable_base*>(a_value_assi->left);
+            auto lsymb = dynamic_cast<ast_value_variable*>(a_value_assi->left);
             if (lsymb && lsymb->symbol && !lsymb->symbol->is_template_symbol)
             {
                 // If symbol is template variable, delay the type calc.
@@ -1398,7 +1398,10 @@ namespace wo
                     if (a_value_funcdef->auto_adjust_return_type)
                     {
                         if (a_value_funcdef->has_return_value)
-                            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funcdef, WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE, wo::str_to_wstr(a_value_funcdef->get_ir_func_signature_tag()).c_str());
+                            lang_anylizer->lang_error(lexer::errorlevel::error,
+                                a_value_funcdef,
+                                WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE,
+                                wo::str_to_wstr(a_value_funcdef->get_ir_func_signature_tag()).c_str());
 
                         a_value_funcdef->value_type->get_return_type()->set_type_with_name(WO_PSTR(void));
                     }
@@ -1467,6 +1470,12 @@ namespace wo
 
         if (a_value_assi->left->value_type->is_complex())
         {
+            auto* symbinfo = dynamic_cast<ast_value_variable*>(a_value_assi->left);
+
+            auto* scope = symbinfo == nullptr || symbinfo->symbol == nullptr
+                ? a_value_assi->located_scope
+                : symbinfo->symbol->defined_in_scope;
+
             if (auto right_func_instance = judge_auto_type_of_funcdef_with_type(a_value_assi->right,
                 a_value_assi->located_scope,
                 a_value_assi->left->value_type, a_value_assi->right, true, nullptr, nullptr))
@@ -2096,6 +2105,11 @@ namespace wo
             && a_value_make_struct_instance->target_built_types->template_arguments.size()
             < a_value_make_struct_instance->target_built_types->symbol->template_types.size();
 
+        auto* struct_defined_scope =
+            a_value_make_struct_instance->target_built_types->symbol == nullptr
+            ? a_value_make_struct_instance->located_scope
+            : a_value_make_struct_instance->target_built_types->symbol->defined_in_scope;
+
         if (need_judge_template_args)
         {
             auto* origin_define_struct_type = a_value_make_struct_instance->target_built_types->symbol->type_informatiom;
@@ -2127,7 +2141,7 @@ namespace wo
                     fully_update_type(fnd->second.member_type, false,
                         a_value_make_struct_instance->target_built_types->symbol->template_types);
 
-                    if (auto result = judge_auto_type_of_funcdef_with_type(membpair, a_value_make_struct_instance->located_scope,
+                    if (auto result = judge_auto_type_of_funcdef_with_type(membpair, struct_defined_scope,
                         fnd->second.member_type, membpair->member_value_pair, false, nullptr, nullptr))
                     {
                         updated_member_types[membpair->member_name] = std::get<ast::ast_type*>(result.value());
@@ -2207,7 +2221,7 @@ namespace wo
                     fully_update_type(fnd->second.member_type, false,
                         a_value_make_struct_instance->target_built_types->symbol->template_types);
 
-                    if (auto result = judge_auto_type_of_funcdef_with_type(membpair, a_value_make_struct_instance->located_scope,
+                    if (auto result = judge_auto_type_of_funcdef_with_type(membpair, struct_defined_scope,
                         fnd->second.member_type, membpair->member_value_pair, true,
                         a_value_make_struct_instance->target_built_types->symbol->define_node, &template_args))
                     {
@@ -2312,7 +2326,7 @@ namespace wo
 
                         membpair->member_offset = fnd->second.offset;
                         fully_update_type(fnd->second.member_type, false);
-                        if (auto result = judge_auto_type_of_funcdef_with_type(membpair, a_value_make_struct_instance->located_scope,
+                        if (auto result = judge_auto_type_of_funcdef_with_type(membpair, struct_defined_scope,
                             fnd->second.member_type, membpair->member_value_pair, true, nullptr, nullptr))
                             membpair->member_value_pair = std::get<ast::ast_value_function_define*>(result.value());
 
@@ -2673,11 +2687,17 @@ namespace wo
             }
         }
 
-        auto updated_args_types = judge_auto_type_in_funccall(a_value_funccall, false, nullptr, nullptr);
+        auto* called_funcsymb = dynamic_cast<ast_symbolable_base*>(a_value_funccall->called_func);
+        auto* judge_auto_call_func_located_scope =
+            called_funcsymb == nullptr || called_funcsymb->symbol == nullptr
+            ? a_value_funccall->located_scope
+            : called_funcsymb->symbol->defined_in_scope;
+
+        auto updated_args_types = judge_auto_type_in_funccall(
+            a_value_funccall, judge_auto_call_func_located_scope, false, nullptr, nullptr);
 
         ast_value_function_define* calling_function_define = nullptr;
-
-        if (auto* called_funcsymb = dynamic_cast<ast_value_symbolable_base*>(a_value_funccall->called_func))
+        if (called_funcsymb != nullptr)
         {
             // called_funcsymb might be lambda function, and have not symbol.
             if (called_funcsymb->symbol != nullptr
@@ -2772,7 +2792,7 @@ namespace wo
             }
             // TODO; Some of template arguments might not able to judge if argument has `auto` type.
             // Update auto type here and re-check template
-            judge_auto_type_in_funccall(a_value_funccall, true, calling_function_define, &template_args);
+            judge_auto_type_in_funccall(a_value_funccall, judge_auto_call_func_located_scope, true, calling_function_define, &template_args);
 
             // After judge, args might be changed, we need re-try to get them.
             real_argument_types.clear();
@@ -2858,7 +2878,7 @@ namespace wo
         }
         // End of template judge
 
-        judge_auto_type_in_funccall(a_value_funccall, true, nullptr, nullptr);
+        judge_auto_type_in_funccall(a_value_funccall, judge_auto_call_func_located_scope, true, nullptr, nullptr);
 
         analyze_pass2(a_value_funccall->called_func);
         if (ast_symbolable_base* symbase = dynamic_cast<ast_symbolable_base*>(a_value_funccall->called_func))
@@ -4651,7 +4671,12 @@ namespace wo
         return std::nullopt;
     }
 
-    std::vector<ast::ast_type*> lang::judge_auto_type_in_funccall(ast::ast_value_funccall* funccall, bool update, ast::ast_defines* template_defines, const std::vector<ast::ast_type*>* template_args)
+    std::vector<ast::ast_type*> lang::judge_auto_type_in_funccall(
+        ast::ast_value_funccall* funccall,
+        lang_scope* located_scope,
+        bool update,
+        ast::ast_defines* template_defines,
+        const std::vector<ast::ast_type*>* template_args)
     {
         using namespace ast;
 
@@ -4696,7 +4721,7 @@ namespace wo
 
             std::optional<judge_result_t> judge_result = judge_auto_type_of_funcdef_with_type(
                 funccall, // Used for report error.
-                funccall->located_scope,
+                located_scope,
                 funccall->called_func->value_type->argument_types[i],
                 args_might_be_nullptr_if_unpack[i], update, template_defines, template_args);
 
@@ -5890,12 +5915,13 @@ namespace wo
 
                 auto* called_func_aim = &analyze_value(a_value_funccall->called_func, compiler);
 
-                ast_value_symbolable_base* fdef = dynamic_cast<ast_value_symbolable_base*>(a_value_funccall->called_func);
-                ast_value_function_define* funcdef = dynamic_cast<ast_value_function_define*>(fdef);
-                if (funcdef == nullptr && fdef != nullptr)
+                ast_value_variable* funcvariable = dynamic_cast<ast_value_variable*>(a_value_funccall->called_func);
+                ast_value_function_define* funcdef = dynamic_cast<ast_value_function_define*>(a_value_funccall->called_func);
+
+                if (funcvariable != nullptr)
                 {
-                    if (fdef->symbol && fdef->symbol->type == lang_symbol::symbol_type::function)
-                        funcdef = fdef->symbol->get_funcdef();
+                    if (funcvariable->symbol != nullptr && funcvariable->symbol->type == lang_symbol::symbol_type::function)
+                        funcdef = funcvariable->symbol->get_funcdef();
                 }
 
                 bool need_using_tc = !dynamic_cast<opnum::immbase*>(called_func_aim)
@@ -5912,8 +5938,8 @@ namespace wo
                     compiler->mov(*reg_for_current_funccall_argc, reg(reg::tc));
                 }
 
-                if (funcdef != nullptr 
-                    && funcdef->externed_func_info != nullptr 
+                if (funcdef != nullptr
+                    && funcdef->externed_func_info != nullptr
                     && funcdef->externed_func_info->leaving_call == false)
                     compiler->callfast((void*)funcdef->externed_func_info->externed_func);
                 else

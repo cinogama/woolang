@@ -1269,7 +1269,7 @@ func main()
             }
             foo:<string>();
             "@);
-            assure_compile_fail(@"
+        assure_compile_fail(@"
             import woo::std;
             func foo<T>()
             {
@@ -1279,6 +1279,31 @@ func main()
                 do a as option<string>;
             }
             foo:<int>();
+            "@);
+
+         assure_compile_success(@"
+            namespace Aaa
+            {
+                using Aba<T> = T;
+                func foo<T>(_: T, _: (Aba<T>)=> void)
+                {
+
+                }
+                func bar(_: string, _: (Aba<string>)=> void)
+                {
+
+                }
+                using Att<T> = struct{a : ()=> Aba<T>};
+                using Ati = struct{a : ()=> Aba<int>};
+                using Atfi = struct{a : (Aba<int>)=> void};
+            }
+
+            Aaa::foo(6, func(n){do n;});
+            Aaa::bar("", func(n){do n;});
+            do Aaa::Att{a = \=0: Aaa::Aba<int>;};
+            do Aaa::Att{a = \="Helloworld": Aaa::Aba<string>;};
+            do Aaa::Ati{a = \=0: Aaa::Aba<int>;};
+            do Aaa::Atfi{a = \_=do nil;};
             "@);
     }
 

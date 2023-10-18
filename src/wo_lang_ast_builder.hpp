@@ -448,30 +448,7 @@ namespace wo
             }
         };
 
-        struct ast_value_symbolable_base : virtual  ast_value, virtual ast_symbolable_base
-        {
-        public:
-            ast_value_symbolable_base(ast_type* type) : ast_value(type) {}
-
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
-            {
-                using astnode_type = decltype(MAKE_INSTANCE(this));
-                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this, value_type);
-                if (!child_instance) *dumm = *this;
-                ast_value::instance(dumm);
-                ast_symbolable_base::instance(dumm);
-                // Write self copy functions here..
-
-                return dumm;
-            }
-
-            void update_constant_value(lexer* lex) override
-            {
-                // do nothing;
-            }
-        };
-
-        struct ast_value_variable : virtual ast_value_symbolable_base
+        struct ast_value_variable : virtual ast_symbolable_base, virtual ast_value
         {
             wo_pstring_t var_name = nullptr;
             std::vector<ast_type*> template_reification_args;
@@ -479,18 +456,19 @@ namespace wo
             bool is_auto_judge_function_overload = false;
 
             ast_value_variable(wo_pstring_t _var_name, ast_type* type = new ast_type(WO_PSTR(pending)))
-                : ast_value_symbolable_base(type), ast_value(type)
+                : ast_value(type)
             {
                 var_name = _var_name;
             }
             ast_value_variable(ast_type* type = new ast_type(WO_PSTR(pending)))
-                : ast_value_symbolable_base(type), ast_value(type) {}
+                : ast_value(type) {}
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
                 if (!child_instance) *dumm = *this;
-                ast_value_symbolable_base::instance(dumm);
+                ast_value::instance(dumm);
+                ast_symbolable_base::instance(dumm);
                 // Write self copy functions here..
 
                 for (auto& tras : dumm->template_reification_args)
@@ -693,27 +671,31 @@ namespace wo
             }
         };
 
-        struct ast_value_arg_define : virtual ast_value_symbolable_base, virtual ast_defines
+        struct ast_value_arg_define : virtual ast_value, virtual ast_symbolable_base, virtual ast_defines
         {
             identifier_decl decl = identifier_decl::IMMUTABLE;
             wo_pstring_t arg_name = nullptr;
 
             ast_value_arg_define(ast_type* type = new ast_type(WO_PSTR(pending)))
-                : ast_value_symbolable_base(type)
-                , ast_value(type)
+                :  ast_value(type)
             {}
-
 
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
                 if (!child_instance) *dumm = *this;
-                ast_value_symbolable_base::instance(dumm);
+
                 ast_defines::instance(dumm);
+                ast_symbolable_base::instance(dumm);
+                ast_value::instance(dumm);
                 // Write self copy functions here..
 
                 return dumm;
+            }
+            void update_constant_value(lexer* lex) override
+            {
+                // do nothing
             }
         };
         struct ast_extern_info : virtual public grammar::ast_base
@@ -757,7 +739,7 @@ namespace wo
                 return dumm;
             }
         };
-        struct ast_value_function_define : virtual ast_value_symbolable_base, virtual ast_defines
+        struct ast_value_function_define : virtual ast_value, virtual ast_symbolable_base, virtual ast_defines
         {
             wo_pstring_t function_name = nullptr;
             ast_list* argument_list = nullptr;
@@ -775,8 +757,7 @@ namespace wo
             ast_where_constraint* where_constraint = nullptr;
 
             ast_value_function_define(ast_type* type = new ast_type(WO_PSTR(pending)))
-                : ast_value_symbolable_base(type)
-                , ast_value(type)
+                : ast_value(type)
             {
                 type->set_ret_type(new ast_type(WO_PSTR(pending)));
             }
@@ -837,8 +818,9 @@ namespace wo
 
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
                 if (!child_instance) *dumm = *this;
-                ast_value_symbolable_base::instance(dumm);
                 ast_defines::instance(dumm);
+                ast_symbolable_base::instance(dumm);
+                ast_value::instance(dumm);
                 // Write self copy functions here..
 
                 WO_REINSTANCE(dumm->argument_list);
@@ -849,6 +831,10 @@ namespace wo
                 dumm->capture_variables.clear();
 
                 return dumm;
+            }
+            void update_constant_value(lexer* lex) override
+            {
+                // do nothing
             }
         };
 
