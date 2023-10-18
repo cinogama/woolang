@@ -2,6 +2,7 @@
 
 #include "wo_assert.hpp"
 
+#include <memory>
 #include <string>
 #include <unordered_set>
 
@@ -57,7 +58,7 @@ namespace wo
 {
     struct wstring_pool
     {
-        inline static wstring_pool* _m_global_string_pool = nullptr;
+        inline static std::unique_ptr<wstring_pool> _m_global_string_pool;
 
         struct pstr_hasher
         {
@@ -79,18 +80,20 @@ namespace wo
 
         static void init_global_str_pool()
         {
-            wo_assert(_m_global_string_pool == nullptr);
-            _m_global_string_pool = new wstring_pool;
+            if (_m_global_string_pool == nullptr)
+            {
+                _m_global_string_pool = std::make_unique<wstring_pool>();
 
 #define WO_GLOBAL_PSTR(str) _m_global_string_pool->_m_string_pool.insert(WO_PSTR(str));
-            WO_GLOBAL_PSTR_LIST;
+                WO_GLOBAL_PSTR_LIST;
 #undef WO_GLOBAL_PSTR
+            }
         }
 
         wstring_pool* get_global_string_pool()
         {
             wo_assert(_m_global_string_pool);
-            return _m_global_string_pool;
+            return _m_global_string_pool.get();
         }
 
         // All function is lock free, because global_pool is readonly and rwpool only
