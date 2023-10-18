@@ -945,7 +945,7 @@ namespace wo
                 else
                 {
                     os << call_trace_count << ": extern func __native_function__at_" << (void*)ip << std::endl;
-                    os << "\t--at unknon native" << std::endl;
+                    os << "\t--at unknown native" << std::endl;
                 }
             }
 
@@ -994,7 +994,7 @@ namespace wo
                     else
                     {
                         os << call_trace_count << ": extern func __native_function__at_" << (void*)base_callstackinfo_ptr->native_function_addr << std::endl;
-                        os << "\t--at unknon native" << std::endl;
+                        os << "\t--at unknown native" << std::endl;
                     }
 
                     for (;;)
