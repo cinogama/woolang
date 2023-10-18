@@ -263,7 +263,12 @@ namespace wo
             bool update,
             ast::ast_defines* template_defines,
             const std::vector<ast::ast_type*>* template_args);
-        std::vector<ast::ast_type*> judge_auto_type_in_funccall(ast::ast_value_funccall* funccall, bool update, ast::ast_defines* template_defines, const std::vector<ast::ast_type*>* template_args);
+        std::vector<ast::ast_type*> judge_auto_type_in_funccall(
+            ast::ast_value_funccall* funccall, 
+            lang_scope* located_scope,
+            bool update,
+            ast::ast_defines* template_defines, 
+            const std::vector<ast::ast_type*>* template_args);
 
         bool has_step_in_step2 = false;
 
