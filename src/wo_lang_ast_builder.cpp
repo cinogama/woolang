@@ -679,7 +679,10 @@ namespace wo
             dumm->symbol = symbol;
             dumm->searching_begin_namespace_in_pass2 = searching_begin_namespace_in_pass2;
 
-            dumm->typefrom = dude_dump_ast_value(dumm->typefrom);
+            if (dumm->typefrom != nullptr && dumm->typefrom->completed_in_pass1 == false)
+                // If 'dumm->typefrom' passed pass1, no need to clone them.
+                dumm->typefrom = dude_dump_ast_value(dumm->typefrom);
+
             WO_REINSTANCE(dumm->complex_type);
 
             for (auto& argtype : dumm->argument_types)
