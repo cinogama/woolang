@@ -139,6 +139,7 @@ WO_API wo_bool_t    wo_bool(wo_value value);
 WO_API float        wo_float(wo_value value);
 WO_API const void* wo_buffer(wo_value value);
 
+WO_API void wo_set_nil(wo_value value);
 WO_API void wo_set_char(wo_value value, wo_char_t val);
 WO_API void wo_set_int(wo_value value, wo_integer_t val);
 WO_API void wo_set_real(wo_value value, wo_real_t val);
@@ -380,6 +381,9 @@ WO_API wo_bool_t    wo_struct_try_get(wo_value out_val, wo_value value, uint16_t
 WO_API wo_bool_t    wo_struct_try_set(wo_value value, uint16_t offset, wo_value val);
 WO_API void         wo_struct_get(wo_value out_val, wo_value value, uint16_t offset);
 WO_API void         wo_struct_set(wo_value value, uint16_t offset, wo_value val);
+
+WO_API wo_bool_t    wo_option_get(wo_value out_val, wo_value resultval);
+WO_API wo_bool_t    wo_result_get(wo_value out_val, wo_value optionval);
 
 // Read operation
 WO_API wo_bool_t    wo_arr_try_get(wo_value out_val, wo_value arr, wo_int_t index);
