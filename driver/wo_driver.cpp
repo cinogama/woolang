@@ -45,7 +45,7 @@ int main(int argc, char** argv)
 
                     if (fwrite(binary_buf, sizeof(char), binary_len, out_binary_file) == binary_len)
                         out_binary_file_ok = true;
-                    
+
                     fclose(out_binary_file);
                     wo_free_binary(binary_buf);
                 }
@@ -54,8 +54,13 @@ int main(int argc, char** argv)
 
         if (!compile_successful_flag)
             ret = -2;
-        else if (return_state)
-            ret = 0;
+        else if (return_state != nullptr)
+        {
+            if (wo_valuetype(return_state) == WO_INTEGER_TYPE)
+                ret = (int)wo_cast_int(return_state);
+            else
+                ret = 0;
+        }
         else if (out_binary_path != nullptr)
         {
             if (out_binary_file_ok)
@@ -63,6 +68,9 @@ int main(int argc, char** argv)
             else
                 ret = errno;
         }
+        else
+            ret = -1;
+
         wo_close_vm(vmm);
     }
     else

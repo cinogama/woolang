@@ -568,9 +568,23 @@ namespace wo
     {
         auto* a_ret = WO_AST();
 
+        if (a_ret->return_value)
+            analyze_pass1(a_ret->return_value);
+
         auto* located_function_scope = in_function();
         if (!located_function_scope)
-            lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, WO_ERR_CANNOT_DO_RET_OUSIDE_FUNC);
+        {
+            auto* current_namespace_scope = now_scope();
+
+            if (current_namespace_scope->type != lang_scope::scope_type::namespace_scope)
+                current_namespace_scope = current_namespace_scope->belong_namespace;
+            wo_assert(current_namespace_scope != nullptr);
+
+            if (current_namespace_scope->parent_scope != nullptr)
+                lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, WO_ERR_CANNOT_DO_RET_OUSIDE_FUNC);
+
+            a_ret->located_function = nullptr;
+        }
         else
         {
             a_ret->located_function = located_function_scope->function_node;
@@ -580,10 +594,7 @@ namespace wo
 
             if (a_ret->return_value)
             {
-                analyze_pass1(a_ret->return_value);
-
                 // NOTE: DONOT JUDGE FUNCTION'S RETURN VAL TYPE IN PASS1 TO AVOID TYPE MIXED IN CONSTEXPR IF
-
                 if (a_ret->located_function->auto_adjust_return_type)
                 {
                     if (a_ret->located_function->delay_adjust_return_type
@@ -967,67 +978,71 @@ namespace wo
     {
         auto* a_ret = WO_AST();
         if (a_ret->return_value)
-        {
             analyze_pass2(a_ret->return_value);
 
-            if (a_ret->return_value->value_type->is_pending())
-            {
-                // error will report in analyze_pass2(a_ret->return_value), so here do nothing.. 
-                a_ret->located_function->value_type->set_ret_type(a_ret->return_value->value_type);
-                a_ret->located_function->auto_adjust_return_type = false;
-            }
-            else
-            {
-                auto* func_return_type = a_ret->located_function->value_type->get_return_type();
-                if (a_ret->located_function->auto_adjust_return_type)
-                {
-                    if (func_return_type->is_pending())
-                    {
-                        a_ret->located_function->value_type->set_ret_type(a_ret->return_value->value_type);
-                    }
-                    else
-                    {
-                        if (!func_return_type->accept_type(a_ret->return_value->value_type, false, false))
-                        {
-                            if (!func_return_type->set_mix_types(a_ret->return_value->value_type, false))
-                            {
-                                lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, WO_ERR_FUNC_RETURN_DIFFERENT_TYPES,
-                                    func_return_type->get_type_name(false).c_str(),
-                                    a_ret->return_value->value_type->get_type_name(false).c_str());
-                            }
-                        }
-                    }
-                }
-                else
-                {
-                    if (!func_return_type->is_pending()
-                        && !func_return_type->accept_type(a_ret->return_value->value_type, false))
-                    {
-                        lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, WO_ERR_FUNC_RETURN_DIFFERENT_TYPES,
-                            func_return_type->get_type_name(false).c_str(),
-                            a_ret->return_value->value_type->get_type_name(false).c_str());
-                    }
-                }
-            }
-        }
-        else
+        if (a_ret->located_function != nullptr)
         {
-            if (a_ret->located_function->auto_adjust_return_type)
+            if (a_ret->return_value)
             {
-                if (a_ret->located_function->value_type->is_pending())
+                if (a_ret->return_value->value_type->is_pending())
                 {
-                    a_ret->located_function->value_type->get_return_type()->set_type_with_name(WO_PSTR(void));
+                    // error will report in analyze_pass2(a_ret->return_value), so here do nothing.. 
+                    a_ret->located_function->value_type->set_ret_type(a_ret->return_value->value_type);
                     a_ret->located_function->auto_adjust_return_type = false;
                 }
                 else
                 {
-                    lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME, L"void", a_ret->located_function->value_type->type_name->c_str());
+                    auto* func_return_type = a_ret->located_function->value_type->get_return_type();
+                    if (a_ret->located_function->auto_adjust_return_type)
+                    {
+                        if (func_return_type->is_pending())
+                        {
+                            a_ret->located_function->value_type->set_ret_type(a_ret->return_value->value_type);
+                        }
+                        else
+                        {
+                            if (!func_return_type->accept_type(a_ret->return_value->value_type, false, false))
+                            {
+                                if (!func_return_type->set_mix_types(a_ret->return_value->value_type, false))
+                                {
+                                    lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, WO_ERR_FUNC_RETURN_DIFFERENT_TYPES,
+                                        func_return_type->get_type_name(false).c_str(),
+                                        a_ret->return_value->value_type->get_type_name(false).c_str());
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        if (!func_return_type->is_pending()
+                            && !func_return_type->accept_type(a_ret->return_value->value_type, false))
+                        {
+                            lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, WO_ERR_FUNC_RETURN_DIFFERENT_TYPES,
+                                func_return_type->get_type_name(false).c_str(),
+                                a_ret->return_value->value_type->get_type_name(false).c_str());
+                        }
+                    }
                 }
             }
             else
             {
-                if (!a_ret->located_function->value_type->get_return_type()->is_void())
-                    lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME, L"void", a_ret->located_function->value_type->type_name->c_str());
+                if (a_ret->located_function->auto_adjust_return_type)
+                {
+                    if (a_ret->located_function->value_type->is_pending())
+                    {
+                        a_ret->located_function->value_type->get_return_type()->set_type_with_name(WO_PSTR(void));
+                        a_ret->located_function->auto_adjust_return_type = false;
+                    }
+                    else
+                    {
+                        lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME, L"void", a_ret->located_function->value_type->type_name->c_str());
+                    }
+                }
+                else
+                {
+                    if (!a_ret->located_function->value_type->get_return_type()->is_void())
+                        lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME, L"void", a_ret->located_function->value_type->type_name->c_str());
+                }
             }
         }
         return true;
@@ -4188,7 +4203,7 @@ namespace wo
                         str_to_wstr(scope->function_node->get_ir_func_signature_tag()).c_str()
                     );
                 }
-                if (!a_pattern_identifier->symbol->is_constexpr)
+                if (!a_pattern_identifier->symbol->is_constexpr_or_immut_no_closure_func())
                 {
                     auto ref_ob = get_opnum_by_symbol(pattern, a_pattern_identifier->symbol, compiler);
 
@@ -4214,7 +4229,7 @@ namespace wo
                     = a_pattern_identifier->symbol->template_typehashs_reification_instance_symbol_list;
                 for (auto& [_, symbol] : all_template_impl_variable_symbol)
                 {
-                    if (!symbol->is_constexpr)
+                    if (!symbol->is_constexpr_or_immut_no_closure_func())
                     {
                         auto ref_ob = get_opnum_by_symbol(a_pattern_identifier, symbol, compiler);
 
@@ -5167,14 +5182,7 @@ namespace wo
 
         wo_assert(symb != nullptr);
 
-        if (symb->is_constexpr
-            || (symb->decl == wo::ast::identifier_decl::IMMUTABLE
-                && !symb->is_argument
-                && !symb->is_captured_variable
-                && symb->type == lang_symbol::symbol_type::variable
-                && dynamic_cast<ast::ast_value_function_define*>(symb->variable_value)
-                // Only normal func (without capture vars) can use this way to optimize.
-                && dynamic_cast<ast::ast_value_function_define*>(symb->variable_value)->capture_variables.empty()))
+        if (symb->is_constexpr_or_immut_no_closure_func())
             return &analyze_value(symb->variable_value, compiler, get_pure_value);
 
         if (symb->type == lang_symbol::symbol_type::variable)
@@ -6697,9 +6705,17 @@ namespace wo
         else if (auto* a_return = dynamic_cast<ast_return*>(ast_node))
         {
             if (a_return->return_value)
-            {
                 mov_value_to_cr(auto_analyze_value(a_return->return_value, compiler), compiler);
 
+            if (a_return->located_function == nullptr)
+            {
+                if (a_return->return_value == nullptr)
+                    compiler->mov(opnum::reg(opnum::reg::spreg::cr), opnum::imm(0));
+
+                compiler->jmp(opnum::tag("__rsir_rtcode_seg_function_define_end"));
+            }
+            else if (a_return->return_value)
+            {
                 if (a_return->located_function->is_closure_function())
                     compiler->ret((uint16_t)a_return->located_function->capture_variables.size());
                 else
@@ -6906,7 +6922,9 @@ namespace wo
         auto used_tmp_regs = compiler->update_all_temp_regist_to_stack(public_block_begin);
         compiler->reserved_stackvalue(res_ip, used_tmp_regs); // set reserved size
 
+        compiler->mov(opnum::reg(opnum::reg::spreg::cr), opnum::imm(0));
         compiler->jmp(opnum::tag("__rsir_rtcode_seg_function_define_end"));
+
         while (!in_used_functions.empty())
         {
             auto tmp_build_func_list = in_used_functions;
@@ -6971,6 +6989,19 @@ namespace wo
                     arg_index = arg_index->sibling;
                 }
 
+                for (auto& symb : funcdef->this_func_scope->in_function_symbols)
+                {
+                    if (symb->is_constexpr_or_immut_no_closure_func())
+                        symb->is_constexpr = true;
+                }
+
+                funcdef->this_func_scope->in_function_symbols.erase(
+                    std::remove_if(
+                        funcdef->this_func_scope->in_function_symbols.begin(),
+                        funcdef->this_func_scope->in_function_symbols.end(),
+                        [](auto* symb) {return symb->is_constexpr; }),
+                    funcdef->this_func_scope->in_function_symbols.end());
+
                 real_analyze_finalize(funcdef->in_function_sentence, compiler);
 
                 auto temp_reg_to_stack_count = compiler->update_all_temp_regist_to_stack(funcbegin_ip);
@@ -6984,21 +7015,18 @@ namespace wo
                 wo_assert(funcdef->value_type->is_complex());
                 if (!funcdef->value_type->complex_type->is_void())
                     compiler->ext_panic(opnum::imm("Function returned without valid value."));
-                /*else
-                    compiler->mov(opnum::reg(opnum::reg::cr), opnum::reg(opnum::reg::ni));*/
-                    // compiler->pop(reserved_stack_size);
 
+                // do default return
                 if (funcdef->is_closure_function())
                     compiler->ret((uint16_t)funcdef->capture_variables.size());
                 else
-                    compiler->ret();                                            // do return
+                    compiler->ret();
 
                 compiler->pdb_info->generate_func_end(funcdef, temp_reg_to_stack_count, compiler);
                 compiler->ext_funcend();
 
                 for (auto funcvar : funcdef->this_func_scope->in_function_symbols)
                     compiler->pdb_info->add_func_variable(funcdef, *funcvar->name, funcvar->variable_value->row_end_no, funcvar->stackvalue_index_in_funcs);
-
             }
         }
         compiler->tag("__rsir_rtcode_seg_function_define_end");
@@ -7197,10 +7225,6 @@ namespace wo
 
                 if (captureindex == (size_t)-1)
                 {
-                    // TODO: following should generate same const things, 
-                    // const var xxx = 0;
-                    // const var ddd = xxx;
-
                     if (sym->decl == ast::identifier_decl::MUTABLE || !init_val->is_constant)
                     {
                         if (is_template_value != template_style::IS_TEMPLATE_VARIABLE_DEFINE)
@@ -7237,9 +7261,7 @@ namespace wo
                 }
                 else
                     sym->is_constexpr = true;
-
             }
-
             lang_symbols.push_back(sym);
             return sym;
         }
