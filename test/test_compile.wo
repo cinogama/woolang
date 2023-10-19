@@ -354,8 +354,9 @@ func main()
         assure_compile_fail(@"extern("not_exist_func")func foo() => void;"@);
         assure_compile_fail(@"extern("not_exist_lib","not_exist_func")func foo() => void;"@);
 
-        // return must in func
-        assure_compile_fail(@"return 0;"@);
+        // return must in func or in global
+        assure_compile_fail(@"namespace example {return 0;}"@);
+        assure_compile_success(@"return 0;"@);
 
         // func cannot return different type if func is not dynamic
         assure_compile_fail(@"func xx(){return 1; return 1.0;}"@);

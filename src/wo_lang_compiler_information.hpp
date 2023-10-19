@@ -77,7 +77,7 @@
 
 #define WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE  L"此处应该是 '%ls'，但发现了 '%ls'"
 
-#define WO_ERR_CANNOT_DO_RET_OUSIDE_FUNC L"非法的返回操作, 不允许在函数范围外进行返回"
+#define WO_ERR_CANNOT_DO_RET_OUSIDE_FUNC L"非法的返回操作, 只允许在函数或全局命名空间内返回"
 
 #define WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME L"不能同时返回 '%ls' 和 '%ls'"
 
@@ -347,7 +347,7 @@
 
 #define WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE  L"Here should be '%ls', but found '%ls'."
 
-#define WO_ERR_CANNOT_DO_RET_OUSIDE_FUNC L"Invalid return, cannot do return ouside of function."
+#define WO_ERR_CANNOT_DO_RET_OUSIDE_FUNC L"Invalid return, returns are only allowed within functions or global namespaces."
 
 #define WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME L"Cannot return '%ls' and '%ls' at same time."
 
