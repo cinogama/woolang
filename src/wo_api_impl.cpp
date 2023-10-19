@@ -277,7 +277,7 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
             not_unload_lib_warn += "\n\t\t" + path;
         wo_warning(not_unload_lib_warn.c_str());
     }
-    
+
     womem_shutdown();
     wo::debuggee_base::_free_abandons();
 }
@@ -517,6 +517,10 @@ wo_bool_t wo_bool(wo_value value)
 //    return CS_VAL(&_rsvalue->gchandle->holding_value);
 //}
 
+void wo_set_nil(wo_value value)
+{
+    WO_VAL(value)->set_nil();
+}
 void wo_set_int(wo_value value, wo_integer_t val)
 {
     auto* _rsvalue = WO_VAL(value);
@@ -2685,6 +2689,40 @@ void wo_struct_set(wo_value value, uint16_t offset, wo_value val)
 {
     if (!wo_struct_try_set(value, offset, val))
         wo_fail(WO_FAIL_INDEX_FAIL, "Failed to index: out of range.");
+}
+
+wo_bool_t wo_result_get(wo_value out_val, wo_value resultval)
+{
+    auto* val = WO_VAL(resultval);
+    if (val->type != wo::value::valuetype::struct_type
+        || val->structs->m_count != 2
+        || val->structs->m_values[0].type
+        != wo::value::valuetype::integer_type)
+        wo_fail(WO_FAIL_TYPE_FAIL, "Unexpected value type.");
+    else
+    {
+        wo_set_val(out_val, CS_VAL(&val->structs->m_values[1]));
+        return val->structs->m_values[0].integer == 1;
+    }
+    return false;
+}
+wo_bool_t wo_option_get(wo_value out_val, wo_value optionval)
+{
+    auto* val = WO_VAL(optionval);
+    if (val->type != wo::value::valuetype::struct_type
+        || (val->structs->m_count != 1 && val->structs->m_count != 2)
+        || val->structs->m_values[0].type != wo::value::valuetype::integer_type)
+        wo_fail(WO_FAIL_TYPE_FAIL, "Unexpected value type.");
+    else
+    {
+        if (val->structs->m_count == 2)
+        {
+            wo_set_val(out_val, CS_VAL(&val->structs->m_values[1]));
+            return true;
+        }
+        wo_set_nil(out_val);
+    }
+    return false;
 }
 
 void wo_arr_resize(wo_value arr, wo_int_t newsz, wo_value init_val)
