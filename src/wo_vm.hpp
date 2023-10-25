@@ -203,7 +203,7 @@ namespace wo
             // Remove old debuggee
             for (auto* vm_instance : _alive_vm_list)
                 if (vm_instance->virtual_machine_type != vmbase::vm_type::GC_DESTRUCTOR)
-                    wo_asure(vm_instance->interrupt(vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT));
+                    vm_instance->interrupt(vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT);
             for (auto* vm_instance : _alive_vm_list)
                 if (vm_instance->virtual_machine_type != vmbase::vm_type::GC_DESTRUCTOR)
                     vm_instance->wait_interrupt(vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT);
