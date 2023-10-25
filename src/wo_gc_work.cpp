@@ -702,7 +702,7 @@ namespace wo
 
         void alloc_failed_retry()
         {
-            wo_gc_immediately(true);
+            wo_gc_immediately(WO_TRUE);
 
             auto* curvm = (wo_vm)wo::vmbase::_this_thread_vm;
             bool need_re_entry = true;
@@ -783,7 +783,7 @@ namespace wo
 void wo_gc_immediately(wo_bool_t fullgc)
 {
     std::lock_guard g1(wo::gc::_gc_work_mx);
-    wo::gc::_gc_advise_to_full_gc = true;
+    wo::gc::_gc_advise_to_full_gc = (bool)fullgc;
     wo::gc::_gc_immediately.clear();
     wo::gc::_gc_work_cv.notify_one();
 }

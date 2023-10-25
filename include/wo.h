@@ -28,6 +28,7 @@
 #endif
 
 #ifdef WO_IMPL
+#   define WO_STRICTLY_BOOL
 #   define WO_IMPORT_OR_EXPORT WO_EXPORT
 #else
 #   define WO_IMPORT_OR_EXPORT WO_IMPORT
@@ -49,7 +50,6 @@ typedef const wchar_t* wo_wstring_t;
 typedef wchar_t     wo_char_t;
 typedef double      wo_real_t;
 typedef size_t      wo_size_t;
-typedef bool        wo_bool_t;
 
 #define WO_STRUCT_TAKE_PLACE(BYTECOUNT) uint8_t _take_palce_[BYTECOUNT]
 
@@ -84,8 +84,21 @@ typedef enum _wo_value_type
     WO_GCHANDLE_TYPE,
     WO_CLOSURE_TYPE,
     WO_STRUCT_TYPE
-}
-wo_type;
+}wo_type;
+
+#ifdef WO_STRICTLY_BOOL
+typedef enum _wo_bool
+{
+    WO_FALSE = 0,
+    WO_TRUE = 1,
+}wo_bool_t;
+#else
+typedef int wo_bool_t;
+#define WO_FALSE (0)
+#define WO_TRUE (1)
+#endif
+
+#define WO_CBOOL(EXPR) ((EXPR)?WO_TRUE:WO_FALSE)
 
 typedef enum _wo_api
 {
@@ -106,7 +119,7 @@ typedef void(*wo_fail_handler)(
     wo_string_t reason);
 
 WO_API wo_fail_handler wo_regist_fail_handler(wo_fail_handler new_handler);
-WO_API void         wo_cause_fail(wo_string_t src_file, uint32_t lineno, wo_string_t functionname, uint32_t rterrcode, wo_string_t reason, ...);
+WO_API void         wo_cause_fail(wo_string_t src_file, uint32_t lineno, wo_string_t functionname, uint32_t rterrcode, wo_string_t reasonfmt, ...);
 WO_API void         wo_execute_fail_handler(wo_vm vm, wo_string_t src_file, uint32_t lineno, wo_string_t functionname, uint32_t rterrcode, wo_string_t reason);
 #define wo_fail(ERRID, ...) ((void)wo_cause_fail(__FILE__, __LINE__, __func__,ERRID, __VA_ARGS__))
 #define wo_execute_fail(VM, ERRID, REASON) ((void)wo_execute_fail_handler(VM, __FILE__, __LINE__, __func__, ERRID, REASON))
@@ -150,6 +163,7 @@ WO_API void wo_set_bool(wo_value value, wo_bool_t val);
 WO_API void wo_set_val(wo_value value, wo_value val);
 
 WO_API void wo_set_string(wo_value value, wo_vm vm, wo_string_t val);
+WO_API void wo_set_string_fmt(wo_value value, wo_vm vm, wo_string_t fmt, ...);
 WO_API void wo_set_buffer(wo_value value, wo_vm vm, const void* val, size_t len);
 WO_API void wo_set_gchandle(wo_value value, wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t));
 WO_API void wo_set_struct(wo_value value, wo_vm vm, uint16_t structsz);
@@ -182,12 +196,13 @@ WO_API wo_result_t  wo_ret_bool(wo_vm vm, wo_bool_t result);
 WO_API wo_result_t  wo_ret_val(wo_vm vm, wo_value result);
 
 WO_API wo_result_t  wo_ret_string(wo_vm vm, wo_string_t result);
+WO_API wo_result_t  wo_ret_string_fmt(wo_vm vm, wo_string_t fmt, ...);
 WO_API wo_result_t  wo_ret_buffer(wo_vm vm, const void* result, size_t len);
 WO_API wo_result_t  wo_ret_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t));
 WO_API wo_result_t  wo_ret_dup(wo_vm vm, wo_value result);
 
-WO_API wo_result_t  wo_ret_halt(wo_vm vm, wo_string_t reason);
-WO_API wo_result_t  wo_ret_panic(wo_vm vm, wo_string_t reason);
+WO_API wo_result_t  wo_ret_halt(wo_vm vm, wo_string_t reasonfmt, ...);
+WO_API wo_result_t  wo_ret_panic(wo_vm vm, wo_string_t reasonfmt, ...);
 
 WO_API void  wo_set_option_void(wo_value val, wo_vm vm);
 WO_API void  wo_set_option_char(wo_value val, wo_vm vm, wo_char_t result);
@@ -314,7 +329,7 @@ WO_API wo_bool_t    wo_load_binary_with_stacksz(wo_vm vm, wo_string_t virtual_sr
 WO_API wo_bool_t    wo_load_binary(wo_vm vm, wo_string_t virtual_src_path, const void* buffer, size_t length);
 
 // NOTE: wo_dump_binary must invoke before wo_run.
-WO_API void*        wo_dump_binary(wo_vm vm, wo_bool_t saving_pdi, size_t* out_length);
+WO_API void* wo_dump_binary(wo_vm vm, wo_bool_t saving_pdi, size_t* out_length);
 WO_API void         wo_free_binary(void* buffer);
 
 WO_API wo_bool_t    wo_jit(wo_vm vm);

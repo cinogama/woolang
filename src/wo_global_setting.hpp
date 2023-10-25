@@ -84,7 +84,7 @@ namespace wo
             ;
 
         inline bool ENABLE_PDB_INFORMATIONS = true;
-
+        inline bool ENABLE_SHELL_PACKAGE = true;
         inline size_t MEMORY_CHUNK_SIZE = 1ull * 1024ull * 1024ull * 1024ull;
     }
 }

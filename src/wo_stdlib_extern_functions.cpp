@@ -65,10 +65,10 @@ WO_API wo_api rslib_std_string_isspace(wo_vm vm, wo_value args, size_t argc)
     {
         for (auto& ch : str)
             if (!wo::lexer::lex_isspace(ch))
-                return wo_ret_bool(vm, false);
-        return wo_ret_bool(vm, true);
+                return wo_ret_bool(vm, WO_FALSE);
+        return wo_ret_bool(vm, WO_TRUE);
     }
-    return wo_ret_bool(vm, false);
+    return wo_ret_bool(vm, WO_FALSE);
 }
 
 WO_API wo_api rslib_std_string_isalpha(wo_vm vm, wo_value args, size_t argc)
@@ -78,10 +78,10 @@ WO_API wo_api rslib_std_string_isalpha(wo_vm vm, wo_value args, size_t argc)
     {
         for (auto& ch : str)
             if (!wo::lexer::lex_isalpha(ch))
-                return wo_ret_bool(vm, false);
-        return wo_ret_bool(vm, true);
+                return wo_ret_bool(vm, WO_FALSE);
+        return wo_ret_bool(vm, WO_TRUE);
     }
-    return wo_ret_bool(vm, false);
+    return wo_ret_bool(vm, WO_FALSE);
 }
 
 WO_API wo_api rslib_std_string_isalnum(wo_vm vm, wo_value args, size_t argc)
@@ -91,10 +91,10 @@ WO_API wo_api rslib_std_string_isalnum(wo_vm vm, wo_value args, size_t argc)
     {
         for (auto& ch : str)
             if (!wo::lexer::lex_isalnum(ch))
-                return wo_ret_bool(vm, false);
-        return wo_ret_bool(vm, true);
+                return wo_ret_bool(vm, WO_FALSE);
+        return wo_ret_bool(vm, WO_TRUE);
     }
-    return wo_ret_bool(vm, false);
+    return wo_ret_bool(vm, WO_FALSE);
 }
 
 WO_API wo_api rslib_std_string_isnumber(wo_vm vm, wo_value args, size_t argc)
@@ -104,10 +104,10 @@ WO_API wo_api rslib_std_string_isnumber(wo_vm vm, wo_value args, size_t argc)
     {
         for (auto& ch : str)
             if (!wo::lexer::lex_isdigit(ch))
-                return wo_ret_bool(vm, false);
-        return wo_ret_bool(vm, true);
+                return wo_ret_bool(vm, WO_FALSE);
+        return wo_ret_bool(vm, WO_TRUE);
     }
-    return wo_ret_bool(vm, false);
+    return wo_ret_bool(vm, WO_FALSE);
 }
 
 WO_API wo_api rslib_std_string_ishex(wo_vm vm, wo_value args, size_t argc)
@@ -117,10 +117,10 @@ WO_API wo_api rslib_std_string_ishex(wo_vm vm, wo_value args, size_t argc)
     {
         for (auto& ch : str)
             if (!wo::lexer::lex_isxdigit(ch))
-                return wo_ret_bool(vm, false);
-        return wo_ret_bool(vm, true);
+                return wo_ret_bool(vm, WO_FALSE);
+        return wo_ret_bool(vm, WO_TRUE);
     }
-    return wo_ret_bool(vm, false);
+    return wo_ret_bool(vm, WO_FALSE);
 }
 
 WO_API wo_api rslib_std_string_isoct(wo_vm vm, wo_value args, size_t argc)
@@ -130,10 +130,10 @@ WO_API wo_api rslib_std_string_isoct(wo_vm vm, wo_value args, size_t argc)
     {
         for (auto& ch : str)
             if (!wo::lexer::lex_isodigit(ch))
-                return wo_ret_bool(vm, false);
-        return wo_ret_bool(vm, true);
+                return wo_ret_bool(vm, WO_FALSE);
+        return wo_ret_bool(vm, WO_TRUE);
     }
-    return wo_ret_bool(vm, false);
+    return wo_ret_bool(vm, WO_FALSE);
 }
 
 WO_API wo_api rslib_std_char_tostring(wo_vm vm, wo_value args, size_t argc)
@@ -154,37 +154,37 @@ WO_API wo_api rslib_std_char_tolower(wo_vm vm, wo_value args, size_t argc)
 
 WO_API wo_api rslib_std_char_isspace(wo_vm vm, wo_value args, size_t argc)
 {
-    return wo_ret_bool(vm, wo::lexer::lex_isspace(wo_char(args + 0)));
+    return wo_ret_bool(vm, WO_CBOOL(wo::lexer::lex_isspace(wo_char(args + 0))));
 }
 
 WO_API wo_api rslib_std_char_isalpha(wo_vm vm, wo_value args, size_t argc)
 {
-    return wo_ret_bool(vm, wo::lexer::lex_isalpha(wo_char(args + 0)));
+    return wo_ret_bool(vm, WO_CBOOL(wo::lexer::lex_isalpha(wo_char(args + 0))));
 }
 
 WO_API wo_api rslib_std_char_isalnum(wo_vm vm, wo_value args, size_t argc)
 {
-    return wo_ret_bool(vm, wo::lexer::lex_isalnum(wo_char(args + 0)));
+    return wo_ret_bool(vm, WO_CBOOL(wo::lexer::lex_isalnum(wo_char(args + 0))));
 }
 
 WO_API wo_api rslib_std_char_isnumber(wo_vm vm, wo_value args, size_t argc)
 {
-    return wo_ret_bool(vm, wo::lexer::lex_isdigit(wo_char(args + 0)));
+    return wo_ret_bool(vm, WO_CBOOL(wo::lexer::lex_isdigit(wo_char(args + 0))));
 }
 
 WO_API wo_api rslib_std_char_ishex(wo_vm vm, wo_value args, size_t argc)
 {
-    return wo_ret_bool(vm, wo::lexer::lex_isxdigit(wo_char(args + 0)));
+    return wo_ret_bool(vm, WO_CBOOL(wo::lexer::lex_isxdigit(wo_char(args + 0))));
 }
 
 WO_API wo_api rslib_std_char_isoct(wo_vm vm, wo_value args, size_t argc)
 {
-    return wo_ret_bool(vm, wo::lexer::lex_isodigit(wo_char(args + 0)));
+    return wo_ret_bool(vm, WO_CBOOL(wo::lexer::lex_isodigit(wo_char(args + 0))));
 }
 
 WO_API wo_api rslib_std_char_hexnum(wo_vm vm, wo_value args, size_t argc)
 {
-    return wo_ret_bool(vm, wo::lexer::lex_hextonum(wo_char(args + 0)));
+    return wo_ret_bool(vm, WO_CBOOL(wo::lexer::lex_hextonum(wo_char(args + 0))));
 }
 
 WO_API wo_api rslib_std_string_enstring(wo_vm vm, wo_value args, size_t argc)
@@ -317,17 +317,17 @@ WO_API wo_api rslib_std_string_beginwith(wo_vm vm, wo_value args, size_t argc)
     size_t beginlen = strlen(begin);
 
     if (beginlen > aimlen)
-        return wo_ret_bool(vm, false);
+        return wo_ret_bool(vm, WO_FALSE);
 
     while ((*aim) && (*begin))
     {
         if (*aim != *begin)
-            return wo_ret_bool(vm, false);
+            return wo_ret_bool(vm, WO_FALSE);
         ++aim;
         ++begin;
     }
 
-    return wo_ret_bool(vm, true);
+    return wo_ret_bool(vm, WO_TRUE);
 }
 
 WO_API wo_api rslib_std_string_endwith(wo_vm vm, wo_value args, size_t argc)
@@ -339,17 +339,17 @@ WO_API wo_api rslib_std_string_endwith(wo_vm vm, wo_value args, size_t argc)
     size_t endlen = strlen(end);
 
     if (endlen > aimlen)
-        return wo_ret_bool(vm, false);
+        return wo_ret_bool(vm, WO_FALSE);
 
     aim += (aimlen - endlen);
     while ((*aim) && (*end))
     {
         if (*aim != *end)
-            return wo_ret_bool(vm, false);
+            return wo_ret_bool(vm, WO_FALSE);
         ++aim;
         ++end;
     }
-    return wo_ret_bool(vm, true);
+    return wo_ret_bool(vm, WO_TRUE);
 }
 
 WO_API wo_api rslib_std_string_replace(wo_vm vm, wo_value args, size_t argc)
@@ -607,9 +607,9 @@ WO_API wo_api rslib_std_array_descrease(wo_vm vm, wo_value args, size_t argc)
     if (new_size <= wo_lengthof(args + 0))
     {
         wo_arr_resize(args + 0, new_size, nullptr);
-        return wo_ret_bool(vm, true);
+        return wo_ret_bool(vm, WO_TRUE);
     }
-    return wo_ret_bool(vm, false);
+    return wo_ret_bool(vm, WO_FALSE);
 }
 
 WO_API wo_api rslib_std_array_shrink(wo_vm vm, wo_value args, size_t argc)
@@ -618,9 +618,9 @@ WO_API wo_api rslib_std_array_shrink(wo_vm vm, wo_value args, size_t argc)
     if (newsz <= wo_lengthof(args + 0))
     {
         wo_arr_resize(args + 0, newsz, nullptr);
-        return wo_ret_bool(vm, true);
+        return wo_ret_bool(vm, WO_TRUE);
     }
-    return wo_ret_bool(vm, false);
+    return wo_ret_bool(vm, WO_FALSE);
 }
 
 WO_API wo_api rslib_std_array_insert(wo_vm vm, wo_value args, size_t argc)
@@ -2945,15 +2945,25 @@ namespace std
 
 WO_API wo_api rslib_std_call_shell(wo_vm vm, wo_value args, size_t argc)
 {
-    return wo_ret_int(vm, system(wo_string(args + 0)));
+    if (wo::config::ENABLE_SHELL_PACKAGE)
+        return wo_ret_int(vm, system(wo_string(args + 0)));
+    else
+        return wo_ret_panic(vm, "Function defined in 'std/shell.wo' has been forbidden, "
+            "trying to restart without '--enable-shell 0'.");
 }
 
 WO_API wo_api rslib_std_get_env(wo_vm vm, wo_value args, size_t argc)
 {
-    const char* env = getenv(wo_string(args + 0));
-    if (env)
-        return wo_ret_option_string(vm, env);
-    return wo_ret_option_none(vm);
+    if (wo::config::ENABLE_SHELL_PACKAGE)
+    {
+        const char* env = getenv(wo_string(args + 0));
+        if (env)
+            return wo_ret_option_string(vm, env);
+        return wo_ret_option_none(vm);
+    }
+    else
+        return wo_ret_panic(vm, "Function defined in 'std/shell.wo' has been forbidden, "
+            "trying to restart without '--enable-shell 0'.");
 }
 
 const char* wo_stdlib_shell_src_path = u8"woo/shell.wo";

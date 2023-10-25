@@ -78,7 +78,7 @@ namespace wo
                     return;
 
                 load_by_os_api = false;
-                extern_lib = wo_load_lib(libpath.c_str(), nullptr, true);
+                extern_lib = wo_load_lib(libpath.c_str(), nullptr, WO_TRUE);
             }
             wo_native_func load_func(const char* funcname)
             {
