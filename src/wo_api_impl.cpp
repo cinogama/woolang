@@ -184,14 +184,14 @@ void wo_execute_fail_handler(wo_vm vm, wo_string_t src_file, uint32_t lineno, wo
     _wo_fail_handler_function.load()(
         vm, src_file, lineno, functionname, rterrcode, reason);
 }
-void wo_cause_fail(wo_string_t src_file, uint32_t lineno, wo_string_t functionname, uint32_t rterrcode, wo_string_t reason, ...)
+void wo_cause_fail(wo_string_t src_file, uint32_t lineno, wo_string_t functionname, uint32_t rterrcode, wo_string_t reasonfmt, ...)
 {
     va_list v1, v2;
-    va_start(v1, reason);
+    va_start(v1, reasonfmt);
     va_copy(v2, v1);
-    std::vector<char> buf(1 + vsnprintf(nullptr, 0, reason, v1));
+    std::vector<char> buf(1 + vsnprintf(nullptr, 0, reasonfmt, v1));
     va_end(v1);
-    std::vsnprintf(buf.data(), buf.size(), reason, v2);
+    std::vsnprintf(buf.data(), buf.size(), reasonfmt, v2);
     va_end(v2);
 
     wo_execute_fail_handler(
@@ -255,7 +255,7 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
 
         using namespace std;
 
-        wo_gc_immediately(true);
+        wo_gc_immediately(WO_TRUE);
         std::this_thread::sleep_for(10ms);
 
         std::lock_guard g1(wo::vmbase::_alive_vm_list_mx);
@@ -289,8 +289,6 @@ void wo_init(int argc, char** argv)
     bool enable_ctrl_c_to_debug = true;
     bool enable_gc = true;
     bool enable_vm_pool = true;
-    bool enable_shell_package = true;
-    bool enable_file_package = true;
 
     wo::wo_init_args(argc, argv);
 
@@ -305,7 +303,7 @@ void wo_init(int argc, char** argv)
             else if ("enable-std" == current_arg)
                 enable_std_package = atoi(argv[++command_idx]);
             else if ("enable-shell" == current_arg)
-                enable_shell_package = atoi(argv[++command_idx]);
+                wo::config::ENABLE_SHELL_PACKAGE = atoi(argv[++command_idx]);
             else if ("enable-ctrlc-debug" == current_arg)
                 enable_ctrl_c_to_debug = atoi(argv[++command_idx]);
             else if ("enable-gc" == current_arg)
@@ -357,11 +355,11 @@ void wo_init(int argc, char** argv)
 
     if (enable_std_package)
     {
-        wo_virtual_source(wo_stdlib_src_path, wo_stdlib_src_data, false);
-        wo_virtual_source(wo_stdlib_debug_src_path, wo_stdlib_debug_src_data, false);
-        wo_virtual_source(wo_stdlib_macro_src_path, wo_stdlib_macro_src_data, false);
-        if (enable_shell_package)
-            wo_virtual_source(wo_stdlib_shell_src_path, wo_stdlib_shell_src_data, false);
+        wo_virtual_source(wo_stdlib_src_path, wo_stdlib_src_data, WO_FALSE);
+        wo_virtual_source(wo_stdlib_debug_src_path, wo_stdlib_debug_src_data, WO_FALSE);
+        wo_virtual_source(wo_stdlib_macro_src_path, wo_stdlib_macro_src_data, WO_FALSE);
+        if (wo::config::ENABLE_SHELL_PACKAGE)
+            wo_virtual_source(wo_stdlib_shell_src_path, wo_stdlib_shell_src_data, WO_FALSE);
     }
 
     if (enable_ctrl_c_to_debug)
@@ -392,13 +390,13 @@ wo_string_t wo_work_path()
 
 wo_bool_t wo_set_work_path(wo_string_t path)
 {
-    return wo::set_work_path(path);
+    return WO_CBOOL(wo::set_work_path(path));
 }
 
 wo_bool_t wo_equal_byte(wo_value a, wo_value b)
 {
     auto left = WO_VAL(a), right = WO_VAL(b);
-    return left->type == right->type && left->handle == right->handle;
+    return WO_CBOOL(left->type == right->type && left->handle == right->handle);
 }
 
 wo_ptr_t wo_safety_pointer(wo::gchandle_t* gchandle)
@@ -504,7 +502,7 @@ wo_bool_t wo_bool(wo_value value)
         wo_fail(WO_FAIL_TYPE_FAIL, "This value is not a boolean.");
         return wo_cast_bool(value);
     }
-    return (_rsvalue->integer != 0);
+    return WO_CBOOL(_rsvalue->integer != 0);
 }
 //wo_value wo_value_of_gchandle(wo_value value)
 //{
@@ -559,7 +557,17 @@ void wo_set_string(wo_value value, wo_vm vm, wo_string_t val)
     _wo_enter_gc_guard g(vm);
     _rsvalue->set_string(val);
 }
-
+void wo_set_string_fmt(wo_value value, wo_vm vm, wo_string_t fmt, ...)
+{
+    va_list v1, v2;
+    va_start(v1, fmt);
+    va_copy(v2, v1);
+    std::vector<char> buf(1 + vsnprintf(nullptr, 0, fmt, v1));
+    va_end(v1);
+    std::vsnprintf(buf.data(), buf.size(), fmt, v2);
+    va_end(v2);
+    wo_set_string(value, vm, buf.data());
+}
 void wo_set_buffer(wo_value value, wo_vm vm, const void* val, size_t len)
 {
     auto* _rsvalue = WO_VAL(value);
@@ -571,7 +579,7 @@ void wo_set_buffer(wo_value value, wo_vm vm, const void* val, size_t len)
 void wo_set_bool(wo_value value, wo_bool_t val)
 {
     auto* _rsvalue = WO_VAL(value);
-    _rsvalue->set_bool(val);
+    _rsvalue->set_bool(val != WO_FALSE);
 }
 void wo_set_gchandle(wo_value value, wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t))
 {
@@ -871,14 +879,14 @@ wo_bool_t _wo_cast_array(wo::value* value, wo::lexer* lex)
         }
 
         if (!_wo_cast_value(value, lex, wo::value::valuetype::invalid)) // val!
-            return false;
+            return WO_FALSE;
         rsarr->push_back(*value);
 
         if (lex->peek(nullptr) == +wo::lex_type::l_comma)
             lex->next(nullptr);
     }
     value->set_gcunit<wo::value::valuetype::array_type>(rsarr);
-    return true;
+    return WO_TRUE;
 }
 wo_bool_t _wo_cast_map(wo::value* value, wo::lexer* lex)
 {
@@ -895,23 +903,23 @@ wo_bool_t _wo_cast_map(wo::value* value, wo::lexer* lex)
         }
 
         if (!_wo_cast_value(value, lex, wo::value::valuetype::invalid))// key!
-            return false;
+            return WO_FALSE;
         auto& val_place = (*rsmap)[*value];
 
         lex_type = lex->next(nullptr);
         if (lex_type != +wo::lex_type::l_typecast)
             //wo_fail(WO_FAIL_TYPE_FAIL, "Unexcept token while parsing map, here should be ':'.");
-            return false;
+            return WO_FALSE;
 
         if (!_wo_cast_value(&val_place, lex, wo::value::valuetype::invalid)) // value!
-            return false;
+            return WO_FALSE;
 
         if (lex->peek(nullptr) == +wo::lex_type::l_comma)
             lex->next(nullptr);
     }
 
     value->set_gcunit<wo::value::valuetype::dict_type>(rsmap);
-    return true;
+    return WO_TRUE;
 }
 wo_bool_t _wo_cast_value(wo::value* value, wo::lexer* lex, wo::value::valuetype except_type)
 {
@@ -920,12 +928,12 @@ wo_bool_t _wo_cast_value(wo::value* value, wo::lexer* lex, wo::value::valuetype 
     if (lex_type == +wo::lex_type::l_left_curly_braces) // is map
     {
         if (!_wo_cast_map(value, lex))
-            return false;
+            return WO_FALSE;
     }
     else if (lex_type == +wo::lex_type::l_index_begin) // is array
     {
         if (!_wo_cast_array(value, lex))
-            return false;
+            return WO_FALSE;
     }
     else if (lex_type == +wo::lex_type::l_literal_string) // is string   
         value->set_string(wo::wstr_to_str(wstr).c_str());
@@ -944,7 +952,7 @@ wo_bool_t _wo_cast_value(wo::value* value, wo::lexer* lex, wo::value::valuetype 
             if (lex_type != +wo::lex_type::l_literal_integer
                 && lex_type != +wo::lex_type::l_literal_real)
                 // wo_fail(WO_FAIL_TYPE_FAIL, "Unknown token while parsing.");
-                return false;
+                return WO_FALSE;
         }
 
         if (lex_type == +wo::lex_type::l_literal_integer) // is real
@@ -967,12 +975,12 @@ wo_bool_t _wo_cast_value(wo::value* value, wo::lexer* lex, wo::value::valuetype 
         value->set_nil();// null
     else
         //wo_fail(WO_FAIL_TYPE_FAIL, "Unknown token while parsing.");
-        return false;
+        return WO_FALSE;
 
     if (except_type != wo::value::valuetype::invalid && except_type != value->type)
         // wo_fail(WO_FAIL_TYPE_FAIL, "Unexcept value type after parsing.");
-        return false;
-    return true;
+        return WO_FALSE;
+    return WO_TRUE;
 
 }
 wo_bool_t wo_deserialize(wo_vm vm, wo_value value, wo_string_t str, wo_type except_type)
@@ -1177,9 +1185,9 @@ wo_bool_t wo_serialize(wo_value value, wo_string_t* out_str)
     if (_wo_cast_string(WO_VAL(value), &_buf, cast_string_mode::SERIALIZE, &_tved_gcunit, 0))
     {
         *out_str = _buf.c_str();
-        return true;
+        return WO_TRUE;
     }
-    return false;
+    return WO_FALSE;
 }
 
 wo_bool_t wo_cast_bool(wo_value value)
@@ -1189,18 +1197,18 @@ wo_bool_t wo_cast_bool(wo_value value)
     {
     case wo::value::valuetype::bool_type:
     case wo::value::valuetype::integer_type:
-        return _rsvalue->integer != 0;
+        return WO_CBOOL(_rsvalue->integer != 0);
     case wo::value::valuetype::handle_type:
-        return _rsvalue->handle != 0;
+        return WO_CBOOL(_rsvalue->handle != 0);
     case wo::value::valuetype::real_type:
-        return _rsvalue->real != 0;
+        return WO_CBOOL(_rsvalue->real != 0);
     case wo::value::valuetype::string_type:
-        return _rsvalue->string->compare("true") == 0;
+        return WO_CBOOL(_rsvalue->string->compare("true") == 0);
     default:
         wo_fail(WO_FAIL_TYPE_FAIL, "This value can not cast to bool.");
         break;
     }
-    return false;
+    return WO_FALSE;
 }
 wo_string_t wo_cast_string(wo_value value)
 {
@@ -1278,7 +1286,7 @@ wo_integer_t wo_argc(wo_vm vm)
 }
 wo_result_t wo_ret_bool(wo_vm vm, wo_bool_t result)
 {
-    WO_VM(vm)->cr->set_bool(result);
+    WO_VM(vm)->cr->set_bool(result != WO_FALSE);
     return wo_result_t::WO_API_NORMAL;
 }
 wo_result_t wo_ret_int(wo_vm vm, wo_integer_t result)
@@ -1321,6 +1329,19 @@ wo_result_t wo_ret_string(wo_vm vm, wo_string_t result)
     WO_VM(vm)->cr->set_string(result);
     return wo_result_t::WO_API_NORMAL;
 }
+
+wo_result_t wo_ret_string_fmt(wo_vm vm, wo_string_t fmt, ...)
+{
+    va_list v1, v2;
+    va_start(v1, fmt);
+    va_copy(v2, v1);
+    std::vector<char> buf(1 + vsnprintf(nullptr, 0, fmt, v1));
+    va_end(v1);
+    std::vsnprintf(buf.data(), buf.size(), fmt, v2);
+    va_end(v2);
+    return wo_ret_string(vm, buf.data());
+}
+
 wo_result_t wo_ret_buffer(wo_vm vm, const void* result, size_t len)
 {
     _wo_enter_gc_guard g(vm);
@@ -1349,12 +1370,20 @@ wo_result_t wo_ret_dup(wo_vm vm, wo_value result)
     return wo_result_t::WO_API_NORMAL;
 }
 
-wo_result_t wo_ret_halt(wo_vm vm, wo_string_t reason)
+wo_result_t wo_ret_halt(wo_vm vm, wo_string_t reasonfmt, ...)
 {
+    va_list v1, v2;
+    va_start(v1, reasonfmt);
+    va_copy(v2, v1);
+    std::vector<char> buf(1 + vsnprintf(nullptr, 0, reasonfmt, v1));
+    va_end(v1);
+    std::vsnprintf(buf.data(), buf.size(), reasonfmt, v2);
+    va_end(v2);
+
     auto* vmptr = WO_VM(vm);
     {
         _wo_enter_gc_guard g(vm);
-        vmptr->er->set_string(reason);
+        vmptr->er->set_string(buf.data());
     }
     vmptr->interrupt(wo::vmbase::vm_interrupt_type::ABORT_INTERRUPT);
     wo::wo_stderr << ANSI_HIR "Halt happend: " ANSI_RST << wo_cast_string((wo_value)vmptr->er) << wo::wo_endl;
@@ -1362,14 +1391,22 @@ wo_result_t wo_ret_halt(wo_vm vm, wo_string_t reason)
     return wo_result_t::WO_API_NORMAL;
 }
 
-wo_result_t wo_ret_panic(wo_vm vm, wo_string_t reason)
+wo_result_t wo_ret_panic(wo_vm vm, wo_string_t reasonfmt, ...)
 {
+    va_list v1, v2;
+    va_start(v1, reasonfmt);
+    va_copy(v2, v1);
+    std::vector<char> buf(1 + vsnprintf(nullptr, 0, reasonfmt, v1));
+    va_end(v1);
+    std::vsnprintf(buf.data(), buf.size(), reasonfmt, v2);
+    va_end(v2);
+
     auto* vmptr = WO_VM(vm);
     {
         _wo_enter_gc_guard g(vm);
-        vmptr->er->set_string(reason);
+        vmptr->er->set_string(buf.data());
     }
-    wo_fail(WO_FAIL_DEADLY, reason);
+    wo_fail(WO_FAIL_DEADLY, vmptr->er->string->c_str());
     return wo_result_t::WO_API_NORMAL;
 }
 
@@ -1401,7 +1438,7 @@ void wo_set_option_bool(wo_value val, wo_vm vm, wo_bool_t result)
     }
 
     structptr->m_values[0].set_integer(1);
-    structptr->m_values[1].set_bool(result);
+    structptr->m_values[1].set_bool(result != WO_FALSE);
 
 }
 void wo_set_option_char(wo_value val, wo_vm vm, wo_char_t result)
@@ -1621,9 +1658,7 @@ void wo_set_err_bool(wo_value val, wo_vm vm, wo_bool_t result)
     }
 
     structptr->m_values[0].set_integer(2);
-    structptr->m_values[1].set_bool(result);
-
-
+    structptr->m_values[1].set_bool(result != WO_FALSE);
 }
 void wo_set_err_int(wo_value val, wo_vm vm, wo_integer_t result)
 {
@@ -2018,12 +2053,12 @@ wo_string_t  wo_wstr_to_str(wo_wstring_t str)
 
 void wo_enable_jit(wo_bool_t option)
 {
-    wo::config::ENABLE_JUST_IN_TIME = option;
+    wo::config::ENABLE_JUST_IN_TIME = (option != WO_FALSE);
 }
 
 wo_bool_t wo_virtual_binary(wo_string_t filepath, const void* data, size_t len, wo_bool_t enable_modify)
 {
-    return wo::create_virtual_binary((const char*)data, len, wo::str_to_wstr(filepath), enable_modify);
+    return WO_CBOOL(wo::create_virtual_binary((const char*)data, len, wo::str_to_wstr(filepath), enable_modify != WO_FALSE));
 }
 
 wo_bool_t wo_virtual_source(wo_string_t filepath, wo_string_t data, wo_bool_t enable_modify)
@@ -2033,7 +2068,7 @@ wo_bool_t wo_virtual_source(wo_string_t filepath, wo_string_t data, wo_bool_t en
 
 wo_bool_t wo_remove_virtual_file(wo_string_t filepath)
 {
-    return wo::remove_virtual_binary(wo::str_to_wstr(filepath));
+    return WO_CBOOL(wo::remove_virtual_binary(wo::str_to_wstr(filepath)));
 }
 
 wo_vm wo_create_vm()
@@ -2166,14 +2201,14 @@ wo_bool_t _wo_load_source(wo_vm vm, wo_string_t virtual_src_path, const void* sr
     {
         auto& env = *env_p;
         ((wo::vm*)vm)->set_runtime(env);
-        return true;
+        return WO_TRUE;
     }
     else
     {
         auto* lex_p = std::get_if<wo::lexer*>(&env_or_lex);
         wo_assert(nullptr != lex_p);
         WO_VM(vm)->compile_info = *lex_p;
-        return false;
+        return WO_FALSE;
     }
 }
 
@@ -2186,8 +2221,8 @@ wo_bool_t wo_load_binary_with_stacksz(wo_vm vm, wo_string_t virtual_src_path, co
     else
         vpath = virtual_src_path;
 
-    if (!wo_virtual_binary(vpath.c_str(), buffer, length, true))
-        return false;
+    if (!wo_virtual_binary(vpath.c_str(), buffer, length, WO_TRUE))
+        return WO_FALSE;
 
     return _wo_load_source(vm, vpath.c_str(), buffer, length, stacksz);
 }
@@ -2199,7 +2234,7 @@ wo_bool_t wo_load_binary(wo_vm vm, wo_string_t virtual_src_path, const void* buf
 
 void* wo_dump_binary(wo_vm vm, wo_bool_t saving_pdi, size_t* out_length)
 {
-    auto [bufptr, bufsz] = WO_VM(vm)->env->create_env_binary(saving_pdi);
+    auto [bufptr, bufsz] = WO_VM(vm)->env->create_env_binary(saving_pdi != WO_FALSE);
     *out_length = bufsz;
     return bufptr;
 }
@@ -2211,8 +2246,8 @@ void wo_free_binary(void* buffer)
 wo_bool_t wo_has_compile_error(wo_vm vm)
 {
     if (vm && WO_VM(vm)->compile_info && WO_VM(vm)->compile_info->has_error())
-        return true;
-    return false;
+        return WO_TRUE;
+    return WO_FALSE;
 }
 
 std::wstring _dump_src_info(const std::string& path, size_t beginaimrow, size_t beginpointplace, size_t aimrow, size_t pointplace, _wo_inform_style style)
@@ -2388,9 +2423,9 @@ wo_bool_t wo_abort_vm(wo_vm vm)
 
     if (wo::vmbase::_alive_vm_list.find(WO_VM(vm)) != wo::vmbase::_alive_vm_list.end())
     {
-        return WO_VM(vm)->interrupt(wo::vmbase::vm_interrupt_type::ABORT_INTERRUPT);
+        return WO_CBOOL(WO_VM(vm)->interrupt(wo::vmbase::vm_interrupt_type::ABORT_INTERRUPT));
     }
-    return false;
+    return WO_FALSE;
 }
 
 wo_value wo_push_int(wo_vm vm, wo_int_t val)
@@ -2626,9 +2661,9 @@ wo_bool_t wo_jit(wo_vm vm)
         wo_assert(WO_VM(vm)->env->_jit_functions.empty());
 
         analyze_jit(const_cast<wo::byte_t*>(WO_VM(vm)->env->rt_codes), WO_VM(vm)->env);
-        return true;
+        return WO_TRUE;
     }
-    return false;
+    return WO_FALSE;
 }
 
 wo_value wo_run(wo_vm vm)
@@ -2660,12 +2695,12 @@ wo_bool_t wo_struct_try_get(wo_value out_val, wo_value value, uint16_t offset)
         if (offset < struct_impl->m_count)
         {
             WO_VAL(out_val)->set_val(&struct_impl->m_values[offset]);
-            return true;
+            return WO_TRUE;
         }
     }
     else
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not a struct.");
-    return false;
+    return WO_FALSE;
 }
 wo_bool_t wo_struct_try_set(wo_value value, uint16_t offset, wo_value val)
 {
@@ -2684,12 +2719,12 @@ wo_bool_t wo_struct_try_set(wo_value value, uint16_t offset, wo_value val)
                 wo::gcbase::write_barrier(result);
 
             result->set_val(WO_VAL(val));
-            return true;
+            return WO_TRUE;
         }
     }
     else
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not a struct.");
-    return false;
+    return WO_FALSE;
 }
 
 void wo_struct_get(wo_value out_val, wo_value value, uint16_t offset)
@@ -2714,9 +2749,9 @@ wo_bool_t wo_result_get(wo_value out_val, wo_value resultval)
     else
     {
         wo_set_val(out_val, CS_VAL(&val->structs->m_values[1]));
-        return val->structs->m_values[0].integer == 1;
+        return WO_CBOOL(val->structs->m_values[0].integer == 1);
     }
-    return false;
+    return WO_FALSE;
 }
 wo_bool_t wo_option_get(wo_value out_val, wo_value optionval)
 {
@@ -2730,11 +2765,11 @@ wo_bool_t wo_option_get(wo_value out_val, wo_value optionval)
         if (val->structs->m_count == 2)
         {
             wo_set_val(out_val, CS_VAL(&val->structs->m_values[1]));
-            return true;
+            return WO_TRUE;
         }
         wo_set_nil(out_val);
     }
-    return false;
+    return WO_FALSE;
 }
 
 void wo_arr_resize(wo_value arr, wo_int_t newsz, wo_value init_val)
@@ -2776,13 +2811,13 @@ wo_bool_t wo_arr_insert(wo_value arr, wo_int_t place, wo_value val)
             auto index = _arr->array->insert(_arr->array->begin() + (size_t)place, wo::value());
             index->set_val(WO_VAL(val));
 
-            return true;
+            return WO_TRUE;
         }
     }
     else
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not an array.");
 
-    return false;
+    return WO_FALSE;
 }
 wo_bool_t wo_arr_try_set(wo_value arr, wo_int_t index, wo_value val)
 {
@@ -2798,13 +2833,13 @@ wo_bool_t wo_arr_try_set(wo_value arr, wo_int_t index, wo_value val)
             auto* store_val = &_arr->array->at((size_t)index);
             wo::gcbase::write_barrier(store_val);
             store_val->set_val(WO_VAL(val));
-            return true;
+            return WO_TRUE;
         }
     }
     else
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not an array.");
 
-    return false;
+    return WO_FALSE;
 }
 void wo_arr_set(wo_value arr, wo_int_t index, wo_value val)
 {
@@ -2842,13 +2877,13 @@ wo_bool_t wo_arr_try_get(wo_value out_val, wo_value arr, wo_int_t index)
         if ((size_t)index < _arr->array->size())
         {
             WO_VAL(out_val)->set_val(&(*_arr->array)[(size_t)index]);
-            return true;
+            return WO_TRUE;
         }
     }
     else
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not an array.");
 
-    return false;
+    return WO_FALSE;
 }
 void wo_arr_get(wo_value out_val, wo_value arr, wo_int_t index)
 {
@@ -2875,13 +2910,13 @@ wo_bool_t wo_arr_pop_front(wo_value out_val, wo_value arr)
         {
             WO_VAL(out_val)->set_val(&_arr->array->front());
             _arr->array->erase(_arr->array->begin());
-            return true;
+            return WO_TRUE;
         }
     }
     else
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not an array.");
 
-    return false;
+    return WO_FALSE;
 }
 wo_bool_t wo_arr_pop_back(wo_value out_val, wo_value arr)
 {
@@ -2896,13 +2931,13 @@ wo_bool_t wo_arr_pop_back(wo_value out_val, wo_value arr)
         {
             WO_VAL(out_val)->set_val(&_arr->array->back());
             _arr->array->pop_back();
-            return true;
+            return WO_TRUE;
         }
     }
     else
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not an array.");
 
-    return false;
+    return WO_FALSE;
 }
 
 void wo_arr_pop_front_val(wo_value out_val, wo_value arr)
@@ -2967,14 +3002,14 @@ wo_bool_t wo_arr_remove(wo_value arr, wo_int_t index)
                     wo::gcbase::write_barrier(&(*_arr->array)[(size_t)index]);
                 _arr->array->erase(_arr->array->begin() + (size_t)index);
 
-                return true;
+                return WO_TRUE;
             }
         }
     }
     else
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not an array.");
 
-    return false;
+    return WO_FALSE;
 }
 void wo_arr_clear(wo_value arr)
 {
@@ -3001,11 +3036,11 @@ wo_bool_t wo_arr_is_empty(wo_value arr)
     else if (_arr->type == wo::value::valuetype::array_type)
     {
         wo::gcbase::gc_read_guard g1(_arr->array);
-        return _arr->array->empty();
+        return WO_CBOOL(_arr->array->empty());
     }
     else
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not an array.");
-    return true;
+    return WO_TRUE;
 }
 
 wo_bool_t wo_map_find(wo_value map, wo_value index)
@@ -3017,13 +3052,13 @@ wo_bool_t wo_map_find(wo_value map, wo_value index)
     {
         wo::gcbase::gc_read_guard g1(_map->dict);
         if (index)
-            return _map->dict->find(*WO_VAL(index)) != _map->dict->end();
-        return  _map->dict->find(wo::value()) != _map->dict->end();
+            return WO_CBOOL(_map->dict->find(*WO_VAL(index)) != _map->dict->end());
+        return WO_CBOOL(_map->dict->find(wo::value()) != _map->dict->end());
     }
     else
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not a map.");
 
-    return false;
+    return WO_FALSE;
 }
 
 wo_bool_t wo_map_get_or_set_default(wo_value out_val, wo_value map, wo_value index, wo_value default_value)
@@ -3048,12 +3083,12 @@ wo_bool_t wo_map_get_or_set_default(wo_value out_val, wo_value map, wo_value ind
         }
 
         WO_VAL(out_val)->set_val(store_val);
-        return found;
+        return WO_CBOOL(found);
     }
     else
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not a map.");
 
-    return false;
+    return WO_FALSE;
 }
 
 wo_bool_t wo_map_get_or_default(wo_value out_val, wo_value map, wo_value index, wo_value default_value)
@@ -3075,15 +3110,15 @@ wo_bool_t wo_map_get_or_default(wo_value out_val, wo_value map, wo_value index, 
         if (!result)
         {
             WO_VAL(out_val)->set_val(WO_VAL(default_value));
-            return false;
+            return WO_FALSE;
         }
         WO_VAL(out_val)->set_val(result);
-        return true;
+        return WO_TRUE;
     }
     else
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not a map.");
 
-    return false;
+    return WO_FALSE;
 }
 
 wo_bool_t wo_map_try_get(wo_value out_val, wo_value map, wo_value index)
@@ -3098,13 +3133,13 @@ wo_bool_t wo_map_try_get(wo_value out_val, wo_value map, wo_value index)
         if (fnd != _map->dict->end())
         {
             WO_VAL(out_val)->set_val(&fnd->second);
-            return true;
+            return WO_TRUE;
         }
     }
     else
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not a map.");
 
-    return false;
+    return WO_FALSE;
 }
 
 void wo_map_set(wo_value map, wo_value index, wo_value val)
@@ -3140,12 +3175,12 @@ wo_bool_t wo_map_remove(wo_value map, wo_value index)
                 wo::gcbase::write_barrier(&fnd->second);
             }
         }
-        return 0 != _map->dict->erase(*WO_VAL(index));
+        return WO_CBOOL(0 != _map->dict->erase(*WO_VAL(index)));
     }
     else
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not a map.");
 
-    return false;
+    return WO_FALSE;
 }
 void wo_map_clear(wo_value map)
 {
@@ -3177,18 +3212,18 @@ wo_bool_t wo_map_is_empty(wo_value map)
     else if (_map->type == wo::value::valuetype::dict_type)
     {
         wo::gcbase::gc_read_guard g1(_map->dict);
-        return _map->dict->empty();
+        return WO_CBOOL(_map->dict->empty());
     }
     else
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not a map.");
-    return true;
+    return WO_TRUE;
 }
 
 wo_bool_t wo_gchandle_close(wo_value gchandle)
 {
     auto* gchandle_ptr = WO_VAL(gchandle)->gchandle;
     wo::gcbase::gc_write_guard g1(gchandle_ptr);
-    return gchandle_ptr->close();
+    return WO_CBOOL(gchandle_ptr->close());
 }
 
 // DEBUGGEE TOOLS
@@ -3202,8 +3237,8 @@ void wo_attach_default_debuggee()
 wo_bool_t wo_has_attached_debuggee()
 {
     if (wo::vmbase::current_debuggee() != nullptr)
-        return true;
-    return false;
+        return WO_TRUE;
+    return WO_FALSE;
 }
 
 void wo_detach_debuggee()
@@ -3343,7 +3378,7 @@ wo_vm wo_set_this_thread_vm(wo_vm vm_may_null)
 
 wo_bool_t wo_leave_gcguard(wo_vm vm)
 {
-    return WO_VM(vm)->interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT);
+    return WO_CBOOL(WO_VM(vm)->interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
 }
 wo_bool_t wo_enter_gcguard(wo_vm vm)
 {
@@ -3360,9 +3395,9 @@ wo_bool_t wo_enter_gcguard(wo_vm vm)
                     WO_VM(vm)->hangup();
             }
         }
-        return true;
+        return WO_TRUE;
     }
-    return false;
+    return WO_FALSE;
 }
 
 // LSP-API
