@@ -2561,9 +2561,21 @@ wo_value wo_dispatch(wo_vm vm)
         wo_assert(WO_VM(vm)->tc->type == wo::value::valuetype::integer_type);
         auto arg_count = WO_VM(vm)->er->integer;
 
-        WO_VM(vm)->run();
+        auto dispatch_result = WO_VM(vm)->run();
+        auto br_yield = WO_VM(vm)->get_and_clear_br_yield_flag();
+        switch (dispatch_result)
+        {
+        case wo_result_t::WO_API_NORMAL:
+            break;
+        case wo_result_t::WO_API_RESYNC:
+            if (!br_yield)
+            {
+                WO_VM(vm)->run();
+                br_yield = WO_VM(vm)->get_and_clear_br_yield_flag();
+            }
+        }
 
-        if (WO_VM(vm)->get_and_clear_br_yield_flag())
+        if (br_yield)
         {
             WO_VM(vm)->er->set_integer(arg_count);
             return WO_CONTINUE;

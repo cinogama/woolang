@@ -225,9 +225,9 @@ namespace wo
                         // Failed to clear DETACH_DEBUGGEE_INTERRUPT? it has been handled!
                         // Re-set DEBUG_INTERRUPT
                         has_handled))
-                {
                     vm_instance->interrupt(vm_interrupt_type::DEBUG_INTERRUPT);
-                }
+                else
+                    vm_instance->interrupt(vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT);
             }
             return old_debuggee;
         }
@@ -1120,7 +1120,7 @@ namespace wo
             return call_trace_count;
         }
 
-        virtual void run() = 0;
+        virtual wo_result_t run() = 0;
 
         bool gc_checkpoint()
         {
@@ -2869,15 +2869,17 @@ namespace wo
 #undef WO_IPVAL
         }
 
-        void run()override
+        wo_result_t run()override
         {
             if (ip >= env->rt_codes && ip < env->rt_codes + env->rt_code_len)
                 run_impl();
             else
-                ((wo_extern_native_func_t)ip)(
+                return ((wo_extern_native_func_t)ip)(
                     std::launder(reinterpret_cast<wo_vm>(this)),
                     std::launder(reinterpret_cast<wo_value>(sp + 2)),
                     (size_t)tc->integer);
+
+            return wo_result_t::WO_API_NORMAL;
         }
     };
 }
