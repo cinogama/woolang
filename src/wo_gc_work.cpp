@@ -312,6 +312,8 @@ namespace wo
 
         bool _gc_work_list(bool stopworld, bool fullgc)
         {
+            std::lock_guard g1(_gc_pined_values_mx);
+
 #ifdef WO_PLATRORM_OS_WINDOWS
             SetThreadDescription(GetCurrentThread(), L"wo_gc_main");
 #endif
@@ -422,17 +424,12 @@ namespace wo
                 _gc_mark_thread_groups::instancce().launch_round_of_mark();
 
                 // 4. Mark all pin-value
-                do 
+                for (auto* pin_value : _gc_pined_values)
                 {
-                    std::lock_guard g1(_gc_pined_values_mx);
-                    for (auto* pin_value : _gc_pined_values)
-                    {
-                        gcbase::unit_attrib* attr;
-                        if (gcbase* gcunit_address = pin_value->get_gcunit_with_barrier(&attr))
-                            gc_mark_unit_as_gray(&mem_gray_list, gcunit_address, attr);
-                    }
+                    gcbase::unit_attrib* attr;
+                    if (gcbase* gcunit_address = pin_value->get_gcunit_with_barrier(&attr))
+                        gc_mark_unit_as_gray(&mem_gray_list, gcunit_address, attr);
                 }
-                while (0);
 
                 // 5. Wake up all hanged vm.
                 if (!stopworld)
