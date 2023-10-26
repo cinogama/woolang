@@ -65,6 +65,18 @@ struct _wo_in_thread_vm_guard
         wo_set_this_thread_vm(last_vm);
     }
 };
+struct loaded_lib_info
+{
+    void* m_lib_instance;
+    size_t      m_use_count;
+};
+
+wo::vmpool* global_vm_pool = nullptr;
+
+std::mutex loaded_named_libs_mx;
+std::unordered_map<std::string, std::vector<loaded_lib_info>> loaded_named_libs;
+
+wo_value _wo_execute_result = nullptr;
 
 void _default_fail_handler(wo_vm vm, wo_string_t src_file, uint32_t lineno, wo_string_t functionname, uint32_t rterrcode, wo_string_t reason)
 {
@@ -219,21 +231,12 @@ void wo_handle_ctrl_c(void(*handler)(int))
 
 #undef wo_init
 
-wo::vmpool* global_vm_pool = nullptr;
-
-struct loaded_lib_info
-{
-    void* m_lib_instance;
-    size_t      m_use_count;
-};
-std::unordered_map<std::string, std::vector<loaded_lib_info>> loaded_named_libs;
-std::mutex loaded_named_libs_mx;
-
 void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
 {
     bool scheduler_need_shutdown = true;
 
     // Ready to shutdown all vm & coroutine.
+    wo_set_nil(_wo_execute_result);
 
     // Free all vm in pool, because vm in pool is PENDING, we can free them directly.
     // ATTENTION: If somebody using global_vm_pool when finish, here may crash or dead loop.
@@ -280,6 +283,8 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
 
     womem_shutdown();
     wo::debuggee_base::_free_abandons();
+
+    wo_unpin_value(_wo_execute_result);
 }
 
 void wo_init(int argc, char** argv)
@@ -366,6 +371,8 @@ void wo_init(int argc, char** argv)
         wo_handle_ctrl_c(_wo_ctrl_c_signal_handler);
 
     wo_asure(wo::get_wo_grammar()); // Create grammar when init.
+
+    _wo_execute_result = wo_pin_value();
 }
 
 #define WO_VAL(v) (std::launder(reinterpret_cast<wo::value*>(v)))
@@ -3465,7 +3472,22 @@ wo_value wo_execute(wo_string_t src)
         err += wo_get_compile_error(_vm, _wo_inform_style::WO_NEED_COLOR);
         wo_execute_fail(_vm, WO_FAIL_EXECUTE_FAIL, err.c_str());
     }
+    if (result != nullptr)
+    {
+        wo_set_val(_wo_execute_result, result);
+        result = _wo_execute_result;
+    }
+
     wo_close_vm(_vm);
     wo_remove_virtual_file(vpath.c_str());
     return result;
+}
+
+wo_value wo_pin_value(void)
+{
+    return CS_VAL(wo::gc::gc_pin_value());
+}
+void wo_unpin_value(wo_value pinval)
+{
+    wo::gc::gc_unpin_value(WO_VAL(pinval));
 }

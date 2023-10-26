@@ -135,7 +135,7 @@ WO_API void         wo_finish(void(*do_after_shutdown)(void*), void* custom_data
 
 WO_API void         wo_gc_immediately(wo_bool_t fullgc);
 
-WO_API void* wo_load_lib(const char* libname, const char* path, wo_bool_t panic_when_fail);
+WO_API void*        wo_load_lib(const char* libname, const char* path, wo_bool_t panic_when_fail);
 WO_API void*/* func ptr */ wo_load_func(void* lib, const char* funcname);
 WO_API void         wo_unload_lib(void* lib);
 
@@ -288,7 +288,7 @@ WO_API wo_result_t  wo_ret_err_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_valu
 
 WO_API wo_integer_t wo_extern_symb(wo_vm vm, wo_string_t fullname);
 
-WO_API void         wo_abort_all_vm_to_exit();
+WO_API void         wo_abort_all_vm_to_exit(void);
 
 typedef enum _wo_inform_style
 {
@@ -299,9 +299,9 @@ typedef enum _wo_inform_style
 
 } wo_inform_style;
 
-WO_API wo_string_t  wo_locale_name();
-WO_API wo_string_t  wo_exe_path();
-WO_API wo_string_t  wo_work_path();
+WO_API wo_string_t  wo_locale_name(void);
+WO_API wo_string_t  wo_exe_path(void);
+WO_API wo_string_t  wo_work_path(void);
 WO_API wo_bool_t    wo_set_work_path(wo_string_t path);
 
 WO_API wo_bool_t    wo_equal_byte(wo_value a, wo_value b);
@@ -310,7 +310,7 @@ WO_API void         wo_enable_jit(wo_bool_t option);
 WO_API wo_bool_t    wo_virtual_binary(wo_string_t filepath, const void* data, size_t len, wo_bool_t enable_modify);
 WO_API wo_bool_t    wo_virtual_source(wo_string_t filepath, wo_string_t data, wo_bool_t enable_modify);
 WO_API wo_bool_t    wo_remove_virtual_file(wo_string_t filepath);
-WO_API wo_vm        wo_create_vm();
+WO_API wo_vm        wo_create_vm(void);
 WO_API wo_vm        wo_sub_vm(wo_vm vm, size_t stacksz);
 WO_API wo_vm        wo_gc_vm(wo_vm vm);
 WO_API wo_bool_t    wo_abort_vm(wo_vm vm);
@@ -430,9 +430,10 @@ WO_API wo_bool_t    wo_map_get_or_set_default(wo_value out_val, wo_value map, wo
 WO_API wo_bool_t    wo_map_remove(wo_value map, wo_value index);
 WO_API void         wo_map_clear(wo_value map);
 
-WO_API wo_bool_t    wo_gchandle_close(wo_value gchandle);
+WO_API wo_value     wo_pin_value(void);
+WO_API void         wo_unpin_value(wo_value pinval);
 
-// Here to define RSRuntime code accroding to the type.
+WO_API wo_bool_t    wo_gchandle_close(wo_value gchandle);
 
 // Here to define RSRuntime debug tools API
 typedef struct _wo_debuggee_handle
@@ -442,14 +443,14 @@ typedef struct _wo_debuggee_handle
 *wo_debuggee;
 typedef void(*wo_debuggee_handler_func)(wo_debuggee, wo_vm, void*);
 
-WO_API void         wo_gc_stop();
-WO_API void         wo_gc_pause();
-WO_API void         wo_gc_resume();
+WO_API void         wo_gc_stop(void);
+WO_API void         wo_gc_pause(void);
+WO_API void         wo_gc_resume(void);
 
-WO_API void         wo_attach_default_debuggee();
-WO_API wo_bool_t    wo_has_attached_debuggee();
-WO_API void         wo_detach_debuggee();
-WO_API void         wo_break_immediately();
+WO_API void         wo_attach_default_debuggee(void);
+WO_API wo_bool_t    wo_has_attached_debuggee(void);
+WO_API void         wo_detach_debuggee(void);
+WO_API void         wo_break_immediately(void);
 WO_API void         wo_break_specify_immediately(wo_vm vmm);
 WO_API void         wo_handle_ctrl_c(void(*handler)(int));
 

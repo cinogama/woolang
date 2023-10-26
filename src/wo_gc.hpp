@@ -8,12 +8,17 @@
 namespace wo
 {
     struct vmbase;
+    struct value;
+
     namespace gc
     {
         void gc_start();
         bool gc_is_marking();
         bool gc_is_recycling();
         void mark_vm(vmbase* marking_vm, size_t worker_id);
+
+        value* gc_pin_value();
+        void gc_unpin_value(value* pinvalue);
     }
 
     template<typename NodeT>
