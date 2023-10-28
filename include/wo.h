@@ -397,8 +397,8 @@ WO_API wo_bool_t    wo_struct_try_set(wo_value value, uint16_t offset, wo_value 
 WO_API void         wo_struct_get(wo_value out_val, wo_value value, uint16_t offset);
 WO_API void         wo_struct_set(wo_value value, uint16_t offset, wo_value val);
 
-WO_API wo_bool_t    wo_option_get(wo_value out_val, wo_value resultval);
-WO_API wo_bool_t    wo_result_get(wo_value out_val, wo_value optionval);
+WO_API wo_bool_t    wo_result_get(wo_value out_val, wo_value resultval);
+#define wo_option_get wo_result_get
 
 // Read operation
 WO_API wo_bool_t    wo_arr_try_get(wo_value out_val, wo_value arr, wo_int_t index);

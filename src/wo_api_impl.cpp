@@ -2760,24 +2760,6 @@ wo_bool_t wo_result_get(wo_value out_val, wo_value resultval)
     }
     return WO_FALSE;
 }
-wo_bool_t wo_option_get(wo_value out_val, wo_value optionval)
-{
-    auto* val = WO_VAL(optionval);
-    if (val->type != wo::value::valuetype::struct_type
-        || (val->structs->m_count != 1 && val->structs->m_count != 2)
-        || val->structs->m_values[0].type != wo::value::valuetype::integer_type)
-        wo_fail(WO_FAIL_TYPE_FAIL, "Unexpected value type.");
-    else
-    {
-        if (val->structs->m_count == 2)
-        {
-            wo_set_val(out_val, CS_VAL(&val->structs->m_values[1]));
-            return WO_TRUE;
-        }
-        wo_set_nil(out_val);
-    }
-    return WO_FALSE;
-}
 
 void wo_arr_resize(wo_value arr, wo_int_t newsz, wo_value init_val)
 {
