@@ -252,6 +252,7 @@ namespace wo
         {
             switch (lhs.type)
             {
+            case value::valuetype::invalid:
             case value::valuetype::bool_type:
             case value::valuetype::integer_type:
                 return lhs.integer < rhs.integer;
@@ -261,8 +262,12 @@ namespace wo
                 return lhs.handle < rhs.handle;
             case value::valuetype::string_type:
                 return (*lhs.string) < (*rhs.string);
+            case value::valuetype::array_type:
+            case value::valuetype::dict_type:
             case value::valuetype::gchandle_type:
-                return ((intptr_t)lhs.gchandle) < ((intptr_t)rhs.gchandle);
+            case value::valuetype::closure_type:
+            case value::valuetype::struct_type:
+                return ((intptr_t)lhs.gcunit) < ((intptr_t)rhs.gcunit);
             default:
                 wo_fail(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
                 return false;
