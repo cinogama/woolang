@@ -1256,42 +1256,49 @@ namespace wo
             } while (importfilepaths);
 
             // path += L".wo";
-            std::wstring srcfile, src_full_path;
-            if (!wo::read_virtual_source(&srcfile, &src_full_path, path + L".wo", wo::wstr_to_str(*lex.source_file).c_str()))
+            bool is_virtual_path;
+            std::wstring src_full_path;
+            if (!wo::check_virtual_file_path(&is_virtual_path, &src_full_path, path + L".wo", std::make_optional(*lex.source_file)))
             {
                 // import a::b; cannot open a/b.wo, trying a/b/b.wo
-                if (!wo::read_virtual_source(&srcfile, &src_full_path, path + L"/" + filename + L".wo", wo::wstr_to_str(*lex.source_file).c_str()))
+                if (!wo::check_virtual_file_path(&is_virtual_path, &src_full_path, path + L"/" + filename + L".wo", std::make_optional(*lex.source_file)))
                     return token{ lex.parser_error(lexer::errorlevel::error, WO_ERR_CANNOT_OPEN_FILE, path.c_str()) };
             }
 
-            if (!lex.has_been_imported(wstring_pool::get_pstr(src_full_path))
-                && !lex.has_been_imported(wo::crc_64(srcfile.c_str(), 0)))
+            if (!lex.has_been_imported(wstring_pool::get_pstr(src_full_path)))
             {
-                lexer new_lex(srcfile, wstr_to_str(src_full_path));
-                new_lex.imported_file_list = lex.imported_file_list;
-                new_lex.imported_file_crc64_list = lex.imported_file_crc64_list;
-                new_lex.used_macro_list = lex.used_macro_list;
-
-                auto* imported_ast = wo::get_wo_grammar()->gen(new_lex);
-
-                lex.used_macro_list = new_lex.used_macro_list;
-
-                lex.lex_error_list.insert(lex.lex_error_list.end(),
-                    new_lex.lex_error_list.begin(),
-                    new_lex.lex_error_list.end());
-
-                lex.imported_file_list = new_lex.imported_file_list;
-                lex.imported_file_crc64_list = new_lex.imported_file_crc64_list;
-
-                if (imported_ast)
+                std::wstring srcfile;
+                if (!wo::read_virtual_source(&srcfile, src_full_path, is_virtual_path))
                 {
-                    imported_ast->add_child(new ast_nop); // nop for debug info gen, avoid ip/cr confl..
-                    return (ast_basic*)imported_ast;
+                    return token{ lex.parser_error(lexer::errorlevel::error, WO_ERR_CANNOT_OPEN_FILE, path.c_str()) };
                 }
+                else if (!lex.has_been_imported(wo::crc_64(srcfile.c_str(), 0)))
+                {
+                    lexer new_lex(srcfile, wstr_to_str(src_full_path));
+                    new_lex.imported_file_list = lex.imported_file_list;
+                    new_lex.imported_file_crc64_list = lex.imported_file_crc64_list;
+                    new_lex.used_macro_list = lex.used_macro_list;
 
-                return token{ +lex_type::l_error };
+                    auto* imported_ast = wo::get_wo_grammar()->gen(new_lex);
+
+                    lex.used_macro_list = new_lex.used_macro_list;
+
+                    lex.lex_error_list.insert(lex.lex_error_list.end(),
+                        new_lex.lex_error_list.begin(),
+                        new_lex.lex_error_list.end());
+
+                    lex.imported_file_list = new_lex.imported_file_list;
+                    lex.imported_file_crc64_list = new_lex.imported_file_crc64_list;
+
+                    if (imported_ast)
+                    {
+                        imported_ast->add_child(new ast_nop); // nop for debug info gen, avoid ip/cr confl..
+                        return (ast_basic*)imported_ast;
+                    }
+
+                    return token{ +lex_type::l_error };
+                }
             }
-
 
             return (ast_basic*)new ast_empty();
         }

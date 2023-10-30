@@ -2260,7 +2260,7 @@ wo_bool_t wo_has_compile_error(wo_vm vm)
 std::wstring _dump_src_info(const std::string& path, size_t beginaimrow, size_t beginpointplace, size_t aimrow, size_t pointplace, _wo_inform_style style)
 {
     std::wstring srcfile, src_full_path, result;
-    if (wo::read_virtual_source(&srcfile, &src_full_path, wo::str_to_wstr(path), nullptr))
+    if (wo::check_and_read_virtual_source(&srcfile, &src_full_path, wo::str_to_wstr(path), std::nullopt))
     {
         constexpr size_t UP_DOWN_SHOWN_LINE = 2;
         size_t current_row_no = 1;
