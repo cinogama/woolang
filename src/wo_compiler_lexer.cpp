@@ -33,7 +33,11 @@ namespace wo
         // read_stream.peek
         std::wstring readed_real_path;
         std::wstring input_path = *source_file;
-        if (!wo::read_virtual_source(&reading_buffer, &readed_real_path, input_path, nullptr))
+        if (!wo::check_and_read_virtual_source(
+            &reading_buffer, 
+            &readed_real_path, 
+            input_path, 
+            std::nullopt))
         {
             lex_error(lexer::errorlevel::error, WO_ERR_CANNOT_OPEN_FILE, input_path.c_str());
         }

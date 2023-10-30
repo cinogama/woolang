@@ -15,6 +15,7 @@
 #       undef min      // fucking windows.
 #else
 #       include <unistd.h>
+#       include <sys/stat.h>
 #endif
 
 namespace wo
@@ -129,6 +130,21 @@ namespace wo
                 return path.substr(0, index - 1);
 
         return "";
+    }
+    inline std::wstring get_file_loc(std::wstring path)
+    {
+        for (auto& ch : path)
+        {
+            if (ch == L'\\')
+                ch = L'/';
+        }
+
+        for (size_t index = path.size(); index > 0; index--)
+            if (path[index - 1] == L'/')
+                // find last '/' get substr and return..
+                return path.substr(0, index - 1);
+
+        return L"";
     }
 
     inline const char* exe_path()

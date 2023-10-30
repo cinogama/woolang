@@ -544,9 +544,9 @@ namespace wo
                     {
                         if (attr->m_marked == (uint8_t)gcbase::gcmarkcolor::no_mark &&
                             (attr->m_gc_age != 0 || fullgc) &&
-                            attr->m_nogc == 0 &&
-                            (attr->m_attr & alloc_dur_current_gc_attrib_mask.m_attr)
-                            != alloc_dur_current_gc_attrib_mask.m_attr)
+                            (attr->m_attr & alloc_dur_current_gc_attrib_mask.m_attr) 
+                                != alloc_dur_current_gc_attrib_mask.m_attr &&
+                            attr->m_nogc == 0)
                         {
                             // This unit didn't been mark. and not alloced during this round.
                             std::launder(reinterpret_cast<gcbase*>(unit))->~gcbase();
@@ -566,22 +566,25 @@ namespace wo
             }
             // 10. Remove orpho vm
             std::list<vmbase*> need_destruct_gc_destructor_list;
-
             do
             {
                 std::shared_lock sg1(vmbase::_alive_vm_list_mx);
 
                 for (auto* vmimpl : vmbase::_alive_vm_list)
                 {
-                    if (vmimpl->virtual_machine_type == vmbase::vm_type::GC_DESTRUCTOR && vmimpl->env->_running_on_vm_count == 1)
+                    if (vmimpl->virtual_machine_type == vmbase::vm_type::GC_DESTRUCTOR 
+                        && vmimpl->env->_running_on_vm_count == 1)
                     {
                         // Assure vm's stack if empty
                         wo_assert(vmimpl->sp == vmimpl->bp && vmimpl->bp == vmimpl->stack_mem_begin);
 
                         // If there is no instance of gc-handle which may use library loaded in env,
                         // then free the gc destructor vm.
-                        if (0 == vmimpl->env->_created_destructable_instance_count.load(std::memory_order::memory_order_relaxed))
+                        if (0 == vmimpl->env->_created_destructable_instance_count.load(
+                            std::memory_order::memory_order_relaxed))
+                        {
                             need_destruct_gc_destructor_list.push_back(vmimpl);
+                        }
                     }
                 }
 

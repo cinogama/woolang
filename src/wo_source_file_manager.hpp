@@ -8,6 +8,8 @@
 #include <unordered_map>
 #include <shared_mutex>
 
+#include <optional>
+
 namespace wo
 {
     inline std::shared_mutex vfile_list_guard;
@@ -72,71 +74,53 @@ namespace wo
         using buffer = std::wstring;
     };
 
-    // NOTE: Remember to free!
-    template<bool width = true>
-    inline auto open_virtual_file_stream(std::wstring* out_real_read_path, const std::wstring& filepath, const char* script_file)
-        -> typename stream_types<width>::stream*
+    inline bool check_virtual_file_path(
+        bool* out_is_virtual_file,
+        std::wstring* out_real_read_path,
+        const std::wstring& filepath,
+        const std::optional<std::wstring>& script_path)
     {
-        using fstream_t = typename stream_types<width>::ifile_stream;
-        using sstream_t = typename stream_types<width>::istring_stream;
+        *out_is_virtual_file = false;
+        auto is_file_exist_and_readable = [](const std::wstring& path) 
+        {
+            auto cpath = wstr_to_str(path);
+            struct stat file_stat;
+            if (0 == stat(cpath.c_str(), &file_stat))
+            {
+                // Check if readable?
+                return 0 == (file_stat.st_mode & S_IFDIR);
+            }
+            return false;
+        };
 
         // 1. Try exists file
         // 1) Read file from script loc
-        if (script_file)
+        if (script_path)
         {
-            auto src_file_loc = wo::get_file_loc(script_file);
-            *out_real_read_path = str_to_wstr(src_file_loc) + L"/" + filepath;
-            auto* src_1 = new fstream_t(wstr_to_str(*out_real_read_path), std::ios_base::in | std::ios_base::binary);
-
-            src_1->imbue(wo_global_locale);
-
-            if (src_1->is_open())
-                return src_1;
-
-            delete src_1;
+            *out_real_read_path = wo::get_file_loc(script_path.value()) + L"/" + filepath;
+            if (is_file_exist_and_readable(*out_real_read_path))
+                return true;
         }
 
         // 2) Read file from exepath
         do
         {
             *out_real_read_path = str_to_wstr(wo::exe_path()) + L"/" + filepath;
-            auto* src_1 = new fstream_t(wstr_to_str(*out_real_read_path), std::ios_base::in | std::ios_base::binary);
-
-            src_1->imbue(wo_global_locale);
-
-            if (src_1->is_open())
-                return src_1;
-
-            delete src_1;
+            if (is_file_exist_and_readable(*out_real_read_path))
+                return true;
         } while (0);
 
         // 3) Read file from virtual file
         do
         {
             *out_real_read_path = filepath;
-
-            if constexpr (width)
+            
+            std::shared_lock g1(vfile_list_guard);
+            auto fnd = vfile_list.find(filepath);
+            if (fnd != vfile_list.end())
             {
-                std::lock_guard g1(vfile_list_guard);
-
-                auto fnd = vfile_list.find(filepath);
-                if (fnd != vfile_list.end())
-                {
-                    if (fnd->second.has_width_data == false)
-                    {
-                        fnd->second.has_width_data = true;
-                        fnd->second.wdata = str_to_wstr(fnd->second.data);
-                    }
-                    return new sstream_t(fnd->second.wdata);
-                }
-            }
-            else
-            {
-                std::shared_lock g1(vfile_list_guard);
-
-                auto fnd = vfile_list.find(filepath);
-                if (fnd != vfile_list.end())
-                    return new sstream_t(fnd->second.data);
+                *out_is_virtual_file = true;
+                return true;
             }
 
         } while (0);
@@ -145,50 +129,113 @@ namespace wo
         do
         {
             *out_real_read_path = str_to_wstr(wo::work_path()) + L"/" + filepath;
-            auto* src_1 = new fstream_t(wstr_to_str(*out_real_read_path), std::ios_base::in | std::ios_base::binary);
-
-            src_1->imbue(wo_global_locale);
-
-            if (src_1->is_open())
-                return src_1;
-
-            delete src_1;
-
+            if (is_file_exist_and_readable(*out_real_read_path))
+                return true;
         } while (0);
 
         // 5) Read file from default path
         do
         {
             *out_real_read_path = filepath;
-            auto* src_1 = new fstream_t(wstr_to_str(filepath), std::ios_base::in | std::ios_base::binary);
-
-            src_1->imbue(wo_global_locale);
-
-            if (src_1->is_open())
-                return src_1;
-
-            delete src_1;
-
+            if (is_file_exist_and_readable(*out_real_read_path))
+                return true;
         } while (0);
 
-        return nullptr;
+        return false;
     }
 
-    template<bool width = true, typename LEXER = void>
-    inline bool read_virtual_source(typename stream_types<width>::buffer* out_result, std::wstring* out_real_read_path, const std::wstring& filepath, const char* script_file)
+    // NOTE: Remember to free!
+    template<bool width = true>
+    inline auto _open_virtual_file_stream(
+        const std::wstring& fullfilepath, 
+        bool is_virtual_file
+    )-> std::optional<typename stream_types<width>::stream*>
     {
-        auto* stream = open_virtual_file_stream<width>(out_real_read_path, filepath, script_file);
-        if (stream)
+        using fstream_t = typename stream_types<width>::ifile_stream;
+        using sstream_t = typename stream_types<width>::istring_stream;
+
+        // 1. Try exists file
+        // 1) Read file from virtual file
+        if (is_virtual_file)
         {
+            if constexpr (width)
+            {
+                std::lock_guard g1(vfile_list_guard);
+
+                auto fnd = vfile_list.find(fullfilepath);
+                if (fnd != vfile_list.end())
+                {
+                    if (fnd->second.has_width_data == false)
+                    {
+                        fnd->second.has_width_data = true;
+                        fnd->second.wdata = str_to_wstr(fnd->second.data);
+                    }
+                    return std::make_optional(new sstream_t(fnd->second.wdata));
+                }
+            }
+            else
+            {
+                std::shared_lock g1(vfile_list_guard);
+                auto fnd = vfile_list.find(fullfilepath);
+                if (fnd != vfile_list.end())
+                    return std::make_optional(new sstream_t(fnd->second.data));
+            }
+        }
+        else
+        {
+            // 5) Read file from default path
+            do
+            {
+                fstream_t* src_1 = new fstream_t(
+                    wstr_to_str(fullfilepath),
+                    std::ios_base::in | std::ios_base::binary);
+
+                src_1->imbue(wo_global_locale);
+
+                if (src_1->is_open())
+                    return std::make_optional(src_1);
+
+            } while (0);
+        }
+
+        return std::nullopt;
+    }
+
+    template<bool width = true>
+    inline bool read_virtual_source(
+        typename stream_types<width>::buffer* out_filecontent,
+        const std::wstring& fullfilepath,
+        bool is_virtual_file)
+    {
+        auto stream_may_null = _open_virtual_file_stream<width>(
+            fullfilepath, is_virtual_file);
+
+        if (stream_may_null)
+        {
+            auto& stream = stream_may_null.value();
             stream->seekg(0, std::ios::end);
             size_t len = (size_t)stream->tellg();
             stream->seekg(0, std::ios::beg);
-            out_result->resize(len, 0);
-            stream->read(out_result->data(), len);
+            out_filecontent->resize(len, 0);
+            stream->read(out_filecontent->data(), len);
 
             delete stream;
             return true;
         }
+        return false;
+    }
+
+    template<bool width = true>
+    inline bool check_and_read_virtual_source(
+        typename stream_types<width>::buffer* out_filecontent,
+        std::wstring* out_filefullpath,
+        const std::wstring& filepath,
+        const std::optional<std::wstring>& script_path
+        )
+    {
+        bool is_virtual_file;
+        if (check_virtual_file_path(&is_virtual_file, out_filefullpath, filepath, script_path))
+            return read_virtual_source<width>(out_filecontent, *out_filefullpath, is_virtual_file);
         return false;
     }
 }

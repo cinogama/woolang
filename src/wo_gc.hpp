@@ -154,8 +154,8 @@ namespace wo
         rw_lock gc_read_write_mx;
 
 #ifndef NDEBUG
-        bool gc_destructed = false;
         const char* gc_typename = nullptr;
+        bool gc_destructed = false;
 #endif
 
         inline void write()

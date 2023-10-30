@@ -840,7 +840,7 @@ detach                                        Detach debuggee.
             cpu_profiler_record_infornmation* info = nullptr)
         {
             std::wstring srcfile, src_full_path;
-            if (!wo::read_virtual_source(&srcfile, &src_full_path, wo::str_to_wstr(filepath), nullptr))
+            if (!wo::check_and_read_virtual_source(&srcfile, &src_full_path, wo::str_to_wstr(filepath), std::nullopt))
                 printf(ANSI_HIR "Cannot open source: '%s'.\n" ANSI_RST, filepath.c_str());
             else
             {

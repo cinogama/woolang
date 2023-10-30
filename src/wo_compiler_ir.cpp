@@ -1044,7 +1044,11 @@ namespace wo
         if (bytestream == nullptr)
         {
             std::wstring real_read_file;
-            wo::read_virtual_source<false>(&buffer_to_store_data_from_file_or_mem, &real_read_file, wo::str_to_wstr(virtual_file), nullptr);
+            wo::check_and_read_virtual_source<false>(
+                &buffer_to_store_data_from_file_or_mem, 
+                &real_read_file, 
+                wo::str_to_wstr(virtual_file), 
+                std::nullopt);
         }
         else
             buffer_to_store_data_from_file_or_mem = std::string((const char*)bytestream, streamsz);
