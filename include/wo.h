@@ -162,6 +162,8 @@ WO_API void wo_set_pointer(wo_value value, wo_ptr_t val);
 WO_API void wo_set_bool(wo_value value, wo_bool_t val);
 WO_API void wo_set_val(wo_value value, wo_value val);
 
+WO_API void wo_set_dup(wo_value value, wo_vm vm, wo_value val);
+
 WO_API void wo_set_string(wo_value value, wo_vm vm, wo_string_t val);
 WO_API void wo_set_string_fmt(wo_value value, wo_vm vm, wo_string_t fmt, ...);
 WO_API void wo_set_buffer(wo_value value, wo_vm vm, const void* val, size_t len);
@@ -353,6 +355,7 @@ WO_API wo_value     wo_push_string(wo_vm vm, wo_string_t val);
 WO_API wo_value     wo_push_buffer(wo_vm vm, const void* val, size_t len);
 WO_API wo_value     wo_push_empty(wo_vm vm);
 WO_API wo_value     wo_push_val(wo_vm vm, wo_value val);
+WO_API wo_value     wo_push_dup(wo_vm vm, wo_value val);
 WO_API wo_value     wo_push_arr(wo_vm vm, wo_int_t count);
 WO_API wo_value     wo_push_struct(wo_vm vm, uint16_t count);
 WO_API wo_value     wo_push_map(wo_vm vm);

@@ -621,6 +621,14 @@ void wo_set_val(wo_value value, wo_value val)
     _rsvalue->set_val(WO_VAL(val));
 }
 
+void wo_set_dup(wo_value value, wo_vm vm, wo_value val)
+{
+    auto* _rsvalue = WO_VAL(value);
+
+    _wo_enter_gc_guard g(vm);
+    _rsvalue->set_dup(WO_VAL(val));
+}
+
 void wo_set_struct(wo_value value, wo_vm vm, uint16_t structsz)
 {
     auto* _rsvalue = WO_VAL(value);
@@ -2473,11 +2481,13 @@ wo_value wo_push_empty(wo_vm vm)
 }
 wo_value wo_push_val(wo_vm vm, wo_value val)
 {
-    if (val)
-        return CS_VAL((WO_VM(vm)->sp--)->set_val(WO_VAL(val)));
-    return CS_VAL((WO_VM(vm)->sp--)->set_nil());
+    return CS_VAL((WO_VM(vm)->sp--)->set_val(WO_VAL(val)));
 }
-
+wo_value wo_push_dup(wo_vm vm, wo_value val)
+{
+    _wo_enter_gc_guard g(vm);
+    return CS_VAL((WO_VM(vm)->sp--)->set_dup(WO_VAL(val)));
+}
 wo_value wo_push_arr(wo_vm vm, wo_int_t count)
 {
     auto* _rsvalue = WO_VM(vm)->sp--;
