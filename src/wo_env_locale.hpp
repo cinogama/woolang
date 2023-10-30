@@ -15,6 +15,7 @@
 #       undef min      // fucking windows.
 #else
 #       include <unistd.h>
+#       include <sys/stat.h>
 #endif
 
 namespace wo
