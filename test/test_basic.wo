@@ -3,6 +3,13 @@ import test_tool;
 
 namespace test_basic
 {
+    using Aaa = struct{
+        b: Bbb
+    }
+    {
+        using Bbb = string;
+    }
+
     func abs<T>(v:T)
     {
         if (v < 0:T) return -v;
@@ -95,6 +102,7 @@ namespace test_basic
         test_equal(noexist_foo() is pending, true);
         test_equal(noexist_foo() is pending == false, false);
 
+        test_equal(Aaa{b="Helloworld": Aaa::Bbb}.b: string, "Helloworld");
 
         let a_empty_st = empty_st{};
         let b_empty_st = struct{};

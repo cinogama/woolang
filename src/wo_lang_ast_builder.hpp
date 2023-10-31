@@ -613,7 +613,7 @@ namespace wo
         struct ast_namespace : virtual public grammar::ast_base
         {
             wo_pstring_t scope_name = nullptr;
-            ast_list* in_scope_sentence;
+            ast_list* in_scope_sentence = nullptr;
 
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
@@ -1454,6 +1454,8 @@ namespace wo
 
         struct ast_using_type_as : virtual public ast_defines
         {
+            ast_namespace* namespace_decl = nullptr;
+
             wo_pstring_t new_type_identifier = nullptr;
             ast_type* old_type;
 
@@ -1471,6 +1473,7 @@ namespace wo
                 // Write self copy functions here..
 
                 WO_REINSTANCE(dumm->old_type);
+                // Donot deep-copy `namespace_decl`, it's not needed.
 
                 return dumm;
             }

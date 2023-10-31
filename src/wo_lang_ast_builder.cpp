@@ -1967,6 +1967,10 @@ namespace wo
             ast_list* template_const_list = new ast_list;
 
             using_type->old_type = dynamic_cast<ast_type*>(WO_NEED_AST(5));
+            ast_namespace* type_namespace = new ast_namespace;
+            type_namespace->copy_source_info(using_type->old_type);
+            type_namespace->scope_name = using_type->new_type_identifier;
+            using_type->namespace_decl = type_namespace;
 
             if (!ast_empty::is_empty(input[3]))
             {
@@ -1988,16 +1992,7 @@ namespace wo
                 ast_sentence_block* in_namespace = dynamic_cast<ast_sentence_block*>(WO_NEED_AST(6));
                 wo_assert(in_namespace);
 
-                ast_namespace* tname_scope = new ast_namespace;
-                tname_scope->copy_source_info(in_namespace);
-                tname_scope->scope_name = using_type->new_type_identifier;
-                tname_scope->in_scope_sentence = in_namespace->sentence_list;
-
-                auto result = new ast_list;
-                result->append_at_end(using_type);
-                result->append_at_end(tname_scope);
-
-                return (ast_basic*)result;
+                using_type->namespace_decl->in_scope_sentence = in_namespace->sentence_list;
             }
 
             return (ast_basic*)using_type;
