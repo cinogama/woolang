@@ -1094,9 +1094,6 @@ namespace wo
                 a_value_mutable_or_pure->value_type->set_is_force_immutable();
             }
         }
-        else
-            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_mutable_or_pure->val, WO_ERR_UNABLE_DECIDE_EXPR_TYPE);
-
         return true;
     }
     WO_PASS2(ast_while)
@@ -1491,10 +1488,14 @@ namespace wo
                 ? a_value_assi->located_scope
                 : symbinfo->symbol->defined_in_scope;
 
-            if (auto right_func_instance = judge_auto_type_of_funcdef_with_type(a_value_assi->right,
+            if (auto right_func_instance = judge_auto_type_of_funcdef_with_type(
+                a_value_assi->right,
                 a_value_assi->located_scope,
                 a_value_assi->left->value_type, a_value_assi->right, true, nullptr, nullptr))
-                a_value_assi->right = std::get<ast::ast_value_function_define*>(right_func_instance.value());
+            {
+                if (dynamic_cast<ast::ast_value_mutable*>(a_value_assi->right) == nullptr)
+                    a_value_assi->right = std::get<ast::ast_value_function_define*>(right_func_instance.value());
+            }
         }
 
         if (!a_value_assi->left->value_type->accept_type(a_value_assi->right->value_type, false))
@@ -1916,7 +1917,12 @@ namespace wo
 
             while (val)
             {
-                if (!a_value_arr->value_type->template_arguments[0]->accept_type(val->value_type, false))
+                if (val->value_type->is_pending())
+                {
+                    lang_anylizer->lang_error(lexer::errorlevel::error, val, WO_ERR_UNKNOWN_TYPE, 
+                        val->value_type->get_type_name(false, false).c_str());
+                }
+                else if (!a_value_arr->value_type->template_arguments[0]->accept_type(val->value_type, false))
                 {
                     if (!a_value_arr->is_mutable_vector)
                         lang_anylizer->lang_error(lexer::errorlevel::error, val, WO_ERR_DIFFERENT_VAL_TYPE_OF_TEMPLATE, L"array");
@@ -2025,14 +2031,25 @@ namespace wo
                 }
                 else
                 {
-                    if (!a_value_map->value_type->template_arguments[0]->accept_type(pairs->key->value_type, false))
+                    if (pairs->key->value_type->is_pending())
+                    {
+                        lang_anylizer->lang_error(lexer::errorlevel::error, pairs->key, WO_ERR_UNKNOWN_TYPE,
+                            pairs->key->value_type->get_type_name(false, false).c_str());
+                    }
+                    else if (!a_value_map->value_type->template_arguments[0]->accept_type(pairs->key->value_type, false))
                     {
                         if (!a_value_map->is_mutable_map)
                             lang_anylizer->lang_error(lexer::errorlevel::error, pairs->key, WO_ERR_DIFFERENT_KEY_TYPE_OF_TEMPLATE, L"dict");
                         else
                             lang_anylizer->lang_error(lexer::errorlevel::error, pairs->key, WO_ERR_DIFFERENT_KEY_TYPE_OF_TEMPLATE, L"map");
                     }
-                    if (!a_value_map->value_type->template_arguments[1]->accept_type(pairs->val->value_type, false))
+
+                    if (pairs->val->value_type->is_pending())
+                    {
+                        lang_anylizer->lang_error(lexer::errorlevel::error, pairs->val, WO_ERR_UNKNOWN_TYPE,
+                            pairs->val->value_type->get_type_name(false, false).c_str());
+                    }
+                    else if (!a_value_map->value_type->template_arguments[1]->accept_type(pairs->val->value_type, false))
                     {
                         if (!a_value_map->is_mutable_map)
                             lang_anylizer->lang_error(lexer::errorlevel::error, pairs->val, WO_ERR_DIFFERENT_VAL_TYPE_OF_TEMPLATE, L"dict");
@@ -2240,7 +2257,8 @@ namespace wo
                         fnd->second.member_type, membpair->member_value_pair, true,
                         a_value_make_struct_instance->target_built_types->symbol->define_node, &template_args))
                     {
-                        membpair->member_value_pair = std::get<ast::ast_value_function_define*>(result.value());
+                        if (dynamic_cast<ast::ast_value_mutable*>(membpair->member_value_pair) == nullptr)
+                            membpair->member_value_pair = std::get<ast::ast_value_function_define*>(result.value());
                     }
                 }
                 else
@@ -2343,7 +2361,10 @@ namespace wo
                         fully_update_type(fnd->second.member_type, false);
                         if (auto result = judge_auto_type_of_funcdef_with_type(membpair, struct_defined_scope,
                             fnd->second.member_type, membpair->member_value_pair, true, nullptr, nullptr))
-                            membpair->member_value_pair = std::get<ast::ast_value_function_define*>(result.value());
+                        {
+                            if (dynamic_cast<ast::ast_value_mutable*>(membpair->member_value_pair) == nullptr)
+                                membpair->member_value_pair = std::get<ast::ast_value_function_define*>(result.value());
+                        }
 
                         if (!fnd->second.member_type->accept_type(membpair->member_value_pair->value_type, false, false))
                         {
@@ -4595,6 +4616,13 @@ namespace wo
             return std::nullopt;
 
         ast::ast_value_function_define* function_define = nullptr;
+
+        ast::ast_value_mutable* marking_mutable = dynamic_cast<ast::ast_value_mutable*>(callaim);
+        if (marking_mutable != nullptr)
+        {
+            callaim = marking_mutable->val;
+        }
+
         if (auto* variable = dynamic_cast<ast::ast_symbolable_base*>(callaim))
         {
             if (variable->symbol != nullptr && variable->symbol->type == lang_symbol::symbol_type::function)
@@ -4656,7 +4684,17 @@ namespace wo
 
                     if (reificated != nullptr)
                     {
-                        analyze_pass2(reificated);
+
+                        if (marking_mutable != nullptr)
+                        {
+                            marking_mutable->val = reificated;
+                            marking_mutable->completed_in_pass2 = false;
+                            analyze_pass2(marking_mutable);
+                        }
+                        else
+                        {
+                            analyze_pass2(reificated);
+                        }
                         return reificated;
                     }
                 }
@@ -4744,8 +4782,6 @@ namespace wo
             {
                 if (auto** realized_func = std::get_if<ast::ast_value_function_define*>(&judge_result.value()))
                 {
-                    wo_assert((*realized_func)->is_template_define == false);
-
                     auto* pending_variable = dynamic_cast<ast::ast_value_variable*>(args_might_be_nullptr_if_unpack[i]);
                     if (pending_variable != nullptr)
                     {
@@ -4755,8 +4791,12 @@ namespace wo
                     }
                     else
                     {
-                        wo_assert(dynamic_cast<ast::ast_value_function_define*>(args_might_be_nullptr_if_unpack[i]) != nullptr);
-                        args_might_be_nullptr_if_unpack[i] = *realized_func;
+                        auto& arg = args_might_be_nullptr_if_unpack[i];
+                        if (dynamic_cast<ast::ast_value_mutable*>(arg) == nullptr)
+                        {
+                            wo_assert(dynamic_cast<ast::ast_value_function_define*>(arg) != nullptr);
+                            arg = *realized_func;
+                        }
                     }
                     has_updated_arguments = true;
                 }
