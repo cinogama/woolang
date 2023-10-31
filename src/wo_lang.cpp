@@ -12,8 +12,11 @@ namespace wo
         auto* a_namespace = WO_AST();
 
         begin_namespace(a_namespace);
-        a_namespace->add_child(a_namespace->in_scope_sentence);
-        analyze_pass1(a_namespace->in_scope_sentence);
+        if (a_namespace->in_scope_sentence != nullptr)
+        {
+            a_namespace->add_child(a_namespace->in_scope_sentence);
+            analyze_pass1(a_namespace->in_scope_sentence);
+        }
         end_namespace();
 
         return true;
@@ -715,27 +718,6 @@ namespace wo
     }
     WO_PASS1(ast_using_namespace)
     {
-        // do using namespace op..
-        // do check..
-
-        // NOTE: Because of function's head insert a naming check list, this check is useless.
-
-        //auto* parent_child = a_using_namespace->parent->children;
-        //while (parent_child)
-        //{
-        //    if (auto* using_namespace_ch = dynamic_cast<ast_using_namespace*>(parent_child))
-        //    {
-        //        if (using_namespace_ch == a_using_namespace)
-        //            break;
-        //    }
-        //    else
-        //    {
-        //        
-        //        // lang_anylizer->lang_error(lexer::errorlevel::error, a_using_namespace, WO_ERR_ERR_PLACE_FOR_USING_NAMESPACE);
-        //        break;
-        //    }
-        //    parent_child = parent_child->sibling;
-        //}
         auto* a_using_namespace = WO_AST();
         now_scope()->used_namespace.push_back(a_using_namespace);
         return true;
@@ -752,10 +734,19 @@ namespace wo
 
         if (a_using_type_as->old_type->typefrom == nullptr
             || a_using_type_as->template_type_name_list.empty())
+        {
+            if (a_using_type_as->namespace_decl != nullptr)
+                begin_namespace(a_using_type_as->namespace_decl);
+
             fully_update_type(a_using_type_as->old_type, true, a_using_type_as->template_type_name_list);
 
+            if (a_using_type_as->namespace_decl != nullptr)
+                end_namespace();
+        }
         auto* typing_symb = define_type_in_this_scope(a_using_type_as, a_using_type_as->old_type, a_using_type_as->declear_attribute);
         typing_symb->apply_template_setting(a_using_type_as);
+
+        analyze_pass1(a_using_type_as->namespace_decl);
         return true;
     }
     WO_PASS1(ast_foreach)
@@ -971,6 +962,15 @@ namespace wo
         auto* a_mapping_pair = WO_AST();
         analyze_pass2(a_mapping_pair->key);
         analyze_pass2(a_mapping_pair->val);
+
+        return true;
+    }
+    WO_PASS2(ast_using_type_as)
+    {
+        auto* a_using_type_as = WO_AST();
+
+        if (a_using_type_as->namespace_decl != nullptr)
+            analyze_pass2(a_using_type_as->namespace_decl);
 
         return true;
     }
@@ -4903,6 +4903,7 @@ namespace wo
         WO_TRY_BEGIN;
         /////////////////////////////////////////////////////////////////////////////////////////////////
         WO_TRY_PASS(ast_mapping_pair);
+        WO_TRY_PASS(ast_using_type_as);
         WO_TRY_PASS(ast_return);
         WO_TRY_PASS(ast_sentence_block);
         WO_TRY_PASS(ast_if);
@@ -6726,15 +6727,17 @@ namespace wo
         }
         else if (auto* a_namespace = dynamic_cast<ast_namespace*>(ast_node))
         {
-            real_analyze_finalize(a_namespace->in_scope_sentence, compiler);
+            if (a_namespace->in_scope_sentence != nullptr)
+                real_analyze_finalize(a_namespace->in_scope_sentence, compiler);
         }
         else if (dynamic_cast<ast_using_namespace*>(ast_node))
         {
             // do nothing
         }
-        else if (dynamic_cast<ast_using_type_as*>(ast_node))
+        else if (auto* a_using_type_as = dynamic_cast<ast_using_type_as*>(ast_node))
         {
-            // do nothing
+            if (a_using_type_as->namespace_decl != nullptr)
+                real_analyze_finalize(a_using_type_as->namespace_decl, compiler);
         }
         else if (dynamic_cast<ast_nop*>(ast_node))
         {
