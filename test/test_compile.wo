@@ -1306,6 +1306,36 @@ func main()
             do Aaa::Ati{a = \=0: Aaa::Aba<int>;};
             do Aaa::Atfi{a = \_=do nil;};
             "@);
+
+        assure_compile_success(@"
+            using a = struct {a: mut (int)=>nil};
+            do a{a = mut \_=nil;};
+            "@);
+        assure_compile_fail(@"
+            using a = struct {a: mut (int)=>nil};
+            do a{a = mut \_,_=nil;};
+            "@);
+        assure_compile_success(@"
+            func foo(_: mut (int)=>void){}
+            foo(\_=do nil;);
+            "@);
+        assure_compile_fail(@"
+            func foo(_: mut (int)=>void){}
+            foo(\_, _=do nil;);
+            "@);
+        
+        assure_compile_fail(@"
+            func foo()=> mut int{return 0;}
+            "@);
+        assure_compile_fail(@"
+            func foo()=> int{return mut 0;}
+            "@);
+        assure_compile_success(@"
+            func foo()=> mut int{return mut 0;}
+            "@);
+        assure_compile_success(@"
+            func foo()=> int{return 0;}
+            "@);
     }
 
     func main()

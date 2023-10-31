@@ -184,7 +184,7 @@ namespace wo
             static lang_symbol* base_typedef_symbol(lang_symbol* symb);
             bool is_like(const ast_type* another, const std::vector<wo_pstring_t>& termplate_set, ast_type** out_para = nullptr, ast_type** out_args = nullptr)const;
             bool is_same(const ast_type* another, bool ignore_prefix) const;
-            bool accept_type(const ast_type* another, bool ignore_using_type, bool ignore_prefix = true) const;
+            bool accept_type(const ast_type* another, bool ignore_using_type, bool ignore_prefix) const;
             bool set_mix_types(ast_type* another, bool ignore_mutable);
 
             bool is_builtin_basic_type();
@@ -392,7 +392,7 @@ namespace wo
 
                 if (!_be_check_value_node->value_type->is_pending() && !aim_type->is_pending())
                 {
-                    auto result = aim_type->accept_type(_be_check_value_node->value_type, false);
+                    auto result = aim_type->accept_type(_be_check_value_node->value_type, false, false);
                     if (result)
                     {
                         is_constant = true;
