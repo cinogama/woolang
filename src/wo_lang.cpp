@@ -491,7 +491,7 @@ namespace wo
                     arr_elem_type->set_type_with_name(WO_PSTR(pending));
                     break;
                 }
-                if (!arr_elem_type->accept_type(val->value_type, false)
+                if (!arr_elem_type->accept_type(val->value_type, false, true)
                     && !arr_elem_type->set_mix_types(val->value_type, false))
                 {
                     arr_elem_type->set_type_with_name(WO_PSTR(pending));
@@ -541,14 +541,14 @@ namespace wo
                     decide_map_val_type->set_type_with_name(WO_PSTR(pending));
                     break;
                 }
-                if (!decide_map_key_type->accept_type(map_pair->key->value_type, false)
+                if (!decide_map_key_type->accept_type(map_pair->key->value_type, false, true)
                     && !decide_map_key_type->set_mix_types(map_pair->key->value_type, false))
                 {
                     decide_map_key_type->set_type_with_name(WO_PSTR(pending));
                     decide_map_val_type->set_type_with_name(WO_PSTR(pending));
                     break;
                 }
-                if (!decide_map_val_type->accept_type(map_pair->val->value_type, false)
+                if (!decide_map_val_type->accept_type(map_pair->val->value_type, false, true)
                     && !decide_map_val_type->set_mix_types(map_pair->val->value_type, false))
                 {
                     decide_map_key_type->set_type_with_name(WO_PSTR(pending));
@@ -611,7 +611,7 @@ namespace wo
                         }
                         else
                         {
-                            if (!func_return_type->accept_type(a_ret->return_value->value_type, false))
+                            if (!func_return_type->accept_type(a_ret->return_value->value_type, false, true))
                             {
                                 if (!func_return_type->set_mix_types(a_ret->return_value->value_type, false))
                                 {
@@ -1015,7 +1015,7 @@ namespace wo
                     else
                     {
                         if (!func_return_type->is_pending()
-                            && !func_return_type->accept_type(a_ret->return_value->value_type, false))
+                            && !func_return_type->accept_type(a_ret->return_value->value_type, false, false))
                         {
                             lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, WO_ERR_FUNC_RETURN_DIFFERENT_TYPES,
                                 func_return_type->get_type_name(false).c_str(),
@@ -1498,7 +1498,7 @@ namespace wo
             }
         }
 
-        if (!a_value_assi->left->value_type->accept_type(a_value_assi->right->value_type, false))
+        if (!a_value_assi->left->value_type->accept_type(a_value_assi->right->value_type, false, false))
         {
             lang_anylizer->lang_error(lexer::errorlevel::error, a_value_assi->right, WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE,
                 a_value_assi->left->value_type->get_type_name(false).c_str(),
@@ -1882,7 +1882,7 @@ namespace wo
                     break;
                 }
 
-                if (!decide_array_item_type->accept_type(val->value_type, false)
+                if (!decide_array_item_type->accept_type(val->value_type, false, true)
                     && !decide_array_item_type->set_mix_types(val->value_type, false))
                 {
                     if (!a_value_arr->is_mutable_vector)
@@ -1919,10 +1919,10 @@ namespace wo
             {
                 if (val->value_type->is_pending())
                 {
-                    lang_anylizer->lang_error(lexer::errorlevel::error, val, WO_ERR_UNKNOWN_TYPE, 
+                    lang_anylizer->lang_error(lexer::errorlevel::error, val, WO_ERR_UNKNOWN_TYPE,
                         val->value_type->get_type_name(false, false).c_str());
                 }
-                else if (!a_value_arr->value_type->template_arguments[0]->accept_type(val->value_type, false))
+                else if (!a_value_arr->value_type->template_arguments[0]->accept_type(val->value_type, false, true))
                 {
                     if (!a_value_arr->is_mutable_vector)
                         lang_anylizer->lang_error(lexer::errorlevel::error, val, WO_ERR_DIFFERENT_VAL_TYPE_OF_TEMPLATE, L"array");
@@ -1980,7 +1980,7 @@ namespace wo
                     break;
                 }
 
-                if (!decide_map_key_type->accept_type(map_pair->key->value_type, false)
+                if (!decide_map_key_type->accept_type(map_pair->key->value_type, false, true)
                     && !decide_map_key_type->set_mix_types(map_pair->key->value_type, false))
                 {
                     if (!a_value_map->is_mutable_map)
@@ -1989,7 +1989,7 @@ namespace wo
                         lang_anylizer->lang_error(lexer::errorlevel::error, map_pair->key, WO_ERR_DIFFERENT_KEY_TYPE_OF, L"map", L"map");
                     break;
                 }
-                if (!decide_map_val_type->accept_type(map_pair->val->value_type, false)
+                if (!decide_map_val_type->accept_type(map_pair->val->value_type, false, true)
                     && !decide_map_val_type->set_mix_types(map_pair->val->value_type, false))
                 {
                     if (!a_value_map->is_mutable_map)
@@ -2036,7 +2036,7 @@ namespace wo
                         lang_anylizer->lang_error(lexer::errorlevel::error, pairs->key, WO_ERR_UNKNOWN_TYPE,
                             pairs->key->value_type->get_type_name(false, false).c_str());
                     }
-                    else if (!a_value_map->value_type->template_arguments[0]->accept_type(pairs->key->value_type, false))
+                    else if (!a_value_map->value_type->template_arguments[0]->accept_type(pairs->key->value_type, false, true))
                     {
                         if (!a_value_map->is_mutable_map)
                             lang_anylizer->lang_error(lexer::errorlevel::error, pairs->key, WO_ERR_DIFFERENT_KEY_TYPE_OF_TEMPLATE, L"dict");
@@ -2049,7 +2049,7 @@ namespace wo
                         lang_anylizer->lang_error(lexer::errorlevel::error, pairs->val, WO_ERR_UNKNOWN_TYPE,
                             pairs->val->value_type->get_type_name(false, false).c_str());
                     }
-                    else if (!a_value_map->value_type->template_arguments[1]->accept_type(pairs->val->value_type, false))
+                    else if (!a_value_map->value_type->template_arguments[1]->accept_type(pairs->val->value_type, false, true))
                     {
                         if (!a_value_map->is_mutable_map)
                             lang_anylizer->lang_error(lexer::errorlevel::error, pairs->val, WO_ERR_DIFFERENT_VAL_TYPE_OF_TEMPLATE, L"dict");
@@ -3020,7 +3020,7 @@ namespace wo
                                         lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_ARGUMENT_TOO_MANY, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
                                         break;
                                     }
-                                    else if (!(*a_type_index)->accept_type(unpacking_tuple_type->template_arguments[unpack_tuple_index], false))
+                                    else if (!(*a_type_index)->accept_type(unpacking_tuple_type->template_arguments[unpack_tuple_index], false, true))
                                     {
                                         failed_to_call_cur_func = true;
                                         lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_TYPE_CANNOT_BE_CALL, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
@@ -3057,7 +3057,7 @@ namespace wo
                     }
                     else
                     {
-                        if (!(*a_type_index)->accept_type(arg_val->value_type, false))
+                        if (!(*a_type_index)->accept_type(arg_val->value_type, false, true))
                         {
                             failed_to_call_cur_func = true;
                             lang_anylizer->lang_error(lexer::errorlevel::error, arg_val, WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE,
@@ -4418,9 +4418,14 @@ namespace wo
                 }
                 if (!a_val->value_type->is_pending())
                 {
-                    if (type_degradation && dynamic_cast<ast_value_mutable*>(a_val) == nullptr)
+                    if (a_val->value_type->is_mutable())
                     {
-                        if (a_val->value_type->is_mutable())
+                        bool forced_mark_as_mutable = false;
+                        if (dynamic_cast<ast_value_mutable*>(a_val) != nullptr
+                            || dynamic_cast<ast_value_type_cast*>(a_val) != nullptr)
+                            forced_mark_as_mutable = true;
+
+                        if (type_degradation && !forced_mark_as_mutable)
                         {
                             a_val->can_be_assign = true;
                             a_val->value_type->set_is_mutable(false);
@@ -4928,9 +4933,14 @@ namespace wo
 
                 if (!a_value->value_type->is_pending())
                 {
-                    if (type_degradation && dynamic_cast<ast_value_mutable*>(a_value) == nullptr)
+                    if (a_value->value_type->is_mutable())
                     {
-                        if (a_value->value_type->is_mutable())
+                        bool forced_mark_as_mutable = false;
+                        if (dynamic_cast<ast_value_mutable*>(a_value) != nullptr
+                            || dynamic_cast<ast_value_type_cast*>(a_value) != nullptr)
+                            forced_mark_as_mutable = true;
+
+                        if (type_degradation && !forced_mark_as_mutable)
                         {
                             a_value->can_be_assign = true;
                             a_value->value_type->set_is_mutable(false);
@@ -5569,7 +5579,7 @@ namespace wo
                 if (!(a_value_index != nullptr && a_value_assign->operate == +lex_type::l_assign))
                 {
                     // if mixed type, do opx
-                    bool same_type = a_value_assign->left->value_type->accept_type(a_value_assign->right->value_type, false);
+                    bool same_type = a_value_assign->left->value_type->accept_type(a_value_assign->right->value_type, false, false);
                     value::valuetype optype = value::valuetype::invalid;
                     if (same_type)
                         optype = a_value_assign->left->value_type->value_type;
@@ -5614,7 +5624,7 @@ namespace wo
                     {
                     case lex_type::l_assign:
                     case lex_type::l_value_assign:
-                        wo_assert(a_value_assign->left->value_type->accept_type(a_value_assign->right->value_type, false));
+                        wo_assert(a_value_assign->left->value_type->accept_type(a_value_assign->right->value_type, false, false));
                         if (beassigned_value_from_stack)
                             compiler->sts(op_right_opnum, imm(_last_stack_offset_to_write));
                         else
@@ -5807,7 +5817,7 @@ namespace wo
             {
                 if (a_value_type_cast->value_type->is_dynamic()
                     || a_value_type_cast->value_type->is_void()
-                    || a_value_type_cast->value_type->accept_type(a_value_type_cast->_be_cast_value_node->value_type, true)
+                    || a_value_type_cast->value_type->accept_type(a_value_type_cast->_be_cast_value_node->value_type, true, true)
                     || a_value_type_cast->value_type->is_complex())
                     // no cast, just as origin value
                     return analyze_value(a_value_type_cast->_be_cast_value_node, compiler, get_pure_value);
@@ -5822,7 +5832,7 @@ namespace wo
             {
                 auto& result = analyze_value(a_value_type_judge->_be_cast_value_node, compiler, get_pure_value);
 
-                if (a_value_type_judge->value_type->accept_type(a_value_type_judge->_be_cast_value_node->value_type, false))
+                if (a_value_type_judge->value_type->accept_type(a_value_type_judge->_be_cast_value_node->value_type, false, false))
                     return result;
                 else if (a_value_type_judge->_be_cast_value_node->value_type->is_dynamic())
                 {
@@ -5849,7 +5859,7 @@ namespace wo
             }
             else if (ast_value_type_check* a_value_type_check = dynamic_cast<ast_value_type_check*>(value))
             {
-                if (a_value_type_check->aim_type->accept_type(a_value_type_check->_be_check_value_node->value_type, false))
+                if (a_value_type_check->aim_type->accept_type(a_value_type_check->_be_check_value_node->value_type, false, false))
                     return WO_NEW_OPNUM(imm(1));
                 if (a_value_type_check->_be_check_value_node->value_type->is_dynamic())
                 {
