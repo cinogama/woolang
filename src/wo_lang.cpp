@@ -630,18 +630,23 @@ namespace wo
                 {
                     if (located_function_scope->function_node->value_type->is_pending())
                     {
-                        located_function_scope->function_node->value_type->get_return_type()->set_type_with_name(WO_PSTR(void));
+                        located_function_scope->function_node->value_type->get_return_type()
+                            ->set_type_with_name(WO_PSTR(void));
                         located_function_scope->function_node->auto_adjust_return_type = false;
                     }
                     else
                     {
-                        lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME, L"void", located_function_scope->function_node->value_type->type_name->c_str());
+                        lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, 
+                            WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME, 
+                            L"void", located_function_scope->function_node->value_type->type_name->c_str());
                     }
                 }
                 else
                 {
                     if (!located_function_scope->function_node->value_type->get_return_type()->is_void())
-                        lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME, L"void", located_function_scope->function_node->value_type->type_name->c_str());
+                        lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, 
+                            WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME, 
+                            L"void", located_function_scope->function_node->value_type->type_name->c_str());
                 }
             }
         }
@@ -729,7 +734,8 @@ namespace wo
         if (a_using_type_as->new_type_identifier == WO_PSTR(char)
             || ast_type::name_type_pair.find(a_using_type_as->new_type_identifier) != ast_type::name_type_pair.end())
         {
-            return lang_anylizer->lang_error(lexer::errorlevel::error, a_using_type_as, WO_ERR_DECL_BUILTIN_TYPE_IS_NOT_ALLOWED);
+            return lang_anylizer->lang_error(lexer::errorlevel::error, a_using_type_as,
+                WO_ERR_DECL_BUILTIN_TYPE_IS_NOT_ALLOWED);
         }
 
         if (a_using_type_as->old_type->typefrom == nullptr
@@ -743,7 +749,8 @@ namespace wo
             if (a_using_type_as->namespace_decl != nullptr)
                 end_namespace();
         }
-        auto* typing_symb = define_type_in_this_scope(a_using_type_as, a_using_type_as->old_type, a_using_type_as->declear_attribute);
+        auto* typing_symb = define_type_in_this_scope(
+            a_using_type_as, a_using_type_as->old_type, a_using_type_as->declear_attribute);
         typing_symb->apply_template_setting(a_using_type_as);
 
         analyze_pass1(a_using_type_as->namespace_decl);
@@ -814,7 +821,8 @@ namespace wo
         begin_scope(a_match_union_case);
         wo_assert(a_match_union_case->in_match);
 
-        if (ast_pattern_union_value* a_pattern_union_value = dynamic_cast<ast_pattern_union_value*>(a_match_union_case->union_pattern))
+        if (ast_pattern_union_value* a_pattern_union_value =
+            dynamic_cast<ast_pattern_union_value*>(a_match_union_case->union_pattern))
         {
             // Cannot pass a_match_union_case->union_pattern by analyze_pass1, we will set template in pass2.
             if (a_pattern_union_value->union_expr)
@@ -831,9 +839,13 @@ namespace wo
             if (a_pattern_union_value->pattern_arg_in_union_may_nil)
             {
                 a_match_union_case->take_place_value_may_nil = new ast_value_takeplace;
-                a_match_union_case->take_place_value_may_nil->copy_source_info(a_pattern_union_value->pattern_arg_in_union_may_nil);
+                a_match_union_case->take_place_value_may_nil->copy_source_info(
+                    a_pattern_union_value->pattern_arg_in_union_may_nil);
 
-                analyze_pattern_in_pass1(a_pattern_union_value->pattern_arg_in_union_may_nil, new ast_decl_attribute, a_match_union_case->take_place_value_may_nil);
+                analyze_pattern_in_pass1(
+                    a_pattern_union_value->pattern_arg_in_union_may_nil, 
+                    new ast_decl_attribute,
+                    a_match_union_case->take_place_value_may_nil);
             }
         }
         else
@@ -850,13 +862,15 @@ namespace wo
         analyze_pass1(a_value_make_struct_instance->struct_member_vals);
         if (a_value_make_struct_instance->build_pure_struct)
         {
-            auto* member_iter = dynamic_cast<ast_struct_member_define*>(a_value_make_struct_instance->struct_member_vals->children);
+            auto* member_iter = dynamic_cast<ast_struct_member_define*>(
+                a_value_make_struct_instance->struct_member_vals->children);
             while (member_iter)
             {
                 wo_assert(member_iter->is_value_pair);
                 if (!member_iter->member_value_pair->value_type->is_pending())
                 {
-                    auto fnd = a_value_make_struct_instance->target_built_types->struct_member_index.find(member_iter->member_name);
+                    auto fnd = a_value_make_struct_instance->target_built_types
+                        ->struct_member_index.find(member_iter->member_name);
                     if (fnd != a_value_make_struct_instance->target_built_types->struct_member_index.end())
                     {
                         fnd->second.member_type->set_type(member_iter->member_value_pair->value_type);
@@ -1005,7 +1019,8 @@ namespace wo
                             {
                                 if (!func_return_type->set_mix_types(a_ret->return_value->value_type, false))
                                 {
-                                    lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, WO_ERR_FUNC_RETURN_DIFFERENT_TYPES,
+                                    lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, 
+                                        WO_ERR_FUNC_RETURN_DIFFERENT_TYPES,
                                         func_return_type->get_type_name(false).c_str(),
                                         a_ret->return_value->value_type->get_type_name(false).c_str());
                                 }
@@ -1017,7 +1032,8 @@ namespace wo
                         if (!func_return_type->is_pending()
                             && !func_return_type->accept_type(a_ret->return_value->value_type, false, true))
                         {
-                            lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, WO_ERR_FUNC_RETURN_DIFFERENT_TYPES,
+                            lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, 
+                                WO_ERR_FUNC_RETURN_DIFFERENT_TYPES,
                                 func_return_type->get_type_name(false).c_str(),
                                 a_ret->return_value->value_type->get_type_name(false).c_str());
                         }
@@ -1035,13 +1051,17 @@ namespace wo
                     }
                     else
                     {
-                        lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME, L"void", a_ret->located_function->value_type->type_name->c_str());
+                        lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, 
+                            WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME, 
+                            L"void", a_ret->located_function->value_type->type_name->c_str());
                     }
                 }
                 else
                 {
                     if (!a_ret->located_function->value_type->get_return_type()->is_void())
-                        lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME, L"void", a_ret->located_function->value_type->type_name->c_str());
+                        lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, 
+                            WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME, 
+                            L"void", a_ret->located_function->value_type->type_name->c_str());
                 }
             }
         }
@@ -1170,7 +1190,8 @@ namespace wo
             }
             else
             {
-                lang_anylizer->lang_error(lexer::errorlevel::error, a_match->match_value, WO_ERR_CANNOT_MATCH_SUCH_TYPE,
+                lang_anylizer->lang_error(lexer::errorlevel::error, a_match->match_value, 
+                    WO_ERR_CANNOT_MATCH_SUCH_TYPE,
                     a_match->match_value->value_type->get_type_name(false).c_str());
             }
         }
@@ -1187,17 +1208,20 @@ namespace wo
             wo_assert(case_ast);
 
             if (has_default_pattern)
-                lang_anylizer->lang_error(lexer::errorlevel::error, case_ast->union_pattern, WO_ERR_CASE_AFTER_DEFAULT_PATTERN);
+                lang_anylizer->lang_error(lexer::errorlevel::error, case_ast->union_pattern, 
+                    WO_ERR_CASE_AFTER_DEFAULT_PATTERN);
 
             if (case_ast->union_pattern->union_expr == nullptr)
             {
                 if (case_names.size() >= a_match->match_value->value_type->struct_member_index.size())
-                    lang_anylizer->lang_error(lexer::errorlevel::error, case_ast->union_pattern, WO_ERR_USELESS_DEFAULT_PATTERN);
+                    lang_anylizer->lang_error(lexer::errorlevel::error, case_ast->union_pattern,
+                        WO_ERR_USELESS_DEFAULT_PATTERN);
 
                 has_default_pattern = true;
             }
             else if (case_names.end() != case_names.find(case_ast->union_pattern->union_expr->var_name))
-                lang_anylizer->lang_error(lexer::errorlevel::error, case_ast->union_pattern->union_expr, WO_ERR_REPEAT_MATCH_CASE);
+                lang_anylizer->lang_error(lexer::errorlevel::error, case_ast->union_pattern->union_expr, 
+                    WO_ERR_REPEAT_MATCH_CASE);
             else
                 case_names.insert(case_ast->union_pattern->union_expr->var_name);
             cases = cases->sibling;
@@ -1213,10 +1237,12 @@ namespace wo
         wo_assert(a_match_union_case->in_match);
         if (a_match_union_case->in_match && a_match_union_case->in_match->match_value->value_type->is_union())
         {
-            if (ast_pattern_union_value* a_pattern_union_value = dynamic_cast<ast_pattern_union_value*>(a_match_union_case->union_pattern))
+            if (ast_pattern_union_value* a_pattern_union_value = 
+                dynamic_cast<ast_pattern_union_value*>(a_match_union_case->union_pattern))
             {
                 if (a_match_union_case->in_match->match_value->value_type->is_pending())
-                    lang_anylizer->lang_error(lexer::errorlevel::error, a_match_union_case, WO_ERR_UNKNOWN_MATCHING_VAL_TYPE);
+                    lang_anylizer->lang_error(lexer::errorlevel::error, a_match_union_case, 
+                        WO_ERR_UNKNOWN_MATCHING_VAL_TYPE);
                 else
                 {
                     if (!a_match_union_case->in_match->match_value->value_type->using_type_name->template_arguments.empty())
@@ -1225,7 +1251,8 @@ namespace wo
                             ;
                         else
                         {
-                            a_pattern_union_value->union_expr->symbol = find_value_in_this_scope(a_pattern_union_value->union_expr);
+                            a_pattern_union_value->union_expr->symbol = 
+                                find_value_in_this_scope(a_pattern_union_value->union_expr);
 
                             if (a_pattern_union_value->union_expr->symbol)
                             {
@@ -1271,10 +1298,7 @@ namespace wo
                             }
                             else
                                 ;
-                        }
-                        /* Donot give error here, it will be given in following 'analyze_pass2' */
-                        //lang_anylizer->lang_error(lexer::errorlevel::error, a_pattern_union_value, WO_ERR_UNKNOWN_IDENTIFIER, a_pattern_union_value->union_expr->var_name.c_str());
-                    }
+                        }                    }
                     if (a_pattern_union_value->union_expr != nullptr)
                         analyze_pass2(a_pattern_union_value->union_expr);
                 }
@@ -1287,7 +1311,8 @@ namespace wo
                         lang_anylizer->lang_error(lexer::errorlevel::error, a_match_union_case, WO_ERR_INVALID_CASE_TYPE_NEED_ACCEPT_ARG);
                     else
                     {
-                        a_match_union_case->take_place_value_may_nil->value_type->set_type(a_pattern_union_value->union_expr->value_type->argument_types.front());
+                        a_match_union_case->take_place_value_may_nil->value_type->set_type(
+                            a_pattern_union_value->union_expr->value_type->argument_types.front());
                     }
 
                     analyze_pattern_in_pass2(a_pattern_union_value->pattern_arg_in_union_may_nil, a_match_union_case->take_place_value_may_nil);
@@ -1628,7 +1653,8 @@ namespace wo
                 {
                     if (auto fnd =
                         a_value_index->from->value_type->struct_member_index.find(
-                            wstring_pool::get_pstr(str_to_wstr(*a_value_index->index->get_constant_value().string))); fnd != a_value_index->from->value_type->struct_member_index.end())
+                            wstring_pool::get_pstr(str_to_wstr(*a_value_index->index->get_constant_value().string))); 
+                        fnd != a_value_index->from->value_type->struct_member_index.end())
                     {
                         fully_update_type(fnd->second.member_type, false);
 
@@ -2526,7 +2552,9 @@ namespace wo
             {
                 lang_anylizer->lang_error(lexer::errorlevel::error, a_value_var, WO_ERR_UNKNOWN_IDENTIFIER,
                     a_value_var->var_name->c_str());
-                auto fuzz_symbol = find_symbol_in_this_scope(a_value_var, a_value_var->var_name, lang_symbol::symbol_type::variable | lang_symbol::symbol_type::function, true);
+                auto fuzz_symbol = find_symbol_in_this_scope(
+                    a_value_var, a_value_var->var_name, 
+                    lang_symbol::symbol_type::variable | lang_symbol::symbol_type::function, true);
                 if (fuzz_symbol != nullptr)
                 {
                     auto fuzz_symbol_full_name = str_to_wstr(get_belong_namespace_path_with_lang_scope(fuzz_symbol));
@@ -3101,14 +3129,18 @@ namespace wo
                         if (tuple_arg_sz != 0)
                         {
                             failed_to_call_cur_func = true;
-                            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_ARGUMENT_TOO_MANY, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
+                            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall,
+                                WO_ERR_ARGUMENT_TOO_MANY,
+                                a_value_funccall->called_func->value_type->get_type_name(false).c_str());
                         }
                     }
                 }
                 else
                 {
                     failed_to_call_cur_func = true;
-                    lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_ARGUMENT_TOO_MANY, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
+                    lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall,
+                        WO_ERR_ARGUMENT_TOO_MANY, 
+                        a_value_funccall->called_func->value_type->get_type_name(false).c_str());
                 }
             }
         }
@@ -3367,7 +3399,8 @@ namespace wo
                     return false;
 
                 for (size_t i = 0; i < using_type_name->template_arguments.size(); ++i)
-                    if (!using_type_name->template_arguments[i]->accept_type(another->using_type_name->template_arguments[i], ignore_using_type, false))
+                    if (!using_type_name->template_arguments[i]->accept_type(
+                        another->using_type_name->template_arguments[i], ignore_using_type, false))
                         return false;
             }
             if (has_template())
@@ -3376,7 +3409,8 @@ namespace wo
                     return false;
                 for (size_t index = 0; index < template_arguments.size(); index++)
                 {
-                    if (!template_arguments[index]->accept_type(another->template_arguments[index], ignore_using_type, false))
+                    if (!template_arguments[index]->accept_type(
+                        another->template_arguments[index], ignore_using_type, false))
                         return false;
                 }
             }
@@ -3648,7 +3682,10 @@ namespace wo
 
         return hash32;
     }
-    bool lang::begin_template_scope(grammar::ast_base* reporterr, const std::vector<wo_pstring_t>& template_defines_args, const std::vector<ast::ast_type*>& template_args)
+    bool lang::begin_template_scope(
+        grammar::ast_base* reporterr, 
+        const std::vector<wo_pstring_t>& template_defines_args, 
+        const std::vector<ast::ast_type*>& template_args)
     {
         wo_assert(reporterr);
         if (template_defines_args.size() != template_args.size())
@@ -4422,7 +4459,8 @@ namespace wo
                     {
                         bool forced_mark_as_mutable = false;
                         if (dynamic_cast<ast_value_mutable*>(a_val) != nullptr
-                            || dynamic_cast<ast_value_type_cast*>(a_val) != nullptr)
+                            || dynamic_cast<ast_value_type_cast*>(a_val) != nullptr
+                            || dynamic_cast<ast_value_type_judge*>(a_val) != nullptr)
                             forced_mark_as_mutable = true;
 
                         if (type_degradation && !forced_mark_as_mutable)
@@ -4529,7 +4567,9 @@ namespace wo
         }
     }
 
-    ast::ast_value_function_define* lang::analyze_pass_template_reification(ast::ast_value_function_define* origin_template_func_define, std::vector<ast::ast_type*> template_args_types)
+    ast::ast_value_function_define* lang::analyze_pass_template_reification(
+        ast::ast_value_function_define* origin_template_func_define, 
+        std::vector<ast::ast_type*> template_args_types)
     {
         // NOTE: template_args_types will be modified in this function. donot use ref type.
 
@@ -4877,7 +4917,9 @@ namespace wo
                         lang_anylizer->lang_error(lexer::errorlevel::error, a_value, WO_ERR_UNKNOWN_TYPE
                             , a_value->value_type->get_type_name().c_str());
 
-                        auto fuzz_symbol = find_symbol_in_this_scope(a_value->value_type, a_value->value_type->type_name, lang_symbol::symbol_type::typing | lang_symbol::symbol_type::type_alias, true);
+                        auto fuzz_symbol = find_symbol_in_this_scope(
+                            a_value->value_type, a_value->value_type->type_name, 
+                            lang_symbol::symbol_type::typing | lang_symbol::symbol_type::type_alias, true);
                         if (fuzz_symbol)
                         {
                             auto fuzz_symbol_full_name = str_to_wstr(get_belong_namespace_path_with_lang_scope(fuzz_symbol));
@@ -4937,7 +4979,8 @@ namespace wo
                     {
                         bool forced_mark_as_mutable = false;
                         if (dynamic_cast<ast_value_mutable*>(a_value) != nullptr
-                            || dynamic_cast<ast_value_type_cast*>(a_value) != nullptr)
+                            || dynamic_cast<ast_value_type_cast*>(a_value) != nullptr
+                            || dynamic_cast<ast_value_type_judge*>(a_value) != nullptr)
                             forced_mark_as_mutable = true;
 
                         if (type_degradation && !forced_mark_as_mutable)
@@ -5227,7 +5270,11 @@ namespace wo
         using namespace opnum;
         return WO_NEW_OPNUM(global((int32_t)global_symbol_index++));
     }
-    std::variant<opnum::opnumbase*, int16_t> lang::get_opnum_by_symbol(grammar::ast_base* error_prud, lang_symbol* symb, ir_compiler* compiler, bool get_pure_value)
+    std::variant<opnum::opnumbase*, int16_t> lang::get_opnum_by_symbol(
+        grammar::ast_base* error_prud, 
+        lang_symbol* symb, 
+        ir_compiler* compiler, 
+        bool get_pure_value)
     {
         using namespace opnum;
 
@@ -5832,7 +5879,7 @@ namespace wo
             {
                 auto& result = analyze_value(a_value_type_judge->_be_cast_value_node, compiler, get_pure_value);
 
-                if (a_value_type_judge->value_type->accept_type(a_value_type_judge->_be_cast_value_node->value_type, false, false))
+                if (a_value_type_judge->value_type->accept_type(a_value_type_judge->_be_cast_value_node->value_type, false, true))
                     return result;
                 else if (a_value_type_judge->_be_cast_value_node->value_type->is_dynamic())
                 {
@@ -5859,7 +5906,7 @@ namespace wo
             }
             else if (ast_value_type_check* a_value_type_check = dynamic_cast<ast_value_type_check*>(value))
             {
-                if (a_value_type_check->aim_type->accept_type(a_value_type_check->_be_check_value_node->value_type, false, false))
+                if (a_value_type_check->aim_type->accept_type(a_value_type_check->_be_check_value_node->value_type, false, true))
                     return WO_NEW_OPNUM(imm(1));
                 if (a_value_type_check->_be_check_value_node->value_type->is_dynamic())
                 {

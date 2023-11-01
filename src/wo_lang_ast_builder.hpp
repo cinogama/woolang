@@ -392,7 +392,7 @@ namespace wo
 
                 if (!_be_check_value_node->value_type->is_pending() && !aim_type->is_pending())
                 {
-                    auto result = aim_type->accept_type(_be_check_value_node->value_type, false, false);
+                    auto result = aim_type->accept_type(_be_check_value_node->value_type, false, true);
                     if (result)
                     {
                         is_constant = true;
@@ -2596,7 +2596,8 @@ namespace wo
                 }
                 else if (!value_node->value_type->is_same(type_node, false))
                 {
-                    lex.parser_error(lexer::errorlevel::error, WO_ERR_CANNOT_AS_TYPE, value_node->value_type->get_type_name().c_str(), type_node->get_type_name().c_str());
+                    lex.parser_error(lexer::errorlevel::error, WO_ERR_CANNOT_AS_TYPE,
+                        value_node->value_type->get_type_name().c_str(), type_node->get_type_name().c_str());
                     return value_node;
                 }
                 return value_node;

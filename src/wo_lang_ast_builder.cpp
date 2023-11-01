@@ -1022,7 +1022,7 @@ namespace wo
             _be_cast_value_node->update_constant_value(lex);
             if (!_be_cast_value_node->value_type->is_pending() && _be_cast_value_node->is_constant)
             {
-                if (value_type->accept_type(_be_cast_value_node->value_type, false, false))
+                if (value_type->accept_type(_be_cast_value_node->value_type, false, true))
                 {
                     constant_value.set_val_compile_time(&_be_cast_value_node->get_constant_value());
                     is_constant = true;
