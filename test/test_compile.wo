@@ -1324,10 +1324,10 @@ func main()
             foo(\_, _=do nil;);
             "@);
         
-        assure_compile_fail(@"
+        assure_compile_success(@"
             func foo()=> mut int{return 0;}
             "@);
-        assure_compile_fail(@"
+        assure_compile_success(@"
             func foo()=> int{return mut 0;}
             "@);
         assure_compile_success(@"

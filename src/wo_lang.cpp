@@ -1015,7 +1015,7 @@ namespace wo
                     else
                     {
                         if (!func_return_type->is_pending()
-                            && !func_return_type->accept_type(a_ret->return_value->value_type, false, false))
+                            && !func_return_type->accept_type(a_ret->return_value->value_type, false, true))
                         {
                             lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, WO_ERR_FUNC_RETURN_DIFFERENT_TYPES,
                                 func_return_type->get_type_name(false).c_str(),
