@@ -619,7 +619,7 @@ namespace wo
         {
             do
             {
-                if (_gc_round_count % 1000 == 0)
+                if (_gc_round_count % 100 == 0)
                     _gc_advise_to_full_gc = true;
 
                 _gc_work_list(_gc_stopping_world_gc, _gc_advise_to_full_gc);
