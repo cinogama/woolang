@@ -101,38 +101,62 @@ COMMAND_NAME    SHORT_COMMAND   ARGUMENT    DESCRIBE
 ------------------------------------------------------------------------------
 break           b               <file line>   Set a breakpoint at the specified
                                 <funcname>  location.
-callstack       cs              [max = 8]     Get current VM's callstacks.
+
+callstack       cs/bt           [max = 8]     Get current VM's callstacks.
+
+clear           cls                           Clean the screen.
+
 continue        c                             Continue to run.
+
 deletebreak     delbreak        <breakid>     Delete a breakpoint.
-disassemble     dis             [funcname]    Get current VM's running ir-codes.
-                                'or' 
+
+detach                                        Detach debuggee.
+
+disassemble     dis             [funcname]    Dump current VM's running ir-codes.
+                                    or
                                 --all
+                                    or
+                                [offset length]
+
+exit                                          Invoke _Exit(0) to shutdown.
+
 frame           f               <frameid>     Switch to a call frame.
-return          r                             Execute to the return of this fun
-                                            -ction.
-help            ?                             Get help informations.   
+
+global          g               <offset>      Display global data.
+
+help            ?                             Get help informations.
+
 list            l               <listitem>    List something, such as:
                                             break, var, vm(thread)
+
 next            n                             Execute next line of src.
+
 print           p               <varname>     Print the value.
+
+profiler                        start         Collect runtime cost in following 
+                                [time = 1.] 'time' sec(s), only collect current 
+                                            env's profiler data.
+                                    or
+                                review <fn>   Get exclusive detail after profiler
+
 quit                                          Stop all vm to exit.
-exit                                          Invoke _Exit(0) to shutdown.
+
+return          r                             Execute to the return of this fun
+                                            -ction.
+
 source          src             [file name]   Get current source
-                                 [range = 5]   
+                                [range = 5]
+
 stackframe      sf                            Get current function's stack frame.
+
+state           st              [id]          Get VM's register & interrupt state.
+
 step            s                             Execute next line of src, will step
                                             in functions.
+
 stepir          si                            Execute next command.
-global          g               <offset>      Display global data.
-clear           cls                           Clean the screen.
+
 thread          vm              <id>          Continue and break at specify vm.
-profiler                        start
-                                 [time = 1.]  Collect runtime cost in following 
-                                            'time' sec(s), only collect current 
-                                            env's profiler data.
-                                'or'
-                                review [fn]   Get exclusive detail after profiler
-detach                                        Detach debuggee.
 )"
 << wo_endl;
         }
@@ -322,6 +346,108 @@ detach                                        Detach debuggee.
                     goto continue_run_command;
 
                 }
+                else if (main_command == "st" || main_command == "state")
+                {
+                    std::shared_lock sg1(wo::vmbase::_alive_vm_list_mx);
+
+                    wo::vmbase* target_vm = nullptr;
+
+                    size_t vmid = 0;
+                    if (need_possiable_input(inputbuf, vmid))
+                    {
+                        if (vmid < wo::vmbase::_alive_vm_list.size())
+                        {
+                            auto vmidx = wo::vmbase::_alive_vm_list.begin();
+                            for (size_t i = 0; i < vmid; ++i)
+                                ++vmidx;
+
+                            target_vm = *vmidx;
+                        }
+                        else
+                            printf(ANSI_HIR "You must input valid vm id.\n" ANSI_RST);
+                    }
+                    else
+                        target_vm = vmm;
+
+                    if (target_vm != nullptr)
+                    {
+                        wo_stdout 
+                            << ANSI_HIG 
+                            << target_vm->env->real_register_count 
+                            << ANSI_HIY " register(s) in total:" ANSI_RST 
+                            << wo_endl;
+                        printf("%-15s%-20s%-20s\n", "RegisterID", "Name", "Value");
+                        for (size_t reg_idx = 0; reg_idx < target_vm->env->real_register_count; ++reg_idx)
+                        {
+                            printf("%-15zu", reg_idx);
+                            switch (reg_idx)
+                            {
+                            case wo::opnum::reg::spreg::r0:
+                            case wo::opnum::reg::spreg::r1:
+                            case wo::opnum::reg::spreg::r2:
+                            case wo::opnum::reg::spreg::r3:
+                            case wo::opnum::reg::spreg::r4:
+                            case wo::opnum::reg::spreg::r5:
+                            case wo::opnum::reg::spreg::r6:
+                            case wo::opnum::reg::spreg::r7:
+                            case wo::opnum::reg::spreg::r8:
+                            case wo::opnum::reg::spreg::r9:
+                            case wo::opnum::reg::spreg::r10:
+                            case wo::opnum::reg::spreg::r11:
+                            case wo::opnum::reg::spreg::r12:
+                            case wo::opnum::reg::spreg::r13:
+                            case wo::opnum::reg::spreg::r14:
+                            case wo::opnum::reg::spreg::r15:
+                                printf("%-20s", ("R" + std::to_string(reg_idx - wo::opnum::reg::spreg::r0)).c_str());
+                                break;
+                            case wo::opnum::reg::spreg::t0:
+                            case wo::opnum::reg::spreg::t1:
+                            case wo::opnum::reg::spreg::t2:
+                            case wo::opnum::reg::spreg::t3:
+                            case wo::opnum::reg::spreg::t4:
+                            case wo::opnum::reg::spreg::t5:
+                            case wo::opnum::reg::spreg::t6:
+                            case wo::opnum::reg::spreg::t7:
+                            case wo::opnum::reg::spreg::t8:
+                            case wo::opnum::reg::spreg::t9:
+                            case wo::opnum::reg::spreg::t10:
+                            case wo::opnum::reg::spreg::t11:
+                            case wo::opnum::reg::spreg::t12:
+                            case wo::opnum::reg::spreg::t13:
+                            case wo::opnum::reg::spreg::t14:
+                            case wo::opnum::reg::spreg::t15:
+                                printf("%-20s", ("T" + std::to_string(reg_idx - wo::opnum::reg::spreg::t0)).c_str());
+                                break;
+                            case wo::opnum::reg::spreg::cr:
+                                printf("%-20s", "OpTraceResult(CR)");
+                                break;
+                            case wo::opnum::reg::spreg::tc:
+                                printf("%-20s", "ArgumentCount(TC)");
+                                break;
+                            case wo::opnum::reg::spreg::er:
+                                printf("%-20s", "ExceptionInfo(ER)");
+                                break;
+                            case wo::opnum::reg::spreg::ni:
+                                printf("%-20s", "NilConstant(NI)");
+                                break;
+                            case wo::opnum::reg::spreg::pm:
+                                printf("%-20s", "PatternMatch(PM)");
+                                break;
+                            case wo::opnum::reg::spreg::tp:
+                                printf("%-20s", "Template(TP)");
+                                break;
+                            default:
+                                printf("%-20s", "---");
+                                break;
+                            }
+
+                            printf("%-20s\n", wo_cast_string(
+                                reinterpret_cast<wo_value>(
+                                    &target_vm->register_mem_begin[reg_idx])));
+                        }
+                        
+                    }
+                }
                 else if (main_command == "r" || main_command == "return")
                 {
                     breakdown_temp_for_return = true;
@@ -359,25 +485,56 @@ detach                                        Detach debuggee.
                 }
                 else if (main_command == "dis" || main_command == "disassemble")
                 {
-                    std::string function_name;
-                    if (need_possiable_input(inputbuf, function_name))
+                    std::string function_name_or_ip_offset;
+                    if (need_possiable_input(inputbuf, function_name_or_ip_offset))
                     {
-                        if (function_name == "--all")
+                        bool is_number = !function_name_or_ip_offset.empty();
+                        for (char ch : function_name_or_ip_offset)
                         {
-                            vmm->dump_program_bin();
+                            if (!isdigit(ch))
+                            {
+                                is_number = false;
+                                break;
+                            }
+                        }
+
+                        if (is_number)
+                        {
+                            size_t begin_offset = (size_t)atoll(function_name_or_ip_offset.c_str());
+                            if (need_possiable_input(inputbuf, function_name_or_ip_offset))
+                            {
+                                size_t length = (size_t)atoll(function_name_or_ip_offset.c_str());
+                                printf("Display +%04zu to +%04zu.\n",
+                                    begin_offset,
+                                    begin_offset + length);
+
+                                vmm->dump_program_bin(
+                                    std::min(begin_offset, vmm->env->rt_code_len),
+                                    std::min(begin_offset + length, vmm->env->rt_code_len));
+                            }
+                            else
+                                printf(ANSI_HIR "Missing length, command failed.\n" ANSI_RST);
+
                         }
                         else
                         {
-                            if (vmm->env->program_debug_info == nullptr)
-                                printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
+                            if (function_name_or_ip_offset == "--all")
+                            {
+                                vmm->dump_program_bin();
+                            }
                             else
                             {
-                                auto&& fndresult = search_function_begin_rtip_scope_with_name(vmm, function_name, false);
-                                wo_stdout << "Find " << fndresult.size() << " symbol(s):" << wo_endl;
-                                for (auto& funcinfo : fndresult)
+                                if (vmm->env->program_debug_info == nullptr)
+                                    printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
+                                else
                                 {
-                                    wo_stdout << "In function: " << funcinfo.func_sig << wo_endl;
-                                    vmm->dump_program_bin(funcinfo.rt_ip_begin, funcinfo.rt_ip_end);
+                                    auto&& fndresult = search_function_begin_rtip_scope_with_name(vmm, function_name_or_ip_offset, false);
+                                    wo_stdout << "Find " << fndresult.size() << " symbol(s):" << wo_endl;
+                                    for (auto& funcinfo : fndresult)
+                                    {
+                                        wo_stdout << "In function: " << funcinfo.func_sig << wo_endl;
+                                        vmm->dump_program_bin(funcinfo.rt_ip_begin, funcinfo.rt_ip_end);
+                                    }
                                 }
                             }
                         }
@@ -394,15 +551,21 @@ detach                                        Detach debuggee.
                             {
                                 wo_stdout << "In function: " << funcname << wo_endl;
                                 vmm->dump_program_bin(
-                                    vmm->env->program_debug_info->get_runtime_ip_by_ip(fnd->second.ir_begin)
-                                    , vmm->env->program_debug_info->get_runtime_ip_by_ip(fnd->second.ir_end));
+                                    vmm->env->program_debug_info->get_runtime_ip_by_ip(fnd->second.ir_begin),
+                                    vmm->env->program_debug_info->get_runtime_ip_by_ip(fnd->second.ir_end));
                             }
                             else
-                                printf(ANSI_HIR "Invalid function.\n" ANSI_RST);
+                            {
+                                wo_stdout << "Unable to located function, display following 100 bytes." << wo_endl;
+                                auto begin_offset = (size_t)(current_runtime_ip - vmm->env->rt_codes);
+                                vmm->dump_program_bin(
+                                    std::min(begin_offset, vmm->env->rt_code_len),
+                                    std::min(begin_offset + 100, vmm->env->rt_code_len));
+                            }
                         }
                     }
                 }
-                else if (main_command == "cs" || main_command == "callstack")
+                else if (main_command == "cs" || main_command == "bt" || main_command == "callstack")
                 {
                     size_t max_layer;
                     if (!need_possiable_input(inputbuf, max_layer))
@@ -530,7 +693,7 @@ detach                                        Detach debuggee.
                 }
                 else if (main_command == "exit")
                 {
-                    _Exit(0);
+                    _Exit(-1);
                     return false;
                 }
                 else if (main_command == "delbreak" || main_command == "deletebreak")
@@ -778,7 +941,7 @@ detach                                        Detach debuggee.
                 }
                 else
                     printf(ANSI_HIR "Unknown debug command, please input 'help' for more informations.\n" ANSI_RST);
-            }
+                }
 
         need_next_command:
 
@@ -795,7 +958,7 @@ detach                                        Detach debuggee.
             while (std::cin.readsome(&_useless_for_clear, 1));
 
             return false;
-        }
+            }
         size_t print_src_file_print_lineno(wo::vmbase* vmm, const std::string& filepath, size_t current_row_no, cpu_profiler_record_infornmation* info)
         {
             auto& context = env_context[vmm->env];
@@ -1095,7 +1258,7 @@ detach                                        Detach debuggee.
                 return;
             }
         }
-    };
+        };
 
     class c_style_debuggee_binder : public wo::debuggee_base
     {
@@ -1113,4 +1276,4 @@ detach                                        Detach debuggee.
             c_debuggee_handler((wo_debuggee)this, (wo_vm)vmm, custom_items);
         }
     };
-}
+    }

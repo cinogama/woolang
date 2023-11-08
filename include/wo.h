@@ -136,7 +136,7 @@ WO_API void         wo_finish(void(*do_after_shutdown)(void*), void* custom_data
 WO_API void         wo_gc_immediately(wo_bool_t fullgc);
 
 WO_API void*        wo_load_lib(const char* libname, const char* path, wo_bool_t panic_when_fail);
-WO_API void*/* func ptr */ wo_load_func(void* lib, const char* funcname);
+WO_API void*        wo_load_func(void* lib, const char* funcname);
 WO_API void         wo_unload_lib(void* lib);
 
 WO_API wo_type      wo_valuetype(const wo_value value);
@@ -148,9 +148,8 @@ WO_API wo_handle_t  wo_handle(wo_value value);
 WO_API wo_ptr_t     wo_pointer(wo_value value);
 WO_API wo_string_t  wo_string(wo_value value);
 WO_API wo_bool_t    wo_bool(wo_value value);
-//WO_API wo_value     wo_value_of_gchandle(wo_value value);
 WO_API float        wo_float(wo_value value);
-WO_API const void* wo_buffer(wo_value value);
+WO_API const void*  wo_buffer(wo_value value);
 
 WO_API void wo_set_nil(wo_value value);
 WO_API void wo_set_char(wo_value value, wo_char_t val);
@@ -540,12 +539,14 @@ WO_API void                 wo_lsp_free_compile_error_msg(wo_lsp_error_msg* msg)
 // * If you are re-write fail-handler-function, you may need abort program.
 #define WO_FAIL_DEADLY 0xD000
 
-#define WO_FAIL_NOT_SUPPORT 0xD001
-#define WO_FAIL_TYPE_FAIL 0xD001
-#define WO_FAIL_ACCESS_NIL 0xD001
-#define WO_FAIL_INDEX_FAIL 0xD002
-#define WO_FAIL_CALL_FAIL 0xD003
-
+#define WO_FAIL_USER_PANIC 0xD001
+#define WO_FAIL_NOT_SUPPORT 0xD002
+#define WO_FAIL_TYPE_FAIL 0xD003
+#define WO_FAIL_ACCESS_NIL 0xD004
+#define WO_FAIL_INDEX_FAIL 0xD005
+#define WO_FAIL_CALL_FAIL 0xD006
+#define WO_FAIL_BAD_LIB 0xD007
+#define WO_FAIL_UNEXPECTED 0xD008
 // dEADLY 
 
 #endif
@@ -604,7 +605,6 @@ WO_API void                 wo_lsp_free_compile_error_msg(wo_lsp_error_msg* msg)
 #define ANSI_BHIC       ANSI_ESC "1;46m"
 #define ANSI_BWHI       ANSI_ESC "47m"
 #define ANSI_BHIW       ANSI_ESC "1;47m"
-
 
 #endif
 

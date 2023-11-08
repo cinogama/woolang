@@ -592,7 +592,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
         }
         static void _vmjitcall_panic(wo::value* opnum1)
         {
-            wo_fail(WO_FAIL_DEADLY, "%s", wo_cast_string(reinterpret_cast<wo_value>(opnum1)));
+            wo_fail(WO_FAIL_UNEXPECTED, "%s", wo_cast_string(reinterpret_cast<wo_value>(opnum1)));
         }
         static void _vmjitcall_adds(wo::value* opnum1, wo::value* opnum2)
         {

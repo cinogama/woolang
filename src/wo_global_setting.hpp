@@ -70,7 +70,7 @@ namespace wo
         inline bool ENABLE_CHECK_GRAMMAR_AND_UPDATE = false;
 
         /*
-        * ENABLE_JUST_IN_TIME = false
+        * ENABLE_JUST_IN_TIME = true
         * --------------------------------------------------------------------
         *   Woolang will use asmjit to generate code in runtime.
         * --------------------------------------------------------------------
@@ -83,8 +83,40 @@ namespace wo
 #endif
             ;
 
+        /*
+        * ENABLE_PDB_INFORMATIONS = true
+        * --------------------------------------------------------------------
+        *   Woolang will generate pdb information for programs.
+        * --------------------------------------------------------------------
+        */
         inline bool ENABLE_PDB_INFORMATIONS = true;
+
+        /*
+        * ENABLE_SHELL_PACKAGE = true
+        * --------------------------------------------------------------------
+        *   Woolang will enable woo/shell.wo for execute shell command.
+        * --------------------------------------------------------------------
+        */
         inline bool ENABLE_SHELL_PACKAGE = true;
+
+        /*
+        * MEMORY_CHUNK_SIZE = 1GB
+        * --------------------------------------------------------------------
+        *   Maximum managed heap memory used by Woolang.
+        * 
+        *     Managed heap memory is not equivalent to all used memory. This area
+        *   is only used to store GC objects.
+        * --------------------------------------------------------------------
+        */
         inline size_t MEMORY_CHUNK_SIZE = 1ull * 1024ull * 1024ull * 1024ull;
+
+        /*
+        * ENABLE_HALT_WHEN_PANIC = false
+        * --------------------------------------------------------------------
+        *   Whether to allow the thread to be terminated directly instead of 
+        *   blocking when PANIC occurs
+        * --------------------------------------------------------------------
+        */
+        inline bool ENABLE_HALT_WHEN_PANIC = false;
     }
 }
