@@ -3457,12 +3457,17 @@ wo_bool_t wo_execute(wo_string_t src, wo_execute_callback_ft callback, void* dat
         err += wo_get_compile_error(_vm, _wo_inform_style::WO_NEED_COLOR);
         wo_execute_fail(_vm, WO_FAIL_EXECUTE_FAIL, err.c_str());
     }
+
+    auto is_succ = WO_FALSE;
+
     if (result != nullptr)
     {
         callback(result, data);
-        return WO_TRUE;
+        is_succ = WO_TRUE;
     }
-    return WO_FALSE;
+    wo_close_vm(_vm);
+
+    return is_succ;
 }
 
 wo_value wo_pin_value(void)
