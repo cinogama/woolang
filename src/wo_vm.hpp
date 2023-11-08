@@ -1770,11 +1770,13 @@ namespace wo
                             :\
                             (WO_IPVAL_MOVE_1 + reg_begin)
 
-#define WO_VM_FAIL(ERRNO,ERRINFO) {ip = rt_ip;sp = rt_sp;bp = rt_bp;wo_fail(ERRNO,ERRINFO);continue;}
+#define WO_VM_FAIL(ERRNO,ERRINFO) \
+    {ip = rt_ip;sp = rt_sp;bp = rt_bp;wo_fail(ERRNO,ERRINFO);continue;}
 #ifdef NDEBUG
 #define WO_VM_ASSERT(EXPR, REASON) wo_assert(EXPR, REASON)
 #else
-#define WO_VM_ASSERT(EXPR, REASON) if(!(EXPR)){ip = rt_ip;sp = rt_sp;bp = rt_bp;wo_fail(WO_FAIL_DEADLY,REASON);continue;}
+#define WO_VM_ASSERT(EXPR, REASON) \
+    if(!(EXPR)){ip = rt_ip;sp = rt_sp;bp = rt_bp;wo_fail(WO_FAIL_UNEXPECTED, REASON);continue;}
 #endif
 
             byte_t opcode_dr = (byte_t)(instruct::abrt << (uint8_t)2);
@@ -2745,7 +2747,8 @@ namespace wo
                         {
                             WO_ADDRESSING_N1; // data
 
-                            wo_fail(WO_FAIL_DEADLY, "%s", wo_cast_string(std::launder(reinterpret_cast<wo_value>(opnum1))));
+                            wo_fail(WO_FAIL_UNEXPECTED, 
+                                "%s", wo_cast_string(std::launder(reinterpret_cast<wo_value>(opnum1))));
                             break;
                         }
                         default:

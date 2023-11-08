@@ -61,24 +61,26 @@ namespace wo
 
             extern_lib_guard(const std::string& libpath, const std::string& script_path)
             {
-#if !defined(NDEBUG) && defined(PLATFORM_M32)
+#ifndef NDEBUG
+#   if defined(PLATFORM_M32)
                 if ((extern_lib = osapi::loadlib((libpath + "32_debug").c_str(), script_path.c_str())))
                     return;
-#endif
-#if !defined(NDEBUG)
+#   else
                 if ((extern_lib = osapi::loadlib((libpath + "_debug").c_str(), script_path.c_str())))
                     return;
-#endif
-#if defined(PLATFORM_M32)
+#   endif
+#else
+#   if defined(PLATFORM_M32)
                 if ((extern_lib = osapi::loadlib((libpath + "32").c_str(), script_path.c_str())))
                     return;
-#endif
-
+#   else
                 if ((extern_lib = osapi::loadlib(libpath.c_str(), script_path.c_str())))
                     return;
-
+#   endif
+#endif
+                // No such lib path? try lib alias here:
                 load_by_os_api = false;
-                extern_lib = wo_load_lib(libpath.c_str(), nullptr, WO_TRUE);
+                extern_lib = wo_load_lib(libpath.c_str(), nullptr, WO_FALSE);
             }
             wo_native_func load_func(const char* funcname)
             {

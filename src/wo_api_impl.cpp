@@ -84,7 +84,7 @@ void _default_fail_handler(wo_vm vm, wo_string_t src_file, uint32_t lineno, wo_s
         : false;
 
     wo::wo_stderr << ANSI_HIR "WooLang Runtime happend a failure: "
-        << ANSI_HIY << reason << " (E" << std::hex << rterrcode << std::dec << ")" << ANSI_RST << wo::wo_endl;
+        << ANSI_HIY << reason << " (Code: " << std::hex << rterrcode << std::dec << ")" << ANSI_RST << wo::wo_endl;
     wo::wo_stderr << "\tAt source: \t" << src_file << wo::wo_endl;
     wo::wo_stderr << "\tAt line: \t" << lineno << wo::wo_endl;
     wo::wo_stderr << "\tAt function: \t" << functionname << wo::wo_endl;
@@ -106,73 +106,83 @@ void _default_fail_handler(wo_vm vm, wo_string_t src_file, uint32_t lineno, wo_s
     }
     else if ((rterrcode & WO_FAIL_TYPE_MASK) == WO_FAIL_MEDIUM)
     {
-        // Just throw it..
-        wo::wo_stderr << ANSI_HIY "This is a medium failure, abort." ANSI_RST << wo::wo_endl;
+        // Just halt it..
+        wo::wo_stderr << ANSI_HIY "This is a medium failure, halt." ANSI_RST << wo::wo_endl;
 
         if (cur_thread_vm != nullptr)
             wo_ret_halt(reinterpret_cast<wo_vm>(cur_thread_vm), reason);
     }
     else if ((rterrcode & WO_FAIL_TYPE_MASK) == WO_FAIL_HEAVY)
     {
-        // Just throw it..
-        wo::wo_stderr << ANSI_HIY "This is a heavy failure, abort." ANSI_RST << wo::wo_endl;
+        // Just halt it..
+        wo::wo_stderr << ANSI_HIY "This is a heavy failure, halt." ANSI_RST << wo::wo_endl;
         if (cur_thread_vm != nullptr)
             wo_ret_halt(reinterpret_cast<wo_vm>(cur_thread_vm), reason);
     }
+    // Real panic!
     else
     {
-        wo::wo_stderr << "This failure may cause a crash or nothing happens." << wo::wo_endl;
-        wo::wo_stderr << "1) Abort program.(You can attatch debuggee.)" << wo::wo_endl;
-        wo::wo_stderr << "2) Continue.(May cause unknown errors.)" << wo::wo_endl;
-        wo::wo_stderr << "3) Halt (Not exactly safe, this vm will be abort.)" << wo::wo_endl;
-        wo::wo_stderr << "4) Attach debuggee and break immediately." << wo::wo_endl;
-
-        bool breakout = false;
-        while (true)
+        wo::wo_stderr << ANSI_HIY "This failure may cause a crash or nothing happens." ANSI_RST << wo::wo_endl;
+        if (wo::config::ENABLE_HALT_WHEN_PANIC)
         {
-            char _useless_for_clear = 0;
-            std::cin.clear();
-            while (std::cin.readsome(&_useless_for_clear, 1));
+            // Halt directly, donot wait for input.
+            if (cur_thread_vm != nullptr)
+                wo_ret_halt(reinterpret_cast<wo_vm>(cur_thread_vm), reason);
+        }
+        else
+        {
+            wo::wo_stderr << "1) Abort program.(You can attatch debuggee.)" << wo::wo_endl;
+            wo::wo_stderr << "2) Continue.(May cause unknown errors.)" << wo::wo_endl;
+            wo::wo_stderr << "3) Halt (Not exactly safe, this vm will be abort.)" << wo::wo_endl;
+            wo::wo_stderr << "4) Attach debuggee and break immediately." << wo::wo_endl;
 
-            if (breakout)
-                break;
-
-            int choice;
-            wo::wo_stderr << "Please input your choice: " ANSI_HIY;
-            std::cin >> choice;
-            wo::wo_stderr << ANSI_RST;
-            switch (choice)
+            bool breakout = false;
+            while (true)
             {
-            case 1:
-                wo_error(reason);
-                breakout = true;
-                break;
-            case 2:
-                breakout = true;
-                break;
-            case 3:
-                if (cur_thread_vm != nullptr)
+                char _useless_for_clear = 0;
+                std::cin.clear();
+                while (std::cin.readsome(&_useless_for_clear, 1));
+
+                if (breakout)
+                    break;
+
+                int choice;
+                wo::wo_stderr << "Please input your choice: " ANSI_HIY;
+                std::cin >> choice;
+                wo::wo_stderr << ANSI_RST;
+                switch (choice)
                 {
-                    wo::wo_stderr << ANSI_HIR "Current virtual machine will abort." ANSI_RST << wo::wo_endl;
-                    wo_ret_halt(reinterpret_cast<wo_vm>(cur_thread_vm), reason);
+                case 1:
+                    wo_error(reason);
                     breakout = true;
-                }
-                else
-                    wo::wo_stderr << ANSI_HIR "No virtual machine running in this thread." ANSI_RST << wo::wo_endl;
-                break;
-            case 4:
-                if (cur_thread_vm != nullptr)
-                {
-                    if (!wo_has_attached_debuggee())
-                        wo_attach_default_debuggee();
-                    wo_break_specify_immediately(vm);
+                    break;
+                case 2:
                     breakout = true;
+                    break;
+                case 3:
+                    if (cur_thread_vm != nullptr)
+                    {
+                        wo::wo_stderr << ANSI_HIR "Current virtual machine will abort." ANSI_RST << wo::wo_endl;
+                        wo_ret_halt(reinterpret_cast<wo_vm>(cur_thread_vm), reason);
+                        breakout = true;
+                    }
+                    else
+                        wo::wo_stderr << ANSI_HIR "No virtual machine running in this thread." ANSI_RST << wo::wo_endl;
+                    break;
+                case 4:
+                    if (cur_thread_vm != nullptr)
+                    {
+                        if (!wo_has_attached_debuggee())
+                            wo_attach_default_debuggee();
+                        wo_break_specify_immediately(vm);
+                        breakout = true;
+                    }
+                    else
+                        wo::wo_stderr << ANSI_HIR "No virtual machine running in this thread." ANSI_RST << wo::wo_endl;
+                    break;
+                default:
+                    wo::wo_stderr << ANSI_HIR "Invalid choice" ANSI_RST << wo::wo_endl;
                 }
-                else
-                    wo::wo_stderr << ANSI_HIR "No virtual machine running in this thread." ANSI_RST << wo::wo_endl;
-                break;
-            default:
-                wo::wo_stderr << ANSI_HIR "Invalid choice" ANSI_RST << wo::wo_endl;
             }
         }
     }
@@ -318,6 +328,8 @@ void wo_init(int argc, char** argv)
                 wo::config::ENABLE_PDB_INFORMATIONS = (bool)atoi(argv[++command_idx]);
             else if ("enable-vm-pool" == current_arg)
                 enable_vm_pool = (bool)atoi(argv[++command_idx]);
+            else if ("enable-halt-when-panic" == current_arg)
+                wo::config::ENABLE_HALT_WHEN_PANIC = (bool)atoi(argv[++command_idx]);
             else if ("update-grammar" == current_arg)
                 wo::config::ENABLE_CHECK_GRAMMAR_AND_UPDATE = (bool)atoi(argv[++command_idx]);
             else
@@ -872,10 +884,10 @@ std::string _destring(const std::string& dstr)
     }
     return result;
 }
-wo_bool_t _wo_cast_value(wo::value* value, wo::lexer* lex, wo::value::valuetype except_type);
-wo_bool_t _wo_cast_array(wo::value* value, wo::lexer* lex)
+wo_bool_t _wo_cast_value(wo_vm vm, wo::value* value, wo::lexer* lex, wo::value::valuetype except_type);
+wo_bool_t _wo_cast_array(wo_vm vm, wo::value* value, wo::lexer* lex)
 {
-    wo::array_t* rsarr = wo::array_t::gc_new<wo::gcbase::gctype::young>();
+    wo::array_t* rsarr = WO_VAL(wo_push_arr(vm, 0))->array;
 
     while (true)
     {
@@ -886,7 +898,7 @@ wo_bool_t _wo_cast_array(wo::value* value, wo::lexer* lex)
             break;
         }
 
-        if (!_wo_cast_value(value, lex, wo::value::valuetype::invalid)) // val!
+        if (!_wo_cast_value(vm, value, lex, wo::value::valuetype::invalid)) // val!
             return WO_FALSE;
         rsarr->push_back(*value);
 
@@ -894,11 +906,13 @@ wo_bool_t _wo_cast_array(wo::value* value, wo::lexer* lex)
             lex->next(nullptr);
     }
     value->set_gcunit<wo::value::valuetype::array_type>(rsarr);
+
+    wo_pop_stack(vm);
     return WO_TRUE;
 }
-wo_bool_t _wo_cast_map(wo::value* value, wo::lexer* lex)
+wo_bool_t _wo_cast_map(wo_vm vm, wo::value* value, wo::lexer* lex)
 {
-    wo::dict_t* rsmap = wo::dict_t::gc_new<wo::gcbase::gctype::young>();
+    wo::dict_t* rsmap = WO_VAL(wo_push_map(vm))->dict;
 
     while (true)
     {
@@ -910,7 +924,7 @@ wo_bool_t _wo_cast_map(wo::value* value, wo::lexer* lex)
             break;
         }
 
-        if (!_wo_cast_value(value, lex, wo::value::valuetype::invalid))// key!
+        if (!_wo_cast_value(vm, value, lex, wo::value::valuetype::invalid))// key!
             return WO_FALSE;
         auto& val_place = (*rsmap)[*value];
 
@@ -919,7 +933,7 @@ wo_bool_t _wo_cast_map(wo::value* value, wo::lexer* lex)
             //wo_fail(WO_FAIL_TYPE_FAIL, "Unexcept token while parsing map, here should be ':'.");
             return WO_FALSE;
 
-        if (!_wo_cast_value(&val_place, lex, wo::value::valuetype::invalid)) // value!
+        if (!_wo_cast_value(vm, &val_place, lex, wo::value::valuetype::invalid)) // value!
             return WO_FALSE;
 
         if (lex->peek(nullptr) == +wo::lex_type::l_comma)
@@ -927,20 +941,22 @@ wo_bool_t _wo_cast_map(wo::value* value, wo::lexer* lex)
     }
 
     value->set_gcunit<wo::value::valuetype::dict_type>(rsmap);
+
+    wo_pop_stack(vm);
     return WO_TRUE;
 }
-wo_bool_t _wo_cast_value(wo::value* value, wo::lexer* lex, wo::value::valuetype except_type)
+wo_bool_t _wo_cast_value(wo_vm vm, wo::value* value, wo::lexer* lex, wo::value::valuetype except_type)
 {
     std::wstring wstr;
     auto lex_type = lex->next(&wstr);
     if (lex_type == +wo::lex_type::l_left_curly_braces) // is map
     {
-        if (!_wo_cast_map(value, lex))
+        if (!_wo_cast_map(vm, value, lex))
             return WO_FALSE;
     }
     else if (lex_type == +wo::lex_type::l_index_begin) // is array
     {
-        if (!_wo_cast_array(value, lex))
+        if (!_wo_cast_array(vm, value, lex))
             return WO_FALSE;
     }
     else if (lex_type == +wo::lex_type::l_literal_string) // is string   
@@ -994,9 +1010,7 @@ wo_bool_t _wo_cast_value(wo::value* value, wo::lexer* lex, wo::value::valuetype 
 wo_bool_t wo_deserialize(wo_vm vm, wo_value value, wo_string_t str, wo_type except_type)
 {
     wo::lexer lex(wo::str_to_wstr(str), "json");
-
-    _wo_enter_gc_guard g(vm);
-    return _wo_cast_value(WO_VAL(value), &lex, (wo::value::valuetype)except_type);
+    return _wo_cast_value(vm, WO_VAL(value), &lex, (wo::value::valuetype)except_type);
 }
 
 enum cast_string_mode
@@ -1414,7 +1428,7 @@ wo_result_t wo_ret_panic(wo_vm vm, wo_string_t reasonfmt, ...)
         _wo_enter_gc_guard g(vm);
         vmptr->er->set_string(buf.data());
     }
-    wo_fail(WO_FAIL_DEADLY, vmptr->er->string->c_str());
+    wo_fail(WO_FAIL_USER_PANIC, vmptr->er->string->c_str());
     return wo_result_t::WO_API_NORMAL;
 }
 
@@ -3277,6 +3291,7 @@ wo_string_t wo_debug_trace_callstack(wo_vm vm, size_t layer)
 
 void* wo_load_lib(const char* libname, const char* path, wo_bool_t panic_when_fail)
 {
+    void* loaded_lib_res_ptr = nullptr;
     std::lock_guard g1(loaded_named_libs_mx);
     if (path)
     {
@@ -3285,11 +3300,8 @@ void* wo_load_lib(const char* libname, const char* path, wo_bool_t panic_when_fa
             loaded_named_libs[libname].push_back(
                 loaded_lib_info{ handle, 1 }
             );
-            return handle;
+            loaded_lib_res_ptr = handle;
         }
-        if (panic_when_fail)
-            wo_fail(WO_FAIL_DEADLY, "Failed to load specify library.");
-        return nullptr;
     }
     else
     {
@@ -3300,11 +3312,14 @@ void* wo_load_lib(const char* libname, const char* path, wo_bool_t panic_when_fa
             auto& libinfo = fnd->second.back();
             wo_assert(libinfo.m_use_count > 0);
             ++libinfo.m_use_count;
-            return libinfo.m_lib_instance;
+            loaded_lib_res_ptr = libinfo.m_lib_instance;
         }
-
-        return nullptr;
     }
+
+    if (loaded_lib_res_ptr == nullptr && panic_when_fail)
+        wo_fail(WO_FAIL_BAD_LIB, "Failed to load specify library.");
+
+    return loaded_lib_res_ptr;
 }
 void* wo_load_func(void* lib, const char* funcname)
 {
