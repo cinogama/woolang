@@ -76,8 +76,6 @@ wo::vmpool* global_vm_pool = nullptr;
 std::mutex loaded_named_libs_mx;
 std::unordered_map<std::string, std::vector<loaded_lib_info>> loaded_named_libs;
 
-wo_value _wo_execute_result = nullptr;
-
 void _default_fail_handler(wo_vm vm, wo_string_t src_file, uint32_t lineno, wo_string_t functionname, uint32_t rterrcode, wo_string_t reason)
 {
     auto* cur_thread_vm = std::launder(reinterpret_cast<wo::vmbase*>(vm));
@@ -236,8 +234,7 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
     bool scheduler_need_shutdown = true;
 
     // Ready to shutdown all vm & coroutine.
-    wo_set_nil(_wo_execute_result);
-
+    // 
     // Free all vm in pool, because vm in pool is PENDING, we can free them directly.
     // ATTENTION: If somebody using global_vm_pool when finish, here may crash or dead loop.
     if (global_vm_pool != nullptr)
@@ -283,8 +280,6 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
 
     womem_shutdown();
     wo::debuggee_base::_free_abandons();
-
-    wo_unpin_value(_wo_execute_result);
 }
 
 void wo_init(int argc, char** argv)
@@ -371,8 +366,6 @@ void wo_init(int argc, char** argv)
         wo_handle_ctrl_c(_wo_ctrl_c_signal_handler);
 
     wo_asure(wo::get_wo_grammar()); // Create grammar when init.
-
-    _wo_execute_result = wo_pin_value();
 }
 
 #define WO_VAL(v) (std::launder(reinterpret_cast<wo::value*>(v)))
@@ -3439,7 +3432,7 @@ void wo_lsp_free_compile_error_msg(wo_lsp_error_msg* msg)
     delete msg;
 }
 
-wo_value wo_execute(wo_string_t src)
+wo_bool_t wo_execute(wo_string_t src, wo_execute_callback_ft callback, void* data)
 {
     wo_vm _vm = wo_create_vm();
 
@@ -3466,13 +3459,10 @@ wo_value wo_execute(wo_string_t src)
     }
     if (result != nullptr)
     {
-        wo_set_val(_wo_execute_result, result);
-        result = _wo_execute_result;
+        callback(result, data);
+        return WO_TRUE;
     }
-
-    wo_close_vm(_vm);
-    wo_remove_virtual_file(vpath.c_str());
-    return result;
+    return WO_FALSE;
 }
 
 wo_value wo_pin_value(void)

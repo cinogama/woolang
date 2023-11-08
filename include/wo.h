@@ -331,12 +331,13 @@ WO_API wo_bool_t    wo_load_binary_with_stacksz(wo_vm vm, wo_string_t virtual_sr
 WO_API wo_bool_t    wo_load_binary(wo_vm vm, wo_string_t virtual_src_path, const void* buffer, size_t length);
 
 // NOTE: wo_dump_binary must invoke before wo_run.
-WO_API void* wo_dump_binary(wo_vm vm, wo_bool_t saving_pdi, size_t* out_length);
+WO_API void*        wo_dump_binary(wo_vm vm, wo_bool_t saving_pdi, size_t* out_length);
 WO_API void         wo_free_binary(void* buffer);
 
 WO_API wo_bool_t    wo_jit(wo_vm vm);
 
-WO_API wo_value     wo_execute(wo_string_t src);
+typedef void(* wo_execute_callback_ft)(wo_value, void*);
+WO_API wo_bool_t    wo_execute(wo_string_t src, wo_execute_callback_ft callback, void* data);
 
 // wo_run is used for init a vm.
 WO_API wo_value     wo_run(wo_vm vm);
