@@ -246,7 +246,7 @@ namespace wo
                 wo_error("Immediate is not integer.");
                 return 0;
             }
-            virtual bool is_true()const
+            virtual bool is_true() override const
             {
                 if constexpr (meta::is_string<T>::value)
                 {
