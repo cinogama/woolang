@@ -56,7 +56,6 @@ namespace wo
 
             try_operator_func_overload->try_invoke_operator_override_function = true;
             try_operator_func_overload->arguments = new ast_list();
-            try_operator_func_overload->value_type;
 
             try_operator_func_overload->called_func = new ast_value_variable(
                 wstring_pool::get_pstr(std::wstring(L"operator ") + lexer::lex_is_operate_type(a_value_bin->operate)));
@@ -636,16 +635,16 @@ namespace wo
                     }
                     else
                     {
-                        lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, 
-                            WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME, 
+                        lang_anylizer->lang_error(lexer::errorlevel::error, a_ret,
+                            WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME,
                             L"void", located_function_scope->function_node->value_type->type_name->c_str());
                     }
                 }
                 else
                 {
                     if (!located_function_scope->function_node->value_type->get_return_type()->is_void())
-                        lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, 
-                            WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME, 
+                        lang_anylizer->lang_error(lexer::errorlevel::error, a_ret,
+                            WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME,
                             L"void", located_function_scope->function_node->value_type->type_name->c_str());
                 }
             }
@@ -843,7 +842,7 @@ namespace wo
                     a_pattern_union_value->pattern_arg_in_union_may_nil);
 
                 analyze_pattern_in_pass1(
-                    a_pattern_union_value->pattern_arg_in_union_may_nil, 
+                    a_pattern_union_value->pattern_arg_in_union_may_nil,
                     new ast_decl_attribute,
                     a_match_union_case->take_place_value_may_nil);
             }
@@ -1019,7 +1018,7 @@ namespace wo
                             {
                                 if (!func_return_type->set_mix_types(a_ret->return_value->value_type, false))
                                 {
-                                    lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, 
+                                    lang_anylizer->lang_error(lexer::errorlevel::error, a_ret,
                                         WO_ERR_FUNC_RETURN_DIFFERENT_TYPES,
                                         func_return_type->get_type_name(false).c_str(),
                                         a_ret->return_value->value_type->get_type_name(false).c_str());
@@ -1032,7 +1031,7 @@ namespace wo
                         if (!func_return_type->is_pending()
                             && !func_return_type->accept_type(a_ret->return_value->value_type, false, true))
                         {
-                            lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, 
+                            lang_anylizer->lang_error(lexer::errorlevel::error, a_ret,
                                 WO_ERR_FUNC_RETURN_DIFFERENT_TYPES,
                                 func_return_type->get_type_name(false).c_str(),
                                 a_ret->return_value->value_type->get_type_name(false).c_str());
@@ -1051,16 +1050,16 @@ namespace wo
                     }
                     else
                     {
-                        lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, 
-                            WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME, 
+                        lang_anylizer->lang_error(lexer::errorlevel::error, a_ret,
+                            WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME,
                             L"void", a_ret->located_function->value_type->type_name->c_str());
                     }
                 }
                 else
                 {
                     if (!a_ret->located_function->value_type->get_return_type()->is_void())
-                        lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, 
-                            WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME, 
+                        lang_anylizer->lang_error(lexer::errorlevel::error, a_ret,
+                            WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME,
                             L"void", a_ret->located_function->value_type->type_name->c_str());
                 }
             }
@@ -1190,7 +1189,7 @@ namespace wo
             }
             else
             {
-                lang_anylizer->lang_error(lexer::errorlevel::error, a_match->match_value, 
+                lang_anylizer->lang_error(lexer::errorlevel::error, a_match->match_value,
                     WO_ERR_CANNOT_MATCH_SUCH_TYPE,
                     a_match->match_value->value_type->get_type_name(false).c_str());
             }
@@ -1208,7 +1207,7 @@ namespace wo
             wo_assert(case_ast);
 
             if (has_default_pattern)
-                lang_anylizer->lang_error(lexer::errorlevel::error, case_ast->union_pattern, 
+                lang_anylizer->lang_error(lexer::errorlevel::error, case_ast->union_pattern,
                     WO_ERR_CASE_AFTER_DEFAULT_PATTERN);
 
             if (case_ast->union_pattern->union_expr == nullptr)
@@ -1220,7 +1219,7 @@ namespace wo
                 has_default_pattern = true;
             }
             else if (case_names.end() != case_names.find(case_ast->union_pattern->union_expr->var_name))
-                lang_anylizer->lang_error(lexer::errorlevel::error, case_ast->union_pattern->union_expr, 
+                lang_anylizer->lang_error(lexer::errorlevel::error, case_ast->union_pattern->union_expr,
                     WO_ERR_REPEAT_MATCH_CASE);
             else
                 case_names.insert(case_ast->union_pattern->union_expr->var_name);
@@ -1237,11 +1236,11 @@ namespace wo
         wo_assert(a_match_union_case->in_match);
         if (a_match_union_case->in_match && a_match_union_case->in_match->match_value->value_type->is_union())
         {
-            if (ast_pattern_union_value* a_pattern_union_value = 
+            if (ast_pattern_union_value* a_pattern_union_value =
                 dynamic_cast<ast_pattern_union_value*>(a_match_union_case->union_pattern))
             {
                 if (a_match_union_case->in_match->match_value->value_type->is_pending())
-                    lang_anylizer->lang_error(lexer::errorlevel::error, a_match_union_case, 
+                    lang_anylizer->lang_error(lexer::errorlevel::error, a_match_union_case,
                         WO_ERR_UNKNOWN_MATCHING_VAL_TYPE);
                 else
                 {
@@ -1251,7 +1250,7 @@ namespace wo
                             ;
                         else
                         {
-                            a_pattern_union_value->union_expr->symbol = 
+                            a_pattern_union_value->union_expr->symbol =
                                 find_value_in_this_scope(a_pattern_union_value->union_expr);
 
                             if (a_pattern_union_value->union_expr->symbol)
@@ -1298,7 +1297,8 @@ namespace wo
                             }
                             else
                                 ;
-                        }                    }
+                        }
+                    }
                     if (a_pattern_union_value->union_expr != nullptr)
                         analyze_pass2(a_pattern_union_value->union_expr);
                 }
@@ -1653,7 +1653,7 @@ namespace wo
                 {
                     if (auto fnd =
                         a_value_index->from->value_type->struct_member_index.find(
-                            wstring_pool::get_pstr(str_to_wstr(*a_value_index->index->get_constant_value().string))); 
+                            wstring_pool::get_pstr(str_to_wstr(*a_value_index->index->get_constant_value().string)));
                         fnd != a_value_index->from->value_type->struct_member_index.end())
                     {
                         fully_update_type(fnd->second.member_type, false);
@@ -2233,14 +2233,16 @@ namespace wo
                             fully_update_type(fnd->second.member_type, false,
                                 a_value_make_struct_instance->target_built_types->symbol->template_types);
 
-                            if (pending_template_arg = analyze_template_derivation(
+                            pending_template_arg = analyze_template_derivation(
                                 a_value_make_struct_instance->target_built_types->symbol->template_types[tempindex],
                                 a_value_make_struct_instance->target_built_types->symbol->template_types,
                                 fnd->second.member_type,
                                 updated_member_types[membpair->member_name]
                                 ? updated_member_types[membpair->member_name]
                                 : membpair->member_value_pair->value_type
-                            ))
+                            );
+
+                            if (pending_template_arg != nullptr)
                             {
                                 if (pending_template_arg->is_pure_pending() ||
                                     (pending_template_arg->search_from_global_namespace == false
@@ -2315,12 +2317,13 @@ namespace wo
                             fully_update_type(fnd->second.member_type, false,
                                 a_value_make_struct_instance->target_built_types->symbol->template_types);
 
-                            if (pending_template_arg = analyze_template_derivation(
+                            pending_template_arg = analyze_template_derivation(
                                 a_value_make_struct_instance->target_built_types->symbol->template_types[tempindex],
                                 a_value_make_struct_instance->target_built_types->symbol->template_types,
                                 fnd->second.member_type,
                                 membpair->member_value_pair->value_type
-                            ))
+                            );
+                            if (pending_template_arg != nullptr)
                             {
                                 if (pending_template_arg->is_pure_pending())
                                     pending_template_arg = nullptr;
@@ -2553,7 +2556,7 @@ namespace wo
                 lang_anylizer->lang_error(lexer::errorlevel::error, a_value_var, WO_ERR_UNKNOWN_IDENTIFIER,
                     a_value_var->var_name->c_str());
                 auto fuzz_symbol = find_symbol_in_this_scope(
-                    a_value_var, a_value_var->var_name, 
+                    a_value_var, a_value_var->var_name,
                     lang_symbol::symbol_type::variable | lang_symbol::symbol_type::function, true);
                 if (fuzz_symbol != nullptr)
                 {
@@ -3139,7 +3142,7 @@ namespace wo
                 {
                     failed_to_call_cur_func = true;
                     lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall,
-                        WO_ERR_ARGUMENT_TOO_MANY, 
+                        WO_ERR_ARGUMENT_TOO_MANY,
                         a_value_funccall->called_func->value_type->get_type_name(false).c_str());
                 }
             }
@@ -3683,8 +3686,8 @@ namespace wo
         return hash32;
     }
     bool lang::begin_template_scope(
-        grammar::ast_base* reporterr, 
-        const std::vector<wo_pstring_t>& template_defines_args, 
+        grammar::ast_base* reporterr,
+        const std::vector<wo_pstring_t>& template_defines_args,
         const std::vector<ast::ast_type*>& template_args)
     {
         wo_assert(reporterr);
@@ -4568,7 +4571,7 @@ namespace wo
     }
 
     ast::ast_value_function_define* lang::analyze_pass_template_reification(
-        ast::ast_value_function_define* origin_template_func_define, 
+        ast::ast_value_function_define* origin_template_func_define,
         std::vector<ast::ast_type*> template_args_types)
     {
         // NOTE: template_args_types will be modified in this function. donot use ref type.
@@ -4918,7 +4921,7 @@ namespace wo
                             , a_value->value_type->get_type_name().c_str());
 
                         auto fuzz_symbol = find_symbol_in_this_scope(
-                            a_value->value_type, a_value->value_type->type_name, 
+                            a_value->value_type, a_value->value_type->type_name,
                             lang_symbol::symbol_type::typing | lang_symbol::symbol_type::type_alias, true);
                         if (fuzz_symbol)
                         {
@@ -5271,9 +5274,9 @@ namespace wo
         return WO_NEW_OPNUM(global((int32_t)global_symbol_index++));
     }
     std::variant<opnum::opnumbase*, int16_t> lang::get_opnum_by_symbol(
-        grammar::ast_base* error_prud, 
-        lang_symbol* symb, 
-        ir_compiler* compiler, 
+        grammar::ast_base* error_prud,
+        lang_symbol* symb,
+        ir_compiler* compiler,
         bool get_pure_value)
     {
         using namespace opnum;
