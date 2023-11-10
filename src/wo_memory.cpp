@@ -105,7 +105,13 @@ namespace womem
         // Alloc count, used for reuse page.
         std::atomic_uint16_t m_alloc_count;
 
-        Page* last;
+        union
+        {
+            Page* last;
+
+            // Useless, make sure m_chunkdata begin at 8 byte allign place
+            int64_t _;
+        };
 
         // Init current page
         void init(uint8_t chunkid, uint8_t sz)
@@ -187,8 +193,8 @@ namespace womem
         Chunk& operator = (const Chunk&) = delete;
         Chunk operator = (Chunk&&) = delete;
 
-        char* m_virtual_memory = nullptr;
-        size_t m_commited_page_count = 0;
+        char* const m_virtual_memory;
+        size_t m_commited_page_count;
 
         const size_t m_chunk_size;
         const size_t m_max_page;
@@ -235,22 +241,42 @@ namespace womem
         }
 
         Chunk(size_t chunk_size, uint8_t cid)
-            : m_max_page(chunk_size / WO_SYS_MEM_PAGE_SIZE)
+            : m_virtual_memory(nullptr)
+            , m_commited_page_count(0)
+            , m_chunk_size(0)
+            , m_max_page(0)
             , m_chunk_id(cid)
-            , m_chunk_size(chunk_size)
         {
-            assert(chunk_size % WO_SYS_MEM_PAGE_SIZE == 0);
-            assert(m_max_page <= UINT32_MAX);
-
-
-            m_virtual_memory = (char*)_womem_reserve_mem(m_chunk_size);
-
-            if (m_virtual_memory == nullptr)
+            size_t reserving_chunk_size = chunk_size;
+            char* reserved_chunk_buffer = nullptr;
+            for (;;)
             {
-                fprintf(stderr, "Failed to reserve memory: %d.\n",
-                    _womem_get_last_error());
-                abort();
+                reserving_chunk_size = reserving_chunk_size / WO_SYS_MEM_PAGE_SIZE * WO_SYS_MEM_PAGE_SIZE;
+
+                if (reserving_chunk_size == 0)
+                {
+                    fprintf(stderr, "Failed to reserve memory, reason: %d.\n",
+                        _womem_get_last_error());
+
+                    wo_error("Failed to reserve memory.");
+                }
+
+                reserved_chunk_buffer = (char*)_womem_reserve_mem(reserving_chunk_size);
+
+                if (reserved_chunk_buffer != nullptr)
+                    break;
+
+                wo_warning("Failed to reserve gc-managed-memory, retry.");
+                reserving_chunk_size = reserving_chunk_size / 2;
             }
+
+            const_cast<size_t&>(m_max_page) = reserving_chunk_size / WO_SYS_MEM_PAGE_SIZE;
+            const_cast<size_t&>(m_chunk_size) = reserving_chunk_size;
+            const_cast<char*&>(m_virtual_memory) = reserved_chunk_buffer;
+
+            assert(m_chunk_size % WO_SYS_MEM_PAGE_SIZE == 0);
+            assert(m_max_page <= UINT32_MAX);
+            assert(m_virtual_memory != nullptr);
         }
 
         ~Chunk()
@@ -590,7 +616,7 @@ void* womem_get_unit_buffer(void* page, size_t* unit_count, size_t* unit_size)
     if (p->m_free_page == 0)
     {
         *unit_count = (size_t)p->m_max_avliable_unit_count;
-        *unit_size = sizeof(womem::PageUnitHead*) + (size_t)p->m_page_unit_size;
+        *unit_size = sizeof(womem::PageUnitHead) + (size_t)p->m_page_unit_size;
 
         // Recheck
         if (p->m_free_page == 0)

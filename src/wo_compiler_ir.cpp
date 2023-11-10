@@ -1624,10 +1624,8 @@ namespace wo
 
                 temp_this_command_code_buf.push_back(WO_OPCODE(jnequb));
                 size_t opcodelen = WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                opcodelen;
-
+                
                 // Write jmp
-
                 jmp_record_table[dynamic_cast<opnum::tag*>(WO_IR.op2)->name]
                     .push_back(generated_runtime_code_buf.size() + 1 + opcodelen);
                 temp_this_command_code_buf.push_back(0x00);

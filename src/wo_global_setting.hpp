@@ -108,7 +108,7 @@ namespace wo
         *   is only used to store GC objects.
         * --------------------------------------------------------------------
         */
-        inline size_t MEMORY_CHUNK_SIZE = 1ull * 1024ull * 1024ull * 1024ull;
+        inline size_t MEMORY_CHUNK_SIZE = 512ull * 1024ull * 1024ull;
 
         /*
         * ENABLE_HALT_WHEN_PANIC = false
