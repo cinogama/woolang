@@ -497,8 +497,6 @@ namespace wo
                 if (is_variadic_function_type != another->is_variadic_function_type)
                     return false;
 
-                this->is_variadic_function_type = is_variadic_function_type;
-
                 if (!complex_type->set_mix_types(another->complex_type, false))
                     return false;
             }
@@ -510,10 +508,6 @@ namespace wo
                     return false;
 
                 wo_assert(!is_pending_type);
-                this->type_name = type_name;
-                this->value_type = value_type;
-                this->struct_member_index = struct_member_index;
-                this->typefrom = typefrom;
             }
 
             if (using_type_name || another->using_type_name)
