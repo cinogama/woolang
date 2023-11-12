@@ -302,6 +302,7 @@ typedef enum _wo_inform_style
 
 WO_API wo_string_t  wo_locale_name(void);
 WO_API wo_string_t  wo_exe_path(void);
+WO_API void         wo_set_exe_path(wo_string_t path);
 WO_API wo_string_t  wo_work_path(void);
 WO_API wo_bool_t    wo_set_work_path(wo_string_t path);
 

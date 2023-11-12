@@ -290,6 +290,8 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
 
     womem_shutdown();
     wo::debuggee_base::_free_abandons();
+
+    wo::rslib_extern_symbols::free_wo_lib();
 }
 
 void wo_init(int argc, char** argv)
@@ -301,6 +303,8 @@ void wo_init(int argc, char** argv)
     bool enable_vm_pool = true;
 
     wo::wo_init_args(argc, argv);
+
+    wo::rslib_extern_symbols::init_wo_lib();
 
     for (int command_idx = 0; command_idx + 1 < argc; command_idx++)
     {
@@ -393,6 +397,14 @@ wo_string_t wo_locale_name()
 wo_string_t wo_exe_path()
 {
     return wo::exe_path();
+}
+
+void wo_set_exe_path(wo_string_t path)
+{
+    wo::set_exe_path(path);
+
+    // re-init wo lib handle;
+    wo::rslib_extern_symbols::init_wo_lib();
 }
 
 wo_string_t wo_work_path()

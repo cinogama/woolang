@@ -8,6 +8,7 @@
 #include <memory>
 #include <cstring>
 #include <vector>
+#include <optional>
 
 #ifdef _WIN32
 #       include <Windows.h>
@@ -26,6 +27,7 @@ namespace wo
 
     inline std::locale wo_global_locale = std::locale::classic();
     inline std::string wo_global_locale_name = "";
+    inline std::optional<std::string> wo_binary_path = std::nullopt;
 
     inline std::vector<std::string> wo_args;
 
@@ -149,6 +151,9 @@ namespace wo
 
     inline const char* exe_path()
     {
+        if (wo_binary_path)
+            return wo_binary_path.value().c_str();
+        
         const size_t MAX_PATH_LEN = 8192;
         static char _exe_path[MAX_PATH_LEN] = {};
 
@@ -171,6 +176,14 @@ namespace wo
 
         return _exe_path;
     }
+    inline void set_exe_path(const char* path)
+    {
+        if (path != nullptr)
+            wo_binary_path = std::make_optional(std::string(path));
+        else
+            wo_binary_path = std::nullopt;
+    }
+
     inline const char* work_path()
     {
         const size_t MAX_PATH_LEN = 8192;
