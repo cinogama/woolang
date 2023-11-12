@@ -40,20 +40,37 @@ namespace wo
 {
     class rslib_extern_symbols
     {
+        inline static void* _current_wo_lib_handle = nullptr;
+
+    public:
+        inline static void init_wo_lib() 
+        {
+            free_wo_lib();
+
+            wo_assert(_current_wo_lib_handle == nullptr);
 #ifdef PLATFORM_M64
 #   ifdef NDEBUG
-        inline static void* _current_wo_lib_handle = osapi::loadlib("libwoo");
+            _current_wo_lib_handle = osapi::loadlib("libwoo");
 #   else
-        inline static void* _current_wo_lib_handle = osapi::loadlib("libwoo_debug");
+            _current_wo_lib_handle = osapi::loadlib("libwoo_debug");
 #   endif
 #else /* PLATFORM_M32 */
 #   ifdef NDEBUG
-        inline static void* _current_wo_lib_handle = osapi::loadlib("libwoo32");
+            _current_wo_lib_handle = osapi::loadlib("libwoo32");
 #   else
-        inline static void* _current_wo_lib_handle = osapi::loadlib("libwoo32_debug");
+            _current_wo_lib_handle = osapi::loadlib("libwoo32_debug");
 #   endif
 #endif
-    public:
+        }
+        inline static void free_wo_lib()
+        {
+            if (_current_wo_lib_handle != nullptr)
+            {
+                osapi::freelib(_current_wo_lib_handle);
+                _current_wo_lib_handle = nullptr;
+            }
+        }
+
         struct extern_lib_guard
         {
             bool load_by_os_api = true;
