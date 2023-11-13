@@ -439,7 +439,12 @@ namespace wo
                     {
                         auto self_mark_gc_state = vmimpl->wait_interrupt(vmbase::GC_INTERRUPT);
                         wo_assert(vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL);
-                        wo_assert(self_mark_gc_state != vmbase::interrupt_wait_result::LEAVED);
+
+                        // vmimpl may be in leave state here, in which case the vm self-marked
+                        // successfully ended and has returned to executing its code. There is
+                        //  a probability that slow call native is being carried out.
+                        // Just treat LEAVED as ACCEPT
+
                         if (self_mark_gc_state == vmbase::interrupt_wait_result::TIMEOUT)
                         {
                             // Current vm is still structed, let it hangup and mark it here.
@@ -466,13 +471,12 @@ namespace wo
                                     vmimpl->wakeup();
                             }
                         }
-                        // Wait until specify vm self-marking end.
 
+                        // Wait until specify vm self-marking end.
                         vmbase::interrupt_wait_result wait_result;
                         do
                         {
                             wait_result = vmimpl->wait_interrupt(vmbase::GC_HANGUP_INTERRUPT);
-                            wo_assert(wait_result != vmbase::interrupt_wait_result::LEAVED);
                         } while (wait_result == vmbase::interrupt_wait_result::TIMEOUT);
                     }
 
