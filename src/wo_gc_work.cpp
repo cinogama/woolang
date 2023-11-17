@@ -81,7 +81,12 @@ namespace wo
             if (unitattr->m_marked == (uint8_t)gcbase::gcmarkcolor::full_mark)
                 return;
 
-            wo_assert(unitattr->m_marked == (uint8_t)gcbase::gcmarkcolor::self_mark);
+            // NOTE: In some case, this unit will be marked at another thread,
+            //      and `m_marked` will be update to full_mark, just ignore this
+            //      case, but we should check for avoid false-assert.
+            wo_assert(unitattr->m_marked == (uint8_t)gcbase::gcmarkcolor::self_mark
+                || unitattr->m_marked == (uint8_t)gcbase::gcmarkcolor::full_mark);
+
             unitattr->m_marked = (uint8_t)gcbase::gcmarkcolor::full_mark;
 
             gcbase::unit_attrib* attr;
