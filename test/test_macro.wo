@@ -9,8 +9,6 @@ import test_tool;
         lexer->error("Unmatched token, expected 'using'.");
     if (lexer->nexttoken[0] != std::token_type::l_typeid)
         lexer->error("Unmatched token, expected 'typeid'.");
-
-    return "";
 }
 
 #macro test_macro_value_it_self

@@ -1133,11 +1133,10 @@ namespace wo
         /*
         #macro PRINT_HELLOWORLD
         {
-            lexer->lex(@"std::println("Helloworld")"@);
+            return @"std::println("Helloworld")"@;
         }
 
-        PRINT_HELLOWORLD;
-
+        PRINT_HELLOWORLD!;
         */
         lex.next(&macro_name);
 
@@ -1169,17 +1168,20 @@ namespace wo
                 lex.lex_error(lexer::errorlevel::error, WO_ERR_UNEXCEPT_EOF);
             else
             {
-                auto macro_content_length = lex.reading_buffer->tellg() - begin_place;
+                auto macro_content_end_place = lex.reading_buffer->tellg();
+                auto macro_content_length = std::max((std::streamoff)1, macro_content_end_place - begin_place) - 1;
+
                 lex.reading_buffer->seekg(begin_place);
 
                 std::vector<wchar_t> macro_content((size_t)(macro_content_length + 1), L'\0');
 
                 lex.reading_buffer->read(macro_content.data(), macro_content_length);
+                lex.reading_buffer->seekg(macro_content_end_place);
 
                 _macro_action_vm = wo_create_vm();
                 if (!wo_load_source(_macro_action_vm,
                     (wstr_to_str(lex.source_file->c_str()) + " : macro_" + wstr_to_str(macro_name) + ".wo").c_str(),
-                    wstr_to_str(macro_anylzing_src + macro_content.data()).c_str()))
+                    wstr_to_str(macro_anylzing_src + macro_content.data() + L"\nreturn \"\";}").c_str()))
                 {
                     lex.lex_error(lexer::errorlevel::error, WO_ERR_FAILED_TO_COMPILE_MACRO_CONTROLOR);
                     lex.get_cur_error_frame().back().describe +=
