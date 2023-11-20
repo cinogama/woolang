@@ -147,15 +147,13 @@ namespace wo
         {
             lex_type in_lexer_type;
         };
-
         struct lex_keyword_info
         {
             lex_type in_lexer_type;
         };
 
     public:
-        std::wstring  reading_buffer;  // use wide char-code.
-        size_t        next_reading_index;
+        std::unique_ptr<std::wistream> reading_buffer;
 
         size_t        now_file_rowno;
         size_t        now_file_colno;
@@ -191,7 +189,6 @@ namespace wo
         }
 
     private:
-
         inline const static std::map<std::wstring, lex_operator_info> lex_operator_list =
         {
             {L"+",      {lex_type::l_add}},
@@ -244,7 +241,6 @@ namespace wo
             {L"\\",      {lex_type::l_lambda}},
             {L"λ",      {lex_type::l_lambda}},
         };
-
         inline const static std::map<std::wstring, lex_keyword_info> key_word_list =
         {
             {L"import", {lex_type::l_import}},
@@ -422,8 +418,14 @@ namespace wo
         }
 
     public:
-        lexer(const std::wstring& wstr, const std::string _source_file);
-        lexer(const std::string _source_file);
+        lexer(const lexer&) = delete;
+        lexer(lexer&&) = delete;
+
+        lexer& operator = (const lexer&) = delete;
+        lexer& operator = (lexer&&) = delete;
+
+        lexer(const std::wstring& content, const std::string _source_file);
+        lexer(std::optional<std::unique_ptr<std::wistream>>&& stream, const std::string _source_file);
     public:
         enum class errorlevel
         {
@@ -588,22 +590,6 @@ namespace wo
             get_cur_error_frame().emplace_back(msg);
 
             return lex_type::l_error;
-        }
-
-        void reset()
-        {
-            next_reading_index = (0);
-            now_file_rowno = (1);
-            now_file_colno = (0);
-            next_file_rowno = (1);
-            next_file_colno = (1);
-            format_string_count = (0);
-            curly_count = (0);
-
-            lex_error_list.clear();
-
-            decltype(error_frame) tmp;
-            error_frame.swap(tmp);
         }
         bool has_error() const
         {

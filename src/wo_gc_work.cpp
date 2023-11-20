@@ -357,7 +357,7 @@ namespace wo
                     // 1. Interrupt all vm as GC_INTERRUPT, let all vm hang-up
                     for (auto* vmimpl : vmbase::_alive_vm_list)
                         if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
-                            wo_asure(vmimpl->interrupt(vmbase::GC_INTERRUPT));
+                            wo_assure(vmimpl->interrupt(vmbase::GC_INTERRUPT));
 
                     for (auto* vmimpl : vmbase::_alive_vm_list)
                     {

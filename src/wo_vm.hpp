@@ -113,7 +113,7 @@ namespace wo
             // 2) enter vm run()
             // 3) vm destructed.
             // ATTENTION: Each operate of setting or cleaning LEAVE_INTERRUPT must be
-            //            successful. (We use 'wo_asure' here)' (Except in case of exception restore)
+            //            successful. (We use 'wo_assure' here)' (Except in case of exception restore)
 
             DEBUG_INTERRUPT = 1 << 10,
             // If virtual machine interrupt with DEBUG_INTERRUPT, it will stop at all opcode
@@ -330,7 +330,7 @@ namespace wo
             ++_alive_vm_count_for_gc_vm_destruct;
 
             vm_interrupt = vm_interrupt_type::NOTHING;
-            wo_asure(wo_leave_gcguard(reinterpret_cast<wo_vm>(this)));
+            wo_assure(wo_leave_gcguard(reinterpret_cast<wo_vm>(this)));
 
             std::lock_guard g1(_alive_vm_list_mx);
 
@@ -338,7 +338,7 @@ namespace wo
                 "This vm is already exists in _alive_vm_list, that is illegal.");
 
             if (current_debuggee() != nullptr)
-                wo_asure(this->interrupt(vm_interrupt_type::DEBUG_INTERRUPT));
+                wo_assure(this->interrupt(vm_interrupt_type::DEBUG_INTERRUPT));
 
             _alive_vm_list.insert(this);
         }
@@ -447,7 +447,7 @@ namespace wo
     public:
         void set_runtime(shared_pointer<runtime_env>& runtime_environment)
         {
-            wo_asure(wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
+            wo_assure(wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
 
             wo_assert(nullptr == _self_stack_reg_mem_buf);
 
@@ -465,7 +465,7 @@ namespace wo
             env = runtime_environment;
             ++env->_running_on_vm_count;
 
-            wo_asure(wo_leave_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
+            wo_assure(wo_leave_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
 
             // Create a new VM using for GC destruct
             auto* created_subvm_for_gc = make_machine(1024);
@@ -482,7 +482,7 @@ namespace wo
 
             new_vm->gc_vm = get_or_alloc_gcvm();
 
-            wo_asure(wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(new_vm))));
+            wo_assure(wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(new_vm))));
 
             new_vm->const_global_begin = const_global_begin;
 
@@ -509,7 +509,7 @@ namespace wo
             new_vm->env = env;  // env setted, gc will scan this vm..
             ++env->_running_on_vm_count;
 
-            wo_asure(wo_leave_gcguard(std::launder(reinterpret_cast<wo_vm>(new_vm))));
+            wo_assure(wo_leave_gcguard(std::launder(reinterpret_cast<wo_vm>(new_vm))));
             return new_vm;
         }
         inline void dump_program_bin(size_t begin = 0, size_t end = SIZE_MAX, std::ostream& os = std::cout) const
@@ -1135,7 +1135,7 @@ namespace wo
                 if (clear_interrupt(vm_interrupt_type::GC_INTERRUPT))
                     gc::mark_vm(this, SIZE_MAX);
 
-                wo_asure(clear_interrupt(vm_interrupt_type::GC_HANGUP_INTERRUPT));
+                wo_assure(clear_interrupt(vm_interrupt_type::GC_HANGUP_INTERRUPT));
                 return true;
             }
             return false;
@@ -2405,12 +2405,12 @@ namespace wo
                                 (size_t)tc->integer);
                         else
                         {
-                            wo_asure(wo_leave_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
+                            wo_assure(wo_leave_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
                             api = call_aim_native_func(
                                 std::launder(reinterpret_cast<wo_vm>(this)),
                                 std::launder(reinterpret_cast<wo_value>(rt_sp + 2)),
                                 (size_t)tc->integer);
-                            wo_asure(wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
+                            wo_assure(wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
                         }
                         switch (api)
                         {
@@ -2809,7 +2809,7 @@ namespace wo
                     }
                     else if (interrupt_state & vm_interrupt_type::BR_YIELD_INTERRUPT)
                     {
-                        wo_asure(clear_interrupt(vm_interrupt_type::BR_YIELD_INTERRUPT));
+                        wo_assure(clear_interrupt(vm_interrupt_type::BR_YIELD_INTERRUPT));
                         if (get_br_yieldable())
                         {
                             mark_br_yield();
@@ -2844,9 +2844,9 @@ namespace wo
                         if (attaching_debuggee)
                         {
                             // check debuggee here
-                            wo_asure(wo_leave_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
+                            wo_assure(wo_leave_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
                             attaching_debuggee->_vm_invoke_debuggee(this);
-                            wo_asure(wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
+                            wo_assure(wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
                         }
                         ++rt_ip;
                         goto re_entry_for_interrupt;

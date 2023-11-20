@@ -46,16 +46,16 @@ inline void _wo_warning(const char* file, uint32_t line, const char* function, c
 
 #define wo_assert(...) ((void)0)
 #define wo_assert_warn(...) ((void)0)
-#define wo_asure(...) ((void)(__VA_ARGS__))
-#define wo_asure_warn(...) ((void)(__VA_ARGS__))
+#define wo_assure(...) ((void)(__VA_ARGS__))
+#define wo_assure_warn(...) ((void)(__VA_ARGS__))
 
 #else
 
 #define wo_assert(...) wo_test(__VA_ARGS__)
 #define wo_assert_warn(...) wo_test_warn(__VA_ARGS__)
 
-#define wo_asure(...) wo_test(__VA_ARGS__)
-#define wo_asure_warn(...) wo_test_warn(__VA_ARGS__)
+#define wo_assure(...) wo_test(__VA_ARGS__)
+#define wo_assure_warn(...) wo_test_warn(__VA_ARGS__)
 
 #endif
 

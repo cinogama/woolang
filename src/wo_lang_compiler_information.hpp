@@ -22,6 +22,8 @@
 
 #define WO_MACRO_CODE_END_HERE L"此宏定义在此处结束："
 
+#define WO_MACRO_ANALYZE_END_HERE L"此宏解析在此处结束："
+
 #define WO_TOO_MANY_ERROR(count) L"报告的错误数量太多，仅显示 99/" + std::to_wstring(count) +  L" 条，终止"
 
 
@@ -148,6 +150,10 @@
 #define WO_ERR_UNKNOWN_PRAGMA_COMMAND L"未知的预处理指令 '%ls'"
 
 #define WO_ERR_FAILED_TO_COMPILE_MACRO_CONTROLOR L"宏控制器编译失败：\n"
+
+#define WO_ERR_FAILED_TO_RUN_MACRO_CONTROLOR L"宏 '%ls' 运行发生了错误：%ls"
+
+#define WO_ERR_INVALID_TOKEN_MACRO_CONTROLOR L"宏 '%ls' 生成了非法的词法序列：\n"
 
 #define WO_ERR_HERE_SHOULD_HAVE L"缺少 '%ls'"
 
@@ -292,6 +298,8 @@
 
 #define WO_MACRO_CODE_END_HERE L"The macro definition ends here:"
 
+#define WO_MACRO_ANALYZE_END_HERE L"This macro parsing ends here:"
+
 #define WO_TOO_MANY_ERROR(count) L"Too many errors, only display 99/" + std::to_wstring(count) +  L" errors, abort."
 
 
@@ -418,6 +426,10 @@
 #define WO_ERR_UNKNOWN_PRAGMA_COMMAND L"Unknown pre-compile command '%ls'."
 
 #define WO_ERR_FAILED_TO_COMPILE_MACRO_CONTROLOR L"Failed macro compiling result: \n"
+
+#define WO_ERR_FAILED_TO_RUN_MACRO_CONTROLOR L"An error occurred while running macro '%ls': %ls."
+
+#define WO_ERR_INVALID_TOKEN_MACRO_CONTROLOR L"Macro '%ls' generated an illegal lexical sequence:\n"
 
 #define WO_ERR_HERE_SHOULD_HAVE L"Here should have '%ls'."
 

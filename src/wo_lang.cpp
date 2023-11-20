@@ -1387,7 +1387,7 @@ namespace wo
         {
             if (a_value_funcdef->is_template_reification)
             {
-                wo_asure(begin_template_scope(a_value_funcdef,
+                wo_assure(begin_template_scope(a_value_funcdef,
                     a_value_funcdef->template_type_name_list,
                     a_value_funcdef->this_reification_template_args));
             }
@@ -4110,7 +4110,7 @@ namespace wo
     {
         std::unordered_set<ast::ast_type*> us;
         wo_assert(type != nullptr);
-        wo_asure(!fully_update_type(type, in_pass_1, template_types, us));
+        wo_assure(!fully_update_type(type, in_pass_1, template_types, us));
         wo_assert(type->using_type_name == nullptr || (type->is_mutable() == type->using_type_name->is_mutable()));
     }
 

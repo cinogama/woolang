@@ -167,16 +167,49 @@ namespace wo
 
         return crc;
     }
-    inline uint64_t crc_64(std::ifstream& fle, uint64_t crc)
+    inline uint64_t crc_64(std::istream& fle, uint64_t crc)
     {
+        if (fle.eof() || !fle)
+            return crc;
+
+        auto state = fle.rdstate();
+        auto index = fle.tellg();
         int ch = EOF;
         do
         {
             ch = fle.get();
-            if (ch == EOF)
+            if (fle.eof() || !fle)
                 break;
             crc = _crc_64((uint8_t)ch, crc);
         } while (true);
+
+        fle.clear(state);
+        fle.seekg(index);
+
+        return crc;
+    }
+    inline uint64_t crc_64(std::wistream& fle, uint64_t crc)
+    {
+        if (fle.eof() || !fle)
+            return crc;
+
+        auto state = fle.rdstate();
+        auto index = fle.tellg();
+
+        wchar_t ch = EOF;
+        do
+        {
+            ch = (wchar_t)fle.get();
+            if (fle.eof() || !fle)
+                break;
+
+            for (size_t i = 0; i < sizeof(wchar_t) / sizeof(char); ++i)
+                crc = _crc_64(((char*)&ch)[i], crc);
+
+        } while (true);
+        
+        fle.clear(state);
+        fle.seekg(index);
 
         return crc;
     }
