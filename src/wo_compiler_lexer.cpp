@@ -1170,13 +1170,19 @@ namespace wo
             else
             {
                 auto macro_content_end_place = lex.reading_buffer->tellg();
-                auto macro_content_length = macro_content_end_place - begin_place;
-
                 lex.reading_buffer->seekg(begin_place);
 
-                std::vector<wchar_t> macro_content((size_t)(macro_content_length + 1), L'\0');
+                std::vector<wchar_t> macro_content;
 
-                lex.reading_buffer->read(macro_content.data(), macro_content_length);
+                while (lex.reading_buffer->eof() == false
+                    && lex.reading_buffer
+                    && lex.reading_buffer->tellg() < macro_content_end_place)
+                {
+                    wchar_t ch;
+                    lex.reading_buffer->read(&ch, 1);
+                    macro_content.push_back(ch);
+                }
+                macro_content.push_back(L'\0');
 
                 _macro_action_vm = wo_create_vm();
                 if (!wo_load_source(_macro_action_vm,
