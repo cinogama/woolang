@@ -17,7 +17,7 @@ namespace wo
         , format_string_count(0)
         , curly_count(0)
         , source_file(
-            wstring_pool::_m_this_thread_pool != nullptr 
+            wstring_pool::_m_this_thread_pool != nullptr
             ? wstring_pool::get_pstr(str_to_wstr(_source_file))
             : nullptr)
         , used_macro_list(nullptr)
@@ -206,7 +206,7 @@ namespace wo
                         wo_assure(WO_TRUE == wo_virtual_source(result_content_vfile.c_str(), wo_string(result), WO_TRUE));
 
                         wo::lexer tmp_lex(
-                            wo::str_to_wstr(wo_string(result)), 
+                            wo::str_to_wstr(wo_string(result)),
                             result_content_vfile);
 
                         std::vector<std::pair<wo::lex_type, std::wstring>> lex_tokens;
@@ -1145,13 +1145,14 @@ namespace wo
         {
             std::wstring macro_anylzing_src =
                 L"import woo::macro; extern func macro_" +
-                macro_name + L"(lexer:std::lexer)=> string { do lexer;\n";
+                macro_name + L"(lexer:std::lexer)=> string { do lexer;\n{";
             ;
             auto begin_place = lex.reading_buffer->tellg();
             bool meet_eof = false;
             do
             {
                 auto type = lex.next(nullptr);
+
                 if (type == +lex_type::l_right_curly_braces)
                     scope_count--;
                 else if (type == +lex_type::l_left_curly_braces)
@@ -1169,14 +1170,13 @@ namespace wo
             else
             {
                 auto macro_content_end_place = lex.reading_buffer->tellg();
-                auto macro_content_length = std::max((std::streamoff)1, macro_content_end_place - begin_place) - 1;
+                auto macro_content_length = macro_content_end_place - begin_place;
 
                 lex.reading_buffer->seekg(begin_place);
 
                 std::vector<wchar_t> macro_content((size_t)(macro_content_length + 1), L'\0');
 
                 lex.reading_buffer->read(macro_content.data(), macro_content_length);
-                lex.reading_buffer->seekg(macro_content_end_place);
 
                 _macro_action_vm = wo_create_vm();
                 if (!wo_load_source(_macro_action_vm,
