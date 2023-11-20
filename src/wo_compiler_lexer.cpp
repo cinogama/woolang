@@ -1,5 +1,8 @@
 #include "wo_compiler_ir.hpp"
 
+// Function from other source.
+std::string _wo_dump_lexer_context_error(wo::lexer* lex, _wo_inform_style style);
+
 namespace wo
 {
     lexer::lexer(const std::wstring& content, const std::string _source_file)
@@ -217,8 +220,6 @@ namespace wo
                         }
                         if (tmp_lex.has_error())
                         {
-                            std::string _wo_dump_lexer_context_error(wo::lexer * lex, _wo_inform_style style);
-
                             lex_error(wo::lexer::errorlevel::error, WO_ERR_INVALID_TOKEN_MACRO_CONTROLOR,
                                 fnd->second->macro_name.c_str());
 
