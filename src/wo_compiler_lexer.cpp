@@ -1,49 +1,33 @@
 #include "wo_compiler_ir.hpp"
 
+// Function from other source.
+std::string _wo_dump_lexer_context_error(wo::lexer* lex, _wo_inform_style style);
+
 namespace wo
 {
-    lexer::lexer(const std::wstring& wstr, const std::string _source_file)
-        : reading_buffer(wstr)
-        , next_reading_index(0)
-        , now_file_rowno(1)
-        , now_file_colno(0)
-        , next_file_rowno(1)
-        , next_file_colno(1)
-        , format_string_count(0)
-        , curly_count(0)
-        , used_macro_list(nullptr)
+    lexer::lexer(const std::wstring& content, const std::string _source_file)
+        : lexer(std::make_optional(std::make_unique<std::wistringstream>(content)), _source_file)
     {
-        // read_stream.peek
-        if (wstring_pool::_m_this_thread_pool)
-            source_file = wstring_pool::get_pstr(str_to_wstr(_source_file));
-        else
-            source_file = nullptr;
     }
-    lexer::lexer(const std::string _source_file)
-        : next_reading_index(0)
-        , now_file_rowno(1)
+    lexer::lexer(std::optional<std::unique_ptr<std::wistream>>&& stream, const std::string _source_file)
+        : now_file_rowno(1)
         , now_file_colno(0)
         , next_file_rowno(1)
         , next_file_colno(1)
         , format_string_count(0)
         , curly_count(0)
-        , source_file(wstring_pool::get_pstr(str_to_wstr(_source_file)))
+        , source_file(
+            wstring_pool::_m_this_thread_pool != nullptr
+            ? wstring_pool::get_pstr(str_to_wstr(_source_file))
+            : nullptr)
         , used_macro_list(nullptr)
     {
-        // read_stream.peek
-        std::wstring readed_real_path;
-        std::wstring input_path = *source_file;
-        if (!wo::check_and_read_virtual_source(
-            &reading_buffer, 
-            &readed_real_path, 
-            input_path, 
-            std::nullopt))
-        {
-            lex_error(lexer::errorlevel::error, WO_ERR_CANNOT_OPEN_FILE, input_path.c_str());
-        }
+        if (stream)
+            reading_buffer = std::move(stream.value());
         else
         {
-            source_file = wstring_pool::get_pstr(readed_real_path);
+            wo_assert(source_file != nullptr);
+            lex_error(lexer::errorlevel::error, WO_ERR_CANNOT_OPEN_FILE, source_file->c_str());
         }
     }
 
@@ -88,21 +72,34 @@ namespace wo
     }
     int lexer::peek_ch()
     {
-        if (next_reading_index >= reading_buffer.size())
-            return EOF;
+        wchar_t ch;
+        auto index = reading_buffer->tellg();
 
-        return reading_buffer[next_reading_index];
+        reading_buffer->read(&ch, 1);
+        if (reading_buffer->eof() || !*reading_buffer)
+        {
+            reading_buffer->clear(reading_buffer->rdstate() & ~std::ios_base::failbit);
+            return EOF;
+        }
+
+        reading_buffer->seekg(index);
+        return (int)ch;
     }
     int lexer::next_ch()
     {
-        if (next_reading_index >= reading_buffer.size())
+        wchar_t ch;
+        reading_buffer->read(&ch, 1);
+        if (reading_buffer->eof() || !*reading_buffer)
+        {
+            reading_buffer->clear(reading_buffer->rdstate() & ~std::ios_base::failbit);
             return EOF;
+        }
 
         now_file_rowno = next_file_rowno;
         now_file_colno = next_file_colno;
         next_file_colno++;
 
-        return reading_buffer[next_reading_index++];
+        return (int)ch;
     }
     void lexer::new_line()
     {
@@ -148,7 +145,7 @@ namespace wo
     {
         // Will store next_reading_index / file_rowno/file_colno
 
-        auto old_index = next_reading_index;
+        auto old_index = reading_buffer->tellg();
         auto old_now_file_rowno = now_file_rowno;
         auto old_now_file_colno = now_file_colno;
         auto old_next_file_rowno = next_file_rowno;
@@ -156,7 +153,7 @@ namespace wo
 
         int result = next_one();
 
-        next_reading_index = old_index;
+        reading_buffer->seekg(old_index);
         now_file_rowno = old_now_file_rowno;
         now_file_colno = old_now_file_colno;
         next_file_rowno = old_next_file_rowno;
@@ -175,8 +172,10 @@ namespace wo
                 auto fnd = used_macro_list->find(result_str);
                 if (fnd != used_macro_list->end() && fnd->second->_macro_action_vm)
                 {
-                    auto symb = wo_extern_symb(fnd->second->_macro_action_vm,
+                    auto symb = wo_extern_symb(
+                        fnd->second->_macro_action_vm,
                         wstr_to_str(L"macro_" + fnd->second->macro_name).c_str());
+
                     wo_assert(symb);
 
                     if (workinpeek)
@@ -194,8 +193,46 @@ namespace wo
                     }
 
                     wo_push_pointer(fnd->second->_macro_action_vm, this);
-                    wo_invoke_rsfunc(fnd->second->_macro_action_vm, symb, 1);
+                    wo_value result = wo_invoke_rsfunc(fnd->second->_macro_action_vm, symb, 1);
 
+                    if (result == nullptr)
+                        lex_error(wo::lexer::errorlevel::error, WO_ERR_FAILED_TO_RUN_MACRO_CONTROLOR,
+                            fnd->second->macro_name.c_str(), wo_get_runtime_error(fnd->second->_macro_action_vm));
+                    else
+                    {
+                        std::string result_content_vfile =
+                            "macro_" + wo::wstr_to_str(fnd->second->macro_name) + "_result_" + std::to_string((intptr_t)this) + ".wo";
+
+                        wo_assure(WO_TRUE == wo_virtual_source(result_content_vfile.c_str(), wo_string(result), WO_TRUE));
+
+                        wo::lexer tmp_lex(
+                            wo::str_to_wstr(wo_string(result)),
+                            result_content_vfile);
+
+                        std::vector<std::pair<wo::lex_type, std::wstring>> lex_tokens;
+                        for (;;)
+                        {
+                            std::wstring result;
+                            auto token = tmp_lex.next(&result);
+
+                            if (token == +wo::lex_type::l_error || token == +wo::lex_type::l_eof)
+                                break;
+
+                            lex_tokens.push_back({ token , result });
+                        }
+                        if (tmp_lex.has_error())
+                        {
+                            lex_error(wo::lexer::errorlevel::error, WO_ERR_INVALID_TOKEN_MACRO_CONTROLOR,
+                                fnd->second->macro_name.c_str());
+
+                            get_cur_error_frame().back().describe +=
+                                str_to_wstr(_wo_dump_lexer_context_error(&tmp_lex, WO_NOTHING)) + WO_MACRO_ANALYZE_END_HERE;
+                        }
+                        wo_assure(WO_TRUE == wo_remove_virtual_file(result_content_vfile.c_str()));
+
+                        for (auto ri = lex_tokens.rbegin(); ri != lex_tokens.rend(); ri++)
+                            push_temp_for_error_recover(ri->first, ri->second);
+                    }
                     if (workinpeek)
                     {
                         after_pick_now_file_rowno = now_file_rowno;
@@ -210,7 +247,6 @@ namespace wo
                         peeked_flag = true;
                         return peek_result_type;
                     }
-
                     return next(out_literal);
                 }
             }
@@ -1057,8 +1093,14 @@ namespace wo
                     {
                         // Peek next character, make sure not "!=".
                         // TODO: Too bad.
-                        if (next_reading_index + 1 >= reading_buffer.size()
-                            || reading_buffer[next_reading_index + 1] != L'=')
+                        wchar_t not_equal_token[2] = {};
+                        auto origin_token_place = reading_buffer->tellg();
+
+                        reading_buffer->read(not_equal_token, 2);
+                        reading_buffer->clear(reading_buffer->rdstate() & ~std::ios_base::failbit);
+                        reading_buffer->seekg(origin_token_place);
+
+                        if (not_equal_token[1] != L'=')
                         {
                             next_one();
                             is_macro = true;
@@ -1091,11 +1133,10 @@ namespace wo
         /*
         #macro PRINT_HELLOWORLD
         {
-            lexer->lex(@"std::println("Helloworld")"@);
+            return @"std::println("Helloworld")"@;
         }
 
-        PRINT_HELLOWORLD;
-
+        PRINT_HELLOWORLD!;
         */
         lex.next(&macro_name);
 
@@ -1104,38 +1145,61 @@ namespace wo
         {
             std::wstring macro_anylzing_src =
                 L"import woo::macro; extern func macro_" +
-                macro_name + L"(lexer:std::lexer) {";
+                macro_name + L"(lexer:std::lexer)=> string { do lexer;\n{";
             ;
-            size_t index = lex.next_reading_index;
+            auto begin_place = lex.reading_buffer->tellg();
+            bool meet_eof = false;
             do
             {
                 auto type = lex.next(nullptr);
+
                 if (type == +lex_type::l_right_curly_braces)
                     scope_count--;
                 else if (type == +lex_type::l_left_curly_braces)
                     scope_count++;
                 else if (type == +lex_type::l_eof)
+                {
+                    meet_eof = true;
                     break;
+                }
 
             } while (scope_count);
 
-            size_t end_index = lex.next_reading_index;
-
-            _macro_action_vm = wo_create_vm();
-            if (!wo_load_source(_macro_action_vm,
-                (wstr_to_str(lex.source_file->c_str()) + " : macro_" + wstr_to_str(macro_name) + ".wo").c_str(),
-                wstr_to_str(macro_anylzing_src + lex.reading_buffer.substr(index, end_index - index)).c_str()))
-            {
-                lex.lex_error(lexer::errorlevel::error, WO_ERR_FAILED_TO_COMPILE_MACRO_CONTROLOR);
-                lex.get_cur_error_frame().back().describe += 
-                    str_to_wstr(wo_get_compile_error(_macro_action_vm, WO_NOTHING)) + WO_MACRO_CODE_END_HERE;
-
-                wo_close_vm(_macro_action_vm);
-                _macro_action_vm = nullptr;
-            }
+            if (meet_eof)
+                lex.lex_error(lexer::errorlevel::error, WO_ERR_UNEXCEPT_EOF);
             else
-                // Donot jit to make debug friendly.
-                wo_run(_macro_action_vm);
+            {
+                auto macro_content_end_place = lex.reading_buffer->tellg();
+                lex.reading_buffer->seekg(begin_place);
+
+                std::vector<wchar_t> macro_content;
+
+                while (lex.reading_buffer->eof() == false
+                    && lex.reading_buffer
+                    && lex.reading_buffer->tellg() < macro_content_end_place)
+                {
+                    wchar_t ch;
+                    lex.reading_buffer->read(&ch, 1);
+                    macro_content.push_back(ch);
+                }
+                macro_content.push_back(L'\0');
+
+                _macro_action_vm = wo_create_vm();
+                if (!wo_load_source(_macro_action_vm,
+                    (wstr_to_str(lex.source_file->c_str()) + " : macro_" + wstr_to_str(macro_name) + ".wo").c_str(),
+                    wstr_to_str(macro_anylzing_src + macro_content.data() + L"\nreturn \"\";}").c_str()))
+                {
+                    lex.lex_error(lexer::errorlevel::error, WO_ERR_FAILED_TO_COMPILE_MACRO_CONTROLOR);
+                    lex.get_cur_error_frame().back().describe +=
+                        str_to_wstr(wo_get_compile_error(_macro_action_vm, WO_NOTHING)) + WO_MACRO_CODE_END_HERE;
+
+                    wo_close_vm(_macro_action_vm);
+                    _macro_action_vm = nullptr;
+                }
+                else
+                    // Donot jit to make debug friendly.
+                    wo_run(_macro_action_vm);
+            }
         }
         else
             lex.lex_error(lexer::errorlevel::error, WO_ERR_HERE_SHOULD_HAVE, L"{");

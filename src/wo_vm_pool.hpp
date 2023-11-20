@@ -40,7 +40,7 @@ namespace wo
 
                     wo_assert((vm->vm_interrupt & vmbase::vm_interrupt_type::LEAVE_INTERRUPT) != 0);
 
-                    wo_asure(vm->clear_interrupt(vmbase::vm_interrupt_type::PENDING_INTERRUPT));
+                    wo_assure(vm->clear_interrupt(vmbase::vm_interrupt_type::PENDING_INTERRUPT));
                     vm->clear_interrupt(vmbase::vm_interrupt_type::ABORT_INTERRUPT);
                     vm->ip = nullptr; // IP Should be set by other function like invoke/dispatch.
 
@@ -54,10 +54,10 @@ namespace wo
 
                 wo_assert((vm->vm_interrupt & vmbase::vm_interrupt_type::LEAVE_INTERRUPT) != 0);
 
-                wo_asure(vm->interrupt(vmbase::vm_interrupt_type::PENDING_INTERRUPT));
+                wo_assure(vm->interrupt(vmbase::vm_interrupt_type::PENDING_INTERRUPT));
 
                 // Clear LEAVE_INTERRUPT to make sure hangup correctly before clear stack when GC.
-                wo_asure(wo_enter_gcguard(reinterpret_cast<wo_vm>(vm)));
+                wo_assure(wo_enter_gcguard(reinterpret_cast<wo_vm>(vm)));
 
                 // Clear stack & register to make sure gc will not mark the useless data of current vm;
                 vm->sp = vm->bp = vm->stack_mem_begin;
@@ -67,7 +67,7 @@ namespace wo
                     vm->register_mem_begin[regi].set_nil();
                 }
 
-                wo_asure(wo_leave_gcguard(reinterpret_cast<wo_vm>(vm)));
+                wo_assure(wo_leave_gcguard(reinterpret_cast<wo_vm>(vm)));
 
                 m_free_vm.push_back(vm);
             }

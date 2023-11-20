@@ -600,18 +600,6 @@ WO_API wo_api rslib_std_array_resize(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_void(vm);
 }
 
-WO_API wo_api rslib_std_array_descrease(wo_vm vm, wo_value args, size_t argc)
-{
-    auto new_size = wo_int(args + 1);
-
-    if (new_size <= wo_lengthof(args + 0))
-    {
-        wo_arr_resize(args + 0, new_size, nullptr);
-        return wo_ret_bool(vm, WO_TRUE);
-    }
-    return wo_ret_bool(vm, WO_FALSE);
-}
-
 WO_API wo_api rslib_std_array_shrink(wo_vm vm, wo_value args, size_t argc)
 {
     auto newsz = wo_int(args + 1);
@@ -2001,6 +1989,21 @@ namespace array
     extern("rslib_std_array_empty")
         public func empty<T>(val: array<T>)=> bool;
 
+    public func resize<T>(val: array<T>, newsz: int, init_val: T)
+    {
+        let newarr = val->tovec;
+        newarr->resize(newsz, init_val);
+
+        return newarr as vec<T>->unsafe::cast:<array<T>>;
+    }
+    public func shrink<T>(val: array<T>, newsz: int)
+    {   
+        let newarr = val->tovec;
+        do newarr->shrink(newsz);
+
+        return newarr as vec<T>->unsafe::cast:<array<T>>;
+    }
+
     extern("rslib_std_array_get")
         public func get<T>(a: array<T>, index: int)=> option<T>;
 
@@ -2132,9 +2135,6 @@ namespace vec
 
     extern("rslib_std_array_resize") 
         public func resize<T>(val: vec<T>, newsz: int, init_val: T)=> void;
-
-    extern("rslib_std_array_descrease")
-        public func decrease<T>(self: vec<T>, sz: int)=> bool;
 
     extern("rslib_std_array_shrink")
         public func shrink<T>(val: vec<T>, newsz: int)=> bool;
@@ -2618,31 +2618,6 @@ namespace std
 }
 )" };
 
-WO_API wo_api rslib_std_macro_lexer_lex(wo_vm vm, wo_value args, size_t argc)
-{
-    wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
-
-    wo::lexer tmp_lex(wo::str_to_wstr(wo_string(args + 1)), "macro" + wo::wstr_to_str(*lex->source_file) + "_impl.wo");
-
-    std::vector<std::pair<wo::lex_type, std::wstring>> lex_tokens;
-
-    for (;;)
-    {
-        std::wstring result;
-        auto token = tmp_lex.next(&result);
-
-        if (token == +wo::lex_type::l_eof)
-            break;
-
-        lex_tokens.push_back({ token , result });
-    }
-
-    for (auto ri = lex_tokens.rbegin(); ri != lex_tokens.rend(); ri++)
-        lex->push_temp_for_error_recover(ri->first, ri->second);
-
-    return wo_ret_void(vm);
-}
-
 WO_API wo_api rslib_std_macro_lexer_error(wo_vm vm, wo_value args, size_t argc)
 {
     wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
@@ -2845,9 +2820,6 @@ namespace std
 
     public using lexer = handle
     {
-        extern("rslib_std_macro_lexer_lex")
-            public func lex(lex:lexer, src:string)=> void;
-
         extern("rslib_std_macro_lexer_error")
             public func error(lex:lexer, msg:string)=> void;
 

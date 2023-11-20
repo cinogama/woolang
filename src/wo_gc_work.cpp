@@ -81,7 +81,12 @@ namespace wo
             if (unitattr->m_marked == (uint8_t)gcbase::gcmarkcolor::full_mark)
                 return;
 
-            wo_assert(unitattr->m_marked == (uint8_t)gcbase::gcmarkcolor::self_mark);
+            // NOTE: In some case, this unit will be marked at another thread,
+            //      and `m_marked` will be update to full_mark, just ignore this
+            //      case, but we should check for avoid false-assert.
+            wo_assert(unitattr->m_marked == (uint8_t)gcbase::gcmarkcolor::self_mark
+                || unitattr->m_marked == (uint8_t)gcbase::gcmarkcolor::full_mark);
+
             unitattr->m_marked = (uint8_t)gcbase::gcmarkcolor::full_mark;
 
             gcbase::unit_attrib* attr;
@@ -352,7 +357,7 @@ namespace wo
                     // 1. Interrupt all vm as GC_INTERRUPT, let all vm hang-up
                     for (auto* vmimpl : vmbase::_alive_vm_list)
                         if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
-                            wo_asure(vmimpl->interrupt(vmbase::GC_INTERRUPT));
+                            wo_assure(vmimpl->interrupt(vmbase::GC_INTERRUPT));
 
                     for (auto* vmimpl : vmbase::_alive_vm_list)
                     {

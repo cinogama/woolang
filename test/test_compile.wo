@@ -1336,6 +1336,18 @@ func main()
         assure_compile_success(@"
             func foo()=> int{return 0;}
             "@);
+
+        assure_compile_fail(@"
+            #macro AAA{return "";}
+            AAA;
+            "@);
+        assure_compile_success(@"
+            #macro AAA{return "";}
+            AAA!;
+            "@);
+        assure_compile_fail(@"
+            #macro AAA{return "";
+            "@);
     }
 
     func main()

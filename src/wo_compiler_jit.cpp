@@ -462,7 +462,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
         {
             for (auto& holder : env->_jit_code_holder)
             {
-                wo_asure(!get_jit_runtime().release(*holder.second));
+                wo_assure(!get_jit_runtime().release(*holder.second));
                 delete holder.second;
             }
         }
@@ -493,7 +493,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             }
             else if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::BR_YIELD_INTERRUPT)
             {
-                // wo_asure(vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::BR_YIELD_INTERRUPT));
+                // wo_assure(vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::BR_YIELD_INTERRUPT));
                 if (vmm->get_br_yieldable())
                 {
                     // store current context, then break out of jit function
@@ -551,9 +551,9 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
             vm->ip = reinterpret_cast<byte_t*>(call_aim_native_func);
 
-            wo_asure(wo_leave_gcguard(reinterpret_cast<wo_vm>(vm)));
+            wo_assure(wo_leave_gcguard(reinterpret_cast<wo_vm>(vm)));
             wo_result_t result = call_aim_native_func(reinterpret_cast<wo_vm>(vm), reinterpret_cast<wo_value>(rt_sp + 2), vm->tc->integer);
-            wo_asure(wo_enter_gcguard(reinterpret_cast<wo_vm>(vm)));
+            wo_assure(wo_enter_gcguard(reinterpret_cast<wo_vm>(vm)));
 
             return result;
         }
@@ -836,7 +836,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                     already_valued = true;
 
                     m_value = compiler->newUIntPtr();
-                    wo_asure(!compiler->mov(m_value, (size_t)m_constant));
+                    wo_assure(!compiler->mov(m_value, (size_t)m_constant));
                 }
                 return m_value;
             }
@@ -863,14 +863,14 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                 {
                     // from bp-offset
                     auto result = x86compiler.newUIntPtr();
-                    wo_asure(!x86compiler.lea(result, asmjit::x86::qword_ptr(stack_bp, WO_SIGNED_SHIFT(WO_IPVAL_MOVE_1) * sizeof(value))));
+                    wo_assure(!x86compiler.lea(result, asmjit::x86::qword_ptr(stack_bp, WO_SIGNED_SHIFT(WO_IPVAL_MOVE_1) * sizeof(value))));
                     return may_constant_x86Gp{ &x86compiler,false,nullptr,result };
                 }
                 else
                 {
                     // from reg
                     auto result = x86compiler.newUIntPtr();
-                    wo_asure(!x86compiler.lea(result, asmjit::x86::qword_ptr(reg, WO_IPVAL_MOVE_1 * sizeof(value))));
+                    wo_assure(!x86compiler.lea(result, asmjit::x86::qword_ptr(reg, WO_IPVAL_MOVE_1 * sizeof(value))));
                     return may_constant_x86Gp{ &x86compiler,false,nullptr,result };
                 }
             }
@@ -888,7 +888,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                 else
                 {
                     auto result = x86compiler.newUIntPtr();
-                    wo_asure(!x86compiler.mov(result, (size_t)(env->constant_global_reg_rtstack + const_global_index)));
+                    wo_assure(!x86compiler.mov(result, (size_t)(env->constant_global_reg_rtstack + const_global_index)));
                     return may_constant_x86Gp{ &x86compiler,false,nullptr,result };
                 }
             }
@@ -899,13 +899,13 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             // TODO: OPTIMIZE!
             auto no_interrupt_label = x86compiler.newLabel();
             static_assert(sizeof(wo::vmbase::fast_ro_vm_interrupt) == 4);
-            wo_asure(!x86compiler.cmp(asmjit::x86::dword_ptr(rtvm, offsetof(wo::vmbase, fast_ro_vm_interrupt)), 0));
-            wo_asure(!x86compiler.je(no_interrupt_label));
+            wo_assure(!x86compiler.cmp(asmjit::x86::dword_ptr(rtvm, offsetof(wo::vmbase, fast_ro_vm_interrupt)), 0));
+            wo_assure(!x86compiler.je(no_interrupt_label));
 
             auto result = x86compiler.newInt32();
 
             asmjit::InvokeNode* invoke_node;
-            wo_asure(!x86compiler.invoke(&invoke_node, (intptr_t)&_invoke_vm_checkpoint,
+            wo_assure(!x86compiler.invoke(&invoke_node, (intptr_t)&_invoke_vm_checkpoint,
                 asmjit::FuncSignatureT<wo_result_t, vmbase*, value*, value*, const byte_t*>()));
             invoke_node->setArg(0, rtvm);
             invoke_node->setArg(1, stack_sp);
@@ -914,38 +914,38 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
             invoke_node->setRet(0, result);
 
-            wo_asure(!x86compiler.cmp(result, asmjit::Imm(wo_result_t::WO_API_NORMAL)));
-            wo_asure(!x86compiler.je(no_interrupt_label));
-            wo_asure(!x86compiler.ret(result)); // break this execute!!!
-            wo_asure(!x86compiler.bind(no_interrupt_label));
+            wo_assure(!x86compiler.cmp(result, asmjit::Imm(wo_result_t::WO_API_NORMAL)));
+            wo_assure(!x86compiler.je(no_interrupt_label));
+            wo_assure(!x86compiler.ret(result)); // break this execute!!!
+            wo_assure(!x86compiler.bind(no_interrupt_label));
         }
 
         static asmjit::x86::Gp x86_set_imm(asmjit::x86::Compiler& x86compiler, asmjit::x86::Gp val, const wo::value& instance)
         {
-            wo_asure(!x86compiler.mov(asmjit::x86::byte_ptr(val, offsetof(value, type)), (uint8_t)instance.type));
+            wo_assure(!x86compiler.mov(asmjit::x86::byte_ptr(val, offsetof(value, type)), (uint8_t)instance.type));
 
             auto data_of_val = x86compiler.newUInt64();
-            wo_asure(!x86compiler.mov(data_of_val, instance.handle));
-            wo_asure(!x86compiler.mov(asmjit::x86::dword_ptr(val, offsetof(value, handle)), data_of_val));
+            wo_assure(!x86compiler.mov(data_of_val, instance.handle));
+            wo_assure(!x86compiler.mov(asmjit::x86::dword_ptr(val, offsetof(value, handle)), data_of_val));
 
             return val;
         }
         static asmjit::x86::Gp x86_set_val(asmjit::x86::Compiler& x86compiler, asmjit::x86::Gp val, asmjit::x86::Gp val2)
         {
             auto type_of_val2 = x86compiler.newUInt8();
-            wo_asure(!x86compiler.mov(type_of_val2, asmjit::x86::byte_ptr(val2, offsetof(value, type))));
-            wo_asure(!x86compiler.mov(asmjit::x86::byte_ptr(val, offsetof(value, type)), type_of_val2));
+            wo_assure(!x86compiler.mov(type_of_val2, asmjit::x86::byte_ptr(val2, offsetof(value, type))));
+            wo_assure(!x86compiler.mov(asmjit::x86::byte_ptr(val, offsetof(value, type)), type_of_val2));
 
             auto data_of_val2 = x86compiler.newUInt64();
-            wo_asure(!x86compiler.mov(data_of_val2, asmjit::x86::qword_ptr(val2, offsetof(value, handle))));
-            wo_asure(!x86compiler.mov(asmjit::x86::qword_ptr(val, offsetof(value, handle)), data_of_val2));
+            wo_assure(!x86compiler.mov(data_of_val2, asmjit::x86::qword_ptr(val2, offsetof(value, handle))));
+            wo_assure(!x86compiler.mov(asmjit::x86::qword_ptr(val, offsetof(value, handle)), data_of_val2));
 
             return val;
         }
         static asmjit::x86::Gp x86_set_nil(asmjit::x86::Compiler& x86compiler, asmjit::x86::Gp val)
         {
-            wo_asure(!x86compiler.mov(asmjit::x86::byte_ptr(val, offsetof(value, type)), (uint8_t)value::valuetype::invalid));
-            wo_asure(!x86compiler.mov(asmjit::x86::qword_ptr(val, offsetof(value, handle)), asmjit::Imm(0)));
+            wo_assure(!x86compiler.mov(asmjit::x86::byte_ptr(val, offsetof(value, type)), (uint8_t)value::valuetype::invalid));
+            wo_assure(!x86compiler.mov(asmjit::x86::qword_ptr(val, offsetof(value, handle)), asmjit::Imm(0)));
             return val;
         }
 
@@ -959,7 +959,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
         {
             auto result = x86compiler.newInt32();
             asmjit::InvokeNode* invoke_node;
-            wo_asure(!x86compiler.invoke(&invoke_node, (intptr_t)&native_do_calln_nativefunc,
+            wo_assure(!x86compiler.invoke(&invoke_node, (intptr_t)&native_do_calln_nativefunc,
                 asmjit::FuncSignatureT<wo_result_t, vmbase*, wo_extern_native_func_t, const byte_t*, const byte_t*, value*, value*>()));
 
             invoke_node->setArg(0, vm);
@@ -971,10 +971,10 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             invoke_node->setRet(0, result);
 
             auto normal = x86compiler.newLabel();
-            wo_asure(!x86compiler.cmp(result, asmjit::Imm(wo_result_t::WO_API_NORMAL)));
-            wo_asure(!x86compiler.je(normal));
-            wo_asure(!x86compiler.ret(result)); // break this execute!!!
-            wo_asure(!x86compiler.bind(normal));
+            wo_assure(!x86compiler.cmp(result, asmjit::Imm(wo_result_t::WO_API_NORMAL)));
+            wo_assure(!x86compiler.je(normal));
+            wo_assure(!x86compiler.ret(result)); // break this execute!!!
+            wo_assure(!x86compiler.bind(normal));
         }
 
         static void x86_do_calln_native_func_fast(asmjit::x86::Compiler& x86compiler,
@@ -988,7 +988,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
         {
             auto result = x86compiler.newInt32();
             asmjit::InvokeNode* invoke_node;
-            wo_asure(!x86compiler.invoke(&invoke_node, (intptr_t)&native_do_calln_vmfunc,
+            wo_assure(!x86compiler.invoke(&invoke_node, (intptr_t)&native_do_calln_vmfunc,
                 asmjit::FuncSignatureT<wo_result_t, vmbase*, wo_extern_native_func_t, const byte_t*, const byte_t*, value*, value*>()));
 
             invoke_node->setArg(0, vm);
@@ -1000,10 +1000,10 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             invoke_node->setRet(0, result);
 
             auto normal = x86compiler.newLabel();
-            wo_asure(!x86compiler.cmp(result, asmjit::Imm(wo_result_t::WO_API_NORMAL)));
-            wo_asure(!x86compiler.je(normal));
-            wo_asure(!x86compiler.ret(result)); // break this execute!!!
-            wo_asure(!x86compiler.bind(normal));
+            wo_assure(!x86compiler.cmp(result, asmjit::Imm(wo_result_t::WO_API_NORMAL)));
+            wo_assure(!x86compiler.je(normal));
+            wo_assure(!x86compiler.ret(result)); // break this execute!!!
+            wo_assure(!x86compiler.bind(normal));
         }
 
         static void x86_do_calln_vm_func(asmjit::x86::Compiler& x86compiler,
@@ -1023,15 +1023,15 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
             x86_set_imm(x86compiler, rt_sp, callstack);
             auto bpoffset = x86compiler.newUInt64();
-            wo_asure(!x86compiler.mov(bpoffset, asmjit::x86::qword_ptr(vm, offsetof(vmbase, stack_mem_begin))));
-            wo_asure(!x86compiler.sub(bpoffset, rt_bp));
-            wo_asure(!x86compiler.shr(bpoffset, asmjit::Imm(4)));
-            wo_asure(!x86compiler.mov(asmjit::x86::dword_ptr(rt_sp, offsetof(value, vmcallstack) + offsetof(value::callstack, bp)), bpoffset.r32()));
+            wo_assure(!x86compiler.mov(bpoffset, asmjit::x86::qword_ptr(vm, offsetof(vmbase, stack_mem_begin))));
+            wo_assure(!x86compiler.sub(bpoffset, rt_bp));
+            wo_assure(!x86compiler.shr(bpoffset, asmjit::Imm(4)));
+            wo_assure(!x86compiler.mov(asmjit::x86::dword_ptr(rt_sp, offsetof(value, vmcallstack) + offsetof(value::callstack, bp)), bpoffset.r32()));
 
             auto callargptr = x86compiler.newUIntPtr();
             auto targc = x86compiler.newInt64();
-            wo_asure(!x86compiler.lea(callargptr, asmjit::x86::qword_ptr(rt_sp, 1 * (int32_t)sizeof(value))));
-            wo_asure(!x86compiler.lea(targc, asmjit::x86::qword_ptr(rt_tc, offsetof(value, integer))));
+            wo_assure(!x86compiler.lea(callargptr, asmjit::x86::qword_ptr(rt_sp, 1 * (int32_t)sizeof(value))));
+            wo_assure(!x86compiler.lea(targc, asmjit::x86::qword_ptr(rt_tc, offsetof(value, integer))));
 
             auto result = x86compiler.newInt32();
 
@@ -1042,7 +1042,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                 wo_assert(vm_func->m_func != nullptr
                     && *vm_func->m_func != nullptr);
 
-                wo_asure(!x86compiler.invoke(&invoke_node, *vm_func->m_func,
+                wo_assure(!x86compiler.invoke(&invoke_node, *vm_func->m_func,
                     asmjit::FuncSignatureT<wo_result_t, vmbase*, value*, size_t>()));
             }
             else
@@ -1055,7 +1055,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                 auto funcaddr = x86compiler.newIntPtr();
                 x86compiler.mov(funcaddr, asmjit::x86::qword_ptr((intptr_t)vm_func->m_func));
 
-                wo_asure(!x86compiler.invoke(&invoke_node, funcaddr,
+                wo_assure(!x86compiler.invoke(&invoke_node, funcaddr,
                     asmjit::FuncSignatureT<wo_result_t, vmbase*, value*, size_t>()));
             }
             invoke_node->setArg(0, vm);
@@ -1064,10 +1064,10 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             invoke_node->setRet(0, result);
 
             auto normal = x86compiler.newLabel();
-            wo_asure(!x86compiler.cmp(result, asmjit::Imm(wo_result_t::WO_API_NORMAL)));
-            wo_asure(!x86compiler.je(normal));
-            wo_asure(!x86compiler.ret(result)); // break this execute!!!
-            wo_asure(!x86compiler.bind(normal));
+            wo_assure(!x86compiler.cmp(result, asmjit::Imm(wo_result_t::WO_API_NORMAL)));
+            wo_assure(!x86compiler.je(normal));
+            wo_assure(!x86compiler.ret(result)); // break this execute!!!
+            wo_assure(!x86compiler.bind(normal));
         }
 
         template <typename T>
@@ -1080,7 +1080,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             asmjit::x86::Gp rt_bp)
         {
             asmjit::InvokeNode* invoke_node;
-            wo_asure(!x86compiler.invoke(&invoke_node, (intptr_t)&_vmjitcall_fail,
+            wo_assure(!x86compiler.invoke(&invoke_node, (intptr_t)&_vmjitcall_fail,
                 asmjit::FuncSignatureT<void, wo::vmbase*, uint32_t, const char*, const byte_t*, wo::value*, wo::value*>()));
 
             invoke_node->setArg(0, vm);
@@ -1109,18 +1109,18 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             // 0. Get vmptr reg stack base global ptr.
             state->m_jitfunc->setArg(0, ctx->_vmbase);
             state->m_jitfunc->setArg(1, ctx->_vmsbp);
-            wo_asure(!ctx->c.sub(ctx->_vmsbp, 2 * sizeof(wo::value)));
-            wo_asure(!ctx->c.mov(ctx->_vmssp, ctx->_vmsbp));                    // let sp = bp;
-            wo_asure(!ctx->c.mov(ctx->_vmreg, asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, register_mem_begin))));
-            wo_asure(!ctx->c.mov(ctx->_vmcr, asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, cr))));
-            wo_asure(!ctx->c.mov(ctx->_vmtc, asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, tc))));
+            wo_assure(!ctx->c.sub(ctx->_vmsbp, 2 * sizeof(wo::value)));
+            wo_assure(!ctx->c.mov(ctx->_vmssp, ctx->_vmsbp));                    // let sp = bp;
+            wo_assure(!ctx->c.mov(ctx->_vmreg, asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, register_mem_begin))));
+            wo_assure(!ctx->c.mov(ctx->_vmcr, asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, cr))));
+            wo_assure(!ctx->c.mov(ctx->_vmtc, asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, tc))));
 
             return ctx;
         }
         virtual void finish_compiler(X64CompileContext* context)override
         {
-            wo_asure(!context->c.endFunc());
-            wo_asure(!context->c.finalize());
+            wo_assure(!context->c.endFunc());
+            wo_assure(!context->c.finalize());
         }
         virtual void free_compiler(X64CompileContext* context) override
         {
@@ -1153,12 +1153,12 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             WO_JIT_ADDRESSING_N2;
 
             if (opnum2.is_constant())
-                wo_asure(!ctx->c.add(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), opnum2.const_value()->integer));
+                wo_assure(!ctx->c.add(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), opnum2.const_value()->integer));
             else
             {
                 auto int_of_op2 = ctx->c.newInt64();
-                wo_asure(!ctx->c.mov(int_of_op2, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
-                wo_asure(!ctx->c.add(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), int_of_op2));
+                wo_assure(!ctx->c.mov(int_of_op2, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
+                wo_assure(!ctx->c.add(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), int_of_op2));
             }
             return true;
         }
@@ -1169,13 +1169,13 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
             if (opnum2.is_constant())
             {
-                wo_asure(!ctx->c.sub(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), opnum2.const_value()->integer));
+                wo_assure(!ctx->c.sub(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), opnum2.const_value()->integer));
             }
             else
             {
                 auto int_of_op2 = ctx->c.newInt64();
-                wo_asure(!ctx->c.mov(int_of_op2, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
-                wo_asure(!ctx->c.sub(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), int_of_op2));
+                wo_assure(!ctx->c.mov(int_of_op2, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
+                wo_assure(!ctx->c.sub(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), int_of_op2));
             }
             return true;
         }
@@ -1186,12 +1186,12 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
             auto int_of_op2 = ctx->c.newInt64();
             if (opnum2.is_constant())
-                wo_asure(!ctx->c.mov(int_of_op2, opnum2.const_value()->integer));
+                wo_assure(!ctx->c.mov(int_of_op2, opnum2.const_value()->integer));
             else
-                wo_asure(!ctx->c.mov(int_of_op2, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
+                wo_assure(!ctx->c.mov(int_of_op2, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
 
-            wo_asure(!ctx->c.imul(int_of_op2, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
-            wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), int_of_op2));
+            wo_assure(!ctx->c.imul(int_of_op2, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
+            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), int_of_op2));
             return true;
         }
         virtual bool ir_divi(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -1203,17 +1203,17 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto int_of_op2 = ctx->c.newInt64();
             auto div_op_num = ctx->c.newInt64();
 
-            wo_asure(!ctx->c.mov(int_of_op1, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
+            wo_assure(!ctx->c.mov(int_of_op1, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
             if (opnum2.is_constant())
-                wo_asure(!ctx->c.mov(int_of_op2, opnum2.const_value()->integer));
+                wo_assure(!ctx->c.mov(int_of_op2, opnum2.const_value()->integer));
             else
-                wo_asure(!ctx->c.mov(int_of_op2, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
+                wo_assure(!ctx->c.mov(int_of_op2, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
 
-            wo_asure(!ctx->c.xor_(div_op_num, div_op_num));
-            wo_asure(!ctx->c.cqo(div_op_num, int_of_op1));
-            wo_asure(!ctx->c.idiv(div_op_num, int_of_op1, int_of_op2));
+            wo_assure(!ctx->c.xor_(div_op_num, div_op_num));
+            wo_assure(!ctx->c.cqo(div_op_num, int_of_op1));
+            wo_assure(!ctx->c.idiv(div_op_num, int_of_op1, int_of_op2));
 
-            wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), int_of_op1));
+            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), int_of_op1));
             return true;
         }
         virtual bool ir_modi(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -1225,17 +1225,17 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto int_of_op2 = ctx->c.newInt64();
             auto div_op_num = ctx->c.newInt64();
 
-            wo_asure(!ctx->c.mov(int_of_op1, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
+            wo_assure(!ctx->c.mov(int_of_op1, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
             if (opnum2.is_constant())
-                wo_asure(!ctx->c.mov(int_of_op2, opnum2.const_value()->integer));
+                wo_assure(!ctx->c.mov(int_of_op2, opnum2.const_value()->integer));
             else
-                wo_asure(!ctx->c.mov(int_of_op2, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
+                wo_assure(!ctx->c.mov(int_of_op2, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
 
-            wo_asure(!ctx->c.mov(div_op_num, int_of_op1));
-            wo_asure(!ctx->c.cqo(int_of_op1, div_op_num));
-            wo_asure(!ctx->c.idiv(int_of_op1, div_op_num, int_of_op2));
+            wo_assure(!ctx->c.mov(div_op_num, int_of_op1));
+            wo_assure(!ctx->c.cqo(int_of_op1, div_op_num));
+            wo_assure(!ctx->c.idiv(int_of_op1, div_op_num, int_of_op2));
 
-            wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), int_of_op1));
+            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), int_of_op1));
 
             return true;
         }
@@ -1245,9 +1245,9 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             WO_JIT_ADDRESSING_N2;
 
             auto real_of_op1 = ctx->c.newXmm();
-            wo_asure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, real))));
-            wo_asure(!ctx->c.addsd(real_of_op1, asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, real))));
-            wo_asure(!ctx->c.movsd(asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, real)), real_of_op1));
+            wo_assure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, real))));
+            wo_assure(!ctx->c.addsd(real_of_op1, asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, real))));
+            wo_assure(!ctx->c.movsd(asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, real)), real_of_op1));
 
             return true;
         }
@@ -1257,9 +1257,9 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             WO_JIT_ADDRESSING_N2;
 
             auto real_of_op1 = ctx->c.newXmm();
-            wo_asure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, real))));
-            wo_asure(!ctx->c.subsd(real_of_op1, asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, real))));
-            wo_asure(!ctx->c.movsd(asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, real)), real_of_op1));
+            wo_assure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, real))));
+            wo_assure(!ctx->c.subsd(real_of_op1, asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, real))));
+            wo_assure(!ctx->c.movsd(asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, real)), real_of_op1));
             return true;
         }
         virtual bool ir_mulr(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -1268,9 +1268,9 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             WO_JIT_ADDRESSING_N2;
 
             auto real_of_op1 = ctx->c.newXmm();
-            wo_asure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, real))));
-            wo_asure(!ctx->c.mulsd(real_of_op1, asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, real))));
-            wo_asure(!ctx->c.movsd(asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, real)), real_of_op1));
+            wo_assure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, real))));
+            wo_assure(!ctx->c.mulsd(real_of_op1, asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, real))));
+            wo_assure(!ctx->c.movsd(asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, real)), real_of_op1));
             return true;
         }
         virtual bool ir_divr(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -1279,9 +1279,9 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             WO_JIT_ADDRESSING_N2;
 
             auto real_of_op1 = ctx->c.newXmm();
-            wo_asure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, real))));
-            wo_asure(!ctx->c.divsd(real_of_op1, asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, real))));
-            wo_asure(!ctx->c.movsd(asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, real)), real_of_op1));
+            wo_assure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, real))));
+            wo_assure(!ctx->c.divsd(real_of_op1, asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, real))));
+            wo_assure(!ctx->c.movsd(asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, real)), real_of_op1));
             return true;
         }
         virtual bool ir_modr(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -1293,7 +1293,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto op2 = opnum2.gp_value();
 
             asmjit::InvokeNode* invoke_node;
-            wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_modr,
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_modr,
                 asmjit::FuncSignatureT<void, wo::value*, wo::value*>()));
 
             invoke_node->setArg(0, op1);
@@ -1306,12 +1306,12 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             WO_JIT_ADDRESSING_N2;
 
             if (opnum2.is_constant())
-                wo_asure(!ctx->c.add(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, handle)), opnum2.const_value()->handle));
+                wo_assure(!ctx->c.add(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, handle)), opnum2.const_value()->handle));
             else
             {
                 auto handle_of_op2 = ctx->c.newUInt64();
-                wo_asure(!ctx->c.mov(handle_of_op2, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, handle))));
-                wo_asure(!ctx->c.add(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, handle)), handle_of_op2));
+                wo_assure(!ctx->c.mov(handle_of_op2, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, handle))));
+                wo_assure(!ctx->c.add(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, handle)), handle_of_op2));
             }
             return true;
         }
@@ -1321,12 +1321,12 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             WO_JIT_ADDRESSING_N2;
 
             if (opnum2.is_constant())
-                wo_asure(!ctx->c.sub(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, handle)), opnum2.const_value()->handle));
+                wo_assure(!ctx->c.sub(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, handle)), opnum2.const_value()->handle));
             else
             {
                 auto handle_of_op2 = ctx->c.newUInt64();
-                wo_asure(!ctx->c.mov(handle_of_op2, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, handle))));
-                wo_asure(!ctx->c.sub(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, handle)), handle_of_op2));
+                wo_assure(!ctx->c.mov(handle_of_op2, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, handle))));
+                wo_assure(!ctx->c.sub(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, handle)), handle_of_op2));
             }
             return true;
         }
@@ -1339,7 +1339,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto op2 = opnum2.gp_value();
 
             asmjit::InvokeNode* invoke_node;
-            wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_adds,
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_adds,
                 asmjit::FuncSignatureT<void, wo::value*, wo::value*>()));
 
             invoke_node->setArg(0, op1);
@@ -1358,7 +1358,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                     x86_set_imm(ctx->c, ctx->_vmssp, *opnum1.const_value());
                 else
                     x86_set_val(ctx->c, ctx->_vmssp, opnum1.gp_value());
-                wo_asure(!ctx->c.sub(ctx->_vmssp, sizeof(value)));
+                wo_assure(!ctx->c.sub(ctx->_vmssp, sizeof(value)));
             }
             else
             {
@@ -1366,17 +1366,17 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
                 if (psh_repeat > 0)
                 {
-                    wo_asure(!ctx->c.sub(ctx->_vmssp, (psh_repeat - 1) * sizeof(value)));
+                    wo_assure(!ctx->c.sub(ctx->_vmssp, (psh_repeat - 1) * sizeof(value)));
 
                     asmjit::InvokeNode* invoke_node;
-                    wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&memset,
+                    wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&memset,
                         asmjit::FuncSignatureT<void, void*, int, size_t>()));
 
                     invoke_node->setArg(0, ctx->_vmssp);
                     invoke_node->setArg(1, asmjit::Imm(0));
                     invoke_node->setArg(2, asmjit::Imm(psh_repeat * sizeof(value)));
 
-                    wo_asure(!ctx->c.sub(ctx->_vmssp, sizeof(value)));
+                    wo_assure(!ctx->c.sub(ctx->_vmssp, sizeof(value)));
                 }
             }
             return true;
@@ -1389,11 +1389,11 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                 // opnum1->set_val((++rt_sp));
                 WO_JIT_ADDRESSING_N1;
 
-                wo_asure(!ctx->c.add(ctx->_vmssp, sizeof(value)));
+                wo_assure(!ctx->c.add(ctx->_vmssp, sizeof(value)));
                 x86_set_val(ctx->c, opnum1.gp_value(), ctx->_vmssp);
             }
             else
-                wo_asure(!ctx->c.add(ctx->_vmssp, WO_IPVAL_MOVE_2 * sizeof(value)));
+                wo_assure(!ctx->c.add(ctx->_vmssp, WO_IPVAL_MOVE_2 * sizeof(value)));
             return true;
         }
         virtual bool ir_sidarr(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -1408,7 +1408,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto err = ctx->c.newIntPtr();
 
             asmjit::InvokeNode* invoke_node;
-            wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_sidarr,
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_sidarr,
                 asmjit::FuncSignatureT<const char*, wo::value*, wo::value*, wo::value*>()));
 
             invoke_node->setArg(0, op1);
@@ -1417,14 +1417,14 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             invoke_node->setRet(0, err);
 
             auto noerror_label = ctx->c.newLabel();
-            wo_asure(!ctx->c.cmp(err, asmjit::Imm(0)));
-            wo_asure(!ctx->c.je(noerror_label));
+            wo_assure(!ctx->c.cmp(err, asmjit::Imm(0)));
+            wo_assure(!ctx->c.je(noerror_label));
 
             x86_do_fail(ctx->c, ctx->_vmbase,
                 WO_FAIL_INDEX_FAIL, err,
                 rt_ip, ctx->_vmssp, ctx->_vmsbp);
 
-            wo_asure(!ctx->c.bind(noerror_label));
+            wo_assure(!ctx->c.bind(noerror_label));
             return true;
         }
         virtual bool ir_sidstruct(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -1437,7 +1437,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto op2 = opnum2.gp_value();
 
             asmjit::InvokeNode* invoke_node;
-            wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_sidstruct,
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_sidstruct,
                 asmjit::FuncSignatureT< void, wo::value*, wo::value*, uint16_t>()));
 
             invoke_node->setArg(0, op1);
@@ -1453,13 +1453,13 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             if (opnum2.is_constant())
             {
                 auto bpoffset = ctx->c.newUIntPtr();
-                wo_asure(!ctx->c.lea(bpoffset, asmjit::x86::qword_ptr(ctx->_vmsbp, (int32_t)(opnum2.const_value()->integer * sizeof(value)))));
+                wo_assure(!ctx->c.lea(bpoffset, asmjit::x86::qword_ptr(ctx->_vmsbp, (int32_t)(opnum2.const_value()->integer * sizeof(value)))));
                 x86_set_val(ctx->c, opnum1.gp_value(), bpoffset);
             }
             else
             {
                 auto bpoffset = ctx->c.newUIntPtr();
-                wo_asure(!ctx->c.lea(bpoffset, asmjit::x86::qword_ptr(ctx->_vmsbp, opnum2.gp_value(), sizeof(value))));
+                wo_assure(!ctx->c.lea(bpoffset, asmjit::x86::qword_ptr(ctx->_vmsbp, opnum2.gp_value(), sizeof(value))));
                 x86_set_val(ctx->c, opnum1.gp_value(), bpoffset);
             }
             return true;
@@ -1472,13 +1472,13 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             if (opnum2.is_constant())
             {
                 auto bpoffset = ctx->c.newUIntPtr();
-                wo_asure(!ctx->c.lea(bpoffset, asmjit::x86::qword_ptr(ctx->_vmsbp, (int32_t)(opnum2.const_value()->integer * sizeof(value)))));
+                wo_assure(!ctx->c.lea(bpoffset, asmjit::x86::qword_ptr(ctx->_vmsbp, (int32_t)(opnum2.const_value()->integer * sizeof(value)))));
                 x86_set_val(ctx->c, bpoffset, opnum1.gp_value());
             }
             else
             {
                 auto bpoffset = ctx->c.newUIntPtr();
-                wo_asure(!ctx->c.lea(bpoffset, asmjit::x86::qword_ptr(ctx->_vmsbp, opnum2.gp_value(), sizeof(value))));
+                wo_assure(!ctx->c.lea(bpoffset, asmjit::x86::qword_ptr(ctx->_vmsbp, opnum2.gp_value(), sizeof(value))));
                 x86_set_val(ctx->c, bpoffset, opnum1.gp_value());
             }
             return true;
@@ -1495,17 +1495,17 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
 
             auto int_of_op1 = ctx->c.newInt64();
-            wo_asure(!ctx->c.mov(int_of_op1, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
-            wo_asure(!ctx->c.cmp(int_of_op1, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
-            wo_asure(!ctx->c.jne(x86_nequ_jmp_label));
+            wo_assure(!ctx->c.mov(int_of_op1, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
+            wo_assure(!ctx->c.cmp(int_of_op1, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
+            wo_assure(!ctx->c.jne(x86_nequ_jmp_label));
 
-            wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 1));
-            wo_asure(!ctx->c.jmp(x86_equ_jmp_label));
-            wo_asure(!ctx->c.bind(x86_nequ_jmp_label));
-            wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
-            wo_asure(!ctx->c.bind(x86_equ_jmp_label));
+            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 1));
+            wo_assure(!ctx->c.jmp(x86_equ_jmp_label));
+            wo_assure(!ctx->c.bind(x86_nequ_jmp_label));
+            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
+            wo_assure(!ctx->c.bind(x86_equ_jmp_label));
 
-            wo_asure(!ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type));
+            wo_assure(!ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type));
 
             return true;
         }
@@ -1520,17 +1520,17 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto x86_nequ_jmp_label = ctx->c.newLabel();
 
             auto int_of_op1 = ctx->c.newInt64();
-            wo_asure(!ctx->c.mov(int_of_op1, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
-            wo_asure(!ctx->c.cmp(int_of_op1, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
-            wo_asure(!ctx->c.jne(x86_nequ_jmp_label));
+            wo_assure(!ctx->c.mov(int_of_op1, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
+            wo_assure(!ctx->c.cmp(int_of_op1, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
+            wo_assure(!ctx->c.jne(x86_nequ_jmp_label));
 
-            wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
-            wo_asure(!ctx->c.jmp(x86_equ_jmp_label));
-            wo_asure(!ctx->c.bind(x86_nequ_jmp_label));
-            wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 1));
-            wo_asure(!ctx->c.bind(x86_equ_jmp_label));
+            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
+            wo_assure(!ctx->c.jmp(x86_equ_jmp_label));
+            wo_assure(!ctx->c.bind(x86_nequ_jmp_label));
+            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 1));
+            wo_assure(!ctx->c.bind(x86_equ_jmp_label));
 
-            wo_asure(!ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type));
+            wo_assure(!ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type));
 
             return true;
         }
@@ -1546,27 +1546,27 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
             if (opnum1.is_constant())
             {
-                wo_asure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer)), opnum1.m_constant->integer));
-                wo_asure(!ctx->c.jl(x86_cmp_fail));
+                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer)), opnum1.m_constant->integer));
+                wo_assure(!ctx->c.jl(x86_cmp_fail));
             }
             else if (opnum2.is_constant())
             {
-                wo_asure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), opnum2.m_constant->integer));
-                wo_asure(!ctx->c.jge(x86_cmp_fail));
+                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), opnum2.m_constant->integer));
+                wo_assure(!ctx->c.jge(x86_cmp_fail));
             }
             else
             {
                 auto int_of_op1 = ctx->c.newInt64();
-                wo_asure(!ctx->c.mov(int_of_op1, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
-                wo_asure(!ctx->c.cmp(int_of_op1, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
-                wo_asure(!ctx->c.jge(x86_cmp_fail));
+                wo_assure(!ctx->c.mov(int_of_op1, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
+                wo_assure(!ctx->c.cmp(int_of_op1, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
+                wo_assure(!ctx->c.jge(x86_cmp_fail));
             }
 
-            wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 1));
-            wo_asure(!ctx->c.jmp(x86_cmp_end));
-            wo_asure(!ctx->c.bind(x86_cmp_fail));
-            wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
-            wo_asure(!ctx->c.bind(x86_cmp_end));
+            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 1));
+            wo_assure(!ctx->c.jmp(x86_cmp_end));
+            wo_assure(!ctx->c.bind(x86_cmp_fail));
+            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
+            wo_assure(!ctx->c.bind(x86_cmp_end));
             ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
             return true;
         }
@@ -1582,26 +1582,26 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
             if (opnum1.is_constant())
             {
-                wo_asure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer)), opnum1.m_constant->integer));
+                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer)), opnum1.m_constant->integer));
                 ctx->c.jg(x86_cmp_fail);
             }
             else if (opnum2.is_constant())
             {
-                wo_asure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), opnum2.m_constant->integer));
+                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), opnum2.m_constant->integer));
                 ctx->c.jle(x86_cmp_fail);
             }
             else
             {
                 auto int_of_op1 = ctx->c.newInt64();
-                wo_asure(!ctx->c.mov(int_of_op1, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
-                wo_asure(!ctx->c.cmp(int_of_op1, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
+                wo_assure(!ctx->c.mov(int_of_op1, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
+                wo_assure(!ctx->c.cmp(int_of_op1, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
                 ctx->c.jle(x86_cmp_fail);
             }
 
-            wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 1));
+            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 1));
             ctx->c.jmp(x86_cmp_end);
             ctx->c.bind(x86_cmp_fail);
-            wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
+            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
             ctx->c.bind(x86_cmp_end);
             ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
 
@@ -1619,26 +1619,26 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
             if (opnum1.is_constant())
             {
-                wo_asure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer)), opnum1.m_constant->integer));
+                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer)), opnum1.m_constant->integer));
                 ctx->c.jle(x86_cmp_fail);
             }
             else if (opnum2.is_constant())
             {
-                wo_asure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), opnum2.m_constant->integer));
+                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), opnum2.m_constant->integer));
                 ctx->c.jg(x86_cmp_fail);
             }
             else
             {
                 auto int_of_op1 = ctx->c.newInt64();
-                wo_asure(!ctx->c.mov(int_of_op1, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
-                wo_asure(!ctx->c.cmp(int_of_op1, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
+                wo_assure(!ctx->c.mov(int_of_op1, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
+                wo_assure(!ctx->c.cmp(int_of_op1, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
                 ctx->c.jg(x86_cmp_fail);
             }
 
-            wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 1));
+            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 1));
             ctx->c.jmp(x86_cmp_end);
             ctx->c.bind(x86_cmp_fail);
-            wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
+            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
             ctx->c.bind(x86_cmp_end);
             ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
             return true;
@@ -1655,26 +1655,26 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
             if (opnum1.is_constant())
             {
-                wo_asure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer)), opnum1.m_constant->integer));
+                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer)), opnum1.m_constant->integer));
                 ctx->c.jge(x86_cmp_fail);
             }
             else if (opnum2.is_constant())
             {
-                wo_asure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), opnum2.m_constant->integer));
+                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), opnum2.m_constant->integer));
                 ctx->c.jl(x86_cmp_fail);
             }
             else
             {
                 auto int_of_op1 = ctx->c.newInt64();
-                wo_asure(!ctx->c.mov(int_of_op1, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
-                wo_asure(!ctx->c.cmp(int_of_op1, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
+                wo_assure(!ctx->c.mov(int_of_op1, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
+                wo_assure(!ctx->c.cmp(int_of_op1, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
                 ctx->c.jl(x86_cmp_fail);
             }
 
-            wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 1));
+            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 1));
             ctx->c.jmp(x86_cmp_end);
             ctx->c.bind(x86_cmp_fail);
-            wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
+            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
             ctx->c.bind(x86_cmp_end);
             ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
 
@@ -1688,46 +1688,46 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             if (opnum1.is_constant() && opnum2.is_constant())
             {
                 if (opnum1.const_value()->integer && opnum2.const_value()->integer)
-                    wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 1));
+                    wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 1));
                 else
-                    wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
+                    wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
             }
             else if (opnum1.is_constant())
             {
                 if (opnum1.const_value()->integer)
                 {
                     auto opnum2_val = ctx->c.newInt64();
-                    wo_asure(!ctx->c.mov(opnum2_val, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
-                    wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), opnum2_val));
+                    wo_assure(!ctx->c.mov(opnum2_val, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
+                    wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), opnum2_val));
                 }
                 else
-                    wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
+                    wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
             }
             else if (opnum2.is_constant())
             {
                 if (opnum2.const_value()->integer)
                 {
                     auto opnum1_val = ctx->c.newInt64();
-                    wo_asure(!ctx->c.mov(opnum1_val, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
-                    wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), opnum1_val));
+                    wo_assure(!ctx->c.mov(opnum1_val, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
+                    wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), opnum1_val));
                 }
                 else
-                    wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
+                    wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
             }
             else
             {
                 auto set_cr_false = ctx->c.newLabel();
                 auto land_end = ctx->c.newLabel();
 
-                wo_asure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), 0));
-                wo_asure(!ctx->c.je(set_cr_false));
-                wo_asure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer)), 0));
-                wo_asure(!ctx->c.je(set_cr_false));
-                wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 1));
-                wo_asure(!ctx->c.jmp(land_end));
-                wo_asure(!ctx->c.bind(set_cr_false));
-                wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
-                wo_asure(!ctx->c.bind(land_end));
+                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), 0));
+                wo_assure(!ctx->c.je(set_cr_false));
+                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer)), 0));
+                wo_assure(!ctx->c.je(set_cr_false));
+                wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 1));
+                wo_assure(!ctx->c.jmp(land_end));
+                wo_assure(!ctx->c.bind(set_cr_false));
+                wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
+                wo_assure(!ctx->c.bind(land_end));
             }
             ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
             return true;
@@ -1740,46 +1740,46 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             if (opnum1.is_constant() && opnum2.is_constant())
             {
                 if (opnum1.const_value()->integer || opnum2.const_value()->integer)
-                    wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 1));
+                    wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 1));
                 else
-                    wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
+                    wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
             }
             else if (opnum1.is_constant())
             {
                 if (!opnum1.const_value()->integer)
                 {
                     auto opnum2_val = ctx->c.newInt64();
-                    wo_asure(!ctx->c.mov(opnum2_val, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
-                    wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), opnum2_val));
+                    wo_assure(!ctx->c.mov(opnum2_val, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
+                    wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), opnum2_val));
                 }
                 else
-                    wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 1));
+                    wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 1));
             }
             else if (opnum2.is_constant())
             {
                 if (!opnum2.const_value()->integer)
                 {
                     auto opnum1_val = ctx->c.newInt64();
-                    wo_asure(!ctx->c.mov(opnum1_val, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
-                    wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), opnum1_val));
+                    wo_assure(!ctx->c.mov(opnum1_val, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
+                    wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), opnum1_val));
                 }
                 else
-                    wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 1));
+                    wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 1));
             }
             else
             {
                 auto set_cr_true = ctx->c.newLabel();
                 auto land_end = ctx->c.newLabel();
 
-                wo_asure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), 0));
-                wo_asure(!ctx->c.jne(set_cr_true));
-                wo_asure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer)), 0));
-                wo_asure(!ctx->c.jne(set_cr_true));
-                wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
-                wo_asure(!ctx->c.jmp(land_end));
-                wo_asure(!ctx->c.bind(set_cr_true));
-                wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 1));
-                wo_asure(!ctx->c.bind(land_end));
+                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), 0));
+                wo_assure(!ctx->c.jne(set_cr_true));
+                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer)), 0));
+                wo_assure(!ctx->c.jne(set_cr_true));
+                wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
+                wo_assure(!ctx->c.jmp(land_end));
+                wo_assure(!ctx->c.bind(set_cr_true));
+                wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 1));
+                wo_assure(!ctx->c.bind(land_end));
             }
             ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
             return true;
@@ -1795,7 +1795,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto op3 = opnum3.gp_value();
 
             asmjit::InvokeNode* invoke_node;
-            wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_sidmap,
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_sidmap,
                 asmjit::FuncSignatureT< void, wo::value*, wo::value*, wo::value*>()));
 
             invoke_node->setArg(0, op1);
@@ -1814,7 +1814,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto op2 = opnum2.gp_value();
 
             asmjit::InvokeNode* invoke_node;
-            wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::ltx_impl,
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::ltx_impl,
                 asmjit::FuncSignatureT< void, wo::value*, wo::value*, wo::value*>()));
 
             invoke_node->setArg(0, ctx->_vmcr);
@@ -1832,7 +1832,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto op2 = opnum2.gp_value();
 
             asmjit::InvokeNode* invoke_node;
-            wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::gtx_impl,
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::gtx_impl,
                 asmjit::FuncSignatureT< void, wo::value*, wo::value*, wo::value*>()));
 
             invoke_node->setArg(0, ctx->_vmcr);
@@ -1850,7 +1850,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto op2 = opnum2.gp_value();
 
             asmjit::InvokeNode* invoke_node;
-            wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::eltx_impl,
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::eltx_impl,
                 asmjit::FuncSignatureT< void, wo::value*, wo::value*, wo::value*>()));
 
             invoke_node->setArg(0, ctx->_vmcr);
@@ -1868,7 +1868,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto op2 = opnum2.gp_value();
 
             asmjit::InvokeNode* invoke_node;
-            wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::egtx_impl,
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::egtx_impl,
                 asmjit::FuncSignatureT< void, wo::value*, wo::value*, wo::value*>()));
 
             invoke_node->setArg(0, ctx->_vmcr);
@@ -1888,16 +1888,16 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto x86_cmp_end = ctx->c.newLabel();
 
             auto real_of_op1 = ctx->c.newXmm();
-            wo_asure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, real))));
-            wo_asure(!ctx->c.comisd(real_of_op1, asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, real))));
+            wo_assure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, real))));
+            wo_assure(!ctx->c.comisd(real_of_op1, asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, real))));
 
-            wo_asure(!ctx->c.jae(x86_cmp_fail));
+            wo_assure(!ctx->c.jae(x86_cmp_fail));
 
-            wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 1));
-            wo_asure(!ctx->c.jmp(x86_cmp_end));
-            wo_asure(!ctx->c.bind(x86_cmp_fail));
-            wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
-            wo_asure(!ctx->c.bind(x86_cmp_end));
+            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 1));
+            wo_assure(!ctx->c.jmp(x86_cmp_end));
+            wo_assure(!ctx->c.bind(x86_cmp_fail));
+            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
+            wo_assure(!ctx->c.bind(x86_cmp_end));
             ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
 
             return true;
@@ -1913,17 +1913,17 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto x86_cmp_end = ctx->c.newLabel();
 
             auto real_of_op1 = ctx->c.newXmm();
-            wo_asure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, real))));
-            wo_asure(!ctx->c.comisd(real_of_op1, asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, real))));
+            wo_assure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, real))));
+            wo_assure(!ctx->c.comisd(real_of_op1, asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, real))));
 
-            wo_asure(!ctx->c.jbe(x86_cmp_fail));
+            wo_assure(!ctx->c.jbe(x86_cmp_fail));
 
-            wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 1));
-            wo_asure(!ctx->c.jmp(x86_cmp_end));
-            wo_asure(!ctx->c.bind(x86_cmp_fail));
+            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 1));
+            wo_assure(!ctx->c.jmp(x86_cmp_end));
+            wo_assure(!ctx->c.bind(x86_cmp_fail));
 
-            wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
-            wo_asure(!ctx->c.bind(x86_cmp_end));
+            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
+            wo_assure(!ctx->c.bind(x86_cmp_end));
             ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
 
             return true;
@@ -1939,16 +1939,16 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto x86_cmp_end = ctx->c.newLabel();
 
             auto real_of_op1 = ctx->c.newXmm();
-            wo_asure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, real))));
-            wo_asure(!ctx->c.comisd(real_of_op1, asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, real))));
+            wo_assure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, real))));
+            wo_assure(!ctx->c.comisd(real_of_op1, asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, real))));
 
-            wo_asure(!ctx->c.ja(x86_cmp_fail));
+            wo_assure(!ctx->c.ja(x86_cmp_fail));
 
-            wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 1));
-            wo_asure(!ctx->c.jmp(x86_cmp_end));
-            wo_asure(!ctx->c.bind(x86_cmp_fail));
-            wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
-            wo_asure(!ctx->c.bind(x86_cmp_end));
+            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 1));
+            wo_assure(!ctx->c.jmp(x86_cmp_end));
+            wo_assure(!ctx->c.bind(x86_cmp_fail));
+            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
+            wo_assure(!ctx->c.bind(x86_cmp_end));
             ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
 
             return true;
@@ -1964,16 +1964,16 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto x86_cmp_end = ctx->c.newLabel();
 
             auto real_of_op1 = ctx->c.newXmm();
-            wo_asure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, real))));
-            wo_asure(!ctx->c.comisd(real_of_op1, asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, real))));
+            wo_assure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, real))));
+            wo_assure(!ctx->c.comisd(real_of_op1, asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, real))));
 
-            wo_asure(!ctx->c.jb(x86_cmp_fail));
+            wo_assure(!ctx->c.jb(x86_cmp_fail));
 
-            wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 1));
-            wo_asure(!ctx->c.jmp(x86_cmp_end));
-            wo_asure(!ctx->c.bind(x86_cmp_fail));
-            wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
-            wo_asure(!ctx->c.bind(x86_cmp_end));
+            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 1));
+            wo_assure(!ctx->c.jmp(x86_cmp_end));
+            wo_assure(!ctx->c.bind(x86_cmp_fail));
+            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
+            wo_assure(!ctx->c.bind(x86_cmp_end));
             ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
 
             return true;
@@ -1988,7 +1988,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto result = ctx->c.newInt32();
 
             asmjit::InvokeNode* invoke_node;
-            wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&native_do_call_vmfunc,
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&native_do_call_vmfunc,
                 asmjit::FuncSignatureT<wo_result_t, vmbase*, value*, const byte_t*, const byte_t*, value*, value*>()));
 
             invoke_node->setArg(0, ctx->_vmbase);
@@ -2000,10 +2000,10 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             invoke_node->setRet(0, result);
 
             auto normal = ctx->c.newLabel();
-            wo_asure(!ctx->c.cmp(result, asmjit::Imm(wo_result_t::WO_API_NORMAL)));
-            wo_asure(!ctx->c.je(normal));
-            wo_asure(!ctx->c.ret(result)); // break this execute!!!
-            wo_asure(!ctx->c.bind(normal));
+            wo_assure(!ctx->c.cmp(result, asmjit::Imm(wo_result_t::WO_API_NORMAL)));
+            wo_assure(!ctx->c.je(normal));
+            wo_assure(!ctx->c.ret(result)); // break this execute!!!
+            wo_assure(!ctx->c.bind(normal));
 
             // ATTENTION: AFTER CALLING VM FUNCTION, DONOT MODIFY SP/BP/IP CONTEXT, HERE MAY HAPPEND/PASS BREAK INFO!!!
             make_checkpoint(ctx->c, ctx->_vmbase, ctx->_vmssp, ctx->_vmsbp, rt_ip);
@@ -2054,7 +2054,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto stat = ctx->c.newInt32();
             static_assert(sizeof(wo_result_t) == sizeof(int32_t));
             ctx->c.mov(stat, asmjit::Imm(wo_result_t::WO_API_NORMAL));
-            wo_asure(!ctx->c.ret(stat));
+            wo_assure(!ctx->c.ret(stat));
             return true;
         }
         virtual bool ir_jt(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -2065,8 +2065,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             if (jmp_place < rt_ip - ctx->env->rt_codes)
                 make_checkpoint(ctx->c, ctx->_vmbase, ctx->_vmssp, ctx->_vmsbp, check_point_ipaddr);
 
-            wo_asure(!ctx->c.cmp(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, handle)), 0));
-            wo_asure(!ctx->c.jne(jump_ip(&ctx->c, jmp_place)));
+            wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, handle)), 0));
+            wo_assure(!ctx->c.jne(jump_ip(&ctx->c, jmp_place)));
             return true;
         }
         virtual bool ir_jf(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -2077,8 +2077,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             if (jmp_place < rt_ip - ctx->env->rt_codes)
                 make_checkpoint(ctx->c, ctx->_vmbase, ctx->_vmssp, ctx->_vmsbp, check_point_ipaddr);
 
-            wo_asure(!ctx->c.cmp(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, handle)), 0));
-            wo_asure(!ctx->c.je(jump_ip(&ctx->c, jmp_place)));
+            wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, handle)), 0));
+            wo_assure(!ctx->c.je(jump_ip(&ctx->c, jmp_place)));
             return true;
         }
         virtual bool ir_jmp(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -2089,7 +2089,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             if (jmp_place < rt_ip - ctx->env->rt_codes)
                 make_checkpoint(ctx->c, ctx->_vmbase, ctx->_vmssp, ctx->_vmsbp, check_point_ipaddr);
 
-            wo_asure(!ctx->c.jmp(jump_ip(&ctx->c, jmp_place)));
+            wo_assure(!ctx->c.jmp(jump_ip(&ctx->c, jmp_place)));
             return true;
         }
         virtual bool ir_mkunion(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -2102,7 +2102,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto op2 = opnum2.gp_value();
 
             asmjit::InvokeNode* invoke_node;
-            wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::make_union_impl,
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::make_union_impl,
                 asmjit::FuncSignatureT<wo::value*, wo::value*, wo::value*, uint16_t>()));
 
             invoke_node->setArg(0, op1);
@@ -2122,7 +2122,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto err = ctx->c.newIntPtr();
 
             asmjit::InvokeNode* invoke_node;
-            wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::movcast_impl,
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::movcast_impl,
                 asmjit::FuncSignatureT<const char*, wo::value*, wo::value*, uint8_t>()));
 
             static_assert(sizeof(uint8_t) == sizeof(value::valuetype));
@@ -2133,20 +2133,20 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             invoke_node->setRet(0, err);
 
             auto noerror_label = ctx->c.newLabel();
-            wo_asure(!ctx->c.cmp(err, asmjit::Imm(0)));
-            wo_asure(!ctx->c.je(noerror_label));
+            wo_assure(!ctx->c.cmp(err, asmjit::Imm(0)));
+            wo_assure(!ctx->c.je(noerror_label));
 
             x86_do_fail(ctx->c, ctx->_vmbase,
                 WO_FAIL_TYPE_FAIL, err,
                 rt_ip, ctx->_vmssp, ctx->_vmsbp);
 
-            wo_asure(!ctx->c.bind(noerror_label));
+            wo_assure(!ctx->c.bind(noerror_label));
             return true;
         }
         virtual bool ir_mkclos(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
             asmjit::InvokeNode* invoke_node;
-            wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::make_closure_fast_impl,
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::make_closure_fast_impl,
                 asmjit::FuncSignatureT<value*, value*, const byte_t*, value*>()));
 
             invoke_node->setArg(0, ctx->_vmcr);
@@ -2164,21 +2164,21 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
             auto typeas_failed = ctx->c.newLabel();
             auto typeas_end = ctx->c.newLabel();
-            wo_asure(!ctx->c.cmp(
+            wo_assure(!ctx->c.cmp(
                 asmjit::x86::byte_ptr(opnum1.gp_value(), offsetof(value, type)),
                 (uint8_t)type));
-            wo_asure(!ctx->c.jne(typeas_failed));
+            wo_assure(!ctx->c.jne(typeas_failed));
             if (dr & 0b01)
             {
-                wo_asure(!ctx->c.mov(
+                wo_assure(!ctx->c.mov(
                     asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)),
                     1));
             }
-            wo_asure(!ctx->c.jmp(typeas_end));
-            wo_asure(!ctx->c.bind(typeas_failed));
+            wo_assure(!ctx->c.jmp(typeas_end));
+            wo_assure(!ctx->c.bind(typeas_failed));
             if (dr & 0b01)
             {
-                wo_asure(!ctx->c.mov(
+                wo_assure(!ctx->c.mov(
                     asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)),
                     0));
             }
@@ -2188,10 +2188,10 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                     WO_FAIL_TYPE_FAIL, asmjit::Imm((intptr_t)"The given value is not the same as the requested type."),
                     rt_ip, ctx->_vmssp, ctx->_vmsbp);
             }
-            wo_asure(!ctx->c.bind(typeas_end));
+            wo_assure(!ctx->c.bind(typeas_end));
             if (dr & 0b01)
             {
-                wo_asure(!ctx->c.mov(
+                wo_assure(!ctx->c.mov(
                     asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)),
                     (uint8_t)value::valuetype::bool_type));
             }
@@ -2205,7 +2205,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto op1 = opnum1.gp_value();
 
             asmjit::InvokeNode* invoke_node;
-            wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::make_struct_impl,
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::make_struct_impl,
                 asmjit::FuncSignatureT< wo::value*, wo::value*, uint16_t, wo::value*>()));
 
             invoke_node->setArg(0, op1);
@@ -2221,7 +2221,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             else
             {
                 asmjit::InvokeNode* invoke_node;
-                wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_abrt,
+                wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_abrt,
                     asmjit::FuncSignatureT< void, const char*>()));
                 invoke_node->setArg(0, (intptr_t)"executed 'abrt'.");
             }
@@ -2237,7 +2237,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto err = ctx->c.newIntPtr();
 
             asmjit::InvokeNode* invoke_node;
-            wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_idarr,
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_idarr,
                 asmjit::FuncSignatureT<const char*, wo::value*, wo::value*, wo::value*>()));
 
             invoke_node->setArg(0, ctx->_vmcr);
@@ -2246,14 +2246,14 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             invoke_node->setRet(0, err);
 
             auto noerror_label = ctx->c.newLabel();
-            wo_asure(!ctx->c.cmp(err, asmjit::Imm(0)));
-            wo_asure(!ctx->c.je(noerror_label));
+            wo_assure(!ctx->c.cmp(err, asmjit::Imm(0)));
+            wo_assure(!ctx->c.je(noerror_label));
 
             x86_do_fail(ctx->c, ctx->_vmbase,
                 WO_FAIL_INDEX_FAIL, err,
                 rt_ip, ctx->_vmssp, ctx->_vmsbp);
 
-            wo_asure(!ctx->c.bind(noerror_label));
+            wo_assure(!ctx->c.bind(noerror_label));
             return true;
         }
         virtual bool ir_iddict(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -2266,7 +2266,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto err = ctx->c.newIntPtr();
 
             asmjit::InvokeNode* invoke_node;
-            wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_iddict,
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_iddict,
                 asmjit::FuncSignatureT<const char*, wo::value*, wo::value*, wo::value*>()));
 
             invoke_node->setArg(0, ctx->_vmcr);
@@ -2275,14 +2275,14 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             invoke_node->setRet(0, err);
 
             auto noerror_label = ctx->c.newLabel();
-            wo_asure(!ctx->c.cmp(err, asmjit::Imm(0)));
-            wo_asure(!ctx->c.je(noerror_label));
+            wo_assure(!ctx->c.cmp(err, asmjit::Imm(0)));
+            wo_assure(!ctx->c.je(noerror_label));
 
             x86_do_fail(ctx->c, ctx->_vmbase,
                 WO_FAIL_INDEX_FAIL, err,
                 rt_ip, ctx->_vmssp, ctx->_vmsbp);
 
-            wo_asure(!ctx->c.bind(noerror_label));
+            wo_assure(!ctx->c.bind(noerror_label));
             return true;
         }
         virtual bool ir_mkarr(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -2293,7 +2293,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto op1 = opnum1.gp_value();
 
             asmjit::InvokeNode* invoke_node;
-            wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::make_array_impl,
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::make_array_impl,
                 asmjit::FuncSignatureT< wo::value*, wo::value*, uint16_t, wo::value*>()));
 
             invoke_node->setArg(0, op1);
@@ -2310,7 +2310,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto op1 = opnum1.gp_value();
 
             asmjit::InvokeNode* invoke_node;
-            wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::make_map_impl,
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::make_map_impl,
                 asmjit::FuncSignatureT< wo::value*, wo::value*, uint16_t, wo::value*>()));
 
             invoke_node->setArg(0, op1);
@@ -2328,7 +2328,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto op2 = opnum2.gp_value();
 
             asmjit::InvokeNode* invoke_node;
-            wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_idstr,
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_idstr,
                 asmjit::FuncSignatureT< void, wo::value*, wo::value*, wo::value*>()));
 
             invoke_node->setArg(0, ctx->_vmcr);
@@ -2347,17 +2347,17 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto x86_cmp_end = ctx->c.newLabel();
 
             auto real_of_op1 = ctx->c.newXmm();
-            wo_asure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, real))));
-            wo_asure(!ctx->c.comisd(real_of_op1, asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, real))));
+            wo_assure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, real))));
+            wo_assure(!ctx->c.comisd(real_of_op1, asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, real))));
 
-            wo_asure(!ctx->c.jp(x86_cmp_fail));
-            wo_asure(!ctx->c.jne(x86_cmp_fail));
+            wo_assure(!ctx->c.jp(x86_cmp_fail));
+            wo_assure(!ctx->c.jne(x86_cmp_fail));
 
-            wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 1));
-            wo_asure(!ctx->c.jmp(x86_cmp_end));
-            wo_asure(!ctx->c.bind(x86_cmp_fail));
-            wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
-            wo_asure(!ctx->c.bind(x86_cmp_end));
+            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 1));
+            wo_assure(!ctx->c.jmp(x86_cmp_end));
+            wo_assure(!ctx->c.bind(x86_cmp_fail));
+            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
+            wo_assure(!ctx->c.bind(x86_cmp_end));
 
             ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
 
@@ -2374,17 +2374,17 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto x86_cmp_end = ctx->c.newLabel();
 
             auto real_of_op1 = ctx->c.newXmm();
-            wo_asure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, real))));
-            wo_asure(!ctx->c.comisd(real_of_op1, asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, real))));
+            wo_assure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, real))));
+            wo_assure(!ctx->c.comisd(real_of_op1, asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, real))));
 
-            wo_asure(!ctx->c.jp(x86_cmp_fail));
-            wo_asure(!ctx->c.je(x86_cmp_fail));
+            wo_assure(!ctx->c.jp(x86_cmp_fail));
+            wo_assure(!ctx->c.je(x86_cmp_fail));
 
-            wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 1));
-            wo_asure(!ctx->c.jmp(x86_cmp_end));
-            wo_asure(!ctx->c.bind(x86_cmp_fail));
-            wo_asure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
-            wo_asure(!ctx->c.bind(x86_cmp_end));
+            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 1));
+            wo_assure(!ctx->c.jmp(x86_cmp_end));
+            wo_assure(!ctx->c.bind(x86_cmp_fail));
+            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), 0));
+            wo_assure(!ctx->c.bind(x86_cmp_end));
 
             ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
 
@@ -2399,7 +2399,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto op2 = opnum2.gp_value();
 
             asmjit::InvokeNode* invoke_node;
-            wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_equs,
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_equs,
                 asmjit::FuncSignatureT<void, wo::value*, wo::value*, wo::value*>()));
 
             invoke_node->setArg(0, ctx->_vmcr);
@@ -2416,7 +2416,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto op2 = opnum2.gp_value();
 
             asmjit::InvokeNode* invoke_node;
-            wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_nequs,
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_nequs,
                 asmjit::FuncSignatureT<void, wo::value*, wo::value*, wo::value*>()));
 
             invoke_node->setArg(0, ctx->_vmcr);
@@ -2436,7 +2436,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto err = ctx->c.newIntPtr();
 
             asmjit::InvokeNode* invoke_node;
-            wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_siddict,
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_siddict,
                 asmjit::FuncSignatureT<const char*, wo::value*, wo::value*, wo::value*>()));
 
             invoke_node->setArg(0, op1);
@@ -2445,14 +2445,14 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             invoke_node->setRet(0, err);
 
             auto noerror_label = ctx->c.newLabel();
-            wo_asure(!ctx->c.cmp(err, asmjit::Imm(0)));
-            wo_asure(!ctx->c.je(noerror_label));
+            wo_assure(!ctx->c.cmp(err, asmjit::Imm(0)));
+            wo_assure(!ctx->c.je(noerror_label));
 
             x86_do_fail(ctx->c, ctx->_vmbase,
                 WO_FAIL_INDEX_FAIL, err,
                 rt_ip, ctx->_vmssp, ctx->_vmsbp);
 
-            wo_asure(!ctx->c.bind(noerror_label));
+            wo_assure(!ctx->c.bind(noerror_label));
             return true;
         }
         virtual bool ir_jnequb(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -2466,15 +2466,15 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                 make_checkpoint(ctx->c, ctx->_vmbase, ctx->_vmssp, ctx->_vmsbp, check_point_ipaddr);
 
             if (opnum1.is_constant())
-                wo_asure(!ctx->c.cmp(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), opnum1.const_value()->integer));
+                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), opnum1.const_value()->integer));
             else
             {
                 auto bvalue = ctx->c.newInt64();
-                wo_asure(!ctx->c.mov(bvalue, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
-                wo_asure(!ctx->c.cmp(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), bvalue));
+                wo_assure(!ctx->c.mov(bvalue, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
+                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), bvalue));
             }
 
-            wo_asure(!ctx->c.jne(jump_ip(&ctx->c, jmp_place)));
+            wo_assure(!ctx->c.jne(jump_ip(&ctx->c, jmp_place)));
             return true;
         }
         virtual bool ir_idstruct(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -2487,7 +2487,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto op2 = opnum2.gp_value();
 
             asmjit::InvokeNode* invoke_node;
-            wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_idstruct,
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_idstruct,
                 asmjit::FuncSignatureT< void, wo::value*, wo::value*, uint16_t>()));
 
             invoke_node->setArg(0, op1);
@@ -2501,7 +2501,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto op1 = opnum1.gp_value();
 
             asmjit::InvokeNode* invoke_node;
-            wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_panic,
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_panic,
                 asmjit::FuncSignatureT<void, wo::value*>()));
 
             invoke_node->setArg(0, op1);
@@ -2519,7 +2519,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto op2 = opnum2.gp_value();
 
             asmjit::InvokeNode* invoke_node;
-            wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::packargs_impl,
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::packargs_impl,
                 asmjit::FuncSignatureT<void, wo::value*, wo::value*, wo::value*, wo::value*, uint16_t>()));
 
             invoke_node->setArg(0, op1);
@@ -2539,7 +2539,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto op2 = opnum2.gp_value();
 
             asmjit::InvokeNode* invoke_node;
-            wo_asure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::unpackargs_impl,
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::unpackargs_impl,
                 asmjit::FuncSignatureT<wo::value*, vmbase*, value*, value*, value*, const byte_t*, value*, value*>()));
 
             invoke_node->setArg(0, ctx->_vmbase);

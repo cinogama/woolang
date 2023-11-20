@@ -146,10 +146,10 @@ namespace wo
 
     // NOTE: Remember to free!
     template<bool width = true>
-    inline auto _open_virtual_file_stream(
+    inline auto open_virtual_file_stream(
         const std::wstring& fullfilepath, 
         bool is_virtual_file
-    )-> std::optional<typename stream_types<width>::stream*>
+    )-> std::optional<std::unique_ptr<typename stream_types<width>::stream>>
     {
         using fstream_t = typename stream_types<width>::ifile_stream;
         using sstream_t = typename stream_types<width>::istring_stream;
@@ -170,7 +170,7 @@ namespace wo
                         fnd->second.has_width_data = true;
                         fnd->second.wdata = str_to_wstr(fnd->second.data);
                     }
-                    return std::make_optional(new sstream_t(fnd->second.wdata));
+                    return std::make_optional(std::make_unique<sstream_t>(fnd->second.wdata));
                 }
             }
             else
@@ -178,7 +178,7 @@ namespace wo
                 std::shared_lock g1(vfile_list_guard);
                 auto fnd = vfile_list.find(fullfilepath);
                 if (fnd != vfile_list.end())
-                    return std::make_optional(new sstream_t(fnd->second.data));
+                    return std::make_optional(std::make_unique<sstream_t>(fnd->second.data));
             }
         }
         else
@@ -186,14 +186,14 @@ namespace wo
             // 5) Read file from default path
             do
             {
-                fstream_t* src_1 = new fstream_t(
+                auto src_1 = std::make_unique<fstream_t>(
                     wstr_to_str(fullfilepath),
                     std::ios_base::in | std::ios_base::binary);
 
                 src_1->imbue(wo_global_locale);
 
                 if (src_1->is_open())
-                    return std::make_optional(src_1);
+                    return std::make_optional(std::move(src_1));
 
             } while (0);
         }
@@ -207,7 +207,7 @@ namespace wo
         const std::wstring& fullfilepath,
         bool is_virtual_file)
     {
-        auto stream_may_null = _open_virtual_file_stream<width>(
+        auto stream_may_null = open_virtual_file_stream<width>(
             fullfilepath, is_virtual_file);
 
         if (stream_may_null)
@@ -219,7 +219,6 @@ namespace wo
             out_filecontent->resize(len, 0);
             stream->read(out_filecontent->data(), len);
 
-            delete stream;
             return true;
         }
         return false;

@@ -625,27 +625,27 @@ namespace wo
             }
             else
             {
+                auto* func_return_type = located_function_scope->function_node->value_type->get_return_type();
                 if (located_function_scope->function_node->auto_adjust_return_type)
                 {
                     if (located_function_scope->function_node->value_type->is_pending())
                     {
-                        located_function_scope->function_node->value_type->get_return_type()
-                            ->set_type_with_name(WO_PSTR(void));
+                        func_return_type->set_type_with_name(WO_PSTR(void));
                         located_function_scope->function_node->auto_adjust_return_type = false;
                     }
                     else
                     {
                         lang_anylizer->lang_error(lexer::errorlevel::error, a_ret,
                             WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME,
-                            L"void", located_function_scope->function_node->value_type->type_name->c_str());
+                            L"void", func_return_type->get_type_name(false, false).c_str());
                     }
                 }
                 else
                 {
-                    if (!located_function_scope->function_node->value_type->get_return_type()->is_void())
+                    if (!func_return_type->is_void())
                         lang_anylizer->lang_error(lexer::errorlevel::error, a_ret,
                             WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME,
-                            L"void", located_function_scope->function_node->value_type->type_name->c_str());
+                            L"void", func_return_type->get_type_name(false, false).c_str());
                 }
             }
         }
@@ -1041,26 +1041,27 @@ namespace wo
             }
             else
             {
+                auto* func_return_type = a_ret->located_function->value_type->get_return_type();
                 if (a_ret->located_function->auto_adjust_return_type)
                 {
                     if (a_ret->located_function->value_type->is_pending())
                     {
-                        a_ret->located_function->value_type->get_return_type()->set_type_with_name(WO_PSTR(void));
+                        func_return_type->set_type_with_name(WO_PSTR(void));
                         a_ret->located_function->auto_adjust_return_type = false;
                     }
                     else
                     {
                         lang_anylizer->lang_error(lexer::errorlevel::error, a_ret,
                             WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME,
-                            L"void", a_ret->located_function->value_type->type_name->c_str());
+                            L"void", func_return_type->get_type_name(false, false).c_str());
                     }
                 }
                 else
                 {
-                    if (!a_ret->located_function->value_type->get_return_type()->is_void())
+                    if (!func_return_type->is_void())
                         lang_anylizer->lang_error(lexer::errorlevel::error, a_ret,
                             WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME,
-                            L"void", a_ret->located_function->value_type->type_name->c_str());
+                            L"void", func_return_type->get_type_name(false, false).c_str());
                 }
             }
         }
@@ -1387,7 +1388,7 @@ namespace wo
         {
             if (a_value_funcdef->is_template_reification)
             {
-                wo_asure(begin_template_scope(a_value_funcdef,
+                wo_assure(begin_template_scope(a_value_funcdef,
                     a_value_funcdef->template_type_name_list,
                     a_value_funcdef->this_reification_template_args));
             }
@@ -4110,7 +4111,7 @@ namespace wo
     {
         std::unordered_set<ast::ast_type*> us;
         wo_assert(type != nullptr);
-        wo_asure(!fully_update_type(type, in_pass_1, template_types, us));
+        wo_assure(!fully_update_type(type, in_pass_1, template_types, us));
         wo_assert(type->using_type_name == nullptr || (type->is_mutable() == type->using_type_name->is_mutable()));
     }
 
