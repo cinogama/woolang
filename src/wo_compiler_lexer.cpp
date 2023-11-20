@@ -17,9 +17,9 @@ namespace wo
         , format_string_count(0)
         , curly_count(0)
         , source_file(
-            wstring_pool::_m_this_thread_pool == nullptr 
-            ? nullptr
-            : wstring_pool::get_pstr(str_to_wstr(_source_file)))
+            wstring_pool::_m_this_thread_pool != nullptr 
+            ? wstring_pool::get_pstr(str_to_wstr(_source_file))
+            : nullptr)
         , used_macro_list(nullptr)
     {
         if (stream)
@@ -73,6 +73,8 @@ namespace wo
     int lexer::peek_ch()
     {
         wchar_t ch;
+        auto index = reading_buffer->tellg();
+
         reading_buffer->read(&ch, 1);
         if (reading_buffer->eof() || !*reading_buffer)
         {
@@ -80,7 +82,7 @@ namespace wo
             return EOF;
         }
 
-        reading_buffer->seekg(-1, std::ios_base::cur);
+        reading_buffer->seekg(index);
         return (int)ch;
     }
     int lexer::next_ch()

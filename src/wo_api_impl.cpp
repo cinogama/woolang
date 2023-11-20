@@ -2434,11 +2434,12 @@ std::wstring _dump_src_info(const std::string& path, size_t beginaimrow, size_t 
                     if (from <= current_row_no && current_row_no <= to)
                         print_src_file_print_lineno();
 
+                    auto index = content_stream_ptr->tellg();
                     content_stream_ptr->read(&ch, 1);
-                    if (content_stream_ptr->eof() || ch != L'\n')
+                    if (content_stream_ptr->eof() || !*content_stream_ptr || ch != L'\n')
                     {
                         content_stream_ptr->clear(content_stream_ptr->rdstate() & ~std::ios_base::failbit);
-                        content_stream_ptr->seekg(-1, std::ios_base::cur);
+                        content_stream_ptr->seekg(index);
                     }
                     continue;
                 }
