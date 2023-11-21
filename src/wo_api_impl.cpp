@@ -76,8 +76,6 @@ wo::vmpool* global_vm_pool = nullptr;
 std::mutex loaded_named_libs_mx;
 std::unordered_map<std::string, std::vector<loaded_lib_info>> loaded_named_libs;
 
-wo_vm global_pin_vm = nullptr;
-
 void _default_fail_handler(wo_vm vm, wo_string_t src_file, uint32_t lineno, wo_string_t functionname, uint32_t rterrcode, wo_string_t reason)
 {
     auto* cur_thread_vm = std::launder(reinterpret_cast<wo::vmbase*>(vm));
@@ -255,10 +253,6 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
         global_vm_pool = nullptr;
     }
 
-    // Close global pin vm;
-    wo_close_vm(global_pin_vm);
-    global_pin_vm = nullptr;
-
     time_t non_close_vm_last_warning_time = 0;
     size_t non_close_vm_last_warning_vm_count = 0;
     do
@@ -407,9 +401,6 @@ void wo_init(int argc, char** argv)
 
     if (enable_ctrl_c_to_debug)
         wo_handle_ctrl_c(_wo_ctrl_c_signal_handler);
-
-    wo_assert(global_pin_vm == nullptr);
-    global_pin_vm = wo_create_vm();
 
     wo_assure(wo::get_wo_grammar()); // Create grammar when init.
 }
@@ -3583,18 +3574,4 @@ wo_bool_t wo_execute(wo_string_t src, wo_execute_callback_ft callback, void* dat
     wo_close_vm(_vm);
 
     return is_succ;
-}
-
-wo_vm wo_pin_vm(void)
-{
-    wo_assert(global_pin_vm != nullptr);
-    return global_pin_vm;
-}
-wo_value wo_pin_value(void)
-{
-    return CS_VAL(wo::gc::gc_pin_value());
-}
-void wo_unpin_value(wo_value pinval)
-{
-    wo::gc::gc_unpin_value(WO_VAL(pinval));
 }
