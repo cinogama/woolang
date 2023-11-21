@@ -39,9 +39,6 @@ namespace wo
         bool _gc_stopping_world_gc = WO_GC_FORCE_STOP_WORLD;
         bool _gc_advise_to_full_gc = WO_GC_FORCE_FULL_GC;
 
-        std::mutex _gc_pined_values_mx;
-        std::unordered_set<value*> _gc_pined_values;
-
         bool gc_is_marking()
         {
             return _gc_is_marking.load();
@@ -317,8 +314,6 @@ namespace wo
 
         bool _gc_work_list(bool stopworld, bool fullgc)
         {
-            std::lock_guard g1(_gc_pined_values_mx);
-
 #ifdef WO_PLATRORM_OS_WINDOWS
             SetThreadDescription(GetCurrentThread(), L"wo_gc_main");
 #endif
@@ -428,18 +423,10 @@ namespace wo
                 // 3. Start GC Worker for first marking
                 _gc_mark_thread_groups::instancce().launch_round_of_mark();
 
-                // 4. Mark all pin-value
-                for (auto* pin_value : _gc_pined_values)
-                {
-                    gcbase::unit_attrib* attr;
-                    if (gcbase* gcunit_address = pin_value->get_gcunit_with_barrier(&attr))
-                        gc_mark_unit_as_gray(&mem_gray_list, gcunit_address, attr);
-                }
-
-                // 5. Wake up all hanged vm.
+                // 4. Wake up all hanged vm.
                 if (!stopworld)
                 {
-                    // 6. Wait until all self-marking vm work finished
+                    // 5. Wait until all self-marking vm work finished
                     for (auto* vmimpl : self_marking_vmlist)
                     {
                         auto self_mark_gc_state = vmimpl->wait_interrupt(vmbase::GC_INTERRUPT);
@@ -485,7 +472,7 @@ namespace wo
                         } while (wait_result == vmbase::interrupt_wait_result::TIMEOUT);
                     }
 
-                    // 7. Merge gray lists.
+                    // 6. Merge gray lists.
                     size_t worker_id_counter = 0;
                     for (auto& [_vm, gray_list] : _gc_vm_gray_unit_lists)
                     {
@@ -496,7 +483,7 @@ namespace wo
 
             } while (0);
 
-            // 8. OK, Continue mark gray to black
+            // 7. OK, Continue mark gray to black
             _gc_mark_thread_groups::instancce().launch_round_of_mark();
 
             // Marking finished.
@@ -513,7 +500,7 @@ namespace wo
             //          this unit should have entered the memory set, it's safe to skip.
             _gc_is_marking = false;
 
-            // 8.1 Collect gray units in memo set.
+            // 8. Collect gray units in memo set.
             auto* memo_units = m_memo_mark_gray_list.pick_all();
             while (memo_units)
             {
@@ -739,24 +726,6 @@ namespace wo
 
             if (curvm && need_re_entry)
                 wo_enter_gcguard(curvm);
-        }
-
-        value* gc_pin_value()
-        {
-            auto* pined_value = new value{};
-
-            std::lock_guard g1(_gc_pined_values_mx);
-            _gc_pined_values.insert(pined_value);
-            return pined_value;
-        }
-
-        void gc_unpin_value(value* pinvalue)
-        {
-            std::lock_guard g1(_gc_pined_values_mx);
-            wo_assert(_gc_pined_values.find(pinvalue) != _gc_pined_values.end());
-            _gc_pined_values.erase(pinvalue);
-
-            delete pinvalue;
         }
     } // END NAME SPACE gc
 
