@@ -255,14 +255,31 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
         global_vm_pool = nullptr;
     }
 
+    // Close global pin vm;
+    wo_close_vm(global_pin_vm);
+    global_pin_vm = nullptr;
+
     do
     {
         do
         {
             std::lock_guard g1(wo::vmbase::_alive_vm_list_mx);
 
+            size_t not_close_vm_count = 0;
             for (auto& alive_vms : wo::vmbase::_alive_vm_list)
+            {
+                if (alive_vms->virtual_machine_type == wo::vmbase::vm_type::NORMAL)
+                    not_close_vm_count++;
+
                 alive_vms->interrupt(wo::vmbase::ABORT_INTERRUPT);
+            }
+
+            if (not_close_vm_count != 0)
+            {
+                wo_warning((std::to_string(not_close_vm_count)
+                    + " vm(s) have not been closed, please check.").c_str());
+            }
+
         } while (false);
 
         using namespace std;
@@ -275,9 +292,6 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
             break;
 
     } while (true);
-
-    wo_close_vm(global_pin_vm);
-    global_pin_vm = nullptr;
 
     wo_gc_stop();
 
