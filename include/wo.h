@@ -434,6 +434,7 @@ WO_API wo_bool_t    wo_map_get_or_set_default(wo_value out_val, wo_value map, wo
 WO_API wo_bool_t    wo_map_remove(wo_value map, wo_value index);
 WO_API void         wo_map_clear(wo_value map);
 
+WO_API wo_vm        wo_pin_vm(void);
 WO_API wo_value     wo_pin_value(void);
 WO_API void         wo_unpin_value(wo_value pinval);
 
