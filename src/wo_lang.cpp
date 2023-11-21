@@ -2555,7 +2555,8 @@ namespace wo
             else
             {
                 lang_anylizer->lang_error(lexer::errorlevel::error, a_value_var, WO_ERR_UNKNOWN_IDENTIFIER,
-                    a_value_var->var_name->c_str());
+                    a_value_var->get_full_variable_name().c_str());
+
                 auto fuzz_symbol = find_symbol_in_this_scope(
                     a_value_var, a_value_var->var_name,
                     lang_symbol::symbol_type::variable | lang_symbol::symbol_type::function, true);

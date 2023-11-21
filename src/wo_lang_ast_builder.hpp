@@ -455,6 +455,17 @@ namespace wo
             bool directed_function_call = false;
             bool is_auto_judge_function_overload = false;
 
+            std::wstring get_full_variable_name()
+            {
+                if (scope_namespaces.empty())
+                    return *var_name;
+
+                std::wstring fullname;
+                for (auto* n : scope_namespaces)
+                    fullname += *n;
+                return fullname + L"::" + *var_name;
+            }
+
             ast_value_variable(wo_pstring_t _var_name, ast_type* type = new ast_type(WO_PSTR(pending)))
                 : ast_value(type)
             {
