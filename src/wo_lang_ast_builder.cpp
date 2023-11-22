@@ -22,7 +22,7 @@ namespace wo
         {
             return get_belong_namespace_path_with_lang_scope(searching_begin_namespace_in_pass2);
         }
-        grammar::ast_base* ast_symbolable_base::instance(ast_base* child_instance) const
+        ast::ast_base* ast_symbolable_base::instance(ast_base* child_instance) const
         {
             using astnode_type = decltype(MAKE_INSTANCE(this));
             auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -662,7 +662,7 @@ namespace wo
             if (using_type_name && using_type_name->is_mutable() != is_mutable)
                 using_type_name->is_mutable_type = is_mutable;
         }
-        grammar::ast_base* ast_type::instance_impl(ast_base* child_instance, bool clone_raw_struct_member) const
+        ast::ast_base* ast_type::instance_impl(ast_base* child_instance, bool clone_raw_struct_member) const
         {
             using astnode_type = decltype(MAKE_INSTANCE(this));
             auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this, WO_PSTR(pending));
@@ -698,7 +698,7 @@ namespace wo
             WO_REINSTANCE(dumm->using_type_name);
             return dumm;
         }
-        grammar::ast_base* ast_type::instance(ast_base* child_instance) const
+        ast::ast_base* ast_type::instance(ast_base* child_instance) const
         {
             return instance_impl(child_instance, true);
         }
@@ -727,7 +727,7 @@ namespace wo
         {
             wo_error("ast_value cannot update_constant_value.");
         }
-        grammar::ast_base* ast_value::instance(ast_base* child_instance) const
+        ast::ast_base* ast_value::instance(ast_base* child_instance) const
         {
             wo_assert(child_instance != nullptr);
             // ast_value is abstract class, will not make instance here.
@@ -898,7 +898,7 @@ namespace wo
                 value_type->set_type_with_constant_value(constant_value);
         }
 
-        grammar::ast_base* ast_value_literal::instance(ast_base* child_instance) const
+        ast::ast_base* ast_value_literal::instance(ast_base* child_instance) const
         {
             using astnode_type = decltype(MAKE_INSTANCE(this));
             auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -921,7 +921,7 @@ namespace wo
         ast_value_type_cast::ast_value_type_cast() :ast_value(new ast_type(WO_PSTR(pending)))
         {
         }
-        grammar::ast_base* ast_value_type_cast::instance(ast_base* child_instance) const
+        ast::ast_base* ast_value_type_cast::instance(ast_base* child_instance) const
         {
             using astnode_type = decltype(MAKE_INSTANCE(this));
             auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -994,7 +994,7 @@ namespace wo
             value_type = type;
         }
         ast_value_type_judge::ast_value_type_judge() : ast_value(new ast_type(WO_PSTR(pending))) {}
-        grammar::ast_base* ast_value_type_judge::instance(ast_base* child_instance) const
+        ast::ast_base* ast_value_type_judge::instance(ast_base* child_instance) const
         {
             using astnode_type = decltype(MAKE_INSTANCE(this));
             auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -1072,7 +1072,7 @@ namespace wo
         {
             return attributes.find(+lex_type::l_extern) != attributes.end();
         }
-        grammar::ast_base* ast_decl_attribute::instance(ast_base* child_instance) const
+        ast::ast_base* ast_decl_attribute::instance(ast_base* child_instance) const
         {
             using astnode_type = decltype(MAKE_INSTANCE(this));
             auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -1091,7 +1091,7 @@ namespace wo
         {
         }
 
-        grammar::ast_base* ast_value_binary::instance(ast_base* child_instance) const
+        ast::ast_base* ast_value_binary::instance(ast_base* child_instance) const
         {
             using astnode_type = decltype(MAKE_INSTANCE(this));
             auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -1267,6 +1267,7 @@ namespace wo
                     if (!lex.has_been_imported(wo::crc_64(*srcfile_stream.value(), 0)))
                     {
                         lexer new_lex(std::move(srcfile_stream), wstr_to_str(src_full_path));
+
                         new_lex.imported_file_list = lex.imported_file_list;
                         new_lex.imported_file_crc64_list = lex.imported_file_crc64_list;
                         new_lex.used_macro_list = lex.used_macro_list;
@@ -1274,7 +1275,6 @@ namespace wo
                         auto* imported_ast = wo::get_wo_grammar()->gen(new_lex);
 
                         lex.used_macro_list = new_lex.used_macro_list;
-
                         lex.lex_error_list.insert(lex.lex_error_list.end(),
                             new_lex.lex_error_list.begin(),
                             new_lex.lex_error_list.end());
@@ -1284,11 +1284,14 @@ namespace wo
 
                         if (imported_ast)
                         {
-                            imported_ast->add_child(new ast_nop); // nop for debug info gen, avoid ip/cr confl..
-                            return (ast_basic*)imported_ast;
+                            // NOTE: Generate an `nop` for debug info gen, avoid ip/cr conflict
+                            imported_ast->add_child(new ast_nop);
+                            lex.append_import_file_ast((ast_basic*)imported_ast);
                         }
-
-                        return token{ +lex_type::l_error };
+                        else
+                        {
+                            return token{ +lex_type::l_error };
+                        }
                     }
                 }
                 else
@@ -1949,7 +1952,7 @@ namespace wo
                 ast_func->in_function_sentence = template_const_list;
 
             // if ast_func->in_function_sentence == nullptr it means this function have no sentences...
-            return (grammar::ast_base*)ast_func;
+            return (ast::ast_base*)ast_func;
         }
 
 
@@ -2000,7 +2003,7 @@ namespace wo
         ast_value_logical_binary::ast_value_logical_binary() : ast_value(new ast_type(WO_PSTR(bool)))
         {
         }
-        grammar::ast_base* ast_value_logical_binary::instance(ast_base* child_instance) const
+        ast::ast_base* ast_value_logical_binary::instance(ast_base* child_instance) const
         {
             using astnode_type = decltype(MAKE_INSTANCE(this));
             auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);

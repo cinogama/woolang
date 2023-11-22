@@ -30,7 +30,7 @@ namespace wo
 #if 1
         struct astnode_builder
         {
-            using ast_basic = wo::grammar::ast_base;
+            using ast_basic = wo::ast::ast_base;
             using inputs_t = std::vector<grammar::produce>;
             using builder_func_t = std::function<grammar::produce(lexer&, inputs_t&)>;
 
@@ -80,7 +80,7 @@ namespace wo
         struct ast_type;
         ast_type* dude_dump_ast_type(ast_type*);
 
-        struct ast_symbolable_base : virtual grammar::ast_base
+        struct ast_symbolable_base : virtual ast::ast_base
         {
             std::vector<wo_pstring_t> scope_namespaces;
             bool search_from_global_namespace = false;
@@ -91,7 +91,7 @@ namespace wo
             lang_scope* searching_begin_namespace_in_pass2 = nullptr;
 
             std::string get_namespace_chain() const;
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override;
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override;
         };
 
         struct ast_type : virtual public ast_symbolable_base
@@ -209,11 +209,11 @@ namespace wo
             bool is_handle() const;
             bool is_gchandle() const;
             std::wstring get_type_name(bool ignore_using_type = true, bool ignore_mut = false) const;
-            grammar::ast_base* instance_impl(ast_base* child_instance, bool clone_raw_struct_member) const;
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override;
+            ast::ast_base* instance_impl(ast_base* child_instance, bool clone_raw_struct_member) const;
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override;
         };
 
-        struct ast_value : virtual public grammar::ast_base
+        struct ast_value : virtual public ast::ast_base
         {
             // this type of ast node is used for stand a value or product a value.
             // liter functioncall variable and so on will belong this type of node.
@@ -236,7 +236,7 @@ namespace wo
         public:
             virtual wo::value& get_constant_value();
             virtual void update_constant_value(lexer* lex);
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override;
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override;
         };
 
         struct ast_value_mutable : virtual public ast_value
@@ -263,7 +263,7 @@ namespace wo
                 }
             }
 
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -288,7 +288,7 @@ namespace wo
             {
                 // do nothing..
             }
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -309,7 +309,7 @@ namespace wo
             static wo_real_t wstr_to_real(const std::wstring& str);
             ast_value_literal();
             ast_value_literal(const token& te);
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override;
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override;
         };
 
         struct ast_value_typeid : virtual public ast_value
@@ -319,7 +319,7 @@ namespace wo
             {
 
             }
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -343,7 +343,7 @@ namespace wo
 
             ast_value_type_cast(ast_value* value, ast_type* target_type);
             ast_value_type_cast();
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override;
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override;
             void update_constant_value(lexer* lex) override;
         };
 
@@ -353,7 +353,7 @@ namespace wo
 
             ast_value_type_judge(ast_value* value, ast_type* type);
             ast_value_type_judge();
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override;
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override;
             void update_constant_value(lexer* lex) override;
         };
 
@@ -369,7 +369,7 @@ namespace wo
                 aim_type = type;
             }
             ast_value_type_check() : ast_value(new ast_type(WO_PSTR(bool))) {}
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -409,7 +409,7 @@ namespace wo
             }
         };
 
-        struct ast_decl_attribute : virtual public grammar::ast_base
+        struct ast_decl_attribute : virtual public ast::ast_base
         {
             std::set<lex_type> attributes;
             void varify_attributes(lexer* lex) const;
@@ -419,10 +419,10 @@ namespace wo
             bool is_protected_attr() const;
             bool is_public_attr() const;
             bool is_extern_attr() const;
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override;
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override;
         };
 
-        struct ast_defines : virtual public grammar::ast_base
+        struct ast_defines : virtual public ast::ast_base
         {
             ast_decl_attribute* declear_attribute = nullptr;
 
@@ -434,7 +434,7 @@ namespace wo
             std::vector<wo_pstring_t> template_type_name_list;
             std::map<std::vector<uint32_t>, ast_defines*> template_typehashs_reification_instance_list;
 
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -473,7 +473,7 @@ namespace wo
             }
             ast_value_variable(ast_type* type = new ast_type(WO_PSTR(pending)))
                 : ast_value(type) {}
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -491,9 +491,9 @@ namespace wo
             void update_constant_value(lexer* lex) override;
         };
 
-        struct ast_list : virtual public grammar::ast_base
+        struct ast_list : virtual public ast::ast_base
         {
-            void append_at_head(grammar::ast_base* astnode)
+            void append_at_head(ast::ast_base* astnode)
             {
                 // item LIST
                 if (children)
@@ -501,7 +501,7 @@ namespace wo
                     auto old_last = last;
                     auto old_child = children;
 
-                    remove_allnode();
+                    remove_all_childs();
                     add_child(astnode);
 
                     astnode->sibling = old_child;
@@ -517,13 +517,13 @@ namespace wo
                 else
                     add_child(astnode);
             }
-            void append_at_end(grammar::ast_base* astnode)
+            void append_at_end(ast::ast_base* astnode)
             {
                 // LIST item
                 add_child(astnode);
             }
 
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -614,19 +614,19 @@ namespace wo
             }
 
             ast_value_binary();
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override;
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override;
 
             static ast_type* binary_upper_type(ast_type* left_v, ast_type* right_v);
             static ast_type* binary_upper_type_with_operator(ast_type* left_v, ast_type* right_v, lex_type op);
             void update_constant_value(lexer* lex) override;
         };
 
-        struct ast_namespace : virtual public grammar::ast_base
+        struct ast_namespace : virtual public ast::ast_base
         {
             wo_pstring_t scope_name = nullptr;
             ast_list* in_scope_sentence = nullptr;
 
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -640,9 +640,9 @@ namespace wo
             }
         };
 
-        struct ast_pattern_base : virtual public grammar::ast_base
+        struct ast_pattern_base : virtual public ast::ast_base
         {
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -664,7 +664,7 @@ namespace wo
             };
             std::vector<varref_define> var_refs;
 
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -691,7 +691,7 @@ namespace wo
                 :  ast_value(type)
             {}
 
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -709,7 +709,7 @@ namespace wo
                 // do nothing
             }
         };
-        struct ast_extern_info : virtual public grammar::ast_base
+        struct ast_extern_info : virtual public ast::ast_base
         {
             wo_extern_native_func_t externed_func = nullptr;
 
@@ -718,7 +718,7 @@ namespace wo
             std::wstring load_from_lib;
             std::wstring symbol_name;
 
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -729,7 +729,7 @@ namespace wo
             }
         };
         struct ast_value_function_define;
-        struct ast_where_constraint : virtual public grammar::ast_base
+        struct ast_where_constraint : virtual public ast::ast_base
         {
             ast_list* where_constraint_list;
             ast_value_function_define* binded_func_define;
@@ -737,7 +737,7 @@ namespace wo
 
             std::vector<lexer::lex_error_msg> unmatched_constraint;
 
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -823,7 +823,7 @@ namespace wo
                 constant_value.set_handle((wo_handle_t)externed_func_info->externed_func);
                 return constant_value;
             };
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
 
@@ -849,7 +849,7 @@ namespace wo
             }
         };
 
-        struct ast_token : virtual grammar::ast_base
+        struct ast_token : virtual ast::ast_base
         {
             token tokens;
 
@@ -863,7 +863,7 @@ namespace wo
 
             }
 
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -875,12 +875,12 @@ namespace wo
             }
         };
 
-        struct ast_return : virtual public grammar::ast_base
+        struct ast_return : virtual public ast::ast_base
         {
             ast_value* return_value = nullptr;
             ast_value_function_define* located_function = nullptr;
 
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -910,7 +910,7 @@ namespace wo
 
             }
 
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -951,7 +951,7 @@ namespace wo
             }
 
             ast_value_array() :ast_value(new ast_type(WO_PSTR(pending))) {}
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -985,7 +985,7 @@ namespace wo
             }
 
             ast_value_mapping() : ast_value(new ast_type(WO_PSTR(pending))) {}
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -1004,7 +1004,7 @@ namespace wo
             }
         };
 
-        struct ast_sentence_block : virtual public grammar::ast_base
+        struct ast_sentence_block : virtual public ast::ast_base
         {
             ast_list* sentence_list;
 
@@ -1014,7 +1014,7 @@ namespace wo
                 wo_test(sentence_list);
             }
 
-            static ast_sentence_block* fast_parse_sentenceblock(grammar::ast_base* ast)
+            static ast_sentence_block* fast_parse_sentenceblock(ast::ast_base* ast)
             {
                 if (auto r = dynamic_cast<ast_sentence_block*>(ast))
                     return r;
@@ -1043,7 +1043,7 @@ namespace wo
             }
 
             ast_sentence_block() {}
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -1057,7 +1057,7 @@ namespace wo
             }
         };
 
-        struct ast_if : virtual public grammar::ast_base
+        struct ast_if : virtual public ast::ast_base
         {
             ast_value* judgement_value;
             ast_base* execute_if_true;
@@ -1072,7 +1072,7 @@ namespace wo
             }
 
             ast_if() {}
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -1088,7 +1088,7 @@ namespace wo
             }
         };
 
-        struct ast_while : virtual public grammar::ast_base
+        struct ast_while : virtual public ast::ast_base
         {
             ast_value* judgement_value;
             ast_base* execute_sentence;
@@ -1100,7 +1100,7 @@ namespace wo
             }
 
             ast_while() {}
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -1128,7 +1128,7 @@ namespace wo
             {
             }
 
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -1158,7 +1158,7 @@ namespace wo
             ast_value_funccall* overrided_operation_call = nullptr;
 
             ast_value_logical_binary();
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override;
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override;
             void update_constant_value(lexer* lex) override;
         };
 
@@ -1173,7 +1173,7 @@ namespace wo
             {
             }
 
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -1232,7 +1232,7 @@ namespace wo
                 value_type->template_arguments.push_back(new ast_type(WO_PSTR(dynamic)));
             }
 
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -1260,7 +1260,7 @@ namespace wo
 
             ast_value_indexed_variadic_args() :ast_value(new ast_type(WO_PSTR(pending))) {}
 
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -1294,7 +1294,7 @@ namespace wo
             }
 
             ast_fakevalue_unpacked_args() : ast_value(new ast_type(WO_PSTR(pending))) {}
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -1326,7 +1326,7 @@ namespace wo
 
             ast_value_funccall* overrided_operation_call = nullptr;
 
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -1381,7 +1381,7 @@ namespace wo
             }
         };
 
-        struct ast_mapping_pair : virtual public grammar::ast_base
+        struct ast_mapping_pair : virtual public ast::ast_base
         {
             ast_value* key;
             ast_value* val;
@@ -1391,7 +1391,7 @@ namespace wo
                 wo_assert(key && val);
             }
             ast_mapping_pair() {}
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -1406,12 +1406,12 @@ namespace wo
             }
         };
 
-        struct ast_using_namespace : virtual public grammar::ast_base
+        struct ast_using_namespace : virtual public ast::ast_base
         {
             bool from_global_namespace;
             std::vector<wo_pstring_t> used_namespace_chain;
 
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -1423,13 +1423,13 @@ namespace wo
             }
         };
 
-        struct ast_enum_item : virtual public grammar::ast_base
+        struct ast_enum_item : virtual public ast::ast_base
         {
             wo_pstring_t enum_ident = nullptr;
             wo_integer_t enum_val;
             bool need_assign_val = true;
 
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -1441,12 +1441,12 @@ namespace wo
             }
         };
 
-        struct ast_enum_items_list : virtual public grammar::ast_base
+        struct ast_enum_items_list : virtual public ast::ast_base
         {
             wo_integer_t next_enum_val = 0;
             std::vector<ast_enum_item*> enum_items;
 
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -1475,7 +1475,7 @@ namespace wo
 
             bool is_alias = false;
 
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -1490,12 +1490,12 @@ namespace wo
             }
         };
 
-        struct ast_directed_values : virtual public grammar::ast_base
+        struct ast_directed_values : virtual public ast::ast_base
         {
             ast_value* from;
             ast_value* direct_val;
 
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -1510,9 +1510,9 @@ namespace wo
             }
         };
 
-        struct ast_nop : virtual public grammar::ast_base
+        struct ast_nop : virtual public ast::ast_base
         {
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -1523,12 +1523,12 @@ namespace wo
 
         };
 
-        struct ast_foreach : virtual public grammar::ast_base
+        struct ast_foreach : virtual public ast::ast_base
         {
             ast_varref_defines* used_iter_define; // Just used for taking place;;;
             ast_while* loop_sentences;
 
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -1543,14 +1543,14 @@ namespace wo
             }
         };
 
-        struct ast_forloop : virtual public grammar::ast_base
+        struct ast_forloop : virtual public ast::ast_base
         {
-            grammar::ast_base* pre_execute;
+            ast::ast_base* pre_execute;
             ast_value* judgement_expr;
             ast_value* after_execute;
-            grammar::ast_base* execute_sentences;
+            ast::ast_base* execute_sentences;
 
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -1566,11 +1566,11 @@ namespace wo
             }
         };
 
-        struct ast_break : virtual public grammar::ast_base
+        struct ast_break : virtual public ast::ast_base
         {
             wo_pstring_t label = nullptr;
 
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -1582,11 +1582,11 @@ namespace wo
             }
         };
 
-        struct ast_continue : virtual public grammar::ast_base
+        struct ast_continue : virtual public ast::ast_base
         {
             wo_pstring_t label = nullptr;
 
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -1598,10 +1598,10 @@ namespace wo
             }
         };
 
-        struct ast_template_define : virtual public grammar::ast_base
+        struct ast_template_define : virtual public ast::ast_base
         {
             wo_pstring_t template_ident = nullptr;
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -1613,13 +1613,13 @@ namespace wo
             }
         };
 
-        struct ast_union_item : virtual public grammar::ast_base
+        struct ast_union_item : virtual public ast::ast_base
         {
             wo_pstring_t identifier = nullptr;
             ast_type* type_may_nil = nullptr;
             ast_type* gadt_out_type_may_nil = nullptr;
 
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -1633,12 +1633,12 @@ namespace wo
             }
         };
 
-        struct ast_union_make_option_ob_to_cr_and_ret : virtual public grammar::ast_base
+        struct ast_union_make_option_ob_to_cr_and_ret : virtual public ast::ast_base
         {
             uint16_t id;
             ast_value_variable* argument_may_nil;
 
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -1653,7 +1653,7 @@ namespace wo
         };
         struct ast_pattern_takeplace : virtual public ast_pattern_base
         {
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -1674,7 +1674,7 @@ namespace wo
 
             std::vector<wo_pstring_t> template_arguments;
 
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -1693,7 +1693,7 @@ namespace wo
             std::vector<ast_pattern_base*> tuple_patterns;
             std::vector<ast_value_takeplace*> tuple_takeplaces;
 
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -1719,7 +1719,7 @@ namespace wo
             ast_value_variable* union_expr = nullptr;
             ast_pattern_base* pattern_arg_in_union_may_nil = nullptr;
 
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -1735,11 +1735,11 @@ namespace wo
         };
 
         struct ast_match;
-        struct ast_match_case_base : virtual public grammar::ast_base
+        struct ast_match_case_base : virtual public ast::ast_base
         {
             ast_sentence_block* in_case_sentence;
             ast_match* in_match;
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -1758,7 +1758,7 @@ namespace wo
             ast_pattern_union_value* union_pattern;
             ast_value_takeplace* take_place_value_may_nil;
 
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -1774,7 +1774,7 @@ namespace wo
         };
 
 
-        struct ast_match : virtual public grammar::ast_base
+        struct ast_match : virtual public ast::ast_base
         {
             ast_value* match_value;
             ast_list* cases;
@@ -1783,7 +1783,7 @@ namespace wo
             lang_scope* match_scope_in_pass;
             bool has_using_namespace = false;
 
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -1798,7 +1798,7 @@ namespace wo
             }
         };
 
-        struct ast_struct_member_define : virtual public grammar::ast_base
+        struct ast_struct_member_define : virtual public ast::ast_base
         {
             wo_pstring_t member_name = nullptr;
 
@@ -1811,7 +1811,7 @@ namespace wo
 
             uint16_t member_offset;
 
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -1840,7 +1840,7 @@ namespace wo
 
             ast_value_make_struct_instance() : ast_value(new ast_type(WO_PSTR(pending))) {}
 
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -1866,7 +1866,7 @@ namespace wo
             ast_value_make_tuple_instance() : ast_value(new ast_type(WO_PSTR(tuple)))
             {
             }
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -1893,7 +1893,7 @@ namespace wo
 
             ast_value_trib_expr() : ast_value(new ast_type(WO_PSTR(pending))) {}
 
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -2193,7 +2193,7 @@ namespace wo
 
                 vbin->update_constant_value(&lex);
 
-                return (grammar::ast_base*)vbin;
+                return (ast::ast_base*)vbin;
             }
         };
 
@@ -2219,7 +2219,7 @@ namespace wo
                 ast_value* keyval = dynamic_cast<ast_value*>(key->array_items->children);
                 wo_assert(keyval);
 
-                return (grammar::ast_base*)new ast_mapping_pair(
+                return (ast::ast_base*)new ast_mapping_pair(
                     dynamic_cast<ast_value*>(keyval),
                     dynamic_cast<ast_value*>(WO_NEED_AST(2)));
             }
@@ -2327,7 +2327,7 @@ namespace wo
             static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 wo_test(input.size() == 5);
-                return (grammar::ast_base*)new ast_while(dynamic_cast<ast_value*>(WO_NEED_AST(2)), WO_NEED_AST(4));
+                return (ast::ast_base*)new ast_while(dynamic_cast<ast_value*>(WO_NEED_AST(2)), WO_NEED_AST(4));
             }
         };
 
@@ -2337,9 +2337,9 @@ namespace wo
             {
                 wo_test(input.size() == 6);
                 if (ast_empty::is_empty(input[5]))
-                    return (grammar::ast_base*)new ast_if(dynamic_cast<ast_value*>(WO_NEED_AST(2)), WO_NEED_AST(4), nullptr);
+                    return (ast::ast_base*)new ast_if(dynamic_cast<ast_value*>(WO_NEED_AST(2)), WO_NEED_AST(4), nullptr);
                 else
-                    return (grammar::ast_base*)new ast_if(dynamic_cast<ast_value*>(WO_NEED_AST(2)), WO_NEED_AST(4), WO_NEED_AST(5));
+                    return (ast::ast_base*)new ast_if(dynamic_cast<ast_value*>(WO_NEED_AST(2)), WO_NEED_AST(4), WO_NEED_AST(5));
             }
         };
 
@@ -2349,7 +2349,7 @@ namespace wo
             static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 wo_test(input.size() > pass_idx);
-                return (grammar::ast_base*)ast_sentence_block::fast_parse_sentenceblock(WO_NEED_AST(pass_idx));
+                return (ast::ast_base*)ast_sentence_block::fast_parse_sentenceblock(WO_NEED_AST(pass_idx));
             }
         };
 
@@ -2357,7 +2357,7 @@ namespace wo
         {
             static grammar::produce build(lexer& lex, inputs_t& input)
             {
-                return (grammar::ast_base*)ast_sentence_block::fast_parse_sentenceblock(new ast_empty);
+                return (ast::ast_base*)ast_sentence_block::fast_parse_sentenceblock(new ast_empty);
             }
         };
 
@@ -2437,7 +2437,7 @@ namespace wo
             static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 wo_test(input.size() == 1);
-                return (grammar::ast_base*)new ast_value_literal(WO_NEED_TOKEN(0));
+                return (ast::ast_base*)new ast_value_literal(WO_NEED_TOKEN(0));
             }
         };
 
@@ -2451,7 +2451,7 @@ namespace wo
                 typeid_expr->type = dynamic_cast<ast_type*>(WO_NEED_AST(2));
                 wo_assert(typeid_expr->type != nullptr);
 
-                return (grammar::ast_base*)typeid_expr;
+                return (ast::ast_base*)typeid_expr;
             }
         };
 
@@ -2567,7 +2567,7 @@ namespace wo
 
                 if (tk.type == +lex_type::l_identifier)
                 {
-                    return (grammar::ast_base*)new ast_type(tk.identifier);
+                    return (ast::ast_base*)new ast_type(tk.identifier);
                 }
 
                 wo_error("Unexcepted token type.");
@@ -2665,7 +2665,7 @@ namespace wo
                 token tk = WO_NEED_TOKEN(0);
 
                 wo_test(tk.type == +lex_type::l_identifier);
-                return (grammar::ast_base*)new ast_value_variable(wstring_pool::get_pstr(tk.identifier));
+                return (ast::ast_base*)new ast_value_variable(wstring_pool::get_pstr(tk.identifier));
             }
         };
 
@@ -2682,7 +2682,7 @@ namespace wo
 
                 result->scope_namespaces.insert(result->scope_namespaces.begin(), wstring_pool::get_pstr(tk.identifier));
 
-                return (grammar::ast_base*)result;
+                return (ast::ast_base*)result;
             }
         };
 
@@ -2707,7 +2707,7 @@ namespace wo
                 }
                 aunames->used_namespace_chain.push_back(vs->var_name);
 
-                return (grammar::ast_base*)aunames;
+                return (ast::ast_base*)aunames;
             }
         };
 
@@ -2731,7 +2731,7 @@ namespace wo
                     {
                         result->search_from_global_namespace = true;
                     }
-                    return (grammar::ast_base*)result;
+                    return (ast::ast_base*)result;
                 }
                 else
                 {
@@ -2739,7 +2739,7 @@ namespace wo
                     ast_value_variable* result = dynamic_cast<ast_value_variable*>(WO_NEED_AST(1));
 
                     result->searching_from_type = findingfrom;
-                    return (grammar::ast_base*)result;
+                    return (ast::ast_base*)result;
                 }
 
             }
@@ -2755,7 +2755,7 @@ namespace wo
 
                 wo_test(tk.type == +lex_type::l_identifier);
 
-                return (grammar::ast_base*)new ast_value_variable(wstring_pool::get_pstr(tk.identifier));
+                return (ast::ast_base*)new ast_value_variable(wstring_pool::get_pstr(tk.identifier));
             }
         };
 
@@ -2768,12 +2768,12 @@ namespace wo
 
                 ast_list* result = new ast_list();
                 if (ast_empty::is_empty(input[first_node]))
-                    return (grammar::ast_base*)result;
+                    return (ast::ast_base*)result;
 
                 ast_basic* _node = WO_NEED_AST(first_node);
 
                 result->append_at_end(_node);
-                return (grammar::ast_base*)result;
+                return (ast::ast_base*)result;
             }
         };
 
@@ -2788,7 +2788,7 @@ namespace wo
                 if (list)
                 {
                     if (ast_empty::is_empty(input[from]))
-                        return (grammar::ast_base*)list;
+                        return (ast::ast_base*)list;
 
                     if (from < to_list)
                     {
@@ -2802,7 +2802,7 @@ namespace wo
                     {
                         wo_error("You cannot add list to itself.");
                     }
-                    return (grammar::ast_base*)list;
+                    return (ast::ast_base*)list;
                 }
                 wo_error("Unexcepted token type, should be 'ast_list' or inherit from 'ast_list'.");
                 return 0;
@@ -2829,7 +2829,7 @@ namespace wo
                 }
                 else
                     tuple->tuple_member_vals = new ast_list();
-                return (grammar::ast_base*)tuple;
+                return (ast::ast_base*)tuple;
             }
 
         };
@@ -2838,7 +2838,7 @@ namespace wo
         {
             static grammar::produce build(lexer& lex, inputs_t& input)
             {
-                return (grammar::ast_base*)new ast_empty();
+                return (ast::ast_base*)new ast_empty();
             }
         };
 
@@ -2867,7 +2867,7 @@ namespace wo
                 // In ast build pass, all left value's type cannot judge, so it was useless..
                 //vbin->value_type = result_type;
 
-                return (grammar::ast_base*)vbin;
+                return (ast::ast_base*)vbin;
             }
         };
 
@@ -2905,7 +2905,7 @@ namespace wo
                 else
                     vbin->is_value_assgin = false;
 
-                return (grammar::ast_base*)vbin;
+                return (ast::ast_base*)vbin;
             }
         };
 
@@ -2929,7 +2929,7 @@ namespace wo
                 vbin->operate = _token.type;
                 vbin->right = right_v;
 
-                return (grammar::ast_base*)vbin;
+                return (ast::ast_base*)vbin;
             }
         };
 
@@ -2949,7 +2949,7 @@ namespace wo
 
                     if (dynamic_cast<ast_value_packed_variadic_args*>(left_v))
                     {
-                        return (grammar::ast_base*)new ast_value_indexed_variadic_args(right_v);
+                        return (ast::ast_base*)new ast_value_indexed_variadic_args(right_v);
                     }
                     else
                     {
@@ -2959,7 +2959,7 @@ namespace wo
 
                         vbin->update_constant_value(&lex);
 
-                        return (grammar::ast_base*)vbin;
+                        return (ast::ast_base*)vbin;
                     }
                 }
                 else if (_token.type == +lex_type::l_index_point)
@@ -2976,7 +2976,7 @@ namespace wo
 
                     vbin->update_constant_value(&lex);
 
-                    return (grammar::ast_base*)vbin;
+                    return (ast::ast_base*)vbin;
                 }
 
                 wo_error("Unexcepted token type.");
@@ -3086,7 +3086,7 @@ namespace wo
         {
             static grammar::produce build(lexer& lex, inputs_t& input)
             {
-                return (grammar::ast_base*)new ast_token(WO_NEED_TOKEN(0));
+                return (ast::ast_base*)new ast_token(WO_NEED_TOKEN(0));
             }
         };
 
@@ -3107,7 +3107,7 @@ namespace wo
                 else
                     wo_error("Unexpected return format.");
 
-                return (grammar::ast_base*)result;
+                return (ast::ast_base*)result;
             }
         };
 
@@ -3141,7 +3141,7 @@ namespace wo
                         arg_def->value_type = dynamic_cast<ast_type*>(WO_NEED_AST(2));
                 }
 
-                return (grammar::ast_base*)arg_def;
+                return (ast::ast_base*)arg_def;
             }
         };
 

@@ -2229,8 +2229,8 @@ std::variant<
 
     lex->has_been_imported(lex->source_file);
 
-    std::forward_list<wo::grammar::ast_base*> m_last_context;
-    bool need_exchange_back = wo::grammar::ast_base::exchange_this_thread_ast(m_last_context);
+    std::forward_list<wo::ast::ast_base*> m_last_context;
+    bool need_exchange_back = wo::ast::ast_base::exchange_this_thread_ast(m_last_context);
     if (!lex->has_error())
     {
         // 2. Lexer will create ast_tree;
@@ -2261,10 +2261,10 @@ std::variant<
         }
     }
 
-    wo::grammar::ast_base::clean_this_thread_ast();
+    wo::ast::ast_base::clean_this_thread_ast();
 
     if (need_exchange_back)
-        wo::grammar::ast_base::exchange_this_thread_ast(m_last_context);
+        wo::ast::ast_base::exchange_this_thread_ast(m_last_context);
 
     if (env_result)
     {

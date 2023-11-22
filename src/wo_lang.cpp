@@ -1961,7 +1961,7 @@ namespace wo
                 val = dynamic_cast<ast_value*>(val->sibling);
             }
 
-            a_value_arr->array_items->remove_allnode();
+            a_value_arr->array_items->remove_all_childs();
             for (auto in_array_val : reenplace_array_items)
             {
                 in_array_val->sibling = nullptr;
@@ -2469,7 +2469,7 @@ namespace wo
     }
 
 
-    void check_function_where_constraint(grammar::ast_base* ast, lexer* lang_anylizer, ast::ast_symbolable_base* func)
+    void check_function_where_constraint(ast::ast_base* ast, lexer* lang_anylizer, ast::ast_symbolable_base* func)
     {
         wo_assert(func != nullptr && ast != nullptr);
         auto* funcdef = dynamic_cast<ast::ast_value_function_define*>(func);
@@ -2981,7 +2981,7 @@ namespace wo
             && a_value_funccall->called_func->value_type->is_complex())
         {
             auto* real_args = a_value_funccall->arguments->children;
-            a_value_funccall->arguments->remove_allnode();
+            a_value_funccall->arguments->remove_all_childs();
 
             for (auto a_type_index = a_value_funccall->called_func->value_type->argument_types.begin();
                 a_type_index != a_value_funccall->called_func->value_type->argument_types.end();)
@@ -3688,7 +3688,7 @@ namespace wo
         return hash32;
     }
     bool lang::begin_template_scope(
-        grammar::ast_base* reporterr,
+        ast::ast_base* reporterr,
         const std::vector<wo_pstring_t>& template_defines_args,
         const std::vector<ast::ast_type*>& template_args)
     {
@@ -3758,7 +3758,7 @@ namespace wo
         }
         return true;
     }
-    bool lang::begin_template_scope(grammar::ast_base* reporterr, ast::ast_defines* template_defines, const std::vector<ast::ast_type*>& template_args)
+    bool lang::begin_template_scope(ast::ast_base* reporterr, ast::ast_defines* template_defines, const std::vector<ast::ast_type*>& template_args)
     {
         return begin_template_scope(reporterr, template_defines->template_type_name_list, template_args);
     }
@@ -4341,10 +4341,10 @@ namespace wo
             lang_anylizer->lang_error(lexer::errorlevel::error, pattern, WO_ERR_UNEXPECT_PATTERN_MODE);
     }
 
-    void lang::collect_ast_nodes_for_pass1(grammar::ast_base* ast_node)
+    void lang::collect_ast_nodes_for_pass1(ast::ast_base* ast_node)
     {
-        std::vector<grammar::ast_base*> _pass1_analyze_ast_nodes_list;
-        std::stack<grammar::ast_base*> _pending_ast_nodes;
+        std::vector<ast::ast_base*> _pass1_analyze_ast_nodes_list;
+        std::stack<ast::ast_base*> _pending_ast_nodes;
 
         _pending_ast_nodes.push(ast_node);
 
@@ -4364,7 +4364,7 @@ namespace wo
         }
     }
 
-    void lang::analyze_pass1(grammar::ast_base* ast_node, bool type_degradation)
+    void lang::analyze_pass1(ast::ast_base* ast_node, bool type_degradation)
     {
 #define WO_TRY_BEGIN do{
 #define WO_TRY_PASS(NODETYPE) if(pass1_##NODETYPE(dynamic_cast<NODETYPE*>(ast_node)))break;
@@ -4432,7 +4432,7 @@ namespace wo
         WO_TRY_PASS(ast_where_constraint);
         WO_TRY_PASS(ast_value_trib_expr);
 
-        grammar::ast_base* child = ast_node->children;
+        ast::ast_base* child = ast_node->children;
         while (child)
         {
             analyze_pass1(child);
@@ -4653,7 +4653,7 @@ namespace wo
     }
 
     std::optional<lang::judge_result_t> lang::judge_auto_type_of_funcdef_with_type(
-        grammar::ast_base* errreport,
+        ast::ast_base* errreport,
         lang_scope* located_scope,
         ast::ast_type* param,
         ast::ast_value* callaim,
@@ -4862,7 +4862,7 @@ namespace wo
         if (has_updated_arguments)
         {
             // Re-generate argument list for current function-call;
-            funccall->arguments->remove_allnode();
+            funccall->arguments->remove_all_childs();
             for (auto* arg : args_might_be_nullptr_if_unpack)
             {
                 arg->sibling = nullptr;
@@ -4873,7 +4873,7 @@ namespace wo
         return new_arguments_types_result;
     }
 
-    void lang::analyze_pass2(grammar::ast_base* ast_node, bool type_degradation)
+    void lang::analyze_pass2(ast::ast_base* ast_node, bool type_degradation)
     {
         has_step_in_step2 = true;
 
@@ -5017,7 +5017,7 @@ namespace wo
 
         WO_TRY_END;
 
-        grammar::ast_base* child = ast_node->children;
+        ast::ast_base* child = ast_node->children;
         while (child)
         {
             analyze_pass2(child);
@@ -5276,7 +5276,7 @@ namespace wo
         return WO_NEW_OPNUM(global((int32_t)global_symbol_index++));
     }
     std::variant<opnum::opnumbase*, int16_t> lang::get_opnum_by_symbol(
-        grammar::ast_base* error_prud,
+        ast::ast_base* error_prud,
         lang_symbol* symb,
         ir_compiler* compiler,
         bool get_pure_value)
@@ -6623,7 +6623,7 @@ namespace wo
         return result;
     }
 
-    void lang::real_analyze_finalize(grammar::ast_base* ast_node, ir_compiler* compiler)
+    void lang::real_analyze_finalize(ast::ast_base* ast_node, ir_compiler* compiler)
     {
         wo_assert(ast_node->completed_in_pass2);
 
@@ -6986,7 +6986,7 @@ namespace wo
         else
             lang_anylizer->lang_error(lexer::errorlevel::error, ast_node, L"Bad ast node.");
     }
-    void lang::analyze_finalize(grammar::ast_base* ast_node, ir_compiler* compiler)
+    void lang::analyze_finalize(ast::ast_base* ast_node, ir_compiler* compiler)
     {
         // first, check each extern func
         for (auto& [ext_func, funcdef_list] : extern_symb_func_definee)
@@ -7138,7 +7138,7 @@ namespace wo
         compiler->loaded_libs = extern_libs;
         compiler->pdb_info->finalize_generate_debug_info();
 
-        wo::grammar::ast_base::exchange_this_thread_ast(generated_ast_nodes_buffers);
+        wo::ast::ast_base::exchange_this_thread_ast(generated_ast_nodes_buffers);
     }
     lang_scope* lang::begin_namespace(ast::ast_namespace* a_namespace)
     {
@@ -7179,7 +7179,7 @@ namespace wo
         now_namespace = lang_scopes.back()->belong_namespace;
         lang_scopes.pop_back();
     }
-    lang_scope* lang::begin_scope(grammar::ast_base* block_beginer)
+    lang_scope* lang::begin_scope(ast::ast_base* block_beginer)
     {
         lang_scope* scope = new lang_scope;
         lang_scopes_buffers.push_back(scope);
@@ -7263,7 +7263,7 @@ namespace wo
     }
 
     lang_symbol* lang::define_variable_in_this_scope(
-        grammar::ast_base* errreporter,
+        ast::ast_base* errreporter,
         wo_pstring_t names,
         ast::ast_value* init_val,
         ast::ast_decl_attribute* attr,
@@ -7280,8 +7280,8 @@ namespace wo
             lang_anylizer->lang_error(lexer::errorlevel::error, errreporter, WO_ERR_REDEFINED, names->c_str());
             lang_anylizer->lang_error(lexer::errorlevel::infom,
                 (last_found_symbol->type == lang_symbol::symbol_type::typing || last_found_symbol->type == lang_symbol::symbol_type::type_alias)
-                ? (grammar::ast_base*)last_found_symbol->type_informatiom
-                : (grammar::ast_base*)last_found_symbol->variable_value
+                ? (ast::ast_base*)last_found_symbol->type_informatiom
+                : (ast::ast_base*)last_found_symbol->variable_value
                 , WO_INFO_ITEM_IS_DEFINED_HERE, names->c_str());
 
             return last_found_symbol;
@@ -7382,8 +7382,8 @@ namespace wo
             lang_anylizer->lang_error(lexer::errorlevel::error, as_type, WO_ERR_REDEFINED, def->new_type_identifier->c_str());
             lang_anylizer->lang_error(lexer::errorlevel::infom,
                 (last_found_symbol->type == lang_symbol::symbol_type::typing || last_found_symbol->type == lang_symbol::symbol_type::type_alias)
-                ? (grammar::ast_base*)last_found_symbol->type_informatiom
-                : (grammar::ast_base*)last_found_symbol->variable_value
+                ? (ast::ast_base*)last_found_symbol->type_informatiom
+                : (ast::ast_base*)last_found_symbol->variable_value
                 , WO_INFO_ITEM_IS_DEFINED_HERE, def->new_type_identifier->c_str());
             return last_found_symbol;
         }
@@ -7406,7 +7406,7 @@ namespace wo
         }
     }
 
-    bool lang::check_symbol_is_accessable(lang_symbol* symbol, lang_scope* current_scope, grammar::ast_base* ast, bool give_error)
+    bool lang::check_symbol_is_accessable(lang_symbol* symbol, lang_scope* current_scope, ast::ast_base* ast, bool give_error)
     {
         if (symbol->attribute)
         {

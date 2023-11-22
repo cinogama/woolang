@@ -27,78 +27,8 @@ RS will using 'hand-work' parser, there is not yacc/bison..
 namespace wo
 {
     struct lang_scope;
-
-    struct token
+    namespace ast
     {
-        lex_type type;
-        std::wstring identifier;
-    };
-
-    inline std::wostream& operator << (std::wostream& os, const token& tk)
-    {
-        os << "{ " << tk.type._to_string() << "    , \"" << (tk.identifier) << "\"";
-        if (tk.type == +lex_type::l_error)
-            os << "(error)";
-        os << " }";
-        return os;
-    }
-
-    // Store this ORGIN_P, LR1_TABLE and FOLLOW_SET after compile.
-    struct grammar
-    {
-        struct terminal
-        {
-            lex_type t_type;
-            std::wstring t_name;
-
-            terminal(lex_type type, const std::wstring& name = L"") :
-                t_type(type),
-                t_name(name)
-            {
-
-            }
-
-            bool operator <(const terminal& n)const
-            {
-                if (t_name == L"" || n.t_name == L"")
-                    return t_type < n.t_type;
-                if (t_type != n.t_type)
-                    return t_type < n.t_type;
-                return t_name < n.t_name;
-            }
-            bool operator ==(const terminal& n)const
-            {
-                if (t_name == L"" || n.t_name == L"")
-                    return t_type == n.t_type;
-                return t_type == n.t_type && t_name == n.t_name;
-            }
-        };
-
-        using te = terminal;
-        struct nonterminal;
-        using nt = nonterminal;
-        using symbol = std::variant<te, nt>;
-        using sym = symbol;
-        using rule = std::pair< nonterminal, std::vector<sym>>;
-        using symlist = std::vector<sym>;
-        using ttype = lex_type;//just token
-
-        struct hash_symbol
-        {
-            size_t operator ()(const sym& smb) const noexcept
-            {
-                if (std::holds_alternative<te>(smb))
-                {
-                    return ((size_t)std::get<te>(smb).t_type) * 2;
-                }
-                else
-                {
-                    const static auto wstrhasher = std::hash<std::wstring>();
-                    return wstrhasher(std::get<nt>(smb).nt_name) * 2 + 1;
-                }
-            }
-        };
-
         class ast_base
         {
         private:
@@ -175,7 +105,7 @@ namespace wo
                     list = new std::forward_list<ast_base*>;
                 list->push_front(this);
             }
-            void remove_allnode()
+            void remove_all_childs()
             {
                 last = nullptr;
                 while (children)
@@ -296,10 +226,83 @@ namespace wo
             virtual ast_base* instance(ast_base* child_instance = nullptr) const = 0;
         };
 
+    }
+
+    struct token
+    {
+        lex_type type;
+        std::wstring identifier;
+    };
+
+    inline std::wostream& operator << (std::wostream& os, const token& tk)
+    {
+        os << "{ " << tk.type._to_string() << "    , \"" << (tk.identifier) << "\"";
+        if (tk.type == +lex_type::l_error)
+            os << "(error)";
+        os << " }";
+        return os;
+    }
+
+    // Store this ORGIN_P, LR1_TABLE and FOLLOW_SET after compile.
+    struct grammar
+    {
+        struct terminal
+        {
+            lex_type t_type;
+            std::wstring t_name;
+
+            terminal(lex_type type, const std::wstring& name = L"") :
+                t_type(type),
+                t_name(name)
+            {
+
+            }
+
+            bool operator <(const terminal& n)const
+            {
+                if (t_name == L"" || n.t_name == L"")
+                    return t_type < n.t_type;
+                if (t_type != n.t_type)
+                    return t_type < n.t_type;
+                return t_name < n.t_name;
+            }
+            bool operator ==(const terminal& n)const
+            {
+                if (t_name == L"" || n.t_name == L"")
+                    return t_type == n.t_type;
+                return t_type == n.t_type && t_name == n.t_name;
+            }
+        };
+
+        using te = terminal;
+        struct nonterminal;
+        using nt = nonterminal;
+        using symbol = std::variant<te, nt>;
+        using sym = symbol;
+        using rule = std::pair< nonterminal, std::vector<sym>>;
+        using symlist = std::vector<sym>;
+        using ttype = lex_type;//just token
+
+        struct hash_symbol
+        {
+            size_t operator ()(const sym& smb) const noexcept
+            {
+                if (std::holds_alternative<te>(smb))
+                {
+                    return ((size_t)std::get<te>(smb).t_type) * 2;
+                }
+                else
+                {
+                    const static auto wstrhasher = std::hash<std::wstring>();
+                    return wstrhasher(std::get<nt>(smb).nt_name) * 2 + 1;
+                }
+            }
+        };
+
         struct produce
         {
-            std::variant<grammar::ast_base*, token> m_token_or_ast;
-            produce(grammar::ast_base* ast)
+            std::variant<ast::ast_base*, token> m_token_or_ast;
+            produce(ast::ast_base* ast)
             {
                 m_token_or_ast = ast;
             }
@@ -316,7 +319,7 @@ namespace wo
 
             bool is_ast() const
             {
-                return std::holds_alternative<grammar::ast_base*>(m_token_or_ast);
+                return std::holds_alternative<ast::ast_base*>(m_token_or_ast);
             }
             bool is_token() const
             {
@@ -326,24 +329,24 @@ namespace wo
             {
                 return std::get<token>(m_token_or_ast);
             }
-            grammar::ast_base* read_ast() const
+            ast::ast_base* read_ast() const
             {
-                return std::get<grammar::ast_base*>(m_token_or_ast);
+                return std::get<ast::ast_base*>(m_token_or_ast);
             }
         };
 
-        struct ast_default :virtual public ast_base
+        struct ast_default :virtual public ast::ast_base
         {
             bool stores_terminal = false;
 
             token        terminal_token = { lex_type::l_error };
 
-            ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast::ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
                 if (!child_instance) *dumm = *this;
-                // ast_base::instance(dumm);
+                // ast::ast_base::instance(dumm);
 
                 // Write self copy functions here..
 
@@ -351,7 +354,7 @@ namespace wo
             }
         };
 
-        struct ast_empty : virtual public ast_base
+        struct ast_empty : virtual public ast::ast_base
         {
             // used for stand fro l_empty
             // some passer will ignore this xx
@@ -371,7 +374,7 @@ namespace wo
 
                 return false;
             }
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
@@ -412,7 +415,7 @@ namespace wo
                         return token{ lex.parser_error(lexer::errorlevel::error, WO_ERR_UNEXCEPT_AST_NODE_TYPE) };
                     }
                 }
-                return (ast_base*)defaultAST;
+                return (ast::ast_base*)defaultAST;
             };
 
             nonterminal(const std::wstring& name = L"", size_t _builder_index = 0)
@@ -657,7 +660,7 @@ namespace wo
 
         bool check_lr1(std::wostream& ostrm = std::wcout);
         void finish_rt();
-        ast_base* gen(lexer& tkr) const;
+        ast::ast_base* gen(lexer& tkr) const;
     };
     std::wostream& operator<<(std::wostream& ost, const  grammar::lr_item& lri);
     std::wostream& operator<<(std::wostream& ost, const  grammar::terminal& ter);
