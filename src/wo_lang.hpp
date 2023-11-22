@@ -116,7 +116,7 @@ namespace wo
         };
 
         scope_type type;
-        grammar::ast_base* last_entry_ast;
+        ast::ast_base* last_entry_ast;
         lang_scope* belong_namespace;
         lang_scope* parent_scope;
         wo_pstring_t scope_namespace = nullptr;
@@ -174,7 +174,7 @@ namespace wo
         std::vector<lang_scope*> lang_scopes_buffers;
         std::vector<lang_symbol*> lang_symbols; // only used for storing symbols to release
         std::vector<opnum::opnumbase*> generated_opnum_list_for_clean;
-        std::forward_list<grammar::ast_base*> generated_ast_nodes_buffers;
+        std::forward_list<ast::ast_base*> generated_ast_nodes_buffers;
         std::unordered_set<lang_symbol*> traving_symbols;
         std::vector<lang_scope*> lang_scopes; // it is a stack like list;
         lang_scope* now_namespace = nullptr;
@@ -189,8 +189,8 @@ namespace wo
         rslib_extern_symbols::extern_lib_set extern_libs;
 
         uint32_t get_typing_hash_after_pass1(ast::ast_type* typing);
-        bool begin_template_scope(grammar::ast_base* reporterr, const std::vector<wo_pstring_t>& template_defines_args, const std::vector<ast::ast_type*>& template_args);
-        bool begin_template_scope(grammar::ast_base* reporterr, ast::ast_defines* template_defines, const std::vector<ast::ast_type*>& template_args);
+        bool begin_template_scope(ast::ast_base* reporterr, const std::vector<wo_pstring_t>& template_defines_args, const std::vector<ast::ast_type*>& template_args);
+        bool begin_template_scope(ast::ast_base* reporterr, ast::ast_defines* template_defines, const std::vector<ast::ast_type*>& template_args);
 
         void end_template_scope();
 
@@ -262,15 +262,15 @@ namespace wo
         void analyze_pattern_in_pass1(ast::ast_pattern_base* pattern, ast::ast_decl_attribute* attrib, ast::ast_value* initval);
         void analyze_pattern_in_pass2(ast::ast_pattern_base* pattern, ast::ast_value* initval);
         void analyze_pattern_in_finalize(ast::ast_pattern_base* pattern, ast::ast_value* initval, bool in_pattern_expr, ir_compiler* compiler);
-        void collect_ast_nodes_for_pass1(grammar::ast_base* ast_node);
-        void analyze_pass1(grammar::ast_base* ast_node, bool type_degradation = true);
+        void collect_ast_nodes_for_pass1(ast::ast_base* ast_node);
+        void analyze_pass1(ast::ast_base* ast_node, bool type_degradation = true);
         lang_symbol* analyze_pass_template_reification(ast::ast_value_variable* origin_variable, std::vector<ast::ast_type*> template_args_types);
         ast::ast_value_function_define* analyze_pass_template_reification(ast::ast_value_function_define* origin_template_func_define, std::vector<ast::ast_type*> template_args_types);
 
         using judge_result_t = std::variant<ast::ast_type*, ast::ast_value_function_define*>;
 
         std::optional<judge_result_t> judge_auto_type_of_funcdef_with_type(
-            grammar::ast_base* errreport,
+            ast::ast_base* errreport,
             lang_scope* located_scope,
             ast::ast_type* param,
             ast::ast_value* callaim,
@@ -286,7 +286,7 @@ namespace wo
 
         bool has_step_in_step2 = false;
 
-        void analyze_pass2(grammar::ast_base* ast_node, bool type_degradation=true);
+        void analyze_pass2(ast::ast_base* ast_node, bool type_degradation=true);
         void clean_and_close_lang();
 
         ast::ast_type* analyze_template_derivation(
@@ -318,7 +318,7 @@ namespace wo
         std::vector<ast::ast_value_function_define* > in_used_functions;
 
         opnum::opnumbase& get_new_global_variable();
-        std::variant<opnum::opnumbase*, int16_t> get_opnum_by_symbol(grammar::ast_base* error_prud, lang_symbol* symb, ir_compiler* compiler, bool get_pure_value = false);
+        std::variant<opnum::opnumbase*, int16_t> get_opnum_by_symbol(ast::ast_base* error_prud, lang_symbol* symb, ir_compiler* compiler, bool get_pure_value = false);
 
         bool _last_value_stored_to_cr = false;
         bool _last_value_from_stack = false;
@@ -361,11 +361,11 @@ namespace wo
 
         std::vector<loop_label_info> loop_stack_for_break_and_continue;
 
-        void real_analyze_finalize(grammar::ast_base* ast_node, ir_compiler* compiler);
-        void analyze_finalize(grammar::ast_base* ast_node, ir_compiler* compiler);
+        void real_analyze_finalize(ast::ast_base* ast_node, ir_compiler* compiler);
+        void analyze_finalize(ast::ast_base* ast_node, ir_compiler* compiler);
         lang_scope* begin_namespace(ast::ast_namespace* a_namespace);
         void end_namespace();
-        lang_scope* begin_scope(grammar::ast_base* block_beginer);
+        lang_scope* begin_scope(ast::ast_base* block_beginer);
         void end_scope();
         lang_scope* begin_function(ast::ast_value_function_define* ast_value_funcdef);
         void end_function();
@@ -383,7 +383,7 @@ namespace wo
         };
 
         lang_symbol* define_variable_in_this_scope(
-            grammar::ast_base* errreporter,
+            ast::ast_base* errreporter,
             wo_pstring_t names,
             ast::ast_value* init_val,
             ast::ast_decl_attribute* attr,
@@ -392,7 +392,7 @@ namespace wo
             size_t captureindex = (size_t)-1);
         lang_symbol* define_type_in_this_scope(ast::ast_using_type_as* def, ast::ast_type* as_type, ast::ast_decl_attribute* attr);
 
-        bool check_symbol_is_accessable(lang_symbol* symbol, lang_scope* current_scope, grammar::ast_base* ast, bool give_error);
+        bool check_symbol_is_accessable(lang_symbol* symbol, lang_scope* current_scope, ast::ast_base* ast, bool give_error);
 
         lang_symbol* find_symbol_in_this_scope(ast::ast_symbolable_base* var_ident, wo_pstring_t ident_str, int target_type_mask, bool fuzzy_for_err_report);
         lang_symbol* find_type_in_this_scope(ast::ast_type* var_ident);

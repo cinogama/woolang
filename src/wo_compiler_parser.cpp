@@ -652,7 +652,7 @@ namespace wo
 
         // OK!
     }
-    grammar::ast_base* grammar::gen(lexer& tkr) const
+    ast::ast_base* grammar::gen(lexer& tkr) const
     {
         size_t last_error_rowno = 0;
         size_t last_error_colno = 0;
@@ -798,7 +798,26 @@ namespace wo
                     auto& node = node_stack.top().second;
                     if (node.is_ast())
                     {
-                        return node.read_ast();
+                        // Append imported ast node front of specify ast-node;
+                        auto* ast_result = node.read_ast();
+
+                        if (!tkr.imported_ast.empty())
+                        {
+                            // MERGE IMPORTED AST!
+                            auto* origin_last = ast_result->last;
+                            auto* origin_childs = ast_result->children;
+
+                            ast_result->remove_all_childs();
+
+                            // APPEND IMPORTED AST AT THE BEGIN.
+                            for (auto* imported_ast : tkr.imported_ast)
+                                ast_result->add_child(imported_ast);
+
+                            // MERGE! FINISH!
+                            tkr.imported_ast.back()->sibling = origin_childs;
+                            ast_result->last = origin_last;
+                        }
+                        return ast_result;                        
                     }
                     else
                     {

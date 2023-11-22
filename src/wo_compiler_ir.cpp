@@ -3,7 +3,7 @@
 
 namespace wo
 {
-    void program_debug_data_info::generate_debug_info_at_astnode(grammar::ast_base* ast_node, ir_compiler* compiler)
+    void program_debug_data_info::generate_debug_info_at_astnode(ast::ast_base* ast_node, ir_compiler* compiler)
     {
         // funcdef should not genrate val..
         if (ast_node->source_file)

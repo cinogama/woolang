@@ -25,6 +25,11 @@
 
 namespace wo
 {
+    namespace ast
+    {
+        class ast_base;
+    }
+
     BETTER_ENUM(lex_type, int,
         l_eof = -1,
         l_error = 0,
@@ -168,6 +173,7 @@ namespace wo
 
         std::unordered_set<wo_pstring_t> imported_file_list;
         std::unordered_set<uint64_t> imported_file_crc64_list;
+        std::vector<ast::ast_base*> imported_ast;
 
         std::shared_ptr<std::unordered_map<std::wstring, std::shared_ptr<macro>>> used_macro_list;
 
@@ -187,7 +193,10 @@ namespace wo
                 return true;
             return false;
         }
-
+        void append_import_file_ast(ast::ast_base* astbase)
+        {
+            imported_ast.push_back(astbase);
+        }
     private:
         inline const static std::map<std::wstring, lex_operator_info> lex_operator_list =
         {

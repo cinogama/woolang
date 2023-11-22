@@ -346,7 +346,7 @@ namespace wo
         static const location FAIL_LOC;
 
         // for lang
-        void generate_debug_info_at_astnode(grammar::ast_base* ast_node, ir_compiler* compiler);
+        void generate_debug_info_at_astnode(ast::ast_base* ast_node, ir_compiler* compiler);
         void finalize_generate_debug_info();
 
         void generate_func_begin(ast::ast_value_function_define* funcdef, ir_compiler* compiler);
