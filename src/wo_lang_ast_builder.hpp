@@ -462,8 +462,8 @@ namespace wo
 
                 std::wstring fullname;
                 for (auto* n : scope_namespaces)
-                    fullname += *n;
-                return fullname + L"::" + *var_name;
+                    fullname += *n + L"::";
+                return fullname + *var_name;
             }
 
             ast_value_variable(wo_pstring_t _var_name, ast_type* type = new ast_type(WO_PSTR(pending)))
