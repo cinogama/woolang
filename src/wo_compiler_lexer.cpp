@@ -27,7 +27,7 @@ namespace wo
         else
         {
             wo_assert(source_file != nullptr);
-            lex_error(lexer::errorlevel::error, WO_ERR_CANNOT_OPEN_FILE, source_file->c_str());
+            parser_error(lexer::errorlevel::error, WO_ERR_CANNOT_OPEN_FILE, source_file->c_str());
         }
     }
 
