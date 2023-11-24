@@ -1322,7 +1322,7 @@ WO_API wo_api rslib_std_equal_byte(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_bool(vm, wo_equal_byte(args + 0, args + 1));
 }
 
-WO_API wo_api rslib_std_declval(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_bad_function(wo_vm vm, wo_value args, size_t argc)
 {
     return wo_ret_panic(vm, "This function cannot be invoke");
 }
@@ -1446,7 +1446,7 @@ namespace std
     extern("rslib_std_halt") public func halt(msg: string) => nothing;
     extern("rslib_std_panic") public func panic(msg: string)=> nothing;
 
-    extern("rslib_std_declval") public func declval<T>()=> T;
+    extern("rslib_std_bad_function") public func declval<T>()=> T;
 
     public alias origin_t<T> = immut T;
     public alias function_result_t<FT> = typeof(std::declval:<FT>()([]...));

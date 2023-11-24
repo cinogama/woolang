@@ -357,6 +357,8 @@ void wo_init(int argc, char** argv)
                 wo::config::ENABLE_HALT_WHEN_PANIC = (bool)atoi(argv[++command_idx]);
             else if ("update-grammar" == current_arg)
                 wo::config::ENABLE_CHECK_GRAMMAR_AND_UPDATE = (bool)atoi(argv[++command_idx]);
+            else if ("ignore-not-found-extern-func" == current_arg)
+                wo::config::ENABLE_IGNORE_NOT_FOUND_EXTERN_SYMBOL = (bool)atoi(argv[++command_idx]);
             else
                 wo::wo_stderr << ANSI_HIR "Woolang: " << ANSI_RST << "unknown setting --" << current_arg << wo::wo_endl;
         }

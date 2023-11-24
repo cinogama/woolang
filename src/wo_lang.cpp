@@ -392,9 +392,14 @@ namespace wo
                             if (a_value_func->externed_func_info->externed_func)
                                 a_value_func->is_constant = true;
                             else
-                                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_func, WO_ERR_CANNOT_FIND_EXT_SYM_IN_LIB,
-                                    a_value_func->externed_func_info->symbol_name.c_str(),
-                                    a_value_func->externed_func_info->load_from_lib.c_str());
+                            {
+                                if (config::ENABLE_IGNORE_NOT_FOUND_EXTERN_SYMBOL)
+                                    a_value_func->externed_func_info->externed_func = rslib_std_bad_function;
+                                else
+                                    lang_anylizer->lang_error(lexer::errorlevel::error, a_value_func, WO_ERR_CANNOT_FIND_EXT_SYM_IN_LIB,
+                                        a_value_func->externed_func_info->symbol_name.c_str(),
+                                        a_value_func->externed_func_info->load_from_lib.c_str());
+                            }
                         }
                         else
                             a_value_func->is_constant = true;

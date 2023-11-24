@@ -16,6 +16,8 @@
 #include <unordered_map>
 #include <algorithm>
 
+WO_API wo_api rslib_std_bad_function(wo_vm vm, wo_value args, size_t argc);
+
 namespace wo
 {
 #define WO_REINSTANCE(ITEM) do {if(ITEM){(ITEM) = dynamic_cast<meta::origin_type<decltype(ITEM)>>((ITEM)->instance());}}while(0)
@@ -688,7 +690,7 @@ namespace wo
             wo_pstring_t arg_name = nullptr;
 
             ast_value_arg_define(ast_type* type = new ast_type(WO_PSTR(pending)))
-                :  ast_value(type)
+                : ast_value(type)
             {}
 
             ast::ast_base* instance(ast_base* child_instance = nullptr) const override
@@ -2271,8 +2273,14 @@ namespace wo
                         rslib_extern_symbols::get_global_symbol(
                             wstr_to_str(extern_symb->symbol_name).c_str());
 
-                    if (!extern_symb->externed_func)
-                        lex.parser_error(lexer::errorlevel::error, WO_ERR_CANNOT_FIND_EXT_SYM, extern_symb->symbol_name.c_str());
+                    if (nullptr == extern_symb->externed_func)
+                    {
+                        if (config::ENABLE_IGNORE_NOT_FOUND_EXTERN_SYMBOL)
+                            extern_symb->externed_func = rslib_std_bad_function;
+                        else
+                            lex.parser_error(lexer::errorlevel::error,
+                                WO_ERR_CANNOT_FIND_EXT_SYM, extern_symb->symbol_name.c_str());
+                    }
 
                     if (!ast_empty::is_empty(input[3]))
                     {

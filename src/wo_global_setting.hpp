@@ -114,9 +114,23 @@ namespace wo
         * ENABLE_HALT_WHEN_PANIC = false
         * --------------------------------------------------------------------
         *   Whether to allow the thread to be terminated directly instead of 
-        *   blocking when PANIC occurs
+        *   blocking when PANIC occurs.
         * --------------------------------------------------------------------
         */
         inline bool ENABLE_HALT_WHEN_PANIC = false;
+
+        /*
+        * ENABLE_IGNORE_NOT_FOUND_EXTERN_SYMBOL = false
+        * --------------------------------------------------------------------
+        *   When importing external functions using the extern syntax, ignore
+        *   missing function symbols and replace them with the default panic 
+        *   function.
+        * --------------------------------------------------------------------
+        * ATTENTION:
+        *   This configuration item is only meaningful when used for LSP or 
+        *   compiled into a binary, and should not be abused. Please properly 
+        *   handle the situation where symbols are indeed lost.
+        */
+        inline bool ENABLE_IGNORE_NOT_FOUND_EXTERN_SYMBOL = false;
     }
 }
