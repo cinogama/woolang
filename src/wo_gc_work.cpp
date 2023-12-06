@@ -12,6 +12,36 @@
 
 namespace wo
 {
+    namespace pin
+    {
+        std::mutex _pin_value_list_mx;
+        std::unordered_set<value*> _pin_value_list;
+
+        wo_pin_value create_pin_value(value* init_value)
+        {
+            value* v = new value;
+            
+            std::lock_guard g1(_pin_value_list_mx);
+            v->set_val(init_value);
+            _pin_value_list.insert(v);
+
+            return std::launder(reinterpret_cast<wo_pin_value>(v));
+        }
+        void close_pin_value(wo_pin_value pin_value)
+        {
+            auto* v = std::launder(reinterpret_cast<value*>(pin_value));
+
+            std::lock_guard g1(_pin_value_list_mx);
+            _pin_value_list.erase(v);
+
+            delete v;
+        }
+        value* read_pin_value(wo_pin_value pin_value)
+        {
+            return std::launder(reinterpret_cast<value*>(pin_value));
+        }
+    }
+
     // A very simply GC system, just stop the vm, then collect inform
     namespace gc
     {
@@ -314,9 +344,8 @@ namespace wo
 
         bool _gc_work_list(bool stopworld, bool fullgc)
         {
-#ifdef WO_PLATRORM_OS_WINDOWS
-            SetThreadDescription(GetCurrentThread(), L"wo_gc_main");
-#endif
+            std::lock_guard g1(pin::_pin_value_list_mx);
+
             // Pick all gcunit before 1st mark begin.
             // It means all unit alloced when marking will be skiped to free.
             std::vector<vmbase*> gc_marking_vmlist, self_marking_vmlist, time_out_vmlist;
@@ -423,10 +452,18 @@ namespace wo
                 // 3. Start GC Worker for first marking
                 _gc_mark_thread_groups::instancce().launch_round_of_mark();
 
-                // 4. Wake up all hanged vm.
+                // 4. Mark all pin-value
+                for (auto* pin_value : pin::_pin_value_list)
+                {
+                    gcbase::unit_attrib* attr;
+                    if (gcbase* gcunit_address = pin_value->get_gcunit_with_barrier(&attr))
+                        gc_mark_unit_as_gray(&mem_gray_list, gcunit_address, attr);
+                }
+
+                // 5. Wake up all hanged vm.
                 if (!stopworld)
                 {
-                    // 5. Wait until all self-marking vm work finished
+                    // 6. Wait until all self-marking vm work finished
                     for (auto* vmimpl : self_marking_vmlist)
                     {
                         auto self_mark_gc_state = vmimpl->wait_interrupt(vmbase::GC_INTERRUPT);
@@ -472,7 +509,7 @@ namespace wo
                         } while (wait_result == vmbase::interrupt_wait_result::TIMEOUT);
                     }
 
-                    // 6. Merge gray lists.
+                    // 7. Merge gray lists.
                     size_t worker_id_counter = 0;
                     for (auto& [_vm, gray_list] : _gc_vm_gray_unit_lists)
                     {
@@ -483,7 +520,7 @@ namespace wo
 
             } while (0);
 
-            // 7. OK, Continue mark gray to black
+            // 8. OK, Continue mark gray to black
             _gc_mark_thread_groups::instancce().launch_round_of_mark();
 
             // Marking finished.
@@ -500,7 +537,7 @@ namespace wo
             //          this unit should have entered the memory set, it's safe to skip.
             _gc_is_marking = false;
 
-            // 8. Collect gray units in memo set.
+            // 9. Collect gray units in memo set.
             auto* memo_units = m_memo_mark_gray_list.pick_all();
             while (memo_units)
             {
@@ -514,7 +551,7 @@ namespace wo
 
             _gc_is_recycling = true;
 
-            // 9. OK, All unit has been marked. reduce gcunits
+            // 10. OK, All unit has been marked. reduce gcunits
             gcbase::unit_attrib alloc_dur_current_gc_attrib_mask = {}, alloc_dur_current_gc_attrib = {};
             alloc_dur_current_gc_attrib_mask.m_gc_age = (uint8_t)0x0F;
             alloc_dur_current_gc_attrib_mask.m_alloc_mask = (uint8_t)0x01;
@@ -560,7 +597,7 @@ namespace wo
                     }
                 }
             }
-            // 10. Remove orpho vm
+            // 11. Remove orpho vm
             std::list<vmbase*> need_destruct_gc_destructor_list;
             do
             {
@@ -613,6 +650,9 @@ namespace wo
 
         void _gc_main_thread()
         {
+#ifdef WO_PLATRORM_OS_WINDOWS
+            SetThreadDescription(GetCurrentThread(), L"wo_gc_main");
+#endif
             do
             {
                 if (_gc_round_count % 100 == 0)
