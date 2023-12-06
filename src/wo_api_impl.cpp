@@ -3600,9 +3600,9 @@ void wo_close_pin_value(wo_pin_value pin_value)
 {
     wo::pin::close_pin_value(pin_value);
 }
-wo_value wo_read_pin_value(wo_pin_value pin_value)
+void wo_read_pin_value(wo_value out_value, wo_pin_value pin_value)
 {
-    return CS_VAL(wo::pin::read_pin_value(pin_value));
+    wo::pin::read_pin_value(WO_VAL(out_value), pin_value);
 }
 
 wo_bool_t wo_set_global_pin_value(const char* name, wo_value value)

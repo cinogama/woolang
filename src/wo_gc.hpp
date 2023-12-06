@@ -22,7 +22,7 @@ namespace wo
     {
         wo_pin_value create_pin_value(value* init_value);
         void close_pin_value(wo_pin_value pin_value);
-        value* read_pin_value(wo_pin_value pin_value);
+        void read_pin_value(value* out_value, wo_pin_value pin_value);
     }
 
     template<typename NodeT>

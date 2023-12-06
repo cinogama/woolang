@@ -468,7 +468,7 @@ typedef struct _wo_pin_value * wo_pin_value;
 
 WO_API wo_pin_value wo_create_pin_value(wo_value init_value);
 WO_API void         wo_close_pin_value(wo_pin_value pin_value);
-WO_API wo_value     wo_read_pin_value(wo_pin_value pin_value);
+WO_API void         wo_read_pin_value(wo_value out_value, wo_pin_value pin_value);
 
 WO_API wo_bool_t    wo_set_global_pin_value(const char* name, wo_value init_value);
 WO_API wo_bool_t    wo_get_global_pin_value(const char* name, wo_pin_value* out_value);
