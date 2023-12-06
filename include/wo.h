@@ -434,10 +434,6 @@ WO_API wo_bool_t    wo_map_get_or_set_default(wo_value out_val, wo_value map, wo
 WO_API wo_bool_t    wo_map_remove(wo_value map, wo_value index);
 WO_API void         wo_map_clear(wo_value map);
 
-WO_API wo_vm        wo_pin_vm(void);
-WO_API wo_value     wo_pin_value(void);
-WO_API void         wo_unpin_value(wo_value pinval);
-
 WO_API wo_bool_t    wo_gchandle_close(wo_value gchandle);
 
 // Here to define RSRuntime debug tools API
@@ -466,6 +462,16 @@ WO_API wo_integer_t wo_crc64_str(wo_string_t text);
 WO_API wo_integer_t wo_crc64_file(wo_string_t filepath);
 
 WO_API wo_vm        wo_set_this_thread_vm(wo_vm vm_may_null);
+
+// PIN-VALUE
+typedef struct _wo_pin_value * wo_pin_value;
+
+WO_API wo_pin_value wo_create_pin_value(wo_value init_value);
+WO_API void         wo_close_pin_value(wo_pin_value pin_value);
+WO_API wo_value     wo_read_pin_value(wo_pin_value pin_value);
+
+WO_API wo_bool_t    wo_set_global_pin_value(const char* name, wo_value init_value);
+WO_API wo_bool_t    wo_get_global_pin_value(const char* name, wo_pin_value* out_value);
 
 #if defined(WO_IMPL)
 #define WO_NEED_RTERROR_CODES 1

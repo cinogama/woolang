@@ -1374,6 +1374,19 @@ WO_API wo_api rslib_std_bit_shr(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_int(vm, (wo_integer_t)result);
 }
 
+WO_API wo_api rslib_std_set_global_value(wo_vm vm, wo_value args, size_t argc)
+{
+    return wo_ret_bool(vm, wo_set_global_pin_value(wo_string(args + 0), args + 1));
+}
+WO_API wo_api rslib_std_get_global_value(wo_vm vm, wo_value args, size_t argc)
+{
+    wo_pin_value out_value;
+    if (WO_TRUE == wo_get_global_pin_value(wo_string(args + 0), &out_value))
+        return wo_ret_option_val(vm, wo_read_pin_value(out_value));
+
+    return wo_ret_option_none(vm);
+}
+
 #if defined(__APPLE__) && defined(__MACH__)
 #include <TargetConditionals.h>
 #endif
@@ -1402,7 +1415,7 @@ namespace std
     }
 )"
 "   public let platform_os = "
-#ifdef _WIN32
+#if defined(_WIN32)
     "os::WIN32;\n"
 #elif defined(__ANDROID__)
     "os::ANDROID;\n"
@@ -1424,9 +1437,9 @@ namespace std
     "arch::X86;\n"
 #elif defined(__x86_64)||defined(_M_X64)
     "arch::AMD64;\n"
-#elif defined(__arm)
+#elif defined(__arm)||defined(_M_ARM)
     "arch::ARM32;\n"
-#elif defined(__aarch64__)
+#elif defined(__aarch64__)||defined(_M_ARM64)
     "arch::ARM64;\n"
 #else
     "arch::UNKNOWN;\n"
@@ -1690,6 +1703,11 @@ namespace result
 }
 namespace std
 {
+    extern("rslib_std_set_global_value")
+    public func set_global(name: string, val: dynamic)=> bool;
+    extern("rslib_std_get_global_value")
+    public func get_global(name: string)=> option<dynamic>;
+
     extern("rslib_std_print", slow) public func print(...)=> void;
     extern("rslib_std_time_sec") public func time()=> real;
 

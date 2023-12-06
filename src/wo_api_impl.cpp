@@ -76,6 +76,9 @@ wo::vmpool* global_vm_pool = nullptr;
 std::mutex loaded_named_libs_mx;
 std::unordered_map<std::string, std::vector<loaded_lib_info>> loaded_named_libs;
 
+std::shared_mutex global_pined_value_list_mx;
+std::unordered_map<std::string, wo_pin_value> global_pined_value_list;
+
 void _default_fail_handler(wo_vm vm, wo_string_t src_file, uint32_t lineno, wo_string_t functionname, uint32_t rterrcode, wo_string_t reason)
 {
     auto* cur_thread_vm = std::launder(reinterpret_cast<wo::vmbase*>(vm));
@@ -257,6 +260,17 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
     size_t non_close_vm_last_warning_vm_count = 0;
     do
     {
+        do 
+        {
+            std::lock_guard g1(global_pined_value_list_mx);
+
+            for (auto& pined_value : global_pined_value_list)
+                wo_close_pin_value(pined_value.second);
+
+            global_pined_value_list.clear();
+
+        } while (false);
+
         do
         {
             std::lock_guard g1(wo::vmbase::_alive_vm_list_mx);
@@ -3576,4 +3590,40 @@ wo_bool_t wo_execute(wo_string_t src, wo_execute_callback_ft callback, void* dat
     wo_close_vm(_vm);
 
     return is_succ;
+}
+
+wo_pin_value wo_create_pin_value(wo_value init_value)
+{
+    return wo::pin::create_pin_value(WO_VAL(init_value));
+}
+void wo_close_pin_value(wo_pin_value pin_value)
+{
+    wo::pin::close_pin_value(pin_value);
+}
+wo_value wo_read_pin_value(wo_pin_value pin_value)
+{
+    return CS_VAL(wo::pin::read_pin_value(pin_value));
+}
+
+wo_bool_t wo_set_global_pin_value(const char* name, wo_value value)
+{
+    std::lock_guard g1(global_pined_value_list_mx);
+    if (global_pined_value_list.find(name) == global_pined_value_list.end())
+    {
+        global_pined_value_list[name] = wo_create_pin_value(value);
+        return WO_TRUE;
+    }
+    return WO_FALSE;
+}
+wo_bool_t wo_get_global_pin_value(const char* name, wo_pin_value* out_value)
+{
+    std::shared_lock sg1(global_pined_value_list_mx);
+    auto fnd = global_pined_value_list.find(name);
+
+    if (fnd == global_pined_value_list.end())
+        return WO_FALSE;
+
+    *out_value = fnd->second;
+
+    return WO_TRUE;
 }
