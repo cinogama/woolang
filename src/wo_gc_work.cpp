@@ -36,9 +36,9 @@ namespace wo
 
             delete v;
         }
-        value* read_pin_value(wo_pin_value pin_value)
+        void read_pin_value(value* out_value, wo_pin_value pin_value)
         {
-            return std::launder(reinterpret_cast<value*>(pin_value));
+            out_value->set_val(std::launder(reinterpret_cast<value*>(pin_value)));
         }
     }
 
