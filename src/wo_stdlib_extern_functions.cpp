@@ -1374,24 +1374,6 @@ WO_API wo_api rslib_std_bit_shr(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_int(vm, (wo_integer_t)result);
 }
 
-WO_API wo_api rslib_std_set_global_value(wo_vm vm, wo_value args, size_t argc)
-{
-    return wo_ret_bool(vm, wo_set_global_pin_value(wo_string(args + 0), args + 1));
-}
-WO_API wo_api rslib_std_get_global_value(wo_vm vm, wo_value args, size_t argc)
-{
-    wo_pin_value out_value;
-    if (WO_TRUE == wo_get_global_pin_value(wo_string(args + 0), &out_value))
-    {
-        wo_value result = wo_push_empty(vm);
-        wo_read_pin_value(result, out_value);
-
-        return wo_ret_option_val(vm, result);
-    }
-
-    return wo_ret_option_none(vm);
-}
-
 #if defined(__APPLE__) && defined(__MACH__)
 #include <TargetConditionals.h>
 #endif
@@ -1708,11 +1690,6 @@ namespace result
 }
 namespace std
 {
-    extern("rslib_std_set_global_value")
-    public func set_global(name: string, val: dynamic)=> bool;
-    extern("rslib_std_get_global_value")
-    public func get_global(name: string)=> option<dynamic>;
-
     extern("rslib_std_print", slow) public func print(...)=> void;
     extern("rslib_std_time_sec") public func time()=> real;
 
