@@ -2,3 +2,7 @@
 	path = 3rd/asmjit
 	url = https://git.cinogama.net/cinogamaproject/asmjit.git
 	branch = master
+[submodule "3rd/mingw-std-threads"]
+	path = 3rd/mingw-std-threads
+	url = https://git.cinogama.net/mr_cino/mingw-std-threads
+	branch = master

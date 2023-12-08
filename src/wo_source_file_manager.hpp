@@ -8,6 +8,10 @@
 #include <unordered_map>
 #include <shared_mutex>
 
+#if WO_BUILD_WITH_MINGW
+#include <mingw.shared_mutex.h>
+#endif
+
 #include <optional>
 
 namespace wo
@@ -81,17 +85,27 @@ namespace wo
         const std::optional<std::wstring>& script_path)
     {
         *out_is_virtual_file = false;
-        auto is_file_exist_and_readable = [](const std::wstring& path) 
-        {
-            auto cpath = wstr_to_str(path);
-            struct stat file_stat;
-            if (0 == stat(cpath.c_str(), &file_stat))
+        auto is_file_exist_and_readable =
+            [](const std::wstring& path)
             {
-                // Check if readable?
-                return 0 == (file_stat.st_mode & S_IFDIR);
-            }
-            return false;
-        };
+                auto cpath = wstr_to_str(path);
+#if WO_BUILD_WITH_MINGW
+                FILE* f = fopen(cpath.c_str(), "r");
+                if (f == nullptr)
+                    return false;
+
+                fclose(f);
+                return true;
+#else
+                struct stat file_stat;
+                if (0 == stat(cpath.c_str(), &file_stat))
+                {
+                    // Check if readable?
+                    return 0 == (file_stat.st_mode & S_IFDIR);
+                }
+                return false;
+#endif
+    };
 
         // 1. Try exists file
         // 1) Read file from script loc
@@ -114,7 +128,7 @@ namespace wo
         do
         {
             *out_real_read_path = filepath;
-            
+
             std::shared_lock g1(vfile_list_guard);
             auto fnd = vfile_list.find(filepath);
             if (fnd != vfile_list.end())
@@ -142,14 +156,14 @@ namespace wo
         } while (0);
 
         return false;
-    }
+}
 
     // NOTE: Remember to free!
     template<bool width = true>
     inline auto open_virtual_file_stream(
-        const std::wstring& fullfilepath, 
+        const std::wstring& fullfilepath,
         bool is_virtual_file
-    )-> std::optional<std::unique_ptr<typename stream_types<width>::stream>>
+    ) -> std::optional<std::unique_ptr<typename stream_types<width>::stream>>
     {
         using fstream_t = typename stream_types<width>::ifile_stream;
         using sstream_t = typename stream_types<width>::istring_stream;
@@ -230,7 +244,7 @@ namespace wo
         std::wstring* out_filefullpath,
         const std::wstring& filepath,
         const std::optional<std::wstring>& script_path
-        )
+    )
     {
         bool is_virtual_file;
         if (check_virtual_file_path(&is_virtual_file, out_filefullpath, filepath, script_path))

@@ -17,6 +17,13 @@
 #include <ctime>
 #include <chrono>
 
+#if WO_BUILD_WITH_MINGW
+#include <mingw.thread.h>
+#include <mingw.mutex.h>
+#include <mingw.shared_mutex.h>
+#include <mingw.condition_variable.h>
+#endif
+
 namespace wo
 {
     struct vmbase;

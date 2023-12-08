@@ -5,6 +5,10 @@
 #include <chrono>
 #include <list>
 
+#if WO_BUILD_WITH_MINGW
+#include <mingw.thread.h>
+#endif
+
 // PARALLEL-GC SUPPORTED
 
 #define WO_GC_FORCE_STOP_WORLD false
@@ -194,7 +198,7 @@ namespace wo
 
             static void _gcmarker_thread_work(_gc_mark_thread_groups* self, size_t worker_id)
             {
-#ifdef WO_PLATRORM_OS_WINDOWS
+#if defined(WO_PLATRORM_OS_WINDOWS) && !WO_BUILD_WITH_MINGW
                 SetThreadDescription(GetCurrentThread(), L"wo_gc_marker");
 #endif
                 do
@@ -650,7 +654,7 @@ namespace wo
 
         void _gc_main_thread()
         {
-#ifdef WO_PLATRORM_OS_WINDOWS
+#if defined(WO_PLATRORM_OS_WINDOWS) && !WO_BUILD_WITH_MINGW
             SetThreadDescription(GetCurrentThread(), L"wo_gc_main");
 #endif
             do

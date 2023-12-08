@@ -3,7 +3,6 @@
 #include "wo_global_setting.hpp"
 #include "wo_meta.hpp"
 
-
 #include <iostream>
 
 namespace wo
