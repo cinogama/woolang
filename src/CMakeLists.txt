@@ -5,11 +5,17 @@ cmake_minimum_required (VERSION 3.8)
 include_directories("../include")
 include_directories("../3rd/asmjit/src")
 
+include_directories("../3rd/mingw-std-threads")
+
 file(GLOB_RECURSE woo_src_cpp *.cpp)
 file(GLOB_RECURSE woo_src_hpp *.hpp)
 
 if (WIN32)
 	list(APPEND woo_system_libs "")
+    
+    if (MINGW)
+        add_definitions(-DWO_BUILD_WITH_MINGW=1) 
+    endif()
 else()
 	if (NOT ANDROID)
 		list(APPEND woo_system_libs pthread)

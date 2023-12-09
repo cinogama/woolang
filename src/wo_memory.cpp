@@ -11,6 +11,10 @@
 #include <mutex>
 #include <algorithm>
 
+#if WO_BUILD_WITH_MINGW
+#include <mingw.mutex.h>
+#endif
+
 #ifdef WIN32
 #   include <Windows.h>
 #   undef min

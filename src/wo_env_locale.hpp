@@ -1,6 +1,7 @@
 #pragma once
 
 #include "wo_io.hpp"
+#include "wo_assert.hpp"
 
 #include <iostream>
 #include <string>
@@ -42,7 +43,7 @@ namespace wo
     {
 
         // SUPPORT ANSI_CONTROL
-#if defined(WO_NEED_ANSI_CONTROL) && defined(_WIN32)
+#if !WO_BUILD_WITH_MINGW && defined(WO_NEED_ANSI_CONTROL) && defined(_WIN32)
         auto this_console_handle = GetStdHandle(STD_OUTPUT_HANDLE);
         if (this_console_handle != INVALID_HANDLE_VALUE)
         {
@@ -53,18 +54,15 @@ namespace wo
             }
         }
 #endif
-
-#ifdef _WIN32
-#endif
         if (nullptr == std::setlocale(LC_CTYPE, local_type))
         {
-            wo_stderr << ANSI_HIR "Woolang: " ANSI_RST "Unable to initialize locale character set environment: " << wo_endl;
-            wo_stderr << "\t" << ANSI_HIY << local_type << ANSI_RST << " is not a valid locale type." << wo_endl;
-
-            std::exit(-1);
+            wo_warning("Unable to initialize locale character set environment: bad local type.");
         }
-        wo_global_locale = std::locale(local_type);
-        wo_global_locale_name = local_type;
+        else
+        {
+            wo_global_locale = std::locale(local_type);
+            wo_global_locale_name = local_type;
+        }
 
         if (wo::config::ENABLE_OUTPUT_ANSI_COLOR_CTRL)
             printf(ANSI_RST);

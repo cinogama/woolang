@@ -7,6 +7,10 @@
 #include <random>
 #include <thread>
 
+#if WO_BUILD_WITH_MINGW
+#include <mingw.thread.h>
+#endif
+
 WO_API wo_api rslib_std_print(wo_vm vm, wo_value args, size_t argc)
 {
     for (size_t i = 0; i < argc; i++)

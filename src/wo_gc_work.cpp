@@ -5,6 +5,10 @@
 #include <chrono>
 #include <list>
 
+#if WO_BUILD_WITH_MINGW
+#include <mingw.thread.h>
+#endif
+
 // PARALLEL-GC SUPPORTED
 
 #define WO_GC_FORCE_STOP_WORLD false
@@ -25,11 +29,11 @@ namespace wo
             v->set_val(init_value);
             _pin_value_list.insert(v);
 
-            return std::launder(reinterpret_cast<wo_pin_value>(v));
+            return reinterpret_cast<wo_pin_value>(v);
         }
         void close_pin_value(wo_pin_value pin_value)
         {
-            auto* v = std::launder(reinterpret_cast<value*>(pin_value));
+            auto* v = reinterpret_cast<value*>(pin_value);
 
             std::lock_guard g1(_pin_value_list_mx);
             _pin_value_list.erase(v);
@@ -38,7 +42,7 @@ namespace wo
         }
         void read_pin_value(value* out_value, wo_pin_value pin_value)
         {
-            out_value->set_val(std::launder(reinterpret_cast<value*>(pin_value)));
+            out_value->set_val(reinterpret_cast<value*>(pin_value));
         }
     }
 
@@ -194,7 +198,7 @@ namespace wo
 
             static void _gcmarker_thread_work(_gc_mark_thread_groups* self, size_t worker_id)
             {
-#ifdef WO_PLATRORM_OS_WINDOWS
+#if defined(WO_PLATRORM_OS_WINDOWS) && !WO_BUILD_WITH_MINGW
                 SetThreadDescription(GetCurrentThread(), L"wo_gc_marker");
 #endif
                 do
@@ -650,7 +654,7 @@ namespace wo
 
         void _gc_main_thread()
         {
-#ifdef WO_PLATRORM_OS_WINDOWS
+#if defined(WO_PLATRORM_OS_WINDOWS) && !WO_BUILD_WITH_MINGW
             SetThreadDescription(GetCurrentThread(), L"wo_gc_main");
 #endif
             do
