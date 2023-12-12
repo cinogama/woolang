@@ -1770,9 +1770,11 @@ namespace wo
         auto* a_fakevalue_unpacked_args = WO_AST();
         analyze_pass2(a_fakevalue_unpacked_args->unpacked_pack);
         if (!a_fakevalue_unpacked_args->unpacked_pack->value_type->is_array()
+            && !a_fakevalue_unpacked_args->unpacked_pack->value_type->is_vec()
             && !a_fakevalue_unpacked_args->unpacked_pack->value_type->is_tuple())
         {
-            lang_anylizer->lang_error(lexer::errorlevel::error, a_fakevalue_unpacked_args, WO_ERR_NEED_TYPES, L"array, vec" WO_TERM_OR L"tuple");
+            lang_anylizer->lang_error(lexer::errorlevel::error, 
+                a_fakevalue_unpacked_args, WO_ERR_NEED_TYPES, L"array, vec" WO_TERM_OR L"tuple");
         }
         return true;
     }
