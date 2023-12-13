@@ -636,6 +636,9 @@ namespace wo
                 gm::nt(L"TYPEOF") >> gm::symlist{ gm::te(gm::ttype::l_typeof),gm::te(gm::ttype::l_left_brackets),gm::nt(L"MAY_MUT_PURE_VALUE"),gm::te(gm::ttype::l_right_brackets) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_typeof),
 
+                gm::nt(L"TYPEOF") >> gm::symlist{ gm::te(gm::ttype::l_typeof),gm::te(gm::ttype::l_template_using_begin),gm::nt(L"TYPE"),gm::te(gm::ttype::l_larg) }
+                >> WO_ASTBUILDER_INDEX(ast::pass_direct<2>),
+
                 gm::nt(L"ORIGIN_TYPE") >> gm::symlist{ gm::nt(L"LEFTVARIABLE"),gm::nt(L"MAY_EMPTY_TEMPLATE_ITEM") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_build_type_may_template),
 

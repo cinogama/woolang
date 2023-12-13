@@ -814,8 +814,13 @@ namespace wo
                                 ast_result->add_child(imported_ast);
 
                             // MERGE! FINISH!
-                            tkr.imported_ast.back()->sibling = origin_childs;
-                            ast_result->last = origin_last;
+                            if (origin_childs != nullptr)
+                            {
+                                wo_assert(origin_last != nullptr);
+
+                                tkr.imported_ast.back()->sibling = origin_childs;
+                                ast_result->last = origin_last;
+                            }
                         }
                         return ast_result;                        
                     }

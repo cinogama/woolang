@@ -1761,7 +1761,8 @@ namespace wo
 
         if (!a_value_variadic_args_idx->argindex->value_type->is_integer())
         {
-            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_variadic_args_idx, WO_ERR_FAILED_TO_INDEX_VAARG_ERR_TYPE);
+            lang_anylizer->lang_error(lexer::errorlevel::error, 
+                a_value_variadic_args_idx, WO_ERR_FAILED_TO_INDEX_VAARG_ERR_TYPE);
         }
         return true;
     }
@@ -1770,9 +1771,11 @@ namespace wo
         auto* a_fakevalue_unpacked_args = WO_AST();
         analyze_pass2(a_fakevalue_unpacked_args->unpacked_pack);
         if (!a_fakevalue_unpacked_args->unpacked_pack->value_type->is_array()
+            && !a_fakevalue_unpacked_args->unpacked_pack->value_type->is_vec()
             && !a_fakevalue_unpacked_args->unpacked_pack->value_type->is_tuple())
         {
-            lang_anylizer->lang_error(lexer::errorlevel::error, a_fakevalue_unpacked_args, WO_ERR_NEED_TYPES, L"array, vec" WO_TERM_OR L"tuple");
+            lang_anylizer->lang_error(lexer::errorlevel::error, 
+                a_fakevalue_unpacked_args, WO_ERR_NEED_TYPES, L"array, vec" WO_TERM_OR L"tuple");
         }
         return true;
     }
@@ -3055,13 +3058,15 @@ namespace wo
                                     {
                                         // There is no enough value for tuple to expand. match failed!
                                         failed_to_call_cur_func = true;
-                                        lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_ARGUMENT_TOO_MANY, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
+                                        lang_anylizer->lang_error(lexer::errorlevel::error,
+                                            a_value_funccall, WO_ERR_ARGUMENT_TOO_MANY, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
                                         break;
                                     }
                                     else if (!(*a_type_index)->accept_type(unpacking_tuple_type->template_arguments[unpack_tuple_index], false, true))
                                     {
                                         failed_to_call_cur_func = true;
-                                        lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_TYPE_CANNOT_BE_CALL, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
+                                        lang_anylizer->lang_error(lexer::errorlevel::error, 
+                                            a_value_funccall, WO_ERR_TYPE_CANNOT_BE_CALL, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
                                         break;
                                     }
                                     else
@@ -3078,7 +3083,8 @@ namespace wo
                             else
                             {
                                 failed_to_call_cur_func = true;
-                                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_ARGUMENT_TOO_MANY, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
+                                lang_anylizer->lang_error(lexer::errorlevel::error, 
+                                    a_value_funccall, WO_ERR_ARGUMENT_TOO_MANY, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
                                 break;
                             }
                             ecount--;
@@ -6500,7 +6506,8 @@ namespace wo
                         complete_using_register(result);
                     }
                     else
-                        lang_anylizer->lang_error(lexer::errorlevel::error, a_value_unary, WO_ERR_TYPE_CANNOT_NEGATIVE, a_value_unary->val->value_type->get_type_name().c_str());
+                        lang_anylizer->lang_error(lexer::errorlevel::error, 
+                            a_value_unary, WO_ERR_TYPE_CANNOT_NEGATIVE, a_value_unary->val->value_type->get_type_name().c_str());
                     break;
                 default:
                     wo_error("Do not support this operator..");
