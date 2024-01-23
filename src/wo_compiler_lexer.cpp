@@ -165,7 +165,7 @@ namespace wo
     lex_type lexer::try_handle_macro(std::wstring* out_literal, lex_type result_type, const std::wstring& result_str, bool workinpeek)
     {
         // ATTENTION: out_literal may point to result_str, please make sure donot read result_str after modify *out_literal.
-        if (result_type == +lex_type::l_macro)
+        if (result_type == lex_type::l_macro)
         {
             if (used_macro_list)
             {
@@ -215,7 +215,7 @@ namespace wo
                             std::wstring result;
                             auto token = tmp_lex.next(&result);
 
-                            if (token == +wo::lex_type::l_error || token == +wo::lex_type::l_eof)
+                            if (token == wo::lex_type::l_error || token == wo::lex_type::l_eof)
                                 break;
 
                             lex_tokens.push_back({ token , result });
@@ -982,13 +982,13 @@ namespace wo
                     break;
 
                 lex_type tmp_op_type = lex_is_valid_operator(read_result() + (wchar_t)following_ch);
-                if (tmp_op_type != +lex_type::l_error)
+                if (tmp_op_type != lex_type::l_error)
                 {
                     // maxim eat!
                     operator_type = tmp_op_type;
                     write_result(next_one());
                 }
-                else if (operator_type == +lex_type::l_error)
+                else if (operator_type == lex_type::l_error)
                 {
                     // not valid yet, continue...
                 }
@@ -997,7 +997,7 @@ namespace wo
 
             } while (true);
 
-            if (operator_type == +lex_type::l_error)
+            if (operator_type == lex_type::l_error)
                 return lex_error(lexer::errorlevel::error, WO_ERR_UNKNOW_OPERATOR_STR, read_result().c_str());
 
             return operator_type;
@@ -1081,7 +1081,7 @@ namespace wo
                     break;
             }
 
-            if (lex_type keyword_type = lex_is_keyword(read_result()); +lex_type::l_error == keyword_type)
+            if (lex_type keyword_type = lex_is_keyword(read_result()); lex_type::l_error == keyword_type)
             {
                 bool is_macro = false;
                 while (true)
@@ -1141,7 +1141,7 @@ namespace wo
         lex.next(&macro_name);
 
         size_t scope_count = 1;
-        if (lex.next(nullptr) == +lex_type::l_left_curly_braces)
+        if (lex.next(nullptr) == lex_type::l_left_curly_braces)
         {
             std::wstring macro_anylzing_src =
                 L"import woo::macro; extern func macro_" +
@@ -1153,11 +1153,11 @@ namespace wo
             {
                 auto type = lex.next(nullptr);
 
-                if (type == +lex_type::l_right_curly_braces)
+                if (type == lex_type::l_right_curly_braces)
                     scope_count--;
-                else if (type == +lex_type::l_left_curly_braces)
+                else if (type == lex_type::l_left_curly_braces)
                     scope_count++;
-                else if (type == +lex_type::l_eof)
+                else if (type == lex_type::l_eof)
                 {
                     meet_eof = true;
                     break;

@@ -236,8 +236,8 @@ namespace wo
 
     inline std::wostream& operator << (std::wostream& os, const token& tk)
     {
-        os << "{ " << tk.type._to_string() << "    , \"" << (tk.identifier) << "\"";
-        if (tk.type == +lex_type::l_error)
+        os << "{ token: " << (lex_type_base_t)tk.type << "    , \"" << (tk.identifier) << "\"";
+        if (tk.type == lex_type::l_error)
             os << "(error)";
         os << " }";
         return os;
@@ -368,7 +368,7 @@ namespace wo
                 }
                 if (p.is_token())
                 {
-                    if (p.read_token().type == +lex_type::l_empty)
+                    if (p.read_token().type == lex_type::l_empty)
                         return true;
                 }
 

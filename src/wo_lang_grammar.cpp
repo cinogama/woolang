@@ -1271,7 +1271,7 @@ namespace wo
                     cachefile << tab << L"lex_type::l_error," << endl;
                     for (auto& [te_index, op_te] : _real_te_list)
                     {
-                        cachefile << tab << L"lex_type::" << op_te._to_string() << L"," << endl;
+                        cachefile << tab << L"(lex_type)" << (lex_type_base_t)op_te << L"," << endl;
                     }
                     cachefile << L"};" << endl;
                 }

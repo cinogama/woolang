@@ -89,11 +89,11 @@ namespace wo
         {
             a_value_mutable_or_pure->value_type->set_type(a_value_mutable_or_pure->val->value_type);
 
-            if (a_value_mutable_or_pure->mark_type == +lex_type::l_mut)
+            if (a_value_mutable_or_pure->mark_type == lex_type::l_mut)
                 a_value_mutable_or_pure->value_type->set_is_mutable(true);
             else
             {
-                wo_assert(a_value_mutable_or_pure->mark_type == +lex_type::l_immut);
+                wo_assert(a_value_mutable_or_pure->mark_type == lex_type::l_immut);
                 a_value_mutable_or_pure->value_type->set_is_force_immutable();
             }
         }
@@ -173,7 +173,7 @@ namespace wo
                 && symbol->define_in_function
                 && symbol->is_marked_as_used_variable == false
                 && (a_value_assi->is_value_assgin == false
-                    || a_value_assi->operate == +lex_type::l_value_assign
+                    || a_value_assi->operate == lex_type::l_value_assign
                     || symbol->static_symbol == false)))
                 left_value_is_variable_and_has_been_used = false;
         }
@@ -205,7 +205,7 @@ namespace wo
         if (a_value_logic_bin->left->value_type->is_builtin_basic_type()
             && a_value_logic_bin->right->value_type->is_builtin_basic_type())
         {
-            if (a_value_logic_bin->operate == +lex_type::l_lor || a_value_logic_bin->operate == +lex_type::l_land)
+            if (a_value_logic_bin->operate == lex_type::l_lor || a_value_logic_bin->operate == lex_type::l_land)
             {
                 if (a_value_logic_bin->left->value_type->is_bool() && a_value_logic_bin->right->value_type->is_bool())
                     has_default_op = true;
@@ -713,7 +713,7 @@ namespace wo
         auto* a_value_unary = WO_AST();
         analyze_pass1(a_value_unary->val);
 
-        if (a_value_unary->operate == +lex_type::l_lnot)
+        if (a_value_unary->operate == lex_type::l_lnot)
             a_value_unary->value_type->set_type_with_name(WO_PSTR(bool));
         a_value_unary->value_type->set_type(a_value_unary->val->value_type);
         return true;
@@ -738,26 +738,28 @@ namespace wo
         if (a_using_type_as->new_type_identifier == WO_PSTR(char)
             || ast_type::name_type_pair.find(a_using_type_as->new_type_identifier) != ast_type::name_type_pair.end())
         {
-            return lang_anylizer->lang_error(lexer::errorlevel::error, a_using_type_as,
+            lang_anylizer->lang_error(lexer::errorlevel::error, a_using_type_as,
                 WO_ERR_DECL_BUILTIN_TYPE_IS_NOT_ALLOWED);
         }
-
-        if (a_using_type_as->old_type->typefrom == nullptr
-            || a_using_type_as->template_type_name_list.empty())
+        else
         {
-            if (a_using_type_as->namespace_decl != nullptr)
-                begin_namespace(a_using_type_as->namespace_decl);
+            if (a_using_type_as->old_type->typefrom == nullptr
+                || a_using_type_as->template_type_name_list.empty())
+            {
+                if (a_using_type_as->namespace_decl != nullptr)
+                    begin_namespace(a_using_type_as->namespace_decl);
 
-            fully_update_type(a_using_type_as->old_type, true, a_using_type_as->template_type_name_list);
+                fully_update_type(a_using_type_as->old_type, true, a_using_type_as->template_type_name_list);
 
-            if (a_using_type_as->namespace_decl != nullptr)
-                end_namespace();
+                if (a_using_type_as->namespace_decl != nullptr)
+                    end_namespace();
+            }
+            auto* typing_symb = define_type_in_this_scope(
+                a_using_type_as, a_using_type_as->old_type, a_using_type_as->declear_attribute);
+            typing_symb->apply_template_setting(a_using_type_as);
+
+            analyze_pass1(a_using_type_as->namespace_decl);
         }
-        auto* typing_symb = define_type_in_this_scope(
-            a_using_type_as, a_using_type_as->old_type, a_using_type_as->declear_attribute);
-        typing_symb->apply_template_setting(a_using_type_as);
-
-        analyze_pass1(a_using_type_as->namespace_decl);
         return true;
     }
     WO_PASS1(ast_foreach)
@@ -1111,11 +1113,11 @@ namespace wo
         {
             a_value_mutable_or_pure->value_type->set_type(a_value_mutable_or_pure->val->value_type);
 
-            if (a_value_mutable_or_pure->mark_type == +lex_type::l_mut)
+            if (a_value_mutable_or_pure->mark_type == lex_type::l_mut)
                 a_value_mutable_or_pure->value_type->set_is_mutable(true);
             else
             {
-                wo_assert(a_value_mutable_or_pure->mark_type == +lex_type::l_immut);
+                wo_assert(a_value_mutable_or_pure->mark_type == lex_type::l_immut);
                 a_value_mutable_or_pure->value_type->set_is_force_immutable();
             }
         }
@@ -1501,7 +1503,7 @@ namespace wo
                 && symbol->define_in_function
                 && symbol->is_marked_as_used_variable == false
                 && (a_value_assi->is_value_assgin == false
-                    || a_value_assi->operate == +lex_type::l_value_assign
+                    || a_value_assi->operate == lex_type::l_value_assign
                     || symbol->static_symbol == false)))
                 left_value_is_variable_and_has_been_used = false;
         }
@@ -1537,10 +1539,10 @@ namespace wo
         }
         else
         {
-            if ((a_value_assi->operate == +lex_type::l_div_assign
-                || a_value_assi->operate == +lex_type::l_value_div_assign
-                || a_value_assi->operate == +lex_type::l_mod_assign
-                || a_value_assi->operate == +lex_type::l_value_mod_assign) &&
+            if ((a_value_assi->operate == lex_type::l_div_assign
+                || a_value_assi->operate == lex_type::l_value_div_assign
+                || a_value_assi->operate == lex_type::l_mod_assign
+                || a_value_assi->operate == lex_type::l_value_mod_assign) &&
                 a_value_assi->right->is_constant &&
                 a_value_assi->right->value_type->is_integer() &&
                 a_value_assi->right->get_constant_value().integer == 0)
@@ -1761,7 +1763,7 @@ namespace wo
 
         if (!a_value_variadic_args_idx->argindex->value_type->is_integer())
         {
-            lang_anylizer->lang_error(lexer::errorlevel::error, 
+            lang_anylizer->lang_error(lexer::errorlevel::error,
                 a_value_variadic_args_idx, WO_ERR_FAILED_TO_INDEX_VAARG_ERR_TYPE);
         }
         return true;
@@ -1774,7 +1776,7 @@ namespace wo
             && !a_fakevalue_unpacked_args->unpacked_pack->value_type->is_vec()
             && !a_fakevalue_unpacked_args->unpacked_pack->value_type->is_tuple())
         {
-            lang_anylizer->lang_error(lexer::errorlevel::error, 
+            lang_anylizer->lang_error(lexer::errorlevel::error,
                 a_fakevalue_unpacked_args, WO_ERR_NEED_TYPES, L"array, vec" WO_TERM_OR L"tuple");
         }
         return true;
@@ -1823,7 +1825,7 @@ namespace wo
                 a_value_bin->right->value_type->get_type_name(false).c_str());
             a_value_bin->value_type->set_type_with_name(WO_PSTR(pending));
         }
-        else if ((a_value_bin->operate == +lex_type::l_div || a_value_bin->operate == +lex_type::l_mod) &&
+        else if ((a_value_bin->operate == lex_type::l_div || a_value_bin->operate == lex_type::l_mod) &&
             a_value_bin->right->is_constant &&
             a_value_bin->right->value_type->is_integer() &&
             a_value_bin->right->get_constant_value().integer == 0)
@@ -1863,8 +1865,8 @@ namespace wo
             /*if (a_value_logic_bin->left->value_type->is_builtin_basic_type()
                 && a_value_logic_bin->right->value_type->is_builtin_basic_type())*/
             {
-                if (a_value_logic_bin->operate == +lex_type::l_lor
-                    || a_value_logic_bin->operate == +lex_type::l_land)
+                if (a_value_logic_bin->operate == lex_type::l_lor
+                    || a_value_logic_bin->operate == lex_type::l_land)
                 {
                     if (a_value_logic_bin->left->value_type->is_bool()
                         && a_value_logic_bin->right->value_type->is_bool())
@@ -2590,7 +2592,7 @@ namespace wo
 
         analyze_pass2(a_value_unary->val);
 
-        if (a_value_unary->operate == +lex_type::l_lnot)
+        if (a_value_unary->operate == lex_type::l_lnot)
         {
             a_value_unary->value_type->set_type_with_name(WO_PSTR(bool));
             fully_update_type(a_value_unary->value_type, false);
@@ -3065,7 +3067,7 @@ namespace wo
                                     else if (!(*a_type_index)->accept_type(unpacking_tuple_type->template_arguments[unpack_tuple_index], false, true))
                                     {
                                         failed_to_call_cur_func = true;
-                                        lang_anylizer->lang_error(lexer::errorlevel::error, 
+                                        lang_anylizer->lang_error(lexer::errorlevel::error,
                                             a_value_funccall, WO_ERR_TYPE_CANNOT_BE_CALL, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
                                         break;
                                     }
@@ -3083,7 +3085,7 @@ namespace wo
                             else
                             {
                                 failed_to_call_cur_func = true;
-                                lang_anylizer->lang_error(lexer::errorlevel::error, 
+                                lang_anylizer->lang_error(lexer::errorlevel::error,
                                     a_value_funccall, WO_ERR_ARGUMENT_TOO_MANY, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
                                 break;
                             }
@@ -3811,7 +3813,7 @@ namespace wo
         using_type_def_char->new_type_identifier = WO_PSTR(char);
         using_type_def_char->old_type = new ast::ast_type(WO_PSTR(int));
         using_type_def_char->declear_attribute = new ast::ast_decl_attribute();
-        using_type_def_char->declear_attribute->add_attribute(lang_anylizer, +lex_type::l_public);
+        using_type_def_char->declear_attribute->add_attribute(lang_anylizer, lex_type::l_public);
         define_type_in_this_scope(using_type_def_char, using_type_def_char->old_type, using_type_def_char->declear_attribute);
     }
     lang::~lang()
@@ -5642,7 +5644,7 @@ namespace wo
                 bool beassigned_value_from_stack = false;
                 int16_t beassigned_value_stack_place = 0;
 
-                if (!(a_value_index != nullptr && a_value_assign->operate == +lex_type::l_assign))
+                if (!(a_value_index != nullptr && a_value_assign->operate == lex_type::l_assign))
                 {
                     // if mixed type, do opx
                     bool same_type = a_value_assign->left->value_type->accept_type(a_value_assign->right->value_type, false, false);
@@ -5657,8 +5659,8 @@ namespace wo
                     beassigned_value_stack_place = _last_stack_offset_to_write;
 
                     // Assign not need for this variable, revert it.
-                    if (a_value_assign->operate == +lex_type::l_assign
-                        || a_value_assign->operate == +lex_type::l_value_assign)
+                    if (a_value_assign->operate == lex_type::l_assign
+                        || a_value_assign->operate == lex_type::l_value_assign)
                     {
                         complete_using_register(*beoped_left_opnum_ptr);
                         compiler->revert_code_to(revert_pos);
@@ -5789,8 +5791,8 @@ namespace wo
 
                     if (beassigned_value_from_stack)
                     {
-                        if (a_value_assign->operate == +lex_type::l_assign
-                            || a_value_assign->operate == +lex_type::l_value_assign)
+                        if (a_value_assign->operate == lex_type::l_assign
+                            || a_value_assign->operate == lex_type::l_value_assign)
                             _store_value = &op_right_opnum;
                         else
                         {
@@ -5804,7 +5806,7 @@ namespace wo
                 else
                 {
                     wo_assert(beassigned_value_from_stack == false);
-                    wo_assert(a_value_index != nullptr && a_value_assign->operate == +lex_type::l_assign);
+                    wo_assert(a_value_index != nullptr && a_value_assign->operate == lex_type::l_assign);
                     _store_value = &analyze_value(a_value_assign->right, compiler);
 
                     if (is_cr_reg(*_store_value))
@@ -5902,8 +5904,9 @@ namespace wo
                     return result;
                 else if (a_value_type_judge->_be_cast_value_node->value_type->is_dynamic())
                 {
-                    if (a_value_type_judge->value_type->is_pure_base_type()
-                        || a_value_type_judge->value_type->is_anything())
+                    if (!a_value_type_judge->value_type->is_pure_base_type()
+                        || a_value_type_judge->value_type->is_void()
+                        || a_value_type_judge->value_type->is_nothing())
                         lang_anylizer->lang_error(lexer::errorlevel::error, a_value_type_judge,
                             WO_ERR_CANNOT_TEST_COMPLEX_TYPE, a_value_type_judge->value_type->get_type_name(false).c_str());
 
@@ -5928,8 +5931,9 @@ namespace wo
                     return WO_NEW_OPNUM(imm(1));
                 if (a_value_type_check->_be_check_value_node->value_type->is_dynamic())
                 {
-                    if (a_value_type_check->aim_type->is_pure_base_type()
-                        || a_value_type_check->aim_type->is_anything())
+                    if (!a_value_type_check->aim_type->is_pure_base_type()
+                        || a_value_type_check->aim_type->is_void()
+                        || a_value_type_check->aim_type->is_nothing())
                         lang_anylizer->lang_error(lexer::errorlevel::error, a_value_type_check,
                             WO_ERR_CANNOT_TEST_COMPLEX_TYPE, a_value_type_check->aim_type->get_type_name(false).c_str());
 
@@ -6139,7 +6143,7 @@ namespace wo
                             a_value_logical_binary->left->value_type->get_type_name(false).c_str(),
                             a_value_logical_binary->right->value_type->get_type_name(false).c_str());
                 }
-                if (a_value_logical_binary->operate == +lex_type::l_equal || a_value_logical_binary->operate == +lex_type::l_not_equal)
+                if (a_value_logical_binary->operate == lex_type::l_equal || a_value_logical_binary->operate == lex_type::l_not_equal)
                 {
                     if (a_value_logical_binary->left->value_type->is_union())
                     {
@@ -6152,10 +6156,10 @@ namespace wo
                             lexer::lex_is_operate_type(a_value_logical_binary->operate), L"union");
                     }
                 }
-                if (a_value_logical_binary->operate == +lex_type::l_larg
-                    || a_value_logical_binary->operate == +lex_type::l_larg_or_equal
-                    || a_value_logical_binary->operate == +lex_type::l_less
-                    || a_value_logical_binary->operate == +lex_type::l_less_or_equal)
+                if (a_value_logical_binary->operate == lex_type::l_larg
+                    || a_value_logical_binary->operate == lex_type::l_larg_or_equal
+                    || a_value_logical_binary->operate == lex_type::l_less
+                    || a_value_logical_binary->operate == lex_type::l_less_or_equal)
                 {
                     if (!(a_value_logical_binary->left->value_type->is_integer()
                         || a_value_logical_binary->left->value_type->is_real()
@@ -6175,8 +6179,8 @@ namespace wo
                     }
                 }
 
-                if (a_value_logical_binary->operate == +lex_type::l_lor ||
-                    a_value_logical_binary->operate == +lex_type::l_land)
+                if (a_value_logical_binary->operate == lex_type::l_lor ||
+                    a_value_logical_binary->operate == lex_type::l_land)
                 {
                     if (!a_value_logical_binary->left->value_type->is_bool())
                         lang_anylizer->lang_error(lexer::errorlevel::error, a_value_logical_binary->left, WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE, L"bool",
@@ -6192,8 +6196,8 @@ namespace wo
                 auto* _op_right_opnum = &analyze_value(a_value_logical_binary->right, compiler);
 
                 if ((is_cr_reg(*_op_right_opnum) || is_temp_reg(*_op_right_opnum) || _last_value_stored_to_cr) &&
-                    (a_value_logical_binary->operate == +lex_type::l_lor ||
-                        a_value_logical_binary->operate == +lex_type::l_land))
+                    (a_value_logical_binary->operate == lex_type::l_lor ||
+                        a_value_logical_binary->operate == lex_type::l_land))
                 {
                     // Need make short cut
                     complete_using_register(*_beoped_left_opnum);
@@ -6204,9 +6208,9 @@ namespace wo
 
                     mov_value_to_cr(analyze_value(a_value_logical_binary->left, compiler), compiler);
 
-                    if (a_value_logical_binary->operate == +lex_type::l_lor)
+                    if (a_value_logical_binary->operate == lex_type::l_lor)
                         compiler->jt(tag(logic_short_cut_label));
-                    else  if (a_value_logical_binary->operate == +lex_type::l_land)
+                    else  if (a_value_logical_binary->operate == lex_type::l_land)
                         compiler->jf(tag(logic_short_cut_label));
                     else
                         wo_error("Unknown operator.");
@@ -6507,7 +6511,7 @@ namespace wo
                         complete_using_register(result);
                     }
                     else
-                        lang_anylizer->lang_error(lexer::errorlevel::error, 
+                        lang_anylizer->lang_error(lexer::errorlevel::error,
                             a_value_unary, WO_ERR_TYPE_CANNOT_NEGATIVE, a_value_unary->val->value_type->get_type_name().c_str());
                     break;
                 default:
@@ -6808,7 +6812,7 @@ namespace wo
                 a_val_funcdef == nullptr || a_val_funcdef->function_name == nullptr)
             {
                 // Woolang 1.10.2: The value is not void type, cannot be a sentence.
-                if (!a_value->value_type->is_void() && 
+                if (!a_value->value_type->is_void() &&
                     !a_value->value_type->is_nothing() &&
                     !a_value->value_type->is_anything())
                     lang_anylizer->lang_error(lexer::errorlevel::error, a_value, WO_ERR_NOT_ALLOW_IGNORE_VALUE,

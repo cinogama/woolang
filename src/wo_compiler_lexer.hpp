@@ -12,8 +12,6 @@
 #include <cwctype>
 #include <cwchar>
 
-#include "enum.h"
-
 #include "wo_lang_compiler_information.hpp"
 #include "wo_source_file_manager.hpp"
 #include "wo_const_string_pool.hpp"
@@ -30,10 +28,12 @@ namespace wo
         class ast_base;
     }
 
-    BETTER_ENUM(lex_type, int,
+    using lex_type_base_t = int8_t;
+    enum class lex_type : lex_type_base_t
+    {
         l_eof = -1,
         l_error = 0,
-        l_empty,          // [empty]
+        l_empty,                // [empty]
         l_identifier,           // identifier.
         l_literal_integer,      // 1 233 0x123456 0b1101001 032
         l_literal_handle,       // 0L 256L 0xFFL
@@ -126,7 +126,7 @@ namespace wo
         l_immut,
         l_typeid,
         l_macro
-    );
+    };
 
     class lexer;
 

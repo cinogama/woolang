@@ -927,7 +927,7 @@ wo_bool_t _wo_cast_array(wo_vm vm, wo::value* value, wo::lexer* lex)
     while (true)
     {
         auto lex_type = lex->peek(nullptr);
-        if (lex_type == +wo::lex_type::l_index_end)
+        if (lex_type == wo::lex_type::l_index_end)
         {
             lex->next(nullptr);
             break;
@@ -937,7 +937,7 @@ wo_bool_t _wo_cast_array(wo_vm vm, wo::value* value, wo::lexer* lex)
             return WO_FALSE;
         rsarr->push_back(*value);
 
-        if (lex->peek(nullptr) == +wo::lex_type::l_comma)
+        if (lex->peek(nullptr) == wo::lex_type::l_comma)
             lex->next(nullptr);
     }
     value->set_gcunit<wo::value::valuetype::array_type>(rsarr);
@@ -952,7 +952,7 @@ wo_bool_t _wo_cast_map(wo_vm vm, wo::value* value, wo::lexer* lex)
     while (true)
     {
         auto lex_type = lex->peek(nullptr);
-        if (lex_type == +wo::lex_type::l_right_curly_braces)
+        if (lex_type == wo::lex_type::l_right_curly_braces)
         {
             // end
             lex->next(nullptr);
@@ -964,14 +964,14 @@ wo_bool_t _wo_cast_map(wo_vm vm, wo::value* value, wo::lexer* lex)
         auto& val_place = (*rsmap)[*value];
 
         lex_type = lex->next(nullptr);
-        if (lex_type != +wo::lex_type::l_typecast)
+        if (lex_type != wo::lex_type::l_typecast)
             //wo_fail(WO_FAIL_TYPE_FAIL, "Unexcept token while parsing map, here should be ':'.");
             return WO_FALSE;
 
         if (!_wo_cast_value(vm, &val_place, lex, wo::value::valuetype::invalid)) // value!
             return WO_FALSE;
 
-        if (lex->peek(nullptr) == +wo::lex_type::l_comma)
+        if (lex->peek(nullptr) == wo::lex_type::l_comma)
             lex->next(nullptr);
     }
 
@@ -984,47 +984,47 @@ wo_bool_t _wo_cast_value(wo_vm vm, wo::value* value, wo::lexer* lex, wo::value::
 {
     std::wstring wstr;
     auto lex_type = lex->next(&wstr);
-    if (lex_type == +wo::lex_type::l_left_curly_braces) // is map
+    if (lex_type == wo::lex_type::l_left_curly_braces) // is map
     {
         if (!_wo_cast_map(vm, value, lex))
             return WO_FALSE;
     }
-    else if (lex_type == +wo::lex_type::l_index_begin) // is array
+    else if (lex_type == wo::lex_type::l_index_begin) // is array
     {
         if (!_wo_cast_array(vm, value, lex))
             return WO_FALSE;
     }
-    else if (lex_type == +wo::lex_type::l_literal_string) // is string   
+    else if (lex_type == wo::lex_type::l_literal_string) // is string   
         value->set_string(wo::wstr_to_str(wstr).c_str());
-    else if (lex_type == +wo::lex_type::l_add
-        || lex_type == +wo::lex_type::l_sub
-        || lex_type == +wo::lex_type::l_literal_integer
-        || lex_type == +wo::lex_type::l_literal_real) // is integer
+    else if (lex_type == wo::lex_type::l_add
+        || lex_type == wo::lex_type::l_sub
+        || lex_type == wo::lex_type::l_literal_integer
+        || lex_type == wo::lex_type::l_literal_real) // is integer
     {
         bool positive = true;
-        if (lex_type == +wo::lex_type::l_sub || lex_type == +wo::lex_type::l_add)
+        if (lex_type == wo::lex_type::l_sub || lex_type == wo::lex_type::l_add)
         {
-            if (lex_type == +wo::lex_type::l_sub)
+            if (lex_type == wo::lex_type::l_sub)
                 positive = false;
 
             lex_type = lex->next(&wstr);
-            if (lex_type != +wo::lex_type::l_literal_integer
-                && lex_type != +wo::lex_type::l_literal_real)
+            if (lex_type != wo::lex_type::l_literal_integer
+                && lex_type != wo::lex_type::l_literal_real)
                 // wo_fail(WO_FAIL_TYPE_FAIL, "Unknown token while parsing.");
                 return WO_FALSE;
         }
 
-        if (lex_type == +wo::lex_type::l_literal_integer) // is real
+        if (lex_type == wo::lex_type::l_literal_integer) // is real
             value->set_integer(positive
                 ? std::stoll(wo::wstr_to_str(wstr).c_str())
                 : -std::stoll(wo::wstr_to_str(wstr).c_str()));
-        else if (lex_type == +wo::lex_type::l_literal_real) // is real
+        else if (lex_type == wo::lex_type::l_literal_real) // is real
             value->set_real(positive
                 ? std::stod(wo::wstr_to_str(wstr).c_str())
                 : -std::stod(wo::wstr_to_str(wstr).c_str()));
 
     }
-    else if (lex_type == +wo::lex_type::l_nil) // is nil
+    else if (lex_type == wo::lex_type::l_nil) // is nil
         value->set_nil();
     else if (wstr == L"true")
         value->set_bool(true);// true
