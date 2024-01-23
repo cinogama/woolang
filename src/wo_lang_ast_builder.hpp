@@ -147,6 +147,7 @@ namespace wo
                 {WO_PSTR(tuple), value::valuetype::invalid},
 
                 {WO_PSTR(void), value::valuetype::invalid},
+                {WO_PSTR(anything), value::valuetype::invalid}, // Top type.
                 {WO_PSTR(nothing), value::valuetype::invalid}, // Buttom type.
                 {WO_PSTR(pending), value::valuetype::invalid},
                 {WO_PSTR(dynamic), value::valuetype::invalid},
@@ -195,6 +196,7 @@ namespace wo
             bool is_builtin_using_type() const;
             bool is_union() const;
             bool is_tuple() const;
+            bool is_anything() const;
             bool is_nothing() const;
             bool is_struct() const;
             bool has_template() const;

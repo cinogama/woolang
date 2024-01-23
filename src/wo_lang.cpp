@@ -3370,6 +3370,9 @@ namespace wo
             if (another->is_nothing())
                 return true; // Buttom type, OK
 
+            if (is_anything())
+                return true; // Top type, OK
+
             if (!ignore_prefix)
             {
                 if (is_mutable() != another->is_mutable())
@@ -5900,8 +5903,7 @@ namespace wo
                 else if (a_value_type_judge->_be_cast_value_node->value_type->is_dynamic())
                 {
                     if (a_value_type_judge->value_type->is_pure_base_type()
-                        || a_value_type_judge->value_type->is_void()
-                        || a_value_type_judge->value_type->is_nothing())
+                        || a_value_type_judge->value_type->is_anything())
                         lang_anylizer->lang_error(lexer::errorlevel::error, a_value_type_judge,
                             WO_ERR_CANNOT_TEST_COMPLEX_TYPE, a_value_type_judge->value_type->get_type_name(false).c_str());
 
@@ -5927,8 +5929,7 @@ namespace wo
                 if (a_value_type_check->_be_check_value_node->value_type->is_dynamic())
                 {
                     if (a_value_type_check->aim_type->is_pure_base_type()
-                        || a_value_type_check->aim_type->is_void()
-                        || a_value_type_check->aim_type->is_nothing())
+                        || a_value_type_check->aim_type->is_anything())
                         lang_anylizer->lang_error(lexer::errorlevel::error, a_value_type_check,
                             WO_ERR_CANNOT_TEST_COMPLEX_TYPE, a_value_type_check->aim_type->get_type_name(false).c_str());
 
@@ -6807,7 +6808,9 @@ namespace wo
                 a_val_funcdef == nullptr || a_val_funcdef->function_name == nullptr)
             {
                 // Woolang 1.10.2: The value is not void type, cannot be a sentence.
-                if (!a_value->value_type->is_void() && !a_value->value_type->is_nothing())
+                if (!a_value->value_type->is_void() && 
+                    !a_value->value_type->is_nothing() &&
+                    !a_value->value_type->is_anything())
                     lang_anylizer->lang_error(lexer::errorlevel::error, a_value, WO_ERR_NOT_ALLOW_IGNORE_VALUE,
                         a_value->value_type->get_type_name(false).c_str());
             }
