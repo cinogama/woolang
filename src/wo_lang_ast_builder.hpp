@@ -147,6 +147,7 @@ namespace wo
                 {WO_PSTR(tuple), value::valuetype::invalid},
 
                 {WO_PSTR(void), value::valuetype::invalid},
+                {WO_PSTR(anything), value::valuetype::invalid}, // Top type.
                 {WO_PSTR(nothing), value::valuetype::invalid}, // Buttom type.
                 {WO_PSTR(pending), value::valuetype::invalid},
                 {WO_PSTR(dynamic), value::valuetype::invalid},
@@ -195,6 +196,7 @@ namespace wo
             bool is_builtin_using_type() const;
             bool is_union() const;
             bool is_tuple() const;
+            bool is_anything() const;
             bool is_nothing() const;
             bool is_struct() const;
             bool has_template() const;
@@ -244,7 +246,7 @@ namespace wo
         struct ast_value_mutable : virtual public ast_value
         {
             ast_value* val = nullptr;
-            lex_type mark_type = +lex_type::l_error;
+            lex_type mark_type = lex_type::l_error;
 
             ast_value_mutable()
                 : ast_value(new ast_type(WO_PSTR(pending)))
@@ -545,7 +547,7 @@ namespace wo
         {
             // used for storing binary-operate;
             ast_value* left = nullptr;
-            lex_type operate = +lex_type::l_error;
+            lex_type operate = lex_type::l_error;
             ast_value* right = nullptr;
 
             ast_value_funccall* overrided_operation_call = nullptr;
@@ -860,7 +862,7 @@ namespace wo
             {
             }
 
-            ast_token() :tokens({ +lex_type::l_error })
+            ast_token() :tokens({ lex_type::l_error })
             {
 
             }
@@ -1121,7 +1123,7 @@ namespace wo
         {
             // used for storing binary-operate;
             ast_value* left = nullptr;
-            lex_type operate = +lex_type::l_error;
+            lex_type operate = lex_type::l_error;
             ast_value* right = nullptr;
 
             bool is_value_assgin = false;
@@ -1154,7 +1156,7 @@ namespace wo
         {
             // used for storing binary-operate;
             ast_value* left = nullptr;
-            lex_type operate = +lex_type::l_error;
+            lex_type operate = lex_type::l_error;
             ast_value* right = nullptr;
 
             ast_value_funccall* overrided_operation_call = nullptr;
@@ -1317,7 +1319,7 @@ namespace wo
 
         struct ast_value_unary : virtual public ast_value
         {
-            lex_type operate = +lex_type::l_error;
+            lex_type operate = lex_type::l_error;
             ast_value* val;
 
             ast_value_unary()
@@ -1351,7 +1353,7 @@ namespace wo
                 {
                     is_constant = true;
 
-                    if (operate == +lex_type::l_sub)
+                    if (operate == lex_type::l_sub)
                     {
                         value_type = val->value_type;
                         auto _rval = val->get_constant_value();
@@ -1369,7 +1371,7 @@ namespace wo
                             return;
                         }
                     }
-                    else /*if(_token.type == +lex_type::l_lnot)*/
+                    else /*if(_token.type == lex_type::l_lnot)*/
                     {
                         if (val->value_type->is_bool())
                         {
@@ -1990,9 +1992,9 @@ namespace wo
             {
                 auto* type = dynamic_cast<ast_type*>(WO_NEED_AST(1));
 
-                wo_assert(WO_NEED_TOKEN(0).type == +lex_type::l_mut || WO_NEED_TOKEN(0).type == +lex_type::l_immut);
+                wo_assert(WO_NEED_TOKEN(0).type == lex_type::l_mut || WO_NEED_TOKEN(0).type == lex_type::l_immut);
 
-                if (WO_NEED_TOKEN(0).type == +lex_type::l_mut)
+                if (WO_NEED_TOKEN(0).type == lex_type::l_mut)
                     type->set_is_mutable(true);
                 else
                     type->set_is_force_immutable();
@@ -2046,9 +2048,9 @@ namespace wo
                 {
                     item->need_assign_val = false;
                     auto fxxk = WO_NEED_TOKEN(3);
-                    if (WO_NEED_TOKEN(2).type == +lex_type::l_add)
+                    if (WO_NEED_TOKEN(2).type == lex_type::l_add)
                         item->enum_val = ast_value_literal::wstr_to_integer(WO_NEED_TOKEN(3).identifier);
-                    else if (WO_NEED_TOKEN(2).type == +lex_type::l_sub)
+                    else if (WO_NEED_TOKEN(2).type == lex_type::l_sub)
                         item->enum_val = -ast_value_literal::wstr_to_integer(WO_NEED_TOKEN(3).identifier);
                     else
                         wo_error("Enum item should be +/- integer");
@@ -2102,8 +2104,8 @@ namespace wo
                 result->val = dynamic_cast<ast_value*>(WO_NEED_AST(1));
 
                 wo_assert(
-                    WO_NEED_TOKEN(0).type == +lex_type::l_mut ||
-                    WO_NEED_TOKEN(0).type == +lex_type::l_immut);
+                    WO_NEED_TOKEN(0).type == lex_type::l_mut ||
+                    WO_NEED_TOKEN(0).type == lex_type::l_immut);
 
                 result->mark_type = WO_NEED_TOKEN(0).type;
                 return (ast_basic*)result;
@@ -2146,7 +2148,7 @@ namespace wo
                 for (auto& enumitem : enum_items->enum_items)
                 {
                     ast_value_literal* const_val = new ast_value_literal(
-                        token{ +lex_type::l_literal_integer, std::to_wstring(enumitem->enum_val) });
+                        token{ lex_type::l_literal_integer, std::to_wstring(enumitem->enum_val) });
                     const_val->copy_source_info(enumitem);
 
                     auto* define_enum_item = new ast_pattern_identifier;
@@ -2187,7 +2189,7 @@ namespace wo
                 ast_value* right_v = dynamic_cast<ast_value*>(WO_NEED_AST(1));
 
                 wo_test(right_v);
-                wo_test(lexer::lex_is_operate_type(_token.type) && (_token.type == +lex_type::l_lnot || _token.type == +lex_type::l_sub));
+                wo_test(lexer::lex_is_operate_type(_token.type) && (_token.type == lex_type::l_lnot || _token.type == lex_type::l_sub));
 
                 ast_value_unary* vbin = new ast_value_unary();
                 vbin->operate = _token.type;
@@ -2312,7 +2314,7 @@ namespace wo
                     ast_token* attrib = dynamic_cast<ast_token*>(extern_attribs->children);
                     while (attrib)
                     {
-                        wo_assert(attrib->tokens.type == +lex_type::l_identifier);
+                        wo_assert(attrib->tokens.type == lex_type::l_identifier);
 
                         if (attrib->tokens.identifier == L"slow")
                             extern_symb->leaving_call = true;
@@ -2573,7 +2575,7 @@ namespace wo
 
                 token tk = WO_NEED_TOKEN(1);
 
-                if (tk.type == +lex_type::l_identifier)
+                if (tk.type == lex_type::l_identifier)
                 {
                     return (ast::ast_base*)new ast_type(tk.identifier);
                 }
@@ -2672,7 +2674,7 @@ namespace wo
 
                 token tk = WO_NEED_TOKEN(0);
 
-                wo_test(tk.type == +lex_type::l_identifier);
+                wo_test(tk.type == lex_type::l_identifier);
                 return (ast::ast_base*)new ast_value_variable(wstring_pool::get_pstr(tk.identifier));
             }
         };
@@ -2686,7 +2688,7 @@ namespace wo
                 token tk = WO_NEED_TOKEN(1);
                 ast_value_variable* result = dynamic_cast<ast_value_variable*>(WO_NEED_AST(2));
 
-                wo_assert(tk.type == +lex_type::l_identifier && result);
+                wo_assert(tk.type == lex_type::l_identifier && result);
 
                 result->scope_namespaces.insert(result->scope_namespaces.begin(), wstring_pool::get_pstr(tk.identifier));
 
@@ -2730,8 +2732,8 @@ namespace wo
                     token tk = WO_NEED_TOKEN(0);
                     ast_value_variable* result = dynamic_cast<ast_value_variable*>(WO_NEED_AST(1));
 
-                    wo_assert((tk.type == +lex_type::l_identifier || tk.type == +lex_type::l_empty) && result);
-                    if (tk.type == +lex_type::l_identifier)
+                    wo_assert((tk.type == lex_type::l_identifier || tk.type == lex_type::l_empty) && result);
+                    if (tk.type == lex_type::l_identifier)
                     {
                         result->scope_namespaces.insert(result->scope_namespaces.begin(), wstring_pool::get_pstr(tk.identifier));
                     }
@@ -2761,7 +2763,7 @@ namespace wo
 
                 token tk = WO_NEED_TOKEN(1);
 
-                wo_test(tk.type == +lex_type::l_identifier);
+                wo_test(tk.type == lex_type::l_identifier);
 
                 return (ast::ast_base*)new ast_value_variable(wstring_pool::get_pstr(tk.identifier));
             }
@@ -2900,12 +2902,12 @@ namespace wo
                 vbin->operate = _token.type;
                 vbin->right = right_v;
 
-                if (_token.type == +lex_type::l_value_assign
-                    || _token.type == +lex_type::l_value_add_assign
-                    || _token.type == +lex_type::l_value_sub_assign
-                    || _token.type == +lex_type::l_value_mul_assign
-                    || _token.type == +lex_type::l_value_div_assign
-                    || _token.type == +lex_type::l_value_mod_assign)
+                if (_token.type == lex_type::l_value_assign
+                    || _token.type == lex_type::l_value_add_assign
+                    || _token.type == lex_type::l_value_sub_assign
+                    || _token.type == lex_type::l_value_mul_assign
+                    || _token.type == lex_type::l_value_div_assign
+                    || _token.type == lex_type::l_value_mod_assign)
                 {
                     vbin->is_value_assgin = true;
                     vbin->value_type = new ast_type(WO_PSTR(pending));
@@ -2950,7 +2952,7 @@ namespace wo
                 ast_value* left_v = dynamic_cast<ast_value*>(WO_NEED_AST(0));
                 token _token = WO_NEED_TOKEN(1);
 
-                if (_token.type == +lex_type::l_index_begin)
+                if (_token.type == lex_type::l_index_begin)
                 {
                     ast_value* right_v = dynamic_cast<ast_value*>(WO_NEED_AST(2));
                     wo_test(left_v && right_v);
@@ -2970,10 +2972,10 @@ namespace wo
                         return (ast::ast_base*)vbin;
                     }
                 }
-                else if (_token.type == +lex_type::l_index_point)
+                else if (_token.type == lex_type::l_index_point)
                 {
                     token right_tk = WO_NEED_TOKEN(2);
-                    wo_test(left_v && right_tk.type == +lex_type::l_identifier);
+                    wo_test(left_v && right_tk.type == lex_type::l_identifier);
 
                     ast_value_literal* const_result = new ast_value_literal(right_tk);
                     const_result->copy_source_info(left_v);
@@ -3017,7 +3019,7 @@ namespace wo
                     else
                     {
                         auto* tktype = dynamic_cast<ast_token*>(child);
-                        wo_test(child->sibling == nullptr && tktype && tktype->tokens.type == +lex_type::l_variadic_sign);
+                        wo_test(child->sibling == nullptr && tktype && tktype->tokens.type == lex_type::l_variadic_sign);
                         //must be last elem..
 
                         result->set_as_variadic_arg_func();
@@ -3129,7 +3131,7 @@ namespace wo
 
                 if (input.size() == 4)
                 {
-                    wo_assert(WO_NEED_TOKEN(1).type == +lex_type::l_mut);
+                    wo_assert(WO_NEED_TOKEN(1).type == lex_type::l_mut);
                     arg_def->decl = identifier_decl::MUTABLE;
 
                     arg_def->arg_name = wstring_pool::get_pstr(WO_NEED_TOKEN(2).identifier);
@@ -3335,7 +3337,7 @@ namespace wo
                     {
                         auto* result_identifier = new ast_pattern_identifier;
 
-                        wo_assert(WO_NEED_TOKEN(0).type == +lex_type::l_mut);
+                        wo_assert(WO_NEED_TOKEN(0).type == lex_type::l_mut);
                         result_identifier->decl = identifier_decl::MUTABLE;
 
                         result_identifier->attr = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(1));
@@ -3639,11 +3641,11 @@ namespace wo
                 wo_assert(bind_map_func != nullptr);
                 result->arguments->append_at_end(bind_map_func);
 
-                if (WO_NEED_TOKEN(1).type == +lex_type::l_bind_monad)
+                if (WO_NEED_TOKEN(1).type == lex_type::l_bind_monad)
                     result->called_func = new ast_value_variable(WO_PSTR(bind));
                 else
                 {
-                    wo_assert(WO_NEED_TOKEN(1).type == +lex_type::l_map_monad);
+                    wo_assert(WO_NEED_TOKEN(1).type == lex_type::l_map_monad);
                     result->called_func = new ast_value_variable(WO_PSTR(map));
                 }
                 result->called_func->copy_source_info(result->directed_value_from);
@@ -3656,7 +3658,7 @@ namespace wo
         {
             static grammar::produce build(lexer& lex, inputs_t& input)
             {
-                wo_assert(WO_NEED_TOKEN(0).type == +lex_type::l_macro);
+                wo_assert(WO_NEED_TOKEN(0).type == lex_type::l_macro);
                 return token{ lex.parser_error(lexer::errorlevel::error, WO_ERR_UNKNOWN_MACRO_NAMED, WO_NEED_TOKEN(0).identifier.c_str()) };
             }
         };
@@ -3665,7 +3667,7 @@ namespace wo
         {
             static grammar::produce build(lexer& lex, inputs_t& input)
             {
-                wo_assert(WO_NEED_TOKEN(0).type == +lex_type::l_do);
+                wo_assert(WO_NEED_TOKEN(0).type == lex_type::l_do);
 
                 ast_value_type_cast* result = new ast_value_type_cast(dynamic_cast<ast_value*>(WO_NEED_AST(1)), new ast_type(WO_PSTR(void)));
                 return (ast_basic*)result;

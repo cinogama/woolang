@@ -78,7 +78,7 @@ namespace wo
 
                                     for (auto& beta : beta_set)
                                     {
-                                        if (beta.t_type == +ttype::l_empty)
+                                        if (beta.t_type == ttype::l_empty)
                                             has_e_prod = true;
                                         else
                                         {
@@ -266,7 +266,7 @@ namespace wo
 
                     for (auto& sy : cFIRST)
                     {
-                        if (sy.t_type != +ttype::l_empty)
+                        if (sy.t_type != ttype::l_empty)
                             FIRST_SET[single_rule.first].insert(sy);//NON-E-PRODUCER, ADD IT 
                         else
                             e_prd = true;
@@ -328,7 +328,7 @@ namespace wo
                             bool have_e_prud = false;
                             for (auto& token_in_first : first_set)
                             {
-                                if (token_in_first.t_type != +ttype::l_empty)
+                                if (token_in_first.t_type != ttype::l_empty)
                                     FOLLOW_SET[single_rule.second[pindex]].insert(token_in_first);
                                 else
                                     have_e_prud = true;
@@ -668,8 +668,8 @@ namespace wo
         std::stack<te_nt_index_t> sym_stack;
         std::stack<std::pair<source_info, produce>> node_stack;
 
-        const te_nt_index_t te_leof_index = TERM_MAP.at(+lex_type::l_eof);
-        const te_nt_index_t te_lempty_index = TERM_MAP.at(+lex_type::l_empty);
+        const te_nt_index_t te_leof_index = TERM_MAP.at(lex_type::l_eof);
+        const te_nt_index_t te_lempty_index = TERM_MAP.at(lex_type::l_empty);
 
         state_stack.push(0);
         sym_stack.push(te_leof_index);
@@ -682,7 +682,7 @@ namespace wo
             std::wstring out_indentifier;
             lex_type type = tkr.peek(&out_indentifier);
 
-            if (type == +lex_type::l_error)
+            if (type == lex_type::l_error)
             {
                 // have a lex error, skip this error.
                 type = tkr.next(&out_indentifier);
@@ -746,7 +746,7 @@ namespace wo
 
                         if (astn.is_token())
                         {
-                            if (astn.read_token().type == +lex_type::l_error)
+                            if (astn.read_token().type == lex_type::l_error)
                             {
                                 return true;
                             }
@@ -755,7 +755,7 @@ namespace wo
                         return false;
                         }) != te_or_nt_bnodes.end())//bnodes CONTAIN L_ERROR
                     {
-                        node_stack.push(std::make_pair(source_info{ tkr.next_file_rowno, tkr.next_file_colno }, token{ +lex_type::l_error }));
+                        node_stack.push(std::make_pair(source_info{ tkr.next_file_rowno, tkr.next_file_colno }, token{ lex_type::l_error }));
                         // std::wcout << ANSI_HIR "reduce: err happend, just go.." ANSI_RST << std::endl;
                     }
                     else
@@ -921,7 +921,7 @@ namespace wo
 
                 std::wstring err_info;
 
-                if (type == +lex_type::l_eof)
+                if (type == lex_type::l_eof)
                 {
                     err_info = WO_ERR_UNEXCEPT_EOF + advise;
                 }
@@ -981,7 +981,7 @@ namespace wo
                     {
                         wo::lex_type out_lex = lex_type::l_empty;
                         std::wstring out_str;
-                        while ((out_lex = tkr.peek(&out_str)) != +lex_type::l_eof)
+                        while ((out_lex = tkr.peek(&out_str)) != lex_type::l_eof)
                         {
                             for (te_nt_index_t fr : reduceables)
                             {
@@ -1031,21 +1031,21 @@ namespace wo
                         }
 
                         if (try_recover_count == 0 && std::find(_termi_want_to_inserts.begin(), _termi_want_to_inserts.end(),
-                            +lex_type::l_semicolon)
+                            lex_type::l_semicolon)
                             != _termi_want_to_inserts.end())
                         {
                             tkr.push_temp_for_error_recover(lex_type::l_semicolon, L"");
                             goto error_progress_end;
                         }
                         if (try_recover_count == 1 && std::find(_termi_want_to_inserts.begin(), _termi_want_to_inserts.end(),
-                            +lex_type::l_right_brackets)
+                            lex_type::l_right_brackets)
                             != _termi_want_to_inserts.end())
                         {
                             tkr.push_temp_for_error_recover(lex_type::l_right_brackets, L"");
                             goto error_progress_end;
                         }
                         if (try_recover_count == 2 && std::find(_termi_want_to_inserts.begin(), _termi_want_to_inserts.end(),
-                            +lex_type::l_right_curly_braces)
+                            lex_type::l_right_curly_braces)
                             != _termi_want_to_inserts.end())
                         {
                             tkr.push_temp_for_error_recover(lex_type::l_right_curly_braces, L"");
@@ -1093,11 +1093,11 @@ namespace wo
                 const grammar::te& v = std::get<grammar::te>(s);
                 if (v.t_name == L"")
                 {
-                    ost << L" " << v.t_type._to_string() << L" ";
+                    ost << L" token: " << v.t_type << L" ";
                 }
                 else
                 {
-                    ost << (v.t_name);
+                    ost << v.t_name;
                 }
             }
             else
@@ -1118,14 +1118,14 @@ namespace wo
     {
         if (ter.t_name == L"")
         {
-            if (ter.t_type == +lex_type::l_eof)
+            if (ter.t_type == lex_type::l_eof)
                 ost << L"$";
-            else if (ter.t_type == +lex_type::l_semicolon)
+            else if (ter.t_type == lex_type::l_semicolon)
                 ost << L";";
-            else if (ter.t_type == +lex_type::l_comma)
+            else if (ter.t_type == lex_type::l_comma)
                 ost << L",";
             else
-                ost << ter.t_type._to_string();
+                ost << "token: " << (lex_type_base_t)ter.t_type;
         }
         else
             ost << (ter.t_name);

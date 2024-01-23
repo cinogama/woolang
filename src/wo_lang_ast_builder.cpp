@@ -66,12 +66,24 @@ namespace wo
             if (from->is_pending() || to->is_pending())
                 return false;
 
+            // Any type can cast to anything;
+            if (to->is_anything())
+                return true;
+
             // Any type can cast to void;
             if (to->is_void())
                 return true;
 
             // Cannot cast void to any other type.
             if (from->is_void())
+                return false;
+
+            // Any type can cast to anything;
+            if (to->is_anything())
+                return true;
+
+            // Cannot cast anything to any other type.
+            if (from->is_anything())
                 return false;
 
             if (to->is_dynamic())
@@ -81,8 +93,7 @@ namespace wo
             {
                 // Not allowed cast template type from dynamic
                 // In fact, cast func from dynamic is dangerous too...
-                if (to->is_pure_base_type()
-                    || to->is_nothing())
+                if (!to->is_pure_base_type() || to->is_nothing())
                     return false;
                 return true;
             }
@@ -577,6 +588,10 @@ namespace wo
         {
             return type_name == WO_PSTR(tuple);
         }
+        bool ast_type::is_anything() const
+        {
+            return type_name == WO_PSTR(anything);
+        }
         bool ast_type::is_nothing() const
         {
             return type_name == WO_PSTR(nothing);
@@ -603,19 +618,26 @@ namespace wo
         }
         bool ast_type::is_pure_base_type() const
         {
-            if (is_complex() || using_type_name || is_union() || is_struct() || is_tuple() || is_vec() || is_map())
-                return true;
+            if (using_type_name != nullptr
+                || is_complex()
+                || is_union() 
+                || is_struct() 
+                || is_tuple() 
+                || is_vec() 
+                || is_map())
+                return false;
+
             if (is_array() || is_dict())
             {
                 for (auto* temp : template_arguments)
                 {
                     if (!temp->is_dynamic())
-                        return true;
+                        return false;
                 }
-                return false;
+                return true;
             }
 
-            return has_template();
+            return false == has_template();
         }
         bool ast_type::is_array() const
         {
@@ -892,7 +914,7 @@ namespace wo
                 wo_error("Unexcepted literal type.");
                 break;
             }
-            if (te.type == +lex_type::l_literal_char)
+            if (te.type == lex_type::l_literal_char)
                 value_type->set_type_with_name(WO_PSTR(char));
             else
                 value_type->set_type_with_constant_value(constant_value);
@@ -1028,12 +1050,12 @@ namespace wo
         void ast_decl_attribute::varify_attributes(lexer* lex) const
         {
             // 1) Check if public, protected or private at same time
-            lex_type has_describe = +lex_type::l_error;
+            lex_type has_describe = lex_type::l_error;
             for (auto att : attributes)
             {
-                if (att == +lex_type::l_public || att == +lex_type::l_private || att == +lex_type::l_protected)
+                if (att == lex_type::l_public || att == lex_type::l_private || att == lex_type::l_protected)
                 {
-                    if (has_describe != +lex_type::l_error)
+                    if (has_describe != lex_type::l_error)
                     {
                         lex->parser_error(lexer::errorlevel::error, WO_ERR_CANNOT_DECL_PUB_PRI_PRO_SAME_TIME);
                         break;
@@ -1053,24 +1075,24 @@ namespace wo
         }
         bool ast_decl_attribute::is_static_attr() const
         {
-            return attributes.find(+lex_type::l_static) != attributes.end();
+            return attributes.find(lex_type::l_static) != attributes.end();
         }
         bool ast_decl_attribute::is_private_attr() const
         {
-            return attributes.find(+lex_type::l_private) != attributes.end()
+            return attributes.find(lex_type::l_private) != attributes.end()
                 || (!is_protected_attr() && !is_public_attr());
         }
         bool ast_decl_attribute::is_protected_attr() const
         {
-            return attributes.find(+lex_type::l_protected) != attributes.end();
+            return attributes.find(lex_type::l_protected) != attributes.end();
         }
         bool ast_decl_attribute::is_public_attr() const
         {
-            return attributes.find(+lex_type::l_public) != attributes.end();
+            return attributes.find(lex_type::l_public) != attributes.end();
         }
         bool ast_decl_attribute::is_extern_attr() const
         {
-            return attributes.find(+lex_type::l_extern) != attributes.end();
+            return attributes.find(lex_type::l_extern) != attributes.end();
         }
         ast::ast_base* ast_decl_attribute::instance(ast_base* child_instance) const
         {
@@ -1135,7 +1157,7 @@ namespace wo
                 return nullptr;
             if (left_v->is_complex() || right_v->is_complex())
                 return nullptr;
-            if ((left_v->is_string() || right_v->is_string()) && op != +lex_type::l_add && op != +lex_type::l_add_assign)
+            if ((left_v->is_string() || right_v->is_string()) && op != lex_type::l_add && op != lex_type::l_add_assign)
                 return nullptr;
             if (left_v->is_dict() || right_v->is_dict())
                 return nullptr;
@@ -1290,7 +1312,7 @@ namespace wo
                         }
                         else
                         {
-                            return token{ +lex_type::l_error };
+                            return token{ lex_type::l_error };
                         }
                     }
                 }
@@ -1776,7 +1798,7 @@ namespace wo
             }
             else if (input.size() == 11)
             {
-                if (WO_IS_TOKEN(2) && WO_NEED_TOKEN(2).type == +lex_type::l_operator)
+                if (WO_IS_TOKEN(2) && WO_NEED_TOKEN(2).type == lex_type::l_operator)
                 {
                     // operator function
                     ast_func->declear_attribute = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(0));
@@ -1963,7 +1985,7 @@ namespace wo
             using_type->new_type_identifier = wstring_pool::get_pstr(WO_NEED_TOKEN(2).identifier);
             using_type->old_type = dynamic_cast<ast_type*>(WO_NEED_AST(5));
             using_type->declear_attribute = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(0));
-            using_type->is_alias = WO_NEED_TOKEN(1).type == +lex_type::l_alias;
+            using_type->is_alias = WO_NEED_TOKEN(1).type == lex_type::l_alias;
             ast_list* template_const_list = new ast_list;
 
             using_type->old_type = dynamic_cast<ast_type*>(WO_NEED_AST(5));
@@ -2028,8 +2050,8 @@ namespace wo
                 return;
 
             // if left/right is custom, donot calculate them 
-            if (operate == +lex_type::l_land
-                || operate == +lex_type::l_lor)
+            if (operate == lex_type::l_land
+                || operate == lex_type::l_lor)
             {
                 if (!left->value_type->is_bool() || !right->value_type->is_bool())
                     return;
@@ -2069,7 +2091,7 @@ namespace wo
                         is_constant = false;
                         return;
                     }
-                    if (operate == +lex_type::l_not_equal)
+                    if (operate == lex_type::l_not_equal)
                         constant_value.set_bool(!constant_value.integer);
                     break;
 
@@ -2090,7 +2112,7 @@ namespace wo
                     }
 
 
-                    if (operate == +lex_type::l_larg_or_equal)
+                    if (operate == lex_type::l_larg_or_equal)
                         constant_value.set_bool(!constant_value.integer);
                     break;
 
@@ -2111,7 +2133,7 @@ namespace wo
                         return;
                     }
 
-                    if (operate == +lex_type::l_less_or_equal)
+                    if (operate == lex_type::l_less_or_equal)
                         constant_value.set_bool(!constant_value.integer);
                     break;
 
