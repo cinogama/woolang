@@ -19,7 +19,7 @@ namespace test_thread
         {
             created_threads->add(
                 thread::create(
-                    func(id:int)
+                    func()
                     {
                         let mut c = 0;
                         while (c < 100000)
@@ -27,8 +27,8 @@ namespace test_thread
                             test_vec->add(nil);
                             c += 1;
                         }
-                        std::println("Thread:", id, "complete");
-                    }, (i,)     
+                        std::println("Thread:", i, "complete");
+                    }    
             ));
             i+=1;
         }
@@ -49,7 +49,7 @@ namespace test_thread
         let abort_flag = mutable::create(false);
         let __pack = [mut this_should_be_false];
         let th = thread::create(
-            func(mut i: int)
+            \=func(mut i: int)
             {
                 __pack[0] = true;
                 for (;;)
@@ -60,15 +60,15 @@ namespace test_thread
                     if (abort_flag->get)
                         break;
                 }
-            }, (summ,));
+            }(summ););
 
         abort_flag->set(true);
         test_assure(th->wait == true);
 
         test_assure(this_should_be_false == false && summ == 0 && __pack[0] == true);
 
-        test_assure(thread::create(\=std::halt("Halt thread for testing.");, ())->wait == false);
-        test_assure(thread::create(\=do nil;, ())->wait == true);
+        test_assure(thread::create(\=std::halt("Halt thread for testing.");)->wait == false);
+        test_assure(thread::create(\=do nil;)->wait == true);
     }
 }
 

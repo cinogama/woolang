@@ -72,7 +72,7 @@ namespace test_string_u8
                         for (let mut i = 0; i < badstr_r->len; i += 1)
                             std::print(badstr_r[i], "");
                     }
-                }, ()
+                }
             );
             ->> \t = t->wait;
             ->> \_ = thread::create(
@@ -88,7 +88,7 @@ namespace test_string_u8
                         
                         test_assure(badstr_r->len <= 7);
                     }
-                }, ()
+                }
             );
             ->> \t = t->wait;
             ;
