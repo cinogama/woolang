@@ -1353,6 +1353,10 @@ func main()
             let a = [];
             do a.aaa;
             "@);
+        assure_compile_success(@"
+            let a = (0, 1);
+            do a.1;
+            "@);
     }
 
     func main()
