@@ -2974,11 +2974,13 @@ namespace wo
                 }
                 else if (_token.type == lex_type::l_index_point)
                 {
-                    token right_tk = WO_NEED_TOKEN(2);
-                    wo_test(left_v && right_tk.type == lex_type::l_identifier);
+                    ast_token* right_tk = dynamic_cast<ast_token*>(WO_NEED_AST(2));
+                    wo_test(right_tk != nullptr && left_v && 
+                        (right_tk->tokens.type == lex_type::l_identifier || 
+                            right_tk->tokens.type == lex_type::l_literal_integer));
 
-                    ast_value_literal* const_result = new ast_value_literal(right_tk);
-                    const_result->copy_source_info(left_v);
+                    ast_value_literal* const_result = new ast_value_literal(right_tk->tokens);
+                    const_result->copy_source_info(right_tk);
 
                     ast_value_index* vbin = new ast_value_index();
                     vbin->from = left_v;

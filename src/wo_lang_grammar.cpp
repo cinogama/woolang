@@ -889,8 +889,14 @@ namespace wo
                 gm::nt(L"SCOPING_LIST") >> gm::symlist{ gm::te(gm::ttype::l_scopeing),gm::nt(L"IDENTIFIER"),gm::nt(L"SCOPING_LIST") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_append_serching_namespace),
 
-                gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING"),gm::te(gm::ttype::l_index_point),gm::nt(L"IDENTIFIER") }
+                gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING"),gm::te(gm::ttype::l_index_point),gm::nt(L"INDEX_POINT_TARGET") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_index_op),
+
+                gm::nt(L"INDEX_POINT_TARGET") >> gm::symlist{ gm::nt(L"IDENTIFIER") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_token),
+                gm::nt(L"INDEX_POINT_TARGET") >> gm::symlist{ gm::te(gm::ttype::l_literal_integer) }
+                >> WO_ASTBUILDER_INDEX(ast::pass_token),
+
                 gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING"),gm::te(gm::ttype::l_index_begin),gm::nt(L"RIGHT"),gm::te(gm::ttype::l_index_end) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_index_op),
 
