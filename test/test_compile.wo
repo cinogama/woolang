@@ -1348,6 +1348,15 @@ func main()
         assure_compile_fail(@"
             #macro AAA{return "";
             "@);
+
+        assure_compile_fail(@"
+            let a = [];
+            do a.aaa;
+            "@);
+        assure_compile_success(@"
+            let a = (0, 1);
+            do a.1;
+            "@);
     }
 
     func main()
