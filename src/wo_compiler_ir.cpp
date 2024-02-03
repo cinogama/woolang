@@ -164,7 +164,7 @@ namespace wo
             char ptrr[20] = {};
             sprintf(ptrr, "0x%p", rt_pos);
             return ptrr;
-        }();
+            }();
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -198,27 +198,60 @@ namespace wo
     std::tuple<void*, size_t> runtime_env::create_env_binary(bool savepdi) noexcept
     {
         std::vector<wo::byte_t> binary_buffer;
-        auto write_buffer_to_buffer = [&binary_buffer](const void* written_data, size_t written_length, size_t allign) {
-            const size_t write_begin_place = binary_buffer.size();
+        auto write_buffer_to_buffer =
+            [&binary_buffer](const void* written_data, size_t written_length, size_t allign)
+            {
+                const size_t write_begin_place = binary_buffer.size();
 
-            wo_assert(write_begin_place % allign == 0);
+                wo_assert(write_begin_place % allign == 0);
 
-            binary_buffer.resize(write_begin_place + written_length);
+                binary_buffer.resize(write_begin_place + written_length);
 
-            memcpy(binary_buffer.data() + write_begin_place, written_data, written_length);
-            return binary_buffer.size();
+                memcpy(binary_buffer.data() + write_begin_place, written_data, written_length);
+                return binary_buffer.size();
+            };
+
+        auto write_binary_to_buffer =
+            [&write_buffer_to_buffer](const auto& d, size_t size_for_assert)
+            {
+                const wo::byte_t* written_data = std::launder(reinterpret_cast<const wo::byte_t*>(&d));
+                const size_t written_length = sizeof(d);
+
+                wo_assert(written_length == size_for_assert);
+
+                return write_buffer_to_buffer(written_data, written_length, sizeof(d) > 8 ? 8 : sizeof(d));
+            };
+
+        class _string_pool_t
+        {
+            std::vector<char> _string_pool_buffer;
+            std::unordered_map<std::string, size_t> _string_pool_map;
+        public:
+            size_t insert(const char* str, size_t len)
+            {
+                std::string strkey(str, len);
+                auto fnd = _string_pool_map.find(strkey);
+                if (fnd != _string_pool_map.end())
+                    return fnd->second;
+
+                size_t insert_place = _string_pool_buffer.size();
+                _string_pool_buffer.insert(_string_pool_buffer.end(), str, str + len);
+                _string_pool_map[strkey] = insert_place;
+                return insert_place;
+            }
+            const std::vector<char>& get_pool() const
+            {
+                return _string_pool_buffer;
+            }
         };
+        _string_pool_t constant_string_pool;
 
-        auto write_binary_to_buffer = [&write_buffer_to_buffer](const auto& d, size_t size_for_assert) {
-            const wo::byte_t* written_data = std::launder(reinterpret_cast<const wo::byte_t*>(&d));
-            const size_t written_length = sizeof(d);
-
-            wo_assert(written_length == size_for_assert);
-
-            return write_buffer_to_buffer(written_data, written_length, sizeof(d) > 8 ? 8 : sizeof(d));
-        };
-
-        std::vector<const char*> constant_string_pool;
+        auto write_constant_str_to_buffer =
+            [&write_binary_to_buffer, &constant_string_pool](const char* str, size_t len)
+            {
+                write_binary_to_buffer((uint32_t)constant_string_pool.insert(str, len), 4);
+                write_binary_to_buffer((uint32_t)len, 4);
+            };
 
         // 1.1 (+0) Magic number(0x3001A26B look like WOOLANG B)
         write_binary_to_buffer((uint32_t)0x3001A26B, 4);
@@ -237,7 +270,6 @@ namespace wo
             (uint64_t)this->real_register_count, 8);
 
         // 2.3 Constant data
-        size_t string_buffer_size = 0;
         write_binary_to_buffer(
             (uint64_t)this->constant_value_count, 8);
         for (size_t ci = 0; ci < this->constant_value_count; ++ci)
@@ -255,11 +287,7 @@ namespace wo
             if (constant_value.type == wo::value::valuetype::string_type)
             {
                 // Record for string
-                write_binary_to_buffer((uint32_t)string_buffer_size, 4);
-                constant_string_pool.push_back(constant_value.string->c_str());
-                write_binary_to_buffer((uint32_t)constant_value.string->size(), 4);
-
-                string_buffer_size += constant_value.string->size();
+                write_constant_str_to_buffer(constant_value.string->c_str(), constant_value.string->size());
             }
             else
                 // Record for value
@@ -290,22 +318,13 @@ namespace wo
         for (auto& [funcptr, extfuncloc] : this->extern_native_functions)
         {
             // 4.1.1.1 extern script name
-            write_binary_to_buffer((uint32_t)string_buffer_size, 4);
-            constant_string_pool.push_back(extfuncloc.script_name.c_str());
-            write_binary_to_buffer((uint32_t)extfuncloc.script_name.size(), 4);
-            string_buffer_size += extfuncloc.script_name.size();
+            write_constant_str_to_buffer(extfuncloc.script_name.c_str(), extfuncloc.script_name.size());
 
             // 4.1.1.2 extern library name
-            write_binary_to_buffer((uint32_t)string_buffer_size, 4);
-            constant_string_pool.push_back(extfuncloc.library_name.c_str());
-            write_binary_to_buffer((uint32_t)extfuncloc.library_name.size(), 4);
-            string_buffer_size += extfuncloc.library_name.size();
+            write_constant_str_to_buffer(extfuncloc.library_name.c_str(), extfuncloc.library_name.size());
 
             // 4.1.1.3 extern function name
-            write_binary_to_buffer((uint32_t)string_buffer_size, 4);
-            constant_string_pool.push_back(extfuncloc.function_name.c_str());
-            write_binary_to_buffer((uint32_t)extfuncloc.function_name.size(), 4);
-            string_buffer_size += extfuncloc.function_name.size();
+            write_constant_str_to_buffer(extfuncloc.function_name.c_str(), extfuncloc.function_name.size());
 
             // 4.1.1.4 used function in constant index
             write_binary_to_buffer((uint64_t)extfuncloc.constant_offset_in_binary.size(), 8);
@@ -323,12 +342,8 @@ namespace wo
         write_binary_to_buffer((uint64_t)this->extern_script_functions.size(), 8);
         for (auto& [funcname, offset] : this->extern_script_functions)
         {
-            // 4.2.1.1 extern function name
-            write_binary_to_buffer((uint32_t)string_buffer_size, 4);
-            constant_string_pool.push_back(funcname.c_str());
-            write_binary_to_buffer((uint32_t)funcname.size(), 4);
-            string_buffer_size += funcname.size();
-
+            // 4.2.1.1 extern function name & offset
+            write_constant_str_to_buffer(funcname.c_str(), funcname.size());
             write_binary_to_buffer((uint64_t)offset, 8);
         }
 
@@ -358,14 +373,12 @@ namespace wo
         }
 
         // 6.1 Constant string buffer
-        size_t padding_length_for_constant_string_buf = (8ull - (string_buffer_size % 8ull)) % 8ull;
+        auto& constant_string_buffer = constant_string_pool.get_pool();
+        size_t padding_length_for_constant_string_buf = (8ull - (constant_string_buffer.size() % 8ull)) % 8ull;
 
         write_binary_to_buffer(
-            (uint64_t)(string_buffer_size + padding_length_for_constant_string_buf), 8);
-
-        for (size_t si = 0; si < constant_string_pool.size(); ++si)
-            write_buffer_to_buffer(constant_string_pool[si], strlen(constant_string_pool[si]), 1);
-
+            (uint64_t)(constant_string_buffer.size() + padding_length_for_constant_string_buf), 8);
+        write_buffer_to_buffer(constant_string_buffer.data(), constant_string_buffer.size(), 1);
         write_buffer_to_buffer("_padding", padding_length_for_constant_string_buf, 1);
 
         // 7.1 Debug information
@@ -714,19 +727,18 @@ namespace wo
         if (!stream->read_elem(&string_buffer_size_with_padding))
             WO_LOAD_BIN_FAILED("Failed to restore string buffer size.");
 
-        auto string_buffer_begin_offset = stream->readed_offset();
+        std::vector<char> string_pool_buffer((size_t)string_buffer_size_with_padding, 0);
+        if (!stream->read_buffer(string_pool_buffer.data(), (size_t)string_buffer_size_with_padding))
+            WO_LOAD_BIN_FAILED("Failed to restore string buffer.");
 
-        auto restore_string_from_buffer = [stream, string_buffer_begin_offset](const string_buffer_index& string_index, std::string* out_str)->bool {
-            auto current_string_begin_idx = stream->readed_offset() - string_buffer_begin_offset;
-            if (string_index.index != current_string_begin_idx)
-                return false;
-
-            std::vector<char> tmp_string_buffer(string_index.size + 1, 0);
-            stream->read_buffer(tmp_string_buffer.data(), string_index.size);
-
-            *out_str = tmp_string_buffer.data();
-            return true;
-        };
+        auto restore_string_from_buffer = 
+            [&string_pool_buffer](const string_buffer_index& string_index, std::string* out_str)->bool 
+            {
+                if (string_index.index + string_index.size > string_pool_buffer.size())
+                    return false;
+                *out_str = std::string(string_pool_buffer.data() + string_index.index, string_index.size);
+                return true;
+            };
 
         std::string constant_string;
         for (auto& [constant_offset, string_index] : constant_string_index_for_update)
@@ -760,6 +772,13 @@ namespace wo
 
             if (func == nullptr)
                 WO_LOAD_BIN_FAILED("Failed to restore native function, might be changed?");
+
+            auto& extern_native_function_info = result->extern_native_functions[(intptr_t)func];
+            extern_native_function_info.function_name = function_name;
+            extern_native_function_info.library_name = library_name;
+            extern_native_function_info.script_name = script_path;
+            extern_native_function_info.constant_offset_in_binary = extern_native_function.constant_offsets;
+            extern_native_function_info.caller_offset_in_ir = extern_native_function.ir_command_offsets;
 
             for (auto constant_offset : extern_native_function.constant_offsets)
             {
@@ -1045,9 +1064,9 @@ namespace wo
         {
             std::wstring real_read_file;
             wo::check_and_read_virtual_source<false>(
-                &buffer_to_store_data_from_file_or_mem, 
-                &real_read_file, 
-                wo::str_to_wstr(virtual_file), 
+                &buffer_to_store_data_from_file_or_mem,
+                &real_read_file,
+                wo::str_to_wstr(virtual_file),
                 std::nullopt);
         }
         else
@@ -1563,7 +1582,7 @@ namespace wo
                 }
                 else if (WO_IR.op1)
                 {
-                    if(WO_IR.opinteger)
+                    if (WO_IR.opinteger)
                         temp_this_command_code_buf.push_back(WO_OPCODE(calln, 11));
                     else
                         temp_this_command_code_buf.push_back(WO_OPCODE(calln, 01));
@@ -1624,7 +1643,7 @@ namespace wo
 
                 temp_this_command_code_buf.push_back(WO_OPCODE(jnequb));
                 size_t opcodelen = WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                
+
                 // Write jmp
                 jmp_record_table[dynamic_cast<opnum::tag*>(WO_IR.op2)->name]
                     .push_back(generated_runtime_code_buf.size() + 1 + opcodelen);
@@ -1812,7 +1831,7 @@ namespace wo
             {
                 env->_functions_def_constant_idx_for_jit.push_back(imm_value_offset);
                 wo_assert(preserved_memory[imm_value_offset].type == value::valuetype::integer_type);
-                preserved_memory[imm_value_offset].integer= (wo_integer_t)offset_val;
+                preserved_memory[imm_value_offset].integer = (wo_integer_t)offset_val;
             }
         }
 
