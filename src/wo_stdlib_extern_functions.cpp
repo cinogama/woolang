@@ -778,9 +778,7 @@ WO_API wo_api rslib_std_array_dequeue_val(wo_vm vm, wo_value args, size_t argc)
 
 WO_API wo_api rslib_std_array_remove(wo_vm vm, wo_value args, size_t argc)
 {
-    wo_arr_remove(args + 0, wo_int(args + 1));
-
-    return wo_ret_void(vm);
+    return wo_ret_bool(vm, wo_arr_remove(args + 0, wo_int(args + 1)));
 }
 
 WO_API wo_api rslib_std_array_find(wo_vm vm, wo_value args, size_t argc)
@@ -788,11 +786,52 @@ WO_API wo_api rslib_std_array_find(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_int(vm, wo_arr_find(args + 0, args + 1));
 }
 
+WO_API wo_api rslib_std_array_front(wo_vm vm, wo_value args, size_t argc)
+{
+    wo_value elem = wo_push_empty(vm);
+    if (wo_arr_front(elem, args + 0))
+        return wo_ret_option_val(vm, elem);
+    return wo_ret_option_none(vm);
+}
+WO_API wo_api rslib_std_array_back(wo_vm vm, wo_value args, size_t argc)
+{
+    wo_value elem = wo_push_empty(vm);
+    if (wo_arr_back(elem, args + 0))
+        return wo_ret_option_val(vm, elem);
+    return wo_ret_option_none(vm);
+}
+
+WO_API wo_api rslib_std_array_front_val(wo_vm vm, wo_value args, size_t argc)
+{
+    wo_value elem = wo_push_empty(vm);
+    wo_arr_front_val(elem, args + 0);
+    return wo_ret_val(vm, elem);
+}
+WO_API wo_api rslib_std_array_back_val(wo_vm vm, wo_value args, size_t argc)
+{
+    wo_value elem = wo_push_empty(vm);
+    wo_arr_back_val(elem, args + 0);
+    return wo_ret_val(vm, elem);
+}
+
 WO_API wo_api rslib_std_array_clear(wo_vm vm, wo_value args, size_t argc)
 {
     wo_arr_clear(args);
 
     return wo_ret_void(vm);
+}
+
+WO_API wo_api rslib_std_map_keys(wo_vm vm, wo_value args, size_t argc)
+{
+    wo_value result = wo_push_empty(vm);
+    wo_map_keys(result, vm, args + 0);
+    return wo_ret_val(vm, result);
+}
+WO_API wo_api rslib_std_map_vals(wo_vm vm, wo_value args, size_t argc)
+{
+    wo_value result = wo_push_empty(vm);
+    wo_map_vals(result, vm, args + 0);
+    return wo_ret_val(vm, result);
 }
 
 struct array_iter
@@ -2106,6 +2145,18 @@ namespace array
     
     extern("rslib_std_array_sub")
     public func subto<T>(self: array<T>, begin: int, count: int)=> array<T>;
+
+    extern("rslib_std_array_front")
+    public func front<T>(val: array<T>)=> option<T>;
+
+    extern("rslib_std_array_back")
+    public func back<T>(val: array<T>)=> option<T>;
+
+    extern("rslib_std_array_front_val")
+    public func frontval<T>(val: array<T>)=> T;
+
+    extern("rslib_std_array_back_val")
+    public func backval<T>(val: array<T>)=> T;
 }
 
 namespace vec
@@ -2266,6 +2317,18 @@ namespace vec
 
     extern("rslib_std_array_iter")
         public func iter<T>(val:vec<T>)=> iterator<T>;
+
+    extern("rslib_std_array_front")
+    public func front<T>(val: vec<T>)=> option<T>;
+
+    extern("rslib_std_array_back")
+    public func back<T>(val: vec<T>)=> option<T>;
+
+    extern("rslib_std_array_front_val")
+    public func frontval<T>(val: vec<T>)=> T;
+
+    extern("rslib_std_array_back_val")
+    public func backval<T>(val: vec<T>)=> T;
 }
 
 namespace dict
@@ -2319,6 +2382,12 @@ namespace dict
     extern("rslib_std_map_get_or_default") 
         public func getor<KT, VT>(self: dict<KT, VT>, index: KT, default_val: VT)=> VT;
 
+    extern("rslib_std_map_keys")
+        public func keys<KT, VT>(self: dict<KT, VT>)=> array<KT>;
+
+    extern("rslib_std_map_vals")
+        public func vals<KT, VT>(self: dict<KT, VT>)=> array<VT>;
+
     extern("rslib_std_map_empty")
         public func empty<KT, VT>(self: dict<KT, VT>)=> bool;
 
@@ -2341,20 +2410,6 @@ namespace dict
     extern("rslib_std_map_iter")
         public func iter<KT, VT>(self:dict<KT, VT>)=> iterator<KT, VT>;
 
-    public func keys<KT, VT>(self: dict<KT, VT>)
-    {
-        let result = []mut: vec<KT>;
-        for (let key, _ : self)
-            result->add(key);
-        return result->unsafe::cast:<array<KT>>;
-    }
-    public func vals<KT, VT>(self: dict<KT, VT>)
-    {
-        let result = []mut: vec<VT>;
-        for (let _, val : self)
-            result->add(val);
-        return result->unsafe::cast:<array<VT>>;
-    }
     public func forall<KT, VT>(self: dict<KT, VT>, functor: (KT, VT)=> bool)
     {
         let result = {}mut: map<KT, VT>;
@@ -2437,6 +2492,12 @@ namespace map
     extern("rslib_std_map_copy") 
         public func copy<KT, VT>(val: map<KT, VT>, another: map<KT, VT>)=> void;
 
+    extern("rslib_std_map_keys")
+        public func keys<KT, VT>(self: map<KT, VT>)=> array<KT>;
+
+    extern("rslib_std_map_vals")
+        public func vals<KT, VT>(self: map<KT, VT>)=> array<VT>;
+
     extern("rslib_std_map_empty")
         public func empty<KT, VT>(self: map<KT, VT>)=> bool;
 
@@ -2457,20 +2518,6 @@ namespace map
     extern("rslib_std_map_iter")
         public func iter<KT, VT>(self:map<KT, VT>)=> iterator<KT, VT>;
 
-    public func keys<KT, VT>(self: map<KT, VT>)
-    {
-        let result = []mut: vec<KT>;
-        for (let key, _ : self)
-            result->add(key);
-        return result->unsafe::cast:<array<KT>>;
-    }
-    public func vals<KT, VT>(self: map<KT, VT>)
-    {
-        let result = []mut: vec<VT>;
-        for (let _, val : self)
-            result->add(val);
-        return result->unsafe::cast:<array<VT>>;
-    }
     public func forall<KT, VT>(self: map<KT, VT>, functor: (KT, VT)=>bool)
     {
         let result = {}mut: map<KT, VT>;
