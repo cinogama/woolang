@@ -184,8 +184,9 @@ namespace wo
                 wo_assert(constant_global_reg_rtstack[ci].type == wo::value::valuetype::string_type);
 
                 gcbase::unit_attrib* attrib;
-                constant_global_reg_rtstack[ci].get_gcunit_with_barrier(&attrib);
-                attrib->m_attr = cancel_nogc.m_attr;
+                auto * unit = constant_global_reg_rtstack[ci].get_gcunit_with_barrier(&attrib);
+                if (unit != nullptr)
+                    attrib->m_attr = cancel_nogc.m_attr;
             }
 
         if (constant_global_reg_rtstack)
