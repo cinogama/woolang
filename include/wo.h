@@ -407,10 +407,10 @@ WO_API wo_bool_t    wo_result_get(wo_value out_val, wo_value resultval);
 // Read operation
 WO_API wo_bool_t    wo_arr_try_get(wo_value out_val, wo_value arr, wo_int_t index);
 WO_API void         wo_arr_get(wo_value out_val, wo_value arr, wo_int_t index);
-WO_API wo_bool_t    wo_arr_pop_front(wo_value out_val, wo_value arr);
-WO_API wo_bool_t    wo_arr_pop_back(wo_value out_val, wo_value arr);
-WO_API void         wo_arr_pop_front_val(wo_value out_val, wo_value arr);
-WO_API void         wo_arr_pop_back_val(wo_value out_val, wo_value arr);
+WO_API wo_bool_t    wo_arr_front(wo_value out_val, wo_value arr);
+WO_API wo_bool_t    wo_arr_back(wo_value out_val, wo_value arr);
+WO_API void         wo_arr_front_val(wo_value out_val, wo_value arr);
+WO_API void         wo_arr_back_val(wo_value out_val, wo_value arr);
 WO_API wo_int_t     wo_arr_find(wo_value arr, wo_value elem);
 WO_API wo_bool_t    wo_arr_is_empty(wo_value arr);
 
@@ -420,7 +420,15 @@ WO_API wo_bool_t    wo_map_try_get(wo_value out_val, wo_value map, wo_value inde
 WO_API void         wo_map_get(wo_value out_val, wo_value map, wo_value index);
 WO_API wo_bool_t    wo_map_is_empty(wo_value arr);
 
+WO_API void         wo_map_keys(wo_value out_val, wo_vm vm, wo_value map);
+WO_API void         wo_map_vals(wo_value out_val, wo_vm vm, wo_value map);
+
 // Write operation
+WO_API wo_bool_t    wo_arr_pop_front(wo_value out_val, wo_value arr);
+WO_API wo_bool_t    wo_arr_pop_back(wo_value out_val, wo_value arr);
+WO_API void         wo_arr_pop_front_val(wo_value out_val, wo_value arr);
+WO_API void         wo_arr_pop_back_val(wo_value out_val, wo_value arr);
+
 WO_API wo_bool_t    wo_arr_try_set(wo_value arr, wo_int_t index, wo_value val);
 WO_API void         wo_arr_set(wo_value arr, wo_int_t index, wo_value val);
 WO_API void         wo_arr_resize(wo_value arr, wo_int_t newsz, wo_value init_val);

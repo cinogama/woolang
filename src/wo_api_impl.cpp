@@ -2996,6 +2996,59 @@ void wo_map_get(wo_value out_val, wo_value map, wo_value index)
         wo_fail(WO_FAIL_INDEX_FAIL, "Failed to index: out of range.");
 }
 
+wo_bool_t wo_arr_front(wo_value out_val, wo_value arr)
+{
+    auto _arr = WO_VAL(arr);
+    if (_arr->is_nil())
+        wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
+    else if (_arr->type == wo::value::valuetype::array_type)
+    {
+        wo::gcbase::gc_read_guard g1(_arr->array);
+        if (!_arr->array->empty())
+        {
+            WO_VAL(out_val)->set_val(&_arr->array->front());
+            return WO_TRUE;
+        }
+    }
+    else
+        wo_fail(WO_FAIL_TYPE_FAIL, "Value is not an array.");
+
+    return WO_FALSE;
+}
+wo_bool_t wo_arr_back(wo_value out_val, wo_value arr)
+{
+    auto _arr = WO_VAL(arr);
+    if (_arr->is_nil())
+        wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
+    else if (_arr->type == wo::value::valuetype::array_type)
+    {
+        wo::gcbase::gc_read_guard g1(_arr->array);
+        if (!_arr->array->empty())
+        {
+            WO_VAL(out_val)->set_val(&_arr->array->back());
+            return WO_TRUE;
+        }
+    }
+    else
+        wo_fail(WO_FAIL_TYPE_FAIL, "Value is not an array.");
+
+    return WO_FALSE;
+}
+void wo_arr_front_val(wo_value out_val, wo_value arr)
+{
+    if (!wo_arr_front(out_val, arr))
+    {
+        wo_fail(WO_FAIL_INDEX_FAIL, "Failed to get front.");
+    }
+}
+void wo_arr_back_val(wo_value out_val, wo_value arr)
+{
+    if (!wo_arr_back(out_val, arr))
+    {
+        wo_fail(WO_FAIL_INDEX_FAIL, "Failed to get back.");
+    }
+}
+
 wo_bool_t wo_arr_pop_front(wo_value out_val, wo_value arr)
 {
     auto _arr = WO_VAL(arr);
@@ -3316,6 +3369,51 @@ wo_bool_t wo_map_is_empty(wo_value map)
     else
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not a map.");
     return WO_TRUE;
+}
+
+void wo_map_keys(wo_value out_val, wo_vm vm, wo_value map)
+{
+    _wo_enter_gc_guard g(vm);
+
+    auto _map = WO_VAL(map);
+    if (_map->is_nil())
+        wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
+    else if (_map->type == wo::value::valuetype::dict_type)
+    {
+        wo::gcbase::gc_read_guard g1(_map->dict);
+        auto* keys = wo::array_t::gc_new<wo::gcbase::gctype::young>(_map->dict->size());
+        wo::gcbase::gc_write_guard g2(keys);
+        size_t i = 0;
+        for (auto& kvpair : *_map->dict)
+        {
+            keys->at(i++).set_val(&kvpair.first);
+        }
+        WO_VAL(out_val)->set_gcunit<wo::value::valuetype::array_type>(keys);
+    }
+    else
+        wo_fail(WO_FAIL_TYPE_FAIL, "Value is not a map.");
+}
+void wo_map_vals(wo_value out_val, wo_vm vm, wo_value map)
+{
+    _wo_enter_gc_guard g(vm);
+
+    auto _map = WO_VAL(map);
+    if (_map->is_nil())
+        wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
+    else if (_map->type == wo::value::valuetype::dict_type)
+    {
+        wo::gcbase::gc_read_guard g1(_map->dict);
+        auto* vals = wo::array_t::gc_new<wo::gcbase::gctype::young>(_map->dict->size());
+        wo::gcbase::gc_write_guard g2(vals);
+        size_t i = 0;
+        for (auto& kvpair : *_map->dict)
+        {
+            vals->at(i++).set_val(&kvpair.second);
+        }
+        WO_VAL(out_val)->set_gcunit<wo::value::valuetype::array_type>(vals);
+    }
+    else
+        wo_fail(WO_FAIL_TYPE_FAIL, "Value is not a map.");
 }
 
 wo_bool_t wo_gchandle_close(wo_value gchandle)
