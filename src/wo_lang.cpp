@@ -3381,14 +3381,14 @@ namespace wo
             if (another->is_nothing())
                 return true; // Buttom type, OK
 
-            if (is_anything())
-                return true; // Top type, OK
-
             if (!ignore_prefix)
             {
                 if (is_mutable() != another->is_mutable())
                     return false;
             }
+
+            if (is_anything())
+                return true; // Top type, OK
 
             if (is_complex())
             {
