@@ -238,7 +238,8 @@ namespace wo
         protected:
             ast_value(ast_type* type);
         public:
-            virtual wo::value& get_constant_value();
+            wo::value& get_constant_value();
+        public:
             virtual void update_constant_value(lexer* lex);
             ast::ast_base* instance(ast_base* child_instance = nullptr) const override;
         };
@@ -816,17 +817,6 @@ namespace wo
                 }
                 return ir_func_signature_tag;
             }
-
-            wo::value& get_constant_value() override
-            {
-                if (!this->is_constant)
-                    wo_error("Not externed_func.");
-
-                wo_assert(externed_func_info && externed_func_info->externed_func);
-
-                constant_value.set_handle((wo_handle_t)externed_func_info->externed_func);
-                return constant_value;
-            };
             ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
@@ -1356,7 +1346,7 @@ namespace wo
                     if (operate == lex_type::l_sub)
                     {
                         value_type = val->value_type;
-                        auto _rval = val->get_constant_value();
+                        const auto& _rval = val->get_constant_value();
                         if (_rval.type == value::valuetype::integer_type)
                         {
                             constant_value.set_integer(-_rval.integer);
@@ -2041,13 +2031,11 @@ namespace wo
                 if (input.size() == 3)
                 {
                     item->need_assign_val = false;
-                    auto fxxk = WO_NEED_TOKEN(2);
                     item->enum_val = ast_value_literal::wstr_to_integer(WO_NEED_TOKEN(2).identifier);
                 }
                 else if (input.size() == 4)
                 {
                     item->need_assign_val = false;
-                    auto fxxk = WO_NEED_TOKEN(3);
                     if (WO_NEED_TOKEN(2).type == lex_type::l_add)
                         item->enum_val = ast_value_literal::wstr_to_integer(WO_NEED_TOKEN(3).identifier);
                     else if (WO_NEED_TOKEN(2).type == lex_type::l_sub)
@@ -2271,18 +2259,7 @@ namespace wo
                 if (input.size() == 5)
                 {
                     extern_symb->symbol_name = WO_NEED_TOKEN(2).identifier;
-                    extern_symb->externed_func =
-                        rslib_extern_symbols::get_global_symbol(
-                            wstr_to_str(extern_symb->symbol_name).c_str());
-
-                    if (nullptr == extern_symb->externed_func)
-                    {
-                        if (config::ENABLE_IGNORE_NOT_FOUND_EXTERN_SYMBOL)
-                            extern_symb->externed_func = rslib_std_bad_function;
-                        else
-                            lex.parser_error(lexer::errorlevel::error,
-                                WO_ERR_CANNOT_FIND_EXT_SYM, extern_symb->symbol_name.c_str());
-                    }
+                    extern_symb->externed_func = nullptr;
 
                     if (!ast_empty::is_empty(input[3]))
                     {
@@ -2975,8 +2952,8 @@ namespace wo
                 else if (_token.type == lex_type::l_index_point)
                 {
                     ast_token* right_tk = dynamic_cast<ast_token*>(WO_NEED_AST(2));
-                    wo_test(right_tk != nullptr && left_v && 
-                        (right_tk->tokens.type == lex_type::l_identifier || 
+                    wo_test(right_tk != nullptr && left_v &&
+                        (right_tk->tokens.type == lex_type::l_identifier ||
                             right_tk->tokens.type == lex_type::l_literal_integer));
 
                     ast_value_literal* const_result = new ast_value_literal(right_tk->tokens);

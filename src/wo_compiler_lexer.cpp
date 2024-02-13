@@ -285,7 +285,7 @@ namespace wo
 
         std::wstring tmp_result;
         auto write_result = [&](int ch) {if (out_literal)(*out_literal) += (wchar_t)ch; else tmp_result += (wchar_t)ch; };
-        auto read_result = [&]() -> std::wstring& {if (out_literal)return *out_literal; return  tmp_result; };
+        auto read_result = [&]() -> std::wstring& {if (out_literal)return *out_literal; return tmp_result; };
 
         if (out_literal)
             (*out_literal) = L"";
@@ -1030,7 +1030,6 @@ namespace wo
         {
             // Read sharp
             // #macro
-
             std::wstring pragma_name;
 
             if (lex_isidentbeg(peek_one()))
@@ -1120,7 +1119,12 @@ namespace wo
                 return keyword_type;
         }
         ///////////////////////////////////////////////////////////////////////////////////////
-        return lex_error(lexer::errorlevel::error, WO_ERR_LEXER_ERR_UNKNOW_BEGIN_CH, readed_ch);
+        else
+        {
+            write_result(readed_ch);
+            return lex_type::l_unknown_token;
+        }
+            
     }
     void lexer::push_temp_for_error_recover(lex_type type, const std::wstring& out_literal)
     {
@@ -1203,6 +1207,5 @@ namespace wo
         }
         else
             lex.lex_error(lexer::errorlevel::error, WO_ERR_HERE_SHOULD_HAVE, L"{");
-
     }
 }

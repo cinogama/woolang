@@ -292,9 +292,11 @@ namespace wo
                     // Wait for too much time.
                     std::string warning_info = "Wait for too much time(out of 0.1s) for waiting interrupt.\n";
                     std::stringstream dump_callstack_info;
+                    
                     dump_call_stack(32, false, dump_callstack_info);
                     warning_info += dump_callstack_info.str();
                     wo_warning(warning_info.c_str());
+
                     return interrupt_wait_result::TIMEOUT;
                 }
 
@@ -486,11 +488,9 @@ namespace wo
             wo_assert(env != nullptr);
 
             vmbase* new_vm = create_machine();
-
             new_vm->gc_vm = get_or_alloc_gcvm();
 
             wo_assure(wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(new_vm))));
-
             new_vm->const_global_begin = const_global_begin;
 
             if (!stack_sz)
@@ -1728,7 +1728,7 @@ namespace wo
             runtime_env* rt_env = env.get();
             const byte_t* rt_ip;
             value* rt_bp,
-                * rt_sp;
+                 * rt_sp;
             value* global_begin = const_global_begin;
             value* reg_begin = register_mem_begin;
             value* const    rt_cr = cr;

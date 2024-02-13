@@ -47,7 +47,7 @@
 
 #define WO_ERR_LEXER_ERR_UNKNOW_NUM_BASE L"词法错误，未知的常量基数"
 
-#define WO_ERR_LEXER_ERR_UNKNOW_BEGIN_CH L"词法错误, 未知的字符: '%lc'"
+#define WO_ERR_LEXER_ERR_UNKNOW_BEGIN_CH L"未知的字符: '%lc'"
 
 #define WO_ERR_UNEXCEPT_AST_NODE_TYPE L"未预料到的语法树节点类型: 应当是语法树节点或标识符"
 
@@ -323,7 +323,7 @@
 
 #define WO_ERR_LEXER_ERR_UNKNOW_NUM_BASE L"Lexer error, unknown number base."
 
-#define WO_ERR_LEXER_ERR_UNKNOW_BEGIN_CH L"Lexer error, unknown begin character: '%lc'."
+#define WO_ERR_LEXER_ERR_UNKNOW_BEGIN_CH L"Unknown begin character: '%lc'."
 
 #define WO_ERR_UNEXCEPT_AST_NODE_TYPE L"Unexcepted node type: should be ast node or token."
 

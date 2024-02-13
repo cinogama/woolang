@@ -125,7 +125,8 @@ namespace wo
         l_struct,
         l_immut,
         l_typeid,
-        l_macro
+        l_macro,
+        l_unknown_token,
     };
 
     class lexer;

@@ -597,23 +597,31 @@ void wo_set_pointer(wo_value value, wo_ptr_t val)
     else
         wo_fail(WO_FAIL_ACCESS_NIL, "Cannot set a nullptr");
 }
-void wo_set_string(wo_value value, wo_vm vm, wo_string_t val)
+void _wo_set_string(wo_value value, wo_vm vm, wo_string_t val)
 {
     auto* _rsvalue = WO_VAL(value);
-
-    _wo_enter_gc_guard g(vm);
     _rsvalue->set_string(val);
 }
-void wo_set_string_fmt(wo_value value, wo_vm vm, wo_string_t fmt, ...)
+void wo_set_string(wo_value value, wo_vm vm, wo_string_t val)
 {
-    va_list v1, v2;
-    va_start(v1, fmt);
+    _wo_enter_gc_guard g(vm);
+    _wo_set_string(value, vm, val);
+}
+void _wo_set_string_vfmt(wo_value value, wo_vm vm, wo_string_t fmt, va_list v1)
+{
+    va_list v2;
     va_copy(v2, v1);
     std::vector<char> buf(1 + vsnprintf(nullptr, 0, fmt, v1));
     va_end(v1);
     std::vsnprintf(buf.data(), buf.size(), fmt, v2);
-    va_end(v2);
-    wo_set_string(value, vm, buf.data());
+    _wo_set_string(value, vm, buf.data());
+}
+void wo_set_string_fmt(wo_value value, wo_vm vm, wo_string_t fmt, ...)
+{
+    va_list v1;
+    va_start(v1, fmt);
+    _wo_set_string_vfmt(value, vm, fmt, v1);
+    va_end(v1);
 }
 void wo_set_buffer(wo_value value, wo_vm vm, const void* val, size_t len)
 {
@@ -1581,9 +1589,28 @@ void wo_set_option_string(wo_value val, wo_vm vm, wo_string_t result)
         structptr->m_values[1].set_string(result);
     }
     structptr->m_values[0].set_integer(1);
+}
+void _wo_set_option_string_vfmt(wo_value val, wo_vm vm, wo_string_t fmt, va_list v1)
+{
+    auto* wovm = WO_VM(vm);
+    auto* target_val = WO_VAL(val);
 
+    wo::struct_t* structptr;
+    {
+        _wo_enter_gc_guard g(vm);
+        structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(2);
+        target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
 
-
+        _wo_set_string_vfmt(CS_VAL(&structptr->m_values[1]), vm, fmt, v1);
+    }
+    structptr->m_values[0].set_integer(1);
+}
+void wo_set_option_string_fmt(wo_value val, wo_vm vm, wo_string_t fmt, ...)
+{
+    va_list v1;
+    va_start(v1, fmt);
+    _wo_set_option_string_vfmt(val, vm, fmt, v1);
+    va_end(v1);
 }
 void wo_set_option_buffer(wo_value val, wo_vm vm, const void* result, size_t len)
 {
@@ -1617,7 +1644,7 @@ void wo_set_option_pointer(wo_value val, wo_vm vm, wo_ptr_t result)
     if (nullptr == result)
         wo_fail(WO_FAIL_ACCESS_NIL, "Cannot return nullptr");
 }
-void wo_set_option_ptr(wo_value val, wo_vm vm, wo_ptr_t result)
+void wo_set_option_ptr_may_null(wo_value val, wo_vm vm, wo_ptr_t result)
 {
     auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
@@ -1796,6 +1823,29 @@ void wo_set_err_string(wo_value val, wo_vm vm, wo_string_t result)
 
     structptr->m_values[0].set_integer(2);
 }
+void _wo_set_err_string_vfmt(wo_value val, wo_vm vm, wo_string_t fmt, va_list v1)
+{
+    auto* wovm = WO_VM(vm);
+    auto* target_val = WO_VAL(val);
+
+    wo::struct_t* structptr;
+    {
+        _wo_enter_gc_guard g(vm);
+        structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(2);
+        target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
+
+        _wo_set_string_vfmt(CS_VAL(&structptr->m_values[1]), vm, fmt, v1);
+    }
+
+    structptr->m_values[0].set_integer(2);
+}
+void wo_set_err_string_fmt(wo_value val, wo_vm vm, wo_string_t fmt, ...)
+{
+    va_list v1;
+    va_start(v1, fmt);
+    _wo_set_err_string_vfmt(val, vm, fmt, v1);
+    va_end(v1);
+}
 void wo_set_err_buffer(wo_value val, wo_vm vm, const void* result, size_t len)
 {
     auto* wovm = WO_VM(vm);
@@ -1911,6 +1961,15 @@ wo_result_t  wo_ret_option_string(wo_vm vm, wo_string_t result)
     wo_set_option_string(CS_VAL(wovm->cr), vm, result);
     return wo_result_t::WO_API_NORMAL;
 }
+wo_result_t  wo_ret_option_string_fmt(wo_vm vm, wo_string_t fmt, ...)
+{
+    auto* wovm = WO_VM(vm);
+    va_list v1;
+    va_start(v1, fmt);
+    _wo_set_option_string_vfmt(CS_VAL(wovm->cr), vm, fmt, v1);
+    va_end(v1);
+    return wo_result_t::WO_API_NORMAL;
+}
 wo_result_t  wo_ret_option_buffer(wo_vm vm, const void* result, size_t len)
 {
     auto* wovm = WO_VM(vm);
@@ -1923,10 +1982,10 @@ wo_result_t wo_ret_option_pointer(wo_vm vm, wo_ptr_t result)
     wo_set_option_pointer(CS_VAL(wovm->cr), vm, result);
     return wo_result_t::WO_API_NORMAL;
 }
-wo_result_t wo_ret_option_ptr(wo_vm vm, wo_ptr_t result)
+wo_result_t wo_ret_option_ptr_may_null(wo_vm vm, wo_ptr_t result)
 {
     auto* wovm = WO_VM(vm);
-    wo_set_option_ptr(CS_VAL(wovm->cr), vm, result);
+    wo_set_option_ptr_may_null(CS_VAL(wovm->cr), vm, result);
     return wo_result_t::WO_API_NORMAL;
 }
 wo_result_t wo_ret_option_val(wo_vm vm, wo_value result)
@@ -1996,6 +2055,16 @@ wo_result_t wo_ret_err_string(wo_vm vm, wo_string_t result)
     wo_set_err_string(CS_VAL(wovm->cr), vm, result);
     return wo_result_t::WO_API_NORMAL;
 }
+wo_result_t wo_ret_err_string_fmt(wo_vm vm, wo_string_t fmt, ...)
+{
+    auto* wovm = WO_VM(vm);
+    va_list v1;
+    va_start(v1, fmt);
+    _wo_set_err_string_vfmt(CS_VAL(wovm->cr), vm, fmt, v1);
+    va_end(v1);
+    return wo_result_t::WO_API_NORMAL;
+}
+
 wo_result_t wo_ret_err_buffer(wo_vm vm, const void* result, size_t len)
 {
     auto* wovm = WO_VM(vm);
@@ -2569,6 +2638,19 @@ wo_value wo_push_string(wo_vm vm, wo_string_t val)
 {
     _wo_enter_gc_guard g(vm);
     return CS_VAL((WO_VM(vm)->sp--)->set_string(val));
+}
+wo_value wo_push_string_fmt(wo_vm vm, wo_string_t fmt, ...)
+{
+    _wo_enter_gc_guard g(vm);
+
+    va_list v1;
+    va_start(v1, fmt);
+
+    auto val = CS_VAL((WO_VM(vm)->sp--));
+    _wo_set_string_vfmt(val, vm, fmt, v1);
+    va_end(v1);
+
+    return val;
 }
 wo_value wo_push_buffer(wo_vm vm, const void* val, size_t len)
 {
