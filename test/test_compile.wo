@@ -1357,6 +1357,22 @@ func main()
             let a = (0, 1);
             do a.1;
             "@);
+
+        assure_compile_success(@"
+            import woo::std;
+
+            func foo()
+            {
+                if ([]->get(0) is option<anything>)
+                    ;
+                else
+                {
+                    return 0;
+                }
+            }
+
+            foo() as void;
+        "@);
     }
 
     func main()

@@ -762,6 +762,10 @@ namespace wo
             ast_list* in_function_sentence = nullptr;
             bool auto_adjust_return_type = false;
             bool delay_adjust_return_type = false;
+
+            // has_return_value used for check if sentences in function has 
+            // 'return'. will be reset to false at begining of pass2 for 
+            // some cases like conditional compilation.
             bool has_return_value = false;
             bool ir_func_has_been_generated = false;
 

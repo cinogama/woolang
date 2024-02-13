@@ -367,8 +367,8 @@ namespace wo
                 a_value_func->where_constraint->binded_func_define = a_value_func;
                 analyze_pass1(a_value_func->where_constraint);
             }
-
-            if (a_value_func->where_constraint == nullptr || a_value_func->where_constraint->accept)
+            if (a_value_func->where_constraint == nullptr ||
+                a_value_func->where_constraint->accept)
             {
                 if (a_value_func->in_function_sentence)
                 {
@@ -414,7 +414,7 @@ namespace wo
                 }
                 else if (!a_value_func->has_return_value
                     && a_value_func->auto_adjust_return_type
-                    && a_value_func->value_type->get_return_type()->type_name == WO_PSTR(pending))
+                    && a_value_func->value_type->get_return_type()->is_pure_pending())
                 {
                     // This function has no return, set it as void
                     wo_assert(a_value_func->value_type->is_complex());
@@ -1398,6 +1398,9 @@ namespace wo
     {
         auto* a_value_funcdef = WO_AST();
 
+        // NOTE: Reset this flag for conditional compilation.
+        a_value_funcdef->has_return_value = false;
+
         if (!a_value_funcdef->is_template_define)
         {
             if (a_value_funcdef->is_template_reification)
@@ -1444,9 +1447,9 @@ namespace wo
                 {
                     analyze_pass2(a_value_funcdef->in_function_sentence);
                 }
-                if (a_value_funcdef->value_type->type_name == WO_PSTR(pending))
+                if (a_value_funcdef->value_type->get_return_type()->is_pure_pending())
                 {
-                    // There is no return in function  return void
+                    // There is no return in function return void
                     if (a_value_funcdef->auto_adjust_return_type)
                     {
                         if (a_value_funcdef->has_return_value)
