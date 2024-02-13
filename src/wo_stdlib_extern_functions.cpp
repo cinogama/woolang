@@ -2774,7 +2774,7 @@ namespace std
     {
         l_eof = -1,
         l_error = 0,
-        l_empty,          // [empty]
+        l_empty,                // [empty]
         l_identifier,           // identifier.
         l_literal_integer,      // 1 233 0x123456 0b1101001 032
         l_literal_handle,       // 0L 256L 0xFFL
@@ -2866,7 +2866,8 @@ namespace std
         l_struct,
         l_immut,
         l_typeid,
-        l_macro
+        l_macro,
+        l_unknown_token,
     }
 
     public using lexer = handle
