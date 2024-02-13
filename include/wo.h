@@ -359,6 +359,7 @@ WO_API wo_value     wo_push_handle(wo_vm vm, wo_handle_t val);
 WO_API wo_value     wo_push_pointer(wo_vm vm, wo_ptr_t val);
 WO_API wo_value     wo_push_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t));
 WO_API wo_value     wo_push_string(wo_vm vm, wo_string_t val);
+WO_API wo_value     wo_push_string_fmt(wo_vm vm, wo_string_t fmt, ...);
 WO_API wo_value     wo_push_buffer(wo_vm vm, const void* val, size_t len);
 WO_API wo_value     wo_push_empty(wo_vm vm);
 WO_API wo_value     wo_push_val(wo_vm vm, wo_value val);
