@@ -1500,7 +1500,9 @@ namespace std
     public let is_mutable_type<A> = std::is_same_type:<A, mut A>;
     public let is_tuple<T> = 
         !(std::declval:<T>() is array<anything>) &&
+        !(std::declval:<T>() is array<mut anything>) && 
         !(std::declval:<T>() is vec<anything>) && 
+        !(std::declval:<T>() is vec<mut anything>) && 
         !(std::declval:<T>()...->\...=do nil; is pending);
     
     extern("rslib_std_bit_or") public func bitor(a: int, b: int)=> int;
