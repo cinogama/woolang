@@ -38,15 +38,25 @@ abc123
 using
 typeid
 
+#macro test_bad_token_reader
+{
+    return lexer->next->enstring;
+}
+
 namespace test_macro
 {
     func main()
     {
-       let a = 5;
-       test_assure(test_macro_value_it_self!(1) == 1);
-       test_assure(test_macro_value_it_self!(3.14) == 3.14);
-       test_assure(test_macro_value_it_self!("Helloworld") == "Helloworld");
-       test_assure(test_macro_value_it_self!(F"A{1}B{a}C") == F"A{1}B{a}C");
+        let a = 5;
+        test_assure(test_macro_value_it_self!(1) == 1);
+        test_assure(test_macro_value_it_self!(3.14) == 3.14);
+        test_assure(test_macro_value_it_self!("Helloworld") == "Helloworld");
+        test_assure(test_macro_value_it_self!(F"A{1}B{a}C") == F"A{1}B{a}C");
+
+        test_assure(test_bad_token_reader! $ == "$");
+        test_assure(test_bad_token_reader! 123 == "123");
+        test_assure(test_bad_token_reader! 3.14 == "3.14");
+        test_assure(test_bad_token_reader! $ != "#");
     }
 }
 test_function("test_macro.main", test_macro::main);

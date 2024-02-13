@@ -1358,6 +1358,21 @@ func main()
             do a.1;
             "@);
 
+        assure_compile_fail(@"
+            let a = (0, 1);
+            do a.2;
+            "@);
+
+        assure_compile_success(@"
+            let a = (0, 1);
+            do a.0;
+            "@);
+
+        assure_compile_fail(@"
+            let a = (0, 1);
+            do a.0.0;
+            "@);
+
         assure_compile_success(@"
             import woo::std;
 
