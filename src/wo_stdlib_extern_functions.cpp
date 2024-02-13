@@ -1498,6 +1498,10 @@ namespace std
     public let is_same_base_type<A, B> = std::is_same_type:<std::origin_t<A>, std::origin_t<B>>;
     public let is_accpetable_base_type<A, B> = std::declval:<std::origin_t<A>>() is std::origin_t<B>;
     public let is_mutable_type<A> = std::is_same_type:<A, mut A>;
+    public let is_tuple<T> = 
+        !(std::declval:<T>() is array<anything>) &&
+        !(std::declval:<T>() is vec<anything>) && 
+        !(std::declval:<T>()...->\...=do nil; is pending);
     
     extern("rslib_std_bit_or") public func bitor(a: int, b: int)=> int;
     extern("rslib_std_bit_and") public func bitand(a: int, b: int)=> int;

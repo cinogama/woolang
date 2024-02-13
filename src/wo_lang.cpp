@@ -3299,16 +3299,15 @@ namespace wo
                     if (!using_type_name->template_arguments[i]->is_same(another->using_type_name->template_arguments[i], false))
                         return false;
             }
-            if (has_template())
+
+            if (template_arguments.size() != another->template_arguments.size())
+                return false;
+            for (size_t index = 0; index < template_arguments.size(); index++)
             {
-                if (template_arguments.size() != another->template_arguments.size())
+                if (!template_arguments[index]->is_same(another->template_arguments[index], false))
                     return false;
-                for (size_t index = 0; index < template_arguments.size(); index++)
-                {
-                    if (!template_arguments[index]->is_same(another->template_arguments[index], false))
-                        return false;
-                }
             }
+
             // NOTE: Only anonymous structs need this check
             if (is_struct() && using_type_name == nullptr)
             {
@@ -3434,17 +3433,16 @@ namespace wo
                         another->using_type_name->template_arguments[i], ignore_using_type, false))
                         return false;
             }
-            if (has_template())
+
+            if (template_arguments.size() != another->template_arguments.size())
+                return false;
+            for (size_t index = 0; index < template_arguments.size(); index++)
             {
-                if (template_arguments.size() != another->template_arguments.size())
+                if (!template_arguments[index]->accept_type(
+                    another->template_arguments[index], ignore_using_type, false))
                     return false;
-                for (size_t index = 0; index < template_arguments.size(); index++)
-                {
-                    if (!template_arguments[index]->accept_type(
-                        another->template_arguments[index], ignore_using_type, false))
-                        return false;
-                }
             }
+
             // NOTE: Only anonymous structs need this check
             if (is_struct() && (using_type_name == nullptr || another->using_type_name == nullptr))
             {
@@ -3944,15 +3942,12 @@ namespace wo
                 }
             }
 
-            if (type->has_template())
+            for (auto* template_type : type->template_arguments)
             {
-                for (auto* template_type : type->template_arguments)
-                {
-                    if (template_type->has_custom() && !template_type->is_hkt())
-                        if (fully_update_type(template_type, in_pass_1, template_types, s))
-                            if (template_type->has_custom() && !template_type->is_hkt())
-                                stop_update = true;
-                }
+                if (template_type->has_custom() && !template_type->is_hkt())
+                    if (fully_update_type(template_type, in_pass_1, template_types, s))
+                        if (template_type->has_custom() && !template_type->is_hkt())
+                            stop_update = true;
             }
 
             // ready for update..
