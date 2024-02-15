@@ -1523,6 +1523,15 @@ namespace std
     extern("rslib_std_bit_shl") public func bitshl(a: int, b: int)=> int;
     extern("rslib_std_bit_shr") public func bitshr(a: int, b: int)=> int;
     extern("rslib_std_bit_ashr") public func bitashr(a: int, b: int)=> int;
+
+    public func use<T, R>(val: T, f: (T)=> R)
+        where val->close is pending == false;
+    {
+        let v = f(val);
+        val->close;
+
+        return v;
+    }
 }
 
 public using mutable<T> = struct {
