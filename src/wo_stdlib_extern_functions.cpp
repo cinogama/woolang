@@ -11,8 +11,10 @@
 #include <mingw.thread.h>
 #endif
 
-WO_API wo_api rslib_std_print(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_print(wo_vm vm, wo_value args)
 {
+    size_t argc = (size_t)wo_vaarg_count(vm);
+    
     for (size_t i = 0; i < argc; i++)
     {
         wo::wo_stdout << wo_cast_string(args + i);
@@ -22,31 +24,31 @@ WO_API wo_api rslib_std_print(wo_vm vm, wo_value args, size_t argc)
     }
     return wo_ret_void(vm);
 }
-WO_API wo_api rslib_std_panic(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_panic(wo_vm vm, wo_value args)
 {
     return wo_ret_panic(vm, wo_string(args + 0));
 }
-WO_API wo_api rslib_std_halt(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_halt(wo_vm vm, wo_value args)
 {
     return wo_ret_halt(vm, wo_string(args + 0));
 }
 
-WO_API wo_api rslib_std_lengthof(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_lengthof(wo_vm vm, wo_value args)
 {
     return wo_ret_int(vm, wo_lengthof(args));
 }
 
-WO_API wo_api rslib_std_str_bytelen(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_str_bytelen(wo_vm vm, wo_value args)
 {
     return wo_ret_int(vm, wo_str_bytelen(args));
 }
 
-WO_API wo_api rslib_std_make_dup(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_make_dup(wo_vm vm, wo_value args)
 {
     return wo_ret_dup(vm, args + 0);
 }
 
-WO_API wo_api rslib_std_string_toupper(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_toupper(wo_vm vm, wo_value args)
 {
     std::wstring str = wo_str_to_wstr(wo_string(args + 0));
     for (auto& ch : str)
@@ -54,7 +56,7 @@ WO_API wo_api rslib_std_string_toupper(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_string(vm, wo_wstr_to_str(str.c_str()));
 }
 
-WO_API wo_api rslib_std_string_tolower(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_tolower(wo_vm vm, wo_value args)
 {
     std::wstring str = wo_str_to_wstr(wo_string(args + 0));
     for (auto& ch : str)
@@ -62,7 +64,7 @@ WO_API wo_api rslib_std_string_tolower(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_string(vm, wo_wstr_to_str(str.c_str()));
 }
 
-WO_API wo_api rslib_std_string_isspace(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_isspace(wo_vm vm, wo_value args)
 {
     std::wstring str = wo_str_to_wstr(wo_string(args + 0));
     if (!str.empty())
@@ -75,7 +77,7 @@ WO_API wo_api rslib_std_string_isspace(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_bool(vm, WO_FALSE);
 }
 
-WO_API wo_api rslib_std_string_isalpha(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_isalpha(wo_vm vm, wo_value args)
 {
     std::wstring str = wo_str_to_wstr(wo_string(args + 0));
     if (!str.empty())
@@ -88,7 +90,7 @@ WO_API wo_api rslib_std_string_isalpha(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_bool(vm, WO_FALSE);
 }
 
-WO_API wo_api rslib_std_string_isalnum(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_isalnum(wo_vm vm, wo_value args)
 {
     std::wstring str = wo_str_to_wstr(wo_string(args + 0));
     if (!str.empty())
@@ -101,7 +103,7 @@ WO_API wo_api rslib_std_string_isalnum(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_bool(vm, WO_FALSE);
 }
 
-WO_API wo_api rslib_std_string_isnumber(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_isnumber(wo_vm vm, wo_value args)
 {
     std::wstring str = wo_str_to_wstr(wo_string(args + 0));
     if (!str.empty())
@@ -114,7 +116,7 @@ WO_API wo_api rslib_std_string_isnumber(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_bool(vm, WO_FALSE);
 }
 
-WO_API wo_api rslib_std_string_ishex(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_ishex(wo_vm vm, wo_value args)
 {
     std::wstring str = wo_str_to_wstr(wo_string(args + 0));
     if (!str.empty())
@@ -127,7 +129,7 @@ WO_API wo_api rslib_std_string_ishex(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_bool(vm, WO_FALSE);
 }
 
-WO_API wo_api rslib_std_string_isoct(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_isoct(wo_vm vm, wo_value args)
 {
     std::wstring str = wo_str_to_wstr(wo_string(args + 0));
     if (!str.empty())
@@ -140,58 +142,58 @@ WO_API wo_api rslib_std_string_isoct(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_bool(vm, WO_FALSE);
 }
 
-WO_API wo_api rslib_std_char_tostring(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_char_tostring(wo_vm vm, wo_value args)
 {
     wo_char_t str[] = { wo_char(args + 0), 0 };
     return wo_ret_string(vm, wo_wstr_to_str(str));
 }
 
-WO_API wo_api rslib_std_char_toupper(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_char_toupper(wo_vm vm, wo_value args)
 {
     return wo_ret_char(vm, wo::lexer::lex_toupper(wo_char(args + 0)));
 }
 
-WO_API wo_api rslib_std_char_tolower(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_char_tolower(wo_vm vm, wo_value args)
 {
     return wo_ret_char(vm, wo::lexer::lex_tolower(wo_char(args + 0)));
 }
 
-WO_API wo_api rslib_std_char_isspace(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_char_isspace(wo_vm vm, wo_value args)
 {
     return wo_ret_bool(vm, WO_CBOOL(wo::lexer::lex_isspace(wo_char(args + 0))));
 }
 
-WO_API wo_api rslib_std_char_isalpha(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_char_isalpha(wo_vm vm, wo_value args)
 {
     return wo_ret_bool(vm, WO_CBOOL(wo::lexer::lex_isalpha(wo_char(args + 0))));
 }
 
-WO_API wo_api rslib_std_char_isalnum(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_char_isalnum(wo_vm vm, wo_value args)
 {
     return wo_ret_bool(vm, WO_CBOOL(wo::lexer::lex_isalnum(wo_char(args + 0))));
 }
 
-WO_API wo_api rslib_std_char_isnumber(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_char_isnumber(wo_vm vm, wo_value args)
 {
     return wo_ret_bool(vm, WO_CBOOL(wo::lexer::lex_isdigit(wo_char(args + 0))));
 }
 
-WO_API wo_api rslib_std_char_ishex(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_char_ishex(wo_vm vm, wo_value args)
 {
     return wo_ret_bool(vm, WO_CBOOL(wo::lexer::lex_isxdigit(wo_char(args + 0))));
 }
 
-WO_API wo_api rslib_std_char_isoct(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_char_isoct(wo_vm vm, wo_value args)
 {
     return wo_ret_bool(vm, WO_CBOOL(wo::lexer::lex_isodigit(wo_char(args + 0))));
 }
 
-WO_API wo_api rslib_std_char_hexnum(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_char_hexnum(wo_vm vm, wo_value args)
 {
     return wo_ret_bool(vm, WO_CBOOL(wo::lexer::lex_hextonum(wo_char(args + 0))));
 }
 
-WO_API wo_api rslib_std_string_enstring(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_enstring(wo_vm vm, wo_value args)
 {
     wo_string_t str = wo_string(args + 0);
     std::string result;
@@ -223,7 +225,7 @@ WO_API wo_api rslib_std_string_enstring(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_string(vm, result.c_str());
 }
 
-WO_API wo_api rslib_std_string_destring(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_destring(wo_vm vm, wo_value args)
 {
     wo_string_t str = wo_string(args + 0);
     std::string result;
@@ -312,7 +314,7 @@ WO_API wo_api rslib_std_string_destring(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_string(vm, result.c_str());
 }
 
-WO_API wo_api rslib_std_string_beginwith(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_beginwith(wo_vm vm, wo_value args)
 {
     wo_string_t aim = wo_string(args + 0);
     wo_string_t begin = wo_string(args + 1);
@@ -334,7 +336,7 @@ WO_API wo_api rslib_std_string_beginwith(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_bool(vm, WO_TRUE);
 }
 
-WO_API wo_api rslib_std_string_endwith(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_endwith(wo_vm vm, wo_value args)
 {
     wo_string_t aim = wo_string(args + 0);
     wo_string_t end = wo_string(args + 1);
@@ -356,7 +358,7 @@ WO_API wo_api rslib_std_string_endwith(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_bool(vm, WO_TRUE);
 }
 
-WO_API wo_api rslib_std_string_replace(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_replace(wo_vm vm, wo_value args)
 {
     std::string aim = wo_string(args + 0);
     wo_string_t match = wo_string(args + 1);
@@ -379,7 +381,7 @@ WO_API wo_api rslib_std_string_replace(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_string(vm, aim.c_str());
 }
 
-WO_API wo_api rslib_std_string_find(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_find(wo_vm vm, wo_value args)
 {
     std::string aim = wo_string(args + 0);
     wo_string_t match = wo_string(args + 1);
@@ -391,7 +393,7 @@ WO_API wo_api rslib_std_string_find(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_int(vm, -1);
 }
 
-WO_API wo_api rslib_std_string_find_from(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_find_from(wo_vm vm, wo_value args)
 {
     std::string aim = wo_string(args + 0);
     wo_string_t match = wo_string(args + 1);
@@ -404,7 +406,7 @@ WO_API wo_api rslib_std_string_find_from(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_int(vm, -1);
 }
 
-WO_API wo_api rslib_std_string_rfind(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_rfind(wo_vm vm, wo_value args)
 {
     std::string aim = wo_string(args + 0);
     wo_string_t match = wo_string(args + 1);
@@ -416,7 +418,7 @@ WO_API wo_api rslib_std_string_rfind(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_int(vm, -1);
 }
 
-WO_API wo_api rslib_std_string_rfind_from(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_rfind_from(wo_vm vm, wo_value args)
 {
     std::string aim = wo_string(args + 0);
     wo_string_t match = wo_string(args + 1);
@@ -429,7 +431,7 @@ WO_API wo_api rslib_std_string_rfind_from(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_int(vm, -1);
 }
 
-WO_API wo_api rslib_std_string_trim(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_trim(wo_vm vm, wo_value args)
 {
     std::string aim = wo_string(args + 0);
 
@@ -454,7 +456,7 @@ WO_API wo_api rslib_std_string_trim(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_string(vm, aim.substr(ibeg, iend - ibeg).c_str());
 }
 
-WO_API wo_api rslib_std_string_split(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_split(wo_vm vm, wo_value args)
 {
     std::string aim = wo_string(args + 0);
     wo_string_t match = wo_string(args + 1);
@@ -482,12 +484,12 @@ WO_API wo_api rslib_std_string_split(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_val(vm, arr);
 }
 
-WO_API wo_api rslib_std_string_append_char(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_append_char(wo_vm vm, wo_value args)
 {
     std::wstring buf({ (wchar_t)(wo_handle_t)wo_int(args + 1) });
     return wo_ret_string(vm, (wo_string(args + 0) + wo::wstr_to_str(buf)).c_str());
 }
-WO_API wo_api rslib_std_string_append_cchar(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_append_cchar(wo_vm vm, wo_value args)
 {
     return wo_ret_string(vm, (std::string(wo_string(args + 0)) + (char)(wo_handle_t)wo_int(args + 1)).c_str());
 }
@@ -502,12 +504,12 @@ wo_real_t _wo_inside_time_sec()
         / std::chrono::system_clock::period::den;
 }
 
-WO_API wo_api rslib_std_time_sec(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_time_sec(wo_vm vm, wo_value args)
 {
     return wo_ret_real(vm, _wo_inside_time_sec());
 }
 
-WO_API wo_api rslib_std_input_readint(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_input_readint(wo_vm vm, wo_value args)
 {
     // Read int value from keyboard, always return valid input result;
     wo_int_t result;
@@ -521,7 +523,7 @@ WO_API wo_api rslib_std_input_readint(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_int(vm, result);
 }
 
-WO_API wo_api rslib_std_input_readreal(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_input_readreal(wo_vm vm, wo_value args)
 {
     // Read real value from keyboard, always return valid input result;
     wo_real_t result;
@@ -535,7 +537,7 @@ WO_API wo_api rslib_std_input_readreal(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_real(vm, result);
 }
 
-WO_API wo_api rslib_std_input_readstring(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_input_readstring(wo_vm vm, wo_value args)
 {
     // Read real value from keyboard, always return valid input result;
     std::string result;
@@ -549,7 +551,7 @@ WO_API wo_api rslib_std_input_readstring(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_string(vm, result.c_str());
 }
 
-WO_API wo_api rslib_std_input_readline(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_input_readline(wo_vm vm, wo_value args)
 {
     // Read real value from keyboard, always return valid input result;
     std::string result;
@@ -563,7 +565,7 @@ WO_API wo_api rslib_std_input_readline(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_string(vm, result.c_str());
 }
 
-WO_API wo_api rslib_std_randomint(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_randomint(wo_vm vm, wo_value args)
 {
     static std::random_device rd;
     static std::mt19937_64 mt64(rd());
@@ -593,18 +595,18 @@ WO_API wo_api rslib_std_randomreal(wo_vm vm, wo_value args)
     return wo_ret_real(vm, dis(mt64));
 }
 
-WO_API wo_api rslib_std_break_yield(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_break_yield(wo_vm vm, wo_value args)
 {
     return wo_ret_yield(vm);
 }
 
-WO_API wo_api rslib_std_array_resize(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_resize(wo_vm vm, wo_value args)
 {
     wo_arr_resize(args + 0, wo_int(args + 1), args + 2);
     return wo_ret_void(vm);
 }
 
-WO_API wo_api rslib_std_array_shrink(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_shrink(wo_vm vm, wo_value args)
 {
     auto newsz = wo_int(args + 1);
     if (newsz <= wo_lengthof(args + 0))
@@ -615,13 +617,13 @@ WO_API wo_api rslib_std_array_shrink(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_bool(vm, WO_FALSE);
 }
 
-WO_API wo_api rslib_std_array_insert(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_insert(wo_vm vm, wo_value args)
 {
     wo_arr_insert(args + 0, wo_int(args + 1), args + 2);
     return wo_ret_void(vm);
 }
 
-WO_API wo_api rslib_std_array_swap(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_swap(wo_vm vm, wo_value args)
 {
     wo::value* arr1 = std::launder(reinterpret_cast<wo::value*>(args + 0));
     wo::value* arr2 = std::launder(reinterpret_cast<wo::value*>(args + 1));
@@ -641,7 +643,7 @@ WO_API wo_api rslib_std_array_swap(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_void(vm);
 }
 
-WO_API wo_api rslib_std_array_copy(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_copy(wo_vm vm, wo_value args)
 {
     wo::value* arr1 = std::launder(reinterpret_cast<wo::value*>(args + 0));
     wo::value* arr2 = std::launder(reinterpret_cast<wo::value*>(args + 1));
@@ -652,12 +654,12 @@ WO_API wo_api rslib_std_array_copy(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_void(vm);
 }
 
-WO_API wo_api rslib_std_array_empty(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_empty(wo_vm vm, wo_value args)
 {
     return wo_ret_bool(vm, wo_arr_is_empty(args + 0));
 }
 
-WO_API wo_api rslib_std_array_get(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_get(wo_vm vm, wo_value args)
 {
     wo_value arr = args + 0;
     wo_integer_t idx = wo_int(args + 1);
@@ -670,7 +672,7 @@ WO_API wo_api rslib_std_array_get(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_option_none(vm);
 }
 
-WO_API wo_api rslib_std_array_get_or_default(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_get_or_default(wo_vm vm, wo_value args)
 {
     wo_value arr = args + 0;
     wo_integer_t idx = wo_int(args + 1);
@@ -683,13 +685,13 @@ WO_API wo_api rslib_std_array_get_or_default(wo_vm vm, wo_value args, size_t arg
     return wo_ret_val(vm, args + 2);
 }
 
-WO_API wo_api rslib_std_array_add(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_add(wo_vm vm, wo_value args)
 {
     wo_arr_add(args + 0, args + 1);
     return wo_ret_void(vm);
 }
 
-WO_API wo_api rslib_std_array_connect(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_connect(wo_vm vm, wo_value args)
 {
     wo_value result = wo_push_arr(vm, 0);
 
@@ -711,7 +713,7 @@ WO_API wo_api rslib_std_array_connect(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_val(vm, result);
 }
 
-WO_API wo_api rslib_std_array_sub(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_sub(wo_vm vm, wo_value args)
 {
     wo_value result = wo_push_arr(vm, 0);
 
@@ -730,7 +732,7 @@ WO_API wo_api rslib_std_array_sub(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_val(vm, result);
 }
 
-WO_API wo_api rslib_std_array_subto(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_subto(wo_vm vm, wo_value args)
 {
     wo_value result = wo_push_arr(vm, 0);
 
@@ -757,7 +759,7 @@ WO_API wo_api rslib_std_array_subto(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_val(vm, result);
 }
 
-WO_API wo_api rslib_std_array_pop(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_pop(wo_vm vm, wo_value args)
 {
     wo_value elem = wo_push_empty(vm);
     if (wo_arr_pop_back(elem, args + 0))
@@ -765,7 +767,7 @@ WO_API wo_api rslib_std_array_pop(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_option_none(vm);
 }
 
-WO_API wo_api rslib_std_array_dequeue(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_dequeue(wo_vm vm, wo_value args)
 {
     wo_value elem = wo_push_empty(vm);
     if (wo_arr_pop_front(elem, args + 0))
@@ -773,38 +775,38 @@ WO_API wo_api rslib_std_array_dequeue(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_option_none(vm);
 }
 
-WO_API wo_api rslib_std_array_pop_val(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_pop_val(wo_vm vm, wo_value args)
 {
     wo_value elem = wo_push_empty(vm);
     wo_arr_pop_back_val(elem, args + 0);
     return wo_ret_val(vm, elem);
 }
 
-WO_API wo_api rslib_std_array_dequeue_val(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_dequeue_val(wo_vm vm, wo_value args)
 {
     wo_value elem = wo_push_empty(vm);
     wo_arr_pop_front_val(elem, args + 0);
     return wo_ret_val(vm, elem);
 }
 
-WO_API wo_api rslib_std_array_remove(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_remove(wo_vm vm, wo_value args)
 {
     return wo_ret_bool(vm, wo_arr_remove(args + 0, wo_int(args + 1)));
 }
 
-WO_API wo_api rslib_std_array_find(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_find(wo_vm vm, wo_value args)
 {
     return wo_ret_int(vm, wo_arr_find(args + 0, args + 1));
 }
 
-WO_API wo_api rslib_std_array_front(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_front(wo_vm vm, wo_value args)
 {
     wo_value elem = wo_push_empty(vm);
     if (wo_arr_front(elem, args + 0))
         return wo_ret_option_val(vm, elem);
     return wo_ret_option_none(vm);
 }
-WO_API wo_api rslib_std_array_back(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_back(wo_vm vm, wo_value args)
 {
     wo_value elem = wo_push_empty(vm);
     if (wo_arr_back(elem, args + 0))
@@ -812,33 +814,33 @@ WO_API wo_api rslib_std_array_back(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_option_none(vm);
 }
 
-WO_API wo_api rslib_std_array_front_val(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_front_val(wo_vm vm, wo_value args)
 {
     wo_value elem = wo_push_empty(vm);
     wo_arr_front_val(elem, args + 0);
     return wo_ret_val(vm, elem);
 }
-WO_API wo_api rslib_std_array_back_val(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_back_val(wo_vm vm, wo_value args)
 {
     wo_value elem = wo_push_empty(vm);
     wo_arr_back_val(elem, args + 0);
     return wo_ret_val(vm, elem);
 }
 
-WO_API wo_api rslib_std_array_clear(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_clear(wo_vm vm, wo_value args)
 {
     wo_arr_clear(args);
 
     return wo_ret_void(vm);
 }
 
-WO_API wo_api rslib_std_map_keys(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_map_keys(wo_vm vm, wo_value args)
 {
     wo_value result = wo_push_empty(vm);
     wo_map_keys(result, vm, args + 0);
     return wo_ret_val(vm, result);
 }
-WO_API wo_api rslib_std_map_vals(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_map_vals(wo_vm vm, wo_value args)
 {
     wo_value result = wo_push_empty(vm);
     wo_map_vals(result, vm, args + 0);
@@ -854,7 +856,7 @@ struct array_iter
     wo_int_t     index_count;
 };
 
-WO_API wo_api rslib_std_array_iter(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_iter(wo_vm vm, wo_value args)
 {
     wo::value* arr = std::launder(reinterpret_cast<wo::value*>(args));
     return wo_ret_gchandle(vm,
@@ -867,7 +869,7 @@ WO_API wo_api rslib_std_array_iter(wo_vm vm, wo_value args, size_t argc)
     );
 }
 
-WO_API wo_api rslib_std_array_iter_next(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_iter_next(wo_vm vm, wo_value args)
 {
     array_iter& iter = *(array_iter*)wo_pointer(args);
 
@@ -885,18 +887,18 @@ WO_API wo_api rslib_std_array_iter_next(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_option_val(vm, result_tuple);
 }
 
-WO_API wo_api rslib_std_map_find(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_map_find(wo_vm vm, wo_value args)
 {
     return wo_ret_bool(vm, wo_map_find(args + 0, args + 1));
 }
 
-WO_API wo_api rslib_std_map_set(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_map_set(wo_vm vm, wo_value args)
 {
     wo_map_set(args + 0, args + 1, args + 2);
     return wo_ret_void(vm);
 }
 
-WO_API wo_api rslib_std_map_only_get(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_map_only_get(wo_vm vm, wo_value args)
 {
     wo_value elem = wo_push_empty(vm);
 
@@ -906,21 +908,21 @@ WO_API wo_api rslib_std_map_only_get(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_option_none(vm);
 }
 
-WO_API wo_api rslib_std_map_get_or_set_default(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_map_get_or_set_default(wo_vm vm, wo_value args)
 {
     wo_value elem = wo_push_empty(vm);
     wo_map_get_or_set_default(elem, args + 0, args + 1, args + 2);
     return wo_ret_val(vm, elem);
 }
 
-WO_API wo_api rslib_std_map_get_or_default(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_map_get_or_default(wo_vm vm, wo_value args)
 {
     wo_value elem = wo_push_empty(vm);
     wo_map_get_or_default(elem, args + 0, args + 1, args + 2);
     return wo_ret_val(vm, elem);
 }
 
-WO_API wo_api rslib_std_map_swap(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_map_swap(wo_vm vm, wo_value args)
 {
     wo::value* map1 = std::launder(reinterpret_cast<wo::value*>(args + 0));
     wo::value* map2 = std::launder(reinterpret_cast<wo::value*>(args + 1));
@@ -946,7 +948,7 @@ WO_API wo_api rslib_std_map_swap(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_void(vm);
 }
 
-WO_API wo_api rslib_std_map_copy(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_map_copy(wo_vm vm, wo_value args)
 {
     wo::value* map1 = std::launder(reinterpret_cast<wo::value*>(args + 0));
     wo::value* map2 = std::launder(reinterpret_cast<wo::value*>(args + 1));
@@ -958,17 +960,17 @@ WO_API wo_api rslib_std_map_copy(wo_vm vm, wo_value args, size_t argc)
 }
 
 
-WO_API wo_api rslib_std_map_remove(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_map_remove(wo_vm vm, wo_value args)
 {
     return wo_ret_bool(vm, wo_map_remove(args + 0, args + 1));
 }
 
-WO_API wo_api rslib_std_map_empty(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_map_empty(wo_vm vm, wo_value args)
 {
     return wo_ret_bool(vm, wo_map_is_empty(args + 0));
 }
 
-WO_API wo_api rslib_std_map_clear(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_map_clear(wo_vm vm, wo_value args)
 {
     wo_map_clear(args + 0);
     return wo_ret_void(vm);
@@ -982,7 +984,7 @@ struct map_iter
     mapping_iter_t end_place;
 };
 
-WO_API wo_api rslib_std_map_iter(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_map_iter(wo_vm vm, wo_value args)
 {
     wo::value* mapp = std::launder(reinterpret_cast<wo::value*>(args));
 
@@ -996,7 +998,7 @@ WO_API wo_api rslib_std_map_iter(wo_vm vm, wo_value args, size_t argc)
     );
 }
 
-WO_API wo_api rslib_std_map_iter_next(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_map_iter_next(wo_vm vm, wo_value args)
 {
     map_iter& iter = *(map_iter*)wo_pointer(args);
 
@@ -1015,7 +1017,7 @@ WO_API wo_api rslib_std_map_iter_next(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_option_val(vm, result_tuple);
 }
 
-WO_API wo_api rslib_std_take_token(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_take_token(wo_vm vm, wo_value args)
 {
     wo_string_t input = wo_string(args + 0);
     wo_string_t format = wo_string(args + 1);
@@ -1037,7 +1039,7 @@ WO_API wo_api rslib_std_take_token(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_option_none(vm);
 }
 
-WO_API wo_api rslib_std_take_string(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_take_string(wo_vm vm, wo_value args)
 {
     wo_string_t input = wo_string(args + 0);
     size_t token_length;
@@ -1058,7 +1060,7 @@ WO_API wo_api rslib_std_take_string(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_option_none(vm);
 }
 
-WO_API wo_api rslib_std_take_int(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_take_int(wo_vm vm, wo_value args)
 {
     wo_string_t input = wo_string(args + 0);
     size_t token_length;
@@ -1079,7 +1081,7 @@ WO_API wo_api rslib_std_take_int(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_option_none(vm);
 }
 
-WO_API wo_api rslib_std_take_real(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_take_real(wo_vm vm, wo_value args)
 {
     wo_string_t input = wo_string(args + 0);
     size_t token_length;
@@ -1100,7 +1102,7 @@ WO_API wo_api rslib_std_take_real(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_option_none(vm);
 }
 
-WO_API wo_api rslib_std_parse_map_from_string(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_parse_map_from_string(wo_vm vm, wo_value args)
 {
     wo_value result_dict = wo_push_empty(vm);
     if (wo_deserialize(vm, result_dict, wo_string(args + 0), WO_MAPPING_TYPE))
@@ -1108,7 +1110,7 @@ WO_API wo_api rslib_std_parse_map_from_string(wo_vm vm, wo_value args, size_t ar
     return wo_ret_option_none(vm);
 }
 
-WO_API wo_api rslib_std_parse_array_from_string(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_parse_array_from_string(wo_vm vm, wo_value args)
 {
     wo_value result_arr = wo_push_empty(vm);
     if (wo_deserialize(vm, result_arr, wo_string(args + 0), WO_ARRAY_TYPE))
@@ -1116,7 +1118,7 @@ WO_API wo_api rslib_std_parse_array_from_string(wo_vm vm, wo_value args, size_t 
     return wo_ret_option_none(vm);
 }
 
-WO_API wo_api rslib_std_create_wchars_from_str(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_create_wchars_from_str(wo_vm vm, wo_value args)
 {
     std::wstring buf = wo_str_to_wstr(wo_string(args + 0));
     wo_value result_array = wo_push_arr(vm, buf.size());
@@ -1132,7 +1134,7 @@ WO_API wo_api rslib_std_create_wchars_from_str(wo_vm vm, wo_value args, size_t a
     return wo_ret_val(vm, result_array);
 }
 
-WO_API wo_api rslib_std_create_chars_from_str(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_create_chars_from_str(wo_vm vm, wo_value args)
 {
     std::string buf = wo_string(args + 0);
     wo_value result_array = wo_push_arr(vm, buf.size());
@@ -1148,7 +1150,7 @@ WO_API wo_api rslib_std_create_chars_from_str(wo_vm vm, wo_value args, size_t ar
     return wo_ret_val(vm, result_array);
 }
 
-WO_API wo_api rslib_std_serialize(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_serialize(wo_vm vm, wo_value args)
 {
     wo_string_t result = nullptr;
     if (wo_serialize(args + 0, &result))
@@ -1159,7 +1161,7 @@ WO_API wo_api rslib_std_serialize(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_option_none(vm);
 }
 
-WO_API wo_api rslib_std_array_create(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_create(wo_vm vm, wo_value args)
 {
     wo_integer_t arrsz = wo_int(args + 0);
 
@@ -1170,7 +1172,7 @@ WO_API wo_api rslib_std_array_create(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_val(vm, newarr);
 }
 
-WO_API wo_api rslib_std_create_str_by_wchar(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_create_str_by_wchar(wo_vm vm, wo_value args)
 {
     std::wstring buf;
     wo_int_t size = wo_lengthof(args + 0);
@@ -1184,7 +1186,7 @@ WO_API wo_api rslib_std_create_str_by_wchar(wo_vm vm, wo_value args, size_t argc
     return wo_ret_string(vm, wo::wstr_to_str(buf).c_str());
 }
 
-WO_API wo_api rslib_std_create_str_by_ascii(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_create_str_by_ascii(wo_vm vm, wo_value args)
 {
     std::string buf;
     wo_int_t size = wo_lengthof(args + 0);
@@ -1199,43 +1201,43 @@ WO_API wo_api rslib_std_create_str_by_ascii(wo_vm vm, wo_value args, size_t argc
 }
 
 
-WO_API wo_api rslib_std_return_itself(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_return_itself(wo_vm vm, wo_value args)
 {
     return wo_ret_val(vm, args + 0);
 }
 
-WO_API wo_api rslib_std_get_ascii_val_from_str(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_get_ascii_val_from_str(wo_vm vm, wo_value args)
 {
     return wo_ret_int(vm, (wo_int_t)wo_str_get_char(wo_string(args + 0), wo_int(args + 1)));
 }
 
-WO_API wo_api rslib_std_string_sub(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_sub(wo_vm vm, wo_value args)
 {
     size_t sub_str_len = 0;
     auto* substring = wo::u8substr(wo_string(args + 0), (size_t)wo_int(args + 1), wo::u8str_npos, &sub_str_len);
     return wo_ret_string(vm, std::string(substring, sub_str_len).c_str());
 }
 
-WO_API wo_api rslib_std_string_subto(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_subto(wo_vm vm, wo_value args)
 {
     size_t sub_str_len = 0;
     auto* substring = wo::u8substr(wo_string(args + 0), (size_t)wo_int(args + 1), (size_t)wo_int(args + 2), &sub_str_len);
     return wo_ret_string(vm, std::string(substring, sub_str_len).c_str());
 }
 
-WO_API wo_api rslib_std_thread_sleep(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_thread_sleep(wo_vm vm, wo_value args)
 {
     using namespace std;
     std::this_thread::sleep_for(wo_real(args) * 1s);
     return wo_ret_void(vm);
 }
 
-WO_API wo_api rslib_std_gchandle_close(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_gchandle_close(wo_vm vm, wo_value args)
 {
     return wo_ret_bool(vm, wo_gchandle_close(args));
 }
 
-WO_API wo_api rslib_std_int_to_hex(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_int_to_hex(wo_vm vm, wo_value args)
 {
     char result[18];
     wo_integer_t val = wo_int(args + 0);
@@ -1246,7 +1248,7 @@ WO_API wo_api rslib_std_int_to_hex(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_string(vm, result);
 }
 
-WO_API wo_api rslib_std_int_to_oct(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_int_to_oct(wo_vm vm, wo_value args)
 {
     char result[24];
     wo_integer_t val = wo_int(args + 0);
@@ -1257,7 +1259,7 @@ WO_API wo_api rslib_std_int_to_oct(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_string(vm, result);
 }
 
-WO_API wo_api rslib_std_hex_to_int(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_hex_to_int(wo_vm vm, wo_value args)
 {
     wo_string_t str = wo_string(args + 0);
     while (*str && wo::lexer::lex_isspace(*str))
@@ -1275,7 +1277,7 @@ WO_API wo_api rslib_std_hex_to_int(wo_vm vm, wo_value args, size_t argc)
     }
 }
 
-WO_API wo_api rslib_std_oct_to_int(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_oct_to_int(wo_vm vm, wo_value args)
 {
     wo_string_t str = wo_string(args + 0);
     while (*str && wo::lexer::lex_isspace(*str))
@@ -1293,7 +1295,7 @@ WO_API wo_api rslib_std_oct_to_int(wo_vm vm, wo_value args, size_t argc)
     }
 }
 
-WO_API wo_api rslib_std_hex_to_handle(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_hex_to_handle(wo_vm vm, wo_value args)
 {
     wo_string_t str = wo_string(args + 0);
     unsigned long long result;
@@ -1301,7 +1303,7 @@ WO_API wo_api rslib_std_hex_to_handle(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_handle(vm, result);
 }
 
-WO_API wo_api rslib_std_oct_to_handle(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_oct_to_handle(wo_vm vm, wo_value args)
 {
     wo_string_t str = wo_string(args + 0);
     unsigned long long result;
@@ -1309,7 +1311,7 @@ WO_API wo_api rslib_std_oct_to_handle(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_handle(vm, result);
 }
 
-WO_API wo_api rslib_std_handle_to_hex(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_handle_to_hex(wo_vm vm, wo_value args)
 {
     char result[18];
     wo_handle_t val = wo_handle(args + 0);
@@ -1319,7 +1321,7 @@ WO_API wo_api rslib_std_handle_to_hex(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_string(vm, result);
 }
 
-WO_API wo_api rslib_std_handle_to_oct(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_handle_to_oct(wo_vm vm, wo_value args)
 {
     char result[24];
     wo_handle_t val = wo_handle(args + 0);
@@ -1330,7 +1332,7 @@ WO_API wo_api rslib_std_handle_to_oct(wo_vm vm, wo_value args, size_t argc)
 }
 
 
-WO_API wo_api rslib_std_get_args(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_get_args(wo_vm vm, wo_value args)
 {
     wo_integer_t argcarr = (wo_integer_t)wo::wo_args.size();
     wo_value argsarr = wo_push_arr(vm, argcarr);
@@ -1345,12 +1347,12 @@ WO_API wo_api rslib_std_get_args(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_val(vm, argsarr);
 }
 
-WO_API wo_api rslib_std_get_exe_path(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_get_exe_path(wo_vm vm, wo_value args)
 {
     return wo_ret_string(vm, wo::exe_path());
 }
 
-WO_API wo_api rslib_std_get_extern_symb(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_get_extern_symb(wo_vm vm, wo_value args)
 {
     wo_integer_t ext_symb = wo_extern_symb(vm, wo_string(args + 0));
     if (ext_symb)
@@ -1366,57 +1368,57 @@ WO_API wo_api rslib_std_get_extern_symb(wo_vm vm, wo_value args, size_t argc)
         return wo_ret_option_none(vm);
 }
 
-WO_API wo_api rslib_std_equal_byte(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_equal_byte(wo_vm vm, wo_value args)
 {
     return wo_ret_bool(vm, wo_equal_byte(args + 0, args + 1));
 }
 
-WO_API wo_api rslib_std_bad_function(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_bad_function(wo_vm vm, wo_value args)
 {
     return wo_ret_panic(vm, "This function cannot be invoke");
 }
 
-WO_API wo_api rslib_std_bit_or(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_bit_or(wo_vm vm, wo_value args)
 {
     auto result = wo_int(args + 0) | wo_int(args + 1);
     static_assert(std::is_same<decltype(result), wo_integer_t>::value);
     return wo_ret_int(vm, result);
 }
 
-WO_API wo_api rslib_std_bit_and(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_bit_and(wo_vm vm, wo_value args)
 {
     auto result = wo_int(args + 0) & wo_int(args + 1);
     static_assert(std::is_same<decltype(result), wo_integer_t>::value);
     return wo_ret_int(vm, result);
 }
 
-WO_API wo_api rslib_std_bit_xor(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_bit_xor(wo_vm vm, wo_value args)
 {
     auto result = wo_int(args + 0) ^ wo_int(args + 1);
     static_assert(std::is_same<decltype(result), wo_integer_t>::value);
     return wo_ret_int(vm, result);
 }
 
-WO_API wo_api rslib_std_bit_not(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_bit_not(wo_vm vm, wo_value args)
 {
     auto result = ~wo_int(args + 0);
     static_assert(std::is_same<decltype(result), wo_integer_t>::value);
     return wo_ret_int(vm, result);
 }
 
-WO_API wo_api rslib_std_bit_shl(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_bit_shl(wo_vm vm, wo_value args)
 {
     auto result = wo_int(args + 0) << wo_int(args + 1);
     static_assert(std::is_same<decltype(result), wo_integer_t>::value);
     return wo_ret_int(vm, result);
 }
-WO_API wo_api rslib_std_bit_ashr(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_bit_ashr(wo_vm vm, wo_value args)
 {
     auto result = wo_int(args + 0) >> wo_int(args + 1);
     static_assert(std::is_same<decltype(result), wo_integer_t>::value);
     return wo_ret_int(vm, result);
 }
-WO_API wo_api rslib_std_bit_shr(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_bit_shr(wo_vm vm, wo_value args)
 {
     auto result = ((wo_handle_t)wo_int(args + 0) >> (wo_handle_t)wo_int(args + 1));
     static_assert(std::is_same<decltype(result), wo_handle_t>::value);
@@ -2621,38 +2623,40 @@ public func assertmsg(val: bool, msg: string)
 
 )" };
 
-WO_API wo_api rslib_std_debug_attach_default_debuggee(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_debug_attach_default_debuggee(wo_vm vm, wo_value args)
 {
     wo_attach_default_debuggee();
     return wo_ret_void(vm);
 }
 
-WO_API wo_api rslib_std_debug_disattach_default_debuggee(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_debug_disattach_default_debuggee(wo_vm vm, wo_value args)
 {
     wo_detach_debuggee();
     return wo_ret_void(vm);
 }
 
-WO_API wo_api rslib_std_debug_callstack_trace(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_debug_callstack_trace(wo_vm vm, wo_value args)
 {
     return wo_ret_string(vm, wo_debug_trace_callstack(vm, (size_t)wo_int(args + 0)));
 }
 
-WO_API wo_api rslib_std_debug_breakpoint(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_debug_breakpoint(wo_vm vm, wo_value args)
 {
     wo_break_specify_immediately(vm);
     return wo_ret_void(vm);
 }
 
-WO_API wo_api rslib_std_debug_invoke(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_debug_invoke(wo_vm vm, wo_value args)
 {
+    size_t argc = (size_t)wo_vaarg_count(vm);
+
     for (size_t index = argc - 1; index > 0; index--)
         wo_push_val(vm, args + index);
 
     return wo_ret_val(vm, wo_invoke_value(vm, args, argc - 1));
 }
 
-WO_API wo_api rslib_std_debug_empty_func(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_debug_empty_func(wo_vm vm, wo_value args)
 {
     return wo_ret_void(vm);
 }
@@ -2700,7 +2704,7 @@ namespace std
 }
 )" };
 
-WO_API wo_api rslib_std_macro_lexer_error(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_macro_lexer_error(wo_vm vm, wo_value args)
 {
     wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
 
@@ -2708,7 +2712,7 @@ WO_API wo_api rslib_std_macro_lexer_error(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_void(vm);
 }
 
-WO_API wo_api rslib_std_macro_lexer_peek(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_macro_lexer_peek(wo_vm vm, wo_value args)
 {
     wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
 
@@ -2727,7 +2731,7 @@ WO_API wo_api rslib_std_macro_lexer_peek(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_val(vm, result);
 }
 
-WO_API wo_api rslib_std_macro_lexer_next(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_macro_lexer_next(wo_vm vm, wo_value args)
 {
     wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
 
@@ -2746,7 +2750,7 @@ WO_API wo_api rslib_std_macro_lexer_next(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_val(vm, result);
 }
 
-WO_API wo_api rslib_std_macro_lexer_nextch(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_macro_lexer_nextch(wo_vm vm, wo_value args)
 {
     wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
 
@@ -2761,7 +2765,7 @@ WO_API wo_api rslib_std_macro_lexer_nextch(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_string(vm, wo::wstr_to_str(ch).c_str());
 }
 
-WO_API wo_api rslib_std_macro_lexer_peekch(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_macro_lexer_peekch(wo_vm vm, wo_value args)
 {
     wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
 
@@ -2776,19 +2780,19 @@ WO_API wo_api rslib_std_macro_lexer_peekch(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_string(vm, wo::wstr_to_str(ch).c_str());
 }
 
-WO_API wo_api rslib_std_macro_lexer_current_path(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_macro_lexer_current_path(wo_vm vm, wo_value args)
 {
     wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
     return wo_ret_string(vm, wo::wstr_to_str(*lex->source_file).c_str());
 }
 
-WO_API wo_api rslib_std_macro_lexer_current_rowno(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_macro_lexer_current_rowno(wo_vm vm, wo_value args)
 {
     wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
     return wo_ret_int(vm, (wo_integer_t)lex->now_file_rowno);
 }
 
-WO_API wo_api rslib_std_macro_lexer_current_colno(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_macro_lexer_current_colno(wo_vm vm, wo_value args)
 {
     wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
     return wo_ret_int(vm, (wo_integer_t)lex->now_file_colno);
@@ -2998,7 +3002,7 @@ namespace std
 
 )" };
 
-WO_API wo_api rslib_std_call_shell(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_call_shell(wo_vm vm, wo_value args)
 {
     if (wo::config::ENABLE_SHELL_PACKAGE)
         return wo_ret_int(vm, system(wo_string(args + 0)));
@@ -3007,7 +3011,7 @@ WO_API wo_api rslib_std_call_shell(wo_vm vm, wo_value args, size_t argc)
             "trying to restart without '--enable-shell 0'.");
 }
 
-WO_API wo_api rslib_std_get_env(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_get_env(wo_vm vm, wo_value args)
 {
     if (wo::config::ENABLE_SHELL_PACKAGE)
     {

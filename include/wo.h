@@ -108,7 +108,7 @@ typedef enum _wo_api
     WO_API_RESYNC = 1,
 }wo_api, wo_result_t;
 
-typedef wo_result_t(*wo_native_func)(wo_vm, wo_value, size_t);
+typedef wo_result_t(*wo_native_func)(wo_vm, wo_value);
 
 typedef void(*wo_fail_handler)(
     wo_vm vm,
@@ -140,6 +140,14 @@ WO_API void*        wo_load_func(void* lib, const char* funcname);
 WO_API void         wo_unload_lib(void* lib);
 
 WO_API wo_type      wo_valuetype(const wo_value value);
+
+// NOTE: According to the Woolang calling convention, 
+//      this method is only applicable for use within 
+//      external interface functions declared as va-arg
+//      functions; And please make sure to call this
+//      function at the beginning of the interface to
+//      avoid counting contamination.
+WO_API wo_size_t    wo_vaarg_count(wo_vm vm);
 
 WO_API wo_char_t    wo_char(wo_value value);
 WO_API wo_integer_t wo_int(wo_value value);

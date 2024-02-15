@@ -16,7 +16,7 @@
 #include <unordered_map>
 #include <algorithm>
 
-WO_API wo_api rslib_std_bad_function(wo_vm vm, wo_value args, size_t argc);
+WO_API wo_api rslib_std_bad_function(wo_vm vm, wo_value args);
 
 namespace wo
 {

@@ -552,7 +552,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             vm->ip = reinterpret_cast<byte_t*>(call_aim_native_func);
 
             wo_assure(wo_leave_gcguard(reinterpret_cast<wo_vm>(vm)));
-            wo_result_t result = call_aim_native_func(reinterpret_cast<wo_vm>(vm), reinterpret_cast<wo_value>(rt_sp + 2), vm->tc->integer);
+            wo_result_t result = call_aim_native_func(reinterpret_cast<wo_vm>(vm), reinterpret_cast<wo_value>(rt_sp + 2));
             wo_assure(wo_enter_gcguard(reinterpret_cast<wo_vm>(vm)));
 
             return result;
@@ -570,7 +570,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
             vm->ip = reinterpret_cast<byte_t*>(call_aim_native_func);
 
-            return call_aim_native_func(reinterpret_cast<wo_vm>(vm), reinterpret_cast<wo_value>(rt_sp + 2), vm->tc->integer);
+            return call_aim_native_func(reinterpret_cast<wo_vm>(vm), reinterpret_cast<wo_value>(rt_sp + 2));
         }
         static wo_result_t native_do_call_vmfunc(vmbase* vm, value* target_function, const byte_t* codes, const byte_t* rt_ip, value* rt_sp, value* rt_bp)
         {
@@ -983,8 +983,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             const byte_t* codes,
             const byte_t* rt_ip,
             asmjit::x86::Gp rt_sp,
-            asmjit::x86::Gp rt_bp,
-            asmjit::x86::Gp rt_tc)
+            asmjit::x86::Gp rt_bp)
         {
             auto result = x86compiler.newInt32();
             asmjit::InvokeNode* invoke_node;
@@ -1012,8 +1011,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             const byte_t* codes,
             const byte_t* rt_ip,
             asmjit::x86::Gp rt_sp,
-            asmjit::x86::Gp rt_bp,
-            asmjit::x86::Gp rt_tc)
+            asmjit::x86::Gp rt_bp)
         {
             // Set calltrace info here!
             wo::value callstack;
@@ -1029,9 +1027,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             wo_assure(!x86compiler.mov(asmjit::x86::dword_ptr(rt_sp, offsetof(value, vmcallstack) + offsetof(value::callstack, bp)), bpoffset.r32()));
 
             auto callargptr = x86compiler.newUIntPtr();
-            auto targc = x86compiler.newInt64();
             wo_assure(!x86compiler.lea(callargptr, asmjit::x86::qword_ptr(rt_sp, 1 * (int32_t)sizeof(value))));
-            wo_assure(!x86compiler.lea(targc, asmjit::x86::qword_ptr(rt_tc, offsetof(value, integer))));
 
             auto result = x86compiler.newInt32();
 
@@ -1043,7 +1039,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                     && *vm_func->m_func != nullptr);
 
                 wo_assure(!x86compiler.invoke(&invoke_node, *vm_func->m_func,
-                    asmjit::FuncSignatureT<wo_result_t, vmbase*, value*, size_t>()));
+                    asmjit::FuncSignatureT<wo_result_t, vmbase*, value*>()));
             }
             else
             {
@@ -1056,11 +1052,11 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                 x86compiler.mov(funcaddr, asmjit::x86::qword_ptr((intptr_t)vm_func->m_func));
 
                 wo_assure(!x86compiler.invoke(&invoke_node, funcaddr,
-                    asmjit::FuncSignatureT<wo_result_t, vmbase*, value*, size_t>()));
+                    asmjit::FuncSignatureT<wo_result_t, vmbase*, value*>()));
             }
             invoke_node->setArg(0, vm);
             invoke_node->setArg(1, callargptr);
-            invoke_node->setArg(2, targc);
+
             invoke_node->setRet(0, result);
 
             auto normal = x86compiler.newLabel();
@@ -1103,7 +1099,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             *out_compiler = &ctx->c;
 
             state->m_jitfunc = ctx->c.addFunc(
-                asmjit::FuncSignatureT<wo_result_t, vmbase*, value*, size_t>());
+                asmjit::FuncSignatureT<wo_result_t, vmbase*, value*>());
             // void _jit_(vmbase*  vm , value* bp, value* reg, value* const_global);
 
             // 0. Get vmptr reg stack base global ptr.
@@ -1117,6 +1113,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
             return ctx;
         }
+
         virtual void finish_compiler(X64CompileContext* context)override
         {
             wo_assure(!context->c.endFunc());
@@ -2017,7 +2014,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                 jit_packed_func_t call_aim_native_func = (jit_packed_func_t)(WO_IPVAL_MOVE_8);
 
                 if (dr & 0b10)
-                    x86_do_calln_native_func_fast(ctx->c, ctx->_vmbase, call_aim_native_func, ctx->env->rt_codes, rt_ip, ctx->_vmssp, ctx->_vmsbp, ctx->_vmtc);
+                    x86_do_calln_native_func_fast(ctx->c, ctx->_vmbase, call_aim_native_func, ctx->env->rt_codes, rt_ip, ctx->_vmssp, ctx->_vmsbp);
                 else
                     x86_do_calln_native_func(ctx->c, ctx->_vmbase, call_aim_native_func, ctx->env->rt_codes, rt_ip, ctx->_vmssp, ctx->_vmsbp);
             }
@@ -2039,7 +2036,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                     ctx->c, ctx->_vmbase,
                     compiled_funcstat,
                     ctx->env->rt_codes,
-                    rt_ip, ctx->_vmssp, ctx->_vmsbp, ctx->_vmtc);
+                    rt_ip, ctx->_vmssp, ctx->_vmsbp);
             }
 
             // ATTENTION: AFTER CALLING VM FUNCTION, DONOT MODIFY SP/BP/IP CONTEXT, HERE MAY HAPPEND/PASS BREAK INFO!!!

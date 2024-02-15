@@ -3770,3 +3770,8 @@ void wo_read_pin_value(wo_value out_value, wo_pin_value pin_value)
 {
     wo::pin::read_pin_value(WO_VAL(out_value), pin_value);
 }
+
+wo_size_t wo_vaarg_count(wo_vm vm)
+{
+    return (wo_size_t)WO_VM(vm)->tc->integer;
+}
