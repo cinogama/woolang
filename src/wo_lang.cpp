@@ -375,43 +375,6 @@ namespace wo
                     analyze_pass1(a_value_func->in_function_sentence);
                 }
 
-                if (a_value_func->externed_func_info)
-                {
-                    if (a_value_func->externed_func_info->externed_func == nullptr)
-                    {
-                        if (a_value_func->externed_func_info->load_from_lib == L"")
-                        {
-                            a_value_func->externed_func_info->externed_func =
-                                rslib_extern_symbols::get_global_symbol(
-                                    wstr_to_str(a_value_func->externed_func_info->symbol_name).c_str());
-                        }
-                        else
-                        {
-                            wo_assert(a_value_func->source_file != nullptr);
-                            a_value_func->externed_func_info->externed_func =
-                                rslib_extern_symbols::get_lib_symbol(
-                                    wstr_to_str(*a_value_func->source_file).c_str(),
-                                    wstr_to_str(a_value_func->externed_func_info->load_from_lib).c_str(),
-                                    wstr_to_str(a_value_func->externed_func_info->symbol_name).c_str(),
-                                    extern_libs);
-                        }
-                    }
-
-                    if (a_value_func->externed_func_info->externed_func == nullptr)
-                    {
-                        if (config::ENABLE_IGNORE_NOT_FOUND_EXTERN_SYMBOL)
-                            a_value_func->externed_func_info->externed_func = rslib_std_bad_function;
-                        else if (a_value_func->externed_func_info->load_from_lib == L"")
-                            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_func, WO_ERR_CANNOT_FIND_EXT_SYM,
-                                a_value_func->externed_func_info->symbol_name.c_str());
-                        else
-                            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_func, WO_ERR_CANNOT_FIND_EXT_SYM_IN_LIB,
-                                a_value_func->externed_func_info->symbol_name.c_str(),
-                                a_value_func->externed_func_info->load_from_lib.c_str());
-                    }
-                    a_value_func->constant_value.set_handle((wo_handle_t)a_value_func->externed_func_info->externed_func);
-                    a_value_func->is_constant = true;
-                }
                 else if (!a_value_func->has_return_value
                     && a_value_func->auto_adjust_return_type
                     && a_value_func->value_type->get_return_type()->is_pure_pending())
@@ -427,7 +390,42 @@ namespace wo
 
         if (a_value_func->externed_func_info)
         {
-            // FIX 220829: If a extern function with template, wo should check it.
+            if (a_value_func->externed_func_info->externed_func == nullptr)
+            {
+                if (a_value_func->externed_func_info->load_from_lib == L"")
+                {
+                    a_value_func->externed_func_info->externed_func =
+                        rslib_extern_symbols::get_global_symbol(
+                            wstr_to_str(a_value_func->externed_func_info->symbol_name).c_str());
+                }
+                else
+                {
+                    wo_assert(a_value_func->source_file != nullptr);
+                    a_value_func->externed_func_info->externed_func =
+                        rslib_extern_symbols::get_lib_symbol(
+                            wstr_to_str(*a_value_func->source_file).c_str(),
+                            wstr_to_str(a_value_func->externed_func_info->load_from_lib).c_str(),
+                            wstr_to_str(a_value_func->externed_func_info->symbol_name).c_str(),
+                            extern_libs);
+                }
+            }
+
+            if (a_value_func->externed_func_info->externed_func == nullptr)
+            {
+                if (config::ENABLE_IGNORE_NOT_FOUND_EXTERN_SYMBOL)
+                    a_value_func->externed_func_info->externed_func = rslib_std_bad_function;
+                else if (a_value_func->externed_func_info->load_from_lib == L"")
+                    lang_anylizer->lang_error(lexer::errorlevel::error, a_value_func, WO_ERR_CANNOT_FIND_EXT_SYM,
+                        a_value_func->externed_func_info->symbol_name.c_str());
+                else
+                    lang_anylizer->lang_error(lexer::errorlevel::error, a_value_func, WO_ERR_CANNOT_FIND_EXT_SYM_IN_LIB,
+                        a_value_func->externed_func_info->symbol_name.c_str(),
+                        a_value_func->externed_func_info->load_from_lib.c_str());
+            }
+            a_value_func->constant_value.set_handle((wo_handle_t)a_value_func->externed_func_info->externed_func);
+            a_value_func->is_constant = true;
+
+            // FIX 220829: If a extern function with template, we still need to should check it.
             //             Make sure if this function has different arg count, we should set 'tc'
             extern_symb_func_definee[a_value_func->externed_func_info->externed_func]
                 .push_back(a_value_func);
@@ -6053,9 +6051,12 @@ namespace wo
                         funcdef = funcvariable->symbol->get_funcdef();
                 }
 
-                bool need_using_tc = !dynamic_cast<opnum::immbase*>(called_func_aim)
+                bool need_using_tc =
+                    dynamic_cast<opnum::immbase*>(called_func_aim) == nullptr
                     || a_value_funccall->called_func->value_type->is_variadic_function_type
-                    || (funcdef != nullptr && funcdef->is_different_arg_count_in_same_extern_symbol);
+                    || (funcdef != nullptr && 
+                        funcdef->externed_func_info != nullptr &&
+                        funcdef->externed_func_info->is_different_arg_count_in_same_extern_symbol);
 
                 if (!full_unpack_arguments && need_using_tc)
                     compiler->mov(reg(reg::tc), imm(arg_list.size() + extern_unpack_arg_count));
@@ -6070,7 +6071,7 @@ namespace wo
                 if (funcdef != nullptr
                     && funcdef->externed_func_info != nullptr)
                 {
-                    if (funcdef->externed_func_info->leaving_call == false)
+                    if (funcdef->externed_func_info->is_slow_leaving_call == false)
                         compiler->callfast((void*)funcdef->externed_func_info->externed_func);
                     else
                         compiler->call((void*)funcdef->externed_func_info->externed_func);
@@ -7015,7 +7016,8 @@ namespace wo
         // first, check each extern func
         for (auto& [ext_func, funcdef_list] : extern_symb_func_definee)
         {
-            wo_assert(!funcdef_list.empty() && funcdef_list.front()->externed_func_info != nullptr);
+            wo_assert(!funcdef_list.empty() && 
+                funcdef_list.front()->externed_func_info != nullptr);
 
             compiler->record_extern_native_function(
                 (intptr_t)ext_func,
@@ -7042,7 +7044,10 @@ namespace wo
             continue;
         _update_all_func_using_tc:;
             for (auto funcdef : funcdef_list)
-                funcdef->is_different_arg_count_in_same_extern_symbol = true;
+            {
+                wo_assert(funcdef->externed_func_info != nullptr);
+                funcdef->externed_func_info->is_different_arg_count_in_same_extern_symbol = true;
+            }
         }
 
         size_t public_block_begin = compiler->get_now_ip();

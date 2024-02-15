@@ -716,7 +716,8 @@ namespace wo
         {
             wo_extern_native_func_t externed_func = nullptr;
 
-            bool leaving_call = false;
+            bool is_slow_leaving_call = false;
+            bool is_different_arg_count_in_same_extern_symbol = false;
 
             std::wstring load_from_lib;
             std::wstring symbol_name;
@@ -770,7 +771,6 @@ namespace wo
             std::string ir_func_signature_tag = "";
             lang_scope* this_func_scope = nullptr;
             ast_extern_info* externed_func_info = nullptr;
-            bool is_different_arg_count_in_same_extern_symbol = false;
             std::vector<lang_symbol*> capture_variables;
             ast_where_constraint* where_constraint = nullptr;
 
@@ -2296,9 +2296,9 @@ namespace wo
                         wo_assert(attrib->tokens.type == lex_type::l_identifier);
 
                         if (attrib->tokens.identifier == L"slow")
-                            extern_symb->leaving_call = true;
+                            extern_symb->is_slow_leaving_call = true;
                         else if (attrib->tokens.identifier == L"fast")
-                            extern_symb->leaving_call = false;
+                            extern_symb->is_slow_leaving_call = false;
                         else
                             lex.lang_error(lexer::errorlevel::error, attrib,
                                 WO_ERR_UNKNOWN_EXTERN_ATTRIB, attrib->tokens.identifier.c_str());
