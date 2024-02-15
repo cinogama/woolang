@@ -724,12 +724,8 @@ namespace wo
 
             ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
-                using astnode_type = decltype(MAKE_INSTANCE(this));
-                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
-                if (!child_instance) *dumm = *this;
-                // ast_value::instance(dumm);
-                // Write self copy functions here..
-                return dumm;
+                wo_error("Duplicating ast_extern_info is not allowed.");
+                return nullptr;
             }
         };
         struct ast_value_function_define;
@@ -833,7 +829,11 @@ namespace wo
                 WO_REINSTANCE(dumm->argument_list);
                 WO_REINSTANCE(dumm->in_function_sentence);
                 WO_REINSTANCE(dumm->where_constraint);
-                WO_REINSTANCE(dumm->externed_func_info);
+                
+                // ISSUE 1.13: externed_func_info should not be re-instance here.
+                //              just copy it.
+                // WO_REINSTANCE(dumm->externed_func_info);
+
                 dumm->this_func_scope = nullptr;
                 dumm->capture_variables.clear();
 

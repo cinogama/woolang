@@ -1828,8 +1828,6 @@ namespace wo
                     }
 
                     ast_func->externed_func_info = dynamic_cast<ast_extern_info*>(WO_NEED_AST(0));
-                    if (ast_func->externed_func_info->externed_func)
-                        ast_func->is_constant = true;
                 }
             }
             else if (input.size() == 12)
@@ -1855,8 +1853,6 @@ namespace wo
                 }
 
                 ast_func->externed_func_info = dynamic_cast<ast_extern_info*>(WO_NEED_AST(0));
-                if (ast_func->externed_func_info->externed_func)
-                    ast_func->is_constant = true;
             }
             else if (input.size() == 7)
             {
