@@ -371,12 +371,9 @@ namespace wo
                 a_value_func->where_constraint->accept)
             {
                 if (a_value_func->in_function_sentence)
-                {
                     analyze_pass1(a_value_func->in_function_sentence);
-                }
 
-                if (
-                    a_value_func->externed_func_info == nullptr
+                if (a_value_func->externed_func_info == nullptr
                     && !a_value_func->has_return_value
                     && a_value_func->auto_adjust_return_type
                     && a_value_func->value_type->get_return_type()->is_pure_pending())
