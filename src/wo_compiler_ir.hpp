@@ -393,7 +393,8 @@ namespace wo
         struct extern_native_function_location
         {
             std::string script_name;
-            std::string library_name;
+            std::optional<std::string>
+                        library_name;
             std::string function_name;
 
             // Will be fill in finalize of env.
@@ -581,13 +582,16 @@ namespace wo
             ir_command_buffer.resize(ip);
         }
 
-        void record_extern_native_function(intptr_t function, const std::wstring& script_path, const std::wstring& library_name, const std::wstring& function_name)
+        void record_extern_native_function(intptr_t function, const std::wstring& script_path, const std::optional<std::wstring>& library_name, const std::wstring& function_name)
         {
             if (extern_native_functions.find(function) == extern_native_functions.end())
             {
                 auto& native_info = extern_native_functions[function];
                 native_info.script_name = wo::wstr_to_str(script_path);
-                native_info.library_name = wo::wstr_to_str(library_name);
+                native_info.library_name = std::nullopt;
+
+                if (library_name.has_value())
+                    native_info.library_name = std::make_optional(wo::wstr_to_str(library_name.value()));
                 native_info.function_name = wo::wstr_to_str(function_name);
             }
         }

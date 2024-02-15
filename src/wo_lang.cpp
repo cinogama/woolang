@@ -389,23 +389,25 @@ namespace wo
 
         if (a_value_func->externed_func_info)
         {
+            const auto& libname_may_null = a_value_func->externed_func_info->library_name;
+            const auto& funcname = a_value_func->externed_func_info->symbol_name;
+
             if (a_value_func->externed_func_info->externed_func == nullptr)
             {
-                if (a_value_func->externed_func_info->load_from_lib == L"")
-                {
-                    a_value_func->externed_func_info->externed_func =
-                        rslib_extern_symbols::get_global_symbol(
-                            wstr_to_str(a_value_func->externed_func_info->symbol_name).c_str());
-                }
-                else
+                if (libname_may_null.has_value())
                 {
                     wo_assert(a_value_func->source_file != nullptr);
                     a_value_func->externed_func_info->externed_func =
                         rslib_extern_symbols::get_lib_symbol(
                             wstr_to_str(*a_value_func->source_file).c_str(),
-                            wstr_to_str(a_value_func->externed_func_info->load_from_lib).c_str(),
-                            wstr_to_str(a_value_func->externed_func_info->symbol_name).c_str(),
+                            wstr_to_str(libname_may_null.value()).c_str(),
+                            wstr_to_str(funcname).c_str(),
                             extern_libs);
+                }
+                else
+                {
+                    a_value_func->externed_func_info->externed_func =
+                        rslib_extern_symbols::get_global_symbol(wstr_to_str(funcname).c_str());
                 }
             }
 
@@ -413,21 +415,40 @@ namespace wo
             {
                 if (config::ENABLE_IGNORE_NOT_FOUND_EXTERN_SYMBOL)
                     a_value_func->externed_func_info->externed_func = rslib_std_bad_function;
-                else if (a_value_func->externed_func_info->load_from_lib == L"")
-                    lang_anylizer->lang_error(lexer::errorlevel::error, a_value_func, WO_ERR_CANNOT_FIND_EXT_SYM,
-                        a_value_func->externed_func_info->symbol_name.c_str());
-                else
+                else if (libname_may_null.has_value())
                     lang_anylizer->lang_error(lexer::errorlevel::error, a_value_func, WO_ERR_CANNOT_FIND_EXT_SYM_IN_LIB,
-                        a_value_func->externed_func_info->symbol_name.c_str(),
-                        a_value_func->externed_func_info->load_from_lib.c_str());
+                        funcname.c_str(),
+                        libname_may_null.value().c_str());
+                else
+                    lang_anylizer->lang_error(lexer::errorlevel::error, a_value_func, WO_ERR_CANNOT_FIND_EXT_SYM,
+                        funcname.c_str());
             }
+            else
+            {
+                // ISSUE 1.13: Check if this symbol has been imported as another function.
+                
+                auto* symb = &extern_symb_infos[libname_may_null.value_or(L"")][funcname];
+                if (*symb != nullptr && *symb != a_value_func->externed_func_info)
+                {
+                    if ((*symb)->is_repeat_check_ignored != a_value_func->externed_func_info->is_repeat_check_ignored
+                        || a_value_func->externed_func_info->is_repeat_check_ignored == false)
+                    {
+                        auto* last_symbol = *symb;
+                        auto* current_symbol = a_value_func->externed_func_info;
+
+                        if (current_symbol->is_repeat_check_ignored)
+                            std::swap(last_symbol, current_symbol);
+
+                        lang_anylizer->lang_error(lexer::errorlevel::error, current_symbol, WO_ERR_REPEATED_EXTERN_FUNC);
+                        lang_anylizer->lang_error(lexer::errorlevel::infom, last_symbol, WO_INFO_ITEM_IS_DEFINED_HERE,
+                            funcname.c_str());
+                    }
+                }
+                *symb = a_value_func->externed_func_info;
+            }
+
             a_value_func->constant_value.set_handle((wo_handle_t)a_value_func->externed_func_info->externed_func);
             a_value_func->is_constant = true;
-
-            // FIX 220829: If a extern function with template, we still need to should check it.
-            //             Make sure if this function has different arg count, we should set 'tc'
-            extern_symb_func_definee[a_value_func->externed_func_info->externed_func]
-                .push_back(a_value_func);
         }
 
         end_function();
@@ -3263,6 +3284,7 @@ namespace wo
 
                 if (argument_types.size() != another->argument_types.size())
                     return false;
+
                 for (size_t index = 0; index < argument_types.size(); index++)
                 {
                     if (!argument_types[index]->is_same(another->argument_types[index], true))
@@ -6050,14 +6072,8 @@ namespace wo
                         funcdef = funcvariable->symbol->get_funcdef();
                 }
 
-                bool need_using_tc =
-                    dynamic_cast<opnum::immbase*>(called_func_aim) == nullptr
-                    || a_value_funccall->called_func->value_type->is_variadic_function_type
-                    || (funcdef != nullptr && 
-                        funcdef->externed_func_info != nullptr &&
-                        funcdef->externed_func_info->is_different_arg_count_in_same_extern_symbol);
-
-                if (!full_unpack_arguments && need_using_tc)
+                if (!full_unpack_arguments && 
+                    a_value_funccall->called_func->value_type->is_variadic_function_type)
                     compiler->mov(reg(reg::tc), imm(arg_list.size() + extern_unpack_arg_count));
 
                 opnumbase* reg_for_current_funccall_argc = nullptr;
@@ -7013,39 +7029,17 @@ namespace wo
     void lang::analyze_finalize(ast::ast_base* ast_node, ir_compiler* compiler)
     {
         // first, check each extern func
-        for (auto& [ext_func, funcdef_list] : extern_symb_func_definee)
+        for (auto& [_, symb_maps] : extern_symb_infos)
         {
-            wo_assert(!funcdef_list.empty() && 
-                funcdef_list.front()->externed_func_info != nullptr);
-
-            compiler->record_extern_native_function(
-                (intptr_t)ext_func,
-                *funcdef_list.front()->source_file,
-                funcdef_list.front()->externed_func_info->load_from_lib,
-                funcdef_list.front()->externed_func_info->symbol_name);
-
-            ast::ast_value_function_define* last_fundef = nullptr;
-            for (auto funcdef : funcdef_list)
+            for (auto& [_, symb] : symb_maps)
             {
-                if (last_fundef)
-                {
-                    wo_assert(last_fundef->value_type->is_complex());
-                    if (last_fundef->value_type->is_variadic_function_type
-                        != funcdef->value_type->is_variadic_function_type
-                        || (last_fundef->value_type->argument_types.size() !=
-                            funcdef->value_type->argument_types.size()))
-                    {
-                        goto _update_all_func_using_tc;
-                    }
-                }
-                last_fundef = funcdef;
-            }
-            continue;
-        _update_all_func_using_tc:;
-            for (auto funcdef : funcdef_list)
-            {
-                wo_assert(funcdef->externed_func_info != nullptr);
-                funcdef->externed_func_info->is_different_arg_count_in_same_extern_symbol = true;
+                wo_assert(symb != nullptr && symb->externed_func != nullptr);
+
+                compiler->record_extern_native_function(
+                    (intptr_t)symb->externed_func,
+                    *symb->source_file,
+                    symb->library_name,
+                    symb->symbol_name);
             }
         }
 

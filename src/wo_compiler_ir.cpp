@@ -322,7 +322,8 @@ namespace wo
             write_constant_str_to_buffer(extfuncloc.script_name.c_str(), extfuncloc.script_name.size());
 
             // 4.1.1.2 extern library name
-            write_constant_str_to_buffer(extfuncloc.library_name.c_str(), extfuncloc.library_name.size());
+            auto library_name = extfuncloc.library_name.value_or("");
+            write_constant_str_to_buffer(library_name.c_str(), library_name.size());
 
             // 4.1.1.3 extern function name
             write_constant_str_to_buffer(extfuncloc.function_name.c_str(), extfuncloc.function_name.size());
@@ -776,7 +777,12 @@ namespace wo
 
             auto& extern_native_function_info = result->extern_native_functions[(intptr_t)func];
             extern_native_function_info.function_name = function_name;
-            extern_native_function_info.library_name = library_name;
+
+            if (library_name == "")
+                extern_native_function_info.library_name = std::make_optional(library_name);
+            else
+                extern_native_function_info.library_name = std::nullopt;
+
             extern_native_function_info.script_name = script_path;
             extern_native_function_info.constant_offset_in_binary = extern_native_function.constant_offsets;
             extern_native_function_info.caller_offset_in_ir = extern_native_function.ir_command_offsets;

@@ -724,24 +724,35 @@ WO_API wo_api rslib_std_array_sub(wo_vm vm, wo_value args, size_t argc)
     if (begin > arr1->array->size())
         return wo_ret_panic(vm, "Index out of range when trying get sub array/vec.");
 
-    if (argc == 2)
-        arr_result->array->insert(arr_result->array->end(),
-            arr1->array->begin() + begin, arr1->array->end());
-    else
-    {
-        wo_assert(argc == 3);
-        auto count = (size_t)wo_int(args + 2);
+    arr_result->array->insert(arr_result->array->end(),
+        arr1->array->begin() + begin, arr1->array->end());
 
-        if (begin + count > arr1->array->size())
-            return wo_ret_panic(vm, "Index out of range when trying get sub array/vec.");
+    return wo_ret_val(vm, result);
+}
 
-        auto&& begin_iter = arr1->array->begin() + begin;
-        auto&& end_iter = begin_iter + count;
+WO_API wo_api rslib_std_array_subto(wo_vm vm, wo_value args, size_t argc)
+{
+    wo_value result = wo_push_arr(vm, 0);
 
-        arr_result->array->insert(arr_result->array->end(),
-            begin_iter, end_iter);
-    }
+    wo::value* arr_result = std::launder(reinterpret_cast<wo::value*>(result));
+    wo::value* arr1 = std::launder(reinterpret_cast<wo::value*>(args + 0));
 
+    wo::gcbase::gc_read_guard rg2(arr1->array);
+
+    auto begin = (size_t)wo_int(args + 1);
+    if (begin > arr1->array->size())
+        return wo_ret_panic(vm, "Index out of range when trying get sub array/vec.");
+
+    auto count = (size_t)wo_int(args + 2);
+
+    if (begin + count > arr1->array->size())
+        return wo_ret_panic(vm, "Index out of range when trying get sub array/vec.");
+
+    auto&& begin_iter = arr1->array->begin() + begin;
+    auto&& end_iter = begin_iter + count;
+
+    arr_result->array->insert(arr_result->array->end(),
+        begin_iter, end_iter);
 
     return wo_ret_val(vm, result);
 }
@@ -1198,23 +1209,18 @@ WO_API wo_api rslib_std_get_ascii_val_from_str(wo_vm vm, wo_value args, size_t a
     return wo_ret_int(vm, (wo_int_t)wo_str_get_char(wo_string(args + 0), wo_int(args + 1)));
 }
 
-WO_API wo_api rslib_std_sub(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_sub(wo_vm vm, wo_value args, size_t argc)
 {
-    if (wo_valuetype(args + 0) == WO_STRING_TYPE)
-    {
-        // return substr
-        size_t sub_str_len = 0;
-        if (argc == 2)
-        {
-            auto* substring = wo::u8substr(wo_string(args + 0), (size_t)wo_int(args + 1), wo::u8str_npos, &sub_str_len);
-            return wo_ret_string(vm, std::string(substring, sub_str_len).c_str());
-        }
-        auto* substring = wo::u8substr(wo_string(args + 0), (size_t)wo_int(args + 1), (size_t)wo_int(args + 2), &sub_str_len);
-        return wo_ret_string(vm, std::string(substring, sub_str_len).c_str());
-    }
+    size_t sub_str_len = 0;
+    auto* substring = wo::u8substr(wo_string(args + 0), (size_t)wo_int(args + 1), wo::u8str_npos, &sub_str_len);
+    return wo_ret_string(vm, std::string(substring, sub_str_len).c_str());
+}
 
-    //return wo_ret_ref(vm, mapping_indexed);
-    return wo_ret_halt(vm, "Other type cannot be oped by 'sub'.");
+WO_API wo_api rslib_std_string_subto(wo_vm vm, wo_value args, size_t argc)
+{
+    size_t sub_str_len = 0;
+    auto* substring = wo::u8substr(wo_string(args + 0), (size_t)wo_int(args + 1), (size_t)wo_int(args + 2), &sub_str_len);
+    return wo_ret_string(vm, std::string(substring, sub_str_len).c_str());
 }
 
 WO_API wo_api rslib_std_thread_sleep(wo_vm vm, wo_value args, size_t argc)
@@ -1858,7 +1864,7 @@ namespace std
         return b;
     }
 
-    extern("rslib_std_make_dup")
+    extern("rslib_std_make_dup", repeat)
     public func dup<T>(dupval: T)=> T;
 }
 
@@ -1920,16 +1926,16 @@ namespace string
     extern("rslib_std_get_ascii_val_from_str") 
     public func getch(val:string, index: int)=> char;
 
-    extern("rslib_std_lengthof") 
+    extern("rslib_std_lengthof", repeat) 
         public func len(val:string)=> int;
 
     extern("rslib_std_str_bytelen") 
         public func bytelen(val:string)=> int;
 
-    extern("rslib_std_sub")
+    extern("rslib_std_string_sub")
         public func sub(val:string, begin:int)=> string;
 
-    extern("rslib_std_sub")
+    extern("rslib_std_string_subto")
         public func subto(val:string, begin:int, length:int)=> string;
     
     extern("rslib_std_string_toupper")
@@ -2007,13 +2013,13 @@ namespace string
 )" R"(
 namespace array
 {
-    extern("rslib_std_array_create") 
+    extern("rslib_std_array_create", repeat) 
         public func create<T>(sz: int, init_val: T)=> array<T>;
 
-    extern("rslib_std_serialize", slow) 
+    extern("rslib_std_serialize", slow, repeat) 
         public func serialize<T>(self: array<T>)=> option<string>;
 
-    extern("rslib_std_parse_array_from_string", slow)
+    extern("rslib_std_parse_array_from_string", slow, repeat)
         public func deserialize(val: string)=> option<array<dynamic>>;
 
     public func append<T>(self: array<T>, elem: T)
@@ -2039,22 +2045,22 @@ namespace array
         return newarr->unsafe::cast:<array<T>>;
     }
 
-    extern("rslib_std_create_str_by_wchar") 
+    extern("rslib_std_create_str_by_wchar", repeat) 
         public func str(buf: array<char>)=> string;
 
-    extern("rslib_std_create_str_by_ascii") 
+    extern("rslib_std_create_str_by_ascii", repeat) 
         public func cstr(buf: array<cchar>)=> string;
 
-    extern("rslib_std_lengthof") 
+    extern("rslib_std_lengthof", repeat) 
         public func len<T>(val: array<T>)=> int;
 
-    extern("rslib_std_make_dup")
+    extern("rslib_std_make_dup", repeat)
         public func dup<T>(val: array<T>)=> array<T>;
 
-    extern("rslib_std_make_dup")
+    extern("rslib_std_make_dup", repeat)
         public func tovec<T>(val: array<T>)=> vec<T>;
 
-    extern("rslib_std_array_empty")
+    extern("rslib_std_array_empty", repeat)
         public func empty<T>(val: array<T>)=> bool;
 
     public func resize<T>(val: array<T>, newsz: int, init_val: T)
@@ -2072,13 +2078,13 @@ namespace array
         return newarr as vec<T>->unsafe::cast:<array<T>>;
     }
 
-    extern("rslib_std_array_get")
+    extern("rslib_std_array_get", repeat)
         public func get<T>(a: array<T>, index: int)=> option<T>;
 
-    extern("rslib_std_array_get_or_default")
+    extern("rslib_std_array_get_or_default", repeat)
         public func getor<T>(a: array<T>, index: int, val: T)=> T;
 
-    extern("rslib_std_array_find")
+    extern("rslib_std_array_find", repeat)
         public func find<T>(val:array<T>, elem:T)=> int;
 
     public func findif<T>(val:array<T>, judger:(T)=> bool)
@@ -2153,64 +2159,64 @@ namespace array
 
     public using iterator<T> = gchandle
     {
-        extern("rslib_std_array_iter_next")
+        extern("rslib_std_array_iter_next", repeat)
             public func next<T>(iter:iterator<T>)=> option<(int, T)>;
     
         public func iter<T>(iter:iterator<T>) { return iter; }
     }
 
-    extern("rslib_std_array_iter")
+    extern("rslib_std_array_iter", repeat)
         public func iter<T>(val:array<T>)=> iterator<T>;
 
-    extern("rslib_std_array_connect")
+    extern("rslib_std_array_connect", repeat)
         public func connect<T>(self: array<T>, another: array<T>)=> array<T>;
 
-    extern("rslib_std_array_sub")
+    extern("rslib_std_array_sub", repeat)
     public func sub<T>(self: array<T>, begin: int)=> array<T>;
     
-    extern("rslib_std_array_sub")
+    extern("rslib_std_array_subto", repeat)
     public func subto<T>(self: array<T>, begin: int, count: int)=> array<T>;
 
-    extern("rslib_std_array_front")
+    extern("rslib_std_array_front", repeat)
     public func front<T>(val: array<T>)=> option<T>;
 
-    extern("rslib_std_array_back")
+    extern("rslib_std_array_back", repeat)
     public func back<T>(val: array<T>)=> option<T>;
 
-    extern("rslib_std_array_front_val")
+    extern("rslib_std_array_front_val", repeat)
     public func frontval<T>(val: array<T>)=> T;
 
-    extern("rslib_std_array_back_val")
+    extern("rslib_std_array_back_val", repeat)
     public func backval<T>(val: array<T>)=> T;
 }
 
 namespace vec
 {
-    extern("rslib_std_array_create") 
+    extern("rslib_std_array_create", repeat) 
         public func create<T>(sz: int, init_val: T)=> vec<T>;
 
-    extern("rslib_std_serialize", slow) 
+    extern("rslib_std_serialize", slow, repeat) 
         public func serialize<T>(self: vec<T>)=> option<string>;
 
-    extern("rslib_std_parse_array_from_string", slow) 
+    extern("rslib_std_parse_array_from_string", slow, repeat) 
         public func deserialize(val: string)=> option<vec<dynamic>>;
 
-    extern("rslib_std_create_str_by_wchar") 
+    extern("rslib_std_create_str_by_wchar", repeat) 
         public func str(buf: vec<char>)=> string;
 
-    extern("rslib_std_create_str_by_ascii") 
+    extern("rslib_std_create_str_by_ascii", repeat) 
         public func cstr(buf: vec<cchar>)=> string;
 
-    extern("rslib_std_lengthof") 
+    extern("rslib_std_lengthof", repeat) 
         public func len<T>(val: vec<T>)=> int;
 
-    extern("rslib_std_make_dup")
+    extern("rslib_std_make_dup", repeat)
         public func dup<T>(val: vec<T>)=> vec<T>;
 
-    extern("rslib_std_make_dup")
+    extern("rslib_std_make_dup", repeat)
         public func toarray<T>(val: vec<T>)=> array<T>;
 
-    extern("rslib_std_array_empty")
+    extern("rslib_std_array_empty", repeat)
         public func empty<T>(val: vec<T>)=> bool;
 
     extern("rslib_std_array_resize") 
@@ -2222,26 +2228,26 @@ namespace vec
     extern("rslib_std_array_insert") 
         public func insert<T>(val: vec<T>, insert_place: int, insert_val: T)=> void;
 
-    extern("rslib_std_array_swap") 
+    extern("rslib_std_array_swap")
         public func swap<T>(val: vec<T>, another: vec<T>)=> void;
 
     extern("rslib_std_array_copy") 
         public func copy<T, C>(val: vec<T>, another: C<T>)=> void
-            where std::declval:<C<T>>() is vec<T> || std::declval:<C<T>>() is array<T>;
+            where std::is_array:<C<T>> || std::is_vec:<C<T>>;
 
-    extern("rslib_std_array_get")
+    extern("rslib_std_array_get", repeat)
         public func get<T>(a: vec<T>, index: int)=> option<T>;
 
     extern("rslib_std_array_add") 
         public func add<T>(val: vec<T>, elem: T)=> void;
 
-    extern("rslib_std_array_connect")
+    extern("rslib_std_array_connect", repeat)
         public func connect<T>(self: vec<T>, another: vec<T>)=> vec<T>;
 
-    extern("rslib_std_array_sub")
+    extern("rslib_std_array_sub", repeat)
     public func sub<T>(self: vec<T>, begin: int)=> vec<T>;
     
-    extern("rslib_std_array_sub")
+    extern("rslib_std_array_subto", repeat)
     public func subto<T>(self: vec<T>, begin: int, count: int)=> vec<T>;
 
     extern("rslib_std_array_pop") 
@@ -2259,7 +2265,7 @@ namespace vec
     extern("rslib_std_array_remove")
         public func remove<T>(val:vec<T>, index:int)=> bool;
 
-    extern("rslib_std_array_find")
+    extern("rslib_std_array_find", repeat)
         public func find<T>(val:vec<T>, elem:T)=> int;
 
     public func findif<T>(val:vec<T>, judger:(T)=> bool)
@@ -2334,34 +2340,34 @@ namespace vec
 
     public using iterator<T> = gchandle
     {
-        extern("rslib_std_array_iter_next")
+        extern("rslib_std_array_iter_next", repeat)
             public func next<T>(iter:iterator<T>)=> option<(int, T)>;
     
         public func iter<T>(iter:iterator<T>) { return iter; }
     }
 
-    extern("rslib_std_array_iter")
+    extern("rslib_std_array_iter", repeat)
         public func iter<T>(val:vec<T>)=> iterator<T>;
 
-    extern("rslib_std_array_front")
+    extern("rslib_std_array_front", repeat)
     public func front<T>(val: vec<T>)=> option<T>;
 
-    extern("rslib_std_array_back")
+    extern("rslib_std_array_back", repeat)
     public func back<T>(val: vec<T>)=> option<T>;
 
-    extern("rslib_std_array_front_val")
+    extern("rslib_std_array_front_val", repeat)
     public func frontval<T>(val: vec<T>)=> T;
 
-    extern("rslib_std_array_back_val")
+    extern("rslib_std_array_back_val", repeat)
     public func backval<T>(val: vec<T>)=> T;
 }
 
 namespace dict
 {
-    extern("rslib_std_serialize", slow) 
+    extern("rslib_std_serialize", slow, repeat) 
         public func serialize<KT, VT>(self: dict<KT, VT>)=> option<string>;
 
-    extern("rslib_std_parse_map_from_string", slow) 
+    extern("rslib_std_parse_map_from_string", slow, repeat) 
         public func deserialize(val: string)=> option<dict<dynamic, dynamic>>;
 
     public func bind<KT, VT, RK, RV>(val: dict<KT, VT>, functor: (KT, VT)=> dict<RK, RV>)
@@ -2381,13 +2387,13 @@ namespace dict
         return newmap->unsafe::cast:<dict<KT, VT>>;
     }
 )" R"(
-    extern("rslib_std_lengthof") 
+    extern("rslib_std_lengthof", repeat) 
         public func len<KT, VT>(self: dict<KT, VT>)=> int;
 
-    extern("rslib_std_make_dup")
+    extern("rslib_std_make_dup", repeat)
         public func dup<KT, VT>(self: dict<KT, VT>)=> dict<KT, VT>;
 
-    extern("rslib_std_make_dup")
+    extern("rslib_std_make_dup", repeat)
         public func tomap<KT, VT>(self: dict<KT, VT>)=> map<KT, VT>;
 
     public func findif<KT, VT>(self: dict<KT, VT>, judger:(KT)=> bool)
@@ -2398,22 +2404,22 @@ namespace dict
         return option::none;            
     }
 
-    extern("rslib_std_map_only_get") 
+    extern("rslib_std_map_only_get", repeat) 
         public func get<KT, VT>(self: dict<KT, VT>, index: KT)=> option<VT>;
 
-    extern("rslib_std_map_find") 
+    extern("rslib_std_map_find", repeat) 
         public func contain<KT, VT>(self: dict<KT, VT>, index: KT)=> bool;
 
-    extern("rslib_std_map_get_or_default") 
+    extern("rslib_std_map_get_or_default", repeat) 
         public func getor<KT, VT>(self: dict<KT, VT>, index: KT, default_val: VT)=> VT;
 
-    extern("rslib_std_map_keys")
+    extern("rslib_std_map_keys", repeat)
         public func keys<KT, VT>(self: dict<KT, VT>)=> array<KT>;
 
-    extern("rslib_std_map_vals")
+    extern("rslib_std_map_vals", repeat)
         public func vals<KT, VT>(self: dict<KT, VT>)=> array<VT>;
 
-    extern("rslib_std_map_empty")
+    extern("rslib_std_map_empty", repeat)
         public func empty<KT, VT>(self: dict<KT, VT>)=> bool;
 
     public func erase<KT, VT>(self: dict<KT, VT>, index: KT)
@@ -2426,13 +2432,13 @@ namespace dict
 
     public using iterator<KT, VT> = gchandle
     {
-        extern("rslib_std_map_iter_next")
+        extern("rslib_std_map_iter_next", repeat)
             public func next<KT, VT>(iter:iterator<KT, VT>)=> option<(KT, VT)>;
 
         public func iter<KT, VT>(iter:iterator<KT, VT>) { return iter; }
     }
 
-    extern("rslib_std_map_iter")
+    extern("rslib_std_map_iter", repeat)
         public func iter<KT, VT>(self:dict<KT, VT>)=> iterator<KT, VT>;
 
     public func forall<KT, VT>(self: dict<KT, VT>, functor: (KT, VT)=> bool)
@@ -2464,10 +2470,10 @@ namespace dict
 
 namespace map
 {
-    extern("rslib_std_serialize", slow) 
+    extern("rslib_std_serialize", slow, repeat) 
         public func serialize<KT, VT>(self: map<KT, VT>)=> option<string>;
                     
-    extern("rslib_std_parse_map_from_string", slow) 
+    extern("rslib_std_parse_map_from_string", slow, repeat) 
         public func deserialize(val: string)=> option<map<dynamic, dynamic>>;
 
     public func bind<KT, VT, RK, RV>(val: map<KT, VT>, functor: (KT, VT)=> map<RK, RV>)
@@ -2482,13 +2488,13 @@ namespace map
     extern("rslib_std_map_set") 
         public func set<KT, VT>(self: map<KT, VT>, key: KT, val: VT)=> void;
 
-    extern("rslib_std_lengthof") 
+    extern("rslib_std_lengthof", repeat) 
         public func len<KT, VT>(self: map<KT, VT>)=> int;
 
-    extern("rslib_std_make_dup")
+    extern("rslib_std_make_dup", repeat)
         public func dup<KT, VT>(self: map<KT, VT>)=> map<KT, VT>;
 
-    extern("rslib_std_make_dup")
+    extern("rslib_std_make_dup", repeat)
         public func todict<KT, VT>(self: map<KT, VT>)=> dict<KT, VT>;
 
     public func findif<KT, VT>(self: map<KT, VT>, judger:(KT)=> bool)
@@ -2499,13 +2505,13 @@ namespace map
         return option::none;            
     }
 
-    extern("rslib_std_map_find") 
+    extern("rslib_std_map_find", repeat) 
         public func contain<KT, VT>(self: map<KT, VT>, index: KT)=> bool;
 
-    extern("rslib_std_map_only_get") 
+    extern("rslib_std_map_only_get", repeat) 
         public func get<KT, VT>(self: map<KT, VT>, index: KT)=> option<VT>;
 
-    extern("rslib_std_map_get_or_default") 
+    extern("rslib_std_map_get_or_default", repeat) 
         public func getor<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=> VT;
 
     extern("rslib_std_map_get_or_set_default") 
@@ -2517,13 +2523,13 @@ namespace map
     extern("rslib_std_map_copy") 
         public func copy<KT, VT>(val: map<KT, VT>, another: map<KT, VT>)=> void;
 
-    extern("rslib_std_map_keys")
+    extern("rslib_std_map_keys", repeat)
         public func keys<KT, VT>(self: map<KT, VT>)=> array<KT>;
 
-    extern("rslib_std_map_vals")
+    extern("rslib_std_map_vals", repeat)
         public func vals<KT, VT>(self: map<KT, VT>)=> array<VT>;
 
-    extern("rslib_std_map_empty")
+    extern("rslib_std_map_empty", repeat)
         public func empty<KT, VT>(self: map<KT, VT>)=> bool;
 
     extern("rslib_std_map_remove")
@@ -2534,13 +2540,13 @@ namespace map
 
     public using iterator<KT, VT> = gchandle
     {
-        extern("rslib_std_map_iter_next")
+        extern("rslib_std_map_iter_next", repeat)
             public func next<KT, VT>(iter:iterator<KT, VT>)=> option<(KT, VT)>;
 
         public func iter<KT, VT>(iter:iterator<KT, VT>) { return iter; }
     }
 
-    extern("rslib_std_map_iter")
+    extern("rslib_std_map_iter", repeat)
         public func iter<KT, VT>(self:map<KT, VT>)=> iterator<KT, VT>;
 
     public func forall<KT, VT>(self: map<KT, VT>, functor: (KT, VT)=>bool)

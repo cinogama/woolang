@@ -273,7 +273,7 @@
 
 #define WO_ERR_CANNOT_DIV_ZERO L"除数不可为 0"
 
-#define WO_ERR_REPEATED_EXTERN_FUNC L"重复导入的外部函数，一个外部函数不允许对应不同的声明函数实体"
+#define WO_ERR_REPEATED_EXTERN_FUNC L"重复导入的外部函数符号，使用 'repeat' 修饰导入行为忽略此检查"
 
 
 #define WO_INFO_ITEM_IS_DEFINED_HERE L"编译器在此处找到了 '%ls' 的上一次定义"
@@ -550,6 +550,8 @@
 #define WO_ERR_UNKNOWN_EXTERN_ATTRIB L"Unknown extern attribute: '%ls'."
 
 #define WO_ERR_CANNOT_DIV_ZERO L"The divisor cannot be 0."
+
+#define WO_ERR_REPEATED_EXTERN_FUNC L"Repeatedly imported external function symbol. Use 'repeat' to modify import behavior and ignore this check."
 
 
 #define WO_INFO_ITEM_IS_DEFINED_HERE L"Compiler found last defination of '%ls'."

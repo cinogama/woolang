@@ -947,7 +947,7 @@ namespace wo
                 if (fnd != env->extern_native_functions.end())
                 {
                     os << call_trace_count << ": extern func " << fnd->second.function_name << std::endl;
-                    os << "\t--at " << (fnd->second.library_name == "" ? "woolang" : fnd->second.library_name) << std::endl;
+                    os << "\t--at " << fnd->second.library_name.value_or("woolang") << std::endl;
                 }
                 else
                 {
@@ -996,7 +996,7 @@ namespace wo
                     if (fnd != env->extern_native_functions.end())
                     {
                         os << call_trace_count << ": extern func " << fnd->second.function_name << std::endl;
-                        os << "\t--at " << (fnd->second.library_name == "" ? "woolang" : fnd->second.library_name) << std::endl;
+                        os << "\t--at " << fnd->second.library_name.value_or("woolang") << std::endl;
                     }
                     else
                     {

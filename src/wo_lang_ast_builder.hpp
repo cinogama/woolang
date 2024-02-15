@@ -717,9 +717,9 @@ namespace wo
             wo_extern_native_func_t externed_func = nullptr;
 
             bool is_slow_leaving_call = false;
-            bool is_different_arg_count_in_same_extern_symbol = false;
+            bool is_repeat_check_ignored = false;
 
-            std::wstring load_from_lib;
+            std::optional<std::wstring> library_name;
             std::wstring symbol_name;
 
             ast::ast_base* instance(ast_base* child_instance = nullptr) const override
@@ -2260,6 +2260,7 @@ namespace wo
                 ast_list* extern_attribs = nullptr;
                 if (input.size() == 5)
                 {
+                    extern_symb->library_name = std::nullopt;
                     extern_symb->symbol_name = WO_NEED_TOKEN(2).identifier;
                     extern_symb->externed_func = nullptr;
 
@@ -2269,10 +2270,12 @@ namespace wo
                         wo_assert(extern_attribs != nullptr);
                     }
                 }
-                else if (input.size() == 7)
+                else 
                 {
+                    wo_assert(input.size() == 7);
+
                     // extern ( lib , symb )
-                    extern_symb->load_from_lib = WO_NEED_TOKEN(2).identifier;
+                    extern_symb->library_name = std::make_optional(WO_NEED_TOKEN(2).identifier);
                     extern_symb->symbol_name = WO_NEED_TOKEN(4).identifier;
                     extern_symb->externed_func = nullptr;
 
@@ -2282,10 +2285,6 @@ namespace wo
                         extern_attribs = dynamic_cast<ast_list*>(WO_NEED_AST(5));
                         wo_assert(extern_attribs != nullptr);
                     }
-                }
-                else
-                {
-                    wo_error("error grammar..");
                 }
 
                 if (extern_attribs != nullptr)
@@ -2299,6 +2298,8 @@ namespace wo
                             extern_symb->is_slow_leaving_call = true;
                         else if (attrib->tokens.identifier == L"fast")
                             extern_symb->is_slow_leaving_call = false;
+                        else if (attrib->tokens.identifier == L"repeat")
+                            extern_symb->is_repeat_check_ignored = true;
                         else
                             lex.lang_error(lexer::errorlevel::error, attrib,
                                 WO_ERR_UNKNOWN_EXTERN_ATTRIB, attrib->tokens.identifier.c_str());
