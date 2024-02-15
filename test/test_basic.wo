@@ -285,6 +285,19 @@ namespace test_basic
         test_assure(!std::is_tuple:<array<int>>);
         test_assure(!std::is_tuple:<int>);
 
+        test_assure(std::is_vec:<vec<array<int>>>);
+        test_assure(std::is_array:<array<vec<string>>>);
+        test_assure(std::is_map:<map<string, array<int>>>);
+        test_assure(std::is_dict:<dict<vec<string>, int>>);
+        test_assure(!std::is_vec:<array<int>>);
+        test_assure(!std::is_array:<vec<string>>);
+        test_assure(!std::is_map:<dict<string, array<int>>>);
+        test_assure(!std::is_dict:<map<vec<string>, int>>);
+        test_assure(!std::is_vec:<int>);
+        test_assure(!std::is_array:<int>);
+        test_assure(!std::is_map:<int>);
+        test_assure(!std::is_dict:<int>);
+
         let mut test_break_label = true;
 
         outside_label@

@@ -1498,11 +1498,21 @@ namespace std
     public let is_same_base_type<A, B> = std::is_same_type:<std::origin_t<A>, std::origin_t<B>>;
     public let is_accpetable_base_type<A, B> = std::declval:<std::origin_t<A>>() is std::origin_t<B>;
     public let is_mutable_type<A> = std::is_same_type:<A, mut A>;
+
+    public alias array_elem_t<AT> = typeof(std::declval:<AT>()->\<T>_: array<T> = std::declval:<T>(););
+    public alias vec_elem_t<AT> = typeof(std::declval:<AT>()->\<T>_: vec<T> = std::declval:<T>(););
+
+    public alias dict_elem_t<DT> = typeof(std::declval:<DT>()->\<KT, VT>_: dict<KT, VT> = std::declval:<(KT, VT)>(););
+    public alias map_elem_t<DT> = typeof(std::declval:<DT>()->\<KT, VT>_: map<KT, VT> = std::declval:<(KT, VT)>(););
+
+    public let is_array<AT> = !(std::declval:<std::array_elem_t<AT>>() is pending);
+    public let is_vec<AT> = !(std::declval:<std::vec_elem_t<AT>>() is pending);
+    public let is_dict<DT> = !(std::declval:<std::dict_elem_t<DT>>() is pending);
+    public let is_map<DT> = !(std::declval:<std::map_elem_t<DT>>() is pending);
+
     public let is_tuple<T> = 
-        !(std::declval:<T>() is array<anything>) &&
-        !(std::declval:<T>() is array<mut anything>) && 
-        !(std::declval:<T>() is vec<anything>) && 
-        !(std::declval:<T>() is vec<mut anything>) && 
+        !is_array:<T> &&
+        !is_vec:<T> && 
         !(std::declval:<T>()...->\...=do nil; is pending);
     
     extern("rslib_std_bit_or") public func bitor(a: int, b: int)=> int;

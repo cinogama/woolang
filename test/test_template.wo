@@ -358,12 +358,13 @@ namespace test_template
         test_assure(std::issame(diff_static:<real>(), diff_static:<real>()));
         test_assure(std::issame(diff_static:<int>(), diff_static:<int>()));
 
-        test_assure([] is array<anything>);
-        test_assure([1] is array<anything>);
-        test_assure(!([mut 1] is array<anything>));
-        test_assure([] is array<mut anything>);
-        test_assure(!([1] is array<mut anything>));
-        test_assure([mut 1] is array<mut anything>);
+        // ISSUE: 1.13: anything has been removed from woolang.
+        // test_assure([] is array<anything>);
+        // test_assure([1] is array<anything>);
+        // test_assure(!([mut 1] is array<anything>));
+        // test_assure([] is array<mut anything>);
+        // test_assure(!([1] is array<mut anything>));
+        // test_assure([mut 1] is array<mut anything>);
 
         let result = invokable(fib:<int>, 10);
 

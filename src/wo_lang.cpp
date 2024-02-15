@@ -3387,9 +3387,6 @@ namespace wo
                     return false;
             }
 
-            if (is_anything())
-                return true; // Top type, OK
-
             if (is_complex())
             {
                 if (!another->is_complex())
@@ -6822,8 +6819,7 @@ namespace wo
             {
                 // Woolang 1.10.2: The value is not void type, cannot be a sentence.
                 if (!a_value->value_type->is_void() &&
-                    !a_value->value_type->is_nothing() &&
-                    !a_value->value_type->is_anything())
+                    !a_value->value_type->is_nothing())
                     lang_anylizer->lang_error(lexer::errorlevel::error, a_value, WO_ERR_NOT_ALLOW_IGNORE_VALUE,
                         a_value->value_type->get_type_name(false).c_str());
             }
