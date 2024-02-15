@@ -375,7 +375,9 @@ namespace wo
                     analyze_pass1(a_value_func->in_function_sentence);
                 }
 
-                else if (!a_value_func->has_return_value
+                if (
+                    a_value_func->externed_func_info == nullptr
+                    && !a_value_func->has_return_value
                     && a_value_func->auto_adjust_return_type
                     && a_value_func->value_type->get_return_type()->is_pure_pending())
                 {
