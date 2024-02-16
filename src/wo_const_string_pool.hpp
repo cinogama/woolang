@@ -26,7 +26,6 @@ WO_GLOBAL_PSTR(struct)\
 WO_GLOBAL_PSTR(tuple)\
 WO_GLOBAL_PSTR(void)\
 WO_GLOBAL_PSTR(nothing)\
-WO_GLOBAL_PSTR(anything)\
 WO_GLOBAL_PSTR(pending)\
 WO_GLOBAL_PSTR(dynamic)\
 WO_GLOBAL_PSTR(complex)\

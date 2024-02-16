@@ -182,7 +182,10 @@ namespace wo
 
         std::map<uint32_t, ast::ast_type*> hashed_typing;
 
-        std::map<wo_extern_native_func_t, std::vector<ast::ast_value_function_define*>> extern_symb_func_definee;
+        using function_symb_map_t = std::unordered_map<std::wstring, ast::ast_extern_info*>;
+        using library_symbs_map_t = std::unordered_map<std::wstring, function_symb_map_t>;
+        library_symbs_map_t extern_symb_infos;
+
         ast::ast_value_function_define* now_function_in_final_anylize = nullptr;
         std::vector<template_type_map> template_stack;
 

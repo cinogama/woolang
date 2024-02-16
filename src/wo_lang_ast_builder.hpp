@@ -16,7 +16,7 @@
 #include <unordered_map>
 #include <algorithm>
 
-WO_API wo_api rslib_std_bad_function(wo_vm vm, wo_value args, size_t argc);
+WO_API wo_api rslib_std_bad_function(wo_vm vm, wo_value args);
 
 namespace wo
 {
@@ -147,7 +147,6 @@ namespace wo
                 {WO_PSTR(tuple), value::valuetype::invalid},
 
                 {WO_PSTR(void), value::valuetype::invalid},
-                {WO_PSTR(anything), value::valuetype::invalid}, // Top type.
                 {WO_PSTR(nothing), value::valuetype::invalid}, // Buttom type.
                 {WO_PSTR(pending), value::valuetype::invalid},
                 {WO_PSTR(dynamic), value::valuetype::invalid},
@@ -196,7 +195,6 @@ namespace wo
             bool is_builtin_using_type() const;
             bool is_union() const;
             bool is_tuple() const;
-            bool is_anything() const;
             bool is_nothing() const;
             bool is_struct() const;
             bool has_template() const;
@@ -238,7 +236,8 @@ namespace wo
         protected:
             ast_value(ast_type* type);
         public:
-            virtual wo::value& get_constant_value();
+            wo::value& get_constant_value();
+        public:
             virtual void update_constant_value(lexer* lex);
             ast::ast_base* instance(ast_base* child_instance = nullptr) const override;
         };
@@ -717,19 +716,16 @@ namespace wo
         {
             wo_extern_native_func_t externed_func = nullptr;
 
-            bool leaving_call = false;
+            bool is_slow_leaving_call = false;
+            bool is_repeat_check_ignored = false;
 
-            std::wstring load_from_lib;
+            std::optional<std::wstring> library_name;
             std::wstring symbol_name;
 
             ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
-                using astnode_type = decltype(MAKE_INSTANCE(this));
-                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
-                if (!child_instance) *dumm = *this;
-                // ast_value::instance(dumm);
-                // Write self copy functions here..
-                return dumm;
+                wo_error("Duplicating ast_extern_info is not allowed.");
+                return nullptr;
             }
         };
         struct ast_value_function_define;
@@ -761,13 +757,16 @@ namespace wo
             ast_list* in_function_sentence = nullptr;
             bool auto_adjust_return_type = false;
             bool delay_adjust_return_type = false;
+
+            // has_return_value used for check if sentences in function has 
+            // 'return'. will be reset to false at begining of pass2 for 
+            // some cases like conditional compilation.
             bool has_return_value = false;
             bool ir_func_has_been_generated = false;
 
             std::string ir_func_signature_tag = "";
             lang_scope* this_func_scope = nullptr;
             ast_extern_info* externed_func_info = nullptr;
-            bool is_different_arg_count_in_same_extern_symbol = false;
             std::vector<lang_symbol*> capture_variables;
             ast_where_constraint* where_constraint = nullptr;
 
@@ -816,17 +815,6 @@ namespace wo
                 }
                 return ir_func_signature_tag;
             }
-
-            wo::value& get_constant_value() override
-            {
-                if (!this->is_constant)
-                    wo_error("Not externed_func.");
-
-                wo_assert(externed_func_info && externed_func_info->externed_func);
-
-                constant_value.set_handle((wo_handle_t)externed_func_info->externed_func);
-                return constant_value;
-            };
             ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
@@ -841,7 +829,11 @@ namespace wo
                 WO_REINSTANCE(dumm->argument_list);
                 WO_REINSTANCE(dumm->in_function_sentence);
                 WO_REINSTANCE(dumm->where_constraint);
-                WO_REINSTANCE(dumm->externed_func_info);
+                
+                // ISSUE 1.13: externed_func_info should not be re-instance here.
+                //              just copy it.
+                // WO_REINSTANCE(dumm->externed_func_info);
+
                 dumm->this_func_scope = nullptr;
                 dumm->capture_variables.clear();
 
@@ -1356,7 +1348,7 @@ namespace wo
                     if (operate == lex_type::l_sub)
                     {
                         value_type = val->value_type;
-                        auto _rval = val->get_constant_value();
+                        const auto& _rval = val->get_constant_value();
                         if (_rval.type == value::valuetype::integer_type)
                         {
                             constant_value.set_integer(-_rval.integer);
@@ -2041,13 +2033,11 @@ namespace wo
                 if (input.size() == 3)
                 {
                     item->need_assign_val = false;
-                    auto fxxk = WO_NEED_TOKEN(2);
                     item->enum_val = ast_value_literal::wstr_to_integer(WO_NEED_TOKEN(2).identifier);
                 }
                 else if (input.size() == 4)
                 {
                     item->need_assign_val = false;
-                    auto fxxk = WO_NEED_TOKEN(3);
                     if (WO_NEED_TOKEN(2).type == lex_type::l_add)
                         item->enum_val = ast_value_literal::wstr_to_integer(WO_NEED_TOKEN(3).identifier);
                     else if (WO_NEED_TOKEN(2).type == lex_type::l_sub)
@@ -2270,19 +2260,9 @@ namespace wo
                 ast_list* extern_attribs = nullptr;
                 if (input.size() == 5)
                 {
+                    extern_symb->library_name = std::nullopt;
                     extern_symb->symbol_name = WO_NEED_TOKEN(2).identifier;
-                    extern_symb->externed_func =
-                        rslib_extern_symbols::get_global_symbol(
-                            wstr_to_str(extern_symb->symbol_name).c_str());
-
-                    if (nullptr == extern_symb->externed_func)
-                    {
-                        if (config::ENABLE_IGNORE_NOT_FOUND_EXTERN_SYMBOL)
-                            extern_symb->externed_func = rslib_std_bad_function;
-                        else
-                            lex.parser_error(lexer::errorlevel::error,
-                                WO_ERR_CANNOT_FIND_EXT_SYM, extern_symb->symbol_name.c_str());
-                    }
+                    extern_symb->externed_func = nullptr;
 
                     if (!ast_empty::is_empty(input[3]))
                     {
@@ -2290,10 +2270,12 @@ namespace wo
                         wo_assert(extern_attribs != nullptr);
                     }
                 }
-                else if (input.size() == 7)
+                else 
                 {
+                    wo_assert(input.size() == 7);
+
                     // extern ( lib , symb )
-                    extern_symb->load_from_lib = WO_NEED_TOKEN(2).identifier;
+                    extern_symb->library_name = std::make_optional(WO_NEED_TOKEN(2).identifier);
                     extern_symb->symbol_name = WO_NEED_TOKEN(4).identifier;
                     extern_symb->externed_func = nullptr;
 
@@ -2304,10 +2286,6 @@ namespace wo
                         wo_assert(extern_attribs != nullptr);
                     }
                 }
-                else
-                {
-                    wo_error("error grammar..");
-                }
 
                 if (extern_attribs != nullptr)
                 {
@@ -2317,9 +2295,11 @@ namespace wo
                         wo_assert(attrib->tokens.type == lex_type::l_identifier);
 
                         if (attrib->tokens.identifier == L"slow")
-                            extern_symb->leaving_call = true;
+                            extern_symb->is_slow_leaving_call = true;
                         else if (attrib->tokens.identifier == L"fast")
-                            extern_symb->leaving_call = false;
+                            extern_symb->is_slow_leaving_call = false;
+                        else if (attrib->tokens.identifier == L"repeat")
+                            extern_symb->is_repeat_check_ignored = true;
                         else
                             lex.lang_error(lexer::errorlevel::error, attrib,
                                 WO_ERR_UNKNOWN_EXTERN_ATTRIB, attrib->tokens.identifier.c_str());
@@ -2975,8 +2955,8 @@ namespace wo
                 else if (_token.type == lex_type::l_index_point)
                 {
                     ast_token* right_tk = dynamic_cast<ast_token*>(WO_NEED_AST(2));
-                    wo_test(right_tk != nullptr && left_v && 
-                        (right_tk->tokens.type == lex_type::l_identifier || 
+                    wo_test(right_tk != nullptr && left_v &&
+                        (right_tk->tokens.type == lex_type::l_identifier ||
                             right_tk->tokens.type == lex_type::l_literal_integer));
 
                     ast_value_literal* const_result = new ast_value_literal(right_tk->tokens);

@@ -367,47 +367,16 @@ namespace wo
                 a_value_func->where_constraint->binded_func_define = a_value_func;
                 analyze_pass1(a_value_func->where_constraint);
             }
-
-            if (a_value_func->where_constraint == nullptr || a_value_func->where_constraint->accept)
+            if (a_value_func->where_constraint == nullptr ||
+                a_value_func->where_constraint->accept)
             {
                 if (a_value_func->in_function_sentence)
-                {
                     analyze_pass1(a_value_func->in_function_sentence);
-                }
 
-                if (a_value_func->externed_func_info)
-                {
-                    if (a_value_func->externed_func_info->load_from_lib != L"")
-                    {
-                        if (!a_value_func->externed_func_info->externed_func)
-                        {
-                            // Load lib,
-                            wo_assert(a_value_func->source_file != nullptr);
-                            a_value_func->externed_func_info->externed_func =
-                                rslib_extern_symbols::get_lib_symbol(
-                                    wstr_to_str(*a_value_func->source_file).c_str(),
-                                    wstr_to_str(a_value_func->externed_func_info->load_from_lib).c_str(),
-                                    wstr_to_str(a_value_func->externed_func_info->symbol_name).c_str(),
-                                    extern_libs);
-                            if (a_value_func->externed_func_info->externed_func)
-                                a_value_func->is_constant = true;
-                            else
-                            {
-                                if (config::ENABLE_IGNORE_NOT_FOUND_EXTERN_SYMBOL)
-                                    a_value_func->externed_func_info->externed_func = rslib_std_bad_function;
-                                else
-                                    lang_anylizer->lang_error(lexer::errorlevel::error, a_value_func, WO_ERR_CANNOT_FIND_EXT_SYM_IN_LIB,
-                                        a_value_func->externed_func_info->symbol_name.c_str(),
-                                        a_value_func->externed_func_info->load_from_lib.c_str());
-                            }
-                        }
-                        else
-                            a_value_func->is_constant = true;
-                    }
-                }
-                else if (!a_value_func->has_return_value
+                if (a_value_func->externed_func_info == nullptr
+                    && !a_value_func->has_return_value
                     && a_value_func->auto_adjust_return_type
-                    && a_value_func->value_type->get_return_type()->type_name == WO_PSTR(pending))
+                    && a_value_func->value_type->get_return_type()->is_pure_pending())
                 {
                     // This function has no return, set it as void
                     wo_assert(a_value_func->value_type->is_complex());
@@ -420,10 +389,66 @@ namespace wo
 
         if (a_value_func->externed_func_info)
         {
-            // FIX 220829: If a extern function with template, wo should check it.
-            //             Make sure if this function has different arg count, we should set 'tc'
-            extern_symb_func_definee[a_value_func->externed_func_info->externed_func]
-                .push_back(a_value_func);
+            const auto& libname_may_null = a_value_func->externed_func_info->library_name;
+            const auto& funcname = a_value_func->externed_func_info->symbol_name;
+
+            if (a_value_func->externed_func_info->externed_func == nullptr)
+            {
+                if (libname_may_null.has_value())
+                {
+                    wo_assert(a_value_func->source_file != nullptr);
+                    a_value_func->externed_func_info->externed_func =
+                        rslib_extern_symbols::get_lib_symbol(
+                            wstr_to_str(*a_value_func->source_file).c_str(),
+                            wstr_to_str(libname_may_null.value()).c_str(),
+                            wstr_to_str(funcname).c_str(),
+                            extern_libs);
+                }
+                else
+                {
+                    a_value_func->externed_func_info->externed_func =
+                        rslib_extern_symbols::get_global_symbol(wstr_to_str(funcname).c_str());
+                }
+            }
+
+            if (a_value_func->externed_func_info->externed_func == nullptr)
+            {
+                if (config::ENABLE_IGNORE_NOT_FOUND_EXTERN_SYMBOL)
+                    a_value_func->externed_func_info->externed_func = rslib_std_bad_function;
+                else if (libname_may_null.has_value())
+                    lang_anylizer->lang_error(lexer::errorlevel::error, a_value_func, WO_ERR_CANNOT_FIND_EXT_SYM_IN_LIB,
+                        funcname.c_str(),
+                        libname_may_null.value().c_str());
+                else
+                    lang_anylizer->lang_error(lexer::errorlevel::error, a_value_func, WO_ERR_CANNOT_FIND_EXT_SYM,
+                        funcname.c_str());
+            }
+            else
+            {
+                // ISSUE 1.13: Check if this symbol has been imported as another function.
+                
+                auto* symb = &extern_symb_infos[libname_may_null.value_or(L"")][funcname];
+                if (*symb != nullptr && *symb != a_value_func->externed_func_info)
+                {
+                    if ((*symb)->is_repeat_check_ignored != a_value_func->externed_func_info->is_repeat_check_ignored
+                        || a_value_func->externed_func_info->is_repeat_check_ignored == false)
+                    {
+                        auto* last_symbol = *symb;
+                        auto* current_symbol = a_value_func->externed_func_info;
+
+                        if (current_symbol->is_repeat_check_ignored)
+                            std::swap(last_symbol, current_symbol);
+
+                        lang_anylizer->lang_error(lexer::errorlevel::error, current_symbol, WO_ERR_REPEATED_EXTERN_FUNC);
+                        lang_anylizer->lang_error(lexer::errorlevel::infom, last_symbol, WO_INFO_ITEM_IS_DEFINED_HERE,
+                            funcname.c_str());
+                    }
+                }
+                *symb = a_value_func->externed_func_info;
+            }
+
+            a_value_func->constant_value.set_handle((wo_handle_t)a_value_func->externed_func_info->externed_func);
+            a_value_func->is_constant = true;
         }
 
         end_function();
@@ -1391,6 +1416,9 @@ namespace wo
     {
         auto* a_value_funcdef = WO_AST();
 
+        // NOTE: Reset this flag for conditional compilation.
+        a_value_funcdef->has_return_value = false;
+
         if (!a_value_funcdef->is_template_define)
         {
             if (a_value_funcdef->is_template_reification)
@@ -1437,9 +1465,9 @@ namespace wo
                 {
                     analyze_pass2(a_value_funcdef->in_function_sentence);
                 }
-                if (a_value_funcdef->value_type->type_name == WO_PSTR(pending))
+                if (a_value_funcdef->value_type->get_return_type()->is_pure_pending())
                 {
-                    // There is no return in function  return void
+                    // There is no return in function return void
                     if (a_value_funcdef->auto_adjust_return_type)
                     {
                         if (a_value_funcdef->has_return_value)
@@ -2614,7 +2642,7 @@ namespace wo
             if (!a_value_funccall->directed_value_from->value_type->is_pending())
             {
                 // trying finding type_function
-                auto origin_namespace = a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces;
+                const auto origin_namespace = a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces;
 
                 // Is using type?
                 if (a_value_funccall->directed_value_from->value_type->using_type_name)
@@ -2716,7 +2744,7 @@ namespace wo
                 if (!a_value_funccall->directed_value_from->value_type->is_pending())
                 {
                     // trying finding type_function
-                    auto origin_namespace = a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces;
+                    const auto origin_namespace = a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces;
 
                     // Is using type?
                     if (a_value_funccall->directed_value_from->value_type->using_type_name)
@@ -3256,6 +3284,7 @@ namespace wo
 
                 if (argument_types.size() != another->argument_types.size())
                     return false;
+
                 for (size_t index = 0; index < argument_types.size(); index++)
                 {
                     if (!argument_types[index]->is_same(another->argument_types[index], true))
@@ -3289,16 +3318,15 @@ namespace wo
                     if (!using_type_name->template_arguments[i]->is_same(another->using_type_name->template_arguments[i], false))
                         return false;
             }
-            if (has_template())
+
+            if (template_arguments.size() != another->template_arguments.size())
+                return false;
+            for (size_t index = 0; index < template_arguments.size(); index++)
             {
-                if (template_arguments.size() != another->template_arguments.size())
+                if (!template_arguments[index]->is_same(another->template_arguments[index], false))
                     return false;
-                for (size_t index = 0; index < template_arguments.size(); index++)
-                {
-                    if (!template_arguments[index]->is_same(another->template_arguments[index], false))
-                        return false;
-                }
             }
+
             // NOTE: Only anonymous structs need this check
             if (is_struct() && using_type_name == nullptr)
             {
@@ -3372,9 +3400,6 @@ namespace wo
             if (another->is_nothing())
                 return true; // Buttom type, OK
 
-            if (is_anything())
-                return true; // Top type, OK
-
             if (!ignore_prefix)
             {
                 if (is_mutable() != another->is_mutable())
@@ -3424,17 +3449,16 @@ namespace wo
                         another->using_type_name->template_arguments[i], ignore_using_type, false))
                         return false;
             }
-            if (has_template())
+
+            if (template_arguments.size() != another->template_arguments.size())
+                return false;
+            for (size_t index = 0; index < template_arguments.size(); index++)
             {
-                if (template_arguments.size() != another->template_arguments.size())
+                if (!template_arguments[index]->accept_type(
+                    another->template_arguments[index], ignore_using_type, false))
                     return false;
-                for (size_t index = 0; index < template_arguments.size(); index++)
-                {
-                    if (!template_arguments[index]->accept_type(
-                        another->template_arguments[index], ignore_using_type, false))
-                        return false;
-                }
             }
+
             // NOTE: Only anonymous structs need this check
             if (is_struct() && (using_type_name == nullptr || another->using_type_name == nullptr))
             {
@@ -3934,15 +3958,12 @@ namespace wo
                 }
             }
 
-            if (type->has_template())
+            for (auto* template_type : type->template_arguments)
             {
-                for (auto* template_type : type->template_arguments)
-                {
-                    if (template_type->has_custom() && !template_type->is_hkt())
-                        if (fully_update_type(template_type, in_pass_1, template_types, s))
-                            if (template_type->has_custom() && !template_type->is_hkt())
-                                stop_update = true;
-                }
+                if (template_type->has_custom() && !template_type->is_hkt())
+                    if (fully_update_type(template_type, in_pass_1, template_types, s))
+                        if (template_type->has_custom() && !template_type->is_hkt())
+                            stop_update = true;
             }
 
             // ready for update..
@@ -3994,7 +4015,7 @@ namespace wo
                         bool is_force_immut_typeof = type->is_force_immutable();
 
                         bool using_template = false;
-                        auto using_template_args = type->template_arguments;
+                        const auto using_template_args = type->template_arguments;
 
                         type->symbol = type_sym;
                         if (type_sym->template_types.size() != type->template_arguments.size())
@@ -5368,7 +5389,7 @@ namespace wo
                 // Only generate expr if const-expr is a function call
                 analyze_value(a_value_trib_expr->judge_expr, compiler, false);
 
-            auto const_value = value->get_constant_value();
+            const auto& const_value = value->get_constant_value();
             switch (const_value.type)
             {
             case value::valuetype::bool_type:
@@ -6051,11 +6072,8 @@ namespace wo
                         funcdef = funcvariable->symbol->get_funcdef();
                 }
 
-                bool need_using_tc = !dynamic_cast<opnum::immbase*>(called_func_aim)
-                    || a_value_funccall->called_func->value_type->is_variadic_function_type
-                    || (funcdef != nullptr && funcdef->is_different_arg_count_in_same_extern_symbol);
-
-                if (!full_unpack_arguments && need_using_tc)
+                if (!full_unpack_arguments && 
+                    a_value_funccall->called_func->value_type->is_variadic_function_type)
                     compiler->mov(reg(reg::tc), imm(arg_list.size() + extern_unpack_arg_count));
 
                 opnumbase* reg_for_current_funccall_argc = nullptr;
@@ -6066,9 +6084,13 @@ namespace wo
                 }
 
                 if (funcdef != nullptr
-                    && funcdef->externed_func_info != nullptr
-                    && funcdef->externed_func_info->leaving_call == false)
-                    compiler->callfast((void*)funcdef->externed_func_info->externed_func);
+                    && funcdef->externed_func_info != nullptr)
+                {
+                    if (funcdef->externed_func_info->is_slow_leaving_call == false)
+                        compiler->callfast((void*)funcdef->externed_func_info->externed_func);
+                    else
+                        compiler->call((void*)funcdef->externed_func_info->externed_func);
+                }
                 else
                     compiler->call(complete_using_register(*called_func_aim));
 
@@ -6443,7 +6465,7 @@ namespace wo
 
                 if (a_value_indexed_variadic_args->argindex->is_constant)
                 {
-                    auto _cv = a_value_indexed_variadic_args->argindex->get_constant_value();
+                    const auto& _cv = a_value_indexed_variadic_args->argindex->get_constant_value();
                     if (_cv.integer + capture_count + function_arg_count <= 63 - 2)
                     {
                         if (!get_pure_value)
@@ -6813,8 +6835,7 @@ namespace wo
             {
                 // Woolang 1.10.2: The value is not void type, cannot be a sentence.
                 if (!a_value->value_type->is_void() &&
-                    !a_value->value_type->is_nothing() &&
-                    !a_value->value_type->is_anything())
+                    !a_value->value_type->is_nothing())
                     lang_anylizer->lang_error(lexer::errorlevel::error, a_value, WO_ERR_NOT_ALLOW_IGNORE_VALUE,
                         a_value->value_type->get_type_name(false).c_str());
             }
@@ -7008,36 +7029,18 @@ namespace wo
     void lang::analyze_finalize(ast::ast_base* ast_node, ir_compiler* compiler)
     {
         // first, check each extern func
-        for (auto& [ext_func, funcdef_list] : extern_symb_func_definee)
+        for (auto& [_, symb_maps] : extern_symb_infos)
         {
-            wo_assert(!funcdef_list.empty() && funcdef_list.front()->externed_func_info != nullptr);
-
-            compiler->record_extern_native_function(
-                (intptr_t)ext_func,
-                *funcdef_list.front()->source_file,
-                funcdef_list.front()->externed_func_info->load_from_lib,
-                funcdef_list.front()->externed_func_info->symbol_name);
-
-            ast::ast_value_function_define* last_fundef = nullptr;
-            for (auto funcdef : funcdef_list)
+            for (auto& [_, symb] : symb_maps)
             {
-                if (last_fundef)
-                {
-                    wo_assert(last_fundef->value_type->is_complex());
-                    if (last_fundef->value_type->is_variadic_function_type
-                        != funcdef->value_type->is_variadic_function_type
-                        || (last_fundef->value_type->argument_types.size() !=
-                            funcdef->value_type->argument_types.size()))
-                    {
-                        goto _update_all_func_using_tc;
-                    }
-                }
-                last_fundef = funcdef;
+                wo_assert(symb != nullptr && symb->externed_func != nullptr);
+
+                compiler->record_extern_native_function(
+                    (intptr_t)symb->externed_func,
+                    *symb->source_file,
+                    symb->library_name,
+                    symb->symbol_name);
             }
-            continue;
-        _update_all_func_using_tc:;
-            for (auto funcdef : funcdef_list)
-                funcdef->is_different_arg_count_in_same_extern_symbol = true;
         }
 
         size_t public_block_begin = compiler->get_now_ip();
@@ -7051,7 +7054,7 @@ namespace wo
 
         while (!in_used_functions.empty())
         {
-            auto tmp_build_func_list = in_used_functions;
+            const auto tmp_build_func_list = in_used_functions;
             in_used_functions.clear();
             for (auto* funcdef : tmp_build_func_list)
             {
@@ -7102,7 +7105,8 @@ namespace wo
                                 reduce_function_used_stack_size_at(a_value_arg_define->symbol->stackvalue_index_in_funcs);
 
                             wo_assert(0 == a_value_arg_define->symbol->stackvalue_index_in_funcs);
-                            a_value_arg_define->symbol->stackvalue_index_in_funcs = -2 - arg_count - (wo_integer_t)funcdef->capture_variables.size();
+                            a_value_arg_define->symbol->stackvalue_index_in_funcs =
+                                -2 - arg_count - (wo_integer_t)funcdef->capture_variables.size();
                         }
 
                         // NOTE: If argument's name is `_`, still need continue;
@@ -7226,7 +7230,7 @@ namespace wo
     }
     lang_scope* lang::begin_function(ast::ast_value_function_define* ast_value_funcdef)
     {
-        bool already_created_func_scope = ast_value_funcdef->this_func_scope;
+        bool already_created_func_scope = ast_value_funcdef->this_func_scope != nullptr;
         lang_scope* scope =
             already_created_func_scope ? ast_value_funcdef->this_func_scope : new lang_scope;
         scope->last_entry_ast = ast_value_funcdef;

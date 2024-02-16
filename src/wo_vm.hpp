@@ -292,9 +292,11 @@ namespace wo
                     // Wait for too much time.
                     std::string warning_info = "Wait for too much time(out of 0.1s) for waiting interrupt.\n";
                     std::stringstream dump_callstack_info;
+                    
                     dump_call_stack(32, false, dump_callstack_info);
                     warning_info += dump_callstack_info.str();
                     wo_warning(warning_info.c_str());
+
                     return interrupt_wait_result::TIMEOUT;
                 }
 
@@ -486,11 +488,9 @@ namespace wo
             wo_assert(env != nullptr);
 
             vmbase* new_vm = create_machine();
-
             new_vm->gc_vm = get_or_alloc_gcvm();
 
             wo_assure(wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(new_vm))));
-
             new_vm->const_global_begin = const_global_begin;
 
             if (!stack_sz)
@@ -947,7 +947,7 @@ namespace wo
                 if (fnd != env->extern_native_functions.end())
                 {
                     os << call_trace_count << ": extern func " << fnd->second.function_name << std::endl;
-                    os << "\t--at " << (fnd->second.library_name == "" ? "woolang" : fnd->second.library_name) << std::endl;
+                    os << "\t--at " << fnd->second.library_name.value_or("woolang") << std::endl;
                 }
                 else
                 {
@@ -996,7 +996,7 @@ namespace wo
                     if (fnd != env->extern_native_functions.end())
                     {
                         os << call_trace_count << ": extern func " << fnd->second.function_name << std::endl;
-                        os << "\t--at " << (fnd->second.library_name == "" ? "woolang" : fnd->second.library_name) << std::endl;
+                        os << "\t--at " << fnd->second.library_name.value_or("woolang") << std::endl;
                     }
                     else
                     {
@@ -1277,8 +1277,7 @@ namespace wo
                 {
                     switch (((wo_native_func)wo_func_addr)(
                         std::launder(reinterpret_cast<wo_vm>(this)),
-                        std::launder(reinterpret_cast<wo_value>(sp + 2)),
-                        (size_t)argc))
+                        std::launder(reinterpret_cast<wo_value>(sp + 2))))
                     {
                     case wo_result_t::WO_API_NORMAL:
                         break;
@@ -1330,8 +1329,7 @@ namespace wo
                         {
                             switch (wo_func_closure->m_native_func(
                                 std::launder(reinterpret_cast<wo_vm>(this)),
-                                std::launder(reinterpret_cast<wo_value>(sp + 2)),
-                                (size_t)argc))
+                                std::launder(reinterpret_cast<wo_value>(sp + 2))))
                             {
                             case wo_result_t::WO_API_NORMAL:
                                 break;
@@ -1728,7 +1726,7 @@ namespace wo
             runtime_env* rt_env = env.get();
             const byte_t* rt_ip;
             value* rt_bp,
-                * rt_sp;
+                 * rt_sp;
             value* global_begin = const_global_begin;
             value* reg_begin = register_mem_begin;
             value* const    rt_cr = cr;
@@ -2321,8 +2319,7 @@ namespace wo
 
                         switch (call_aim_native_func(
                             std::launder(reinterpret_cast<wo_vm>(this)),
-                            std::launder(reinterpret_cast<wo_value>(rt_sp + 2)),
-                            (size_t)tc->integer))
+                            std::launder(reinterpret_cast<wo_value>(rt_sp + 2))))
                         {
                         case wo_result_t::WO_API_NORMAL:
                         {
@@ -2357,8 +2354,7 @@ namespace wo
                         {
                             switch (closure->m_native_func(
                                 std::launder(reinterpret_cast<wo_vm>(this)),
-                                std::launder((reinterpret_cast<wo_value>(rt_sp + 2))),
-                                (size_t)tc->integer))
+                                std::launder((reinterpret_cast<wo_value>(rt_sp + 2)))))
                             {
                             case wo_result_t::WO_API_NORMAL:
                             {
@@ -2408,15 +2404,13 @@ namespace wo
                         if (dr & 0b10)
                             api = call_aim_native_func(
                                 std::launder(reinterpret_cast<wo_vm>(this)),
-                                std::launder(reinterpret_cast<wo_value>(rt_sp + 2)),
-                                (size_t)tc->integer);
+                                std::launder(reinterpret_cast<wo_value>(rt_sp + 2)));
                         else
                         {
                             wo_assure(wo_leave_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
                             api = call_aim_native_func(
                                 std::launder(reinterpret_cast<wo_vm>(this)),
-                                std::launder(reinterpret_cast<wo_value>(rt_sp + 2)),
-                                (size_t)tc->integer);
+                                std::launder(reinterpret_cast<wo_value>(rt_sp + 2)));
                             wo_assure(wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
                         }
                         switch (api)
@@ -2886,8 +2880,7 @@ namespace wo
             else
                 return ((wo_extern_native_func_t)ip)(
                     std::launder(reinterpret_cast<wo_vm>(this)),
-                    std::launder(reinterpret_cast<wo_value>(sp + 2)),
-                    (size_t)tc->integer);
+                    std::launder(reinterpret_cast<wo_value>(sp + 2)));
 
             return wo_result_t::WO_API_NORMAL;
         }

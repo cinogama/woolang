@@ -47,7 +47,7 @@
 
 #define WO_ERR_LEXER_ERR_UNKNOW_NUM_BASE L"词法错误，未知的常量基数"
 
-#define WO_ERR_LEXER_ERR_UNKNOW_BEGIN_CH L"词法错误, 未知的字符: '%lc'"
+#define WO_ERR_LEXER_ERR_UNKNOW_BEGIN_CH L"未知的字符: '%lc'"
 
 #define WO_ERR_UNEXCEPT_AST_NODE_TYPE L"未预料到的语法树节点类型: 应当是语法树节点或标识符"
 
@@ -273,6 +273,8 @@
 
 #define WO_ERR_CANNOT_DIV_ZERO L"除数不可为 0"
 
+#define WO_ERR_REPEATED_EXTERN_FUNC L"重复导入的外部函数符号，使用 'repeat' 修饰导入行为忽略此检查"
+
 
 #define WO_INFO_ITEM_IS_DEFINED_HERE L"编译器在此处找到了 '%ls' 的上一次定义"
 
@@ -323,7 +325,7 @@
 
 #define WO_ERR_LEXER_ERR_UNKNOW_NUM_BASE L"Lexer error, unknown number base."
 
-#define WO_ERR_LEXER_ERR_UNKNOW_BEGIN_CH L"Lexer error, unknown begin character: '%lc'."
+#define WO_ERR_LEXER_ERR_UNKNOW_BEGIN_CH L"Unknown begin character: '%lc'."
 
 #define WO_ERR_UNEXCEPT_AST_NODE_TYPE L"Unexcepted node type: should be ast node or token."
 
@@ -548,6 +550,8 @@
 #define WO_ERR_UNKNOWN_EXTERN_ATTRIB L"Unknown extern attribute: '%ls'."
 
 #define WO_ERR_CANNOT_DIV_ZERO L"The divisor cannot be 0."
+
+#define WO_ERR_REPEATED_EXTERN_FUNC L"Repeatedly imported external function symbol. Use 'repeat' to modify import behavior and ignore this check."
 
 
 #define WO_INFO_ITEM_IS_DEFINED_HERE L"Compiler found last defination of '%ls'."

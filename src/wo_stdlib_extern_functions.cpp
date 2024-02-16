@@ -11,8 +11,10 @@
 #include <mingw.thread.h>
 #endif
 
-WO_API wo_api rslib_std_print(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_print(wo_vm vm, wo_value args)
 {
+    size_t argc = (size_t)wo_vaarg_count(vm);
+    
     for (size_t i = 0; i < argc; i++)
     {
         wo::wo_stdout << wo_cast_string(args + i);
@@ -22,31 +24,31 @@ WO_API wo_api rslib_std_print(wo_vm vm, wo_value args, size_t argc)
     }
     return wo_ret_void(vm);
 }
-WO_API wo_api rslib_std_panic(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_panic(wo_vm vm, wo_value args)
 {
     return wo_ret_panic(vm, wo_string(args + 0));
 }
-WO_API wo_api rslib_std_halt(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_halt(wo_vm vm, wo_value args)
 {
     return wo_ret_halt(vm, wo_string(args + 0));
 }
 
-WO_API wo_api rslib_std_lengthof(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_lengthof(wo_vm vm, wo_value args)
 {
     return wo_ret_int(vm, wo_lengthof(args));
 }
 
-WO_API wo_api rslib_std_str_bytelen(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_str_bytelen(wo_vm vm, wo_value args)
 {
     return wo_ret_int(vm, wo_str_bytelen(args));
 }
 
-WO_API wo_api rslib_std_make_dup(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_make_dup(wo_vm vm, wo_value args)
 {
     return wo_ret_dup(vm, args + 0);
 }
 
-WO_API wo_api rslib_std_string_toupper(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_toupper(wo_vm vm, wo_value args)
 {
     std::wstring str = wo_str_to_wstr(wo_string(args + 0));
     for (auto& ch : str)
@@ -54,7 +56,7 @@ WO_API wo_api rslib_std_string_toupper(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_string(vm, wo_wstr_to_str(str.c_str()));
 }
 
-WO_API wo_api rslib_std_string_tolower(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_tolower(wo_vm vm, wo_value args)
 {
     std::wstring str = wo_str_to_wstr(wo_string(args + 0));
     for (auto& ch : str)
@@ -62,7 +64,7 @@ WO_API wo_api rslib_std_string_tolower(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_string(vm, wo_wstr_to_str(str.c_str()));
 }
 
-WO_API wo_api rslib_std_string_isspace(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_isspace(wo_vm vm, wo_value args)
 {
     std::wstring str = wo_str_to_wstr(wo_string(args + 0));
     if (!str.empty())
@@ -75,7 +77,7 @@ WO_API wo_api rslib_std_string_isspace(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_bool(vm, WO_FALSE);
 }
 
-WO_API wo_api rslib_std_string_isalpha(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_isalpha(wo_vm vm, wo_value args)
 {
     std::wstring str = wo_str_to_wstr(wo_string(args + 0));
     if (!str.empty())
@@ -88,7 +90,7 @@ WO_API wo_api rslib_std_string_isalpha(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_bool(vm, WO_FALSE);
 }
 
-WO_API wo_api rslib_std_string_isalnum(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_isalnum(wo_vm vm, wo_value args)
 {
     std::wstring str = wo_str_to_wstr(wo_string(args + 0));
     if (!str.empty())
@@ -101,7 +103,7 @@ WO_API wo_api rslib_std_string_isalnum(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_bool(vm, WO_FALSE);
 }
 
-WO_API wo_api rslib_std_string_isnumber(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_isnumber(wo_vm vm, wo_value args)
 {
     std::wstring str = wo_str_to_wstr(wo_string(args + 0));
     if (!str.empty())
@@ -114,7 +116,7 @@ WO_API wo_api rslib_std_string_isnumber(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_bool(vm, WO_FALSE);
 }
 
-WO_API wo_api rslib_std_string_ishex(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_ishex(wo_vm vm, wo_value args)
 {
     std::wstring str = wo_str_to_wstr(wo_string(args + 0));
     if (!str.empty())
@@ -127,7 +129,7 @@ WO_API wo_api rslib_std_string_ishex(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_bool(vm, WO_FALSE);
 }
 
-WO_API wo_api rslib_std_string_isoct(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_isoct(wo_vm vm, wo_value args)
 {
     std::wstring str = wo_str_to_wstr(wo_string(args + 0));
     if (!str.empty())
@@ -140,58 +142,58 @@ WO_API wo_api rslib_std_string_isoct(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_bool(vm, WO_FALSE);
 }
 
-WO_API wo_api rslib_std_char_tostring(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_char_tostring(wo_vm vm, wo_value args)
 {
     wo_char_t str[] = { wo_char(args + 0), 0 };
     return wo_ret_string(vm, wo_wstr_to_str(str));
 }
 
-WO_API wo_api rslib_std_char_toupper(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_char_toupper(wo_vm vm, wo_value args)
 {
     return wo_ret_char(vm, wo::lexer::lex_toupper(wo_char(args + 0)));
 }
 
-WO_API wo_api rslib_std_char_tolower(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_char_tolower(wo_vm vm, wo_value args)
 {
     return wo_ret_char(vm, wo::lexer::lex_tolower(wo_char(args + 0)));
 }
 
-WO_API wo_api rslib_std_char_isspace(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_char_isspace(wo_vm vm, wo_value args)
 {
     return wo_ret_bool(vm, WO_CBOOL(wo::lexer::lex_isspace(wo_char(args + 0))));
 }
 
-WO_API wo_api rslib_std_char_isalpha(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_char_isalpha(wo_vm vm, wo_value args)
 {
     return wo_ret_bool(vm, WO_CBOOL(wo::lexer::lex_isalpha(wo_char(args + 0))));
 }
 
-WO_API wo_api rslib_std_char_isalnum(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_char_isalnum(wo_vm vm, wo_value args)
 {
     return wo_ret_bool(vm, WO_CBOOL(wo::lexer::lex_isalnum(wo_char(args + 0))));
 }
 
-WO_API wo_api rslib_std_char_isnumber(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_char_isnumber(wo_vm vm, wo_value args)
 {
     return wo_ret_bool(vm, WO_CBOOL(wo::lexer::lex_isdigit(wo_char(args + 0))));
 }
 
-WO_API wo_api rslib_std_char_ishex(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_char_ishex(wo_vm vm, wo_value args)
 {
     return wo_ret_bool(vm, WO_CBOOL(wo::lexer::lex_isxdigit(wo_char(args + 0))));
 }
 
-WO_API wo_api rslib_std_char_isoct(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_char_isoct(wo_vm vm, wo_value args)
 {
     return wo_ret_bool(vm, WO_CBOOL(wo::lexer::lex_isodigit(wo_char(args + 0))));
 }
 
-WO_API wo_api rslib_std_char_hexnum(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_char_hexnum(wo_vm vm, wo_value args)
 {
     return wo_ret_bool(vm, WO_CBOOL(wo::lexer::lex_hextonum(wo_char(args + 0))));
 }
 
-WO_API wo_api rslib_std_string_enstring(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_enstring(wo_vm vm, wo_value args)
 {
     wo_string_t str = wo_string(args + 0);
     std::string result;
@@ -223,7 +225,7 @@ WO_API wo_api rslib_std_string_enstring(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_string(vm, result.c_str());
 }
 
-WO_API wo_api rslib_std_string_destring(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_destring(wo_vm vm, wo_value args)
 {
     wo_string_t str = wo_string(args + 0);
     std::string result;
@@ -312,7 +314,7 @@ WO_API wo_api rslib_std_string_destring(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_string(vm, result.c_str());
 }
 
-WO_API wo_api rslib_std_string_beginwith(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_beginwith(wo_vm vm, wo_value args)
 {
     wo_string_t aim = wo_string(args + 0);
     wo_string_t begin = wo_string(args + 1);
@@ -334,7 +336,7 @@ WO_API wo_api rslib_std_string_beginwith(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_bool(vm, WO_TRUE);
 }
 
-WO_API wo_api rslib_std_string_endwith(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_endwith(wo_vm vm, wo_value args)
 {
     wo_string_t aim = wo_string(args + 0);
     wo_string_t end = wo_string(args + 1);
@@ -356,7 +358,7 @@ WO_API wo_api rslib_std_string_endwith(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_bool(vm, WO_TRUE);
 }
 
-WO_API wo_api rslib_std_string_replace(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_replace(wo_vm vm, wo_value args)
 {
     std::string aim = wo_string(args + 0);
     wo_string_t match = wo_string(args + 1);
@@ -379,7 +381,7 @@ WO_API wo_api rslib_std_string_replace(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_string(vm, aim.c_str());
 }
 
-WO_API wo_api rslib_std_string_find(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_find(wo_vm vm, wo_value args)
 {
     std::string aim = wo_string(args + 0);
     wo_string_t match = wo_string(args + 1);
@@ -391,7 +393,7 @@ WO_API wo_api rslib_std_string_find(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_int(vm, -1);
 }
 
-WO_API wo_api rslib_std_string_find_from(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_find_from(wo_vm vm, wo_value args)
 {
     std::string aim = wo_string(args + 0);
     wo_string_t match = wo_string(args + 1);
@@ -404,7 +406,7 @@ WO_API wo_api rslib_std_string_find_from(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_int(vm, -1);
 }
 
-WO_API wo_api rslib_std_string_rfind(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_rfind(wo_vm vm, wo_value args)
 {
     std::string aim = wo_string(args + 0);
     wo_string_t match = wo_string(args + 1);
@@ -416,7 +418,7 @@ WO_API wo_api rslib_std_string_rfind(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_int(vm, -1);
 }
 
-WO_API wo_api rslib_std_string_rfind_from(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_rfind_from(wo_vm vm, wo_value args)
 {
     std::string aim = wo_string(args + 0);
     wo_string_t match = wo_string(args + 1);
@@ -429,7 +431,7 @@ WO_API wo_api rslib_std_string_rfind_from(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_int(vm, -1);
 }
 
-WO_API wo_api rslib_std_string_trim(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_trim(wo_vm vm, wo_value args)
 {
     std::string aim = wo_string(args + 0);
 
@@ -454,7 +456,7 @@ WO_API wo_api rslib_std_string_trim(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_string(vm, aim.substr(ibeg, iend - ibeg).c_str());
 }
 
-WO_API wo_api rslib_std_string_split(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_split(wo_vm vm, wo_value args)
 {
     std::string aim = wo_string(args + 0);
     wo_string_t match = wo_string(args + 1);
@@ -482,12 +484,12 @@ WO_API wo_api rslib_std_string_split(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_val(vm, arr);
 }
 
-WO_API wo_api rslib_std_string_append_char(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_append_char(wo_vm vm, wo_value args)
 {
     std::wstring buf({ (wchar_t)(wo_handle_t)wo_int(args + 1) });
     return wo_ret_string(vm, (wo_string(args + 0) + wo::wstr_to_str(buf)).c_str());
 }
-WO_API wo_api rslib_std_string_append_cchar(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_append_cchar(wo_vm vm, wo_value args)
 {
     return wo_ret_string(vm, (std::string(wo_string(args + 0)) + (char)(wo_handle_t)wo_int(args + 1)).c_str());
 }
@@ -502,12 +504,12 @@ wo_real_t _wo_inside_time_sec()
         / std::chrono::system_clock::period::den;
 }
 
-WO_API wo_api rslib_std_time_sec(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_time_sec(wo_vm vm, wo_value args)
 {
     return wo_ret_real(vm, _wo_inside_time_sec());
 }
 
-WO_API wo_api rslib_std_input_readint(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_input_readint(wo_vm vm, wo_value args)
 {
     // Read int value from keyboard, always return valid input result;
     wo_int_t result;
@@ -521,7 +523,7 @@ WO_API wo_api rslib_std_input_readint(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_int(vm, result);
 }
 
-WO_API wo_api rslib_std_input_readreal(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_input_readreal(wo_vm vm, wo_value args)
 {
     // Read real value from keyboard, always return valid input result;
     wo_real_t result;
@@ -535,7 +537,7 @@ WO_API wo_api rslib_std_input_readreal(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_real(vm, result);
 }
 
-WO_API wo_api rslib_std_input_readstring(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_input_readstring(wo_vm vm, wo_value args)
 {
     // Read real value from keyboard, always return valid input result;
     std::string result;
@@ -549,7 +551,7 @@ WO_API wo_api rslib_std_input_readstring(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_string(vm, result.c_str());
 }
 
-WO_API wo_api rslib_std_input_readline(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_input_readline(wo_vm vm, wo_value args)
 {
     // Read real value from keyboard, always return valid input result;
     std::string result;
@@ -563,7 +565,7 @@ WO_API wo_api rslib_std_input_readline(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_string(vm, result.c_str());
 }
 
-WO_API wo_api rslib_std_randomint(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_randomint(wo_vm vm, wo_value args)
 {
     static std::random_device rd;
     static std::mt19937_64 mt64(rd());
@@ -593,18 +595,18 @@ WO_API wo_api rslib_std_randomreal(wo_vm vm, wo_value args)
     return wo_ret_real(vm, dis(mt64));
 }
 
-WO_API wo_api rslib_std_break_yield(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_break_yield(wo_vm vm, wo_value args)
 {
     return wo_ret_yield(vm);
 }
 
-WO_API wo_api rslib_std_array_resize(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_resize(wo_vm vm, wo_value args)
 {
     wo_arr_resize(args + 0, wo_int(args + 1), args + 2);
     return wo_ret_void(vm);
 }
 
-WO_API wo_api rslib_std_array_shrink(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_shrink(wo_vm vm, wo_value args)
 {
     auto newsz = wo_int(args + 1);
     if (newsz <= wo_lengthof(args + 0))
@@ -615,13 +617,13 @@ WO_API wo_api rslib_std_array_shrink(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_bool(vm, WO_FALSE);
 }
 
-WO_API wo_api rslib_std_array_insert(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_insert(wo_vm vm, wo_value args)
 {
     wo_arr_insert(args + 0, wo_int(args + 1), args + 2);
     return wo_ret_void(vm);
 }
 
-WO_API wo_api rslib_std_array_swap(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_swap(wo_vm vm, wo_value args)
 {
     wo::value* arr1 = std::launder(reinterpret_cast<wo::value*>(args + 0));
     wo::value* arr2 = std::launder(reinterpret_cast<wo::value*>(args + 1));
@@ -641,7 +643,7 @@ WO_API wo_api rslib_std_array_swap(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_void(vm);
 }
 
-WO_API wo_api rslib_std_array_copy(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_copy(wo_vm vm, wo_value args)
 {
     wo::value* arr1 = std::launder(reinterpret_cast<wo::value*>(args + 0));
     wo::value* arr2 = std::launder(reinterpret_cast<wo::value*>(args + 1));
@@ -652,12 +654,12 @@ WO_API wo_api rslib_std_array_copy(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_void(vm);
 }
 
-WO_API wo_api rslib_std_array_empty(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_empty(wo_vm vm, wo_value args)
 {
     return wo_ret_bool(vm, wo_arr_is_empty(args + 0));
 }
 
-WO_API wo_api rslib_std_array_get(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_get(wo_vm vm, wo_value args)
 {
     wo_value arr = args + 0;
     wo_integer_t idx = wo_int(args + 1);
@@ -670,7 +672,7 @@ WO_API wo_api rslib_std_array_get(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_option_none(vm);
 }
 
-WO_API wo_api rslib_std_array_get_or_default(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_get_or_default(wo_vm vm, wo_value args)
 {
     wo_value arr = args + 0;
     wo_integer_t idx = wo_int(args + 1);
@@ -683,13 +685,13 @@ WO_API wo_api rslib_std_array_get_or_default(wo_vm vm, wo_value args, size_t arg
     return wo_ret_val(vm, args + 2);
 }
 
-WO_API wo_api rslib_std_array_add(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_add(wo_vm vm, wo_value args)
 {
     wo_arr_add(args + 0, args + 1);
     return wo_ret_void(vm);
 }
 
-WO_API wo_api rslib_std_array_connect(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_connect(wo_vm vm, wo_value args)
 {
     wo_value result = wo_push_arr(vm, 0);
 
@@ -711,7 +713,7 @@ WO_API wo_api rslib_std_array_connect(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_val(vm, result);
 }
 
-WO_API wo_api rslib_std_array_sub(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_sub(wo_vm vm, wo_value args)
 {
     wo_value result = wo_push_arr(vm, 0);
 
@@ -724,29 +726,40 @@ WO_API wo_api rslib_std_array_sub(wo_vm vm, wo_value args, size_t argc)
     if (begin > arr1->array->size())
         return wo_ret_panic(vm, "Index out of range when trying get sub array/vec.");
 
-    if (argc == 2)
-        arr_result->array->insert(arr_result->array->end(),
-            arr1->array->begin() + begin, arr1->array->end());
-    else
-    {
-        wo_assert(argc == 3);
-        auto count = (size_t)wo_int(args + 2);
-
-        if (begin + count > arr1->array->size())
-            return wo_ret_panic(vm, "Index out of range when trying get sub array/vec.");
-
-        auto&& begin_iter = arr1->array->begin() + begin;
-        auto&& end_iter = begin_iter + count;
-
-        arr_result->array->insert(arr_result->array->end(),
-            begin_iter, end_iter);
-    }
-
+    arr_result->array->insert(arr_result->array->end(),
+        arr1->array->begin() + begin, arr1->array->end());
 
     return wo_ret_val(vm, result);
 }
 
-WO_API wo_api rslib_std_array_pop(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_subto(wo_vm vm, wo_value args)
+{
+    wo_value result = wo_push_arr(vm, 0);
+
+    wo::value* arr_result = std::launder(reinterpret_cast<wo::value*>(result));
+    wo::value* arr1 = std::launder(reinterpret_cast<wo::value*>(args + 0));
+
+    wo::gcbase::gc_read_guard rg2(arr1->array);
+
+    auto begin = (size_t)wo_int(args + 1);
+    if (begin > arr1->array->size())
+        return wo_ret_panic(vm, "Index out of range when trying get sub array/vec.");
+
+    auto count = (size_t)wo_int(args + 2);
+
+    if (begin + count > arr1->array->size())
+        return wo_ret_panic(vm, "Index out of range when trying get sub array/vec.");
+
+    auto&& begin_iter = arr1->array->begin() + begin;
+    auto&& end_iter = begin_iter + count;
+
+    arr_result->array->insert(arr_result->array->end(),
+        begin_iter, end_iter);
+
+    return wo_ret_val(vm, result);
+}
+
+WO_API wo_api rslib_std_array_pop(wo_vm vm, wo_value args)
 {
     wo_value elem = wo_push_empty(vm);
     if (wo_arr_pop_back(elem, args + 0))
@@ -754,7 +767,7 @@ WO_API wo_api rslib_std_array_pop(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_option_none(vm);
 }
 
-WO_API wo_api rslib_std_array_dequeue(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_dequeue(wo_vm vm, wo_value args)
 {
     wo_value elem = wo_push_empty(vm);
     if (wo_arr_pop_front(elem, args + 0))
@@ -762,38 +775,38 @@ WO_API wo_api rslib_std_array_dequeue(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_option_none(vm);
 }
 
-WO_API wo_api rslib_std_array_pop_val(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_pop_val(wo_vm vm, wo_value args)
 {
     wo_value elem = wo_push_empty(vm);
     wo_arr_pop_back_val(elem, args + 0);
     return wo_ret_val(vm, elem);
 }
 
-WO_API wo_api rslib_std_array_dequeue_val(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_dequeue_val(wo_vm vm, wo_value args)
 {
     wo_value elem = wo_push_empty(vm);
     wo_arr_pop_front_val(elem, args + 0);
     return wo_ret_val(vm, elem);
 }
 
-WO_API wo_api rslib_std_array_remove(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_remove(wo_vm vm, wo_value args)
 {
     return wo_ret_bool(vm, wo_arr_remove(args + 0, wo_int(args + 1)));
 }
 
-WO_API wo_api rslib_std_array_find(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_find(wo_vm vm, wo_value args)
 {
     return wo_ret_int(vm, wo_arr_find(args + 0, args + 1));
 }
 
-WO_API wo_api rslib_std_array_front(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_front(wo_vm vm, wo_value args)
 {
     wo_value elem = wo_push_empty(vm);
     if (wo_arr_front(elem, args + 0))
         return wo_ret_option_val(vm, elem);
     return wo_ret_option_none(vm);
 }
-WO_API wo_api rslib_std_array_back(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_back(wo_vm vm, wo_value args)
 {
     wo_value elem = wo_push_empty(vm);
     if (wo_arr_back(elem, args + 0))
@@ -801,33 +814,33 @@ WO_API wo_api rslib_std_array_back(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_option_none(vm);
 }
 
-WO_API wo_api rslib_std_array_front_val(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_front_val(wo_vm vm, wo_value args)
 {
     wo_value elem = wo_push_empty(vm);
     wo_arr_front_val(elem, args + 0);
     return wo_ret_val(vm, elem);
 }
-WO_API wo_api rslib_std_array_back_val(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_back_val(wo_vm vm, wo_value args)
 {
     wo_value elem = wo_push_empty(vm);
     wo_arr_back_val(elem, args + 0);
     return wo_ret_val(vm, elem);
 }
 
-WO_API wo_api rslib_std_array_clear(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_clear(wo_vm vm, wo_value args)
 {
     wo_arr_clear(args);
 
     return wo_ret_void(vm);
 }
 
-WO_API wo_api rslib_std_map_keys(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_map_keys(wo_vm vm, wo_value args)
 {
     wo_value result = wo_push_empty(vm);
     wo_map_keys(result, vm, args + 0);
     return wo_ret_val(vm, result);
 }
-WO_API wo_api rslib_std_map_vals(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_map_vals(wo_vm vm, wo_value args)
 {
     wo_value result = wo_push_empty(vm);
     wo_map_vals(result, vm, args + 0);
@@ -843,7 +856,7 @@ struct array_iter
     wo_int_t     index_count;
 };
 
-WO_API wo_api rslib_std_array_iter(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_iter(wo_vm vm, wo_value args)
 {
     wo::value* arr = std::launder(reinterpret_cast<wo::value*>(args));
     return wo_ret_gchandle(vm,
@@ -856,7 +869,7 @@ WO_API wo_api rslib_std_array_iter(wo_vm vm, wo_value args, size_t argc)
     );
 }
 
-WO_API wo_api rslib_std_array_iter_next(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_iter_next(wo_vm vm, wo_value args)
 {
     array_iter& iter = *(array_iter*)wo_pointer(args);
 
@@ -874,18 +887,18 @@ WO_API wo_api rslib_std_array_iter_next(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_option_val(vm, result_tuple);
 }
 
-WO_API wo_api rslib_std_map_find(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_map_find(wo_vm vm, wo_value args)
 {
     return wo_ret_bool(vm, wo_map_find(args + 0, args + 1));
 }
 
-WO_API wo_api rslib_std_map_set(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_map_set(wo_vm vm, wo_value args)
 {
     wo_map_set(args + 0, args + 1, args + 2);
     return wo_ret_void(vm);
 }
 
-WO_API wo_api rslib_std_map_only_get(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_map_only_get(wo_vm vm, wo_value args)
 {
     wo_value elem = wo_push_empty(vm);
 
@@ -895,21 +908,21 @@ WO_API wo_api rslib_std_map_only_get(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_option_none(vm);
 }
 
-WO_API wo_api rslib_std_map_get_or_set_default(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_map_get_or_set_default(wo_vm vm, wo_value args)
 {
     wo_value elem = wo_push_empty(vm);
     wo_map_get_or_set_default(elem, args + 0, args + 1, args + 2);
     return wo_ret_val(vm, elem);
 }
 
-WO_API wo_api rslib_std_map_get_or_default(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_map_get_or_default(wo_vm vm, wo_value args)
 {
     wo_value elem = wo_push_empty(vm);
     wo_map_get_or_default(elem, args + 0, args + 1, args + 2);
     return wo_ret_val(vm, elem);
 }
 
-WO_API wo_api rslib_std_map_swap(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_map_swap(wo_vm vm, wo_value args)
 {
     wo::value* map1 = std::launder(reinterpret_cast<wo::value*>(args + 0));
     wo::value* map2 = std::launder(reinterpret_cast<wo::value*>(args + 1));
@@ -935,7 +948,7 @@ WO_API wo_api rslib_std_map_swap(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_void(vm);
 }
 
-WO_API wo_api rslib_std_map_copy(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_map_copy(wo_vm vm, wo_value args)
 {
     wo::value* map1 = std::launder(reinterpret_cast<wo::value*>(args + 0));
     wo::value* map2 = std::launder(reinterpret_cast<wo::value*>(args + 1));
@@ -947,17 +960,17 @@ WO_API wo_api rslib_std_map_copy(wo_vm vm, wo_value args, size_t argc)
 }
 
 
-WO_API wo_api rslib_std_map_remove(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_map_remove(wo_vm vm, wo_value args)
 {
     return wo_ret_bool(vm, wo_map_remove(args + 0, args + 1));
 }
 
-WO_API wo_api rslib_std_map_empty(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_map_empty(wo_vm vm, wo_value args)
 {
     return wo_ret_bool(vm, wo_map_is_empty(args + 0));
 }
 
-WO_API wo_api rslib_std_map_clear(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_map_clear(wo_vm vm, wo_value args)
 {
     wo_map_clear(args + 0);
     return wo_ret_void(vm);
@@ -971,7 +984,7 @@ struct map_iter
     mapping_iter_t end_place;
 };
 
-WO_API wo_api rslib_std_map_iter(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_map_iter(wo_vm vm, wo_value args)
 {
     wo::value* mapp = std::launder(reinterpret_cast<wo::value*>(args));
 
@@ -985,7 +998,7 @@ WO_API wo_api rslib_std_map_iter(wo_vm vm, wo_value args, size_t argc)
     );
 }
 
-WO_API wo_api rslib_std_map_iter_next(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_map_iter_next(wo_vm vm, wo_value args)
 {
     map_iter& iter = *(map_iter*)wo_pointer(args);
 
@@ -1004,7 +1017,7 @@ WO_API wo_api rslib_std_map_iter_next(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_option_val(vm, result_tuple);
 }
 
-WO_API wo_api rslib_std_take_token(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_take_token(wo_vm vm, wo_value args)
 {
     wo_string_t input = wo_string(args + 0);
     wo_string_t format = wo_string(args + 1);
@@ -1026,7 +1039,7 @@ WO_API wo_api rslib_std_take_token(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_option_none(vm);
 }
 
-WO_API wo_api rslib_std_take_string(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_take_string(wo_vm vm, wo_value args)
 {
     wo_string_t input = wo_string(args + 0);
     size_t token_length;
@@ -1047,7 +1060,7 @@ WO_API wo_api rslib_std_take_string(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_option_none(vm);
 }
 
-WO_API wo_api rslib_std_take_int(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_take_int(wo_vm vm, wo_value args)
 {
     wo_string_t input = wo_string(args + 0);
     size_t token_length;
@@ -1068,7 +1081,7 @@ WO_API wo_api rslib_std_take_int(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_option_none(vm);
 }
 
-WO_API wo_api rslib_std_take_real(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_take_real(wo_vm vm, wo_value args)
 {
     wo_string_t input = wo_string(args + 0);
     size_t token_length;
@@ -1089,7 +1102,7 @@ WO_API wo_api rslib_std_take_real(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_option_none(vm);
 }
 
-WO_API wo_api rslib_std_parse_map_from_string(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_parse_map_from_string(wo_vm vm, wo_value args)
 {
     wo_value result_dict = wo_push_empty(vm);
     if (wo_deserialize(vm, result_dict, wo_string(args + 0), WO_MAPPING_TYPE))
@@ -1097,7 +1110,7 @@ WO_API wo_api rslib_std_parse_map_from_string(wo_vm vm, wo_value args, size_t ar
     return wo_ret_option_none(vm);
 }
 
-WO_API wo_api rslib_std_parse_array_from_string(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_parse_array_from_string(wo_vm vm, wo_value args)
 {
     wo_value result_arr = wo_push_empty(vm);
     if (wo_deserialize(vm, result_arr, wo_string(args + 0), WO_ARRAY_TYPE))
@@ -1105,7 +1118,7 @@ WO_API wo_api rslib_std_parse_array_from_string(wo_vm vm, wo_value args, size_t 
     return wo_ret_option_none(vm);
 }
 
-WO_API wo_api rslib_std_create_wchars_from_str(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_create_wchars_from_str(wo_vm vm, wo_value args)
 {
     std::wstring buf = wo_str_to_wstr(wo_string(args + 0));
     wo_value result_array = wo_push_arr(vm, buf.size());
@@ -1121,7 +1134,7 @@ WO_API wo_api rslib_std_create_wchars_from_str(wo_vm vm, wo_value args, size_t a
     return wo_ret_val(vm, result_array);
 }
 
-WO_API wo_api rslib_std_create_chars_from_str(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_create_chars_from_str(wo_vm vm, wo_value args)
 {
     std::string buf = wo_string(args + 0);
     wo_value result_array = wo_push_arr(vm, buf.size());
@@ -1137,7 +1150,7 @@ WO_API wo_api rslib_std_create_chars_from_str(wo_vm vm, wo_value args, size_t ar
     return wo_ret_val(vm, result_array);
 }
 
-WO_API wo_api rslib_std_serialize(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_serialize(wo_vm vm, wo_value args)
 {
     wo_string_t result = nullptr;
     if (wo_serialize(args + 0, &result))
@@ -1148,7 +1161,7 @@ WO_API wo_api rslib_std_serialize(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_option_none(vm);
 }
 
-WO_API wo_api rslib_std_array_create(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_array_create(wo_vm vm, wo_value args)
 {
     wo_integer_t arrsz = wo_int(args + 0);
 
@@ -1159,7 +1172,7 @@ WO_API wo_api rslib_std_array_create(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_val(vm, newarr);
 }
 
-WO_API wo_api rslib_std_create_str_by_wchar(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_create_str_by_wchar(wo_vm vm, wo_value args)
 {
     std::wstring buf;
     wo_int_t size = wo_lengthof(args + 0);
@@ -1173,7 +1186,7 @@ WO_API wo_api rslib_std_create_str_by_wchar(wo_vm vm, wo_value args, size_t argc
     return wo_ret_string(vm, wo::wstr_to_str(buf).c_str());
 }
 
-WO_API wo_api rslib_std_create_str_by_ascii(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_create_str_by_ascii(wo_vm vm, wo_value args)
 {
     std::string buf;
     wo_int_t size = wo_lengthof(args + 0);
@@ -1188,48 +1201,43 @@ WO_API wo_api rslib_std_create_str_by_ascii(wo_vm vm, wo_value args, size_t argc
 }
 
 
-WO_API wo_api rslib_std_return_itself(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_return_itself(wo_vm vm, wo_value args)
 {
     return wo_ret_val(vm, args + 0);
 }
 
-WO_API wo_api rslib_std_get_ascii_val_from_str(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_get_ascii_val_from_str(wo_vm vm, wo_value args)
 {
     return wo_ret_int(vm, (wo_int_t)wo_str_get_char(wo_string(args + 0), wo_int(args + 1)));
 }
 
-WO_API wo_api rslib_std_sub(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_sub(wo_vm vm, wo_value args)
 {
-    if (wo_valuetype(args + 0) == WO_STRING_TYPE)
-    {
-        // return substr
-        size_t sub_str_len = 0;
-        if (argc == 2)
-        {
-            auto* substring = wo::u8substr(wo_string(args + 0), (size_t)wo_int(args + 1), wo::u8str_npos, &sub_str_len);
-            return wo_ret_string(vm, std::string(substring, sub_str_len).c_str());
-        }
-        auto* substring = wo::u8substr(wo_string(args + 0), (size_t)wo_int(args + 1), (size_t)wo_int(args + 2), &sub_str_len);
-        return wo_ret_string(vm, std::string(substring, sub_str_len).c_str());
-    }
-
-    //return wo_ret_ref(vm, mapping_indexed);
-    return wo_ret_halt(vm, "Other type cannot be oped by 'sub'.");
+    size_t sub_str_len = 0;
+    auto* substring = wo::u8substr(wo_string(args + 0), (size_t)wo_int(args + 1), wo::u8str_npos, &sub_str_len);
+    return wo_ret_string(vm, std::string(substring, sub_str_len).c_str());
 }
 
-WO_API wo_api rslib_std_thread_sleep(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_string_subto(wo_vm vm, wo_value args)
+{
+    size_t sub_str_len = 0;
+    auto* substring = wo::u8substr(wo_string(args + 0), (size_t)wo_int(args + 1), (size_t)wo_int(args + 2), &sub_str_len);
+    return wo_ret_string(vm, std::string(substring, sub_str_len).c_str());
+}
+
+WO_API wo_api rslib_std_thread_sleep(wo_vm vm, wo_value args)
 {
     using namespace std;
     std::this_thread::sleep_for(wo_real(args) * 1s);
     return wo_ret_void(vm);
 }
 
-WO_API wo_api rslib_std_gchandle_close(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_gchandle_close(wo_vm vm, wo_value args)
 {
     return wo_ret_bool(vm, wo_gchandle_close(args));
 }
 
-WO_API wo_api rslib_std_int_to_hex(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_int_to_hex(wo_vm vm, wo_value args)
 {
     char result[18];
     wo_integer_t val = wo_int(args + 0);
@@ -1240,7 +1248,7 @@ WO_API wo_api rslib_std_int_to_hex(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_string(vm, result);
 }
 
-WO_API wo_api rslib_std_int_to_oct(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_int_to_oct(wo_vm vm, wo_value args)
 {
     char result[24];
     wo_integer_t val = wo_int(args + 0);
@@ -1251,7 +1259,7 @@ WO_API wo_api rslib_std_int_to_oct(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_string(vm, result);
 }
 
-WO_API wo_api rslib_std_hex_to_int(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_hex_to_int(wo_vm vm, wo_value args)
 {
     wo_string_t str = wo_string(args + 0);
     while (*str && wo::lexer::lex_isspace(*str))
@@ -1269,7 +1277,7 @@ WO_API wo_api rslib_std_hex_to_int(wo_vm vm, wo_value args, size_t argc)
     }
 }
 
-WO_API wo_api rslib_std_oct_to_int(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_oct_to_int(wo_vm vm, wo_value args)
 {
     wo_string_t str = wo_string(args + 0);
     while (*str && wo::lexer::lex_isspace(*str))
@@ -1287,7 +1295,7 @@ WO_API wo_api rslib_std_oct_to_int(wo_vm vm, wo_value args, size_t argc)
     }
 }
 
-WO_API wo_api rslib_std_hex_to_handle(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_hex_to_handle(wo_vm vm, wo_value args)
 {
     wo_string_t str = wo_string(args + 0);
     unsigned long long result;
@@ -1295,7 +1303,7 @@ WO_API wo_api rslib_std_hex_to_handle(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_handle(vm, result);
 }
 
-WO_API wo_api rslib_std_oct_to_handle(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_oct_to_handle(wo_vm vm, wo_value args)
 {
     wo_string_t str = wo_string(args + 0);
     unsigned long long result;
@@ -1303,7 +1311,7 @@ WO_API wo_api rslib_std_oct_to_handle(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_handle(vm, result);
 }
 
-WO_API wo_api rslib_std_handle_to_hex(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_handle_to_hex(wo_vm vm, wo_value args)
 {
     char result[18];
     wo_handle_t val = wo_handle(args + 0);
@@ -1313,7 +1321,7 @@ WO_API wo_api rslib_std_handle_to_hex(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_string(vm, result);
 }
 
-WO_API wo_api rslib_std_handle_to_oct(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_handle_to_oct(wo_vm vm, wo_value args)
 {
     char result[24];
     wo_handle_t val = wo_handle(args + 0);
@@ -1324,7 +1332,7 @@ WO_API wo_api rslib_std_handle_to_oct(wo_vm vm, wo_value args, size_t argc)
 }
 
 
-WO_API wo_api rslib_std_get_args(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_get_args(wo_vm vm, wo_value args)
 {
     wo_integer_t argcarr = (wo_integer_t)wo::wo_args.size();
     wo_value argsarr = wo_push_arr(vm, argcarr);
@@ -1339,12 +1347,12 @@ WO_API wo_api rslib_std_get_args(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_val(vm, argsarr);
 }
 
-WO_API wo_api rslib_std_get_exe_path(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_get_exe_path(wo_vm vm, wo_value args)
 {
     return wo_ret_string(vm, wo::exe_path());
 }
 
-WO_API wo_api rslib_std_get_extern_symb(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_get_extern_symb(wo_vm vm, wo_value args)
 {
     wo_integer_t ext_symb = wo_extern_symb(vm, wo_string(args + 0));
     if (ext_symb)
@@ -1360,57 +1368,57 @@ WO_API wo_api rslib_std_get_extern_symb(wo_vm vm, wo_value args, size_t argc)
         return wo_ret_option_none(vm);
 }
 
-WO_API wo_api rslib_std_equal_byte(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_equal_byte(wo_vm vm, wo_value args)
 {
     return wo_ret_bool(vm, wo_equal_byte(args + 0, args + 1));
 }
 
-WO_API wo_api rslib_std_bad_function(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_bad_function(wo_vm vm, wo_value args)
 {
     return wo_ret_panic(vm, "This function cannot be invoke");
 }
 
-WO_API wo_api rslib_std_bit_or(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_bit_or(wo_vm vm, wo_value args)
 {
     auto result = wo_int(args + 0) | wo_int(args + 1);
     static_assert(std::is_same<decltype(result), wo_integer_t>::value);
     return wo_ret_int(vm, result);
 }
 
-WO_API wo_api rslib_std_bit_and(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_bit_and(wo_vm vm, wo_value args)
 {
     auto result = wo_int(args + 0) & wo_int(args + 1);
     static_assert(std::is_same<decltype(result), wo_integer_t>::value);
     return wo_ret_int(vm, result);
 }
 
-WO_API wo_api rslib_std_bit_xor(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_bit_xor(wo_vm vm, wo_value args)
 {
     auto result = wo_int(args + 0) ^ wo_int(args + 1);
     static_assert(std::is_same<decltype(result), wo_integer_t>::value);
     return wo_ret_int(vm, result);
 }
 
-WO_API wo_api rslib_std_bit_not(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_bit_not(wo_vm vm, wo_value args)
 {
     auto result = ~wo_int(args + 0);
     static_assert(std::is_same<decltype(result), wo_integer_t>::value);
     return wo_ret_int(vm, result);
 }
 
-WO_API wo_api rslib_std_bit_shl(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_bit_shl(wo_vm vm, wo_value args)
 {
     auto result = wo_int(args + 0) << wo_int(args + 1);
     static_assert(std::is_same<decltype(result), wo_integer_t>::value);
     return wo_ret_int(vm, result);
 }
-WO_API wo_api rslib_std_bit_ashr(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_bit_ashr(wo_vm vm, wo_value args)
 {
     auto result = wo_int(args + 0) >> wo_int(args + 1);
     static_assert(std::is_same<decltype(result), wo_integer_t>::value);
     return wo_ret_int(vm, result);
 }
-WO_API wo_api rslib_std_bit_shr(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_bit_shr(wo_vm vm, wo_value args)
 {
     auto result = ((wo_handle_t)wo_int(args + 0) >> (wo_handle_t)wo_int(args + 1));
     static_assert(std::is_same<decltype(result), wo_handle_t>::value);
@@ -1498,6 +1506,22 @@ namespace std
     public let is_same_base_type<A, B> = std::is_same_type:<std::origin_t<A>, std::origin_t<B>>;
     public let is_accpetable_base_type<A, B> = std::declval:<std::origin_t<A>>() is std::origin_t<B>;
     public let is_mutable_type<A> = std::is_same_type:<A, mut A>;
+
+    public alias array_elem_t<AT> = typeof(std::declval:<AT>()->\<T>_: array<T> = std::declval:<T>(););
+    public alias vec_elem_t<AT> = typeof(std::declval:<AT>()->\<T>_: vec<T> = std::declval:<T>(););
+
+    public alias dict_elem_t<DT> = typeof(std::declval:<DT>()->\<KT, VT>_: dict<KT, VT> = std::declval:<(KT, VT)>(););
+    public alias map_elem_t<DT> = typeof(std::declval:<DT>()->\<KT, VT>_: map<KT, VT> = std::declval:<(KT, VT)>(););
+
+    public let is_array<AT> = !(std::declval:<std::array_elem_t<AT>>() is pending);
+    public let is_vec<AT> = !(std::declval:<std::vec_elem_t<AT>>() is pending);
+    public let is_dict<DT> = !(std::declval:<std::dict_elem_t<DT>>() is pending);
+    public let is_map<DT> = !(std::declval:<std::map_elem_t<DT>>() is pending);
+
+    public let is_tuple<T> = 
+        !is_array:<T> &&
+        !is_vec:<T> && 
+        !(std::declval:<T>()...->\...=do nil; is pending);
     
     extern("rslib_std_bit_or") public func bitor(a: int, b: int)=> int;
     extern("rslib_std_bit_and") public func bitand(a: int, b: int)=> int;
@@ -1507,6 +1531,15 @@ namespace std
     extern("rslib_std_bit_shl") public func bitshl(a: int, b: int)=> int;
     extern("rslib_std_bit_shr") public func bitshr(a: int, b: int)=> int;
     extern("rslib_std_bit_ashr") public func bitashr(a: int, b: int)=> int;
+
+    public func use<T, R>(val: T, f: (T)=> R)
+        where val->close is pending == false;
+    {
+        let v = f(val);
+        val->close;
+
+        return v;
+    }
 }
 
 public using mutable<T> = struct {
@@ -1833,7 +1866,7 @@ namespace std
         return b;
     }
 
-    extern("rslib_std_make_dup")
+    extern("rslib_std_make_dup", repeat)
     public func dup<T>(dupval: T)=> T;
 }
 
@@ -1895,16 +1928,16 @@ namespace string
     extern("rslib_std_get_ascii_val_from_str") 
     public func getch(val:string, index: int)=> char;
 
-    extern("rslib_std_lengthof") 
+    extern("rslib_std_lengthof", repeat) 
         public func len(val:string)=> int;
 
     extern("rslib_std_str_bytelen") 
         public func bytelen(val:string)=> int;
 
-    extern("rslib_std_sub")
+    extern("rslib_std_string_sub")
         public func sub(val:string, begin:int)=> string;
 
-    extern("rslib_std_sub")
+    extern("rslib_std_string_subto")
         public func subto(val:string, begin:int, length:int)=> string;
     
     extern("rslib_std_string_toupper")
@@ -1982,13 +2015,13 @@ namespace string
 )" R"(
 namespace array
 {
-    extern("rslib_std_array_create") 
+    extern("rslib_std_array_create", repeat) 
         public func create<T>(sz: int, init_val: T)=> array<T>;
 
-    extern("rslib_std_serialize", slow) 
+    extern("rslib_std_serialize", slow, repeat) 
         public func serialize<T>(self: array<T>)=> option<string>;
 
-    extern("rslib_std_parse_array_from_string", slow)
+    extern("rslib_std_parse_array_from_string", slow, repeat)
         public func deserialize(val: string)=> option<array<dynamic>>;
 
     public func append<T>(self: array<T>, elem: T)
@@ -2014,22 +2047,22 @@ namespace array
         return newarr->unsafe::cast:<array<T>>;
     }
 
-    extern("rslib_std_create_str_by_wchar") 
+    extern("rslib_std_create_str_by_wchar", repeat) 
         public func str(buf: array<char>)=> string;
 
-    extern("rslib_std_create_str_by_ascii") 
+    extern("rslib_std_create_str_by_ascii", repeat) 
         public func cstr(buf: array<cchar>)=> string;
 
-    extern("rslib_std_lengthof") 
+    extern("rslib_std_lengthof", repeat) 
         public func len<T>(val: array<T>)=> int;
 
-    extern("rslib_std_make_dup")
+    extern("rslib_std_make_dup", repeat)
         public func dup<T>(val: array<T>)=> array<T>;
 
-    extern("rslib_std_make_dup")
+    extern("rslib_std_make_dup", repeat)
         public func tovec<T>(val: array<T>)=> vec<T>;
 
-    extern("rslib_std_array_empty")
+    extern("rslib_std_array_empty", repeat)
         public func empty<T>(val: array<T>)=> bool;
 
     public func resize<T>(val: array<T>, newsz: int, init_val: T)
@@ -2047,13 +2080,13 @@ namespace array
         return newarr as vec<T>->unsafe::cast:<array<T>>;
     }
 
-    extern("rslib_std_array_get")
+    extern("rslib_std_array_get", repeat)
         public func get<T>(a: array<T>, index: int)=> option<T>;
 
-    extern("rslib_std_array_get_or_default")
+    extern("rslib_std_array_get_or_default", repeat)
         public func getor<T>(a: array<T>, index: int, val: T)=> T;
 
-    extern("rslib_std_array_find")
+    extern("rslib_std_array_find", repeat)
         public func find<T>(val:array<T>, elem:T)=> int;
 
     public func findif<T>(val:array<T>, judger:(T)=> bool)
@@ -2128,64 +2161,64 @@ namespace array
 
     public using iterator<T> = gchandle
     {
-        extern("rslib_std_array_iter_next")
+        extern("rslib_std_array_iter_next", repeat)
             public func next<T>(iter:iterator<T>)=> option<(int, T)>;
     
         public func iter<T>(iter:iterator<T>) { return iter; }
     }
 
-    extern("rslib_std_array_iter")
+    extern("rslib_std_array_iter", repeat)
         public func iter<T>(val:array<T>)=> iterator<T>;
 
-    extern("rslib_std_array_connect")
+    extern("rslib_std_array_connect", repeat)
         public func connect<T>(self: array<T>, another: array<T>)=> array<T>;
 
-    extern("rslib_std_array_sub")
+    extern("rslib_std_array_sub", repeat)
     public func sub<T>(self: array<T>, begin: int)=> array<T>;
     
-    extern("rslib_std_array_sub")
+    extern("rslib_std_array_subto", repeat)
     public func subto<T>(self: array<T>, begin: int, count: int)=> array<T>;
 
-    extern("rslib_std_array_front")
+    extern("rslib_std_array_front", repeat)
     public func front<T>(val: array<T>)=> option<T>;
 
-    extern("rslib_std_array_back")
+    extern("rslib_std_array_back", repeat)
     public func back<T>(val: array<T>)=> option<T>;
 
-    extern("rslib_std_array_front_val")
+    extern("rslib_std_array_front_val", repeat)
     public func frontval<T>(val: array<T>)=> T;
 
-    extern("rslib_std_array_back_val")
+    extern("rslib_std_array_back_val", repeat)
     public func backval<T>(val: array<T>)=> T;
 }
 
 namespace vec
 {
-    extern("rslib_std_array_create") 
+    extern("rslib_std_array_create", repeat) 
         public func create<T>(sz: int, init_val: T)=> vec<T>;
 
-    extern("rslib_std_serialize", slow) 
+    extern("rslib_std_serialize", slow, repeat) 
         public func serialize<T>(self: vec<T>)=> option<string>;
 
-    extern("rslib_std_parse_array_from_string", slow) 
+    extern("rslib_std_parse_array_from_string", slow, repeat) 
         public func deserialize(val: string)=> option<vec<dynamic>>;
 
-    extern("rslib_std_create_str_by_wchar") 
+    extern("rslib_std_create_str_by_wchar", repeat) 
         public func str(buf: vec<char>)=> string;
 
-    extern("rslib_std_create_str_by_ascii") 
+    extern("rslib_std_create_str_by_ascii", repeat) 
         public func cstr(buf: vec<cchar>)=> string;
 
-    extern("rslib_std_lengthof") 
+    extern("rslib_std_lengthof", repeat) 
         public func len<T>(val: vec<T>)=> int;
 
-    extern("rslib_std_make_dup")
+    extern("rslib_std_make_dup", repeat)
         public func dup<T>(val: vec<T>)=> vec<T>;
 
-    extern("rslib_std_make_dup")
+    extern("rslib_std_make_dup", repeat)
         public func toarray<T>(val: vec<T>)=> array<T>;
 
-    extern("rslib_std_array_empty")
+    extern("rslib_std_array_empty", repeat)
         public func empty<T>(val: vec<T>)=> bool;
 
     extern("rslib_std_array_resize") 
@@ -2197,26 +2230,26 @@ namespace vec
     extern("rslib_std_array_insert") 
         public func insert<T>(val: vec<T>, insert_place: int, insert_val: T)=> void;
 
-    extern("rslib_std_array_swap") 
+    extern("rslib_std_array_swap")
         public func swap<T>(val: vec<T>, another: vec<T>)=> void;
 
     extern("rslib_std_array_copy") 
         public func copy<T, C>(val: vec<T>, another: C<T>)=> void
-            where std::declval:<C<T>>() is vec<T> || std::declval:<C<T>>() is array<T>;
+            where std::is_array:<C<T>> || std::is_vec:<C<T>>;
 
-    extern("rslib_std_array_get")
+    extern("rslib_std_array_get", repeat)
         public func get<T>(a: vec<T>, index: int)=> option<T>;
 
     extern("rslib_std_array_add") 
         public func add<T>(val: vec<T>, elem: T)=> void;
 
-    extern("rslib_std_array_connect")
+    extern("rslib_std_array_connect", repeat)
         public func connect<T>(self: vec<T>, another: vec<T>)=> vec<T>;
 
-    extern("rslib_std_array_sub")
+    extern("rslib_std_array_sub", repeat)
     public func sub<T>(self: vec<T>, begin: int)=> vec<T>;
     
-    extern("rslib_std_array_sub")
+    extern("rslib_std_array_subto", repeat)
     public func subto<T>(self: vec<T>, begin: int, count: int)=> vec<T>;
 
     extern("rslib_std_array_pop") 
@@ -2234,7 +2267,7 @@ namespace vec
     extern("rslib_std_array_remove")
         public func remove<T>(val:vec<T>, index:int)=> bool;
 
-    extern("rslib_std_array_find")
+    extern("rslib_std_array_find", repeat)
         public func find<T>(val:vec<T>, elem:T)=> int;
 
     public func findif<T>(val:vec<T>, judger:(T)=> bool)
@@ -2309,34 +2342,34 @@ namespace vec
 
     public using iterator<T> = gchandle
     {
-        extern("rslib_std_array_iter_next")
+        extern("rslib_std_array_iter_next", repeat)
             public func next<T>(iter:iterator<T>)=> option<(int, T)>;
     
         public func iter<T>(iter:iterator<T>) { return iter; }
     }
 
-    extern("rslib_std_array_iter")
+    extern("rslib_std_array_iter", repeat)
         public func iter<T>(val:vec<T>)=> iterator<T>;
 
-    extern("rslib_std_array_front")
+    extern("rslib_std_array_front", repeat)
     public func front<T>(val: vec<T>)=> option<T>;
 
-    extern("rslib_std_array_back")
+    extern("rslib_std_array_back", repeat)
     public func back<T>(val: vec<T>)=> option<T>;
 
-    extern("rslib_std_array_front_val")
+    extern("rslib_std_array_front_val", repeat)
     public func frontval<T>(val: vec<T>)=> T;
 
-    extern("rslib_std_array_back_val")
+    extern("rslib_std_array_back_val", repeat)
     public func backval<T>(val: vec<T>)=> T;
 }
 
 namespace dict
 {
-    extern("rslib_std_serialize", slow) 
+    extern("rslib_std_serialize", slow, repeat) 
         public func serialize<KT, VT>(self: dict<KT, VT>)=> option<string>;
 
-    extern("rslib_std_parse_map_from_string", slow) 
+    extern("rslib_std_parse_map_from_string", slow, repeat) 
         public func deserialize(val: string)=> option<dict<dynamic, dynamic>>;
 
     public func bind<KT, VT, RK, RV>(val: dict<KT, VT>, functor: (KT, VT)=> dict<RK, RV>)
@@ -2356,13 +2389,13 @@ namespace dict
         return newmap->unsafe::cast:<dict<KT, VT>>;
     }
 )" R"(
-    extern("rslib_std_lengthof") 
+    extern("rslib_std_lengthof", repeat) 
         public func len<KT, VT>(self: dict<KT, VT>)=> int;
 
-    extern("rslib_std_make_dup")
+    extern("rslib_std_make_dup", repeat)
         public func dup<KT, VT>(self: dict<KT, VT>)=> dict<KT, VT>;
 
-    extern("rslib_std_make_dup")
+    extern("rslib_std_make_dup", repeat)
         public func tomap<KT, VT>(self: dict<KT, VT>)=> map<KT, VT>;
 
     public func findif<KT, VT>(self: dict<KT, VT>, judger:(KT)=> bool)
@@ -2373,22 +2406,22 @@ namespace dict
         return option::none;            
     }
 
-    extern("rslib_std_map_only_get") 
+    extern("rslib_std_map_only_get", repeat) 
         public func get<KT, VT>(self: dict<KT, VT>, index: KT)=> option<VT>;
 
-    extern("rslib_std_map_find") 
+    extern("rslib_std_map_find", repeat) 
         public func contain<KT, VT>(self: dict<KT, VT>, index: KT)=> bool;
 
-    extern("rslib_std_map_get_or_default") 
+    extern("rslib_std_map_get_or_default", repeat) 
         public func getor<KT, VT>(self: dict<KT, VT>, index: KT, default_val: VT)=> VT;
 
-    extern("rslib_std_map_keys")
+    extern("rslib_std_map_keys", repeat)
         public func keys<KT, VT>(self: dict<KT, VT>)=> array<KT>;
 
-    extern("rslib_std_map_vals")
+    extern("rslib_std_map_vals", repeat)
         public func vals<KT, VT>(self: dict<KT, VT>)=> array<VT>;
 
-    extern("rslib_std_map_empty")
+    extern("rslib_std_map_empty", repeat)
         public func empty<KT, VT>(self: dict<KT, VT>)=> bool;
 
     public func erase<KT, VT>(self: dict<KT, VT>, index: KT)
@@ -2401,13 +2434,13 @@ namespace dict
 
     public using iterator<KT, VT> = gchandle
     {
-        extern("rslib_std_map_iter_next")
+        extern("rslib_std_map_iter_next", repeat)
             public func next<KT, VT>(iter:iterator<KT, VT>)=> option<(KT, VT)>;
 
         public func iter<KT, VT>(iter:iterator<KT, VT>) { return iter; }
     }
 
-    extern("rslib_std_map_iter")
+    extern("rslib_std_map_iter", repeat)
         public func iter<KT, VT>(self:dict<KT, VT>)=> iterator<KT, VT>;
 
     public func forall<KT, VT>(self: dict<KT, VT>, functor: (KT, VT)=> bool)
@@ -2439,10 +2472,10 @@ namespace dict
 
 namespace map
 {
-    extern("rslib_std_serialize", slow) 
+    extern("rslib_std_serialize", slow, repeat) 
         public func serialize<KT, VT>(self: map<KT, VT>)=> option<string>;
                     
-    extern("rslib_std_parse_map_from_string", slow) 
+    extern("rslib_std_parse_map_from_string", slow, repeat) 
         public func deserialize(val: string)=> option<map<dynamic, dynamic>>;
 
     public func bind<KT, VT, RK, RV>(val: map<KT, VT>, functor: (KT, VT)=> map<RK, RV>)
@@ -2457,13 +2490,13 @@ namespace map
     extern("rslib_std_map_set") 
         public func set<KT, VT>(self: map<KT, VT>, key: KT, val: VT)=> void;
 
-    extern("rslib_std_lengthof") 
+    extern("rslib_std_lengthof", repeat) 
         public func len<KT, VT>(self: map<KT, VT>)=> int;
 
-    extern("rslib_std_make_dup")
+    extern("rslib_std_make_dup", repeat)
         public func dup<KT, VT>(self: map<KT, VT>)=> map<KT, VT>;
 
-    extern("rslib_std_make_dup")
+    extern("rslib_std_make_dup", repeat)
         public func todict<KT, VT>(self: map<KT, VT>)=> dict<KT, VT>;
 
     public func findif<KT, VT>(self: map<KT, VT>, judger:(KT)=> bool)
@@ -2474,13 +2507,13 @@ namespace map
         return option::none;            
     }
 
-    extern("rslib_std_map_find") 
+    extern("rslib_std_map_find", repeat) 
         public func contain<KT, VT>(self: map<KT, VT>, index: KT)=> bool;
 
-    extern("rslib_std_map_only_get") 
+    extern("rslib_std_map_only_get", repeat) 
         public func get<KT, VT>(self: map<KT, VT>, index: KT)=> option<VT>;
 
-    extern("rslib_std_map_get_or_default") 
+    extern("rslib_std_map_get_or_default", repeat) 
         public func getor<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=> VT;
 
     extern("rslib_std_map_get_or_set_default") 
@@ -2492,13 +2525,13 @@ namespace map
     extern("rslib_std_map_copy") 
         public func copy<KT, VT>(val: map<KT, VT>, another: map<KT, VT>)=> void;
 
-    extern("rslib_std_map_keys")
+    extern("rslib_std_map_keys", repeat)
         public func keys<KT, VT>(self: map<KT, VT>)=> array<KT>;
 
-    extern("rslib_std_map_vals")
+    extern("rslib_std_map_vals", repeat)
         public func vals<KT, VT>(self: map<KT, VT>)=> array<VT>;
 
-    extern("rslib_std_map_empty")
+    extern("rslib_std_map_empty", repeat)
         public func empty<KT, VT>(self: map<KT, VT>)=> bool;
 
     extern("rslib_std_map_remove")
@@ -2509,13 +2542,13 @@ namespace map
 
     public using iterator<KT, VT> = gchandle
     {
-        extern("rslib_std_map_iter_next")
+        extern("rslib_std_map_iter_next", repeat)
             public func next<KT, VT>(iter:iterator<KT, VT>)=> option<(KT, VT)>;
 
         public func iter<KT, VT>(iter:iterator<KT, VT>) { return iter; }
     }
 
-    extern("rslib_std_map_iter")
+    extern("rslib_std_map_iter", repeat)
         public func iter<KT, VT>(self:map<KT, VT>)=> iterator<KT, VT>;
 
     public func forall<KT, VT>(self: map<KT, VT>, functor: (KT, VT)=>bool)
@@ -2590,38 +2623,40 @@ public func assertmsg(val: bool, msg: string)
 
 )" };
 
-WO_API wo_api rslib_std_debug_attach_default_debuggee(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_debug_attach_default_debuggee(wo_vm vm, wo_value args)
 {
     wo_attach_default_debuggee();
     return wo_ret_void(vm);
 }
 
-WO_API wo_api rslib_std_debug_disattach_default_debuggee(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_debug_disattach_default_debuggee(wo_vm vm, wo_value args)
 {
     wo_detach_debuggee();
     return wo_ret_void(vm);
 }
 
-WO_API wo_api rslib_std_debug_callstack_trace(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_debug_callstack_trace(wo_vm vm, wo_value args)
 {
     return wo_ret_string(vm, wo_debug_trace_callstack(vm, (size_t)wo_int(args + 0)));
 }
 
-WO_API wo_api rslib_std_debug_breakpoint(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_debug_breakpoint(wo_vm vm, wo_value args)
 {
     wo_break_specify_immediately(vm);
     return wo_ret_void(vm);
 }
 
-WO_API wo_api rslib_std_debug_invoke(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_debug_invoke(wo_vm vm, wo_value args)
 {
+    size_t argc = (size_t)wo_vaarg_count(vm);
+
     for (size_t index = argc - 1; index > 0; index--)
         wo_push_val(vm, args + index);
 
     return wo_ret_val(vm, wo_invoke_value(vm, args, argc - 1));
 }
 
-WO_API wo_api rslib_std_debug_empty_func(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_debug_empty_func(wo_vm vm, wo_value args)
 {
     return wo_ret_void(vm);
 }
@@ -2669,7 +2704,7 @@ namespace std
 }
 )" };
 
-WO_API wo_api rslib_std_macro_lexer_error(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_macro_lexer_error(wo_vm vm, wo_value args)
 {
     wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
 
@@ -2677,7 +2712,7 @@ WO_API wo_api rslib_std_macro_lexer_error(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_void(vm);
 }
 
-WO_API wo_api rslib_std_macro_lexer_peek(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_macro_lexer_peek(wo_vm vm, wo_value args)
 {
     wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
 
@@ -2696,7 +2731,7 @@ WO_API wo_api rslib_std_macro_lexer_peek(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_val(vm, result);
 }
 
-WO_API wo_api rslib_std_macro_lexer_next(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_macro_lexer_next(wo_vm vm, wo_value args)
 {
     wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
 
@@ -2715,7 +2750,7 @@ WO_API wo_api rslib_std_macro_lexer_next(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_val(vm, result);
 }
 
-WO_API wo_api rslib_std_macro_lexer_nextch(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_macro_lexer_nextch(wo_vm vm, wo_value args)
 {
     wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
 
@@ -2730,7 +2765,7 @@ WO_API wo_api rslib_std_macro_lexer_nextch(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_string(vm, wo::wstr_to_str(ch).c_str());
 }
 
-WO_API wo_api rslib_std_macro_lexer_peekch(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_macro_lexer_peekch(wo_vm vm, wo_value args)
 {
     wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
 
@@ -2745,19 +2780,19 @@ WO_API wo_api rslib_std_macro_lexer_peekch(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_string(vm, wo::wstr_to_str(ch).c_str());
 }
 
-WO_API wo_api rslib_std_macro_lexer_current_path(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_macro_lexer_current_path(wo_vm vm, wo_value args)
 {
     wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
     return wo_ret_string(vm, wo::wstr_to_str(*lex->source_file).c_str());
 }
 
-WO_API wo_api rslib_std_macro_lexer_current_rowno(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_macro_lexer_current_rowno(wo_vm vm, wo_value args)
 {
     wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
     return wo_ret_int(vm, (wo_integer_t)lex->now_file_rowno);
 }
 
-WO_API wo_api rslib_std_macro_lexer_current_colno(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_macro_lexer_current_colno(wo_vm vm, wo_value args)
 {
     wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
     return wo_ret_int(vm, (wo_integer_t)lex->now_file_colno);
@@ -2774,7 +2809,7 @@ namespace std
     {
         l_eof = -1,
         l_error = 0,
-        l_empty,          // [empty]
+        l_empty,                // [empty]
         l_identifier,           // identifier.
         l_literal_integer,      // 1 233 0x123456 0b1101001 032
         l_literal_handle,       // 0L 256L 0xFFL
@@ -2866,7 +2901,8 @@ namespace std
         l_struct,
         l_immut,
         l_typeid,
-        l_macro
+        l_macro,
+        l_unknown_token,
     }
 
     public using lexer = handle
@@ -2966,7 +3002,7 @@ namespace std
 
 )" };
 
-WO_API wo_api rslib_std_call_shell(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_call_shell(wo_vm vm, wo_value args)
 {
     if (wo::config::ENABLE_SHELL_PACKAGE)
         return wo_ret_int(vm, system(wo_string(args + 0)));
@@ -2975,7 +3011,7 @@ WO_API wo_api rslib_std_call_shell(wo_vm vm, wo_value args, size_t argc)
             "trying to restart without '--enable-shell 0'.");
 }
 
-WO_API wo_api rslib_std_get_env(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_get_env(wo_vm vm, wo_value args)
 {
     if (wo::config::ENABLE_SHELL_PACKAGE)
     {

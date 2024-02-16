@@ -1357,6 +1357,38 @@ func main()
             let a = (0, 1);
             do a.1;
             "@);
+
+        assure_compile_fail(@"
+            let a = (0, 1);
+            do a.2;
+            "@);
+
+        assure_compile_success(@"
+            let a = (0, 1);
+            do a.0;
+            "@);
+
+        assure_compile_fail(@"
+            let a = (0, 1);
+            do a.0.0;
+            "@);
+
+        // ISSUE: 1.13: anything has been removed from woolang.
+        // assure_compile_success(@"
+        //     import woo::std;
+
+        //     func foo()
+        //     {
+        //         if ([]->get(0) is option<anything>)
+        //             ;
+        //         else
+        //         {
+        //             return 0;
+        //         }
+        //     }
+
+        //     foo() as void;
+        // "@);
     }
 
     func main()

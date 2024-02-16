@@ -66,24 +66,12 @@ namespace wo
             if (from->is_pending() || to->is_pending())
                 return false;
 
-            // Any type can cast to anything;
-            if (to->is_anything())
-                return true;
-
             // Any type can cast to void;
             if (to->is_void())
                 return true;
 
             // Cannot cast void to any other type.
             if (from->is_void())
-                return false;
-
-            // Any type can cast to anything;
-            if (to->is_anything())
-                return true;
-
-            // Cannot cast anything to any other type.
-            if (from->is_anything())
                 return false;
 
             if (to->is_dynamic())
@@ -587,10 +575,6 @@ namespace wo
         bool ast_type::is_tuple() const
         {
             return type_name == WO_PSTR(tuple);
-        }
-        bool ast_type::is_anything() const
-        {
-            return type_name == WO_PSTR(anything);
         }
         bool ast_type::is_nothing() const
         {
@@ -1844,8 +1828,6 @@ namespace wo
                     }
 
                     ast_func->externed_func_info = dynamic_cast<ast_extern_info*>(WO_NEED_AST(0));
-                    if (ast_func->externed_func_info->externed_func)
-                        ast_func->is_constant = true;
                 }
             }
             else if (input.size() == 12)
@@ -1871,8 +1853,6 @@ namespace wo
                 }
 
                 ast_func->externed_func_info = dynamic_cast<ast_extern_info*>(WO_NEED_AST(0));
-                if (ast_func->externed_func_info->externed_func)
-                    ast_func->is_constant = true;
             }
             else if (input.size() == 7)
             {
