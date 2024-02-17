@@ -228,6 +228,14 @@ namespace test_basic
         test_equal(split_result[0], "a b");
         test_equal(split_result[1], "c d");
 
+        let split_result2 = "abcde"->split("");
+        test_equal(split_result2->len(), 5);
+        test_equal(split_result2[0], "a");
+        test_equal(split_result2[1], "b");
+        test_equal(split_result2[2], "c");
+        test_equal(split_result2[3], "d");
+        test_equal(split_result2[4], "e");
+
         let m = {}mut: map<int, int>;
         m->set(0, 233);
         m->set(1, 666);

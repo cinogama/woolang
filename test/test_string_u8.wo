@@ -8,6 +8,24 @@ namespace test_string_u8
 {
     func main()
     {
+        test_equal("abcdef"->find("zzz"), -1);
+        test_equal("abcdef"->find("cd"), 2);
+        test_equal("abcdef"->findfrom("cd", 3), -1);
+        test_equal("abcdefcd"->find("cd"), 2);
+        test_equal("abcdefcd"->rfind("cd"), 6);
+        test_equal("abcdefcd"->findfrom("cd", 4), 6);
+        test_equal("abcdefcd"->rfindfrom("cd", 4), 2);
+
+        test_equal("中文abcd中文abcd"->find("ab"), 2);
+        test_equal("中文abcd中文abcd"->rfind("ab"), 8);
+        test_equal("中文abcd中文abcd"->findfrom("ab", 2), 2);
+        test_equal("中文abcd中文abcd"->findfrom("ab", 3), 8);
+        test_equal("中文abcd中文abcd"->rfindfrom("ab", 6), 2);
+        test_equal("中文abcd中文abcd"->rfindfrom("ab", 3), 2);
+        test_equal("中文abcd中文abcd"->rfindfrom("abc", 3), 2);
+        test_equal("中文abcd中文abcd"->rfindfrom("abc", 4), 2);
+        test_equal("中文abcd中文abcd"->rfindfrom("ab", 2), -1);
+
         let str = "Helloworld";
         test_equal(str, "Helloworld");
         test_equal(str->subto(0, 5), "Hello");
