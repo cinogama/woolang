@@ -2719,7 +2719,7 @@ namespace std
         extern("rslib_std_debug_invoke", slow)
         public func invoke<FT>(foo:FT, ...)=> typeof(foo(......));
 
-        // Used for create a value with specify type, it's a dangergous function.
+        // Used for create a value with specified type, it's a dangergous function.
         extern("rslib_std_debug_empty_func")
         public func __empty_function<T>()=> T;
     }

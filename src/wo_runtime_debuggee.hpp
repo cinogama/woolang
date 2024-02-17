@@ -124,6 +124,8 @@ frame           f               <frameid>     Switch to a call frame.
 
 global          g               <offset>      Display global data.
 
+halt                            [id]            Halt specified or current vm.
+
 help            ?                             Get help informations.
 
 list            l               <listitem>    List something, such as:
@@ -156,7 +158,7 @@ step            s                             Execute next line of src, will ste
 
 stepir          si                            Execute next command.
 
-thread          vm              <id>          Continue and break at specify vm.
+thread          vm              <id>          Continue and break at specified vm.
 )"
 << wo_endl;
         }
@@ -686,6 +688,32 @@ thread          vm              <id>          Continue and break at specify vm.
                             printf(ANSI_HIR "You must input the file or function's name.\n" ANSI_RST);
                     }
                 }
+                else if (main_command == "halt")
+                {
+                    std::shared_lock sg1(wo::vmbase::_alive_vm_list_mx);
+
+                    wo::vmbase* target_vm = nullptr;
+
+                    size_t vmid = 0;
+                    if (need_possiable_input(inputbuf, vmid))
+                    {
+                        if (vmid < wo::vmbase::_alive_vm_list.size())
+                        {
+                            auto vmidx = wo::vmbase::_alive_vm_list.begin();
+                            for (size_t i = 0; i < vmid; ++i)
+                                ++vmidx;
+
+                            target_vm = *vmidx;
+                        }
+                        else
+                            printf(ANSI_HIR "You must input valid vm id.\n" ANSI_RST);
+                    }
+                    else
+                        target_vm = vmm;
+
+                    if (target_vm != nullptr)
+                        target_vm->interrupt(wo::vmbase::vm_interrupt_type::ABORT_INTERRUPT);
+                }
                 else if (main_command == "quit")
                 {
                     stop_attach_debuggee_for_exit_flag = true;
@@ -842,7 +870,7 @@ thread          vm              <id>          Continue and break at specify vm.
                 {
                     size_t offset;
                     if (!need_possiable_input(inputbuf, offset))
-                        printf(ANSI_HIR "Need specify offset for command 'global'.\n" ANSI_RST);
+                        printf(ANSI_HIR "Need to specify offset for command 'global'.\n" ANSI_RST);
                     else
                     {
                         display_variable(vmm, offset);

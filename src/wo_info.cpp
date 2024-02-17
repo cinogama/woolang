@@ -17,9 +17,9 @@
 #endif
 
 constexpr wo_integer_t version = 
-    WO_VERSION(1, 13, 0, 1);
+    WO_VERSION(1, 13, 1, 0);
 constexpr char version_str[] = 
-    WO_VERSION_STR(1, 13, 0, 1) WO_DEBUG_SFX;
+    WO_VERSION_STR(1, 13, 1, 0) WO_DEBUG_SFX;
 
 #undef WO_DEBUG_SFX
 #undef WO_VERSION_STR

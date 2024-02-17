@@ -981,7 +981,7 @@ namespace wo
                     base_callstackinfo_ptr = this->stack_mem_begin - base_callstackinfo_ptr->vmcallstack.bp;
                     base_callstackinfo_ptr++;
 
-                    // When dumping call stack if specify vm is running(during GC), the stack data might be
+                    // When dumping call stack if specified vm is running(during GC), the stack data might be
                     // modified. We will get broken call stack info and we should stop.
                     if (base_callstackinfo_ptr > stack_mem_begin || base_callstackinfo_ptr < stack_mem_begin - (stack_size - 1))
                     {

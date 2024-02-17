@@ -505,7 +505,7 @@ namespace wo
                             }
                         }
 
-                        // Wait until specify vm self-marking end.
+                        // Wait until specifing vm self-marking end.
                         vmbase::interrupt_wait_result wait_result;
                         do
                         {
