@@ -64,7 +64,7 @@ namespace wo
         *out_sub_len = end_place - substr;
         return substr;
     }
-    size_t u8blen2clen(wo_string_t u8str, size_t len)
+    size_t clen2u8blen(wo_string_t u8str, size_t len)
     {
         size_t clen = 0;
         for (;;)
@@ -78,5 +78,9 @@ namespace wo
             u8str += chlen;
         }
         return clen;
+    }
+    size_t u8blen2clen(wo_string_t u8str, size_t len)
+    {
+        return (size_t)(u8stridxstr(u8str, len) - u8str);
     }
 }
