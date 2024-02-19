@@ -69,6 +69,17 @@ namespace test_thread
 
         test_assure(thread::create(\=std::halt("Halt thread for testing.");, ())->wait == false);
         test_assure(thread::create(\=do nil;, ())->wait == true);
+
+        let panic_check_point_flag = (mut 0,);
+        do thread::create(
+            func()
+            {
+                panic_check_point_flag.0 = 3542;
+                std::halt("Halt thread for testing.");
+                panic_check_point_flag.0 = 1356;
+            },
+            ())->wait;
+        test_assure(panic_check_point_flag.0 == 3542);
     }
 }
 

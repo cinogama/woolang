@@ -1,0 +1,4 @@
+import woo::std;
+
+let a = (): dynamic;
+std::println(a is ());

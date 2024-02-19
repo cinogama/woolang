@@ -2016,6 +2016,11 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                     x86_do_calln_native_func_fast(ctx->c, ctx->_vmbase, call_aim_native_func, ctx->env->rt_codes, rt_ip, ctx->_vmssp, ctx->_vmsbp);
                 else
                     x86_do_calln_native_func(ctx->c, ctx->_vmbase, call_aim_native_func, ctx->env->rt_codes, rt_ip, ctx->_vmssp, ctx->_vmsbp);
+
+                // ISSUE: 240219 1.13.1.1
+                // We need to check if extern-function returned with panic/halt.
+                // Check and make it work!
+                ir_make_checkpoint(ctx, rt_ip);
             }
             else
             {
