@@ -3529,7 +3529,7 @@ namespace wo
                         result += *type_name;
                     }
 
-                    if (has_template())
+                    if (has_template() || type_name == WO_PSTR(tuple))
                     {
                         result += (type_name != WO_PSTR(tuple)) ? L"<" : L"(";
                         for (size_t index = 0; index < template_arguments.size(); index++)
