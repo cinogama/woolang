@@ -963,6 +963,8 @@ namespace wo
 
                     if (last_value.type == aim_real_type || value_type->is_void())
                         constant_value.set_val_compile_time(&last_value);
+                    else if (last_value.type == value::valuetype::invalid)
+                        is_constant = false; // Cannot cast nil to other type.
                     else
                     {
                         switch (aim_real_type)
