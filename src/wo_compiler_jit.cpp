@@ -1466,16 +1466,19 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
+            auto bpoffset = ctx->c.newUIntPtr();
             if (opnum2.is_constant())
             {
-                auto bpoffset = ctx->c.newUIntPtr();
                 wo_assure(!ctx->c.lea(bpoffset, asmjit::x86::qword_ptr(ctx->_vmsbp, (int32_t)(opnum2.const_value()->integer * sizeof(value)))));
                 x86_set_val(ctx->c, opnum1.gp_value(), bpoffset);
             }
             else
             {
-                auto bpoffset = ctx->c.newUIntPtr();
-                wo_assure(!ctx->c.lea(bpoffset, asmjit::x86::qword_ptr(ctx->_vmsbp, opnum2.gp_value(), sizeof(value))));
+                static_assert(sizeof(wo::value) == 16);
+
+                wo_assure(!ctx->c.mov(bpoffset, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
+                wo_assure(!ctx->c.shl(bpoffset, asmjit::Imm(4)));
+                wo_assure(!ctx->c.lea(bpoffset, asmjit::x86::qword_ptr(ctx->_vmsbp, bpoffset)));
                 x86_set_val(ctx->c, opnum1.gp_value(), bpoffset);
             }
             return true;
@@ -1485,16 +1488,19 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
+            auto bpoffset = ctx->c.newUIntPtr();
             if (opnum2.is_constant())
             {
-                auto bpoffset = ctx->c.newUIntPtr();
                 wo_assure(!ctx->c.lea(bpoffset, asmjit::x86::qword_ptr(ctx->_vmsbp, (int32_t)(opnum2.const_value()->integer * sizeof(value)))));
                 x86_set_val(ctx->c, bpoffset, opnum1.gp_value());
             }
             else
             {
-                auto bpoffset = ctx->c.newUIntPtr();
-                wo_assure(!ctx->c.lea(bpoffset, asmjit::x86::qword_ptr(ctx->_vmsbp, opnum2.gp_value(), sizeof(value))));
+                static_assert(sizeof(wo::value) == 16);
+
+                wo_assure(!ctx->c.mov(bpoffset, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
+                wo_assure(!ctx->c.shl(bpoffset, asmjit::Imm(4)));
+                wo_assure(!ctx->c.lea(bpoffset, asmjit::x86::qword_ptr(ctx->_vmsbp, bpoffset)));
                 x86_set_val(ctx->c, bpoffset, opnum1.gp_value());
             }
             return true;

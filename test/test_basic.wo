@@ -116,8 +116,15 @@ namespace test_basic
 
     using empty_st = struct{};
 
+    func foo(a: int)
+    {
+        return func(...){return ...[a];};
+    }
+
     func main()
     {
+        test_equal(foo(2)(1,2,3,4,5,6) as int, 3);
+
         test_equal(noexist_foo() is pending, true);
         test_equal(noexist_foo() is pending == false, false);
 

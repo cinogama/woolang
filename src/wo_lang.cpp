@@ -4360,7 +4360,7 @@ namespace wo
 
     void lang::check_division(ast::ast_base* divop, ast::ast_value* left, ast::ast_value* right, opnum::opnumbase& left_opnum, opnum::opnumbase& right_opnum, ir_compiler* compiler)
     {
-        wo_assert(left->value_type->is_same(right->value_type));
+        wo_assert(left->value_type->is_integer() == right->value_type->is_integer());
         if (left->value_type->is_integer())
         {
             std::optional<wo_integer_t> constant_right = std::nullopt;
@@ -4397,7 +4397,7 @@ namespace wo
                 }
             }
 
-            // Generate 
+            // Generate extra code for div checking.
             if (config::ENABLE_RUNTIME_CHECKING_INTEGER_DIVISION)
             {
                 if (constant_right.has_value() == false)

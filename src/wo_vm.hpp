@@ -532,7 +532,7 @@ namespace wo
 
                 auto print_byte = [&]() {
 
-                    const int MAX_BYTE_COUNT = 11;
+                    const int MAX_BYTE_COUNT = 12;
                     printf("+%04d : ", (uint32_t)(program_ptr - program));
                     int displayed_count = 0;
                     for (auto idx = program_ptr; idx < this_command_ptr; idx++)

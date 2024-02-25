@@ -121,7 +121,7 @@ namespace wo
 
             // THIS PAGE USED FOR STORING SIMPLE EXTERN OPCODE THAT IS NOT CONTAINED IN ORIGIN OP CODE
             panic = 0 WO_OPCODE_SPACE,      // panic(dr_0)      REGID(1BYTE)/DIFF(4BYTE)
-            packargs = 1 WO_OPCODE_SPACE,   // packargs(dr)     REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
+            packargs = 1 WO_OPCODE_SPACE,   // packargs(dr)     REGID(1BYTE)/DIFF(4BYTE) NORMAL_ARGC(4BYTE) CLOSURE_CAPS(2BYTE)
             cdivilr = 2 WO_OPCODE_SPACE,    // cdivlr(dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
             cdivil = 3 WO_OPCODE_SPACE,     // cdivl(dr_0)      REGID(1BYTE)/DIFF(4BYTE)
             cdivir = 4 WO_OPCODE_SPACE,     // cdivr(dr_0)      REGID(1BYTE)/DIFF(4BYTE)
