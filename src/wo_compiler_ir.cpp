@@ -1739,6 +1739,31 @@ namespace wo
                         WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
                         break;
                     }
+                    case instruct::extern_opcode_page_0::cdivilr:
+                    {
+                        temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(cdivilr));
+                        WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
+                        WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                        break;
+                    }
+                    case instruct::extern_opcode_page_0::cdivil:
+                    {
+                        temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(cdivil));
+                        WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
+                        break;
+                    }
+                    case instruct::extern_opcode_page_0::cdivirz:
+                    {
+                        temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(cdivirz));
+                        WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
+                        break;
+                    }
+                    case instruct::extern_opcode_page_0::cdivir:
+                    {
+                        temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(cdivir));
+                        WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
+                        break;
+                    }
                     default:
                         wo_error("Unknown instruct.");
                         break;

@@ -355,6 +355,8 @@ void wo_init(int argc, char** argv)
                 enable_vm_pool = (bool)atoi(argv[++command_idx]);
             else if ("enable-halt-when-panic" == current_arg)
                 wo::config::ENABLE_HALT_WHEN_PANIC = (bool)atoi(argv[++command_idx]);
+            else if ("enable-runtime-checking-integer-division" == current_arg)
+                wo::config::ENABLE_RUNTIME_CHECKING_INTEGER_DIVISION = (bool)atoi(argv[++command_idx]);
             else if ("update-grammar" == current_arg)
                 wo::config::ENABLE_CHECK_GRAMMAR_AND_UPDATE = (bool)atoi(argv[++command_idx]);
             else if ("ignore-not-found-extern-func" == current_arg)

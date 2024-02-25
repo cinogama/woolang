@@ -140,28 +140,17 @@ namespace wo
         inline bool ENABLE_IGNORE_NOT_FOUND_EXTERN_SYMBOL = false;
 
         /*
-        * ENABLE_CHECK_DIVISOR_ZERO = true
+        * ENABLE_RUNTIME_CHECKING_INTEGER_DIVISION = false
         * --------------------------------------------------------------------
-        *   Whether to check the divisor is zero when the division operation
-        * is performed.
+        *   Whether to check both the divisor is zero and the overflow when the
+        * division operation is performed in runtime.
         *   If enabled, compiler will generate some extra code for checking.
         * --------------------------------------------------------------------
         * ATTENTION:
         *   Enabled by default for safety, disable it for better performance.
+        * 
+        *   Check for integer division only.
         */
-        inline bool ENABLE_CHECK_DIVISOR_ZERO = true;
-
-        /*
-        * ENABLE_CHECK_DIVISION_OVERFLOW = false
-        * --------------------------------------------------------------------
-        *   Whether to check the overflow when the division operation is
-        * performed. in some platform, division overflow will cause the
-        * program to crash.
-        *   If enabled, compiler will generate some extra code for checking.
-        * --------------------------------------------------------------------
-        * ATTENTION:
-        *   Enabled by default for safety, disable it for better performance.
-        */
-        inline bool ENABLE_CHECK_DIVISION_OVERFLOW = true;
+        inline bool ENABLE_RUNTIME_CHECKING_INTEGER_DIVISION = true;
     }
 }

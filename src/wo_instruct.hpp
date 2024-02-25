@@ -120,9 +120,12 @@ namespace wo
             // Here is no nop in extern code page.
 
             // THIS PAGE USED FOR STORING SIMPLE EXTERN OPCODE THAT IS NOT CONTAINED IN ORIGIN OP CODE
-            packargs = 3 WO_OPCODE_SPACE,   // packargs(dr)     REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
-            panic = 9 WO_OPCODE_SPACE,      // panic(dr_0)      REGID(1BYTE)/DIFF(4BYTE)
-
+            panic = 0 WO_OPCODE_SPACE,      // panic(dr_0)      REGID(1BYTE)/DIFF(4BYTE)
+            packargs = 1 WO_OPCODE_SPACE,   // packargs(dr)     REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
+            cdivilr = 2 WO_OPCODE_SPACE,    // cdivlr(dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
+            cdivil = 3 WO_OPCODE_SPACE,     // cdivl(dr_0)      REGID(1BYTE)/DIFF(4BYTE)
+            cdivir = 4 WO_OPCODE_SPACE,     // cdivr(dr_0)      REGID(1BYTE)/DIFF(4BYTE)
+            cdivirz = 5 WO_OPCODE_SPACE,    // cdivrz(dr_0)     REGID(1BYTE)/DIFF(4BYTE)      
         };
         enum extern_opcode_page_1 : uint8_t
         {

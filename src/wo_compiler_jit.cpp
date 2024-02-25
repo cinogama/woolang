@@ -170,6 +170,10 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
         
         virtual bool ir_ext_panic(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
         virtual bool ir_ext_packargs(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
+        virtual bool ir_ext_cdivilr(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
+        virtual bool ir_ext_cdivil(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
+        virtual bool ir_ext_cdivirz(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
+        virtual bool ir_ext_cdivir(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
 
         virtual void ir_make_checkpoint(CompileContextT* ctx, const byte_t*& rt_ip) = 0;
 #undef WO_ASMJIT_IR_ITERFACE_DECL
@@ -255,6 +259,26 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
                                     WO_JIT_NOT_SUPPORT;
                             case instruct::extern_opcode_page_0::panic:
                                 if (ir_ext_panic(ctx, dr, rt_ip))
+                                    break;
+                                else
+                                    WO_JIT_NOT_SUPPORT;
+                            case instruct::extern_opcode_page_0::cdivilr:
+                                if (ir_ext_cdivilr(ctx, dr, rt_ip))
+                                    break;
+                                else
+                                    WO_JIT_NOT_SUPPORT;
+                            case instruct::extern_opcode_page_0::cdivil:
+                                if (ir_ext_cdivil(ctx, dr, rt_ip))
+                                    break;
+                                else
+                                    WO_JIT_NOT_SUPPORT;
+                            case instruct::extern_opcode_page_0::cdivirz:
+                                if (ir_ext_cdivirz(ctx, dr, rt_ip))
+                                    break;
+                                else
+                                    WO_JIT_NOT_SUPPORT;
+                            case instruct::extern_opcode_page_0::cdivir:
+                                if (ir_ext_cdivir(ctx, dr, rt_ip))
                                     break;
                                 else
                                     WO_JIT_NOT_SUPPORT;
@@ -2513,6 +2537,86 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             invoke_node->setArg(2, ctx->_vmtc);
             invoke_node->setArg(3, ctx->_vmsbp);
             invoke_node->setArg(4, asmjit::Imm(skip_closure_arg_count));
+
+            return true;
+        }
+        virtual bool ir_ext_cdivilr(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip) override
+        {
+            WO_JIT_ADDRESSING_N1;
+            WO_JIT_ADDRESSING_N2;
+
+            auto op1 = opnum1.gp_value();
+            auto op2 = opnum2.gp_value();
+
+            auto divisor_val = ctx->c.newInt64();
+            auto div_zero_ok = ctx->c.newLabel();
+            wo_assure(!ctx->c.mov(divisor_val, asmjit::x86::qword_ptr(op2, offsetof(value, integer))));
+            wo_assure(!ctx->c.cmp(divisor_val, asmjit::Imm(0)));
+            wo_assure(!ctx->c.jne(div_zero_ok));
+            x86_do_fail(ctx, WO_FAIL_UNEXPECTED,
+                asmjit::Imm((intptr_t)"The divisor cannot be 0."), rt_ip);
+            wo_assure(!ctx->c.bind(div_zero_ok));
+            auto div_overflow_ok = ctx->c.newLabel();
+            wo_assure(!ctx->c.cmp(divisor_val, asmjit::Imm(-1)));
+            wo_assure(!ctx->c.jne(div_overflow_ok));
+            wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(op1, offsetof(value, integer)), asmjit::Imm(INT64_MIN)));
+            wo_assure(!ctx->c.jne(div_overflow_ok));
+            x86_do_fail(ctx, WO_FAIL_UNEXPECTED,
+                asmjit::Imm((intptr_t)"Division overflow."), rt_ip);
+            wo_assure(!ctx->c.bind(div_overflow_ok));
+
+            return true;
+        }
+        virtual bool ir_ext_cdivil(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip) override
+        {
+            WO_JIT_ADDRESSING_N1;
+
+            auto op1 = opnum1.gp_value();
+
+            auto div_overflow_ok = ctx->c.newLabel();
+            wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(op1, offsetof(value, integer)), asmjit::Imm(INT64_MIN)));
+            wo_assure(!ctx->c.jne(div_overflow_ok));
+            x86_do_fail(ctx, WO_FAIL_UNEXPECTED,
+                asmjit::Imm((intptr_t)"Division overflow."), rt_ip);
+            wo_assure(!ctx->c.bind(div_overflow_ok));
+
+            return true;
+        }
+        virtual bool ir_ext_cdivirz(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip) override
+        {
+            WO_JIT_ADDRESSING_N1;
+
+            auto op1 = opnum1.gp_value();
+
+            auto div_zero_ok = ctx->c.newLabel();
+            wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(op1, offsetof(value, integer)), asmjit::Imm(0)));
+            wo_assure(!ctx->c.jne(div_zero_ok));
+            x86_do_fail(ctx, WO_FAIL_UNEXPECTED,
+                asmjit::Imm((intptr_t)"The divisor cannot be 0."), rt_ip);
+            wo_assure(!ctx->c.bind(div_zero_ok));
+
+            return true;
+        }
+        virtual bool ir_ext_cdivir(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip) override
+        {
+            WO_JIT_ADDRESSING_N1;
+
+            auto op1 = opnum1.gp_value();
+
+            auto divisor_val = ctx->c.newInt64();
+            auto div_zero_ok = ctx->c.newLabel();
+            wo_assure(!ctx->c.mov(divisor_val, asmjit::x86::qword_ptr(op1, offsetof(value, integer))));
+            wo_assure(!ctx->c.cmp(divisor_val, asmjit::Imm(0)));
+            wo_assure(!ctx->c.jne(div_zero_ok));
+            x86_do_fail(ctx, WO_FAIL_UNEXPECTED,
+                asmjit::Imm((intptr_t)"The divisor cannot be 0."), rt_ip);
+            wo_assure(!ctx->c.bind(div_zero_ok));
+            auto div_overflow_ok = ctx->c.newLabel();
+            wo_assure(!ctx->c.cmp(divisor_val, asmjit::Imm(-1)));
+            wo_assure(!ctx->c.jne(div_overflow_ok));
+            x86_do_fail(ctx, WO_FAIL_UNEXPECTED,
+                asmjit::Imm((intptr_t)"Division overflow."), rt_ip);
+            wo_assure(!ctx->c.bind(div_overflow_ok));
 
             return true;
         }

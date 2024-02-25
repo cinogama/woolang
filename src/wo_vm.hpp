@@ -858,6 +858,18 @@ namespace wo
                         case instruct::extern_opcode_page_0::panic:
                             tmpos << "panic\t"; print_opnum1();
                             break;
+                        case instruct::extern_opcode_page_0::cdivilr:
+                            tmpos << "cdivilr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2();
+                            break;
+                        case instruct::extern_opcode_page_0::cdivil:
+                            tmpos << "cdivil\t"; print_opnum1();
+                            break;
+                        case instruct::extern_opcode_page_0::cdivirz:
+                            tmpos << "cdivirz\t"; print_opnum1();
+                            break;
+                        case instruct::extern_opcode_page_0::cdivir:
+                            tmpos << "cdivir\t"; print_opnum1();
+                            break;
                         default:
                             tmpos << "??\t";
                             break;
@@ -1778,7 +1790,7 @@ namespace wo
                             (WO_IPVAL_MOVE_1 + reg_begin)
 
 #define WO_VM_FAIL(ERRNO,ERRINFO) \
-    {ip = rt_ip;sp = rt_sp;bp = rt_bp;wo_fail(ERRNO,ERRINFO);continue;}
+    do{ip = rt_ip;sp = rt_sp;bp = rt_bp;wo_fail(ERRNO,ERRINFO);continue;}while(0)
 #ifdef NDEBUG
 #define WO_VM_ASSERT(EXPR, REASON) wo_assert(EXPR, REASON)
 #else
@@ -1876,6 +1888,8 @@ namespace wo
                         && opnum1->type == value::valuetype::integer_type, "Operand should be integer in 'divi'.");
 
                     WO_VM_ASSERT(opnum2->integer != 0, "The divisor cannot be 0.");
+                    WO_VM_ASSERT(opnum2->integer != -1 || opnum1->integer != INT64_MIN, "Division overflow.");
+
                     opnum1->integer /= opnum2->integer;
                     break;
                 }
@@ -1888,6 +1902,8 @@ namespace wo
                         && opnum1->type == value::valuetype::integer_type, "Operand should be integer in 'modi'.");
 
                     WO_VM_ASSERT(opnum2->integer != 0, "The divisor cannot be 0.");
+                    WO_VM_ASSERT(opnum2->integer != -1 || opnum1->integer != INT64_MIN, "Division overflow.");
+
                     opnum1->integer %= opnum2->integer;
                     break;
                 }
@@ -2738,6 +2754,18 @@ namespace wo
                     case 0:     // extern-opcode-page-0
                         switch ((instruct::extern_opcode_page_0)(opcode))
                         {
+                        case instruct::extern_opcode_page_0::panic:
+                        {
+                            WO_ADDRESSING_N1; // data
+
+                            ip = rt_ip; 
+                            sp = rt_sp; 
+                            bp = rt_bp;
+
+                            wo_fail(WO_FAIL_UNEXPECTED,
+                                "%s", wo_cast_string(std::launder(reinterpret_cast<wo_value>(opnum1))));
+                            break;
+                        }
                         case instruct::extern_opcode_page_0::packargs:
                         {
                             uint16_t skip_closure_arg_count = WO_IPVAL_MOVE_2;
@@ -2748,12 +2776,45 @@ namespace wo
                             packargs_impl(opnum1, opnum2, tc, rt_bp, skip_closure_arg_count);
                             break;
                         }
-                        case instruct::extern_opcode_page_0::panic:
+                        case instruct::extern_opcode_page_0::cdivilr:
                         {
-                            WO_ADDRESSING_N1; // data
+                            WO_ADDRESSING_N1;
+                            WO_ADDRESSING_N2;
 
-                            wo_fail(WO_FAIL_UNEXPECTED, 
-                                "%s", wo_cast_string(std::launder(reinterpret_cast<wo_value>(opnum1))));
+                            if (opnum2->integer == 0)
+                                WO_VM_FAIL(WO_FAIL_UNEXPECTED, "The divisor cannot be 0.");
+                            else if (opnum2->integer == -1 && opnum1->integer == INT64_MIN)
+                                WO_VM_FAIL(WO_FAIL_UNEXPECTED, "Division overflow.");
+
+                            break;
+                        }
+                        case instruct::extern_opcode_page_0::cdivil:
+                        {
+                            WO_ADDRESSING_N1;
+
+                            if (opnum1->integer == INT64_MIN)
+                                WO_VM_FAIL(WO_FAIL_UNEXPECTED, "Division overflow.");
+
+                            break;
+                        }
+                        case instruct::extern_opcode_page_0::cdivirz:
+                        {
+                            WO_ADDRESSING_N1;
+
+                            if (opnum1->integer == 0)
+                                WO_VM_FAIL(WO_FAIL_UNEXPECTED, "The divisor cannot be 0.");
+
+                            break;
+                        }
+                        case instruct::extern_opcode_page_0::cdivir:
+                        {
+                            WO_ADDRESSING_N1;
+
+                            if (opnum1->integer == 0)
+                                WO_VM_FAIL(WO_FAIL_UNEXPECTED, "The divisor cannot be 0.");
+                            else if (opnum1->integer == -1)
+                                WO_VM_FAIL(WO_FAIL_UNEXPECTED, "Division overflow.");
+
                             break;
                         }
                         default:
