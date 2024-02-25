@@ -25,7 +25,7 @@ namespace wo
 
     // FOR BigEndian
 #define WO_SAFE_READ_OFFSET_PER_BYTE(OFFSET, TYPE) (((TYPE)(*(rt_ip-OFFSET)))<<((sizeof(TYPE)-OFFSET)*8))
-#define WO_IS_ODD_IRPTR(ALLIGN) 1 //(reinterpret_cast<size_t>(rt_ip)%ALLIGN)
+#define WO_IS_ODD_IRPTR(ALLIGN) 1 // NOTE: Always odd for safe reading.
 
 #define WO_SAFE_READ_MOVE_2 (rt_ip+=2,WO_IS_ODD_IRPTR(2)?\
                                     (WO_SAFE_READ_OFFSET_PER_BYTE(2,uint16_t)|WO_SAFE_READ_OFFSET_PER_BYTE(1,uint16_t)):\
@@ -42,8 +42,6 @@ namespace wo
                                     WO_SAFE_READ_OFFSET_GET_QWORD)
 #define WO_IPVAL (*(rt_ip))
 #define WO_IPVAL_MOVE_1 (*(rt_ip++))
-
-            // X86 support non-alligned addressing, so just do it!
 
 #define WO_IPVAL_MOVE_2 WO_SAFE_READ_MOVE_2
 #define WO_IPVAL_MOVE_4 WO_SAFE_READ_MOVE_4
@@ -164,13 +162,14 @@ WO_ASMJIT_IR_ITERFACE_DECL(equs)\
 WO_ASMJIT_IR_ITERFACE_DECL(nequs)\
 WO_ASMJIT_IR_ITERFACE_DECL(siddict)\
 WO_ASMJIT_IR_ITERFACE_DECL(jnequb)\
-WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
+WO_ASMJIT_IR_ITERFACE_DECL(idstruct)\
+WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
+
 #define WO_ASMJIT_IR_ITERFACE_DECL(IRNAME) virtual bool ir_##IRNAME(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
         IRS
         
         virtual bool ir_ext_panic(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
         virtual bool ir_ext_packargs(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
-        virtual bool ir_ext_unpackargs(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
 
         virtual void ir_make_checkpoint(CompileContextT* ctx, const byte_t*& rt_ip) = 0;
 #undef WO_ASMJIT_IR_ITERFACE_DECL
@@ -251,11 +250,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                             {
                             case instruct::extern_opcode_page_0::packargs:
                                 if (ir_ext_packargs(ctx, dr, rt_ip))
-                                    break;
-                                else
-                                    WO_JIT_NOT_SUPPORT;
-                            case instruct::extern_opcode_page_0::unpackargs:
-                                if (ir_ext_unpackargs(ctx, dr, rt_ip))
                                     break;
                                 else
                                     WO_JIT_NOT_SUPPORT;
@@ -2143,6 +2137,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
         virtual bool ir_mkclos(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
             asmjit::InvokeNode* invoke_node;
+
+            // NOTE: in x64, use make_closure_fast_impl.
             wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::make_closure_fast_impl,
                 asmjit::FuncSignatureT<value*, value*, const byte_t*, value*>()));
 
@@ -2520,21 +2516,20 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
 
             return true;
         }
-        virtual bool ir_ext_unpackargs(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip) override
+        virtual bool ir_unpackargs(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip) override
         {
             WO_JIT_ADDRESSING_N1;
-            WO_JIT_ADDRESSING_N2;
+            auto unpack_argc_unsigned = WO_IPVAL_MOVE_4;
 
             auto op1 = opnum1.gp_value();
-            auto op2 = opnum2.gp_value();
 
             asmjit::InvokeNode* invoke_node;
             wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::unpackargs_impl,
-                asmjit::FuncSignatureT<wo::value*, vmbase*, value*, value*, value*, const byte_t*, value*, value*>()));
+                asmjit::FuncSignatureT<wo::value*, vmbase*, int32_t, value*, value*, const byte_t*, value*, value*>()));
 
             invoke_node->setArg(0, ctx->_vmbase);
             invoke_node->setArg(1, op1);
-            invoke_node->setArg(2, op2);
+            invoke_node->setArg(2, asmjit::Imm(reinterpret_cast<int32_t&>(unpack_argc_unsigned)));
             invoke_node->setArg(3, ctx->_vmtc);
             invoke_node->setArg(4, asmjit::Imm((intptr_t)rt_ip));
             invoke_node->setArg(5, ctx->_vmssp);

@@ -6041,7 +6041,7 @@ namespace wo
                         if (a_fakevalue_unpacked_args->unpacked_pack->value_type->is_tuple())
                         {
                             extern_unpack_arg_count += a_fakevalue_unpacked_args->expand_count - 1;
-                            compiler->ext_unpackargs(packing, a_fakevalue_unpacked_args->expand_count);
+                            compiler->unpackargs(packing, a_fakevalue_unpacked_args->expand_count);
                         }
                         else
                         {
@@ -6050,8 +6050,7 @@ namespace wo
                             else
                                 extern_unpack_arg_count += a_fakevalue_unpacked_args->expand_count - 1;
 
-                            compiler->ext_unpackargs(packing,
-                                a_fakevalue_unpacked_args->expand_count);
+                            compiler->unpackargs(packing, a_fakevalue_unpacked_args->expand_count);
                         }
                         complete_using_register(packing);
                     }

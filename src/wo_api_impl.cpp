@@ -2121,8 +2121,7 @@ void wo_abort_all_vm_to_exit()
 wo_integer_t wo_lengthof(wo_value value)
 {
     auto _rsvalue = WO_VAL(value);
-    if (_rsvalue->is_nil())
-        return 0;
+
     if (_rsvalue->type == wo::value::valuetype::array_type)
     {
         wo::gcbase::gc_read_guard rg1(_rsvalue->array);
@@ -2885,9 +2884,7 @@ wo_bool_t wo_struct_try_get(wo_value out_val, wo_value value, uint16_t offset)
 {
     auto _struct = WO_VAL(value);
 
-    if (_struct->is_nil())
-        wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
-    else if (_struct->type == wo::value::valuetype::struct_type)
+    if (_struct->type == wo::value::valuetype::struct_type)
     {
         wo::struct_t* struct_impl = _struct->structs;
         wo::gcbase::gc_read_guard gwg1(struct_impl);
@@ -2905,9 +2902,7 @@ wo_bool_t wo_struct_try_set(wo_value value, uint16_t offset, wo_value val)
 {
     auto _struct = WO_VAL(value);
 
-    if (_struct->is_nil())
-        wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
-    else if (_struct->type == wo::value::valuetype::struct_type)
+    if (_struct->type == wo::value::valuetype::struct_type)
     {
         wo::struct_t* struct_impl = _struct->structs;
         wo::gcbase::gc_read_guard gwg1(struct_impl);
@@ -2957,9 +2952,7 @@ void wo_arr_resize(wo_value arr, wo_int_t newsz, wo_value init_val)
 {
     auto _arr = WO_VAL(arr);
 
-    if (_arr->is_nil())
-        wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
-    else if (_arr->type == wo::value::valuetype::array_type)
+    if (_arr->type == wo::value::valuetype::array_type)
     {
         wo::gcbase::gc_write_guard g1(_arr->array);
         size_t arrsz = _arr->array->size();
@@ -2981,9 +2974,7 @@ wo_bool_t wo_arr_insert(wo_value arr, wo_int_t place, wo_value val)
 {
     auto _arr = WO_VAL(arr);
 
-    if (_arr->is_nil())
-        wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
-    else if (_arr->type == wo::value::valuetype::array_type)
+    if (_arr->type == wo::value::valuetype::array_type)
     {
         wo::gcbase::gc_write_guard g1(_arr->array);
 
@@ -3003,9 +2994,7 @@ wo_bool_t wo_arr_insert(wo_value arr, wo_int_t place, wo_value val)
 wo_bool_t wo_arr_try_set(wo_value arr, wo_int_t index, wo_value val)
 {
     auto _arr = WO_VAL(arr);
-    if (_arr->is_nil())
-        wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
-    else if (_arr->type == wo::value::valuetype::array_type)
+    if (_arr->type == wo::value::valuetype::array_type)
     {
         wo::gcbase::gc_write_guard g1(_arr->array);
 
@@ -3031,9 +3020,7 @@ void wo_arr_add(wo_value arr, wo_value elem)
 {
     auto _arr = WO_VAL(arr);
 
-    if (_arr->is_nil())
-        wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
-    else if (_arr->type == wo::value::valuetype::array_type)
+    if (_arr->type == wo::value::valuetype::array_type)
     {
         wo::gcbase::gc_write_guard g1(_arr->array);
 
@@ -3049,9 +3036,7 @@ void wo_arr_add(wo_value arr, wo_value elem)
 wo_bool_t wo_arr_try_get(wo_value out_val, wo_value arr, wo_int_t index)
 {
     auto _arr = WO_VAL(arr);
-    if (_arr->is_nil())
-        wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
-    else if (_arr->type == wo::value::valuetype::array_type)
+    if (_arr->type == wo::value::valuetype::array_type)
     {
         wo::gcbase::gc_read_guard g1(_arr->array);
 
@@ -3081,9 +3066,7 @@ void wo_map_get(wo_value out_val, wo_value map, wo_value index)
 wo_bool_t wo_arr_front(wo_value out_val, wo_value arr)
 {
     auto _arr = WO_VAL(arr);
-    if (_arr->is_nil())
-        wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
-    else if (_arr->type == wo::value::valuetype::array_type)
+    if (_arr->type == wo::value::valuetype::array_type)
     {
         wo::gcbase::gc_read_guard g1(_arr->array);
         if (!_arr->array->empty())
@@ -3100,9 +3083,7 @@ wo_bool_t wo_arr_front(wo_value out_val, wo_value arr)
 wo_bool_t wo_arr_back(wo_value out_val, wo_value arr)
 {
     auto _arr = WO_VAL(arr);
-    if (_arr->is_nil())
-        wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
-    else if (_arr->type == wo::value::valuetype::array_type)
+    if (_arr->type == wo::value::valuetype::array_type)
     {
         wo::gcbase::gc_read_guard g1(_arr->array);
         if (!_arr->array->empty())
@@ -3134,9 +3115,7 @@ void wo_arr_back_val(wo_value out_val, wo_value arr)
 wo_bool_t wo_arr_pop_front(wo_value out_val, wo_value arr)
 {
     auto _arr = WO_VAL(arr);
-    if (_arr->is_nil())
-        wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
-    else if (_arr->type == wo::value::valuetype::array_type)
+    if (_arr->type == wo::value::valuetype::array_type)
     {
         wo::gcbase::gc_write_guard g1(_arr->array);
 
@@ -3155,9 +3134,7 @@ wo_bool_t wo_arr_pop_front(wo_value out_val, wo_value arr)
 wo_bool_t wo_arr_pop_back(wo_value out_val, wo_value arr)
 {
     auto _arr = WO_VAL(arr);
-    if (_arr->is_nil())
-        wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
-    else if (_arr->type == wo::value::valuetype::array_type)
+    if (_arr->type == wo::value::valuetype::array_type)
     {
         wo::gcbase::gc_write_guard g1(_arr->array);
 
@@ -3194,9 +3171,7 @@ wo_int_t wo_arr_find(wo_value arr, wo_value elem)
 {
     auto _arr = WO_VAL(arr);
     auto _aim = WO_VAL(elem);
-    if (_arr->is_nil())
-        wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
-    else if (_arr->type == wo::value::valuetype::array_type)
+    if (_arr->type == wo::value::valuetype::array_type)
     {
         wo::gcbase::gc_read_guard g1(_arr->array);
 
@@ -3209,7 +3184,7 @@ wo_int_t wo_arr_find(wo_value arr, wo_value elem)
                         return *_elem.string == *_aim->string;
                     return _elem.handle == _aim->handle;
                 }
-                return false;
+        return false;
             });
         if (fnd != _arr->array->end())
             return fnd - _arr->array->begin();
@@ -3222,9 +3197,7 @@ wo_int_t wo_arr_find(wo_value arr, wo_value elem)
 wo_bool_t wo_arr_remove(wo_value arr, wo_int_t index)
 {
     auto _arr = WO_VAL(arr);
-    if (_arr->is_nil())
-        wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
-    else if (_arr->type == wo::value::valuetype::array_type)
+    if (_arr->type == wo::value::valuetype::array_type)
     {
         wo::gcbase::gc_write_guard g1(_arr->array);
 
@@ -3248,9 +3221,7 @@ wo_bool_t wo_arr_remove(wo_value arr, wo_int_t index)
 void wo_arr_clear(wo_value arr)
 {
     auto _arr = WO_VAL(arr);
-    if (_arr->is_nil())
-        wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
-    else if (_arr->type == wo::value::valuetype::array_type)
+    if (_arr->type == wo::value::valuetype::array_type)
     {
         wo::gcbase::gc_write_guard g1(_arr->array);
         if (wo::gc::gc_is_marking())
@@ -3265,9 +3236,7 @@ void wo_arr_clear(wo_value arr)
 wo_bool_t wo_arr_is_empty(wo_value arr)
 {
     auto _arr = WO_VAL(arr);
-    if (_arr->is_nil())
-        wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
-    else if (_arr->type == wo::value::valuetype::array_type)
+    if (_arr->type == wo::value::valuetype::array_type)
     {
         wo::gcbase::gc_read_guard g1(_arr->array);
         return WO_CBOOL(_arr->array->empty());
@@ -3280,9 +3249,7 @@ wo_bool_t wo_arr_is_empty(wo_value arr)
 wo_bool_t wo_map_find(wo_value map, wo_value index)
 {
     auto _map = WO_VAL(map);
-    if (_map->is_nil())
-        wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
-    else if (_map->type == wo::value::valuetype::dict_type)
+    if (_map->type == wo::value::valuetype::dict_type)
     {
         wo::gcbase::gc_read_guard g1(_map->dict);
         if (index)
@@ -3298,9 +3265,7 @@ wo_bool_t wo_map_find(wo_value map, wo_value index)
 wo_bool_t wo_map_get_or_set_default(wo_value out_val, wo_value map, wo_value index, wo_value default_value)
 {
     auto _map = WO_VAL(map);
-    if (_map->is_nil())
-        wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
-    else if (_map->type == wo::value::valuetype::dict_type)
+    if (_map->type == wo::value::valuetype::dict_type)
     {
         wo::value* store_val = nullptr;
         wo::gcbase::gc_write_guard g1(_map->dict);
@@ -3328,9 +3293,7 @@ wo_bool_t wo_map_get_or_set_default(wo_value out_val, wo_value map, wo_value ind
 wo_bool_t wo_map_get_or_default(wo_value out_val, wo_value map, wo_value index, wo_value default_value)
 {
     auto _map = WO_VAL(map);
-    if (_map->is_nil())
-        wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
-    else if (_map->type == wo::value::valuetype::dict_type)
+    if (_map->type == wo::value::valuetype::dict_type)
     {
         wo::value* result = nullptr;
         wo::gcbase::gc_read_guard g1(_map->dict);
@@ -3358,9 +3321,7 @@ wo_bool_t wo_map_get_or_default(wo_value out_val, wo_value map, wo_value index, 
 wo_bool_t wo_map_try_get(wo_value out_val, wo_value map, wo_value index)
 {
     auto _map = WO_VAL(map);
-    if (_map->is_nil())
-        wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
-    else if (_map->type == wo::value::valuetype::dict_type)
+    if (_map->type == wo::value::valuetype::dict_type)
     {
         wo::gcbase::gc_read_guard g1(_map->dict);
         auto fnd = _map->dict->find(*WO_VAL(index));
@@ -3379,9 +3340,7 @@ wo_bool_t wo_map_try_get(wo_value out_val, wo_value map, wo_value index)
 void wo_map_set(wo_value map, wo_value index, wo_value val)
 {
     auto _map = WO_VAL(map);
-    if (_map->is_nil())
-        wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
-    else if (_map->type == wo::value::valuetype::dict_type)
+    if (_map->type == wo::value::valuetype::dict_type)
     {
         wo::gcbase::gc_write_guard g1(_map->dict);
         auto* store_val = &(*_map->dict)[*WO_VAL(index)];
@@ -3395,9 +3354,7 @@ void wo_map_set(wo_value map, wo_value index, wo_value val)
 wo_bool_t wo_map_remove(wo_value map, wo_value index)
 {
     auto _map = WO_VAL(map);
-    if (_map->is_nil())
-        wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
-    else if (_map->type == wo::value::valuetype::dict_type)
+    if (_map->type == wo::value::valuetype::dict_type)
     {
         wo::gcbase::gc_write_guard g1(_map->dict);
         if (wo::gc::gc_is_marking())
@@ -3419,9 +3376,7 @@ wo_bool_t wo_map_remove(wo_value map, wo_value index)
 void wo_map_clear(wo_value map)
 {
     auto _map = WO_VAL(map);
-    if (_map->is_nil())
-        wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
-    else if (_map->type == wo::value::valuetype::dict_type)
+    if (_map->type == wo::value::valuetype::dict_type)
     {
         wo::gcbase::gc_write_guard g1(_map->dict);
         if (wo::gc::gc_is_marking())
@@ -3441,9 +3396,7 @@ void wo_map_clear(wo_value map)
 wo_bool_t wo_map_is_empty(wo_value map)
 {
     auto _map = WO_VAL(map);
-    if (_map->is_nil())
-        wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
-    else if (_map->type == wo::value::valuetype::dict_type)
+    if (_map->type == wo::value::valuetype::dict_type)
     {
         wo::gcbase::gc_read_guard g1(_map->dict);
         return WO_CBOOL(_map->dict->empty());
@@ -3458,9 +3411,7 @@ void wo_map_keys(wo_value out_val, wo_vm vm, wo_value map)
     _wo_enter_gc_guard g(vm);
 
     auto _map = WO_VAL(map);
-    if (_map->is_nil())
-        wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
-    else if (_map->type == wo::value::valuetype::dict_type)
+    if (_map->type == wo::value::valuetype::dict_type)
     {
         wo::gcbase::gc_read_guard g1(_map->dict);
         auto* keys = wo::array_t::gc_new<wo::gcbase::gctype::young>(_map->dict->size());
@@ -3480,9 +3431,7 @@ void wo_map_vals(wo_value out_val, wo_vm vm, wo_value map)
     _wo_enter_gc_guard g(vm);
 
     auto _map = WO_VAL(map);
-    if (_map->is_nil())
-        wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
-    else if (_map->type == wo::value::valuetype::dict_type)
+    if (_map->type == wo::value::valuetype::dict_type)
     {
         wo::gcbase::gc_read_guard g1(_map->dict);
         auto* vals = wo::array_t::gc_new<wo::gcbase::gctype::young>(_map->dict->size());

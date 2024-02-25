@@ -138,5 +138,30 @@ namespace wo
         *   handle the situation where symbols are indeed lost.
         */
         inline bool ENABLE_IGNORE_NOT_FOUND_EXTERN_SYMBOL = false;
+
+        /*
+        * ENABLE_CHECK_DIVISOR_ZERO = true
+        * --------------------------------------------------------------------
+        *   Whether to check the divisor is zero when the division operation
+        * is performed.
+        *   If enabled, compiler will generate some extra code for checking.
+        * --------------------------------------------------------------------
+        * ATTENTION:
+        *   Enabled by default for safety, disable it for better performance.
+        */
+        inline bool ENABLE_CHECK_DIVISOR_ZERO = true;
+
+        /*
+        * ENABLE_CHECK_DIVISION_OVERFLOW = false
+        * --------------------------------------------------------------------
+        *   Whether to check the overflow when the division operation is
+        * performed. in some platform, division overflow will cause the
+        * program to crash.
+        *   If enabled, compiler will generate some extra code for checking.
+        * --------------------------------------------------------------------
+        * ATTENTION:
+        *   Enabled by default for safety, disable it for better performance.
+        */
+        inline bool ENABLE_CHECK_DIVISION_OVERFLOW = true;
     }
 }

@@ -166,10 +166,6 @@ namespace wo
             native_function_addr = ipplace;
             return this;
         }
-        inline bool is_nil() const
-        {
-            return type == valuetype::invalid || (is_gcunit() && gcunit == nullptr);
-        }
 
         template<valuetype ty, typename T>
         inline value* set_gcunit(T* unit)

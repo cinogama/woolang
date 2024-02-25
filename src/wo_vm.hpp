@@ -825,7 +825,17 @@ namespace wo
                 case instruct::equs:
                     tmpos << "equs\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
                 case instruct::nequs:
-                    tmpos << "nequs\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                    tmpos << "nequs\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;\
+                case instruct::unpackargs:
+                {
+                    tmpos << "unpackargs\t"; print_opnum1();
+                    int32_t unpack_argc = *(int32_t*)((this_command_ptr += 4) - 4);
+                    if (unpack_argc >= 0)
+                        tmpos << "\tcount = " << unpack_argc;
+                    else
+                        tmpos << "\tleast = " << -unpack_argc;
+                    break;                        
+                }
                 case instruct::ext:
                 {
                     tmpos << "ext ";
@@ -845,8 +855,6 @@ namespace wo
                                 tmpos << ": skip " << skip_closure;
                             break;
                         }
-                        case instruct::extern_opcode_page_0::unpackargs:
-                            tmpos << "unpackargs\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
                         case instruct::extern_opcode_page_0::panic:
                             tmpos << "panic\t"; print_opnum1();
                             break;
@@ -1510,15 +1518,16 @@ namespace wo
         }
         inline static value* make_closure_safe_impl(value* opnum1, const byte_t* rt_ip, value* rt_sp)
         {
-            uint16_t closure_arg_count = WO_FAST_READ_MOVE_2;
+            bool is_native_call = !!(0b0011 & *(rt_ip - 1));
+            uint16_t closure_arg_count = WO_SAFE_READ_MOVE_2;
 
             auto* created_closure = closure_t::gc_new<gcbase::gctype::young>(closure_arg_count);
-            created_closure->m_native_call = !!(0b0011 & *(rt_ip - 1));
+            created_closure->m_native_call = is_native_call;
 
-            if (created_closure->m_native_call)
-                created_closure->m_native_func = (wo_native_func)WO_FAST_READ_MOVE_8;
+            if (is_native_call)
+                created_closure->m_native_func = (wo_native_func)WO_SAFE_READ_MOVE_8;
             else
-                created_closure->m_vm_func = WO_FAST_READ_MOVE_4;
+                created_closure->m_vm_func = WO_SAFE_READ_MOVE_4;
 
             for (size_t i = 0; i < (size_t)closure_arg_count; i++)
             {
@@ -1573,22 +1582,15 @@ namespace wo
             }
             opnum1->set_gcunit<wo::value::valuetype::array_type>(packed_array);
         }
-        inline static value* unpackargs_impl(vmbase* vm, value* opnum1, value* opnum2, value* tc, const byte_t* rt_ip, value* rt_sp, value* rt_bp)
+        inline static value* unpackargs_impl(vmbase* vm, value* opnum1, int32_t unpack_argc, value* tc, const byte_t* rt_ip, value* rt_sp, value* rt_bp)
         {
-            if (opnum1->is_nil())
-            {
-                vm->ip = rt_ip;
-                vm->sp = rt_sp;
-                vm->bp = rt_bp;
-                wo_fail(WO_FAIL_INDEX_FAIL, "Only valid array/struct can used in unpack.");
-            }
-            else if (opnum1->type == value::valuetype::struct_type)
+            if (opnum1->type == value::valuetype::struct_type)
             {
                 auto* arg_tuple = opnum1->structs;
                 gcbase::gc_read_guard gwg1(arg_tuple);
-                if (opnum2->integer > 0)
+                if (unpack_argc > 0)
                 {
-                    if ((size_t)opnum2->integer > (size_t)arg_tuple->m_count)
+                    if ((size_t)unpack_argc > (size_t)arg_tuple->m_count)
                     {
                         vm->ip = rt_ip;
                         vm->sp = rt_sp;
@@ -1597,13 +1599,13 @@ namespace wo
                     }
                     else
                     {
-                        for (uint16_t i = (uint16_t)opnum2->integer; i > 0; --i)
+                        for (uint16_t i = (uint16_t)unpack_argc; i > 0; --i)
                             (rt_sp--)->set_val(&arg_tuple->m_values[i - 1]);
                     }
                 }
                 else
                 {
-                    if ((size_t)arg_tuple->m_count < (size_t)(-opnum2->integer))
+                    if ((size_t)arg_tuple->m_count < (size_t)(-unpack_argc))
                     {
                         vm->ip = rt_ip;
                         vm->sp = rt_sp;
@@ -1618,12 +1620,12 @@ namespace wo
             }
             else if (opnum1->type == value::valuetype::array_type)
             {
-                if (opnum2->integer > 0)
+                if (unpack_argc > 0)
                 {
                     auto* arg_array = opnum1->array;
                     gcbase::gc_read_guard gwg1(arg_array);
 
-                    if ((size_t)opnum2->integer > arg_array->size())
+                    if ((size_t)unpack_argc > arg_array->size())
                     {
                         vm->ip = rt_ip;
                         vm->sp = rt_sp;
@@ -1632,7 +1634,7 @@ namespace wo
                     }
                     else
                     {
-                        for (auto arg_idx = arg_array->rbegin() + (size_t)((wo_integer_t)arg_array->size() - opnum2->integer);
+                        for (auto arg_idx = arg_array->rbegin() + (size_t)((wo_integer_t)arg_array->size() - unpack_argc);
                             arg_idx != arg_array->rend();
                             arg_idx++)
                             (rt_sp--)->set_val(&*arg_idx);
@@ -1643,7 +1645,7 @@ namespace wo
                     auto* arg_array = opnum1->array;
                     gcbase::gc_read_guard gwg1(arg_array);
 
-                    if (arg_array->size() < (size_t)(-opnum2->integer))
+                    if (arg_array->size() < (size_t)(-unpack_argc))
                     {
                         vm->ip = rt_ip;
                         vm->sp = rt_sp;
@@ -2712,6 +2714,16 @@ namespace wo
 
                     break;
                 }
+                case instruct::unpackargs:
+                {
+                    WO_ADDRESSING_N1;
+
+                    auto unpack_argc_unsigned = WO_IPVAL_MOVE_4;
+                    rt_sp = unpackargs_impl(
+                        this, opnum1, reinterpret_cast<int32_t&>(unpack_argc_unsigned),
+                        tc, rt_ip, rt_sp, rt_bp);
+                    break;
+                }
                 case instruct::opcode::ext:
                 {
                     // extern code page:
@@ -2734,14 +2746,6 @@ namespace wo
                             WO_ADDRESSING_N2;
 
                             packargs_impl(opnum1, opnum2, tc, rt_bp, skip_closure_arg_count);
-                            break;
-                        }
-                        case instruct::extern_opcode_page_0::unpackargs:
-                        {
-                            WO_ADDRESSING_N1;
-                            WO_ADDRESSING_N2;
-
-                            rt_sp = unpackargs_impl(this, opnum1, opnum2, tc, rt_ip, rt_sp, rt_bp);
                             break;
                         }
                         case instruct::extern_opcode_page_0::panic:

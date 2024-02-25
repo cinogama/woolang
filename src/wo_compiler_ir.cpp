@@ -1698,6 +1698,19 @@ namespace wo
                 temp_this_command_code_buf.push_back(0x00);
                 break;
             }
+            case instruct::unpackargs:
+            {
+                temp_this_command_code_buf.push_back(WO_OPCODE(unpackargs));
+                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
+
+                byte_t* readptr = (byte_t*)&WO_IR.opinteger;
+                temp_this_command_code_buf.push_back(readptr[0]);
+                temp_this_command_code_buf.push_back(readptr[1]);
+                temp_this_command_code_buf.push_back(readptr[2]);
+                temp_this_command_code_buf.push_back(readptr[3]);
+
+                break;
+            }
             case instruct::opcode::ext:
 
                 switch (WO_IR.ext_page_id)
@@ -1720,11 +1733,6 @@ namespace wo
                         WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
                         break;
                     }
-                    case instruct::extern_opcode_page_0::unpackargs:
-                        temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(unpackargs));
-                        WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                        WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
-                        break;
                     case instruct::extern_opcode_page_0::panic:
                     {
                         temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(panic));

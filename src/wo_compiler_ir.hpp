@@ -1549,16 +1549,13 @@ namespace wo
         }
 
         template<typename OP1T>
-        void ext_unpackargs(const OP1T& op1, wo_integer_t unpack_count)
+        void unpackargs(const OP1T& op1, int32_t unpack_count)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value,
                 "Argument(s) should be opnum.");
 
-            opnum::imm<wo_integer_t> unpacked_count(unpack_count);
-
-            auto& codeb = WO_PUT_IR_TO_BUFFER(instruct::opcode::ext, WO_OPNUM(op1), WO_OPNUM(unpacked_count));
-            codeb.ext_page_id = 0;
-            codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::unpackargs;
+            auto& codeb = WO_PUT_IR_TO_BUFFER(
+                instruct::opcode::unpackargs, WO_OPNUM(op1), nullptr, unpack_count);
         }
 
 #undef WO_OPNUM
