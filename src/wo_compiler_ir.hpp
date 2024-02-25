@@ -1589,16 +1589,7 @@ namespace wo
             codeb.ext_page_id = 0;
             codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::cdivirz;
         }
-        template<typename OP1T>
-        void ext_cdiviro(const OP1T& op1)
-        {
-            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value,
-                "Argument(s) should be opnum.");
-
-            auto& codeb = WO_PUT_IR_TO_BUFFER(instruct::opcode::ext, WO_OPNUM(op1));
-            codeb.ext_page_id = 0;
-            codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::cdiviro;
-        }
+        
         template<typename OP1T>
         void ext_cdivir(const OP1T& op1)
         {
