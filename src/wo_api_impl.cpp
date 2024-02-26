@@ -83,7 +83,7 @@ void _default_fail_handler(wo_vm vm, wo_string_t src_file, uint32_t lineno, wo_s
         ? wo_leave_gcguard(reinterpret_cast<wo_vm>(cur_thread_vm))
         : false;
 
-    wo::wo_stderr << ANSI_HIR "WooLang Runtime happend a failure: "
+    wo::wo_stderr << ANSI_HIR "Woolang runtime happend a failure: "
         << ANSI_HIY << reason << " (Code: " << std::hex << rterrcode << std::dec << ")" << ANSI_RST << wo::wo_endl;
     wo::wo_stderr << "\tAt source: \t" << src_file << wo::wo_endl;
     wo::wo_stderr << "\tAt line: \t" << lineno << wo::wo_endl;
@@ -116,6 +116,7 @@ void _default_fail_handler(wo_vm vm, wo_string_t src_file, uint32_t lineno, wo_s
     {
         // Just halt it..
         wo::wo_stderr << ANSI_HIY "This is a heavy failure, halt." ANSI_RST << wo::wo_endl;
+
         if (cur_thread_vm != nullptr)
             wo_ret_halt(reinterpret_cast<wo_vm>(cur_thread_vm), reason);
     }
