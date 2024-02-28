@@ -1183,35 +1183,35 @@ namespace wo
                 temp_this_command_code_buf.push_back(WO_OPCODE(movcast));
                 WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
                 WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
-                temp_this_command_code_buf.push_back((byte_t)WO_IR.opinteger);
+                temp_this_command_code_buf.push_back((byte_t)WO_IR.opinteger1);
                 break;
             case instruct::opcode::typeas:
 
-                if (WO_IR.ext_page_id)
-                {
-                    temp_this_command_code_buf.push_back(WO_OPCODE(typeas) | 0b01);
-                    WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                    temp_this_command_code_buf.push_back((byte_t)WO_IR.opinteger);
-                }
-                else
+                if (WO_IR.opinteger2 == 0)
                 {
                     temp_this_command_code_buf.push_back(WO_OPCODE(typeas));
                     WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                    temp_this_command_code_buf.push_back((byte_t)WO_IR.opinteger);
+                    temp_this_command_code_buf.push_back((byte_t)WO_IR.opinteger1);
+                }
+                else
+                {
+                    temp_this_command_code_buf.push_back(WO_OPCODE(typeas) | 0b01);
+                    WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
+                    temp_this_command_code_buf.push_back((byte_t)WO_IR.opinteger1);
                 }
                 break;
             case instruct::opcode::psh:
                 if (nullptr == WO_IR.op1)
                 {
-                    if (WO_IR.opinteger == 0)
+                    if (WO_IR.opinteger1 == 0)
                         break;
 
                     temp_this_command_code_buf.push_back(WO_OPCODE(psh, 00));
 
-                    wo_assert(WO_IR.opinteger > 0 && WO_IR.opinteger <= UINT16_MAX
+                    wo_assert(WO_IR.opinteger1 > 0 && WO_IR.opinteger1 <= UINT16_MAX
                         , "Invalid count to reserve in stack.");
 
-                    uint16_t opushort = (uint16_t)WO_IR.opinteger;
+                    uint16_t opushort = (uint16_t)WO_IR.opinteger1;
                     byte_t* readptr = (byte_t*)&opushort;
                     temp_this_command_code_buf.push_back(readptr[0]);
                     temp_this_command_code_buf.push_back(readptr[1]);
@@ -1225,15 +1225,15 @@ namespace wo
             case instruct::opcode::pop:
                 if (nullptr == WO_IR.op1)
                 {
-                    if (WO_IR.opinteger == 0)
+                    if (WO_IR.opinteger1 == 0)
                         break;
 
                     temp_this_command_code_buf.push_back(WO_OPCODE(pop, 00));
 
-                    wo_assert(WO_IR.opinteger > 0 && WO_IR.opinteger <= UINT16_MAX
+                    wo_assert(WO_IR.opinteger1 > 0 && WO_IR.opinteger1 <= UINT16_MAX
                         , "Invalid count to pop from stack.");
 
-                    uint16_t opushort = (uint16_t)WO_IR.opinteger;
+                    uint16_t opushort = (uint16_t)WO_IR.opinteger1;
                     byte_t* readptr = (byte_t*)&opushort;
 
                     temp_this_command_code_buf.push_back(readptr[0]);
@@ -1432,7 +1432,7 @@ namespace wo
                 temp_this_command_code_buf.push_back(WO_OPCODE(mkstruct));
                 WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
 
-                uint16_t size = (uint16_t)(WO_IR.opinteger);
+                uint16_t size = (uint16_t)(WO_IR.opinteger1);
                 byte_t* readptr = (byte_t*)&size;
                 temp_this_command_code_buf.push_back(readptr[0]);
                 temp_this_command_code_buf.push_back(readptr[1]);
@@ -1444,7 +1444,7 @@ namespace wo
                 WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
                 WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
 
-                uint16_t size = (uint16_t)(WO_IR.opinteger);
+                uint16_t size = (uint16_t)(WO_IR.opinteger1);
                 byte_t* readptr = (byte_t*)&size;
                 temp_this_command_code_buf.push_back(readptr[0]);
                 temp_this_command_code_buf.push_back(readptr[1]);
@@ -1455,7 +1455,7 @@ namespace wo
                 temp_this_command_code_buf.push_back(WO_OPCODE(mkarr));
                 WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
 
-                uint16_t size = (uint16_t)(WO_IR.opinteger);
+                uint16_t size = (uint16_t)(WO_IR.opinteger1);
                 byte_t* readptr = (byte_t*)&size;
                 temp_this_command_code_buf.push_back(readptr[0]);
                 temp_this_command_code_buf.push_back(readptr[1]);
@@ -1466,7 +1466,7 @@ namespace wo
                 temp_this_command_code_buf.push_back(WO_OPCODE(mkmap));
                 WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
 
-                uint16_t size = (uint16_t)(WO_IR.opinteger);
+                uint16_t size = (uint16_t)(WO_IR.opinteger1);
                 byte_t* readptr = (byte_t*)&size;
                 temp_this_command_code_buf.push_back(readptr[0]);
                 temp_this_command_code_buf.push_back(readptr[1]);
@@ -1491,19 +1491,19 @@ namespace wo
                 temp_this_command_code_buf.push_back(WO_OPCODE(siddict));
                 WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
                 WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
-                opnum::reg((uint8_t)WO_IR.opinteger).generate_opnum_to_buffer(temp_this_command_code_buf);
+                opnum::reg((uint8_t)WO_IR.opinteger1).generate_opnum_to_buffer(temp_this_command_code_buf);
                 break;
             case instruct::opcode::sidmap:
                 temp_this_command_code_buf.push_back(WO_OPCODE(sidmap));
                 WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
                 WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
-                opnum::reg((uint8_t)WO_IR.opinteger).generate_opnum_to_buffer(temp_this_command_code_buf);
+                opnum::reg((uint8_t)WO_IR.opinteger1).generate_opnum_to_buffer(temp_this_command_code_buf);
                 break;
             case instruct::opcode::sidarr:
                 temp_this_command_code_buf.push_back(WO_OPCODE(sidarr));
                 WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
                 WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
-                opnum::reg((uint8_t)WO_IR.opinteger).generate_opnum_to_buffer(temp_this_command_code_buf);
+                opnum::reg((uint8_t)WO_IR.opinteger1).generate_opnum_to_buffer(temp_this_command_code_buf);
                 break;
             case instruct::opcode::sidstruct:
             {
@@ -1511,7 +1511,7 @@ namespace wo
                 WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
                 WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
 
-                uint16_t size = (uint16_t)(WO_IR.opinteger);
+                uint16_t size = (uint16_t)(WO_IR.opinteger1);
                 byte_t* readptr = (byte_t*)&size;
                 temp_this_command_code_buf.push_back(readptr[0]);
                 temp_this_command_code_buf.push_back(readptr[1]);
@@ -1589,7 +1589,7 @@ namespace wo
                 }
                 else if (WO_IR.op1)
                 {
-                    if (WO_IR.opinteger)
+                    if (WO_IR.opinteger1)
                         temp_this_command_code_buf.push_back(WO_OPCODE(calln, 11));
                     else
                         temp_this_command_code_buf.push_back(WO_OPCODE(calln, 01));
@@ -1617,7 +1617,7 @@ namespace wo
 
                     temp_this_command_code_buf.push_back(WO_OPCODE(calln, 00));
 
-                    byte_t* readptr = (byte_t*)&WO_IR.opinteger;
+                    byte_t* readptr = (byte_t*)&WO_IR.opinteger1;
                     temp_this_command_code_buf.push_back(readptr[0]);
                     temp_this_command_code_buf.push_back(readptr[1]);
                     temp_this_command_code_buf.push_back(readptr[2]);
@@ -1631,12 +1631,12 @@ namespace wo
                 }
                 break;
             case instruct::opcode::ret:
-                if (WO_IR.opinteger)
+                if (WO_IR.opinteger1)
                 {
                     // ret pop n
                     temp_this_command_code_buf.push_back(WO_OPCODE(ret, 10));
 
-                    uint16_t pop_count = (uint16_t)WO_IR.opinteger;
+                    uint16_t pop_count = (uint16_t)WO_IR.opinteger1;
                     byte_t* readptr = (byte_t*)&pop_count;
                     temp_this_command_code_buf.push_back(readptr[0]);
                     temp_this_command_code_buf.push_back(readptr[1]);
@@ -1667,7 +1667,7 @@ namespace wo
                 WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
                 WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
 
-                uint16_t id = (uint16_t)WO_IR.opinteger;
+                uint16_t id = (uint16_t)WO_IR.opinteger1;
                 byte_t* readptr = (byte_t*)&id;
                 temp_this_command_code_buf.push_back(readptr[0]);
                 temp_this_command_code_buf.push_back(readptr[1]);
@@ -1679,7 +1679,7 @@ namespace wo
 
                 temp_this_command_code_buf.push_back(WO_OPCODE(mkclos, 00));
 
-                uint16_t capture_count = (uint16_t)WO_IR.opinteger;
+                uint16_t capture_count = (uint16_t)WO_IR.opinteger1;
                 byte_t* readptr = (byte_t*)&capture_count;
                 temp_this_command_code_buf.push_back(readptr[0]);
                 temp_this_command_code_buf.push_back(readptr[1]);
@@ -1698,6 +1698,19 @@ namespace wo
                 temp_this_command_code_buf.push_back(0x00);
                 break;
             }
+            case instruct::unpackargs:
+            {
+                temp_this_command_code_buf.push_back(WO_OPCODE(unpackargs));
+                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
+
+                byte_t* readptr = (byte_t*)&WO_IR.opinteger1;
+                temp_this_command_code_buf.push_back(readptr[0]);
+                temp_this_command_code_buf.push_back(readptr[1]);
+                temp_this_command_code_buf.push_back(readptr[2]);
+                temp_this_command_code_buf.push_back(readptr[3]);
+
+                break;
+            }
             case instruct::opcode::ext:
 
                 switch (WO_IR.ext_page_id)
@@ -1711,23 +1724,50 @@ namespace wo
                     {
                         temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(packargs));
 
-                        uint16_t skip_count = (uint16_t)WO_IR.opinteger;
-                        byte_t* readptr = (byte_t*)&skip_count;
+                        WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
+
+                        uint32_t func_argc = (uint32_t)WO_IR.opinteger1;
+                        byte_t* readptr = (byte_t*)&func_argc;
+                        temp_this_command_code_buf.push_back(readptr[0]);
+                        temp_this_command_code_buf.push_back(readptr[1]);
+                        temp_this_command_code_buf.push_back(readptr[2]);
+                        temp_this_command_code_buf.push_back(readptr[3]);
+
+                        uint16_t skip_count = (uint16_t)WO_IR.opinteger2;
+                        readptr = (byte_t*)&skip_count;
                         temp_this_command_code_buf.push_back(readptr[0]);
                         temp_this_command_code_buf.push_back(readptr[1]);
 
+                        break;
+                    }
+                    case instruct::extern_opcode_page_0::panic:
+                    {
+                        temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(panic));
+                        WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
+                        break;
+                    }
+                    case instruct::extern_opcode_page_0::cdivilr:
+                    {
+                        temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(cdivilr));
                         WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
                         WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
                         break;
                     }
-                    case instruct::extern_opcode_page_0::unpackargs:
-                        temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(unpackargs));
-                        WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                        WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
-                        break;
-                    case instruct::extern_opcode_page_0::panic:
+                    case instruct::extern_opcode_page_0::cdivil:
                     {
-                        temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(panic));
+                        temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(cdivil));
+                        WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
+                        break;
+                    }
+                    case instruct::extern_opcode_page_0::cdivirz:
+                    {
+                        temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(cdivirz));
+                        WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
+                        break;
+                    }
+                    case instruct::extern_opcode_page_0::cdivir:
+                    {
+                        temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(cdivir));
                         WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
                         break;
                     }
@@ -1786,7 +1826,7 @@ namespace wo
 
                 break;
             case instruct::opcode::abrt:
-                if (WO_IR.opinteger)
+                if (WO_IR.opinteger1)
                     temp_this_command_code_buf.push_back(WO_OPCODE(abrt, 10));
                 else
                     temp_this_command_code_buf.push_back(WO_OPCODE(abrt, 00));

@@ -485,7 +485,8 @@ namespace wo
             opnum::opnumbase* op1 = nullptr;
             opnum::opnumbase* op2 = nullptr;
 
-            int32_t opinteger;
+            int32_t opinteger1;
+            int32_t opinteger2;
 
             uint8_t ext_page_id;
             union
@@ -640,13 +641,13 @@ namespace wo
                     case instruct::opcode::sidarr:
                     case instruct::opcode::sidmap:
                     case instruct::opcode::siddict:
-                        if (ircmbuf.opinteger >= opnum::reg::t0
-                            && ircmbuf.opinteger <= opnum::reg::r15
-                            && tr_regist_mapping.find((uint8_t)ircmbuf.opinteger) == tr_regist_mapping.end())
+                        if (ircmbuf.opinteger1 >= opnum::reg::t0
+                            && ircmbuf.opinteger1 <= opnum::reg::r15
+                            && tr_regist_mapping.find((uint8_t)ircmbuf.opinteger1) == tr_regist_mapping.end())
                         {
                             // is temp reg 
                             size_t stack_idx = tr_regist_mapping.size();
-                            tr_regist_mapping[(uint8_t)ircmbuf.opinteger] = (int8_t)stack_idx;
+                            tr_regist_mapping[(uint8_t)ircmbuf.opinteger1] = (int8_t)stack_idx;
                         }
                         break;
                     default:
@@ -772,7 +773,7 @@ namespace wo
                     case instruct::opcode::sidmap:
                     case instruct::opcode::siddict:
                     {
-                        opnum::reg op3((uint8_t)ir_command_buffer[i].opinteger);
+                        opnum::reg op3((uint8_t)ir_command_buffer[i].opinteger1);
                         if (op3.is_tmp_regist())
                             op3.id = opnum::reg::bp_offset(-tr_regist_mapping[op3.id]);
                         else if (op3.is_bp_offset() && op3.get_bp_offset() <= 0)
@@ -803,7 +804,7 @@ namespace wo
                             }
                         }
 
-                        ir_command_buffer[i].opinteger = (int32_t)op3.id;
+                        ir_command_buffer[i].opinteger1 = (int32_t)op3.id;
                         break;
                     }
                     default:
@@ -855,7 +856,7 @@ namespace wo
         void reserved_stackvalue(size_t ip, uint16_t sz)
         {
             wo_assert(ip);
-            ir_command_buffer[ip - 1].opinteger = sz;
+            ir_command_buffer[ip - 1].opinteger1 = sz;
         }
         template<typename OP1T>
         void pop(const OP1T& op1)
@@ -1279,7 +1280,7 @@ namespace wo
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value,
                 "Argument(s) should be opnum.");
 
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::typeas, WO_OPNUM(op1), nullptr, (int)vtt);
+            WO_PUT_IR_TO_BUFFER(instruct::opcode::typeas, WO_OPNUM(op1), nullptr, (int)vtt, 0);
         }
         template<typename OP1T>
         void typeis(const OP1T& op1, value::valuetype vtt)
@@ -1536,31 +1537,71 @@ namespace wo
             codeb.ext_opcode_p3 = instruct::extern_opcode_page_3::funcend;
         }
 
-        template<typename OP1T, typename OP2T>
-        void ext_packargs(const OP1T& op1, const OP2T& op2, uint16_t skipclosure)
+        template<typename OP1T>
+        void ext_packargs(const OP1T& op1, uint32_t thisfuncargc, uint16_t skipclosure)
         {
-            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value &&
-                std::is_base_of<opnum::opnumbase, OP2T>::value,
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value,
                 "Argument(s) should be opnum.");
 
-            auto& codeb = WO_PUT_IR_TO_BUFFER(instruct::opcode::ext, WO_OPNUM(op1), WO_OPNUM(op2), skipclosure);
+            auto& codeb = WO_PUT_IR_TO_BUFFER(instruct::opcode::ext, 
+                WO_OPNUM(op1), nullptr, (int32_t)thisfuncargc, (int32_t)skipclosure);
+
             codeb.ext_page_id = 0;
             codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::packargs;
         }
 
         template<typename OP1T>
-        void ext_unpackargs(const OP1T& op1, wo_integer_t unpack_count)
+        void unpackargs(const OP1T& op1, int32_t unpack_count)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value,
                 "Argument(s) should be opnum.");
 
-            opnum::imm<wo_integer_t> unpacked_count(unpack_count);
-
-            auto& codeb = WO_PUT_IR_TO_BUFFER(instruct::opcode::ext, WO_OPNUM(op1), WO_OPNUM(unpacked_count));
-            codeb.ext_page_id = 0;
-            codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::unpackargs;
+            auto& codeb = WO_PUT_IR_TO_BUFFER(
+                instruct::opcode::unpackargs, WO_OPNUM(op1), nullptr, unpack_count);
         }
 
+        template<typename OP1T, typename OP2T>
+        void ext_cdivilr(const OP1T& op1, const OP2T& op2)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value &&
+                std::is_base_of<opnum::opnumbase, OP2T>::value,
+                "Argument(s) should be opnum.");
+
+            auto& codeb = WO_PUT_IR_TO_BUFFER(instruct::opcode::ext, WO_OPNUM(op1), WO_OPNUM(op2));
+            codeb.ext_page_id = 0;
+            codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::cdivilr;
+        }
+        template<typename OP1T>
+        void ext_cdivil(const OP1T& op1)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value,
+                "Argument(s) should be opnum.");
+
+            auto& codeb = WO_PUT_IR_TO_BUFFER(instruct::opcode::ext, WO_OPNUM(op1));
+            codeb.ext_page_id = 0;
+            codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::cdivil;
+        }
+        template<typename OP1T>
+        void ext_cdivirz(const OP1T& op1)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value,
+                "Argument(s) should be opnum.");
+
+            auto& codeb = WO_PUT_IR_TO_BUFFER(instruct::opcode::ext, WO_OPNUM(op1));
+            codeb.ext_page_id = 0;
+            codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::cdivirz;
+        }
+        
+        template<typename OP1T>
+        void ext_cdivir(const OP1T& op1)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value,
+                "Argument(s) should be opnum.");
+
+            auto& codeb = WO_PUT_IR_TO_BUFFER(instruct::opcode::ext, WO_OPNUM(op1));
+            codeb.ext_page_id = 0;
+            codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::cdivir;
+        }
 #undef WO_OPNUM
 #undef WO_PUT_IR_TO_BUFFER
 

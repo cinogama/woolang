@@ -585,6 +585,11 @@ namespace wo
                                 *out_result = false;
                                 return T{};
                             }
+                            if (right == -1 && left == INT64_MIN)
+                            {
+                                *out_result = false;
+                                return T{};
+                            }
                         }
                         return left / right;
                     }
@@ -601,6 +606,11 @@ namespace wo
                             if constexpr (std::is_same<T, wo_integer_t>::value)
                             {
                                 if (right == 0)
+                                {
+                                    *out_result = false;
+                                    return T{};
+                                }
+                                if (right == -1 && left == INT64_MIN)
                                 {
                                     *out_result = false;
                                     return T{};
@@ -1277,11 +1287,11 @@ namespace wo
 
         struct ast_fakevalue_unpacked_args : virtual public ast_value
         {
-            constexpr static wo_integer_t UNPACK_ALL_ARGUMENT = 65535;
+            constexpr static int32_t UNPACK_ALL_ARGUMENT = INT32_MAX;
             ast_value* unpacked_pack;
-            wo_integer_t expand_count = UNPACK_ALL_ARGUMENT;
+            int32_t expand_count = UNPACK_ALL_ARGUMENT;
 
-            ast_fakevalue_unpacked_args(ast_value* pak, wo_integer_t _expand_count)
+            ast_fakevalue_unpacked_args(ast_value* pak, int32_t _expand_count)
                 : unpacked_pack(pak),
                 expand_count(_expand_count),
                 ast_value(new ast_type(WO_PSTR(dynamic)))
@@ -2240,7 +2250,7 @@ namespace wo
 
                     return (ast_basic*)new ast_fakevalue_unpacked_args(
                         dynamic_cast<ast_value*>(WO_NEED_AST(0)),
-                        expand_count);
+                        (int32_t)expand_count);
                 }
             }
         };

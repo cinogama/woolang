@@ -138,5 +138,19 @@ namespace wo
         *   handle the situation where symbols are indeed lost.
         */
         inline bool ENABLE_IGNORE_NOT_FOUND_EXTERN_SYMBOL = false;
+
+        /*
+        * ENABLE_RUNTIME_CHECKING_INTEGER_DIVISION = false
+        * --------------------------------------------------------------------
+        *   Whether to check both the divisor is zero and the overflow when the
+        * division operation is performed in runtime.
+        *   If enabled, compiler will generate some extra code for checking.
+        * --------------------------------------------------------------------
+        * ATTENTION:
+        *   Enabled by default for safety, disable it for better performance.
+        * 
+        *   Check for integer division only.
+        */
+        inline bool ENABLE_RUNTIME_CHECKING_INTEGER_DIVISION = true;
     }
 }

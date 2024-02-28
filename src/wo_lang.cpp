@@ -426,7 +426,7 @@ namespace wo
             else
             {
                 // ISSUE 1.13: Check if this symbol has been imported as another function.
-                
+
                 auto* symb = &extern_symb_infos[libname_may_null.value_or(L"")][funcname];
                 if (*symb != nullptr && *symb != a_value_func->externed_func_info)
                 {
@@ -1565,20 +1565,6 @@ namespace wo
                 a_value_assi->left->value_type->get_type_name(false).c_str(),
                 a_value_assi->right->value_type->get_type_name(false).c_str());
         }
-        else
-        {
-            if ((a_value_assi->operate == lex_type::l_div_assign
-                || a_value_assi->operate == lex_type::l_value_div_assign
-                || a_value_assi->operate == lex_type::l_mod_assign
-                || a_value_assi->operate == lex_type::l_value_mod_assign) &&
-                a_value_assi->right->is_constant &&
-                a_value_assi->right->value_type->is_integer() &&
-                a_value_assi->right->get_constant_value().integer == 0)
-            {
-                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_assi->right,
-                    WO_ERR_CANNOT_DIV_ZERO);
-            }
-        }
 
         if (!a_value_assi->left->can_be_assign)
             lang_anylizer->lang_error(lexer::errorlevel::error, a_value_assi->left, WO_ERR_CANNOT_ASSIGN_TO_UNASSABLE_ITEM);
@@ -1853,13 +1839,7 @@ namespace wo
                 a_value_bin->right->value_type->get_type_name(false).c_str());
             a_value_bin->value_type->set_type_with_name(WO_PSTR(pending));
         }
-        else if ((a_value_bin->operate == lex_type::l_div || a_value_bin->operate == lex_type::l_mod) &&
-            a_value_bin->right->is_constant &&
-            a_value_bin->right->value_type->is_integer() &&
-            a_value_bin->right->get_constant_value().integer == 0)
-        {
-            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_bin->right, WO_ERR_CANNOT_DIV_ZERO);
-        }
+
         return true;
     }
     WO_PASS2(ast_value_logical_binary)
@@ -3056,13 +3036,13 @@ namespace wo
                                 auto* unpacking_tuple_type = a_fakevalue_unpack_args->unpacked_pack->value_type;
                                 if (unpacking_tuple_type->using_type_name)
                                     unpacking_tuple_type = unpacking_tuple_type->using_type_name;
-                                ecount = unpacking_tuple_type->template_arguments.size();
+                                ecount = (int32_t)unpacking_tuple_type->template_arguments.size();
                                 a_fakevalue_unpack_args->expand_count = ecount;
                             }
                             else
                             {
                                 ecount =
-                                    (wo_integer_t)(
+                                    (int32_t)(
                                         a_value_funccall->called_func->value_type->argument_types.end()
                                         - a_type_index);
                                 if (a_value_funccall->called_func->value_type->is_variadic_function_type)
@@ -4378,6 +4358,66 @@ namespace wo
             lang_anylizer->lang_error(lexer::errorlevel::error, pattern, WO_ERR_UNEXPECT_PATTERN_MODE);
     }
 
+    void lang::check_division(ast::ast_base* divop, ast::ast_value* left, ast::ast_value* right, opnum::opnumbase& left_opnum, opnum::opnumbase& right_opnum, ir_compiler* compiler)
+    {
+        wo_assert(left->value_type->is_integer() == right->value_type->is_integer());
+        if (left->value_type->is_integer())
+        {
+            std::optional<wo_integer_t> constant_right = std::nullopt;
+            std::optional<wo_integer_t> constant_left = std::nullopt;
+
+            if (right->is_constant)
+            {
+                auto& const_r_value = right->get_constant_value();
+                wo_assert(const_r_value.type == wo::value::valuetype::integer_type);
+
+                constant_right = std::make_optional(const_r_value.integer);
+            }
+
+            if (left->is_constant)
+            {
+                auto& const_l_value = left->get_constant_value();
+                wo_assert(const_l_value.type == wo::value::valuetype::integer_type);
+
+                constant_left = std::make_optional(const_l_value.integer);
+            }
+
+            if (constant_right.has_value())
+            {
+                auto const_rvalue = constant_right.value();
+                if (const_rvalue == 0)
+                    lang_anylizer->lang_error(wo::lexer::errorlevel::error, right, WO_ERR_CANNOT_DIV_ZERO);
+                else if (const_rvalue == -1)
+                {
+                    if (constant_left.has_value())
+                    {
+                        if (constant_left.value() == INT64_MIN)
+                            lang_anylizer->lang_error(wo::lexer::errorlevel::error, divop, WO_ERR_DIV_OVERFLOW);
+                    }
+                }
+            }
+
+            // Generate extra code for div checking.
+            if (config::ENABLE_RUNTIME_CHECKING_INTEGER_DIVISION)
+            {
+                if (constant_right.has_value() == false)
+                {
+                    if (constant_left.has_value() == false)
+                        compiler->ext_cdivilr(left_opnum, right_opnum);
+                    else if (constant_left.value() == INT64_MIN)
+                        compiler->ext_cdivir(right_opnum);
+                    else
+                        compiler->ext_cdivirz(right_opnum);
+                }
+                else if (constant_right.value() == -1)
+                {
+                    if (constant_left.has_value() == false)
+                        compiler->ext_cdivil(left_opnum);
+                }
+            }
+        }
+    }
+
     void lang::collect_ast_nodes_for_pass1(ast::ast_base* ast_node)
     {
         std::vector<ast::ast_base*> _pass1_analyze_ast_nodes_list;
@@ -5617,7 +5657,11 @@ namespace wo
                     switch (optype)
                     {
                     case wo::value::valuetype::integer_type:
-                        compiler->divi(beoped_left_opnum, op_right_opnum); break;
+                    {
+                        check_division(a_value_binary, a_value_binary->left, a_value_binary->right, beoped_left_opnum, op_right_opnum, compiler);
+                        compiler->divi(beoped_left_opnum, op_right_opnum);
+                        break;
+                    }
                     case wo::value::valuetype::real_type:
                         compiler->divr(beoped_left_opnum, op_right_opnum); break;
                     default:
@@ -5632,7 +5676,11 @@ namespace wo
                     switch (optype)
                     {
                     case wo::value::valuetype::integer_type:
-                        compiler->modi(beoped_left_opnum, op_right_opnum); break;
+                    {
+                        check_division(a_value_binary, a_value_binary->left, a_value_binary->right, beoped_left_opnum, op_right_opnum, compiler);
+                        compiler->modi(beoped_left_opnum, op_right_opnum);
+                        break;
+                    }
                     case wo::value::valuetype::real_type:
                         compiler->modr(beoped_left_opnum, op_right_opnum); break;
                     default:
@@ -5777,7 +5825,11 @@ namespace wo
                         switch (optype)
                         {
                         case wo::value::valuetype::integer_type:
-                            compiler->divi(beoped_left_opnum, op_right_opnum); break;
+                        {
+                            check_division(a_value_assign, a_value_assign->left, a_value_assign->right, beoped_left_opnum, op_right_opnum, compiler);
+                            compiler->divi(beoped_left_opnum, op_right_opnum);
+                            break;
+                        }
                         case wo::value::valuetype::real_type:
                             compiler->divr(beoped_left_opnum, op_right_opnum); break;
                         default:
@@ -5792,7 +5844,11 @@ namespace wo
                         switch (optype)
                         {
                         case wo::value::valuetype::integer_type:
-                            compiler->modi(beoped_left_opnum, op_right_opnum); break;
+                        {
+                            check_division(a_value_binary, a_value_binary->left, a_value_binary->right, beoped_left_opnum, op_right_opnum, compiler);
+                            compiler->modi(beoped_left_opnum, op_right_opnum);
+                            break;
+                        }
                         case wo::value::valuetype::real_type:
                             compiler->modr(beoped_left_opnum, op_right_opnum); break;
                         default:
@@ -6011,7 +6067,8 @@ namespace wo
                                 auto* unpacking_tuple_type = a_fakevalue_unpacked_args->unpacked_pack->value_type;
                                 if (unpacking_tuple_type->using_type_name)
                                     unpacking_tuple_type = unpacking_tuple_type->using_type_name;
-                                a_fakevalue_unpacked_args->expand_count = unpacking_tuple_type->template_arguments.size();
+                                a_fakevalue_unpacked_args->expand_count =
+                                    (int32_t)unpacking_tuple_type->template_arguments.size();
                             }
                             else
                             {
@@ -6041,7 +6098,7 @@ namespace wo
                         if (a_fakevalue_unpacked_args->unpacked_pack->value_type->is_tuple())
                         {
                             extern_unpack_arg_count += a_fakevalue_unpacked_args->expand_count - 1;
-                            compiler->ext_unpackargs(packing, a_fakevalue_unpacked_args->expand_count);
+                            compiler->unpackargs(packing, a_fakevalue_unpacked_args->expand_count);
                         }
                         else
                         {
@@ -6050,8 +6107,7 @@ namespace wo
                             else
                                 extern_unpack_arg_count += a_fakevalue_unpacked_args->expand_count - 1;
 
-                            compiler->ext_unpackargs(packing,
-                                a_fakevalue_unpacked_args->expand_count);
+                            compiler->unpackargs(packing, a_fakevalue_unpacked_args->expand_count);
                         }
                         complete_using_register(packing);
                     }
@@ -6072,7 +6128,7 @@ namespace wo
                         funcdef = funcvariable->symbol->get_funcdef();
                 }
 
-                if (!full_unpack_arguments && 
+                if (!full_unpack_arguments &&
                     a_value_funccall->called_func->value_type->is_variadic_function_type)
                     compiler->mov(reg(reg::tc), imm(arg_list.size() + extern_unpack_arg_count));
 
@@ -6445,9 +6501,9 @@ namespace wo
                 {
                     auto& packed = get_useable_register_for_pure_value();
 
-                    compiler->ext_packargs(packed, imm(
-                        now_function_in_final_anylize->value_type->argument_types.size()
-                    ), (uint16_t)now_function_in_final_anylize->capture_variables.size());
+                    compiler->ext_packargs(packed,
+                        (uint32_t)now_function_in_final_anylize->value_type->argument_types.size(),
+                        (uint16_t)now_function_in_final_anylize->capture_variables.size());
                     return packed;
                 }
             }
@@ -7504,7 +7560,7 @@ namespace wo
         lang_symbol* fuzzy_nearest_symbol = nullptr;
         auto update_fuzzy_nearest_symbol =
             [&fuzzy_nearest_symbol, fuzzy_for_err_report, ident_str, target_type_mask]
-        (lang_symbol* symbol) {
+            (lang_symbol* symbol) {
             if (fuzzy_for_err_report)
             {
                 auto distance = levenshtein_distance(*symbol->name, *ident_str);
@@ -7515,7 +7571,7 @@ namespace wo
                         fuzzy_nearest_symbol = symbol;
                 }
             }
-        };
+            };
 
         if (!var_ident->search_from_global_namespace && var_ident->scope_namespaces.empty())
             for (auto rind = template_stack.rbegin(); rind != template_stack.rend(); rind++)

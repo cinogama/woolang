@@ -273,6 +273,8 @@
 
 #define WO_ERR_CANNOT_DIV_ZERO L"除数不可为 0"
 
+#define WO_ERR_DIV_OVERFLOW L"溢出的除法操作"
+
 #define WO_ERR_REPEATED_EXTERN_FUNC L"重复导入的外部函数符号，使用 'repeat' 修饰导入行为忽略此检查"
 
 
@@ -550,6 +552,8 @@
 #define WO_ERR_UNKNOWN_EXTERN_ATTRIB L"Unknown extern attribute: '%ls'."
 
 #define WO_ERR_CANNOT_DIV_ZERO L"The divisor cannot be 0."
+
+#define WO_ERR_DIV_OVERFLOW L"Division overflow."
 
 #define WO_ERR_REPEATED_EXTERN_FUNC L"Repeatedly imported external function symbol. Use 'repeat' to modify import behavior and ignore this check."
 

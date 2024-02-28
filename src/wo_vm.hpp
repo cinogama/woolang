@@ -532,7 +532,7 @@ namespace wo
 
                 auto print_byte = [&]() {
 
-                    const int MAX_BYTE_COUNT = 11;
+                    const int MAX_BYTE_COUNT = 12;
                     printf("+%04d : ", (uint32_t)(program_ptr - program));
                     int displayed_count = 0;
                     for (auto idx = program_ptr; idx < this_command_ptr; idx++)
@@ -825,7 +825,17 @@ namespace wo
                 case instruct::equs:
                     tmpos << "equs\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
                 case instruct::nequs:
-                    tmpos << "nequs\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                    tmpos << "nequs\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;\
+                case instruct::unpackargs:
+                {
+                    tmpos << "unpackargs\t"; print_opnum1();
+                    int32_t unpack_argc = *(int32_t*)((this_command_ptr += 4) - 4);
+                    if (unpack_argc >= 0)
+                        tmpos << "\tcount = " << unpack_argc;
+                    else
+                        tmpos << "\tleast = " << -unpack_argc;
+                    break;                        
+                }
                 case instruct::ext:
                 {
                     tmpos << "ext ";
@@ -838,17 +848,28 @@ namespace wo
                         {
                         case instruct::extern_opcode_page_0::packargs:
                         {
-                            auto skip_closure = *(uint16_t*)((this_command_ptr += 2) - 2);
-                            tmpos << "packargs\t"; print_opnum1(); tmpos << ",\t"; print_opnum2();
+                            tmpos << "packargs\t"; print_opnum1(); tmpos << ",\t";
 
-                            if (skip_closure)
-                                tmpos << ": skip " << skip_closure;
+                            auto this_func_argc = *(uint32_t*)((this_command_ptr += 4) - 4);
+                            auto skip_closure = *(uint16_t*)((this_command_ptr += 2) - 2);
+                            
+                            tmpos << ": skip " << this_func_argc << "/" << skip_closure;
                             break;
                         }
-                        case instruct::extern_opcode_page_0::unpackargs:
-                            tmpos << "unpackargs\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
                         case instruct::extern_opcode_page_0::panic:
                             tmpos << "panic\t"; print_opnum1();
+                            break;
+                        case instruct::extern_opcode_page_0::cdivilr:
+                            tmpos << "cdivilr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2();
+                            break;
+                        case instruct::extern_opcode_page_0::cdivil:
+                            tmpos << "cdivil\t"; print_opnum1();
+                            break;
+                        case instruct::extern_opcode_page_0::cdivirz:
+                            tmpos << "cdivirz\t"; print_opnum1();
+                            break;
+                        case instruct::extern_opcode_page_0::cdivir:
+                            tmpos << "cdivir\t"; print_opnum1();
                             break;
                         default:
                             tmpos << "??\t";
@@ -1510,15 +1531,16 @@ namespace wo
         }
         inline static value* make_closure_safe_impl(value* opnum1, const byte_t* rt_ip, value* rt_sp)
         {
-            uint16_t closure_arg_count = WO_FAST_READ_MOVE_2;
+            bool is_native_call = !!(0b0011 & *(rt_ip - 1));
+            uint16_t closure_arg_count = WO_SAFE_READ_MOVE_2;
 
             auto* created_closure = closure_t::gc_new<gcbase::gctype::young>(closure_arg_count);
-            created_closure->m_native_call = !!(0b0011 & *(rt_ip - 1));
+            created_closure->m_native_call = is_native_call;
 
-            if (created_closure->m_native_call)
-                created_closure->m_native_func = (wo_native_func)WO_FAST_READ_MOVE_8;
+            if (is_native_call)
+                created_closure->m_native_func = (wo_native_func)WO_SAFE_READ_MOVE_8;
             else
-                created_closure->m_vm_func = WO_FAST_READ_MOVE_4;
+                created_closure->m_vm_func = WO_SAFE_READ_MOVE_4;
 
             for (size_t i = 0; i < (size_t)closure_arg_count; i++)
             {
@@ -1563,32 +1585,25 @@ namespace wo
 
             return rt_sp + size;
         }
-        inline static void packargs_impl(value* opnum1, value* opnum2, value* tc, value* rt_bp, uint16_t skip_closure_arg_count)
+        inline static void packargs_impl(value* opnum1, uint32_t argcount, value* tc, value* rt_bp, uint16_t skip_closure_arg_count)
         {
             auto* packed_array = array_t::gc_new<gcbase::gctype::young>();
-            packed_array->resize((size_t)(tc->integer - opnum2->integer));
-            for (auto argindex = 0 + opnum2->integer; argindex < tc->integer; argindex++)
+            packed_array->resize((size_t)tc->integer - (size_t)argcount);
+            for (auto argindex = 0 + (size_t)argcount; argindex < (size_t)tc->integer; argindex++)
             {
-                (*packed_array)[(size_t)(argindex - opnum2->integer)].set_val(rt_bp + 2 + argindex + skip_closure_arg_count);
+                (*packed_array)[(size_t)argindex - (size_t)argcount].set_val(rt_bp + 2 + argindex + skip_closure_arg_count);
             }
             opnum1->set_gcunit<wo::value::valuetype::array_type>(packed_array);
         }
-        inline static value* unpackargs_impl(vmbase* vm, value* opnum1, value* opnum2, value* tc, const byte_t* rt_ip, value* rt_sp, value* rt_bp)
+        inline static value* unpackargs_impl(vmbase* vm, value* opnum1, int32_t unpack_argc, value* tc, const byte_t* rt_ip, value* rt_sp, value* rt_bp)
         {
-            if (opnum1->is_nil())
-            {
-                vm->ip = rt_ip;
-                vm->sp = rt_sp;
-                vm->bp = rt_bp;
-                wo_fail(WO_FAIL_INDEX_FAIL, "Only valid array/struct can used in unpack.");
-            }
-            else if (opnum1->type == value::valuetype::struct_type)
+            if (opnum1->type == value::valuetype::struct_type)
             {
                 auto* arg_tuple = opnum1->structs;
                 gcbase::gc_read_guard gwg1(arg_tuple);
-                if (opnum2->integer > 0)
+                if (unpack_argc > 0)
                 {
-                    if ((size_t)opnum2->integer > (size_t)arg_tuple->m_count)
+                    if ((size_t)unpack_argc > (size_t)arg_tuple->m_count)
                     {
                         vm->ip = rt_ip;
                         vm->sp = rt_sp;
@@ -1597,13 +1612,13 @@ namespace wo
                     }
                     else
                     {
-                        for (uint16_t i = (uint16_t)opnum2->integer; i > 0; --i)
+                        for (uint16_t i = (uint16_t)unpack_argc; i > 0; --i)
                             (rt_sp--)->set_val(&arg_tuple->m_values[i - 1]);
                     }
                 }
                 else
                 {
-                    if ((size_t)arg_tuple->m_count < (size_t)(-opnum2->integer))
+                    if ((size_t)arg_tuple->m_count < (size_t)(-unpack_argc))
                     {
                         vm->ip = rt_ip;
                         vm->sp = rt_sp;
@@ -1618,12 +1633,12 @@ namespace wo
             }
             else if (opnum1->type == value::valuetype::array_type)
             {
-                if (opnum2->integer > 0)
+                if (unpack_argc > 0)
                 {
                     auto* arg_array = opnum1->array;
                     gcbase::gc_read_guard gwg1(arg_array);
 
-                    if ((size_t)opnum2->integer > arg_array->size())
+                    if ((size_t)unpack_argc > arg_array->size())
                     {
                         vm->ip = rt_ip;
                         vm->sp = rt_sp;
@@ -1632,7 +1647,7 @@ namespace wo
                     }
                     else
                     {
-                        for (auto arg_idx = arg_array->rbegin() + (size_t)((wo_integer_t)arg_array->size() - opnum2->integer);
+                        for (auto arg_idx = arg_array->rbegin() + (size_t)((wo_integer_t)arg_array->size() - unpack_argc);
                             arg_idx != arg_array->rend();
                             arg_idx++)
                             (rt_sp--)->set_val(&*arg_idx);
@@ -1643,7 +1658,7 @@ namespace wo
                     auto* arg_array = opnum1->array;
                     gcbase::gc_read_guard gwg1(arg_array);
 
-                    if (arg_array->size() < (size_t)(-opnum2->integer))
+                    if (arg_array->size() < (size_t)(-unpack_argc))
                     {
                         vm->ip = rt_ip;
                         vm->sp = rt_sp;
@@ -1776,7 +1791,7 @@ namespace wo
                             (WO_IPVAL_MOVE_1 + reg_begin)
 
 #define WO_VM_FAIL(ERRNO,ERRINFO) \
-    {ip = rt_ip;sp = rt_sp;bp = rt_bp;wo_fail(ERRNO,ERRINFO);continue;}
+    do{ip = rt_ip;sp = rt_sp;bp = rt_bp;wo_fail(ERRNO,ERRINFO);continue;}while(0)
 #ifdef NDEBUG
 #define WO_VM_ASSERT(EXPR, REASON) wo_assert(EXPR, REASON)
 #else
@@ -1874,6 +1889,8 @@ namespace wo
                         && opnum1->type == value::valuetype::integer_type, "Operand should be integer in 'divi'.");
 
                     WO_VM_ASSERT(opnum2->integer != 0, "The divisor cannot be 0.");
+                    WO_VM_ASSERT(opnum2->integer != -1 || opnum1->integer != INT64_MIN, "Division overflow.");
+
                     opnum1->integer /= opnum2->integer;
                     break;
                 }
@@ -1886,6 +1903,8 @@ namespace wo
                         && opnum1->type == value::valuetype::integer_type, "Operand should be integer in 'modi'.");
 
                     WO_VM_ASSERT(opnum2->integer != 0, "The divisor cannot be 0.");
+                    WO_VM_ASSERT(opnum2->integer != -1 || opnum1->integer != INT64_MIN, "Division overflow.");
+
                     opnum1->integer %= opnum2->integer;
                     break;
                 }
@@ -2712,6 +2731,16 @@ namespace wo
 
                     break;
                 }
+                case instruct::unpackargs:
+                {
+                    WO_ADDRESSING_N1;
+                    auto unpack_argc_unsigned = WO_IPVAL_MOVE_4;
+
+                    rt_sp = unpackargs_impl(
+                        this, opnum1, reinterpret_cast<int32_t&>(unpack_argc_unsigned),
+                        tc, rt_ip, rt_sp, rt_bp);
+                    break;
+                }
                 case instruct::opcode::ext:
                 {
                     // extern code page:
@@ -2726,30 +2755,66 @@ namespace wo
                     case 0:     // extern-opcode-page-0
                         switch ((instruct::extern_opcode_page_0)(opcode))
                         {
-                        case instruct::extern_opcode_page_0::packargs:
-                        {
-                            uint16_t skip_closure_arg_count = WO_IPVAL_MOVE_2;
-
-                            WO_ADDRESSING_N1;
-                            WO_ADDRESSING_N2;
-
-                            packargs_impl(opnum1, opnum2, tc, rt_bp, skip_closure_arg_count);
-                            break;
-                        }
-                        case instruct::extern_opcode_page_0::unpackargs:
-                        {
-                            WO_ADDRESSING_N1;
-                            WO_ADDRESSING_N2;
-
-                            rt_sp = unpackargs_impl(this, opnum1, opnum2, tc, rt_ip, rt_sp, rt_bp);
-                            break;
-                        }
                         case instruct::extern_opcode_page_0::panic:
                         {
                             WO_ADDRESSING_N1; // data
 
-                            wo_fail(WO_FAIL_UNEXPECTED, 
+                            ip = rt_ip; 
+                            sp = rt_sp; 
+                            bp = rt_bp;
+
+                            wo_fail(WO_FAIL_UNEXPECTED,
                                 "%s", wo_cast_string(std::launder(reinterpret_cast<wo_value>(opnum1))));
+                            break;
+                        }
+                        case instruct::extern_opcode_page_0::packargs:
+                        {
+                            WO_ADDRESSING_N1;
+                            uint32_t this_function_arg_count = WO_IPVAL_MOVE_4;
+                            uint16_t skip_closure_arg_count = WO_IPVAL_MOVE_2;
+
+                            packargs_impl(opnum1, this_function_arg_count, tc, rt_bp, skip_closure_arg_count);
+                            break;
+                        }
+                        case instruct::extern_opcode_page_0::cdivilr:
+                        {
+                            WO_ADDRESSING_N1;
+                            WO_ADDRESSING_N2;
+
+                            if (opnum2->integer == 0)
+                                WO_VM_FAIL(WO_FAIL_UNEXPECTED, "The divisor cannot be 0.");
+                            else if (opnum2->integer == -1 && opnum1->integer == INT64_MIN)
+                                WO_VM_FAIL(WO_FAIL_UNEXPECTED, "Division overflow.");
+
+                            break;
+                        }
+                        case instruct::extern_opcode_page_0::cdivil:
+                        {
+                            WO_ADDRESSING_N1;
+
+                            if (opnum1->integer == INT64_MIN)
+                                WO_VM_FAIL(WO_FAIL_UNEXPECTED, "Division overflow.");
+
+                            break;
+                        }
+                        case instruct::extern_opcode_page_0::cdivirz:
+                        {
+                            WO_ADDRESSING_N1;
+
+                            if (opnum1->integer == 0)
+                                WO_VM_FAIL(WO_FAIL_UNEXPECTED, "The divisor cannot be 0.");
+
+                            break;
+                        }
+                        case instruct::extern_opcode_page_0::cdivir:
+                        {
+                            WO_ADDRESSING_N1;
+
+                            if (opnum1->integer == 0)
+                                WO_VM_FAIL(WO_FAIL_UNEXPECTED, "The divisor cannot be 0.");
+                            else if (opnum1->integer == -1)
+                                WO_VM_FAIL(WO_FAIL_UNEXPECTED, "Division overflow.");
+
                             break;
                         }
                         default:

@@ -25,7 +25,7 @@ namespace wo
 
     // FOR BigEndian
 #define WO_SAFE_READ_OFFSET_PER_BYTE(OFFSET, TYPE) (((TYPE)(*(rt_ip-OFFSET)))<<((sizeof(TYPE)-OFFSET)*8))
-#define WO_IS_ODD_IRPTR(ALLIGN) 1 //(reinterpret_cast<size_t>(rt_ip)%ALLIGN)
+#define WO_IS_ODD_IRPTR(ALLIGN) 1 // NOTE: Always odd for safe reading.
 
 #define WO_SAFE_READ_MOVE_2 (rt_ip+=2,WO_IS_ODD_IRPTR(2)?\
                                     (WO_SAFE_READ_OFFSET_PER_BYTE(2,uint16_t)|WO_SAFE_READ_OFFSET_PER_BYTE(1,uint16_t)):\
@@ -42,8 +42,6 @@ namespace wo
                                     WO_SAFE_READ_OFFSET_GET_QWORD)
 #define WO_IPVAL (*(rt_ip))
 #define WO_IPVAL_MOVE_1 (*(rt_ip++))
-
-            // X86 support non-alligned addressing, so just do it!
 
 #define WO_IPVAL_MOVE_2 WO_SAFE_READ_MOVE_2
 #define WO_IPVAL_MOVE_4 WO_SAFE_READ_MOVE_4
@@ -164,13 +162,18 @@ WO_ASMJIT_IR_ITERFACE_DECL(equs)\
 WO_ASMJIT_IR_ITERFACE_DECL(nequs)\
 WO_ASMJIT_IR_ITERFACE_DECL(siddict)\
 WO_ASMJIT_IR_ITERFACE_DECL(jnequb)\
-WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
+WO_ASMJIT_IR_ITERFACE_DECL(idstruct)\
+WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
+
 #define WO_ASMJIT_IR_ITERFACE_DECL(IRNAME) virtual bool ir_##IRNAME(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
         IRS
         
         virtual bool ir_ext_panic(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
         virtual bool ir_ext_packargs(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
-        virtual bool ir_ext_unpackargs(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
+        virtual bool ir_ext_cdivilr(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
+        virtual bool ir_ext_cdivil(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
+        virtual bool ir_ext_cdivirz(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
+        virtual bool ir_ext_cdivir(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
 
         virtual void ir_make_checkpoint(CompileContextT* ctx, const byte_t*& rt_ip) = 0;
 #undef WO_ASMJIT_IR_ITERFACE_DECL
@@ -254,13 +257,28 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
                                     break;
                                 else
                                     WO_JIT_NOT_SUPPORT;
-                            case instruct::extern_opcode_page_0::unpackargs:
-                                if (ir_ext_unpackargs(ctx, dr, rt_ip))
+                            case instruct::extern_opcode_page_0::panic:
+                                if (ir_ext_panic(ctx, dr, rt_ip))
                                     break;
                                 else
                                     WO_JIT_NOT_SUPPORT;
-                            case instruct::extern_opcode_page_0::panic:
-                                if (ir_ext_panic(ctx, dr, rt_ip))
+                            case instruct::extern_opcode_page_0::cdivilr:
+                                if (ir_ext_cdivilr(ctx, dr, rt_ip))
+                                    break;
+                                else
+                                    WO_JIT_NOT_SUPPORT;
+                            case instruct::extern_opcode_page_0::cdivil:
+                                if (ir_ext_cdivil(ctx, dr, rt_ip))
+                                    break;
+                                else
+                                    WO_JIT_NOT_SUPPORT;
+                            case instruct::extern_opcode_page_0::cdivirz:
+                                if (ir_ext_cdivirz(ctx, dr, rt_ip))
+                                    break;
+                                else
+                                    WO_JIT_NOT_SUPPORT;
+                            case instruct::extern_opcode_page_0::cdivir:
+                                if (ir_ext_cdivir(ctx, dr, rt_ip))
                                     break;
                                 else
                                     WO_JIT_NOT_SUPPORT;
@@ -1448,16 +1466,19 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
+            auto bpoffset = ctx->c.newUIntPtr();
             if (opnum2.is_constant())
             {
-                auto bpoffset = ctx->c.newUIntPtr();
                 wo_assure(!ctx->c.lea(bpoffset, asmjit::x86::qword_ptr(ctx->_vmsbp, (int32_t)(opnum2.const_value()->integer * sizeof(value)))));
                 x86_set_val(ctx->c, opnum1.gp_value(), bpoffset);
             }
             else
             {
-                auto bpoffset = ctx->c.newUIntPtr();
-                wo_assure(!ctx->c.lea(bpoffset, asmjit::x86::qword_ptr(ctx->_vmsbp, opnum2.gp_value(), sizeof(value))));
+                static_assert(sizeof(wo::value) == 16);
+
+                wo_assure(!ctx->c.mov(bpoffset, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
+                wo_assure(!ctx->c.shl(bpoffset, asmjit::Imm(4)));
+                wo_assure(!ctx->c.lea(bpoffset, asmjit::x86::qword_ptr(ctx->_vmsbp, bpoffset)));
                 x86_set_val(ctx->c, opnum1.gp_value(), bpoffset);
             }
             return true;
@@ -1467,16 +1488,19 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
+            auto bpoffset = ctx->c.newUIntPtr();
             if (opnum2.is_constant())
             {
-                auto bpoffset = ctx->c.newUIntPtr();
                 wo_assure(!ctx->c.lea(bpoffset, asmjit::x86::qword_ptr(ctx->_vmsbp, (int32_t)(opnum2.const_value()->integer * sizeof(value)))));
                 x86_set_val(ctx->c, bpoffset, opnum1.gp_value());
             }
             else
             {
-                auto bpoffset = ctx->c.newUIntPtr();
-                wo_assure(!ctx->c.lea(bpoffset, asmjit::x86::qword_ptr(ctx->_vmsbp, opnum2.gp_value(), sizeof(value))));
+                static_assert(sizeof(wo::value) == 16);
+
+                wo_assure(!ctx->c.mov(bpoffset, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
+                wo_assure(!ctx->c.shl(bpoffset, asmjit::Imm(4)));
+                wo_assure(!ctx->c.lea(bpoffset, asmjit::x86::qword_ptr(ctx->_vmsbp, bpoffset)));
                 x86_set_val(ctx->c, bpoffset, opnum1.gp_value());
             }
             return true;
@@ -2143,6 +2167,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
         virtual bool ir_mkclos(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
             asmjit::InvokeNode* invoke_node;
+
+            // NOTE: in x64, use make_closure_fast_impl.
             wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::make_closure_fast_impl,
                 asmjit::FuncSignatureT<value*, value*, const byte_t*, value*>()));
 
@@ -2500,27 +2526,25 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
         }
         virtual bool ir_ext_packargs(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip) override
         {
+            WO_JIT_ADDRESSING_N1;
+            uint32_t this_function_arg_count = WO_IPVAL_MOVE_4;
             uint16_t skip_closure_arg_count = WO_IPVAL_MOVE_2;
 
-            WO_JIT_ADDRESSING_N1;
-            WO_JIT_ADDRESSING_N2;
-
             auto op1 = opnum1.gp_value();
-            auto op2 = opnum2.gp_value();
 
             asmjit::InvokeNode* invoke_node;
             wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::packargs_impl,
-                asmjit::FuncSignatureT<void, wo::value*, wo::value*, wo::value*, wo::value*, uint16_t>()));
+                asmjit::FuncSignatureT<void, wo::value*, uint32_t, wo::value*, wo::value*, uint16_t>()));
 
             invoke_node->setArg(0, op1);
-            invoke_node->setArg(1, op2);
+            invoke_node->setArg(1, asmjit::Imm(this_function_arg_count));
             invoke_node->setArg(2, ctx->_vmtc);
             invoke_node->setArg(3, ctx->_vmsbp);
             invoke_node->setArg(4, asmjit::Imm(skip_closure_arg_count));
 
             return true;
         }
-        virtual bool ir_ext_unpackargs(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip) override
+        virtual bool ir_ext_cdivilr(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip) override
         {
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
@@ -2528,13 +2552,92 @@ WO_ASMJIT_IR_ITERFACE_DECL(idstruct)
             auto op1 = opnum1.gp_value();
             auto op2 = opnum2.gp_value();
 
+            auto divisor_val = ctx->c.newInt64();
+            auto div_zero_ok = ctx->c.newLabel();
+            wo_assure(!ctx->c.mov(divisor_val, asmjit::x86::qword_ptr(op2, offsetof(value, integer))));
+            wo_assure(!ctx->c.cmp(divisor_val, asmjit::Imm(0)));
+            wo_assure(!ctx->c.jne(div_zero_ok));
+            x86_do_fail(ctx, WO_FAIL_UNEXPECTED,
+                asmjit::Imm((intptr_t)"The divisor cannot be 0."), rt_ip);
+            wo_assure(!ctx->c.bind(div_zero_ok));
+            auto div_overflow_ok = ctx->c.newLabel();
+            wo_assure(!ctx->c.cmp(divisor_val, asmjit::Imm(-1)));
+            wo_assure(!ctx->c.jne(div_overflow_ok));
+            wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(op1, offsetof(value, integer)), asmjit::Imm(INT64_MIN)));
+            wo_assure(!ctx->c.jne(div_overflow_ok));
+            x86_do_fail(ctx, WO_FAIL_UNEXPECTED,
+                asmjit::Imm((intptr_t)"Division overflow."), rt_ip);
+            wo_assure(!ctx->c.bind(div_overflow_ok));
+
+            return true;
+        }
+        virtual bool ir_ext_cdivil(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip) override
+        {
+            WO_JIT_ADDRESSING_N1;
+
+            auto op1 = opnum1.gp_value();
+
+            auto div_overflow_ok = ctx->c.newLabel();
+            wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(op1, offsetof(value, integer)), asmjit::Imm(INT64_MIN)));
+            wo_assure(!ctx->c.jne(div_overflow_ok));
+            x86_do_fail(ctx, WO_FAIL_UNEXPECTED,
+                asmjit::Imm((intptr_t)"Division overflow."), rt_ip);
+            wo_assure(!ctx->c.bind(div_overflow_ok));
+
+            return true;
+        }
+        virtual bool ir_ext_cdivirz(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip) override
+        {
+            WO_JIT_ADDRESSING_N1;
+
+            auto op1 = opnum1.gp_value();
+
+            auto div_zero_ok = ctx->c.newLabel();
+            wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(op1, offsetof(value, integer)), asmjit::Imm(0)));
+            wo_assure(!ctx->c.jne(div_zero_ok));
+            x86_do_fail(ctx, WO_FAIL_UNEXPECTED,
+                asmjit::Imm((intptr_t)"The divisor cannot be 0."), rt_ip);
+            wo_assure(!ctx->c.bind(div_zero_ok));
+
+            return true;
+        }
+        virtual bool ir_ext_cdivir(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip) override
+        {
+            WO_JIT_ADDRESSING_N1;
+
+            auto op1 = opnum1.gp_value();
+
+            auto divisor_val = ctx->c.newInt64();
+            auto div_zero_ok = ctx->c.newLabel();
+            wo_assure(!ctx->c.mov(divisor_val, asmjit::x86::qword_ptr(op1, offsetof(value, integer))));
+            wo_assure(!ctx->c.cmp(divisor_val, asmjit::Imm(0)));
+            wo_assure(!ctx->c.jne(div_zero_ok));
+            x86_do_fail(ctx, WO_FAIL_UNEXPECTED,
+                asmjit::Imm((intptr_t)"The divisor cannot be 0."), rt_ip);
+            wo_assure(!ctx->c.bind(div_zero_ok));
+            auto div_overflow_ok = ctx->c.newLabel();
+            wo_assure(!ctx->c.cmp(divisor_val, asmjit::Imm(-1)));
+            wo_assure(!ctx->c.jne(div_overflow_ok));
+            x86_do_fail(ctx, WO_FAIL_UNEXPECTED,
+                asmjit::Imm((intptr_t)"Division overflow."), rt_ip);
+            wo_assure(!ctx->c.bind(div_overflow_ok));
+
+            return true;
+        }
+        virtual bool ir_unpackargs(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip) override
+        {
+            WO_JIT_ADDRESSING_N1;
+            auto unpack_argc_unsigned = WO_IPVAL_MOVE_4;
+
+            auto op1 = opnum1.gp_value();
+
             asmjit::InvokeNode* invoke_node;
             wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::unpackargs_impl,
-                asmjit::FuncSignatureT<wo::value*, vmbase*, value*, value*, value*, const byte_t*, value*, value*>()));
+                asmjit::FuncSignatureT<wo::value*, vmbase*, int32_t, value*, value*, const byte_t*, value*, value*>()));
 
             invoke_node->setArg(0, ctx->_vmbase);
             invoke_node->setArg(1, op1);
-            invoke_node->setArg(2, op2);
+            invoke_node->setArg(2, asmjit::Imm(reinterpret_cast<int32_t&>(unpack_argc_unsigned)));
             invoke_node->setArg(3, ctx->_vmtc);
             invoke_node->setArg(4, asmjit::Imm((intptr_t)rt_ip));
             invoke_node->setArg(5, ctx->_vmssp);

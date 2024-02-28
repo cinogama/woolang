@@ -952,39 +952,42 @@ namespace wo
                 if (_be_cast_value_node->is_constant)
                 {
                     // just cast the value!
-                    value last_value = _be_cast_value_node->get_constant_value();
+                    value& last_value = _be_cast_value_node->get_constant_value();
 
                     value::valuetype aim_real_type = value_type->value_type;
+
                     if (value_type->is_dynamic())
-                    {
                         aim_real_type = last_value.type;
-                    }
 
                     is_constant = true;
 
-                    switch (aim_real_type)
+                    if (last_value.type == aim_real_type || value_type->is_void())
+                        constant_value.set_val_compile_time(&last_value);
+                    else if (last_value.type == value::valuetype::invalid)
+                        is_constant = false; // Cannot cast nil to other type.
+                    else
                     {
-                    case value::valuetype::real_type:
-                        constant_value.set_real(wo_cast_real((wo_value)&last_value));
-                        break;
-                    case value::valuetype::integer_type:
-                        constant_value.set_integer(wo_cast_int((wo_value)&last_value));
-                        break;
-                    case value::valuetype::string_type:
-                        constant_value.set_string_nogc(wo_cast_string((wo_value)&last_value));
-                        break;
-                    case value::valuetype::handle_type:
-                        constant_value.set_handle(wo_cast_handle((wo_value)&last_value));
-                        break;
-                    case value::valuetype::bool_type:
-                        constant_value.set_bool(wo_cast_bool((wo_value)&last_value));
-                        break;
-                    default:
-                        if (last_value.is_nil() && value_type->is_nil())
-                            constant_value.set_val(&last_value);
-                        else
+                        switch (aim_real_type)
+                        {
+                        case value::valuetype::real_type:
+                            constant_value.set_real(wo_cast_real((wo_value)&last_value));
+                            break;
+                        case value::valuetype::integer_type:
+                            constant_value.set_integer(wo_cast_int((wo_value)&last_value));
+                            break;
+                        case value::valuetype::string_type:
+                            constant_value.set_string_nogc(wo_cast_string((wo_value)&last_value));
+                            break;
+                        case value::valuetype::handle_type:
+                            constant_value.set_handle(wo_cast_handle((wo_value)&last_value));
+                            break;
+                        case value::valuetype::bool_type:
+                            constant_value.set_bool(wo_cast_bool((wo_value)&last_value));
+                            break;
+                        default:
                             is_constant = false;
-                        break;
+                            break;
+                        }
                     }
                     // end of match
                 }

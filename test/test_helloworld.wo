@@ -155,6 +155,11 @@ namespace test_helloworld
 
         let t = ("hello", "world");
         t...->\a,b=std::println(a, b);;
+        
+        std::println(("hello1", "world1")...);
+        std::println(["hello2", "world2"]...);
+
+        std::sleep(1.);
 
         test_lambda();
     }
