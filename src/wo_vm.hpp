@@ -848,11 +848,12 @@ namespace wo
                         {
                         case instruct::extern_opcode_page_0::packargs:
                         {
-                            auto skip_closure = *(uint16_t*)((this_command_ptr += 2) - 2);
-                            tmpos << "packargs\t"; print_opnum1(); tmpos << ",\t"; print_opnum2();
+                            tmpos << "packargs\t"; print_opnum1(); tmpos << ",\t";
 
-                            if (skip_closure)
-                                tmpos << ": skip " << skip_closure;
+                            auto this_func_argc = *(uint32_t*)((this_command_ptr += 4) - 4);
+                            auto skip_closure = *(uint16_t*)((this_command_ptr += 2) - 2);
+                            
+                            tmpos << ": skip " << this_func_argc << "/" << skip_closure;
                             break;
                         }
                         case instruct::extern_opcode_page_0::panic:
@@ -1584,13 +1585,13 @@ namespace wo
 
             return rt_sp + size;
         }
-        inline static void packargs_impl(value* opnum1, value* opnum2, value* tc, value* rt_bp, uint16_t skip_closure_arg_count)
+        inline static void packargs_impl(value* opnum1, uint32_t argcount, value* tc, value* rt_bp, uint16_t skip_closure_arg_count)
         {
             auto* packed_array = array_t::gc_new<gcbase::gctype::young>();
-            packed_array->resize((size_t)(tc->integer - opnum2->integer));
-            for (auto argindex = 0 + opnum2->integer; argindex < tc->integer; argindex++)
+            packed_array->resize((size_t)tc->integer - (size_t)argcount);
+            for (auto argindex = 0 + (size_t)argcount; argindex < (size_t)tc->integer; argindex++)
             {
-                (*packed_array)[(size_t)(argindex - opnum2->integer)].set_val(rt_bp + 2 + argindex + skip_closure_arg_count);
+                (*packed_array)[(size_t)argindex - (size_t)argcount].set_val(rt_bp + 2 + argindex + skip_closure_arg_count);
             }
             opnum1->set_gcunit<wo::value::valuetype::array_type>(packed_array);
         }
@@ -2733,8 +2734,8 @@ namespace wo
                 case instruct::unpackargs:
                 {
                     WO_ADDRESSING_N1;
-
                     auto unpack_argc_unsigned = WO_IPVAL_MOVE_4;
+
                     rt_sp = unpackargs_impl(
                         this, opnum1, reinterpret_cast<int32_t&>(unpack_argc_unsigned),
                         tc, rt_ip, rt_sp, rt_bp);
@@ -2768,12 +2769,11 @@ namespace wo
                         }
                         case instruct::extern_opcode_page_0::packargs:
                         {
+                            WO_ADDRESSING_N1;
+                            uint32_t this_function_arg_count = WO_IPVAL_MOVE_4;
                             uint16_t skip_closure_arg_count = WO_IPVAL_MOVE_2;
 
-                            WO_ADDRESSING_N1;
-                            WO_ADDRESSING_N2;
-
-                            packargs_impl(opnum1, opnum2, tc, rt_bp, skip_closure_arg_count);
+                            packargs_impl(opnum1, this_function_arg_count, tc, rt_bp, skip_closure_arg_count);
                             break;
                         }
                         case instruct::extern_opcode_page_0::cdivilr:

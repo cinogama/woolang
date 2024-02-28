@@ -426,7 +426,7 @@ namespace wo
             else
             {
                 // ISSUE 1.13: Check if this symbol has been imported as another function.
-                
+
                 auto* symb = &extern_symb_infos[libname_may_null.value_or(L"")][funcname];
                 if (*symb != nullptr && *symb != a_value_func->externed_func_info)
                 {
@@ -4365,7 +4365,7 @@ namespace wo
         {
             std::optional<wo_integer_t> constant_right = std::nullopt;
             std::optional<wo_integer_t> constant_left = std::nullopt;
-            
+
             if (right->is_constant)
             {
                 auto& const_r_value = right->get_constant_value();
@@ -4414,7 +4414,7 @@ namespace wo
                     if (constant_left.has_value() == false)
                         compiler->ext_cdivil(left_opnum);
                 }
-            }            
+            }
         }
     }
 
@@ -5659,7 +5659,7 @@ namespace wo
                     case wo::value::valuetype::integer_type:
                     {
                         check_division(a_value_binary, a_value_binary->left, a_value_binary->right, beoped_left_opnum, op_right_opnum, compiler);
-                        compiler->divi(beoped_left_opnum, op_right_opnum); 
+                        compiler->divi(beoped_left_opnum, op_right_opnum);
                         break;
                     }
                     case wo::value::valuetype::real_type:
@@ -6067,7 +6067,7 @@ namespace wo
                                 auto* unpacking_tuple_type = a_fakevalue_unpacked_args->unpacked_pack->value_type;
                                 if (unpacking_tuple_type->using_type_name)
                                     unpacking_tuple_type = unpacking_tuple_type->using_type_name;
-                                a_fakevalue_unpacked_args->expand_count = 
+                                a_fakevalue_unpacked_args->expand_count =
                                     (int32_t)unpacking_tuple_type->template_arguments.size();
                             }
                             else
@@ -6128,7 +6128,7 @@ namespace wo
                         funcdef = funcvariable->symbol->get_funcdef();
                 }
 
-                if (!full_unpack_arguments && 
+                if (!full_unpack_arguments &&
                     a_value_funccall->called_func->value_type->is_variadic_function_type)
                     compiler->mov(reg(reg::tc), imm(arg_list.size() + extern_unpack_arg_count));
 
@@ -6501,9 +6501,9 @@ namespace wo
                 {
                     auto& packed = get_useable_register_for_pure_value();
 
-                    compiler->ext_packargs(packed, imm(
-                        now_function_in_final_anylize->value_type->argument_types.size()
-                    ), (uint16_t)now_function_in_final_anylize->capture_variables.size());
+                    compiler->ext_packargs(packed,
+                        (uint32_t)now_function_in_final_anylize->value_type->argument_types.size(),
+                        (uint16_t)now_function_in_final_anylize->capture_variables.size());
                     return packed;
                 }
             }
@@ -7560,7 +7560,7 @@ namespace wo
         lang_symbol* fuzzy_nearest_symbol = nullptr;
         auto update_fuzzy_nearest_symbol =
             [&fuzzy_nearest_symbol, fuzzy_for_err_report, ident_str, target_type_mask]
-        (lang_symbol* symbol) {
+            (lang_symbol* symbol) {
             if (fuzzy_for_err_report)
             {
                 auto distance = levenshtein_distance(*symbol->name, *ident_str);
@@ -7571,7 +7571,7 @@ namespace wo
                         fuzzy_nearest_symbol = symbol;
                 }
             }
-        };
+            };
 
         if (!var_ident->search_from_global_namespace && var_ident->scope_namespaces.empty())
             for (auto rind = template_stack.rbegin(); rind != template_stack.rend(); rind++)

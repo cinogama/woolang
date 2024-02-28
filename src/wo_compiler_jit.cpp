@@ -2526,20 +2526,18 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
         }
         virtual bool ir_ext_packargs(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip) override
         {
+            WO_JIT_ADDRESSING_N1;
+            uint32_t this_function_arg_count = WO_IPVAL_MOVE_4;
             uint16_t skip_closure_arg_count = WO_IPVAL_MOVE_2;
 
-            WO_JIT_ADDRESSING_N1;
-            WO_JIT_ADDRESSING_N2;
-
             auto op1 = opnum1.gp_value();
-            auto op2 = opnum2.gp_value();
 
             asmjit::InvokeNode* invoke_node;
             wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::packargs_impl,
-                asmjit::FuncSignatureT<void, wo::value*, wo::value*, wo::value*, wo::value*, uint16_t>()));
+                asmjit::FuncSignatureT<void, wo::value*, uint32_t, wo::value*, wo::value*, uint16_t>()));
 
             invoke_node->setArg(0, op1);
-            invoke_node->setArg(1, op2);
+            invoke_node->setArg(1, asmjit::Imm(this_function_arg_count));
             invoke_node->setArg(2, ctx->_vmtc);
             invoke_node->setArg(3, ctx->_vmsbp);
             invoke_node->setArg(4, asmjit::Imm(skip_closure_arg_count));
