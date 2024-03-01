@@ -3606,7 +3606,7 @@ namespace wo
                     is_constant = true;
                     symbol->is_constexpr = true;
                     if (symbol->variable_value->get_constant_value().type == value::valuetype::string_type)
-                        constant_value.set_string_nogc(symbol->variable_value->get_constant_value().string->c_str());
+                        constant_value.set_string_nogc(*symbol->variable_value->get_constant_value().string);
                     else
                     {
                         constant_value = symbol->variable_value->get_constant_value();

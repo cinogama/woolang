@@ -1197,13 +1197,14 @@ WO_API wo_api rslib_std_array_create(wo_vm vm, wo_value args)
 WO_API wo_api rslib_std_create_str_by_wchar(wo_vm vm, wo_value args)
 {
     std::wstring buf;
-    wo_int_t size = wo_lengthof(args + 0);
 
     wo::value* arr = std::launder(reinterpret_cast<wo::value*>(args + 0));
     wo::gcbase::gc_read_guard rg1(arr->array);
 
-    for (wo_int_t i = 0; i < size; ++i)
-        buf += (wchar_t)(wo_handle_t)wo_int(std::launder(reinterpret_cast<wo_value>(&arr->array->at((size_t)i))));
+    size_t size = arr->array->size();
+
+    for (size_t i = 0; i < size; ++i)
+        buf += (wchar_t)(wo_handle_t)wo_int(std::launder(reinterpret_cast<wo_value>(&arr->array->at(i))));
 
     return wo_ret_string(vm, wo::wstr_to_str(buf).c_str());
 }
@@ -1211,13 +1212,14 @@ WO_API wo_api rslib_std_create_str_by_wchar(wo_vm vm, wo_value args)
 WO_API wo_api rslib_std_create_str_by_ascii(wo_vm vm, wo_value args)
 {
     std::string buf;
-    wo_int_t size = wo_lengthof(args + 0);
 
     wo::value* arr = std::launder(reinterpret_cast<wo::value*>(args + 0));
     wo::gcbase::gc_read_guard rg1(arr->array);
 
-    for (wo_int_t i = 0; i < size; ++i)
-        buf += (char)(unsigned char)(wo_handle_t)wo_int(std::launder(reinterpret_cast<wo_value>(&arr->array->at((size_t)i))));
+    size_t size = arr->array->size();
+
+    for (size_t i = 0; i < size; ++i)
+        buf += (char)(unsigned char)(wo_handle_t)wo_int(std::launder(reinterpret_cast<wo_value>(&arr->array->at(i))));
 
     return wo_ret_string(vm, buf.c_str());
 }

@@ -104,7 +104,7 @@ namespace wo
             uint64_t type_space;
         };
 
-        inline value* set_string(const char* str)
+        inline value* set_string(const std::string& str)
         {
             set_gcunit<wo::value::valuetype::string_type>(
                 string_t::gc_new<gcbase::gctype::young>(str));
@@ -116,7 +116,7 @@ namespace wo
                 string_t::gc_new<gcbase::gctype::young>((const char*)buf, sz));
             return this;
         }
-        inline value* set_string_nogc(const char* str)
+        inline value* set_string_nogc(const std::string& str)
         {
             // You must 'delete' it manual
             set_gcunit<wo::value::valuetype::string_type>(new string_t(str));
@@ -125,7 +125,7 @@ namespace wo
         inline value* set_val_compile_time(value* val)
         {
             if (val->type == valuetype::string_type)
-                return set_string_nogc(val->string->c_str());
+                return set_string_nogc(*val->string);
 
             wo_assert(!val->is_gcunit());
             return set_val(val);

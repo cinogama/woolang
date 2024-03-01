@@ -742,7 +742,7 @@ namespace wo
 
             // Write self copy functions here..
             if (constant_value.type == value::valuetype::string_type)
-                dumm->constant_value.set_string_nogc(constant_value.string->c_str());
+                dumm->constant_value.set_string_nogc(*constant_value.string);
             WO_REINSTANCE(dumm->value_type);
 
             return dumm;
@@ -879,7 +879,7 @@ namespace wo
             case lex_type::l_format_string:
             case lex_type::l_format_string_end:
             case lex_type::l_identifier: // Special for xxx.index
-                constant_value.set_string_nogc(wstr_to_str(te.identifier).c_str());
+                constant_value.set_string_nogc(wstr_to_str(te.identifier));
                 break;
             case lex_type::l_literal_char:
                 wo_assert(te.identifier.size() == 1);
@@ -1225,10 +1225,11 @@ namespace wo
                     break;
                 case value::valuetype::string_type:
                 {
-                    const char* val = binary_operate(*lex,
-                        (wo_string_t)_left_val.string->c_str(),
-                        (wo_string_t)_right_val.string->c_str(),
+                    std::string val = binary_operate(*lex,
+                        *_left_val.string,
+                        *_right_val.string,
                         operate, &is_constant);
+
                     if (is_constant)
                         constant_value.set_string_nogc(val);
                 }

@@ -1006,7 +1006,7 @@ wo_bool_t _wo_cast_value(wo_vm vm, wo::value* value, wo::lexer* lex, wo::value::
             return WO_FALSE;
     }
     else if (lex_type == wo::lex_type::l_literal_string) // is string   
-        value->set_string(wo::wstr_to_str(wstr).c_str());
+        value->set_string(wo::wstr_to_str(wstr));
     else if (lex_type == wo::lex_type::l_add
         || lex_type == wo::lex_type::l_sub
         || lex_type == wo::lex_type::l_literal_integer

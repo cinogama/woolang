@@ -558,24 +558,16 @@ namespace wo
                 switch (op_type)
                 {
                 case lex_type::l_add:
-                    if constexpr (std::is_same<T, wo_string_t>::value)
-                    {
-                        thread_local static std::string _tmp_string_add_result;
-                        _tmp_string_add_result = left;
-                        _tmp_string_add_result += right;
-                        return _tmp_string_add_result.c_str();
-                    }
-                    else
-                        return left + right;
+                    return left + right;
                 case lex_type::l_sub:
-                    if constexpr (!std::is_same<T, wo_string_t>::value)
+                    if constexpr (!std::is_same<T, wo::string_t>::value)
                         return left - right;
                 case lex_type::l_mul:
-                    if constexpr (!std::is_same<T, wo_string_t>::value
+                    if constexpr (!std::is_same<T, wo::string_t>::value
                         && !std::is_same<T, wo_handle_t>::value)
                         return left * right;
                 case lex_type::l_div:
-                    if constexpr (!std::is_same<T, wo_string_t>::value
+                    if constexpr (!std::is_same<T, wo::string_t>::value
                         && !std::is_same<T, wo_handle_t>::value)
                     {
                         if constexpr (std::is_same<T, wo_integer_t>::value)
@@ -594,7 +586,7 @@ namespace wo
                         return left / right;
                     }
                 case lex_type::l_mod:
-                    if constexpr (!std::is_same<T, wo_string_t>::value
+                    if constexpr (!std::is_same<T, wo::string_t>::value
                         && !std::is_same<T, wo_handle_t>::value)
                     {
                         if constexpr (std::is_same<T, wo_real_t>::value)
