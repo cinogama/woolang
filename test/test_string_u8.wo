@@ -8,6 +8,21 @@ namespace test_string_u8
 {
     func main()
     {
+        test_equal("", "");
+        test_assure("\0" != "");
+        test_equal("\0"->len(), 1);
+        test_equal("\0"->cchars()->len(), 1);
+        test_equal("\0"->chars()->len(), 1);
+        test_equal("\0"->cchars()[0], '\0': int: cchar);
+        test_equal("\0"->chars()[0], '\0');
+
+        test_equal("你好世界"[2], '世');
+        test_equal("你好\0世界"[2], '\0');
+        test_equal("你好\0世界"[3], '世');
+        test_equal("你好\0世界"[4], '界');
+        test_equal("你好\0世界"->len, 5);
+        test_equal("你好\0世界"->chars->len, 5);
+
         test_equal("abcdef"->find("zzz"), -1);
         test_equal("abcdef"->find("cd"), 2);
         test_equal("abcdef"->findfrom("cd", 3), -1);
@@ -58,17 +73,17 @@ namespace test_string_u8
 
         // Cannot crash when meet bad string.
         let badstr_1 = "你好世界"->chars->>\ch=ch: int: cchar;->cstr;
-        std::println(F"BAD_STRING SIZE {badstr_1->len}= ", badstr_1);
+        std::println("\n", F"BAD_STRING SIZE {badstr_1->len}= ", badstr_1);
         for (let mut i = 0; i < badstr_1->len; i += 1)
             std::print(badstr_1[i], "");
         
         let badstr_2 = "你好世界"->cchars->>\ch=ch: int: char;->str;
-        std::println(F"BAD_STRING SIZE {badstr_2->len}= ", badstr_2);
+        std::println("\n", F"BAD_STRING SIZE {badstr_2->len}= ", badstr_2);
         for (let mut i = 0; i < badstr_2->len; i += 1)
             std::print(badstr_2[i], "");
 
         let badstr_3 = F"你好{badstr_2}世界";
-        std::println(F"BAD_STRING SIZE {badstr_3->len}= ", badstr_3);
+        std::println("\n", F"BAD_STRING SIZE {badstr_3->len}= ", badstr_3);
         for (let mut i = 0; i < badstr_3->len; i += 1)
             std::print(badstr_3[i], "");
 
@@ -85,8 +100,11 @@ namespace test_string_u8
                             ->  cstr;
                         
                         test_assure(badstr_r->len <= 7);
+                        test_equal(badstr_r as string->len, badstr_r->chars as array<char>->len);
+                        test_assure(badstr_r as string->len <= badstr_r->cchars as array<cchar>->len);
                         
-                        std::println(F"\n\nBAD_STRING SIZE {badstr_r->len}= ", badstr_r);
+                        std::print(badstr_r, "");
+
                         for (let mut i = 0; i < badstr_r->len; i += 1)
                             std::print(badstr_r[i], "");
                     }
@@ -105,6 +123,8 @@ namespace test_string_u8
                             ->  cstr;
                         
                         test_assure(badstr_r->len <= 7);
+                        test_equal(badstr_r as string->len, badstr_r->chars as array<char>->len);
+                        test_assure(badstr_r as string->len <= badstr_r->cchars as array<cchar>->len);
                     }
                 }, ()
             );

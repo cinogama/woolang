@@ -1211,9 +1211,13 @@ namespace wo
                             return;
                         }
 
-                        wchar_t out_str = u8stridx(from->get_constant_value().string->c_str(),
+                        wchar_t out_str = u8strnidx(
+                            from->get_constant_value().string->c_str(),
+                            from->get_constant_value().string->size(),
                             (size_t)index->get_constant_value().integer);
-                        if (out_str == 0 && u8strlen(from->get_constant_value().string->c_str())
+                        if (out_str == 0 && u8strnlen(
+                            from->get_constant_value().string->c_str(),
+                            from->get_constant_value().string->size())
                             <= (size_t)index->get_constant_value().integer)
                             lex->lang_error(lexer::errorlevel::error, index, WO_ERR_INDEX_OUT_OF_RANGE);
 

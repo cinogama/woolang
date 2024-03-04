@@ -879,7 +879,7 @@ namespace wo
             case lex_type::l_format_string:
             case lex_type::l_format_string_end:
             case lex_type::l_identifier: // Special for xxx.index
-                constant_value.set_string_nogc(wstr_to_str(te.identifier));
+                constant_value.set_string_nogc(wstrn_to_str(te.identifier));
                 break;
             case lex_type::l_literal_char:
                 wo_assert(te.identifier.size() == 1);

@@ -1,19 +1,20 @@
 #include "wo_utf8.hpp"
 #include <cwchar>
 #include <cstring>
+#include <climits>
+#include <string>
 
 namespace wo
 {
     static_assert(MB_LEN_MAX <= 8);
 
-    uint8_t u8chsize(const char* chidx)
+    uint8_t u8chsize(const char* chidx, size_t len)
     {
         std::mbstate_t mb = {};
 
-        auto strlength = strlen(chidx);
-
         if (std::mbrlen(chidx, 1, &mb) == (size_t)-2)
         {
+            auto strlength = strlen(chidx);
             if (strlength)
             {
                 uint8_t strsz = strlength > UINT8_MAX ? UINT8_MAX : (uint8_t)strlength;
@@ -29,124 +30,229 @@ namespace wo
         }
         return 1;
     }
-    size_t u8strlen(wo_string_t u8str)
-    {
-        size_t strlength = 0;
-        while (*u8str)
-        {
-            strlength++;
-            u8str += u8chsize(u8str);
-
-        }
-        return strlength;
-    }
     size_t u8strnlen(wo_string_t u8str, size_t len)
     {
         size_t strlength = 0;
         while (len)
         {
             strlength++;
-            size_t wchlen = u8chsize(u8str);
+            size_t wchlen = u8chsize(u8str, len);
 
             len -= wchlen;
             u8str += wchlen;
         }
         return strlength;
     }
-    wo_string_t u8stridxstr(wo_string_t u8str, size_t chidx)
-    {
-        while (chidx && *u8str)
-        {
-            --chidx;
-            u8str += u8chsize(u8str);
-        }
-        return u8str;
-    }
-    wo_string_t u8strnidxstr(wo_string_t u8str, size_t chidx, size_t len)
+    wo_string_t u8strnidxstr(wo_string_t u8str, size_t len, size_t chidx)
     {
         while (chidx && len)
         {
             --chidx;
-            size_t wchlen = u8chsize(u8str);
+            size_t wchlen = u8chsize(u8str, len);
             
             len -= wchlen;
             u8str += wchlen;
         }
         return u8str;
     }
-    wchar_t u8stridx(wo_string_t u8str, size_t chidx)
+    wo_char_t u8strnidx(wo_string_t u8str, size_t len, size_t chidx)
     {
         std::mbstate_t mb = {};
         wchar_t wc;
-        wo_string_t target_place = u8stridxstr(u8str, chidx);
+        wo_string_t target_place = u8strnidxstr(u8str, len, chidx);
         size_t parse_result = std::mbrtowc(&wc, target_place, strlen(target_place), &mb);
         if (parse_result > 0 && parse_result != size_t(-1) && parse_result != size_t(-2))
             return wc;
-        return (wchar_t)(unsigned char)*target_place;
-    }
-    wchar_t u8strnidx(wo_string_t u8str, size_t chidx, size_t len)
-    {
-        std::mbstate_t mb = {};
-        wchar_t wc;
-        wo_string_t target_place = u8strnidxstr(u8str, chidx, len);
-        size_t parse_result = std::mbrtowc(&wc, target_place, strlen(target_place), &mb);
-        if (parse_result > 0 && parse_result != size_t(-1) && parse_result != size_t(-2))
-            return wc;
-        return (wchar_t)(unsigned char)*target_place;
-    }
-    wo_string_t u8substr(wo_string_t u8str, size_t from, size_t length, size_t* out_sub_len)
-    {
-        auto substr = u8stridxstr(u8str, from);
-        auto end_place = u8stridxstr(u8str, from + length);
-        *out_sub_len = end_place - substr;
-        return substr;
+        return (wo_char_t)(unsigned char)*target_place;
     }
     wo_string_t u8substrn(wo_string_t u8str, size_t len, size_t from, size_t length, size_t* out_sub_len)
     {
-        auto substr = u8strnidxstr(u8str, from, len);
-        auto end_place = u8strnidxstr(u8str, from + length, len);
+        auto substr = u8strnidxstr(u8str, len, from);
+        auto end_place = u8strnidxstr(u8str, len, from + length);
         *out_sub_len = end_place - substr;
         return substr;
     }
     size_t clen2u8blen(wo_string_t u8str, size_t len)
     {
-        size_t clen = 0;
+        size_t wclen = 0;
         for (;;)
         {
-            size_t chlen = u8chsize(u8str);
+            size_t chlen = u8chsize(u8str, len);
             if (chlen > len)
                 break;
 
-            ++clen;
+            ++wclen;
             len -= chlen;
             u8str += chlen;
         }
-        return clen;
+        return wclen;
+    }
+    size_t u8blen2clen(wo_string_t u8str, size_t len, size_t wclen)
+    {
+        return (size_t)(u8strnidxstr(u8str, len, wclen) - u8str);
     }
 
-    uint8_t u8wchsize(wchar_t ch)
+    uint8_t u8mbc2wc(const char* ch, size_t len, wo_char_t* out_wch) 
     {
         std::mbstate_t mb = {};
 
-        size_t len = std::wcrtomb(nullptr, ch, &mb);
-        if (len == (size_t)-1)
+        size_t mblen = std::mbrlen(ch, len, &mb);
+        if (mblen == (size_t)-2 || mblen == (size_t)-1 || mblen == 0)
+        {
+            // Bad chs or zero term, give origin char
+            *out_wch = (wo_char_t)(unsigned char)*ch;
             return 1;
+        }
+
+        std::mbrtowc(out_wch, ch, mblen, &mb);
+        return (uint8_t)mblen;
+    }
+    uint8_t u8wc2mbc(wo_char_t ch, char* out_mbchs)
+    {
+        std::mbstate_t mb = {};
+
+        size_t len = std::wcrtomb(out_mbchs, ch, &mb);
+        if (len == (size_t)-1)
+        {
+            // Bad chs, give efbfbd
+            out_mbchs[0] = '\xEF';
+            out_mbchs[1] = '\xBF';
+            out_mbchs[2] = '\xBD';
+            return 3;
+        }
 
         return (uint8_t)len;
     }
-
-    size_t u8blen2clen(wo_string_t u8str, size_t len)
+    
+    wo_wstring_t u8mbstowcs_zero_term(wo_string_t u8str)
     {
-        return (size_t)(u8stridxstr(u8str, len) - u8str);
+        std::mbstate_t mb = {};
+        size_t wstr_length = mbsrtowcs(nullptr, &u8str, 0, &mb);
+
+        // Failed to parse, meet invalid string.
+        if (wstr_length == (size_t)-1)
+            wstr_length = 0;
+
+        wchar_t* wstr_buffer = new wchar_t[wstr_length + 1];
+        mbsrtowcs(wstr_buffer, &u8str, wstr_length, &mb);
+        wstr_buffer[wstr_length] = 0;
+
+        return wstr_buffer;
+    }
+    wo_string_t u8wcstombs_zero_term(wo_wstring_t wstr)
+    {
+        std::mbstate_t mb = {};
+        size_t mstr_byte_length = wcsrtombs(nullptr, &wstr, 0, &mb);
+
+        // Failed to parse, meet invalid string.
+        if (mstr_byte_length == (size_t)-1)
+            mstr_byte_length = 0;
+
+        char* mstr_buffer = new char[mstr_byte_length + 1];
+        wcsrtombs(mstr_buffer, &wstr, mstr_byte_length, &mb);
+        mstr_buffer[mstr_byte_length] = 0;
+
+        return mstr_buffer;
     }
 
-    wchar_t* u8str2wstr(const char* str, size_t len, size_t* outlen)
+    wo_wstring_t u8mbstowcs(wo_string_t u8str, size_t len, size_t* out_len)
     {
+        std::wstring result;
+        while (len)
+        {
+            wo_char_t ch;
+            size_t chlen = u8mbc2wc(u8str, len, &ch);
 
+            result.append(1, ch);
+            u8str += chlen;
+            len -= chlen;
+        }
+        
+        auto* chs = new wo_char_t[result.size() + 1];
+        std::copy(result.begin(), result.end(), chs);
+        chs[result.size()] = 0;
+
+        *out_len = result.size();
+
+        return chs;
+    }
+    wo_string_t u8wcstombs(wo_wstring_t wstr, size_t len, size_t* out_len)
+    {
+        std::string result;
+        while (len)
+        {
+            char ch[MB_LEN_MAX];
+            size_t chlen = u8wc2mbc(*wstr, ch);
+
+            result.append(ch, chlen);
+            ++wstr;
+            len--;
+        }
+
+        auto* chs = new char[result.size() + 1];
+        std::copy(result.begin(), result.end(), chs);
+        chs[result.size()] = 0;
+
+        *out_len = result.size();
+
+        return chs;
     }
 
-    char* u8wstr2str(const wchar_t* str, size_t len, size_t* outlen)
+    std::string wstr_to_str(wo_wstring_t wstr)
     {
+        auto buf = u8wcstombs_zero_term(wstr);
+        std::string result = buf;
 
+        delete[]buf;
+
+        return result;
+    }
+    std::string wstr_to_str(const std::wstring& wstr)
+    {
+        return wstr_to_str(wstr.c_str());
+    }
+
+    std::wstring str_to_wstr(wo_string_t str)
+    {
+        auto buf = u8mbstowcs_zero_term(str);
+        std::wstring result = buf;
+
+        delete[]buf;
+
+        return result;
+    }
+    std::wstring str_to_wstr(const std::string& str)
+    {
+        return str_to_wstr(str.c_str());
+    }
+
+    std::string wstrn_to_str(wo_wstring_t wstr, size_t len)
+    {
+        size_t buflen = 0;
+        auto buf = u8wcstombs(wstr, len, &buflen);
+        std::string result(buf, buflen);
+
+        delete[]buf;
+
+        return result;
+    }
+    std::string wstrn_to_str(const std::wstring& wstr)
+    {
+        return wstrn_to_str(wstr.c_str(), wstr.size());
+    }
+
+    std::wstring strn_to_wstr(wo_string_t str, size_t len)
+    {
+        size_t buflen = 0;
+        auto buf = u8mbstowcs(str, len, &buflen);
+        std::wstring result(buf, buflen);
+
+        delete[]buf;
+
+        return result;
+    }
+    std::wstring strn_to_wstr(const std::string& str)
+    {
+        return strn_to_wstr(str.c_str(), str.size());
     }
 }
