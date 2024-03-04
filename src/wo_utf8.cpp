@@ -6,7 +6,7 @@
 
 namespace wo
 {
-    static_assert(MB_LEN_MAX <= 8);
+    static_assert(MB_LEN_MAX <= UINT8_MAX);
 
     uint8_t u8chsize(const char* chidx, size_t len)
     {
