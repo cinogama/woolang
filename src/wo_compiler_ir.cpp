@@ -751,8 +751,7 @@ namespace wo
                 WO_LOAD_BIN_FAILED("Failed to restore string from string buffer.");
 
             preserved_memory[constant_offset].set_gcunit<wo::value::valuetype::string_type>(
-                string_t::gc_new<gcbase::gctype::no_gc>(
-                    constant_string.c_str()));
+                string_t::gc_new<gcbase::gctype::no_gc>(constant_string));
         }
 
         for (auto& extern_native_function : extern_native_functions)

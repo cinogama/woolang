@@ -3606,7 +3606,7 @@ namespace wo
                     is_constant = true;
                     symbol->is_constexpr = true;
                     if (symbol->variable_value->get_constant_value().type == value::valuetype::string_type)
-                        constant_value.set_string_nogc(symbol->variable_value->get_constant_value().string->c_str());
+                        constant_value.set_string_nogc(*symbol->variable_value->get_constant_value().string);
                     else
                     {
                         constant_value = symbol->variable_value->get_constant_value();
@@ -5470,11 +5470,11 @@ namespace wo
                 }
             case value::valuetype::string_type:
                 if (!get_pure_value)
-                    return WO_NEW_OPNUM(imm(const_value.string->c_str()));
+                    return WO_NEW_OPNUM(imm_str(std::string(*const_value.string)));
                 else
                 {
                     auto& treg = get_useable_register_for_pure_value();
-                    compiler->mov(treg, imm(const_value.string->c_str()));
+                    compiler->mov(treg, imm_str(std::string(*const_value.string)));
                     return treg;
                 }
             case value::valuetype::invalid:  // for nil
@@ -7024,7 +7024,7 @@ namespace wo
             compiler->idstruct(reg(reg::cr), reg(reg::pm), 0);
 
             real_analyze_finalize(a_match->cases, compiler);
-            compiler->ext_panic(opnum::imm("All cases failed to match, may be wrong type value returned by the external function."));
+            compiler->ext_panic(opnum::imm_str("All cases failed to match, may be wrong type value returned by the external function."));
 
             compiler->tag(a_match->match_end_tag_in_final_pass);
 
@@ -7198,7 +7198,7 @@ namespace wo
 
                 wo_assert(funcdef->value_type->is_complex());
                 if (!funcdef->value_type->complex_type->is_void())
-                    compiler->ext_panic(opnum::imm("Function returned without valid value."));
+                    compiler->ext_panic(opnum::imm_str("Function returned without valid value."));
 
                 // do default return
                 if (funcdef->is_closure_function())

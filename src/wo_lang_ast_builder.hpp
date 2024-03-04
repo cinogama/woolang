@@ -558,24 +558,16 @@ namespace wo
                 switch (op_type)
                 {
                 case lex_type::l_add:
-                    if constexpr (std::is_same<T, wo_string_t>::value)
-                    {
-                        thread_local static std::string _tmp_string_add_result;
-                        _tmp_string_add_result = left;
-                        _tmp_string_add_result += right;
-                        return _tmp_string_add_result.c_str();
-                    }
-                    else
-                        return left + right;
+                    return left + right;
                 case lex_type::l_sub:
-                    if constexpr (!std::is_same<T, wo_string_t>::value)
+                    if constexpr (!std::is_same<T, wo::string_t>::value)
                         return left - right;
                 case lex_type::l_mul:
-                    if constexpr (!std::is_same<T, wo_string_t>::value
+                    if constexpr (!std::is_same<T, wo::string_t>::value
                         && !std::is_same<T, wo_handle_t>::value)
                         return left * right;
                 case lex_type::l_div:
-                    if constexpr (!std::is_same<T, wo_string_t>::value
+                    if constexpr (!std::is_same<T, wo::string_t>::value
                         && !std::is_same<T, wo_handle_t>::value)
                     {
                         if constexpr (std::is_same<T, wo_integer_t>::value)
@@ -594,7 +586,7 @@ namespace wo
                         return left / right;
                     }
                 case lex_type::l_mod:
-                    if constexpr (!std::is_same<T, wo_string_t>::value
+                    if constexpr (!std::is_same<T, wo::string_t>::value
                         && !std::is_same<T, wo_handle_t>::value)
                     {
                         if constexpr (std::is_same<T, wo_real_t>::value)
@@ -1219,9 +1211,13 @@ namespace wo
                             return;
                         }
 
-                        wchar_t out_str = u8stridx(from->get_constant_value().string->c_str(),
+                        wchar_t out_str = u8strnidx(
+                            from->get_constant_value().string->c_str(),
+                            from->get_constant_value().string->size(),
                             (size_t)index->get_constant_value().integer);
-                        if (out_str == 0 && u8strlen(from->get_constant_value().string->c_str())
+                        if (out_str == 0 && u8strnlen(
+                            from->get_constant_value().string->c_str(),
+                            from->get_constant_value().string->size())
                             <= (size_t)index->get_constant_value().integer)
                             lex->lang_error(lexer::errorlevel::error, index, WO_ERR_INDEX_OUT_OF_RANGE);
 

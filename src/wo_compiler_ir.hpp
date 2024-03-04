@@ -176,14 +176,13 @@ namespace wo
             imm(T _val) noexcept
                 :val(_val)
             {
+                static_assert(meta::is_string<T>::value == false, "Please use 'imm_str' instead of imm when value is string.");
                 wo_assert(type() != value::valuetype::invalid, "Invalid immediate.");
             }
 
             value::valuetype type()const noexcept override
             {
-                if constexpr (meta::is_string<T>::value)
-                    return value::valuetype::string_type;
-                else if constexpr (std::is_pointer<T>::value)
+                if constexpr (std::is_pointer<T>::value)
                     return value::valuetype::handle_type;
                 else if constexpr (std::is_same<T, bool>::value)
                     return value::valuetype::bool_type;
@@ -217,10 +216,7 @@ namespace wo
             void apply(value* v) const override
             {
                 v->type = type();
-                if constexpr (meta::is_string<T>::value)
-                    v->set_gcunit<wo::value::valuetype::string_type>(
-                        string_t::gc_new<gcbase::gctype::no_gc>(val));
-                else if constexpr (std::is_pointer<T>::value)
+                if constexpr (std::is_pointer<T>::value)
                     v->handle = (uint64_t)val;
                 else if constexpr (std::is_integral<T>::value)
                     v->integer = val;
@@ -255,6 +251,56 @@ namespace wo
                 }
                 else
                     return (bool)val;
+            }
+        };
+
+        struct imm_str :virtual immbase
+        {
+            std::string val;
+            imm_str(const std::string& v)
+                : val(v)
+            {
+            }
+
+            value::valuetype type()const noexcept override
+            {
+                return value::valuetype::string_type;
+            }
+
+            bool operator < (const immbase& _another) const override
+            {
+                if (dynamic_cast<const tag*>(&_another))
+                    return false;
+
+                auto t = type();
+                auto t2 = _another.type();
+                if (t == t2)
+                    return val < (dynamic_cast<const imm_str&>(_another)).val;
+ 
+                return t < t2;
+            }
+
+            void apply(value* v) const override
+            {
+                v->type = type();
+                v->set_gcunit<wo::value::valuetype::string_type>(
+                    string_t::gc_new<gcbase::gctype::no_gc>(val));
+            }
+
+            virtual int64_t try_int()const override
+            {
+                wo_error("Immediate is not integer.");
+                return 0;
+            }
+            virtual int64_t try_set_int(int64_t _val) override
+            {
+                wo_error("Immediate is not integer.");
+                return 0;
+            }
+            virtual bool is_true() const override
+            {
+                wo_error("Cannot eval string here.");
+                return true;
             }
         };
 

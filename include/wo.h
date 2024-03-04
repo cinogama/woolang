@@ -44,7 +44,7 @@ WO_FORCE_CAPI
 
 typedef int64_t     wo_integer_t, wo_int_t;
 typedef uint64_t    wo_handle_t;
-typedef void* wo_ptr_t;
+typedef void*       wo_ptr_t;
 typedef const char* wo_string_t;
 typedef const wchar_t* wo_wstring_t;
 typedef wchar_t     wo_char_t;
@@ -157,7 +157,8 @@ WO_API wo_ptr_t     wo_pointer(wo_value value);
 WO_API wo_string_t  wo_string(wo_value value);
 WO_API wo_bool_t    wo_bool(wo_value value);
 WO_API float        wo_float(wo_value value);
-WO_API const void*  wo_buffer(wo_value value);
+WO_API const void*  wo_buffer(wo_value value, wo_size_t* bytelen);
+#define wo_raw_string(value, bytelen) ((wo_string_t)wo_buffer(value, bytelen))
 
 WO_API void wo_set_nil(wo_value value);
 WO_API void wo_set_char(wo_value value, wo_char_t val);
@@ -173,7 +174,8 @@ WO_API void wo_set_dup(wo_value value, wo_vm vm, wo_value val);
 
 WO_API void wo_set_string(wo_value value, wo_vm vm, wo_string_t val);
 WO_API void wo_set_string_fmt(wo_value value, wo_vm vm, wo_string_t fmt, ...);
-WO_API void wo_set_buffer(wo_value value, wo_vm vm, const void* val, size_t len);
+WO_API void wo_set_buffer(wo_value value, wo_vm vm, const void* val, wo_size_t len);
+#define wo_set_raw_string wo_set_buffer
 WO_API void wo_set_gchandle(wo_value value, wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t));
 WO_API void wo_set_struct(wo_value value, wo_vm vm, uint16_t structsz);
 WO_API void wo_set_arr(wo_value value, wo_vm vm, wo_int_t count);
@@ -206,7 +208,8 @@ WO_API wo_result_t  wo_ret_val(wo_vm vm, wo_value result);
 
 WO_API wo_result_t  wo_ret_string(wo_vm vm, wo_string_t result);
 WO_API wo_result_t  wo_ret_string_fmt(wo_vm vm, wo_string_t fmt, ...);
-WO_API wo_result_t  wo_ret_buffer(wo_vm vm, const void* result, size_t len);
+WO_API wo_result_t  wo_ret_buffer(wo_vm vm, const void* result, wo_size_t len);
+#define wo_ret_raw_string wo_ret_buffer
 WO_API wo_result_t  wo_ret_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t));
 WO_API wo_result_t  wo_ret_dup(wo_vm vm, wo_value result);
 
@@ -222,7 +225,8 @@ WO_API void  wo_set_option_float(wo_value val, wo_vm vm, float result);
 WO_API void  wo_set_option_handle(wo_value val, wo_vm vm, wo_handle_t result);
 WO_API void  wo_set_option_string(wo_value val, wo_vm vm, wo_string_t result);
 WO_API void  wo_set_option_string_fmt(wo_value val, wo_vm vm, wo_string_t fmt, ...);
-WO_API void  wo_set_option_buffer(wo_value val, wo_vm vm, const void* result, size_t len);
+WO_API void  wo_set_option_buffer(wo_value val, wo_vm vm, const void* result, wo_size_t len);
+#define wo_set_option_raw_string wo_set_option_buffer
 WO_API void  wo_set_option_ptr_may_null(wo_value val, wo_vm vm, wo_ptr_t result);
 WO_API void  wo_set_option_pointer(wo_value val, wo_vm vm, wo_ptr_t result);
 WO_API void  wo_set_option_val(wo_value val, wo_vm vm, wo_value result);
@@ -239,6 +243,7 @@ WO_API void  wo_set_option_none(wo_value val, wo_vm vm);
 #define     wo_set_ok_string        wo_set_option_string
 #define     wo_set_ok_string_fmt    wo_set_option_string_fmt
 #define     wo_set_ok_buffer        wo_set_option_buffer
+#define     wo_set_ok_raw_string    wo_set_option_buffer
 #define     wo_set_ok_pointer       wo_set_option_pointer
 #define     wo_set_ok_val           wo_set_option_val
 #define     wo_set_ok_gchandle      wo_set_option_gchandle
@@ -252,7 +257,8 @@ WO_API void  wo_set_err_float(wo_value val, wo_vm vm, float result);
 WO_API void  wo_set_err_handle(wo_value val, wo_vm vm, wo_handle_t result);
 WO_API void  wo_set_err_string(wo_value val, wo_vm vm, wo_string_t result);
 WO_API void  wo_set_err_string_fmt(wo_value val, wo_vm vm, wo_string_t fmt, ...);
-WO_API void  wo_set_err_buffer(wo_value val, wo_vm vm, const void* result, size_t len);
+WO_API void  wo_set_err_buffer(wo_value val, wo_vm vm, const void* result, wo_size_t len);
+#define wo_set_err_raw_string wo_set_option_buffer
 WO_API void  wo_set_err_pointer(wo_value val, wo_vm vm, wo_ptr_t result);
 WO_API void  wo_set_err_val(wo_value val, wo_vm vm, wo_value result);
 WO_API void  wo_set_err_gchandle(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t));
@@ -266,7 +272,8 @@ WO_API wo_result_t  wo_ret_option_float(wo_vm vm, float result);
 WO_API wo_result_t  wo_ret_option_handle(wo_vm vm, wo_handle_t result);
 WO_API wo_result_t  wo_ret_option_string(wo_vm vm, wo_string_t result);
 WO_API wo_result_t  wo_ret_option_string_fmt(wo_vm vm, wo_string_t fmt, ...);
-WO_API wo_result_t  wo_ret_option_buffer(wo_vm vm, const void* result, size_t len);
+WO_API wo_result_t  wo_ret_option_buffer(wo_vm vm, const void* result, wo_size_t len);
+#define wo_ret_option_raw_string wo_ret_option_buffer
 WO_API wo_result_t  wo_ret_option_ptr_may_null(wo_vm vm, wo_ptr_t result);
 WO_API wo_result_t  wo_ret_option_pointer(wo_vm vm, wo_ptr_t result);
 WO_API wo_result_t  wo_ret_option_val(wo_vm vm, wo_value result);
@@ -283,6 +290,7 @@ WO_API wo_result_t  wo_ret_option_none(wo_vm vm);
 #define     wo_ret_ok_string        wo_ret_option_string
 #define     wo_ret_ok_string_fmt    wo_ret_option_string_fmt
 #define     wo_ret_ok_buffer        wo_ret_option_buffer
+#define     wo_ret_ok_raw_string     wo_ret_option_buffer
 #define     wo_ret_ok_pointer       wo_ret_option_pointer
 #define     wo_ret_ok_val           wo_ret_option_val
 #define     wo_ret_ok_gchandle      wo_ret_option_gchandle
@@ -296,7 +304,8 @@ WO_API wo_result_t  wo_ret_err_float(wo_vm vm, float result);
 WO_API wo_result_t  wo_ret_err_handle(wo_vm vm, wo_handle_t result);
 WO_API wo_result_t  wo_ret_err_string(wo_vm vm, wo_string_t result);
 WO_API wo_result_t  wo_ret_err_string_fmt(wo_vm vm, wo_string_t fmt, ...);
-WO_API wo_result_t  wo_ret_err_buffer(wo_vm vm, const void* result, size_t len);
+WO_API wo_result_t  wo_ret_err_buffer(wo_vm vm, const void* result, wo_size_t len);
+#define wo_ret_err_raw_string wo_ret_err_buffer
 WO_API wo_result_t  wo_ret_err_pointer(wo_vm vm, wo_ptr_t result);
 WO_API wo_result_t  wo_ret_err_val(wo_vm vm, wo_value result);
 WO_API wo_result_t  wo_ret_err_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t));
@@ -323,11 +332,11 @@ WO_API wo_bool_t    wo_set_work_path(wo_string_t path);
 WO_API wo_bool_t    wo_equal_byte(wo_value a, wo_value b);
 
 WO_API void         wo_enable_jit(wo_bool_t option);
-WO_API wo_bool_t    wo_virtual_binary(wo_string_t filepath, const void* data, size_t len, wo_bool_t enable_modify);
+WO_API wo_bool_t    wo_virtual_binary(wo_string_t filepath, const void* data, wo_size_t len, wo_bool_t enable_modify);
 WO_API wo_bool_t    wo_virtual_source(wo_string_t filepath, wo_string_t data, wo_bool_t enable_modify);
 WO_API wo_bool_t    wo_remove_virtual_file(wo_string_t filepath);
 WO_API wo_vm        wo_create_vm(void);
-WO_API wo_vm        wo_sub_vm(wo_vm vm, size_t stacksz);
+WO_API wo_vm        wo_sub_vm(wo_vm vm, wo_size_t stacksz);
 WO_API wo_vm        wo_gc_vm(wo_vm vm);
 WO_API wo_bool_t    wo_abort_vm(wo_vm vm);
 WO_API void         wo_close_vm(wo_vm vm);
@@ -339,13 +348,13 @@ WO_API void         wo_release_vm(wo_vm vm);
 
 WO_API wo_bool_t    wo_load_source(wo_vm vm, wo_string_t virtual_src_path, wo_string_t src);
 WO_API wo_bool_t    wo_load_file(wo_vm vm, wo_string_t virtual_src_path);
-WO_API wo_bool_t    wo_load_source_with_stacksz(wo_vm vm, wo_string_t virtual_src_path, wo_string_t src, size_t stacksz);
-WO_API wo_bool_t    wo_load_file_with_stacksz(wo_vm vm, wo_string_t virtual_src_path, size_t stacksz);
-WO_API wo_bool_t    wo_load_binary_with_stacksz(wo_vm vm, wo_string_t virtual_src_path, const void* buffer, size_t length, size_t stacksz);
-WO_API wo_bool_t    wo_load_binary(wo_vm vm, wo_string_t virtual_src_path, const void* buffer, size_t length);
+WO_API wo_bool_t    wo_load_source_with_stacksz(wo_vm vm, wo_string_t virtual_src_path, wo_string_t src, wo_size_t stacksz);
+WO_API wo_bool_t    wo_load_file_with_stacksz(wo_vm vm, wo_string_t virtual_src_path, wo_size_t stacksz);
+WO_API wo_bool_t    wo_load_binary_with_stacksz(wo_vm vm, wo_string_t virtual_src_path, const void* buffer, wo_size_t length, wo_size_t stacksz);
+WO_API wo_bool_t    wo_load_binary(wo_vm vm, wo_string_t virtual_src_path, const void* buffer, wo_size_t length);
 
 // NOTE: wo_dump_binary must invoke before wo_run.
-WO_API void*        wo_dump_binary(wo_vm vm, wo_bool_t saving_pdi, size_t* out_length);
+WO_API void*        wo_dump_binary(wo_vm vm, wo_bool_t saving_pdi, wo_size_t* out_length);
 WO_API void         wo_free_binary(void* buffer);
 
 WO_API wo_bool_t    wo_jit(wo_vm vm);
@@ -368,7 +377,8 @@ WO_API wo_value     wo_push_pointer(wo_vm vm, wo_ptr_t val);
 WO_API wo_value     wo_push_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t));
 WO_API wo_value     wo_push_string(wo_vm vm, wo_string_t val);
 WO_API wo_value     wo_push_string_fmt(wo_vm vm, wo_string_t fmt, ...);
-WO_API wo_value     wo_push_buffer(wo_vm vm, const void* val, size_t len);
+WO_API wo_value     wo_push_buffer(wo_vm vm, const void* val, wo_size_t len);
+#define wo_push_raw_string wo_push_buffer
 WO_API wo_value     wo_push_empty(wo_vm vm);
 WO_API wo_value     wo_push_val(wo_vm vm, wo_value val);
 WO_API wo_value     wo_push_dup(wo_vm vm, wo_value val);
@@ -407,9 +417,13 @@ WO_API wo_result_t  wo_ret_yield(wo_vm vm);
 WO_API wo_int_t     wo_lengthof(wo_value value);
 WO_API wo_int_t     wo_str_bytelen(wo_value value);
 
-WO_API wchar_t      wo_str_get_char(wo_string_t str, wo_int_t index);
+WO_API wo_char_t    wo_str_get_char(wo_string_t str, wo_int_t index);
 WO_API wo_wstring_t wo_str_to_wstr(wo_string_t str);
 WO_API wo_string_t  wo_wstr_to_str(wo_wstring_t str);
+
+WO_API wo_char_t    wo_strn_get_char(wo_string_t str, wo_size_t size, wo_int_t index);
+WO_API wo_wstring_t wo_strn_to_wstr(wo_string_t str, wo_size_t size);
+WO_API wo_string_t  wo_wstrn_to_str(wo_wstring_t str, wo_size_t size);
 
 WO_API wo_bool_t    wo_struct_try_get(wo_value out_val, wo_value value, uint16_t offset);
 WO_API wo_bool_t    wo_struct_try_set(wo_value value, uint16_t offset, wo_value val);
@@ -478,7 +492,7 @@ WO_API void         wo_break_immediately(void);
 WO_API void         wo_break_specify_immediately(wo_vm vmm);
 WO_API void         wo_handle_ctrl_c(void(*handler)(int));
 
-WO_API wo_string_t  wo_debug_trace_callstack(wo_vm vm, size_t layer);
+WO_API wo_string_t  wo_debug_trace_callstack(wo_vm vm, wo_size_t layer);
 
 WO_API wo_integer_t wo_crc64_u8(uint8_t byte, wo_integer_t crc);
 WO_API wo_integer_t wo_crc64_str(wo_string_t text);
@@ -509,16 +523,16 @@ typedef enum _wo_lsp_error_level
 } wo_lsp_error_level;
 typedef struct _wo_lsp_error_msg
 {
-    wo_lsp_error_level m_level;
-    const char* m_file_name;
-    const char* m_describe;
-    size_t m_begin_location[2];       // An array stores row & col
-    size_t m_end_location[2];         // An array stores row & col
+    wo_lsp_error_level  m_level;
+    const char*         m_file_name;
+    const char*         m_describe;
+    wo_size_t           m_begin_location[2];       // An array stores row & col
+    wo_size_t           m_end_location[2];         // An array stores row & col
 
 }wo_lsp_error_msg;
 
-WO_API size_t               wo_lsp_get_compile_error_msg_count_from_vm(wo_vm vmm);
-WO_API wo_lsp_error_msg* wo_lsp_get_compile_error_msg_detail_from_vm(wo_vm vmm, size_t index);
+WO_API wo_size_t            wo_lsp_get_compile_error_msg_count_from_vm(wo_vm vmm);
+WO_API wo_lsp_error_msg*    wo_lsp_get_compile_error_msg_detail_from_vm(wo_vm vmm, wo_size_t index);
 WO_API void                 wo_lsp_free_compile_error_msg(wo_lsp_error_msg* msg);
 
 #endif

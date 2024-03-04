@@ -123,7 +123,7 @@ void _default_fail_handler(wo_vm vm, wo_string_t src_file, uint32_t lineno, wo_s
     // Real panic!
     else
     {
-        wo::wo_stderr << ANSI_HIY "This failure may cause a crash or nothing happens." ANSI_RST << wo::wo_endl;
+        wo::wo_stderr << ANSI_HIY "This failure may cause a crash." ANSI_RST << wo::wo_endl;
         if (wo::config::ENABLE_HALT_WHEN_PANIC)
         {
             // Halt directly, donot wait for input.
@@ -539,9 +539,17 @@ wo_string_t wo_string(wo_value value)
     return _rsvalue->string->c_str();
 }
 
-const void* wo_buffer(wo_value value)
+const void* wo_buffer(wo_value value, wo_size_t* bytelen)
 {
-    return (const void*)wo_string(value);
+    auto* _rsvalue = WO_VAL(value);
+    if (_rsvalue->type != wo::value::valuetype::string_type)
+    {
+        wo_fail(WO_FAIL_TYPE_FAIL, "This value is not a string.");
+        *bytelen = 0;
+        return "<not string value>";
+    }
+    *bytelen = _rsvalue->string->size();
+    return _rsvalue->string->c_str();
 }
 
 wo_bool_t wo_bool(wo_value value)
@@ -626,7 +634,7 @@ void wo_set_string_fmt(wo_value value, wo_vm vm, wo_string_t fmt, ...)
     _wo_set_string_vfmt(value, vm, fmt, v1);
     va_end(v1);
 }
-void wo_set_buffer(wo_value value, wo_vm vm, const void* val, size_t len)
+void wo_set_buffer(wo_value value, wo_vm vm, const void* val, wo_size_t len)
 {
     auto* _rsvalue = WO_VAL(value);
 
@@ -1006,7 +1014,7 @@ wo_bool_t _wo_cast_value(wo_vm vm, wo::value* value, wo::lexer* lex, wo::value::
             return WO_FALSE;
     }
     else if (lex_type == wo::lex_type::l_literal_string) // is string   
-        value->set_string(wo::wstr_to_str(wstr).c_str());
+        value->set_string(wo::wstr_to_str(wstr));
     else if (lex_type == wo::lex_type::l_add
         || lex_type == wo::lex_type::l_sub
         || lex_type == wo::lex_type::l_literal_integer
@@ -1410,7 +1418,7 @@ wo_result_t wo_ret_string_fmt(wo_vm vm, wo_string_t fmt, ...)
     return wo_ret_string(vm, buf.data());
 }
 
-wo_result_t wo_ret_buffer(wo_vm vm, const void* result, size_t len)
+wo_result_t wo_ret_buffer(wo_vm vm, const void* result, wo_size_t len)
 {
     _wo_enter_gc_guard g(vm);
     WO_VM(vm)->cr->set_buffer(result, len);
@@ -1615,7 +1623,7 @@ void wo_set_option_string_fmt(wo_value val, wo_vm vm, wo_string_t fmt, ...)
     _wo_set_option_string_vfmt(val, vm, fmt, v1);
     va_end(v1);
 }
-void wo_set_option_buffer(wo_value val, wo_vm vm, const void* result, size_t len)
+void wo_set_option_buffer(wo_value val, wo_vm vm, const void* result, wo_size_t len)
 {
     auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
@@ -1849,7 +1857,7 @@ void wo_set_err_string_fmt(wo_value val, wo_vm vm, wo_string_t fmt, ...)
     _wo_set_err_string_vfmt(val, vm, fmt, v1);
     va_end(v1);
 }
-void wo_set_err_buffer(wo_value val, wo_vm vm, const void* result, size_t len)
+void wo_set_err_buffer(wo_value val, wo_vm vm, const void* result, wo_size_t len)
 {
     auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
@@ -1973,7 +1981,7 @@ wo_result_t  wo_ret_option_string_fmt(wo_vm vm, wo_string_t fmt, ...)
     va_end(v1);
     return wo_result_t::WO_API_NORMAL;
 }
-wo_result_t  wo_ret_option_buffer(wo_vm vm, const void* result, size_t len)
+wo_result_t  wo_ret_option_buffer(wo_vm vm, const void* result, wo_size_t len)
 {
     auto* wovm = WO_VM(vm);
     wo_set_option_buffer(CS_VAL(wovm->cr), vm, result, len);
@@ -2068,7 +2076,7 @@ wo_result_t wo_ret_err_string_fmt(wo_vm vm, wo_string_t fmt, ...)
     return wo_result_t::WO_API_NORMAL;
 }
 
-wo_result_t wo_ret_err_buffer(wo_vm vm, const void* result, size_t len)
+wo_result_t wo_ret_err_buffer(wo_vm vm, const void* result, wo_size_t len)
 {
     auto* wovm = WO_VM(vm);
     wo_set_err_buffer(CS_VAL(wovm->cr), vm, result, len);
@@ -2136,7 +2144,7 @@ wo_integer_t wo_lengthof(wo_value value)
         return (wo_integer_t)_rsvalue->dict->size();
     }
     else if (_rsvalue->type == wo::value::valuetype::string_type)
-        return (wo_integer_t)wo::u8strlen(_rsvalue->string->c_str());
+        return (wo_integer_t)wo::u8strnlen(_rsvalue->string->c_str(), _rsvalue->string->size());
     else if (_rsvalue->type == wo::value::valuetype::struct_type)
     {
         // no need lock for struct's count
@@ -2159,10 +2167,12 @@ wo_int_t wo_str_bytelen(wo_value value)
     return 0;
 }
 
-wchar_t wo_str_get_char(wo_string_t str, wo_int_t index)
+wo_char_t wo_str_get_char(wo_string_t str, wo_int_t index)
 {
-    wchar_t ch = wo::u8stridx(str, (size_t)index);
-    if (ch == 0 && wo::u8strlen(str) <= (size_t)index)
+    size_t len = strlen(str);
+
+    wo_char_t ch = wo::u8strnidx(str, len, (size_t)index);
+    if (ch == 0 && wo::u8strnlen(str, len) <= (size_t)index)
         wo_fail(WO_FAIL_INDEX_FAIL, "Index out of range.");
     return ch;
 }
@@ -2170,13 +2180,39 @@ wchar_t wo_str_get_char(wo_string_t str, wo_int_t index)
 wo_wstring_t wo_str_to_wstr(wo_string_t str)
 {
     static thread_local std::wstring wstr_buf;
-    return (wstr_buf = wo::str_to_wstr(str)).c_str();
+    wstr_buf = wo::str_to_wstr(str);
+
+    return wstr_buf.c_str();
 }
 
 wo_string_t  wo_wstr_to_str(wo_wstring_t str)
 {
     static thread_local std::string str_buf;
-    return (str_buf = wo::wstr_to_str(str)).c_str();
+    str_buf = wo::wstr_to_str(str);
+
+    return str_buf.c_str();
+}
+
+wo_char_t wo_strn_get_char(wo_string_t str, wo_size_t size, wo_int_t index)
+{
+    wo_char_t ch = wo::u8strnidx(str, size,(size_t)index);
+    if (ch == 0 && wo::u8strnlen(str, size) <= (size_t)index)
+        wo_fail(WO_FAIL_INDEX_FAIL, "Index out of range.");
+    return ch;
+}
+wo_wstring_t wo_strn_to_wstr(wo_string_t str, wo_size_t size)
+{
+    static thread_local std::wstring wstr_buf;
+    wstr_buf = wo::strn_to_wstr(str, size);
+
+    return wstr_buf.c_str();
+}
+wo_string_t  wo_wstrn_to_str(wo_wstring_t str, wo_size_t size)
+{
+    static thread_local std::string str_buf;
+    str_buf = wo::wstrn_to_str(str, size);
+
+    return str_buf.c_str();
 }
 
 void wo_enable_jit(wo_bool_t option)
@@ -2184,7 +2220,7 @@ void wo_enable_jit(wo_bool_t option)
     wo::config::ENABLE_JUST_IN_TIME = (option != WO_FALSE);
 }
 
-wo_bool_t wo_virtual_binary(wo_string_t filepath, const void* data, size_t len, wo_bool_t enable_modify)
+wo_bool_t wo_virtual_binary(wo_string_t filepath, const void* data, wo_size_t len, wo_bool_t enable_modify)
 {
     return WO_CBOOL(wo::create_virtual_binary((const char*)data, len, wo::str_to_wstr(filepath), enable_modify != WO_FALSE));
 }
@@ -2204,7 +2240,7 @@ wo_vm wo_create_vm()
     return (wo_vm)new wo::vm;
 }
 
-wo_vm wo_sub_vm(wo_vm vm, size_t stacksz)
+wo_vm wo_sub_vm(wo_vm vm, wo_size_t stacksz)
 {
     return CS_VM(WO_VM(vm)->make_machine(stacksz));
 }
@@ -2368,7 +2404,7 @@ wo_bool_t _wo_load_source(wo_vm vm, wo_string_t virtual_src_path, const void* sr
     }
 }
 
-wo_bool_t wo_load_binary_with_stacksz(wo_vm vm, wo_string_t virtual_src_path, const void* buffer, size_t length, size_t stacksz)
+wo_bool_t wo_load_binary_with_stacksz(wo_vm vm, wo_string_t virtual_src_path, const void* buffer, wo_size_t length, wo_size_t stacksz)
 {
     static std::atomic_size_t vcount = 0;
     std::string vpath;
@@ -2383,12 +2419,12 @@ wo_bool_t wo_load_binary_with_stacksz(wo_vm vm, wo_string_t virtual_src_path, co
     return _wo_load_source(vm, vpath.c_str(), buffer, length, stacksz);
 }
 
-wo_bool_t wo_load_binary(wo_vm vm, wo_string_t virtual_src_path, const void* buffer, size_t length)
+wo_bool_t wo_load_binary(wo_vm vm, wo_string_t virtual_src_path, const void* buffer, wo_size_t length)
 {
     return wo_load_binary_with_stacksz(vm, virtual_src_path, buffer, length, 0);
 }
 
-void* wo_dump_binary(wo_vm vm, wo_bool_t saving_pdi, size_t* out_length)
+void* wo_dump_binary(wo_vm vm, wo_bool_t saving_pdi, wo_size_t* out_length)
 {
     auto [bufptr, bufsz] = WO_VM(vm)->env->create_env_binary(saving_pdi != WO_FALSE);
     *out_length = bufsz;
@@ -2654,7 +2690,7 @@ wo_value wo_push_string_fmt(wo_vm vm, wo_string_t fmt, ...)
 
     return val;
 }
-wo_value wo_push_buffer(wo_vm vm, const void* val, size_t len)
+wo_value wo_push_buffer(wo_vm vm, const void* val, wo_size_t len)
 {
     _wo_enter_gc_guard g(vm);
     return CS_VAL((WO_VM(vm)->sp--)->set_buffer(val, len));
@@ -2832,12 +2868,12 @@ wo_result_t wo_ret_yield(wo_vm vm)
     return wo_result_t::WO_API_NORMAL;
 }
 
-wo_bool_t wo_load_source_with_stacksz(wo_vm vm, wo_string_t virtual_src_path, wo_string_t src, size_t stacksz)
+wo_bool_t wo_load_source_with_stacksz(wo_vm vm, wo_string_t virtual_src_path, wo_string_t src, wo_size_t stacksz)
 {
     return wo_load_binary_with_stacksz(vm, virtual_src_path, src, strlen(src), stacksz);
 }
 
-wo_bool_t wo_load_file_with_stacksz(wo_vm vm, wo_string_t virtual_src_path, size_t stacksz)
+wo_bool_t wo_load_file_with_stacksz(wo_vm vm, wo_string_t virtual_src_path, wo_size_t stacksz)
 {
     return _wo_load_source(vm, virtual_src_path, nullptr, 0, stacksz);
 }
@@ -3503,7 +3539,7 @@ wo_integer_t wo_extern_symb(wo_vm vm, wo_string_t fullname)
     return 0;
 }
 
-wo_string_t wo_debug_trace_callstack(wo_vm vm, size_t layer)
+wo_string_t wo_debug_trace_callstack(wo_vm vm, wo_size_t layer)
 {
     std::stringstream sstream;
     WO_VM(vm)->dump_call_stack(layer, true, sstream);
@@ -3633,12 +3669,12 @@ wo_bool_t wo_enter_gcguard(wo_vm vm)
 }
 
 // LSP-API
-size_t wo_lsp_get_compile_error_msg_count_from_vm(wo_vm vmm)
+wo_size_t wo_lsp_get_compile_error_msg_count_from_vm(wo_vm vmm)
 {
     return WO_VM(vmm)->compile_info->lex_error_list.size();
 }
 
-wo_lsp_error_msg* wo_lsp_get_compile_error_msg_detail_from_vm(wo_vm vmm, size_t index)
+wo_lsp_error_msg* wo_lsp_get_compile_error_msg_detail_from_vm(wo_vm vmm, wo_size_t index)
 {
     auto& err_detail = WO_VM(vmm)->compile_info->lex_error_list[index];
 
@@ -3660,7 +3696,7 @@ wo_lsp_error_msg* wo_lsp_get_compile_error_msg_detail_from_vm(wo_vm vmm, size_t 
     auto* filename = new char[err_detail.filename.size() + 1];
     strcpy(filename, err_detail.filename.data());
     msg->m_file_name = filename;
-    msg->m_describe = wo::wstr_to_str_ptr(err_detail.describe);
+    msg->m_describe = wo::u8wcstombs_zero_term(err_detail.describe.c_str());
 
     return msg;
 }
