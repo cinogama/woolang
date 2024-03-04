@@ -240,7 +240,7 @@ WO_API wo_api rslib_std_string_enstring(wo_vm vm, wo_value args)
     while (len)
     {
         unsigned char uch = (unsigned char)*str;
-        if (uch == 0 || uch >= (unsigned char)0b10000000u || iscntrl(uch))
+        if (uch == 0 || iscntrl(uch))
         {
             char encode[5] = {};
             sprintf(encode, "\\x%02x", (unsigned int)uch);
