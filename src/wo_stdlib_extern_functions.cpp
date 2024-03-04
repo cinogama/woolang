@@ -11,10 +11,18 @@
 #include <mingw.thread.h>
 #endif
 
+std::string_view _wo_raw_str_view(wo_value val)
+{
+    size_t len = 0;
+    wo_string_t str = wo_raw_string(val, &len);
+
+    return std::string_view(str, len);
+}
+
 WO_API wo_api rslib_std_print(wo_vm vm, wo_value args)
 {
     size_t argc = (size_t)wo_vaarg_count(vm);
-    
+
     for (size_t i = 0; i < argc; i++)
     {
         wo::wo_stdout << wo_cast_string(args + i);
@@ -195,12 +203,13 @@ WO_API wo_api rslib_std_char_hexnum(wo_vm vm, wo_value args)
 
 WO_API wo_api rslib_std_string_enstring(wo_vm vm, wo_value args)
 {
-    wo_string_t str = wo_string(args + 0);
+    size_t len = 0;
+    wo_string_t str = wo_raw_string(args + 0, &len);
     std::string result;
-    while (*str)
+    while (len)
     {
-        unsigned char uch = *str;
-        if (iscntrl(uch))
+        unsigned char uch = (unsigned char)*str;
+        if (uch == 0 || uch >= (unsigned char)0b10000000u || iscntrl(uch))
         {
             char encode[5] = {};
             sprintf(encode, "\\x%02x", (unsigned int)uch);
@@ -220,6 +229,7 @@ WO_API wo_api rslib_std_string_enstring(wo_vm vm, wo_value args)
             }
         }
         ++str;
+        --len;
     }
     result = "\"" + result + "\"";
     return wo_ret_string(vm, result.c_str());
@@ -227,11 +237,14 @@ WO_API wo_api rslib_std_string_enstring(wo_vm vm, wo_value args)
 
 WO_API wo_api rslib_std_string_destring(wo_vm vm, wo_value args)
 {
-    wo_string_t str = wo_string(args + 0);
+    size_t len = 0;
+    wo_string_t str = wo_raw_string(args + 0, &len);
+
     std::string result;
+
     if (*str == '"')
         ++str;
-    while (*str)
+    while (len)
     {
         char uch = *str;
         if (uch == '\\')
@@ -310,27 +323,30 @@ WO_API wo_api rslib_std_string_destring(wo_vm vm, wo_value args)
         else
             result += uch;
         ++str;
+        --len;
     }
-    return wo_ret_string(vm, result.c_str());
+    return wo_ret_raw_string(vm, result.c_str(), result.size());
 }
 
 WO_API wo_api rslib_std_string_beginwith(wo_vm vm, wo_value args)
 {
-    wo_string_t aim = wo_string(args + 0);
-    wo_string_t begin = wo_string(args + 1);
-
-    size_t aimlen = strlen(aim);
-    size_t beginlen = strlen(begin);
+    size_t aimlen = 0;
+    size_t beginlen = 0;
+    wo_string_t aim = wo_raw_string(args + 0, &aimlen);
+    wo_string_t begin = wo_raw_string(args + 1, &beginlen);
 
     if (beginlen > aimlen)
         return wo_ret_bool(vm, WO_FALSE);
 
-    while ((*aim) && (*begin))
+    while (aimlen && beginlen)
     {
         if (*aim != *begin)
             return wo_ret_bool(vm, WO_FALSE);
         ++aim;
         ++begin;
+
+        --aimlen;
+        --beginlen;
     }
 
     return wo_ret_bool(vm, WO_TRUE);
@@ -338,34 +354,34 @@ WO_API wo_api rslib_std_string_beginwith(wo_vm vm, wo_value args)
 
 WO_API wo_api rslib_std_string_endwith(wo_vm vm, wo_value args)
 {
-    wo_string_t aim = wo_string(args + 0);
-    wo_string_t end = wo_string(args + 1);
-
-    size_t aimlen = strlen(aim);
-    size_t endlen = strlen(end);
+    size_t aimlen = 0;
+    size_t endlen = 0;
+    wo_string_t aim = wo_raw_string(args + 0, &aimlen);
+    wo_string_t end = wo_raw_string(args + 1, &endlen);
 
     if (endlen > aimlen)
         return wo_ret_bool(vm, WO_FALSE);
 
     aim += (aimlen - endlen);
-    while ((*aim) && (*end))
+    while (aimlen && endlen)
     {
         if (*aim != *end)
             return wo_ret_bool(vm, WO_FALSE);
         ++aim;
         ++end;
+
+        --aimlen;
+        --endlen;
     }
     return wo_ret_bool(vm, WO_TRUE);
 }
 
 WO_API wo_api rslib_std_string_replace(wo_vm vm, wo_value args)
 {
-    std::string aim = wo_string(args + 0);
-    wo_string_t match = wo_string(args + 1);
-    wo_string_t replace = wo_string(args + 2);
+    std::string aim(_wo_raw_str_view(args + 0));
+    const auto match = _wo_raw_str_view(args + 1);
+    const auto replace = _wo_raw_str_view(args + 2);
 
-    size_t matchlen = strlen(match);
-    size_t replacelen = strlen(replace);
     size_t replace_begin = 0;
     do
     {
@@ -373,8 +389,8 @@ WO_API wo_api rslib_std_string_replace(wo_vm vm, wo_value args)
         if (fnd_place< replace_begin || fnd_place>aim.size())
             break;
 
-        aim.replace(fnd_place, matchlen, replace);
-        replace_begin += replacelen;
+        aim.replace(fnd_place, match.size(), replace);
+        replace_begin += replace.size();
 
     } while (true);
 
@@ -383,62 +399,69 @@ WO_API wo_api rslib_std_string_replace(wo_vm vm, wo_value args)
 
 WO_API wo_api rslib_std_string_find(wo_vm vm, wo_value args)
 {
-    wo_string_t atm_str = wo_string(args + 0);
-    const std::string_view aim = atm_str;
-    wo_string_t match = wo_string(args + 1);
+    size_t len = 0;
+    wo_string_t str = wo_raw_string(args + 0, &len);
+
+    const std::string_view aim(str, len);
+    const auto match = _wo_raw_str_view(args + 1);
 
     size_t fnd_place = aim.find(match);
     if (fnd_place >= 0 && fnd_place < aim.size())
-        return wo_ret_int(vm, (wo_integer_t)wo::clen2u8blen(atm_str, fnd_place));
+        return wo_ret_int(vm, (wo_integer_t)wo::clen2u8blen(str, fnd_place));
 
     return wo_ret_int(vm, -1);
 }
 
 WO_API wo_api rslib_std_string_find_from(wo_vm vm, wo_value args)
 {
-    wo_string_t atm_str = wo_string(args + 0);
-    const std::string_view aim = atm_str;
-    wo_string_t match = wo_string(args + 1);
-    size_t from = wo::u8blen2clen(atm_str, (size_t)wo_int(args + 2));
+    size_t len = 0;
+    wo_string_t str = wo_raw_string(args + 0, &len);
+
+    const std::string_view aim(str, len);
+    const auto match = _wo_raw_str_view(args + 1);
+    size_t from = wo::u8blen2clen(str, (size_t)wo_int(args + 2));
 
     size_t fnd_place = aim.find(match, from);
     if (fnd_place >= from && fnd_place < aim.size())
-        return wo_ret_int(vm, (wo_integer_t)wo::clen2u8blen(atm_str, fnd_place));
+        return wo_ret_int(vm, (wo_integer_t)wo::clen2u8blen(str, fnd_place));
 
     return wo_ret_int(vm, -1);
 }
 
 WO_API wo_api rslib_std_string_rfind(wo_vm vm, wo_value args)
 {
-    wo_string_t atm_str = wo_string(args + 0);
-    const std::string_view aim = atm_str;
-    wo_string_t match = wo_string(args + 1);
+    size_t len = 0;
+    wo_string_t str = wo_raw_string(args + 0, &len);
+
+    const std::string_view aim(str, len);
+    const auto match = _wo_raw_str_view(args + 1);
 
     size_t fnd_place = aim.rfind(match);
     if (fnd_place >= 0 && fnd_place < aim.size())
-        return wo_ret_int(vm, (wo_integer_t)wo::clen2u8blen(atm_str, fnd_place));
+        return wo_ret_int(vm, (wo_integer_t)wo::clen2u8blen(str, fnd_place));
 
     return wo_ret_int(vm, -1);
 }
 
 WO_API wo_api rslib_std_string_rfind_from(wo_vm vm, wo_value args)
 {
-    wo_string_t atm_str = wo_string(args + 0);
-    const std::string_view aim = atm_str;
-    wo_string_t match = wo_string(args + 1);
-    size_t from = wo::u8blen2clen(atm_str, (size_t)wo_int(args + 2));
+    size_t len = 0;
+    wo_string_t str = wo_raw_string(args + 0, &len);
+
+    const std::string_view aim(str, len);
+    const auto match = _wo_raw_str_view(args + 1);
+    size_t from = wo::u8blen2clen(str, (size_t)wo_int(args + 2));
 
     size_t fnd_place = aim.rfind(match, from);
     if (fnd_place >= 0 && fnd_place < from)
-        return wo_ret_int(vm, (wo_integer_t)wo::clen2u8blen(atm_str, fnd_place));
+        return wo_ret_int(vm, (wo_integer_t)wo::clen2u8blen(str, fnd_place));
 
     return wo_ret_int(vm, -1);
 }
 
 WO_API wo_api rslib_std_string_trim(wo_vm vm, wo_value args)
 {
-    wo_string_t atm_str = wo_string(args + 0);
-    const std::string_view aim = atm_str;
+    const std::string_view aim = _wo_raw_str_view(args + 0);
 
     size_t ibeg = 0;
     size_t iend = aim.size();
@@ -463,22 +486,23 @@ WO_API wo_api rslib_std_string_trim(wo_vm vm, wo_value args)
 
 WO_API wo_api rslib_std_string_split(wo_vm vm, wo_value args)
 {
-    wo_string_t atm_str = wo_string(args + 0);
-    const std::string_view aim = atm_str;
-    wo_string_t match = wo_string(args + 1);
-    
+    size_t len = 0;
+    wo_string_t str = wo_raw_string(args + 0, &len);
+
+    const std::string_view aim(str, len);
+    const std::string_view match = _wo_raw_str_view(args + 1);
+
     wo_value arr = wo_push_arr(vm, 0);
     wo_value elem = wo_push_empty(vm);
 
-    size_t matchlen = strlen(match);
-    if (matchlen == 0)
+    if (match.size() == 0)
     {
-        size_t aim_str_len = wo::u8strlen(atm_str);
+        size_t aim_str_len = wo::u8strlen(str);
         wchar_t wstr[2] = {};
 
         for (size_t i = 0; i < aim_str_len; ++i)
         {
-            wstr[0] = wo::u8stridx(atm_str, i);
+            wstr[0] = wo::u8stridx(str, i);
             wo_set_string(elem, vm, wo_wstr_to_str(wstr));
             wo_arr_add(arr, elem);
         }
@@ -499,7 +523,7 @@ WO_API wo_api rslib_std_string_split(wo_vm vm, wo_value args)
             wo_set_string(elem, vm, std::string(aim.substr(split_begin, fnd_place - split_begin)).c_str());
             wo_arr_add(arr, elem);
 
-            split_begin = fnd_place + matchlen;
+            split_begin = fnd_place + match.size();
         }
     }
     return wo_ret_val(vm, arr);

@@ -408,6 +408,8 @@ void wo_init(int argc, char** argv)
         wo_handle_ctrl_c(_wo_ctrl_c_signal_handler);
 
     wo_assure(wo::get_wo_grammar()); // Create grammar when init.
+
+    wo::wstr_to_str(L"你\0好");
 }
 
 #define WO_VAL(v) (std::launder(reinterpret_cast<wo::value*>(v)))
@@ -539,9 +541,17 @@ wo_string_t wo_string(wo_value value)
     return _rsvalue->string->c_str();
 }
 
-const void* wo_buffer(wo_value value)
+const void* wo_buffer(wo_value value, size_t * bytelen)
 {
-    return (const void*)wo_string(value);
+    auto* _rsvalue = WO_VAL(value);
+    if (_rsvalue->type != wo::value::valuetype::string_type)
+    {
+        wo_fail(WO_FAIL_TYPE_FAIL, "This value is not a string.");
+        *bytelen = 0;
+        return "<not string value>";
+    }
+    *bytelen = _rsvalue->string->size();
+    return _rsvalue->string->c_str();
 }
 
 wo_bool_t wo_bool(wo_value value)
