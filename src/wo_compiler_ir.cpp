@@ -1102,7 +1102,7 @@ namespace wo
         }
 
         size_t real_register_count = 64;     // t0-t15 r0-r15 (32) special reg (32)
-        size_t runtime_stack_count = 1024;  // by default
+        size_t runtime_stack_count = stacksz;  // by default
 
         size_t preserve_memory_size =
             constant_value_count
