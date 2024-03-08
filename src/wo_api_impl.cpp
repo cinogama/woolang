@@ -2237,7 +2237,7 @@ wo_bool_t wo_remove_virtual_file(wo_string_t filepath)
 
 wo_vm wo_create_vm()
 {
-    return (wo_vm)new wo::vm;
+    return CS_VM(new wo::vm);
 }
 
 wo_vm wo_sub_vm(wo_vm vm, wo_size_t stacksz)
@@ -2252,7 +2252,7 @@ wo_vm wo_gc_vm(wo_vm vm)
 
 void wo_close_vm(wo_vm vm)
 {
-    delete (wo::vmbase*)vm;
+    delete WO_VM(vm);
 }
 
 wo_vm wo_borrow_vm(wo_vm vm)
@@ -2392,7 +2392,7 @@ wo_bool_t _wo_load_source(wo_vm vm, wo_string_t virtual_src_path, const void* sr
     if (auto* env_p = std::get_if<wo::shared_pointer<wo::runtime_env>>(&env_or_lex))
     {
         auto& env = *env_p;
-        ((wo::vm*)vm)->set_runtime(env);
+        WO_VM(vm)->set_runtime(env);
         return WO_TRUE;
     }
     else
