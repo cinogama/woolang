@@ -3,6 +3,14 @@ import test_tool;
 
 namespace test_basic
 {
+    
+    using testvec3 = (real, real, real);
+
+    func testvec3_expand(_: string, a: real, b: real, c: real)
+    {
+        return a: int + b: int + c: int;
+    }
+
     using Aaa = struct{
         b: Bbb
     }
@@ -379,6 +387,8 @@ namespace test_basic
         test_equal(-nega, -negb: real);
         test_equal(-nega, (-negb): real);
         test_equal(-nega, -(negb: real));
+
+        test_equal(testvec3_expand("", (1.2, 3.14, 5.26): testvec3...), 9);
     }
 }
 

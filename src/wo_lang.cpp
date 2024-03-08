@@ -3034,8 +3034,6 @@ namespace wo
                             if (a_fakevalue_unpack_args->unpacked_pack->value_type->is_tuple())
                             {
                                 auto* unpacking_tuple_type = a_fakevalue_unpack_args->unpacked_pack->value_type;
-                                if (unpacking_tuple_type->using_type_name)
-                                    unpacking_tuple_type = unpacking_tuple_type->using_type_name;
                                 ecount = (int32_t)unpacking_tuple_type->template_arguments.size();
                                 a_fakevalue_unpack_args->expand_count = ecount;
                             }
@@ -3061,9 +3059,6 @@ namespace wo
                                 {
                                     // Varify tuple type here.
                                     auto* unpacking_tuple_type = a_fakevalue_unpack_args->unpacked_pack->value_type;
-                                    if (unpacking_tuple_type->using_type_name)
-                                        unpacking_tuple_type = unpacking_tuple_type->using_type_name;
-
                                     if (unpacking_tuple_type->template_arguments.size() <= unpack_tuple_index)
                                     {
                                         // There is no enough value for tuple to expand. match failed!
@@ -3148,9 +3143,7 @@ namespace wo
                     // TODO MARK NOT NEED EXPAND HERE
                     if (unpackval->unpacked_pack->value_type->is_tuple())
                     {
-                        size_t tuple_arg_sz = unpackval->unpacked_pack->value_type->using_type_name
-                            ? unpackval->unpacked_pack->value_type->using_type_name->template_arguments.size()
-                            : unpackval->unpacked_pack->value_type->template_arguments.size();
+                        size_t tuple_arg_sz = unpackval->unpacked_pack->value_type->template_arguments.size();
 
                         if (tuple_arg_sz != 0)
                         {
