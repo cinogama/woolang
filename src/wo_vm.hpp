@@ -261,6 +261,10 @@ namespace wo
             TIMEOUT,
             LEAVED,
         };
+        inline bool check_interrupt(vm_interrupt_type type)
+        {
+            return 0 != (vm_interrupt & type);
+        }
         inline interrupt_wait_result wait_interrupt(vm_interrupt_type type)
         {
             using namespace std;

@@ -3654,27 +3654,7 @@ wo_vm wo_set_this_thread_vm(wo_vm vm_may_null)
 
 wo_bool_t wo_leave_gcguard(wo_vm vm)
 {
-    if (0 == (WO_VM(vm)->vm_interrupt.load() & wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT))
-    {
-        // If in GC, hang up here to make sure safe.
-        if ((WO_VM(vm)->vm_interrupt.load() & (
-            wo::vmbase::vm_interrupt_type::GC_INTERRUPT
-            | wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT)) != 0)
-        {
-            if (!WO_VM(vm)->gc_checkpoint())
-            {
-                if (WO_VM(vm)->clear_interrupt(wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT))
-                    WO_VM(vm)->hangup();
-            }
-        }        
-        wo_assure(WO_VM(vm)->interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
-        return WO_TRUE;
-    }
-    return WO_FALSE;
-}
-wo_bool_t wo_enter_gcguard(wo_vm vm)
-{
-    if (WO_VM(vm)->clear_interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT))
+    if (WO_VM(vm)->interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT))
     {
         // If in GC, hang up here to make sure safe.
         if ((WO_VM(vm)->vm_interrupt.load() & (
@@ -3690,6 +3670,10 @@ wo_bool_t wo_enter_gcguard(wo_vm vm)
         return WO_TRUE;
     }
     return WO_FALSE;
+}
+wo_bool_t wo_enter_gcguard(wo_vm vm)
+{
+    return WO_CBOOL(WO_VM(vm)->clear_interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
 }
 
 // LSP-API

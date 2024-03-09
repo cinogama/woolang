@@ -473,11 +473,19 @@ namespace wo
                         auto self_mark_gc_state = vmimpl->wait_interrupt(vmbase::GC_INTERRUPT);
                         wo_assert(vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL);
 
-                        // vmimpl may be in leave state here, in which case: the vm self-marked 
-                        //  successfully ended and has returned to executing its code. There is 
-                        //  a probability that slow call native  is being carried out. Just treat 
-                        //  LEAVED as ACCEPT.
-                        if (self_mark_gc_state == vmbase::interrupt_wait_result::TIMEOUT)
+                        // vmimpl may be in leave state here, in which case: 
+                        // 1. the vm self-marked successfully ended and has returned to executing
+                        //  its code. There is a probability that slow call native is being carried
+                        //  out.
+                        // 2. the vm work on jit/extern-func and not received GC_INTERRUPT, then it
+                        //  invokes `wo_leave_gcguard` leave the gc-guard, in this case, here will
+                        //  receive LEAVED. too, before 1.13.2.3, we will skip the vm-self-mark-end
+                        //  waiting. It will cause some unit still in gray list or loss marked. 
+                        //  since 1.13.2.3, we will receive GC_INTERRUPT both in `wo_leave_gcguard` 
+                        //  and `wo_enter_gcguard`.
+                        // Whatever, we will recheck for them to avoid missing mark.
+
+                        if (self_mark_gc_state != vmbase::interrupt_wait_result::ACCEPT)
                         {
                             // Current vm is still structed, let it hangup and mark it here.
                             // NOTE: If GC_HANGUP_INTERRUPT interrupt successfully, it means:
@@ -509,17 +517,12 @@ namespace wo
                         //      WE MUST WAIT UNTIL VM SELF-MARKING END EVEN IF THE VM IS LEAVED.
                         //  OR SOME MARK JOB WILL NOT ABLE TO BE DONE. SOME OF THE UNIT MIGHT
                         //  BE MISSING MARKED. IT'S VERY DANGEROUS!!!!
-                        vmbase::interrupt_wait_result wait_result;
-                        do
+                        while (vmimpl->check_interrupt(
+                            (vmbase::vm_interrupt_type)(vmbase::GC_INTERRUPT | vmbase::GC_HANGUP_INTERRUPT)))
                         {
                             using namespace std;
-
-                            wait_result = vmimpl->wait_interrupt(
-                                (vmbase::vm_interrupt_type)(vmbase::GC_INTERRUPT | vmbase::GC_HANGUP_INTERRUPT));
-
-                            if (wait_result == vmbase::interrupt_wait_result::LEAVED)
-                                std::this_thread::sleep_for(10ms);
-                        } while (wait_result != vmbase::interrupt_wait_result::ACCEPT);
+                            std::this_thread::sleep_for(10ms);
+                        }
                     }
 
                     // 7. Merge gray lists.
