@@ -1641,7 +1641,7 @@ namespace std
         where val->close is pending == false;
     {
         let v = f(val);
-        val->close;
+        do val->close;
 
         return v;
     }
