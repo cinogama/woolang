@@ -24,7 +24,7 @@ namespace wo
         wo_pin_value create_pin_value(value* init_value)
         {
             value* v = new value;
-            
+
             std::lock_guard g1(_pin_value_list_mx);
             v->set_val(init_value);
             _pin_value_list.insert(v);
@@ -49,9 +49,8 @@ namespace wo
     // A very simply GC system, just stop the vm, then collect inform
     namespace gc
     {
-        uint16_t                    _gc_round_count = 0;
+        std::atomic_uint8_t         _gc_round_count = 0;
         constexpr uint16_t          _gc_work_thread_count = 4;
-        constexpr uint16_t          _gc_max_count_to_move_young_to_old = 25;
 
         std::atomic_bool            _gc_stop_flag = false;
         std::thread                 _gc_scheduler_thread;
@@ -370,6 +369,7 @@ namespace wo
 
                     delete cur_unit;
                 }
+
                 _gc_is_marking = true;
 
                 // 0. Prepare vm gray unit list
@@ -473,12 +473,19 @@ namespace wo
                         auto self_mark_gc_state = vmimpl->wait_interrupt(vmbase::GC_INTERRUPT);
                         wo_assert(vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL);
 
-                        // vmimpl may be in leave state here, in which case the vm self-marked
-                        // successfully ended and has returned to executing its code. There is
-                        //  a probability that slow call native is being carried out.
-                        // Just treat LEAVED as ACCEPT
+                        // vmimpl may be in leave state here, in which case: 
+                        // 1. the vm self-marked successfully ended and has returned to executing
+                        //  its code. There is a probability that slow call native is being carried
+                        //  out.
+                        // 2. the vm work on jit/extern-func and not received GC_INTERRUPT, then it
+                        //  invokes `wo_leave_gcguard` leave the gc-guard, in this case, here will
+                        //  receive LEAVED. too, before 1.13.2.3, we will skip the vm-self-mark-end
+                        //  waiting. It will cause some unit still in gray list or loss marked. 
+                        //  since 1.13.2.3, we will receive GC_INTERRUPT both in `wo_leave_gcguard` 
+                        //  and `wo_enter_gcguard`.
+                        // Whatever, we will recheck for them to avoid missing mark.
 
-                        if (self_mark_gc_state == vmbase::interrupt_wait_result::TIMEOUT)
+                        if (self_mark_gc_state != vmbase::interrupt_wait_result::ACCEPT)
                         {
                             // Current vm is still structed, let it hangup and mark it here.
                             // NOTE: If GC_HANGUP_INTERRUPT interrupt successfully, it means:
@@ -506,11 +513,16 @@ namespace wo
                         }
 
                         // Wait until specifing vm self-marking end.
-                        vmbase::interrupt_wait_result wait_result;
-                        do
+                        // ATTENTION: 
+                        //      WE MUST WAIT UNTIL VM SELF-MARKING END EVEN IF THE VM IS LEAVED.
+                        //  OR SOME MARK JOB WILL NOT ABLE TO BE DONE. SOME OF THE UNIT MIGHT
+                        //  BE MISSING MARKED. IT'S VERY DANGEROUS!!!!
+                        while (vmimpl->check_interrupt(
+                            (vmbase::vm_interrupt_type)(vmbase::GC_INTERRUPT | vmbase::GC_HANGUP_INTERRUPT)))
                         {
-                            wait_result = vmimpl->wait_interrupt(vmbase::GC_HANGUP_INTERRUPT);
-                        } while (wait_result == vmbase::interrupt_wait_result::TIMEOUT);
+                            using namespace std;
+                            std::this_thread::sleep_for(10ms);
+                        }
                     }
 
                     // 7. Merge gray lists.
@@ -560,7 +572,7 @@ namespace wo
             alloc_dur_current_gc_attrib_mask.m_gc_age = (uint8_t)0x0F;
             alloc_dur_current_gc_attrib_mask.m_alloc_mask = (uint8_t)0x01;
             alloc_dur_current_gc_attrib.m_gc_age = (uint8_t)0x0F;
-            alloc_dur_current_gc_attrib_mask.m_alloc_mask = (uint8_t)_gc_round_count & (uint8_t)0x01;
+            alloc_dur_current_gc_attrib.m_alloc_mask = (uint8_t)_gc_round_count & (uint8_t)0x01;
 
             size_t page_count, page_size, alive_unit = 0;
             char* pages = (char*)womem_enum_pages(&page_count, &page_size);
@@ -581,8 +593,8 @@ namespace wo
                     {
                         if (attr->m_marked == (uint8_t)gcbase::gcmarkcolor::no_mark &&
                             (attr->m_gc_age != 0 || fullgc) &&
-                            (attr->m_attr & alloc_dur_current_gc_attrib_mask.m_attr) 
-                                != alloc_dur_current_gc_attrib_mask.m_attr &&
+                            (attr->m_attr & alloc_dur_current_gc_attrib_mask.m_attr)
+                            != alloc_dur_current_gc_attrib.m_attr &&
                             attr->m_nogc == 0)
                         {
                             // This unit didn't been mark. and not alloced during this round.
@@ -609,7 +621,7 @@ namespace wo
 
                 for (auto* vmimpl : vmbase::_alive_vm_list)
                 {
-                    if (vmimpl->virtual_machine_type == vmbase::vm_type::GC_DESTRUCTOR 
+                    if (vmimpl->virtual_machine_type == vmbase::vm_type::GC_DESTRUCTOR
                         && vmimpl->env->_running_on_vm_count == 1)
                     {
                         // Assure vm's stack if empty
@@ -659,7 +671,7 @@ namespace wo
 #endif
             do
             {
-                if (_gc_round_count % 100 == 0)
+                if (_gc_round_count == 0)
                     _gc_advise_to_full_gc = true;
 
                 _gc_work_list(_gc_stopping_world_gc, _gc_advise_to_full_gc);
@@ -687,10 +699,13 @@ namespace wo
                             break;
                         }
 
-                        _gc_work_cv.wait_for(ug1, 0.1s, [&]() {
-                            if (_gc_stop_flag || !_gc_immediately.test_and_set())
-                                breakout = true;
-                            return breakout;
+                        _gc_work_cv.wait_for(ug1, 0.1s,
+                            [&]()
+                            {
+                                if (_gc_stop_flag || !_gc_immediately.test_and_set())
+                                    breakout = true;
+
+                                return breakout;
                             });
 
                         if (breakout)
@@ -760,16 +775,30 @@ namespace wo
         {
             wo_gc_immediately(WO_TRUE);
 
-            auto* curvm = (wo_vm)wo::vmbase::_this_thread_vm;
-            bool need_re_entry = true;
-            if (curvm)
-                need_re_entry = wo_leave_gcguard(curvm);
+            bool need_re_entry_gc_guard = true;
+
+            auto* current_vm_instance = wo::vmbase::_this_thread_vm;
+            wo::value* current_vm_stack_top = nullptr;
+
+            if (current_vm_instance != nullptr)
+            {
+                // NOTE: We don't know the exactly state of current vm, so we need to 
+                //       make sure all unit in current vm's stack and register are marked.
+                current_vm_stack_top = current_vm_instance->sp;
+                current_vm_instance->sp = current_vm_instance->stack_mem_begin - (current_vm_instance->stack_size - 1);
+
+                need_re_entry_gc_guard = wo_leave_gcguard(std::launder(reinterpret_cast<wo_vm>(wo::vmbase::_this_thread_vm)));
+            }
 
             using namespace std;
-            std::this_thread::sleep_for(0.1s);
+            std::this_thread::sleep_for(0.05s);
 
-            if (curvm && need_re_entry)
-                wo_enter_gcguard(curvm);
+            if (current_vm_instance != nullptr)
+            {
+                if (need_re_entry_gc_guard)
+                    wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(current_vm_instance)));
+                current_vm_instance->sp = current_vm_stack_top;
+            }
         }
     } // END NAME SPACE gc
 
@@ -834,6 +863,29 @@ namespace wo
     {
         womem_free(ptr);
     }
+
+    gcbase::~gcbase()
+    {
+#if WO_ENABLE_RUNTIME_CHECK
+        wo_assert(gc_destructed == false);
+
+        unit_attrib* attrib = nullptr;
+
+        void* unit_ptr = reinterpret_cast<void*>((intptr_t)this - 8);
+
+        if (womem_get_unit_page(unit_ptr) != nullptr)
+        {
+            auto* unit = womem_get_unit_ptr_attribute(
+                unit_ptr, std::launder(reinterpret_cast<womem_attrib_t**>(&attrib)));
+
+            wo_assert(unit == this);
+            wo_assert((attrib->m_alloc_mask & 0b01) != (gc::_gc_round_count & 0b01) ||
+                attrib->m_gc_age != 15);
+        }
+
+        gc_destructed = true;
+#endif
+    };
 }
 
 void wo_gc_immediately(wo_bool_t fullgc)

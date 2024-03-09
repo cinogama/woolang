@@ -168,7 +168,7 @@ namespace wo
         void inc_destructable_instance_count() noexcept
         {
             wo_assert(env != nullptr);
-#ifndef NDEBUG
+#if WO_ENABLE_RUNTIME_CHECK
             size_t old_count =
 #endif
                 env->_created_destructable_instance_count.fetch_add(1, std::memory_order::memory_order_relaxed);
@@ -177,7 +177,7 @@ namespace wo
         void dec_destructable_instance_count() noexcept
         {
             wo_assert(env != nullptr);
-#ifndef NDEBUG
+#if WO_ENABLE_RUNTIME_CHECK
             size_t old_count =
 #endif
                 env->_created_destructable_instance_count.fetch_sub(1, std::memory_order::memory_order_relaxed);
@@ -261,7 +261,10 @@ namespace wo
             TIMEOUT,
             LEAVED,
         };
-
+        inline bool check_interrupt(vm_interrupt_type type)
+        {
+            return 0 != (vm_interrupt & type);
+        }
         inline interrupt_wait_result wait_interrupt(vm_interrupt_type type)
         {
             using namespace std;
@@ -419,6 +422,11 @@ namespace wo
             if (env)
                 --env->_running_on_vm_count;
         }
+
+#if WO_ENABLE_RUNTIME_CHECK
+        // runtime information
+        std::thread::id attaching_thread_id = {};
+#endif        
 
         // special regist
         value* cr = nullptr;  // op result trace & function return;
@@ -1792,7 +1800,7 @@ namespace wo
 
 #define WO_VM_FAIL(ERRNO,ERRINFO) \
     do{ip = rt_ip;sp = rt_sp;bp = rt_bp;wo_fail(ERRNO,ERRINFO);continue;}while(0)
-#ifdef NDEBUG
+#if WO_ENABLE_RUNTIME_CHECK == 0
 #define WO_VM_ASSERT(EXPR, REASON) wo_assert(EXPR, REASON)
 #else
 #define WO_VM_ASSERT(EXPR, REASON) \

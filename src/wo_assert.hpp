@@ -43,6 +43,12 @@ inline void _wo_warning(const char* file, uint32_t line, const char* function, c
 #define wo_test_warn_2(JUDGEMENT, REASON) ((void)((!!(JUDGEMENT))||(_wo_warning(__FILE__, __LINE__, __func__, #JUDGEMENT, REASON),0)))
 
 #ifdef NDEBUG
+#   define WO_ENABLE_RUNTIME_CHECK 0
+#else
+#   define WO_ENABLE_RUNTIME_CHECK 1
+#endif
+
+#if WO_ENABLE_RUNTIME_CHECK == 0
 
 #define wo_assert(...) ((void)0)
 #define wo_assert_warn(...) ((void)0)

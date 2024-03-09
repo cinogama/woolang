@@ -3639,18 +3639,22 @@ wo_integer_t wo_crc64_file(wo_string_t filepath)
 
 wo_vm wo_set_this_thread_vm(wo_vm vm_may_null)
 {
+    auto* vm = WO_VM(vm_may_null);
+
     auto* old_one = wo::vmbase::_this_thread_vm;
-    wo::vmbase::_this_thread_vm = WO_VM(vm_may_null);
+    wo::vmbase::_this_thread_vm = vm;
+
+#if WO_ENABLE_RUNTIME_CHECK
+    if (vm != nullptr)
+        vm->attaching_thread_id = std::this_thread::get_id();
+#endif
+    
     return CS_VM(old_one);
 }
 
 wo_bool_t wo_leave_gcguard(wo_vm vm)
 {
-    return WO_CBOOL(WO_VM(vm)->interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
-}
-wo_bool_t wo_enter_gcguard(wo_vm vm)
-{
-    if (WO_VM(vm)->clear_interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT))
+    if (WO_VM(vm)->interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT))
     {
         // If in GC, hang up here to make sure safe.
         if ((WO_VM(vm)->vm_interrupt.load() & (
@@ -3666,6 +3670,10 @@ wo_bool_t wo_enter_gcguard(wo_vm vm)
         return WO_TRUE;
     }
     return WO_FALSE;
+}
+wo_bool_t wo_enter_gcguard(wo_vm vm)
+{
+    return WO_CBOOL(WO_VM(vm)->clear_interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
 }
 
 // LSP-API

@@ -106,7 +106,7 @@ namespace wo
         inline bool ENABLE_SHELL_PACKAGE = true;
 
         /*
-        * MEMORY_CHUNK_SIZE = 1GB
+        * MEMORY_CHUNK_SIZE = 512MB
         * --------------------------------------------------------------------
         *   Maximum managed heap memory used by Woolang.
         * 

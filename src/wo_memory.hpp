@@ -18,6 +18,7 @@ void* womem_verify(void* memptr, womem_attrib_t** attrib);
 
 void* womem_enum_pages(size_t* page_count, size_t* page_size);
 void* womem_get_unit_buffer(void* page, size_t* unit_count, size_t* unit_size);
+void* womem_get_unit_page(void* unit);
 void* womem_get_unit_ptr_attribute(void* unit, womem_attrib_t** attrib);
 
 namespace wo

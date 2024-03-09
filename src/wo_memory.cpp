@@ -206,7 +206,7 @@ namespace womem
 
         wo::atomic_list<Page> m_released_page;
 
-        std::mutex m_free_pages_mx;
+        mutable std::mutex m_free_pages_mx;
         Page* m_free_pages[AllocGroup::COUNT + 1] = {};
     public:
 
@@ -472,7 +472,7 @@ namespace womem
             }
         }
 
-        Page* find_page(void* unit)
+        Page* find_page(void* unit) const
         {
             auto offset = (char*)unit - m_virtual_memory;
             if (offset >= 0 && (size_t)offset < m_chunk_size)
@@ -486,7 +486,7 @@ namespace womem
             return nullptr;
         }
 
-        void* enum_page(size_t* out_page_count, size_t* out_page_size)
+        void* enum_page(size_t* out_page_count, size_t* out_page_size) const
         {
             std::lock_guard g1(m_free_pages_mx);
 
@@ -627,6 +627,11 @@ void* womem_get_unit_buffer(void* page, size_t* unit_count, size_t* unit_size)
             return p->m_chunkdata;
     }
     return nullptr;
+}
+
+void* womem_get_unit_page(void* unit)
+{
+    return womem::_global_chunk->find_page(unit);
 }
 
 void* womem_get_unit_ptr_attribute(void* unit, womem_attrib_t** attrib)

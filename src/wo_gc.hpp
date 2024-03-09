@@ -122,7 +122,7 @@ namespace wo
 
         enum class gctype : uint8_t
         {
-            no_gc= 0,
+            no_gc = 0,
             young,
             old,
         };
@@ -134,7 +134,7 @@ namespace wo
         };
 
         using rw_lock = _shared_spin;
-        
+
         union unit_attrib
         {
             struct
@@ -145,7 +145,7 @@ namespace wo
                 uint8_t m_nogc : 1;
             };
             womem_attrib_t m_attr;
-        };        
+        };
         static_assert(sizeof(unit_attrib) == 1);
 
         struct memo_unit
@@ -157,7 +157,7 @@ namespace wo
 
         rw_lock gc_read_write_mx;
 
-#ifndef NDEBUG
+#if WO_ENABLE_RUNTIME_CHECK
         const char* gc_typename = nullptr;
         bool gc_destructed = false;
 #endif
@@ -181,12 +181,7 @@ namespace wo
 
         static void write_barrier(const value* val);
 
-        virtual ~gcbase() 
-        {
-#ifndef NDEBUG
-            gc_destructed = true;
-#endif
-        };
+        virtual ~gcbase();
 
         inline static std::atomic_uint32_t gc_new_count = 0;
     };
@@ -199,6 +194,7 @@ namespace wo
         {
             ++gc_new_count;
 
+            // TODO: Optimize this.
             gcbase::unit_attrib a;
             a.m_gc_age = AllocType == gcbase::gctype::young ? (uint8_t)0x0F : (uint8_t)0;
             a.m_marked = 0;
@@ -207,7 +203,7 @@ namespace wo
 
             auto* created_gcnuit = new (alloc64(sizeof(gcunit<T>), a.m_attr))gcunit<T>(args...);
 
-#ifndef NDEBUG
+#if WO_ENABLE_RUNTIME_CHECK
             created_gcnuit->gc_typename = typeid(T).name();
 #endif
             return created_gcnuit;

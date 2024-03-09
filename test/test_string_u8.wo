@@ -87,7 +87,7 @@ namespace test_string_u8
         for (let mut i = 0; i < badstr_3->len; i += 1)
             std::print(badstr_3[i], "");
 
-        do [1, 2, 3, 4]mut
+        do do array::create(4, do nil)
             ->> \_ = thread::create(
                 func()
                 {
