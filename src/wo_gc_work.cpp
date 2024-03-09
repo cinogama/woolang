@@ -548,25 +548,19 @@ namespace wo
             //          it means that this unit is either generated during the gc process like case 1,
             //          or it is detached from other objects and is not marked: for this case, 
             //          this unit should have entered the memory set, it's safe to skip.
+            _gc_is_marking = false;
 
             // 9. Collect gray units in memo set.
-            for (;;)
+            auto* memo_units = m_memo_mark_gray_list.pick_all();
+            while (memo_units)
             {
-                auto* memo_units = m_memo_mark_gray_list.pick_all();
-                if (memo_units == nullptr)
-                    break;
-
                 auto* cur_unit = memo_units;
                 memo_units = memo_units->last;
 
                 gc_mark_unit_as_gray(&mem_gray_list, cur_unit->gcunit, cur_unit->gcunit_attr);
                 delete cur_unit;
-
-                gc_mark_all_gray_unit(&mem_gray_list);
             }
-
-            // All mark work done.
-            _gc_is_marking = false;
+            gc_mark_all_gray_unit(&mem_gray_list);
 
             _gc_is_recycling = true;
 
