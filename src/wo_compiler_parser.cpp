@@ -904,13 +904,7 @@ namespace wo
                                 case lex_type::l_left_curly_braces:
                                     advise += L"'{'"; break;
                                 default:
-                                {
-                                    std::wstringstream used_for_enum_to_wstr;
-                                    used_for_enum_to_wstr << excepted_te.t_type;
-                                    advise += used_for_enum_to_wstr.str() + L" ";
-
                                     break;
-                                }
                                 }
                             }
                         }
