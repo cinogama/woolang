@@ -92,7 +92,8 @@ namespace wo
             lang_symbol* symbol = nullptr;
             lang_scope* searching_begin_namespace_in_pass2 = nullptr;
 
-            std::string get_namespace_chain() const;
+            std::wstring get_namespace_chain() const;
+            std::string get_full_namespace_chain_after_pass1() const;
             ast::ast_base* instance(ast_base* child_instance = nullptr) const override;
         };
 
@@ -460,13 +461,7 @@ namespace wo
 
             std::wstring get_full_variable_name()
             {
-                if (scope_namespaces.empty())
-                    return *var_name;
-
-                std::wstring fullname;
-                for (auto* n : scope_namespaces)
-                    fullname += *n + L"::";
-                return fullname + *var_name;
+                return get_namespace_chain() + *var_name;
             }
 
             ast_value_variable(wo_pstring_t _var_name, ast_type* type = new ast_type(WO_PSTR(pending)))
@@ -788,7 +783,7 @@ namespace wo
                 if (ir_func_signature_tag == "")
                 {
                     //TODO : Change new function to generate signature.
-                    auto spacename = get_namespace_chain();
+                    auto spacename = get_full_namespace_chain_after_pass1();
 
                     ir_func_signature_tag =
                         spacename.empty() ? "func " : ("func " + spacename + "::");

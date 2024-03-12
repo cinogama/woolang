@@ -3499,7 +3499,7 @@ namespace wo
                     }
                     else if (type_name != WO_PSTR(tuple))
                     {
-                        result += *type_name;
+                        result += get_namespace_chain() + *type_name;
                     }
 
                     if (has_template() || type_name == WO_PSTR(tuple))
@@ -7122,7 +7122,7 @@ namespace wo
                 if (funcdef->declear_attribute->is_extern_attr())
                 {
                     // this function is externed, put it into extern-table and update the value in ir-compiler
-                    auto&& spacename = funcdef->get_namespace_chain();
+                    auto&& spacename = funcdef->get_full_namespace_chain_after_pass1();
                     auto&& fname = (spacename.empty() ? "" : spacename + "::") + wstr_to_str(*funcdef->function_name);
 
                     compiler->record_extern_script_function(fname);
