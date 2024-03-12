@@ -580,8 +580,8 @@ void womem_free(void* memptr)
 
     assert(page);
 
-    --page->m_alloc_count;
     head->m_in_used_flag = 0;
+    --page->m_alloc_count;
 }
 void womem_tidy_pages(bool full)
 {

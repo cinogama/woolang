@@ -35,7 +35,7 @@
 
 #define WO_ERR_UNEXCEPT_EOF L"未预料的文件尾"
 
-#define WO_ERR_UNEXCEPT_TOKEN L"未预料的标识符: "
+#define WO_ERR_UNEXCEPT_TOKEN L"未预料的: "
 
 #define WO_ERR_ILLEGAL_LITERAL L"非法的字面常量"
 
