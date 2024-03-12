@@ -822,7 +822,7 @@ namespace wo
                                 ast_result->last = origin_last;
                             }
                         }
-                        return ast_result;                        
+                        return ast_result;
                     }
                     else
                     {
@@ -843,87 +843,12 @@ namespace wo
             else
             {
             error_handle:
-                std::vector<te> should_be;
-#if WOOLANG_LR1_OPTIMIZE_LR1_TABLE
-                if (lr1_fast_cache_enabled())
-                {
-                    auto cur_state = NOW_STACK_STATE();
-
-                    for (size_t i = 1/* 0 is l_error/state, skip it */; i < LR1_R_S_CACHE_SZ; i++)
-                        if (LR1_R_S_CACHE[LR1_GOTO_RS_MAP[cur_state][1] * LR1_R_S_CACHE_SZ + i] != 0)
-                            should_be.push_back(LR1_TERM_LIST[i]);
-                }
-                else
-#endif
-                {
-                    if (LR1_TABLE.find(NOW_STACK_STATE()) != LR1_TABLE.end())
-                        for (auto& actslist : LR1_TABLE.at(NOW_STACK_STATE()))
-                        {
-                            if (std::holds_alternative<te>(actslist.first) &&
-                                actslist.second.size() &&
-                                (actslist.second.begin()->act != action::act_type::error && actslist.second.begin()->act != action::act_type::state_goto))
-                            {
-                                should_be.push_back(std::get<te>(actslist.first));
-                            }
-                        }
-                }
-
-                std::wstring advise = L"";
-
-                if (should_be.size())
-                {
-                    advise = L", " WO_TERM_EXCEPTED L" ";
-                    for (auto& excepted_te : should_be)
-                    {
-                        if (excepted_te.t_name != L"")
-                        {
-                            advise += L"'" + excepted_te.t_name + L"' ";
-                        }
-                        else
-                        {
-                            const wchar_t* spfy_op_key_str = lexer::lex_is_keyword_type(excepted_te.t_type);
-                            spfy_op_key_str = spfy_op_key_str ? spfy_op_key_str : lexer::lex_is_operate_type(excepted_te.t_type);
-                            if (spfy_op_key_str)
-                            {
-                                advise += std::wstring(L"'") + spfy_op_key_str + L"'";
-                            }
-                            else
-                            {
-                                switch (excepted_te.t_type)
-                                {
-                                case lex_type::l_eof:
-                                    advise += L"<EOF>"; break;
-                                case lex_type::l_semicolon:
-                                    advise += L"';'"; break;
-                                case lex_type::l_right_brackets:
-                                    advise += L"')'"; break;
-                                case lex_type::l_left_brackets:
-                                    advise += L"'('"; break;
-                                case lex_type::l_right_curly_braces:
-                                    advise += L"'}'"; break;
-                                case lex_type::l_left_curly_braces:
-                                    advise += L"'{'"; break;
-                                default:
-                                    break;
-                                }
-                            }
-                        }
-
-
-                    }
-                }
-
                 std::wstring err_info;
 
                 if (type == lex_type::l_eof)
-                {
-                    err_info = WO_ERR_UNEXCEPT_EOF + advise;
-                }
+                    err_info = WO_ERR_UNEXCEPT_EOF;
                 else
-                {
-                    err_info = WO_ERR_UNEXCEPT_TOKEN +
-                        (L"'" + (out_indentifier)+L"'") + advise;
-                }
+                    err_info = WO_ERR_UNEXCEPT_TOKEN + (L"'" + out_indentifier + L"'");
 
                 // IF SAME ERROR HAPPEND, JUST STOP COMPILE
                 if (tkr.just_have_err ||
