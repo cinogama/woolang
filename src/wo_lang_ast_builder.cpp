@@ -17,8 +17,20 @@ namespace wo
             return nullptr;
         }
         ////////////////////////////////////////////////////////////////////
+        std::wstring ast_symbolable_base::get_namespace_chain() const
+        {
+            std::wstring result = L"";
+            if (search_from_global_namespace)
+                result += L"::";
+            else if (searching_from_type != nullptr)
+                result += L"typeof(..)::";
 
-        std::string ast_symbolable_base::get_namespace_chain() const
+            for (auto* name: this->scope_namespaces)
+                result += *name + L"::";
+
+            return result;
+        }
+        std::string ast_symbolable_base::get_full_namespace_chain_after_pass1() const
         {
             return get_belong_namespace_path_with_lang_scope(searching_begin_namespace_in_pass2);
         }
