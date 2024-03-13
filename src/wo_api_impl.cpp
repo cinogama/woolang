@@ -314,6 +314,7 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
     wo::debuggee_base::_free_abandons();
 
     wo::rslib_extern_symbols::free_wo_lib();
+    wo::lang::release_global_pass_table();
 }
 
 void wo_init(int argc, char** argv)
@@ -408,6 +409,7 @@ void wo_init(int argc, char** argv)
         wo_handle_ctrl_c(_wo_ctrl_c_signal_handler);
 
     wo_assure(wo::get_wo_grammar()); // Create grammar when init.
+    wo::lang::init_global_pass_table(); // Init global pass table.
 }
 
 #define WO_VAL(v) (std::launder(reinterpret_cast<wo::value*>(v)))
