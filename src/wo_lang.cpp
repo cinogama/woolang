@@ -4,8 +4,68 @@ namespace wo
 {
     using namespace ast;
 
-#define WO_PASS1(NODETYPE) bool lang::pass1_##NODETYPE (ast::NODETYPE* astnode)
-#define WO_AST() astnode; if (!astnode)return false
+#define WO_AST() astnode; wo_assert(astnode != nullptr)
+
+#define WO_PASS0(NODETYPE) void lang::pass0_##NODETYPE (ast::NODETYPE* astnode)
+#define WO_PASS1(NODETYPE) void lang::pass1_##NODETYPE (ast::NODETYPE* astnode)
+#define WO_PASS2(NODETYPE) void lang::pass2_##NODETYPE(ast::NODETYPE* astnode)
+
+    WO_PASS0(ast_list)
+    {
+        auto* a_list = WO_AST();
+
+        auto* child = a_list->children;
+        while (child != nullptr)
+        {
+            analyze_pass0(child);
+            child = child->sibling;
+        }
+    }
+    WO_PASS0(ast_namespace)
+    {
+        auto* a_namespace = WO_AST();
+
+        begin_namespace(a_namespace);
+        if (a_namespace->in_scope_sentence != nullptr)
+        {
+            a_namespace->add_child(a_namespace->in_scope_sentence);
+            analyze_pass0(a_namespace->in_scope_sentence);
+        }
+        end_namespace();
+    }
+    WO_PASS0(ast_varref_defines)
+    {
+        auto* a_varref_defs = WO_AST();
+        a_varref_defs->located_function = in_function();
+        for (auto& varref : a_varref_defs->var_refs)
+        {
+            analyze_pattern_in_pass0(varref.pattern, a_varref_defs->declear_attribute, varref.init_val);
+        }
+    }
+    WO_PASS0(ast_value_function_define)
+    {
+        auto* a_value_func_decl = WO_AST();
+        
+        // Only declear symbol in pass0
+        a_value_func_decl->this_func_scope = begin_function(a_value_func_decl);
+        end_function();
+    }
+    WO_PASS0(ast_using_type_as)
+    {
+        auto* a_using_type_as = WO_AST();
+
+        if (a_using_type_as->type_symbol == nullptr)
+        {
+            auto* typing_symb = define_type_in_this_scope(
+                a_using_type_as, a_using_type_as->old_type, a_using_type_as->declear_attribute);
+            typing_symb->apply_template_setting(a_using_type_as);
+
+            a_using_type_as->type_symbol = typing_symb;
+
+            wo_assert(a_using_type_as->type_symbol->has_been_completed_defined == false);
+        }
+        analyze_pass0(a_using_type_as->namespace_decl);
+    }
 
     WO_PASS1(ast_namespace)
     {
@@ -18,8 +78,6 @@ namespace wo
             analyze_pass1(a_namespace->in_scope_sentence);
         }
         end_namespace();
-
-        return true;
     }
     WO_PASS1(ast_varref_defines)
     {
@@ -29,7 +87,6 @@ namespace wo
         {
             analyze_pattern_in_pass1(varref.pattern, a_varref_defs->declear_attribute, varref.init_val);
         }
-        return true;
     }
     WO_PASS1(ast_value_binary)
     {
@@ -77,7 +134,6 @@ namespace wo
         }
         else
             a_value_bin->value_type->set_type(a_value_binary_target_type);
-        return true;
     }
     WO_PASS1(ast_value_mutable)
     {
@@ -97,8 +153,6 @@ namespace wo
                 a_value_mutable_or_pure->value_type->set_is_force_immutable();
             }
         }
-
-        return true;
     }
     WO_PASS1(ast_value_index)
     {
@@ -114,7 +168,7 @@ namespace wo
                 if (auto fnd =
                     a_value_idx->from->value_type->struct_member_index.find(
                         wstring_pool::get_pstr(str_to_wstr(*a_value_idx->index->get_constant_value().string)));
-                    fnd != a_value_idx->from->value_type->struct_member_index.end())
+                        fnd != a_value_idx->from->value_type->struct_member_index.end())
                 {
                     fully_update_type(fnd->second.member_type, true);
 
@@ -156,8 +210,6 @@ namespace wo
                 }
             }
         }
-
-        return true;
     }
     WO_PASS1(ast_value_assign)
     {
@@ -192,7 +244,6 @@ namespace wo
                 a_value_assi->value_type->set_type(a_value_assi->left->value_type);
             }
         }
-        return true;
     }
     WO_PASS1(ast_value_logical_binary)
     {
@@ -247,8 +298,6 @@ namespace wo
         }
         else
             a_value_logic_bin->value_type->set_type_with_name(WO_PSTR(bool));
-
-        return true;
     }
     WO_PASS1(ast_value_variable)
     {
@@ -277,21 +326,18 @@ namespace wo
                 fully_update_type(a_type, true);
             }
         }
-        return true;
     }
     WO_PASS1(ast_value_type_cast)
     {
         auto* a_value_cast = WO_AST();
         analyze_pass1(a_value_cast->_be_cast_value_node);
         fully_update_type(a_value_cast->value_type, true);
-        return true;
     }
     WO_PASS1(ast_value_type_judge)
     {
         auto* ast_value_judge = WO_AST();
         analyze_pass1(ast_value_judge->_be_cast_value_node);
         fully_update_type(ast_value_judge->value_type, true);
-        return true;
     }
     WO_PASS1(ast_value_type_check)
     {
@@ -311,7 +357,6 @@ namespace wo
             lang_anylizer->end_trying_block();
 
         ast_value_check->update_constant_value(lang_anylizer);
-        return true;
     }
     WO_PASS1(ast_value_function_define)
     {
@@ -452,13 +497,11 @@ namespace wo
         }
 
         end_function();
-        return true;
     }
     WO_PASS1(ast_fakevalue_unpacked_args)
     {
         auto* a_fakevalue_unpacked_args = WO_AST();
         analyze_pass1(a_fakevalue_unpacked_args->unpacked_pack);
-        return true;
     }
     WO_PASS1(ast_value_funccall)
     {
@@ -490,7 +533,6 @@ namespace wo
         analyze_pass1(a_value_funccall->arguments);
 
         // function call should be 'pending' type, then do override judgement in pass2
-        return true;
     }
     WO_PASS1(ast_value_array)
     {
@@ -529,7 +571,6 @@ namespace wo
                 val = dynamic_cast<ast_value*>(val->sibling);
             }
         }
-        return true;
     }
     WO_PASS1(ast_value_mapping)
     {
@@ -587,14 +628,11 @@ namespace wo
                 map_pair = dynamic_cast<ast_mapping_pair*>(map_pair->sibling);
             }
         }
-        return true;
     }
     WO_PASS1(ast_value_indexed_variadic_args)
     {
         auto* a_value_variadic_args_idx = WO_AST();
         analyze_pass1(a_value_variadic_args_idx->argindex);
-
-        return true;
     }
     WO_PASS1(ast_return)
     {
@@ -679,7 +717,6 @@ namespace wo
                 }
             }
         }
-        return true;
     }
     WO_PASS1(ast_sentence_block)
     {
@@ -687,8 +724,6 @@ namespace wo
         this->begin_scope(a_sentence_blk);
         analyze_pass1(a_sentence_blk->sentence_list);
         this->end_scope();
-
-        return true;
     }
     WO_PASS1(ast_if)
     {
@@ -710,7 +745,6 @@ namespace wo
             if (ast_if_sentence->execute_else)
                 analyze_pass1(ast_if_sentence->execute_else);
         }
-        return true;
     }
     WO_PASS1(ast_while)
     {
@@ -718,7 +752,6 @@ namespace wo
         if (ast_while_sentence->judgement_value != nullptr)
             analyze_pass1(ast_while_sentence->judgement_value);
         analyze_pass1(ast_while_sentence->execute_sentence);
-        return true;
     }
     WO_PASS1(ast_forloop)
     {
@@ -731,7 +764,6 @@ namespace wo
         analyze_pass1(a_forloop->after_execute);
 
         end_scope();
-        return true;
     }
     WO_PASS1(ast_value_unary)
     {
@@ -741,20 +773,17 @@ namespace wo
         if (a_value_unary->operate == lex_type::l_lnot)
             a_value_unary->value_type->set_type_with_name(WO_PSTR(bool));
         a_value_unary->value_type->set_type(a_value_unary->val->value_type);
-        return true;
     }
     WO_PASS1(ast_mapping_pair)
     {
         auto* a_mapping_pair = WO_AST();
         analyze_pass1(a_mapping_pair->key);
         analyze_pass1(a_mapping_pair->val);
-        return true;
     }
     WO_PASS1(ast_using_namespace)
     {
         auto* a_using_namespace = WO_AST();
         now_scope()->used_namespace.push_back(a_using_namespace);
-        return true;
     }
     WO_PASS1(ast_using_type_as)
     {
@@ -779,13 +808,19 @@ namespace wo
                 if (a_using_type_as->namespace_decl != nullptr)
                     end_namespace();
             }
-            auto* typing_symb = define_type_in_this_scope(
-                a_using_type_as, a_using_type_as->old_type, a_using_type_as->declear_attribute);
-            typing_symb->apply_template_setting(a_using_type_as);
 
+            if (a_using_type_as->type_symbol == nullptr)
+            {
+                auto* typing_symb = define_type_in_this_scope(
+                    a_using_type_as, a_using_type_as->old_type, a_using_type_as->declear_attribute);
+                typing_symb->apply_template_setting(a_using_type_as);
+
+                a_using_type_as->type_symbol = typing_symb;
+            }
             analyze_pass1(a_using_type_as->namespace_decl);
         }
-        return true;
+
+        a_using_type_as->type_symbol->has_been_completed_defined = true;
     }
     WO_PASS1(ast_foreach)
     {
@@ -799,15 +834,12 @@ namespace wo
         a_foreach->loop_sentences->copy_source_info(a_foreach);
 
         end_scope();
-        return true;
     }
     WO_PASS1(ast_union_make_option_ob_to_cr_and_ret)
     {
         auto* a_union_make_option_ob_to_cr_and_ret = WO_AST();
         if (a_union_make_option_ob_to_cr_and_ret->argument_may_nil)
             analyze_pass1(a_union_make_option_ob_to_cr_and_ret->argument_may_nil);
-
-        return true;
     }
     WO_PASS1(ast_match)
     {
@@ -844,7 +876,6 @@ namespace wo
         analyze_pass1(a_match->cases);
 
         end_scope();
-        return true;
     }
     WO_PASS1(ast_match_union_case)
     {
@@ -885,7 +916,6 @@ namespace wo
         analyze_pass1(a_match_union_case->in_case_sentence);
 
         end_scope();
-        return true;
     }
     WO_PASS1(ast_value_make_struct_instance)
     {
@@ -913,7 +943,6 @@ namespace wo
         fully_update_type(a_value_make_struct_instance->target_built_types, true);
         if (a_value_make_struct_instance->target_built_types->is_pending() == false)
             a_value_make_struct_instance->value_type->set_type(a_value_make_struct_instance->target_built_types);
-        return true;
     }
     WO_PASS1(ast_value_make_tuple_instance)
     {
@@ -934,8 +963,6 @@ namespace wo
             tuple_elems = tuple_elems->sibling;
             ++count;
         }
-
-        return true;
     }
     WO_PASS1(ast_struct_member_define)
     {
@@ -945,16 +972,12 @@ namespace wo
             analyze_pass1(a_struct_member_define->member_value_pair);
         else
             fully_update_type(a_struct_member_define->member_type, true);
-
-        return true;
     }
     WO_PASS1(ast_where_constraint)
     {
         auto* a_where_constraint = WO_AST();
 
         analyze_pass1(a_where_constraint->where_constraint_list);
-
-        return true;
     }
     WO_PASS1(ast_value_trib_expr)
     {
@@ -988,27 +1011,19 @@ namespace wo
             if (!a_value_trib_expr->value_type->set_mix_types(a_value_trib_expr->val_or->value_type, false))
                 a_value_trib_expr->value_type->set_type_with_name(WO_PSTR(pending));
         }
-        return true;
     }
-
     WO_PASS1(ast_value_typeid)
     {
         auto* ast_value_typeid = WO_AST();
 
         fully_update_type(ast_value_typeid->type, true);
-
-        return true;
     }
-
-#define WO_PASS2(NODETYPE) bool lang::pass2_##NODETYPE(ast::NODETYPE* astnode)
 
     WO_PASS2(ast_mapping_pair)
     {
         auto* a_mapping_pair = WO_AST();
         analyze_pass2(a_mapping_pair->key);
         analyze_pass2(a_mapping_pair->val);
-
-        return true;
     }
     WO_PASS2(ast_using_type_as)
     {
@@ -1016,8 +1031,6 @@ namespace wo
 
         if (a_using_type_as->namespace_decl != nullptr)
             analyze_pass2(a_using_type_as->namespace_decl);
-
-        return true;
     }
     WO_PASS2(ast_return)
     {
@@ -1097,13 +1110,11 @@ namespace wo
                 }
             }
         }
-        return true;
     }
     WO_PASS2(ast_sentence_block)
     {
         auto* a_sentence_blk = WO_AST();
         analyze_pass2(a_sentence_blk->sentence_list);
-        return true;
     }
     WO_PASS2(ast_if)
     {
@@ -1125,8 +1136,6 @@ namespace wo
             if (ast_if_sentence->execute_else)
                 analyze_pass2(ast_if_sentence->execute_else);
         }
-
-        return true;
     }
     WO_PASS2(ast_value_mutable)
     {
@@ -1146,7 +1155,6 @@ namespace wo
                 a_value_mutable_or_pure->value_type->set_is_force_immutable();
             }
         }
-        return true;
     }
     WO_PASS2(ast_while)
     {
@@ -1154,8 +1162,6 @@ namespace wo
         if (ast_while_sentence->judgement_value != nullptr)
             analyze_pass2(ast_while_sentence->judgement_value);
         analyze_pass2(ast_while_sentence->execute_sentence);
-
-        return true;
     }
     WO_PASS2(ast_forloop)
     {
@@ -1169,8 +1175,6 @@ namespace wo
 
         if (a_forloop->after_execute)
             analyze_pass2(a_forloop->after_execute);
-
-        return true;
     }
     WO_PASS2(ast_foreach)
     {
@@ -1180,8 +1184,6 @@ namespace wo
 
         analyze_pass2(a_foreach->used_iter_define);
         analyze_pass2(a_foreach->loop_sentences);
-
-        return true;
     }
     WO_PASS2(ast_varref_defines)
     {
@@ -1190,15 +1192,12 @@ namespace wo
         {
             analyze_pattern_in_pass2(varref.pattern, varref.init_val);
         }
-        return true;
     }
     WO_PASS2(ast_union_make_option_ob_to_cr_and_ret)
     {
         auto* a_union_make_option_ob_to_cr_and_ret = WO_AST();
         if (a_union_make_option_ob_to_cr_and_ret->argument_may_nil)
             analyze_pass2(a_union_make_option_ob_to_cr_and_ret->argument_may_nil);
-
-        return true;
     }
     WO_PASS2(ast_match)
     {
@@ -1260,8 +1259,6 @@ namespace wo
         }
         if (!has_default_pattern && case_names.size() < a_match->match_value->value_type->struct_member_index.size())
             lang_anylizer->lang_error(lexer::errorlevel::error, a_match, WO_ERR_MATCH_CASE_NOT_COMPLETE);
-
-        return true;
     }
     WO_PASS2(ast_match_union_case)
     {
@@ -1363,8 +1360,6 @@ namespace wo
         }
 
         analyze_pass2(a_match_union_case->in_case_sentence);
-
-        return true;
     }
     WO_PASS2(ast_struct_member_define)
     {
@@ -1374,8 +1369,6 @@ namespace wo
             analyze_pass2(a_struct_member_define->member_value_pair);
         else
             fully_update_type(a_struct_member_define->member_type, false);
-
-        return true;
     }
     WO_PASS2(ast_where_constraint)
     {
@@ -1409,8 +1402,6 @@ namespace wo
 
             val = dynamic_cast<ast_value*>(val->sibling);
         }
-
-        return true;
     }
     WO_PASS2(ast_value_function_define)
     {
@@ -1444,7 +1435,7 @@ namespace wo
                     {
                         argdef->completed_in_pass2 = true;
                         if (argdef->symbol)
-                            argdef->symbol->has_been_defined_in_pass2 = true;
+                            argdef->symbol->has_been_completed_defined = true;
                     }
                     else
                     {
@@ -1515,7 +1506,6 @@ namespace wo
             if (a_value_funcdef->is_template_reification)
                 end_template_scope();
         }
-        return true;
     }
     WO_PASS2(ast_value_assign)
     {
@@ -1571,7 +1561,6 @@ namespace wo
 
         if (a_value_assi->is_value_assgin)
             a_value_assi->value_type->set_type(a_value_assi->left->value_type);
-        return true;
     }
     WO_PASS2(ast_value_type_cast)
     {
@@ -1612,8 +1601,6 @@ namespace wo
                 a_value_typecast->value_type->get_type_name(false).c_str()
             );
         }
-
-        return true;
     }
     WO_PASS2(ast_value_type_judge)
     {
@@ -1624,42 +1611,39 @@ namespace wo
             lang_anylizer->lang_error(lexer::errorlevel::error, ast_value_judge, WO_ERR_UNKNOWN_TYPE,
                 ast_value_judge->value_type->get_type_name(false).c_str()
             );
-
-        return true;
     }
     WO_PASS2(ast_value_type_check)
     {
         auto* a_value_type_check = WO_AST();
 
-        if (a_value_type_check->is_constant)
-            return true;
-
-        fully_update_type(a_value_type_check->aim_type, false);
-
-        if (a_value_type_check->aim_type->is_pure_pending())
-            lang_anylizer->begin_trying_block();
-
-        analyze_pass2(a_value_type_check->_be_check_value_node);
-
-        if (a_value_type_check->aim_type->is_pure_pending())
+        if (a_value_type_check->is_constant == false)
         {
-            a_value_type_check->is_constant = true;
+            fully_update_type(a_value_type_check->aim_type, false);
 
-            a_value_type_check->constant_value.set_bool(
-                a_value_type_check->_be_check_value_node->value_type->is_pending()
-                || !lang_anylizer->get_cur_error_frame().empty());
+            if (a_value_type_check->aim_type->is_pure_pending())
+                lang_anylizer->begin_trying_block();
 
-            lang_anylizer->end_trying_block();
+            analyze_pass2(a_value_type_check->_be_check_value_node);
+
+            if (a_value_type_check->aim_type->is_pure_pending())
+            {
+                a_value_type_check->is_constant = true;
+
+                a_value_type_check->constant_value.set_bool(
+                    a_value_type_check->_be_check_value_node->value_type->is_pending()
+                    || !lang_anylizer->get_cur_error_frame().empty());
+
+                lang_anylizer->end_trying_block();
+            }
+            else if (a_value_type_check->aim_type->is_pending())
+            {
+                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_type_check, WO_ERR_UNKNOWN_TYPE,
+                    a_value_type_check->aim_type->get_type_name(false).c_str()
+                );
+            }
+
+            a_value_type_check->update_constant_value(lang_anylizer);
         }
-        else if (a_value_type_check->aim_type->is_pending())
-        {
-            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_type_check, WO_ERR_UNKNOWN_TYPE,
-                a_value_type_check->aim_type->get_type_name(false).c_str()
-            );
-        }
-
-        a_value_type_check->update_constant_value(lang_anylizer);
-        return true;
     }
     WO_PASS2(ast_value_index)
     {
@@ -1676,7 +1660,7 @@ namespace wo
                     if (auto fnd =
                         a_value_index->from->value_type->struct_member_index.find(
                             wstring_pool::get_pstr(str_to_wstr(*a_value_index->index->get_constant_value().string)));
-                        fnd != a_value_index->from->value_type->struct_member_index.end())
+                            fnd != a_value_index->from->value_type->struct_member_index.end())
                     {
                         fully_update_type(fnd->second.member_type, false);
 
@@ -1767,8 +1751,6 @@ namespace wo
                     , a_value_index->index->value_type->get_type_name(false).c_str());
             }
         }
-
-        return true;
     }
     WO_PASS2(ast_value_indexed_variadic_args)
     {
@@ -1780,7 +1762,6 @@ namespace wo
             lang_anylizer->lang_error(lexer::errorlevel::error,
                 a_value_variadic_args_idx, WO_ERR_FAILED_TO_INDEX_VAARG_ERR_TYPE);
         }
-        return true;
     }
     WO_PASS2(ast_fakevalue_unpacked_args)
     {
@@ -1793,7 +1774,6 @@ namespace wo
             lang_anylizer->lang_error(lexer::errorlevel::error,
                 a_fakevalue_unpacked_args, WO_ERR_NEED_TYPES, L"array, vec" WO_TERM_OR L"tuple");
         }
-        return true;
     }
     WO_PASS2(ast_value_binary)
     {
@@ -1839,8 +1819,6 @@ namespace wo
                 a_value_bin->right->value_type->get_type_name(false).c_str());
             a_value_bin->value_type->set_type_with_name(WO_PSTR(pending));
         }
-
-        return true;
     }
     WO_PASS2(ast_value_logical_binary)
     {
@@ -1897,8 +1875,6 @@ namespace wo
                 a_value_logic_bin->value_type->set_type_with_name(WO_PSTR(bool));
             fully_update_type(a_value_logic_bin->value_type, false);
         }
-
-        return true;
     }
     WO_PASS2(ast_value_array)
     {
@@ -1943,14 +1919,14 @@ namespace wo
         if (!a_value_arr->is_mutable_vector && !a_value_arr->value_type->is_array())
         {
             lang_anylizer->lang_error(lexer::errorlevel::error, a_value_arr, WO_ERR_CANNOT_CAST_TYPE_TO_TYPE,
-                L"array<...>",
+                L"array<..>",
                 a_value_arr->value_type->get_type_name().c_str()
             );
         }
         else if (a_value_arr->is_mutable_vector && !a_value_arr->value_type->is_vec())
         {
             lang_anylizer->lang_error(lexer::errorlevel::error, a_value_arr, WO_ERR_CANNOT_CAST_TYPE_TO_TYPE,
-                L"vec<...>",
+                L"vec<..>",
                 a_value_arr->value_type->get_type_name().c_str()
             );
         }
@@ -1987,7 +1963,6 @@ namespace wo
             }
 
         }
-        return true;
     }
     WO_PASS2(ast_value_mapping)
     {
@@ -2050,14 +2025,14 @@ namespace wo
         if (!a_value_map->is_mutable_map && !a_value_map->value_type->is_dict())
         {
             lang_anylizer->lang_error(lexer::errorlevel::error, a_value_map, WO_ERR_CANNOT_CAST_TYPE_TO_TYPE,
-                L"dict<..., ...>",
+                L"dict<.., ..>",
                 a_value_map->value_type->get_type_name().c_str()
             );
         }
         else if (a_value_map->is_mutable_map && !a_value_map->value_type->is_map())
         {
             lang_anylizer->lang_error(lexer::errorlevel::error, a_value_map, WO_ERR_CANNOT_CAST_TYPE_TO_TYPE,
-                L"map<..., ...>",
+                L"map<.., ..>",
                 a_value_map->value_type->get_type_name().c_str()
             );
         }
@@ -2106,7 +2081,6 @@ namespace wo
                 pairs = dynamic_cast<ast_mapping_pair*>(pairs->sibling);
             }
         }
-        return true;
     }
     WO_PASS2(ast_value_make_tuple_instance)
     {
@@ -2129,8 +2103,6 @@ namespace wo
             tuple_elems = tuple_elems->sibling;
             ++count;
         }
-
-        return true;
     }
     WO_PASS2(ast_value_make_struct_instance)
     {
@@ -2440,7 +2412,6 @@ namespace wo
         else
             lang_anylizer->lang_error(lexer::errorlevel::error, a_value_make_struct_instance, WO_ERR_UNKNOWN_TYPE,
                 a_value_make_struct_instance->target_built_types->get_type_name(false).c_str());
-        return true;
     }
     WO_PASS2(ast_value_trib_expr)
     {
@@ -2483,7 +2454,6 @@ namespace wo
                 }
             }
         }
-        return true;
     }
 
 
@@ -2521,7 +2491,7 @@ namespace wo
 
         if (a_value_var->value_type->is_pending())
         {
-            if (sym && (!sym->define_in_function || sym->has_been_defined_in_pass2 || sym->is_captured_variable))
+            if (sym && (!sym->define_in_function || sym->has_been_completed_defined || sym->is_captured_variable))
             {
                 if (sym->is_template_symbol && (!a_value_var->is_auto_judge_function_overload || sym->type == lang_symbol::symbol_type::variable))
                 {
@@ -2592,7 +2562,6 @@ namespace wo
                 a_value_var->value_type->set_type_with_name(WO_PSTR(pending));
             }
         }
-        return true;
     }
     WO_PASS2(ast_value_unary)
     {
@@ -2606,8 +2575,6 @@ namespace wo
             fully_update_type(a_value_unary->value_type, false);
         }
         a_value_unary->value_type->set_type(a_value_unary->val->value_type);
-
-        return true;
     }
 
     WO_PASS2(ast_value_funccall)
@@ -3172,8 +3139,6 @@ namespace wo
 
         if (failed_to_call_cur_func)
             a_value_funccall->value_type->set_type_with_name(WO_PSTR(pending));
-
-        return true;
     }
     WO_PASS2(ast_value_typeid)
     {
@@ -3191,9 +3156,11 @@ namespace wo
             ast_value_typeid->constant_value.set_integer(lang::get_typing_hash_after_pass1(ast_value_typeid->type));
             ast_value_typeid->is_constant = true;
         }
-
-        return true;
     }
+#undef WO_PASS0
+#undef WO_PASS1
+#undef WO_PASS2
+
 
     namespace ast
     {
@@ -3466,10 +3433,7 @@ namespace wo
 
             if (!ignore_using_type && using_type_name)
             {
-                auto namespacechain = (search_from_global_namespace ? L"::" : L"") +
-                    wo::str_to_wstr(get_belong_namespace_path_with_lang_scope(using_type_name->symbol));
-                result += (namespacechain.empty() ? L"" : namespacechain + L"::")
-                    + using_type_name->get_type_name(ignore_using_type, true);
+                result += using_type_name->get_type_name(ignore_using_type, true);
             }
             else
             {
@@ -3725,7 +3689,7 @@ namespace wo
             sym->type = lang_symbol::symbol_type::type_alias;
             sym->name = template_defines_args[index];
             sym->type_informatiom = new ast::ast_type(WO_PSTR(pending));
-
+            sym->has_been_completed_defined = true;
             sym->type_informatiom->set_type(applying_type);
 
             sym->defined_in_scope = lang_scopes.back();
@@ -3811,7 +3775,10 @@ namespace wo
         using_type_def_char->old_type = new ast::ast_type(WO_PSTR(int));
         using_type_def_char->declear_attribute = new ast::ast_decl_attribute();
         using_type_def_char->declear_attribute->add_attribute(lang_anylizer, lex_type::l_public);
-        define_type_in_this_scope(using_type_def_char, using_type_def_char->old_type, using_type_def_char->declear_attribute);
+        define_type_in_this_scope(
+            using_type_def_char, 
+            using_type_def_char->old_type, 
+            using_type_def_char->declear_attribute)->has_been_completed_defined = true;
     }
     lang::~lang()
     {
@@ -3843,12 +3810,11 @@ namespace wo
                 temporary_entry_scope_in_pass1(symb->defined_in_scope);
                 if (begin_template_scope(newtype->typefrom, symb->template_types, templates))
                 {
+                    analyze_pass1(newtype->typefrom, false);
+
                     auto step_in_pass2 = has_step_in_step2;
                     has_step_in_step2 = false;
 
-                    analyze_pass1(newtype->typefrom, false);
-
-                    // origin_template_func_define->parent->add_child(dumpped_template_func_define);
                     end_template_scope();
 
                     has_step_in_step2 = step_in_pass2;
@@ -3982,6 +3948,9 @@ namespace wo
 
                     if (type_sym)
                     {
+                        if (type_sym->has_been_completed_defined == false)
+                            return false;
+
                         auto already_has_using_type_name = type->using_type_name;
 
                         auto type_has_mutable_mark = type->is_mutable();
@@ -4050,7 +4019,10 @@ namespace wo
                             //symboled_type->set_type(type_sym->type_informatiom);
 
                             wo_assert(symboled_type != nullptr);
-                            fully_update_type(symboled_type, in_pass_1, template_types, s);
+                            
+                            // NOTE: The type here should have all the template parameters applied.
+                            // We should not need give `template_types` here.
+                            fully_update_type(symboled_type, in_pass_1, {}, s);
 
                             // NOTE: In old version, function's return type is not stores in complex.
                             //       But now, the type here cannot be a function.
@@ -4125,7 +4097,66 @@ namespace wo
         wo_assure(!fully_update_type(type, in_pass_1, template_types, us));
         wo_assert(type->using_type_name == nullptr || (type->is_mutable() == type->using_type_name->is_mutable()));
     }
+    void lang::analyze_pattern_in_pass0(ast::ast_pattern_base* pattern, ast::ast_decl_attribute* attrib, ast::ast_value* initval)
+    {
+        using namespace ast;
+        // Like analyze_pattern_in_pass1, but donot analyze initval.
+        // Only declear the symbol.
 
+        if (ast_pattern_takeplace* a_pattern_takeplace = dynamic_cast<ast_pattern_takeplace*>(pattern))
+        {
+        }
+        else
+        {
+            if (ast_pattern_identifier* a_pattern_identifier = dynamic_cast<ast_pattern_identifier*>(pattern))
+            {
+                // Merge all attrib 
+                a_pattern_identifier->attr->attributes.insert(attrib->attributes.begin(), attrib->attributes.end());
+
+                if (a_pattern_identifier->template_arguments.empty())
+                {
+                    if (!a_pattern_identifier->symbol)
+                    {
+                        a_pattern_identifier->symbol = define_variable_in_this_scope(
+                            a_pattern_identifier,
+                            a_pattern_identifier->identifier,
+                            initval,
+                            a_pattern_identifier->attr,
+                            template_style::NORMAL,
+                            a_pattern_identifier->decl);
+                    }
+                }
+                else
+                {
+                    // Template variable!!! we just define symbol here.
+                    if (!a_pattern_identifier->symbol)
+                    {
+                        auto* symb = define_variable_in_this_scope(
+                            a_pattern_identifier,
+                            a_pattern_identifier->identifier,
+                            initval,
+                            a_pattern_identifier->attr,
+                            template_style::IS_TEMPLATE_VARIABLE_DEFINE,
+                            a_pattern_identifier->decl);
+                        symb->is_template_symbol = true;
+                        wo_assert(symb->template_types.empty());
+                        symb->template_types = a_pattern_identifier->template_arguments;
+                        a_pattern_identifier->symbol = symb;
+                    }
+                }
+            }
+            else if (ast_pattern_tuple* a_pattern_tuple = dynamic_cast<ast_pattern_tuple*>(pattern))
+            {
+                for (auto* take_place : a_pattern_tuple->tuple_takeplaces)
+                    take_place->copy_source_info(pattern);
+
+                for (size_t i = 0; i < a_pattern_tuple->tuple_takeplaces.size(); i++)
+                    analyze_pattern_in_pass0(a_pattern_tuple->tuple_patterns[i], attrib, a_pattern_tuple->tuple_takeplaces[i]);
+            }
+            else
+                lang_anylizer->lang_error(lexer::errorlevel::error, pattern, WO_ERR_UNEXPECT_PATTERN_MODE);
+        }
+    }
     void lang::analyze_pattern_in_pass1(ast::ast_pattern_base* pattern, ast::ast_decl_attribute* attrib, ast::ast_value* initval)
     {
         using namespace ast;
@@ -4212,14 +4243,14 @@ namespace wo
                 if (a_pattern_identifier->template_arguments.empty())
                 {
                     analyze_pass2(initval);
-                    a_pattern_identifier->symbol->has_been_defined_in_pass2 = true;
+                    a_pattern_identifier->symbol->has_been_completed_defined = true;
                 }
                 else
                 {
-                    a_pattern_identifier->symbol->has_been_defined_in_pass2 = true;
+                    a_pattern_identifier->symbol->has_been_completed_defined = true;
                     for (auto& [_, impl_symbol] : a_pattern_identifier->symbol->template_typehashs_reification_instance_symbol_list)
                     {
-                        impl_symbol->has_been_defined_in_pass2 = true;
+                        impl_symbol->has_been_completed_defined = true;
                     }
                 }
             }
@@ -4433,15 +4464,36 @@ namespace wo
             _pass1_analyze_ast_nodes_list.push_back(cur_node);
         }
     }
+    void lang::analyze_pass0(ast::ast_base* ast_node)
+    {
+        wo_assert(has_step_in_step2 == false);
+
+        // Used for pre-define all global define, we need walk through all:
+        //  ast_list
+        //  ast_namespace
+        //  ast_sentence_block
+        // 
+        // We will do pass1 job for following declare:
+        //  ast_varref_defines
+        //  ast_value_function_define
+        //  ast_using_type_as
+
+        this->m_global_pass_table->pass<0>(this, ast_node);
+    }
 
     void lang::analyze_pass1(ast::ast_base* ast_node, bool type_degradation)
     {
-#define WO_TRY_BEGIN do{
-#define WO_TRY_PASS(NODETYPE) if(pass1_##NODETYPE(dynamic_cast<NODETYPE*>(ast_node)))break;
-#define WO_TRY_END }while(0)
-        entry_pass ep1(in_pass2, false);
+        bool old_has_step_in_pass2 = has_step_in_step2;
+        has_step_in_step2 = false;
 
-        if (!ast_node)return;
+        _analyze_pass1(ast_node, type_degradation);
+
+        has_step_in_step2 = old_has_step_in_pass2;
+    }
+    void lang::_analyze_pass1(ast::ast_base* ast_node, bool type_degradation)
+    {
+        if (!ast_node)
+            return;
 
         if (ast_node->completed_in_pass1)
             return;
@@ -4464,52 +4516,16 @@ namespace wo
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
-        WO_TRY_BEGIN;
-        WO_TRY_PASS(ast_namespace);
-        WO_TRY_PASS(ast_varref_defines);
-        WO_TRY_PASS(ast_value_binary);
-        WO_TRY_PASS(ast_value_mutable);
-        WO_TRY_PASS(ast_value_index);
-        WO_TRY_PASS(ast_value_assign);
-        WO_TRY_PASS(ast_value_logical_binary);
-        WO_TRY_PASS(ast_value_variable);
-        WO_TRY_PASS(ast_value_type_cast);
-        WO_TRY_PASS(ast_value_type_judge);
-        WO_TRY_PASS(ast_value_type_check);
-        WO_TRY_PASS(ast_value_function_define);
-        WO_TRY_PASS(ast_fakevalue_unpacked_args);
-        WO_TRY_PASS(ast_value_funccall);
-        WO_TRY_PASS(ast_value_array);
-        WO_TRY_PASS(ast_value_mapping);
-        WO_TRY_PASS(ast_value_indexed_variadic_args);
-        WO_TRY_PASS(ast_value_typeid);
-        WO_TRY_PASS(ast_return);
-        WO_TRY_PASS(ast_sentence_block);
-        WO_TRY_PASS(ast_if);
-        WO_TRY_PASS(ast_while);
-        WO_TRY_PASS(ast_forloop);
-        WO_TRY_PASS(ast_value_unary);
-        WO_TRY_PASS(ast_mapping_pair);
-        WO_TRY_PASS(ast_using_namespace);
-        WO_TRY_PASS(ast_using_type_as);
-        WO_TRY_PASS(ast_foreach);
-        WO_TRY_PASS(ast_union_make_option_ob_to_cr_and_ret);
-        WO_TRY_PASS(ast_match);
-        WO_TRY_PASS(ast_match_union_case);
-        WO_TRY_PASS(ast_value_make_struct_instance);
-        WO_TRY_PASS(ast_value_make_tuple_instance);
-        WO_TRY_PASS(ast_struct_member_define);
-        WO_TRY_PASS(ast_where_constraint);
-        WO_TRY_PASS(ast_value_trib_expr);
-
-        ast::ast_base* child = ast_node->children;
-        while (child)
+        
+        if (false == this->m_global_pass_table->pass<1>(this, ast_node))
         {
-            analyze_pass1(child);
-            child = child->sibling;
+            ast::ast_base* child = ast_node->children;
+            while (child)
+            {
+                analyze_pass1(child);
+                child = child->sibling;
+            }
         }
-
-        WO_TRY_END;
 
         if (ast_value* a_val = dynamic_cast<ast_value*>(ast_node))
         {
@@ -4549,10 +4565,6 @@ namespace wo
             }
 
         }
-#undef WO_TRY_BEGIN
-#undef WO_TRY_PASS
-#undef WO_TRY_END
-
         wo_assert(ast_node->completed_in_pass1);
     }
 
@@ -4615,10 +4627,10 @@ namespace wo
             temporary_entry_scope_in_pass1(origin_variable->symbol->defined_in_scope);
             if (begin_template_scope(origin_variable, origin_variable->symbol->template_types, template_args_types))
             {
+                analyze_pass1(dumpped_template_init_value);
+
                 auto step_in_pass2 = has_step_in_step2;
                 has_step_in_step2 = false;
-
-                analyze_pass1(dumpped_template_init_value);
 
                 template_reification_symb = define_variable_in_this_scope(
                     dumpped_template_init_value,
@@ -4655,6 +4667,7 @@ namespace wo
         {
             auto step_in_pass2 = has_step_in_step2;
             has_step_in_step2 = true;
+
             fully_update_type(temtype, true, origin_template_func_define->template_type_name_list);
 
             has_step_in_step2 = step_in_pass2;
@@ -4695,12 +4708,11 @@ namespace wo
         temporary_entry_scope_in_pass1(origin_template_func_define->this_func_scope->parent_scope);
         if (begin_template_scope(dumpped_template_func_define, origin_template_func_define, template_args_types))
         {
+            analyze_pass1(dumpped_template_func_define);
+
             auto step_in_pass2 = has_step_in_step2;
             has_step_in_step2 = false;
 
-            analyze_pass1(dumpped_template_func_define);
-
-            // origin_template_func_define->parent->add_child(dumpped_template_func_define);
             end_template_scope();
 
             has_step_in_step2 = step_in_pass2;
@@ -4945,10 +4957,16 @@ namespace wo
 
     void lang::analyze_pass2(ast::ast_base* ast_node, bool type_degradation)
     {
+        bool old_has_step_in_pass2 = has_step_in_step2;
         has_step_in_step2 = true;
 
-        entry_pass ep1(in_pass2, true);
+        _analyze_pass2(ast_node, type_degradation);
 
+        has_step_in_step2 = old_has_step_in_pass2;
+    }
+
+    void lang::_analyze_pass2(ast::ast_base* ast_node, bool type_degradation)
+    {
         wo_assert(ast_node);
 
         if (ast_node->completed_in_pass2)
@@ -4958,10 +4976,6 @@ namespace wo
         ast_node->completed_in_pass2 = true;
 
         using namespace ast;
-
-#define WO_TRY_BEGIN do{
-#define WO_TRY_PASS(NODETYPE) if(pass2_##NODETYPE(dynamic_cast<NODETYPE*>(ast_node)))break;
-#define WO_TRY_END }while(0)
 
         if (ast_value* a_value = dynamic_cast<ast_value*>(ast_node))
         {
@@ -5009,30 +5023,7 @@ namespace wo
                     }
                 }
 
-                WO_TRY_BEGIN;
-                //
-                WO_TRY_PASS(ast_value_variable);
-                WO_TRY_PASS(ast_value_funccall);
-                WO_TRY_PASS(ast_value_function_define);
-                WO_TRY_PASS(ast_value_unary);
-                WO_TRY_PASS(ast_value_mutable);
-                WO_TRY_PASS(ast_value_assign);
-                WO_TRY_PASS(ast_value_type_cast);
-                WO_TRY_PASS(ast_value_type_judge);
-                WO_TRY_PASS(ast_value_type_check);
-                WO_TRY_PASS(ast_value_index);
-                WO_TRY_PASS(ast_value_indexed_variadic_args);
-                WO_TRY_PASS(ast_fakevalue_unpacked_args);
-                WO_TRY_PASS(ast_value_binary);
-                WO_TRY_PASS(ast_value_logical_binary);
-                WO_TRY_PASS(ast_value_array);
-                WO_TRY_PASS(ast_value_mapping);
-                WO_TRY_PASS(ast_value_make_tuple_instance);
-                WO_TRY_PASS(ast_value_make_struct_instance);
-                WO_TRY_PASS(ast_value_trib_expr);
-                WO_TRY_PASS(ast_value_typeid);
-                WO_TRY_END;
-
+                this->m_global_pass_table->pass<2>(this, ast_node);
             }
 
             if (ast_defines* a_def = dynamic_cast<ast_defines*>(ast_node);
@@ -5067,25 +5058,10 @@ namespace wo
                 }
             }
         }
-
-        WO_TRY_BEGIN;
-        /////////////////////////////////////////////////////////////////////////////////////////////////
-        WO_TRY_PASS(ast_mapping_pair);
-        WO_TRY_PASS(ast_using_type_as);
-        WO_TRY_PASS(ast_return);
-        WO_TRY_PASS(ast_sentence_block);
-        WO_TRY_PASS(ast_if);
-        WO_TRY_PASS(ast_while);
-        WO_TRY_PASS(ast_forloop);
-        WO_TRY_PASS(ast_foreach);
-        WO_TRY_PASS(ast_varref_defines);
-        WO_TRY_PASS(ast_union_make_option_ob_to_cr_and_ret);
-        WO_TRY_PASS(ast_match);
-        WO_TRY_PASS(ast_match_union_case);
-        WO_TRY_PASS(ast_struct_member_define);
-        WO_TRY_PASS(ast_where_constraint);
-
-        WO_TRY_END;
+        else
+        {
+            this->m_global_pass_table->pass<2>(this, ast_node);
+        }
 
         ast::ast_base* child = ast_node->children;
         while (child)
@@ -7585,7 +7561,7 @@ namespace wo
 
         if (var_ident->searching_from_type)
         {
-            fully_update_type(var_ident->searching_from_type, !in_pass2.back());
+            fully_update_type(var_ident->searching_from_type, has_step_in_step2);
 
             if (!var_ident->searching_from_type->is_pending() || var_ident->searching_from_type->using_type_name)
             {
@@ -7807,20 +7783,21 @@ namespace wo
         if (searching_result.empty())
             return var_ident->symbol = nullptr;
 
-        if (searching_result.size() > 1)
-        {
-            // Result might have un-accessable type? remove them
-            std::set<lang_symbol*> selecting_results;
-            selecting_results.swap(searching_result);
-            for (auto fnd_result : selecting_results)
-                if (fnd_result->type == lang_symbol::symbol_type::typing
-                    || fnd_result->type == lang_symbol::symbol_type::type_alias
-                    || check_symbol_is_accessable(fnd_result, searching_from_scope, var_ident, false))
-                    searching_result.insert(fnd_result);
+        // Result might have un-accessable type? remove them
+        std::set<lang_symbol*> selecting_results;
+        selecting_results.swap(searching_result);
+        for (auto fnd_result : selecting_results)
+            if (fnd_result->type == lang_symbol::symbol_type::typing
+                || fnd_result->type == lang_symbol::symbol_type::type_alias
+                || check_symbol_is_accessable(fnd_result, searching_from_scope, var_ident, false))
+                searching_result.insert(fnd_result);
 
-            if (searching_result.empty())
-                return var_ident->symbol = nullptr;
-            else if (searching_result.size() > 1)
+        if (searching_result.empty())
+            return var_ident->symbol = nullptr;
+        else if (searching_result.size() > 1)
+        {
+            // Donot report error if in pass1 to avoid a->>f; when `using option;/ using result;`
+            if (has_step_in_step2)
             {
                 std::wstring err_info = WO_ERR_SYMBOL_IS_AMBIGUOUS;
                 size_t fnd_count = 0;
@@ -7840,14 +7817,12 @@ namespace wo
 
                 lang_anylizer->lang_error(lexer::errorlevel::error, var_ident, err_info.c_str(), ident_str->c_str());
             }
+            return var_ident->symbol = nullptr;
         }
-        // Check symbol is accessable?
-        auto* result = *searching_result.begin();
-        if (result->type == lang_symbol::symbol_type::typing
-            || result->type == lang_symbol::symbol_type::type_alias
-            || check_symbol_is_accessable(result, searching_from_scope, var_ident, has_step_in_step2))
-            return var_ident->symbol = result;
-        return var_ident->symbol = nullptr;
+        else
+        {
+            return var_ident->symbol = *searching_result.begin();
+        }
     }
     lang_symbol* lang::find_type_in_this_scope(ast::ast_type* var_ident)
     {
@@ -7953,5 +7928,104 @@ namespace wo
     bool lang::has_compile_error()const
     {
         return lang_anylizer->has_error();
+    }
+
+    void lang::init_global_pass_table()
+    {
+        wo_assert(m_global_pass_table == nullptr);
+
+        m_global_pass_table = std::make_unique<dynamic_cast_pass_table>();
+#define WO_PASS(N, T) m_global_pass_table->register_pass_table<T, N>(&lang::pass##N##_##T)
+#define WO_PASS0(T) WO_PASS(0, T)
+#define WO_PASS1(T) WO_PASS(1, T)
+#define WO_PASS2(T) WO_PASS(2, T)
+
+        WO_PASS0(ast_list);
+        WO_PASS0(ast_namespace);
+        WO_PASS0(ast_varref_defines);
+        WO_PASS0(ast_value_function_define);
+        WO_PASS0(ast_using_type_as);
+
+        WO_PASS1(ast_namespace);
+        WO_PASS1(ast_varref_defines);
+        WO_PASS1(ast_value_binary);
+        WO_PASS1(ast_value_mutable);
+        WO_PASS1(ast_value_index);
+        WO_PASS1(ast_value_assign);
+        WO_PASS1(ast_value_logical_binary);
+        WO_PASS1(ast_value_variable);
+        WO_PASS1(ast_value_type_cast);
+        WO_PASS1(ast_value_type_judge);
+        WO_PASS1(ast_value_type_check);
+        WO_PASS1(ast_value_function_define);
+        WO_PASS1(ast_fakevalue_unpacked_args);
+        WO_PASS1(ast_value_funccall);
+        WO_PASS1(ast_value_array);
+        WO_PASS1(ast_value_mapping);
+        WO_PASS1(ast_value_indexed_variadic_args);
+        WO_PASS1(ast_return);
+        WO_PASS1(ast_sentence_block);
+        WO_PASS1(ast_if);
+        WO_PASS1(ast_while);
+        WO_PASS1(ast_forloop);
+        WO_PASS1(ast_value_unary);
+        WO_PASS1(ast_mapping_pair);
+        WO_PASS1(ast_using_namespace);
+        WO_PASS1(ast_using_type_as);
+        WO_PASS1(ast_foreach);
+        WO_PASS1(ast_union_make_option_ob_to_cr_and_ret);
+        WO_PASS1(ast_match);
+        WO_PASS1(ast_match_union_case);
+        WO_PASS1(ast_value_make_struct_instance);
+        WO_PASS1(ast_value_make_tuple_instance);
+        WO_PASS1(ast_struct_member_define);
+        WO_PASS1(ast_where_constraint);
+        WO_PASS1(ast_value_trib_expr);
+        WO_PASS1(ast_value_typeid);
+
+        WO_PASS2(ast_mapping_pair);
+        WO_PASS2(ast_using_type_as);
+        WO_PASS2(ast_return);
+        WO_PASS2(ast_sentence_block);
+        WO_PASS2(ast_if);
+        WO_PASS2(ast_value_mutable);
+        WO_PASS2(ast_while);
+        WO_PASS2(ast_forloop);
+        WO_PASS2(ast_foreach);
+        WO_PASS2(ast_varref_defines);
+        WO_PASS2(ast_union_make_option_ob_to_cr_and_ret);
+        WO_PASS2(ast_match);
+        WO_PASS2(ast_match_union_case);
+        WO_PASS2(ast_struct_member_define);
+        WO_PASS2(ast_where_constraint);
+        WO_PASS2(ast_value_function_define);
+        WO_PASS2(ast_value_assign);
+        WO_PASS2(ast_value_type_cast);
+        WO_PASS2(ast_value_type_judge);
+        WO_PASS2(ast_value_type_check);
+        WO_PASS2(ast_value_index);
+        WO_PASS2(ast_value_indexed_variadic_args);
+        WO_PASS2(ast_fakevalue_unpacked_args);
+        WO_PASS2(ast_value_binary);
+        WO_PASS2(ast_value_logical_binary);
+        WO_PASS2(ast_value_array);
+        WO_PASS2(ast_value_mapping);
+        WO_PASS2(ast_value_make_tuple_instance);
+        WO_PASS2(ast_value_make_struct_instance);
+        WO_PASS2(ast_value_trib_expr);
+        WO_PASS2(ast_value_variable);
+        WO_PASS2(ast_value_unary);
+        WO_PASS2(ast_value_funccall);
+        WO_PASS2(ast_value_typeid);
+
+#undef WO_PASS
+#undef WO_PASS0
+#undef WO_PASS1
+#undef WO_PASS2
+    }
+    void lang::release_global_pass_table()
+    {
+        wo_assert(m_global_pass_table != nullptr);
+        m_global_pass_table.reset();
     }
 }

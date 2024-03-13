@@ -3,7 +3,30 @@ import test_tool;
 
 namespace test_basic
 {
-    
+    namespace A
+    {
+        using T = int;
+        func foo()
+        {
+            return "A::foo";
+        }
+        namespace B
+        {
+            func get_foo()
+            {
+                return foo();
+            }
+            func get_t()
+            {
+                return std::declval:<T>();
+            }
+            func foo()
+            {
+                return "A::B::foo";
+            }
+            using T = string;
+        }
+    }
     using testvec3 = (real, real, real);
 
     func testvec3_expand(_: string, a: real, b: real, c: real)
@@ -131,6 +154,10 @@ namespace test_basic
 
     func main()
     {
+        test_equal(A::B::get_foo(), "A::B::foo");
+        test_assure(std::is_same_type:<A::B::T, typeof(A::B::get_t())>);
+        test_assure(!std::is_same_type:<A::T, typeof(A::B::get_t())>);
+
         test_equal(foo(2)(1,2,3,4,5,6) as int, 3);
 
         test_equal(noexist_foo() is pending, true);

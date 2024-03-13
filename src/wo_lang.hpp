@@ -8,6 +8,7 @@
 #include <unordered_set>
 #include <variant>
 #include <optional>
+#include <typeindex>
 
 namespace wo
 {
@@ -29,7 +30,10 @@ namespace wo
         lang_scope* defined_in_scope;
         bool define_in_function = false;
         bool static_symbol = false;
-        bool has_been_defined_in_pass2 = false;
+
+        // NOTE: Used for variable to mark it has been defined in pass2.
+        //       Used for type to mark it has been defined in pass1.
+        bool has_been_completed_defined = false;
         bool is_constexpr = false;
         ast::identifier_decl decl = ast::identifier_decl::IMMUTABLE;
         bool is_captured_variable = false;
@@ -167,6 +171,58 @@ namespace wo
 
     class lang
     {
+    public:
+        struct dynamic_cast_pass_table
+        {
+            dynamic_cast_pass_table(const dynamic_cast_pass_table&) = delete;
+            dynamic_cast_pass_table& operator=(const dynamic_cast_pass_table&) = delete;
+            dynamic_cast_pass_table(dynamic_cast_pass_table&&) = delete;
+            dynamic_cast_pass_table& operator=(dynamic_cast_pass_table&&) = delete;
+
+            std::unordered_map<std::type_index, std::function<void(lang*, ast::ast_base*)>> m_pass_table[3];
+
+            dynamic_cast_pass_table() = default;
+
+            template<typename T, size_t passid>
+            void register_pass_table(void(lang::* pass_func)(T*))
+            {
+                wo_assure(m_pass_table[passid].insert(
+                    std::make_pair(std::type_index(typeid(T)),
+                        [pass_func](lang* langself, ast::ast_base* ast)
+                        {
+                            auto* node = dynamic_cast<T*>(ast);
+
+                            wo_assert(node != nullptr);
+
+                            (langself->*pass_func)(node);
+                        })).second);
+            }
+
+            template<size_t passid>
+            bool pass(lang* lang_self, ast::ast_base* ast)
+            {
+                if constexpr (passid > 1)
+                    wo_assert(ast != nullptr);
+
+                if (ast != nullptr)
+                {
+                    auto it = m_pass_table[passid].find(std::type_index(typeid(*ast)));
+                    if (it != m_pass_table[passid].end())
+                    {
+                        it->second(lang_self, ast);
+                        return true;
+                    }
+                }
+                return false;
+            }
+        };
+
+    private:
+        inline static std::unique_ptr<dynamic_cast_pass_table> m_global_pass_table;
+    public:
+        static void init_global_pass_table();
+        static void release_global_pass_table();
+
     private:
         using template_type_map = std::map<wo_pstring_t, lang_symbol*>;
 
@@ -206,25 +262,12 @@ namespace wo
         bool fully_update_type(ast::ast_type* type, bool in_pass_1, const std::vector<wo_pstring_t>& template_types, std::unordered_set<ast::ast_type*>& s);
         void fully_update_type(ast::ast_type* type, bool in_pass_1, const std::vector<wo_pstring_t>& template_types = {});
 
-        std::vector<bool> in_pass2 = { false };
-        struct entry_pass
-        {
-            std::vector<bool>* _set;
-            entry_pass(std::vector<bool>& state_set, bool inpass2)
-                :_set(&state_set)
-            {
-                state_set.push_back(inpass2);
-            }
-            ~entry_pass()
-            {
-                _set->pop_back();
-            }
-        };
-
 #define WO_PASS(NODETYPE) \
-        bool pass1_##NODETYPE (ast::NODETYPE* astnode);\
-        bool pass2_##NODETYPE (ast::NODETYPE* astnode)
+        void pass0_##NODETYPE (ast::NODETYPE* astnode);\
+        void pass1_##NODETYPE (ast::NODETYPE* astnode);\
+        void pass2_##NODETYPE (ast::NODETYPE* astnode)
 
+        WO_PASS(ast_list);
         WO_PASS(ast_namespace);
         WO_PASS(ast_varref_defines);
         WO_PASS(ast_value_binary);
@@ -262,12 +305,15 @@ namespace wo
         WO_PASS(ast_value_trib_expr);
         WO_PASS(ast_value_typeid);
 #undef WO_PASS
+        void analyze_pattern_in_pass0(ast::ast_pattern_base* pattern, ast::ast_decl_attribute* attrib, ast::ast_value* initval);
         void analyze_pattern_in_pass1(ast::ast_pattern_base* pattern, ast::ast_decl_attribute* attrib, ast::ast_value* initval);
         void analyze_pattern_in_pass2(ast::ast_pattern_base* pattern, ast::ast_value* initval);
         void analyze_pattern_in_finalize(ast::ast_pattern_base* pattern, ast::ast_value* initval, bool in_pattern_expr, ir_compiler* compiler);
         void check_division(ast::ast_base* divop, ast::ast_value* left, ast::ast_value* right, opnum::opnumbase& left_opnum, opnum::opnumbase& right_opnum, ir_compiler* compiler);
         void collect_ast_nodes_for_pass1(ast::ast_base* ast_node);
+        void analyze_pass0(ast::ast_base* ast_node);
         void analyze_pass1(ast::ast_base* ast_node, bool type_degradation = true);
+        void _analyze_pass1(ast::ast_base* ast_node, bool type_degradation);
         lang_symbol* analyze_pass_template_reification(ast::ast_value_variable* origin_variable, std::vector<ast::ast_type*> template_args_types);
         ast::ast_value_function_define* analyze_pass_template_reification(ast::ast_value_function_define* origin_template_func_define, std::vector<ast::ast_type*> template_args_types);
 
@@ -282,15 +328,16 @@ namespace wo
             ast::ast_defines* template_defines,
             const std::vector<ast::ast_type*>* template_args);
         std::vector<ast::ast_type*> judge_auto_type_in_funccall(
-            ast::ast_value_funccall* funccall, 
+            ast::ast_value_funccall* funccall,
             lang_scope* located_scope,
             bool update,
-            ast::ast_defines* template_defines, 
+            ast::ast_defines* template_defines,
             const std::vector<ast::ast_type*>* template_args);
 
         bool has_step_in_step2 = false;
 
-        void analyze_pass2(ast::ast_base* ast_node, bool type_degradation=true);
+        void analyze_pass2(ast::ast_base* ast_node, bool type_degradation = true);
+        void _analyze_pass2(ast::ast_base* ast_node, bool type_degradation);
         void clean_and_close_lang();
 
         ast::ast_type* analyze_template_derivation(
