@@ -30,7 +30,10 @@ namespace wo
         lang_scope* defined_in_scope;
         bool define_in_function = false;
         bool static_symbol = false;
-        bool has_been_defined_in_pass2 = false;
+
+        // NOTE: Used for variable to mark it has been defined in pass2.
+        //       Used for type to mark it has been defined in pass1.
+        bool has_been_completed_defined = false;
         bool is_constexpr = false;
         ast::identifier_decl decl = ast::identifier_decl::IMMUTABLE;
         bool is_captured_variable = false;

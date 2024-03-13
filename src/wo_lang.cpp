@@ -54,15 +54,17 @@ namespace wo
     {
         auto* a_using_type_as = WO_AST();
 
-        /*if (a_using_type_as->type_symbol == nullptr)
+        if (a_using_type_as->type_symbol == nullptr)
         {
             auto* typing_symb = define_type_in_this_scope(
                 a_using_type_as, a_using_type_as->old_type, a_using_type_as->declear_attribute);
             typing_symb->apply_template_setting(a_using_type_as);
 
             a_using_type_as->type_symbol = typing_symb;
+
+            wo_assert(a_using_type_as->type_symbol->has_been_completed_defined == false);
         }
-        analyze_pass0(a_using_type_as->namespace_decl);*/
+        analyze_pass0(a_using_type_as->namespace_decl);
     }
 
     WO_PASS1(ast_namespace)
@@ -817,6 +819,8 @@ namespace wo
             }
             analyze_pass1(a_using_type_as->namespace_decl);
         }
+
+        a_using_type_as->type_symbol->has_been_completed_defined = true;
     }
     WO_PASS1(ast_foreach)
     {
@@ -1431,7 +1435,7 @@ namespace wo
                     {
                         argdef->completed_in_pass2 = true;
                         if (argdef->symbol)
-                            argdef->symbol->has_been_defined_in_pass2 = true;
+                            argdef->symbol->has_been_completed_defined = true;
                     }
                     else
                     {
@@ -2487,7 +2491,7 @@ namespace wo
 
         if (a_value_var->value_type->is_pending())
         {
-            if (sym && (!sym->define_in_function || sym->has_been_defined_in_pass2 || sym->is_captured_variable))
+            if (sym && (!sym->define_in_function || sym->has_been_completed_defined || sym->is_captured_variable))
             {
                 if (sym->is_template_symbol && (!a_value_var->is_auto_judge_function_overload || sym->type == lang_symbol::symbol_type::variable))
                 {
@@ -3685,7 +3689,7 @@ namespace wo
             sym->type = lang_symbol::symbol_type::type_alias;
             sym->name = template_defines_args[index];
             sym->type_informatiom = new ast::ast_type(WO_PSTR(pending));
-
+            sym->has_been_completed_defined = true;
             sym->type_informatiom->set_type(applying_type);
 
             sym->defined_in_scope = lang_scopes.back();
@@ -3771,7 +3775,10 @@ namespace wo
         using_type_def_char->old_type = new ast::ast_type(WO_PSTR(int));
         using_type_def_char->declear_attribute = new ast::ast_decl_attribute();
         using_type_def_char->declear_attribute->add_attribute(lang_anylizer, lex_type::l_public);
-        define_type_in_this_scope(using_type_def_char, using_type_def_char->old_type, using_type_def_char->declear_attribute);
+        define_type_in_this_scope(
+            using_type_def_char, 
+            using_type_def_char->old_type, 
+            using_type_def_char->declear_attribute)->has_been_completed_defined = true;
     }
     lang::~lang()
     {
@@ -3941,6 +3948,9 @@ namespace wo
 
                     if (type_sym)
                     {
+                        if (type_sym->has_been_completed_defined == false)
+                            return false;
+
                         auto already_has_using_type_name = type->using_type_name;
 
                         auto type_has_mutable_mark = type->is_mutable();
@@ -4009,7 +4019,10 @@ namespace wo
                             //symboled_type->set_type(type_sym->type_informatiom);
 
                             wo_assert(symboled_type != nullptr);
-                            fully_update_type(symboled_type, in_pass_1, template_types, s);
+                            
+                            // NOTE: The type here should have all the template parameters applied.
+                            // We should not need give `template_types` here.
+                            fully_update_type(symboled_type, in_pass_1, {}, s);
 
                             // NOTE: In old version, function's return type is not stores in complex.
                             //       But now, the type here cannot be a function.
@@ -4230,14 +4243,14 @@ namespace wo
                 if (a_pattern_identifier->template_arguments.empty())
                 {
                     analyze_pass2(initval);
-                    a_pattern_identifier->symbol->has_been_defined_in_pass2 = true;
+                    a_pattern_identifier->symbol->has_been_completed_defined = true;
                 }
                 else
                 {
-                    a_pattern_identifier->symbol->has_been_defined_in_pass2 = true;
+                    a_pattern_identifier->symbol->has_been_completed_defined = true;
                     for (auto& [_, impl_symbol] : a_pattern_identifier->symbol->template_typehashs_reification_instance_symbol_list)
                     {
-                        impl_symbol->has_been_defined_in_pass2 = true;
+                        impl_symbol->has_been_completed_defined = true;
                     }
                 }
             }
