@@ -206,22 +206,8 @@ namespace wo
         bool fully_update_type(ast::ast_type* type, bool in_pass_1, const std::vector<wo_pstring_t>& template_types, std::unordered_set<ast::ast_type*>& s);
         void fully_update_type(ast::ast_type* type, bool in_pass_1, const std::vector<wo_pstring_t>& template_types = {});
 
-        std::vector<bool> in_pass2 = { false };
-        struct entry_pass
-        {
-            std::vector<bool>* _set;
-            entry_pass(std::vector<bool>& state_set, bool inpass2)
-                :_set(&state_set)
-            {
-                state_set.push_back(inpass2);
-            }
-            ~entry_pass()
-            {
-                _set->pop_back();
-            }
-        };
-
 #define WO_PASS(NODETYPE) \
+        bool pass0_##NODETYPE (ast::NODETYPE* astnode);\
         bool pass1_##NODETYPE (ast::NODETYPE* astnode);\
         bool pass2_##NODETYPE (ast::NODETYPE* astnode)
 
@@ -267,7 +253,9 @@ namespace wo
         void analyze_pattern_in_finalize(ast::ast_pattern_base* pattern, ast::ast_value* initval, bool in_pattern_expr, ir_compiler* compiler);
         void check_division(ast::ast_base* divop, ast::ast_value* left, ast::ast_value* right, opnum::opnumbase& left_opnum, opnum::opnumbase& right_opnum, ir_compiler* compiler);
         void collect_ast_nodes_for_pass1(ast::ast_base* ast_node);
+        void analyze_pass0(ast::ast_base* ast_node);
         void analyze_pass1(ast::ast_base* ast_node, bool type_degradation = true);
+        void _analyze_pass1(ast::ast_base* ast_node, bool type_degradation);
         lang_symbol* analyze_pass_template_reification(ast::ast_value_variable* origin_variable, std::vector<ast::ast_type*> template_args_types);
         ast::ast_value_function_define* analyze_pass_template_reification(ast::ast_value_function_define* origin_template_func_define, std::vector<ast::ast_type*> template_args_types);
 
@@ -282,15 +270,16 @@ namespace wo
             ast::ast_defines* template_defines,
             const std::vector<ast::ast_type*>* template_args);
         std::vector<ast::ast_type*> judge_auto_type_in_funccall(
-            ast::ast_value_funccall* funccall, 
+            ast::ast_value_funccall* funccall,
             lang_scope* located_scope,
             bool update,
-            ast::ast_defines* template_defines, 
+            ast::ast_defines* template_defines,
             const std::vector<ast::ast_type*>* template_args);
 
         bool has_step_in_step2 = false;
 
-        void analyze_pass2(ast::ast_base* ast_node, bool type_degradation=true);
+        void analyze_pass2(ast::ast_base* ast_node, bool type_degradation = true);
+        void _analyze_pass2(ast::ast_base* ast_node, bool type_degradation);
         void clean_and_close_lang();
 
         ast::ast_type* analyze_template_derivation(

@@ -2349,6 +2349,7 @@ std::variant<
             // 3. Create lang, most anything store here..
             wo::lang lang(*lex);
 
+            lang.analyze_pass0(result);
             lang.analyze_pass1(result);
             if (!lang.has_compile_error())
             {

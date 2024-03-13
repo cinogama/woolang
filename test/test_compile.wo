@@ -1373,6 +1373,13 @@ func main()
             do a.0.0;
             "@);
 
+        assure_compile_success(@"
+            import woo::std;
+            using option;
+            using result;
+            do option::value(do nil)->> \p = p;;
+            "@);
+
         // ISSUE: 1.13: anything has been removed from woolang.
         // assure_compile_success(@"
         //     import woo::std;

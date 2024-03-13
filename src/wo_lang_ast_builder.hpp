@@ -1465,7 +1465,9 @@ namespace wo
             ast_namespace* namespace_decl = nullptr;
 
             wo_pstring_t new_type_identifier = nullptr;
-            ast_type* old_type;
+            ast_type* old_type = nullptr;
+
+            lang_symbol* type_symbol = nullptr;
 
             std::map<std::wstring, ast::ast_value*> class_const_index_typing;
             std::map<std::wstring, std::vector<ast::ast_value_function_define*>> class_methods_list;
@@ -1482,6 +1484,9 @@ namespace wo
 
                 WO_REINSTANCE(dumm->old_type);
                 // Donot deep-copy `namespace_decl`, it's not needed.
+
+                // Clear type_symbol;
+                dumm->type_symbol = nullptr;
 
                 return dumm;
             }

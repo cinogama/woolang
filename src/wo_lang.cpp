@@ -4,8 +4,11 @@ namespace wo
 {
     using namespace ast;
 
-#define WO_PASS1(NODETYPE) bool lang::pass1_##NODETYPE (ast::NODETYPE* astnode)
 #define WO_AST() astnode; if (!astnode)return false
+
+#define WO_PASS0(NODETYPE) bool lang::pass0_##NODETYPE (ast::NODETYPE* astnode)
+#define WO_PASS1(NODETYPE) bool lang::pass1_##NODETYPE (ast::NODETYPE* astnode)
+#define WO_PASS2(NODETYPE) bool lang::pass2_##NODETYPE(ast::NODETYPE* astnode)
 
     WO_PASS1(ast_namespace)
     {
@@ -768,21 +771,25 @@ namespace wo
         }
         else
         {
-            if (a_using_type_as->old_type->typefrom == nullptr
-                || a_using_type_as->template_type_name_list.empty())
+            if (a_using_type_as->type_symbol == nullptr)
             {
-                if (a_using_type_as->namespace_decl != nullptr)
-                    begin_namespace(a_using_type_as->namespace_decl);
+                if (a_using_type_as->old_type->typefrom == nullptr
+                    || a_using_type_as->template_type_name_list.empty())
+                {
+                    if (a_using_type_as->namespace_decl != nullptr)
+                        begin_namespace(a_using_type_as->namespace_decl);
 
-                fully_update_type(a_using_type_as->old_type, true, a_using_type_as->template_type_name_list);
+                    fully_update_type(a_using_type_as->old_type, true, a_using_type_as->template_type_name_list);
 
-                if (a_using_type_as->namespace_decl != nullptr)
-                    end_namespace();
+                    if (a_using_type_as->namespace_decl != nullptr)
+                        end_namespace();
+                }
+                auto* typing_symb = define_type_in_this_scope(
+                    a_using_type_as, a_using_type_as->old_type, a_using_type_as->declear_attribute);
+                typing_symb->apply_template_setting(a_using_type_as);
+                
+                a_using_type_as->type_symbol = typing_symb;
             }
-            auto* typing_symb = define_type_in_this_scope(
-                a_using_type_as, a_using_type_as->old_type, a_using_type_as->declear_attribute);
-            typing_symb->apply_template_setting(a_using_type_as);
-
             analyze_pass1(a_using_type_as->namespace_decl);
         }
         return true;
@@ -990,7 +997,6 @@ namespace wo
         }
         return true;
     }
-
     WO_PASS1(ast_value_typeid)
     {
         auto* ast_value_typeid = WO_AST();
@@ -999,8 +1005,6 @@ namespace wo
 
         return true;
     }
-
-#define WO_PASS2(NODETYPE) bool lang::pass2_##NODETYPE(ast::NODETYPE* astnode)
 
     WO_PASS2(ast_mapping_pair)
     {
@@ -3843,12 +3847,11 @@ namespace wo
                 temporary_entry_scope_in_pass1(symb->defined_in_scope);
                 if (begin_template_scope(newtype->typefrom, symb->template_types, templates))
                 {
+                    analyze_pass1(newtype->typefrom, false);
+
                     auto step_in_pass2 = has_step_in_step2;
                     has_step_in_step2 = false;
 
-                    analyze_pass1(newtype->typefrom, false);
-
-                    // origin_template_func_define->parent->add_child(dumpped_template_func_define);
                     end_template_scope();
 
                     has_step_in_step2 = step_in_pass2;
@@ -4433,15 +4436,55 @@ namespace wo
             _pass1_analyze_ast_nodes_list.push_back(cur_node);
         }
     }
+    void lang::analyze_pass0(ast::ast_base* ast_node)
+    {
+        wo_assert(has_step_in_step2 == false);
 
+        // Used for pre-define all global define, we need walk through all:
+        //  ast_namespace
+        // 
+        // We will do pass1 job for following declare:
+        //  ast_varref_defines
+        //  ast_value_function_define
+        //  ast_using_type_as
+
+        if (dynamic_cast<ast::ast_list*>(ast_node) != nullptr || dynamic_cast<ast::ast_namespace*>(ast_node) != nullptr)
+        {
+            auto* child = ast_node->children;
+            while (child != nullptr)
+            {
+                analyze_pass0(child);
+                child = child->sibling;
+            }
+        }
+        else
+        {
+            if (pass1_ast_varref_defines(dynamic_cast<ast::ast_varref_defines*>(ast_node)))
+                ;
+            else if (pass1_ast_value_function_define(dynamic_cast<ast::ast_value_function_define*>(ast_node)))
+                ;
+            else if (pass1_ast_using_type_as(dynamic_cast<ast::ast_using_type_as*>(ast_node)))
+                ;
+        }
+        return;
+    }
     void lang::analyze_pass1(ast::ast_base* ast_node, bool type_degradation)
+    {
+        bool old_has_step_in_pass2 = has_step_in_step2;
+        has_step_in_step2 = false;
+
+        _analyze_pass1(ast_node, type_degradation);
+
+        has_step_in_step2 = old_has_step_in_pass2;
+    }
+    void lang::_analyze_pass1(ast::ast_base* ast_node, bool type_degradation)
     {
 #define WO_TRY_BEGIN do{
 #define WO_TRY_PASS(NODETYPE) if(pass1_##NODETYPE(dynamic_cast<NODETYPE*>(ast_node)))break;
 #define WO_TRY_END }while(0)
-        entry_pass ep1(in_pass2, false);
 
-        if (!ast_node)return;
+        if (!ast_node)
+            return;
 
         if (ast_node->completed_in_pass1)
             return;
@@ -4615,10 +4658,10 @@ namespace wo
             temporary_entry_scope_in_pass1(origin_variable->symbol->defined_in_scope);
             if (begin_template_scope(origin_variable, origin_variable->symbol->template_types, template_args_types))
             {
+                analyze_pass1(dumpped_template_init_value);
+
                 auto step_in_pass2 = has_step_in_step2;
                 has_step_in_step2 = false;
-
-                analyze_pass1(dumpped_template_init_value);
 
                 template_reification_symb = define_variable_in_this_scope(
                     dumpped_template_init_value,
@@ -4655,6 +4698,7 @@ namespace wo
         {
             auto step_in_pass2 = has_step_in_step2;
             has_step_in_step2 = true;
+
             fully_update_type(temtype, true, origin_template_func_define->template_type_name_list);
 
             has_step_in_step2 = step_in_pass2;
@@ -4695,12 +4739,11 @@ namespace wo
         temporary_entry_scope_in_pass1(origin_template_func_define->this_func_scope->parent_scope);
         if (begin_template_scope(dumpped_template_func_define, origin_template_func_define, template_args_types))
         {
+            analyze_pass1(dumpped_template_func_define);
+
             auto step_in_pass2 = has_step_in_step2;
             has_step_in_step2 = false;
 
-            analyze_pass1(dumpped_template_func_define);
-
-            // origin_template_func_define->parent->add_child(dumpped_template_func_define);
             end_template_scope();
 
             has_step_in_step2 = step_in_pass2;
@@ -4945,10 +4988,16 @@ namespace wo
 
     void lang::analyze_pass2(ast::ast_base* ast_node, bool type_degradation)
     {
+        bool old_has_step_in_pass2 = has_step_in_step2;
         has_step_in_step2 = true;
 
-        entry_pass ep1(in_pass2, true);
+        _analyze_pass2(ast_node, type_degradation);
 
+        has_step_in_step2 = old_has_step_in_pass2;
+    }
+
+    void lang::_analyze_pass2(ast::ast_base* ast_node, bool type_degradation)
+    {
         wo_assert(ast_node);
 
         if (ast_node->completed_in_pass2)
@@ -7585,7 +7634,7 @@ namespace wo
 
         if (var_ident->searching_from_type)
         {
-            fully_update_type(var_ident->searching_from_type, !in_pass2.back());
+            fully_update_type(var_ident->searching_from_type, has_step_in_step2);
 
             if (!var_ident->searching_from_type->is_pending() || var_ident->searching_from_type->using_type_name)
             {
@@ -7807,20 +7856,21 @@ namespace wo
         if (searching_result.empty())
             return var_ident->symbol = nullptr;
 
-        if (searching_result.size() > 1)
-        {
-            // Result might have un-accessable type? remove them
-            std::set<lang_symbol*> selecting_results;
-            selecting_results.swap(searching_result);
-            for (auto fnd_result : selecting_results)
-                if (fnd_result->type == lang_symbol::symbol_type::typing
-                    || fnd_result->type == lang_symbol::symbol_type::type_alias
-                    || check_symbol_is_accessable(fnd_result, searching_from_scope, var_ident, false))
-                    searching_result.insert(fnd_result);
+        // Result might have un-accessable type? remove them
+        std::set<lang_symbol*> selecting_results;
+        selecting_results.swap(searching_result);
+        for (auto fnd_result : selecting_results)
+            if (fnd_result->type == lang_symbol::symbol_type::typing
+                || fnd_result->type == lang_symbol::symbol_type::type_alias
+                || check_symbol_is_accessable(fnd_result, searching_from_scope, var_ident, false))
+                searching_result.insert(fnd_result);
 
-            if (searching_result.empty())
-                return var_ident->symbol = nullptr;
-            else if (searching_result.size() > 1)
+        if (searching_result.empty())
+            return var_ident->symbol = nullptr;
+        else if (searching_result.size() > 1)
+        {
+            // Donot report error if in pass1 to avoid a->>f; when `using option;/ using result;`
+            if (has_step_in_step2)
             {
                 std::wstring err_info = WO_ERR_SYMBOL_IS_AMBIGUOUS;
                 size_t fnd_count = 0;
@@ -7840,14 +7890,12 @@ namespace wo
 
                 lang_anylizer->lang_error(lexer::errorlevel::error, var_ident, err_info.c_str(), ident_str->c_str());
             }
+            return var_ident->symbol = nullptr;
         }
-        // Check symbol is accessable?
-        auto* result = *searching_result.begin();
-        if (result->type == lang_symbol::symbol_type::typing
-            || result->type == lang_symbol::symbol_type::type_alias
-            || check_symbol_is_accessable(result, searching_from_scope, var_ident, has_step_in_step2))
-            return var_ident->symbol = result;
-        return var_ident->symbol = nullptr;
+        else
+        {
+            return var_ident->symbol = *searching_result.begin();
+        }
     }
     lang_symbol* lang::find_type_in_this_scope(ast::ast_type* var_ident)
     {
