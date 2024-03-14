@@ -108,7 +108,7 @@ namespace wo
 
             // if this type is function, following type information will describe the return type;
             wo_pstring_t type_name = nullptr;
-            ast_type* complex_type = nullptr;
+            ast_type* function_ret_type = nullptr;
 
             value::valuetype value_type;
 
@@ -199,7 +199,7 @@ namespace wo
             bool is_nothing() const;
             bool is_struct() const;
             bool has_template() const;
-            bool is_complex() const;
+            bool is_function() const;
             bool is_string() const;
             bool is_waiting_create_template_for_auto() const;
             bool is_pure_base_type() const;
@@ -2989,12 +2989,12 @@ namespace wo
                 wo_test(input.size() == 3);
 
                 ast_type* result = nullptr;
-                auto* complex_type = dynamic_cast<ast_type*>(WO_NEED_AST(2));
+                auto* function_ret_type = dynamic_cast<ast_type*>(WO_NEED_AST(2));
 
-                wo_assert(complex_type != nullptr);
+                wo_assert(function_ret_type != nullptr);
 
                 result = new ast_type(WO_PSTR(pending));
-                result->set_ret_type(complex_type);
+                result->set_ret_type(function_ret_type);
 
                 auto* arg_list = dynamic_cast<ast_list*>(WO_NEED_AST(0));
                 auto* child = arg_list->children;

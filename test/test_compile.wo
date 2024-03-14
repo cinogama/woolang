@@ -1380,6 +1380,31 @@ func main()
             do option::value(do nil)->> \p = p;;
             "@);
 
+        assure_compile_fail(@"
+            namespace function
+            {
+                func foo(_: ()=> int)
+                {
+
+                }
+            }
+
+            let f = \n: int = do nil;;
+            f->foo;
+        "@);
+        assure_compile_success(@"
+            namespace function
+            {
+                func foo(_: ()=> int)
+                {
+
+                }
+            }
+
+            let f = \ = 6;;
+            f->foo;
+        "@);
+
         // ISSUE: 1.13: anything has been removed from woolang.
         // assure_compile_success(@"
         //     import woo::std;
