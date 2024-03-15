@@ -154,7 +154,7 @@ namespace wo
         inline bool ENABLE_RUNTIME_CHECKING_INTEGER_DIVISION = true;
 
         /*
-        * INTERRUPT_CHECK_TIME_LIMIT = 100
+        * INTERRUPT_CHECK_TIME_LIMIT = 25
         * --------------------------------------------------------------------
         *   When the virtual machine is within the GC scope and does not respond
         * to the specified interrupt request beyond this time limit, a warning 
@@ -175,6 +175,6 @@ namespace wo
         * 
         *   0 does not mean unlimited wait.
         */
-        inline size_t INTERRUPT_CHECK_TIME_LIMIT = 100;
+        inline size_t INTERRUPT_CHECK_TIME_LIMIT = 25;
     }
 }

@@ -2123,10 +2123,10 @@ namespace array
     extern("rslib_std_array_create", repeat) 
         public func create<T>(sz: int, init_val: T)=> array<T>;
 
-    extern("rslib_std_serialize", slow, repeat) 
+    extern("rslib_std_serialize", repeat) 
         public func serialize<T>(self: array<T>)=> option<string>;
 
-    extern("rslib_std_parse_array_from_string", slow, repeat)
+    extern("rslib_std_parse_array_from_string", repeat)
         public func deserialize(val: string)=> option<array<dynamic>>;
 
     public func append<T>(self: array<T>, elem: T)
@@ -2302,10 +2302,10 @@ namespace vec
     extern("rslib_std_array_create", repeat) 
         public func create<T>(sz: int, init_val: T)=> vec<T>;
 
-    extern("rslib_std_serialize", slow, repeat) 
+    extern("rslib_std_serialize", repeat) 
         public func serialize<T>(self: vec<T>)=> option<string>;
 
-    extern("rslib_std_parse_array_from_string", slow, repeat) 
+    extern("rslib_std_parse_array_from_string", repeat) 
         public func deserialize(val: string)=> option<vec<dynamic>>;
 
     extern("rslib_std_create_str_by_wchar", repeat) 
@@ -2471,10 +2471,10 @@ namespace vec
 
 namespace dict
 {
-    extern("rslib_std_serialize", slow, repeat) 
+    extern("rslib_std_serialize", repeat) 
         public func serialize<KT, VT>(self: dict<KT, VT>)=> option<string>;
 
-    extern("rslib_std_parse_map_from_string", slow, repeat) 
+    extern("rslib_std_parse_map_from_string", repeat) 
         public func deserialize(val: string)=> option<dict<dynamic, dynamic>>;
 
     public func bind<KT, VT, RK, RV>(val: dict<KT, VT>, functor: (KT, VT)=> dict<RK, RV>)
@@ -2577,10 +2577,10 @@ namespace dict
 
 namespace map
 {
-    extern("rslib_std_serialize", slow, repeat) 
+    extern("rslib_std_serialize", repeat) 
         public func serialize<KT, VT>(self: map<KT, VT>)=> option<string>;
                     
-    extern("rslib_std_parse_map_from_string", slow, repeat) 
+    extern("rslib_std_parse_map_from_string", repeat) 
         public func deserialize(val: string)=> option<map<dynamic, dynamic>>;
 
     public func bind<KT, VT, RK, RV>(val: map<KT, VT>, functor: (KT, VT)=> map<RK, RV>)

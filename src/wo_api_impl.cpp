@@ -1065,6 +1065,8 @@ wo_bool_t _wo_cast_value(wo_vm vm, wo::value* value, wo::lexer* lex, wo::value::
 }
 wo_bool_t wo_deserialize(wo_vm vm, wo_value value, wo_string_t str, wo_type except_type)
 {
+    _wo_enter_gc_guard g(vm);
+
     wo::lexer lex(wo::str_to_wstr(str), "json");
     return _wo_cast_value(vm, WO_VAL(value), &lex, (wo::value::valuetype)except_type);
 }
@@ -3672,7 +3674,11 @@ void wo_gc_checkpoint(wo_vm vm)
 
 wo_bool_t wo_leave_gcguard(wo_vm vm)
 {
-    if (WO_VM(vm)->check_interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT))
+    return WO_CBOOL(WO_VM(vm)->interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
+}
+wo_bool_t wo_enter_gcguard(wo_vm vm)
+{
+    if (true == WO_VM(vm)->check_interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT))
     {
         wo_gc_checkpoint(vm);
 
@@ -3680,35 +3686,6 @@ wo_bool_t wo_leave_gcguard(wo_vm vm)
         return WO_TRUE;
     }
     return WO_FALSE;
-}
-wo_bool_t wo_enter_gcguard(wo_vm vm)
-{
-    // In principle, when entering the GC protected area, we need to check 
-    // the GC interrupt for the following reasons:
-    //
-    // 1. If GC has not started yet, we have entered the GC management area. If GC 
-    //      occurs later, the GC thread will wait for the checkpoint when leaving 
-    //      the GC manager.
-    // 2. If GC has started before, then:
-    //      2.1. The GC has not yet decided to add this virtual machine to the GC 
-    //          thread agent. It will be handled as in case 1.
-    //      2.2. The GC has decided to include this virtual machine as a GC thread
-    //          agent. Although the GC may miss the mark at this time, the new units 
-    //          applied during this period will survive directly.
-    // ATTENTION:
-    //  In case 2.2, although it is safe to create a new GC unit, if you want to 
-    // remove objects on the virtual machine stack, this may still cause the old 
-    // unit to lose references, in the following situations: 
-    // 
-    //  1. This old object comes from the upper call stack. At this time, it is 
-    // guaranteed that the upper call stack holds this object. Before returning 
-    // to the upper call stack, the checkpoint when leaving the GC scope will be 
-    // triggered, so no mark omission will occur.
-    //  2. This old object was just created. The GC signal was initiated after 
-    // the creation, and the object was moved to another virtual machine that has
-    // been marked.
-    //
-    return WO_CBOOL(WO_VM(vm)->clear_interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
 }
 
 // LSP-API
@@ -3805,4 +3782,9 @@ void wo_read_pin_value(wo_value out_value, wo_pin_value pin_value)
 wo_size_t wo_vaarg_count(wo_vm vm)
 {
     return (wo_size_t)WO_VM(vm)->tc->integer;
+}
+void wo_gc_record_memory(wo_value val)
+{
+    if (wo::gc::gc_is_marking())
+        wo::gcbase::write_barrier(WO_VAL(val));
 }
