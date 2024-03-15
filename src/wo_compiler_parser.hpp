@@ -34,15 +34,6 @@ namespace wo
         private:
             inline thread_local static std::forward_list<ast_base*>* list = nullptr;
         public:
-
-            ast_base& operator = (const ast_base&)
-            {
-                // ATTENTION: DO NOTHING HERE, DATA COPY WILL BE FINISHED
-                //            IN 'MAKE_INSTANCE'
-                return *this;
-            }
-            ast_base& operator = (ast_base&&) = delete;
-
             static void clean_this_thread_ast()
             {
                 if (nullptr == list)
@@ -88,8 +79,15 @@ namespace wo
             {
 
             }
-            ast_base(const ast_base& another) = delete;
-            ast_base(ast_base&& another) = delete;
+            ast_base(const ast_base&) = delete;
+            ast_base(ast_base&&) = delete;
+            ast_base& operator = (const ast_base&)
+            {
+                // ATTENTION: DO NOTHING HERE, DATA COPY WILL BE FINISHED
+                //            IN 'MAKE_INSTANCE'
+                return *this;
+            }
+            ast_base& operator = (ast_base&&) = delete;
             ast_base()
                 : parent(nullptr)
                 , children(nullptr)

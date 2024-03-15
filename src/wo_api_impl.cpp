@@ -2478,7 +2478,7 @@ std::wstring _dump_src_info(const std::string& path, size_t beginaimrow, size_t 
                 else
                     swprintf(buf, 19, L"\n%-5zu | ", current_row_no);
                 result += buf;
-            };
+                };
             auto print_notify_line = [&result, &first_line, &current_row_no, beginpointplace, pointplace, style, beginaimrow, aimrow](size_t line_end_place) {
                 wchar_t buf[20] = {};
                 if (first_line)
@@ -2537,7 +2537,7 @@ std::wstring _dump_src_info(const std::string& path, size_t beginaimrow, size_t 
                     append_result += wo::str_to_wstr(ANSI_RST);
 
                 result += append_result;
-            };
+                };
 
             if (from <= current_row_no && current_row_no <= to)
                 print_src_file_print_lineno();
@@ -3674,7 +3674,14 @@ void wo_gc_checkpoint(wo_vm vm)
 
 wo_bool_t wo_leave_gcguard(wo_vm vm)
 {
-    return WO_CBOOL(WO_VM(vm)->interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
+    if (!WO_VM(vm)->check_interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT))
+    {
+        wo_gc_checkpoint(vm);
+
+        wo_assure(WO_VM(vm)->interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
+        return WO_TRUE;
+    }
+    return WO_FALSE;
 }
 wo_bool_t wo_enter_gcguard(wo_vm vm)
 {
