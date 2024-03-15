@@ -3678,7 +3678,7 @@ wo_bool_t wo_leave_gcguard(wo_vm vm)
 }
 wo_bool_t wo_enter_gcguard(wo_vm vm)
 {
-    if (true == WO_VM(vm)->check_interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT))
+    if (WO_VM(vm)->check_interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT))
     {
         wo_gc_checkpoint(vm);
 
