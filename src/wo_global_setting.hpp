@@ -152,5 +152,29 @@ namespace wo
         *   Check for integer division only.
         */
         inline bool ENABLE_RUNTIME_CHECKING_INTEGER_DIVISION = true;
+
+        /*
+        * INTERRUPT_CHECK_TIME_LIMIT = 100
+        * --------------------------------------------------------------------
+        *   When the virtual machine is within the GC scope and does not respond
+        * to the specified interrupt request beyond this time limit, a warning 
+        * will be given and the wait will end.
+        * --------------------------------------------------------------------
+        * ATTENTION:
+        *   The unit is 10ms, if you set INTERRUPT_CHECK_TIME_LIMIT = 100, it means
+        * 1s;
+        * 
+        *   The GC check signal timeout is not an expected behavior. Once this warning
+        * is triggered, you should rule out behaviors that may cause blocking.
+        * 
+        *   Do not set this value too large or too small, the recommended range is 
+        * 10-50 (100ms - 500ms). Excessively large values will block the GC workflow 
+        * and affect recycling efficiency. A value that is too small will cause 
+        * warnings to be triggered frequently and may cause GC marking to change from
+        * parallel to serial.
+        * 
+        *   0 does not mean unlimited wait.
+        */
+        inline size_t INTERRUPT_CHECK_TIME_LIMIT = 100;
     }
 }

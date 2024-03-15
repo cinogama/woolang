@@ -400,6 +400,8 @@ WO_API wo_value     wo_dispatch_value(wo_vm vm, wo_value vmfunc, wo_int_t argc);
 #define WO_CONTINUE    ((wo_value)(void*)-1)
 WO_API wo_value     wo_dispatch(wo_vm vm);
 
+WO_API void         wo_gc_checkpoint(wo_vm vm);
+
 WO_API wo_bool_t    wo_leave_gcguard(wo_vm vm);
 WO_API wo_bool_t    wo_enter_gcguard(wo_vm vm);
 

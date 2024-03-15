@@ -268,7 +268,7 @@ namespace wo
         inline interrupt_wait_result wait_interrupt(vm_interrupt_type type)
         {
             using namespace std;
-            auto first_tm_ms = (std::chrono::steady_clock::now().time_since_epoch() / 1ms);
+            size_t retry_count = 0;
 
             constexpr int MAX_TRY_COUNT = 0;
             int i = 0;
@@ -288,12 +288,10 @@ namespace wo
                     i = 0;
 
                 std::this_thread::sleep_for(10ms);
-
-                auto current_tm_ms = (std::chrono::steady_clock::now().time_since_epoch() / 1ms);
-                if (current_tm_ms - first_tm_ms >= 100)
+                if (++retry_count == config::INTERRUPT_CHECK_TIME_LIMIT)
                 {
                     // Wait for too much time.
-                    std::string warning_info = "Wait for too much time(out of 0.1s) for waiting interrupt.\n";
+                    std::string warning_info = "Wait for too much time for waiting interrupt.\n";
                     std::stringstream dump_callstack_info;
                     
                     dump_call_stack(32, false, dump_callstack_info);

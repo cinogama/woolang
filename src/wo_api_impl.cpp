@@ -2197,7 +2197,7 @@ wo_string_t  wo_wstr_to_str(wo_wstring_t str)
 
 wo_char_t wo_strn_get_char(wo_string_t str, wo_size_t size, wo_int_t index)
 {
-    wo_char_t ch = wo::u8strnidx(str, size,(size_t)index);
+    wo_char_t ch = wo::u8strnidx(str, size, (size_t)index);
     if (ch == 0 && wo::u8strnlen(str, size) <= (size_t)index)
         wo_fail(WO_FAIL_INDEX_FAIL, "Index out of range.");
     return ch;
@@ -3226,7 +3226,7 @@ wo_int_t wo_arr_find(wo_value arr, wo_value elem)
                         return *_elem.string == *_aim->string;
                     return _elem.handle == _aim->handle;
                 }
-        return false;
+                return false;
             });
         if (fnd != _arr->array->end())
             return fnd - _arr->array->begin();
@@ -3651,31 +3651,63 @@ wo_vm wo_set_this_thread_vm(wo_vm vm_may_null)
     if (vm != nullptr)
         vm->attaching_thread_id = std::this_thread::get_id();
 #endif
-    
+
     return CS_VM(old_one);
+}
+
+void wo_gc_checkpoint(wo_vm vm)
+{
+    // If in GC, hang up here to make sure safe.
+    if ((WO_VM(vm)->vm_interrupt.load() & (
+        wo::vmbase::vm_interrupt_type::GC_INTERRUPT
+        | wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT)) != 0)
+    {
+        if (!WO_VM(vm)->gc_checkpoint())
+        {
+            if (WO_VM(vm)->clear_interrupt(wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT))
+                WO_VM(vm)->hangup();
+        }
+    }
 }
 
 wo_bool_t wo_leave_gcguard(wo_vm vm)
 {
-    if (WO_VM(vm)->interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT))
+    if (WO_VM(vm)->check_interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT))
     {
-        // If in GC, hang up here to make sure safe.
-        if ((WO_VM(vm)->vm_interrupt.load() & (
-            wo::vmbase::vm_interrupt_type::GC_INTERRUPT
-            | wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT)) != 0)
-        {
-            if (!WO_VM(vm)->gc_checkpoint())
-            {
-                if (WO_VM(vm)->clear_interrupt(wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT))
-                    WO_VM(vm)->hangup();
-            }
-        }
+        wo_gc_checkpoint(vm);
+
+        wo_assure(WO_VM(vm)->clear_interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
         return WO_TRUE;
     }
     return WO_FALSE;
 }
 wo_bool_t wo_enter_gcguard(wo_vm vm)
 {
+    // In principle, when entering the GC protected area, we need to check 
+    // the GC interrupt for the following reasons:
+    //
+    // 1. If GC has not started yet, we have entered the GC management area. If GC 
+    //      occurs later, the GC thread will wait for the checkpoint when leaving 
+    //      the GC manager.
+    // 2. If GC has started before, then:
+    //      2.1. The GC has not yet decided to add this virtual machine to the GC 
+    //          thread agent. It will be handled as in case 1.
+    //      2.2. The GC has decided to include this virtual machine as a GC thread
+    //          agent. Although the GC may miss the mark at this time, the new units 
+    //          applied during this period will survive directly.
+    // ATTENTION:
+    //  In case 2.2, although it is safe to create a new GC unit, if you want to 
+    // remove objects on the virtual machine stack, this may still cause the old 
+    // unit to lose references, in the following situations: 
+    // 
+    //  1. This old object comes from the upper call stack. At this time, it is 
+    // guaranteed that the upper call stack holds this object. Before returning 
+    // to the upper call stack, the checkpoint when leaving the GC scope will be 
+    // triggered, so no mark omission will occur.
+    //  2. This old object was just created. The GC signal was initiated after 
+    // the creation, and the object was moved to another virtual machine that has
+    // been marked.
+    //
     return WO_CBOOL(WO_VM(vm)->clear_interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
 }
 
