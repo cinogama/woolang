@@ -1065,6 +1065,8 @@ wo_bool_t _wo_cast_value(wo_vm vm, wo::value* value, wo::lexer* lex, wo::value::
 }
 wo_bool_t wo_deserialize(wo_vm vm, wo_value value, wo_string_t str, wo_type except_type)
 {
+    _wo_enter_gc_guard g(vm);
+
     wo::lexer lex(wo::str_to_wstr(str), "json");
     return _wo_cast_value(vm, WO_VAL(value), &lex, (wo::value::valuetype)except_type);
 }
@@ -2197,7 +2199,7 @@ wo_string_t  wo_wstr_to_str(wo_wstring_t str)
 
 wo_char_t wo_strn_get_char(wo_string_t str, wo_size_t size, wo_int_t index)
 {
-    wo_char_t ch = wo::u8strnidx(str, size,(size_t)index);
+    wo_char_t ch = wo::u8strnidx(str, size, (size_t)index);
     if (ch == 0 && wo::u8strnlen(str, size) <= (size_t)index)
         wo_fail(WO_FAIL_INDEX_FAIL, "Index out of range.");
     return ch;
@@ -2476,7 +2478,7 @@ std::wstring _dump_src_info(const std::string& path, size_t beginaimrow, size_t 
                 else
                     swprintf(buf, 19, L"\n%-5zu | ", current_row_no);
                 result += buf;
-            };
+                };
             auto print_notify_line = [&result, &first_line, &current_row_no, beginpointplace, pointplace, style, beginaimrow, aimrow](size_t line_end_place) {
                 wchar_t buf[20] = {};
                 if (first_line)
@@ -2535,7 +2537,7 @@ std::wstring _dump_src_info(const std::string& path, size_t beginaimrow, size_t 
                     append_result += wo::str_to_wstr(ANSI_RST);
 
                 result += append_result;
-            };
+                };
 
             if (from <= current_row_no && current_row_no <= to)
                 print_src_file_print_lineno();
@@ -3226,7 +3228,7 @@ wo_int_t wo_arr_find(wo_value arr, wo_value elem)
                         return *_elem.string == *_aim->string;
                     return _elem.handle == _aim->handle;
                 }
-        return false;
+                return false;
             });
         if (fnd != _arr->array->end())
             return fnd - _arr->array->begin();
@@ -3651,32 +3653,46 @@ wo_vm wo_set_this_thread_vm(wo_vm vm_may_null)
     if (vm != nullptr)
         vm->attaching_thread_id = std::this_thread::get_id();
 #endif
-    
+
     return CS_VM(old_one);
+}
+
+void wo_gc_checkpoint(wo_vm vm)
+{
+    // If in GC, hang up here to make sure safe.
+    if ((WO_VM(vm)->vm_interrupt.load() & (
+        wo::vmbase::vm_interrupt_type::GC_INTERRUPT
+        | wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT)) != 0)
+    {
+        if (!WO_VM(vm)->gc_checkpoint())
+        {
+            if (WO_VM(vm)->clear_interrupt(wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT))
+                WO_VM(vm)->hangup();
+        }
+    }
 }
 
 wo_bool_t wo_leave_gcguard(wo_vm vm)
 {
-    if (WO_VM(vm)->interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT))
+    if (!WO_VM(vm)->check_interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT))
     {
-        // If in GC, hang up here to make sure safe.
-        if ((WO_VM(vm)->vm_interrupt.load() & (
-            wo::vmbase::vm_interrupt_type::GC_INTERRUPT
-            | wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT)) != 0)
-        {
-            if (!WO_VM(vm)->gc_checkpoint())
-            {
-                if (WO_VM(vm)->clear_interrupt(wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT))
-                    WO_VM(vm)->hangup();
-            }
-        }
+        wo_gc_checkpoint(vm);
+
+        wo_assure(WO_VM(vm)->interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
         return WO_TRUE;
     }
     return WO_FALSE;
 }
 wo_bool_t wo_enter_gcguard(wo_vm vm)
 {
-    return WO_CBOOL(WO_VM(vm)->clear_interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
+    if (WO_VM(vm)->check_interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT))
+    {
+        wo_gc_checkpoint(vm);
+
+        wo_assure(WO_VM(vm)->clear_interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
+        return WO_TRUE;
+    }
+    return WO_FALSE;
 }
 
 // LSP-API
@@ -3773,4 +3789,9 @@ void wo_read_pin_value(wo_value out_value, wo_pin_value pin_value)
 wo_size_t wo_vaarg_count(wo_vm vm)
 {
     return (wo_size_t)WO_VM(vm)->tc->integer;
+}
+void wo_gc_record_memory(wo_value val)
+{
+    if (wo::gc::gc_is_marking())
+        wo::gcbase::write_barrier(WO_VAL(val));
 }

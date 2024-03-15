@@ -424,12 +424,12 @@ namespace wo
                     && a_value_func->value_type->get_return_type()->is_pure_pending())
                 {
                     // This function has no return, set it as void
-                    wo_assert(a_value_func->value_type->is_complex());
-                    a_value_func->value_type->complex_type->set_type_with_name(WO_PSTR(void));
+                    wo_assert(a_value_func->value_type->is_function());
+                    a_value_func->value_type->function_ret_type->set_type_with_name(WO_PSTR(void));
                 }
             }
             else
-                a_value_func->value_type->complex_type->set_type_with_name(WO_PSTR(pending));
+                a_value_func->value_type->function_ret_type->set_type_with_name(WO_PSTR(pending));
         }
 
         if (a_value_func->externed_func_info)
@@ -660,7 +660,7 @@ namespace wo
             a_ret->located_function = located_function_scope->function_node;
             a_ret->located_function->has_return_value = true;
 
-            wo_assert(a_ret->located_function->value_type->is_complex());
+            wo_assert(a_ret->located_function->value_type->is_function());
 
             if (a_ret->return_value)
             {
@@ -1531,7 +1531,7 @@ namespace wo
 
         analyze_pass2(a_value_assi->right);
 
-        if (a_value_assi->left->value_type->is_complex())
+        if (a_value_assi->left->value_type->is_function())
         {
             auto* symbinfo = dynamic_cast<ast_value_variable*>(a_value_assi->left);
 
@@ -2939,11 +2939,11 @@ namespace wo
             check_function_where_constraint(a_value_funccall, lang_anylizer, symbase);
 
         if (!a_value_funccall->called_func->value_type->is_pending()
-            && a_value_funccall->called_func->value_type->is_complex())
+            && a_value_funccall->called_func->value_type->is_function())
             a_value_funccall->value_type->set_type(a_value_funccall->called_func->value_type->get_return_type());
 
         if (a_value_funccall->called_func
-            && a_value_funccall->called_func->value_type->is_complex()
+            && a_value_funccall->called_func->value_type->is_function()
             && a_value_funccall->called_func->value_type->is_pending())
         {
             auto* funcsymb = dynamic_cast<ast_value_function_define*>(a_value_funccall->called_func);
@@ -2963,7 +2963,7 @@ namespace wo
         bool failed_to_call_cur_func = false;
 
         if (a_value_funccall->called_func
-            && a_value_funccall->called_func->value_type->is_complex())
+            && a_value_funccall->called_func->value_type->is_function())
         {
             auto* real_args = a_value_funccall->arguments->children;
             a_value_funccall->arguments->remove_all_childs();
@@ -3217,9 +3217,9 @@ namespace wo
                     return false;
             }
 
-            if (is_complex())
+            if (is_function())
             {
-                if (!another->is_complex())
+                if (!another->is_function())
                     return false;
 
                 if (argument_types.size() != another->argument_types.size())
@@ -3233,11 +3233,11 @@ namespace wo
                 if (is_variadic_function_type != another->is_variadic_function_type)
                     return false;
 
-                wo_assert(is_complex() && another->is_complex());
-                if (!complex_type->is_same(another->complex_type, false))
+                wo_assert(is_function() && another->is_function());
+                if (!function_ret_type->is_same(another->function_ret_type, false))
                     return false;
             }
-            else if (another->is_complex())
+            else if (another->is_function())
                 return false;
 
             if (type_name != another->type_name)
@@ -3346,9 +3346,9 @@ namespace wo
                     return false;
             }
 
-            if (is_complex())
+            if (is_function())
             {
-                if (!another->is_complex())
+                if (!another->is_function())
                     return false;
 
                 if (argument_types.size() != another->argument_types.size())
@@ -3363,11 +3363,11 @@ namespace wo
                 if (is_variadic_function_type != another->is_variadic_function_type)
                     return false;
 
-                wo_assert(is_complex() && another->is_complex());
-                if (!complex_type->accept_type(another->complex_type, ignore_using_type, false))
+                wo_assert(is_function() && another->is_function());
+                if (!function_ret_type->accept_type(another->function_ret_type, ignore_using_type, false))
                     return false;
             }
-            else if (another->is_complex())
+            else if (another->is_function())
                 return false;
 
             if (type_name != another->type_name)
@@ -3437,7 +3437,7 @@ namespace wo
             }
             else
             {
-                if (is_complex())
+                if (is_function())
                 {
                     result += L"(";
                     for (size_t index = 0; index < argument_types.size(); index++)
@@ -3451,7 +3451,7 @@ namespace wo
                     {
                         result += L"...";
                     }
-                    result += L")=>" + complex_type->get_type_name(ignore_using_type, false);
+                    result += L")=>" + function_ret_type->get_type_name(ignore_using_type, false);
                 }
                 else
                 {
@@ -3511,7 +3511,7 @@ namespace wo
         }
         bool ast_type::is_hkt() const
         {
-            if (is_complex())
+            if (is_function())
                 return false;   // HKT cannot be return-type of function
 
             if (is_hkt_typing())
@@ -3608,8 +3608,8 @@ namespace wo
 
         ++hashval;
 
-        if (typing->is_complex())
-            hashval += get_typing_hash_after_pass1(typing->complex_type);
+        if (typing->is_function())
+            hashval += get_typing_hash_after_pass1(typing->function_ret_type);
 
         hashval *= hashval;
 
@@ -3630,7 +3630,7 @@ namespace wo
             }
         }
 
-        if (typing->is_complex())
+        if (typing->is_function())
         {
             for (auto& arg : typing->argument_types)
             {
@@ -3852,7 +3852,7 @@ namespace wo
 
             if (!type->typefrom->value_type->is_pending())
             {
-                if (type->is_complex())
+                if (type->is_function())
                     type->set_ret_type(type->typefrom->value_type);
                 else
                     type->set_type(type->typefrom->value_type);
@@ -3876,13 +3876,13 @@ namespace wo
         if (type->has_custom())
         {
             bool stop_update = false;
-            if (type->is_complex())
+            if (type->is_function())
             {
-                if (type->complex_type->has_custom() && !type->complex_type->is_hkt())
+                if (type->function_ret_type->has_custom() && !type->function_ret_type->is_hkt())
                 {
-                    if (fully_update_type(type->complex_type, in_pass_1, template_types, s))
+                    if (fully_update_type(type->function_ret_type, in_pass_1, template_types, s))
                     {
-                        if (type->complex_type->has_custom() && !type->complex_type->is_hkt())
+                        if (type->function_ret_type->has_custom() && !type->function_ret_type->is_hkt())
                             stop_update = true;
                     }
                 }
@@ -4026,7 +4026,7 @@ namespace wo
 
                             // NOTE: In old version, function's return type is not stores in complex.
                             //       But now, the type here cannot be a function.
-                            wo_assert(type->is_complex() == false);
+                            wo_assert(type->is_function() == false);
 
                             // NOTE: Set type will make new instance of typefrom, but it will cause symbol loss.
                             //       To avoid dup-copy, we will let new type use typedef's typefrom directly.
@@ -4744,7 +4744,7 @@ namespace wo
         const std::vector<ast::ast_type*>* template_args)
     {
         wo_assert(located_scope != nullptr);
-        if (!param->is_complex())
+        if (!param->is_function())
             return std::nullopt;
 
         ast::ast_value_function_define* function_define = nullptr;
@@ -4767,7 +4767,7 @@ namespace wo
             && function_define->value_type->argument_types.size() == param->argument_types.size())
         {
             ast::ast_type* new_type = dynamic_cast<ast::ast_type*>(function_define->value_type->instance(nullptr));
-            wo_assert(new_type->is_complex());
+            wo_assert(new_type->is_function());
 
             std::vector<ast::ast_type*> arg_func_template_args(function_define->template_type_name_list.size(), nullptr);
 
@@ -5099,7 +5099,7 @@ namespace wo
         // Must match all formal
         if (!para->is_like(args, termplate_set, &para, &args))
         {
-            if (!para->is_complex()
+            if (!para->is_function()
                 && !para->has_template()
                 && para->scope_namespaces.empty()
                 && !para->search_from_global_namespace
@@ -5113,13 +5113,13 @@ namespace wo
         if (para->is_mutable() && !args->is_mutable())
             return nullptr;
 
-        if (para->is_complex() && args->is_complex())
+        if (para->is_function() && args->is_function())
         {
             if (auto* derivation_result = analyze_template_derivation(
                 temp_form,
                 termplate_set,
-                para->complex_type,
-                args->complex_type))
+                para->function_ret_type,
+                args->function_ret_type))
                 return derivation_result;
         }
 
@@ -5932,7 +5932,7 @@ namespace wo
                 if (a_value_type_cast->value_type->is_dynamic()
                     || a_value_type_cast->value_type->is_void()
                     || a_value_type_cast->value_type->accept_type(a_value_type_cast->_be_cast_value_node->value_type, true, true)
-                    || a_value_type_cast->value_type->is_complex())
+                    || a_value_type_cast->value_type->is_function())
                     // no cast, just as origin value
                     return analyze_value(a_value_type_cast->_be_cast_value_node, compiler, get_pure_value);
 
@@ -7165,8 +7165,8 @@ namespace wo
                 compiler->reserved_stackvalue(res_ip, (uint16_t)reserved_stack_size); // set reserved size
                 compiler->tag(funcdef->get_ir_func_signature_tag() + "_do_ret");
 
-                wo_assert(funcdef->value_type->is_complex());
-                if (!funcdef->value_type->complex_type->is_void())
+                wo_assert(funcdef->value_type->is_function());
+                if (!funcdef->value_type->function_ret_type->is_void())
                     compiler->ext_panic(opnum::imm_str("Function returned without valid value."));
 
                 // do default return

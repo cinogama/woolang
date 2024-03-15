@@ -28,7 +28,7 @@ WO_GLOBAL_PSTR(void)\
 WO_GLOBAL_PSTR(nothing)\
 WO_GLOBAL_PSTR(pending)\
 WO_GLOBAL_PSTR(dynamic)\
-WO_GLOBAL_PSTR(complex)\
+WO_GLOBAL_PSTR(function)\
 WO_GLOBAL_PSTR(bool)\
 WO_GLOBAL_PSTR(char)\
 WO_GLOBAL_PSTR(auto)\

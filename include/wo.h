@@ -2,6 +2,7 @@
 // Woolang Header
 //
 // Here will have wo c api;
+//
 
 #ifdef __cplusplus
 #include <cstdint>
@@ -400,6 +401,9 @@ WO_API wo_value     wo_dispatch_value(wo_vm vm, wo_value vmfunc, wo_int_t argc);
 #define WO_CONTINUE    ((wo_value)(void*)-1)
 WO_API wo_value     wo_dispatch(wo_vm vm);
 
+WO_API void         wo_gc_checkpoint(wo_vm vm);
+WO_API void         wo_gc_record_memory(wo_value val);
+
 WO_API wo_bool_t    wo_leave_gcguard(wo_vm vm);
 WO_API wo_bool_t    wo_enter_gcguard(wo_vm vm);
 
@@ -501,7 +505,7 @@ WO_API wo_integer_t wo_crc64_file(wo_string_t filepath);
 WO_API wo_vm        wo_set_this_thread_vm(wo_vm vm_may_null);
 
 // PIN-VALUE
-typedef struct _wo_pin_value * wo_pin_value;
+typedef struct _wo_pin_value* wo_pin_value;
 
 WO_API wo_pin_value wo_create_pin_value(wo_value init_value);
 WO_API void         wo_close_pin_value(wo_pin_value pin_value);
@@ -667,3 +671,22 @@ WO_FORCE_CAPI_END
 #   endif
 #endif
 
+// GC-friendly development guide:
+/*
+            GC-friendly development guide
+
+    Please adhere to the following rules to ensure that the external functions
+  you write behave safely!
+
+  1. Use `fast` extern-function, it's safe.
+  2. When writing `slow` extern-function, donot overwrite, pop or remove a gc-unit 
+    from any value unless following one of the following rules:
+    
+    2.1. Temporarily enter gc guard by calling `wo_enter_gcguard`, and if the function
+        returns true, call `wo_leave_gcguard` after operation.
+    2.2. Invoke `wo_gc_checkpoint` or `wo_gc_record_memory` before the operation.
+    2.3. This gc-unit not be referenced elsewhere and discarded completely.
+
+                                                            Cinogama project.
+                                                                2024.3.15.
+*/
