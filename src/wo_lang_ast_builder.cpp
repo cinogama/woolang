@@ -131,6 +131,8 @@ namespace wo
         }
         void ast_type::set_type_with_name(wo_pstring_t _type_name)
         {
+            wo_assert(WO_PSTR(function) != _type_name);
+
             function_ret_type = nullptr;
             type_name = _type_name;
             value_type = get_type_from_name(_type_name);
