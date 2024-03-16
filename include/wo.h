@@ -671,9 +671,8 @@ WO_FORCE_CAPI_END
 #   endif
 #endif
 
-// GC-friendly development guide:
 /*
-            GC-friendly development guide
+                GC-friendly extern function development rules
 
     Please adhere to the following rules to ensure that the external functions
   you write behave safely!

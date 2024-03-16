@@ -1404,6 +1404,15 @@ func main()
             let f = \ = 6;;
             f->foo;
         "@);
+        assure_compile_fail(@"
+            using function = int;
+        "@);
+        assure_compile_fail(@"
+            enum function
+            {
+                a = 5,
+            }
+        "@);
 
         // ISSUE: 1.13: anything has been removed from woolang.
         // assure_compile_success(@"
