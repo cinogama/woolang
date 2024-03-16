@@ -25,7 +25,7 @@ namespace wo
             else if (searching_from_type != nullptr)
                 result += L"typeof(..)::";
 
-            for (auto* name: this->scope_namespaces)
+            for (auto* name : this->scope_namespaces)
                 result += *name + L"::";
 
             return result;
@@ -131,8 +131,6 @@ namespace wo
         }
         void ast_type::set_type_with_name(wo_pstring_t _type_name)
         {
-            wo_assert(WO_PSTR(function) != _type_name);
-
             function_ret_type = nullptr;
             type_name = _type_name;
             value_type = get_type_from_name(_type_name);
@@ -604,7 +602,8 @@ namespace wo
         }
         bool ast_type::is_function() const
         {
-            return type_name == WO_PSTR(function);
+            wo_assert(type_name == WO_PSTR(function));
+            return function_ret_type != nullptr;
         }
         bool ast_type::is_string() const
         {
@@ -618,10 +617,10 @@ namespace wo
         {
             if (using_type_name != nullptr
                 || is_function()
-                || is_union() 
-                || is_struct() 
-                || is_tuple() 
-                || is_vec() 
+                || is_union()
+                || is_struct()
+                || is_tuple()
+                || is_vec()
                 || is_map())
                 return false;
 
@@ -1557,7 +1556,7 @@ namespace wo
                             union_type_with_template->template_arguments.push_back(new ast_type(WO_PSTR(nothing)));
                     }
                     return union_type_with_template;
-                };
+                    };
 
                 auto& member = using_type->old_type->struct_member_index[items->identifier];
                 member.offset = ++union_item_id;

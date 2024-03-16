@@ -147,6 +147,8 @@ namespace wo
                 {WO_PSTR(struct), value::valuetype::invalid},
                 {WO_PSTR(tuple), value::valuetype::invalid},
 
+                {WO_PSTR(function), value::valuetype::invalid},
+
                 {WO_PSTR(void), value::valuetype::invalid},
                 {WO_PSTR(nothing), value::valuetype::invalid}, // Buttom type.
                 {WO_PSTR(pending), value::valuetype::invalid},
