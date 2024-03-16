@@ -602,8 +602,12 @@ namespace wo
         }
         bool ast_type::is_function() const
         {
-            wo_assert(type_name == WO_PSTR(function));
-            return function_ret_type != nullptr;
+            if (function_ret_type != nullptr)
+            {
+                wo_assert(type_name == WO_PSTR(function));
+                return true;
+            }
+            return false;
         }
         bool ast_type::is_string() const
         {
