@@ -45,7 +45,7 @@ namespace wo
     WO_PASS0(ast_value_function_define)
     {
         auto* a_value_func_decl = WO_AST();
-        
+
         // Only declear symbol in pass0
         a_value_func_decl->this_func_scope = begin_function(a_value_func_decl);
         end_function();
@@ -161,14 +161,17 @@ namespace wo
         analyze_pass1(a_value_idx->from);
         analyze_pass1(a_value_idx->index);
 
+        a_value_idx->this_op_belong_scope = now_scope();
+
         if (!a_value_idx->from->value_type->struct_member_index.empty())
         {
             if (a_value_idx->index->is_constant && a_value_idx->index->value_type->is_string())
             {
-                if (auto fnd =
-                    a_value_idx->from->value_type->struct_member_index.find(
-                        wstring_pool::get_pstr(str_to_wstr(*a_value_idx->index->get_constant_value().string)));
-                        fnd != a_value_idx->from->value_type->struct_member_index.end())
+                auto member_field_name = wstring_pool::get_pstr(
+                    str_to_wstr(*a_value_idx->index->get_constant_value().string));
+
+                if (auto fnd = a_value_idx->from->value_type->struct_member_index.find(member_field_name);
+                    fnd != a_value_idx->from->value_type->struct_member_index.end())
                 {
                     fully_update_type(fnd->second.member_type, true);
 
@@ -178,6 +181,17 @@ namespace wo
                         a_value_idx->struct_offset = fnd->second.offset;
                     }
 
+                    if (member_field_name->size() >= 2
+                        && member_field_name->at(0) == '_'
+                        && member_field_name->at(1) == '_')
+                    {
+                        if (!a_value_idx->this_op_belong_scope->belongs_to(
+                            a_value_idx->from->value_type->searching_begin_namespace_in_pass2))
+                        {
+                            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_idx, WO_ERR_UNACCABLE_PRIVATE_MEMBER,
+                                member_field_name->c_str());
+                        }
+                    }
                 }
             }
         }
@@ -430,6 +444,10 @@ namespace wo
             }
             else
                 a_value_func->value_type->function_ret_type->set_type_with_name(WO_PSTR(pending));
+        }
+        else if (a_value_func->declear_attribute != nullptr && a_value_func->declear_attribute->is_extern_attr())
+        {
+            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_func, WO_ERR_CANNOT_EXPORT_TEMPLATE_FUNC);
         }
 
         if (a_value_func->externed_func_info)
@@ -1657,10 +1675,12 @@ namespace wo
             {
                 if (a_value_index->index->is_constant && a_value_index->index->value_type->is_string())
                 {
+                    auto member_field_name = wstring_pool::get_pstr(
+                        str_to_wstr(*a_value_index->index->get_constant_value().string));
+
                     if (auto fnd =
-                        a_value_index->from->value_type->struct_member_index.find(
-                            wstring_pool::get_pstr(str_to_wstr(*a_value_index->index->get_constant_value().string)));
-                            fnd != a_value_index->from->value_type->struct_member_index.end())
+                        a_value_index->from->value_type->struct_member_index.find(member_field_name);
+                        fnd != a_value_index->from->value_type->struct_member_index.end())
                     {
                         fully_update_type(fnd->second.member_type, false);
 
@@ -1674,11 +1694,23 @@ namespace wo
                             a_value_index->value_type->set_type(fnd->second.member_type);
                             a_value_index->struct_offset = fnd->second.offset;
                         }
+
+                        if (member_field_name->size() >= 2
+                            && member_field_name->at(0) == '_'
+                            && member_field_name->at(1) == '_')
+                        {
+                            if (!a_value_index->this_op_belong_scope->belongs_to(
+                                a_value_index->from->value_type->searching_begin_namespace_in_pass2))
+                            {
+                                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_index, WO_ERR_UNACCABLE_PRIVATE_MEMBER,
+                                    member_field_name->c_str());
+                            }
+                        }
                     }
                     else
                     {
                         lang_anylizer->lang_error(lexer::errorlevel::error, a_value_index, WO_ERR_UNDEFINED_MEMBER,
-                            str_to_wstr(*a_value_index->index->get_constant_value().string).c_str());
+                            member_field_name->c_str());
                     }
                 }
                 else
@@ -3776,8 +3808,8 @@ namespace wo
         using_type_def_char->declear_attribute = new ast::ast_decl_attribute();
         using_type_def_char->declear_attribute->add_attribute(lang_anylizer, lex_type::l_public);
         define_type_in_this_scope(
-            using_type_def_char, 
-            using_type_def_char->old_type, 
+            using_type_def_char,
+            using_type_def_char->old_type,
             using_type_def_char->declear_attribute)->has_been_completed_defined = true;
     }
     lang::~lang()
@@ -4019,7 +4051,7 @@ namespace wo
                             //symboled_type->set_type(type_sym->type_informatiom);
 
                             wo_assert(symboled_type != nullptr);
-                            
+
                             // NOTE: The type here should have all the template parameters applied.
                             // We should not need give `template_types` here.
                             fully_update_type(symboled_type, in_pass_1, {}, s);
@@ -4516,7 +4548,7 @@ namespace wo
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
-        
+
         if (false == this->m_global_pass_table->pass<1>(this, ast_node))
         {
             ast::ast_base* child = ast_node->children;
@@ -7197,9 +7229,9 @@ namespace wo
             if (fnd != lang_scopes.back()->sub_namespaces.end())
             {
                 lang_scopes.push_back(fnd->second);
-                now_namespace = lang_scopes.back();
-                now_namespace->last_entry_ast = a_namespace;
-                return now_namespace;
+                current_namespace = lang_scopes.back();
+                current_namespace->last_entry_ast = a_namespace;
+                return current_namespace;
             }
         }
 
@@ -7208,7 +7240,7 @@ namespace wo
 
         scope->stop_searching_in_last_scope_flag = false;
         scope->type = lang_scope::scope_type::namespace_scope;
-        scope->belong_namespace = now_namespace;
+        scope->belong_namespace = current_namespace;
         scope->parent_scope = lang_scopes.empty() ? nullptr : lang_scopes.back();
         scope->scope_namespace = a_namespace->scope_name;
 
@@ -7216,15 +7248,15 @@ namespace wo
             lang_scopes.back()->sub_namespaces[a_namespace->scope_name] = scope;
 
         lang_scopes.push_back(scope);
-        now_namespace = lang_scopes.back();
-        now_namespace->last_entry_ast = a_namespace;
-        return now_namespace;
+        current_namespace = lang_scopes.back();
+        current_namespace->last_entry_ast = a_namespace;
+        return current_namespace;
     }
     void lang::end_namespace()
     {
         wo_assert(lang_scopes.back()->type == lang_scope::scope_type::namespace_scope);
 
-        now_namespace = lang_scopes.back()->belong_namespace;
+        current_namespace = lang_scopes.back()->belong_namespace;
         lang_scopes.pop_back();
     }
     lang_scope* lang::begin_scope(ast::ast_base* block_beginer)
@@ -7236,7 +7268,7 @@ namespace wo
         wo_assert(block_beginer->source_file != nullptr);
         scope->stop_searching_in_last_scope_flag = false;
         scope->type = lang_scope::scope_type::just_scope;
-        scope->belong_namespace = now_namespace;
+        scope->belong_namespace = current_namespace;
         scope->parent_scope = lang_scopes.empty() ? nullptr : lang_scopes.back();
 
         lang_scopes.push_back(scope);
@@ -7266,7 +7298,7 @@ namespace wo
 
             scope->stop_searching_in_last_scope_flag = false;
             scope->type = lang_scope::scope_type::function_scope;
-            scope->belong_namespace = now_namespace;
+            scope->belong_namespace = current_namespace;
             scope->parent_scope = lang_scopes.empty() ? nullptr : lang_scopes.back();
             scope->function_node = ast_value_funcdef;
 
@@ -7295,6 +7327,16 @@ namespace wo
     {
         wo_assert(!lang_scopes.empty());
         return lang_scopes.back();
+    }
+    lang_scope* lang::now_namespace() const
+    {
+        auto* current_scope = now_scope();
+        if (current_scope->type != lang_scope::scope_type::namespace_scope)
+            current_scope = current_scope->belong_namespace;
+
+        wo_assert(current_scope->type == lang_scope::scope_type::namespace_scope);
+
+        return current_scope;
     }
     lang_scope* lang::in_function() const
     {
@@ -7529,7 +7571,7 @@ namespace wo
         lang_symbol* fuzzy_nearest_symbol = nullptr;
         auto update_fuzzy_nearest_symbol =
             [&fuzzy_nearest_symbol, fuzzy_for_err_report, ident_str, target_type_mask]
-            (lang_symbol* symbol) {
+        (lang_symbol* symbol) {
             if (fuzzy_for_err_report)
             {
                 auto distance = levenshtein_distance(*symbol->name, *ident_str);
@@ -7540,7 +7582,7 @@ namespace wo
                         fuzzy_nearest_symbol = symbol;
                 }
             }
-            };
+        };
 
         if (!var_ident->search_from_global_namespace && var_ident->scope_namespaces.empty())
             for (auto rind = template_stack.rbegin(); rind != template_stack.rend(); rind++)

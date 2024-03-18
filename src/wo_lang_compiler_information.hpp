@@ -125,6 +125,8 @@
 
 #define WO_ERR_CANNOT_EXPORT_SYMB_IN_FUNC L"不允许导出定义于函数中的符号"
 
+#define WO_ERR_CANNOT_EXPORT_TEMPLATE_FUNC L"不允许导出泛型函数"
+
 #define WO_ERR_TEMPLATE_ARG_NOT_MATCH L"泛型参数不匹配"
 
 #define WO_ERR_TYPE_NEED_N_TEMPLATE_ARG L"'%ls' 类型需要提供 '%d' 个类型参数"
@@ -135,7 +137,9 @@
 
 #define WO_ERR_NO_MATCHED_FUNC_TEMPLATE L"具体化函数时的泛型参数不匹配"
 
-#define WO_ERR_UNDEFINED_MEMBER L"尝试索引未定义的成员 '%ls' "
+#define WO_ERR_UNDEFINED_MEMBER L"尝试索引未定义的成员 '%ls'"
+
+#define WO_ERR_UNACCABLE_PRIVATE_MEMBER L"无法访问私有成员 '%ls'"
 
 #define WO_ERR_CANNOT_INDEX_MEMB_WITHOUT_STR L"尝试使用非字符串常量索引具类型映射"
 
@@ -405,6 +409,8 @@
 
 #define WO_ERR_CANNOT_EXPORT_SYMB_IN_FUNC L"Cannot export the symbol defined in function."
 
+#define WO_ERR_CANNOT_EXPORT_TEMPLATE_FUNC L"Cannot export template function."
+
 #define WO_ERR_TEMPLATE_ARG_NOT_MATCH L"Not matched template arguments."
 
 #define WO_ERR_TYPE_NEED_N_TEMPLATE_ARG L"Type '%ls' requires '%d' type(s) as template parameters."
@@ -415,7 +421,9 @@
 
 #define WO_ERR_NO_MATCHED_FUNC_TEMPLATE L"Template arguments didn't matched for this function."
 
-#define WO_ERR_UNDEFINED_MEMBER L"try index undefined '%ls'."
+#define WO_ERR_UNDEFINED_MEMBER L"Try index undefined member '%ls'."
+
+#define WO_ERR_UNACCABLE_PRIVATE_MEMBER L"Unaccessible private members '%ls'"
 
 #define WO_ERR_CANNOT_INDEX_MEMB_WITHOUT_STR L"Typed mapping only indexable form 'string'."
 

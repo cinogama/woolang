@@ -1413,7 +1413,155 @@ func main()
                 a = 5,
             }
         "@);
+        assure_compile_fail(@"
+            using AA = struct{__m: int};
+            let a = AA{__m = 5};
 
+            do a.__m;
+        "@);
+        assure_compile_success(@"
+            using AA = struct{__m: int};
+            let a = AA{__m = 5};
+
+            namespace AA
+            {
+                do a.__m;
+            }
+        "@);
+        assure_compile_fail(@"
+            using AA = struct{__m: int}
+            {
+                using AA = int;
+            }
+            let a = AA{__m = 5};
+
+            do a.__m;
+        "@);
+        assure_compile_fail(@"
+            using AA = struct{__m: int}
+            {
+                using AA = real;
+            }
+
+            alias BB = AA;
+
+            let a = struct{__m = 0}: BB;
+
+            do a.__m;
+        "@);
+        assure_compile_fail(@"
+            using AA = struct{__m: int}
+            {
+                using AA = real;
+            }
+
+            alias BB = AA;
+
+            let a = struct{__m = 0}: BB;
+
+            namespace BB
+            {
+                do a.__m;
+            }
+        "@);
+        assure_compile_success(@"
+            using AA = struct{__m: int}
+            {
+                using AA = real;
+            }
+
+            alias BB = AA;
+
+            let a = struct{__m = 0}: BB;
+
+            namespace AA
+            {
+                do a.__m;
+            }
+        "@);
+        assure_compile_fail(@"
+            using AA = struct{__m: int}
+            {
+                using AA = real;
+            }
+
+            alias BB = AA;
+
+            let a = BB{__m = 0};
+
+            do a.__m;
+        "@);
+        assure_compile_fail(@"
+            using AA = struct{__m: int}
+            {
+                using AA = real;
+            }
+
+            alias BB = AA;
+
+            let a = BB{__m = 0};
+
+            namespace BB
+            {
+                do a.__m;
+            }
+        "@);
+        assure_compile_success(@"
+            using AA = struct{__m: int}
+            {
+                using AA = real;
+            }
+
+            alias BB = AA;
+
+            let a = BB{__m = 0};
+
+            namespace AA
+            {
+                do a.__m;
+            }
+        "@);
+
+        assure_compile_success(@"
+        namespace Example
+        {
+            let x = struct{__m = 0};
+            do x.__m;
+        }
+        "@);
+        assure_compile_fail(@"
+        namespace Example
+        {
+            let x = struct{__m = 0};
+        }
+        do x.__m;
+        "@);
+
+        assure_compile_success(@"
+        func foo()
+        {
+            let a = struct{__m = 0};
+            do a.__m;
+            return a;
+        }
+        "@);
+        assure_compile_fail(@"
+        func foo()
+        {
+            let a = struct{__m = 0};
+            do a.__m;
+            return a;
+        }
+        do foo().__m;
+        "@);
+
+        assure_compile_success(@"
+        extern func foo(){}
+        "@);
+        assure_compile_fail(@"
+        extern func foo(_){}
+        "@);
+        
         // ISSUE: 1.13: anything has been removed from woolang.
         // assure_compile_success(@"
         //     import woo::std;

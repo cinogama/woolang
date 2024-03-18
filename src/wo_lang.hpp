@@ -167,6 +167,17 @@ namespace wo
             }
         }
 
+        bool belongs_to(const lang_scope* scope)const
+        {
+            wo_assert(scope != nullptr);
+
+            if (this == scope)
+                return true;
+
+            if (parent_scope == nullptr)
+                return false;
+            return parent_scope->belongs_to(scope);
+        }
     };
 
     class lang
@@ -233,7 +244,7 @@ namespace wo
         std::forward_list<ast::ast_base*> generated_ast_nodes_buffers;
         std::unordered_set<lang_symbol*> traving_symbols;
         std::vector<lang_scope*> lang_scopes; // it is a stack like list;
-        lang_scope* now_namespace = nullptr;
+        lang_scope* current_namespace = nullptr;
         lang_scope* current_function_in_pass2 = nullptr;
 
         std::map<uint32_t, ast::ast_type*> hashed_typing;
@@ -421,6 +432,7 @@ namespace wo
         lang_scope* begin_function(ast::ast_value_function_define* ast_value_funcdef);
         void end_function();
         lang_scope* now_scope() const;
+        lang_scope* now_namespace() const;
         lang_scope* in_function() const;
         lang_scope* in_function_pass2() const;
 
