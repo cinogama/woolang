@@ -2377,6 +2377,8 @@ namespace wo
 
             _registed_builder_function_id_list[meta::type_hash<pass_macro_failed>] = _register_builder<pass_macro_failed>();
             _registed_builder_function_id_list[meta::type_hash<pass_do_expr_as_sentence>] = _register_builder<pass_do_expr_as_sentence>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_decl_attrib_check>] = _register_builder<pass_decl_attrib_check>();
         }
 
     }

@@ -181,12 +181,36 @@ namespace wo
                         a_value_idx->struct_offset = fnd->second.offset;
                     }
 
-                    if (member_field_name->size() >= 2
-                        && member_field_name->at(0) == '_'
-                        && member_field_name->at(1) == '_')
+                    // Get symbol from type, if symbol not exist, it is anonymous structure.
+                    // Anonymous structure's field is `public`.
+                    lang_symbol* struct_symb = nullptr;
+                    if (a_value_idx->from->value_type->using_type_name != nullptr)
+                    {
+                        struct_symb = a_value_idx->from->value_type->using_type_name->symbol;
+                        wo_assert(struct_symb != nullptr);
+                        wo_assert(struct_symb->type == lang_symbol::symbol_type::typing);
+                    }
+
+                    // Anonymous structure's member donot contain decl attribute.
+                    // But named structure must have.
+                    wo_assert(struct_symb == nullptr || fnd->second.member_decl_attribute != nullptr);
+
+                    if (struct_symb == nullptr || fnd->second.member_decl_attribute->is_public_attr())
+                    {
+                        // Nothing to check.
+                    }
+                    else if (fnd->second.member_decl_attribute->is_protected_attr())
                     {
                         if (!a_value_idx->this_op_belong_scope->belongs_to(
                             a_value_idx->from->value_type->searching_begin_namespace_in_pass2))
+                        {
+                            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_idx, WO_ERR_UNACCABLE_PROTECTED_MEMBER,
+                                member_field_name->c_str());
+                        }
+                    }
+                    else
+                    {
+                        if (a_value_idx->source_file != struct_symb->defined_source())
                         {
                             lang_anylizer->lang_error(lexer::errorlevel::error, a_value_idx, WO_ERR_UNACCABLE_PRIVATE_MEMBER,
                                 member_field_name->c_str());
@@ -1695,12 +1719,36 @@ namespace wo
                             a_value_index->struct_offset = fnd->second.offset;
                         }
 
-                        if (member_field_name->size() >= 2
-                            && member_field_name->at(0) == '_'
-                            && member_field_name->at(1) == '_')
+                        // Get symbol from type, if symbol not exist, it is anonymous structure.
+                   // Anonymous structure's field is `public`.
+                        lang_symbol* struct_symb = nullptr;
+                        if (a_value_index->from->value_type->using_type_name != nullptr)
+                        {
+                            struct_symb = a_value_index->from->value_type->using_type_name->symbol;
+                            wo_assert(struct_symb != nullptr);
+                            wo_assert(struct_symb->type == lang_symbol::symbol_type::typing);
+                        }
+
+                        // Anonymous structure's member donot contain decl attribute.
+                        // But named structure must have.
+                        wo_assert(struct_symb == nullptr || fnd->second.member_decl_attribute != nullptr);
+
+                        if (struct_symb == nullptr || fnd->second.member_decl_attribute->is_public_attr())
+                        {
+                            // Nothing to check.
+                        }
+                        else if (fnd->second.member_decl_attribute->is_protected_attr())
                         {
                             if (!a_value_index->this_op_belong_scope->belongs_to(
                                 a_value_index->from->value_type->searching_begin_namespace_in_pass2))
+                            {
+                                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_index, WO_ERR_UNACCABLE_PROTECTED_MEMBER,
+                                    member_field_name->c_str());
+                            }
+                        }
+                        else
+                        {
+                            if (a_value_index->source_file != struct_symb->defined_source())
                             {
                                 lang_anylizer->lang_error(lexer::errorlevel::error, a_value_index, WO_ERR_UNACCABLE_PRIVATE_MEMBER,
                                     member_field_name->c_str());
@@ -7503,15 +7551,13 @@ namespace wo
             if (symbol->attribute->is_protected_attr())
             {
                 auto* symbol_defined_space = symbol->defined_in_scope;
-                while (current_scope)
+                if (current_scope->belongs_to(symbol_defined_space) == false)
                 {
-                    if (current_scope == symbol_defined_space)
-                        return true;
-                    current_scope = current_scope->parent_scope;
+                    if (give_error)
+                        lang_anylizer->lang_error(lexer::errorlevel::error, ast, WO_ERR_CANNOT_REACH_PROTECTED_IN_OTHER_FUNC, symbol->name->c_str());
+                    return false;
                 }
-                if (give_error)
-                    lang_anylizer->lang_error(lexer::errorlevel::error, ast, WO_ERR_CANNOT_REACH_PROTECTED_IN_OTHER_FUNC, symbol->name->c_str());
-                return false;
+                return true;
             }
             if (symbol->attribute->is_private_attr())
             {

@@ -198,7 +198,10 @@ namespace wo
                 //       This rule can solve many grammar conflict easily, but in some case, it will cause bug, so please use it carefully.
 
                 gm::nt(L"DECL_ATTRIBUTE") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE_ITEMS") }
-                >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                >> WO_ASTBUILDER_INDEX(ast::pass_decl_attrib_check),
+
+                gm::nt(L"DECL_ATTRIBUTE") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
+                >> WO_ASTBUILDER_INDEX(ast::pass_decl_attrib_begin),
 
                 gm::nt(L"DECL_ATTRIBUTE_ITEMS") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE_ITEM") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_decl_attrib_begin),
@@ -206,17 +209,24 @@ namespace wo
                 gm::nt(L"DECL_ATTRIBUTE_ITEMS") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE_ITEMS"),gm::nt(L"DECL_ATTRIBUTE_ITEM") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_append_attrib),
 
-                gm::nt(L"DECL_ATTRIBUTE_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
+                gm::nt(L"DECL_ATTRIBUTE_ITEM") >> gm::symlist{ gm::nt(L"LIFECYCLE_MODIFER") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"DECL_ATTRIBUTE_ITEM") >> gm::symlist{ gm::nt(L"EXTERNAL_MODIFER") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"DECL_ATTRIBUTE_ITEM") >> gm::symlist{ gm::nt(L"ACCESS_MODIFIER") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+
+                gm::nt(L"LIFECYCLE_MODIFER") >> gm::symlist{ gm::te(gm::ttype::l_static) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_token),
-                gm::nt(L"DECL_ATTRIBUTE_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_public) }
+
+                gm::nt(L"EXTERNAL_MODIFER") >> gm::symlist{ gm::te(gm::ttype::l_extern) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_token),
-                gm::nt(L"DECL_ATTRIBUTE_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_private) }
+
+                gm::nt(L"ACCESS_MODIFIER") >> gm::symlist{ gm::te(gm::ttype::l_public) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_token),
-                gm::nt(L"DECL_ATTRIBUTE_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_protected) }
+                gm::nt(L"ACCESS_MODIFIER") >> gm::symlist{ gm::te(gm::ttype::l_private) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_token),
-                gm::nt(L"DECL_ATTRIBUTE_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_static) }
-                >> WO_ASTBUILDER_INDEX(ast::pass_token),
-                gm::nt(L"DECL_ATTRIBUTE_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_extern) }
+                gm::nt(L"ACCESS_MODIFIER") >> gm::symlist{ gm::te(gm::ttype::l_protected) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_token),
 
                 gm::nt(L"SENTENCE") >> gm::symlist{ gm::te(gm::ttype::l_semicolon) }
@@ -1099,7 +1109,10 @@ namespace wo
                 gm::nt(L"STRUCT_MEMBERS_LIST") >> gm::symlist{ gm::nt(L"STRUCT_MEMBERS_LIST"), gm::te(gm::ttype::l_comma), gm::nt(L"STRUCT_MEMBER_PAIR") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_append_list<2, 0>),
 
-                gm::nt(L"STRUCT_MEMBER_PAIR") >> gm::symlist{ gm::nt(L"IDENTIFIER"), gm::nt(L"TYPE_DECLEAR") }
+                gm::nt(L"STRUCT_MEMBER_PAIR") >> gm::symlist{gm::nt(L"IDENTIFIER"), gm::nt(L"TYPE_DECLEAR")}
+                >> WO_ASTBUILDER_INDEX(ast::pass_struct_member_def),
+
+                gm::nt(L"STRUCT_MEMBER_PAIR") >> gm::symlist{ gm::nt(L"ACCESS_MODIFIER"), gm::nt(L"IDENTIFIER"), gm::nt(L"TYPE_DECLEAR") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_struct_member_def),
 
                 ////////////////////////////////////////////////////////

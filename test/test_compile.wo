@@ -1414,13 +1414,13 @@ func main()
             }
         "@);
         assure_compile_fail(@"
-            using AA = struct{__m: int};
+            using AA = struct{protected __m: int};
             let a = AA{__m = 5};
 
             do a.__m;
         "@);
         assure_compile_success(@"
-            using AA = struct{__m: int};
+            using AA = struct{protected __m: int};
             let a = AA{__m = 5};
 
             namespace AA
@@ -1429,7 +1429,7 @@ func main()
             }
         "@);
         assure_compile_fail(@"
-            using AA = struct{__m: int}
+            using AA = struct{protected __m: int}
             {
                 using AA = int;
             }
@@ -1438,7 +1438,7 @@ func main()
             do a.__m;
         "@);
         assure_compile_fail(@"
-            using AA = struct{__m: int}
+            using AA = struct{protected __m: int}
             {
                 using AA = real;
             }
@@ -1450,7 +1450,7 @@ func main()
             do a.__m;
         "@);
         assure_compile_fail(@"
-            using AA = struct{__m: int}
+            using AA = struct{protected __m: int}
             {
                 using AA = real;
             }
@@ -1465,7 +1465,7 @@ func main()
             }
         "@);
         assure_compile_success(@"
-            using AA = struct{__m: int}
+            using AA = struct{protected __m: int}
             {
                 using AA = real;
             }
@@ -1480,7 +1480,7 @@ func main()
             }
         "@);
         assure_compile_fail(@"
-            using AA = struct{__m: int}
+            using AA = struct{protected __m: int}
             {
                 using AA = real;
             }
@@ -1492,7 +1492,7 @@ func main()
             do a.__m;
         "@);
         assure_compile_fail(@"
-            using AA = struct{__m: int}
+            using AA = struct{protected __m: int}
             {
                 using AA = real;
             }
@@ -1507,7 +1507,7 @@ func main()
             }
         "@);
         assure_compile_success(@"
-            using AA = struct{__m: int}
+            using AA = struct{protected __m: int}
             {
                 using AA = real;
             }
@@ -1529,12 +1529,12 @@ func main()
             do x.__m;
         }
         "@);
-        assure_compile_fail(@"
+        assure_compile_success(@"
         namespace Example
         {
             let x = struct{__m = 0};
         }
-        do x.__m;
+        do Example::x.__m;
         "@);
 
         assure_compile_success(@"
@@ -1545,7 +1545,7 @@ func main()
             return a;
         }
         "@);
-        assure_compile_fail(@"
+        assure_compile_success(@"
         func foo()
         {
             let a = struct{__m = 0};
