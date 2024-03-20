@@ -139,9 +139,9 @@
 
 #define WO_ERR_UNDEFINED_MEMBER L"尝试索引未定义的成员 '%ls'"
 
-#define WO_ERR_UNACCABLE_PRIVATE_MEMBER L"无法访问私有成员 '%ls'"
+#define WO_ERR_UNACCABLE_PRIVATE_MEMBER L"无法访问结构体 '%ls' 的私有成员 '%ls'"
 
-#define WO_ERR_UNACCABLE_PROTECTED_MEMBER L"无法访问保护成员 '%ls'"
+#define WO_ERR_UNACCABLE_PROTECTED_MEMBER L"无法访问结构体 '%ls' 的保护成员 '%ls'"
 
 #define WO_ERR_CANNOT_INDEX_MEMB_WITHOUT_STR L"尝试使用非字符串常量索引具类型映射"
 
@@ -425,9 +425,9 @@
 
 #define WO_ERR_UNDEFINED_MEMBER L"Try index undefined member '%ls'."
 
-#define WO_ERR_UNACCABLE_PRIVATE_MEMBER L"Unaccessible private members '%ls'."
+#define WO_ERR_UNACCABLE_PRIVATE_MEMBER L"Unaccessible structure '%ls''s private members '%ls'."
 
-#define WO_ERR_UNACCABLE_PROTECTED_MEMBER L"Unaccessible protected members '%ls'."
+#define WO_ERR_UNACCABLE_PROTECTED_MEMBER L"Unaccessible structure '%ls''s protected members '%ls'."
 
 #define WO_ERR_CANNOT_INDEX_MEMB_WITHOUT_STR L"Typed mapping only indexable form 'string'."
 

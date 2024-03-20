@@ -205,6 +205,7 @@ namespace wo
                             a_value_idx->from->value_type->searching_begin_namespace_in_pass2))
                         {
                             lang_anylizer->lang_error(lexer::errorlevel::error, a_value_idx, WO_ERR_UNACCABLE_PROTECTED_MEMBER,
+                                a_value_idx->from->value_type->get_type_name(false, false).c_str(),
                                 member_field_name->c_str());
                         }
                     }
@@ -213,6 +214,7 @@ namespace wo
                         if (a_value_idx->source_file != struct_symb->defined_source())
                         {
                             lang_anylizer->lang_error(lexer::errorlevel::error, a_value_idx, WO_ERR_UNACCABLE_PRIVATE_MEMBER,
+                                a_value_idx->from->value_type->get_type_name(false, false).c_str(),
                                 member_field_name->c_str());
                         }
                     }
@@ -1645,6 +1647,7 @@ namespace wo
                             a_value_typecast->value_type->searching_begin_namespace_in_pass2))
                         {
                             lang_anylizer->lang_error(lexer::errorlevel::error, a_value_typecast, WO_ERR_UNACCABLE_PROTECTED_MEMBER,
+                                a_value_typecast->value_type->get_type_name(false, false).c_str(),
                                 member_name->c_str());
                         }
                     }
@@ -1657,6 +1660,7 @@ namespace wo
                         if (a_value_typecast->source_file != struct_symb->defined_source())
                         {
                             lang_anylizer->lang_error(lexer::errorlevel::error, a_value_typecast, WO_ERR_UNACCABLE_PRIVATE_MEMBER,
+                                a_value_typecast->value_type->get_type_name(false, false).c_str(),
                                 member_name->c_str());
                         }
                     }
@@ -1776,6 +1780,7 @@ namespace wo
                                 a_value_index->from->value_type->searching_begin_namespace_in_pass2))
                             {
                                 lang_anylizer->lang_error(lexer::errorlevel::error, a_value_index, WO_ERR_UNACCABLE_PROTECTED_MEMBER,
+                                    a_value_index->from->value_type->get_type_name(false, false).c_str(),
                                     member_field_name->c_str());
                             }
                         }
@@ -1784,6 +1789,7 @@ namespace wo
                             if (a_value_index->source_file != struct_symb->defined_source())
                             {
                                 lang_anylizer->lang_error(lexer::errorlevel::error, a_value_index, WO_ERR_UNACCABLE_PRIVATE_MEMBER,
+                                    a_value_index->from->value_type->get_type_name(false, false).c_str(),
                                     member_field_name->c_str());
                             }
                         }
@@ -2519,6 +2525,7 @@ namespace wo
                             {
                                 lang_anylizer->lang_error(lexer::errorlevel::error, membpair->member_value_pair,
                                     WO_ERR_UNACCABLE_PROTECTED_MEMBER,
+                                    a_value_make_struct_instance->target_built_types->get_type_name(false, false).c_str(),
                                     membpair->member_name->c_str());
                             }
                         }
@@ -2528,6 +2535,7 @@ namespace wo
                             {
                                 lang_anylizer->lang_error(lexer::errorlevel::error, membpair->member_value_pair,
                                     WO_ERR_UNACCABLE_PRIVATE_MEMBER,
+                                    a_value_make_struct_instance->target_built_types->get_type_name(false, false).c_str(),
                                     membpair->member_name->c_str());
                             }
                         }
