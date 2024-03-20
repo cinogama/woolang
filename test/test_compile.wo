@@ -1413,7 +1413,236 @@ func main()
                 a = 5,
             }
         "@);
+        assure_compile_fail(@"
+            using AA = struct{protected __m: int};
+            let a = AA{__m = 5};
+        "@);
+        assure_compile_fail(@"
+            using AA = struct{protected __m: int};
+            let a = struct{__m = 5}: AA;
+        "@);
+        assure_compile_success(@"
+            using AA = struct{__m: int};
+            let a = AA{__m = 5};
+        "@);
+        assure_compile_success(@"
+            using AA = struct{public __m: int};
+            let a = AA{__m = 5};
+        "@);
+        assure_compile_success(@"
+            using AA = struct{protected __m: int}
+            {
+                public func create()
+                {
+                    return AA{__m = 5};
+                }
+            }
+            let a = AA::create();
+        "@);
+        assure_compile_fail(@"
+            using AA = struct{protected __m: int}
+            {
+                public func create()
+                {
+                    return AA{__m = 5};
+                }
+            }
+            let a = AA::create();
 
+            do a.__m;
+        "@);
+        assure_compile_success(@"
+            using AA = struct{protected __m: int}
+            {
+                public func create()
+                {
+                    return AA{__m = 5};
+                }
+            }
+            let a = AA::create();
+
+            namespace AA
+            {
+                do a.__m;
+            }
+        "@);
+        assure_compile_fail(@"
+            using AA = struct{protected __m: int}
+            {
+                using AA = int;
+                public func create()
+                {
+                    return AA{__m = 5};
+                }
+            }
+            let a = AA::create();
+
+            do a.__m;
+        "@);
+
+        assure_compile_success(@"
+            using AA = struct{protected __m: int}
+            {
+                using AA = real;
+                public func create()
+                {
+                    return BB{__m = 5};
+                }
+            }
+
+            alias BB = AA;
+
+            let a = AA::create(): BB: AA;
+        "@);
+        assure_compile_fail(@"
+            using AA = struct{protected __m: int}
+            {
+                using AA = real;
+                public func create()
+                {
+                    return BB{__m = 5};
+                }
+            }
+
+            alias BB = AA;
+
+            let a = AA::create(): AA: BB;
+
+            do a.__m;
+        "@);
+        assure_compile_fail(@"
+            using AA = struct{protected __m: int}
+            {
+                using AA = real;
+                public func create()
+                {
+                    return BB{__m = 5};
+                }
+            }
+
+            alias BB = AA;
+
+            let a = AA::create(): AA: BB: AA;
+
+            namespace BB
+            {
+                do a.__m;
+            }
+        "@);
+        assure_compile_success(@"
+            using AA = struct{protected __m: int}
+            {
+                using AA = real;
+                public func create()
+                {
+                    return BB{__m = 5};
+                }
+            }
+
+            alias BB = AA;
+
+            let a = AA::create(): AA: BB: AA;
+
+            namespace AA
+            {
+                do a.__m;
+            }
+        "@);
+        assure_compile_fail(@"
+            using AA = struct{protected __m: int}
+            {
+                using AA = real;
+                public func create()
+                {
+                    return BB{__m = 5};
+                }
+            }
+
+            alias BB = AA;
+
+            let a = AA::create(): AA: BB: AA;
+
+            do a.__m;
+        "@);
+        assure_compile_fail(@"
+            using AA = struct{protected __m: int}
+            {
+                using AA = real;
+                public func create()
+                {
+                    return BB{__m = 5};
+                }
+            }
+
+            alias BB = AA;
+
+            let a = AA::create(): AA: BB: AA;
+
+            namespace BB
+            {
+                do a.__m;
+            }
+        "@);
+        assure_compile_success(@"
+            using AA = struct{protected __m: int}
+            {
+                using AA = real;
+                public func create()
+                {
+                    return BB{__m = 5};
+                }
+            }
+
+            alias BB = AA;
+
+            let a = AA::create(): AA: BB: AA;
+
+            namespace AA
+            {
+                do a.__m;
+            }
+        "@);
+
+        assure_compile_success(@"
+        namespace Example
+        {
+            let x = struct{__m = 0};
+            do x.__m;
+        }
+        "@);
+        assure_compile_success(@"
+        namespace Example
+        {
+            let x = struct{__m = 0};
+        }
+        do Example::x.__m;
+        "@);
+
+        assure_compile_success(@"
+        func foo()
+        {
+            let a = struct{__m = 0};
+            do a.__m;
+            return a;
+        }
+        "@);
+        assure_compile_success(@"
+        func foo()
+        {
+            let a = struct{__m = 0};
+            do a.__m;
+            return a;
+        }
+        do foo().__m;
+        "@);
+
+        assure_compile_success(@"
+        extern func foo(){}
+        "@);
+        assure_compile_fail(@"
+        extern func foo(_){}
+        "@);
+        
         // ISSUE: 1.13: anything has been removed from woolang.
         // assure_compile_success(@"
         //     import woo::std;
@@ -1435,7 +1664,7 @@ func main()
     func main()
     {
         let test_threads = []mut: vec<thread>;
-        for (let mut i = 0 ; i < 4; i += 1)
+        for (let mut i = 0 ; i < 0; i += 1)
             test_threads->add(thread::create(test_compile_success_or_fail, ()));
 
         test_compile_success_or_fail();

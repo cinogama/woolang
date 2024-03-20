@@ -2554,11 +2554,11 @@ namespace wo
 
                     WO_VM_ASSERT(nullptr != opnum1->gcunit,
                         "Unable to index null in 'idarr'.");
-                    gcbase::gc_read_guard gwg1(opnum1->gcunit);
                     WO_VM_ASSERT(opnum1->type == value::valuetype::array_type,
                         "Cannot index non-array value in 'idarr'.");
                     WO_VM_ASSERT(opnum2->type == value::valuetype::integer_type,
                         "Cannot index array by non-integer value in 'idarr'.");
+                    gcbase::gc_read_guard gwg1(opnum1->gcunit);
 
                     // ATTENTION: `_vmjitcall_idarr` HAS SAME LOGIC, NEED UPDATE SAME TIME.
                     wo_integer_t index = opnum2->integer;

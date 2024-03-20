@@ -90,12 +90,15 @@ namespace wo
             ast_type* searching_from_type = nullptr;
 
             lang_symbol* symbol = nullptr;
+
             lang_scope* searching_begin_namespace_in_pass2 = nullptr;
 
             std::wstring get_namespace_chain() const;
             std::string get_full_namespace_chain_after_pass1() const;
             ast::ast_base* instance(ast_base* child_instance = nullptr) const override;
         };
+
+        struct ast_decl_attribute;
 
         struct ast_type : virtual public ast_symbolable_base
         {
@@ -117,8 +120,10 @@ namespace wo
 
             struct struct_offset
             {
-                ast_type* member_type = nullptr;
-                uint16_t offset = (uint16_t)0xFFFF;
+                ast_type*           member_type = nullptr;
+                uint16_t            offset = (uint16_t)0xFFFF;
+
+                ast_decl_attribute* member_decl_attribute = nullptr;
                 std::vector<size_t> union_used_template_index;
             };
 
@@ -1805,7 +1810,7 @@ namespace wo
         struct ast_struct_member_define : virtual public ast::ast_base
         {
             wo_pstring_t member_name = nullptr;
-
+            ast_decl_attribute* member_attribute = nullptr;
             bool is_value_pair;
             union
             {
@@ -1824,13 +1829,11 @@ namespace wo
                 // Write self copy functions here..
 
                 if (is_value_pair)
-                {
                     WO_REINSTANCE(dumm->member_value_pair);
-                }
                 else
-                {
                     WO_REINSTANCE(dumm->member_type);
-                }
+
+                WO_REINSTANCE(dumm->member_attribute);
 
                 return dumm;
             }
@@ -2022,12 +2025,25 @@ namespace wo
             }
         };
 
+        struct pass_decl_attrib_check : public astnode_builder
+        {
+            static grammar::produce build(lexer& lex, inputs_t& input)
+            {
+                auto* attr = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(0));
+                attr->varify_attributes(&lex);
+
+                return (ast_basic*)attr;
+            }
+        };
+
         struct pass_decl_attrib_begin : public astnode_builder
         {
             static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 auto att = new ast_decl_attribute;
-                att->add_attribute(&lex, dynamic_cast<ast_token*>(WO_NEED_AST(0))->tokens.type);
+                if (ast_empty::is_empty(input[0]) == false)
+                    att->add_attribute(&lex, dynamic_cast<ast_token*>(WO_NEED_AST(0))->tokens.type);
+                
                 return (ast_basic*)att;
             }
         };
@@ -3451,11 +3467,23 @@ namespace wo
                 auto* result = new ast_struct_member_define;
                 result->is_value_pair = false;
 
-                wo_assert(input.size() == 2);
-                // identifier TYPE_DECLEAR
-                result->member_name = wstring_pool::get_pstr(WO_NEED_TOKEN(0).identifier);
-                result->member_type = dynamic_cast<ast_type*>(WO_NEED_AST(1));
-                wo_assert(result->member_type);
+                result->member_attribute = new ast_decl_attribute;
+
+                if (input.size() == 3)
+                {
+                    // ACCESS_MODIFIER identifier TYPE_DECLEAR
+                    result->member_attribute->add_attribute(&lex, dynamic_cast<ast_token*>(WO_NEED_AST(0))->tokens.type);
+                    result->member_name = wstring_pool::get_pstr(WO_NEED_TOKEN(1).identifier);
+                    result->member_type = dynamic_cast<ast_type*>(WO_NEED_AST(2));
+                }
+                else
+                {
+                    wo_assert(input.size() == 2);
+                    result->member_name = wstring_pool::get_pstr(WO_NEED_TOKEN(0).identifier);
+                    result->member_type = dynamic_cast<ast_type*>(WO_NEED_AST(1));
+                }
+                wo_assert(result->member_type != nullptr);
+
                 return (ast_basic*)result;
             }
         };
@@ -3465,13 +3493,14 @@ namespace wo
             static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 auto* result = new ast_struct_member_define;
-                result->member_name = wstring_pool::get_pstr(WO_NEED_TOKEN(0).identifier);
 
                 wo_assert(input.size() == 3);
                 // identifier = VALUE
+                result->member_name = wstring_pool::get_pstr(WO_NEED_TOKEN(0).identifier);
                 result->member_value_pair = dynamic_cast<ast_value*>(WO_NEED_AST(2));
                 result->is_value_pair = true;
-                wo_assert(result->member_value_pair);
+
+                wo_assert(result->member_value_pair != nullptr);
 
                 return (ast_basic*)result;
             }
@@ -3492,6 +3521,8 @@ namespace wo
                     auto* member_pair = dynamic_cast<ast_struct_member_define*>(members);
                     wo_assert(member_pair);
 
+                    struct_type->struct_member_index[member_pair->member_name].member_decl_attribute
+                        = member_pair->member_attribute;
                     struct_type->struct_member_index[member_pair->member_name].member_type
                         = member_pair->member_type;
                     struct_type->struct_member_index[member_pair->member_name].offset
@@ -3526,6 +3557,9 @@ namespace wo
                     {
                         auto& member = value->target_built_types->struct_member_index[member_iter->member_name];
 
+                        // Anonymous structure's member donot contain attribute.
+                        wo_assert(member_iter->member_attribute == nullptr);
+                        member.member_decl_attribute = member_iter->member_attribute;
                         member.member_type = new ast_type(WO_PSTR(pending));
                         member.offset = member_idx++;
 

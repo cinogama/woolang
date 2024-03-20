@@ -1,5 +1,7 @@
 #include "wo_lang.hpp"
 
+WO_API wo_api rslib_std_return_itself(wo_vm vm, wo_value args);
+
 namespace wo
 {
     using namespace ast;
@@ -45,7 +47,7 @@ namespace wo
     WO_PASS0(ast_value_function_define)
     {
         auto* a_value_func_decl = WO_AST();
-        
+
         // Only declear symbol in pass0
         a_value_func_decl->this_func_scope = begin_function(a_value_func_decl);
         end_function();
@@ -165,10 +167,11 @@ namespace wo
         {
             if (a_value_idx->index->is_constant && a_value_idx->index->value_type->is_string())
             {
-                if (auto fnd =
-                    a_value_idx->from->value_type->struct_member_index.find(
-                        wstring_pool::get_pstr(str_to_wstr(*a_value_idx->index->get_constant_value().string)));
-                        fnd != a_value_idx->from->value_type->struct_member_index.end())
+                auto member_field_name = wstring_pool::get_pstr(
+                    str_to_wstr(*a_value_idx->index->get_constant_value().string));
+
+                if (auto fnd = a_value_idx->from->value_type->struct_member_index.find(member_field_name);
+                    fnd != a_value_idx->from->value_type->struct_member_index.end())
                 {
                     fully_update_type(fnd->second.member_type, true);
 
@@ -178,6 +181,43 @@ namespace wo
                         a_value_idx->struct_offset = fnd->second.offset;
                     }
 
+                    // Get symbol from type, if symbol not exist, it is anonymous structure.
+                    // Anonymous structure's field is `public`.
+                    lang_symbol* struct_symb = nullptr;
+                    if (a_value_idx->from->value_type->using_type_name != nullptr)
+                    {
+                        struct_symb = a_value_idx->from->value_type->using_type_name->symbol;
+                        wo_assert(struct_symb != nullptr);
+                        wo_assert(struct_symb->type == lang_symbol::symbol_type::typing);
+                    }
+
+                    // Anonymous structure's member donot contain decl attribute.
+                    // But named structure must have.
+                    wo_assert(struct_symb == nullptr || fnd->second.member_decl_attribute != nullptr);
+
+                    if (struct_symb == nullptr || fnd->second.member_decl_attribute->is_public_attr())
+                    {
+                        // Nothing to check.
+                    }
+                    else if (fnd->second.member_decl_attribute->is_protected_attr())
+                    {
+                        if (!a_value_idx->located_scope->belongs_to(
+                            a_value_idx->from->value_type->searching_begin_namespace_in_pass2))
+                        {
+                            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_idx, WO_ERR_UNACCABLE_PROTECTED_MEMBER,
+                                a_value_idx->from->value_type->get_type_name(false, false).c_str(),
+                                member_field_name->c_str());
+                        }
+                    }
+                    else
+                    {
+                        if (a_value_idx->source_file != struct_symb->defined_source())
+                        {
+                            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_idx, WO_ERR_UNACCABLE_PRIVATE_MEMBER,
+                                a_value_idx->from->value_type->get_type_name(false, false).c_str(),
+                                member_field_name->c_str());
+                        }
+                    }
                 }
             }
         }
@@ -430,6 +470,10 @@ namespace wo
             }
             else
                 a_value_func->value_type->function_ret_type->set_type_with_name(WO_PSTR(pending));
+        }
+        else if (a_value_func->declear_attribute != nullptr && a_value_func->declear_attribute->is_extern_attr())
+        {
+            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_func, WO_ERR_CANNOT_EXPORT_TEMPLATE_FUNC);
         }
 
         if (a_value_func->externed_func_info)
@@ -1601,6 +1645,43 @@ namespace wo
                 a_value_typecast->value_type->get_type_name(false).c_str()
             );
         }
+        else if (a_value_typecast->value_type->using_type_name != nullptr
+            && a_value_typecast->value_type->is_struct()
+            && !a_value_typecast->value_type->is_same(origin_value->value_type, true))
+        {
+            // Check if trying cast struct.
+            for (auto& [member_name, member_info] : a_value_typecast->value_type->struct_member_index)
+            {
+                wo_assert(member_info.member_decl_attribute != nullptr);
+                if (member_info.member_decl_attribute->is_public_attr())
+                {
+                    // Public, nothing to check.
+                }
+                else if (member_info.member_decl_attribute->is_protected_attr())
+                {
+                    if (!a_value_typecast->located_scope->belongs_to(
+                        a_value_typecast->value_type->searching_begin_namespace_in_pass2))
+                    {
+                        lang_anylizer->lang_error(lexer::errorlevel::error, a_value_typecast, WO_ERR_UNACCABLE_PROTECTED_MEMBER,
+                            a_value_typecast->value_type->get_type_name(false, false).c_str(),
+                            member_name->c_str());
+                    }
+                }
+                else // if (member_info.member_decl_attribute->is_private_attr())
+                {
+                    lang_symbol* struct_symb = a_value_typecast->value_type->using_type_name->symbol;
+                    wo_assert(struct_symb != nullptr);
+                    wo_assert(struct_symb->type == lang_symbol::symbol_type::typing);
+
+                    if (a_value_typecast->source_file != struct_symb->defined_source())
+                    {
+                        lang_anylizer->lang_error(lexer::errorlevel::error, a_value_typecast, WO_ERR_UNACCABLE_PRIVATE_MEMBER,
+                            a_value_typecast->value_type->get_type_name(false, false).c_str(),
+                            member_name->c_str());
+                    }
+                }
+            }
+        }
     }
     WO_PASS2(ast_value_type_judge)
     {
@@ -1657,10 +1738,12 @@ namespace wo
             {
                 if (a_value_index->index->is_constant && a_value_index->index->value_type->is_string())
                 {
+                    auto member_field_name = wstring_pool::get_pstr(
+                        str_to_wstr(*a_value_index->index->get_constant_value().string));
+
                     if (auto fnd =
-                        a_value_index->from->value_type->struct_member_index.find(
-                            wstring_pool::get_pstr(str_to_wstr(*a_value_index->index->get_constant_value().string)));
-                            fnd != a_value_index->from->value_type->struct_member_index.end())
+                        a_value_index->from->value_type->struct_member_index.find(member_field_name);
+                        fnd != a_value_index->from->value_type->struct_member_index.end())
                     {
                         fully_update_type(fnd->second.member_type, false);
 
@@ -1674,11 +1757,49 @@ namespace wo
                             a_value_index->value_type->set_type(fnd->second.member_type);
                             a_value_index->struct_offset = fnd->second.offset;
                         }
+
+                        // Get symbol from type, if symbol not exist, it is anonymous structure.
+                        // Anonymous structure's field is `public`.
+                        lang_symbol* struct_symb = nullptr;
+                        if (a_value_index->from->value_type->using_type_name != nullptr)
+                        {
+                            struct_symb = a_value_index->from->value_type->using_type_name->symbol;
+                            wo_assert(struct_symb != nullptr);
+                            wo_assert(struct_symb->type == lang_symbol::symbol_type::typing);
+                        }
+
+                        // Anonymous structure's member donot contain decl attribute.
+                        // But named structure must have.
+                        wo_assert(struct_symb == nullptr || fnd->second.member_decl_attribute != nullptr);
+
+                        if (struct_symb == nullptr || fnd->second.member_decl_attribute->is_public_attr())
+                        {
+                            // Nothing to check.
+                        }
+                        else if (fnd->second.member_decl_attribute->is_protected_attr())
+                        {
+                            if (!a_value_index->located_scope->belongs_to(
+                                a_value_index->from->value_type->searching_begin_namespace_in_pass2))
+                            {
+                                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_index, WO_ERR_UNACCABLE_PROTECTED_MEMBER,
+                                    a_value_index->from->value_type->get_type_name(false, false).c_str(),
+                                    member_field_name->c_str());
+                            }
+                        }
+                        else
+                        {
+                            if (a_value_index->source_file != struct_symb->defined_source())
+                            {
+                                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_index, WO_ERR_UNACCABLE_PRIVATE_MEMBER,
+                                    a_value_index->from->value_type->get_type_name(false, false).c_str(),
+                                    member_field_name->c_str());
+                            }
+                        }
                     }
                     else
                     {
                         lang_anylizer->lang_error(lexer::errorlevel::error, a_value_index, WO_ERR_UNDEFINED_MEMBER,
-                            str_to_wstr(*a_value_index->index->get_constant_value().string).c_str());
+                            member_field_name->c_str());
                     }
                 }
                 else
@@ -2386,6 +2507,41 @@ namespace wo
                                 membpair->member_value_pair = std::get<ast::ast_value_function_define*>(result.value());
                         }
 
+                        lang_symbol* struct_symb = nullptr;
+                        if (a_value_make_struct_instance->target_built_types->using_type_name != nullptr)
+                        {
+                            struct_symb = a_value_make_struct_instance->target_built_types->using_type_name->symbol;
+                            wo_assert(struct_symb != nullptr);
+                            wo_assert(struct_symb->type == lang_symbol::symbol_type::typing);
+                        }
+
+                        wo_assert(struct_symb == nullptr || fnd->second.member_decl_attribute != nullptr);
+                        if (struct_symb == nullptr || fnd->second.member_decl_attribute->is_public_attr())
+                        {
+                            // Public member, donot need anycheck.
+                        }
+                        else if (fnd->second.member_decl_attribute->is_protected_attr())
+                        {
+                            if (!a_value_make_struct_instance->located_scope->belongs_to(
+                                a_value_make_struct_instance->target_built_types->searching_begin_namespace_in_pass2))
+                            {
+                                lang_anylizer->lang_error(lexer::errorlevel::error, membpair->member_value_pair,
+                                    WO_ERR_UNACCABLE_PROTECTED_MEMBER,
+                                    a_value_make_struct_instance->target_built_types->get_type_name(false, false).c_str(),
+                                    membpair->member_name->c_str());
+                            }
+                        }
+                        else // if (fnd->second.member_decl_attribute->is_private_attr())
+                        {
+                            if (a_value_make_struct_instance->source_file != struct_symb->defined_source())
+                            {
+                                lang_anylizer->lang_error(lexer::errorlevel::error, membpair->member_value_pair,
+                                    WO_ERR_UNACCABLE_PRIVATE_MEMBER,
+                                    a_value_make_struct_instance->target_built_types->get_type_name(false, false).c_str(),
+                                    membpair->member_name->c_str());
+                            }
+                        }
+
                         if (!fnd->second.member_type->accept_type(membpair->member_value_pair->value_type, false, false))
                         {
                             lang_anylizer->lang_error(lexer::errorlevel::error, membpair, WO_ERR_DIFFERENT_MEMBER_TYPE_OF
@@ -2455,7 +2611,6 @@ namespace wo
             }
         }
     }
-
 
     void check_function_where_constraint(ast::ast_base* ast, lexer* lang_anylizer, ast::ast_symbolable_base* func)
     {
@@ -3776,8 +3931,8 @@ namespace wo
         using_type_def_char->declear_attribute = new ast::ast_decl_attribute();
         using_type_def_char->declear_attribute->add_attribute(lang_anylizer, lex_type::l_public);
         define_type_in_this_scope(
-            using_type_def_char, 
-            using_type_def_char->old_type, 
+            using_type_def_char,
+            using_type_def_char->old_type,
             using_type_def_char->declear_attribute)->has_been_completed_defined = true;
     }
     lang::~lang()
@@ -4019,7 +4174,7 @@ namespace wo
                             //symboled_type->set_type(type_sym->type_informatiom);
 
                             wo_assert(symboled_type != nullptr);
-                            
+
                             // NOTE: The type here should have all the template parameters applied.
                             // We should not need give `template_types` here.
                             fully_update_type(symboled_type, in_pass_1, {}, s);
@@ -4516,7 +4671,7 @@ namespace wo
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
-        
+
         if (false == this->m_global_pass_table->pass<1>(this, ast_node))
         {
             ast::ast_base* child = ast_node->children;
@@ -6007,11 +6162,32 @@ namespace wo
             }
             else if (auto* a_value_funccall = dynamic_cast<ast_value_funccall*>(value))
             {
+                auto arg = a_value_funccall->arguments->children;
+                ast_value_variable* funcvariable = dynamic_cast<ast_value_variable*>(a_value_funccall->called_func);
+                ast_value_function_define* funcdef = dynamic_cast<ast_value_function_define*>(a_value_funccall->called_func);
+
+                if (funcvariable != nullptr)
+                {
+                    if (funcvariable->symbol != nullptr && funcvariable->symbol->type == lang_symbol::symbol_type::function)
+                        funcdef = funcvariable->symbol->get_funcdef();
+                }
+
+                if (config::ENABLE_SKIP_INVOKE_UNSAFE_CAST
+                    && funcdef != nullptr
+                    && funcdef->externed_func_info != nullptr
+                    && funcdef->externed_func_info->externed_func == &rslib_std_return_itself)
+                {
+                    // Invoking unsafe::cast, skip and return it self.
+                    ast_value* arg_val = dynamic_cast<ast_value*>(arg);
+
+                    if (arg_val->sibling == nullptr && nullptr == dynamic_cast<ast_fakevalue_unpacked_args*>(arg_val))
+                        return analyze_value(arg_val, compiler, get_pure_value);
+                }
+
                 if (now_function_in_final_anylize && now_function_in_final_anylize->value_type->is_variadic_function_type)
                     compiler->psh(reg(reg::tc));
 
                 std::vector<ast_value* >arg_list;
-                auto arg = a_value_funccall->arguments->children;
 
                 bool full_unpack_arguments = false;
                 wo_integer_t extern_unpack_arg_count = 0;
@@ -6087,15 +6263,6 @@ namespace wo
                 }
 
                 auto* called_func_aim = &analyze_value(a_value_funccall->called_func, compiler);
-
-                ast_value_variable* funcvariable = dynamic_cast<ast_value_variable*>(a_value_funccall->called_func);
-                ast_value_function_define* funcdef = dynamic_cast<ast_value_function_define*>(a_value_funccall->called_func);
-
-                if (funcvariable != nullptr)
-                {
-                    if (funcvariable->symbol != nullptr && funcvariable->symbol->type == lang_symbol::symbol_type::function)
-                        funcdef = funcvariable->symbol->get_funcdef();
-                }
 
                 if (!full_unpack_arguments &&
                     a_value_funccall->called_func->value_type->is_variadic_function_type)
@@ -7197,9 +7364,9 @@ namespace wo
             if (fnd != lang_scopes.back()->sub_namespaces.end())
             {
                 lang_scopes.push_back(fnd->second);
-                now_namespace = lang_scopes.back();
-                now_namespace->last_entry_ast = a_namespace;
-                return now_namespace;
+                current_namespace = lang_scopes.back();
+                current_namespace->last_entry_ast = a_namespace;
+                return current_namespace;
             }
         }
 
@@ -7208,7 +7375,7 @@ namespace wo
 
         scope->stop_searching_in_last_scope_flag = false;
         scope->type = lang_scope::scope_type::namespace_scope;
-        scope->belong_namespace = now_namespace;
+        scope->belong_namespace = current_namespace;
         scope->parent_scope = lang_scopes.empty() ? nullptr : lang_scopes.back();
         scope->scope_namespace = a_namespace->scope_name;
 
@@ -7216,15 +7383,15 @@ namespace wo
             lang_scopes.back()->sub_namespaces[a_namespace->scope_name] = scope;
 
         lang_scopes.push_back(scope);
-        now_namespace = lang_scopes.back();
-        now_namespace->last_entry_ast = a_namespace;
-        return now_namespace;
+        current_namespace = lang_scopes.back();
+        current_namespace->last_entry_ast = a_namespace;
+        return current_namespace;
     }
     void lang::end_namespace()
     {
         wo_assert(lang_scopes.back()->type == lang_scope::scope_type::namespace_scope);
 
-        now_namespace = lang_scopes.back()->belong_namespace;
+        current_namespace = lang_scopes.back()->belong_namespace;
         lang_scopes.pop_back();
     }
     lang_scope* lang::begin_scope(ast::ast_base* block_beginer)
@@ -7236,7 +7403,7 @@ namespace wo
         wo_assert(block_beginer->source_file != nullptr);
         scope->stop_searching_in_last_scope_flag = false;
         scope->type = lang_scope::scope_type::just_scope;
-        scope->belong_namespace = now_namespace;
+        scope->belong_namespace = current_namespace;
         scope->parent_scope = lang_scopes.empty() ? nullptr : lang_scopes.back();
 
         lang_scopes.push_back(scope);
@@ -7266,7 +7433,7 @@ namespace wo
 
             scope->stop_searching_in_last_scope_flag = false;
             scope->type = lang_scope::scope_type::function_scope;
-            scope->belong_namespace = now_namespace;
+            scope->belong_namespace = current_namespace;
             scope->parent_scope = lang_scopes.empty() ? nullptr : lang_scopes.back();
             scope->function_node = ast_value_funcdef;
 
@@ -7295,6 +7462,16 @@ namespace wo
     {
         wo_assert(!lang_scopes.empty());
         return lang_scopes.back();
+    }
+    lang_scope* lang::now_namespace() const
+    {
+        auto* current_scope = now_scope();
+        if (current_scope->type != lang_scope::scope_type::namespace_scope)
+            current_scope = current_scope->belong_namespace;
+
+        wo_assert(current_scope->type == lang_scope::scope_type::namespace_scope);
+
+        return current_scope;
     }
     lang_scope* lang::in_function() const
     {
@@ -7461,15 +7638,13 @@ namespace wo
             if (symbol->attribute->is_protected_attr())
             {
                 auto* symbol_defined_space = symbol->defined_in_scope;
-                while (current_scope)
+                if (current_scope->belongs_to(symbol_defined_space) == false)
                 {
-                    if (current_scope == symbol_defined_space)
-                        return true;
-                    current_scope = current_scope->parent_scope;
+                    if (give_error)
+                        lang_anylizer->lang_error(lexer::errorlevel::error, ast, WO_ERR_CANNOT_REACH_PROTECTED_IN_OTHER_FUNC, symbol->name->c_str());
+                    return false;
                 }
-                if (give_error)
-                    lang_anylizer->lang_error(lexer::errorlevel::error, ast, WO_ERR_CANNOT_REACH_PROTECTED_IN_OTHER_FUNC, symbol->name->c_str());
-                return false;
+                return true;
             }
             if (symbol->attribute->is_private_attr())
             {
@@ -7529,7 +7704,7 @@ namespace wo
         lang_symbol* fuzzy_nearest_symbol = nullptr;
         auto update_fuzzy_nearest_symbol =
             [&fuzzy_nearest_symbol, fuzzy_for_err_report, ident_str, target_type_mask]
-            (lang_symbol* symbol) {
+        (lang_symbol* symbol) {
             if (fuzzy_for_err_report)
             {
                 auto distance = levenshtein_distance(*symbol->name, *ident_str);
@@ -7540,7 +7715,7 @@ namespace wo
                         fuzzy_nearest_symbol = symbol;
                 }
             }
-            };
+        };
 
         if (!var_ident->search_from_global_namespace && var_ident->scope_namespaces.empty())
             for (auto rind = template_stack.rbegin(); rind != template_stack.rend(); rind++)

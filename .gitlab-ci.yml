@@ -103,7 +103,7 @@ test_coverage_debug:
     - sudo chmod 777 ./pkg
     - sudo chmod 777 .
     - cd ..
-    - ./build/woodriver_debug test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 1
+    - ./build/woodriver_debug test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 1 --enable-halt-when-panic 1
     - cd build/src/CMakeFiles/woolang.dir
     - sudo gcov -b -l -p -c *.gcno
     - cd ../../../../
@@ -147,7 +147,7 @@ test_debug_arm64:
     - sudo chmod 777 ./pkg
     - sudo chmod 777 .
     - cd ..
-    - ./build/woodriver_debug test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 1
+    - ./build/woodriver_debug test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 1 --enable-halt-when-panic 1
     - cd ../../../../
   artifacts:
     name: ubuntu-wo-$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA
@@ -252,7 +252,7 @@ test_memory_debug:
     - sudo chmod 777 ./pkg
     - sudo chmod 777 .
     - cd ..
-    - valgrind --tool=memcheck --leak-check=yes --show-reachable=yes ./build/woodriver_debug test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 1
+    - valgrind --tool=memcheck --leak-check=yes --show-reachable=yes ./build/woodriver_debug test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 1 --enable-halt-when-panic 1
   artifacts:
     name: ubuntu-wo-coverage-$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA
     paths:
