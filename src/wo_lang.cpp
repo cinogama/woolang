@@ -1631,41 +1631,6 @@ namespace wo
                         WO_INFO_CANNOT_USE_UNREACHABLE_TYPE);
                 }
             }
-
-            if (a_value_typecast->value_type->is_struct())
-            {
-                for (auto& [member_name, member_info] : a_value_typecast->value_type->struct_member_index)
-                {
-                    wo_assert(member_info.member_decl_attribute != nullptr);
-                    if (member_info.member_decl_attribute->is_public_attr())
-                    {
-                        // Public, nothing to check.
-                    }
-                    else if (member_info.member_decl_attribute->is_protected_attr())
-                    {
-                        if (!a_value_typecast->located_scope->belongs_to(
-                            a_value_typecast->value_type->searching_begin_namespace_in_pass2))
-                        {
-                            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_typecast, WO_ERR_UNACCABLE_PROTECTED_MEMBER,
-                                a_value_typecast->value_type->get_type_name(false, false).c_str(),
-                                member_name->c_str());
-                        }
-                    }
-                    else // if (member_info.member_decl_attribute->is_private_attr())
-                    {
-                        lang_symbol* struct_symb = a_value_typecast->value_type->using_type_name->symbol;
-                        wo_assert(struct_symb != nullptr);
-                        wo_assert(struct_symb->type == lang_symbol::symbol_type::typing);
-
-                        if (a_value_typecast->source_file != struct_symb->defined_source())
-                        {
-                            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_typecast, WO_ERR_UNACCABLE_PRIVATE_MEMBER,
-                                a_value_typecast->value_type->get_type_name(false, false).c_str(),
-                                member_name->c_str());
-                        }
-                    }
-                }
-            }
         }
 
         if (a_value_typecast->value_type->is_pending())
@@ -1679,6 +1644,43 @@ namespace wo
                 origin_value->value_type->get_type_name(false).c_str(),
                 a_value_typecast->value_type->get_type_name(false).c_str()
             );
+        }
+        else if (a_value_typecast->value_type->using_type_name != nullptr
+            && a_value_typecast->value_type->is_struct()
+            && !a_value_typecast->value_type->is_same(origin_value->value_type, true))
+        {
+            // Check if trying cast struct.
+            for (auto& [member_name, member_info] : a_value_typecast->value_type->struct_member_index)
+            {
+                wo_assert(member_info.member_decl_attribute != nullptr);
+                if (member_info.member_decl_attribute->is_public_attr())
+                {
+                    // Public, nothing to check.
+                }
+                else if (member_info.member_decl_attribute->is_protected_attr())
+                {
+                    if (!a_value_typecast->located_scope->belongs_to(
+                        a_value_typecast->value_type->searching_begin_namespace_in_pass2))
+                    {
+                        lang_anylizer->lang_error(lexer::errorlevel::error, a_value_typecast, WO_ERR_UNACCABLE_PROTECTED_MEMBER,
+                            a_value_typecast->value_type->get_type_name(false, false).c_str(),
+                            member_name->c_str());
+                    }
+                }
+                else // if (member_info.member_decl_attribute->is_private_attr())
+                {
+                    lang_symbol* struct_symb = a_value_typecast->value_type->using_type_name->symbol;
+                    wo_assert(struct_symb != nullptr);
+                    wo_assert(struct_symb->type == lang_symbol::symbol_type::typing);
+
+                    if (a_value_typecast->source_file != struct_symb->defined_source())
+                    {
+                        lang_anylizer->lang_error(lexer::errorlevel::error, a_value_typecast, WO_ERR_UNACCABLE_PRIVATE_MEMBER,
+                            a_value_typecast->value_type->get_type_name(false, false).c_str(),
+                            member_name->c_str());
+                    }
+                }
+            }
         }
     }
     WO_PASS2(ast_value_type_judge)
@@ -2531,7 +2533,7 @@ namespace wo
                         }
                         else // if (fnd->second.member_decl_attribute->is_private_attr())
                         {
-                            if (a_value_make_struct_instance->source_file!= struct_symb->defined_source())
+                            if (a_value_make_struct_instance->source_file != struct_symb->defined_source())
                             {
                                 lang_anylizer->lang_error(lexer::errorlevel::error, membpair->member_value_pair,
                                     WO_ERR_UNACCABLE_PRIVATE_MEMBER,
