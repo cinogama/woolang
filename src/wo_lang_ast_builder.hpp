@@ -1169,8 +1169,6 @@ namespace wo
 
             uint16_t struct_offset = 0xFFFF;
 
-            lang_scope* this_op_belong_scope = nullptr;
-
             ast_value_index() :ast_value(new ast_type(WO_PSTR(pending)))
             {
             }
