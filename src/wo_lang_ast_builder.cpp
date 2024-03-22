@@ -962,7 +962,7 @@ namespace wo
             if (is_constant)
                 return;
 
-            _be_cast_value_node->update_constant_value(lex);
+            _be_cast_value_node->eval_constant_value(lex);
 
             if (!_be_cast_value_node->value_type->is_pending() && !value_type->is_pending())
             {
@@ -1039,7 +1039,7 @@ namespace wo
             if (is_constant)
                 return;
 
-            _be_cast_value_node->update_constant_value(lex);
+            _be_cast_value_node->eval_constant_value(lex);
             if (!_be_cast_value_node->value_type->is_pending() && _be_cast_value_node->is_constant)
             {
                 if (value_type->accept_type(_be_cast_value_node->value_type, false, true))
@@ -1185,8 +1185,8 @@ namespace wo
             if (is_constant)
                 return;
 
-            left->update_constant_value(lex);
-            right->update_constant_value(lex);
+            left->eval_constant_value(lex);
+            right->eval_constant_value(lex);
 
             // if left/right is custom, donot calculate them 
             if (!left->value_type->is_builtin_basic_type()
@@ -1448,7 +1448,7 @@ namespace wo
                 vbin->left = left;
                 vbin->operate = lex_type::l_add;
                 vbin->right = cast_right;
-                vbin->update_constant_value(&lex);
+                vbin->eval_constant_value(&lex);
 
                 auto* origin_list = dynamic_cast<ast_value*>(WO_NEED_AST(0));
 
@@ -1458,7 +1458,7 @@ namespace wo
                 vbinresult->left = origin_list;
                 vbinresult->operate = lex_type::l_add;
                 vbinresult->right = vbin;
-                vbinresult->update_constant_value(&lex);
+                vbinresult->eval_constant_value(&lex);
                 return (ast_basic*)vbinresult;
             }
         }
@@ -2044,8 +2044,8 @@ namespace wo
             if (is_constant)
                 return;
 
-            left->update_constant_value(lex);
-            right->update_constant_value(lex);
+            left->eval_constant_value(lex);
+            right->eval_constant_value(lex);
 
             if (!left->value_type->is_same(right->value_type, true))
                 return;
