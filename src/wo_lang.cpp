@@ -396,7 +396,7 @@ namespace wo
         if (ast_value_check->aim_type->is_pure_pending())
             lang_anylizer->end_trying_block();
 
-        ast_value_check->update_constant_value(lang_anylizer);
+        ast_value_check->eval_constant_value(lang_anylizer);
     }
     WO_PASS1(ast_value_function_define)
     {
@@ -1044,7 +1044,7 @@ namespace wo
                     a_value_trib_expr->value_type->set_type(a_value_trib_expr->val_or->value_type);
             }
 
-            a_value_trib_expr->judge_expr->update_constant_value(lang_anylizer);
+            a_value_trib_expr->judge_expr->eval_constant_value(lang_anylizer);
         }
         else
         {
@@ -1423,7 +1423,7 @@ namespace wo
         {
             analyze_pass2(val);
 
-            val->update_constant_value(lang_anylizer);
+            val->eval_constant_value(lang_anylizer);
             if (!val->is_constant)
             {
                 a_where_constraint->unmatched_constraint.push_back(
@@ -1723,7 +1723,7 @@ namespace wo
                 );
             }
 
-            a_value_type_check->update_constant_value(lang_anylizer);
+            a_value_type_check->eval_constant_value(lang_anylizer);
         }
     }
     WO_PASS2(ast_value_index)
@@ -2592,7 +2592,7 @@ namespace wo
                 a_value_trib_expr->value_type->set_type(a_value_trib_expr->val_or->value_type);
             }
 
-            a_value_trib_expr->judge_expr->update_constant_value(lang_anylizer);
+            a_value_trib_expr->judge_expr->eval_constant_value(lang_anylizer);
         }
         else
         {
@@ -3712,18 +3712,12 @@ namespace wo
                 && !symbol->is_captured_variable
                 && symbol->decl == identifier_decl::IMMUTABLE)
             {
-                symbol->variable_value->update_constant_value(lex);
+                symbol->variable_value->eval_constant_value(lex);
                 if (symbol->variable_value->is_constant)
                 {
                     is_constant = true;
                     symbol->is_constexpr = true;
-                    if (symbol->variable_value->get_constant_value().type == value::valuetype::string_type)
-                        constant_value.set_string_nogc(*symbol->variable_value->get_constant_value().string);
-                    else
-                    {
-                        constant_value = symbol->variable_value->get_constant_value();
-                        wo_assert(!constant_value.is_gcunit());
-                    }
+                    constant_value.set_val_compile_time(&symbol->variable_value->get_constant_value());
                 }
             }
         }
@@ -4716,7 +4710,7 @@ namespace wo
                         }
                     }
                 }
-                a_val->update_constant_value(lang_anylizer);
+                a_val->eval_constant_value(lang_anylizer);
             }
 
         }
@@ -5134,7 +5128,7 @@ namespace wo
 
         if (ast_value* a_value = dynamic_cast<ast_value*>(ast_node))
         {
-            a_value->update_constant_value(lang_anylizer);
+            a_value->eval_constant_value(lang_anylizer);
 
             if (ast_defines* a_defines = dynamic_cast<ast_defines*>(a_value);
                 a_defines && a_defines->is_template_define)
@@ -5188,7 +5182,7 @@ namespace wo
             }
             else
             {
-                a_value->update_constant_value(lang_anylizer);
+                a_value->eval_constant_value(lang_anylizer);
 
                 // some expr may set 'bool'/'char'..., it cannot used directly. update it.
                 if (a_value->value_type->is_builtin_using_type())
@@ -8045,7 +8039,7 @@ namespace wo
 
                 if (result->decl == identifier_decl::IMMUTABLE)
                 {
-                    result->variable_value->update_constant_value(lang_anylizer);
+                    result->variable_value->eval_constant_value(lang_anylizer);
                     if (result->variable_value->is_constant)
                         // Woolang 1.10.4: Constant variable not need to capture.
                         return result;

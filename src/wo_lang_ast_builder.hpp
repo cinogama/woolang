@@ -230,6 +230,7 @@ namespace wo
             ast_type* value_type = nullptr;
 
             bool can_be_assign = false;
+            bool is_evaling_constant = false;
 
             bool is_constant = false;
             wo::value constant_value = {};
@@ -246,8 +247,19 @@ namespace wo
         public:
             wo::value& get_constant_value();
         public:
-            virtual void update_constant_value(lexer* lex);
+            void eval_constant_value(lexer* lex)
+            {
+                if (is_evaling_constant)
+                    return;
+
+                is_evaling_constant = true;
+                update_constant_value(lex);
+                is_evaling_constant = false;
+
+            }
             ast::ast_base* instance(ast_base* child_instance = nullptr) const override;
+        private:
+            virtual void update_constant_value(lexer* lex);
         };
 
         struct ast_value_mutable : virtual public ast_value
@@ -265,7 +277,7 @@ namespace wo
                 if (is_constant)
                     return;
 
-                val->update_constant_value(lex);
+                val->eval_constant_value(lex);
 
                 if (val->is_constant)
                 {
@@ -399,7 +411,7 @@ namespace wo
                 if (is_constant)
                     return;
 
-                _be_check_value_node->update_constant_value(lex);
+                _be_check_value_node->eval_constant_value(lex);
 
                 if (!_be_check_value_node->value_type->is_pending() && !aim_type->is_pending())
                 {
@@ -1192,8 +1204,8 @@ namespace wo
                 if (is_constant)
                     return;
 
-                from->update_constant_value(lex);
-                index->update_constant_value(lex);
+                from->eval_constant_value(lex);
+                index->eval_constant_value(lex);
 
                 // if left/right is custom, donot calculate them 
                 if (!from->value_type->is_builtin_basic_type()
@@ -1348,7 +1360,7 @@ namespace wo
                 if (is_constant)
                     return;
 
-                val->update_constant_value(lex);
+                val->eval_constant_value(lex);
                 if (val->is_constant)
                 {
                     is_constant = true;
@@ -1920,12 +1932,12 @@ namespace wo
                 if (is_constant)
                     return;
 
-                judge_expr->update_constant_value(lex);
+                judge_expr->eval_constant_value(lex);
                 if (judge_expr->is_constant)
                 {
                     if (judge_expr->get_constant_value().integer)
                     {
-                        val_if_true->update_constant_value(lex);
+                        val_if_true->eval_constant_value(lex);
                         if (val_if_true->is_constant)
                         {
                             is_constant = true;
@@ -1934,7 +1946,7 @@ namespace wo
                     }
                     else
                     {
-                        val_or->update_constant_value(lex);
+                        val_or->eval_constant_value(lex);
                         if (val_or->is_constant)
                         {
                             is_constant = true;
@@ -2209,7 +2221,7 @@ namespace wo
                 vbin->operate = _token.type;
                 vbin->val = right_v;
 
-                vbin->update_constant_value(&lex);
+                vbin->eval_constant_value(&lex);
 
                 return (ast::ast_base*)vbin;
             }
@@ -2600,7 +2612,7 @@ namespace wo
                 if ((value_node = dynamic_cast<ast_value*>(WO_NEED_AST(0))) && (type_node = dynamic_cast<ast_type*>(WO_NEED_AST(1))))
                 {
                     ast_value_type_cast* typecast = new ast_value_type_cast(value_node, type_node);
-                    typecast->update_constant_value(&lex);
+                    typecast->eval_constant_value(&lex);
                     return (ast_basic*)typecast;
                 }
 
@@ -2659,7 +2671,7 @@ namespace wo
                     if ((type_node = dynamic_cast<ast_type*>(WO_NEED_AST(1))))
                     {
                         ast_value_type_check* checking_node = new ast_value_type_check(value_node, type_node);
-                        checking_node->update_constant_value(&lex);
+                        checking_node->eval_constant_value(&lex);
                         return (ast_basic*)checking_node;
                     }
                     return (ast_basic*)value_node;
@@ -2877,7 +2889,7 @@ namespace wo
                 vbin->operate = _token.type;
                 vbin->right = right_v;
 
-                vbin->update_constant_value(&lex);
+                vbin->eval_constant_value(&lex);
                 // In ast build pass, all left value's type cannot judge, so it was useless..
                 //vbin->value_type = result_type;
 
@@ -2971,7 +2983,7 @@ namespace wo
                         vbin->from = left_v;
                         vbin->index = right_v;
 
-                        vbin->update_constant_value(&lex);
+                        vbin->eval_constant_value(&lex);
 
                         return (ast::ast_base*)vbin;
                     }
@@ -2990,7 +3002,7 @@ namespace wo
                     vbin->from = left_v;
                     vbin->index = const_result;
 
-                    vbin->update_constant_value(&lex);
+                    vbin->eval_constant_value(&lex);
 
                     return (ast::ast_base*)vbin;
                 }
@@ -3266,7 +3278,7 @@ namespace wo
                 lmbin->operate = lex_type::l_add;
                 lmbin->right = middle;
 
-                lmbin->update_constant_value(&lex);
+                lmbin->eval_constant_value(&lex);
                 lmbin->copy_source_info(middle);
 
                 ast_value_binary* lmebin = new ast_value_binary();
@@ -3274,7 +3286,7 @@ namespace wo
                 lmebin->operate = lex_type::l_add;
                 lmebin->right = end;
 
-                lmebin->update_constant_value(&lex);
+                lmebin->eval_constant_value(&lex);
                 lmebin->copy_source_info(middle);
 
                 return (ast_basic*)lmebin;
