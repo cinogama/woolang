@@ -49,6 +49,20 @@ namespace wo
 
             } while (false);
         }
+        void set_dup_pin_value(wo_pin_value pin_value, value* val)
+        {
+            auto* v = std::launder(reinterpret_cast<value*>(pin_value));
+
+            if (gc::gc_is_marking())
+                gcbase::write_barrier(v);
+
+            do
+            {
+                std::shared_lock g1(_pin_value_list_mx);
+                v->set_dup(val);
+
+            } while (false);
+        }
         void close_pin_value(wo_pin_value pin_value)
         {
             auto* v = std::launder(reinterpret_cast<value*>(pin_value));

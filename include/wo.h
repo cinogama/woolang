@@ -509,8 +509,9 @@ typedef struct _wo_pin_value* wo_pin_value;
 
 WO_API wo_pin_value wo_create_pin_value(void);
 WO_API void         wo_close_pin_value(wo_pin_value pin_value);
-WO_API void         wo_set_pin_value(wo_pin_value pin_value, wo_value val);
-WO_API void         wo_read_pin_value(wo_value out_value, wo_pin_value pin_value);
+WO_API void         wo_pin_value_set(wo_pin_value pin_value, wo_value val);
+WO_API void         wo_pin_value_set_dup(wo_pin_value pin_value, wo_value val);
+WO_API void         wo_pin_value_get(wo_value out_value, wo_pin_value pin_value);
 
 #if defined(WO_IMPL)
 #define WO_NEED_RTERROR_CODES 1

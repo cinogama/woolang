@@ -2986,8 +2986,10 @@ wo_bool_t wo_result_get(wo_value out_val, wo_value resultval)
         wo_fail(WO_FAIL_TYPE_FAIL, "Unexpected value type.");
     else
     {
+        bool has = val->structs->m_values[0].integer == 1;
+
         wo_set_val(out_val, CS_VAL(&val->structs->m_values[1]));
-        return WO_CBOOL(val->structs->m_values[0].integer == 1);
+        return WO_CBOOL(has);
     }
     return WO_FALSE;
 }
@@ -3778,17 +3780,21 @@ wo_pin_value wo_create_pin_value(void)
     wo_pin_value v = wo::pin::create_pin_value();
     return v;
 }
-void wo_set_pin_value(wo_pin_value pin_value, wo_value val)
+void wo_pin_value_set(wo_pin_value pin_value, wo_value val)
 {
     wo::pin::set_pin_value(pin_value, WO_VAL(val));
+}
+void wo_pin_value_set_dup(wo_pin_value pin_value, wo_value val)
+{
+    wo::pin::set_dup_pin_value(pin_value, WO_VAL(val));
+}
+void wo_pin_value_get(wo_value out_value, wo_pin_value pin_value)
+{
+    wo::pin::read_pin_value(WO_VAL(out_value), pin_value);
 }
 void wo_close_pin_value(wo_pin_value pin_value)
 {
     wo::pin::close_pin_value(pin_value);
-}
-void wo_read_pin_value(wo_value out_value, wo_pin_value pin_value)
-{
-    wo::pin::read_pin_value(WO_VAL(out_value), pin_value);
 }
 
 wo_size_t wo_vaarg_count(wo_vm vm)
