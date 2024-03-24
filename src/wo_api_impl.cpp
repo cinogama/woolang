@@ -3773,9 +3773,14 @@ wo_bool_t wo_execute(wo_string_t src, wo_execute_callback_ft callback, void* dat
     return is_succ;
 }
 
-wo_pin_value wo_create_pin_value(wo_value init_value)
+wo_pin_value wo_create_pin_value(void)
 {
-    return wo::pin::create_pin_value(WO_VAL(init_value));
+    wo_pin_value v = wo::pin::create_pin_value();
+    return v;
+}
+void wo_set_pin_value(wo_pin_value pin_value, wo_value val)
+{
+    wo::pin::set_pin_value(pin_value, WO_VAL(val));
 }
 void wo_close_pin_value(wo_pin_value pin_value)
 {

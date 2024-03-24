@@ -436,7 +436,7 @@ thread          vm              <id>          Continue and break at specified vm
                                 printf("%-20s", "PatternMatch(PM)");
                                 break;
                             case wo::opnum::reg::spreg::tp:
-                                printf("%-20s", "Template(TP)");
+                                printf("%-20s", "Temporary(TP)");
                                 break;
                             default:
                                 printf("%-20s", "---");

@@ -18,31 +18,54 @@ namespace wo
 {
     namespace pin
     {
-        std::mutex _pin_value_list_mx;
+        std::shared_mutex _pin_value_list_mx;
         std::unordered_set<value*> _pin_value_list;
 
-        wo_pin_value create_pin_value(value* init_value)
+        wo_pin_value create_pin_value()
         {
             value* v = new value;
+            v->set_nil();
 
-            std::lock_guard g1(_pin_value_list_mx);
-            v->set_val(init_value);
-            _pin_value_list.insert(v);
+            do
+            {
+                std::lock_guard g1(_pin_value_list_mx);
+                _pin_value_list.insert(v);
+
+            } while (false);
 
             return reinterpret_cast<wo_pin_value>(v);
         }
+        void set_pin_value(wo_pin_value pin_value, value* val)
+        {
+            auto* v = std::launder(reinterpret_cast<value*>(pin_value));
+
+            if (gc::gc_is_marking())
+                gcbase::write_barrier(v);
+
+            do
+            {
+                std::shared_lock g1(_pin_value_list_mx);
+                v->set_val(val);
+
+            } while (false);
+        }
         void close_pin_value(wo_pin_value pin_value)
         {
-            auto* v = reinterpret_cast<value*>(pin_value);
+            auto* v = std::launder(reinterpret_cast<value*>(pin_value));
 
-            std::lock_guard g1(_pin_value_list_mx);
-            _pin_value_list.erase(v);
+            do
+            {
+                std::lock_guard g1(_pin_value_list_mx);
+                _pin_value_list.erase(v);
+            
+            } while (false);
 
             delete v;
         }
         void read_pin_value(value* out_value, wo_pin_value pin_value)
         {
-            out_value->set_val(reinterpret_cast<value*>(pin_value));
+            auto* v = std::launder(reinterpret_cast<value*>(pin_value));
+            out_value->set_val(v);
         }
     }
 
@@ -347,8 +370,6 @@ namespace wo
 
         bool _gc_work_list(bool stopworld, bool fullgc)
         {
-            std::lock_guard g1(pin::_pin_value_list_mx);
-
             // Pick all gcunit before 1st mark begin.
             // It means all unit alloced when marking will be skiped to free.
             std::vector<vmbase*> gc_marking_vmlist, self_marking_vmlist, time_out_vmlist;
@@ -457,12 +478,18 @@ namespace wo
                 _gc_mark_thread_groups::instancce().launch_round_of_mark();
 
                 // 4. Mark all pin-value
-                for (auto* pin_value : pin::_pin_value_list)
+                do
                 {
-                    gcbase::unit_attrib* attr;
-                    if (gcbase* gcunit_address = pin_value->get_gcunit_with_barrier(&attr))
-                        gc_mark_unit_as_gray(&mem_gray_list, gcunit_address, attr);
-                }
+                    std::lock_guard g1(pin::_pin_value_list_mx);
+
+                    for (auto* pin_value : pin::_pin_value_list)
+                    {
+                        gcbase::unit_attrib* attr;
+                        if (gcbase* gcunit_address = pin_value->get_gcunit_with_barrier(&attr))
+                            gc_mark_unit_as_gray(&mem_gray_list, gcunit_address, attr);
+                    }
+
+                } while (false);
 
                 // 5. Wake up all hanged vm.
                 if (!stopworld)
