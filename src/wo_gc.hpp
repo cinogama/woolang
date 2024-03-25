@@ -20,7 +20,9 @@ namespace wo
 
     namespace pin
     {
-        wo_pin_value create_pin_value(value* init_value);
+        wo_pin_value create_pin_value();
+        void set_pin_value(wo_pin_value pin_value, value* val);
+        void set_dup_pin_value(wo_pin_value pin_value, value* val);
         void close_pin_value(wo_pin_value pin_value);
         void read_pin_value(value* out_value, wo_pin_value pin_value);
     }
