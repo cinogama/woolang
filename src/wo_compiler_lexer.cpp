@@ -197,7 +197,8 @@ namespace wo
 
                     if (result == nullptr)
                         lex_error(wo::lexer::errorlevel::error, WO_ERR_FAILED_TO_RUN_MACRO_CONTROLOR,
-                            fnd->second->macro_name.c_str(), wo_get_runtime_error(fnd->second->_macro_action_vm));
+                            fnd->second->macro_name.c_str(), 
+                            wo::str_to_wstr(wo_get_runtime_error(fnd->second->_macro_action_vm)).c_str());
                     else
                     {
                         std::string result_content_vfile =
