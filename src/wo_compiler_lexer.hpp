@@ -244,6 +244,7 @@ namespace wo
             {L"[",      {lex_type::l_index_begin}},
             {L"]",      {lex_type::l_index_end}},
             {L"->",     {lex_type::l_direct }},
+            {L"|>",     {lex_type::l_direct }},
             {L"<|",     {lex_type::l_inv_direct}},
             {L"=>",     {lex_type::l_function_result }},
             {L"=>>",    {lex_type::l_bind_monad }},
