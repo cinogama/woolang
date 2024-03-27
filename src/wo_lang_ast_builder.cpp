@@ -2285,6 +2285,8 @@ namespace wo
             _registed_builder_function_id_list[meta::type_hash<pass_array_builder>] = _register_builder<pass_array_builder>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_function_call>] = _register_builder<pass_function_call>();
+            _registed_builder_function_id_list[meta::type_hash<pass_function_inv_call>] = _register_builder<pass_function_inv_call>();
+            _registed_builder_function_id_list[meta::type_hash<pass_function_inv_call2>] = _register_builder<pass_function_inv_call2>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_return>] = _register_builder<pass_return>();
 

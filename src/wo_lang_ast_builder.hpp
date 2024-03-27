@@ -39,7 +39,7 @@ namespace wo
             virtual ~astnode_builder() = default;
             static grammar::produce build(lexer& lex, inputs_t& input)
             {
-                wo_test(false, "");
+                wo_assert(false, "");
                 return nullptr;
             }
         };
@@ -59,13 +59,13 @@ namespace wo
         size_t index()
         {
             size_t idx = _registed_builder_function_id_list[meta::type_hash<T>];
-            wo_test(idx != 0);
+            wo_assert(idx != 0);
             return idx;
         }
 
         inline astnode_builder::builder_func_t get_builder(size_t idx)
         {
-            wo_test(idx != 0);
+            wo_assert(idx != 0);
             return _registed_builder_function[idx - 1];
         }
 #endif
@@ -120,7 +120,7 @@ namespace wo
 
             struct struct_offset
             {
-                ast_type*           member_type = nullptr;
+                ast_type* member_type = nullptr;
                 uint16_t            offset = (uint16_t)0xFFFF;
 
                 ast_decl_attribute* member_decl_attribute = nullptr;
@@ -845,7 +845,7 @@ namespace wo
                 WO_REINSTANCE(dumm->argument_list);
                 WO_REINSTANCE(dumm->in_function_sentence);
                 WO_REINSTANCE(dumm->where_constraint);
-                
+
                 // ISSUE 1.13: externed_func_info should not be re-instance here.
                 //              just copy it.
                 // WO_REINSTANCE(dumm->externed_func_info);
@@ -1023,7 +1023,7 @@ namespace wo
             ast_sentence_block(ast_list* sentences)
                 : sentence_list(sentences)
             {
-                wo_test(sentence_list);
+                wo_assert(sentence_list);
             }
 
             static ast_sentence_block* fast_parse_sentenceblock(ast::ast_base* ast)
@@ -1080,7 +1080,7 @@ namespace wo
             ast_if(ast_value* jdg, ast_base* exe_true, ast_base* exe_else)
                 : judgement_value(jdg), execute_if_true(exe_true), execute_else(exe_else)
             {
-                wo_test(judgement_value && execute_if_true);
+                wo_assert(judgement_value && execute_if_true);
             }
 
             ast_if() {}
@@ -1982,7 +1982,7 @@ namespace wo
         {
             static grammar::produce build(lexer& lex, inputs_t& input)
             {
-                wo_test(input.size() > pass_idx);
+                wo_assert(input.size() > pass_idx);
                 return input[pass_idx];
             }
         };
@@ -2055,7 +2055,7 @@ namespace wo
                 auto att = new ast_decl_attribute;
                 if (ast_empty::is_empty(input[0]) == false)
                     att->add_attribute(&lex, dynamic_cast<ast_token*>(WO_NEED_AST(0))->tokens.type);
-                
+
                 return (ast_basic*)att;
             }
         };
@@ -2209,13 +2209,13 @@ namespace wo
         {
             static grammar::produce build(lexer& lex, inputs_t& input)
             {
-                wo_test(input.size() == 2);
+                wo_assert(input.size() == 2);
 
                 token _token = WO_NEED_TOKEN(0);
                 ast_value* right_v = dynamic_cast<ast_value*>(WO_NEED_AST(1));
 
-                wo_test(right_v);
-                wo_test(lexer::lex_is_operate_type(_token.type) && (_token.type == lex_type::l_lnot || _token.type == lex_type::l_sub));
+                wo_assert(right_v);
+                wo_assert(lexer::lex_is_operate_type(_token.type) && (_token.type == lex_type::l_lnot || _token.type == lex_type::l_sub));
 
                 ast_value_unary* vbin = new ast_value_unary();
                 vbin->operate = _token.type;
@@ -2236,7 +2236,7 @@ namespace wo
         {
             static grammar::produce build(lexer& lex, inputs_t& input)
             {
-                wo_test(input.size() == 3);
+                wo_assert(input.size() == 3);
                 // [x] = x
 
                 // Check 
@@ -2259,7 +2259,7 @@ namespace wo
         {
             static grammar::produce build(lexer& lex, inputs_t& input)
             {
-                wo_test(input.size() == 2 || input.size() == 3);
+                wo_assert(input.size() == 2 || input.size() == 3);
 
                 if (input.size() == 2)
                 {
@@ -2306,7 +2306,7 @@ namespace wo
                         wo_assert(extern_attribs != nullptr);
                     }
                 }
-                else 
+                else
                 {
                     wo_assert(input.size() == 7);
 
@@ -2352,7 +2352,7 @@ namespace wo
         {
             static grammar::produce build(lexer& lex, inputs_t& input)
             {
-                wo_test(input.size() == 5);
+                wo_assert(input.size() == 5);
                 return (ast::ast_base*)new ast_while(dynamic_cast<ast_value*>(WO_NEED_AST(2)), WO_NEED_AST(4));
             }
         };
@@ -2361,7 +2361,7 @@ namespace wo
         {
             static grammar::produce build(lexer& lex, inputs_t& input)
             {
-                wo_test(input.size() == 6);
+                wo_assert(input.size() == 6);
                 if (ast_empty::is_empty(input[5]))
                     return (ast::ast_base*)new ast_if(dynamic_cast<ast_value*>(WO_NEED_AST(2)), WO_NEED_AST(4), nullptr);
                 else
@@ -2374,7 +2374,7 @@ namespace wo
         {
             static grammar::produce build(lexer& lex, inputs_t& input)
             {
-                wo_test(input.size() > pass_idx);
+                wo_assert(input.size() > pass_idx);
                 return (ast::ast_base*)ast_sentence_block::fast_parse_sentenceblock(WO_NEED_AST(pass_idx));
             }
         };
@@ -2424,9 +2424,9 @@ namespace wo
         {
             static grammar::produce build(lexer& lex, inputs_t& input)
             {
-                wo_test(input.size() == 2);
-
                 auto* result = new ast_value_funccall;
+
+                wo_assert(input.size() == 2);
 
                 result->arguments = dynamic_cast<ast_list*>(WO_NEED_AST(1));
 
@@ -2442,17 +2442,75 @@ namespace wo
             }
         };
 
+        struct pass_function_inv_call : public astnode_builder
+        {
+            static grammar::produce build(lexer& lex, inputs_t& input)
+            {
+                wo_assert(input.size() == 3);
+
+                auto* result = dynamic_cast<ast_value_funccall*>(WO_NEED_AST(0));
+
+                auto* from = dynamic_cast<ast_value*>(WO_NEED_AST(2));
+
+                if (result->directed_value_from == nullptr)
+                {
+                    result->directed_value_from = from;
+                    result->arguments->append_at_head(from);
+                }
+                else
+                {
+                    // Insert `from` after first argument
+                    result->arguments->remove_child(result->directed_value_from);
+
+                    result->arguments->append_at_head(from);
+                    result->arguments->append_at_head(result->directed_value_from);
+                }
+
+                return (ast_basic*)result;
+            }
+        };
+
+        struct pass_function_inv_call2 : public astnode_builder
+        {
+            static grammar::produce build(lexer& lex, inputs_t& input)
+            {
+                auto* result = new ast_value_funccall;
+
+                wo_assert(input.size() == 3);
+
+                result->arguments = new ast_list();
+                result->called_func = dynamic_cast<ast_value*>(WO_NEED_AST(0));
+
+                auto* from = dynamic_cast<ast_value*>(WO_NEED_AST(2));
+
+                result->arguments->append_at_head(from);
+                result->directed_value_from = from;
+
+                return (ast_basic*)result;
+            }
+        };
+
         struct pass_directed_value_for_call : public astnode_builder
         {
             static grammar::produce build(lexer& lex, inputs_t& input)
             {
-                wo_test(input.size() == 3);
+                wo_assert(input.size() == 3);
 
                 auto* result = new ast_directed_values();
                 auto* from = dynamic_cast<ast_value*>(WO_NEED_AST(0));
                 auto* to = dynamic_cast<ast_value*>(WO_NEED_AST(2));
-                result->from = from;
-                result->direct_val = to;
+
+                if (WO_NEED_TOKEN(1).type == lex_type::l_direct)
+                {
+                    result->from = from;
+                    result->direct_val = to;
+                }
+                else
+                {
+                    wo_assert(WO_NEED_TOKEN(1).type == lex_type::l_inv_direct);
+                    result->from = to;
+                    result->direct_val = from;
+                }
 
                 return (ast_basic*)result;
             }
@@ -2462,7 +2520,7 @@ namespace wo
         {
             static grammar::produce build(lexer& lex, inputs_t& input)
             {
-                wo_test(input.size() == 1);
+                wo_assert(input.size() == 1);
                 return (ast::ast_base*)new ast_value_literal(WO_NEED_TOKEN(0));
             }
         };
@@ -2472,7 +2530,7 @@ namespace wo
             static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 // typeid :< TYPE >
-                wo_test(input.size() == 4);
+                wo_assert(input.size() == 4);
                 auto* typeid_expr = new ast_value_typeid;
                 typeid_expr->type = dynamic_cast<ast_type*>(WO_NEED_AST(2));
                 wo_assert(typeid_expr->type != nullptr);
@@ -2490,11 +2548,11 @@ namespace wo
         {
             static grammar::produce build(lexer& lex, inputs_t& input)
             {
-                wo_test(input.size() == 4);
+                wo_assert(input.size() == 4);
                 ast_varref_defines* result = new ast_varref_defines;
 
                 ast_value* init_val = dynamic_cast<ast_value*>(WO_NEED_AST(3));
-                wo_test(init_val);
+                wo_assert(init_val);
 
                 auto* define_varref = dynamic_cast<ast_pattern_base*>(WO_NEED_AST(0));
                 wo_assert(define_varref);
@@ -2525,11 +2583,11 @@ namespace wo
         {
             static grammar::produce build(lexer& lex, inputs_t& input)
             {
-                wo_test(input.size() == 6);
+                wo_assert(input.size() == 6);
                 ast_varref_defines* result = dynamic_cast<ast_varref_defines*>(WO_NEED_AST(0));
 
                 ast_value* init_val = dynamic_cast<ast_value*>(WO_NEED_AST(5));
-                wo_test(result && init_val);
+                wo_assert(result && init_val);
 
                 auto* define_varref = dynamic_cast<ast_pattern_base*>(WO_NEED_AST(2));
                 wo_assert(define_varref);
@@ -2559,9 +2617,9 @@ namespace wo
         {
             static grammar::produce build(lexer& lex, inputs_t& input)
             {
-                wo_test(input.size() == 3);
+                wo_assert(input.size() == 3);
                 ast_varref_defines* result = dynamic_cast<ast_varref_defines*>(WO_NEED_AST(2));
-                wo_test(result);
+                wo_assert(result);
 
                 result->declear_attribute = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(0));
                 wo_assert(result->declear_attribute);
@@ -2573,9 +2631,9 @@ namespace wo
         {
             static grammar::produce build(lexer& lex, inputs_t& input)
             {
-                wo_test(input.size() == 2);
+                wo_assert(input.size() == 2);
                 ast_varref_defines* result = dynamic_cast<ast_varref_defines*>(WO_NEED_AST(1));
-                wo_test(result);
+                wo_assert(result);
 
                 result->declear_attribute = new ast_decl_attribute();
 
@@ -2587,7 +2645,7 @@ namespace wo
         {
             static grammar::produce build(lexer& lex, inputs_t& input)
             {
-                wo_test(input.size() == 2);
+                wo_assert(input.size() == 2);
 
                 token tk = WO_NEED_TOKEN(1);
 
@@ -2605,7 +2663,7 @@ namespace wo
         {
             static grammar::produce build(lexer& lex, inputs_t& input)
             {
-                wo_test(input.size() == 2);
+                wo_assert(input.size() == 2);
 
                 ast_value* value_node;
                 ast_type* type_node;
@@ -2642,7 +2700,7 @@ namespace wo
 
             static grammar::produce build(lexer& lex, inputs_t& input)
             {
-                wo_test(input.size() == 2);
+                wo_assert(input.size() == 2);
 
                 ast_value* value_node;
                 ast_type* type_node;
@@ -2662,7 +2720,7 @@ namespace wo
         {
             static grammar::produce build(lexer& lex, inputs_t& input)
             {
-                wo_test(input.size() == 2);
+                wo_assert(input.size() == 2);
 
                 ast_value* value_node;
                 ast_type* type_node;
@@ -2686,11 +2744,11 @@ namespace wo
         {
             static grammar::produce build(lexer& lex, inputs_t& input)
             {
-                wo_test(input.size() == 1);
+                wo_assert(input.size() == 1);
 
                 token tk = WO_NEED_TOKEN(0);
 
-                wo_test(tk.type == lex_type::l_identifier);
+                wo_assert(tk.type == lex_type::l_identifier);
                 return (ast::ast_base*)new ast_value_variable(wstring_pool::get_pstr(tk.identifier));
             }
         };
@@ -2699,7 +2757,7 @@ namespace wo
         {
             static grammar::produce build(lexer& lex, inputs_t& input)
             {
-                wo_test(input.size() == 3);
+                wo_assert(input.size() == 3);
 
                 token tk = WO_NEED_TOKEN(1);
                 ast_value_variable* result = dynamic_cast<ast_value_variable*>(WO_NEED_AST(2));
@@ -2741,7 +2799,7 @@ namespace wo
         {
             static grammar::produce build(lexer& lex, inputs_t& input)
             {
-                wo_test(input.size() == 2);
+                wo_assert(input.size() == 2);
 
                 if (WO_IS_TOKEN(0))
                 {
@@ -2775,11 +2833,11 @@ namespace wo
         {
             static grammar::produce build(lexer& lex, inputs_t& input)
             {
-                wo_test(input.size() == 2);
+                wo_assert(input.size() == 2);
 
                 token tk = WO_NEED_TOKEN(1);
 
-                wo_test(tk.type == lex_type::l_identifier);
+                wo_assert(tk.type == lex_type::l_identifier);
 
                 return (ast::ast_base*)new ast_value_variable(wstring_pool::get_pstr(tk.identifier));
             }
@@ -2790,7 +2848,7 @@ namespace wo
         {
             static grammar::produce build(lexer& lex, inputs_t& input)
             {
-                wo_test(first_node < input.size());
+                wo_assert(first_node < input.size());
 
                 ast_list* result = new ast_list();
                 if (ast_empty::is_empty(input[first_node]))
@@ -2808,7 +2866,7 @@ namespace wo
         {
             static grammar::produce build(lexer& lex, inputs_t& input)
             {
-                wo_test(input.size() > std::max(from, to_list));
+                wo_assert(input.size() > std::max(from, to_list));
 
                 ast_list* list = dynamic_cast<ast_list*>(WO_NEED_AST(to_list));
                 if (list)
@@ -2872,14 +2930,14 @@ namespace wo
         {
             static grammar::produce build(lexer& lex, inputs_t& input)
             {
-                wo_test(input.size() >= 3);
+                wo_assert(input.size() >= 3);
 
                 ast_value* left_v = dynamic_cast<ast_value*>(WO_NEED_AST(0));
                 ast_value* right_v = dynamic_cast<ast_value*>(WO_NEED_AST(2));
-                wo_test(left_v && right_v);
+                wo_assert(left_v && right_v);
 
                 token _token = WO_NEED_TOKEN(1);
-                wo_test(lexer::lex_is_operate_type(_token.type));
+                wo_assert(lexer::lex_is_operate_type(_token.type));
 
                 // calc type upgrade
 
@@ -2901,14 +2959,14 @@ namespace wo
         {
             static grammar::produce build(lexer& lex, inputs_t& input)
             {
-                wo_test(input.size() == 3);
+                wo_assert(input.size() == 3);
 
                 ast_value* left_v = dynamic_cast<ast_value*>(WO_NEED_AST(0));
                 ast_value* right_v = dynamic_cast<ast_value*>(WO_NEED_AST(2));
-                wo_test(left_v && right_v);
+                wo_assert(left_v && right_v);
 
                 token _token = WO_NEED_TOKEN(1);
-                wo_test(lexer::lex_is_operate_type(_token.type));
+                wo_assert(lexer::lex_is_operate_type(_token.type));
 
                 if (left_v->is_constant)
                     return token{ lex.parser_error(lexer::errorlevel::error, WO_ERR_CANNOT_ASSIGN_TO_CONSTANT) };
@@ -2941,14 +2999,14 @@ namespace wo
             {
                 // TODO Do optmize, like pass_binary_op
 
-                wo_test(input.size() >= 3);
+                wo_assert(input.size() >= 3);
 
                 ast_value* left_v = dynamic_cast<ast_value*>(WO_NEED_AST(0));
                 ast_value* right_v = dynamic_cast<ast_value*>(WO_NEED_AST(2));
-                wo_test(left_v && right_v);
+                wo_assert(left_v && right_v);
 
                 token _token = WO_NEED_TOKEN(1);
-                wo_test(lexer::lex_is_operate_type(_token.type));
+                wo_assert(lexer::lex_is_operate_type(_token.type));
 
                 ast_value_logical_binary* vbin = new ast_value_logical_binary();
                 vbin->left = left_v;
@@ -2963,7 +3021,7 @@ namespace wo
         {
             static grammar::produce build(lexer& lex, inputs_t& input)
             {
-                wo_test(input.size() >= 3);
+                wo_assert(input.size() >= 3);
 
                 ast_value* left_v = dynamic_cast<ast_value*>(WO_NEED_AST(0));
                 token _token = WO_NEED_TOKEN(1);
@@ -2971,7 +3029,7 @@ namespace wo
                 if (_token.type == lex_type::l_index_begin)
                 {
                     ast_value* right_v = dynamic_cast<ast_value*>(WO_NEED_AST(2));
-                    wo_test(left_v && right_v);
+                    wo_assert(left_v && right_v);
 
                     if (dynamic_cast<ast_value_packed_variadic_args*>(left_v))
                     {
@@ -2991,7 +3049,7 @@ namespace wo
                 else if (_token.type == lex_type::l_index_point)
                 {
                     ast_token* right_tk = dynamic_cast<ast_token*>(WO_NEED_AST(2));
-                    wo_test(right_tk != nullptr && left_v &&
+                    wo_assert(right_tk != nullptr && left_v &&
                         (right_tk->tokens.type == lex_type::l_identifier ||
                             right_tk->tokens.type == lex_type::l_literal_integer));
 
@@ -3016,7 +3074,7 @@ namespace wo
         {
             static grammar::produce build(lexer& lex, inputs_t& input)
             {
-                wo_test(input.size() == 3);
+                wo_assert(input.size() == 3);
 
                 ast_type* result = nullptr;
                 auto* function_ret_type = dynamic_cast<ast_type*>(WO_NEED_AST(2));
@@ -3037,7 +3095,7 @@ namespace wo
                     else
                     {
                         auto* tktype = dynamic_cast<ast_token*>(child);
-                        wo_test(child->sibling == nullptr && tktype && tktype->tokens.type == lex_type::l_variadic_sign);
+                        wo_assert(child->sibling == nullptr && tktype && tktype->tokens.type == lex_type::l_variadic_sign);
                         //must be last elem..
 
                         result->set_as_variadic_arg_func();
@@ -3057,7 +3115,7 @@ namespace wo
                 ast_type* result = nullptr;
 
                 auto* scoping_type = dynamic_cast<ast_value_variable*>(WO_NEED_AST(0));
-                wo_test(scoping_type);
+                wo_assert(scoping_type);
                 result = new ast_type(scoping_type->var_name);
                 result->search_from_global_namespace = scoping_type->search_from_global_namespace;
                 result->scope_namespaces = scoping_type->scope_namespaces;
@@ -3074,7 +3132,7 @@ namespace wo
                     ast_list* template_arg_list = dynamic_cast<ast_list*>(WO_NEED_AST(1));
 
                     std::vector<ast_type*> template_args;
-                    wo_test(template_arg_list);
+                    wo_assert(template_arg_list);
                     ast_type* type = dynamic_cast<ast_type*>(template_arg_list->children);
                     while (type)
                     {
