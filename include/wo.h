@@ -709,7 +709,7 @@ enum _wo_opcode
                 //                                      psh same count of garbage value
     WO_POP = 3, // DRH: Opnum desc, DRL: Mode
                 // OPNUM: DRL = 1 ? RS/GLB : IMM_U16    If DRL == 1, Pop value fron stack and store it 
-                //                                      into`OPNUM` to . or move the stack pointer by 
+                //                                      into `OPNUM` . or move the stack pointer by 
                 //                                      `OPNUM` length, just like pop same times.
 
     WO_ADDI = 4,// DRH: Opnum1 desc, DRL: Opnum2 desc
