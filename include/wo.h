@@ -691,3 +691,325 @@ WO_FORCE_CAPI_END
                                                             Cinogama project.
                                                                 2024.3.15.
 */
+
+#if defined(WO_NEED_OPCODE_API)
+
+enum _wo_opcode
+{
+    /*
+      CODE VAL     DR-OPNUM-FORMAT                      DESCRIPTION
+    */
+    WO_NOP = 0, // DR: Byte count             
+                // OPNUM: None                          Donothing, and skip next `DR`(0~3) byte codes.
+    WO_MOV = 1, // DRH: Opnum1 desc, DRL: Opnum2 desc   
+                // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Move value from `OPNUM2` to `OPNUM1`.
+    WO_PSH = 2, // DRH: Opnum desc, DRL: Mode
+                // OPNUM: DRL = 1 ? RS/GLB : IMM_U16    If DRL == 1, Push `OPNUM` to stack. or move
+                //                                      the stack pointer by `OPNUM` length, just like
+                //                                      psh same count of garbage value
+    WO_POP = 3, // DRH: Opnum desc, DRL: Mode
+                // OPNUM: DRL = 1 ? RS/GLB : IMM_U16    If DRL == 1, Pop value fron stack and store it 
+                //                                      into`OPNUM` to . or move the stack pointer by 
+                //                                      `OPNUM` length, just like pop same times.
+
+    WO_ADDI = 4,// DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Add `OPNUM2` to `OPNUM1` and store the result
+                //                                      in `OPNUM1`. Operands should be integers
+    WO_SUBI = 5,// DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Subtract `OPNUM1` from `OPNUM2` and store the 
+                //                                      result in `OPNUM1`. Operands should be integers.
+    WO_MULI = 6,// DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Multiply `OPNUM1` by `OPNUM2` and store the 
+                //                                      result in `OPNUM1`. Operands should be integers.
+    WO_DIVI = 7,// DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Divide `OPNUM1` by `OPNUM2` and store the result
+                //                                      in `OPNUM1`. Operands should be integers.
+                //                                      ATTENTION: 
+                //                                          There is no check for division by zero and
+                //                                          division overflow in DIVI.
+    WO_MODI = 8,// DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Get the remainder of `OPNUM1` divided by `OPNUM2`
+                //                                      and store the result in `OPNUM1`. Operands should
+                //                                      be integers.
+                //                                      ATTENTION: 
+                //                                          There is no check for division by zero and
+                //                                          division overflow in MODI.
+
+    WO_ADDR = 9,// DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Add `OPNUM2` to `OPNUM1` and store the result
+                //                                      in `OPNUM1`. Operands should be reals.
+    WO_SUBR = 10,
+                // DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Subtract `OPNUM1` from `OPNUM2` and store the
+                //                                      result in `OPNUM1`. Operands should be reals.
+    WO_MULR = 11,
+                // DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Multiply `OPNUM1` by `OPNUM2` and store the
+                //                                      result in `OPNUM1`. Operands should be reals.
+    WO_DIVR = 12,
+                // DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Divide `OPNUM1` by `OPNUM2` and store the result
+                //                                      in `OPNUM1`. Operands should be reals.
+    WO_MODR = 13,
+                // DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Get the remainder of `OPNUM1` divided by `OPNUM2`
+                //                                      and store the result in `OPNUM1`. Operands should
+                //                                      be reals.
+
+    WO_ADDH = 14,
+                // DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Add `OPNUM2` to `OPNUM1` and store the result
+                //                                      in `OPNUM1`. Operands should be handles.
+    WO_SUBH = 15,
+                // DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Subtract `OPNUM1` from `OPNUM2` and store the
+                //                                      result in `OPNUM1`. Operands should be handles.
+
+    WO_ADDS = 16,
+                // DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Concatenate `OPNUM2` to `OPNUM1` and store the
+                //                                      result in `OPNUM1`. Operands should be strings.
+    
+    WO_IDARR = 17,
+                // DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Get the element of `OPNUM1` by index `OPNUM2`
+                //                                      and store the result in register(cr).
+    WO_SIDARR = 18,
+                // DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Set the element of `OPNUM1` by index `OPNUM2`
+                // OPNUM3: RS                           with the value of `OPNUM3`.
+
+    WO_IDDICT = 19,
+                // DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Get the value of `OPNUM2` by key `OPNUM2`
+                //                                      and store the result in register(cr).
+    WO_SIDICT = 20,
+                // DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Set the value of `OPNUM2` by key `OPNUM2`
+                // OPNUM3: RS                           with the value of `OPNUM3`. If the key is not
+                //                                      exist, a panic will be triggered.
+    WO_SIDMAP = 21,
+                // DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Set the value of `OPNUM2` by key `OPNUM2`
+                // OPNUM3: RS                           with the value of `OPNUM3`. 
+    WO_IDSTRUCT = 22,
+                // DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Get the field of `OPNUM2` by index `OPNUM3`
+                // OPNUM3: IMM_U16                      and store the result in `OPNUM1`.
+    WO_SIDSTRUCT = 23,
+                // DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Set the field of `OPNUM1` by index `OPNUM3`
+                // OPNUM3: IMM_U16                      with the value of `OPNUM2`.
+
+    WO_IDSTR = 24,
+                // DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Get the character of `OPNUM1` by index `OPNUM2`
+                //                                      and store the result in register(cr).
+
+    WO_LTI = 25,
+                // DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: IMM_U16      If `OPNUM1` less than `OPNUM2`, store true in 
+                //                                      register(cr), otherwise store false. Type of `OPNUM1`
+                //                                      & `OPNUM2` should be integer.
+    WO_GTI = 26,
+                // DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: IMM_U16      If `OPNUM1` greater than `OPNUM2`, store true in 
+                //                                      register(cr), otherwise store false. Type of `OPNUM1`
+                //                                      & `OPNUM2` should be integer.
+    WO_ELTI = 27,
+                // DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: IMM_U16      If `OPNUM1` less than or equal to `OPNUM2`, store
+                //                                      true in register(cr), otherwise store false. Type of 
+                //                                      `OPNUM1` & `OPNUM2` should be integer.
+    WO_EGTI = 28,
+                // DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: IMM_U16      If `OPNUM1` greater than or equal to `OPNUM2`, store
+                //                                      true in register(cr), otherwise store false. Type of 
+                //                                      `OPNUM1` & `OPNUM2` should be integer.
+
+    WO_LAND = 29,
+                // DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` and `OPNUM2` are true, store true in
+                //                                      register(cr), otherwise store false.
+    WO_LOR = 30,
+                // DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` or `OPNUM2` are true, store true in
+                //                                      register(cr), otherwise store false.
+
+    WO_LTX = 31,
+                // DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` less than `OPNUM2`, store true in
+                //                                      register(cr), otherwise store false. The type of `OPNUM1`
+                //                                      and `OPNUM2` should be the same.
+    WO_GTX = 32,
+                // DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` greater than `OPNUM2`, store true in
+                //                                      register(cr), otherwise store false. The type of `OPNUM1`
+                //                                      and `OPNUM2` should be the same.
+    WO_ELTX = 33,
+                // DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` less than or equal to `OPNUM2`, store
+                //                                      true in register(cr), otherwise store false. The type of
+                //                                      `OPNUM1` and `OPNUM2` should be the same.
+
+    WO_EGTX = 34,
+                // DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` greater than or equal to `OPNUM2`, store
+                //                                      true in register(cr), otherwise store false. The type of
+                //                                      `OPNUM1` and `OPNUM2` should be the same.
+
+    WO_LTR = 35,
+                // DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` less than `OPNUM2`, store true in
+                //                                      register(cr), otherwise store false. Type of `OPNUM1` &
+                //                                      `OPNUM2` should be real.
+    WO_GTR = 36,
+                // DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` greater than `OPNUM2`, store true in
+                //                                      register(cr), otherwise store false. Type of `OPNUM1` &
+                //                                      `OPNUM2` should be real.
+    WO_ELTR = 37,
+                // DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` less than or equal to `OPNUM2`, store
+                //                                      true in register(cr), otherwise store false. Type of 
+                //                                      `OPNUM1` & `OPNUM2` should be real.
+    WO_EGTR = 38,
+                // DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` greater than or equal to `OPNUM2`, store
+                //                                      true in register(cr), otherwise store false. Type of 
+                //                                      `OPNUM1` & `OPNUM2` should be real.
+
+    WO_EQUR = 39,
+                // DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` equal to `OPNUM2`, store true in register(cr),
+                //                                      otherwise store false. The type of `OPNUM1` and `OPNUM2`
+                //                                      should be real.
+
+    WO_NEQUR = 40,
+                // DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` not equal to `OPNUM2`, store true in register(cr),
+                //                                      otherwise store false. The type of `OPNUM1` and `OPNUM2`
+                //                                      should be real.
+    WO_EQUS = 41,
+                // DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` equal to `OPNUM2`, store true in register(cr),
+                //                                      otherwise store false. The type of `OPNUM1` and `OPNUM2`
+                //                                      should be string.
+    WO_NEQUS = 42,
+                // DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` not equal to `OPNUM2`, store true in register(cr),
+                //                                      otherwise store false. The type of `OPNUM1` and `OPNUM2`
+                //                                      should be string.
+    WO_EQUB = 43,
+                // DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` equal to `OPNUM2`, store true in register(cr),
+                //                                      otherwise store false. Only compare data field of value and 
+                //                                      ignore type.
+    WO_NEQUB = 44,
+                // DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` not equal to `OPNUM2`, store true in register(cr),
+                //                                      otherwise store false. Only compare data field of value and 
+                //                                      ignore type.
+
+    WO_JNEQUB = 45,
+                // DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: IMM_U16      If `OPNUM1` not equal to register(cr), jump to the instruction
+                //                                      at the address `OPNUM2`. the compare method just like WO_EQUB.
+
+    WO_CALL = 46,
+                // DRH: Opnum1 desc, DRL: ---
+                // OPNUM1: RS/GLB                       Push current bp & ip into stack, then:
+                //                                      * if `OPNUM1` is integer, jump to target instruction.
+                //                                      * if `OPNUM1` is handle, this is Woolang Native API Function. 
+                //                                          It will be invoked.
+                //                                     * if `OPNUM1` is closure, the captured variable will be expand
+                //                                          to stack, and the captured function will work following the
+                //                                          above rules
+
+    WO_CALLN = 47,
+                // DRH: Leaving invoke flag, DRL: Woolang Native API Function flag.
+                // OPNUM1: If DRL = 1 ? IMM_U64 : [IMM_U32 with 32bits padding]
+                //                                      Absolute address call, the `OPNUM1` is the address of the function
+                //                                      to be called. If DRL = 1, the function is a Woolang Native API 
+                //                                      Function. and in this case, if DRH = 1, the function will be 
+                //                                      invoked without gc-guard.
+                //                                      If DRL = 0, DRH must be 0, and invoke just like integer case in
+                //                                      WO_CALL.
+    WO_RET = 48,
+                // DRH: Pop flag, DRL: ---
+                // DRH = 1 ? OPNUM1: IMM_U16            Pop current bp & ip from stack, restore bp then jump to the address
+                //                                      of ip. If DRH = 1, pop `OPNUM1` values from stack. 
+    WO_JT = 49,
+                // DRH: ---, DRL: ---
+                // OPNUM1: IMM_U32                      Jump to the instruction at the address `OPNUM1` if register(cr)
+                //                                      is true.
+    WO_JF = 50,
+                // DRH: ---, DRL: ---
+                // OPNUM1: IMM_U32                      Jump to the instruction at the address `OPNUM1` if register(cr)
+                //                                      is false.
+    WO_JMP = 51,
+                // DRH: ---, DRL: ---
+                // OPNUM1: IMM_U32                      Jump to the instruction at the address `OPNUM1`.
+
+    WO_MKARR = 52,
+                // DRH: Opnum desc, DRL: ---
+                // OPNUM1: RS/GLB  OPNUM2: IMM_U16      Pop `OPNUM2` values from stack, Build an array.
+                //                                      The value in the stack should be:
+                //                                          SP-> [Elem N-1, Elem N-2, ..., Elem 0] -> BP
+    WO_MKMAP = 53,
+                // DRH: Opnum desc, DRL: ---
+                // OPNUM1: RS/GLB  OPNUM2: IMM_U16      Pop `OPNUM2` * 2 values from stack, Build a map.
+                //                                      The value in the stack should be:
+                //                                          SP-> [Value N-1, Key N-1, ..., Value 0, Key 0] -> BP
+    WO_MKSTRUCT = 54,
+                // DRH: Opnum desc, DRL: ---
+                // OPNUM1: RS/GLB  OPNUM2: IMM_U16      Pop `OPNUM2` values from stack, Build a struct.
+                //                                      The value in the stack should be:
+                //                                          SP-> [Field N-1, Field N-2, ..., Field 0] -> BP
+    WO_MKUNION = 55,
+                // DRH: Opnum desc, DRL: Opnum desc
+                // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Construct a struct of {+0: OPNUM3, +1: OPNUM2} and store the 
+                // OPNUM3: IMM_U16                      result in `OPNUM1`.
+    WO_MKCLOS = 56,
+                // DRH: Woolang Native API Function flag, DRL: 0
+                // OPNUM1: IMM_U16  OPNUM2: DRH = 1 ? IMM_U64 : [IMM_U32 with 32bits padding]
+                //                                      Pop `OPNUM1` values from stack, Build a closure for function 
+                //                                      `OPNUM2`.
+                //                                      The value in the stack should be:
+                //                                          SP-> [Captured N-1, Captured N-2, ..., Captured 0] -> BP
+                //                                      Captured 0 will be [bp - 1] when this closure is invoked.
+
+    WO_UPKARGS = 57,
+                // DRH: Opnum desc, DRL: ---
+                // OPNUM1: RS/GLB  OPNUM2: IMM_U32      Expand array/struct into stack, at least expand abs(OPNUM2).
+                //                                      * If OPNUM2 <= 0, expand count will be append into register(tc). 
+    WO_MOVCAST = 58,
+                // DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Move value from `OPNUM2` to `OPNUM1`, and cast the type
+                // OPNUM3: IMM_U8                       of `OPNUM2` to the type `OPNUM3`.
+    WO_TYPEAS = 59,
+                // DRH: Opnum1 desc, DRL: Mode flag
+                // OPNUM1: RS/GLB  OPNUM2: IMM_U8       Check if the type of `OPNUM1` is equal to `OPNUM2`, then:
+                //                                      * If DRL = 1, store true in register(cr) if equal, otherwise 
+                //                                          store false.
+                //                                      * If DRL = 0, a panic will be triggered if not equal.
+
+    WO_ABRT = 60,
+                // DRH: Mode flag, DRL: ---
+                // OPNUM: None                          Abort the virtual machine.
+                //                                      * If DRH = 1, vm will return from runing.
+                //                                      * If DRH = 0, debug command, an wo_error will be raise and
+                //                                          the process will be aborted.
+
+    WO_LDS = 61,
+                // DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Load value from [bp + `OPNUM2`] and store it in `OPNUM1`.
+    WO_STS = 62,
+                // DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Store value of `OPNUM1` to [bp + `OPNUM2`].
+    WO_EXT = 63,
+                // DR: Extern opcode type page
+                // OPNUM1: IMM_U8 ...                   Let vm execute extern opcode `OPNUM1` in `DR` page.
+}
+
+#endif

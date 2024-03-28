@@ -1383,19 +1383,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
                 uint16_t psh_repeat = WO_IPVAL_MOVE_2;
 
                 if (psh_repeat > 0)
-                {
-                    wo_assure(!ctx->c.sub(ctx->_vmssp, (psh_repeat - 1) * sizeof(value)));
-
-                    asmjit::InvokeNode* invoke_node;
-                    wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&memset,
-                        asmjit::FuncSignatureT<void, void*, int, size_t>()));
-
-                    invoke_node->setArg(0, ctx->_vmssp);
-                    invoke_node->setArg(1, asmjit::Imm(0));
-                    invoke_node->setArg(2, asmjit::Imm(psh_repeat * sizeof(value)));
-
-                    wo_assure(!ctx->c.sub(ctx->_vmssp, sizeof(value)));
-                }
+                    wo_assure(!ctx->c.sub(ctx->_vmssp, psh_repeat * sizeof(value)));
             }
             return true;
         }

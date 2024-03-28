@@ -1833,8 +1833,7 @@ namespace wo
                     else
                     {
                         uint16_t psh_repeat = WO_IPVAL_MOVE_2;
-                        for (uint32_t i = 0; i < psh_repeat; i++)
-                            (rt_sp--)->set_nil();
+                        rt_sp -= psh_repeat;
                     }
                     WO_VM_ASSERT(rt_sp <= rt_bp && rt_sp > (stack_mem_begin - stack_size), "Woolang vm stack overflow!");
                     break;
