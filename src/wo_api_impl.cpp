@@ -2243,12 +2243,12 @@ wo_bool_t wo_remove_virtual_file(wo_string_t filepath)
 
 wo_vm wo_create_vm()
 {
-    return CS_VM(new wo::vm);
+    return CS_VM(new wo::vm(wo::vmbase::vm_type::NORMAL));
 }
 
 wo_vm wo_sub_vm(wo_vm vm, wo_size_t stacksz)
 {
-    return CS_VM(WO_VM(vm)->make_machine(stacksz));
+    return CS_VM(WO_VM(vm)->make_machine(stacksz, wo::vmbase::vm_type::NORMAL));
 }
 
 wo_vm wo_gc_vm(wo_vm vm)

@@ -71,7 +71,7 @@ namespace wo
             {
                 std::lock_guard g1(_pin_value_list_mx);
                 _pin_value_list.erase(v);
-            
+
             } while (false);
 
             delete v;
@@ -662,18 +662,21 @@ namespace wo
 
                 for (auto* vmimpl : vmbase::_alive_vm_list)
                 {
-                    if (vmimpl->virtual_machine_type == vmbase::vm_type::GC_DESTRUCTOR
-                        && vmimpl->env->_running_on_vm_count == 1)
+                    if (auto env = vmimpl->env)
                     {
-                        // Assure vm's stack if empty
-                        wo_assert(vmimpl->sp == vmimpl->bp && vmimpl->bp == vmimpl->stack_mem_begin);
-
-                        // If there is no instance of gc-handle which may use library loaded in env,
-                        // then free the gc destructor vm.
-                        if (0 == vmimpl->env->_created_destructable_instance_count.load(
-                            std::memory_order::memory_order_relaxed))
+                        if (vmimpl->virtual_machine_type == vmbase::vm_type::GC_DESTRUCTOR
+                            && env->_running_on_vm_count == 1)
                         {
-                            need_destruct_gc_destructor_list.push_back(vmimpl);
+                            // Assure vm's stack if empty
+                            wo_assert(vmimpl->sp == vmimpl->bp && vmimpl->bp == vmimpl->stack_mem_begin);
+
+                            // If there is no instance of gc-handle which may use library loaded in env,
+                            // then free the gc destructor vm.
+                            if (0 == env->_created_destructable_instance_count.load(
+                                std::memory_order::memory_order_relaxed))
+                            {
+                                need_destruct_gc_destructor_list.push_back(vmimpl);
+                            }
                         }
                     }
                 }
@@ -926,7 +929,7 @@ namespace wo
 
         gc_destructed = true;
 #endif
-    };
+};
 }
 
 void wo_gc_immediately(wo_bool_t fullgc)

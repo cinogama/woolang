@@ -7,7 +7,7 @@
 
 namespace wo
 {
-    struct vmbase;
+    class vmbase;
     struct value;
 
     namespace gc
