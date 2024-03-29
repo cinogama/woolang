@@ -308,7 +308,7 @@ namespace wo
         {
             tagimm_rsfunc(const std::string& name)
                 : tag(name)
-                , imm<int>(0xFFFFFFFF)
+                , imm<int>(-1)
             {
 
             }
@@ -515,14 +515,51 @@ namespace wo
 
     class ir_compiler
     {
-        // IR COMPILER:
-        /*
-        *
-        */
-
         friend struct vmbase;
 
     private:
+        struct ir_param
+        {
+            enum type
+            {
+                OPCODE,
+
+                IMM_TAG,
+                IMM_U8,
+                IMM_U16,
+                IMM_U32,
+                IMM_U64,
+                IMM_8,
+                IMM_16,
+                IMM_32,
+                IMM_64,
+
+                GLOBAL,
+                CONSTANT,
+                REG,
+                BPOFFSET,
+                TAG,
+            };
+
+            type m_type;
+            union
+            {
+                struct
+                {
+                    instruct::opcode m_instruct;
+                    uint8_t m_dr;
+                };
+                opnum::opnumbase* m_opnum;
+                uint8_t m_immu8;
+                uint16_t m_immu16;
+                uint32_t m_immu32;
+                uint64_t m_immu64;
+                int8_t m_imm8;
+                int16_t m_imm16;
+                int32_t m_imm32;
+                int64_t m_imm64;
+            };
+        };
 
         struct ir_command
         {
@@ -551,7 +588,10 @@ namespace wo
 #undef WO_IS_REG
         };
 
-        cxx_vec_t<ir_command> ir_command_buffer;
+        // TODO: Use ir_param_buffer instead of ir_command_buffer
+        cxx_vec_t<ir_command>   ir_command_buffer;
+        cxx_vec_t<ir_param>     ir_param_buffer;
+
         std::map<size_t, cxx_vec_t<std::string>> tag_irbuffer_offset;
 
         runtime_env::extern_native_functions_t extern_native_functions;
@@ -1584,7 +1624,7 @@ namespace wo
         }
 
         template<typename OP1T>
-        void ext_packargs(const OP1T& op1, uint32_t thisfuncargc, uint16_t skipclosure)
+        void ext_packargs(const OP1T& op1, uint16_t thisfuncargc, uint16_t skipclosure)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value,
                 "Argument(s) should be opnum.");
@@ -1648,9 +1688,15 @@ namespace wo
             codeb.ext_page_id = 0;
             codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::cdivir;
         }
+
+        void _opcode(instruct::opcode code)
+        {
+            auto& codeb = WO_PUT_IR_TO_BUFFER(code);
+
+        }
+
 #undef WO_OPNUM
 #undef WO_PUT_IR_TO_BUFFER
-
         shared_pointer<runtime_env> finalize(size_t stacksz);
 
     };

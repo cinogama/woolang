@@ -1591,7 +1591,7 @@ namespace wo
 
             return rt_sp + size;
         }
-        inline static void packargs_impl(value* opnum1, uint32_t argcount, value* tc, value* rt_bp, uint16_t skip_closure_arg_count)
+        inline static void packargs_impl(value* opnum1, uint16_t argcount, value* tc, value* rt_bp, uint16_t skip_closure_arg_count)
         {
             auto* packed_array = array_t::gc_new<gcbase::gctype::young>();
             packed_array->resize((size_t)tc->integer - (size_t)argcount);
@@ -2775,7 +2775,7 @@ namespace wo
                         case instruct::extern_opcode_page_0::packargs:
                         {
                             WO_ADDRESSING_N1;
-                            uint32_t this_function_arg_count = WO_IPVAL_MOVE_4;
+                            uint16_t this_function_arg_count = WO_IPVAL_MOVE_2;
                             uint16_t skip_closure_arg_count = WO_IPVAL_MOVE_2;
 
                             packargs_impl(opnum1, this_function_arg_count, tc, rt_bp, skip_closure_arg_count);

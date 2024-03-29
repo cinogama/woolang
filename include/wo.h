@@ -517,6 +517,7 @@ WO_API void         wo_pin_value_get(wo_value out_value, wo_pin_value pin_value)
 #define WO_NEED_RTERROR_CODES 1
 #define WO_NEED_ANSI_CONTROL 1
 #define WO_NEED_LSP_API 1
+#define WO_NEED_OPCODE_API 1
 #endif
 
 #if defined(WO_NEED_LSP_API)
@@ -700,17 +701,17 @@ enum _wo_opcode
       CODE VAL     DR-OPNUM-FORMAT                      DESCRIPTION
     */
     WO_NOP = 0, // DR: Byte count             
-                // OPNUM: None                          Donothing, and skip next `DR`(0~3) byte codes.
+                // -- No OPNUM --                       Donothing, and skip next `DR`(0~3) byte codes.
     WO_MOV = 1, // DRH: Opnum1 desc, DRL: Opnum2 desc   
                 // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Move value from `OPNUM2` to `OPNUM1`.
-    WO_PSH = 2, // DRH: Opnum desc, DRL: Mode
-                // OPNUM: DRL = 1 ? RS/GLB : IMM_U16    If DRL == 1, Push `OPNUM` to stack. or move
-                //                                      the stack pointer by `OPNUM` length, just like
+    WO_PSH = 2, // DRH: Opnum1 desc, DRL: Mode
+                // OPNUM1: DRL = 1 ? RS/GLB : IMM_U16   If DRL == 1, Push `OPNUM1` to stack. or move
+                //                                      the stack pointer by `OPNUM1` length, just like
                 //                                      psh same count of garbage value
-    WO_POP = 3, // DRH: Opnum desc, DRL: Mode
-                // OPNUM: DRL = 1 ? RS/GLB : IMM_U16    If DRL == 1, Pop value fron stack and store it 
-                //                                      into `OPNUM` . or move the stack pointer by 
-                //                                      `OPNUM` length, just like pop same times.
+    WO_POP = 3, // DRH: Opnum1 desc, DRL: Mode
+                // OPNUM1: DRL = 1 ? RS/GLB : IMM_U16   If DRL == 1, Pop value fron stack and store it 
+                //                                      into `OPNUM1` . or move the stack pointer by 
+                //                                      `OPNUM1` length, just like pop same times.
 
     WO_ADDI = 4,// DRH: Opnum1 desc, DRL: Opnum2 desc
                 // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Add `OPNUM2` to `OPNUM1` and store the result
@@ -783,7 +784,7 @@ enum _wo_opcode
                 // DRH: Opnum1 desc, DRL: Opnum2 desc
                 // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Get the value of `OPNUM2` by key `OPNUM2`
                 //                                      and store the result in register(cr).
-    WO_SIDICT = 20,
+    WO_SIDDICT = 20,
                 // DRH: Opnum1 desc, DRL: Opnum2 desc
                 // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Set the value of `OPNUM2` by key `OPNUM2`
                 // OPNUM3: RS                           with the value of `OPNUM3`. If the key is not
@@ -917,7 +918,7 @@ enum _wo_opcode
                 //                                      at the address `OPNUM2`. the compare method just like WO_EQUB.
 
     WO_CALL = 46,
-                // DRH: Opnum1 desc, DRL: ---
+                // DRH: Opnum1 desc, DRL: 0
                 // OPNUM1: RS/GLB                       Push current bp & ip into stack, then:
                 //                                      * if `OPNUM1` is integer, jump to target instruction.
                 //                                      * if `OPNUM1` is handle, this is Woolang Native API Function. 
@@ -936,38 +937,38 @@ enum _wo_opcode
                 //                                      If DRL = 0, DRH must be 0, and invoke just like integer case in
                 //                                      WO_CALL.
     WO_RET = 48,
-                // DRH: Pop flag, DRL: ---
+                // DRH: Pop flag, DRL: 0
                 // DRH = 1 ? OPNUM1: IMM_U16            Pop current bp & ip from stack, restore bp then jump to the address
                 //                                      of ip. If DRH = 1, pop `OPNUM1` values from stack. 
     WO_JT = 49,
-                // DRH: ---, DRL: ---
+                // DRH: 0, DRL: 0
                 // OPNUM1: IMM_U32                      Jump to the instruction at the address `OPNUM1` if register(cr)
                 //                                      is true.
     WO_JF = 50,
-                // DRH: ---, DRL: ---
+                // DRH: 0, DRL: 0
                 // OPNUM1: IMM_U32                      Jump to the instruction at the address `OPNUM1` if register(cr)
                 //                                      is false.
     WO_JMP = 51,
-                // DRH: ---, DRL: ---
+                // DRH: 0, DRL: 0
                 // OPNUM1: IMM_U32                      Jump to the instruction at the address `OPNUM1`.
 
     WO_MKARR = 52,
-                // DRH: Opnum desc, DRL: ---
+                // DRH: Opnum1 desc, DRL: 0
                 // OPNUM1: RS/GLB  OPNUM2: IMM_U16      Pop `OPNUM2` values from stack, Build an array.
                 //                                      The value in the stack should be:
                 //                                          SP-> [Elem N-1, Elem N-2, ..., Elem 0] -> BP
     WO_MKMAP = 53,
-                // DRH: Opnum desc, DRL: ---
+                // DRH: Opnum1 desc, DRL: 0
                 // OPNUM1: RS/GLB  OPNUM2: IMM_U16      Pop `OPNUM2` * 2 values from stack, Build a map.
                 //                                      The value in the stack should be:
                 //                                          SP-> [Value N-1, Key N-1, ..., Value 0, Key 0] -> BP
     WO_MKSTRUCT = 54,
-                // DRH: Opnum desc, DRL: ---
+                // DRH: Opnum1 desc, DRL: 0
                 // OPNUM1: RS/GLB  OPNUM2: IMM_U16      Pop `OPNUM2` values from stack, Build a struct.
                 //                                      The value in the stack should be:
                 //                                          SP-> [Field N-1, Field N-2, ..., Field 0] -> BP
     WO_MKUNION = 55,
-                // DRH: Opnum desc, DRL: Opnum desc
+                // DRH: Opnum1 desc, DRL: Opnum2 desc
                 // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Construct a struct of {+0: OPNUM3, +1: OPNUM2} and store the 
                 // OPNUM3: IMM_U16                      result in `OPNUM1`.
     WO_MKCLOS = 56,
@@ -979,8 +980,8 @@ enum _wo_opcode
                 //                                          SP-> [Captured N-1, Captured N-2, ..., Captured 0] -> BP
                 //                                      Captured 0 will be [bp - 1] when this closure is invoked.
 
-    WO_UPKARGS = 57,
-                // DRH: Opnum desc, DRL: ---
+    WO_UNPACKARGS = 57,
+                // DRH: Opnum1 desc, DRL: 0
                 // OPNUM1: RS/GLB  OPNUM2: IMM_U32      Expand array/struct into stack, at least expand abs(OPNUM2).
                 //                                      * If OPNUM2 <= 0, expand count will be append into register(tc). 
     WO_MOVCAST = 58,
@@ -995,8 +996,8 @@ enum _wo_opcode
                 //                                      * If DRL = 0, a panic will be triggered if not equal.
 
     WO_ABRT = 60,
-                // DRH: Mode flag, DRL: ---
-                // OPNUM: None                          Abort the virtual machine.
+                // DRH: Mode flag, DRL: 0
+                // -- No OPNUM --                       Abort the virtual machine.
                 //                                      * If DRH = 1, vm will return from runing.
                 //                                      * If DRH = 0, debug command, an wo_error will be raise and
                 //                                          the process will be aborted.
@@ -1010,6 +1011,76 @@ enum _wo_opcode
     WO_EXT = 63,
                 // DR: Extern opcode type page
                 // OPNUM1: IMM_U8 ...                   Let vm execute extern opcode `OPNUM1` in `DR` page.
-}
+};
+
+enum _wo_opcode_ext0
+{
+    WO_PANIC = 0,
+                // DRH: Panic type, DRL: 0
+                // OPNUM1: RS/GLB                       Trigger a panic with message `OPNUM1`.
+    WO_PACKARGS = 1,
+                // DRH: Opnum1 desc, DRL: 0
+                // OPNUM1: RS/GLB  OPNUM2: IMM_U16      Collect arguments from [bp + 2 + OPNUM2 + OPNUM3] to 
+                // OPNUM3: IMM_U16                      [bp + 2 + tc + OPNUM3 - 1], and store them into an array,
+                //                                      then store the result into `OPNUM1`.
+    WO_CDIVILR = 2,
+                // DRH: Opnum1 desc, DRL: Opnum2 desc
+                // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Trigger a panic when:
+                //                                      * OPNUM2 == 0 
+                //                                      * OPNUM1 == INT64_MIN and OPNUM2 == -1
+    WO_CDIVIL = 3,
+                // DRH: Opnum1 desc
+                // OPNUM1: RS/GLB                       Trigger a panic when:
+                //                                      * OPNUM1 == INT64_MIN
+    WO_CDIVIR = 4,
+                // DRH: Opnum1 desc
+                // OPNUM1: RS/GLB                       Trigger a panic when:
+                //                                      * OPNUM1 == 0
+                //                                      * OPNUM1 == -1
+    WO_CDIVIRZ = 5,
+                // DRH: Opnum1 desc
+                // OPNUM1: RS/GLB                       Trigger a panic when:
+                //                                      * OPNUM1 == 0
+};
+
+enum _wo_opcode_ext3
+{
+    WO_FUNCBEGIN = 0,
+                // DRH: 0, DRL: 0
+                // -- No OPNUM --                       Flag the begin of a function.
+                //                                      Cannot execute, or it will cause a panic.
+    WO_FUNCEND = 1,
+                // DRH: 0, DRL: 0
+                // -- No OPNUM --                       Flag the end of a function.
+                //                                      Cannot execute, or it will cause a panic.
+};
+
+typedef struct _wo_ir_compiler* wo_ir_compiler;
+
+WO_API wo_ir_compiler wo_create_ir_compiler(void);
+WO_API wo_ir_compiler wo_close_ir_compiler(wo_ir_compiler ircompiler);
+
+WO_API void wo_ir_opcode(wo_ir_compiler compiler, int opcode, int drh, int drl);
+WO_API void wo_ir_int(wo_ir_compiler compiler, wo_integer_t val);
+WO_API void wo_ir_real(wo_ir_compiler compiler, wo_real_t val);
+WO_API void wo_ir_handle(wo_ir_compiler compiler, wo_handle_t val);
+WO_API void wo_ir_string(wo_ir_compiler compiler, wo_string_t val);
+WO_API void wo_ir_bool(wo_ir_compiler compiler, wo_bool_t val);
+WO_API void wo_ir_glb(wo_ir_compiler compiler, uint32_t offset);
+WO_API void wo_ir_reg(wo_ir_compiler compiler, uint8_t regid);
+WO_API void wo_ir_bp(wo_ir_compiler compiler, int8_t offset);
+WO_API void wo_ir_tag(wo_ir_compiler compiler, wo_string_t name);
+
+WO_API void wo_ir_immtag(wo_ir_compiler compiler, wo_string_t name);
+WO_API void wo_ir_immu8(wo_ir_compiler compiler, uint8_t val);
+WO_API void wo_ir_immu16(wo_ir_compiler compiler, uint16_t val);
+WO_API void wo_ir_immu32(wo_ir_compiler compiler, uint32_t val);
+WO_API void wo_ir_immu64(wo_ir_compiler compiler, uint64_t val);
+WO_API void wo_ir_imm8(wo_ir_compiler compiler, int8_t val);
+WO_API void wo_ir_imm16(wo_ir_compiler compiler, int16_t val);
+WO_API void wo_ir_imm32(wo_ir_compiler compiler, int32_t val);
+WO_API void wo_ir_imm64(wo_ir_compiler compiler, int64_t val);
+
+WO_API void wo_ir_compile(wo_ir_compiler compiler, wo_vm vm);
 
 #endif

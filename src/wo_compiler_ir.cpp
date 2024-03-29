@@ -1141,7 +1141,7 @@ namespace wo
         // 2. Generate code
         shared_pointer<runtime_env> env = new runtime_env();
 
-        for (size_t ip = 0; ip < ir_command_buffer.size(); ip++)
+        for (size_t ip = 0; ip < ir_command_buffer.size(); ++ip)
         {
 
 #define WO_IR ir_command_buffer[ip]
@@ -1166,37 +1166,48 @@ namespace wo
 #define WO_OPCODE_EXT3_1(OPCODE) (instruct((instruct::opcode)instruct::extern_opcode_page_3::OPCODE, WO_IR.dr()).opcode_dr)
 #define WO_OPCODE_EXT3_2(OPCODE,DR) (instruct((instruct::opcode)instruct::extern_opcode_page_3::OPCODE, 0b000000##DR).opcode_dr)
 
-            cxx_vec_t<byte_t> temp_this_command_code_buf; // one command will be store here tempery for coding allign
+            pdb_info->pdd_rt_code_byte_offset_to_ir[generated_runtime_code_buf.size()] = ip;
+
+            if (auto fnd = tag_irbuffer_offset.find(ip); fnd != tag_irbuffer_offset.end())
+            {
+                for (auto& tag_name : fnd->second)
+                {
+                    wo_assert(tag_offset_vector_table.find(tag_name) == tag_offset_vector_table.end()
+                        , "The tag point to different place.");
+
+                    tag_offset_vector_table[tag_name] = (uint32_t)generated_runtime_code_buf.size();
+                }
+            }
 
             switch (WO_IR.opcode)
             {
             case instruct::opcode::nop:
-                temp_this_command_code_buf.push_back(WO_OPCODE(nop));
+                generated_runtime_code_buf.push_back(WO_OPCODE(nop));
                 break;
             case instruct::opcode::mov:
-                temp_this_command_code_buf.push_back(WO_OPCODE(mov));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(mov));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                 break;
             case instruct::opcode::movcast:
-                temp_this_command_code_buf.push_back(WO_OPCODE(movcast));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
-                temp_this_command_code_buf.push_back((byte_t)WO_IR.opinteger1);
+                generated_runtime_code_buf.push_back(WO_OPCODE(movcast));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
+                generated_runtime_code_buf.push_back((byte_t)WO_IR.opinteger1);
                 break;
             case instruct::opcode::typeas:
 
                 if (WO_IR.opinteger2 == 0)
                 {
-                    temp_this_command_code_buf.push_back(WO_OPCODE(typeas));
-                    WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                    temp_this_command_code_buf.push_back((byte_t)WO_IR.opinteger1);
+                    generated_runtime_code_buf.push_back(WO_OPCODE(typeas));
+                    WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                    generated_runtime_code_buf.push_back((byte_t)WO_IR.opinteger1);
                 }
                 else
                 {
-                    temp_this_command_code_buf.push_back(WO_OPCODE(typeas) | 0b01);
-                    WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                    temp_this_command_code_buf.push_back((byte_t)WO_IR.opinteger1);
+                    generated_runtime_code_buf.push_back(WO_OPCODE(typeas) | 0b01);
+                    WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                    generated_runtime_code_buf.push_back((byte_t)WO_IR.opinteger1);
                 }
                 break;
             case instruct::opcode::psh:
@@ -1205,20 +1216,20 @@ namespace wo
                     if (WO_IR.opinteger1 == 0)
                         break;
 
-                    temp_this_command_code_buf.push_back(WO_OPCODE(psh, 00));
+                    generated_runtime_code_buf.push_back(WO_OPCODE(psh, 00));
 
                     wo_assert(WO_IR.opinteger1 > 0 && WO_IR.opinteger1 <= UINT16_MAX
                         , "Invalid count to reserve in stack.");
 
                     uint16_t opushort = (uint16_t)WO_IR.opinteger1;
                     byte_t* readptr = (byte_t*)&opushort;
-                    temp_this_command_code_buf.push_back(readptr[0]);
-                    temp_this_command_code_buf.push_back(readptr[1]);
+                    generated_runtime_code_buf.push_back(readptr[0]);
+                    generated_runtime_code_buf.push_back(readptr[1]);
                 }
                 else
                 {
-                    temp_this_command_code_buf.push_back(WO_OPCODE(psh) | 0b01);
-                    WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
+                    generated_runtime_code_buf.push_back(WO_OPCODE(psh) | 0b01);
+                    WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
                 }
                 break;
             case instruct::opcode::pop:
@@ -1227,7 +1238,7 @@ namespace wo
                     if (WO_IR.opinteger1 == 0)
                         break;
 
-                    temp_this_command_code_buf.push_back(WO_OPCODE(pop, 00));
+                    generated_runtime_code_buf.push_back(WO_OPCODE(pop, 00));
 
                     wo_assert(WO_IR.opinteger1 > 0 && WO_IR.opinteger1 <= UINT16_MAX
                         , "Invalid count to pop from stack.");
@@ -1235,333 +1246,332 @@ namespace wo
                     uint16_t opushort = (uint16_t)WO_IR.opinteger1;
                     byte_t* readptr = (byte_t*)&opushort;
 
-                    temp_this_command_code_buf.push_back(readptr[0]);
-                    temp_this_command_code_buf.push_back(readptr[1]);
+                    generated_runtime_code_buf.push_back(readptr[0]);
+                    generated_runtime_code_buf.push_back(readptr[1]);
                 }
                 else
                 {
-                    temp_this_command_code_buf.push_back(WO_OPCODE(pop) | 0b01);
-                    WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
+                    generated_runtime_code_buf.push_back(WO_OPCODE(pop) | 0b01);
+                    WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
                 }
                 break;
             case instruct::opcode::lds:
-                temp_this_command_code_buf.push_back(WO_OPCODE(lds));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(lds));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                 break;
             case instruct::opcode::sts:
-                temp_this_command_code_buf.push_back(WO_OPCODE(sts));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(sts));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                 break;
             case instruct::opcode::addi:
-                temp_this_command_code_buf.push_back(WO_OPCODE(addi));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(addi));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                 break;
             case instruct::opcode::subi:
-                temp_this_command_code_buf.push_back(WO_OPCODE(subi));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(subi));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                 break;
             case instruct::opcode::muli:
-                temp_this_command_code_buf.push_back(WO_OPCODE(muli));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(muli));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                 break;
             case instruct::opcode::divi:
-                temp_this_command_code_buf.push_back(WO_OPCODE(divi));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(divi));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                 break;
             case instruct::opcode::modi:
-                temp_this_command_code_buf.push_back(WO_OPCODE(modi));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(modi));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                 break;
             case instruct::opcode::equr:
-                temp_this_command_code_buf.push_back(WO_OPCODE(equr));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(equr));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
 
                 break;
             case instruct::opcode::nequr:
-                temp_this_command_code_buf.push_back(WO_OPCODE(nequr));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(nequr));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
 
                 break;
             case instruct::opcode::equs:
-                temp_this_command_code_buf.push_back(WO_OPCODE(equs));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(equs));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
 
                 break;
             case instruct::opcode::nequs:
-                temp_this_command_code_buf.push_back(WO_OPCODE(nequs));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(nequs));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
 
                 break;
             case instruct::opcode::addr:
-                temp_this_command_code_buf.push_back(WO_OPCODE(addr));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(addr));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                 break;
             case instruct::opcode::subr:
-                temp_this_command_code_buf.push_back(WO_OPCODE(subr));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(subr));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                 break;
             case instruct::opcode::mulr:
-                temp_this_command_code_buf.push_back(WO_OPCODE(mulr));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(mulr));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                 break;
             case instruct::opcode::divr:
-                temp_this_command_code_buf.push_back(WO_OPCODE(divr));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(divr));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                 break;
             case instruct::opcode::modr:
-                temp_this_command_code_buf.push_back(WO_OPCODE(modr));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(modr));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                 break;
             case instruct::opcode::addh:
-                temp_this_command_code_buf.push_back(WO_OPCODE(addh));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(addh));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                 break;
             case instruct::opcode::subh:
-                temp_this_command_code_buf.push_back(WO_OPCODE(subh));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(subh));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                 break;
             case instruct::opcode::adds:
-                temp_this_command_code_buf.push_back(WO_OPCODE(adds));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(adds));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                 break;
 
             case instruct::opcode::equb:
-                temp_this_command_code_buf.push_back(WO_OPCODE(equb));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(equb));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                 break;
             case instruct::opcode::nequb:
-                temp_this_command_code_buf.push_back(WO_OPCODE(nequb));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(nequb));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                 break;
             case instruct::opcode::land:
-                temp_this_command_code_buf.push_back(WO_OPCODE(land));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(land));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                 break;
             case instruct::opcode::lor:
-                temp_this_command_code_buf.push_back(WO_OPCODE(lor));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(lor));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                 break;
             case instruct::opcode::gti:
-                temp_this_command_code_buf.push_back(WO_OPCODE(gti));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(gti));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                 break;
             case instruct::opcode::lti:
-                temp_this_command_code_buf.push_back(WO_OPCODE(lti));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(lti));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                 break;
             case instruct::opcode::egti:
-                temp_this_command_code_buf.push_back(WO_OPCODE(egti));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(egti));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                 break;
             case instruct::opcode::elti:
-                temp_this_command_code_buf.push_back(WO_OPCODE(elti));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(elti));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                 break;
 
             case instruct::opcode::gtr:
-                temp_this_command_code_buf.push_back(WO_OPCODE(gtr));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(gtr));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                 break;
             case instruct::opcode::ltr:
-                temp_this_command_code_buf.push_back(WO_OPCODE(ltr));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(ltr));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                 break;
             case instruct::opcode::egtr:
-                temp_this_command_code_buf.push_back(WO_OPCODE(egtr));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(egtr));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                 break;
             case instruct::opcode::eltr:
-                temp_this_command_code_buf.push_back(WO_OPCODE(eltr));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(eltr));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                 break;
 
             case instruct::opcode::gtx:
-                temp_this_command_code_buf.push_back(WO_OPCODE(gtx));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(gtx));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                 break;
             case instruct::opcode::ltx:
-                temp_this_command_code_buf.push_back(WO_OPCODE(ltx));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(ltx));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                 break;
             case instruct::opcode::egtx:
-                temp_this_command_code_buf.push_back(WO_OPCODE(egtx));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(egtx));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                 break;
             case instruct::opcode::eltx:
-                temp_this_command_code_buf.push_back(WO_OPCODE(eltx));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(eltx));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                 break;
             case instruct::opcode::mkstruct:
             {
-                temp_this_command_code_buf.push_back(WO_OPCODE(mkstruct));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(mkstruct));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
 
                 uint16_t size = (uint16_t)(WO_IR.opinteger1);
                 byte_t* readptr = (byte_t*)&size;
-                temp_this_command_code_buf.push_back(readptr[0]);
-                temp_this_command_code_buf.push_back(readptr[1]);
+                generated_runtime_code_buf.push_back(readptr[0]);
+                generated_runtime_code_buf.push_back(readptr[1]);
                 break;
             }
             case instruct::opcode::idstruct:
             {
-                temp_this_command_code_buf.push_back(WO_OPCODE(idstruct));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(idstruct));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
 
                 uint16_t size = (uint16_t)(WO_IR.opinteger1);
                 byte_t* readptr = (byte_t*)&size;
-                temp_this_command_code_buf.push_back(readptr[0]);
-                temp_this_command_code_buf.push_back(readptr[1]);
+                generated_runtime_code_buf.push_back(readptr[0]);
+                generated_runtime_code_buf.push_back(readptr[1]);
                 break;
             }
             case instruct::opcode::mkarr:
             {
-                temp_this_command_code_buf.push_back(WO_OPCODE(mkarr));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(mkarr));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
 
                 uint16_t size = (uint16_t)(WO_IR.opinteger1);
                 byte_t* readptr = (byte_t*)&size;
-                temp_this_command_code_buf.push_back(readptr[0]);
-                temp_this_command_code_buf.push_back(readptr[1]);
+                generated_runtime_code_buf.push_back(readptr[0]);
+                generated_runtime_code_buf.push_back(readptr[1]);
                 break;
             }
             case instruct::opcode::mkmap:
             {
-                temp_this_command_code_buf.push_back(WO_OPCODE(mkmap));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(mkmap));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
 
                 uint16_t size = (uint16_t)(WO_IR.opinteger1);
                 byte_t* readptr = (byte_t*)&size;
-                temp_this_command_code_buf.push_back(readptr[0]);
-                temp_this_command_code_buf.push_back(readptr[1]);
+                generated_runtime_code_buf.push_back(readptr[0]);
+                generated_runtime_code_buf.push_back(readptr[1]);
                 break;
             }
             case instruct::opcode::idarr:
-                temp_this_command_code_buf.push_back(WO_OPCODE(idarr));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(idarr));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                 break;
             case instruct::opcode::iddict:
-                temp_this_command_code_buf.push_back(WO_OPCODE(iddict));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(iddict));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                 break;
             case instruct::opcode::idstr:
-                temp_this_command_code_buf.push_back(WO_OPCODE(idstr));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(idstr));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                 break;
             case instruct::opcode::siddict:
-                temp_this_command_code_buf.push_back(WO_OPCODE(siddict));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
-                opnum::reg((uint8_t)WO_IR.opinteger1).generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(siddict));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
+                opnum::reg((uint8_t)WO_IR.opinteger1).generate_opnum_to_buffer(generated_runtime_code_buf);
                 break;
             case instruct::opcode::sidmap:
-                temp_this_command_code_buf.push_back(WO_OPCODE(sidmap));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
-                opnum::reg((uint8_t)WO_IR.opinteger1).generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(sidmap));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
+                opnum::reg((uint8_t)WO_IR.opinteger1).generate_opnum_to_buffer(generated_runtime_code_buf);
                 break;
             case instruct::opcode::sidarr:
-                temp_this_command_code_buf.push_back(WO_OPCODE(sidarr));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
-                opnum::reg((uint8_t)WO_IR.opinteger1).generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(sidarr));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
+                opnum::reg((uint8_t)WO_IR.opinteger1).generate_opnum_to_buffer(generated_runtime_code_buf);
                 break;
             case instruct::opcode::sidstruct:
             {
-                temp_this_command_code_buf.push_back(WO_OPCODE(sidstruct));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(sidstruct));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
 
                 uint16_t size = (uint16_t)(WO_IR.opinteger1);
                 byte_t* readptr = (byte_t*)&size;
-                temp_this_command_code_buf.push_back(readptr[0]);
-                temp_this_command_code_buf.push_back(readptr[1]);
+                generated_runtime_code_buf.push_back(readptr[0]);
+                generated_runtime_code_buf.push_back(readptr[1]);
                 break;
             }
             case instruct::opcode::jt:
-                temp_this_command_code_buf.push_back(WO_OPCODE(jt));
+                generated_runtime_code_buf.push_back(WO_OPCODE(jt));
 
                 wo_assert(dynamic_cast<opnum::tag*>(WO_IR.op1) != nullptr, "Operator num should be a tag.");
 
                 jmp_record_table[dynamic_cast<opnum::tag*>(WO_IR.op1)->name]
-                    .push_back(generated_runtime_code_buf.size() + 1);
+                    .push_back(generated_runtime_code_buf.size());
 
-                temp_this_command_code_buf.push_back(0x00);
-                temp_this_command_code_buf.push_back(0x00);
-                temp_this_command_code_buf.push_back(0x00);
-                temp_this_command_code_buf.push_back(0x00);
-
+                generated_runtime_code_buf.push_back(0x00);
+                generated_runtime_code_buf.push_back(0x00);
+                generated_runtime_code_buf.push_back(0x00);
+                generated_runtime_code_buf.push_back(0x00);
 
                 break;
             case instruct::opcode::jf:
-                temp_this_command_code_buf.push_back(WO_OPCODE(jf));
+                generated_runtime_code_buf.push_back(WO_OPCODE(jf));
 
                 wo_assert(dynamic_cast<opnum::tag*>(WO_IR.op1) != nullptr, "Operator num should be a tag.");
 
                 jmp_record_table[dynamic_cast<opnum::tag*>(WO_IR.op1)->name]
-                    .push_back(generated_runtime_code_buf.size() + 1);
+                    .push_back(generated_runtime_code_buf.size());
 
-                temp_this_command_code_buf.push_back(0x00);
-                temp_this_command_code_buf.push_back(0x00);
-                temp_this_command_code_buf.push_back(0x00);
-                temp_this_command_code_buf.push_back(0x00);
+                generated_runtime_code_buf.push_back(0x00);
+                generated_runtime_code_buf.push_back(0x00);
+                generated_runtime_code_buf.push_back(0x00);
+                generated_runtime_code_buf.push_back(0x00);
                 break;
 
             case instruct::opcode::jmp:
-                temp_this_command_code_buf.push_back(WO_OPCODE(jmp, 00));
+                generated_runtime_code_buf.push_back(WO_OPCODE(jmp, 00));
 
                 wo_assert(dynamic_cast<opnum::tag*>(WO_IR.op1) != nullptr, "Operator num should be a tag.");
 
                 jmp_record_table[dynamic_cast<opnum::tag*>(WO_IR.op1)->name]
-                    .push_back(generated_runtime_code_buf.size() + 1);
+                    .push_back(generated_runtime_code_buf.size());
 
-                temp_this_command_code_buf.push_back(0x00);
-                temp_this_command_code_buf.push_back(0x00);
-                temp_this_command_code_buf.push_back(0x00);
-                temp_this_command_code_buf.push_back(0x00);
+                generated_runtime_code_buf.push_back(0x00);
+                generated_runtime_code_buf.push_back(0x00);
+                generated_runtime_code_buf.push_back(0x00);
+                generated_runtime_code_buf.push_back(0x00);
                 break;
 
             case instruct::opcode::call:
-                temp_this_command_code_buf.push_back(WO_OPCODE(call));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(call));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
                 break;
             case instruct::opcode::calln:
                 if (WO_IR.op2)
@@ -1570,143 +1580,143 @@ namespace wo
 
                     wo_assert(dynamic_cast<opnum::tag*>(WO_IR.op2) != nullptr, "Operator num should be a tag.");
 
-                    temp_this_command_code_buf.push_back(WO_OPCODE(calln, 00));
+                    generated_runtime_code_buf.push_back(WO_OPCODE(calln, 00));
 
                     jmp_record_table[dynamic_cast<opnum::tag*>(WO_IR.op2)->name]
-                        .push_back(generated_runtime_code_buf.size() + 1);
+                        .push_back(generated_runtime_code_buf.size());
 
-                    temp_this_command_code_buf.push_back(0x00);
-                    temp_this_command_code_buf.push_back(0x00);
-                    temp_this_command_code_buf.push_back(0x00);
-                    temp_this_command_code_buf.push_back(0x00);
+                    generated_runtime_code_buf.push_back(0x00);
+                    generated_runtime_code_buf.push_back(0x00);
+                    generated_runtime_code_buf.push_back(0x00);
+                    generated_runtime_code_buf.push_back(0x00);
 
                     // reserve...
-                    temp_this_command_code_buf.push_back(0x00);
-                    temp_this_command_code_buf.push_back(0x00);
-                    temp_this_command_code_buf.push_back(0x00);
-                    temp_this_command_code_buf.push_back(0x00);
+                    generated_runtime_code_buf.push_back(0x00);
+                    generated_runtime_code_buf.push_back(0x00);
+                    generated_runtime_code_buf.push_back(0x00);
+                    generated_runtime_code_buf.push_back(0x00);
                 }
                 else if (WO_IR.op1)
                 {
-                    if (WO_IR.opinteger1)
-                        temp_this_command_code_buf.push_back(WO_OPCODE(calln, 11));
-                    else
-                        temp_this_command_code_buf.push_back(WO_OPCODE(calln, 01));
-
-                    uint64_t addr = (uint64_t)(WO_IR.op1);
+                    uint64_t addr = (uint64_t)(intptr_t)(WO_IR.op1);
 
                     wo_assert(!extern_native_functions[(intptr_t)addr].function_name.empty());
                     extern_native_functions[(intptr_t)addr].caller_offset_in_ir
                         .push_back(generated_runtime_code_buf.size());
 
+                    if (WO_IR.opinteger1)
+                        generated_runtime_code_buf.push_back(WO_OPCODE(calln, 11));
+                    else
+                        generated_runtime_code_buf.push_back(WO_OPCODE(calln, 01));
+
                     byte_t* readptr = (byte_t*)&addr;
-                    temp_this_command_code_buf.push_back(readptr[0]);
-                    temp_this_command_code_buf.push_back(readptr[1]);
-                    temp_this_command_code_buf.push_back(readptr[2]);
-                    temp_this_command_code_buf.push_back(readptr[3]);
-                    temp_this_command_code_buf.push_back(readptr[4]);
-                    temp_this_command_code_buf.push_back(readptr[5]);
-                    temp_this_command_code_buf.push_back(readptr[6]);
-                    temp_this_command_code_buf.push_back(readptr[7]);
+                    generated_runtime_code_buf.push_back(readptr[0]);
+                    generated_runtime_code_buf.push_back(readptr[1]);
+                    generated_runtime_code_buf.push_back(readptr[2]);
+                    generated_runtime_code_buf.push_back(readptr[3]);
+                    generated_runtime_code_buf.push_back(readptr[4]);
+                    generated_runtime_code_buf.push_back(readptr[5]);
+                    generated_runtime_code_buf.push_back(readptr[6]);
+                    generated_runtime_code_buf.push_back(readptr[7]);
 
                 }
                 else
                 {
                     env->_calln_opcode_offsets_for_jit.push_back(generated_runtime_code_buf.size());
 
-                    temp_this_command_code_buf.push_back(WO_OPCODE(calln, 00));
+                    generated_runtime_code_buf.push_back(WO_OPCODE(calln, 00));
 
                     byte_t* readptr = (byte_t*)&WO_IR.opinteger1;
-                    temp_this_command_code_buf.push_back(readptr[0]);
-                    temp_this_command_code_buf.push_back(readptr[1]);
-                    temp_this_command_code_buf.push_back(readptr[2]);
-                    temp_this_command_code_buf.push_back(readptr[3]);
+                    generated_runtime_code_buf.push_back(readptr[0]);
+                    generated_runtime_code_buf.push_back(readptr[1]);
+                    generated_runtime_code_buf.push_back(readptr[2]);
+                    generated_runtime_code_buf.push_back(readptr[3]);
 
                     // reserve...
-                    temp_this_command_code_buf.push_back(0x00);
-                    temp_this_command_code_buf.push_back(0x00);
-                    temp_this_command_code_buf.push_back(0x00);
-                    temp_this_command_code_buf.push_back(0x00);
+                    generated_runtime_code_buf.push_back(0x00);
+                    generated_runtime_code_buf.push_back(0x00);
+                    generated_runtime_code_buf.push_back(0x00);
+                    generated_runtime_code_buf.push_back(0x00);
                 }
                 break;
             case instruct::opcode::ret:
                 if (WO_IR.opinteger1)
                 {
                     // ret pop n
-                    temp_this_command_code_buf.push_back(WO_OPCODE(ret, 10));
+                    generated_runtime_code_buf.push_back(WO_OPCODE(ret, 10));
 
                     uint16_t pop_count = (uint16_t)WO_IR.opinteger1;
                     byte_t* readptr = (byte_t*)&pop_count;
-                    temp_this_command_code_buf.push_back(readptr[0]);
-                    temp_this_command_code_buf.push_back(readptr[1]);
+                    generated_runtime_code_buf.push_back(readptr[0]);
+                    generated_runtime_code_buf.push_back(readptr[1]);
                 }
                 else
-                    temp_this_command_code_buf.push_back(WO_OPCODE(ret, 00));
+                    generated_runtime_code_buf.push_back(WO_OPCODE(ret, 00));
                 break;
             case instruct::opcode::jnequb:
             {
                 wo_assert(dynamic_cast<opnum::tag*>(WO_IR.op2) != nullptr, "Operator num should be a tag.");
 
-                temp_this_command_code_buf.push_back(WO_OPCODE(jnequb));
-                size_t opcodelen = WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(jnequb));
+                size_t opcodelen = WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
 
                 // Write jmp
                 jmp_record_table[dynamic_cast<opnum::tag*>(WO_IR.op2)->name]
-                    .push_back(generated_runtime_code_buf.size() + 1 + opcodelen);
-                temp_this_command_code_buf.push_back(0x00);
-                temp_this_command_code_buf.push_back(0x00);
-                temp_this_command_code_buf.push_back(0x00);
-                temp_this_command_code_buf.push_back(0x00);
+                    .push_back(generated_runtime_code_buf.size());
+                generated_runtime_code_buf.push_back(0x00);
+                generated_runtime_code_buf.push_back(0x00);
+                generated_runtime_code_buf.push_back(0x00);
+                generated_runtime_code_buf.push_back(0x00);
 
                 break;
             }
             case instruct::mkunion:
             {
-                temp_this_command_code_buf.push_back(WO_OPCODE(mkunion));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(mkunion));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
 
                 uint16_t id = (uint16_t)WO_IR.opinteger1;
                 byte_t* readptr = (byte_t*)&id;
-                temp_this_command_code_buf.push_back(readptr[0]);
-                temp_this_command_code_buf.push_back(readptr[1]);
+                generated_runtime_code_buf.push_back(readptr[0]);
+                generated_runtime_code_buf.push_back(readptr[1]);
                 break;
             }
             case instruct::mkclos:
             {
                 env->_mkclos_opcode_offsets_for_jit.push_back(generated_runtime_code_buf.size());
 
-                temp_this_command_code_buf.push_back(WO_OPCODE(mkclos, 00));
+                generated_runtime_code_buf.push_back(WO_OPCODE(mkclos, 00));
 
                 uint16_t capture_count = (uint16_t)WO_IR.opinteger1;
                 byte_t* readptr = (byte_t*)&capture_count;
-                temp_this_command_code_buf.push_back(readptr[0]);
-                temp_this_command_code_buf.push_back(readptr[1]);
+                generated_runtime_code_buf.push_back(readptr[0]);
+                generated_runtime_code_buf.push_back(readptr[1]);
 
                 jmp_record_table[dynamic_cast<opnum::tag*>(WO_IR.op1)->name]
-                    .push_back(generated_runtime_code_buf.size() + 1 + 2);
-                temp_this_command_code_buf.push_back(0x00);
-                temp_this_command_code_buf.push_back(0x00);
-                temp_this_command_code_buf.push_back(0x00);
-                temp_this_command_code_buf.push_back(0x00);
+                    .push_back(generated_runtime_code_buf.size());
+                generated_runtime_code_buf.push_back(0x00);
+                generated_runtime_code_buf.push_back(0x00);
+                generated_runtime_code_buf.push_back(0x00);
+                generated_runtime_code_buf.push_back(0x00);
 
                 // reserve...
-                temp_this_command_code_buf.push_back(0x00);
-                temp_this_command_code_buf.push_back(0x00);
-                temp_this_command_code_buf.push_back(0x00);
-                temp_this_command_code_buf.push_back(0x00);
+                generated_runtime_code_buf.push_back(0x00);
+                generated_runtime_code_buf.push_back(0x00);
+                generated_runtime_code_buf.push_back(0x00);
+                generated_runtime_code_buf.push_back(0x00);
                 break;
             }
             case instruct::unpackargs:
             {
-                temp_this_command_code_buf.push_back(WO_OPCODE(unpackargs));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
+                generated_runtime_code_buf.push_back(WO_OPCODE(unpackargs));
+                WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
 
                 byte_t* readptr = (byte_t*)&WO_IR.opinteger1;
-                temp_this_command_code_buf.push_back(readptr[0]);
-                temp_this_command_code_buf.push_back(readptr[1]);
-                temp_this_command_code_buf.push_back(readptr[2]);
-                temp_this_command_code_buf.push_back(readptr[3]);
+                generated_runtime_code_buf.push_back(readptr[0]);
+                generated_runtime_code_buf.push_back(readptr[1]);
+                generated_runtime_code_buf.push_back(readptr[2]);
+                generated_runtime_code_buf.push_back(readptr[3]);
 
                 break;
             }
@@ -1716,58 +1726,56 @@ namespace wo
                 {
                 case 0:
                 {
-                    temp_this_command_code_buf.push_back(WO_OPCODE(ext, 00));
+                    generated_runtime_code_buf.push_back(WO_OPCODE(ext, 00));
                     switch (WO_IR.ext_opcode_p0)
                     {
                     case instruct::extern_opcode_page_0::packargs:
                     {
-                        temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(packargs));
+                        generated_runtime_code_buf.push_back(WO_OPCODE_EXT0(packargs));
 
-                        WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
+                        WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
 
-                        uint32_t func_argc = (uint32_t)WO_IR.opinteger1;
+                        uint16_t func_argc = (uint16_t)WO_IR.opinteger1;
                         byte_t* readptr = (byte_t*)&func_argc;
-                        temp_this_command_code_buf.push_back(readptr[0]);
-                        temp_this_command_code_buf.push_back(readptr[1]);
-                        temp_this_command_code_buf.push_back(readptr[2]);
-                        temp_this_command_code_buf.push_back(readptr[3]);
+                        generated_runtime_code_buf.push_back(readptr[0]);
+                        generated_runtime_code_buf.push_back(readptr[1]);
 
                         uint16_t skip_count = (uint16_t)WO_IR.opinteger2;
                         readptr = (byte_t*)&skip_count;
-                        temp_this_command_code_buf.push_back(readptr[0]);
-                        temp_this_command_code_buf.push_back(readptr[1]);
+                        generated_runtime_code_buf.push_back(readptr[0]);
+                        generated_runtime_code_buf.push_back(readptr[1]);
 
                         break;
                     }
                     case instruct::extern_opcode_page_0::panic:
                     {
-                        temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(panic));
-                        WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
+                        generated_runtime_code_buf.push_back(WO_OPCODE_EXT0(panic));
+                        WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
                         break;
                     }
                     case instruct::extern_opcode_page_0::cdivilr:
                     {
-                        temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(cdivilr));
-                        WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                        WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                        generated_runtime_code_buf.push_back(WO_OPCODE_EXT0(cdivilr));
+                        WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                        WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                         break;
                     }
                     case instruct::extern_opcode_page_0::cdivil:
                     {
-                        temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(cdivil));
-                        WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
+                        generated_runtime_code_buf.push_back(WO_OPCODE_EXT0(cdivil));
+                        WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
                         break;
                     }
                     case instruct::extern_opcode_page_0::cdivirz:
                     {
-                        temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(cdivirz));
-                        WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
+                        generated_runtime_code_buf.push_back(WO_OPCODE_EXT0(cdivirz));
+                        WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
                         break;
                     }
                     case instruct::extern_opcode_page_0::cdivir:
                     {
-                        temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(cdivir));
-                        WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
+                        generated_runtime_code_buf.push_back(WO_OPCODE_EXT0(cdivir));
+                        WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
                         break;
                     }
                     default:
@@ -1778,7 +1786,7 @@ namespace wo
                 }
                 //case 1:
                 //{
-                //    temp_this_command_code_buf.push_back(WO_OPCODE(ext, 01));
+                //    generated_runtime_code_buf.push_back(WO_OPCODE(ext, 01));
                 //    switch (WO_IR.ext_opcode_p1)
                 //    {
                 //    default:
@@ -1789,7 +1797,7 @@ namespace wo
                 //}
                 //case 2:
                 //{
-                //    temp_this_command_code_buf.push_back(WO_OPCODE(ext, 10));
+                //    generated_runtime_code_buf.push_back(WO_OPCODE(ext, 10));
                 //    switch (WO_IR.ext_opcode_p2)
                 //    {
                 //    default:
@@ -1800,17 +1808,15 @@ namespace wo
                 //}
                 case 3:
                 {
-                    temp_this_command_code_buf.push_back(WO_OPCODE(ext, 11));
+                    generated_runtime_code_buf.push_back(WO_OPCODE(ext, 11));
                     switch (WO_IR.ext_opcode_p3)
                     {
                     case instruct::extern_opcode_page_3::funcbegin:
-                        temp_this_command_code_buf.push_back(WO_OPCODE_EXT3(funcbegin));
-                        env->_functions_offsets_for_jit.push_back(
-                            temp_this_command_code_buf.size()
-                            + generated_runtime_code_buf.size());
+                        generated_runtime_code_buf.push_back(WO_OPCODE_EXT3(funcbegin));
+                        env->_functions_offsets_for_jit.push_back(generated_runtime_code_buf.size());
                         break;
                     case instruct::extern_opcode_page_3::funcend:
-                        temp_this_command_code_buf.push_back(WO_OPCODE_EXT3(funcend));
+                        generated_runtime_code_buf.push_back(WO_OPCODE_EXT3(funcend));
                         break;
                     default:
                         wo_error("Unknown instruct.");
@@ -1826,35 +1832,21 @@ namespace wo
                 break;
             case instruct::opcode::abrt:
                 if (WO_IR.opinteger1)
-                    temp_this_command_code_buf.push_back(WO_OPCODE(abrt, 10));
+                    generated_runtime_code_buf.push_back(WO_OPCODE(abrt, 10));
                 else
-                    temp_this_command_code_buf.push_back(WO_OPCODE(abrt, 00));
+                    generated_runtime_code_buf.push_back(WO_OPCODE(abrt, 00));
                 break;
 
             default:
                 wo_error("Unknown instruct.");
             }
-
-            pdb_info->pdd_rt_code_byte_offset_to_ir[generated_runtime_code_buf.size()] = ip;
-
-            if (auto fnd = tag_irbuffer_offset.find(ip); fnd != tag_irbuffer_offset.end())
-            {
-                for (auto& tag_name : fnd->second)
-                {
-                    wo_assert(tag_offset_vector_table.find(tag_name) == tag_offset_vector_table.end()
-                        , "The tag point to different place.");
-
-                    tag_offset_vector_table[tag_name] = (uint32_t)generated_runtime_code_buf.size();
-                }
-            }
-
-
-            generated_runtime_code_buf.insert(
-                generated_runtime_code_buf.end(),
-                temp_this_command_code_buf.begin(),
-                temp_this_command_code_buf.end());
-
         }
+
+        for (size_t ip = 0; ip < ir_param_buffer.size(); ++ip)
+        {
+            
+        }
+
 #undef WO_OPCODE_2
 #undef WO_OPCODE_1
 #undef WO_OPCODE

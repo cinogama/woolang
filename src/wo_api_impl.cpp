@@ -410,6 +410,23 @@ void wo_init(int argc, char** argv)
 
     wo_assure(wo::get_wo_grammar()); // Create grammar when init.
     wo::lang::init_global_pass_table(); // Init global pass table.
+
+
+
+    ////
+    //wo::ir_compiler comp;
+    //comp.mov(wo::opnum::reg(wo::opnum::reg::cr), wo::opnum::imm_str("Hello"));
+    //comp.end();
+
+    //auto* v = (wo::vmbase*)wo_create_vm();
+    //v->set_runtime(comp.finalize(1024));
+
+    //_wo_in_thread_vm_guard g0((wo_vm)v);
+    //_wo_enter_gc_guard g((wo_vm)v);
+    //v->run();
+
+    //printf(v->cr->string->c_str());
+
 }
 
 #define WO_VAL(v) (std::launder(reinterpret_cast<wo::value*>(v)))
