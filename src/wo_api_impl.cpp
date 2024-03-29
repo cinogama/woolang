@@ -318,7 +318,7 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
     wo::rslib_extern_symbols::free_wo_lib();
     wo::lang::release_global_pass_table();
 }
-WO_API wo_api rslib_std_print(wo_vm vm, wo_value args);
+
 void wo_init(int argc, char** argv)
 {
     const char* basic_env_local = "en_US.UTF-8";
@@ -412,35 +412,6 @@ void wo_init(int argc, char** argv)
 
     wo_assure(wo::get_wo_grammar()); // Create grammar when init.
     wo::lang::init_global_pass_table(); // Init global pass table.
-
-    wo_vm vmm = wo_create_vm();
-
-    auto ircomp = wo_create_ir_compiler();
-
-    wo_ir_opcode(ircomp, WO_EXT, 0, 0);
-    wo_ir_opcode(ircomp, WO_PANIC, 0, 0);
-    wo_ir_string(ircomp, "WTF");
-
-    wo_ir_opcode(ircomp, WO_PSH, 0, 1);
-    wo_ir_string(ircomp, "world");
-
-    wo_ir_opcode(ircomp, WO_PSH, 0, 1);
-    wo_ir_string(ircomp, "Hello");
-
-    wo_ir_opcode(ircomp, WO_MOV, 1, 0);
-    wo_ir_reg(ircomp, WO_REG_TC);
-    wo_ir_int(ircomp, 2);
-
-    wo_ir_opcode(ircomp, WO_CALLN, 0, 1);
-    wo_ir_immu64(ircomp, (uint64_t)(intptr_t)(void*)rslib_std_print);
-
-    wo_ir_opcode(ircomp, WO_POP, 0, 0);
-    wo_ir_immu16(ircomp, 2);
-
-    wo_load_ir_compiler(vmm, ircomp);
-
-    wo_run(vmm);
-
 }
 
 #define WO_VAL(v) (std::launder(reinterpret_cast<wo::value*>(v)))

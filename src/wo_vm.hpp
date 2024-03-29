@@ -460,7 +460,7 @@ namespace wo
         bool _vm_br_yieldable = false;
         bool _vm_br_yield_flag = false;
     public:
-        void set_runtime(shared_pointer<runtime_env>& runtime_environment)
+        void set_runtime(shared_pointer<runtime_env> runtime_environment)
         {
             wo_assure(wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
 
