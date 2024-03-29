@@ -26,7 +26,7 @@
 
 namespace wo
 {
-    struct vmbase;
+    class vmbase;
 
     class debuggee_base
     {
@@ -61,20 +61,15 @@ namespace wo
         }
     };
 
-    struct vmbase
+    class vmbase
     {
-        inline static std::shared_mutex _alive_vm_list_mx;
-        inline static cxx_set_t<vmbase*> _alive_vm_list;
-        inline thread_local static vmbase* _this_thread_vm = nullptr;
-        inline static std::atomic_uint32_t _alive_vm_count_for_gc_vm_destruct;
-
+    public:
         enum class jit_state : byte_t
         {
             NONE = 0,
             PREPARING = 1,
             READY = 2,
         };
-
         enum class vm_type
         {
             INVALID,
@@ -83,7 +78,6 @@ namespace wo
             // If vm's type is GC_DESTRUCTOR, GC_THREAD will not trying to pause it.
             GC_DESTRUCTOR,
         };
-
         enum vm_interrupt_type
         {
             NOTHING = 0,
@@ -149,10 +143,55 @@ namespace wo
             // this interrupt, DEBUG_INTERRUPT will be cleared.
         };
 
-        vmbase(const vmbase&) = delete;
-        vmbase(vmbase&&) = delete;
-        vmbase& operator=(const vmbase&) = delete;
-        vmbase& operator=(vmbase&&) = delete;
+        struct callstack_info
+        {
+            std::string m_func_name;
+            size_t      m_row;
+        };
+
+    public:
+        inline static std::shared_mutex _alive_vm_list_mx;
+        inline static cxx_set_t<vmbase*> _alive_vm_list;
+        inline thread_local static vmbase* _this_thread_vm = nullptr;
+        inline static std::atomic_uint32_t _alive_vm_count_for_gc_vm_destruct;
+
+    protected:
+        inline static debuggee_base* attaching_debuggee = nullptr;
+
+    public:
+        const vm_type virtual_machine_type;
+
+        // special regist
+        value* cr;  // op result trace & function return;
+        value* tc;  // arugument count
+        value* er;  // exception result
+
+        // stack info
+        value* sp;
+        value* bp;
+
+        value* register_mem_begin;
+        value* const_global_begin;
+        value* stack_mem_begin;
+
+        value* _self_stack_reg_mem_buf;
+        size_t stack_size;
+
+        vmbase* gc_vm;
+
+        lexer* compile_info;
+
+        // next ircode pointer
+        const byte_t* ip;
+
+        shared_pointer<runtime_env> env;
+
+        std::mutex _vm_hang_mx;
+        std::condition_variable _vm_hang_cv;
+        std::atomic_int8_t _vm_hang_flag;
+
+        bool _vm_br_yieldable;
+        bool _vm_br_yield_flag;
 
         union
         {
@@ -161,8 +200,17 @@ namespace wo
         };
         static_assert(sizeof(std::atomic<uint32_t>) == sizeof(uint32_t));
         static_assert(std::atomic<uint32_t>::is_always_lock_free);
-    protected:
-        inline static debuggee_base* attaching_debuggee = nullptr;
+
+#if WO_ENABLE_RUNTIME_CHECK
+        // runtime information
+        std::thread::id attaching_thread_id;
+#endif     
+
+    private:
+        vmbase(const vmbase&) = delete;
+        vmbase(vmbase&&) = delete;
+        vmbase& operator=(const vmbase&) = delete;
+        vmbase& operator=(vmbase&&) = delete;
 
     public:
         void inc_destructable_instance_count() noexcept
@@ -293,7 +341,7 @@ namespace wo
                     // Wait for too much time.
                     std::string warning_info = "Wait for too much time for waiting interrupt.\n";
                     std::stringstream dump_callstack_info;
-                    
+
                     dump_call_stack(32, false, dump_callstack_info);
                     warning_info += dump_callstack_info.str();
                     wo_warning(warning_info.c_str());
@@ -335,7 +383,29 @@ namespace wo
             _vm_hang_cv.notify_one();
         }
 
-        vmbase()
+        vmbase(vm_type type)
+            : virtual_machine_type(type)
+            , cr(nullptr)
+            , tc(nullptr)
+            , er(nullptr)
+            , sp(nullptr)
+            , bp(nullptr)
+            , register_mem_begin(nullptr)
+            , const_global_begin(nullptr)
+            , stack_mem_begin(nullptr)
+            , _self_stack_reg_mem_buf(nullptr)
+            , stack_size(0)
+            , gc_vm(nullptr)
+            , compile_info(nullptr)
+            , ip(nullptr)
+            , env(nullptr)
+            , _vm_hang_flag(0)
+            , _vm_br_yieldable(false)
+            , _vm_br_yield_flag(false)
+#if WO_ENABLE_RUNTIME_CHECK
+            // runtime information
+            , attaching_thread_id(std::thread::id{})
+#endif        
         {
             ++_alive_vm_count_for_gc_vm_destruct;
 
@@ -351,6 +421,27 @@ namespace wo
                 wo_assure(this->interrupt(vm_interrupt_type::DEBUG_INTERRUPT));
 
             _alive_vm_list.insert(this);
+        }
+        virtual ~vmbase()
+        {
+            do
+            {
+                std::lock_guard g1(_alive_vm_list_mx);
+
+                wo_assert(_alive_vm_list.find(this) != _alive_vm_list.end(),
+                    "This vm not exists in _alive_vm_list, that is illegal.");
+
+                _alive_vm_list.erase(this);
+            } while (0);
+
+            if (_self_stack_reg_mem_buf)
+                free(_self_stack_reg_mem_buf);
+
+            if (compile_info)
+                delete compile_info;
+
+            if (env)
+                --env->_running_on_vm_count;
         }
 
         vmbase* get_or_alloc_gcvm() const
@@ -399,68 +490,12 @@ namespace wo
 #endif
         }
 
-        virtual ~vmbase()
-        {
-            do
-            {
-                std::lock_guard g1(_alive_vm_list_mx);
-
-                wo_assert(_alive_vm_list.find(this) != _alive_vm_list.end(),
-                    "This vm not exists in _alive_vm_list, that is illegal.");
-
-                _alive_vm_list.erase(this);
-            } while (0);
-
-            if (_self_stack_reg_mem_buf)
-                free(_self_stack_reg_mem_buf);
-
-            if (compile_info)
-                delete compile_info;
-
-            if (env)
-                --env->_running_on_vm_count;
-        }
-
-#if WO_ENABLE_RUNTIME_CHECK
-        // runtime information
-        std::thread::id attaching_thread_id = {};
-#endif        
-
-        // special regist
-        value* cr = nullptr;  // op result trace & function return;
-        value* tc = nullptr;  // arugument count
-        value* er = nullptr;  // exception result
-
-        // stack info
-        value* sp = nullptr;
-        value* bp = nullptr;
-
-        value* register_mem_begin = nullptr;
-        value* const_global_begin = nullptr;
-        value* stack_mem_begin = nullptr;
-
-        value* _self_stack_reg_mem_buf = nullptr;
-        size_t stack_size = 0;
-
-        vmbase* gc_vm = nullptr;
-
-        lexer* compile_info = nullptr;
-
-        // next ircode pointer
-        const byte_t* ip = nullptr;
-
-        shared_pointer<runtime_env> env;
-
-        vm_type virtual_machine_type = vm_type::NORMAL;
-    private:
-        std::mutex _vm_hang_mx;
-        std::condition_variable _vm_hang_cv;
-        std::atomic_int8_t _vm_hang_flag = 0;
-
-        bool _vm_br_yieldable = false;
-        bool _vm_br_yield_flag = false;
     public:
-        void set_runtime(shared_pointer<runtime_env> runtime_environment)
+        virtual vmbase* create_machine(vm_type type) const = 0;
+        virtual wo_result_t run() = 0;
+
+    public:
+        inline void set_runtime(shared_pointer<runtime_env> runtime_environment)
         {
             wo_assure(wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
 
@@ -483,17 +518,15 @@ namespace wo
             wo_assure(wo_leave_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
 
             // Create a new VM using for GC destruct
-            auto* created_subvm_for_gc = make_machine(1024);
-            // gc_thread will be destructed by gc_work..
-            created_subvm_for_gc->virtual_machine_type = vm_type::GC_DESTRUCTOR;
+            auto* created_subvm_for_gc = make_machine(stack_size, vm_type::GC_DESTRUCTOR);
+
             gc_vm = created_subvm_for_gc->gc_vm = created_subvm_for_gc;
         }
-        virtual vmbase* create_machine() const = 0;
-        vmbase* make_machine(size_t stack_sz = 0) const
+        inline vmbase* make_machine(size_t stack_sz, vm_type type) const
         {
             wo_assert(env != nullptr);
 
-            vmbase* new_vm = create_machine();
+            vmbase* new_vm = create_machine(type);
             new_vm->gc_vm = get_or_alloc_gcvm();
 
             wo_assure(wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(new_vm))));
@@ -548,7 +581,7 @@ namespace wo
                     }
                     for (int i = 0; i < MAX_BYTE_COUNT - displayed_count; i++)
                         printf("   ");
-                };
+                    };
 #define WO_SIGNED_SHIFT(VAL) (((signed char)((unsigned char)(((unsigned char)(VAL))<<1)))>>1)
                 auto print_reg_bpoffset = [&]() {
                     byte_t data_1b = *(this_command_ptr++);
@@ -587,7 +620,7 @@ namespace wo
                             tmpos << "reg(" << (uint32_t)data_1b << ")";
 
                     }
-                };
+                    };
                 auto print_opnum1 = [&]() {
                     if (main_command & (byte_t)0b00000010)
                     {
@@ -604,7 +637,7 @@ namespace wo
                         else
                             tmpos << "g[" << data_4b - env->constant_value_count << "]";
                     }
-                };
+                    };
                 auto print_opnum2 = [&]() {
                     if (main_command & (byte_t)0b00000001)
                     {
@@ -621,7 +654,7 @@ namespace wo
                         else
                             tmpos << "g[" << data_4b - env->constant_value_count << "]";
                     }
-                };
+                    };
 
 #undef WO_SIGNED_SHIFT
                 switch (main_command & (byte_t)0b11111100)
@@ -831,17 +864,17 @@ namespace wo
                 case instruct::equs:
                     tmpos << "equs\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
                 case instruct::nequs:
-                    tmpos << "nequs\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;\
+                    tmpos << "nequs\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break; \
                 case instruct::unpackargs:
-                {
-                    tmpos << "unpackargs\t"; print_opnum1();
-                    int32_t unpack_argc = *(int32_t*)((this_command_ptr += 4) - 4);
-                    if (unpack_argc >= 0)
-                        tmpos << "\tcount = " << unpack_argc;
-                    else
-                        tmpos << "\tleast = " << -unpack_argc;
-                    break;                        
-                }
+                    {
+                        tmpos << "unpackargs\t"; print_opnum1();
+                        int32_t unpack_argc = *(int32_t*)((this_command_ptr += 4) - 4);
+                        if (unpack_argc >= 0)
+                            tmpos << "\tcount = " << unpack_argc;
+                        else
+                            tmpos << "\tleast = " << -unpack_argc;
+                        break;
+                    }
                 case instruct::ext:
                 {
                     tmpos << "ext ";
@@ -858,7 +891,7 @@ namespace wo
 
                             auto this_func_argc = *(uint32_t*)((this_command_ptr += 4) - 4);
                             auto skip_closure = *(uint16_t*)((this_command_ptr += 2) - 2);
-                            
+
                             tmpos << ": skip " << this_func_argc << "/" << skip_closure;
                             break;
                         }
@@ -1055,12 +1088,6 @@ namespace wo
                 }
             }
         }
-
-        struct callstack_info
-        {
-            std::string m_func_name;
-            size_t      m_row;
-        };
         inline std::vector<callstack_info> dump_call_stack_func_info(bool need_offset = true)const
         {
             // TODO; Dump call stack without pdb
@@ -1153,10 +1180,7 @@ namespace wo
 
             return call_trace_count;
         }
-
-        virtual wo_result_t run() = 0;
-
-        bool gc_checkpoint()
+        inline bool gc_checkpoint()
         {
             if (interrupt(vm_interrupt_type::GC_HANGUP_INTERRUPT))
             {
@@ -1174,8 +1198,7 @@ namespace wo
             }
             return false;
         }
-
-        value* co_pre_invoke(wo_int_t wo_func_addr, wo_int_t argc)
+        inline value* co_pre_invoke(wo_int_t wo_func_addr, wo_int_t argc)
         {
             wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
 
@@ -1195,7 +1218,7 @@ namespace wo
             }
             return nullptr;
         }
-        value* co_pre_invoke(wo_handle_t ex_func_addr, wo_int_t argc)
+        inline value* co_pre_invoke(wo_handle_t ex_func_addr, wo_int_t argc)
         {
             wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
 
@@ -1215,7 +1238,7 @@ namespace wo
             }
             return nullptr;
         }
-        value* co_pre_invoke(closure_t* wo_func_addr, wo_int_t argc)
+        inline value* co_pre_invoke(closure_t* wo_func_addr, wo_int_t argc)
         {
             wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
 
@@ -1252,8 +1275,7 @@ namespace wo
             }
             return nullptr;
         }
-
-        value* invoke(wo_int_t wo_func_addr, wo_int_t argc)
+        inline value* invoke(wo_int_t wo_func_addr, wo_int_t argc)
         {
             wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
 
@@ -1283,7 +1305,7 @@ namespace wo
             }
             return nullptr;
         }
-        value* invoke(wo_handle_t wo_func_addr, wo_int_t argc)
+        inline value* invoke(wo_handle_t wo_func_addr, wo_int_t argc)
         {
             wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
 
@@ -1325,7 +1347,7 @@ namespace wo
             }
             return nullptr;
         }
-        value* invoke(closure_t* wo_func_closure, wo_int_t argc)
+        inline value* invoke(closure_t* wo_func_closure, wo_int_t argc)
         {
             wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
 
@@ -1426,11 +1448,29 @@ namespace wo
 
     class vm : public vmbase
     {
-        vmbase* create_machine() const override
+    public:
+        vm(vm_type type)
+            : vmbase(type)
         {
-            return new vm;
-        }
 
+        }
+        virtual ~vm() override = default;
+    public:
+        virtual vmbase* create_machine(vm_type type) const override
+        {
+            return new vm(type);
+        }
+        virtual wo_result_t run()override
+        {
+            if (ip >= env->rt_codes && ip < env->rt_codes + env->rt_code_len)
+                run_impl();
+            else
+                return ((wo_extern_native_func_t)ip)(
+                    std::launder(reinterpret_cast<wo_vm>(this)),
+                    std::launder(reinterpret_cast<wo_value>(sp + 2)));
+
+            return wo_result_t::WO_API_NORMAL;
+        }
     public:
         inline static void ltx_impl(value* result, value* opnum1, value* opnum2)
         {
@@ -1747,7 +1787,7 @@ namespace wo
             runtime_env* rt_env = env.get();
             const byte_t* rt_ip;
             value* rt_bp,
-                 * rt_sp;
+                * rt_sp;
             value* global_begin = const_global_begin;
             value* reg_begin = register_mem_begin;
             value* const    rt_cr = cr;
@@ -2022,7 +2062,7 @@ namespace wo
 
                     if (auto* err = movcast_impl(opnum1, opnum2, aim_type))
                         WO_VM_FAIL(WO_FAIL_TYPE_FAIL, err);
-                    
+
                     break;
                 }
                 case instruct::opcode::typeas:
@@ -2764,8 +2804,8 @@ namespace wo
                         {
                             WO_ADDRESSING_N1; // data
 
-                            ip = rt_ip; 
-                            sp = rt_sp; 
+                            ip = rt_ip;
+                            sp = rt_sp;
                             bp = rt_bp;
 
                             wo_fail(WO_FAIL_UNEXPECTED,
@@ -2941,18 +2981,6 @@ namespace wo
 #undef WO_IPVAL_MOVE_2
 #undef WO_IPVAL_MOVE_1
 #undef WO_IPVAL
-        }
-
-        wo_result_t run()override
-        {
-            if (ip >= env->rt_codes && ip < env->rt_codes + env->rt_code_len)
-                run_impl();
-            else
-                return ((wo_extern_native_func_t)ip)(
-                    std::launder(reinterpret_cast<wo_vm>(this)),
-                    std::launder(reinterpret_cast<wo_value>(sp + 2)));
-
-            return wo_result_t::WO_API_NORMAL;
         }
     };
 }

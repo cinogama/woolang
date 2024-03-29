@@ -377,7 +377,7 @@ namespace wo
         struct ast_value_function_define;
     }
 
-    struct vmbase;
+    class vmbase;
     class ir_compiler;
     struct runtime_env;
 
@@ -562,7 +562,7 @@ namespace wo
 
     class ir_compiler
     {
-        friend struct vmbase;
+        friend class vmbase;
 
     private:
         struct ir_param
