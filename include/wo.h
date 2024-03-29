@@ -983,7 +983,8 @@ enum _wo_opcode
     WO_UNPACKARGS = 57,
                 // DRH: Opnum1 desc, DRL: 0
                 // OPNUM1: RS/GLB  OPNUM2: IMM_U32      Expand array/struct into stack, at least expand abs(OPNUM2).
-                //                                      * If OPNUM2 <= 0, expand count will be append into register(tc). 
+                //                                      * If reintp_cast<IMM_32>(OPNUM2) <= 0, expand count will be 
+                //                                          append into register(tc). 
     WO_MOVCAST = 58,
                 // DRH: Opnum1 desc, DRL: Opnum2 desc
                 // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Move value from `OPNUM2` to `OPNUM1`, and cast the type
@@ -1058,29 +1059,46 @@ enum _wo_opcode_ext3
 typedef struct _wo_ir_compiler* wo_ir_compiler;
 
 WO_API wo_ir_compiler wo_create_ir_compiler(void);
-WO_API wo_ir_compiler wo_close_ir_compiler(wo_ir_compiler ircompiler);
+WO_API void wo_close_ir_compiler(wo_ir_compiler ircompiler);
 
-WO_API void wo_ir_opcode(wo_ir_compiler compiler, int opcode, int drh, int drl);
+WO_API void wo_ir_opcode(wo_ir_compiler compiler, uint8_t opcode, uint8_t drh, uint8_t drl);
 WO_API void wo_ir_int(wo_ir_compiler compiler, wo_integer_t val);
 WO_API void wo_ir_real(wo_ir_compiler compiler, wo_real_t val);
 WO_API void wo_ir_handle(wo_ir_compiler compiler, wo_handle_t val);
 WO_API void wo_ir_string(wo_ir_compiler compiler, wo_string_t val);
 WO_API void wo_ir_bool(wo_ir_compiler compiler, wo_bool_t val);
-WO_API void wo_ir_glb(wo_ir_compiler compiler, uint32_t offset);
+WO_API void wo_ir_glb(wo_ir_compiler compiler, int32_t offset);
 WO_API void wo_ir_reg(wo_ir_compiler compiler, uint8_t regid);
 WO_API void wo_ir_bp(wo_ir_compiler compiler, int8_t offset);
 WO_API void wo_ir_tag(wo_ir_compiler compiler, wo_string_t name);
+
+enum _wo_reg
+{
+    WO_REG_T0, WO_REG_T1, WO_REG_T2, WO_REG_T3,
+    WO_REG_T4, WO_REG_T5, WO_REG_T6, WO_REG_T7,
+    WO_REG_T8, WO_REG_T9, WO_REG_T10, WO_REG_T11,
+    WO_REG_T12, WO_REG_T13, WO_REG_T14, WO_REG_T15,
+
+    WO_REG_R0, WO_REG_R1, WO_REG_R2, WO_REG_R3,
+    WO_REG_R4, WO_REG_R5, WO_REG_R6, WO_REG_R7,
+    WO_REG_R8, WO_REG_R9, WO_REG_R10, WO_REG_R11,
+    WO_REG_R12, WO_REG_R13, WO_REG_R14, WO_REG_R15,
+
+    WO_REG_CR,
+    WO_REG_TC,
+    WO_REG_ER,
+    WO_REG_NI,
+    WO_REG_PM,
+    WO_REG_TP,
+};
 
 WO_API void wo_ir_immtag(wo_ir_compiler compiler, wo_string_t name);
 WO_API void wo_ir_immu8(wo_ir_compiler compiler, uint8_t val);
 WO_API void wo_ir_immu16(wo_ir_compiler compiler, uint16_t val);
 WO_API void wo_ir_immu32(wo_ir_compiler compiler, uint32_t val);
 WO_API void wo_ir_immu64(wo_ir_compiler compiler, uint64_t val);
-WO_API void wo_ir_imm8(wo_ir_compiler compiler, int8_t val);
-WO_API void wo_ir_imm16(wo_ir_compiler compiler, int16_t val);
-WO_API void wo_ir_imm32(wo_ir_compiler compiler, int32_t val);
-WO_API void wo_ir_imm64(wo_ir_compiler compiler, int64_t val);
 
-WO_API void wo_ir_compile(wo_ir_compiler compiler, wo_vm vm);
+WO_API void wo_load_ir_compiler_with_stacksz(wo_vm vm, wo_ir_compiler compiler, wo_size_t stacksz);
+WO_API void wo_load_ir_compiler(wo_vm vm, wo_ir_compiler compiler);
 
 #endif

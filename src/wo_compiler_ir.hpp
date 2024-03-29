@@ -14,6 +14,7 @@
 
 #include <cstring>
 #include <string>
+#include <optional>
 
 namespace wo
 {
@@ -27,17 +28,6 @@ namespace wo
                 wo_error("This type can not generate opnum.");
 
                 return 0;
-            }
-        };
-
-        struct stack :virtual opnumbase
-        {
-            int16_t offset;
-
-            stack(int16_t _offset) noexcept
-                :offset(_offset)
-            {
-
             }
         };
 
@@ -81,16 +71,27 @@ namespace wo
             enum spreg : uint8_t
             {
                 // normal regist
-                t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15,
-                r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15,
+                t0 = _wo_reg::WO_REG_T0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15,
+                r0 = _wo_reg::WO_REG_R0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15,
 
                 // special regist
-                op_trace_result = 0b00100000,   cr = op_trace_result,
-                argument_count,                 tc = argument_count,
-                exception_inform,               er = exception_inform,
-                nil_constant,                   ni = nil_constant,
-                pattern_match,                  pm = pattern_match,
-                temporary,                      tp = temporary,
+                op_trace_result = _wo_reg::WO_REG_CR,
+                cr = op_trace_result,
+
+                argument_count, 
+                tc = argument_count,
+
+                exception_inform, 
+                er = exception_inform,
+
+                nil_constant,
+                ni = nil_constant,
+
+                pattern_match, 
+                pm = pattern_match,
+
+                temporary, 
+                tp = temporary,
 
                 last_special_register = 0b00111111,
             };
@@ -276,7 +277,7 @@ namespace wo
                 auto t2 = _another.type();
                 if (t == t2)
                     return val < (dynamic_cast<const imm_str&>(_another)).val;
- 
+
                 return t < t2;
             }
 
@@ -301,6 +302,52 @@ namespace wo
             {
                 wo_error("Cannot eval string here.");
                 return true;
+            }
+        };
+
+        struct imm_hdl :virtual immbase
+        {
+            wo_handle_t val;
+            imm_hdl(wo_handle_t v)
+                : val(v)
+            {
+            }
+
+            value::valuetype type()const noexcept override
+            {
+                return value::valuetype::handle_type;
+            }
+
+            bool operator < (const immbase& _another) const override
+            {
+                if (dynamic_cast<const tag*>(&_another))
+                    return false;
+
+                auto t = type();
+                auto t2 = _another.type();
+                if (t == t2)
+                    return try_int() < _another.try_int();
+
+                return t < t2;
+            }
+
+            void apply(value* v) const override
+            {
+                v->type = type();
+                v->set_handle(val);
+            }
+
+            virtual int64_t try_int()const override
+            {
+                return (int64_t)val;
+            }
+            virtual int64_t try_set_int(int64_t _val) override
+            {
+                return val = (wo_handle_t)val;
+            }
+            virtual bool is_true() const override
+            {
+                return (bool)val;
             }
         };
 
@@ -440,7 +487,7 @@ namespace wo
         {
             std::string script_name;
             std::optional<std::string>
-                        library_name;
+                library_name;
             std::string function_name;
 
             // Will be fill in finalize of env.
@@ -523,22 +570,12 @@ namespace wo
             enum type
             {
                 OPCODE,
-
+                OPNUM,
                 IMM_TAG,
                 IMM_U8,
                 IMM_U16,
                 IMM_U32,
                 IMM_U64,
-                IMM_8,
-                IMM_16,
-                IMM_32,
-                IMM_64,
-
-                GLOBAL,
-                CONSTANT,
-                REG,
-                BPOFFSET,
-                TAG,
             };
 
             type m_type;
@@ -550,20 +587,17 @@ namespace wo
                     uint8_t m_dr;
                 };
                 opnum::opnumbase* m_opnum;
+                opnum::tagimm_rsfunc* m_immtag;
                 uint8_t m_immu8;
                 uint16_t m_immu16;
                 uint32_t m_immu32;
                 uint64_t m_immu64;
-                int8_t m_imm8;
-                int16_t m_imm16;
-                int32_t m_imm32;
-                int64_t m_imm64;
             };
         };
 
         struct ir_command
         {
-            instruct::opcode opcode = instruct::nop;
+            instruct::opcode opcode;
 
             opnum::opnumbase* op1 = nullptr;
             opnum::opnumbase* op2 = nullptr;
@@ -580,6 +614,43 @@ namespace wo
                 instruct::extern_opcode_page_3 ext_opcode_p3;
             };
 
+            std::optional<ir_param> param;
+
+            ir_command()
+                : opcode(instruct::opcode::nop)
+                , op1(nullptr)
+                , op2(nullptr)
+                , opinteger1(0)
+                , opinteger2(0)
+                , ext_page_id(0)
+                , param(std::nullopt)
+            {
+            }
+            
+            ir_command(
+                instruct::opcode _opcode,
+                opnum::opnumbase* _op1 = nullptr,
+                opnum::opnumbase* _op2 = nullptr,
+                int32_t _opinteger1 = 0,
+                int32_t _opinteger2 = 0,
+                uint8_t _extpage = 0
+            )
+                : opcode(_opcode)
+                , op1(_op1)
+                , op2(_op2)
+                , opinteger1(_opinteger1)
+                , opinteger2(_opinteger2)
+                , ext_page_id(_extpage)
+                , param(std::nullopt)
+            {
+
+            }
+
+            ir_command(const ir_command&) = default;
+            ir_command(ir_command&&) = default;
+            ir_command& operator = (const ir_command&) = default;
+            ir_command& operator = (ir_command&&) = default;
+
 #define WO_IS_REG(OPNUM)(dynamic_cast<opnum::reg*>(OPNUM))
             uint8_t dr()
             {
@@ -590,7 +661,6 @@ namespace wo
 
         // TODO: Use ir_param_buffer instead of ir_command_buffer
         cxx_vec_t<ir_command>   ir_command_buffer;
-        cxx_vec_t<ir_param>     ir_param_buffer;
 
         std::map<size_t, cxx_vec_t<std::string>> tag_irbuffer_offset;
 
@@ -678,7 +748,7 @@ namespace wo
                 native_info.library_name = std::nullopt;
 
                 if (library_name.has_value())
-                    native_info.library_name = std::make_optional(wo::wstr_to_str(library_name.value()));
+                    native_info.library_name = std::optional(wo::wstr_to_str(library_name.value()));
                 native_info.function_name = wo::wstr_to_str(function_name);
             }
         }
@@ -904,7 +974,7 @@ namespace wo
             return (int32_t)tr_regist_mapping.size();
         }
 
-#define WO_PUT_IR_TO_BUFFER(OPCODE, ...) ir_command_buffer.emplace_back(ir_command{OPCODE, __VA_ARGS__});
+#define WO_PUT_IR_TO_BUFFER(OPCODE, ...) ir_command_buffer.emplace_back(ir_command{OPCODE, __VA_ARGS__})
 
         template<typename OP1T, typename OP2T>
         void mov(const OP1T& op1, const OP2T& op2)
@@ -1629,7 +1699,7 @@ namespace wo
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value,
                 "Argument(s) should be opnum.");
 
-            auto& codeb = WO_PUT_IR_TO_BUFFER(instruct::opcode::ext, 
+            auto& codeb = WO_PUT_IR_TO_BUFFER(instruct::opcode::ext,
                 WO_OPNUM(op1), nullptr, (int32_t)thisfuncargc, (int32_t)skipclosure);
 
             codeb.ext_page_id = 0;
@@ -1642,7 +1712,7 @@ namespace wo
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value,
                 "Argument(s) should be opnum.");
 
-            auto& codeb = WO_PUT_IR_TO_BUFFER(
+            WO_PUT_IR_TO_BUFFER(
                 instruct::opcode::unpackargs, WO_OPNUM(op1), nullptr, unpack_count);
         }
 
@@ -1677,7 +1747,7 @@ namespace wo
             codeb.ext_page_id = 0;
             codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::cdivirz;
         }
-        
+
         template<typename OP1T>
         void ext_cdivir(const OP1T& op1)
         {
@@ -1689,10 +1759,70 @@ namespace wo
             codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::cdivir;
         }
 
-        void _opcode(instruct::opcode code)
+        ir_param& _new_ir_param()
         {
-            auto& codeb = WO_PUT_IR_TO_BUFFER(code);
+            auto& codeb = ir_command_buffer.emplace_back();
+            codeb.param = std::make_optional<ir_param>();
 
+            return codeb.param.value();
+        }
+
+        void ir_opcode(instruct::opcode code, uint8_t dr)
+        {
+            auto& codeb = _new_ir_param();
+
+            codeb.m_type = ir_param::type::OPCODE;
+            codeb.m_instruct = code;
+            codeb.m_dr = dr;
+        }
+
+        template<typename OP1T>
+        void ir_opnum(const OP1T& op1)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value,
+                "Argument(s) should be opnum.");
+
+            auto& codeb = _new_ir_param();
+
+            codeb.m_type = ir_param::type::OPNUM;
+            codeb.m_opnum = WO_OPNUM(op1);
+        }
+
+        void ir_imm_tag(opnum::tag tag)
+        {
+            auto& codeb = _new_ir_param();
+
+            codeb.m_type = ir_param::type::IMM_TAG;
+            codeb.m_opnum = WO_OPNUM(tag);
+        }
+
+        void ir_imm_u8(uint8_t val)
+        {
+            auto& codeb = _new_ir_param();
+
+            codeb.m_type = ir_param::type::IMM_U8;
+            codeb.m_immu8 = val;
+        }
+        void ir_imm_u16(uint16_t val)
+        {
+            auto& codeb = _new_ir_param();
+
+            codeb.m_type = ir_param::type::IMM_U16;
+            codeb.m_immu16 = val;
+        }
+        void ir_imm_u32(uint32_t val)
+        {
+            auto& codeb = _new_ir_param();
+
+            codeb.m_type = ir_param::type::IMM_U32;
+            codeb.m_immu32 = val;
+        }
+        void ir_imm_u64(uint64_t val)
+        {
+            auto& codeb = _new_ir_param();
+
+            codeb.m_type = ir_param::type::IMM_U64;
+            codeb.m_immu64 = val;
         }
 
 #undef WO_OPNUM
@@ -1700,5 +1830,4 @@ namespace wo
         shared_pointer<runtime_env> finalize(size_t stacksz);
 
     };
-
 }

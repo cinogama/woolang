@@ -130,7 +130,7 @@ namespace wo
     inline void set_exe_path(const char* path)
     {
         if (path != nullptr)
-            wo_binary_path = std::make_optional(std::string(path));
+            wo_binary_path = std::optional(std::string(path));
         else
             wo_binary_path = std::nullopt;
     }

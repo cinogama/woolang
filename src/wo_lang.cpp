@@ -2455,8 +2455,10 @@ namespace wo
             // 5th, apply & update template struct.
             if (std::find(template_args.begin(), template_args.end(), nullptr) != template_args.end())
             {
-                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_make_struct_instance, WO_ERR_FAILED_TO_DECIDE_ALL_TEMPLATE_ARGS);
-                lang_anylizer->lang_error(lexer::errorlevel::infom, a_value_make_struct_instance->target_built_types->symbol->define_node, WO_INFO_ITEM_IS_DEFINED_HERE,
+                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_make_struct_instance, 
+                    WO_ERR_FAILED_TO_DECIDE_ALL_TEMPLATE_ARGS);
+                lang_anylizer->lang_error(lexer::errorlevel::infom, a_value_make_struct_instance->target_built_types->symbol->define_node, 
+                    WO_INFO_ITEM_IS_DEFINED_HERE,
                     a_value_make_struct_instance->target_built_types->get_type_name(false, true).c_str());
             }
             else
@@ -3080,7 +3082,8 @@ namespace wo
                     }
                 }
 
-                calling_function_define = analyze_pass_template_reification(calling_function_define, template_args); //tara~ get analyze_pass_template_reification 
+                //tara~ get analyze_pass_template_reification 
+                calling_function_define = analyze_pass_template_reification(calling_function_define, template_args);
                 a_value_funccall->called_func = calling_function_define;
             }
         failed_to_judge_template_params:;
@@ -3107,7 +3110,9 @@ namespace wo
             {
                 // If call a pending type function. it means the function's type dudes may fail, mark void to continue..
                 if (funcsymb->has_return_value)
-                    lang_anylizer->lang_error(lexer::errorlevel::error, funcsymb, WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE, wo::str_to_wstr(funcsymb->get_ir_func_signature_tag()).c_str());
+                    lang_anylizer->lang_error(lexer::errorlevel::error, funcsymb, 
+                        WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE, 
+                        wo::str_to_wstr(funcsymb->get_ir_func_signature_tag()).c_str());
 
                 funcsymb->value_type->get_return_type()->set_type_with_name(WO_PSTR(void));
                 funcsymb->auto_adjust_return_type = false;
@@ -3131,7 +3136,10 @@ namespace wo
                 {
                     // default arg mgr here, now just kill
                     failed_to_call_cur_func = true;
-                    lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_ARGUMENT_TOO_FEW, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
+                    lang_anylizer->lang_error(
+                        lexer::errorlevel::error, a_value_funccall, 
+                        WO_ERR_ARGUMENT_TOO_FEW, 
+                        a_value_funccall->called_func->value_type->get_type_name(false).c_str());
                     break;
                 }
                 else
@@ -4544,7 +4552,7 @@ namespace wo
                 auto& const_r_value = right->get_constant_value();
                 wo_assert(const_r_value.type == wo::value::valuetype::integer_type);
 
-                constant_right = std::make_optional(const_r_value.integer);
+                constant_right = std::optional(const_r_value.integer);
             }
 
             if (left->is_constant)
@@ -4552,7 +4560,7 @@ namespace wo
                 auto& const_l_value = left->get_constant_value();
                 wo_assert(const_l_value.type == wo::value::valuetype::integer_type);
 
-                constant_left = std::make_optional(const_l_value.integer);
+                constant_left = std::optional(const_l_value.integer);
             }
 
             if (constant_right.has_value())

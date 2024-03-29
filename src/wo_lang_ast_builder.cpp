@@ -1279,10 +1279,10 @@ namespace wo
             // path += L".wo";
             bool is_virtual_path;
             std::wstring src_full_path;
-            if (!wo::check_virtual_file_path(&is_virtual_path, &src_full_path, path + L".wo", std::make_optional(*lex.source_file)))
+            if (!wo::check_virtual_file_path(&is_virtual_path, &src_full_path, path + L".wo", std::optional(*lex.source_file)))
             {
                 // import a::b; cannot open a/b.wo, trying a/b/b.wo
-                if (!wo::check_virtual_file_path(&is_virtual_path, &src_full_path, path + L"/" + filename + L".wo", std::make_optional(*lex.source_file)))
+                if (!wo::check_virtual_file_path(&is_virtual_path, &src_full_path, path + L"/" + filename + L".wo", std::optional(*lex.source_file)))
                     return token{ lex.parser_error(lexer::errorlevel::error, WO_ERR_CANNOT_OPEN_FILE, path.c_str()) };
             }
 

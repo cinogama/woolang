@@ -2311,7 +2311,7 @@ namespace wo
                     wo_assert(input.size() == 7);
 
                     // extern ( lib , symb )
-                    extern_symb->library_name = std::make_optional(WO_NEED_TOKEN(2).identifier);
+                    extern_symb->library_name = std::optional(WO_NEED_TOKEN(2).identifier);
                     extern_symb->symbol_name = WO_NEED_TOKEN(4).identifier;
                     extern_symb->externed_func = nullptr;
 

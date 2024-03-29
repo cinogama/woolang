@@ -6,7 +6,7 @@ std::string _wo_dump_lexer_context_error(wo::lexer* lex, _wo_inform_style style)
 namespace wo
 {
     lexer::lexer(const std::wstring& content, const std::string _source_file)
-        : lexer(std::make_optional(std::make_unique<std::wistringstream>(content)), _source_file)
+        : lexer(std::optional(std::make_unique<std::wistringstream>(content)), _source_file)
     {
     }
     lexer::lexer(std::optional<std::unique_ptr<std::wistream>>&& stream, const std::string _source_file)
