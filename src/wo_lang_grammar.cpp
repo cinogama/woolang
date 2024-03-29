@@ -851,16 +851,16 @@ namespace wo
                 gm::nt(L"CONSTANT_MAP_PAIRS") >> gm::symlist{ gm::nt(L"CONSTANT_MAP_PAIR") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
                 gm::nt(L"CONSTANT_MAP_PAIRS") >> gm::symlist{ gm::nt(L"CONSTANT_MAP_PAIRS"),
-                        gm::te(gm::ttype::l_comma),
-                        gm::nt(L"CONSTANT_MAP_PAIR") }
+                gm::te(gm::ttype::l_comma),
+                gm::nt(L"CONSTANT_MAP_PAIR") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_append_list<2,0>),
 
                 gm::nt(L"CONSTANT_MAP_PAIR") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_empty),
                 gm::nt(L"CONSTANT_MAP_PAIR") >> gm::symlist{
-                    gm::nt(L"CONSTANT_ARRAY"),
-                    gm::te(gm::ttype::l_assign),
-                    gm::nt(L"MAY_MUT_PURE_VALUE") }
+                gm::nt(L"CONSTANT_ARRAY"),
+                gm::te(gm::ttype::l_assign),
+                gm::nt(L"MAY_MUT_PURE_VALUE") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_mapping_pair),
 
                 gm::nt(L"UNARIED_FACTOR") >> gm::symlist{ gm::te(gm::ttype::l_sub),gm::nt(L"UNARIED_FACTOR") }
@@ -910,11 +910,14 @@ namespace wo
                 gm::nt(L"FACTOR") >> gm::symlist{ gm::nt(L"FUNCTION_CALL") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-                gm::nt(L"DIRECT_CALLABLE_VALUE") >> gm::symlist{ gm::nt(L"DIRECT_CALL_FIRST_ARG"), gm::te(gm::ttype::l_direct), gm::nt(L"CALLABLE_LEFT") }
-                >> WO_ASTBUILDER_INDEX(ast::pass_directed_value_for_call),
-                gm::nt(L"DIRECT_CALLABLE_VALUE") >> gm::symlist{ gm::nt(L"DIRECT_CALL_FIRST_ARG"), gm::te(gm::ttype::l_direct), gm::nt(L"CALLABLE_RIGHT_WITH_BRACKET") }
-                >> WO_ASTBUILDER_INDEX(ast::pass_directed_value_for_call),
-                gm::nt(L"DIRECT_CALLABLE_VALUE") >> gm::symlist{ gm::nt(L"DIRECT_CALL_FIRST_ARG"), gm::te(gm::ttype::l_direct), gm::nt(L"FUNC_DEFINE") }
+                gm::nt(L"DIRECT_CALLABLE_TARGET") >> gm::symlist{ gm::nt(L"CALLABLE_LEFT") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"DIRECT_CALLABLE_TARGET") >> gm::symlist{ gm::nt(L"CALLABLE_RIGHT_WITH_BRACKET") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"DIRECT_CALLABLE_TARGET") >> gm::symlist{ gm::nt(L"FUNC_DEFINE") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+
+                gm::nt(L"DIRECT_CALLABLE_VALUE") >> gm::symlist{ gm::nt(L"DIRECT_CALL_FIRST_ARG"), gm::te(gm::ttype::l_direct), gm::nt(L"DIRECT_CALLABLE_TARGET") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_directed_value_for_call),
 
                 gm::nt(L"DIRECT_CALL_FIRST_ARG") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING") }
@@ -950,6 +953,15 @@ namespace wo
 
                 gm::nt(L"FUNCTION_CALL") >> gm::symlist{ gm::nt(L"DIRECT_CALLABLE_VALUE"), gm::nt(L"ARGUMENT_LISTS_MAY_EMPTY") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_function_call),
+
+                gm::nt(L"INV_FUNCTION_CALL") >> gm::symlist{ gm::nt(L"FUNCTION_CALL"), gm::te(gm::ttype::l_inv_direct), gm::nt(L"MAY_MUT_PURE_VALUE") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_function_inv_call),
+
+                gm::nt(L"INV_FUNCTION_CALL") >> gm::symlist{ gm::nt(L"DIRECT_CALLABLE_TARGET"), gm::te(gm::ttype::l_inv_direct), gm::nt(L"MAY_MUT_PURE_VALUE") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_function_inv_call2),
+
+                gm::nt(L"RIGHT") >> gm::symlist{ gm::nt(L"INV_FUNCTION_CALL") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
                 gm::nt(L"COMMA_EXPR") >> gm::symlist{ gm::nt(L"COMMA_EXPR_ITEMS"), gm::nt(L"COMMA_MAY_EMPTY") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),

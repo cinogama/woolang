@@ -184,7 +184,7 @@ namespace wo
                         fnd->second.has_width_data = true;
                         fnd->second.wdata = str_to_wstr(fnd->second.data);
                     }
-                    return std::make_optional(std::make_unique<sstream_t>(fnd->second.wdata));
+                    return std::optional(std::make_unique<sstream_t>(fnd->second.wdata));
                 }
             }
             else
@@ -192,7 +192,7 @@ namespace wo
                 std::shared_lock g1(vfile_list_guard);
                 auto fnd = vfile_list.find(fullfilepath);
                 if (fnd != vfile_list.end())
-                    return std::make_optional(std::make_unique<sstream_t>(fnd->second.data));
+                    return std::optional(std::make_unique<sstream_t>(fnd->second.data));
             }
         }
         else
@@ -207,7 +207,7 @@ namespace wo
                 src_1->imbue(wo_global_locale);
 
                 if (src_1->is_open())
-                    return std::make_optional(std::move(src_1));
+                    return std::optional(std::move(src_1));
 
             } while (0);
         }

@@ -460,7 +460,7 @@ namespace wo
         bool _vm_br_yieldable = false;
         bool _vm_br_yield_flag = false;
     public:
-        void set_runtime(shared_pointer<runtime_env>& runtime_environment)
+        void set_runtime(shared_pointer<runtime_env> runtime_environment)
         {
             wo_assure(wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
 
@@ -1591,7 +1591,7 @@ namespace wo
 
             return rt_sp + size;
         }
-        inline static void packargs_impl(value* opnum1, uint32_t argcount, value* tc, value* rt_bp, uint16_t skip_closure_arg_count)
+        inline static void packargs_impl(value* opnum1, uint16_t argcount, value* tc, value* rt_bp, uint16_t skip_closure_arg_count)
         {
             auto* packed_array = array_t::gc_new<gcbase::gctype::young>();
             packed_array->resize((size_t)tc->integer - (size_t)argcount);
@@ -1833,8 +1833,7 @@ namespace wo
                     else
                     {
                         uint16_t psh_repeat = WO_IPVAL_MOVE_2;
-                        for (uint32_t i = 0; i < psh_repeat; i++)
-                            (rt_sp--)->set_nil();
+                        rt_sp -= psh_repeat;
                     }
                     WO_VM_ASSERT(rt_sp <= rt_bp && rt_sp > (stack_mem_begin - stack_size), "Woolang vm stack overflow!");
                     break;
@@ -2776,7 +2775,7 @@ namespace wo
                         case instruct::extern_opcode_page_0::packargs:
                         {
                             WO_ADDRESSING_N1;
-                            uint32_t this_function_arg_count = WO_IPVAL_MOVE_4;
+                            uint16_t this_function_arg_count = WO_IPVAL_MOVE_2;
                             uint16_t skip_closure_arg_count = WO_IPVAL_MOVE_2;
 
                             packargs_impl(opnum1, this_function_arg_count, tc, rt_bp, skip_closure_arg_count);

@@ -27,6 +27,8 @@
 #include <cstdlib>
 #include <string>
 
+const size_t _WO_VM_EFAULT_STACK_SIZE = 1024;
+
 struct _wo_enter_gc_guard
 {
     wo_vm _vm;
@@ -376,7 +378,7 @@ void wo_init(int argc, char** argv)
     if (enable_vm_pool)
         global_vm_pool = new wo::vmpool;
 
-#ifdef _DEBUG
+#if WO_ENABLE_RUNTIME_CHECK
     do
     {
         wo::start_string_pool_guard sg;
@@ -2263,7 +2265,7 @@ wo_vm wo_borrow_vm(wo_vm vm)
 {
     if (global_vm_pool != nullptr)
         return CS_VM(global_vm_pool->borrow_vm_from_exists_vm(WO_VM(vm)));
-    return wo_sub_vm(vm, 1024);
+    return wo_sub_vm(vm, _WO_VM_EFAULT_STACK_SIZE);
 }
 void wo_release_vm(wo_vm vm)
 {
@@ -2279,7 +2281,7 @@ std::variant<
 > _wo_compile_to_nojit_env(wo_string_t virtual_src_path, const void* src, size_t len, size_t stacksz)
 {
     if (stacksz == 0)
-        stacksz = 1024;
+        stacksz = _WO_VM_EFAULT_STACK_SIZE;
 
     // 0. Try load binary
     const char* load_binary_failed_reason = nullptr;
@@ -2478,7 +2480,7 @@ std::wstring _dump_src_info(const std::string& path, size_t beginaimrow, size_t 
                 else
                     swprintf(buf, 19, L"\n%-5zu | ", current_row_no);
                 result += buf;
-                };
+            };
             auto print_notify_line = [&result, &first_line, &current_row_no, beginpointplace, pointplace, style, beginaimrow, aimrow](size_t line_end_place) {
                 wchar_t buf[20] = {};
                 if (first_line)
@@ -2537,7 +2539,7 @@ std::wstring _dump_src_info(const std::string& path, size_t beginaimrow, size_t 
                     append_result += wo::str_to_wstr(ANSI_RST);
 
                 result += append_result;
-                };
+            };
 
             if (from <= current_row_no && current_row_no <= to)
                 print_src_file_print_lineno();
@@ -3805,4 +3807,118 @@ void wo_gc_record_memory(wo_value val)
 {
     if (wo::gc::gc_is_marking())
         wo::gcbase::write_barrier(WO_VAL(val));
+}
+
+wo_ir_compiler wo_create_ir_compiler(void)
+{
+    return reinterpret_cast<wo_ir_compiler>(new wo::ir_compiler);
+}
+void wo_close_ir_compiler(wo_ir_compiler ircompiler)
+{
+    delete std::launder(reinterpret_cast<wo::ir_compiler*>(ircompiler));
+}
+
+void wo_ir_opcode(wo_ir_compiler compiler, uint8_t opcode, uint8_t drh, uint8_t drl)
+{
+    auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
+
+    wo::instruct::opcode code = (wo::instruct::opcode)(opcode << (uint8_t)2);
+    uint8_t dr = (uint8_t)(drh << (uint8_t)1) | drl;
+    c->ir_opcode(code, dr);
+}
+void wo_ir_int(wo_ir_compiler compiler, wo_integer_t val)
+{
+    auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
+    c->ir_opnum(wo::opnum::imm(val));
+}
+void wo_ir_real(wo_ir_compiler compiler, wo_real_t val)
+{
+    auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
+    c->ir_opnum(wo::opnum::imm(val));
+}
+void wo_ir_handle(wo_ir_compiler compiler, wo_handle_t val)
+{
+    auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
+    c->ir_opnum(wo::opnum::imm_hdl(val));
+}
+void wo_ir_string(wo_ir_compiler compiler, wo_string_t val)
+{
+    auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
+    c->ir_opnum(wo::opnum::imm_str(val));
+}
+void wo_ir_bool(wo_ir_compiler compiler, wo_bool_t val)
+{
+    auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
+    c->ir_opnum(wo::opnum::imm((bool)val));
+}
+void wo_ir_glb(wo_ir_compiler compiler, int32_t offset)
+{
+    auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
+    c->ir_opnum(wo::opnum::global(offset));
+}
+void wo_ir_reg(wo_ir_compiler compiler, uint8_t regid)
+{
+    auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
+    c->ir_opnum(wo::opnum::reg(regid));
+}
+void wo_ir_bp(wo_ir_compiler compiler, int8_t offset)
+{
+    auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
+    c->ir_opnum(wo::opnum::reg(wo::opnum::reg::bp_offset(offset)));
+}
+void wo_ir_tag(wo_ir_compiler compiler, wo_string_t name)
+{
+    auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
+    c->ir_opnum(wo::opnum::tag(name));
+}
+
+void wo_ir_immtag(wo_ir_compiler compiler, wo_string_t name)
+{
+    auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
+    c->ir_imm_tag(wo::opnum::tag(name));
+}
+void wo_ir_immu8(wo_ir_compiler compiler, uint8_t val)
+{
+    auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
+    c->ir_imm_u8(val);
+}
+void wo_ir_immu16(wo_ir_compiler compiler, uint16_t val)
+{
+    auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
+    c->ir_imm_u16(val);
+}
+void wo_ir_immu32(wo_ir_compiler compiler, uint32_t val)
+{
+    auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
+    c->ir_imm_u32(val);
+}
+void wo_ir_immu64(wo_ir_compiler compiler, uint64_t val)
+{
+    auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
+    c->ir_imm_u64(val);
+}
+
+void wo_ir_register_extern_function(
+    wo_ir_compiler compiler, wo_native_func extern_func, 
+    wo_string_t script_path,
+    wo_string_t library_name_may_null,
+    wo_string_t function_name)
+{
+    auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
+    c->record_extern_native_function((intptr_t)extern_func,
+        wo::str_to_wstr(script_path),
+        library_name_may_null == nullptr ? std::nullopt : std::optional(wo::str_to_wstr(library_name_may_null)),
+        wo::str_to_wstr(function_name));
+}
+
+void wo_load_ir_compiler_with_stacksz(wo_vm vm, wo_ir_compiler compiler, wo_size_t stacksz)
+{
+    auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
+
+    c->end();
+    WO_VM(vm)->set_runtime(c->finalize(stacksz));
+}
+void wo_load_ir_compiler(wo_vm vm, wo_ir_compiler compiler)
+{
+    wo_load_ir_compiler_with_stacksz(vm, compiler, _WO_VM_EFAULT_STACK_SIZE);
 }

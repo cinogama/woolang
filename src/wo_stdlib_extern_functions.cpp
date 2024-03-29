@@ -2962,6 +2962,7 @@ namespace std
         l_index_begin,          // '['
         l_index_end,            // ']'
         l_direct,               // '->'
+        l_inv_direct,
         l_function_result,      // '=>'
         l_bind_monad,           // '>>'
         l_map_monad,            // '>>'

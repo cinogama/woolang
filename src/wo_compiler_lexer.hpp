@@ -81,6 +81,7 @@ namespace wo
         l_index_begin,          // '['
         l_index_end,            // ']'
         l_direct,               // '->'
+        l_inv_direct,
         l_function_result,      // '=>'
         l_bind_monad,           // '>>'
         l_map_monad,            // '>>'
@@ -212,12 +213,12 @@ namespace wo
             {L"*=",     {lex_type::l_mul_assign}},
             {L"/=",     {lex_type::l_div_assign}},
             {L"%=",     {lex_type::l_mod_assign}},
-            {L":=",      {lex_type::l_value_assign}},
-            {L"+:=",     {lex_type::l_value_add_assign}},
-            {L"-:=",     {lex_type::l_value_sub_assign}},
-            {L"*:=",     {lex_type::l_value_mul_assign}},
-            {L"/:=",     {lex_type::l_value_div_assign}},
-            {L"%:=",     {lex_type::l_value_mod_assign}},
+            {L":=",     {lex_type::l_value_assign}},
+            {L"+:=",    {lex_type::l_value_add_assign}},
+            {L"-:=",    {lex_type::l_value_sub_assign}},
+            {L"*:=",    {lex_type::l_value_mul_assign}},
+            {L"/:=",    {lex_type::l_value_div_assign}},
+            {L"%:=",    {lex_type::l_value_mod_assign}},
             {L"+:",     {lex_type::l_value_add_assign}},
             {L"-:",     {lex_type::l_value_sub_assign}},
             {L"*:",     {lex_type::l_value_mul_assign}},
@@ -238,17 +239,19 @@ namespace wo
             {L",",      {lex_type::l_comma}},
             {L":",      {lex_type::l_typecast}},
             {L".",      {lex_type::l_index_point}},
-            {L"..",      {lex_type::l_double_index_point}},
-            {L"...",      {lex_type::l_variadic_sign}},
+            {L"..",     {lex_type::l_double_index_point}},
+            {L"...",    {lex_type::l_variadic_sign}},
             {L"[",      {lex_type::l_index_begin}},
             {L"]",      {lex_type::l_index_end}},
-            {L"->",      {lex_type::l_direct }},
-            {L"=>",      {lex_type::l_function_result }},
-            {L"=>>",      {lex_type::l_bind_monad }},
-            {L"->>",      {lex_type::l_map_monad }},
+            {L"->",     {lex_type::l_direct }},
+            {L"|>",     {lex_type::l_direct }},
+            {L"<|",     {lex_type::l_inv_direct}},
+            {L"=>",     {lex_type::l_function_result }},
+            {L"=>>",    {lex_type::l_bind_monad }},
+            {L"->>",    {lex_type::l_map_monad }},
             {L"@",      {lex_type::l_at }},
             {L"?",      {lex_type::l_question }},
-            {L"\\",      {lex_type::l_lambda}},
+            {L"\\",     {lex_type::l_lambda}},
             {L"λ",      {lex_type::l_lambda}},
         };
         inline const static std::map<std::wstring, lex_keyword_info> key_word_list =
