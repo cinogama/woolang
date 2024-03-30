@@ -152,6 +152,8 @@ namespace wo
     public:
         inline static std::shared_mutex _alive_vm_list_mx;
         inline static cxx_set_t<vmbase*> _alive_vm_list;
+        inline static cxx_set_t<vmbase*> _gc_ready_vm_list;
+
         inline thread_local static vmbase* _this_thread_vm = nullptr;
         inline static std::atomic_uint32_t _alive_vm_count_for_gc_vm_destruct;
 
@@ -430,8 +432,14 @@ namespace wo
 
                 wo_assert(_alive_vm_list.find(this) != _alive_vm_list.end(),
                     "This vm not exists in _alive_vm_list, that is illegal.");
-
+                
                 _alive_vm_list.erase(this);
+
+                wo_assert(_gc_ready_vm_list.find(this) != _gc_ready_vm_list.end() || env == nullptr,
+                    "This vm not exists in _gc_ready_vm_list, that is illegal.");
+
+                _gc_ready_vm_list.erase(this);
+
             } while (0);
 
             if (_self_stack_reg_mem_buf)
@@ -442,6 +450,8 @@ namespace wo
 
             if (env)
                 --env->_running_on_vm_count;
+
+            --_alive_vm_count_for_gc_vm_destruct;
         }
 
         vmbase* get_or_alloc_gcvm() const
@@ -515,6 +525,12 @@ namespace wo
             env = runtime_environment;
             ++env->_running_on_vm_count;
 
+            do
+            {
+                std::lock_guard g1(_alive_vm_list_mx);
+                _gc_ready_vm_list.insert(this);
+            } while (false);
+
             wo_assure(wo_leave_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
 
             // Create a new VM using for GC destruct
@@ -554,6 +570,12 @@ namespace wo
 
             new_vm->env = env;  // env setted, gc will scan this vm..
             ++env->_running_on_vm_count;
+
+            do
+            {
+                std::lock_guard g1(_alive_vm_list_mx);
+                _gc_ready_vm_list.insert(new_vm);
+            } while (false);
 
             wo_assure(wo_leave_gcguard(std::launder(reinterpret_cast<wo_vm>(new_vm))));
             return new_vm;
