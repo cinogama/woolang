@@ -257,26 +257,26 @@ namespace wo
                     {
                         if (vm_type == vmbase::vm_type::GC_DESTRUCTOR)
                         {
-                            if (auto env = marking_vm->env)
+                            auto* env = marking_vm->env.get();
+                            wo_assert(env != nullptr);
+
+                            // If current gc-vm is orphan, skip marking global value.
+                            if (env->_running_on_vm_count > 1)
                             {
-                                // If current gc-vm is orphan, skip marking global value.
-                                if (env->_running_on_vm_count > 1)
+                                // Any code context only have one GC_DESTRUCTOR, here to mark global space.
+                                auto* global_and_const_values = env->constant_global_reg_rtstack;
+
+                                // Skip all constant, all constant cannot contain gc-type value beside no-gc-string.
+                                for (size_t cgr_index = env->constant_value_count;
+                                    cgr_index < env->constant_and_global_value_takeplace_count;
+                                    cgr_index++)
                                 {
-                                    // Any code context only have one GC_DESTRUCTOR, here to mark global space.
-                                    auto* global_and_const_values = env->constant_global_reg_rtstack;
+                                    auto* global_val = global_and_const_values + cgr_index;
 
-                                    // Skip all constant, all constant cannot contain gc-type value beside no-gc-string.
-                                    for (size_t cgr_index = env->constant_value_count;
-                                        cgr_index < env->constant_and_global_value_takeplace_count;
-                                        cgr_index++)
-                                    {
-                                        auto* global_val = global_and_const_values + cgr_index;
-
-                                        gcbase::unit_attrib* attr;
-                                        gcbase* gcunit_address = global_val->get_gcunit_with_barrier(&attr);
-                                        if (gcunit_address)
-                                            gc_mark_unit_as_gray(&_gc_gray_unit_lists[worker_id], gcunit_address, attr);
-                                    }
+                                    gcbase::unit_attrib* attr;
+                                    gcbase* gcunit_address = global_val->get_gcunit_with_barrier(&attr);
+                                    if (gcunit_address)
+                                        gc_mark_unit_as_gray(&_gc_gray_unit_lists[worker_id], gcunit_address, attr);
                                 }
                             }
                         }
@@ -411,18 +411,18 @@ namespace wo
                 if (!stopworld)
                 {
                     _gc_vm_gray_unit_lists.clear();
-                    for (auto* vmimpl : vmbase::_alive_vm_list)
+                    for (auto* vmimpl : vmbase::_gc_ready_vm_list)
                     {
                         if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
                             _gc_vm_gray_unit_lists[vmimpl] = {};
                     }
 
                     // 1. Interrupt all vm as GC_INTERRUPT, let all vm hang-up
-                    for (auto* vmimpl : vmbase::_alive_vm_list)
+                    for (auto* vmimpl : vmbase::_gc_ready_vm_list)
                         if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
                             wo_assure(vmimpl->interrupt(vmbase::GC_INTERRUPT));
 
-                    for (auto* vmimpl : vmbase::_alive_vm_list)
+                    for (auto* vmimpl : vmbase::_gc_ready_vm_list)
                     {
                         if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
                         {
@@ -460,7 +460,7 @@ namespace wo
                 }
                 else
                 {
-                    for (auto* vmimpl : vmbase::_alive_vm_list)
+                    for (auto* vmimpl : vmbase::_gc_ready_vm_list)
                     {
                         // NOTE: Let vm hang up for stop the world GC
                         if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
@@ -472,7 +472,7 @@ namespace wo
                         }
                     }
 
-                    for (auto* vmimpl : vmbase::_alive_vm_list)
+                    for (auto* vmimpl : vmbase::_gc_ready_vm_list)
                     {
                         if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
                             vmimpl->wait_interrupt(vmbase::GC_HANGUP_INTERRUPT);
@@ -660,30 +660,30 @@ namespace wo
             {
                 std::shared_lock sg1(vmbase::_alive_vm_list_mx);
 
-                for (auto* vmimpl : vmbase::_alive_vm_list)
+                for (auto* vmimpl : vmbase::_gc_ready_vm_list)
                 {
-                    if (auto env = vmimpl->env)
-                    {
-                        if (vmimpl->virtual_machine_type == vmbase::vm_type::GC_DESTRUCTOR
-                            && env->_running_on_vm_count == 1)
-                        {
-                            // Assure vm's stack if empty
-                            wo_assert(vmimpl->sp == vmimpl->bp && vmimpl->bp == vmimpl->stack_mem_begin);
+                    auto* env = vmimpl->env.get();
+                    wo_assert(env != nullptr);
 
-                            // If there is no instance of gc-handle which may use library loaded in env,
-                            // then free the gc destructor vm.
-                            if (0 == env->_created_destructable_instance_count.load(
-                                std::memory_order::memory_order_relaxed))
-                            {
-                                need_destruct_gc_destructor_list.push_back(vmimpl);
-                            }
+                    if (vmimpl->virtual_machine_type == vmbase::vm_type::GC_DESTRUCTOR
+                        && env->_running_on_vm_count == 1)
+                    {
+                        // Assure vm's stack if empty
+                        wo_assert(vmimpl->sp == vmimpl->bp && vmimpl->bp == vmimpl->stack_mem_begin);
+
+                        // If there is no instance of gc-handle which may use library loaded in env,
+                        // then free the gc destructor vm.
+                        if (0 == env->_created_destructable_instance_count.load(
+                            std::memory_order::memory_order_relaxed))
+                        {
+                            need_destruct_gc_destructor_list.push_back(vmimpl);
                         }
                     }
                 }
 
                 if (stopworld)
                 {
-                    for (auto* vmimpl : vmbase::_alive_vm_list)
+                    for (auto* vmimpl : vmbase::_gc_ready_vm_list)
                     {
                         if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
                         {
@@ -784,34 +784,34 @@ namespace wo
                 : &_gc_gray_unit_lists[worker_id]
                 ;
 
-            if (auto env = marking_vm->env)
+            auto* env = marking_vm->env.get();
+            wo_assert(env != nullptr);
+
+            // walk thorgh regs.
+            for (size_t reg_index = 0;
+                reg_index < env->real_register_count;
+                reg_index++)
             {
-                // walk thorgh regs.
-                for (size_t reg_index = 0;
-                    reg_index < env->real_register_count;
-                    reg_index++)
-                {
-                    auto self_reg_walker = marking_vm->register_mem_begin + reg_index;
+                auto self_reg_walker = marking_vm->register_mem_begin + reg_index;
 
-                    gcbase::unit_attrib* attr;
-                    gcbase* gcunit_address = self_reg_walker->get_gcunit_with_barrier(&attr);
-                    if (gcunit_address)
-                        gc_mark_unit_as_gray(worklist, gcunit_address, attr);
+                gcbase::unit_attrib* attr;
+                gcbase* gcunit_address = self_reg_walker->get_gcunit_with_barrier(&attr);
+                if (gcunit_address)
+                    gc_mark_unit_as_gray(worklist, gcunit_address, attr);
 
-                }
+            }
 
-                // walk thorgh stack.
-                for (auto* stack_walker = marking_vm->stack_mem_begin;
-                    marking_vm->sp < stack_walker;
-                    stack_walker--)
-                {
-                    auto stack_val = stack_walker;
+            // walk thorgh stack.
+            for (auto* stack_walker = marking_vm->stack_mem_begin;
+                marking_vm->sp < stack_walker;
+                stack_walker--)
+            {
+                auto stack_val = stack_walker;
 
-                    gcbase::unit_attrib* attr;
-                    gcbase* gcunit_address = stack_val->get_gcunit_with_barrier(&attr);
-                    if (gcunit_address)
-                        gc_mark_unit_as_gray(worklist, gcunit_address, attr);
-                }
+                gcbase::unit_attrib* attr;
+                gcbase* gcunit_address = stack_val->get_gcunit_with_barrier(&attr);
+                if (gcunit_address)
+                    gc_mark_unit_as_gray(worklist, gcunit_address, attr);
             }
         }
 
@@ -929,7 +929,7 @@ namespace wo
 
         gc_destructed = true;
 #endif
-};
+    };
 }
 
 void wo_gc_immediately(wo_bool_t fullgc)

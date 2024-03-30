@@ -292,8 +292,7 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
         wo_gc_immediately(WO_TRUE);
         std::this_thread::sleep_for(10ms);
 
-        std::lock_guard g1(wo::vmbase::_alive_vm_list_mx);
-        if (wo::vmbase::_alive_vm_list.empty())
+        if (wo::vmbase::_alive_vm_count_for_gc_vm_destruct == 0)
             break;
 
     } while (true);
