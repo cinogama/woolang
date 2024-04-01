@@ -3979,7 +3979,8 @@ namespace wo
             newtype->set_type(symb->type_informatiom);
             symb->type_informatiom->instance(newtype);
 
-            newtype->copy_source_info(symb->type_informatiom);
+            if (symb->type_informatiom->source_file != nullptr)
+                newtype->copy_source_info(symb->type_informatiom);
 
             if (newtype->typefrom != nullptr)
             {

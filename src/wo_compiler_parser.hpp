@@ -183,7 +183,7 @@ namespace wo
                 else if (ast_node->parent)
                     copy_source_info(ast_node->parent);
                 else
-                    wo_assert(0, "Failed to copy source info.");
+                    wo_error("Failed to copy source info.");
             }
         public:
             static void space(std::wostream& os, size_t layer)
