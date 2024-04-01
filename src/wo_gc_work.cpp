@@ -7,17 +7,8 @@
 #include <future>
 
 #if WO_BUILD_WITH_MINGW
-#include <mingw.thread.h>
-#include <mingw.future.h>
-#endif
-
-#define _wo_enable_gc_parallel_free 0
-
-#if defined(__cpp_lib_execution) && _wo_enable_gc_parallel_free
-#   include <execution>
-#   define ParallelForeach(...) std::for_each( std::execution::par_unseq, __VA_ARGS__ )
-#else
-#   define ParallelForeach std::for_each
+#   include <mingw.thread.h>
+#   include <mingw.future.h>
 #endif
 
 // PARALLEL-GC SUPPORTED
@@ -347,44 +338,42 @@ namespace wo
                         alloc_dur_current_gc_attrib.m_gc_age = (uint8_t)0x0F;
                         alloc_dur_current_gc_attrib.m_alloc_mask = (uint8_t)_gc_round_count & (uint8_t)0x01;
 
-                        ParallelForeach(
-                            page_list.begin(), page_list.end(),
-                            [&](char* page_head)
+                        for (auto* page_head : page_list)
+                        {
+                            size_t unit_count, unit_size;
+                            char* units = (char*)womem_get_unit_buffer(page_head, &unit_count, &unit_size);
+
+                            if (units == nullptr)
+                                continue;
+
+                            for (size_t unitidx = 0; unitidx < unit_count; ++unitidx)
                             {
-                                size_t unit_count, unit_size;
-                                char* units = (char*)womem_get_unit_buffer(page_head, &unit_count, &unit_size);
-
-                                if (units == nullptr)
-                                    return;
-
-                                for (size_t unitidx = 0; unitidx < unit_count; ++unitidx)
+                                gcbase::unit_attrib* attr;
+                                void* unit = womem_get_unit_ptr_attribute(units + unitidx * unit_size,
+                                    std::launder(reinterpret_cast<womem_attrib_t**>(&attr)));
+                                if (unit != nullptr)
                                 {
-                                    gcbase::unit_attrib* attr;
-                                    void* unit = womem_get_unit_ptr_attribute(units + unitidx * unit_size,
-                                        std::launder(reinterpret_cast<womem_attrib_t**>(&attr)));
-                                    if (unit != nullptr)
+                                    if (attr->m_marked == (uint8_t)gcbase::gcmarkcolor::no_mark
+                                        && attr->m_gc_age != 0
+                                        && (attr->m_attr & alloc_dur_current_gc_attrib_mask.m_attr) != alloc_dur_current_gc_attrib.m_attr
+                                        && attr->m_nogc == 0)
                                     {
-                                        if (attr->m_marked == (uint8_t)gcbase::gcmarkcolor::no_mark
-                                            && attr->m_gc_age != 0
-                                            && (attr->m_attr & alloc_dur_current_gc_attrib_mask.m_attr) != alloc_dur_current_gc_attrib.m_attr
-                                            && attr->m_nogc == 0)
-                                        {
-                                            // This unit didn't been mark. and not alloced during this round.
-                                            std::launder(reinterpret_cast<gcbase*>(unit))->~gcbase();
-                                            free64(unit);
-                                        }
-                                        else
-                                        {
-                                            ++self->_m_alive_units;
-                                            wo_assert(attr->m_marked != (uint8_t)gcbase::gcmarkcolor::self_mark);
-                                            attr->m_marked = (uint8_t)gcbase::gcmarkcolor::no_mark;
+                                        // This unit didn't been mark. and not alloced during this round.
+                                        std::launder(reinterpret_cast<gcbase*>(unit))->~gcbase();
+                                        free64(unit);
+                                    }
+                                    else
+                                    {
+                                        ++self->_m_alive_units;
+                                        wo_assert(attr->m_marked != (uint8_t)gcbase::gcmarkcolor::self_mark);
+                                        attr->m_marked = (uint8_t)gcbase::gcmarkcolor::no_mark;
 
-                                            if (attr->m_gc_age >= 0)
-                                                --attr->m_gc_age;
-                                        }
+                                        if (attr->m_gc_age >= 0)
+                                            --attr->m_gc_age;
                                     }
                                 }
-                            });
+                            }
+                        }
                     }
                     else break;
                     self->_notify_this_stage_finished(worker_id);

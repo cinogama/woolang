@@ -4,6 +4,10 @@
 #include <new>
 #include <thread>
 
+#if WO_BUILD_WITH_MINGW
+#   include <mingw.thread.h>
+#endif
+
 namespace wo
 {
     namespace platform_info

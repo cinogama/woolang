@@ -8,7 +8,7 @@
 #include <thread>
 
 #if WO_BUILD_WITH_MINGW
-#include <mingw.thread.h>
+#   include <mingw.thread.h>
 #endif
 
 std::string_view _wo_raw_str_view(wo_value val)

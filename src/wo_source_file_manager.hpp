@@ -9,7 +9,7 @@
 #include <shared_mutex>
 
 #if WO_BUILD_WITH_MINGW
-#include <mingw.shared_mutex.h>
+#   include <mingw.shared_mutex.h>
 #endif
 
 #include <optional>
