@@ -78,19 +78,19 @@ namespace wo
                 op_trace_result = _wo_reg::WO_REG_CR,
                 cr = op_trace_result,
 
-                argument_count, 
+                argument_count,
                 tc = argument_count,
 
-                exception_inform, 
+                exception_inform,
                 er = exception_inform,
 
                 nil_constant,
                 ni = nil_constant,
 
-                pattern_match, 
+                pattern_match,
                 pm = pattern_match,
 
-                temporary, 
+                temporary,
                 tp = temporary,
 
                 last_special_register = 0b00111111,
@@ -478,7 +478,7 @@ namespace wo
         std::vector<size_t> _mkclos_opcode_offsets_for_jit;
 
         std::unordered_map<void*, size_t> _jit_functions;
-        std::unordered_map<size_t, wo_native_func*> _jit_code_holder;
+        std::unordered_map<size_t, wo_native_func_t*> _jit_code_holder;
 
         shared_pointer<program_debug_data_info> program_debug_info;
         rslib_extern_symbols::extern_lib_set loaded_libs;
@@ -496,19 +496,11 @@ namespace wo
             // Will be fill in saving binary of env.
             std::vector<size_t> constant_offset_in_binary;
         };
-        using extern_native_functions_t = std::map<intptr_t, extern_native_function_location>;
+        using extern_native_functions_t = std::unordered_map<intptr_t, extern_native_function_location>;
         extern_native_functions_t extern_native_functions;
 
-        using extern_function_map_t = std::map<std::string, size_t>;
+        using extern_function_map_t = std::unordered_map<std::string, size_t>;
         extern_function_map_t extern_script_functions;
-
-        runtime_env() = default;
-        runtime_env(const runtime_env&) = delete;
-        runtime_env(runtime_env&&) = delete;
-        runtime_env& operator = (const runtime_env&) = delete;
-        runtime_env& operator = (runtime_env&&) = delete;
-
-        ~runtime_env();
 
         struct binary_source_stream
         {
@@ -549,6 +541,14 @@ namespace wo
 
         };
 
+        runtime_env();
+        ~runtime_env();
+
+        runtime_env(const runtime_env&) = delete;
+        runtime_env(runtime_env&&) = delete;
+        runtime_env& operator = (const runtime_env&) = delete;
+        runtime_env& operator = (runtime_env&&) = delete;
+
         std::tuple<void*, size_t> create_env_binary(bool savepdi) noexcept;
         static shared_pointer<runtime_env> _create_from_stream(binary_source_stream* stream, size_t stackcount, wo_string_t* out_reason, bool* out_is_binary);
         static shared_pointer<runtime_env> load_create_env_from_binary(
@@ -558,6 +558,9 @@ namespace wo
             size_t stack_count,
             wo_string_t* out_reason,
             bool* out_is_binary);
+
+        bool try_find_script_func(const std::string& name, wo_integer_t* out_script_func);
+        bool try_find_jit_func(wo_integer_t out_script_func, wo_handle_t* out_jit_func);
     };
 
     class ir_compiler
@@ -594,7 +597,6 @@ namespace wo
                 uint64_t m_immu64;
             };
         };
-
         struct ir_command
         {
             instruct::opcode opcode;
@@ -626,7 +628,7 @@ namespace wo
                 , param(std::nullopt)
             {
             }
-            
+
             ir_command(
                 instruct::opcode _opcode,
                 opnum::opnumbase* _op1 = nullptr,
@@ -677,6 +679,15 @@ namespace wo
 
         cxx_set_t<opnum::immbase*, immless> constant_record_list;
         cxx_vec_t<opnum::global*> global_record_list;
+        cxx_vec_t<opnum::opnumbase*> _created_opnum_buffer;
+
+        template<typename T>
+        T* _created_opnum_item(const T& _opn)
+        {
+            auto result = new T(_opn);
+            _created_opnum_buffer.push_back(result);
+            return result;
+        }
 
         opnum::opnumbase* _check_and_add_const(opnum::opnumbase* _opnum)
         {
@@ -701,20 +712,10 @@ namespace wo
 
             return _opnum;
         }
-
-        cxx_vec_t<opnum::opnumbase*> _created_opnum_buffer;
-
-        template<typename T>
-        T* _created_opnum_item(const T& _opn)
-        {
-            auto result = new T(_opn);
-            _created_opnum_buffer.push_back(result);
-            return result;
-        }
-
     public:
         rslib_extern_symbols::extern_lib_set loaded_libs;
         shared_pointer<program_debug_data_info> pdb_info = new program_debug_data_info();
+        mutable unsigned int _unique_id = 0;
 
         ~ir_compiler()
         {
@@ -726,8 +727,6 @@ namespace wo
         {
             return ir_command_buffer.size();
         }
-
-        mutable unsigned int _unique_id = 0;
 
         std::string get_unique_tag_based_command_ip()const
         {
@@ -763,6 +762,8 @@ namespace wo
         (std::is_same<meta::origin_type<decltype(OPNUM)>, opnum::opnumbase>::value)\
         ? const_cast<meta::origin_type<decltype(OPNUM)>*>(&OPNUM)\
         : _created_opnum_item<meta::origin_type<decltype(OPNUM)>>(OPNUM)))
+
+#define WO_PUT_IR_TO_BUFFER(OPCODE, ...) ir_command_buffer.emplace_back(ir_command{OPCODE, __VA_ARGS__})
 
         int32_t update_all_temp_regist_to_stack(size_t begin)
         {
@@ -973,8 +974,6 @@ namespace wo
 
             return (int32_t)tr_regist_mapping.size();
         }
-
-#define WO_PUT_IR_TO_BUFFER(OPCODE, ...) ir_command_buffer.emplace_back(ir_command{OPCODE, __VA_ARGS__})
 
         template<typename OP1T, typename OP2T>
         void mov(const OP1T& op1, const OP2T& op2)
@@ -1452,18 +1451,34 @@ namespace wo
         {
             if constexpr (std::is_base_of<opnum::opnumbase, OP1T>::value)
             {
-                if (dynamic_cast<opnum::tag*>(const_cast<OP1T*>(&op1)))
+                if constexpr (std::is_base_of<opnum::immbase, OP1T>::value)
+                {
+                    if (op1.type() == value::valuetype::handle_type)
+                    {
+                        int64_t h = op1.try_int();
+                        WO_PUT_IR_TO_BUFFER(instruct::opcode::calln, reinterpret_cast<opnum::opnumbase*>((intptr_t)h));
+                        return;
+                    }
+                    else if (op1.type() == value::valuetype::integer_type)
+                    {
+                        int64_t a = op1.try_int();
+
+                        wo_assert(0 <= a && a <= UINT32_MAX, "Immediate instruct address is to large to call.");
+
+                        WO_PUT_IR_TO_BUFFER(instruct::opcode::calln, nullptr, nullptr, static_cast<int32_t>(a));
+                        return;
+                    }
+
+                    // Treate it as normal call.
+                }
+                else if constexpr (std::is_base_of<opnum::tag, OP1T>::value)
                 {
                     WO_PUT_IR_TO_BUFFER(instruct::opcode::calln, nullptr, WO_OPNUM(op1));
+                    return;
                 }
-                else if (auto* handle_exp = dynamic_cast<opnum::imm<void*>*>(const_cast<OP1T*>(&op1)))
-                {
-                    WO_PUT_IR_TO_BUFFER(instruct::opcode::calln, reinterpret_cast<opnum::opnumbase*>(handle_exp->val));
-                }
-                else
-                {
-                    WO_PUT_IR_TO_BUFFER(instruct::opcode::call, WO_OPNUM(op1));
-                }
+
+                WO_PUT_IR_TO_BUFFER(instruct::opcode::call, WO_OPNUM(op1));
+                return;
             }
             else if constexpr (std::is_pointer<OP1T>::value)
             {

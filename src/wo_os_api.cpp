@@ -43,9 +43,9 @@ namespace wo
 
             return nullptr;
         }
-        wo_native_func loadfunc(void* libhandle, const char* funcname)
+        wo_native_func_t loadfunc(void* libhandle, const char* funcname)
         {
-            return (wo_native_func)GetProcAddress((HINSTANCE)libhandle, funcname);
+            return (wo_native_func_t)GetProcAddress((HINSTANCE)libhandle, funcname);
         }
         void freelib(void* libhandle)
         {
@@ -83,9 +83,9 @@ namespace wo
             return nullptr;
 #endif
         }
-        wo_native_func loadfunc(void* libhandle, const char* funcname)
+        wo_native_func_t loadfunc(void* libhandle, const char* funcname)
         {
-            return (wo_native_func)dlsym(libhandle, funcname);
+            return (wo_native_func_t)dlsym(libhandle, funcname);
         }
         void freelib(void* libhandle)
         {

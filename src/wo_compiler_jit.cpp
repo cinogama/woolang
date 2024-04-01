@@ -55,7 +55,7 @@ namespace wo
     class asmjit_backend
     {
     public:
-        using jit_packed_func_t = wo_native_func; // x(vm, bp + 2, argc/* useless */)
+        using jit_packed_func_t = wo_native_func_t; // x(vm, bp + 2, argc/* useless */)
         struct function_jit_state
         {
             enum state

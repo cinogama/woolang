@@ -4,9 +4,18 @@
 #include <thread>
 #include <chrono>
 #include <list>
+#include <future>
 
 #if WO_BUILD_WITH_MINGW
 #include <mingw.thread.h>
+#include <mingw.future.h>
+#endif
+
+#ifdef __cpp_lib_execution
+#   include <execution>
+#   define ParallelForeach(...) std::for_each( std::execution::par_unseq, __VA_ARGS__ )
+#else
+#   define ParallelForeach std::for_each
 #endif
 
 // PARALLEL-GC SUPPORTED
@@ -617,43 +626,50 @@ namespace wo
 
             size_t page_count, page_size, alive_unit = 0;
             char* pages = (char*)womem_enum_pages(&page_count, &page_size);
+
+            std::vector<char*> page_list(page_count);
             for (size_t pageidx = 0; pageidx < page_count; ++pageidx)
-            {
-                size_t unit_count, unit_size;
-                char* units = (char*)womem_get_unit_buffer(pages + pageidx * page_size, &unit_count, &unit_size);
-
-                if (units == nullptr)
-                    continue;
-
-                for (size_t unitidx = 0; unitidx < unit_count; ++unitidx)
+                page_list.at(pageidx) = pages + pageidx * page_size;
+            
+            ParallelForeach(
+                page_list.begin(), page_list.end(), [&](char* page_head) 
                 {
-                    gcbase::unit_attrib* attr;
-                    void* unit = womem_get_unit_ptr_attribute(units + unitidx * unit_size,
-                        std::launder(reinterpret_cast<womem_attrib_t**>(&attr)));
-                    if (unit != nullptr)
-                    {
-                        if (attr->m_marked == (uint8_t)gcbase::gcmarkcolor::no_mark &&
-                            (attr->m_gc_age != 0 || fullgc) &&
-                            (attr->m_attr & alloc_dur_current_gc_attrib_mask.m_attr)
-                            != alloc_dur_current_gc_attrib.m_attr &&
-                            attr->m_nogc == 0)
-                        {
-                            // This unit didn't been mark. and not alloced during this round.
-                            std::launder(reinterpret_cast<gcbase*>(unit))->~gcbase();
-                            free64(unit);
-                        }
-                        else
-                        {
-                            ++alive_unit;
-                            wo_assert(attr->m_marked != (uint8_t)gcbase::gcmarkcolor::self_mark);
-                            attr->m_marked = (uint8_t)gcbase::gcmarkcolor::no_mark;
+                    size_t unit_count, unit_size;
+                    char* units = (char*)womem_get_unit_buffer(page_head, &unit_count, &unit_size);
 
-                            if (attr->m_gc_age >= 0)
-                                --attr->m_gc_age;
+                    if (units == nullptr)
+                        return;
+
+                    for (size_t unitidx = 0; unitidx < unit_count; ++unitidx)
+                    {
+                        gcbase::unit_attrib* attr;
+                        void* unit = womem_get_unit_ptr_attribute(units + unitidx * unit_size,
+                            std::launder(reinterpret_cast<womem_attrib_t**>(&attr)));
+                        if (unit != nullptr)
+                        {
+                            if (attr->m_marked == (uint8_t)gcbase::gcmarkcolor::no_mark &&
+                                (attr->m_gc_age != 0 || fullgc) &&
+                                (attr->m_attr & alloc_dur_current_gc_attrib_mask.m_attr)
+                                != alloc_dur_current_gc_attrib.m_attr &&
+                                attr->m_nogc == 0)
+                            {
+                                // This unit didn't been mark. and not alloced during this round.
+                                std::launder(reinterpret_cast<gcbase*>(unit))->~gcbase();
+                                free64(unit);
+                            }
+                            else
+                            {
+                                ++alive_unit;
+                                wo_assert(attr->m_marked != (uint8_t)gcbase::gcmarkcolor::self_mark);
+                                attr->m_marked = (uint8_t)gcbase::gcmarkcolor::no_mark;
+
+                                if (attr->m_gc_age >= 0)
+                                    --attr->m_gc_age;
+                            }
                         }
                     }
-                }
-            }
+                });
+
             // 11. Remove orpho vm
             std::list<vmbase*> need_destruct_gc_destructor_list;
             do

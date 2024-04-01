@@ -99,7 +99,7 @@ namespace wo
                 load_by_os_api = false;
                 extern_lib = wo_load_lib(libpath.c_str(), nullptr, WO_FALSE);
             }
-            wo_native_func load_func(const char* funcname)
+            wo_native_func_t load_func(const char* funcname)
             {
                 if (extern_lib)
                     return osapi::loadfunc(extern_lib, funcname);
@@ -127,7 +127,7 @@ namespace wo
 
             srcpath_externlib_pairs loaded_libsrc;
 
-            wo_native_func try_load_func_from_in(
+            wo_native_func_t try_load_func_from_in(
                 const char* srcpath,
                 const char* libpath,
                 const char* funcname)
@@ -150,7 +150,7 @@ namespace wo
             }
         };
 
-        static wo_native_func get_global_symbol(const char* symbol)
+        static wo_native_func_t get_global_symbol(const char* symbol)
         {
             static void* this_exe_handle = osapi::loadlib(nullptr);
             wo_assert(this_exe_handle);
@@ -161,7 +161,7 @@ namespace wo
             return loaded_symb;
         }
 
-        static wo_native_func get_lib_symbol(const char* src, const char* lib, const char* symb, extern_lib_set& elibs)
+        static wo_native_func_t get_lib_symbol(const char* src, const char* lib, const char* symb, extern_lib_set& elibs)
         {
             return elibs.try_load_func_from_in(src, lib, symb);
         }

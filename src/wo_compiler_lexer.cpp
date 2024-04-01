@@ -172,11 +172,22 @@ namespace wo
                 auto fnd = used_macro_list->find(result_str);
                 if (fnd != used_macro_list->end() && fnd->second->_macro_action_vm)
                 {
-                    auto symb = wo_extern_symb(
-                        fnd->second->_macro_action_vm,
-                        wstr_to_str(L"macro_" + fnd->second->macro_name).c_str());
+                    wo_integer_t script_func;
+                    [[maybe_unused]] wo_handle_t jit_func;
 
-                    wo_assert(symb);
+#if WO_ENABLE_RUNTIME_CHECK
+                    auto found =
+#endif
+                        wo_extern_symb(
+                            fnd->second->_macro_action_vm,
+                            wstr_to_str(L"macro_" + fnd->second->macro_name).c_str(),
+                            &script_func,
+                            &jit_func);
+
+
+#if WO_ENABLE_RUNTIME_CHECK
+                    wo_assert(found == WO_TRUE);
+#endif
 
                     if (workinpeek)
                     {
@@ -193,11 +204,11 @@ namespace wo
                     }
 
                     wo_push_pointer(fnd->second->_macro_action_vm, this);
-                    wo_value result = wo_invoke_rsfunc(fnd->second->_macro_action_vm, symb, 1);
+                    wo_value result = wo_invoke_rsfunc(fnd->second->_macro_action_vm, script_func, 1);
 
                     if (result == nullptr)
                         lex_error(wo::lexer::errorlevel::error, WO_ERR_FAILED_TO_RUN_MACRO_CONTROLOR,
-                            fnd->second->macro_name.c_str(), 
+                            fnd->second->macro_name.c_str(),
                             wo::str_to_wstr(wo_get_runtime_error(fnd->second->_macro_action_vm)).c_str());
                     else
                     {
@@ -1125,7 +1136,7 @@ namespace wo
             write_result(readed_ch);
             return lex_type::l_unknown_token;
         }
-            
+
     }
     void lexer::push_temp_for_error_recover(lex_type type, const std::wstring& out_literal)
     {
