@@ -471,9 +471,26 @@ namespace wo
             else
                 a_value_func->value_type->function_ret_type->set_type_with_name(WO_PSTR(pending));
         }
-        else if (a_value_func->declear_attribute != nullptr && a_value_func->declear_attribute->is_extern_attr())
+        else
         {
-            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_func, WO_ERR_CANNOT_EXPORT_TEMPLATE_FUNC);
+            if (a_value_func->declear_attribute != nullptr && a_value_func->declear_attribute->is_extern_attr())
+                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_func, WO_ERR_CANNOT_EXPORT_TEMPLATE_FUNC);
+
+            auto arg_child = a_value_func->argument_list->children;
+            size_t argid = 0;
+            while (arg_child)
+            {
+                if (ast_value_arg_define* argdef = dynamic_cast<ast_value_arg_define*>(arg_child))
+                {
+                    wo_assert(a_value_func->value_type->is_function());
+                    a_value_func->value_type->argument_types.at(argid)->searching_begin_namespace_in_pass2 = 
+                        argdef->searching_begin_namespace_in_pass2 = 
+                        a_value_func->this_func_scope;
+                }
+
+                ++argid;
+                arg_child = arg_child->sibling;
+            }
         }
 
         if (a_value_func->externed_func_info)
@@ -3961,6 +3978,8 @@ namespace wo
 
             newtype->set_type(symb->type_informatiom);
             symb->type_informatiom->instance(newtype);
+
+            newtype->copy_source_info(symb->type_informatiom);
 
             if (newtype->typefrom != nullptr)
             {
