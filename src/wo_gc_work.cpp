@@ -11,7 +11,9 @@
 #include <mingw.future.h>
 #endif
 
-#ifdef __cpp_lib_execution
+#define _wo_enable_parallel_gc 0
+
+#if defined(__cpp_lib_execution) && _wo_enable_parallel_gc
 #   include <execution>
 #   define ParallelForeach(...) std::for_each( std::execution::par_unseq, __VA_ARGS__ )
 #else
