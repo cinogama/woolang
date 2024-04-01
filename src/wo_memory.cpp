@@ -12,7 +12,7 @@
 #include <algorithm>
 
 #if WO_BUILD_WITH_MINGW
-#include <mingw.mutex.h>
+#   include <mingw.mutex.h>
 #endif
 
 #ifdef WIN32

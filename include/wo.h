@@ -485,7 +485,6 @@ typedef struct _wo_debuggee_handle
 *wo_debuggee;
 typedef void(*wo_debuggee_handler_func)(wo_debuggee, wo_vm, void*);
 
-WO_API void         wo_gc_stop(void);
 WO_API void         wo_gc_pause(void);
 WO_API void         wo_gc_resume(void);
 

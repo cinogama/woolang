@@ -7,15 +7,8 @@
 #include <future>
 
 #if WO_BUILD_WITH_MINGW
-#include <mingw.thread.h>
-#include <mingw.future.h>
-#endif
-
-#ifdef __cpp_lib_execution
-#   include <execution>
-#   define ParallelForeach(...) std::for_each( std::execution::par_unseq, __VA_ARGS__ )
-#else
-#   define ParallelForeach std::for_each
+#   include <mingw.thread.h>
+#   include <mingw.future.h>
 #endif
 
 // PARALLEL-GC SUPPORTED
@@ -96,7 +89,7 @@ namespace wo
     namespace gc
     {
         std::atomic_uint8_t         _gc_round_count = 0;
-        constexpr uint16_t          _gc_work_thread_count = 4;
+        uint16_t                    _gc_work_thread_count = 0;
 
         std::atomic_bool            _gc_stop_flag = false;
         std::thread                 _gc_scheduler_thread;
@@ -114,6 +107,17 @@ namespace wo
 
         std::atomic_bool _gc_is_marking = false;
         std::atomic_bool _gc_is_recycling = false;
+
+        using _wo_memory_atomic_list_t = atomic_list<gcbase::memo_unit>;
+        using _wo_gray_unit_list_t = std::list<std::pair<gcbase*, gcbase::unit_attrib*>>;
+        using _wo_gc_memory_pages_t = std::vector<char*>;
+        using _wo_vm_gray_unit_list_map_t = std::unordered_map <vmbase*, _wo_gray_unit_list_t>;
+
+        _wo_memory_atomic_list_t    m_memo_mark_gray_list;
+
+        _wo_gray_unit_list_t* _gc_gray_unit_lists;
+        _wo_gc_memory_pages_t* _gc_memory_pages;
+        _wo_vm_gray_unit_list_map_t _gc_vm_gray_unit_lists;
 
         bool _gc_stopping_world_gc = WO_GC_FORCE_STOP_WORLD;
         bool _gc_advise_to_full_gc = WO_GC_FORCE_FULL_GC;
@@ -139,10 +143,6 @@ namespace wo
             return nullptr;
         }
 
-        atomic_list<gcbase::memo_unit> m_memo_mark_gray_list;
-        std::list<std::pair<gcbase*, gcbase::unit_attrib*>> _gc_gray_unit_lists[_gc_work_thread_count];
-        std::unordered_map<vmbase*, std::list<std::pair<gcbase*, gcbase::unit_attrib*>>> _gc_vm_gray_unit_lists;
-
         void gc_mark_unit_as_gray(std::list<std::pair<gcbase*, gcbase::unit_attrib*>>* worklist, gcbase* unitvalue, gcbase::unit_attrib* attr)
         {
             if (attr->m_marked == (uint8_t)gcbase::gcmarkcolor::no_mark)
@@ -151,7 +151,6 @@ namespace wo
                 worklist->push_back(std::make_pair(unitvalue, attr));
             }
         }
-
         void gc_mark_unit_as_black(std::list<std::pair<gcbase*, gcbase::unit_attrib*>>* worklist, gcbase* unit, gcbase::unit_attrib* unitattr)
         {
             if (unitattr->m_marked == (uint8_t)gcbase::gcmarkcolor::full_mark)
@@ -212,7 +211,6 @@ namespace wo
                         gc_mark_unit_as_gray(worklist, gcunit_addr, attr);
             }
         }
-
         void gc_mark_all_gray_unit(std::list<std::pair<gcbase*, gcbase::unit_attrib*>>* worklist)
         {
             std::list<std::pair<gcbase*, gcbase::unit_attrib*>> graylist;
@@ -229,8 +227,8 @@ namespace wo
 
         class _gc_mark_thread_groups
         {
-            std::thread _m_gc_mark_threads[_gc_work_thread_count];
-            std::atomic_flag _m_gc_begin_flags[_gc_work_thread_count];
+            std::thread* _m_gc_mark_threads;
+            std::atomic_flag* _m_gc_begin_flags;
 
             std::mutex _m_gc_begin_mx;
             std::condition_variable _m_gc_begin_cv;
@@ -241,6 +239,34 @@ namespace wo
 
             std::atomic_bool _m_worker_enabled;
 
+            std::atomic_size_t _m_alive_units;
+
+            bool _wait_for_next_stage_signal(size_t worker_id)
+            {
+                do
+                {
+                    std::unique_lock ug1(_m_gc_begin_mx);
+                    _m_gc_begin_cv.wait(ug1, [&]()->bool {
+                        return !_m_gc_begin_flags[worker_id].test_and_set()
+                            || !_m_worker_enabled;
+                        });
+                    if (!_m_worker_enabled)
+                        return false;
+
+                } while (false);
+
+                return true;
+            }
+            void _notify_this_stage_finished(size_t worker_id)
+            {
+                if (_gc_work_thread_count == ++_m_gc_mark_end_count)
+                {
+                    // All mark thread end, notify..
+                    std::lock_guard g1(_m_gc_end_mx);
+                    _m_gc_end_cv.notify_all();
+                }
+            }
+
             static void _gcmarker_thread_work(_gc_mark_thread_groups* self, size_t worker_id)
             {
 #if defined(WO_PLATRORM_OS_WINDOWS) && !WO_BUILD_WITH_MINGW
@@ -248,102 +274,142 @@ namespace wo
 #endif
                 do
                 {
-                    do
+                    // Stage 1, mark vms.
+                    if (self->_wait_for_next_stage_signal(worker_id))
                     {
-                        std::unique_lock ug1(self->_m_gc_begin_mx);
-                        self->_m_gc_begin_cv.wait(ug1, [&]()->bool {
-                            return !self->_m_gc_begin_flags[worker_id].test_and_set()
-                                || !self->_m_worker_enabled;
-                            });
-                        if (!self->_m_worker_enabled)
-                            return;
-
-                    } while (false);
-
-                    vmbase* marking_vm = nullptr;
-                    vmbase::vm_type vm_type;
-                    while ((marking_vm = _get_next_mark_vm(&vm_type)))
-                    {
-                        if (vm_type == vmbase::vm_type::GC_DESTRUCTOR)
+                        vmbase* marking_vm = nullptr;
+                        vmbase::vm_type vm_type;
+                        while ((marking_vm = _get_next_mark_vm(&vm_type)))
                         {
-                            auto* env = marking_vm->env.get();
-                            wo_assert(env != nullptr);
-
-                            // If current gc-vm is orphan, skip marking global value.
-                            if (env->_running_on_vm_count > 1)
+                            if (vm_type == vmbase::vm_type::GC_DESTRUCTOR)
                             {
-                                // Any code context only have one GC_DESTRUCTOR, here to mark global space.
-                                auto* global_and_const_values = env->constant_global_reg_rtstack;
+                                auto* env = marking_vm->env.get();
+                                wo_assert(env != nullptr);
 
-                                // Skip all constant, all constant cannot contain gc-type value beside no-gc-string.
-                                for (size_t cgr_index = env->constant_value_count;
-                                    cgr_index < env->constant_and_global_value_takeplace_count;
-                                    cgr_index++)
+                                // If current gc-vm is orphan, skip marking global value.
+                                if (env->_running_on_vm_count > 1)
                                 {
-                                    auto* global_val = global_and_const_values + cgr_index;
+                                    // Any code context only have one GC_DESTRUCTOR, here to mark global space.
+                                    auto* global_and_const_values = env->constant_global_reg_rtstack;
 
-                                    gcbase::unit_attrib* attr;
-                                    gcbase* gcunit_address = global_val->get_gcunit_with_barrier(&attr);
-                                    if (gcunit_address)
-                                        gc_mark_unit_as_gray(&_gc_gray_unit_lists[worker_id], gcunit_address, attr);
+                                    // Skip all constant, all constant cannot contain gc-type value beside no-gc-string.
+                                    for (size_t cgr_index = env->constant_value_count;
+                                        cgr_index < env->constant_and_global_value_takeplace_count;
+                                        cgr_index++)
+                                    {
+                                        auto* global_val = global_and_const_values + cgr_index;
+
+                                        gcbase::unit_attrib* attr;
+                                        gcbase* gcunit_address = global_val->get_gcunit_with_barrier(&attr);
+                                        if (gcunit_address)
+                                            gc_mark_unit_as_gray(&_gc_gray_unit_lists[worker_id], gcunit_address, attr);
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                mark_vm(marking_vm, worker_id);
+
+                                if (_gc_stopping_world_gc == false)
+                                    if (!marking_vm->clear_interrupt(vmbase::GC_HANGUP_INTERRUPT))
+                                        marking_vm->wakeup();
+                            }
+                        }
+                    }
+                    else break;
+                    self->_notify_this_stage_finished(worker_id);
+
+                    // Stage 2, full mark units.
+                    if (self->_wait_for_next_stage_signal(worker_id))
+                    {
+                        gc_mark_all_gray_unit(&_gc_gray_unit_lists[worker_id]);
+                    }
+                    else break;
+                    self->_notify_this_stage_finished(worker_id);
+
+                    // Stage 3, free units
+                    if (self->_wait_for_next_stage_signal(worker_id))
+                    {
+                        auto& page_list = _gc_memory_pages[worker_id];
+
+                        gcbase::unit_attrib alloc_dur_current_gc_attrib_mask = {}, alloc_dur_current_gc_attrib = {};
+                        alloc_dur_current_gc_attrib_mask.m_gc_age = (uint8_t)0x0F;
+                        alloc_dur_current_gc_attrib_mask.m_alloc_mask = (uint8_t)0x01;
+                        alloc_dur_current_gc_attrib.m_gc_age = (uint8_t)0x0F;
+                        alloc_dur_current_gc_attrib.m_alloc_mask = (uint8_t)_gc_round_count & (uint8_t)0x01;
+
+                        for (auto* page_head : page_list)
+                        {
+                            size_t unit_count, unit_size;
+                            char* units = (char*)womem_get_unit_buffer(page_head, &unit_count, &unit_size);
+
+                            if (units == nullptr)
+                                continue;
+
+                            for (size_t unitidx = 0; unitidx < unit_count; ++unitidx)
+                            {
+                                gcbase::unit_attrib* attr;
+                                void* unit = womem_get_unit_ptr_attribute(units + unitidx * unit_size,
+                                    std::launder(reinterpret_cast<womem_attrib_t**>(&attr)));
+                                if (unit != nullptr)
+                                {
+                                    if (attr->m_marked == (uint8_t)gcbase::gcmarkcolor::no_mark
+                                        && attr->m_gc_age != 0
+                                        && (attr->m_attr & alloc_dur_current_gc_attrib_mask.m_attr) != alloc_dur_current_gc_attrib.m_attr
+                                        && attr->m_nogc == 0)
+                                    {
+                                        // This unit didn't been mark. and not alloced during this round.
+                                        std::launder(reinterpret_cast<gcbase*>(unit))->~gcbase();
+                                        free64(unit);
+                                    }
+                                    else
+                                    {
+                                        ++self->_m_alive_units;
+                                        wo_assert(attr->m_marked != (uint8_t)gcbase::gcmarkcolor::self_mark);
+                                        attr->m_marked = (uint8_t)gcbase::gcmarkcolor::no_mark;
+
+                                        if (attr->m_gc_age >= 0)
+                                            --attr->m_gc_age;
+                                    }
                                 }
                             }
                         }
-                        else
-                        {
-                            mark_vm(marking_vm, worker_id);
-
-                            if (_gc_stopping_world_gc == false)
-                                if (!marking_vm->clear_interrupt(vmbase::GC_HANGUP_INTERRUPT))
-                                    marking_vm->wakeup();
-                        }
                     }
-
-                    if (_gc_work_thread_count == ++self->_m_gc_mark_end_count)
-                    {
-                        // All mark thread end, notify..
-                        std::lock_guard g1(self->_m_gc_end_mx);
-                        self->_m_gc_end_cv.notify_all();
-                    }
-                    ////////////////////////////////////////////////////////////////
-                    // Do gc fullmark here
-                    do
-                    {
-                        std::unique_lock ug1(self->_m_gc_begin_mx);
-                        self->_m_gc_begin_cv.wait(ug1, [&]()->bool {
-                            return !self->_m_gc_begin_flags[worker_id].test_and_set()
-                                || !self->_m_worker_enabled;
-                            });
-                        if (!self->_m_worker_enabled)
-                            return;
-
-                    } while (false);
-
-                    gc_mark_all_gray_unit(&_gc_gray_unit_lists[worker_id]);
-
-                    if (_gc_work_thread_count == ++self->_m_gc_mark_end_count)
-                    {
-                        // All mark thread end, notify..
-                        std::lock_guard g1(self->_m_gc_end_mx);
-                        self->_m_gc_end_cv.notify_all();
-                    }
+                    else break;
+                    self->_notify_this_stage_finished(worker_id);
 
                 } while (true);
             }
         public:
+            void reset_alive_unit_count()
+            {
+                _m_alive_units.store(0);
+            }
+            size_t get_alive_unit_count()
+            {
+                return _m_alive_units.load();
+            }
+
             _gc_mark_thread_groups()
             {
+                _m_gc_mark_threads = new std::thread[_gc_work_thread_count];
+                _m_gc_begin_flags = new std::atomic_flag[_gc_work_thread_count];
+
                 start();
             }
             ~_gc_mark_thread_groups()
             {
                 stop();
+
+                delete[] _m_gc_mark_threads;
+                delete[] _m_gc_begin_flags;
             }
-            static _gc_mark_thread_groups& instancce()
-            {
-                static _gc_mark_thread_groups g;
-                return g;
-            }
+
+            _gc_mark_thread_groups(const _gc_mark_thread_groups&) = delete;
+            _gc_mark_thread_groups& operator=(const _gc_mark_thread_groups&) = delete;
+            _gc_mark_thread_groups(_gc_mark_thread_groups&&) = delete;
+            _gc_mark_thread_groups& operator=(_gc_mark_thread_groups&&) = delete;
+
         public:
             void stop()
             {
@@ -391,6 +457,8 @@ namespace wo
             }
         };
 
+        _gc_mark_thread_groups* _gc_mark_thread_groups_instance;
+
         bool _gc_work_list(bool stopworld, bool fullgc)
         {
             // Pick all gcunit before 1st mark begin.
@@ -399,6 +467,8 @@ namespace wo
             std::list<std::pair<gcbase*, gcbase::unit_attrib*>> mem_gray_list;
 
             // 0. get current vm list, set stop world flag to TRUE:
+            _gc_mark_thread_groups_instance->reset_alive_unit_count();
+
             do
             {
                 std::shared_lock sg1(vmbase::_alive_vm_list_mx); // Lock alive vm list, block new vm create.
@@ -498,7 +568,7 @@ namespace wo
                 _gc_scan_vm_index.store(0);
 
                 // 3. Start GC Worker for first marking
-                _gc_mark_thread_groups::instancce().launch_round_of_mark();
+                _gc_mark_thread_groups_instance->launch_round_of_mark();
 
                 // 4. Mark all pin-value
                 do
@@ -587,7 +657,7 @@ namespace wo
             } while (0);
 
             // 8. OK, Continue mark gray to black
-            _gc_mark_thread_groups::instancce().launch_round_of_mark();
+            _gc_mark_thread_groups_instance->launch_round_of_mark();
 
             // Marking finished.
             // NOTE: It is safe to do this here, because if the mark has ended, 
@@ -618,57 +688,21 @@ namespace wo
             _gc_is_recycling = true;
 
             // 10. OK, All unit has been marked. reduce gcunits
-            gcbase::unit_attrib alloc_dur_current_gc_attrib_mask = {}, alloc_dur_current_gc_attrib = {};
-            alloc_dur_current_gc_attrib_mask.m_gc_age = (uint8_t)0x0F;
-            alloc_dur_current_gc_attrib_mask.m_alloc_mask = (uint8_t)0x01;
-            alloc_dur_current_gc_attrib.m_gc_age = (uint8_t)0x0F;
-            alloc_dur_current_gc_attrib.m_alloc_mask = (uint8_t)_gc_round_count & (uint8_t)0x01;
-
-            size_t page_count, page_size, alive_unit = 0;
+            size_t page_count, page_size;
             char* pages = (char*)womem_enum_pages(&page_count, &page_size);
 
-            std::vector<char*> page_list(page_count);
+            // TODO: _gc_memory_pages donot need to be clear & fill every round.
+            //      Optimize this.
+            for (size_t i = 0; i < _gc_work_thread_count; ++i)
+                _gc_memory_pages[i].clear();
+
             for (size_t pageidx = 0; pageidx < page_count; ++pageidx)
-                page_list.at(pageidx) = pages + pageidx * page_size;
-            
-            ParallelForeach(
-                page_list.begin(), page_list.end(), [&](char* page_head) 
-                {
-                    size_t unit_count, unit_size;
-                    char* units = (char*)womem_get_unit_buffer(page_head, &unit_count, &unit_size);
+            {
+                _gc_memory_pages[pageidx % _gc_work_thread_count]
+                    .push_back(pages + pageidx * page_size);
+            }
 
-                    if (units == nullptr)
-                        return;
-
-                    for (size_t unitidx = 0; unitidx < unit_count; ++unitidx)
-                    {
-                        gcbase::unit_attrib* attr;
-                        void* unit = womem_get_unit_ptr_attribute(units + unitidx * unit_size,
-                            std::launder(reinterpret_cast<womem_attrib_t**>(&attr)));
-                        if (unit != nullptr)
-                        {
-                            if (attr->m_marked == (uint8_t)gcbase::gcmarkcolor::no_mark &&
-                                (attr->m_gc_age != 0 || fullgc) &&
-                                (attr->m_attr & alloc_dur_current_gc_attrib_mask.m_attr)
-                                != alloc_dur_current_gc_attrib.m_attr &&
-                                attr->m_nogc == 0)
-                            {
-                                // This unit didn't been mark. and not alloced during this round.
-                                std::launder(reinterpret_cast<gcbase*>(unit))->~gcbase();
-                                free64(unit);
-                            }
-                            else
-                            {
-                                ++alive_unit;
-                                wo_assert(attr->m_marked != (uint8_t)gcbase::gcmarkcolor::self_mark);
-                                attr->m_marked = (uint8_t)gcbase::gcmarkcolor::no_mark;
-
-                                if (attr->m_gc_age >= 0)
-                                    --attr->m_gc_age;
-                            }
-                        }
-                    }
-                });
+            _gc_mark_thread_groups_instance->launch_round_of_mark();
 
             // 11. Remove orpho vm
             std::list<vmbase*> need_destruct_gc_destructor_list;
@@ -720,8 +754,7 @@ namespace wo
             _gc_is_recycling = false;
 
             // All jobs done.
-
-            return alive_unit != 0;
+            return _gc_mark_thread_groups_instance->get_alive_unit_count() != 0;
         }
 
         void _gc_main_thread()
@@ -784,9 +817,31 @@ namespace wo
 
         void gc_start()
         {
+            _gc_work_thread_count = (uint16_t)wo::config::GC_WORKER_THREAD_COUNT;
+            wo_assert(_gc_work_thread_count > 0);
+
+            _gc_gray_unit_lists = new std::list<std::pair<gcbase*, gcbase::unit_attrib*>>[_gc_work_thread_count];
+            _gc_memory_pages = new _wo_gc_memory_pages_t[_gc_work_thread_count];
+            _gc_mark_thread_groups_instance = new _gc_mark_thread_groups();
+
             _gc_stop_flag = false;
             _gc_immediately.test_and_set();
             _gc_scheduler_thread = std::move(std::thread(_gc_main_thread));
+        }
+        void gc_stop()
+        {
+            do
+            {
+                std::lock_guard g1(_gc_work_mx);
+                _gc_stop_flag = true;
+                _gc_work_cv.notify_one();
+            } while (false);
+
+            _gc_scheduler_thread.join();
+
+            delete _gc_mark_thread_groups_instance;
+            delete[] _gc_memory_pages;
+            delete[] _gc_gray_unit_lists;
         }
 
         void mark_vm(vmbase* marking_vm, size_t worker_id)
@@ -954,16 +1009,4 @@ void wo_gc_immediately(wo_bool_t fullgc)
     wo::gc::_gc_advise_to_full_gc = (bool)fullgc;
     wo::gc::_gc_immediately.clear();
     wo::gc::_gc_work_cv.notify_one();
-}
-
-void wo_gc_stop()
-{
-    do
-    {
-        std::lock_guard g1(wo::gc::_gc_work_mx);
-        wo::gc::_gc_stop_flag = true;
-        wo::gc::_gc_work_cv.notify_one();
-    } while (false);
-
-    wo::gc::_gc_scheduler_thread.join();
 }

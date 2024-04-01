@@ -2,6 +2,11 @@
 // Here to place some global variable for config..
 #include <cstddef>
 #include <new>
+#include <thread>
+
+#if WO_BUILD_WITH_MINGW
+#   include <mingw.thread.h>
+#endif
 
 namespace wo
 {
@@ -185,5 +190,14 @@ namespace wo
         * -------------------------------------------------------------------- 
         */
         inline bool ENABLE_SKIP_INVOKE_UNSAFE_CAST = true;
+
+        /*
+        * GC_WORKER_THREAD_COUNT = [1/4 of hardware_concurrency]
+        * --------------------------------------------------------------------
+        *   The number of threads used by the GC worker.
+        * --------------------------------------------------------------------
+        *   
+        */
+        inline size_t GC_WORKER_THREAD_COUNT = ((size_t)std::thread::hardware_concurrency()) / 4;
     }
 }

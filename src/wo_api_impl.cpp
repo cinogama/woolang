@@ -297,7 +297,7 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
 
     } while (true);
 
-    wo_gc_stop();
+    wo::gc::gc_stop();
 
     if (do_after_shutdown != nullptr)
         do_after_shutdown(custom_data);
@@ -323,7 +323,6 @@ void wo_init(int argc, char** argv)
     const char* basic_env_local = "en_US.UTF-8";
     bool enable_std_package = true;
     bool enable_ctrl_c_to_debug = true;
-    bool enable_gc = true;
     bool enable_vm_pool = true;
 
     wo::wo_init_args(argc, argv);
@@ -344,8 +343,8 @@ void wo_init(int argc, char** argv)
                 wo::config::ENABLE_SHELL_PACKAGE = atoi(argv[++command_idx]);
             else if ("enable-ctrlc-debug" == current_arg)
                 enable_ctrl_c_to_debug = atoi(argv[++command_idx]);
-            else if ("enable-gc" == current_arg)
-                enable_gc = atoi(argv[++command_idx]);
+            else if ("enable-gc-thread-count" == current_arg)
+                wo::config::GC_WORKER_THREAD_COUNT = (size_t)atoi(argv[++command_idx]);
             else if ("enable-ansi-color" == current_arg)
                 wo::config::ENABLE_OUTPUT_ANSI_COLOR_CTRL = atoi(argv[++command_idx]);
             else if ("enable-jit" == current_arg)
@@ -394,8 +393,10 @@ void wo_init(int argc, char** argv)
     } while (0);
 #endif
 
-    if (enable_gc)
-        wo::gc::gc_start(); // I dont know who will disable gc..
+    if (wo::config::GC_WORKER_THREAD_COUNT == 0)
+        wo::config::GC_WORKER_THREAD_COUNT = 1; // 1 GC-thread at least.
+
+    wo::gc::gc_start();
 
     if (enable_std_package)
     {

@@ -11,6 +11,7 @@
 #define wo_static_assert_size(VAR, SIZE) \
 static_assert(sizeof(VAR) == SIZE, "'" #VAR "' should be " #SIZE " byte.")
 
+[[noreturn]]
 inline void _wo_assert(const char* file, uint32_t line, const char* function, const char* judgement, const char* reason = nullptr)
 {
     wo::wo_stderr << ANSI_HIR "Assert failed: " ANSI_RST << judgement << wo::wo_endl;
