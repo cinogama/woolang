@@ -5587,11 +5587,11 @@ namespace wo
                 }
             case value::valuetype::handle_type:
                 if (!get_pure_value)
-                    return WO_NEW_OPNUM(imm((void*)const_value.handle));
+                    return WO_NEW_OPNUM(imm_hdl(const_value.handle));
                 else
                 {
                     auto& treg = get_useable_register_for_pure_value();
-                    compiler->mov(treg, imm((void*)const_value.handle));
+                    compiler->mov(treg, imm_hdl(const_value.handle));
                     return treg;
                 }
             case value::valuetype::string_type:

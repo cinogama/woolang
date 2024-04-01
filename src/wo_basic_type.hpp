@@ -240,7 +240,7 @@ namespace wo
     static_assert(std::atomic<gcbase*>::is_always_lock_free);
     static_assert(sizeof(std::atomic<byte_t>) == sizeof(byte_t));
     static_assert(std::atomic<byte_t>::is_always_lock_free);
-    using wo_extern_native_func_t = wo_native_func;
+    using wo_extern_native_func_t = wo_native_func_t;
 
     inline bool value_compare::operator()(const value& lhs, const value& rhs) const
     {
@@ -317,7 +317,7 @@ namespace wo
         union
         {
             wo_integer_t m_vm_func;
-            wo_native_func m_native_func;
+            wo_native_func_t m_native_func;
         };
         value* m_closure_args;
 

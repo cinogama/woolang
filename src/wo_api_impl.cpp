@@ -3538,13 +3538,17 @@ void wo_break_specify_immediately(wo_vm vmm)
         wo_fail(WO_FAIL_DEBUGGEE_FAIL, "'wo_break_immediately' can only break the vm attached default debuggee.");
 }
 
-wo_integer_t wo_extern_symb(wo_vm vm, wo_string_t fullname)
+wo_bool_t wo_extern_symb(wo_vm vm, wo_string_t fullname, wo_integer_t* out_wo_func, wo_handle_t* out_jit_func)
 {
-    const auto& extern_table = WO_VM(vm)->env->extern_script_functions;
-    auto fnd = extern_table.find(fullname);
-    if (fnd != extern_table.end())
-        return fnd->second;
-    return 0;
+    auto env = WO_VM(vm)->env;
+    if (env->try_find_script_func(fullname, out_wo_func))
+    {
+        if (!env->try_find_jit_func(*out_wo_func, out_jit_func))
+            *out_jit_func = 0;
+
+        return WO_TRUE;
+    }
+    return WO_FALSE;
 }
 
 wo_string_t wo_debug_trace_callstack(wo_vm vm, wo_size_t layer)
@@ -3898,7 +3902,7 @@ void wo_ir_immu64(wo_ir_compiler compiler, uint64_t val)
 }
 
 void wo_ir_register_extern_function(
-    wo_ir_compiler compiler, wo_native_func extern_func, 
+    wo_ir_compiler compiler, wo_native_func_t extern_func, 
     wo_string_t script_path,
     wo_string_t library_name_may_null,
     wo_string_t function_name)

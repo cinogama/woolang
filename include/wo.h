@@ -109,7 +109,7 @@ typedef enum _wo_api
     WO_API_RESYNC = 1,
 }wo_api, wo_result_t;
 
-typedef wo_result_t(*wo_native_func)(wo_vm, wo_value);
+typedef wo_result_t(*wo_native_func_t)(wo_vm, wo_value);
 
 typedef void(*wo_fail_handler)(
     wo_vm vm,
@@ -311,7 +311,7 @@ WO_API wo_result_t  wo_ret_err_pointer(wo_vm vm, wo_ptr_t result);
 WO_API wo_result_t  wo_ret_err_val(wo_vm vm, wo_value result);
 WO_API wo_result_t  wo_ret_err_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t));
 
-WO_API wo_integer_t wo_extern_symb(wo_vm vm, wo_string_t fullname);
+WO_API wo_bool_t    wo_extern_symb(wo_vm vm, wo_string_t fullname, wo_integer_t* out_wo_func, wo_handle_t* out_jit_func);
 
 WO_API void         wo_abort_all_vm_to_exit(void);
 

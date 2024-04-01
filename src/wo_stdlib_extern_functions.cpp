@@ -1459,18 +1459,15 @@ WO_API wo_api rslib_std_get_exe_path(wo_vm vm, wo_value args)
 
 WO_API wo_api rslib_std_get_extern_symb(wo_vm vm, wo_value args)
 {
-    wo_integer_t ext_symb = wo_extern_symb(vm, wo_string(args + 0));
-    if (ext_symb)
+    wo_integer_t script_func;
+    wo_handle_t jit_func;
+    if (WO_TRUE == wo_extern_symb(vm, wo_string(args + 0), &script_func, &jit_func))
     {
-        auto* vmptr = std::launder(reinterpret_cast<wo::vmbase*>(vm));
-        auto fnd = vmptr->env->_jit_code_holder.find((size_t)ext_symb);
-        if (fnd != vmptr->env->_jit_code_holder.end())
-            return wo_ret_option_pointer(vm, (void*)*fnd->second);
-        else
-            return wo_ret_option_int(vm, ext_symb);
+        if (jit_func != 0)
+            return wo_ret_option_handle(vm, jit_func);
+        return wo_ret_option_int(vm, script_func);
     }
-    else
-        return wo_ret_option_none(vm);
+    return wo_ret_option_none(vm);
 }
 
 WO_API wo_api rslib_std_equal_byte(wo_vm vm, wo_value args)

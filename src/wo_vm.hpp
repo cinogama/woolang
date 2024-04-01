@@ -1346,7 +1346,7 @@ namespace wo
 
                 if (!is_aborted())
                 {
-                    switch (((wo_native_func)wo_func_addr)(
+                    switch (((wo_native_func_t)wo_func_addr)(
                         std::launder(reinterpret_cast<wo_vm>(this)),
                         std::launder(reinterpret_cast<wo_value>(sp + 2))))
                     {
@@ -1585,7 +1585,7 @@ namespace wo
             created_closure->m_native_call = is_native_call;
 
             if (is_native_call)
-                created_closure->m_native_func = (wo_native_func)WO_FAST_READ_MOVE_8;
+                created_closure->m_native_func = (wo_native_func_t)WO_FAST_READ_MOVE_8;
             else
                 created_closure->m_vm_func = WO_FAST_READ_MOVE_4;
 
@@ -1606,7 +1606,7 @@ namespace wo
             created_closure->m_native_call = is_native_call;
 
             if (is_native_call)
-                created_closure->m_native_func = (wo_native_func)WO_SAFE_READ_MOVE_8;
+                created_closure->m_native_func = (wo_native_func_t)WO_SAFE_READ_MOVE_8;
             else
                 created_closure->m_vm_func = WO_SAFE_READ_MOVE_4;
 

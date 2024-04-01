@@ -164,10 +164,25 @@ namespace wo
             char ptrr[20] = {};
             sprintf(ptrr, "0x%p", rt_pos);
             return ptrr;
-            }();
+        }();
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    runtime_env::runtime_env()
+        : constant_global_reg_rtstack(nullptr)
+        , reg_begin(nullptr)
+        , stack_begin(nullptr)
+        , constant_and_global_value_takeplace_count(0)
+        , constant_value_count(0)
+        , real_register_count(0)
+        , runtime_stack_count(0)
+        , rt_code_len(0)
+        , rt_codes(nullptr)
+        , _running_on_vm_count(0)
+        , _created_destructable_instance_count(0)
+    {
+
+    }
     runtime_env::~runtime_env()
     {
         free_jit(this);
@@ -184,7 +199,7 @@ namespace wo
                 wo_assert(constant_global_reg_rtstack[ci].type == wo::value::valuetype::string_type);
 
                 gcbase::unit_attrib* attrib;
-                auto * unit = constant_global_reg_rtstack[ci].get_gcunit_with_barrier(&attrib);
+                auto* unit = constant_global_reg_rtstack[ci].get_gcunit_with_barrier(&attrib);
                 if (unit != nullptr)
                     attrib->m_attr = cancel_nogc.m_attr;
             }
@@ -201,27 +216,27 @@ namespace wo
         std::vector<wo::byte_t> binary_buffer;
         auto write_buffer_to_buffer =
             [&binary_buffer](const void* written_data, size_t written_length, size_t allign)
-            {
-                const size_t write_begin_place = binary_buffer.size();
+        {
+            const size_t write_begin_place = binary_buffer.size();
 
-                wo_assert(write_begin_place % allign == 0);
+            wo_assert(write_begin_place % allign == 0);
 
-                binary_buffer.resize(write_begin_place + written_length);
+            binary_buffer.resize(write_begin_place + written_length);
 
-                memcpy(binary_buffer.data() + write_begin_place, written_data, written_length);
-                return binary_buffer.size();
-            };
+            memcpy(binary_buffer.data() + write_begin_place, written_data, written_length);
+            return binary_buffer.size();
+        };
 
         auto write_binary_to_buffer =
             [&write_buffer_to_buffer](const auto& d, size_t size_for_assert)
-            {
-                const wo::byte_t* written_data = std::launder(reinterpret_cast<const wo::byte_t*>(&d));
-                const size_t written_length = sizeof(d);
+        {
+            const wo::byte_t* written_data = std::launder(reinterpret_cast<const wo::byte_t*>(&d));
+            const size_t written_length = sizeof(d);
 
-                wo_assert(written_length == size_for_assert);
+            wo_assert(written_length == size_for_assert);
 
-                return write_buffer_to_buffer(written_data, written_length, sizeof(d) > 8 ? 8 : sizeof(d));
-            };
+            return write_buffer_to_buffer(written_data, written_length, sizeof(d) > 8 ? 8 : sizeof(d));
+        };
 
         class _string_pool_t
         {
@@ -249,10 +264,10 @@ namespace wo
 
         auto write_constant_str_to_buffer =
             [&write_binary_to_buffer, &constant_string_pool](const char* str, size_t len)
-            {
-                write_binary_to_buffer((uint32_t)constant_string_pool.insert(str, len), 4);
-                write_binary_to_buffer((uint32_t)len, 4);
-            };
+        {
+            write_binary_to_buffer((uint32_t)constant_string_pool.insert(str, len), 4);
+            write_binary_to_buffer((uint32_t)len, 4);
+        };
 
         // 1.1 (+0) Magic number(0x3001A26B look like WOOLANG B)
         write_binary_to_buffer((uint32_t)0x3001A26B, 4);
@@ -733,14 +748,14 @@ namespace wo
         if (!stream->read_buffer(string_pool_buffer.data(), (size_t)string_buffer_size_with_padding))
             WO_LOAD_BIN_FAILED("Failed to restore string buffer.");
 
-        auto restore_string_from_buffer = 
-            [&string_pool_buffer](const string_buffer_index& string_index, std::string* out_str)->bool 
-            {
-                if (string_index.index + string_index.size > string_pool_buffer.size())
-                    return false;
-                *out_str = std::string(string_pool_buffer.data() + string_index.index, string_index.size);
-                return true;
-            };
+        auto restore_string_from_buffer =
+            [&string_pool_buffer](const string_buffer_index& string_index, std::string* out_str)->bool
+        {
+            if (string_index.index + string_index.size > string_pool_buffer.size())
+                return false;
+            *out_str = std::string(string_pool_buffer.data() + string_index.index, string_index.size);
+            return true;
+        };
 
         std::string constant_string;
         for (auto& [constant_offset, string_index] : constant_string_index_for_update)
@@ -764,7 +779,7 @@ namespace wo
             if (!restore_string_from_buffer(extern_native_function.function_name_idx, &function_name))
                 WO_LOAD_BIN_FAILED("Failed to restore string from string buffer.");
 
-            wo_native_func func = nullptr;
+            wo_native_func_t func = nullptr;
 
             if (library_name == "")
                 func = rslib_extern_symbols::get_global_symbol(function_name.c_str());
@@ -1082,6 +1097,27 @@ namespace wo
         return _create_from_stream(&buf, stack_count, out_reason, out_is_binary);
     }
 
+    bool runtime_env::try_find_script_func(const std::string& name, wo_integer_t* out_script_func)
+    {
+        auto fnd = extern_script_functions.find(name);
+        if (fnd != extern_script_functions.end())
+        {
+            *out_script_func = fnd->second;
+            return true;
+        }
+        return false;
+    }
+    bool runtime_env::try_find_jit_func(wo_integer_t out_script_func, wo_handle_t* out_jit_func)
+    {
+        auto fnd = _jit_code_holder.find((size_t)out_script_func);
+        if (fnd != _jit_code_holder.end())
+        {
+            *out_jit_func = (wo_handle_t)reinterpret_cast<intptr_t>(*fnd->second);
+            return true;
+        }
+        return false;
+    }
+
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     shared_pointer<runtime_env> ir_compiler::finalize(size_t stacksz)
@@ -1177,7 +1213,7 @@ namespace wo
                     tag_offset_vector_table[tag_name] = (uint32_t)generated_runtime_code_buf.size();
                 }
             }
-            
+
             if (WO_IR.param)
             {
                 auto& WO_IR_PARAM = WO_IR.param.value();
