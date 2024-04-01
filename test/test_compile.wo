@@ -1642,6 +1642,104 @@ func main()
         assure_compile_fail(@"
         extern func foo(_){}
         "@);
+
+        assure_compile_success(@"
+        func declval<T>()=> T{}
+
+        using aa = void
+        {
+            alias test<T> = typeof(declval:<T>()->foo);
+        }
+
+        namespace xxx
+        {
+            using aa<T> = void
+            {
+                func foo<T>(_: aa<T>){}
+            }
+        }
+
+        let a = nil: aa::test<xxx::aa<string>>;
+        "@);
+
+        assure_compile_success(@"
+        using aa = void
+        {
+            alias test<T> = T::ut;
+
+            alias ut = real;
+        }
+
+        namespace xxx
+        {
+            using aa<T> = void
+            {
+                alias ut = void;
+            }
+        }
+
+        let a = nil: aa::test<xxx::aa<string>>;
+        "@);
+
+        assure_compile_fail(@"
+        using aa = void
+        {
+            alias test<T> = T::ut;
+
+            alias ut = real;
+        }
+
+        namespace xxx
+        {
+            using aa<T> = void
+            {
+                alias ut = int;
+            }
+        }
+
+        let a = nil: aa::test<xxx::aa<string>>;
+        "@);
+
+        assure_compile_success(@"
+        using aa = void
+        {
+            alias test<T> = T::ut;
+
+            alias bx = real;
+        }
+
+        namespace xxx
+        {
+            using aa<T> = void
+            {
+                alias ut = bx;
+                alias bx = void;
+            }
+        }
+
+        let a = nil: aa::test<xxx::aa<string>>;
+        "@);
+
+        assure_compile_success(@"
+        func declval<T>()=> T{}
+
+        using aa = void
+        {
+            alias test<T> = typeof(T::bk:<T>);
+
+            let bk = 0;
+        }
+
+        namespace xxx
+        {
+            using aa<T> = void
+            {
+                let bk<T> = nil;
+            }
+        }
+
+        let a = nil: aa::test<xxx::aa<string>>;
+        "@);
         
         // ISSUE: 1.13: anything has been removed from woolang.
         // assure_compile_success(@"
