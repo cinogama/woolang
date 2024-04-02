@@ -1,6 +1,8 @@
 import woo::std;
 import pkg::math;
 
+import pkg::iterator;
+
 namespace test_benchmark
 {
     func isprime(n: int)
@@ -34,11 +36,39 @@ namespace test_benchmark
         do searching->forall(\n=isprime(n););
         return std::time() - b;
     }
+    func bench_1m_prime3()
+    {
+        let searching = []mut: vec<int>;
 
+        for (let mut i = 2; i < 100_0000; i += 1)
+            searching->add(i);
+
+        let b = std::time();
+        do searching->iter 
+            |> iterator::forall(\n = isprime(n);)
+            ;
+        return std::time() - b;
+    }
+    func bench_1m_prime4()
+    {
+        let searching = []mut: vec<int>;
+
+        for (let mut i = 2; i < 100_0000; i += 1)
+            searching->add(i);
+
+        let b = std::time();
+        do searching->iter 
+            |> iterator::forall(\n = isprime(n);)
+            |> iterator::collect()
+            ;
+        return std::time() - b;
+    }
     func main()
     {
         std::println("bench_1m_prime cost:", bench_1m_prime());
         std::println("bench_1m_prime2 cost:", bench_1m_prime2());
+        std::println("bench_1m_prime3(no calc) cost:", bench_1m_prime3());
+        std::println("bench_1m_prime4 cost:", bench_1m_prime4());
     }
 }
 

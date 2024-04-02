@@ -2,6 +2,7 @@ import woo::std;
 import test_tool;
 
 import pkg::worst;
+import pkg::iterator;
 
 namespace test_container
 {
@@ -106,7 +107,7 @@ namespace test_container
         let a = [f(1), f(2), f(3), f(4)];
 
         test_assure(a->len == v->len);
-        for (let idx, val : v)
+        for (let (idx, val) : v->iter |> iterator::enumerate)
         {
             test_assure(a[idx] == val);
         }
@@ -120,7 +121,7 @@ namespace test_container
         do {[1] = f(1), [2] = f(2), [3] = f(3), [4] = f(4),};
 
         test_assure(a->len == v->len);
-        for (let idx, val : v)
+        for (let (idx, val) : v->iter |> iterator::enumerate)
         {
             test_assure(a[idx] == val);
         }
@@ -171,7 +172,13 @@ namespace test_container
             x->add(F"str_{i}");
         do x->forall(\s = s->beginwith("0"););
 
-        let y = all(["hello", "world"])->>\t = t...->\i,e = F"{i}{e}";;->reduce(\l,r = l + r;)->val;
+        let y = all(["hello", "world"])->iter
+            |> iterator::enumerate
+            |> iterator::map(\ie = ie...->\i, e = F"{i}{e}";;)
+            |> iterator::collect
+            -> reduce(\l, r = l + r;)
+            -> val;
+            
         test_equal(y, "0hello1world");
 
         let a = [1, 3, 7, 2, 4, 9];
@@ -181,7 +188,7 @@ namespace test_container
             test_equal(a[i], b[i]);
         
         let c = a->std::sort(\a, b = a < b;);
-        for (let i, v : [1, 2, 3, 4, 7, 9])
+        for (let (i, v) : [1, 2, 3, 4, 7, 9]->iter |> iterator::enumerate)
             test_equal(c[i], v);
 
         do [(mut 0, mut 1)]->mapping as dict<mut int, mut int>;

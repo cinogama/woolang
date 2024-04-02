@@ -152,7 +152,7 @@ namespace test_monad
         ;
         let ch = \tc: char = pred(\c = c == tc;);;
         let digit = pred(\c = c->isnumber;)->>\c = (c - '0'): int;;
-        let nat = digit->some()->> func(xs){let mut result = 0; for(let _, n: xs)result = result * 10 + n; return result;};
+        let nat = digit->some()->> func(xs){let mut result = 0; for(let n: xs)result = result * 10 + n; return result;};
         let integer = ch('-')->use(nat)->>\x = -x;->or(nat);
     }
 

@@ -2,6 +2,8 @@ import woo::std;
 import woo::debug;
 import test_tool;
 
+import pkg::iterator;
+
 namespace test_template
 {
     using wraped_iterator<IType, EType> = struct {
@@ -30,7 +32,7 @@ namespace test_template
                 match (self.iter->next())
                 {
                 value((out_index, out_val))?
-                    if (self.pred(out_val))
+                    if (self.pred((out_index, out_val)))
                         return option::value((out_index, out_val));
                 none?
                     return option::none;
@@ -404,9 +406,9 @@ namespace test_template
 
         let p = []mut: vec<int>;
         let q = [1,2,3,4,5,6,7,8,9];
-        for(let _, v : wraped_iterator::create(q->iter(), func(e:int){return e==5;}))
+        for(let v : wraped_iterator::create(q->iter() |> iterator::enumerate, func(e: (int, int)){return e.1==5;}))
         {
-            p->add(v);
+            p->add(v.1);
         }
         test_equal(p->len(), 1);
         test_equal(p[0], 5);

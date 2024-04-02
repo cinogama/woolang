@@ -1,6 +1,8 @@
 import woo::std;
 import test_tool;
 
+import pkg::iterator;
+
 namespace test_optional
 {
     let global_val<T> = []mut: vec<T>;
@@ -57,7 +59,7 @@ namespace test_optional
         func create<T>(val: array<T>)
         {
             let mut result = linknode::end : linknode<T>;
-            for (let _, elem : val)
+            for (let elem : val)
                 result = result->add(elem);
             return result;
         }
@@ -74,7 +76,7 @@ namespace test_optional
                 linknode::next((elem, nextnode))?
                 {
                     self.node = nextnode;
-                    return option::value((elem,));
+                    return option::value(elem);
                 }
                 end?
                     return option::none;
@@ -97,7 +99,7 @@ namespace test_optional
         for(let x : chain)
             arr->add(x);
 
-        for (let index, elem : data_from)
+        for (let (index, elem) : data_from->iter |> iterator::enumerate)
             test_assure(elem == arr[index]);
     }
     func main()

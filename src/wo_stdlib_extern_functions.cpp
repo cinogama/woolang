@@ -964,15 +964,8 @@ WO_API wo_api rslib_std_array_iter_next(wo_vm vm, wo_value args)
     if (iter.iter == iter.end_place)
         return wo_ret_option_none(vm);
 
-    wo_value result_tuple = wo_push_struct(vm, 2);
-    wo_value elem = wo_push_empty(vm);
-
-    wo_set_int(elem, iter.index_count++); // key
-    wo_struct_set(result_tuple, 0, elem);
-    wo_set_val(elem, std::launder(reinterpret_cast<wo_value>(&*(iter.iter++)))); // val
-    wo_struct_set(result_tuple, 1, elem);
-
-    return wo_ret_option_val(vm, result_tuple);
+    return wo_ret_option_val(
+        vm, std::launder(reinterpret_cast<wo_value>(&*(iter.iter++))));
 }
 
 WO_API wo_api rslib_std_map_find(wo_vm vm, wo_value args)
@@ -2193,16 +2186,19 @@ namespace array
 
     public func findif<T>(val:array<T>, judger:(T)=> bool)
     {
-        for (let i, v : val)
+        let mut count = 0;
+        for (let v : val)
             if (judger(v))
-                return i;
-        return -1;            
+                return count;
+            else
+                count += 1;
+        return -1;
     }
 
     public func forall<T>(val: array<T>, functor: (T)=> bool)
     {
         let result = []mut: vec<T>;
-        for (let _, elem : val)
+        for (let elem : val)
             if (functor(elem))
                 result->add(elem);
         return result->unsafe::cast:<array<T>>;
@@ -2211,8 +2207,8 @@ namespace array
     public func bind<T, R>(val: array<T>, functor: (T)=> array<R>)
     {
         let result = []mut: vec<R>;
-        for (let _, elem : val)
-            for (let _, insert : functor(elem))
+        for (let elem : val)
+            for (let insert : functor(elem))
                 result->add(insert);
         return result->unsafe::cast:<array<R>>;
     }
@@ -2220,7 +2216,7 @@ namespace array
     public func map<T, R>(val: array<T>, functor: (T)=> R)
     {
         let result = []mut: vec<R>;
-        for (let _, elem : val)
+        for (let elem : val)
         {
             let r = functor(elem);
             result->add(r);
@@ -2231,7 +2227,7 @@ namespace array
     public func mapping<K, V>(val: array<(K, V)>)
     {
         let result = {}mut: map<K, V>;
-        for (let _, (k, v) : val)
+        for (let (k, v) : val)
             result->set(k, v);
         return result->unsafe::cast:<dict<K, V>>;
     }
@@ -2264,7 +2260,7 @@ namespace array
     public using iterator<T> = gchandle
     {
         extern("rslib_std_array_iter_next", repeat)
-            public func next<T>(iter:iterator<T>)=> option<(int, T)>;
+            public func next<T>(iter:iterator<T>)=> option<T>;
     
         public func iter<T>(iter:iterator<T>) { return iter; }
     }
@@ -2374,10 +2370,13 @@ namespace vec
 
     public func findif<T>(val:vec<T>, judger:(T)=> bool)
     {
-        for (let i, v : val)
+        let mut count = 0;
+        for (let v : val)
             if (judger(v))
-                return i;
-        return -1;            
+                return count;
+            else
+                count += 1;
+        return -1;
     }
 
     extern("rslib_std_array_clear")
@@ -2386,7 +2385,7 @@ namespace vec
     public func forall<T>(val: vec<T>, functor: (T)=> bool)
     {
         let result = []mut: vec<T>;
-        for (let _, elem : val)
+        for (let elem : val)
             if (functor(elem))
                 result->add(elem);
         return result;
@@ -2395,8 +2394,8 @@ namespace vec
     public func bind<T, R>(val: vec<T>, functor: (T)=>vec<R>)
     {
         let result = []mut: vec<R>;
-        for (let _, elem : val)
-            for (let _, insert : functor(elem))
+        for (let elem : val)
+            for (let insert : functor(elem))
                 result->add(insert);
         return result;
     }
@@ -2404,7 +2403,7 @@ namespace vec
     public func map<T, R>(val: vec<T>, functor: (T)=> R)
     {
         let result = []mut: vec<R>;
-        for (let _, elem : val)
+        for (let elem : val)
             result->add(functor(elem));
         return result;
     }
@@ -2412,7 +2411,7 @@ namespace vec
     public func mapping<K, V>(val: vec<(K, V)>)
     {
         let result = {}mut: map<K, V>;
-        for (let _, (k, v) : val)
+        for (let (k, v) : val)
             result->set(k, v);
         return result->unsafe::cast:<dict<K, V>>;
     }
@@ -2445,7 +2444,7 @@ namespace vec
     public using iterator<T> = gchandle
     {
         extern("rslib_std_array_iter_next", repeat)
-            public func next<T>(iter:iterator<T>)=> option<(int, T)>;
+            public func next<T>(iter:iterator<T>)=> option<T>;
     
         public func iter<T>(iter:iterator<T>) { return iter; }
     }
@@ -2477,8 +2476,8 @@ namespace dict
     public func bind<KT, VT, RK, RV>(val: dict<KT, VT>, functor: (KT, VT)=> dict<RK, RV>)
     {
         let result = {}mut: map<RK, RV>;
-        for (let k, v : val)
-            for (let rk, rv : functor(k, v))
+        for (let (k, v) : val)
+            for (let (rk, rv) : functor(k, v))
                 result->set(rk, rv);
         return result->unsafe::cast:<dict<RK, RV>>;
     }
@@ -2502,7 +2501,7 @@ namespace dict
 
     public func findif<KT, VT>(self: dict<KT, VT>, judger:(KT)=> bool)
     {
-        for (let k, _ : self)
+        for (let (k, _) : self)
             if (judger(k))
                 return option::value(k);
         return option::none;            
@@ -2548,7 +2547,7 @@ namespace dict
     public func forall<KT, VT>(self: dict<KT, VT>, functor: (KT, VT)=> bool)
     {
         let result = {}mut: map<KT, VT>;
-        for (let key, val : self)
+        for (let (key, val) : self)
             if (functor(key, val))
                 result->set(key, val);
         return result->unsafe::cast:<dict<KT, VT>>;
@@ -2556,7 +2555,7 @@ namespace dict
     public func map<KT, VT, AT, BT>(self: dict<KT, VT>, functor: (KT, VT)=> (AT, BT))
     {
         let result = {}mut: map<AT, BT>;
-        for (let key, val : self)
+        for (let (key, val) : self)
         {
             let (nk, nv) = functor(key, val);
             result->set(nk, nv);
@@ -2565,9 +2564,9 @@ namespace dict
     }
     public func unmapping<KT, VT>(self: dict<KT, VT>)
     {
-        let result = []mut: vec<(std::origin_t<KT>, std::origin_t<VT>)>;
-        for (let key, val : self)
-            result->add((key, val));
+        let result = []mut: vec<(KT, VT)>;
+        for (let kvpair : self)
+            result->add(kvpair);
         return result->unsafe::cast:<array<(KT, VT)>>;
     }
 }
@@ -2583,8 +2582,8 @@ namespace map
     public func bind<KT, VT, RK, RV>(val: map<KT, VT>, functor: (KT, VT)=> map<RK, RV>)
     {
         let result = {}mut: map<RK, RV>;
-        for (let k, v : val)
-            for (let rk, rv : functor(k, v))
+        for (let (k, v) : val)
+            for (let (rk, rv) : functor(k, v))
                 result->set(rk, rv);
         return result;
     }
@@ -2603,7 +2602,7 @@ namespace map
 
     public func findif<KT, VT>(self: map<KT, VT>, judger:(KT)=> bool)
     {
-        for (let k, _ : self)
+        for (let (k, _) : self)
             if (judger(k))
                 return option::value(k);
         return option::none;            
@@ -2656,7 +2655,7 @@ namespace map
     public func forall<KT, VT>(self: map<KT, VT>, functor: (KT, VT)=>bool)
     {
         let result = {}mut: map<KT, VT>;
-        for (let key, val : self)
+        for (let (key, val) : self)
             if (functor(key, val))
                 result->set(key, val);
         return result;
@@ -2664,7 +2663,7 @@ namespace map
     public func map<KT, VT, AT, BT>(self: map<KT, VT>, functor: (KT, VT)=>(AT, BT))
     {
         let result = {}mut: map<AT, BT>;
-        for (let key, val : self)
+        for (let (key, val) : self)
         {
             let (nk, nv) = functor(key, val);
             result->set(nk, nv);
@@ -2673,9 +2672,9 @@ namespace map
     }
     public func unmapping<KT, VT>(self: map<KT, VT>)
     {
-        let result = []mut: vec<(std::origin_t<KT>, std::origin_t<VT>)>;
-        for (let key, val : self)
-            result->add((key, val));
+        let result = []mut: vec<(KT, VT)>;
+        for (let kvpair : self)
+            result->add(kvpair);
         return result->unsafe::cast:<array<(KT, VT)>>;
     }
 }
