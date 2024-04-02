@@ -351,9 +351,9 @@ namespace test_basic
         let mut test_break_label = true;
 
         outside_label@
-        for (let _, _ : [1])
+        for (let _ : [1])
         {
-            for (let _, _ : [1])
+            for (let _ : [1])
                 break outside_label;
 
             test_break_label = false;
@@ -361,29 +361,29 @@ namespace test_basic
         test_equal(test_break_label, true);
 
         outside_label2@
-        for (let _, _ : [1])
+        for (let _ : [1])
         {
-            for (let _, _ : [1])
+            for (let _ : [1])
                 continue outside_label2;
 
             test_break_label = false;
         }
         test_equal(test_break_label, true);
    
-        for (let _, _ : [1])
+        for (let _ : [1])
         {
             inside_label@
-            for (let _, _ : [1])
+            for (let _ : [1])
                 continue inside_label;
 
             test_break_label = false;
         }
         test_equal(test_break_label, false);
 
-        for (let _, _ : [1])
+        for (let _ : [1])
         {
             inside_label@
-            for (let _, v : [1, 2])
+            for (let v : [1, 2])
             {
                 if (v == 1)
                     continue inside_label;
@@ -392,10 +392,10 @@ namespace test_basic
         }
         test_equal(test_break_label, true);
 
-        for (let _, _ : [1])
+        for (let _ : [1])
         {
             inside_label@
-            for (let _, v : [1, 2])
+            for (let v : [1, 2])
             {
                 if (v == 1)
                     break inside_label;

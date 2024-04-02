@@ -951,7 +951,7 @@ func main()
 
         assure_compile_success(@"
             import woo::std;
-            for (let _, b : [mut "Hello"])
+            for (let b : [mut "Hello"])
                 std::println(F"{b}");
         "@);
 
@@ -1769,7 +1769,7 @@ func main()
 
         test_compile_success_or_fail();
 
-        for (let _, t : test_threads)
+        for (let t : test_threads)
             do t->wait();
         
 

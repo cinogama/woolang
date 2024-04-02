@@ -1384,7 +1384,7 @@ namespace wo
             match_for_exec->match_value = iter_dir_next_call;
             match_for_exec->cases = new ast_list;
 
-            auto* for_decl_vars = dynamic_cast<ast_pattern_tuple*>(WO_NEED_AST(4));
+            auto* for_decl_vars = dynamic_cast<ast_pattern_base*>(WO_NEED_AST(4));
 
             auto* pattern_none_case = new ast_match_union_case;
             {
@@ -2353,8 +2353,7 @@ namespace wo
 
             _registed_builder_function_id_list[meta::type_hash<pass_union_pattern>] = _register_builder<pass_union_pattern>();
             _registed_builder_function_id_list[meta::type_hash<pass_identifier_pattern>] = _register_builder<pass_identifier_pattern>();
-            _registed_builder_function_id_list[meta::type_hash<pass_tuple_pattern<0>>] = _register_builder<pass_tuple_pattern<0>>();
-            _registed_builder_function_id_list[meta::type_hash<pass_tuple_pattern<1>>] = _register_builder<pass_tuple_pattern<1>>();
+            _registed_builder_function_id_list[meta::type_hash<pass_tuple_pattern>] = _register_builder<pass_tuple_pattern>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_struct_member_def>] = _register_builder<pass_struct_member_def>();
             _registed_builder_function_id_list[meta::type_hash<pass_struct_member_init_pair>] = _register_builder<pass_struct_member_init_pair>();

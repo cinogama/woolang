@@ -1,6 +1,7 @@
 import woo::std;
 
 import pkg::thread;
+import pkg::iterator;
 
 import test_tool;
 
@@ -18,12 +19,12 @@ namespace test_gc
         while (std::time() - test_begin_time <= TEST_TIME)
         {
             let arr = [1];
-            for (let _, _: arr)
+            for (let _: arr)
             {
                 let d = {["Hello"] = "world"};
                 do "Hello" + d["Hello"];
 
-                for (let _, _: arr)
+                for (let _: arr)
                 {
                     // do nothing..
                 }
@@ -85,7 +86,7 @@ namespace test_gc
         
         do thread::create(\ = test_gchandle_work();, ());
 
-        for (let i, _: array::create(4, do nil)) 
+        for (let (i, _): array::create(4, do nil)->iter |> iterator::enumerate) 
             do thread::create(\ = test_gc_parallel_work(i);, ());      
     }
 }

@@ -437,21 +437,12 @@ namespace wo
                 gm::te(gm::ttype::l_left_brackets),
                 gm::nt(L"DECL_ATTRIBUTE"),
                 gm::te(gm::ttype::l_let),
-                gm::nt(L"FOREACH_VAR_IDENTS_PATTERN"),
+                gm::nt(L"DEFINE_PATTERN"),
                 gm::te(gm::ttype::l_typecast),
                 gm::nt(L"EXPRESSION"),
                 gm::te(gm::ttype::l_right_brackets),
                 gm::nt(L"BLOCKED_SENTENCE")
                 } >> WO_ASTBUILDER_INDEX(ast::pass_foreach),
-
-
-                gm::nt(L"FOREACH_VAR_IDENTS_PATTERN") >> gm::symlist{ gm::nt(L"FOREACH_VAR_IDENTS") }
-                >> WO_ASTBUILDER_INDEX(ast::pass_tuple_pattern<0>),
-
-                gm::nt(L"FOREACH_VAR_IDENTS") >> gm::symlist{  gm::nt(L"DEFINE_PATTERN") }
-                >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
-                gm::nt(L"FOREACH_VAR_IDENTS") >> gm::symlist{ gm::nt(L"FOREACH_VAR_IDENTS"),gm::te(gm::ttype::l_comma),gm::nt(L"DEFINE_PATTERN") }
-                >> WO_ASTBUILDER_INDEX(ast::pass_append_list<2,0>),
 
                 gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"IF")}
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
@@ -1180,10 +1171,10 @@ namespace wo
                 >> WO_ASTBUILDER_INDEX(ast::pass_identifier_pattern),
 
                 gm::nt(L"DEFINE_PATTERN") >> gm::symlist{ gm::te(gm::ttype::l_left_brackets), gm::nt(L"DEFINE_PATTERN_LIST"), gm::te(gm::ttype::l_right_brackets) }
-                >> WO_ASTBUILDER_INDEX(ast::pass_tuple_pattern<1>),
+                >> WO_ASTBUILDER_INDEX(ast::pass_tuple_pattern),
 
                 gm::nt(L"DEFINE_PATTERN") >> gm::symlist{ gm::te(gm::ttype::l_left_brackets), gm::nt(L"COMMA_MAY_EMPTY"), gm::te(gm::ttype::l_right_brackets) }
-                >> WO_ASTBUILDER_INDEX(ast::pass_tuple_pattern<1>),
+                >> WO_ASTBUILDER_INDEX(ast::pass_tuple_pattern),
 
                 gm::nt(L"DEFINE_PATTERN_LIST") >> gm::symlist{ gm::nt(L"DEFINE_PATTERN_ITEMS"), gm::nt(L"COMMA_MAY_EMPTY") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),

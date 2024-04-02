@@ -3441,15 +3441,16 @@ namespace wo
             }
         };
 
-        template<size_t pattern_location>
         struct pass_tuple_pattern : public astnode_builder
         {
             static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 auto* result = new ast_pattern_tuple;
-                if (!ast_empty::is_empty(input[pattern_location]))
+                wo_assert(input.size() == 3);
+
+                if (!ast_empty::is_empty(input[1]))
                 {
-                    auto* subpattern = WO_NEED_AST(pattern_location)->children;
+                    auto* subpattern = WO_NEED_AST(1)->children;
                     while (subpattern)
                     {
                         auto* child_pattern = dynamic_cast<ast_pattern_base*>(subpattern);
