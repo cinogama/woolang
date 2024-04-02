@@ -270,6 +270,7 @@ namespace wo
         lang(lexer& lex);
         ~lang();
         ast::ast_type* generate_type_instance_by_templates(lang_symbol* symb, const std::vector<ast::ast_type*>& templates);
+        void update_typeof_in_type(ast::ast_type* type, std::unordered_set<ast::ast_type*>& s);
         bool fully_update_type(ast::ast_type* type, bool in_pass_1, const std::vector<wo_pstring_t>& template_types, std::unordered_set<ast::ast_type*>& s);
         void fully_update_type(ast::ast_type* type, bool in_pass_1, const std::vector<wo_pstring_t>& template_types = {});
 

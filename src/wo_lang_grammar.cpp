@@ -881,6 +881,8 @@ namespace wo
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 gm::nt(L"SCOPING_BEGIN_IDENT") >> gm::symlist{ gm::nt(L"IDENTIFIER") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"SCOPING_BEGIN_IDENT") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
+                >> WO_ASTBUILDER_INDEX(ast::pass_empty),
 
                 gm::nt(L"SCOPING_LIST") >> gm::symlist{ gm::te(gm::ttype::l_scopeing),gm::nt(L"IDENTIFIER") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_variable_in_namespace),// TODO HERE SHOULD BE IDENTIF IN NAMESPACE

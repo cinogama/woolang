@@ -483,8 +483,8 @@ namespace wo
                 if (ast_value_arg_define* argdef = dynamic_cast<ast_value_arg_define*>(arg_child))
                 {
                     wo_assert(a_value_func->value_type->is_function());
-                    a_value_func->value_type->argument_types.at(argid)->searching_begin_namespace_in_pass2 = 
-                        argdef->searching_begin_namespace_in_pass2 = 
+                    a_value_func->value_type->argument_types.at(argid)->searching_begin_namespace_in_pass2 =
+                        argdef->searching_begin_namespace_in_pass2 =
                         a_value_func->this_func_scope;
                 }
 
@@ -858,7 +858,7 @@ namespace wo
         }
         else
         {
-            if (a_using_type_as->old_type->typefrom == nullptr
+            if (!a_using_type_as->old_type->has_typeof()
                 || a_using_type_as->template_type_name_list.empty())
             {
                 if (a_using_type_as->namespace_decl != nullptr)
@@ -2070,7 +2070,7 @@ namespace wo
         }
         else
         {
-            std::vector<ast_value* > reenplace_array_items;
+            std::vector<ast_value*> reenplace_array_items;
 
             ast_value* val = dynamic_cast<ast_value*>(a_value_arr->array_items->children);
 
@@ -2472,9 +2472,9 @@ namespace wo
             // 5th, apply & update template struct.
             if (std::find(template_args.begin(), template_args.end(), nullptr) != template_args.end())
             {
-                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_make_struct_instance, 
+                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_make_struct_instance,
                     WO_ERR_FAILED_TO_DECIDE_ALL_TEMPLATE_ARGS);
-                lang_anylizer->lang_error(lexer::errorlevel::infom, a_value_make_struct_instance->target_built_types->symbol->define_node, 
+                lang_anylizer->lang_error(lexer::errorlevel::infom, a_value_make_struct_instance->target_built_types->symbol->define_node,
                     WO_INFO_ITEM_IS_DEFINED_HERE,
                     a_value_make_struct_instance->target_built_types->get_type_name(false, true).c_str());
             }
@@ -3127,8 +3127,8 @@ namespace wo
             {
                 // If call a pending type function. it means the function's type dudes may fail, mark void to continue..
                 if (funcsymb->has_return_value)
-                    lang_anylizer->lang_error(lexer::errorlevel::error, funcsymb, 
-                        WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE, 
+                    lang_anylizer->lang_error(lexer::errorlevel::error, funcsymb,
+                        WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE,
                         wo::str_to_wstr(funcsymb->get_ir_func_signature_tag()).c_str());
 
                 funcsymb->value_type->get_return_type()->set_type_with_name(WO_PSTR(void));
@@ -3154,8 +3154,8 @@ namespace wo
                     // default arg mgr here, now just kill
                     failed_to_call_cur_func = true;
                     lang_anylizer->lang_error(
-                        lexer::errorlevel::error, a_value_funccall, 
-                        WO_ERR_ARGUMENT_TOO_FEW, 
+                        lexer::errorlevel::error, a_value_funccall,
+                        WO_ERR_ARGUMENT_TOO_FEW,
                         a_value_funccall->called_func->value_type->get_type_name(false).c_str());
                     break;
                 }
@@ -3752,8 +3752,6 @@ namespace wo
 
     uint32_t lang::get_typing_hash_after_pass1(ast::ast_type* typing)
     {
-        wo_assert(!typing->is_pending() || typing->is_hkt());
-
         uint64_t hashval = (uint64_t)typing->value_type;
 
         if (typing->is_hkt())
@@ -3982,24 +3980,46 @@ namespace wo
             if (symb->type_informatiom->source_file != nullptr)
                 newtype->copy_source_info(symb->type_informatiom);
 
-            if (newtype->typefrom != nullptr)
+            temporary_entry_scope_in_pass1(symb->defined_in_scope);
             {
-                temporary_entry_scope_in_pass1(symb->defined_in_scope);
-                if (begin_template_scope(newtype->typefrom, symb->template_types, templates))
+                if (begin_template_scope(symb->type_informatiom, symb->template_types, templates))
                 {
-                    analyze_pass1(newtype->typefrom, false);
-
-                    auto step_in_pass2 = has_step_in_step2;
-                    has_step_in_step2 = false;
+                    std::unordered_set<ast::ast_type*> _repeat_guard;
+                    update_typeof_in_type(newtype, _repeat_guard);
 
                     end_template_scope();
-
-                    has_step_in_step2 = step_in_pass2;
                 }
-                temporary_leave_scope_in_pass1();
             }
+            temporary_leave_scope_in_pass1();
         }
         return symb->template_type_instances[hashs];
+    }
+    void lang::update_typeof_in_type(ast::ast_type* type, std::unordered_set<ast::ast_type*>& s)
+    {
+        if (s.find(type) != s.end())
+            return;
+
+        s.insert(type);
+
+        // NOTE: Only work for update typefrom;
+        if (type->typefrom != nullptr)
+            analyze_pass1(type->typefrom);
+
+        if (type->has_template())
+            for (auto* t : type->template_arguments)
+                update_typeof_in_type(t, s);
+
+        if (type->is_struct() && type->using_type_name == nullptr)
+        {
+            for (auto& [_, memberinfo] : type->struct_member_index)
+                update_typeof_in_type(memberinfo.member_type, s);
+        }
+        else if (type->is_function())
+        {
+            for (auto* t : type->argument_types)
+                update_typeof_in_type(t, s);
+            update_typeof_in_type(type->function_ret_type, s);
+        }
     }
     bool lang::fully_update_type(ast::ast_type* type, bool in_pass_1, const std::vector<wo_pstring_t>& template_types, std::unordered_set<ast::ast_type*>& s)
     {

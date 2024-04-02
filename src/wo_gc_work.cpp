@@ -391,6 +391,7 @@ namespace wo
             }
 
             _gc_mark_thread_groups()
+                : _m_worker_enabled(false)
             {
                 _m_gc_mark_threads = new std::thread[_gc_work_thread_count];
                 _m_gc_begin_flags = new std::atomic_flag[_gc_work_thread_count];
@@ -447,7 +448,6 @@ namespace wo
 
                     _m_gc_begin_cv.notify_all();
                 } while (false);
-
 
                 do
                 {
