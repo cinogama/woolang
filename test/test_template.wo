@@ -25,7 +25,7 @@ namespace test_template
             return self;
         }
 
-        func next<IType, EType>(self: wraped_iterator<IType, EType>)
+        public func next<IType, EType>(self: wraped_iterator<IType, EType>)
         {
             while(true)
             {
