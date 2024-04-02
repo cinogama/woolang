@@ -32,7 +32,8 @@ WO_GLOBAL_PSTR(function)\
 WO_GLOBAL_PSTR(bool)\
 WO_GLOBAL_PSTR(char)\
 WO_GLOBAL_PSTR(auto)\
-WO_GLOBAL_PSTR(iter)\
+WO_GLOBAL_PSTR(std)\
+WO_GLOBAL_PSTR(iterator)\
 WO_GLOBAL_PSTR(_iter)\
 WO_GLOBAL_PSTR(_val)\
 WO_GLOBAL_PSTR(next)\

@@ -184,6 +184,33 @@ namespace wo
         {
             is_variadic_function_type = true;
         }
+        bool ast_type::has_typeof() const
+        {
+            if (typefrom != nullptr)
+                return true;
+
+            if (has_template())
+                for (auto* t : template_arguments)
+                    if (t->has_typeof())
+                        return true;
+            if (is_struct() && using_type_name == nullptr)
+                for (auto& [_, memberinfo] : struct_member_index)
+                {
+                    if (memberinfo.member_type->has_typeof())
+                        return true;
+                }
+            else if (is_function())
+            {
+                for (auto arg_type : argument_types)
+                {
+                    if (arg_type->has_typeof())
+                        return true;
+                }
+                return function_ret_type->has_typeof();                     
+            }
+            return false;
+        }
+
         bool ast_type::is_mutable() const
         {
             return is_mutable_type;
@@ -226,7 +253,7 @@ namespace wo
                         return true;
                 }
             }
-            if (is_function())
+            else if (is_function())
             {
                 for (auto arg_type : argument_types)
                 {
@@ -1340,12 +1367,15 @@ namespace wo
             // build EXP->iter() / var LIST;
 
             //{{{{
-                // var _iter = XXXXXX->iter();
+                // var _iter = XXXXXX->std::iterator();
             ast_value* be_iter_value = dynamic_cast<ast_value*>(WO_NEED_AST(6));
 
             ast_value_funccall* exp_dir_iter_call = new ast_value_funccall();
             exp_dir_iter_call->arguments = new ast_list();
-            exp_dir_iter_call->called_func = new ast_value_variable(WO_PSTR(iter));
+            ast_value_variable* std_iterator = new ast_value_variable(WO_PSTR(iterator));
+            std_iterator->search_from_global_namespace = true;
+            std_iterator->scope_namespaces.push_back(WO_PSTR(std));
+            exp_dir_iter_call->called_func = std_iterator;
             exp_dir_iter_call->arguments->append_at_head(be_iter_value);
             exp_dir_iter_call->directed_value_from = be_iter_value;
             exp_dir_iter_call->called_func->copy_source_info(be_iter_value);

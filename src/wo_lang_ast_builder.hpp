@@ -176,6 +176,8 @@ namespace wo
             void set_is_mutable(bool is_mutable);
             void set_is_force_immutable();
 
+            bool has_typeof() const;
+
             bool is_mutable() const;
             bool is_force_immutable() const;
 

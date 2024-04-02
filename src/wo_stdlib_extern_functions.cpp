@@ -1635,6 +1635,20 @@ namespace std
 
         return v;
     }
+
+    public alias iterator_result_t<T> = option::item<typeof(std::declval:<T>()->next)>;
+    public let is_iterator<T> = std::declval:<iterator_result_t<T>>() is pending == false;
+    public let is_iterable<T> = std::declval:<T>()->iter is pending 
+        ? false | is_iterator:<typeof(std::declval:<T>()->iter)>;
+        
+    public func iterator<T>(v: T)
+        where is_iterator:<T> || is_iterable:<T>;
+    {
+        if (is_iterable:<T>)
+            return v->iter;
+        else
+            return v;
+    }
 }
 
 public using mutable<T> = struct {
@@ -1662,6 +1676,8 @@ public union option<T>
 }
 namespace option
 {
+    alias item<T> = typeof(std::declval:<T>()->\<E>_: option<E> = std::declval:<E>(););
+
     public func bind<T, R>(self: option<T>, functor: (T)=> option<R>)
     {
         match(self)
@@ -1742,6 +1758,9 @@ public union result<T, F>
 }
 namespace result
 {
+    alias okitem<T> = typeof(std::declval:<T>()->\<O, E>_: result<O, E> = std::declval:<O>(););
+    alias erritem<T> = typeof(std::declval:<T>()->\<O, E>_: result<O, E> = std::declval:<E>(););
+
     public func flip<T, F>(self: result<T, F>)
     {
         match(self)
@@ -2261,8 +2280,6 @@ namespace array
     {
         extern("rslib_std_array_iter_next", repeat)
             public func next<T>(iter:iterator<T>)=> option<T>;
-    
-        public func iter<T>(iter:iterator<T>) { return iter; }
     }
 
     extern("rslib_std_array_iter", repeat)
@@ -2445,8 +2462,6 @@ namespace vec
     {
         extern("rslib_std_array_iter_next", repeat)
             public func next<T>(iter:iterator<T>)=> option<T>;
-    
-        public func iter<T>(iter:iterator<T>) { return iter; }
     }
 
     extern("rslib_std_array_iter", repeat)
