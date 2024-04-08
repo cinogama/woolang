@@ -1,6 +1,7 @@
 #include "wo_lang.hpp"
 
 WO_API wo_api rslib_std_return_itself(wo_vm vm, wo_value args);
+WO_API wo_api rslib_std_bad_function(wo_vm vm, wo_value args);
 
 namespace wo
 {
@@ -6214,16 +6215,18 @@ namespace wo
                         funcdef = funcvariable->symbol->get_funcdef();
                 }
 
-                if (config::ENABLE_SKIP_INVOKE_UNSAFE_CAST
-                    && funcdef != nullptr
-                    && funcdef->externed_func_info != nullptr
-                    && funcdef->externed_func_info->externed_func == &rslib_std_return_itself)
+                if (funcdef != nullptr
+                    && funcdef->externed_func_info != nullptr)
                 {
-                    // Invoking unsafe::cast, skip and return it self.
-                    ast_value* arg_val = dynamic_cast<ast_value*>(arg);
+                    if (config::ENABLE_SKIP_INVOKE_UNSAFE_CAST
+                        && funcdef->externed_func_info->externed_func == &rslib_std_return_itself)
+                    {
+                        // Invoking unsafe::cast, skip and return it self.
+                        ast_value* arg_val = dynamic_cast<ast_value*>(arg);
 
-                    if (arg_val->sibling == nullptr && nullptr == dynamic_cast<ast_fakevalue_unpacked_args*>(arg_val))
-                        return analyze_value(arg_val, compiler, get_pure_value);
+                        if (arg_val->sibling == nullptr && nullptr == dynamic_cast<ast_fakevalue_unpacked_args*>(arg_val))
+                            return analyze_value(arg_val, compiler, get_pure_value);
+                    }
                 }
 
                 if (now_function_in_final_anylize && now_function_in_final_anylize->value_type->is_variadic_function_type)

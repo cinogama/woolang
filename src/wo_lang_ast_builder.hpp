@@ -16,8 +16,6 @@
 #include <unordered_map>
 #include <algorithm>
 
-WO_API wo_api rslib_std_bad_function(wo_vm vm, wo_value args);
-
 namespace wo
 {
 #define WO_REINSTANCE(ITEM) do {if(ITEM){(ITEM) = dynamic_cast<meta::origin_type<decltype(ITEM)>>((ITEM)->instance());}}while(0)

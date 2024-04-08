@@ -1470,7 +1470,7 @@ WO_API wo_api rslib_std_equal_byte(wo_vm vm, wo_value args)
 
 WO_API wo_api rslib_std_bad_function(wo_vm vm, wo_value args)
 {
-    return wo_ret_panic(vm, "This function cannot be invoke");
+    return wo_ret_panic(vm, "This function cannot be called at runtime.");
 }
 
 WO_API wo_api rslib_std_bit_or(wo_vm vm, wo_value args)
@@ -1638,7 +1638,10 @@ namespace std
 
     public alias iterator_result_t<T> = option::item<typeof(std::declval:<T>()->next)>;
     public let is_iterator<T> = std::declval:<iterator_result_t<T>>() is pending == false;
-    public let is_iterable<T> = std::declval:<T>()->iter is pending  ? false | std::is_iterator:<typeof(std::declval:<T>()->iter)>;
+    public let is_iterable<T> = 
+        std::declval:<T>()->iter is pending == false
+        ? std::is_iterator:<typeof(std::declval:<T>()->iter)>
+        | false;
         
     public func iterator<T>(v: T)
         where std::is_iterator:<T> || std::is_iterable:<T>;

@@ -183,10 +183,10 @@ namespace wo
         inline size_t INTERRUPT_CHECK_TIME_LIMIT = 25;
 
         /*
-        * ENABLE_SKIP_UNSAFE_CAST_INVOKE = true;
+        * ENABLE_SKIP_UNSAFE_CAST_INVOKE = true
         * --------------------------------------------------------------------
-        *   When checking that XX is ready to be called, simply eliminate this
-        * function call.
+        *   When checking that `unsafe::cast` is ready to be called, simply 
+        * eliminate this function call.
         * -------------------------------------------------------------------- 
         */
         inline bool ENABLE_SKIP_INVOKE_UNSAFE_CAST = true;
