@@ -260,6 +260,60 @@ thread          vm              <id>          Continue and break at specified vm
 
         wo::vmbase* focus_on_vm = nullptr;
 
+        static std::string _safe_cast_value_to_string(wo::value* val)
+        {
+            if (val->type >= wo::value::valuetype::need_gc)
+            {
+                [[maybe_unused]] gcbase::unit_attrib* _attr;
+                wo::gcbase* gc_unit_base_addr = val->get_gcunit_with_barrier(&_attr);
+
+                if (gc_unit_base_addr == nullptr)
+                    return "<bad>";
+
+                switch (val->type)
+                {
+                case wo::value::valuetype::string_type:
+                    if (dynamic_cast<wo::string_t*>(gc_unit_base_addr) != nullptr)
+                        break;
+                    [[fallthrough]];
+                case wo::value::valuetype::dict_type:
+                    if (dynamic_cast<wo::dict_t*>(gc_unit_base_addr) != nullptr)
+                        break;
+                    [[fallthrough]];
+                case wo::value::valuetype::array_type:
+                    if (dynamic_cast<wo::array_t*>(gc_unit_base_addr) != nullptr)
+                        break;
+                    [[fallthrough]];
+                case wo::value::valuetype::gchandle_type:
+                    if (dynamic_cast<wo::string_t*>(gc_unit_base_addr) != nullptr)
+                        break;
+                    [[fallthrough]];
+                case wo::value::valuetype::closure_type:
+                    if (dynamic_cast<wo::closure_t*>(gc_unit_base_addr) != nullptr)
+                        break;
+                    [[fallthrough]];
+                case wo::value::valuetype::struct_type:
+                    if (dynamic_cast<wo::struct_t*>(gc_unit_base_addr) != nullptr)
+                        break;
+                    [[fallthrough]];
+                default:
+                    return "<bad>";
+                }
+            }
+            else
+            {
+                if (val->type != wo::value::valuetype::invalid
+                    && val->type != wo::value::valuetype::integer_type
+                    && val->type != wo::value::valuetype::real_type
+                    && val->type != wo::value::valuetype::handle_type
+                    && val->type != wo::value::valuetype::bool_type)
+                    return "<bad>";
+            }
+            return std::string("<")
+                + wo_type_name((wo_type)val->type) + "> "
+                + wo_cast_string(std::launder(reinterpret_cast<wo_value>(val)));
+        }
+
         void display_variable(wo::vmbase* vmm, wo::program_debug_data_info::function_symbol_infor::variable_symbol_infor& varinfo)
         {
             // auto real_offset = -varinfo.bp_offset;
@@ -273,7 +327,7 @@ thread          vm              <id>          Continue and break at specified vm
             if (value_in_stack <= current_frame_sp)
                 wo_stdout << value_in_stack << " (not in stack)" << wo_endl;
             else
-                wo_stdout << value_in_stack << " " << wo_cast_string((wo_value)value_in_stack) << wo_endl;
+                wo_stdout << value_in_stack << " " << _safe_cast_value_to_string(value_in_stack) << wo_endl;
         }
         void display_variable(wo::vmbase* vmm, size_t global_offset)
         {
@@ -281,7 +335,7 @@ thread          vm              <id>          Continue and break at specified vm
             if (global_offset < vmm->env->constant_and_global_value_takeplace_count)
             {
                 auto* valueaddr = vmm->env->constant_global_reg_rtstack + vmm->env->constant_value_count + global_offset;
-                wo_stdout << valueaddr << " " << wo_cast_string((wo_value)valueaddr) << wo_endl;
+                wo_stdout << valueaddr << " " << _safe_cast_value_to_string(valueaddr) << wo_endl;
             }
             else
                 wo_stdout << "<out of range>" << wo_endl;
@@ -373,10 +427,10 @@ thread          vm              <id>          Continue and break at specified vm
 
                     if (target_vm != nullptr)
                     {
-                        wo_stdout 
-                            << ANSI_HIG 
-                            << target_vm->env->real_register_count 
-                            << ANSI_HIY " register(s) in total:" ANSI_RST 
+                        wo_stdout
+                            << ANSI_HIG
+                            << target_vm->env->real_register_count
+                            << ANSI_HIY " register(s) in total:" ANSI_RST
                             << wo_endl;
                         printf("%-15s%-20s%-20s\n", "RegisterID", "Name", "Value");
                         for (size_t reg_idx = 0; reg_idx < target_vm->env->real_register_count; ++reg_idx)
@@ -400,8 +454,7 @@ thread          vm              <id>          Continue and break at specified vm
                             case wo::opnum::reg::spreg::r13:
                             case wo::opnum::reg::spreg::r14:
                             case wo::opnum::reg::spreg::r15:
-                                printf("%-20s", ("R" + std::to_string(reg_idx - wo::opnum::reg::spreg::r0)).c_str());
-                                break;
+                                printf("%-20s", ("R" + std::to_string(reg_idx - wo::opnum::reg::spreg::r0)).c_str()); break;
                             case wo::opnum::reg::spreg::t0:
                             case wo::opnum::reg::spreg::t1:
                             case wo::opnum::reg::spreg::t2:
@@ -418,36 +471,27 @@ thread          vm              <id>          Continue and break at specified vm
                             case wo::opnum::reg::spreg::t13:
                             case wo::opnum::reg::spreg::t14:
                             case wo::opnum::reg::spreg::t15:
-                                printf("%-20s", ("T" + std::to_string(reg_idx - wo::opnum::reg::spreg::t0)).c_str());
-                                break;
+                                printf("%-20s", ("T" + std::to_string(reg_idx - wo::opnum::reg::spreg::t0)).c_str()); break;
                             case wo::opnum::reg::spreg::cr:
-                                printf("%-20s", "OpTraceResult(CR)");
-                                break;
+                                printf("%-20s", "OpTraceResult(CR)"); break;
                             case wo::opnum::reg::spreg::tc:
-                                printf("%-20s", "ArgumentCount(TC)");
-                                break;
+                                printf("%-20s", "ArgumentCount(TC)"); break;
                             case wo::opnum::reg::spreg::er:
-                                printf("%-20s", "ExceptionInfo(ER)");
-                                break;
+                                printf("%-20s", "ExceptionInfo(ER)"); break;
                             case wo::opnum::reg::spreg::ni:
-                                printf("%-20s", "NilConstant(NI)");
-                                break;
+                                printf("%-20s", "NilConstant(NI)"); break;
                             case wo::opnum::reg::spreg::pm:
-                                printf("%-20s", "PatternMatch(PM)");
-                                break;
+                                printf("%-20s", "PatternMatch(PM)"); break;
                             case wo::opnum::reg::spreg::tp:
-                                printf("%-20s", "Temporary(TP)");
-                                break;
+                                printf("%-20s", "Temporary(TP)"); break;
                             default:
-                                printf("%-20s", "---");
-                                break;
+                                printf("%-20s", "---"); break;
                             }
 
-                            printf("%-20s\n", wo_cast_string(
-                                reinterpret_cast<wo_value>(
-                                    &target_vm->register_mem_begin[reg_idx])));
+                            printf("%-20s\n", _safe_cast_value_to_string(
+                                &target_vm->register_mem_begin[reg_idx]).c_str());
                         }
-                        
+
                     }
                 }
                 else if (main_command == "r" || main_command == "return")
@@ -797,7 +841,10 @@ thread          vm              <id>          Continue and break at specified vm
                     auto* currentsp = current_frame_sp;
                     while ((++currentsp) <= current_frame_bp)
                     {
-                        wo_stdout << "[bp-" << current_frame_bp - currentsp << "]: " << currentsp << " " << wo_cast_string((wo_value)currentsp) << wo_endl;
+                        wo_stdout
+                            << "[bp-" << current_frame_bp - currentsp << "]: "
+                            << currentsp << " " << _safe_cast_value_to_string(currentsp)
+                            << wo_endl;
                     }
 
                 }

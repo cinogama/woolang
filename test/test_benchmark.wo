@@ -45,7 +45,7 @@ namespace test_benchmark
 
         let b = std::time();
         do searching->iter 
-            |> iterator::forall(\n = isprime(n);)
+            |> iterator::filter(\n = isprime(n);)
             ;
         return std::time() - b;
     }
@@ -58,7 +58,7 @@ namespace test_benchmark
 
         let b = std::time();
         do searching->iter 
-            |> iterator::forall(\n = isprime(n);)
+            |> iterator::filter(\n = isprime(n);)
             |> iterator::collect()
             ;
         return std::time() - b;
