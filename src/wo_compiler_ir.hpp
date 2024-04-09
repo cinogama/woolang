@@ -456,9 +456,7 @@ namespace wo
 
     struct runtime_env
     {
-        value* constant_global_reg_rtstack = nullptr;
-        value* reg_begin = nullptr;
-        value* stack_begin = nullptr;
+        value* constant_global = nullptr;
 
         size_t constant_and_global_value_takeplace_count = 0;
         size_t constant_value_count = 0;

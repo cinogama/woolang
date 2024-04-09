@@ -169,9 +169,7 @@ namespace wo
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     runtime_env::runtime_env()
-        : constant_global_reg_rtstack(nullptr)
-        , reg_begin(nullptr)
-        , stack_begin(nullptr)
+        : constant_global(nullptr)
         , constant_and_global_value_takeplace_count(0)
         , constant_value_count(0)
         , real_register_count(0)
@@ -194,18 +192,18 @@ namespace wo
         cancel_nogc.m_nogc = 0;
 
         for (size_t ci = 0; ci < constant_value_count; ++ci)
-            if (constant_global_reg_rtstack[ci].is_gcunit())
+            if (constant_global[ci].is_gcunit())
             {
-                wo_assert(constant_global_reg_rtstack[ci].type == wo::value::valuetype::string_type);
+                wo_assert(constant_global[ci].type == wo::value::valuetype::string_type);
 
                 gcbase::unit_attrib* attrib;
-                auto* unit = constant_global_reg_rtstack[ci].get_gcunit_with_barrier(&attrib);
+                auto* unit = constant_global[ci].get_gcunit_with_barrier(&attrib);
                 if (unit != nullptr)
                     attrib->m_attr = cancel_nogc.m_attr;
             }
 
-        if (constant_global_reg_rtstack)
-            free(constant_global_reg_rtstack);
+        if (constant_global)
+            free(constant_global);
 
         if (rt_codes)
             free((byte_t*)rt_codes);
@@ -290,7 +288,7 @@ namespace wo
             (uint64_t)this->constant_value_count, 8);
         for (size_t ci = 0; ci < this->constant_value_count; ++ci)
         {
-            auto& constant_value = this->constant_global_reg_rtstack[ci];
+            auto& constant_value = this->constant_global[ci];
             wo_assert(constant_value.type == wo::value::valuetype::integer_type
                 || constant_value.type == wo::value::valuetype::real_type
                 || constant_value.type == wo::value::valuetype::handle_type
@@ -532,25 +530,20 @@ namespace wo
         shared_pointer<runtime_env> result = new runtime_env;
 
         result->real_register_count = (size_t)register_count;
-        result->constant_and_global_value_takeplace_count = (size_t)(constant_value_count + global_value_count);
+        result->constant_and_global_value_takeplace_count = 
+            (size_t)(constant_value_count + 1 + global_value_count + 1);
         result->constant_value_count = (size_t)constant_value_count;
 
         result->runtime_stack_count = stackcount;
 
         size_t preserve_memory_size =
-            result->constant_and_global_value_takeplace_count
-            + (size_t)register_count
-            + result->runtime_stack_count;
+            result->constant_and_global_value_takeplace_count;
 
         value* preserved_memory = (value*)malloc(preserve_memory_size * sizeof(value));
         memset(preserved_memory, 0, preserve_memory_size * sizeof(value));
 
-        result->constant_global_reg_rtstack = preserved_memory;
-        result->reg_begin = result->constant_global_reg_rtstack
-            + result->constant_and_global_value_takeplace_count;
-
-        result->stack_begin = result->constant_global_reg_rtstack + (preserve_memory_size - 1);
-
+        result->constant_global = preserved_memory;
+        
         struct string_buffer_index
         {
             uint32_t index;
@@ -1143,10 +1136,7 @@ namespace wo
         size_t preserve_memory_size =
             constant_value_count
             + 1
-            + global_value_count
-            + 1
-            + real_register_count
-            + runtime_stack_count;
+            + global_value_count;
 
         value* preserved_memory = (value*)malloc(preserve_memory_size * sizeof(value));
 
@@ -1965,7 +1955,7 @@ namespace wo
             }
         }
 
-        env->constant_global_reg_rtstack = preserved_memory;
+        env->constant_global = preserved_memory;
 
         env->constant_value_count = constant_value_count;
         env->constant_and_global_value_takeplace_count =
@@ -1974,10 +1964,6 @@ namespace wo
             + global_value_count
             + 1;
 
-        env->reg_begin = env->constant_global_reg_rtstack
-            + env->constant_and_global_value_takeplace_count;
-
-        env->stack_begin = env->constant_global_reg_rtstack + (preserve_memory_size - 1);
         env->real_register_count = real_register_count;
         env->runtime_stack_count = runtime_stack_count;
         env->rt_code_len = generated_runtime_code_buf.size();
