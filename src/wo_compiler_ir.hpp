@@ -1449,17 +1449,22 @@ namespace wo
         {
             if constexpr (std::is_base_of<opnum::opnumbase, OP1T>::value)
             {
-                if constexpr (std::is_base_of<opnum::immbase, OP1T>::value)
+                if (auto* tagop = dynamic_cast<const opnum::tag*>(&op1))
                 {
-                    if (op1.type() == value::valuetype::handle_type)
+                    WO_PUT_IR_TO_BUFFER(instruct::opcode::calln, nullptr, WO_OPNUM(*tagop));
+                    return;
+                }
+                else if (auto* immop = dynamic_cast<const opnum::immbase*>(&op1))
+                {
+                    if (immop->type() == value::valuetype::handle_type)
                     {
-                        int64_t h = op1.try_int();
+                        int64_t h = immop->try_int();
                         WO_PUT_IR_TO_BUFFER(instruct::opcode::calln, reinterpret_cast<opnum::opnumbase*>((intptr_t)h));
                         return;
                     }
-                    else if (op1.type() == value::valuetype::integer_type)
+                    else if (immop->type() == value::valuetype::integer_type)
                     {
-                        int64_t a = op1.try_int();
+                        int64_t a = immop->try_int();
 
                         wo_assert(0 <= a && a <= UINT32_MAX, "Immediate instruct address is to large to call.");
 
@@ -1468,11 +1473,6 @@ namespace wo
                     }
 
                     // Treate it as normal call.
-                }
-                else if constexpr (std::is_base_of<opnum::tag, OP1T>::value)
-                {
-                    WO_PUT_IR_TO_BUFFER(instruct::opcode::calln, nullptr, WO_OPNUM(op1));
-                    return;
                 }
 
                 WO_PUT_IR_TO_BUFFER(instruct::opcode::call, WO_OPNUM(op1));

@@ -563,7 +563,7 @@ namespace wo
 
             if (!stack_sz)
                 stack_sz = env->runtime_stack_count;
-           
+
             new_vm->ip = env->rt_codes;
             new_vm->_allocate_stack_space(stack_sz);
             new_vm->_allocate_register_space(env->real_register_count);
@@ -600,7 +600,7 @@ namespace wo
                     }
                     for (int i = 0; i < MAX_BYTE_COUNT - displayed_count; i++)
                         printf("   ");
-                };
+                    };
 #define WO_SIGNED_SHIFT(VAL) (((signed char)((unsigned char)(((unsigned char)(VAL))<<1)))>>1)
                 auto print_reg_bpoffset = [&]() {
                     byte_t data_1b = *(this_command_ptr++);
@@ -639,7 +639,7 @@ namespace wo
                             tmpos << "reg(" << (uint32_t)data_1b << ")";
 
                     }
-                };
+                    };
                 auto print_opnum1 = [&]() {
                     if (main_command & (byte_t)0b00000010)
                     {
@@ -656,7 +656,7 @@ namespace wo
                         else
                             tmpos << "g[" << data_4b - env->constant_value_count << "]";
                     }
-                };
+                    };
                 auto print_opnum2 = [&]() {
                     if (main_command & (byte_t)0b00000001)
                     {
@@ -673,7 +673,7 @@ namespace wo
                         else
                             tmpos << "g[" << data_4b - env->constant_value_count << "]";
                     }
-                };
+                    };
 
 #undef WO_SIGNED_SHIFT
                 switch (main_command & (byte_t)0b11111100)
@@ -1303,8 +1303,8 @@ namespace wo
             else
             {
                 auto* return_ip = ip;
-                auto* return_sp = sp + argc;
-                auto* return_bp = bp;
+                auto return_sp_place = (stack_mem_begin - sp) - argc;
+                auto return_bp_place = stack_mem_begin - bp;
 
                 (sp--)->set_native_callstack(ip);
                 ip = env->rt_codes + wo_func_addr;
@@ -1314,8 +1314,8 @@ namespace wo
                 run();
 
                 ip = return_ip;
-                sp = return_sp;
-                bp = return_bp;
+                sp = stack_mem_begin - return_sp_place;
+                bp = stack_mem_begin - return_bp_place;
 
                 if (is_aborted())
                     return nullptr;
@@ -1333,8 +1333,8 @@ namespace wo
             else
             {
                 auto* return_ip = ip;
-                auto* return_sp = sp + argc;
-                auto* return_bp = bp;
+                auto return_sp_place = (stack_mem_begin - sp) - argc;
+                auto return_bp_place = stack_mem_begin - bp;
 
                 (sp--)->set_native_callstack(ip);
                 ip = env->rt_codes + wo_func_addr;
@@ -1356,8 +1356,8 @@ namespace wo
                 }
 
                 ip = return_ip;
-                sp = return_sp;
-                bp = return_bp;
+                sp = stack_mem_begin - return_sp_place;
+                bp = stack_mem_begin - return_bp_place;
 
                 if (is_aborted())
                     return nullptr;
@@ -1382,8 +1382,8 @@ namespace wo
                     auto* return_ip = ip;
 
                     // NOTE: No need to reduce expand arg count.
-                    auto* return_sp = sp + argc;
-                    auto* return_bp = bp;
+                    auto return_sp_place = (stack_mem_begin - sp) - argc;
+                    auto return_bp_place = stack_mem_begin - bp;
 
                     for (auto idx = wo_func_closure->m_closure_args_count; idx > 0; --idx)
                         (sp--)->set_val(&wo_func_closure->m_closure_args[idx - 1]);
@@ -1415,8 +1415,8 @@ namespace wo
                     }
 
                     ip = return_ip;
-                    sp = return_sp;
-                    bp = return_bp;
+                    sp = stack_mem_begin - return_sp_place;
+                    bp = stack_mem_begin - return_bp_place;
 
                     if (is_aborted())
                         return nullptr;
@@ -1646,9 +1646,9 @@ namespace wo
                 struct_t::gc_new<gcbase::gctype::young>(size));
 
             for (size_t i = 0; i < size; i++)
-                opnum1->structs->m_values[size - i - 1].set_val(rt_sp + 1 + i);
+                opnum1->structs->m_values[size - i - 1].set_val(++rt_sp);
 
-            return rt_sp + size;
+            return rt_sp;
         }
         inline static void packargs_impl(value* opnum1, uint16_t argcount, value* tc, value* rt_bp, uint16_t skip_closure_arg_count)
         {
@@ -1804,23 +1804,20 @@ namespace wo
             wo_assert(_this_thread_vm == this);
 
             runtime_env* rt_env = env.get();
-            const byte_t* rt_ip;
-            value* rt_bp,
-                * rt_sp;
-            value* global_begin = const_global_begin;
-            value* reg_begin = register_mem_begin;
-            value* const    rt_cr = cr;
 
+            value* const rt_cr = cr;
+            value* const global_begin = const_global_begin;
+            value* const reg_begin = register_mem_begin;
+
+            const byte_t* rt_ip;
             _restore_raii _o1(rt_ip, ip);
-            _restore_raii _o2(rt_sp, sp);
-            _restore_raii _o3(rt_bp, bp);
 
 #define WO_SIGNED_SHIFT(VAL) (((signed char)((unsigned char)(((unsigned char)(VAL))<<1)))>>1)
 
 #define WO_ADDRESSING_N1 value * opnum1 = ((dr >> 1) ?\
                         (\
                             (WO_IPVAL & (1 << 7)) ?\
-                            (rt_bp + WO_SIGNED_SHIFT(WO_IPVAL_MOVE_1))\
+                            (bp + WO_SIGNED_SHIFT(WO_IPVAL_MOVE_1))\
                             :\
                             (WO_IPVAL_MOVE_1 + reg_begin)\
                             )\
@@ -1832,7 +1829,7 @@ namespace wo
 #define WO_ADDRESSING_N2 value * opnum2 = ((dr & 0b01) ?\
                         (\
                             (WO_IPVAL & (1 << 7)) ?\
-                            (rt_bp + WO_SIGNED_SHIFT(WO_IPVAL_MOVE_1))\
+                            (bp + WO_SIGNED_SHIFT(WO_IPVAL_MOVE_1))\
                             :\
                             (WO_IPVAL_MOVE_1 + reg_begin)\
                             )\
@@ -1842,17 +1839,17 @@ namespace wo
                         ))
 #define WO_ADDRESSING_N3_REG_BPOFF value * opnum3 = \
                             (WO_IPVAL & (1 << 7)) ?\
-                            (rt_bp + WO_SIGNED_SHIFT(WO_IPVAL_MOVE_1))\
+                            (bp + WO_SIGNED_SHIFT(WO_IPVAL_MOVE_1))\
                             :\
                             (WO_IPVAL_MOVE_1 + reg_begin)
 
 #define WO_VM_FAIL(ERRNO,ERRINFO) \
-    do{ip = rt_ip;sp = rt_sp;bp = rt_bp;wo_fail(ERRNO,ERRINFO);continue;}while(0)
+    do{ip = rt_ip; wo_fail(ERRNO,ERRINFO); continue;}while(0)
 #if WO_ENABLE_RUNTIME_CHECK == 0
 #define WO_VM_ASSERT(EXPR, REASON) wo_assert(EXPR, REASON)
 #else
 #define WO_VM_ASSERT(EXPR, REASON) \
-    if(!(EXPR)){ip = rt_ip;sp = rt_sp;bp = rt_bp;wo_fail(WO_FAIL_UNEXPECTED, REASON);continue;}
+    if(!(EXPR)){ip = rt_ip; wo_fail(WO_FAIL_UNEXPECTED, REASON); continue;}
 #endif
 
             byte_t opcode_dr = (byte_t)(instruct::abrt << (uint8_t)2);
@@ -1869,8 +1866,6 @@ namespace wo
 
             re_entry_for_interrupt:
 
-                WO_VM_ASSERT(rt_sp <= rt_bp && rt_sp > (stack_mem_begin - stack_size), "Woolang vm stack overflow!");
-
                 switch (rtopcode)
                 {
                 case instruct::opcode::psh:
@@ -1878,14 +1873,13 @@ namespace wo
                     if (dr & 0b01)
                     {
                         WO_ADDRESSING_N1;
-                        (rt_sp--)->set_val(opnum1);
+                        (sp--)->set_val(opnum1);
                     }
                     else
                     {
                         uint16_t psh_repeat = WO_IPVAL_MOVE_2;
-                        rt_sp -= psh_repeat;
+                        sp -= psh_repeat;
                     }
-                    WO_VM_ASSERT(rt_sp <= rt_bp && rt_sp > (stack_mem_begin - stack_size), "Woolang vm stack overflow!");
                     break;
                 }
                 case instruct::opcode::pop:
@@ -1893,13 +1887,10 @@ namespace wo
                     if (dr & 0b01)
                     {
                         WO_ADDRESSING_N1;
-                        opnum1->set_val((++rt_sp));
+                        opnum1->set_val((++sp));
                     }
                     else
-                        rt_sp += WO_IPVAL_MOVE_2;
-
-                    WO_VM_ASSERT(rt_sp <= rt_bp && rt_sp > (stack_mem_begin - stack_size), "Woolang vm stack overflow!");
-
+                        sp += WO_IPVAL_MOVE_2;
                     break;
                 }
                 case instruct::opcode::addi:
@@ -2091,7 +2082,7 @@ namespace wo
                     WO_ADDRESSING_N2;
 
                     WO_VM_ASSERT(opnum2->type == value::valuetype::integer_type, "Operand 2 should be integer in 'lds'.");
-                    opnum1->set_val(rt_bp + opnum2->integer);
+                    opnum1->set_val(bp + opnum2->integer);
                     break;
                 }
                 case instruct::opcode::sts:
@@ -2100,7 +2091,7 @@ namespace wo
                     WO_ADDRESSING_N2;
 
                     WO_VM_ASSERT(opnum2->type == value::valuetype::integer_type, "Operand 2 should be integer in 'sts'.");
-                    (rt_bp + opnum2->integer)->set_val(opnum1);
+                    (bp + opnum2->integer)->set_val(opnum1);
                     break;
                 }
                 case instruct::opcode::equb:
@@ -2338,25 +2329,25 @@ namespace wo
                 }
                 case instruct::opcode::ret:
                 {
-                    WO_VM_ASSERT((rt_bp + 1)->type == value::valuetype::callstack
-                        || (rt_bp + 1)->type == value::valuetype::nativecallstack,
+                    WO_VM_ASSERT((bp + 1)->type == value::valuetype::callstack
+                        || (bp + 1)->type == value::valuetype::nativecallstack,
                         "Found broken stack in 'ret'.");
 
                     uint16_t pop_count = dr ? WO_IPVAL_MOVE_2 : 0;
 
-                    if ((++rt_bp)->type == value::valuetype::nativecallstack)
+                    if ((++bp)->type == value::valuetype::nativecallstack)
                     {
-                        rt_sp = rt_bp;
-                        rt_sp += pop_count;
+                        sp = bp;
+                        sp += pop_count;
                         return; // last stack is native_func, just do return; stack balance should be keeped by invoker
                     }
 
-                    value* stored_bp = stack_mem_begin - rt_bp->vmcallstack.bp;
-                    rt_ip = rt_env->rt_codes + rt_bp->vmcallstack.ret_ip;
-                    rt_sp = rt_bp;
-                    rt_bp = stored_bp;
+                    value* stored_bp = stack_mem_begin - bp->vmcallstack.bp;
+                    rt_ip = rt_env->rt_codes + bp->vmcallstack.ret_ip;
+                    sp = bp;
+                    bp = stored_bp;
 
-                    rt_sp += pop_count;
+                    sp += pop_count;
                     // TODO If rt_ip is outof range, return...
 
                     break;
@@ -2375,40 +2366,39 @@ namespace wo
                         // NOTE: Closure arguments should be poped by closure function it self.
                         //       Can use ret(n) to pop arguments when call.
                         for (auto idx = opnum1->closure->m_closure_args_count; idx > 0; --idx)
-                            (rt_sp--)->set_val(&opnum1->closure->m_closure_args[idx - 1]);
+                            (sp--)->set_val(&opnum1->closure->m_closure_args[idx - 1]);
                     }
 
-                    rt_sp->type = value::valuetype::callstack;
-                    rt_sp->vmcallstack.ret_ip = (uint32_t)(rt_ip - rt_env->rt_codes);
-                    rt_sp->vmcallstack.bp = (uint32_t)(stack_mem_begin - rt_bp);
-                    rt_bp = --rt_sp;
+                    sp->type = value::valuetype::callstack;
+                    sp->vmcallstack.ret_ip = (uint32_t)(rt_ip - rt_env->rt_codes);
+                    sp->vmcallstack.bp = (uint32_t)(stack_mem_begin - bp);
+                    auto* rt_bp = bp = --sp;
 
                     if (opnum1->type == value::valuetype::handle_type)
                     {
                         // Call native
-                        bp = sp = rt_sp;
                         wo_extern_native_func_t call_aim_native_func = (wo_extern_native_func_t)(opnum1->handle);
                         ip = std::launder(reinterpret_cast<byte_t*>(call_aim_native_func));
                         rt_cr->set_nil();
 
                         switch (call_aim_native_func(
                             std::launder(reinterpret_cast<wo_vm>(this)),
-                            std::launder(reinterpret_cast<wo_value>(rt_sp + 2))))
+                            std::launder(reinterpret_cast<wo_value>(sp + 2))))
                         {
                         case wo_result_t::WO_API_NORMAL:
                         {
-                            WO_VM_ASSERT((rt_bp + 1)->type == value::valuetype::callstack,
+                            bp = rt_bp;
+
+                            WO_VM_ASSERT((bp + 1)->type == value::valuetype::callstack,
                                 "Found broken stack in 'call'.");
-                            value* stored_bp = stack_mem_begin - (++rt_bp)->vmcallstack.bp;
-                            rt_sp = rt_bp;
-                            rt_bp = stored_bp;
+                            value* stored_bp = stack_mem_begin - (++bp)->vmcallstack.bp;
+                            sp = bp;
+                            bp = stored_bp;
                             break;
                         }
                         case wo_result_t::WO_API_RESYNC:
                         {
                             rt_ip = this->ip;
-                            rt_sp = this->sp;
-                            rt_bp = this->bp;
                             break;
                         }
                         }
@@ -2428,24 +2418,24 @@ namespace wo
                         {
                             switch (closure->m_native_func(
                                 std::launder(reinterpret_cast<wo_vm>(this)),
-                                std::launder((reinterpret_cast<wo_value>(rt_sp + 2)))))
+                                std::launder((reinterpret_cast<wo_value>(sp + 2)))))
                             {
                             case wo_result_t::WO_API_NORMAL:
                             {
-                                WO_VM_ASSERT((rt_bp + 1)->type == value::valuetype::callstack,
+                                bp = rt_bp;
+
+                                WO_VM_ASSERT((bp + 1)->type == value::valuetype::callstack,
                                     "Found broken stack in 'call'.");
-                                value* stored_bp = stack_mem_begin - (++rt_bp)->vmcallstack.bp;
+                                value* stored_bp = stack_mem_begin - (++bp)->vmcallstack.bp;
                                 // Here to invoke jit closure, jit function cannot pop captured arguments,
                                 // So we pop them here.
-                                rt_sp = rt_bp + closure->m_closure_args_count;
-                                rt_bp = stored_bp;
+                                sp = bp + closure->m_closure_args_count;
+                                bp = stored_bp;
                                 break;
                             }
                             case wo_result_t::WO_API_RESYNC:
                             {
                                 rt_ip = this->ip;
-                                rt_sp = this->sp;
-                                rt_bp = this->bp;
                                 break;
                             }
                             }
@@ -2465,11 +2455,11 @@ namespace wo
                         // Call native
                         wo_extern_native_func_t call_aim_native_func = (wo_extern_native_func_t)(WO_IPVAL_MOVE_8);
 
-                        rt_sp->type = value::valuetype::callstack;
-                        rt_sp->vmcallstack.ret_ip = (uint32_t)(rt_ip - rt_env->rt_codes);
-                        rt_sp->vmcallstack.bp = (uint32_t)(stack_mem_begin - rt_bp);
-                        rt_bp = --rt_sp;
-                        bp = sp = rt_sp;
+                        sp->type = value::valuetype::callstack;
+                        sp->vmcallstack.ret_ip = (uint32_t)(rt_ip - rt_env->rt_codes);
+                        sp->vmcallstack.bp = (uint32_t)(stack_mem_begin - bp);
+                        auto* rt_bp = bp = --sp;
+
                         rt_cr->set_nil();
 
                         ip = std::launder(reinterpret_cast<byte_t*>(call_aim_native_func));
@@ -2478,31 +2468,31 @@ namespace wo
                         if (dr & 0b10)
                             api = call_aim_native_func(
                                 std::launder(reinterpret_cast<wo_vm>(this)),
-                                std::launder(reinterpret_cast<wo_value>(rt_sp + 2)));
+                                std::launder(reinterpret_cast<wo_value>(sp + 2)));
                         else
                         {
                             wo_assure(wo_leave_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
                             api = call_aim_native_func(
                                 std::launder(reinterpret_cast<wo_vm>(this)),
-                                std::launder(reinterpret_cast<wo_value>(rt_sp + 2)));
+                                std::launder(reinterpret_cast<wo_value>(sp + 2)));
                             wo_assure(wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
                         }
                         switch (api)
                         {
                         case wo_result_t::WO_API_NORMAL:
                         {
-                            WO_VM_ASSERT((rt_bp + 1)->type == value::valuetype::callstack,
+                            bp = rt_bp;
+
+                            WO_VM_ASSERT((bp + 1)->type == value::valuetype::callstack,
                                 "Found broken stack in 'calln'.");
-                            value* stored_bp = stack_mem_begin - (++rt_bp)->vmcallstack.bp;
-                            rt_sp = rt_bp;
-                            rt_bp = stored_bp;
+                            value* stored_bp = stack_mem_begin - (++bp)->vmcallstack.bp;
+                            sp = bp;
+                            bp = stored_bp;
                             break;
                         }
                         case wo_result_t::WO_API_RESYNC:
                         {
                             rt_ip = this->ip;
-                            rt_sp = this->sp;
-                            rt_bp = this->bp;
                             break;
                         }
                         }
@@ -2512,10 +2502,10 @@ namespace wo
                         const byte_t* aimplace = rt_env->rt_codes + WO_IPVAL_MOVE_4;
                         rt_ip += 4; // skip reserved place.
 
-                        rt_sp->type = value::valuetype::callstack;
-                        rt_sp->vmcallstack.ret_ip = (uint32_t)(rt_ip - rt_env->rt_codes);
-                        rt_sp->vmcallstack.bp = (uint32_t)(stack_mem_begin - rt_bp);
-                        rt_bp = --rt_sp;
+                        sp->type = value::valuetype::callstack;
+                        sp->vmcallstack.ret_ip = (uint32_t)(rt_ip - rt_env->rt_codes);
+                        sp->vmcallstack.bp = (uint32_t)(stack_mem_begin - bp);
+                        bp = --sp;
 
                         rt_ip = aimplace;
 
@@ -2547,7 +2537,7 @@ namespace wo
                     WO_ADDRESSING_N1; // Aim
                     uint16_t size = WO_IPVAL_MOVE_2;
 
-                    rt_sp = make_struct_impl(opnum1, size, rt_sp);
+                    sp = make_struct_impl(opnum1, size, sp);
                     break;
                 }
                 case instruct::opcode::idstruct:
@@ -2585,7 +2575,7 @@ namespace wo
                     WO_ADDRESSING_N1;
                     uint16_t size = WO_IPVAL_MOVE_2;
 
-                    rt_sp = make_array_impl(opnum1, size, rt_sp);
+                    sp = make_array_impl(opnum1, size, sp);
                     break;
                 }
                 case instruct::opcode::mkmap:
@@ -2593,7 +2583,7 @@ namespace wo
                     WO_ADDRESSING_N1;
                     uint16_t size = WO_IPVAL_MOVE_2;
 
-                    rt_sp = make_map_impl(opnum1, size, rt_sp);
+                    sp = make_map_impl(opnum1, size, sp);
                     break;
                 }
                 case instruct::opcode::idarr:
@@ -2778,9 +2768,9 @@ namespace wo
                         "Found broken ir-code in 'mkclos'.");
 
                     if constexpr (ARCH & platform_info::ArchType::X86)
-                        rt_sp = make_closure_fast_impl(rt_cr, rt_ip, rt_sp);
+                        sp = make_closure_fast_impl(rt_cr, rt_ip, sp);
                     else
-                        rt_sp = make_closure_safe_impl(rt_cr, rt_ip, rt_sp);
+                        sp = make_closure_safe_impl(rt_cr, rt_ip, sp);
 
                     rt_ip += (2 + 8);
 
@@ -2791,9 +2781,9 @@ namespace wo
                     WO_ADDRESSING_N1;
                     auto unpack_argc_unsigned = WO_IPVAL_MOVE_4;
 
-                    rt_sp = unpackargs_impl(
+                    sp = unpackargs_impl(
                         this, opnum1, reinterpret_cast<int32_t&>(unpack_argc_unsigned),
-                        tc, rt_ip, rt_sp, rt_bp);
+                        tc, rt_ip, sp, bp);
                     break;
                 }
                 case instruct::opcode::ext:
@@ -2815,8 +2805,6 @@ namespace wo
                             WO_ADDRESSING_N1; // data
 
                             ip = rt_ip;
-                            sp = rt_sp;
-                            bp = rt_bp;
 
                             wo_fail(WO_FAIL_UNEXPECTED,
                                 "%s", wo_cast_string(std::launder(reinterpret_cast<wo_value>(opnum1))));
@@ -2828,7 +2816,7 @@ namespace wo
                             uint16_t this_function_arg_count = WO_IPVAL_MOVE_2;
                             uint16_t skip_closure_arg_count = WO_IPVAL_MOVE_2;
 
-                            packargs_impl(opnum1, this_function_arg_count, tc, rt_bp, skip_closure_arg_count);
+                            packargs_impl(opnum1, this_function_arg_count, tc, bp, skip_closure_arg_count);
                             break;
                         }
                         case instruct::extern_opcode_page_0::cdivilr:
@@ -2912,13 +2900,11 @@ namespace wo
 
                     if (interrupt_state & vm_interrupt_type::GC_INTERRUPT)
                     {
-                        sp = rt_sp;
                         gc_checkpoint();
                     }
 
                     if (interrupt_state & vm_interrupt_type::GC_HANGUP_INTERRUPT)
                     {
-                        sp = rt_sp;
                         if (clear_interrupt(vm_interrupt_type::GC_HANGUP_INTERRUPT))
                             hangup();
                     }
@@ -2960,8 +2946,6 @@ namespace wo
                         rtopcode = opcode;
 
                         ip = rt_ip;
-                        sp = rt_sp;
-                        bp = rt_bp;
                         if (attaching_debuggee)
                         {
                             // check debuggee here
