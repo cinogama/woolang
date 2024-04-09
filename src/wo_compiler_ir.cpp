@@ -1958,11 +1958,7 @@ namespace wo
         env->constant_global = preserved_memory;
 
         env->constant_value_count = constant_value_count;
-        env->constant_and_global_value_takeplace_count =
-            constant_value_count
-            + 1
-            + global_value_count
-            + 1;
+        env->constant_and_global_value_takeplace_count = preserve_memory_size;
 
         env->real_register_count = real_register_count;
         env->runtime_stack_count = runtime_stack_count;
