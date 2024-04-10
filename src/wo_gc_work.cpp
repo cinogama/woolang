@@ -290,7 +290,7 @@ namespace wo
                                 if (env->_running_on_vm_count > 1)
                                 {
                                     // Any code context only have one GC_DESTRUCTOR, here to mark global space.
-                                    auto* global_and_const_values = env->constant_global_reg_rtstack;
+                                    auto* global_and_const_values = env->constant_global;
 
                                     // Skip all constant, all constant cannot contain gc-type value beside no-gc-string.
                                     for (size_t cgr_index = env->constant_value_count;

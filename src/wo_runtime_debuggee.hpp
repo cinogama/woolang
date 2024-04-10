@@ -334,7 +334,7 @@ thread          vm              <id>          Continue and break at specified vm
             wo_stdout << "g[" << global_offset << "]: ";
             if (global_offset < vmm->env->constant_and_global_value_takeplace_count)
             {
-                auto* valueaddr = vmm->env->constant_global_reg_rtstack + vmm->env->constant_value_count + global_offset;
+                auto* valueaddr = vmm->env->constant_global + vmm->env->constant_value_count + global_offset;
                 wo_stdout << valueaddr << " " << _safe_cast_value_to_string(valueaddr) << wo_endl;
             }
             else
