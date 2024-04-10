@@ -1002,16 +1002,14 @@ namespace wo
 
         size_t reserved_stackvalue()
         {
-            ext_chkstk(0);
-            pshn(0);
+            WO_PUT_IR_TO_BUFFER(instruct::opcode::psh, nullptr, nullptr, (uint16_t)0);
             return get_now_ip();
         }
 
-        void reserved_stackvalue(size_t ip, uint16_t sz, uint32_t assure_sz)
+        void reserved_stackvalue(size_t ip, uint16_t sz)
         {
             wo_assert(ip);
-            ir_command_buffer[ip - 1].opinteger1 = (int32_t)sz;
-            ir_command_buffer[ip - 2].opinteger1 = (int32_t)assure_sz;
+            ir_command_buffer[ip - 1].opinteger1 = sz;
         }
         template<typename OP1T>
         void pop(const OP1T& op1)
@@ -1772,13 +1770,6 @@ namespace wo
             auto& codeb = WO_PUT_IR_TO_BUFFER(instruct::opcode::ext, WO_OPNUM(op1));
             codeb.ext_page_id = 0;
             codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::cdivir;
-        }
-
-        void ext_chkstk(uint32_t op1)
-        {
-            auto& codeb = WO_PUT_IR_TO_BUFFER(instruct::opcode::ext, nullptr, nullptr, (int32_t)op1);
-            codeb.ext_page_id = 0;
-            codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::chkstk;
         }
 
         ir_param& _new_ir_param()

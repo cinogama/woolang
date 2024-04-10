@@ -97,7 +97,6 @@ namespace wo
             cdivil = WO_OPCODE_SPACE(CDIVIL),
             cdivir = WO_OPCODE_SPACE(CDIVIR),
             cdivirz = WO_OPCODE_SPACE(CDIVIRZ),
-            chkstk = WO_OPCODE_SPACE(CHKSTK),
         };
         enum extern_opcode_page_1 : uint8_t
         {

@@ -656,6 +656,23 @@ WO_API void                 wo_lsp_free_compile_error_msg(wo_lsp_error_msg* msg)
 
 #endif
 
+WO_FORCE_CAPI_END
+#undef WO_API
+
+#ifdef _WIN32
+#   ifdef __cplusplus
+#       define WO_API extern "C" WO_EXPORT
+#   else
+#       define WO_API WO_EXPORT
+#   endif
+#else
+#   ifdef __cplusplus
+#       define WO_API extern "C"
+#   else
+#       define WO_API WO_EXPORT
+#   endif
+#endif
+
 /*
                 GC-friendly extern function development rules
 
@@ -1024,10 +1041,6 @@ enum _wo_opcode_ext0
                 // DRH: Opnum1 desc
                 // OPNUM1: RS/GLB                       Trigger a panic when:
                 //                                      * OPNUM1 == 0
-    WO_CHKSTK = 6,
-                // DR: 0
-                // OPNUM1: IMM_U32                      If remaining stack size is less than `OPNUM1`, STACK_EXPAND_INTERRUPT
-                //                                      will be triggered.
 };
 
 enum _wo_opcode_ext3
@@ -1087,21 +1100,4 @@ WO_API void wo_ir_immu64(wo_ir_compiler compiler, uint64_t val);
 WO_API void wo_load_ir_compiler_with_stacksz(wo_vm vm, wo_ir_compiler compiler, wo_size_t stacksz);
 WO_API void wo_load_ir_compiler(wo_vm vm, wo_ir_compiler compiler);
 
-#endif
-
-WO_FORCE_CAPI_END
-#undef WO_API
-
-#ifdef _WIN32
-#   ifdef __cplusplus
-#       define WO_API extern "C" WO_EXPORT
-#   else
-#       define WO_API WO_EXPORT
-#   endif
-#else
-#   ifdef __cplusplus
-#       define WO_API extern "C"
-#   else
-#       define WO_API WO_EXPORT
-#   endif
 #endif

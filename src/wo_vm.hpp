@@ -141,21 +141,6 @@ namespace wo
             DETACH_DEBUGGEE_INTERRUPT = 1 << 15,
             // VM will handle DETACH_DEBUGGEE_INTERRUPT before DEBUG_INTERRUPT, if vm handled
             // this interrupt, DEBUG_INTERRUPT will be cleared.
-
-            STACK_EXPAND_INTERRUPT = 1 << 16,
-            // If this interrupt was setted, `wait_interrupt` will never return TIMEOUT. 
-            // Triggered by `ext0 chkstk`, this opcode will check stack remaining space,
-            // and set this interrupt if stack is not enough.
-            // If jit function received this interrupt, it will return to simulate runtime.
-            // If simulate runtime received this interrupt, it will expand stack and clear 
-            // STACK_EXPAND_INTERRUPT & GC_STACK_REDUCE_INTERRUPT.
-
-            GC_STACK_REDUCE_INTERRUPT = 1 << 17,
-            // If this interrupt was setted, `wait_interrupt` will never return TIMEOUT.
-            // If GC work found a vm that sp point to less than 1/4 of stack size, it will
-            // set this interrupt to vm.
-            // If jit function received this interrupt, it will return to simulate runtime.
-            // If simulate runtime received this interrupt, it will reduce stack.
         };
 
         struct callstack_info
@@ -537,37 +522,6 @@ namespace wo
             stack_mem_begin = _self_stack_mem_buf + stack_size;
             sp = bp = stack_mem_begin;
         }
-        inline size_t _double_size_realloc_stack_space()
-        {
-            wo_assert(_self_stack_mem_buf != nullptr && check_interrupt(vm_interrupt_type::STACK_EXPAND_INTERRUPT));
-            wo_vm vmm = std::launder(reinterpret_cast<wo_vm>(this));
-
-            bool entered = wo_enter_gcguard(vmm);
-
-            auto* old_vmstack_buf = _self_stack_mem_buf;
-            auto* old_stack_begin = stack_mem_begin;
-            size_t old_stack_size = stack_size;
-
-            ptrdiff_t sp_place = old_stack_begin - sp;
-            ptrdiff_t bp_place = old_stack_begin - bp;
-
-            _allocate_stack_space(stack_size * 2);
-
-            memcpy(
-                old_stack_begin - old_stack_size + 1,
-                stack_mem_begin - old_stack_size + 1,
-                old_stack_size * sizeof(value));
-
-            sp = stack_mem_begin - sp_place;
-            bp = stack_mem_begin - bp_place;
-
-            free(old_vmstack_buf);
-
-            if (entered)
-                wo_leave_gcguard(vmm);
-
-            return stack_size;
-        }
         inline void set_runtime(shared_pointer<runtime_env> runtime_environment)
         {
             wo_assure(wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
@@ -646,7 +600,7 @@ namespace wo
                     }
                     for (int i = 0; i < MAX_BYTE_COUNT - displayed_count; i++)
                         printf("   ");
-                };
+                    };
 #define WO_SIGNED_SHIFT(VAL) (((signed char)((unsigned char)(((unsigned char)(VAL))<<1)))>>1)
                 auto print_reg_bpoffset = [&]() {
                     byte_t data_1b = *(this_command_ptr++);
@@ -685,7 +639,7 @@ namespace wo
                             tmpos << "reg(" << (uint32_t)data_1b << ")";
 
                     }
-                };
+                    };
                 auto print_opnum1 = [&]() {
                     if (main_command & (byte_t)0b00000010)
                     {
@@ -702,7 +656,7 @@ namespace wo
                         else
                             tmpos << "g[" << data_4b - env->constant_value_count << "]";
                     }
-                };
+                    };
                 auto print_opnum2 = [&]() {
                     if (main_command & (byte_t)0b00000001)
                     {
@@ -719,7 +673,7 @@ namespace wo
                         else
                             tmpos << "g[" << data_4b - env->constant_value_count << "]";
                     }
-                };
+                    };
 
 #undef WO_SIGNED_SHIFT
                 switch (main_command & (byte_t)0b11111100)
@@ -975,12 +929,6 @@ namespace wo
                         case instruct::extern_opcode_page_0::cdivir:
                             tmpos << "cdivir\t"; print_opnum1();
                             break;
-                        case instruct::extern_opcode_page_0::chkstk:
-                        {
-                            auto stacksize = *(uint32_t*)((this_command_ptr += 4) - 4);
-                            tmpos << "chkstk\t" << stacksize;
-                            break;
-                        }
                         default:
                             tmpos << "??\t";
                             break;
@@ -1712,15 +1660,6 @@ namespace wo
             }
             opnum1->set_gcunit<wo::value::valuetype::array_type>(packed_array);
         }
-        inline static value* assure_stack_size(vmbase* vm, uint32_t assure_sz)
-        {
-            while (assure_sz > vm->sp - vm->_self_stack_mem_buf)
-            {
-                vm->interrupt(vmbase::vm_interrupt_type::STACK_EXPAND_INTERRUPT);
-                vm->_double_size_realloc_stack_space();
-            }
-            return vm->sp;
-        }
         inline static value* unpackargs_impl(vmbase* vm, value* opnum1, int32_t unpack_argc, value* tc, const byte_t* rt_ip, value* rt_sp, value* rt_bp)
         {
             if (opnum1->type == value::valuetype::struct_type)
@@ -1738,7 +1677,6 @@ namespace wo
                     }
                     else
                     {
-                        rt_sp = assure_stack_size(vm, unpack_argc);
                         for (uint16_t i = (uint16_t)unpack_argc; i > 0; --i)
                             (rt_sp--)->set_val(&arg_tuple->m_values[i - 1]);
                     }
@@ -1752,9 +1690,6 @@ namespace wo
                         vm->bp = rt_bp;
                         wo_fail(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
                     }
-
-                    rt_sp = assure_stack_size(vm, arg_tuple->m_count);
-
                     for (uint16_t i = arg_tuple->m_count; i > 0; --i)
                         (rt_sp--)->set_val(&arg_tuple->m_values[i - 1]);
 
@@ -1777,8 +1712,6 @@ namespace wo
                     }
                     else
                     {
-                        // NOTE: Calculate expand count is useless, use array size directly.
-                        rt_sp = assure_stack_size(vm, (uint32_t)arg_array->size());
                         for (auto arg_idx = arg_array->rbegin() + (size_t)((wo_integer_t)arg_array->size() - unpack_argc);
                             arg_idx != arg_array->rend();
                             arg_idx++)
@@ -1797,8 +1730,6 @@ namespace wo
                         vm->bp = rt_bp;
                         wo_fail(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
                     }
-
-                    rt_sp = assure_stack_size(vm, (uint32_t)arg_array->size());
                     for (auto arg_idx = arg_array->rbegin(); arg_idx != arg_array->rend(); arg_idx++)
                         (rt_sp--)->set_val(&*arg_idx);
 
@@ -1812,8 +1743,7 @@ namespace wo
                 vm->bp = rt_bp;
                 wo_fail(WO_FAIL_INDEX_FAIL, "Only valid array/struct can used in unpack.");
             }
-
-            return vm->sp = rt_sp;
+            return rt_sp;
         }
         inline static const char* movcast_impl(value* opnum1, value* opnum2, value::valuetype aim_type)
         {
@@ -1846,18 +1776,6 @@ namespace wo
                 }
             return nullptr;
         }
-        inline static wo_bool_t ext0_chkstk_impl(vmbase* vm, uint32_t assure_sz, const byte_t* rt_ip)
-        {
-            if (assure_sz > vm->sp - vm->_self_stack_mem_buf)
-            {
-                vm->interrupt(vmbase::vm_interrupt_type::STACK_EXPAND_INTERRUPT);
-                vm->ip = rt_ip - 2; // ext(1) chkstk(1)
-
-                return WO_TRUE;
-            }
-            return WO_FALSE;
-        }
-
         // used for restoring local state
         template<typename T>
         struct _restore_raii
@@ -2454,7 +2372,7 @@ namespace wo
                     sp->type = value::valuetype::callstack;
                     sp->vmcallstack.ret_ip = (uint32_t)(rt_ip - rt_env->rt_codes);
                     sp->vmcallstack.bp = (uint32_t)(stack_mem_begin - bp);
-                    ptrdiff_t ret_bp = stack_mem_begin - (bp = --sp);
+                    auto* rt_bp = bp = --sp;
 
                     if (opnum1->type == value::valuetype::handle_type)
                     {
@@ -2469,7 +2387,7 @@ namespace wo
                         {
                         case wo_result_t::WO_API_NORMAL:
                         {
-                            bp = stack_mem_begin - ret_bp;
+                            bp = rt_bp;
 
                             WO_VM_ASSERT((bp + 1)->type == value::valuetype::callstack,
                                 "Found broken stack in 'call'.");
@@ -2504,7 +2422,7 @@ namespace wo
                             {
                             case wo_result_t::WO_API_NORMAL:
                             {
-                                bp = stack_mem_begin - ret_bp;
+                                bp = rt_bp;
 
                                 WO_VM_ASSERT((bp + 1)->type == value::valuetype::callstack,
                                     "Found broken stack in 'call'.");
@@ -2540,7 +2458,7 @@ namespace wo
                         sp->type = value::valuetype::callstack;
                         sp->vmcallstack.ret_ip = (uint32_t)(rt_ip - rt_env->rt_codes);
                         sp->vmcallstack.bp = (uint32_t)(stack_mem_begin - bp);
-                        ptrdiff_t ret_bp = stack_mem_begin - (bp = --sp);
+                        auto* rt_bp = bp = --sp;
 
                         rt_cr->set_nil();
 
@@ -2563,7 +2481,7 @@ namespace wo
                         {
                         case wo_result_t::WO_API_NORMAL:
                         {
-                            bp = stack_mem_begin - ret_bp;
+                            bp = rt_bp;
 
                             WO_VM_ASSERT((bp + 1)->type == value::valuetype::callstack,
                                 "Found broken stack in 'calln'.");
@@ -2942,15 +2860,6 @@ namespace wo
 
                             break;
                         }
-                        case instruct::extern_opcode_page_0::chkstk:
-                        {
-                            uint32_t assuring_stack_size = WO_IPVAL_MOVE_4;
-
-                            if (ext0_chkstk_impl(this, assuring_stack_size, rt_ip - 4))
-                                rt_ip = ip;
-
-                            break;
-                        }
                         default:
                             wo_error("Unknown instruct.");
                             break;
@@ -3046,11 +2955,6 @@ namespace wo
                         }
                         ++rt_ip;
                         goto re_entry_for_interrupt;
-                    }
-                    else if (interrupt_state & vm_interrupt_type::STACK_EXPAND_INTERRUPT)
-                    {
-                        (void)_double_size_realloc_stack_space();
-                        clear_interrupt(vm_interrupt_type::STACK_EXPAND_INTERRUPT);
                     }
                     else
                     {

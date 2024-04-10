@@ -1,4 +1,3 @@
-#define WO_NEED_OPCODE_API 1
 #include "wo.h"
 
 #include <cstdio>
@@ -9,19 +8,6 @@
 int main(int argc, char** argv)
 {
     wo_init(argc, argv);
-
-    //wo_vm v = wo_create_vm();
-    //wo_ir_compiler c = wo_create_ir_compiler();
-
-    //wo_ir_opcode(c, WO_EXT, 0, 0);
-    //wo_ir_opcode(c, WO_CHKSTK, 0, 0);
-    //wo_ir_immu32(c, 128);
-
-    //wo_load_ir_compiler_with_stacksz(v, c, 16);
-
-    //wo_run(v);
-    //wo_close_vm(v);
-
 
     int ret = 0;
 
