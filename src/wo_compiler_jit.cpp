@@ -174,6 +174,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
         virtual bool ir_ext_cdivil(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
         virtual bool ir_ext_cdivirz(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
         virtual bool ir_ext_cdivir(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
+        virtual bool ir_ext_chkstk(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
 
         virtual void ir_make_checkpoint(CompileContextT* ctx, const byte_t*& rt_ip) = 0;
 #undef WO_ASMJIT_IR_ITERFACE_DECL
@@ -279,6 +280,11 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
                                     WO_JIT_NOT_SUPPORT;
                             case instruct::extern_opcode_page_0::cdivir:
                                 if (ir_ext_cdivir(ctx, dr, rt_ip))
+                                    break;
+                                else
+                                    WO_JIT_NOT_SUPPORT;
+                            case instruct::extern_opcode_page_0::chkstk:
+                                if (ir_ext_chkstk(ctx, dr, rt_ip))
                                     break;
                                 else
                                     WO_JIT_NOT_SUPPORT;
@@ -546,6 +552,22 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             {
                 if (vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT))
                     vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::DEBUG_INTERRUPT);
+            }
+            else if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::STACK_EXPAND_INTERRUPT)
+            {
+                vmm->ip = rt_ip;
+                // STACK_EXPAND_INTERRUPT only received from extern-function call or unpackarg
+                // in these cases, vmm->sp & vmm->bp has been updated.
+                // So we don't need sync here.
+
+                return wo_result_t::WO_API_RESYNC; // return 
+            }
+            else if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::GC_STACK_REDUCE_INTERRUPT)
+            {
+                vmm->ip = rt_ip;
+                vmm->sp = rt_sp;
+                vmm->bp = rt_bp;
+                return wo_result_t::WO_API_RESYNC; // return 
             }
             // ATTENTION: it should be last interrupt..
             else if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::DEBUG_INTERRUPT)
@@ -2004,7 +2026,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             invoke_node->setArg(0, ctx->_vmbase);
             invoke_node->setArg(1, op1);
             invoke_node->setArg(2, asmjit::Imm((size_t)ctx->env->rt_codes));
-            invoke_node->setArg(3, asmjit::Imm((size_t)rt_ip));
+            invoke_node->setArg(3, asmjit::Imm((intptr_t)rt_ip));
             invoke_node->setArg(4, ctx->_vmssp);
             invoke_node->setArg(5, ctx->_vmsbp);
             invoke_node->setRet(0, result);
@@ -2609,6 +2631,33 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             x86_do_fail(ctx, WO_FAIL_UNEXPECTED,
                 asmjit::Imm((intptr_t)"Division overflow."), rt_ip);
             wo_assure(!ctx->c.bind(div_overflow_ok));
+
+            return true;
+        }
+        virtual bool ir_ext_chkstk(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip) override
+        {
+            auto* ipbefore_reading = rt_ip;
+            uint32_t assure_stack_size = WO_IPVAL_MOVE_4;
+
+            auto result = ctx->c.newInt32();
+            auto checkok = ctx->c.newLabel();
+
+            asmjit::InvokeNode* invoke_node;
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::ext0_chkstk_impl,
+                asmjit::FuncSignatureT<wo_bool_t, vmbase*, uint32_t, const byte_t*>()));
+
+            invoke_node->setArg(0, ctx->_vmbase);
+            invoke_node->setArg(1, asmjit::Imm(assure_stack_size));
+            invoke_node->setArg(2, asmjit::Imm((intptr_t)ipbefore_reading));
+            invoke_node->setRet(0, result);
+
+            wo_assure(!ctx->c.test(result, result));
+            wo_assure(!ctx->c.jz(checkok));
+
+            ctx->c.mov(result, asmjit::Imm(WO_API_RESYNC));
+            wo_assure(!ctx->c.ret(result));
+
+            wo_assure(!ctx->c.bind(checkok));
 
             return true;
         }

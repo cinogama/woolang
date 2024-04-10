@@ -1864,6 +1864,17 @@ namespace wo
                             WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
                             break;
                         }
+                        case instruct::extern_opcode_page_0::chkstk:
+                        {
+                            generated_runtime_code_buf.push_back(WO_OPCODE_EXT0(chkstk));
+                            uint32_t space = (uint32_t)WO_IR.opinteger1;
+                            byte_t* readptr = (byte_t*)&space;
+                            generated_runtime_code_buf.push_back(readptr[0]);
+                            generated_runtime_code_buf.push_back(readptr[1]);
+                            generated_runtime_code_buf.push_back(readptr[2]);
+                            generated_runtime_code_buf.push_back(readptr[3]);
+                            break;
+                        }
                         default:
                             wo_error("Unknown instruct.");
                             break;

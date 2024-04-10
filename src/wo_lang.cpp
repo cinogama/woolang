@@ -7284,7 +7284,7 @@ namespace wo
         auto res_ip = compiler->reserved_stackvalue();                      // reserved..
         real_analyze_finalize(ast_node, compiler);
         auto used_tmp_regs = compiler->update_all_temp_regist_to_stack(public_block_begin);
-        compiler->reserved_stackvalue(res_ip, used_tmp_regs); // set reserved size
+        compiler->reserved_stackvalue(res_ip, used_tmp_regs, used_tmp_regs + 128); // set reserved size
 
         compiler->mov(opnum::reg(opnum::reg::spreg::cr), opnum::imm(0));
         compiler->jmp(opnum::tag("__rsir_rtcode_seg_function_define_end"));
@@ -7374,7 +7374,7 @@ namespace wo
                     funcdef->this_func_scope->max_used_stack_size_in_func
                     + temp_reg_to_stack_count;
 
-                compiler->reserved_stackvalue(res_ip, (uint16_t)reserved_stack_size); // set reserved size
+                compiler->reserved_stackvalue(res_ip, (uint16_t)reserved_stack_size, (uint32_t)reserved_stack_size + 128); // set reserved size
                 compiler->tag(funcdef->get_ir_func_signature_tag() + "_do_ret");
 
                 wo_assert(funcdef->value_type->is_function());
