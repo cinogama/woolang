@@ -600,7 +600,7 @@ namespace wo
                     }
                     for (int i = 0; i < MAX_BYTE_COUNT - displayed_count; i++)
                         printf("   ");
-                    };
+                };
 #define WO_SIGNED_SHIFT(VAL) (((signed char)((unsigned char)(((unsigned char)(VAL))<<1)))>>1)
                 auto print_reg_bpoffset = [&]() {
                     byte_t data_1b = *(this_command_ptr++);
@@ -639,7 +639,7 @@ namespace wo
                             tmpos << "reg(" << (uint32_t)data_1b << ")";
 
                     }
-                    };
+                };
                 auto print_opnum1 = [&]() {
                     if (main_command & (byte_t)0b00000010)
                     {
@@ -656,7 +656,7 @@ namespace wo
                         else
                             tmpos << "g[" << data_4b - env->constant_value_count << "]";
                     }
-                    };
+                };
                 auto print_opnum2 = [&]() {
                     if (main_command & (byte_t)0b00000001)
                     {
@@ -673,7 +673,7 @@ namespace wo
                         else
                             tmpos << "g[" << data_4b - env->constant_value_count << "]";
                     }
-                    };
+                };
 
 #undef WO_SIGNED_SHIFT
                 switch (main_command & (byte_t)0b11111100)
@@ -1448,14 +1448,14 @@ namespace wo
                                     WO_SAFE_READ_OFFSET_PER_BYTE(4,uint64_t)|WO_SAFE_READ_OFFSET_PER_BYTE(3,uint64_t)|\
                                     WO_SAFE_READ_OFFSET_PER_BYTE(2,uint64_t)|WO_SAFE_READ_OFFSET_PER_BYTE(1,uint64_t)):\
                                     WO_SAFE_READ_OFFSET_GET_QWORD)
-#define WO_IPVAL (*(rt_ip))
-#define WO_IPVAL_MOVE_1 (*(rt_ip++))
 
-            // X86 support non-alligned addressing, so just do it!
+// X86 support non-alligned addressing, so just do it!
 #define WO_FAST_READ_MOVE_2 (*(uint16_t*)((rt_ip += 2) - 2))
 #define WO_FAST_READ_MOVE_4 (*(uint32_t*)((rt_ip += 4) - 4))
 #define WO_FAST_READ_MOVE_8 (*(uint64_t*)((rt_ip += 8) - 8))
 
+#define WO_IPVAL (*(rt_ip))
+#define WO_IPVAL_MOVE_1 (*(rt_ip++))
 
 #define WO_IPVAL_MOVE_2 ((ARCH & platform_info::ArchType::X86)?(WO_FAST_READ_MOVE_2):((uint16_t)WO_SAFE_READ_MOVE_2))
 #define WO_IPVAL_MOVE_4 ((ARCH & platform_info::ArchType::X86)?(WO_FAST_READ_MOVE_4):((uint32_t)WO_SAFE_READ_MOVE_4))
@@ -1776,25 +1776,6 @@ namespace wo
                 }
             return nullptr;
         }
-        // used for restoring local state
-        template<typename T>
-        struct _restore_raii
-        {
-            T& ot;
-            T& nt;
-
-            _restore_raii(T& _nt, T& _ot)
-                : ot(_ot)
-                , nt(_nt)
-            {
-                _nt = _ot;
-            }
-
-            ~_restore_raii()
-            {
-                ot = nt;
-            }
-        };
 
         template<int/* wo::platform_info::ArchType */ ARCH = wo::platform_info::ARCH_TYPE>
         void run_impl()
@@ -1803,15 +1784,15 @@ namespace wo
             wo_assert((this->vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
             wo_assert(_this_thread_vm == this);
 
-            runtime_env* rt_env = env.get();
+            const byte_t* const rt_codes = env.get()->rt_codes;
 
             value* const rt_cr = cr;
             value* const global_begin = const_global_begin;
             value* const reg_begin = register_mem_begin;
 
-            const byte_t* rt_ip;
-            _restore_raii _o1(rt_ip, ip);
+            const byte_t* rt_ip = ip;
 
+#define WO_VM_RETURN do{ ip = rt_ip; return; }while(0)
 #define WO_SIGNED_SHIFT(VAL) (((signed char)((unsigned char)(((unsigned char)(VAL))<<1)))>>1)
 
 #define WO_ADDRESSING_N1 value * opnum1 = ((dr >> 1) ?\
@@ -2339,17 +2320,19 @@ namespace wo
                     {
                         sp = bp;
                         sp += pop_count;
-                        return; // last stack is native_func, just do return; stack balance should be keeped by invoker
+
+                        // last stack is native_func, just do return; stack balance should be keeped by invoker
+                        WO_VM_RETURN;
                     }
 
                     value* stored_bp = stack_mem_begin - bp->vmcallstack.bp;
-                    rt_ip = rt_env->rt_codes + bp->vmcallstack.ret_ip;
+                    rt_ip = rt_codes + bp->vmcallstack.ret_ip;
                     sp = bp;
                     bp = stored_bp;
 
                     sp += pop_count;
-                    // TODO If rt_ip is outof range, return...
 
+                    // TODO: Panic if rt_ip is outof range.
                     break;
                 }
                 case instruct::opcode::call:
@@ -2370,7 +2353,7 @@ namespace wo
                     }
 
                     sp->type = value::valuetype::callstack;
-                    sp->vmcallstack.ret_ip = (uint32_t)(rt_ip - rt_env->rt_codes);
+                    sp->vmcallstack.ret_ip = (uint32_t)(rt_ip - rt_codes);
                     sp->vmcallstack.bp = (uint32_t)(stack_mem_begin - bp);
                     auto* rt_bp = bp = --sp;
 
@@ -2405,7 +2388,7 @@ namespace wo
                     }
                     else if (opnum1->type == value::valuetype::integer_type)
                     {
-                        rt_ip = rt_env->rt_codes + opnum1->integer;
+                        rt_ip = rt_codes + opnum1->integer;
                     }
                     else
                     {
@@ -2441,7 +2424,7 @@ namespace wo
                             }
                         }
                         else
-                            rt_ip = rt_env->rt_codes + closure->m_vm_func;
+                            rt_ip = rt_codes + closure->m_vm_func;
                     }
                     break;
                 }
@@ -2456,7 +2439,7 @@ namespace wo
                         wo_extern_native_func_t call_aim_native_func = (wo_extern_native_func_t)(WO_IPVAL_MOVE_8);
 
                         sp->type = value::valuetype::callstack;
-                        sp->vmcallstack.ret_ip = (uint32_t)(rt_ip - rt_env->rt_codes);
+                        sp->vmcallstack.ret_ip = (uint32_t)(rt_ip - rt_codes);
                         sp->vmcallstack.bp = (uint32_t)(stack_mem_begin - bp);
                         auto* rt_bp = bp = --sp;
 
@@ -2499,11 +2482,11 @@ namespace wo
                     }
                     else
                     {
-                        const byte_t* aimplace = rt_env->rt_codes + WO_IPVAL_MOVE_4;
+                        const byte_t* aimplace = rt_codes + WO_IPVAL_MOVE_4;
                         rt_ip += 4; // skip reserved place.
 
                         sp->type = value::valuetype::callstack;
-                        sp->vmcallstack.ret_ip = (uint32_t)(rt_ip - rt_env->rt_codes);
+                        sp->vmcallstack.ret_ip = (uint32_t)(rt_ip - rt_codes);
                         sp->vmcallstack.bp = (uint32_t)(stack_mem_begin - bp);
                         bp = --sp;
 
@@ -2514,7 +2497,7 @@ namespace wo
                 }
                 case instruct::opcode::jmp:
                 {
-                    auto* restore_ip = rt_env->rt_codes + WO_IPVAL_MOVE_4;
+                    auto* restore_ip = rt_codes + WO_IPVAL_MOVE_4;
                     rt_ip = restore_ip;
                     break;
                 }
@@ -2522,14 +2505,14 @@ namespace wo
                 {
                     uint32_t aimplace = WO_IPVAL_MOVE_4;
                     if (rt_cr->integer)
-                        rt_ip = rt_env->rt_codes + aimplace;
+                        rt_ip = rt_codes + aimplace;
                     break;
                 }
                 case instruct::opcode::jf:
                 {
                     uint32_t aimplace = WO_IPVAL_MOVE_4;
                     if (!rt_cr->integer)
-                        rt_ip = rt_env->rt_codes + aimplace;
+                        rt_ip = rt_codes + aimplace;
                     break;
                 }
                 case instruct::opcode::mkstruct:
@@ -2565,7 +2548,7 @@ namespace wo
 
                     if (opnum1->integer != rt_cr->integer)
                     {
-                        auto* restore_ip = rt_env->rt_codes + offset;
+                        auto* restore_ip = rt_codes + offset;
                         rt_ip = restore_ip;
                     }
                     break;
@@ -2888,7 +2871,7 @@ namespace wo
                 case instruct::opcode::abrt:
                 {
                     if (dr & 0b10)
-                        return;
+                        WO_VM_RETURN;
                     else
                         wo_error("executed 'abrt'.");
                 }
@@ -2912,7 +2895,7 @@ namespace wo
                     {
                         // ABORTED VM WILL NOT ABLE TO RUN AGAIN, SO DO NOT
                         // CLEAR ABORT_INTERRUPT
-                        return;
+                        WO_VM_RETURN;
                     }
                     else if (interrupt_state & vm_interrupt_type::BR_YIELD_INTERRUPT)
                     {
@@ -2920,7 +2903,7 @@ namespace wo
                         if (get_br_yieldable())
                         {
                             mark_br_yield();
-                            return;
+                            WO_VM_RETURN;
                         }
                         else
                             wo_fail(WO_FAIL_NOT_SUPPORT, "BR_YIELD_INTERRUPT only work at br_yieldable vm.");
@@ -2964,6 +2947,10 @@ namespace wo
                 }
                 }
             }// vm loop end.
+
+            WO_VM_RETURN;
+
+#undef WO_VM_RETURN
 #undef WO_VM_FAIL
 #undef WO_ADDRESSING_N2
 #undef WO_ADDRESSING_N1
@@ -2975,6 +2962,21 @@ namespace wo
 #undef WO_IPVAL_MOVE_2
 #undef WO_IPVAL_MOVE_1
 #undef WO_IPVAL
+
+#undef WO_SAFE_READ_OFFSET_GET_QWORD
+#undef WO_SAFE_READ_OFFSET_GET_DWORD
+#undef WO_SAFE_READ_OFFSET_GET_WORD
+
+#undef WO_SAFE_READ_OFFSET_PER_BYTE
+#undef WO_IS_ODD_IRPTR
+
+#undef WO_SAFE_READ_MOVE_2
+#undef WO_SAFE_READ_MOVE_4
+#undef WO_SAFE_READ_MOVE_8
+
+#undef WO_FAST_READ_MOVE_2
+#undef WO_FAST_READ_MOVE_4
+#undef WO_FAST_READ_MOVE_8
         }
     };
 }
