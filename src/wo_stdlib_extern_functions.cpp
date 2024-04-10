@@ -1646,10 +1646,10 @@ namespace std
     public func iterator<T>(v: T)
         where std::is_iterator:<T> || std::is_iterable:<T>;
     {
-        if (is_iterable:<T>)
-            return v->iter;
-        else
+        if (is_iterator:<T>)
             return v;
+        else
+            return v->iter;
     }
 }
 
