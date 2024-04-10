@@ -408,7 +408,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
 
             for (size_t funtions_constant_offset : env->_functions_def_constant_idx_for_jit)
             {
-                auto* val = &env->constant_global_reg_rtstack[funtions_constant_offset];
+                auto* val = &env->constant_global[funtions_constant_offset];
                 wo_assert(val->type == value::valuetype::integer_type);
 
                 auto holder = env->_jit_code_holder[(size_t)val->integer];
@@ -843,7 +843,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
                 if (is_constant())
                 {
                     auto offset = (size_t)
-                        (m_constant - ctx->env->constant_global_reg_rtstack);
+                        (m_constant - ctx->env->constant_global);
                     if (std::find(
                         ctx->env->_functions_def_constant_idx_for_jit.begin(),
                         ctx->env->_functions_def_constant_idx_for_jit.end(),
@@ -907,12 +907,12 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
                 if (const_global_index < env->constant_value_count)
                 {
                     //Is constant
-                    return may_constant_x86Gp{ &x86compiler, true, env->constant_global_reg_rtstack + const_global_index };
+                    return may_constant_x86Gp{ &x86compiler, true, env->constant_global + const_global_index };
                 }
                 else
                 {
                     auto result = x86compiler.newUIntPtr();
-                    wo_assure(!x86compiler.mov(result, (size_t)(env->constant_global_reg_rtstack + const_global_index)));
+                    wo_assure(!x86compiler.mov(result, (size_t)(env->constant_global + const_global_index)));
                     return may_constant_x86Gp{ &x86compiler,false,nullptr,result };
                 }
             }
