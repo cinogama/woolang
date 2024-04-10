@@ -190,7 +190,16 @@ namespace wo
             dynamic_cast_pass_table(dynamic_cast_pass_table&&) = delete;
             dynamic_cast_pass_table& operator=(dynamic_cast_pass_table&&) = delete;
 
-            std::unordered_map<std::type_index, std::function<void(lang*, ast::ast_base*)>> m_pass_table[3];
+            template<typename T>
+            using typed_table_t = std::unordered_map<std::type_index, std::function<T>>;
+
+            using pass_table_t = typed_table_t<void(lang*, ast::ast_base*)>;
+            using finalize_table_t = typed_table_t<void(lang*, ast::ast_base*, ir_compiler*)>;
+            using finalize_value_table_t = typed_table_t<opnum::opnumbase& (lang*, ast::ast_base*, ir_compiler*, bool)>;
+
+            pass_table_t m_pass_table[3];
+            finalize_table_t m_finalize_table;
+            finalize_value_table_t m_finalize_value_table;
 
             dynamic_cast_pass_table() = default;
 
@@ -202,10 +211,37 @@ namespace wo
                         [pass_func](lang* langself, ast::ast_base* ast)
                         {
                             auto* node = dynamic_cast<T*>(ast);
-
                             wo_assert(node != nullptr);
 
                             (langself->*pass_func)(node);
+                        })).second);
+            }
+
+            template<typename T>
+            void register_finalize_table(void(lang::* pass_func)(T*, ir_compiler*))
+            {
+                wo_assure(m_finalize_table.insert(
+                    std::make_pair(std::type_index(typeid(T)),
+                        [pass_func](lang* langself, ast::ast_base* ast, ir_compiler* compiler)
+                        {
+                            auto* node = dynamic_cast<T*>(ast);
+                            wo_assert(node != nullptr);
+
+                            (langself->*pass_func)(node, compiler);
+                        })).second);
+            }
+
+            template<typename T>
+            void register_finalize_value_table(opnum::opnumbase& (lang::* pass_func)(T*, ir_compiler*, bool))
+            {
+                wo_assure(m_finalize_value_table.insert(
+                    std::make_pair(std::type_index(typeid(T)),
+                        [pass_func](lang* langself, ast::ast_base* ast, ir_compiler* compiler, bool get_pure_value)-> opnum::opnumbase&
+                        {
+                            auto* node = dynamic_cast<T*>(ast);
+                            wo_assert(node != nullptr);
+
+                            return (langself->*pass_func)(node, compiler, get_pure_value);
                         })).second);
             }
 
@@ -226,6 +262,27 @@ namespace wo
                 }
                 return false;
             }
+
+            bool finalize(lang* lang_self, ast::ast_base* ast, ir_compiler* compiler)
+            {
+                if (ast != nullptr)
+                {
+                    auto it = m_finalize_table.find(std::type_index(typeid(*ast)));
+                    if (it != m_finalize_table.end())
+                    {
+                        it->second(lang_self, ast, compiler);
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            opnum::opnumbase& finalize_value(lang* lang_self, ast::ast_base* ast, ir_compiler* compiler, bool get_pure_value)
+            {
+                wo_assert(ast != nullptr);
+                const auto& f = m_finalize_value_table.at(std::type_index(typeid(*ast)));
+                return f(lang_self, ast, compiler, get_pure_value);
+            }
         };
 
     private:
@@ -233,7 +290,8 @@ namespace wo
     public:
         static void init_global_pass_table();
         static void release_global_pass_table();
-
+    public:
+        static void check_function_where_constraint(ast::ast_base* ast, lexer* lang_anylizer, ast::ast_symbolable_base* func);
     private:
         using template_type_map = std::map<wo_pstring_t, lang_symbol*>;
 
@@ -279,44 +337,61 @@ namespace wo
         void pass1_##NODETYPE (ast::NODETYPE* astnode);\
         void pass2_##NODETYPE (ast::NODETYPE* astnode)
 
-        WO_PASS(ast_list);
-        WO_PASS(ast_namespace);
-        WO_PASS(ast_varref_defines);
-        WO_PASS(ast_value_binary);
-        WO_PASS(ast_value_mutable);
-        WO_PASS(ast_value_index);
-        WO_PASS(ast_value_assign);
-        WO_PASS(ast_value_logical_binary);
-        WO_PASS(ast_value_variable);
-        WO_PASS(ast_value_type_cast);
-        WO_PASS(ast_value_type_judge);
-        WO_PASS(ast_value_type_check);
-        WO_PASS(ast_value_function_define);
-        WO_PASS(ast_fakevalue_unpacked_args);
-        WO_PASS(ast_value_funccall);
-        WO_PASS(ast_value_array);
-        WO_PASS(ast_value_mapping);
-        WO_PASS(ast_value_indexed_variadic_args);
-        WO_PASS(ast_return);
-        WO_PASS(ast_sentence_block);
-        WO_PASS(ast_if);
-        WO_PASS(ast_while);
-        WO_PASS(ast_forloop);
-        WO_PASS(ast_value_unary);
-        WO_PASS(ast_mapping_pair);
-        WO_PASS(ast_using_namespace);
-        WO_PASS(ast_using_type_as);
-        WO_PASS(ast_foreach);
-        WO_PASS(ast_union_make_option_ob_to_cr_and_ret);
-        WO_PASS(ast_match);
-        WO_PASS(ast_match_union_case);
-        WO_PASS(ast_value_make_struct_instance);
-        WO_PASS(ast_value_make_tuple_instance);
-        WO_PASS(ast_struct_member_define);
-        WO_PASS(ast_where_constraint);
-        WO_PASS(ast_value_trib_expr);
-        WO_PASS(ast_value_typeid);
+#define WO_AST_PASS(NODETYPE) WO_PASS(NODETYPE);\
+        void finalize_##NODETYPE (ast::NODETYPE* astnode, ir_compiler* compiler)
+
+#define WO_VALUE_PASS(NODETYPE) WO_PASS(NODETYPE);\
+        opnum::opnumbase& finalize_value_##NODETYPE (ast::NODETYPE* astnode, ir_compiler* compiler, bool get_pure_value)
+
+        WO_AST_PASS(ast_list);
+        WO_AST_PASS(ast_namespace);
+        WO_AST_PASS(ast_varref_defines);
+        WO_AST_PASS(ast_return);
+        WO_AST_PASS(ast_sentence_block);
+        WO_AST_PASS(ast_if);
+        WO_AST_PASS(ast_while);
+        WO_AST_PASS(ast_forloop);
+        WO_AST_PASS(ast_mapping_pair);
+        WO_AST_PASS(ast_using_namespace);
+        WO_AST_PASS(ast_using_type_as);
+        WO_AST_PASS(ast_foreach);
+        WO_AST_PASS(ast_union_make_option_ob_to_cr_and_ret);
+        WO_AST_PASS(ast_match);
+        WO_AST_PASS(ast_match_union_case);
+        WO_AST_PASS(ast_struct_member_define);
+        WO_AST_PASS(ast_where_constraint);
+
+        void finalize_ast_break(ast::ast_break* astnode, ir_compiler* compiler);
+        void finalize_ast_continue(ast::ast_continue* astnode, ir_compiler* compiler);
+        void finalize_ast_nop(ast::ast_nop* astnode, ir_compiler* compiler);
+
+        WO_VALUE_PASS(ast_value_binary);
+        WO_VALUE_PASS(ast_value_mutable);
+        WO_VALUE_PASS(ast_value_index);
+        WO_VALUE_PASS(ast_value_assign);
+        WO_VALUE_PASS(ast_value_logical_binary);
+        WO_VALUE_PASS(ast_value_variable);
+        WO_VALUE_PASS(ast_value_type_cast);
+        WO_VALUE_PASS(ast_value_type_judge);
+        WO_VALUE_PASS(ast_value_type_check);
+        WO_VALUE_PASS(ast_value_function_define);
+        WO_VALUE_PASS(ast_value_funccall);
+        WO_VALUE_PASS(ast_value_array);
+        WO_VALUE_PASS(ast_value_mapping);
+        WO_VALUE_PASS(ast_value_indexed_variadic_args);
+        WO_VALUE_PASS(ast_value_unary);
+        WO_VALUE_PASS(ast_value_trib_expr);
+        WO_VALUE_PASS(ast_value_typeid);
+        WO_VALUE_PASS(ast_value_make_struct_instance);
+        WO_VALUE_PASS(ast_value_make_tuple_instance);
+        WO_VALUE_PASS(ast_value_packed_variadic_args);
+        WO_VALUE_PASS(ast_fakevalue_unpacked_args);
+        WO_VALUE_PASS(ast_value_takeplace);
+
+#undef WO_AST_PASS
+#undef WO_VALUE_PASS
 #undef WO_PASS
+
         void analyze_pattern_in_pass0(ast::ast_pattern_base* pattern, ast::ast_decl_attribute* attrib, ast::ast_value* initval);
         void analyze_pattern_in_pass1(ast::ast_pattern_base* pattern, ast::ast_decl_attribute* attrib, ast::ast_value* initval);
         void analyze_pattern_in_pass2(ast::ast_pattern_base* pattern, ast::ast_value* initval);
@@ -412,7 +487,7 @@ namespace wo
         };
 
         opnum::opnumbase& analyze_value(ast::ast_value* value, ir_compiler* compiler, bool get_pure_value = false);
-        opnum::opnumbase& auto_analyze_value(ast::ast_value* value, ir_compiler* compiler, bool get_pure_value = false, bool force_value = false);
+        opnum::opnumbase& auto_analyze_value(ast::ast_value* value, ir_compiler* compiler, bool get_pure_value = false);
 
         struct loop_label_info
         {
