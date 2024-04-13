@@ -21,7 +21,9 @@ namespace wo
             lang_anylizer->lang_error(lexer::errorlevel::error, ast, WO_ERR_FAILED_TO_INVOKE_BECAUSE);
             for (auto& error_info : funcdef->where_constraint->unmatched_constraint)
             {
-                lang_anylizer->get_cur_error_frame().push_back(error_info);
+                auto copied_err_info = error_info;
+                copied_err_info.error_level = lexer::errorlevel::infom;
+                lang_anylizer->get_cur_error_frame().push_back(copied_err_info);
             }
         }
 
