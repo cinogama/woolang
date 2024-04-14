@@ -412,7 +412,8 @@ namespace wo
             this->current_function_in_pass2 = a_value_funcdef->this_func_scope;
             wo_assert(this->current_function_in_pass2 != nullptr);
 
-            size_t anylizer_error_count = lang_anylizer->get_cur_error_frame().size();
+            auto& current_error_frame = lang_anylizer->get_cur_error_frame();
+            const size_t anylizer_error_count = current_error_frame.size();
 
             if (a_value_funcdef->argument_list)
             {
@@ -463,9 +464,9 @@ namespace wo
             else
                 a_value_funcdef->value_type->get_return_type()->set_type_with_name(WO_PSTR(pending));
 
-            if (lang_anylizer->get_cur_error_frame().size() != anylizer_error_count)
+            if (current_error_frame.size() != anylizer_error_count)
             {
-                wo_assert(lang_anylizer->get_cur_error_frame().size() > anylizer_error_count);
+                wo_assert(current_error_frame.size() > anylizer_error_count);
 
                 if (a_value_funcdef->is_template_reification)
                 {
@@ -479,11 +480,12 @@ namespace wo
 
                     a_value_funcdef->where_constraint->accept = false;
 
-                    for (; anylizer_error_count < lang_anylizer->get_cur_error_frame().size(); ++anylizer_error_count)
+                    for (size_t i = anylizer_error_count; i < current_error_frame.size(); ++i)
                     {
                         a_value_funcdef->where_constraint->unmatched_constraint.push_back(
-                            lang_anylizer->get_cur_error_frame()[anylizer_error_count]);
+                            current_error_frame[i]);
                     }
+                    current_error_frame.resize(anylizer_error_count);
                 }
 
                 // Error happend in cur function
