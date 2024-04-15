@@ -2554,8 +2554,6 @@ namespace dict
     {
         extern("rslib_std_map_iter_next", repeat)
             public func next<KT, VT>(iter:iterator<KT, VT>)=> option<(KT, VT)>;
-
-        public func iter<KT, VT>(iter:iterator<KT, VT>) { return iter; }
     }
 
     extern("rslib_std_map_iter", repeat)
@@ -2662,8 +2660,6 @@ namespace map
     {
         extern("rslib_std_map_iter_next", repeat)
             public func next<KT, VT>(iter:iterator<KT, VT>)=> option<(KT, VT)>;
-
-        public func iter<KT, VT>(iter:iterator<KT, VT>) { return iter; }
     }
 
     extern("rslib_std_map_iter", repeat)

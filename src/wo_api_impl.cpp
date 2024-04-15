@@ -2236,6 +2236,53 @@ wo_bool_t wo_virtual_source(wo_string_t filepath, wo_string_t data, wo_bool_t en
     return wo_virtual_binary(filepath, data, strlen(data), enable_modify);
 }
 
+struct _wo_virtual_file
+{
+    std::string m_path;
+    wo::stream_types<false>::buffer m_buffer;
+
+    _wo_virtual_file(const _wo_virtual_file&) = delete;
+    _wo_virtual_file(_wo_virtual_file&&) = delete;
+    _wo_virtual_file& operator = (const _wo_virtual_file&) = delete;
+    _wo_virtual_file& operator = (_wo_virtual_file&&) = delete;
+
+    ~_wo_virtual_file() = default;
+    _wo_virtual_file() = default;
+};
+
+wo_virtual_file_t wo_open_virtual_file(wo_string_t filepath)
+{
+    _wo_virtual_file* vfinstance = new _wo_virtual_file;
+
+    std::wstring real_path;
+
+    if (wo::check_and_read_virtual_source<false>(
+        &vfinstance->m_buffer,
+        &real_path,
+        wo::str_to_wstr(filepath),
+        std::nullopt))
+    {
+        vfinstance->m_path = wo::wstr_to_str(real_path);
+        return vfinstance;
+    }
+
+    delete vfinstance;
+    return nullptr;
+}
+wo_string_t wo_virtual_file_path(wo_virtual_file_t file)
+{
+    return file->m_path.c_str();
+}
+const void* wo_virtual_file_data(wo_virtual_file_t file, size_t* len)
+{
+    *len = file->m_buffer.size();
+    return file->m_buffer.c_str();
+}
+void wo_close_virtual_file(wo_virtual_file_t file)
+{
+    delete file;
+}
+
 wo_bool_t wo_remove_virtual_file(wo_string_t filepath)
 {
     return WO_CBOOL(wo::remove_virtual_binary(wo::str_to_wstr(filepath)));
@@ -2306,7 +2353,7 @@ std::variant<
         // Has error, create a fake lexer to store error reason.
 
         wo::lexer* lex = new wo::lexer(L"", virtual_src_path);
-        lex->lex_error(wo::lexer::errorlevel::error, wo_str_to_wstr(load_binary_failed_reason));
+        lex->lex_error(wo::lexer::errorlevel::error, wo::str_to_wstr(load_binary_failed_reason).c_str());
 
         return lex;
     }
@@ -2317,7 +2364,6 @@ std::variant<
         lex = new wo::lexer(wo::str_to_wstr(std::string((const char*)src, len).c_str()), virtual_src_path);
     else
     {
-        bool is_virtual_file;
         std::wstring real_file_path;
 
         std::optional<std::unique_ptr<std::wistream>> content_stream =
@@ -2326,13 +2372,11 @@ std::variant<
         uint64_t src_crc64_result = 0;
 
         if (wo::check_virtual_file_path(
-            &is_virtual_file,
             &real_file_path,
             wo::str_to_wstr(virtual_src_path),
             std::nullopt))
         {
-            content_stream = wo::open_virtual_file_stream<true>(
-                real_file_path, is_virtual_file);
+            content_stream = wo::open_virtual_file_stream<true>(real_file_path);
 
             if (content_stream)
                 src_crc64_result = wo::crc_64(*content_stream.value(), 0);
@@ -2452,11 +2496,10 @@ wo_bool_t wo_has_compile_error(wo_vm vm)
 std::wstring _dump_src_info(const std::string& path, size_t beginaimrow, size_t beginpointplace, size_t aimrow, size_t pointplace, _wo_inform_style style)
 {
     std::wstring src_full_path, result;
-    bool is_virtual_file;
 
-    if (wo::check_virtual_file_path(&is_virtual_file, &src_full_path, wo::str_to_wstr(path), std::nullopt))
+    if (wo::check_virtual_file_path(&src_full_path, wo::str_to_wstr(path), std::nullopt))
     {
-        auto content_stream = wo::open_virtual_file_stream<true>(src_full_path, is_virtual_file);
+        auto content_stream = wo::open_virtual_file_stream<true>(src_full_path);
         if (content_stream)
         {
             auto& content_stream_ptr = content_stream.value();
@@ -2590,7 +2633,6 @@ std::wstring _dump_src_info(const std::string& path, size_t beginaimrow, size_t 
             result += L"\n";
         }
     }
-
     return result;
 }
 
