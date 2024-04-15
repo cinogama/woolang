@@ -16,6 +16,7 @@
 
 namespace wo
 {
+    inline const std::wstring VIRTUAL_FILE_SCHEME = L"woovf://";
     inline std::shared_mutex vfile_list_guard;
 
     struct vfile_information
@@ -78,34 +79,52 @@ namespace wo
         using buffer = std::wstring;
     };
 
+    inline bool is_virtual_uri(const std::wstring& uri)
+    {
+        const size_t shceme_length = VIRTUAL_FILE_SCHEME.size();
+        if (uri.size() < shceme_length)
+            return false;
+
+        for (size_t i = 0; i < shceme_length; ++i)
+        {
+            if (uri[i] != VIRTUAL_FILE_SCHEME[i])
+                return false;
+        }
+        return true;
+    }
+
     inline bool check_virtual_file_path(
-        bool* out_is_virtual_file,
         std::wstring* out_real_read_path,
         const std::wstring& filepath,
         const std::optional<std::wstring>& script_path)
     {
-        *out_is_virtual_file = false;
+        if (is_virtual_uri(filepath))
+        {
+            *out_real_read_path = filepath;
+            return true;
+        }
+
         auto is_file_exist_and_readable =
             [](const std::wstring& path)
-            {
-                auto cpath = wstr_to_str(path);
+        {
+            auto cpath = wstr_to_str(path);
 #if WO_BUILD_WITH_MINGW
-                FILE* f = fopen(cpath.c_str(), "r");
-                if (f == nullptr)
-                    return false;
-
-                fclose(f);
-                return true;
-#else
-                struct stat file_stat;
-                if (0 == stat(cpath.c_str(), &file_stat))
-                {
-                    // Check if readable?
-                    return 0 == (file_stat.st_mode & S_IFDIR);
-                }
+            FILE* f = fopen(cpath.c_str(), "r");
+            if (f == nullptr)
                 return false;
+
+            fclose(f);
+            return true;
+#else
+            struct stat file_stat;
+            if (0 == stat(cpath.c_str(), &file_stat))
+            {
+                // Check if readable?
+                return 0 == (file_stat.st_mode & S_IFDIR);
+            }
+            return false;
 #endif
-    };
+        };
 
         // 1. Try exists file
         // 1) Read file from script loc
@@ -127,13 +146,12 @@ namespace wo
         // 3) Read file from virtual file
         do
         {
-            *out_real_read_path = filepath;
+            *out_real_read_path = VIRTUAL_FILE_SCHEME + filepath;
 
             std::shared_lock g1(vfile_list_guard);
             auto fnd = vfile_list.find(filepath);
             if (fnd != vfile_list.end())
             {
-                *out_is_virtual_file = true;
                 return true;
             }
 
@@ -156,13 +174,12 @@ namespace wo
         } while (0);
 
         return false;
-}
+    }
 
     // NOTE: Remember to free!
     template<bool width = true>
     inline auto open_virtual_file_stream(
-        const std::wstring& fullfilepath,
-        bool is_virtual_file
+        const std::wstring& fullfilepath
     ) -> std::optional<std::unique_ptr<typename stream_types<width>::stream>>
     {
         using fstream_t = typename stream_types<width>::ifile_stream;
@@ -170,13 +187,13 @@ namespace wo
 
         // 1. Try exists file
         // 1) Read file from virtual file
-        if (is_virtual_file)
+        if (is_virtual_uri(fullfilepath))
         {
             if constexpr (width)
             {
                 std::lock_guard g1(vfile_list_guard);
 
-                auto fnd = vfile_list.find(fullfilepath);
+                auto fnd = vfile_list.find(fullfilepath.substr(VIRTUAL_FILE_SCHEME.size()));
                 if (fnd != vfile_list.end())
                 {
                     if (fnd->second.has_width_data == false)
@@ -190,7 +207,7 @@ namespace wo
             else
             {
                 std::shared_lock g1(vfile_list_guard);
-                auto fnd = vfile_list.find(fullfilepath);
+                auto fnd = vfile_list.find(fullfilepath.substr(VIRTUAL_FILE_SCHEME.size()));
                 if (fnd != vfile_list.end())
                     return std::optional(std::make_unique<sstream_t>(fnd->second.data));
             }
@@ -218,11 +235,10 @@ namespace wo
     template<bool width = true>
     inline bool read_virtual_source(
         typename stream_types<width>::buffer* out_filecontent,
-        const std::wstring& fullfilepath,
-        bool is_virtual_file)
+        const std::wstring& fullfilepath)
     {
         auto stream_may_null = open_virtual_file_stream<width>(
-            fullfilepath, is_virtual_file);
+            fullfilepath);
 
         if (stream_may_null)
         {
@@ -246,9 +262,8 @@ namespace wo
         const std::optional<std::wstring>& script_path
     )
     {
-        bool is_virtual_file;
-        if (check_virtual_file_path(&is_virtual_file, out_filefullpath, filepath, script_path))
-            return read_virtual_source<width>(out_filecontent, *out_filefullpath, is_virtual_file);
+        if (check_virtual_file_path(out_filefullpath, filepath, script_path))
+            return read_virtual_source<width>(out_filecontent, *out_filefullpath);
         return false;
     }
 }

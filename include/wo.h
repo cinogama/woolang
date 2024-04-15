@@ -335,6 +335,14 @@ WO_API wo_bool_t    wo_equal_byte(wo_value a, wo_value b);
 WO_API void         wo_enable_jit(wo_bool_t option);
 WO_API wo_bool_t    wo_virtual_binary(wo_string_t filepath, const void* data, wo_size_t len, wo_bool_t enable_modify);
 WO_API wo_bool_t    wo_virtual_source(wo_string_t filepath, wo_string_t data, wo_bool_t enable_modify);
+
+typedef struct _wo_virtual_file* wo_virtual_file_t;
+
+WO_API wo_virtual_file_t    wo_open_virtual_file(wo_string_t filepath);
+WO_API wo_string_t          wo_virtual_file_path(wo_virtual_file_t file);
+WO_API const void*          wo_virtual_file_data(wo_virtual_file_t file, size_t* len);
+WO_API void                 wo_close_virtual_file(wo_virtual_file_t file);
+
 WO_API wo_bool_t    wo_remove_virtual_file(wo_string_t filepath);
 WO_API wo_vm        wo_create_vm(void);
 WO_API wo_vm        wo_sub_vm(wo_vm vm, wo_size_t stacksz);

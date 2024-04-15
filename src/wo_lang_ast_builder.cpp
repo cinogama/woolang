@@ -1304,18 +1304,17 @@ namespace wo
             } while (importfilepaths);
 
             // path += L".wo";
-            bool is_virtual_path;
             std::wstring src_full_path;
-            if (!wo::check_virtual_file_path(&is_virtual_path, &src_full_path, path + L".wo", std::optional(*lex.source_file)))
+            if (!wo::check_virtual_file_path(&src_full_path, path + L".wo", std::optional(*lex.source_file)))
             {
                 // import a::b; cannot open a/b.wo, trying a/b/b.wo
-                if (!wo::check_virtual_file_path(&is_virtual_path, &src_full_path, path + L"/" + filename + L".wo", std::optional(*lex.source_file)))
+                if (!wo::check_virtual_file_path(&src_full_path, path + L"/" + filename + L".wo", std::optional(*lex.source_file)))
                     return token{ lex.parser_error(lexer::errorlevel::error, WO_ERR_CANNOT_OPEN_FILE, path.c_str()) };
             }
 
             if (!lex.has_been_imported(wstring_pool::get_pstr(src_full_path)))
             {
-                auto srcfile_stream = wo::open_virtual_file_stream(src_full_path, is_virtual_path);
+                auto srcfile_stream = wo::open_virtual_file_stream(src_full_path);
                 if (srcfile_stream)
                 {
                     if (!lex.has_been_imported(wo::crc_64(*srcfile_stream.value(), 0)))
