@@ -415,12 +415,6 @@ namespace wo
             const size_t anylizer_error_count = 
                 lang_anylizer->get_cur_error_frame().size();
 
-            if (a_value_funcdef->row_begin_no == 234
-                && a_value_funcdef->col_begin_no == 21
-                && a_value_funcdef->col_end_no == 49
-                && anylizer_error_count == 1)
-                printf("");
-
             if (a_value_funcdef->argument_list)
             {
                 // ast_value_function_define might be root-point created in lang.

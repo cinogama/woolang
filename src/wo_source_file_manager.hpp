@@ -143,7 +143,23 @@ namespace wo
                 return true;
         } while (0);
 
-        // 3) Read file from virtual file
+        // 3) Read file from rpath
+        do
+        {
+            *out_real_read_path = str_to_wstr(wo::work_path()) + L"/" + filepath;
+            if (is_file_exist_and_readable(*out_real_read_path))
+                return true;
+        } while (0);
+
+        // 4) Read file from default path
+        do
+        {
+            *out_real_read_path = filepath;
+            if (is_file_exist_and_readable(*out_real_read_path))
+                return true;
+        } while (0);
+
+        // 5) Read file from virtual file
         do
         {
             *out_real_read_path = VIRTUAL_FILE_SCHEME + filepath;
@@ -155,22 +171,6 @@ namespace wo
                 return true;
             }
 
-        } while (0);
-
-        // 4) Read file from rpath
-        do
-        {
-            *out_real_read_path = str_to_wstr(wo::work_path()) + L"/" + filepath;
-            if (is_file_exist_and_readable(*out_real_read_path))
-                return true;
-        } while (0);
-
-        // 5) Read file from default path
-        do
-        {
-            *out_real_read_path = filepath;
-            if (is_file_exist_and_readable(*out_real_read_path))
-                return true;
         } while (0);
 
         return false;
