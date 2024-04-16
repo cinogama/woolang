@@ -412,8 +412,14 @@ namespace wo
             this->current_function_in_pass2 = a_value_funcdef->this_func_scope;
             wo_assert(this->current_function_in_pass2 != nullptr);
 
-            auto& current_error_frame = lang_anylizer->get_cur_error_frame();
-            const size_t anylizer_error_count = current_error_frame.size();
+            const size_t anylizer_error_count = 
+                lang_anylizer->get_cur_error_frame().size();
+
+            if (a_value_funcdef->row_begin_no == 234
+                && a_value_funcdef->col_begin_no == 21
+                && a_value_funcdef->col_end_no == 49
+                && anylizer_error_count == 1)
+                printf("");
 
             if (a_value_funcdef->argument_list)
             {
@@ -464,6 +470,7 @@ namespace wo
             else
                 a_value_funcdef->value_type->get_return_type()->set_type_with_name(WO_PSTR(pending));
 
+            auto& current_error_frame = lang_anylizer->get_cur_error_frame();
             if (current_error_frame.size() != anylizer_error_count)
             {
                 wo_assert(current_error_frame.size() > anylizer_error_count);
@@ -483,7 +490,7 @@ namespace wo
                     for (size_t i = anylizer_error_count; i < current_error_frame.size(); ++i)
                     {
                         a_value_funcdef->where_constraint->unmatched_constraint.push_back(
-                            current_error_frame[i]);
+                            current_error_frame.at(i));
                     }
                     current_error_frame.resize(anylizer_error_count);
                 }

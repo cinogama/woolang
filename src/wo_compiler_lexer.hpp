@@ -481,7 +481,6 @@ namespace wo
 
         std::vector<lex_error_msg> lex_error_list;
         std::vector<std::vector<lex_error_msg>> error_frame;
-        size_t error_frame_offset = 0;
 
         void begin_trying_block()
         {
@@ -491,17 +490,12 @@ namespace wo
         {
             error_frame.pop_back();
         }
-        void set_eror_at(size_t id)
-        {
-            error_frame_offset = id;
-        }
 
         std::vector<lex_error_msg>& get_cur_error_frame()
         {
-            wo_assert(error_frame_offset <= error_frame.size());
-            if (error_frame.empty() || error_frame_offset == error_frame.size())
+            if (error_frame.empty())
                 return lex_error_list;
-            return error_frame[error_frame.size() - error_frame_offset - 1];
+            return error_frame[error_frame.size() - 1];
         }
 
         bool just_have_err = false; // it will be clear at next()
