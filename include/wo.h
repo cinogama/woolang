@@ -343,6 +343,11 @@ WO_API wo_string_t          wo_virtual_file_path(wo_virtual_file_t file);
 WO_API const void*          wo_virtual_file_data(wo_virtual_file_t file, size_t* len);
 WO_API void                 wo_close_virtual_file(wo_virtual_file_t file);
 
+typedef struct _wo_virtual_file_iter* wo_virtual_file_iter_t;
+WO_API wo_virtual_file_iter_t   wo_open_virtual_file_iter(void);
+WO_API wo_string_t              wo_next_virtual_file_iter(wo_virtual_file_iter_t iter);
+WO_API void                     wo_close_virtual_file_iter(wo_virtual_file_iter_t iter);
+
 WO_API wo_bool_t    wo_remove_virtual_file(wo_string_t filepath);
 WO_API wo_vm        wo_create_vm(void);
 WO_API wo_vm        wo_sub_vm(wo_vm vm, wo_size_t stacksz);
