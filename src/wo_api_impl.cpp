@@ -2228,9 +2228,8 @@ void wo_enable_jit(wo_bool_t option)
 
 wo_bool_t wo_virtual_binary(wo_string_t filepath, const void* data, wo_size_t len, wo_bool_t enable_modify)
 {
-    return WO_CBOOL(wo::create_virtual_binary((const char*)data, len, wo::str_to_wstr(filepath), enable_modify != WO_FALSE));
+    return WO_CBOOL(wo::create_virtual_binary(wo::str_to_wstr(filepath), data, len, enable_modify != WO_FALSE));
 }
-
 wo_bool_t wo_virtual_source(wo_string_t filepath, wo_string_t data, wo_bool_t enable_modify)
 {
     return wo_virtual_binary(filepath, data, strlen(data), enable_modify);
@@ -3976,7 +3975,7 @@ void wo_ir_immu64(wo_ir_compiler compiler, uint64_t val)
 }
 
 void wo_ir_register_extern_function(
-    wo_ir_compiler compiler, wo_native_func_t extern_func, 
+    wo_ir_compiler compiler, wo_native_func_t extern_func,
     wo_string_t script_path,
     wo_string_t library_name_may_null,
     wo_string_t function_name)

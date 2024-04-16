@@ -29,18 +29,18 @@ namespace wo
 
     inline std::map<std::wstring, vfile_information> vfile_list;
 
-    inline bool create_virtual_binary(const char* data, size_t length, const std::wstring& filepath, bool enable_modify)
+    inline bool create_virtual_binary(const std::wstring& filepath, const void* data, size_t length, bool enable_modify)
     {
         std::lock_guard g1(vfile_list_guard);
         if (auto vffnd = vfile_list.find(filepath);
             vffnd == vfile_list.end())
         {
-            vfile_list[filepath] = { enable_modify, false, std::string(data, length) };
+            vfile_list[filepath] = { enable_modify, false, std::string((const char*)data, length) };
             return true;
         }
         else if (vffnd->second.enable_modify)
         {
-            vfile_list[filepath] = { enable_modify, false, std::string(data, length) };
+            vfile_list[filepath] = { enable_modify, false, std::string((const char*)data, length) };
             return true;
         }
 
