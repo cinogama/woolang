@@ -2288,6 +2288,37 @@ wo_bool_t wo_remove_virtual_file(wo_string_t filepath)
     return WO_CBOOL(wo::remove_virtual_binary(wo::str_to_wstr(filepath)));
 }
 
+struct _wo_virtual_file_iter
+{
+    std::vector<std::string> m_paths;
+    size_t m_index;
+};
+wo_virtual_file_iter_t wo_open_virtual_file_iter(void)
+{
+    auto* result = new _wo_virtual_file_iter();
+    result->m_index = 0;
+
+    auto paths = wo::get_all_virtual_file_path();
+    for (auto& p : paths)
+    {
+        result->m_paths.push_back(wo::wstrn_to_str(p));
+    }
+    return result;
+}
+wo_string_t wo_next_virtual_file_iter(wo_virtual_file_iter_t iter)
+{
+    if (iter->m_index >= iter->m_paths.size())
+    {
+        wo_assert(iter->m_index == iter->m_paths.size());
+        return nullptr;
+    }
+    return iter->m_paths[iter->m_index++].c_str();
+}
+void wo_close_virtual_file_iter(wo_virtual_file_iter_t iter)
+{
+    delete iter;
+}
+
 wo_vm wo_create_vm()
 {
     return CS_VM(new wo::vm(wo::vmbase::vm_type::NORMAL));

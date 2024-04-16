@@ -266,4 +266,16 @@ namespace wo
             return read_virtual_source<width>(out_filecontent, *out_filefullpath);
         return false;
     }
+
+    inline std::vector<std::wstring> get_all_virtual_file_path()
+    {
+        std::shared_lock sg1(vfile_list_guard);
+        std::vector<std::wstring> result;
+
+        for (auto& [p, _] : vfile_list)
+        {
+            result.push_back(p);
+        }
+        return result;
+    }
 }
