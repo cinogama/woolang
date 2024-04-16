@@ -213,13 +213,10 @@ namespace wo
                     else
                     {
                         std::string result_content_vfile =
-                            "macro_" + wo::wstr_to_str(fnd->second->macro_name) + "_result_" + std::to_string((intptr_t)this) + ".wo";
+                            "woo/macro_" + wo::wstr_to_str(fnd->second->macro_name) + "_result_" + std::to_string((intptr_t)this) + ".wo";
 
                         wo_assure(WO_TRUE == wo_virtual_source(result_content_vfile.c_str(), wo_string(result), WO_TRUE));
-
-                        wo::lexer tmp_lex(
-                            wo::str_to_wstr(wo_string(result)),
-                            result_content_vfile);
+                        wo::lexer tmp_lex(wo::str_to_wstr(wo_string(result)), result_content_vfile);
 
                         std::vector<std::pair<wo::lex_type, std::wstring>> lex_tokens;
                         for (;;)
