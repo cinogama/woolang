@@ -5,6 +5,13 @@ import pkg::iterator;
 
 namespace test_benchmark
 {
+    func bench(name: string, action: ()=> void)
+    {
+        let b = std::time();
+        action();
+        std::println(name, "cost:", std::time() - b);
+    }
+
     func isprime(n: int)
     {
         if (n != 2)
@@ -18,12 +25,9 @@ namespace test_benchmark
     {
         let searching = []mut: vec<int>;
 
-        let b = std::time();
         for (let mut i = 2; i < 100_0000; i += 1)
         if (isprime(i))
             searching->add(i);
-        
-        return std::time() - b;
     }
     func bench_1m_prime2()
     {
@@ -32,9 +36,7 @@ namespace test_benchmark
         for (let mut i = 2; i < 100_0000; i += 1)
             searching->add(i);
 
-        let b = std::time();
         do searching->forall(\n=isprime(n););
-        return std::time() - b;
     }
     func bench_1m_prime3()
     {
@@ -43,11 +45,9 @@ namespace test_benchmark
         for (let mut i = 2; i < 100_0000; i += 1)
             searching->add(i);
 
-        let b = std::time();
         do searching->iter 
             |> iterator::filter(\n = isprime(n);)
             ;
-        return std::time() - b;
     }
     func bench_1m_prime4()
     {
@@ -56,19 +56,111 @@ namespace test_benchmark
         for (let mut i = 2; i < 100_0000; i += 1)
             searching->add(i);
 
-        let b = std::time();
         do searching->iter 
             |> iterator::filter(\n = isprime(n);)
             |> iterator::collect()
             ;
-        return std::time() - b;
+    }
+    func fannkuch(n: int) 
+    {
+        let p = array::create(n+1, mut 0);
+        let q = array::create(n+1, mut 0);
+        let s = array::create(n+1, mut 0);
+        let mut sign = 1;
+        let mut maxflips = 0;
+        let mut sum = 0;
+        let mut i = 0, mut j = 0;
+
+        for (i = 1; i <= n; i += 1) 
+        {
+            p[i] = i;
+            q[i] = i;
+            s[i] = i;
+        }
+
+        for (;;) {
+            // Copy and flip.
+            let mut q1 = p[1]; // Cache 1st element.
+            if (q1 != 1) {
+                for (i = 2; i <= n; i += 1) 
+                {
+                    q[i] = p[i]; // Work on a copy.
+                }
+                let mut flips = 1;
+                for (;;)
+                {
+                    let qq = q[q1];
+                    if (qq == 1) { // until 1st element is 1.
+                            sum = sum + sign*flips;
+                            if (flips > maxflips) {
+                                maxflips = flips; // New maximum?
+                            }
+                            break;
+                    }
+                    q[q1] = q1;
+                    if (q1 >= 4) {
+                            i = 2;
+                            j = q1 - 1;
+                            for (;;) 
+                            {
+                                let swap = q[i];
+                                q[i] = q[j];
+                                q[j] = swap;
+                                i = i + 1;
+                                j = j - 1;
+                                if (i >= j)
+                                {
+                                    break;
+                                }
+                            }
+                    }
+                    q1 = qq;
+                    flips = flips + 1;
+                }
+            }
+
+            if (sign == 1) 
+            {
+                let mut swap = p[2];
+                p[2] = p[1];
+                p[1] = swap;
+                sign = -1; // Rotate 1<-2.
+            }
+            else 
+            {
+                let mut swap = p[2];
+                p[2] = p[3];
+                p[3] = swap;
+                sign = 1; // Rotate 1<-2 and 1<-2<-3.
+                for (i=3; i<=n; i += 1) {
+                    let sx = s[i];
+                    if (sx != 1) {
+                            s[i] = sx-1;
+                            break;
+                    }
+                    if (i == n) {
+                            return [sum, maxflips];
+                    } // Out of permutations.
+                    s[i] = i;
+                    // Rotate 1<-...<-i+1.
+                    let t = p[1];
+                    for (j=1; j <= i; j += 1) {
+                            p[j] = p[j+1];
+                    }
+                    p[i+1] = t;
+                }
+            }
+        }
+        return [0, 0];
     }
     func main()
     {
-        std::println("bench_1m_prime cost:", bench_1m_prime());
-        std::println("bench_1m_prime2 cost:", bench_1m_prime2());
-        std::println("bench_1m_prime3(no calc) cost:", bench_1m_prime3());
-        std::println("bench_1m_prime4 cost:", bench_1m_prime4());
+        bench("bench_1m_prime cost:", bench_1m_prime);
+        bench("bench_1m_prime2 cost:", bench_1m_prime2);
+        bench("bench_1m_prime3(no calc) cost:", bench_1m_prime3);
+        bench("bench_1m_prime4 cost:", bench_1m_prime4);
+        bench("fannkuch(9) cost:", \=do fannkuch(9););
+        bench("fannkuch(10) cost:", \=do fannkuch(10););
     }
 }
 
