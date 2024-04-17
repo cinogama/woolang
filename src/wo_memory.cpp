@@ -175,22 +175,6 @@ namespace womem
 
     class Chunk
     {
-    public:
-        enum AllocGroup :uint8_t
-        {
-            L16,
-            L24,
-            L32,
-            L40,
-            L48,
-            L64,
-            L96,
-            L128,
-            COUNT,
-            FREEPAGE = COUNT,
-            BAD,
-        };
-
     private:
         Chunk(const Chunk&) = delete;
         Chunk(Chunk&&) = delete;
@@ -207,43 +191,18 @@ namespace womem
         wo::atomic_list<Page> m_released_page;
 
         mutable std::mutex m_free_pages_mx;
-        Page* m_free_pages[AllocGroup::COUNT + 1] = {};
+
+#define _WO_EVAL_ALLOC_GROUP_IDX(SZ) (1 + (((SZ) - 1) >> 3))
+#define _WO_EVAL_ALLOC_GROUP_SZ(IDX) ((IDX) << 3)
+
     public:
+        static constexpr size_t m_max_group_count = 
+            _WO_EVAL_ALLOC_GROUP_IDX(128) + 1;
 
-        static constexpr AllocGroup eval_alloc_group(uint8_t sz)
-        {
-#define WOMEM_CASE(N) if (sz <= N) return AllocGroup::L##N
+    private:
+        Page* m_free_pages[m_max_group_count] = {};
 
-            WOMEM_CASE(16);
-            WOMEM_CASE(24);
-            WOMEM_CASE(32);
-            WOMEM_CASE(40);
-            WOMEM_CASE(48);
-            WOMEM_CASE(64);
-            WOMEM_CASE(96);
-            WOMEM_CASE(128);
-
-#undef WOMEM_CASE
-
-            return AllocGroup::BAD;
-        }
-        static constexpr uint8_t eval_alloc_size(uint8_t sz)
-        {
-#define WOMEM_CASE(N) if (sz <= N) return N
-
-            WOMEM_CASE(16);
-            WOMEM_CASE(24);
-            WOMEM_CASE(32);
-            WOMEM_CASE(40);
-            WOMEM_CASE(48);
-            WOMEM_CASE(64);
-            WOMEM_CASE(96);
-            WOMEM_CASE(128);
-
-#undef WOMEM_CASE
-            return 0;
-        }
-
+    public:
         Chunk(size_t chunk_size, uint8_t cid)
             : m_virtual_memory(nullptr)
             , m_commited_page_count(0)
@@ -314,7 +273,7 @@ namespace womem
                     abort();
                 }
             }
-            for (size_t i = (size_t)AllocGroup::L16; i < (size_t)AllocGroup::COUNT; ++i)
+            for (size_t i = 0; i < m_max_group_count; ++i)
             {
                 auto*& pages = m_free_pages[i];
                 while (pages)
@@ -356,7 +315,7 @@ namespace womem
             }
         }
 
-        Page* _alloc_page(uint8_t elem_sz, AllocGroup group)
+        Page* _alloc_page(size_t elem_sz, size_t group)
         {
             if (nullptr != m_free_pages[group])
             {
@@ -364,13 +323,13 @@ namespace womem
                 m_free_pages[group] = p->last;
                 return p;
             }
-            if (nullptr != m_free_pages[AllocGroup::FREEPAGE])
+            if (nullptr != m_free_pages[0])
             {
-                auto* p = m_free_pages[AllocGroup::FREEPAGE];
-                m_free_pages[AllocGroup::FREEPAGE] = p->last;
+                auto* p = m_free_pages[0];
+                m_free_pages[0] = p->last;
                 p->m_page_unit_size = 0;
                 p->m_alloc_count = 0;
-                p->init(m_chunk_id, eval_alloc_size(elem_sz));
+                p->init(m_chunk_id, _WO_EVAL_ALLOC_GROUP_SZ(group));
                 return p;
             }
 
@@ -388,10 +347,10 @@ namespace womem
             new_p->m_page_unit_size = 0;
             new_p->m_alloc_count = 0;
             new_p->m_free_page = 1;
-            new_p->init(m_chunk_id, eval_alloc_size(elem_sz));
+            new_p->init(m_chunk_id, _WO_EVAL_ALLOC_GROUP_SZ(group));
             return new_p;
         }
-        Page* alloc_pages(uint8_t elem_sz, AllocGroup group, size_t alloc_page_count)
+        Page* alloc_pages(size_t elem_sz, size_t group, size_t alloc_page_count)
         {
             std::lock_guard g1(m_free_pages_mx);
 
@@ -428,13 +387,13 @@ namespace womem
                     if (cur_page->m_alloc_count == 0)
                     {
                         cur_page->m_free_page = 1;
-                        cur_page->last = m_free_pages[AllocGroup::FREEPAGE];
-                        m_free_pages[AllocGroup::FREEPAGE] = cur_page;
+                        cur_page->last = m_free_pages[0];
+                        m_free_pages[0] = cur_page;
                     }
                     else
                     {
                         cur_page->init(m_chunk_id, cur_page->m_page_unit_size);
-                        auto alloc_group = eval_alloc_group(cur_page->m_page_unit_size);
+                        auto alloc_group = _WO_EVAL_ALLOC_GROUP_IDX(cur_page->m_page_unit_size);
                         cur_page->last = m_free_pages[alloc_group];
                         m_free_pages[alloc_group] = cur_page;
                     }
@@ -445,7 +404,7 @@ namespace womem
 
             if (full)
             {
-                for (size_t i = (size_t)AllocGroup::L16; i < (size_t)AllocGroup::COUNT; ++i)
+                for (size_t i = 1; i < m_max_group_count; ++i)
                 {
                     auto* pages = m_free_pages[i];
                     m_free_pages[i] = nullptr;
@@ -458,8 +417,8 @@ namespace womem
                         if (cur_page->m_alloc_count == 0)
                         {
                             // Currne page should move to free pages.
-                            cur_page->last = m_free_pages[AllocGroup::FREEPAGE];
-                            m_free_pages[AllocGroup::FREEPAGE] = cur_page;
+                            cur_page->last = m_free_pages[0];
+                            m_free_pages[0] = cur_page;
                         }
                         else
                         {
@@ -501,12 +460,12 @@ namespace womem
     // ThreadCache is page cache in thread local
     class ThreadCache
     {
-        size_t m_prepare_alloc_page_reserve_count[Chunk::AllocGroup::COUNT];
-        Page* m_prepare_alloc_pages[Chunk::AllocGroup::COUNT] = {};
+        size_t m_prepare_alloc_page_reserve_count[Chunk::m_max_group_count];
+        Page* m_prepare_alloc_pages[Chunk::m_max_group_count] = {};
     public:
         ThreadCache()
         {
-            for (size_t i = 0; i < Chunk::AllocGroup::COUNT; ++i)
+            for (size_t i = 1; i < Chunk::m_max_group_count; ++i)
                 m_prepare_alloc_page_reserve_count[i] = 1;
         }
         ~ThreadCache()
@@ -528,7 +487,7 @@ namespace womem
         }
         void* alloc(size_t sz, womem_attrib_t attrib)
         {
-            auto group = Chunk::eval_alloc_group((uint8_t)sz);
+            auto group = _WO_EVAL_ALLOC_GROUP_IDX(sz);
             auto** pages = &m_prepare_alloc_pages[group];
             if (nullptr == *pages)
             {
