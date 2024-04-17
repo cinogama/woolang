@@ -532,7 +532,6 @@ namespace wo
                 : symbinfo->symbol->defined_in_scope;
 
             if (auto right_func_instance = judge_auto_type_of_funcdef_with_type(
-                a_value_assi->right,
                 a_value_assi->located_scope,
                 a_value_assi->left->value_type, a_value_assi->right, true, nullptr, nullptr))
             {
@@ -1259,7 +1258,7 @@ namespace wo
                     fully_update_type(fnd->second.member_type, false,
                         a_value_make_struct_instance->target_built_types->symbol->template_types);
 
-                    if (auto result = judge_auto_type_of_funcdef_with_type(membpair, struct_defined_scope,
+                    if (auto result = judge_auto_type_of_funcdef_with_type(struct_defined_scope,
                         fnd->second.member_type, membpair->member_value_pair, false, nullptr, nullptr))
                     {
                         updated_member_types[membpair->member_name] = std::get<ast::ast_type*>(result.value());
@@ -1341,7 +1340,7 @@ namespace wo
                     fully_update_type(fnd->second.member_type, false,
                         a_value_make_struct_instance->target_built_types->symbol->template_types);
 
-                    if (auto result = judge_auto_type_of_funcdef_with_type(membpair, struct_defined_scope,
+                    if (auto result = judge_auto_type_of_funcdef_with_type(struct_defined_scope,
                         fnd->second.member_type, membpair->member_value_pair, true,
                         a_value_make_struct_instance->target_built_types->symbol->define_node, &template_args))
                     {
@@ -1450,7 +1449,7 @@ namespace wo
 
                         membpair->member_offset = fnd->second.offset;
                         fully_update_type(fnd->second.member_type, false);
-                        if (auto result = judge_auto_type_of_funcdef_with_type(membpair, struct_defined_scope,
+                        if (auto result = judge_auto_type_of_funcdef_with_type(struct_defined_scope,
                             fnd->second.member_type, membpair->member_value_pair, true, nullptr, nullptr))
                         {
                             if (dynamic_cast<ast::ast_value_mutable*>(membpair->member_value_pair) == nullptr)
