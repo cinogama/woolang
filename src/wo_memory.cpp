@@ -23,7 +23,6 @@
 #include <unistd.h>
 #endif
 
-size_t WO_SYS_MEM_PAGE_SIZE;
 
 size_t _womem_page_size()
 {
@@ -79,35 +78,44 @@ int _womem_get_last_error(void)
 
 namespace womem
 {
+    size_t WO_SYS_MEM_PAGE_SIZE;
+
+#define _WO_EVAL_ALLOC_GROUP_IDX(SZ) (1 + (((SZ) - 1) >> 4))
+#define _WO_EVAL_ALLOC_GROUP_SZ(IDX) ((IDX) << 4)
+
     struct PageUnitHead
     {
         std::atomic_uint8_t m_in_used_flag;
+        womem_attrib_t      m_attrib;
+        uint16_t            m_last_free_idx;
 
-        uint8_t m_belong_chunk;
-        uint8_t __m_reserved;
-        womem_attrib_t m_attrib;
-
-        uint16_t m_last_free_idx;
-
-        uint16_t __m_reserved2;
+        uint32_t            __m_reserved;
     };
     static_assert(sizeof(PageUnitHead) == 8);
 
     struct Page
     {
-        std::atomic_uint8_t m_free_page;
+        struct NormalPage
+        {
+            // Alloc size group of unit in this page
+            uint8_t m_page_unit_group;
 
-        // Alloc size of unit in this page
-        uint8_t m_page_unit_size;
+            std::atomic_uint8_t m_free_page;
 
-        // Allocable unit offset
-        uint16_t m_free_offset_idx;
+            // Allocable unit offset
+            uint16_t m_free_offset_idx;
 
-        // Max unit
-        uint16_t m_max_avliable_unit_count;
+            // Max unit
+            uint16_t m_max_avliable_unit_count;
 
-        // Alloc count, used for reuse page.
-        std::atomic_uint16_t m_alloc_count;
+            // Alloc count, used for reuse page.
+            std::atomic_uint16_t m_alloc_count;
+        };
+
+        union
+        {
+            NormalPage m_normal_page;
+        };
 
         union
         {
@@ -118,24 +126,27 @@ namespace womem
         };
 
         // Init current page
-        void init(uint8_t chunkid, uint8_t sz)
+        void init_normal(uint8_t normal_group)
         {
-            assert(sz >= 8);
-            assert(m_page_unit_size == 0 || m_page_unit_size == sz);
+            assert(normal_group > 0);
+            assert(m_normal_page.m_page_unit_group == 0
+                || m_normal_page.m_page_unit_group == normal_group);
 
-            m_max_avliable_unit_count =
-                (uint16_t)((WO_SYS_MEM_PAGE_SIZE - 8 - sizeof(Page*)) / ((size_t)sz + sizeof(PageUnitHead)));
+            const size_t unit_size = (size_t)_WO_EVAL_ALLOC_GROUP_SZ(normal_group);
 
-            m_free_offset_idx = m_max_avliable_unit_count;
+            m_normal_page.m_max_avliable_unit_count =
+                (uint16_t)((WO_SYS_MEM_PAGE_SIZE - 8 - sizeof(Page*)) /
+                    ((size_t)unit_size + sizeof(PageUnitHead)));
+
+            m_normal_page.m_free_offset_idx = m_normal_page.m_max_avliable_unit_count;
 
             char* buf = m_chunkdata;
-            uint16_t* p_last_free_idx = &m_free_offset_idx;
-            for (uint16_t i = 0; i < m_max_avliable_unit_count; ++i)
+            uint16_t* p_last_free_idx = &m_normal_page.m_free_offset_idx;
+            for (uint16_t i = 0; i < m_normal_page.m_max_avliable_unit_count; ++i)
             {
-                auto* head = (PageUnitHead*)(buf + (size_t)i * ((size_t)sz + sizeof(PageUnitHead)));
-                head->m_belong_chunk = chunkid;
+                auto* head = (PageUnitHead*)(buf + (size_t)i * (unit_size + sizeof(PageUnitHead)));
 
-                if (!head->m_in_used_flag || m_page_unit_size == 0)
+                if (!head->m_in_used_flag || m_normal_page.m_page_unit_group == 0)
                 {
                     head->m_in_used_flag = 0;
                     *p_last_free_idx = i;
@@ -143,25 +154,30 @@ namespace womem
                     p_last_free_idx = &head->m_last_free_idx;
                 }
             }
-            *p_last_free_idx = m_max_avliable_unit_count;
-            m_page_unit_size = sz;
-            m_free_page = 0;
+            *p_last_free_idx = m_normal_page.m_max_avliable_unit_count;
+            m_normal_page.m_page_unit_group = normal_group;
+            m_normal_page.m_free_page = 0;
 
-            assert(m_alloc_count < m_max_avliable_unit_count);
-            assert(m_free_offset_idx < m_max_avliable_unit_count);
+            assert(m_normal_page.m_alloc_count < m_normal_page.m_max_avliable_unit_count);
+            assert(m_normal_page.m_free_offset_idx < m_normal_page.m_max_avliable_unit_count);
         }
 
         // Alloc
-        void* alloc(womem_attrib_t attrib)
+        void* alloc_normal(womem_attrib_t attrib)
         {
-            assert(m_alloc_count < m_max_avliable_unit_count);
-            assert(m_free_offset_idx < m_max_avliable_unit_count);
+            assert(m_normal_page.m_alloc_count < m_normal_page.m_max_avliable_unit_count);
+            assert(m_normal_page.m_free_offset_idx < m_normal_page.m_max_avliable_unit_count);
 
-            ++m_alloc_count;
+            const size_t unit_size = (size_t)_WO_EVAL_ALLOC_GROUP_SZ(m_normal_page.m_page_unit_group);
+
+            ++m_normal_page.m_alloc_count;
 
             char* buf = m_chunkdata;
-            auto* head = (PageUnitHead*)(buf + (size_t)m_free_offset_idx * ((size_t)m_page_unit_size + sizeof(PageUnitHead)));
-            m_free_offset_idx = head->m_last_free_idx;
+            auto* head = (PageUnitHead*)(buf +
+                (size_t)m_normal_page.m_free_offset_idx *
+                (unit_size + sizeof(PageUnitHead)));
+
+            m_normal_page.m_free_offset_idx = head->m_last_free_idx;
 
             assert(head->m_in_used_flag == 0);
             head->m_attrib = attrib;
@@ -171,7 +187,8 @@ namespace womem
 
         char m_chunkdata[1];
     };
-    static_assert(offsetof(Page, m_chunkdata) % 8 == 0);
+    static_assert(sizeof(Page::NormalPage) == 8);
+    static_assert(offsetof(Page, m_chunkdata) == 16);
 
     class Chunk
     {
@@ -191,13 +208,9 @@ namespace womem
         wo::atomic_list<Page> m_released_page;
 
         mutable std::mutex m_free_pages_mx;
-
-#define _WO_EVAL_ALLOC_GROUP_IDX(SZ) (1 + (((SZ) - 1) >> 3))
-#define _WO_EVAL_ALLOC_GROUP_SZ(IDX) ((IDX) << 3)
-
     public:
-        static constexpr size_t m_max_group_count = 
-            _WO_EVAL_ALLOC_GROUP_IDX(128) + 1;
+        static constexpr size_t m_max_group_size = 128;
+        static constexpr size_t m_max_group_count = _WO_EVAL_ALLOC_GROUP_IDX(m_max_group_size) + 1;
 
     private:
         Page* m_free_pages[m_max_group_count] = {};
@@ -245,33 +258,43 @@ namespace womem
         ~Chunk()
         {
             // De commit all pages.
-            auto* released_pages = m_released_page.pick_all();
-            while (released_pages)
-            {
-                auto* cur_page = released_pages;
-                released_pages = released_pages->last;
-
-                if (cur_page->m_alloc_count != 0)
+            auto check_and_decommit_page = 
+                [this](Page* page)
                 {
-                    fprintf(stderr, "Released page: %p(%dbyte/%dtotal) still alive %d unit.\n",
-                        cur_page, (int)cur_page->m_page_unit_size, (int)cur_page->m_max_avliable_unit_count, (int)cur_page->m_alloc_count);
-
-                    for (uint8_t i = 0; i < cur_page->m_max_avliable_unit_count; ++i)
+                    if (page->m_normal_page.m_alloc_count != 0)
                     {
-                        PageUnitHead* head = (PageUnitHead*)((char*)cur_page->m_chunkdata
-                            + (size_t)i * ((size_t)cur_page->m_page_unit_size + sizeof(PageUnitHead)));
+                        fprintf(stderr, "Page: %p(%dbyte/%dtotal) still alive %d unit.\n",
+                            page,
+                            (int)_WO_EVAL_ALLOC_GROUP_SZ(page->m_normal_page.m_page_unit_group),
+                            (int)page->m_normal_page.m_max_avliable_unit_count,
+                            (int)page->m_normal_page.m_alloc_count);
 
-                        if (head->m_in_used_flag)
-                            fprintf(stderr, "  %d: %p in used, attrib: %x.\n", (int)i, head + 1, (int)head->m_attrib);
+                        for (uint8_t i = 0; i < page->m_normal_page.m_max_avliable_unit_count; ++i)
+                        {
+                            PageUnitHead* head = (PageUnitHead*)((char*)page->m_chunkdata
+                                + (size_t)i * ((size_t)_WO_EVAL_ALLOC_GROUP_SZ(page->m_normal_page.m_page_unit_group)
+                                    + sizeof(PageUnitHead)));
+
+                            if (head->m_in_used_flag)
+                                fprintf(stderr, "  %d: %p in used, attrib: %x.\n", (int)i, head + 1, (int)head->m_attrib);
+                        }
                     }
-                }
 
-                if (!_womem_decommit_mem(cur_page, WO_SYS_MEM_PAGE_SIZE))
-                {
-                    fprintf(stderr, "Failed to decommit released page: %p(%d).\n",
-                        cur_page, _womem_get_last_error());
-                    abort();
-                }
+                    if (!_womem_decommit_mem(page, WO_SYS_MEM_PAGE_SIZE))
+                    {
+                        fprintf(stderr, "Failed to decommit released page: %p(%d).\n",
+                            page, _womem_get_last_error());
+                        abort();
+                    }
+                };
+
+            auto* pages = m_released_page.pick_all();
+            while (pages)
+            {
+                auto* cur_page = pages;
+                pages = pages->last;
+
+                check_and_decommit_page(cur_page);
             }
             for (size_t i = 0; i < m_max_group_count; ++i)
             {
@@ -280,30 +303,8 @@ namespace womem
                 {
                     auto* cur_page = pages;
                     pages = pages->last;
-                    if (cur_page->m_alloc_count != 0)
-                    {
-                        fprintf(stderr, "Free page(Group: %d): %p(%dbyte/%dtotal) still alive %d unit.\n",
-                            (int)i, cur_page,
-                            (int)cur_page->m_page_unit_size,
-                            (int)cur_page->m_max_avliable_unit_count,
-                            (int)cur_page->m_alloc_count);
 
-                        for (uint8_t i = 0; i < cur_page->m_max_avliable_unit_count; ++i)
-                        {
-                            PageUnitHead* head = (PageUnitHead*)((char*)cur_page->m_chunkdata
-                                + (size_t)i * ((size_t)cur_page->m_page_unit_size + sizeof(PageUnitHead)));
-
-                            if (head->m_in_used_flag)
-                                fprintf(stderr, "  %d: %p in used, attrib: %x.\n", (int)i, head + 1, (int)head->m_attrib);
-                        }
-                    }
-
-                    if (!_womem_decommit_mem(cur_page, WO_SYS_MEM_PAGE_SIZE))
-                    {
-                        fprintf(stderr, "Failed to decommit page: %p(%d).\n",
-                            cur_page, _womem_get_last_error());
-                        abort();
-                    }
+                    check_and_decommit_page(cur_page);
                 }
             }
 
@@ -315,7 +316,7 @@ namespace womem
             }
         }
 
-        Page* _alloc_page(size_t elem_sz, size_t group)
+        Page* _alloc_normal_page(size_t elem_sz, uint8_t group)
         {
             if (nullptr != m_free_pages[group])
             {
@@ -327,9 +328,9 @@ namespace womem
             {
                 auto* p = m_free_pages[0];
                 m_free_pages[0] = p->last;
-                p->m_page_unit_size = 0;
-                p->m_alloc_count = 0;
-                p->init(m_chunk_id, _WO_EVAL_ALLOC_GROUP_SZ(group));
+                p->m_normal_page.m_page_unit_group = 0;
+                p->m_normal_page.m_alloc_count = 0;
+                p->init_normal(group);
                 return p;
             }
 
@@ -344,20 +345,20 @@ namespace womem
                     new_p, _womem_get_last_error());
                 abort();
             }
-            new_p->m_page_unit_size = 0;
-            new_p->m_alloc_count = 0;
-            new_p->m_free_page = 1;
-            new_p->init(m_chunk_id, _WO_EVAL_ALLOC_GROUP_SZ(group));
+            new_p->m_normal_page.m_page_unit_group = 0;
+            new_p->m_normal_page.m_alloc_count = 0;
+            new_p->m_normal_page.m_free_page = 1;
+            new_p->init_normal(group);
             return new_p;
         }
-        Page* alloc_pages(size_t elem_sz, size_t group, size_t alloc_page_count)
+        Page* alloc_normal_pages(size_t elem_sz, uint8_t group, size_t alloc_page_count)
         {
             std::lock_guard g1(m_free_pages_mx);
 
             Page* last = nullptr;
             for (size_t i = 0; i < alloc_page_count; ++i)
             {
-                if (auto* page = _alloc_page(elem_sz, group))
+                if (auto* page = _alloc_normal_page(elem_sz, group))
                 {
                     page->last = last;
                     last = page;
@@ -382,18 +383,20 @@ namespace womem
                 auto* cur_page = pages;
                 pages = pages->last;
 
-                if (cur_page->m_alloc_count < cur_page->m_max_avliable_unit_count)
+                if (cur_page->m_normal_page.m_alloc_count < cur_page->m_normal_page.m_max_avliable_unit_count)
                 {
-                    if (cur_page->m_alloc_count == 0)
+                    if (cur_page->m_normal_page.m_alloc_count == 0)
                     {
-                        cur_page->m_free_page = 1;
+                        cur_page->m_normal_page.m_free_page = 1;
                         cur_page->last = m_free_pages[0];
                         m_free_pages[0] = cur_page;
                     }
                     else
                     {
-                        cur_page->init(m_chunk_id, cur_page->m_page_unit_size);
-                        auto alloc_group = _WO_EVAL_ALLOC_GROUP_IDX(cur_page->m_page_unit_size);
+                        cur_page->init_normal(cur_page->m_normal_page.m_page_unit_group);
+
+                        auto alloc_group = cur_page->m_normal_page.m_page_unit_group;
+
                         cur_page->last = m_free_pages[alloc_group];
                         m_free_pages[alloc_group] = cur_page;
                     }
@@ -414,7 +417,7 @@ namespace womem
                         auto* cur_page = pages;
                         pages = pages->last;
 
-                        if (cur_page->m_alloc_count == 0)
+                        if (cur_page->m_normal_page.m_alloc_count == 0)
                         {
                             // Currne page should move to free pages.
                             cur_page->last = m_free_pages[0];
@@ -430,7 +433,6 @@ namespace womem
                 }
             }
         }
-
         Page* find_page(void* unit) const
         {
             auto offset = (char*)unit - m_virtual_memory;
@@ -444,7 +446,6 @@ namespace womem
             }
             return nullptr;
         }
-
         void* enum_page(size_t* out_page_count, size_t* out_page_size) const
         {
             std::lock_guard g1(m_free_pages_mx);
@@ -494,15 +495,15 @@ namespace womem
                 auto& preserve = m_prepare_alloc_page_reserve_count[group];
                 preserve = std::min((size_t)512, preserve * 2);
 
-                *pages = _global_chunk->alloc_pages((uint8_t)sz, group, preserve);
+                *pages = _global_chunk->alloc_normal_pages((uint8_t)sz, (uint8_t)group, preserve);
             }
             if (*pages == nullptr)
             {
                 // Failed
                 return nullptr;
             }
-            auto* ptr = (*pages)->alloc(attrib);
-            if ((*pages)->m_free_offset_idx >= (*pages)->m_max_avliable_unit_count)
+            auto* ptr = (*pages)->alloc_normal(attrib);
+            if ((*pages)->m_normal_page.m_free_offset_idx >= (*pages)->m_normal_page.m_max_avliable_unit_count)
             {
                 // Page ran out
                 auto* abondon_page = *pages;
@@ -518,8 +519,9 @@ namespace womem
 
 void womem_init(size_t virtual_pre_alloc_size)
 {
-    WO_SYS_MEM_PAGE_SIZE = _womem_page_size();
-    wo_assert(WO_SYS_MEM_PAGE_SIZE / (8 + 16) <= UINT16_MAX);
+    womem::WO_SYS_MEM_PAGE_SIZE = _womem_page_size();
+    wo_assert((WO_SYS_MEM_PAGE_SIZE - 16) / (8 + 16) <= UINT16_MAX);
+
     womem::_global_chunk = new womem::Chunk(virtual_pre_alloc_size, 0);
 }
 void womem_shutdown()
@@ -540,7 +542,7 @@ void womem_free(void* memptr)
     assert(page);
 
     head->m_in_used_flag = 0;
-    --page->m_alloc_count;
+    --page->m_normal_page.m_alloc_count;
 }
 void womem_tidy_pages(bool full)
 {
@@ -554,9 +556,9 @@ void* womem_verify(void* memptr, womem_attrib_t** attrib)
         auto diff = (char*)memptr - (char*)page->m_chunkdata;
         if (diff > 0)
         {
-            auto idx = diff / (sizeof(womem::PageUnitHead) + page->m_page_unit_size);
+            auto idx = diff / (sizeof(womem::PageUnitHead) + (size_t)_WO_EVAL_ALLOC_GROUP_SZ(page->m_normal_page.m_page_unit_group));
             auto* head = (womem::PageUnitHead*)((char*)page->m_chunkdata +
-                idx * (sizeof(womem::PageUnitHead) + page->m_page_unit_size));
+                idx * (sizeof(womem::PageUnitHead) + (size_t)_WO_EVAL_ALLOC_GROUP_SZ(page->m_normal_page.m_page_unit_group)));
 
             if (head->m_in_used_flag && memptr == head + 1)
             {
@@ -576,13 +578,13 @@ void* womem_enum_pages(size_t* page_count, size_t* page_size)
 void* womem_get_unit_buffer(void* page, size_t* unit_count, size_t* unit_size)
 {
     auto* p = std::launder(reinterpret_cast<womem::Page*>(page));
-    if (p->m_free_page == 0)
+    if (p->m_normal_page.m_free_page == 0)
     {
-        *unit_count = (size_t)p->m_max_avliable_unit_count;
-        *unit_size = sizeof(womem::PageUnitHead) + (size_t)p->m_page_unit_size;
+        *unit_count = (size_t)p->m_normal_page.m_max_avliable_unit_count;
+        *unit_size = sizeof(womem::PageUnitHead) + (size_t)_WO_EVAL_ALLOC_GROUP_SZ((size_t)p->m_normal_page.m_page_unit_group);
 
         // Recheck
-        if (p->m_free_page == 0)
+        if (p->m_normal_page.m_free_page == 0)
             return p->m_chunkdata;
     }
     return nullptr;
