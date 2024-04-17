@@ -156,7 +156,6 @@ namespace wo
             }
             return true;
         }
-
         bool ast_type::accept_type(const ast_type* another, bool ignore_using_type, bool ignore_prefix) const
         {
             if (is_pending_function() || another->is_pending_function())
@@ -393,14 +392,12 @@ namespace wo
             }
             return false;
         }
-
         bool ast_type::is_hkt_typing() const
         {
             if (symbol)
                 return symbol->is_hkt_typing_symb;
             return false;
         }
-
         lang_symbol* ast_type::base_typedef_symbol(lang_symbol* symb)
         {
             wo_assert(symb->type == lang_symbol::symbol_type::typing
@@ -413,7 +410,6 @@ namespace wo
             else
                 return symb;
         }
-
         void ast_value_variable::update_constant_value(lexer* lex)
         {
             if (is_constant)
@@ -1619,7 +1615,6 @@ namespace wo
     }
 
     std::optional<lang::judge_result_t> lang::judge_auto_type_of_funcdef_with_type(
-        ast::ast_base* errreport,
         lang_scope* located_scope,
         ast::ast_type* param,
         ast::ast_value* callaim,
@@ -1681,7 +1676,8 @@ namespace wo
             // Auto judge here...
             if (update)
             {
-                if (!(template_defines && template_args) || begin_template_scope(errreport, template_defines, *template_args))
+                if (!(template_defines && template_args) 
+                    || begin_template_scope(callaim, template_defines, *template_args))
                 {
                     temporary_entry_scope_in_pass1(located_scope);
                     {
@@ -1696,11 +1692,11 @@ namespace wo
                     if (template_defines && template_args)
                         end_template_scope();
 
-                    auto* reificated = analyze_pass_template_reification(function_define, arg_func_template_args);
+                    auto* reificated = analyze_pass_template_reification(
+                        function_define, arg_func_template_args);
 
                     if (reificated != nullptr)
                     {
-
                         if (marking_mutable != nullptr)
                         {
                             marking_mutable->val = reificated;
@@ -1711,6 +1707,8 @@ namespace wo
                         {
                             analyze_pass2(reificated);
                         }
+                        check_function_where_constraint(
+                            callaim, lang_anylizer, reificated);
                         return reificated;
                     }
                 }
@@ -1718,8 +1716,7 @@ namespace wo
             }
             else
             {
-
-                if (begin_template_scope(errreport, function_define, arg_func_template_args))
+                if (begin_template_scope(callaim, function_define, arg_func_template_args))
                 {
                     temporary_entry_scope_in_pass1(located_scope);
                     {
@@ -1789,7 +1786,6 @@ namespace wo
                 continue;
 
             std::optional<judge_result_t> judge_result = judge_auto_type_of_funcdef_with_type(
-                funccall, // Used for report error.
                 located_scope,
                 funccall->called_func->value_type->argument_types[i],
                 args_might_be_nullptr_if_unpack[i], update, template_defines, template_args);

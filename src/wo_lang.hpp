@@ -407,7 +407,6 @@ namespace wo
         using judge_result_t = std::variant<ast::ast_type*, ast::ast_value_function_define*>;
 
         std::optional<judge_result_t> judge_auto_type_of_funcdef_with_type(
-            ast::ast_base* errreport,
             lang_scope* located_scope,
             ast::ast_type* param,
             ast::ast_value* callaim,
