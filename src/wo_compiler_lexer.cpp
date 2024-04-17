@@ -1210,8 +1210,15 @@ namespace wo
                     _macro_action_vm = nullptr;
                 }
                 else
+                {
                     // Donot jit to make debug friendly.
-                    wo_run(_macro_action_vm);
+                    if (nullptr == wo_run(_macro_action_vm))
+                    {
+                        lex.lex_error(lexer::errorlevel::error, WO_ERR_FAILED_TO_RUN_MACRO_CONTROLOR,
+                            macro_name.c_str(),
+                            wo::str_to_wstr(wo_get_runtime_error(_macro_action_vm)).c_str());
+                    }
+                }
             }
         }
         else

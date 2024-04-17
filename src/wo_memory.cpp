@@ -530,7 +530,7 @@ namespace womem
 void womem_init(size_t virtual_pre_alloc_size)
 {
     womem::WO_SYS_MEM_PAGE_SIZE = _womem_page_size();
-    wo_assert((WO_SYS_MEM_PAGE_SIZE - 16) / (8 + 16) <= UINT16_MAX);
+    wo_assert((womem::WO_SYS_MEM_PAGE_SIZE - 16) / (8 + 16) <= UINT16_MAX);
 
     womem::_global_chunk = new womem::Chunk(virtual_pre_alloc_size, 0);
 }
