@@ -56,42 +56,40 @@ namespace wo
 
     struct gcbase
     {
-        // TODO : _shared_spin need to remake.
         struct _shared_spin
         {
-            std::atomic_flag _sspin_write_flag = {};
-            std::atomic_uint _sspin_read_flag = {};
+            std::atomic_flag _sspin_write_flag = ATOMIC_FLAG_INIT;
+            std::atomic_uint _sspin_read_flag = ATOMIC_VAR_INIT(0);
 
             inline bool try_lock() noexcept
             {
-                if (_sspin_write_flag.test_and_set())
+                if (_sspin_write_flag.test_and_set(std::memory_order_acquire))
                     return false;
-                if (_sspin_read_flag)
+                if (_sspin_read_flag.load(std::memory_order_relaxed))
                 {
-                    _sspin_write_flag.clear();
+                    _sspin_write_flag.clear(std::memory_order_release);
                     return false;
                 }
                 return true;
             }
-
             inline void lock() noexcept
             {
-                while (_sspin_write_flag.test_and_set());
-                while (_sspin_read_flag);
+                while (_sspin_write_flag.test_and_set(std::memory_order_acquire));
+                while (_sspin_read_flag.load(std::memory_order_relaxed));
             }
             inline void unlock() noexcept
             {
-                _sspin_write_flag.clear();
+                _sspin_write_flag.clear(std::memory_order_release);
             }
             inline void lock_shared() noexcept
             {
-                while (_sspin_write_flag.test_and_set());
-                _sspin_read_flag.fetch_add(1);
-                _sspin_write_flag.clear();
+                while (_sspin_write_flag.test_and_set(std::memory_order_acquire));
+                _sspin_read_flag.fetch_add(1, std::memory_order_relaxed);
+                _sspin_write_flag.clear(std::memory_order_release);
             }
             inline void unlock_shared() noexcept
             {
-                _sspin_read_flag.fetch_sub(1);
+                _sspin_read_flag.fetch_sub(1, std::memory_order_relaxed);
             }
         };
 
@@ -187,7 +185,7 @@ namespace wo
         virtual ~gcbase();
 
         inline static std::atomic_uint32_t gc_new_count = 0;
-    };
+        };
 
     template<typename T>
     struct gcunit : public gcbase, public T
@@ -223,4 +221,4 @@ namespace wo
             return static_cast<T*>(this);
         }
     };
-}
+    }
