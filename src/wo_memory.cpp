@@ -129,14 +129,11 @@ namespace womem
         void init_normal(uint8_t normal_group)
         {
             assert(normal_group > 0);
-            assert(m_normal_page.m_page_unit_group == 0
-                || m_normal_page.m_page_unit_group == normal_group);
+            assert(m_normal_page.m_page_unit_group == 0 || m_normal_page.m_page_unit_group == normal_group);
 
             const size_t unit_size = (size_t)_WO_EVAL_ALLOC_GROUP_SZ(normal_group);
 
-            m_normal_page.m_max_avliable_unit_count =
-                (uint16_t)((WO_SYS_MEM_PAGE_SIZE - 8 - sizeof(Page*)) /
-                    ((size_t)unit_size + sizeof(PageUnitHead)));
+            m_normal_page.m_max_avliable_unit_count = (uint16_t)((WO_SYS_MEM_PAGE_SIZE - 8 - sizeof(Page*)) / ((size_t)unit_size + sizeof(PageUnitHead)));
 
             m_normal_page.m_free_offset_idx = m_normal_page.m_max_avliable_unit_count;
 
@@ -173,8 +170,8 @@ namespace womem
             ++m_normal_page.m_alloc_count;
 
             char* buf = m_chunkdata;
-            auto* head = (PageUnitHead*)(buf +
-                (size_t)m_normal_page.m_free_offset_idx *
+            auto* head = reinterpret_cast<PageUnitHead*>(buf +
+                static_cast<size_t>(m_normal_page.m_free_offset_idx) *
                 (unit_size + sizeof(PageUnitHead)));
 
             m_normal_page.m_free_offset_idx = head->m_last_free_idx;
@@ -351,6 +348,7 @@ namespace womem
             new_p->init_normal(group);
             return new_p;
         }
+
         Page* alloc_normal_pages(size_t elem_sz, uint8_t group, size_t alloc_page_count)
         {
             std::lock_guard g1(m_free_pages_mx);
@@ -377,6 +375,7 @@ namespace womem
         {
             std::lock_guard g1(m_free_pages_mx);
 
+            // Move released pages to free pages
             auto* pages = m_released_page.pick_all();
             while (pages)
             {
@@ -402,11 +401,14 @@ namespace womem
                     }
                 }
                 else
+                {
                     m_released_page.add_one(cur_page);
+                }
             }
 
             if (full)
             {
+                // Move pages from higher groups to free pages
                 for (size_t i = 1; i < m_max_group_count; ++i)
                 {
                     auto* pages = m_free_pages[i];
@@ -419,7 +421,7 @@ namespace womem
 
                         if (cur_page->m_normal_page.m_alloc_count == 0)
                         {
-                            // Currne page should move to free pages.
+                            // Current page should move to free pages.
                             cur_page->last = m_free_pages[0];
                             m_free_pages[0] = cur_page;
                         }
@@ -463,16 +465,19 @@ namespace womem
     {
         size_t m_prepare_alloc_page_reserve_count[Chunk::m_max_group_count];
         Page* m_prepare_alloc_pages[Chunk::m_max_group_count] = {};
+
     public:
         ThreadCache()
         {
             for (size_t i = 1; i < Chunk::m_max_group_count; ++i)
                 m_prepare_alloc_page_reserve_count[i] = 1;
         }
+
         ~ThreadCache()
         {
             clear();
         }
+
         void clear()
         {
             for (auto*& pages : m_prepare_alloc_pages)
@@ -486,10 +491,12 @@ namespace womem
                 }
             }
         }
+
         void* alloc(size_t sz, womem_attrib_t attrib)
         {
             auto group = _WO_EVAL_ALLOC_GROUP_IDX(sz);
             auto** pages = &m_prepare_alloc_pages[group];
+
             if (nullptr == *pages)
             {
                 auto& preserve = m_prepare_alloc_page_reserve_count[group];
@@ -497,12 +504,15 @@ namespace womem
 
                 *pages = _global_chunk->alloc_normal_pages((uint8_t)sz, (uint8_t)group, preserve);
             }
+
             if (*pages == nullptr)
             {
                 // Failed
                 return nullptr;
             }
+
             auto* ptr = (*pages)->alloc_normal(attrib);
+
             if ((*pages)->m_normal_page.m_free_offset_idx >= (*pages)->m_normal_page.m_max_avliable_unit_count)
             {
                 // Page ran out
