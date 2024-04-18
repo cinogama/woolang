@@ -946,6 +946,7 @@ wo_bool_t _wo_cast_value(wo_vm vm, wo::value* value, wo::lexer* lex, wo::value::
 wo_bool_t _wo_cast_array(wo_vm vm, wo::value* value, wo::lexer* lex)
 {
     wo::array_t* rsarr = WO_VAL(wo_push_arr(vm, 0))->array;
+    wo::gcbase::gc_modify_write_guard g1(rsarr);
 
     while (true)
     {
@@ -971,6 +972,7 @@ wo_bool_t _wo_cast_array(wo_vm vm, wo::value* value, wo::lexer* lex)
 wo_bool_t _wo_cast_map(wo_vm vm, wo::value* value, wo::lexer* lex)
 {
     wo::dict_t* rsmap = WO_VAL(wo_push_map(vm, 0))->dict;
+    wo::gcbase::gc_modify_write_guard g1(rsmap);
 
     while (true)
     {
