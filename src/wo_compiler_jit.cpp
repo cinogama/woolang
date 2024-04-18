@@ -67,11 +67,11 @@ namespace wo
             };
             size_t              m_func_offset = 0;
             state               m_state = state::BEGIN;
-            jit_packed_func_t* m_func = nullptr;
-            asmjit::FuncNode* m_jitfunc = nullptr;
+            jit_packed_func_t*  m_func = nullptr;
+            asmjit::FuncNode*   m_jitfunc = nullptr;
             bool                m_finished = false;
             asmjit::CodeHolder  m_code_buffer;
-            CompileContextT* _m_ctx = nullptr;
+            CompileContextT*    _m_ctx = nullptr;
         };
     private:
         std::unordered_map<const byte_t*, function_jit_state*>
@@ -710,7 +710,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
         {
             wo_assert(opnum1->type == value::valuetype::dict_type && opnum1->dict != nullptr);
 
-            gcbase::gc_write_guard gwg1(opnum1->gcunit);
+            gcbase::gc_modify_write_guard gwg1(opnum1->gcunit);
 
             auto* result = &(*opnum1->dict)[*opnum2];
             if (wo::gc::gc_is_marking())

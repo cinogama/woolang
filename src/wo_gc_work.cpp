@@ -166,7 +166,7 @@ namespace wo
 
             gcbase::unit_attrib* attr;
 
-            wo::gcbase::gc_read_guard g1(unit);
+            wo::gcbase::gc_mark_read_guard g1(unit);
             if (array_t* wo_arr = dynamic_cast<array_t*>(unit))
             {
                 for (auto& val : *wo_arr)

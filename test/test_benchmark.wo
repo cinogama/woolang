@@ -153,6 +153,33 @@ namespace test_benchmark
         }
         return [0, 0];
     }
+
+    func insert_1e7()
+    {
+        let m = {}mut: map<int, mut void>;
+        for (let mut i = 0; i < 1000_0000; i += 1)
+            m[i] = do nil;
+    }
+    func set_1e7()
+    {
+        let m = {}mut: map<int, mut void>;
+        for (let mut i = 0; i < 1000_0000; i += 1)
+            m->set(i, do nil);
+    }
+    func prealloc_insert_1e7()
+    {
+        let m = map::create:<int, mut void>(1000_0000);
+        for (let mut i = 0; i < 1000_0000; i += 1)
+            m[i] = do nil;
+    }
+    func prealloc_set_1e7()
+    {
+        let m = map::create:<int, mut void>(1000_0000);
+        m->reserve(1000_0000);
+        for (let mut i = 0; i < 1000_0000; i += 1)
+            m->set(i, do nil);
+    }
+    
     func main()
     {
         bench("bench_1m_prime cost:", bench_1m_prime);
@@ -161,6 +188,10 @@ namespace test_benchmark
         bench("bench_1m_prime4 cost:", bench_1m_prime4);
         bench("fannkuch(9) cost:", \=do fannkuch(9););
         bench("fannkuch(10) cost:", \=do fannkuch(10););
+        bench("insert_1e7() cost:", insert_1e7);
+        bench("set_1e7() cost:", set_1e7);
+        bench("prealloc_insert_1e7() cost:", prealloc_insert_1e7);
+        bench("prealloc_set_1e7() cost:", prealloc_set_1e7);
     }
 }
 

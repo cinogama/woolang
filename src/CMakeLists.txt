@@ -25,8 +25,12 @@ endif()
 
 add_definitions(-DWO_SRC_PATH="${PROJECT_SOURCE_DIR}")
 
-if(${WO_SUPPORT_ASMJIT})
+if (${WO_SUPPORT_ASMJIT})
 	add_definitions(-DWO_JIT_SUPPORT_ASMJIT=1) 
+endif()
+
+if (${WO_FORCE_GC_OBJ_THREAD_SAFETY})
+	add_definitions(-DWO_FORCE_GC_OBJ_THREAD_SAFETY=1) 
 endif()
 
 if (BUILD_SHARED_LIBS)

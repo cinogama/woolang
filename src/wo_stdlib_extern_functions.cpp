@@ -696,7 +696,7 @@ WO_API wo_api rslib_std_array_resize(wo_vm vm, wo_value args)
 
 WO_API wo_api rslib_std_array_shrink(wo_vm vm, wo_value args)
 {
-    auto newsz = wo_int(args + 1);
+    size_t newsz = (size_t)wo_int(args + 1);
     if (newsz <= wo_lengthof(args + 0))
     {
         wo_arr_resize(args + 0, newsz, nullptr);
@@ -971,6 +971,17 @@ WO_API wo_api rslib_std_array_iter_next(wo_vm vm, wo_value args)
 WO_API wo_api rslib_std_map_find(wo_vm vm, wo_value args)
 {
     return wo_ret_bool(vm, wo_map_find(args + 0, args + 1));
+}
+
+WO_API wo_api rslib_std_map_create(wo_vm vm, wo_value args)
+{
+    return wo_ret_val(vm, wo_push_map(vm, (wo_size_t)wo_int(args + 0)));
+}
+
+WO_API wo_api rslib_std_map_reserve(wo_vm vm, wo_value args)
+{
+    wo_map_set(args + 0, args + 1, args + 2);
+    return wo_ret_void(vm);
 }
 
 WO_API wo_api rslib_std_map_set(wo_vm vm, wo_value args)
@@ -2602,6 +2613,11 @@ namespace map
                 result->set(rk, rv);
         return result;
     }
+    extern("rslib_std_map_create")
+        public func create<KT, VT>(sz: int)=> map<KT, VT>;
+
+    extern("rslib_std_map_reserve")
+        public func reserve<KT, VT>(self: map<KT, VT>, newsz: int)=> void;
 
     extern("rslib_std_map_set") 
         public func set<KT, VT>(self: map<KT, VT>, key: KT, val: VT)=> void;

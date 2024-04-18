@@ -93,33 +93,49 @@ namespace wo
             }
         };
 
-        struct gc_read_guard
+        struct gc_mark_read_guard
         {
             gcbase* _mx;
-            inline gc_read_guard(gcbase* sp)
+            inline gc_mark_read_guard(gcbase* sp)
                 :_mx(sp)
             {
                 _mx->read();
             }
-            inline ~gc_read_guard()
+            inline ~gc_mark_read_guard()
             {
                 _mx->read_end();
             }
         };
 
-        struct gc_write_guard
+        struct gc_modify_write_guard
         {
             gcbase* _mx;
-            inline gc_write_guard(gcbase* sp)
+            inline gc_modify_write_guard(gcbase* sp)
                 :_mx(sp)
             {
                 _mx->write();
             }
-            inline ~gc_write_guard()
+            inline ~gc_modify_write_guard()
             {
                 _mx->write_end();
             }
         };
+
+#if WO_FORCE_GC_OBJ_THREAD_SAFETY
+        using gc_read_guard = gc_mark_read_guard;
+        using gc_write_guard = gc_modify_write_guard;
+#else
+        struct gc_read_guard
+        {
+            inline gc_read_guard(gcbase* _)
+            {
+            }
+            inline ~gc_read_guard()
+            {
+            }
+        };
+        using gc_write_guard = gc_read_guard;
+#endif
 
         enum class gctype : uint8_t
         {
