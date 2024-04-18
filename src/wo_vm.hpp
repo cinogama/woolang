@@ -2631,7 +2631,7 @@ namespace wo
                     WO_VM_ASSERT(opnum1->type == value::valuetype::dict_type,
                         "Unable to index non-map value in 'sidmap'.");
 
-                    gcbase::gc_write_guard gwg1(opnum1->gcunit);
+                    gcbase::gc_modify_write_guard gwg1(opnum1->gcunit);
 
                     auto* result = &(*opnum1->dict)[*opnum2];
                     if (wo::gc::gc_is_marking())

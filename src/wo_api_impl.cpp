@@ -3074,7 +3074,7 @@ void wo_arr_resize(wo_value arr, wo_int_t newsz, wo_value init_val)
 
     if (_arr->type == wo::value::valuetype::array_type)
     {
-        wo::gcbase::gc_write_guard g1(_arr->array);
+        wo::gcbase::gc_modify_write_guard g1(_arr->array);
         size_t arrsz = _arr->array->size();
         if ((size_t)newsz < arrsz && wo::gc::gc_is_marking())
         {
@@ -3096,7 +3096,7 @@ wo_bool_t wo_arr_insert(wo_value arr, wo_int_t place, wo_value val)
 
     if (_arr->type == wo::value::valuetype::array_type)
     {
-        wo::gcbase::gc_write_guard g1(_arr->array);
+        wo::gcbase::gc_modify_write_guard g1(_arr->array);
 
         if ((size_t)place <= _arr->array->size())
         {
@@ -3142,7 +3142,7 @@ void wo_arr_add(wo_value arr, wo_value elem)
 
     if (_arr->type == wo::value::valuetype::array_type)
     {
-        wo::gcbase::gc_write_guard g1(_arr->array);
+        wo::gcbase::gc_modify_write_guard g1(_arr->array);
 
         if (elem)
             _arr->array->push_back(*WO_VAL(elem));
@@ -3237,7 +3237,7 @@ wo_bool_t wo_arr_pop_front(wo_value out_val, wo_value arr)
     auto _arr = WO_VAL(arr);
     if (_arr->type == wo::value::valuetype::array_type)
     {
-        wo::gcbase::gc_write_guard g1(_arr->array);
+        wo::gcbase::gc_modify_write_guard g1(_arr->array);
 
         if (!_arr->array->empty())
         {
@@ -3256,7 +3256,7 @@ wo_bool_t wo_arr_pop_back(wo_value out_val, wo_value arr)
     auto _arr = WO_VAL(arr);
     if (_arr->type == wo::value::valuetype::array_type)
     {
-        wo::gcbase::gc_write_guard g1(_arr->array);
+        wo::gcbase::gc_modify_write_guard g1(_arr->array);
 
         if (!_arr->array->empty())
         {
@@ -3319,7 +3319,7 @@ wo_bool_t wo_arr_remove(wo_value arr, wo_int_t index)
     auto _arr = WO_VAL(arr);
     if (_arr->type == wo::value::valuetype::array_type)
     {
-        wo::gcbase::gc_write_guard g1(_arr->array);
+        wo::gcbase::gc_modify_write_guard g1(_arr->array);
 
         if (index >= 0)
         {
@@ -3343,7 +3343,7 @@ void wo_arr_clear(wo_value arr)
     auto _arr = WO_VAL(arr);
     if (_arr->type == wo::value::valuetype::array_type)
     {
-        wo::gcbase::gc_write_guard g1(_arr->array);
+        wo::gcbase::gc_modify_write_guard g1(_arr->array);
         if (wo::gc::gc_is_marking())
             for (auto& val : *_arr->array)
                 wo::gcbase::write_barrier(&val);
@@ -3388,7 +3388,7 @@ wo_bool_t wo_map_get_or_set_default(wo_value out_val, wo_value map, wo_value ind
     if (_map->type == wo::value::valuetype::dict_type)
     {
         wo::value* store_val = nullptr;
-        wo::gcbase::gc_write_guard g1(_map->dict);
+        wo::gcbase::gc_modify_write_guard g1(_map->dict);
 
         auto fnd = _map->dict->find(*WO_VAL(index));
         bool found = fnd != _map->dict->end();
@@ -3462,7 +3462,7 @@ void wo_map_set(wo_value map, wo_value index, wo_value val)
     auto _map = WO_VAL(map);
     if (_map->type == wo::value::valuetype::dict_type)
     {
-        wo::gcbase::gc_write_guard g1(_map->dict);
+        wo::gcbase::gc_modify_write_guard g1(_map->dict);
         auto* store_val = &(*_map->dict)[*WO_VAL(index)];
         wo::gcbase::write_barrier(store_val);
         store_val->set_val(WO_VAL(val));
@@ -3476,7 +3476,7 @@ wo_bool_t wo_map_remove(wo_value map, wo_value index)
     auto _map = WO_VAL(map);
     if (_map->type == wo::value::valuetype::dict_type)
     {
-        wo::gcbase::gc_write_guard g1(_map->dict);
+        wo::gcbase::gc_modify_write_guard g1(_map->dict);
         if (wo::gc::gc_is_marking())
         {
             auto fnd = _map->dict->find(*WO_VAL(index));
@@ -3498,7 +3498,7 @@ void wo_map_clear(wo_value map)
     auto _map = WO_VAL(map);
     if (_map->type == wo::value::valuetype::dict_type)
     {
-        wo::gcbase::gc_write_guard g1(_map->dict);
+        wo::gcbase::gc_modify_write_guard g1(_map->dict);
         if (wo::gc::gc_is_marking())
         {
             for (auto& kvpair : *_map->dict)
@@ -3535,7 +3535,7 @@ void wo_map_keys(wo_value out_val, wo_vm vm, wo_value map)
     {
         wo::gcbase::gc_read_guard g1(_map->dict);
         auto* keys = wo::array_t::gc_new<wo::gcbase::gctype::young>(_map->dict->size());
-        wo::gcbase::gc_write_guard g2(keys);
+        wo::gcbase::gc_modify_write_guard g2(keys);
         size_t i = 0;
         for (auto& kvpair : *_map->dict)
         {
@@ -3555,7 +3555,7 @@ void wo_map_vals(wo_value out_val, wo_vm vm, wo_value map)
     {
         wo::gcbase::gc_read_guard g1(_map->dict);
         auto* vals = wo::array_t::gc_new<wo::gcbase::gctype::young>(_map->dict->size());
-        wo::gcbase::gc_write_guard g2(vals);
+        wo::gcbase::gc_modify_write_guard g2(vals);
         size_t i = 0;
         for (auto& kvpair : *_map->dict)
         {
