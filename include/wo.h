@@ -180,7 +180,7 @@ WO_API void wo_set_buffer(wo_value value, wo_vm vm, const void* val, wo_size_t l
 WO_API void wo_set_gchandle(wo_value value, wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t));
 WO_API void wo_set_struct(wo_value value, wo_vm vm, uint16_t structsz);
 WO_API void wo_set_arr(wo_value value, wo_vm vm, wo_int_t count);
-WO_API void wo_set_map(wo_value value, wo_vm vm);
+WO_API void wo_set_map(wo_value value, wo_vm vm, wo_size_t reserved);
 
 WO_API wo_integer_t wo_cast_int(wo_value value);
 WO_API wo_real_t    wo_cast_real(wo_value value);
@@ -398,7 +398,7 @@ WO_API wo_value     wo_push_val(wo_vm vm, wo_value val);
 WO_API wo_value     wo_push_dup(wo_vm vm, wo_value val);
 WO_API wo_value     wo_push_arr(wo_vm vm, wo_int_t count);
 WO_API wo_value     wo_push_struct(wo_vm vm, uint16_t count);
-WO_API wo_value     wo_push_map(wo_vm vm);
+WO_API wo_value     wo_push_map(wo_vm vm, wo_size_t reserved);
 
 WO_API wo_value     wo_top_stack(wo_vm vm);
 WO_API void         wo_pop_stack(wo_vm vm);
@@ -431,14 +431,14 @@ WO_API wo_bool_t    wo_enter_gcguard(wo_vm vm);
 //            for yield-value in future.
 WO_API wo_result_t  wo_ret_yield(wo_vm vm);
 
-WO_API wo_int_t     wo_lengthof(wo_value value);
-WO_API wo_int_t     wo_str_bytelen(wo_value value);
+WO_API wo_size_t    wo_lengthof(wo_value value);
+WO_API wo_size_t    wo_str_bytelen(wo_value value);
 
-WO_API wo_char_t    wo_str_get_char(wo_string_t str, wo_int_t index);
+WO_API wo_char_t    wo_str_get_char(wo_string_t str, wo_size_t index);
 WO_API wo_wstring_t wo_str_to_wstr(wo_string_t str);
 WO_API wo_string_t  wo_wstr_to_str(wo_wstring_t str);
 
-WO_API wo_char_t    wo_strn_get_char(wo_string_t str, wo_size_t size, wo_int_t index);
+WO_API wo_char_t    wo_strn_get_char(wo_string_t str, wo_size_t size, wo_size_t index);
 WO_API wo_wstring_t wo_strn_to_wstr(wo_string_t str, wo_size_t size);
 WO_API wo_string_t  wo_wstrn_to_str(wo_wstring_t str, wo_size_t size);
 
@@ -451,8 +451,8 @@ WO_API wo_bool_t    wo_result_get(wo_value out_val, wo_value resultval);
 #define wo_option_get wo_result_get
 
 // Read operation
-WO_API wo_bool_t    wo_arr_try_get(wo_value out_val, wo_value arr, wo_int_t index);
-WO_API void         wo_arr_get(wo_value out_val, wo_value arr, wo_int_t index);
+WO_API wo_bool_t    wo_arr_try_get(wo_value out_val, wo_value arr, wo_size_t index);
+WO_API void         wo_arr_get(wo_value out_val, wo_value arr, wo_size_t index);
 WO_API wo_bool_t    wo_arr_front(wo_value out_val, wo_value arr);
 WO_API wo_bool_t    wo_arr_back(wo_value out_val, wo_value arr);
 WO_API void         wo_arr_front_val(wo_value out_val, wo_value arr);
@@ -475,14 +475,15 @@ WO_API wo_bool_t    wo_arr_pop_back(wo_value out_val, wo_value arr);
 WO_API void         wo_arr_pop_front_val(wo_value out_val, wo_value arr);
 WO_API void         wo_arr_pop_back_val(wo_value out_val, wo_value arr);
 
-WO_API wo_bool_t    wo_arr_try_set(wo_value arr, wo_int_t index, wo_value val);
-WO_API void         wo_arr_set(wo_value arr, wo_int_t index, wo_value val);
-WO_API void         wo_arr_resize(wo_value arr, wo_int_t newsz, wo_value init_val);
-WO_API wo_bool_t    wo_arr_insert(wo_value arr, wo_int_t place, wo_value val);
+WO_API wo_bool_t    wo_arr_try_set(wo_value arr, wo_size_t index, wo_value val);
+WO_API void         wo_arr_set(wo_value arr, wo_size_t index, wo_value val);
+WO_API void         wo_arr_resize(wo_value arr, wo_size_t newsz, wo_value init_val);
+WO_API wo_bool_t    wo_arr_insert(wo_value arr, wo_size_t place, wo_value val);
 WO_API void         wo_arr_add(wo_value arr, wo_value elem);
-WO_API wo_bool_t    wo_arr_remove(wo_value arr, wo_int_t index);
+WO_API wo_bool_t    wo_arr_remove(wo_value arr, wo_size_t index);
 WO_API void         wo_arr_clear(wo_value arr);
 
+WO_API void         wo_map_reserve(wo_value map, wo_size_t sz);
 WO_API void         wo_map_set(wo_value map, wo_value index, wo_value val);
 WO_API wo_bool_t    wo_map_get_or_set_default(wo_value out_val, wo_value map, wo_value index, wo_value default_value);
 WO_API wo_bool_t    wo_map_remove(wo_value map, wo_value index);

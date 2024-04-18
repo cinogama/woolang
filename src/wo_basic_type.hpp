@@ -17,16 +17,20 @@
 namespace wo
 {
     struct value;
-    struct value_compare
+    struct value_equal
     {
         bool operator()(const value& lhs, const value& rhs) const;
+    };
+    struct value_hasher
+    {
+        size_t operator()(const value& val) const;
     };
 
     using byte_t = uint8_t;
     using hash_t = uint64_t;
 
     using string_t = gcunit<std::string>;
-    using dict_t = gcunit<std::map<value, value, value_compare>>;
+    using dict_t = gcunit<std::unordered_map<value, value, value_hasher, value_equal>>;
     using array_t = gcunit<std::vector<value>>;
 
     template<typename ... TS>
@@ -242,35 +246,25 @@ namespace wo
     static_assert(std::atomic<byte_t>::is_always_lock_free);
     using wo_extern_native_func_t = wo_native_func_t;
 
-    inline bool value_compare::operator()(const value& lhs, const value& rhs) const
+    inline bool value_equal::operator()(const value& lhs, const value& rhs) const
     {
         if (lhs.type == rhs.type)
         {
-            switch (lhs.type)
-            {
-            case value::valuetype::invalid:
-            case value::valuetype::bool_type:
-            case value::valuetype::integer_type:
-                return lhs.integer < rhs.integer;
-            case value::valuetype::real_type:
-                return lhs.real < rhs.real;
-            case value::valuetype::handle_type:
-                return lhs.handle < rhs.handle;
-            case value::valuetype::string_type:
-                return (*lhs.string) < (*rhs.string);
-            case value::valuetype::array_type:
-            case value::valuetype::dict_type:
-            case value::valuetype::gchandle_type:
-            case value::valuetype::closure_type:
-            case value::valuetype::struct_type:
-                return ((intptr_t)lhs.gcunit) < ((intptr_t)rhs.gcunit);
-            default:
-                wo_fail(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
-                return false;
-            }
+            if (lhs.type == value::valuetype::string_type)
+                return *lhs.string == *rhs.string;
+
+            return lhs.handle == rhs.handle;
         }
-        return lhs.type < rhs.type;
+        return lhs.type == rhs.type && lhs.handle == rhs.handle;
     }
+    inline size_t value_hasher::operator()(const value& val) const
+    {
+        if (val.type == value::valuetype::string_type)
+            return std::hash<std::string>()(*val.string);
+
+        return (size_t)val.handle;
+    }
+
     static_assert((int)value::valuetype::invalid == WO_INVALID_TYPE);
     static_assert((int)value::valuetype::integer_type == WO_INTEGER_TYPE);
     static_assert((int)value::valuetype::real_type == WO_REAL_TYPE);
@@ -285,6 +279,7 @@ namespace wo
     static_assert((int)value::valuetype::gchandle_type == WO_GCHANDLE_TYPE);
     static_assert((int)value::valuetype::closure_type == WO_CLOSURE_TYPE);
     static_assert((int)value::valuetype::struct_type == WO_STRUCT_TYPE);
+
     // optional_value used for store 1 value with a id(used for select or else)
     struct struct_values
     {

@@ -710,13 +710,13 @@ void wo_set_arr(wo_value value, wo_vm vm, wo_int_t count)
         wo::array_t::gc_new<wo::gcbase::gctype::young>((size_t)count));
 }
 
-void wo_set_map(wo_value value, wo_vm vm)
+void wo_set_map(wo_value value, wo_vm vm, wo_size_t reserved)
 {
     auto _rsvalue = WO_VAL(value);
 
     _wo_enter_gc_guard g(vm);
     _rsvalue->set_gcunit<wo::value::valuetype::dict_type>(
-        wo::dict_t::gc_new<wo::gcbase::gctype::young>());
+        wo::dict_t::gc_new<wo::gcbase::gctype::young>(reserved));
 }
 
 wo_integer_t wo_cast_int(wo_value value)
@@ -970,7 +970,7 @@ wo_bool_t _wo_cast_array(wo_vm vm, wo::value* value, wo::lexer* lex)
 }
 wo_bool_t _wo_cast_map(wo_vm vm, wo::value* value, wo::lexer* lex)
 {
-    wo::dict_t* rsmap = WO_VAL(wo_push_map(vm))->dict;
+    wo::dict_t* rsmap = WO_VAL(wo_push_map(vm, 0))->dict;
 
     while (true)
     {
@@ -2135,7 +2135,7 @@ void wo_abort_all_vm_to_exit()
     std::atexit(_wo_check_atexit);
 }
 
-wo_integer_t wo_lengthof(wo_value value)
+wo_size_t wo_lengthof(wo_value value)
 {
     auto _rsvalue = WO_VAL(value);
 
@@ -2163,7 +2163,7 @@ wo_integer_t wo_lengthof(wo_value value)
     }
 }
 
-wo_int_t wo_str_bytelen(wo_value value)
+wo_size_t wo_str_bytelen(wo_value value)
 {
     auto _rsvalue = WO_VAL(value);
     if (_rsvalue->type == wo::value::valuetype::string_type)
@@ -2173,7 +2173,7 @@ wo_int_t wo_str_bytelen(wo_value value)
     return 0;
 }
 
-wo_char_t wo_str_get_char(wo_string_t str, wo_int_t index)
+wo_char_t wo_str_get_char(wo_string_t str, wo_size_t index)
 {
     size_t len = strlen(str);
 
@@ -2199,7 +2199,7 @@ wo_string_t  wo_wstr_to_str(wo_wstring_t str)
     return str_buf.c_str();
 }
 
-wo_char_t wo_strn_get_char(wo_string_t str, wo_size_t size, wo_int_t index)
+wo_char_t wo_strn_get_char(wo_string_t str, wo_size_t size, wo_size_t index)
 {
     wo_char_t ch = wo::u8strnidx(str, size, (size_t)index);
     if (ch == 0 && wo::u8strnlen(str, size) <= (size_t)index)
@@ -2808,14 +2808,14 @@ wo_value wo_push_struct(wo_vm vm, uint16_t count)
 
     return CS_VAL(_rsvalue);
 }
-wo_value wo_push_map(wo_vm vm)
+wo_value wo_push_map(wo_vm vm, wo_size_t reserved)
 {
     auto* _rsvalue = WO_VM(vm)->sp--;
     _rsvalue->type = (wo::value::valuetype::dict_type);
 
     _wo_enter_gc_guard g(vm);
     _rsvalue->set_gcunit<wo::value::valuetype::dict_type>(
-        wo::dict_t::gc_new<wo::gcbase::gctype::young>());
+        wo::dict_t::gc_new<wo::gcbase::gctype::young>(reserved));
 
     return CS_VAL(_rsvalue);
 }
@@ -3068,7 +3068,7 @@ wo_bool_t wo_result_get(wo_value out_val, wo_value resultval)
     return WO_FALSE;
 }
 
-void wo_arr_resize(wo_value arr, wo_int_t newsz, wo_value init_val)
+void wo_arr_resize(wo_value arr, wo_size_t newsz, wo_value init_val)
 {
     auto _arr = WO_VAL(arr);
 
@@ -3090,7 +3090,7 @@ void wo_arr_resize(wo_value arr, wo_int_t newsz, wo_value init_val)
     else
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not an array.");
 }
-wo_bool_t wo_arr_insert(wo_value arr, wo_int_t place, wo_value val)
+wo_bool_t wo_arr_insert(wo_value arr, wo_size_t place, wo_value val)
 {
     auto _arr = WO_VAL(arr);
 
@@ -3111,7 +3111,7 @@ wo_bool_t wo_arr_insert(wo_value arr, wo_int_t place, wo_value val)
 
     return WO_FALSE;
 }
-wo_bool_t wo_arr_try_set(wo_value arr, wo_int_t index, wo_value val)
+wo_bool_t wo_arr_try_set(wo_value arr, wo_size_t index, wo_value val)
 {
     auto _arr = WO_VAL(arr);
     if (_arr->type == wo::value::valuetype::array_type)
@@ -3131,7 +3131,7 @@ wo_bool_t wo_arr_try_set(wo_value arr, wo_int_t index, wo_value val)
 
     return WO_FALSE;
 }
-void wo_arr_set(wo_value arr, wo_int_t index, wo_value val)
+void wo_arr_set(wo_value arr, wo_size_t index, wo_value val)
 {
     if (!wo_arr_try_set(arr, index, val))
         wo_fail(WO_FAIL_INDEX_FAIL, "Failed to index: out of range.");
@@ -3153,7 +3153,7 @@ void wo_arr_add(wo_value arr, wo_value elem)
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not an array.");
 }
 
-wo_bool_t wo_arr_try_get(wo_value out_val, wo_value arr, wo_int_t index)
+wo_bool_t wo_arr_try_get(wo_value out_val, wo_value arr, wo_size_t index)
 {
     auto _arr = WO_VAL(arr);
     if (_arr->type == wo::value::valuetype::array_type)
@@ -3171,7 +3171,7 @@ wo_bool_t wo_arr_try_get(wo_value out_val, wo_value arr, wo_int_t index)
 
     return WO_FALSE;
 }
-void wo_arr_get(wo_value out_val, wo_value arr, wo_int_t index)
+void wo_arr_get(wo_value out_val, wo_value arr, wo_size_t index)
 {
     if (!wo_arr_try_get(out_val, arr, index))
         wo_fail(WO_FAIL_INDEX_FAIL, "Failed to index: out of range.");
@@ -3314,7 +3314,7 @@ wo_int_t wo_arr_find(wo_value arr, wo_value elem)
 
     return -1;
 }
-wo_bool_t wo_arr_remove(wo_value arr, wo_int_t index)
+wo_bool_t wo_arr_remove(wo_value arr, wo_size_t index)
 {
     auto _arr = WO_VAL(arr);
     if (_arr->type == wo::value::valuetype::array_type)
@@ -3455,6 +3455,18 @@ wo_bool_t wo_map_try_get(wo_value out_val, wo_value map, wo_value index)
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not a map.");
 
     return WO_FALSE;
+}
+
+void wo_map_reserve(wo_value map, wo_integer_t sz)
+{
+    auto _map = WO_VAL(map);
+    if (_map->type == wo::value::valuetype::dict_type)
+    {
+        wo::gcbase::gc_modify_write_guard g1(_map->dict);
+        _map->dict->reserve(sz);
+    }
+    else
+        wo_fail(WO_FAIL_TYPE_FAIL, "Value is not a map.");
 }
 
 void wo_map_set(wo_value map, wo_value index, wo_value val)
