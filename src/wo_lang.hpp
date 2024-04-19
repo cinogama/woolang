@@ -197,9 +197,12 @@ namespace wo
             using finalize_table_t = typed_table_t<void(lang*, ast::ast_base*, ir_compiler*)>;
             using finalize_value_table_t = typed_table_t<opnum::opnumbase& (lang*, ast::ast_base*, ir_compiler*, bool)>;
 
+            using ignore_debug_info_table_t = std::unordered_set<std::type_index>;
+
             pass_table_t m_pass_table[3];
             finalize_table_t m_finalize_table;
             finalize_value_table_t m_finalize_value_table;
+            ignore_debug_info_table_t m_ignore_debug_info_table;
 
             dynamic_cast_pass_table() = default;
 
@@ -245,6 +248,12 @@ namespace wo
                         })).second);
             }
 
+            template<typename T>
+            void register_ignore_debug_info_table()
+            {
+                wo_assure(m_ignore_debug_info_table.insert(std::type_index(typeid(T))).second);
+            }
+
             template<size_t passid>
             bool pass(lang* lang_self, ast::ast_base* ast)
             {
@@ -262,7 +271,6 @@ namespace wo
                 }
                 return false;
             }
-
             bool finalize(lang* lang_self, ast::ast_base* ast, ir_compiler* compiler)
             {
                 if (ast != nullptr)
@@ -276,12 +284,15 @@ namespace wo
                 }
                 return false;
             }
-
             opnum::opnumbase& finalize_value(lang* lang_self, ast::ast_base* ast, ir_compiler* compiler, bool get_pure_value)
             {
                 wo_assert(ast != nullptr);
                 const auto& f = m_finalize_value_table.at(std::type_index(typeid(*ast)));
                 return f(lang_self, ast, compiler, get_pure_value);
+            }
+            bool ignore_debug_info(ast::ast_base* ast)
+            {
+                return m_ignore_debug_info_table.find(std::type_index(typeid(*ast))) != m_ignore_debug_info_table.end();
             }
         };
 

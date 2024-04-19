@@ -1091,13 +1091,9 @@ namespace wo
                             if (base_callstackinfo_ptr->type == value::valuetype::nativecallstack
                                 || base_callstackinfo_ptr->type == value::valuetype::callstack)
                                 break;
-                            else
-                            {
-                                os << "??" << std::endl;
-                                return;
-                            }
                         }
-
+                        else
+                            break;
                     }
                 }
                 else

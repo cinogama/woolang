@@ -84,6 +84,82 @@ namespace wo
             out_value->set_val(v);
         }
     }
+    namespace weakref
+    {
+        struct _wo_weak_ref
+        {
+            value m_weak_value_record;
+
+            std::atomic_flag    m_spin;
+            bool                m_alive;
+        };
+        std::mutex _weak_ref_list_mx;
+        std::unordered_set<_wo_weak_ref*> _weak_ref_record_list;
+
+        wo_weak_ref create_weak_ref(value* val)
+        {
+            auto* weak_ref = new _wo_weak_ref;
+
+            weak_ref->m_weak_value_record.set_val(val);
+            weak_ref->m_spin.clear();
+            weak_ref->m_alive = true;
+
+            if (val->type >= wo::value::valuetype::need_gc)
+            {
+                std::lock_guard g1(_weak_ref_list_mx);
+                _weak_ref_record_list.insert(weak_ref);
+            }
+            return reinterpret_cast<wo_weak_ref>(weak_ref);
+        }
+        void close_weak_ref(wo_weak_ref weak_ref)
+        {
+            auto* wref = std::launder(reinterpret_cast<_wo_weak_ref*>(weak_ref));
+
+            if (wref->m_weak_value_record.type >= wo::value::valuetype::need_gc)
+            {
+                std::lock_guard g1(_weak_ref_list_mx);
+                _weak_ref_record_list.erase(wref);
+            }
+
+            delete wref;
+        }
+        bool lock_weak_ref(value* out_value, wo_weak_ref weak_ref)
+        {
+            auto* wref = std::launder(reinterpret_cast<_wo_weak_ref*>(weak_ref));
+
+            while (wref->m_spin.test_and_set(std::memory_order_acquire))
+                std::this_thread::yield();
+
+            if (wref->m_alive == false)
+                return false;
+
+            if (gc::gc_is_marking())
+                gcbase::write_barrier(&wref->m_weak_value_record);
+
+            if (gc::gc_is_collecting_memo())
+            {
+                gcbase::write_barrier(&wref->m_weak_value_record);
+
+                // Unlock the weakref, let memo continue.
+                wref->m_spin.clear(std::memory_order_release);
+
+                while (gc::gc_is_collecting_memo())
+                    std::this_thread::yield();
+
+                // Relock the weakref.
+                while (wref->m_spin.test_and_set(std::memory_order_acquire))
+                    std::this_thread::yield();
+
+                if (wref->m_alive == false)
+                    return false;
+            }
+
+            out_value->set_val(&wref->m_weak_value_record);
+
+            wref->m_spin.clear(std::memory_order_release);
+            return true;
+        }
+    }
 
     // A very simply GC system, just stop the vm, then collect inform
     namespace gc
@@ -665,6 +741,7 @@ namespace wo
             // 8. OK, Continue mark gray to black
             _gc_mark_thread_groups_instance->launch_round_of_mark();
 
+
             // Marking finished.
             // NOTE: It is safe to do this here, because if the mark has ended, 
             //      if there is a unit trying to enter the memory set at the same time
@@ -698,10 +775,38 @@ namespace wo
             }
             gc_mark_all_gray_unit(&mem_gray_list);
 
+            // 10. OK, All unit has been marked. recheck weakref, remove it from list if ref has been lost
+            do
+            {
+                std::lock_guard g1(weakref::_weak_ref_list_mx);
+
+                auto record_end = weakref::_weak_ref_record_list.end();
+                for (auto idx = weakref::_weak_ref_record_list.begin();
+                    idx != record_end;)
+                {
+                    auto current_idx = idx++;
+
+                    auto weakref_instance = *current_idx;
+
+                    while (weakref_instance->m_spin.test_and_set(std::memory_order_acquire))
+                        std::this_thread::yield();
+
+                    gcbase::unit_attrib* attrib;
+                    wo_assure(weakref_instance->m_weak_value_record.get_gcunit_and_attrib_ref(&attrib));
+                    if (attrib->m_marked == (uint8_t)wo::gcbase::gcmarkcolor::no_mark)
+                    {
+                        weakref_instance->m_alive = false;
+                        weakref::_weak_ref_record_list.erase(current_idx);
+                    }
+                    weakref_instance->m_spin.clear(std::memory_order_release);
+
+                }
+            } while (0);
+
             _gc_is_recycling = true;
             _gc_is_collecting_memo = false;
 
-            // 10. OK, All unit has been marked. reduce gcunits
+            // 11. OK, All unit has been marked. reduce gcunits
             size_t page_count, page_size;
             char* pages = (char*)womem_enum_pages(&page_count, &page_size);
 
@@ -718,7 +823,7 @@ namespace wo
 
             _gc_mark_thread_groups_instance->launch_round_of_mark();
 
-            // 11. Remove orpho vm
+            // 12. Remove orpho vm
             std::list<vmbase*> need_destruct_gc_destructor_list;
             do
             {
@@ -1015,8 +1120,8 @@ namespace wo
 
         gc_destructed = true;
 #endif
-    };
-}
+};
+    }
 void wo_gc_pause(void)
 {
     wo::gc::_gc_pause = true;

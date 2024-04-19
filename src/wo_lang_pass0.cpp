@@ -198,6 +198,9 @@ namespace wo
         WO_FINALIZE_VALUE(ast_value_make_tuple_instance);
         WO_FINALIZE_VALUE(ast_value_trib_expr);
 
+        m_global_pass_table->register_ignore_debug_info_table<ast_value_variable>();
+        m_global_pass_table->register_ignore_debug_info_table<ast_value_function_define>();
+
 #undef WO_PASS
 #undef WO_PASS0
 #undef WO_PASS1

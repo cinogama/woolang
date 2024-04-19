@@ -28,6 +28,12 @@ namespace wo
         void close_pin_value(wo_pin_value pin_value);
         void read_pin_value(value* out_value, wo_pin_value pin_value);
     }
+    namespace weakref
+    {
+        wo_weak_ref create_weak_ref(value* val);
+        void close_weak_ref(wo_weak_ref weak_ref);
+        bool lock_weak_ref(value* out_value, wo_weak_ref weak_ref);
+    }
 
     template<typename NodeT>
     struct atomic_list
@@ -39,7 +45,6 @@ namespace wo
             node->last = last_node.load();// .exchange(node);
             while (!last_node.compare_exchange_weak(node->last, node));
         }
-
         NodeT* pick_all()
         {
             NodeT* result = nullptr;
@@ -93,7 +98,6 @@ namespace wo
                 _sspin_read_flag.fetch_sub(1, std::memory_order_relaxed);
             }
         };
-
         struct gc_mark_read_guard
         {
             gcbase* _mx;
@@ -107,7 +111,6 @@ namespace wo
                 _mx->read_end();
             }
         };
-
         struct gc_modify_write_guard
         {
             gcbase* _mx;

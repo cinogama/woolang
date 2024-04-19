@@ -526,6 +526,12 @@ WO_API void         wo_pin_value_set(wo_pin_value pin_value, wo_value val);
 WO_API void         wo_pin_value_set_dup(wo_pin_value pin_value, wo_value val);
 WO_API void         wo_pin_value_get(wo_value out_value, wo_pin_value pin_value);
 
+// Weak reference
+typedef struct _wo_weak_ref* wo_weak_ref;
+WO_API wo_weak_ref  wo_create_weak_ref(wo_value val);
+WO_API void         wo_close_weak_ref(wo_weak_ref ref);
+WO_API wo_bool_t    wo_lock_weak_ref(wo_value out_val, wo_weak_ref ref);
+
 #if defined(WO_IMPL)
 #define WO_NEED_RTERROR_CODES 1
 #define WO_NEED_ANSI_CONTROL 1

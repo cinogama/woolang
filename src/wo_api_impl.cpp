@@ -2563,7 +2563,7 @@ std::wstring _dump_src_info(const std::string& path, size_t beginaimrow, size_t 
                 else
                     swprintf(buf, 19, L"\n%-5zu | ", current_row_no);
                 result += buf;
-            };
+                };
             auto print_notify_line = [&result, &first_line, &current_row_no, beginpointplace, pointplace, style, beginaimrow, aimrow](size_t line_end_place) {
                 wchar_t buf[20] = {};
                 if (first_line)
@@ -2622,7 +2622,7 @@ std::wstring _dump_src_info(const std::string& path, size_t beginaimrow, size_t 
                     append_result += wo::str_to_wstr(ANSI_RST);
 
                 result += append_result;
-            };
+                };
 
             if (from <= current_row_no && current_row_no <= to)
                 print_src_file_print_lineno();
@@ -3795,6 +3795,19 @@ wo_bool_t wo_enter_gcguard(wo_vm vm)
         return WO_TRUE;
     }
     return WO_FALSE;
+}
+
+wo_weak_ref wo_create_weak_ref(wo_value val)
+{
+    return wo::weakref::create_weak_ref(WO_VAL(val));
+}
+void wo_close_weak_ref(wo_weak_ref ref)
+{
+    wo::weakref::close_weak_ref(ref);
+}
+wo_bool_t wo_lock_weak_ref(wo_value out_val, wo_weak_ref ref)
+{
+    return WO_CBOOL(wo::weakref::lock_weak_ref(WO_VAL(out_val), ref));
 }
 
 // LSP-API

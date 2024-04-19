@@ -1531,6 +1531,26 @@ WO_API wo_api rslib_std_bit_shr(wo_vm vm, wo_value args)
     return wo_ret_int(vm, (wo_integer_t)result);
 }
 
+WO_API wo_api rslib_std_weakref_create(wo_vm vm, wo_value args)
+{
+    return wo_ret_gchandle(vm, wo_create_weak_ref(args + 0), nullptr,
+        [](void* p)
+        {
+            wo_close_weak_ref(std::launder(reinterpret_cast<wo_weak_ref>(p)));
+        });
+}
+
+WO_API wo_api rslib_std_weakref_trylock(wo_vm vm, wo_value args)
+{
+    wo_value result = wo_push_empty(vm);
+
+    auto wref = std::launder(reinterpret_cast<wo_weak_ref>(wo_pointer(args + 0)));
+    if (WO_TRUE == wo_lock_weak_ref(result, wref))
+        return wo_ret_option_val(vm, result);
+
+    return wo_ret_option_none(vm);
+}
+
 #if defined(__APPLE__) && defined(__MACH__)
 #   include <TargetConditionals.h>
 #endif
@@ -1662,23 +1682,37 @@ namespace std
         else
             return v->iter;
     }
-}
 
-public using mutable<T> = struct {
-    val : mut T
-}
-{
-    public func create<T>(val: T)
+    public using weakref<T> = gchandle
     {
-        return mutable:<T>{val = mut val};
+        extern("rslib_std_weakref_create")
+        public func create<T>(val: T)=> weakref<T>;
+
+        extern("rslib_std_weakref_trylock")
+        public func get<T>(self: weakref<T>)=> option<T>;
+
+        public func close<T>(self: weakref<T>)
+        {
+            return self: gchandle->close;
+        }
     }
-    public func set<T>(self: mutable<T>, val: T)
-    {
-        self.val = val;
+
+    public using mutable<T> = struct {
+        val : mut T
     }
-    public func get<T>(self: mutable<T>)
     {
-        return self.val;
+        public func create<T>(val: T)
+        {
+            return mutable:<T>{val = mut val};
+        }
+        public func set<T>(self: mutable<T>, val: T)
+        {
+            self.val = val;
+        }
+        public func get<T>(self: mutable<T>)
+        {
+            return self.val;
+        }
     }
 }
 

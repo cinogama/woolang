@@ -2345,7 +2345,9 @@ namespace wo
         }
         else
         {
-            compiler->pdb_info->generate_debug_info_at_astnode(value, compiler);
+            if (!this->m_global_pass_table->ignore_debug_info(value))
+                compiler->pdb_info->generate_debug_info_at_astnode(value, compiler);
+
             return this->m_global_pass_table->finalize_value(this, value, compiler, get_pure_value);
         }
 #undef WO_NEW_OPNUM
