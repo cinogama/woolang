@@ -134,6 +134,9 @@ WO_API void         wo_init(int argc, char** argv);
 #define wo_init(argc, argv) do{wo_init(argc, argv); setlocale(LC_CTYPE, wo_locale_name());}while(0)
 WO_API void         wo_finish(void(*do_after_shutdown)(void*), void* custom_data);
 
+WO_API void         wo_gc_pause(void);
+WO_API void         wo_gc_resume(void);
+WO_API void         wo_gc_wait_sync(void);
 WO_API void         wo_gc_immediately(wo_bool_t fullgc);
 
 WO_API void*        wo_load_lib(const char* libname, const char* path, wo_bool_t panic_when_fail);
@@ -499,9 +502,6 @@ typedef struct _wo_debuggee_handle
 *wo_debuggee;
 typedef void(*wo_debuggee_handler_func)(wo_debuggee, wo_vm, void*);
 
-WO_API void         wo_gc_pause(void);
-WO_API void         wo_gc_resume(void);
-
 WO_API void         wo_attach_default_debuggee(void);
 WO_API wo_bool_t    wo_has_attached_debuggee(void);
 WO_API void         wo_detach_debuggee(void);
@@ -525,6 +525,12 @@ WO_API void         wo_close_pin_value(wo_pin_value pin_value);
 WO_API void         wo_pin_value_set(wo_pin_value pin_value, wo_value val);
 WO_API void         wo_pin_value_set_dup(wo_pin_value pin_value, wo_value val);
 WO_API void         wo_pin_value_get(wo_value out_value, wo_pin_value pin_value);
+
+// Weak reference
+typedef struct _wo_weak_ref* wo_weak_ref;
+WO_API wo_weak_ref  wo_create_weak_ref(wo_value val);
+WO_API void         wo_close_weak_ref(wo_weak_ref ref);
+WO_API wo_bool_t    wo_lock_weak_ref(wo_value out_val, wo_weak_ref ref);
 
 #if defined(WO_IMPL)
 #define WO_NEED_RTERROR_CODES 1

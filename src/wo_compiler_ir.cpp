@@ -197,7 +197,9 @@ namespace wo
                 wo_assert(constant_global[ci].type == wo::value::valuetype::string_type);
 
                 gcbase::unit_attrib* attrib;
-                auto* unit = constant_global[ci].get_gcunit_with_barrier(&attrib);
+
+                // NOTE: Constant gcunit is nogc-unit, its safe here to `get_gcunit_and_attrib_ref`.
+                auto* unit = constant_global[ci].get_gcunit_and_attrib_ref(&attrib);
                 if (unit != nullptr)
                     attrib->m_attr = cancel_nogc.m_attr;
             }

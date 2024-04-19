@@ -46,7 +46,7 @@ namespace test_thread
 
         // Thread should be abort-able..
         let mut this_should_be_false = false;
-        let abort_flag = mutable::create(false);
+        let abort_flag = std::mutable::create(false);
         let __pack = [mut this_should_be_false];
         let th = thread::create(
             func(mut i: int)
