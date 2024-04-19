@@ -15,6 +15,7 @@ namespace wo
         void gc_start();
         void gc_stop();
         bool gc_is_marking();
+        bool gc_is_collecting_memo();
         bool gc_is_recycling();
         void mark_vm(vmbase* marking_vm, size_t worker_id);
     }

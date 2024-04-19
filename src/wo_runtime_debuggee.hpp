@@ -262,10 +262,13 @@ thread          vm              <id>          Continue and break at specified vm
 
         static std::string _safe_cast_value_to_string(wo::value* val)
         {
+            wo_gc_pause();
+            wo_gc_wait_sync();
+
             if (val->type >= wo::value::valuetype::need_gc)
             {
                 [[maybe_unused]] gcbase::unit_attrib* _attr;
-                wo::gcbase* gc_unit_base_addr = val->get_gcunit_with_barrier(&_attr);
+                wo::gcbase* gc_unit_base_addr = val->get_gcunit_and_attrib_ref(&_attr);
 
                 if (gc_unit_base_addr == nullptr)
                     return "<bad>";
@@ -309,9 +312,14 @@ thread          vm              <id>          Continue and break at specified vm
                     && val->type != wo::value::valuetype::bool_type)
                     return "<bad>";
             }
-            return std::string("<")
+            
+            auto result = std::string("<")
                 + wo_type_name((wo_type)val->type) + "> "
                 + wo_cast_string(std::launder(reinterpret_cast<wo_value>(val)));
+
+            wo_gc_resume();
+
+            return result;
         }
 
         void display_variable(wo::vmbase* vmm, wo::program_debug_data_info::function_symbol_infor::variable_symbol_infor& varinfo)

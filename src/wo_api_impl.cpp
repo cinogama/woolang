@@ -669,14 +669,15 @@ void wo_set_gchandle(wo_value value, wo_vm vm, wo_ptr_t resource_ptr, wo_value h
     handle_ptr->m_gc_vm = wo_gc_vm(vm);
     handle_ptr->m_holding_handle = resource_ptr;
     handle_ptr->m_destructor = destruct_func;
+
+    handle_ptr->m_holding_gcbase = nullptr;
     if (holding_val)
     {
-        wo::gcbase::unit_attrib* _;
-        handle_ptr->m_holding_gcbase = WO_VAL(holding_val)->get_gcunit_with_barrier(&_);
-    }
-    else
-        handle_ptr->m_holding_gcbase = nullptr;
+        wo::value* holding_value = WO_VAL(holding_val);
 
+        if (holding_value->type >= wo::value::valuetype::need_gc)
+            handle_ptr->m_holding_gcbase = holding_value->gcunit;
+    }
 }
 void wo_set_val(wo_value value, wo_value val)
 {
@@ -1138,7 +1139,7 @@ bool _wo_cast_string(
 
         for (auto& [key, _] : *map)
             wo_assure(_sorted_keys.insert(&key).second);
-        
+
         for (auto* sorted_key : _sorted_keys)
         {
             if (!first_kv_pair)

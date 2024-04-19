@@ -106,7 +106,10 @@ namespace wo
         std::atomic<vmbase**> _gc_vm_list;
 
         std::atomic_bool _gc_is_marking = false;
+        std::atomic_bool _gc_is_collecting_memo = false;
         std::atomic_bool _gc_is_recycling = false;
+
+        std::atomic_bool _gc_pause = false;
 
         using _wo_memory_atomic_list_t = atomic_list<gcbase::memo_unit>;
         using _wo_gray_unit_list_t = std::list<std::pair<gcbase*, gcbase::unit_attrib*>>;
@@ -126,6 +129,10 @@ namespace wo
         {
             return _gc_is_marking.load();
         }
+        bool gc_is_collecting_memo()
+        {
+            return _gc_is_collecting_memo.load();
+        }
         bool gc_is_recycling()
         {
             return _gc_is_recycling.load();
@@ -142,7 +149,6 @@ namespace wo
 
             return nullptr;
         }
-
         void gc_mark_unit_as_gray(std::list<std::pair<gcbase*, gcbase::unit_attrib*>>* worklist, gcbase* unitvalue, gcbase::unit_attrib* attr)
         {
             if (attr->m_marked == (uint8_t)gcbase::gcmarkcolor::no_mark)
@@ -171,7 +177,7 @@ namespace wo
             {
                 for (auto& val : *wo_arr)
                 {
-                    if (gcbase* gcunit_addr = val.get_gcunit_with_barrier(&attr))
+                    if (gcbase* gcunit_addr = val.get_gcunit_and_attrib_ref(&attr))
                         gc_mark_unit_as_gray(worklist, gcunit_addr, attr);
                 }
             }
@@ -179,9 +185,9 @@ namespace wo
             {
                 for (auto& [key, val] : *wo_map)
                 {
-                    if (gcbase* gcunit_addr = key.get_gcunit_with_barrier(&attr))
+                    if (gcbase* gcunit_addr = key.get_gcunit_and_attrib_ref(&attr))
                         gc_mark_unit_as_gray(worklist, gcunit_addr, attr);
-                    if (gcbase* gcunit_addr = val.get_gcunit_with_barrier(&attr))
+                    if (gcbase* gcunit_addr = val.get_gcunit_and_attrib_ref(&attr))
                         gc_mark_unit_as_gray(worklist, gcunit_addr, attr);
                 }
             }
@@ -201,13 +207,13 @@ namespace wo
             else if (closure_t* wo_closure = dynamic_cast<closure_t*>(unit))
             {
                 for (uint16_t i = 0; i < wo_closure->m_closure_args_count; ++i)
-                    if (gcbase* gcunit_addr = wo_closure->m_closure_args[i].get_gcunit_with_barrier(&attr))
+                    if (gcbase* gcunit_addr = wo_closure->m_closure_args[i].get_gcunit_and_attrib_ref(&attr))
                         gc_mark_unit_as_gray(worklist, gcunit_addr, attr);
             }
             else if (struct_t* wo_struct = dynamic_cast<struct_t*>(unit))
             {
                 for (uint16_t i = 0; i < wo_struct->m_count; ++i)
-                    if (gcbase* gcunit_addr = wo_struct->m_values[i].get_gcunit_with_barrier(&attr))
+                    if (gcbase* gcunit_addr = wo_struct->m_values[i].get_gcunit_and_attrib_ref(&attr))
                         gc_mark_unit_as_gray(worklist, gcunit_addr, attr);
             }
         }
@@ -300,7 +306,7 @@ namespace wo
                                         auto* global_val = global_and_const_values + cgr_index;
 
                                         gcbase::unit_attrib* attr;
-                                        gcbase* gcunit_address = global_val->get_gcunit_with_barrier(&attr);
+                                        gcbase* gcunit_address = global_val->get_gcunit_and_attrib_ref(&attr);
                                         if (gcunit_address)
                                             gc_mark_unit_as_gray(&_gc_gray_unit_lists[worker_id], gcunit_address, attr);
                                     }
@@ -578,7 +584,7 @@ namespace wo
                     for (auto* pin_value : pin::_pin_value_list)
                     {
                         gcbase::unit_attrib* attr;
-                        if (gcbase* gcunit_address = pin_value->get_gcunit_with_barrier(&attr))
+                        if (gcbase* gcunit_address = pin_value->get_gcunit_and_attrib_ref(&attr))
                             gc_mark_unit_as_gray(&mem_gray_list, gcunit_address, attr);
                     }
 
@@ -671,21 +677,29 @@ namespace wo
             //          it means that this unit is either generated during the gc process like case 1,
             //          or it is detached from other objects and is not marked: for this case, 
             //          this unit should have entered the memory set, it's safe to skip.
+            _gc_is_collecting_memo = true;
             _gc_is_marking = false;
 
             // 9. Collect gray units in memo set.
-            auto* memo_units = m_memo_mark_gray_list.pick_all();
-            while (memo_units)
+            for (;;)
             {
-                auto* cur_unit = memo_units;
-                memo_units = memo_units->last;
+                auto* memo_units = m_memo_mark_gray_list.pick_all();
+                if (memo_units == nullptr)
+                    break;
 
-                gc_mark_unit_as_gray(&mem_gray_list, cur_unit->gcunit, cur_unit->gcunit_attr);
-                delete cur_unit;
+                while (memo_units)
+                {
+                    auto* cur_unit = memo_units;
+                    memo_units = memo_units->last;
+
+                    gc_mark_unit_as_gray(&mem_gray_list, cur_unit->gcunit, cur_unit->gcunit_attr);
+                    delete cur_unit;
+                }
             }
             gc_mark_all_gray_unit(&mem_gray_list);
 
             _gc_is_recycling = true;
+            _gc_is_collecting_memo = false;
 
             // 10. OK, All unit has been marked. reduce gcunits
             size_t page_count, page_size;
@@ -767,7 +781,8 @@ namespace wo
                 if (_gc_round_count == 0)
                     _gc_advise_to_full_gc = true;
 
-                _gc_work_list(_gc_stopping_world_gc, _gc_advise_to_full_gc);
+                if (_gc_pause.load() == false)
+                    _gc_work_list(_gc_stopping_world_gc, _gc_advise_to_full_gc);
 
                 _gc_stopping_world_gc = WO_GC_FORCE_STOP_WORLD;
                 _gc_advise_to_full_gc = WO_GC_FORCE_FULL_GC;
@@ -866,7 +881,7 @@ namespace wo
                 auto self_reg_walker = marking_vm->register_mem_begin + reg_index;
 
                 gcbase::unit_attrib* attr;
-                gcbase* gcunit_address = self_reg_walker->get_gcunit_with_barrier(&attr);
+                gcbase* gcunit_address = self_reg_walker->get_gcunit_and_attrib_ref(&attr);
                 if (gcunit_address)
                     gc_mark_unit_as_gray(worklist, gcunit_address, attr);
 
@@ -880,7 +895,7 @@ namespace wo
                 auto stack_val = stack_walker;
 
                 gcbase::unit_attrib* attr;
-                gcbase* gcunit_address = stack_val->get_gcunit_with_barrier(&attr);
+                gcbase* gcunit_address = stack_val->get_gcunit_and_attrib_ref(&attr);
                 if (gcunit_address)
                     gc_mark_unit_as_gray(worklist, gcunit_address, attr);
             }
@@ -920,7 +935,7 @@ namespace wo
     void gcbase::write_barrier(const value* val)
     {
         gcbase::unit_attrib* attr;
-        if (auto* mem = val->get_gcunit_with_barrier(&attr))
+        if (auto* mem = val->get_gcunit_and_attrib_ref(&attr))
         {
             if (attr->m_marked == (uint8_t)gcbase::gcmarkcolor::no_mark)
             {
@@ -1002,7 +1017,22 @@ namespace wo
 #endif
     };
 }
-
+void wo_gc_pause(void)
+{
+    wo::gc::_gc_pause = true;
+}
+void wo_gc_resume(void)
+{
+    wo::gc::_gc_pause = false;
+    wo_gc_immediately(WO_TRUE);
+}
+void wo_gc_wait_sync(void)
+{
+    while (wo::gc::gc_is_marking()
+        || wo::gc::gc_is_collecting_memo()
+        || wo::gc::gc_is_recycling())
+        std::this_thread::yield();
+}
 void wo_gc_immediately(wo_bool_t fullgc)
 {
     std::lock_guard g1(wo::gc::_gc_work_mx);

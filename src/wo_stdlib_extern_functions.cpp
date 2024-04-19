@@ -1532,7 +1532,7 @@ WO_API wo_api rslib_std_bit_shr(wo_vm vm, wo_value args)
 }
 
 #if defined(__APPLE__) && defined(__MACH__)
-#include <TargetConditionals.h>
+#   include <TargetConditionals.h>
 #endif
 
 const char* wo_stdlib_src_path = u8"woo/std.wo";

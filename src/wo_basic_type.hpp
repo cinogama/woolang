@@ -199,11 +199,13 @@ namespace wo
 
             return this;
         }
-        inline gcbase* get_gcunit_with_barrier(gcbase::unit_attrib** attrib) const
+        // ATTENTION: Only work for gc-work-thread. gc-unit might be freed
+        //          after get_gcunit_and_attrib_ref.
+        inline gcbase* get_gcunit_and_attrib_ref(gcbase::unit_attrib** attrib) const
         {
             if ((uint8_t)type & (uint8_t)valuetype::need_gc)
-                return std::launder(reinterpret_cast<gcbase*>(womem_verify(gcunit,
-                    std::launder(reinterpret_cast<womem_attrib_t**>(attrib)))));
+                return std::launder(reinterpret_cast<gcbase*>(
+                    womem_verify(gcunit, std::launder(reinterpret_cast<womem_attrib_t**>(attrib)))));
             return nullptr;
         }
         inline bool is_gcunit() const
@@ -349,8 +351,8 @@ namespace wo
     {
         using destructor_func_t = void(*)(void*);
 
-        gcbase* m_holding_gcbase;
-        void* m_holding_handle;
+        gcbase*             m_holding_gcbase;
+        void*               m_holding_handle;
         destructor_func_t   m_destructor;
         // ATTENTION: Only used for decrease destructable count in env of vm;
         wo_vm               m_gc_vm;
