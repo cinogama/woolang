@@ -262,12 +262,11 @@ thread          vm              <id>          Continue and break at specified vm
 
         static std::string _safe_cast_value_to_string(wo::value* val)
         {
-            wo_gc_pause();
-            wo_gc_wait_sync();
-
             if (val->type >= wo::value::valuetype::need_gc)
             {
                 [[maybe_unused]] gcbase::unit_attrib* _attr;
+                // NOTE: It's safe to get gcunit, all val here is read from vm, 
+                //      it would not be free after fetch.
                 wo::gcbase* gc_unit_base_addr = val->get_gcunit_and_attrib_ref(&_attr);
 
                 if (gc_unit_base_addr == nullptr)
@@ -316,8 +315,6 @@ thread          vm              <id>          Continue and break at specified vm
             auto result = std::string("<")
                 + wo_type_name((wo_type)val->type) + "> "
                 + wo_cast_string(std::launder(reinterpret_cast<wo_value>(val)));
-
-            wo_gc_resume();
 
             return result;
         }
