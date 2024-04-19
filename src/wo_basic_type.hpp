@@ -25,6 +25,10 @@ namespace wo
     {
         size_t operator()(const value& val) const;
     };
+    struct value_ptr_compare
+    {
+        bool operator()(const value* lhs, const value* rhs) const;
+    };
 
     using byte_t = uint8_t;
     using hash_t = uint64_t;
@@ -246,6 +250,17 @@ namespace wo
     static_assert(std::atomic<byte_t>::is_always_lock_free);
     using wo_extern_native_func_t = wo_native_func_t;
 
+    inline bool value_ptr_compare::operator()(const value* lhs, const value* rhs) const
+    {
+        if (lhs->type == rhs->type)
+        {
+            if (lhs->type == value::valuetype::string_type)
+                return *lhs->string < *rhs->string;
+
+            return lhs->handle < rhs->handle;
+        }
+        return lhs->type < rhs->type;
+    }
     inline bool value_equal::operator()(const value& lhs, const value& rhs) const
     {
         if (lhs.type == rhs.type)

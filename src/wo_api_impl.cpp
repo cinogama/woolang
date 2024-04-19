@@ -1083,7 +1083,7 @@ enum cast_string_mode
 };
 
 bool _wo_cast_string(
-    wo::value* value,
+    const wo::value* value,
     std::string* out_str,
     cast_string_mode mode,
     std::map<wo::gcbase*, int>* traveled_gcunit,
@@ -1132,7 +1132,14 @@ bool _wo_cast_string(
 
         *out_str += _fit_layout ? "{" : "{\n";
         bool first_kv_pair = true;
-        for (auto& [v_key, v_val] : *map)
+
+        std::set<const wo::value*, wo::value_ptr_compare>
+            _sorted_keys;
+
+        for (auto& [key, _] : *map)
+            wo_assure(_sorted_keys.insert(&key).second);
+        
+        for (auto* sorted_key : _sorted_keys)
         {
             if (!first_kv_pair)
                 *out_str += _fit_layout ? "," : ",\n";
@@ -1140,13 +1147,13 @@ bool _wo_cast_string(
 
             for (int i = 0; !_fit_layout && i <= depth; i++)
                 *out_str += "    ";
-            if (!_wo_cast_string(const_cast<wo::value*>(&v_key), out_str, mode, traveled_gcunit, depth + 1))
+            if (!_wo_cast_string(sorted_key, out_str, mode, traveled_gcunit, depth + 1))
                 return false;
             *out_str += _fit_layout ? ":" : " : ";
-            if (!_wo_cast_string(&v_val, out_str, mode, traveled_gcunit, depth + 1))
+            if (!_wo_cast_string(&map->at(*sorted_key), out_str, mode, traveled_gcunit, depth + 1))
                 return false;
-
         }
+
         if (!_fit_layout)
             *out_str += "\n";
         for (int i = 0; !_fit_layout && i < depth; i++)
