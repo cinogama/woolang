@@ -510,7 +510,7 @@ namespace wo
         auto* a_value_funccall = WO_AST();
         if (auto* symb_callee = dynamic_cast<ast_value_variable*>(a_value_funccall->called_func))
         {
-            symb_callee->is_auto_judge_function_overload = true; // Current may used for auto judge for function invoke, here to skip!
+            symb_callee->is_this_value_used_for_function_call = true; // Current may used for auto judge for function invoke, here to skip!
             if (a_value_funccall->directed_value_from)
             {
                 if (!symb_callee->search_from_global_namespace
