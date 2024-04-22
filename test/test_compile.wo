@@ -1790,6 +1790,40 @@ func main()
         }
         do func(_: (int)=>option<int>){}(fxx::foo);
         "@);
+
+        assure_compile_success(@"
+        import woo::std;
+
+        namespace interface{
+            using Instance = dynamic;
+        }
+        protected using Proxy = struct {
+            work: (interface::Instance,) => void,
+        };
+        protected let proxy<T> = Proxy {
+            work = \self = self->unsafe::cast:<T>->T::work();
+        };
+        namespace int
+        {
+            func work(_: int){}
+        }
+        do proxy:<int>;
+        "@);
+
+        assure_compile_fail(@"
+        import woo::std;
+
+        namespace interface{
+            using Instance = dynamic;
+        }
+        protected using Proxy = struct {
+            work: (interface::Instance,) => void,
+        };
+        protected let proxy<T> = Proxy {
+            work = \self = self->unsafe::cast:<T>->T::work();
+        };
+        do proxy:<int>;
+        "@);
         
         // ISSUE: 1.13: anything has been removed from woolang.
         // assure_compile_success(@"

@@ -295,7 +295,7 @@ namespace wo
                                 {
                                     a_pattern_union_value->union_expr->template_reification_args = fact_used_template;
                                     if (a_pattern_union_value->union_expr->symbol->type == lang_symbol::symbol_type::variable)
-                                        a_pattern_union_value->union_expr->symbol = analyze_pass_template_reification(
+                                        a_pattern_union_value->union_expr->symbol = analyze_pass_template_reification_var(
                                             a_pattern_union_value->union_expr,
                                             fact_used_template);
                                     else
@@ -304,7 +304,7 @@ namespace wo
 
                                         auto final_function = a_pattern_union_value->union_expr->symbol->get_funcdef();
 
-                                        auto* dumped_func = analyze_pass_template_reification(
+                                        auto* dumped_func = analyze_pass_template_reification_func(
                                             dynamic_cast<ast_value_function_define*>(final_function),
                                             fact_used_template);
                                         if (dumped_func)
@@ -412,7 +412,7 @@ namespace wo
             this->current_function_in_pass2 = a_value_funcdef->this_func_scope;
             wo_assert(this->current_function_in_pass2 != nullptr);
 
-            const size_t anylizer_error_count = 
+            const size_t anylizer_error_count =
                 lang_anylizer->get_cur_error_frame().size();
 
             if (a_value_funcdef->argument_list)
@@ -1564,32 +1564,51 @@ namespace wo
     {
         auto* a_value_var = WO_AST();
 
-        auto* sym = find_value_in_this_scope(a_value_var);
-        if (sym != nullptr)
-            sym->is_marked_as_used_variable = true;
+        auto* const variable_origin_symbol = find_value_in_this_scope(a_value_var);
+        auto* final_sym = variable_origin_symbol;
+
+        if (variable_origin_symbol != nullptr)
+            variable_origin_symbol->is_marked_as_used_variable = true;
 
         if (a_value_var->value_type->is_pending())
         {
-            if (sym && (!sym->define_in_function || sym->has_been_completed_defined || sym->is_captured_variable))
+            if (variable_origin_symbol &&
+                (!variable_origin_symbol->define_in_function
+                    || variable_origin_symbol->has_been_completed_defined
+                    || variable_origin_symbol->is_captured_variable))
             {
-                if (sym->is_template_symbol && (!a_value_var->is_auto_judge_function_overload || sym->type == lang_symbol::symbol_type::variable))
+                if (variable_origin_symbol->is_template_symbol
+                    && (false == a_value_var->is_this_value_used_for_function_call
+                        || variable_origin_symbol->type == lang_symbol::symbol_type::variable))
                 {
-                    sym = analyze_pass_template_reification(a_value_var, a_value_var->template_reification_args);
-                    if (!sym)
+                    final_sym = analyze_pass_template_reification_var(a_value_var, a_value_var->template_reification_args);
+                    if (nullptr == final_sym)
                         lang_anylizer->lang_error(lexer::errorlevel::error, a_value_var, WO_ERR_FAILED_TO_INSTANCE_TEMPLATE_ID,
                             a_value_var->var_name->c_str());
                 }
-                if (sym)
+                if (nullptr != final_sym)
                 {
-                    analyze_pass2(sym->variable_value);
-                    a_value_var->value_type->set_type(sym->variable_value->value_type);
+                    wo_assert(variable_origin_symbol != nullptr);
+                    bool need_update_template_scope =
+                        variable_origin_symbol->is_template_symbol
+                        && variable_origin_symbol->type == lang_symbol::symbol_type::variable;
 
-                    if (sym->type == lang_symbol::symbol_type::variable && sym->decl == identifier_decl::MUTABLE)
+                    if (need_update_template_scope)
+                        wo_assure(begin_template_scope(a_value_var, a_value_var->symbol->template_types, a_value_var->template_reification_args));
+
+                    analyze_pass2(final_sym->variable_value);
+
+                    if (need_update_template_scope)
+                        end_template_scope();
+
+                    a_value_var->value_type->set_type(final_sym->variable_value->value_type);
+
+                    if (final_sym->type == lang_symbol::symbol_type::variable && final_sym->decl == identifier_decl::MUTABLE)
                         a_value_var->value_type->set_is_mutable(true);
                     else
                         a_value_var->value_type->set_is_mutable(false);
 
-                    a_value_var->symbol = sym;
+                    a_value_var->symbol = final_sym;
 
                     if (a_value_var->symbol->type == lang_symbol::symbol_type::function)
                     {
@@ -1606,14 +1625,14 @@ namespace wo
                             else
                             {
                                 lang_anylizer->lang_error(lexer::errorlevel::error, a_value_var, WO_ERR_UNABLE_DECIDE_EXPR_TYPE);
-                                lang_anylizer->lang_error(lexer::errorlevel::infom, sym->variable_value, WO_INFO_ITEM_IS_DEFINED_HERE,
+                                lang_anylizer->lang_error(lexer::errorlevel::infom, final_sym->variable_value, WO_INFO_ITEM_IS_DEFINED_HERE,
                                     a_value_var->var_name->c_str());
                             }
                         }
                         else
                         {
                             lang_anylizer->lang_error(lexer::errorlevel::error, a_value_var, WO_ERR_UNABLE_DECIDE_EXPR_TYPE);
-                            lang_anylizer->lang_error(lexer::errorlevel::infom, sym->variable_value, WO_INFO_INIT_EXPR_IS_HERE,
+                            lang_anylizer->lang_error(lexer::errorlevel::infom, final_sym->variable_value, WO_INFO_INIT_EXPR_IS_HERE,
                                 a_value_var->var_name->c_str());
                         }
                     }
@@ -2003,8 +2022,8 @@ namespace wo
                     }
                 }
 
-                //tara~ get analyze_pass_template_reification 
-                calling_function_define = analyze_pass_template_reification(calling_function_define, template_args);
+                //tara~ get analyze_pass_template_reification_func 
+                calling_function_define = analyze_pass_template_reification_func(calling_function_define, template_args);
                 a_value_funccall->called_func = calling_function_define;
             }
         failed_to_judge_template_params:;

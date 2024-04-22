@@ -412,8 +412,8 @@ namespace wo
         void analyze_pass0(ast::ast_base* ast_node);
         void analyze_pass1(ast::ast_base* ast_node, bool type_degradation = true);
         void _analyze_pass1(ast::ast_base* ast_node, bool type_degradation);
-        lang_symbol* analyze_pass_template_reification(ast::ast_value_variable* origin_variable, std::vector<ast::ast_type*> template_args_types);
-        ast::ast_value_function_define* analyze_pass_template_reification(ast::ast_value_function_define* origin_template_func_define, std::vector<ast::ast_type*> template_args_types);
+        lang_symbol* analyze_pass_template_reification_var(ast::ast_value_variable* origin_variable, std::vector<ast::ast_type*> template_args_types);
+        ast::ast_value_function_define* analyze_pass_template_reification_func(ast::ast_value_function_define* origin_template_func_define, std::vector<ast::ast_type*> template_args_types);
 
         using judge_result_t = std::variant<ast::ast_type*, ast::ast_value_function_define*>;
 

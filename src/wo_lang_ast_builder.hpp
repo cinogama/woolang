@@ -476,7 +476,7 @@ namespace wo
             wo_pstring_t var_name = nullptr;
             std::vector<ast_type*> template_reification_args;
             bool directed_function_call = false;
-            bool is_auto_judge_function_overload = false;
+            bool is_this_value_used_for_function_call = false;
 
             std::wstring get_full_variable_name()
             {

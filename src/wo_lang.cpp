@@ -1448,7 +1448,7 @@ namespace wo
         wo_assert(ast_node->completed_in_pass1);
     }
 
-    lang_symbol* lang::analyze_pass_template_reification(ast::ast_value_variable* origin_variable, std::vector<ast::ast_type*> template_args_types)
+    lang_symbol* lang::analyze_pass_template_reification_var(ast::ast_value_variable* origin_variable, std::vector<ast::ast_type*> template_args_types)
     {
         // NOTE: template_args_types will be modified in this function. donot use ref type.
 
@@ -1463,7 +1463,7 @@ namespace wo
             {
                 // TODO: finding repeated template? goon
                 ast_value_function_define* dumpped_template_func_define =
-                    analyze_pass_template_reification(origin_variable->symbol->get_funcdef(), template_args_types);
+                    analyze_pass_template_reification_func(origin_variable->symbol->get_funcdef(), template_args_types);
 
                 if (dumpped_template_func_define)
                     return dumpped_template_func_define->this_reification_lang_symbol;
@@ -1534,7 +1534,7 @@ namespace wo
         }
     }
 
-    ast::ast_value_function_define* lang::analyze_pass_template_reification(
+    ast::ast_value_function_define* lang::analyze_pass_template_reification_func(
         ast::ast_value_function_define* origin_template_func_define,
         std::vector<ast::ast_type*> template_args_types)
     {
@@ -1701,7 +1701,7 @@ namespace wo
                     if (template_defines && template_args)
                         end_template_scope();
 
-                    auto* reificated = analyze_pass_template_reification(
+                    auto* reificated = analyze_pass_template_reification_func(
                         function_define, arg_func_template_args);
 
                     if (reificated != nullptr)
