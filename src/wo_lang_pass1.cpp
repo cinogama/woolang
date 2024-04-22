@@ -104,7 +104,7 @@ namespace wo
         analyze_pass1(a_value_idx->from);
         analyze_pass1(a_value_idx->index);
 
-        if (!a_value_idx->from->value_type->struct_member_index.empty())
+        if (a_value_idx->from->value_type->is_struct())
         {
             if (a_value_idx->index->is_constant && a_value_idx->index->value_type->is_string())
             {
