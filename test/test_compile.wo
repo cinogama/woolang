@@ -1751,6 +1751,45 @@ func main()
             let a = [][0]: example;
             do a.val;
         "@);
+
+        assure_compile_success(@"
+        import woo::std;
+
+        func foo<T>(_)=> option<T>
+        {
+            return option::none: option<T>;
+        }
+
+        do func(_: (int)=>option<int>){}(foo);
+        "@);
+
+        assure_compile_success(@"
+        import woo::std;
+
+        namespace fxx
+        {
+            func foo<T>(_)=> option<T>
+            {
+                return ::option::none: option<T>;
+            }
+        }
+        do func(_: (int)=>option<int>){}(fxx::foo);
+        "@);
+
+        assure_compile_fail(@"
+        import woo::std;
+
+        namespace fxx
+        {
+            alias option<T> = void;
+
+            func foo<T>(_)=> option<T>
+            {
+                return ::option::none: option<T>;
+            }
+        }
+        do func(_: (int)=>option<int>){}(fxx::foo);
+        "@);
         
         // ISSUE: 1.13: anything has been removed from woolang.
         // assure_compile_success(@"
