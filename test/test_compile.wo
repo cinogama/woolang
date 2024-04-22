@@ -1740,6 +1740,17 @@ func main()
 
         let a = nil: aa::test<xxx::aa<string>>;
         "@);
+
+        assure_compile_fail(@"
+            union example{val(int)}
+            let a = [][0]: example;
+            do a.val;
+        "@);
+        assure_compile_success(@"
+            using example = struct {val: int};
+            let a = [][0]: example;
+            do a.val;
+        "@);
         
         // ISSUE: 1.13: anything has been removed from woolang.
         // assure_compile_success(@"

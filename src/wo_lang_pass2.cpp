@@ -681,7 +681,7 @@ namespace wo
 
         if (a_value_index->value_type->is_pending())
         {
-            if (!a_value_index->from->value_type->struct_member_index.empty())
+            if (a_value_index->from->value_type->is_struct())
             {
                 if (a_value_index->index->is_constant && a_value_index->index->value_type->is_string())
                 {
