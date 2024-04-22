@@ -1649,25 +1649,34 @@ namespace wo
             wo_assert(new_type->is_function());
 
             std::vector<ast::ast_type*> arg_func_template_args(function_define->template_type_name_list.size(), nullptr);
+            const auto analyze_template_derivation_for_type =
+                [this, &arg_func_template_args, &function_define](size_t tempindex, ast_type* type, ast_type* param_type)
+                {
+                    if (auto* pending_template_arg = analyze_template_derivation(
+                        function_define->template_type_name_list[tempindex],
+                        function_define->template_type_name_list,
+                        type, param_type))
+                    {
+                        ast::ast_type* template_value_type = new ast::ast_type(WO_PSTR(pending));
+                        template_value_type->set_type(pending_template_arg);
+                        template_value_type->copy_source_info(function_define);
+
+                        arg_func_template_args[tempindex] = template_value_type;
+                    }
+                };
 
             for (size_t tempindex = 0; tempindex < function_define->template_type_name_list.size(); ++tempindex)
             {
                 if (arg_func_template_args[tempindex] == nullptr)
+                {
                     for (size_t index = 0; index < new_type->argument_types.size(); ++index)
                     {
-                        if (auto* pending_template_arg = analyze_template_derivation(
-                            function_define->template_type_name_list[tempindex],
-                            function_define->template_type_name_list,
-                            new_type->argument_types[index],
-                            param->argument_types[index]))
-                        {
-                            ast::ast_type* template_value_type = new ast::ast_type(WO_PSTR(pending));
-                            template_value_type->set_type(pending_template_arg);
-                            template_value_type->copy_source_info(function_define);
-
-                            arg_func_template_args[tempindex] = template_value_type;
-                        }
+                        analyze_template_derivation_for_type(
+                            tempindex, new_type->argument_types[index], param->argument_types[index]);
                     }
+                    analyze_template_derivation_for_type(
+                        tempindex, new_type->function_ret_type, param->function_ret_type);
+                }
             }
 
             if (std::find(arg_func_template_args.begin(), arg_func_template_args.end(), nullptr) != arg_func_template_args.end())
@@ -1676,7 +1685,7 @@ namespace wo
             // Auto judge here...
             if (update)
             {
-                if (!(template_defines && template_args) 
+                if (!(template_defines && template_args)
                     || begin_template_scope(callaim, template_defines, *template_args))
                 {
                     temporary_entry_scope_in_pass1(located_scope);

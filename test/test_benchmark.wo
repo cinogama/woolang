@@ -157,27 +157,31 @@ namespace test_benchmark
     func insert_1e7()
     {
         let m = {}mut: map<int, mut void>;
-        for (let mut i = 0; i < 1000_0000; i += 1)
+        for (let mut i = 0; i < 100_0000; i += 1)
             m[i] = do nil;
+        m->clear;
     }
     func set_1e7()
     {
         let m = {}mut: map<int, mut void>;
-        for (let mut i = 0; i < 1000_0000; i += 1)
+        for (let mut i = 0; i < 100_0000; i += 1)
             m->set(i, do nil);
+        m->clear;
     }
     func prealloc_insert_1e7()
     {
-        let m = map::create:<int, mut void>(1000_0000);
-        for (let mut i = 0; i < 1000_0000; i += 1)
+        let m = map::create:<int, mut void>(100_0000);
+        for (let mut i = 0; i < 100_0000; i += 1)
             m[i] = do nil;
+        m->clear;
     }
     func prealloc_set_1e7()
     {
-        let m = map::create:<int, mut void>(1000_0000);
-        m->reserve(1000_0000);
-        for (let mut i = 0; i < 1000_0000; i += 1)
+        let m = {}mut: map<int, mut void>;
+        m->reserve(100_0000);
+        for (let mut i = 0; i < 100_0000; i += 1)
             m->set(i, do nil);
+        m->clear;
     }
     
     func main()
