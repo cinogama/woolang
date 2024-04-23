@@ -497,6 +497,11 @@ namespace wo
 
             if (a_value_funcdef->is_template_reification)
                 end_template_scope();
+            else
+            {
+                check_function_where_constraint(
+                    a_value_funcdef, lang_anylizer, a_value_funcdef);
+            }
         }
     }
     WO_PASS2(ast_value_assign)
