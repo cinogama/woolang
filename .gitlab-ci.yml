@@ -100,8 +100,8 @@ test_coverage_debug:
     # Begin coverage test
     - cd test
     - sudo baozi install
-    - sudo chmod 777 ./pkg
-    - sudo chmod 777 .
+    - sudo chmod -R 777 ./pkg
+    - sudo chmod -R 777 .
     - cd ..
     - ./build/woodriver_debug test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 1 --enable-halt-when-panic 1
     - cd build/src/CMakeFiles/woolang.dir
@@ -144,8 +144,8 @@ test_debug_arm64:
     # Begin coverage test
     - cd test
     - sudo baozi install
-    - sudo chmod 777 ./pkg
-    - sudo chmod 777 .
+    - sudo chmod -R 777 ./pkg
+    - sudo chmod -R 777 .
     - cd ..
     - ./build/woodriver_debug test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 1 --enable-halt-when-panic 1
     - cd ../../../../
@@ -175,8 +175,8 @@ test_release:
     - ulimit -c unlimited
     - cd test
     - sudo baozi install
-    - sudo chmod 777 ./pkg
-    - sudo chmod 777 .
+    - sudo chmod -R 777 ./pkg
+    - sudo chmod -R 777 .
     - cd ..
     - ./build/woodriver test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 1 -o test_nojit.woo --enable-halt-when-panic 1
     - ./build/woodriver test_nojit.woo --enable-ctrlc-debug 0 --enable-jit 0 --enable-halt-when-panic 1
@@ -207,8 +207,8 @@ test_release_arm64:
     - ulimit -c unlimited
     - cd test
     - sudo baozi install
-    - sudo chmod 777 ./pkg
-    - sudo chmod 777 .
+    - sudo chmod -R 777 ./pkg
+    - sudo chmod -R 777 .
     - cd ..
     - ./build/woodriver test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 1 -o test_nojit.woo --enable-halt-when-panic 1
     - ./build/woodriver test_nojit.woo --enable-ctrlc-debug 0 --enable-jit 0 --enable-halt-when-panic 1
@@ -249,8 +249,8 @@ test_memory_debug:
     # Begin coverage test
     - cd test
     - sudo baozi install
-    - sudo chmod 777 ./pkg
-    - sudo chmod 777 .
+    - sudo chmod -R 777 ./pkg
+    - sudo chmod -R 777 .
     - cd ..
     - valgrind --tool=memcheck --leak-check=yes --show-reachable=yes ./build/woodriver_debug test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 1 --enable-halt-when-panic 1
   artifacts:
@@ -279,8 +279,8 @@ test_memory_release:
     - ulimit -c unlimited
     - cd test
     - sudo baozi install
-    - sudo chmod 777 ./pkg
-    - sudo chmod 777 .
+    - sudo chmod -R 777 ./pkg
+    - sudo chmod -R 777 .
     - cd ..
     - valgrind --tool=memcheck --leak-check=yes --show-reachable=yes ./build/woodriver test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 0 --enable-halt-when-panic 1
     - valgrind --tool=memcheck --leak-check=yes --show-reachable=yes ./build/woodriver test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 1 --enable-halt-when-panic 1
