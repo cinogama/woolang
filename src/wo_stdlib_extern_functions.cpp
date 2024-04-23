@@ -1797,6 +1797,14 @@ namespace option
             return false;
         }
     }
+    public func okor<T, F>(self: option<T>, val: F)
+    {
+        match (self)
+        {
+        value(x)? return result::ok(x);
+        none? return result::err(val);
+        }
+    }
 }
 public union result<T, F>
 {
