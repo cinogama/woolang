@@ -2259,14 +2259,9 @@ namespace wo
 
         fully_update_type(ast_value_typeid->type, false);
 
-        if (ast_value_typeid->type->is_pending() && !ast_value_typeid->type->is_hkt())
+        if (auto opthash = lang::get_typing_hash_after_pass1(ast_value_typeid->type))
         {
-            lang_anylizer->lang_error(lexer::errorlevel::error, ast_value_typeid->type, WO_ERR_UNKNOWN_TYPE,
-                ast_value_typeid->type->get_type_name(false, false).c_str());
-        }
-        else
-        {
-            ast_value_typeid->constant_value.set_integer(lang::get_typing_hash_after_pass1(ast_value_typeid->type));
+            ast_value_typeid->constant_value.set_integer(opthash.value());
             ast_value_typeid->is_constant = true;
         }
     }

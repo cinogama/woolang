@@ -280,12 +280,27 @@ namespace test_template
     func foo<T>()
     {
         static let a<A> = T::someval;
-        return \<T>_: T = std::println(a:<T>);(15);
+        return \<T>_: T = a:<T>;(15);
     }
+
+    alias GLT = string;
+    alias TEST_GLT<ET> = GLT;
+    alias TEST_GLT2<GLT> = TEST_GLT<GLT>;
+    
+    alias TEST_GLT3<ET> = BADT;
+    alias TEST_GLT4<BADT> = TEST_GLT3<BADT>;
+    
 
     func main()
     {
-        foo:<real>();
+        test_equal(foo:<real>(), "T is real");
+        test_equal(foo:<int>(), "T is int");
+        test_assure(foo:<string>() is pending);
+        test_assure(foo:<bool>() is pending);
+
+        test_assure(std::is_same_type:<TEST_GLT2:<int>, string>);
+        test_assure(std::is_same_type:<TEST_GLT2:<real>, string>);
+        test_assure(std::declval:<TEST_GLT4:<string>>() is pending);
 
         test_assure(call_and_return(return_2_times_val, 256) == 512);
         test_assure(call_and_return(return_2_times_val, 128.) == 256.);

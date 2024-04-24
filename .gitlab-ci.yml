@@ -99,7 +99,7 @@ test_coverage_debug:
     - cd ..
     # Begin coverage test
     - cd test
-    - sudo baozi install
+    - sudo baozi install -profiler debug
     - sudo chmod -R 777 ./pkg
     - sudo chmod -R 777 .
     - cd ..
@@ -143,7 +143,7 @@ test_debug_arm64:
     - cd ..
     # Begin coverage test
     - cd test
-    - sudo baozi install
+    - sudo baozi install -profiler debug
     - sudo chmod -R 777 ./pkg
     - sudo chmod -R 777 .
     - cd ..
@@ -248,7 +248,7 @@ test_memory_debug:
     - cd ..
     # Begin coverage test
     - cd test
-    - sudo baozi install
+    - sudo baozi install -profiler debug
     - sudo chmod -R 777 ./pkg
     - sudo chmod -R 777 .
     - cd ..

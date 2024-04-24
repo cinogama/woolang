@@ -433,7 +433,7 @@ namespace wo
 
     //////////////////////////////////////////////////////////////////////////////////////////////
 
-    uint32_t lang::get_typing_hash_after_pass1(ast::ast_type* typing)
+    std::optional<uint32_t> lang::get_typing_hash_after_pass1(ast::ast_type* typing)
     {
         uint64_t hashval = (uint64_t)typing->value_type;
 
@@ -460,11 +460,23 @@ namespace wo
                 hashval = (uint64_t)reinterpret_cast<intptr_t>(typing->type_name);
             }
         }
+        else if (typing->is_pending())
+        {
+            lang_anylizer->lang_error(lexer::errorlevel::error, typing, WO_ERR_UNKNOWN_TYPE,
+                typing->get_type_name(false, false).c_str());
+
+            return std::nullopt;
+        }
 
         ++hashval;
 
         if (typing->is_function())
-            hashval += get_typing_hash_after_pass1(typing->function_ret_type);
+        {
+            if (auto opthash = get_typing_hash_after_pass1(typing->function_ret_type))
+                hashval += opthash.value();
+            else
+                return std::nullopt;
+        }
 
         hashval *= hashval;
 
@@ -480,7 +492,11 @@ namespace wo
             for (auto& template_arg : typing->template_arguments)
             {
                 hashval <<= 1;
-                hashval += get_typing_hash_after_pass1(template_arg);
+                if (auto opthash = get_typing_hash_after_pass1(template_arg))
+                    hashval += opthash.value();
+                else
+                    return std::nullopt;
+
                 hashval *= hashval;
             }
         }
@@ -490,7 +506,10 @@ namespace wo
             for (auto& arg : typing->argument_types)
             {
                 hashval <<= 1;
-                hashval += get_typing_hash_after_pass1(arg);
+                if (auto opthash = get_typing_hash_after_pass1(arg))
+                    hashval += opthash.value();
+                else
+                    return std::nullopt;
                 hashval *= hashval;
             }
         }
@@ -501,7 +520,10 @@ namespace wo
             {
                 hashval ^= std::hash<std::wstring>()(*member_name);
                 hashval *= member_info.offset;
-                hashval += get_typing_hash_after_pass1(member_info.member_type);
+                if (auto opthash = get_typing_hash_after_pass1(member_info.member_type))
+                    hashval += opthash.value();
+                else
+                    return std::nullopt;
             }
         }
 
@@ -585,6 +607,12 @@ namespace wo
                             new ast::ast_type(template_def_name));
                     }
                 }
+
+                // Update searching_begin_namespace_in_pass2 for template type update.
+                for (auto& template_arg : sym->type_informatiom->template_arguments)
+                {
+                    template_arg->searching_begin_namespace_in_pass2 = sym->defined_in_scope;
+                }
             }
 
             lang_symbols.push_back(current_template[sym->name] = sym);
@@ -655,7 +683,10 @@ namespace wo
             if (template_type->is_pending() && !template_type->is_hkt())
                 return nullptr;
 
-            hashs.push_back(get_typing_hash_after_pass1(template_type));
+            if (auto opthash = get_typing_hash_after_pass1(template_type))
+                hashs.push_back(opthash.value());
+            else
+                return nullptr;
         }
 
         auto fnd = symb->template_type_instances.find(hashs);
@@ -1497,7 +1528,10 @@ namespace wo
                 fully_update_type(temtype, false, origin_variable->symbol->template_types);
                 has_step_in_step2 = step_in_pass2;
 
-                template_args_hashtypes.push_back(get_typing_hash_after_pass1(temtype));
+                if (auto opthash = get_typing_hash_after_pass1(temtype))
+                    template_args_hashtypes.push_back(opthash.value());
+                else
+                    return nullptr;
             }
 
             if (auto fnd = origin_variable->symbol->template_typehashs_reification_instance_symbol_list.find(template_args_hashtypes);
@@ -1564,7 +1598,11 @@ namespace wo
                 lang_anylizer->lang_error(lexer::errorlevel::error, temtype, WO_ERR_UNKNOWN_TYPE, temtype->get_type_name(false).c_str());
                 return nullptr;
             }
-            template_args_hashtypes.push_back(get_typing_hash_after_pass1(temtype));
+
+            if (auto opthash = get_typing_hash_after_pass1(temtype))
+                template_args_hashtypes.push_back(opthash.value());
+            else
+                return nullptr;
         }
 
         ast_value_function_define* dumpped_template_func_define = nullptr;
@@ -1660,19 +1698,19 @@ namespace wo
             std::vector<ast::ast_type*> arg_func_template_args(function_define->template_type_name_list.size(), nullptr);
             const auto analyze_template_derivation_for_type =
                 [this, &arg_func_template_args, &function_define](size_t tempindex, ast_type* type, ast_type* param_type)
-            {
-                if (auto* pending_template_arg = analyze_template_derivation(
-                    function_define->template_type_name_list[tempindex],
-                    function_define->template_type_name_list,
-                    type, param_type))
                 {
-                    ast::ast_type* template_value_type = new ast::ast_type(WO_PSTR(pending));
-                    template_value_type->set_type(pending_template_arg);
-                    template_value_type->copy_source_info(function_define);
+                    if (auto* pending_template_arg = analyze_template_derivation(
+                        function_define->template_type_name_list[tempindex],
+                        function_define->template_type_name_list,
+                        type, param_type))
+                    {
+                        ast::ast_type* template_value_type = new ast::ast_type(WO_PSTR(pending));
+                        template_value_type->set_type(pending_template_arg);
+                        template_value_type->copy_source_info(function_define);
 
-                    arg_func_template_args[tempindex] = template_value_type;
-                }
-            };
+                        arg_func_template_args[tempindex] = template_value_type;
+                    }
+                };
 
             for (size_t tempindex = 0; tempindex < function_define->template_type_name_list.size(); ++tempindex)
             {
@@ -2889,7 +2927,7 @@ namespace wo
         lang_symbol* fuzzy_nearest_symbol = nullptr;
         auto update_fuzzy_nearest_symbol =
             [&fuzzy_nearest_symbol, fuzzy_for_err_report, ident_str, target_type_mask]
-        (lang_symbol* symbol) {
+            (lang_symbol* symbol) {
             if (fuzzy_for_err_report)
             {
                 auto distance = levenshtein_distance(*symbol->name, *ident_str);
@@ -2900,7 +2938,7 @@ namespace wo
                         fuzzy_nearest_symbol = symbol;
                 }
             }
-        };
+            };
 
         if (var_ident->searching_from_type)
         {
@@ -2937,7 +2975,9 @@ namespace wo
                 auto* searching_template_scope = var_ident->searching_begin_namespace_in_pass2;
                 while (searching_template_scope)
                 {
-                    for (auto rind = searching_template_scope->template_stack.rbegin(); rind != searching_template_scope->template_stack.rend(); rind++)
+                    for (auto rind = searching_template_scope->template_stack.rbegin();
+                        rind != searching_template_scope->template_stack.rend();
+                        rind++)
                     {
                         if (auto fnd = rind->find(var_ident->scope_namespaces.front());
                             fnd != rind->end())
@@ -2958,10 +2998,6 @@ namespace wo
                             break;
                         }
                     }
-
-                    if (searching_template_scope->type == lang_scope::scope_type::function_scope)
-                        break;
-
                     searching_template_scope = searching_template_scope->parent_scope;
                 }
             }

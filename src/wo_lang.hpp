@@ -325,7 +325,7 @@ namespace wo
 
         rslib_extern_symbols::extern_lib_set extern_libs;
 
-        uint32_t get_typing_hash_after_pass1(ast::ast_type* typing);
+        std::optional<uint32_t> get_typing_hash_after_pass1(ast::ast_type* typing);
         bool begin_template_scope(
             ast::ast_base* reporterr, 
             lang_scope* belong_scope, 
