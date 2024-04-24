@@ -404,6 +404,7 @@ namespace wo
             if (a_value_funcdef->is_template_reification)
             {
                 wo_assure(begin_template_scope(a_value_funcdef,
+                    a_value_funcdef->this_func_scope,
                     a_value_funcdef->template_type_name_list,
                     a_value_funcdef->this_reification_template_args));
             }
@@ -496,7 +497,7 @@ namespace wo
             this->current_function_in_pass2 = last_function;
 
             if (a_value_funcdef->is_template_reification)
-                end_template_scope();
+                end_template_scope(a_value_funcdef->this_func_scope);
             else
             {
                 check_function_where_constraint(
@@ -1599,12 +1600,16 @@ namespace wo
                         && variable_origin_symbol->type == lang_symbol::symbol_type::variable;
 
                     if (need_update_template_scope)
-                        wo_assure(begin_template_scope(a_value_var, a_value_var->symbol->template_types, a_value_var->template_reification_args));
+                        wo_assure(begin_template_scope(
+                            a_value_var, 
+                            final_sym->defined_in_scope, 
+                            a_value_var->symbol->template_types, 
+                            a_value_var->template_reification_args));
 
                     analyze_pass2(final_sym->variable_value);
 
                     if (need_update_template_scope)
-                        end_template_scope();
+                        end_template_scope(final_sym->defined_in_scope);
 
                     a_value_var->value_type->set_type(final_sym->variable_value->value_type);
 
@@ -2254,14 +2259,9 @@ namespace wo
 
         fully_update_type(ast_value_typeid->type, false);
 
-        if (ast_value_typeid->type->is_pending() && !ast_value_typeid->type->is_hkt())
+        if (auto opthash = lang::get_typing_hash_after_pass1(ast_value_typeid->type))
         {
-            lang_anylizer->lang_error(lexer::errorlevel::error, ast_value_typeid->type, WO_ERR_UNKNOWN_TYPE,
-                ast_value_typeid->type->get_type_name(false, false).c_str());
-        }
-        else
-        {
-            ast_value_typeid->constant_value.set_integer(lang::get_typing_hash_after_pass1(ast_value_typeid->type));
+            ast_value_typeid->constant_value.set_integer(opthash.value());
             ast_value_typeid->is_constant = true;
         }
     }
