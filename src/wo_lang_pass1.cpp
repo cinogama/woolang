@@ -347,6 +347,8 @@ namespace wo
         auto* a_value_func = WO_AST();
         a_value_func->this_func_scope = begin_function(a_value_func);
 
+        wo_assert(a_value_func->this_func_scope->template_stack.empty());
+
         if (!a_value_func->is_template_define)
         {
             if (a_value_func->reification_defines != nullptr)
@@ -357,6 +359,9 @@ namespace wo
                     dynamic_cast<ast_value_function_define*>(a_value_func->reification_defines)->this_func_scope;
 
                 wo_assert(a_value_func->this_func_scope->derivation_from_scope_for_function != nullptr);
+
+                a_value_func->this_func_scope->template_stack =
+                    a_value_func->this_func_scope->derivation_from_scope_for_function->template_stack;
             }
 
             auto arg_child = a_value_func->argument_list->children;
@@ -424,6 +429,8 @@ namespace wo
             }
             else
                 a_value_func->value_type->function_ret_type->set_type_with_name(WO_PSTR(pending));
+
+            a_value_func->this_func_scope->template_stack.clear();
         }
         else
         {

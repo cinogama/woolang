@@ -497,7 +497,7 @@ namespace wo
             this->current_function_in_pass2 = last_function;
 
             if (a_value_funcdef->is_template_reification)
-                end_template_scope();
+                end_template_scope(a_value_funcdef->this_func_scope);
             else
             {
                 check_function_where_constraint(
@@ -1609,7 +1609,7 @@ namespace wo
                     analyze_pass2(final_sym->variable_value);
 
                     if (need_update_template_scope)
-                        end_template_scope();
+                        end_template_scope(final_sym->defined_in_scope);
 
                     a_value_var->value_type->set_type(final_sym->variable_value->value_type);
 

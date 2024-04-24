@@ -110,8 +110,6 @@ namespace wo
 
     struct lang_scope
     {
-        bool stop_searching_in_last_scope_flag = true;
-
         enum scope_type
         {
             namespace_scope,    // namespace xx{}
@@ -132,6 +130,9 @@ namespace wo
         size_t used_stackvalue_index = 0; // only used in function_scope
 
         size_t this_block_used_stackvalue_count = 0;
+
+        using template_type_map = std::map<wo_pstring_t, lang_symbol*>;
+        std::vector<template_type_map> template_stack;
 
         std::unordered_map<wo_pstring_t, lang_symbol*> symbols;
 
@@ -304,12 +305,6 @@ namespace wo
     public:
         static void check_function_where_constraint(ast::ast_base* ast, lexer* lang_anylizer, ast::ast_symbolable_base* func);
     private:
-        struct template_type_map
-        {
-            lang_scope* m_template_apply_scope;
-            std::map<wo_pstring_t, lang_symbol*> m_type_alias_map;
-        };
-
         lexer* lang_anylizer;
         std::vector<lang_scope*> lang_scopes_buffers;
         std::vector<lang_symbol*> lang_symbols; // only used for storing symbols to release
@@ -327,7 +322,6 @@ namespace wo
         library_symbs_map_t extern_symb_infos;
 
         ast::ast_value_function_define* now_function_in_final_anylize = nullptr;
-        std::vector<template_type_map> template_stack;
 
         rslib_extern_symbols::extern_lib_set extern_libs;
 
@@ -343,7 +337,7 @@ namespace wo
             ast::ast_defines* template_defines, 
             const std::vector<ast::ast_type*>& template_args);
 
-        void end_template_scope();
+        void end_template_scope(lang_scope* scop);
 
         void temporary_entry_scope_in_pass1(lang_scope* scop);
         lang_scope* temporary_leave_scope_in_pass1();

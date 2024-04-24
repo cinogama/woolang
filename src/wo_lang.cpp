@@ -532,8 +532,9 @@ namespace wo
             return false;
         }
 
-        template_stack.push_back(template_type_map{ belong_scope , {} });
-        auto& current_template = template_stack.back();
+        belong_scope->template_stack.push_back(lang_scope::template_type_map{});
+        auto& current_template = belong_scope->template_stack.back();
+
         for (size_t index = 0; index < template_defines_args.size(); index++)
         {
             auto* applying_type = template_args[index];
@@ -586,7 +587,7 @@ namespace wo
                 }
             }
 
-            lang_symbols.push_back(current_template.m_type_alias_map[sym->name] = sym);
+            lang_symbols.push_back(current_template[sym->name] = sym);
         }
         return true;
     }
@@ -594,9 +595,9 @@ namespace wo
     {
         return begin_template_scope(reporterr, belong_scope, template_defines->template_type_name_list, template_args);
     }
-    void lang::end_template_scope()
+    void lang::end_template_scope(lang_scope* scop)
     {
-        template_stack.pop_back();
+        scop->template_stack.pop_back();
     }
     void lang::temporary_entry_scope_in_pass1(lang_scope* scop)
     {
@@ -676,7 +677,7 @@ namespace wo
                     std::unordered_set<ast::ast_type*> _repeat_guard;
                     update_typeof_in_type(newtype, _repeat_guard);
 
-                    end_template_scope();
+                    end_template_scope(symb->defined_in_scope);
                 }
             }
             temporary_leave_scope_in_pass1();
@@ -896,7 +897,7 @@ namespace wo
                                 else
                                 {
                                     // Failed to instance current template type, skip.
-                                    end_template_scope();
+                                    end_template_scope(type_sym->defined_in_scope);
                                     return false;
                                 }
                             }
@@ -955,7 +956,7 @@ namespace wo
                             if (is_force_immut_typeof)
                                 type->set_is_force_immutable();
                             if (using_template)
-                                end_template_scope();
+                                end_template_scope(type_sym->defined_in_scope);
                         }// end template argu check & update
                     }
                 }
@@ -1525,7 +1526,7 @@ namespace wo
                     origin_variable->symbol->attribute,
                     template_style::IS_TEMPLATE_VARIABLE_IMPL,
                     origin_variable->symbol->decl);
-                end_template_scope();
+                end_template_scope(origin_variable->symbol->defined_in_scope);
 
                 has_step_in_step2 = step_in_pass2;
             }
@@ -1600,7 +1601,7 @@ namespace wo
             auto step_in_pass2 = has_step_in_step2;
             has_step_in_step2 = false;
 
-            end_template_scope();
+            end_template_scope(origin_template_func_define->this_func_scope);
 
             has_step_in_step2 = step_in_pass2;
         }
@@ -1707,7 +1708,7 @@ namespace wo
                         fully_update_type(template_arg, false);
 
                     if (template_defines && template_args)
-                        end_template_scope();
+                        end_template_scope(located_scope);
 
                     auto* reificated = analyze_pass_template_reification_func(
                         function_define, arg_func_template_args);
@@ -1743,7 +1744,7 @@ namespace wo
 
                     fully_update_type(new_type, false);
 
-                    end_template_scope();
+                    end_template_scope(function_define->this_func_scope);
                 }
 
                 return new_type;
@@ -2560,7 +2561,6 @@ namespace wo
         lang_scope* scope = new lang_scope;
         lang_scopes_buffers.push_back(scope);
 
-        scope->stop_searching_in_last_scope_flag = false;
         scope->type = lang_scope::scope_type::namespace_scope;
         scope->belong_namespace = current_namespace;
         scope->parent_scope = lang_scopes.empty() ? nullptr : lang_scopes.back();
@@ -2588,7 +2588,6 @@ namespace wo
 
         scope->last_entry_ast = block_beginer;
         wo_assert(block_beginer->source_file != nullptr);
-        scope->stop_searching_in_last_scope_flag = false;
         scope->type = lang_scope::scope_type::just_scope;
         scope->belong_namespace = current_namespace;
         scope->parent_scope = lang_scopes.empty() ? nullptr : lang_scopes.back();
@@ -2618,7 +2617,6 @@ namespace wo
         {
             lang_scopes_buffers.push_back(scope);
 
-            scope->stop_searching_in_last_scope_flag = false;
             scope->type = lang_scope::scope_type::function_scope;
             scope->belong_namespace = current_namespace;
             scope->parent_scope = lang_scopes.empty() ? nullptr : lang_scopes.back();
@@ -2904,29 +2902,6 @@ namespace wo
             }
         };
 
-        if (!var_ident->search_from_global_namespace && var_ident->scope_namespaces.empty())
-        {
-            if (var_ident->searching_begin_namespace_in_pass2 != nullptr)
-            {
-                for (auto rind = template_stack.rbegin(); rind != template_stack.rend(); rind++)
-                {
-                    if (!var_ident->searching_begin_namespace_in_pass2->belongs_to(rind->m_template_apply_scope))
-                        continue;
-
-                    if (fuzzy_for_err_report)
-                    {
-                        for (auto& finding_symbol : rind->m_type_alias_map)
-                            update_fuzzy_nearest_symbol(finding_symbol.second);
-                    }
-                    else if (auto fnd = rind->m_type_alias_map.find(ident_str); fnd != rind->m_type_alias_map.end())
-                    {
-                        if ((fnd->second->type & target_type_mask) != 0)
-                            return fnd->second;
-                    }
-                }
-            }
-        }
-
         if (var_ident->searching_from_type)
         {
             fully_update_type(var_ident->searching_from_type, !has_step_in_step2);
@@ -2955,19 +2930,17 @@ namespace wo
                 return nullptr;
             }
         }
-        else if (!var_ident->scope_namespaces.empty())
+        else if (!var_ident->search_from_global_namespace && !var_ident->scope_namespaces.empty())
         {
             if (!var_ident->search_from_global_namespace)
             {
-                if (var_ident->searching_begin_namespace_in_pass2 != nullptr)
+                auto* searching_template_scope = var_ident->searching_begin_namespace_in_pass2;
+                while (searching_template_scope)
                 {
-                    for (auto rind = template_stack.rbegin(); rind != template_stack.rend(); rind++)
+                    for (auto rind = searching_template_scope->template_stack.rbegin(); rind != searching_template_scope->template_stack.rend(); rind++)
                     {
-                        if (!var_ident->searching_begin_namespace_in_pass2->belongs_to(rind->m_template_apply_scope))
-                            continue;
-
-                        if (auto fnd = rind->m_type_alias_map.find(var_ident->scope_namespaces.front());
-                            fnd != rind->m_type_alias_map.end())
+                        if (auto fnd = rind->find(var_ident->scope_namespaces.front());
+                            fnd != rind->end())
                         {
                             auto* fnd_template_type = fnd->second->type_informatiom;
                             if (fnd_template_type->using_type_name)
@@ -2985,6 +2958,11 @@ namespace wo
                             break;
                         }
                     }
+
+                    if (searching_template_scope->type == lang_scope::scope_type::function_scope)
+                        break;
+
+                    searching_template_scope = searching_template_scope->parent_scope;
                 }
             }
         }
@@ -3138,6 +3116,16 @@ namespace wo
                     if ((fnd->second->type & target_type_mask) != 0)
                         searching_result.insert(fnd->second);
                     goto next_searching_point;
+                }
+                else if (!_searching->template_stack.empty())
+                {
+                    if (auto fnd = _searching->template_stack.back().find(ident_str);
+                        fnd != _searching->template_stack.back().end())
+                    {
+                        if ((fnd->second->type & target_type_mask) != 0)
+                            searching_result.insert(fnd->second);
+                        goto next_searching_point;
+                    }
                 }
 
             there_is_no_such_namespace:
