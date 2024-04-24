@@ -200,6 +200,9 @@ namespace wo
         auto* variable = dynamic_cast<ast_value_variable*>(a_value_assi->left);
         if (variable != nullptr)
         {
+            if (variable->searching_begin_namespace_in_pass2 == nullptr)
+                variable->searching_begin_namespace_in_pass2 = now_scope();
+
             auto* symbol = find_value_in_this_scope(variable);
             if (symbol == nullptr || (
                 !symbol->is_captured_variable
@@ -346,6 +349,16 @@ namespace wo
 
         if (!a_value_func->is_template_define)
         {
+            if (a_value_func->reification_defines != nullptr)
+            {
+                wo_assert(a_value_func->is_template_reification);
+
+                a_value_func->this_func_scope->derivation_from_scope_for_function =
+                    dynamic_cast<ast_value_function_define*>(a_value_func->reification_defines)->this_func_scope;
+
+                wo_assert(a_value_func->this_func_scope->derivation_from_scope_for_function != nullptr);
+            }
+
             auto arg_child = a_value_func->argument_list->children;
             while (arg_child)
             {

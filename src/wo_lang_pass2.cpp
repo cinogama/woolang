@@ -404,6 +404,7 @@ namespace wo
             if (a_value_funcdef->is_template_reification)
             {
                 wo_assure(begin_template_scope(a_value_funcdef,
+                    a_value_funcdef->this_func_scope,
                     a_value_funcdef->template_type_name_list,
                     a_value_funcdef->this_reification_template_args));
             }
@@ -1599,7 +1600,11 @@ namespace wo
                         && variable_origin_symbol->type == lang_symbol::symbol_type::variable;
 
                     if (need_update_template_scope)
-                        wo_assure(begin_template_scope(a_value_var, a_value_var->symbol->template_types, a_value_var->template_reification_args));
+                        wo_assure(begin_template_scope(
+                            a_value_var, 
+                            final_sym->defined_in_scope, 
+                            a_value_var->symbol->template_types, 
+                            a_value_var->template_reification_args));
 
                     analyze_pass2(final_sym->variable_value);
 

@@ -277,8 +277,16 @@ namespace test_template
         return f(v);
     }
 
+    func foo<T>()
+    {
+        static let a<A> = T::someval;
+        return \<T>_: T = std::println(a:<T>);(15);
+    }
+
     func main()
     {
+        foo:<real>();
+
         test_assure(call_and_return(return_2_times_val, 256) == 512);
         test_assure(call_and_return(return_2_times_val, 128.) == 256.);
         test_assure(call_and_return(return_5_times_val, 20.) == 100.);
@@ -416,6 +424,15 @@ namespace test_template
 
     using alarrsp_struct<T> = struct { memb : T };
 
+}
+
+namespace int
+{
+    let someval = "T is int";
+}
+namespace real
+{
+    let someval = "T is real";
 }
 
 test_function("test_template.main", test_template::main);

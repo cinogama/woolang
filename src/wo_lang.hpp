@@ -110,7 +110,7 @@ namespace wo
 
     struct lang_scope
     {
-        bool stop_searching_in_last_scope_flag;
+        bool stop_searching_in_last_scope_flag = true;
 
         enum scope_type
         {
@@ -119,11 +119,20 @@ namespace wo
             just_scope,         //{} if{} while{}
         };
 
-        scope_type type;
-        ast::ast_base* last_entry_ast;
-        lang_scope* belong_namespace;
-        lang_scope* parent_scope;
+        scope_type type = scope_type::namespace_scope;
+        ast::ast_base* last_entry_ast = nullptr;
+        lang_scope* belong_namespace = nullptr;
+        lang_scope* parent_scope = nullptr;
+        lang_scope* derivation_from_scope_for_function = nullptr;
         wo_pstring_t scope_namespace = nullptr;
+
+        ast::ast_value_function_define* function_node = nullptr;
+
+        size_t max_used_stack_size_in_func = 0; // only used in function_scope
+        size_t used_stackvalue_index = 0; // only used in function_scope
+
+        size_t this_block_used_stackvalue_count = 0;
+
         std::unordered_map<wo_pstring_t, lang_symbol*> symbols;
 
         // Only used when this scope is a namespace.
@@ -131,13 +140,6 @@ namespace wo
 
         std::vector<ast::ast_using_namespace*> used_namespace;
         std::vector<lang_symbol*> in_function_symbols;
-
-        ast::ast_value_function_define* function_node;
-
-        size_t max_used_stack_size_in_func = 0; // only used in function_scope
-        size_t used_stackvalue_index = 0; // only used in function_scope
-
-        size_t this_block_used_stackvalue_count = 0;
 
         size_t assgin_stack_index(lang_symbol* in_func_variable)
         {
@@ -148,7 +150,6 @@ namespace wo
                 max_used_stack_size_in_func = used_stackvalue_index + 1;
             return used_stackvalue_index++;
         }
-
         void reduce_function_used_stack_size_at(wo_integer_t canceled_stack_pos)
         {
             max_used_stack_size_in_func--;
@@ -166,12 +167,11 @@ namespace wo
 
             }
         }
-
         bool belongs_to(const lang_scope* scope)const
         {
             wo_assert(scope != nullptr);
 
-            if (this == scope)
+            if (this == scope || this->derivation_from_scope_for_function == scope)
                 return true;
 
             if (parent_scope == nullptr)
@@ -304,7 +304,11 @@ namespace wo
     public:
         static void check_function_where_constraint(ast::ast_base* ast, lexer* lang_anylizer, ast::ast_symbolable_base* func);
     private:
-        using template_type_map = std::map<wo_pstring_t, lang_symbol*>;
+        struct template_type_map
+        {
+            lang_scope* m_template_apply_scope;
+            std::map<wo_pstring_t, lang_symbol*> m_type_alias_map;
+        };
 
         lexer* lang_anylizer;
         std::vector<lang_scope*> lang_scopes_buffers;
@@ -328,8 +332,16 @@ namespace wo
         rslib_extern_symbols::extern_lib_set extern_libs;
 
         uint32_t get_typing_hash_after_pass1(ast::ast_type* typing);
-        bool begin_template_scope(ast::ast_base* reporterr, const std::vector<wo_pstring_t>& template_defines_args, const std::vector<ast::ast_type*>& template_args);
-        bool begin_template_scope(ast::ast_base* reporterr, ast::ast_defines* template_defines, const std::vector<ast::ast_type*>& template_args);
+        bool begin_template_scope(
+            ast::ast_base* reporterr, 
+            lang_scope* belong_scope, 
+            const std::vector<wo_pstring_t>& template_defines_args, 
+            const std::vector<ast::ast_type*>& template_args);
+        bool begin_template_scope(
+            ast::ast_base* reporterr, 
+            lang_scope* belong_scope,
+            ast::ast_defines* template_defines, 
+            const std::vector<ast::ast_type*>& template_args);
 
         void end_template_scope();
 

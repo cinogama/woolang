@@ -521,6 +521,7 @@ namespace wo
     }
     bool lang::begin_template_scope(
         ast::ast_base* reporterr,
+        lang_scope* belong_scope,
         const std::vector<wo_pstring_t>& template_defines_args,
         const std::vector<ast::ast_type*>& template_args)
     {
@@ -531,7 +532,7 @@ namespace wo
             return false;
         }
 
-        template_stack.push_back(template_type_map());
+        template_stack.push_back(template_type_map{ belong_scope , {} });
         auto& current_template = template_stack.back();
         for (size_t index = 0; index < template_defines_args.size(); index++)
         {
@@ -546,8 +547,7 @@ namespace wo
             sym->type_informatiom = new ast::ast_type(WO_PSTR(pending));
             sym->has_been_completed_defined = true;
             sym->type_informatiom->set_type(applying_type);
-
-            sym->defined_in_scope = lang_scopes.back();
+            sym->defined_in_scope = belong_scope;
 
             if (sym->type_informatiom->is_hkt())
             {
@@ -586,13 +586,13 @@ namespace wo
                 }
             }
 
-            lang_symbols.push_back(current_template[sym->name] = sym);
+            lang_symbols.push_back(current_template.m_type_alias_map[sym->name] = sym);
         }
         return true;
     }
-    bool lang::begin_template_scope(ast::ast_base* reporterr, ast::ast_defines* template_defines, const std::vector<ast::ast_type*>& template_args)
+    bool lang::begin_template_scope(ast::ast_base* reporterr, lang_scope* belong_scope, ast::ast_defines* template_defines, const std::vector<ast::ast_type*>& template_args)
     {
-        return begin_template_scope(reporterr, template_defines->template_type_name_list, template_args);
+        return begin_template_scope(reporterr, belong_scope, template_defines->template_type_name_list, template_args);
     }
     void lang::end_template_scope()
     {
@@ -600,12 +600,18 @@ namespace wo
     }
     void lang::temporary_entry_scope_in_pass1(lang_scope* scop)
     {
+        lang_scopes.push_back(current_namespace);
+        current_namespace =
+            scop->type == lang_scope::scope_type::namespace_scope ? scop : scop->belong_namespace
+            ;
         lang_scopes.push_back(scop);
     }
     lang_scope* lang::temporary_leave_scope_in_pass1()
     {
         auto* scop = lang_scopes.back();
+        lang_scopes.pop_back();
 
+        current_namespace = lang_scopes.back();
         lang_scopes.pop_back();
 
         return scop;
@@ -665,7 +671,7 @@ namespace wo
 
             temporary_entry_scope_in_pass1(symb->defined_in_scope);
             {
-                if (begin_template_scope(symb->type_informatiom, symb->template_types, templates))
+                if (begin_template_scope(symb->type_informatiom, symb->defined_in_scope, symb->template_types, templates))
                 {
                     std::unordered_set<ast::ast_type*> _repeat_guard;
                     update_typeof_in_type(newtype, _repeat_guard);
@@ -873,10 +879,10 @@ namespace wo
                             if (type->has_template())
                                 using_template =
                                 type_sym->define_node != nullptr ?
-                                begin_template_scope(type, type_sym->define_node, type->template_arguments)
+                                begin_template_scope(type, type_sym->defined_in_scope, type_sym->define_node, type->template_arguments)
                                 : (type_sym->type_informatiom->using_type_name
-                                    ? begin_template_scope(type, type_sym->type_informatiom->using_type_name->symbol->define_node, type->template_arguments)
-                                    : begin_template_scope(type, type_sym->template_types, type->template_arguments));
+                                    ? begin_template_scope(type, type_sym->defined_in_scope, type_sym->type_informatiom->using_type_name->symbol->define_node, type->template_arguments)
+                                    : begin_template_scope(type, type_sym->defined_in_scope, type_sym->template_types, type->template_arguments));
 
                             ast::ast_type* symboled_type = nullptr;
 
@@ -1487,7 +1493,7 @@ namespace wo
             {
                 auto step_in_pass2 = has_step_in_step2;
                 has_step_in_step2 = true;
-                fully_update_type(temtype, true, origin_variable->symbol->template_types);
+                fully_update_type(temtype, false, origin_variable->symbol->template_types);
                 has_step_in_step2 = step_in_pass2;
 
                 template_args_hashtypes.push_back(get_typing_hash_after_pass1(temtype));
@@ -1505,7 +1511,7 @@ namespace wo
             lang_symbol* template_reification_symb = nullptr;
 
             temporary_entry_scope_in_pass1(origin_variable->symbol->defined_in_scope);
-            if (begin_template_scope(origin_variable, origin_variable->symbol->template_types, template_args_types))
+            if (begin_template_scope(origin_variable, origin_variable->symbol->defined_in_scope, origin_variable->symbol->template_types, template_args_types))
             {
                 analyze_pass1(dumpped_template_init_value);
 
@@ -1548,7 +1554,7 @@ namespace wo
             auto step_in_pass2 = has_step_in_step2;
             has_step_in_step2 = true;
 
-            fully_update_type(temtype, true, origin_template_func_define->template_type_name_list);
+            fully_update_type(temtype, false, origin_template_func_define->template_type_name_list);
 
             has_step_in_step2 = step_in_pass2;
 
@@ -1572,6 +1578,7 @@ namespace wo
         wo_assert(dumpped_template_func_define);
 
         // Reset compile state..
+        dumpped_template_func_define->reification_defines = origin_template_func_define;
         dumpped_template_func_define->symbol = nullptr;
         dumpped_template_func_define->searching_begin_namespace_in_pass2 = nullptr;
         dumpped_template_func_define->completed_in_pass2 = false;
@@ -1586,7 +1593,7 @@ namespace wo
             || origin_template_func_define->symbol->defined_in_scope == origin_template_func_define->this_func_scope->parent_scope);
 
         temporary_entry_scope_in_pass1(origin_template_func_define->this_func_scope->parent_scope);
-        if (begin_template_scope(dumpped_template_func_define, origin_template_func_define, template_args_types))
+        if (begin_template_scope(dumpped_template_func_define, origin_template_func_define->this_func_scope, origin_template_func_define, template_args_types))
         {
             analyze_pass1(dumpped_template_func_define);
 
@@ -1597,7 +1604,6 @@ namespace wo
 
             has_step_in_step2 = step_in_pass2;
         }
-        temporary_leave_scope_in_pass1();
 
         lang_symbol* template_reification_symb = new lang_symbol;
 
@@ -1608,6 +1614,8 @@ namespace wo
         template_reification_symb->variable_value = dumpped_template_func_define;
 
         dumpped_template_func_define->this_reification_lang_symbol = template_reification_symb;
+
+        temporary_leave_scope_in_pass1();
 
         lang_symbols.push_back(template_reification_symb);
 
@@ -1651,19 +1659,19 @@ namespace wo
             std::vector<ast::ast_type*> arg_func_template_args(function_define->template_type_name_list.size(), nullptr);
             const auto analyze_template_derivation_for_type =
                 [this, &arg_func_template_args, &function_define](size_t tempindex, ast_type* type, ast_type* param_type)
+            {
+                if (auto* pending_template_arg = analyze_template_derivation(
+                    function_define->template_type_name_list[tempindex],
+                    function_define->template_type_name_list,
+                    type, param_type))
                 {
-                    if (auto* pending_template_arg = analyze_template_derivation(
-                        function_define->template_type_name_list[tempindex],
-                        function_define->template_type_name_list,
-                        type, param_type))
-                    {
-                        ast::ast_type* template_value_type = new ast::ast_type(WO_PSTR(pending));
-                        template_value_type->set_type(pending_template_arg);
-                        template_value_type->copy_source_info(function_define);
+                    ast::ast_type* template_value_type = new ast::ast_type(WO_PSTR(pending));
+                    template_value_type->set_type(pending_template_arg);
+                    template_value_type->copy_source_info(function_define);
 
-                        arg_func_template_args[tempindex] = template_value_type;
-                    }
-                };
+                    arg_func_template_args[tempindex] = template_value_type;
+                }
+            };
 
             for (size_t tempindex = 0; tempindex < function_define->template_type_name_list.size(); ++tempindex)
             {
@@ -1686,7 +1694,7 @@ namespace wo
             if (update)
             {
                 if (!(template_defines && template_args)
-                    || begin_template_scope(callaim, template_defines, *template_args))
+                    || begin_template_scope(callaim, located_scope, template_defines, *template_args))
                 {
                     temporary_entry_scope_in_pass1(located_scope);
                     {
@@ -1725,7 +1733,7 @@ namespace wo
             }
             else
             {
-                if (begin_template_scope(callaim, function_define, arg_func_template_args))
+                if (begin_template_scope(callaim, function_define->this_func_scope, function_define, arg_func_template_args))
                 {
                     temporary_entry_scope_in_pass1(located_scope);
                     {
@@ -2897,25 +2905,31 @@ namespace wo
         };
 
         if (!var_ident->search_from_global_namespace && var_ident->scope_namespaces.empty())
-            for (auto rind = template_stack.rbegin(); rind != template_stack.rend(); rind++)
+        {
+            if (var_ident->searching_begin_namespace_in_pass2 != nullptr)
             {
-                if (fuzzy_for_err_report)
+                for (auto rind = template_stack.rbegin(); rind != template_stack.rend(); rind++)
                 {
-                    for (auto& finding_symbol : *rind)
-                        update_fuzzy_nearest_symbol(finding_symbol.second);
-                }
-                else if (auto fnd = rind->find(ident_str); fnd != rind->end())
-                {
-                    if ((fnd->second->type & target_type_mask) != 0)
-                        return fnd->second;
+                    if (!var_ident->searching_begin_namespace_in_pass2->belongs_to(rind->m_template_apply_scope))
+                        continue;
+
+                    if (fuzzy_for_err_report)
+                    {
+                        for (auto& finding_symbol : rind->m_type_alias_map)
+                            update_fuzzy_nearest_symbol(finding_symbol.second);
+                    }
+                    else if (auto fnd = rind->m_type_alias_map.find(ident_str); fnd != rind->m_type_alias_map.end())
+                    {
+                        if ((fnd->second->type & target_type_mask) != 0)
+                            return fnd->second;
+                    }
                 }
             }
-
-        auto* searching_from_scope = var_ident->searching_begin_namespace_in_pass2;
+        }
 
         if (var_ident->searching_from_type)
         {
-            fully_update_type(var_ident->searching_from_type, has_step_in_step2);
+            fully_update_type(var_ident->searching_from_type, !has_step_in_step2);
 
             if (!var_ident->searching_from_type->is_pending() || var_ident->searching_from_type->using_type_name)
             {
@@ -2925,8 +2939,7 @@ namespace wo
 
                 if (finding_from_type->symbol)
                 {
-                    var_ident->searching_begin_namespace_in_pass2 =
-                        finding_from_type->symbol->defined_in_scope;
+                    var_ident->searching_begin_namespace_in_pass2 = finding_from_type->symbol->defined_in_scope;
                     wo_assert(var_ident->source_file != nullptr);
                 }
                 else
@@ -2945,38 +2958,44 @@ namespace wo
         else if (!var_ident->scope_namespaces.empty())
         {
             if (!var_ident->search_from_global_namespace)
-                for (auto rind = template_stack.rbegin(); rind != template_stack.rend(); rind++)
+            {
+                if (var_ident->searching_begin_namespace_in_pass2 != nullptr)
                 {
-                    if (auto fnd = rind->find(var_ident->scope_namespaces.front()); fnd != rind->end())
+                    for (auto rind = template_stack.rbegin(); rind != template_stack.rend(); rind++)
                     {
-                        auto* fnd_template_type = fnd->second->type_informatiom;
-                        if (fnd_template_type->using_type_name)
-                            fnd_template_type = fnd_template_type->using_type_name;
+                        if (!var_ident->searching_begin_namespace_in_pass2->belongs_to(rind->m_template_apply_scope))
+                            continue;
 
-                        if (fnd_template_type->symbol)
+                        if (auto fnd = rind->m_type_alias_map.find(var_ident->scope_namespaces.front());
+                            fnd != rind->m_type_alias_map.end())
                         {
-                            var_ident->searching_begin_namespace_in_pass2 = fnd_template_type->symbol->defined_in_scope;
-                            wo_assert(var_ident->source_file != nullptr);
-                        }
-                        else
-                            var_ident->search_from_global_namespace = true;
+                            auto* fnd_template_type = fnd->second->type_informatiom;
+                            if (fnd_template_type->using_type_name)
+                                fnd_template_type = fnd_template_type->using_type_name;
 
-                        var_ident->scope_namespaces[0] = fnd_template_type->type_name;
-                        break;
+                            if (fnd_template_type->symbol != nullptr)
+                            {
+                                var_ident->searching_begin_namespace_in_pass2 = fnd_template_type->symbol->defined_in_scope;
+                                wo_assert(var_ident->source_file != nullptr);
+                            }
+                            else
+                                var_ident->search_from_global_namespace = true;
+
+                            var_ident->scope_namespaces[0] = fnd_template_type->type_name;
+                            break;
+                        }
                     }
                 }
-
+            }
         }
 
-        auto* searching = var_ident->search_from_global_namespace ?
-            lang_scopes.front()
-            :
-            (
-                var_ident->searching_begin_namespace_in_pass2 ?
-                var_ident->searching_begin_namespace_in_pass2
-                :
-                lang_scopes.back()
-                );
+        auto* const searching_begin_place = var_ident->searching_begin_namespace_in_pass2;
+        auto* searching = var_ident->search_from_global_namespace
+            ? lang_scopes.front() : searching_begin_place;
+
+        if (searching == nullptr)
+            // No searching begin place.
+            return nullptr;
 
         std::vector<lang_scope*> searching_namespace;
         searching_namespace.push_back(searching);
@@ -3012,7 +3031,7 @@ namespace wo
                 if ((fnd->second->type & target_type_mask) != 0
                     && (fnd->second->type == lang_symbol::symbol_type::typing
                         || fnd->second->type == lang_symbol::symbol_type::type_alias
-                        || check_symbol_is_accessable(fnd->second, searching_from_scope, var_ident, false)))
+                        || check_symbol_is_accessable(fnd->second, searching_begin_place, var_ident, false)))
                     return var_ident->symbol = fnd->second;
             }
 
@@ -3135,7 +3154,7 @@ namespace wo
             return fuzzy_nearest_symbol;
 
         if (searching_result.empty())
-            return var_ident->symbol = nullptr;
+            return (var_ident->symbol = nullptr);
 
         // Result might have un-accessable type? remove them
         std::set<lang_symbol*> selecting_results;
@@ -3143,7 +3162,7 @@ namespace wo
         for (auto fnd_result : selecting_results)
             if (fnd_result->type == lang_symbol::symbol_type::typing
                 || fnd_result->type == lang_symbol::symbol_type::type_alias
-                || check_symbol_is_accessable(fnd_result, searching_from_scope, var_ident, false))
+                || check_symbol_is_accessable(fnd_result, searching_begin_place, var_ident, false))
                 searching_result.insert(fnd_result);
 
         if (searching_result.empty())

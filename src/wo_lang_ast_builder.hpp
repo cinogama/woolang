@@ -452,6 +452,8 @@ namespace wo
             bool template_reification_judge_by_funccall = false;// if template_reification_judge_by_funccall==true, pass2 will not checkxx
             bool is_template_define = false;
             bool is_template_reification = false; // if is_template_reification == true, symbol will not put to overset..
+            ast_defines* reification_defines = nullptr;
+
             lang_symbol* this_reification_lang_symbol = nullptr;
             std::vector<ast_type*> this_reification_template_args;
             std::vector<wo_pstring_t> template_type_name_list;
@@ -466,6 +468,9 @@ namespace wo
 
                 // Write self copy functions here..
                 WO_REINSTANCE(dumm->declear_attribute);
+
+                // Donot re-instance reification_defines.
+                // dumm->reification_defines = reification_defines;
 
                 return dumm;
             }
@@ -850,7 +855,10 @@ namespace wo
                 //              just copy it.
                 // WO_REINSTANCE(dumm->externed_func_info);
 
+                // NOTE: Reset `this_func_scope`, template function instance will create 
+                // new scope to store itselfs variable & other symbols.
                 dumm->this_func_scope = nullptr;
+
                 dumm->capture_variables.clear();
 
                 return dumm;
