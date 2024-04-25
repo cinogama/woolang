@@ -800,28 +800,8 @@ namespace wo
                     {
                         // Append imported ast node front of specify ast-node;
                         auto* ast_result = node.read_ast();
-
-                        if (!tkr.imported_ast.empty())
-                        {
-                            // MERGE IMPORTED AST!
-                            auto* origin_last = ast_result->last;
-                            auto* origin_childs = ast_result->children;
-
-                            ast_result->remove_all_childs();
-
-                            // APPEND IMPORTED AST AT THE BEGIN.
-                            for (auto* imported_ast : tkr.imported_ast)
-                                ast_result->add_child(imported_ast);
-
-                            // MERGE! FINISH!
-                            if (origin_childs != nullptr)
-                            {
-                                wo_assert(origin_last != nullptr);
-
-                                tkr.imported_ast.back()->sibling = origin_childs;
-                                ast_result->last = origin_last;
-                            }
-                        }
+                        tkr.merge_imported_script_trees(ast_result);
+                       
                         return ast_result;
                     }
                     else
@@ -1054,5 +1034,32 @@ namespace wo
     {
         ost << (noter.nt_name);
         return ost;
+    }
+
+    void lexer::merge_imported_script_trees(ast::ast_base* node)
+    {
+        wo_assert(node != nullptr);
+
+        if (!imported_ast.empty())
+        {
+            // MERGE IMPORTED AST!
+            auto* origin_last = node->last;
+            auto* origin_childs = node->children;
+
+            node->remove_all_childs();
+
+            // APPEND IMPORTED AST AT THE BEGIN.
+            for (auto* imported_ast : imported_ast)
+                node->add_child(imported_ast);
+
+            // MERGE! FINISH!
+            if (origin_childs != nullptr)
+            {
+                wo_assert(origin_last != nullptr);
+
+                imported_ast.back()->sibling = origin_childs;
+                node->last = origin_last;
+            }
+        }
     }
 }
