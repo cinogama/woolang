@@ -1856,6 +1856,7 @@ func main()
         for (let t : test_threads)
             do t->wait();
         
+        ////////////////////////////////////////////////////////////////
 
         let begin_tm = std::time();
         std::println("Compile 1000 vm!");

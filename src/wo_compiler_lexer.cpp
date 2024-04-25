@@ -120,8 +120,6 @@ namespace wo
     int lexer::next_one()
     {
         int readed_ch = next_ch();
-        if (readed_ch == EOF)
-            return readed_ch;
 
         if (readed_ch == '\n')          // manage linux's LF
         {
@@ -142,24 +140,12 @@ namespace wo
 
     int lexer::peek_one()
     {
-        // Store the current state
-        auto old_index = reading_buffer->tellg();
-        auto old_now_file_rowno = now_file_rowno;
-        auto old_now_file_colno = now_file_colno;
-        auto old_next_file_rowno = next_file_rowno;
-        auto old_next_file_colno = next_file_colno;
+        int readed_ch = peek_ch();
 
-        // Peek the next character
-        int result = next_one();
+        if (readed_ch == L'\r')
+            return L'\n';
 
-        // Restore the state
-        reading_buffer->seekg(old_index);
-        now_file_rowno = old_now_file_rowno;
-        now_file_colno = old_now_file_colno;
-        next_file_rowno = old_next_file_rowno;
-        next_file_colno = old_next_file_colno;
-
-        return result;
+        return readed_ch;
     }
 
     lex_type lexer::try_handle_macro(std::wstring* out_literal, lex_type result_type, const std::wstring& result_str, bool workinpeek)
@@ -1091,36 +1077,11 @@ namespace wo
 
             if (lex_type keyword_type = lex_is_keyword(read_result()); lex_type::l_error == keyword_type)
             {
-                bool is_macro = false;
-                while (true)
+                if (peek_one() == L'!')
                 {
-                    following_ch = peek_one();
-                    if (lex_isspace(following_ch))
-                        next_one();
-                    else if (following_ch == L'!')
-                    {
-                        // Peek next character, make sure not "!=".
-                        // TODO: Too bad.
-                        wchar_t not_equal_token[2] = {};
-                        auto origin_token_place = reading_buffer->tellg();
-
-                        reading_buffer->read(not_equal_token, 2);
-                        reading_buffer->clear(reading_buffer->rdstate() & ~std::ios_base::failbit);
-                        reading_buffer->seekg(origin_token_place);
-
-                        if (not_equal_token[1] != L'=')
-                        {
-                            next_one();
-                            is_macro = true;
-                        }
-                        break;
-                    }
-                    else
-                        break;
-                }
-
-                if (is_macro)
+                    next_one();
                     return try_handle_macro(out_literal, lex_type::l_macro, read_result(), false);
+                }
                 else
                     return lex_type::l_identifier;
             }

@@ -139,7 +139,7 @@ namespace wo
         {
             if (b >= 0)
             {
-                // Is Terminate, b did'nt need add 1, l_error is 0 and not able to exist in cache.
+                // Is Terminate, b didn't need to add 1, l_error is 0 and not able to exist in cache.
 
                 if (a == LR1_ACCEPT_STATE && b == LR1_ACCEPT_TERM)
                 {
@@ -204,9 +204,9 @@ namespace wo
 
         }
 #endif
-        auto& action = RT_LR1_TABLE[a][b];
-        write_act->act = action.act;
-        write_act->state = action.state;
+
+        write_act->act = RT_LR1_TABLE[a][b].act;
+        write_act->state = RT_LR1_TABLE[a][b].state;
         return;
     }
 
@@ -747,21 +747,11 @@ namespace wo
                     }
                     sym_stack.push(red_rule.production_aim);
 
-                    if (std::find_if(te_or_nt_bnodes.begin(), te_or_nt_bnodes.end(), [](produce& astn) {
-
-                        if (astn.is_token())
-                        {
-                            if (astn.read_token().type == lex_type::l_error)
-                            {
-                                return true;
-                            }
-                        }
-
-                        return false;
-                        }) != te_or_nt_bnodes.end())//bnodes CONTAIN L_ERROR
+                    if (std::any_of(te_or_nt_bnodes.begin(), te_or_nt_bnodes.end(), [](const produce& astn) {
+                        return astn.is_token() && astn.read_token().type == lex_type::l_error;
+                        }))
                     {
                         node_stack.push(std::make_pair(source_info{ tkr.next_file_rowno, tkr.next_file_colno }, token{ lex_type::l_error }));
-                        // std::wcout << ANSI_HIR "reduce: err happend, just go.." ANSI_RST << std::endl;
                     }
                     else
                     {
@@ -791,8 +781,6 @@ namespace wo
                         }
                         node_stack.push(std::make_pair(srcinfo_bnodes.front(), astnode));
                     }
-
-                    // std::wcout << "reduce: " << grammar::lr_item{ ORGIN_P[take_action.state] ,size_t(-1) ,{grammar::ttype::l_eof} } << std::endl;
                 }
                 else if (take_action.act == grammar::action::act_type::accept)
                 {
@@ -806,7 +794,7 @@ namespace wo
                         // Append imported ast node front of specify ast-node;
                         auto* ast_result = node.read_ast();
                         tkr.merge_imported_script_trees(ast_result);
-                       
+
                         return ast_result;
                     }
                     else
@@ -910,55 +898,6 @@ namespace wo
                             tkr.next(nullptr);
                         }
                         goto error_handle_fail;
-
-#if 0
-                        std::vector<te> _termi_want_to_inserts;
-
-#if WOOLANG_LR1_OPTIMIZE_LR1_TABLE
-                        if (lr1_fast_cache_enabled())
-                        {
-                            for (size_t i = 1/* 0 is l_error/state, skip it */; i < LR1_R_S_CACHE_SZ; i++)
-                                if (LR1_R_S_CACHE[LR1_GOTO_RS_MAP[stateid][1] * LR1_R_S_CACHE_SZ + i] != 0)
-                                    _termi_want_to_inserts.push_back(LR1_TERM_LIST[i]);
-                        }
-                        else
-#endif
-                        {
-                            for (auto act : LR1_TABLE.at(stateid))
-                            {
-                                if (act.second.size())
-                                {
-                                    if (std::holds_alternative<te>(act.first))
-                                    {
-                                        auto& tk_type = std::get<te>(act.first).t_type;
-                                        _termi_want_to_inserts.push_back(tk_type);
-                                    }
-                                }
-                            }
-                        }
-
-                        if (try_recover_count == 0 && std::find(_termi_want_to_inserts.begin(), _termi_want_to_inserts.end(),
-                            lex_type::l_semicolon)
-                            != _termi_want_to_inserts.end())
-                        {
-                            tkr.push_temp_for_error_recover(lex_type::l_semicolon, L"");
-                            goto error_progress_end;
-                        }
-                        if (try_recover_count == 1 && std::find(_termi_want_to_inserts.begin(), _termi_want_to_inserts.end(),
-                            lex_type::l_right_brackets)
-                            != _termi_want_to_inserts.end())
-                        {
-                            tkr.push_temp_for_error_recover(lex_type::l_right_brackets, L"");
-                            goto error_progress_end;
-                        }
-                        if (try_recover_count == 2 && std::find(_termi_want_to_inserts.begin(), _termi_want_to_inserts.end(),
-                            lex_type::l_right_curly_braces)
-                            != _termi_want_to_inserts.end())
-                        {
-                            tkr.push_temp_for_error_recover(lex_type::l_right_curly_braces, L"");
-                            goto error_progress_end;
-                        }
-#endif
                     }
 
                     if (node_stack.size())
