@@ -72,24 +72,21 @@ namespace wo
     }
     int lexer::peek_ch()
     {
-        wchar_t ch;
-        auto index = reading_buffer->tellg();
+        wchar_t ch = reading_buffer->peek();
 
-        reading_buffer->read(&ch, 1);
         if (reading_buffer->eof() || !*reading_buffer)
         {
             reading_buffer->clear(reading_buffer->rdstate() & ~std::ios_base::failbit);
             return EOF;
         }
 
-        reading_buffer->seekg(index);
-        return (int)ch;
+        return static_cast<int>(ch);
     }
+
     int lexer::next_ch()
     {
         wchar_t ch;
-        reading_buffer->read(&ch, 1);
-        if (reading_buffer->eof() || !*reading_buffer)
+        if (!reading_buffer->get(ch))
         {
             reading_buffer->clear(reading_buffer->rdstate() & ~std::ios_base::failbit);
             return EOF;
@@ -99,7 +96,7 @@ namespace wo
         now_file_colno = next_file_colno;
         next_file_colno++;
 
-        return (int)ch;
+        return static_cast<int>(ch);
     }
     void lexer::new_line()
     {
@@ -119,11 +116,10 @@ namespace wo
 
         } while (result != L'\n' && result != EOF);
     }
+        
     int lexer::next_one()
     {
         int readed_ch = next_ch();
-        if (readed_ch == EOF)
-            return readed_ch;
 
         if (readed_ch == '\n')          // manage linux's LF
         {
@@ -141,25 +137,15 @@ namespace wo
 
         return readed_ch;
     }
+
     int lexer::peek_one()
     {
-        // Will store next_reading_index / file_rowno/file_colno
+        int readed_ch = peek_ch();
 
-        auto old_index = reading_buffer->tellg();
-        auto old_now_file_rowno = now_file_rowno;
-        auto old_now_file_colno = now_file_colno;
-        auto old_next_file_rowno = next_file_rowno;
-        auto old_next_file_colno = next_file_colno;
+        if (readed_ch == L'\r')
+            return L'\n';
 
-        int result = next_one();
-
-        reading_buffer->seekg(old_index);
-        now_file_rowno = old_now_file_rowno;
-        now_file_colno = old_now_file_colno;
-        next_file_rowno = old_next_file_rowno;
-        next_file_colno = old_next_file_colno;
-
-        return result;
+        return readed_ch;
     }
 
     lex_type lexer::try_handle_macro(std::wstring* out_literal, lex_type result_type, const std::wstring& result_str, bool workinpeek)
@@ -1091,36 +1077,11 @@ namespace wo
 
             if (lex_type keyword_type = lex_is_keyword(read_result()); lex_type::l_error == keyword_type)
             {
-                bool is_macro = false;
-                while (true)
+                if (peek_one() == L'!')
                 {
-                    following_ch = peek_one();
-                    if (lex_isspace(following_ch))
-                        next_one();
-                    else if (following_ch == L'!')
-                    {
-                        // Peek next character, make sure not "!=".
-                        // TODO: Too bad.
-                        wchar_t not_equal_token[2] = {};
-                        auto origin_token_place = reading_buffer->tellg();
-
-                        reading_buffer->read(not_equal_token, 2);
-                        reading_buffer->clear(reading_buffer->rdstate() & ~std::ios_base::failbit);
-                        reading_buffer->seekg(origin_token_place);
-
-                        if (not_equal_token[1] != L'=')
-                        {
-                            next_one();
-                            is_macro = true;
-                        }
-                        break;
-                    }
-                    else
-                        break;
-                }
-
-                if (is_macro)
+                    next_one();
                     return try_handle_macro(out_literal, lex_type::l_macro, read_result(), false);
+                }
                 else
                     return lex_type::l_identifier;
             }
