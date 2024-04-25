@@ -72,24 +72,21 @@ namespace wo
     }
     int lexer::peek_ch()
     {
-        wchar_t ch;
-        auto index = reading_buffer->tellg();
+        wchar_t ch = reading_buffer->peek();
 
-        reading_buffer->read(&ch, 1);
         if (reading_buffer->eof() || !*reading_buffer)
         {
             reading_buffer->clear(reading_buffer->rdstate() & ~std::ios_base::failbit);
             return EOF;
         }
 
-        reading_buffer->seekg(index);
-        return (int)ch;
+        return static_cast<int>(ch);
     }
+
     int lexer::next_ch()
     {
         wchar_t ch;
-        reading_buffer->read(&ch, 1);
-        if (reading_buffer->eof() || !*reading_buffer)
+        if (!reading_buffer->get(ch))
         {
             reading_buffer->clear(reading_buffer->rdstate() & ~std::ios_base::failbit);
             return EOF;
@@ -99,7 +96,7 @@ namespace wo
         now_file_colno = next_file_colno;
         next_file_colno++;
 
-        return (int)ch;
+        return static_cast<int>(ch);
     }
     void lexer::new_line()
     {
@@ -119,6 +116,7 @@ namespace wo
 
         } while (result != L'\n' && result != EOF);
     }
+        
     int lexer::next_one()
     {
         int readed_ch = next_ch();
@@ -141,18 +139,20 @@ namespace wo
 
         return readed_ch;
     }
+
     int lexer::peek_one()
     {
-        // Will store next_reading_index / file_rowno/file_colno
-
+        // Store the current state
         auto old_index = reading_buffer->tellg();
         auto old_now_file_rowno = now_file_rowno;
         auto old_now_file_colno = now_file_colno;
         auto old_next_file_rowno = next_file_rowno;
         auto old_next_file_colno = next_file_colno;
 
+        // Peek the next character
         int result = next_one();
 
+        // Restore the state
         reading_buffer->seekg(old_index);
         now_file_rowno = old_now_file_rowno;
         now_file_colno = old_now_file_colno;

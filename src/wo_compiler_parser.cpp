@@ -677,15 +677,21 @@ namespace wo
         auto NOW_STACK_STATE = [&]()->size_t& {return state_stack.top(); };
         auto NOW_STACK_SYMBO = [&]()->te_nt_index_t& {return sym_stack.top(); };
 
+        std::wstring out_indentifier;
+        lex_type type;
+        bool refetch_flag = true;
         do
         {
-            std::wstring out_indentifier;
-            lex_type type = tkr.peek(&out_indentifier);
+            if (refetch_flag)
+            {
+                type = tkr.next(&out_indentifier);
+                refetch_flag = false;
+            }
 
             if (type == lex_type::l_error)
             {
                 // have a lex error, skip this error.
-                type = tkr.next(&out_indentifier);
+                refetch_flag = true;
                 continue;
             }
 
@@ -719,9 +725,8 @@ namespace wo
                     {
                         node_stack.push(std::make_pair(source_info{ tkr.this_time_peek_from_rowno, tkr.this_time_peek_from_colno }, token{ type, out_indentifier }));
                         sym_stack.push(TERM_MAP.at(type));
-                        tkr.next(nullptr);
 
-                        // std::wcout << "stackin: " << type._to_string() << std::endl;
+                        refetch_flag = true;
                     }
 
                 }
@@ -880,6 +885,9 @@ namespace wo
                     {
                         wo::lex_type out_lex = lex_type::l_empty;
                         std::wstring out_str;
+
+                        refetch_flag = true;
+
                         while ((out_lex = tkr.peek(&out_str)) != lex_type::l_eof)
                         {
                             for (te_nt_index_t fr : reduceables)
