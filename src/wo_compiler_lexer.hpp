@@ -150,6 +150,8 @@ namespace wo
     class lexer
     {
     public:
+        friend class macro;
+
         struct lex_operator_info
         {
             lex_type in_lexer_type;
@@ -158,47 +160,82 @@ namespace wo
         {
             lex_type in_lexer_type;
         };
+        enum class errorlevel
+        {
+            error,
+            infom,
+        };
 
-    public:
+        struct lex_error_msg
+        {
+            errorlevel error_level;
+            size_t   begin_row;
+            size_t   end_row;
+            size_t   begin_col;
+            size_t   end_col;
+            std::wstring describe;
+            std::string filename;
+
+            std::wstring to_wstring(bool need_ansi_describe = true)
+            {
+                using namespace std;
+
+                if (need_ansi_describe)
+                    return (
+                        error_level == errorlevel::error
+                        ? (ANSI_HIR L"error" ANSI_RST)
+                        : (ANSI_HIC L"infom" ANSI_RST)
+                        )
+                    + (L" (" + std::to_wstring(end_row) + L"," + std::to_wstring(end_col))
+                    + (L") " + describe);
+                else
+                    return (
+                        error_level == errorlevel::error
+                        ? (L"error")
+                        : (L"info")
+                        )
+                    + (L" (" + std::to_wstring(end_row) + L"," + std::to_wstring(end_col))
+                    + (L") " + describe);
+            }
+        };
+    private:
         std::unique_ptr<std::wistream> reading_buffer;
 
+        int         format_string_count;
+        int         curly_count;
+
+        std::vector<std::vector<lex_error_msg>> error_frame;
+
+        std::stack<std::pair<lex_type, std::wstring>> temp_token_buff_stack;
+        lex_type peek_result_type = lex_type::l_error;
+        std::wstring peek_result_str;
+        bool peeked_flag = false;
+    
+    public:
+        std::unordered_set<wo_pstring_t> imported_file_list;
+        std::unordered_set<uint64_t> imported_file_crc64_list;
+        std::vector<ast::ast_base*> imported_ast;
+        std::shared_ptr<std::unordered_map<std::wstring, std::shared_ptr<macro>>> used_macro_list;
+
+    public:
         size_t        now_file_rowno;
         size_t        now_file_colno;
 
         size_t        next_file_rowno;
         size_t        next_file_colno;
 
-        int         format_string_count;
-        int         curly_count;
+        size_t after_pick_now_file_rowno;
+        size_t after_pick_now_file_colno;
+        size_t after_pick_next_file_rowno;
+        size_t after_pick_next_file_colno;
 
-        wo_pstring_t   source_file;
+        size_t this_time_peek_from_rowno;
+        size_t this_time_peek_from_colno;
 
-        std::unordered_set<wo_pstring_t> imported_file_list;
-        std::unordered_set<uint64_t> imported_file_crc64_list;
-        std::vector<ast::ast_base*> imported_ast;
+        bool just_have_err = false; // it will be clear at next()
 
-        std::shared_ptr<std::unordered_map<std::wstring, std::shared_ptr<macro>>> used_macro_list;
-
-        bool has_been_imported(wo_pstring_t full_path)
-        {
-            if (imported_file_list.find(full_path) == imported_file_list.end())
-                imported_file_list.insert(full_path);
-            else
-                return true;
-            return false;
-        }
-        bool has_been_imported(uint64_t crc64)
-        {
-            if (imported_file_crc64_list.find(crc64) == imported_file_crc64_list.end())
-                imported_file_crc64_list.insert(crc64);
-            else
-                return true;
-            return false;
-        }
-        void append_import_file_ast(ast::ast_base* astbase)
-        {
-            imported_ast.push_back(astbase);
-        }
+        const wo_pstring_t   source_file;
+        std::vector<lex_error_msg> lex_error_list;
     private:
         inline const static std::map<std::wstring, lex_operator_info> lex_operator_list =
         {
@@ -291,6 +328,27 @@ namespace wo
             {L"typeid", {lex_type::l_typeid}},
             {L"do", {lex_type::l_do}},
         };
+    public:
+        bool has_been_imported(wo_pstring_t full_path)
+        {
+            if (imported_file_list.find(full_path) == imported_file_list.end())
+                imported_file_list.insert(full_path);
+            else
+                return true;
+            return false;
+        }
+        bool has_been_imported(uint64_t crc64)
+        {
+            if (imported_file_crc64_list.find(crc64) == imported_file_crc64_list.end())
+                imported_file_crc64_list.insert(crc64);
+            else
+                return true;
+            return false;
+        }
+        void append_import_file_ast(ast::ast_base* astbase)
+        {
+            imported_ast.push_back(astbase);
+        }
     public:
         static const wchar_t* lex_is_operate_type(lex_type tt)
         {
@@ -440,48 +498,6 @@ namespace wo
         lexer(const std::wstring& content, const std::string _source_file);
         lexer(std::optional<std::unique_ptr<std::wistream>>&& stream, const std::string _source_file);
     public:
-        enum class errorlevel
-        {
-            error,
-            infom,
-        };
-
-        struct lex_error_msg
-        {
-            errorlevel error_level;
-            size_t   begin_row;
-            size_t   end_row;
-            size_t   begin_col;
-            size_t   end_col;
-            std::wstring describe;
-            std::string filename;
-
-            std::wstring to_wstring(bool need_ansi_describe = true)
-            {
-                using namespace std;
-
-                if (need_ansi_describe)
-                    return (
-                        error_level == errorlevel::error
-                        ? (ANSI_HIR L"error" ANSI_RST)
-                        : (ANSI_HIC L"infom" ANSI_RST)
-                        )
-                    + (L" (" + std::to_wstring(end_row) + L"," + std::to_wstring(end_col))
-                    + (L") " + describe);
-                else
-                    return (
-                        error_level == errorlevel::error
-                        ? (L"error")
-                        : (L"info")
-                        )
-                    + (L" (" + std::to_wstring(end_row) + L"," + std::to_wstring(end_col))
-                    + (L") " + describe);
-            }
-        };
-
-        std::vector<lex_error_msg> lex_error_list;
-        std::vector<std::vector<lex_error_msg>> error_frame;
-
         void begin_trying_block()
         {
             error_frame.push_back({});
@@ -497,8 +513,6 @@ namespace wo
                 return lex_error_list;
             return error_frame[error_frame.size() - 1];
         }
-
-        bool just_have_err = false; // it will be clear at next()
 
         template<typename AstT, typename ... TS>
         lex_error_msg make_error(lexer::errorlevel errorlevel, AstT* tree_node, const wchar_t* fmt, TS&& ... args)
@@ -603,30 +617,27 @@ namespace wo
             return !lex_error_list.empty();
         }
 
-    public:
-        std::stack<std::pair<lex_type, std::wstring>> temp_token_buff_stack;
-        lex_type peek_result_type = lex_type::l_error;
-        std::wstring peek_result_str;
-        bool peeked_flag = false;
-        size_t after_pick_now_file_rowno;
-        size_t after_pick_now_file_colno;
-        size_t after_pick_next_file_rowno;
-        size_t after_pick_next_file_colno;
-
-        size_t this_time_peek_from_rowno;
-        size_t this_time_peek_from_colno;
-
-        lex_type peek(std::wstring* out_literal);
+    private:
         int peek_ch();
         int next_ch();
         void new_line();
         void skip_error_line();
+
+        lex_type try_handle_macro(
+            std::wstring* out_literal, 
+            lex_type result_type, 
+            const std::wstring& result_str, 
+            bool workinpeek);
+
+    public:
         int next_one();
         int peek_one();
-
-        lex_type try_handle_macro(std::wstring* out_literal, lex_type result_type, const std::wstring& result_str, bool workinpeek);
+        lex_type peek(std::wstring* out_literal);
+        
         lex_type next(std::wstring* out_literal);
         void push_temp_for_error_recover(lex_type type, const std::wstring& out_literal);
+
+        void merge_imported_script_trees(ast::ast_base* node);
     };
 }
 
