@@ -617,16 +617,23 @@ namespace wo
             return !lex_error_list.empty();
         }
 
-    public:
-        lex_type peek(std::wstring* out_literal);
+    private:
         int peek_ch();
         int next_ch();
         void new_line();
         void skip_error_line();
+
+        lex_type try_handle_macro(
+            std::wstring* out_literal, 
+            lex_type result_type, 
+            const std::wstring& result_str, 
+            bool workinpeek);
+
+    public:
         int next_one();
         int peek_one();
-
-        lex_type try_handle_macro(std::wstring* out_literal, lex_type result_type, const std::wstring& result_str, bool workinpeek);
+        lex_type peek(std::wstring* out_literal);
+        
         lex_type next(std::wstring* out_literal);
         void push_temp_for_error_recover(lex_type type, const std::wstring& out_literal);
 
