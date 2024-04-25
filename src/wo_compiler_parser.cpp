@@ -679,15 +679,20 @@ namespace wo
 
         std::wstring out_indentifier;
         lex_type type;
-
+        bool refetch_flag = true;
         do
         {
-            type = tkr.peek(&out_indentifier);
+            if (refetch_flag)
+            {
+                refetch_flag = false;
+                type = tkr.peek(&out_indentifier);
+            }
 
             if (type == lex_type::l_error)
             {
                 // have a lex error, skip this error.
-                type = tkr.next(&out_indentifier);
+                refetch_flag = true;
+                tkr.next(nullptr);
                 continue;
             }
 
@@ -721,13 +726,18 @@ namespace wo
                     {
                         node_stack.push(std::make_pair(source_info{ tkr.this_time_peek_from_rowno, tkr.this_time_peek_from_colno }, token{ type, out_indentifier }));
                         sym_stack.push(TERM_MAP.at(type));
+                       
+                        refetch_flag = true;
                         tkr.next(nullptr);
-
                     }
 
                 }
                 else if (take_action.act == grammar::action::act_type::reduction)
                 {
+                    if (type == lex_type::l_macro)
+                        // Macro might be updated after reduction(like import). So we need to refetch it.
+                        refetch_flag = true;
+
                     auto& red_rule = RT_PRODUCTION[take_action.state];
 
                     std::vector<source_info> srcinfo_bnodes(red_rule.rule_right_count);
@@ -867,6 +877,8 @@ namespace wo
 
                     if (!reduceables.empty())
                     {
+                        refetch_flag = true;
+
                         wo::lex_type out_lex = lex_type::l_empty;
                         std::wstring out_str;
                         while ((out_lex = tkr.peek(&out_str)) != lex_type::l_eof)
