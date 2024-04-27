@@ -1924,7 +1924,7 @@ namespace result
         err(e)? return functor(e);
         }
     }
-    public func orbind<T, F>(self: result<T, F>, functor: (F)=> result<T, F>)
+    public func orbind<T, F, R>(self: result<T, F>, functor: (F)=> result<T, R>)
     {
         match(self)
         {
