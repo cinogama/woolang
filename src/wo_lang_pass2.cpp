@@ -1789,7 +1789,7 @@ namespace wo
             if (auto* callee_variable = dynamic_cast<ast_value_variable*>(a_value_funccall->called_func);
                 callee_variable != nullptr && callee_variable->symbol == nullptr)
             {
-                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_FAILED_TO_INVOKE_FUNC_FOR_TYPE,
+                lang_anylizer->lang_error(lexer::errorlevel::infom, a_value_funccall, WO_INFO_FAILED_TO_INVOKE_FUNC_FOR_TYPE,
                     a_value_funccall->callee_symbol_in_type_namespace->var_name->c_str(),
                     a_value_funccall->directed_value_from->value_type->get_type_name(false).c_str());
 

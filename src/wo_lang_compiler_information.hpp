@@ -97,8 +97,6 @@
 
 #define WO_ERR_UNKNOWN_TYPE L"未知或不完整的类型 '%ls'."
 
-#define WO_ERR_CANNOT_GET_FUNC_OVERRIDE_WITH_TYPE L"无法找到函数 '%ls' 类型为 '%ls' 的重载"
-
 #define WO_ERR_NEED_TYPES L"这里应该是 '%ls'."
 
 #define WO_ERR_USING_VARIADIC_IN_NON_VRIDIC_FUNC L"只有拥有变长参数的函数中可以使用 '...' 来打包变长参数."
@@ -213,8 +211,6 @@
 
 #define WO_ERR_INVALID_ITEM_OF L"'%ls' 不是 '%ls' 的合法项"
 
-#define WO_ERR_FAILED_TO_INVOKE_FUNC_FOR_TYPE L"找不到名为 '%ls' 的函数，'->' 前的值类型为 '%ls'"
-
 #define WO_ERR_FAILED_TO_DECIDE_ALL_TEMPLATE_ARGS L"一些泛型参数无法被推断"
 
 #define WO_ERR_FAILED_TO_INDEX_TUPLE_ERR_INDEX L"对元组的索引超出范围（元组包含 %d 项，而正在尝试索引第 %d 项）"
@@ -283,6 +279,8 @@
 
 #define WO_ERR_REPEATED_EXTERN_FUNC L"重复导入的外部函数符号，使用 'repeat' 修饰导入行为忽略此检查"
 
+
+#define WO_INFO_FAILED_TO_INVOKE_FUNC_FOR_TYPE L"找不到名为 '%ls' 的函数，'->' 前的值类型为 '%ls'"
 
 #define WO_INFO_ITEM_IS_DEFINED_HERE L"编译器在此处找到了 '%ls' 的上一次定义"
 
@@ -382,8 +380,6 @@
 #define WO_ERR_TYPE_CANNOT_BE_CALL L"Cannot invoke value of '%ls' type."
 
 #define WO_ERR_UNKNOWN_TYPE L"Unknown type '%ls'."
-
-#define WO_ERR_CANNOT_GET_FUNC_OVERRIDE_WITH_TYPE L"Cannot find overload of '%ls' with type '%ls' ."
 
 #define WO_ERR_NEED_TYPES L"Here need '%ls'."
 
@@ -499,8 +495,6 @@
 
 #define WO_ERR_INVALID_ITEM_OF L"'%ls' is not a valid item of '%ls'."
 
-#define WO_ERR_FAILED_TO_INVOKE_FUNC_FOR_TYPE L"Unable to find function named '%ls' for type '%ls'."
-
 #define WO_ERR_FAILED_TO_DECIDE_ALL_TEMPLATE_ARGS L"Some of template params failed to decide."
 
 #define WO_ERR_FAILED_TO_INDEX_TUPLE_ERR_INDEX L"Out of range, the tuple contain %d elmes, but trying index the elems %d."
@@ -569,6 +563,8 @@
 
 #define WO_ERR_REPEATED_EXTERN_FUNC L"Repeatedly imported external function symbol. Use 'repeat' to modify import behavior and ignore this check."
 
+
+#define WO_INFO_FAILED_TO_INVOKE_FUNC_FOR_TYPE L"Unable to find function named '%ls' for type '%ls'."
 
 #define WO_INFO_ITEM_IS_DEFINED_HERE L"Compiler found last defination of '%ls'."
 
