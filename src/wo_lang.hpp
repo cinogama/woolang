@@ -409,6 +409,14 @@ namespace wo
 #undef WO_VALUE_PASS
 #undef WO_PASS
 
+        opnum::opnumbase& do_index_value_impl(
+            ast::ast_value_index* a_value_index, 
+            ir_compiler* compiler, 
+            bool get_pure_value,
+            bool get_pure_tmp_for_assign,
+            opnum::opnumbase** out_index_from,
+            opnum::opnumbase** out_index_key);
+
         void analyze_pattern_in_pass0(ast::ast_pattern_base* pattern, ast::ast_decl_attribute* attrib, ast::ast_value* initval);
         void analyze_pattern_in_pass1(ast::ast_pattern_base* pattern, ast::ast_decl_attribute* attrib, ast::ast_value* initval);
         void analyze_pattern_in_pass2(ast::ast_pattern_base* pattern, ast::ast_value* initval);

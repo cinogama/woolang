@@ -584,14 +584,37 @@ namespace wo
         opnumbase* _store_value = nullptr;
         bool beassigned_value_from_stack = false;
         int16_t beassigned_value_stack_place = 0;
+        
+        //// Calculate right value first. stores it to a temp register.
+        //analyze_value(a_value_assign->right, compiler, true);
 
-        if (!(a_value_index != nullptr && a_value_assign->operate == lex_type::l_assign))
+        //if (a_value_assign->operate != lex_type::l_assign
+        //    && a_value_assign->operate != lex_type::l_value_assign)
+        //{
+        //    
+
+        //    if (a_value_index != nullptr)
+        //    {
+        //        // ATTENTION: If expr is like `foo().field += 1`, we cannot eval foo() twice.
+        //        // So we need to eval 
+        //    }
+        //}
+
+
+        //if (a_value_index != nullptr)
+        //{
+        //    // If assigned value is an index op:
+        //    
+        //    // Eval right value.
+        //    analyze_value(a_value_assign->left, compiler, true);
+        //}
+
+        if (a_value_index == nullptr 
+            || (a_value_assign->operate != lex_type::l_assign
+                && a_value_assign->operate != lex_type::l_value_assign))
         {
             // if mixed type, do opx
-            bool same_type = a_value_assign->left->value_type->accept_type(a_value_assign->right->value_type, false, false);
-            value::valuetype optype = value::valuetype::invalid;
-            if (same_type)
-                optype = a_value_assign->left->value_type->value_type;
+            const value::valuetype optype = a_value_assign->left->value_type->value_type;
 
             size_t revert_pos = compiler->get_now_ip();
 
@@ -633,7 +656,6 @@ namespace wo
             {
             case lex_type::l_assign:
             case lex_type::l_value_assign:
-                wo_assert(a_value_assign->left->value_type->accept_type(a_value_assign->right->value_type, false, false));
                 if (beassigned_value_from_stack)
                     compiler->sts(op_right_opnum, imm(_last_stack_offset_to_write));
                 else
@@ -755,7 +777,10 @@ namespace wo
         else
         {
             wo_assert(beassigned_value_from_stack == false);
-            wo_assert(a_value_index != nullptr && a_value_assign->operate == lex_type::l_assign);
+            wo_assert(a_value_index != nullptr && (
+                a_value_assign->operate == lex_type::l_assign 
+                || a_value_assign->operate == lex_type::l_value_assign));
+
             _store_value = &analyze_value(a_value_assign->right, compiler);
 
             if (is_cr_reg(*_store_value))
@@ -789,7 +814,7 @@ namespace wo
                     && (is_cr_reg(*_index_value) || is_temp_reg(*_index_value) || _last_value_stored_to_cr))
                 {
                     complete_using_register(*_from_value);
-                    complete_using_register(*_from_value);
+                    complete_using_register(*_index_value);
                     compiler->revert_code_to(revert_pos);
                     _index_value = &analyze_value(a_value_index->index, compiler, true);
                     _from_value = &analyze_value(a_value_index->from, compiler);
@@ -1203,8 +1228,10 @@ namespace wo
             complete_using_register(*_beoped_left_opnum);
             complete_using_register(*_op_right_opnum);
             compiler->revert_code_to(revert_pos);
-            _op_right_opnum = &analyze_value(a_value_logical_binary->right, compiler, true);
-            _beoped_left_opnum = &analyze_value(a_value_logical_binary->left, compiler);
+
+            // TODO: Optimize this, insert a command to generate a new register instead of regenerate.
+            _beoped_left_opnum = &analyze_value(a_value_logical_binary->left, compiler, true);
+            _op_right_opnum = &analyze_value(a_value_logical_binary->right, compiler);
         }
         auto& beoped_left_opnum = *_beoped_left_opnum;
         auto& op_right_opnum = *_op_right_opnum;
@@ -1335,65 +1362,93 @@ namespace wo
         return treg;
 
     }
-    WO_VALUE_PASS(ast_value_index)
+
+    opnum::opnumbase& lang::do_index_value_impl(
+        ast::ast_value_index* a_value_index, 
+        ir_compiler* compiler, 
+        bool get_pure_value,
+        bool get_pure_tmp_for_assign,
+        opnum::opnumbase** out_index_from,
+        opnum::opnumbase** out_index_key)
     {
         auto_cancel_value_store_to_cr last_value_stored_to_cr_flag(_last_value_stored_to_cr);
-
-        auto* a_value_index = WO_AST();
-
         if (a_value_index->from->value_type->is_struct() || a_value_index->from->value_type->is_tuple())
         {
             wo_assert(a_value_index->struct_offset != 0xFFFF);
-            auto* _beoped_left_opnum = &analyze_value(a_value_index->from, compiler);
+            auto* _beoped_left_opnum = &analyze_value(a_value_index->from, compiler, false);
 
-            compiler->idstruct(reg(reg::cr), complete_using_register(*_beoped_left_opnum), a_value_index->struct_offset);
+            auto& result = get_useable_register_for_pure_value();
+
+            compiler->idstruct(result, *_beoped_left_opnum, a_value_index->struct_offset);
+
+            *out_index_from = _beoped_left_opnum;
+            *out_index_key = nullptr;
+
+            return result;
         }
         else
         {
             size_t revert_pos = compiler->get_now_ip();
 
-            auto* _beoped_left_opnum = &analyze_value(a_value_index->from, compiler);
-            auto* _op_right_opnum = &analyze_value(a_value_index->index, compiler);
-
-            if (is_cr_reg(*_beoped_left_opnum)
-                && (is_cr_reg(*_op_right_opnum) || is_temp_reg(*_op_right_opnum) || _last_value_stored_to_cr))
+            auto* _beoped_left_opnum = &analyze_value(a_value_index->from, compiler, get_pure_tmp_for_assign);
+            auto* _op_right_opnum = &analyze_value(a_value_index->index, compiler, get_pure_tmp_for_assign);
+            
+            if (get_pure_tmp_for_assign)
+            {
+                // Do nothing
+            }
+            else if (is_cr_reg(*_beoped_left_opnum) && (is_cr_reg(*_op_right_opnum) || is_temp_reg(*_op_right_opnum) || _last_value_stored_to_cr))
             {
                 complete_using_register(*_beoped_left_opnum);
-                complete_using_register(*_beoped_left_opnum);
+                complete_using_register(*_op_right_opnum);
                 compiler->revert_code_to(revert_pos);
-                _op_right_opnum = &analyze_value(a_value_index->index, compiler, true);
-                _beoped_left_opnum = &analyze_value(a_value_index->from, compiler);
-            }
-            auto& beoped_left_opnum = *_beoped_left_opnum;
-            auto& op_right_opnum = *_op_right_opnum;
 
+                // TODO: Optimize this, insert a command to generate a new register instead of regenerate.
+                _beoped_left_opnum = &analyze_value(a_value_index->from, compiler, true);
+                _op_right_opnum = &analyze_value(a_value_index->index, compiler);
+            }
+            
             last_value_stored_to_cr_flag.set_true();
 
             if (a_value_index->from->value_type->is_array() || a_value_index->from->value_type->is_vec())
-                compiler->idarr(beoped_left_opnum, op_right_opnum);
+                compiler->idarr(*_beoped_left_opnum, *_op_right_opnum);
             else if (a_value_index->from->value_type->is_dict() || a_value_index->from->value_type->is_map())
             {
-                compiler->iddict(beoped_left_opnum, op_right_opnum);
+                compiler->iddict(*_beoped_left_opnum, *_op_right_opnum);
             }
             else if (a_value_index->from->value_type->is_string())
-                compiler->idstr(beoped_left_opnum, op_right_opnum);
+                compiler->idstr(*_beoped_left_opnum, *_op_right_opnum);
             else
                 wo_error("Unknown index operation.");
 
-            complete_using_register(beoped_left_opnum);
-            complete_using_register(op_right_opnum);
-        }
+            *out_index_from = _beoped_left_opnum;
+            *out_index_key = _op_right_opnum;
 
+            if (!get_pure_value)
+                return WO_NEW_OPNUM(reg(reg::cr));
+            else
+            {
+                auto& result = get_useable_register_for_pure_value();
+                compiler->mov(result, reg(reg::cr));
+                return result;
+            }
+        }       
+    }
 
-        if (!get_pure_value)
-            return WO_NEW_OPNUM(reg(reg::cr));
-        else
-        {
-            auto& result = get_useable_register_for_pure_value();
-            compiler->mov(result, reg(reg::cr));
-            return result;
-        }
+    WO_VALUE_PASS(ast_value_index)
+    {
+        auto* a_value_index = WO_AST();
 
+        opnum::opnumbase* _index_from = nullptr;
+        opnum::opnumbase* _index_key = nullptr;
+        auto& result = do_index_value_impl(a_value_index, compiler, get_pure_value, false, &_index_from, &_index_key);
+
+        if (_index_from != nullptr)
+            complete_using_register(*_index_from);
+        if (_index_key != nullptr)
+            complete_using_register(*_index_key);
+
+        return result;
     }
     WO_VALUE_PASS(ast_value_packed_variadic_args)
     {
