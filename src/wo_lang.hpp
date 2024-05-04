@@ -327,14 +327,14 @@ namespace wo
 
         std::optional<uint32_t> get_typing_hash_after_pass1(ast::ast_type* typing);
         bool begin_template_scope(
-            ast::ast_base* reporterr, 
-            lang_scope* belong_scope, 
-            const std::vector<wo_pstring_t>& template_defines_args, 
+            ast::ast_base* reporterr,
+            lang_scope* belong_scope,
+            const std::vector<wo_pstring_t>& template_defines_args,
             const std::vector<ast::ast_type*>& template_args);
         bool begin_template_scope(
-            ast::ast_base* reporterr, 
+            ast::ast_base* reporterr,
             lang_scope* belong_scope,
-            ast::ast_defines* template_defines, 
+            ast::ast_defines* template_defines,
             const std::vector<ast::ast_type*>& template_args);
 
         void end_template_scope(lang_scope* scop);
@@ -410,8 +410,8 @@ namespace wo
 #undef WO_PASS
 
         opnum::opnumbase& do_index_value_impl(
-            ast::ast_value_index* a_value_index, 
-            ir_compiler* compiler, 
+            ast::ast_value_index* a_value_index,
+            ir_compiler* compiler,
             bool get_pure_value,
             bool get_pure_tmp_for_assign,
             opnum::opnumbase** out_index_from,
@@ -475,42 +475,69 @@ namespace wo
         bool is_cr_reg(opnum::opnumbase& op_num);
         bool is_non_ref_tem_reg(opnum::opnumbase& op_num);
         bool is_temp_reg(opnum::opnumbase& op_num);
-        opnum::opnumbase& mov_value_to_cr(opnum::opnumbase& op_num, ir_compiler* compiler);
+        void mov_value_to_cr(opnum::opnumbase& op_num, ir_compiler* compiler);
 
         std::vector<ast::ast_value_function_define* > in_used_functions;
 
         opnum::opnumbase& get_new_global_variable();
         std::variant<opnum::opnumbase*, int16_t> get_opnum_by_symbol(ast::ast_base* error_prud, lang_symbol* symb, ir_compiler* compiler, bool get_pure_value = false);
 
-        bool _last_value_stored_to_cr = false;
-        bool _last_value_from_stack = false;
-        int16_t _last_stack_offset_to_write = 0;
-
-        struct auto_cancel_value_store_to_cr
+        template<typename T>
+        class raii_value_clear_guard
         {
-            bool clear_sign = false;
-            bool* aim_flag;
-            auto_cancel_value_store_to_cr(bool& flag)
-                :aim_flag(&flag)
+            T m_clear_value;
+            T* m_aim_value;
+        public:
+            raii_value_clear_guard(T* aim_value, T clear_value)
+                :m_aim_value(aim_value), m_clear_value(clear_value)
             {
+                *m_aim_value = m_clear_value;
+            }
+            ~raii_value_clear_guard()
+            {
+                *m_aim_value = m_clear_value;
+            }
 
-            }
-            ~auto_cancel_value_store_to_cr()
+            void set_value(const T& new_value)
             {
-                *aim_flag = clear_sign;
-            }
-
-            void set_true()
-            {
-                clear_sign = true;
-            }
-            void set_false()
-            {
-                clear_sign = false;
+                m_clear_value = new_value;
             }
         };
 
+        bool _cr_modified = false;
+        bool _last_value_also_stored_to_cr = false;
+        std::optional<int16_t> _last_value_from_stack_offset_may_null = std::nullopt;
+
+        raii_value_clear_guard<bool>* _current_also_cr_store_flag;
+        raii_value_clear_guard<std::optional<int16_t>>* _current_stack_offset_store_flag;
+
+        void set_last_value_also_store_to_cr()
+        {
+            set_cr_modified();
+            _current_also_cr_store_flag->set_value(true);
+        }
+        void set_stack_offset_stored(int16_t offset)
+        {
+            _current_stack_offset_store_flag->set_value(offset);
+        }
+        void set_cr_modified()
+        {
+            _cr_modified = true;
+        }
+
         opnum::opnumbase& analyze_value(ast::ast_value* value, ir_compiler* compiler, bool get_pure_value = false);
+        opnum::opnumbase& analyze_value_and_get_cr_modified(ast::ast_value* value, ir_compiler* compiler, bool get_pure_value, bool* out_cr_modified)
+        {
+            bool old_state = _cr_modified;
+            _cr_modified = false;
+
+            auto& result = analyze_value(value, compiler, get_pure_value);
+
+            *out_cr_modified = _cr_modified;
+
+            _cr_modified = _cr_modified || old_state;
+            return result;
+        }
         opnum::opnumbase& auto_analyze_value(ast::ast_value* value, ir_compiler* compiler, bool get_pure_value = false);
 
         struct loop_label_info
