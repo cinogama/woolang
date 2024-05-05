@@ -529,30 +529,82 @@ namespace wo
 
         analyze_pass2(a_value_assi->right);
 
-        if (a_value_assi->left->value_type->is_function())
+        if (a_value_assi->overrided_operation_call != nullptr)
         {
-            auto* symbinfo = dynamic_cast<ast_value_variable*>(a_value_assi->left);
-
-            auto* scope = symbinfo == nullptr || symbinfo->symbol == nullptr
-                ? a_value_assi->located_scope
-                : symbinfo->symbol->defined_in_scope;
-
-            if (auto right_func_instance = judge_auto_type_of_funcdef_with_type(
-                a_value_assi->located_scope,
-                a_value_assi->left->value_type, a_value_assi->right, true, nullptr, nullptr))
+            // Recheck if the override func is valid.
+            if (check_if_need_try_operation_overload_assign(
+                a_value_assi->left->value_type, a_value_assi->right->value_type, a_value_assi->operate))
             {
-                if (dynamic_cast<ast::ast_value_mutable*>(a_value_assi->right) == nullptr)
-                    a_value_assi->right = std::get<ast::ast_value_function_define*>(right_func_instance.value());
+                lang_anylizer->begin_trying_block();
+                analyze_pass2(a_value_assi->overrided_operation_call);
+
+                auto current_error_frame_dup = lang_anylizer->get_cur_error_frame();
+                lang_anylizer->end_trying_block();
+
+                if (!current_error_frame_dup.empty())
+                {
+                    // Failed to call override func, try to use default operate result type.
+                    ast_value_function_define* func_symbol_target =
+                        dynamic_cast<ast_value_function_define*>(a_value_assi->overrided_operation_call->called_func);
+
+                    if (func_symbol_target != nullptr)
+                    {
+                        // Overload func is found, but failed to call.
+                        auto& current_frame = lang_anylizer->get_cur_error_frame();
+                        for (auto& err : current_error_frame_dup)
+                            current_frame.push_back(err);
+                    }
+
+                    a_value_assi->overrided_operation_call = nullptr;
+                }
+                else
+                {
+                    if (!a_value_assi->left->value_type->accept_type(a_value_assi->overrided_operation_call->value_type, false, false))
+                    {
+                        lang_anylizer->lang_error(lexer::errorlevel::error, a_value_assi->overrided_operation_call, WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE,
+                                a_value_assi->left->value_type->get_type_name(false).c_str(),
+                                a_value_assi->overrided_operation_call->value_type->get_type_name(false).c_str());
+
+                        ast_value_function_define* func_symbol_target =
+                            dynamic_cast<ast_value_function_define*>(a_value_assi->overrided_operation_call->called_func);
+                        if (func_symbol_target != nullptr && func_symbol_target->function_name != nullptr)
+                        {
+                            lang_anylizer->lang_error(lexer::errorlevel::infom, a_value_assi->overrided_operation_call->called_func,
+                                WO_INFO_ITEM_IS_DEFINED_HERE,
+                                func_symbol_target->function_name->c_str());
+                        }
+                    }
+                }
+            }
+            else
+                a_value_assi->overrided_operation_call = nullptr;
+        }
+        else
+        {
+            if (a_value_assi->left->value_type->is_function())
+            {
+                auto* symbinfo = dynamic_cast<ast_value_variable*>(a_value_assi->left);
+
+                auto* scope = symbinfo == nullptr || symbinfo->symbol == nullptr
+                    ? a_value_assi->located_scope
+                    : symbinfo->symbol->defined_in_scope;
+
+                if (auto right_func_instance = judge_auto_type_of_funcdef_with_type(
+                    a_value_assi->located_scope,
+                    a_value_assi->left->value_type, a_value_assi->right, true, nullptr, nullptr))
+                {
+                    if (dynamic_cast<ast::ast_value_mutable*>(a_value_assi->right) == nullptr)
+                        a_value_assi->right = std::get<ast::ast_value_function_define*>(right_func_instance.value());
+                }
+            }
+
+            if (!a_value_assi->left->value_type->accept_type(a_value_assi->right->value_type, false, false))
+            {
+                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_assi->right, WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE,
+                    a_value_assi->left->value_type->get_type_name(false).c_str(),
+                    a_value_assi->right->value_type->get_type_name(false).c_str());
             }
         }
-
-        if (!a_value_assi->left->value_type->accept_type(a_value_assi->right->value_type, false, false))
-        {
-            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_assi->right, WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE,
-                a_value_assi->left->value_type->get_type_name(false).c_str(),
-                a_value_assi->right->value_type->get_type_name(false).c_str());
-        }
-
         if (!a_value_assi->left->can_be_assign)
             lang_anylizer->lang_error(lexer::errorlevel::error, a_value_assi->left, WO_ERR_CANNOT_ASSIGN_TO_UNASSABLE_ITEM);
 
@@ -855,43 +907,61 @@ namespace wo
         analyze_pass2(a_value_bin->left);
         analyze_pass2(a_value_bin->right);
 
-        if (a_value_bin->overrided_operation_call)
+        if (a_value_bin->overrided_operation_call != nullptr)
         {
-            lang_anylizer->begin_trying_block();
-            analyze_pass2(a_value_bin->overrided_operation_call);
-            lang_anylizer->end_trying_block();
+            // Recheck if the override func is valid.
 
-            if (a_value_bin->overrided_operation_call->value_type->is_pending())
+            ast_type* default_operate_result_type = nullptr;
+
+            if (check_if_need_try_operation_overload_binary(
+                a_value_bin->left->value_type, a_value_bin->right->value_type, a_value_bin->operate, &default_operate_result_type))
             {
-                // Failed to call override func
-                a_value_bin->overrided_operation_call = nullptr;
-                auto* lnr_type = ast_value_binary::binary_upper_type_with_operator(
-                    a_value_bin->left->value_type,
-                    a_value_bin->right->value_type,
-                    a_value_bin->operate
-                );
-                if (lnr_type != nullptr)
+                lang_anylizer->begin_trying_block();
+                analyze_pass2(a_value_bin->overrided_operation_call);
+
+                auto current_error_frame_dup = lang_anylizer->get_cur_error_frame();
+                lang_anylizer->end_trying_block();
+
+                if (!current_error_frame_dup.empty())
                 {
-                    a_value_bin->value_type->set_type(lnr_type);
+                    // Failed to call override func, try to use default operate result type.
+                    ast_value_function_define* func_symbol_target =
+                        dynamic_cast<ast_value_function_define*>(a_value_bin->overrided_operation_call->called_func);
+
+                    if (func_symbol_target != nullptr)
+                    {
+                        // Overload func is found, but failed to call.
+                        auto& current_frame = lang_anylizer->get_cur_error_frame();
+                        for (auto& err : current_error_frame_dup)
+                            current_frame.push_back(err);
+                    }
+
+                    a_value_bin->overrided_operation_call = nullptr;
                 }
                 else
-                    a_value_bin->value_type->set_type_with_name(WO_PSTR(pending));
-            }
-            else
-            {
-                // Apply this type to func
-                if (a_value_bin->value_type->is_pending())
                     a_value_bin->value_type->set_type(a_value_bin->overrided_operation_call->value_type);
             }
-
+            else
+                a_value_bin->overrided_operation_call = nullptr;
         }
 
         if (a_value_bin->value_type->is_pending())
         {
-            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_bin, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
-                a_value_bin->left->value_type->get_type_name(false).c_str(),
-                a_value_bin->right->value_type->get_type_name(false).c_str());
-            a_value_bin->value_type->set_type_with_name(WO_PSTR(pending));
+            auto* lnr_type = ast_value_binary::binary_upper_type_with_operator(
+                a_value_bin->left->value_type,
+                a_value_bin->right->value_type,
+                a_value_bin->operate
+            );
+
+            if (lnr_type != nullptr)
+                a_value_bin->value_type->set_type(lnr_type);
+            else
+            {
+                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_bin, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                    a_value_bin->left->value_type->get_type_name(false).c_str(),
+                    a_value_bin->right->value_type->get_type_name(false).c_str());
+                a_value_bin->value_type->set_type_with_name(WO_PSTR(pending));
+            }
         }
     }
     WO_PASS2(ast_value_logical_binary)
@@ -900,25 +970,42 @@ namespace wo
         analyze_pass2(a_value_logic_bin->left);
         analyze_pass2(a_value_logic_bin->right);
 
-        if (a_value_logic_bin->overrided_operation_call)
+        if (a_value_logic_bin->overrided_operation_call != nullptr)
         {
-            lang_anylizer->begin_trying_block();
-            analyze_pass2(a_value_logic_bin->overrided_operation_call);
-            lang_anylizer->end_trying_block();
-
-            if (a_value_logic_bin->overrided_operation_call->value_type->is_pending())
+            // Recheck if the override func is valid.
+            if (check_if_need_try_operation_overload_logical(
+                a_value_logic_bin->left->value_type, a_value_logic_bin->right->value_type, a_value_logic_bin->operate))
             {
-                // Failed to call override func
-                a_value_logic_bin->overrided_operation_call = nullptr;
+                lang_anylizer->begin_trying_block();
+                analyze_pass2(a_value_logic_bin->overrided_operation_call);
+
+                auto current_error_frame_dup = lang_anylizer->get_cur_error_frame();
+                lang_anylizer->end_trying_block();
+
+                if (!current_error_frame_dup.empty())
+                {
+                    // Failed to call override func, try to use default operate result type.
+                    ast_value_function_define* func_symbol_target =
+                        dynamic_cast<ast_value_function_define*>(a_value_logic_bin->overrided_operation_call->called_func);
+
+                    if (func_symbol_target != nullptr)
+                    {
+                        // Overload func is found, but failed to call.
+                        auto& current_frame = lang_anylizer->get_cur_error_frame();
+                        for (auto& err : current_error_frame_dup)
+                            current_frame.push_back(err);
+                    }
+
+                    a_value_logic_bin->overrided_operation_call = nullptr;
+                }
+                else
+                    a_value_logic_bin->value_type->set_type(
+                        a_value_logic_bin->overrided_operation_call->value_type);
             }
             else
-            {
-                // Apply this type to func
-                wo_assert(a_value_logic_bin->value_type != nullptr);
-                a_value_logic_bin->value_type->set_type(a_value_logic_bin->overrided_operation_call->value_type);
-            }
-
+                a_value_logic_bin->overrided_operation_call = nullptr;
         }
+
         if (a_value_logic_bin->value_type->is_pending())
         {
             bool type_ok = false;
@@ -1601,9 +1688,9 @@ namespace wo
 
                     if (need_update_template_scope)
                         wo_assure(begin_template_scope(
-                            a_value_var, 
-                            final_sym->defined_in_scope, 
-                            a_value_var->symbol->template_types, 
+                            a_value_var,
+                            final_sym->defined_in_scope,
+                            a_value_var->symbol->template_types,
                             a_value_var->template_reification_args));
 
                     analyze_pass2(final_sym->variable_value);
@@ -1789,7 +1876,7 @@ namespace wo
             if (auto* callee_variable = dynamic_cast<ast_value_variable*>(a_value_funccall->called_func);
                 callee_variable != nullptr && callee_variable->symbol == nullptr)
             {
-                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_FAILED_TO_INVOKE_FUNC_FOR_TYPE,
+                lang_anylizer->lang_error(lexer::errorlevel::infom, a_value_funccall, WO_INFO_FAILED_TO_INVOKE_FUNC_FOR_TYPE,
                     a_value_funccall->callee_symbol_in_type_namespace->var_name->c_str(),
                     a_value_funccall->directed_value_from->value_type->get_type_name(false).c_str());
 

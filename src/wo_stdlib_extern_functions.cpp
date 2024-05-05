@@ -1924,7 +1924,7 @@ namespace result
         err(e)? return functor(e);
         }
     }
-    public func orbind<T, F>(self: result<T, F>, functor: (F)=> result<T, F>)
+    public func orbind<T, F, R>(self: result<T, F>, functor: (F)=> result<T, R>)
     {
         match(self)
         {
@@ -2856,22 +2856,6 @@ namespace std
 
         extern("rslib_std_debug_callstack_trace")
             public func callstack(layer:int) =>  string;
-
-        public func run<FT>(foo: FT, ...)
-        {
-            attach_debuggee();
-            let result = (foo:(...)=>dynamic)(......);
-            disattach_debuggee();
-    
-            return result;
-        }
-
-        extern("rslib_std_debug_invoke", slow)
-        public func invoke<FT>(foo:FT, ...)=> typeof(foo(......));
-
-        // Used for create a value with specified type, it's a dangergous function.
-        extern("rslib_std_debug_empty_func")
-        public func __empty_function<T>()=> T;
     }
 }
 )" };

@@ -3,6 +3,7 @@
 namespace wo
 {
     using namespace ast;
+
     void lang::check_function_where_constraint(ast::ast_base* ast, lexer* lang_anylizer, ast::ast_symbolable_base* func)
     {
         wo_assert(func != nullptr && ast != nullptr);
@@ -2152,12 +2153,13 @@ namespace wo
 
         return nullptr;
     }
+#define WO_NEW_OPNUM(...) (*generated_opnum_list_for_clean.emplace_back(new __VA_ARGS__))
 
     opnum::opnumbase& lang::get_useable_register_for_pure_value(bool must_release)
     {
         using namespace ast;
         using namespace opnum;
-#define WO_NEW_OPNUM(...) (*generated_opnum_list_for_clean.emplace_back(new __VA_ARGS__))
+
         for (size_t i = 0; i < opnum::reg::T_REGISTER_COUNT + opnum::reg::R_REGISTER_COUNT; i++)
         {
             if (RegisterUsingState::FREE == assigned_tr_register_list[i])
@@ -2169,6 +2171,7 @@ namespace wo
         wo_error("cannot get a useable register..");
         return WO_NEW_OPNUM(reg(reg::cr));
     }
+
     void lang::_complete_using_register_for_pure_value(opnum::opnumbase& completed_reg)
     {
         using namespace ast;
@@ -2236,20 +2239,21 @@ namespace wo
         }
         return false;
     }
-    opnum::opnumbase& lang::mov_value_to_cr(opnum::opnumbase& op_num, ir_compiler* compiler)
+    void lang::mov_value_to_cr(opnum::opnumbase& op_num, ir_compiler* compiler)
     {
         using namespace ast;
         using namespace opnum;
-        if (_last_value_stored_to_cr)
-            return op_num;
+
+        if (_last_value_also_stored_to_cr)
+            return;
 
         if (auto* regist = dynamic_cast<reg*>(&op_num))
         {
             if (regist->id == reg::cr)
-                return op_num;
+                return;
         }
         compiler->mov(reg(reg::cr), op_num);
-        return WO_NEW_OPNUM(reg(reg::cr));
+        return;
     }
 
     opnum::opnumbase& lang::get_new_global_variable()
@@ -2324,8 +2328,12 @@ namespace wo
 
     opnum::opnumbase& lang::analyze_value(ast::ast_value* value, ir_compiler* compiler, bool get_pure_value)
     {
-        auto_cancel_value_store_to_cr last_value_stored_to_cr_flag(_last_value_stored_to_cr);
-        auto_cancel_value_store_to_cr last_value_stored_to_stack_flag(_last_value_from_stack);
+        raii_value_clear_guard<bool> guard_last_also_stores_cr(&_last_value_also_stored_to_cr, false);
+        _current_also_cr_store_flag = &guard_last_also_stores_cr;
+
+        raii_value_clear_guard<std::optional<int16_t>> guard_stackoffset_reg(&_last_value_from_stack_offset_may_null, std::nullopt);
+        _current_stack_offset_store_flag = &guard_stackoffset_reg;
+
         using namespace ast;
         using namespace opnum;
         if (value->is_constant)
@@ -3325,5 +3333,92 @@ namespace wo
     bool lang::has_compile_error()const
     {
         return lang_anylizer->has_error();
+    }
+
+    bool lang::check_if_need_try_operation_overload_binary(ast::ast_type* left, ast::ast_type* right, lex_type op, ast::ast_type** out_type)
+    {
+        ast::ast_type* a_value_binary_target_type = nullptr;
+        if (!left->is_builtin_basic_type() || !right->is_builtin_basic_type())
+        {
+            // IS CUSTOM TYPE, DELAY THE TYPE CALC TO PASS2
+            return true;
+        }
+        else
+        {
+            *out_type = ast_value_binary::binary_upper_type_with_operator(left, right, op);
+            if (*out_type != nullptr)
+                return false;
+
+            return true;
+        }
+    }
+    bool lang::check_if_need_try_operation_overload_assign(ast::ast_type* left, ast::ast_type* right, lex_type op)
+    {
+        if (op == lex_type::l_assign || op == lex_type::l_value_assign)
+            return false;
+        else
+        {
+            if (!left->is_builtin_basic_type() || !right->is_builtin_basic_type())
+                return true;
+            else
+            {
+                lex_type optype = op;
+                wo_assert(optype != lex_type::l_assign && optype != lex_type::l_value_assign);
+                switch (optype)
+                {
+                case lex_type::l_add_assign:
+                case lex_type::l_value_add_assign:
+                    optype = lex_type::l_add;
+                    break;
+                case lex_type::l_sub_assign:
+                case lex_type::l_value_sub_assign:
+                    optype = lex_type::l_sub;
+                    break;
+                case lex_type::l_mul_assign:
+                case lex_type::l_value_mul_assign:
+                    optype = lex_type::l_mul;
+                    break;
+                case lex_type::l_div_assign:
+                case lex_type::l_value_div_assign:
+                    optype = lex_type::l_div;
+                    break;
+                case lex_type::l_mod_assign:
+                case lex_type::l_value_mod_assign:
+                    optype = lex_type::l_mod;
+                    break;
+                default:
+                    wo_error("Unexpected assign method.");
+                }
+
+                if (left->accept_type(right, false, false) && 
+                    nullptr != ast_value_binary::binary_upper_type_with_operator(left, right, op))
+                    return false;
+
+                return true;
+            }
+        }
+    }
+    bool lang::check_if_need_try_operation_overload_logical(ast::ast_type* left, ast::ast_type* right, lex_type op)
+    {
+        if (!left->is_builtin_basic_type()
+            || !right->is_builtin_basic_type())
+            return true;
+        else
+        {
+            if (op == lex_type::l_lor || op == lex_type::l_land)
+            {
+                if (left->is_bool() && right->is_bool())
+                    return false;
+            }
+            else if ((left->is_integer()
+                || left->is_handle()
+                || left->is_real()
+                || left->is_string()
+                || left->is_bool())
+                && left->is_same(right, true))
+                return false;
+
+            return true;
+        }
     }
 }

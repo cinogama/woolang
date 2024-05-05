@@ -27,7 +27,7 @@ namespace wo
                 auto& static_inited_flag = get_new_global_variable();
                 compiler->equb(static_inited_flag, reg(reg::ni));
                 compiler->jf(tag(init_static_flag_check_tag));
-                compiler->mov(static_inited_flag, imm(1));
+                compiler->mov(static_inited_flag, imm(true));
             }
 
             analyze_pattern_in_finalize(varref_define.pattern, varref_define.init_val, false, compiler);
@@ -368,8 +368,6 @@ namespace wo
 #define WO_NEW_OPNUM(...) (*generated_opnum_list_for_clean.emplace_back(new __VA_ARGS__))
     WO_VALUE_PASS(ast_value_function_define)
     {
-        auto_cancel_value_store_to_cr last_value_stored_to_stack_flag(_last_value_from_stack);
-
         auto* a_value_function_define = WO_AST();
         // function defination
         if (nullptr == a_value_function_define->externed_func_info)
@@ -394,13 +392,13 @@ namespace wo
                         compiler->psh(**opnum);
                     else
                     {
-                        _last_stack_offset_to_write = std::get<int16_t>(opnum_or_stackoffset);
+                        int16_t stack_offset = std::get<int16_t>(opnum_or_stackoffset);
                         wo_assert(get_pure_value == false);
 
-                        last_value_stored_to_stack_flag.set_true();
+                        set_stack_offset_stored(stack_offset);
 
                         auto& usable_stack = get_useable_register_for_pure_value();
-                        compiler->lds(usable_stack, imm(_last_stack_offset_to_write));
+                        compiler->lds(usable_stack, imm(stack_offset));
                         compiler->psh(usable_stack);
 
                         complete_using_register(usable_stack);
@@ -428,8 +426,6 @@ namespace wo
     }
     WO_VALUE_PASS(ast_value_variable)
     {
-        auto_cancel_value_store_to_cr last_value_stored_to_stack_flag(_last_value_from_stack);
-
         auto* a_value_variable = WO_AST();
         // ATTENTION: HERE JUST VALUE , NOT JUDGE FUNCTION
         auto symb = a_value_variable->symbol;
@@ -447,13 +443,13 @@ namespace wo
             return **opnum;
         else
         {
-            _last_stack_offset_to_write = std::get<int16_t>(opnum_or_stackoffset);
+            int16_t stack_offset = std::get<int16_t>(opnum_or_stackoffset);
             wo_assert(get_pure_value == false);
 
-            last_value_stored_to_stack_flag.set_true();
+            set_stack_offset_stored(stack_offset);
 
             auto& usable_stack = get_useable_register_for_pure_value();
-            compiler->lds(usable_stack, imm(_last_stack_offset_to_write));
+            compiler->lds(usable_stack, imm(stack_offset));
 
             return usable_stack;
         }
@@ -580,77 +576,110 @@ namespace wo
     WO_VALUE_PASS(ast_value_assign)
     {
         auto* a_value_assign = WO_AST();
+
         ast_value_index* a_value_index = dynamic_cast<ast_value_index*>(a_value_assign->left);
-        opnumbase* _store_value = nullptr;
-        bool beassigned_value_from_stack = false;
-        int16_t beassigned_value_stack_place = 0;
 
-        if (!(a_value_index != nullptr && a_value_assign->operate == lex_type::l_assign))
+        opnumbase* beassign_index_from_opnum = nullptr;
+        opnumbase* beassign_index_key_opnum = nullptr;
+        opnumbase* beassign_w_left_opnum = nullptr;
+        int16_t beassign_value_from_stack_offset = 0;
+
+        opnumbase* beassign_r_left_opnum = nullptr;
+
+        opnumbase* beoped_right_opnum = nullptr;
+
+        if (a_value_index == nullptr)
         {
-            // if mixed type, do opx
-            bool same_type = a_value_assign->left->value_type->accept_type(a_value_assign->right->value_type, false, false);
-            value::valuetype optype = value::valuetype::invalid;
-            if (same_type)
-                optype = a_value_assign->left->value_type->value_type;
+            beoped_right_opnum = &analyze_value(a_value_assign->right, compiler);
 
-            size_t revert_pos = compiler->get_now_ip();
+#if WO_ENABLE_RUNTIME_CHECK
+            bool eval_right_cr_modified = false;
+            beassign_r_left_opnum = &analyze_value_and_get_cr_modified(a_value_assign->left, compiler, false, &eval_right_cr_modified);
 
-            auto* beoped_left_opnum_ptr = &analyze_value(a_value_assign->left, compiler, a_value_index != nullptr);
-            beassigned_value_from_stack = _last_value_from_stack;
-            beassigned_value_stack_place = _last_stack_offset_to_write;
+            wo_assert(eval_right_cr_modified == false);
+#else
+            beassign_r_left_opnum = &analyze_value(a_value_assign->left, compiler);
+#endif
 
-            // Assign not need for this variable, revert it.
-            if (a_value_assign->operate == lex_type::l_assign
-                || a_value_assign->operate == lex_type::l_value_assign)
+            if (_last_value_from_stack_offset_may_null)
+                beassign_value_from_stack_offset = _last_value_from_stack_offset_may_null.value();
+            else
+                beassign_w_left_opnum = beassign_r_left_opnum;
+        }
+        else
+        {
+            beoped_right_opnum = &analyze_value(a_value_assign->right, compiler, true);
+            if (a_value_assign->operate != lex_type::l_assign && a_value_assign->operate != lex_type::l_value_assign)
+                beassign_r_left_opnum = &do_index_value_impl(a_value_index, compiler, true, true, &beassign_index_from_opnum, &beassign_index_key_opnum);
+            else
             {
-                complete_using_register(*beoped_left_opnum_ptr);
-                compiler->revert_code_to(revert_pos);
+                beassign_index_from_opnum = &analyze_value(a_value_index->from, compiler, true);
+                if (!a_value_index->from->value_type->is_struct() && !a_value_index->from->value_type->is_tuple())
+                {
+                    beassign_index_key_opnum = &analyze_value(a_value_index->index, compiler, true);
+                }
             }
+        }
+        wo_assert(beoped_right_opnum != nullptr);
 
-            auto* op_right_opnum_ptr = &analyze_value(a_value_assign->right, compiler);
+        if (a_value_assign->overrided_operation_call != nullptr)
+        {
+            compiler->psh(*beoped_right_opnum);
+            compiler->psh(*beassign_r_left_opnum);
 
-            if (is_cr_reg(*beoped_left_opnum_ptr)
-                //      FUNC CALL                           A + B ...                       A[X] (.E.G)
-                && (is_cr_reg(*op_right_opnum_ptr) || is_temp_reg(*op_right_opnum_ptr) || _last_value_stored_to_cr))
+            auto* called_function = a_value_assign->overrided_operation_call->called_func;
+            auto* called_function_define = dynamic_cast<ast::ast_value_function_define*>(called_function);
+
+            if (called_function->value_type->is_variadic_function_type)
+                compiler->mov(reg(reg::tc), imm(2));
+
+            if (called_function_define != nullptr
+                && called_function_define->externed_func_info != nullptr)
             {
-                // if assigned value is an index, it's result will be placed to non-cr place. so cannot be here.
-                wo_assert(a_value_index == nullptr);
-
-                // If beassigned_value_from_stack, it will generate a template register. so cannot be here.
-                wo_assert(beassigned_value_from_stack == false);
-
-                complete_using_register(*beoped_left_opnum_ptr);
-                complete_using_register(*op_right_opnum_ptr);
-                compiler->revert_code_to(revert_pos);
-                op_right_opnum_ptr = &analyze_value(a_value_assign->right, compiler, true);
-                beoped_left_opnum_ptr = &analyze_value(a_value_assign->left, compiler);
+                if (called_function_define->externed_func_info->is_slow_leaving_call == false)
+                    compiler->callfast((void*)called_function_define->externed_func_info->externed_func);
+                else
+                    compiler->call((void*)called_function_define->externed_func_info->externed_func);
             }
+            else
+            {
+                auto* called_func_aim = &analyze_value(a_value_assign->overrided_operation_call->called_func, compiler);
+                compiler->call(complete_using_register(*called_func_aim));
+            }
+            compiler->pop(2);
+            complete_using_register(*beassign_r_left_opnum);
+            beassign_r_left_opnum = &WO_NEW_OPNUM(reg(reg::cr));
 
-            auto& beoped_left_opnum = *beoped_left_opnum_ptr;
-            auto& op_right_opnum = *op_right_opnum_ptr;
+            set_cr_modified();
+        }
+        else
+        {
+            const value::valuetype optype = a_value_assign->left->value_type->value_type;
 
             switch (a_value_assign->operate)
             {
             case lex_type::l_assign:
             case lex_type::l_value_assign:
-                wo_assert(a_value_assign->left->value_type->accept_type(a_value_assign->right->value_type, false, false));
-                if (beassigned_value_from_stack)
-                    compiler->sts(op_right_opnum, imm(_last_stack_offset_to_write));
-                else
-                    compiler->mov(beoped_left_opnum, op_right_opnum);
+            {
+                if (beassign_r_left_opnum != nullptr)
+                    complete_using_register(*beassign_r_left_opnum);
+
+                beassign_r_left_opnum = beoped_right_opnum;
+
                 break;
+            }
             case lex_type::l_add_assign:
             case lex_type::l_value_add_assign:
                 switch (optype)
                 {
                 case wo::value::valuetype::integer_type:
-                    compiler->addi(beoped_left_opnum, op_right_opnum); break;
+                    compiler->addi(*beassign_r_left_opnum, *beoped_right_opnum); break;
                 case wo::value::valuetype::real_type:
-                    compiler->addr(beoped_left_opnum, op_right_opnum); break;
+                    compiler->addr(*beassign_r_left_opnum, *beoped_right_opnum); break;
                 case wo::value::valuetype::handle_type:
-                    compiler->addh(beoped_left_opnum, op_right_opnum); break;
+                    compiler->addh(*beassign_r_left_opnum, *beoped_right_opnum); break;
                 case wo::value::valuetype::string_type:
-                    compiler->adds(beoped_left_opnum, op_right_opnum); break;
+                    compiler->adds(*beassign_r_left_opnum, *beoped_right_opnum); break;
                 default:
                     lang_anylizer->lang_error(lexer::errorlevel::error, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
                         a_value_assign->left->value_type->get_type_name(false).c_str(),
@@ -663,11 +692,11 @@ namespace wo
                 switch (optype)
                 {
                 case wo::value::valuetype::integer_type:
-                    compiler->subi(beoped_left_opnum, op_right_opnum); break;
+                    compiler->subi(*beassign_r_left_opnum, *beoped_right_opnum); break;
                 case wo::value::valuetype::real_type:
-                    compiler->subr(beoped_left_opnum, op_right_opnum); break;
+                    compiler->subr(*beassign_r_left_opnum, *beoped_right_opnum); break;
                 case wo::value::valuetype::handle_type:
-                    compiler->subh(beoped_left_opnum, op_right_opnum); break;
+                    compiler->subh(*beassign_r_left_opnum, *beoped_right_opnum); break;
                 default:
                     lang_anylizer->lang_error(lexer::errorlevel::error, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
                         a_value_assign->left->value_type->get_type_name(false).c_str(),
@@ -681,9 +710,9 @@ namespace wo
                 switch (optype)
                 {
                 case wo::value::valuetype::integer_type:
-                    compiler->muli(beoped_left_opnum, op_right_opnum); break;
+                    compiler->muli(*beassign_r_left_opnum, *beoped_right_opnum); break;
                 case wo::value::valuetype::real_type:
-                    compiler->mulr(beoped_left_opnum, op_right_opnum); break;
+                    compiler->mulr(*beassign_r_left_opnum, *beoped_right_opnum); break;
                 default:
                     lang_anylizer->lang_error(lexer::errorlevel::error, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
                         a_value_assign->left->value_type->get_type_name(false).c_str(),
@@ -698,12 +727,12 @@ namespace wo
                 {
                 case wo::value::valuetype::integer_type:
                 {
-                    check_division(a_value_assign, a_value_assign->left, a_value_assign->right, beoped_left_opnum, op_right_opnum, compiler);
-                    compiler->divi(beoped_left_opnum, op_right_opnum);
+                    check_division(a_value_assign, a_value_assign->left, a_value_assign->right, *beassign_r_left_opnum, *beoped_right_opnum, compiler);
+                    compiler->divi(*beassign_r_left_opnum, *beoped_right_opnum);
                     break;
                 }
                 case wo::value::valuetype::real_type:
-                    compiler->divr(beoped_left_opnum, op_right_opnum); break;
+                    compiler->divr(*beassign_r_left_opnum, *beoped_right_opnum); break;
                 default:
                     lang_anylizer->lang_error(lexer::errorlevel::error, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
                         a_value_assign->left->value_type->get_type_name(false).c_str(),
@@ -717,12 +746,12 @@ namespace wo
                 {
                 case wo::value::valuetype::integer_type:
                 {
-                    check_division(a_value_assign, a_value_assign->left, a_value_assign->right, beoped_left_opnum, op_right_opnum, compiler);
-                    compiler->modi(beoped_left_opnum, op_right_opnum);
+                    check_division(a_value_assign, a_value_assign->left, a_value_assign->right, *beassign_r_left_opnum, *beoped_right_opnum, compiler);
+                    compiler->modi(*beassign_r_left_opnum, *beoped_right_opnum);
                     break;
                 }
                 case wo::value::valuetype::real_type:
-                    compiler->modr(beoped_left_opnum, op_right_opnum); break;
+                    compiler->modr(*beassign_r_left_opnum, *beoped_right_opnum); break;
                 default:
                     lang_anylizer->lang_error(lexer::errorlevel::error, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
                         a_value_assign->left->value_type->get_type_name(false).c_str(),
@@ -735,96 +764,61 @@ namespace wo
                 wo_error("Do not support this operator..");
                 break;
             }
+        }
 
-            _store_value = &beoped_left_opnum;
+        wo_assert(beassign_r_left_opnum != nullptr);
 
-            if (beassigned_value_from_stack)
-            {
-                if (a_value_assign->operate == lex_type::l_assign
-                    || a_value_assign->operate == lex_type::l_value_assign)
-                    _store_value = &op_right_opnum;
-                else
-                {
-                    compiler->sts(op_right_opnum, imm(_last_stack_offset_to_write));
-                    complete_using_register(op_right_opnum);
-                }
-            }
+        if (beassign_w_left_opnum != nullptr)
+        {
+            if (beassign_w_left_opnum != beassign_r_left_opnum)
+                compiler->mov(*beassign_w_left_opnum, *beassign_r_left_opnum);
             else
-                complete_using_register(op_right_opnum);
+                ;// Assign has been finished at above.
         }
-        else
+        else if (beassign_index_from_opnum != nullptr)
         {
-            wo_assert(beassigned_value_from_stack == false);
-            wo_assert(a_value_index != nullptr && a_value_assign->operate == lex_type::l_assign);
-            _store_value = &analyze_value(a_value_assign->right, compiler);
-
-            if (is_cr_reg(*_store_value))
+            if (a_value_index->from->value_type->is_struct() || a_value_index->from->value_type->is_tuple())
             {
-                auto* _store_value_place = &get_useable_register_for_pure_value();
-                compiler->mov(*_store_value_place, *_store_value);
-                _store_value = _store_value_place;
-            }
-        }
-
-        wo_assert(_store_value != nullptr);
-
-        if (a_value_index != nullptr)
-        {
-            wo_assert(beassigned_value_from_stack == false);
-
-            if (a_value_index->from->value_type->is_struct()
-                || a_value_index->from->value_type->is_tuple())
-            {
-                auto* _from_value = &analyze_value(a_value_index->from, compiler);
-                compiler->sidstruct(*_from_value, *_store_value, a_value_index->struct_offset);
+                wo_assert(beassign_index_key_opnum == nullptr);
+                compiler->sidstruct(*beassign_index_from_opnum, *beassign_r_left_opnum, a_value_index->struct_offset);
             }
             else
             {
-                size_t revert_pos = compiler->get_now_ip();
-
-                auto* _from_value = &analyze_value(a_value_index->from, compiler);
-                auto* _index_value = &analyze_value(a_value_index->index, compiler);
-
-                if (is_cr_reg(*_from_value)
-                    && (is_cr_reg(*_index_value) || is_temp_reg(*_index_value) || _last_value_stored_to_cr))
+                if (!is_reg(*beassign_r_left_opnum))
                 {
-                    complete_using_register(*_from_value);
-                    complete_using_register(*_from_value);
-                    compiler->revert_code_to(revert_pos);
-                    _index_value = &analyze_value(a_value_index->index, compiler, true);
-                    _from_value = &analyze_value(a_value_index->from, compiler);
-                }
-                auto& from_value = *_from_value;
-                auto& index_value = *_index_value;
+                    auto* tmp = &WO_NEW_OPNUM(reg(reg::tp));;
+                    compiler->mov(*tmp, *beassign_r_left_opnum);
 
-                auto* _final_store_value = _store_value;
-                if (!is_reg(*_store_value) || is_temp_reg(*_store_value))
-                {
-                    // Use pm reg here because here has no other command to generate.
-                    _final_store_value = &WO_NEW_OPNUM(reg(reg::tp));
-                    compiler->mov(*_final_store_value, *_store_value);
+                    beassign_r_left_opnum = tmp;
                 }
-                // Do not generate any other command to make sure reg::tp usable!
 
                 if (a_value_index->from->value_type->is_array() || a_value_index->from->value_type->is_vec())
-                    compiler->sidarr(from_value, index_value, *dynamic_cast<const opnum::reg*>(_final_store_value));
+                    compiler->sidarr(*beassign_index_from_opnum, *beassign_index_key_opnum, *dynamic_cast<reg*>(beassign_r_left_opnum));
                 else if (a_value_index->from->value_type->is_dict())
-                    compiler->siddict(from_value, index_value, *dynamic_cast<const opnum::reg*>(_final_store_value));
+                    compiler->siddict(*beassign_index_from_opnum, *beassign_index_key_opnum, *dynamic_cast<reg*>(beassign_r_left_opnum));
                 else if (a_value_index->from->value_type->is_map())
-                    compiler->sidmap(from_value, index_value, *dynamic_cast<const opnum::reg*>(_final_store_value));
+                    compiler->sidmap(*beassign_index_from_opnum, *beassign_index_key_opnum, *dynamic_cast<reg*>(beassign_r_left_opnum));
                 else
-                    wo_error("Unknown unindex & storable type.");
+                    wo_error("Bad index type.");
             }
+
+            complete_using_register(*beassign_index_from_opnum);
+
+            if (beassign_index_key_opnum != nullptr)
+                complete_using_register(*beassign_index_key_opnum);
         }
+
+        complete_using_register(*beassign_r_left_opnum);
+        complete_using_register(*beoped_right_opnum);
 
         if (get_pure_value)
         {
             auto& treg = get_useable_register_for_pure_value();
-            compiler->mov(treg, complete_using_register(*_store_value));
+            compiler->mov(treg, *beassign_r_left_opnum);
             return treg;
         }
         else
-            return *_store_value;
+            return *beassign_r_left_opnum;
     }
     WO_VALUE_PASS(ast_value_mutable)
     {
@@ -882,7 +876,8 @@ namespace wo
     {
         auto* a_value_type_check = WO_AST();
         if (a_value_type_check->aim_type->accept_type(a_value_type_check->_be_check_value_node->value_type, false, true))
-            return WO_NEW_OPNUM(imm(1));
+            return WO_NEW_OPNUM(imm(true));
+
         if (a_value_type_check->_be_check_value_node->value_type->is_dynamic())
         {
             if (!a_value_type_check->aim_type->is_pure_base_type()
@@ -899,6 +894,8 @@ namespace wo
                 wo_assert(!a_value_type_check->aim_type->is_pending());
                 compiler->typeis(complete_using_register(result), a_value_type_check->aim_type->value_type);
 
+                set_last_value_also_store_to_cr();
+
                 if (get_pure_value)
                 {
                     auto& treg = get_useable_register_for_pure_value();
@@ -910,12 +907,11 @@ namespace wo
             }
         }
 
-        return WO_NEW_OPNUM(imm(0));
+        return WO_NEW_OPNUM(imm(false));
     }
+
     WO_VALUE_PASS(ast_value_funccall)
     {
-        auto_cancel_value_store_to_cr last_value_stored_to_cr_flag(_last_value_stored_to_cr);
-
         auto* a_value_funccall = WO_AST();
 
         auto arg = a_value_funccall->arguments->children;
@@ -1044,13 +1040,11 @@ namespace wo
         else
             compiler->call(complete_using_register(*called_func_aim));
 
-        last_value_stored_to_cr_flag.set_true();
-
         opnum::opnumbase* result_storage_place = nullptr;
 
         if (full_unpack_arguments)
         {
-            last_value_stored_to_cr_flag.set_false();
+            set_cr_modified();
 
             result_storage_place = &get_useable_register_for_pure_value();
             compiler->mov(*result_storage_place, reg(reg::cr));
@@ -1075,6 +1069,8 @@ namespace wo
         }
         else
         {
+            set_last_value_also_store_to_cr();
+
             result_storage_place = &WO_NEW_OPNUM(reg(reg::cr));
             compiler->pop(arg_list.size() + extern_unpack_arg_count);
         }
@@ -1167,10 +1163,12 @@ namespace wo
 
         size_t revert_pos = compiler->get_now_ip();
 
-        auto* _beoped_left_opnum = &analyze_value(a_value_logical_binary->left, compiler);
-        auto* _op_right_opnum = &analyze_value(a_value_logical_binary->right, compiler);
+        bool eval_right_cr_modified = false;
 
-        if ((is_cr_reg(*_op_right_opnum) || is_temp_reg(*_op_right_opnum) || _last_value_stored_to_cr) &&
+        auto* _beoped_left_opnum = &analyze_value(a_value_logical_binary->left, compiler);
+        auto* _op_right_opnum = &analyze_value_and_get_cr_modified(a_value_logical_binary->right, compiler, false, &eval_right_cr_modified);
+
+        if ((is_cr_reg(*_op_right_opnum) || is_temp_reg(*_op_right_opnum) || eval_right_cr_modified) &&
             (a_value_logical_binary->operate == lex_type::l_lor ||
                 a_value_logical_binary->operate == lex_type::l_land))
         {
@@ -1194,97 +1192,112 @@ namespace wo
 
             compiler->tag(logic_short_cut_label);
 
-            return WO_NEW_OPNUM(reg(reg::cr));
+            set_last_value_also_store_to_cr();
+
+            if (!get_pure_value)
+                return WO_NEW_OPNUM(reg(reg::cr));
+            else
+            {
+                auto& result = get_useable_register_for_pure_value();
+                compiler->mov(result, reg(reg::cr));
+                return result;
+            }
         }
-
-        if (is_cr_reg(*_beoped_left_opnum)
-            && (is_cr_reg(*_op_right_opnum) || is_temp_reg(*_op_right_opnum) || _last_value_stored_to_cr))
-        {
-            complete_using_register(*_beoped_left_opnum);
-            complete_using_register(*_op_right_opnum);
-            compiler->revert_code_to(revert_pos);
-            _op_right_opnum = &analyze_value(a_value_logical_binary->right, compiler, true);
-            _beoped_left_opnum = &analyze_value(a_value_logical_binary->left, compiler);
-        }
-        auto& beoped_left_opnum = *_beoped_left_opnum;
-        auto& op_right_opnum = *_op_right_opnum;
-
-        switch (a_value_logical_binary->operate)
-        {
-        case lex_type::l_equal:
-            if ((a_value_logical_binary->left->value_type->is_integer() && a_value_logical_binary->right->value_type->is_integer())
-                || (a_value_logical_binary->left->value_type->is_handle() && a_value_logical_binary->right->value_type->is_handle()))
-                compiler->equb(beoped_left_opnum, op_right_opnum);
-            else if (a_value_logical_binary->left->value_type->is_real() && a_value_logical_binary->right->value_type->is_real())
-                compiler->equr(beoped_left_opnum, op_right_opnum);
-            else if (a_value_logical_binary->left->value_type->is_string() && a_value_logical_binary->right->value_type->is_string())
-                compiler->equs(beoped_left_opnum, op_right_opnum);
-            else
-                compiler->equb(beoped_left_opnum, op_right_opnum);
-            break;
-        case lex_type::l_not_equal:
-            if ((a_value_logical_binary->left->value_type->is_integer() && a_value_logical_binary->right->value_type->is_integer())
-                || (a_value_logical_binary->left->value_type->is_handle() && a_value_logical_binary->right->value_type->is_handle()))
-                compiler->nequb(beoped_left_opnum, op_right_opnum);
-            else if (a_value_logical_binary->left->value_type->is_real() && a_value_logical_binary->right->value_type->is_real())
-                compiler->nequr(beoped_left_opnum, op_right_opnum);
-            else if (a_value_logical_binary->left->value_type->is_string() && a_value_logical_binary->right->value_type->is_string())
-                compiler->nequs(beoped_left_opnum, op_right_opnum);
-            else
-                compiler->nequb(beoped_left_opnum, op_right_opnum);
-            break;
-        case lex_type::l_less:
-            if (optype == value::valuetype::integer_type)
-                compiler->lti(beoped_left_opnum, op_right_opnum);
-            else if (optype == value::valuetype::real_type)
-                compiler->ltr(beoped_left_opnum, op_right_opnum);
-            else
-                compiler->ltx(beoped_left_opnum, op_right_opnum);
-            break;
-        case lex_type::l_less_or_equal:
-            if (optype == value::valuetype::integer_type)
-                compiler->elti(beoped_left_opnum, op_right_opnum);
-            else if (optype == value::valuetype::real_type)
-                compiler->eltr(beoped_left_opnum, op_right_opnum);
-            else
-                compiler->eltx(beoped_left_opnum, op_right_opnum);
-            break;
-        case lex_type::l_larg:
-            if (optype == value::valuetype::integer_type)
-                compiler->gti(beoped_left_opnum, op_right_opnum);
-            else if (optype == value::valuetype::real_type)
-                compiler->gtr(beoped_left_opnum, op_right_opnum);
-            else
-                compiler->gtx(beoped_left_opnum, op_right_opnum);
-            break;
-        case lex_type::l_larg_or_equal:
-            if (optype == value::valuetype::integer_type)
-                compiler->egti(beoped_left_opnum, op_right_opnum);
-            else if (optype == value::valuetype::real_type)
-                compiler->egtr(beoped_left_opnum, op_right_opnum);
-            else
-                compiler->egtx(beoped_left_opnum, op_right_opnum);
-            break;
-        case lex_type::l_land:
-            compiler->land(beoped_left_opnum, op_right_opnum);
-            break;
-        case lex_type::l_lor:
-            compiler->lor(beoped_left_opnum, op_right_opnum);
-            break;
-        default:
-            wo_error("Do not support this operator..");
-            break;
-        }
-
-        complete_using_register(op_right_opnum);
-
-        if (!get_pure_value)
-            return WO_NEW_OPNUM(reg(reg::cr));
         else
         {
-            auto& result = get_useable_register_for_pure_value();
-            compiler->mov(result, reg(reg::cr));
-            return result;
+            if (eval_right_cr_modified && is_cr_reg(*_beoped_left_opnum))
+            {
+                complete_using_register(*_beoped_left_opnum);
+                complete_using_register(*_op_right_opnum);
+                compiler->revert_code_to(revert_pos);
+
+                // TODO: Optimize this, insert a command to generate a new register instead of regenerate.
+                _beoped_left_opnum = &analyze_value(a_value_logical_binary->left, compiler, true);
+                _op_right_opnum = &analyze_value(a_value_logical_binary->right, compiler);
+            }
+
+            auto& beoped_left_opnum = *_beoped_left_opnum;
+            auto& op_right_opnum = *_op_right_opnum;
+
+            switch (a_value_logical_binary->operate)
+            {
+            case lex_type::l_equal:
+                if ((a_value_logical_binary->left->value_type->is_integer() && a_value_logical_binary->right->value_type->is_integer())
+                    || (a_value_logical_binary->left->value_type->is_handle() && a_value_logical_binary->right->value_type->is_handle()))
+                    compiler->equb(beoped_left_opnum, op_right_opnum);
+                else if (a_value_logical_binary->left->value_type->is_real() && a_value_logical_binary->right->value_type->is_real())
+                    compiler->equr(beoped_left_opnum, op_right_opnum);
+                else if (a_value_logical_binary->left->value_type->is_string() && a_value_logical_binary->right->value_type->is_string())
+                    compiler->equs(beoped_left_opnum, op_right_opnum);
+                else
+                    compiler->equb(beoped_left_opnum, op_right_opnum);
+                break;
+            case lex_type::l_not_equal:
+                if ((a_value_logical_binary->left->value_type->is_integer() && a_value_logical_binary->right->value_type->is_integer())
+                    || (a_value_logical_binary->left->value_type->is_handle() && a_value_logical_binary->right->value_type->is_handle()))
+                    compiler->nequb(beoped_left_opnum, op_right_opnum);
+                else if (a_value_logical_binary->left->value_type->is_real() && a_value_logical_binary->right->value_type->is_real())
+                    compiler->nequr(beoped_left_opnum, op_right_opnum);
+                else if (a_value_logical_binary->left->value_type->is_string() && a_value_logical_binary->right->value_type->is_string())
+                    compiler->nequs(beoped_left_opnum, op_right_opnum);
+                else
+                    compiler->nequb(beoped_left_opnum, op_right_opnum);
+                break;
+            case lex_type::l_less:
+                if (optype == value::valuetype::integer_type)
+                    compiler->lti(beoped_left_opnum, op_right_opnum);
+                else if (optype == value::valuetype::real_type)
+                    compiler->ltr(beoped_left_opnum, op_right_opnum);
+                else
+                    compiler->ltx(beoped_left_opnum, op_right_opnum);
+                break;
+            case lex_type::l_less_or_equal:
+                if (optype == value::valuetype::integer_type)
+                    compiler->elti(beoped_left_opnum, op_right_opnum);
+                else if (optype == value::valuetype::real_type)
+                    compiler->eltr(beoped_left_opnum, op_right_opnum);
+                else
+                    compiler->eltx(beoped_left_opnum, op_right_opnum);
+                break;
+            case lex_type::l_larg:
+                if (optype == value::valuetype::integer_type)
+                    compiler->gti(beoped_left_opnum, op_right_opnum);
+                else if (optype == value::valuetype::real_type)
+                    compiler->gtr(beoped_left_opnum, op_right_opnum);
+                else
+                    compiler->gtx(beoped_left_opnum, op_right_opnum);
+                break;
+            case lex_type::l_larg_or_equal:
+                if (optype == value::valuetype::integer_type)
+                    compiler->egti(beoped_left_opnum, op_right_opnum);
+                else if (optype == value::valuetype::real_type)
+                    compiler->egtr(beoped_left_opnum, op_right_opnum);
+                else
+                    compiler->egtx(beoped_left_opnum, op_right_opnum);
+                break;
+            case lex_type::l_land:
+                compiler->land(beoped_left_opnum, op_right_opnum);
+                break;
+            case lex_type::l_lor:
+                compiler->lor(beoped_left_opnum, op_right_opnum);
+                break;
+            default:
+                wo_error("Do not support this operator..");
+                break;
+            }
+
+            complete_using_register(op_right_opnum);
+
+            set_last_value_also_store_to_cr();
+
+            if (!get_pure_value)
+                return WO_NEW_OPNUM(reg(reg::cr));
+            else
+            {
+                auto& result = get_useable_register_for_pure_value();
+                compiler->mov(result, reg(reg::cr));
+                return result;
+            }
         }
     }
 
@@ -1335,65 +1348,94 @@ namespace wo
         return treg;
 
     }
-    WO_VALUE_PASS(ast_value_index)
+
+    opnum::opnumbase& lang::do_index_value_impl(
+        ast::ast_value_index* a_value_index,
+        ir_compiler* compiler,
+        bool get_pure_value,
+        bool get_pure_tmp_for_assign,
+        opnum::opnumbase** out_index_from,
+        opnum::opnumbase** out_index_key)
     {
-        auto_cancel_value_store_to_cr last_value_stored_to_cr_flag(_last_value_stored_to_cr);
-
-        auto* a_value_index = WO_AST();
-
         if (a_value_index->from->value_type->is_struct() || a_value_index->from->value_type->is_tuple())
         {
             wo_assert(a_value_index->struct_offset != 0xFFFF);
-            auto* _beoped_left_opnum = &analyze_value(a_value_index->from, compiler);
+            auto* _beoped_left_opnum = &analyze_value(a_value_index->from, compiler, get_pure_tmp_for_assign);
 
-            compiler->idstruct(reg(reg::cr), complete_using_register(*_beoped_left_opnum), a_value_index->struct_offset);
+            auto& result = get_useable_register_for_pure_value();
+
+            compiler->idstruct(result, *_beoped_left_opnum, a_value_index->struct_offset);
+
+            *out_index_from = _beoped_left_opnum;
+            *out_index_key = nullptr;
+
+            return result;
         }
         else
         {
             size_t revert_pos = compiler->get_now_ip();
 
-            auto* _beoped_left_opnum = &analyze_value(a_value_index->from, compiler);
-            auto* _op_right_opnum = &analyze_value(a_value_index->index, compiler);
+            bool eval_right_cr_modified = false;
 
-            if (is_cr_reg(*_beoped_left_opnum)
-                && (is_cr_reg(*_op_right_opnum) || is_temp_reg(*_op_right_opnum) || _last_value_stored_to_cr))
+            auto* _beoped_left_opnum = &analyze_value(a_value_index->from, compiler, get_pure_tmp_for_assign);
+            auto* _op_right_opnum = &analyze_value_and_get_cr_modified(a_value_index->index, compiler, get_pure_tmp_for_assign, &eval_right_cr_modified);
+
+            if (get_pure_tmp_for_assign)
+            {
+                // Do nothing
+            }
+            else if (eval_right_cr_modified && is_cr_reg(*_beoped_left_opnum))
             {
                 complete_using_register(*_beoped_left_opnum);
-                complete_using_register(*_beoped_left_opnum);
+                complete_using_register(*_op_right_opnum);
                 compiler->revert_code_to(revert_pos);
-                _op_right_opnum = &analyze_value(a_value_index->index, compiler, true);
-                _beoped_left_opnum = &analyze_value(a_value_index->from, compiler);
-            }
-            auto& beoped_left_opnum = *_beoped_left_opnum;
-            auto& op_right_opnum = *_op_right_opnum;
 
-            last_value_stored_to_cr_flag.set_true();
+                // TODO: Optimize this, insert a command to generate a new register instead of regenerate.
+                _beoped_left_opnum = &analyze_value(a_value_index->from, compiler, true);
+                _op_right_opnum = &analyze_value(a_value_index->index, compiler);
+            }
 
             if (a_value_index->from->value_type->is_array() || a_value_index->from->value_type->is_vec())
-                compiler->idarr(beoped_left_opnum, op_right_opnum);
+                compiler->idarr(*_beoped_left_opnum, *_op_right_opnum);
             else if (a_value_index->from->value_type->is_dict() || a_value_index->from->value_type->is_map())
             {
-                compiler->iddict(beoped_left_opnum, op_right_opnum);
+                compiler->iddict(*_beoped_left_opnum, *_op_right_opnum);
             }
             else if (a_value_index->from->value_type->is_string())
-                compiler->idstr(beoped_left_opnum, op_right_opnum);
+                compiler->idstr(*_beoped_left_opnum, *_op_right_opnum);
             else
                 wo_error("Unknown index operation.");
 
-            complete_using_register(beoped_left_opnum);
-            complete_using_register(op_right_opnum);
+            *out_index_from = _beoped_left_opnum;
+            *out_index_key = _op_right_opnum;
+
+            set_last_value_also_store_to_cr();
+
+            if (!get_pure_value)
+                return WO_NEW_OPNUM(reg(reg::cr));
+            else
+            {
+                auto& result = get_useable_register_for_pure_value();
+                compiler->mov(result, reg(reg::cr));
+                return result;
+            }
         }
+    }
 
+    WO_VALUE_PASS(ast_value_index)
+    {
+        auto* a_value_index = WO_AST();
 
-        if (!get_pure_value)
-            return WO_NEW_OPNUM(reg(reg::cr));
-        else
-        {
-            auto& result = get_useable_register_for_pure_value();
-            compiler->mov(result, reg(reg::cr));
-            return result;
-        }
+        opnum::opnumbase* _index_from = nullptr;
+        opnum::opnumbase* _index_key = nullptr;
+        auto& result = do_index_value_impl(a_value_index, compiler, get_pure_value, false, &_index_from, &_index_key);
 
+        if (_index_from != nullptr)
+            complete_using_register(*_index_from);
+        if (_index_key != nullptr)
+            complete_using_register(*_index_key);
+
+        return result;
     }
     WO_VALUE_PASS(ast_value_packed_variadic_args)
     {
@@ -1403,7 +1445,7 @@ namespace wo
             || !now_function_in_final_anylize->value_type->is_variadic_function_type)
         {
             lang_anylizer->lang_error(lexer::errorlevel::error, a_value_packed_variadic_args, WO_ERR_USING_VARIADIC_IN_NON_VRIDIC_FUNC);
-            return WO_NEW_OPNUM(reg(reg::cr));
+            return WO_NEW_OPNUM(reg(reg::ni));
         }
         else
         {
@@ -1417,14 +1459,13 @@ namespace wo
     }
     WO_VALUE_PASS(ast_value_indexed_variadic_args)
     {
-        auto_cancel_value_store_to_cr last_value_stored_to_cr_flag(_last_value_stored_to_cr);
         auto* a_value_indexed_variadic_args = WO_AST();
 
         if (!now_function_in_final_anylize
             || !now_function_in_final_anylize->value_type->is_variadic_function_type)
         {
             lang_anylizer->lang_error(lexer::errorlevel::error, a_value_indexed_variadic_args, WO_ERR_USING_VARIADIC_IN_NON_VRIDIC_FUNC);
-            return WO_NEW_OPNUM(reg(reg::cr));
+            return WO_NEW_OPNUM(reg(reg::ni));
         }
 
         auto capture_count = (uint16_t)now_function_in_final_anylize->capture_variables.size();
@@ -1442,7 +1483,6 @@ namespace wo
                 {
                     auto& result = get_useable_register_for_pure_value();
 
-                    last_value_stored_to_cr_flag.set_true();
                     compiler->mov(result, reg(reg::bp_offset((int8_t)(_cv.integer + capture_count + 2
                         + function_arg_count))));
 
@@ -1460,8 +1500,7 @@ namespace wo
         else
         {
             auto& index = analyze_value(a_value_indexed_variadic_args->argindex, compiler, true);
-            compiler->addi(index, imm(2
-                + capture_count + function_arg_count));
+            compiler->addi(index, imm(2 + capture_count + function_arg_count));
             complete_using_register(index);
             auto& result = get_useable_register_for_pure_value();
             compiler->lds(result, index);
@@ -1472,7 +1511,7 @@ namespace wo
     {
         auto* a_fakevalue_unpacked_args = WO_AST();
         lang_anylizer->lang_error(lexer::errorlevel::error, a_fakevalue_unpacked_args, WO_ERR_UNPACK_ARGS_OUT_OF_FUNC_CALL);
-        return WO_NEW_OPNUM(reg(reg::cr));
+        return WO_NEW_OPNUM(reg(reg::ni));
     }
     WO_VALUE_PASS(ast_value_unary)
     {
@@ -1510,6 +1549,8 @@ namespace wo
             break;
         }
 
+        set_last_value_also_store_to_cr();
+
         if (!get_pure_value)
             return WO_NEW_OPNUM(reg(reg::cr));
         else
@@ -1521,7 +1562,6 @@ namespace wo
     }
     WO_VALUE_PASS(ast_value_takeplace)
     {
-        auto_cancel_value_store_to_cr last_value_stored_to_cr_flag(_last_value_stored_to_cr);
         auto* a_value_takeplace = WO_AST();
         if (nullptr == a_value_takeplace->used_reg)
         {
@@ -1614,7 +1654,16 @@ namespace wo
             mov_value_to_cr(complete_using_register(analyze_value(a_value_trib_expr->val_or, compiler, false)), compiler);
             compiler->tag(trib_expr_end);
 
-            return WO_NEW_OPNUM(reg(reg::cr));
+            set_last_value_also_store_to_cr();
+
+            if (!get_pure_value)
+                return WO_NEW_OPNUM(reg(reg::cr));
+            else
+            {
+                auto& result = get_useable_register_for_pure_value();
+                compiler->mov(result, reg(reg::cr));
+                return result;
+            }
         }
     }
 }

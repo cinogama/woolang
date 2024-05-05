@@ -135,7 +135,7 @@ namespace test_template
             }
             func instance()
             {
-                return std::debug::__empty_function:<xxtype>();
+                return std::declval:<xxtype>();
             }
         }
     }
@@ -154,7 +154,7 @@ namespace test_template
         }
         func instance()
         {
-            return std::debug::__empty_function:<gchandle_type>();
+            return std::declval:<gchandle_type>();
         }
     }
 
@@ -166,9 +166,9 @@ namespace test_template
     let mut constexpr_if_test_flag = false;
     func constexpr_if_test<T>()
     {
-        do std::debug::__empty_function:<gchandle>() as T; // T must same as gchandle for this test..
+        do func(){do std::declval:<gchandle>() as T;}; // T must same as gchandle for this test..
 
-        if (func()=> T{constexpr_if_test_flag = true; return std::debug::__empty_function:<T>();}() is T)
+        if (func()=> T{constexpr_if_test_flag = true; return std::declval:<T>();}() is T)
         {
             return 233;
         }
