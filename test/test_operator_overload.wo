@@ -16,10 +16,52 @@ namespace test_operator_overload
         return result;
     }
     
+    func operator /(a, b)
+    {
+        std::println("Helloworld~");
+        return a + "/" + b;
+    }
+
+    func bar()
+    {
+        std::println("foo called~");
+
+        return struct{m=mut"dsa"};
+    }
+
     func main()
     {
         test_equal("Hello" + 25, "Hello25");
         test_equal("Hello" * 3, "HelloHelloHello");
+
+        let mut str = "example";
+        str = str + 123;
+        test_equal(str, "example123");
+
+        str += 321;
+        test_equal(str, "example123321");
+
+        let state = std::mutable::create(0);
+        let structdat = struct{m = mut "data_struct"};
+        let foo = func(){state->set(state->get + 1); return structdat;};
+
+        foo().m += foo().m;
+        test_equal(structdat.m, "data_structdata_struct");
+        test_equal(state->get, 2);
+
+        let mut v = 856;
+        foo().m += 123 * v;
+        test_equal(structdat.m, "data_structdata_struct105288");
+        test_equal(state->get, 3);
+        
+        test_equal(bar().m /:= "asd", "dsa/asd");
+        test_equal("abc"/"111", "abc/111");
+        test_equal("abc"/ ("111" + 5), "abc/1115");
+
+        let mut a = "654";
+        a /= "321";
+        test_equal(a +:= \="789";(), "654/321789");
+        test_equal(a, "654/321789");
     }
 }
 

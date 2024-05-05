@@ -610,7 +610,7 @@ namespace wo
         {
             beoped_right_opnum = &analyze_value(a_value_assign->right, compiler, true);
             if (a_value_assign->operate != lex_type::l_assign && a_value_assign->operate != lex_type::l_value_assign)
-                beassign_r_left_opnum = &do_index_value_impl(a_value_index, compiler, false, true, &beassign_index_from_opnum, &beassign_index_key_opnum);
+                beassign_r_left_opnum = &do_index_value_impl(a_value_index, compiler, true, true, &beassign_index_from_opnum, &beassign_index_key_opnum);
             else
             {
                 beassign_index_from_opnum = &analyze_value(a_value_index->from, compiler, true);
@@ -622,115 +622,148 @@ namespace wo
         }
         wo_assert(beoped_right_opnum != nullptr);
 
-        const value::valuetype optype = a_value_assign->left->value_type->value_type;
-
-        switch (a_value_assign->operate)
+        if (a_value_assign->overrided_operation_call != nullptr)
         {
-        case lex_type::l_assign:
-        case lex_type::l_value_assign:
-        {
-            if (beassign_r_left_opnum != nullptr)
-                complete_using_register(*beassign_r_left_opnum);
+            compiler->psh(*beoped_right_opnum);
+            compiler->psh(*beassign_r_left_opnum);
 
-            beassign_r_left_opnum = beoped_right_opnum;
+            auto* called_function = a_value_assign->overrided_operation_call->called_func;
+            auto* called_function_define = dynamic_cast<ast::ast_value_function_define*>(called_function);
 
-            break;
+            if (called_function->value_type->is_variadic_function_type)
+                compiler->mov(reg(reg::tc), imm(2));
+
+            if (called_function_define != nullptr
+                && called_function_define->externed_func_info != nullptr)
+            {
+                if (called_function_define->externed_func_info->is_slow_leaving_call == false)
+                    compiler->callfast((void*)called_function_define->externed_func_info->externed_func);
+                else
+                    compiler->call((void*)called_function_define->externed_func_info->externed_func);
+            }
+            else
+            {
+                auto* called_func_aim = &analyze_value(a_value_assign->overrided_operation_call->called_func, compiler);
+                compiler->call(complete_using_register(*called_func_aim));
+            }
+            compiler->pop(2);
+            complete_using_register(*beassign_r_left_opnum);
+            beassign_r_left_opnum = &WO_NEW_OPNUM(reg(reg::cr));
+
+            set_cr_modified();
         }
-        case lex_type::l_add_assign:
-        case lex_type::l_value_add_assign:
-            switch (optype)
-            {
-            case wo::value::valuetype::integer_type:
-                compiler->addi(*beassign_r_left_opnum, *beoped_right_opnum); break;
-            case wo::value::valuetype::real_type:
-                compiler->addr(*beassign_r_left_opnum, *beoped_right_opnum); break;
-            case wo::value::valuetype::handle_type:
-                compiler->addh(*beassign_r_left_opnum, *beoped_right_opnum); break;
-            case wo::value::valuetype::string_type:
-                compiler->adds(*beassign_r_left_opnum, *beoped_right_opnum); break;
-            default:
-                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
-                    a_value_assign->left->value_type->get_type_name(false).c_str(),
-                    a_value_assign->right->value_type->get_type_name(false).c_str());
-                break;
-            }
-            break;
-        case lex_type::l_sub_assign:
-        case lex_type::l_value_sub_assign:
-            switch (optype)
-            {
-            case wo::value::valuetype::integer_type:
-                compiler->subi(*beassign_r_left_opnum, *beoped_right_opnum); break;
-            case wo::value::valuetype::real_type:
-                compiler->subr(*beassign_r_left_opnum, *beoped_right_opnum); break;
-            case wo::value::valuetype::handle_type:
-                compiler->subh(*beassign_r_left_opnum, *beoped_right_opnum); break;
-            default:
-                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
-                    a_value_assign->left->value_type->get_type_name(false).c_str(),
-                    a_value_assign->right->value_type->get_type_name(false).c_str());
-                break;
-            }
+        else
+        {
+            const value::valuetype optype = a_value_assign->left->value_type->value_type;
 
-            break;
-        case lex_type::l_mul_assign:
-        case lex_type::l_value_mul_assign:
-            switch (optype)
+            switch (a_value_assign->operate)
             {
-            case wo::value::valuetype::integer_type:
-                compiler->muli(*beassign_r_left_opnum, *beoped_right_opnum); break;
-            case wo::value::valuetype::real_type:
-                compiler->mulr(*beassign_r_left_opnum, *beoped_right_opnum); break;
-            default:
-                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
-                    a_value_assign->left->value_type->get_type_name(false).c_str(),
-                    a_value_assign->right->value_type->get_type_name(false).c_str());
-                break;
-            }
+            case lex_type::l_assign:
+            case lex_type::l_value_assign:
+            {
+                if (beassign_r_left_opnum != nullptr)
+                    complete_using_register(*beassign_r_left_opnum);
 
-            break;
-        case lex_type::l_div_assign:
-        case lex_type::l_value_div_assign:
-            switch (optype)
-            {
-            case wo::value::valuetype::integer_type:
-            {
-                check_division(a_value_assign, a_value_assign->left, a_value_assign->right, *beassign_r_left_opnum, *beoped_right_opnum, compiler);
-                compiler->divi(*beassign_r_left_opnum, *beoped_right_opnum);
-                break;
-            }
-            case wo::value::valuetype::real_type:
-                compiler->divr(*beassign_r_left_opnum, *beoped_right_opnum); break;
-            default:
-                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
-                    a_value_assign->left->value_type->get_type_name(false).c_str(),
-                    a_value_assign->right->value_type->get_type_name(false).c_str());
-                break;
-            }
-            break;
-        case lex_type::l_mod_assign:
-        case lex_type::l_value_mod_assign:
-            switch (optype)
-            {
-            case wo::value::valuetype::integer_type:
-            {
-                check_division(a_value_assign, a_value_assign->left, a_value_assign->right, *beassign_r_left_opnum, *beoped_right_opnum, compiler);
-                compiler->modi(*beassign_r_left_opnum, *beoped_right_opnum);
-                break;
-            }
-            case wo::value::valuetype::real_type:
-                compiler->modr(*beassign_r_left_opnum, *beoped_right_opnum); break;
-            default:
-                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
-                    a_value_assign->left->value_type->get_type_name(false).c_str(),
-                    a_value_assign->right->value_type->get_type_name(false).c_str());
-                break;
-            }
+                beassign_r_left_opnum = beoped_right_opnum;
 
-            break;
-        default:
-            wo_error("Do not support this operator..");
-            break;
+                break;
+            }
+            case lex_type::l_add_assign:
+            case lex_type::l_value_add_assign:
+                switch (optype)
+                {
+                case wo::value::valuetype::integer_type:
+                    compiler->addi(*beassign_r_left_opnum, *beoped_right_opnum); break;
+                case wo::value::valuetype::real_type:
+                    compiler->addr(*beassign_r_left_opnum, *beoped_right_opnum); break;
+                case wo::value::valuetype::handle_type:
+                    compiler->addh(*beassign_r_left_opnum, *beoped_right_opnum); break;
+                case wo::value::valuetype::string_type:
+                    compiler->adds(*beassign_r_left_opnum, *beoped_right_opnum); break;
+                default:
+                    lang_anylizer->lang_error(lexer::errorlevel::error, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                        a_value_assign->left->value_type->get_type_name(false).c_str(),
+                        a_value_assign->right->value_type->get_type_name(false).c_str());
+                    break;
+                }
+                break;
+            case lex_type::l_sub_assign:
+            case lex_type::l_value_sub_assign:
+                switch (optype)
+                {
+                case wo::value::valuetype::integer_type:
+                    compiler->subi(*beassign_r_left_opnum, *beoped_right_opnum); break;
+                case wo::value::valuetype::real_type:
+                    compiler->subr(*beassign_r_left_opnum, *beoped_right_opnum); break;
+                case wo::value::valuetype::handle_type:
+                    compiler->subh(*beassign_r_left_opnum, *beoped_right_opnum); break;
+                default:
+                    lang_anylizer->lang_error(lexer::errorlevel::error, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                        a_value_assign->left->value_type->get_type_name(false).c_str(),
+                        a_value_assign->right->value_type->get_type_name(false).c_str());
+                    break;
+                }
+
+                break;
+            case lex_type::l_mul_assign:
+            case lex_type::l_value_mul_assign:
+                switch (optype)
+                {
+                case wo::value::valuetype::integer_type:
+                    compiler->muli(*beassign_r_left_opnum, *beoped_right_opnum); break;
+                case wo::value::valuetype::real_type:
+                    compiler->mulr(*beassign_r_left_opnum, *beoped_right_opnum); break;
+                default:
+                    lang_anylizer->lang_error(lexer::errorlevel::error, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                        a_value_assign->left->value_type->get_type_name(false).c_str(),
+                        a_value_assign->right->value_type->get_type_name(false).c_str());
+                    break;
+                }
+
+                break;
+            case lex_type::l_div_assign:
+            case lex_type::l_value_div_assign:
+                switch (optype)
+                {
+                case wo::value::valuetype::integer_type:
+                {
+                    check_division(a_value_assign, a_value_assign->left, a_value_assign->right, *beassign_r_left_opnum, *beoped_right_opnum, compiler);
+                    compiler->divi(*beassign_r_left_opnum, *beoped_right_opnum);
+                    break;
+                }
+                case wo::value::valuetype::real_type:
+                    compiler->divr(*beassign_r_left_opnum, *beoped_right_opnum); break;
+                default:
+                    lang_anylizer->lang_error(lexer::errorlevel::error, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                        a_value_assign->left->value_type->get_type_name(false).c_str(),
+                        a_value_assign->right->value_type->get_type_name(false).c_str());
+                    break;
+                }
+                break;
+            case lex_type::l_mod_assign:
+            case lex_type::l_value_mod_assign:
+                switch (optype)
+                {
+                case wo::value::valuetype::integer_type:
+                {
+                    check_division(a_value_assign, a_value_assign->left, a_value_assign->right, *beassign_r_left_opnum, *beoped_right_opnum, compiler);
+                    compiler->modi(*beassign_r_left_opnum, *beoped_right_opnum);
+                    break;
+                }
+                case wo::value::valuetype::real_type:
+                    compiler->modr(*beassign_r_left_opnum, *beoped_right_opnum); break;
+                default:
+                    lang_anylizer->lang_error(lexer::errorlevel::error, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                        a_value_assign->left->value_type->get_type_name(false).c_str(),
+                        a_value_assign->right->value_type->get_type_name(false).c_str());
+                    break;
+                }
+
+                break;
+            default:
+                wo_error("Do not support this operator..");
+                break;
+            }
         }
 
         wo_assert(beassign_r_left_opnum != nullptr);
@@ -739,6 +772,8 @@ namespace wo
         {
             if (beassign_w_left_opnum != beassign_r_left_opnum)
                 compiler->mov(*beassign_w_left_opnum, *beassign_r_left_opnum);
+            else
+                ;// Assign has been finished at above.
         }
         else if (beassign_index_from_opnum != nullptr)
         {
@@ -874,6 +909,7 @@ namespace wo
 
         return WO_NEW_OPNUM(imm(false));
     }
+
     WO_VALUE_PASS(ast_value_funccall)
     {
         auto* a_value_funccall = WO_AST();
@@ -1324,7 +1360,7 @@ namespace wo
         if (a_value_index->from->value_type->is_struct() || a_value_index->from->value_type->is_tuple())
         {
             wo_assert(a_value_index->struct_offset != 0xFFFF);
-            auto* _beoped_left_opnum = &analyze_value(a_value_index->from, compiler, false);
+            auto* _beoped_left_opnum = &analyze_value(a_value_index->from, compiler, get_pure_tmp_for_assign);
 
             auto& result = get_useable_register_for_pure_value();
 

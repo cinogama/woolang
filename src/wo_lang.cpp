@@ -3334,4 +3334,91 @@ namespace wo
     {
         return lang_anylizer->has_error();
     }
+
+    bool lang::check_if_need_try_operation_overload_binary(ast::ast_type* left, ast::ast_type* right, lex_type op, ast::ast_type** out_type)
+    {
+        ast::ast_type* a_value_binary_target_type = nullptr;
+        if (!left->is_builtin_basic_type() || !right->is_builtin_basic_type())
+        {
+            // IS CUSTOM TYPE, DELAY THE TYPE CALC TO PASS2
+            return true;
+        }
+        else
+        {
+            *out_type = ast_value_binary::binary_upper_type_with_operator(left, right, op);
+            if (*out_type != nullptr)
+                return false;
+
+            return true;
+        }
+    }
+    bool lang::check_if_need_try_operation_overload_assign(ast::ast_type* left, ast::ast_type* right, lex_type op)
+    {
+        if (op == lex_type::l_assign || op == lex_type::l_value_assign)
+            return false;
+        else
+        {
+            if (!left->is_builtin_basic_type() || !right->is_builtin_basic_type())
+                return true;
+            else
+            {
+                lex_type optype = op;
+                wo_assert(optype != lex_type::l_assign && optype != lex_type::l_value_assign);
+                switch (optype)
+                {
+                case lex_type::l_add_assign:
+                case lex_type::l_value_add_assign:
+                    optype = lex_type::l_add;
+                    break;
+                case lex_type::l_sub_assign:
+                case lex_type::l_value_sub_assign:
+                    optype = lex_type::l_sub;
+                    break;
+                case lex_type::l_mul_assign:
+                case lex_type::l_value_mul_assign:
+                    optype = lex_type::l_mul;
+                    break;
+                case lex_type::l_div_assign:
+                case lex_type::l_value_div_assign:
+                    optype = lex_type::l_div;
+                    break;
+                case lex_type::l_mod_assign:
+                case lex_type::l_value_mod_assign:
+                    optype = lex_type::l_mod;
+                    break;
+                default:
+                    wo_error("Unexpected assign method.");
+                }
+
+                if (left->accept_type(right, false, false) && 
+                    nullptr != ast_value_binary::binary_upper_type_with_operator(left, right, op))
+                    return false;
+
+                return true;
+            }
+        }
+    }
+    bool lang::check_if_need_try_operation_overload_logical(ast::ast_type* left, ast::ast_type* right, lex_type op)
+    {
+        if (!left->is_builtin_basic_type()
+            || !right->is_builtin_basic_type())
+            return true;
+        else
+        {
+            if (op == lex_type::l_lor || op == lex_type::l_land)
+            {
+                if (left->is_bool() && right->is_bool())
+                    return false;
+            }
+            else if ((left->is_integer()
+                || left->is_handle()
+                || left->is_real()
+                || left->is_string()
+                || left->is_bool())
+                && left->is_same(right, true))
+                return false;
+
+            return true;
+        }
+    }
 }

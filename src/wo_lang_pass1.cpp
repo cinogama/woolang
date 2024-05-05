@@ -39,17 +39,9 @@ namespace wo
         analyze_pass1(a_value_bin->right);
 
         ast_type* a_value_binary_target_type = nullptr;
-        if (!a_value_bin->left->value_type->is_builtin_basic_type()
-            || !a_value_bin->right->value_type->is_builtin_basic_type())
-            // IS CUSTOM TYPE, DELAY THE TYPE CALC TO PASS2
-            ;
-        else
-            a_value_binary_target_type = ast_value_binary::binary_upper_type_with_operator(
-                a_value_bin->left->value_type,
-                a_value_bin->right->value_type,
-                a_value_bin->operate);
 
-        if (nullptr == a_value_binary_target_type)
+        if (check_if_need_try_operation_overload_binary(
+            a_value_bin->left->value_type, a_value_bin->right->value_type, a_value_bin->operate, &a_value_binary_target_type))
         {
             ast_value_funccall* try_operator_func_overload = new ast_value_funccall();
             try_operator_func_overload->copy_source_info(a_value_bin);
@@ -76,7 +68,10 @@ namespace wo
                 a_value_bin->value_type->set_type(a_value_bin->overrided_operation_call->value_type);
         }
         else
+        {
+            wo_assert(a_value_binary_target_type != nullptr);
             a_value_bin->value_type->set_type(a_value_binary_target_type);
+        }
     }
     WO_PASS1(ast_value_mutable)
     {
@@ -219,6 +214,62 @@ namespace wo
 
         analyze_pass1(a_value_assi->right);
 
+        if (check_if_need_try_operation_overload_assign(
+            a_value_assi->left->value_type, a_value_assi->right->value_type, a_value_assi->operate))
+        {
+            ast_value_funccall* try_operator_func_overload = new ast_value_funccall();
+            try_operator_func_overload->copy_source_info(a_value_assi);
+
+            try_operator_func_overload->try_invoke_operator_override_function = true;
+            try_operator_func_overload->arguments = new ast_list();
+
+            lex_type optype = a_value_assi->operate;
+            wo_assert(optype != lex_type::l_assign && optype != lex_type::l_value_assign);
+            switch (optype)
+            {
+            case lex_type::l_add_assign:
+            case lex_type::l_value_add_assign:
+                optype = lex_type::l_add;
+                break;
+            case lex_type::l_sub_assign:
+            case lex_type::l_value_sub_assign:
+                optype = lex_type::l_sub;
+                break;
+            case lex_type::l_mul_assign:
+            case lex_type::l_value_mul_assign:
+                optype = lex_type::l_mul;
+                break;
+            case lex_type::l_div_assign:
+            case lex_type::l_value_div_assign:
+                optype = lex_type::l_div;
+                break;
+            case lex_type::l_mod_assign:
+            case lex_type::l_value_mod_assign:
+                optype = lex_type::l_mod;
+                break;
+            default:
+                wo_error("Unexpected assign method.");
+            }
+
+            try_operator_func_overload->called_func = new ast_value_variable(
+                wstring_pool::get_pstr(std::wstring(L"operator ") + lexer::lex_is_operate_type(optype)));
+            try_operator_func_overload->called_func->copy_source_info(a_value_assi);
+
+            try_operator_func_overload->directed_value_from = a_value_assi->left;
+
+            ast_value* arg1 = dynamic_cast<ast_value*>(a_value_assi->left->instance());
+            try_operator_func_overload->arguments->add_child(arg1);
+
+            ast_value* arg2 = dynamic_cast<ast_value*>(a_value_assi->right->instance());
+            try_operator_func_overload->arguments->add_child(arg2);
+
+            a_value_assi->overrided_operation_call = try_operator_func_overload;
+            analyze_pass1(a_value_assi->overrided_operation_call);
+
+            if (!a_value_assi->overrided_operation_call->value_type->is_pending())
+                a_value_assi->value_type->set_type(a_value_assi->overrided_operation_call->value_type);
+        }
+
         if (a_value_assi->is_value_assgin)
         {
             auto lsymb = dynamic_cast<ast_value_variable*>(a_value_assi->left);
@@ -235,25 +286,8 @@ namespace wo
         analyze_pass1(a_value_logic_bin->left);
         analyze_pass1(a_value_logic_bin->right);
 
-        bool has_default_op = false;
-
-        if (a_value_logic_bin->left->value_type->is_builtin_basic_type()
-            && a_value_logic_bin->right->value_type->is_builtin_basic_type())
-        {
-            if (a_value_logic_bin->operate == lex_type::l_lor || a_value_logic_bin->operate == lex_type::l_land)
-            {
-                if (a_value_logic_bin->left->value_type->is_bool() && a_value_logic_bin->right->value_type->is_bool())
-                    has_default_op = true;
-            }
-            else if ((a_value_logic_bin->left->value_type->is_integer()
-                || a_value_logic_bin->left->value_type->is_handle()
-                || a_value_logic_bin->left->value_type->is_real()
-                || a_value_logic_bin->left->value_type->is_string()
-                || a_value_logic_bin->left->value_type->is_bool())
-                && a_value_logic_bin->left->value_type->is_same(a_value_logic_bin->right->value_type, true))
-                has_default_op = true;
-        }
-        if (!has_default_op)
+        if (check_if_need_try_operation_overload_logical(
+            a_value_logic_bin->left->value_type, a_value_logic_bin->right->value_type, a_value_logic_bin->operate))
         {
             a_value_logic_bin->value_type->set_type_with_name(WO_PSTR(pending));
 

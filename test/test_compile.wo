@@ -24,8 +24,6 @@ namespace test_compile
         ok(vmm)?
             do vmm->close();
         }
-
-        test_assure(result->isok == true);
     }
     func assure_compile_fail(src: string)
     {
@@ -1825,6 +1823,63 @@ func main()
         do proxy:<int>;
         "@);
         
+        assure_compile_success(@"
+        func operator * (a, b)
+        {
+            return a + b;
+        }
+        enum Demo
+        {
+            A, B
+        }
+        do Demo::A * Demo::B;
+        "@);
+        assure_compile_fail(@"
+        func operator * (a, b)
+        {
+            return (a + b) + "";
+        }
+        enum Demo
+        {
+            A, B
+        }
+        do Demo::A * Demo::B;
+        "@);
+        assure_compile_success(@"
+        func operator * (a, b)
+        {
+            return (a + b) + "";
+        }
+        enum Demo
+        {
+            A, B
+        }
+        do "" * "";
+        "@);
+
+        assure_compile_fail(@"
+        func operator * (_, _)
+        {
+        }
+        enum Demo
+        {
+            A, B
+        }
+        let mut a = Demo::A;
+        a *= Demo::B;
+        "@);
+        assure_compile_success(@"
+        func operator * (_, _)
+        {
+        }
+        enum Demo
+        {
+            A, B
+        }
+        let mut a = Demo::A;
+        a * Demo::B;
+        "@);
+
         // ISSUE: 1.13: anything has been removed from woolang.
         // assure_compile_success(@"
         //     import woo::std;

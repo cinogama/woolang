@@ -231,7 +231,7 @@ namespace wo
 
         bool ast_type::is_custom() const
         {
-            return is_custom_type(type_name) || (is_pending() && typefrom != nullptr);
+            return is_custom_type(type_name);
         }
 
         bool ast_type::has_custom() const

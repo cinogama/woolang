@@ -1144,6 +1144,8 @@ namespace wo
 
             bool is_value_assgin = false;
 
+            ast_value_funccall* overrided_operation_call = nullptr;
+
             ast_value_assign() : ast_value(new ast_type(WO_PSTR(void)))
             {
             }
@@ -1158,6 +1160,7 @@ namespace wo
 
                 WO_REINSTANCE(dumm->left);
                 WO_REINSTANCE(dumm->right);
+                WO_REINSTANCE(dumm->overrided_operation_call);
 
                 return dumm;
             }

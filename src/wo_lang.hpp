@@ -592,5 +592,10 @@ namespace wo
 
         lang_symbol* find_value_in_this_scope(ast::ast_value_variable* var_ident);
         bool has_compile_error()const;
+
+    public:
+        static bool check_if_need_try_operation_overload_binary(ast::ast_type* left, ast::ast_type* right, lex_type op, ast::ast_type** out_type);
+        static bool check_if_need_try_operation_overload_assign(ast::ast_type* left, ast::ast_type* right, lex_type op);
+        static bool check_if_need_try_operation_overload_logical(ast::ast_type* left, ast::ast_type* right, lex_type op);
     };
 }
