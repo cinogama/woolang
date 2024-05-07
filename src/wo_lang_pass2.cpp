@@ -110,6 +110,13 @@ namespace wo
         auto* ast_if_sentence = WO_AST();
         analyze_pass2(ast_if_sentence->judgement_value);
 
+        if (!ast_if_sentence->judgement_value->value_type->is_bool())
+            lang_anylizer->lang_error(
+                lexer::errorlevel::error, ast_if_sentence->judgement_value, 
+                WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE,
+                L"bool", 
+                ast_if_sentence->judgement_value->value_type->get_type_name(false).c_str());
+
         if (ast_if_sentence->judgement_value->is_constant)
         {
             ast_if_sentence->is_constexpr_if = true;
@@ -151,6 +158,11 @@ namespace wo
         if (ast_while_sentence->judgement_value != nullptr)
             analyze_pass2(ast_while_sentence->judgement_value);
         analyze_pass2(ast_while_sentence->execute_sentence);
+
+        if (ast_while_sentence->judgement_value != nullptr
+            && !ast_while_sentence->judgement_value->value_type->is_bool())
+            lang_anylizer->lang_error(lexer::errorlevel::error, ast_while_sentence->judgement_value, WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE, L"bool",
+                ast_while_sentence->judgement_value->value_type->get_type_name(false).c_str());
     }
     WO_PASS2(ast_forloop)
     {
@@ -158,7 +170,16 @@ namespace wo
         if (a_forloop->pre_execute)
             analyze_pass2(a_forloop->pre_execute);
         if (a_forloop->judgement_expr)
+        {
             analyze_pass2(a_forloop->judgement_expr);
+
+            if (!a_forloop->judgement_expr->value_type->is_bool())
+                lang_anylizer->lang_error(lexer::errorlevel::error,
+                    a_forloop->judgement_expr, 
+                    WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE,
+                    L"bool",
+                    a_forloop->judgement_expr->value_type->get_type_name(false).c_str());
+        }
 
         analyze_pass2(a_forloop->execute_sentences);
 
@@ -697,6 +718,22 @@ namespace wo
             lang_anylizer->lang_error(lexer::errorlevel::error, ast_value_judge, WO_ERR_UNKNOWN_TYPE,
                 ast_value_judge->value_type->get_type_name(false).c_str()
             );
+        else if (ast_value_judge->_be_cast_value_node->value_type->is_dynamic())
+        {
+            if (!ast_value_judge->value_type->is_pure_base_type()
+                || ast_value_judge->value_type->is_void()
+                || ast_value_judge->value_type->is_nothing())
+                lang_anylizer->lang_error(lexer::errorlevel::error, ast_value_judge,
+                    WO_ERR_CANNOT_TEST_COMPLEX_TYPE,
+                    ast_value_judge->value_type->get_type_name(false).c_str());
+        }
+        else if (!ast_value_judge->value_type->accept_type(
+            ast_value_judge->_be_cast_value_node->value_type, false, true))
+        {
+            lang_anylizer->lang_error(lexer::errorlevel::error, ast_value_judge, WO_ERR_CANNOT_AS_TYPE,
+                ast_value_judge->_be_cast_value_node->value_type->get_type_name(false).c_str(),
+                ast_value_judge->value_type->get_type_name(false).c_str());
+        }
     }
     WO_PASS2(ast_value_type_check)
     {
@@ -729,6 +766,17 @@ namespace wo
             }
 
             a_value_type_check->eval_constant_value(lang_anylizer);
+
+            if (a_value_type_check->_be_check_value_node->value_type->is_dynamic())
+            {
+                if (!a_value_type_check->aim_type->is_pure_base_type()
+                    || a_value_type_check->aim_type->is_void()
+                    || a_value_type_check->aim_type->is_nothing())
+                {
+                    lang_anylizer->lang_error(lexer::errorlevel::error, a_value_type_check,
+                        WO_ERR_CANNOT_TEST_COMPLEX_TYPE, a_value_type_check->aim_type->get_type_name(false).c_str());
+                }
+            }
         }
     }
     WO_PASS2(ast_value_index)

@@ -51,10 +51,6 @@ namespace wo
     {
         auto* a_if = WO_AST();
 
-        if (!a_if->judgement_value->value_type->is_bool())
-            lang_anylizer->lang_error(lexer::errorlevel::error, a_if->judgement_value, WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE,
-                L"bool", a_if->judgement_value->value_type->get_type_name(false).c_str());
-
         if (a_if->judgement_value->is_constant)
         {
             auto_analyze_value(a_if->judgement_value, compiler, false);
@@ -104,11 +100,6 @@ namespace wo
     {
         auto* a_while = WO_AST();
 
-        if (a_while->judgement_value != nullptr
-            && !a_while->judgement_value->value_type->is_bool())
-            lang_anylizer->lang_error(lexer::errorlevel::error, a_while->judgement_value, WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE, L"bool",
-                a_while->judgement_value->value_type->get_type_name(false).c_str());
-
         auto while_begin_tag = "while_begin_" + compiler->get_unique_tag_based_command_ip();
         auto while_end_tag = "while_end_" + compiler->get_unique_tag_based_command_ip();
 
@@ -156,10 +147,6 @@ namespace wo
 
         if (a_forloop->judgement_expr)
         {
-            if (!a_forloop->judgement_expr->value_type->is_bool())
-                lang_anylizer->lang_error(lexer::errorlevel::error, a_forloop->judgement_expr, WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE, L"bool",
-                    a_forloop->judgement_expr->value_type->get_type_name(false).c_str());
-
             mov_value_to_cr(auto_analyze_value(a_forloop->judgement_expr, compiler), compiler);
             compiler->jf(tag(forloop_end_tag));
         }
@@ -846,28 +833,24 @@ namespace wo
         auto* a_value_type_judge = WO_AST();
         auto& result = analyze_value(a_value_type_judge->_be_cast_value_node, compiler, get_pure_value);
 
-        if (a_value_type_judge->value_type->accept_type(a_value_type_judge->_be_cast_value_node->value_type, false, true))
-            return result;
-        else if (a_value_type_judge->_be_cast_value_node->value_type->is_dynamic())
+        if (a_value_type_judge->_be_cast_value_node->value_type->is_dynamic())
         {
-            if (!a_value_type_judge->value_type->is_pure_base_type()
-                || a_value_type_judge->value_type->is_void()
-                || a_value_type_judge->value_type->is_nothing())
-                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_type_judge,
-                    WO_ERR_CANNOT_TEST_COMPLEX_TYPE, a_value_type_judge->value_type->get_type_name(false).c_str());
+            wo_assert(
+                a_value_type_judge->value_type->is_pure_base_type()
+                && !a_value_type_judge->value_type->is_void()
+                && !a_value_type_judge->value_type->is_nothing());
 
             if (!a_value_type_judge->value_type->is_dynamic())
             {
                 wo_test(!a_value_type_judge->value_type->is_pending());
                 compiler->typeas(result, a_value_type_judge->value_type->value_type);
-
-                return result;
             }
         }
-
-        lang_anylizer->lang_error(lexer::errorlevel::error, a_value_type_judge, WO_ERR_CANNOT_AS_TYPE,
-            a_value_type_judge->_be_cast_value_node->value_type->get_type_name(false).c_str(),
-            a_value_type_judge->value_type->get_type_name(false).c_str());
+        else
+        {
+            wo_assert(a_value_type_judge->value_type->accept_type(
+                a_value_type_judge->_be_cast_value_node->value_type, false, true));
+        }
 
         return result;
     }
@@ -880,11 +863,9 @@ namespace wo
 
         if (a_value_type_check->_be_check_value_node->value_type->is_dynamic())
         {
-            if (!a_value_type_check->aim_type->is_pure_base_type()
-                || a_value_type_check->aim_type->is_void()
-                || a_value_type_check->aim_type->is_nothing())
-                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_type_check,
-                    WO_ERR_CANNOT_TEST_COMPLEX_TYPE, a_value_type_check->aim_type->get_type_name(false).c_str());
+            wo_assert(a_value_type_check->aim_type->is_pure_base_type()
+                && !a_value_type_check->aim_type->is_void()
+                && !a_value_type_check->aim_type->is_nothing());
 
             if (!a_value_type_check->aim_type->is_dynamic())
             {
