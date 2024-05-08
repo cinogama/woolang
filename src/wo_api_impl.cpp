@@ -179,7 +179,7 @@ struct loaded_lib_info
         std::lock_guard g1(loaded_named_libs_mx);
 
         if (loaded_named_libs.find(libname) != loaded_named_libs.end())
-            return false;
+            return nullptr;
 
         auto& instance = loaded_named_libs[libname];
         instance.m_lib_instance = new dylib_table_instance(libname, funcs);
