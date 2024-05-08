@@ -190,28 +190,28 @@ struct loaded_lib_info
         return instance.m_lib_instance;
     }
 
-    static void unload_lib(dylib_table_instance* lib);
-};
-
-void loaded_lib_info::unload_lib(dylib_table_instance* lib)
-{
-    wo_assert(lib);
-
-    std::lock_guard sg1(loaded_named_libs_mx);
-
-    auto fnd = std::find_if(loaded_named_libs.begin(), loaded_named_libs.end(),
-        [lib](const std::pair<const std::string, loaded_lib_info>& idx)
-        {
-            return idx.second.m_lib_instance == lib;
-        });
-
-    auto* instance = &fnd->second;
-    if (0 == --instance->m_use_count)
+    static void unload_lib(dylib_table_instance* lib)
     {
-        delete instance->m_lib_instance;
-        loaded_named_libs.erase(fnd);
+        wo_assert(lib != nullptr);
+
+        std::lock_guard sg1(loaded_named_libs_mx);
+
+        for (auto fnd = loaded_named_libs.begin(); fnd != loaded_named_libs.end(); ++fnd)
+        {
+            if (fnd->second.m_lib_instance == lib)
+            {
+                auto* instance = &fnd->second;
+                if (0 == --instance->m_use_count)
+                {
+                    delete instance->m_lib_instance;
+                    loaded_named_libs.erase(fnd);
+                    return;
+                }
+            }
+        }
+        wo_error("Invalid library to unload.");
     }
-}
+};
 
 wo::vmpool* global_vm_pool = nullptr;
 
