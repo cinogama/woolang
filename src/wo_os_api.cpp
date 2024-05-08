@@ -46,31 +46,6 @@ namespace wo
         {
             FreeLibrary((HINSTANCE)libhandle);
         }
-        std::optional<std::string> _geterror()
-        {
-            DWORD error = GetLastError();
-            if (error)
-            {
-                LPWSTR lpMsgBuf;
-                DWORD bufLen = FormatMessageW(
-                    FORMAT_MESSAGE_ALLOCATE_BUFFER |
-                    FORMAT_MESSAGE_FROM_SYSTEM |
-                    FORMAT_MESSAGE_IGNORE_INSERTS,
-                    NULL,
-                    error,
-                    MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-                    (LPWSTR)&lpMsgBuf,
-                    0,
-                    NULL);
-                if (bufLen != 0)
-                {
-                    std::string result = wo::wstrn_to_str(lpMsgBuf, bufLen);
-                    LocalFree(lpMsgBuf);
-                    return result;
-                }
-            }
-            return std::nullopt;
-        }
 #elif defined(__linux__) || defined(__APPLE__)
         void* _loadlib(const char* dllpath)
         {
@@ -87,13 +62,6 @@ namespace wo
         {
             dlclose(libhandle);
         }
-        std::optional<std::string> _geterror()
-        {
-            const char* error = dlerror();
-            if (error)
-                return error;
-            return std::nullopt;
-        }
 #endif
         bool file_exists(const char* path)
         {
@@ -109,9 +77,8 @@ namespace wo
                 {
                     wo_fail(
                         WO_FAIL_BAD_LIB,
-                        "Failed to load library `%s`: `%s`.",
-                        dllpath,
-                        _geterror().value_or("unknown").c_str());
+                        "Failed to load library `%s`, broken file or failed to load dependence?",
+                        dllpath);
                 }
                 return lib;
             }
