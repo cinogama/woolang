@@ -1,7 +1,10 @@
 #include "wo_os_api.hpp"
 #include "wo_assert.hpp"
 #include "wo_env_locale.hpp"
+
 #include <string>
+#include <unordered_map>
+#include <shared_mutex>
 
 #ifdef _WIN32
 #include <Windows.h>
@@ -43,11 +46,11 @@ namespace wo
 
             return nullptr;
         }
-        wo_native_func_t loadfunc(void* libhandle, const char* funcname)
+        void* _loadfunc(void* libhandle, const char* funcname)
         {
-            return (wo_native_func_t)GetProcAddress((HINSTANCE)libhandle, funcname);
+            return (void*)GetProcAddress((HINSTANCE)libhandle, funcname);
         }
-        void freelib(void* libhandle)
+        void _freelib(void* libhandle)
         {
             FreeLibrary((HINSTANCE)libhandle);
         }
@@ -67,7 +70,7 @@ namespace wo
 
             // 2) Try get dll from exe_path
             if ((result = dlopen((std::string(exe_path()) + "/" + dllpath + ".so").c_str(), RTLD_LAZY)))
-            return result;
+                return result;
 
             // 3) Try get dll from work_path
             if ((result = dlopen((std::string(work_path()) + "/" + dllpath + ".so").c_str(), RTLD_LAZY)))
@@ -83,19 +86,28 @@ namespace wo
             return nullptr;
 #endif
         }
-        wo_native_func_t loadfunc(void* libhandle, const char* funcname)
+        void* _loadfunc(void* libhandle, const char* funcname)
         {
-            return (wo_native_func_t)dlsym(libhandle, funcname);
+            return (void*)dlsym(libhandle, funcname);
         }
-        void freelib(void* libhandle)
+        void _freelib(void* libhandle)
         {
             dlclose(libhandle);
         }
 
 #endif
+
         void* loadlib(const char* dllpath, const char* scriptpath)
         {
             return _loadlib(dllpath, scriptpath);
+        }
+        void* loadfunc(void* libhandle, const char* funcname)
+        {
+            return _loadfunc(libhandle, funcname);
+        }
+        void freelib(void* libhandle)
+        {
+            _freelib(libhandle);
         }
     }
 }

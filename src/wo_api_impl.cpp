@@ -67,16 +67,176 @@ struct _wo_in_thread_vm_guard
         wo_set_this_thread_vm(last_vm);
     }
 };
+
+struct dylib_table_instance
+{
+    inline static std::shared_mutex _m_fake_dylibs_mx;
+    inline static std::unordered_map<std::string, dylib_table_instance*> _m_fake_dylibs;
+
+    static dylib_table_instance* create_fake_dylib_table(const std::string& name, const wo_extern_lib_func_t* funcs)
+    {
+        //WO_API wo_bool_t    wo_register_extern_lib(const char* libname, wo_extern_lib_func_t* funcs);
+        std::lock_guard g1(_m_fake_dylibs_mx);
+        if (_m_fake_dylibs.find(name) == _m_fake_dylibs.end())
+        {
+            dylib_table_instance* inst = new dylib_table_instance();
+
+            const auto* func_pair = funcs;
+            while (func_pair->m_name != nullptr)
+            {
+                inst->m_fake_dylib_table->insert(
+                    std::make_pair(func_pair->m_name, func_pair->m_func_addr));
+
+                ++func_pair;
+            }
+
+            _m_fake_dylibs.insert(std::make_pair(name, inst));
+            return inst;
+        }
+        return nullptr;
+    }
+
+    static void close_fake_dylib_table(dylib_table_instance* inst)
+    {
+        std::lock_guard g1(_m_fake_dylibs_mx);
+        for (auto iter = _m_fake_dylibs.begin(); iter != _m_fake_dylibs.end(); ++iter)
+        {
+            if (iter->second == inst)
+            {
+                _m_fake_dylibs.erase(iter);
+                break;
+            }
+        }
+    }
+
+    using fake_table_t = std::unordered_map<std::string, void*>;
+
+    void* m_native_dylib_handle;
+    fake_table_t* m_fake_dylib_table;
+
+    explicit dylib_table_instance()
+        : m_native_dylib_handle(nullptr)
+        , m_fake_dylib_table(new fake_table_t())
+    {
+
+    }
+
+    explicit dylib_table_instance(void* handle_may_null)
+        : m_native_dylib_handle(handle_may_null)
+        , m_fake_dylib_table(nullptr)
+    {
+    }
+
+    ~dylib_table_instance()
+    {
+        if (m_native_dylib_handle != nullptr)
+            wo::osapi::freelib(m_native_dylib_handle);
+
+        if (m_fake_dylib_table != nullptr)
+            delete m_fake_dylib_table;
+
+    }
+    dylib_table_instance(const dylib_table_instance&) = delete;
+    dylib_table_instance(dylib_table_instance&&) = delete;
+    dylib_table_instance& operator = (const dylib_table_instance&) = delete;
+    dylib_table_instance& operator = (dylib_table_instance&&) = delete;
+
+    void* load_func(const char* name)
+    {
+        if (m_native_dylib_handle != nullptr)
+            return wo::osapi::loadfunc(m_native_dylib_handle, name);
+        else
+        {
+            wo_assert(m_fake_dylib_table != nullptr);
+
+            auto fnd = m_fake_dylib_table->find(name);
+            if (fnd != m_fake_dylib_table->end())
+                return fnd->second;
+
+            return nullptr;
+        }
+    }
+};
 struct loaded_lib_info
 {
-    void* m_lib_instance;
-    size_t      m_use_count;
+    inline static std::mutex loaded_named_libs_mx;
+    inline static std::unordered_map<std::string, std::vector<loaded_lib_info>> loaded_named_libs;
+
+    dylib_table_instance* m_lib_instance;
+    size_t m_use_count;
+
+    static dylib_table_instance* load_lib(
+        const char* libname,
+        const char* path,
+        const char* script_path,
+        wo_bool_t panic_when_fail)
+    {
+        dylib_table_instance* loaded_lib_res_ptr = nullptr;
+        std::lock_guard g1(loaded_named_libs_mx);
+        if (path)
+        {
+            if (void* handle = wo::osapi::loadlib(path, script_path))
+            {
+                loaded_lib_res_ptr = new dylib_table_instance(handle);
+
+                loaded_named_libs[libname].push_back(
+                    loaded_lib_info{ loaded_lib_res_ptr, 1 }
+                );
+            }
+        }
+
+        if (loaded_lib_res_ptr == nullptr)
+        {
+            auto fnd = loaded_named_libs.find(libname);
+            if (fnd != loaded_named_libs.end())
+            {
+                wo_assert(fnd->second.empty() == false);
+                auto& libinfo = fnd->second.back();
+                wo_assert(libinfo.m_use_count > 0);
+                ++libinfo.m_use_count;
+                loaded_lib_res_ptr = libinfo.m_lib_instance;
+            }
+        }
+
+        if (loaded_lib_res_ptr == nullptr && panic_when_fail)
+            wo_fail(WO_FAIL_BAD_LIB, "Failed to load specify library.");
+
+        return loaded_lib_res_ptr;
+    }
+    static void unload_lib(dylib_table_instance* lib)
+    {
+        wo_assert(lib);
+
+        std::lock_guard sg1(loaded_named_libs_mx);
+
+        auto fnd = std::find_if(loaded_named_libs.begin(), loaded_named_libs.end(),
+            [lib](const auto& idx)
+            {
+                return std::find_if(idx.second.begin(), idx.second.end(), [lib](const auto& info)
+                    {
+                        return info.m_lib_instance == lib;
+                    }) != idx.second.end();
+            });
+
+        wo_assert(fnd != loaded_named_libs.end());
+        auto infofnd = std::find_if(fnd->second.begin(), fnd->second.end(), [lib](const auto& info)
+            {
+                return info.m_lib_instance == lib;
+            });
+        wo_assert(infofnd != fnd->second.end());
+        wo_assert(infofnd->m_lib_instance == lib);
+        if (0 == --infofnd->m_use_count)
+        {
+            wo::osapi::freelib(infofnd->m_lib_instance);
+            fnd->second.erase(infofnd);
+
+            if (fnd->second.empty())
+                loaded_named_libs.erase(fnd);
+        }
+    }
 };
 
 wo::vmpool* global_vm_pool = nullptr;
-
-std::mutex loaded_named_libs_mx;
-std::unordered_map<std::string, std::vector<loaded_lib_info>> loaded_named_libs;
 
 void _default_fail_handler(wo_vm vm, wo_string_t src_file, uint32_t lineno, wo_string_t functionname, uint32_t rterrcode, wo_string_t reason)
 {
@@ -302,20 +462,34 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
     if (do_after_shutdown != nullptr)
         do_after_shutdown(custom_data);
 
-    std::lock_guard sg1(loaded_named_libs_mx);
-    if (loaded_named_libs.empty() == false)
-    {
-        std::string not_unload_lib_warn = "Some of library(s) loaded by 'wo_load_lib' is not been unload after shutdown:";
-        for (auto& [path, _] : loaded_named_libs)
-            not_unload_lib_warn += "\n\t\t" + path;
-        wo_warning(not_unload_lib_warn.c_str());
-    }
-
     womem_shutdown();
-    wo::debuggee_base::_free_abandons();
-
     wo::rslib_extern_symbols::free_wo_lib();
+    wo::debuggee_base::_free_abandons();
     wo::lang::release_global_pass_table();
+
+    do
+    {
+        std::lock_guard sg1(loaded_lib_info::loaded_named_libs_mx);
+        if (loaded_lib_info::loaded_named_libs.empty() == false)
+        {
+            std::string not_unload_lib_warn = "Some of library(s) loaded by 'wo_load_lib' is not been unload after shutdown:";
+            for (auto& [path, _] : loaded_lib_info::loaded_named_libs)
+                not_unload_lib_warn += "\n\t\t" + path;
+            wo_warning(not_unload_lib_warn.c_str());
+        }
+    } while (0);
+    do
+    {
+        std::lock_guard sg1(dylib_table_instance::_m_fake_dylibs_mx);
+        if (dylib_table_instance::_m_fake_dylibs.empty() == false)
+        {
+            std::string not_unload_lib_warn = "Some of user library(s) loaded by 'wo_register_extern_lib' is not been unload after shutdown:";
+            for (auto& [path, _] : dylib_table_instance::_m_fake_dylibs)
+                not_unload_lib_warn += "\n\t\t" + path;
+            wo_warning(not_unload_lib_warn.c_str());
+        }
+
+    } while (0);
 }
 
 void wo_init(int argc, char** argv)
@@ -376,23 +550,6 @@ void wo_init(int argc, char** argv)
     if (enable_vm_pool)
         global_vm_pool = new wo::vmpool;
 
-#if WO_ENABLE_RUNTIME_CHECK
-    do
-    {
-        wo::start_string_pool_guard sg;
-
-        std::wstring test_instance_a = L"Helloworld";
-        std::wstring test_instance_b = test_instance_a;
-
-        wo_assert(&test_instance_a != &test_instance_b);
-
-        auto* p_a = wo::wstring_pool::get_pstr(test_instance_a);
-        auto* p_b = wo::wstring_pool::get_pstr(test_instance_b);
-
-        wo_assert(p_a == p_b);
-    } while (0);
-#endif
-
     if (wo::config::GC_WORKER_THREAD_COUNT == 0)
         wo::config::GC_WORKER_THREAD_COUNT = 1; // 1 GC-thread at least.
 
@@ -432,9 +589,6 @@ wo_string_t wo_exe_path()
 void wo_set_exe_path(wo_string_t path)
 {
     wo::set_exe_path(path);
-
-    // re-init wo lib handle;
-    wo::rslib_extern_symbols::init_wo_lib();
 }
 
 wo_string_t wo_work_path()
@@ -2563,7 +2717,7 @@ std::wstring _dump_src_info(const std::string& path, size_t beginaimrow, size_t 
                 else
                     swprintf(buf, 19, L"\n%-5zu | ", current_row_no);
                 result += buf;
-                };
+            };
             auto print_notify_line = [&result, &first_line, &current_row_no, beginpointplace, pointplace, style, beginaimrow, aimrow](size_t line_end_place) {
                 wchar_t buf[20] = {};
                 if (first_line)
@@ -2622,7 +2776,7 @@ std::wstring _dump_src_info(const std::string& path, size_t beginaimrow, size_t 
                     append_result += wo::str_to_wstr(ANSI_RST);
 
                 result += append_result;
-                };
+            };
 
             if (from <= current_row_no && current_row_no <= to)
                 print_src_file_print_lineno();
@@ -3657,73 +3811,29 @@ wo_string_t wo_debug_trace_callstack(wo_vm vm, wo_size_t layer)
     return WO_VM(vm)->er->string->c_str();
 }
 
-void* wo_load_lib(const char* libname, const char* path, wo_bool_t panic_when_fail)
+void* wo_register_extern_lib(const char* libname, const wo_extern_lib_func_t* funcs)
 {
-    void* loaded_lib_res_ptr = nullptr;
-    std::lock_guard g1(loaded_named_libs_mx);
-    if (path)
-    {
-        if (void* handle = wo::osapi::loadlib(path))
-        {
-            loaded_named_libs[libname].push_back(
-                loaded_lib_info{ handle, 1 }
-            );
-            loaded_lib_res_ptr = handle;
-        }
-    }
-    else
-    {
-        auto fnd = loaded_named_libs.find(libname);
-        if (fnd != loaded_named_libs.end())
-        {
-            wo_assert(fnd->second.empty() == false);
-            auto& libinfo = fnd->second.back();
-            wo_assert(libinfo.m_use_count > 0);
-            ++libinfo.m_use_count;
-            loaded_lib_res_ptr = libinfo.m_lib_instance;
-        }
-    }
+    return (void*)dylib_table_instance::create_fake_dylib_table(libname, funcs);
+}
 
-    if (loaded_lib_res_ptr == nullptr && panic_when_fail)
-        wo_fail(WO_FAIL_BAD_LIB, "Failed to load specify library.");
+void wo_unregister_extern_lib(void* lib)
+{
+    dylib_table_instance::close_fake_dylib_table((dylib_table_instance*)lib);
+}
 
-    return loaded_lib_res_ptr;
+void* wo_load_lib(const char* libname, const char* path, const char* script_path, wo_bool_t panic_when_fail)
+{
+    return loaded_lib_info::load_lib(libname, path, script_path, panic_when_fail);
 }
 void* wo_load_func(void* lib, const char* funcname)
 {
-    wo_assert(lib);
-    return (void*)wo::osapi::loadfunc(lib, funcname);
+    auto* dylib = std::launder(reinterpret_cast<dylib_table_instance*>(lib));
+    return dylib->load_func(funcname);
 }
 void wo_unload_lib(void* lib)
 {
-    wo_assert(lib);
-
-    std::lock_guard sg1(loaded_named_libs_mx);
-
-    auto fnd = std::find_if(loaded_named_libs.begin(), loaded_named_libs.end(),
-        [lib](const auto& idx)
-        {
-            return std::find_if(idx.second.begin(), idx.second.end(), [lib](const auto& info)
-                {
-                    return info.m_lib_instance == lib;
-                }) != idx.second.end();
-        });
-
-    wo_assert(fnd != loaded_named_libs.end());
-    auto infofnd = std::find_if(fnd->second.begin(), fnd->second.end(), [lib](const auto& info)
-        {
-            return info.m_lib_instance == lib;
-        });
-    wo_assert(infofnd != fnd->second.end());
-    wo_assert(infofnd->m_lib_instance == lib);
-    if (0 == --infofnd->m_use_count)
-    {
-        wo::osapi::freelib(infofnd->m_lib_instance);
-        fnd->second.erase(infofnd);
-
-        if (fnd->second.empty())
-            loaded_named_libs.erase(fnd);
-    }
+    auto* dylib = std::launder(reinterpret_cast<dylib_table_instance*>(lib));
+    loaded_lib_info::unload_lib(dylib);
 }
 
 wo_integer_t wo_crc64_u8(uint8_t byte, wo_integer_t crc)
