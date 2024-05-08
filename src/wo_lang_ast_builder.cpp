@@ -135,12 +135,12 @@ namespace wo
             type_name = _type_name;
             value_type = get_type_from_name(_type_name);
             using_type_name = nullptr;
-            is_pending_type = _type_name == WO_PSTR(pending); // reset state;
+            is_non_update_custom_type = _type_name == WO_PSTR(pending); // reset state;
 
             template_arguments.clear();
 
             if (is_custom_type(_type_name))
-                is_pending_type = true;
+                is_non_update_custom_type = true;
         }
         void ast_type::set_type(const ast_type* _type)
         {
@@ -155,7 +155,7 @@ namespace wo
         {
             type_name = get_name_from_type(_val.type);
             value_type = _val.type;
-            is_pending_type = false;
+            is_non_update_custom_type = false;
         }
         void ast_type::set_ret_type(const ast_type* _type)
         {
@@ -166,7 +166,7 @@ namespace wo
 
             function_ret_type->set_type(_type);
 
-            is_pending_type = false; // reset state;
+            is_non_update_custom_type = false; // reset state;
             value_type = value::valuetype::invalid;
             template_arguments.clear();
         }
@@ -271,6 +271,9 @@ namespace wo
         }
         bool ast_type::is_pending() const
         {
+            if (is_non_update_custom_type)
+                return true;
+
             if (is_hkt_typing())
                 return false;
 
@@ -309,10 +312,13 @@ namespace wo
             else
                 base_type_pending = type_name == WO_PSTR(pending);
 
-            return is_pending_type || base_type_pending;
+            return base_type_pending;
         }
         bool ast_type::may_need_update() const
         {
+            if (is_non_update_custom_type)
+                return true;
+
             if (has_template())
             {
                 for (auto arg_type : template_arguments)
@@ -344,7 +350,7 @@ namespace wo
             else
                 base_type_pending = type_name == WO_PSTR(pending);
 
-            return is_pending_type || base_type_pending;
+            return base_type_pending;
         }
         bool ast_type::is_pending_function() const
         {
@@ -545,7 +551,7 @@ namespace wo
                 if (type_name != another->type_name)
                     return false;
 
-                wo_assert(!is_pending_type);
+                wo_assert(!is_non_update_custom_type);
             }
 
             if (using_type_name || another->using_type_name)
@@ -591,7 +597,7 @@ namespace wo
                         return false;
                 }
             }
-            this->is_pending_type = false;
+            this->is_non_update_custom_type = false;
             return true;
         }
 

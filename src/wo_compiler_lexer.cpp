@@ -121,18 +121,18 @@ namespace wo
     {
         int readed_ch = next_ch();
 
-        if (readed_ch == '\n')          // manage linux's LF
+        if (readed_ch == L'\n')          // manage linux's LF
         {
             new_line();
-            return '\n';
+            return L'\n';
         }
-        if (readed_ch == '\r')          // manage mac's CR
+        if (readed_ch == L'\r')          // manage mac's CR
         {
-            if (peek_ch() == '\n')
+            if (peek_ch() == L'\n')
                 next_ch();             // windows CRLF, eat LF
 
             new_line();
-            return '\n';
+            return L'\n';
         }
 
         return readed_ch;

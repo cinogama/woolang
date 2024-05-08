@@ -105,7 +105,7 @@ namespace wo
             bool is_mutable_type = false;
             bool is_force_immutable_type = false;
 
-            bool is_pending_type = false;
+            bool is_non_update_custom_type = false;
 
             // if this type is function, following type information will describe the return type;
             wo_pstring_t type_name = nullptr;
@@ -3133,7 +3133,7 @@ namespace wo
                 result->scope_namespaces = scoping_type->scope_namespaces;
                 result->searching_from_type = scoping_type->searching_from_type;
                 if (result->search_from_global_namespace || !result->scope_namespaces.empty())
-                    result->is_pending_type = true;
+                    result->is_non_update_custom_type = true;
 
                 if (input.size() == 1 || ast_empty::is_empty(input[1]))
                 {
