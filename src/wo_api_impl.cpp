@@ -124,8 +124,10 @@ struct dylib_table_instance
 };
 struct loaded_lib_info
 {
+    using named_libs_map_t = std::unordered_map<std::string, loaded_lib_info>;
+
     inline static std::mutex loaded_named_libs_mx;
-    inline static std::unordered_map<std::string, loaded_lib_info> loaded_named_libs;
+    inline static named_libs_map_t loaded_named_libs;
 
     dylib_table_instance* m_lib_instance;
     size_t m_use_count;
@@ -188,26 +190,28 @@ struct loaded_lib_info
         return instance.m_lib_instance;
     }
 
-    static void unload_lib(dylib_table_instance* lib)
-    {
-        wo_assert(lib);
-
-        std::lock_guard sg1(loaded_named_libs_mx);
-
-        auto fnd = std::find_if(loaded_named_libs.begin(), loaded_named_libs.end(),
-            [lib](const auto& idx)
-            {
-                return idx.second.m_lib_instance == lib;
-            });
-
-        auto* instance = &fnd->second;
-        if (0 == --instance->m_use_count)
-        {
-            delete instance->m_lib_instance;
-            loaded_named_libs.erase(fnd);
-        }
-    }
+    static void unload_lib(dylib_table_instance* lib);
 };
+
+void loaded_lib_info::unload_lib(dylib_table_instance* lib)
+{
+    wo_assert(lib);
+
+    std::lock_guard sg1(loaded_named_libs_mx);
+
+    auto fnd = std::find_if(loaded_named_libs.begin(), loaded_named_libs.end(),
+        [lib](const std::pair<const std::string, loaded_lib_info>& idx)
+        {
+            return idx.second.m_lib_instance == lib;
+        });
+
+    auto* instance = &fnd->second;
+    if (0 == --instance->m_use_count)
+    {
+        delete instance->m_lib_instance;
+        loaded_named_libs.erase(fnd);
+    }
+}
 
 wo::vmpool* global_vm_pool = nullptr;
 
