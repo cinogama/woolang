@@ -15,36 +15,26 @@
 #include <mach-o/dyld.h>
 #endif
 
+#ifdef _WIN32
+#   define WO_DYNAMIC_LIB_EXT ".dll"
+#elif defined(__linux__)
+#   define WO_DYNAMIC_LIB_EXT ".so"
+#elif defined(__APPLE__)
+#   define WO_DYNAMIC_LIB_EXT ".dylib"
+#endif
+
 namespace wo
 {
     namespace osapi
     {
 #ifdef _WIN32
-        void* _loadlib(const char* dllpath, const char* scriptpath)
+        void* _loadlib(const char* dllpath)
         {
             if (!dllpath)
                 return GetModuleHandleA(NULL);
 
-            void* result = nullptr;
-
-            // 1) Try get dll from script_path
-            if (scriptpath)
-                if (result = LoadLibraryExW(wo::str_to_wstr(get_file_loc(scriptpath) + "/" + dllpath + ".dll").c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH))
-                    return result;
-
-            // 2) Try get dll from exe_path
-            if (result = LoadLibraryExW(wo::str_to_wstr(std::string(exe_path()) + "/" + dllpath + ".dll").c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH))
-                return result;
-
-            // 3) Try get dll from work_path
-            if (result = LoadLibraryExW(wo::str_to_wstr(std::string(work_path()) + "/" + dllpath + ".dll").c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH))
-                return result;
-
-            // 4) Try load full path
-            if (result = LoadLibraryExW(wo::str_to_wstr(dllpath).c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH))
-                return result;
-
-            return nullptr;
+            return LoadLibraryExW(
+                wo::str_to_wstr(dllpath).c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
         }
         void* _loadfunc(void* libhandle, const char* funcname)
         {
@@ -54,37 +44,38 @@ namespace wo
         {
             FreeLibrary((HINSTANCE)libhandle);
         }
-#else
-        void* _loadlib(const char* dllpath, const char* scriptpath)
+        std::optional<std::string> _geterror()
         {
-#if defined(__linux__) || defined(__APPLE__)
+            DWORD error = GetLastError();
+            if (error)
+            {
+                LPVOID lpMsgBuf;
+                DWORD bufLen = FormatMessage(
+                    FORMAT_MESSAGE_ALLOCATE_BUFFER |
+                    FORMAT_MESSAGE_FROM_SYSTEM |
+                    FORMAT_MESSAGE_IGNORE_INSERTS,
+                    NULL,
+                    error,
+                    MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                    (LPTSTR)&lpMsgBuf,
+                    0, NULL);
+                if (bufLen)
+                {
+                    LPCSTR lpMsgStr = (LPCSTR)lpMsgBuf;
+                    std::string result(lpMsgStr, lpMsgStr + bufLen);
+                    LocalFree(lpMsgBuf);
+                    return result;
+                }
+            }
+            return std::nullopt;
+        }
+#elif defined(__linux__) || defined(__APPLE__)
+        void* _loadlib(const char* dllpath)
+        {
             if (!dllpath)
                 return dlopen(nullptr, RTLD_LAZY);
 
-            void* result = nullptr;
-
-            // 1) Try get dll from script_path
-            if (scriptpath)
-                if ((result = dlopen((std::string(get_file_loc(scriptpath)) + "/" + dllpath + ".so").c_str(), RTLD_LAZY)))
-                    return result;
-
-            // 2) Try get dll from exe_path
-            if ((result = dlopen((std::string(exe_path()) + "/" + dllpath + ".so").c_str(), RTLD_LAZY)))
-                return result;
-
-            // 3) Try get dll from work_path
-            if ((result = dlopen((std::string(work_path()) + "/" + dllpath + ".so").c_str(), RTLD_LAZY)))
-                return result;
-
-            // 4) Try load full path
-            if ((result = dlopen(dllpath, RTLD_LAZY)))
-                return result;
-
-            return nullptr;
-#else
-            wo_error("Unknown operating-system..");
-            return nullptr;
-#endif
+            return dlopen(dllpath, RTLD_LAZY));
         }
         void* _loadfunc(void* libhandle, const char* funcname)
         {
@@ -94,12 +85,61 @@ namespace wo
         {
             dlclose(libhandle);
         }
-
+        std::optional<std::string> _geterror()
+        {
+            const char* error = dlerror();
+            if (error)
+                return error;
+            return std::nullopt;
+        }
 #endif
-
+        bool file_exists(const char* path)
+        {
+            struct stat st;
+            return stat(path, &st) == 0;
+        }
+        std::optional<void*> try_open_lib(const char* dllpath)
+        {
+            if (file_exists(dllpath))
+            {
+                void* lib = _loadlib(dllpath);
+                if (lib == nullptr)
+                {
+                    wo_fail(
+                        WO_FAIL_BAD_LIB,
+                        "Failed to load library `%s`: `%s`.",
+                        dllpath,
+                        _geterror().value_or("unknown"));
+                }
+                return lib;
+            }
+            return std::nullopt;
+        }
         void* loadlib(const char* dllpath, const char* scriptpath)
         {
-            return _loadlib(dllpath, scriptpath);
+            if (dllpath == nullptr)
+                return _loadlib(nullptr);
+
+            const std::string filename = "/" + std::string(dllpath) + WO_DYNAMIC_LIB_EXT;
+
+            // 1) Try get dll from script_path
+            if (scriptpath)
+                if (auto result = try_open_lib((get_file_loc(scriptpath) + filename).c_str()))
+                    return result.value();
+
+            // 2) Try get dll from exe_path
+            if (auto result = try_open_lib((exe_path() + filename).c_str()))
+                return result.value();
+
+            // 3) Try get dll from work_path
+            if (auto result = try_open_lib((work_path() + filename).c_str()))
+                return result.value();
+
+            // 4) Try load full path
+            if (auto result = try_open_lib(dllpath))
+                return result.value();
+
+            return nullptr;
         }
         void* loadfunc(void* libhandle, const char* funcname)
         {
