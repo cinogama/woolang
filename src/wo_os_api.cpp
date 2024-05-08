@@ -30,7 +30,7 @@ namespace wo
 #ifdef _WIN32
         void* _loadlib(const char* dllpath)
         {
-            if (!dllpath)
+            if (nullptr == dllpath)
                 return GetModuleHandleA(NULL);
 
             return LoadLibraryExW(
@@ -72,10 +72,10 @@ namespace wo
 #elif defined(__linux__) || defined(__APPLE__)
         void* _loadlib(const char* dllpath)
         {
-            if (!dllpath)
+            if (nullptr == dllpath)
                 return dlopen(nullptr, RTLD_LAZY);
 
-            return dlopen(dllpath, RTLD_LAZY));
+            return dlopen(dllpath, RTLD_LAZY);
         }
         void* _loadfunc(void* libhandle, const char* funcname)
         {
