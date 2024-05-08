@@ -18,9 +18,6 @@
 #include <chrono>
 #include <cstdarg>
 
-// TODO LIST
-// 1. ALL GC_UNIT OPERATE SHOULD BE ATOMIC
-
 #include <atomic>
 #include <iostream>
 #include <cstdio>
@@ -70,55 +67,23 @@ struct _wo_in_thread_vm_guard
 
 struct dylib_table_instance
 {
-    inline static std::shared_mutex _m_fake_dylibs_mx;
-    inline static std::unordered_map<std::string, dylib_table_instance*> _m_fake_dylibs;
-
-    static dylib_table_instance* create_fake_dylib_table(const std::string& name, const wo_extern_lib_func_t* funcs)
-    {
-        //WO_API wo_bool_t    wo_register_extern_lib(const char* libname, wo_extern_lib_func_t* funcs);
-        std::lock_guard g1(_m_fake_dylibs_mx);
-        if (_m_fake_dylibs.find(name) == _m_fake_dylibs.end())
-        {
-            dylib_table_instance* inst = new dylib_table_instance();
-
-            const auto* func_pair = funcs;
-            while (func_pair->m_name != nullptr)
-            {
-                inst->m_fake_dylib_table->insert(
-                    std::make_pair(func_pair->m_name, func_pair->m_func_addr));
-
-                ++func_pair;
-            }
-
-            _m_fake_dylibs.insert(std::make_pair(name, inst));
-            return inst;
-        }
-        return nullptr;
-    }
-
-    static void close_fake_dylib_table(dylib_table_instance* inst)
-    {
-        std::lock_guard g1(_m_fake_dylibs_mx);
-        for (auto iter = _m_fake_dylibs.begin(); iter != _m_fake_dylibs.end(); ++iter)
-        {
-            if (iter->second == inst)
-            {
-                _m_fake_dylibs.erase(iter);
-                break;
-            }
-        }
-    }
-
     using fake_table_t = std::unordered_map<std::string, void*>;
 
     void* m_native_dylib_handle;
     fake_table_t* m_fake_dylib_table;
 
-    explicit dylib_table_instance()
+    explicit dylib_table_instance(const std::string& name, const wo_extern_lib_func_t* funcs)
         : m_native_dylib_handle(nullptr)
         , m_fake_dylib_table(new fake_table_t())
     {
+        const auto* func_pair = funcs;
+        while (func_pair->m_name != nullptr)
+        {
+            m_fake_dylib_table->insert(
+                std::make_pair(func_pair->m_name, func_pair->m_func_addr));
 
+            ++func_pair;
+        }
     }
 
     explicit dylib_table_instance(void* handle_may_null)
@@ -160,7 +125,7 @@ struct dylib_table_instance
 struct loaded_lib_info
 {
     inline static std::mutex loaded_named_libs_mx;
-    inline static std::unordered_map<std::string, std::vector<loaded_lib_info>> loaded_named_libs;
+    inline static std::unordered_map<std::string, loaded_lib_info> loaded_named_libs;
 
     dylib_table_instance* m_lib_instance;
     size_t m_use_count;
@@ -171,30 +136,33 @@ struct loaded_lib_info
         const char* script_path,
         wo_bool_t panic_when_fail)
     {
-        dylib_table_instance* loaded_lib_res_ptr = nullptr;
         std::lock_guard g1(loaded_named_libs_mx);
-        if (path)
-        {
-            if (void* handle = wo::osapi::loadlib(path, script_path))
-            {
-                loaded_lib_res_ptr = new dylib_table_instance(handle);
+        dylib_table_instance* loaded_lib_res_ptr = nullptr;
 
-                loaded_named_libs[libname].push_back(
-                    loaded_lib_info{ loaded_lib_res_ptr, 1 }
-                );
-            }
+        if (auto fnd = loaded_named_libs.find(libname);
+            fnd != loaded_named_libs.end())
+        {
+            auto& libinfo = fnd->second;
+
+            wo_assert(libinfo.m_use_count > 0);
+            ++libinfo.m_use_count;
+
+            loaded_lib_res_ptr = libinfo.m_lib_instance;
+            wo_assert(loaded_lib_res_ptr != nullptr);
         }
-
-        if (loaded_lib_res_ptr == nullptr)
+        else
         {
-            auto fnd = loaded_named_libs.find(libname);
-            if (fnd != loaded_named_libs.end())
+            if (path)
             {
-                wo_assert(fnd->second.empty() == false);
-                auto& libinfo = fnd->second.back();
-                wo_assert(libinfo.m_use_count > 0);
-                ++libinfo.m_use_count;
-                loaded_lib_res_ptr = libinfo.m_lib_instance;
+                if (void* handle = wo::osapi::loadlib(path, script_path))
+                    loaded_lib_res_ptr = new dylib_table_instance(handle);
+            }
+
+            if (loaded_lib_res_ptr != nullptr)
+            {
+                auto& instance = loaded_named_libs[libname];
+                instance.m_lib_instance = loaded_lib_res_ptr;
+                instance.m_use_count = 1;
             }
         }
 
@@ -203,6 +171,23 @@ struct loaded_lib_info
 
         return loaded_lib_res_ptr;
     }
+
+    static dylib_table_instance* create_fake_lib(
+        const char* libname,
+        const wo_extern_lib_func_t* funcs)
+    {
+        std::lock_guard g1(loaded_named_libs_mx);
+
+        if (loaded_named_libs.find(libname) != loaded_named_libs.end())
+            return false;
+
+        auto& instance = loaded_named_libs[libname];
+        instance.m_lib_instance = new dylib_table_instance(libname, funcs);
+        instance.m_use_count = 1;
+
+        return instance.m_lib_instance;
+    }
+
     static void unload_lib(dylib_table_instance* lib)
     {
         wo_assert(lib);
@@ -212,26 +197,14 @@ struct loaded_lib_info
         auto fnd = std::find_if(loaded_named_libs.begin(), loaded_named_libs.end(),
             [lib](const auto& idx)
             {
-                return std::find_if(idx.second.begin(), idx.second.end(), [lib](const auto& info)
-                    {
-                        return info.m_lib_instance == lib;
-                    }) != idx.second.end();
+                return idx.second.m_lib_instance == lib;
             });
 
-        wo_assert(fnd != loaded_named_libs.end());
-        auto infofnd = std::find_if(fnd->second.begin(), fnd->second.end(), [lib](const auto& info)
-            {
-                return info.m_lib_instance == lib;
-            });
-        wo_assert(infofnd != fnd->second.end());
-        wo_assert(infofnd->m_lib_instance == lib);
-        if (0 == --infofnd->m_use_count)
+        auto* instance = &fnd->second;
+        if (0 == --instance->m_use_count)
         {
-            wo::osapi::freelib(infofnd->m_lib_instance);
-            fnd->second.erase(infofnd);
-
-            if (fnd->second.empty())
-                loaded_named_libs.erase(fnd);
+            delete instance->m_lib_instance;
+            loaded_named_libs.erase(fnd);
         }
     }
 };
@@ -477,18 +450,6 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
                 not_unload_lib_warn += "\n\t\t" + path;
             wo_warning(not_unload_lib_warn.c_str());
         }
-    } while (0);
-    do
-    {
-        std::lock_guard sg1(dylib_table_instance::_m_fake_dylibs_mx);
-        if (dylib_table_instance::_m_fake_dylibs.empty() == false)
-        {
-            std::string not_unload_lib_warn = "Some of user library(s) loaded by 'wo_register_extern_lib' is not been unload after shutdown:";
-            for (auto& [path, _] : dylib_table_instance::_m_fake_dylibs)
-                not_unload_lib_warn += "\n\t\t" + path;
-            wo_warning(not_unload_lib_warn.c_str());
-        }
-
     } while (0);
 }
 
@@ -3811,14 +3772,9 @@ wo_string_t wo_debug_trace_callstack(wo_vm vm, wo_size_t layer)
     return WO_VM(vm)->er->string->c_str();
 }
 
-void* wo_register_extern_lib(const char* libname, const wo_extern_lib_func_t* funcs)
+void* wo_register_lib(const char* libname, const wo_extern_lib_func_t* funcs)
 {
-    return (void*)dylib_table_instance::create_fake_dylib_table(libname, funcs);
-}
-
-void wo_unregister_extern_lib(void* lib)
-{
-    dylib_table_instance::close_fake_dylib_table((dylib_table_instance*)lib);
+    return (void*)loaded_lib_info::create_fake_lib(libname, funcs);
 }
 
 void* wo_load_lib(const char* libname, const char* path, const char* script_path, wo_bool_t panic_when_fail)

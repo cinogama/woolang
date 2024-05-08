@@ -3385,6 +3385,6 @@ namespace wo
             {"rslib_std_get_env", (void*)&rslib_std_get_env},
             WO_EXTERN_LIB_FUNC_END
         };
-        _current_wo_lib_handle = wo_register_extern_lib("woolang", funcs);
+        _current_wo_lib_handle = wo_register_lib("woolang", funcs);
     }
 }

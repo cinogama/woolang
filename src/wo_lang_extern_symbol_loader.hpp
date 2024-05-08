@@ -61,7 +61,7 @@ namespace wo
         {
             if (_current_wo_lib_handle != nullptr)
             {
-                wo_unregister_extern_lib(_current_wo_lib_handle);
+                wo_unload_lib(_current_wo_lib_handle);
                 _current_wo_lib_handle = nullptr;
             }
         }

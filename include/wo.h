@@ -148,9 +148,7 @@ typedef struct _wo_extern_lib_func_pair
 
 #define WO_EXTERN_LIB_FUNC_END wo_extern_lib_func_t{nullptr, nullptr}
 
-WO_API void*        wo_register_extern_lib(const char* libname, const wo_extern_lib_func_t* funcs);
-WO_API void         wo_unregister_extern_lib(void* lib);
-
+WO_API void*        wo_register_lib(const char* libname, const wo_extern_lib_func_t* funcs);
 WO_API void*        wo_load_lib(const char* libname, const char* path, const char* script_path, wo_bool_t panic_when_fail);
 WO_API void*        wo_load_func(void* lib, const char* funcname);
 WO_API void         wo_unload_lib(void* lib);
