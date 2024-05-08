@@ -124,7 +124,8 @@ struct dylib_table_instance
 };
 struct loaded_lib_info
 {
-    using named_libs_map_t = std::unordered_map<std::string, loaded_lib_info>;
+    using named_libs_map_t = std::unordered_map<
+        std::string, std::unique_ptr<loaded_lib_info>>;
 
     inline static std::mutex loaded_named_libs_mx;
     inline static named_libs_map_t loaded_named_libs;
@@ -144,12 +145,12 @@ struct loaded_lib_info
         if (auto fnd = loaded_named_libs.find(libname);
             fnd != loaded_named_libs.end())
         {
-            auto& libinfo = fnd->second;
+            auto* libinfo = fnd->second.get();
 
             wo_assert(libinfo.m_use_count > 0);
-            ++libinfo.m_use_count;
+            ++libinfo->m_use_count;
 
-            loaded_lib_res_ptr = libinfo.m_lib_instance;
+            loaded_lib_res_ptr = libinfo->m_lib_instance;
             wo_assert(loaded_lib_res_ptr != nullptr);
         }
         else
@@ -162,9 +163,11 @@ struct loaded_lib_info
 
             if (loaded_lib_res_ptr != nullptr)
             {
-                auto& instance = loaded_named_libs[libname];
-                instance.m_lib_instance = loaded_lib_res_ptr;
-                instance.m_use_count = 1;
+                auto instance_info = std::make_unique<loaded_lib_info>();
+                instance_info->m_lib_instance = loaded_lib_res_ptr;
+                instance_info->m_use_count = 1;
+
+                loaded_named_libs[libname] = std::move(instance_info);
             }
         }
 
@@ -183,11 +186,15 @@ struct loaded_lib_info
         if (loaded_named_libs.find(libname) != loaded_named_libs.end())
             return nullptr;
 
-        auto& instance = loaded_named_libs[libname];
-        instance.m_lib_instance = new dylib_table_instance(libname, funcs);
-        instance.m_use_count = 1;
+        auto* instance = new dylib_table_instance(libname, funcs);
 
-        return instance.m_lib_instance;
+        auto instance_info = std::make_unique<loaded_lib_info>();
+        instance_info->m_lib_instance = instance;
+        instance_info->m_use_count = 1;
+
+        loaded_named_libs[libname] = std::move(instance_info);
+
+        return instance;
     }
 
     static void unload_lib(dylib_table_instance* lib)
@@ -198,12 +205,12 @@ struct loaded_lib_info
 
         for (auto fnd = loaded_named_libs.begin(); fnd != loaded_named_libs.end(); ++fnd)
         {
-            if (fnd->second.m_lib_instance == lib)
+            auto* instance_info = fnd->second.get();
+            if (instance_info->m_lib_instance == lib)
             {
-                auto* instance = &fnd->second;
-                if (0 == --instance->m_use_count)
+                if (0 == --instance_info->m_use_count)
                 {
-                    delete instance->m_lib_instance;
+                    delete instance_info->m_lib_instance;
                     loaded_named_libs.erase(fnd);
                     return;
                 }
