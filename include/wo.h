@@ -139,7 +139,17 @@ WO_API void         wo_gc_resume(void);
 WO_API void         wo_gc_wait_sync(void);
 WO_API void         wo_gc_immediately(wo_bool_t fullgc);
 
-WO_API void*        wo_load_lib(const char* libname, const char* path, wo_bool_t panic_when_fail);
+typedef struct _wo_extern_lib_func_pair
+{
+    wo_string_t     m_name;
+    void*           m_func_addr;
+
+} wo_extern_lib_func_t;
+
+#define WO_EXTERN_LIB_FUNC_END wo_extern_lib_func_t{nullptr, nullptr}
+
+WO_API void*        wo_register_lib(const char* libname, const wo_extern_lib_func_t* funcs);
+WO_API void*        wo_load_lib(const char* libname, const char* path, const char* script_path, wo_bool_t panic_when_fail);
 WO_API void*        wo_load_func(void* lib, const char* funcname);
 WO_API void         wo_unload_lib(void* lib);
 
@@ -676,23 +686,6 @@ WO_API void                 wo_lsp_free_compile_error_msg(wo_lsp_error_msg* msg)
 
 #endif
 
-WO_FORCE_CAPI_END
-#undef WO_API
-
-#ifdef _WIN32
-#   ifdef __cplusplus
-#       define WO_API extern "C" WO_EXPORT
-#   else
-#       define WO_API WO_EXPORT
-#   endif
-#else
-#   ifdef __cplusplus
-#       define WO_API extern "C"
-#   else
-#       define WO_API WO_EXPORT
-#   endif
-#endif
-
 /*
                 GC-friendly extern function development rules
 
@@ -1120,4 +1113,21 @@ WO_API void wo_ir_immu64(wo_ir_compiler compiler, uint64_t val);
 WO_API void wo_load_ir_compiler_with_stacksz(wo_vm vm, wo_ir_compiler compiler, wo_size_t stacksz);
 WO_API void wo_load_ir_compiler(wo_vm vm, wo_ir_compiler compiler);
 
+#endif
+
+WO_FORCE_CAPI_END
+#undef WO_API
+
+#ifdef _WIN32
+#   ifdef __cplusplus
+#       define WO_API extern "C" WO_EXPORT
+#   else
+#       define WO_API WO_EXPORT
+#   endif
+#else
+#   ifdef __cplusplus
+#       define WO_API extern "C"
+#   else
+#       define WO_API WO_EXPORT
+#   endif
 #endif

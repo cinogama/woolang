@@ -8,7 +8,7 @@
 #include "wo_shared_ptr.hpp"
 
 #include <shared_mutex>
-#include <map>
+#include <unordered_map>
 
 #ifdef _WIN32
 #		define OS_WINDOWS
@@ -36,6 +36,19 @@
 #		define PLATFORM_UNKNOWN
 #endif
 
+#if defined(PLATFORM_M32)
+#   define WO_EXT_LIB_ARCH_TYPE_SUFFIX "32"
+#else
+#   define WO_EXT_LIB_ARCH_TYPE_SUFFIX ""
+#endif
+#ifdef NDEBUG
+#   define WO_EXT_LIB_DEBUG_SUFFIX ""
+#else
+#   define WO_EXT_LIB_DEBUG_SUFFIX "_debug"
+#endif
+
+#define WO_EXT_LIB_SUFFIX WO_EXT_LIB_ARCH_TYPE_SUFFIX WO_EXT_LIB_DEBUG_SUFFIX
+
 namespace wo
 {
     class rslib_extern_symbols
@@ -43,79 +56,42 @@ namespace wo
         inline static void* _current_wo_lib_handle = nullptr;
 
     public:
-        inline static void init_wo_lib() 
-        {
-            free_wo_lib();
-
-            wo_assert(_current_wo_lib_handle == nullptr);
-#ifdef PLATFORM_M64
-#   ifdef NDEBUG
-            _current_wo_lib_handle = osapi::loadlib("libwoo");
-#   else
-            _current_wo_lib_handle = osapi::loadlib("libwoo_debug");
-#   endif
-#else /* PLATFORM_M32 */
-#   ifdef NDEBUG
-            _current_wo_lib_handle = osapi::loadlib("libwoo32");
-#   else
-            _current_wo_lib_handle = osapi::loadlib("libwoo32_debug");
-#   endif
-#endif
-        }
-        inline static void free_wo_lib()
+        static void init_wo_lib();
+        static void free_wo_lib()
         {
             if (_current_wo_lib_handle != nullptr)
             {
-                osapi::freelib(_current_wo_lib_handle);
+                wo_unload_lib(_current_wo_lib_handle);
                 _current_wo_lib_handle = nullptr;
             }
         }
 
         struct extern_lib_guard
         {
-            bool load_by_os_api = true;
-            void* extern_lib = nullptr;
+            void* m_extern_library = nullptr;
 
             extern_lib_guard(const std::string& libpath, const std::string& script_path)
             {
-#ifndef NDEBUG
-#   if defined(PLATFORM_M32)
-                if ((extern_lib = osapi::loadlib((libpath + "32_debug").c_str(), script_path.c_str())))
-                    return;
-#   else
-                if ((extern_lib = osapi::loadlib((libpath + "_debug").c_str(), script_path.c_str())))
-                    return;
-#   endif
-#else
-#   if defined(PLATFORM_M32)
-                if ((extern_lib = osapi::loadlib((libpath + "32").c_str(), script_path.c_str())))
-                    return;
-#   else
-                if ((extern_lib = osapi::loadlib(libpath.c_str(), script_path.c_str())))
-                    return;
-#   endif
-#endif
-                // No such lib path? try lib alias here:
-                load_by_os_api = false;
-                extern_lib = wo_load_lib(libpath.c_str(), nullptr, WO_FALSE);
+                m_extern_library = wo_load_lib(
+                    libpath.c_str(),
+                    (libpath + WO_EXT_LIB_SUFFIX).c_str(),
+                    script_path.c_str(), WO_FALSE);
             }
             wo_native_func_t load_func(const char* funcname)
             {
-                if (extern_lib)
-                    return osapi::loadfunc(extern_lib, funcname);
+                if (m_extern_library != nullptr)
+                    return (wo_native_func_t)wo_load_func(m_extern_library, funcname);
+
                 return nullptr;
             }
             ~extern_lib_guard()
             {
-                if (extern_lib)
+                if (m_extern_library != nullptr)
                 {
                     if (auto* leave = (void(*)(void))load_func("wolib_exit"))
                         leave();
 
-                    if (load_by_os_api)
-                        osapi::freelib(extern_lib);
-                    else
-                        wo_unload_lib(extern_lib);
+                    wo_unload_lib(m_extern_library);
                 }
             }
         };
@@ -123,7 +99,8 @@ namespace wo
         struct extern_lib_set
         {
             using extern_lib = shared_pointer<extern_lib_guard>;
-            using srcpath_externlib_pairs = std::map<std::string, std::map<std::string, extern_lib>>;
+            using srcpath_externlib_pairs =
+                std::unordered_map<std::string, std::unordered_map<std::string, extern_lib>>;
 
             srcpath_externlib_pairs loaded_libsrc;
 
@@ -132,7 +109,7 @@ namespace wo
                 const char* libpath,
                 const char* funcname)
             {
-                auto &srcloadedlibs = loaded_libsrc[srcpath];
+                auto& srcloadedlibs = loaded_libsrc[srcpath];
 
                 if (auto fnd = srcloadedlibs.find(libpath);
                     fnd != srcloadedlibs.end())
@@ -143,22 +120,15 @@ namespace wo
                 extern_lib elib = new extern_lib_guard(libpath, srcpath);
                 srcloadedlibs[libpath] = elib;
 
-                if (auto * entry = (void(*)(void))elib->load_func("wolib_entry"))
+                if (auto* entry = (void(*)(void))elib->load_func("wolib_entry"))
                     entry();
                 return elib->load_func(funcname);
-
             }
         };
 
         static wo_native_func_t get_global_symbol(const char* symbol)
         {
-            static void* this_exe_handle = osapi::loadlib(nullptr);
-            wo_assert(this_exe_handle);
-
-            auto* loaded_symb = osapi::loadfunc(this_exe_handle, symbol);
-            if (!loaded_symb && _current_wo_lib_handle)
-                loaded_symb = osapi::loadfunc(_current_wo_lib_handle, symbol);
-            return loaded_symb;
+            return (wo_native_func_t)wo_load_func(_current_wo_lib_handle, symbol);
         }
 
         static wo_native_func_t get_lib_symbol(const char* src, const char* lib, const char* symb, extern_lib_set& elibs)
