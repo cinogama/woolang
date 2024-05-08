@@ -147,7 +147,7 @@ struct loaded_lib_info
         {
             auto* libinfo = fnd->second.get();
 
-            wo_assert(libinfo.m_use_count > 0);
+            wo_assert(libinfo->m_use_count > 0);
             ++libinfo->m_use_count;
 
             loaded_lib_res_ptr = libinfo->m_lib_instance;
