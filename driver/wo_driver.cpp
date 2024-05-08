@@ -11,6 +11,8 @@ int main(int argc, char** argv)
 
     int ret = 0;
 
+    wo_load_lib("je.wo", "je.wo", nullptr, WO_TRUE);
+
     if (argc >= 2)
     {
         wo_vm vmm = wo_create_vm();

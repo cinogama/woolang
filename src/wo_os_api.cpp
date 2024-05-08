@@ -34,7 +34,9 @@ namespace wo
                 return GetModuleHandleA(NULL);
 
             return LoadLibraryExW(
-                wo::str_to_wstr(dllpath).c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
+                wo::str_to_wstr(dllpath).c_str(),
+                NULL, 
+                LOAD_WITH_ALTERED_SEARCH_PATH | LOAD_LIBRARY_AS_DATAFILE);
         }
         void* _loadfunc(void* libhandle, const char* funcname)
         {
@@ -49,20 +51,20 @@ namespace wo
             DWORD error = GetLastError();
             if (error)
             {
-                LPVOID lpMsgBuf;
-                DWORD bufLen = FormatMessage(
+                LPWSTR lpMsgBuf;
+                DWORD bufLen = FormatMessageW(
                     FORMAT_MESSAGE_ALLOCATE_BUFFER |
                     FORMAT_MESSAGE_FROM_SYSTEM |
                     FORMAT_MESSAGE_IGNORE_INSERTS,
                     NULL,
                     error,
                     MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-                    (LPTSTR)&lpMsgBuf,
-                    0, NULL);
-                if (bufLen)
+                    (LPWSTR)&lpMsgBuf,
+                    0,
+                    NULL);
+                if (bufLen != 0)
                 {
-                    LPCSTR lpMsgStr = (LPCSTR)lpMsgBuf;
-                    std::string result(lpMsgStr, lpMsgStr + bufLen);
+                    std::string result = wo::wstrn_to_str(lpMsgBuf, bufLen);
                     LocalFree(lpMsgBuf);
                     return result;
                 }
@@ -109,7 +111,7 @@ namespace wo
                         WO_FAIL_BAD_LIB,
                         "Failed to load library `%s`: `%s`.",
                         dllpath,
-                        _geterror().value_or("unknown"));
+                        _geterror().value_or("unknown").c_str());
                 }
                 return lib;
             }
