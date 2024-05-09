@@ -241,7 +241,7 @@ void _default_fail_handler(wo_vm vm, wo_string_t src_file, uint32_t lineno, wo_s
     if (cur_thread_vm != nullptr)
         cur_thread_vm->dump_call_stack(32, true, std::cerr);
     else
-        wo::wo_stderr << ANSI_HIM "No woolang vm found in this thread." ANSI_RST << wo::wo_endl;
+        wo::wo_stderr << ANSI_HIM "No woolang vm found on this thread." ANSI_RST << wo::wo_endl;
 
     wo::wo_stderr << wo::wo_endl;
 
@@ -314,7 +314,7 @@ void _default_fail_handler(wo_vm vm, wo_string_t src_file, uint32_t lineno, wo_s
                         breakout = true;
                     }
                     else
-                        wo::wo_stderr << ANSI_HIR "No virtual machine running in this thread." ANSI_RST << wo::wo_endl;
+                        wo::wo_stderr << ANSI_HIR "No virtual machine running on this thread." ANSI_RST << wo::wo_endl;
                     break;
                 case 4:
                     if (cur_thread_vm != nullptr)
@@ -325,7 +325,7 @@ void _default_fail_handler(wo_vm vm, wo_string_t src_file, uint32_t lineno, wo_s
                         breakout = true;
                     }
                     else
-                        wo::wo_stderr << ANSI_HIR "No virtual machine running in this thread." ANSI_RST << wo::wo_endl;
+                        wo::wo_stderr << ANSI_HIR "No virtual machine running on this thread." ANSI_RST << wo::wo_endl;
                     break;
                 default:
                     wo::wo_stderr << ANSI_HIR "Invalid choice" ANSI_RST << wo::wo_endl;

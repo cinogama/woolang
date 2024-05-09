@@ -34,7 +34,9 @@ namespace wo
                 return GetModuleHandleA(NULL);
 
             return LoadLibraryExW(
-                wo::str_to_wstr(dllpath).c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
+                wo::str_to_wstr(dllpath).c_str(),
+                NULL, 
+                LOAD_WITH_ALTERED_SEARCH_PATH | LOAD_LIBRARY_AS_DATAFILE);
         }
         void* _loadfunc(void* libhandle, const char* funcname)
         {
@@ -43,31 +45,6 @@ namespace wo
         void _freelib(void* libhandle)
         {
             FreeLibrary((HINSTANCE)libhandle);
-        }
-        std::optional<std::string> _geterror()
-        {
-            DWORD error = GetLastError();
-            if (error)
-            {
-                LPVOID lpMsgBuf;
-                DWORD bufLen = FormatMessage(
-                    FORMAT_MESSAGE_ALLOCATE_BUFFER |
-                    FORMAT_MESSAGE_FROM_SYSTEM |
-                    FORMAT_MESSAGE_IGNORE_INSERTS,
-                    NULL,
-                    error,
-                    MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-                    (LPTSTR)&lpMsgBuf,
-                    0, NULL);
-                if (bufLen)
-                {
-                    LPCSTR lpMsgStr = (LPCSTR)lpMsgBuf;
-                    std::string result(lpMsgStr, lpMsgStr + bufLen);
-                    LocalFree(lpMsgBuf);
-                    return result;
-                }
-            }
-            return std::nullopt;
         }
 #elif defined(__linux__) || defined(__APPLE__)
         void* _loadlib(const char* dllpath)
@@ -85,13 +62,6 @@ namespace wo
         {
             dlclose(libhandle);
         }
-        std::optional<std::string> _geterror()
-        {
-            const char* error = dlerror();
-            if (error)
-                return error;
-            return std::nullopt;
-        }
 #endif
         bool file_exists(const char* path)
         {
@@ -107,9 +77,8 @@ namespace wo
                 {
                     wo_fail(
                         WO_FAIL_BAD_LIB,
-                        "Failed to load library `%s`: `%s`.",
-                        dllpath,
-                        _geterror().value_or("unknown"));
+                        "Failed to load library `%s`, broken file or failed to load dependence?",
+                        dllpath);
                 }
                 return lib;
             }
