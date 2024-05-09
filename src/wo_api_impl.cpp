@@ -210,8 +210,8 @@ struct loaded_lib_info
                 {
                     delete instance_info->m_lib_instance;
                     loaded_named_libs.erase(fnd);
-                    return;
                 }
+                return;
             }
         }
         wo_error("Invalid library to unload.");
