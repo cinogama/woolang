@@ -1928,7 +1928,7 @@ namespace result
     {
         match(self)
         {
-        ok(_)? return self;
+        ok(v)? return ok(v);
         err(e)? return functor(e);
         }
     }
