@@ -1536,7 +1536,7 @@ WO_API wo_api rslib_std_weakref_create(wo_vm vm, wo_value args)
     return wo_ret_gchandle(vm, wo_create_weak_ref(args + 0), nullptr,
         [](void* p)
         {
-            wo_close_weak_ref(std::launder(reinterpret_cast<wo_weak_ref>(p)));
+            wo_close_weak_ref(reinterpret_cast<wo_weak_ref>(p));
         });
 }
 
@@ -1544,7 +1544,7 @@ WO_API wo_api rslib_std_weakref_trylock(wo_vm vm, wo_value args)
 {
     wo_value result = wo_push_empty(vm);
 
-    auto wref = std::launder(reinterpret_cast<wo_weak_ref>(wo_pointer(args + 0)));
+    auto wref = reinterpret_cast<wo_weak_ref>(wo_pointer(args + 0));
     if (WO_TRUE == wo_lock_weak_ref(result, wref))
         return wo_ret_option_val(vm, result);
 
