@@ -148,7 +148,8 @@ namespace wo
             std::string m_func_name;
             size_t      m_row;
         };
-
+    public:
+        inline static constexpr size_t VM_DEFAULT_STACK_SIZE = 1024;
     public:
         inline static std::shared_mutex _alive_vm_list_mx;
         inline static cxx_set_t<vmbase*> _alive_vm_list;
