@@ -36,7 +36,7 @@ namespace wo
             return LoadLibraryExW(
                 wo::str_to_wstr(dllpath).c_str(),
                 NULL, 
-                LOAD_WITH_ALTERED_SEARCH_PATH | LOAD_LIBRARY_AS_DATAFILE);
+                LOAD_WITH_ALTERED_SEARCH_PATH);
         }
         void* _loadfunc(void* libhandle, const char* funcname)
         {

@@ -24,8 +24,6 @@
 #include <cstdlib>
 #include <string>
 
-const size_t _WO_VM_EFAULT_STACK_SIZE = 1024;
-
 struct _wo_enter_gc_guard
 {
     wo_vm _vm;
@@ -2478,7 +2476,7 @@ wo_vm wo_borrow_vm(wo_vm vm)
 {
     if (global_vm_pool != nullptr)
         return CS_VM(global_vm_pool->borrow_vm_from_exists_vm(WO_VM(vm)));
-    return wo_sub_vm(vm, _WO_VM_EFAULT_STACK_SIZE);
+    return wo_sub_vm(vm, wo::vmbase::VM_DEFAULT_STACK_SIZE);
 }
 void wo_release_vm(wo_vm vm)
 {
@@ -2494,7 +2492,7 @@ std::variant<
 > _wo_compile_to_nojit_env(wo_string_t virtual_src_path, const void* src, size_t len, size_t stacksz)
 {
     if (stacksz == 0)
-        stacksz = _WO_VM_EFAULT_STACK_SIZE;
+        stacksz = wo::vmbase::VM_DEFAULT_STACK_SIZE;
 
     // 0. Try load binary
     const char* load_binary_failed_reason = nullptr;
@@ -4108,5 +4106,5 @@ void wo_load_ir_compiler_with_stacksz(wo_vm vm, wo_ir_compiler compiler, wo_size
 }
 void wo_load_ir_compiler(wo_vm vm, wo_ir_compiler compiler)
 {
-    wo_load_ir_compiler_with_stacksz(vm, compiler, _WO_VM_EFAULT_STACK_SIZE);
+    wo_load_ir_compiler_with_stacksz(vm, compiler, wo::vmbase::VM_DEFAULT_STACK_SIZE);
 }
