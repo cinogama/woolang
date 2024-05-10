@@ -52,6 +52,7 @@ if(${WO_SUPPORT_ASMJIT})
 endif()
 
 target_link_libraries(woolang ${woo_system_libs})
+target_compile_features(woolang PUBLIC cxx_std_17)
 set_target_properties(woolang PROPERTIES OUTPUT_NAME libwoo)
 set_target_properties(woolang PROPERTIES PREFIX "")
 
@@ -67,4 +68,8 @@ elseif(CMAKE_SIZEOF_VOID_P EQUAL 4)
     set_target_properties(woolang PROPERTIES DEBUG_POSTFIX "32_debug")
 else()
     message(FATAL_ERROR "Unknown platform")
+endif()
+
+if(NOT MSVC AND NOT MINGW) 
+    target_compile_options(woolang PUBLIC -fno-exceptions)
 endif()

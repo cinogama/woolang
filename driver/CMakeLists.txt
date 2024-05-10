@@ -12,7 +12,7 @@ else()
 endif()
 
 add_executable(woodriver wo_driver.cpp)
-
+target_compile_features(woodriver PUBLIC cxx_std_17)
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)
     set_target_properties(woodriver PROPERTIES RELEASE_POSTFIX "")
     set_target_properties(woodriver PROPERTIES RELWITHDEBINFO_POSTFIX "")
@@ -28,3 +28,7 @@ else()
 endif()
 
 target_link_libraries(woodriver woolang)
+
+if(NOT MSVC AND NOT MINGW) 
+    target_compile_options(woodriver PUBLIC -fno-exceptions)
+endif()
