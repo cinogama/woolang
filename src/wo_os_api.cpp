@@ -68,6 +68,7 @@ namespace wo
             struct stat st;
             return stat(path, &st) == 0;
         }
+
         std::optional<void*> try_open_lib(const char* dllpath)
         {
             if (file_exists(dllpath))
@@ -108,7 +109,8 @@ namespace wo
             if (auto result = try_open_lib(dllpath))
                 return result.value();
 
-            return nullptr;
+            // 5) Load from system path
+            return _loadlib(dllpath);
         }
         void* loadfunc(void* libhandle, const char* funcname)
         {
