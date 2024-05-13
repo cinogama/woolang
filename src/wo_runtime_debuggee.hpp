@@ -311,7 +311,7 @@ thread          vm              <id>          Continue and break at specified vm
                     && val->type != wo::value::valuetype::bool_type)
                     return "<bad>";
             }
-            
+
             auto result = std::string("<")
                 + wo_type_name((wo_type)val->type) + "> "
                 + wo_cast_string(std::launder(reinterpret_cast<wo_value>(val)));
@@ -1015,13 +1015,13 @@ thread          vm              <id>          Continue and break at specified vm
                     printf(ANSI_HIG "Detach debuggee, continue run.\n" ANSI_RST);
                     stop_for_detach_debuggee = true;
 
-                    wo::vmbase::attach_debuggee(nullptr)->abandon();
+                    wo::vmbase::attach_debuggee(nullptr)->_abandon();
 
                     return false;
                 }
                 else
                     printf(ANSI_HIR "Unknown debug command, please input 'help' for more informations.\n" ANSI_RST);
-                }
+            }
 
         need_next_command:
 
@@ -1038,7 +1038,7 @@ thread          vm              <id>          Continue and break at specified vm
             while (std::cin.readsome(&_useless_for_clear, 1));
 
             return false;
-            }
+        }
         size_t print_src_file_print_lineno(wo::vmbase* vmm, const std::string& filepath, size_t current_row_no, cpu_profiler_record_infornmation* info)
         {
             auto& context = env_context[vmm->env];
@@ -1338,22 +1338,22 @@ thread          vm              <id>          Continue and break at specified vm
                 return;
             }
         }
-        };
+    };
 
     class c_style_debuggee_binder : public wo::debuggee_base
     {
         void* custom_items;
         wo_debuggee_handler_func c_debuggee_handler;
 
+        virtual void debug_interrupt(vmbase* vmm) override
+        {
+            c_debuggee_handler((wo_debuggee)this, (wo_vm)vmm, custom_items);
+        }
+    public:
         c_style_debuggee_binder(wo_debuggee_handler_func func, void* custom)
         {
             c_debuggee_handler = func;
             custom_items = custom;
         }
-
-        virtual void debug_interrupt(vmbase* vmm) override
-        {
-            c_debuggee_handler((wo_debuggee)this, (wo_vm)vmm, custom_items);
-        }
     };
-    }
+}

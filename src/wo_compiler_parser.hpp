@@ -627,7 +627,9 @@ namespace wo
             std::wstring rule_left_name;
             std::function<produce(lexer&, std::vector<produce>&)> ast_create_func;
         };
-
+#if 0
+        lr1table_t LR0_TABLE;
+#endif
         lr1table_t LR1_TABLE;
 
         std::vector<std::vector<action>> RT_LR1_TABLE; // te_nt_index_t

@@ -33,19 +33,28 @@ namespace wo
         inline static std::mutex _abandon_debuggees_mx;
         inline static std::vector<debuggee_base*> _abandon_debuggees;
 
-        std::mutex _debug_block_mx;
+        std::mutex _debug_entry_guard_block_mx;
+    public:
+        debuggee_base() = default;
+        virtual~debuggee_base() = default;
+
+        debuggee_base(const debuggee_base&) = delete;
+        debuggee_base(debuggee_base&&) = delete;
+        debuggee_base& operator = (const debuggee_base&) = delete;
+        debuggee_base& operator = (debuggee_base&&) = delete;
+
+        virtual void debug_interrupt(vmbase*) = 0;
+
     public:
         void _vm_invoke_debuggee(vmbase* _vm)
         {
-            std::lock_guard _(_debug_block_mx);
+            std::lock_guard _(_debug_entry_guard_block_mx);
 
             // Just make a block
             debug_interrupt(_vm);
         }
-        virtual void debug_interrupt(vmbase*) = 0;
-        virtual~debuggee_base() = default;
     public:
-        void abandon()
+        void _abandon()
         {
             std::lock_guard _(_abandon_debuggees_mx);
             _abandon_debuggees.push_back(this);
