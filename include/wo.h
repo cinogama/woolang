@@ -1074,6 +1074,8 @@ WO_API wo_ir_compiler wo_create_ir_compiler(void);
 WO_API void wo_close_ir_compiler(wo_ir_compiler ircompiler);
 
 WO_API void wo_ir_opcode(wo_ir_compiler compiler, uint8_t opcode, uint8_t drh, uint8_t drl);
+WO_API void wo_ir_bind_tag(wo_ir_compiler compiler, wo_string_t name);
+
 WO_API void wo_ir_int(wo_ir_compiler compiler, wo_integer_t val);
 WO_API void wo_ir_real(wo_ir_compiler compiler, wo_real_t val);
 WO_API void wo_ir_handle(wo_ir_compiler compiler, wo_handle_t val);

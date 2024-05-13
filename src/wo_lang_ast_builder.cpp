@@ -2180,241 +2180,108 @@ namespace wo
         }
 
         //////////////////////////////////////////
-
-        //////////////////////////////////////////
-
-        //////////////////////////////////////////
-
-        //////////////////////////////////////////
-
-        //////////////////////////////////////////
-
-        //////////////////////////////////////////
-
-        //////////////////////////////////////////
-
-        //////////////////////////////////////////
-
-        //////////////////////////////////////////
-
-        //////////////////////////////////////////
-
-        //////////////////////////////////////////
-
-        //////////////////////////////////////////
-
-        //////////////////////////////////////////
-
-        //////////////////////////////////////////
-
-        //////////////////////////////////////////
-
-        //////////////////////////////////////////
-
-        //////////////////////////////////////////
-
-        //////////////////////////////////////////
-
-        //////////////////////////////////////////
-
-        //////////////////////////////////////////
-
-        //////////////////////////////////////////
-
-        //////////////////////////////////////////
-
-        //////////////////////////////////////////
-
-        //////////////////////////////////////////
-
-        //////////////////////////////////////////
-
-        //////////////////////////////////////////
-
-        //////////////////////////////////////////
-
-        //////////////////////////////////////////
-
-        //////////////////////////////////////////
-
-        //////////////////////////////////////////
-
-        //////////////////////////////////////////
-
-        //////////////////////////////////////////
-
-        //////////////////////////////////////////
-
-        //////////////////////////////////////////
-
         //////////////////////////////////////////
 
         void init_builder()
         {
-            _registed_builder_function_id_list[meta::type_hash<pass_template_decl>] = _register_builder<pass_template_decl>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_mark_label>] = _register_builder<pass_mark_label>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_break>] = _register_builder<pass_break>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_continue>] = _register_builder<pass_continue>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_forloop>] = _register_builder<pass_forloop>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_foreach>] = _register_builder<pass_foreach>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_typeof>] = _register_builder<pass_typeof>();
-            _registed_builder_function_id_list[meta::type_hash<pass_build_mutable_type>] = _register_builder<pass_build_mutable_type>();
-            _registed_builder_function_id_list[meta::type_hash<pass_template_reification>] = _register_builder<pass_template_reification>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_type_check>] = _register_builder<pass_type_check>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_directed_value_for_call>] = _register_builder<pass_directed_value_for_call>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_type_judgement>] = _register_builder<pass_type_judgement>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_mark_value_as_mut>] = _register_builder<pass_mark_value_as_mut>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_using_type_as>] = _register_builder<pass_using_type_as>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_enum_item_create>] = _register_builder<pass_enum_item_create>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_enum_declear_begin>] = _register_builder<pass_enum_declear_begin>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_enum_declear_append>] = _register_builder<pass_enum_declear_append>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_enum_finalize>] = _register_builder<pass_enum_finalize>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_decl_attrib_begin>] = _register_builder<pass_decl_attrib_begin>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_append_attrib>] = _register_builder<pass_append_attrib>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_using_namespace>] = _register_builder<pass_using_namespace>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_mapping_pair>] = _register_builder<pass_mapping_pair>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_unary_op>] = _register_builder<pass_unary_op>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_unpack_args>] = _register_builder<pass_unpack_args>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_pack_variadic_args>] = _register_builder<pass_pack_variadic_args>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_extern>] = _register_builder<pass_extern>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_binary_logical_op>] = _register_builder<pass_binary_logical_op>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_assign_op>] = _register_builder<pass_assign_op>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_while>] = _register_builder<pass_while>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_if>] = _register_builder<pass_if>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_map_builder>] = _register_builder<pass_map_builder>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_empty_sentence_block>] = _register_builder<pass_empty_sentence_block>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_sentence_block<0>>] = _register_builder<pass_sentence_block<0>>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_sentence_block<1>>] = _register_builder<pass_sentence_block<1>>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_array_builder>] = _register_builder<pass_array_builder>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_function_call>] = _register_builder<pass_function_call>();
-            _registed_builder_function_id_list[meta::type_hash<pass_function_inv_call>] = _register_builder<pass_function_inv_call>();
-            _registed_builder_function_id_list[meta::type_hash<pass_function_inv_call2>] = _register_builder<pass_function_inv_call2>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_return>] = _register_builder<pass_return>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_function_define>] = _register_builder<pass_function_define>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_func_argument>] = _register_builder<pass_func_argument>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_token>] = _register_builder<pass_token>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_finalize_serching_namespace>] = _register_builder<pass_finalize_serching_namespace>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_append_serching_namespace>] = _register_builder<pass_append_serching_namespace>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_variable_in_namespace>] = _register_builder<pass_variable_in_namespace>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_begin_varref_define>] = _register_builder<pass_begin_varref_define>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_add_varref_define>] = _register_builder<pass_add_varref_define>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_mark_as_var_define>] = _register_builder<pass_mark_as_var_define>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_trans_where_decl_in_lambda>] = _register_builder<pass_trans_where_decl_in_lambda>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_namespace>] = _register_builder<pass_namespace>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_index_op>] = _register_builder<pass_index_op>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_empty>] = _register_builder<pass_empty>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_binary_op>] = _register_builder<pass_binary_op>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_create_list<0>>] = _register_builder<pass_create_list<0>>();
-            _registed_builder_function_id_list[meta::type_hash<pass_append_list<1, 0>>] = _register_builder<pass_append_list<1, 0>>();
-            _registed_builder_function_id_list[meta::type_hash<pass_append_list<0, 1>>] = _register_builder<pass_append_list<0, 1>>();
-            _registed_builder_function_id_list[meta::type_hash<pass_append_list<0, 2>>] = _register_builder<pass_append_list<0, 2>>();
-            _registed_builder_function_id_list[meta::type_hash<pass_append_list<2, 0>>] = _register_builder<pass_append_list<2, 0>>();
-            _registed_builder_function_id_list[meta::type_hash<pass_append_list<1, 2>>] = _register_builder<pass_append_list<1, 2>>();
-            _registed_builder_function_id_list[meta::type_hash<pass_append_list<1, 3>>] = _register_builder<pass_append_list<1, 3>>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_import_files>] = _register_builder<pass_import_files>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_variable>] = _register_builder<pass_variable>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_build_function_type>] = _register_builder<pass_build_function_type>();
-            _registed_builder_function_id_list[meta::type_hash<pass_build_type_may_template>] = _register_builder<pass_build_type_may_template>();
-            _registed_builder_function_id_list[meta::type_hash<pass_build_nil_type>] = _register_builder<pass_build_nil_type>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_type_cast>] = _register_builder<pass_type_cast>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_literal>] = _register_builder<pass_literal>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_typeid>] = _register_builder<pass_typeid>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_format_string>] = _register_builder<pass_format_string>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_finish_format_string>] = _register_builder<pass_finish_format_string>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_union_item>] = _register_builder<pass_union_item>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_union_define>] = _register_builder<pass_union_define>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_match>] = _register_builder<pass_match>();
-            _registed_builder_function_id_list[meta::type_hash<pass_match_case_for_union>] = _register_builder<pass_match_case_for_union>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_union_pattern>] = _register_builder<pass_union_pattern>();
-            _registed_builder_function_id_list[meta::type_hash<pass_identifier_pattern>] = _register_builder<pass_identifier_pattern>();
-            _registed_builder_function_id_list[meta::type_hash<pass_tuple_pattern>] = _register_builder<pass_tuple_pattern>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_struct_member_def>] = _register_builder<pass_struct_member_def>();
-            _registed_builder_function_id_list[meta::type_hash<pass_struct_member_init_pair>] = _register_builder<pass_struct_member_init_pair>();
-            _registed_builder_function_id_list[meta::type_hash<pass_struct_type_define>] = _register_builder<pass_struct_type_define>();
-            _registed_builder_function_id_list[meta::type_hash<pass_make_struct_instance>] = _register_builder<pass_make_struct_instance>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_build_tuple_type>] = _register_builder<pass_build_tuple_type>();
-            _registed_builder_function_id_list[meta::type_hash<pass_tuple_types_list>] = _register_builder<pass_tuple_types_list>();
-            _registed_builder_function_id_list[meta::type_hash<pass_make_tuple>] = _register_builder<pass_make_tuple>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_build_where_constraint>] = _register_builder<pass_build_where_constraint>();
-            _registed_builder_function_id_list[meta::type_hash<pass_build_bind_map_monad>] = _register_builder<pass_build_bind_map_monad>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_trib_expr>] = _register_builder<pass_trib_expr>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_direct<0>>] = _register_builder<pass_direct<0>>();
-            _registed_builder_function_id_list[meta::type_hash<pass_direct<1>>] = _register_builder<pass_direct<1>>();
-            _registed_builder_function_id_list[meta::type_hash<pass_direct<2>>] = _register_builder<pass_direct<2>>();
-            _registed_builder_function_id_list[meta::type_hash<pass_direct<3>>] = _register_builder<pass_direct<3>>();
-            _registed_builder_function_id_list[meta::type_hash<pass_direct<4>>] = _register_builder<pass_direct<4>>();
-            _registed_builder_function_id_list[meta::type_hash<pass_direct<5>>] = _register_builder<pass_direct<5>>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_macro_failed>] = _register_builder<pass_macro_failed>();
-            _registed_builder_function_id_list[meta::type_hash<pass_do_expr_as_sentence>] = _register_builder<pass_do_expr_as_sentence>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_decl_attrib_check>] = _register_builder<pass_decl_attrib_check>();
+#define WO_REGISTER_BUILDER(...) _registed_builder_function_id_list[meta::type_hash<__VA_ARGS__>] = _register_builder<__VA_ARGS__>(); 
+            WO_REGISTER_BUILDER(pass_template_decl);
+            WO_REGISTER_BUILDER(pass_mark_label);
+            WO_REGISTER_BUILDER(pass_break);
+            WO_REGISTER_BUILDER(pass_continue);
+            WO_REGISTER_BUILDER(pass_forloop);
+            WO_REGISTER_BUILDER(pass_foreach);
+            WO_REGISTER_BUILDER(pass_typeof);
+            WO_REGISTER_BUILDER(pass_build_mutable_type);
+            WO_REGISTER_BUILDER(pass_template_reification);
+            WO_REGISTER_BUILDER(pass_type_check);
+            WO_REGISTER_BUILDER(pass_directed_value_for_call);
+            WO_REGISTER_BUILDER(pass_type_judgement);
+            WO_REGISTER_BUILDER(pass_mark_value_as_mut);
+            WO_REGISTER_BUILDER(pass_using_type_as);
+            WO_REGISTER_BUILDER(pass_enum_item_create);
+            WO_REGISTER_BUILDER(pass_enum_declear_begin);
+            WO_REGISTER_BUILDER(pass_enum_declear_append);
+            WO_REGISTER_BUILDER(pass_enum_finalize);
+            WO_REGISTER_BUILDER(pass_decl_attrib_begin);
+            WO_REGISTER_BUILDER(pass_append_attrib);
+            WO_REGISTER_BUILDER(pass_using_namespace);
+            WO_REGISTER_BUILDER(pass_mapping_pair);
+            WO_REGISTER_BUILDER(pass_unary_op);
+            WO_REGISTER_BUILDER(pass_unpack_args);
+            WO_REGISTER_BUILDER(pass_pack_variadic_args);
+            WO_REGISTER_BUILDER(pass_extern);
+            WO_REGISTER_BUILDER(pass_binary_logical_op);
+            WO_REGISTER_BUILDER(pass_assign_op);
+            WO_REGISTER_BUILDER(pass_while);
+            WO_REGISTER_BUILDER(pass_if);
+            WO_REGISTER_BUILDER(pass_map_builder);
+            WO_REGISTER_BUILDER(pass_empty_sentence_block);
+            WO_REGISTER_BUILDER(pass_sentence_block<0>);
+            WO_REGISTER_BUILDER(pass_sentence_block<1>);
+            WO_REGISTER_BUILDER(pass_array_builder);
+            WO_REGISTER_BUILDER(pass_function_call);
+            WO_REGISTER_BUILDER(pass_function_inv_call);
+            WO_REGISTER_BUILDER(pass_function_inv_call2);
+            WO_REGISTER_BUILDER(pass_return);
+            WO_REGISTER_BUILDER(pass_function_define);
+            WO_REGISTER_BUILDER(pass_func_argument);
+            WO_REGISTER_BUILDER(pass_token);
+            WO_REGISTER_BUILDER(pass_finalize_serching_namespace);
+            WO_REGISTER_BUILDER(pass_append_serching_namespace);
+            WO_REGISTER_BUILDER(pass_variable_in_namespace);
+            WO_REGISTER_BUILDER(pass_begin_varref_define);
+            WO_REGISTER_BUILDER(pass_add_varref_define);
+            WO_REGISTER_BUILDER(pass_mark_as_var_define);
+            WO_REGISTER_BUILDER(pass_trans_where_decl_in_lambda);
+            WO_REGISTER_BUILDER(pass_namespace);
+            WO_REGISTER_BUILDER(pass_index_op);
+            WO_REGISTER_BUILDER(pass_empty);
+            WO_REGISTER_BUILDER(pass_binary_op);
+            WO_REGISTER_BUILDER(pass_create_list<0>);
+            WO_REGISTER_BUILDER(pass_append_list<1, 0>);
+            WO_REGISTER_BUILDER(pass_append_list<0, 1>);
+            WO_REGISTER_BUILDER(pass_append_list<0, 2>);
+            WO_REGISTER_BUILDER(pass_append_list<2, 0>);
+            WO_REGISTER_BUILDER(pass_append_list<1, 2>);
+            WO_REGISTER_BUILDER(pass_append_list<1, 3>);
+            WO_REGISTER_BUILDER(pass_import_files);
+            WO_REGISTER_BUILDER(pass_variable);
+            WO_REGISTER_BUILDER(pass_build_function_type);
+            WO_REGISTER_BUILDER(pass_build_type_may_template);
+            WO_REGISTER_BUILDER(pass_build_nil_type);
+            WO_REGISTER_BUILDER(pass_type_cast);
+            WO_REGISTER_BUILDER(pass_literal);
+            WO_REGISTER_BUILDER(pass_typeid);
+            WO_REGISTER_BUILDER(pass_format_string);
+            WO_REGISTER_BUILDER(pass_finish_format_string);
+            WO_REGISTER_BUILDER(pass_union_item);
+            WO_REGISTER_BUILDER(pass_union_define);
+            WO_REGISTER_BUILDER(pass_match);
+            WO_REGISTER_BUILDER(pass_match_case_for_union);
+            WO_REGISTER_BUILDER(pass_union_pattern);
+            WO_REGISTER_BUILDER(pass_identifier_pattern);
+            WO_REGISTER_BUILDER(pass_tuple_pattern);
+            WO_REGISTER_BUILDER(pass_struct_member_def);
+            WO_REGISTER_BUILDER(pass_struct_member_init_pair);
+            WO_REGISTER_BUILDER(pass_struct_type_define);
+            WO_REGISTER_BUILDER(pass_make_struct_instance);
+            WO_REGISTER_BUILDER(pass_build_tuple_type);
+            WO_REGISTER_BUILDER(pass_tuple_types_list);
+            WO_REGISTER_BUILDER(pass_make_tuple);
+            WO_REGISTER_BUILDER(pass_build_where_constraint);
+            WO_REGISTER_BUILDER(pass_build_bind_map_monad);
+            WO_REGISTER_BUILDER(pass_trib_expr);
+            WO_REGISTER_BUILDER(pass_direct<0>);
+            WO_REGISTER_BUILDER(pass_direct<1>);
+            WO_REGISTER_BUILDER(pass_direct<2>);
+            WO_REGISTER_BUILDER(pass_direct<3>);
+            WO_REGISTER_BUILDER(pass_direct<4>);
+            WO_REGISTER_BUILDER(pass_direct<5>);
+            WO_REGISTER_BUILDER(pass_macro_failed);
+            WO_REGISTER_BUILDER(pass_do_expr_as_sentence);
+            WO_REGISTER_BUILDER(pass_decl_attrib_check);
+#undef WO_REGISTER_BUILDER
         }
 
     }
