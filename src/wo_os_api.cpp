@@ -35,7 +35,7 @@ namespace wo
 
             return LoadLibraryExW(
                 wo::str_to_wstr(dllpath).c_str(),
-                NULL, 
+                NULL,
                 LOAD_WITH_ALTERED_SEARCH_PATH);
         }
         void* _loadfunc(void* libhandle, const char* funcname)
@@ -110,7 +110,10 @@ namespace wo
                 return result.value();
 
             // 5) Load from system path
-            return _loadlib(dllpath);
+            if (scriptpath == nullptr)
+                return _loadlib(dllpath);
+            else
+                return nullptr;
         }
         void* loadfunc(void* libhandle, const char* funcname)
         {
