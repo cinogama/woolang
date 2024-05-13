@@ -35,7 +35,7 @@ namespace wo
 
             return LoadLibraryExW(
                 wo::str_to_wstr(dllpath).c_str(),
-                NULL, 
+                NULL,
                 LOAD_WITH_ALTERED_SEARCH_PATH);
         }
         void* _loadfunc(void* libhandle, const char* funcname)
@@ -97,12 +97,12 @@ namespace wo
                 if (auto result = try_open_lib((get_file_loc(scriptpath) + filename).c_str()))
                     return result.value();
 
-            // 2) Try get dll from exe_path
-            if (auto result = try_open_lib((exe_path() + filename).c_str()))
+            // 2) Try get dll from work_path
+            if (auto result = try_open_lib((work_path() + filename).c_str()))
                 return result.value();
 
-            // 3) Try get dll from work_path
-            if (auto result = try_open_lib((work_path() + filename).c_str()))
+            // 3) Try get dll from exe_path
+            if (auto result = try_open_lib((exe_path() + filename).c_str()))
                 return result.value();
 
             // 4) Try load full path
@@ -110,7 +110,10 @@ namespace wo
                 return result.value();
 
             // 5) Load from system path
-            return _loadlib(dllpath);
+            if (scriptpath == nullptr)
+                return _loadlib(dllpath);
+            else
+                return nullptr;
         }
         void* loadfunc(void* libhandle, const char* funcname)
         {

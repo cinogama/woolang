@@ -4012,6 +4012,13 @@ void wo_ir_opcode(wo_ir_compiler compiler, uint8_t opcode, uint8_t drh, uint8_t 
     uint8_t dr = (uint8_t)(drh << (uint8_t)1) | drl;
     c->ir_opcode(code, dr);
 }
+
+WO_API void wo_ir_bind_tag(wo_ir_compiler compiler, wo_string_t name)
+{
+    auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
+    c->tag(name);
+}
+
 void wo_ir_int(wo_ir_compiler compiler, wo_integer_t val)
 {
     auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));

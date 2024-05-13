@@ -380,8 +380,6 @@ namespace wo
         size_t LAST_C_SIZE = C.size();
         do
         {
-            //std::vector<std::set<lr_item>> NewAddC;
-
             LAST_C_SIZE = C.size();
 
             for (size_t C_INDEX = 0; C_INDEX < C.size(); C_INDEX++)
@@ -416,10 +414,8 @@ namespace wo
         C_SET = C;
 
         //2. BUILD LR0
-        /*
-
+#if 0
         std::map<size_t, std::map<sym, std::set<action>, sym_less>>& lr0_table = LR0_TABLE;
-
         for (size_t statei = 0; statei < C.size(); statei++)
         {
             for (auto& prod : C[statei])//STATE i
@@ -471,11 +467,9 @@ namespace wo
                 }
             }
         }
-        */
-
+#endif
 
         //3. BUILD LR1
-
         lr1table_t& lr1_table = LR1_TABLE;
         for (size_t statei = 0; statei < C.size(); statei++)
         {
@@ -538,7 +532,6 @@ namespace wo
             }
 
         }
-
     }
 
     bool grammar::check_lr1(std::wostream& ostrm)
