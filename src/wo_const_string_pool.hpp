@@ -34,8 +34,6 @@ WO_GLOBAL_PSTR(char)\
 WO_GLOBAL_PSTR(auto)\
 WO_GLOBAL_PSTR(std)\
 WO_GLOBAL_PSTR(iterator)\
-WO_GLOBAL_PSTR(_iter)\
-WO_GLOBAL_PSTR(_val)\
 WO_GLOBAL_PSTR(next)\
 WO_GLOBAL_PSTR(KT)\
 WO_GLOBAL_PSTR(VT)\
@@ -51,6 +49,8 @@ WO_GLOBAL_PSTR(_)\
 namespace wo::fixstr
 {
     WO_GLOBAL_PSTR_LIST;
+    inline wo_pstring_t _global__iter = new std::wstring(L"$_iter");
+    inline wo_pstring_t _global__val = new std::wstring(L"$_val");
 }
 
 #undef WO_GLOBAL_PSTR
@@ -87,9 +87,12 @@ namespace wo
 
 #define WO_GLOBAL_PSTR(str) _m_global_string_pool->_m_string_pool.insert(WO_PSTR(str));
                 WO_GLOBAL_PSTR_LIST;
+                WO_GLOBAL_PSTR(_iter);
+                WO_GLOBAL_PSTR(_val);
 #undef WO_GLOBAL_PSTR
             }
         }
+#undef WO_GLOBAL_PSTR_LIST
 
         wstring_pool* get_global_string_pool()
         {
