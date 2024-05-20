@@ -2589,17 +2589,16 @@ namespace wo
                     gcbase::gc_read_guard gwg1(opnum1->gcunit);
 
                     // ATTENTION: `_vmjitcall_idarr` HAS SAME LOGIC, NEED UPDATE SAME TIME.
-                    wo_integer_t index = opnum2->integer;
-                    if (opnum2->integer < 0)
-                        index = (wo_integer_t)opnum1->array->size() + opnum2->integer;
-                    if ((size_t)index >= opnum1->array->size())
+                    size_t index = (size_t)opnum2->integer;
+
+                    if (index >= opnum1->array->size())
                     {
                         rt_cr->set_nil();
                         WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Index out of range.");
                     }
                     else
                     {
-                        rt_cr->set_val(&opnum1->array->at((size_t)index));
+                        rt_cr->set_val(&opnum1->array->at(index));
                     }
                     break;
                 }
@@ -2688,16 +2687,14 @@ namespace wo
 
                     gcbase::gc_write_guard gwg1(opnum1->gcunit);
 
-                    wo_integer_t index = opnum2->integer;
-                    if (opnum2->integer < 0)
-                        index = (wo_integer_t)opnum1->array->size() + opnum2->integer;
-                    if ((size_t)index >= opnum1->array->size())
+                    size_t index = (size_t)opnum2->integer;
+                    if (index >= opnum1->array->size())
                     {
                         WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Index out of range.");
                     }
                     else
                     {
-                        auto* result = &opnum1->array->at((size_t)index);
+                        auto* result = &opnum1->array->at(index);
                         if (wo::gc::gc_is_marking())
                             wo::gcbase::write_barrier(result);
                         result->set_val(opnum3);
