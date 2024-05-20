@@ -1638,7 +1638,7 @@ void wo_set_option_void(wo_value val, wo_vm vm)
         target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     }
 
-    structptr->m_values[0].set_integer(1);
+    structptr->m_values[0].set_integer(0);
     structptr->m_values[1].set_nil();
 }
 void wo_set_option_bool(wo_value val, wo_vm vm, wo_bool_t result)
@@ -1653,7 +1653,7 @@ void wo_set_option_bool(wo_value val, wo_vm vm, wo_bool_t result)
         target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     }
 
-    structptr->m_values[0].set_integer(1);
+    structptr->m_values[0].set_integer(0);
     structptr->m_values[1].set_bool(result != WO_FALSE);
 
 }
@@ -1673,7 +1673,7 @@ void wo_set_option_int(wo_value val, wo_vm vm, wo_integer_t result)
         target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     }
 
-    structptr->m_values[0].set_integer(1);
+    structptr->m_values[0].set_integer(0);
     structptr->m_values[1].set_integer(result);
 
 
@@ -1690,7 +1690,7 @@ void wo_set_option_real(wo_value val, wo_vm vm, wo_real_t result)
         target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     }
 
-    structptr->m_values[0].set_integer(1);
+    structptr->m_values[0].set_integer(0);
     structptr->m_values[1].set_real(result);
 
 
@@ -1707,7 +1707,7 @@ void wo_set_option_float(wo_value val, wo_vm vm, float result)
         target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     }
 
-    structptr->m_values[0].set_integer(1);
+    structptr->m_values[0].set_integer(0);
     structptr->m_values[1].set_real((wo_real_t)result);
 }
 void wo_set_option_handle(wo_value val, wo_vm vm, wo_handle_t result)
@@ -1722,7 +1722,7 @@ void wo_set_option_handle(wo_value val, wo_vm vm, wo_handle_t result)
         target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     }
 
-    structptr->m_values[0].set_integer(1);
+    structptr->m_values[0].set_integer(0);
     structptr->m_values[1].set_handle(result);
 
 
@@ -1739,7 +1739,7 @@ void wo_set_option_string(wo_value val, wo_vm vm, wo_string_t result)
         target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
         structptr->m_values[1].set_string(result);
     }
-    structptr->m_values[0].set_integer(1);
+    structptr->m_values[0].set_integer(0);
 }
 void _wo_set_option_string_vfmt(wo_value val, wo_vm vm, wo_string_t fmt, va_list v1)
 {
@@ -1754,7 +1754,7 @@ void _wo_set_option_string_vfmt(wo_value val, wo_vm vm, wo_string_t fmt, va_list
 
         _wo_set_string_vfmt(CS_VAL(&structptr->m_values[1]), vm, fmt, v1);
     }
-    structptr->m_values[0].set_integer(1);
+    structptr->m_values[0].set_integer(0);
 }
 void wo_set_option_string_fmt(wo_value val, wo_vm vm, wo_string_t fmt, ...)
 {
@@ -1776,7 +1776,7 @@ void wo_set_option_buffer(wo_value val, wo_vm vm, const void* result, wo_size_t 
 
         structptr->m_values[1].set_buffer(result, len);
     }
-    structptr->m_values[0].set_integer(1);
+    structptr->m_values[0].set_integer(0);
 }
 void wo_set_option_pointer(wo_value val, wo_vm vm, wo_ptr_t result)
 {
@@ -1790,7 +1790,7 @@ void wo_set_option_pointer(wo_value val, wo_vm vm, wo_ptr_t result)
         target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     }
 
-    structptr->m_values[0].set_integer(1);
+    structptr->m_values[0].set_integer(0);
     structptr->m_values[1].set_handle((wo_handle_t)result);
     if (nullptr == result)
         wo_fail(WO_FAIL_ACCESS_NIL, "Cannot return nullptr");
@@ -1809,11 +1809,11 @@ void wo_set_option_ptr_may_null(wo_value val, wo_vm vm, wo_ptr_t result)
 
     if (result)
     {
-        structptr->m_values[0].set_integer(1);
+        structptr->m_values[0].set_integer(0);
         structptr->m_values[1].set_handle((wo_handle_t)result);
     }
     else
-        structptr->m_values[0].set_integer(2);
+        structptr->m_values[0].set_integer(1);
 }
 void wo_set_option_val(wo_value val, wo_vm vm, wo_value result)
 {
@@ -1827,7 +1827,7 @@ void wo_set_option_val(wo_value val, wo_vm vm, wo_value result)
         target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     }
 
-    structptr->m_values[0].set_integer(1);
+    structptr->m_values[0].set_integer(0);
     structptr->m_values[1].set_val(WO_VAL(result));
 }
 void wo_set_option_gchandle(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t))
@@ -1842,7 +1842,7 @@ void wo_set_option_gchandle(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, wo_va
         target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     }
 
-    structptr->m_values[0].set_integer(1);
+    structptr->m_values[0].set_integer(0);
     wo_set_gchandle(CS_VAL(&structptr->m_values[1]), vm, resource_ptr, holding_val, destruct_func);
 }
 void wo_set_option_none(wo_value val, wo_vm vm)
@@ -1856,7 +1856,7 @@ void wo_set_option_none(wo_value val, wo_vm vm)
         structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(2);
         target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     }
-    structptr->m_values[0].set_integer(2);
+    structptr->m_values[0].set_integer(1);
 }
 
 void wo_set_err_void(wo_value val, wo_vm vm)
@@ -1871,7 +1871,7 @@ void wo_set_err_void(wo_value val, wo_vm vm)
         target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     }
 
-    structptr->m_values[0].set_integer(2);
+    structptr->m_values[0].set_integer(1);
     structptr->m_values[1].set_nil();
 
 
@@ -1892,7 +1892,7 @@ void wo_set_err_bool(wo_value val, wo_vm vm, wo_bool_t result)
         target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     }
 
-    structptr->m_values[0].set_integer(2);
+    structptr->m_values[0].set_integer(1);
     structptr->m_values[1].set_bool(result != WO_FALSE);
 }
 void wo_set_err_int(wo_value val, wo_vm vm, wo_integer_t result)
@@ -1907,7 +1907,7 @@ void wo_set_err_int(wo_value val, wo_vm vm, wo_integer_t result)
         target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     }
 
-    structptr->m_values[0].set_integer(2);
+    structptr->m_values[0].set_integer(1);
     structptr->m_values[1].set_integer(result);
 }
 void wo_set_err_real(wo_value val, wo_vm vm, wo_real_t result)
@@ -1922,7 +1922,7 @@ void wo_set_err_real(wo_value val, wo_vm vm, wo_real_t result)
         target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     }
 
-    structptr->m_values[0].set_integer(2);
+    structptr->m_values[0].set_integer(1);
     structptr->m_values[1].set_real(result);
 
 
@@ -1939,7 +1939,7 @@ void wo_set_err_float(wo_value val, wo_vm vm, float result)
         target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     }
 
-    structptr->m_values[0].set_integer(2);
+    structptr->m_values[0].set_integer(1);
     structptr->m_values[1].set_real((wo_real_t)result);
 }
 void wo_set_err_handle(wo_value val, wo_vm vm, wo_handle_t result)
@@ -1954,7 +1954,7 @@ void wo_set_err_handle(wo_value val, wo_vm vm, wo_handle_t result)
         target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     }
 
-    structptr->m_values[0].set_integer(2);
+    structptr->m_values[0].set_integer(1);
     structptr->m_values[1].set_handle(result);
 
 
@@ -1972,7 +1972,7 @@ void wo_set_err_string(wo_value val, wo_vm vm, wo_string_t result)
         structptr->m_values[1].set_string(result);
     }
 
-    structptr->m_values[0].set_integer(2);
+    structptr->m_values[0].set_integer(1);
 }
 void _wo_set_err_string_vfmt(wo_value val, wo_vm vm, wo_string_t fmt, va_list v1)
 {
@@ -1988,7 +1988,7 @@ void _wo_set_err_string_vfmt(wo_value val, wo_vm vm, wo_string_t fmt, va_list v1
         _wo_set_string_vfmt(CS_VAL(&structptr->m_values[1]), vm, fmt, v1);
     }
 
-    structptr->m_values[0].set_integer(2);
+    structptr->m_values[0].set_integer(1);
 }
 void wo_set_err_string_fmt(wo_value val, wo_vm vm, wo_string_t fmt, ...)
 {
@@ -2010,7 +2010,7 @@ void wo_set_err_buffer(wo_value val, wo_vm vm, const void* result, wo_size_t len
         structptr->m_values[1].set_buffer(result, len);
     }
 
-    structptr->m_values[0].set_integer(2);
+    structptr->m_values[0].set_integer(1);
 }
 void wo_set_err_pointer(wo_value val, wo_vm vm, wo_ptr_t result)
 {
@@ -2024,7 +2024,7 @@ void wo_set_err_pointer(wo_value val, wo_vm vm, wo_ptr_t result)
         target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     }
 
-    structptr->m_values[0].set_integer(2);
+    structptr->m_values[0].set_integer(1);
     structptr->m_values[1].set_handle((wo_handle_t)result);
 
     if (nullptr == result)
@@ -2042,7 +2042,7 @@ void wo_set_err_val(wo_value val, wo_vm vm, wo_value result)
         target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     }
 
-    structptr->m_values[0].set_integer(2);
+    structptr->m_values[0].set_integer(1);
     structptr->m_values[1].set_val(WO_VAL(result));
 
 
@@ -2059,7 +2059,7 @@ void wo_set_err_gchandle(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, wo_value
         target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     }
 
-    structptr->m_values[0].set_integer(2);
+    structptr->m_values[0].set_integer(1);
     wo_set_gchandle(CS_VAL(&structptr->m_values[1]), vm, resource_ptr, holding_val, destruct_func);
 
 }
