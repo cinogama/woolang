@@ -960,10 +960,12 @@ enum _wo_opcode
                 // DRH: 0, DRL: 0
                 // OPNUM1: IMM_U32                      Jump to the instruction at the address `OPNUM1` if register(cr)
                 //                                      is false.
-    WO_JMP = 51,
-                // DRH: 0, DRL: 0
-                // OPNUM1: IMM_U32                      Jump to the instruction at the address `OPNUM1`.
-
+    WO_ABRT = 51,
+                // DRH: Mode flag, DRL: 0
+                // -- No OPNUM --                       Abort the virtual machine.
+                //                                      * If DRH = 1, vm will return from runing.
+                //                                      * If DRH = 0, debug command, an wo_error will be raise and
+                //                                          the process will be aborted.
     WO_MKARR = 52,
                 // DRH: Opnum1 desc, DRL: 0
                 // OPNUM1: RS/GLB  OPNUM2: IMM_U16      Pop `OPNUM2` values from stack, Build an array.
@@ -1007,14 +1009,9 @@ enum _wo_opcode
                 //                                      * If DRL = 1, store true in register(cr) if equal, otherwise 
                 //                                          store false.
                 //                                      * If DRL = 0, a panic will be triggered if not equal.
-
-    WO_ABRT = 60,
-                // DRH: Mode flag, DRL: 0
-                // -- No OPNUM --                       Abort the virtual machine.
-                //                                      * If DRH = 1, vm will return from runing.
-                //                                      * If DRH = 0, debug command, an wo_error will be raise and
-                //                                          the process will be aborted.
-
+    WO_JMP = 60,
+                // DRH: 0, DRL: 0
+                // OPNUM1: IMM_U32                      Jump to the instruction at the address `OPNUM1`.
     WO_LDS = 61,
                 // DRH: Opnum1 desc, DRL: Opnum2 desc
                 // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Load value from [bp + `OPNUM2`] and store it in `OPNUM1`.

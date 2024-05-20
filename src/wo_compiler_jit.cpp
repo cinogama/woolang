@@ -644,9 +644,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
 
             gcbase::gc_read_guard gwg1(opnum1->gcunit);
 
-            size_t index = opnum2->integer;
-            if (opnum2->integer < 0)
-                index = opnum1->array->size() + opnum2->integer;
+            size_t index = (size_t)opnum2->integer;
             if (index >= opnum1->array->size())
             {
                 return "Index out of range.";
@@ -724,9 +722,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
 
             gcbase::gc_write_guard gwg1(opnum1->gcunit);
 
-            size_t index = opnum2->integer;
-            if (opnum2->integer < 0)
-                index = opnum1->array->size() + opnum2->integer;
+            size_t index = (size_t)opnum2->integer;
             if (index >= opnum1->array->size())
             {
                 return "Index out of range.";

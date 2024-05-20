@@ -1598,7 +1598,7 @@ namespace wo
                     };
 
                 auto& member = using_type->old_type->struct_member_index[items->identifier];
-                member.offset = ++union_item_id;
+                member.offset = union_item_id++;
 
                 if (items->gadt_out_type_may_nil)
                     find_used_template(items->gadt_out_type_may_nil, template_arg_defines, used_template_args);
@@ -1681,7 +1681,7 @@ namespace wo
                     ast_union_make_option_ob_to_cr_and_ret* result = new ast_union_make_option_ob_to_cr_and_ret();
                     result->copy_source_info(items);
                     result->argument_may_nil = new ast_value_variable(argdef->arg_name);
-                    result->id = union_item_id;
+                    result->id = member.offset;
                     // all done ~ fuck!
 
                     avfd_item_type_builder->in_function_sentence->append_at_end(result);
@@ -1709,7 +1709,7 @@ namespace wo
 
                     ast_union_make_option_ob_to_cr_and_ret* result = new ast_union_make_option_ob_to_cr_and_ret();
                     result->copy_source_info(items);
-                    result->id = union_item_id;
+                    result->id = member.offset;
                     // all done ~ fuck!
                     avfd_item_type_builder->in_function_sentence->append_at_end(result);
 

@@ -936,6 +936,9 @@ namespace wo
     WO_PASS1(ast_match_union_case)
     {
         auto* a_match_union_case = WO_AST();
+
+        auto* outside_scope = now_scope();
+
         begin_scope(a_match_union_case);
         wo_assert(a_match_union_case->in_match);
 
@@ -948,7 +951,7 @@ namespace wo
                 a_pattern_union_value->union_expr->completed_in_pass1 = true;
                 if (!a_pattern_union_value->union_expr->search_from_global_namespace)
                 {
-                    a_pattern_union_value->union_expr->searching_begin_namespace_in_pass2 = now_scope();
+                    a_pattern_union_value->union_expr->searching_begin_namespace_in_pass2 = outside_scope;
                     wo_assert(a_pattern_union_value->union_expr->source_file != nullptr);
                 }
             }

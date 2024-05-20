@@ -148,10 +148,10 @@ namespace test_container
     func test_index()
     {
         let a = [mut 1,2,3,4,5];
-        test_assure(a[-2] == 4);
-        a[-2] = 6;
+        test_assure(a[3] == 4);
+        a[3] = 6;
 
-        test_assure(a[-2] == 6);
+        test_assure(a[3] == 6);
     }
     func main()
     {
