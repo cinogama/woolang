@@ -3194,7 +3194,7 @@ wo_bool_t wo_result_get(wo_value out_val, wo_value resultval)
         wo_fail(WO_FAIL_TYPE_FAIL, "Unexpected value type.");
     else
     {
-        bool has = val->structs->m_values[0].integer == 1;
+        bool has = val->structs->m_values[0].integer == 0;
 
         wo_set_val(out_val, CS_VAL(&val->structs->m_values[1]));
         return WO_CBOOL(has);
