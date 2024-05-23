@@ -327,6 +327,7 @@ namespace wo
         write_binary_to_buffer((uint64_t)(this->rt_code_len + padding_length_for_rt_coding), 8);
         write_buffer_to_buffer(this->rt_codes, this->rt_code_len, 1);
         write_buffer_to_buffer("\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC", padding_length_for_rt_coding, 1);
+        static_assert((0xCC >> 2) == WO_ABRT);
 
         // 4.1 Extern native function information
         //  4.1.1 Extern function libname & symbname & used constant offset / code offset
