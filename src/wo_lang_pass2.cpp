@@ -491,25 +491,22 @@ namespace wo
             {
                 wo_assert(current_error_frame.size() > anylizer_error_count);
 
-                if (a_value_funcdef->is_template_reification)
+                if (a_value_funcdef->where_constraint == nullptr)
                 {
-                    if (a_value_funcdef->where_constraint == nullptr)
-                    {
-                        a_value_funcdef->where_constraint = new ast_where_constraint;
-                        a_value_funcdef->where_constraint->copy_source_info(a_value_funcdef);
-                        a_value_funcdef->where_constraint->binded_func_define = a_value_funcdef;
-                        a_value_funcdef->where_constraint->where_constraint_list = new ast_list;
-                    }
-
-                    a_value_funcdef->where_constraint->accept = false;
-
-                    for (size_t i = anylizer_error_count; i < current_error_frame.size(); ++i)
-                    {
-                        a_value_funcdef->where_constraint->unmatched_constraint.push_back(
-                            current_error_frame.at(i));
-                    }
-                    current_error_frame.resize(anylizer_error_count);
+                    a_value_funcdef->where_constraint = new ast_where_constraint;
+                    a_value_funcdef->where_constraint->copy_source_info(a_value_funcdef);
+                    a_value_funcdef->where_constraint->binded_func_define = a_value_funcdef;
+                    a_value_funcdef->where_constraint->where_constraint_list = new ast_list;
                 }
+
+                a_value_funcdef->where_constraint->accept = false;
+
+                for (size_t i = anylizer_error_count; i < current_error_frame.size(); ++i)
+                {
+                    a_value_funcdef->where_constraint->unmatched_constraint.push_back(
+                        current_error_frame.at(i));
+                }
+                current_error_frame.resize(anylizer_error_count);
 
                 // Error happend in cur function
                 a_value_funcdef->value_type->get_return_type()->set_type_with_name(WO_PSTR(pending));

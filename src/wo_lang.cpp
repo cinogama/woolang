@@ -2487,6 +2487,13 @@ namespace wo
                 // If current is template, the node will not be compile, just skip it.
                 if (funcdef->is_template_define)
                     continue;
+                else if (funcdef->where_constraint != nullptr && 
+                    funcdef->where_constraint->accept == false)
+                {
+                    check_function_where_constraint(
+                        funcdef, lang_anylizer, funcdef);
+                    continue;
+                }
 
                 wo_assert(funcdef->completed_in_pass2);
 
