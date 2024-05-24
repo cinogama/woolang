@@ -187,6 +187,14 @@ namespace wo
             }
         }
     }
+    WO_PASS1(ast_value_init)
+    {
+        auto* a_value_init = WO_AST();
+        analyze_pass1(a_value_init->init_value);
+
+        if (!a_value_init->init_value->value_type->is_pending())
+            a_value_init->value_type->set_type(a_value_init->init_value->value_type);
+    }
     WO_PASS1(ast_value_assign)
     {
         auto* a_value_assi = WO_AST();
@@ -442,7 +450,6 @@ namespace wo
 
             if (a_value_func->where_constraint)
             {
-                a_value_func->where_constraint->binded_func_define = a_value_func;
                 analyze_pass1(a_value_func->where_constraint);
             }
             if (a_value_func->where_constraint == nullptr ||

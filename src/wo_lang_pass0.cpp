@@ -122,6 +122,7 @@ namespace wo
         WO_PASS1(ast_where_constraint);
         WO_PASS1(ast_value_trib_expr);
         WO_PASS1(ast_value_typeid);
+        WO_PASS1(ast_value_init);
 
         WO_PASS2(ast_mapping_pair);
         WO_PASS2(ast_using_type_as);
@@ -157,6 +158,7 @@ namespace wo
         WO_PASS2(ast_value_unary);
         WO_PASS2(ast_value_funccall);
         WO_PASS2(ast_value_typeid);
+        WO_PASS2(ast_value_init);
 
         WO_FINALIZE(ast_varref_defines);
         WO_FINALIZE(ast_list);
@@ -197,6 +199,7 @@ namespace wo
         WO_FINALIZE_VALUE(ast_value_make_struct_instance);
         WO_FINALIZE_VALUE(ast_value_make_tuple_instance);
         WO_FINALIZE_VALUE(ast_value_trib_expr);
+        WO_FINALIZE_VALUE(ast_value_init);
 
         m_global_pass_table->register_ignore_debug_info_table<ast_value_variable>();
         m_global_pass_table->register_ignore_debug_info_table<ast_value_function_define>();

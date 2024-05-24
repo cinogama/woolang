@@ -112,9 +112,9 @@ namespace wo
 
         if (!ast_if_sentence->judgement_value->value_type->is_bool())
             lang_anylizer->lang_error(
-                lexer::errorlevel::error, ast_if_sentence->judgement_value, 
+                lexer::errorlevel::error, ast_if_sentence->judgement_value,
                 WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE,
-                L"bool", 
+                L"bool",
                 ast_if_sentence->judgement_value->value_type->get_type_name(false).c_str());
 
         if (ast_if_sentence->judgement_value->is_constant)
@@ -132,6 +132,16 @@ namespace wo
             if (ast_if_sentence->execute_else)
                 analyze_pass2(ast_if_sentence->execute_else);
         }
+    }
+    WO_PASS2(ast_value_init)
+    {
+        auto* a_value_init = WO_AST();
+
+        record_error_for_constration(a_value_init,
+            [&] {
+                analyze_pass2(a_value_init->init_value);
+            });
+        a_value_init->value_type->set_type(a_value_init->init_value->value_type);
     }
     WO_PASS2(ast_value_mutable)
     {
@@ -175,7 +185,7 @@ namespace wo
 
             if (!a_forloop->judgement_expr->value_type->is_bool())
                 lang_anylizer->lang_error(lexer::errorlevel::error,
-                    a_forloop->judgement_expr, 
+                    a_forloop->judgement_expr,
                     WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE,
                     L"bool",
                     a_forloop->judgement_expr->value_type->get_type_name(false).c_str());
@@ -201,6 +211,7 @@ namespace wo
         for (auto& varref : a_varref_defs->var_refs)
         {
             analyze_pattern_in_pass2(varref.pattern, varref.init_val);
+            report_error_for_constration(varref.pattern, varref.init_val, WO_ERR_FAILED_TO_DECLARE_BECAUSE);
         }
     }
     WO_PASS2(ast_union_make_option_ob_to_cr_and_ret)
@@ -413,6 +424,57 @@ namespace wo
             val = dynamic_cast<ast_value*>(val->sibling);
         }
     }
+    void lang::_anylize_func_def_in_pass2(ast_value_function_define* fdef)
+    {
+        if (fdef->argument_list)
+        {
+            // ast_value_function_define might be root-point created in lang.
+            auto arg_child = fdef->argument_list->children;
+            while (arg_child)
+            {
+                if (ast_value_arg_define* argdef = dynamic_cast<ast_value_arg_define*>(arg_child))
+                {
+                    argdef->completed_in_pass2 = true;
+                    if (argdef->symbol)
+                        argdef->symbol->has_been_completed_defined = true;
+                }
+                else
+                {
+                    wo_assert(dynamic_cast<ast_token*>(arg_child));
+                }
+
+                arg_child = arg_child->sibling;
+            }
+        }
+
+        // return-type adjust complete. do 'return' cast;
+        if (fdef->where_constraint)
+            analyze_pass2(fdef->where_constraint);
+
+        if (fdef->where_constraint == nullptr || fdef->where_constraint->accept)
+        {
+            if (fdef->in_function_sentence)
+            {
+                analyze_pass2(fdef->in_function_sentence);
+            }
+            if (fdef->value_type->get_return_type()->is_pure_pending())
+            {
+                // There is no return in function return void
+                if (fdef->auto_adjust_return_type)
+                {
+                    if (fdef->has_return_value)
+                        lang_anylizer->lang_error(lexer::errorlevel::error,
+                            fdef,
+                            WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE,
+                            wo::str_to_wstr(fdef->get_ir_func_signature_tag()).c_str());
+
+                    fdef->value_type->get_return_type()->set_type_with_name(WO_PSTR(void));
+                }
+            }
+        }
+        else
+            fdef->value_type->get_return_type()->set_type_with_name(WO_PSTR(pending));
+    }
     WO_PASS2(ast_value_function_define)
     {
         auto* a_value_funcdef = WO_AST();
@@ -434,81 +496,9 @@ namespace wo
             this->current_function_in_pass2 = a_value_funcdef->this_func_scope;
             wo_assert(this->current_function_in_pass2 != nullptr);
 
-            const size_t anylizer_error_count =
-                lang_anylizer->get_cur_error_frame().size();
-
-            if (a_value_funcdef->argument_list)
+            if (!record_error_for_constration(
+                a_value_funcdef, [&] {_anylize_func_def_in_pass2(a_value_funcdef); }))
             {
-                // ast_value_function_define might be root-point created in lang.
-                auto arg_child = a_value_funcdef->argument_list->children;
-                while (arg_child)
-                {
-                    if (ast_value_arg_define* argdef = dynamic_cast<ast_value_arg_define*>(arg_child))
-                    {
-                        argdef->completed_in_pass2 = true;
-                        if (argdef->symbol)
-                            argdef->symbol->has_been_completed_defined = true;
-                    }
-                    else
-                    {
-                        wo_assert(dynamic_cast<ast_token*>(arg_child));
-                    }
-
-                    arg_child = arg_child->sibling;
-                }
-            }
-
-            // return-type adjust complete. do 'return' cast;
-            if (a_value_funcdef->where_constraint)
-                analyze_pass2(a_value_funcdef->where_constraint);
-
-            if (a_value_funcdef->where_constraint == nullptr || a_value_funcdef->where_constraint->accept)
-            {
-                if (a_value_funcdef->in_function_sentence)
-                {
-                    analyze_pass2(a_value_funcdef->in_function_sentence);
-                }
-                if (a_value_funcdef->value_type->get_return_type()->is_pure_pending())
-                {
-                    // There is no return in function return void
-                    if (a_value_funcdef->auto_adjust_return_type)
-                    {
-                        if (a_value_funcdef->has_return_value)
-                            lang_anylizer->lang_error(lexer::errorlevel::error,
-                                a_value_funcdef,
-                                WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE,
-                                wo::str_to_wstr(a_value_funcdef->get_ir_func_signature_tag()).c_str());
-
-                        a_value_funcdef->value_type->get_return_type()->set_type_with_name(WO_PSTR(void));
-                    }
-                }
-            }
-            else
-                a_value_funcdef->value_type->get_return_type()->set_type_with_name(WO_PSTR(pending));
-
-            auto& current_error_frame = lang_anylizer->get_cur_error_frame();
-            if (current_error_frame.size() != anylizer_error_count)
-            {
-                wo_assert(current_error_frame.size() > anylizer_error_count);
-
-                if (a_value_funcdef->where_constraint == nullptr)
-                {
-                    a_value_funcdef->where_constraint = new ast_where_constraint;
-                    a_value_funcdef->where_constraint->copy_source_info(a_value_funcdef);
-                    a_value_funcdef->where_constraint->binded_func_define = a_value_funcdef;
-                    a_value_funcdef->where_constraint->where_constraint_list = new ast_list;
-                }
-
-                a_value_funcdef->where_constraint->accept = false;
-
-                for (size_t i = anylizer_error_count; i < current_error_frame.size(); ++i)
-                {
-                    a_value_funcdef->where_constraint->unmatched_constraint.push_back(
-                        current_error_frame.at(i));
-                }
-                current_error_frame.resize(anylizer_error_count);
-
-                // Error happend in cur function
                 a_value_funcdef->value_type->get_return_type()->set_type_with_name(WO_PSTR(pending));
             }
 
@@ -518,8 +508,8 @@ namespace wo
                 end_template_scope(a_value_funcdef->this_func_scope);
             else
             {
-                check_function_where_constraint(
-                    a_value_funcdef, lang_anylizer, a_value_funcdef);
+                report_error_for_constration(
+                    a_value_funcdef, a_value_funcdef, WO_ERR_FAILED_TO_INVOKE_BECAUSE);
             }
         }
     }
@@ -580,8 +570,8 @@ namespace wo
                     if (!a_value_assi->left->value_type->accept_type(a_value_assi->overrided_operation_call->value_type, false, false))
                     {
                         lang_anylizer->lang_error(lexer::errorlevel::error, a_value_assi->overrided_operation_call, WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE,
-                                a_value_assi->left->value_type->get_type_name(false).c_str(),
-                                a_value_assi->overrided_operation_call->value_type->get_type_name(false).c_str());
+                            a_value_assi->left->value_type->get_type_name(false).c_str(),
+                            a_value_assi->overrided_operation_call->value_type->get_type_name(false).c_str());
 
                         ast_value_function_define* func_symbol_target =
                             dynamic_cast<ast_value_function_define*>(a_value_assi->overrided_operation_call->called_func);
@@ -1303,7 +1293,8 @@ namespace wo
                 a_value_make_tuple_instance->value_type->template_arguments[count]->set_type(val->value_type);
             else
             {
-                lang_anylizer->lang_error(lexer::errorlevel::error, val, WO_ERR_FAILED_TO_DECIDE_TUPLE_TYPE);
+                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_make_tuple_instance, 
+                    WO_ERR_FAILED_TO_DECIDE_TUPLE_TYPE);
                 break;
             }
             tuple_elems = tuple_elems->sibling;
@@ -1755,7 +1746,7 @@ namespace wo
                     if (a_value_var->symbol->type == lang_symbol::symbol_type::function)
                     {
                         auto* funcdef = a_value_var->symbol->get_funcdef();
-                        check_function_where_constraint(a_value_var, lang_anylizer, funcdef);
+                        report_error_for_constration(a_value_var, funcdef, WO_ERR_FAILED_TO_INVOKE_BECAUSE);
                     }
 
                     if (a_value_var->value_type->is_pending())
@@ -2175,8 +2166,9 @@ namespace wo
         judge_auto_type_in_funccall(a_value_funccall, judge_auto_call_func_located_scope, true, nullptr, nullptr);
 
         analyze_pass2(a_value_funccall->called_func);
-        if (ast_symbolable_base* symbase = dynamic_cast<ast_symbolable_base*>(a_value_funccall->called_func))
-            check_function_where_constraint(a_value_funccall, lang_anylizer, symbase);
+        if (ast_where_constraint_constration* c = 
+            dynamic_cast<ast_where_constraint_constration*>(a_value_funccall->called_func))
+            report_error_for_constration(a_value_funccall, c, WO_ERR_FAILED_TO_INVOKE_BECAUSE);
 
         if (!a_value_funccall->called_func->value_type->is_pending()
             && a_value_funccall->called_func->value_type->is_function())

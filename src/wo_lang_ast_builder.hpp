@@ -249,7 +249,7 @@ namespace wo
         public:
             void eval_constant_value(lexer* lex)
             {
-                if (is_evaling_constant)
+                if (is_constant || is_evaling_constant)
                     return;
 
                 is_evaling_constant = true;
@@ -678,32 +678,19 @@ namespace wo
             }
         };
 
+        struct ast_value_init;
+
         struct ast_varref_defines : virtual public ast_defines
         {
             lang_scope* located_function = nullptr;
             struct varref_define
             {
                 ast_pattern_base* pattern;
-                ast_value* init_val;
+                ast_value_init* init_val;
             };
             std::vector<varref_define> var_refs;
 
-            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
-            {
-                using astnode_type = decltype(MAKE_INSTANCE(this));
-                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
-                if (!child_instance) *dumm = *this;
-                ast_defines::instance(dumm);
-                // Write self copy functions here..
-
-                for (auto& varref : dumm->var_refs)
-                {
-                    WO_REINSTANCE(varref.pattern);
-                    WO_REINSTANCE(varref.init_val);
-                }
-
-                return dumm;
-            }
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override;
         };
 
         struct ast_value_arg_define : virtual ast_value, virtual ast_symbolable_base, virtual ast_defines
@@ -753,7 +740,6 @@ namespace wo
         struct ast_where_constraint : virtual public ast::ast_base
         {
             ast_list* where_constraint_list;
-            ast_value_function_define* binded_func_define;
             bool accept = true;
 
             std::vector<lexer::lex_error_msg> unmatched_constraint;
@@ -766,12 +752,67 @@ namespace wo
                 // Write self copy functions here..
 
                 WO_REINSTANCE(dumm->where_constraint_list);
-                dumm->binded_func_define = nullptr;
                 dumm->accept = true;
                 return dumm;
             }
         };
-        struct ast_value_function_define : virtual ast_value, virtual ast_symbolable_base, virtual ast_defines
+        struct ast_where_constraint_constration : virtual ast_base
+        {
+            ast_where_constraint* where_constraint = nullptr;
+
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                
+                WO_REINSTANCE(dumm->where_constraint);
+
+                return dumm;
+            }
+        };
+        struct ast_value_init : virtual ast_where_constraint_constration, virtual ast_value
+        {
+            ast_value* init_value;
+
+            ast_value_init()
+                : ast_value(new ast_type(WO_PSTR(pending)))
+            {
+            }
+
+            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                ast_value::instance(dumm);
+                ast_where_constraint_constration::instance(dumm);
+
+                WO_REINSTANCE(dumm->init_value);
+
+                return dumm;
+            }
+
+            void update_constant_value(lexer* lex) override
+            {
+                if (init_value != nullptr)
+                {
+                    init_value->eval_constant_value(lex);
+                    if (init_value->is_constant)
+                    {
+                        is_constant = true;
+                        constant_value.set_val_compile_time(&init_value->constant_value);
+                    }
+                }
+            }
+        };
+        struct ast_value_function_define : 
+            virtual ast_value, 
+            virtual ast_symbolable_base, 
+            virtual ast_defines, 
+            virtual ast_where_constraint_constration
         {
             wo_pstring_t function_name = nullptr;
             ast_list* argument_list = nullptr;
@@ -789,7 +830,6 @@ namespace wo
             lang_scope* this_func_scope = nullptr;
             ast_extern_info* externed_func_info = nullptr;
             std::vector<lang_symbol*> capture_variables;
-            ast_where_constraint* where_constraint = nullptr;
 
             ast_value_function_define(ast_type* type = new ast_type(WO_PSTR(pending)))
                 : ast_value(type)
@@ -842,6 +882,7 @@ namespace wo
 
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
                 if (!child_instance) *dumm = *this;
+                ast_where_constraint_constration::instance(dumm);
                 ast_defines::instance(dumm);
                 ast_symbolable_base::instance(dumm);
                 ast_value::instance(dumm);
@@ -849,7 +890,6 @@ namespace wo
 
                 WO_REINSTANCE(dumm->argument_list);
                 WO_REINSTANCE(dumm->in_function_sentence);
-                WO_REINSTANCE(dumm->where_constraint);
 
                 // ISSUE 1.13: externed_func_info should not be re-instance here.
                 //              just copy it.
@@ -1212,9 +1252,6 @@ namespace wo
 
             void update_constant_value(lexer* lex) override
             {
-                if (is_constant)
-                    return;
-
                 from->eval_constant_value(lex);
                 index->eval_constant_value(lex);
 
@@ -1368,9 +1405,6 @@ namespace wo
 
             void update_constant_value(lexer* lex) override
             {
-                if (is_constant)
-                    return;
-
                 val->eval_constant_value(lex);
                 if (val->is_constant)
                 {
@@ -1940,9 +1974,6 @@ namespace wo
 
             void update_constant_value(lexer* lex) override
             {
-                if (is_constant)
-                    return;
-
                 judge_expr->eval_constant_value(lex);
                 if (judge_expr->is_constant)
                 {
@@ -2188,13 +2219,17 @@ namespace wo
                         token{ lex_type::l_literal_integer, std::to_wstring(enumitem->enum_val) });
                     const_val->copy_source_info(enumitem);
 
+                    ast_value_init* init_val_box = new ast_value_init();
+                    init_val_box->init_value = const_val;
+                    init_val_box->copy_source_info(enumitem);
+
                     auto* define_enum_item = new ast_pattern_identifier;
                     define_enum_item->identifier = enumitem->enum_ident;
                     define_enum_item->attr = new ast_decl_attribute();
                     define_enum_item->copy_source_info(enumitem);
 
                     vardefs->var_refs.push_back(
-                        { define_enum_item, const_val });
+                        { define_enum_item, init_val_box });
 
                     // TODO: DATA TYPE SYSTEM..
                     const_val->value_type->set_type_with_name(enum_scope->scope_name);
@@ -2566,6 +2601,10 @@ namespace wo
                 ast_value* init_val = dynamic_cast<ast_value*>(WO_NEED_AST(3));
                 wo_assert(init_val);
 
+                ast_value_init* init_val_box = new ast_value_init();
+                init_val_box->init_value = init_val;
+                init_val_box->copy_source_info(init_val);
+
                 auto* define_varref = dynamic_cast<ast_pattern_base*>(WO_NEED_AST(0));
                 wo_assert(define_varref);
                 if (auto* pattern_identifier = dynamic_cast<ast_pattern_identifier*>(define_varref))
@@ -2586,7 +2625,7 @@ namespace wo
                     lex.lang_error(wo::lexer::errorlevel::error, WO_NEED_AST(1), WO_ERR_DECL_TEMPLATE_PATTERN_IS_NOT_ALLOWED);
                 }
 
-                result->var_refs.push_back({ define_varref, init_val });
+                result->var_refs.push_back({ define_varref, init_val_box });
 
                 return (ast_basic*)result;
             }
@@ -2600,6 +2639,10 @@ namespace wo
 
                 ast_value* init_val = dynamic_cast<ast_value*>(WO_NEED_AST(5));
                 wo_assert(result && init_val);
+
+                ast_value_init* init_val_box = new ast_value_init();
+                init_val_box->init_value = init_val;
+                init_val_box->copy_source_info(init_val);
 
                 auto* define_varref = dynamic_cast<ast_pattern_base*>(WO_NEED_AST(2));
                 wo_assert(define_varref);
@@ -2620,7 +2663,7 @@ namespace wo
                 {
                     lex.lang_error(wo::lexer::errorlevel::error, WO_NEED_AST(3), WO_ERR_DECL_TEMPLATE_PATTERN_IS_NOT_ALLOWED);
                 }
-                result->var_refs.push_back({ define_varref, init_val });
+                result->var_refs.push_back({ define_varref, init_val_box });
 
                 return (ast_basic*)result;
             }

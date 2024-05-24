@@ -48,7 +48,22 @@ namespace wo
 
             return dumm;
         }
+        ast::ast_base* ast_varref_defines::instance(ast_base* child_instance) const
+        {
+            using astnode_type = decltype(MAKE_INSTANCE(this));
+            auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+            if (!child_instance) *dumm = *this;
+            ast_defines::instance(dumm);
+            // Write self copy functions here..
 
+            for (auto& varref : dumm->var_refs)
+            {
+                WO_REINSTANCE(varref.pattern);
+                WO_REINSTANCE(varref.init_val);
+            }
+
+            return dumm;
+        }
         //////////////////////////////////////////
 
         ast_type::ast_type(wo_pstring_t _type_name)
@@ -1386,6 +1401,10 @@ namespace wo
             exp_dir_iter_call->called_func->copy_source_info(be_iter_value);
             exp_dir_iter_call->copy_source_info(be_iter_value);
 
+            ast_value_init* init_val_box = new ast_value_init();
+            init_val_box->init_value = exp_dir_iter_call;
+            init_val_box->copy_source_info(be_iter_value);
+
             afor->used_iter_define = new ast_varref_defines;
             afor->used_iter_define->declear_attribute = new ast_decl_attribute;
 
@@ -1394,7 +1413,7 @@ namespace wo
             afor_iter_define->attr = new ast_decl_attribute();
             afor_iter_define->copy_source_info(be_iter_value);
 
-            afor->used_iter_define->var_refs.push_back({ afor_iter_define, exp_dir_iter_call });
+            afor->used_iter_define->var_refs.push_back({ afor_iter_define, init_val_box });
             afor->used_iter_define->copy_source_info(be_iter_value);
 
             // in loop body..
@@ -1718,6 +1737,10 @@ namespace wo
                     funccall->called_func = avfd_item_type_builder;
                     funccall->arguments = new ast_list();
 
+                    ast_value_init* init_val_box = new ast_value_init();
+                    init_val_box->init_value = funccall;
+                    init_val_box->copy_source_info(avfd_item_type_builder);
+
                     ast_varref_defines* define_union_item = new ast_varref_defines();
                     define_union_item->copy_source_info(items);
 
@@ -1739,7 +1762,7 @@ namespace wo
                         }
                     }
 
-                    define_union_item->var_refs.push_back({ union_item_define, funccall });
+                    define_union_item->var_refs.push_back({ union_item_define, init_val_box });
                     define_union_item->declear_attribute = new ast_decl_attribute();
 
                     union_scope->in_scope_sentence->append_at_end(define_union_item);

@@ -821,6 +821,11 @@ namespace wo
         auto* a_value_mutable_or_pure = WO_AST();
         return analyze_value(a_value_mutable_or_pure->val, compiler, get_pure_value);
     }
+    WO_VALUE_PASS(ast_value_init)
+    {
+        auto* a_value_init = WO_AST();
+        return analyze_value(a_value_init->init_value, compiler, get_pure_value);
+    }
     WO_VALUE_PASS(ast_value_type_cast)
     {
         auto* a_value_type_cast = WO_AST();

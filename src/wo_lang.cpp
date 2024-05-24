@@ -3,31 +3,53 @@
 namespace wo
 {
     using namespace ast;
-
-    void lang::check_function_where_constraint(ast::ast_base* ast, lexer* lang_anylizer, ast::ast_symbolable_base* func)
+    bool lang::record_error_for_constration(
+        ast::ast_where_constraint_constration* c,
+        std::function<void(void)> job)
     {
-        wo_assert(func != nullptr && ast != nullptr);
-        auto* funcdef = dynamic_cast<ast::ast_value_function_define*>(func);
-        if (funcdef == nullptr
-            && func->symbol != nullptr
-            && func->symbol->type == lang_symbol::symbol_type::function)
-            // Why not get `funcdef` from symbol by this way if `func` is not a `ast_value_function_define`
-            // ast_value_function_define's symbol will point to origin define, if `func` is an instance of 
-            // template function define, the check will not-able to get correct error.
-            auto* funcdef = func->symbol->get_funcdef();
-        if (funcdef != nullptr
-            && funcdef->where_constraint != nullptr
-            && !funcdef->where_constraint->accept)
+        const size_t anylizer_error_count =
+            lang_anylizer->get_cur_error_frame().size();
+
+        job();
+
+        auto& current_error_frame = lang_anylizer->get_cur_error_frame();
+        if (current_error_frame.size() != anylizer_error_count)
         {
-            lang_anylizer->lang_error(lexer::errorlevel::error, ast, WO_ERR_FAILED_TO_INVOKE_BECAUSE);
-            for (auto& error_info : funcdef->where_constraint->unmatched_constraint)
+            wo_assert(current_error_frame.size() > anylizer_error_count);
+
+            if (c->where_constraint == nullptr)
+            {
+                c->where_constraint = new ast_where_constraint;
+                c->where_constraint->copy_source_info(c);
+                c->where_constraint->where_constraint_list = new ast_list;
+            }
+
+            c->where_constraint->accept = false;
+
+            for (size_t i = anylizer_error_count; i < current_error_frame.size(); ++i)
+            {
+                c->where_constraint->unmatched_constraint.push_back(
+                    current_error_frame.at(i));
+            }
+            current_error_frame.resize(anylizer_error_count);
+
+            return false;
+        }
+        return true;
+    }
+    void lang::report_error_for_constration(ast::ast_base* b, ast::ast_where_constraint_constration* c, const wchar_t* errmsg)
+    {
+        if (c->where_constraint != nullptr
+            && !c->where_constraint->accept)
+        {
+            lang_anylizer->lang_error(lexer::errorlevel::error, b, L"%ls", errmsg);
+            for (auto& error_info : c->where_constraint->unmatched_constraint)
             {
                 auto copied_err_info = error_info;
                 copied_err_info.error_level = lexer::errorlevel::infom;
                 lang_anylizer->get_cur_error_frame().push_back(copied_err_info);
             }
         }
-
     }
 
     namespace ast
@@ -1176,29 +1198,29 @@ namespace wo
             else if (ast_pattern_tuple* a_pattern_tuple = dynamic_cast<ast_pattern_tuple*>(pattern))
             {
                 analyze_pass2(initval);
-
-                if (initval->value_type->is_tuple() && !initval->value_type->is_pending()
-                    && initval->value_type->template_arguments.size() == a_pattern_tuple->tuple_takeplaces.size())
+                if (!initval->value_type->is_pending())
                 {
-                    for (size_t i = 0; i < a_pattern_tuple->tuple_takeplaces.size(); i++)
+                    if (initval->value_type->is_tuple()
+                        && initval->value_type->template_arguments.size() == a_pattern_tuple->tuple_takeplaces.size())
                     {
-                        a_pattern_tuple->tuple_takeplaces[i]->value_type->set_type(initval->value_type->template_arguments[i]);
-                    }
-                    for (size_t i = 0; i < a_pattern_tuple->tuple_takeplaces.size(); i++)
-                        analyze_pattern_in_pass2(a_pattern_tuple->tuple_patterns[i], a_pattern_tuple->tuple_takeplaces[i]);
+                        for (size_t i = 0; i < a_pattern_tuple->tuple_takeplaces.size(); i++)
+                        {
+                            a_pattern_tuple->tuple_takeplaces[i]->value_type->set_type(initval->value_type->template_arguments[i]);
+                        }
+                        for (size_t i = 0; i < a_pattern_tuple->tuple_takeplaces.size(); i++)
+                            analyze_pattern_in_pass2(a_pattern_tuple->tuple_patterns[i], a_pattern_tuple->tuple_takeplaces[i]);
 
-                }
-                else
-                {
-                    if (initval->value_type->is_pending())
-                        lang_anylizer->lang_error(lexer::errorlevel::error, pattern, WO_ERR_UNMATCHED_PATTERN_TYPE_NOT_DECIDED);
-                    else if (!initval->value_type->is_tuple())
-                        lang_anylizer->lang_error(lexer::errorlevel::error, pattern, WO_ERR_UNMATCHED_PATTERN_TYPE_EXPECT_TUPLE,
-                            initval->value_type->get_type_name(false).c_str());
-                    else if (initval->value_type->template_arguments.size() != a_pattern_tuple->tuple_takeplaces.size())
-                        lang_anylizer->lang_error(lexer::errorlevel::error, pattern, WO_ERR_UNMATCHED_PATTERN_TYPE_TUPLE_DNT_MATCH,
-                            (int)a_pattern_tuple->tuple_takeplaces.size(),
-                            (int)initval->value_type->template_arguments.size());
+                    }
+                    else
+                    {
+                        if (!initval->value_type->is_tuple())
+                            lang_anylizer->lang_error(lexer::errorlevel::error, pattern, WO_ERR_UNMATCHED_PATTERN_TYPE_EXPECT_TUPLE,
+                                initval->value_type->get_type_name(false).c_str());
+                        else if (initval->value_type->template_arguments.size() != a_pattern_tuple->tuple_takeplaces.size())
+                            lang_anylizer->lang_error(lexer::errorlevel::error, pattern, WO_ERR_UNMATCHED_PATTERN_TYPE_TUPLE_DNT_MATCH,
+                                (int)a_pattern_tuple->tuple_takeplaces.size(),
+                                (int)initval->value_type->template_arguments.size());
+                    }
                 }
             }
             else
@@ -1699,19 +1721,19 @@ namespace wo
             std::vector<ast::ast_type*> arg_func_template_args(function_define->template_type_name_list.size(), nullptr);
             const auto analyze_template_derivation_for_type =
                 [this, &arg_func_template_args, &function_define](size_t tempindex, ast_type* type, ast_type* param_type)
+            {
+                if (auto* pending_template_arg = analyze_template_derivation(
+                    function_define->template_type_name_list[tempindex],
+                    function_define->template_type_name_list,
+                    type, param_type))
                 {
-                    if (auto* pending_template_arg = analyze_template_derivation(
-                        function_define->template_type_name_list[tempindex],
-                        function_define->template_type_name_list,
-                        type, param_type))
-                    {
-                        ast::ast_type* template_value_type = new ast::ast_type(WO_PSTR(pending));
-                        template_value_type->set_type(pending_template_arg);
-                        template_value_type->copy_source_info(function_define);
+                    ast::ast_type* template_value_type = new ast::ast_type(WO_PSTR(pending));
+                    template_value_type->set_type(pending_template_arg);
+                    template_value_type->copy_source_info(function_define);
 
-                        arg_func_template_args[tempindex] = template_value_type;
-                    }
-                };
+                    arg_func_template_args[tempindex] = template_value_type;
+                }
+            };
 
             for (size_t tempindex = 0; tempindex < function_define->template_type_name_list.size(); ++tempindex)
             {
@@ -1764,8 +1786,7 @@ namespace wo
                         {
                             analyze_pass2(reificated);
                         }
-                        check_function_where_constraint(
-                            callaim, lang_anylizer, reificated);
+                        report_error_for_constration(callaim, reificated, WO_ERR_FAILED_TO_INVOKE_BECAUSE);
                         return reificated;
                     }
                 }
@@ -1856,7 +1877,7 @@ namespace wo
                     {
                         pending_variable->value_type->set_type((*realized_func)->value_type);
                         pending_variable->symbol = (*realized_func)->this_reification_lang_symbol;
-                        check_function_where_constraint(pending_variable, lang_anylizer, *realized_func);
+                        report_error_for_constration(pending_variable, *realized_func, WO_ERR_FAILED_TO_INVOKE_BECAUSE);
                     }
                     else
                     {
@@ -2487,11 +2508,10 @@ namespace wo
                 // If current is template, the node will not be compile, just skip it.
                 if (funcdef->is_template_define)
                     continue;
-                else if (funcdef->where_constraint != nullptr && 
+                else if (funcdef->where_constraint != nullptr &&
                     funcdef->where_constraint->accept == false)
                 {
-                    check_function_where_constraint(
-                        funcdef, lang_anylizer, funcdef);
+                    report_error_for_constration(funcdef, funcdef, WO_ERR_FAILED_TO_INVOKE_BECAUSE);
                     continue;
                 }
 
@@ -2942,7 +2962,7 @@ namespace wo
         lang_symbol* fuzzy_nearest_symbol = nullptr;
         auto update_fuzzy_nearest_symbol =
             [&fuzzy_nearest_symbol, fuzzy_for_err_report, ident_str, target_type_mask]
-            (lang_symbol* symbol) {
+        (lang_symbol* symbol) {
             if (fuzzy_for_err_report)
             {
                 auto distance = levenshtein_distance(*symbol->name, *ident_str);
@@ -2953,7 +2973,7 @@ namespace wo
                         fuzzy_nearest_symbol = symbol;
                 }
             }
-            };
+        };
 
         if (var_ident->searching_from_type)
         {
@@ -3397,7 +3417,7 @@ namespace wo
                     wo_error("Unexpected assign method.");
                 }
 
-                if (left->accept_type(right, false, false) && 
+                if (left->accept_type(right, false, false) &&
                     nullptr != ast_value_binary::binary_upper_type_with_operator(left, right, op))
                     return false;
 
