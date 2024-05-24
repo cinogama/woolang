@@ -302,8 +302,6 @@ namespace wo
     public:
         static void init_global_pass_table();
         static void release_global_pass_table();
-    public:
-        static void check_function_where_constraint(ast::ast_base* ast, lexer* lang_anylizer, ast::ast_symbolable_base* func);
     private:
         lexer* lang_anylizer;
         std::vector<lang_scope*> lang_scopes_buffers;
@@ -382,6 +380,7 @@ namespace wo
         void finalize_ast_continue(ast::ast_continue* astnode, ir_compiler* compiler);
         void finalize_ast_nop(ast::ast_nop* astnode, ir_compiler* compiler);
 
+        WO_VALUE_PASS(ast_value_init);
         WO_VALUE_PASS(ast_value_binary);
         WO_VALUE_PASS(ast_value_mutable);
         WO_VALUE_PASS(ast_value_index);
@@ -562,6 +561,7 @@ namespace wo
         lang_scope* now_namespace() const;
         lang_scope* in_function() const;
         lang_scope* in_function_pass2() const;
+        void _anylize_func_def_in_pass2(ast::ast_value_function_define* fdef);
 
         size_t global_symbol_index = 0;
 
@@ -593,6 +593,8 @@ namespace wo
         lang_symbol* find_value_in_this_scope(ast::ast_value_variable* var_ident);
         bool has_compile_error()const;
 
+        bool record_error_for_constration(ast::ast_where_constraint_constration* c, std::function<void(void)> job);
+        void report_error_for_constration(ast::ast_base* b, ast::ast_where_constraint_constration* c, const wchar_t* errmsg);
     public:
         static bool check_if_need_try_operation_overload_binary(ast::ast_type* left, ast::ast_type* right, lex_type op, ast::ast_type** out_type);
         static bool check_if_need_try_operation_overload_assign(ast::ast_type* left, ast::ast_type* right, lex_type op);

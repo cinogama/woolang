@@ -417,6 +417,15 @@ namespace wo
         // ATTENTION: HERE JUST VALUE , NOT JUDGE FUNCTION
         auto symb = a_value_variable->symbol;
 
+        if (symb == nullptr)
+        {
+            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_variable,
+                WO_ERR_UNKNOWN_IDENTIFIER,
+                a_value_variable->get_full_variable_name().c_str());
+
+            return WO_NEW_OPNUM(reg(reg::ni));
+        }
+
         if (symb->is_template_symbol)
         {
             // In fact, all variable symbol cannot be templated, it must because of non-impl-template-function-name.
@@ -811,6 +820,11 @@ namespace wo
     {
         auto* a_value_mutable_or_pure = WO_AST();
         return analyze_value(a_value_mutable_or_pure->val, compiler, get_pure_value);
+    }
+    WO_VALUE_PASS(ast_value_init)
+    {
+        auto* a_value_init = WO_AST();
+        return analyze_value(a_value_init->init_value, compiler, get_pure_value);
     }
     WO_VALUE_PASS(ast_value_type_cast)
     {

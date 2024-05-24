@@ -1880,6 +1880,19 @@ func main()
         a * Demo::B;
         "@);
 
+        assure_compile_fail(@"
+        do foo is pending;
+        func foo()
+        {
+            do abc;
+        }
+        "@);
+
+        assure_compile_fail(@"
+        do foo is pending;
+        let foo = abc;
+        "@);
+
         // ISSUE: 1.13: anything has been removed from woolang.
         // assure_compile_success(@"
         //     import woo::std;

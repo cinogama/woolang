@@ -201,8 +201,6 @@
 
 #define WO_ERR_TOO_FEW_TEMPLATE_ARGS L"为类型 '%ls' 给定的泛型参数过少"
 
-#define WO_ERR_UNMATCHED_PATTERN_TYPE_NOT_DECIDED L"不匹配的模式：值类型未决"
-
 #define WO_ERR_UNMATCHED_PATTERN_TYPE_EXPECT_TUPLE L"不匹配的模式：期待给定一个元组，但是给定的是 '%ls'"
 
 #define WO_ERR_UNMATCHED_PATTERN_TYPE_TUPLE_DNT_MATCH L"不匹配的模式：期待给定一个拥有%d个元素的元组，但是给定的元组包含%d个元素"
@@ -230,6 +228,8 @@
 #define WO_ERR_FAILED_TO_INDEX_VAARG_ERR_TYPE L"'变长参数包' 的索引只能是 'int' 类型的值"
 
 #define WO_ERR_FAILED_TO_INVOKE_BECAUSE L"不满足此函数调用的要求，理由如下："
+
+#define WO_ERR_FAILED_TO_DECLARE_BECAUSE L"无法完成此处的声明，理由如下："
 
 #define WO_ERR_DIFFERENT_KEY_TYPE_OF L"'%ls' 序列中的键类型不一致，无法为 '%ls' 推导泛型参数"
 
@@ -485,8 +485,6 @@
 
 #define WO_ERR_TOO_FEW_TEMPLATE_ARGS L"Too few template arguments for type '%ls'."
 
-#define WO_ERR_UNMATCHED_PATTERN_TYPE_NOT_DECIDED L"Unmatched pattern: Value type is pending."
-
 #define WO_ERR_UNMATCHED_PATTERN_TYPE_EXPECT_TUPLE L"Unmatched pattern: Here should be a tuple, but get '%ls'"
 
 #define WO_ERR_UNMATCHED_PATTERN_TYPE_TUPLE_DNT_MATCH L"Unmatched pattern: Expecting a tuplt with %d elems, but get tuple with %d elems."
@@ -514,6 +512,8 @@
 #define WO_ERR_FAILED_TO_INDEX_VAARG_ERR_TYPE L"Can only index 'Variadic argument pack' by value of 'int' type."
 
 #define WO_ERR_FAILED_TO_INVOKE_BECAUSE L"Failed to invoke current function, because: "
+
+#define WO_ERR_FAILED_TO_DECLARE_BECAUSE L"Unable to complete the declaration here, because: "
 
 #define WO_ERR_DIFFERENT_KEY_TYPE_OF L"Different types of 'key' found in '%ls', failed to decided template arguments for '%ls'."
 

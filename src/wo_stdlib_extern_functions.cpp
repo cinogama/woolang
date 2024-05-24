@@ -1633,31 +1633,16 @@ namespace std
     public let is_accpetable_base_type<A, B> = std::declval:<std::origin_t<A>>() is std::origin_t<B>;
     public let is_mutable_type<A> = std::is_same_type:<A, mut A>;
 
-    public alias array_elem_t<AT> = typeof(std::declval:<AT>()->\<T>_: array<T> = std::declval:<T>(););
-    public alias vec_elem_t<AT> = typeof(std::declval:<AT>()->\<T>_: vec<T> = std::declval:<T>(););
-
-    public alias dict_elem_t<DT> = typeof(std::declval:<DT>()->\<KT, VT>_: dict<KT, VT> = std::declval:<(KT, VT)>(););
-    public alias map_elem_t<DT> = typeof(std::declval:<DT>()->\<KT, VT>_: map<KT, VT> = std::declval:<(KT, VT)>(););
-
-    public let is_array<AT> = !(std::declval:<std::array_elem_t<AT>>() is pending);
-    public let is_vec<AT> = !(std::declval:<std::vec_elem_t<AT>>() is pending);
-    public let is_dict<DT> = !(std::declval:<std::dict_elem_t<DT>>() is pending);
-    public let is_map<DT> = !(std::declval:<std::map_elem_t<DT>>() is pending);
+    public let is_array<AT> = std::declval:<array::item_t<AT>>() is pending == false;
+    public let is_vec<AT> = std::declval:<vec::item_t<AT>>() is pending == false;
+    public let is_dict<DT> = std::declval:<dict::item_t<DT>>() is pending == false;
+    public let is_map<DT> = std::declval:<map::item_t<DT>>() is pending == false;
 
     public let is_tuple<T> = 
         !is_array:<T> &&
         !is_vec:<T> && 
         !(std::declval:<T>()...->\...=do nil; is pending);
     
-    extern("rslib_std_bit_or") public func bitor(a: int, b: int)=> int;
-    extern("rslib_std_bit_and") public func bitand(a: int, b: int)=> int;
-    extern("rslib_std_bit_xor") public func bitxor(a: int, b: int)=> int;
-    extern("rslib_std_bit_not") public func bitnot(a: int)=> int;
-
-    extern("rslib_std_bit_shl") public func bitshl(a: int, b: int)=> int;
-    extern("rslib_std_bit_shr") public func bitshr(a: int, b: int)=> int;
-    extern("rslib_std_bit_ashr") public func bitashr(a: int, b: int)=> int;
-
     public func use<T, R>(val: T, f: (T)=> R)
         where val->close is pending == false;
     {
@@ -1667,8 +1652,12 @@ namespace std
         return v;
     }
 
-    public alias iterator_result_t<T> = option::item<typeof(std::declval:<T>()->next)>;
-    public let is_iterator<T> = std::declval:<iterator_result_t<T>>() is pending == false;
+    public alias iterator_result_t<T> = 
+        option::item_t<typeof(std::declval:<T>()->next)>;
+
+    public let is_iterator<T> = 
+        std::declval:<iterator_result_t<T>>() is pending == false;
+
     public let is_iterable<T> = 
         std::declval:<T>()->iter is pending == false
         ? std::is_iterator:<typeof(std::declval:<T>()->iter)>
@@ -1723,7 +1712,8 @@ public union option<T>
 }
 namespace option
 {
-    alias item<T> = typeof(std::declval:<T>()->\<E>_: option<E> = std::declval:<E>(););
+    alias item_t<T> = 
+        typeof(std::declval:<T>()->\<E>_: option<E> = std::declval:<E>(););
 
     public func bind<T, R>(self: option<T>, functor: (T)=> option<R>)
     {
@@ -1813,8 +1803,10 @@ public union result<T, F>
 }
 namespace result
 {
-    alias okitem<T> = typeof(std::declval:<T>()->\<O, E>_: result<O, E> = std::declval:<O>(););
-    alias erritem<T> = typeof(std::declval:<T>()->\<O, E>_: result<O, E> = std::declval:<E>(););
+    alias item_t<T> = 
+        typeof(std::declval:<T>()->\<O, E>_: result<O, E> = std::declval:<(O, E)>(););
+    alias ok_t<T> = typeof(std::declval:<item_t<T>>().0);
+    alias err_t<T> = typeof(std::declval:<item_t<T>>().0);
 
     public func flip<T, F>(self: result<T, F>)
     {
@@ -1935,8 +1927,10 @@ namespace result
 }
 namespace std
 {
-    extern("rslib_std_print", slow) public func print(...)=> void;
-    extern("rslib_std_time_sec") public func time()=> real;
+    extern("rslib_std_print", slow) 
+        public func print(...)=> void;
+    extern("rslib_std_time_sec") 
+        public func time()=> real;
 
     public func println(...)
     {
@@ -1998,11 +1992,22 @@ namespace std
         }
     }
 
-    extern("rslib_std_randomint") 
-        public func randint(from: int, to: int)=> int;
-
-    extern("rslib_std_randomreal") 
-        public func randreal(from:real, to:real)=> real;
+    public func rand<T>(from: T, to: T)=> T
+        where from is int || from is real;
+    {
+        if (from is int)
+        {
+            extern("rslib_std_randomint") 
+                func randint(from: int, to: int)=> int;
+            return randint(from, to);
+        }
+        else
+        {
+            extern("rslib_std_randomreal") 
+                public func randreal(from:real, to:real)=> real;
+            return randreal(from, to);
+        }
+    }
 
     extern("rslib_std_break_yield") 
         public func yield()=> void;
@@ -2019,24 +2024,8 @@ namespace std
     extern("rslib_std_equal_byte")
         public func issame<LT, RT>(a:LT, b:RT)=> bool;
 
-    public func max<T>(a:T, b:T)
-        where (a<b) is bool;
-    {
-        if (a < b)
-            return b;
-        return a;
-    }
-
-    public func min<T>(a:T, b:T)
-        where (a<b) is bool;
-    {
-        if (a < b)
-            return a;
-        return b;
-    }
-
     extern("rslib_std_make_dup", repeat)
-    public func dup<T>(dupval: T)=> T;
+        public func dup<T>(dupval: T)=> T;
 }
 
 public using cchar = char;
@@ -2184,6 +2173,9 @@ namespace string
 )" R"(
 namespace array
 {
+    public alias item_t<AT> = 
+        typeof(std::declval:<AT>()->\<T>_: array<T> = std::declval:<T>(););
+
     extern("rslib_std_array_create", repeat) 
         public func create<T>(sz: int, init_val: T)=> array<T>;
 
@@ -2364,6 +2356,9 @@ namespace array
 
 namespace vec
 {
+    public alias item_t<AT> = 
+        typeof(std::declval:<AT>()->\<T>_: vec<T> = std::declval:<T>(););
+
     extern("rslib_std_array_create", repeat) 
         public func create<T>(sz: int, init_val: T)=> vec<T>;
 
@@ -2537,6 +2532,11 @@ namespace vec
 
 namespace dict
 {
+    public alias item_t<DT> = 
+        typeof(std::declval:<DT>()->\<KT, VT>_: dict<KT, VT> = std::declval:<(KT, VT)>(););
+    public alias key_t<DT> = typeof(std::declval:<dict::item_t<DT>>().0);
+    public alias val_t<DT> = typeof(std::declval:<dict::item_t<DT>>().1);
+
     extern("rslib_std_serialize", repeat) 
         public func serialize<KT, VT>(self: dict<KT, VT>)=> option<string>;
 
@@ -2641,6 +2641,11 @@ namespace dict
 
 namespace map
 {
+    public alias item_t<DT> = 
+        typeof(std::declval:<DT>()->\<KT, VT>_: map<KT, VT> = std::declval:<(KT, VT)>(););
+    public alias key_t<DT> = typeof(std::declval:<map::item_t<DT>>().0);
+    public alias val_t<DT> = typeof(std::declval:<map::item_t<DT>>().1);
+
     extern("rslib_std_serialize", repeat) 
         public func serialize<KT, VT>(self: map<KT, VT>)=> option<string>;
                     
@@ -2761,6 +2766,22 @@ namespace int
         public func parsehex(val: string)=> int;
     extern("rslib_std_oct_to_int")
         public func parseoct(val: string)=> int;
+
+    extern("rslib_std_bit_or") 
+        public func bor(a: int, b: int)=> int;
+    extern("rslib_std_bit_and") 
+        public func band(a: int, b: int)=> int;
+    extern("rslib_std_bit_xor") 
+        public func bxor(a: int, b: int)=> int;
+    extern("rslib_std_bit_not") 
+        public func bnot(a: int)=> int;
+
+    extern("rslib_std_bit_shl") 
+        public func bshl(a: int, b: int)=> int;
+    extern("rslib_std_bit_shr") 
+        public func bshr(a: int, b: int)=> int;
+    extern("rslib_std_bit_ashr") 
+        public func bashr(a: int, b: int)=> int;
 }
 
 namespace handle
