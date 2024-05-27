@@ -51,5 +51,19 @@ target_link_libraries(woolang
     PRIVATE woolang_library_options
     PRIVATE ${woo_system_libs})
 
+if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+    set_target_properties(woolang PROPERTIES RELEASE_POSTFIX "")
+    set_target_properties(woolang PROPERTIES RELWITHDEBINFO_POSTFIX "")
+    set_target_properties(woolang PROPERTIES MINSIZEREL_POSTFIX "")
+    set_target_properties(woolang PROPERTIES DEBUG_POSTFIX "_debug")
+elseif(CMAKE_SIZEOF_VOID_P EQUAL 4)
+    set_target_properties(woolang PROPERTIES RELEASE_POSTFIX "32")
+    set_target_properties(woolang PROPERTIES RELWITHDEBINFO_POSTFIX "32")
+    set_target_properties(woolang PROPERTIES MINSIZEREL_POSTFIX "32")
+    set_target_properties(woolang PROPERTIES DEBUG_POSTFIX "32_debug")
+else()
+    message(FATAL_ERROR "Unknown platform.")
+endif()
+
 set_target_properties(woolang PROPERTIES OUTPUT_NAME libwoo)
 set_target_properties(woolang PROPERTIES PREFIX "")
