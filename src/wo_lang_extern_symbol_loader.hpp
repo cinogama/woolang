@@ -20,20 +20,12 @@
 #		define OS_UNKNOWN
 #endif
 
-#if defined(_X86_)||defined(__i386)||(defined(_WIN32)&&!defined(_WIN64))
-#		define PLATFORM_X86
-#		define PLATFORM_M32
-#elif defined(__x86_64)||defined(_M_X64)
-#		define PLATFORM_X64
-#		define PLATFORM_M64
-#elif defined(__arm)
-#		define PLATFORM_ARM
-#		define PLATFORM_M32
-#elif defined(__aarch64__)
-#		define PLATFORM_ARM64
-#		define PLATFORM_M64
+#if WO_CPU_BITWIDTH == 32
+#   define PLATFORM_M32
+#elif WO_CPU_BITWIDTH == 64
+#   define PLATFORM_M64
 #else
-#		define PLATFORM_UNKNOWN
+#   error "Unsupported cpu archtype."
 #endif
 
 #if defined(PLATFORM_M32)

@@ -1447,7 +1447,7 @@ namespace wo
             auto& packed = get_useable_register_for_pure_value();
 
             compiler->ext_packargs(packed,
-                (uint32_t)now_function_in_final_anylize->value_type->argument_types.size(),
+                (uint16_t)now_function_in_final_anylize->value_type->argument_types.size(),
                 (uint16_t)now_function_in_final_anylize->capture_variables.size());
             return packed;
         }

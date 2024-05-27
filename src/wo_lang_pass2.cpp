@@ -140,7 +140,8 @@ namespace wo
         record_error_for_constration(a_value_init,
             [&] {
                 analyze_pass2(a_value_init->init_value);
-            });
+            },
+            true);
         a_value_init->value_type->set_type(a_value_init->init_value->value_type);
     }
     WO_PASS2(ast_value_mutable)
@@ -496,8 +497,15 @@ namespace wo
             this->current_function_in_pass2 = a_value_funcdef->this_func_scope;
             wo_assert(this->current_function_in_pass2 != nullptr);
 
+            // If a_value_funcdef->where_constraint is not null here,
+            // it means it has user's `where constraint`.
+            bool need_check_where_constration =
+                a_value_funcdef->where_constraint != nullptr;
+
             if (!record_error_for_constration(
-                a_value_funcdef, [&] {_anylize_func_def_in_pass2(a_value_funcdef); }))
+                a_value_funcdef,
+                [&] {_anylize_func_def_in_pass2(a_value_funcdef); },
+                a_value_funcdef->is_template_reification))
             {
                 a_value_funcdef->value_type->get_return_type()->set_type_with_name(WO_PSTR(pending));
             }
@@ -505,8 +513,11 @@ namespace wo
             this->current_function_in_pass2 = last_function;
 
             if (a_value_funcdef->is_template_reification)
+            {
+                need_check_where_constration = true;
                 end_template_scope(a_value_funcdef->this_func_scope);
-            else
+            }
+            if (need_check_where_constration)
             {
                 report_error_for_constration(
                     a_value_funcdef, a_value_funcdef, WO_ERR_FAILED_TO_INVOKE_BECAUSE);
@@ -1293,7 +1304,7 @@ namespace wo
                 a_value_make_tuple_instance->value_type->template_arguments[count]->set_type(val->value_type);
             else
             {
-                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_make_tuple_instance, 
+                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_make_tuple_instance,
                     WO_ERR_FAILED_TO_DECIDE_TUPLE_TYPE);
                 break;
             }
@@ -2166,7 +2177,7 @@ namespace wo
         judge_auto_type_in_funccall(a_value_funccall, judge_auto_call_func_located_scope, true, nullptr, nullptr);
 
         analyze_pass2(a_value_funccall->called_func);
-        if (ast_where_constraint_constration* c = 
+        if (ast_where_constraint_constration* c =
             dynamic_cast<ast_where_constraint_constration*>(a_value_funccall->called_func))
             report_error_for_constration(a_value_funccall, c, WO_ERR_FAILED_TO_INVOKE_BECAUSE);
 
