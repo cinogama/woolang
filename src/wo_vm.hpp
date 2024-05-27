@@ -2733,7 +2733,10 @@ namespace wo
 
                     WO_VM_ASSERT(opnum2->type == value::valuetype::integer_type,
                         "Unable to index string by non-integer value in 'idstr'.");
-                    wchar_t out_str = wo_strn_get_char(opnum1->string->c_str(), opnum1->string->size(), opnum2->integer);
+                    wchar_t out_str = wo_strn_get_char(
+                        opnum1->string->c_str(), 
+                        opnum1->string->size(), 
+                        (size_t)opnum2->integer);
 
                     rt_cr->set_integer((wo_integer_t)(wo_handle_t)out_str);
                     break;

@@ -3591,7 +3591,7 @@ wo_bool_t wo_map_try_get(wo_value out_val, wo_value map, wo_value index)
     return WO_FALSE;
 }
 
-void wo_map_reserve(wo_value map, wo_integer_t sz)
+void wo_map_reserve(wo_value map, wo_size_t sz)
 {
     auto _map = WO_VAL(map);
     if (_map->type == wo::value::valuetype::dict_type)

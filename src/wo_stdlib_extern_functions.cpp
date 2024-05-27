@@ -690,7 +690,7 @@ WO_API wo_api rslib_std_break_yield(wo_vm vm, wo_value args)
 
 WO_API wo_api rslib_std_array_resize(wo_vm vm, wo_value args)
 {
-    wo_arr_resize(args + 0, wo_int(args + 1), args + 2);
+    wo_arr_resize(args + 0, (wo_size_t)wo_int(args + 1), args + 2);
     return wo_ret_void(vm);
 }
 
@@ -707,7 +707,7 @@ WO_API wo_api rslib_std_array_shrink(wo_vm vm, wo_value args)
 
 WO_API wo_api rslib_std_array_insert(wo_vm vm, wo_value args)
 {
-    wo_arr_insert(args + 0, wo_int(args + 1), args + 2);
+    wo_arr_insert(args + 0, (wo_size_t)wo_int(args + 1), args + 2);
     return wo_ret_void(vm);
 }
 
@@ -754,7 +754,7 @@ WO_API wo_api rslib_std_array_get(wo_vm vm, wo_value args)
 
     wo_value elem = wo_push_empty(vm);
 
-    if (wo_arr_try_get(elem, arr, idx))
+    if (wo_arr_try_get(elem, arr, (wo_size_t)idx))
         return wo_ret_option_val(vm, elem);
 
     return wo_ret_option_none(vm);
@@ -767,7 +767,7 @@ WO_API wo_api rslib_std_array_get_or_default(wo_vm vm, wo_value args)
 
     wo_value elem = wo_push_empty(vm);
 
-    if (wo_arr_try_get(elem, arr, idx))
+    if (wo_arr_try_get(elem, arr, (wo_size_t)idx))
         return wo_ret_val(vm, elem);
 
     return wo_ret_val(vm, args + 2);
@@ -879,7 +879,8 @@ WO_API wo_api rslib_std_array_dequeue_val(wo_vm vm, wo_value args)
 
 WO_API wo_api rslib_std_array_remove(wo_vm vm, wo_value args)
 {
-    return wo_ret_bool(vm, wo_arr_remove(args + 0, wo_int(args + 1)));
+    return wo_ret_bool(vm, 
+        wo_arr_remove(args + 0, (wo_size_t)wo_int(args + 1)));
 }
 
 WO_API wo_api rslib_std_array_find(wo_vm vm, wo_value args)
@@ -1260,10 +1261,10 @@ WO_API wo_api rslib_std_serialize(wo_vm vm, wo_value args)
 
 WO_API wo_api rslib_std_array_create(wo_vm vm, wo_value args)
 {
-    wo_integer_t arrsz = wo_int(args + 0);
+    wo_size_t arrsz = (wo_size_t)wo_int(args + 0);
 
     wo_value newarr = wo_push_arr(vm, arrsz);
-    for (wo_integer_t i = 0; i < arrsz; ++i)
+    for (wo_size_t i = 0; i < arrsz; ++i)
         wo_arr_set(newarr, i, args + 1);
 
     return wo_ret_val(vm, newarr);
@@ -1308,10 +1309,12 @@ WO_API wo_api rslib_std_return_itself(wo_vm vm, wo_value args)
 
 WO_API wo_api rslib_std_get_ascii_val_from_str(wo_vm vm, wo_value args)
 {
-    size_t len = 0;
+    wo_size_t len = 0;
     wo_string_t str = wo_raw_string(args + 0, &len);
 
-    return wo_ret_int(vm, (wo_int_t)wo_strn_get_char(str, len, wo_int(args + 1)));
+    return wo_ret_int(vm, 
+        (wo_int_t)wo_strn_get_char(
+            str, len, (wo_size_t)wo_int(args + 1)));
 }
 
 WO_API wo_api rslib_std_string_sub(wo_vm vm, wo_value args)
@@ -1443,13 +1446,13 @@ WO_API wo_api rslib_std_handle_to_oct(wo_vm vm, wo_value args)
 
 WO_API wo_api rslib_std_get_args(wo_vm vm, wo_value args)
 {
-    wo_integer_t argcarr = (wo_integer_t)wo::wo_args.size();
+    wo_size_t argcarr = wo::wo_args.size();
     wo_value argsarr = wo_push_arr(vm, argcarr);
 
     wo_value elem = wo_push_empty(vm);
-    for (wo_integer_t i = 0; i < argcarr; ++i)
+    for (wo_size_t i = 0; i < argcarr; ++i)
     {
-        wo_set_string(elem, vm, wo::wo_args[(size_t)i].c_str());
+        wo_set_string(elem, vm, wo::wo_args[i].c_str());
         wo_arr_set(argsarr, i, elem);
     }
 
@@ -1560,55 +1563,89 @@ const char* wo_stdlib_src_data = {
 u8R"(
 namespace std
 {
-    public enum os
+    namespace platform
     {
-        WIN32,
-        ANDROID,
-        LINUX,
-        IOS,
-        MACOS,
-        UNKNOWN,
-    }
-    public enum arch
-    {
-        X86,
-        AMD64,
-        ARM32,
-        ARM64,
-        UNKNOWN,
-    }
+        public enum os_type
+        {
+            WIN32,
+            ANDROID,
+            LINUX,
+            IOS,
+            MACOS,
+            UNKNOWN,
+        }
+        public enum arch_type
+        {
+            X86,
+            AMD64,
+            ARM32,
+            ARM64,
+            UNKNOWN32,
+            UNKNOWN64,
+        }
+        public enum runtime_type
+        {
+            DEBUG,
+            RELEASE,
+        }
 )"
-"   public let platform_os = "
+//////////////////////////////////////////////////////////////////////
+"        public let os = "
 #if defined(_WIN32)
-    "os::WIN32;\n"
+    "os_type::WIN32;\n"
 #elif defined(__ANDROID__)
-    "os::ANDROID;\n"
+    "os_type::ANDROID;\n"
 #elif defined(__linux__)
-    "os::LINUX;\n"
+    "os_type::LINUX;\n"
 #elif defined(__APPLE__) && defined(__MACH__)
-#if TARGET_IPHONE_SIMULATOR || TARGET_OS_IPHONE
-    "os::IOS;\n"
-#elif TARGET_OS_MAC
-    "os::MACOS;\n"
+#   if TARGET_IPHONE_SIMULATOR || TARGET_OS_IPHONE
+    "os_type::IOS;\n"
+#   elif TARGET_OS_MAC
+    "os_type::MACOS;\n"
+#   else
+    "os_type::UNKNOWN;\n"
+#   endif
 #else
     "os::UNKNOWN;\n"
 #endif
-#else
-    "os::UNKNOWN;\n"
-#endif
-"   public let platform_arch = "
+//////////////////////////////////////////////////////////////////////
+"        public let arch = "
 #if defined(_X86_)||defined(__i386)||(defined(_WIN32)&&!defined(_WIN64))
-    "arch::X86;\n"
+    "arch_type::X86;\n"
 #elif defined(__x86_64)||defined(_M_X64)
-    "arch::AMD64;\n"
+    "arch_type::AMD64;\n"
 #elif defined(__arm)||defined(_M_ARM)
-    "arch::ARM32;\n"
+    "arch_type::ARM32;\n"
 #elif defined(__aarch64__)||defined(_M_ARM64)
-    "arch::ARM64;\n"
+    "arch_type::ARM64;\n"
 #else
-    "arch::UNKNOWN;\n"
+#   if WO_CPU_BITWIDTH == 32
+    "arch_type::UNKNOWN32;\n"
+#   elif WO_CPU_BITWIDTH == 64
+    "arch_type::UNKNOWN64;\n"
+#   else
+#       error "Unsupported cpu archtype."
+#   endif
 #endif
+//////////////////////////////////////////////////////////////////////
+"        public let bitwidth = "
+#if WO_CPU_BITWIDTH == 32
+    "32;\n"
+#elif WO_CPU_BITWIDTH == 64
+    "64;\n"
+#else
+#    error "Unsupported cpu archtype."
+#endif
+//////////////////////////////////////////////////////////////////////
+"        public let runtime = "
+#if defined(NDEBUG)
+    "runtime_type::RELEASE;\n"
+#else
+    "runtime_type::DEBUG;\n"
+#endif
+//////////////////////////////////////////////////////////////////////
 u8R"(
+    }
 }
 namespace unsafe
 {

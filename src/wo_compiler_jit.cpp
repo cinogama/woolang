@@ -777,7 +777,10 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             wo_assert(opnum2->type == value::valuetype::string_type);
             wo_assert(opnum3->type == value::valuetype::integer_type);
 
-            wchar_t out_str = wo_strn_get_char(opnum2->string->c_str(), opnum2->string->size(), opnum3->integer);
+            wchar_t out_str = wo_strn_get_char(
+                opnum2->string->c_str(), 
+                opnum2->string->size(), 
+                (size_t)opnum3->integer);
             opnum1->set_integer((wo_integer_t)(wo_handle_t)out_str);
         }
         static void _vmjitcall_abrt(const char* msg)
@@ -2070,7 +2073,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             auto check_point_ipaddr = rt_ip - 1;
             uint32_t jmp_place = WO_IPVAL_MOVE_4;
 
-            if (jmp_place < rt_ip - ctx->env->rt_codes)
+            if (jmp_place < (uint32_t)(rt_ip - ctx->env->rt_codes))
                 ir_make_checkpoint(ctx, check_point_ipaddr);
 
             wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, handle)), 0));
@@ -2082,7 +2085,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             auto check_point_ipaddr = rt_ip - 1;
             uint32_t jmp_place = WO_IPVAL_MOVE_4;
 
-            if (jmp_place < rt_ip - ctx->env->rt_codes)
+            if (jmp_place < (uint32_t)(rt_ip - ctx->env->rt_codes))
                 ir_make_checkpoint(ctx, check_point_ipaddr);
 
             wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, handle)), 0));
@@ -2094,7 +2097,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             auto check_point_ipaddr = rt_ip - 1;
             uint32_t jmp_place = WO_IPVAL_MOVE_4;
 
-            if (jmp_place < rt_ip - ctx->env->rt_codes)
+            if (jmp_place < (uint32_t)(rt_ip - ctx->env->rt_codes))
                 ir_make_checkpoint(ctx, check_point_ipaddr);
 
             wo_assure(!ctx->c.jmp(jump_ip(&ctx->c, jmp_place)));
@@ -2463,7 +2466,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             WO_JIT_ADDRESSING_N1;
             uint32_t jmp_place = WO_IPVAL_MOVE_4;
 
-            if (jmp_place < rt_ip - ctx->env->rt_codes)
+            if (jmp_place < (uint32_t)(rt_ip - ctx->env->rt_codes))
                 ir_make_checkpoint(ctx, check_point_ipaddr);
 
             if (opnum1.is_constant())

@@ -593,7 +593,7 @@ namespace wo
         lang_symbol* find_value_in_this_scope(ast::ast_value_variable* var_ident);
         bool has_compile_error()const;
 
-        bool record_error_for_constration(ast::ast_where_constraint_constration* c, std::function<void(void)> job);
+        bool record_error_for_constration(ast::ast_where_constraint_constration* c, std::function<void(void)> job, bool clear_current_err);
         void report_error_for_constration(ast::ast_base* b, ast::ast_where_constraint_constration* c, const wchar_t* errmsg);
     public:
         static bool check_if_need_try_operation_overload_binary(ast::ast_type* left, ast::ast_type* right, lex_type op, ast::ast_type** out_type);

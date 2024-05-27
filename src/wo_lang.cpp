@@ -5,7 +5,8 @@ namespace wo
     using namespace ast;
     bool lang::record_error_for_constration(
         ast::ast_where_constraint_constration* c,
-        std::function<void(void)> job)
+        std::function<void(void)> job, 
+        bool clear_current_err)
     {
         const size_t anylizer_error_count =
             lang_anylizer->get_cur_error_frame().size();
@@ -31,7 +32,9 @@ namespace wo
                 c->where_constraint->unmatched_constraint.push_back(
                     current_error_frame.at(i));
             }
-            current_error_frame.resize(anylizer_error_count);
+
+            if (clear_current_err)
+                current_error_frame.resize(anylizer_error_count);
 
             return false;
         }
