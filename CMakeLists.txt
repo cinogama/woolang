@@ -47,18 +47,8 @@ endif ()
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)
 	target_compile_definitions(woolang_options INTERFACE -DWO_CPU_BITWIDTH=64)
-
-    set_target_properties(woolang_options PROPERTIES RELEASE_POSTFIX "")
-    set_target_properties(woolang_options PROPERTIES RELWITHDEBINFO_POSTFIX "")
-    set_target_properties(woolang_options PROPERTIES MINSIZEREL_POSTFIX "")
-    set_target_properties(woolang_options PROPERTIES DEBUG_POSTFIX "_debug")
 elseif(CMAKE_SIZEOF_VOID_P EQUAL 4)
     target_compile_definitions(woolang_options INTERFACE -DWO_CPU_BITWIDTH=32)
-
-    set_target_properties(woolang_options PROPERTIES RELEASE_POSTFIX "32")
-    set_target_properties(woolang_options PROPERTIES RELWITHDEBINFO_POSTFIX "32")
-    set_target_properties(woolang_options PROPERTIES MINSIZEREL_POSTFIX "32")
-    set_target_properties(woolang_options PROPERTIES DEBUG_POSTFIX "32_debug")
 else()
     message(FATAL_ERROR "Unknown platform.")
 endif()
