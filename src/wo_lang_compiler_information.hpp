@@ -227,7 +227,7 @@
 
 #define WO_ERR_FAILED_TO_INDEX_VAARG_ERR_TYPE L"'变长参数包' 的索引只能是 'int' 类型的值"
 
-#define WO_ERR_FAILED_TO_INVOKE_BECAUSE L"不满足此函数调用的要求，理由如下："
+#define WO_ERR_FAILED_TO_INVOKE_BECAUSE L"不满足此函数的要求，理由如下："
 
 #define WO_ERR_FAILED_TO_DECLARE_BECAUSE L"无法完成此处的声明，理由如下："
 
@@ -241,7 +241,7 @@
 
 #define WO_ERR_DIFFERENT_MEMBER_TYPE_OF L"结构体成员 '%ls' 的类型应该是 '%ls'，但给定的初始值类型为 '%ls'"
 
-#define WO_ERR_WHERE_COND_SHOULD_BE_CONST L"约束项必须得出一个常量结果"
+#define WO_ERR_WHERE_COND_SHOULD_BE_CONST L"约束项必须得出一个合法的常量结果"
 
 #define WO_ERR_WHERE_COND_TYPE_ERR L"约束项得出的结果类型应该是 'bool'，但此处是 '%ls'"
 
@@ -511,7 +511,7 @@
 
 #define WO_ERR_FAILED_TO_INDEX_VAARG_ERR_TYPE L"Can only index 'Variadic argument pack' by value of 'int' type."
 
-#define WO_ERR_FAILED_TO_INVOKE_BECAUSE L"Failed to invoke current function, because: "
+#define WO_ERR_FAILED_TO_INVOKE_BECAUSE L"The requirements of this function are not met, because: "
 
 #define WO_ERR_FAILED_TO_DECLARE_BECAUSE L"Unable to complete the declaration here, because: "
 
@@ -525,7 +525,7 @@
 
 #define WO_ERR_DIFFERENT_MEMBER_TYPE_OF L"The type of structure member '%ls' should be '%ls', but found '%ls'."
 
-#define WO_ERR_WHERE_COND_SHOULD_BE_CONST L"Constraints must be a constant."
+#define WO_ERR_WHERE_COND_SHOULD_BE_CONST L"Constraints must be a valid constant."
 
 #define WO_ERR_WHERE_COND_TYPE_ERR L"Constraints should be 'bool', but here is '%ls'"
 

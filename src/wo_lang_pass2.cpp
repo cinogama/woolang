@@ -514,9 +514,10 @@ namespace wo
 
             if (a_value_funcdef->is_template_reification)
             {
-                need_check_where_constration = true;
+                need_check_where_constration = false;
                 end_template_scope(a_value_funcdef->this_func_scope);
             }
+            
             if (need_check_where_constration)
             {
                 report_error_for_constration(
@@ -1744,6 +1745,17 @@ namespace wo
 
                     if (need_update_template_scope)
                         end_template_scope(final_sym->defined_in_scope);
+
+                    if (auto* cons = dynamic_cast<ast::ast_where_constraint_constration*>(final_sym->variable_value))
+                    {
+                        wo_assert(final_sym->type == lang_symbol::function || final_sym->type == lang_symbol::variable);
+
+                        report_error_for_constration(a_value_var, cons,
+                            final_sym->type == lang_symbol::function 
+                            ? WO_ERR_FAILED_TO_INVOKE_BECAUSE 
+                            : WO_ERR_FAILED_TO_DECLARE_BECAUSE
+                        );
+                    }
 
                     a_value_var->value_type->set_type(final_sym->variable_value->value_type);
 
