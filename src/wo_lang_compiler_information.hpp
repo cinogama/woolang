@@ -5,7 +5,9 @@
 #define WO_LANG_EN 0
 #define WO_LANG_ZH_CN 1
 
-#define WO_USED_LANGUAGE WO_LANG_ZH_CN
+#ifndef WO_USED_LANGUAGE
+#   define WO_USED_LANGUAGE WO_LANG_ZH_CN
+#endif
 
 
 #if WO_USED_LANGUAGE == WO_LANG_ZH_CN
@@ -71,7 +73,7 @@
 
 #define WO_ERR_CANNOT_ASSIGN_TO_CONSTANT L"不允许向常量赋值"
 
-#define WO_ERR_CANNOT_CALC_WITH_L_AND_R L"运算符左右两边的值类型（%ls和%ls）不兼容，无法计算"
+#define WO_ERR_CANNOT_CALC_WITH_L_AND_R L"'%ls' 和 '%ls' 类型的表达式无法执行此运算"
 
 #define WO_ERR_CANNOT_INDEX_STR_WITH_TYPE L"不能使用 '%ls' 类型的值索引字符串"
 
@@ -259,7 +261,7 @@
 
 #define WO_ERR_USELESS_DEFAULT_PATTERN L"无效的默认 `union` 模式，不可能执行到默认分支"
 
-#define WO_ERR_INDEX_OUT_OF_RANGE L"索引常量时发生了访问越界"
+#define WO_ERR_INDEX_OUT_OF_RANGE L"越界的索引操作"
 
 #define WO_ERR_UNKNOWN_MACRO_NAMED L"未定义的宏：'%ls'"
 
@@ -355,7 +357,7 @@
 
 #define WO_ERR_CANNOT_ASSIGN_TO_CONSTANT L"Can not assign to a constant."
 
-#define WO_ERR_CANNOT_CALC_WITH_L_AND_R L"The value types on the left and right (%ls and %ls) are incompatible."
+#define WO_ERR_CANNOT_CALC_WITH_L_AND_R L"Expressions of type '%ls' and '%ls' cannot perform this operation."
 
 #define WO_ERR_CANNOT_INDEX_STR_WITH_TYPE L"Can not index string with '%ls'."
 

@@ -133,7 +133,8 @@ namespace womem
 
             const size_t unit_size = (size_t)_WO_EVAL_ALLOC_GROUP_SZ(normal_group);
 
-            m_normal_page.m_max_avliable_unit_count = (uint16_t)((WO_SYS_MEM_PAGE_SIZE - 8 - sizeof(Page*)) / ((size_t)unit_size + sizeof(PageUnitHead)));
+            m_normal_page.m_max_avliable_unit_count = 
+                (uint16_t)((WO_SYS_MEM_PAGE_SIZE - 8 - sizeof(Page*)) / ((size_t)unit_size + sizeof(PageUnitHead)));
 
             m_normal_page.m_free_offset_idx = m_normal_page.m_max_avliable_unit_count;
 

@@ -334,7 +334,11 @@ namespace wo
                 wo_assert(a_match_union_case->take_place_value_may_nil);
                 a_match_union_case->take_place_value_may_nil->used_reg = &valreg;
 
-                analyze_pattern_in_finalize(a_pattern_union_value->pattern_arg_in_union_may_nil, a_match_union_case->take_place_value_may_nil, true, compiler);
+                analyze_pattern_in_finalize(
+                    a_pattern_union_value->pattern_arg_in_union_may_nil, 
+                    a_match_union_case->take_place_value_may_nil, 
+                    true, 
+                    compiler);
             }
             else
             {
@@ -478,7 +482,10 @@ namespace wo
             case wo::value::valuetype::string_type:
                 compiler->adds(beoped_left_opnum, op_right_opnum); break;
             default:
-                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_binary, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                lang_anylizer->lang_error(
+                    lexer::errorlevel::error,
+                    a_value_binary, 
+                    WO_ERR_CANNOT_CALC_WITH_L_AND_R,
                     a_value_binary->left->value_type->get_type_name(false).c_str(),
                     a_value_binary->right->value_type->get_type_name(false).c_str());
                 break;
@@ -494,7 +501,9 @@ namespace wo
             case wo::value::valuetype::handle_type:
                 compiler->subh(beoped_left_opnum, op_right_opnum); break;
             default:
-                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_binary, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                lang_anylizer->lang_error(lexer::errorlevel::error,
+                    a_value_binary, 
+                    WO_ERR_CANNOT_CALC_WITH_L_AND_R,
                     a_value_binary->left->value_type->get_type_name(false).c_str(),
                     a_value_binary->right->value_type->get_type_name(false).c_str());
                 break;
@@ -509,7 +518,9 @@ namespace wo
             case wo::value::valuetype::real_type:
                 compiler->mulr(beoped_left_opnum, op_right_opnum); break;
             default:
-                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_binary, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                lang_anylizer->lang_error(lexer::errorlevel::error, 
+                    a_value_binary,
+                    WO_ERR_CANNOT_CALC_WITH_L_AND_R,
                     a_value_binary->left->value_type->get_type_name(false).c_str(),
                     a_value_binary->right->value_type->get_type_name(false).c_str());
                 break;
