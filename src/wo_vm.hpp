@@ -918,7 +918,7 @@ namespace wo
                         {
                             tmpos << "packargs\t"; print_opnum1(); tmpos << ",\t";
 
-                            auto this_func_argc = *(uint32_t*)((this_command_ptr += 4) - 4);
+                            auto this_func_argc = *(uint32_t*)((this_command_ptr += 2) - 2);
                             auto skip_closure = *(uint16_t*)((this_command_ptr += 2) - 2);
 
                             tmpos << ": skip " << this_func_argc << "/" << skip_closure;
