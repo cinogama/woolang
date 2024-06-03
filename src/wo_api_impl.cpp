@@ -2652,7 +2652,9 @@ void wo_free_binary(void* buffer)
 
 wo_bool_t wo_has_compile_error(wo_vm vm)
 {
-    if (vm && WO_VM(vm)->compile_info && WO_VM(vm)->compile_info->has_error())
+    auto* vmm = WO_VM(vm);
+
+    if (vm && vmm->compile_info && vmm->compile_info->has_error())
         return WO_TRUE;
     return WO_FALSE;
 }
@@ -2833,15 +2835,17 @@ std::string _wo_dump_lexer_context_error(wo::lexer* lex, _wo_inform_style style)
 
 wo_string_t wo_get_compile_error(wo_vm vm, _wo_inform_style style)
 {
+    auto* vmm = WO_VM(vm);
+
     if (style == WO_DEFAULT)
         style = wo::config::ENABLE_OUTPUT_ANSI_COLOR_CTRL ? WO_NEED_COLOR : WO_NOTHING;
 
     thread_local std::string _vm_compile_errors;
     _vm_compile_errors = "";
 
-    if (vm && WO_VM(vm)->compile_info)
+    if (vm && vmm->compile_info)
     {
-        auto& lex = *WO_VM(vm)->compile_info;
+        auto& lex = *vmm->compile_info;
         _vm_compile_errors += _wo_dump_lexer_context_error(&lex, style);
     }
     return _vm_compile_errors.c_str();
@@ -2854,11 +2858,12 @@ wo_string_t wo_get_runtime_error(wo_vm vm)
 
 wo_bool_t wo_abort_vm(wo_vm vm)
 {
+    auto* vmm = WO_VM(vm);
     std::shared_lock gs(wo::vmbase::_alive_vm_list_mx);
 
-    if (wo::vmbase::_alive_vm_list.find(WO_VM(vm)) != wo::vmbase::_alive_vm_list.end())
+    if (wo::vmbase::_alive_vm_list.find(vmm) != wo::vmbase::_alive_vm_list.end())
     {
-        return WO_CBOOL(WO_VM(vm)->interrupt(wo::vmbase::vm_interrupt_type::ABORT_INTERRUPT));
+        return WO_CBOOL(vmm->interrupt(wo::vmbase::vm_interrupt_type::ABORT_INTERRUPT));
     }
     return WO_FALSE;
 }
@@ -3000,7 +3005,9 @@ wo_value wo_dispatch_rsfunc(wo_vm vm, wo_int_t vmfunc, wo_int_t argc)
 {
     _wo_in_thread_vm_guard g(vm);
     _wo_enter_gc_guard g2(vm);
+
     auto* vmm = WO_VM(vm);
+
     vmm->set_br_yieldable(true);
     wo_value result = CS_VAL(vmm->co_pre_invoke(vmfunc, argc));
     return result;
@@ -3009,7 +3016,9 @@ wo_value wo_dispatch_exfunc(wo_vm vm, wo_handle_t exfunc, wo_int_t argc)
 {
     _wo_in_thread_vm_guard g(vm);
     _wo_enter_gc_guard g2(vm);
+
     auto* vmm = WO_VM(vm);
+
     vmm->set_br_yieldable(true);
     wo_value result = CS_VAL(vmm->co_pre_invoke(exfunc, argc));
     return result;
@@ -3022,8 +3031,11 @@ wo_value wo_dispatch_value(wo_vm vm, wo_value vmfunc, wo_int_t argc)
     {
         _wo_in_thread_vm_guard g(vm);
         _wo_enter_gc_guard g2(vm);
-        WO_VM(vm)->set_br_yieldable(true);
-        return CS_VAL(WO_VM(vm)->co_pre_invoke(WO_VAL(vmfunc)->closure, argc));
+
+        auto* vmm = WO_VM(vm);
+
+        vmm->set_br_yieldable(true);
+        return CS_VAL(vmm->co_pre_invoke(WO_VAL(vmfunc)->closure, argc));
         break;
     }
     case wo::value::valuetype::integer_type:
@@ -3041,35 +3053,34 @@ wo_value wo_dispatch(wo_vm vm)
     _wo_in_thread_vm_guard g(vm);
     _wo_enter_gc_guard g2(vm);
 
-    if (WO_VM(vm)->env)
-    {
-        wo_assert(WO_VM(vm)->tc->type == wo::value::valuetype::integer_type);
-        auto arg_count = WO_VM(vm)->er->integer;
+    auto* vmm = WO_VM(vm);
 
-        auto dispatch_result = WO_VM(vm)->run();
-        auto br_yield = WO_VM(vm)->get_and_clear_br_yield_flag();
+    if (vmm->env)
+    {
+        wo_assert(vmm->tc->type == wo::value::valuetype::integer_type);
+        auto arg_count = vmm->er->integer;
+
+        auto dispatch_result = vmm->run();
+        
         switch (dispatch_result)
         {
         case wo_result_t::WO_API_NORMAL:
             break;
         case wo_result_t::WO_API_RESYNC:
-            if (!br_yield)
-            {
-                WO_VM(vm)->run();
-                br_yield = WO_VM(vm)->get_and_clear_br_yield_flag();
-            }
+            vmm->run();
+            break;
         }
 
-        if (br_yield)
+        if (vmm->get_and_clear_br_yield_flag())
         {
-            WO_VM(vm)->er->set_integer(arg_count);
+            vmm->er->set_integer(arg_count);
             return WO_CONTINUE;
         }
         else
         {
-            WO_VM(vm)->sp += arg_count;
-            if (!WO_VM(vm)->is_aborted())
-                return CS_VAL(WO_VM(vm)->cr);
+            vmm->sp += arg_count;
+            if (!vmm->is_aborted())
+                return CS_VAL(vmm->cr);
         }
     }
     return nullptr;
@@ -3120,13 +3131,16 @@ wo_value wo_run(wo_vm vm)
 {
     _wo_in_thread_vm_guard g(vm);
     _wo_enter_gc_guard g2(vm);
-    if (WO_VM(vm)->env)
-    {
-        WO_VM(vm)->ip = WO_VM(vm)->env->rt_codes;
-        WO_VM(vm)->run();
 
-        if (!WO_VM(vm)->is_aborted())
-            return CS_VAL(WO_VM(vm)->cr);
+    auto* vmm = WO_VM(vm);
+
+    if (vmm->env)
+    {
+        vmm->ip = vmm->env->rt_codes;
+        vmm->run();
+
+        if (!vmm->is_aborted())
+            return CS_VAL(vmm->cr);
     }
     return nullptr;
 }
@@ -3772,13 +3786,15 @@ wo_bool_t wo_extern_symb(wo_vm vm, wo_string_t fullname, wo_integer_t* out_wo_fu
 
 wo_string_t wo_debug_trace_callstack(wo_vm vm, wo_size_t layer)
 {
+    auto* vmm = WO_VM(vm);
+
     std::stringstream sstream;
-    WO_VM(vm)->dump_call_stack(layer, true, sstream);
+    vmm->dump_call_stack(layer, true, sstream);
 
-    wo_set_string(CS_VAL(WO_VM(vm)->er), vm, sstream.str().c_str());
-    wo_assert(WO_VM(vm)->er->type == wo::value::valuetype::string_type);
+    wo_set_string(CS_VAL(vmm->er), vm, sstream.str().c_str());
+    wo_assert(vmm->er->type == wo::value::valuetype::string_type);
 
-    return WO_VM(vm)->er->string->c_str();
+    return vmm->er->string->c_str();
 }
 
 void* wo_register_lib(const char* libname, const wo_extern_lib_func_t* funcs)
@@ -3836,37 +3852,43 @@ wo_vm wo_set_this_thread_vm(wo_vm vm_may_null)
 
 void wo_gc_checkpoint(wo_vm vm)
 {
+    auto* vmm = WO_VM(vm);
+
     // If in GC, hang up here to make sure safe.
-    if ((WO_VM(vm)->vm_interrupt.load() & (
+    if ((vmm->vm_interrupt.load() & (
         wo::vmbase::vm_interrupt_type::GC_INTERRUPT
         | wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT)) != 0)
     {
-        if (!WO_VM(vm)->gc_checkpoint())
+        if (!vmm->gc_checkpoint())
         {
-            if (WO_VM(vm)->clear_interrupt(wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT))
-                WO_VM(vm)->hangup();
+            if (vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT))
+                vmm->hangup();
         }
     }
 }
 
 wo_bool_t wo_leave_gcguard(wo_vm vm)
 {
-    if (!WO_VM(vm)->check_interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT))
+    auto* vmm = WO_VM(vm);
+
+    if (!vmm->check_interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT))
     {
         wo_gc_checkpoint(vm);
 
-        wo_assure(WO_VM(vm)->interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
+        wo_assure(vmm->interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
         return WO_TRUE;
     }
     return WO_FALSE;
 }
 wo_bool_t wo_enter_gcguard(wo_vm vm)
 {
-    if (WO_VM(vm)->check_interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT))
+    auto* vmm = WO_VM(vm);
+
+    if (vmm->check_interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT))
     {
         wo_gc_checkpoint(vm);
 
-        wo_assure(WO_VM(vm)->clear_interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
+        wo_assure(vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
         return WO_TRUE;
     }
     return WO_FALSE;

@@ -321,7 +321,8 @@ namespace wo
                                     for (auto id : fnd->second.union_used_template_index)
                                     {
                                         wo_assert(id < a_match_union_case->in_match->match_value->value_type->using_type_name->template_arguments.size());
-                                        fact_used_template.push_back(a_match_union_case->in_match->match_value->value_type->using_type_name->template_arguments[id]);
+                                        fact_used_template.push_back(
+                                            a_match_union_case->in_match->match_value->value_type->using_type_name->template_arguments[id]);
                                     }
 
                                 if (!fact_used_template.empty())
@@ -581,7 +582,8 @@ namespace wo
                 {
                     if (!a_value_assi->left->value_type->accept_type(a_value_assi->overrided_operation_call->value_type, false, false))
                     {
-                        lang_anylizer->lang_error(lexer::errorlevel::error, a_value_assi->overrided_operation_call, WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE,
+                        lang_anylizer->lang_error(lexer::errorlevel::error, a_value_assi->overrided_operation_call, 
+                            WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE,
                             a_value_assi->left->value_type->get_type_name(false).c_str(),
                             a_value_assi->overrided_operation_call->value_type->get_type_name(false).c_str());
 
@@ -906,7 +908,9 @@ namespace wo
                 , a_value_index->from->value_type->get_type_name(false).c_str());
         }
         // Checking for indexer type
-        else if (a_value_index->from->value_type->is_array() || a_value_index->from->value_type->is_vec() || a_value_index->from->value_type->is_string())
+        else if (a_value_index->from->value_type->is_array() || 
+            a_value_index->from->value_type->is_vec() ||
+            a_value_index->from->value_type->is_string())
         {
             if (!a_value_index->index->value_type->is_integer())
             {
@@ -2291,14 +2295,19 @@ namespace wo
                                         // There is no enough value for tuple to expand. match failed!
                                         failed_to_call_cur_func = true;
                                         lang_anylizer->lang_error(lexer::errorlevel::error,
-                                            a_value_funccall, WO_ERR_ARGUMENT_TOO_MANY, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
+                                            a_value_funccall,
+                                            WO_ERR_ARGUMENT_TOO_MANY,
+                                            a_value_funccall->called_func->value_type->get_type_name(false).c_str());
                                         break;
                                     }
-                                    else if (!(*a_type_index)->accept_type(unpacking_tuple_type->template_arguments[unpack_tuple_index], false, true))
+                                    else if (!(*a_type_index)->accept_type(
+                                        unpacking_tuple_type->template_arguments[unpack_tuple_index], false, true))
                                     {
                                         failed_to_call_cur_func = true;
                                         lang_anylizer->lang_error(lexer::errorlevel::error,
-                                            a_value_funccall, WO_ERR_TYPE_CANNOT_BE_CALL, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
+                                            a_value_funccall, 
+                                            WO_ERR_TYPE_CANNOT_BE_CALL, 
+                                            a_value_funccall->called_func->value_type->get_type_name(false).c_str());
                                         break;
                                     }
                                     else
@@ -2316,7 +2325,9 @@ namespace wo
                             {
                                 failed_to_call_cur_func = true;
                                 lang_anylizer->lang_error(lexer::errorlevel::error,
-                                    a_value_funccall, WO_ERR_ARGUMENT_TOO_MANY, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
+                                    a_value_funccall, 
+                                    WO_ERR_ARGUMENT_TOO_MANY, 
+                                    a_value_funccall->called_func->value_type->get_type_name(false).c_str());
                                 break;
                             }
                             ecount--;
@@ -2336,7 +2347,9 @@ namespace wo
                         if (!(*a_type_index)->accept_type(arg_val->value_type, false, true))
                         {
                             failed_to_call_cur_func = true;
-                            lang_anylizer->lang_error(lexer::errorlevel::error, arg_val, WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE,
+                            lang_anylizer->lang_error(lexer::errorlevel::error, 
+                                arg_val,
+                                WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE,
                                 (*a_type_index)->get_type_name(false, false).c_str(),
                                 arg_val->value_type->get_type_name(false, true).c_str());
                             break;
@@ -2375,7 +2388,9 @@ namespace wo
                         if (tuple_arg_sz != 0)
                         {
                             failed_to_call_cur_func = true;
-                            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall,
+                            lang_anylizer->lang_error(
+                                lexer::errorlevel::error,
+                                a_value_funccall,
                                 WO_ERR_ARGUMENT_TOO_MANY,
                                 a_value_funccall->called_func->value_type->get_type_name(false).c_str());
                         }
@@ -2384,7 +2399,9 @@ namespace wo
                 else
                 {
                     failed_to_call_cur_func = true;
-                    lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall,
+                    lang_anylizer->lang_error(
+                        lexer::errorlevel::error, 
+                        a_value_funccall,
                         WO_ERR_ARGUMENT_TOO_MANY,
                         a_value_funccall->called_func->value_type->get_type_name(false).c_str());
                 }
@@ -2393,7 +2410,10 @@ namespace wo
         else
         {
             failed_to_call_cur_func = true;
-            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_TYPE_CANNOT_BE_CALL,
+            lang_anylizer->lang_error(
+                lexer::errorlevel::error,
+                a_value_funccall, 
+                WO_ERR_TYPE_CANNOT_BE_CALL,
                 a_value_funccall->called_func->value_type->get_type_name(false).c_str());
         }
 

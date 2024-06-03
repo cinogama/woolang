@@ -385,7 +385,11 @@ namespace wo
         {
             return (uint8_t)value_type & (uint8_t)value::valuetype::need_gc;
         }
-        bool ast_type::is_like(const ast_type* another, const std::vector<wo_pstring_t>& termplate_set, ast_type** out_para, ast_type** out_args)const
+        bool ast_type::is_like(
+            const ast_type* another, 
+            const std::vector<wo_pstring_t>& termplate_set, 
+            ast_type** out_para,
+            ast_type** out_args)const
         {
             // Only used after pass1
             auto* this_origin_type = this->using_type_name ? this->using_type_name : this;

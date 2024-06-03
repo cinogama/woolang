@@ -5,7 +5,7 @@ namespace wo
     using namespace ast;
     bool lang::record_error_for_constration(
         ast::ast_where_constraint_constration* c,
-        std::function<void(void)> job, 
+        std::function<void(void)> job,
         bool clear_current_err)
     {
         const size_t anylizer_error_count =
@@ -645,9 +645,17 @@ namespace wo
         }
         return true;
     }
-    bool lang::begin_template_scope(ast::ast_base* reporterr, lang_scope* belong_scope, ast::ast_defines* template_defines, const std::vector<ast::ast_type*>& template_args)
+    bool lang::begin_template_scope(
+        ast::ast_base* reporterr,
+        lang_scope* belong_scope,
+        ast::ast_defines* template_defines,
+        const std::vector<ast::ast_type*>& template_args)
     {
-        return begin_template_scope(reporterr, belong_scope, template_defines->template_type_name_list, template_args);
+        return begin_template_scope(
+            reporterr,
+            belong_scope,
+            template_defines->template_type_name_list,
+            template_args);
     }
     void lang::end_template_scope(lang_scope* scop)
     {
@@ -768,7 +776,11 @@ namespace wo
             update_typeof_in_type(type->function_ret_type, s);
         }
     }
-    bool lang::fully_update_type(ast::ast_type* type, bool in_pass_1, const std::vector<wo_pstring_t>& template_types, std::unordered_set<ast::ast_type*>& s)
+    bool lang::fully_update_type(
+        ast::ast_type* type,
+        bool in_pass_1,
+        const std::vector<wo_pstring_t>& template_types,
+        std::unordered_set<ast::ast_type*>& s)
     {
         if (s.find(type) != s.end())
             return true;
@@ -939,8 +951,16 @@ namespace wo
                                 type_sym->define_node != nullptr ?
                                 begin_template_scope(type, type_sym->defined_in_scope, type_sym->define_node, type->template_arguments)
                                 : (type_sym->type_informatiom->using_type_name
-                                    ? begin_template_scope(type, type_sym->defined_in_scope, type_sym->type_informatiom->using_type_name->symbol->define_node, type->template_arguments)
-                                    : begin_template_scope(type, type_sym->defined_in_scope, type_sym->template_types, type->template_arguments));
+                                    ? begin_template_scope(
+                                        type,
+                                        type_sym->defined_in_scope,
+                                        type_sym->type_informatiom->using_type_name->symbol->define_node,
+                                        type->template_arguments)
+                                    : begin_template_scope(
+                                        type,
+                                        type_sym->defined_in_scope,
+                                        type_sym->template_types,
+                                        type->template_arguments));
 
                             ast::ast_type* symboled_type = nullptr;
 
@@ -1326,7 +1346,13 @@ namespace wo
             lang_anylizer->lang_error(lexer::errorlevel::error, pattern, WO_ERR_UNEXPECT_PATTERN_MODE);
     }
 
-    void lang::check_division(ast::ast_base* divop, ast::ast_value* left, ast::ast_value* right, opnum::opnumbase& left_opnum, opnum::opnumbase& right_opnum, ir_compiler* compiler)
+    void lang::check_division(
+        ast::ast_base* divop, 
+        ast::ast_value* left, 
+        ast::ast_value* right, 
+        opnum::opnumbase& left_opnum, 
+        opnum::opnumbase& right_opnum, 
+        ir_compiler* compiler)
     {
         wo_assert(left->value_type->is_integer() == right->value_type->is_integer());
         if (left->value_type->is_integer())
@@ -2552,7 +2578,8 @@ namespace wo
                             if (a_value_arg_define->symbol->is_marked_as_used_variable == false
                                 && a_value_arg_define->symbol->define_in_function == true)
                             {
-                                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_arg_define, WO_ERR_UNUSED_VARIABLE_DEFINE,
+                                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_arg_define,
+                                    WO_ERR_UNUSED_VARIABLE_DEFINE,
                                     a_value_arg_define->arg_name->c_str(),
                                     str_to_wstr(funcdef->get_ir_func_signature_tag()).c_str());
                             }
@@ -2610,7 +2637,10 @@ namespace wo
                 compiler->ext_funcend();
 
                 for (auto funcvar : funcdef->this_func_scope->in_function_symbols)
-                    compiler->pdb_info->add_func_variable(funcdef, *funcvar->name, funcvar->variable_value->row_end_no, funcvar->stackvalue_index_in_funcs);
+                    compiler->pdb_info->add_func_variable(
+                        funcdef, *funcvar->name,
+                        funcvar->variable_value->row_end_no,
+                        funcvar->stackvalue_index_in_funcs);
             }
         }
         compiler->tag("__rsir_rtcode_seg_function_define_end");
@@ -2759,7 +2789,8 @@ namespace wo
     {
         wo_assert(lang_scopes.size());
 
-        if (is_template_value != template_style::IS_TEMPLATE_VARIABLE_IMPL && (lang_scopes.back()->symbols.find(names) != lang_scopes.back()->symbols.end()))
+        if (is_template_value != template_style::IS_TEMPLATE_VARIABLE_IMPL &&
+            (lang_scopes.back()->symbols.find(names) != lang_scopes.back()->symbols.end()))
         {
             auto* last_found_symbol = lang_scopes.back()->symbols[names];
 
@@ -2955,7 +2986,11 @@ namespace wo
         return (double)df(n, m) / (double)std::max(n, m);
     }
 
-    lang_symbol* lang::find_symbol_in_this_scope(ast::ast_symbolable_base* var_ident, wo_pstring_t ident_str, int target_type_mask, bool fuzzy_for_err_report)
+    lang_symbol* lang::find_symbol_in_this_scope(
+        ast::ast_symbolable_base* var_ident, 
+        wo_pstring_t ident_str, 
+        int target_type_mask, 
+        bool fuzzy_for_err_report)
     {
         wo_assert(lang_scopes.size());
 
