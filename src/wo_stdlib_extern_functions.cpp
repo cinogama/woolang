@@ -1859,10 +1859,10 @@ namespace result
         {
         ok(v)? return v;
         err(e)? 
-            if (e is void)
-                std::panic("An error was found in 'unwarp'.");
+            if (e: string is pending == false)
+                std::panic(F"An error was found in 'unwarp': {e: string}");
             else
-                std::panic(F"An error was found in 'unwarp': {e}");
+                std::panic("An error was found in 'unwarp'.");                
         }
     }
     public func unwarpor<T, F>(self: result<T, F>, default_val: T)

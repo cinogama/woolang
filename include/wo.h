@@ -107,7 +107,7 @@ typedef enum _wo_api
     // RSYNC is used for mark an jit-function has been 'yield break' or 'debug break'
     // and it's state has been stored in vm, we cannot restore rt-state to avoid overwrite.
     WO_API_RESYNC = 1,
-}wo_api, wo_result_t;
+} wo_api, wo_result_t;
 
 typedef wo_result_t(*wo_native_func_t)(wo_vm, wo_value);
 

@@ -1825,7 +1825,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             auto op2 = opnum2.gp_value();
 
             asmjit::InvokeNode* invoke_node;
-            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::ltx_impl,
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vmbase::ltx_impl,
                 asmjit::FuncSignatureT< void, wo::value*, wo::value*, wo::value*>()));
 
             invoke_node->setArg(0, ctx->_vmcr);
@@ -1843,7 +1843,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             auto op2 = opnum2.gp_value();
 
             asmjit::InvokeNode* invoke_node;
-            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::gtx_impl,
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vmbase::gtx_impl,
                 asmjit::FuncSignatureT< void, wo::value*, wo::value*, wo::value*>()));
 
             invoke_node->setArg(0, ctx->_vmcr);
@@ -1861,7 +1861,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             auto op2 = opnum2.gp_value();
 
             asmjit::InvokeNode* invoke_node;
-            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::eltx_impl,
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vmbase::eltx_impl,
                 asmjit::FuncSignatureT< void, wo::value*, wo::value*, wo::value*>()));
 
             invoke_node->setArg(0, ctx->_vmcr);
@@ -1879,7 +1879,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             auto op2 = opnum2.gp_value();
 
             asmjit::InvokeNode* invoke_node;
-            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::egtx_impl,
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vmbase::egtx_impl,
                 asmjit::FuncSignatureT< void, wo::value*, wo::value*, wo::value*>()));
 
             invoke_node->setArg(0, ctx->_vmcr);
@@ -2113,7 +2113,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             auto op2 = opnum2.gp_value();
 
             asmjit::InvokeNode* invoke_node;
-            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::make_union_impl,
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vmbase::make_union_impl,
                 asmjit::FuncSignatureT<wo::value*, wo::value*, wo::value*, uint16_t>()));
 
             invoke_node->setArg(0, op1);
@@ -2133,7 +2133,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             auto err = ctx->c.newIntPtr();
 
             asmjit::InvokeNode* invoke_node;
-            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::movcast_impl,
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vmbase::movcast_impl,
                 asmjit::FuncSignatureT<const char*, wo::value*, wo::value*, uint8_t>()));
 
             static_assert(sizeof(uint8_t) == sizeof(value::valuetype));
@@ -2157,7 +2157,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             asmjit::InvokeNode* invoke_node;
 
             // NOTE: in x64, use make_closure_fast_impl.
-            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::make_closure_fast_impl,
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vmbase::make_closure_fast_impl,
                 asmjit::FuncSignatureT<value*, value*, const byte_t*, value*>()));
 
             invoke_node->setArg(0, ctx->_vmcr);
@@ -2215,7 +2215,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             auto op1 = opnum1.gp_value();
 
             asmjit::InvokeNode* invoke_node;
-            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::make_struct_impl,
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vmbase::make_struct_impl,
                 asmjit::FuncSignatureT< wo::value*, wo::value*, uint16_t, wo::value*>()));
 
             invoke_node->setArg(0, op1);
@@ -2299,7 +2299,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             auto op1 = opnum1.gp_value();
 
             asmjit::InvokeNode* invoke_node;
-            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::make_array_impl,
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vmbase::make_array_impl,
                 asmjit::FuncSignatureT< wo::value*, wo::value*, uint16_t, wo::value*>()));
 
             invoke_node->setArg(0, op1);
@@ -2316,7 +2316,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             auto op1 = opnum1.gp_value();
 
             asmjit::InvokeNode* invoke_node;
-            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::make_map_impl,
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vmbase::make_map_impl,
                 asmjit::FuncSignatureT< wo::value*, wo::value*, uint16_t, wo::value*>()));
 
             invoke_node->setArg(0, op1);
@@ -2525,7 +2525,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             auto op1 = opnum1.gp_value();
 
             asmjit::InvokeNode* invoke_node;
-            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::packargs_impl,
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vmbase::packargs_impl,
                 asmjit::FuncSignatureT<void, wo::value*, uint16_t, wo::value*, wo::value*, uint16_t>()));
 
             invoke_node->setArg(0, op1);
@@ -2624,7 +2624,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             auto op1 = opnum1.gp_value();
 
             asmjit::InvokeNode* invoke_node;
-            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vm::unpackargs_impl,
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vmbase::unpackargs_impl,
                 asmjit::FuncSignatureT<wo::value*, vmbase*, int32_t, value*, value*, const byte_t*, value*, value*>()));
 
             invoke_node->setArg(0, ctx->_vmbase);

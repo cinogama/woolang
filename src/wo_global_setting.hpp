@@ -51,10 +51,12 @@ namespace wo
             ArchType::X86 | 0;
 #           define WO_PLATFORM_32 
 #           define WO_PLATFORM_X86
+#           define WO_VM_SUPPORT_FAST_NO_ALIGN
 #elif  defined(__x86_64__) || defined(_M_X64) 
             ArchType::X86 | ArchType::BIT64;
 #           define WO_PLATFORM_64
 #           define WO_PLATFORM_X64
+#           define WO_VM_SUPPORT_FAST_NO_ALIGN
 #elif  defined(_M_ARM)||defined(__arm__)
             ArchType::ARM | 0;
 #           define WO_PLATFORM_32 

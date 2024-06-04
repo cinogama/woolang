@@ -2452,11 +2452,6 @@ void wo_close_virtual_file_iter(wo_virtual_file_iter_t iter)
     delete iter;
 }
 
-wo_vm wo_create_vm()
-{
-    return CS_VM(new wo::vm(wo::vmbase::vm_type::NORMAL));
-}
-
 wo_vm wo_sub_vm(wo_vm vm, wo_size_t stacksz)
 {
     return CS_VM(WO_VM(vm)->make_machine(stacksz, wo::vmbase::vm_type::NORMAL));
