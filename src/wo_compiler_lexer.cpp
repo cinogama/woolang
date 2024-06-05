@@ -12,6 +12,7 @@ namespace wo
     lexer::lexer(std::optional<std::unique_ptr<std::wistream>>&& stream, const std::string _source_file)
         : format_string_count(0)
         , curly_count(0)
+        , used_macro_list(nullptr)
         , now_file_rowno(1)
         , now_file_colno(0)
         , next_file_rowno(1)
@@ -20,7 +21,6 @@ namespace wo
             wstring_pool::_m_this_thread_pool != nullptr
             ? wstring_pool::get_pstr(str_to_wstr(_source_file))
             : nullptr)
-        , used_macro_list(nullptr)
     {
         if (stream)
             reading_buffer = std::move(stream.value());
