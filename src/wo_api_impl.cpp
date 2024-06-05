@@ -4030,7 +4030,7 @@ void wo_ir_opcode(wo_ir_compiler compiler, uint8_t opcode, uint8_t drh, uint8_t 
     c->ir_opcode(code, dr);
 }
 
-WO_API void wo_ir_bind_tag(wo_ir_compiler compiler, wo_string_t name)
+void wo_ir_bind_tag(wo_ir_compiler compiler, wo_string_t name)
 {
     auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
     c->tag(name);
