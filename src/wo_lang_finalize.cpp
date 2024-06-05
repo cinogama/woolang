@@ -589,10 +589,7 @@ namespace wo
         opnumbase* beassign_index_from_opnum = nullptr;
         opnumbase* beassign_index_key_opnum = nullptr;
         opnumbase* beassign_w_left_opnum = nullptr;
-        int16_t beassign_value_from_stack_offset = 0;
-
         opnumbase* beassign_r_left_opnum = nullptr;
-
         opnumbase* beoped_right_opnum = nullptr;
 
         if (a_value_index == nullptr)
@@ -608,9 +605,7 @@ namespace wo
             beassign_r_left_opnum = &analyze_value(a_value_assign->left, compiler);
 #endif
 
-            if (_last_value_from_stack_offset_may_null)
-                beassign_value_from_stack_offset = _last_value_from_stack_offset_may_null.value();
-            else
+            if (!_last_value_from_stack_offset_may_null)
                 beassign_w_left_opnum = beassign_r_left_opnum;
         }
         else

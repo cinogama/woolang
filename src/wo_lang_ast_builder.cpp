@@ -1199,9 +1199,6 @@ namespace wo
                 return nullptr;
             }
 
-            auto left_t = left_v->value_type;
-            auto right_t = right_v->value_type;
-
             if (left_v->is_same(right_v, true))
                 return left_v;
 
@@ -1582,8 +1579,6 @@ namespace wo
             std::vector<wo_pstring_t>& template_arg_defines = using_type->template_type_name_list;
             if (defined_template_args)
             {
-                ast_list* template_const_list = new ast_list;
-
                 using_type->is_template_define = true;
 
                 ast_template_define* template_type = defined_template_args;
@@ -2049,7 +2044,6 @@ namespace wo
             using_type->old_type = dynamic_cast<ast_type*>(WO_NEED_AST(5));
             using_type->declear_attribute = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(0));
             using_type->is_alias = WO_NEED_TOKEN(1).type == lex_type::l_alias;
-            ast_list* template_const_list = new ast_list;
 
             using_type->old_type = dynamic_cast<ast_type*>(WO_NEED_AST(5));
             ast_namespace* type_namespace = new ast_namespace;

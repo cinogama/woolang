@@ -386,8 +386,6 @@ void wo_handle_ctrl_c(void(*handler)(int))
 
 void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
 {
-    bool scheduler_need_shutdown = true;
-
     // Ready to shutdown all vm & coroutine.
     // 
     // Free all vm in pool, because vm in pool is PENDING, we can free them directly.
@@ -1628,7 +1626,6 @@ wo_result_t wo_ret_panic(wo_vm vm, wo_string_t reasonfmt, ...)
 
 void wo_set_option_void(wo_value val, wo_vm vm)
 {
-    auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
 
     wo::struct_t* structptr;
@@ -1643,7 +1640,6 @@ void wo_set_option_void(wo_value val, wo_vm vm)
 }
 void wo_set_option_bool(wo_value val, wo_vm vm, wo_bool_t result)
 {
-    auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
 
     wo::struct_t* structptr;
@@ -1663,7 +1659,6 @@ void wo_set_option_char(wo_value val, wo_vm vm, wo_char_t result)
 }
 void wo_set_option_int(wo_value val, wo_vm vm, wo_integer_t result)
 {
-    auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
 
     wo::struct_t* structptr;
@@ -1680,7 +1675,6 @@ void wo_set_option_int(wo_value val, wo_vm vm, wo_integer_t result)
 }
 void wo_set_option_real(wo_value val, wo_vm vm, wo_real_t result)
 {
-    auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
 
     wo::struct_t* structptr;
@@ -1697,7 +1691,6 @@ void wo_set_option_real(wo_value val, wo_vm vm, wo_real_t result)
 }
 void wo_set_option_float(wo_value val, wo_vm vm, float result)
 {
-    auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
 
     wo::struct_t* structptr;
@@ -1712,7 +1705,6 @@ void wo_set_option_float(wo_value val, wo_vm vm, float result)
 }
 void wo_set_option_handle(wo_value val, wo_vm vm, wo_handle_t result)
 {
-    auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
 
     wo::struct_t* structptr;
@@ -1729,7 +1721,6 @@ void wo_set_option_handle(wo_value val, wo_vm vm, wo_handle_t result)
 }
 void wo_set_option_string(wo_value val, wo_vm vm, wo_string_t result)
 {
-    auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
 
     wo::struct_t* structptr;
@@ -1743,7 +1734,6 @@ void wo_set_option_string(wo_value val, wo_vm vm, wo_string_t result)
 }
 void _wo_set_option_string_vfmt(wo_value val, wo_vm vm, wo_string_t fmt, va_list v1)
 {
-    auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
 
     wo::struct_t* structptr;
@@ -1765,7 +1755,6 @@ void wo_set_option_string_fmt(wo_value val, wo_vm vm, wo_string_t fmt, ...)
 }
 void wo_set_option_buffer(wo_value val, wo_vm vm, const void* result, wo_size_t len)
 {
-    auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
 
     wo::struct_t* structptr;
@@ -1780,7 +1769,6 @@ void wo_set_option_buffer(wo_value val, wo_vm vm, const void* result, wo_size_t 
 }
 void wo_set_option_pointer(wo_value val, wo_vm vm, wo_ptr_t result)
 {
-    auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
 
     wo::struct_t* structptr;
@@ -1797,7 +1785,6 @@ void wo_set_option_pointer(wo_value val, wo_vm vm, wo_ptr_t result)
 }
 void wo_set_option_ptr_may_null(wo_value val, wo_vm vm, wo_ptr_t result)
 {
-    auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
 
     wo::struct_t* structptr;
@@ -1817,7 +1804,6 @@ void wo_set_option_ptr_may_null(wo_value val, wo_vm vm, wo_ptr_t result)
 }
 void wo_set_option_val(wo_value val, wo_vm vm, wo_value result)
 {
-    auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
 
     wo::struct_t* structptr;
@@ -1832,7 +1818,6 @@ void wo_set_option_val(wo_value val, wo_vm vm, wo_value result)
 }
 void wo_set_option_gchandle(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t))
 {
-    auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
 
     wo::struct_t* structptr;
@@ -1847,7 +1832,6 @@ void wo_set_option_gchandle(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, wo_va
 }
 void wo_set_option_none(wo_value val, wo_vm vm)
 {
-    auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
 
     wo::struct_t* structptr;
@@ -1861,7 +1845,6 @@ void wo_set_option_none(wo_value val, wo_vm vm)
 
 void wo_set_err_void(wo_value val, wo_vm vm)
 {
-    auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
 
     wo::struct_t* structptr;
@@ -1882,7 +1865,6 @@ void wo_set_err_char(wo_value val, wo_vm vm, wo_char_t result)
 }
 void wo_set_err_bool(wo_value val, wo_vm vm, wo_bool_t result)
 {
-    auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
 
     wo::struct_t* structptr;
@@ -1897,7 +1879,6 @@ void wo_set_err_bool(wo_value val, wo_vm vm, wo_bool_t result)
 }
 void wo_set_err_int(wo_value val, wo_vm vm, wo_integer_t result)
 {
-    auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
 
     wo::struct_t* structptr;
@@ -1912,7 +1893,6 @@ void wo_set_err_int(wo_value val, wo_vm vm, wo_integer_t result)
 }
 void wo_set_err_real(wo_value val, wo_vm vm, wo_real_t result)
 {
-    auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
 
     wo::struct_t* structptr;
@@ -1929,7 +1909,6 @@ void wo_set_err_real(wo_value val, wo_vm vm, wo_real_t result)
 }
 void wo_set_err_float(wo_value val, wo_vm vm, float result)
 {
-    auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
 
     wo::struct_t* structptr;
@@ -1944,7 +1923,6 @@ void wo_set_err_float(wo_value val, wo_vm vm, float result)
 }
 void wo_set_err_handle(wo_value val, wo_vm vm, wo_handle_t result)
 {
-    auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
 
     wo::struct_t* structptr;
@@ -1961,7 +1939,6 @@ void wo_set_err_handle(wo_value val, wo_vm vm, wo_handle_t result)
 }
 void wo_set_err_string(wo_value val, wo_vm vm, wo_string_t result)
 {
-    auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
 
     wo::struct_t* structptr;
@@ -1976,7 +1953,6 @@ void wo_set_err_string(wo_value val, wo_vm vm, wo_string_t result)
 }
 void _wo_set_err_string_vfmt(wo_value val, wo_vm vm, wo_string_t fmt, va_list v1)
 {
-    auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
 
     wo::struct_t* structptr;
@@ -1999,7 +1975,6 @@ void wo_set_err_string_fmt(wo_value val, wo_vm vm, wo_string_t fmt, ...)
 }
 void wo_set_err_buffer(wo_value val, wo_vm vm, const void* result, wo_size_t len)
 {
-    auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
 
     wo::struct_t* structptr;
@@ -2014,7 +1989,6 @@ void wo_set_err_buffer(wo_value val, wo_vm vm, const void* result, wo_size_t len
 }
 void wo_set_err_pointer(wo_value val, wo_vm vm, wo_ptr_t result)
 {
-    auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
 
     wo::struct_t* structptr;
@@ -2032,7 +2006,6 @@ void wo_set_err_pointer(wo_value val, wo_vm vm, wo_ptr_t result)
 }
 void wo_set_err_val(wo_value val, wo_vm vm, wo_value result)
 {
-    auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
 
     wo::struct_t* structptr;
@@ -2049,7 +2022,6 @@ void wo_set_err_val(wo_value val, wo_vm vm, wo_value result)
 }
 void wo_set_err_gchandle(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t))
 {
-    auto* wovm = WO_VM(vm);
     auto* target_val = WO_VAL(val);
 
     wo::struct_t* structptr;

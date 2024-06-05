@@ -484,8 +484,9 @@ namespace wo
         template<typename T>
         class raii_value_clear_guard
         {
-            T m_clear_value;
             T* m_aim_value;
+            T m_clear_value;
+
         public:
             raii_value_clear_guard(T* aim_value, T clear_value)
                 :m_aim_value(aim_value), m_clear_value(clear_value)

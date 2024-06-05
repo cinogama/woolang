@@ -56,7 +56,6 @@ namespace wo
         }
         bool set_breakpoint(wo::vmbase* vmm, const std::wstring& src_file, size_t rowno)
         {
-            auto& context = env_context[vmm->env];
             auto breakip = vmm->env->program_debug_info->get_ip_by_src_location(src_file, rowno, true, false);
 
             if (!breakip.empty())
@@ -794,10 +793,11 @@ thread          vm              <id>          Continue and break at specified vm
                 else if (main_command == "cls" || main_command == "clear")
                 {
 #ifdef _WIN32
-                    (void)system("cls");
+                    auto ignore = system("cls");
 #else
-                    (void)system("clear");
+                    auto ignore = system("clear");
 #endif
+                    (void)ignore;
                 }
                 else if (main_command == "s" || main_command == "step")
                 {

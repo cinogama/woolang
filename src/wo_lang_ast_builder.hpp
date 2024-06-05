@@ -766,7 +766,7 @@ namespace wo
 
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
                 if (!child_instance) *dumm = *this;
-                
+
                 WO_REINSTANCE(dumm->where_constraint);
 
                 return dumm;
@@ -808,10 +808,10 @@ namespace wo
                 }
             }
         };
-        struct ast_value_function_define : 
-            virtual ast_value, 
-            virtual ast_symbolable_base, 
-            virtual ast_defines, 
+        struct ast_value_function_define :
+            virtual ast_value,
+            virtual ast_symbolable_base,
+            virtual ast_defines,
             virtual ast_where_constraint_constration
         {
             wo_pstring_t function_name = nullptr;
@@ -1002,15 +1002,20 @@ namespace wo
             ast_list* array_items;
             bool is_mutable_vector;
             ast_value_array(ast_list* _items, bool is_mutable)
-                : array_items(_items)
+                : ast_value(is_mutable ? new ast_type(WO_PSTR(vec)) : new ast_type(WO_PSTR(array)))
+                , array_items(_items)
                 , is_mutable_vector(is_mutable)
-                , ast_value(is_mutable ? new ast_type(WO_PSTR(vec)) : new ast_type(WO_PSTR(array)))
             {
                 wo_assert(array_items != nullptr && value_type->template_arguments.empty());
                 value_type->template_arguments.push_back(new ast_type(WO_PSTR(pending)));
             }
 
-            ast_value_array() :ast_value(new ast_type(WO_PSTR(pending))) {}
+            ast_value_array() 
+                : ast_value(new ast_type(WO_PSTR(pending))) 
+                , array_items(nullptr)
+                , is_mutable_vector(false)
+            {
+            }
             ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
@@ -1035,16 +1040,21 @@ namespace wo
             ast_list* mapping_pairs;
             bool is_mutable_map;
             ast_value_mapping(ast_list* _items, bool is_mutable)
-                : mapping_pairs(_items)
+                : ast_value(is_mutable ? new ast_type(WO_PSTR(map)) : new ast_type(WO_PSTR(dict)))
+                , mapping_pairs(_items)
                 , is_mutable_map(is_mutable)
-                , ast_value(is_mutable ? new ast_type(WO_PSTR(map)) : new ast_type(WO_PSTR(dict)))
             {
                 wo_assert(mapping_pairs != nullptr && value_type->template_arguments.empty());
                 value_type->template_arguments.push_back(new ast_type(WO_PSTR(pending)));
                 value_type->template_arguments.push_back(new ast_type(WO_PSTR(pending)));
             }
 
-            ast_value_mapping() : ast_value(new ast_type(WO_PSTR(pending))) {}
+            ast_value_mapping()
+                : ast_value(new ast_type(WO_PSTR(pending)))
+                , mapping_pairs(nullptr)
+                , is_mutable_map(false)
+            {
+            }
             ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
@@ -1316,8 +1326,8 @@ namespace wo
         {
             ast_value* argindex;
             ast_value_indexed_variadic_args(ast_value* arg_index)
-                : argindex(arg_index)
-                , ast_value(new ast_type(WO_PSTR(dynamic)))
+                : ast_value(new ast_type(WO_PSTR(dynamic)))
+                , argindex(arg_index)
             {
                 wo_assert(argindex);
             }
@@ -1346,13 +1356,14 @@ namespace wo
         struct ast_fakevalue_unpacked_args : virtual public ast_value
         {
             constexpr static int32_t UNPACK_ALL_ARGUMENT = INT32_MAX;
-            ast_value* unpacked_pack;
+
+            ast_value* unpacked_pack = nullptr;
             int32_t expand_count = UNPACK_ALL_ARGUMENT;
 
             ast_fakevalue_unpacked_args(ast_value* pak, int32_t _expand_count)
-                : unpacked_pack(pak),
-                expand_count(_expand_count),
-                ast_value(new ast_type(WO_PSTR(dynamic)))
+                : ast_value(new ast_type(WO_PSTR(dynamic)))
+                , unpacked_pack(pak)
+                , expand_count(_expand_count)
             {
                 wo_assert(unpacked_pack && _expand_count >= 0);
             }
