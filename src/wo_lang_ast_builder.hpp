@@ -1011,8 +1011,8 @@ namespace wo
             }
 
             ast_value_array() 
-                :ast_value(new ast_type(WO_PSTR(pending))) 
-                , array_items(_items)
+                : ast_value(new ast_type(WO_PSTR(pending))) 
+                , array_items(nullptr)
                 , is_mutable_vector(false)
             {
             }

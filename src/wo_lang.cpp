@@ -3408,7 +3408,6 @@ namespace wo
 
     bool lang::check_if_need_try_operation_overload_binary(ast::ast_type* left, ast::ast_type* right, lex_type op, ast::ast_type** out_type)
     {
-        ast::ast_type* a_value_binary_target_type = nullptr;
         if (!left->is_builtin_basic_type() || !right->is_builtin_basic_type())
         {
             // IS CUSTOM TYPE, DELAY THE TYPE CALC TO PASS2
