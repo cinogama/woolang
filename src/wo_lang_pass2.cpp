@@ -605,8 +605,6 @@ namespace wo
         {
             if (a_value_assi->left->value_type->is_function())
             {
-                auto* symbinfo = dynamic_cast<ast_value_variable*>(a_value_assi->left);
-
                 if (auto right_func_instance = judge_auto_type_of_funcdef_with_type(
                     a_value_assi->located_scope,
                     a_value_assi->left->value_type, a_value_assi->right, true, nullptr, nullptr))
