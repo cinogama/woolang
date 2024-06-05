@@ -38,13 +38,21 @@ namespace wo
 
         if (peeked_flag)
         {
-            return try_handle_macro(out_literal, peek_result_type, peek_result_str, true);
+            return try_handle_macro(
+                out_literal, 
+                peek_result_type, 
+                peek_result_str, 
+                true);
         }
 
         if (!temp_token_buff_stack.empty())
         {
             just_have_err = false;
-            return try_handle_macro(out_literal, temp_token_buff_stack.top().first, temp_token_buff_stack.top().second, true);
+            return try_handle_macro(
+                out_literal, 
+                temp_token_buff_stack.top().first, 
+                temp_token_buff_stack.top().second, 
+                true);
         }
 
         auto old_now_file_rowno = now_file_rowno;
@@ -214,6 +222,11 @@ namespace wo
                                 break;
 
                             lex_tokens.push_back({ token , result });
+                        }
+                        if (peeked_flag)
+                        {
+                            lex_tokens.push_back({peek_result_type, peek_result_str});
+                            peeked_flag = false;
                         }
                         if (tmp_lex.has_error())
                         {

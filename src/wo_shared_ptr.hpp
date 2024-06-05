@@ -2,16 +2,20 @@
 #include <atomic>
 namespace wo
 {
-    template<typename T, typename COUNTT = std::atomic_size_t>
+    template<typename T, typename CountT = std::atomic_size_t>
     class shared_pointer
     {
+        static_assert(sizeof(CountT) == sizeof(size_t));
+
+        using release_func_t = void(*)(T*);
+        static void __default_release_func(T* ptr)
+        {
+            delete ptr;
+        }
+
         T* ptr = nullptr;
-        COUNTT* ref_count = nullptr;
-        void(*release_func)(T*) = nullptr;
-
-        static_assert(sizeof(COUNTT) == sizeof(size_t));
-
-        static void DEFAULT_DESTROY_FUNCTION(T* ptr) { delete ptr; }
+        CountT* ref_count = nullptr;
+        release_func_t release_func = nullptr;
 
     public:
         void clear()
@@ -23,7 +27,7 @@ namespace wo
                     // Recycle
                     release_func(ptr);
 
-                    ref_count->~COUNTT();
+                    ref_count->~CountT();
                     delete ref_count;
                 }
             }
@@ -36,13 +40,13 @@ namespace wo
         }
 
         shared_pointer() noexcept = default;
-        shared_pointer(T* v, void(*f)(T*) = nullptr) noexcept :
+        shared_pointer(T* v, release_func_t f = nullptr) noexcept :
             ptr(v),
             ref_count(nullptr),
-            release_func(f ? f : DEFAULT_DESTROY_FUNCTION)
+            release_func(f ? f : __default_release_func)
         {
             if (ptr != nullptr)
-                ref_count = new COUNTT(1);
+                ref_count = new CountT(1);
         }
 
         shared_pointer(const shared_pointer& v) noexcept
