@@ -1,4 +1,4 @@
-﻿# libwoo
+# libwoo
 #
 cmake_minimum_required (VERSION 3.8)
 
@@ -35,7 +35,7 @@ if (BUILD_SHARED_LIBS)
     add_library (woolang SHARED ${woo_src_cpp} ${woo_src_hpp})
 else()
     if(UNIX)
-        target_compile_definitions(woolang_library_options -Wall -rdynamic)
+        target_compile_definitions(woolang_library_options INTERFACE -Wall -rdynamic)
     endif()
     add_library(woolang STATIC ${woo_src_cpp} ${woo_src_hpp})
 endif()
