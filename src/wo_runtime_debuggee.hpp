@@ -794,10 +794,11 @@ thread          vm              <id>          Continue and break at specified vm
                 else if (main_command == "cls" || main_command == "clear")
                 {
 #ifdef _WIN32
-                    (void)system("cls");
+                    auto ignore = system("cls");
 #else
-                    (void)system("clear");
+                    auto ignore = system("clear");
 #endif
+                    (void)ignore;
                 }
                 else if (main_command == "s" || main_command == "step")
                 {
