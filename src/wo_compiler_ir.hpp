@@ -1595,7 +1595,7 @@ namespace wo
             static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
                 "Can not move value to immediate.");
 
-            auto& codeb = WO_PUT_IR_TO_BUFFER(instruct::opcode::mkunion, WO_OPNUM(op1), WO_OPNUM(op2), (int32_t)id);
+            WO_PUT_IR_TO_BUFFER(instruct::opcode::mkunion, WO_OPNUM(op1), WO_OPNUM(op2), (int32_t)id);
         }
 
         template<typename OP1T>
