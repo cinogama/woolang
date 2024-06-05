@@ -2044,7 +2044,6 @@ namespace wo
             using_type->old_type = dynamic_cast<ast_type*>(WO_NEED_AST(5));
             using_type->declear_attribute = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(0));
             using_type->is_alias = WO_NEED_TOKEN(1).type == lex_type::l_alias;
-            ast_list* template_const_list = new ast_list;
 
             using_type->old_type = dynamic_cast<ast_type*>(WO_NEED_AST(5));
             ast_namespace* type_namespace = new ast_namespace;
