@@ -1069,6 +1069,7 @@ namespace wo
 
         if (ast_pattern_takeplace* a_pattern_takeplace = dynamic_cast<ast_pattern_takeplace*>(pattern))
         {
+            (void)a_pattern_takeplace;
         }
         else
         {
@@ -1127,6 +1128,7 @@ namespace wo
 
         if (ast_pattern_takeplace* a_pattern_takeplace = dynamic_cast<ast_pattern_takeplace*>(pattern))
         {
+            (void)a_pattern_takeplace;
             analyze_pass1(initval);
         }
         else
@@ -1198,6 +1200,7 @@ namespace wo
 
         if (ast_pattern_takeplace* a_pattern_takeplace = dynamic_cast<ast_pattern_takeplace*>(pattern))
         {
+            (void)a_pattern_takeplace;
             analyze_pass2(initval);
         }
         else
@@ -1338,6 +1341,8 @@ namespace wo
         }
         else if (ast_pattern_takeplace* a_pattern_takeplace = dynamic_cast<ast_pattern_takeplace*>(pattern))
         {
+            (void)a_pattern_takeplace;
+
             // DO NOTHING
             if (!in_pattern_expr)
                 analyze_value(initval, compiler);
@@ -2255,6 +2260,7 @@ namespace wo
         using namespace opnum;
         if (auto* regist = dynamic_cast<reg*>(&op_num))
         {
+            (void)regist;
             return true;
         }
         return false;

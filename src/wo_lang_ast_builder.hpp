@@ -1002,15 +1002,20 @@ namespace wo
             ast_list* array_items;
             bool is_mutable_vector;
             ast_value_array(ast_list* _items, bool is_mutable)
-                : array_items(_items)
+                : ast_value(is_mutable ? new ast_type(WO_PSTR(vec)) : new ast_type(WO_PSTR(array)))
+                , array_items(_items)
                 , is_mutable_vector(is_mutable)
-                , ast_value(is_mutable ? new ast_type(WO_PSTR(vec)) : new ast_type(WO_PSTR(array)))
             {
                 wo_assert(array_items != nullptr && value_type->template_arguments.empty());
                 value_type->template_arguments.push_back(new ast_type(WO_PSTR(pending)));
             }
 
-            ast_value_array() :ast_value(new ast_type(WO_PSTR(pending))) {}
+            ast_value_array() 
+                :ast_value(new ast_type(WO_PSTR(pending))) 
+                , array_items(_items)
+                , is_mutable_vector(false)
+            {
+            }
             ast::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
