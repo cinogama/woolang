@@ -56,7 +56,6 @@ namespace wo
         }
         bool set_breakpoint(wo::vmbase* vmm, const std::wstring& src_file, size_t rowno)
         {
-            auto& context = env_context[vmm->env];
             auto breakip = vmm->env->program_debug_info->get_ip_by_src_location(src_file, rowno, true, false);
 
             if (!breakip.empty())

@@ -62,15 +62,15 @@ namespace wo
             bool completed_in_pass1 = false;
             bool completed_in_pass2 = false;
 
-            lang_scope* located_scope;
+            lang_scope* located_scope = nullptr;
 
-            ast_base* parent;
-            ast_base* children;
-            ast_base* sibling;
-            ast_base* last;
+            ast_base* parent = nullptr;
+            ast_base* children = nullptr;
+            ast_base* sibling = nullptr;
+            ast_base* last = nullptr;
 
-            size_t row_begin_no, row_end_no;
-            size_t col_begin_no, col_end_no;
+            size_t row_begin_no = 0, row_end_no = 0;
+            size_t col_begin_no = 0, col_end_no = 0;
             wo_pstring_t source_file = nullptr;
 
             wo_pstring_t marking_label = nullptr;
@@ -89,15 +89,6 @@ namespace wo
             }
             ast_base& operator = (ast_base&&) = delete;
             ast_base()
-                : parent(nullptr)
-                , children(nullptr)
-                , sibling(nullptr)
-                , last(nullptr)
-                , located_scope(nullptr)
-                , row_begin_no(0)
-                , row_end_no(0)
-                , col_begin_no(0)
-                , col_end_no(0)
             {
                 if (!list)
                     list = new std::forward_list<ast_base*>;

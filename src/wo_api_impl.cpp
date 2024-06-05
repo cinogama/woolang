@@ -386,8 +386,6 @@ void wo_handle_ctrl_c(void(*handler)(int))
 
 void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
 {
-    bool scheduler_need_shutdown = true;
-
     // Ready to shutdown all vm & coroutine.
     // 
     // Free all vm in pool, because vm in pool is PENDING, we can free them directly.
