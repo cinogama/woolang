@@ -4,12 +4,12 @@ cmake_minimum_required (VERSION 3.8)
 
 project ("Woolang")
 
-option(WO_MAKE_OUTPUT_IN_SAME_PATH "Build woo lib and driver and output in same path" OFF)
-option(BUILD_SHARED_LIBS "Build woo as shared lib" ON)
-option(WO_FORCE_GC_OBJ_THREAD_SAFETY "Make sure all operation of GC object is safe, only keep gc-safe if disabled." OFF)
-option(WO_BUILD_FOR_COVERAGE_TEST "Build woo for code coverage test" OFF)
-option(WO_BUILD_FOR_ASAN_TEST "Build woo for code asan test" OFF)
-option(WO_SUPPORT_ASMJIT "Support asmjit for compile" ON)
+option(BUILD_SHARED_LIBS                "Build woo as shared lib" ON)
+option(WO_MAKE_OUTPUT_IN_SAME_PATH      "Build woo lib and driver and output in same path" OFF)
+option(WO_FORCE_GC_OBJ_THREAD_SAFETY    "Make sure all operation of GC object is safe, only keep gc-safe if disabled." OFF)
+option(WO_BUILD_FOR_COVERAGE_TEST       "Build woo for code coverage test" OFF)
+option(WO_BUILD_FOR_ASAN_TEST           "Build woo for code asan test" OFF)
+option(WO_SUPPORT_ASMJIT                "Support asmjit for compile" ON)
 
 if (WO_MAKE_OUTPUT_IN_SAME_PATH)
     set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/build")
