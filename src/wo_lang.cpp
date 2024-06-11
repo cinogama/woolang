@@ -18,8 +18,7 @@ namespace wo
                 && type == lang_symbol::symbol_type::variable
                 && dynamic_cast<ast::ast_value_function_define*>(init_value_expr) != nullptr
                 // Only normal func (without capture vars) can use this way to optimize.
-                && dynamic_cast<ast::ast_value_function_define*>(init_value_expr)->capture_variables.empty())
-            ;
+                && dynamic_cast<ast::ast_value_function_define*>(init_value_expr)->capture_variables.empty());
     }
 
     bool lang::record_error_for_constration(
@@ -461,13 +460,13 @@ namespace wo
                 return;
 
             // TODO: constant variable here..
-            if (symbol
-                && !symbol->is_captured_variable
-                && symbol->decl == identifier_decl::IMMUTABLE)
+            if (symbol && symbol->decl == identifier_decl::IMMUTABLE)
             {
                 symbol->variable_value->eval_constant_value(lex);
                 if (symbol->variable_value->is_constant)
                 {
+                    wo_assert(symbol->is_captured_variable == false);
+
                     is_constant = true;
                     symbol->is_constexpr = true;
                     constant_value.set_val_compile_time(&symbol->variable_value->get_constant_value());
@@ -1231,8 +1230,12 @@ namespace wo
                     analyze_pass2(initval);
                     a_pattern_identifier->symbol->has_been_completed_defined = true;
 
-                    if (initval->is_constant)
+                    if (initval->is_constant &&
+                        a_pattern_identifier->symbol->decl == identifier_decl::IMMUTABLE)
+                    {
+                        wo_assert(a_pattern_identifier->symbol->is_captured_variable == false);
                         a_pattern_identifier->symbol->is_constexpr = true;
+                    }
                 }
                 else
                 {
