@@ -463,10 +463,9 @@ namespace wo
             if (symbol && symbol->decl == identifier_decl::IMMUTABLE)
             {
                 symbol->variable_value->eval_constant_value(lex);
-                if (symbol->variable_value->is_constant)
+                if (symbol->variable_value->is_constant
+                    && !symbol->is_captured_variable)
                 {
-                    wo_assert(symbol->is_captured_variable == false);
-
                     is_constant = true;
                     symbol->is_constexpr = true;
                     constant_value.set_val_compile_time(&symbol->variable_value->get_constant_value());
@@ -1231,9 +1230,9 @@ namespace wo
                     a_pattern_identifier->symbol->has_been_completed_defined = true;
 
                     if (initval->is_constant &&
+                        a_pattern_identifier->symbol->is_captured_variable &&
                         a_pattern_identifier->symbol->decl == identifier_decl::IMMUTABLE)
                     {
-                        wo_assert(a_pattern_identifier->symbol->is_captured_variable == false);
                         a_pattern_identifier->symbol->is_constexpr = true;
                     }
                 }
