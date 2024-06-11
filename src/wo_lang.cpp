@@ -3,6 +3,25 @@
 namespace wo
 {
     using namespace ast;
+    bool lang_symbol::is_constexpr_or_immut_no_closure_func()
+    {
+        // If constexpr or immut binded with function define, 
+        // No need generate code for it's stack space and init.
+        auto* init_value_expr = variable_value;
+        if (auto* real_init_expr = dynamic_cast<ast_value_init*>(init_value_expr))
+            init_value_expr = real_init_expr->init_value;
+
+        return is_constexpr
+            || (decl == wo::ast::identifier_decl::IMMUTABLE
+                && !is_argument
+                && !is_captured_variable
+                && type == lang_symbol::symbol_type::variable
+                && dynamic_cast<ast::ast_value_function_define*>(init_value_expr) != nullptr
+                // Only normal func (without capture vars) can use this way to optimize.
+                && dynamic_cast<ast::ast_value_function_define*>(init_value_expr)->capture_variables.empty())
+            ;
+    }
+
     bool lang::record_error_for_constration(
         ast::ast_where_constraint_constration* c,
         std::function<void(void)> job,
@@ -1211,6 +1230,9 @@ namespace wo
                 {
                     analyze_pass2(initval);
                     a_pattern_identifier->symbol->has_been_completed_defined = true;
+
+                    if (initval->is_constant)
+                        a_pattern_identifier->symbol->is_constexpr = true;
                 }
                 else
                 {
@@ -2802,7 +2824,8 @@ namespace wo
 
             lang_anylizer->lang_error(lexer::errorlevel::error, errreporter, WO_ERR_REDEFINED, names->c_str());
             lang_anylizer->lang_error(lexer::errorlevel::infom,
-                (last_found_symbol->type == lang_symbol::symbol_type::typing || last_found_symbol->type == lang_symbol::symbol_type::type_alias)
+                (last_found_symbol->type == lang_symbol::symbol_type::typing || 
+                    last_found_symbol->type == lang_symbol::symbol_type::type_alias)
                 ? (ast::ast_base*)last_found_symbol->type_informatiom
                 : (ast::ast_base*)last_found_symbol->variable_value
                 , WO_INFO_ITEM_IS_DEFINED_HERE, names->c_str());
@@ -2846,6 +2869,7 @@ namespace wo
             auto* func = in_function();
             if (attr->is_extern_attr() && func)
                 lang_anylizer->lang_error(lexer::errorlevel::error, attr, WO_ERR_CANNOT_EXPORT_SYMB_IN_FUNC);
+
             if (func && !sym->attribute->is_static_attr())
             {
                 sym->define_in_function = true;
