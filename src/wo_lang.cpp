@@ -47,6 +47,9 @@ namespace wo
 
             for (size_t i = anylizer_error_count; i < current_error_frame.size(); ++i)
             {
+                if (c->where_constraint->unmatched_constraint.size() >= WO_MAX_ERROR_COUNT)
+                    break;
+
                 c->where_constraint->unmatched_constraint.push_back(
                     current_error_frame.at(i));
             }
@@ -64,11 +67,12 @@ namespace wo
             && !c->where_constraint->accept)
         {
             lang_anylizer->lang_error(lexer::errorlevel::error, b, L"%ls", errmsg);
+
             for (auto& error_info : c->where_constraint->unmatched_constraint)
             {
                 auto copied_err_info = error_info;
                 copied_err_info.error_level = lexer::errorlevel::infom;
-                lang_anylizer->get_cur_error_frame().push_back(copied_err_info);
+                lang_anylizer->error_impl(copied_err_info);
             }
         }
     }

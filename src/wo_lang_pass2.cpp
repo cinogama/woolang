@@ -976,9 +976,8 @@ namespace wo
                     if (func_symbol_target != nullptr)
                     {
                         // Overload func is found, but failed to call.
-                        auto& current_frame = lang_anylizer->get_cur_error_frame();
                         for (auto& err : current_error_frame_dup)
-                            current_frame.push_back(err);
+                            lang_anylizer->error_impl(err);
                     }
 
                     a_value_bin->overrided_operation_call = nullptr;
@@ -1036,9 +1035,8 @@ namespace wo
                     if (func_symbol_target != nullptr)
                     {
                         // Overload func is found, but failed to call.
-                        auto& current_frame = lang_anylizer->get_cur_error_frame();
                         for (auto& err : current_error_frame_dup)
-                            current_frame.push_back(err);
+                            lang_anylizer->error_impl(err);
                     }
 
                     a_value_logic_bin->overrided_operation_call = nullptr;
