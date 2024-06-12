@@ -92,20 +92,7 @@ namespace wo
             else
                 return variable_value->source_file;
         }
-        bool is_constexpr_or_immut_no_closure_func()
-        {
-            // If constexpr or immut binded with function define, 
-            // No need generate code for it's stack space and init.
-            return is_constexpr
-                || (decl == wo::ast::identifier_decl::IMMUTABLE
-                    && !is_argument
-                    && !is_captured_variable
-                    && type == lang_symbol::symbol_type::variable
-                    && dynamic_cast<ast::ast_value_function_define*>(variable_value) != nullptr
-                    // Only normal func (without capture vars) can use this way to optimize.
-                    && dynamic_cast<ast::ast_value_function_define*>(variable_value)->capture_variables.empty())
-                ;
-        }
+        bool is_constexpr_or_immut_no_closure_func();
     };
 
     struct lang_scope
