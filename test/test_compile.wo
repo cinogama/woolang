@@ -938,6 +938,13 @@ func main()
                 value(T): gadt<string>,
             }
         "@);
+        assure_compile_success(@"
+            union gadt<T>
+            {
+                value(int): gadt<real>,
+            }
+            let a = gadt::value(1) as gadt<real>;
+        "@);
         
         assure_compile_fail(@"
             namespace prot

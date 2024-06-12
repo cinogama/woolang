@@ -1669,8 +1669,10 @@ namespace wo
                         if (conflict)
                             lex.lang_error(lexer::errorlevel::error, items->gadt_out_type_may_nil, WO_ERR_INVALID_GADT_CONFLICT);
 
+                        avfd_item_type_builder->value_type->set_ret_type(items->gadt_out_type_may_nil);
                     }
-                    avfd_item_type_builder->value_type->set_ret_type(adt_type);
+                    else
+                        avfd_item_type_builder->value_type->set_ret_type(adt_type);
 
                     avfd_item_type_builder->value_type->argument_types.push_back(dynamic_cast<ast_type*>(items->type_may_nil->instance()));
 
