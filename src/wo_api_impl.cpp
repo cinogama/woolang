@@ -2778,11 +2778,6 @@ std::string _wo_dump_lexer_context_error(wo::lexer* lex, _wo_inform_style style)
 
     for (auto& err_info : lex->lex_error_list)
     {
-        if (++errcount > 100)
-        {
-            _vm_compile_errors += wo::wstr_to_str(WO_TOO_MANY_ERROR(lex->lex_error_list.size()) + L"\n");
-            break;
-        }
         if (src_file_path != err_info.filename)
         {
             if (style == WO_NEED_COLOR)
@@ -2797,6 +2792,9 @@ std::string _wo_dump_lexer_context_error(wo::lexer* lex, _wo_inform_style style)
             _dump_src_info(src_file_path, err_info.begin_row, err_info.begin_col, err_info.end_row, err_info.end_col, style)) + "\n";
     }
 
+    if (lex->lex_error_list.size() >= WO_MAX_ERROR_COUNT)
+        _vm_compile_errors += wo::wstr_to_str(WO_TOO_MANY_ERROR(WO_MAX_ERROR_COUNT) + L"\n");
+    
     return _vm_compile_errors;
 }
 

@@ -5,6 +5,8 @@
 #define WO_LANG_EN 0
 #define WO_LANG_ZH_CN 1
 
+#define WO_MAX_ERROR_COUNT 100
+
 #ifndef WO_USED_LANGUAGE
 #   define WO_USED_LANGUAGE WO_LANG_ZH_CN
 #endif
@@ -26,7 +28,7 @@
 
 #define WO_MACRO_ANALYZE_END_HERE L"此宏解析在此处结束："
 
-#define WO_TOO_MANY_ERROR(count) L"报告的错误数量太多，仅显示 99/" + std::to_wstring(count) +  L" 条，终止"
+#define WO_TOO_MANY_ERROR(count) L"报告的错误数量太多，仅显示 " + std::to_wstring(count) +  L" 条，终止"
 
 
 #define WO_ERR_MISMATCH_ANNO_SYM L"不匹配的注释符"
@@ -310,7 +312,7 @@
 
 #define WO_MACRO_ANALYZE_END_HERE L"This macro parsing ends here:"
 
-#define WO_TOO_MANY_ERROR(count) L"Too many errors, only display 99/" + std::to_wstring(count) +  L" errors, abort."
+#define WO_TOO_MANY_ERROR(maxcount, count) L"Too many errors, only display " + std::to_wstring(count) +  L" errors, abort."
 
 
 #define WO_ERR_MISMATCH_ANNO_SYM L"Mismatched annotation symbols."

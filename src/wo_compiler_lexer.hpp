@@ -210,7 +210,7 @@ namespace wo
         lex_type peek_result_type = lex_type::l_error;
         std::wstring peek_result_str;
         bool peeked_flag = false;
-    
+
     public:
         std::unordered_set<wo_pstring_t> imported_file_list;
         std::unordered_set<uint64_t> imported_file_crc64_list;
@@ -392,8 +392,8 @@ namespace wo
                     for (wchar_t wch : _operator)
                         _result.insert(wch);
                 return _result;
-            }();
-            return operator_char_set.find((wchar_t)ch) != operator_char_set.end();
+                }();
+                return operator_char_set.find((wchar_t)ch) != operator_char_set.end();
         }
         static bool lex_isspace(int ch)
         {
@@ -514,6 +514,18 @@ namespace wo
             return error_frame[error_frame.size() - 1];
         }
 
+        lex_type error_impl(const lex_error_msg& msg)
+        {
+            auto& current_err_frame = get_cur_error_frame();
+            if (current_err_frame.size() >= WO_MAX_ERROR_COUNT)
+                // To many error, skip.
+                return lex_type::l_error;
+
+            just_have_err = true;
+            current_err_frame.emplace_back(msg);
+            return lex_type::l_error;
+        }
+
         template<typename AstT, typename ... TS>
         lex_error_msg make_error(lexer::errorlevel errorlevel, AstT* tree_node, const wchar_t* fmt, TS&& ... args)
         {
@@ -544,20 +556,18 @@ namespace wo
             wchar_t describe[256] = {};
             swprintf(describe, 255, fmt, args...);
 
-            lex_error_msg msg = lex_error_msg
-            {
-                errorlevel,
-                now_file_rowno,
-                next_file_rowno,
-                now_file_colno,
-                next_file_colno,
-                describe,
-                source_file ? wstr_to_str(*source_file) : "json"
-            };
-            just_have_err = true;
-            get_cur_error_frame().emplace_back(msg);
+            auto result = error_impl(
+                lex_error_msg{
+                    errorlevel,
+                    now_file_rowno,
+                    next_file_rowno,
+                    now_file_colno,
+                    next_file_colno,
+                    describe,
+                    source_file ? wstr_to_str(*source_file) : "json"
+                });
             skip_error_line();
-            return lex_type::l_error;
+            return result;
         }
 
         template<typename ... TS>
@@ -566,20 +576,16 @@ namespace wo
             wchar_t describe[256] = {};
             swprintf(describe, 255, fmt, args...);
 
-            lex_error_msg msg = lex_error_msg
-            {
-                errorlevel,
-                now_file_rowno,
-                next_file_rowno,
-                now_file_colno,
-                next_file_colno,
-                describe,
-                wstr_to_str(*source_file)
-            };
-
-            just_have_err = true;
-            get_cur_error_frame().emplace_back(msg);
-            return lex_type::l_error;
+            return error_impl(
+                lex_error_msg{
+                    errorlevel,
+                    now_file_rowno,
+                    next_file_rowno,
+                    now_file_colno,
+                    next_file_colno,
+                    describe,
+                    wstr_to_str(*source_file)
+                });
         }
 
         template<typename AstT, typename ... TS>
@@ -596,8 +602,7 @@ namespace wo
             wchar_t describe[256] = {};
             swprintf(describe, 255, fmt, args...);
 
-            lex_error_msg msg = lex_error_msg
-            {
+            return error_impl(lex_error_msg{
                 errorlevel,
                 begin_row_no,
                 end_row_no,
@@ -605,13 +610,9 @@ namespace wo
                 end_col_no,
                 describe,
                 wstr_to_str(*tree_node->source_file)
-            };
-
-            just_have_err = true;
-            get_cur_error_frame().emplace_back(msg);
-
-            return lex_type::l_error;
+            });
         }
+
         bool has_error() const
         {
             return !lex_error_list.empty();
@@ -624,16 +625,16 @@ namespace wo
         void skip_error_line();
 
         lex_type try_handle_macro(
-            std::wstring* out_literal, 
-            lex_type result_type, 
-            const std::wstring& result_str, 
+            std::wstring* out_literal,
+            lex_type result_type,
+            const std::wstring& result_str,
             bool workinpeek);
 
     public:
         int next_one();
         int peek_one();
         lex_type peek(std::wstring* out_literal);
-        
+
         lex_type next(std::wstring* out_literal);
         void push_temp_for_error_recover(lex_type type, const std::wstring& out_literal);
 
