@@ -1230,8 +1230,8 @@ namespace wo
                     a_pattern_identifier->symbol->has_been_completed_defined = true;
 
                     if (initval->is_constant &&
-                        a_pattern_identifier->symbol->is_captured_variable &&
-                        a_pattern_identifier->symbol->decl == identifier_decl::IMMUTABLE)
+                        a_pattern_identifier->symbol->decl == identifier_decl::IMMUTABLE &&
+                        !a_pattern_identifier->symbol->is_captured_variable)
                     {
                         a_pattern_identifier->symbol->is_constexpr = true;
                     }
