@@ -194,6 +194,7 @@ WO_API void wo_set_gchandle(wo_value value, wo_vm vm, wo_ptr_t resource_ptr, wo_
 WO_API void wo_set_struct(wo_value value, wo_vm vm, uint16_t structsz);
 WO_API void wo_set_arr(wo_value value, wo_vm vm, wo_int_t count);
 WO_API void wo_set_map(wo_value value, wo_vm vm, wo_size_t reserved);
+WO_API void wo_set_union(wo_value value, wo_vm vm, wo_integer_t id, wo_value value_may_null);
 
 WO_API wo_integer_t wo_cast_int(wo_value value);
 WO_API wo_real_t    wo_cast_real(wo_value value);
@@ -229,6 +230,7 @@ WO_API wo_result_t  wo_ret_dup(wo_vm vm, wo_value result);
 
 WO_API wo_result_t  wo_ret_halt(wo_vm vm, wo_string_t reasonfmt, ...);
 WO_API wo_result_t  wo_ret_panic(wo_vm vm, wo_string_t reasonfmt, ...);
+WO_API wo_result_t  wo_ret_union(wo_vm vm, wo_integer_t id, wo_value value_may_null);
 
 WO_API void  wo_set_option_void(wo_value val, wo_vm vm);
 WO_API void  wo_set_option_char(wo_value val, wo_vm vm, wo_char_t result);
@@ -412,6 +414,7 @@ WO_API wo_value     wo_push_dup(wo_vm vm, wo_value val);
 WO_API wo_value     wo_push_arr(wo_vm vm, wo_int_t count);
 WO_API wo_value     wo_push_struct(wo_vm vm, uint16_t count);
 WO_API wo_value     wo_push_map(wo_vm vm, wo_size_t reserved);
+WO_API wo_value     wo_push_union(wo_vm vm, wo_integer_t id, wo_value value_may_null);
 
 WO_API wo_value     wo_top_stack(wo_vm vm);
 WO_API void         wo_pop_stack(wo_vm vm);
@@ -460,6 +463,7 @@ WO_API wo_bool_t    wo_struct_try_set(wo_value value, uint16_t offset, wo_value 
 WO_API void         wo_struct_get(wo_value out_val, wo_value value, uint16_t offset);
 WO_API void         wo_struct_set(wo_value value, uint16_t offset, wo_value val);
 
+WO_API wo_integer_t wo_union_get(wo_value out_val, wo_value unionval);
 WO_API wo_bool_t    wo_result_get(wo_value out_val, wo_value resultval);
 #define wo_option_get wo_result_get
 
