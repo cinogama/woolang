@@ -842,6 +842,28 @@ void wo_set_map(wo_value value, wo_vm vm, wo_size_t reserved)
         wo::dict_t::gc_new<wo::gcbase::gctype::young>(reserved));
 }
 
+void wo_set_union(wo_value value, wo_vm vm, wo_integer_t id, wo_value value_may_null)
+{
+    auto* target_val = WO_VAL(value);
+
+    wo::struct_t* structptr;
+    {
+        _wo_enter_gc_guard g(vm);
+        structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(2);
+        target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
+    }
+
+    structptr->m_values[0].set_integer(0);
+    
+    wo_assert(
+        structptr->m_values[1].type == wo::value::valuetype::invalid && 
+        structptr->m_values[1].handle == 0);
+
+    if (value_may_null != nullptr)
+        structptr->m_values[1].set_val(WO_VAL(value_may_null));
+    
+}
+
 wo_integer_t wo_cast_int(wo_value value)
 {
     auto _rsvalue = WO_VAL(value);
@@ -2035,7 +2057,12 @@ void wo_set_err_gchandle(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, wo_value
     wo_set_gchandle(CS_VAL(&structptr->m_values[1]), vm, resource_ptr, holding_val, destruct_func);
 
 }
-
+wo_result_t wo_ret_union(wo_vm vm, wo_integer_t id, wo_value value_may_null)
+{
+    auto* wovm = WO_VM(vm);
+    wo_set_union(CS_VAL(wovm->cr), vm, id, value_may_null);
+    return wo_result_t::WO_API_NORMAL;
+}
 wo_result_t wo_ret_option_void(wo_vm vm)
 {
     auto* wovm = WO_VM(vm);
@@ -2923,7 +2950,14 @@ wo_value wo_push_map(wo_vm vm, wo_size_t reserved)
 
     return CS_VAL(_rsvalue);
 }
+wo_value wo_push_union(wo_vm vm, wo_integer_t id, wo_value value_may_null)
+{
+    auto* _rsvalue = WO_VM(vm)->sp--;
+    wo_value result = CS_VAL(_rsvalue);
+    wo_set_union(result, vm, id, value_may_null);
 
+    return result;
+}
 wo_value wo_top_stack(wo_vm vm)
 {
     return CS_VAL((WO_VM(vm)->sp - 1));
@@ -3163,9 +3197,9 @@ void wo_struct_set(wo_value value, uint16_t offset, wo_value val)
         wo_fail(WO_FAIL_INDEX_FAIL, "Failed to index: out of range.");
 }
 
-wo_bool_t wo_result_get(wo_value out_val, wo_value resultval)
+wo_integer_t wo_union_get(wo_value out_val, wo_value unionval)
 {
-    auto* val = WO_VAL(resultval);
+    auto* val = WO_VAL(unionval);
     if (val->type != wo::value::valuetype::struct_type
         || val->structs->m_count != 2
         || val->structs->m_values[0].type
@@ -3173,12 +3207,15 @@ wo_bool_t wo_result_get(wo_value out_val, wo_value resultval)
         wo_fail(WO_FAIL_TYPE_FAIL, "Unexpected value type.");
     else
     {
-        bool has = val->structs->m_values[0].integer == 0;
-
         wo_set_val(out_val, CS_VAL(&val->structs->m_values[1]));
-        return WO_CBOOL(has);
+        return val->structs->m_values[0].integer;
     }
-    return WO_FALSE;
+    return -1;
+}
+
+wo_bool_t wo_result_get(wo_value out_val, wo_value resultval)
+{
+    return WO_CBOOL(0 == wo_union_get(out_val, resultval));
 }
 
 void wo_arr_resize(wo_value arr, wo_size_t newsz, wo_value init_val)
