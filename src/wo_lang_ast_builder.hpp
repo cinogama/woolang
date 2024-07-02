@@ -2518,8 +2518,6 @@ namespace wo
                 {
                     // Insert `from` after first argument
                     result->arguments->remove_child(result->directed_value_from);
-                    result->directed_value_from->parent = nullptr;
-
                     result->arguments->append_at_head(from);
                     result->arguments->append_at_head(result->directed_value_from);
                 }

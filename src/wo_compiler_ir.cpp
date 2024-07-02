@@ -783,7 +783,14 @@ namespace wo
                 func = result->loaded_libs.try_load_func_from_in(script_path.c_str(), library_name.c_str(), function_name.c_str());
 
             if (func == nullptr)
+            {
+                fprintf(stderr, "Bad: %s, %s\n", library_name.c_str(), function_name.c_str());
                 WO_LOAD_BIN_FAILED("Failed to restore native function, might be changed?");
+            }
+            else
+            {
+                fprintf(stderr, "Good: %s, %s\n", library_name.c_str(), function_name.c_str());
+            }
 
             auto& extern_native_function_info = result->extern_native_functions[(intptr_t)func];
             extern_native_function_info.function_name = function_name;

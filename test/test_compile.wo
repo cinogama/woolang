@@ -1900,6 +1900,15 @@ func main()
         let foo = abc;
         "@);
 
+        assure_compile_fail(@"
+        func foo()
+        {
+            f->read(b, 256) <| cc;
+        }
+        "@);
+
+
+
         // ISSUE: 1.13: anything has been removed from woolang.
         // assure_compile_success(@"
         //     import woo::std;

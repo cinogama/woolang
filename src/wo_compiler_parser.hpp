@@ -111,8 +111,8 @@ namespace wo
                 if (ast_node->parent == this)
                     return;
 
-                wo_test(ast_node->parent == nullptr);
-                wo_test(ast_node->sibling == nullptr);
+                wo_assert(ast_node->parent == nullptr);
+                wo_assert(ast_node->sibling == nullptr);
 
                 ast_node->parent = this;
                 if (!children)last = nullptr;
@@ -152,6 +152,8 @@ namespace wo
                         if (last == ast_node)
                             last = last_childs;
 
+                        ast_node->parent = nullptr;
+                        ast_node->sibling = nullptr;
                         return;
                     }
 
