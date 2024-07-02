@@ -135,18 +135,18 @@ namespace wo
                 return true;
         }
 
-        // 2) Read file from exepath
+        // 2) Read file from rpath
         do
         {
-            *out_real_read_path = str_to_wstr(wo::exe_path()) + L"/" + filepath;
+            *out_real_read_path = str_to_wstr(wo::work_path()) + L"/" + filepath;
             if (is_file_exist_and_readable(*out_real_read_path))
                 return true;
         } while (0);
 
-        // 3) Read file from rpath
+        // 3) Read file from exepath
         do
         {
-            *out_real_read_path = str_to_wstr(wo::work_path()) + L"/" + filepath;
+            *out_real_read_path = str_to_wstr(wo::exe_path()) + L"/" + filepath;
             if (is_file_exist_and_readable(*out_real_read_path))
                 return true;
         } while (0);
