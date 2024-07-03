@@ -1853,19 +1853,19 @@ namespace result
         err(e)? return ok(e);
         }
     }
-    public func unwarp<T, F>(self: result<T, F>)
+    public func unwrap<T, F>(self: result<T, F>)
     {
         match(self)
         {
         ok(v)? return v;
         err(e)? 
             if (e: string is pending == false)
-                std::panic(F"An error was found in 'unwarp': {e: string}");
+                std::panic(F"An error was found in 'unwrap': {e: string}");
             else
-                std::panic("An error was found in 'unwarp'.");                
+                std::panic("An error was found in 'unwrap'.");                
         }
     }
-    public func unwarpor<T, F>(self: result<T, F>, default_val: T)
+    public func unwrapor<T, F>(self: result<T, F>, default_val: T)
     {
         match(self)
         {
