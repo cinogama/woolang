@@ -7,7 +7,7 @@ namespace test_vm
 {
     func load_and_create_vmm(src:string)
     {
-        let vmm = vm::create("test_vm/test_tmp_script.wo", src)->unwarp;
+        let vmm = vm::create("test_vm/test_tmp_script.wo", src)->unwrap;
         return vmm;
     }
 
