@@ -1327,10 +1327,10 @@ namespace wo
 
             // path += L".wo";
             std::wstring src_full_path;
-            if (!wo::check_virtual_file_path(&src_full_path, path + L".wo", std::optional(*lex.source_file)))
+            if (!wo::check_virtual_file_path(&src_full_path, path + L".wo", std::optional(&lex)))
             {
                 // import a::b; cannot open a/b.wo, trying a/b/b.wo
-                if (!wo::check_virtual_file_path(&src_full_path, path + L"/" + filename + L".wo", std::optional(*lex.source_file)))
+                if (!wo::check_virtual_file_path(&src_full_path, path + L"/" + filename + L".wo", std::optional(&lex)))
                     return token{ lex.parser_error(lexer::errorlevel::error, WO_ERR_CANNOT_OPEN_FILE, path.c_str()) };
             }
 
@@ -1341,7 +1341,7 @@ namespace wo
                 {
                     if (!lex.has_been_imported(wo::crc_64(*srcfile_stream.value(), 0)))
                     {
-                        lexer new_lex(std::move(srcfile_stream), wstr_to_str(src_full_path));
+                        lexer new_lex(std::move(srcfile_stream), src_full_path, &lex);
 
                         new_lex.imported_file_list = lex.imported_file_list;
                         new_lex.imported_file_crc64_list = lex.imported_file_crc64_list;

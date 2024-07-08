@@ -1216,7 +1216,9 @@ wo_bool_t wo_deserialize(wo_vm vm, wo_value value, wo_string_t str, wo_type exce
 {
     _wo_enter_gc_guard g(vm);
 
-    wo::lexer lex(wo::str_to_wstr(str), "json");
+    std::wstring strbuffer = wo::str_to_wstr(str);
+
+    wo::lexer lex(std::make_unique<std::wistringstream>(strbuffer), L"json", nullptr);
     return _wo_cast_value(vm, WO_VAL(value), &lex, (wo::value::valuetype)except_type);
 }
 
@@ -2498,6 +2500,8 @@ std::variant<
             &load_binary_failed_reason,
             &is_valid_binary);
 
+    const std::wstring vwpath = wo::str_to_wstr(virtual_src_path);
+
     if (env_result != nullptr)
     {
         // Load binary successfully!
@@ -2510,7 +2514,8 @@ std::variant<
         wo_assert(load_binary_failed_reason != nullptr);
         // Has error, create a fake lexer to store error reason.
 
-        wo::lexer* lex = new wo::lexer(L"", virtual_src_path);
+        std::wstring empty_strbuffer;
+        wo::lexer* lex = new wo::lexer(std::make_unique<std::wistringstream>(empty_strbuffer), vwpath.c_str(), nullptr);
         lex->lex_error(wo::lexer::errorlevel::error, wo::str_to_wstr(load_binary_failed_reason).c_str());
 
         return lex;
@@ -2519,7 +2524,10 @@ std::variant<
     // 1. Prepare lexer..
     wo::lexer* lex = nullptr;
     if (src != nullptr)
-        lex = new wo::lexer(wo::str_to_wstr(std::string((const char*)src, len).c_str()), virtual_src_path);
+    {
+        std::wstring strbuffer = wo::str_to_wstr(std::string((const char*)src, len).c_str());
+        lex = new wo::lexer(std::make_unique<std::wistringstream>(strbuffer), vwpath.c_str(), nullptr);
+    }
     else
     {
         std::wstring real_file_path;
@@ -2531,7 +2539,7 @@ std::variant<
 
         if (wo::check_virtual_file_path(
             &real_file_path,
-            wo::str_to_wstr(virtual_src_path),
+            vwpath,
             std::nullopt))
         {
             content_stream = wo::open_virtual_file_stream<true>(real_file_path);
@@ -2540,7 +2548,7 @@ std::variant<
                 src_crc64_result = wo::crc_64(*content_stream.value(), 0);
         }
 
-        lex = new wo::lexer(std::move(content_stream), virtual_src_path);
+        lex = new wo::lexer(std::move(content_stream), vwpath.c_str(), nullptr);
         wo_assure(!lex->has_been_imported(src_crc64_result));
     }
 

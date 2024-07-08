@@ -5,22 +5,25 @@ std::string _wo_dump_lexer_context_error(wo::lexer* lex, _wo_inform_style style)
 
 namespace wo
 {
-    lexer::lexer(const std::wstring& content, const std::string _source_file)
-        : lexer(std::optional(std::make_unique<std::wistringstream>(content)), _source_file)
-    {
-    }
-    lexer::lexer(std::optional<std::unique_ptr<std::wistream>>&& stream, const std::string _source_file)
+    lexer::lexer(
+        std::optional<std::unique_ptr<std::wistream>>&& stream,
+        const std::wstring _source_file, 
+        lexer* importer)
         : format_string_count(0)
         , curly_count(0)
+        , peeked_flag(false)
         , used_macro_list(nullptr)
         , now_file_rowno(1)
         , now_file_colno(0)
         , next_file_rowno(1)
         , next_file_colno(1)
+        , just_have_err(false)
         , source_file(
             wstring_pool::_m_this_thread_pool != nullptr
-            ? wstring_pool::get_pstr(str_to_wstr(_source_file))
+            ? wstring_pool::get_pstr(_source_file)
             : nullptr)
+        , last_lexer(importer)
+        , script_path(_source_file)
     {
         if (stream)
             reading_buffer = std::move(stream.value());
@@ -206,11 +209,13 @@ namespace wo
                             wo::str_to_wstr(wo_get_runtime_error(fnd->second->_macro_action_vm)).c_str());
                     else
                     {
-                        std::string result_content_vfile =
-                            "woo/macro_" + wo::wstr_to_str(fnd->second->macro_name) + "_result_" + std::to_string((intptr_t)this) + ".wo";
+                        std::wstring result_content_vfile =
+                            L"woo/macro_" + fnd->second->macro_name + L"_result_" + std::to_wstring((intptr_t)this) + L".wo";
 
-                        wo_assure(WO_TRUE == wo_virtual_source(result_content_vfile.c_str(), wo_string(result), WO_TRUE));
-                        wo::lexer tmp_lex(wo::str_to_wstr(wo_string(result)), result_content_vfile);
+                        wo_assure(WO_TRUE == wo_virtual_source(wo::wstr_to_str(result_content_vfile).c_str(), wo_string(result), WO_TRUE));
+                        std::wstring macro_result_buffer = wo::str_to_wstr(wo_string(result));
+
+                        wo::lexer tmp_lex(std::make_unique<std::wistringstream>(macro_result_buffer), result_content_vfile, nullptr);
 
                         std::vector<std::pair<wo::lex_type, std::wstring>> lex_tokens;
                         for (;;)
@@ -236,7 +241,7 @@ namespace wo
                             get_cur_error_frame().back().describe +=
                                 str_to_wstr(_wo_dump_lexer_context_error(&tmp_lex, WO_NOTHING)) + WO_MACRO_ANALYZE_END_HERE;
                         }
-                        wo_assure(WO_TRUE == wo_remove_virtual_file(result_content_vfile.c_str()));
+                        wo_assure(WO_TRUE == wo_remove_virtual_file(wo::wstr_to_str(result_content_vfile).c_str()));
 
                         for (auto ri = lex_tokens.rbegin(); ri != lex_tokens.rend(); ri++)
                             push_temp_for_error_recover(ri->first, ri->second);
