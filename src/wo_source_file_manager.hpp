@@ -1,7 +1,7 @@
 #pragma once
-#include "wo_compiler_lexer.hpp"
 #include "wo_env_locale.hpp"
 
+#include <map>
 #include <string>
 #include <sstream>
 #include <fstream>
@@ -16,6 +16,8 @@
 
 namespace wo
 {
+    class lexer;
+
     inline const std::wstring VIRTUAL_FILE_SCHEME = L"woovf://";
     inline std::shared_mutex vfile_list_guard;
 
@@ -93,88 +95,10 @@ namespace wo
         return true;
     }
 
-    inline bool check_virtual_file_path(
+    bool check_virtual_file_path(
         std::wstring* out_real_read_path,
         const std::wstring& filepath,
-        const std::optional<std::wstring>& script_path)
-    {
-        if (is_virtual_uri(filepath))
-        {
-            *out_real_read_path = filepath;
-            return true;
-        }
-
-        auto is_file_exist_and_readable =
-            [](const std::wstring& path)
-        {
-            auto cpath = wstr_to_str(path);
-#if WO_BUILD_WITH_MINGW
-            FILE* f = fopen(cpath.c_str(), "r");
-            if (f == nullptr)
-                return false;
-
-            fclose(f);
-            return true;
-#else
-            struct stat file_stat;
-            if (0 == stat(cpath.c_str(), &file_stat))
-            {
-                // Check if readable?
-                return 0 == (file_stat.st_mode & S_IFDIR);
-            }
-            return false;
-#endif
-        };
-
-        // 1. Try exists file
-        // 1) Read file from script loc
-        if (script_path)
-        {
-            *out_real_read_path = wo::get_file_loc(script_path.value()) + L"/" + filepath;
-            if (is_file_exist_and_readable(*out_real_read_path))
-                return true;
-        }
-
-        // 2) Read file from rpath
-        do
-        {
-            *out_real_read_path = str_to_wstr(wo::work_path()) + L"/" + filepath;
-            if (is_file_exist_and_readable(*out_real_read_path))
-                return true;
-        } while (0);
-
-        // 3) Read file from exepath
-        do
-        {
-            *out_real_read_path = str_to_wstr(wo::exe_path()) + L"/" + filepath;
-            if (is_file_exist_and_readable(*out_real_read_path))
-                return true;
-        } while (0);
-
-        // 4) Read file from default path
-        do
-        {
-            *out_real_read_path = filepath;
-            if (is_file_exist_and_readable(*out_real_read_path))
-                return true;
-        } while (0);
-
-        // 5) Read file from virtual file
-        do
-        {
-            *out_real_read_path = VIRTUAL_FILE_SCHEME + filepath;
-
-            std::shared_lock g1(vfile_list_guard);
-            auto fnd = vfile_list.find(filepath);
-            if (fnd != vfile_list.end())
-            {
-                return true;
-            }
-
-        } while (0);
-
-        return false;
-    }
+        const std::optional<const lexer*>& lex);
 
     // NOTE: Remember to free!
     template<bool width = true>
@@ -259,10 +183,10 @@ namespace wo
         typename stream_types<width>::buffer* out_filecontent,
         std::wstring* out_filefullpath,
         const std::wstring& filepath,
-        const std::optional<std::wstring>& script_path
+        const std::optional<const lexer*>& lex
     )
     {
-        if (check_virtual_file_path(out_filefullpath, filepath, script_path))
+        if (check_virtual_file_path(out_filefullpath, filepath, lex))
             return read_virtual_source<width>(out_filecontent, *out_filefullpath);
         return false;
     }

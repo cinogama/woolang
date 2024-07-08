@@ -209,13 +209,7 @@ namespace wo
         std::stack<std::pair<lex_type, std::wstring>> temp_token_buff_stack;
         lex_type peek_result_type = lex_type::l_error;
         std::wstring peek_result_str;
-        bool peeked_flag = false;
-
-    public:
-        std::unordered_set<wo_pstring_t> imported_file_list;
-        std::unordered_set<uint64_t> imported_file_crc64_list;
-        std::vector<ast::ast_base*> imported_ast;
-        std::shared_ptr<std::unordered_map<std::wstring, std::shared_ptr<macro>>> used_macro_list;
+        bool peeked_flag;
 
     public:
         size_t        now_file_rowno;
@@ -232,10 +226,18 @@ namespace wo
         size_t this_time_peek_from_rowno;
         size_t this_time_peek_from_colno;
 
-        bool just_have_err = false; // it will be clear at next()
+        bool just_have_err; // it will be clear at next()
 
         const wo_pstring_t   source_file;
         std::vector<lex_error_msg> lex_error_list;
+
+        std::unordered_set<wo_pstring_t> imported_file_list;
+        std::unordered_set<uint64_t> imported_file_crc64_list;
+        std::vector<ast::ast_base*> imported_ast;
+        std::shared_ptr<std::unordered_map<std::wstring, std::shared_ptr<macro>>> used_macro_list;
+        const lexer* last_lexer;
+        std::wstring script_path;
+
     private:
         inline const static std::map<std::wstring, lex_operator_info> lex_operator_list =
         {
@@ -495,8 +497,10 @@ namespace wo
         lexer& operator = (const lexer&) = delete;
         lexer& operator = (lexer&&) = delete;
 
-        lexer(const std::wstring& content, const std::string _source_file);
-        lexer(std::optional<std::unique_ptr<std::wistream>>&& stream, const std::string _source_file);
+        lexer(
+            std::optional<std::unique_ptr<std::wistream>>&& stream, 
+            const std::wstring _source_file, 
+            lexer* importer);
     public:
         void begin_trying_block()
         {
