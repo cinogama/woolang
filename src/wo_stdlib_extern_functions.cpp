@@ -1843,7 +1843,7 @@ namespace result
     alias item_t<T> = 
         typeof(std::declval:<T>()->\<O, E>_: result<O, E> = std::declval:<(O, E)>(););
     alias ok_t<T> = typeof(std::declval:<item_t<T>>().0);
-    alias err_t<T> = typeof(std::declval:<item_t<T>>().0);
+    alias err_t<T> = typeof(std::declval:<item_t<T>>().1);
 
     public func flip<T, F>(self: result<T, F>)
     {
