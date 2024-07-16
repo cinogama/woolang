@@ -269,37 +269,40 @@ thread          vm              <id>          Continue and break at specified vm
                 wo::gcbase* gc_unit_base_addr = val->get_gcunit_and_attrib_ref(&_attr);
 
                 if (gc_unit_base_addr == nullptr)
-                    return "<bad>";
+                    return "<released>";
 
+                bool type_match = false;
                 switch (val->type)
                 {
                 case wo::value::valuetype::string_type:
                     if (dynamic_cast<wo::string_t*>(gc_unit_base_addr) != nullptr)
-                        break;
-                    [[fallthrough]];
+                        type_match = true;
+                    break;
                 case wo::value::valuetype::dict_type:
                     if (dynamic_cast<wo::dict_t*>(gc_unit_base_addr) != nullptr)
-                        break;
-                    [[fallthrough]];
+                        type_match = true;
+                    break;
                 case wo::value::valuetype::array_type:
                     if (dynamic_cast<wo::array_t*>(gc_unit_base_addr) != nullptr)
-                        break;
-                    [[fallthrough]];
+                        type_match = true;
+                    break;
                 case wo::value::valuetype::gchandle_type:
-                    if (dynamic_cast<wo::string_t*>(gc_unit_base_addr) != nullptr)
-                        break;
-                    [[fallthrough]];
+                    if (dynamic_cast<wo::gchandle_t*>(gc_unit_base_addr) != nullptr)
+                        type_match = true;
+                    break;
                 case wo::value::valuetype::closure_type:
                     if (dynamic_cast<wo::closure_t*>(gc_unit_base_addr) != nullptr)
-                        break;
-                    [[fallthrough]];
+                        type_match = true;
+                    break;
                 case wo::value::valuetype::struct_type:
                     if (dynamic_cast<wo::struct_t*>(gc_unit_base_addr) != nullptr)
-                        break;
-                    [[fallthrough]];
+                        type_match = true;
+                    break;
                 default:
-                    return "<bad>";
+                    return "<unexpected type>";
                 }
+                if (!type_match)
+                    return "<released>";
             }
             else
             {
@@ -308,7 +311,7 @@ thread          vm              <id>          Continue and break at specified vm
                     && val->type != wo::value::valuetype::real_type
                     && val->type != wo::value::valuetype::handle_type
                     && val->type != wo::value::valuetype::bool_type)
-                    return "<bad>";
+                    return "<unexpected type>";
             }
 
             auto result = std::string("<")
