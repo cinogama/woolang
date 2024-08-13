@@ -2868,6 +2868,11 @@ wo_bool_t wo_abort_vm(wo_vm vm)
     return WO_FALSE;
 }
 
+wo_value wo_register(wo_vm vm, wo_reg regid)
+{
+    return CS_VAL(WO_VM(vm)->register_mem_begin + regid);
+}
+
 wo_value wo_push_int(wo_vm vm, wo_int_t val)
 {
     return CS_VAL((WO_VM(vm)->sp--)->set_integer(val));
@@ -4015,11 +4020,6 @@ void wo_pin_value_get(wo_value out_value, wo_pin_value pin_value)
 void wo_close_pin_value(wo_pin_value pin_value)
 {
     wo::pin::close_pin_value(pin_value);
-}
-
-wo_size_t wo_vaarg_count(wo_vm vm)
-{
-    return (wo_size_t)WO_VM(vm)->tc->integer;
 }
 void wo_gc_record_memory(wo_value val)
 {

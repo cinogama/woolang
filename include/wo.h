@@ -87,6 +87,26 @@ typedef enum _wo_value_type
     WO_STRUCT_TYPE
 }wo_type;
 
+typedef enum _wo_reg
+{
+    WO_REG_T0, WO_REG_T1, WO_REG_T2, WO_REG_T3,
+    WO_REG_T4, WO_REG_T5, WO_REG_T6, WO_REG_T7,
+    WO_REG_T8, WO_REG_T9, WO_REG_T10, WO_REG_T11,
+    WO_REG_T12, WO_REG_T13, WO_REG_T14, WO_REG_T15,
+
+    WO_REG_R0, WO_REG_R1, WO_REG_R2, WO_REG_R3,
+    WO_REG_R4, WO_REG_R5, WO_REG_R6, WO_REG_R7,
+    WO_REG_R8, WO_REG_R9, WO_REG_R10, WO_REG_R11,
+    WO_REG_R12, WO_REG_R13, WO_REG_R14, WO_REG_R15,
+
+    WO_REG_CR,
+    WO_REG_TC,
+    WO_REG_ER,
+    WO_REG_NI,
+    WO_REG_PM,
+    WO_REG_TP,
+}wo_reg;
+
 #ifdef WO_STRICTLY_BOOL
 typedef enum _wo_bool
 {
@@ -161,7 +181,7 @@ WO_API wo_type      wo_valuetype(const wo_value value);
 //      functions; And please make sure to call this
 //      function at the beginning of the interface to
 //      avoid counting contamination.
-WO_API wo_size_t    wo_vaarg_count(wo_vm vm);
+WO_API wo_integer_t wo_argc(wo_vm vm);
 
 WO_API wo_char_t    wo_char(wo_value value);
 WO_API wo_integer_t wo_int(wo_value value);
@@ -208,8 +228,6 @@ WO_API wo_bool_t    wo_serialize(wo_value value, wo_string_t* out_str);
 WO_API wo_bool_t    wo_deserialize(wo_vm vm, wo_value value, wo_string_t str, wo_type except_type);
 
 WO_API wo_string_t  wo_type_name(wo_type value);
-
-WO_API wo_integer_t wo_argc(wo_vm vm);
 
 #define wo_ret_void(vmm) (WO_API_NORMAL)
 WO_API wo_result_t  wo_ret_char(wo_vm vm, wo_char_t result);
@@ -398,6 +416,8 @@ WO_API wo_bool_t    wo_has_compile_error(wo_vm vm);
 WO_API wo_string_t  wo_get_compile_error(wo_vm vm, wo_inform_style style);
 
 WO_API wo_string_t  wo_get_runtime_error(wo_vm vm);
+
+WO_API wo_value     wo_register(wo_vm vm, wo_reg regid);
 
 WO_API wo_value     wo_push_int(wo_vm vm, wo_int_t val);
 WO_API wo_value     wo_push_real(wo_vm vm, wo_real_t val);
@@ -1086,26 +1106,6 @@ WO_API void wo_ir_glb(wo_ir_compiler compiler, int32_t offset);
 WO_API void wo_ir_reg(wo_ir_compiler compiler, uint8_t regid);
 WO_API void wo_ir_bp(wo_ir_compiler compiler, int8_t offset);
 WO_API void wo_ir_tag(wo_ir_compiler compiler, wo_string_t name);
-
-enum _wo_reg
-{
-    WO_REG_T0, WO_REG_T1, WO_REG_T2, WO_REG_T3,
-    WO_REG_T4, WO_REG_T5, WO_REG_T6, WO_REG_T7,
-    WO_REG_T8, WO_REG_T9, WO_REG_T10, WO_REG_T11,
-    WO_REG_T12, WO_REG_T13, WO_REG_T14, WO_REG_T15,
-
-    WO_REG_R0, WO_REG_R1, WO_REG_R2, WO_REG_R3,
-    WO_REG_R4, WO_REG_R5, WO_REG_R6, WO_REG_R7,
-    WO_REG_R8, WO_REG_R9, WO_REG_R10, WO_REG_R11,
-    WO_REG_R12, WO_REG_R13, WO_REG_R14, WO_REG_R15,
-
-    WO_REG_CR,
-    WO_REG_TC,
-    WO_REG_ER,
-    WO_REG_NI,
-    WO_REG_PM,
-    WO_REG_TP,
-};
 
 WO_API void wo_ir_immtag(wo_ir_compiler compiler, wo_string_t name);
 WO_API void wo_ir_immu8(wo_ir_compiler compiler, uint8_t val);
