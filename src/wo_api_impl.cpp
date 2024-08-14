@@ -3220,8 +3220,9 @@ wo_integer_t wo_union_get(wo_value out_val, wo_value unionval)
         wo_fail(WO_FAIL_TYPE_FAIL, "Unexpected value type.");
     else
     {
+        auto r = val->structs->m_values[0].integer;
         wo_set_val(out_val, CS_VAL(&val->structs->m_values[1]));
-        return val->structs->m_values[0].integer;
+        return r;
     }
     return -1;
 }
