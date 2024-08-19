@@ -1,11 +1,9 @@
 #include "wo_compiler_jit.hpp"
 #include "wo_instruct.hpp"
 #include "wo_vm.hpp"
+#include "wo_compiler_ir.hpp"
 
 #undef FAILED
-
-#include "wo_compiler_jit.hpp"
-#include "wo_compiler_ir.hpp"
 
 #if WO_JIT_SUPPORT_ASMJIT
 
@@ -17,6 +15,8 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <list>
+#include <algorithm>
+
 namespace wo
 {
 #define WO_SAFE_READ_OFFSET_GET_QWORD (*(uint64_t*)(rt_ip-8))

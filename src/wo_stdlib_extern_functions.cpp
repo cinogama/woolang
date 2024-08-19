@@ -21,7 +21,7 @@ std::string_view _wo_raw_str_view(wo_value val)
 
 WO_API wo_api rslib_std_print(wo_vm vm, wo_value args)
 {
-    size_t argc = (size_t)wo_vaarg_count(vm);
+    size_t argc = (size_t)wo_argc(vm);
 
     for (size_t i = 0; i < argc; i++)
     {
@@ -2878,7 +2878,7 @@ WO_API wo_api rslib_std_debug_breakpoint(wo_vm vm, wo_value args)
 
 WO_API wo_api rslib_std_debug_invoke(wo_vm vm, wo_value args)
 {
-    size_t argc = (size_t)wo_vaarg_count(vm);
+    size_t argc = (size_t)wo_argc(vm);
 
     for (size_t index = argc - 1; index > 0; index--)
         wo_push_val(vm, args + index);
