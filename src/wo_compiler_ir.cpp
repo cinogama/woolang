@@ -183,7 +183,10 @@ namespace wo
     }
     runtime_env::~runtime_env()
     {
-        free_jit(this);
+        if (wo::config::ENABLE_JUST_IN_TIME)
+        {
+            free_jit(this);
+        }
 
         gcbase::unit_attrib cancel_nogc;
         cancel_nogc.m_gc_age = 0;
