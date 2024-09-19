@@ -3650,11 +3650,20 @@ namespace wo
                 //   0   1     2   3
                 ast_type* struct_type = new ast_type(WO_PSTR(struct));
                 uint16_t membid = 0;
+
+                // Duplicated member name check
+                std::unordered_set<wo_pstring_t> member_names;
+
                 auto* members = WO_NEED_AST(2)->children;
                 while (members)
                 {
                     auto* member_pair = dynamic_cast<ast_struct_member_define*>(members);
                     wo_assert(member_pair);
+
+                    if (member_names.insert(member_pair->member_name).second == false)
+                        lex.lang_error(wo::lexer::errorlevel::error, member_pair,
+                            WO_ERR_REPEAT_MEMBER_NAME,
+                            member_pair->member_name->c_str());
 
                     struct_type->struct_member_index[member_pair->member_name].member_decl_attribute
                         = member_pair->member_attribute;
@@ -3682,6 +3691,19 @@ namespace wo
                 ast_value_make_struct_instance* value = new ast_value_make_struct_instance();
 
                 value->struct_member_vals = dynamic_cast<ast_list*>(WO_NEED_AST(2));
+
+                // Duplicated member name check
+                std::unordered_set<wo_pstring_t> member_names;
+                auto* member_iter = dynamic_cast<ast_struct_member_define*>(value->struct_member_vals->children);
+                while (member_iter)
+                {
+                    if (member_names.insert(member_iter->member_name).second == false)
+                        lex.lang_error(wo::lexer::errorlevel::error, member_iter,
+                            WO_ERR_REPEAT_MEMBER_NAME,
+                            member_iter->member_name->c_str());
+
+                    member_iter = dynamic_cast<ast_struct_member_define*>(member_iter->sibling);
+                }
 
                 if (WO_IS_TOKEN(0))
                 {

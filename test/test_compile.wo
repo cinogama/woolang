@@ -1907,7 +1907,20 @@ func main()
         }
         "@);
 
+        assure_compile_fail(@"
+        import woo::std;
 
+        using mx = struct{a: int, a: int};
+        "@);
+
+        assure_compile_fail(@"
+        let mx = struct{a = 0, a = 0};
+        "@);
+
+        assure_compile_fail(@"
+        using mx = struct{a: int, b: int};
+        let m = mx{a = 0, a = 0};
+        "@);
 
         // ISSUE: 1.13: anything has been removed from woolang.
         // assure_compile_success(@"
