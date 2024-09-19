@@ -44,9 +44,24 @@ namespace wo
             while (finding_lex != nullptr)
             {
                 *out_real_read_path = wo::get_file_loc(finding_lex->script_path) + L"/" + filepath;
-                if (is_file_exist_and_readable(*out_real_read_path))
-                    return true;
 
+                if (is_virtual_uri(*out_real_read_path))
+                {
+                    // Virtual path, check it.
+                    std::shared_lock g1(vfile_list_guard);
+                    auto fnd = vfile_list.find(
+                        out_real_read_path->substr(VIRTUAL_FILE_SCHEME.size()));
+
+                    if (fnd != vfile_list.end())
+                        return true;
+
+                }
+                else
+                {
+                    // Not virtual path, check if file exist?
+                    if (is_file_exist_and_readable(*out_real_read_path))
+                        return true;
+                }
                 finding_lex = finding_lex->last_lexer;
             }
         }
@@ -81,11 +96,10 @@ namespace wo
             *out_real_read_path = VIRTUAL_FILE_SCHEME + filepath;
 
             std::shared_lock g1(vfile_list_guard);
+
             auto fnd = vfile_list.find(filepath);
             if (fnd != vfile_list.end())
-            {
                 return true;
-            }
 
         } while (0);
 
