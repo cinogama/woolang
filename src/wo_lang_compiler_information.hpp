@@ -191,6 +191,8 @@
 
 #define WO_ERR_THERE_IS_NO_MEMBER_NAMED L"类型 '%ls' 中没有名为 '%ls' 的成员"
 
+#define WO_ERR_REPEAT_MEMBER_NAME L"重复的成员：'%ls'"
+
 #define WO_ERR_CONSTRUCT_STRUCT_NOT_FINISHED L"构造结构体 '%ls' 时没有提供所有成员的初始值"
 
 #define WO_ERR_ONLY_CONSTRUCT_STRUCT_BY_THIS_WAY L"仅结构体类型允许使用形如 'Type { ... }' 的方法构建"
@@ -474,6 +476,8 @@
 #define WO_ERR_CANNOT_CAPTURE_TEMPLATE_VAR L"Cannot capture template variable '%ls'."
 
 #define WO_ERR_THERE_IS_NO_MEMBER_NAMED L"Type '%ls' have not member named '%ls'."
+
+#define WO_ERR_REPEAT_MEMBER_NAME L"Duplicated member: '%ls'"
 
 #define WO_ERR_CONSTRUCT_STRUCT_NOT_FINISHED L"Not provide initialization for all member when constructing '%ls'."
 
