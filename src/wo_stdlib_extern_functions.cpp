@@ -1446,13 +1446,14 @@ WO_API wo_api rslib_std_handle_to_oct(wo_vm vm, wo_value args)
 
 WO_API wo_api rslib_std_get_args(wo_vm vm, wo_value args)
 {
-    wo_size_t argcarr = wo::wo_args.size();
+    const auto& wo_arg_list = wo::get_args();
+    wo_size_t argcarr = wo_arg_list.size();
     wo_value argsarr = wo_push_arr(vm, argcarr);
 
     wo_value elem = wo_push_empty(vm);
     for (wo_size_t i = 0; i < argcarr; ++i)
     {
-        wo_set_string(elem, vm, wo::wo_args[i].c_str());
+        wo_set_string(elem, vm, wo_arg_list[i].c_str());
         wo_arr_set(argsarr, i, elem);
     }
 
@@ -1461,7 +1462,7 @@ WO_API wo_api rslib_std_get_args(wo_vm vm, wo_value args)
 
 WO_API wo_api rslib_std_get_exe_path(wo_vm vm, wo_value args)
 {
-    return wo_ret_string(vm, wo::exe_path());
+    return wo_ret_string(vm, wo::wstr_to_str(wo::exe_path()).c_str());
 }
 
 WO_API wo_api rslib_std_get_extern_symb(wo_vm vm, wo_value args)

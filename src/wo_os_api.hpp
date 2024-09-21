@@ -10,7 +10,7 @@ namespace wo
 {
     namespace osapi
     {
-        void* loadlib(const char* dllpath, const char* scriptpath = nullptr);
+        void* loadlib(const wchar_t* dllpath, const wchar_t* scriptpath_may_null);
         void* loadfunc(void* libhandle, const char* funcname);
         void  freelib(void* libhandle);
     }

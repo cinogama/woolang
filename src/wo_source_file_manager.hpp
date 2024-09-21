@@ -142,7 +142,7 @@ static_assert(
                     wstr_to_str(fullfilepath),
                     std::ios_base::in | std::ios_base::binary);
 
-                src_1->imbue(wo_global_locale);
+                src_1->imbue(wo::get_locale());
 
                 if (src_1->is_open())
                     return std::optional(std::move(src_1));

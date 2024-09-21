@@ -11,6 +11,7 @@
 #include "wo_shared_ptr.hpp"
 #include "wo_memory.hpp"
 #include "wo_compiler_jit.hpp"
+#include "wo_utf8.hpp"
 
 #include <cstring>
 #include <string>

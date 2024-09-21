@@ -133,8 +133,8 @@ struct loaded_lib_info
 
     static dylib_table_instance* load_lib(
         const char* libname,
-        const char* path,
-        const char* script_path,
+        const wchar_t* path,
+        const wchar_t* script_path,
         wo_bool_t panic_when_fail)
     {
         std::lock_guard g1(loaded_named_libs_mx);
@@ -544,29 +544,32 @@ void wo_init(int argc, char** argv)
 #define CS_VAL(v) (reinterpret_cast<wo_value>(v))
 #define CS_VM(v) (reinterpret_cast<wo_vm>(v))
 
-wo_string_t wo_locale_name()
+wo_string_t wo_locale_name(void)
 {
-    return wo::wo_global_locale_name.c_str();
+    thread_local static std::string buf;
+    buf = wo::get_locale().name();
+    return buf.c_str();
 }
-
 wo_string_t wo_exe_path()
 {
-    return wo::exe_path();
+    thread_local static std::string buf;
+    buf = wo::wstr_to_str(wo::exe_path());
+    return buf.c_str();
 }
-
 void wo_set_exe_path(wo_string_t path)
 {
-    wo::set_exe_path(path);
+    wo::set_exe_path(wo::str_to_wstr(path));
 }
-
 wo_string_t wo_work_path()
 {
-    return wo::work_path();
+    thread_local static std::string buf;
+    buf = wo::wstr_to_str(wo::work_path());
+    return buf.c_str();
 }
 
 wo_bool_t wo_set_work_path(wo_string_t path)
 {
-    return WO_CBOOL(wo::set_work_path(path));
+    return WO_CBOOL(wo::set_work_path(wo::str_to_wstr(path)));
 }
 
 wo_bool_t wo_equal_byte(wo_value a, wo_value b)
@@ -2629,14 +2632,9 @@ wo_bool_t wo_load_binary_with_stacksz(wo_vm vm, wo_string_t virtual_src_path, co
         vpath = "/woolang/__runtime_script_" + std::to_string(++vcount) + "__";
     else
     {
-        vpath = virtual_src_path;
-#if _WIN32
-        for (char& ch : vpath)
-        {
-            if (ch == '\\')
-                ch = '/';
-        }
-#endif
+        std::wstring wvpath = wo::str_to_wstr(virtual_src_path);
+        wo::normalize_path(&wvpath);
+        vpath = wo::wstr_to_str(wvpath);
     }
 
     if (!wo_virtual_binary(vpath.c_str(), buffer, length, WO_TRUE))
@@ -3829,7 +3827,11 @@ void* wo_register_lib(const char* libname, const wo_extern_lib_func_t* funcs)
 
 void* wo_load_lib(const char* libname, const char* path, const char* script_path, wo_bool_t panic_when_fail)
 {
-    return loaded_lib_info::load_lib(libname, path, script_path, panic_when_fail);
+    return loaded_lib_info::load_lib(
+        libname,
+        wo::str_to_wstr(path).c_str(),
+        script_path != nullptr ? wo::str_to_wstr(script_path).c_str() : nullptr,
+        panic_when_fail);
 }
 void* wo_load_func(void* lib, const char* funcname)
 {

@@ -1,6 +1,7 @@
 #include "wo_os_api.hpp"
 #include "wo_assert.hpp"
 #include "wo_env_locale.hpp"
+#include "wo_utf8.hpp"
 
 #include <string>
 #include <unordered_map>
@@ -16,11 +17,11 @@
 #endif
 
 #ifdef _WIN32
-#   define WO_DYNAMIC_LIB_EXT ".dll"
+#   define WO_DYNAMIC_LIB_EXT L".dll"
 #elif defined(__linux__)
-#   define WO_DYNAMIC_LIB_EXT ".so"
+#   define WO_DYNAMIC_LIB_EXT L".so"
 #elif defined(__APPLE__)
-#   define WO_DYNAMIC_LIB_EXT ".dylib"
+#   define WO_DYNAMIC_LIB_EXT L".dylib"
 #endif
 
 namespace wo
@@ -85,33 +86,34 @@ namespace wo
             }
             return std::nullopt;
         }
-        void* loadlib(const char* dllpath, const char* scriptpath)
+        void* loadlib(const wchar_t* dllpath, const wchar_t* scriptpath_may_null)
         {
             if (dllpath == nullptr)
                 return _loadlib(nullptr);
 
-            const std::string filename = "/" + std::string(dllpath) + WO_DYNAMIC_LIB_EXT;
+            const std::wstring filename = L"/" + std::wstring(dllpath) + WO_DYNAMIC_LIB_EXT;
 
             // 1) Try get dll from script_path
-            if (scriptpath)
-                if (auto result = try_open_lib((get_file_loc(scriptpath) + filename).c_str()))
+            if (scriptpath_may_null != nullptr)
+                if (auto result = try_open_lib(wstr_to_str(get_file_loc(scriptpath_may_null) + filename).c_str()))
                     return result.value();
 
             // 2) Try get dll from work_path
-            if (auto result = try_open_lib((work_path() + filename).c_str()))
+            if (auto result = try_open_lib(wstr_to_str(work_path() + filename).c_str()))
                 return result.value();
 
             // 3) Try get dll from exe_path
-            if (auto result = try_open_lib((exe_path() + filename).c_str()))
+            if (auto result = try_open_lib(wstr_to_str(exe_path() + filename).c_str()))
                 return result.value();
 
             // 4) Try load full path
-            if (auto result = try_open_lib(dllpath))
+            if (auto result = try_open_lib(wstr_to_str(dllpath).c_str()))
                 return result.value();
 
             // 5) Load from system path
-            if (scriptpath == nullptr)
-                return _loadlib(dllpath);
+            // NOTE: Use _loadlib because system path might not exist.
+            if (scriptpath_may_null == nullptr)
+                return _loadlib(wstr_to_str(dllpath).c_str());
             else
                 return nullptr;
         }

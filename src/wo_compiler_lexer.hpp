@@ -1,6 +1,7 @@
 #pragma once
 
 #include "wo_assert.hpp"
+#include "wo_utf8.hpp"
 
 #include <string>
 #include <vector>
