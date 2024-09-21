@@ -3,7 +3,7 @@
 
 namespace wo
 {
-    bool check_virtual_file_path(
+    bool check_virtual_file_path_impl(
         std::wstring* out_real_read_path,
         const std::wstring& filepath,
         const std::optional<const lexer*>& lex)
@@ -103,6 +103,25 @@ namespace wo
 
         } while (0);
 
+        return false;
+    }
+
+    bool check_virtual_file_path(
+        std::wstring* out_real_read_path,
+        const std::wstring& filepath,
+        const std::optional<const lexer*>& lex)
+    {
+        if (check_virtual_file_path_impl(out_real_read_path, filepath, lex))
+        {
+#if _WIN32
+            for (wchar_t ch : *out_real_read_path)
+            {
+                if (ch == L'\\')
+                    ch = L'/';
+            }
+#endif
+            return true;
+        }
         return false;
     }
 }

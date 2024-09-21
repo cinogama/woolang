@@ -2626,9 +2626,18 @@ wo_bool_t wo_load_binary_with_stacksz(wo_vm vm, wo_string_t virtual_src_path, co
     static std::atomic_size_t vcount = 0;
     std::string vpath;
     if (virtual_src_path == nullptr)
-        vpath = "__runtime_script_" + std::to_string(++vcount) + "__";
+        vpath = "/woolang/__runtime_script_" + std::to_string(++vcount) + "__";
     else
+    {
         vpath = virtual_src_path;
+#if _WIN32
+        for (char& ch : vpath)
+        {
+            if (ch == '\\')
+                ch = '/';
+        }
+#endif
+    }
 
     if (!wo_virtual_binary(vpath.c_str(), buffer, length, WO_TRUE))
         return WO_FALSE;
