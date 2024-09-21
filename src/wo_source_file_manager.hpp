@@ -7,18 +7,24 @@
 #include <fstream>
 #include <unordered_map>
 #include <shared_mutex>
+#include <optional>
+#include <cwchar>
 
 #if WO_BUILD_WITH_MINGW
 #   include <mingw.shared_mutex.h>
 #endif
 
-#include <optional>
-
 namespace wo
 {
     class lexer;
 
-    inline const std::wstring VIRTUAL_FILE_SCHEME = L"woovf://";
+#define VIRTUAL_FILE_SCHEME_W L"woovf://"
+#define VIRTUAL_FILE_SCHEME_M "woovf://"
+#define VIRTUAL_FILE_SCHEME_LEN 8
+static_assert(
+    sizeof(VIRTUAL_FILE_SCHEME_M) == sizeof(VIRTUAL_FILE_SCHEME_W) / sizeof(wchar_t)
+    && sizeof(VIRTUAL_FILE_SCHEME_M) == VIRTUAL_FILE_SCHEME_LEN + 1);
+
     inline std::shared_mutex vfile_list_guard;
 
     struct vfile_information
@@ -83,16 +89,7 @@ namespace wo
 
     inline bool is_virtual_uri(const std::wstring& uri)
     {
-        const size_t shceme_length = VIRTUAL_FILE_SCHEME.size();
-        if (uri.size() < shceme_length)
-            return false;
-
-        for (size_t i = 0; i < shceme_length; ++i)
-        {
-            if (uri[i] != VIRTUAL_FILE_SCHEME[i])
-                return false;
-        }
-        return true;
+        return wcsncmp(uri.c_str(), VIRTUAL_FILE_SCHEME_W, VIRTUAL_FILE_SCHEME_LEN) == 0;
     }
 
     bool check_virtual_file_path(
@@ -117,7 +114,7 @@ namespace wo
             {
                 std::lock_guard g1(vfile_list_guard);
 
-                auto fnd = vfile_list.find(fullfilepath.substr(VIRTUAL_FILE_SCHEME.size()));
+                auto fnd = vfile_list.find(fullfilepath.substr(VIRTUAL_FILE_SCHEME_LEN));
                 if (fnd != vfile_list.end())
                 {
                     if (fnd->second.has_width_data == false)
@@ -131,7 +128,7 @@ namespace wo
             else
             {
                 std::shared_lock g1(vfile_list_guard);
-                auto fnd = vfile_list.find(fullfilepath.substr(VIRTUAL_FILE_SCHEME.size()));
+                auto fnd = vfile_list.find(fullfilepath.substr(VIRTUAL_FILE_SCHEME_LEN));
                 if (fnd != vfile_list.end())
                     return std::optional(std::make_unique<sstream_t>(fnd->second.data));
             }

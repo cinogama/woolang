@@ -1,5 +1,6 @@
 #include "wo_source_file_manager.hpp"
 #include "wo_compiler_lexer.hpp"
+#include "wo_os_api.hpp"
 
 namespace wo
 {
@@ -50,7 +51,7 @@ namespace wo
                     // Virtual path, check it.
                     std::shared_lock g1(vfile_list_guard);
                     auto fnd = vfile_list.find(
-                        out_real_read_path->substr(VIRTUAL_FILE_SCHEME.size()));
+                        out_real_read_path->substr(VIRTUAL_FILE_SCHEME_LEN));
 
                     if (fnd != vfile_list.end())
                         return true;
@@ -93,7 +94,7 @@ namespace wo
         // 5) Read file from virtual file
         do
         {
-            *out_real_read_path = VIRTUAL_FILE_SCHEME + filepath;
+            *out_real_read_path = VIRTUAL_FILE_SCHEME_W + filepath;
 
             std::shared_lock g1(vfile_list_guard);
 
@@ -113,13 +114,7 @@ namespace wo
     {
         if (check_virtual_file_path_impl(out_real_read_path, filepath, lex))
         {
-#if _WIN32
-            for (wchar_t ch : *out_real_read_path)
-            {
-                if (ch == L'\\')
-                    ch = L'/';
-            }
-#endif
+            normalize_path(out_real_read_path);
             return true;
         }
         return false;

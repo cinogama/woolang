@@ -153,7 +153,7 @@ struct loaded_lib_info
         }
         else
         {
-            if (path)
+            if (path != nullptr)
             {
                 if (void* handle = wo::osapi::loadlib(path, script_path))
                     loaded_lib_res_ptr = new dylib_table_instance(handle);

@@ -124,4 +124,20 @@ namespace wo
             _freelib(libhandle);
         }
     }
+
+    void normalize_path(std::wstring* inout_path)
+    {
+#ifdef _WIN32
+        for (wchar_t& ch : *inout_path)
+        {
+            if (ch == L'\\')
+                ch = L'/';
+        }
+        if (inout_path->length() >= 2 && inout_path->at(1) == L':')
+        {
+            wchar_t& p = inout_path->at(0);
+            p = towupper(p);
+        }
+#endif
+    }
 }
