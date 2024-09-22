@@ -7,6 +7,8 @@
 #include <unordered_map>
 #include <shared_mutex>
 
+#include <sys/stat.h>
+
 #ifdef _WIN32
 #include <Windows.h>
 #elif defined(__linux__)
