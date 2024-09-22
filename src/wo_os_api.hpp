@@ -4,6 +4,7 @@
 #       include "wo.h"
 #endif
 
+#include <sys/stat.h>
 #include <string>
 
 namespace wo
