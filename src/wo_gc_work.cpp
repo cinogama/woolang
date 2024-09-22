@@ -351,9 +351,6 @@ namespace wo
 
             static void _gcmarker_thread_work(_gc_mark_thread_groups* self, size_t worker_id)
             {
-#if defined(WO_PLATRORM_OS_WINDOWS) && !WO_BUILD_WITH_MINGW
-                SetThreadDescription(GetCurrentThread(), L"wo_gc_marker");
-#endif
                 do
                 {
                     // Stage 1, mark vms.
@@ -878,9 +875,6 @@ namespace wo
 
         void _gc_main_thread()
         {
-#if defined(WO_PLATRORM_OS_WINDOWS) && !WO_BUILD_WITH_MINGW
-            SetThreadDescription(GetCurrentThread(), L"wo_gc_main");
-#endif
             do
             {
                 if (_gc_round_count == 0)

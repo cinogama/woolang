@@ -1446,13 +1446,14 @@ WO_API wo_api rslib_std_handle_to_oct(wo_vm vm, wo_value args)
 
 WO_API wo_api rslib_std_get_args(wo_vm vm, wo_value args)
 {
-    wo_size_t argcarr = wo::wo_args.size();
+    const auto& wo_arg_list = wo::get_args();
+    wo_size_t argcarr = wo_arg_list.size();
     wo_value argsarr = wo_push_arr(vm, argcarr);
 
     wo_value elem = wo_push_empty(vm);
     for (wo_size_t i = 0; i < argcarr; ++i)
     {
-        wo_set_string(elem, vm, wo::wo_args[i].c_str());
+        wo_set_string(elem, vm, wo_arg_list[i].c_str());
         wo_arr_set(argsarr, i, elem);
     }
 
@@ -1461,7 +1462,7 @@ WO_API wo_api rslib_std_get_args(wo_vm vm, wo_value args)
 
 WO_API wo_api rslib_std_get_exe_path(wo_vm vm, wo_value args)
 {
-    return wo_ret_string(vm, wo::exe_path());
+    return wo_ret_string(vm, wo::wstr_to_str(wo::exe_path()).c_str());
 }
 
 WO_API wo_api rslib_std_get_extern_symb(wo_vm vm, wo_value args)
@@ -1610,13 +1611,13 @@ namespace std
 #endif
 //////////////////////////////////////////////////////////////////////
 "        public let arch = "
-#if defined(_X86_)||defined(__i386)||(defined(_WIN32)&&!defined(_WIN64))
+#if defined(_X86_)||defined(__i386) || defined(_M_IX86)
     "arch_type::X86;\n"
-#elif defined(__x86_64)||defined(_M_X64)
+#elif defined(__x86_64) || defined(_M_AMD64)
     "arch_type::AMD64;\n"
-#elif defined(__arm)||defined(_M_ARM)
+#elif defined(__arm) || defined(_M_ARM)
     "arch_type::ARM32;\n"
-#elif defined(__aarch64__)||defined(_M_ARM64)
+#elif defined(__aarch64__) || defined(_M_ARM64)
     "arch_type::ARM64;\n"
 #else
 #   if WO_CPU_BITWIDTH == 32

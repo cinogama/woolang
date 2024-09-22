@@ -16,16 +16,13 @@ int main(int argc, char** argv)
         wo_vm vmm = wo_create_vm();
         bool compile_successful_flag = wo_load_file(vmm, argv[1]);
 
-        if (wo_has_compile_error(vmm))
-            std::cerr << wo_get_compile_error(vmm, WO_DEFAULT) << std::endl;
-
-        wo_value    return_state = nullptr;
-
-        const char* out_binary_path = nullptr;
-        bool        out_binary_file_ok = false;
-
         if (compile_successful_flag)
         {
+            wo_value    return_state = nullptr;
+
+            const char* out_binary_path = nullptr;
+            bool        out_binary_file_ok = false;
+
             for (int i = 0; i < argc - 1; ++i)
             {
                 if (strcmp(argv[i], "-o") == 0)
@@ -50,26 +47,29 @@ int main(int argc, char** argv)
                     wo_free_binary(binary_buf);
                 }
             }
-        }
 
-        if (!compile_successful_flag)
-            ret = -2;
-        else if (return_state != nullptr)
-        {
-            if (wo_valuetype(return_state) == WO_INTEGER_TYPE)
-                ret = (int)wo_cast_int(return_state);
+            if (return_state != nullptr)
+            {
+                if (wo_valuetype(return_state) == WO_INTEGER_TYPE)
+                    ret = (int)wo_cast_int(return_state);
+                else
+                    ret = 0;
+            }
+            else if (out_binary_path != nullptr)
+            {
+                if (out_binary_file_ok)
+                    ret = 0;
+                else
+                    ret = errno;
+            }
             else
-                ret = 0;
-        }
-        else if (out_binary_path != nullptr)
-        {
-            if (out_binary_file_ok)
-                ret = 0;
-            else
-                ret = errno;
+                ret = -1;
         }
         else
-            ret = -1;
+        {
+            std::cerr << wo_get_compile_error(vmm, WO_DEFAULT) << std::endl;
+            ret = -2;
+        }
 
         wo_close_vm(vmm);
     }
