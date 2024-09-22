@@ -18,6 +18,8 @@
 #include <memory>
 #include <cstring>
 
+#define WO_MAX_EXE_OR_RPATH_LEN 16384
+
 namespace wo
 {
     // ATTENTION:
@@ -89,21 +91,18 @@ namespace wo
     {
         if (!wo_binary_path)
         {
-            const size_t MAX_PATH_LEN = 8192;
-
             std::wstring result;
 #ifdef _WIN32
-            wchar_t _w_exe_path[MAX_PATH_LEN] = {};
-            const size_t len = (size_t)GetModuleFileNameW(NULL, _w_exe_path, MAX_PATH_LEN);
+            wchar_t _w_exe_path[WO_MAX_EXE_OR_RPATH_LEN] = {};
+            const size_t len = (size_t)GetModuleFileNameW(NULL, _w_exe_path, WO_MAX_EXE_OR_RPATH_LEN);
 
             result.assign(_w_exe_path, len);
 #else
-            char _exe_path[MAX_PATH_LEN] = {};
-            const size_t len = (size_t)readlink("/proc/self/exe", _exe_path, MAX_PATH_LEN);
+            char _exe_path[WO_MAX_EXE_OR_RPATH_LEN] = {};
+            const size_t len = (size_t)readlink("/proc/self/exe", _exe_path, WO_MAX_EXE_OR_RPATH_LEN);
             result = str_to_wstr(_exe_path);
 #endif
-            (void)len;
-            wo_assert(len < MAX_PATH_LEN);
+            wo_test(len < WO_MAX_EXE_OR_RPATH_LEN);
 
             normalize_path(&result);
 
@@ -118,22 +117,23 @@ namespace wo
 
     std::wstring work_path()
     {
-        const size_t MAX_PATH_LEN = 8192;
-
         std::wstring result;
 #ifdef _WIN32
-        wchar_t _w_exe_path[MAX_PATH_LEN] = {};
-        const size_t len = (size_t)GetCurrentDirectoryW(MAX_PATH_LEN, _w_exe_path);
+        wchar_t _w_exe_path[WO_MAX_EXE_OR_RPATH_LEN] = {};
+        const size_t len = (size_t)GetCurrentDirectoryW(WO_MAX_EXE_OR_RPATH_LEN, _w_exe_path);
+        
+        wo_test(len < WO_MAX_EXE_OR_RPATH_LEN);
 
         result.assign(_w_exe_path, len);
 #else
-        char _exe_path[MAX_PATH_LEN] = {};
-        const size_t len = (size_t)getcwd(_exe_path, MAX_PATH_LEN);
+        char _exe_path[WO_MAX_EXE_OR_RPATH_LEN] = {};
+        char* ptr = getcwd(_exe_path, WO_MAX_EXE_OR_RPATH_LEN);
+
+        wo_test(ptr != nullptr);
 
         result = str_to_wstr(_exe_path);
 #endif
-        (void)len;
-        wo_assert(len < MAX_PATH_LEN);
+
 
         normalize_path(&result);
 
