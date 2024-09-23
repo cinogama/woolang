@@ -1330,6 +1330,8 @@ namespace wo
                 {
                     if (ast_value_init* init = dynamic_cast<ast_value_init*>(symbol->variable_value))
                     {
+                        // Woolang 1.13.9.14: The rejected template variable is compile error if it has been used.
+                        // or it is used in `is pending` expr, just ignore.
                         if (init->where_constraint != nullptr
                             && init->where_constraint->accept == false)
                             continue;
