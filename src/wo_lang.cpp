@@ -1328,6 +1328,15 @@ namespace wo
                     = a_pattern_identifier->symbol->template_typehashs_reification_instance_symbol_list;
                 for (auto& [_, symbol] : all_template_impl_variable_symbol)
                 {
+                    if (ast_value_init* init = dynamic_cast<ast_value_init*>(symbol->variable_value))
+                    {
+                        // Woolang 1.13.9.14: The rejected template variable is compile error if it has been used.
+                        // or it is used in `is pending` expr, just ignore.
+                        if (init->where_constraint != nullptr
+                            && init->where_constraint->accept == false)
+                            continue;
+                    }
+
                     if (!symbol->is_constexpr_or_immut_no_closure_func())
                     {
                         auto ref_ob = get_opnum_by_symbol(a_pattern_identifier, symbol, compiler);

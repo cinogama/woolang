@@ -1922,6 +1922,16 @@ func main()
         let m = mx{a = 0, a = 0};
         "@);
 
+        assure_compile_fail(@"
+        let v<T> = 1 + T{};
+        do v:<int>;
+        "@);
+
+        assure_compile_success(@"
+        let v<T> = 1 + T{};
+        do v:<int> is pending;
+        "@);
+
         // ISSUE: 1.13: anything has been removed from woolang.
         // assure_compile_success(@"
         //     import woo::std;
@@ -1945,7 +1955,7 @@ func main()
     func main()
     {
         let test_threads = []mut: vec<thread>;
-        for (let mut i = 0 ; i < 0; i += 1)
+        for (let mut i = 0 ; i < 4; i += 1)
             test_threads->add(thread::create(test_compile_success_or_fail, ()));
 
         test_compile_success_or_fail();
