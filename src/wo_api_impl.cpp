@@ -2552,7 +2552,6 @@ std::variant<
         }
 
         lex = new wo::lexer(std::move(content_stream), real_file_path.c_str(), nullptr);
-        wo_assure(!lex->has_been_imported(src_crc64_result));
     }
 
     lex->has_been_imported(lex->source_file);

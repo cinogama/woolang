@@ -233,7 +233,7 @@ namespace wo
         std::vector<lex_error_msg> lex_error_list;
 
         std::unordered_set<wo_pstring_t> imported_file_list;
-        std::unordered_set<uint64_t> imported_file_crc64_list;
+
         std::vector<ast::ast_base*> imported_ast;
         std::shared_ptr<std::unordered_map<std::wstring, std::shared_ptr<macro>>> used_macro_list;
         const lexer* last_lexer;
@@ -336,14 +336,6 @@ namespace wo
         {
             if (imported_file_list.find(full_path) == imported_file_list.end())
                 imported_file_list.insert(full_path);
-            else
-                return true;
-            return false;
-        }
-        bool has_been_imported(uint64_t crc64)
-        {
-            if (imported_file_crc64_list.find(crc64) == imported_file_crc64_list.end())
-                imported_file_crc64_list.insert(crc64);
             else
                 return true;
             return false;

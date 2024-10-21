@@ -1339,34 +1339,29 @@ namespace wo
                 auto srcfile_stream = wo::open_virtual_file_stream(src_full_path);
                 if (srcfile_stream)
                 {
-                    if (!lex.has_been_imported(wo::crc_64(*srcfile_stream.value(), 0)))
+                    lexer new_lex(std::move(srcfile_stream), src_full_path, &lex);
+
+                    new_lex.imported_file_list = lex.imported_file_list;
+                    new_lex.used_macro_list = lex.used_macro_list;
+
+                    auto* imported_ast = wo::get_wo_grammar()->gen(new_lex);
+
+                    lex.used_macro_list = new_lex.used_macro_list;
+                    lex.lex_error_list.insert(lex.lex_error_list.end(),
+                        new_lex.lex_error_list.begin(),
+                        new_lex.lex_error_list.end());
+
+                    lex.imported_file_list = new_lex.imported_file_list;
+
+                    if (imported_ast)
                     {
-                        lexer new_lex(std::move(srcfile_stream), src_full_path, &lex);
-
-                        new_lex.imported_file_list = lex.imported_file_list;
-                        new_lex.imported_file_crc64_list = lex.imported_file_crc64_list;
-                        new_lex.used_macro_list = lex.used_macro_list;
-
-                        auto* imported_ast = wo::get_wo_grammar()->gen(new_lex);
-
-                        lex.used_macro_list = new_lex.used_macro_list;
-                        lex.lex_error_list.insert(lex.lex_error_list.end(),
-                            new_lex.lex_error_list.begin(),
-                            new_lex.lex_error_list.end());
-
-                        lex.imported_file_list = new_lex.imported_file_list;
-                        lex.imported_file_crc64_list = new_lex.imported_file_crc64_list;
-
-                        if (imported_ast)
-                        {
-                            // NOTE: Generate an `nop` for debug info gen, avoid ip/cr conflict
-                            imported_ast->add_child(new ast_nop);
-                            lex.append_import_file_ast((ast_basic*)imported_ast);
-                        }
-                        else
-                        {
-                            return token{ lex_type::l_error };
-                        }
+                        // NOTE: Generate an `nop` for debug info gen, avoid ip/cr conflict
+                        imported_ast->add_child(new ast_nop);
+                        lex.append_import_file_ast((ast_basic*)imported_ast);
+                    }
+                    else
+                    {
+                        return token{ lex_type::l_error };
                     }
                 }
                 else
