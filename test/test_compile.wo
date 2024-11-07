@@ -1932,6 +1932,18 @@ func main()
         do v:<int> is pending;
         "@);
 
+        assure_compile_fail(@"
+        let a = do nil;
+        let mut b = 5;
+        b += a;
+        "@);
+
+        assure_compile_success(@"
+        let a = 0;
+        let mut b = 5;
+        b += a;
+        "@);
+
         // ISSUE: 1.13: anything has been removed from woolang.
         // assure_compile_success(@"
         //     import woo::std;
