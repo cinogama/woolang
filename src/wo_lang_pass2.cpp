@@ -601,7 +601,9 @@ namespace wo
             else
                 a_value_assi->overrided_operation_call = nullptr;
         }
-        else
+        
+        // NOTE: overrided_operation_call might be canceled, recheck it here to make sure assign is accepted or not.
+        if (a_value_assi->overrided_operation_call == nullptr)
         {
             if (a_value_assi->left->value_type->is_function())
             {
