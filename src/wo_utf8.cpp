@@ -65,13 +65,19 @@ namespace wo
             return wc;
         return (wo_char_t)(unsigned char)*target_place;
     }
+    wo_string_t u8substrr(wo_string_t u8str, size_t len, size_t from, size_t til, size_t* out_sub_len)
+    {
+        auto substr = u8strnidxstr(u8str, len, from);
+        *out_sub_len = til > from ? u8strnidxstr(u8str, len, til) - substr : 0;
+        return substr;
+    }
     wo_string_t u8substrn(wo_string_t u8str, size_t len, size_t from, size_t length, size_t* out_sub_len)
     {
         auto substr = u8strnidxstr(u8str, len, from);
-        auto end_place = u8strnidxstr(u8str, len, from + length);
-        *out_sub_len = end_place - substr;
+        *out_sub_len = u8strnidxstr(u8str, len, from + length) - substr;
         return substr;
     }
+    
     size_t clen2u8blen(wo_string_t u8str, size_t len)
     {
         size_t wclen = 0;

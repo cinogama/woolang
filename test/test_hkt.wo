@@ -26,7 +26,7 @@ namespace test_hkt
     {
         using MyT<T> = typeof(std::declval:<T>() is int ? std::declval:<()=>MyT<real>>() | std::declval:<int>());
         let yf = option::none: option<MyT<int>>;
-        test_assure(yf->val()() is MyT<real>);
+        test_assure(yf->unwrap()() is MyT<real>);
     }
 
     func main()

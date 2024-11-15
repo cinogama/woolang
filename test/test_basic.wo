@@ -178,7 +178,7 @@ namespace test_basic
         {
             v->add(i);
         }
-        test_equal(test_oversized2(v...), v->reduce(\l, r = l + r;)->val);
+        test_equal(test_oversized2(v...), v->reduce(\l, r = l + r;)->unwrap);
 
         let mut a = 15;
         test_equal(a/3, 5);
@@ -256,13 +256,13 @@ namespace test_basic
         p -= 151.0: int;
         test_equal(p, 0);
 
-        test_assure(" "->isspace());
-        test_assure(!"a"->isspace());
-        test_assure("1"->isnumber());
-        test_assure("1234"->isnumber());
-        test_assure(!"1234a"->isnumber());
-        test_assure("wo_test"->beginwith("wo_"));
-        test_assure("wo_test"->endwith("_test"));
+        test_assure(" "->is_space());
+        test_assure(!"a"->is_space());
+        test_assure("1"->is_number());
+        test_assure("1234"->is_number());
+        test_assure(!"1234a"->is_number());
+        test_assure("wo_test"->begin_with("wo_"));
+        test_assure("wo_test"->end_with("_test"));
         test_equal("Hello, world"->replace("world", "woolang"), "Hello, woolang");
         
         let split_result = "a b  c d"->split("  ");

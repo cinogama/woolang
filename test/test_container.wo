@@ -63,18 +63,18 @@ namespace test_container
     
     func get_val<T>(val: option<T>)=> T
     {
-        return val->val();
+        return val->unwrap();
     }
     func test_reduce()
     {
         let a = [1, 6, 2, 7, 8, 10, 12, 23];
-        test_assure(a->reduce(\lv:int, rv:int = lv>rv?lv|rv;)->val == 23);
+        test_assure(a->reduce(\lv:int, rv:int = lv>rv?lv|rv;)->unwrap == 23);
         test_assure(get_val(a->reduce(\lv:int, rv:int = lv>rv?lv|rv;)) == 23);
-        test_assure(a->reduce(\lv:int, rv:int = lv%2==0?lv|rv;)->val == 6);
+        test_assure(a->reduce(\lv:int, rv:int = lv%2==0?lv|rv;)->unwrap == 6);
         test_assure(get_val(a->reduce(\lv:int, rv:int = lv%2==0?lv|rv;)) == 6);
-        test_assure(a->rreduce(\lv:int, rv:int = rv%2==0?rv|lv;)->val == 12);
-        test_assure(![]->reduce(\_,_=option::none->val;)->has);
-        test_assure(![]->rreduce(\_,_=option::none->val;)->has);
+        test_assure(a->rreduce(\lv:int, rv:int = rv%2==0?rv|lv;)->unwrap == 12);
+        test_assure(![]->reduce(\_,_=option::none->unwrap;)->is_value);
+        test_assure(![]->rreduce(\_,_=option::none->unwrap;)->is_value);
 
         test_assure([4,5]->connect([2,3])->len == 4);
         test_assure([4,5]->connect([2,3])[3] == 3);
@@ -131,7 +131,7 @@ namespace test_container
     {
         let iterator = iterable->iter;
 
-        alias elem_t = typeof(iterator->next->val);
+        alias elem_t = typeof(iterator->next->unwrap);
         //                    ^^^^^^^^ Here!
         let elems = []mut: vec<elem_t>;
 
@@ -163,21 +163,21 @@ namespace test_container
         test_array_construct();
         test_map_construct();
 
-        test_assure(dict::deserialize("{}")->val->len == 0);
-        test_assure(!dict::deserialize(@"{"\invalid"}"@)->has);
+        test_assure(dict::deserialize("{}")->unwrap->len == 0);
+        test_assure(!dict::deserialize(@"{"\invalid"}"@)->is_value);
 
         // BUG: 221223-JIT-ret pop not work when jit.
         let x = []mut: vec<string>;
         for (let mut i = 0; i < 100000; i += 1)
             x->add(F"str_{i}");
-        do x->forall(\s = s->beginwith("0"););
+        do x->forall(\s = s->begin_with("0"););
 
         let y = all(["hello", "world"])->iter
             |> iterator::enumerate
             |> iterator::map(\ie = ie...->\i, e = F"{i}{e}";;)
             |> iterator::collect
             -> reduce(\l, r = l + r;)
-            -> val;
+            -> unwrap;
             
         test_equal(y, "0hello1world");
 
