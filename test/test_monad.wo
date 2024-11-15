@@ -89,7 +89,7 @@ namespace test_monad
             {
                 return Parser::create(
                     \s: State = self(s)
-                        ->  orbind(\=p(s);) 
+                        -> or_bind(\= p(s);) 
                     ;
                 );
             }
@@ -107,7 +107,7 @@ namespace test_monad
                                     return none;
                                 }
                             } 
-                        ->  orbind(\= option::value(([], s));)
+                        ->  or_bind(\= option::value(([], s));)
                     ;
                 );
             }
@@ -151,7 +151,7 @@ namespace test_monad
             ;
         ;
         let ch = \tc: char = pred(\c = c == tc;);;
-        let digit = pred(\c = c->isnumber;)->>\c = (c - '0'): int;;
+        let digit = pred(\c = c->is_number;)->>\c = (c - '0'): int;;
         let nat = digit->some()->> func(xs){let mut result = 0; for(let n: xs)result = result * 10 + n; return result;};
         let integer = ch('-')->use(nat)->>\x = -x;->or(nat);
     }
@@ -173,13 +173,13 @@ namespace test_monad
         let m3 = m2
             =>> \r = option::value(r: int);
             ;
-        test_assure(m3->val == 12);
+        test_assure(m3->unwrap == 12);
 
         let state_a = parsermonad::State::create("-25a");
-        test_assure(parsermonad::integer->parse(state_a)->val == -25);
+        test_assure(parsermonad::integer->parse(state_a)->unwrap == -25);
 
         let state_b = parsermonad::State::create("a-25");
-        test_assure(parsermonad::integer->parse(state_b)->has == false);
+        test_assure(parsermonad::integer->parse(state_b)->is_value == false);
     }
 }
 test_function("test_monad.main", test_monad::main);

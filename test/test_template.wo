@@ -306,8 +306,8 @@ namespace test_template
         test_assure(call_and_return(return_2_times_val, 128.) == 256.);
         test_assure(call_and_return(return_5_times_val, 20.) == 100.);
 
-        test_assure(option::none->val: bool_if_void<boom_t> is ()=>int);
-        test_assure(option::none->val: bool_if_void<void> is bool);
+        test_assure(option::none->unwrap: bool_if_void<boom_t> is ()=>int);
+        test_assure(option::none->unwrap: bool_if_void<void> is bool);
 
         test_typeof_template();
         test_mut_mark_bug();
@@ -369,19 +369,19 @@ namespace test_template
         test_equal(is_same:<MyTemplate<int>, MySecTemplate<int>>(), false);
         test_equal(is_same:<MyTemplate<int>, int>(), false);
 
-        test_assure(!std::issame(fib:<real>, fib:<int>));
-        test_assure(!std::issame(fib:<int>, fib:<real>));
-        test_assure(std::issame(fib:<int>, fib:<int>));
-        test_assure(std::issame(fib:<real>, fib:<real>));
+        test_assure(!std::is_same(fib:<real>, fib:<int>));
+        test_assure(!std::is_same(fib:<int>, fib:<real>));
+        test_assure(std::is_same(fib:<int>, fib:<int>));
+        test_assure(std::is_same(fib:<real>, fib:<real>));
 
         test_assure(fib:<int> is (int)=>int);
         test_assure(fib:<real> is (real)=>real);
 
         test_assure(diff_static:<int>() is array<int>);
         test_assure(diff_static:<real>() is array<real>);
-        test_assure(!std::issame(diff_static:<real>(), diff_static:<int>()));
-        test_assure(std::issame(diff_static:<real>(), diff_static:<real>()));
-        test_assure(std::issame(diff_static:<int>(), diff_static:<int>()));
+        test_assure(!std::is_same(diff_static:<real>(), diff_static:<int>()));
+        test_assure(std::is_same(diff_static:<real>(), diff_static:<real>()));
+        test_assure(std::is_same(diff_static:<int>(), diff_static:<int>()));
 
         // ISSUE: 1.13: anything has been removed from woolang.
         // test_assure([] is array<anything>);

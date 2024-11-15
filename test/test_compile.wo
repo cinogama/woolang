@@ -35,7 +35,7 @@ namespace test_compile
             do vmm->close();
         }
 
-        test_assure(result->isok == false);
+        test_assure(result->is_ok == false);
     }
 
     func test_compile_success_or_fail()
@@ -824,7 +824,7 @@ func main()
             let v = 
                 option::value(0)
                     ->map(\_:int=foo();)
-                    ->or(\="":sp_t;);
+                    ->or_do(\="":sp_t;);
             "@);
             assure_compile_success(@"
             import woo::std;
@@ -833,7 +833,7 @@ func main()
             let v = 
                 option::value(0)
                     ->map(\_:int=foo();)
-                    ->or(\=do "";);
+                    ->or_do(\=do "";);
             "@);
         assure_compile_fail(@"
             import woo::std;

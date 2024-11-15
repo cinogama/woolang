@@ -43,7 +43,7 @@ private func _test_compare<AT, BT>(a: AT, b :BT)
     if ((a is string) && (b is string))
         return a == b;
     else
-        return std::issame(a, b);
+        return std::is_same(a, b);
 }
 
 public func test_equal<AT, BT>(a: AT, b: BT)

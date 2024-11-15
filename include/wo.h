@@ -522,7 +522,8 @@ WO_API void         wo_arr_clear(wo_value arr);
 
 WO_API void         wo_map_reserve(wo_value map, wo_size_t sz);
 WO_API void         wo_map_set(wo_value map, wo_value index, wo_value val);
-WO_API wo_bool_t    wo_map_get_or_set_default(wo_value out_val, wo_value map, wo_value index, wo_value default_value);
+WO_API wo_bool_t    wo_map_get_or_set(wo_value out_val, wo_value map, wo_value index, wo_value default_value);
+WO_API wo_bool_t    wo_map_get_or_set_do(wo_value out_val, wo_value map, wo_value index, wo_vm vm, wo_value f);
 WO_API wo_bool_t    wo_map_remove(wo_value map, wo_value index);
 WO_API void         wo_map_clear(wo_value map);
 

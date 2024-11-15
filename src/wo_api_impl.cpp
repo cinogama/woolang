@@ -3552,7 +3552,7 @@ wo_bool_t wo_map_find(wo_value map, wo_value index)
     return WO_FALSE;
 }
 
-wo_bool_t wo_map_get_or_set_default(wo_value out_val, wo_value map, wo_value index, wo_value default_value)
+wo_bool_t wo_map_get_or_set(wo_value out_val, wo_value map, wo_value index, wo_value default_value)
 {
     auto _map = WO_VAL(map);
     if (_map->type == wo::value::valuetype::dict_type)
@@ -3569,6 +3569,36 @@ wo_bool_t wo_map_get_or_set_default(wo_value out_val, wo_value map, wo_value ind
         {
             store_val = &(*_map->dict)[*WO_VAL(index)];
             store_val->set_val(WO_VAL(default_value));
+        }
+
+        WO_VAL(out_val)->set_val(store_val);
+        return WO_CBOOL(found);
+    }
+    else
+        wo_fail(WO_FAIL_TYPE_FAIL, "Value is not a map.");
+
+    return WO_FALSE;
+}
+
+wo_bool_t wo_map_get_or_set_do(wo_value out_val, wo_value map, wo_value index, wo_vm vm, wo_value f)
+{
+    auto _map = WO_VAL(map);
+    if (_map->type == wo::value::valuetype::dict_type)
+    {
+        wo::value* store_val = nullptr;
+        wo::gcbase::gc_modify_write_guard g1(_map->dict);
+
+        auto fnd = _map->dict->find(*WO_VAL(index));
+        bool found = fnd != _map->dict->end();
+        if (found)
+            store_val = &fnd->second;
+
+        if (!store_val)
+        {
+            wo_value result = wo_invoke_value(vm, f, 0);
+
+            store_val = &(*_map->dict)[*WO_VAL(index)];
+            store_val->set_val(WO_VAL(result));
         }
 
         WO_VAL(out_val)->set_val(store_val);

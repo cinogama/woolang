@@ -3,11 +3,11 @@ import test_tool;
 
 #macro test_macro_test_matching
 {
-    if (lexer->nexttoken[0] != std::token_type::l_identifier)
+    if (lexer->next_token[0] != std::token_type::l_identifier)
         lexer->error("Unmatched token, expected 'identifier'.");
-    if (lexer->nexttoken[0] != std::token_type::l_using)
+    if (lexer->next_token[0] != std::token_type::l_using)
         lexer->error("Unmatched token, expected 'using'.");
-    if (lexer->nexttoken[0] != std::token_type::l_typeid)
+    if (lexer->next_token[0] != std::token_type::l_typeid)
         lexer->error("Unmatched token, expected 'typeid'.");
 }
 

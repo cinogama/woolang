@@ -847,6 +847,32 @@ WO_API wo_api rslib_std_array_subto(wo_vm vm, wo_value args)
     return wo_ret_val(vm, result);
 }
 
+WO_API wo_api rslib_std_array_sub_range(wo_vm vm, wo_value args)
+{
+    wo_value result = wo_push_arr(vm, 0);
+
+    wo::value* arr_result = std::launder(reinterpret_cast<wo::value*>(result));
+    wo::value* arr1 = std::launder(reinterpret_cast<wo::value*>(args + 0));
+
+    wo::gcbase::gc_read_guard rg2(arr1->array);
+
+    auto begin = (size_t)wo_int(args + 1);
+    auto end = (size_t)wo_int(args + 2);
+
+    if (begin > arr1->array->size() || end > arr1->array->size())
+        return wo_ret_panic(vm, "Index out of range when trying get sub array/vec.");
+
+    if (end > begin)
+    {
+        auto&& begin_iter = arr1->array->begin() + begin;
+        auto&& end_iter = arr1->array->begin() + end;
+
+        arr_result->array->insert(arr_result->array->end(),
+            begin_iter, end_iter);
+    }
+    return wo_ret_val(vm, result);
+}
+
 WO_API wo_api rslib_std_array_pop(wo_vm vm, wo_value args)
 {
     wo_value elem = wo_push_empty(vm);
@@ -879,7 +905,7 @@ WO_API wo_api rslib_std_array_dequeue_val(wo_vm vm, wo_value args)
 
 WO_API wo_api rslib_std_array_remove(wo_vm vm, wo_value args)
 {
-    return wo_ret_bool(vm, 
+    return wo_ret_bool(vm,
         wo_arr_remove(args + 0, (wo_size_t)wo_int(args + 1)));
 }
 
@@ -1004,7 +1030,14 @@ WO_API wo_api rslib_std_map_only_get(wo_vm vm, wo_value args)
 WO_API wo_api rslib_std_map_get_or_set_default(wo_vm vm, wo_value args)
 {
     wo_value elem = wo_push_empty(vm);
-    wo_map_get_or_set_default(elem, args + 0, args + 1, args + 2);
+    wo_map_get_or_set(elem, args + 0, args + 1, args + 2);
+    return wo_ret_val(vm, elem);
+}
+
+WO_API wo_api rslib_std_map_get_or_set_default_do(wo_vm vm, wo_value args)
+{
+    wo_value elem = wo_push_empty(vm);
+    wo_map_get_or_set_do(elem, args + 0, args + 1, vm, args + 2);
     return wo_ret_val(vm, elem);
 }
 
@@ -1312,7 +1345,7 @@ WO_API wo_api rslib_std_get_ascii_val_from_str(wo_vm vm, wo_value args)
     wo_size_t len = 0;
     wo_string_t str = wo_raw_string(args + 0, &len);
 
-    return wo_ret_int(vm, 
+    return wo_ret_int(vm,
         (wo_int_t)wo_strn_get_char(
             str, len, (wo_size_t)wo_int(args + 1)));
 }
@@ -1327,13 +1360,23 @@ WO_API wo_api rslib_std_string_sub(wo_vm vm, wo_value args)
     return wo_ret_raw_string(vm, substring, sub_str_len);
 }
 
-WO_API wo_api rslib_std_string_subto(wo_vm vm, wo_value args)
+WO_API wo_api rslib_std_string_sub_len(wo_vm vm, wo_value args)
 {
     size_t len = 0;
     wo_string_t str = wo_raw_string(args + 0, &len);
 
     size_t sub_str_len = 0;
     auto* substring = wo::u8substrn(str, len, (size_t)wo_int(args + 1), (size_t)wo_int(args + 2), &sub_str_len);
+    return wo_ret_raw_string(vm, substring, sub_str_len);
+}
+
+WO_API wo_api rslib_std_string_sub_range(wo_vm vm, wo_value args)
+{
+    size_t len = 0;
+    wo_string_t str = wo_raw_string(args + 0, &len);
+
+    size_t sub_str_len = 0;
+    auto* substring = wo::u8substrr(str, len, (size_t)wo_int(args + 1), (size_t)wo_int(args + 2), &sub_str_len);
     return wo_ret_raw_string(vm, substring, sub_str_len);
 }
 
@@ -1406,43 +1449,6 @@ WO_API wo_api rslib_std_oct_to_int(wo_vm vm, wo_value args)
         return wo_ret_int(vm, -(wo_integer_t)result);
     }
 }
-
-WO_API wo_api rslib_std_hex_to_handle(wo_vm vm, wo_value args)
-{
-    wo_string_t str = wo_string(args + 0);
-    unsigned long long result;
-    sscanf(str, "%llX", &result);
-    return wo_ret_handle(vm, result);
-}
-
-WO_API wo_api rslib_std_oct_to_handle(wo_vm vm, wo_value args)
-{
-    wo_string_t str = wo_string(args + 0);
-    unsigned long long result;
-    sscanf(str, "%llo", &result);
-    return wo_ret_handle(vm, result);
-}
-
-WO_API wo_api rslib_std_handle_to_hex(wo_vm vm, wo_value args)
-{
-    char result[18];
-    wo_handle_t val = wo_handle(args + 0);
-
-    sprintf(result, "%llX", (unsigned long long)val);
-
-    return wo_ret_string(vm, result);
-}
-
-WO_API wo_api rslib_std_handle_to_oct(wo_vm vm, wo_value args)
-{
-    char result[24];
-    wo_handle_t val = wo_handle(args + 0);
-
-    sprintf(result, "%llo", (unsigned long long)val);
-
-    return wo_ret_string(vm, result);
-}
-
 
 WO_API wo_api rslib_std_get_args(wo_vm vm, wo_value args)
 {
@@ -1609,43 +1615,43 @@ namespace std
 #else
     "os::UNKNOWN;\n"
 #endif
-//////////////////////////////////////////////////////////////////////
-"        public let arch = "
-#if defined(_X86_)||defined(__i386) || defined(_M_IX86)
-    "arch_type::X86;\n"
-#elif defined(__x86_64) || defined(_M_AMD64)
-    "arch_type::AMD64;\n"
-#elif defined(__arm) || defined(_M_ARM)
-    "arch_type::ARM32;\n"
-#elif defined(__aarch64__) || defined(_M_ARM64)
-    "arch_type::ARM64;\n"
-#else
-#   if WO_CPU_BITWIDTH == 32
-    "arch_type::UNKNOWN32;\n"
-#   elif WO_CPU_BITWIDTH == 64
-    "arch_type::UNKNOWN64;\n"
-#   else
-#       error "Unsupported cpu archtype."
-#   endif
-#endif
-//////////////////////////////////////////////////////////////////////
-"        public let bitwidth = "
-#if WO_CPU_BITWIDTH == 32
-    "32;\n"
-#elif WO_CPU_BITWIDTH == 64
-    "64;\n"
-#else
-#    error "Unsupported cpu archtype."
-#endif
-//////////////////////////////////////////////////////////////////////
-"        public let runtime = "
-#if defined(NDEBUG)
-    "runtime_type::RELEASE;\n"
-#else
-    "runtime_type::DEBUG;\n"
-#endif
-//////////////////////////////////////////////////////////////////////
-u8R"(
+    //////////////////////////////////////////////////////////////////////
+    "        public let arch = "
+    #if defined(_X86_)||defined(__i386) || defined(_M_IX86)
+        "arch_type::X86;\n"
+    #elif defined(__x86_64) || defined(_M_AMD64)
+        "arch_type::AMD64;\n"
+    #elif defined(__arm) || defined(_M_ARM)
+        "arch_type::ARM32;\n"
+    #elif defined(__aarch64__) || defined(_M_ARM64)
+        "arch_type::ARM64;\n"
+    #else
+    #   if WO_CPU_BITWIDTH == 32
+        "arch_type::UNKNOWN32;\n"
+    #   elif WO_CPU_BITWIDTH == 64
+        "arch_type::UNKNOWN64;\n"
+    #   else
+    #       error "Unsupported cpu archtype."
+    #   endif
+    #endif
+    //////////////////////////////////////////////////////////////////////
+    "        public let bitwidth = "
+    #if WO_CPU_BITWIDTH == 32
+        "32;\n"
+    #elif WO_CPU_BITWIDTH == 64
+        "64;\n"
+    #else
+    #    error "Unsupported cpu archtype."
+    #endif
+    //////////////////////////////////////////////////////////////////////
+    "        public let runtime = "
+    #if defined(NDEBUG)
+        "runtime_type::RELEASE;\n"
+    #else
+        "runtime_type::DEBUG;\n"
+    #endif
+    //////////////////////////////////////////////////////////////////////
+    u8R"(
     }
 }
 namespace unsafe
@@ -1654,7 +1660,7 @@ namespace unsafe
         public func cast<T, FromT>(val: FromT)=> T;
     
     extern("rslib_std_get_extern_symb")
-        public func extsymbol<T>(fullname:string)=> option<T>;
+        public func extsymbol<T>(fullname: string)=> option<T>;
 }
 namespace std
 {
@@ -1667,8 +1673,6 @@ namespace std
     public alias function_result_t<FT> = typeof(std::declval:<FT>()([]...));
 
     public let is_same_type<A, B> = typeid:<A> == typeid:<B>;
-    public let is_same_base_type<A, B> = std::is_same_type:<std::origin_t<A>, std::origin_t<B>>;
-    public let is_accpetable_base_type<A, B> = std::declval:<std::origin_t<A>>() is std::origin_t<B>;
     public let is_mutable_type<A> = std::is_same_type:<A, mut A>;
 
     public let is_array<AT> = std::declval:<array::item_t<AT>>() is pending == false;
@@ -1753,7 +1757,42 @@ namespace option
     alias item_t<T> = 
         typeof(std::declval:<T>()->\<E>_: option<E> = std::declval:<E>(););
 
+    public func map<T, R>(self: option<T>, functor: (T)=> R)
+        => option<R>
+    {
+        match(self)
+        {
+        value(x)?
+            return value(functor(x));
+        none?
+            return none;
+        }
+    }
+    public func map_or<T, R>(self: option<T>, functor: (T)=> R, default: R)
+        => R
+    {
+        match(self)
+        {
+        value(x)?
+            return functor(x);
+        none?
+            return default;
+        }
+    }
+    public func map_or_do<T, R>(self: option<T>, functor: (T)=> R, default: ()=> R)
+        => R
+    {
+        match(self)
+        {
+        value(x)?
+            return functor(x);
+        none?
+            return default();
+        }
+    }
+
     public func bind<T, R>(self: option<T>, functor: (T)=> option<R>)
+        => option<R>
     {
         match(self)
         {
@@ -1761,76 +1800,77 @@ namespace option
         none? return none;
         }
     }
-    public func ret<T>(value: T)
-    {
-        return option::value(value);
-    }
-    public func map<T, R>(self: option<T>, functor: (T)=> R)
+    
+    public func or<T>(self: option<T>, default: T)
+        => T
     {
         match(self)
         {
-        value(x)?
-            return option::value(functor(x));
-        none?
-            return option::none;
+        value(x)? return x;
+        none? return default;
         }
     }
-    public func or<T>(self: option<T>, orfunctor: ()=> T)
+    public func or_do<T>(self: option<T>, default: ()=> T)
+        => T
     {
         match(self)
         {
-        value(x)?
-            return x;
-        none?
-            return orfunctor();
+        value(x)? return x;
+        none? return default();
         }
     }
-    public func orbind<T>(self: option<T>, orfunctor: ()=> option<T>)
+    public func or_bind<T>(self: option<T>, functor: ()=> option<T>)
+        => option<T>
     {
         match(self)
         {
-        value(_)?
-            return self;
-        none?
-            return orfunctor();
+        value(_)? return self;
+        none? return functor();
         }
     }
-    public func valor<T>(self: option<T>, default_val: T)
+
+    public func unwrap<T>(self: option<T>)=> T
     {
         match(self)
         {
-        value(x)?
-            return x;
-        none?
-            return default_val;
+        value(x)? return x;
+        none? return std::panic("Expect 'value' here, but get 'none'.");
         }
     }
-    public func val<T>(self: option<T>)
+
+    public func is_value<T>(self: option<T>)=> bool
     {
         match(self)
         {
-        value(x)?
-            return x;
-        none?
-            std::panic("Expect 'value' here, but get 'none'.");
+        value(_)? return true;
+        none? return false;
         }
     }
-    public func has<T>(self: option<T>)
+    public func is_none<T>(self: option<T>)=> bool
     {
         match(self)
         {
-        value(_)?
-            return true;
-        none?
-            return false;
+        value(_)? return false;
+        none? return true;
         }
     }
-    public func okor<T, F>(self: option<T>, val: F)
+
+    public func ok_or<T, F>(self: option<T>, err: F)
+        => result<T, F>
     {
-        match (self)
+        match(self)
         {
         value(x)? return result::ok(x);
-        none? return result::err(val);
+        none? return result::err(err);
+        }
+    }
+    public func ok_or_do<T, F>(self: option<T>, err: ()=> F)
+        => result<T, F>
+    {
+        match(self)
+        {
+        value(x)? return result::ok(x);
+        none? return result::err(err());
         }
     }
 }
@@ -1846,35 +1886,103 @@ namespace result
     alias ok_t<T> = typeof(std::declval:<item_t<T>>().0);
     alias err_t<T> = typeof(std::declval:<item_t<T>>().1);
 
-    public func flip<T, F>(self: result<T, F>)
+    public func map<T, F, R>(self: result<T, F>, functor: (T)=> R)
+        => result<R, F>
     {
         match(self)
         {
-        ok(v)? return err(v);
-        err(e)? return ok(e);
+        ok(v)? return ok(functor(v));
+        err(e)? return err(e);
         }
     }
-    public func unwrap<T, F>(self: result<T, F>)
+    public func map_or<T, F, R>(self: result<T, F>, functor: (T)=> R, default: R)
+        => R
+    {
+        match(self)
+        {
+        ok(v)? return functor(v);
+        err(_)? return default;
+        }
+    }
+    public func map_or_do<T, F, R>(self: result<T, F>, functor: (T)=> R, default: ()=> R)
+        => R
+    {
+        match(self)
+        {
+        ok(v)? return functor(v);
+        err(_)? return default();
+        }
+    }
+    public func map_err<T, F, RF>(self: result<T, F>, functor: (F)=> RF)
+        => result<T, RF>
+    {
+        match(self)
+        {
+        ok(v)? return ok(v);
+        err(e)? return err(functor(e));
+        }
+    }
+
+    public func bind<T, F, R>(self: result<T, F>, functor: (T)=> result<R, F>)
+        => result<R, F>
+    {
+        match(self)
+        {
+        ok(v)? return functor(v);
+        err(e)? return err(e);
+        }
+    }
+    public func or_bind<T, F, RF>(self: result<T, F>, functor: (F)=> result<T, RF>)
+        => result<T, RF>
+    {
+        match(self)
+        {
+        ok(v)? return ok(v);
+        err(e)? return functor(e);
+        }
+    }
+
+    public func or<T, F>(self: result<T, F>, default: T)
+        => T
+    {
+        match(self)
+        {
+        ok(v)? return v;
+        err(_)? return default;
+        }
+    }
+    public func or_do<T, F>(self: result<T, F>, default: (F)=> T)
+        => T
+    {
+        match(self)
+        {
+        ok(v)? return v;
+        err(e)? return default(e);
+        }
+    }
+
+    public func unwrap<T, F>(self: result<T, F>)=> T
     {
         match(self)
         {
         ok(v)? return v;
         err(e)? 
             if (e: string is pending == false)
-                std::panic(F"An error was found in 'unwrap': {e: string}");
+                return std::panic(F"An error was found in 'unwrap': {e}");
             else
-                std::panic("An error was found in 'unwrap'.");                
+                return std::panic("An error was found in 'unwrap'.");
         }
     }
-    public func unwrapor<T, F>(self: result<T, F>, default_val: T)
+    public func unwrap_err<T, F>(self: result<T, F>)=> F
     {
         match(self)
         {
-        ok(v)? return v;
-        err(_)? return default_val;
+        ok(_)? return std::panic("Expected result::err in 'unwrap_err'.");
+        err(e)? return e;
         }
     }
-    public func isok<T, F>(self: result<T, F>)
+
+    public func is_ok<T, F>(self: result<T, F>)=> bool
     {
         match(self)
         {
@@ -1882,7 +1990,7 @@ namespace result
         err(_)? return false;
         }
     }
-    public func iserr<T, F>(self: result<T, F>)
+    public func is_err<T, F>(self: result<T, F>)=> bool
     {
         match(self)
         {
@@ -1890,7 +1998,9 @@ namespace result
         err(_)? return true;
         }
     }
+
     public func okay<T, F>(self: result<T, F>)
+        => option<T>
     {
         match(self)
         {
@@ -1899,6 +2009,7 @@ namespace result
         }
     }
     public func error<T, F>(self: result<T, F>)
+        => option<F>
     {
         match(self)
         {
@@ -1906,63 +2017,8 @@ namespace result
         err(e)? return option::value(e);
         }
     }
-    public func succ<T, F>(self: result<T, F>)
-    {
-        match(self)
-        {
-        ok(v)? return ok(v);
-        err(e)?
-            if (e is void)
-                std::panic(F"An error was found in 'succ'.");
-            else
-                std::panic(F"An error was found in 'succ': {e}");
-        }
-    }
-    public func fail<T, F>(self: result<T, F>)=> result<nothing, F>
-    {
-        match(self)
-        {
-        ok(v)?
-            if (v is void)
-                std::panic(F"Expected result::err in 'fail'.");
-            else
-                std::panic(F"Expected result::err in 'fail', but get result::ok: {v}.");
-        err(e)? return err(e);
-        }
-    }
-    public func map<T, F, U>(self: result<T, F>, functor: (T)=> U)
-    {
-        match(self)
-        {
-        ok(v)? return ok(functor(v));
-        err(e)? return err(e);
-        }
-    }
-    public func bind<T, F, U>(self: result<T, F>, functor: (T)=> result<U, F>)
-    {
-        match(self)
-        {
-        ok(v)? return functor(v);
-        err(e)? return err(e);
-        }
-    }
-    public func or<T, F>(self: result<T, F>, functor: (F)=> T)
-    {
-        match(self)
-        {
-        ok(v)? return v;
-        err(e)? return functor(e);
-        }
-    }
-    public func orbind<T, F, R>(self: result<T, F>, functor: (F)=> result<T, R>)
-    {
-        match(self)
-        {
-        ok(v)? return ok(v);
-        err(e)? return functor(e);
-        }
-    }
 }
+
 namespace std
 {
     extern("rslib_std_print", slow) 
@@ -2013,7 +2069,7 @@ namespace std
         }
     }
 
-    public func inputline<T>(parser: (string)=>option<T>)
+    public func input_line<T>(parser: (string)=>option<T>)
     {
         while (true)
         {
@@ -2042,7 +2098,7 @@ namespace std
         else
         {
             extern("rslib_std_randomreal") 
-                public func randreal(from:real, to:real)=> real;
+                public func randreal(from: real, to: real)=> real;
             return randreal(from, to);
         }
     }
@@ -2051,16 +2107,16 @@ namespace std
         public func yield()=> void;
 
     extern("rslib_std_thread_sleep", slow)
-        public func sleep(tm:real)=> void;
+        public func sleep(tm: real)=> void;
    
     extern("rslib_std_get_args")
         public func args()=> array<string>;
 
     extern("rslib_std_get_exe_path")
-        public func exepath()=> string;
+        public func host_path()=> string;
 
     extern("rslib_std_equal_byte")
-        public func issame<LT, RT>(a:LT, b:RT)=> bool;
+        public func is_same<LT, RT>(a: LT, b: RT)=> bool;
 
     extern("rslib_std_make_dup", repeat)
         public func dup<T>(dupval: T)=> T;
@@ -2071,38 +2127,44 @@ public using cchar = char;
 namespace char
 {
     extern("rslib_std_char_tostring")
-        public func tostring(val:char)=> string;
+        public func to_string(val: char)=> string;
 
     extern("rslib_std_char_toupper")
-        public func upper(val:char)=> char;
+        public func upper(val: char)=> char;
 
     extern("rslib_std_char_tolower")
-        public func lower(val:char)=> char;
+        public func lower(val: char)=> char;
 
     extern("rslib_std_char_isspace")
-        public func isspace(val:char)=> bool;
+        public func is_space(val: char)=> bool;
 
     extern("rslib_std_char_isalpha")
-        public func isalpha(val:char)=> bool;
+        public func is_alpha(val: char)=> bool;
 
     extern("rslib_std_char_isalnum")
-        public func isalnum(val:char)=> bool;
+        public func is_alnum(val: char)=> bool;
 
     extern("rslib_std_char_isnumber")
-        public func isnumber(val:char)=> bool;
+        public func is_number(val: char)=> bool;
 
     extern("rslib_std_char_ishex")
-        public func ishex(val:char)=> bool;
+        public func is_hex(val: char)=> bool;
 
     extern("rslib_std_char_isoct")
-        public func isoct(val:char)=> bool;
+        public func is_oct(val: char)=> bool;
 
     extern("rslib_std_char_hexnum")
-        public func hexnum(val:char)=> int;
+        public func hex_int(val: char)=> int;
 }
 
 namespace string
 {
+    extern("rslib_std_hex_to_int")
+        public func hex_int(val: string)=> int;
+
+    extern("rslib_std_oct_to_int")
+        public func oct_int(val: string)=> int;
+
     extern("rslib_std_take_token") 
     public func take_token(datstr: string, expect_str: string)=> option<string>;
 
@@ -2122,76 +2184,79 @@ namespace string
     public func cchars(buf: string)=> array<cchar>;
 
     extern("rslib_std_get_ascii_val_from_str") 
-    public func getch(val:string, index: int)=> char;
+    public func getch(val: string, index: int)=> char;
 
     extern("rslib_std_lengthof", repeat) 
-        public func len(val:string)=> int;
+        public func len(val: string)=> int;
 
     extern("rslib_std_str_bytelen") 
-        public func bytelen(val:string)=> int;
+        public func byte_len(val: string)=> int;
 
     extern("rslib_std_string_sub")
-        public func sub(val:string, begin:int)=> string;
+        public func sub(val: string, begin: int)=> string;
 
-    extern("rslib_std_string_subto")
-        public func subto(val:string, begin:int, length:int)=> string;
+    extern("rslib_std_string_sub_len")
+        public func sub_len(val: string, begin: int, length: int)=> string;
+
+    extern("rslib_std_string_sub_range")
+        public func sub_range(val: string, begin: int, end: int)=> string;
     
     extern("rslib_std_string_toupper")
-        public func upper(val:string)=> string;
+        public func upper(val: string)=> string;
 
     extern("rslib_std_string_tolower")
-        public func lower(val:string)=> string;
+        public func lower(val: string)=> string;
 
     extern("rslib_std_string_isspace")
-        public func isspace(val:string)=> bool;
+        public func is_space(val: string)=> bool;
 
     extern("rslib_std_string_isalpha")
-        public func isalpha(val:string)=>  bool;
+        public func is_alpha(val: string)=>  bool;
 
     extern("rslib_std_string_isalnum")
-        public func isalnum(val:string)=>  bool;
+        public func is_alnum(val: string)=>  bool;
 
     extern("rslib_std_string_isnumber")
-        public func isnumber(val:string)=>  bool;
+        public func is_number(val: string)=>  bool;
 
     extern("rslib_std_string_ishex")
-        public func ishex(val:string)=>  bool;
+        public func is_hex(val: string)=>  bool;
 
     extern("rslib_std_string_isoct")
-        public func isoct(val:string)=>  bool;
+        public func is_oct(val: string)=>  bool;
 
     extern("rslib_std_string_enstring")
-        public func enstring(val:string)=> string;
+        public func enstring(val: string)=> string;
 
     extern("rslib_std_string_destring")
-        public func destring(val:string)=>  string;
+        public func destring(val: string)=>  string;
 
     extern("rslib_std_string_beginwith")
-        public func beginwith(val:string, str:string)=> bool;
+        public func begin_with(val: string, str: string)=> bool;
 
     extern("rslib_std_string_endwith")
-        public func endwith(val:string, str:string)=> bool;
+        public func end_with(val: string, str: string)=> bool;
 
     extern("rslib_std_string_replace")
-        public func replace(val:string, match_aim:string, str:string)=> string;
+        public func replace(val: string, match_aim: string, str: string)=> string;
 
     extern("rslib_std_string_find")
-        public func find(val:string, match_aim:string)=> int;
+        public func find(val: string, match_aim: string)=> int;
 
     extern("rslib_std_string_find_from")
-        public func findfrom(val:string, match_aim:string, from: int)=> int;
+        public func find_from(val: string, match_aim: string, from: int)=> int;
 
     extern("rslib_std_string_rfind")
-        public func rfind(val:string, match_aim:string)=> int;
+        public func rfind(val: string, match_aim: string)=> int;
 
     extern("rslib_std_string_rfind_from")
-        public func rfindfrom(val:string, match_aim:string, from: int)=> int;
+        public func rfind_from(val: string, match_aim: string, from: int)=> int;
 
     extern("rslib_std_string_trim")
-        public func trim(val:string)=> string;
+        public func trim(val: string)=> string;
 
     extern("rslib_std_string_split")
-        public func split(val:string, spliter:string)=> array<string>;
+        public func split(val: string, spliter: string)=> array<string>;
 
     public func append<CharOrCCharT>(val: string, ch: CharOrCCharT)=> string
         where ch is char || ch is cchar;
@@ -2225,7 +2290,7 @@ namespace array
 
     public func append<T>(self: array<T>, elem: T)
     {
-        let newarr = self->tovec;
+        let newarr = self->to_vec;
         newarr->add(elem);
 
         return newarr->unsafe::cast:<array<T>>;
@@ -2233,14 +2298,14 @@ namespace array
 
     public func erase<T>(self: array<T>, index: int)
     {
-        let newarr = self->tovec;
+        let newarr = self->to_vec;
         do newarr->remove(index);
 
         return newarr->unsafe::cast:<array<T>>;
     }
     public func inlay<T>(self: array<T>, index: int, insert_value: T)
     {
-        let newarr = self->tovec;
+        let newarr = self->to_vec;
         newarr->insert(index, insert_value);
 
         return newarr->unsafe::cast:<array<T>>;
@@ -2259,21 +2324,21 @@ namespace array
         public func dup<T>(val: array<T>)=> array<T>;
 
     extern("rslib_std_make_dup", repeat)
-        public func tovec<T>(val: array<T>)=> vec<T>;
+        public func to_vec<T>(val: array<T>)=> vec<T>;
 
     extern("rslib_std_array_empty", repeat)
         public func empty<T>(val: array<T>)=> bool;
 
     public func resize<T>(val: array<T>, newsz: int, init_val: T)
     {
-        let newarr = val->tovec;
+        let newarr = val->to_vec;
         newarr->resize(newsz, init_val);
 
         return newarr as vec<T>->unsafe::cast:<array<T>>;
     }
     public func shrink<T>(val: array<T>, newsz: int)
-    {   
-        let newarr = val->tovec;
+    {
+        let newarr = val->to_vec;
         do newarr->shrink(newsz);
 
         return newarr as vec<T>->unsafe::cast:<array<T>>;
@@ -2283,12 +2348,21 @@ namespace array
         public func get<T>(a: array<T>, index: int)=> option<T>;
 
     extern("rslib_std_array_get_or_default", repeat)
-        public func getor<T>(a: array<T>, index: int, val: T)=> T;
+        public func get_or<T>(a: array<T>, index: int, val: T)=> T;
+
+    public func get_or_do<T>(a: array<T>, index: int, f: ()=> T)=> T
+    {
+        match (a->get(index))
+        {
+        value(v)? return v;
+        none? return f();
+        }
+    }
 
     extern("rslib_std_array_find", repeat)
-        public func find<T>(val:array<T>, elem:T)=> int;
+        public func find<T>(val: array<T>, elem: T)=> int;
 
-    public func findif<T>(val:array<T>, judger:(T)=> bool)
+    public func find_if<T>(val: array<T>, judger:(T)=> bool)
     {
         let mut count = 0;
         for (let v : val)
@@ -2298,7 +2372,6 @@ namespace array
                 count += 1;
         return -1;
     }
-
     public func forall<T>(val: array<T>, functor: (T)=> bool)
     {
         let result = []mut: vec<T>;
@@ -2364,11 +2437,11 @@ namespace array
     public using iterator<T> = gchandle
     {
         extern("rslib_std_array_iter_next", repeat)
-            public func next<T>(iter:iterator<T>)=> option<T>;
+            public func next<T>(iter: iterator<T>)=> option<T>;
     }
 
     extern("rslib_std_array_iter", repeat)
-        public func iter<T>(val:array<T>)=> iterator<T>;
+        public func iter<T>(val: array<T>)=> iterator<T>;
 
     extern("rslib_std_array_connect", repeat)
         public func connect<T>(self: array<T>, another: array<T>)=> array<T>;
@@ -2377,7 +2450,10 @@ namespace array
     public func sub<T>(self: array<T>, begin: int)=> array<T>;
     
     extern("rslib_std_array_subto", repeat)
-    public func subto<T>(self: array<T>, begin: int, count: int)=> array<T>;
+    public func sub_len<T>(self: array<T>, begin: int, count: int)=> array<T>;
+
+    extern("rslib_std_array_sub_range", repeat)
+    public func sub_range<T>(self: array<T>, begin: int, end: int)=> array<T>;
 
     extern("rslib_std_array_front", repeat)
     public func front<T>(val: array<T>)=> option<T>;
@@ -2386,10 +2462,10 @@ namespace array
     public func back<T>(val: array<T>)=> option<T>;
 
     extern("rslib_std_array_front_val", repeat)
-    public func frontval<T>(val: array<T>)=> T;
+    public func unwrap_front<T>(val: array<T>)=> T;
 
     extern("rslib_std_array_back_val", repeat)
-    public func backval<T>(val: array<T>)=> T;
+    public func unwrap_back<T>(val: array<T>)=> T;
 }
 
 namespace vec
@@ -2419,7 +2495,7 @@ namespace vec
         public func dup<T>(val: vec<T>)=> vec<T>;
 
     extern("rslib_std_make_dup", repeat)
-        public func toarray<T>(val: vec<T>)=> array<T>;
+        public func to_array<T>(val: vec<T>)=> array<T>;
 
     extern("rslib_std_array_empty", repeat)
         public func empty<T>(val: vec<T>)=> bool;
@@ -2443,6 +2519,18 @@ namespace vec
     extern("rslib_std_array_get", repeat)
         public func get<T>(a: vec<T>, index: int)=> option<T>;
 
+    extern("rslib_std_array_get_or_default", repeat)
+        public func get_or<T>(a: vec<T>, index: int, val: T)=> T;
+
+    public func get_or_do<T>(a: vec<T>, index: int, f: ()=> T)=> T
+    {
+        match (a->get(index))
+        {
+        value(v)? return v;
+        none? return f();
+        }
+    }
+
     extern("rslib_std_array_add") 
         public func add<T>(val: vec<T>, elem: T)=> void;
 
@@ -2453,7 +2541,10 @@ namespace vec
     public func sub<T>(self: vec<T>, begin: int)=> vec<T>;
     
     extern("rslib_std_array_subto", repeat)
-    public func subto<T>(self: vec<T>, begin: int, count: int)=> vec<T>;
+    public func sub_len<T>(self: vec<T>, begin: int, count: int)=> vec<T>;
+
+    extern("rslib_std_array_sub_range", repeat)
+    public func sub_range<T>(self: vec<T>, begin: int, end: int)=> vec<T>;
 
     extern("rslib_std_array_pop") 
         public func pop<T>(val: vec<T>)=> option<T>;  
@@ -2462,18 +2553,18 @@ namespace vec
         public func dequeue<T>(val: vec<T>)=> option<T>;  
 
     extern("rslib_std_array_pop_val") 
-        public func popval<T>(val: vec<T>)=> T;  
+        public func unwrap_pop<T>(val: vec<T>)=> T;  
 
     extern("rslib_std_array_dequeue_val") 
-        public func dequeueval<T>(val: vec<T>)=> T;  
+        public func unwrap_dequeue<T>(val: vec<T>)=> T;  
 
     extern("rslib_std_array_remove")
-        public func remove<T>(val:vec<T>, index:int)=> bool;
+        public func remove<T>(val: vec<T>, index: int)=> bool;
 
     extern("rslib_std_array_find", repeat)
-        public func find<T>(val:vec<T>, elem:T)=> int;
+        public func find<T>(val: vec<T>, elem: T)=> int;
 
-    public func findif<T>(val:vec<T>, judger:(T)=> bool)
+    public func find_if<T>(val: vec<T>, judger:(T)=> bool)
     {
         let mut count = 0;
         for (let v : val)
@@ -2485,7 +2576,7 @@ namespace vec
     }
 
     extern("rslib_std_array_clear")
-        public func clear<T>(val:vec<T>)=> void;
+        public func clear<T>(val: vec<T>)=> void;
 
     public func forall<T>(val: vec<T>, functor: (T)=> bool)
     {
@@ -2549,11 +2640,11 @@ namespace vec
     public using iterator<T> = gchandle
     {
         extern("rslib_std_array_iter_next", repeat)
-            public func next<T>(iter:iterator<T>)=> option<T>;
+            public func next<T>(iter: iterator<T>)=> option<T>;
     }
 
     extern("rslib_std_array_iter", repeat)
-        public func iter<T>(val:vec<T>)=> iterator<T>;
+        public func iter<T>(val: vec<T>)=> iterator<T>;
 
     extern("rslib_std_array_front", repeat)
     public func front<T>(val: vec<T>)=> option<T>;
@@ -2562,10 +2653,10 @@ namespace vec
     public func back<T>(val: vec<T>)=> option<T>;
 
     extern("rslib_std_array_front_val", repeat)
-    public func frontval<T>(val: vec<T>)=> T;
+    public func unwrap_front<T>(val: vec<T>)=> T;
 
     extern("rslib_std_array_back_val", repeat)
-    public func backval<T>(val: vec<T>)=> T;
+    public func unwrap_back<T>(val: vec<T>)=> T;
 }
 
 namespace dict
@@ -2592,7 +2683,7 @@ namespace dict
 
     public func apply<KT, VT>(self: dict<KT, VT>, key: KT, val: VT)
     {
-        let newmap = self->tomap;
+        let newmap = self->to_map;
         newmap->set(key, val);
 
         return newmap->unsafe::cast:<dict<KT, VT>>;
@@ -2605,9 +2696,9 @@ namespace dict
         public func dup<KT, VT>(self: dict<KT, VT>)=> dict<KT, VT>;
 
     extern("rslib_std_make_dup", repeat)
-        public func tomap<KT, VT>(self: dict<KT, VT>)=> map<KT, VT>;
+        public func to_map<KT, VT>(self: dict<KT, VT>)=> map<KT, VT>;
 
-    public func findif<KT, VT>(self: dict<KT, VT>, judger:(KT)=> bool)
+    public func find_if<KT, VT>(self: dict<KT, VT>, judger:(KT)=> bool)
     {
         for (let (k, _) : self)
             if (judger(k))
@@ -2622,7 +2713,16 @@ namespace dict
         public func contain<KT, VT>(self: dict<KT, VT>, index: KT)=> bool;
 
     extern("rslib_std_map_get_or_default", repeat) 
-        public func getor<KT, VT>(self: dict<KT, VT>, index: KT, default_val: VT)=> VT;
+        public func get_or<KT, VT>(self: dict<KT, VT>, index: KT, default_val: VT)=> VT;
+
+    public func get_or_do<KT, VT>(self: dict<KT, VT>, index: KT, f: ()=> VT)=> VT
+    {
+        match (a->get(index))
+        {
+        value(v)? return v;
+        none? return f();
+        }
+    }
 
     extern("rslib_std_map_keys", repeat)
         public func keys<KT, VT>(self: dict<KT, VT>)=> array<KT>;
@@ -2635,7 +2735,7 @@ namespace dict
 
     public func erase<KT, VT>(self: dict<KT, VT>, index: KT)
     {
-        let newmap = self->tomap;
+        let newmap = self->to_map;
         do newmap->remove(index);
 
         return newmap->unsafe::cast:<dict<KT, VT>>;
@@ -2644,11 +2744,11 @@ namespace dict
     public using iterator<KT, VT> = gchandle
     {
         extern("rslib_std_map_iter_next", repeat)
-            public func next<KT, VT>(iter:iterator<KT, VT>)=> option<(KT, VT)>;
+            public func next<KT, VT>(iter: iterator<KT, VT>)=> option<(KT, VT)>;
     }
 
     extern("rslib_std_map_iter", repeat)
-        public func iter<KT, VT>(self:dict<KT, VT>)=> iterator<KT, VT>;
+        public func iter<KT, VT>(self: dict<KT, VT>)=> iterator<KT, VT>;
 
     public func forall<KT, VT>(self: dict<KT, VT>, functor: (KT, VT)=> bool)
     {
@@ -2714,9 +2814,9 @@ namespace map
         public func dup<KT, VT>(self: map<KT, VT>)=> map<KT, VT>;
 
     extern("rslib_std_make_dup", repeat)
-        public func todict<KT, VT>(self: map<KT, VT>)=> dict<KT, VT>;
+        public func to_dict<KT, VT>(self: map<KT, VT>)=> dict<KT, VT>;
 
-    public func findif<KT, VT>(self: map<KT, VT>, judger:(KT)=> bool)
+    public func find_if<KT, VT>(self: map<KT, VT>, judger:(KT)=> bool)
     {
         for (let (k, _) : self)
             if (judger(k))
@@ -2731,10 +2831,22 @@ namespace map
         public func get<KT, VT>(self: map<KT, VT>, index: KT)=> option<VT>;
 
     extern("rslib_std_map_get_or_default", repeat) 
-        public func getor<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=> VT;
+        public func get_or<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=> VT;
 
     extern("rslib_std_map_get_or_set_default") 
-        public func getorset<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=> VT;
+        public func get_or_set<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=> VT;
+
+    extern("rslib_std_map_get_or_set_default_do") 
+        public func get_or_set_do<KT, VT>(self: map<KT, VT>, index: KT, f: ()=> VT)=> VT;
+
+    public func get_or_do<KT, VT>(self: map<KT, VT>, index: KT, f: ()=> VT)=> VT
+    {
+        match (a->get(index))
+        {
+        value(v)? return v;
+        none? return f();
+        }
+    }
 
     extern("rslib_std_map_swap") 
         public func swap<KT, VT>(val: map<KT, VT>, another: map<KT, VT>)=> void;
@@ -2760,11 +2872,11 @@ namespace map
     public using iterator<KT, VT> = gchandle
     {
         extern("rslib_std_map_iter_next", repeat)
-            public func next<KT, VT>(iter:iterator<KT, VT>)=> option<(KT, VT)>;
+            public func next<KT, VT>(iter: iterator<KT, VT>)=> option<(KT, VT)>;
     }
 
     extern("rslib_std_map_iter", repeat)
-        public func iter<KT, VT>(self:map<KT, VT>)=> iterator<KT, VT>;
+        public func iter<KT, VT>(self: map<KT, VT>)=> iterator<KT, VT>;
 
     public func forall<KT, VT>(self: map<KT, VT>, functor: (KT, VT)=>bool)
     {
@@ -2796,14 +2908,9 @@ namespace map
 namespace int
 {
     extern("rslib_std_int_to_hex")
-        public func tohex(val: int)=> string;
+        public func to_hex(val: int)=> string;
     extern("rslib_std_int_to_oct")
-        public func tooct(val: int)=> string;
-
-    extern("rslib_std_hex_to_int")
-        public func parsehex(val: string)=> int;
-    extern("rslib_std_oct_to_int")
-        public func parseoct(val: string)=> int;
+        public func to_oct(val: int)=> string;
 
     extern("rslib_std_bit_or") 
         public func bor(a: int, b: int)=> int;
@@ -2822,23 +2929,10 @@ namespace int
         public func bashr(a: int, b: int)=> int;
 }
 
-namespace handle
-{
-    extern("rslib_std_handle_to_hex")
-        public func tohex(val: handle)=> string;
-    extern("rslib_std_handle_to_oct")
-        public func tooct(val: handle)=> string;
-
-    extern("rslib_std_hex_to_handle")
-        public func parsehex(val: string)=> handle;
-    extern("rslib_std_oct_to_handle")
-        public func parseoct(val: string)=> handle;
-}
-
 namespace gchandle
 {
     extern("rslib_std_gchandle_close", slow)
-        public func close(handle:gchandle)=> bool;
+        public func close(handle: gchandle)=> bool;
 }
 
 public func assert(val: bool)
@@ -2851,7 +2945,6 @@ public func assertmsg(val: bool, msg: string)
     if (!val)
         std::panic(F"Assert failed: {msg}");
 }
-
 )" };
 
 WO_API wo_api rslib_std_debug_attach_default_debuggee(wo_vm vm, wo_value args)
@@ -2914,7 +3007,7 @@ namespace std
         }
 
         extern("rslib_std_debug_callstack_trace")
-            public func callstack(layer:int) =>  string;
+            public func callstack(layer: int) =>  string;
     }
 }
 )" };
@@ -3124,13 +3217,13 @@ namespace std
     public using lexer = handle
     {
         extern("rslib_std_macro_lexer_error")
-            public func error(lex:lexer, msg:string)=> void;
+            public func error(lex: lexer, msg: string)=> void;
 
         extern("rslib_std_macro_lexer_peek")
-            public func peektoken(lex:lexer)=> (token_type, string);
+            public func peek_token(lex: lexer)=> (token_type, string);
 
         extern("rslib_std_macro_lexer_next")
-            public func nexttoken(lex:lexer)=> (token_type, string);
+            public func next_token(lex: lexer)=> (token_type, string);
         
         private func wrap_token(type: token_type, str: string)
         {
@@ -3139,60 +3232,60 @@ namespace std
             else if (type == token_type::l_format_string_begin)
             {
                 let enstr = str->enstring;
-                return "F" + enstr->subto(0, enstr->len-1) + "{";
+                return "F" + enstr->sub_len(0, enstr->len-1) + "{";
             }
             else if (type == token_type::l_format_string)
             {
                 let enstr = str->enstring;
-                return "}" + enstr->subto(1, enstr->len-2) + "{";
+                return "}" + enstr->sub_len(1, enstr->len-2) + "{";
             }
             else if (type == token_type::l_format_string_end)
             {
                 let enstr = str->enstring;
-                return "}" + enstr->subto(1, enstr->len-1);
+                return "}" + enstr->sub_len(1, enstr->len-1);
             }
             else if (type == token_type::l_literal_char)
             {
                 let enstr = str->enstring;
-                return F"'{enstr->subto(1, enstr->len-2)}'";
+                return F"'{enstr->sub_len(1, enstr->len-2)}'";
             }
             return str;
         }
 
         public func peek(lex: lexer)
         {
-            return wrap_token(lex->peektoken...);
+            return wrap_token(lex->peek_token...);
         }
         public func next(lex: lexer)
         {
-            return wrap_token(lex->nexttoken...);
+            return wrap_token(lex->next_token...);
         }
 
         extern("rslib_std_macro_lexer_nextch")
-            public func nextch(lex:lexer) => string;
+            public func next_char(lex: lexer) => string;
 
         extern("rslib_std_macro_lexer_peekch")
-            public func peekch(lex:lexer) => string;
+            public func peek_char(lex: lexer) => string;
 
         extern("rslib_std_macro_lexer_current_path")
-            public func path(lex:lexer) => string;
+            public func path(lex: lexer) => string;
 
         extern("rslib_std_macro_lexer_current_rowno")
-            public func row(lex:lexer) => int;
+            public func row(lex: lexer) => int;
 
         extern("rslib_std_macro_lexer_current_colno")
-            public func col(lex:lexer) => int;
+            public func col(lex: lexer) => int;
 
-        public func trytoken(self: lexer, token: token_type)=> option<string>
+        public func try_token(self: lexer, token: token_type)=> option<string>
         {
-            let (tok, _) = self->peektoken();
+            let (tok, _) = self->peek_token;
             if (token == tok)
-                return option::value(self->nexttoken()[1]);
+                return option::value(self->next_token.1);
             return option::none;
         }
-        public func expecttoken(self: lexer, token: token_type)=> option<string>
+        public func expect_token(self: lexer, token: token_type)=> option<string>
         {
-            let (tok, res) = self->nexttoken();
+            let (tok, res) = self->next_token();
             if (tok == token)
                 return option::value(res);
             self->error("Unexpected token here.");
@@ -3215,7 +3308,6 @@ namespace std
         }
     }
 }
-
 )" };
 
 WO_API wo_api rslib_std_call_shell(wo_vm vm, wo_value args)
@@ -3262,186 +3354,145 @@ namespace wo
         wo_assert(_current_wo_lib_handle == nullptr);
 
         wo_extern_lib_func_t funcs[] = {
-            {"rslib_std_return_itself", (void*)&rslib_std_return_itself},
-            {"rslib_std_get_extern_symb", (void*)&rslib_std_get_extern_symb},
-            {"rslib_std_halt", (void*)&rslib_std_halt},
-            {"rslib_std_panic", (void*)&rslib_std_panic},
-            {"rslib_std_bad_function", (void*)&rslib_std_bad_function},
-            {"rslib_std_bit_or", (void*)&rslib_std_bit_or},
-            {"rslib_std_bit_and", (void*)&rslib_std_bit_and},
-            {"rslib_std_bit_xor", (void*)&rslib_std_bit_xor},
-            {"rslib_std_bit_not", (void*)&rslib_std_bit_not},
-            {"rslib_std_bit_shl", (void*)&rslib_std_bit_shl},
-            {"rslib_std_bit_shr", (void*)&rslib_std_bit_shr},
-            {"rslib_std_bit_ashr", (void*)&rslib_std_bit_ashr},
-            {"rslib_std_weakref_create", (void*)&rslib_std_weakref_create},
-            {"rslib_std_weakref_trylock", (void*)&rslib_std_weakref_trylock},
-            {"rslib_std_print", (void*)&rslib_std_print},
-            {"rslib_std_time_sec", (void*)&rslib_std_time_sec},
-            {"rslib_std_input_readint", (void*)&rslib_std_input_readint},
-            {"rslib_std_input_readreal", (void*)&rslib_std_input_readreal},
-            {"rslib_std_input_readstring", (void*)&rslib_std_input_readstring},
-            {"rslib_std_input_readline", (void*)&rslib_std_input_readline},
-            {"rslib_std_randomint", (void*)&rslib_std_randomint},
-            {"rslib_std_randomreal", (void*)&rslib_std_randomreal},
-            {"rslib_std_break_yield", (void*)&rslib_std_break_yield},
-            {"rslib_std_thread_sleep", (void*)&rslib_std_thread_sleep},
-            {"rslib_std_get_args", (void*)&rslib_std_get_args},
-            {"rslib_std_get_exe_path", (void*)&rslib_std_get_exe_path},
-            {"rslib_std_equal_byte", (void*)&rslib_std_equal_byte},
-            {"rslib_std_make_dup", (void*)&rslib_std_make_dup},
-            {"rslib_std_char_tostring", (void*)&rslib_std_char_tostring},
-            {"rslib_std_char_toupper", (void*)&rslib_std_char_toupper},
-            {"rslib_std_char_tolower", (void*)&rslib_std_char_tolower},
-            {"rslib_std_char_isspace", (void*)&rslib_std_char_isspace},
-            {"rslib_std_char_isalpha", (void*)&rslib_std_char_isalpha},
-            {"rslib_std_char_isalnum", (void*)&rslib_std_char_isalnum},
-            {"rslib_std_char_isnumber", (void*)&rslib_std_char_isnumber},
-            {"rslib_std_char_ishex", (void*)&rslib_std_char_ishex},
-            {"rslib_std_char_isoct", (void*)&rslib_std_char_isoct},
-            {"rslib_std_char_hexnum", (void*)&rslib_std_char_hexnum},
-            {"rslib_std_take_token", (void*)&rslib_std_take_token},
-            {"rslib_std_take_string", (void*)&rslib_std_take_string},
-            {"rslib_std_take_int", (void*)&rslib_std_take_int},
-            {"rslib_std_take_real", (void*)&rslib_std_take_real},
-            {"rslib_std_create_wchars_from_str", (void*)&rslib_std_create_wchars_from_str},
-            {"rslib_std_create_chars_from_str", (void*)&rslib_std_create_chars_from_str},
-            {"rslib_std_get_ascii_val_from_str", (void*)&rslib_std_get_ascii_val_from_str},
-            {"rslib_std_lengthof", (void*)&rslib_std_lengthof},
-            {"rslib_std_str_bytelen", (void*)&rslib_std_str_bytelen},
-            {"rslib_std_string_sub", (void*)&rslib_std_string_sub},
-            {"rslib_std_string_subto", (void*)&rslib_std_string_subto},
-            {"rslib_std_string_toupper", (void*)&rslib_std_string_toupper},
-            {"rslib_std_string_tolower", (void*)&rslib_std_string_tolower},
-            {"rslib_std_string_isspace", (void*)&rslib_std_string_isspace},
-            {"rslib_std_string_isalpha", (void*)&rslib_std_string_isalpha},
-            {"rslib_std_string_isalnum", (void*)&rslib_std_string_isalnum},
-            {"rslib_std_string_isnumber", (void*)&rslib_std_string_isnumber},
-            {"rslib_std_string_ishex", (void*)&rslib_std_string_ishex},
-            {"rslib_std_string_isoct", (void*)&rslib_std_string_isoct},
-            {"rslib_std_string_enstring", (void*)&rslib_std_string_enstring},
-            {"rslib_std_string_destring", (void*)&rslib_std_string_destring},
-            {"rslib_std_string_beginwith", (void*)&rslib_std_string_beginwith},
-            {"rslib_std_string_endwith", (void*)&rslib_std_string_endwith},
-            {"rslib_std_string_replace", (void*)&rslib_std_string_replace},
-            {"rslib_std_string_find", (void*)&rslib_std_string_find},
-            {"rslib_std_string_find_from", (void*)&rslib_std_string_find_from},
-            {"rslib_std_string_rfind", (void*)&rslib_std_string_rfind},
-            {"rslib_std_string_rfind_from", (void*)&rslib_std_string_rfind_from},
-            {"rslib_std_string_trim", (void*)&rslib_std_string_trim},
-            {"rslib_std_string_split", (void*)&rslib_std_string_split},
-            {"rslib_std_string_append_char", (void*)&rslib_std_string_append_char},
-            {"rslib_std_string_append_cchar", (void*)&rslib_std_string_append_cchar},
+            {"rslib_std_array_add", (void*)&rslib_std_array_add},
+            {"rslib_std_array_back", (void*)&rslib_std_array_back},
+            {"rslib_std_array_back_val", (void*)&rslib_std_array_back_val},
+            {"rslib_std_array_clear", (void*)&rslib_std_array_clear},
+            {"rslib_std_array_connect", (void*)&rslib_std_array_connect},
+            {"rslib_std_array_copy", (void*)&rslib_std_array_copy},
             {"rslib_std_array_create", (void*)&rslib_std_array_create},
-            {"rslib_std_serialize", (void*)&rslib_std_serialize},
-            {"rslib_std_parse_array_from_string", (void*)&rslib_std_parse_array_from_string},
-            {"rslib_std_create_str_by_wchar", (void*)&rslib_std_create_str_by_wchar},
-            {"rslib_std_create_str_by_ascii", (void*)&rslib_std_create_str_by_ascii},
-            {"rslib_std_lengthof", (void*)&rslib_std_lengthof},
-            {"rslib_std_make_dup", (void*)&rslib_std_make_dup},
-            {"rslib_std_make_dup", (void*)&rslib_std_make_dup},
+            {"rslib_std_array_dequeue", (void*)&rslib_std_array_dequeue},
+            {"rslib_std_array_dequeue_val", (void*)&rslib_std_array_dequeue_val},
             {"rslib_std_array_empty", (void*)&rslib_std_array_empty},
+            {"rslib_std_array_find", (void*)&rslib_std_array_find},
+            {"rslib_std_array_front", (void*)&rslib_std_array_front},
+            {"rslib_std_array_front_val", (void*)&rslib_std_array_front_val},
             {"rslib_std_array_get", (void*)&rslib_std_array_get},
             {"rslib_std_array_get_or_default", (void*)&rslib_std_array_get_or_default},
-            {"rslib_std_array_find", (void*)&rslib_std_array_find},
-            {"rslib_std_array_iter_next", (void*)&rslib_std_array_iter_next},
+            {"rslib_std_array_insert", (void*)&rslib_std_array_insert},
             {"rslib_std_array_iter", (void*)&rslib_std_array_iter},
-            {"rslib_std_array_connect", (void*)&rslib_std_array_connect},
-            {"rslib_std_array_sub", (void*)&rslib_std_array_sub},
-            {"rslib_std_array_subto", (void*)&rslib_std_array_subto},
-            {"rslib_std_array_front", (void*)&rslib_std_array_front},
-            {"rslib_std_array_back", (void*)&rslib_std_array_back},
-            {"rslib_std_array_front_val", (void*)&rslib_std_array_front_val},
-            {"rslib_std_array_back_val", (void*)&rslib_std_array_back_val},
-            {"rslib_std_array_create", (void*)&rslib_std_array_create},
-            {"rslib_std_serialize", (void*)&rslib_std_serialize},
-            {"rslib_std_parse_array_from_string", (void*)&rslib_std_parse_array_from_string},
-            {"rslib_std_create_str_by_wchar", (void*)&rslib_std_create_str_by_wchar},
-            {"rslib_std_create_str_by_ascii", (void*)&rslib_std_create_str_by_ascii},
-            {"rslib_std_lengthof", (void*)&rslib_std_lengthof},
-            {"rslib_std_make_dup", (void*)&rslib_std_make_dup},
-            {"rslib_std_make_dup", (void*)&rslib_std_make_dup},
-            {"rslib_std_array_empty", (void*)&rslib_std_array_empty},
+            {"rslib_std_array_iter_next", (void*)&rslib_std_array_iter_next},
+            {"rslib_std_array_pop", (void*)&rslib_std_array_pop},
+            {"rslib_std_array_pop_val", (void*)&rslib_std_array_pop_val},
+            {"rslib_std_array_remove", (void*)&rslib_std_array_remove},
             {"rslib_std_array_resize", (void*)&rslib_std_array_resize},
             {"rslib_std_array_shrink", (void*)&rslib_std_array_shrink},
-            {"rslib_std_array_insert", (void*)&rslib_std_array_insert},
-            {"rslib_std_array_swap", (void*)&rslib_std_array_swap},
-            {"rslib_std_array_copy", (void*)&rslib_std_array_copy},
-            {"rslib_std_array_get", (void*)&rslib_std_array_get},
-            {"rslib_std_array_add", (void*)&rslib_std_array_add},
-            {"rslib_std_array_connect", (void*)&rslib_std_array_connect},
             {"rslib_std_array_sub", (void*)&rslib_std_array_sub},
+            {"rslib_std_array_sub_range", (void*)&rslib_std_array_sub_range},
             {"rslib_std_array_subto", (void*)&rslib_std_array_subto},
-            {"rslib_std_array_pop", (void*)&rslib_std_array_pop},
-            {"rslib_std_array_dequeue", (void*)&rslib_std_array_dequeue},
-            {"rslib_std_array_pop_val", (void*)&rslib_std_array_pop_val},
-            {"rslib_std_array_dequeue_val", (void*)&rslib_std_array_dequeue_val},
-            {"rslib_std_array_remove", (void*)&rslib_std_array_remove},
-            {"rslib_std_array_find", (void*)&rslib_std_array_find},
-            {"rslib_std_array_clear", (void*)&rslib_std_array_clear},
-            {"rslib_std_array_iter_next", (void*)&rslib_std_array_iter_next},
-            {"rslib_std_array_iter", (void*)&rslib_std_array_iter},
-            {"rslib_std_array_front", (void*)&rslib_std_array_front},
-            {"rslib_std_array_back", (void*)&rslib_std_array_back},
-            {"rslib_std_array_front_val", (void*)&rslib_std_array_front_val},
-            {"rslib_std_array_back_val", (void*)&rslib_std_array_back_val},
-            {"rslib_std_serialize", (void*)&rslib_std_serialize},
-            {"rslib_std_parse_map_from_string", (void*)&rslib_std_parse_map_from_string},
-            {"rslib_std_lengthof", (void*)&rslib_std_lengthof},
-            {"rslib_std_make_dup", (void*)&rslib_std_make_dup},
-            {"rslib_std_make_dup", (void*)&rslib_std_make_dup},
-            {"rslib_std_map_only_get", (void*)&rslib_std_map_only_get},
-            {"rslib_std_map_find", (void*)&rslib_std_map_find},
-            {"rslib_std_map_get_or_default", (void*)&rslib_std_map_get_or_default},
-            {"rslib_std_map_keys", (void*)&rslib_std_map_keys},
-            {"rslib_std_map_vals", (void*)&rslib_std_map_vals},
-            {"rslib_std_map_empty", (void*)&rslib_std_map_empty},
-            {"rslib_std_map_iter_next", (void*)&rslib_std_map_iter_next},
-            {"rslib_std_map_iter", (void*)&rslib_std_map_iter},
-            {"rslib_std_serialize", (void*)&rslib_std_serialize},
-            {"rslib_std_parse_map_from_string", (void*)&rslib_std_parse_map_from_string},
-            {"rslib_std_map_create", (void*)&rslib_std_map_create},
-            {"rslib_std_map_reserve", (void*)&rslib_std_map_reserve},
-            {"rslib_std_map_set", (void*)&rslib_std_map_set},
-            {"rslib_std_lengthof", (void*)&rslib_std_lengthof},
-            {"rslib_std_make_dup", (void*)&rslib_std_make_dup},
-            {"rslib_std_make_dup", (void*)&rslib_std_make_dup},
-            {"rslib_std_map_find", (void*)&rslib_std_map_find},
-            {"rslib_std_map_only_get", (void*)&rslib_std_map_only_get},
-            {"rslib_std_map_get_or_default", (void*)&rslib_std_map_get_or_default},
-            {"rslib_std_map_get_or_set_default", (void*)&rslib_std_map_get_or_set_default},
-            {"rslib_std_map_swap", (void*)&rslib_std_map_swap},
-            {"rslib_std_map_copy", (void*)&rslib_std_map_copy},
-            {"rslib_std_map_keys", (void*)&rslib_std_map_keys},
-            {"rslib_std_map_vals", (void*)&rslib_std_map_vals},
-            {"rslib_std_map_empty", (void*)&rslib_std_map_empty},
-            {"rslib_std_map_remove", (void*)&rslib_std_map_remove},
-            {"rslib_std_map_clear", (void*)&rslib_std_map_clear},
-            {"rslib_std_map_iter_next", (void*)&rslib_std_map_iter_next},
-            {"rslib_std_map_iter", (void*)&rslib_std_map_iter},
+            {"rslib_std_array_swap", (void*)&rslib_std_array_swap},
+            {"rslib_std_bad_function", (void*)&rslib_std_bad_function},
+            {"rslib_std_bit_and", (void*)&rslib_std_bit_and},
+            {"rslib_std_bit_ashr", (void*)&rslib_std_bit_ashr},
+            {"rslib_std_bit_not", (void*)&rslib_std_bit_not},
+            {"rslib_std_bit_or", (void*)&rslib_std_bit_or},
+            {"rslib_std_bit_shl", (void*)&rslib_std_bit_shl},
+            {"rslib_std_bit_shr", (void*)&rslib_std_bit_shr},
+            {"rslib_std_bit_xor", (void*)&rslib_std_bit_xor},
+            {"rslib_std_break_yield", (void*)&rslib_std_break_yield},
+            {"rslib_std_call_shell", (void*)&rslib_std_call_shell},
+            {"rslib_std_char_hexnum", (void*)&rslib_std_char_hexnum},
+            {"rslib_std_char_isalnum", (void*)&rslib_std_char_isalnum},
+            {"rslib_std_char_isalpha", (void*)&rslib_std_char_isalpha},
+            {"rslib_std_char_ishex", (void*)&rslib_std_char_ishex},
+            {"rslib_std_char_isnumber", (void*)&rslib_std_char_isnumber},
+            {"rslib_std_char_isoct", (void*)&rslib_std_char_isoct},
+            {"rslib_std_char_isspace", (void*)&rslib_std_char_isspace},
+            {"rslib_std_char_tolower", (void*)&rslib_std_char_tolower},
+            {"rslib_std_char_tostring", (void*)&rslib_std_char_tostring},
+            {"rslib_std_char_toupper", (void*)&rslib_std_char_toupper},
+            {"rslib_std_create_chars_from_str", (void*)&rslib_std_create_chars_from_str},
+            {"rslib_std_create_str_by_ascii", (void*)&rslib_std_create_str_by_ascii},
+            {"rslib_std_create_str_by_wchar", (void*)&rslib_std_create_str_by_wchar},
+            {"rslib_std_create_wchars_from_str", (void*)&rslib_std_create_wchars_from_str},
+            {"rslib_std_debug_attach_default_debuggee", (void*)&rslib_std_debug_attach_default_debuggee},
+            {"rslib_std_debug_breakpoint", (void*)&rslib_std_debug_breakpoint},
+            {"rslib_std_debug_callstack_trace", (void*)&rslib_std_debug_callstack_trace},
+            {"rslib_std_debug_disattach_default_debuggee", (void*)&rslib_std_debug_disattach_default_debuggee},
+            {"rslib_std_equal_byte", (void*)&rslib_std_equal_byte},
+            {"rslib_std_gchandle_close", (void*)&rslib_std_gchandle_close},
+            {"rslib_std_get_args", (void*)&rslib_std_get_args},
+            {"rslib_std_get_ascii_val_from_str", (void*)&rslib_std_get_ascii_val_from_str},
+            {"rslib_std_get_env", (void*)&rslib_std_get_env},
+            {"rslib_std_get_exe_path", (void*)&rslib_std_get_exe_path},
+            {"rslib_std_get_extern_symb", (void*)&rslib_std_get_extern_symb},
+            {"rslib_std_halt", (void*)&rslib_std_halt},
+            {"rslib_std_hex_to_int", (void*)&rslib_std_hex_to_int},
+            {"rslib_std_input_readint", (void*)&rslib_std_input_readint},
+            {"rslib_std_input_readline", (void*)&rslib_std_input_readline},
+            {"rslib_std_input_readreal", (void*)&rslib_std_input_readreal},
+            {"rslib_std_input_readstring", (void*)&rslib_std_input_readstring},
             {"rslib_std_int_to_hex", (void*)&rslib_std_int_to_hex},
             {"rslib_std_int_to_oct", (void*)&rslib_std_int_to_oct},
-            {"rslib_std_hex_to_int", (void*)&rslib_std_hex_to_int},
-            {"rslib_std_oct_to_int", (void*)&rslib_std_oct_to_int},
-            {"rslib_std_handle_to_hex", (void*)&rslib_std_handle_to_hex},
-            {"rslib_std_handle_to_oct", (void*)&rslib_std_handle_to_oct},
-            {"rslib_std_hex_to_handle", (void*)&rslib_std_hex_to_handle},
-            {"rslib_std_oct_to_handle", (void*)&rslib_std_oct_to_handle},
-            {"rslib_std_gchandle_close", (void*)&rslib_std_gchandle_close},
-            {"rslib_std_debug_breakpoint", (void*)&rslib_std_debug_breakpoint},
-            {"rslib_std_debug_attach_default_debuggee", (void*)&rslib_std_debug_attach_default_debuggee},
-            {"rslib_std_debug_disattach_default_debuggee", (void*)&rslib_std_debug_disattach_default_debuggee},
-            {"rslib_std_debug_callstack_trace", (void*)&rslib_std_debug_callstack_trace},
-            {"rslib_std_macro_lexer_error", (void*)&rslib_std_macro_lexer_error},
-            {"rslib_std_macro_lexer_peek", (void*)&rslib_std_macro_lexer_peek},
-            {"rslib_std_macro_lexer_next", (void*)&rslib_std_macro_lexer_next},
-            {"rslib_std_macro_lexer_nextch", (void*)&rslib_std_macro_lexer_nextch},
-            {"rslib_std_macro_lexer_peekch", (void*)&rslib_std_macro_lexer_peekch},
+            {"rslib_std_lengthof", (void*)&rslib_std_lengthof},
+            {"rslib_std_macro_lexer_current_colno", (void*)&rslib_std_macro_lexer_current_colno},
             {"rslib_std_macro_lexer_current_path", (void*)&rslib_std_macro_lexer_current_path},
             {"rslib_std_macro_lexer_current_rowno", (void*)&rslib_std_macro_lexer_current_rowno},
-            {"rslib_std_macro_lexer_current_colno", (void*)&rslib_std_macro_lexer_current_colno},
-            {"rslib_std_call_shell", (void*)&rslib_std_call_shell},
-            {"rslib_std_get_env", (void*)&rslib_std_get_env},
+            {"rslib_std_macro_lexer_error", (void*)&rslib_std_macro_lexer_error},
+            {"rslib_std_macro_lexer_next", (void*)&rslib_std_macro_lexer_next},
+            {"rslib_std_macro_lexer_nextch", (void*)&rslib_std_macro_lexer_nextch},
+            {"rslib_std_macro_lexer_peek", (void*)&rslib_std_macro_lexer_peek},
+            {"rslib_std_macro_lexer_peekch", (void*)&rslib_std_macro_lexer_peekch},
+            {"rslib_std_make_dup", (void*)&rslib_std_make_dup},
+            {"rslib_std_map_clear", (void*)&rslib_std_map_clear},
+            {"rslib_std_map_copy", (void*)&rslib_std_map_copy},
+            {"rslib_std_map_create", (void*)&rslib_std_map_create},
+            {"rslib_std_map_empty", (void*)&rslib_std_map_empty},
+            {"rslib_std_map_find", (void*)&rslib_std_map_find},
+            {"rslib_std_map_get_or_default", (void*)&rslib_std_map_get_or_default},
+            {"rslib_std_map_get_or_set_default", (void*)&rslib_std_map_get_or_set_default},
+            {"rslib_std_map_get_or_set_default_do", (void*)&rslib_std_map_get_or_set_default_do},
+            {"rslib_std_map_iter", (void*)&rslib_std_map_iter},
+            {"rslib_std_map_iter_next", (void*)&rslib_std_map_iter_next},
+            {"rslib_std_map_keys", (void*)&rslib_std_map_keys},
+            {"rslib_std_map_only_get", (void*)&rslib_std_map_only_get},
+            {"rslib_std_map_remove", (void*)&rslib_std_map_remove},
+            {"rslib_std_map_reserve", (void*)&rslib_std_map_reserve},
+            {"rslib_std_map_set", (void*)&rslib_std_map_set},
+            {"rslib_std_map_swap", (void*)&rslib_std_map_swap},
+            {"rslib_std_map_vals", (void*)&rslib_std_map_vals},
+            {"rslib_std_oct_to_int", (void*)&rslib_std_oct_to_int},
+            {"rslib_std_panic", (void*)&rslib_std_panic},
+            {"rslib_std_parse_array_from_string", (void*)&rslib_std_parse_array_from_string},
+            {"rslib_std_parse_map_from_string", (void*)&rslib_std_parse_map_from_string},
+            {"rslib_std_print", (void*)&rslib_std_print},
+            {"rslib_std_randomint", (void*)&rslib_std_randomint},
+            {"rslib_std_randomreal", (void*)&rslib_std_randomreal},
+            {"rslib_std_return_itself", (void*)&rslib_std_return_itself},
+            {"rslib_std_serialize", (void*)&rslib_std_serialize},
+            {"rslib_std_str_bytelen", (void*)&rslib_std_str_bytelen},
+            {"rslib_std_string_append_cchar", (void*)&rslib_std_string_append_cchar},
+            {"rslib_std_string_append_char", (void*)&rslib_std_string_append_char},
+            {"rslib_std_string_beginwith", (void*)&rslib_std_string_beginwith},
+            {"rslib_std_string_destring", (void*)&rslib_std_string_destring},
+            {"rslib_std_string_endwith", (void*)&rslib_std_string_endwith},
+            {"rslib_std_string_enstring", (void*)&rslib_std_string_enstring},
+            {"rslib_std_string_find", (void*)&rslib_std_string_find},
+            {"rslib_std_string_find_from", (void*)&rslib_std_string_find_from},
+            {"rslib_std_string_isalnum", (void*)&rslib_std_string_isalnum},
+            {"rslib_std_string_isalpha", (void*)&rslib_std_string_isalpha},
+            {"rslib_std_string_ishex", (void*)&rslib_std_string_ishex},
+            {"rslib_std_string_isnumber", (void*)&rslib_std_string_isnumber},
+            {"rslib_std_string_isoct", (void*)&rslib_std_string_isoct},
+            {"rslib_std_string_isspace", (void*)&rslib_std_string_isspace},
+            {"rslib_std_string_replace", (void*)&rslib_std_string_replace},
+            {"rslib_std_string_rfind", (void*)&rslib_std_string_rfind},
+            {"rslib_std_string_rfind_from", (void*)&rslib_std_string_rfind_from},
+            {"rslib_std_string_split", (void*)&rslib_std_string_split},
+            {"rslib_std_string_sub", (void*)&rslib_std_string_sub},
+            {"rslib_std_string_sub_len", (void*)&rslib_std_string_sub_len},
+            {"rslib_std_string_sub_range", (void*)&rslib_std_string_sub_range},
+            {"rslib_std_string_tolower", (void*)&rslib_std_string_tolower},
+            {"rslib_std_string_toupper", (void*)&rslib_std_string_toupper},
+            {"rslib_std_string_trim", (void*)&rslib_std_string_trim},
+            {"rslib_std_take_int", (void*)&rslib_std_take_int},
+            {"rslib_std_take_real", (void*)&rslib_std_take_real},
+            {"rslib_std_take_string", (void*)&rslib_std_take_string},
+            {"rslib_std_take_token", (void*)&rslib_std_take_token},
+            {"rslib_std_thread_sleep", (void*)&rslib_std_thread_sleep},
+            {"rslib_std_time_sec", (void*)&rslib_std_time_sec},
+            {"rslib_std_weakref_create", (void*)&rslib_std_weakref_create},
+            {"rslib_std_weakref_trylock", (void*)&rslib_std_weakref_trylock},
             WO_EXTERN_LIB_FUNC_END
         };
         _current_wo_lib_handle = wo_register_lib("woolang", funcs);
