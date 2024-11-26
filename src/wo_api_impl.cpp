@@ -373,7 +373,7 @@ void _default_fail_handler(wo_vm vm, wo_string_t src_file, uint32_t lineno, wo_s
 }
 static std::atomic<wo_fail_handler> _wo_fail_handler_function = &_default_fail_handler;
 
-wo_fail_handler wo_regist_fail_handler(wo_fail_handler new_handler)
+wo_fail_handler wo_register_fail_handler(wo_fail_handler new_handler)
 {
     return _wo_fail_handler_function.exchange(new_handler);
 }
@@ -3882,7 +3882,7 @@ wo_string_t wo_debug_trace_callstack(wo_vm vm, wo_size_t layer)
     return vmm->er->string->c_str();
 }
 
-void* wo_register_lib(const char* libname, const wo_extern_lib_func_t* funcs)
+void* wo_fake_lib(const char* libname, const wo_extern_lib_func_t* funcs)
 {
     return (void*)loaded_lib_info::create_fake_lib(libname, funcs);
 }
