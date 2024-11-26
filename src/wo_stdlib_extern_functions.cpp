@@ -3495,6 +3495,6 @@ namespace wo
             {"rslib_std_weakref_trylock", (void*)&rslib_std_weakref_trylock},
             WO_EXTERN_LIB_FUNC_END
         };
-        _current_wo_lib_handle = wo_register_lib("woolang", funcs);
+        _current_wo_lib_handle = wo_fake_lib("woolang", funcs);
     }
 }

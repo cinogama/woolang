@@ -194,7 +194,40 @@ struct loaded_lib_info
 
         return instance;
     }
+    static void unregister_lib(dylib_table_instance* lib)
+    {
+        wo_assert(lib != nullptr);
 
+        std::lock_guard sg1(loaded_named_libs_mx);
+
+        for (auto fnd = loaded_named_libs.begin(); fnd != loaded_named_libs.end(); ++fnd)
+        {
+            auto* instance_info = fnd->second.get();
+            if (instance_info->m_lib_instance == lib)
+            {
+                if (0 == --instance_info->m_use_count)
+                    loaded_named_libs.erase(fnd);
+
+                return;
+            }
+        }
+        wo_error("Invalid library to unload.");
+    }
+    static void free_lib(dylib_table_instance* lib)
+    {
+        wo_assert(lib != nullptr);
+
+        std::lock_guard sg1(loaded_named_libs_mx);
+
+        for (auto fnd = loaded_named_libs.begin(); fnd != loaded_named_libs.end(); ++fnd)
+        {
+            auto* instance_info = fnd->second.get();
+            if (instance_info->m_lib_instance == lib)
+                // Found, this lib still alive.
+                return;
+        }
+        delete lib;
+    }
     static void unload_lib(dylib_table_instance* lib)
     {
         wo_assert(lib != nullptr);
@@ -340,7 +373,7 @@ void _default_fail_handler(wo_vm vm, wo_string_t src_file, uint32_t lineno, wo_s
 }
 static std::atomic<wo_fail_handler> _wo_fail_handler_function = &_default_fail_handler;
 
-wo_fail_handler wo_regist_fail_handler(wo_fail_handler new_handler)
+wo_fail_handler wo_register_fail_handler(wo_fail_handler new_handler)
 {
     return _wo_fail_handler_function.exchange(new_handler);
 }
@@ -3849,7 +3882,7 @@ wo_string_t wo_debug_trace_callstack(wo_vm vm, wo_size_t layer)
     return vmm->er->string->c_str();
 }
 
-void* wo_register_lib(const char* libname, const wo_extern_lib_func_t* funcs)
+void* wo_fake_lib(const char* libname, const wo_extern_lib_func_t* funcs)
 {
     return (void*)loaded_lib_info::create_fake_lib(libname, funcs);
 }
@@ -3866,6 +3899,17 @@ void* wo_load_func(void* lib, const char* funcname)
 {
     auto* dylib = std::launder(reinterpret_cast<dylib_table_instance*>(lib));
     return dylib->load_func(funcname);
+}
+
+void wo_unregister_lib(void* lib)
+{
+    auto* dylib = std::launder(reinterpret_cast<dylib_table_instance*>(lib));
+    loaded_lib_info::unregister_lib(dylib);
+}
+void wo_free_lib(void* lib)
+{
+    auto* dylib = std::launder(reinterpret_cast<dylib_table_instance*>(lib));
+    loaded_lib_info::free_lib(dylib);
 }
 void wo_unload_lib(void* lib)
 {
