@@ -194,7 +194,40 @@ struct loaded_lib_info
 
         return instance;
     }
+    static void unregister_lib(dylib_table_instance* lib)
+    {
+        wo_assert(lib != nullptr);
 
+        std::lock_guard sg1(loaded_named_libs_mx);
+
+        for (auto fnd = loaded_named_libs.begin(); fnd != loaded_named_libs.end(); ++fnd)
+        {
+            auto* instance_info = fnd->second.get();
+            if (instance_info->m_lib_instance == lib)
+            {
+                if (0 == --instance_info->m_use_count)
+                    loaded_named_libs.erase(fnd);
+
+                return;
+            }
+        }
+        wo_error("Invalid library to unload.");
+    }
+    static void free_lib(dylib_table_instance* lib)
+    {
+        wo_assert(lib != nullptr);
+
+        std::lock_guard sg1(loaded_named_libs_mx);
+
+        for (auto fnd = loaded_named_libs.begin(); fnd != loaded_named_libs.end(); ++fnd)
+        {
+            auto* instance_info = fnd->second.get();
+            if (instance_info->m_lib_instance == lib)
+                // Found, this lib still alive.
+                return;
+        }
+        delete lib;
+    }
     static void unload_lib(dylib_table_instance* lib)
     {
         wo_assert(lib != nullptr);
@@ -3866,6 +3899,17 @@ void* wo_load_func(void* lib, const char* funcname)
 {
     auto* dylib = std::launder(reinterpret_cast<dylib_table_instance*>(lib));
     return dylib->load_func(funcname);
+}
+
+void wo_unregister_lib(void* lib)
+{
+    auto* dylib = std::launder(reinterpret_cast<dylib_table_instance*>(lib));
+    loaded_lib_info::unregister_lib(dylib);
+}
+void wo_free_lib(void* lib)
+{
+    auto* dylib = std::launder(reinterpret_cast<dylib_table_instance*>(lib));
+    loaded_lib_info::free_lib(dylib);
 }
 void wo_unload_lib(void* lib)
 {

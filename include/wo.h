@@ -171,6 +171,11 @@ typedef struct _wo_extern_lib_func_pair
 WO_API void*        wo_register_lib(const char* libname, const wo_extern_lib_func_t* funcs);
 WO_API void*        wo_load_lib(const char* libname, const char* path, const char* script_path, wo_bool_t panic_when_fail);
 WO_API void*        wo_load_func(void* lib, const char* funcname);
+
+WO_API void         wo_unregister_lib(void* lib);
+WO_API void         wo_free_lib(void* lib);
+
+// NOTE: wo_unload_lib: Same as invoke wo_unregister_lib(lib) then wo_free_lib(lib) 
 WO_API void         wo_unload_lib(void* lib);
 
 WO_API wo_type      wo_valuetype(const wo_value value);
