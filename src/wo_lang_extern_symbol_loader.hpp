@@ -53,14 +53,14 @@ namespace wo
         {
             if (_current_wo_lib_handle != nullptr)
             {
-                wo_unload_lib(_current_wo_lib_handle);
+                wo_unload_lib(_current_wo_lib_handle, wo_dylib_unload_method::WO_DYLIB_UNREF_AND_BURY);
                 _current_wo_lib_handle = nullptr;
             }
         }
 
         struct extern_lib_guard
         {
-            void* m_extern_library = nullptr;
+            wo_dylib_handle_t m_extern_library = nullptr;
 
             extern_lib_guard(const std::string& libpath, const std::string& script_path)
             {
@@ -68,6 +68,12 @@ namespace wo
                     libpath.c_str(),
                     (libpath + WO_EXT_LIB_SUFFIX).c_str(),
                     script_path.c_str(), WO_FALSE);
+
+                if (m_extern_library != nullptr)
+                {
+                    if (auto* entry = (wo_dylib_entry_func_t)load_func("wolib_entry"))
+                        entry(m_extern_library);
+                }
             }
             wo_native_func_t load_func(const char* funcname)
             {
@@ -80,10 +86,10 @@ namespace wo
             {
                 if (m_extern_library != nullptr)
                 {
-                    if (auto* leave = (void(*)(void))load_func("wolib_exit"))
+                    if (auto* leave = (wo_dylib_exit_func_t)load_func("wolib_exit"))
                         leave();
 
-                    wo_unload_lib(m_extern_library);
+                    wo_unload_lib(m_extern_library, wo_dylib_unload_method::WO_DYLIB_UNREF);
                 }
             }
         };
@@ -105,15 +111,11 @@ namespace wo
 
                 if (auto fnd = srcloadedlibs.find(libpath);
                     fnd != srcloadedlibs.end())
-                {
                     return fnd->second->load_func(funcname);
-                }
 
                 extern_lib elib = new extern_lib_guard(libpath, srcpath);
                 srcloadedlibs[libpath] = elib;
 
-                if (auto* entry = (void(*)(void))elib->load_func("wolib_entry"))
-                    entry();
                 return elib->load_func(funcname);
             }
         };
