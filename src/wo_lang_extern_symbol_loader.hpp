@@ -53,7 +53,7 @@ namespace wo
         {
             if (_current_wo_lib_handle != nullptr)
             {
-                wo_unload_lib(_current_wo_lib_handle);
+                wo_unload_lib(_current_wo_lib_handle, wo_dylib_unload_method::WO_DYLIB_UNREF_AND_BURY);
                 _current_wo_lib_handle = nullptr;
             }
         }
@@ -68,6 +68,12 @@ namespace wo
                     libpath.c_str(),
                     (libpath + WO_EXT_LIB_SUFFIX).c_str(),
                     script_path.c_str(), WO_FALSE);
+
+                if (m_extern_library != nullptr)
+                {
+                    if (auto* entry = (void(*)(void))load_func("wolib_entry"))
+                        entry();
+                }
             }
             wo_native_func_t load_func(const char* funcname)
             {
@@ -83,7 +89,7 @@ namespace wo
                     if (auto* leave = (void(*)(void))load_func("wolib_exit"))
                         leave();
 
-                    wo_unload_lib(m_extern_library);
+                    wo_unload_lib(m_extern_library, wo_dylib_unload_method::WO_DYLIB_UNREF);
                 }
             }
         };
@@ -105,15 +111,11 @@ namespace wo
 
                 if (auto fnd = srcloadedlibs.find(libpath);
                     fnd != srcloadedlibs.end())
-                {
                     return fnd->second->load_func(funcname);
-                }
 
                 extern_lib elib = new extern_lib_guard(libpath, srcpath);
                 srcloadedlibs[libpath] = elib;
 
-                if (auto* entry = (void(*)(void))elib->load_func("wolib_entry"))
-                    entry();
                 return elib->load_func(funcname);
             }
         };

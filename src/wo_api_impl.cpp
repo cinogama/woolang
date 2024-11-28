@@ -67,12 +67,20 @@ struct dylib_table_instance
 {
     using fake_table_t = std::unordered_map<std::string, void*>;
 
-    void* m_native_dylib_handle;
-    fake_table_t* m_fake_dylib_table;
+    void*           m_native_dylib_handle;
+    fake_table_t*   m_fake_dylib_table;
+    dylib_table_instance* 
+                    m_dependenced_dylib;
+    size_t          m_use_count;
 
-    explicit dylib_table_instance(const std::string& name, const wo_extern_lib_func_t* funcs)
+    explicit dylib_table_instance(
+        const std::string& name, 
+        const wo_extern_lib_func_t* funcs, 
+        dylib_table_instance* dependenced_lib_may_null)
         : m_native_dylib_handle(nullptr)
         , m_fake_dylib_table(new fake_table_t())
+        , m_use_count(1)
+        , m_dependenced_dylib(dependenced_lib_may_null)
     {
         const auto* func_pair = funcs;
         while (func_pair->m_name != nullptr)
@@ -82,11 +90,18 @@ struct dylib_table_instance
 
             ++func_pair;
         }
+        if (m_dependenced_dylib != nullptr)
+        {
+            wo_assert(m_dependenced_dylib->m_use_count > 0);
+            ++m_dependenced_dylib->m_use_count;
+        }
     }
 
     explicit dylib_table_instance(void* handle_may_null)
         : m_native_dylib_handle(handle_may_null)
         , m_fake_dylib_table(nullptr)
+        , m_use_count(1)
+        , m_dependenced_dylib(nullptr)
     {
     }
 
@@ -98,6 +113,8 @@ struct dylib_table_instance
         if (m_fake_dylib_table != nullptr)
             delete m_fake_dylib_table;
 
+        if (m_dependenced_dylib != nullptr)
+            wo_unload_lib(m_dependenced_dylib, wo_dylib_unload_method::WO_DYLIB_UNREF);
     }
     dylib_table_instance(const dylib_table_instance&) = delete;
     dylib_table_instance(dylib_table_instance&&) = delete;
@@ -129,7 +146,6 @@ struct loaded_lib_info
     inline static named_libs_map_t loaded_named_libs;
 
     dylib_table_instance* m_lib_instance;
-    size_t m_use_count;
 
     static dylib_table_instance* load_lib(
         const char* libname,
@@ -145,11 +161,11 @@ struct loaded_lib_info
         {
             auto* libinfo = fnd->second.get();
 
-            wo_assert(libinfo->m_use_count > 0);
-            ++libinfo->m_use_count;
-
             loaded_lib_res_ptr = libinfo->m_lib_instance;
             wo_assert(loaded_lib_res_ptr != nullptr);
+            wo_assert(loaded_lib_res_ptr->m_use_count > 0);
+
+            ++loaded_lib_res_ptr->m_use_count;
         }
         else
         {
@@ -163,7 +179,7 @@ struct loaded_lib_info
             {
                 auto instance_info = std::make_unique<loaded_lib_info>();
                 instance_info->m_lib_instance = loaded_lib_res_ptr;
-                instance_info->m_use_count = 1;
+                wo_assert(loaded_lib_res_ptr->m_use_count == 1);
 
                 loaded_named_libs[libname] = std::move(instance_info);
             }
@@ -177,77 +193,53 @@ struct loaded_lib_info
 
     static dylib_table_instance* create_fake_lib(
         const char* libname,
-        const wo_extern_lib_func_t* funcs)
+        const wo_extern_lib_func_t* funcs,
+        dylib_table_instance* dependenced_lib_may_null)
     {
         std::lock_guard g1(loaded_named_libs_mx);
 
         if (loaded_named_libs.find(libname) != loaded_named_libs.end())
             return nullptr;
 
-        auto* instance = new dylib_table_instance(libname, funcs);
+        auto* instance = new dylib_table_instance(
+            libname, funcs, dependenced_lib_may_null);
 
         auto instance_info = std::make_unique<loaded_lib_info>();
         instance_info->m_lib_instance = instance;
-        instance_info->m_use_count = 1;
+        wo_assert(instance->m_use_count == 1);
 
         loaded_named_libs[libname] = std::move(instance_info);
 
         return instance;
     }
-    static void unregister_lib(dylib_table_instance* lib)
+    static void unload_lib(dylib_table_instance* lib, wo_dylib_unload_method method)
     {
         wo_assert(lib != nullptr);
 
         std::lock_guard sg1(loaded_named_libs_mx);
 
-        for (auto fnd = loaded_named_libs.begin(); fnd != loaded_named_libs.end(); ++fnd)
-        {
-            auto* instance_info = fnd->second.get();
-            if (instance_info->m_lib_instance == lib)
-            {
-                if (0 == --instance_info->m_use_count)
-                    loaded_named_libs.erase(fnd);
+        bool bury_dylib = (method & wo_dylib_unload_method::WO_DYLIB_BURY) != 0;
 
-                return;
-            }
+        if ((method & wo_dylib_unload_method::WO_DYLIB_UNREF) != 0 
+            && 0 == --lib->m_use_count)
+        {
+            bury_dylib = true;
+            delete lib;
         }
-        wo_error("Invalid library to unload.");
-    }
-    static void free_lib(dylib_table_instance* lib)
-    {
-        wo_assert(lib != nullptr);
 
-        std::lock_guard sg1(loaded_named_libs_mx);
-
-        for (auto fnd = loaded_named_libs.begin(); fnd != loaded_named_libs.end(); ++fnd)
+        if (bury_dylib)
         {
-            auto* instance_info = fnd->second.get();
-            if (instance_info->m_lib_instance == lib)
-                // Found, this lib still alive.
-                return;
-        }
-        delete lib;
-    }
-    static void unload_lib(dylib_table_instance* lib)
-    {
-        wo_assert(lib != nullptr);
-
-        std::lock_guard sg1(loaded_named_libs_mx);
-
-        for (auto fnd = loaded_named_libs.begin(); fnd != loaded_named_libs.end(); ++fnd)
-        {
-            auto* instance_info = fnd->second.get();
-            if (instance_info->m_lib_instance == lib)
+            // Out of ref, remove it from list;
+            for (auto fnd = loaded_named_libs.begin(); fnd != loaded_named_libs.end(); ++fnd)
             {
-                if (0 == --instance_info->m_use_count)
+                auto* instance_info = fnd->second.get();
+                if (instance_info->m_lib_instance == lib)
                 {
-                    delete instance_info->m_lib_instance;
                     loaded_named_libs.erase(fnd);
+                    break;
                 }
-                return;
             }
         }
-        wo_error("Invalid library to unload.");
     }
 };
 
@@ -3882,12 +3874,15 @@ wo_string_t wo_debug_trace_callstack(wo_vm vm, wo_size_t layer)
     return vmm->er->string->c_str();
 }
 
-void* wo_fake_lib(const char* libname, const wo_extern_lib_func_t* funcs)
+wo_dylib_handle_t wo_fake_lib(
+    const char* libname, const wo_extern_lib_func_t* funcs, wo_dylib_handle_t dependence_dylib_may_null)
 {
-    return (void*)loaded_lib_info::create_fake_lib(libname, funcs);
+    return (void*)loaded_lib_info::create_fake_lib(
+        libname, funcs, std::launder(reinterpret_cast<dylib_table_instance*>(dependence_dylib_may_null)));
 }
 
-void* wo_load_lib(const char* libname, const char* path, const char* script_path, wo_bool_t panic_when_fail)
+wo_dylib_handle_t wo_load_lib(
+    const char* libname, const char* path, const char* script_path, wo_bool_t panic_when_fail)
 {
     return loaded_lib_info::load_lib(
         libname,
@@ -3895,26 +3890,15 @@ void* wo_load_lib(const char* libname, const char* path, const char* script_path
         script_path != nullptr ? wo::str_to_wstr(script_path).c_str() : nullptr,
         panic_when_fail);
 }
-void* wo_load_func(void* lib, const char* funcname)
+wo_dylib_handle_t wo_load_func(void* lib, const char* funcname)
 {
     auto* dylib = std::launder(reinterpret_cast<dylib_table_instance*>(lib));
     return dylib->load_func(funcname);
 }
-
-void wo_unregister_lib(void* lib)
+void wo_unload_lib(wo_dylib_handle_t lib, wo_dylib_unload_method method)
 {
     auto* dylib = std::launder(reinterpret_cast<dylib_table_instance*>(lib));
-    loaded_lib_info::unregister_lib(dylib);
-}
-void wo_free_lib(void* lib)
-{
-    auto* dylib = std::launder(reinterpret_cast<dylib_table_instance*>(lib));
-    loaded_lib_info::free_lib(dylib);
-}
-void wo_unload_lib(void* lib)
-{
-    auto* dylib = std::launder(reinterpret_cast<dylib_table_instance*>(lib));
-    loaded_lib_info::unload_lib(dylib);
+    loaded_lib_info::unload_lib(dylib, method);
 }
 
 wo_integer_t wo_crc64_u8(uint8_t byte, wo_integer_t crc)
