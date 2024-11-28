@@ -158,6 +158,9 @@ typedef enum _wo_dylib_unload_method
 
 }wo_dylib_unload_method;
 
+typedef void(*wo_dylib_entry_func_t)(wo_dylib_handle_t);
+typedef void(*wo_dylib_exit_func_t)(void);
+
 WO_API wo_fail_handler wo_register_fail_handler(wo_fail_handler new_handler);
 WO_API void         wo_cause_fail(wo_string_t src_file, uint32_t lineno, wo_string_t functionname, uint32_t rterrcode, wo_string_t reasonfmt, ...);
 WO_API void         wo_execute_fail_handler(wo_vm vm, wo_string_t src_file, uint32_t lineno, wo_string_t functionname, uint32_t rterrcode, wo_string_t reason);

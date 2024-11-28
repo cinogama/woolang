@@ -60,7 +60,7 @@ namespace wo
 
         struct extern_lib_guard
         {
-            void* m_extern_library = nullptr;
+            wo_dylib_handle_t m_extern_library = nullptr;
 
             extern_lib_guard(const std::string& libpath, const std::string& script_path)
             {
@@ -71,8 +71,8 @@ namespace wo
 
                 if (m_extern_library != nullptr)
                 {
-                    if (auto* entry = (void(*)(void))load_func("wolib_entry"))
-                        entry();
+                    if (auto* entry = (wo_dylib_entry_func_t)load_func("wolib_entry"))
+                        entry(m_extern_library);
                 }
             }
             wo_native_func_t load_func(const char* funcname)
@@ -86,7 +86,7 @@ namespace wo
             {
                 if (m_extern_library != nullptr)
                 {
-                    if (auto* leave = (void(*)(void))load_func("wolib_exit"))
+                    if (auto* leave = (wo_dylib_exit_func_t)load_func("wolib_exit"))
                         leave();
 
                     wo_unload_lib(m_extern_library, wo_dylib_unload_method::WO_DYLIB_UNREF);
