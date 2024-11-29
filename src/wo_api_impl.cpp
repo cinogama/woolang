@@ -142,7 +142,7 @@ struct loaded_lib_info
     using named_libs_map_t = std::unordered_map<
         std::string, std::unique_ptr<loaded_lib_info>>;
 
-    inline static std::mutex loaded_named_libs_mx;
+    inline static std::recursive_mutex loaded_named_libs_mx;
     inline static named_libs_map_t loaded_named_libs;
 
     dylib_table_instance* m_lib_instance;
