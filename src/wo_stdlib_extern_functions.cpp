@@ -229,7 +229,7 @@ WO_API wo_api rslib_std_char_isoct(wo_vm vm, wo_value args)
 
 WO_API wo_api rslib_std_char_hexnum(wo_vm vm, wo_value args)
 {
-    return wo_ret_bool(vm, WO_CBOOL(wo::lexer::lex_hextonum(wo_char(args + 0))));
+    return wo_ret_int(vm, wo::lexer::lex_hextonum(wo_char(args + 0)));
 }
 
 WO_API wo_api rslib_std_string_enstring(wo_vm vm, wo_value args)
