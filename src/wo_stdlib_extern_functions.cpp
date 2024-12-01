@@ -229,7 +229,7 @@ WO_API wo_api rslib_std_char_isoct(wo_vm vm, wo_value args)
 
 WO_API wo_api rslib_std_char_hexnum(wo_vm vm, wo_value args)
 {
-    return wo_ret_bool(vm, WO_CBOOL(wo::lexer::lex_hextonum(wo_char(args + 0))));
+    return wo_ret_int(vm, wo::lexer::lex_hextonum(wo_char(args + 0)));
 }
 
 WO_API wo_api rslib_std_string_enstring(wo_vm vm, wo_value args)
@@ -3495,6 +3495,6 @@ namespace wo
             {"rslib_std_weakref_trylock", (void*)&rslib_std_weakref_trylock},
             WO_EXTERN_LIB_FUNC_END
         };
-        _current_wo_lib_handle = wo_register_lib("woolang", funcs);
+        _current_wo_lib_handle = wo_fake_lib("woolang", funcs, nullptr);
     }
 }
