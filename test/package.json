@@ -4,6 +4,11 @@
         "debug_x64"
     ],
     "dependence" : {
+        "buffer" : {
+            "path" : "pkg",
+            "remote" : "https://git.cinogama.net/cinogamaproject/woolangpackages",
+            "version" : "1.0.0"
+        },
         "iterator" : {
             "path" : "pkg",
             "remote" : "https://git.cinogama.net/cinogamaproject/woolangpackages",
