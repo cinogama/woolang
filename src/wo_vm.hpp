@@ -170,7 +170,7 @@ namespace wo
             size_t      m_row;
         };
     public:
-        inline static constexpr size_t VM_DEFAULT_STACK_SIZE = 256;
+        inline static constexpr size_t VM_DEFAULT_STACK_SIZE = 128;
         inline static constexpr size_t VM_SHRINK_STACK_COUNT = 3;
         inline static constexpr size_t VM_MAX_JIT_FUNCTION_DEPTH = 256;
     public:

@@ -1043,7 +1043,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, bp)), ctx->_vmsbp));
             wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, jit_function_call_depth)), asmjit::imm(0)));
 
-            ctx->c.int3();
             wo_assure(!ctx->c.mov(depth_count, asmjit::Imm(wo_result_t::WO_API_SYNC)));
             wo_assure(!ctx->c.ret(depth_count));
 

@@ -322,15 +322,15 @@ namespace wo
             // Failed to allocate new stack space
             return false;
 
-        const size_t new_sp_offset = (stacksz - 1) - used_stack_size;
+        value* new_stack_mem_begin = new_stack_buf + stacksz - 1;
+        value* new_sp = new_stack_buf + stacksz - 1 - used_stack_size;
         const size_t bp_sp_offset = (size_t)(bp - sp);
-        memcpy(new_stack_buf + new_sp_offset + 1, sp + 1, used_stack_size * sizeof(value));
 
-        free(_self_stack_mem_buf);
+        memcpy(new_sp + 1, sp + 1, used_stack_size * sizeof(value));
 
         _self_stack_mem_buf = new_stack_buf;
-        stack_mem_begin = _self_stack_mem_buf + stacksz - 1;
-        sp = _self_stack_mem_buf + new_sp_offset;
+        stack_mem_begin = new_stack_mem_begin;
+        sp = new_sp;
         bp = sp + bp_sp_offset;
 
         return true;
