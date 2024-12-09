@@ -1025,7 +1025,7 @@ namespace wo
                 // NOTE: We don't know the exactly state of current vm, so we need to 
                 //       make sure all unit in current vm's stack and register are marked.
                 current_vm_stack_top = current_vm_instance->sp;
-                current_vm_instance->sp = current_vm_instance->_self_register_mem_buf;
+                current_vm_instance->sp = current_vm_instance->_self_stack_mem_buf;
 
                 need_re_entry_gc_guard = wo_leave_gcguard(std::launder(reinterpret_cast<wo_vm>(wo::vmbase::_this_thread_vm)));
             }

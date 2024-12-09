@@ -1145,9 +1145,10 @@ namespace wo
                     std::launder(reinterpret_cast<wo_vm>(this)),
                     std::launder(reinterpret_cast<wo_value>(sp + 2))))
                 {
+                case wo_result_t::WO_API_RESYNC:
                 case wo_result_t::WO_API_NORMAL:
                     break;
-                case wo_result_t::WO_API_RESYNC:
+                case wo_result_t::WO_API_SYNC:
                     run();
                     break;
                 }
@@ -1197,9 +1198,10 @@ namespace wo
                             std::launder(reinterpret_cast<wo_vm>(this)),
                             std::launder(reinterpret_cast<wo_value>(sp + 2))))
                         {
+                        case wo_result_t::WO_API_RESYNC:
                         case wo_result_t::WO_API_NORMAL:
                             break;
-                        case wo_result_t::WO_API_RESYNC:
+                        case wo_result_t::WO_API_SYNC:
                             run();
                             break;
                         }
@@ -2240,6 +2242,7 @@ namespace wo
                             std::launder(reinterpret_cast<wo_vm>(this)),
                             std::launder(reinterpret_cast<wo_value>(sp + 2))))
                         {
+                        case wo_result_t::WO_API_RESYNC:
                         case wo_result_t::WO_API_NORMAL:
                         {
                             bp = rt_bp;
@@ -2251,7 +2254,7 @@ namespace wo
                             bp = stored_bp;
                             break;
                         }
-                        case wo_result_t::WO_API_RESYNC:
+                        case wo_result_t::WO_API_SYNC:
                         {
                             rt_ip = this->ip;
                             break;
@@ -2275,6 +2278,7 @@ namespace wo
                                 std::launder(reinterpret_cast<wo_vm>(this)),
                                 std::launder((reinterpret_cast<wo_value>(sp + 2)))))
                             {
+                            case wo_result_t::WO_API_RESYNC:
                             case wo_result_t::WO_API_NORMAL:
                             {
                                 bp = rt_bp;
@@ -2288,7 +2292,7 @@ namespace wo
                                 bp = stored_bp;
                                 break;
                             }
-                            case wo_result_t::WO_API_RESYNC:
+                            case wo_result_t::WO_API_SYNC:
                             {
                                 rt_ip = this->ip;
                                 break;
@@ -2342,6 +2346,7 @@ namespace wo
                         }
                         switch (api)
                         {
+                        case wo_result_t::WO_API_RESYNC:
                         case wo_result_t::WO_API_NORMAL:
                         {
                             bp = rt_bp;
@@ -2353,7 +2358,7 @@ namespace wo
                             bp = stored_bp;
                             break;
                         }
-                        case wo_result_t::WO_API_RESYNC:
+                        case wo_result_t::WO_API_SYNC:
                         {
                             rt_ip = this->ip;
                             break;
