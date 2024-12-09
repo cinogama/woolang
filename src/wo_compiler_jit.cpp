@@ -599,6 +599,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             wo_assure(!x86compiler.je(normal));
 
             auto resync = x86compiler.newLabel();
+            wo_assure(!x86compiler.dec(asmjit::x86::qword_ptr(vm, offsetof(vmbase, jit_function_call_depth))));
             wo_assure(!x86compiler.cmp(result, asmjit::Imm(wo_result_t::WO_API_RESYNC)));
             wo_assure(!x86compiler.je(resync));
             wo_assure(!x86compiler.ret(result)); // break this execute!!!
@@ -1015,6 +1016,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
 
             wo_assure(!ctx->c.cmp(result, asmjit::Imm(wo_result_t::WO_API_NORMAL)));
             wo_assure(!ctx->c.je(no_interrupt_label));
+            wo_assure(!ctx->c.dec(asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, jit_function_call_depth))));
             wo_assure(!ctx->c.ret(result)); // break this execute!!!
             wo_assure(!ctx->c.bind(no_interrupt_label));
         }
@@ -1040,6 +1042,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, bp)), ctx->_vmsbp));
             wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, bp)), ctx->_vmsbp));
             wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, jit_function_call_depth)), asmjit::imm(0)));
+
+            ctx->c.int3();
             wo_assure(!ctx->c.mov(depth_count, asmjit::Imm(wo_result_t::WO_API_SYNC)));
             wo_assure(!ctx->c.ret(depth_count));
 
@@ -2191,7 +2195,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
 
             auto stat = ctx->c.newInt32();
             static_assert(sizeof(wo_result_t) == sizeof(int32_t));
-            ctx->c.mov(stat, asmjit::Imm(wo_result_t::WO_API_NORMAL));
+            wo_assure(!ctx->c.dec(asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, jit_function_call_depth))));
+            wo_assure(!ctx->c.mov(stat, asmjit::Imm(wo_result_t::WO_API_NORMAL)));
             wo_assure(!ctx->c.ret(stat));
             return true;
         }
