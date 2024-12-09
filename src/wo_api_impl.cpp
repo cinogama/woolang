@@ -389,16 +389,36 @@ void wo_cause_fail(wo_string_t src_file, uint32_t lineno, wo_string_t functionna
         src_file, lineno, functionname, rterrcode, buf.data());
 }
 
+wo_real_t _wo_last_ctrl_c_time = -1.f;
+wo_size_t _wo_ctrl_c_hit_count = 0;
+
 void _wo_ctrl_c_signal_handler(int)
 {
     // CTRL + C
-    wo::wo_stderr << ANSI_HIR "CTRL+C" ANSI_RST ": Trying to breakdown all virtual-machine by default debuggee immediately." << wo::wo_endl;
+    wo::wo_stderr << ANSI_HIR "CTRL+C" ANSI_RST 
+        ": Trying to breakdown all virtual-machine by default debuggee immediately." << wo::wo_endl;
 
     if (!wo_has_attached_debuggee())
         wo_attach_default_debuggee();
 
-    wo_break_immediately();
+    auto _ctrl_c_time = _wo_inside_time_sec();
+    if (_ctrl_c_time - _wo_last_ctrl_c_time < 1.0f)
+    {
+        if (_wo_ctrl_c_hit_count >= 4)
+            wo_error("Panic termination.");
+        else
+        {
+            wo::wo_stderr << ANSI_HIY "CTRL+C" ANSI_RST 
+                ": Continue pressing Ctrl+C `" ANSI_HIG << 4 - _wo_ctrl_c_hit_count << ANSI_RST "` time(s) to trigger a panic termination" << wo::wo_endl;
+        }
+    }
+    else
+        _wo_ctrl_c_hit_count = 0;
+    
+    _wo_last_ctrl_c_time = _ctrl_c_time;
+    ++_wo_ctrl_c_hit_count;
 
+    wo_break_immediately();
     wo_handle_ctrl_c(_wo_ctrl_c_signal_handler);
 }
 
