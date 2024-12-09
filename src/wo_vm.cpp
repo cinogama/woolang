@@ -1452,10 +1452,14 @@ namespace wo
                     vm->ip = rt_ip;
                     vm->sp = rt_sp;
                     vm->bp = rt_bp;
+                    
                     wo_fail(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
                 }
                 else
                 {
+                    if (rt_sp - unpack_argc < vm->_self_stack_mem_buf)
+                        goto _wo_unpackargs_stack_overflow;
+
                     for (uint16_t i = (uint16_t)unpack_argc; i > 0; --i)
                         (rt_sp--)->set_val(&arg_tuple->m_values[i - 1]);
                 }
@@ -1467,12 +1471,19 @@ namespace wo
                     vm->ip = rt_ip;
                     vm->sp = rt_sp;
                     vm->bp = rt_bp;
+
                     wo_fail(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
                 }
-                for (uint16_t i = arg_tuple->m_count; i > 0; --i)
-                    (rt_sp--)->set_val(&arg_tuple->m_values[i - 1]);
+                else
+                {
+                    if (rt_sp - arg_tuple->m_count < vm->_self_stack_mem_buf)
+                        goto _wo_unpackargs_stack_overflow;
 
-                tc->integer += (wo_integer_t)arg_tuple->m_count;
+                    for (uint16_t i = arg_tuple->m_count; i > 0; --i)
+                        (rt_sp--)->set_val(&arg_tuple->m_values[i - 1]);
+
+                    tc->integer += (wo_integer_t)arg_tuple->m_count;
+                }
             }
         }
         else if (opnum1->type == value::valuetype::array_type)
@@ -1491,6 +1502,9 @@ namespace wo
                 }
                 else
                 {
+                    if (rt_sp - unpack_argc < vm->_self_stack_mem_buf)
+                        goto _wo_unpackargs_stack_overflow;
+
                     for (auto arg_idx = arg_array->rbegin() + (size_t)((wo_integer_t)arg_array->size() - unpack_argc);
                         arg_idx != arg_array->rend();
                         arg_idx++)
@@ -1509,10 +1523,17 @@ namespace wo
                     vm->bp = rt_bp;
                     wo_fail(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
                 }
-                for (auto arg_idx = arg_array->rbegin(); arg_idx != arg_array->rend(); arg_idx++)
-                    (rt_sp--)->set_val(&*arg_idx);
+                else
+                {
+                    size_t arg_array_len = arg_array->size();
+                    if (rt_sp - arg_array_len < vm->_self_stack_mem_buf)
+                        goto _wo_unpackargs_stack_overflow;
 
-                tc->integer += arg_array->size();
+                    for (auto arg_idx = arg_array->rbegin(); arg_idx != arg_array->rend(); arg_idx++)
+                        (rt_sp--)->set_val(&*arg_idx);
+
+                    tc->integer += arg_array_len;
+                }
             }
         }
         else
@@ -1522,7 +1543,12 @@ namespace wo
             vm->bp = rt_bp;
             wo_fail(WO_FAIL_INDEX_FAIL, "Only valid array/struct can used in unpack.");
         }
+
         return rt_sp;
+    _wo_unpackargs_stack_overflow:
+
+        vm->interrupt(vmbase::vm_interrupt_type::STACKOVERFLOW_INTERRUPT);
+        return nullptr;
     }
     const char* vmbase::movcast_impl(value* opnum1, value* opnum2, value::valuetype aim_type) noexcept
     {
@@ -1622,16 +1648,35 @@ namespace wo
             {
             case instruct::opcode::psh:
             {
-                if (dr & 0b01)
+                do
                 {
-                    WO_ADDRESSING_N1;
-                    (sp--)->set_val(opnum1);
-                }
-                else
-                {
-                    uint16_t psh_repeat = WO_IPVAL_MOVE_2;
-                    sp -= psh_repeat;
-                }
+                    if (dr & 0b01)
+                    {
+                        if (sp < _self_stack_mem_buf)
+                        {
+                            --rt_ip;
+                            wo_assure(interrupt(vm_interrupt_type::STACKOVERFLOW_INTERRUPT));
+                            break;
+                        }
+                        WO_ADDRESSING_N1;
+                        sp--->set_val(opnum1);
+                    }
+                    else
+                    {
+                        uint16_t psh_repeat = WO_IPVAL_MOVE_2;
+
+                        // NOTE: If there is just enough stack space here, the Stackoverflow interrupt 
+                        // will still be triggered, which is planned (purely for performance reasons)
+                        if (sp - psh_repeat < _self_stack_mem_buf)
+                        {
+                            rt_ip -= 3;
+                            wo_assure(interrupt(vm_interrupt_type::STACKOVERFLOW_INTERRUPT));
+                            break;
+                        }
+
+                        sp -= psh_repeat;
+                    }
+                } while (0);
                 break;
             }
             case instruct::opcode::pop:
@@ -2522,9 +2567,9 @@ namespace wo
                     "Found broken ir-code in 'mkclos'.");
 
 #ifdef WO_VM_SUPPORT_FAST_NO_ALIGN
-                    sp = make_closure_fast_impl(rt_cr, rt_ip, sp);
+                sp = make_closure_fast_impl(rt_cr, rt_ip, sp);
 #else
-                    sp = make_closure_safe_impl(rt_cr, rt_ip, sp);
+                sp = make_closure_safe_impl(rt_cr, rt_ip, sp);
 #endif
 
                 rt_ip += (2 + 8);
@@ -2533,12 +2578,23 @@ namespace wo
             }
             case instruct::unpackargs:
             {
+                auto* rollback_rt_ip = rt_ip - 1;
+
                 WO_ADDRESSING_N1;
                 auto unpack_argc_unsigned = WO_IPVAL_MOVE_4;
 
-                sp = unpackargs_impl(
-                    this, opnum1, reinterpret_cast<int32_t&>(unpack_argc_unsigned),
-                    tc, rt_ip, sp, bp);
+                auto* new_sp = unpackargs_impl(
+                    this, 
+                    opnum1, 
+                    reinterpret_cast<int32_t&>(unpack_argc_unsigned), 
+                    tc, 
+                    rt_ip,
+                    sp, 
+                    bp);
+
+                if (new_sp != nullptr)
+                    sp = new_sp;
+
                 break;
             }
             case instruct::opcode::ext:
@@ -2694,6 +2750,11 @@ namespace wo
                 {
                     if (clear_interrupt(vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT))
                         clear_interrupt(vm_interrupt_type::DEBUG_INTERRUPT);
+                }
+                else if (interrupt_state & vm_interrupt_type::STACKOVERFLOW_INTERRUPT)
+                {
+                    wo_assure(clear_interrupt(vm_interrupt_type::STACKOVERFLOW_INTERRUPT));
+                    wo_fail(WO_FAIL_STACKOVERFLOW, "Stack overflow.");
                 }
                 // ATTENTION: it should be last interrupt..
                 else if (interrupt_state & vm_interrupt_type::DEBUG_INTERRUPT)

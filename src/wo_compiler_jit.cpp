@@ -176,6 +176,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
         virtual bool ir_ext_cdivir(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
 
         virtual void ir_make_checkpoint(CompileContextT* ctx, const byte_t*& rt_ip) = 0;
+        virtual void ir_make_interrupt(CompileContextT* ctx, vmbase::vm_interrupt_type type) = 0;
 #undef WO_ASMJIT_IR_ITERFACE_DECL
 
         std::map<uint32_t, asmjit::Label> label_table;
@@ -490,7 +491,10 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
                 delete holder.second;
             }
         }
-
+        static void _invoke_vm_interrupt(wo::vmbase* vmm, wo::vmbase::vm_interrupt_type type)
+        {
+            (void)vmm->interrupt(type);
+        }
         static wo_result_t _invoke_vm_checkpoint(wo::vmbase* vmm, wo::value* rt_sp, wo::value* rt_bp, const byte_t* rt_ip)
         {
             if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::GC_INTERRUPT)
@@ -546,6 +550,14 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             {
                 if (vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT))
                     vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::DEBUG_INTERRUPT);
+            }
+            else if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::STACKOVERFLOW_INTERRUPT)
+            {
+                vmm->ip = rt_ip;
+                vmm->sp = rt_sp;
+                vmm->bp = rt_bp;
+
+                return wo_result_t::WO_API_RESYNC;
             }
             // ATTENTION: it should be last interrupt..
             else if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::DEBUG_INTERRUPT)
@@ -802,6 +814,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
         asmjit::x86::Gp _vmbase;
         asmjit::x86::Gp _vmsbp;
         asmjit::x86::Gp _vmssp;
+        asmjit::x86::Gp _vmshead;
         asmjit::x86::Gp _vmreg;
         asmjit::x86::Gp _vmcr;
         asmjit::x86::Gp _vmtc;
@@ -815,6 +828,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             _vmbase = c.newUIntPtr();
             _vmsbp = c.newUIntPtr();
             _vmssp = c.newUIntPtr();
+            _vmshead = c.newUIntPtr();
             _vmreg = c.newUIntPtr();
             _vmcr = c.newUIntPtr();
             _vmtc = c.newUIntPtr();
@@ -944,7 +958,14 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             wo_assure(!ctx->c.ret(result)); // break this execute!!!
             wo_assure(!ctx->c.bind(no_interrupt_label));
         }
-
+        virtual void ir_make_interrupt(X64CompileContext* ctx, vmbase::vm_interrupt_type type) override
+        {
+            asmjit::InvokeNode* invoke_node;
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&_invoke_vm_interrupt,
+                asmjit::FuncSignatureT<void, vmbase*, vmbase::vm_interrupt_type>()));
+            invoke_node->setArg(0, ctx->_vmbase); 
+            invoke_node->setArg(1, asmjit::Imm(type));
+        }
         static asmjit::x86::Gp x86_set_imm(asmjit::x86::Compiler& x86compiler, asmjit::x86::Gp val, const wo::value& instance)
         {
             wo_assure(!x86compiler.mov(asmjit::x86::byte_ptr(val, offsetof(value, type)), (uint8_t)instance.type));
@@ -1129,6 +1150,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             state->m_jitfunc->setArg(1, ctx->_vmsbp);
             wo_assure(!ctx->c.sub(ctx->_vmsbp, 2 * sizeof(wo::value)));
             wo_assure(!ctx->c.mov(ctx->_vmssp, ctx->_vmsbp));                    // let sp = bp;
+            wo_assure(!ctx->c.mov(ctx->_vmshead, asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, _self_stack_mem_buf))));
             wo_assure(!ctx->c.mov(ctx->_vmreg, asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, register_mem_begin))));
             wo_assure(!ctx->c.mov(ctx->_vmcr, asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, cr))));
             wo_assure(!ctx->c.mov(ctx->_vmtc, asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, tc))));
@@ -1367,10 +1389,23 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
         }
         virtual bool ir_psh(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
+            const byte_t* rollback_rt_ip = rt_ip - 1;
+            auto stackenough_label = ctx->c.newLabel();
+
             if (dr & 0b01)
             {
                 // WO_ADDRESSING_N1_REF;
                 // (rt_sp--)->set_val(opnum1);
+                
+                wo_assure(!ctx->c.cmp(ctx->_vmssp, ctx->_vmshead));
+                wo_assure(!ctx->c.ja(stackenough_label));
+
+                ir_make_interrupt(ctx, wo::vmbase::vm_interrupt_type::STACKOVERFLOW_INTERRUPT);
+                ir_make_checkpoint(ctx, rollback_rt_ip);
+
+                wo_assure(!ctx->c.int3()); // Cannot be here.
+
+                wo_assure(!ctx->c.bind(stackenough_label));
 
                 WO_JIT_ADDRESSING_N1;
                 if (opnum1.is_constant_and_not_tag(ctx))
@@ -1382,9 +1417,23 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             else
             {
                 uint16_t psh_repeat = WO_IPVAL_MOVE_2;
-
                 if (psh_repeat > 0)
-                    wo_assure(!ctx->c.sub(ctx->_vmssp, psh_repeat * sizeof(value)));
+                    wo_assure(!ctx->c.sub(ctx->_vmssp, asmjit::Imm(psh_repeat * sizeof(value))));
+
+                // NOTE: If there is just enough stack space here, the Stackoverflow interrupt 
+                // will still be triggered, which is planned (purely for performance reasons)
+                // 
+                // SEE: wo_vm.cpp: impl for pshn.
+                wo_assure(!ctx->c.cmp(ctx->_vmssp, ctx->_vmshead));
+                wo_assure(!ctx->c.ja(stackenough_label));
+
+                wo_assure(!ctx->c.add(ctx->_vmssp, asmjit::Imm(psh_repeat * sizeof(value))));
+                ir_make_interrupt(ctx, wo::vmbase::vm_interrupt_type::STACKOVERFLOW_INTERRUPT);
+                ir_make_checkpoint(ctx, rollback_rt_ip);
+
+                wo_assure(!ctx->c.int3()); // Cannot be here.
+
+                wo_assure(!ctx->c.bind(stackenough_label));
             }
             return true;
         }
@@ -1443,7 +1492,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
 
             asmjit::InvokeNode* invoke_node;
             wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_sidstruct,
-                asmjit::FuncSignatureT< void, wo::value*, wo::value*, uint16_t>()));
+                asmjit::FuncSignatureT<void, wo::value*, wo::value*, uint16_t>()));
 
             invoke_node->setArg(0, op1);
             invoke_node->setArg(1, op2);
@@ -2618,10 +2667,13 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
         }
         virtual bool ir_unpackargs(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip) override
         {
+            const byte_t* rollback_rt_ip = rt_ip - 1;
+
             WO_JIT_ADDRESSING_N1;
             auto unpack_argc_unsigned = WO_IPVAL_MOVE_4;
 
             auto op1 = opnum1.gp_value();
+            auto new_sp = ctx->c.newUIntPtr();
 
             asmjit::InvokeNode* invoke_node;
             wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vmbase::unpackargs_impl,
@@ -2634,9 +2686,23 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             invoke_node->setArg(4, asmjit::Imm((intptr_t)rt_ip));
             invoke_node->setArg(5, ctx->_vmssp);
             invoke_node->setArg(6, ctx->_vmsbp);
-            invoke_node->setRet(0, ctx->_vmssp);
 
-            ir_make_checkpoint(ctx, rt_ip);
+            invoke_node->setRet(0, new_sp);
+
+            // Check if new_sp is null
+            auto noerror_label = ctx->c.newLabel();
+            wo_assure(!ctx->c.cmp(new_sp, 0));
+            wo_assure(!ctx->c.jne(noerror_label));
+
+            // It's safe to use rollback_rt_ip, only abort/yieldbr/stackoverflow/debug use it to 
+            // rollback to non-jit-execution. and stackoverflow always executed before debug.
+            // other interrupt will not run the code.
+            ir_make_checkpoint(ctx, rollback_rt_ip);
+
+            wo_assure(!ctx->c.int3());
+
+            wo_assure(!ctx->c.bind(noerror_label));
+                        
             return true;
         }
 

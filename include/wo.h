@@ -672,6 +672,7 @@ WO_API void                 wo_lsp_free_compile_error_msg(wo_lsp_error_msg* msg)
 #define WO_FAIL_CALL_FAIL 0xD006
 #define WO_FAIL_BAD_LIB 0xD007
 #define WO_FAIL_UNEXPECTED 0xD008
+#define WO_FAIL_STACKOVERFLOW 0xD009
 // dEADLY 
 
 #endif

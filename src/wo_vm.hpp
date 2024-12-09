@@ -156,6 +156,9 @@ namespace wo
             DETACH_DEBUGGEE_INTERRUPT = 1 << 15,
             // VM will handle DETACH_DEBUGGEE_INTERRUPT before DEBUG_INTERRUPT, if vm handled
             // this interrupt, DEBUG_INTERRUPT will be cleared.
+
+            STACKOVERFLOW_INTERRUPT = 1 << 16,
+            // If stack size is not enough for PSH or PUSHN, STACKOVERFLOW_INTERRUPT will be setted.
         };
 
         struct callstack_info
@@ -164,7 +167,7 @@ namespace wo
             size_t      m_row;
         };
     public:
-        inline static constexpr size_t VM_DEFAULT_STACK_SIZE = 1024;
+        inline static constexpr size_t VM_DEFAULT_STACK_SIZE = 2024;
     public:
         inline static std::shared_mutex _alive_vm_list_mx;
         inline static cxx_set_t<vmbase*> _alive_vm_list;
