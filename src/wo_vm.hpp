@@ -157,8 +157,11 @@ namespace wo
             // VM will handle DETACH_DEBUGGEE_INTERRUPT before DEBUG_INTERRUPT, if vm handled
             // this interrupt, DEBUG_INTERRUPT will be cleared.
 
-            STACKOVERFLOW_INTERRUPT = 1 << 16,
-            // If stack size is not enough for PSH or PUSHN, STACKOVERFLOW_INTERRUPT will be setted.
+            STACK_OVERFLOW_INTERRUPT = 1 << 16,
+            // If stack size is not enough for PSH or PUSHN, STACK_OVERFLOW_INTERRUPT will be setted.
+
+            SHRINK_STACK_INTERRUPT = 1 << 17,
+            // Advise vm to shrink it's stack usage, raised by GC-Job.
         };
 
         struct callstack_info
@@ -167,7 +170,8 @@ namespace wo
             size_t      m_row;
         };
     public:
-        inline static constexpr size_t VM_DEFAULT_STACK_SIZE = 2024;
+        inline static constexpr size_t VM_DEFAULT_STACK_SIZE = 256;
+        inline static constexpr size_t VM_SHRINK_STACK_COUNT = 3;
     public:
         inline static std::shared_mutex _alive_vm_list_mx;
         inline static cxx_set_t<vmbase*> _alive_vm_list;
@@ -227,6 +231,8 @@ namespace wo
         // runtime information
         std::thread::id attaching_thread_id;
 #endif     
+    private:
+        size_t shrink_stack_advise;
 
     private:
         vmbase(const vmbase&) = delete;
@@ -261,6 +267,8 @@ namespace wo
 
         vmbase* get_or_alloc_gcvm() const noexcept;
 
+        bool advise_shrink_stack() noexcept;
+        void reset_shrink_stack_count() noexcept;
     public:
         virtual vmbase* create_machine(vm_type type) const noexcept = 0;
         virtual wo_result_t run() noexcept = 0;
@@ -268,6 +276,7 @@ namespace wo
     public:
         void _allocate_register_space(size_t regcount) noexcept;
         void _allocate_stack_space(size_t stacksz) noexcept;
+        bool _reallocate_stack_space(size_t stacksz) noexcept;
         void set_runtime(shared_pointer<runtime_env> runtime_environment) noexcept;
         vmbase* make_machine(size_t stack_sz, vm_type type) const noexcept;
         void dump_program_bin(size_t begin = 0, size_t end = SIZE_MAX, std::ostream& os = std::cout) const noexcept;

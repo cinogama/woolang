@@ -889,7 +889,7 @@ namespace wo
                 do
                 {
                     std::unique_lock ug1(_gc_work_mx);
-                    for (size_t i = 0; i < 100; ++i)
+                    for (size_t i = 0; i < 10; ++i)
                     {
                         using namespace std;
                         bool breakout = false;
@@ -998,6 +998,17 @@ namespace wo
                 if (gcunit_address)
                     gc_mark_unit_as_gray(worklist, gcunit_address, attr);
             }
+
+            // Check if vm's stack-usage-rate is lower then 1/4:
+            const size_t current_vm_stack_usage = marking_vm->stack_mem_begin - marking_vm->sp;
+            if (current_vm_stack_usage * 4 < marking_vm->stack_size 
+                && marking_vm->stack_size >= 2 * vmbase::VM_DEFAULT_STACK_SIZE)
+            {
+                if (marking_vm->advise_shrink_stack())
+                    marking_vm->interrupt(vmbase::vm_interrupt_type::SHRINK_STACK_INTERRUPT);
+            }
+            else
+                marking_vm->reset_shrink_stack_count();
         }
 
         void alloc_failed_retry()

@@ -190,6 +190,7 @@ namespace wo
         // runtime information
         , attaching_thread_id(std::thread::id{})
 #endif        
+        , shrink_stack_advise(0)
     {
         ++_alive_vm_count_for_gc_vm_destruct;
 
@@ -281,6 +282,14 @@ namespace wo
 #endif
     }
 
+    bool vmbase::advise_shrink_stack() noexcept
+    {
+        return ++shrink_stack_advise >= VM_SHRINK_STACK_COUNT;
+    }
+    void vmbase::reset_shrink_stack_count() noexcept
+    {
+        shrink_stack_advise = 0;
+    }
     void vmbase::_allocate_register_space(size_t regcount) noexcept
     {
         _self_register_mem_buf = std::launder(reinterpret_cast<value*>(calloc(regcount, sizeof(value))));
@@ -295,6 +304,32 @@ namespace wo
         _self_stack_mem_buf = std::launder(reinterpret_cast<value*>(calloc(stack_size + 1, sizeof(value))));
         stack_mem_begin = _self_stack_mem_buf + stack_size;
         sp = bp = stack_mem_begin;
+    }
+    bool vmbase::_reallocate_stack_space(size_t stacksz) noexcept
+    {
+        const size_t used_stack_size = stack_mem_begin - sp;
+        if (used_stack_size * 2 > stacksz)
+            // New stack size is smaller than current stack size
+            return false;
+                    
+        value* new_stack_buf = std::launder(reinterpret_cast<value*>(calloc(stacksz + 1, sizeof(value))));
+        if (new_stack_buf == nullptr)
+            // Failed to allocate new stack space
+            return false;
+
+        const size_t new_sp_offset = stacksz - used_stack_size;
+        const size_t bp_sp_offset = (size_t)(bp - sp);
+        memcpy(new_stack_buf + new_sp_offset + 1, sp + 1, used_stack_size * sizeof(value));
+
+        free(_self_stack_mem_buf);
+
+        stack_size = stacksz;
+        _self_stack_mem_buf = new_stack_buf;
+        stack_mem_begin = _self_stack_mem_buf + stacksz;
+        sp = _self_stack_mem_buf + new_sp_offset;
+        bp = sp + bp_sp_offset;
+
+        return true;
     }
     void vmbase::set_runtime(shared_pointer<runtime_env> runtime_environment)noexcept
     {
@@ -1547,7 +1582,7 @@ namespace wo
         return rt_sp;
     _wo_unpackargs_stack_overflow:
 
-        vm->interrupt(vmbase::vm_interrupt_type::STACKOVERFLOW_INTERRUPT);
+        vm->interrupt(vmbase::vm_interrupt_type::STACK_OVERFLOW_INTERRUPT);
         return nullptr;
     }
     const char* vmbase::movcast_impl(value* opnum1, value* opnum2, value::valuetype aim_type) noexcept
@@ -1652,25 +1687,22 @@ namespace wo
                 {
                     if (dr & 0b01)
                     {
-                        if (sp < _self_stack_mem_buf)
+                        if (sp <= _self_stack_mem_buf)
                         {
                             --rt_ip;
-                            wo_assure(interrupt(vm_interrupt_type::STACKOVERFLOW_INTERRUPT));
+                            wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
                             break;
                         }
                         WO_ADDRESSING_N1;
-                        sp--->set_val(opnum1);
+                        (sp--)->set_val(opnum1);
                     }
                     else
                     {
                         uint16_t psh_repeat = WO_IPVAL_MOVE_2;
-
-                        // NOTE: If there is just enough stack space here, the Stackoverflow interrupt 
-                        // will still be triggered, which is planned (purely for performance reasons)
                         if (sp - psh_repeat < _self_stack_mem_buf)
                         {
                             rt_ip -= 3;
-                            wo_assure(interrupt(vm_interrupt_type::STACKOVERFLOW_INTERRUPT));
+                            wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
                             break;
                         }
 
@@ -2751,10 +2783,18 @@ namespace wo
                     if (clear_interrupt(vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT))
                         clear_interrupt(vm_interrupt_type::DEBUG_INTERRUPT);
                 }
-                else if (interrupt_state & vm_interrupt_type::STACKOVERFLOW_INTERRUPT)
+                else if (interrupt_state & vm_interrupt_type::STACK_OVERFLOW_INTERRUPT)
                 {
-                    wo_assure(clear_interrupt(vm_interrupt_type::STACKOVERFLOW_INTERRUPT));
-                    wo_fail(WO_FAIL_STACKOVERFLOW, "Stack overflow.");
+                    wo_assure(clear_interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
+
+                    // Force realloc stack buffer.
+                    if (!_reallocate_stack_space(stack_size << 1))
+                        wo_fail(WO_FAIL_STACKOVERFLOW, "Stack overflow.");
+                }
+                else if (interrupt_state & vm_interrupt_type::SHRINK_STACK_INTERRUPT)
+                {
+                    wo_assure(clear_interrupt(vm_interrupt_type::SHRINK_STACK_INTERRUPT));
+                    (void)_reallocate_stack_space(stack_size >> 1);
                 }
                 // ATTENTION: it should be last interrupt..
                 else if (interrupt_state & vm_interrupt_type::DEBUG_INTERRUPT)

@@ -551,7 +551,15 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
                 if (vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT))
                     vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::DEBUG_INTERRUPT);
             }
-            else if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::STACKOVERFLOW_INTERRUPT)
+            else if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::STACK_OVERFLOW_INTERRUPT)
+            {
+                vmm->ip = rt_ip;
+                vmm->sp = rt_sp;
+                vmm->bp = rt_bp;
+
+                return wo_result_t::WO_API_RESYNC;
+            }
+            else if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::SHRINK_STACK_INTERRUPT)
             {
                 vmm->ip = rt_ip;
                 vmm->sp = rt_sp;
@@ -1400,7 +1408,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
                 wo_assure(!ctx->c.cmp(ctx->_vmssp, ctx->_vmshead));
                 wo_assure(!ctx->c.ja(stackenough_label));
 
-                ir_make_interrupt(ctx, wo::vmbase::vm_interrupt_type::STACKOVERFLOW_INTERRUPT);
+                ir_make_interrupt(ctx, wo::vmbase::vm_interrupt_type::STACK_OVERFLOW_INTERRUPT);
                 ir_make_checkpoint(ctx, rollback_rt_ip);
 
                 wo_assure(!ctx->c.int3()); // Cannot be here.
@@ -1428,7 +1436,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
                 wo_assure(!ctx->c.ja(stackenough_label));
 
                 wo_assure(!ctx->c.add(ctx->_vmssp, asmjit::Imm(psh_repeat * sizeof(value))));
-                ir_make_interrupt(ctx, wo::vmbase::vm_interrupt_type::STACKOVERFLOW_INTERRUPT);
+                ir_make_interrupt(ctx, wo::vmbase::vm_interrupt_type::STACK_OVERFLOW_INTERRUPT);
                 ir_make_checkpoint(ctx, rollback_rt_ip);
 
                 wo_assure(!ctx->c.int3()); // Cannot be here.
@@ -2702,7 +2710,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             wo_assure(!ctx->c.int3());
 
             wo_assure(!ctx->c.bind(noerror_label));
-                        
+            wo_assure(!ctx->c.mov(ctx->_vmssp, new_sp));
+
             return true;
         }
 
