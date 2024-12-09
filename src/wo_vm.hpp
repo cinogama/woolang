@@ -231,8 +231,9 @@ namespace wo
         // runtime information
         std::thread::id attaching_thread_id;
 #endif     
-    private:
+    protected:
         size_t shrink_stack_advise;
+        size_t shrink_stack_edge;
 
     private:
         vmbase(const vmbase&) = delete;

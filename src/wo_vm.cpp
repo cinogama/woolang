@@ -191,6 +191,7 @@ namespace wo
         , attaching_thread_id(std::thread::id{})
 #endif        
         , shrink_stack_advise(0)
+        , shrink_stack_edge(VM_SHRINK_STACK_COUNT)
     {
         ++_alive_vm_count_for_gc_vm_destruct;
 
@@ -284,7 +285,7 @@ namespace wo
 
     bool vmbase::advise_shrink_stack() noexcept
     {
-        return ++shrink_stack_advise >= VM_SHRINK_STACK_COUNT;
+        return ++shrink_stack_advise >= shrink_stack_edge;
     }
     void vmbase::reset_shrink_stack_count() noexcept
     {
@@ -2787,6 +2788,8 @@ namespace wo
                 {
                     wo_assure(clear_interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
 
+                    ++shrink_stack_edge;
+
                     // Force realloc stack buffer.
                     if (!_reallocate_stack_space(stack_size << 1))
                         wo_fail(WO_FAIL_STACKOVERFLOW, "Stack overflow.");
@@ -2794,7 +2797,8 @@ namespace wo
                 else if (interrupt_state & vm_interrupt_type::SHRINK_STACK_INTERRUPT)
                 {
                     wo_assure(clear_interrupt(vm_interrupt_type::SHRINK_STACK_INTERRUPT));
-                    (void)_reallocate_stack_space(stack_size >> 1);
+                    if (_reallocate_stack_space(stack_size >> 1))
+                        shrink_stack_edge = VM_SHRINK_STACK_COUNT;
                 }
                 // ATTENTION: it should be last interrupt..
                 else if (interrupt_state & vm_interrupt_type::DEBUG_INTERRUPT)
