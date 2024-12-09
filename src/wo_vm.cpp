@@ -190,6 +190,7 @@ namespace wo
         // runtime information
         , attaching_thread_id(std::thread::id{})
 #endif        
+        , jit_function_call_depth(0)
         , shrink_stack_advise(0)
         , shrink_stack_edge(VM_SHRINK_STACK_COUNT)
     {
@@ -302,31 +303,33 @@ namespace wo
     void vmbase::_allocate_stack_space(size_t stacksz)noexcept
     {
         stack_size = stacksz;
-        _self_stack_mem_buf = std::launder(reinterpret_cast<value*>(calloc(stack_size + 1, sizeof(value))));
-        stack_mem_begin = _self_stack_mem_buf + stack_size;
+
+        _self_stack_mem_buf = std::launder(reinterpret_cast<value*>(calloc(stacksz, sizeof(value))));
+        stack_mem_begin = _self_stack_mem_buf + stacksz - 1;
         sp = bp = stack_mem_begin;
     }
     bool vmbase::_reallocate_stack_space(size_t stacksz) noexcept
     {
+        stack_size = stacksz;
+
         const size_t used_stack_size = stack_mem_begin - sp;
         if (used_stack_size * 2 > stacksz)
             // New stack size is smaller than current stack size
             return false;
                     
-        value* new_stack_buf = std::launder(reinterpret_cast<value*>(calloc(stacksz + 1, sizeof(value))));
+        value* new_stack_buf = std::launder(reinterpret_cast<value*>(calloc(stacksz, sizeof(value))));
         if (new_stack_buf == nullptr)
             // Failed to allocate new stack space
             return false;
 
-        const size_t new_sp_offset = stacksz - used_stack_size;
+        const size_t new_sp_offset = (stacksz - 1) - used_stack_size;
         const size_t bp_sp_offset = (size_t)(bp - sp);
         memcpy(new_stack_buf + new_sp_offset + 1, sp + 1, used_stack_size * sizeof(value));
 
         free(_self_stack_mem_buf);
 
-        stack_size = stacksz;
         _self_stack_mem_buf = new_stack_buf;
-        stack_mem_begin = _self_stack_mem_buf + stacksz;
+        stack_mem_begin = _self_stack_mem_buf + stacksz - 1;
         sp = _self_stack_mem_buf + new_sp_offset;
         bp = sp + bp_sp_offset;
 
@@ -861,7 +864,7 @@ namespace wo
 
                 // When dumping call stack if specified vm is running(during GC), the stack data might be
                 // modified. We will get broken call stack info and we should stop.
-                if (base_callstackinfo_ptr > stack_mem_begin || base_callstackinfo_ptr < stack_mem_begin - (stack_size - 1))
+                if (base_callstackinfo_ptr > stack_mem_begin || base_callstackinfo_ptr <= _self_stack_mem_buf)
                 {
                     os << call_trace_count + 1 << ": ??" << std::endl;
                     break;
@@ -2186,71 +2189,56 @@ namespace wo
             }
             case instruct::opcode::call:
             {
+                auto* rollback_rt_ip = rt_ip - 1;
+
                 WO_ADDRESSING_N1;
 
                 WO_VM_ASSERT(0 != opnum1->handle && nullptr != opnum1->closure,
                     "Cannot invoke null function in 'call'.");
 
-                if (opnum1->type == value::valuetype::closure_type)
+                do
                 {
-                    // Call closure, unpack closure captured arguments.
-                    // 
-                    // NOTE: Closure arguments should be poped by closure function it self.
-                    //       Can use ret(n) to pop arguments when call.
-                    for (auto idx = opnum1->closure->m_closure_args_count; idx > 0; --idx)
-                        (sp--)->set_val(&opnum1->closure->m_closure_args[idx - 1]);
-                }
-
-                sp->type = value::valuetype::callstack;
-                sp->vmcallstack.ret_ip = (uint32_t)(rt_ip - rt_codes);
-                sp->vmcallstack.bp = (uint32_t)(stack_mem_begin - bp);
-                auto* rt_bp = bp = --sp;
-
-                if (opnum1->type == value::valuetype::handle_type)
-                {
-                    // Call native
-                    wo_extern_native_func_t call_aim_native_func = (wo_extern_native_func_t)(opnum1->handle);
-                    ip = std::launder(reinterpret_cast<byte_t*>(call_aim_native_func));
-                    rt_cr->set_nil();
-
-                    switch (call_aim_native_func(
-                        std::launder(reinterpret_cast<wo_vm>(this)),
-                        std::launder(reinterpret_cast<wo_value>(sp + 2))))
+                    if (opnum1->type == value::valuetype::closure_type)
                     {
-                    case wo_result_t::WO_API_NORMAL:
-                    {
-                        bp = rt_bp;
+                        // Call closure, unpack closure captured arguments.
+                        // 
+                        // NOTE: Closure arguments should be poped by closure function it self.
+                        //       Can use ret(n) to pop arguments when call.
+                        if (sp - opnum1->closure->m_closure_args_count - 1 < _self_stack_mem_buf)
+                        {
+                            rt_ip = rollback_rt_ip;
+                            wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
+                            break;
+                        }
 
-                        WO_VM_ASSERT((bp + 1)->type == value::valuetype::callstack,
-                            "Found broken stack in 'call'.");
-                        value* stored_bp = stack_mem_begin - (++bp)->vmcallstack.bp;
-                        sp = bp;
-                        bp = stored_bp;
-                        break;
+                        for (auto idx = opnum1->closure->m_closure_args_count; idx > 0; --idx)
+                            (sp--)->set_val(&opnum1->closure->m_closure_args[idx - 1]);
                     }
-                    case wo_result_t::WO_API_RESYNC:
+                    else
                     {
-                        rt_ip = this->ip;
-                        break;
+                        if (sp <= _self_stack_mem_buf)
+                        {
+                            rt_ip = rollback_rt_ip;
+                            wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
+                            break;
+                        }
                     }
-                    }
-                }
-                else if (opnum1->type == value::valuetype::integer_type)
-                {
-                    rt_ip = rt_codes + opnum1->integer;
-                }
-                else
-                {
-                    WO_VM_ASSERT(opnum1->type == value::valuetype::closure_type,
-                        "Unexpected invoke target type in 'call'.");
 
-                    auto* closure = opnum1->closure;
+                    sp->type = value::valuetype::callstack;
+                    sp->vmcallstack.ret_ip = (uint32_t)(rt_ip - rt_codes);
+                    sp->vmcallstack.bp = (uint32_t)(stack_mem_begin - bp);
+                    auto* rt_bp = bp = --sp;
 
-                    if (closure->m_native_call)
+                    if (opnum1->type == value::valuetype::handle_type)
                     {
-                        switch (closure->m_native_func(
+                        // Call native
+                        wo_extern_native_func_t call_aim_native_func = (wo_extern_native_func_t)(opnum1->handle);
+                        ip = std::launder(reinterpret_cast<byte_t*>(call_aim_native_func));
+                        rt_cr->set_nil();
+
+                        switch (call_aim_native_func(
                             std::launder(reinterpret_cast<wo_vm>(this)),
-                            std::launder((reinterpret_cast<wo_value>(sp + 2)))))
+                            std::launder(reinterpret_cast<wo_value>(sp + 2))))
                         {
                         case wo_result_t::WO_API_NORMAL:
                         {
@@ -2259,9 +2247,109 @@ namespace wo
                             WO_VM_ASSERT((bp + 1)->type == value::valuetype::callstack,
                                 "Found broken stack in 'call'.");
                             value* stored_bp = stack_mem_begin - (++bp)->vmcallstack.bp;
-                            // Here to invoke jit closure, jit function cannot pop captured arguments,
-                            // So we pop them here.
-                            sp = bp + closure->m_closure_args_count;
+                            sp = bp;
+                            bp = stored_bp;
+                            break;
+                        }
+                        case wo_result_t::WO_API_RESYNC:
+                        {
+                            rt_ip = this->ip;
+                            break;
+                        }
+                        }
+                    }
+                    else if (opnum1->type == value::valuetype::integer_type)
+                    {
+                        rt_ip = rt_codes + opnum1->integer;
+                    }
+                    else
+                    {
+                        WO_VM_ASSERT(opnum1->type == value::valuetype::closure_type,
+                            "Unexpected invoke target type in 'call'.");
+
+                        auto* closure = opnum1->closure;
+
+                        if (closure->m_native_call)
+                        {
+                            switch (closure->m_native_func(
+                                std::launder(reinterpret_cast<wo_vm>(this)),
+                                std::launder((reinterpret_cast<wo_value>(sp + 2)))))
+                            {
+                            case wo_result_t::WO_API_NORMAL:
+                            {
+                                bp = rt_bp;
+
+                                WO_VM_ASSERT((bp + 1)->type == value::valuetype::callstack,
+                                    "Found broken stack in 'call'.");
+                                value* stored_bp = stack_mem_begin - (++bp)->vmcallstack.bp;
+                                // Here to invoke jit closure, jit function cannot pop captured arguments,
+                                // So we pop them here.
+                                sp = bp + closure->m_closure_args_count;
+                                bp = stored_bp;
+                                break;
+                            }
+                            case wo_result_t::WO_API_RESYNC:
+                            {
+                                rt_ip = this->ip;
+                                break;
+                            }
+                            }
+                        }
+                        else
+                            rt_ip = rt_codes + closure->m_vm_func;
+                    }
+                } while (0);
+                break;
+            }
+            case instruct::opcode::calln:
+            {
+                WO_VM_ASSERT(dr == 0b11 || dr == 0b01 || dr == 0b00,
+                    "Found broken ir-code in 'calln'.");
+                do
+                {
+                    if (sp <= _self_stack_mem_buf)
+                    {
+                        --rt_ip;
+                        wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
+                        break;
+                    }
+                    if (dr)
+                    {
+                        // Call native
+                        wo_extern_native_func_t call_aim_native_func = (wo_extern_native_func_t)(WO_IPVAL_MOVE_8);
+
+                        sp->type = value::valuetype::callstack;
+                        sp->vmcallstack.ret_ip = (uint32_t)(rt_ip - rt_codes);
+                        sp->vmcallstack.bp = (uint32_t)(stack_mem_begin - bp);
+                        auto* rt_bp = bp = --sp;
+
+                        rt_cr->set_nil();
+
+                        ip = std::launder(reinterpret_cast<byte_t*>(call_aim_native_func));
+
+                        wo_result_t api;
+                        if (dr & 0b10)
+                            api = call_aim_native_func(
+                                std::launder(reinterpret_cast<wo_vm>(this)),
+                                std::launder(reinterpret_cast<wo_value>(sp + 2)));
+                        else
+                        {
+                            wo_assure(wo_leave_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
+                            api = call_aim_native_func(
+                                std::launder(reinterpret_cast<wo_vm>(this)),
+                                std::launder(reinterpret_cast<wo_value>(sp + 2)));
+                            wo_assure(wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
+                        }
+                        switch (api)
+                        {
+                        case wo_result_t::WO_API_NORMAL:
+                        {
+                            bp = rt_bp;
+
+                            WO_VM_ASSERT((bp + 1)->type == value::valuetype::callstack,
+                                "Found broken stack in 'calln'.");
+                            value* stored_bp = stack_mem_begin - (++bp)->vmcallstack.bp;
+                            sp = bp;
                             bp = stored_bp;
                             break;
                         }
@@ -2273,75 +2361,19 @@ namespace wo
                         }
                     }
                     else
-                        rt_ip = rt_codes + closure->m_vm_func;
-                }
-                break;
-            }
-            case instruct::opcode::calln:
-            {
-                WO_VM_ASSERT(dr == 0b11 || dr == 0b01 || dr == 0b00,
-                    "Found broken ir-code in 'calln'.");
-
-                if (dr)
-                {
-                    // Call native
-                    wo_extern_native_func_t call_aim_native_func = (wo_extern_native_func_t)(WO_IPVAL_MOVE_8);
-
-                    sp->type = value::valuetype::callstack;
-                    sp->vmcallstack.ret_ip = (uint32_t)(rt_ip - rt_codes);
-                    sp->vmcallstack.bp = (uint32_t)(stack_mem_begin - bp);
-                    auto* rt_bp = bp = --sp;
-
-                    rt_cr->set_nil();
-
-                    ip = std::launder(reinterpret_cast<byte_t*>(call_aim_native_func));
-
-                    wo_result_t api;
-                    if (dr & 0b10)
-                        api = call_aim_native_func(
-                            std::launder(reinterpret_cast<wo_vm>(this)),
-                            std::launder(reinterpret_cast<wo_value>(sp + 2)));
-                    else
                     {
-                        wo_assure(wo_leave_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
-                        api = call_aim_native_func(
-                            std::launder(reinterpret_cast<wo_vm>(this)),
-                            std::launder(reinterpret_cast<wo_value>(sp + 2)));
-                        wo_assure(wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
-                    }
-                    switch (api)
-                    {
-                    case wo_result_t::WO_API_NORMAL:
-                    {
-                        bp = rt_bp;
+                        const byte_t* aimplace = rt_codes + WO_IPVAL_MOVE_4;
+                        rt_ip += 4; // skip reserved place.
 
-                        WO_VM_ASSERT((bp + 1)->type == value::valuetype::callstack,
-                            "Found broken stack in 'calln'.");
-                        value* stored_bp = stack_mem_begin - (++bp)->vmcallstack.bp;
-                        sp = bp;
-                        bp = stored_bp;
-                        break;
-                    }
-                    case wo_result_t::WO_API_RESYNC:
-                    {
-                        rt_ip = this->ip;
-                        break;
-                    }
-                    }
-                }
-                else
-                {
-                    const byte_t* aimplace = rt_codes + WO_IPVAL_MOVE_4;
-                    rt_ip += 4; // skip reserved place.
+                        sp->type = value::valuetype::callstack;
+                        sp->vmcallstack.ret_ip = (uint32_t)(rt_ip - rt_codes);
+                        sp->vmcallstack.bp = (uint32_t)(stack_mem_begin - bp);
+                        bp = --sp;
 
-                    sp->type = value::valuetype::callstack;
-                    sp->vmcallstack.ret_ip = (uint32_t)(rt_ip - rt_codes);
-                    sp->vmcallstack.bp = (uint32_t)(stack_mem_begin - bp);
-                    bp = --sp;
+                        rt_ip = aimplace;
 
-                    rt_ip = aimplace;
-
-                }
+                    }
+                } while (0);
                 break;
             }
             case instruct::opcode::jmp:

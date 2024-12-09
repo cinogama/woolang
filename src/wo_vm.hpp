@@ -172,6 +172,7 @@ namespace wo
     public:
         inline static constexpr size_t VM_DEFAULT_STACK_SIZE = 256;
         inline static constexpr size_t VM_SHRINK_STACK_COUNT = 3;
+        inline static constexpr size_t VM_MAX_JIT_FUNCTION_DEPTH = 256;
     public:
         inline static std::shared_mutex _alive_vm_list_mx;
         inline static cxx_set_t<vmbase*> _alive_vm_list;
@@ -231,6 +232,7 @@ namespace wo
         // runtime information
         std::thread::id attaching_thread_id;
 #endif     
+        size_t jit_function_call_depth;
     protected:
         size_t shrink_stack_advise;
         size_t shrink_stack_edge;
@@ -270,6 +272,7 @@ namespace wo
 
         bool advise_shrink_stack() noexcept;
         void reset_shrink_stack_count() noexcept;
+
     public:
         virtual vmbase* create_machine(vm_type type) const noexcept = 0;
         virtual wo_result_t run() noexcept = 0;
