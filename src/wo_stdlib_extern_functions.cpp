@@ -229,7 +229,20 @@ WO_API wo_api rslib_std_char_isoct(wo_vm vm, wo_value args)
 
 WO_API wo_api rslib_std_char_hexnum(wo_vm vm, wo_value args)
 {
-    return wo_ret_int(vm, wo::lexer::lex_hextonum(wo_char(args + 0)));
+    auto ch = wo_char(args + 0);
+    if (!wo::lexer::lex_isxdigit(ch))
+        return wo_ret_panic(vm, "Non-hexadecimal character.");
+
+    return wo_ret_int(vm, wo::lexer::lex_hextonum(ch));
+}
+
+WO_API wo_api rslib_std_char_octnum(wo_vm vm, wo_value args)
+{
+    auto ch = wo_char(args + 0);
+    if (!wo::lexer::lex_isodigit(ch))
+        return wo_ret_panic(vm, "Non-octal character.");
+    
+    return wo_ret_int(vm, wo::lexer::lex_octtonum(ch));
 }
 
 WO_API wo_api rslib_std_string_enstring(wo_vm vm, wo_value args)
@@ -1417,37 +1430,51 @@ WO_API wo_api rslib_std_int_to_oct(wo_vm vm, wo_value args)
 WO_API wo_api rslib_std_hex_to_int(wo_vm vm, wo_value args)
 {
     wo_string_t str = wo_string(args + 0);
-    while (*str && wo::lexer::lex_isspace(*str))
-        ++str;
-    unsigned long long result;
-    if (*str != '-')
+    wo_integer_t result = 0;
+
+    bool is_negative = false;
+
+    const char* p = str;
+    while (*p)
     {
-        sscanf(str, "%llX", &result);
-        return wo_ret_int(vm, (wo_integer_t)result);
+        if (!wo::lexer::lex_isxdigit(*p))
+        {
+            if (*p == '-' && !is_negative)
+                is_negative = true;
+            else
+                return wo_ret_panic(vm, "Non-hexadecimal character at offset %zu.", (size_t)(p - str));
+        }
+        else
+            result = result * 16 + wo::lexer::lex_hextonum(*p);
+        
+        ++p;
     }
-    else
-    {
-        sscanf(str, "-%llX", &result);
-        return wo_ret_int(vm, -(wo_integer_t)result);
-    }
+    return wo_ret_int(vm, is_negative ? -result : result);
 }
 
 WO_API wo_api rslib_std_oct_to_int(wo_vm vm, wo_value args)
 {
     wo_string_t str = wo_string(args + 0);
-    while (*str && wo::lexer::lex_isspace(*str))
-        ++str;
-    unsigned long long result;
-    if (*str != '-')
+    wo_integer_t result = 0;
+
+    bool is_negative = false;
+
+    const char* p = str;
+    while (*p)
     {
-        sscanf(str, "%llo", &result);
-        return wo_ret_int(vm, (wo_integer_t)result);
+        if (!wo::lexer::lex_isodigit(*p))
+        {
+            if (*p == '-' && !is_negative)
+                is_negative = true;
+            else
+                return wo_ret_panic(vm, "Non-octal character at offset %zu.", (size_t)(p - str));
+        }
+        else
+            result = result * 8 + wo::lexer::lex_octtonum(*p);
+
+        ++p;
     }
-    else
-    {
-        sscanf(str, "-%llo", &result);
-        return wo_ret_int(vm, -(wo_integer_t)result);
-    }
+    return wo_ret_int(vm, is_negative ? -result : result);
 }
 
 WO_API wo_api rslib_std_get_args(wo_vm vm, wo_value args)
@@ -2037,32 +2064,30 @@ namespace std
             || std::declval:<T>() is real
             || std::declval:<T>() is string;
     {
+        extern("rslib_std_input_readint", slow) 
+            func input_int()=> int;
+        extern("rslib_std_input_readreal", slow) 
+            func input_real()=> real;
+        extern("rslib_std_input_readstring", slow) 
+            func input_string()=> string;
+
         while (true)
         {
             if (std::declval:<T>() is int)
             {
-                extern("rslib_std_input_readint", slow) 
-                public func _input_int()=> int;
-
-                let result = _input_int();
+                let result = input_int();
                 if (validator(result))
                     return result;
             }
             else if (std::declval:<T>() is real)
             {
-                extern("rslib_std_input_readreal", slow) 
-                public func _input_real()=> real;
-
-                let result = _input_real();
+                let result = input_real();
                 if (validator(result))
                     return result;
             }
             else
             {
-                extern("rslib_std_input_readstring", slow) 
-                public func _input_string()=> string;
-
-                let result = _input_string();
+                let result = input_string();
                 if (validator(result))
                     return result;
             }
@@ -2089,18 +2114,15 @@ namespace std
     public func rand<T>(from: T, to: T)=> T
         where from is int || from is real;
     {
+        extern("rslib_std_randomint") 
+            func rand_int(from: int, to: int)=> int;
+        extern("rslib_std_randomreal") 
+            func rand_real(from: real, to: real)=> real;
+
         if (from is int)
-        {
-            extern("rslib_std_randomint") 
-                func randint(from: int, to: int)=> int;
-            return randint(from, to);
-        }
+            return rand_int(from, to);
         else
-        {
-            extern("rslib_std_randomreal") 
-                public func randreal(from: real, to: real)=> real;
-            return randreal(from, to);
-        }
+            return rand_real(from, to);
     }
 
     extern("rslib_std_break_yield") 
@@ -2155,6 +2177,9 @@ namespace char
 
     extern("rslib_std_char_hexnum")
         public func hex_int(val: char)=> int;
+
+    extern("rslib_std_char_octnum")
+        public func oct_int(val: char)=> int;
 }
 
 namespace string
@@ -3398,6 +3423,7 @@ namespace wo
             {"rslib_std_char_isnumber", (void*)&rslib_std_char_isnumber},
             {"rslib_std_char_isoct", (void*)&rslib_std_char_isoct},
             {"rslib_std_char_isspace", (void*)&rslib_std_char_isspace},
+            {"rslib_std_char_octnum", (void*)&rslib_std_char_octnum},
             {"rslib_std_char_tolower", (void*)&rslib_std_char_tolower},
             {"rslib_std_char_tostring", (void*)&rslib_std_char_tostring},
             {"rslib_std_char_toupper", (void*)&rslib_std_char_toupper},
