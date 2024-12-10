@@ -39,9 +39,10 @@ namespace wo
                     m_free_vm.pop_front();
 
                     wo_assert((vm->vm_interrupt & vmbase::vm_interrupt_type::LEAVE_INTERRUPT) != 0);
+                    wo_assert(vm->bp == vm->sp && vm->bp == vm->stack_mem_begin);
 
                     wo_assure(vm->clear_interrupt(vmbase::vm_interrupt_type::PENDING_INTERRUPT));
-                    vm->clear_interrupt(vmbase::vm_interrupt_type::ABORT_INTERRUPT);
+                    (void)vm->clear_interrupt(vmbase::vm_interrupt_type::ABORT_INTERRUPT);
                     vm->ip = nullptr; // IP Should be set by other function like invoke/dispatch.
 
                     return vm;
@@ -61,6 +62,7 @@ namespace wo
 
                 // Clear stack & register to make sure gc will not mark the useless data of current vm;
                 vm->sp = vm->bp = vm->stack_mem_begin;
+
                 const size_t register_count = vm->env->real_register_count;
                 for (size_t regi = 0; regi < register_count; ++regi)
                 {
@@ -68,7 +70,6 @@ namespace wo
                 }
 
                 wo_assure(wo_leave_gcguard(reinterpret_cast<wo_vm>(vm)));
-
                 m_free_vm.push_back(vm);
             }
         };

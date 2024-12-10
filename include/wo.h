@@ -466,8 +466,6 @@ WO_API wo_value     wo_push_struct(wo_vm vm, uint16_t count);
 WO_API wo_value     wo_push_map(wo_vm vm, wo_size_t reserved);
 WO_API wo_value     wo_push_union(wo_vm vm, wo_integer_t id, wo_value value_may_null);
 
-WO_API wo_value     wo_top_stack(wo_vm vm);
-WO_API void         wo_pop_stack(wo_vm vm);
 WO_API wo_value     wo_invoke_rsfunc(wo_vm vm, wo_int_t rsfunc, wo_int_t argc);
 WO_API wo_value     wo_invoke_exfunc(wo_vm vm, wo_handle_t exfunc, wo_int_t argc);
 WO_API wo_value     wo_invoke_value(wo_vm vm, wo_value vmfunc, wo_int_t argc);

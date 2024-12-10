@@ -990,7 +990,7 @@ namespace wo
 
             // walk thorgh stack.
             for (auto* stack_walker = marking_vm->stack_mem_begin;
-                marking_vm->sp < stack_walker;
+                stack_walker > marking_vm->sp;
                 stack_walker--)
             {
                 auto stack_val = stack_walker;

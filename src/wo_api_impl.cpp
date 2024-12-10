@@ -1138,7 +1138,11 @@ std::string _destring(const std::string& dstr)
 wo_bool_t _wo_cast_value(wo_vm vm, wo::value* value, wo::lexer* lex, wo::value::valuetype except_type);
 wo_bool_t _wo_cast_array(wo_vm vm, wo::value* value, wo::lexer* lex)
 {
-    wo::array_t* rsarr = WO_VAL(wo_push_arr(vm, 0))->array;
+    // _wo_cast_map is in GC-GUARD, we can use the template value here.
+    _wo_value tmp_value;
+    wo_set_arr(&tmp_value, vm, 0);
+
+    wo::array_t* rsarr = WO_VAL(&tmp_value)->array;
     wo::gcbase::gc_modify_write_guard g1(rsarr);
 
     while (true)
@@ -1158,13 +1162,15 @@ wo_bool_t _wo_cast_array(wo_vm vm, wo::value* value, wo::lexer* lex)
             lex->next(nullptr);
     }
     value->set_gcunit<wo::value::valuetype::array_type>(rsarr);
-
-    wo_pop_stack(vm);
     return WO_TRUE;
 }
 wo_bool_t _wo_cast_map(wo_vm vm, wo::value* value, wo::lexer* lex)
 {
-    wo::dict_t* rsmap = WO_VAL(wo_push_map(vm, 0))->dict;
+    // _wo_cast_map is in GC-GUARD, we can use the template value here.
+    _wo_value tmp_value;
+    wo_set_map(&tmp_value, vm, 0);
+
+    wo::dict_t* rsmap = WO_VAL(&tmp_value)->dict;
     wo::gcbase::gc_modify_write_guard g1(rsmap);
 
     while (true)
@@ -1194,8 +1200,6 @@ wo_bool_t _wo_cast_map(wo_vm vm, wo::value* value, wo::lexer* lex)
     }
 
     value->set_gcunit<wo::value::valuetype::dict_type>(rsmap);
-
-    wo_pop_stack(vm);
     return WO_TRUE;
 }
 wo_bool_t _wo_cast_value(wo_vm vm, wo::value* value, wo::lexer* lex, wo::value::valuetype except_type)
@@ -3021,14 +3025,6 @@ wo_value wo_push_union(wo_vm vm, wo_integer_t id, wo_value value_may_null)
     wo_set_union(result, vm, id, value_may_null);
 
     return result;
-}
-wo_value wo_top_stack(wo_vm vm)
-{
-    return CS_VAL((WO_VM(vm)->sp - 1));
-}
-void wo_pop_stack(wo_vm vm)
-{
-    ++WO_VM(vm)->sp;
 }
 
 wo_value wo_invoke_rsfunc(wo_vm vm, wo_int_t vmfunc, wo_int_t argc)
