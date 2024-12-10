@@ -449,6 +449,8 @@ WO_API wo_string_t  wo_get_runtime_error(wo_vm vm);
 
 WO_API wo_value     wo_register(wo_vm vm, wo_reg regid);
 
+WO_API wo_value     wo_reserve_stack(wo_vm vm, wo_size_t sz);
+
 WO_API wo_value     wo_push_int(wo_vm vm, wo_int_t val);
 WO_API wo_value     wo_push_real(wo_vm vm, wo_real_t val);
 WO_API wo_value     wo_push_handle(wo_vm vm, wo_handle_t val);

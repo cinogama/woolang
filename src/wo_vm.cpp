@@ -344,7 +344,7 @@ namespace wo
         ++env->_running_on_vm_count;
 
         const_global_begin = env->constant_global;
-        ip = env->rt_codes;
+        codes = ip = env->rt_codes;
 
         _allocate_stack_space(env->runtime_stack_count);
         _allocate_register_space(env->real_register_count);
@@ -378,7 +378,7 @@ namespace wo
         if (!stack_sz)
             stack_sz = env->runtime_stack_count;
 
-        new_vm->ip = env->rt_codes;
+        new_vm->codes = new_vm->ip = env->rt_codes;
         new_vm->_allocate_stack_space(stack_sz);
         new_vm->_allocate_register_space(env->real_register_count);
 
@@ -2268,7 +2268,8 @@ namespace wo
                     sp->type = value::valuetype::callstack;
                     sp->vmcallstack.ret_ip = (uint32_t)(rt_ip - rt_codes);
                     sp->vmcallstack.bp = (uint32_t)(stack_mem_begin - bp);
-                    auto* rt_bp = bp = --sp;
+                    bp = --sp;
+                    auto rt_bp = stack_mem_begin - bp;
 
                     if (opnum1->type == value::valuetype::handle_type)
                     {
@@ -2284,7 +2285,7 @@ namespace wo
                         case wo_result_t::WO_API_RESYNC:
                         case wo_result_t::WO_API_NORMAL:
                         {
-                            bp = rt_bp;
+                            bp = stack_mem_begin - rt_bp;
 
                             WO_VM_ASSERT((bp + 1)->type == value::valuetype::callstack,
                                 "Found broken stack in 'call'.");
@@ -2320,7 +2321,7 @@ namespace wo
                             case wo_result_t::WO_API_RESYNC:
                             case wo_result_t::WO_API_NORMAL:
                             {
-                                bp = rt_bp;
+                                bp = stack_mem_begin - rt_bp;
 
                                 WO_VM_ASSERT((bp + 1)->type == value::valuetype::callstack,
                                     "Found broken stack in 'call'.");
@@ -2364,7 +2365,9 @@ namespace wo
                         sp->type = value::valuetype::callstack;
                         sp->vmcallstack.ret_ip = (uint32_t)(rt_ip - rt_codes);
                         sp->vmcallstack.bp = (uint32_t)(stack_mem_begin - bp);
-                        auto* rt_bp = bp = --sp;
+                        bp = --sp;
+
+                        auto rt_bp = stack_mem_begin - bp;
 
                         rt_cr->set_nil();
 
@@ -2388,7 +2391,7 @@ namespace wo
                         case wo_result_t::WO_API_RESYNC:
                         case wo_result_t::WO_API_NORMAL:
                         {
-                            bp = rt_bp;
+                            bp = stack_mem_begin - rt_bp;
 
                             WO_VM_ASSERT((bp + 1)->type == value::valuetype::callstack,
                                 "Found broken stack in 'calln'.");

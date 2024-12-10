@@ -2293,7 +2293,11 @@ wo_result_t wo_ret_err_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holdin
     wo_set_err_gchandle(CS_VAL(wovm->cr), vm, resource_ptr, holding_val, destruct_func);
     return wo_result_t::WO_API_NORMAL;
 }
-
+wo_result_t wo_ret_yield(wo_vm vm)
+{
+    WO_VM(vm)->interrupt(wo::vmbase::BR_YIELD_INTERRUPT);
+    return wo_result_t::WO_API_RESYNC;
+}
 void _wo_check_atexit()
 {
     std::shared_lock g1(wo::vmbase::_alive_vm_list_mx);
@@ -3143,12 +3147,6 @@ wo_value wo_dispatch(wo_vm vm)
         }
     }
     return nullptr;
-}
-
-wo_result_t wo_ret_yield(wo_vm vm)
-{
-    WO_VM(vm)->interrupt(wo::vmbase::BR_YIELD_INTERRUPT);
-    return wo_result_t::WO_API_RESYNC;
 }
 
 wo_bool_t wo_load_source_with_stacksz(wo_vm vm, wo_string_t virtual_src_path, wo_string_t src, wo_size_t stacksz)

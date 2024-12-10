@@ -24,7 +24,6 @@ namespace wo
                     wo_close_vm((wo_vm)free_vm);
                 }
             }
-
             bool is_empty() const noexcept
             {
                 std::shared_lock sg1(m_guard);
@@ -38,7 +37,7 @@ namespace wo
                     auto vm = m_free_vm.front();
                     m_free_vm.pop_front();
 
-                    wo_assert((vm->vm_interrupt & vmbase::vm_interrupt_type::LEAVE_INTERRUPT) != 0);
+                    wo_assert(vm->check_interrupt(vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
                     wo_assert(vm->bp == vm->sp && vm->bp == vm->stack_mem_begin);
 
                     wo_assure(vm->clear_interrupt(vmbase::vm_interrupt_type::PENDING_INTERRUPT));
@@ -53,8 +52,7 @@ namespace wo
             {
                 std::lock_guard g1(m_guard);
 
-                wo_assert((vm->vm_interrupt & vmbase::vm_interrupt_type::LEAVE_INTERRUPT) != 0);
-
+                wo_assert(vm->check_interrupt(vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
                 wo_assure(vm->interrupt(vmbase::vm_interrupt_type::PENDING_INTERRUPT));
 
                 // Clear LEAVE_INTERRUPT to make sure hangup correctly before clear stack when GC.

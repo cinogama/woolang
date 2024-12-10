@@ -595,21 +595,15 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             auto normal = x86compiler.newLabel();
             wo_assure(!x86compiler.cmp(result, asmjit::Imm(wo_result_t::WO_API_NORMAL)));
             wo_assure(!x86compiler.je(normal));
-
-            auto resync = x86compiler.newLabel();
-            wo_assure(!x86compiler.dec(asmjit::x86::qword_ptr(vm, offsetof(vmbase, jit_function_call_depth))));
+#ifndef NDEBUG
+            // Assert for WO_API_RESYNC
+            auto not_resync = x86compiler.newLabel();
             wo_assure(!x86compiler.cmp(result, asmjit::Imm(wo_result_t::WO_API_RESYNC)));
-            wo_assure(!x86compiler.je(resync));
-            wo_assure(!x86compiler.ret(result)); // break this execute!!!
-
-            wo_assure(!x86compiler.bind(resync));
-            // Resync ip, sp & bp
-            auto rtip_address = x86compiler.newUIntPtr();
-            wo_assure(!x86compiler.mov(rtip_address, asmjit::Imm((intptr_t)rt_ip)));
-            wo_assure(!x86compiler.mov(asmjit::x86::qword_ptr(vm, offsetof(vmbase, ip)), rtip_address));
-            wo_assure(!x86compiler.mov(asmjit::x86::qword_ptr(vm, offsetof(vmbase, sp)), rt_sp));
-            wo_assure(!x86compiler.mov(asmjit::x86::qword_ptr(vm, offsetof(vmbase, bp)), rt_bp));
-            wo_assure(!x86compiler.mov(result, asmjit::Imm(wo_result_t::WO_API_SYNC)));
+            wo_assure(!x86compiler.jne(not_resync));
+            wo_assure(!x86compiler.int3());
+            wo_assure(!x86compiler.bind(not_resync));
+#endif
+            wo_assure(!x86compiler.dec(asmjit::x86::qword_ptr(vm, offsetof(vmbase, jit_function_call_depth))));
             wo_assure(!x86compiler.ret(result)); // break this execute!!!
 
             wo_assure(!x86compiler.bind(normal));
@@ -617,9 +611,12 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
         static wo_result_t native_do_calln_nativefunc(
             vmbase* vm, wo_extern_native_func_t call_aim_native_func, uint32_t retip, value* rt_sp, value* rt_bp)
         {
+            size_t sp_offset = vm->stack_mem_begin - rt_sp;
+            size_t bp_offset = vm->stack_mem_begin - rt_bp;
+
             rt_sp->type = value::valuetype::callstack;
             rt_sp->vmcallstack.ret_ip = retip;
-            rt_sp->vmcallstack.bp = (uint32_t)(vm->stack_mem_begin - rt_bp);
+            rt_sp->vmcallstack.bp = (uint32_t)bp_offset;
             rt_bp = --rt_sp;
             vm->bp = vm->sp = rt_sp;
 
@@ -629,18 +626,30 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             vm->ip = reinterpret_cast<byte_t*>(call_aim_native_func);
 
             wo_assure(wo_leave_gcguard(reinterpret_cast<wo_vm>(vm)));
-            wo_result_t result = call_aim_native_func(reinterpret_cast<wo_vm>(vm), reinterpret_cast<wo_value>(rt_sp + 2));
+            wo_result_t func_call_result = call_aim_native_func(reinterpret_cast<wo_vm>(vm), reinterpret_cast<wo_value>(rt_sp + 2));
             wo_assure(wo_enter_gcguard(reinterpret_cast<wo_vm>(vm)));
 
-            return result;
+            if (func_call_result == WO_API_RESYNC)
+            {
+                vm->sp = vm->stack_mem_begin - sp_offset;
+                vm->bp = vm->stack_mem_begin - bp_offset;
+                vm->ip = vm->codes + retip;
+
+                return WO_API_SYNC;
+            }
+            return func_call_result;
         }
         static wo_result_t native_do_calln_vmfunc(
             vmbase* vm, wo_extern_native_func_t call_aim_native_func, uint32_t retip, value* rt_sp, value* rt_bp)
         {
+            size_t sp_offset = vm->stack_mem_begin - rt_sp;
+            size_t bp_offset = vm->stack_mem_begin - rt_bp;
+
             rt_sp->type = value::valuetype::callstack;
             rt_sp->vmcallstack.ret_ip = retip;
-            rt_sp->vmcallstack.bp = (uint32_t)(vm->stack_mem_begin - rt_bp);
+            rt_sp->vmcallstack.bp = (uint32_t)bp_offset;
             rt_bp = --rt_sp;
+
             vm->bp = vm->sp = rt_sp;
 
             // May be useless?
@@ -648,7 +657,17 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
 
             vm->ip = reinterpret_cast<byte_t*>(call_aim_native_func);
 
-            return call_aim_native_func(reinterpret_cast<wo_vm>(vm), reinterpret_cast<wo_value>(rt_sp + 2));
+            const wo_result_t func_call_result = call_aim_native_func(
+                reinterpret_cast<wo_vm>(vm), reinterpret_cast<wo_value>(rt_sp + 2));
+            if (func_call_result == WO_API_RESYNC)
+            {
+                vm->sp = vm->stack_mem_begin - sp_offset;
+                vm->bp = vm->stack_mem_begin - bp_offset;
+                vm->ip = vm->codes + retip;
+
+                return WO_API_SYNC;
+            }
+            return func_call_result;
         }
         static wo_result_t native_do_call_vmfunc_with_stack_overflow_check(
             vmbase* vm, 
@@ -2137,6 +2156,17 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
 
             return true;
         }
+
+        /*
+        native_do_call_vmfunc_with_stack_overflow_check
+            native_do_calln_vmfunc
+        x86_do_calln_native_func_fast
+            native_do_calln_vmfunc
+        x86_do_calln_native_func
+            native_do_calln_nativefunc
+        x86_do_calln_vm_func
+            .... vm jit func ....
+        */
         virtual bool ir_calln(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
             const byte_t* rollback_ip = rt_ip - 1;

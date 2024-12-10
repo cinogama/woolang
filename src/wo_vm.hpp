@@ -218,6 +218,7 @@ namespace wo
         lexer* compile_info;
 
         // next ircode pointer
+        const byte_t* codes;
         const byte_t* ip;
 
         shared_pointer<runtime_env> env;
