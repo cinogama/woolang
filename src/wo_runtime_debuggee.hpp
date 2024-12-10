@@ -261,7 +261,7 @@ thread          vm              <id>          Continue and break at specified vm
 
         static std::string _safe_cast_value_to_string(wo::value* val)
         {
-            if (val->type >= wo::value::valuetype::need_gc)
+            if (val->type >= wo::value::valuetype::need_gc_flag)
             {
                 [[maybe_unused]] gcbase::unit_attrib* _attr;
                 // NOTE: It's safe to get gcunit, all val here is read from vm, 

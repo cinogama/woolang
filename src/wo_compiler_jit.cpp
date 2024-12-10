@@ -1164,7 +1164,11 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             wo_assure(!x86compiler.mov(bpoffset, asmjit::x86::qword_ptr(vm, offsetof(vmbase, stack_mem_begin))));
             wo_assure(!x86compiler.sub(bpoffset, rt_bp));
             wo_assure(!x86compiler.shr(bpoffset, asmjit::Imm(4)));
-            wo_assure(!x86compiler.mov(asmjit::x86::dword_ptr(rt_sp, offsetof(value, vmcallstack) + offsetof(value::callstack, bp)), bpoffset.r32()));
+            wo_assure(!x86compiler.mov(
+                asmjit::x86::dword_ptr(
+                    rt_sp, 
+                    offsetof(value, vmcallstack) + offsetof(value::callstack_t, bp)), 
+                bpoffset.r32()));
 
             auto callargptr = x86compiler.newUIntPtr();
             wo_assure(!x86compiler.lea(callargptr, asmjit::x86::qword_ptr(rt_sp, 1 * (int32_t)sizeof(value))));

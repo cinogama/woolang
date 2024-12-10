@@ -69,22 +69,23 @@ typedef enum _wo_value_type
 {
     WO_INVALID_TYPE = 0,
 
-    WO_INTEGER_TYPE,
-    WO_REAL_TYPE,
-    WO_HANDLE_TYPE,
-    WO_BOOL_TYPE,
+    WO_STACK_EXTERNED_FLAG = 1 << 0,
+    WO_NEED_GC_FLAG = 1 << 7,
 
-    WO_CALLSTACK_TYPE,
-    WO_NATIVE_CALLSTACK_TYPE,
+    WO_INTEGER_TYPE = 1 << 1,
+    WO_REAL_TYPE = 2 << 1,
+    WO_HANDLE_TYPE = 3 << 1,
+    WO_BOOL_TYPE = 4 << 1,
 
-    WO_NEED_GC_FLAG = 0xF0,
+    WO_CALLSTACK_TYPE = 5 << 1,
+    WO_NATIVE_CALLSTACK_TYPE = 6 << 1,
 
-    WO_STRING_TYPE,
-    WO_MAPPING_TYPE,
-    WO_ARRAY_TYPE,
-    WO_GCHANDLE_TYPE,
-    WO_CLOSURE_TYPE,
-    WO_STRUCT_TYPE
+    WO_STRING_TYPE = WO_NEED_GC_FLAG | (1 << 1),
+    WO_MAPPING_TYPE = WO_NEED_GC_FLAG | (2 << 1),
+    WO_ARRAY_TYPE = WO_NEED_GC_FLAG | (3 << 1),
+    WO_GCHANDLE_TYPE = WO_NEED_GC_FLAG | (4 << 1),
+    WO_CLOSURE_TYPE = WO_NEED_GC_FLAG | (5 << 1),
+    WO_STRUCT_TYPE = WO_NEED_GC_FLAG | (6 << 1),
 }wo_type;
 
 typedef enum _wo_reg
@@ -259,7 +260,7 @@ WO_API wo_bool_t    wo_deserialize(wo_vm vm, wo_value value, wo_string_t str, wo
 
 WO_API wo_string_t  wo_type_name(wo_type value);
 
-#define wo_ret_void(vmm) (WO_API_NORMAL)
+WO_API wo_result_t  wo_ret_void(wo_vm vm);
 WO_API wo_result_t  wo_ret_char(wo_vm vm, wo_char_t result);
 WO_API wo_result_t  wo_ret_int(wo_vm vm, wo_integer_t result);
 WO_API wo_result_t  wo_ret_real(wo_vm vm, wo_real_t result);

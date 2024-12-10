@@ -383,7 +383,7 @@ namespace wo
         }
         bool ast_type::is_gc_type() const
         {
-            return (uint8_t)value_type & (uint8_t)value::valuetype::need_gc;
+            return value_type & value::valuetype::need_gc_flag;
         }
         bool ast_type::is_like(
             const ast_type* another, 
