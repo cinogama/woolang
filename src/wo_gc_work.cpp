@@ -633,7 +633,9 @@ namespace wo
                     for (auto* vmimpl : vmbase::_gc_ready_vm_list)
                     {
                         if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
-                            vmimpl->wait_interrupt(vmbase::GC_HANGUP_INTERRUPT);
+                            // Must make sure HANGUP successfully.
+                            while (vmbase::interrupt_wait_result::TIMEOUT == vmimpl->wait_interrupt(vmbase::GC_HANGUP_INTERRUPT))
+                                ;
 
                         // Current vm will be mark by gc-work-thread.
                         gc_marking_vmlist.push_back(vmimpl);
@@ -889,7 +891,7 @@ namespace wo
                 do
                 {
                     std::unique_lock ug1(_gc_work_mx);
-                    for (size_t i = 0; i < 10; ++i)
+                    for (size_t i = 0; i < 100; ++i)
                     {
                         using namespace std;
                         bool breakout = false;
@@ -1001,7 +1003,7 @@ namespace wo
 
             // Check if vm's stack-usage-rate is lower then 1/4:
             const size_t current_vm_stack_usage = marking_vm->stack_mem_begin - marking_vm->sp;
-            if (current_vm_stack_usage * 4 < marking_vm->stack_size 
+            if (current_vm_stack_usage * 4 < marking_vm->stack_size
                 && marking_vm->stack_size >= 2 * vmbase::VM_DEFAULT_STACK_SIZE)
             {
                 if (marking_vm->advise_shrink_stack())

@@ -54,10 +54,19 @@ namespace test_dyn_stack
             test_equal(list[i], 500_0000 - 1 - i);
         }
     }
+    func test_gc_dyn_stack()
+    {
+        for (let mut i = 0; i < 10000; i += 1)
+        {
+            test_super_depth_function();
+            std::sleep(1.);
+        }
+    }
     func main()
     {
         test_huge_array_and_map();
         test_super_depth_function();
+        test_gc_dyn_stack();
     }
 }
 

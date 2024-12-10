@@ -560,7 +560,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
                 vmm->ip = rt_ip;
                 vmm->sp = rt_sp;
                 vmm->bp = rt_bp;
-
                 return wo_result_t::WO_API_SYNC;
             }
             else if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::SHRINK_STACK_INTERRUPT)
@@ -568,7 +567,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
                 vmm->ip = rt_ip;
                 vmm->sp = rt_sp;
                 vmm->bp = rt_bp;
-
                 return wo_result_t::WO_API_SYNC;
             }
             // ATTENTION: it should be last interrupt..

@@ -136,6 +136,46 @@ namespace wo
 
         return interrupt_wait_result::ACCEPT;
     }
+    vmbase::interrupt_wait_result vmbase::wait_any_of_interrupt(vm_interrupt_type type)noexcept
+    {
+        using namespace std;
+        size_t retry_count = 0;
+
+        constexpr int MAX_TRY_COUNT = 0;
+        int i = 0;
+        do
+        {
+            uint32_t vm_interrupt_mask = vm_interrupt.load();
+
+            if (type != (vm_interrupt_mask & type))
+                break;
+
+            if (vm_interrupt_mask & vm_interrupt_type::LEAVE_INTERRUPT)
+            {
+                if (++i > MAX_TRY_COUNT)
+                    return interrupt_wait_result::LEAVED;
+            }
+            else
+                i = 0;
+
+            std::this_thread::sleep_for(10ms);
+            if (++retry_count == config::INTERRUPT_CHECK_TIME_LIMIT)
+            {
+                // Wait for too much time.
+                std::string warning_info = "Wait for too much time for waiting interrupt.\n";
+                std::stringstream dump_callstack_info;
+
+                dump_call_stack(32, false, dump_callstack_info);
+                warning_info += dump_callstack_info.str();
+                wo_warning(warning_info.c_str());
+
+                return interrupt_wait_result::TIMEOUT;
+            }
+
+        } while (true);
+
+        return interrupt_wait_result::ACCEPT;
+    }
     void vmbase::block_interrupt(vm_interrupt_type type)noexcept
     {
         using namespace std;
@@ -906,8 +946,43 @@ namespace wo
             }
         }
     }
+
+    class _wo_vm_stack_guard
+    {
+        vmbase* m_reading_vm;
+        _wo_vm_stack_guard(const _wo_vm_stack_guard&) = delete;
+        _wo_vm_stack_guard(_wo_vm_stack_guard&&) = delete;
+        _wo_vm_stack_guard& operator = (const _wo_vm_stack_guard&) = delete;
+        _wo_vm_stack_guard& operator = (_wo_vm_stack_guard&&) = delete;
+
+    public:
+        _wo_vm_stack_guard(const vmbase* _reading_vm)
+        {
+            vmbase* reading_vm = const_cast<vmbase*>(_reading_vm);
+
+            if (reading_vm != vmbase::_this_thread_vm)
+            {
+                while (!reading_vm->interrupt(
+                    vmbase::vm_interrupt_type::STACK_MODIFING_INTERRUPT))
+                    std::this_thread::yield();
+
+                m_reading_vm = reading_vm;
+            }
+            else
+                m_reading_vm = nullptr;
+        }
+        ~_wo_vm_stack_guard()
+        {
+            if (m_reading_vm != nullptr)
+                wo_assure(m_reading_vm->clear_interrupt(
+                    vmbase::vm_interrupt_type::STACK_MODIFING_INTERRUPT));
+        }
+    };
+
     std::vector<vmbase::callstack_info> vmbase::dump_call_stack_func_info(bool need_offset)const noexcept
     {
+        _wo_vm_stack_guard vsg(this);
+
         // TODO; Dump call stack without pdb
         const program_debug_data_info::location* src_location_info = nullptr;
         if (env->program_debug_info != nullptr)
@@ -971,6 +1046,8 @@ namespace wo
     }
     size_t vmbase::callstack_layer() const noexcept
     {
+        _wo_vm_stack_guard vsg(this);
+
         // NOTE: When vm running, rt_ip may point to:
         // [ -- COMMAND 6bit --] [ - DR 2bit -] [ ----- OPNUM1 ------] [ ----- OPNUM2 ------]
         //                                     ^1                     ^2                     ^3
@@ -978,7 +1055,6 @@ namespace wo
         // So we do a move of 1BYTE here, for getting correct debuginfo.
 
         size_t call_trace_count = 0;
-
 
         value* base_callstackinfo_ptr = (bp + 1);
         while (base_callstackinfo_ptr <= this->stack_mem_begin)
@@ -2824,19 +2900,32 @@ namespace wo
                 }
                 else if (interrupt_state & vm_interrupt_type::STACK_OVERFLOW_INTERRUPT)
                 {
-                    wo_assure(clear_interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
+                    while (!interrupt(vm_interrupt_type::STACK_MODIFING_INTERRUPT))
+                        std::this_thread::yield();
 
-                    ++shrink_stack_edge;
-
+                    shrink_stack_edge = std::min(VM_SHRINK_STACK_MAX_EDGE, shrink_stack_edge + 1);
                     // Force realloc stack buffer.
-                    if (!_reallocate_stack_space(stack_size << 1))
+                    bool r = _reallocate_stack_space(stack_size << 1);
+
+                    wo_assure(clear_interrupt((vm_interrupt_type)(
+                        vm_interrupt_type::STACK_MODIFING_INTERRUPT 
+                        | vm_interrupt_type::STACK_OVERFLOW_INTERRUPT)));
+
+                    if (!r)
                         wo_fail(WO_FAIL_STACKOVERFLOW, "Stack overflow.");
                 }
                 else if (interrupt_state & vm_interrupt_type::SHRINK_STACK_INTERRUPT)
                 {
-                    wo_assure(clear_interrupt(vm_interrupt_type::SHRINK_STACK_INTERRUPT));
+                    while (!interrupt(vm_interrupt_type::STACK_MODIFING_INTERRUPT))
+                        std::this_thread::yield();
+
                     if (_reallocate_stack_space(stack_size >> 1))
                         shrink_stack_edge = VM_SHRINK_STACK_COUNT;
+
+                    wo_assure(clear_interrupt((vm_interrupt_type)(
+                        vm_interrupt_type::STACK_MODIFING_INTERRUPT 
+                        | vm_interrupt_type::SHRINK_STACK_INTERRUPT)));
+
                 }
                 // ATTENTION: it should be last interrupt..
                 else if (interrupt_state & vm_interrupt_type::DEBUG_INTERRUPT)
