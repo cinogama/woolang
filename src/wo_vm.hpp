@@ -266,10 +266,8 @@ namespace wo
         bool is_aborted() const noexcept;
         bool interrupt(vm_interrupt_type type) noexcept;
         bool clear_interrupt(vm_interrupt_type type)noexcept;
-
         bool check_interrupt(vm_interrupt_type type)noexcept;
         interrupt_wait_result wait_interrupt(vm_interrupt_type type)noexcept;
-        interrupt_wait_result wait_any_of_interrupt(vm_interrupt_type type)noexcept;
         void block_interrupt(vm_interrupt_type type)noexcept;
 
         void hangup()noexcept;

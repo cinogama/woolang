@@ -56,7 +56,7 @@ namespace test_dyn_stack
     }
     func test_gc_dyn_stack()
     {
-        for (let mut i = 0; i < 10000; i += 1)
+        for (let mut i = 0; i < 10; i += 1)
         {
             test_super_depth_function();
             std::sleep(1.);

@@ -136,46 +136,6 @@ namespace wo
 
         return interrupt_wait_result::ACCEPT;
     }
-    vmbase::interrupt_wait_result vmbase::wait_any_of_interrupt(vm_interrupt_type type)noexcept
-    {
-        using namespace std;
-        size_t retry_count = 0;
-
-        constexpr int MAX_TRY_COUNT = 0;
-        int i = 0;
-        do
-        {
-            uint32_t vm_interrupt_mask = vm_interrupt.load();
-
-            if (type != (vm_interrupt_mask & type))
-                break;
-
-            if (vm_interrupt_mask & vm_interrupt_type::LEAVE_INTERRUPT)
-            {
-                if (++i > MAX_TRY_COUNT)
-                    return interrupt_wait_result::LEAVED;
-            }
-            else
-                i = 0;
-
-            std::this_thread::sleep_for(10ms);
-            if (++retry_count == config::INTERRUPT_CHECK_TIME_LIMIT)
-            {
-                // Wait for too much time.
-                std::string warning_info = "Wait for too much time for waiting interrupt.\n";
-                std::stringstream dump_callstack_info;
-
-                dump_call_stack(32, false, dump_callstack_info);
-                warning_info += dump_callstack_info.str();
-                wo_warning(warning_info.c_str());
-
-                return interrupt_wait_result::TIMEOUT;
-            }
-
-        } while (true);
-
-        return interrupt_wait_result::ACCEPT;
-    }
     void vmbase::block_interrupt(vm_interrupt_type type)noexcept
     {
         using namespace std;
@@ -833,8 +793,43 @@ namespace wo
 
         os << std::endl;
     }
+
+    class _wo_vm_stack_guard
+    {
+        vmbase* m_reading_vm;
+        _wo_vm_stack_guard(const _wo_vm_stack_guard&) = delete;
+        _wo_vm_stack_guard(_wo_vm_stack_guard&&) = delete;
+        _wo_vm_stack_guard& operator = (const _wo_vm_stack_guard&) = delete;
+        _wo_vm_stack_guard& operator = (_wo_vm_stack_guard&&) = delete;
+
+    public:
+        _wo_vm_stack_guard(const vmbase* _reading_vm)
+        {
+            vmbase* reading_vm = const_cast<vmbase*>(_reading_vm);
+
+            if (reading_vm != vmbase::_this_thread_vm)
+            {
+                while (!reading_vm->interrupt(
+                    vmbase::vm_interrupt_type::STACK_MODIFING_INTERRUPT))
+                    std::this_thread::yield();
+
+                m_reading_vm = reading_vm;
+            }
+            else
+                m_reading_vm = nullptr;
+        }
+        ~_wo_vm_stack_guard()
+        {
+            if (m_reading_vm != nullptr)
+                wo_assure(m_reading_vm->clear_interrupt(
+                    vmbase::vm_interrupt_type::STACK_MODIFING_INTERRUPT));
+        }
+    };
+
     void vmbase::dump_call_stack(size_t max_count, bool need_offset, std::ostream& os)const noexcept
     {
+        _wo_vm_stack_guard vsg(this);
+
         if (env == nullptr)
         {
             os << "<current vm is not ready!>" << std::endl;
@@ -946,39 +941,6 @@ namespace wo
             }
         }
     }
-
-    class _wo_vm_stack_guard
-    {
-        vmbase* m_reading_vm;
-        _wo_vm_stack_guard(const _wo_vm_stack_guard&) = delete;
-        _wo_vm_stack_guard(_wo_vm_stack_guard&&) = delete;
-        _wo_vm_stack_guard& operator = (const _wo_vm_stack_guard&) = delete;
-        _wo_vm_stack_guard& operator = (_wo_vm_stack_guard&&) = delete;
-
-    public:
-        _wo_vm_stack_guard(const vmbase* _reading_vm)
-        {
-            vmbase* reading_vm = const_cast<vmbase*>(_reading_vm);
-
-            if (reading_vm != vmbase::_this_thread_vm)
-            {
-                while (!reading_vm->interrupt(
-                    vmbase::vm_interrupt_type::STACK_MODIFING_INTERRUPT))
-                    std::this_thread::yield();
-
-                m_reading_vm = reading_vm;
-            }
-            else
-                m_reading_vm = nullptr;
-        }
-        ~_wo_vm_stack_guard()
-        {
-            if (m_reading_vm != nullptr)
-                wo_assure(m_reading_vm->clear_interrupt(
-                    vmbase::vm_interrupt_type::STACK_MODIFING_INTERRUPT));
-        }
-    };
-
     std::vector<vmbase::callstack_info> vmbase::dump_call_stack_func_info(bool need_offset)const noexcept
     {
         _wo_vm_stack_guard vsg(this);
