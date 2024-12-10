@@ -633,7 +633,9 @@ namespace wo
                     for (auto* vmimpl : vmbase::_gc_ready_vm_list)
                     {
                         if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
-                            vmimpl->wait_interrupt(vmbase::GC_HANGUP_INTERRUPT);
+                            // Must make sure HANGUP successfully.
+                            while (vmbase::interrupt_wait_result::TIMEOUT == vmimpl->wait_interrupt(vmbase::GC_HANGUP_INTERRUPT))
+                                ;
 
                         // Current vm will be mark by gc-work-thread.
                         gc_marking_vmlist.push_back(vmimpl);
@@ -998,6 +1000,17 @@ namespace wo
                 if (gcunit_address)
                     gc_mark_unit_as_gray(worklist, gcunit_address, attr);
             }
+
+            // Check if vm's stack-usage-rate is lower then 1/4:
+            const size_t current_vm_stack_usage = marking_vm->stack_mem_begin - marking_vm->sp;
+            if (current_vm_stack_usage * 4 < marking_vm->stack_size
+                && marking_vm->stack_size >= 2 * vmbase::VM_DEFAULT_STACK_SIZE)
+            {
+                if (marking_vm->advise_shrink_stack())
+                    marking_vm->interrupt(vmbase::vm_interrupt_type::SHRINK_STACK_INTERRUPT);
+            }
+            else
+                marking_vm->reset_shrink_stack_count();
         }
 
         void alloc_failed_retry()
@@ -1014,7 +1027,7 @@ namespace wo
                 // NOTE: We don't know the exactly state of current vm, so we need to 
                 //       make sure all unit in current vm's stack and register are marked.
                 current_vm_stack_top = current_vm_instance->sp;
-                current_vm_instance->sp = current_vm_instance->stack_mem_begin - (current_vm_instance->stack_size - 1);
+                current_vm_instance->sp = current_vm_instance->_self_stack_mem_buf;
 
                 need_re_entry_gc_guard = wo_leave_gcguard(std::launder(reinterpret_cast<wo_vm>(wo::vmbase::_this_thread_vm)));
             }

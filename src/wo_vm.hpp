@@ -131,31 +131,43 @@ namespace wo
             // ATTENTION: Each operate of setting or cleaning LEAVE_INTERRUPT must be
             //            successful. (We use 'wo_assure' here)' (Except in case of exception restore)
 
-            DEBUG_INTERRUPT = 1 << 10,
-            // If virtual machine interrupt with DEBUG_INTERRUPT, it will stop at all opcode
-            // to check something about debug, such as breakpoint.
-            // * DEBUG_INTERRUPT will cause huge performance loss
-
-            ABORT_INTERRUPT = 1 << 11,
+            ABORT_INTERRUPT = 1 << 10,
             // If virtual machine interrupt with ABORT_INTERRUPT, vm will stop immediately.
 
-            GC_HANGUP_INTERRUPT = 1 << 12,
+            GC_HANGUP_INTERRUPT = 1 << 11,
             // GC_HANGUP_INTERRUPT will be mark in 2 cases:
             // 1. VM received GC_INTERRUPT and start to do self-mark. after self-mark. 
             //      GC_HANGUP_INTERRUPT will be clear after self-mark.
             // 2. VM is leaved or STW-GC, in this case, vm will receive GC_HANGUP_INTERRUPT
             //      to hangup. vm will be mark by gc-worker, and be wake up after mark.
+            // 3. Some one trying to read this vm in other thread, to make sure stack shrink
+            //      or extern not happend in same time.
 
-            PENDING_INTERRUPT = 1 << 13,
+            PENDING_INTERRUPT = 1 << 12,
             // VM will be pending finish using and returned to pooled-vm, PENDING_INTERRUPT
             // only setted when vm is not running.
 
-            BR_YIELD_INTERRUPT = 1 << 14,
+            BR_YIELD_INTERRUPT = 1 << 13,
             // VM will yield & return from running-state while received BR_YIELD_INTERRUPT
 
-            DETACH_DEBUGGEE_INTERRUPT = 1 << 15,
+            DETACH_DEBUGGEE_INTERRUPT = 1 << 14,
             // VM will handle DETACH_DEBUGGEE_INTERRUPT before DEBUG_INTERRUPT, if vm handled
             // this interrupt, DEBUG_INTERRUPT will be cleared.
+
+            STACK_OVERFLOW_INTERRUPT = 1 << 15,
+            // If stack size is not enough for PSH or PUSHN, STACK_OVERFLOW_INTERRUPT will be setted.
+
+            SHRINK_STACK_INTERRUPT = 1 << 16,
+            // Advise vm to shrink it's stack usage, raised by GC-Job.
+
+            STACK_MODIFING_INTERRUPT = 1 << 17,
+            // While reading/externing/shrinking stack, this interrupt will be set to make sure
+            // not read bad stack data in other thread.
+
+            DEBUG_INTERRUPT = 1 << 30,
+            // If virtual machine interrupt with DEBUG_INTERRUPT, it will stop at all opcode
+            // to check something about debug, such as breakpoint.
+            // * DEBUG_INTERRUPT will cause huge performance loss
         };
 
         struct callstack_info
@@ -164,7 +176,12 @@ namespace wo
             size_t      m_row;
         };
     public:
-        inline static constexpr size_t VM_DEFAULT_STACK_SIZE = 1024;
+        inline static constexpr size_t VM_DEFAULT_STACK_SIZE = 128;
+        inline static constexpr size_t VM_SHRINK_STACK_COUNT = 3;
+        inline static constexpr size_t VM_SHRINK_STACK_MAX_EDGE = 16;
+        inline static constexpr size_t VM_MAX_JIT_FUNCTION_DEPTH = 256;
+
+        static_assert(VM_SHRINK_STACK_COUNT < VM_SHRINK_STACK_MAX_EDGE);
     public:
         inline static std::shared_mutex _alive_vm_list_mx;
         inline static cxx_set_t<vmbase*> _alive_vm_list;
@@ -224,6 +241,10 @@ namespace wo
         // runtime information
         std::thread::id attaching_thread_id;
 #endif     
+        size_t jit_function_call_depth;
+    protected:
+        size_t shrink_stack_advise;
+        size_t shrink_stack_edge;
 
     private:
         vmbase(const vmbase&) = delete;
@@ -245,7 +266,6 @@ namespace wo
         bool is_aborted() const noexcept;
         bool interrupt(vm_interrupt_type type) noexcept;
         bool clear_interrupt(vm_interrupt_type type)noexcept;
-
         bool check_interrupt(vm_interrupt_type type)noexcept;
         interrupt_wait_result wait_interrupt(vm_interrupt_type type)noexcept;
         void block_interrupt(vm_interrupt_type type)noexcept;
@@ -258,6 +278,9 @@ namespace wo
 
         vmbase* get_or_alloc_gcvm() const noexcept;
 
+        bool advise_shrink_stack() noexcept;
+        void reset_shrink_stack_count() noexcept;
+
     public:
         virtual vmbase* create_machine(vm_type type) const noexcept = 0;
         virtual wo_result_t run() noexcept = 0;
@@ -265,6 +288,7 @@ namespace wo
     public:
         void _allocate_register_space(size_t regcount) noexcept;
         void _allocate_stack_space(size_t stacksz) noexcept;
+        bool _reallocate_stack_space(size_t stacksz) noexcept;
         void set_runtime(shared_pointer<runtime_env> runtime_environment) noexcept;
         vmbase* make_machine(size_t stack_sz, vm_type type) const noexcept;
         void dump_program_bin(size_t begin = 0, size_t end = SIZE_MAX, std::ostream& os = std::cout) const noexcept;

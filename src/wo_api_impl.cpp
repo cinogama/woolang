@@ -1674,7 +1674,7 @@ wo_result_t wo_ret_halt(wo_vm vm, wo_string_t reasonfmt, ...)
     vmptr->interrupt(wo::vmbase::vm_interrupt_type::ABORT_INTERRUPT);
     wo::wo_stderr << ANSI_HIR "Halt happend: " ANSI_RST << wo_cast_string((wo_value)vmptr->er) << wo::wo_endl;
     vmptr->dump_call_stack(32, true, std::cerr);
-    return wo_result_t::WO_API_NORMAL;
+    return wo_result_t::WO_API_RESYNC;
 }
 
 wo_result_t wo_ret_panic(wo_vm vm, wo_string_t reasonfmt, ...)
@@ -1693,7 +1693,7 @@ wo_result_t wo_ret_panic(wo_vm vm, wo_string_t reasonfmt, ...)
         vmptr->er->set_string(buf.data());
     }
     wo_fail(WO_FAIL_USER_PANIC, vmptr->er->string->c_str());
-    return wo_result_t::WO_API_NORMAL;
+    return wo_result_t::WO_API_RESYNC;
 }
 
 void wo_set_option_void(wo_value val, wo_vm vm)
@@ -3129,7 +3129,7 @@ wo_value wo_dispatch(wo_vm vm)
         {
         case wo_result_t::WO_API_NORMAL:
             break;
-        case wo_result_t::WO_API_RESYNC:
+        case wo_result_t::WO_API_SYNC:
             vmm->run();
             break;
         }
@@ -3152,7 +3152,7 @@ wo_value wo_dispatch(wo_vm vm)
 wo_result_t wo_ret_yield(wo_vm vm)
 {
     WO_VM(vm)->interrupt(wo::vmbase::BR_YIELD_INTERRUPT);
-    return wo_result_t::WO_API_NORMAL;
+    return wo_result_t::WO_API_RESYNC;
 }
 
 wo_bool_t wo_load_source_with_stacksz(wo_vm vm, wo_string_t virtual_src_path, wo_string_t src, wo_size_t stacksz)

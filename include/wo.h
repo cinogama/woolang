@@ -124,9 +124,17 @@ typedef int wo_bool_t;
 typedef enum _wo_api
 {
     WO_API_NORMAL = 0,
-    // RSYNC is used for mark an jit-function has been 'yield break' or 'debug break'
-    // and it's state has been stored in vm, we cannot restore rt-state to avoid overwrite.
+    
+    // RESYNC used for:
+    // 1) In JIT, ip, sp, bp should be sync to vm state, and return WO_API_SYNC immediately.
+    // 2) In VM, treat it as WO_API_NORMAL.
     WO_API_RESYNC = 1,
+
+    // SYNC used for:
+    // 1) In JIT, the function should return WO_API_SYNC immediately.
+    // 2) In VM, resync rt_ip from vm state.
+    WO_API_SYNC = 2,
+    
 } wo_api, wo_result_t;
 
 typedef wo_result_t(*wo_native_func_t)(wo_vm, wo_value);
@@ -672,6 +680,7 @@ WO_API void                 wo_lsp_free_compile_error_msg(wo_lsp_error_msg* msg)
 #define WO_FAIL_CALL_FAIL 0xD006
 #define WO_FAIL_BAD_LIB 0xD007
 #define WO_FAIL_UNEXPECTED 0xD008
+#define WO_FAIL_STACKOVERFLOW 0xD009
 // dEADLY 
 
 #endif

@@ -190,6 +190,9 @@ namespace wo
         // runtime information
         , attaching_thread_id(std::thread::id{})
 #endif        
+        , jit_function_call_depth(0)
+        , shrink_stack_advise(0)
+        , shrink_stack_edge(VM_SHRINK_STACK_COUNT)
     {
         ++_alive_vm_count_for_gc_vm_destruct;
 
@@ -281,6 +284,14 @@ namespace wo
 #endif
     }
 
+    bool vmbase::advise_shrink_stack() noexcept
+    {
+        return ++shrink_stack_advise >= shrink_stack_edge;
+    }
+    void vmbase::reset_shrink_stack_count() noexcept
+    {
+        shrink_stack_advise = 0;
+    }
     void vmbase::_allocate_register_space(size_t regcount) noexcept
     {
         _self_register_mem_buf = std::launder(reinterpret_cast<value*>(calloc(regcount, sizeof(value))));
@@ -292,9 +303,38 @@ namespace wo
     void vmbase::_allocate_stack_space(size_t stacksz)noexcept
     {
         stack_size = stacksz;
-        _self_stack_mem_buf = std::launder(reinterpret_cast<value*>(calloc(stack_size + 1, sizeof(value))));
-        stack_mem_begin = _self_stack_mem_buf + stack_size;
+
+        _self_stack_mem_buf = std::launder(reinterpret_cast<value*>(calloc(stacksz, sizeof(value))));
+        stack_mem_begin = _self_stack_mem_buf + stacksz - 1;
         sp = bp = stack_mem_begin;
+    }
+    bool vmbase::_reallocate_stack_space(size_t stacksz) noexcept
+    {
+        stack_size = stacksz;
+
+        const size_t used_stack_size = stack_mem_begin - sp;
+        if (used_stack_size * 2 > stacksz)
+            // New stack size is smaller than current stack size
+            return false;
+                    
+        value* new_stack_buf = std::launder(reinterpret_cast<value*>(calloc(stacksz, sizeof(value))));
+        if (new_stack_buf == nullptr)
+            // Failed to allocate new stack space
+            return false;
+
+        value* new_stack_mem_begin = new_stack_buf + stacksz - 1;
+        value* new_sp = new_stack_buf + stacksz - 1 - used_stack_size;
+        const size_t bp_sp_offset = (size_t)(bp - sp);
+
+        memcpy(new_sp + 1, sp + 1, used_stack_size * sizeof(value));
+        free(_self_stack_mem_buf);
+
+        _self_stack_mem_buf = new_stack_buf;
+        stack_mem_begin = new_stack_mem_begin;
+        sp = new_sp;
+        bp = sp + bp_sp_offset;
+
+        return true;
     }
     void vmbase::set_runtime(shared_pointer<runtime_env> runtime_environment)noexcept
     {
@@ -753,8 +793,43 @@ namespace wo
 
         os << std::endl;
     }
+
+    class _wo_vm_stack_guard
+    {
+        vmbase* m_reading_vm;
+        _wo_vm_stack_guard(const _wo_vm_stack_guard&) = delete;
+        _wo_vm_stack_guard(_wo_vm_stack_guard&&) = delete;
+        _wo_vm_stack_guard& operator = (const _wo_vm_stack_guard&) = delete;
+        _wo_vm_stack_guard& operator = (_wo_vm_stack_guard&&) = delete;
+
+    public:
+        _wo_vm_stack_guard(const vmbase* _reading_vm)
+        {
+            vmbase* reading_vm = const_cast<vmbase*>(_reading_vm);
+
+            if (reading_vm != vmbase::_this_thread_vm)
+            {
+                while (!reading_vm->interrupt(
+                    vmbase::vm_interrupt_type::STACK_MODIFING_INTERRUPT))
+                    std::this_thread::yield();
+
+                m_reading_vm = reading_vm;
+            }
+            else
+                m_reading_vm = nullptr;
+        }
+        ~_wo_vm_stack_guard()
+        {
+            if (m_reading_vm != nullptr)
+                wo_assure(m_reading_vm->clear_interrupt(
+                    vmbase::vm_interrupt_type::STACK_MODIFING_INTERRUPT));
+        }
+    };
+
     void vmbase::dump_call_stack(size_t max_count, bool need_offset, std::ostream& os)const noexcept
     {
+        _wo_vm_stack_guard vsg(this);
+
         if (env == nullptr)
         {
             os << "<current vm is not ready!>" << std::endl;
@@ -825,7 +900,7 @@ namespace wo
 
                 // When dumping call stack if specified vm is running(during GC), the stack data might be
                 // modified. We will get broken call stack info and we should stop.
-                if (base_callstackinfo_ptr > stack_mem_begin || base_callstackinfo_ptr < stack_mem_begin - (stack_size - 1))
+                if (base_callstackinfo_ptr > stack_mem_begin || base_callstackinfo_ptr <= _self_stack_mem_buf)
                 {
                     os << call_trace_count + 1 << ": ??" << std::endl;
                     break;
@@ -868,6 +943,8 @@ namespace wo
     }
     std::vector<vmbase::callstack_info> vmbase::dump_call_stack_func_info(bool need_offset)const noexcept
     {
+        _wo_vm_stack_guard vsg(this);
+
         // TODO; Dump call stack without pdb
         const program_debug_data_info::location* src_location_info = nullptr;
         if (env->program_debug_info != nullptr)
@@ -931,6 +1008,8 @@ namespace wo
     }
     size_t vmbase::callstack_layer() const noexcept
     {
+        _wo_vm_stack_guard vsg(this);
+
         // NOTE: When vm running, rt_ip may point to:
         // [ -- COMMAND 6bit --] [ - DR 2bit -] [ ----- OPNUM1 ------] [ ----- OPNUM2 ------]
         //                                     ^1                     ^2                     ^3
@@ -938,7 +1017,6 @@ namespace wo
         // So we do a move of 1BYTE here, for getting correct debuginfo.
 
         size_t call_trace_count = 0;
-
 
         value* base_callstackinfo_ptr = (bp + 1);
         while (base_callstackinfo_ptr <= this->stack_mem_begin)
@@ -1106,9 +1184,10 @@ namespace wo
                     std::launder(reinterpret_cast<wo_vm>(this)),
                     std::launder(reinterpret_cast<wo_value>(sp + 2))))
                 {
+                case wo_result_t::WO_API_RESYNC:
                 case wo_result_t::WO_API_NORMAL:
                     break;
-                case wo_result_t::WO_API_RESYNC:
+                case wo_result_t::WO_API_SYNC:
                     run();
                     break;
                 }
@@ -1158,9 +1237,10 @@ namespace wo
                             std::launder(reinterpret_cast<wo_vm>(this)),
                             std::launder(reinterpret_cast<wo_value>(sp + 2))))
                         {
+                        case wo_result_t::WO_API_RESYNC:
                         case wo_result_t::WO_API_NORMAL:
                             break;
-                        case wo_result_t::WO_API_RESYNC:
+                        case wo_result_t::WO_API_SYNC:
                             run();
                             break;
                         }
@@ -1452,10 +1532,14 @@ namespace wo
                     vm->ip = rt_ip;
                     vm->sp = rt_sp;
                     vm->bp = rt_bp;
+                    
                     wo_fail(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
                 }
                 else
                 {
+                    if (rt_sp - unpack_argc < vm->_self_stack_mem_buf)
+                        goto _wo_unpackargs_stack_overflow;
+
                     for (uint16_t i = (uint16_t)unpack_argc; i > 0; --i)
                         (rt_sp--)->set_val(&arg_tuple->m_values[i - 1]);
                 }
@@ -1467,12 +1551,19 @@ namespace wo
                     vm->ip = rt_ip;
                     vm->sp = rt_sp;
                     vm->bp = rt_bp;
+
                     wo_fail(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
                 }
-                for (uint16_t i = arg_tuple->m_count; i > 0; --i)
-                    (rt_sp--)->set_val(&arg_tuple->m_values[i - 1]);
+                else
+                {
+                    if (rt_sp - arg_tuple->m_count < vm->_self_stack_mem_buf)
+                        goto _wo_unpackargs_stack_overflow;
 
-                tc->integer += (wo_integer_t)arg_tuple->m_count;
+                    for (uint16_t i = arg_tuple->m_count; i > 0; --i)
+                        (rt_sp--)->set_val(&arg_tuple->m_values[i - 1]);
+
+                    tc->integer += (wo_integer_t)arg_tuple->m_count;
+                }
             }
         }
         else if (opnum1->type == value::valuetype::array_type)
@@ -1491,6 +1582,9 @@ namespace wo
                 }
                 else
                 {
+                    if (rt_sp - unpack_argc < vm->_self_stack_mem_buf)
+                        goto _wo_unpackargs_stack_overflow;
+
                     for (auto arg_idx = arg_array->rbegin() + (size_t)((wo_integer_t)arg_array->size() - unpack_argc);
                         arg_idx != arg_array->rend();
                         arg_idx++)
@@ -1509,10 +1603,17 @@ namespace wo
                     vm->bp = rt_bp;
                     wo_fail(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
                 }
-                for (auto arg_idx = arg_array->rbegin(); arg_idx != arg_array->rend(); arg_idx++)
-                    (rt_sp--)->set_val(&*arg_idx);
+                else
+                {
+                    size_t arg_array_len = arg_array->size();
+                    if (rt_sp - arg_array_len < vm->_self_stack_mem_buf)
+                        goto _wo_unpackargs_stack_overflow;
 
-                tc->integer += arg_array->size();
+                    for (auto arg_idx = arg_array->rbegin(); arg_idx != arg_array->rend(); arg_idx++)
+                        (rt_sp--)->set_val(&*arg_idx);
+
+                    tc->integer += arg_array_len;
+                }
             }
         }
         else
@@ -1522,7 +1623,12 @@ namespace wo
             vm->bp = rt_bp;
             wo_fail(WO_FAIL_INDEX_FAIL, "Only valid array/struct can used in unpack.");
         }
+
         return rt_sp;
+    _wo_unpackargs_stack_overflow:
+
+        vm->interrupt(vmbase::vm_interrupt_type::STACK_OVERFLOW_INTERRUPT);
+        return nullptr;
     }
     const char* vmbase::movcast_impl(value* opnum1, value* opnum2, value::valuetype aim_type) noexcept
     {
@@ -1622,16 +1728,32 @@ namespace wo
             {
             case instruct::opcode::psh:
             {
-                if (dr & 0b01)
+                do
                 {
-                    WO_ADDRESSING_N1;
-                    (sp--)->set_val(opnum1);
-                }
-                else
-                {
-                    uint16_t psh_repeat = WO_IPVAL_MOVE_2;
-                    sp -= psh_repeat;
-                }
+                    if (dr & 0b01)
+                    {
+                        if (sp <= _self_stack_mem_buf)
+                        {
+                            --rt_ip;
+                            wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
+                            break;
+                        }
+                        WO_ADDRESSING_N1;
+                        (sp--)->set_val(opnum1);
+                    }
+                    else
+                    {
+                        uint16_t psh_repeat = WO_IPVAL_MOVE_2;
+                        if (sp - psh_repeat < _self_stack_mem_buf)
+                        {
+                            rt_ip -= 3;
+                            wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
+                            break;
+                        }
+
+                        sp -= psh_repeat;
+                    }
+                } while (0);
                 break;
             }
             case instruct::opcode::pop:
@@ -2108,72 +2230,58 @@ namespace wo
             }
             case instruct::opcode::call:
             {
+                auto* rollback_rt_ip = rt_ip - 1;
+
                 WO_ADDRESSING_N1;
 
                 WO_VM_ASSERT(0 != opnum1->handle && nullptr != opnum1->closure,
                     "Cannot invoke null function in 'call'.");
 
-                if (opnum1->type == value::valuetype::closure_type)
+                do
                 {
-                    // Call closure, unpack closure captured arguments.
-                    // 
-                    // NOTE: Closure arguments should be poped by closure function it self.
-                    //       Can use ret(n) to pop arguments when call.
-                    for (auto idx = opnum1->closure->m_closure_args_count; idx > 0; --idx)
-                        (sp--)->set_val(&opnum1->closure->m_closure_args[idx - 1]);
-                }
-
-                sp->type = value::valuetype::callstack;
-                sp->vmcallstack.ret_ip = (uint32_t)(rt_ip - rt_codes);
-                sp->vmcallstack.bp = (uint32_t)(stack_mem_begin - bp);
-                auto* rt_bp = bp = --sp;
-
-                if (opnum1->type == value::valuetype::handle_type)
-                {
-                    // Call native
-                    wo_extern_native_func_t call_aim_native_func = (wo_extern_native_func_t)(opnum1->handle);
-                    ip = std::launder(reinterpret_cast<byte_t*>(call_aim_native_func));
-                    rt_cr->set_nil();
-
-                    switch (call_aim_native_func(
-                        std::launder(reinterpret_cast<wo_vm>(this)),
-                        std::launder(reinterpret_cast<wo_value>(sp + 2))))
+                    if (opnum1->type == value::valuetype::closure_type)
                     {
-                    case wo_result_t::WO_API_NORMAL:
-                    {
-                        bp = rt_bp;
-
-                        WO_VM_ASSERT((bp + 1)->type == value::valuetype::callstack,
-                            "Found broken stack in 'call'.");
-                        value* stored_bp = stack_mem_begin - (++bp)->vmcallstack.bp;
-                        sp = bp;
-                        bp = stored_bp;
-                        break;
-                    }
-                    case wo_result_t::WO_API_RESYNC:
-                    {
-                        rt_ip = this->ip;
-                        break;
-                    }
-                    }
-                }
-                else if (opnum1->type == value::valuetype::integer_type)
-                {
-                    rt_ip = rt_codes + opnum1->integer;
-                }
-                else
-                {
-                    WO_VM_ASSERT(opnum1->type == value::valuetype::closure_type,
-                        "Unexpected invoke target type in 'call'.");
-
-                    auto* closure = opnum1->closure;
-
-                    if (closure->m_native_call)
-                    {
-                        switch (closure->m_native_func(
-                            std::launder(reinterpret_cast<wo_vm>(this)),
-                            std::launder((reinterpret_cast<wo_value>(sp + 2)))))
+                        // Call closure, unpack closure captured arguments.
+                        // 
+                        // NOTE: Closure arguments should be poped by closure function it self.
+                        //       Can use ret(n) to pop arguments when call.
+                        if (sp - opnum1->closure->m_closure_args_count - 1 < _self_stack_mem_buf)
                         {
+                            rt_ip = rollback_rt_ip;
+                            wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
+                            break;
+                        }
+
+                        for (auto idx = opnum1->closure->m_closure_args_count; idx > 0; --idx)
+                            (sp--)->set_val(&opnum1->closure->m_closure_args[idx - 1]);
+                    }
+                    else
+                    {
+                        if (sp <= _self_stack_mem_buf)
+                        {
+                            rt_ip = rollback_rt_ip;
+                            wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
+                            break;
+                        }
+                    }
+
+                    sp->type = value::valuetype::callstack;
+                    sp->vmcallstack.ret_ip = (uint32_t)(rt_ip - rt_codes);
+                    sp->vmcallstack.bp = (uint32_t)(stack_mem_begin - bp);
+                    auto* rt_bp = bp = --sp;
+
+                    if (opnum1->type == value::valuetype::handle_type)
+                    {
+                        // Call native
+                        wo_extern_native_func_t call_aim_native_func = (wo_extern_native_func_t)(opnum1->handle);
+                        ip = std::launder(reinterpret_cast<byte_t*>(call_aim_native_func));
+                        rt_cr->set_nil();
+
+                        switch (call_aim_native_func(
+                            std::launder(reinterpret_cast<wo_vm>(this)),
+                            std::launder(reinterpret_cast<wo_value>(sp + 2))))
+                        {
+                        case wo_result_t::WO_API_RESYNC:
                         case wo_result_t::WO_API_NORMAL:
                         {
                             bp = rt_bp;
@@ -2181,13 +2289,115 @@ namespace wo
                             WO_VM_ASSERT((bp + 1)->type == value::valuetype::callstack,
                                 "Found broken stack in 'call'.");
                             value* stored_bp = stack_mem_begin - (++bp)->vmcallstack.bp;
-                            // Here to invoke jit closure, jit function cannot pop captured arguments,
-                            // So we pop them here.
-                            sp = bp + closure->m_closure_args_count;
+                            sp = bp;
                             bp = stored_bp;
                             break;
                         }
+                        case wo_result_t::WO_API_SYNC:
+                        {
+                            rt_ip = this->ip;
+                            break;
+                        }
+                        }
+                    }
+                    else if (opnum1->type == value::valuetype::integer_type)
+                    {
+                        rt_ip = rt_codes + opnum1->integer;
+                    }
+                    else
+                    {
+                        WO_VM_ASSERT(opnum1->type == value::valuetype::closure_type,
+                            "Unexpected invoke target type in 'call'.");
+
+                        auto* closure = opnum1->closure;
+
+                        if (closure->m_native_call)
+                        {
+                            switch (closure->m_native_func(
+                                std::launder(reinterpret_cast<wo_vm>(this)),
+                                std::launder((reinterpret_cast<wo_value>(sp + 2)))))
+                            {
+                            case wo_result_t::WO_API_RESYNC:
+                            case wo_result_t::WO_API_NORMAL:
+                            {
+                                bp = rt_bp;
+
+                                WO_VM_ASSERT((bp + 1)->type == value::valuetype::callstack,
+                                    "Found broken stack in 'call'.");
+                                value* stored_bp = stack_mem_begin - (++bp)->vmcallstack.bp;
+                                // Here to invoke jit closure, jit function cannot pop captured arguments,
+                                // So we pop them here.
+                                sp = bp + closure->m_closure_args_count;
+                                bp = stored_bp;
+                                break;
+                            }
+                            case wo_result_t::WO_API_SYNC:
+                            {
+                                rt_ip = this->ip;
+                                break;
+                            }
+                            }
+                        }
+                        else
+                            rt_ip = rt_codes + closure->m_vm_func;
+                    }
+                } while (0);
+                break;
+            }
+            case instruct::opcode::calln:
+            {
+                WO_VM_ASSERT(dr == 0b11 || dr == 0b01 || dr == 0b00,
+                    "Found broken ir-code in 'calln'.");
+                do
+                {
+                    if (sp <= _self_stack_mem_buf)
+                    {
+                        --rt_ip;
+                        wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
+                        break;
+                    }
+                    if (dr)
+                    {
+                        // Call native
+                        wo_extern_native_func_t call_aim_native_func = (wo_extern_native_func_t)(WO_IPVAL_MOVE_8);
+
+                        sp->type = value::valuetype::callstack;
+                        sp->vmcallstack.ret_ip = (uint32_t)(rt_ip - rt_codes);
+                        sp->vmcallstack.bp = (uint32_t)(stack_mem_begin - bp);
+                        auto* rt_bp = bp = --sp;
+
+                        rt_cr->set_nil();
+
+                        ip = std::launder(reinterpret_cast<byte_t*>(call_aim_native_func));
+
+                        wo_result_t api;
+                        if (dr & 0b10)
+                            api = call_aim_native_func(
+                                std::launder(reinterpret_cast<wo_vm>(this)),
+                                std::launder(reinterpret_cast<wo_value>(sp + 2)));
+                        else
+                        {
+                            wo_assure(wo_leave_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
+                            api = call_aim_native_func(
+                                std::launder(reinterpret_cast<wo_vm>(this)),
+                                std::launder(reinterpret_cast<wo_value>(sp + 2)));
+                            wo_assure(wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
+                        }
+                        switch (api)
+                        {
                         case wo_result_t::WO_API_RESYNC:
+                        case wo_result_t::WO_API_NORMAL:
+                        {
+                            bp = rt_bp;
+
+                            WO_VM_ASSERT((bp + 1)->type == value::valuetype::callstack,
+                                "Found broken stack in 'calln'.");
+                            value* stored_bp = stack_mem_begin - (++bp)->vmcallstack.bp;
+                            sp = bp;
+                            bp = stored_bp;
+                            break;
+                        }
+                        case wo_result_t::WO_API_SYNC:
                         {
                             rt_ip = this->ip;
                             break;
@@ -2195,75 +2405,19 @@ namespace wo
                         }
                     }
                     else
-                        rt_ip = rt_codes + closure->m_vm_func;
-                }
-                break;
-            }
-            case instruct::opcode::calln:
-            {
-                WO_VM_ASSERT(dr == 0b11 || dr == 0b01 || dr == 0b00,
-                    "Found broken ir-code in 'calln'.");
-
-                if (dr)
-                {
-                    // Call native
-                    wo_extern_native_func_t call_aim_native_func = (wo_extern_native_func_t)(WO_IPVAL_MOVE_8);
-
-                    sp->type = value::valuetype::callstack;
-                    sp->vmcallstack.ret_ip = (uint32_t)(rt_ip - rt_codes);
-                    sp->vmcallstack.bp = (uint32_t)(stack_mem_begin - bp);
-                    auto* rt_bp = bp = --sp;
-
-                    rt_cr->set_nil();
-
-                    ip = std::launder(reinterpret_cast<byte_t*>(call_aim_native_func));
-
-                    wo_result_t api;
-                    if (dr & 0b10)
-                        api = call_aim_native_func(
-                            std::launder(reinterpret_cast<wo_vm>(this)),
-                            std::launder(reinterpret_cast<wo_value>(sp + 2)));
-                    else
                     {
-                        wo_assure(wo_leave_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
-                        api = call_aim_native_func(
-                            std::launder(reinterpret_cast<wo_vm>(this)),
-                            std::launder(reinterpret_cast<wo_value>(sp + 2)));
-                        wo_assure(wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
-                    }
-                    switch (api)
-                    {
-                    case wo_result_t::WO_API_NORMAL:
-                    {
-                        bp = rt_bp;
+                        const byte_t* aimplace = rt_codes + WO_IPVAL_MOVE_4;
+                        rt_ip += 4; // skip reserved place.
 
-                        WO_VM_ASSERT((bp + 1)->type == value::valuetype::callstack,
-                            "Found broken stack in 'calln'.");
-                        value* stored_bp = stack_mem_begin - (++bp)->vmcallstack.bp;
-                        sp = bp;
-                        bp = stored_bp;
-                        break;
-                    }
-                    case wo_result_t::WO_API_RESYNC:
-                    {
-                        rt_ip = this->ip;
-                        break;
-                    }
-                    }
-                }
-                else
-                {
-                    const byte_t* aimplace = rt_codes + WO_IPVAL_MOVE_4;
-                    rt_ip += 4; // skip reserved place.
+                        sp->type = value::valuetype::callstack;
+                        sp->vmcallstack.ret_ip = (uint32_t)(rt_ip - rt_codes);
+                        sp->vmcallstack.bp = (uint32_t)(stack_mem_begin - bp);
+                        bp = --sp;
 
-                    sp->type = value::valuetype::callstack;
-                    sp->vmcallstack.ret_ip = (uint32_t)(rt_ip - rt_codes);
-                    sp->vmcallstack.bp = (uint32_t)(stack_mem_begin - bp);
-                    bp = --sp;
+                        rt_ip = aimplace;
 
-                    rt_ip = aimplace;
-
-                }
+                    }
+                } while (0);
                 break;
             }
             case instruct::opcode::jmp:
@@ -2522,9 +2676,9 @@ namespace wo
                     "Found broken ir-code in 'mkclos'.");
 
 #ifdef WO_VM_SUPPORT_FAST_NO_ALIGN
-                    sp = make_closure_fast_impl(rt_cr, rt_ip, sp);
+                sp = make_closure_fast_impl(rt_cr, rt_ip, sp);
 #else
-                    sp = make_closure_safe_impl(rt_cr, rt_ip, sp);
+                sp = make_closure_safe_impl(rt_cr, rt_ip, sp);
 #endif
 
                 rt_ip += (2 + 8);
@@ -2533,12 +2687,23 @@ namespace wo
             }
             case instruct::unpackargs:
             {
+                auto* rollback_rt_ip = rt_ip - 1;
+
                 WO_ADDRESSING_N1;
                 auto unpack_argc_unsigned = WO_IPVAL_MOVE_4;
 
-                sp = unpackargs_impl(
-                    this, opnum1, reinterpret_cast<int32_t&>(unpack_argc_unsigned),
-                    tc, rt_ip, sp, bp);
+                auto* new_sp = unpackargs_impl(
+                    this, 
+                    opnum1, 
+                    reinterpret_cast<int32_t&>(unpack_argc_unsigned), 
+                    tc, 
+                    rt_ip,
+                    sp, 
+                    bp);
+
+                if (new_sp != nullptr)
+                    sp = new_sp;
+
                 break;
             }
             case instruct::opcode::ext:
@@ -2694,6 +2859,35 @@ namespace wo
                 {
                     if (clear_interrupt(vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT))
                         clear_interrupt(vm_interrupt_type::DEBUG_INTERRUPT);
+                }
+                else if (interrupt_state & vm_interrupt_type::STACK_OVERFLOW_INTERRUPT)
+                {
+                    while (!interrupt(vm_interrupt_type::STACK_MODIFING_INTERRUPT))
+                        std::this_thread::yield();
+
+                    shrink_stack_edge = std::min(VM_SHRINK_STACK_MAX_EDGE, shrink_stack_edge + 1);
+                    // Force realloc stack buffer.
+                    bool r = _reallocate_stack_space(stack_size << 1);
+
+                    wo_assure(clear_interrupt((vm_interrupt_type)(
+                        vm_interrupt_type::STACK_MODIFING_INTERRUPT 
+                        | vm_interrupt_type::STACK_OVERFLOW_INTERRUPT)));
+
+                    if (!r)
+                        wo_fail(WO_FAIL_STACKOVERFLOW, "Stack overflow.");
+                }
+                else if (interrupt_state & vm_interrupt_type::SHRINK_STACK_INTERRUPT)
+                {
+                    while (!interrupt(vm_interrupt_type::STACK_MODIFING_INTERRUPT))
+                        std::this_thread::yield();
+
+                    if (_reallocate_stack_space(stack_size >> 1))
+                        shrink_stack_edge = VM_SHRINK_STACK_COUNT;
+
+                    wo_assure(clear_interrupt((vm_interrupt_type)(
+                        vm_interrupt_type::STACK_MODIFING_INTERRUPT 
+                        | vm_interrupt_type::SHRINK_STACK_INTERRUPT)));
+
                 }
                 // ATTENTION: it should be last interrupt..
                 else if (interrupt_state & vm_interrupt_type::DEBUG_INTERRUPT)
