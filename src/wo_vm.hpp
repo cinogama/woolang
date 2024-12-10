@@ -218,6 +218,7 @@ namespace wo
         lexer* compile_info;
 
         // next ircode pointer
+        const byte_t* codes;
         const byte_t* ip;
 
         shared_pointer<runtime_env> env;
@@ -319,6 +320,39 @@ namespace wo
         static value* unpackargs_impl(vmbase* vm, value* opnum1, int32_t unpack_argc, value* tc, const byte_t* rt_ip, value* rt_sp, value* rt_bp) noexcept;
         static const char* movcast_impl(value* opnum1, value* opnum2, value::valuetype aim_type) noexcept;
     };
+
+    class _wo_vm_stack_guard
+    {
+        vmbase* m_reading_vm;
+        _wo_vm_stack_guard(const _wo_vm_stack_guard&) = delete;
+        _wo_vm_stack_guard(_wo_vm_stack_guard&&) = delete;
+        _wo_vm_stack_guard& operator = (const _wo_vm_stack_guard&) = delete;
+        _wo_vm_stack_guard& operator = (_wo_vm_stack_guard&&) = delete;
+
+    public:
+        _wo_vm_stack_guard(const vmbase* _reading_vm)
+        {
+            vmbase* reading_vm = const_cast<vmbase*>(_reading_vm);
+
+            if (reading_vm != vmbase::_this_thread_vm)
+            {
+                while (!reading_vm->interrupt(
+                    vmbase::vm_interrupt_type::STACK_MODIFING_INTERRUPT))
+                    std::this_thread::yield();
+
+                m_reading_vm = reading_vm;
+            }
+            else
+                m_reading_vm = nullptr;
+        }
+        ~_wo_vm_stack_guard()
+        {
+            if (m_reading_vm != nullptr)
+                wo_assure(m_reading_vm->clear_interrupt(
+                    vmbase::vm_interrupt_type::STACK_MODIFING_INTERRUPT));
+        }
+    };
+
 }
 
 #undef WO_READY_EXCEPTION_HANDLE

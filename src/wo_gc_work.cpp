@@ -104,7 +104,7 @@ namespace wo
             weak_ref->m_spin.clear();
             weak_ref->m_alive = true;
 
-            if (val->type >= wo::value::valuetype::need_gc)
+            if (val->type >= wo::value::valuetype::need_gc_flag)
             {
                 std::lock_guard g1(_weak_ref_list_mx);
                 _weak_ref_record_list.insert(weak_ref);
@@ -115,7 +115,7 @@ namespace wo
         {
             auto* wref = std::launder(reinterpret_cast<_wo_weak_ref*>(weak_ref));
 
-            if (wref->m_weak_value_record.type >= wo::value::valuetype::need_gc)
+            if (wref->m_weak_value_record.type >= wo::value::valuetype::need_gc_flag)
             {
                 std::lock_guard g1(_weak_ref_list_mx);
                 _weak_ref_record_list.erase(wref);
@@ -990,7 +990,7 @@ namespace wo
 
             // walk thorgh stack.
             for (auto* stack_walker = marking_vm->stack_mem_begin;
-                marking_vm->sp < stack_walker;
+                stack_walker > marking_vm->sp;
                 stack_walker--)
             {
                 auto stack_val = stack_walker;

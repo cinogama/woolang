@@ -24,7 +24,6 @@ namespace wo
                     wo_close_vm((wo_vm)free_vm);
                 }
             }
-
             bool is_empty() const noexcept
             {
                 std::shared_lock sg1(m_guard);
@@ -38,10 +37,11 @@ namespace wo
                     auto vm = m_free_vm.front();
                     m_free_vm.pop_front();
 
-                    wo_assert((vm->vm_interrupt & vmbase::vm_interrupt_type::LEAVE_INTERRUPT) != 0);
+                    wo_assert(vm->check_interrupt(vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
+                    wo_assert(vm->bp == vm->sp && vm->bp == vm->stack_mem_begin);
 
                     wo_assure(vm->clear_interrupt(vmbase::vm_interrupt_type::PENDING_INTERRUPT));
-                    vm->clear_interrupt(vmbase::vm_interrupt_type::ABORT_INTERRUPT);
+                    (void)vm->clear_interrupt(vmbase::vm_interrupt_type::ABORT_INTERRUPT);
                     vm->ip = nullptr; // IP Should be set by other function like invoke/dispatch.
 
                     return vm;
@@ -52,8 +52,7 @@ namespace wo
             {
                 std::lock_guard g1(m_guard);
 
-                wo_assert((vm->vm_interrupt & vmbase::vm_interrupt_type::LEAVE_INTERRUPT) != 0);
-
+                wo_assert(vm->check_interrupt(vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
                 wo_assure(vm->interrupt(vmbase::vm_interrupt_type::PENDING_INTERRUPT));
 
                 // Clear LEAVE_INTERRUPT to make sure hangup correctly before clear stack when GC.
@@ -61,6 +60,7 @@ namespace wo
 
                 // Clear stack & register to make sure gc will not mark the useless data of current vm;
                 vm->sp = vm->bp = vm->stack_mem_begin;
+
                 const size_t register_count = vm->env->real_register_count;
                 for (size_t regi = 0; regi < register_count; ++regi)
                 {
@@ -68,7 +68,6 @@ namespace wo
                 }
 
                 wo_assure(wo_leave_gcguard(reinterpret_cast<wo_vm>(vm)));
-
                 m_free_vm.push_back(vm);
             }
         };
