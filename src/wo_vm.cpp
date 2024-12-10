@@ -794,38 +794,6 @@ namespace wo
         os << std::endl;
     }
 
-    class _wo_vm_stack_guard
-    {
-        vmbase* m_reading_vm;
-        _wo_vm_stack_guard(const _wo_vm_stack_guard&) = delete;
-        _wo_vm_stack_guard(_wo_vm_stack_guard&&) = delete;
-        _wo_vm_stack_guard& operator = (const _wo_vm_stack_guard&) = delete;
-        _wo_vm_stack_guard& operator = (_wo_vm_stack_guard&&) = delete;
-
-    public:
-        _wo_vm_stack_guard(const vmbase* _reading_vm)
-        {
-            vmbase* reading_vm = const_cast<vmbase*>(_reading_vm);
-
-            if (reading_vm != vmbase::_this_thread_vm)
-            {
-                while (!reading_vm->interrupt(
-                    vmbase::vm_interrupt_type::STACK_MODIFING_INTERRUPT))
-                    std::this_thread::yield();
-
-                m_reading_vm = reading_vm;
-            }
-            else
-                m_reading_vm = nullptr;
-        }
-        ~_wo_vm_stack_guard()
-        {
-            if (m_reading_vm != nullptr)
-                wo_assure(m_reading_vm->clear_interrupt(
-                    vmbase::vm_interrupt_type::STACK_MODIFING_INTERRUPT));
-        }
-    };
-
     void vmbase::dump_call_stack(size_t max_count, bool need_offset, std::ostream& os)const noexcept
     {
         _wo_vm_stack_guard vsg(this);
@@ -1140,7 +1108,7 @@ namespace wo
         else
         {
             auto* return_ip = ip;
-            auto return_sp_place = (stack_mem_begin - sp) - argc;
+            auto return_sp_place = stack_mem_begin - sp;
             auto return_bp_place = stack_mem_begin - bp;
 
             (sp--)->set_native_callstack(ip);
@@ -1170,7 +1138,7 @@ namespace wo
         else
         {
             auto* return_ip = ip;
-            auto return_sp_place = (stack_mem_begin - sp) - argc;
+            auto return_sp_place = stack_mem_begin - sp;
             auto return_bp_place = stack_mem_begin - bp;
 
             (sp--)->set_native_callstack(ip);
@@ -1220,7 +1188,7 @@ namespace wo
                 auto* return_ip = ip;
 
                 // NOTE: No need to reduce expand arg count.
-                auto return_sp_place = (stack_mem_begin - sp) - argc;
+                auto return_sp_place = stack_mem_begin - sp;
                 auto return_bp_place = stack_mem_begin - bp;
 
                 for (auto idx = wo_func_closure->m_closure_args_count; idx > 0; --idx)
@@ -2203,8 +2171,8 @@ namespace wo
             }
             case instruct::opcode::ret:
             {
-                WO_VM_ASSERT((bp + 1)->type == value::valuetype::callstack
-                    || (bp + 1)->type == value::valuetype::nativecallstack,
+                WO_VM_ASSERT(((bp + 1)->type & (~1)) == value::valuetype::callstack
+                    || ((bp + 1)->type & (~1)) == value::valuetype::nativecallstack,
                     "Found broken stack in 'ret'.");
 
                 uint16_t pop_count = dr ? WO_IPVAL_MOVE_2 : 0;
@@ -2287,7 +2255,7 @@ namespace wo
                         {
                             bp = stack_mem_begin - rt_bp;
 
-                            WO_VM_ASSERT((bp + 1)->type == value::valuetype::callstack,
+                            WO_VM_ASSERT(((bp + 1)->type & (~1)) == value::valuetype::callstack,
                                 "Found broken stack in 'call'.");
                             value* stored_bp = stack_mem_begin - (++bp)->vmcallstack.bp;
                             sp = bp;
@@ -2323,7 +2291,7 @@ namespace wo
                             {
                                 bp = stack_mem_begin - rt_bp;
 
-                                WO_VM_ASSERT((bp + 1)->type == value::valuetype::callstack,
+                                WO_VM_ASSERT(((bp + 1)->type & (~1))== value::valuetype::callstack,
                                     "Found broken stack in 'call'.");
                                 value* stored_bp = stack_mem_begin - (++bp)->vmcallstack.bp;
                                 // Here to invoke jit closure, jit function cannot pop captured arguments,
@@ -2393,7 +2361,7 @@ namespace wo
                         {
                             bp = stack_mem_begin - rt_bp;
 
-                            WO_VM_ASSERT((bp + 1)->type == value::valuetype::callstack,
+                            WO_VM_ASSERT(((bp + 1)->type & (~1)) == value::valuetype::callstack,
                                 "Found broken stack in 'calln'.");
                             value* stored_bp = stack_mem_begin - (++bp)->vmcallstack.bp;
                             sp = bp;

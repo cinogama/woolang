@@ -450,28 +450,35 @@ WO_API wo_string_t  wo_get_runtime_error(wo_vm vm);
 
 WO_API wo_value     wo_register(wo_vm vm, wo_reg regid);
 
-WO_API wo_value     wo_reserve_stack(wo_vm vm, wo_size_t sz);
+// Woolang 1.14: All stack push operations are removed, to reserve stack space,
+//  use `wo_reserve_stack` instead.
+// NOTE: vm's stack size might changed during `wo_reserve_stack`, because of this, 
+//  the parameters of external functions themselves may also need to be updated. 
+//  Please pass in the address of ARGS through the parameter inout_args.
+// Best practices:
+// 1) Invoke `wo_reserve_stack` at begin of external function.
+//      WO_API wo_api example_function(wo_vm vm, wo_value args)
+//      {
+//          wo_value s = wo_reserve_stack(vm, 1, &args);
+//          ...
+// 2) Donot invoke `wo_reserve_stack` multiple times in one external function.
+WO_API wo_value     wo_reserve_stack(wo_vm vm, wo_size_t sz, wo_value* inout_args);
+WO_API void         wo_pop_stack(wo_vm vm, wo_size_t sz);
 
-WO_API wo_value     wo_push_int(wo_vm vm, wo_int_t val);
-WO_API wo_value     wo_push_real(wo_vm vm, wo_real_t val);
-WO_API wo_value     wo_push_handle(wo_vm vm, wo_handle_t val);
-WO_API wo_value     wo_push_pointer(wo_vm vm, wo_ptr_t val);
-WO_API wo_value     wo_push_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t));
-WO_API wo_value     wo_push_string(wo_vm vm, wo_string_t val);
-WO_API wo_value     wo_push_string_fmt(wo_vm vm, wo_string_t fmt, ...);
-WO_API wo_value     wo_push_buffer(wo_vm vm, const void* val, wo_size_t len);
-#define wo_push_raw_string wo_push_buffer
-WO_API wo_value     wo_push_empty(wo_vm vm);
-WO_API wo_value     wo_push_val(wo_vm vm, wo_value val);
-WO_API wo_value     wo_push_dup(wo_vm vm, wo_value val);
-WO_API wo_value     wo_push_arr(wo_vm vm, wo_int_t count);
-WO_API wo_value     wo_push_struct(wo_vm vm, uint16_t count);
-WO_API wo_value     wo_push_map(wo_vm vm, wo_size_t reserved);
-WO_API wo_value     wo_push_union(wo_vm vm, wo_integer_t id, wo_value value_may_null);
-
-WO_API wo_value     wo_invoke_rsfunc(wo_vm vm, wo_int_t rsfunc, wo_int_t argc);
-WO_API wo_value     wo_invoke_exfunc(wo_vm vm, wo_handle_t exfunc, wo_int_t argc);
-WO_API wo_value     wo_invoke_value(wo_vm vm, wo_value vmfunc, wo_int_t argc);
+// Woolang 1.14: All invoke function will not clean stack. If you want to clean
+//  stack, please use `wo_pop_stack`.
+// NOTE: vm's stack size might changed during `wo_invoke_...`, because of this,
+//  the parameters of external functions themselves may also need to be updated.
+//  Please pass in the address of ARGS & RESERVED STACK through the parameter 
+//  inout_args and inout_s.
+// Best practices:
+// 1) Use data from updated args & reserved stack, avoid using old pointers.
+WO_API wo_value     wo_invoke_rsfunc(
+    wo_vm vm, wo_int_t rsfunc, wo_int_t argc, wo_value* inout_args_maynull, wo_value* inout_s_maynull);
+WO_API wo_value     wo_invoke_exfunc(
+    wo_vm vm, wo_handle_t exfunc, wo_int_t argc, wo_value* inout_args_maynull, wo_value* inout_s_maynull);
+WO_API wo_value     wo_invoke_value(
+    wo_vm vm, wo_value vmfunc, wo_int_t argc, wo_value* inout_args_maynull, wo_value* inout_s_maynull);
 
 WO_API wo_value     wo_dispatch_rsfunc(wo_vm vm, wo_int_t rsfunc, wo_int_t argc);
 WO_API wo_value     wo_dispatch_exfunc(wo_vm vm, wo_handle_t exfunc, wo_int_t argc);
@@ -554,7 +561,6 @@ WO_API void         wo_arr_clear(wo_value arr);
 WO_API void         wo_map_reserve(wo_value map, wo_size_t sz);
 WO_API void         wo_map_set(wo_value map, wo_value index, wo_value val);
 WO_API wo_bool_t    wo_map_get_or_set(wo_value out_val, wo_value map, wo_value index, wo_value default_value);
-WO_API wo_bool_t    wo_map_get_or_set_do(wo_value out_val, wo_value map, wo_value index, wo_vm vm, wo_value f);
 WO_API wo_bool_t    wo_map_remove(wo_value map, wo_value index);
 WO_API void         wo_map_clear(wo_value map);
 

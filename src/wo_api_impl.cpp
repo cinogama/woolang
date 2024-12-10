@@ -589,8 +589,63 @@ void wo_init(int argc, char** argv)
 #define CS_VAL(v) (reinterpret_cast<wo_value>(v))
 #define CS_VM(v) (reinterpret_cast<wo_vm>(v))
 #define WO_API_STATE_OF_VM(v) (\
-    wo_assert((v->bp + 1)->type == wo::value::valuetype::callstack || (v->bp + 1)->type == wo::value::valuetype::nativecallstack), \
+    wo_assert(((v->bp + 1)->type & (~1)) == wo::value::valuetype::callstack \
+        || ((v->bp + 1)->type & (~1)) == wo::value::valuetype::nativecallstack), \
     ((v->bp + 1)->type & wo::value::valuetype::stack_externed_flag) == 0 ? WO_API_NORMAL : WO_API_RESYNC)
+
+struct _wo_reserved_stack_args_update_guard
+{
+    wo::vmbase* m_vm;
+    wo_value* m_rs;
+    wo_value* m_args;
+
+    wo::value* m_origin_stack_begin;
+    size_t m_rs_offset;
+    size_t m_args_offset;
+
+    _wo_reserved_stack_args_update_guard(const _wo_in_thread_vm_guard&) = delete;
+    _wo_reserved_stack_args_update_guard(_wo_in_thread_vm_guard&&) = delete;
+    _wo_reserved_stack_args_update_guard& operator = (const _wo_in_thread_vm_guard&) = delete;
+    _wo_reserved_stack_args_update_guard& operator = (_wo_in_thread_vm_guard&&) = delete;
+
+    _wo_reserved_stack_args_update_guard(
+        wo_vm _vm,
+        wo_value* _rs,
+        wo_value* _args)
+        : m_vm(WO_VM(_vm))
+        , m_rs(_rs)
+        , m_args(_args)
+    {
+        m_origin_stack_begin = m_vm->stack_mem_begin;
+        if (m_rs != nullptr)
+            m_rs_offset = WO_VAL(m_rs) - m_origin_stack_begin;
+
+        if (m_args != nullptr)
+            m_args_offset = WO_VAL(m_args) - m_origin_stack_begin;     
+    }
+    ~_wo_reserved_stack_args_update_guard()
+    {
+        if (m_origin_stack_begin != m_vm->stack_mem_begin)
+        {
+            // Need update.
+            if (m_rs != nullptr)
+                *m_rs = CS_VAL(m_vm->stack_mem_begin - m_rs_offset);
+
+            if (m_args != nullptr)
+                *m_args = CS_VAL(m_vm->stack_mem_begin - m_args_offset);
+
+            if (m_vm->bp != m_vm->stack_mem_begin)
+            {
+                auto* current_call_base = m_vm->bp + 1;
+                wo_assert((current_call_base->type & (~1)) == wo::value::valuetype::callstack
+                    || (current_call_base->type & (~1)) == wo::value::valuetype::nativecallstack);
+
+                current_call_base->type = (wo::value::valuetype)(
+                    current_call_base->type | wo::value::valuetype::stack_externed_flag);
+            }
+        }
+    }
+};
 
 wo_string_t wo_locale_name(void)
 {
@@ -2955,123 +3010,73 @@ wo_value wo_register(wo_vm vm, wo_reg regid)
     return CS_VAL(WO_VM(vm)->register_mem_begin + regid);
 }
 
-wo_value wo_push_int(wo_vm vm, wo_int_t val)
+wo_value wo_reserve_stack(wo_vm vm, wo_size_t stack_sz, wo_value* inout_args)
 {
-    return CS_VAL((WO_VM(vm)->sp--)->set_integer(val));
-}
-wo_value wo_push_real(wo_vm vm, wo_real_t val)
-{
-    return CS_VAL((WO_VM(vm)->sp--)->set_real(val));
-}
-wo_value wo_push_handle(wo_vm vm, wo_handle_t val)
-{
-    return CS_VAL((WO_VM(vm)->sp--)->set_handle(val));
-}
-wo_value wo_push_pointer(wo_vm vm, wo_ptr_t val)
-{
-    return CS_VAL((WO_VM(vm)->sp--)->set_handle((wo_handle_t)val));
-}
-wo_value wo_push_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t))
-{
-    auto* csp = WO_VM(vm)->sp--;
-    wo_set_gchandle(CS_VAL(csp), vm, resource_ptr, holding_val, destruct_func);
-    return CS_VAL(csp);
-}
-wo_value wo_push_string(wo_vm vm, wo_string_t val)
-{
-    _wo_enter_gc_guard g(vm);
-    return CS_VAL((WO_VM(vm)->sp--)->set_string(val));
-}
-wo_value wo_push_string_fmt(wo_vm vm, wo_string_t fmt, ...)
-{
-    _wo_enter_gc_guard g(vm);
+    // Check stack size.
+    wo::vmbase* vmbase = WO_VM(vm);
 
-    va_list v1;
-    va_start(v1, fmt);
+    if (vmbase->sp - stack_sz < vmbase->_self_stack_mem_buf)
+    {
+        _wo_enter_gc_guard g(vm);
+        wo::_wo_vm_stack_guard g2(vmbase);
 
-    auto val = CS_VAL((WO_VM(vm)->sp--));
-    _wo_set_string_vfmt(val, vm, fmt, v1);
-    va_end(v1);
+        const size_t args_offset = 
+            inout_args ? WO_VAL(*inout_args) - vmbase->stack_mem_begin : 0;
 
-    return val;
+        while (vmbase->sp - stack_sz < vmbase->_self_stack_mem_buf)
+        {
+            // Stack is not enough for reserve.
+            if (!vmbase->_reallocate_stack_space(vmbase->stack_size << 1))
+                wo_fail(WO_FAIL_STACKOVERFLOW, "Stack overflow.");
+        }
+
+        if (vmbase->bp != vmbase->stack_mem_begin)
+        {
+            auto* current_call_base = vmbase->bp + 1;
+            wo_assert((current_call_base->type &(~1)) == wo::value::valuetype::callstack 
+                || (current_call_base->type & (~1)) == wo::value::valuetype::nativecallstack);
+
+            current_call_base->type = (wo::value::valuetype)(
+                current_call_base->type | wo::value::valuetype::stack_externed_flag);
+        }
+
+        if (inout_args)
+            *inout_args = CS_VAL(vmbase->stack_mem_begin + args_offset);
+    }
+    
+    vmbase->sp -= stack_sz;
+
+    return CS_VAL(vmbase->sp + 1);
 }
-wo_value wo_push_buffer(wo_vm vm, const void* val, wo_size_t len)
+void wo_pop_stack(wo_vm vm, wo_size_t stack_sz)
 {
-    _wo_enter_gc_guard g(vm);
-    return CS_VAL((WO_VM(vm)->sp--)->set_buffer(val, len));
-}
-wo_value wo_push_empty(wo_vm vm)
-{
-    return CS_VAL((WO_VM(vm)->sp--)->set_nil());
-}
-wo_value wo_push_val(wo_vm vm, wo_value val)
-{
-    return CS_VAL((WO_VM(vm)->sp--)->set_val(WO_VAL(val)));
-}
-wo_value wo_push_dup(wo_vm vm, wo_value val)
-{
-    _wo_enter_gc_guard g(vm);
-    return CS_VAL((WO_VM(vm)->sp--)->set_dup(WO_VAL(val)));
-}
-wo_value wo_push_arr(wo_vm vm, wo_int_t count)
-{
-    auto* _rsvalue = WO_VM(vm)->sp--;
-
-    _wo_enter_gc_guard g(vm);
-    _rsvalue->set_gcunit<wo::value::valuetype::array_type>(
-        wo::array_t::gc_new<wo::gcbase::gctype::young>((size_t)count));
-
-    return CS_VAL(_rsvalue);
-
-}
-wo_value wo_push_struct(wo_vm vm, uint16_t count)
-{
-    auto* _rsvalue = WO_VM(vm)->sp--;
-
-    _wo_enter_gc_guard g(vm);
-    _rsvalue->set_gcunit<wo::value::valuetype::struct_type>(
-        wo::struct_t::gc_new<wo::gcbase::gctype::young>(count));
-
-    return CS_VAL(_rsvalue);
-}
-wo_value wo_push_map(wo_vm vm, wo_size_t reserved)
-{
-    auto* _rsvalue = WO_VM(vm)->sp--;
-    _rsvalue->type = (wo::value::valuetype::dict_type);
-
-    _wo_enter_gc_guard g(vm);
-    _rsvalue->set_gcunit<wo::value::valuetype::dict_type>(
-        wo::dict_t::gc_new<wo::gcbase::gctype::young>(reserved));
-
-    return CS_VAL(_rsvalue);
-}
-wo_value wo_push_union(wo_vm vm, wo_integer_t id, wo_value value_may_null)
-{
-    auto* _rsvalue = WO_VM(vm)->sp--;
-    wo_value result = CS_VAL(_rsvalue);
-    wo_set_union(result, vm, id, value_may_null);
-
-    return result;
+    WO_VM(vm)->sp += stack_sz;
 }
 
-wo_value wo_invoke_rsfunc(wo_vm vm, wo_int_t vmfunc, wo_int_t argc)
+wo_value wo_invoke_rsfunc(
+    wo_vm vm, wo_int_t vmfunc, wo_int_t argc, wo_value* inout_args_maynull, wo_value* inout_s_maynull)
 {
     _wo_in_thread_vm_guard g(vm);
     _wo_enter_gc_guard g2(vm);
+    _wo_reserved_stack_args_update_guard g3(vm, inout_args_maynull, inout_s_maynull);
     wo_value result = CS_VAL(WO_VM(vm)->invoke(vmfunc, argc));
     return result;
 }
-wo_value wo_invoke_exfunc(wo_vm vm, wo_handle_t exfunc, wo_int_t argc)
+wo_value wo_invoke_exfunc(
+    wo_vm vm, wo_handle_t exfunc, wo_int_t argc, wo_value* inout_args_maynull, wo_value* inout_s_maynull)
 {
     _wo_in_thread_vm_guard g(vm);
     _wo_enter_gc_guard g2(vm);
+    _wo_reserved_stack_args_update_guard g3(vm, inout_args_maynull, inout_s_maynull);
     wo_value result = CS_VAL(WO_VM(vm)->invoke(exfunc, argc));
     return result;
 }
-wo_value wo_invoke_value(wo_vm vm, wo_value vmfunc, wo_int_t argc)
+wo_value wo_invoke_value(
+    wo_vm vm, wo_value vmfunc, wo_int_t argc, wo_value* inout_args_maynull, wo_value* inout_s_maynull)
 {
     _wo_in_thread_vm_guard g(vm);
     _wo_enter_gc_guard g2(vm);
+    _wo_reserved_stack_args_update_guard g3(vm, inout_args_maynull, inout_s_maynull);
     wo::value* valfunc = WO_VAL(vmfunc);
     wo_value result = nullptr;
     if (!vmfunc)
@@ -3632,36 +3637,6 @@ wo_bool_t wo_map_get_or_set(wo_value out_val, wo_value map, wo_value index, wo_v
         {
             store_val = &(*_map->dict)[*WO_VAL(index)];
             store_val->set_val(WO_VAL(default_value));
-        }
-
-        WO_VAL(out_val)->set_val(store_val);
-        return WO_CBOOL(found);
-    }
-    else
-        wo_fail(WO_FAIL_TYPE_FAIL, "Value is not a map.");
-
-    return WO_FALSE;
-}
-
-wo_bool_t wo_map_get_or_set_do(wo_value out_val, wo_value map, wo_value index, wo_vm vm, wo_value f)
-{
-    auto _map = WO_VAL(map);
-    if (_map->type == wo::value::valuetype::dict_type)
-    {
-        wo::value* store_val = nullptr;
-        wo::gcbase::gc_modify_write_guard g1(_map->dict);
-
-        auto fnd = _map->dict->find(*WO_VAL(index));
-        bool found = fnd != _map->dict->end();
-        if (found)
-            store_val = &fnd->second;
-
-        if (!store_val)
-        {
-            wo_value result = wo_invoke_value(vm, f, 0);
-
-            store_val = &(*_map->dict)[*WO_VAL(index)];
-            store_val->set_val(WO_VAL(result));
         }
 
         WO_VAL(out_val)->set_val(store_val);
