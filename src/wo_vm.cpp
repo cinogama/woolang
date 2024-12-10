@@ -327,6 +327,7 @@ namespace wo
         const size_t bp_sp_offset = (size_t)(bp - sp);
 
         memcpy(new_sp + 1, sp + 1, used_stack_size * sizeof(value));
+        free(_self_stack_mem_buf);
 
         _self_stack_mem_buf = new_stack_buf;
         stack_mem_begin = new_stack_mem_begin;

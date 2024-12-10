@@ -1,0 +1,64 @@
+import woo::std;
+import test_tool;
+
+namespace test_dyn_stack
+{
+#macro HUGE_ARRAY_LIT
+{
+    let mut t = "";
+    for (let mut i = 0; i < 2000; i += 1)
+    {
+        t += F"{i},";
+    }
+    return t;
+}
+#macro HUGE_MAP_LIT
+{
+    let mut t = "";
+    for (let mut i = 0; i < 2000; i += 1)
+    {
+        t += F"[{i}] = {i},";
+    }
+    return t;
+}
+    func test_huge_array_and_map()
+    {
+        let a = [HUGE_ARRAY_LIT!];
+
+        for (let mut i = 0; i < 2000; i += 1)
+        {
+            test_equal(a[i], i);
+        }
+
+        let m = {HUGE_MAP_LIT!};
+
+        for (let mut i = 0; i < 2000; i += 1)
+        {
+            test_equal(m[i], i);
+        }
+    }
+    func test_super_depth_function()
+    {
+        func depth_foo(list: vec<int>, layer: int)   
+        {
+            if (layer == 500_0000)
+                return;                
+
+            depth_foo(list, layer + 1);
+            list->add(layer);
+        }
+        let list = []mut: vec<int>;
+        depth_foo(list, 0);
+        for (let mut i = 0; i < 500_0000; i += 1)
+        {
+            test_equal(list[i], 500_0000 - 1 - i);
+        }
+    }
+    func main()
+    {
+        test_huge_array_and_map();
+        test_super_depth_function();
+    }
+}
+
+test_function("test_dyn_stack.main", test_dyn_stack::main);
