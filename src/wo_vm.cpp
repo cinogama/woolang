@@ -225,10 +225,10 @@ namespace wo
 
             _gc_ready_vm_list.erase(this);
 
-        } while (0);
+            free(_self_register_mem_buf);
+            free(_self_stack_mem_buf);
 
-        free(_self_register_mem_buf);
-        free(_self_stack_mem_buf);
+        } while (0);
 
         if (compile_info)
             delete compile_info;
@@ -316,7 +316,7 @@ namespace wo
         if (used_stack_size * 2 > stacksz)
             // New stack size is smaller than current stack size
             return false;
-                    
+
         value* new_stack_buf = std::launder(reinterpret_cast<value*>(calloc(stacksz, sizeof(value))));
         if (new_stack_buf == nullptr)
             // Failed to allocate new stack space
@@ -796,180 +796,153 @@ namespace wo
 
     void vmbase::dump_call_stack(size_t max_count, bool need_offset, std::ostream& os)const noexcept
     {
+        bool trace_finished;
+        auto callstacks = dump_call_stack_func_info(max_count, need_offset, &trace_finished);
+        for (auto idx = callstacks.cbegin(); idx != callstacks.cend(); ++idx)
+        {
+            os << (idx - callstacks.cbegin()) << ": " << idx->m_func_name << std::endl;
+
+            os << "\t\t-- at " << idx->m_file_path;
+            if (!idx->m_is_extern)
+                os << " (" << idx->m_row << ", " << idx->m_col << ")";
+            os << std::endl;
+        }
+        if (!trace_finished)
+            os << callstacks.size() << ": ..." << std::endl;
+    }
+    std::vector<vmbase::callstack_info> vmbase::dump_call_stack_func_info(size_t max_count, bool need_offset, bool* out_finished)const noexcept
+    {
         _wo_vm_stack_guard vsg(this);
 
-        if (env == nullptr)
-        {
-            os << "<current vm is not ready!>" << std::endl;
-            return;
-        }
-
-        const program_debug_data_info::location* src_location_info = nullptr;
-        if (env->program_debug_info != nullptr)
-            src_location_info = &env->program_debug_info->get_src_location_by_runtime_ip(ip - (need_offset ? 1 : 0));
         // NOTE: When vm running, rt_ip may point to:
         // [ -- COMMAND 6bit --] [ - DR 2bit -] [ ----- OPNUM1 ------] [ ----- OPNUM2 ------]
         //                                     ^1                     ^2                     ^3
         // If rt_ip point to place 3, 'get_current_func_signature_by_runtime_ip' will get next command's debuginfo.
         // So we do a move of 1BYTE here, for getting correct debuginfo.
 
-        size_t call_trace_count = 0;
+        if (out_finished != nullptr)
+            *out_finished = true;
 
-        if (ip >= env->rt_codes && ip < env->rt_codes + env->rt_code_len)
+        if (env == nullptr)
+            return {};
+
+        std::vector<callstack_info> result;
+        auto generate_callstack_info_with_ip = [this, need_offset](const wo::byte_t* rip, bool is_extern_func)
         {
-            if (src_location_info)
-            {
-                os << call_trace_count << ": " << env->program_debug_info->get_current_func_signature_by_runtime_ip(ip - (need_offset ? 1 : 0)) << std::endl;
-                os << "\t--at " << wstr_to_str(src_location_info->source_file) << "(" << src_location_info->begin_row_no << ", " << src_location_info->begin_col_no << ")" << std::endl;
-            }
-            else
-                os << call_trace_count << ": " << (void*)ip << std::endl;
-        }
-        else
-        {
-            auto fnd = env->extern_native_functions.find((intptr_t)ip);
+            const program_debug_data_info::location* src_location_info = nullptr;
+            std::string function_signature;
+            std::string file_path;
+            size_t row_number = 0;
+            size_t col_number = 0;
 
-            if (fnd != env->extern_native_functions.end())
+            if (is_extern_func)
             {
-                os << call_trace_count << ": extern func " << fnd->second.function_name << std::endl;
-                os << "\t--at " << fnd->second.library_name.value_or("woolang") << std::endl;
-            }
-            else
-            {
-                os << call_trace_count << ": extern func __native_function__at_" << (void*)ip << std::endl;
-                os << "\t--at unknown native" << std::endl;
-            }
-        }
-
-        value* base_callstackinfo_ptr = (bp + 1);
-        while (base_callstackinfo_ptr <= this->stack_mem_begin)
-        {
-            ++call_trace_count;
-            if (call_trace_count > max_count)
-            {
-                os << call_trace_count << ": ..." << std::endl;
-                break;
-            }
-            if (base_callstackinfo_ptr->type == value::valuetype::callstack)
-            {
-                if (src_location_info)
-                {
-                    src_location_info = &env->program_debug_info->get_src_location_by_runtime_ip(env->rt_codes + base_callstackinfo_ptr->vmcallstack.ret_ip - (need_offset ? 1 : 0));
-
-                    os << call_trace_count << ": " << env->program_debug_info->get_current_func_signature_by_runtime_ip(
-                        env->rt_codes + base_callstackinfo_ptr->vmcallstack.ret_ip - (need_offset ? 1 : 0)) << std::endl;
-                    os << "\t--at " << wstr_to_str(src_location_info->source_file) << "(" << src_location_info->begin_row_no << ", " << src_location_info->begin_col_no << ")" << std::endl;
-                }
-                else
-                    os << call_trace_count << ": " << (void*)(env->rt_codes + base_callstackinfo_ptr->vmcallstack.ret_ip) << std::endl;
-
-                base_callstackinfo_ptr = this->stack_mem_begin - base_callstackinfo_ptr->vmcallstack.bp;
-                base_callstackinfo_ptr++;
-
-                // When dumping call stack if specified vm is running(during GC), the stack data might be
-                // modified. We will get broken call stack info and we should stop.
-                if (base_callstackinfo_ptr > stack_mem_begin || base_callstackinfo_ptr <= _self_stack_mem_buf)
-                {
-                    os << call_trace_count + 1 << ": ??" << std::endl;
-                    break;
-                }
-            }
-            else if (base_callstackinfo_ptr->type == value::valuetype::nativecallstack)
-            {
-                auto fnd = env->extern_native_functions.find((intptr_t)base_callstackinfo_ptr->native_function_addr);
+                auto fnd = env->extern_native_functions.find((intptr_t)rip);
 
                 if (fnd != env->extern_native_functions.end())
                 {
-                    os << call_trace_count << ": extern func " << fnd->second.function_name << std::endl;
-                    os << "\t--at " << fnd->second.library_name.value_or("woolang") << std::endl;
+                    function_signature = fnd->second.function_name;
+                    file_path = fnd->second.library_name.value_or("<builtin>");
                 }
                 else
                 {
-                    os << call_trace_count << ": extern func __native_function__at_" << (void*)base_callstackinfo_ptr->native_function_addr << std::endl;
-                    os << "\t--at unknown native" << std::endl;
-                }
+                    char rip_str[sizeof(rip) * 2 + 4];
+                    sprintf(rip_str, "0x%p>", rip);
 
+                    function_signature = std::string("<unknown extern function ") + rip_str;
+                    file_path = "<unknown library>";
+                }
+            }
+            else
+            {
+                if (env->program_debug_info != nullptr)
+                {
+                    src_location_info = &env->program_debug_info
+                        ->get_src_location_by_runtime_ip(rip - (need_offset ? 1 : 0));
+                    function_signature = env->program_debug_info
+                        ->get_current_func_signature_by_runtime_ip(rip - (need_offset ? 1 : 0));
+
+                    file_path = wo::wstrn_to_str(src_location_info->source_file);
+                    row_number = src_location_info->begin_row_no;
+                    col_number = src_location_info->begin_col_no;
+                }
+                else
+                {
+                    char rip_str[sizeof(rip) * 2 + 4];
+                    sprintf(rip_str, "0x%p>", rip);
+
+                    function_signature = std::string("<unknown function ") + rip_str;
+                    file_path = "<unknown file>";
+                }
+            }
+            return callstack_info{
+                function_signature,
+                file_path,
+                row_number,
+                col_number,
+                is_extern_func,
+            };
+        };
+
+        result.push_back(generate_callstack_info_with_ip(ip, ip < env->rt_codes || ip >= env->rt_codes + env->rt_code_len));
+        value* base_callstackinfo_ptr = (bp + 1);
+        while (base_callstackinfo_ptr <= this->stack_mem_begin)
+        {
+            if (result.size() >= max_count)
+            {
+                if (out_finished != nullptr)
+                    *out_finished = false;
+
+                break;
+            }
+
+            if ((base_callstackinfo_ptr->type & (~1)) == value::valuetype::callstack)
+            {
+                // NOTE: Tracing call stack might changed in other thread.
+                //  Check it to make sure donot reach bad place.
+                auto callstack = base_callstackinfo_ptr->vmcallstack;
+                auto* next_trace_place = this->stack_mem_begin - callstack.bp + 1;
+
+                if (next_trace_place <= base_callstackinfo_ptr || next_trace_place >= stack_mem_begin)
+                    goto _label_bad_callstack;
+
+                result.push_back(
+                    generate_callstack_info_with_ip(env->rt_codes + callstack.ret_ip, false));
+                base_callstackinfo_ptr = next_trace_place;
+            }
+            else if ((base_callstackinfo_ptr->type & (~1)) == value::valuetype::nativecallstack)
+            {
+                result.push_back(
+                    generate_callstack_info_with_ip(base_callstackinfo_ptr->native_function_addr, true));
+
+                goto _label_refind_next_callstack;
+            }
+            else
+            {
+            _label_bad_callstack:
+                result.push_back(callstack_info{
+                        "??",
+                        "<bad callstack>",
+                        0,
+                        0,
+                        false,
+                    });
+
+            _label_refind_next_callstack:
                 for (;;)
                 {
-                    base_callstackinfo_ptr++;
+                    ++base_callstackinfo_ptr;
                     if (base_callstackinfo_ptr <= stack_mem_begin)
                     {
-                        if (base_callstackinfo_ptr->type == value::valuetype::nativecallstack
-                            || base_callstackinfo_ptr->type == value::valuetype::callstack)
+                        auto ptr_value_type = base_callstackinfo_ptr->type & (~1);
+
+                        if (ptr_value_type == value::valuetype::nativecallstack
+                            || ptr_value_type == value::valuetype::callstack)
                             break;
                     }
                     else
                         break;
                 }
-            }
-            else
-            {
-                os << "??" << std::endl;
-                return;
-            }
-        }
-    }
-    std::vector<vmbase::callstack_info> vmbase::dump_call_stack_func_info(bool need_offset)const noexcept
-    {
-        _wo_vm_stack_guard vsg(this);
-
-        // TODO; Dump call stack without pdb
-        const program_debug_data_info::location* src_location_info = nullptr;
-        if (env->program_debug_info != nullptr)
-            src_location_info = &env->program_debug_info->get_src_location_by_runtime_ip(ip - (need_offset ? 1 : 0));
-        // NOTE: When vm running, rt_ip may point to:
-        // [ -- COMMAND 6bit --] [ - DR 2bit -] [ ----- OPNUM1 ------] [ ----- OPNUM2 ------]
-        //                                     ^1                     ^2                     ^3
-        // If rt_ip point to place 3, 'get_current_func_signature_by_runtime_ip' will get next command's debuginfo.
-        // So we do a move of 1BYTE here, for getting correct debuginfo.
-
-        std::vector<callstack_info> result;
-
-        size_t call_trace_count = 0;
-
-        if (src_location_info)
-            result.push_back(
-                callstack_info{
-                    env->program_debug_info->get_current_func_signature_by_runtime_ip(ip - (need_offset ? 1 : 0)),
-                    src_location_info->begin_row_no,
-                });
-        else
-            result.push_back(
-                callstack_info{
-                    "Extern function",
-                    0,
-                });
-
-        value* base_callstackinfo_ptr = (bp + 1);
-        while (base_callstackinfo_ptr <= this->stack_mem_begin)
-        {
-            ++call_trace_count;
-            if (base_callstackinfo_ptr->type == value::valuetype::callstack)
-            {
-                if (src_location_info)
-                    result.push_back(
-                        callstack_info{
-                            env->program_debug_info->get_current_func_signature_by_runtime_ip(env->rt_codes + base_callstackinfo_ptr->vmcallstack.ret_ip - (need_offset ? 1 : 0)),
-                            src_location_info->begin_row_no
-                        });
-                else
-                    result.push_back(
-                        callstack_info{
-                            "Extern function",
-                            0,
-                        });
-
-                base_callstackinfo_ptr = this->stack_mem_begin - base_callstackinfo_ptr->vmcallstack.bp;
-                base_callstackinfo_ptr++;
-            }
-            else
-            {
-                result.push_back(
-                    callstack_info{
-                        "Extern function",
-                        0,
-                    });
-                break;
             }
         }
         return result;
@@ -1022,7 +995,30 @@ namespace wo
         }
         return false;
     }
-    value* vmbase::co_pre_invoke(wo_int_t wo_func_addr, wo_int_t argc) noexcept
+
+    bool vmbase::assure_stack_size(wo_size_t assure_stack_size) noexcept 
+    {
+        if (sp - assure_stack_size < _self_stack_mem_buf)
+        {
+            size_t current_stack_size = stack_size;
+            if (current_stack_size <= assure_stack_size)
+                current_stack_size <<= 1;
+
+            bool r;
+            do
+            {
+                _wo_vm_stack_guard g(this);
+                r = _reallocate_stack_space(current_stack_size << 1);
+            } while (0);
+
+            if (!r)
+                wo_fail(WO_FAIL_STACKOVERFLOW, "Stack overflow.");
+            return true;
+        }
+        return false;
+    }
+
+    void vmbase::co_pre_invoke(wo_int_t wo_func_addr, wo_int_t argc) noexcept
     {
         wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
 
@@ -1030,6 +1026,7 @@ namespace wo
             wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
         else
         {
+            assure_stack_size(1);
             auto* return_sp = sp;
 
             (sp--)->set_native_callstack(ip);
@@ -1037,12 +1034,9 @@ namespace wo
             tc->set_integer(argc);
             er->set_integer(argc);
             bp = sp;
-
-            return return_sp;
         }
-        return nullptr;
     }
-    value* vmbase::co_pre_invoke(wo_handle_t ex_func_addr, wo_int_t argc)noexcept
+    void vmbase::co_pre_invoke(wo_handle_t ex_func_addr, wo_int_t argc)noexcept
     {
         wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
 
@@ -1050,6 +1044,7 @@ namespace wo
             wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
         else
         {
+            assure_stack_size(1);
             auto* return_sp = sp;
 
             (sp--)->set_native_callstack(ip);
@@ -1057,12 +1052,9 @@ namespace wo
             tc->set_integer(argc);
             er->set_integer(argc);
             bp = sp;
-
-            return return_sp;
         }
-        return nullptr;
     }
-    value* vmbase::co_pre_invoke(closure_t* wo_func_addr, wo_int_t argc)noexcept
+    void vmbase::co_pre_invoke(closure_t* wo_func_addr, wo_int_t argc)noexcept
     {
         wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
 
@@ -1072,32 +1064,21 @@ namespace wo
         {
             wo::gcbase::gc_read_guard rg1(wo_func_addr);
 
-            wo_integer_t vm_sfuncaddr = wo_func_addr->m_vm_func;
-            if (wo_func_addr->m_native_call)
-            {
-                // Current closure stores jit function, find vm func from jit-record;
-                vm_sfuncaddr = (wo_integer_t)env->_jit_functions.at((void*)wo_func_addr->m_native_func);
-            }
+            assure_stack_size((size_t)wo_func_addr->m_closure_args_count + 1);
 
-            if (vm_sfuncaddr == 0)
-                wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
-            else
-            {
-                auto* return_sp = sp;
+            auto* return_sp = sp;
 
-                for (auto idx = wo_func_addr->m_closure_args_count; idx > 0; --idx)
-                    (sp--)->set_val(&wo_func_addr->m_closure_args[idx - 1]);
+            for (auto idx = wo_func_addr->m_closure_args_count; idx > 0; --idx)
+                (sp--)->set_val(&wo_func_addr->m_closure_args[idx - 1]);
 
-                (sp--)->set_native_callstack(ip);
-                ip = env->rt_codes + vm_sfuncaddr;
-                tc->set_integer(argc);
-                er->set_integer(argc);
-                bp = sp;
-
-                return return_sp;
-            }
+            (sp--)->set_native_callstack(ip);
+            ip = wo_func_addr->m_native_call 
+                ? (const byte_t*)wo_func_addr ->m_native_func
+                : (const byte_t*)wo_func_addr->m_vm_func;
+            tc->set_integer(argc);
+            er->set_integer(argc);
+            bp = sp;
         }
-        return nullptr;
     }
     value* vmbase::invoke(wo_int_t wo_func_addr, wo_int_t argc)noexcept
     {
@@ -1107,6 +1088,7 @@ namespace wo
             wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
         else
         {
+            assure_stack_size(1);
             auto* return_ip = ip;
             auto return_sp_place = stack_mem_begin - sp;
             auto return_bp_place = stack_mem_begin - bp;
@@ -1137,6 +1119,7 @@ namespace wo
             wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
         else
         {
+            assure_stack_size(1);
             auto* return_ip = ip;
             auto return_sp_place = stack_mem_begin - sp;
             auto return_bp_place = stack_mem_begin - bp;
@@ -1153,6 +1136,13 @@ namespace wo
                     std::launder(reinterpret_cast<wo_value>(sp + 2))))
                 {
                 case wo_result_t::WO_API_RESYNC:
+                    // NOTE: WO_API_RESYNC returned by `wo_func_addr`(and it's a extern function)
+                    //  Only following cases happend:
+                    //  1) Stack reallocated.
+                    //  2) Aborted
+                    //  3) Yield
+                    //  For case 1) & 2), return immediately; in case 3), just like invoke std::yield,
+                    //  let interrupt stay at VM, let it handled outside.
                 case wo_result_t::WO_API_NORMAL:
                     break;
                 case wo_result_t::WO_API_SYNC:
@@ -1185,6 +1175,7 @@ namespace wo
                 wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
             else
             {
+                assure_stack_size((size_t)wo_func_closure->m_closure_args_count + 1);
                 auto* return_ip = ip;
 
                 // NOTE: No need to reduce expand arg count.
@@ -1206,6 +1197,13 @@ namespace wo
                             std::launder(reinterpret_cast<wo_value>(sp + 2))))
                         {
                         case wo_result_t::WO_API_RESYNC:
+                            // NOTE: WO_API_RESYNC returned by `wo_func_addr`(and it's a extern function)
+                            //  Only following cases happend:
+                            //  1) Stack reallocated.
+                            //  2) Aborted
+                            //  3) Yield
+                            //  For case 1) & 2), return immediately; in case 3), just like invoke std::yield,
+                            //  let interrupt stay at VM, let it handled outside.
                         case wo_result_t::WO_API_NORMAL:
                             break;
                         case wo_result_t::WO_API_SYNC:
@@ -1500,7 +1498,7 @@ namespace wo
                     vm->ip = rt_ip;
                     vm->sp = rt_sp;
                     vm->bp = rt_bp;
-                    
+
                     wo_fail(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
                 }
                 else
@@ -2213,7 +2211,7 @@ namespace wo
                         // 
                         // NOTE: Closure arguments should be poped by closure function it self.
                         //       Can use ret(n) to pop arguments when call.
-                        if (sp - opnum1->closure->m_closure_args_count - 1 < _self_stack_mem_buf)
+                        if (sp - opnum1->closure->m_closure_args_count < _self_stack_mem_buf)
                         {
                             rt_ip = rollback_rt_ip;
                             wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
@@ -2291,7 +2289,7 @@ namespace wo
                             {
                                 bp = stack_mem_begin - rt_bp;
 
-                                WO_VM_ASSERT(((bp + 1)->type & (~1))== value::valuetype::callstack,
+                                WO_VM_ASSERT(((bp + 1)->type & (~1)) == value::valuetype::callstack,
                                     "Found broken stack in 'call'.");
                                 value* stored_bp = stack_mem_begin - (++bp)->vmcallstack.bp;
                                 // Here to invoke jit closure, jit function cannot pop captured arguments,
@@ -2664,12 +2662,12 @@ namespace wo
                 auto unpack_argc_unsigned = WO_IPVAL_MOVE_4;
 
                 auto* new_sp = unpackargs_impl(
-                    this, 
-                    opnum1, 
-                    reinterpret_cast<int32_t&>(unpack_argc_unsigned), 
-                    tc, 
+                    this,
+                    opnum1,
+                    reinterpret_cast<int32_t&>(unpack_argc_unsigned),
+                    tc,
                     rt_ip,
-                    sp, 
+                    sp,
                     bp);
 
                 if (new_sp != nullptr)
@@ -2841,7 +2839,7 @@ namespace wo
                     bool r = _reallocate_stack_space(stack_size << 1);
 
                     wo_assure(clear_interrupt((vm_interrupt_type)(
-                        vm_interrupt_type::STACK_MODIFING_INTERRUPT 
+                        vm_interrupt_type::STACK_MODIFING_INTERRUPT
                         | vm_interrupt_type::STACK_OVERFLOW_INTERRUPT)));
 
                     if (!r)
@@ -2856,7 +2854,7 @@ namespace wo
                         shrink_stack_edge = VM_SHRINK_STACK_COUNT;
 
                     wo_assure(clear_interrupt((vm_interrupt_type)(
-                        vm_interrupt_type::STACK_MODIFING_INTERRUPT 
+                        vm_interrupt_type::STACK_MODIFING_INTERRUPT
                         | vm_interrupt_type::SHRINK_STACK_INTERRUPT)));
 
                 }

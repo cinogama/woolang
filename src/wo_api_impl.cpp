@@ -20,6 +20,7 @@
 
 #include <atomic>
 #include <iostream>
+#include <sstream>
 #include <cstdio>
 #include <cstdlib>
 #include <string>
@@ -449,12 +450,20 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
         {
             std::lock_guard g1(wo::vmbase::_alive_vm_list_mx);
 
+            std::stringstream not_closed_vm_call_stacks;
+
+            not_closed_vm_call_stacks << "Unclosed VM list:";
+
             size_t not_close_vm_count = 0;
             for (auto& alive_vms : wo::vmbase::_alive_vm_list)
             {
                 if (alive_vms->virtual_machine_type == wo::vmbase::vm_type::NORMAL)
+                {
                     not_close_vm_count++;
 
+                    not_closed_vm_call_stacks << std::endl << "<unclosed " << (void*)alive_vms << ">" << std::endl;
+                    alive_vms->dump_call_stack(32, true, not_closed_vm_call_stacks);
+                }
                 alive_vms->interrupt(wo::vmbase::ABORT_INTERRUPT);
             }
 
@@ -465,7 +474,9 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
                 if (not_close_vm_count != 0 && not_close_vm_count != non_close_vm_last_warning_vm_count)
                 {
                     non_close_vm_last_warning_vm_count = not_close_vm_count;
-                    wo_warning((std::to_string(not_close_vm_count)
+                    wo_warning((not_closed_vm_call_stacks.str() 
+                        + "\n"
+                        + std::to_string(not_close_vm_count)
                         + " vm(s) have not been closed, please check.").c_str());
                 }
             }
@@ -3010,40 +3021,17 @@ wo_value wo_register(wo_vm vm, wo_reg regid)
     return CS_VAL(WO_VM(vm)->register_mem_begin + regid);
 }
 
-wo_value wo_reserve_stack(wo_vm vm, wo_size_t stack_sz, wo_value* inout_args)
+wo_value wo_reserve_stack(wo_vm vm, wo_size_t stack_sz, wo_value* inout_args_maynull)
 {
     // Check stack size.
     wo::vmbase* vmbase = WO_VM(vm);
 
-    if (vmbase->sp - stack_sz < vmbase->_self_stack_mem_buf)
-    {
-        _wo_enter_gc_guard g(vm);
-        wo::_wo_vm_stack_guard g2(vmbase);
+    const size_t args_offset =
+        inout_args_maynull ? vmbase->stack_mem_begin - WO_VAL(*inout_args_maynull): 0;
 
-        const size_t args_offset = 
-            inout_args ? WO_VAL(*inout_args) - vmbase->stack_mem_begin : 0;
+    if (vmbase->assure_stack_size(stack_sz) && inout_args_maynull)
+        *inout_args_maynull = CS_VAL(vmbase->stack_mem_begin - args_offset);
 
-        while (vmbase->sp - stack_sz < vmbase->_self_stack_mem_buf)
-        {
-            // Stack is not enough for reserve.
-            if (!vmbase->_reallocate_stack_space(vmbase->stack_size << 1))
-                wo_fail(WO_FAIL_STACKOVERFLOW, "Stack overflow.");
-        }
-
-        if (vmbase->bp != vmbase->stack_mem_begin)
-        {
-            auto* current_call_base = vmbase->bp + 1;
-            wo_assert((current_call_base->type &(~1)) == wo::value::valuetype::callstack 
-                || (current_call_base->type & (~1)) == wo::value::valuetype::nativecallstack);
-
-            current_call_base->type = (wo::value::valuetype)(
-                current_call_base->type | wo::value::valuetype::stack_externed_flag);
-        }
-
-        if (inout_args)
-            *inout_args = CS_VAL(vmbase->stack_mem_begin + args_offset);
-    }
-    
     vmbase->sp -= stack_sz;
 
     return CS_VAL(vmbase->sp + 1);
@@ -3077,6 +3065,7 @@ wo_value wo_invoke_value(
     _wo_in_thread_vm_guard g(vm);
     _wo_enter_gc_guard g2(vm);
     _wo_reserved_stack_args_update_guard g3(vm, inout_args_maynull, inout_s_maynull);
+
     wo::value* valfunc = WO_VAL(vmfunc);
     wo_value result = nullptr;
     if (!vmfunc)
@@ -3092,29 +3081,31 @@ wo_value wo_invoke_value(
     return result;
 }
 
-wo_value wo_dispatch_rsfunc(wo_vm vm, wo_int_t vmfunc, wo_int_t argc)
+void wo_dispatch_rsfunc(wo_vm vm, wo_int_t vmfunc, wo_int_t argc, wo_value* inout_args_maynull, wo_value* inout_s_maynull)
 {
     _wo_in_thread_vm_guard g(vm);
     _wo_enter_gc_guard g2(vm);
+    _wo_reserved_stack_args_update_guard g3(vm, inout_args_maynull, inout_s_maynull);
 
     auto* vmm = WO_VM(vm);
 
     vmm->set_br_yieldable(true);
-    wo_value result = CS_VAL(vmm->co_pre_invoke(vmfunc, argc));
-    return result;
+    vmm->co_pre_invoke(vmfunc, argc);
 }
-wo_value wo_dispatch_exfunc(wo_vm vm, wo_handle_t exfunc, wo_int_t argc)
+void wo_dispatch_exfunc(
+    wo_vm vm, wo_handle_t exfunc, wo_int_t argc, wo_value* inout_args_maynull, wo_value* inout_s_maynull)
 {
     _wo_in_thread_vm_guard g(vm);
     _wo_enter_gc_guard g2(vm);
+    _wo_reserved_stack_args_update_guard g3(vm, inout_args_maynull, inout_s_maynull);
 
     auto* vmm = WO_VM(vm);
 
     vmm->set_br_yieldable(true);
-    wo_value result = CS_VAL(vmm->co_pre_invoke(exfunc, argc));
-    return result;
+    vmm->co_pre_invoke(exfunc, argc);
 }
-wo_value wo_dispatch_value(wo_vm vm, wo_value vmfunc, wo_int_t argc)
+void wo_dispatch_value(
+    wo_vm vm, wo_value vmfunc, wo_int_t argc, wo_value* inout_args_maynull, wo_value* inout_s_maynull)
 {
     switch (WO_VAL(vmfunc)->type)
     {
@@ -3122,29 +3113,36 @@ wo_value wo_dispatch_value(wo_vm vm, wo_value vmfunc, wo_int_t argc)
     {
         _wo_in_thread_vm_guard g(vm);
         _wo_enter_gc_guard g2(vm);
+        _wo_reserved_stack_args_update_guard g3(vm, inout_args_maynull, inout_s_maynull);
 
         auto* vmm = WO_VM(vm);
 
         vmm->set_br_yieldable(true);
-        return CS_VAL(vmm->co_pre_invoke(WO_VAL(vmfunc)->closure, argc));
+        vmm->co_pre_invoke(WO_VAL(vmfunc)->closure, argc);
         break;
     }
     case wo::value::valuetype::integer_type:
-        return wo_dispatch_rsfunc(vm, WO_VAL(vmfunc)->integer, argc);
+        wo_dispatch_rsfunc(
+            vm, WO_VAL(vmfunc)->integer, argc, inout_args_maynull, inout_s_maynull);
+        break;
     case wo::value::valuetype::handle_type:
-        return wo_dispatch_exfunc(vm, WO_VAL(vmfunc)->handle, argc);
+        wo_dispatch_exfunc(
+            vm, WO_VAL(vmfunc)->handle, argc, inout_args_maynull, inout_s_maynull);
+        break;
     default:
         wo_fail(WO_FAIL_TYPE_FAIL, "Cannot dispatch non-function value by 'wo_dispatch_closure'.");
     }
-    return nullptr;
 }
 
-wo_value wo_dispatch(wo_vm vm)
+wo_value wo_dispatch(
+    wo_vm vm, wo_value* inout_args_maynull, wo_value* inout_s_maynull)
 {
     _wo_in_thread_vm_guard g(vm);
     _wo_enter_gc_guard g2(vm);
+    _wo_reserved_stack_args_update_guard g3(vm, inout_args_maynull, inout_s_maynull);
 
     auto* vmm = WO_VM(vm);
+    wo_assert(vmm->get_br_yieldable());
 
     if (vmm->env)
     {
@@ -3156,6 +3154,16 @@ wo_value wo_dispatch(wo_vm vm)
         switch (dispatch_result)
         {
         case wo_result_t::WO_API_RESYNC:
+            // NOTE: WO_API_RESYNC returned by `wo_func_addr`(and it's a extern function)
+            //  Only following cases happend:
+            //  1) Stack reallocated.
+            //  2) Aborted
+            //  3) Yield
+            //  For case 1) & 2), return immediately; for 3) we should clean it and mark 
+            //  the VM's yield flag.
+            if (vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::BR_YIELD_INTERRUPT))
+                vmm->mark_br_yield();
+            break;
         case wo_result_t::WO_API_NORMAL:
             break;
         case wo_result_t::WO_API_SYNC:
@@ -3171,6 +3179,8 @@ wo_value wo_dispatch(wo_vm vm)
         else
         {
             vmm->sp += arg_count;
+            vmm->set_br_yieldable(false);
+
             if (!vmm->is_aborted())
                 return CS_VAL(vmm->cr);
         }

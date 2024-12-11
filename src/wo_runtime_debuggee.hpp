@@ -1225,7 +1225,7 @@ thread          vm              <id>          Continue and break at specified vm
                     if (current_time > profiler_last_sampling_times[vmm] + sampling_interval)
                     {
                         profiler_last_sampling_times[vmm] = current_time + sampling_interval;
-                        auto&& calls = vmm->dump_call_stack_func_info();
+                        auto&& calls = vmm->dump_call_stack_func_info(SIZE_MAX, true, nullptr);
 
                         if (calls.empty() == false)
                         {

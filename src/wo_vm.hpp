@@ -173,7 +173,10 @@ namespace wo
         struct callstack_info
         {
             std::string m_func_name;
+            std::string m_file_path;
             size_t      m_row;
+            size_t      m_col;
+            bool        m_is_extern;
         };
     public:
         inline static constexpr size_t VM_DEFAULT_STACK_SIZE = 128;
@@ -294,12 +297,13 @@ namespace wo
         vmbase* make_machine(size_t stack_sz, vm_type type) const noexcept;
         void dump_program_bin(size_t begin = 0, size_t end = SIZE_MAX, std::ostream& os = std::cout) const noexcept;
         void dump_call_stack(size_t max_count = 32, bool need_offset = true, std::ostream& os = std::cout)const noexcept;
-        std::vector<callstack_info> dump_call_stack_func_info(bool need_offset = true)const noexcept;
+        std::vector<callstack_info> dump_call_stack_func_info(size_t max_count, bool need_offset, bool* out_finished)const noexcept;
         size_t callstack_layer() const noexcept;
         bool gc_checkpoint() noexcept;
-        value* co_pre_invoke(wo_int_t wo_func_addr, wo_int_t argc) noexcept;
-        value* co_pre_invoke(wo_handle_t ex_func_addr, wo_int_t argc) noexcept;
-        value* co_pre_invoke(closure_t* wo_func_addr, wo_int_t argc) noexcept;
+        bool assure_stack_size(wo_size_t assure_stack_size) noexcept;
+        void co_pre_invoke(wo_int_t wo_func_addr, wo_int_t argc) noexcept;
+        void co_pre_invoke(wo_handle_t ex_func_addr, wo_int_t argc) noexcept;
+        void co_pre_invoke(closure_t* wo_func_addr, wo_int_t argc) noexcept;
         value* invoke(wo_int_t wo_func_addr, wo_int_t argc) noexcept;
         value* invoke(wo_handle_t wo_func_addr, wo_int_t argc) noexcept;
         value* invoke(closure_t* wo_func_closure, wo_int_t argc) noexcept;
