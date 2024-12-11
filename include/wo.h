@@ -462,17 +462,19 @@ WO_API wo_value     wo_register(wo_vm vm, wo_reg regid);
 //          wo_value s = wo_reserve_stack(vm, 1, &args);
 //          ...
 // 2) Donot invoke `wo_reserve_stack` multiple times in one external function.
-WO_API wo_value     wo_reserve_stack(wo_vm vm, wo_size_t sz, wo_value* inout_args);
+// 3) When reserving for another vm (not current vm), inout_args can use nullptr;
+WO_API wo_value     wo_reserve_stack(wo_vm vm, wo_size_t sz, wo_value* inout_args_maynull);
 WO_API void         wo_pop_stack(wo_vm vm, wo_size_t sz);
 
-// Woolang 1.14: All invoke function will not clean stack. If you want to clean
-//  stack, please use `wo_pop_stack`.
+// Woolang 1.14: All invoke & dispatch function will not clean stack. 
 // NOTE: vm's stack size might changed during `wo_invoke_...`, because of this,
 //  the parameters of external functions themselves may also need to be updated.
 //  Please pass in the address of ARGS & RESERVED STACK through the parameter 
 //  inout_args and inout_s.
 // Best practices:
 // 1) Use data from updated args & reserved stack, avoid using old pointers.
+// 2) When invoke another vm (not current vm), inout_args_maynull & inout_s_maynull
+//  can use nullptr;
 WO_API wo_value     wo_invoke_rsfunc(
     wo_vm vm, wo_int_t rsfunc, wo_int_t argc, wo_value* inout_args_maynull, wo_value* inout_s_maynull);
 WO_API wo_value     wo_invoke_exfunc(
@@ -480,13 +482,18 @@ WO_API wo_value     wo_invoke_exfunc(
 WO_API wo_value     wo_invoke_value(
     wo_vm vm, wo_value vmfunc, wo_int_t argc, wo_value* inout_args_maynull, wo_value* inout_s_maynull);
 
-WO_API wo_value     wo_dispatch_rsfunc(wo_vm vm, wo_int_t rsfunc, wo_int_t argc);
-WO_API wo_value     wo_dispatch_exfunc(wo_vm vm, wo_handle_t exfunc, wo_int_t argc);
-WO_API wo_value     wo_dispatch_value(wo_vm vm, wo_value vmfunc, wo_int_t argc);
+WO_API void wo_dispatch_rsfunc(
+    wo_vm vm, wo_int_t rsfunc, wo_int_t argc, wo_value* inout_args_maynull, wo_value* inout_s_maynull);
+WO_API void wo_dispatch_exfunc(
+    wo_vm vm, wo_handle_t exfunc, wo_int_t argc, wo_value* inout_args_maynull, wo_value* inout_s_maynull);
+WO_API void wo_dispatch_value(
+    wo_vm vm, wo_value vmfunc, wo_int_t argc, wo_value* inout_args_maynull, wo_value* inout_s_maynull);
 
-#define WO_HAPPEND_ERR ((wo_value)NULL)
+#define WO_ABORTED ((wo_value)NULL)
 #define WO_CONTINUE    ((wo_value)(void*)-1)
-WO_API wo_value     wo_dispatch(wo_vm vm);
+
+WO_API wo_value     wo_dispatch(
+    wo_vm vm, wo_value* inout_args_maynull, wo_value* inout_s_maynull);
 
 WO_API void         wo_gc_checkpoint(wo_vm vm);
 WO_API void         wo_gc_record_memory(wo_value val);

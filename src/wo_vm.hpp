@@ -300,9 +300,10 @@ namespace wo
         std::vector<callstack_info> dump_call_stack_func_info(size_t max_count, bool need_offset, bool* out_finished)const noexcept;
         size_t callstack_layer() const noexcept;
         bool gc_checkpoint() noexcept;
-        value* co_pre_invoke(wo_int_t wo_func_addr, wo_int_t argc) noexcept;
-        value* co_pre_invoke(wo_handle_t ex_func_addr, wo_int_t argc) noexcept;
-        value* co_pre_invoke(closure_t* wo_func_addr, wo_int_t argc) noexcept;
+        bool assure_stack_size(wo_size_t assure_stack_size) noexcept;
+        void co_pre_invoke(wo_int_t wo_func_addr, wo_int_t argc) noexcept;
+        void co_pre_invoke(wo_handle_t ex_func_addr, wo_int_t argc) noexcept;
+        void co_pre_invoke(closure_t* wo_func_addr, wo_int_t argc) noexcept;
         value* invoke(wo_int_t wo_func_addr, wo_int_t argc) noexcept;
         value* invoke(wo_handle_t wo_func_addr, wo_int_t argc) noexcept;
         value* invoke(closure_t* wo_func_closure, wo_int_t argc) noexcept;

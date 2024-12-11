@@ -995,7 +995,30 @@ namespace wo
         }
         return false;
     }
-    value* vmbase::co_pre_invoke(wo_int_t wo_func_addr, wo_int_t argc) noexcept
+
+    bool vmbase::assure_stack_size(wo_size_t assure_stack_size) noexcept 
+    {
+        if (sp - assure_stack_size < _self_stack_mem_buf)
+        {
+            size_t current_stack_size = stack_size;
+            if (current_stack_size <= assure_stack_size)
+                current_stack_size <<= 1;
+
+            bool r;
+            do
+            {
+                _wo_vm_stack_guard g(this);
+                r = _reallocate_stack_space(current_stack_size << 1);
+            } while (0);
+
+            if (!r)
+                wo_fail(WO_FAIL_STACKOVERFLOW, "Stack overflow.");
+            return true;
+        }
+        return false;
+    }
+
+    void vmbase::co_pre_invoke(wo_int_t wo_func_addr, wo_int_t argc) noexcept
     {
         wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
 
@@ -1003,6 +1026,7 @@ namespace wo
             wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
         else
         {
+            assure_stack_size(1);
             auto* return_sp = sp;
 
             (sp--)->set_native_callstack(ip);
@@ -1010,12 +1034,9 @@ namespace wo
             tc->set_integer(argc);
             er->set_integer(argc);
             bp = sp;
-
-            return return_sp;
         }
-        return nullptr;
     }
-    value* vmbase::co_pre_invoke(wo_handle_t ex_func_addr, wo_int_t argc)noexcept
+    void vmbase::co_pre_invoke(wo_handle_t ex_func_addr, wo_int_t argc)noexcept
     {
         wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
 
@@ -1023,6 +1044,7 @@ namespace wo
             wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
         else
         {
+            assure_stack_size(1);
             auto* return_sp = sp;
 
             (sp--)->set_native_callstack(ip);
@@ -1030,12 +1052,9 @@ namespace wo
             tc->set_integer(argc);
             er->set_integer(argc);
             bp = sp;
-
-            return return_sp;
         }
-        return nullptr;
     }
-    value* vmbase::co_pre_invoke(closure_t* wo_func_addr, wo_int_t argc)noexcept
+    void vmbase::co_pre_invoke(closure_t* wo_func_addr, wo_int_t argc)noexcept
     {
         wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
 
@@ -1045,32 +1064,21 @@ namespace wo
         {
             wo::gcbase::gc_read_guard rg1(wo_func_addr);
 
-            wo_integer_t vm_sfuncaddr = wo_func_addr->m_vm_func;
-            if (wo_func_addr->m_native_call)
-            {
-                // Current closure stores jit function, find vm func from jit-record;
-                vm_sfuncaddr = (wo_integer_t)env->_jit_functions.at((void*)wo_func_addr->m_native_func);
-            }
+            assure_stack_size((size_t)wo_func_addr->m_closure_args_count + 1);
 
-            if (vm_sfuncaddr == 0)
-                wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
-            else
-            {
-                auto* return_sp = sp;
+            auto* return_sp = sp;
 
-                for (auto idx = wo_func_addr->m_closure_args_count; idx > 0; --idx)
-                    (sp--)->set_val(&wo_func_addr->m_closure_args[idx - 1]);
+            for (auto idx = wo_func_addr->m_closure_args_count; idx > 0; --idx)
+                (sp--)->set_val(&wo_func_addr->m_closure_args[idx - 1]);
 
-                (sp--)->set_native_callstack(ip);
-                ip = env->rt_codes + vm_sfuncaddr;
-                tc->set_integer(argc);
-                er->set_integer(argc);
-                bp = sp;
-
-                return return_sp;
-            }
+            (sp--)->set_native_callstack(ip);
+            ip = wo_func_addr->m_native_call 
+                ? (const byte_t*)wo_func_addr ->m_native_func
+                : (const byte_t*)wo_func_addr->m_vm_func;
+            tc->set_integer(argc);
+            er->set_integer(argc);
+            bp = sp;
         }
-        return nullptr;
     }
     value* vmbase::invoke(wo_int_t wo_func_addr, wo_int_t argc)noexcept
     {
@@ -1080,6 +1088,7 @@ namespace wo
             wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
         else
         {
+            assure_stack_size(1);
             auto* return_ip = ip;
             auto return_sp_place = stack_mem_begin - sp;
             auto return_bp_place = stack_mem_begin - bp;
@@ -1110,6 +1119,7 @@ namespace wo
             wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
         else
         {
+            assure_stack_size(1);
             auto* return_ip = ip;
             auto return_sp_place = stack_mem_begin - sp;
             auto return_bp_place = stack_mem_begin - bp;
@@ -1126,6 +1136,13 @@ namespace wo
                     std::launder(reinterpret_cast<wo_value>(sp + 2))))
                 {
                 case wo_result_t::WO_API_RESYNC:
+                    // NOTE: WO_API_RESYNC returned by `wo_func_addr`(and it's a extern function)
+                    //  Only following cases happend:
+                    //  1) Stack reallocated.
+                    //  2) Aborted
+                    //  3) Yield
+                    //  For case 1) & 2), return immediately; in case 3), just like invoke std::yield,
+                    //  let interrupt stay at VM, let it handled outside.
                 case wo_result_t::WO_API_NORMAL:
                     break;
                 case wo_result_t::WO_API_SYNC:
@@ -1158,6 +1175,7 @@ namespace wo
                 wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
             else
             {
+                assure_stack_size((size_t)wo_func_closure->m_closure_args_count + 1);
                 auto* return_ip = ip;
 
                 // NOTE: No need to reduce expand arg count.
@@ -1179,6 +1197,13 @@ namespace wo
                             std::launder(reinterpret_cast<wo_value>(sp + 2))))
                         {
                         case wo_result_t::WO_API_RESYNC:
+                            // NOTE: WO_API_RESYNC returned by `wo_func_addr`(and it's a extern function)
+                            //  Only following cases happend:
+                            //  1) Stack reallocated.
+                            //  2) Aborted
+                            //  3) Yield
+                            //  For case 1) & 2), return immediately; in case 3), just like invoke std::yield,
+                            //  let interrupt stay at VM, let it handled outside.
                         case wo_result_t::WO_API_NORMAL:
                             break;
                         case wo_result_t::WO_API_SYNC:
@@ -2186,7 +2211,7 @@ namespace wo
                         // 
                         // NOTE: Closure arguments should be poped by closure function it self.
                         //       Can use ret(n) to pop arguments when call.
-                        if (sp - opnum1->closure->m_closure_args_count - 1 < _self_stack_mem_buf)
+                        if (sp - opnum1->closure->m_closure_args_count < _self_stack_mem_buf)
                         {
                             rt_ip = rollback_rt_ip;
                             wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));

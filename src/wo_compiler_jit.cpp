@@ -682,19 +682,18 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             switch (target_function->type)
             {
             case value::valuetype::handle_type:
-                if (rt_sp > vm->_self_stack_mem_buf)
-                    return native_do_calln_vmfunc(vm, (wo_extern_native_func_t)(void*)target_function->handle, retip, rt_sp, rt_bp);
-                break;
+                if (rt_sp <= vm->_self_stack_mem_buf)
+                    break;
+                return native_do_calln_vmfunc(
+                    vm, (wo_extern_native_func_t)(void*)target_function->handle, retip, rt_sp, rt_bp);
             case value::valuetype::closure_type:
             {
                 wo_assert(target_function->closure->m_native_call);
-                if (rt_sp - target_function->closure->m_closure_args_count - 1 > vm->_self_stack_mem_buf)
-                {
-                    for (auto idx = target_function->closure->m_closure_args_count; idx > 0; --idx)
-                        (rt_sp--)->set_val(&target_function->closure->m_closure_args[idx - 1]);
-                    return native_do_calln_vmfunc(vm, target_function->closure->m_native_func, retip, rt_sp, rt_bp);
-                }
-                break;
+                if (rt_sp - target_function->closure->m_closure_args_count - 1 < vm->_self_stack_mem_buf)
+                    break;
+                for (auto idx = target_function->closure->m_closure_args_count; idx > 0; --idx)
+                    (rt_sp--)->set_val(&target_function->closure->m_closure_args[idx - 1]);
+                return native_do_calln_vmfunc(vm, target_function->closure->m_native_func, retip, rt_sp, rt_bp);
             }
             default:
                 wo_fail(WO_FAIL_CALL_FAIL, "Unexpected function type when invoked in jit.");
@@ -1516,22 +1515,24 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             {
                 uint16_t psh_repeat = WO_IPVAL_MOVE_2;
                 if (psh_repeat > 0)
+                {
                     wo_assure(!ctx->c.sub(ctx->_vmssp, asmjit::Imm(psh_repeat * sizeof(value))));
 
-                // NOTE: If there is just enough stack space here, the Stackoverflow interrupt 
-                // will still be triggered, which is planned (purely for performance reasons)
-                // 
-                // SEE: wo_vm.cpp: impl for pshn.
-                wo_assure(!ctx->c.cmp(ctx->_vmssp, ctx->_vmshead));
-                wo_assure(!ctx->c.ja(stackenough_label));
+                    // NOTE: If there is just enough stack space here, the Stackoverflow interrupt 
+                    // will still be triggered, which is planned (purely for performance reasons)
+                    // 
+                    // SEE: wo_vm.cpp: impl for pshn.
+                    wo_assure(!ctx->c.cmp(ctx->_vmssp, ctx->_vmshead));
+                    wo_assure(!ctx->c.jae(stackenough_label));
 
-                wo_assure(!ctx->c.add(ctx->_vmssp, asmjit::Imm(psh_repeat * sizeof(value))));
-                ir_make_interrupt(ctx, wo::vmbase::vm_interrupt_type::STACK_OVERFLOW_INTERRUPT);
-                ir_make_checkpoint(ctx, rollback_ip);
+                    wo_assure(!ctx->c.add(ctx->_vmssp, asmjit::Imm(psh_repeat * sizeof(value))));
+                    ir_make_interrupt(ctx, wo::vmbase::vm_interrupt_type::STACK_OVERFLOW_INTERRUPT);
+                    ir_make_checkpoint(ctx, rollback_ip);
 
-                wo_assure(!ctx->c.int3()); // Cannot be here.
+                    wo_assure(!ctx->c.int3()); // Cannot be here.
 
-                wo_assure(!ctx->c.bind(stackenough_label));
+                    wo_assure(!ctx->c.bind(stackenough_label));
+                }
             }
             return true;
         }
