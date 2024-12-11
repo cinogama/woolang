@@ -158,6 +158,8 @@ step            s                             Execute next line of src, will ste
 stepir          si                            Execute next command.
 
 thread          vm              <id>          Continue and break at specified vm.
+whereis                         <ipoffset>    Find the function that the ipoffset
+                                            belong to.
 )"
 << wo_endl;
         }
@@ -520,7 +522,7 @@ thread          vm              <id>          Continue and break at specified vm
                         while (framelayer--)
                         {
                             auto tmp_sp = current_frame_bp + 1;
-                            if (tmp_sp->type == value::valuetype::callstack)
+                            if ((tmp_sp->type & (~1)) == value::valuetype::callstack)
                             {
                                 current_frame++;
                                 current_frame_sp = tmp_sp;
@@ -929,6 +931,25 @@ thread          vm              <id>          Continue and break at specified vm
                     else
                     {
                         display_variable(vmm, offset);
+                    }
+                }
+                else if (main_command == "whereis")
+                {
+                    size_t offset;
+                    if (!need_possiable_input(inputbuf, offset))
+                        printf(ANSI_HIR "Need to specify ipoffset for command 'whereis'.\n" ANSI_RST);
+                    else
+                    {
+                        if (vmm->env->program_debug_info  == nullptr)
+                            printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
+                        else
+                        {
+                            std::string func_name = vmm->env->program_debug_info
+                                ->get_current_func_signature_by_runtime_ip(vmm->codes + offset);
+
+                            printf("The ip offset %zu is in function: `" ANSI_HIG "%s" ANSI_RST "`\n",
+                                offset, func_name.c_str());
+                        }
                     }
                 }
                 else if (main_command == "l" || main_command == "list")
