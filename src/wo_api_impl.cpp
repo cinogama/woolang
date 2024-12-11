@@ -648,11 +648,16 @@ struct _wo_reserved_stack_args_update_guard
             if (m_vm->bp != m_vm->stack_mem_begin)
             {
                 auto* current_call_base = m_vm->bp + 1;
-                wo_assert((current_call_base->type & (~1)) == wo::value::valuetype::callstack
-                    || (current_call_base->type & (~1)) == wo::value::valuetype::nativecallstack);
 
-                current_call_base->type = (wo::value::valuetype)(
-                    current_call_base->type | wo::value::valuetype::stack_externed_flag);
+                // NOTE: If bp + 1 is not callstack:
+                //  1) It has been marked `stack_externed_flag`
+                //  2) The VM has already returned from last function call.
+                if (current_call_base->type == wo::value::valuetype::callstack
+                    || current_call_base->type == wo::value::valuetype::nativecallstack)
+                {
+                    current_call_base->type = (wo::value::valuetype)(
+                        current_call_base->type | wo::value::valuetype::stack_externed_flag);
+                }
             }
         }
     }
@@ -970,7 +975,7 @@ void wo_set_union(wo_value value, wo_vm vm, wo_integer_t id, wo_value value_may_
         target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     }
 
-    structptr->m_values[0].set_integer(0);
+    structptr->m_values[0].set_integer(id);
     
     wo_assert(
         structptr->m_values[1].type == wo::value::valuetype::invalid && 
@@ -3030,7 +3035,23 @@ wo_value wo_reserve_stack(wo_vm vm, wo_size_t stack_sz, wo_value* inout_args_may
         inout_args_maynull ? vmbase->stack_mem_begin - WO_VAL(*inout_args_maynull): 0;
 
     if (vmbase->assure_stack_size(stack_sz) && inout_args_maynull)
+    {
         *inout_args_maynull = CS_VAL(vmbase->stack_mem_begin - args_offset);
+        if (vmbase->bp != vmbase->stack_mem_begin)
+        {
+            auto* current_call_base = vmbase->bp + 1;
+
+            // NOTE: If bp + 1 is not callstack:
+            //  1) It has been marked `stack_externed_flag`
+            //  2) The VM has already returned from last function call.
+            if (current_call_base->type == wo::value::valuetype::callstack
+                || current_call_base->type == wo::value::valuetype::nativecallstack)
+            {
+                current_call_base->type = (wo::value::valuetype)(
+                    current_call_base->type | wo::value::valuetype::stack_externed_flag);
+            }
+        }
+    }
 
     vmbase->sp -= stack_sz;
 
@@ -3147,7 +3168,7 @@ wo_value wo_dispatch(
     if (vmm->env)
     {
         wo_assert(vmm->tc->type == wo::value::valuetype::integer_type);
-        auto arg_count = vmm->er->integer;
+        auto dispatch_context = vmm->er->vmcallstack;
 
         auto dispatch_result = vmm->run();
         
@@ -3173,12 +3194,14 @@ wo_value wo_dispatch(
 
         if (vmm->get_and_clear_br_yield_flag())
         {
-            vmm->er->set_integer(arg_count);
+            vmm->er->set_callstack(dispatch_context.ret_ip, dispatch_context.bp);
             return WO_CONTINUE;
         }
         else
         {
-            vmm->sp += arg_count;
+            vmm->sp += dispatch_context.ret_ip; // ret_ip stores argc
+            vmm->bp = vmm->stack_mem_begin - dispatch_context.bp;
+
             vmm->set_br_yieldable(false);
 
             if (!vmm->is_aborted())

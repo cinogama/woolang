@@ -177,7 +177,13 @@ namespace wo
             native_function_addr = ipplace;
             return this;
         }
-
+        inline value* set_callstack(uint32_t ip, uint32_t bp)
+        {
+            type = valuetype::callstack;
+            vmcallstack.ret_ip = ip;
+            vmcallstack.bp = bp;
+            return this;
+        }
         template<valuetype ty, typename T>
         inline value* set_gcunit(T* unit)
         {

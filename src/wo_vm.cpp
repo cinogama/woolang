@@ -936,8 +936,8 @@ namespace wo
                     {
                         auto ptr_value_type = base_callstackinfo_ptr->type & (~1);
 
-                        if (ptr_value_type == value::valuetype::nativecallstack
-                            || ptr_value_type == value::valuetype::callstack)
+                        if ((ptr_value_type & (~1)) == value::valuetype::nativecallstack
+                            || (ptr_value_type & (~1)) == value::valuetype::callstack)
                             break;
                     }
                     else
@@ -963,9 +963,8 @@ namespace wo
         while (base_callstackinfo_ptr <= this->stack_mem_begin)
         {
             ++call_trace_count;
-            if (base_callstackinfo_ptr->type == value::valuetype::callstack)
+            if ((base_callstackinfo_ptr->type & (~1)) == value::valuetype::callstack)
             {
-
                 base_callstackinfo_ptr = this->stack_mem_begin - base_callstackinfo_ptr->vmcallstack.bp;
                 base_callstackinfo_ptr++;
             }
@@ -1032,7 +1031,7 @@ namespace wo
             (sp--)->set_native_callstack(ip);
             ip = env->rt_codes + wo_func_addr;
             tc->set_integer(argc);
-            er->set_integer(argc);
+            er->set_callstack(argc, (uint32_t)(stack_mem_begin - bp));
             bp = sp;
         }
     }
@@ -1050,7 +1049,7 @@ namespace wo
             (sp--)->set_native_callstack(ip);
             ip = (const byte_t*)ex_func_addr;
             tc->set_integer(argc);
-            er->set_integer(argc);
+            er->set_callstack(argc, (uint32_t)(stack_mem_begin - bp));
             bp = sp;
         }
     }
@@ -1074,9 +1073,9 @@ namespace wo
             (sp--)->set_native_callstack(ip);
             ip = wo_func_addr->m_native_call 
                 ? (const byte_t*)wo_func_addr ->m_native_func
-                : (const byte_t*)wo_func_addr->m_vm_func;
+                : env->rt_codes + wo_func_addr->m_vm_func;
             tc->set_integer(argc);
-            er->set_integer(argc);
+            er->set_callstack(argc, (uint32_t)(stack_mem_begin - bp));
             bp = sp;
         }
     }
@@ -2175,7 +2174,7 @@ namespace wo
 
                 uint16_t pop_count = dr ? WO_IPVAL_MOVE_2 : 0;
 
-                if ((++bp)->type == value::valuetype::nativecallstack)
+                if (((++bp)->type & (~1)) == value::valuetype::nativecallstack)
                 {
                     sp = bp;
                     sp += pop_count;
@@ -2185,10 +2184,14 @@ namespace wo
                 }
 
                 value* stored_bp = stack_mem_begin - bp->vmcallstack.bp;
+                wo_assert(stored_bp <= stack_mem_begin && stored_bp > _self_stack_mem_buf);
+
                 rt_ip = rt_codes + bp->vmcallstack.ret_ip;
                 sp = bp;
                 bp = stored_bp;
 
+                // DEBUG
+                
                 sp += pop_count;
 
                 // TODO: Panic if rt_ip is outof range.
