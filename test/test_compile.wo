@@ -9,7 +9,7 @@ namespace test_compile
 {
     func compile_program(src: string)
     {
-        return vm::create("test_compile/test_tmp_script.wo", src);
+        return vm::create("test_compile/test_tmp_script.wo", src: buffer);
     }
     func assure_compile_success(src: string)
     {

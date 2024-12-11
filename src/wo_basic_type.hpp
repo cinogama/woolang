@@ -58,28 +58,31 @@ namespace wo
         /*
         *
         */
-        enum class valuetype : uint8_t
+        enum valuetype : uint8_t
         {
-            invalid = 0x0,
+            invalid         = WO_INVALID_TYPE,
 
-            integer_type,
-            real_type,
-            handle_type,
-            bool_type,
+            need_gc_flag    = WO_NEED_GC_FLAG,
+            stack_externed_flag  
+                            = WO_STACK_EXTERNED_FLAG,
 
-            callstack,
-            nativecallstack,
+            integer_type    = WO_INTEGER_TYPE,
+            real_type       = WO_REAL_TYPE,
+            handle_type     = WO_HANDLE_TYPE,
+            bool_type       = WO_BOOL_TYPE,
 
-            need_gc = 0xF0,
-            string_type,
-            dict_type,
-            array_type,
-            gchandle_type,
-            closure_type,
-            struct_type,
+            callstack       = WO_CALLSTACK_TYPE,
+            nativecallstack = WO_NATIVE_CALLSTACK_TYPE,
+
+            string_type     = WO_STRING_TYPE,
+            dict_type       = WO_MAPPING_TYPE,
+            array_type      = WO_ARRAY_TYPE,
+            gchandle_type   = WO_GCHANDLE_TYPE,
+            closure_type    = WO_CLOSURE_TYPE,
+            struct_type     = WO_STRUCT_TYPE,
         };
 
-        struct callstack
+        struct callstack_t
         {
             uint32_t bp;
             uint32_t ret_ip;
@@ -99,7 +102,7 @@ namespace wo
             closure_t* closure;
             struct_t* structs;
 
-            callstack vmcallstack;
+            callstack_t vmcallstack;
             const byte_t* native_function_addr;
 
             // std::atomic<gcbase*> atomic_gcunit_ptr;
@@ -178,7 +181,7 @@ namespace wo
         template<valuetype ty, typename T>
         inline value* set_gcunit(T* unit)
         {
-            static_assert((uint8_t)ty & (uint8_t)valuetype::need_gc);
+            static_assert(ty & valuetype::need_gc_flag);
 
             type = ty;
             if constexpr (sizeof(gcbase*) < sizeof(wo_handle_t))
@@ -203,14 +206,14 @@ namespace wo
         //          after get_gcunit_and_attrib_ref.
         inline gcbase* get_gcunit_and_attrib_ref(gcbase::unit_attrib** attrib) const
         {
-            if ((uint8_t)type & (uint8_t)valuetype::need_gc)
+            if (type & valuetype::need_gc_flag)
                 return std::launder(reinterpret_cast<gcbase*>(
                     womem_verify(gcunit, std::launder(reinterpret_cast<womem_attrib_t**>(attrib)))));
             return nullptr;
         }
         inline bool is_gcunit() const
         {
-            return (uint8_t)type & (uint8_t)valuetype::need_gc;
+            return type & valuetype::need_gc_flag;
         }
         inline value* set_val(const value* _val)
         {
@@ -250,6 +253,7 @@ namespace wo
     static_assert(std::atomic<gcbase*>::is_always_lock_free);
     static_assert(sizeof(std::atomic<byte_t>) == sizeof(byte_t));
     static_assert(std::atomic<byte_t>::is_always_lock_free);
+
     using wo_extern_native_func_t = wo_native_func_t;
 
     inline bool value_ptr_compare::operator()(const value* lhs, const value* rhs) const
@@ -281,21 +285,6 @@ namespace wo
 
         return (size_t)val.handle;
     }
-
-    static_assert((int)value::valuetype::invalid == WO_INVALID_TYPE);
-    static_assert((int)value::valuetype::integer_type == WO_INTEGER_TYPE);
-    static_assert((int)value::valuetype::real_type == WO_REAL_TYPE);
-    static_assert((int)value::valuetype::handle_type == WO_HANDLE_TYPE);
-    static_assert((int)value::valuetype::bool_type == WO_BOOL_TYPE);
-    static_assert((int)value::valuetype::callstack == WO_CALLSTACK_TYPE);
-    static_assert((int)value::valuetype::nativecallstack == WO_NATIVE_CALLSTACK_TYPE);
-    static_assert((int)value::valuetype::need_gc == WO_NEED_GC_FLAG);
-    static_assert((int)value::valuetype::string_type == WO_STRING_TYPE);
-    static_assert((int)value::valuetype::dict_type == WO_MAPPING_TYPE);
-    static_assert((int)value::valuetype::array_type == WO_ARRAY_TYPE);
-    static_assert((int)value::valuetype::gchandle_type == WO_GCHANDLE_TYPE);
-    static_assert((int)value::valuetype::closure_type == WO_CLOSURE_TYPE);
-    static_assert((int)value::valuetype::struct_type == WO_STRUCT_TYPE);
 
     // optional_value used for store 1 value with a id(used for select or else)
     struct struct_values

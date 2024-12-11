@@ -200,8 +200,12 @@ namespace wo
                         next_file_colno = after_pick_next_file_colno;
                     }
 
-                    wo_push_pointer(fnd->second->_macro_action_vm, this);
-                    wo_value result = wo_invoke_rsfunc(fnd->second->_macro_action_vm, script_func, 1);
+                    wo_value s = wo_reserve_stack(fnd->second->_macro_action_vm, 1, nullptr);
+                    wo_set_pointer(s, this);
+                    wo_value result = wo_invoke_rsfunc(
+                        fnd->second->_macro_action_vm, script_func, 1, nullptr, &s);
+
+                    wo_pop_stack(fnd->second->_macro_action_vm, 1);
 
                     if (result == nullptr)
                         lex_error(wo::lexer::errorlevel::error, WO_ERR_FAILED_TO_RUN_MACRO_CONTROLOR,

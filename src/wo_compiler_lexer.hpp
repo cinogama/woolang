@@ -482,6 +482,12 @@ namespace wo
             }
             return towupper((wchar_t)ch) - L'A' + 10;
         }
+        static int lex_octtonum(int ch)
+        {
+            wo_assert(lex_isodigit(ch));
+
+            return (wchar_t)ch - L'0';
+        }
 
     public:
         lexer(const lexer&) = delete;
