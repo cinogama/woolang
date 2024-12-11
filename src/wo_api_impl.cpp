@@ -629,10 +629,10 @@ struct _wo_reserved_stack_args_update_guard
     {
         m_origin_stack_begin = m_vm->stack_mem_begin;
         if (m_rs != nullptr)
-            m_rs_offset = WO_VAL(m_rs) - m_origin_stack_begin;
+            m_rs_offset = m_origin_stack_begin - WO_VAL(m_rs);
 
         if (m_args != nullptr)
-            m_args_offset = WO_VAL(m_args) - m_origin_stack_begin;     
+            m_args_offset = m_origin_stack_begin - WO_VAL(m_args);
     }
     ~_wo_reserved_stack_args_update_guard()
     {
@@ -983,7 +983,8 @@ void wo_set_union(wo_value value, wo_vm vm, wo_integer_t id, wo_value value_may_
 
     if (value_may_null != nullptr)
         structptr->m_values[1].set_val(WO_VAL(value_may_null));
-    
+    else
+        structptr->m_values[1].set_nil();
 }
 
 wo_integer_t wo_cast_int(wo_value value)
@@ -3057,9 +3058,39 @@ wo_value wo_reserve_stack(wo_vm vm, wo_size_t stack_sz, wo_value* inout_args_may
 
     return CS_VAL(vmbase->sp + 1);
 }
+
 void wo_pop_stack(wo_vm vm, wo_size_t stack_sz)
 {
     WO_VM(vm)->sp += stack_sz;
+}
+
+wo_stack_value wo_cast_stack_value(wo_vm vm, wo_value _stack_value)
+{
+    auto* vmbase = WO_VM(vm);
+
+    auto* stack_begin = vmbase->stack_mem_begin;
+    auto* stack_value = WO_VAL(_stack_value);
+
+    if (stack_value > vmbase->sp && stack_value <= stack_begin)
+        return stack_begin - stack_value;
+
+    wo_fail(WO_FAIL_INDEX_FAIL, "Invalid stack value.");
+    return SIZE_MAX;
+}
+
+WO_API void wo_stack_value_set(wo_stack_value sv, wo_vm vm, wo_value val)
+{
+    auto* vmbase = WO_VM(vm);
+
+    wo_assert(sv < vmbase->stack_mem_begin - vmbase->sp);
+    wo_set_val(CS_VAL(vmbase->stack_mem_begin - sv), val);
+}
+WO_API void wo_stack_value_get(wo_value outval, wo_stack_value sv, wo_vm vm)
+{
+    auto* vmbase = WO_VM(vm);
+
+    wo_assert(sv < vmbase->stack_mem_begin - vmbase->sp);
+    wo_set_val(outval, CS_VAL(vmbase->stack_mem_begin - sv));
 }
 
 wo_value wo_invoke_rsfunc(

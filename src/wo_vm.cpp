@@ -1031,7 +1031,7 @@ namespace wo
             (sp--)->set_native_callstack(ip);
             ip = env->rt_codes + wo_func_addr;
             tc->set_integer(argc);
-            er->set_callstack(argc, (uint32_t)(stack_mem_begin - bp));
+            er->set_callstack((uint32_t)argc, (uint32_t)(stack_mem_begin - bp));
             bp = sp;
         }
     }
@@ -1049,7 +1049,7 @@ namespace wo
             (sp--)->set_native_callstack(ip);
             ip = (const byte_t*)ex_func_addr;
             tc->set_integer(argc);
-            er->set_callstack(argc, (uint32_t)(stack_mem_begin - bp));
+            er->set_callstack((uint32_t)argc, (uint32_t)(stack_mem_begin - bp));
             bp = sp;
         }
     }
@@ -1075,7 +1075,7 @@ namespace wo
                 ? (const byte_t*)wo_func_addr ->m_native_func
                 : env->rt_codes + wo_func_addr->m_vm_func;
             tc->set_integer(argc);
-            er->set_callstack(argc, (uint32_t)(stack_mem_begin - bp));
+            er->set_callstack((uint32_t)argc, (uint32_t)(stack_mem_begin - bp));
             bp = sp;
         }
     }

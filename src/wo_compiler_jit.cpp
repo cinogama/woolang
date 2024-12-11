@@ -2160,7 +2160,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
 
             invoke_node->setArg(0, ctx->_vmbase);
             invoke_node->setArg(1, op1);
-            invoke_node->setArg(3, asmjit::Imm((intptr_t)rollback_ip));
+            invoke_node->setArg(2, asmjit::Imm((intptr_t)rollback_ip));
             invoke_node->setArg(3, asmjit::Imm((uint32_t)(rt_ip - ctx->env->rt_codes)));
             invoke_node->setArg(4, ctx->_vmssp);
             invoke_node->setArg(5, ctx->_vmsbp);
