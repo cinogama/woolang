@@ -367,6 +367,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             compiler->setErrorHandler(&woo_jit_error_handler);
 
             ir_check_jit_invoke_depth(state->_m_ctx, rt_ip);
+            ir_make_checkpoint(state->_m_ctx, rt_ip);
+
             auto* result = _analyze_function(rt_ip, env, state, state->_m_ctx, compiler);
 
             current_jit_state = backup;
@@ -2134,7 +2136,16 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
 
             return true;
         }
-
+        /*
+        native_do_call_vmfunc_with_stack_overflow_check
+            native_do_calln_vmfunc
+        x86_do_calln_native_func_fast
+            native_do_calln_vmfunc
+        x86_do_calln_native_func
+            native_do_calln_nativefunc
+        x86_do_calln_vm_func
+            .... vm jit func ....
+        */
         virtual bool ir_call(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
             auto* rollback_ip = rt_ip - 1;
@@ -2157,20 +2168,9 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             invoke_node->setRet(0, result);
 
             check_result_is_normal(ctx->c, ctx->_vmbase, result, rt_ip, ctx->_vmssp, ctx->_vmsbp);
-
             return true;
         }
 
-        /*
-        native_do_call_vmfunc_with_stack_overflow_check
-            native_do_calln_vmfunc
-        x86_do_calln_native_func_fast
-            native_do_calln_vmfunc
-        x86_do_calln_native_func
-            native_do_calln_nativefunc
-        x86_do_calln_vm_func
-            .... vm jit func ....
-        */
         virtual bool ir_calln(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
             const byte_t* rollback_ip = rt_ip - 1;
@@ -2216,7 +2216,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
                     ctx->env->rt_codes,
                     rt_ip, ctx->_vmssp, ctx->_vmsbp);
             }
-
             return true;
         }
         virtual bool ir_ret(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override

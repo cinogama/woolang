@@ -225,10 +225,10 @@ namespace wo
 
             _gc_ready_vm_list.erase(this);
 
-        } while (0);
+            free(_self_register_mem_buf);
+            free(_self_stack_mem_buf);
 
-        free(_self_register_mem_buf);
-        free(_self_stack_mem_buf);
+        } while (0);
 
         if (compile_info)
             delete compile_info;
@@ -898,10 +898,17 @@ namespace wo
 
             if ((base_callstackinfo_ptr->type & (~1)) == value::valuetype::callstack)
             {
-                result.push_back(
-                    generate_callstack_info_with_ip(env->rt_codes + base_callstackinfo_ptr->vmcallstack.ret_ip, false));
+                // NOTE: Tracing call stack might changed in other thread.
+                //  Check it to make sure donot reach bad place.
+                auto callstack = base_callstackinfo_ptr->vmcallstack;
+                auto* next_trace_place = this->stack_mem_begin - callstack.bp + 1;
 
-                base_callstackinfo_ptr = this->stack_mem_begin - base_callstackinfo_ptr->vmcallstack.bp + 1;
+                if (next_trace_place <= base_callstackinfo_ptr || next_trace_place >= stack_mem_begin)
+                    goto _label_bad_callstack;
+
+                result.push_back(
+                    generate_callstack_info_with_ip(env->rt_codes + callstack.ret_ip, false));
+                base_callstackinfo_ptr = next_trace_place;
             }
             else if ((base_callstackinfo_ptr->type & (~1)) == value::valuetype::nativecallstack)
             {
@@ -912,6 +919,7 @@ namespace wo
             }
             else
             {
+            _label_bad_callstack:
                 result.push_back(callstack_info{
                         "??",
                         "<bad callstack>",
