@@ -20,6 +20,7 @@
 
 #include <atomic>
 #include <iostream>
+#include <sstream>
 #include <cstdio>
 #include <cstdlib>
 #include <string>
@@ -449,11 +450,19 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
         {
             std::lock_guard g1(wo::vmbase::_alive_vm_list_mx);
 
+            std::stringstream not_closed_vm_call_stacks;
+
+            not_closed_vm_call_stacks << "Unclosed VM list:" << std::endl;
+
             size_t not_close_vm_count = 0;
             for (auto& alive_vms : wo::vmbase::_alive_vm_list)
             {
                 if (alive_vms->virtual_machine_type == wo::vmbase::vm_type::NORMAL)
                     not_close_vm_count++;
+
+                not_closed_vm_call_stacks << "<Unclosed VM " << (void*)alive_vms << ">"  << std::endl;
+                alive_vms->dump_call_stack(32, true, not_closed_vm_call_stacks);
+                not_closed_vm_call_stacks << std::endl;
 
                 alive_vms->interrupt(wo::vmbase::ABORT_INTERRUPT);
             }
@@ -465,7 +474,9 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
                 if (not_close_vm_count != 0 && not_close_vm_count != non_close_vm_last_warning_vm_count)
                 {
                     non_close_vm_last_warning_vm_count = not_close_vm_count;
-                    wo_warning((std::to_string(not_close_vm_count)
+                    wo_warning((not_closed_vm_call_stacks.str() 
+                        + "\n"
+                        + std::to_string(not_close_vm_count)
                         + " vm(s) have not been closed, please check.").c_str());
                 }
             }

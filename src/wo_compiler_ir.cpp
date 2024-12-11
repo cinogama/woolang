@@ -159,11 +159,13 @@ namespace wo
             if (iplocs.ir_begin <= compile_ip && compile_ip <= iplocs.ir_end)
                 return func_signature;
         }
-        return "__unknown_func__at_" +
+        return "<unknown function " +
             [rt_pos]()->std::string {
-            char ptrr[20] = {};
-            sprintf(ptrr, "0x%p", rt_pos);
+
+            char ptrr[sizeof(rt_pos) * 2 + 4] = {};
+            sprintf(ptrr, "0x%p>", rt_pos);
             return ptrr;
+
         }();
     }
 

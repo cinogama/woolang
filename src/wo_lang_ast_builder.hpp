@@ -872,7 +872,7 @@ namespace wo
                         ir_func_signature_tag += ">";
                     }
 
-                    ir_func_signature_tag += "(...) : " + wstr_to_str(value_type->get_type_name(false));
+                    ir_func_signature_tag += wstr_to_str(value_type->get_type_name(false));
                 }
                 return ir_func_signature_tag;
             }

@@ -5,18 +5,18 @@ import test_macro;
 import test_pure;
 import test_benchmark;
 import test_helloworld;
-// import test_string_u8;
+import test_string_u8;
 import test_basic;
 import test_monad;
 import test_container;
-// import test_compile;
-// import test_coroutine;
+import test_compile;
+import test_coroutine;
 import test_hkt;
 import test_exception;
 import test_template;
 import test_operator_overload;
 import test_optional;
-// import test_gc;
+import test_gc;
 import test_dyn_stack;
 import test_tuple;
 import test_struct;
@@ -28,8 +28,8 @@ import test_debug_invoke;
 import test_dup;
 import test_static;
 import test_enum;
-// import test_vm;
-// import test_thread;
+import test_vm;
+import test_thread;
 /*                                       */
 ///////////////////////////////////////////
 /*    TODO-LIST
