@@ -169,6 +169,15 @@ typedef enum _wo_dylib_unload_method
 
 }wo_dylib_unload_method;
 
+typedef enum _wo_inform_style
+{
+    WO_DEFAULT = 0,
+
+    WO_NOTHING = 1,
+    WO_NEED_COLOR = 2,
+
+} wo_inform_style;
+
 typedef void(*wo_dylib_entry_func_t)(wo_dylib_handle_t);
 typedef void(*wo_dylib_exit_func_t)(void);
 
@@ -208,7 +217,7 @@ WO_API void                 wo_unload_lib(wo_dylib_handle_t lib, wo_dylib_unload
 
 WO_API wo_type      wo_valuetype(const wo_value value);
 
-// NOTE: According to the Woolang calling convention, 
+// Woolang 1.13 NOTE: According to the Woolang calling convention, 
 //      this method is only applicable for use within 
 //      external interface functions declared as va-arg
 //      functions; And please make sure to call this
@@ -377,18 +386,18 @@ WO_API wo_result_t  wo_ret_err_pointer(wo_vm vm, wo_ptr_t result);
 WO_API wo_result_t  wo_ret_err_val(wo_vm vm, wo_value result);
 WO_API wo_result_t  wo_ret_err_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t));
 
+// ATTENTION: This function used for let vm yield-break by setting
+//            yield flag. But this flag only work after return from
+//            native function (in vm-loop).
+//            So, you should make sure it called in `return`. Such as:
+//
+//                return wo_ret_yield(vm, wo_ret_int(vm, 1));
+//
+WO_API wo_result_t  wo_ret_yield(wo_vm vm);
+
 WO_API wo_bool_t    wo_extern_symb(wo_vm vm, wo_string_t fullname, wo_integer_t* out_wo_func, wo_handle_t* out_jit_func);
 
 WO_API void         wo_abort_all_vm_to_exit(void);
-
-typedef enum _wo_inform_style
-{
-    WO_DEFAULT = 0,
-
-    WO_NOTHING = 1,
-    WO_NEED_COLOR = 2,
-
-} wo_inform_style;
 
 WO_API wo_string_t  wo_locale_name(void);
 WO_API wo_string_t  wo_exe_path(void);
@@ -506,17 +515,6 @@ WO_API void         wo_gc_record_memory(wo_value val);
 
 WO_API wo_bool_t    wo_leave_gcguard(wo_vm vm);
 WO_API wo_bool_t    wo_enter_gcguard(wo_vm vm);
-
-// ATTENTION: This function used for let vm yield-break by setting
-//            yield flag. But this flag only work after return from
-//            native function (in vm-loop).
-//            So, you should make sure it called in `return`. Such as:
-//
-//                return wo_yield(vm, wo_ret_int(vm, 1));
-//
-//            Return value of yield-function is useless now, only reserved
-//            for yield-value in future.
-WO_API wo_result_t  wo_ret_yield(wo_vm vm);
 
 WO_API wo_size_t    wo_lengthof(wo_value value);
 WO_API wo_size_t    wo_str_bytelen(wo_value value);
