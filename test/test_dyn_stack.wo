@@ -62,8 +62,32 @@ namespace test_dyn_stack
             std::sleep(1.);
         }
     }
+    func test_bug_0()
+    {
+        func foo(...)
+        {
+            let a = ...->unsafe::cast:<array<int>>();
+            test_equal(a->len, 8192);
+            for (let mut i = 0; i < a->len(); i += 1)
+            {
+                test_equal(a[i], i);
+            }
+        }
+
+        let a = []mut: vec<int>;
+
+        for (let mut i = 0; i < 8192; i += 1)
+        {
+            a->add(i);
+        }
+
+        foo(a...);
+    }
+
     func main()
     {
+        test_bug_0();
+
         test_huge_array_and_map();
         test_super_depth_function();
         test_gc_dyn_stack();

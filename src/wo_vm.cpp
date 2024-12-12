@@ -2665,16 +2665,15 @@ namespace wo
                 auto unpack_argc_unsigned = WO_IPVAL_MOVE_4;
 
                 auto* new_sp = unpackargs_impl(
-                    this,
-                    opnum1,
+                    this, opnum1,
                     reinterpret_cast<int32_t&>(unpack_argc_unsigned),
-                    tc,
-                    rt_ip,
-                    sp,
-                    bp);
+                    tc, rt_ip, sp, bp);
 
                 if (new_sp != nullptr)
                     sp = new_sp;
+                else
+                    // STACK_OVERFLOW_INTERRUPT set, rollback and handle the interrupt.
+                    rt_ip = rollback_rt_ip;
 
                 break;
             }
