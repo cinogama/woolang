@@ -3078,14 +3078,14 @@ wo_stack_value wo_cast_stack_value(wo_vm vm, wo_value _stack_value)
     return SIZE_MAX;
 }
 
-WO_API void wo_stack_value_set(wo_stack_value sv, wo_vm vm, wo_value val)
+void wo_stack_value_set(wo_stack_value sv, wo_vm vm, wo_value val)
 {
     auto* vmbase = WO_VM(vm);
 
     wo_assert(sv < (size_t)(vmbase->stack_mem_begin - vmbase->sp));
     wo_set_val(CS_VAL(vmbase->stack_mem_begin - sv), val);
 }
-WO_API void wo_stack_value_get(wo_value outval, wo_stack_value sv, wo_vm vm)
+void wo_stack_value_get(wo_value outval, wo_stack_value sv, wo_vm vm)
 {
     auto* vmbase = WO_VM(vm);
 
