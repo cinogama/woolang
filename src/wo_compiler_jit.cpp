@@ -2716,7 +2716,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             auto div_overflow_ok = ctx->c.newLabel();
             wo_assure(!ctx->c.cmp(divisor_val, asmjit::Imm(-1)));
             wo_assure(!ctx->c.jne(div_overflow_ok));
-            wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(op1, offsetof(value, integer)), asmjit::Imm(INT64_MIN)));
+            wo_assure(!ctx->c.mov(divisor_val, asmjit::Imm(INT64_MIN)));
+            wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(op1, offsetof(value, integer)), divisor_val));
             wo_assure(!ctx->c.jne(div_overflow_ok));
             x86_do_fail(ctx, WO_FAIL_UNEXPECTED,
                 asmjit::Imm((intptr_t)"Division overflow."), rt_ip);
@@ -2731,7 +2732,9 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             auto op1 = opnum1.gp_value();
 
             auto div_overflow_ok = ctx->c.newLabel();
-            wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(op1, offsetof(value, integer)), asmjit::Imm(INT64_MIN)));
+            auto immv = ctx->c.newInt64();
+            wo_assure(!ctx->c.mov(immv, asmjit::Imm(INT64_MIN)));
+            wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(op1, offsetof(value, integer)), immv));
             wo_assure(!ctx->c.jne(div_overflow_ok));
             x86_do_fail(ctx, WO_FAIL_UNEXPECTED,
                 asmjit::Imm((intptr_t)"Division overflow."), rt_ip);
