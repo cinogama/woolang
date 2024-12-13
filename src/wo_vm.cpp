@@ -2247,7 +2247,6 @@ namespace wo
                         // Call native
                         wo_extern_native_func_t call_aim_native_func = (wo_extern_native_func_t)(opnum1->handle);
                         ip = std::launder(reinterpret_cast<byte_t*>(call_aim_native_func));
-                        rt_cr->set_nil();
 
                         switch (call_aim_native_func(
                             std::launder(reinterpret_cast<wo_vm>(this)),
@@ -2339,9 +2338,6 @@ namespace wo
                         bp = --sp;
 
                         auto rt_bp = stack_mem_begin - bp;
-
-                        rt_cr->set_nil();
-
                         ip = std::launder(reinterpret_cast<byte_t*>(call_aim_native_func));
 
                         wo_result_t api;

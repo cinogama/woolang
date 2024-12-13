@@ -620,9 +620,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             rt_bp = --rt_sp;
             vm->bp = vm->sp = rt_sp;
 
-            // May be useless?
-            vm->cr->set_nil();
-
             vm->ip = reinterpret_cast<byte_t*>(call_aim_native_func);
 
             wo_assure(wo_leave_gcguard(reinterpret_cast<wo_vm>(vm)));
@@ -651,9 +648,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             rt_bp = --rt_sp;
 
             vm->bp = vm->sp = rt_sp;
-
-            // May be useless?
-            vm->cr->set_nil();
 
             vm->ip = reinterpret_cast<byte_t*>(call_aim_native_func);
 
@@ -1088,13 +1082,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
 
             return val;
         }
-        static asmjit::x86::Gp x86_set_nil(asmjit::x86::Compiler& x86compiler, asmjit::x86::Gp val)
-        {
-            wo_assure(!x86compiler.mov(asmjit::x86::byte_ptr(val, offsetof(value, type)), (uint8_t)value::valuetype::invalid));
-            wo_assure(!x86compiler.mov(asmjit::x86::qword_ptr(val, offsetof(value, handle)), asmjit::Imm(0)));
-            return val;
-        }
-
         static void x86_do_calln_native_func(
             asmjit::x86::Compiler& x86compiler,
             asmjit::x86::Gp vm,
