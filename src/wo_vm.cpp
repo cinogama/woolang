@@ -810,7 +810,8 @@ namespace wo
         if (!trace_finished)
             os << callstacks.size() << ": ..." << std::endl;
     }
-    std::vector<vmbase::callstack_info> vmbase::dump_call_stack_func_info(size_t max_count, bool need_offset, bool* out_finished)const noexcept
+    std::vector<vmbase::callstack_info> vmbase::dump_call_stack_func_info(
+        size_t max_count, bool need_offset, bool* out_finished)const noexcept
     {
         _wo_vm_stack_guard vsg(this);
 
@@ -901,14 +902,15 @@ namespace wo
                 // NOTE: Tracing call stack might changed in other thread.
                 //  Check it to make sure donot reach bad place.
                 auto callstack = base_callstackinfo_ptr->vmcallstack;
-                auto* next_trace_place = this->stack_mem_begin - callstack.bp + 1;
-
-                if (next_trace_place <= base_callstackinfo_ptr || next_trace_place >= stack_mem_begin)
-                    goto _label_bad_callstack;
+                auto* next_trace_place = this->stack_mem_begin - callstack.bp;
 
                 result.push_back(
                     generate_callstack_info_with_ip(env->rt_codes + callstack.ret_ip, false));
-                base_callstackinfo_ptr = next_trace_place;
+
+                if (next_trace_place <= base_callstackinfo_ptr || next_trace_place > stack_mem_begin)
+                    goto _label_bad_callstack;
+
+                base_callstackinfo_ptr = next_trace_place + 1;
             }
             else if ((base_callstackinfo_ptr->type & (~1)) == value::valuetype::nativecallstack)
             {

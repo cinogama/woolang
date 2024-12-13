@@ -333,7 +333,7 @@ void _default_fail_handler(wo_vm vm, wo_string_t src_file, uint32_t lineno, wo_s
                 case 3:
                     if (cur_thread_vm != nullptr)
                     {
-                        wo::wo_stderr << ANSI_HIR "Current virtual machine will abort." ANSI_RST << wo::wo_endl;
+                        wo::wo_stderr << ANSI_HIR "Current virtual machine will be aborted." ANSI_RST << wo::wo_endl;
                         wo_ret_halt(reinterpret_cast<wo_vm>(cur_thread_vm), reason);
                         breakout = true;
                     }
@@ -629,10 +629,20 @@ struct _wo_reserved_stack_args_update_guard
     {
         m_origin_stack_begin = m_vm->stack_mem_begin;
         if (m_rs != nullptr)
+        {
+            wo_assert(WO_VAL(*m_rs) > m_vm->_self_stack_mem_buf
+                && WO_VAL(*m_rs) <= m_vm->stack_mem_begin);
+
             m_rs_offset = m_origin_stack_begin - WO_VAL(m_rs);
+        }
 
         if (m_args != nullptr)
+        {
+            wo_assert(WO_VAL(*m_args) > m_vm->_self_stack_mem_buf
+                && WO_VAL(*m_args) <= m_vm->stack_mem_begin);
+
             m_args_offset = m_origin_stack_begin - WO_VAL(m_args);
+        }
     }
     ~_wo_reserved_stack_args_update_guard()
     {
@@ -3031,6 +3041,10 @@ wo_value wo_reserve_stack(wo_vm vm, wo_size_t stack_sz, wo_value* inout_args_may
 {
     // Check stack size.
     wo::vmbase* vmbase = WO_VM(vm);
+
+    wo_assert(inout_args_maynull == nullptr 
+        || (WO_VAL(*inout_args_maynull) > vmbase->_self_stack_mem_buf 
+            && WO_VAL(*inout_args_maynull) <= vmbase->stack_mem_begin));
 
     const size_t args_offset =
         inout_args_maynull ? vmbase->stack_mem_begin - WO_VAL(*inout_args_maynull): 0;
