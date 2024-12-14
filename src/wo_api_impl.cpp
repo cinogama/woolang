@@ -3069,8 +3069,12 @@ wo_value wo_reserve_stack(wo_vm vm, wo_size_t stack_sz, wo_value* inout_args_may
     }
 
     vmbase->sp -= stack_sz;
+    auto result = vmbase->sp + 1;
 
-    return CS_VAL(vmbase->sp + 1);
+    // Clean reserved space.
+    memset(result, 0, sizeof(wo::value) * stack_sz);
+
+    return CS_VAL(result);
 }
 
 void wo_pop_stack(wo_vm vm, wo_size_t stack_sz)

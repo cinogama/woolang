@@ -3027,13 +3027,54 @@ WO_API wo_api rslib_std_debug_disattach_default_debuggee(wo_vm vm, wo_value args
 
 WO_API wo_api rslib_std_debug_callstack_trace(wo_vm vm, wo_value args)
 {
-    return wo_ret_string(vm, wo_debug_trace_callstack(vm, (size_t)wo_int(args + 0)));
+    wo_value s = wo_reserve_stack(vm, 3, &args);
+    wo::vmbase* vmbase = std::launder(reinterpret_cast<wo::vmbase*>(vm));
+
+    bool finished;
+    auto traces = vmbase->dump_call_stack_func_info((size_t)wo_int(args + 0), true, &finished);
+  
+    wo_set_arr(s + 0, vm, traces.size());
+    size_t index = 0;
+    for (auto& trace : traces)
+    {
+        /*
+        using callstack = struct{
+            public function    : string,
+            public file        : string,
+            public row         : int,
+            public column      : int,
+            public external    : bool,
+        };
+        */
+        wo_set_struct(s + 1, vm, 5);
+        wo_set_string(s + 2, vm, trace.m_func_name.c_str());
+        wo_struct_set(s + 1, 0, s + 2);
+        wo_set_string(s + 2, vm, trace.m_file_path.c_str());
+        wo_struct_set(s + 1, 1, s + 2);
+        wo_set_int(s + 2, trace.m_row);
+        wo_struct_set(s + 1, 2, s + 2);
+        wo_set_int(s + 2, trace.m_col);
+        wo_struct_set(s + 1, 3, s + 2);
+        wo_set_bool(s + 2, trace.m_is_extern ? WO_TRUE: WO_FALSE);
+        wo_struct_set(s + 1, 4, s + 2);
+        
+        wo_arr_set(s + 0, index++, s + 1);
+    }
+
+    wo_set_struct(s + 1, vm, 2);
+    wo_set_bool(s + 2, finished ? WO_TRUE : WO_FALSE);
+    wo_struct_set(s + 1, 0, s + 2);
+    wo_struct_set(s + 1, 1, s + 0);
+
+    return wo_ret_val(vm, s + 1);
 }
 
 WO_API wo_api rslib_std_debug_breakpoint(wo_vm vm, wo_value args)
 {
     wo_break_specify_immediately(vm);
-    return wo_ret_void(vm);
+    (void)wo_ret_void(vm);
+
+    return WO_API_RESYNC;
 }
 
 WO_API wo_api rslib_std_debug_invoke(wo_vm vm, wo_value args)
@@ -3074,8 +3115,23 @@ namespace std
             breakpoint();
         }
 
+        using callstack = struct{
+            public function    : string,
+            public file        : string,
+            public row         : int,
+            public column      : int,
+            public external    : bool,
+        }
+        {
+            public func to_string(self: callstack)
+            {
+                return F"{self.function}\n\t\t-- at {self.file}"
+                    + (self.external ? "" | F" ({self.row}, {self.column}\x29");
+            }
+        }
+
         extern("rslib_std_debug_callstack_trace")
-            public func callstack(layer: int) =>  string;
+            public func traceback(layer: int)=> (bool, array<callstack>);
 
         extern("rslib_std_debug_invoke")
             public func invoke<Ft>(f: Ft, ...) => dynamic

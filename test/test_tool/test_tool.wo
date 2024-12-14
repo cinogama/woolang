@@ -1,6 +1,8 @@
 import woo::std;
 import woo::debug;
 
+import pkg::iterator;
+
 using test_func_pair = struct{
     name: string,
     function: ()=> void,
@@ -31,7 +33,7 @@ public func execute_all_test()
         if (test_failed_count != 0)
         {
             std::println("Failed:", test_failed_count);
-            std::panic("This test case has been failed...");
+            std::panic(F"This test case: `{test_function_set[i].name}` has been failed...");
         }
 
         i += 1;
@@ -46,6 +48,17 @@ private func _test_compare<AT, BT>(a: AT, b :BT)
         return std::is_same(a, b);
 }
 
+public func print_traceback()
+{
+    let (finished, ts) = std::debug::traceback(8 + 3);
+    for (let (n, t) : ts->iter |> iterator::skip(3) |> iterator::enumerate)
+    {
+        std::println(F"{n}:", t->to_string);
+    }
+    if (!finished)
+        std::println("...");
+}
+
 public func test_equal<AT, BT>(a: AT, b: BT)
 {
     let result = _test_compare(a, b);
@@ -56,7 +69,7 @@ public func test_equal<AT, BT>(a: AT, b: BT)
     {
         test_failed_count += 1;
         std::println("Test fail:", a, " != ", b, ",but it should be equal.");
-        std::println(std::debug::callstack(8));
+        print_traceback();
     }
 }
 
@@ -68,6 +81,6 @@ public func test_assure(a: bool)
     {
         test_failed_count += 1;
         std::println("Test fail:", a, " is not true..");
-        std::println(std::debug::callstack(8));
+        print_traceback();
     }
 }
