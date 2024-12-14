@@ -473,16 +473,22 @@ namespace wo
         {
             T* m_aim_value;
             T m_clear_value;
-
+            raii_value_clear_guard* m_last_guard;
+            raii_value_clear_guard** m_guard_self;
         public:
-            raii_value_clear_guard(T* aim_value, T clear_value)
-                :m_aim_value(aim_value), m_clear_value(clear_value)
+            raii_value_clear_guard(T* aim_value, T clear_value, raii_value_clear_guard** inout_guardself)
+                :m_aim_value(aim_value)
+                , m_clear_value(clear_value)
+                , m_last_guard(*inout_guardself)
+                , m_guard_self(inout_guardself)
             {
                 *m_aim_value = m_clear_value;
+                *m_guard_self = this;
             }
             ~raii_value_clear_guard()
             {
                 *m_aim_value = m_clear_value;
+                *m_guard_self = m_last_guard;
             }
 
             void set_value(const T& new_value)

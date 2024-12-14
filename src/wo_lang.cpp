@@ -2421,11 +2421,11 @@ namespace wo
 
     opnum::opnumbase& lang::analyze_value(ast::ast_value* value, ir_compiler* compiler, bool get_pure_value)
     {
-        raii_value_clear_guard<bool> guard_last_also_stores_cr(&_last_value_also_stored_to_cr, false);
-        _current_also_cr_store_flag = &guard_last_also_stores_cr;
+        raii_value_clear_guard<bool> guard_last_also_stores_cr(
+            &_last_value_also_stored_to_cr, false, &_current_also_cr_store_flag);
 
-        raii_value_clear_guard<std::optional<int16_t>> guard_stackoffset_reg(&_last_value_from_stack_offset_may_null, std::nullopt);
-        _current_stack_offset_store_flag = &guard_stackoffset_reg;
+        raii_value_clear_guard<std::optional<int16_t>> guard_stackoffset_reg(
+            &_last_value_from_stack_offset_may_null, std::nullopt, &_current_stack_offset_store_flag);
 
         using namespace ast;
         using namespace opnum;
