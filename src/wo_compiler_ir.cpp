@@ -8,7 +8,7 @@ namespace wo
     void program_debug_data_info::generate_debug_info_at_astnode(ast::AstBase* ast_node, ir_compiler* compiler)
     {
         // funcdef should not genrate val..
-        if (ast_node->source_file)
+        if (ast_node->source_location.source_file)
         {
             bool unbreakable = /*dynamic_cast<ast::ast_value_function_define*>(ast_node)
                 || dynamic_cast<ast::ast_list*>(ast_node)
@@ -21,15 +21,15 @@ namespace wo
                 || dynamic_cast<ast::ast_match*>(ast_node)*/
                 false;
 
-            auto& location_list_of_file = _general_src_data_buf_a[*ast_node->source_file];
+            auto& location_list_of_file = _general_src_data_buf_a[*ast_node->source_location.source_file];
 
             location loc = {
                 compiler->get_now_ip(),
-                ast_node->begin_at.row,
-                ast_node->begin_at.column,
-                ast_node->end_at.row,
-                ast_node->begin_at.column,
-                *ast_node->source_file,
+                ast_node->source_location.begin_at.row,
+                ast_node->source_location.begin_at.column,
+                ast_node->source_location.end_at.row,
+                ast_node->source_location.begin_at.column,
+                *ast_node->source_location.source_file,
                 unbreakable
             };
 

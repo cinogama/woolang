@@ -28,7 +28,6 @@ RS will using 'hand-work' parser, there is not yacc/bison..
 namespace wo
 {
 #ifndef WO_DISABLE_COMPILER
-    struct lang_scope;
     namespace ast
     {
         class AstBase
@@ -39,7 +38,11 @@ namespace wo
                 AST_BASE,
                 AST_LIST,
                 AST_EMPTY,
-                AST_DEFAULT,
+
+                AST_TYPE_HOLDER,
+
+                AST_VALUE_MARK_AS_MUTABLE,
+                AST_VALUE_MARK_AS_IMMUTABLE,
             };
         private:
             inline thread_local static std::forward_list<AstBase*>* list = nullptr;
@@ -75,17 +78,19 @@ namespace wo
                 size_t row;
                 size_t column;
             };
+            struct source_location_t
+            {
+                location_t begin_at;
+                location_t end_at;
+                wo_pstring_t source_file;
+            };
 
             node_type_t node_type;
-            location_t begin_at;
-            location_t end_at;
-            wo_pstring_t source_file;
+            source_location_t source_location;
 
             AstBase(node_type_t ty)
                 : node_type(ty)
-                , begin_at({})
-                , end_at({})
-                , source_file(nullptr)
+                , source_location({})
             {
                 if (!list)
                     list = new std::forward_list<AstBase*>;
@@ -102,20 +107,44 @@ namespace wo
             }
 
         public:
-            template<typename T, typename ... Args>
-            static T* MAKE_INSTANCE(const T* datfrom, Args && ... args)
+            class _AstSafeHolderBase
             {
-                auto* instance = new T(args...);
+            public:
+                virtual const AstBase* get() = 0;
+                virtual void set(AstBase* ast) = 0;
+            };
+            template<typename T>
+            class SafeHolder : public _AstSafeHolderBase
+            {
+                static_assert(std::is_base_of<AstBase, T>::value);
 
-                instance->begin_at = datfrom->begin_at;
-                instance->end_at = datfrom->end_at;
-                instance->source_file = datfrom->source_file;
+                T** m_ptr;
+            public:
+                explicit SafeHolder(T** location)
+                    : m_ptr(location)
+                {
+                }
+                virtual const AstBase* get() override
+                {
+                    return *m_ptr;
+                }
+                virtual void set(AstBase* ast) override
+                {
+                    *m_ptr = static_cast<T*>(ast);
+                }
+            };
 
-                return instance;
+            template<typename T>
+            static std::unique_ptr<SafeHolder<T>> make_holder(T** location)
+            {
+                wo_assert(location != nullptr && *location != nullptr);
+                return std::make_unique<SafeHolder<T>>(location);
             }
 
-            virtual AstBase* instance(AstBase* child_instance = nullptr) const = 0;
+            using ContinuesList = std::list<std::unique_ptr<_AstSafeHolderBase>>;
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const = 0;
         };
+
         class AstList : public AstBase
         {
         public:
@@ -123,16 +152,15 @@ namespace wo
             AstList() : AstBase(AST_LIST)
             {
             }
-            virtual AstBase* instance(AstBase* child_instance = nullptr) const
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override
             {
-                auto* new_instance = child_instance
-                    ? static_cast<decltype(MAKE_INSTANCE(this))>(child_instance)
-                    : MAKE_INSTANCE(this);
-
-                // ast::AstBase::instance(new_instance);
+                auto* new_instance = exist_instance ? static_cast<AstList*>(exist_instance.value()) : new AstList();
 
                 for (auto* old_child : m_list)
-                    new_instance->m_list.push_back(old_child->instance());
+                    new_instance->m_list.push_back(old_child);
+
+                for (auto* dup_child : new_instance->m_list)
+                    out_continues.push_back(make_holder(&dup_child));
 
                 return new_instance;
             }
@@ -246,27 +274,6 @@ namespace wo
             }
         };
 
-        struct AstDefault : public ast::AstBase
-        {
-            bool stores_terminal = false;
-            token terminal_token = { lex_type::l_error };
-
-            AstDefault() : AstBase(AST_DEFAULT)
-            {
-            }
-
-            ast::AstBase* instance(ast::AstBase* child_instance = nullptr) const override
-            {
-                auto* new_instance = child_instance
-                    ? static_cast<decltype(MAKE_INSTANCE(this))>(child_instance)
-                    : MAKE_INSTANCE(this);
-
-                // ast::AstBase::instance(new_instance);
-
-                return new_instance;
-            }
-        };
-
         struct AstEmpty : public ast::AstBase
         {
             // used for stand fro l_empty
@@ -291,15 +298,11 @@ namespace wo
 
                 return false;
             }
-            ast::AstBase* instance(AstBase* child_instance = nullptr) const override
+
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final
             {
-                auto* new_instance = child_instance
-                    ? static_cast<decltype(MAKE_INSTANCE(this))>(child_instance)
-                    : MAKE_INSTANCE(this);
-
-                // ast::AstBase::instance(new_instance);
-
-                return new_instance;
+                // Immutable and no state to be modified.
+                return const_cast<AstEmpty*>(this);
             }
         };
 
