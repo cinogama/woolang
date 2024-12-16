@@ -940,9 +940,20 @@ namespace wo
     {
         auto* a_fakevalue_unpacked_args = WO_AST();
         analyze_pass2(a_fakevalue_unpacked_args->unpacked_pack);
-        if (!a_fakevalue_unpacked_args->unpacked_pack->value_type->is_array()
-            && !a_fakevalue_unpacked_args->unpacked_pack->value_type->is_vec()
-            && !a_fakevalue_unpacked_args->unpacked_pack->value_type->is_tuple())
+
+        if (a_fakevalue_unpacked_args->unpacked_pack->value_type->is_tuple())
+        {
+            if (a_fakevalue_unpacked_args->expand_count != ast_fakevalue_unpacked_args::UNPACK_ALL_ARGUMENT 
+                && a_fakevalue_unpacked_args->expand_count >
+                a_fakevalue_unpacked_args->unpacked_pack->value_type->template_arguments.size())
+                lang_anylizer->lang_error(lexer::errorlevel::error,
+                    a_fakevalue_unpacked_args, WO_ERR_UNPACK_ARGS_TOO_MUCH, 
+                    a_fakevalue_unpacked_args->unpacked_pack->value_type->get_type_name(false).c_str(),
+                    a_fakevalue_unpacked_args->unpacked_pack->value_type->template_arguments.size());
+
+        }
+        else if (!a_fakevalue_unpacked_args->unpacked_pack->value_type->is_array()
+            && !a_fakevalue_unpacked_args->unpacked_pack->value_type->is_vec())
         {
             lang_anylizer->lang_error(lexer::errorlevel::error,
                 a_fakevalue_unpacked_args, WO_ERR_NEED_TYPES, L"array, vec" WO_TERM_OR L"tuple");
@@ -1293,22 +1304,53 @@ namespace wo
         auto* a_value_make_tuple_instance = WO_AST();
         analyze_pass2(a_value_make_tuple_instance->tuple_member_vals);
 
-        auto* tuple_elems = a_value_make_tuple_instance->tuple_member_vals->children;
-
-        size_t count = 0;
-        while (tuple_elems)
+        if (a_value_make_tuple_instance->value_type->is_pending())
         {
-            ast_value* val = dynamic_cast<ast_value*>(tuple_elems);
-            if (!val->value_type->is_pending())
-                a_value_make_tuple_instance->value_type->template_arguments[count]->set_type(val->value_type);
-            else
+            auto* tuple_elems = a_value_make_tuple_instance->tuple_member_vals->children;
+
+            size_t count = 0;
+            std::vector<ast::ast_type*> tuple_elem_types;
+            while (tuple_elems)
             {
-                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_make_tuple_instance,
-                    WO_ERR_FAILED_TO_DECIDE_TUPLE_TYPE);
-                break;
+                ast_value* val = dynamic_cast<ast_value*>(tuple_elems);
+                if (auto* unpacks = dynamic_cast<ast_fakevalue_unpacked_args*>(val))
+                {
+                    if (!unpacks->unpacked_pack->value_type->is_pending() 
+                        && unpacks->unpacked_pack->value_type->is_tuple())
+                    {
+                        wo_assert(unpacks->expand_count >= 0);
+                        auto ecount = std::min(
+                            // if expand_count more than template_arguments.size(), it checked in pass2
+                            (size_t)unpacks->expand_count, unpacks->unpacked_pack->value_type->template_arguments.size());
+
+                        tuple_elem_types.insert(
+                            tuple_elem_types.end(),
+                            unpacks->unpacked_pack->value_type->template_arguments.begin(),
+                            unpacks->unpacked_pack->value_type->template_arguments.begin() + ecount);
+                    }
+                    else
+                    {
+                        lang_anylizer->lang_error(lexer::errorlevel::error, unpacks,
+                            WO_ERR_UNPACK_ARGS_OUT_OF_FUNC_CALL,
+                            unpacks->unpacked_pack->value_type->get_type_name(false).c_str());
+                        goto _label_tuple_type_failed;
+                    }
+                }
+                else if (!val->value_type->is_pending())
+                    tuple_elem_types.push_back(val->value_type);
+                else
+                {
+                    lang_anylizer->lang_error(lexer::errorlevel::error, a_value_make_tuple_instance,
+                        WO_ERR_FAILED_TO_DECIDE_TUPLE_TYPE);
+                    goto _label_tuple_type_failed;
+                }
+                tuple_elems = tuple_elems->sibling;
+                ++count;
             }
-            tuple_elems = tuple_elems->sibling;
-            ++count;
+            a_value_make_tuple_instance->value_type->set_type_with_name(WO_PSTR(tuple));
+            a_value_make_tuple_instance->value_type->template_arguments = std::move(tuple_elem_types);
+        _label_tuple_type_failed:
+            ;
         }
     }
     WO_PASS2(ast_value_make_struct_instance)

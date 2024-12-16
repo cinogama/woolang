@@ -1511,7 +1511,9 @@ namespace wo
     WO_VALUE_PASS(ast_fakevalue_unpacked_args)
     {
         auto* a_fakevalue_unpacked_args = WO_AST();
-        lang_anylizer->lang_error(lexer::errorlevel::error, a_fakevalue_unpacked_args, WO_ERR_UNPACK_ARGS_OUT_OF_FUNC_CALL);
+        lang_anylizer->lang_error(lexer::errorlevel::error, a_fakevalue_unpacked_args, 
+            WO_ERR_UNPACK_ARGS_OUT_OF_FUNC_CALL,
+            a_fakevalue_unpacked_args->unpacked_pack->value_type->get_type_name(false).c_str());
         return WO_NEW_OPNUM(reg(reg::ni));
     }
     WO_VALUE_PASS(ast_value_unary)
@@ -1620,8 +1622,32 @@ namespace wo
             ast_value* val = dynamic_cast<ast_value*>(tuple_elems);
             wo_assert(val);
 
-            ++tuple_count;
-            compiler->psh(complete_using_register(analyze_value(val, compiler)));
+            
+            if (auto* unpacks = dynamic_cast<ast_fakevalue_unpacked_args*>(val))
+            {
+                wo_assert(unpacks->unpacked_pack->value_type->is_tuple());
+                wo_assert(unpacks->expand_count >= 0);
+
+                auto& unpacking_tuple = complete_using_register(
+                    analyze_value(unpacks->unpacked_pack, compiler));
+
+                size_t ecount = std::min(
+                    (size_t)unpacks->expand_count,
+                    unpacks->unpacked_pack->value_type->template_arguments.size());
+                
+                tuple_count += (uint16_t)ecount;
+                for (size_t i = 0; i < ecount; ++i)
+                {
+                    compiler->idstruct(reg(reg::tp), unpacking_tuple, (uint16_t)i);
+                    compiler->psh(reg(reg::tp));
+                }
+                // compiler->idstruct(unpacking_tuple, )
+            }
+            else
+            {
+                ++tuple_count;
+                compiler->psh(complete_using_register(analyze_value(val, compiler)));
+            }
 
             tuple_elems = tuple_elems->sibling;
         }
