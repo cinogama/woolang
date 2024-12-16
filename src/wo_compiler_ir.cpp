@@ -1,14 +1,16 @@
 #include "wo_compiler_ir.hpp"
 #include "wo_lang_ast_builder.hpp"
+#include "wo_global_setting.hpp"
 
 namespace wo
 {
-    void program_debug_data_info::generate_debug_info_at_astnode(ast::ast_base* ast_node, ir_compiler* compiler)
+#ifndef WO_DISABLE_COMPILER
+    void program_debug_data_info::generate_debug_info_at_astnode(ast::AstBase* ast_node, ir_compiler* compiler)
     {
         // funcdef should not genrate val..
         if (ast_node->source_file)
         {
-            bool unbreakable = dynamic_cast<ast::ast_value_function_define*>(ast_node)
+            bool unbreakable = /*dynamic_cast<ast::ast_value_function_define*>(ast_node)
                 || dynamic_cast<ast::ast_list*>(ast_node)
                 || dynamic_cast<ast::ast_namespace*>(ast_node)
                 || dynamic_cast<ast::ast_sentence_block*>(ast_node)
@@ -16,17 +18,17 @@ namespace wo
                 || dynamic_cast<ast::ast_while*>(ast_node)
                 || dynamic_cast<ast::ast_forloop*>(ast_node)
                 || dynamic_cast<ast::ast_foreach*>(ast_node)
-                || dynamic_cast<ast::ast_match*>(ast_node)
-                ;
+                || dynamic_cast<ast::ast_match*>(ast_node)*/
+                false;
 
             auto& location_list_of_file = _general_src_data_buf_a[*ast_node->source_file];
 
             location loc = {
                 compiler->get_now_ip(),
-                ast_node->row_begin_no,
-                ast_node->col_begin_no,
-                ast_node->row_end_no,
-                ast_node->col_end_no,
+                ast_node->begin_at.row,
+                ast_node->begin_at.column,
+                ast_node->end_at.row,
+                ast_node->begin_at.column,
                 *ast_node->source_file,
                 unbreakable
             };
@@ -38,6 +40,7 @@ namespace wo
     void program_debug_data_info::finalize_generate_debug_info()
     {
     }
+#endif
     const program_debug_data_info::location program_debug_data_info::FAIL_LOC = {};
     const program_debug_data_info::location& program_debug_data_info::get_src_location_by_runtime_ip(const byte_t* rt_pos) const
     {
@@ -136,20 +139,20 @@ namespace wo
         return SIZE_MAX;
     }
 
-    void program_debug_data_info::generate_func_begin(ast::ast_value_function_define* funcdef, ir_compiler* compiler)
-    {
-        _function_ip_data_buf[funcdef->get_ir_func_signature_tag()].ir_begin = compiler->get_now_ip();
-        generate_debug_info_at_astnode(funcdef, compiler);
-    }
-    void program_debug_data_info::generate_func_end(ast::ast_value_function_define* funcdef, size_t tmpreg_count, ir_compiler* compiler)
-    {
-        _function_ip_data_buf[funcdef->get_ir_func_signature_tag()].ir_end = compiler->get_now_ip();
-        _function_ip_data_buf[funcdef->get_ir_func_signature_tag()].in_stack_reg_count = tmpreg_count;
-    }
-    void program_debug_data_info::add_func_variable(ast::ast_value_function_define* funcdef, const std::wstring& varname, size_t rowno, wo_integer_t loc)
-    {
-        _function_ip_data_buf[funcdef->get_ir_func_signature_tag()].add_variable_define(varname, rowno, loc);
-    }
+    //void program_debug_data_info::generate_func_begin(ast::ast_value_function_define* funcdef, ir_compiler* compiler)
+    //{
+    //    _function_ip_data_buf[funcdef->get_ir_func_signature_tag()].ir_begin = compiler->get_now_ip();
+    //    generate_debug_info_at_astnode(funcdef, compiler);
+    //}
+    //void program_debug_data_info::generate_func_end(ast::ast_value_function_define* funcdef, size_t tmpreg_count, ir_compiler* compiler)
+    //{
+    //    _function_ip_data_buf[funcdef->get_ir_func_signature_tag()].ir_end = compiler->get_now_ip();
+    //    _function_ip_data_buf[funcdef->get_ir_func_signature_tag()].in_stack_reg_count = tmpreg_count;
+    //}
+    //void program_debug_data_info::add_func_variable(ast::ast_value_function_define* funcdef, const std::wstring& varname, size_t rowno, wo_integer_t loc)
+    //{
+    //    _function_ip_data_buf[funcdef->get_ir_func_signature_tag()].add_variable_define(varname, rowno, loc);
+    //}
 
     std::string program_debug_data_info::get_current_func_signature_by_runtime_ip(const byte_t* rt_pos) const
     {

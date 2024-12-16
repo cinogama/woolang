@@ -287,6 +287,8 @@
 
 #define WO_ERR_REPEATED_EXTERN_FUNC L"重复导入的外部函数符号，使用 'repeat' 修饰导入行为忽略此检查"
 
+#define WO_ERR_COMPILER_DISABLED L"编译器功能被禁用"
+
 
 #define WO_INFO_FAILED_TO_INVOKE_FUNC_FOR_TYPE L"找不到名为 '%ls' 的函数，'->' 前的值类型为 '%ls'"
 
@@ -574,6 +576,8 @@
 #define WO_ERR_DIV_OVERFLOW L"Division overflow."
 
 #define WO_ERR_REPEATED_EXTERN_FUNC L"Repeatedly imported external function symbol. Use 'repeat' to modify import behavior and ignore this check."
+
+#define WO_ERR_COMPILER_DISABLED L"Compiler has been disabled."
 
 
 #define WO_INFO_FAILED_TO_INVOKE_FUNC_FOR_TYPE L"Unable to find function named '%ls' for type '%ls'."

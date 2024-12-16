@@ -26,7 +26,7 @@ namespace wo
 {
     namespace ast
     {
-        class ast_base;
+        class AstBase;
     }
 
     using lex_type_base_t = int8_t;
@@ -234,7 +234,7 @@ namespace wo
 
         std::unordered_set<wo_pstring_t> imported_file_list;
 
-        std::vector<ast::ast_base*> imported_ast;
+        std::vector<ast::AstBase*> imported_ast;
         std::shared_ptr<std::unordered_map<std::wstring, std::shared_ptr<macro>>> used_macro_list;
         const lexer* last_lexer;
         std::wstring script_path;
@@ -340,7 +340,7 @@ namespace wo
                 return true;
             return false;
         }
-        void append_import_file_ast(ast::ast_base* astbase)
+        void append_import_file_ast(ast::AstBase* astbase)
         {
             imported_ast.push_back(astbase);
         }
@@ -641,7 +641,7 @@ namespace wo
         lex_type next(std::wstring* out_literal);
         void push_temp_for_error_recover(lex_type type, const std::wstring& out_literal);
 
-        void merge_imported_script_trees(ast::ast_base* node);
+        ast::AstBase* merge_imported_script_trees(ast::AstBase* node);
     };
 }
 

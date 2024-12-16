@@ -501,7 +501,6 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
     womem_shutdown();
     wo::rslib_extern_symbols::free_wo_lib();
     wo::debuggee_base::_free_abandons();
-    wo::lang::release_global_pass_table();
 
     do
     {
@@ -591,8 +590,9 @@ void wo_init(int argc, char** argv)
     if (enable_ctrl_c_to_debug)
         wo_handle_ctrl_c(_wo_ctrl_c_signal_handler);
 
+#ifndef WO_DISABLE_COMPILER
     wo_assure(wo::get_wo_grammar()); // Create grammar when init.
-    wo::lang::init_global_pass_table(); // Init global pass table.
+#endif
 }
 
 #define WO_VAL(v) (std::launder(reinterpret_cast<wo::value*>(v)))
@@ -2662,6 +2662,7 @@ std::variant<
             &is_valid_binary);
 
     const std::wstring vwpath = wo::str_to_wstr(virtual_src_path);
+    wo::lexer* lex = nullptr;
 
     if (env_result != nullptr)
     {
@@ -2676,89 +2677,69 @@ std::variant<
         // Has error, create a fake lexer to store error reason.
 
         std::wstring empty_strbuffer;
-        wo::lexer* lex = new wo::lexer(std::make_unique<std::wistringstream>(empty_strbuffer), vwpath.c_str(), nullptr);
+        lex = new wo::lexer(std::make_unique<std::wistringstream>(empty_strbuffer), vwpath.c_str(), nullptr);
         lex->lex_error(wo::lexer::errorlevel::error, wo::str_to_wstr(load_binary_failed_reason).c_str());
-
-        return lex;
-    }
-
-    // 1. Prepare lexer..
-    wo::lexer* lex = nullptr;
-    if (src != nullptr)
-    {
-        std::wstring strbuffer = wo::str_to_wstr(std::string((const char*)src, len).c_str());
-        lex = new wo::lexer(std::make_unique<std::wistringstream>(strbuffer), vwpath.c_str(), nullptr);
     }
     else
     {
-        std::wstring real_file_path;
 
-        std::optional<std::unique_ptr<std::wistream>> content_stream =
-            std::nullopt;
-
-        uint64_t src_crc64_result = 0;
-
-        if (wo::check_virtual_file_path(
-            &real_file_path,
-            vwpath,
-            std::nullopt))
+        // 1. Prepare lexer..
+        if (src != nullptr)
         {
-            content_stream = wo::open_virtual_file_stream<true>(real_file_path);
-
-            if (content_stream)
-                src_crc64_result = wo::crc_64(*content_stream.value(), 0);
+            std::wstring strbuffer = wo::str_to_wstr(std::string((const char*)src, len).c_str());
+            lex = new wo::lexer(std::make_unique<std::wistringstream>(strbuffer), vwpath.c_str(), nullptr);
         }
-
-        lex = new wo::lexer(std::move(content_stream), real_file_path.c_str(), nullptr);
-    }
-
-    lex->has_been_imported(lex->source_file);
-
-    std::forward_list<wo::ast::ast_base*> m_last_context;
-    bool need_exchange_back = wo::ast::ast_base::exchange_this_thread_ast(m_last_context);
-    if (!lex->has_error())
-    {
-        // 2. Lexer will create ast_tree;
-        auto result = wo::get_wo_grammar()->gen(*lex);
-        if (result)
+        else
         {
-            // 3. Create lang, most anything store here..
-            wo::lang lang(*lex);
+            std::wstring real_file_path;
 
-            lang.analyze_pass0(result);
-            lang.analyze_pass1(result);
-            if (!lang.has_compile_error())
+            std::optional<std::unique_ptr<std::wistream>> content_stream =
+                std::nullopt;
+
+            uint64_t src_crc64_result = 0;
+
+            if (wo::check_virtual_file_path(
+                &real_file_path,
+                vwpath,
+                std::nullopt))
             {
-                lang.analyze_pass2(result);
+                content_stream = wo::open_virtual_file_stream<true>(real_file_path);
+
+                if (content_stream)
+                    src_crc64_result = wo::crc_64(*content_stream.value(), 0);
             }
 
-            //result->display();
-            if (!lang.has_compile_error())
-            {
-                wo::ir_compiler compiler;
-                lang.analyze_finalize(result, &compiler);
-
-                if (!lang.has_compile_error())
-                {
-                    compiler.end();
-                    env_result = compiler.finalize(stacksz);
-                }
-            }
+            lex = new wo::lexer(std::move(content_stream), real_file_path.c_str(), nullptr);
         }
+
+        lex->has_been_imported(lex->source_file);
+
+#ifndef WO_DISABLE_COMPILER
+
+        std::forward_list<wo::ast::AstBase*> m_last_context;
+        bool need_exchange_back = wo::ast::AstBase::exchange_this_thread_ast(m_last_context);
+        if (!lex->has_error())
+        {
+            // 2. Lexer will create ast_tree;
+            // TODO: REMAKING....
+            wo_error("REMAKING");
+        }
+
+        wo::ast::AstBase::clean_this_thread_ast();
+
+        if (need_exchange_back)
+            wo::ast::AstBase::exchange_this_thread_ast(m_last_context);
+
+        if (env_result)
+        {
+            delete lex;
+            return env_result;
+        }
+#else
+        lex->lex_error(wo::lexer::errorlevel::error, WO_ERR_COMPILER_DISABLED);
+#endif
     }
-
-    wo::ast::ast_base::clean_this_thread_ast();
-
-    if (need_exchange_back)
-        wo::ast::ast_base::exchange_this_thread_ast(m_last_context);
-
-    if (env_result)
-    {
-        delete lex;
-        return env_result;
-    }
-    else
-        return lex;
+    return lex;
 }
 
 wo_bool_t _wo_load_source(wo_vm vm, wo_string_t virtual_src_path, const void* src, size_t len, size_t stacksz)

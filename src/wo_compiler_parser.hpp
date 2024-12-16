@@ -21,18 +21,20 @@ RS will using 'hand-work' parser, there is not yacc/bison..
 #include <unordered_map>
 #include <unordered_set>
 #include <map>
+#include <list>
 
 #define WOOLANG_LR1_OPTIMIZE_LR1_TABLE 1
 
 namespace wo
 {
+#ifndef WO_DISABLE_COMPILER
     struct lang_scope;
     namespace ast
     {
-        class ast_base
+        class AstBase
         {
         private:
-            inline thread_local static std::forward_list<ast_base*>* list = nullptr;
+            inline thread_local static std::forward_list<AstBase*>* list = nullptr;
         public:
             static void clean_this_thread_ast()
             {
@@ -45,178 +47,83 @@ namespace wo
                 delete list;
                 list = nullptr;
             }
-            static bool exchange_this_thread_ast(std::forward_list<ast_base*>& out_list)
+            static bool exchange_this_thread_ast(std::forward_list<AstBase*>& out_list)
             {
                 wo_assert(out_list.empty() || nullptr == list || list->empty());
 
                 bool need_swap_back = true;
                 if (!list)
                 {
-                    list = new std::forward_list<ast_base*>;
+                    list = new std::forward_list<AstBase*>;
                     need_swap_back = false;
                 }
                 out_list.swap(*list);
                 return need_swap_back;
             }
 
-            bool completed_in_pass1 = false;
-            bool completed_in_pass2 = false;
+        public:
+            struct location_t
+            {
+                size_t row;
+                size_t column;
+            };
 
-            lang_scope* located_scope = nullptr;
+            location_t begin_at = {};
+            location_t end_at = {};
 
-            ast_base* parent = nullptr;
-            ast_base* children = nullptr;
-            ast_base* sibling = nullptr;
-            ast_base* last = nullptr;
-
-            size_t row_begin_no = 0, row_end_no = 0;
-            size_t col_begin_no = 0, col_end_no = 0;
             wo_pstring_t source_file = nullptr;
 
-            wo_pstring_t marking_label = nullptr;
-
-            virtual ~ast_base()
-            {
-
-            }
-            ast_base(const ast_base&) = delete;
-            ast_base(ast_base&&) = delete;
-            ast_base& operator = (const ast_base&)
-            {
-                // ATTENTION: DO NOTHING HERE, DATA COPY WILL BE FINISHED
-                //            IN 'MAKE_INSTANCE'
-                return *this;
-            }
-            ast_base& operator = (ast_base&&) = delete;
-            ast_base()
+            AstBase()
             {
                 if (!list)
-                    list = new std::forward_list<ast_base*>;
+                    list = new std::forward_list<AstBase*>;
+
                 list->push_front(this);
             }
-            void remove_all_childs()
+            AstBase(const AstBase&) = delete;
+            AstBase(AstBase&&) = delete;
+            AstBase& operator = (const AstBase&) = delete;
+            AstBase& operator = (AstBase&&) = delete;
+
+            virtual ~AstBase()
             {
-                last = nullptr;
-                while (children)
-                {
-                    children->parent = nullptr;
-
-                    // NOTE: DO NOT CLEAN CHILD'S SIB HERE, THIS FUNCTION JUST FOR
-                    //       PICKING OUT ALL CHILD NODES.
-                    children = children->sibling;
-                }
             }
-            void add_child(ast_base* ast_node)
-            {
-                if (ast_node->parent == this)
-                    return;
 
-                wo_assert(ast_node->parent == nullptr);
-                wo_assert(ast_node->sibling == nullptr);
-
-                ast_node->parent = this;
-                if (!children)last = nullptr;
-                if (!last)
-                {
-                    children = last = ast_node;
-                    return;
-                }
-
-                last->sibling = ast_node;
-                last = ast_node;
-
-            }
-            void remove_child(ast_base* ast_node)
-            {
-                // WARNING: THIS FUNCTION HAS NOT BEEN TEST.
-                ast_base* last_childs = nullptr;
-                ast_base* childs = children;
-                while (childs)
-                {
-                    if (ast_node == childs)
-                    {
-                        if (last_childs)
-                        {
-                            last_childs->sibling = childs->sibling;
-                            ast_node->parent = nullptr;
-                            ast_node->sibling = nullptr;
-                        }
-                        else
-                        {
-                            if (children == ast_node)
-                                children = ast_node->sibling;
-
-                            childs = last_childs;
-                        }
-
-                        if (last == ast_node)
-                            last = last_childs;
-
-                        ast_node->parent = nullptr;
-                        ast_node->sibling = nullptr;
-                        return;
-                    }
-
-                    last_childs = childs;
-                    childs = childs->sibling;
-                }
-
-                wo_error("There is no such a child node.");
-            }
-            void copy_source_info(const ast_base* ast_node)
-            {
-                if (ast_node->row_begin_no)
-                {
-                    row_begin_no = ast_node->row_begin_no;
-                    row_end_no = ast_node->row_end_no;
-                    col_begin_no = ast_node->col_begin_no;
-                    col_end_no = ast_node->col_end_no;
-                    source_file = ast_node->source_file;
-                }
-                else if (ast_node->parent)
-                    copy_source_info(ast_node->parent);
-                else
-                    wo_error("Failed to copy source info.");
-            }
         public:
-            static void space(std::wostream& os, size_t layer)
-            {
-                for (size_t i = 0; i < layer; i++)
-                {
-                    os << "  ";
-                }
-            }
 
             template<typename T, typename ... Args>
             static T* MAKE_INSTANCE(const T* datfrom, Args && ... args)
             {
                 auto* instance = new T(args...);
 
-                instance->row_begin_no = datfrom->row_begin_no;
-                instance->col_begin_no = datfrom->col_begin_no;
-                instance->row_end_no = datfrom->row_end_no;
-                instance->col_end_no = datfrom->col_end_no;
+                instance->begin_at = datfrom->begin_at;
+                instance->end_at = datfrom->end_at;
                 instance->source_file = datfrom->source_file;
-                instance->marking_label = datfrom->marking_label;
-
-                auto* fromchild = datfrom->children;
-                while (fromchild)
-                {
-                    auto* child = fromchild->instance();
-
-                    child->last = child->parent = nullptr;
-
-                    instance->add_child(child);
-
-                    fromchild = fromchild->sibling;
-                }
 
                 return instance;
             }
 
-            virtual ast_base* instance(ast_base* child_instance = nullptr) const = 0;
+            virtual AstBase* instance(AstBase* child_instance = nullptr) const = 0;
         };
+        class AstList : public AstBase
+        {
+        public:
+            std::list<AstBase*> m_list;
 
+            virtual AstBase* instance(AstBase* child_instance = nullptr) const
+            {
+                auto* new_instance = child_instance
+                    ? static_cast<decltype(MAKE_INSTANCE(this))>(child_instance)
+                    : MAKE_INSTANCE(this);
+
+                // ast::AstBase::instance(new_instance);
+
+                for (auto* old_child : m_list)
+                    new_instance->m_list.push_back(old_child->instance());
+
+                return new_instance;
+            }
+        };
     }
 
     struct token
@@ -292,8 +199,8 @@ namespace wo
 
         struct produce
         {
-            std::variant<ast::ast_base*, token> m_token_or_ast;
-            produce(ast::ast_base* ast)
+            std::variant<ast::AstBase*, token> m_token_or_ast;
+            produce(ast::AstBase* ast)
             {
                 m_token_or_ast = ast;
             }
@@ -306,11 +213,11 @@ namespace wo
             produce(const produce&) = default;
             produce(produce&&) = default;
             produce& operator = (const produce&) = default;
-            produce& operator = (produce &&) = default;
+            produce& operator = (produce&&) = default;
 
             bool is_ast() const
             {
-                return std::holds_alternative<ast::ast_base*>(m_token_or_ast);
+                return std::holds_alternative<ast::AstBase*>(m_token_or_ast);
             }
             bool is_token() const
             {
@@ -320,32 +227,31 @@ namespace wo
             {
                 return std::get<token>(m_token_or_ast);
             }
-            ast::ast_base* read_ast() const
+            ast::AstBase* read_ast() const
             {
-                return std::get<ast::ast_base*>(m_token_or_ast);
+                return std::get<ast::AstBase*>(m_token_or_ast);
             }
         };
 
-        struct ast_default :virtual public ast::ast_base
+        struct AstDefault : public ast::AstBase
         {
             bool stores_terminal = false;
 
-            token        terminal_token = { lex_type::l_error };
+            token terminal_token = { lex_type::l_error };
 
-            ast::ast_base* instance(ast::ast_base* child_instance = nullptr) const override
+            ast::AstBase* instance(ast::AstBase* child_instance = nullptr) const override
             {
-                using astnode_type = decltype(MAKE_INSTANCE(this));
-                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
-                if (!child_instance) *dumm = *this;
-                // ast::ast_base::instance(dumm);
+                auto* new_instance = child_instance
+                    ? static_cast<decltype(MAKE_INSTANCE(this))>(child_instance)
+                    : MAKE_INSTANCE(this);
 
-                // Write self copy functions here..
+                // ast::AstBase::instance(new_instance);
 
-                return dumm;
+                return new_instance;
             }
         };
 
-        struct ast_empty : virtual public ast::ast_base
+        struct AstEmpty : public ast::AstBase
         {
             // used for stand fro l_empty
             // some passer will ignore this xx
@@ -354,7 +260,7 @@ namespace wo
             {
                 if (p.is_ast())
                 {
-                    if (dynamic_cast<ast_empty*>(p.read_ast()))
+                    if (dynamic_cast<AstEmpty*>(p.read_ast()))
                         return true;
                 }
                 if (p.is_token())
@@ -365,15 +271,15 @@ namespace wo
 
                 return false;
             }
-            ast::ast_base* instance(ast_base* child_instance = nullptr) const override
+            ast::AstBase* instance(AstBase* child_instance = nullptr) const override
             {
-                using astnode_type = decltype(MAKE_INSTANCE(this));
-                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
-                if (!child_instance) *dumm = *this;
-                // ast_value_symbolable_base::instance(dumm);
-                // Write self copy functions here..
+                auto* new_instance = child_instance
+                    ? static_cast<decltype(MAKE_INSTANCE(this))>(child_instance)
+                    : MAKE_INSTANCE(this);
 
-                return dumm;
+                // ast::AstBase::instance(new_instance);
+
+                return new_instance;
             }
         };
 
@@ -382,39 +288,12 @@ namespace wo
             std::wstring nt_name;
 
             size_t builder_index = 0;
-            std::function<produce(lexer&, std::vector<produce>&)> ast_create_func =
-                [](lexer& lex, std::vector<produce>& chs)-> produce
-            {
-                auto defaultAST = new ast_default;// <grammar::ASTDefault>();
-
-                for (auto& p : chs)
-                {
-                    if (p.is_ast())
-                    {
-                        defaultAST->add_child(p.read_ast());
-                    }
-                    else if (p.is_token())
-                    {
-                        auto teAST = new ast_default;// <grammar::ASTDefault>();
-                        teAST->terminal_token = p.read_token();
-                        teAST->stores_terminal = true;
-
-                        defaultAST->add_child(teAST);
-                    }
-                    else
-                    {
-                        return token{ lex.parser_error(lexer::errorlevel::error, WO_ERR_UNEXCEPT_AST_NODE_TYPE) };
-                    }
-                }
-                return (ast::ast_base*)defaultAST;
-            };
+            std::function<produce(lexer&, std::vector<produce>&)> ast_create_func;
 
             nonterminal(const std::wstring& name = L"", size_t _builder_index = 0)
                 : nt_name(name)
                 , builder_index(_builder_index)
-
             {
-
             }
             bool operator <(const nonterminal& n)const
             {
@@ -432,8 +311,8 @@ namespace wo
             }
         };
 
-        std::map< nonterminal, std::vector<symlist>>P;//produce rules
-        std::vector<rule>ORGIN_P;//origin produce rules
+        std::map< nonterminal, std::vector<symlist>> P;//produce rules
+        std::vector<rule> ORGIN_P;//origin produce rules
         nonterminal S;//begin nt, or final nt
 
         struct sym_less {
@@ -519,9 +398,7 @@ namespace wo
                 {
                     if (item_rule.second == another.item_rule.second)
                     {
-
                         return next_sign < another.next_sign;
-
                     }
                     else
                     {
@@ -653,9 +530,10 @@ namespace wo
 
         bool check_lr1(std::wostream& ostrm = std::wcout);
         void finish_rt();
-        ast::ast_base* gen(lexer& tkr) const;
+        ast::AstBase* gen(lexer& tkr) const;
     };
     std::wostream& operator<<(std::wostream& ost, const  grammar::lr_item& lri);
     std::wostream& operator<<(std::wostream& ost, const  grammar::terminal& ter);
     std::wostream& operator<<(std::wostream& ost, const  grammar::nonterminal& noter);
+#endif
 }

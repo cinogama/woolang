@@ -1,8 +1,10 @@
-#include "wo_lang_grammar_loader.hpp"
-#include "wo_lang_grammar_lr1_autogen.hpp"
 #include "wo_crc_64.hpp"
-
 #include "wo_lang_ast_builder.hpp"
+
+#ifndef WO_DISABLE_COMPILER
+#   include "wo_lang_grammar_loader.hpp"
+#   include "wo_lang_grammar_lr1_autogen.hpp"
+#endif
 
 #include <fstream>
 
@@ -10,9 +12,11 @@
 #define WO_LSTR(X) _WO_LSTR(X)
 
 #define WO_GRAMMAR_SKIP_GEN_LR1_TABLE_CACHE 0
+#define WO_ASTBUILDER_INDEX(...) 0
 
 namespace wo
 {
+#ifndef WO_DISABLE_COMPILER
     grammar* get_wo_grammar()
     {
         static grammar* wo_grammar = nullptr;
@@ -780,6 +784,7 @@ namespace wo
 
         return wo_grammar;
     }
+#endif
 }
 
 #undef WO_LSTR

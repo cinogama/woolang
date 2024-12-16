@@ -373,10 +373,6 @@ namespace wo
             }
         };
     } // namespace opnum;
-    namespace ast
-    {
-        struct ast_value_function_define;
-    }
 
     class vmbase;
     class ir_compiler;
@@ -440,13 +436,14 @@ namespace wo
         static const location FAIL_LOC;
 
         // for lang
-        void generate_debug_info_at_astnode(ast::ast_base* ast_node, ir_compiler* compiler);
+#ifndef WO_DISABLE_COMPILER
+        void generate_debug_info_at_astnode(ast::AstBase* ast_node, ir_compiler* compiler);
         void finalize_generate_debug_info();
 
-        void generate_func_begin(ast::ast_value_function_define* funcdef, ir_compiler* compiler);
-        void generate_func_end(ast::ast_value_function_define* funcdef, size_t tmpreg_count, ir_compiler* compiler);
-        void add_func_variable(ast::ast_value_function_define* funcdef, const std::wstring& varname, size_t rowno, wo_integer_t loc);
-
+        //void generate_func_begin(ast::ast_value_function_define* funcdef, ir_compiler* compiler);
+        //void generate_func_end(ast::ast_value_function_define* funcdef, size_t tmpreg_count, ir_compiler* compiler);
+        //void add_func_variable(ast::ast_value_function_define* funcdef, const std::wstring& varname, size_t rowno, wo_integer_t loc);
+#endif
         const location& get_src_location_by_runtime_ip(const  byte_t* rt_pos) const;
         std::vector<size_t> get_ip_by_src_location(const std::wstring& src_name, size_t rowno, bool strict, bool ignore_unbreakable)const;
         size_t get_ip_by_runtime_ip(const  byte_t* rt_pos) const;
