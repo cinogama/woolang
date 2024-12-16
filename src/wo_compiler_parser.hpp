@@ -33,6 +33,14 @@ namespace wo
     {
         class AstBase
         {
+        public:
+            enum node_type_t
+            {
+                AST_BASE,
+                AST_LIST,
+                AST_EMPTY,
+                AST_DEFAULT,
+            };
         private:
             inline thread_local static std::forward_list<AstBase*>* list = nullptr;
         public:
@@ -68,12 +76,16 @@ namespace wo
                 size_t column;
             };
 
-            location_t begin_at = {};
-            location_t end_at = {};
+            node_type_t node_type;
+            location_t begin_at;
+            location_t end_at;
+            wo_pstring_t source_file;
 
-            wo_pstring_t source_file = nullptr;
-
-            AstBase()
+            AstBase(node_type_t ty)
+                : node_type(ty)
+                , begin_at({})
+                , end_at({})
+                , source_file(nullptr)
             {
                 if (!list)
                     list = new std::forward_list<AstBase*>;
@@ -90,7 +102,6 @@ namespace wo
             }
 
         public:
-
             template<typename T, typename ... Args>
             static T* MAKE_INSTANCE(const T* datfrom, Args && ... args)
             {
@@ -109,7 +120,9 @@ namespace wo
         {
         public:
             std::list<AstBase*> m_list;
-
+            AstList() : AstBase(AST_LIST)
+            {
+            }
             virtual AstBase* instance(AstBase* child_instance = nullptr) const
             {
                 auto* new_instance = child_instance
@@ -236,8 +249,11 @@ namespace wo
         struct AstDefault : public ast::AstBase
         {
             bool stores_terminal = false;
-
             token terminal_token = { lex_type::l_error };
+
+            AstDefault() : AstBase(AST_DEFAULT)
+            {
+            }
 
             ast::AstBase* instance(ast::AstBase* child_instance = nullptr) const override
             {
@@ -256,11 +272,15 @@ namespace wo
             // used for stand fro l_empty
             // some passer will ignore this xx
 
+            AstEmpty() : AstBase(AST_EMPTY)
+            {
+            }
+
             static bool is_empty(const produce& p)
             {
                 if (p.is_ast())
                 {
-                    if (dynamic_cast<AstEmpty*>(p.read_ast()))
+                    if (p.read_ast()->node_type == AST_EMPTY)
                         return true;
                 }
                 if (p.is_token())

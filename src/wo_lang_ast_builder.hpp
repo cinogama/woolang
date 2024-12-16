@@ -63,6 +63,8 @@ namespace wo
     namespace ast
     {
         void init_builder();
+
+        
     }
 
     grammar::rule operator >> (grammar::rule ost, size_t builder_index);
