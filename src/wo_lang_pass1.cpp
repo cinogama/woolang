@@ -369,13 +369,14 @@ namespace wo
     {
         auto* ast_value_check = WO_AST();
 
-        if (ast_value_check->aim_type->is_pure_pending())
-            lang_anylizer->begin_trying_block();
-        else if (ast_value_check->aim_type->is_pending())
+        if (ast_value_check->aim_type->is_pending())
         {
             // ready for update..
             fully_update_type(ast_value_check->aim_type, true);
         }
+
+        if (ast_value_check->aim_type->is_pure_pending())
+            lang_anylizer->begin_trying_block();
 
         analyze_pass1(ast_value_check->_be_check_value_node);
 
@@ -1018,17 +1019,38 @@ namespace wo
         auto* tuple_elems = a_value_make_tuple_instance->tuple_member_vals->children;
 
         size_t count = 0;
+        std::vector<ast::ast_type*> tuple_elem_types;
         while (tuple_elems)
         {
             ast_value* val = dynamic_cast<ast_value*>(tuple_elems);
-            if (!val->value_type->is_pending())
-                a_value_make_tuple_instance->value_type->template_arguments[count]->set_type(val->value_type);
+            if (auto* unpacks = dynamic_cast<ast_fakevalue_unpacked_args*>(val))
+            {
+                if (!unpacks->unpacked_pack->value_type->is_pending() 
+                    && unpacks->unpacked_pack->value_type->is_tuple())
+                {
+                    wo_assert(unpacks->expand_count >= 0);
+                    auto ecount = std::min(
+                        // if expand_count more than template_arguments.size(), it will be checked in pass2
+                        (size_t)unpacks->expand_count, unpacks->unpacked_pack->value_type->template_arguments.size());
+
+                    tuple_elem_types.insert(
+                        tuple_elem_types.end(), 
+                        unpacks->unpacked_pack->value_type->template_arguments.begin(),
+                        unpacks->unpacked_pack->value_type->template_arguments.begin() + ecount);
+                }
+            }
+            else if (!val->value_type->is_pending())
+                tuple_elem_types.push_back(val->value_type);
             else
-                break;
+                goto _label_tuple_type_failed;
 
             tuple_elems = tuple_elems->sibling;
             ++count;
         }
+        a_value_make_tuple_instance->value_type->set_type_with_name(WO_PSTR(tuple));
+        a_value_make_tuple_instance->value_type->template_arguments = std::move(tuple_elem_types);
+    _label_tuple_type_failed:
+        ;
     }
     WO_PASS1(ast_struct_member_define)
     {

@@ -1938,7 +1938,7 @@ namespace wo
         struct ast_value_make_tuple_instance : virtual public ast_value
         {
             ast_list* tuple_member_vals;
-            ast_value_make_tuple_instance() : ast_value(new ast_type(WO_PSTR(tuple)))
+            ast_value_make_tuple_instance() : ast_value(new ast_type(WO_PSTR(pending)))
             {
             }
             ast::ast_base* instance(ast_base* child_instance = nullptr) const override
@@ -2965,21 +2965,11 @@ namespace wo
                 ast_value_make_tuple_instance* tuple = new ast_value_make_tuple_instance;
 
                 if (!ast_empty::is_empty(input[0]))
-                {
                     tuple->tuple_member_vals = dynamic_cast<ast_list*>(WO_NEED_AST(0));
-
-                    auto* elem = tuple->tuple_member_vals->children;
-                    while (elem != nullptr)
-                    {
-                        tuple->value_type->template_arguments.push_back(new ast_type(WO_PSTR(pending)));
-                        elem = elem->sibling;
-                    }
-                }
                 else
                     tuple->tuple_member_vals = new ast_list();
                 return (ast::ast_base*)tuple;
             }
-
         };
 
         struct pass_empty : public astnode_builder

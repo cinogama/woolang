@@ -105,7 +105,9 @@
 
 #define WO_ERR_USING_VARIADIC_IN_NON_VRIDIC_FUNC L"只有拥有变长参数的函数中可以使用 '...' 来打包变长参数."
 
-#define WO_ERR_UNPACK_ARGS_OUT_OF_FUNC_CALL L"解包运算符只能用于函数调用"
+#define WO_ERR_UNPACK_ARGS_OUT_OF_FUNC_CALL L"不能在此处展开类型  '%ls'"
+
+#define WO_ERR_UNPACK_ARGS_TOO_MUCH L"要求展开的类型 '%ls' 只能展开至多 %zu 个元素"
 
 #define WO_ERR_REDEFINED L"在当前作用域中重复定义了 '%ls'"
 
@@ -391,7 +393,9 @@
 
 #define WO_ERR_USING_VARIADIC_IN_NON_VRIDIC_FUNC L"Only in function having variadic arguments can use '...' to pack variadic arguments."
 
-#define WO_ERR_UNPACK_ARGS_OUT_OF_FUNC_CALL L"Unpack is only allowed for arguments in function calls."
+#define WO_ERR_UNPACK_ARGS_OUT_OF_FUNC_CALL L"The type '%ls' cannot be expanded here."
+
+#define WO_ERR_UNPACK_ARGS_TOO_MUCH L"The type '%ls' can only be expanded to a maximum of %zu elements."
 
 #define WO_ERR_REDEFINED L"Redefined '%ls' in this scope."
 

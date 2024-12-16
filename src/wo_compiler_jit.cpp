@@ -1210,7 +1210,9 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             invoke_node->setArg(4, ctx->_vmssp);
             invoke_node->setArg(5, ctx->_vmsbp);
 
-            ir_make_checkpoint(ctx, rt_ip);
+            auto sync = ctx->c.newInt32();
+            wo_assure(!ctx->c.mov(sync, asmjit::Imm(wo_result_t::WO_API_SYNC)));
+            wo_assure(!ctx->c.ret(sync));
         }
 
         virtual X64CompileContext* prepare_compiler(
@@ -2661,7 +2663,10 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             invoke_node->setArg(2, asmjit::Imm((intptr_t)rt_ip));
             invoke_node->setArg(3, ctx->_vmssp);
             invoke_node->setArg(4, ctx->_vmsbp);
-            ir_make_checkpoint(ctx, rt_ip);
+
+            auto sync = ctx->c.newInt32();
+            wo_assure(!ctx->c.mov(sync, asmjit::Imm(wo_result_t::WO_API_SYNC)));
+            wo_assure(!ctx->c.ret(sync));
             return true;
         }
         virtual bool ir_ext_packargs(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip) override
