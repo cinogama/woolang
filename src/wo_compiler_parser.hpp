@@ -39,10 +39,53 @@ namespace wo
                 AST_LIST,
                 AST_EMPTY,
 
+                AST_WHERE_CONSTRAINTS,
+
                 AST_TYPE_HOLDER,
+
+                AST_PATTERN_TAKEPLACE,
+                AST_PATTERN_SINGLE,
+                AST_PATTERN_TUPLE,  
+                AST_PATTERN_UNION,  // Only used in match
+                AST_PATTERN_INDEX,  // Only used in assign
+
+                AST_VARIABLE_DEFINES,
+                AST_KEY_VALUE_PAIR,
+                AST_FIELD_VALUE_PAIR,
 
                 AST_VALUE_MARK_AS_MUTABLE,
                 AST_VALUE_MARK_AS_IMMUTABLE,
+                AST_VALUE_LITERAL,
+                AST_VALUE_TYPEID,
+                AST_VALUE_TYPE_CAST,
+                AST_VALUE_TYPE_CHECK_IS,
+                AST_VALUE_TYPE_CHECK_AS,
+                AST_VALUE_VARIABLE,
+                AST_VALUE_FUNCTION_CALL,
+                AST_VALUE_BINARY_OPERATOR,
+                AST_VALUE_UNARY_OPERATOR,
+                AST_VALUE_TRIBLE_OPERATOR,
+                AST_VALUE_INDEX,
+                AST_VALUE_FUNCTION,
+                AST_VALUE_ARRAY_OR_VEC,
+                AST_VALUE_DICT_OR_MAP,
+                AST_VALUE_TUPLE,
+                AST_VALUE_STRUCT,
+                AST_VALUE_ASSIGN,
+                AST_VALUE_PACKED_ARGS,
+                AST_VALUE_INDEX_PACKED_ARGS,
+                AST_FAKE_VALUE_UNPACK,
+
+                AST_NAMESPACE,
+                AST_SCOPE,
+
+                AST_MATCH,
+                AST_MATCH_CASE,
+                AST_IF,
+                AST_WHILE,
+                AST_FOR,
+                AST_FOREACH,
+
             };
         private:
             inline thread_local static std::forward_list<AstBase*>* list = nullptr;
@@ -155,9 +198,8 @@ namespace wo
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override
             {
                 auto* new_instance = exist_instance ? static_cast<AstList*>(exist_instance.value()) : new AstList();
-
-                for (auto* old_child : m_list)
-                    new_instance->m_list.push_back(old_child);
+                
+                new_instance->m_list = m_list;
 
                 for (auto* dup_child : new_instance->m_list)
                     out_continues.push_back(make_holder(&dup_child));

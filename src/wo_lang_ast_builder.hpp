@@ -23,8 +23,9 @@
 namespace wo
 {
 #ifndef WO_DISABLE_COMPILER
-
+    struct lang_Symbol;
     struct lang_TypeInstance;
+    struct lang_ValueIdentifierInstance;
 
     namespace ast
     {
@@ -91,8 +92,8 @@ namespace wo
             std::list<AstTypeHolder*>
                                     m_template_arguments;
 
-            // std::optional<lang_symbol*>
-            //                         m_symbol;
+            std::optional<lang_Symbol*>
+                                    m_symbol;
             Identifier(wo_pstring_t identifier);
             Identifier(wo_pstring_t identifier, const std::list<AstTypeHolder*>& template_arguments);
             Identifier(wo_pstring_t identifier, const std::list<AstTypeHolder*>& template_arguments, const std::list<wo_pstring_t>& scopes, bool from_global);
@@ -126,6 +127,7 @@ namespace wo
 
             struct FunctionType
             {
+                bool m_is_variadic;
                 std::vector<AstTypeHolder*> m_parameters;
                 AstTypeHolder* m_return_type;
             };
@@ -182,7 +184,7 @@ namespace wo
             AstValueBase* m_marked_value;
 
             AstValueMarkAsMutable(AstValueBase* marking_value);
-            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
         };
         
         struct AstValueMarkAsImmutable : public AstValueBase
@@ -190,8 +192,376 @@ namespace wo
             AstValueBase* m_marked_value;
 
             AstValueMarkAsImmutable(AstValueBase* marking_value);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
+        };
+
+        struct AstValueLiteral : public AstValueBase
+        {
+            token m_literal_token;
+            AstValueLiteral(const token& literal_token);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
+        };
+        struct AstValueTypeid : public AstValueBase
+        {
+            AstTypeHolder* m_id_type;
+
+            AstValueTypeid(AstTypeHolder* id_type);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
+        };
+        struct AstValueTypeCast : public AstValueBase
+        {
+            AstTypeHolder* m_cast_type;
+            AstValueBase* m_cast_value;
+
+            AstValueTypeCast(AstTypeHolder* cast_type, AstValueBase* cast_value);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
+        };
+        struct AstValueTypeCheckIs : public AstValueBase
+        {
+            AstTypeHolder* m_check_type;
+            AstValueBase* m_check_value;
+
+            AstValueTypeCheckIs(AstTypeHolder* check_type, AstValueBase* check_value);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
+        };
+        struct AstValueTypeCheckAs : public AstValueBase
+        {
+            AstTypeHolder* m_check_type;
+            AstValueBase* m_check_value;
+
+            AstValueTypeCheckAs(AstTypeHolder* check_type, AstValueBase* check_value);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
+        };
+        struct AstValueVariable : public AstValueBase
+        {
+            Identifier m_identifier;
+
+            AstValueVariable(const Identifier& variable_name);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
+        };
+        struct AstWhereConstraints : public AstBase
+        {
+            std::list<AstValueBase*> m_constraints;
+
+            AstWhereConstraints(const std::list<AstValueBase*>& constraints);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
+        };
+        struct AstValueFunctionCall : public AstValueBase
+        {
+            bool m_is_direct_call;  // -> |> <|
+            AstValueBase* m_function;
+            std::list<AstValueBase*> m_arguments;
+
+            AstValueFunctionCall(bool direct, AstValueBase* function, const std::list<AstValueBase*>& arguments);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
+        };
+
+        struct AstValueMayConsiderOperatorOverload : public AstValueBase
+        {
+            std::optional<AstValueFunctionCall*> m_overload_call;
+         
+            AstValueMayConsiderOperatorOverload(AstBase::node_type_t nodetype);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
+        struct AstValueBinaryOperator: public AstValueMayConsiderOperatorOverload
+        {
+            enum operator_type
+            {
+                ADD,
+                SUBSTRACT,
+                MULTIPLY,
+                DIVIDE,
+                MODULO,
+
+                AND,
+                OR,
+                GREATER,
+                GREATER_EQUAL,
+                LESS,
+                LESS_EQUAL,
+                EQUAL,
+                NOT_EQUAL,
+            };
+            operator_type m_operator;
+            AstValueBase* m_left;
+            AstValueBase* m_right;
+
+            AstValueBinaryOperator(operator_type op, AstValueBase* left, AstValueBase* right);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
+        };
+        struct AstValueUnaryOperator : public AstValueBase
+        {
+            enum operator_type
+            {
+                NEGATIVE,
+                NOT,
+            };
+            operator_type m_operator;
+            AstValueBase* m_operand;
+
+            AstValueUnaryOperator(operator_type op, AstValueBase* operand);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
+        };
+        struct AstValueTribleOperator : public AstValueBase
+        {
+            AstValueBase* m_condition;
+            AstValueBase* m_true_value;
+            AstValueBase* m_false_value;
+
+            AstValueTribleOperator(AstValueBase* condition, AstValueBase* true_value, AstValueBase* false_value);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
+        };
+        struct AstFakeValueUnpack : public AstValueBase
+        {
+            AstValueBase* m_unpack_value;
+
+            AstFakeValueUnpack(AstValueBase* unpack_value);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
+        };
+        struct AstValueIndex : public AstValueBase
+        {
+            AstValueBase* m_container;
+            AstValueBase* m_index;
+
+            AstValueIndex(AstValueBase* container, AstValueBase* index);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+        };
+        struct AstPatternBase : public AstBase
+        {
+            AstPatternBase(AstBase::node_type_t nodetype);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+        };
+        struct AstPatternTakeplace : public AstPatternBase
+        {
+            AstPatternTakeplace();
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+        };
+        struct AstPatternSingle : public AstPatternBase
+        {
+            wo_pstring_t m_name;
+            std::optional<std::vector<wo_pstring_t>> m_template_parameters;
+            std::optional<lang_Symbol*> m_declared_symbol;
+
+            AstPatternSingle(
+                wo_pstring_t name,
+                const std::optional<std::vector<wo_pstring_t>> template_parameters);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+        };
+        struct AstPatternTuple : public AstPatternBase
+        {
+            std::vector<AstPatternBase*> m_fields;
+
+            AstPatternTuple(const std::vector<AstPatternBase*>& fields);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+        };
+        struct AstPatternUnion : public AstPatternBase
+        {
+            wo_pstring_t m_tag;
+            AstPatternBase* m_field;
+
+            AstPatternUnion(wo_pstring_t tag, AstPatternBase* field);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+        };
+        struct AstPatternIndex : public AstPatternBase
+        {
+            AstValueIndex* m_index;
+
+            AstPatternIndex(AstValueIndex* index);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+        };
+        struct AstVariableDefines : public AstBase
+        {
+            struct variable_define
+            {
+                AstPatternBase* m_pattern;
+                AstValueBase* m_init_value;
+            };
+            std::vector<variable_define> m_definitions;
+
+            AstVariableDefines();
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+        };
+
+        struct AstValueFunction : public AstValueBase
+        {
+            struct parameter_define
+            {
+                AstPatternBase* m_pattern;
+                std::optional<AstTypeHolder*> m_type;
+            };
+
+            std::vector<parameter_define>   m_parameters;
+            bool                            m_is_variadic;
+            std::optional<AstTypeHolder*>   m_marked_return_type;
+            std::optional<AstWhereConstraints*>
+                                            m_where_constraints;
+            AstValueBase*                   m_body;
+
+            AstValueFunction(
+                const std::vector<parameter_define>& parameters,
+                bool is_variadic,
+                const std::optional<AstTypeHolder*>& marked_return_type,
+                const std::optional<AstWhereConstraints*>& where_constraints,
+                AstValueBase* body);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+        };
+
+        struct AstValueArrayOrVec : public AstValueBase
+        {
+            bool m_making_vec;
+            std::vector<AstValueBase*> m_elements;
+
+            AstValueArrayOrVec(const std::vector<AstValueBase*>& elements, bool making_vec);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+        };
+        struct AstKeyValuePair : public AstBase
+        {
+            AstValueBase* m_key;
+            AstValueBase* m_value;
+
+            AstKeyValuePair(AstValueBase* key, AstValueBase* value);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+        };
+        struct AstValueDictOrMap : public AstValueBase
+        {
+            bool m_making_map;
+            std::vector<AstKeyValuePair*>
+                m_elements;
+
+            AstValueDictOrMap(const std::vector<AstKeyValuePair*>& elements, bool making_map);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+        };
+        struct AstValueTuple : public AstValueBase
+        {
+            std::vector<AstValueBase*> m_elements;
+
+            AstValueTuple(const std::vector<AstValueBase*>& elements);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+        };
+        struct AstFieldValuePair : public AstBase
+        {
+            wo_pstring_t m_name;
+            AstValueBase* m_value;
+
+            AstFieldValuePair(wo_pstring_t name, AstValueBase* value);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+        };
+        struct AstValueStruct : public AstValueBase
+        {
+            std::optional<AstTypeHolder*> m_marked_struct_type;
+            std::vector<AstFieldValuePair*> m_fields;
+
+            AstValueStruct(
+                const std::optional<AstTypeHolder*>& marked_struct_type,
+                const std::vector<AstFieldValuePair*>& fields);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+        };
+        struct AstValueAssign : public AstValueBase
+        {
+            enum assign_type
+            {
+                ASSIGN,
+                ADD_ASSIGN,
+                SUBSTRACT_ASSIGN,
+                MULTIPLY_ASSIGN,
+                DIVIDE_ASSIGN,
+                MODULO_ASSIGN,
+            };
+            
+            assign_type m_assign_type;
+            AstPatternBase* m_assign_place;
+            AstValueBase* m_right;
+
+            AstValueAssign(assign_type type, AstPatternBase* assign_place, AstValueBase* right);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+        };
+        struct AstValuePackedArgs : public AstValueBase
+        {
+            AstValuePackedArgs();
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+        };
+        struct AstValueIndexPackedArgs : public AstValueBase
+        {
+            wo_size_t m_index;
+            AstValueIndexPackedArgs(wo_size_t m_index);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+        };
+
+        ////////////////////////////////////////////////////////
+
+        struct AstNamespace : public AstBase
+        {
+            wo_pstring_t    m_name;
+            AstBase*        m_body;
+
+            AstNamespace(wo_pstring_t name, AstBase* body);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+        };
+        struct AstScope : public AstBase
+        {
+            AstBase* m_body;
+
+            AstScope(AstBase* body);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+        };
+
+        struct AstMatch
+        {
+            todo todo;
+        };
+
+
+        struct AstIf : public AstBase
+        {
+            AstValueBase*   m_condition;
+            AstBase*        m_true_body;
+            std::optional<AstBase*> 
+                            m_false_body;
+
+            AstIf(AstValueBase* condition, AstBase* true_body, const std::optional<AstBase*>& false_body);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+        };
+        struct AstWhile : public AstBase
+        {
+            AstValueBase*   m_condition;
+            AstBase*        m_body;
+
+            AstWhile(AstValueBase* condition, AstBase* body);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+        };
+        struct AstFor : public AstBase
+        {
+            std::optional<AstVariableDefines*>  m_initial;
+            std::optional<AstValueBase*>        m_condition;
+            std::optional<AstValueBase*>        m_step;
+
+            AstFor(AstVariableDefines* initial, AstValueBase* condition, AstValueBase* step);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+        };
+        struct AstForeach : public AstBase
+        {
+            std::optional<AstPatternBase*> m_pattern;
+            std::optional<AstValueBase*>   m_container;
+            AstBase*        m_body;
+            /*
+            for (let PPP : VVV)
+
+            let _ITER = std::iterator(VVV);
+            for (;;)
+            {
+                match (_ITER->next)
+                {
+                value(PPP)? BODY;
+                none? break;
+                }
+            }
+
+            */
+
+            AstForeach(AstPatternBase* pattern, AstValueBase* container, AstBase* body);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+        };
+
     }
 
     grammar::rule operator >> (grammar::rule ost, size_t builder_index);
