@@ -1,5 +1,7 @@
 #include "wo_lang_ast_builder.hpp"
 
+#include <algorithm>
+
 namespace wo
 {
 #ifndef WO_DISABLE_COMPILER
@@ -147,11 +149,100 @@ namespace wo
 
         }
 
+        bool AstTypeHolder::_check_if_has_typeof() const
+        {
+            switch (m_formal)
+            {
+            case IDENTIFIER:
+                if (m_identifier.m_formal == Identifier::identifier_formal::FROM_TYPE)
+                    return true;
+                for (auto& template_argument : m_identifier.m_template_arguments)
+                {
+                    if (template_argument->_check_if_has_typeof())
+                        return true;
+                }
+                return false;
+            case TYPEOF:
+                return true;
+            case FUNCTION:
+                for (auto& param : m_function.m_parameters)
+                {
+                    if (param->_check_if_has_typeof())
+                        return true;
+                }
+                return m_function.m_return_type->_check_if_has_typeof();
+            case STRUCTURE:
+                for (auto& field : m_structure.m_fields)
+                {
+                    if (field.second->_check_if_has_typeof())
+                        return true;
+                }
+                return false;
+            case TUPLE:
+                for (auto& field : m_tuple.m_fields)
+                {
+                    if (field->_check_if_has_typeof())
+                        return true;
+                }
+                return false;
+            default:
+                wo_error("Unknown type form.");
+                return false;
+            }
+        }
+        void AstTypeHolder::_check_if_template_exist_in(
+            const std::list<wo_pstring_t>& template_params, std::vector<bool>& out_contain_flags) const
+        {
+            switch (m_formal)
+            {
+            case IDENTIFIER:
+                if (m_identifier.m_formal == Identifier::identifier_formal::FROM_TYPE)
+                {
+                    m_identifier.m_from_type.value()->_check_if_template_exist_in(template_params, out_contain_flags);
+                    return;
+                }
+                else if (m_identifier.m_formal == Identifier::identifier_formal::FROM_CURRENT)
+                {
+                    if (m_identifier.m_scope.empty())
+                    {
+                        size_t offset = 0;
+                        for (auto& template_ : template_params)
+                        {
+                            if (m_identifier.m_name == template_)
+                                out_contain_flags[offset] = true;
+                            ++offset;
+                        }
+                    }
+                }
+                for (auto& template_argument : m_identifier.m_template_arguments)
+                    template_argument->_check_if_template_exist_in(template_params, out_contain_flags);
+                break;
+            case TYPEOF:
+                // We are not able to check template in typefrom.
+                break;
+            case FUNCTION:
+                for (auto& param : m_function.m_parameters)
+                    param->_check_if_template_exist_in(template_params, out_contain_flags);
+                m_function.m_return_type->_check_if_template_exist_in(template_params, out_contain_flags);
+                break;
+            case STRUCTURE:
+                for (auto& field : m_structure.m_fields)
+                    field.second->_check_if_template_exist_in(template_params, out_contain_flags);
+                break;
+            case TUPLE:
+                for (auto& field : m_tuple.m_fields)
+                    field->_check_if_template_exist_in(template_params, out_contain_flags);
+                break;
+            default:
+                wo_error("Unknown type form.");
+                break;
+            }
+        }
         AstBase* AstTypeHolder::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
         {
-            AstTypeHolder* new_instance = exist_instance? static_cast<AstTypeHolder*>(exist_instance.value()): nullptr;
+            AstTypeHolder* new_instance = exist_instance ? static_cast<AstTypeHolder*>(exist_instance.value()) : nullptr;
 
-            switch(m_formal)
+            switch (m_formal)
             {
             case IDENTIFIER:
                 if (new_instance == nullptr)new_instance = new AstTypeHolder(m_identifier);
@@ -180,7 +271,7 @@ namespace wo
             default:
                 wo_error("Unknown type form.");
             }
-            
+
             return new_instance;
         }
 
@@ -400,7 +491,7 @@ namespace wo
             return new_instance;
         }
         ////////////////////////////////////////////////////////
- 
+
         AstValueMayConsiderOperatorOverload::AstValueMayConsiderOperatorOverload(AstBase::node_type_t nodetype)
             : AstValueBase(nodetype)
             , m_overload_call(std::nullopt)
@@ -533,9 +624,11 @@ namespace wo
         ////////////////////////////////////////////////////////
 
         AstPatternSingle::AstPatternSingle(
+            bool is_mutable,
             wo_pstring_t name,
-            const std::optional<std::vector<wo_pstring_t>> template_parameters)
+            const std::optional<std::list<wo_pstring_t>> template_parameters)
             : AstPatternBase(AST_PATTERN_SINGLE)
+            , m_is_mutable(is_mutable)
             , m_name(name)
             , m_template_parameters(template_parameters)
             , m_declared_symbol(std::nullopt)
@@ -545,7 +638,7 @@ namespace wo
         {
             AstPatternSingle* new_instance = exist_instance
                 ? static_cast<AstPatternSingle*>(exist_instance.value())
-                : new AstPatternSingle(m_name, m_template_parameters)
+                : new AstPatternSingle(m_is_mutable, m_name, m_template_parameters)
                 ;
             AstPatternBase::make_dup(new_instance, out_continues);
             return new_instance;
@@ -573,7 +666,7 @@ namespace wo
 
         ////////////////////////////////////////////////////////
 
-        AstPatternUnion::AstPatternUnion(wo_pstring_t tag, AstPatternBase* field)
+        AstPatternUnion::AstPatternUnion(wo_pstring_t tag, std::optional<AstPatternBase*> field)
             : AstPatternBase(AST_PATTERN_UNION)
             , m_tag(tag)
             , m_field(field)
@@ -586,7 +679,8 @@ namespace wo
                 : new AstPatternUnion(m_tag, m_field)
                 ;
             AstPatternBase::make_dup(new_instance, out_continues);
-            out_continues.push_back(AstBase::make_holder(&new_instance->m_field));
+            if (new_instance->m_field)
+                out_continues.push_back(AstBase::make_holder(&new_instance->m_field.value()));
             return new_instance;
         }
 
@@ -652,12 +746,32 @@ namespace wo
 
         ////////////////////////////////////////////////////////
 
+        AstFunctionParameterDeclare::AstFunctionParameterDeclare(AstPatternBase* m_pattern, std::optional<AstTypeHolder*> m_type)
+            : AstBase(AST_FUNCTION_PARAMETER_DECLARE)
+            , m_pattern(m_pattern)
+            , m_type(m_type)
+        {
+        }
+        AstBase* AstFunctionParameterDeclare::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        {
+            AstFunctionParameterDeclare* new_instance = exist_instance
+                ? static_cast<AstFunctionParameterDeclare*>(exist_instance.value())
+                : new AstFunctionParameterDeclare(m_pattern, m_type)
+                ;
+            out_continues.push_back(AstBase::make_holder(&new_instance->m_pattern));
+            if (m_type)
+                out_continues.push_back(AstBase::make_holder(&new_instance->m_type.value()));
+            return new_instance;
+        }
+
+        ////////////////////////////////////////////////////////
+
         AstValueFunction::AstValueFunction(
-            const std::vector<parameter_define>& parameters,
+            const std::list<AstFunctionParameterDeclare*>& parameters,
             bool is_variadic,
             const std::optional<AstTypeHolder*>& marked_return_type,
             const std::optional<AstWhereConstraints*>& where_constraints,
-            AstValueBase* body)
+            AstBase* body)
             : AstValueBase(AST_VALUE_FUNCTION)
             , m_parameters(parameters)
             , m_is_variadic(is_variadic)
@@ -673,11 +787,7 @@ namespace wo
                 : new AstValueFunction(m_parameters, m_is_variadic, m_marked_return_type, m_where_constraints, m_body)
                 ;
             for (auto& param : new_instance->m_parameters)
-            {
-                out_continues.push_back(AstBase::make_holder(&param.m_pattern));
-                if (param.m_type)
-                    out_continues.push_back(AstBase::make_holder(&param.m_type.value()));
-            }
+                out_continues.push_back(AstBase::make_holder(&param));
             if (m_marked_return_type)
                 out_continues.push_back(AstBase::make_holder(&new_instance->m_marked_return_type.value()));
             if (m_where_constraints)
@@ -898,19 +1008,573 @@ namespace wo
         }
 
         ////////////////////////////////////////////////////////
-       
-       
+
+        AstMatchCase::AstMatchCase(AstPatternBase* pattern, AstBase* body)
+            : AstBase(AST_MATCH_CASE)
+            , m_pattern(pattern)
+            , m_body(body)
+        {
+        }
+        AstBase* AstMatchCase::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        {
+            AstMatchCase* new_instance = exist_instance
+                ? static_cast<AstMatchCase*>(exist_instance.value())
+                : new AstMatchCase(m_pattern, m_body)
+                ;
+            out_continues.push_back(AstBase::make_holder(&new_instance->m_pattern));
+            out_continues.push_back(AstBase::make_holder(&new_instance->m_body));
+            return new_instance;
+        }
 
         ////////////////////////////////////////////////////////
-       
-        ////////////////////////////////////////////////////////
-        
-        ////////////////////////////////////////////////////////
-      
+
+        AstMatch::AstMatch(AstValueBase* match_value, const std::list<AstMatchCase*>& cases)
+            : AstBase(AST_MATCH)
+            , m_matched_value(match_value)
+            , m_cases(cases)
+        {
+        }
+        AstBase* AstMatch::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        {
+            AstMatch* new_instance = exist_instance
+                ? static_cast<AstMatch*>(exist_instance.value())
+                : new AstMatch(m_matched_value, m_cases)
+                ;
+            out_continues.push_back(AstBase::make_holder(&new_instance->m_matched_value));
+            for (auto& c : new_instance->m_cases)
+                out_continues.push_back(AstBase::make_holder(&c));
+            return new_instance;
+        }
+
         ////////////////////////////////////////////////////////
 
+        AstIf::AstIf(AstValueBase* condition, AstBase* true_body, const std::optional<AstBase*>& false_body)
+            : AstBase(AST_IF)
+            , m_condition(condition)
+            , m_true_body(true_body)
+            , m_false_body(false_body)
+        {
+        }
+        AstBase* AstIf::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        {
+            AstIf* new_instance = exist_instance
+                ? static_cast<AstIf*>(exist_instance.value())
+                : new AstIf(m_condition, m_true_body, m_false_body)
+                ;
+            out_continues.push_back(AstBase::make_holder(&new_instance->m_condition));
+            out_continues.push_back(AstBase::make_holder(&new_instance->m_true_body));
+            if (m_false_body)
+                out_continues.push_back(AstBase::make_holder(&new_instance->m_false_body.value()));
+            return new_instance;
+        }
 
 
+        ////////////////////////////////////////////////////////
+
+        AstWhile::AstWhile(AstValueBase* condition, AstBase* body)
+            : AstBase(AST_WHILE)
+            , m_condition(condition)
+            , m_body(body)
+        {
+        }
+        AstBase* AstWhile::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        {
+            AstWhile* new_instance = exist_instance
+                ? static_cast<AstWhile*>(exist_instance.value())
+                : new AstWhile(m_condition, m_body)
+                ;
+            out_continues.push_back(AstBase::make_holder(&new_instance->m_condition));
+            out_continues.push_back(AstBase::make_holder(&new_instance->m_body));
+            return new_instance;
+        }
+
+        ////////////////////////////////////////////////////////
+
+        AstFor::AstFor(
+            std::optional<AstVariableDefines*> initial,
+            std::optional<AstValueBase*> condition,
+            std::optional<AstValueBase*> step,
+            AstBase* body)
+            : AstBase(AST_FOR)
+            , m_initial(initial)
+            , m_condition(condition)
+            , m_step(step)
+            , m_body(body)
+        {
+        }
+        AstBase* AstFor::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        {
+            AstFor* new_instance = exist_instance
+                ? static_cast<AstFor*>(exist_instance.value())
+                : new AstFor(m_initial, m_condition, m_step, m_body)
+                ;
+            if (new_instance->m_initial)
+                out_continues.push_back(AstBase::make_holder(&new_instance->m_initial.value()));
+            if (new_instance->m_condition)
+                out_continues.push_back(AstBase::make_holder(&new_instance->m_condition.value()));
+            if (new_instance->m_step)
+                out_continues.push_back(AstBase::make_holder(&new_instance->m_step.value()));
+            out_continues.push_back(AstBase::make_holder(&new_instance->m_body));
+            return new_instance;
+        }
+
+        ////////////////////////////////////////////////////////
+
+        AstForeach::AstForeach(AstScope* job)
+            : AstBase(AST_FOREACH)
+            , m_job(job)
+        {
+        }
+        AstForeach::AstForeach(AstPatternBase* pattern, AstValueBase* container, AstBase* body)
+            : AstBase(AST_FOREACH)
+            , m_job(nullptr)
+        {
+            auto* job_list = new AstList();
+
+            // let $_iter = std::iterator(container);
+            auto* std_iterator_value = new AstValueVariable(Identifier(WO_PSTR(iterator), {}, { WO_PSTR(std) }, true));
+            auto* invoke_std_iterator = new AstValueFunctionCall(false, std_iterator_value, { container });
+            auto* iterator_declear = new AstVariableDefines();
+
+            auto* iterator_pattern = new AstPatternSingle(false, WO_PSTR(_iter), {});
+            iterator_declear->m_definitions.push_back({ iterator_pattern, invoke_std_iterator });
+
+            // for (;;) {
+            //    match ($_iter.next()) {
+            auto* iterator_value = new AstValueVariable(Identifier(WO_PSTR(_iter), {}, {}, false));
+            auto* next_value = new AstValueVariable(Identifier(WO_PSTR(next), {}, {}, false));
+            auto* invoke_next = new AstValueFunctionCall(true, next_value, { iterator_value });
+
+            //        value(PPP)? BODY
+            auto* match_cast_value_pattern = new AstPatternUnion(WO_PSTR(value), pattern);
+            auto* match_case_value = new AstMatchCase(match_cast_value_pattern, body);
+            //        _? break;
+            auto* match_case_none_pattern = new AstPatternTakeplace();
+            auto* match_case_none = new AstMatchCase(match_case_none_pattern, new AstBreak(std::nullopt));
+            auto* match_body = new AstMatch(invoke_next, { match_case_value, match_case_none });
+            //    }
+            // }
+            auto* for_body = new AstFor(std::nullopt, std::nullopt, std::nullopt, match_body);
+
+            job_list->m_list.push_back(for_body);
+
+            m_job = new AstScope(job_list);
+
+            // Update source msg;
+            std_iterator_value->source_location = container->source_location;
+            invoke_std_iterator->source_location = container->source_location;
+            iterator_declear->source_location = container->source_location;
+            iterator_pattern->source_location = container->source_location;
+
+            iterator_value->source_location = pattern->source_location;
+            next_value->source_location = pattern->source_location;
+            invoke_next->source_location = pattern->source_location;
+
+            match_cast_value_pattern->source_location = pattern->source_location;
+            match_case_value->source_location = pattern->source_location;
+
+            match_case_none_pattern->source_location = pattern->source_location;
+            match_case_none->source_location = pattern->source_location;
+
+            match_body->source_location = body->source_location;
+            for_body->source_location = body->source_location;
+            job_list->source_location = body->source_location;
+            m_job->source_location = body->source_location;
+        }
+        AstBase* AstForeach::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        {
+            AstForeach* new_instance = exist_instance
+                ? static_cast<AstForeach*>(exist_instance.value())
+                : new AstForeach(m_job)
+                ;
+            if (new_instance->m_job)
+                out_continues.push_back(AstBase::make_holder(&new_instance->m_job));
+            return new_instance;
+        }
+
+        ////////////////////////////////////////////////////////
+
+        AstBreak::AstBreak(std::optional<wo_pstring_t> label)
+            : AstBase(AST_BREAK)
+            , m_label(label)
+        {
+        }
+        AstBase* AstBreak::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        {
+            AstBreak* new_instance = exist_instance
+                ? static_cast<AstBreak*>(exist_instance.value())
+                : new AstBreak(m_label)
+                ;
+            return new_instance;
+        }
+
+        ////////////////////////////////////////////////////////
+
+        AstContinue::AstContinue(std::optional<wo_pstring_t> label)
+            : AstBase(AST_CONTINUE)
+            , m_label(label)
+        {
+        }
+        AstBase* AstContinue::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        {
+            AstContinue* new_instance = exist_instance
+                ? static_cast<AstContinue*>(exist_instance.value())
+                : new AstContinue(m_label)
+                ;
+            return new_instance;
+        }
+
+        ////////////////////////////////////////////////////////
+
+        AstReturn::AstReturn(const std::optional<AstValueBase*>& value)
+            : AstBase(AST_RETURN)
+            , m_value(value)
+        {
+        }
+        AstBase* AstReturn::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        {
+            AstReturn* new_instance = exist_instance
+                ? static_cast<AstReturn*>(exist_instance.value())
+                : new AstReturn(m_value)
+                ;
+            if (new_instance->m_value)
+                out_continues.push_back(AstBase::make_holder(&new_instance->m_value.value()));
+            return new_instance;
+        }
+
+        ////////////////////////////////////////////////////////
+
+        AstLabeled::AstLabeled(wo_pstring_t label, AstBase* body)
+            : AstBase(AST_LABELED)
+            , m_label(label)
+            , m_body(body)
+        {
+        }
+        AstBase* AstLabeled::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        {
+            AstLabeled* new_instance = exist_instance
+                ? static_cast<AstLabeled*>(exist_instance.value())
+                : new AstLabeled(m_label, m_body)
+                ;
+            out_continues.push_back(AstBase::make_holder(&new_instance->m_body));
+            return new_instance;
+        }
+
+        ////////////////////////////////////////////////////////
+
+        AstUsingTypeDeclare::AstUsingTypeDeclare(
+            wo_pstring_t typename_,
+            const std::optional<std::list<wo_pstring_t>>& template_parameters,
+            AstTypeHolder* type)
+            : AstBase(AST_USING_TYPE_DECLARE)
+            , m_typename(typename_)
+            , m_template_parameters(template_parameters)
+            , m_type(type)
+        {
+        }
+        AstBase* AstUsingTypeDeclare::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        {
+            AstUsingTypeDeclare* new_instance = exist_instance
+                ? static_cast<AstUsingTypeDeclare*>(exist_instance.value())
+                : new AstUsingTypeDeclare(m_typename, m_template_parameters, m_type)
+                ;
+
+            out_continues.push_back(AstBase::make_holder(&new_instance->m_type));
+            return new_instance;
+        }
+
+        ////////////////////////////////////////////////////////
+
+        AstAliasTypeDeclare::AstAliasTypeDeclare(
+            wo_pstring_t typename_,
+            const std::optional<std::list<wo_pstring_t>>& template_parameters,
+            AstTypeHolder* type)
+            : AstBase(AST_ALIAS_TYPE_DECLARE)
+            , m_typename(typename_)
+            , m_template_parameters(template_parameters)
+            , m_type(type)
+        {
+        }
+        AstBase* AstAliasTypeDeclare::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        {
+            AstAliasTypeDeclare* new_instance = exist_instance
+                ? static_cast<AstAliasTypeDeclare*>(exist_instance.value())
+                : new AstAliasTypeDeclare(m_typename, m_template_parameters, m_type)
+                ;
+
+            out_continues.push_back(AstBase::make_holder(&new_instance->m_type));
+            return new_instance;
+        }
+
+        ////////////////////////////////////////////////////////
+
+        AstEnumItem::AstEnumItem(wo_pstring_t name, AstValueLiteral* value)
+            : AstBase(AST_ENUM_ITEM)
+            , m_name(name)
+            , m_value(value)
+        {
+        }
+        AstBase* AstEnumItem::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        {
+            AstEnumItem* new_instance = exist_instance
+                ? static_cast<AstEnumItem*>(exist_instance.value())
+                : new AstEnumItem(m_name, m_value)
+                ;
+            out_continues.push_back(AstBase::make_holder(&new_instance->m_value));
+            return new_instance;
+        }
+
+        ////////////////////////////////////////////////////////
+
+        AstEnumDeclare::AstEnumDeclare(AstUsingTypeDeclare* type_decl, AstNamespace* namespace_)
+            : AstBase(AST_ENUM_DECLARE)
+            , m_enum_type_declare(type_decl)
+            , m_enum_body(namespace_)
+        {
+        }
+        AstEnumDeclare::AstEnumDeclare(wo_pstring_t enum_name, const std::list<AstEnumItem*>& enum_items)
+            : AstBase(AST_ENUM_DECLARE)
+            , m_enum_type_declare(nullptr)
+            , m_enum_body(nullptr)
+        {
+            wo_assert(!enum_items.empty());
+
+            auto* enum_type_declare = new AstUsingTypeDeclare(enum_name, {}, new AstTypeHolder(Identifier(WO_PSTR(int))));
+            auto* enum_item_definations = new AstVariableDefines();
+
+            for (auto& item : enum_items)
+            {
+                auto* enum_item_value_cast = new AstValueTypeCast(new AstTypeHolder(Identifier(enum_name)), item->m_value);
+                auto* enum_item_pattern = new AstPatternSingle(false, item->m_name, {});
+                enum_item_definations->m_definitions.push_back(
+                    { enum_item_pattern, enum_item_value_cast });
+
+                enum_item_value_cast->source_location = item->source_location;
+                enum_item_pattern->source_location = item->source_location;
+            }
+
+            wo_error("TODO, m_enum_type_declare & need to set location in following pass.");
+
+            auto* enum_namespace = new AstNamespace(enum_name, enum_item_definations);
+
+            m_enum_type_declare = enum_type_declare;
+            m_enum_body = enum_namespace;
+
+            // Update source msg;
+            enum_type_declare->source_location = enum_items.front()->source_location;
+            enum_item_definations->source_location = enum_type_declare->source_location;
+            enum_namespace->source_location = enum_type_declare->source_location;
+        }
+        AstBase* AstEnumDeclare::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        {
+            AstEnumDeclare* new_instance = exist_instance
+                ? static_cast<AstEnumDeclare*>(exist_instance.value())
+                : new AstEnumDeclare(m_enum_type_declare, m_enum_body)
+                ;
+            if (new_instance->m_enum_type_declare)
+                out_continues.push_back(AstBase::make_holder(&new_instance->m_enum_type_declare));
+            if (new_instance->m_enum_body)
+                out_continues.push_back(AstBase::make_holder(&new_instance->m_enum_body));
+            return new_instance;
+        }
+
+        ////////////////////////////////////////////////////////
+
+        AstValueMakeUnion::AstValueMakeUnion(
+            wo_integer_t index,
+            const std::optional<AstValueBase*>& packed_value)
+            : AstValueBase(AST_VALUE_MAKE_UNION)
+            , m_index(index)
+            , m_packed_value(packed_value)
+        {
+        }
+        AstBase* AstValueMakeUnion::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        {
+            AstValueMakeUnion* new_instance = exist_instance
+                ? static_cast<AstValueMakeUnion*>(exist_instance.value())
+                : new AstValueMakeUnion(m_index, m_packed_value)
+                ;
+            if (new_instance->m_packed_value)
+                out_continues.push_back(AstBase::make_holder(&new_instance->m_packed_value.value()));
+            return new_instance;
+        }
+
+        ////////////////////////////////////////////////////////
+
+        AstUnionItem::AstUnionItem(wo_pstring_t name, std::optional<AstTypeHolder*> type)
+            : AstBase(AST_UNION_ITEM)
+            , m_label(name)
+            , m_type(type)
+        {
+        }
+        AstBase* AstUnionItem::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        {
+            AstUnionItem* new_instance = exist_instance
+                ? static_cast<AstUnionItem*>(exist_instance.value())
+                : new AstUnionItem(m_label, m_type)
+                ;
+            if (new_instance->m_type)
+                out_continues.push_back(AstBase::make_holder(&new_instance->m_type.value()));
+            return new_instance;
+        }
+
+        ////////////////////////////////////////////////////////
+
+        AstUnionDeclare::AstUnionDeclare(
+            const AstUnionDeclare& another)
+            : AstBase(AST_UNION_DECLARE)
+            , m_union_type_name(another.m_union_type_name)
+            , m_template_parameters(another.m_template_parameters)
+            , m_union_item_index(another.m_union_item_index)
+            , m_union_items(another.m_union_items)
+        {
+        }
+        AstUnionDeclare::AstUnionDeclare(
+            wo_pstring_t union_type_name,
+            const std::list<wo_pstring_t>& template_parameters,
+            const std::list<AstUnionItem*>& union_items)
+            : AstBase(AST_UNION_DECLARE)
+            , m_union_type_name(union_type_name)
+            , m_template_parameters(template_parameters)
+            , m_union_item_index({})
+            , m_union_items(nullptr)
+        {
+            wo_assert(!union_items.empty());
+            auto* union_item_or_creator_declare = new AstVariableDefines();
+
+            wo_integer_t current_item_index = 0;
+            for (auto& item : union_items)
+            {
+                m_union_item_index[item->m_label] = current_item_index;
+
+                AstTypeHolder* union_type;
+
+                if (m_template_parameters.empty())
+                {
+                    union_type = new AstTypeHolder(Identifier(m_union_type_name));
+                }
+                else
+                {
+                    std::list<AstTypeHolder*> template_arguments(m_template_parameters.size());
+                    for (auto& template_argument : template_arguments)
+                    {
+                        template_argument = new AstTypeHolder(Identifier(WO_PSTR(nothing)));
+                        template_argument->source_location = item->source_location;
+                    }
+                    union_type = new AstTypeHolder(Identifier(m_union_type_name, template_arguments));
+                }
+
+                union_type->source_location = item->source_location;
+
+                if (item->m_type)
+                {
+                    // let CREATOR<..> = func(e: ...){return $MAKE_UNION;}
+                    auto* creator_param_type = item->m_type.value();
+
+                    // Declare a function to construct the union item.
+                    // 1) Count used template parameters.
+                    std::list<wo_pstring_t> used_template_parameters;
+
+                    if (!union_type->m_identifier.m_template_arguments.empty())
+                    {
+                        bool creator_param_has_typeof = creator_param_type->_check_if_has_typeof();
+
+                        // NOTE: We cannot check template param has been used or not in from typeof.
+                        //  So we treat all template param as used if `creator_param_has_typeof`
+                        std::vector<bool> used_template_parameters_flags(m_template_parameters.size(), creator_param_has_typeof);
+
+                        if (!creator_param_has_typeof)
+                            creator_param_type->_check_if_template_exist_in(m_template_parameters, used_template_parameters_flags);
+
+                        auto updating_union_type_template_argument_iter = union_type->m_identifier.m_template_arguments.begin();
+                        auto template_parameters_iter = m_template_parameters.begin();
+
+                        for (bool template_param_this_place_has_been_used : used_template_parameters_flags)
+                        {
+                            if (template_param_this_place_has_been_used)
+                            {
+                                // Used, update the template argument.
+                                *updating_union_type_template_argument_iter =
+                                    new AstTypeHolder(Identifier(*template_parameters_iter));
+
+                                used_template_parameters.push_back(*template_parameters_iter);
+                            }
+
+                            ++updating_union_type_template_argument_iter;
+                            ++template_parameters_iter;
+                        }
+                    }
+
+                    auto* union_creator_value = new AstValueVariable(Identifier(WO_PSTR(_val)));
+                    auto* union_creator_make_union = new AstValueMakeUnion(
+                        current_item_index,
+                        union_creator_value);
+                    auto* union_creator_return = new AstReturn(union_creator_make_union);
+
+                    auto* union_creator_param_decl = new AstFunctionParameterDeclare(
+                        new AstPatternSingle(false, WO_PSTR(_val), {}),
+                        creator_param_type);
+                    auto* union_creator_function = new AstValueFunction(
+                        { union_creator_param_decl },
+                        false,
+                        union_type,
+                        std::nullopt,
+                        union_creator_return);
+
+                    auto* union_creator_pattern = new AstPatternSingle(
+                        false, item->m_label, used_template_parameters.empty() ? std::nullopt : std::optional(used_template_parameters));
+
+                    union_item_or_creator_declare->m_definitions.push_back({
+                        union_creator_pattern, union_creator_function });
+
+                    union_creator_value->source_location = item->source_location;
+                    union_creator_make_union->source_location = item->source_location;
+                    union_creator_return->source_location = item->source_location;
+                    union_creator_param_decl->source_location = item->source_location;
+                    union_creator_function->source_location = item->source_location;
+                    union_creator_pattern->source_location = item->source_location;
+                }
+                else
+                {
+                    // let ITEM = $MAKE_UNION: UNION_TYPE;
+                    auto* union_item_pattern = new AstPatternSingle(false, item->m_label, std::nullopt);
+                    auto* union_item_maker = new AstValueMakeUnion(current_item_index, std::nullopt);
+                    auto* union_item_type_cast = new AstValueTypeCast(union_type, union_item_maker);
+
+                    union_item_or_creator_declare->m_definitions.push_back({
+                        union_item_pattern, union_item_type_cast });
+
+                    union_item_pattern->source_location = item->source_location;
+                    union_item_maker->source_location = item->source_location;
+                    union_item_type_cast->source_location = item->source_location;
+                }
+
+                ++current_item_index;
+            }
+
+            auto* union_namespace = new AstNamespace(m_union_type_name, union_item_or_creator_declare);
+
+            m_union_items = union_namespace;
+
+            // Update source msg;
+            union_item_or_creator_declare->source_location = union_items.front()->source_location;
+            union_namespace->source_location = union_items.front()->source_location;
+        }
+        AstBase* AstUnionDeclare::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        {
+            AstUnionDeclare* new_instance = exist_instance
+                ? static_cast<AstUnionDeclare*>(exist_instance.value())
+                : new AstUnionDeclare(*this)
+                ;
+            out_continues.push_back(AstBase::make_holder(&new_instance->m_union_items));
+            return new_instance;
+        }
+
+        ////////////////////////////////////////////////////////
+
+        ////////////////////////////////////////////////////////
+
+        ////////////////////////////////////////////////////////
 
         void init_builder()
         {

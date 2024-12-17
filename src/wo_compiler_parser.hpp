@@ -39,19 +39,28 @@ namespace wo
                 AST_LIST,
                 AST_EMPTY,
 
+                AST_ENUM_ITEM,
+                AST_ENUM_DECLARE,
+                AST_UNION_ITEM,
+                AST_UNION_DECLARE,
+
+                AST_USING_TYPE_DECLARE,
+                AST_ALIAS_TYPE_DECLARE,
+
                 AST_WHERE_CONSTRAINTS,
 
                 AST_TYPE_HOLDER,
 
                 AST_PATTERN_TAKEPLACE,
                 AST_PATTERN_SINGLE,
-                AST_PATTERN_TUPLE,  
+                AST_PATTERN_TUPLE,
                 AST_PATTERN_UNION,  // Only used in match
                 AST_PATTERN_INDEX,  // Only used in assign
 
                 AST_VARIABLE_DEFINES,
                 AST_KEY_VALUE_PAIR,
                 AST_FIELD_VALUE_PAIR,
+                AST_FUNCTION_PARAMETER_DECLARE,
 
                 AST_VALUE_MARK_AS_MUTABLE,
                 AST_VALUE_MARK_AS_IMMUTABLE,
@@ -74,6 +83,7 @@ namespace wo
                 AST_VALUE_ASSIGN,
                 AST_VALUE_PACKED_ARGS,
                 AST_VALUE_INDEX_PACKED_ARGS,
+                AST_VALUE_MAKE_UNION,
                 AST_FAKE_VALUE_UNPACK,
 
                 AST_NAMESPACE,
@@ -86,6 +96,10 @@ namespace wo
                 AST_FOR,
                 AST_FOREACH,
 
+                AST_BREAK,
+                AST_CONTINUE,
+                AST_RETURN,
+                AST_LABELED,
             };
         private:
             inline thread_local static std::forward_list<AstBase*>* list = nullptr;
