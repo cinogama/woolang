@@ -130,5 +130,17 @@ struct NAME : public ast::astnode_builder       \
         WO_AST_BUILDER(pass_using_type_as);
         WO_AST_BUILDER(pass_alias_type_as);
         WO_AST_BUILDER(pass_build_where_constraint);
+        WO_AST_BUILDER(pass_func_def_named);
+        WO_AST_BUILDER(pass_func_def_oper);
+        WO_AST_BUILDER(pass_func_lambda_ml);
+        WO_AST_BUILDER(pass_func_lambda);
+        WO_AST_BUILDER(pass_break);
+        WO_AST_BUILDER(pass_break_label);
+        WO_AST_BUILDER(pass_continue);
+        WO_AST_BUILDER(pass_continue_label);
+        WO_AST_BUILDER(pass_return);
+        WO_AST_BUILDER(pass_return_value);
+        WO_AST_BUILDER(pass_return_lambda);
+
     }
 }

@@ -653,7 +653,7 @@ namespace wo
         AstPatternSingle::AstPatternSingle(
             bool is_mutable,
             wo_pstring_t name,
-            const std::optional<std::list<wo_pstring_t>> template_parameters)
+            const std::optional<std::list<wo_pstring_t>>& template_parameters)
             : AstPatternBase(AST_PATTERN_SINGLE)
             , m_is_mutable(is_mutable)
             , m_name(name)

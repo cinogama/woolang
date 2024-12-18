@@ -309,7 +309,7 @@ namespace wo
             AstPatternSingle(
                 bool is_mutable,
                 wo_pstring_t name,
-                const std::optional<std::list<wo_pstring_t>> template_parameters);
+                const std::optional<std::list<wo_pstring_t>>& template_parameters);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
         struct AstPatternTuple : public AstPatternBase

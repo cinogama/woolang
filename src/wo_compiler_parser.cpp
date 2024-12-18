@@ -240,7 +240,6 @@ namespace wo
         P_TERMINAL_SET.insert(te(ttype::l_eof));
         //FIRST SET
 
-
         auto CALC_FIRST_SET_COUNT = [this] {
 
             size_t SUM = 0;
@@ -765,13 +764,17 @@ namespace wo
 
                             if (!srcinfo_bnodes.empty())
                             {
-                                ast_node_->source_location.begin_at = ast::AstBase::location_t{ srcinfo_bnodes.front().row_no,srcinfo_bnodes.front().col_no };
-                                ast_node_->source_location.end_at = ast::AstBase::location_t{ tkr.now_file_rowno,tkr.now_file_colno };
+                                ast_node_->source_location.begin_at = 
+                                    ast::AstBase::location_t{ srcinfo_bnodes.front().row_no,srcinfo_bnodes.front().col_no };
+                                ast_node_->source_location.end_at = 
+                                    ast::AstBase::location_t{ tkr.now_file_rowno,tkr.now_file_colno };
                             }
                             else
                             {
-                                ast_node_->source_location.begin_at = ast::AstBase::location_t{ tkr.after_pick_next_file_rowno,tkr.after_pick_next_file_colno };
-                                ast_node_->source_location.end_at = ast_node_->source_location.begin_at;
+                                ast_node_->source_location.begin_at = 
+                                    ast::AstBase::location_t{ tkr.after_pick_next_file_rowno,tkr.after_pick_next_file_colno };
+                                ast_node_->source_location.end_at = 
+                                    ast_node_->source_location.begin_at;
                             }
 
                             ast_node_->source_location.source_file = tkr.source_file;
