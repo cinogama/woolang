@@ -1,5 +1,5 @@
 #include "wo_crc_64.hpp"
-#include "wo_lang_ast_builder.hpp"
+#include "wo_lang_ast.hpp"
 
 #ifndef WO_DISABLE_COMPILER
 #   include "wo_lang_grammar_loader.hpp"
@@ -302,7 +302,6 @@ namespace wo
                 gm::nt(L"FACTOR") >> gm::symlist{gm::nt(L"UNIT")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 gm::nt(L"RIGHT") >> gm::symlist{gm::nt(L"ARGUMENT_EXPAND")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 gm::nt(L"ARGUMENT_EXPAND") >> gm::symlist{gm::nt(L"FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_variadic_sign)} >> WO_ASTBUILDER_INDEX(ast::pass_unpack_args),
-                gm::nt(L"ARGUMENT_EXPAND") >> gm::symlist{gm::nt(L"FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_variadic_sign), gm::te(gm::ttype::l_literal_integer)} >> WO_ASTBUILDER_INDEX(ast::pass_unpack_args),
                 gm::nt(L"UNIT") >> gm::symlist{gm::te(gm::ttype::l_variadic_sign)} >> WO_ASTBUILDER_INDEX(ast::pass_pack_variadic_args),
                 gm::nt(L"UNIT") >> gm::symlist{gm::te(gm::ttype::l_literal_integer)} >> WO_ASTBUILDER_INDEX(ast::pass_literal),
                 gm::nt(L"UNIT") >> gm::symlist{gm::te(gm::ttype::l_literal_real)} >> WO_ASTBUILDER_INDEX(ast::pass_literal),
