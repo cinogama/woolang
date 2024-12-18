@@ -594,25 +594,20 @@ namespace wo
         template<typename AstT, typename ... TS>
         lex_type lang_error(lexer::errorlevel errorlevel, AstT* tree_node, const wchar_t* fmt, TS&& ... args)
         {
-            if (tree_node->source_file == nullptr)
+            if (tree_node->source_location.source_file == nullptr)
                 return parser_error(errorlevel, fmt, args...);
-
-            size_t begin_row_no = tree_node->row_begin_no ? tree_node->row_begin_no : now_file_rowno;
-            size_t begin_col_no = tree_node->col_begin_no ? tree_node->col_begin_no : now_file_colno;
-            size_t end_row_no = tree_node->row_end_no ? tree_node->row_end_no : next_file_rowno;
-            size_t end_col_no = tree_node->col_end_no ? tree_node->col_end_no : next_file_colno;
 
             wchar_t describe[256] = {};
             swprintf(describe, 255, fmt, args...);
 
             return error_impl(lex_error_msg{
                 errorlevel,
-                begin_row_no,
-                end_row_no,
-                begin_col_no,
-                end_col_no,
+                tree_node->source_location.begin_at.row,
+                tree_node->source_location.end_at.row,
+                tree_node->source_location.begin_at.column,
+                tree_node->source_location.end_at.column,
                 describe,
-                wstr_to_str(*tree_node->source_file)
+                wstr_to_str(*tree_node->source_location.source_file)
             });
         }
 

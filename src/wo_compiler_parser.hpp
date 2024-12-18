@@ -39,10 +39,14 @@ namespace wo
                 AST_LIST,
                 AST_EMPTY,
 
+                AST_TOKEN,
+
                 AST_ENUM_ITEM,
                 AST_ENUM_DECLARE,
                 AST_UNION_ITEM,
                 AST_UNION_DECLARE,
+
+                AST_USING_NAMESPACE,
 
                 AST_USING_TYPE_DECLARE,
                 AST_ALIAS_TYPE_DECLARE,
@@ -57,12 +61,14 @@ namespace wo
                 AST_PATTERN_UNION,  // Only used in match
                 AST_PATTERN_INDEX,  // Only used in assign
 
+                AST_VARIABLE_DEFINE_ITEM,
                 AST_VARIABLE_DEFINES,
                 AST_KEY_VALUE_PAIR,
                 AST_FIELD_VALUE_PAIR,
                 AST_FUNCTION_PARAMETER_DECLARE,
 
-                AST_VALUE_MARK_AS_MUTABLE,
+                AST_VALUE_begin,
+                AST_VALUE_MARK_AS_MUTABLE = AST_VALUE_begin,
                 AST_VALUE_MARK_AS_IMMUTABLE,
                 AST_VALUE_LITERAL,
                 AST_VALUE_TYPEID,
@@ -85,6 +91,7 @@ namespace wo
                 AST_VALUE_INDEX_PACKED_ARGS,
                 AST_VALUE_MAKE_UNION,
                 AST_FAKE_VALUE_UNPACK,
+                AST_VALUE_end,
 
                 AST_NAMESPACE,
                 AST_SCOPE,
@@ -201,7 +208,6 @@ namespace wo
             using ContinuesList = std::list<std::unique_ptr<_AstSafeHolderBase>>;
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const = 0;
         };
-
         class AstList : public AstBase
         {
         public:
@@ -322,11 +328,32 @@ namespace wo
             }
             const token& read_token() const
             {
+                if (! is_token())
+                    wo_error("read_token() called on an ast node.");
                 return std::get<token>(m_token_or_ast);
             }
             ast::AstBase* read_ast() const
             {
+                if (! is_ast())
+                    wo_error("read_ast() called on a token.");
+
                 return std::get<ast::AstBase*>(m_token_or_ast);
+            }
+            ast::AstBase* read_ast(ast::AstBase::node_type_t required) const
+            {
+                auto* ast_node = read_ast();
+                if (required != ast_node->node_type)
+                    wo_error("read_ast() called on a wrong type of ast node.");
+
+                return ast_node;
+            }
+            ast::AstBase* read_ast_value() const
+            {
+                auto* ast_node = read_ast();
+                if (ast_node->node_type < ast::AstBase::AST_VALUE_begin || ast_node->node_type >= ast::AstBase::AST_VALUE_end)
+                    wo_error("read_ast_value() called on a wrong type of ast node.");
+                
+                return ast_node;
             }
         };
 

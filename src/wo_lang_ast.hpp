@@ -29,50 +29,6 @@ namespace wo
 
     namespace ast
     {
-        struct astnode_builder
-        {
-            using ast_basic = wo::ast::AstBase;
-            using inputs_t = std::vector<grammar::produce>;
-            using builder_func_t = std::function<grammar::produce(lexer&, inputs_t&)>;
-
-            virtual ~astnode_builder() = default;
-            static grammar::produce build(lexer& lex, inputs_t& input)
-            {
-                wo_assert(false, "");
-                return nullptr;
-            }
-        };
-
-        inline std::unordered_map<size_t, size_t> _registed_builder_function_id_list;
-        inline std::vector<astnode_builder::builder_func_t> _registed_builder_function;
-
-        template <typename T>
-        size_t _register_builder()
-        {
-            static_assert(std::is_base_of<astnode_builder, T>::value);
-            _registed_builder_function.push_back(T::build);
-            return _registed_builder_function.size();
-        }
-
-        template <typename T>
-        size_t index()
-        {
-            size_t idx = _registed_builder_function_id_list[meta::type_hash<T>];
-            wo_assert(idx != 0);
-            return idx;
-        }
-
-        inline astnode_builder::builder_func_t get_builder(size_t idx)
-        {
-            wo_assert(idx != 0);
-            return _registed_builder_function[idx - 1];
-        }
-    }
-
-    namespace ast
-    {
-        void init_builder();
-
         struct AstTypeHolder;
         struct AstValueBase;
 
@@ -89,15 +45,15 @@ namespace wo
                                     m_from_type;
             std::list<wo_pstring_t> m_scope;
             wo_pstring_t            m_name;
-            std::list<AstTypeHolder*>
+            std::optional<std::list<AstTypeHolder*>>
                                     m_template_arguments;
 
             std::optional<lang_Symbol*>
                                     m_symbol;
             Identifier(wo_pstring_t identifier);
-            Identifier(wo_pstring_t identifier, const std::list<AstTypeHolder*>& template_arguments);
-            Identifier(wo_pstring_t identifier, const std::list<AstTypeHolder*>& template_arguments, const std::list<wo_pstring_t>& scopes, bool from_global);
-            Identifier(wo_pstring_t identifier, const std::list<AstTypeHolder*>& template_arguments, const std::list<wo_pstring_t>& scopes, AstTypeHolder* from_type);
+            Identifier(wo_pstring_t identifier, const std::optional<std::list<AstTypeHolder*>>& template_arguments);
+            Identifier(wo_pstring_t identifier, const std::optional<std::list<AstTypeHolder*>>& template_arguments, const std::list<wo_pstring_t>& scopes, bool from_global);
+            Identifier(wo_pstring_t identifier, const std::optional<std::list<AstTypeHolder*>>& template_arguments, const std::list<wo_pstring_t>& scopes, AstTypeHolder* from_type);
 
             Identifier(const Identifier& identifer);
             Identifier& operator = (const Identifier& identifer);
@@ -107,6 +63,8 @@ namespace wo
 
             void make_dup(AstBase::ContinuesList& out_continues);
         };
+        
+        using AstEmpty = grammar::AstEmpty;
 
         struct AstTypeHolder : public AstBase
         {
@@ -172,12 +130,14 @@ namespace wo
             std::optional<wo::value> m_evaled_const_value;
 
             AstValueBase(AstBase::node_type_t nodetype);
+            ~AstValueBase();
 
             // TBD: Not sure when and how to eval `type`.
             //using EvalTobeEvalConstList = std::list<AstValueBase*>;
 
             /*virtual void collect_eval_const_list(EvalTobeEvalConstList& out_vals) const = 0;
             virtual void eval_const_value() = 0;*/
+            void decide_final_constant_value(const wo::value& val, const std::optional<lang_TypeInstance*>& type);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
 
@@ -200,6 +160,7 @@ namespace wo
         struct AstValueLiteral : public AstValueBase
         {
             token m_literal_token;
+
             AstValueLiteral(const token& literal_token);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
         };
@@ -373,14 +334,20 @@ namespace wo
             AstPatternIndex(AstValueIndex* index);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
+        struct AstVariableDefineItem : public AstBase
+        {
+            AstPatternBase* m_pattern;
+            AstValueBase* m_init_value;
+
+        private:
+            AstVariableDefineItem(const AstVariableDefineItem&);
+        public:
+            AstVariableDefineItem(AstPatternBase* pattern, AstValueBase* init_value);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+        };
         struct AstVariableDefines : public AstBase
         {
-            struct variable_define
-            {
-                AstPatternBase* m_pattern;
-                AstValueBase* m_init_value;
-            };
-            std::vector<variable_define> m_definitions;
+            std::list<AstVariableDefineItem*> m_definitions;
 
             AstVariableDefines();
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
@@ -388,7 +355,7 @@ namespace wo
         struct AstFunctionParameterDeclare : public AstBase
         {
             AstPatternBase* m_pattern;
-            std::optional<AstTypeHolder*> m_type;
+            std::optional<AstTypeHolder*> m_type;// Will be update in AstValueFunction pass and not NULLOPT.
 
             AstFunctionParameterDeclare(AstPatternBase* m_pattern, std::optional<AstTypeHolder*> m_type);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
@@ -401,6 +368,7 @@ namespace wo
             std::optional<AstTypeHolder*>   m_marked_return_type;
             std::optional<AstWhereConstraints*>
                                             m_where_constraints;
+            std::list<wo_pstring_t>         m_pending_param_type_mark_template;
             AstBase*                        m_body;
 
             AstValueFunction(
@@ -618,11 +586,14 @@ namespace wo
             std::optional<std::list<wo_pstring_t>>
                                     m_template_parameters;
             AstTypeHolder*          m_type;
+            std::optional<AstNamespace*>
+                                    m_in_type_namespace;
 
             AstUsingTypeDeclare(
                 wo_pstring_t typename_, 
                 const std::optional<std::list<wo_pstring_t>>& template_parameters, 
-                AstTypeHolder* type);
+                AstTypeHolder* type,
+                const std::optional<AstNamespace*>& in_type_namespace);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
         struct AstAliasTypeDeclare : public AstBase
@@ -640,10 +611,11 @@ namespace wo
         };
         struct AstEnumItem : public AstBase
         {
-            wo_pstring_t                    m_name;
-            AstValueLiteral*                m_value;
+            wo_pstring_t        m_name;
+            std::optional<AstValueBase*>
+                                m_value; // Will update in AstEnumDeclare pass and not NULLOPT.
 
-            AstEnumItem(wo_pstring_t name, AstValueLiteral* value);
+            AstEnumItem(wo_pstring_t name, std::optional<AstValueBase*> value);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
         struct AstEnumDeclare : public AstBase
@@ -692,6 +664,20 @@ namespace wo
             AstValueMakeUnion(
                 wo_integer_t index, 
                 const std::optional<AstValueBase*>& packed_value);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+        };
+        struct AstUsingNamespace : public AstBase
+        {
+            std::list<wo_pstring_t> m_using_namespace;
+
+            AstUsingNamespace(const std::list<wo_pstring_t>& using_namespace);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+        };
+        struct AstToken : public AstBase
+        {
+            token m_token;
+
+            AstToken(const token& token);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
     }

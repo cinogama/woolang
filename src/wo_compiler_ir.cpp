@@ -1,5 +1,5 @@
 #include "wo_compiler_ir.hpp"
-#include "wo_lang_ast_builder.hpp"
+#include "wo_lang_ast.hpp"
 #include "wo_global_setting.hpp"
 
 namespace wo
