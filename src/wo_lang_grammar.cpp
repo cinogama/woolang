@@ -44,8 +44,12 @@ namespace wo
             else
             {
                 wo_lang_grammar_crc64 = crc_64(this_grammar_file, 0);
+#ifdef WO_LANG_GRAMMAR_CRC64
                 if (wo_lang_grammar_crc64 != WO_LANG_GRAMMAR_CRC64)
+#endif
+                {
                     wo_check_grammar_need_update = true;
+                }
             }
         }
 

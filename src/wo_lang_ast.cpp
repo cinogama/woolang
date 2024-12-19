@@ -9,9 +9,9 @@ namespace wo
     {
         AstDeclareAttribue::AstDeclareAttribue()
             : AstBase(AST_DECLARE_ATTRIBUTE)
-            , m_lifecycle(lifecycle_attrib::NOT_SPECIFY)
-            , m_access(accessc_attrib::NOT_SPECIFY)
-            , m_external(external_attrib::NOT_SPECIFY)
+            , m_lifecycle(lifecycle_attrib::NOT_SPECIFY_LCY)
+            , m_access(accessc_attrib::NOT_SPECIFY_ACC)
+            , m_external(external_attrib::NOT_SPECIFY_EXT)
         {
         }
         AstDeclareAttribue::AstDeclareAttribue(const AstDeclareAttribue& attrib)
@@ -26,7 +26,7 @@ namespace wo
             switch (attrib_token->m_token.type)
             {
             case lex_type::l_static:
-                if (m_lifecycle != lifecycle_attrib::NOT_SPECIFY)
+                if (m_lifecycle != lifecycle_attrib::NOT_SPECIFY_LCY)
                 {
                     lex.lang_error(lexer::errorlevel::error, attrib_token, WO_ERR_REPEAT_ATTRIBUTE);
                     return false;
@@ -34,7 +34,7 @@ namespace wo
                 m_lifecycle = lifecycle_attrib::STATIC;
                 break;
             case lex_type::l_extern:
-                if (m_external != external_attrib::NOT_SPECIFY)
+                if (m_external != external_attrib::NOT_SPECIFY_EXT)
                 {
                     lex.lang_error(lexer::errorlevel::error, attrib_token, WO_ERR_REPEAT_ATTRIBUTE);
                     return false;
@@ -44,7 +44,7 @@ namespace wo
             case lex_type::l_public:
             case lex_type::l_private:
             case lex_type::l_protected:
-                if (m_access != accessc_attrib::NOT_SPECIFY)
+                if (m_access != accessc_attrib::NOT_SPECIFY_ACC)
                 {
                     lex.lang_error(lexer::errorlevel::error, attrib_token, WO_ERR_REPEAT_ATTRIBUTE);
                     return false;

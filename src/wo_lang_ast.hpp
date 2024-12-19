@@ -38,19 +38,19 @@ namespace wo
         {
             enum lifecycle_attrib
             {
-                NOT_SPECIFY,
+                NOT_SPECIFY_LCY,
                 STATIC,
             };
             enum accessc_attrib
             {
-                NOT_SPECIFY,
+                NOT_SPECIFY_ACC,
                 PUBLIC,
                 PROTECTED,
                 PRIVATE,
             };
             enum external_attrib
             {
-                NOT_SPECIFY,
+                NOT_SPECIFY_EXT,
                 EXTERNAL,
             };
 
