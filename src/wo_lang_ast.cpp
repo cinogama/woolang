@@ -7,6 +7,76 @@ namespace wo
 #ifndef WO_DISABLE_COMPILER
     namespace ast
     {
+        AstDeclareAttribue::AstDeclareAttribue()
+            : AstBase(AST_DECLARE_ATTRIBUTE)
+            , m_lifecycle(lifecycle_attrib::NOT_SPECIFY)
+            , m_access(accessc_attrib::NOT_SPECIFY)
+            , m_external(external_attrib::NOT_SPECIFY)
+        {
+        }
+        AstDeclareAttribue::AstDeclareAttribue(const AstDeclareAttribue& attrib)
+            : AstBase(AST_DECLARE_ATTRIBUTE)
+            , m_lifecycle(attrib.m_lifecycle)
+            , m_access(attrib.m_access)
+            , m_external(attrib.m_external)
+        {
+        }
+        bool AstDeclareAttribue::modify_attrib(lexer& lex, AstToken* attrib_token)
+        {
+            switch (attrib_token->m_token.type)
+            {
+            case lex_type::l_static:
+                if (m_lifecycle != lifecycle_attrib::NOT_SPECIFY)
+                {
+                    lex.lang_error(lexer::errorlevel::error, attrib_token, WO_ERR_REPEAT_ATTRIBUTE);
+                    return false;
+                }
+                m_lifecycle = lifecycle_attrib::STATIC;
+                break;
+            case lex_type::l_extern:
+                if (m_external != external_attrib::NOT_SPECIFY)
+                {
+                    lex.lang_error(lexer::errorlevel::error, attrib_token, WO_ERR_REPEAT_ATTRIBUTE);
+                    return false;
+                }
+                m_external = external_attrib::EXTERNAL;
+                break;
+            case lex_type::l_public:
+            case lex_type::l_private:
+            case lex_type::l_protected:
+                if (m_access != accessc_attrib::NOT_SPECIFY)
+                {
+                    lex.lang_error(lexer::errorlevel::error, attrib_token, WO_ERR_REPEAT_ATTRIBUTE);
+                    return false;
+                }
+                switch (attrib_token->m_token.type)
+                {
+                case lex_type::l_public:
+                    m_access = accessc_attrib::PUBLIC; break;
+                case lex_type::l_private:
+                    m_access = accessc_attrib::PRIVATE; break;
+                case lex_type::l_protected:
+                    m_access = accessc_attrib::PROTECTED; break;
+                default:
+                    abort(); //WTF?
+                }
+                break;
+            default:
+                wo_error("Unknown attribute.");
+            }
+            return true;
+        }
+        AstBase* AstDeclareAttribue::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        {
+            AstDeclareAttribue* new_instance = exist_instance
+                ? static_cast<AstDeclareAttribue*>(exist_instance.value())
+                : new AstDeclareAttribue()
+                ;
+            return new_instance;
+        }
+
+        ////////////////////////////////////////////////////////
+
         AstIdentifier::AstIdentifier(wo_pstring_t identifier)
             : AstBase(AST_IDENTIFIER)
             , m_formal(FROM_CURRENT)
@@ -83,6 +153,24 @@ namespace wo
             if (new_instance->m_template_arguments)
                 for (auto& arg : new_instance->m_template_arguments.value())
                     out_continues.push_back(AstBase::make_holder(&arg));
+            return new_instance;
+        }
+
+        ////////////////////////////////////////////////////////
+
+        AstStructFieldDefine::AstStructFieldDefine(wo_pstring_t name, AstTypeHolder* type)
+            : AstBase(AST_STRUCT_FIELD_DEFINE)
+            , m_name(name)
+            , m_type(type)
+        {
+        }
+        AstBase* AstStructFieldDefine::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        {
+            AstStructFieldDefine* new_instance = exist_instance
+                ? static_cast<AstStructFieldDefine*>(exist_instance.value())
+                : new AstStructFieldDefine(m_name, m_type)
+                ;
+            out_continues.push_back(AstBase::make_holder(&new_instance->m_type));
             return new_instance;
         }
 
@@ -183,7 +271,7 @@ namespace wo
             case STRUCTURE:
                 for (auto& field : m_structure.m_fields)
                 {
-                    if (field.second->_check_if_has_typeof())
+                    if (field->m_type->_check_if_has_typeof())
                         return true;
                 }
                 return false;
@@ -237,7 +325,7 @@ namespace wo
                 break;
             case STRUCTURE:
                 for (auto& field : m_structure.m_fields)
-                    field.second->_check_if_template_exist_in(template_params, out_contain_flags);
+                    field->m_type->_check_if_template_exist_in(template_params, out_contain_flags);
                 break;
             case TUPLE:
                 for (auto& field : m_tuple.m_fields)
@@ -273,7 +361,7 @@ namespace wo
             case STRUCTURE:
                 if (new_instance == nullptr)new_instance = new AstTypeHolder(m_structure);
                 for (auto& field : new_instance->m_structure.m_fields)
-                    out_continues.push_back(AstBase::make_holder(&field.second));
+                    out_continues.push_back(AstBase::make_holder(&field));
                 break;
             case TUPLE:
                 if (new_instance == nullptr)new_instance = new AstTypeHolder(m_tuple);

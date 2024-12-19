@@ -49,6 +49,9 @@ namespace wo
 
                 AST_USING_NAMESPACE,
 
+                AST_DECLARE_ATTRIBUTE,
+                AST_STRUCT_FIELD_DEFINE,
+
                 AST_USING_TYPE_DECLARE,
                 AST_ALIAS_TYPE_DECLARE,
 

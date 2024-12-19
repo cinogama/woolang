@@ -80,7 +80,7 @@ namespace wo
 #endif
             ;
 
-        inline bool ENABLE_CHECK_GRAMMAR_AND_UPDATE = false;
+        inline bool ENABLE_CHECK_GRAMMAR_AND_UPDATE = true;
 
         /*
         * ENABLE_JUST_IN_TIME = true

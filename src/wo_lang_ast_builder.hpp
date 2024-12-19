@@ -148,5 +148,16 @@ struct NAME : public ast::astnode_builder       \
         WO_AST_BUILDER(pass_foreach);
         WO_AST_BUILDER(pass_mark_mut);
         WO_AST_BUILDER(pass_mark_immut);
+        WO_AST_BUILDER(pass_typeof);
+        WO_AST_BUILDER(pass_build_identifier_typeof);
+        WO_AST_BUILDER(pass_build_identifier_normal);
+        WO_AST_BUILDER(pass_build_identifier_global);
+        WO_AST_BUILDER(pass_type_nil);
+        WO_AST_BUILDER(pass_type_func);
+        WO_AST_BUILDER(pass_type_struct_field);
+        WO_AST_BUILDER(pass_type_struct);
+        WO_AST_BUILDER(pass_type_tuple);
+        WO_AST_BUILDER(pass_attribute);
+        WO_AST_BUILDER(pass_attribute_append);
     }
 }

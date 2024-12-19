@@ -31,16 +31,39 @@ namespace wo
     {
         struct AstTypeHolder;
         struct AstValueBase;
-
-        //struct Identifier
-        //{
-        //    
-
-        //    void make_dup(AstBase::ContinuesList& out_continues);
-        //};
+        struct AstToken;
         
         using AstEmpty = grammar::AstEmpty;
+        struct AstDeclareAttribue: public AstBase
+        {
+            enum lifecycle_attrib
+            {
+                NOT_SPECIFY,
+                STATIC,
+            };
+            enum accessc_attrib
+            {
+                NOT_SPECIFY,
+                PUBLIC,
+                PROTECTED,
+                PRIVATE,
+            };
+            enum external_attrib
+            {
+                NOT_SPECIFY,
+                EXTERNAL,
+            };
 
+            lifecycle_attrib m_lifecycle;
+            accessc_attrib m_access;
+            external_attrib m_external;
+
+            bool modify_attrib(lexer& lex , AstToken* attrib_token);
+
+            AstDeclareAttribue();
+            AstDeclareAttribue(const AstDeclareAttribue&);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+        };
         struct AstIdentifier : public AstBase
         {
             enum identifier_formal
@@ -67,7 +90,14 @@ namespace wo
             AstIdentifier(const AstIdentifier& ident);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
+        struct AstStructFieldDefine : public AstBase
+        {
+            wo_pstring_t m_name;
+            AstTypeHolder* m_type;
 
+            AstStructFieldDefine(wo_pstring_t name, AstTypeHolder* type);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+        };
         struct AstTypeHolder : public AstBase
         {
             enum type_formal
@@ -88,17 +118,17 @@ namespace wo
             struct FunctionType
             {
                 bool m_is_variadic;
-                std::vector<AstTypeHolder*> m_parameters;
+                std::list<AstTypeHolder*> m_parameters;
                 AstTypeHolder* m_return_type;
             };
             struct StructureType
             {
-                std::vector<std::pair<wo_pstring_t, AstTypeHolder*>>
+                std::list<AstStructFieldDefine*>
                     m_fields;
             };
             struct TupleType
             {
-                std::vector<AstTypeHolder*>
+                std::list<AstTypeHolder*>
                     m_fields;
             };
 
