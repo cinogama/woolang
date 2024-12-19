@@ -18,12 +18,15 @@ namespace wo
         }
         auto pass_using_namespace::build(lexer& lex, ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
-            auto* used_namespace = static_cast<AstValueVariable*>(WO_NEED_AST_TYPE(1, AstBase::AST_VALUE_VARIABLE));
-            if (used_namespace->m_identifier.m_formal != Identifier::identifier_formal::FROM_CURRENT)
-                return token{ lex.lang_error(lexer::errorlevel::error, used_namespace, L"TMPERROR：不合法的命名空间说明") };
+            AstList* using_namespace_list = static_cast<AstList*>(WO_NEED_AST_TYPE(2, AstBase::AST_LIST));
 
-            std::list<wo_pstring_t> used_namespaces = used_namespace->m_identifier.m_scope;
-            used_namespaces.push_back(used_namespace->m_identifier.m_name);
+            std::list<wo_pstring_t> used_namespaces;
+            for (auto& ns : using_namespace_list->m_list)
+            {
+                wo_assert(ns->node_type == AstBase::AST_TOKEN);
+                AstToken* ns_token = static_cast<AstToken*>(ns);
+                used_namespaces.push_back(wstring_pool::get_pstr(ns_token->m_token.identifier));
+            }
 
             return new AstUsingNamespace(used_namespaces);
         }
@@ -419,11 +422,69 @@ namespace wo
             auto* function_scope = new AstScope(function_body);
 
             // Update source location
-            function_scope->source_location = body_0->source_location;
+            function_body->source_location = body_0->source_location;
             function_scope->source_location = body_0->source_location;
 
             return new AstValueFunction(
                 in_params, is_variadic_function, std::nullopt, std::nullopt, function_scope);
+        }
+        auto pass_if::build(lexer& lex, ast::astnode_builder::inputs_t& input)-> grammar::produce
+        {
+           auto* condition = WO_NEED_AST_VALUE(2);
+           auto* body = WO_NEED_AST(4);
+           std::optional<AstBase*> else_body = std::nullopt;
+
+           if (!WO_IS_EMPTY(5))
+                else_body = WO_NEED_AST(5);
+
+           return new AstIf(condition, body, else_body);
+        }
+        auto pass_while::build(lexer& lex, ast::astnode_builder::inputs_t& input)-> grammar::produce
+        {
+            auto* condition = WO_NEED_AST_VALUE(2);
+            auto* body = WO_NEED_AST(4);
+
+            return new AstWhile(condition, body);
+        }
+        auto pass_for_defined::build(lexer& lex, ast::astnode_builder::inputs_t& input)-> grammar::produce
+        {
+            std::optional<AstVariableDefines*> init = std::nullopt;
+            std::optional<AstValueBase*> condition = std::nullopt;
+            std::optional<AstValueBase*> step = std::nullopt;
+            auto* body = WO_NEED_AST(7);
+
+            if (!WO_IS_EMPTY(2))
+                init = static_cast<AstVariableDefines*>(WO_NEED_AST_TYPE(2, AstBase::AST_VARIABLE_DEFINES));
+            if (!WO_IS_EMPTY(3))
+                condition = WO_NEED_AST_VALUE(3);
+            if (!WO_IS_EMPTY(5))
+                step = WO_NEED_AST_VALUE(4);
+
+            return new AstFor(init, condition, step, body);
+        }
+        auto pass_for_expr::build(lexer& lex, ast::astnode_builder::inputs_t& input)-> grammar::produce
+        {
+            std::optional<AstBase*> init = std::nullopt;
+            std::optional<AstValueBase*> condition = std::nullopt;
+            std::optional<AstValueBase*> step = std::nullopt;
+            auto* body = WO_NEED_AST(8);
+
+            if (!WO_IS_EMPTY(2))
+                init = WO_NEED_AST_VALUE(2);
+            if (!WO_IS_EMPTY(4))
+                condition = WO_NEED_AST_VALUE(3);
+            if (!WO_IS_EMPTY(6))
+                step = WO_NEED_AST_VALUE(4);
+
+            return new AstFor(init, condition, step, body);
+        }
+        auto pass_mark_mut::build(lexer& lex, ast::astnode_builder::inputs_t& input)-> grammar::produce
+        {
+            return new AstValueMarkAsMutable(WO_NEED_AST_VALUE(1));
+        }
+        auto pass_mark_immut::build(lexer& lex, ast::astnode_builder::inputs_t& input)-> grammar::produce
+        {
+            return new AstValueMarkAsImmutable(WO_NEED_AST_VALUE(1));
         }
     }
 

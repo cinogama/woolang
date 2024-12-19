@@ -141,6 +141,12 @@ struct NAME : public ast::astnode_builder       \
         WO_AST_BUILDER(pass_return);
         WO_AST_BUILDER(pass_return_value);
         WO_AST_BUILDER(pass_return_lambda);
-
+        WO_AST_BUILDER(pass_if);
+        WO_AST_BUILDER(pass_while);
+        WO_AST_BUILDER(pass_for_defined);
+        WO_AST_BUILDER(pass_for_expr);
+        WO_AST_BUILDER(pass_foreach);
+        WO_AST_BUILDER(pass_mark_mut);
+        WO_AST_BUILDER(pass_mark_immut);
     }
 }

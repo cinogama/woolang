@@ -32,7 +32,16 @@ namespace wo
         struct AstTypeHolder;
         struct AstValueBase;
 
-        struct Identifier
+        //struct Identifier
+        //{
+        //    
+
+        //    void make_dup(AstBase::ContinuesList& out_continues);
+        //};
+        
+        using AstEmpty = grammar::AstEmpty;
+
+        struct AstIdentifier : public AstBase
         {
             enum identifier_formal
             {
@@ -50,21 +59,14 @@ namespace wo
 
             std::optional<lang_Symbol*>
                                     m_symbol;
-            Identifier(wo_pstring_t identifier);
-            Identifier(wo_pstring_t identifier, const std::optional<std::list<AstTypeHolder*>>& template_arguments);
-            Identifier(wo_pstring_t identifier, const std::optional<std::list<AstTypeHolder*>>& template_arguments, const std::list<wo_pstring_t>& scopes, bool from_global);
-            Identifier(wo_pstring_t identifier, const std::optional<std::list<AstTypeHolder*>>& template_arguments, const std::list<wo_pstring_t>& scopes, AstTypeHolder* from_type);
+            AstIdentifier(wo_pstring_t identifier);
+            AstIdentifier(wo_pstring_t identifier, const std::optional<std::list<AstTypeHolder*>>& template_arguments);
+            AstIdentifier(wo_pstring_t identifier, const std::optional<std::list<AstTypeHolder*>>& template_arguments, const std::list<wo_pstring_t>& scopes, bool from_global);
+            AstIdentifier(wo_pstring_t identifier, const std::optional<std::list<AstTypeHolder*>>& template_arguments, const std::list<wo_pstring_t>& scopes, AstTypeHolder* from_type);
 
-            Identifier(const Identifier& identifer);
-            Identifier& operator = (const Identifier& identifer);
-
-            Identifier(Identifier&& identifer) = delete;
-            Identifier& operator = (Identifier&& identifer) = delete;
-
-            void make_dup(AstBase::ContinuesList& out_continues);
+            AstIdentifier(const AstIdentifier& ident);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
-        
-        using AstEmpty = grammar::AstEmpty;
 
         struct AstTypeHolder : public AstBase
         {
@@ -104,7 +106,7 @@ namespace wo
             type_formal     m_formal;            
             union
             {
-                Identifier m_identifier;
+                AstIdentifier* m_identifier;
                 AstValueBase* m_typefrom;
                 FunctionType m_function;
                 StructureType m_structure;
@@ -113,7 +115,7 @@ namespace wo
 
             std::optional<lang_TypeInstance*> m_type;
 
-            AstTypeHolder(const Identifier& ident);
+            AstTypeHolder(AstIdentifier* ident);
             AstTypeHolder(AstValueBase* expr);
             AstTypeHolder(const FunctionType& functype);
             AstTypeHolder(const StructureType& structtype);
@@ -197,9 +199,9 @@ namespace wo
         };
         struct AstValueVariable : public AstValueBase
         {
-            Identifier m_identifier;
+            AstIdentifier* m_identifier;
 
-            AstValueVariable(const Identifier& variable_name);
+            AstValueVariable(AstIdentifier* variable_name);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
         };
         struct AstWhereConstraints : public AstBase
@@ -327,6 +329,13 @@ namespace wo
             AstPatternUnion(wo_pstring_t tag, std::optional<AstPatternBase*> field);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
+        struct AstPatternVariable : public AstPatternBase
+        {
+            AstValueVariable* m_variable;
+
+            AstPatternVariable(AstValueVariable* variable);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+        };
         struct AstPatternIndex : public AstPatternBase
         {
             AstValueIndex* m_index;
@@ -443,7 +452,7 @@ namespace wo
             };
             
             assign_type m_assign_type;
-            AstPatternBase* m_assign_place;
+            AstPatternBase* m_assign_place; // takeplace / variable / index
             AstValueBase* m_right;
 
             AstValueAssign(assign_type type, AstPatternBase* assign_place, AstValueBase* right);
@@ -516,13 +525,13 @@ namespace wo
         };
         struct AstFor : public AstBase
         {
-            std::optional<AstVariableDefines*>  m_initial;
+            std::optional<AstBase*>             m_initial;
             std::optional<AstValueBase*>        m_condition;
             std::optional<AstValueBase*>        m_step;
             AstBase*                            m_body;
 
             AstFor(
-                std::optional<AstVariableDefines*> initial,
+                std::optional<AstBase*> initial,
                 std::optional<AstValueBase*> condition, 
                 std::optional<AstValueBase*> step,
                 AstBase* body);

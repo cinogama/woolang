@@ -40,6 +40,7 @@ namespace wo
                 AST_EMPTY,
 
                 AST_TOKEN,
+                AST_IDENTIFIER,
 
                 AST_ENUM_ITEM,
                 AST_ENUM_DECLARE,
@@ -59,6 +60,7 @@ namespace wo
                 AST_PATTERN_SINGLE,
                 AST_PATTERN_TUPLE,
                 AST_PATTERN_UNION,  // Only used in match
+                AST_PATTERN_VARIABLE, // Only used in assign
                 AST_PATTERN_INDEX,  // Only used in assign
 
                 AST_VARIABLE_DEFINE_ITEM,
