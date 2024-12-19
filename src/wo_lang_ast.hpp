@@ -38,25 +38,22 @@ namespace wo
         {
             enum lifecycle_attrib
             {
-                NOT_SPECIFY_LCY,
                 STATIC,
             };
             enum accessc_attrib
             {
-                NOT_SPECIFY_ACC,
                 PUBLIC,
                 PROTECTED,
                 PRIVATE,
             };
             enum external_attrib
             {
-                NOT_SPECIFY_EXT,
                 EXTERNAL,
             };
 
-            lifecycle_attrib m_lifecycle;
-            accessc_attrib m_access;
-            external_attrib m_external;
+            std::optional<lifecycle_attrib> m_lifecycle;
+            std::optional<accessc_attrib>   m_access;
+            std::optional<external_attrib>  m_external;
 
             bool modify_attrib(lexer& lex , AstToken* attrib_token);
 
@@ -94,8 +91,12 @@ namespace wo
         {
             wo_pstring_t m_name;
             AstTypeHolder* m_type;
+            std::optional<AstDeclareAttribue::accessc_attrib> m_attribute;
 
-            AstStructFieldDefine(wo_pstring_t name, AstTypeHolder* type);
+            AstStructFieldDefine(
+                const std::optional<AstDeclareAttribue::accessc_attrib>& attrib,
+                wo_pstring_t name, 
+                AstTypeHolder* type);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
         struct AstTypeHolder : public AstBase
@@ -377,11 +378,16 @@ namespace wo
         {
             AstPatternBase* m_pattern;
             AstValueBase* m_init_value;
+            std::optional<AstDeclareAttribue*>
+                m_attribute;
 
         private:
             AstVariableDefineItem(const AstVariableDefineItem&);
         public:
-            AstVariableDefineItem(AstPatternBase* pattern, AstValueBase* init_value);
+            AstVariableDefineItem(
+                const std::optional<AstDeclareAttribue*>& attrib,
+                AstPatternBase* pattern,
+                AstValueBase* init_value);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
         struct AstVariableDefines : public AstBase
@@ -627,8 +633,13 @@ namespace wo
             AstTypeHolder*          m_type;
             std::optional<AstNamespace*>
                                     m_in_type_namespace;
-
+            std::optional<AstDeclareAttribue*>
+                                    m_attribute;
+        private:
+            AstUsingTypeDeclare(const AstUsingTypeDeclare&);
+        public:
             AstUsingTypeDeclare(
+                const std::optional<AstDeclareAttribue*>& attrib,
                 wo_pstring_t typename_, 
                 const std::optional<std::list<wo_pstring_t>>& template_parameters, 
                 AstTypeHolder* type,
@@ -641,8 +652,14 @@ namespace wo
             std::optional<std::list<wo_pstring_t>>
                                     m_template_parameters;
             AstTypeHolder*          m_type;
+            std::optional<AstDeclareAttribue*>
+                                    m_attribute;
 
+        private:
+            AstAliasTypeDeclare(const AstAliasTypeDeclare&);
+        public:
             AstAliasTypeDeclare(
+                const std::optional<AstDeclareAttribue*>& attrib,
                 wo_pstring_t typename_,
                 const std::optional<std::list<wo_pstring_t>>& template_parameters,
                 AstTypeHolder* type);
@@ -663,9 +680,12 @@ namespace wo
             AstNamespace*        m_enum_body;
 
         private:
-            AstEnumDeclare(AstUsingTypeDeclare* type_decl, AstNamespace* namespace_);
+            AstEnumDeclare(const AstEnumDeclare&);
         public:
-            AstEnumDeclare(wo_pstring_t enum_name, const std::list<AstEnumItem*>& enum_items);
+            AstEnumDeclare(
+                const std::optional<AstDeclareAttribue*>& attrib,
+                wo_pstring_t enum_name, 
+                const std::list<AstEnumItem*>& enum_items);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
         struct AstUnionItem : public AstBase
@@ -688,6 +708,7 @@ namespace wo
             AstUnionDeclare(const AstUnionDeclare&);
         public:
             AstUnionDeclare(
+                const std::optional<AstDeclareAttribue*>& attrib,
                 wo_pstring_t union_type_name, 
                 const std::list<wo_pstring_t>& template_parameters, 
                 const std::list<AstUnionItem*>& union_items);

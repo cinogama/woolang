@@ -9,9 +9,9 @@ namespace wo
     {
         AstDeclareAttribue::AstDeclareAttribue()
             : AstBase(AST_DECLARE_ATTRIBUTE)
-            , m_lifecycle(lifecycle_attrib::NOT_SPECIFY_LCY)
-            , m_access(accessc_attrib::NOT_SPECIFY_ACC)
-            , m_external(external_attrib::NOT_SPECIFY_EXT)
+            , m_lifecycle(std::nullopt)
+            , m_access(std::nullopt)
+            , m_external(std::nullopt)
         {
         }
         AstDeclareAttribue::AstDeclareAttribue(const AstDeclareAttribue& attrib)
@@ -26,7 +26,7 @@ namespace wo
             switch (attrib_token->m_token.type)
             {
             case lex_type::l_static:
-                if (m_lifecycle != lifecycle_attrib::NOT_SPECIFY_LCY)
+                if (m_lifecycle)
                 {
                     lex.lang_error(lexer::errorlevel::error, attrib_token, WO_ERR_REPEAT_ATTRIBUTE);
                     return false;
@@ -34,7 +34,7 @@ namespace wo
                 m_lifecycle = lifecycle_attrib::STATIC;
                 break;
             case lex_type::l_extern:
-                if (m_external != external_attrib::NOT_SPECIFY_EXT)
+                if (m_external)
                 {
                     lex.lang_error(lexer::errorlevel::error, attrib_token, WO_ERR_REPEAT_ATTRIBUTE);
                     return false;
@@ -44,7 +44,7 @@ namespace wo
             case lex_type::l_public:
             case lex_type::l_private:
             case lex_type::l_protected:
-                if (m_access != accessc_attrib::NOT_SPECIFY_ACC)
+                if (m_access)
                 {
                     lex.lang_error(lexer::errorlevel::error, attrib_token, WO_ERR_REPEAT_ATTRIBUTE);
                     return false;
@@ -158,17 +158,21 @@ namespace wo
 
         ////////////////////////////////////////////////////////
 
-        AstStructFieldDefine::AstStructFieldDefine(wo_pstring_t name, AstTypeHolder* type)
+        AstStructFieldDefine::AstStructFieldDefine(
+            const std::optional<AstDeclareAttribue::accessc_attrib>& attrib,
+            wo_pstring_t name, 
+            AstTypeHolder* type)
             : AstBase(AST_STRUCT_FIELD_DEFINE)
             , m_name(name)
             , m_type(type)
+            , m_attribute(attrib)
         {
         }
         AstBase* AstStructFieldDefine::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
         {
             AstStructFieldDefine* new_instance = exist_instance
                 ? static_cast<AstStructFieldDefine*>(exist_instance.value())
-                : new AstStructFieldDefine(m_name, m_type)
+                : new AstStructFieldDefine(m_attribute, m_name, m_type)
                 ;
             out_continues.push_back(AstBase::make_holder(&new_instance->m_type));
             return new_instance;
@@ -860,12 +864,17 @@ namespace wo
             : AstBase(AST_VARIABLE_DEFINE_ITEM)
             , m_pattern(item.m_pattern)
             , m_init_value(item.m_init_value)
+            , m_attribute(item.m_attribute)
         {
         }
-        AstVariableDefineItem::AstVariableDefineItem(AstPatternBase* pattern, AstValueBase* init_value)
+        AstVariableDefineItem::AstVariableDefineItem(
+            const std::optional<AstDeclareAttribue*>& attrib,
+            AstPatternBase* pattern, 
+            AstValueBase* init_value)
             : AstBase(AST_VARIABLE_DEFINE_ITEM)
             , m_pattern(pattern)
             , m_init_value(init_value)
+            , m_attribute(attrib)
         {
             if (pattern->node_type == AST_PATTERN_SINGLE && init_value->node_type == AST_VALUE_FUNCTION)
             {
@@ -890,6 +899,8 @@ namespace wo
                 ;
             out_continues.push_back(AstBase::make_holder(&new_instance->m_pattern));
             out_continues.push_back(AstBase::make_holder(&new_instance->m_init_value));
+            if (m_attribute)
+                out_continues.push_back(AstBase::make_holder(&new_instance->m_attribute.value()));
             return new_instance;
         }
 
@@ -1327,7 +1338,7 @@ namespace wo
             auto* iterator_declear = new AstVariableDefines();
 
             auto* iterator_pattern = new AstPatternSingle(false, WO_PSTR(_iter), std::nullopt);
-            auto* iterator_define_item = new AstVariableDefineItem(iterator_pattern, invoke_std_iterator);
+            auto* iterator_define_item = new AstVariableDefineItem(std::nullopt, iterator_pattern, invoke_std_iterator);
             iterator_declear->m_definitions.push_back(iterator_define_item);
 
             // for (;;) {
@@ -1459,7 +1470,17 @@ namespace wo
 
         ////////////////////////////////////////////////////////
 
+        AstUsingTypeDeclare::AstUsingTypeDeclare(const AstUsingTypeDeclare& item)
+            : AstBase(AST_USING_TYPE_DECLARE)
+            , m_typename(item.m_typename)
+            , m_template_parameters(item.m_template_parameters)
+            , m_type(item.m_type)
+            , m_in_type_namespace(item.m_in_type_namespace)
+            , m_attribute(item.m_attribute)
+        {
+        }
         AstUsingTypeDeclare::AstUsingTypeDeclare(
+            const std::optional<AstDeclareAttribue*>& attrib,
             wo_pstring_t typename_,
             const std::optional<std::list<wo_pstring_t>>& template_parameters,
             AstTypeHolder* type,
@@ -1469,24 +1490,36 @@ namespace wo
             , m_template_parameters(template_parameters)
             , m_type(type)
             , m_in_type_namespace(in_type_namespace)
+            , m_attribute(attrib)
         {
         }
         AstBase* AstUsingTypeDeclare::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
         {
             AstUsingTypeDeclare* new_instance = exist_instance
                 ? static_cast<AstUsingTypeDeclare*>(exist_instance.value())
-                : new AstUsingTypeDeclare(m_typename, m_template_parameters, m_type, m_in_type_namespace)
+                : new AstUsingTypeDeclare(*this)
                 ;
 
             out_continues.push_back(AstBase::make_holder(&new_instance->m_type));
             if (m_in_type_namespace)
                 out_continues.push_back(AstBase::make_holder(&new_instance->m_in_type_namespace.value()));
+            if (m_attribute)
+                out_continues.push_back(AstBase::make_holder(&new_instance->m_attribute.value()));
             return new_instance;
         }
 
         ////////////////////////////////////////////////////////
 
+        AstAliasTypeDeclare::AstAliasTypeDeclare(const AstAliasTypeDeclare& item)
+            : AstBase(AST_ALIAS_TYPE_DECLARE)
+            , m_typename(item.m_typename)
+            , m_template_parameters(item.m_template_parameters)
+            , m_type(item.m_type)
+            , m_attribute(item.m_attribute)
+        {
+        }
         AstAliasTypeDeclare::AstAliasTypeDeclare(
+            const std::optional<AstDeclareAttribue*>& attrib,
             wo_pstring_t typename_,
             const std::optional<std::list<wo_pstring_t>>& template_parameters,
             AstTypeHolder* type)
@@ -1494,16 +1527,19 @@ namespace wo
             , m_typename(typename_)
             , m_template_parameters(template_parameters)
             , m_type(type)
+            , m_attribute(attrib)
         {
         }
         AstBase* AstAliasTypeDeclare::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
         {
             AstAliasTypeDeclare* new_instance = exist_instance
                 ? static_cast<AstAliasTypeDeclare*>(exist_instance.value())
-                : new AstAliasTypeDeclare(m_typename, m_template_parameters, m_type)
+                : new AstAliasTypeDeclare(*this)
                 ;
 
             out_continues.push_back(AstBase::make_holder(&new_instance->m_type));
+            if (m_attribute)
+                out_continues.push_back(AstBase::make_holder(&new_instance->m_attribute.value()));
             return new_instance;
         }
 
@@ -1528,13 +1564,16 @@ namespace wo
 
         ////////////////////////////////////////////////////////
 
-        AstEnumDeclare::AstEnumDeclare(AstUsingTypeDeclare* type_decl, AstNamespace* namespace_)
+        AstEnumDeclare::AstEnumDeclare(const AstEnumDeclare& item)
             : AstBase(AST_ENUM_DECLARE)
-            , m_enum_type_declare(type_decl)
-            , m_enum_body(namespace_)
+            , m_enum_type_declare(item.m_enum_type_declare)
+            , m_enum_body(item.m_enum_body)
         {
         }
-        AstEnumDeclare::AstEnumDeclare(wo_pstring_t enum_name, const std::list<AstEnumItem*>& enum_items)
+        AstEnumDeclare::AstEnumDeclare(
+            const std::optional<AstDeclareAttribue*>& attrib, 
+            wo_pstring_t enum_name,
+            const std::list<AstEnumItem*>& enum_items)
             : AstBase(AST_ENUM_DECLARE)
             , m_enum_type_declare(nullptr)
             , m_enum_body(nullptr)
@@ -1543,7 +1582,7 @@ namespace wo
 
             auto* enum_base_type_identifier = new AstIdentifier(WO_PSTR(int));
             auto* enum_base_type = new AstTypeHolder(enum_base_type_identifier);
-            auto* enum_type_declare = new AstUsingTypeDeclare(enum_name, std::nullopt, enum_base_type, std::nullopt);
+            auto* enum_type_declare = new AstUsingTypeDeclare(attrib, enum_name, std::nullopt, enum_base_type, std::nullopt);
             auto* enum_item_definations = new AstVariableDefines();
 
             std::optional<wo_pstring_t> last_enum_item_name = std::nullopt;
@@ -1584,11 +1623,23 @@ namespace wo
                     created_this_item_value->source_location = item->source_location;
                 }
 
+                std::optional<AstDeclareAttribue*> decl_attrib = std::nullopt;
+                if (attrib)
+                {
+                    AstDeclareAttribue* origin_attrib = attrib.value();
+                    AstDeclareAttribue* duplicated_attrib = new AstDeclareAttribue(*origin_attrib);
+
+                    decl_attrib = duplicated_attrib;
+
+                    // Update source msg;
+                    duplicated_attrib->source_location = origin_attrib->source_location;
+                }
+
                 auto* enum_type_identifier = new AstIdentifier(enum_name);
                 auto* enum_type = new AstTypeHolder(enum_type_identifier);
                 auto* enum_item_value_cast = new AstValueTypeCast(enum_type, item->m_value.value());
                 auto* enum_item_pattern = new AstPatternSingle(false, item->m_name, std::nullopt);
-                auto* enum_item_define_item = new AstVariableDefineItem(enum_item_pattern, enum_item_value_cast);
+                auto* enum_item_define_item = new AstVariableDefineItem(decl_attrib, enum_item_pattern, enum_item_value_cast);
                 enum_item_definations->m_definitions.push_back(enum_item_define_item);
 
                 // Update source msg;
@@ -1617,7 +1668,7 @@ namespace wo
         {
             AstEnumDeclare* new_instance = exist_instance
                 ? static_cast<AstEnumDeclare*>(exist_instance.value())
-                : new AstEnumDeclare(m_enum_type_declare, m_enum_body)
+                : new AstEnumDeclare(*this)
                 ;
             if (new_instance->m_enum_type_declare)
                 out_continues.push_back(AstBase::make_holder(&new_instance->m_enum_type_declare));
@@ -1678,6 +1729,7 @@ namespace wo
         {
         }
         AstUnionDeclare::AstUnionDeclare(
+            const std::optional<AstDeclareAttribue*>& attrib,
             wo_pstring_t union_type_name,
             const std::list<wo_pstring_t>& template_parameters,
             const std::list<AstUnionItem*>& union_items)
@@ -1693,6 +1745,18 @@ namespace wo
             wo_integer_t current_item_index = 0;
             for (auto& item : union_items)
             {
+                std::optional<AstDeclareAttribue*> decl_attrib = std::nullopt;
+                if (attrib)
+                {
+                    AstDeclareAttribue* origin_attrib = attrib.value();
+                    AstDeclareAttribue* duplicated_attrib = new AstDeclareAttribue(*origin_attrib);
+
+                    decl_attrib = duplicated_attrib;
+
+                    // Update source msg;
+                    duplicated_attrib->source_location = origin_attrib->source_location;
+                }
+
                 m_union_item_index[item->m_label] = current_item_index;
 
                 AstTypeHolder* union_type;
@@ -1786,7 +1850,7 @@ namespace wo
 
                     auto* union_creator_pattern = new AstPatternSingle(
                         false, item->m_label, used_template_parameters.empty() ? std::nullopt : std::optional(used_template_parameters));
-                    auto* union_creator_decl_item = new AstVariableDefineItem(union_creator_pattern, union_creator_function);
+                    auto* union_creator_decl_item = new AstVariableDefineItem(decl_attrib, union_creator_pattern, union_creator_function);
 
                     union_item_or_creator_declare->m_definitions.push_back(union_creator_decl_item);
 
@@ -1805,7 +1869,7 @@ namespace wo
                     auto* union_item_pattern = new AstPatternSingle(false, item->m_label, std::nullopt);
                     auto* union_item_maker = new AstValueMakeUnion(current_item_index, std::nullopt);
                     auto* union_item_type_cast = new AstValueTypeCast(union_type, union_item_maker);
-                    auto* union_item_decl_item = new AstVariableDefineItem(union_item_pattern, union_item_type_cast);
+                    auto* union_item_decl_item = new AstVariableDefineItem(decl_attrib, union_item_pattern, union_item_type_cast);
                     union_item_or_creator_declare->m_definitions.push_back(union_item_decl_item);
 
                     union_item_pattern->source_location = item->source_location;

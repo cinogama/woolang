@@ -52,8 +52,12 @@ namespace wo
         }
         auto pass_enum_finalize::build(lexer& lex, ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
+            std::optional<AstDeclareAttribue*> attrib = std::nullopt;
             token enum_name = WO_NEED_TOKEN(2);
             AstList* enum_items = static_cast<AstList*>(WO_NEED_AST_TYPE(4, AstBase::AST_LIST));
+
+            if (!WO_IS_EMPTY(0))
+                attrib = static_cast<AstDeclareAttribue*>(WO_NEED_AST_TYPE(0, AstBase::AST_DECLARE_ATTRIBUTE));
 
             std::list<AstEnumItem*> items;
             for (auto& item : enum_items->m_list)
@@ -62,7 +66,7 @@ namespace wo
                 items.push_back(static_cast<AstEnumItem*>(item));
             }
 
-            return new AstEnumDeclare(wstring_pool::get_pstr(enum_name.identifier), items);
+            return new AstEnumDeclare(attrib, wstring_pool::get_pstr(enum_name.identifier), items);
         }
         auto pass_namespace::build(lexer& lex, ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
@@ -90,6 +94,7 @@ namespace wo
         }
         auto pass_using_type_as::build(lexer& lex, ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
+            std::optional<AstDeclareAttribue*> attrib = std::nullopt;
             token new_type_name = WO_NEED_TOKEN(2);
             std::optional<AstList*> template_params = std::nullopt;
             AstTypeHolder* base_type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(5, AstBase::AST_TYPE_HOLDER));
@@ -97,6 +102,8 @@ namespace wo
 
             wo_pstring_t type_name = wstring_pool::get_pstr(new_type_name.identifier);
 
+            if (!WO_IS_EMPTY(0))
+                attrib = static_cast<AstDeclareAttribue*>(WO_NEED_AST_TYPE(0, AstBase::AST_DECLARE_ATTRIBUTE));
             if (!WO_IS_EMPTY(3))
                 template_params = static_cast<AstList*>(WO_NEED_AST_TYPE(3, AstBase::AST_LIST));
             if (!WO_IS_EMPTY(6))
@@ -127,16 +134,19 @@ namespace wo
                 typed_namespace->source_location = in_block_sentence.value()->source_location;
             }
 
-            return new AstUsingTypeDeclare(type_name, in_type_template_params, base_type, in_type_namespace);
+            return new AstUsingTypeDeclare(attrib, type_name, in_type_template_params, base_type, in_type_namespace);
         }
         auto pass_alias_type_as::build(lexer& lex, ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
+            std::optional<AstDeclareAttribue*> attrib = std::nullopt;
             token new_type_name = WO_NEED_TOKEN(2);
             std::optional<AstList*> template_params = std::nullopt;
             AstTypeHolder* base_type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(5, AstBase::AST_TYPE_HOLDER));
 
             wo_pstring_t type_name = wstring_pool::get_pstr(new_type_name.identifier);
 
+            if (!WO_IS_EMPTY(0))
+                attrib = static_cast<AstDeclareAttribue*>(WO_NEED_AST_TYPE(0, AstBase::AST_DECLARE_ATTRIBUTE));
             if (!WO_IS_EMPTY(3))
                 template_params = static_cast<AstList*>(WO_NEED_AST_TYPE(3, AstBase::AST_LIST));
 
@@ -156,7 +166,7 @@ namespace wo
                 in_type_template_params = std::move(params);
             }
 
-            return new AstAliasTypeDeclare(type_name, in_type_template_params, base_type);
+            return new AstAliasTypeDeclare(attrib, type_name, in_type_template_params, base_type);
         }
         auto pass_build_where_constraint::build(lexer& lex, ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
@@ -173,6 +183,7 @@ namespace wo
         }
         auto pass_func_def_named::build(lexer& lex, ast::astnode_builder::inputs_t& input)->grammar::produce
         {
+            std::optional<AstDeclareAttribue*> attrib = std::nullopt;
             AstToken* function_name = static_cast<AstToken*>(WO_NEED_AST_TYPE(2, AstBase::AST_TOKEN));
             std::optional<AstList*> template_params = std::nullopt;
             AstList* paraments = static_cast<AstList*>(WO_NEED_AST_TYPE(5, AstBase::AST_LIST));
@@ -182,12 +193,12 @@ namespace wo
 
             wo_pstring_t func_name = wstring_pool::get_pstr(function_name->m_token.identifier);
 
+            if (!WO_IS_EMPTY(0))
+                attrib = static_cast<AstDeclareAttribue*>(WO_NEED_AST_TYPE(0, AstBase::AST_DECLARE_ATTRIBUTE));
             if (!WO_IS_EMPTY(3))
                 template_params = static_cast<AstList*>(WO_NEED_AST_TYPE(3, AstBase::AST_LIST));
-
             if (!WO_IS_EMPTY(7))
                 marked_return_type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(7, AstBase::AST_TYPE_HOLDER));
-
             if (!WO_IS_EMPTY(8))
                 where_constraints = static_cast<AstWhereConstraints*>(WO_NEED_AST_TYPE(8, AstBase::AST_WHERE_CONSTRAINTS));
 
@@ -209,8 +220,8 @@ namespace wo
             for (auto& param : paraments->m_list)
             {
                 if (is_variadic_function)
-                    return token{lex.lang_error(
-                        lexer::errorlevel::error, param, WO_ERR_ARG_DEFINE_AFTER_VARIADIC)};
+                    return token{ lex.lang_error(
+                        lexer::errorlevel::error, param, WO_ERR_ARG_DEFINE_AFTER_VARIADIC) };
 
                 if (param->node_type == AstBase::AST_FUNCTION_PARAMETER_DECLARE)
                     in_params.push_back(static_cast<AstFunctionParameterDeclare*>(param));
@@ -226,7 +237,7 @@ namespace wo
             auto* function_value = new AstValueFunction(
                 in_params, is_variadic_function, marked_return_type, where_constraints, body);
             auto* function_define_pattern = new AstPatternSingle(false, func_name, in_template_params);
-            auto* function_define_item = new AstVariableDefineItem(function_define_pattern, function_value);
+            auto* function_define_item = new AstVariableDefineItem(attrib, function_define_pattern, function_value);
 
             function_define->m_definitions.push_back(function_define_item);
 
@@ -239,6 +250,7 @@ namespace wo
         }
         auto pass_func_def_oper::build(lexer& lex, ast::astnode_builder::inputs_t& input)->grammar::produce
         {
+            std::optional<AstDeclareAttribue*> attrib = std::nullopt;
             AstToken* overloading_operator = static_cast<AstToken*>(WO_NEED_AST_TYPE(3, AstBase::AST_TOKEN));
             std::optional<AstList*> template_params = std::nullopt;
             AstList* paraments = static_cast<AstList*>(WO_NEED_AST_TYPE(6, AstBase::AST_LIST));
@@ -249,12 +261,12 @@ namespace wo
             wo_pstring_t func_name = wstring_pool::get_pstr(
                 L"operator " + overloading_operator->m_token.identifier);
 
+            if (!WO_IS_EMPTY(0))
+                attrib = static_cast<AstDeclareAttribue*>(WO_NEED_AST_TYPE(0, AstBase::AST_DECLARE_ATTRIBUTE));
             if (!WO_IS_EMPTY(4))
                 template_params = static_cast<AstList*>(WO_NEED_AST_TYPE(4, AstBase::AST_LIST));
-
             if (!WO_IS_EMPTY(8))
                 marked_return_type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(8, AstBase::AST_TYPE_HOLDER));
-
             if (!WO_IS_EMPTY(9))
                 where_constraints = static_cast<AstWhereConstraints*>(WO_NEED_AST_TYPE(9, AstBase::AST_WHERE_CONSTRAINTS));
 
@@ -293,7 +305,7 @@ namespace wo
             auto* function_value = new AstValueFunction(
                 in_params, is_variadic_function, marked_return_type, where_constraints, body);
             auto* function_define_pattern = new AstPatternSingle(false, func_name, in_template_params);
-            auto* function_define_item = new AstVariableDefineItem(function_define_pattern, function_value);
+            auto* function_define_item = new AstVariableDefineItem(attrib, function_define_pattern, function_value);
 
             function_define->m_definitions.push_back(function_define_item);
 
@@ -429,7 +441,7 @@ namespace wo
             }
 
             auto* function_body = new AstList();
-  
+
             if (body_1)
                 // Append body_1 before body_0.
                 function_body->m_list.push_back(body_1.value());
@@ -446,14 +458,14 @@ namespace wo
         }
         auto pass_if::build(lexer& lex, ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
-           auto* condition = WO_NEED_AST_VALUE(2);
-           auto* body = WO_NEED_AST(4);
-           std::optional<AstBase*> else_body = std::nullopt;
+            auto* condition = WO_NEED_AST_VALUE(2);
+            auto* body = WO_NEED_AST(4);
+            std::optional<AstBase*> else_body = std::nullopt;
 
-           if (!WO_IS_EMPTY(5))
+            if (!WO_IS_EMPTY(5))
                 else_body = WO_NEED_AST(5);
 
-           return new AstIf(condition, body, else_body);
+            return new AstIf(condition, body, else_body);
         }
         auto pass_while::build(lexer& lex, ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
@@ -512,7 +524,7 @@ namespace wo
             AstList* scope_identifier = static_cast<AstList*>(WO_NEED_AST_TYPE(0, AstBase::AST_LIST));
             std::optional<AstList*> template_arguments = std::nullopt;
 
-            wo_assert(!scope_identifier->m_list.size() >= 2);
+            wo_assert(scope_identifier->m_list.size() >= 2);
 
             if (!WO_IS_EMPTY(1))
                 template_arguments = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
@@ -527,7 +539,7 @@ namespace wo
                     args.push_back(static_cast<AstTypeHolder*>(arg));
                 }
                 template_args = std::move(args);
-            }         
+            }
 
             std::list<wo_pstring_t> scope_identifiers_and_name;
             auto token_iter = scope_identifier->m_list.begin();
@@ -544,7 +556,7 @@ namespace wo
                 scope_identifiers_and_name.push_back(
                     wstring_pool::get_pstr(static_cast<AstToken*>(asttoken)->m_token.identifier));
             }
-            
+
             wo_pstring_t identifier_name = scope_identifiers_and_name.back();
             scope_identifiers_and_name.pop_back();
 
@@ -555,7 +567,7 @@ namespace wo
             AstList* scope_identifier = static_cast<AstList*>(WO_NEED_AST_TYPE(0, AstBase::AST_LIST));
             std::optional<AstList*> template_arguments = std::nullopt;
 
-            wo_assert(!scope_identifier->m_list.size() >= 2);
+            wo_assert(scope_identifier->m_list.size() >= 2);
 
             if (!WO_IS_EMPTY(1))
                 template_arguments = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
@@ -589,7 +601,7 @@ namespace wo
             AstList* scope_identifier = static_cast<AstList*>(WO_NEED_AST_TYPE(0, AstBase::AST_LIST));
             std::optional<AstList*> template_arguments = std::nullopt;
 
-            wo_assert(!scope_identifier->m_list.size() >= 2);
+            wo_assert(scope_identifier->m_list.size() >= 1);
 
             if (!WO_IS_EMPTY(1))
                 template_arguments = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
@@ -653,16 +665,32 @@ namespace wo
                 }
             }
 
-            return new AstTypeHolder(AstTypeHolder::FunctionType{ 
+            return new AstTypeHolder(AstTypeHolder::FunctionType{
                 is_variadic_function, paraments, return_type });
         }
         auto pass_type_struct_field::build(lexer& lex, ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
+            std::optional<AstDeclareAttribue::accessc_attrib> attrib = std::nullopt;
             token field_name = WO_NEED_TOKEN(1);
             AstTypeHolder* field_type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(3, AstBase::AST_TYPE_HOLDER));
 
+            if (!WO_IS_EMPTY(0))
+            {
+                switch (WO_NEED_TOKEN(0).type)
+                {
+                case lex_type::l_public:
+                    attrib = AstDeclareAttribue::accessc_attrib::PUBLIC; break;
+                case lex_type::l_private:
+                    attrib = AstDeclareAttribue::accessc_attrib::PRIVATE; break;
+                case lex_type::l_protected:
+                    attrib = AstDeclareAttribue::accessc_attrib::PROTECTED; break;
+                default:
+                    wo_error("Unknown attribute.");
+                }
+            }
+
             return new AstStructFieldDefine(
-                wstring_pool::get_pstr(field_name.identifier), field_type);
+                attrib, wstring_pool::get_pstr(field_name.identifier), field_type);
         }
         auto pass_type_struct::build(lexer& lex, ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
@@ -709,6 +737,21 @@ namespace wo
                 return token{ lex_type::l_error };
 
             return attrib;
+        }
+        auto pass_pattern_for_assign::build(lexer& lex, ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstValueBase* been_assigned_lvalue = WO_NEED_AST_VALUE(0);
+
+            switch (been_assigned_lvalue->node_type)
+            {
+            case AstBase::AST_VALUE_VARIABLE:
+                return new AstPatternVariable(static_cast<AstValueVariable*>(been_assigned_lvalue));
+            case AstBase::AST_VALUE_INDEX:
+                return new AstPatternIndex(static_cast<AstValueIndex*>(been_assigned_lvalue));
+            default:
+                wo_error("Unknown pattern for assign.");
+                break;
+            }
         }
     }
 

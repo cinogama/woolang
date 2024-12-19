@@ -159,5 +159,6 @@ struct NAME : public ast::astnode_builder       \
         WO_AST_BUILDER(pass_type_tuple);
         WO_AST_BUILDER(pass_attribute);
         WO_AST_BUILDER(pass_attribute_append);
+        WO_AST_BUILDER(pass_pattern_for_assign);
     }
 }
