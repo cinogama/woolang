@@ -10,10 +10,10 @@ namespace wo
         {
             using ast_basic = wo::ast::AstBase;
             using inputs_t = std::vector<grammar::produce>;
-            using builder_func_t = std::function<grammar::produce(lexer&, inputs_t&)>;
+            using builder_func_t = std::function<grammar::produce(lexer&, const inputs_t&)>;
 
             virtual ~astnode_builder() = default;
-            static grammar::produce build(lexer& lex, inputs_t& input)
+            static grammar::produce build(lexer& lex, const inputs_t& input)
             {
                 wo_assert(false, "");
                 return nullptr;
@@ -50,16 +50,17 @@ namespace wo
 #define WO_NEED_AST(ID)             input[(ID)].read_ast()
 #define WO_NEED_AST_TYPE(ID, TYPE)  input[(ID)].read_ast(TYPE)
 #define WO_NEED_AST_VALUE(ID)       static_cast<AstValueBase*>(input[(ID)].read_ast_value())
+#define WO_NEED_AST_PATTERN(ID)     static_cast<AstPatternBase*>(input[(ID)].read_ast_pattern())
 #define WO_IS_TOKEN(ID)             input[(ID)].is_token()
 #define WO_IS_AST(ID)               input[(ID)].is_ast()
 #define WO_IS_EMPTY(ID)             AstEmpty::is_empty(input[(ID)])
 
-#define WO_AST_BUILDER(NAME)                    \
-struct NAME : public ast::astnode_builder       \
-{                                               \
-    static grammar::produce build(              \
-        lexer& lex,                             \
-        ast::astnode_builder::inputs_t& input); \
+#define WO_AST_BUILDER(NAME)                            \
+struct NAME : public ast::astnode_builder               \
+{                                                       \
+    static grammar::produce build(                      \
+        lexer& lex,                                     \
+        const ast::astnode_builder::inputs_t& input);   \
 }
 
     namespace ast
@@ -157,8 +158,12 @@ struct NAME : public ast::astnode_builder       \
         WO_AST_BUILDER(pass_type_struct_field);
         WO_AST_BUILDER(pass_type_struct);
         WO_AST_BUILDER(pass_type_tuple);
+        WO_AST_BUILDER(pass_type_mutable);
+        WO_AST_BUILDER(pass_type_immutable);
         WO_AST_BUILDER(pass_attribute);
         WO_AST_BUILDER(pass_attribute_append);
         WO_AST_BUILDER(pass_pattern_for_assign);
+        WO_AST_BUILDER(pass_reverse_vardef);
+        WO_AST_BUILDER(pass_func_argument);
     }
 }

@@ -59,12 +59,14 @@ namespace wo
 
                 AST_TYPE_HOLDER,
 
-                AST_PATTERN_TAKEPLACE,
+                AST_PATTERN_begin,
+                AST_PATTERN_TAKEPLACE = AST_PATTERN_begin,
                 AST_PATTERN_SINGLE,
                 AST_PATTERN_TUPLE,
                 AST_PATTERN_UNION,  // Only used in match
                 AST_PATTERN_VARIABLE, // Only used in assign
                 AST_PATTERN_INDEX,  // Only used in assign
+                AST_PATTERN_end,
 
                 AST_VARIABLE_DEFINE_ITEM,
                 AST_VARIABLE_DEFINES,
@@ -358,6 +360,14 @@ namespace wo
                 if (ast_node->node_type < ast::AstBase::AST_VALUE_begin || ast_node->node_type >= ast::AstBase::AST_VALUE_end)
                     wo_error("read_ast_value() called on a wrong type of ast node.");
                 
+                return ast_node;
+            }
+            ast::AstBase* read_ast_pattern() const
+            {
+                auto* ast_node = read_ast();
+                if (ast_node->node_type < ast::AstBase::AST_PATTERN_begin || ast_node->node_type >= ast::AstBase::AST_PATTERN_end)
+                    wo_error("read_ast_pattern() called on a wrong type of ast node.");
+
                 return ast_node;
             }
         };
