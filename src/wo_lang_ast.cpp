@@ -397,7 +397,7 @@ namespace wo
             wo_assert(!m_evaled_const_value);
             wo_assert(!val.is_gcunit() || val.fast_get_attrib_for_assert_check() == nullptr /* not in managed heap */);
 
-            m_evaled_const_value->set_val(&val);
+            m_evaled_const_value = val;
         }
         AstBase* AstValueBase::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
         {
@@ -705,6 +705,22 @@ namespace wo
 
         ////////////////////////////////////////////////////////
 
+        AstValueVariadicArgumentsPack::AstValueVariadicArgumentsPack()
+            : AstValueBase(AST_VALUE_VARIADIC_ARGUMENTS_PACK)
+        {
+        }
+        AstBase* AstValueVariadicArgumentsPack::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        {
+            AstValueVariadicArgumentsPack* new_instance = exist_instance
+                ? static_cast<AstValueVariadicArgumentsPack*>(exist_instance.value())
+                : new AstValueVariadicArgumentsPack()
+                ;
+            AstValueBase::make_dup(new_instance, out_continues);
+            return new_instance;
+        }
+
+        ////////////////////////////////////////////////////////
+
         AstPatternBase::AstPatternBase(AstBase::node_type_t nodetype)
             : AstBase(nodetype)
         {
@@ -859,17 +875,14 @@ namespace wo
             : AstBase(AST_VARIABLE_DEFINE_ITEM)
             , m_pattern(item.m_pattern)
             , m_init_value(item.m_init_value)
-            , m_attribute(item.m_attribute)
         {
         }
         AstVariableDefineItem::AstVariableDefineItem(
-            const std::optional<AstDeclareAttribue*>& attrib,
             AstPatternBase* pattern, 
             AstValueBase* init_value)
             : AstBase(AST_VARIABLE_DEFINE_ITEM)
             , m_pattern(pattern)
             , m_init_value(init_value)
-            , m_attribute(attrib)
         {
             if (pattern->node_type == AST_PATTERN_SINGLE && init_value->node_type == AST_VALUE_FUNCTION)
             {
@@ -894,27 +907,35 @@ namespace wo
                 ;
             out_continues.push_back(AstBase::make_holder(&new_instance->m_pattern));
             out_continues.push_back(AstBase::make_holder(&new_instance->m_init_value));
-            if (m_attribute)
-                out_continues.push_back(AstBase::make_holder(&new_instance->m_attribute.value()));
             return new_instance;
         }
 
         ////////////////////////////////////////////////////////
 
-        AstVariableDefines::AstVariableDefines()
+        AstVariableDefines::AstVariableDefines(const AstVariableDefines& item)
+            : AstBase(AST_VARIABLE_DEFINES)
+            , m_definitions(item.m_definitions)
+            , m_attribute(item.m_attribute)
+        {
+        }
+        AstVariableDefines::AstVariableDefines(const std::optional<AstDeclareAttribue*>& attribute)
             : AstBase(AST_VARIABLE_DEFINES)
             , m_definitions({})
+            , m_attribute(attribute)
         {
         }
         AstBase* AstVariableDefines::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
         {
             AstVariableDefines* new_instance = exist_instance
                 ? static_cast<AstVariableDefines*>(exist_instance.value())
-                : new AstVariableDefines()
+                : new AstVariableDefines(*this)
                 ;
             new_instance->m_definitions = m_definitions;
             for (auto* def : new_instance->m_definitions)
                 out_continues.push_back(AstBase::make_holder(&def));
+
+            if (m_attribute)
+                out_continues.push_back(AstBase::make_holder(&new_instance->m_attribute.value()));
 
             return new_instance;
         }
@@ -997,7 +1018,7 @@ namespace wo
 
         ////////////////////////////////////////////////////////
 
-        AstValueArrayOrVec::AstValueArrayOrVec(const std::vector<AstValueBase*>& elements, bool making_vec)
+        AstValueArrayOrVec::AstValueArrayOrVec(const std::list<AstValueBase*>& elements, bool making_vec)
             : AstValueBase(AST_VALUE_ARRAY_OR_VEC)
             , m_making_vec(making_vec)
             , m_elements(elements)
@@ -1036,7 +1057,7 @@ namespace wo
 
         ////////////////////////////////////////////////////////
 
-        AstValueDictOrMap::AstValueDictOrMap(const std::vector<AstKeyValuePair*>& elements, bool making_map)
+        AstValueDictOrMap::AstValueDictOrMap(const std::list<AstKeyValuePair*>& elements, bool making_map)
             : AstValueBase(AST_VALUE_DICT_OR_MAP)
             , m_making_map(making_map)
             , m_elements(elements)
@@ -1057,7 +1078,7 @@ namespace wo
 
         ////////////////////////////////////////////////////////
 
-        AstValueTuple::AstValueTuple(const std::vector<AstValueBase*>& elements)
+        AstValueTuple::AstValueTuple(const std::list<AstValueBase*>& elements)
             : AstValueBase(AST_VALUE_TUPLE)
             , m_elements(elements)
         {
@@ -1076,17 +1097,17 @@ namespace wo
 
         ////////////////////////////////////////////////////////
 
-        AstFieldValuePair::AstFieldValuePair(wo_pstring_t name, AstValueBase* value)
-            : AstBase(AST_FIELD_VALUE_PAIR)
+        AstStructFieldValuePair::AstStructFieldValuePair(wo_pstring_t name, AstValueBase* value)
+            : AstBase(AST_STRUCT_FIELD_VALUE_PAIR)
             , m_name(name)
             , m_value(value)
         {
         }
-        AstBase* AstFieldValuePair::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        AstBase* AstStructFieldValuePair::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
         {
-            AstFieldValuePair* new_instance = exist_instance
-                ? static_cast<AstFieldValuePair*>(exist_instance.value())
-                : new AstFieldValuePair(m_name, m_value)
+            AstStructFieldValuePair* new_instance = exist_instance
+                ? static_cast<AstStructFieldValuePair*>(exist_instance.value())
+                : new AstStructFieldValuePair(m_name, m_value)
                 ;
             out_continues.push_back(AstBase::make_holder(&new_instance->m_value));
             return new_instance;
@@ -1096,7 +1117,7 @@ namespace wo
 
         AstValueStruct::AstValueStruct(
             const std::optional<AstTypeHolder*>& marked_struct_type,
-            const std::vector<AstFieldValuePair*>& fields)
+            const std::list<AstStructFieldValuePair*>& fields)
             : AstValueBase(AST_VALUE_STRUCT)
             , m_marked_struct_type(marked_struct_type)
             , m_fields(fields)
@@ -1123,7 +1144,7 @@ namespace wo
             assign_type type, 
             AstPatternBase* assign_place,
             AstValueBase* right)
-            : AstValueBase(AST_VALUE_ASSIGN)
+            : AstValueMayConsiderOperatorOverload(AST_VALUE_ASSIGN)
             , m_valued_assign(valued_assign)
             , m_assign_type(type)
             , m_assign_place(assign_place)
@@ -1136,7 +1157,7 @@ namespace wo
                 ? static_cast<AstValueAssign*>(exist_instance.value())
                 : new AstValueAssign(m_valued_assign, m_assign_type, m_assign_place, m_right)
                 ;
-            AstValueBase::make_dup(new_instance, out_continues);
+            AstValueMayConsiderOperatorOverload::make_dup(new_instance, out_continues);
             out_continues.push_back(AstBase::make_holder(&new_instance->m_assign_place));
             out_continues.push_back(AstBase::make_holder(&new_instance->m_right));
             return new_instance;
@@ -1153,23 +1174,6 @@ namespace wo
             AstValuePackedArgs* new_instance = exist_instance
                 ? static_cast<AstValuePackedArgs*>(exist_instance.value())
                 : new AstValuePackedArgs()
-                ;
-            AstValueBase::make_dup(new_instance, out_continues);
-            return new_instance;
-        }
-
-        ////////////////////////////////////////////////////////
-
-        AstValueIndexPackedArgs::AstValueIndexPackedArgs(wo_size_t m_index)
-            : AstValueBase(AST_VALUE_INDEX_PACKED_ARGS)
-            , m_index(m_index)
-        {
-        }
-        AstBase* AstValueIndexPackedArgs::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
-        {
-            AstValueIndexPackedArgs* new_instance = exist_instance
-                ? static_cast<AstValueIndexPackedArgs*>(exist_instance.value())
-                : new AstValueIndexPackedArgs(m_index)
                 ;
             AstValueBase::make_dup(new_instance, out_continues);
             return new_instance;
@@ -1338,10 +1342,10 @@ namespace wo
             auto* std_iterator_identifier = new AstIdentifier(WO_PSTR(iterator), std::nullopt, { WO_PSTR(std) }, true);
             auto* std_iterator_value = new AstValueVariable(std_iterator_identifier);
             auto* invoke_std_iterator = new AstValueFunctionCall(false, std_iterator_value, { container });
-            auto* iterator_declear = new AstVariableDefines();
+            auto* iterator_declear = new AstVariableDefines(std::nullopt);
 
             auto* iterator_pattern = new AstPatternSingle(false, WO_PSTR(_iter), std::nullopt);
-            auto* iterator_define_item = new AstVariableDefineItem(std::nullopt, iterator_pattern, invoke_std_iterator);
+            auto* iterator_define_item = new AstVariableDefineItem(iterator_pattern, invoke_std_iterator);
             iterator_declear->m_definitions.push_back(iterator_define_item);
 
             // for (;;) {
@@ -1586,7 +1590,17 @@ namespace wo
             auto* enum_base_type_identifier = new AstIdentifier(WO_PSTR(int), std::nullopt, {}, true);
             auto* enum_base_type = new AstTypeHolder(enum_base_type_identifier);
             auto* enum_type_declare = new AstUsingTypeDeclare(attrib, enum_name, std::nullopt, enum_base_type, std::nullopt);
-            auto* enum_item_definations = new AstVariableDefines();
+
+            std::optional<AstDeclareAttribue*> enum_item_attrib = std::nullopt; 
+            if (attrib)
+            {
+                AstDeclareAttribue* enum_item_attrib_instance = new AstDeclareAttribue(*attrib.value());
+                enum_item_attrib = enum_item_attrib_instance;
+
+                enum_item_attrib_instance->source_location = attrib.value()->source_location;
+            }
+
+            auto* enum_item_definations = new AstVariableDefines(enum_item_attrib);
 
             std::optional<wo_pstring_t> last_enum_item_name = std::nullopt;
             for (auto& item : enum_items)
@@ -1634,23 +1648,11 @@ namespace wo
                     created_this_item_value->source_location = item->source_location;
                 }
 
-                std::optional<AstDeclareAttribue*> decl_attrib = std::nullopt;
-                if (attrib)
-                {
-                    AstDeclareAttribue* origin_attrib = attrib.value();
-                    AstDeclareAttribue* duplicated_attrib = new AstDeclareAttribue(*origin_attrib);
-
-                    decl_attrib = duplicated_attrib;
-
-                    // Update source msg;
-                    duplicated_attrib->source_location = origin_attrib->source_location;
-                }
-
                 auto* enum_type_identifier = new AstIdentifier(enum_name);
                 auto* enum_type = new AstTypeHolder(enum_type_identifier);
                 auto* enum_item_value_cast = new AstValueTypeCast(enum_type, item->m_value.value());
                 auto* enum_item_pattern = new AstPatternSingle(false, item->m_name, std::nullopt);
-                auto* enum_item_define_item = new AstVariableDefineItem(decl_attrib, enum_item_pattern, enum_item_value_cast);
+                auto* enum_item_define_item = new AstVariableDefineItem(enum_item_pattern, enum_item_value_cast);
                 enum_item_definations->m_definitions.push_back(enum_item_define_item);
 
                 // Update source msg;
@@ -1751,23 +1753,11 @@ namespace wo
             , m_union_items(nullptr)
         {
             wo_assert(!union_items.empty());
-            auto* union_item_or_creator_declare = new AstVariableDefines();
+            auto* union_item_or_creator_declare = new AstVariableDefines(attrib);
 
             wo_integer_t current_item_index = 0;
             for (auto& item : union_items)
             {
-                std::optional<AstDeclareAttribue*> decl_attrib = std::nullopt;
-                if (attrib)
-                {
-                    AstDeclareAttribue* origin_attrib = attrib.value();
-                    AstDeclareAttribue* duplicated_attrib = new AstDeclareAttribue(*origin_attrib);
-
-                    decl_attrib = duplicated_attrib;
-
-                    // Update source msg;
-                    duplicated_attrib->source_location = origin_attrib->source_location;
-                }
-
                 m_union_item_index[item->m_label] = current_item_index;
 
                 AstTypeHolder* union_type;
@@ -1864,7 +1854,7 @@ namespace wo
 
                     auto* union_creator_pattern = new AstPatternSingle(
                         false, item->m_label, used_template_parameters.empty() ? std::nullopt : std::optional(used_template_parameters));
-                    auto* union_creator_decl_item = new AstVariableDefineItem(decl_attrib, union_creator_pattern, union_creator_function);
+                    auto* union_creator_decl_item = new AstVariableDefineItem(union_creator_pattern, union_creator_function);
 
                     union_item_or_creator_declare->m_definitions.push_back(union_creator_decl_item);
 
@@ -1883,7 +1873,7 @@ namespace wo
                     auto* union_item_pattern = new AstPatternSingle(false, item->m_label, std::nullopt);
                     auto* union_item_maker = new AstValueMakeUnion(current_item_index, std::nullopt);
                     auto* union_item_type_cast = new AstValueTypeCast(union_type, union_item_maker);
-                    auto* union_item_decl_item = new AstVariableDefineItem(decl_attrib, union_item_pattern, union_item_type_cast);
+                    auto* union_item_decl_item = new AstVariableDefineItem(union_item_pattern, union_item_type_cast);
                     union_item_or_creator_declare->m_definitions.push_back(union_item_decl_item);
 
                     union_item_pattern->source_location = item->source_location;
@@ -1947,7 +1937,33 @@ namespace wo
 
         ////////////////////////////////////////////////////////
 
+        AstExternInformation::AstExternInformation(const AstExternInformation& item)
+            : AstBase(AST_EXTERN_INFORMATION)
+            , m_extern_symbol(item.m_extern_symbol)
+            , m_extern_from_library(item.m_extern_from_library)
+            , m_attribute_flags(item.m_attribute_flags)
+        {
+        }
+        AstExternInformation::AstExternInformation(
+            wo_pstring_t extern_symbol,
+            const std::optional<wo_pstring_t>& extern_from_library,
+            uint32_t attribute_flags)
+            : AstBase(AST_EXTERN_INFORMATION)
+            , m_extern_symbol(extern_symbol)
+            , m_extern_from_library(extern_from_library)
+            , m_attribute_flags(attribute_flags)
+        {
+        }
+        AstBase* AstExternInformation::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        {
+            AstExternInformation* new_instance = exist_instance
+                ? static_cast<AstExternInformation*>(exist_instance.value())
+                : new AstExternInformation(*this)
+                ;
+            return new_instance;
+        }
 
+        ////////////////////////////////////////////////////////
     }
 #endif
 }

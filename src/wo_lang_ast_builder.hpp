@@ -55,20 +55,12 @@ namespace wo
 #define WO_IS_AST(ID)               input[(ID)].is_ast()
 #define WO_IS_EMPTY(ID)             AstEmpty::is_empty(input[(ID)])
 
-#define WO_AST_BUILDER(NAME)                            \
-struct NAME : public astnode_builder               \
-{                                                       \
-    static grammar::produce build(                      \
-        lexer& lex,                                     \
-        const ast::astnode_builder::inputs_t& input);   \
-}
-
     namespace ast
     {
         template <size_t pass_idx>
         struct pass_direct : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, inputs_t& input)
+            static grammar::produce build(lexer& lex, const inputs_t& input)
             {
                 return input[pass_idx];
             }
@@ -77,12 +69,12 @@ struct NAME : public astnode_builder               \
         template <size_t first_node>
         struct pass_create_list : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, inputs_t& input)
+            static grammar::produce build(lexer& lex, const inputs_t& input)
             {
                 AstList* result = new AstList();
                 if (! WO_IS_EMPTY(first_node))
                 {
-                    result->m_list.push_back(WO_NEED_TOKEN(first_node));
+                    result->m_list.push_back(WO_NEED_AST(first_node));
                 }
 
                 return result;
@@ -94,31 +86,40 @@ struct NAME : public astnode_builder               \
         {
             static_assert(from != to_list, "from and to_list should not be the same");
 
-            static grammar::produce build(lexer& lex, inputs_t& input)
+            static grammar::produce build(lexer& lex, const inputs_t& input)
             {
                 AstList* list = static_cast<AstList*>(WO_NEED_AST_TYPE(to_list, AstBase::AST_LIST));
                 if (! WO_IS_EMPTY(from))
                 {
                     if (from < to_list)
-                        list->m_list.push_front(WO_NEED_TOKEN(from));
+                        list->m_list.push_front(WO_NEED_AST(from));
                     else
-                        list->m_list.push_back(WO_NEED_TOKEN(from));                    
+                        list->m_list.push_back(WO_NEED_AST(from));
                 }
+                return list;
             }
         };
 
         template <size_t idx>
         struct pass_sentence_block : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, inputs_t& input)
+            static grammar::produce build(lexer& lex, const inputs_t& input)
             {
                 auto* node = WO_NEED_AST(idx);
-                if (node->node_type() == AstBase::AST_SCOPE)
+                if (node->node_type == AstBase::AST_SCOPE)
                     return node;
 
                 return new AstScope(node);
             }
         };
+
+#define WO_AST_BUILDER(NAME)                            \
+struct NAME : public astnode_builder               \
+{                                                       \
+    static grammar::produce build(                      \
+        lexer& lex,                                     \
+        const ast::astnode_builder::inputs_t& input);   \
+}
 
         WO_AST_BUILDER(pass_mark_label);
         WO_AST_BUILDER(pass_import_files);
@@ -157,6 +158,7 @@ struct NAME : public astnode_builder               \
         WO_AST_BUILDER(pass_type_func);
         WO_AST_BUILDER(pass_type_struct_field);
         WO_AST_BUILDER(pass_type_struct);
+        WO_AST_BUILDER(pass_type_from_identifier);
         WO_AST_BUILDER(pass_type_tuple);
         WO_AST_BUILDER(pass_type_mutable);
         WO_AST_BUILDER(pass_type_immutable);
@@ -195,5 +197,28 @@ struct NAME : public astnode_builder               \
         WO_AST_BUILDER(pass_pattern_identifier_or_takepace_with_template);
         WO_AST_BUILDER(pass_pattern_mut_identifier_or_takepace_with_template);
         WO_AST_BUILDER(pass_pattern_tuple);
+        WO_AST_BUILDER(pass_macro_failed);
+        WO_AST_BUILDER(pass_variable_define_item);
+        WO_AST_BUILDER(pass_variable_defines);
+        WO_AST_BUILDER(pass_conditional_expression);
+        WO_AST_BUILDER(pass_check_type_as);
+        WO_AST_BUILDER(pass_check_type_is);
+        WO_AST_BUILDER(pass_struct_member_init_pair);
+        WO_AST_BUILDER(pass_struct_instance);
+        WO_AST_BUILDER(pass_array_instance);
+        WO_AST_BUILDER(pass_vec_instance);
+        WO_AST_BUILDER(pass_dict_instance);
+        WO_AST_BUILDER(pass_map_instance);
+        WO_AST_BUILDER(pass_tuple_instance);
+        WO_AST_BUILDER(pass_dict_field_init_pair);
+        WO_AST_BUILDER(pass_index_operation_regular);
+        WO_AST_BUILDER(pass_index_operation_member);
+        WO_AST_BUILDER(pass_expand_arguments);
+        WO_AST_BUILDER(pass_variadic_arguments_pack);
+        WO_AST_BUILDER(pass_extern);
+        WO_AST_BUILDER(pass_func_def_extn);
+        WO_AST_BUILDER(pass_func_def_extn_oper);
+
+#undef WO_AST_BUILDER
     }
 }

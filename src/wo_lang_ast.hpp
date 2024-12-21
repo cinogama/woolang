@@ -23,9 +23,9 @@
 namespace wo
 {
 #ifndef WO_DISABLE_COMPILER
-    struct lang_Symbol;
+    struct lang_TypeSymbol;
     struct lang_TypeInstance;
-    struct lang_ValueIdentifierInstance;
+    struct lang_ValueInstance;
 
     namespace ast
     {
@@ -312,6 +312,11 @@ namespace wo
             AstFakeValueUnpack(AstValueBase* unpack_value);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
         };
+        struct AstValueVariadicArgumentsPack : public AstValueBase
+        {
+            AstValueVariadicArgumentsPack();
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
+        };
         struct AstValueIndex : public AstValueBase
         {
             AstValueBase* m_container;
@@ -376,14 +381,11 @@ namespace wo
         {
             AstPatternBase* m_pattern;
             AstValueBase* m_init_value;
-            std::optional<AstDeclareAttribue*>
-                m_attribute;
 
         private:
             AstVariableDefineItem(const AstVariableDefineItem&);
         public:
             AstVariableDefineItem(
-                const std::optional<AstDeclareAttribue*>& attrib,
                 AstPatternBase* pattern,
                 AstValueBase* init_value);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
@@ -391,8 +393,13 @@ namespace wo
         struct AstVariableDefines : public AstBase
         {
             std::list<AstVariableDefineItem*> m_definitions;
+            std::optional<AstDeclareAttribue*>
+                                              m_attribute;
 
-            AstVariableDefines();
+        private:
+            AstVariableDefines(const AstVariableDefines&);
+        public:
+            AstVariableDefines(const std::optional<AstDeclareAttribue*>& attribute);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
         struct AstFunctionParameterDeclare : public AstBase
@@ -428,9 +435,9 @@ namespace wo
         struct AstValueArrayOrVec : public AstValueBase
         {
             bool m_making_vec;
-            std::vector<AstValueBase*> m_elements;
+            std::list<AstValueBase*> m_elements;
 
-            AstValueArrayOrVec(const std::vector<AstValueBase*>& elements, bool making_vec);
+            AstValueArrayOrVec(const std::list<AstValueBase*>& elements, bool making_vec);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
         struct AstKeyValuePair : public AstBase
@@ -444,38 +451,38 @@ namespace wo
         struct AstValueDictOrMap : public AstValueBase
         {
             bool m_making_map;
-            std::vector<AstKeyValuePair*>
+            std::list<AstKeyValuePair*>
                 m_elements;
 
-            AstValueDictOrMap(const std::vector<AstKeyValuePair*>& elements, bool making_map);
+            AstValueDictOrMap(const std::list<AstKeyValuePair*>& elements, bool making_map);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
         struct AstValueTuple : public AstValueBase
         {
-            std::vector<AstValueBase*> m_elements;
+            std::list<AstValueBase*> m_elements;
 
-            AstValueTuple(const std::vector<AstValueBase*>& elements);
+            AstValueTuple(const std::list<AstValueBase*>& elements);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
-        struct AstFieldValuePair : public AstBase
+        struct AstStructFieldValuePair : public AstBase
         {
             wo_pstring_t m_name;
             AstValueBase* m_value;
 
-            AstFieldValuePair(wo_pstring_t name, AstValueBase* value);
+            AstStructFieldValuePair(wo_pstring_t name, AstValueBase* value);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
         struct AstValueStruct : public AstValueBase
         {
             std::optional<AstTypeHolder*> m_marked_struct_type;
-            std::vector<AstFieldValuePair*> m_fields;
+            std::list<AstStructFieldValuePair*> m_fields;
 
             AstValueStruct(
                 const std::optional<AstTypeHolder*>& marked_struct_type,
-                const std::vector<AstFieldValuePair*>& fields);
+                const std::list<AstStructFieldValuePair*>& fields);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
-        struct AstValueAssign : public AstValueBase
+        struct AstValueAssign : public AstValueMayConsiderOperatorOverload
         {
             enum assign_type
             {
@@ -498,12 +505,6 @@ namespace wo
         struct AstValuePackedArgs : public AstValueBase
         {
             AstValuePackedArgs();
-            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
-        };
-        struct AstValueIndexPackedArgs : public AstValueBase
-        {
-            wo_size_t m_index;
-            AstValueIndexPackedArgs(wo_size_t m_index);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
 
@@ -740,6 +741,27 @@ namespace wo
             token m_token;
 
             AstToken(const token& token);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+        };
+        struct AstExternInformation : public AstBase
+        {
+            wo_pstring_t m_extern_symbol;
+            std::optional<wo_pstring_t> m_extern_from_library;
+            uint32_t m_attribute_flags;
+
+            enum extern_attribute: uint32_t
+            {
+                SLOW = 1 << 0,
+                REPEATABLE = 1 << 1,
+            };
+
+        private:
+            AstExternInformation(const AstExternInformation&);
+        public:
+            AstExternInformation(
+                wo_pstring_t extern_symbol,
+                const std::optional<wo_pstring_t>& extern_from_library,
+                uint32_t attribute_flags);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
     }

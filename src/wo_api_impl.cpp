@@ -2721,8 +2721,12 @@ std::variant<
         if (!lex->has_error())
         {
             // 2. Lexer will create ast_tree;
-            // TODO: REMAKING....
-            wo_error("REMAKING");
+            auto* result = wo::get_wo_grammar()->gen(*lex);
+            if (result != nullptr)
+            {
+                // TODO: REMAKING....
+                wo_error("REMAKING");
+            }
         }
 
         wo::ast::AstBase::clean_this_thread_ast();

@@ -71,7 +71,7 @@ namespace wo
                 AST_VARIABLE_DEFINE_ITEM,
                 AST_VARIABLE_DEFINES,
                 AST_KEY_VALUE_PAIR,
-                AST_FIELD_VALUE_PAIR,
+                AST_STRUCT_FIELD_VALUE_PAIR,
                 AST_FUNCTION_PARAMETER_DECLARE,
 
                 AST_VALUE_begin,
@@ -97,6 +97,7 @@ namespace wo
                 AST_VALUE_PACKED_ARGS,
                 AST_VALUE_INDEX_PACKED_ARGS,
                 AST_VALUE_MAKE_UNION,
+                AST_VALUE_VARIADIC_ARGUMENTS_PACK,
                 AST_FAKE_VALUE_UNPACK,
                 AST_VALUE_end,
 
@@ -114,6 +115,8 @@ namespace wo
                 AST_CONTINUE,
                 AST_RETURN,
                 AST_LABELED,
+
+                AST_EXTERN_INFORMATION,
             };
         private:
             inline thread_local static std::forward_list<AstBase*>* list = nullptr;
