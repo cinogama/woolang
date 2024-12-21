@@ -392,14 +392,10 @@ namespace wo
             if (m_evaled_const_value && m_evaled_const_value.value().is_gcunit())
                 delete m_evaled_const_value.value().gcunit;
         }
-        void AstValueBase::decide_final_constant_value(const wo::value& val, const std::optional<lang_TypeInstance*>& type)
+        void AstValueBase::decide_final_constant_value(const wo::value& val)
         {
             wo_assert(!m_evaled_const_value);
             wo_assert(!val.is_gcunit() || val.fast_get_attrib_for_assert_check() == nullptr /* not in managed heap */);
-            wo_assert(!m_determined_type || !type || m_determined_type.value() == type.value());
-
-            if (type)
-                m_determined_type = type;
 
             m_evaled_const_value->set_val(&val);
         }
@@ -452,16 +448,15 @@ namespace wo
 
         ////////////////////////////////////////////////////////
 
-        AstValueLiteral::AstValueLiteral(const token& literal_token)
+        AstValueLiteral::AstValueLiteral()
             : AstValueBase(AST_VALUE_LITERAL)
-            , m_literal_token(literal_token)
         {
         }
         AstBase* AstValueLiteral::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
         {
             AstValueLiteral* new_instance = exist_instance
                 ? static_cast<AstValueLiteral*>(exist_instance.value())
-                : new AstValueLiteral(m_literal_token)
+                : new AstValueLiteral()
                 ;
             AstValueBase::make_dup(new_instance, out_continues);
             return new_instance;
@@ -765,7 +760,7 @@ namespace wo
         ////////////////////////////////////////////////////////
 
         AstPatternTuple::AstPatternTuple(
-            const std::vector<AstPatternBase*>& fields)
+            const std::list<AstPatternBase*>& fields)
             : AstPatternBase(AST_PATTERN_TUPLE)
             , m_fields(fields)
         {
@@ -881,12 +876,12 @@ namespace wo
                 AstPatternSingle* single_pattern = static_cast<AstPatternSingle*>(pattern);
                 AstValueFunction* func_value = static_cast<AstValueFunction*>(init_value);
 
-                if (!func_value->m_pending_param_type_mark_template.empty())
+                if (func_value->m_pending_param_type_mark_template)
                 {
                     if (!single_pattern->m_template_parameters)
                         single_pattern->m_template_parameters = {};
 
-                    for (auto* p : func_value->m_pending_param_type_mark_template)
+                    for (auto* p : func_value->m_pending_param_type_mark_template.value())
                         single_pattern->m_template_parameters.value().push_back(p);
                 }
             }
@@ -949,6 +944,7 @@ namespace wo
         AstValueFunction::AstValueFunction(
             const std::list<AstFunctionParameterDeclare*>& parameters,
             bool is_variadic,
+            const std::optional<std::list<wo_pstring_t>>& defined_function_template_only_for_lambda,
             const std::optional<AstTypeHolder*>& marked_return_type,
             const std::optional<AstWhereConstraints*>& where_constraints,
             AstBase* body)
@@ -957,18 +953,23 @@ namespace wo
             , m_is_variadic(is_variadic)
             , m_marked_return_type(marked_return_type)
             , m_where_constraints(where_constraints)
-            , m_pending_param_type_mark_template({})
+            , m_pending_param_type_mark_template(defined_function_template_only_for_lambda)
             , m_body(body)
         {
             for (auto* param_define : parameters)
             {
                 if (!param_define->m_type)
                 {
-                    wo_pstring_t pending_template_name 
-                        = wstring_pool::get_pstr(L"*T" + std::to_wstring(m_pending_param_type_mark_template.size()));
-                    m_pending_param_type_mark_template.push_back(pending_template_name);
+                    if (!m_pending_param_type_mark_template)
+                        m_pending_param_type_mark_template = {};
 
-                    AstIdentifier* template_identifier = new AstIdentifier(pending_template_name, std::nullopt);
+                    auto& pending_param_type_mark_template = m_pending_param_type_mark_template.value();
+
+                    wo_pstring_t pending_template_name 
+                        = wstring_pool::get_pstr(L"*T" + std::to_wstring(pending_param_type_mark_template.size()));
+                    pending_param_type_mark_template.push_back(pending_template_name);
+
+                    AstIdentifier* template_identifier = new AstIdentifier(pending_template_name);
                     AstTypeHolder* template_type = new AstTypeHolder(template_identifier);
                     param_define->m_type = template_type;
                     
@@ -981,11 +982,9 @@ namespace wo
         {
             AstValueFunction* new_instance = exist_instance
                 ? static_cast<AstValueFunction*>(exist_instance.value())
-                : new AstValueFunction(m_parameters, m_is_variadic, m_marked_return_type, m_where_constraints, m_body)
+                : new AstValueFunction(m_parameters, m_is_variadic, m_pending_param_type_mark_template, m_marked_return_type, m_where_constraints, m_body)
                 ;
             
-            new_instance->m_pending_param_type_mark_template = m_pending_param_type_mark_template;
-
             for (auto& param : new_instance->m_parameters)
                 out_continues.push_back(AstBase::make_holder(&param));
             if (m_marked_return_type)
@@ -1120,8 +1119,12 @@ namespace wo
         ////////////////////////////////////////////////////////
 
         AstValueAssign::AstValueAssign(
-            assign_type type, AstPatternBase* assign_place, AstValueBase* right)
+            bool valued_assign,
+            assign_type type, 
+            AstPatternBase* assign_place,
+            AstValueBase* right)
             : AstValueBase(AST_VALUE_ASSIGN)
+            , m_valued_assign(valued_assign)
             , m_assign_type(type)
             , m_assign_place(assign_place)
             , m_right(right)
@@ -1131,7 +1134,7 @@ namespace wo
         {
             AstValueAssign* new_instance = exist_instance
                 ? static_cast<AstValueAssign*>(exist_instance.value())
-                : new AstValueAssign(m_assign_type, m_assign_place, m_right)
+                : new AstValueAssign(m_valued_assign, m_assign_type, m_assign_place, m_right)
                 ;
             AstValueBase::make_dup(new_instance, out_continues);
             out_continues.push_back(AstBase::make_holder(&new_instance->m_assign_place));
@@ -1580,7 +1583,7 @@ namespace wo
         {
             wo_assert(!enum_items.empty());
 
-            auto* enum_base_type_identifier = new AstIdentifier(WO_PSTR(int));
+            auto* enum_base_type_identifier = new AstIdentifier(WO_PSTR(int), std::nullopt, {}, true);
             auto* enum_base_type = new AstTypeHolder(enum_base_type_identifier);
             auto* enum_type_declare = new AstUsingTypeDeclare(attrib, enum_name, std::nullopt, enum_base_type, std::nullopt);
             auto* enum_item_definations = new AstVariableDefines();
@@ -1601,12 +1604,20 @@ namespace wo
                         last_enum_identifier = last_enum_identifier_instance;
                     }
                     else
-                        last_enum_item_value = new AstValueLiteral(token{lex_type::l_literal_integer, L"0"});
+                    {
+                        wo::value last_enum_item_value_value;
+                        last_enum_item_value_value.set_integer(0);
+                        last_enum_item_value = new AstValueLiteral();
+                        last_enum_item_value->decide_final_constant_value(last_enum_item_value_value);
+                    }
 
-                    auto* int_type_identifier = new AstIdentifier(WO_PSTR(int));
+                    auto* int_type_identifier = new AstIdentifier(WO_PSTR(int), std::nullopt, {}, true);
                     auto* int_type = new AstTypeHolder(int_type_identifier);
                     auto* cast_last_enum_item_value_into_int = new AstValueTypeCast(int_type, last_enum_item_value);
-                    auto* one_literal = new AstValueLiteral(token{lex_type::l_literal_integer, L"1"});
+                    wo::value one_literal_value;
+                    one_literal_value.set_integer(1);
+                    auto* one_literal = new AstValueLiteral();
+                    one_literal->decide_final_constant_value(one_literal_value);
                     auto* created_this_item_value = new AstValueBinaryOperator(
                         AstValueBinaryOperator::operator_type::ADD, cast_last_enum_item_value_into_int, one_literal);
 
@@ -1731,7 +1742,7 @@ namespace wo
         AstUnionDeclare::AstUnionDeclare(
             const std::optional<AstDeclareAttribue*>& attrib,
             wo_pstring_t union_type_name,
-            const std::list<wo_pstring_t>& template_parameters,
+            const std::optional<std::list<wo_pstring_t>>& template_parameters,
             const std::list<AstUnionItem*>& union_items)
             : AstBase(AST_UNION_DECLARE)
             , m_union_type_name(union_type_name)
@@ -1761,19 +1772,12 @@ namespace wo
 
                 AstTypeHolder* union_type;
                 
-                if (m_template_parameters.empty())
+                if (m_template_parameters)
                 {
-                    auto* union_type_identifier = new AstIdentifier(m_union_type_name);
-                    union_type = new AstTypeHolder(union_type_identifier);
-
-                    union_type_identifier->source_location = item->source_location;
-                }
-                else
-                {
-                    std::list<AstTypeHolder*> template_arguments(m_template_parameters.size());
+                    std::list<AstTypeHolder*> template_arguments(m_template_parameters.value().size());
                     for (auto& template_argument : template_arguments)
                     {
-                        auto* template_argument_identifier = new AstIdentifier(WO_PSTR(nothing));
+                        auto* template_argument_identifier = new AstIdentifier(WO_PSTR(nothing), std::nullopt, {}, true);
                         template_argument = new AstTypeHolder(template_argument_identifier);
 
                         template_argument_identifier->source_location = item->source_location;
@@ -1781,6 +1785,13 @@ namespace wo
                     }
 
                     auto* union_type_identifier = new AstIdentifier(m_union_type_name, template_arguments);
+                    union_type = new AstTypeHolder(union_type_identifier);
+
+                    union_type_identifier->source_location = item->source_location;
+                }
+                else
+                {
+                    auto* union_type_identifier = new AstIdentifier(m_union_type_name);
                     union_type = new AstTypeHolder(union_type_identifier);
 
                     union_type_identifier->source_location = item->source_location;
@@ -1797,19 +1808,21 @@ namespace wo
                     // 1) Count used template parameters.
                     std::list<wo_pstring_t> used_template_parameters;
 
-                    if (union_type->m_identifier->m_template_arguments)
+                    if (m_template_parameters)
                     {
+                        wo_assert(union_type->m_identifier->m_template_arguments);
+
                         bool creator_param_has_typeof = creator_param_type->_check_if_has_typeof();
 
                         // NOTE: We cannot check template param has been used or not in from typeof.
                         //  So we treat all template param as used if `creator_param_has_typeof`
-                        std::vector<bool> used_template_parameters_flags(m_template_parameters.size(), creator_param_has_typeof);
+                        std::vector<bool> used_template_parameters_flags(m_template_parameters.value().size(), creator_param_has_typeof);
 
                         if (!creator_param_has_typeof)
-                            creator_param_type->_check_if_template_exist_in(m_template_parameters, used_template_parameters_flags);
+                            creator_param_type->_check_if_template_exist_in(m_template_parameters.value(), used_template_parameters_flags);
 
                         auto updating_union_type_template_argument_iter = union_type->m_identifier->m_template_arguments.value().begin();
-                        auto template_parameters_iter = m_template_parameters.begin();
+                        auto template_parameters_iter = m_template_parameters.value().begin();
 
                         for (bool template_param_this_place_has_been_used : used_template_parameters_flags)
                         {
@@ -1844,6 +1857,7 @@ namespace wo
                     auto* union_creator_function = new AstValueFunction(
                         { union_creator_param_decl },
                         false,
+                        std::nullopt,
                         union_type,
                         std::nullopt,
                         union_creator_return);

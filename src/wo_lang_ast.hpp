@@ -170,7 +170,7 @@ namespace wo
 
             /*virtual void collect_eval_const_list(EvalTobeEvalConstList& out_vals) const = 0;
             virtual void eval_const_value() = 0;*/
-            void decide_final_constant_value(const wo::value& val, const std::optional<lang_TypeInstance*>& type);
+            void decide_final_constant_value(const wo::value& val);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
 
@@ -192,9 +192,7 @@ namespace wo
 
         struct AstValueLiteral : public AstValueBase
         {
-            token m_literal_token;
-
-            AstValueLiteral(const token& literal_token);
+            AstValueLiteral();
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
         };
         struct AstValueTypeid : public AstValueBase
@@ -269,8 +267,8 @@ namespace wo
                 DIVIDE,
                 MODULO,
 
-                AND,
-                OR,
+                LOGICAL_AND,
+                LOGICAL_OR,
                 GREATER,
                 GREATER_EQUAL,
                 LESS,
@@ -290,7 +288,7 @@ namespace wo
             enum operator_type
             {
                 NEGATIVE,
-                NOT,
+                LOGICAL_NOT,
             };
             operator_type m_operator;
             AstValueBase* m_operand;
@@ -347,9 +345,9 @@ namespace wo
         };
         struct AstPatternTuple : public AstPatternBase
         {
-            std::vector<AstPatternBase*> m_fields;
+            std::list<AstPatternBase*> m_fields;
 
-            AstPatternTuple(const std::vector<AstPatternBase*>& fields);
+            AstPatternTuple(const std::list<AstPatternBase*>& fields);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
         struct AstPatternUnion : public AstPatternBase
@@ -413,12 +411,14 @@ namespace wo
             std::optional<AstTypeHolder*>   m_marked_return_type;
             std::optional<AstWhereConstraints*>
                                             m_where_constraints;
-            std::list<wo_pstring_t>         m_pending_param_type_mark_template;
+            std::optional<std::list<wo_pstring_t>>
+                                            m_pending_param_type_mark_template;
             AstBase*                        m_body;
 
             AstValueFunction(
                 const std::list<AstFunctionParameterDeclare*>& parameters,
                 bool is_variadic,
+                const std::optional<std::list<wo_pstring_t>>& defined_function_template_only_for_lambda,
                 const std::optional<AstTypeHolder*>& marked_return_type,
                 const std::optional<AstWhereConstraints*>& where_constraints,
                 AstBase* body);
@@ -487,11 +487,12 @@ namespace wo
                 MODULO_ASSIGN,
             };
             
+            bool m_valued_assign;
             assign_type m_assign_type;
             AstPatternBase* m_assign_place; // takeplace / variable / index
             AstValueBase* m_right;
 
-            AstValueAssign(assign_type type, AstPatternBase* assign_place, AstValueBase* right);
+            AstValueAssign(bool valued_assign, assign_type type, AstPatternBase* assign_place, AstValueBase* right);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
         struct AstValuePackedArgs : public AstValueBase
@@ -699,7 +700,8 @@ namespace wo
         struct AstUnionDeclare : public AstBase
         {
             wo_pstring_t            m_union_type_name;
-            std::list<wo_pstring_t> m_template_parameters;
+            std::optional<std::list<wo_pstring_t>>
+                                    m_template_parameters;
             std::unordered_map<wo_pstring_t, wo_integer_t>
                                     m_union_item_index;
             AstNamespace*           m_union_items;
@@ -710,7 +712,7 @@ namespace wo
             AstUnionDeclare(
                 const std::optional<AstDeclareAttribue*>& attrib,
                 wo_pstring_t union_type_name, 
-                const std::list<wo_pstring_t>& template_parameters, 
+                const std::optional<std::list<wo_pstring_t>>& template_parameters,
                 const std::list<AstUnionItem*>& union_items);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };

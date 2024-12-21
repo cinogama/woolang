@@ -235,7 +235,7 @@ namespace wo
 
             auto* function_define = new AstVariableDefines();
             auto* function_value = new AstValueFunction(
-                in_params, is_variadic_function, marked_return_type, where_constraints, body);
+                in_params, is_variadic_function, std::nullopt, marked_return_type, where_constraints, body);
             auto* function_define_pattern = new AstPatternSingle(false, func_name, in_template_params);
             auto* function_define_item = new AstVariableDefineItem(attrib, function_define_pattern, function_value);
 
@@ -303,7 +303,7 @@ namespace wo
 
             auto* function_define = new AstVariableDefines();
             auto* function_value = new AstValueFunction(
-                in_params, is_variadic_function, marked_return_type, where_constraints, body);
+                in_params, is_variadic_function, std::nullopt, marked_return_type, where_constraints, body);
             auto* function_define_pattern = new AstPatternSingle(false, func_name, in_template_params);
             auto* function_define_item = new AstVariableDefineItem(attrib, function_define_pattern, function_value);
 
@@ -394,7 +394,13 @@ namespace wo
                 }
             }
 
-            return new AstValueFunction(in_params, is_variadic_function, marked_return_type, where_constraints, body);
+            return new AstValueFunction(
+                in_params, 
+                is_variadic_function, 
+                in_template_params, 
+                marked_return_type, 
+                where_constraints, 
+                body);
         }
         auto pass_func_lambda::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
@@ -454,7 +460,12 @@ namespace wo
             function_scope->source_location = body_0->source_location;
 
             return new AstValueFunction(
-                in_params, is_variadic_function, std::nullopt, std::nullopt, function_scope);
+                in_params, 
+                is_variadic_function, 
+                in_template_params, 
+                std::nullopt, 
+                std::nullopt, 
+                function_scope);
         }
         auto pass_if::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
@@ -752,7 +763,7 @@ namespace wo
                 return new AstPatternIndex(static_cast<AstValueIndex*>(been_assigned_lvalue));
             default:
                 wo_error("Unknown pattern for assign.");
-                break;
+                return token{ lex_type::l_error };
             }
         }
         auto pass_reverse_vardef::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
@@ -783,11 +794,517 @@ namespace wo
 
             return new AstFunctionParameterDeclare(pattern, type);
         }
+        auto pass_do_void_cast::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstValueBase* value = WO_NEED_AST_VALUE(1);
+
+            AstIdentifier* void_identifier = new AstIdentifier(WO_PSTR(void), std::nullopt, {}, true);
+            AstTypeHolder* void_type = new AstTypeHolder(void_identifier);
+            
+            AstValueTypeCast* cast = new AstValueTypeCast(void_type, value);
+
+            // Update source location
+            void_identifier->source_location = value->source_location;
+            void_type->source_location = value->source_location;
+
+            return cast;
+        }
+        auto pass_assign_operation::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstPatternBase* lpattern = WO_NEED_AST_PATTERN(0);
+            token operation = WO_NEED_TOKEN(1);
+            AstValueBase* rvalue = WO_NEED_AST_VALUE(2);
+
+            switch (operation.type)
+            {
+            case lex_type::l_assign:
+                return new AstValueAssign(false, AstValueAssign::ASSIGN, lpattern, rvalue);
+            case lex_type::l_add_assign:
+                return new AstValueAssign(false, AstValueAssign::ADD_ASSIGN, lpattern, rvalue);
+            case lex_type::l_sub_assign:
+                return new AstValueAssign(false, AstValueAssign::SUBSTRACT_ASSIGN, lpattern, rvalue);
+            case lex_type::l_mul_assign:
+                return new AstValueAssign(false, AstValueAssign::MULTIPLY_ASSIGN, lpattern, rvalue);
+            case lex_type::l_div_assign:
+                return new AstValueAssign(false, AstValueAssign::DIVIDE_ASSIGN, lpattern, rvalue);
+            case lex_type::l_mod_assign:
+                return new AstValueAssign(false, AstValueAssign::MODULO_ASSIGN, lpattern, rvalue);
+            case lex_type::l_value_assign:
+                return new AstValueAssign(true, AstValueAssign::ASSIGN, lpattern, rvalue);
+            case lex_type::l_value_add_assign:
+                return new AstValueAssign(true, AstValueAssign::ADD_ASSIGN, lpattern, rvalue);
+            case lex_type::l_value_sub_assign:
+                return new AstValueAssign(true, AstValueAssign::SUBSTRACT_ASSIGN, lpattern, rvalue);
+            case lex_type::l_value_mul_assign:
+                return new AstValueAssign(true, AstValueAssign::MULTIPLY_ASSIGN, lpattern, rvalue);
+            case lex_type::l_value_div_assign:
+                return new AstValueAssign(true, AstValueAssign::DIVIDE_ASSIGN, lpattern, rvalue);
+            case lex_type::l_value_mod_assign:
+                return new AstValueAssign(true, AstValueAssign::MODULO_ASSIGN, lpattern, rvalue);
+            default:
+                wo_error("Unknown assign operation.");
+                return token{ lex_type::l_error };
+            }
+        }
+        auto pass_binary_operation::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstValueBase* lvalue = WO_NEED_AST_VALUE(0);
+            token operation = WO_NEED_TOKEN(1);
+            AstValueBase* rvalue = WO_NEED_AST_VALUE(2);
+
+            switch (operation.type)
+            {
+            case lex_type::l_add:
+                return new AstValueBinaryOperator(AstValueBinaryOperator::ADD, lvalue, rvalue);
+            case lex_type::l_sub:
+                return new AstValueBinaryOperator(AstValueBinaryOperator::SUBSTRACT, lvalue, rvalue);
+            case lex_type::l_mul:
+                return new AstValueBinaryOperator(AstValueBinaryOperator::MULTIPLY, lvalue, rvalue);
+            case lex_type::l_div:
+                return new AstValueBinaryOperator(AstValueBinaryOperator::DIVIDE, lvalue, rvalue);
+            case lex_type::l_mod:
+                return new AstValueBinaryOperator(AstValueBinaryOperator::MODULO, lvalue, rvalue);
+            case lex_type::l_land:
+                return new AstValueBinaryOperator(AstValueBinaryOperator::LOGICAL_AND, lvalue, rvalue);
+            case lex_type::l_lor:
+                return new AstValueBinaryOperator(AstValueBinaryOperator::LOGICAL_OR, lvalue, rvalue);
+            case lex_type::l_equal:
+                return new AstValueBinaryOperator(AstValueBinaryOperator::EQUAL, lvalue, rvalue);
+            case lex_type::l_not_equal:
+                return new AstValueBinaryOperator(AstValueBinaryOperator::NOT_EQUAL, lvalue, rvalue);
+            case lex_type::l_less:
+                return new AstValueBinaryOperator(AstValueBinaryOperator::LESS, lvalue, rvalue);
+            case lex_type::l_less_or_equal:
+                return new AstValueBinaryOperator(AstValueBinaryOperator::LESS_EQUAL, lvalue, rvalue);
+            case lex_type::l_larg:
+                return new AstValueBinaryOperator(AstValueBinaryOperator::GREATER, lvalue, rvalue);
+            case lex_type::l_larg_or_equal:
+                return new AstValueBinaryOperator(AstValueBinaryOperator::GREATER_EQUAL, lvalue, rvalue);
+            default:
+                wo_error("Unknown binary operation.");
+                return token{ lex_type::l_error };
+            }
+        }
+        auto pass_literal::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            token literal = WO_NEED_TOKEN(0);
+            AstValueLiteral* literal_instance = new AstValueLiteral();
+
+            wo::value literal_value;
+            switch (literal.type)
+            {
+            case lex_type::l_literal_integer:
+                literal_value.set_integer((wo_integer_t)std::stoll(literal.identifier));
+                break;
+            case lex_type::l_literal_handle:
+                literal_value.set_handle((wo_handle_t)std::stoull(literal.identifier));
+                break;
+            case lex_type::l_literal_real:
+                literal_value.set_real((wo_real_t)std::stod(literal.identifier));
+                break;
+            case lex_type::l_literal_string:
+                literal_value.set_string_nogc(wstrn_to_str(literal.identifier));
+                break;
+            case lex_type::l_nil:
+                literal_value.set_nil();
+                break;
+            case lex_type::l_true:
+                literal_value.set_bool(true);
+                break;
+            case lex_type::l_false:
+                literal_value.set_bool(false);
+                break;
+            default:
+                wo_error("Unknown literal type.");
+                break;
+            }
+            literal_instance->decide_final_constant_value(literal_value);
+            return literal_instance;
+        }
+        auto pass_literal_char::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstToken* literal = static_cast<AstToken*>(WO_NEED_AST_TYPE(0, AstBase::AST_TOKEN));
+
+            wo_assert(literal->m_token.type == lex_type::l_literal_char);
+
+            AstValueLiteral* literal_instance = new AstValueLiteral();
+            wo::value literal_value;
+            literal_value.set_integer((wo_integer_t)(wo_handle_t)literal->m_token.identifier[0]);
+            literal_instance->decide_final_constant_value(literal_value);
+
+            AstIdentifier* char_identifier = new AstIdentifier(WO_PSTR(char), std::nullopt, {}, true);
+            AstTypeHolder* char_type = new AstTypeHolder(char_identifier);
+
+            AstValueTypeCast* cast = new AstValueTypeCast(char_type, literal_instance);
+
+            // Update source location
+            literal_instance->source_location = literal_instance->source_location;
+            char_identifier->source_location = literal_instance->source_location;
+            char_type->source_location = literal_instance->source_location;
+
+            return cast;
+        }
+        auto pass_typeid::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstTypeHolder* type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(2, AstBase::AST_TYPE_HOLDER));
+            return new AstValueTypeid(type);
+        }
+        auto pass_unary_operation::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            token operation = WO_NEED_TOKEN(0);
+            AstValueBase* value = WO_NEED_AST_VALUE(1);
+
+            switch (operation.type)
+            {
+            case lex_type::l_sub:
+                return new AstValueUnaryOperator(AstValueUnaryOperator::NEGATIVE, value);
+            case lex_type::l_lnot:
+                return new AstValueUnaryOperator(AstValueUnaryOperator::LOGICAL_NOT, value);
+            default:
+                wo_error("Unknown unary operation.");
+                return token{ lex_type::l_error };
+            }
+        }
+        auto pass_variable::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstIdentifier* identifier = static_cast<AstIdentifier*>(WO_NEED_AST_TYPE(0, AstBase::AST_IDENTIFIER));
+            return new AstValueVariable(identifier);
+        }
+        auto pass_cast_type::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstValueBase* value = WO_NEED_AST_VALUE(0);
+            AstTypeHolder* type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(1, AstBase::AST_TYPE_HOLDER));
+
+            return new AstValueTypeCast(type, value);
+        }
+        auto pass_format_finish::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstToken* format_string_begin = static_cast<AstToken*>(WO_NEED_AST_TYPE(0, AstBase::AST_TOKEN));
+            AstValueBase* middle_value = WO_NEED_AST_VALUE(1);
+            AstToken* format_string_end = static_cast<AstToken*>(WO_NEED_AST_TYPE(2, AstBase::AST_TOKEN));
+
+            wo_assert(format_string_begin->m_token.type == lex_type::l_format_string_begin);
+            wo_assert(format_string_end->m_token.type == lex_type::l_format_string_end);
+
+            wo::value format_string_value;
+            format_string_value.set_string_nogc(wstrn_to_str(format_string_begin->m_token.identifier));
+            AstValueLiteral* format_string_begin_literal = new AstValueLiteral();
+            format_string_begin_literal->decide_final_constant_value(format_string_value);
+            format_string_value.set_string_nogc(wstrn_to_str(format_string_end->m_token.identifier));
+            AstValueLiteral* format_string_end_literal = new AstValueLiteral();
+            format_string_end_literal->decide_final_constant_value(format_string_value);
+
+            AstValueBinaryOperator* first_middle_add =
+                new AstValueBinaryOperator(AstValueBinaryOperator::ADD, format_string_begin_literal, middle_value);
+            AstValueBinaryOperator* first_middle_end_add =
+                new AstValueBinaryOperator(AstValueBinaryOperator::ADD, first_middle_add, format_string_end_literal);
+
+            // Update source location
+            format_string_begin_literal->source_location = format_string_begin->source_location;
+            format_string_end_literal->source_location = format_string_end->source_location;
+            first_middle_add->source_location = format_string_begin->source_location;
+
+            return first_middle_end_add;
+        }
+        auto pass_format_cast_string::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstValueBase* value = WO_NEED_AST_VALUE(0);
+
+            AstIdentifier* string_identifier = new AstIdentifier(WO_PSTR(string), std::nullopt, {}, true);
+            AstTypeHolder* string_type = new AstTypeHolder(string_identifier);
+            
+            AstValueTypeCast* cast = new AstValueTypeCast(string_type, value);
+
+            // Update source location
+            string_identifier->source_location = value->source_location;
+            string_type->source_location = value->source_location;
+
+            return cast;
+        }
+        auto pass_format_connect::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstValueBase* first_string = WO_NEED_AST_VALUE(0);
+            AstToken* middle_string_literal = static_cast<AstToken*>(WO_NEED_AST_TYPE(1, AstBase::AST_TOKEN));
+            AstValueBase* last_value = WO_NEED_AST_VALUE(2);
+
+            AstIdentifier* string_identifier = new AstIdentifier(WO_PSTR(string), std::nullopt, {}, true);
+            AstTypeHolder* string_type = new AstTypeHolder(string_identifier);
+            AstValueTypeCast* cast = new AstValueTypeCast(string_type, first_string);
+            wo::value middle_string_value;
+            middle_string_value.set_string_nogc(wstrn_to_str(middle_string_literal->m_token.identifier));
+            AstValueLiteral* middle_string = new AstValueLiteral();
+            middle_string->decide_final_constant_value(middle_string_value);
+
+            AstValueBinaryOperator* first_middle_add =
+                new AstValueBinaryOperator(AstValueBinaryOperator::ADD, first_string, middle_string);
+
+            AstValueBinaryOperator* first_middle_last_add =
+                new AstValueBinaryOperator(AstValueBinaryOperator::ADD, first_middle_add, last_value);
+
+            // Update source location
+            string_identifier->source_location = first_string->source_location;
+            string_type->source_location = first_string->source_location;
+            cast->source_location = first_string->source_location;
+            middle_string->source_location = middle_string_literal->source_location;
+            first_middle_add->source_location = first_string->source_location;
+
+            return first_middle_last_add;
+        }
+        auto pass_build_bind_monad::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstValueBase* bind_value = WO_NEED_AST_VALUE(0);
+            AstValueBase* bind_func = WO_NEED_AST_VALUE(2);
+
+            AstIdentifier* bind_identifier = new AstIdentifier(WO_PSTR(bind));
+            AstValueVariable* bind_variable = new AstValueVariable(bind_identifier);
+            AstValueFunctionCall* bind_call = new AstValueFunctionCall(true, bind_variable, { bind_value, bind_func });
+
+            // Update source location
+            bind_identifier->source_location = bind_value->source_location;
+            bind_variable->source_location = bind_value->source_location;
+
+            return bind_call;
+        }
+        auto pass_build_map_monad::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstValueBase* map_value = WO_NEED_AST_VALUE(0);
+            AstValueBase* map_func = WO_NEED_AST_VALUE(2);
+
+            AstIdentifier* map_identifier = new AstIdentifier(WO_PSTR(map));
+            AstValueVariable* map_variable = new AstValueVariable(map_identifier);
+            AstValueFunctionCall* map_call = new AstValueFunctionCall(true, map_variable, { map_value, map_func });
+
+            // Update source location
+            map_identifier->source_location = map_value->source_location;
+            map_variable->source_location = map_value->source_location;
+
+            return map_call;
+        }
+        auto pass_normal_function_call::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstValueBase* call_func = WO_NEED_AST_VALUE(0);
+            AstList* call_arguments = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
+
+            std::list<AstValueBase*> arguments;
+            for (auto& argument : call_arguments->m_list)
+            {
+                wo_assert(argument->node_type >= AstBase::AST_VALUE_begin && argument->node_type < AstBase::AST_VALUE_end);
+                arguments.push_back(static_cast<AstValueBase*>(argument));
+            }
+
+            return new AstValueFunctionCall(false, call_func, arguments);
+        }
+        auto pass_directly_function_call::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstValueBase* first_argument = WO_NEED_AST_VALUE(0);
+            AstValueBase* call_func = WO_NEED_AST_VALUE(2);
+
+            return new AstValueFunctionCall(true, call_func, { first_argument });
+        }
+        auto pass_directly_function_call_append_arguments::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstValueFunctionCall* direct_call =
+                static_cast<AstValueFunctionCall*>(WO_NEED_AST_TYPE(0, AstBase::AST_VALUE_FUNCTION_CALL));
+            std::optional<AstList*> arguments = std::nullopt;
+
+            wo_assert(direct_call->m_is_direct_call);
+
+            if (!WO_IS_EMPTY(1))
+                arguments = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
+
+            if (arguments)
+            {
+                for (auto* argument : arguments.value()->m_list)
+                {
+                    wo_assert(argument->node_type >= AstBase::AST_VALUE_begin && argument->node_type < AstBase::AST_VALUE_end);
+                    direct_call->m_arguments.push_back(static_cast<AstValueBase*>(argument));
+                }
+            }
+            return direct_call;
+        }
+        auto pass_inverse_function_call::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstValueFunctionCall* function_call = 
+                static_cast<AstValueFunctionCall*>(WO_NEED_AST_TYPE(0, AstBase::AST_VALUE_FUNCTION_CALL));
+            AstValueBase* inverse_argument = WO_NEED_AST_VALUE(2);
+
+            if (function_call->m_is_direct_call)
+            {
+                auto insert_place = function_call->m_arguments.cbegin();
+                ++insert_place;
+                function_call->m_arguments.insert(insert_place, inverse_argument);
+            }
+            else
+            {
+                function_call->m_is_direct_call = true;
+                function_call->m_arguments.push_front(inverse_argument);
+            }
+
+            return function_call;
+        }
+        auto pass_union_item::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            token union_item = WO_NEED_TOKEN(0);
+
+            return new AstUnionItem(wstring_pool::get_pstr(union_item.identifier), std::nullopt);
+        }
+        auto pass_union_item_constructor::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            token union_item = WO_NEED_TOKEN(0);
+            AstTypeHolder* constructor_type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(2, AstBase::AST_TYPE_HOLDER));
+
+            return new AstUnionItem(wstring_pool::get_pstr(union_item.identifier), constructor_type);
+        }
+        auto pass_union_declare::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            std::optional<AstDeclareAttribue*> attrib = std::nullopt;
+            token union_name = WO_NEED_TOKEN(2);
+            std::optional<AstList*> union_template_params = std::nullopt;
+            AstList* union_items = static_cast<AstList*>(WO_NEED_AST_TYPE(5, AstBase::AST_LIST));
+
+            if (!WO_IS_EMPTY(0))
+                attrib = static_cast<AstDeclareAttribue*>(WO_NEED_AST_TYPE(0, AstBase::AST_DECLARE_ATTRIBUTE));
+            if (!WO_IS_EMPTY(3))
+                union_template_params = static_cast<AstList*>(WO_NEED_AST_TYPE(3, AstBase::AST_LIST));
+
+            std::list<AstUnionItem*> items;
+            for (auto& item : union_items->m_list)
+            {
+                wo_assert(item->node_type == AstBase::AST_UNION_ITEM);
+                items.push_back(static_cast<AstUnionItem*>(item));
+            }
+
+            std::optional<std::list<wo_pstring_t>> template_params = std::nullopt;
+            if (union_template_params)
+            {
+                std::list<wo_pstring_t> params;
+                for (auto& param : union_template_params.value()->m_list)
+                {
+                    wo_assert(param->node_type == AstBase::AST_TOKEN);
+                    params.push_back(wstring_pool::get_pstr(static_cast<AstToken*>(param)->m_token.identifier));
+                }
+                template_params = std::move(params);
+            }
+
+            return new AstUnionDeclare(attrib, wstring_pool::get_pstr(union_name.identifier), template_params, items);
+        }
+        auto pass_union_pattern_identifier_or_takeplace::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            token identifier = WO_NEED_TOKEN(0);
+
+            wo_pstring_t identifier_name = wstring_pool::get_pstr(identifier.identifier);
+            if (identifier_name == WO_PSTR(_))
+                return new AstPatternTakeplace();
+            else
+                return new AstPatternUnion(identifier_name, std::nullopt);
+        }
+        auto pass_union_pattern_contain_element::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            token identifier = WO_NEED_TOKEN(0);
+            AstPatternBase* element = static_cast<AstPatternBase*>(WO_NEED_AST_PATTERN(2));
+
+            return new AstPatternUnion(wstring_pool::get_pstr(identifier.identifier), element);
+        }
+        auto pass_match_union_case::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstPatternBase* pattern = static_cast<AstPatternBase*>(WO_NEED_AST_PATTERN(0));
+            AstBase* body = WO_NEED_AST(1);
+
+            return new AstMatchCase(pattern, body);
+        }
+        auto pass_match::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstValueBase* match_value = WO_NEED_AST_VALUE(2);
+            AstList* match_cases = static_cast<AstList*>(WO_NEED_AST_TYPE(5, AstBase::AST_LIST));
+
+            std::list<AstMatchCase*> cases;
+            for (auto& match_case : match_cases->m_list)
+            {
+                wo_assert(match_case->node_type == AstBase::AST_MATCH_CASE);
+                cases.push_back(static_cast<AstMatchCase*>(match_case));
+            }
+
+            return new AstMatch(match_value, cases);
+        }
+        auto pass_pattern_identifier_or_takepace::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            token identifier = WO_NEED_TOKEN(0);
+
+            wo_pstring_t identifier_name = wstring_pool::get_pstr(identifier.identifier);
+            if (identifier_name == WO_PSTR(_))
+                return new AstPatternTakeplace();
+            else
+                return new AstPatternSingle(false, identifier_name, std::nullopt);
+        }
+        auto pass_pattern_mut_identifier_or_takepace::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            token identifier = WO_NEED_TOKEN(1);
+
+            wo_pstring_t identifier_name = wstring_pool::get_pstr(identifier.identifier);
+            if (identifier_name == WO_PSTR(_))
+                return new AstPatternTakeplace();
+            else
+                return new AstPatternSingle(true, identifier_name, std::nullopt);
+        }
+        auto pass_pattern_identifier_or_takepace_with_template::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            token identifier = WO_NEED_TOKEN(0);
+            AstList* template_arguments = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
+
+            // identifier_name == WO_PSTR(_)
+            // `_` here is useless and meaningless.
+            // TODO: Give error message.
+
+            wo_pstring_t identifier_name = wstring_pool::get_pstr(identifier.identifier);
+            std::list<wo_pstring_t> args;
+            for (auto& arg : template_arguments->m_list)
+            {
+                wo_assert(arg->node_type == AstBase::AST_TOKEN);
+                args.push_back(wstring_pool::get_pstr(static_cast<AstToken*>(arg)->m_token.identifier));
+            }
+            return new AstPatternSingle(false, identifier_name, args);
+        }
+        auto pass_pattern_mut_identifier_or_takepace_with_template::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            token identifier = WO_NEED_TOKEN(1);
+            AstList* template_arguments = static_cast<AstList*>(WO_NEED_AST_TYPE(2, AstBase::AST_LIST));
+
+            // identifier_name == WO_PSTR(_)
+            // `_` here is useless and meaningless.
+            // TODO: Give error message.
+
+            wo_pstring_t identifier_name = wstring_pool::get_pstr(identifier.identifier);
+            std::list<wo_pstring_t> args;
+            for (auto& arg : template_arguments->m_list)
+            {
+                wo_assert(arg->node_type == AstBase::AST_TOKEN);
+                args.push_back(wstring_pool::get_pstr(static_cast<AstToken*>(arg)->m_token.identifier));
+            }
+            return new AstPatternSingle(true, identifier_name, args);
+        }
+        auto pass_pattern_tuple::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            std::optional<AstList*> pattern_list = std::nullopt;
+
+            if (!WO_IS_EMPTY(1))
+                pattern_list = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
+
+            std::list<AstPatternBase*> patterns;
+            if (pattern_list)
+            {
+                for (auto& pattern : pattern_list.value()->m_list)
+                {
+                    wo_assert(pattern->node_type >= AstBase::AST_PATTERN_begin && pattern->node_type < AstBase::AST_PATTERN_end);
+                    patterns.push_back(static_cast<AstPatternBase*>(pattern));
+                }
+            }
+            return new AstPatternTuple(patterns);
+        }
     }
 
     namespace ast
     {
-        void init_builder()
+        void init_builder() 
         {
 
         }

@@ -56,7 +56,7 @@ namespace wo
 #define WO_IS_EMPTY(ID)             AstEmpty::is_empty(input[(ID)])
 
 #define WO_AST_BUILDER(NAME)                            \
-struct NAME : public ast::astnode_builder               \
+struct NAME : public astnode_builder               \
 {                                                       \
     static grammar::produce build(                      \
         lexer& lex,                                     \
@@ -165,5 +165,35 @@ struct NAME : public ast::astnode_builder               \
         WO_AST_BUILDER(pass_pattern_for_assign);
         WO_AST_BUILDER(pass_reverse_vardef);
         WO_AST_BUILDER(pass_func_argument);
+        WO_AST_BUILDER(pass_do_void_cast);
+        WO_AST_BUILDER(pass_assign_operation);
+        WO_AST_BUILDER(pass_binary_operation);
+        WO_AST_BUILDER(pass_literal);
+        WO_AST_BUILDER(pass_literal_char);
+        WO_AST_BUILDER(pass_typeid);
+        WO_AST_BUILDER(pass_unary_operation);
+        WO_AST_BUILDER(pass_variable);
+        WO_AST_BUILDER(pass_cast_type);
+        WO_AST_BUILDER(pass_format_finish);
+        WO_AST_BUILDER(pass_format_cast_string);
+        WO_AST_BUILDER(pass_format_connect);
+        WO_AST_BUILDER(pass_build_bind_monad);
+        WO_AST_BUILDER(pass_build_map_monad);
+        WO_AST_BUILDER(pass_normal_function_call);
+        WO_AST_BUILDER(pass_directly_function_call);
+        WO_AST_BUILDER(pass_directly_function_call_append_arguments);
+        WO_AST_BUILDER(pass_inverse_function_call);
+        WO_AST_BUILDER(pass_union_item);
+        WO_AST_BUILDER(pass_union_item_constructor);
+        WO_AST_BUILDER(pass_union_declare);
+        WO_AST_BUILDER(pass_union_pattern_identifier_or_takeplace);
+        WO_AST_BUILDER(pass_union_pattern_contain_element);
+        WO_AST_BUILDER(pass_match_union_case);
+        WO_AST_BUILDER(pass_match);
+        WO_AST_BUILDER(pass_pattern_identifier_or_takepace);
+        WO_AST_BUILDER(pass_pattern_mut_identifier_or_takepace);
+        WO_AST_BUILDER(pass_pattern_identifier_or_takepace_with_template);
+        WO_AST_BUILDER(pass_pattern_mut_identifier_or_takepace_with_template);
+        WO_AST_BUILDER(pass_pattern_tuple);
     }
 }
