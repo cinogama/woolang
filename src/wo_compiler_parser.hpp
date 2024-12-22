@@ -217,6 +217,24 @@ namespace wo
 
             using ContinuesList = std::list<std::unique_ptr<_AstSafeHolderBase>>;
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const = 0;
+
+            AstBase* clone() const
+            {
+                ContinuesList continues;
+
+                AstBase* result = make_dup(std::nullopt, continues);
+                result->source_location = source_location;
+
+                while (!continues.empty())
+                {
+                    auto holder = std::move(continues.front());
+                    continues.pop_front();
+
+                    holder->set(holder->get()->make_dup(std::nullopt, continues));
+                }
+
+                return result;
+            }
         };
         class AstList : public AstBase
         {

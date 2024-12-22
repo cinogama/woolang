@@ -23,10 +23,10 @@
 namespace wo
 {
 #ifndef WO_DISABLE_COMPILER
-    struct lang_TypeSymbol;
     struct lang_TypeInstance;
     struct lang_ValueInstance;
     struct lang_Symbol;
+    struct lang_Scope;
 
     namespace ast
     {
@@ -80,6 +80,10 @@ namespace wo
 
             std::optional<lang_Symbol*>
                                     m_symbol;
+
+            std::optional<lang_Scope*>
+                                    m_LANG_determined_searching_from_scope;
+
             AstIdentifier(wo_pstring_t identifier);
             AstIdentifier(wo_pstring_t identifier, const std::optional<std::list<AstTypeHolder*>>& template_arguments);
             AstIdentifier(wo_pstring_t identifier, const std::optional<std::list<AstTypeHolder*>>& template_arguments, const std::list<wo_pstring_t>& scopes, bool from_global);
@@ -109,6 +113,7 @@ namespace wo
                 FUNCTION,
                 STRUCTURE,
                 TUPLE,
+                UNION,
             };
             enum mutable_mark
             {
@@ -133,6 +138,15 @@ namespace wo
                 std::list<AstTypeHolder*>
                     m_fields;
             };
+            struct UnionType
+            {
+                struct UnionField
+                {
+                    wo_pstring_t m_label;
+                    std::optional<AstTypeHolder*> m_item;
+                };
+                std::vector<UnionField> m_fields;
+            };
 
             mutable_mark    m_mutable_mark;
             type_formal     m_formal;            
@@ -143,15 +157,18 @@ namespace wo
                 FunctionType m_function;
                 StructureType m_structure;
                 TupleType m_tuple;
+                UnionType m_union;
             };
 
-            std::optional<lang_TypeInstance*> m_type;
+            std::optional<lang_TypeInstance*> m_LANG_determined_type;
 
+        public:
             AstTypeHolder(AstIdentifier* ident);
             AstTypeHolder(AstValueBase* expr);
             AstTypeHolder(const FunctionType& functype);
             AstTypeHolder(const StructureType& structtype);
             AstTypeHolder(const TupleType& tupletype);
+            AstTypeHolder(const UnionType& tupletype);
             ~AstTypeHolder();
 
             bool _check_if_has_typeof() const;
@@ -341,7 +358,7 @@ namespace wo
             bool m_is_mutable;
             wo_pstring_t m_name;
             std::optional<std::list<wo_pstring_t>> m_template_parameters;
-            std::optional<lang_Symbol*> m_declared_symbol;
+            std::optional<lang_Symbol*> m_LANG_declared_symbol;
 
             AstPatternSingle(
                 bool is_mutable,
@@ -522,7 +539,7 @@ namespace wo
         struct AstScope : public AstBase
         {
             AstBase* m_body;
-
+        
             AstScope(AstBase* body);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
@@ -638,6 +655,8 @@ namespace wo
                                     m_in_type_namespace;
             std::optional<AstDeclareAttribue*>
                                     m_attribute;
+            std::optional<lang_Symbol*>
+                                    m_LANG_declared_symbol;
         private:
             AstUsingTypeDeclare(const AstUsingTypeDeclare&);
         public:
@@ -657,6 +676,8 @@ namespace wo
             AstTypeHolder*          m_type;
             std::optional<AstDeclareAttribue*>
                                     m_attribute;
+            std::optional<lang_Symbol*>
+                                    m_LANG_declared_symbol;
 
         private:
             AstAliasTypeDeclare(const AstAliasTypeDeclare&);
@@ -701,12 +722,10 @@ namespace wo
         };
         struct AstUnionDeclare : public AstBase
         {
-            wo_pstring_t            m_union_type_name;
-            std::optional<std::list<wo_pstring_t>>
-                                    m_template_parameters;
-            std::unordered_map<wo_pstring_t, wo_integer_t>
-                                    m_union_item_index;
-            AstNamespace*           m_union_items;
+            //wo_pstring_t            m_union_type_name;
+            //std::optional<std::list<wo_pstring_t>>
+            //                        m_template_parameters;
+            AstUsingTypeDeclare*    m_union_type_declare;
 
         private:
             AstUnionDeclare(const AstUnionDeclare&);

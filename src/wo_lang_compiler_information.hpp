@@ -289,6 +289,8 @@
 
 #define WO_ERR_COMPILER_DISABLED L"编译器功能被禁用"
 
+#define WO_ERR_CANNOT_START_NAMESPACE L"此处不允许定义命名空间"
+
 
 #define WO_INFO_FAILED_TO_INVOKE_FUNC_FOR_TYPE L"找不到名为 '%ls' 的函数，'->' 前的值类型为 '%ls'"
 
@@ -578,6 +580,8 @@
 #define WO_ERR_REPEATED_EXTERN_FUNC L"Repeatedly imported external function symbol. Use 'repeat' to modify import behavior and ignore this check."
 
 #define WO_ERR_COMPILER_DISABLED L"Compiler has been disabled."
+
+#define WO_ERR_CANNOT_START_NAMESPACE L"Cannot start a namespace here."
 
 
 #define WO_INFO_FAILED_TO_INVOKE_FUNC_FOR_TYPE L"Unable to find function named '%ls' for type '%ls'."

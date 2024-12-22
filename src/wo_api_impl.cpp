@@ -499,8 +499,10 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
         do_after_shutdown(custom_data);
 
     womem_shutdown();
-    wo::rslib_extern_symbols::free_wo_lib();
     wo::debuggee_base::_free_abandons();
+
+    wo::rslib_extern_symbols::free_wo_lib();
+    wo::LangContext::shutdown_lang_processers();
 
     do
     {
@@ -524,6 +526,7 @@ void wo_init(int argc, char** argv)
 
     wo::wo_init_args(argc, argv);
 
+    wo::LangContext::init_lang_processers();
     wo::rslib_extern_symbols::init_wo_lib();
 
     for (int command_idx = 0; command_idx + 1 < argc; command_idx++)
@@ -2724,8 +2727,13 @@ std::variant<
             auto* result = wo::get_wo_grammar()->gen(*lex);
             if (result != nullptr)
             {
-                // TODO: REMAKING....
-                wo_error("REMAKING");
+                wo::LangContext compile_lang_context;
+
+                if (compile_lang_context.process(*lex, result))
+                {
+                    // TODO: REMAKING....
+                    wo_error("REMAKING");
+                }
             }
         }
 

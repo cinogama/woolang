@@ -85,11 +85,12 @@ namespace wo
             , m_name(identifier)
             , m_template_arguments(std::nullopt)
             , m_symbol(std::nullopt)
+            , m_LANG_determined_searching_from_scope(std::nullopt)
         {
 
         }
         AstIdentifier::AstIdentifier(
-            wo_pstring_t identifier, 
+            wo_pstring_t identifier,
             const std::optional<std::list<AstTypeHolder*>>& template_arguments)
             : AstBase(AST_IDENTIFIER)
             , m_formal(FROM_CURRENT)
@@ -98,10 +99,11 @@ namespace wo
             , m_name(identifier)
             , m_template_arguments(template_arguments)
             , m_symbol(std::nullopt)
+            , m_LANG_determined_searching_from_scope(std::nullopt)
         {
         }
         AstIdentifier::AstIdentifier(
-            wo_pstring_t identifier, 
+            wo_pstring_t identifier,
             const std::optional<std::list<AstTypeHolder*>>& template_arguments,
             const std::list<wo_pstring_t>& scopes,
             bool from_global)
@@ -112,12 +114,13 @@ namespace wo
             , m_name(identifier)
             , m_template_arguments(template_arguments)
             , m_symbol(std::nullopt)
+            , m_LANG_determined_searching_from_scope(std::nullopt)
         {
 
         }
         AstIdentifier::AstIdentifier(
-            wo_pstring_t identifier, 
-            const std::optional<std::list<AstTypeHolder*>>& template_arguments, 
+            wo_pstring_t identifier,
+            const std::optional<std::list<AstTypeHolder*>>& template_arguments,
             const std::list<wo_pstring_t>& scopes,
             AstTypeHolder* from_type)
             : AstBase(AST_IDENTIFIER)
@@ -127,6 +130,7 @@ namespace wo
             , m_name(identifier)
             , m_template_arguments(template_arguments)
             , m_symbol(std::nullopt)
+            , m_LANG_determined_searching_from_scope(std::nullopt)
         {
 
         }
@@ -139,9 +143,10 @@ namespace wo
             , m_name(identifer.m_name)
             , m_template_arguments(identifer.m_template_arguments)
             , m_symbol(std::nullopt)
+            , m_LANG_determined_searching_from_scope(std::nullopt)
         {
         }
-     
+
         AstBase* AstIdentifier::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
         {
             AstIdentifier* new_instance = exist_instance
@@ -160,7 +165,7 @@ namespace wo
 
         AstStructFieldDefine::AstStructFieldDefine(
             const std::optional<AstDeclareAttribue::accessc_attrib>& attrib,
-            wo_pstring_t name, 
+            wo_pstring_t name,
             AstTypeHolder* type)
             : AstBase(AST_STRUCT_FIELD_DEFINE)
             , m_name(name)
@@ -185,7 +190,7 @@ namespace wo
             , m_mutable_mark(NONE)
             , m_formal(IDENTIFIER)
             , m_identifier(ident)
-            , m_type(std::nullopt)
+            , m_LANG_determined_type(std::nullopt)
         {
 
         }
@@ -194,7 +199,7 @@ namespace wo
             , m_mutable_mark(NONE)
             , m_formal(TYPEOF)
             , m_typefrom(expr)
-            , m_type(std::nullopt)
+            , m_LANG_determined_type(std::nullopt)
         {
 
         }
@@ -203,7 +208,7 @@ namespace wo
             , m_mutable_mark(NONE)
             , m_formal(FUNCTION)
             , m_function(functype)
-            , m_type(std::nullopt)
+            , m_LANG_determined_type(std::nullopt)
         {
 
         }
@@ -212,7 +217,7 @@ namespace wo
             , m_mutable_mark(NONE)
             , m_formal(STRUCTURE)
             , m_structure(structtype)
-            , m_type(std::nullopt)
+            , m_LANG_determined_type(std::nullopt)
         {
 
         }
@@ -221,11 +226,19 @@ namespace wo
             , m_mutable_mark(NONE)
             , m_formal(TUPLE)
             , m_tuple(tupletype)
-            , m_type(std::nullopt)
+            , m_LANG_determined_type(std::nullopt)
         {
 
         }
+        AstTypeHolder::AstTypeHolder(const UnionType& uniontype)
+            : AstBase(AST_TYPE_HOLDER)
+            , m_mutable_mark(NONE)
+            , m_formal(UNION)
+            , m_union(uniontype)
+            , m_LANG_determined_type(std::nullopt)
+        {
 
+        }
         AstTypeHolder::~AstTypeHolder()
         {
             switch (m_formal)
@@ -243,10 +256,12 @@ namespace wo
             case TUPLE:
                 m_tuple.~TupleType();
                 break;
+            case UNION:
+                m_union.~UnionType();
+                break;
             default:
                 wo_error("Unknown type form.");
             }
-
         }
 
         bool AstTypeHolder::_check_if_has_typeof() const
@@ -285,6 +300,8 @@ namespace wo
                     if (field->_check_if_has_typeof())
                         return true;
                 }
+                return false;
+            case UNION:
                 return false;
             default:
                 wo_error("Unknown type form.");
@@ -342,8 +359,8 @@ namespace wo
         }
         AstBase* AstTypeHolder::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
         {
-            AstTypeHolder* new_instance = exist_instance 
-                ? static_cast<AstTypeHolder*>(exist_instance.value()) 
+            AstTypeHolder* new_instance = exist_instance
+                ? static_cast<AstTypeHolder*>(exist_instance.value())
                 : nullptr;
 
             switch (m_formal)
@@ -371,6 +388,12 @@ namespace wo
                 if (new_instance == nullptr)new_instance = new AstTypeHolder(m_tuple);
                 for (auto& field : new_instance->m_tuple.m_fields)
                     out_continues.push_back(AstBase::make_holder(&field));
+                break;
+            case UNION:
+                if (new_instance == nullptr)new_instance = new AstTypeHolder(m_union);
+                for (auto& field : new_instance->m_union.m_fields)
+                    if (field.m_item)
+                        out_continues.push_back(AstBase::make_holder(&field.m_item.value()));
                 break;
             default:
                 wo_error("Unknown type form.");
@@ -760,7 +783,7 @@ namespace wo
             , m_is_mutable(is_mutable)
             , m_name(name)
             , m_template_parameters(template_parameters)
-            , m_declared_symbol(std::nullopt)
+            , m_LANG_declared_symbol(std::nullopt)
         {
         }
         AstBase* AstPatternSingle::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
@@ -834,7 +857,7 @@ namespace wo
         }
 
         ////////////////////////////////////////////////////////
-        
+
         AstPatternVariable::AstPatternVariable(AstValueVariable* variable)
             : AstPatternBase(AST_PATTERN_VARIABLE)
             , m_variable(variable)
@@ -878,7 +901,7 @@ namespace wo
         {
         }
         AstVariableDefineItem::AstVariableDefineItem(
-            AstPatternBase* pattern, 
+            AstPatternBase* pattern,
             AstValueBase* init_value)
             : AstBase(AST_VARIABLE_DEFINE_ITEM)
             , m_pattern(pattern)
@@ -986,14 +1009,14 @@ namespace wo
 
                     auto& pending_param_type_mark_template = m_pending_param_type_mark_template.value();
 
-                    wo_pstring_t pending_template_name 
+                    wo_pstring_t pending_template_name
                         = wstring_pool::get_pstr(L"*T" + std::to_wstring(pending_param_type_mark_template.size()));
                     pending_param_type_mark_template.push_back(pending_template_name);
 
                     AstIdentifier* template_identifier = new AstIdentifier(pending_template_name);
                     AstTypeHolder* template_type = new AstTypeHolder(template_identifier);
                     param_define->m_type = template_type;
-                    
+
                     template_identifier->source_location = param_define->source_location;
                     template_type->source_location = param_define->source_location;
                 }
@@ -1005,7 +1028,7 @@ namespace wo
                 ? static_cast<AstValueFunction*>(exist_instance.value())
                 : new AstValueFunction(m_parameters, m_is_variadic, m_pending_param_type_mark_template, m_marked_return_type, m_where_constraints, m_body)
                 ;
-            
+
             for (auto& param : new_instance->m_parameters)
                 out_continues.push_back(AstBase::make_holder(&param));
             if (m_marked_return_type)
@@ -1141,7 +1164,7 @@ namespace wo
 
         AstValueAssign::AstValueAssign(
             bool valued_assign,
-            assign_type type, 
+            assign_type type,
             AstPatternBase* assign_place,
             AstValueBase* right)
             : AstValueMayConsiderOperatorOverload(AST_VALUE_ASSIGN)
@@ -1274,7 +1297,6 @@ namespace wo
                 out_continues.push_back(AstBase::make_holder(&new_instance->m_false_body.value()));
             return new_instance;
         }
-
 
         ////////////////////////////////////////////////////////
 
@@ -1484,6 +1506,7 @@ namespace wo
             , m_type(item.m_type)
             , m_in_type_namespace(item.m_in_type_namespace)
             , m_attribute(item.m_attribute)
+            , m_LANG_declared_symbol(std::nullopt)
         {
         }
         AstUsingTypeDeclare::AstUsingTypeDeclare(
@@ -1498,6 +1521,7 @@ namespace wo
             , m_type(type)
             , m_in_type_namespace(in_type_namespace)
             , m_attribute(attrib)
+            , m_LANG_declared_symbol(std::nullopt)
         {
         }
         AstBase* AstUsingTypeDeclare::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
@@ -1523,6 +1547,7 @@ namespace wo
             , m_template_parameters(item.m_template_parameters)
             , m_type(item.m_type)
             , m_attribute(item.m_attribute)
+            , m_LANG_declared_symbol(std::nullopt)
         {
         }
         AstAliasTypeDeclare::AstAliasTypeDeclare(
@@ -1535,6 +1560,7 @@ namespace wo
             , m_template_parameters(template_parameters)
             , m_type(type)
             , m_attribute(attrib)
+            , m_LANG_declared_symbol(std::nullopt)
         {
         }
         AstBase* AstAliasTypeDeclare::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
@@ -1578,7 +1604,7 @@ namespace wo
         {
         }
         AstEnumDeclare::AstEnumDeclare(
-            const std::optional<AstDeclareAttribue*>& attrib, 
+            const std::optional<AstDeclareAttribue*>& attrib,
             wo_pstring_t enum_name,
             const std::list<AstEnumItem*>& enum_items)
             : AstBase(AST_ENUM_DECLARE)
@@ -1591,7 +1617,7 @@ namespace wo
             auto* enum_base_type = new AstTypeHolder(enum_base_type_identifier);
             auto* enum_type_declare = new AstUsingTypeDeclare(attrib, enum_name, std::nullopt, enum_base_type, std::nullopt);
 
-            std::optional<AstDeclareAttribue*> enum_item_attrib = std::nullopt; 
+            std::optional<AstDeclareAttribue*> enum_item_attrib = std::nullopt;
             if (attrib)
             {
                 AstDeclareAttribue* enum_item_attrib_instance = new AstDeclareAttribue(*attrib.value());
@@ -1735,10 +1761,10 @@ namespace wo
         AstUnionDeclare::AstUnionDeclare(
             const AstUnionDeclare& another)
             : AstBase(AST_UNION_DECLARE)
-            , m_union_type_name(another.m_union_type_name)
-            , m_template_parameters(another.m_template_parameters)
-            , m_union_item_index(another.m_union_item_index)
-            , m_union_items(another.m_union_items)
+            //, m_union_type_name(another.m_union_type_name)
+            //, m_template_parameters(another.m_template_parameters)
+            , m_union_type_declare(another.m_union_type_declare)
+            //, m_union_items(another.m_union_items)
         {
         }
         AstUnionDeclare::AstUnionDeclare(
@@ -1747,24 +1773,32 @@ namespace wo
             const std::optional<std::list<wo_pstring_t>>& template_parameters,
             const std::list<AstUnionItem*>& union_items)
             : AstBase(AST_UNION_DECLARE)
-            , m_union_type_name(union_type_name)
-            , m_template_parameters(template_parameters)
-            , m_union_item_index({})
-            , m_union_items(nullptr)
+            //, m_union_type_name(union_type_name)
+            //, m_template_parameters(template_parameters)
+            , m_union_type_declare(nullptr)
+            //, m_union_items(nullptr)
         {
             wo_assert(!union_items.empty());
             auto* union_item_or_creator_declare = new AstVariableDefines(attrib);
 
+            AstTypeHolder::UnionType union_type_info;
+
             wo_integer_t current_item_index = 0;
             for (auto& item : union_items)
             {
-                m_union_item_index[item->m_label] = current_item_index;
+                union_type_info.m_fields.push_back(
+                    AstTypeHolder::UnionType::UnionField{
+                        item->m_label,
+                        item->m_type
+                            ? std::optional(static_cast<AstTypeHolder*>(item->m_type.value()->clone()))
+                            : std::nullopt
+                    });
 
                 AstTypeHolder* union_type;
-                
-                if (m_template_parameters)
+
+                if (template_parameters)
                 {
-                    std::list<AstTypeHolder*> template_arguments(m_template_parameters.value().size());
+                    std::list<AstTypeHolder*> template_arguments(template_parameters.value().size());
                     for (auto& template_argument : template_arguments)
                     {
                         auto* template_argument_identifier = new AstIdentifier(WO_PSTR(nothing), std::nullopt, {}, true);
@@ -1774,14 +1808,14 @@ namespace wo
                         template_argument->source_location = item->source_location;
                     }
 
-                    auto* union_type_identifier = new AstIdentifier(m_union_type_name, template_arguments);
+                    auto* union_type_identifier = new AstIdentifier(union_type_name, template_arguments);
                     union_type = new AstTypeHolder(union_type_identifier);
 
                     union_type_identifier->source_location = item->source_location;
                 }
                 else
                 {
-                    auto* union_type_identifier = new AstIdentifier(m_union_type_name);
+                    auto* union_type_identifier = new AstIdentifier(union_type_name);
                     union_type = new AstTypeHolder(union_type_identifier);
 
                     union_type_identifier->source_location = item->source_location;
@@ -1798,7 +1832,7 @@ namespace wo
                     // 1) Count used template parameters.
                     std::list<wo_pstring_t> used_template_parameters;
 
-                    if (m_template_parameters)
+                    if (template_parameters)
                     {
                         wo_assert(union_type->m_identifier->m_template_arguments);
 
@@ -1806,13 +1840,13 @@ namespace wo
 
                         // NOTE: We cannot check template param has been used or not in from typeof.
                         //  So we treat all template param as used if `creator_param_has_typeof`
-                        std::vector<bool> used_template_parameters_flags(m_template_parameters.value().size(), creator_param_has_typeof);
+                        std::vector<bool> used_template_parameters_flags(template_parameters.value().size(), creator_param_has_typeof);
 
                         if (!creator_param_has_typeof)
-                            creator_param_type->_check_if_template_exist_in(m_template_parameters.value(), used_template_parameters_flags);
+                            creator_param_type->_check_if_template_exist_in(template_parameters.value(), used_template_parameters_flags);
 
                         auto updating_union_type_template_argument_iter = union_type->m_identifier->m_template_arguments.value().begin();
-                        auto template_parameters_iter = m_template_parameters.value().begin();
+                        auto template_parameters_iter = template_parameters.value().begin();
 
                         for (bool template_param_this_place_has_been_used : used_template_parameters_flags)
                         {
@@ -1885,13 +1919,18 @@ namespace wo
                 ++current_item_index;
             }
 
-            auto* union_namespace = new AstNamespace(m_union_type_name, union_item_or_creator_declare);
+            auto* union_namespace = new AstNamespace(union_type_name, union_item_or_creator_declare);
+            AstTypeHolder* using_declare_union_type = new AstTypeHolder(union_type_info);
+            AstUsingTypeDeclare* using_type_declare = new AstUsingTypeDeclare(
+                attrib, union_type_name, template_parameters, using_declare_union_type, union_namespace);
 
-            m_union_items = union_namespace;
+            m_union_type_declare = using_type_declare;
 
             // Update source msg;
             union_item_or_creator_declare->source_location = union_items.front()->source_location;
             union_namespace->source_location = union_items.front()->source_location;
+            using_declare_union_type->source_location = union_items.front()->source_location;
+            using_type_declare->source_location = union_items.front()->source_location;
         }
         AstBase* AstUnionDeclare::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
         {
@@ -1899,7 +1938,7 @@ namespace wo
                 ? static_cast<AstUnionDeclare*>(exist_instance.value())
                 : new AstUnionDeclare(*this)
                 ;
-            out_continues.push_back(AstBase::make_holder(&new_instance->m_union_items));
+            out_continues.push_back(AstBase::make_holder(&new_instance->m_union_type_declare));
             return new_instance;
         }
 
