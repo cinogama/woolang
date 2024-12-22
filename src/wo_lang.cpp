@@ -4,15 +4,20 @@ namespace wo
 {
 #ifndef WO_DISABLE_COMPILER
     LangContext::ProcessAstJobs* LangContext::m_pass0_processers;
+    LangContext::ProcessAstJobs* LangContext::m_pass1_processers;
 
     void LangContext::init_lang_processers()
     {
         m_pass0_processers = new ProcessAstJobs();
+        m_pass1_processers = new ProcessAstJobs();
+
         init_pass0();
+        init_pass1();
     }
     void LangContext::shutdown_lang_processers()
     {
         delete m_pass0_processers;
+        delete m_pass1_processers;
     }
 
     //////////////////////////////////////
@@ -242,14 +247,23 @@ namespace wo
     {
         return m_pass0_processers->process_node(this, lex, node_state, out_stack);
     }
+    LangContext::pass_behavior LangContext::pass_1_process_basic_type_marking(
+        lexer& lex, const AstNodeWithState& node_state, PassProcessStackT& out_stack)
+    {
+        return m_pass1_processers->process_node(this, lex, node_state, out_stack);
+    }
 
     bool LangContext::process(lexer& lex, ast::AstBase* root)
     {
         if (!anylize_pass(lex, root, &LangContext::pass_0_process_scope_and_non_local_defination))
             return false;
+        if (!anylize_pass(lex, root, &LangContext::pass_1_process_basic_type_marking))
+            return false;
 
         return true;
     }
+
+    ////////////////////////
 
     void LangContext::begin_new_scope()
     {

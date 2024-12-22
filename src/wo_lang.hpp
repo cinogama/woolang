@@ -291,11 +291,14 @@ namespace wo
         std::stack<lang_Scope*>         m_scope_stack;
 
         static ProcessAstJobs* m_pass0_processers;
+        static ProcessAstJobs* m_pass1_processers;
 
         LangContext();
 
         bool anylize_pass(lexer& lex, ast::AstBase* root, const PassFunctionT& pass_function);
         pass_behavior pass_0_process_scope_and_non_local_defination(
+            lexer& lex, const AstNodeWithState& node_state, PassProcessStackT& out_stack);
+        pass_behavior pass_1_process_basic_type_marking_and_constant_eval(
             lexer& lex, const AstNodeWithState& node_state, PassProcessStackT& out_stack);
         
         bool process(lexer& lex, ast::AstBase* root);
@@ -306,6 +309,7 @@ namespace wo
         static void shutdown_lang_processers();
 
         static void init_pass0();
+        static void init_pass1();
 
         //////////////////////////////////////
 

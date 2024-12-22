@@ -2,6 +2,7 @@
 
 namespace wo
 {
+#ifndef WO_DISABLE_COMPILER
     using namespace ast;
 
     void LangContext::init_pass0()
@@ -16,7 +17,6 @@ namespace wo
         WO_LANG_REGISTER_PROCESSER(AstUnionDeclare, AstBase::AST_UNION_DECLARE, pass0);
     }
 
-#ifndef WO_DISABLE_COMPILER
 #define WO_PASS_PROCESSER(AST) WO_PASS_PROCESSER_IMPL(AST, pass0)
 
     WO_PASS_PROCESSER(AstList)
