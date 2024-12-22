@@ -26,6 +26,7 @@ namespace wo
     struct lang_TypeSymbol;
     struct lang_TypeInstance;
     struct lang_ValueInstance;
+    struct lang_Symbol;
 
     namespace ast
     {
