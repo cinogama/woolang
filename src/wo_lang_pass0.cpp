@@ -9,7 +9,7 @@ namespace wo
         lexer& lex,
         const std::optional<ast::AstDeclareAttribue*>& decl_attrib,
         ast::AstPatternBase* pattern,
-        std::optional<ast::AstValueBase*> init_value)
+        const std::optional<ast::AstValueBase*>& init_value)
     {
         switch (pattern->node_type)
         {
@@ -28,7 +28,8 @@ namespace wo
                         pattern->source_location.source_file,
                         get_current_scope(),
                         init_value.value(),
-                        single_pattern->m_template_parameters.value());
+                        single_pattern->m_template_parameters.value(),
+                        single_pattern->m_is_mutable);
                 }
                 else
                 {
@@ -37,7 +38,8 @@ namespace wo
                         decl_attrib,
                         pattern->source_location.source_file,
                         get_current_scope(),
-                        lang_Symbol::kind::VARIABLE);
+                        lang_Symbol::kind::VARIABLE,
+                        single_pattern->m_is_mutable);
                 }
 
                 if (!single_pattern->m_LANG_declared_symbol)
@@ -176,7 +178,8 @@ namespace wo
                 node->m_attribute,
                 node->source_location.source_file,
                 get_current_scope(),
-                lang_Symbol::kind::ALIAS);
+                lang_Symbol::kind::ALIAS,
+                false);
 
         if (!node->m_LANG_declared_symbol)
         {
@@ -205,7 +208,8 @@ namespace wo
                     node->m_attribute,
                     node->source_location.source_file,
                     get_current_scope(),
-                    lang_Symbol::kind::TYPE);
+                    lang_Symbol::kind::TYPE,
+                    false);
 
             if (node->m_in_type_namespace)
             {

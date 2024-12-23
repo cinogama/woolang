@@ -12,44 +12,259 @@
 
 namespace wo
 {
+    
+#ifndef WO_DISABLE_COMPILER
+
+    struct hash_type_holder_for_origin_cache
+    {
+        using AstTypeHolderPT = ast::AstTypeHolder*;
+
+        template<typename T>
+        static size_t _hash_ptr(T* ptr)
+        {
+            size_t result = (size_t)(uintptr_t)ptr;
+            result = result >> 4 | result << (sizeof(size_t) * 8 - 4);
+            return result;
+        }
+        static size_t _hash_rawtype(const AstTypeHolderPT& node)
+        {
+            return _hash_ptr(node->m_LANG_determined_type.value());
+        }
+        static size_t _hash(const AstTypeHolderPT& node)
+        {
+            switch (node->m_formal)
+            {
+            case ast::AstTypeHolder::IDENTIFIER:
+            {
+                size_t hash_result = _hash_ptr(node->m_identifier->m_LANG_determined_symbol.value());
+
+                if (node->m_identifier->m_template_arguments)
+                {
+                    for (auto* template_argument : node->m_identifier->m_template_arguments.value())
+                        hash_result ^= _hash_rawtype(template_argument);
+                }
+                return hash_result | ast::AstTypeHolder::IDENTIFIER;
+            }
+            case ast::AstTypeHolder::FUNCTION:
+            {
+                size_t hash_result = _hash_rawtype(node->m_function.m_return_type);
+
+                for (auto* param_type : node->m_function.m_parameters)
+                    hash_result ^= _hash_rawtype(param_type);
+
+                if (node->m_function.m_is_variadic)
+                    hash_result = ~hash_result;
+
+                return hash_result | ast::AstTypeHolder::FUNCTION;
+            }
+            case ast::AstTypeHolder::STRUCTURE:
+            {
+                size_t hash_result = 0;
+
+                for (auto& member : node->m_structure.m_fields)
+                {
+                    hash_result ^= _hash_ptr(member->m_name);
+                    hash_result ^= _hash_rawtype(member->m_type);
+                    hash_result ^= member->m_attribute
+                        ? member->m_attribute.value()
+                        : ast::AstDeclareAttribue::accessc_attrib::PRIVATE;
+                }
+
+                return hash_result | ast::AstTypeHolder::STRUCTURE;
+            }
+            case ast::AstTypeHolder::TUPLE:
+            {
+                size_t hash_result = 0;
+
+                for (auto* member : node->m_tuple.m_fields)
+                    hash_result ^= _hash_rawtype(member);
+
+                return hash_result | ast::AstTypeHolder::TUPLE;
+            }
+            case ast::AstTypeHolder::UNION:
+            {
+                size_t hash_result = 0;
+
+                for (auto& member : node->m_union.m_fields)
+                {
+                    hash_result ^= _hash_ptr(member.m_label);
+                    if (member.m_item)
+                        hash_result ^= _hash_rawtype(member.m_item.value());
+                }
+
+                return hash_result | ast::AstTypeHolder::UNION;
+            }
+            default:
+                wo_error("Unknown type holder type.");
+                return 0;
+            }
+        }
+
+        bool operator()(const AstTypeHolderPT& node) const
+        {
+            return _hash(node);
+        }
+    };
+
+    struct equal_to_type_holder_for_origin_cache
+    {
+        using AstTypeHolderPT = ast::AstTypeHolder*;
+
+        static size_t _equal_to_rawtype(const AstTypeHolderPT& lhs, const AstTypeHolderPT& rhs)
+        {
+            return lhs->m_LANG_determined_type.value() == rhs->m_LANG_determined_type.value();
+        }
+        static size_t _equal_to(const AstTypeHolderPT& lhs, const AstTypeHolderPT& rhs)
+        {
+            if (lhs->m_formal != rhs->m_formal)
+                return false;
+
+            switch (lhs->m_formal)
+            {
+            case ast::AstTypeHolder::IDENTIFIER:
+            {
+                if (lhs->m_identifier->m_LANG_determined_symbol.value() 
+                    != rhs->m_identifier->m_LANG_determined_symbol.value())
+                    return false;
+
+                if (lhs->m_identifier->m_template_arguments.has_value()
+                    != rhs->m_identifier->m_template_arguments.has_value())
+                    return false;
+
+                if (lhs->m_identifier->m_template_arguments)
+                {
+                    auto& lhs_template_args = lhs->m_identifier->m_template_arguments.value();
+                    auto& rhs_template_args = rhs->m_identifier->m_template_arguments.value();
+
+                    if (lhs_template_args.size() != rhs_template_args.size())
+                        return false;
+
+                    auto lhs_iter = lhs_template_args.begin();
+                    auto rhs_iter = rhs_template_args.begin();
+                    auto lhs_end = lhs_template_args.end();
+
+                    for (; lhs_iter != lhs_end; ++lhs_iter, ++rhs_iter)
+                    {
+                        if (!_equal_to_rawtype(*lhs_iter, *rhs_iter))
+                            return false;
+                    }
+                    
+                }
+
+                return true;
+            }
+            case ast::AstTypeHolder::FUNCTION:
+            {
+                if (lhs->m_function.m_is_variadic != rhs->m_function.m_is_variadic)
+                    return false;
+
+                if (lhs->m_function.m_parameters.size() != rhs->m_function.m_parameters.size())
+                    return false;
+
+                if (!_equal_to_rawtype(lhs->m_function.m_return_type, rhs->m_function.m_return_type))
+                    return false;
+
+                auto lhs_iter = lhs->m_function.m_parameters.begin();
+                auto rhs_iter = rhs->m_function.m_parameters.begin();
+                auto lhs_end = lhs->m_function.m_parameters.end();
+
+                for (; lhs_iter != lhs_end; ++lhs_iter, ++rhs_iter)
+                {
+                    if (!_equal_to_rawtype(*lhs_iter, *rhs_iter))
+                        return false;
+                }
+
+                return true;
+            }
+            case ast::AstTypeHolder::STRUCTURE:
+            {
+                if (lhs->m_structure.m_fields.size() != rhs->m_structure.m_fields.size())
+                    return false;
+
+                auto lhs_iter = lhs->m_structure.m_fields.begin();
+                auto rhs_iter = rhs->m_structure.m_fields.begin();
+                auto lhs_end = lhs->m_structure.m_fields.end();
+
+                for (; lhs_iter != lhs_end; ++lhs_iter, ++rhs_iter)
+                {
+                    if ((*lhs_iter)->m_name != (*rhs_iter)->m_name)
+                        return false;
+
+                    if (!_equal_to_rawtype((*lhs_iter)->m_type, (*rhs_iter)->m_type))
+                        return false;
+
+                    if ((*lhs_iter)->m_attribute != (*rhs_iter)->m_attribute)
+                        return false;
+                }
+            }
+            case ast::AstTypeHolder::TUPLE:
+            {
+                if (lhs->m_tuple.m_fields.size() != rhs->m_tuple.m_fields.size())
+                    return false;
+
+                auto lhs_iter = lhs->m_tuple.m_fields.begin();
+                auto rhs_iter = rhs->m_tuple.m_fields.begin();
+                auto lhs_end = lhs->m_tuple.m_fields.end();
+
+                for (; lhs_iter != lhs_end; ++lhs_iter, ++rhs_iter)
+                {
+                    if (!_equal_to_rawtype(*lhs_iter, *rhs_iter))
+                        return false;
+                }
+
+                return true;
+            }
+            case ast::AstTypeHolder::UNION:
+            {
+                if (lhs->m_union.m_fields.size() != rhs->m_union.m_fields.size())
+                    return false;
+
+                auto lhs_iter = lhs->m_union.m_fields.begin();
+                auto rhs_iter = rhs->m_union.m_fields.begin();
+                auto lhs_end = lhs->m_union.m_fields.end();
+
+                for (; lhs_iter != lhs_end; ++lhs_iter, ++rhs_iter)
+                {
+                    if ((*lhs_iter).m_label != (*rhs_iter).m_label)
+                        return false;
+
+                    if ((*lhs_iter).m_item.has_value() != (*rhs_iter).m_item.has_value())
+                        return false;
+
+                    if ((*lhs_iter).m_item.has_value())
+                    {
+                        if (!_equal_to_rawtype((*lhs_iter).m_item.value(), (*rhs_iter).m_item.value()))
+                            return false;
+                    }
+                }
+
+                return true;
+            }
+            default:
+                wo_error("Unknown type holder type.");
+                return false;
+            }
+        }
+
+        bool operator()(const AstTypeHolderPT& lhs, const AstTypeHolderPT& rhs) const
+        {
+            return _equal_to(lhs, rhs);
+        }
+    };
+
     struct lang_Namespace;
     struct lang_Scope;
     struct lang_Symbol;
     struct lang_TypeInstance;
-}
 
-namespace std
-{
-    template<>
-    struct hash<wo::lang_TypeInstance>
-    {
-        size_t operator()(const std::pair<wo::lang_TypeInstance*, wo::lang_TypeInstance*>& pair) const
-        {
-            return std::hash<wo::lang_TypeInstance*>{}(pair.first) ^ std::hash<wo::lang_TypeInstance*>{}(pair.second);
-        }
-    };
-
-    template<>
-    struct equal_to<std::pair<wo::lang_TypeInstance*, wo::lang_TypeInstance*>>
-    {
-        bool operator()(const std::pair<wo::lang_TypeInstance*, wo::lang_TypeInstance*>& lhs,
-            const std::pair<wo::lang_TypeInstance*, wo::lang_TypeInstance*>& rhs) const
-        {
-            return lhs.first == rhs.first && lhs.second == rhs.second;
-        }
-    };
-
-}
-
-namespace wo
-{
-#ifndef WO_DISABLE_COMPILER
     struct lang_TypeInstance
     {
         struct DeterminedType
         {
             enum base_type
             {
+                VOID,
+                NOTHING,
                 NIL,
                 INTEGER,
                 REAL,
@@ -114,7 +329,7 @@ namespace wo
                 Union* m_union;
             };
 
-            base_type m_base_type;
+            base_type   m_base_type;
             ExternalTypeDescription m_external_type_description;
 
             DeterminedType(base_type type, const ExternalTypeDescription& desc);
@@ -128,13 +343,21 @@ namespace wo
         };
 
         lang_Symbol* m_symbol;
-        std::optional<DeterminedType> m_determined_type;
+
+        using DeterminedOrMutableType = std::variant<DeterminedType, lang_TypeInstance*>;
+
+        // NOTE: DeterminedType means immutable type, lang_TypeInstance* means mutable types.
+        std::optional<DeterminedOrMutableType> m_determined_type;
 
         lang_TypeInstance(lang_Symbol* symbol);
         lang_TypeInstance(const lang_TypeInstance&) = delete;
         lang_TypeInstance(lang_TypeInstance&&) = delete;
         lang_TypeInstance& operator=(const lang_TypeInstance&) = delete;
         lang_TypeInstance& operator=(lang_TypeInstance&&) = delete;
+
+        bool is_immutable() const;
+        bool is_mutable() const;
+        const DeterminedType* get_determined_type() const;
     };
     struct lang_AliasInstance
     {
@@ -150,10 +373,11 @@ namespace wo
     struct lang_ValueInstance
     {
         lang_Symbol* m_symbol;
+        bool m_mutable;
         std::optional<wo::value> m_determined_constant;
         std::optional<lang_TypeInstance*> m_determined_type;
 
-        lang_ValueInstance(lang_Symbol* symbol);
+        lang_ValueInstance(bool mutable_, lang_Symbol* symbol);
         ~lang_ValueInstance();
 
         lang_ValueInstance(const lang_ValueInstance&) = delete;
@@ -174,12 +398,16 @@ namespace wo
 
         struct TemplateValuePrefab
         {
+            bool m_mutable;
             std::list<wo_pstring_t> m_template_params;
             ast::AstValueBase* m_origin_value_ast;
             std::map<TemplateArgumentSetT, std::unique_ptr<lang_ValueInstance*>>
                 m_template_instances;
 
-            TemplateValuePrefab(ast::AstValueBase* ast, const std::list<wo_pstring_t>& template_params);
+            TemplateValuePrefab(
+                bool mutable_, 
+                ast::AstValueBase* ast, 
+                const std::list<wo_pstring_t>& template_params);
 
             TemplateValuePrefab(const TemplateValuePrefab&) = delete;
             TemplateValuePrefab(TemplateValuePrefab&&) = delete;
@@ -219,8 +447,9 @@ namespace wo
         bool                            m_is_template;
         wo_pstring_t                    m_defined_source;
         std::optional<ast::AstDeclareAttribue*>
-            m_declare_attribute;
-        lang_Scope* m_belongs_to_scope;
+                                        m_declare_attribute;
+        lang_Scope*                     m_belongs_to_scope;
+        bool                            m_is_builtin;
 
         union
         {
@@ -243,13 +472,15 @@ namespace wo
             const std::optional<ast::AstDeclareAttribue*>& attr,
             wo_pstring_t src_location,
             lang_Scope* scope,
-            kind kind);
+            kind kind,
+            bool mutable_variable);
         lang_Symbol(
             const std::optional<ast::AstDeclareAttribue*>& attr,
             wo_pstring_t src_location,
             lang_Scope* scope,
             ast::AstValueBase* template_value_base,
-            const std::list<wo_pstring_t>& template_params);
+            const std::list<wo_pstring_t>& template_params,
+            bool mutable_variable);
         lang_Symbol(
             const std::optional<ast::AstDeclareAttribue*>& attr,
             wo_pstring_t src_location,
@@ -354,8 +585,7 @@ namespace wo
                 lang_Symbol* m_symbol;
                 lang_TypeInstance* m_type_instance;
 
-                OriginNoTemplateSymbolAndInstance();
-                ~OriginNoTemplateSymbolAndInstance();
+                OriginNoTemplateSymbolAndInstance() = default;
 
                 OriginNoTemplateSymbolAndInstance(const OriginNoTemplateSymbolAndInstance&) = delete;
                 OriginNoTemplateSymbolAndInstance(OriginNoTemplateSymbolAndInstance&&) = delete;
@@ -363,6 +593,8 @@ namespace wo
                 OriginNoTemplateSymbolAndInstance& operator=(OriginNoTemplateSymbolAndInstance&&) = delete;
 
             };
+            OriginNoTemplateSymbolAndInstance   m_void;
+            OriginNoTemplateSymbolAndInstance   m_nothing;
             OriginNoTemplateSymbolAndInstance   m_nil;
             OriginNoTemplateSymbolAndInstance   m_int;
             OriginNoTemplateSymbolAndInstance   m_real;
@@ -377,10 +609,34 @@ namespace wo
             lang_Symbol* m_function;
             lang_Symbol* m_struct;
             lang_Symbol* m_union;
+
+            using OriginTypeInstanceMapping = 
+                std::unordered_map<
+                ast::AstTypeHolder*, 
+                lang_TypeInstance*,
+                hash_type_holder_for_origin_cache,
+                equal_to_type_holder_for_origin_cache>;
+
+            OriginTypeInstanceMapping m_origin_cached_types;
+            std::optional<lang_TypeInstance*> create_or_find_origin_type(lexer& lex, ast::AstTypeHolder* type_holder);
+
+            std::optional<lang_TypeInstance*> create_dictionary_type(lexer& lex, ast::AstTypeHolder* type_holder);
+            std::optional<lang_TypeInstance*> create_mapping_type(lexer& lex, ast::AstTypeHolder* type_holder);
+            std::optional<lang_TypeInstance*> create_array_type(lexer& lex, ast::AstTypeHolder* type_holder);
+            std::optional<lang_TypeInstance*> create_vector_type(lexer& lex, ast::AstTypeHolder* type_holder);
+            std::optional<lang_TypeInstance*> create_tuple_type(lexer& lex, ast::AstTypeHolder* type_holder);
+            std::optional<lang_TypeInstance*> create_function_type(lexer& lex, ast::AstTypeHolder* type_holder);
+            std::optional<lang_TypeInstance*> create_struct_type(lexer& lex, ast::AstTypeHolder* type_holder);
+            std::optional<lang_TypeInstance*> create_union_type(lexer& lex, ast::AstTypeHolder* type_holder);
+
+            OriginTypeHolder();
+            ~OriginTypeHolder();
         };
         OriginTypeHolder                m_origin_types;
         std::unique_ptr<lang_Namespace> m_root_namespace;
         std::stack<lang_Scope*>         m_scope_stack;
+        std::unordered_map<lang_TypeInstance*, std::unique_ptr<lang_TypeInstance>> 
+                                        m_mutable_type_instance_cache;
 
         static ProcessAstJobs* m_pass0_processers;
         static ProcessAstJobs* m_pass1_processers;
@@ -551,15 +807,15 @@ namespace wo
             lexer& lex,
             const std::optional<ast::AstDeclareAttribue*>& decl_attrib,
             ast::AstPatternBase* pattern,
-            std::optional<ast::AstValueBase*> init_value);
+            const std::optional<ast::AstValueBase*>& init_value);
+        bool update_pattern_symbol_variable_type_pass1(
+            lexer& lex, 
+            ast::AstPatternBase* pattern, 
+            const std::optional<ast::AstValueBase*>& init_value,
+            lang_TypeInstance* init_value_type);
 
-        bool update_pattern_symbol_pass1(
-            lexer& lex,
-            const std::optional<ast::AstDeclareAttribue*>& decl_attrib,
-            ast::AstPatternBase* pattern,
-            std::optional<ast::AstValueBase*> init_value,
-            std::optional<lang_TypeInstance*> type);
-
+        lang_TypeInstance* mutable_type(lang_TypeInstance* origin_type);
+        lang_TypeInstance* immutable_type(lang_TypeInstance* origin_type);
         //////////////////////////////////////
     };
 #endif

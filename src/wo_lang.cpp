@@ -50,17 +50,19 @@ namespace wo
         const std::optional<ast::AstDeclareAttribue*>& attr,
         wo_pstring_t src_location, 
         lang_Scope* scope,
-        kind kind)
+        kind kind,
+        bool mutable_variable)
         : m_symbol_kind(kind)
         , m_is_template(false)
         , m_defined_source(src_location)
         , m_declare_attribute(attr)
         , m_belongs_to_scope(scope)
+        , m_is_builtin(false)
     {
         switch (kind)
         {
         case VARIABLE:
-            m_value_instance = new lang_ValueInstance(this);
+            m_value_instance = new lang_ValueInstance(mutable_variable, this);
             break;
         case TYPE:
             m_type_instance = new lang_TypeInstance(this);
@@ -77,14 +79,17 @@ namespace wo
         wo_pstring_t src_location, 
         lang_Scope* scope, 
         ast::AstValueBase* template_value_base, 
-        const std::list<wo_pstring_t>& template_params)
+        const std::list<wo_pstring_t>& template_params,
+        bool mutable_variable)
         : m_symbol_kind(VARIABLE)
         , m_is_template(true)
         , m_defined_source(src_location)
         , m_declare_attribute(attr)
         , m_belongs_to_scope(scope)
+        , m_is_builtin(false)
     {
-        m_template_value_instances = new TemplateValuePrefab(template_value_base, template_params);
+        m_template_value_instances = new TemplateValuePrefab(
+            mutable_variable, template_value_base, template_params);
     }
     lang_Symbol::lang_Symbol(
         const std::optional<ast::AstDeclareAttribue*>& attr,
@@ -97,6 +102,7 @@ namespace wo
         , m_defined_source(src_location)
         , m_declare_attribute(attr)
         , m_belongs_to_scope(scope)
+        , m_is_builtin(false)
     {
         if (is_alias)
         {
@@ -112,8 +118,12 @@ namespace wo
 
     //////////////////////////////////////
 
-    lang_Symbol::TemplateValuePrefab::TemplateValuePrefab(ast::AstValueBase* ast, const std::list<wo_pstring_t>& template_params)
-        : m_origin_value_ast(ast)
+    lang_Symbol::TemplateValuePrefab::TemplateValuePrefab(
+        bool mutable_, 
+        ast::AstValueBase* ast, 
+        const std::list<wo_pstring_t>& template_params)
+        : m_mutable(mutable_)
+        , m_origin_value_ast(ast)
         , m_template_params(template_params)
     {
     }
@@ -135,13 +145,36 @@ namespace wo
         , m_determined_type(std::nullopt)
     {
     }
+
+    bool lang_TypeInstance::is_immutable() const
+    {
+        return nullptr != std::get_if<lang_TypeInstance::DeterminedType>(&m_determined_type.value());
+    }
+    bool lang_TypeInstance::is_mutable() const
+    {
+        return !is_immutable();
+    }
+    const lang_TypeInstance::DeterminedType* lang_TypeInstance::get_determined_type() const
+    {
+        auto* dtype = std::get_if<lang_TypeInstance::DeterminedType>(&m_determined_type.value());
+        
+        if (dtype != nullptr)
+            return dtype;
+
+        return &std::get<lang_TypeInstance::DeterminedType>(
+            std::get<lang_TypeInstance*>(m_determined_type.value())->m_determined_type.value());
+    }
+
+    //////////////////////////////////////
+
     lang_AliasInstance::lang_AliasInstance(lang_Symbol* symbol)
         : m_symbol(symbol)
         , m_determined_type(std::nullopt)
     {
     }
-    lang_ValueInstance::lang_ValueInstance(lang_Symbol* symbol)
+    lang_ValueInstance::lang_ValueInstance(bool mutable_, lang_Symbol* symbol)
         : m_symbol(symbol)
+        , m_mutable(mutable_)
         , m_determined_constant(std::nullopt)
         , m_determined_type(std::nullopt)
     {
@@ -252,15 +285,330 @@ namespace wo
 
     //////////////////////////////////////
 
-    LangContext::OriginTypeHolder::OriginNoTemplateSymbolAndInstance::OriginNoTemplateSymbolAndInstance()
-        : m_symbol(nullptr)
-        , m_type_instance(nullptr)
+    LangContext::OriginTypeHolder::OriginTypeHolder()
+        : m_dictionary(nullptr)
+        , m_mapping(nullptr)
+        , m_array(nullptr)
+        , m_vector(nullptr)
+        , m_tuple(nullptr)
+        , m_function(nullptr)
+        , m_struct(nullptr)
+        , m_union(nullptr)
     {
     }
-    LangContext::OriginTypeHolder::OriginNoTemplateSymbolAndInstance::~OriginNoTemplateSymbolAndInstance()
+    LangContext::OriginTypeHolder::~OriginTypeHolder()
     {
-        wo_assert(m_type_instance);
-        delete m_type_instance;
+        for (auto& [_, item] : m_origin_cached_types)
+            delete item;
+    }
+
+    std::optional<lang_TypeInstance*> LangContext::OriginTypeHolder::create_dictionary_type(
+        lexer& lex, ast::AstTypeHolder* type_holder)
+    {
+        wo_assert(type_holder->m_formal == ast::AstTypeHolder::IDENTIFIER);
+        if (type_holder->m_identifier->m_template_arguments)
+        {
+            auto& template_arguments_list = type_holder->m_identifier->m_template_arguments.value();
+            if (template_arguments_list.size() == 2)
+            {
+                lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
+                desc.m_dictionary_or_mapping = new lang_TypeInstance::DeterminedType::DictionaryOrMapping();
+
+                auto iter = template_arguments_list.begin();
+                desc.m_dictionary_or_mapping->m_key_type = (*(iter++))->m_LANG_determined_type.value();
+                desc.m_dictionary_or_mapping->m_value_type = (*iter)->m_LANG_determined_type.value();
+
+                lang_TypeInstance::DeterminedType determined_type_detail(
+                    lang_TypeInstance::DeterminedType::base_type::DICTIONARY, desc);
+
+                lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_dictionary);
+                new_type_instance->m_determined_type = std::move(determined_type_detail);
+
+                return new_type_instance;
+            }
+        }
+        lex.lang_error(lexer::errorlevel::error, type_holder,
+            WO_ERR_UNEXPECTED_TEMPLATE_COUNT, 
+            (size_t)2);
+
+        return std::nullopt;
+    }
+    std::optional<lang_TypeInstance*> LangContext::OriginTypeHolder::create_mapping_type(
+        lexer& lex, ast::AstTypeHolder* type_holder)
+    {
+        wo_assert(type_holder->m_formal == ast::AstTypeHolder::IDENTIFIER);
+        if (type_holder->m_identifier->m_template_arguments)
+        {
+            auto& template_arguments_list = type_holder->m_identifier->m_template_arguments.value();
+            if (template_arguments_list.size() == 2)
+            {
+                lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
+                desc.m_dictionary_or_mapping = new lang_TypeInstance::DeterminedType::DictionaryOrMapping();
+
+                auto iter = template_arguments_list.begin();
+                desc.m_dictionary_or_mapping->m_key_type = (*(iter++))->m_LANG_determined_type.value();
+                desc.m_dictionary_or_mapping->m_value_type = (*iter)->m_LANG_determined_type.value();
+
+                lang_TypeInstance::DeterminedType determined_type_detail(
+                    lang_TypeInstance::DeterminedType::base_type::MAPPING, desc);
+
+                lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_mapping);
+                new_type_instance->m_determined_type = std::move(determined_type_detail);
+
+                return new_type_instance;
+            }
+        }
+        lex.lang_error(lexer::errorlevel::error, type_holder,
+            WO_ERR_UNEXPECTED_TEMPLATE_COUNT, 
+            (size_t)2);
+
+        return std::nullopt;
+    }
+    std::optional<lang_TypeInstance*> LangContext::OriginTypeHolder::create_array_type(
+        lexer& lex, ast::AstTypeHolder* type_holder)
+    {
+        wo_assert(type_holder->m_formal == ast::AstTypeHolder::IDENTIFIER);
+        if (type_holder->m_identifier->m_template_arguments)
+        {
+            auto& template_arguments_list = type_holder->m_identifier->m_template_arguments.value();
+            if (template_arguments_list.size() == 1)
+            {
+                lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
+                desc.m_array_or_vector = new lang_TypeInstance::DeterminedType::ArrayOrVector();
+
+                desc.m_array_or_vector->m_element_type = template_arguments_list.front()->m_LANG_determined_type.value();
+
+                lang_TypeInstance::DeterminedType determined_type_detail(
+                    lang_TypeInstance::DeterminedType::base_type::ARRAY, desc);
+
+                lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_array);
+                new_type_instance->m_determined_type = std::move(determined_type_detail);
+
+                return new_type_instance;
+            }
+        }
+        lex.lang_error(lexer::errorlevel::error, type_holder,
+            WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
+            (size_t)1);
+
+        return std::nullopt;
+    }
+    std::optional<lang_TypeInstance*> LangContext::OriginTypeHolder::create_vector_type(
+        lexer& lex, ast::AstTypeHolder* type_holder)
+    {
+        wo_assert(type_holder->m_formal == ast::AstTypeHolder::IDENTIFIER);
+        if (type_holder->m_identifier->m_template_arguments)
+        {
+            auto& template_arguments_list = type_holder->m_identifier->m_template_arguments.value();
+            if (template_arguments_list.size() == 1)
+            {
+                lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
+                desc.m_array_or_vector = new lang_TypeInstance::DeterminedType::ArrayOrVector();
+
+                desc.m_array_or_vector->m_element_type = template_arguments_list.front()->m_LANG_determined_type.value();
+
+                lang_TypeInstance::DeterminedType determined_type_detail(
+                    lang_TypeInstance::DeterminedType::base_type::VECTOR, desc);
+
+                lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_vector);
+                new_type_instance->m_determined_type = std::move(determined_type_detail);
+
+                return new_type_instance;
+            }
+        }
+        lex.lang_error(lexer::errorlevel::error, type_holder,
+            WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
+            (size_t)1);
+
+        return std::nullopt;
+    }
+    std::optional<lang_TypeInstance*> LangContext::OriginTypeHolder::create_tuple_type(
+        lexer& lex, ast::AstTypeHolder* type_holder)
+    {
+        wo_assert(type_holder->m_formal == ast::AstTypeHolder::TUPLE);
+
+        lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
+        desc.m_tuple = new lang_TypeInstance::DeterminedType::Tuple();
+
+        for (auto& field : type_holder->m_tuple.m_fields)
+            desc.m_tuple->m_element_types.push_back(field->m_LANG_determined_type.value());
+
+        lang_TypeInstance::DeterminedType determined_type_detail(
+            lang_TypeInstance::DeterminedType::base_type::TUPLE, desc);
+
+        lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_tuple);
+        new_type_instance->m_determined_type = std::move(determined_type_detail);
+
+        return new_type_instance;
+    }
+    std::optional<lang_TypeInstance*> LangContext::OriginTypeHolder::create_function_type(
+        lexer& lex, ast::AstTypeHolder* type_holder)
+    {
+        wo_assert(type_holder->m_formal == ast::AstTypeHolder::FUNCTION);
+
+        lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
+        desc.m_function = new lang_TypeInstance::DeterminedType::Function();
+
+        desc.m_function->m_is_variadic = type_holder->m_function.m_is_variadic;
+        
+        for (auto& param_type: type_holder->m_function.m_parameters)
+            desc.m_function->m_param_types.push_back(param_type->m_LANG_determined_type.value());
+
+        desc.m_function->m_return_type = type_holder->m_function.m_return_type->m_LANG_determined_type.value();
+
+        lang_TypeInstance::DeterminedType determined_type_detail(
+            lang_TypeInstance::DeterminedType::base_type::FUNCTION, desc);
+
+        lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_function);
+        new_type_instance->m_determined_type = std::move(determined_type_detail);
+
+        return new_type_instance;            
+    }
+    std::optional<lang_TypeInstance*> LangContext::OriginTypeHolder::create_struct_type(
+        lexer& lex, ast::AstTypeHolder* type_holder)
+    {
+        wo_assert(type_holder->m_formal == ast::AstTypeHolder::STRUCTURE);
+
+        lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
+        desc.m_struct = new lang_TypeInstance::DeterminedType::Struct();
+
+        wo_integer_t field_offset = 0;
+        for (auto& field : type_holder->m_structure.m_fields)
+        {
+            lang_TypeInstance::DeterminedType::Struct::StructMember new_field;
+            new_field.m_offset = field_offset++;
+            new_field.m_member_type = field->m_type->m_LANG_determined_type.value();
+
+            desc.m_struct->m_member_types.insert(std::make_pair(field->m_name, new_field));
+        }
+
+        lang_TypeInstance::DeterminedType determined_type_detail(
+            lang_TypeInstance::DeterminedType::base_type::STRUCT, desc);
+
+        lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_struct);
+        new_type_instance->m_determined_type = std::move(determined_type_detail);
+
+        return new_type_instance;
+    }
+    std::optional<lang_TypeInstance*> LangContext::OriginTypeHolder::create_union_type(
+        lexer& lex, ast::AstTypeHolder* type_holder)
+    {
+        wo_assert(type_holder->m_formal == ast::AstTypeHolder::UNION);
+
+        lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
+        desc.m_union = new lang_TypeInstance::DeterminedType::Union();
+
+        wo_integer_t field_offset = 0;
+        for (auto& field : type_holder->m_union.m_fields)
+        {
+            lang_TypeInstance::DeterminedType::Union::UnionMember new_field;
+            new_field.m_label = field_offset++;
+            if (field.m_item)
+                new_field.m_item_type = field.m_item.value()->m_LANG_determined_type.value();
+            else
+                new_field.m_item_type = std::nullopt;
+
+            desc.m_union->m_union_label.insert(std::make_pair(field.m_label, new_field));
+        }
+
+        lang_TypeInstance::DeterminedType determined_type_detail(
+            lang_TypeInstance::DeterminedType::base_type::UNION, desc);
+
+        lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_union);
+        new_type_instance->m_determined_type = std::move(determined_type_detail);
+
+        return new_type_instance;
+    }
+
+    std::optional<lang_TypeInstance*> LangContext::OriginTypeHolder::create_or_find_origin_type(
+        lexer& lex, ast::AstTypeHolder* type_holder)
+    {
+        wo_assert(!type_holder->m_LANG_determined_type);
+
+        auto fnd = m_origin_cached_types.find(type_holder);
+        if (fnd != m_origin_cached_types.end())
+            return fnd->second;
+
+        switch (type_holder->m_formal)
+        {
+        case ast::AstTypeHolder::IDENTIFIER:
+        {
+            auto* symbol = type_holder->m_identifier->m_LANG_determined_symbol.value();
+
+            wo_assert(symbol->m_is_builtin);
+            if (symbol == m_dictionary)
+            {
+                auto new_type_instance = create_dictionary_type(lex, type_holder);
+                if (new_type_instance)
+                    m_origin_cached_types.insert(std::make_pair(type_holder, new_type_instance.value()));
+
+                return new_type_instance;
+            }
+            else if (symbol == m_mapping)
+            {
+                auto new_type_instance = create_mapping_type(lex, type_holder);
+                if (new_type_instance)
+                    m_origin_cached_types.insert(std::make_pair(type_holder, new_type_instance.value()));
+
+                return new_type_instance;
+            }
+            else if (symbol == m_array)
+            {
+                auto new_type_instance = create_array_type(lex, type_holder);
+                if (new_type_instance)
+                    m_origin_cached_types.insert(std::make_pair(type_holder, new_type_instance.value()));
+
+                return new_type_instance;
+            }
+            else if (symbol == m_vector)
+            {
+                auto new_type_instance = create_vector_type(lex, type_holder);
+                if (new_type_instance)
+                    m_origin_cached_types.insert(std::make_pair(type_holder, new_type_instance.value()));
+
+                return new_type_instance;
+            }
+            else
+            {
+                wo_error("Unexpected builtin type.");
+            }
+        }
+        case ast::AstTypeHolder::FUNCTION:
+        {
+            auto new_type_instance = create_function_type(lex, type_holder);
+            if (new_type_instance)
+                m_origin_cached_types.insert(std::make_pair(type_holder, new_type_instance.value()));
+
+            return new_type_instance;
+        }
+        case ast::AstTypeHolder::STRUCTURE:
+        {
+            auto new_type_instance = create_struct_type(lex, type_holder);
+            if (new_type_instance)
+                m_origin_cached_types.insert(std::make_pair(type_holder, new_type_instance.value()));
+
+            return new_type_instance;
+        }
+        case ast::AstTypeHolder::UNION:
+        {
+            auto new_type_instance = create_union_type(lex, type_holder);
+            if (new_type_instance)
+                m_origin_cached_types.insert(std::make_pair(type_holder, new_type_instance.value()));
+
+            return new_type_instance;
+        }
+        case ast::AstTypeHolder::TUPLE:
+        {
+            auto new_type_instance = create_tuple_type(lex, type_holder);
+            if (new_type_instance)
+                m_origin_cached_types.insert(std::make_pair(type_holder, new_type_instance.value()));
+
+            return new_type_instance;
+        }
+        default:
+            wo_error("Unexpected type holder formal.");
+        }
+        return std::nullopt;
     }
 
     //////////////////////////////////////
@@ -339,13 +687,17 @@ namespace wo
                     built_type_public_attrib,
                     WO_PSTR(_),
                     get_current_scope(),
-                    lang_Symbol::kind::ALIAS).value();
+                    lang_Symbol::kind::TYPE,
+                    false).value();
 
-                out_sni->m_type_instance = new lang_TypeInstance(m_origin_types.m_int.m_symbol);
+                out_sni->m_type_instance = out_sni->m_symbol->m_type_instance;
                 out_sni->m_type_instance->m_determined_type =
                     std::move(lang_TypeInstance::DeterminedType(basic_type, {}));
             };
-
+        create_builtin_non_template_symbol_and_instance(
+            &m_origin_types.m_void, WO_PSTR(void), lang_TypeInstance::DeterminedType::VOID);
+        create_builtin_non_template_symbol_and_instance(
+            &m_origin_types.m_nothing, WO_PSTR(nothing), lang_TypeInstance::DeterminedType::NOTHING);
         create_builtin_non_template_symbol_and_instance(
             &m_origin_types.m_nil, WO_PSTR(nil), lang_TypeInstance::DeterminedType::NIL);
         create_builtin_non_template_symbol_and_instance(
@@ -358,6 +710,33 @@ namespace wo
             &m_origin_types.m_bool, WO_PSTR(bool), lang_TypeInstance::DeterminedType::BOOLEAN);
         create_builtin_non_template_symbol_and_instance(
             &m_origin_types.m_string, WO_PSTR(string), lang_TypeInstance::DeterminedType::STRING);        
+
+        // Declare array/vec/... type symbol.
+        auto create_builtin_complex_symbol_and_instance = [this](
+            lang_Symbol** out_symbol,
+            wo_pstring_t name)
+            {
+                ast::AstDeclareAttribue* built_type_public_attrib = new ast::AstDeclareAttribue();
+                built_type_public_attrib->m_access = ast::AstDeclareAttribue::PUBLIC;
+
+                *out_symbol = define_symbol_in_current_scope(
+                    name,
+                    built_type_public_attrib,
+                    WO_PSTR(_),
+                    get_current_scope(),
+                    lang_Symbol::kind::TYPE,
+                    false).value();
+                (*out_symbol)->m_is_builtin = true;
+            };
+
+        create_builtin_complex_symbol_and_instance(&m_origin_types.m_dictionary, WO_PSTR(dict));
+        create_builtin_complex_symbol_and_instance(&m_origin_types.m_mapping, WO_PSTR(map));
+        create_builtin_complex_symbol_and_instance(&m_origin_types.m_vector, WO_PSTR(vec));
+        create_builtin_complex_symbol_and_instance(&m_origin_types.m_array, WO_PSTR(array));
+        create_builtin_complex_symbol_and_instance(&m_origin_types.m_tuple, WO_PSTR(tuple));
+        create_builtin_complex_symbol_and_instance(&m_origin_types.m_function, WO_PSTR(function));
+        create_builtin_complex_symbol_and_instance(&m_origin_types.m_struct, WO_PSTR(struct));
+        create_builtin_complex_symbol_and_instance(&m_origin_types.m_union, WO_PSTR(union));
     }
 
     bool LangContext::process(lexer& lex, ast::AstBase* root)
@@ -530,6 +909,40 @@ namespace wo
             return symbol;
         }
         return std::nullopt;
+    }
+
+    lang_TypeInstance* LangContext::mutable_type(lang_TypeInstance* origin_type)
+    {
+        if (origin_type->is_immutable())
+        {
+            // Is immutable type.
+            auto fnd = m_mutable_type_instance_cache.find(origin_type);
+            if (fnd != m_mutable_type_instance_cache.end())
+                return fnd->second.get();
+
+            auto mutable_type_instance = std::make_unique<lang_TypeInstance>(origin_type->m_symbol);
+            mutable_type_instance->m_determined_type = origin_type;
+  
+            auto* result = mutable_type_instance.get();
+
+            m_mutable_type_instance_cache.insert(
+                std::make_pair(origin_type, std::move(mutable_type_instance)));
+
+            return result;
+        }
+        return origin_type;
+    }
+    lang_TypeInstance* LangContext::immutable_type(lang_TypeInstance* origin_type)
+    {
+        lang_TypeInstance* immutable_type =
+            *std::get_if<lang_TypeInstance*>(&origin_type->m_determined_type.value());
+
+        if (nullptr != immutable_type)
+        {
+            // Is mutable type.
+            return immutable_type;
+        }
+        return origin_type;
     }
 
 #endif

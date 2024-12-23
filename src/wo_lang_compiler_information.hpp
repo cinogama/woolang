@@ -61,3 +61,6 @@
 #define WO_ERR_UNKNOWN_IDENTIFIER L"未定义的标识符：'%ls'"
 #define WO_ERR_UNEXPECTED_TYPE_SYMBOL L"'%ls' 是一个类型"
 #define WO_ERR_UNEXPECTED_VAR_SYMBOL L"'%ls' 不是类型"
+#define WO_ERR_UNEXPECTED_TEMPLATE_COUNT L"此类型期待有且仅有 '%zu' 个泛型参数"
+#define WO_ERR_UNEXPECTED_MATCH_TYPE_FOR_TUPLE L"此处匹配期待一个元组"
+#define WO_ERR_UNEXPECTED_MATCH_COUNT_FOR_TUPLE L"此处匹配期待一个包含 '%zu' 个元素的元组，但给定的元组包含 '%zu' 个元素"
