@@ -5,6 +5,92 @@ namespace wo
 #ifndef WO_DISABLE_COMPILER
     using namespace ast;
 
+    bool LangContext::declare_pattern_symbol_pass0_1(
+        lexer& lex,
+        const std::optional<ast::AstDeclareAttribue*>& decl_attrib,
+        ast::AstPatternBase* pattern,
+        std::optional<ast::AstValueBase*> init_value)
+    {
+        switch (pattern->node_type)
+        {
+        case ast::AstBase::AST_PATTERN_SINGLE:
+        {
+            ast::AstPatternSingle* single_pattern = static_cast<ast::AstPatternSingle*>(pattern);
+            // Check has been declared?
+            if (!single_pattern->m_LANG_declared_symbol)
+            {
+                if (single_pattern->m_template_parameters)
+                {
+                    wo_assert(init_value);
+                    single_pattern->m_LANG_declared_symbol = define_symbol_in_current_scope(
+                        single_pattern->m_name,
+                        decl_attrib,
+                        pattern->source_location.source_file,
+                        get_current_scope(),
+                        init_value.value(),
+                        single_pattern->m_template_parameters.value());
+                }
+                else
+                {
+                    single_pattern->m_LANG_declared_symbol = define_symbol_in_current_scope(
+                        single_pattern->m_name,
+                        decl_attrib,
+                        pattern->source_location.source_file,
+                        get_current_scope(),
+                        lang_Symbol::kind::VARIABLE);
+                }
+
+                if (!single_pattern->m_LANG_declared_symbol)
+                {
+                    lex.lang_error(lexer::errorlevel::error, single_pattern,
+                        WO_ERR_REDEFINED,
+                        single_pattern->m_name->c_str());
+
+                    return false;
+                }
+            }
+            return true;
+            break;
+        }
+        case ast::AstBase::AST_PATTERN_TUPLE:
+        {
+            ast::AstPatternTuple* tuple_pattern = static_cast<ast::AstPatternTuple*>(pattern);
+            bool success = true;
+            for (auto& sub_pattern : tuple_pattern->m_fields)
+                success = success && declare_pattern_symbol_pass0_1(
+                    lex,
+                    decl_attrib,
+                    sub_pattern,
+                    std::nullopt);
+
+            return success;
+            break;
+        }
+        case ast::AstBase::AST_PATTERN_UNION:
+        {
+            ast::AstPatternUnion* union_pattern = static_cast<ast::AstPatternUnion*>(pattern);
+            bool success = true;
+            if (union_pattern->m_field)
+                success = declare_pattern_symbol_pass0_1(
+                    lex,
+                    decl_attrib,
+                    union_pattern->m_field.value(),
+                    std::nullopt);
+
+            return success;
+            break;
+        }
+        case ast::AstBase::AST_PATTERN_TAKEPLACE:
+        {
+            // Nothing todo.
+            break;
+        }
+        default:
+            wo_error("Unexpected pattern type.");
+        }
+        return false;
+    }
+
     void LangContext::init_pass0()
     {
         WO_LANG_REGISTER_PROCESSER(AstList, AstBase::AST_LIST, pass0);
@@ -65,7 +151,11 @@ namespace wo
         
         bool success = true;
         for (auto& defines : node->m_definitions)
-            success = success && declare_pattern_symbol(lex, defines->m_pattern, defines->m_init_value);
+            success = success && declare_pattern_symbol_pass0_1(
+                lex,
+                node->m_attribute,
+                defines->m_pattern, 
+                defines->m_init_value);
         
         return success ? OKAY : FAILED;
     }
@@ -73,10 +163,20 @@ namespace wo
     {
         if (node->m_template_parameters)
             node->m_LANG_declared_symbol = define_symbol_in_current_scope(
-                node->m_typename, get_current_scope(), node->m_type, node->m_template_parameters.value(), true);
+                node->m_typename, 
+                node->m_attribute,
+                node->source_location.source_file,
+                get_current_scope(), 
+                node->m_type, 
+                node->m_template_parameters.value(), 
+                true);
         else
             node->m_LANG_declared_symbol = define_symbol_in_current_scope(
-                node->m_typename, lang_Symbol::kind::ALIAS);
+                node->m_typename, 
+                node->m_attribute,
+                node->source_location.source_file,
+                get_current_scope(),
+                lang_Symbol::kind::ALIAS);
 
         if (!node->m_LANG_declared_symbol)
         {
@@ -92,10 +192,20 @@ namespace wo
         {
             if (node->m_template_parameters)
                 node->m_LANG_declared_symbol = define_symbol_in_current_scope(
-                    node->m_typename, get_current_scope(), node->m_type, node->m_template_parameters.value(), false);
+                    node->m_typename, 
+                    node->m_attribute,
+                    node->source_location.source_file,
+                    get_current_scope(), 
+                    node->m_type, 
+                    node->m_template_parameters.value(),
+                    false);
             else
                 node->m_LANG_declared_symbol = define_symbol_in_current_scope(
-                    node->m_typename, lang_Symbol::kind::TYPE);
+                    node->m_typename, 
+                    node->m_attribute,
+                    node->source_location.source_file,
+                    get_current_scope(),
+                    lang_Symbol::kind::TYPE);
 
             if (node->m_in_type_namespace)
             {

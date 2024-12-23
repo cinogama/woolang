@@ -84,8 +84,8 @@ namespace wo
             , m_scope({})
             , m_name(identifier)
             , m_template_arguments(std::nullopt)
-            , m_symbol(std::nullopt)
-            , m_LANG_determined_searching_from_scope(std::nullopt)
+            , m_LANG_determined_symbol(std::nullopt)
+            //, m_LANG_determined_searching_from_scope(std::nullopt)
         {
 
         }
@@ -95,11 +95,11 @@ namespace wo
             : AstBase(AST_IDENTIFIER)
             , m_formal(FROM_CURRENT)
             , m_from_type(std::nullopt)
-            , m_scope({})
+            , m_scope{}
             , m_name(identifier)
             , m_template_arguments(template_arguments)
-            , m_symbol(std::nullopt)
-            , m_LANG_determined_searching_from_scope(std::nullopt)
+            , m_LANG_determined_symbol(std::nullopt)
+            //, m_LANG_determined_searching_from_scope(std::nullopt)
         {
         }
         AstIdentifier::AstIdentifier(
@@ -113,8 +113,8 @@ namespace wo
             , m_scope(scopes)
             , m_name(identifier)
             , m_template_arguments(template_arguments)
-            , m_symbol(std::nullopt)
-            , m_LANG_determined_searching_from_scope(std::nullopt)
+            , m_LANG_determined_symbol(std::nullopt)
+            //, m_LANG_determined_searching_from_scope(std::nullopt)
         {
 
         }
@@ -129,8 +129,8 @@ namespace wo
             , m_scope(scopes)
             , m_name(identifier)
             , m_template_arguments(template_arguments)
-            , m_symbol(std::nullopt)
-            , m_LANG_determined_searching_from_scope(std::nullopt)
+            , m_LANG_determined_symbol(std::nullopt)
+            //, m_LANG_determined_searching_from_scope(std::nullopt)
         {
 
         }
@@ -142,8 +142,8 @@ namespace wo
             , m_scope(identifer.m_scope)
             , m_name(identifer.m_name)
             , m_template_arguments(identifer.m_template_arguments)
-            , m_symbol(std::nullopt)
-            , m_LANG_determined_searching_from_scope(std::nullopt)
+            , m_LANG_determined_symbol(std::nullopt)
+            //, m_LANG_determined_searching_from_scope(std::nullopt)
         {
         }
 
@@ -406,7 +406,7 @@ namespace wo
 
         AstValueBase::AstValueBase(AstBase::node_type_t nodetype)
             : AstBase(nodetype)
-            , m_determined_type(std::nullopt)
+            , m_LANG_determined_type(std::nullopt)
             , m_evaled_const_value(std::nullopt)
         {
         }
@@ -418,9 +418,17 @@ namespace wo
         void AstValueBase::decide_final_constant_value(const wo::value& val)
         {
             wo_assert(!m_evaled_const_value);
-            wo_assert(!val.is_gcunit() || val.fast_get_attrib_for_assert_check() == nullptr /* not in managed heap */);
+           
+            m_evaled_const_value = wo::value();
+            m_evaled_const_value->set_val_compile_time(&val);
 
-            m_evaled_const_value = val;
+        }
+        void AstValueBase::decide_final_constant_value(const std::string& cstr)
+        {
+            wo_assert(!m_evaled_const_value);
+
+            m_evaled_const_value = wo::value();
+            m_evaled_const_value->set_string_nogc(cstr);
         }
         AstBase* AstValueBase::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
         {
@@ -943,7 +951,7 @@ namespace wo
         }
         AstVariableDefines::AstVariableDefines(const std::optional<AstDeclareAttribue*>& attribute)
             : AstBase(AST_VARIABLE_DEFINES)
-            , m_definitions({})
+            , m_definitions{}
             , m_attribute(attribute)
         {
         }

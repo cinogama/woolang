@@ -79,10 +79,10 @@ namespace wo
                                     m_template_arguments;
 
             std::optional<lang_Symbol*>
-                                    m_symbol;
+                                    m_LANG_determined_symbol;
 
-            std::optional<lang_Scope*>
-                                    m_LANG_determined_searching_from_scope;
+            /*std::optional<lang_Scope*>
+                                    m_LANG_determined_searching_from_scope;*/
 
             AstIdentifier(wo_pstring_t identifier);
             AstIdentifier(wo_pstring_t identifier, const std::optional<std::list<AstTypeHolder*>>& template_arguments);
@@ -145,7 +145,7 @@ namespace wo
                     wo_pstring_t m_label;
                     std::optional<AstTypeHolder*> m_item;
                 };
-                std::vector<UnionField> m_fields;
+                std::list<UnionField> m_fields;
             };
 
             mutable_mark    m_mutable_mark;
@@ -177,7 +177,7 @@ namespace wo
         };
         struct AstValueBase : public AstBase
         {
-            std::optional<lang_TypeInstance*> m_determined_type;
+            std::optional<lang_TypeInstance*> m_LANG_determined_type;
             std::optional<wo::value> m_evaled_const_value;
 
             AstValueBase(AstBase::node_type_t nodetype);
@@ -189,6 +189,7 @@ namespace wo
             /*virtual void collect_eval_const_list(EvalTobeEvalConstList& out_vals) const = 0;
             virtual void eval_const_value() = 0;*/
             void decide_final_constant_value(const wo::value& val);
+            void decide_final_constant_value(const std::string& cstr);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
 

@@ -675,7 +675,7 @@ namespace wo
             AstToken* nil_token = static_cast<AstToken*>(WO_NEED_AST_TYPE(0, AstBase::AST_TOKEN));
             wo_assert(nil_token->m_token.type == lex_type::l_nil);
 
-            AstIdentifier* nil_type_identifier = new AstIdentifier(WO_PSTR(nil));
+            AstIdentifier* nil_type_identifier = new AstIdentifier(WO_PSTR(nil), std::nullopt, {}, true);
 
             // Update source location
             nil_type_identifier->source_location = nil_token->source_location;
@@ -1015,13 +1015,10 @@ namespace wo
             wo_assert(format_string_begin->m_token.type == lex_type::l_format_string_begin);
             wo_assert(format_string_end->m_token.type == lex_type::l_format_string_end);
 
-            wo::value format_string_value;
-            format_string_value.set_string_nogc(wstrn_to_str(format_string_begin->m_token.identifier));
             AstValueLiteral* format_string_begin_literal = new AstValueLiteral();
-            format_string_begin_literal->decide_final_constant_value(format_string_value);
-            format_string_value.set_string_nogc(wstrn_to_str(format_string_end->m_token.identifier));
+            format_string_begin_literal->decide_final_constant_value(wstrn_to_str(format_string_begin->m_token.identifier));
             AstValueLiteral* format_string_end_literal = new AstValueLiteral();
-            format_string_end_literal->decide_final_constant_value(format_string_value);
+            format_string_end_literal->decide_final_constant_value(wstrn_to_str(format_string_end->m_token.identifier));
 
             AstValueBinaryOperator* first_middle_add =
                 new AstValueBinaryOperator(AstValueBinaryOperator::ADD, format_string_begin_literal, middle_value);
@@ -1059,10 +1056,8 @@ namespace wo
             AstIdentifier* string_identifier = new AstIdentifier(WO_PSTR(string), std::nullopt, {}, true);
             AstTypeHolder* string_type = new AstTypeHolder(string_identifier);
             AstValueTypeCast* cast = new AstValueTypeCast(string_type, first_string);
-            wo::value middle_string_value;
-            middle_string_value.set_string_nogc(wstrn_to_str(middle_string_literal->m_token.identifier));
             AstValueLiteral* middle_string = new AstValueLiteral();
-            middle_string->decide_final_constant_value(middle_string_value);
+            middle_string->decide_final_constant_value(wstrn_to_str(middle_string_literal->m_token.identifier));
 
             AstValueBinaryOperator* first_middle_add =
                 new AstValueBinaryOperator(AstValueBinaryOperator::ADD, first_string, middle_string);
@@ -1502,19 +1497,18 @@ namespace wo
             AstValueBase* value = WO_NEED_AST_VALUE(0);
             AstToken* index = static_cast<AstToken*>(WO_NEED_AST_TYPE(2, AstBase::AST_TOKEN));
 
-            wo::value index_value;
             AstValueLiteral* index_literal;
             switch (index->m_token.type)
             {
             case lex_type::l_identifier:
             {
-                index_value.set_string_nogc(wstrn_to_str(index->m_token.identifier));
                 index_literal = new AstValueLiteral();
-                index_literal->decide_final_constant_value(index_value);
+                index_literal->decide_final_constant_value(wstrn_to_str(index->m_token.identifier));
                 break;
             }
             case lex_type::l_literal_integer:
             {
+                wo::value index_value;
                 index_value.set_integer((wo_integer_t)std::stoll(index->m_token.identifier));
                 index_literal = new AstValueLiteral();
                 index_literal->decide_final_constant_value(index_value);

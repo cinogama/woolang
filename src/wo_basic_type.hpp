@@ -133,7 +133,7 @@ namespace wo
             set_gcunit<wo::value::valuetype::string_type>(new string_t(str));
             return this;
         }
-        inline value* set_val_compile_time(value* val)
+        inline value* set_val_compile_time(const value* val)
         {
             if (val->type == valuetype::string_type)
                 return set_string_nogc(*val->string);

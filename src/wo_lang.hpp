@@ -12,16 +12,45 @@
 
 namespace wo
 {
-#ifndef WO_DISABLE_COMPILER
     struct lang_Namespace;
     struct lang_Scope;
+    struct lang_Symbol;
+    struct lang_TypeInstance;
+}
 
+namespace std
+{
+    template<>
+    struct hash<wo::lang_TypeInstance>
+    {
+        size_t operator()(const std::pair<wo::lang_TypeInstance*, wo::lang_TypeInstance*>& pair) const
+        {
+            return std::hash<wo::lang_TypeInstance*>{}(pair.first) ^ std::hash<wo::lang_TypeInstance*>{}(pair.second);
+        }
+    };
+
+    template<>
+    struct equal_to<std::pair<wo::lang_TypeInstance*, wo::lang_TypeInstance*>>
+    {
+        bool operator()(const std::pair<wo::lang_TypeInstance*, wo::lang_TypeInstance*>& lhs,
+            const std::pair<wo::lang_TypeInstance*, wo::lang_TypeInstance*>& rhs) const
+        {
+            return lhs.first == rhs.first && lhs.second == rhs.second;
+        }
+    };
+
+}
+
+namespace wo
+{
+#ifndef WO_DISABLE_COMPILER
     struct lang_TypeInstance
     {
         struct DeterminedType
         {
             enum base_type
             {
+                NIL,
                 INTEGER,
                 REAL,
                 HANDLE,
@@ -38,27 +67,32 @@ namespace wo
             };
             struct ArrayOrVector
             {
-                lang_TypeInstance*              m_element_type;
+                lang_TypeInstance* m_element_type;
             };
             struct DictionaryOrMapping
             {
-                lang_TypeInstance*              m_key_type;
-                lang_TypeInstance*              m_value_type;
+                lang_TypeInstance* m_key_type;
+                lang_TypeInstance* m_value_type;
             };
             struct Tuple
             {
-                std::vector<lang_TypeInstance*> m_element_types;
+                std::list<lang_TypeInstance*> m_element_types;
             };
             struct Struct
             {
-                std::unordered_map<wo_pstring_t, lang_TypeInstance*> 
-                                                m_member_types;
+                struct StructMember
+                {
+                    wo_integer_t              m_offset;
+                    lang_TypeInstance* m_member_type;
+                };
+                std::unordered_map<wo_pstring_t, StructMember>
+                    m_member_types;
             };
             struct Function
             {
                 bool                            m_is_variadic;
                 std::vector<lang_TypeInstance*> m_param_types;
-                lang_TypeInstance*              m_return_type;
+                lang_TypeInstance* m_return_type;
             };
             struct Union
             {
@@ -87,14 +121,16 @@ namespace wo
             ~DeterminedType();
 
             DeterminedType(const DeterminedType&) = delete;
-            DeterminedType(DeterminedType&&) = delete;
             DeterminedType& operator=(const DeterminedType&) = delete;
-            DeterminedType& operator=(DeterminedType&&) = delete;
+
+            DeterminedType(DeterminedType&&);
+            DeterminedType& operator=(DeterminedType&&);
         };
 
+        lang_Symbol* m_symbol;
         std::optional<DeterminedType> m_determined_type;
 
-        lang_TypeInstance();
+        lang_TypeInstance(lang_Symbol* symbol);
         lang_TypeInstance(const lang_TypeInstance&) = delete;
         lang_TypeInstance(lang_TypeInstance&&) = delete;
         lang_TypeInstance& operator=(const lang_TypeInstance&) = delete;
@@ -102,9 +138,10 @@ namespace wo
     };
     struct lang_AliasInstance
     {
+        lang_Symbol* m_symbol;
         std::optional<lang_TypeInstance*> m_determined_type;
 
-        lang_AliasInstance();
+        lang_AliasInstance(lang_Symbol* symbol);
         lang_AliasInstance(const lang_AliasInstance&) = delete;
         lang_AliasInstance(lang_AliasInstance&&) = delete;
         lang_AliasInstance& operator=(const lang_AliasInstance&) = delete;
@@ -112,10 +149,13 @@ namespace wo
     };
     struct lang_ValueInstance
     {
-        std::optional<ast::AstValueBase*> m_determined_constant;
+        lang_Symbol* m_symbol;
+        std::optional<wo::value> m_determined_constant;
         std::optional<lang_TypeInstance*> m_determined_type;
 
-        lang_ValueInstance();
+        lang_ValueInstance(lang_Symbol* symbol);
+        ~lang_ValueInstance();
+
         lang_ValueInstance(const lang_ValueInstance&) = delete;
         lang_ValueInstance(lang_ValueInstance&&) = delete;
         lang_ValueInstance& operator=(const lang_ValueInstance&) = delete;
@@ -134,13 +174,12 @@ namespace wo
 
         struct TemplateValuePrefab
         {
-            lang_Scope* m_belongs_to_scope;
             std::list<wo_pstring_t> m_template_params;
-            ast::AstValueBase*  m_origin_value_ast;
+            ast::AstValueBase* m_origin_value_ast;
             std::map<TemplateArgumentSetT, std::unique_ptr<lang_ValueInstance*>>
-                                m_template_instances;
+                m_template_instances;
 
-            TemplateValuePrefab(lang_Scope* scope, ast::AstValueBase* ast, const std::list<wo_pstring_t>& template_params);
+            TemplateValuePrefab(ast::AstValueBase* ast, const std::list<wo_pstring_t>& template_params);
 
             TemplateValuePrefab(const TemplateValuePrefab&) = delete;
             TemplateValuePrefab(TemplateValuePrefab&&) = delete;
@@ -150,13 +189,12 @@ namespace wo
         };
         struct TemplateTypePrefab
         {
-            lang_Scope* m_belongs_to_scope;
             std::list<wo_pstring_t> m_template_params;
             ast::AstTypeHolder* m_origin_value_ast;
             std::map<TemplateArgumentSetT, std::unique_ptr<lang_TypeInstance*>>
-                                m_template_instances;
+                m_template_instances;
 
-            TemplateTypePrefab(lang_Scope* scope, ast::AstTypeHolder* ast, const std::list<wo_pstring_t>& template_params);
+            TemplateTypePrefab(ast::AstTypeHolder* ast, const std::list<wo_pstring_t>& template_params);
 
             TemplateTypePrefab(const TemplateTypePrefab&) = delete;
             TemplateTypePrefab(TemplateTypePrefab&&) = delete;
@@ -165,13 +203,12 @@ namespace wo
         };
         struct TemplateAliasPrefab
         {
-            lang_Scope* m_belongs_to_scope;
             std::list<wo_pstring_t> m_template_params;
             ast::AstTypeHolder* m_origin_value_ast;
             std::map<TemplateArgumentSetT, std::unique_ptr<lang_AliasInstance*>>
-                        m_template_instances;
+                m_template_instances;
 
-            TemplateAliasPrefab(lang_Scope* scope, ast::AstTypeHolder* ast, const std::list<wo_pstring_t>& template_params);
+            TemplateAliasPrefab(ast::AstTypeHolder* ast, const std::list<wo_pstring_t>& template_params);
             TemplateAliasPrefab(const TemplateAliasPrefab&) = delete;
             TemplateAliasPrefab(TemplateAliasPrefab&&) = delete;
             TemplateAliasPrefab& operator=(const TemplateAliasPrefab&) = delete;
@@ -180,14 +217,19 @@ namespace wo
 
         kind                            m_symbol_kind;
         bool                            m_is_template;
+        wo_pstring_t                    m_defined_source;
+        std::optional<ast::AstDeclareAttribue*>
+            m_declare_attribute;
+        lang_Scope* m_belongs_to_scope;
+
         union
         {
-            TemplateTypePrefab*         m_template_type_instances;
-            TemplateValuePrefab*        m_template_value_instances;
-            TemplateAliasPrefab*        m_template_alias_instances;
-            lang_TypeInstance*          m_type_instance;
-            lang_ValueInstance*         m_value_instance;
-            lang_AliasInstance*         m_alias_instance;
+            TemplateTypePrefab* m_template_type_instances;
+            TemplateValuePrefab* m_template_value_instances;
+            TemplateAliasPrefab* m_template_alias_instances;
+            lang_TypeInstance* m_type_instance;
+            lang_ValueInstance* m_value_instance;
+            lang_AliasInstance* m_alias_instance;
         };
 
         lang_Symbol(const lang_Symbol&) = delete;
@@ -197,31 +239,49 @@ namespace wo
 
         ~lang_Symbol();
 
-        lang_Symbol(kind kind);
-        lang_Symbol(lang_Scope* scope, ast::AstValueBase* template_value_base, const std::list<wo_pstring_t>& template_params);
-        lang_Symbol(lang_Scope* scope, ast::AstTypeHolder* template_type_base, const std::list<wo_pstring_t>& template_params, bool is_alias);
+        lang_Symbol(
+            const std::optional<ast::AstDeclareAttribue*>& attr,
+            wo_pstring_t src_location,
+            lang_Scope* scope,
+            kind kind);
+        lang_Symbol(
+            const std::optional<ast::AstDeclareAttribue*>& attr,
+            wo_pstring_t src_location,
+            lang_Scope* scope,
+            ast::AstValueBase* template_value_base,
+            const std::list<wo_pstring_t>& template_params);
+        lang_Symbol(
+            const std::optional<ast::AstDeclareAttribue*>& attr,
+            wo_pstring_t src_location,
+            lang_Scope* scope,
+            ast::AstTypeHolder* template_type_base,
+            const std::list<wo_pstring_t>& template_params,
+            bool is_alias);
     };
 
     struct lang_Scope
     {
-        std::unordered_map<wo_pstring_t, std::unique_ptr<lang_Symbol>> 
-                        m_defined_symbols;
-        std::list<std::unique_ptr<lang_Scope>>  
-                        m_sub_scopes;
+        std::unordered_map<wo_pstring_t, std::unique_ptr<lang_Symbol>>
+            m_defined_symbols;
+        std::list<std::unique_ptr<lang_Scope>>
+            m_sub_scopes;
 
+        std::optional<lang_Scope*> m_parent_scope;
         lang_Namespace* m_belongs_to_namespace;
 
-        lang_Scope(lang_Namespace* belongs);
+        lang_Scope(const std::optional<lang_Scope*>& parent_scope, lang_Namespace* belongs);
 
         lang_Scope(const lang_Scope&) = delete;
         lang_Scope(lang_Scope&&) = delete;
         lang_Scope& operator=(const lang_Scope&) = delete;
         lang_Scope& operator=(lang_Scope&&) = delete;
+
+        bool is_namespace_scope() const;
     };
     struct lang_Namespace
     {
-        std::unordered_map<wo_pstring_t, std::unique_ptr<lang_Namespace>> 
-                                                m_sub_namespaces;
+        std::unordered_map<wo_pstring_t, std::unique_ptr<lang_Namespace>>
+            m_sub_namespaces;
         std::unique_ptr<lang_Scope>             m_this_scope;
         std::optional<lang_Namespace*>          m_parent_namespace;
 
@@ -272,13 +332,13 @@ namespace wo
         public:
             template<typename T>
             void register_processer(
-                ast::AstBase::node_type_t type, 
+                ast::AstBase::node_type_t type,
                 const std::function<pass_behavior(LangContext*, lexer&, T*, pass_behavior, PassProcessStackT&)> processer)
             {
                 static_assert(std::is_base_of<ast::AstBase, T>::value);
 
                 wo_assert(m_node_processer.find(type) == m_node_processer.end());
-                m_node_processer.insert(std::make_pair(type, 
+                m_node_processer.insert(std::make_pair(type,
                     [processer](LangContext* ctx, lexer& lex, const AstNodeWithState& node_state, PassProcessStackT& out_stack)
                     {
                         return processer(ctx, lex, static_cast<T*>(node_state.m_ast_node), node_state.m_state, out_stack);
@@ -287,6 +347,38 @@ namespace wo
             pass_behavior process_node(LangContext* ctx, lexer& lex, const AstNodeWithState& node_state, PassProcessStackT& out_stack);
         };
 
+        struct OriginTypeHolder
+        {
+            struct OriginNoTemplateSymbolAndInstance
+            {
+                lang_Symbol* m_symbol;
+                lang_TypeInstance* m_type_instance;
+
+                OriginNoTemplateSymbolAndInstance();
+                ~OriginNoTemplateSymbolAndInstance();
+
+                OriginNoTemplateSymbolAndInstance(const OriginNoTemplateSymbolAndInstance&) = delete;
+                OriginNoTemplateSymbolAndInstance(OriginNoTemplateSymbolAndInstance&&) = delete;
+                OriginNoTemplateSymbolAndInstance& operator=(const OriginNoTemplateSymbolAndInstance&) = delete;
+                OriginNoTemplateSymbolAndInstance& operator=(OriginNoTemplateSymbolAndInstance&&) = delete;
+
+            };
+            OriginNoTemplateSymbolAndInstance   m_nil;
+            OriginNoTemplateSymbolAndInstance   m_int;
+            OriginNoTemplateSymbolAndInstance   m_real;
+            OriginNoTemplateSymbolAndInstance   m_handle;
+            OriginNoTemplateSymbolAndInstance   m_bool;
+            OriginNoTemplateSymbolAndInstance   m_string;
+            lang_Symbol* m_dictionary;
+            lang_Symbol* m_mapping;
+            lang_Symbol* m_array;
+            lang_Symbol* m_vector;
+            lang_Symbol* m_tuple;
+            lang_Symbol* m_function;
+            lang_Symbol* m_struct;
+            lang_Symbol* m_union;
+        };
+        OriginTypeHolder                m_origin_types;
         std::unique_ptr<lang_Namespace> m_root_namespace;
         std::stack<lang_Scope*>         m_scope_stack;
 
@@ -300,7 +392,9 @@ namespace wo
             lexer& lex, const AstNodeWithState& node_state, PassProcessStackT& out_stack);
         pass_behavior pass_1_process_basic_type_marking_and_constant_eval(
             lexer& lex, const AstNodeWithState& node_state, PassProcessStackT& out_stack);
-        
+
+        void pass_0_5_register_builtin_types();
+
         bool process(lexer& lex, ast::AstBase* root);
 
         //////////////////////////////////////
@@ -327,6 +421,71 @@ namespace wo
     out_stack.push(NODE)
 #define WO_CONTINUE_PROCESS_LIST(LIST)\
     continue_process_childs(LIST, out_stack)
+#define WO_ALL_AST_LIST\
+    WO_AST_MACRO(AstList);\
+    WO_AST_MACRO(AstDeclareAttribue);\
+    WO_AST_MACRO(AstIdentifier);\
+    WO_AST_MACRO(AstStructFieldDefine);\
+    WO_AST_MACRO(AstTypeHolder);\
+    WO_AST_MACRO(AstValueBase);\
+    WO_AST_MACRO(AstValueMarkAsMutable);\
+    WO_AST_MACRO(AstValueMarkAsImmutable);\
+    WO_AST_MACRO(AstValueLiteral);\
+    WO_AST_MACRO(AstValueTypeid);\
+    WO_AST_MACRO(AstValueTypeCast);\
+    WO_AST_MACRO(AstValueTypeCheckIs);\
+    WO_AST_MACRO(AstValueTypeCheckAs);\
+    WO_AST_MACRO(AstValueVariable);\
+    WO_AST_MACRO(AstWhereConstraints);\
+    WO_AST_MACRO(AstValueFunctionCall);\
+    WO_AST_MACRO(AstValueMayConsiderOperatorOverload);\
+    WO_AST_MACRO(AstValueBinaryOperator);\
+    WO_AST_MACRO(AstValueUnaryOperator);\
+    WO_AST_MACRO(AstValueTribleOperator);\
+    WO_AST_MACRO(AstFakeValueUnpack);\
+    WO_AST_MACRO(AstValueVariadicArgumentsPack);\
+    WO_AST_MACRO(AstValueIndex);\
+    WO_AST_MACRO(AstPatternBase);\
+    WO_AST_MACRO(AstPatternTakeplace);\
+    WO_AST_MACRO(AstPatternSingle);\
+    WO_AST_MACRO(AstPatternTuple);\
+    WO_AST_MACRO(AstPatternUnion);\
+    WO_AST_MACRO(AstPatternVariable);\
+    WO_AST_MACRO(AstPatternIndex);\
+    WO_AST_MACRO(AstVariableDefineItem);\
+    WO_AST_MACRO(AstVariableDefines);\
+    WO_AST_MACRO(AstFunctionParameterDeclare);\
+    WO_AST_MACRO(AstValueFunction);\
+    WO_AST_MACRO(AstValueArrayOrVec);\
+    WO_AST_MACRO(AstKeyValuePair);\
+    WO_AST_MACRO(AstValueDictOrMap);\
+    WO_AST_MACRO(AstValueTuple);\
+    WO_AST_MACRO(AstStructFieldValuePair);\
+    WO_AST_MACRO(AstValueStruct);\
+    WO_AST_MACRO(AstValueAssign);\
+    WO_AST_MACRO(AstValuePackedArgs);\
+    WO_AST_MACRO(AstNamespace);\
+    WO_AST_MACRO(AstScope);\
+    WO_AST_MACRO(AstMatchCase);\
+    WO_AST_MACRO(AstMatch);\
+    WO_AST_MACRO(AstIf);\
+    WO_AST_MACRO(AstWhile);\
+    WO_AST_MACRO(AstFor);\
+    WO_AST_MACRO(AstForeach);\
+    WO_AST_MACRO(AstBreak);\
+    WO_AST_MACRO(AstContinue);\
+    WO_AST_MACRO(AstReturn);\
+    WO_AST_MACRO(AstLabeled);\
+    WO_AST_MACRO(AstUsingTypeDeclare);\
+    WO_AST_MACRO(AstAliasTypeDeclare);\
+    WO_AST_MACRO(AstEnumItem);\
+    WO_AST_MACRO(AstEnumDeclare);\
+    WO_AST_MACRO(AstUnionItem);\
+    WO_AST_MACRO(AstUnionDeclare);\
+    WO_AST_MACRO(AstValueMakeUnion);\
+    WO_AST_MACRO(AstUsingNamespace);\
+    WO_AST_MACRO(AstToken);\
+    WO_AST_MACRO(AstExternInformation)
 
 #define WO_PASS_PROCESSER(AST, PASSNAME)\
     pass_behavior WO_LANG_PROCESSER_NAME(AST, PASSNAME)(\
@@ -341,6 +500,12 @@ namespace wo
         WO_PASS_PROCESSER(AstEnumDeclare, pass0);
         WO_PASS_PROCESSER(AstUnionDeclare, pass0);
 
+#define WO_AST_MACRO(AST)\
+        WO_PASS_PROCESSER(AST, pass1)
+
+        WO_ALL_AST_LIST;
+
+#undef WO_AST_MACRO
 #undef WO_PASS_PROCESSER
 
         //////////////////////////////////////
@@ -358,6 +523,11 @@ namespace wo
         void end_last_scope();
         bool begin_new_namespace(wo_pstring_t name);
         void end_last_namespace();
+
+        std::optional<lang_Symbol*>
+            _search_symbol_from_current_scope(lexer& lex, ast::AstIdentifier* ident);
+        std::optional<lang_Symbol*>
+            find_symbol_in_current_scope(lexer& lex, ast::AstIdentifier* ident);
 
         template<typename ... ArgTs>
         std::optional<lang_Symbol*> define_symbol_in_current_scope(wo_pstring_t name, ArgTs&&...args)
@@ -377,7 +547,18 @@ namespace wo
         lang_Scope* get_current_scope();
         lang_Namespace* get_current_namespace();
 
-        bool declare_pattern_symbol(lexer& lex, ast::AstPatternBase* pattern, std::optional<ast::AstValueBase*> init_value);
+        bool declare_pattern_symbol_pass0_1(
+            lexer& lex,
+            const std::optional<ast::AstDeclareAttribue*>& decl_attrib,
+            ast::AstPatternBase* pattern,
+            std::optional<ast::AstValueBase*> init_value);
+
+        bool update_pattern_symbol_pass1(
+            lexer& lex,
+            const std::optional<ast::AstDeclareAttribue*>& decl_attrib,
+            ast::AstPatternBase* pattern,
+            std::optional<ast::AstValueBase*> init_value,
+            std::optional<lang_TypeInstance*> type);
 
         //////////////////////////////////////
     };
