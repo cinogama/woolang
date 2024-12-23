@@ -162,6 +162,7 @@ namespace wo
                 wo_assert(node->m_typefrom->m_LANG_determined_type);
                 node->m_LANG_determined_type = node->m_typefrom->m_LANG_determined_type.value();
                 break;
+                TODO;
             default:
                 wo_error("unknown type holder formal");
                 break;
