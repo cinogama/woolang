@@ -90,16 +90,59 @@ namespace wo
     void LangContext::init_pass1()
     {
         WO_LANG_REGISTER_PROCESSER(AstList, AstBase::AST_LIST, pass1);
-        WO_LANG_REGISTER_PROCESSER(AstScope, AstBase::AST_SCOPE, pass1);
-        WO_LANG_REGISTER_PROCESSER(AstNamespace, AstBase::AST_NAMESPACE, pass1);
+        //WO_LANG_REGISTER_PROCESSER(AstDeclareAttribue, AstBase::AST_DECLARE_ATTRIBUTE, pass1);
         WO_LANG_REGISTER_PROCESSER(AstIdentifier, AstBase::AST_IDENTIFIER, pass1);
+        // WO_LANG_REGISTER_PROCESSER(AstStructFieldDefine, AstBase::AST_PATTERN_SINGLE, pass1);
         WO_LANG_REGISTER_PROCESSER(AstTypeHolder, AstBase::AST_TYPE_HOLDER, pass1);
+        // WO_LANG_REGISTER_PROCESSER(AstValueMarkAsMutable, AstBase::AST_VALUE_MARK_AS_MUTABLE, pass1);
+        // WO_LANG_REGISTER_PROCESSER(AstValueMarkAsImmutable, AstBase::AST_VALUE_MARK_AS_IMMUTABLE, pass1);
         WO_LANG_REGISTER_PROCESSER(AstValueLiteral, AstBase::AST_VALUE_LITERAL, pass1);
+        // WO_LANG_REGISTER_PROCESSER(AstValueTypeid, AstBase::AST_VALUE_TYPEID, pass1);
+        // WO_LANG_REGISTER_PROCESSER(AstValueTypeCast, AstBase::AST_VALUE_TYPE_CAST, pass1);
+        // WO_LANG_REGISTER_PROCESSER(AstValueTypeCheckIs, AstBase::AST_VALUE_TYPE_CHECK_IS, pass1);
+        // WO_LANG_REGISTER_PROCESSER(AstValueTypeCheckAs, AstBase::AST_VALUE_TYPE_CHECK_AS, pass1);
         WO_LANG_REGISTER_PROCESSER(AstValueVariable, AstBase::AST_VALUE_VARIABLE, pass1);
-        WO_LANG_REGISTER_PROCESSER(AstVariableDefines, AstBase::AST_VARIABLE_DEFINES, pass1);
+        // WO_LANG_REGISTER_PROCESSER(AstWhereConstraints, AstBase::AST_WHERE_CONSTRAINTS, pass1);
+        // WO_LANG_REGISTER_PROCESSER(AstValueFunctionCall, AstBase::AST_VALUE_FUNCTION_CALL, pass1);
+        // WO_LANG_REGISTER_PROCESSER(AstValueBinaryOperator, AstBase::AST_VALUE_BINARY_OPERATOR, pass1);
+        // WO_LANG_REGISTER_PROCESSER(AstValueUnaryOperator, AstBase::AST_VALUE_UNARY_OPERATOR, pass1);
+        // WO_LANG_REGISTER_PROCESSER(AstValueTribleOperator, AstBase::AST_VALUE_TRIPLE_OPERATOR, pass1);
+        // WO_LANG_REGISTER_PROCESSER(AstFakeValueUnpack, AstBase::AST_FAKE_VALUE_UNPACK, pass1);
+        // WO_LANG_REGISTER_PROCESSER(AstValueVariadicArgumentsPack, AstBase::AST_VALUE_VARIADIC_ARGUMENTS_PACK, pass1);
+        // WO_LANG_REGISTER_PROCESSER(AstValueIndex, AstBase::AST_VALUE_INDEX, pass1);
+        // WO_LANG_REGISTER_PROCESSER(AstPatternVariable, AstBase::AST_PATTERN_VARIABLE, pass1);
+        // WO_LANG_REGISTER_PROCESSER(AstPatternIndex, AstBase::AST_PATTERN_INDEX, pass1);
         WO_LANG_REGISTER_PROCESSER(AstVariableDefineItem, AstBase::AST_VARIABLE_DEFINE_ITEM, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstVariableDefines, AstBase::AST_VARIABLE_DEFINES, pass1);
+        // WO_LANG_REGISTER_PROCESSER(AstFunctionParameterDeclare, AstBase::AST_FUNCTION_PARAMETER_DECLARE, pass1);
+        // WO_LANG_REGISTER_PROCESSER(AstValueFunction, AstBase::AST_VALUE_FUNCTION, pass1);
+        // WO_LANG_REGISTER_PROCESSER(AstValueArrayOrVec, AstBase::AST_VALUE_ARRAY_OR_VEC, pass1);
+        // WO_LANG_REGISTER_PROCESSER(AstKeyValuePair, AstBase::AST_KEY_VALUE_PAIR, pass1);
+        // WO_LANG_REGISTER_PROCESSER(AstValueDictOrMap, AstBase::AST_VALUE_DICT_OR_MAP, pass1);
+        // WO_LANG_REGISTER_PROCESSER(AstValueTuple, AstBase::AST_VALUE_TUPLE, pass1);
+        // WO_LANG_REGISTER_PROCESSER(AstStructFieldValuePair, AstBase::AST_STRUCT_FIELD_VALUE_PAIR, pass1);
+        // WO_LANG_REGISTER_PROCESSER(AstValueStruct, AstBase::AST_VALUE_STRUCT, pass1);
+        // WO_LANG_REGISTER_PROCESSER(AstValueAssign, AstBase::AST_VALUE_ASSIGN, pass1);
+        // WO_LANG_REGISTER_PROCESSER(AstValuePackedArgs, AstBase::AST_VALUE_PACKED_ARGS, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstNamespace, AstBase::AST_NAMESPACE, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstScope, AstBase::AST_SCOPE, pass1);
+        // WO_LANG_REGISTER_PROCESSER(AstMatchCase, AstBase::AST_MATCH_CASE, pass1);
+        // WO_LANG_REGISTER_PROCESSER(AstMatch, AstBase::AST_MATCH, pass1);
+        // WO_LANG_REGISTER_PROCESSER(AstIf, AstBase::AST_IF, pass1);
+        // WO_LANG_REGISTER_PROCESSER(AstWhile, AstBase::AST_WHILE, pass1);
+        // WO_LANG_REGISTER_PROCESSER(AstFor, AstBase::AST_FOR, pass1);
+        // WO_LANG_REGISTER_PROCESSER(AstForeach, AstBase::AST_FOREACH, pass1);
+        // WO_LANG_REGISTER_PROCESSER(AstBreak, AstBase::AST_BREAK, pass1);
+        // WO_LANG_REGISTER_PROCESSER(AstContinue, AstBase::AST_CONTINUE, pass1);
+        // WO_LANG_REGISTER_PROCESSER(AstReturn, AstBase::AST_RETURN, pass1);
+        // WO_LANG_REGISTER_PROCESSER(AstLabeled, AstBase::AST_LABELED, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstUsingTypeDeclare, AstBase::AST_USING_TYPE_DECLARE, pass1);
         WO_LANG_REGISTER_PROCESSER(AstAliasTypeDeclare, AstBase::AST_ALIAS_TYPE_DECLARE, pass1);
-        //WO_LANG_REGISTER_PROCESSER(AstUsingTypeDeclare, AstBase::AST_USING_TYPE_DECLARE, pass1);
+        // WO_LANG_REGISTER_PROCESSER(AstEnumDeclare, AstBase::AST_ENUM_DECLARE, pass1);
+        // WO_LANG_REGISTER_PROCESSER(AstUnionDeclare, AstBase::AST_UNION_DECLARE, pass1);
+        // WO_LANG_REGISTER_PROCESSER(AstValueMakeUnion, AstBase::AST_VALUE_MAKE_UNION, pass1);
+        // WO_LANG_REGISTER_PROCESSER(AstUsingNamespace, AstBase::AST_USING_NAMESPACE, pass1);
+        // WO_LANG_REGISTER_PROCESSER(AstExternInformation, AstBase::AST_EXTERN_INFORMATION, pass1);  
     }
 
 #define WO_PASS_PROCESSER(AST) WO_PASS_PROCESSER_IMPL(AST, pass1)
@@ -138,7 +181,7 @@ namespace wo
         if (state == UNPROCESSED)
         {
             entry_spcify_namespace(node->m_LANG_determined_namespace.value());
-          
+
             WO_CONTINUE_PROCESS(node->m_body);
 
             return HOLD;
@@ -199,6 +242,9 @@ namespace wo
     }
     WO_PASS_PROCESSER(AstTypeHolder)
     {
+        if (node->m_LANG_trying_advancing_type_judgement)
+            end_last_scope(); // Leave temporary advance the processing of declaration nodes.
+
         if (state == UNPROCESSED)
         {
             switch (node->m_formal)
@@ -253,40 +299,24 @@ namespace wo
                             wo_error("template type not implemented");
                         else
                         {
-                            if (type_symbol->m_symbol_kind == lang_Symbol::ALIAS)
-                            {
-                                if (type_symbol->m_alias_instance->m_determined_type)
-                                    node->m_LANG_determined_type =
-                                    type_symbol->m_alias_instance->m_determined_type.value();
-                                else
-                                {
-                                    if (m_finishing_pending_nodes)
-                                    {
-                                        lex.lang_error(lexer::errorlevel::error, node,
-                                            WO_ERR_TYPE_DETERMINED_FAILED);
-                                        return FAILED;
-                                    }
-                                    else
-                                        return PENDING;
-                                }
-                            }
+                            // ...
+                        }
+
+                        if (type_symbol->m_symbol_kind == lang_Symbol::ALIAS)
+                        {
+                            if (type_symbol->m_alias_instance->m_determined_type
+                                && type_symbol->m_alias_instance->m_determined_type.value()->m_determined_type)
+                                node->m_LANG_determined_type = type_symbol->m_alias_instance->m_determined_type.value();
                             else
-                            {
-                                wo_assert(type_symbol->m_symbol_kind == lang_Symbol::TYPE);
-                                if (type_symbol->m_type_instance->m_determined_type)
-                                    node->m_LANG_determined_type = type_symbol->m_type_instance;
-                                else
-                                {
-                                    if (m_finishing_pending_nodes)
-                                    {
-                                        lex.lang_error(lexer::errorlevel::error, node,
-                                            WO_ERR_TYPE_DETERMINED_FAILED);
-                                        return FAILED;
-                                    }
-                                    else
-                                        return PENDING;
-                                }
-                            }
+                                goto _label_depend_type_unjudged;
+                        }
+                        else
+                        {
+                            wo_assert(type_symbol->m_symbol_kind == lang_Symbol::TYPE);
+                            if (type_symbol->m_type_instance->m_determined_type)
+                                node->m_LANG_determined_type = type_symbol->m_type_instance;
+                            else
+                                goto _label_depend_type_unjudged;
                         }
 
                         wo_assert(node->m_LANG_determined_type);
@@ -304,6 +334,21 @@ namespace wo
                         }
 
                         break;
+                    _label_depend_type_unjudged:
+
+                        if (!node->m_LANG_trying_advancing_type_judgement)
+                        {
+                            node->m_LANG_trying_advancing_type_judgement = true;
+
+                            // Immediately advance the processing of declaration nodes.
+                            entry_spcify_scope(type_symbol->m_belongs_to_scope);
+                            WO_CONTINUE_PROCESS(type_symbol->m_symbol_declare_ast.value());
+                            return HOLD;
+                        }
+
+                        lex.lang_error(lexer::errorlevel::error, node,
+                            WO_ERR_TYPE_DETERMINED_FAILED);
+                        return FAILED;
                     }
                     else
                     {
@@ -377,6 +422,9 @@ namespace wo
     }
     WO_PASS_PROCESSER(AstValueVariable)
     {
+        if (node->m_LANG_trying_advancing_type_judgement)
+            end_last_scope(); // Leave temporary advance the processing of declaration nodes.
+
         if (state == UNPROCESSED)
         {
             WO_CONTINUE_PROCESS(node->m_identifier);
@@ -384,144 +432,155 @@ namespace wo
         }
         else if (state == HOLD)
         {
-            lang_ValueInstance* value_instance = nullptr;
-
-            if (!node->m_LANG_template_evalating_state)
+            if (!node->m_LANG_trying_advancing_type_judgement)
             {
-                wo_assert(node->m_identifier->m_LANG_determined_symbol);
-                lang_Symbol* var_symbol = node->m_identifier->m_LANG_determined_symbol.value();
+                lang_ValueInstance* value_instance = nullptr;
 
-                if (var_symbol->m_symbol_kind != lang_Symbol::VARIABLE)
+                if (!node->m_LANG_template_evalating_state)
                 {
-                    lex.lang_error(lexer::errorlevel::error, node,
-                        WO_ERR_UNEXPECTED_TYPE_SYMBOL,
-                        node->m_identifier->m_name->c_str());
+                    wo_assert(node->m_identifier->m_LANG_determined_symbol);
+                    lang_Symbol* var_symbol = node->m_identifier->m_LANG_determined_symbol.value();
 
-                    return FAILED;
-                }
-                else
-                {
-                    if (var_symbol->m_is_template)
+                    if (var_symbol->m_symbol_kind != lang_Symbol::VARIABLE)
                     {
-                        // TEMPLATE!!!
-                        // NOTE: In function call, template arguments will be 
-                        //  derived and filled completely.
-                        auto& this_variable_template_arguments =
-                            node->m_identifier->m_template_arguments.value();
-                        auto& template_variable_prefab =
-                            var_symbol->m_template_value_instances;
+                        lex.lang_error(lexer::errorlevel::error, node,
+                            WO_ERR_UNEXPECTED_TYPE_SYMBOL,
+                            node->m_identifier->m_name->c_str());
 
-                        if (this_variable_template_arguments.size()
-                            != template_variable_prefab->m_template_params.size())
-                        {
-                            lex.lang_error(lexer::errorlevel::error, node,
-                                WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
-                                template_variable_prefab->m_template_params.size());
-
-                            return FAILED;
-                        }
-                        // Template matched.
-                        // Create a new value instance.
-                        lang_Symbol::TemplateArgumentListT template_args;
-                        for (auto* typeholder : this_variable_template_arguments)
-                        {
-                            wo_assert(typeholder->m_LANG_determined_type);
-                            template_args.push_back(typeholder->m_LANG_determined_type.value());
-                        }
-                        auto* template_eval_state_instance =
-                            template_variable_prefab->find_or_create_template_instance(template_args);
-
-                        switch (template_eval_state_instance->m_state)
-                        {
-                        case lang_TemplateAstEvalStateValue::EVALUATED:
-                            value_instance = template_eval_state_instance->m_value_instance.value().get();
-                            break;
-                        case lang_TemplateAstEvalStateValue::FAILED:
-                            // TODO: Collect error message in template eval.
-                            lex.lang_error(lexer::errorlevel::error, node,
-                                WO_ERR_VALUE_TYPE_DETERMINED_FAILED);
-                            return FAILED;
-                        case lang_TemplateAstEvalStateValue::EVALUATING:
-                            // NOTE: Donot modify eval state here.
-                            //  Some case like `is pending` may meet this error but it's not a real error.
-                            lex.lang_error(lexer::errorlevel::error, node,
-                                WO_ERR_RECURSIVE_TEMPLATE_INSTANCE);
-                            return FAILED;
-                        case lang_TemplateAstEvalStateValue::UNPROCESSED:
-                            template_eval_state_instance->m_state = lang_TemplateAstEvalStateValue::EVALUATING;
-                            node->m_LANG_template_evalating_state = template_eval_state_instance;
-                            
-                            entry_spcify_scope(var_symbol->m_belongs_to_scope); // Entry the scope where template variable defined.
-                            begin_new_scope(); // Begin new scope for defining template type alias.
-                            fast_create_template_type_alias_in_current_scope(
-                                lex, var_symbol, template_variable_prefab->m_template_params, template_args);
-
-                            WO_CONTINUE_PROCESS(template_eval_state_instance->m_ast);
-                            return HOLD;
-                        }
-
+                        return FAILED;
                     }
                     else
                     {
-                        value_instance = var_symbol->m_value_instance;
+                        if (var_symbol->m_is_template)
+                        {
+                            // TEMPLATE!!!
+                            // NOTE: In function call, template arguments will be 
+                            //  derived and filled completely.
+                            auto& this_variable_template_arguments =
+                                node->m_identifier->m_template_arguments.value();
+                            auto& template_variable_prefab =
+                                var_symbol->m_template_value_instances;
+
+                            if (this_variable_template_arguments.size()
+                                != template_variable_prefab->m_template_params.size())
+                            {
+                                lex.lang_error(lexer::errorlevel::error, node,
+                                    WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
+                                    template_variable_prefab->m_template_params.size());
+
+                                return FAILED;
+                            }
+                            // Template matched.
+                            // Create a new value instance.
+                            lang_Symbol::TemplateArgumentListT template_args;
+                            for (auto* typeholder : this_variable_template_arguments)
+                            {
+                                wo_assert(typeholder->m_LANG_determined_type);
+                                template_args.push_back(typeholder->m_LANG_determined_type.value());
+                            }
+                            auto* template_eval_state_instance =
+                                template_variable_prefab->find_or_create_template_instance(template_args);
+
+                            switch (template_eval_state_instance->m_state)
+                            {
+                            case lang_TemplateAstEvalStateValue::EVALUATED:
+                                value_instance = template_eval_state_instance->m_value_instance.value().get();
+                                break;
+                            case lang_TemplateAstEvalStateValue::FAILED:
+                                // TODO: Collect error message in template eval.
+                                lex.lang_error(lexer::errorlevel::error, node,
+                                    WO_ERR_VALUE_TYPE_DETERMINED_FAILED);
+                                return FAILED;
+                            case lang_TemplateAstEvalStateValue::EVALUATING:
+                                // NOTE: Donot modify eval state here.
+                                //  Some case like `is pending` may meet this error but it's not a real error.
+                                lex.lang_error(lexer::errorlevel::error, node,
+                                    WO_ERR_RECURSIVE_TEMPLATE_INSTANCE);
+                                return FAILED;
+                            case lang_TemplateAstEvalStateValue::UNPROCESSED:
+                                template_eval_state_instance->m_state = lang_TemplateAstEvalStateValue::EVALUATING;
+                                node->m_LANG_template_evalating_state = template_eval_state_instance;
+
+                                entry_spcify_scope(var_symbol->m_belongs_to_scope); // Entry the scope where template variable defined.
+                                begin_new_scope(); // Begin new scope for defining template type alias.
+                                fast_create_template_type_alias_in_current_scope(
+                                    lex, var_symbol, template_variable_prefab->m_template_params, template_args);
+
+                                WO_CONTINUE_PROCESS(template_eval_state_instance->m_ast);
+                                return HOLD;
+                            }
+
+                        }
+                        else
+                        {
+                            value_instance = var_symbol->m_value_instance;
+                        }
                     }
                 }
-            }
-            else
-            {
-                auto* state = node->m_LANG_template_evalating_state.value();
-                wo_assert(state->m_state == lang_TemplateAstEvalStateValue::EVALUATING);
-
-                // Continue template evaluating.
-                end_last_scope(); // Leave temporary scope for template type alias.
-                end_last_scope(); // Leave scope where template variable defined.
-
-                AstValueBase* ast_value = static_cast<AstValueBase*>(state->m_ast);
-
-                // Make new value instance.
-                auto* symbol = state->m_symbol;
-                auto new_template_variable_instance = std::make_unique<lang_ValueInstance>(
-                    symbol->m_template_value_instances->m_mutable, state->m_symbol);
-
-                std::optional<wo::value> constant_value = std::nullopt;
-                if (!new_template_variable_instance->m_mutable && ast_value->m_evaled_const_value)
+                else
                 {
-                    constant_value = ast_value->m_evaled_const_value;
+                    auto* state = node->m_LANG_template_evalating_state.value();
+                    wo_assert(state->m_state == lang_TemplateAstEvalStateValue::EVALUATING);
+
+                    // Continue template evaluating.
+                    end_last_scope(); // Leave temporary scope for template type alias.
+                    end_last_scope(); // Leave scope where template variable defined.
+
+                    AstValueBase* ast_value = static_cast<AstValueBase*>(state->m_ast);
+
+                    // Make new value instance.
+                    auto* symbol = state->m_symbol;
+                    auto new_template_variable_instance = std::make_unique<lang_ValueInstance>(
+                        symbol->m_template_value_instances->m_mutable, state->m_symbol);
+
+                    std::optional<wo::value> constant_value = std::nullopt;
+                    if (!new_template_variable_instance->m_mutable && ast_value->m_evaled_const_value)
+                    {
+                        constant_value = ast_value->m_evaled_const_value;
+                    }
+                    new_template_variable_instance->determined_value_instance(
+                        ast_value->m_LANG_determined_type.value(), constant_value);
+
+                    value_instance = new_template_variable_instance.get();
+
+                    state->m_value_instance = std::move(new_template_variable_instance);
+                    state->m_state = lang_TemplateAstEvalStateValue::EVALUATED;
                 }
-                new_template_variable_instance->determined_value_instance(
-                    ast_value->m_LANG_determined_type.value(), constant_value);
 
-                value_instance = new_template_variable_instance.get();
-                
-                state->m_value_instance = std::move(new_template_variable_instance);
-                state->m_state = lang_TemplateAstEvalStateValue::EVALUATED;
-            }
+                wo_assert(value_instance != nullptr);
 
-            wo_assert(value_instance != nullptr);
-
-            // Type has been determined.
-            if (value_instance->m_determined_type)
-            {
-                node->m_LANG_determined_type = value_instance->m_determined_type.value();
                 node->m_LANG_variable_instance = value_instance;
             }
+
+            lang_ValueInstance* determined_value_instance =
+                node->m_LANG_variable_instance.value();
+
+            // Type has been determined?
+            if (determined_value_instance->m_determined_type)
+                node->m_LANG_determined_type = determined_value_instance->m_determined_type.value();
             else
             {
-                if (m_finishing_pending_nodes)
+                if (!node->m_LANG_trying_advancing_type_judgement)
                 {
-                    // Type determined failed in AstVariableDefines, treat as failed.
-                    lex.lang_error(lexer::errorlevel::error, node,
-                        WO_ERR_VALUE_TYPE_DETERMINED_FAILED);
-                    return FAILED;
+                    node->m_LANG_trying_advancing_type_judgement = true;
+
+                    // Type not determined, we need to determine it?
+                    // NOTE: Immediately advance the processing of declaration nodes.
+                    entry_spcify_scope(determined_value_instance->m_symbol->m_belongs_to_scope);
+                    WO_CONTINUE_PROCESS(determined_value_instance->m_symbol->m_symbol_declare_ast.value());
+                    return HOLD;
                 }
-                else
-                    return PENDING;
+
+                // Type determined failed in AstVariableDefines, treat as failed.
+                lex.lang_error(lexer::errorlevel::error, node,
+                    WO_ERR_VALUE_TYPE_DETERMINED_FAILED);
+                return FAILED;
             }
 
-            if (value_instance->m_determined_constant)
+            if (determined_value_instance->m_determined_constant)
                 // Constant has been determined.
                 node->decide_final_constant_value(
-                    value_instance->m_determined_constant.value());
+                    determined_value_instance->m_determined_constant.value());
         }
         else
         {
@@ -553,7 +612,7 @@ namespace wo
             for (auto& defines : node->m_definitions)
                 success = success && declare_pattern_symbol_pass0_1(
                     lex,
-                    node->m_attribute,
+                    node,
                     defines->m_pattern,
                     defines->m_init_value);
 
@@ -602,6 +661,7 @@ namespace wo
                     node->m_LANG_declared_symbol = define_symbol_in_current_scope(
                         node->m_typename,
                         node->m_attribute,
+                        node,
                         node->source_location.source_file,
                         get_current_scope(),
                         node->m_type,
@@ -611,20 +671,19 @@ namespace wo
                     node->m_LANG_declared_symbol = define_symbol_in_current_scope(
                         node->m_typename,
                         node->m_attribute,
+                        node,
                         node->source_location.source_file,
                         get_current_scope(),
                         lang_Symbol::kind::ALIAS,
                         false);
 
-
                 if (!node->m_LANG_declared_symbol)
                 {
-                    lex.lang_error(lexer::errorlevel::error, node, 
+                    lex.lang_error(lexer::errorlevel::error, node,
                         WO_ERR_REDEFINED,
                         node->m_typename->c_str());
                     return FAILED;
                 }
-
             }
             if (!node->m_template_parameters)
             {
@@ -639,8 +698,73 @@ namespace wo
             wo_assert(!node->m_template_parameters);
             lang_Symbol* symbol = node->m_LANG_declared_symbol.value();
 
-            symbol->m_alias_instance->m_determined_type = 
+            symbol->m_alias_instance->m_determined_type =
                 node->m_type->m_LANG_determined_type.value();
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstUsingTypeDeclare)
+    {
+        if (state == UNPROCESSED)
+        {
+            if (!node->m_LANG_declared_symbol)
+            {
+                if (node->m_template_parameters)
+                    node->m_LANG_declared_symbol = define_symbol_in_current_scope(
+                        node->m_typename,
+                        node->m_attribute,
+                        node,
+                        node->source_location.source_file,
+                        get_current_scope(),
+                        node->m_type,
+                        node->m_template_parameters.value(),
+                        false);
+                else
+                    node->m_LANG_declared_symbol = define_symbol_in_current_scope(
+                        node->m_typename,
+                        node->m_attribute,
+                        node,
+                        node->source_location.source_file,
+                        get_current_scope(),
+                        lang_Symbol::kind::TYPE,
+                        false);
+
+                if (!node->m_LANG_declared_symbol)
+                {
+                    lex.lang_error(lexer::errorlevel::error, node,
+                        WO_ERR_REDEFINED,
+                        node->m_typename->c_str());
+                    return FAILED;
+                }
+            }
+
+            node->m_LANG_hold_state = AstUsingTypeDeclare::LANG_hold_state::HOLD_FOR_BASE_TYPE_EVAL;
+            if (!node->m_template_parameters)
+            {
+                // Update type instance.
+                WO_CONTINUE_PROCESS(node->m_type);
+            }
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            if (node->m_LANG_hold_state == AstUsingTypeDeclare::LANG_hold_state::HOLD_FOR_BASE_TYPE_EVAL)
+            {
+                if (!node->m_template_parameters)
+                {
+                    // TYPE HAS BEEN DETERMINED, UPDATE THE SYMBOL;
+                    lang_Symbol* symbol = node->m_LANG_declared_symbol.value();
+                    symbol->m_type_instance->determine_base_type(
+                        node->m_type->m_LANG_determined_type.value()->get_determined_type());
+                }
+
+                node->m_LANG_hold_state = AstUsingTypeDeclare::LANG_hold_state::HOLD_FOR_NAMESPACE_BODY;
+                if (node->m_in_type_namespace)
+                {
+                    WO_CONTINUE_PROCESS(node->m_in_type_namespace.value());
+                }
+                return HOLD;
+            }
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }

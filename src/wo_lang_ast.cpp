@@ -191,6 +191,7 @@ namespace wo
             , m_formal(IDENTIFIER)
             , m_identifier(ident)
             , m_LANG_determined_type(std::nullopt)
+            , m_LANG_trying_advancing_type_judgement(false)
         {
 
         }
@@ -200,6 +201,7 @@ namespace wo
             , m_formal(TYPEOF)
             , m_typefrom(expr)
             , m_LANG_determined_type(std::nullopt)
+            , m_LANG_trying_advancing_type_judgement(false)
         {
 
         }
@@ -209,6 +211,7 @@ namespace wo
             , m_formal(FUNCTION)
             , m_function(functype)
             , m_LANG_determined_type(std::nullopt)
+            , m_LANG_trying_advancing_type_judgement(false)
         {
 
         }
@@ -218,6 +221,7 @@ namespace wo
             , m_formal(STRUCTURE)
             , m_structure(structtype)
             , m_LANG_determined_type(std::nullopt)
+            , m_LANG_trying_advancing_type_judgement(false)
         {
 
         }
@@ -227,6 +231,7 @@ namespace wo
             , m_formal(TUPLE)
             , m_tuple(tupletype)
             , m_LANG_determined_type(std::nullopt)
+            , m_LANG_trying_advancing_type_judgement(false)
         {
 
         }
@@ -236,6 +241,7 @@ namespace wo
             , m_formal(UNION)
             , m_union(uniontype)
             , m_LANG_determined_type(std::nullopt)
+            , m_LANG_trying_advancing_type_judgement(false)
         {
 
         }
@@ -585,6 +591,7 @@ namespace wo
             , m_identifier(identifier)
             , m_LANG_template_evalating_state(std::nullopt)
             , m_LANG_variable_instance(std::nullopt)
+            , m_LANG_trying_advancing_type_judgement(false)
         {
 
         }
@@ -928,7 +935,7 @@ namespace wo
                 if (func_value->m_pending_param_type_mark_template)
                 {
                     if (!single_pattern->m_template_parameters)
-                        single_pattern->m_template_parameters = {};
+                        single_pattern->m_template_parameters = std::list<wo_pstring_t>{};
 
                     for (auto* p : func_value->m_pending_param_type_mark_template.value())
                         single_pattern->m_template_parameters.value().push_back(p);
@@ -1018,9 +1025,10 @@ namespace wo
                 if (!param_define->m_type)
                 {
                     if (!m_pending_param_type_mark_template)
-                        m_pending_param_type_mark_template = {};
+                        m_pending_param_type_mark_template = std::list<wo_pstring_t>{};
 
-                    auto& pending_param_type_mark_template = m_pending_param_type_mark_template.value();
+                    auto& pending_param_type_mark_template = 
+                        m_pending_param_type_mark_template.value();
 
                     wo_pstring_t pending_template_name
                         = wstring_pool::get_pstr(L"*T" + std::to_wstring(pending_param_type_mark_template.size()));
@@ -1522,6 +1530,7 @@ namespace wo
             , m_in_type_namespace(item.m_in_type_namespace)
             , m_attribute(item.m_attribute)
             , m_LANG_declared_symbol(std::nullopt)
+            , m_LANG_hold_state(LANG_hold_state::UNPROCESSED)
         {
         }
         AstUsingTypeDeclare::AstUsingTypeDeclare(
@@ -1537,6 +1546,7 @@ namespace wo
             , m_in_type_namespace(in_type_namespace)
             , m_attribute(attrib)
             , m_LANG_declared_symbol(std::nullopt)
+            , m_LANG_hold_state(LANG_hold_state::UNPROCESSED)
         {
         }
         AstBase* AstUsingTypeDeclare::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const

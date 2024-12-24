@@ -385,6 +385,7 @@ namespace wo
         bool is_immutable() const;
         bool is_mutable() const;
         const DeterminedType* get_determined_type() const;
+        void determine_base_type(const DeterminedType* from_determined);
     };
     struct lang_AliasInstance
     {
@@ -493,6 +494,7 @@ namespace wo
         std::optional<ast::AstDeclareAttribue*>
                                         m_declare_attribute;
         lang_Scope*                     m_belongs_to_scope;
+        std::optional<ast::AstBase*>    m_symbol_declare_ast;
         bool                            m_is_builtin;
 
         union
@@ -514,12 +516,14 @@ namespace wo
 
         lang_Symbol(
             const std::optional<ast::AstDeclareAttribue*>& attr,
+            std::optional<ast::AstBase*> symbol_declare_ast,
             wo_pstring_t src_location,
             lang_Scope* scope,
             kind kind,
             bool mutable_variable);
         lang_Symbol(
             const std::optional<ast::AstDeclareAttribue*>& attr,
+            std::optional<ast::AstBase*> symbol_declare_ast,
             wo_pstring_t src_location,
             lang_Scope* scope,
             ast::AstValueBase* template_value_base,
@@ -527,6 +531,7 @@ namespace wo
             bool mutable_variable);
         lang_Symbol(
             const std::optional<ast::AstDeclareAttribue*>& attr,
+            std::optional<ast::AstBase*> symbol_declare_ast,
             wo_pstring_t src_location,
             lang_Scope* scope,
             ast::AstTypeHolder* template_type_base,
@@ -578,8 +583,6 @@ namespace wo
             OKAY,                   // Pop this ast node.
             HOLD,                   // Something need to be done.
             HOLD_BUT_CHILD_FAILED,  // Something need to be done, but child failed.
-            PENDING,                // Symbol & definition is pending(E.G. local use of global define).
-            HOLD_BUT_CHILD_PENDING, // Something need to be done, but child is pending.
             FAILED,                 // Error occured.
         };
         struct AstNodeWithState
@@ -684,10 +687,6 @@ namespace wo
         std::unordered_map<lang_TypeInstance*, std::unique_ptr<lang_TypeInstance>> 
                                         m_mutable_type_instance_cache;
 
-        using PendingScopedAstListT = std::list<std::pair<ast::AstBase*, lang_Scope*>>;
-        PendingScopedAstListT           m_pending_ast_nodes;
-        bool                            m_finishing_pending_nodes;
-
         static ProcessAstJobs* m_pass0_processers;
         static ProcessAstJobs* m_pass1_processers;
 
@@ -724,9 +723,7 @@ namespace wo
 #define WO_EXCEPT_ERROR(V, VAL)\
     (V == HOLD_BUT_CHILD_FAILED\
         ? FAILED\
-        : V == HOLD_BUT_CHILD_PENDING\
-            ? PENDING\
-            : VAL)
+        : VAL)
 
 #define WO_CONTINUE_PROCESS(NODE)\
     out_stack.push(NODE)
@@ -843,14 +840,20 @@ namespace wo
             find_symbol_in_current_scope(lexer& lex, ast::AstIdentifier* ident);
 
         template<typename ... ArgTs>
-        std::optional<lang_Symbol*> define_symbol_in_current_scope(wo_pstring_t name, ArgTs&&...args)
+        std::optional<lang_Symbol*> define_symbol_in_current_scope(
+            wo_pstring_t name, 
+            const std::optional<ast::AstDeclareAttribue*>& attr,
+            std::optional<ast::AstBase*> symbol_declare_ast,
+            wo_pstring_t src_location,
+            ArgTs&&...args)
         {
             auto& symbol_table = get_current_scope()->m_defined_symbols;
             if (symbol_table.find(name) != symbol_table.end())
                 // Already defined.
                 return std::nullopt;
 
-            auto new_symbol = std::make_unique<lang_Symbol>(std::forward<ArgTs>(args)...);
+            auto new_symbol = std::make_unique<lang_Symbol>(
+                attr, symbol_declare_ast, src_location, std::forward<ArgTs>(args)...);
             auto* new_symbol_ptr = new_symbol.get();
             symbol_table.insert(std::make_pair(name, std::move(new_symbol)));
 
@@ -862,7 +865,7 @@ namespace wo
 
         bool declare_pattern_symbol_pass0_1(
             lexer& lex,
-            const std::optional<ast::AstDeclareAttribue*>& decl_attrib,
+            ast::AstVariableDefines* var_defines,
             ast::AstPatternBase* pattern,
             const std::optional<ast::AstValueBase*>& init_value);
         bool update_pattern_symbol_variable_type_pass1(

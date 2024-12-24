@@ -163,6 +163,7 @@ namespace wo
             };
 
             std::optional<lang_TypeInstance*> m_LANG_determined_type;
+            bool m_LANG_trying_advancing_type_judgement;
 
         public:
             AstTypeHolder(AstIdentifier* ident);
@@ -253,6 +254,7 @@ namespace wo
 
             std::optional<lang_TemplateAstEvalStateValue*> m_LANG_template_evalating_state;
             std::optional<lang_ValueInstance*> m_LANG_variable_instance;
+            bool m_LANG_trying_advancing_type_judgement;
 
             AstValueVariable(AstIdentifier* variable_name);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
@@ -657,6 +659,13 @@ namespace wo
         };
         struct AstUsingTypeDeclare : public AstBase
         {
+            enum LANG_hold_state
+            {
+                UNPROCESSED,
+                HOLD_FOR_BASE_TYPE_EVAL,
+                HOLD_FOR_NAMESPACE_BODY,
+            };
+
             wo_pstring_t            m_typename;
             std::optional<std::list<wo_pstring_t>>
                                     m_template_parameters;
@@ -667,6 +676,8 @@ namespace wo
                                     m_attribute;
             std::optional<lang_Symbol*>
                                     m_LANG_declared_symbol;
+            LANG_hold_state         m_LANG_hold_state;
+
         private:
             AstUsingTypeDeclare(const AstUsingTypeDeclare&);
         public:
