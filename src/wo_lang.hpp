@@ -12,7 +12,7 @@
 
 namespace wo
 {
-    
+
 #ifndef WO_DISABLE_COMPILER
 
     struct hash_type_holder_for_origin_cache
@@ -105,7 +105,6 @@ namespace wo
             return _hash(node);
         }
     };
-
     struct equal_to_type_holder_for_origin_cache
     {
         using AstTypeHolderPT = ast::AstTypeHolder*;
@@ -123,7 +122,7 @@ namespace wo
             {
             case ast::AstTypeHolder::IDENTIFIER:
             {
-                if (lhs->m_identifier->m_LANG_determined_symbol.value() 
+                if (lhs->m_identifier->m_LANG_determined_symbol.value()
                     != rhs->m_identifier->m_LANG_determined_symbol.value())
                     return false;
 
@@ -148,7 +147,7 @@ namespace wo
                         if (!_equal_to_rawtype(*lhs_iter, *rhs_iter))
                             return false;
                     }
-                    
+
                 }
 
                 return true;
@@ -256,6 +255,8 @@ namespace wo
     struct lang_Scope;
     struct lang_Symbol;
     struct lang_TypeInstance;
+    struct lang_AliasInstance;
+    struct lang_ValueInstance;
 
     struct lang_TemplateAstEvalStateBase
     {
@@ -282,6 +283,18 @@ namespace wo
         std::optional<std::unique_ptr<lang_ValueInstance>> m_value_instance;
 
         lang_TemplateAstEvalStateValue(lang_Symbol* symbol, ast::AstValueBase* ast);
+    };
+    struct lang_TemplateAstEvalStateType : public lang_TemplateAstEvalStateBase
+    {
+        std::optional<std::unique_ptr<lang_TypeInstance>> m_type_instance;
+
+        lang_TemplateAstEvalStateType(lang_Symbol* symbol, ast::AstTypeHolder* ast);
+    };
+    struct lang_TemplateAstEvalStateAlias : public lang_TemplateAstEvalStateBase
+    {
+        std::optional<std::unique_ptr<lang_AliasInstance>> m_alias_instance;
+
+        lang_TemplateAstEvalStateAlias(lang_Symbol* symbol, ast::AstTypeHolder* ast);
     };
 
     struct lang_TypeInstance
@@ -457,13 +470,16 @@ namespace wo
             lang_Symbol* m_symbol;
             std::list<wo_pstring_t> m_template_params;
             ast::AstTypeHolder* m_origin_value_ast;
-            std::map<TemplateArgumentListT, std::unique_ptr<lang_TypeInstance*>>
+            std::map<TemplateArgumentListT, std::unique_ptr<lang_TemplateAstEvalStateType>>
                 m_template_instances;
 
             TemplateTypePrefab(
                 lang_Symbol* symbol, 
                 ast::AstTypeHolder* ast, 
                 const std::list<wo_pstring_t>& template_params);
+
+            lang_TemplateAstEvalStateType* find_or_create_template_instance(
+                const TemplateArgumentListT& template_args);
 
             TemplateTypePrefab(const TemplateTypePrefab&) = delete;
             TemplateTypePrefab(TemplateTypePrefab&&) = delete;
@@ -475,13 +491,17 @@ namespace wo
             lang_Symbol* m_symbol;
             std::list<wo_pstring_t> m_template_params;
             ast::AstTypeHolder* m_origin_value_ast;
-            std::map<TemplateArgumentListT, std::unique_ptr<lang_AliasInstance*>>
+            std::map<TemplateArgumentListT, std::unique_ptr<lang_TemplateAstEvalStateAlias>>
                 m_template_instances;
 
             TemplateAliasPrefab(
                 lang_Symbol* symbol, 
                 ast::AstTypeHolder* ast,
                 const std::list<wo_pstring_t>& template_params);
+
+            lang_TemplateAstEvalStateAlias* find_or_create_template_instance(
+                const TemplateArgumentListT& template_args);
+
             TemplateAliasPrefab(const TemplateAliasPrefab&) = delete;
             TemplateAliasPrefab(TemplateAliasPrefab&&) = delete;
             TemplateAliasPrefab& operator=(const TemplateAliasPrefab&) = delete;
@@ -884,6 +904,20 @@ namespace wo
             lang_Symbol* for_symbol,
             const std::list<wo_pstring_t>& template_params,
             const std::list<lang_TypeInstance*>& template_args);
+
+        std::optional<lang_TemplateAstEvalStateBase*> begin_eval_template_ast(
+            lexer& lex,
+            ast::AstBase* node,
+            lang_Symbol* templating_symbol,
+            const lang_Symbol::TemplateArgumentListT& template_arguments, 
+            PassProcessStackT& out_stack);
+
+        void finish_eval_template_ast(
+            lang_TemplateAstEvalStateBase* template_eval_instance);
+
+        void failed_eval_template_ast(
+            lang_TemplateAstEvalStateBase* template_eval_instance);
+
         //////////////////////////////////////
     };
 #endif

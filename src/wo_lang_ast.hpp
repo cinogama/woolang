@@ -28,7 +28,7 @@ namespace wo
     struct lang_Symbol;
     struct lang_Scope;
     struct lang_Namespace;
-    struct lang_TemplateAstEvalStateValue;
+    struct lang_TemplateAstEvalStateBase;
 
     namespace ast
     {
@@ -162,6 +162,7 @@ namespace wo
                 UnionType m_union;
             };
 
+            std::optional<lang_TemplateAstEvalStateBase*> m_LANG_template_evalating_state;
             std::optional<lang_TypeInstance*> m_LANG_determined_type;
             bool m_LANG_trying_advancing_type_judgement;
 
@@ -252,7 +253,7 @@ namespace wo
         {
             AstIdentifier* m_identifier;
 
-            std::optional<lang_TemplateAstEvalStateValue*> m_LANG_template_evalating_state;
+            std::optional<lang_TemplateAstEvalStateBase*> m_LANG_template_evalating_state;
             std::optional<lang_ValueInstance*> m_LANG_variable_instance;
             bool m_LANG_trying_advancing_type_judgement;
 

@@ -169,6 +169,28 @@ namespace wo
         , m_template_params(template_params)
     {
     }
+    lang_TemplateAstEvalStateType* lang_Symbol::TemplateTypePrefab::find_or_create_template_instance(
+        const TemplateArgumentListT& template_args)
+    {
+        auto fnd = m_template_instances.find(template_args);
+        if (fnd != m_template_instances.end())
+            return fnd->second.get();
+
+        ast::AstTypeHolder* template_instance = static_cast<ast::AstTypeHolder*>(
+            m_origin_value_ast->clone());
+        auto new_instance = std::make_unique<lang_TemplateAstEvalStateType>(
+            m_symbol, template_instance);
+
+        auto* result = new_instance.get();
+
+        m_template_instances.insert(
+            std::make_pair(template_args, std::move(new_instance)));
+
+        return result;
+    }
+
+    //////////////////////////////////////
+
     lang_Symbol::TemplateAliasPrefab::TemplateAliasPrefab(
         lang_Symbol* symbol,
         ast::AstTypeHolder* ast,
@@ -177,6 +199,25 @@ namespace wo
         , m_origin_value_ast(ast)
         , m_template_params(template_params)
     {
+    }
+    lang_TemplateAstEvalStateAlias* lang_Symbol::TemplateAliasPrefab::find_or_create_template_instance(
+        const TemplateArgumentListT& template_args)
+    {
+        auto fnd = m_template_instances.find(template_args);
+        if (fnd != m_template_instances.end())
+            return fnd->second.get();
+
+        ast::AstTypeHolder* template_instance = static_cast<ast::AstTypeHolder*>(
+            m_origin_value_ast->clone());
+        auto new_instance = std::make_unique<lang_TemplateAstEvalStateAlias>(
+            m_symbol, template_instance);
+
+        auto* result = new_instance.get();
+
+        m_template_instances.insert(
+            std::make_pair(template_args, std::move(new_instance)));
+
+        return result;
     }
 
     //////////////////////////////////////
@@ -256,6 +297,23 @@ namespace wo
     lang_TemplateAstEvalStateValue::lang_TemplateAstEvalStateValue(lang_Symbol* symbol, ast::AstValueBase* ast)
         : lang_TemplateAstEvalStateBase(symbol, ast)
         , m_value_instance(std::nullopt)
+    {
+    }
+
+    //////////////////////////////////////
+
+    lang_TemplateAstEvalStateType::lang_TemplateAstEvalStateType(lang_Symbol* symbol, ast::AstTypeHolder* ast)
+        : lang_TemplateAstEvalStateBase(symbol, ast)
+        , m_type_instance(std::nullopt)
+    {
+
+    }
+
+    //////////////////////////////////////
+
+    lang_TemplateAstEvalStateAlias::lang_TemplateAstEvalStateAlias(lang_Symbol* symbol, ast::AstTypeHolder* ast)
+        : lang_TemplateAstEvalStateBase(symbol, ast)
+        , m_alias_instance(std::nullopt)
     {
     }
 

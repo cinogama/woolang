@@ -190,6 +190,7 @@ namespace wo
             , m_mutable_mark(NONE)
             , m_formal(IDENTIFIER)
             , m_identifier(ident)
+            , m_LANG_template_evalating_state(std::nullopt)
             , m_LANG_determined_type(std::nullopt)
             , m_LANG_trying_advancing_type_judgement(false)
         {
@@ -200,6 +201,7 @@ namespace wo
             , m_mutable_mark(NONE)
             , m_formal(TYPEOF)
             , m_typefrom(expr)
+            , m_LANG_template_evalating_state(std::nullopt)
             , m_LANG_determined_type(std::nullopt)
             , m_LANG_trying_advancing_type_judgement(false)
         {
@@ -210,6 +212,7 @@ namespace wo
             , m_mutable_mark(NONE)
             , m_formal(FUNCTION)
             , m_function(functype)
+            , m_LANG_template_evalating_state(std::nullopt)
             , m_LANG_determined_type(std::nullopt)
             , m_LANG_trying_advancing_type_judgement(false)
         {
@@ -220,6 +223,7 @@ namespace wo
             , m_mutable_mark(NONE)
             , m_formal(STRUCTURE)
             , m_structure(structtype)
+            , m_LANG_template_evalating_state(std::nullopt)
             , m_LANG_determined_type(std::nullopt)
             , m_LANG_trying_advancing_type_judgement(false)
         {
@@ -230,6 +234,7 @@ namespace wo
             , m_mutable_mark(NONE)
             , m_formal(TUPLE)
             , m_tuple(tupletype)
+            , m_LANG_template_evalating_state(std::nullopt)
             , m_LANG_determined_type(std::nullopt)
             , m_LANG_trying_advancing_type_judgement(false)
         {
@@ -240,6 +245,7 @@ namespace wo
             , m_mutable_mark(NONE)
             , m_formal(UNION)
             , m_union(uniontype)
+            , m_LANG_template_evalating_state(std::nullopt)
             , m_LANG_determined_type(std::nullopt)
             , m_LANG_trying_advancing_type_judgement(false)
         {

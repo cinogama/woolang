@@ -456,60 +456,35 @@ namespace wo
                             // TEMPLATE!!!
                             // NOTE: In function call, template arguments will be 
                             //  derived and filled completely.
-                            auto& this_variable_template_arguments =
-                                node->m_identifier->m_template_arguments.value();
-                            auto& template_variable_prefab =
-                                var_symbol->m_template_value_instances;
-
-                            if (this_variable_template_arguments.size()
-                                != template_variable_prefab->m_template_params.size())
-                            {
-                                lex.lang_error(lexer::errorlevel::error, node,
-                                    WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
-                                    template_variable_prefab->m_template_params.size());
-
-                                return FAILED;
-                            }
-                            // Template matched.
-                            // Create a new value instance.
                             lang_Symbol::TemplateArgumentListT template_args;
-                            for (auto* typeholder : this_variable_template_arguments)
+                            for (auto* typeholder : node->m_identifier->m_template_arguments.value())
                             {
                                 wo_assert(typeholder->m_LANG_determined_type);
                                 template_args.push_back(typeholder->m_LANG_determined_type.value());
                             }
-                            auto* template_eval_state_instance =
-                                template_variable_prefab->find_or_create_template_instance(template_args);
+
+                            auto template_eval_state_instance_may_nullopt = begin_eval_template_ast(
+                                lex, node, var_symbol, template_args, out_stack);
+
+                            if (!template_eval_state_instance_may_nullopt)
+                                return FAILED;
+
+                            auto* template_eval_state_instance = 
+                                static_cast<lang_TemplateAstEvalStateValue*>(
+                                    template_eval_state_instance_may_nullopt.value());
 
                             switch (template_eval_state_instance->m_state)
                             {
+                            case lang_TemplateAstEvalStateValue::EVALUATING:
+                                node->m_LANG_template_evalating_state = template_eval_state_instance;
+                                return HOLD;
                             case lang_TemplateAstEvalStateValue::EVALUATED:
                                 value_instance = template_eval_state_instance->m_value_instance.value().get();
                                 break;
-                            case lang_TemplateAstEvalStateValue::FAILED:
-                                // TODO: Collect error message in template eval.
-                                lex.lang_error(lexer::errorlevel::error, node,
-                                    WO_ERR_VALUE_TYPE_DETERMINED_FAILED);
-                                return FAILED;
-                            case lang_TemplateAstEvalStateValue::EVALUATING:
-                                // NOTE: Donot modify eval state here.
-                                //  Some case like `is pending` may meet this error but it's not a real error.
-                                lex.lang_error(lexer::errorlevel::error, node,
-                                    WO_ERR_RECURSIVE_TEMPLATE_INSTANCE);
-                                return FAILED;
-                            case lang_TemplateAstEvalStateValue::UNPROCESSED:
-                                template_eval_state_instance->m_state = lang_TemplateAstEvalStateValue::EVALUATING;
-                                node->m_LANG_template_evalating_state = template_eval_state_instance;
-
-                                entry_spcify_scope(var_symbol->m_belongs_to_scope); // Entry the scope where template variable defined.
-                                begin_new_scope(); // Begin new scope for defining template type alias.
-                                fast_create_template_type_alias_in_current_scope(
-                                    lex, var_symbol, template_variable_prefab->m_template_params, template_args);
-
-                                WO_CONTINUE_PROCESS(template_eval_state_instance->m_ast);
-                                return HOLD;
+                            default:
+                                wo_error("Unexpected template eval state");
+                                break;
                             }
-
                         }
                         else
                         {
@@ -519,32 +494,12 @@ namespace wo
                 }
                 else
                 {
-                    auto* state = node->m_LANG_template_evalating_state.value();
-                    wo_assert(state->m_state == lang_TemplateAstEvalStateValue::EVALUATING);
+                    auto* state = static_cast<lang_TemplateAstEvalStateValue*>(
+                        node->m_LANG_template_evalating_state.value());
 
-                    // Continue template evaluating.
-                    end_last_scope(); // Leave temporary scope for template type alias.
-                    end_last_scope(); // Leave scope where template variable defined.
+                    finish_eval_template_ast(state);
 
-                    AstValueBase* ast_value = static_cast<AstValueBase*>(state->m_ast);
-
-                    // Make new value instance.
-                    auto* symbol = state->m_symbol;
-                    auto new_template_variable_instance = std::make_unique<lang_ValueInstance>(
-                        symbol->m_template_value_instances->m_mutable, state->m_symbol);
-
-                    std::optional<wo::value> constant_value = std::nullopt;
-                    if (!new_template_variable_instance->m_mutable && ast_value->m_evaled_const_value)
-                    {
-                        constant_value = ast_value->m_evaled_const_value;
-                    }
-                    new_template_variable_instance->determined_value_instance(
-                        ast_value->m_LANG_determined_type.value(), constant_value);
-
-                    value_instance = new_template_variable_instance.get();
-
-                    state->m_value_instance = std::move(new_template_variable_instance);
-                    state->m_state = lang_TemplateAstEvalStateValue::EVALUATED;
+                    value_instance = state->m_value_instance.value().get();
                 }
 
                 wo_assert(value_instance != nullptr);
@@ -587,11 +542,8 @@ namespace wo
             if (node->m_LANG_template_evalating_state)
             {
                 auto* state = node->m_LANG_template_evalating_state.value();
-                state->m_state = lang_TemplateAstEvalStateValue::FAILED;
 
-                // Child failed, we need pop the scope anyway.
-                end_last_scope(); // Leave temporary scope for template type alias.
-                end_last_scope(); // Leave scope where template variable defined.
+                failed_eval_template_ast(state);
             }
         }
         return WO_EXCEPT_ERROR(state, OKAY);
