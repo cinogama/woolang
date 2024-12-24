@@ -121,7 +121,10 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
+            wo_assert(!node->m_LANG_determined_scope);
+
             begin_new_scope();
+            node->m_LANG_determined_scope = get_current_scope();
 
             WO_CONTINUE_PROCESS(node->m_body);
 
@@ -134,12 +137,14 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
+            wo_assert(!node->m_LANG_determined_namespace);
+
             if (!begin_new_namespace(node->m_name))
             {
                 lex.lang_error(lexer::errorlevel::error, node, WO_ERR_CANNOT_START_NAMESPACE);
                 return FAILED;
             }
-
+            node->m_LANG_determined_namespace = get_current_namespace();
             WO_CONTINUE_PROCESS(node->m_body);
 
             return HOLD;
@@ -163,6 +168,7 @@ namespace wo
     }
     WO_PASS_PROCESSER(AstAliasTypeDeclare)
     {
+        wo_assert(!node->m_LANG_declared_symbol);
         if (node->m_template_parameters)
             node->m_LANG_declared_symbol = define_symbol_in_current_scope(
                 node->m_typename, 
@@ -191,6 +197,7 @@ namespace wo
     }
     WO_PASS_PROCESSER(AstUsingTypeDeclare)
     {
+        wo_assert(!node->m_LANG_declared_symbol);
         if (state == UNPROCESSED)
         {
             if (node->m_template_parameters)

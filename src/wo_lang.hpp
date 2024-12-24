@@ -257,6 +257,33 @@ namespace wo
     struct lang_Symbol;
     struct lang_TypeInstance;
 
+    struct lang_TemplateAstEvalStateBase
+    {
+        enum state
+        {
+            UNPROCESSED,
+            EVALUATING,
+            EVALUATED,
+            FAILED,
+        };
+        state               m_state;
+        ast::AstBase*       m_ast;
+        lang_Symbol*        m_symbol;
+
+        lang_TemplateAstEvalStateBase(lang_Symbol* symbol, ast::AstBase* ast);
+
+        lang_TemplateAstEvalStateBase(const lang_TemplateAstEvalStateBase&) = delete;
+        lang_TemplateAstEvalStateBase(lang_TemplateAstEvalStateBase&&) = delete;
+        lang_TemplateAstEvalStateBase& operator=(const lang_TemplateAstEvalStateBase&) = delete;
+        lang_TemplateAstEvalStateBase& operator=(lang_TemplateAstEvalStateBase&&) = delete;
+    };
+    struct lang_TemplateAstEvalStateValue : public lang_TemplateAstEvalStateBase
+    {
+        std::optional<std::unique_ptr<lang_ValueInstance>> m_value_instance;
+
+        lang_TemplateAstEvalStateValue(lang_Symbol* symbol, ast::AstValueBase* ast);
+    };
+
     struct lang_TypeInstance
     {
         struct DeterminedType
@@ -298,7 +325,7 @@ namespace wo
                 struct StructMember
                 {
                     wo_integer_t              m_offset;
-                    lang_TypeInstance* m_member_type;
+                    lang_TypeInstance*        m_member_type;
                 };
                 std::unordered_map<wo_pstring_t, StructMember>
                     m_member_types;
@@ -377,6 +404,10 @@ namespace wo
         std::optional<wo::value> m_determined_constant;
         std::optional<lang_TypeInstance*> m_determined_type;
 
+        void determined_value_instance(
+            lang_TypeInstance* type,
+            const std::optional<wo::value>& constant);
+
         lang_ValueInstance(bool mutable_, lang_Symbol* symbol);
         ~lang_ValueInstance();
 
@@ -394,20 +425,25 @@ namespace wo
             ALIAS,
         };
 
-        using TemplateArgumentSetT = std::set<lang_TypeInstance*>;
+        using TemplateArgumentListT = std::list<lang_TypeInstance*>;
 
         struct TemplateValuePrefab
         {
+            lang_Symbol* m_symbol;
             bool m_mutable;
             std::list<wo_pstring_t> m_template_params;
             ast::AstValueBase* m_origin_value_ast;
-            std::map<TemplateArgumentSetT, std::unique_ptr<lang_ValueInstance*>>
+            std::map<TemplateArgumentListT, std::unique_ptr<lang_TemplateAstEvalStateValue>>
                 m_template_instances;
 
             TemplateValuePrefab(
+                lang_Symbol* symbol,
                 bool mutable_, 
                 ast::AstValueBase* ast, 
                 const std::list<wo_pstring_t>& template_params);
+
+            lang_TemplateAstEvalStateValue* find_or_create_template_instance(
+                const TemplateArgumentListT& template_args);
 
             TemplateValuePrefab(const TemplateValuePrefab&) = delete;
             TemplateValuePrefab(TemplateValuePrefab&&) = delete;
@@ -417,12 +453,16 @@ namespace wo
         };
         struct TemplateTypePrefab
         {
+            lang_Symbol* m_symbol;
             std::list<wo_pstring_t> m_template_params;
             ast::AstTypeHolder* m_origin_value_ast;
-            std::map<TemplateArgumentSetT, std::unique_ptr<lang_TypeInstance*>>
+            std::map<TemplateArgumentListT, std::unique_ptr<lang_TypeInstance*>>
                 m_template_instances;
 
-            TemplateTypePrefab(ast::AstTypeHolder* ast, const std::list<wo_pstring_t>& template_params);
+            TemplateTypePrefab(
+                lang_Symbol* symbol, 
+                ast::AstTypeHolder* ast, 
+                const std::list<wo_pstring_t>& template_params);
 
             TemplateTypePrefab(const TemplateTypePrefab&) = delete;
             TemplateTypePrefab(TemplateTypePrefab&&) = delete;
@@ -431,12 +471,16 @@ namespace wo
         };
         struct TemplateAliasPrefab
         {
+            lang_Symbol* m_symbol;
             std::list<wo_pstring_t> m_template_params;
             ast::AstTypeHolder* m_origin_value_ast;
-            std::map<TemplateArgumentSetT, std::unique_ptr<lang_AliasInstance*>>
+            std::map<TemplateArgumentListT, std::unique_ptr<lang_AliasInstance*>>
                 m_template_instances;
 
-            TemplateAliasPrefab(ast::AstTypeHolder* ast, const std::list<wo_pstring_t>& template_params);
+            TemplateAliasPrefab(
+                lang_Symbol* symbol, 
+                ast::AstTypeHolder* ast,
+                const std::list<wo_pstring_t>& template_params);
             TemplateAliasPrefab(const TemplateAliasPrefab&) = delete;
             TemplateAliasPrefab(TemplateAliasPrefab&&) = delete;
             TemplateAliasPrefab& operator=(const TemplateAliasPrefab&) = delete;
@@ -534,6 +578,8 @@ namespace wo
             OKAY,                   // Pop this ast node.
             HOLD,                   // Something need to be done.
             HOLD_BUT_CHILD_FAILED,  // Something need to be done, but child failed.
+            PENDING,                // Symbol & definition is pending(E.G. local use of global define).
+            HOLD_BUT_CHILD_PENDING, // Something need to be done, but child is pending.
             FAILED,                 // Error occured.
         };
         struct AstNodeWithState
@@ -638,6 +684,10 @@ namespace wo
         std::unordered_map<lang_TypeInstance*, std::unique_ptr<lang_TypeInstance>> 
                                         m_mutable_type_instance_cache;
 
+        using PendingScopedAstListT = std::list<std::pair<ast::AstBase*, lang_Scope*>>;
+        PendingScopedAstListT           m_pending_ast_nodes;
+        bool                            m_finishing_pending_nodes;
+
         static ProcessAstJobs* m_pass0_processers;
         static ProcessAstJobs* m_pass1_processers;
 
@@ -672,7 +722,12 @@ namespace wo
     m_##PASSNAME##_processers->register_processer<ast::AST>(\
         NODE_TYPE, &LangContext::WO_LANG_PROCESSER_NAME(AST, PASSNAME))
 #define WO_EXCEPT_ERROR(V, VAL)\
-    (V == HOLD_BUT_CHILD_FAILED ? FAILED : VAL)
+    (V == HOLD_BUT_CHILD_FAILED\
+        ? FAILED\
+        : V == HOLD_BUT_CHILD_PENDING\
+            ? PENDING\
+            : VAL)
+
 #define WO_CONTINUE_PROCESS(NODE)\
     out_stack.push(NODE)
 #define WO_CONTINUE_PROCESS_LIST(LIST)\
@@ -776,8 +831,10 @@ namespace wo
         }
 
         void begin_new_scope();
+        void entry_spcify_scope(lang_Scope* scope);
         void end_last_scope();
         bool begin_new_namespace(wo_pstring_t name);
+        void entry_spcify_namespace(lang_Namespace* namespace_);
         void end_last_namespace();
 
         std::optional<lang_Symbol*>
@@ -812,10 +869,18 @@ namespace wo
             lexer& lex, 
             ast::AstPatternBase* pattern, 
             const std::optional<ast::AstValueBase*>& init_value,
-            lang_TypeInstance* init_value_type);
+            // NOTE: If template pattern, init_value_type will not able to be determined.
+            // So here is optional.
+            const std::optional<lang_TypeInstance*>& init_value_type);
 
         lang_TypeInstance* mutable_type(lang_TypeInstance* origin_type);
         lang_TypeInstance* immutable_type(lang_TypeInstance* origin_type);
+
+        void fast_create_template_type_alias_in_current_scope(
+            lexer& lex, 
+            lang_Symbol* for_symbol,
+            const std::list<wo_pstring_t>& template_params,
+            const std::list<lang_TypeInstance*>& template_args);
         //////////////////////////////////////
     };
 #endif

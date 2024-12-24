@@ -161,10 +161,12 @@ namespace wo
 
             node_type_t node_type;
             source_location_t source_location;
+            bool finished;
 
             AstBase(node_type_t ty)
                 : node_type(ty)
                 , source_location{}
+                , finished(false)
             {
                 if (!list)
                     list = new std::forward_list<AstBase*>;

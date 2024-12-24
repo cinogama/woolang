@@ -27,6 +27,8 @@ namespace wo
     struct lang_ValueInstance;
     struct lang_Symbol;
     struct lang_Scope;
+    struct lang_Namespace;
+    struct lang_TemplateAstEvalStateValue;
 
     namespace ast
     {
@@ -248,6 +250,9 @@ namespace wo
         struct AstValueVariable : public AstValueBase
         {
             AstIdentifier* m_identifier;
+
+            std::optional<lang_TemplateAstEvalStateValue*> m_LANG_template_evalating_state;
+            std::optional<lang_ValueInstance*> m_LANG_variable_instance;
 
             AstValueVariable(AstIdentifier* variable_name);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
@@ -534,12 +539,16 @@ namespace wo
             wo_pstring_t    m_name;
             AstBase*        m_body;
 
+            std::optional<lang_Namespace*> m_LANG_determined_namespace;
+
             AstNamespace(wo_pstring_t name, AstBase* body);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
         struct AstScope : public AstBase
         {
             AstBase* m_body;
+
+            std::optional<lang_Scope*> m_LANG_determined_scope;
         
             AstScope(AstBase* body);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;

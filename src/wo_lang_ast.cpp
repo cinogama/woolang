@@ -490,6 +490,9 @@ namespace wo
                 : new AstValueLiteral()
                 ;
             AstValueBase::make_dup(new_instance, out_continues);
+            new_instance->m_evaled_const_value = wo::value();
+            new_instance->m_evaled_const_value.value().set_val_compile_time(
+                &m_evaled_const_value.value());
             return new_instance;
         }
 
@@ -580,6 +583,8 @@ namespace wo
         AstValueVariable::AstValueVariable(AstIdentifier* identifier)
             : AstValueBase(AST_VALUE_VARIABLE)
             , m_identifier(identifier)
+            , m_LANG_template_evalating_state(std::nullopt)
+            , m_LANG_variable_instance(std::nullopt)
         {
 
         }
@@ -1216,6 +1221,7 @@ namespace wo
             : AstBase(AST_NAMESPACE)
             , m_name(name)
             , m_body(body)
+            , m_LANG_determined_namespace(std::nullopt)
         {
         }
         AstBase* AstNamespace::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
@@ -1233,6 +1239,7 @@ namespace wo
         AstScope::AstScope(AstBase* body)
             : AstBase(AST_SCOPE)
             , m_body(body)
+            , m_LANG_determined_scope(std::nullopt)
         {
         }
         AstBase* AstScope::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
