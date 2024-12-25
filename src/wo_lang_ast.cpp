@@ -1027,6 +1027,8 @@ namespace wo
             , m_where_constraints(where_constraints)
             , m_pending_param_type_mark_template(defined_function_template_only_for_lambda)
             , m_body(body)
+            , m_LANG_determined_return_type(std::nullopt)
+            , m_LANG_hold_state(UNPROCESSED)
         {
             for (auto* param_define : parameters)
             {

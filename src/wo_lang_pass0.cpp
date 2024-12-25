@@ -7,7 +7,8 @@ namespace wo
 
     bool LangContext::declare_pattern_symbol_pass0_1(
         lexer& lex,
-        AstVariableDefines* var_defines,
+        const std::optional<AstDeclareAttribue*>& attribute,
+        const std::optional<AstBase*>& var_defines,
         ast::AstPatternBase* pattern,
         const std::optional<ast::AstValueBase*>& init_value)
     {
@@ -24,7 +25,7 @@ namespace wo
                     wo_assert(init_value);
                     single_pattern->m_LANG_declared_symbol = define_symbol_in_current_scope(
                         single_pattern->m_name,
-                        var_defines->m_attribute,
+                        attribute,
                         var_defines,
                         pattern->source_location.source_file,
                         get_current_scope(),
@@ -36,7 +37,7 @@ namespace wo
                 {
                     single_pattern->m_LANG_declared_symbol = define_symbol_in_current_scope(
                         single_pattern->m_name,
-                        var_defines->m_attribute,
+                        attribute,
                         var_defines,
                         pattern->source_location.source_file,
                         get_current_scope(),
@@ -63,6 +64,7 @@ namespace wo
             for (auto& sub_pattern : tuple_pattern->m_fields)
                 success = success && declare_pattern_symbol_pass0_1(
                     lex,
+                    attribute,
                     var_defines,
                     sub_pattern,
                     std::nullopt);
@@ -77,6 +79,7 @@ namespace wo
             if (union_pattern->m_field)
                 success = declare_pattern_symbol_pass0_1(
                     lex,
+                    attribute,
                     var_defines,
                     union_pattern->m_field.value(),
                     std::nullopt);
@@ -162,6 +165,7 @@ namespace wo
         for (auto& defines : node->m_definitions)
             success = success && declare_pattern_symbol_pass0_1(
                 lex,
+                node->m_attribute,
                 node,
                 defines->m_pattern, 
                 defines->m_init_value);

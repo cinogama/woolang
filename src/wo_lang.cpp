@@ -951,6 +951,16 @@ namespace wo
 
     ////////////////////////
 
+    void LangContext::begin_new_function(ast::AstValueFunction* func_instance)
+    {
+        begin_new_scope();
+        get_current_scope()->m_function_instance = func_instance;
+    }
+    void LangContext::end_last_function()
+    {
+        wo_assert(get_current_scope()->m_function_instance);
+        end_last_scope();
+    }
     void LangContext::begin_new_scope()
     {
         lang_Scope* current_scope = get_current_scope();
@@ -1001,7 +1011,10 @@ namespace wo
     }
     void LangContext::end_last_namespace()
     {
-        m_scope_stack.pop();
+        wo_assert(get_current_scope() ==
+            get_current_namespace()->m_this_scope.get());
+
+        end_last_scope();
     }
     lang_Scope* LangContext::get_current_scope()
     {
@@ -1010,6 +1023,19 @@ namespace wo
     lang_Namespace* LangContext::get_current_namespace()
     {
         return get_current_scope()->m_belongs_to_namespace;
+    }
+    std::optional<ast::AstValueFunction*> LangContext::get_current_function()
+    {
+        std::optional<lang_Scope*> current_scope = get_current_scope();
+        while (current_scope)
+        {
+            auto* current_scope_p = current_scope.value();
+            current_scope = current_scope_p->m_parent_scope;
+
+            if (current_scope_p->m_function_instance)
+                return current_scope_p->m_function_instance;
+        }
+        return std::nullopt;
     }
     std::optional<lang_Symbol*>
         LangContext::_search_symbol_from_current_scope(lexer& lex, ast::AstIdentifier* ident)

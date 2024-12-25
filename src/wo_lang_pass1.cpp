@@ -90,7 +90,6 @@ namespace wo
     void LangContext::init_pass1()
     {
         WO_LANG_REGISTER_PROCESSER(AstList, AstBase::AST_LIST, pass1);
-        //WO_LANG_REGISTER_PROCESSER(AstDeclareAttribue, AstBase::AST_DECLARE_ATTRIBUTE, pass1);
         WO_LANG_REGISTER_PROCESSER(AstIdentifier, AstBase::AST_IDENTIFIER, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstStructFieldDefine, AstBase::AST_PATTERN_SINGLE, pass1);
         WO_LANG_REGISTER_PROCESSER(AstTypeHolder, AstBase::AST_TYPE_HOLDER, pass1);
@@ -102,7 +101,7 @@ namespace wo
         // WO_LANG_REGISTER_PROCESSER(AstValueTypeCheckIs, AstBase::AST_VALUE_TYPE_CHECK_IS, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstValueTypeCheckAs, AstBase::AST_VALUE_TYPE_CHECK_AS, pass1);
         WO_LANG_REGISTER_PROCESSER(AstValueVariable, AstBase::AST_VALUE_VARIABLE, pass1);
-        // WO_LANG_REGISTER_PROCESSER(AstWhereConstraints, AstBase::AST_WHERE_CONSTRAINTS, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstWhereConstraints, AstBase::AST_WHERE_CONSTRAINTS, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstValueFunctionCall, AstBase::AST_VALUE_FUNCTION_CALL, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstValueBinaryOperator, AstBase::AST_VALUE_BINARY_OPERATOR, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstValueUnaryOperator, AstBase::AST_VALUE_UNARY_OPERATOR, pass1);
@@ -114,8 +113,8 @@ namespace wo
         // WO_LANG_REGISTER_PROCESSER(AstPatternIndex, AstBase::AST_PATTERN_INDEX, pass1);
         WO_LANG_REGISTER_PROCESSER(AstVariableDefineItem, AstBase::AST_VARIABLE_DEFINE_ITEM, pass1);
         WO_LANG_REGISTER_PROCESSER(AstVariableDefines, AstBase::AST_VARIABLE_DEFINES, pass1);
-        // WO_LANG_REGISTER_PROCESSER(AstFunctionParameterDeclare, AstBase::AST_FUNCTION_PARAMETER_DECLARE, pass1);
-        // WO_LANG_REGISTER_PROCESSER(AstValueFunction, AstBase::AST_VALUE_FUNCTION, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstFunctionParameterDeclare, AstBase::AST_FUNCTION_PARAMETER_DECLARE, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstValueFunction, AstBase::AST_VALUE_FUNCTION, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstValueArrayOrVec, AstBase::AST_VALUE_ARRAY_OR_VEC, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstKeyValuePair, AstBase::AST_KEY_VALUE_PAIR, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstValueDictOrMap, AstBase::AST_VALUE_DICT_OR_MAP, pass1);
@@ -379,7 +378,7 @@ namespace wo
 
                             if (!type_determined)
                             {
-                                if (!node->m_LANG_trying_advancing_type_judgement)
+                                if (!node->m_LANG_trying_advancing_type_judgement && type_symbol->m_symbol_declare_ast)
                                 {
                                     node->m_LANG_trying_advancing_type_judgement = true;
 
@@ -592,7 +591,7 @@ namespace wo
                 node->m_LANG_determined_type = determined_value_instance->m_determined_type.value();
             else
             {
-                if (!node->m_LANG_trying_advancing_type_judgement)
+                if (!node->m_LANG_trying_advancing_type_judgement && determined_value_instance->m_symbol->m_symbol_declare_ast)
                 {
                     node->m_LANG_trying_advancing_type_judgement = true;
 
@@ -641,6 +640,7 @@ namespace wo
             for (auto& defines : node->m_definitions)
                 success = success && declare_pattern_symbol_pass0_1(
                     lex,
+                    node->m_attribute,
                     node,
                     defines->m_pattern,
                     defines->m_init_value);
@@ -796,6 +796,146 @@ namespace wo
             }
         }
         return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstWhereConstraints)
+    {
+        if (state == UNPROCESSED)
+        {
+            WO_CONTINUE_PROCESS_LIST(node->m_constraints);
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            bool failed = false;
+            for (auto& constraint : node->m_constraints)
+            {
+                if (!constraint->m_evaled_const_value)
+                {
+                    failed = true;
+                    lex.lang_error(lexer::errorlevel::error, constraint,
+                        WO_ERR_CONSTRAINT_SHOULD_BE_CONST);
+                    continue;
+                }
+
+                auto* constraint_type = constraint->m_LANG_determined_type.value();
+                if (constraint_type != m_origin_types.m_bool.m_type_instance)
+                {
+                    failed = true;
+                    lex.lang_error(lexer::errorlevel::error, constraint,
+                        WO_ERR_CONSTRAINT_SHOULD_BE_BOOL);
+                    continue;
+                }
+
+                if (! constraint->m_evaled_const_value.value().integer)
+                {
+                    failed = true;
+                    lex.lang_error(lexer::errorlevel::error, constraint,
+                        WO_ERR_CONSTRAINT_FAILED);
+                    continue;
+                }
+            }
+
+            if (failed)
+                return FAILED;
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstFunctionParameterDeclare)
+    {
+        if (state == UNPROCESSED)
+        {
+            WO_CONTINUE_PROCESS(node->m_type.value());
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            if (!declare_pattern_symbol_pass0_1(
+                lex,
+                std::nullopt,
+                std::nullopt,
+                node->m_pattern,
+                std::nullopt))
+            {
+                // Failed.
+                return FAILED;
+            }
+
+            // Update pattern symbol type.
+            if (!update_pattern_symbol_variable_type_pass1(
+                lex,
+                node->m_pattern,
+                std::nullopt,
+                node->m_type.value()->m_LANG_determined_type))
+            {
+                // Failed.
+                return FAILED;
+            }
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstValueFunction)
+    {
+        // Huston, we have a problem.
+        if (state == UNPROCESSED)
+        {
+            node->m_LANG_hold_state = AstValueFunction::HOLD_FOR_PARAMETER_EVAL;
+
+            // Begin new function.
+            begin_new_function(node);
+
+            WO_CONTINUE_PROCESS_LIST(node->m_parameters);
+            return HOLD;                
+        }
+        else if (state == HOLD)
+        {
+            switch (node->m_LANG_hold_state)
+            {
+            case AstValueFunction::HOLD_FOR_PARAMETER_EVAL:
+            {
+                if (node->m_marked_return_type)
+                {
+                    node->m_LANG_hold_state= AstValueFunction::HOLD_FOR_RETURN_TYPE_EVAL;
+                    WO_CONTINUE_PROCESS(node->m_marked_return_type.value());
+                    return HOLD;
+                }
+                /* FALL THROUGH */
+            }
+            [[fallthrough]];
+            case AstValueFunction::HOLD_FOR_RETURN_TYPE_EVAL:
+            {
+                if (node->m_where_constraints)
+                {
+                    node->m_LANG_hold_state = AstValueFunction::HOLD_FOR_EVAL_WHERE_CONSTRAINTS;
+                    WO_CONTINUE_PROCESS(node->m_where_constraints.value());
+                    return HOLD;
+                }
+                /* FALL THROUGH */
+            }
+            [[fallthrough]];
+            case AstValueFunction::HOLD_FOR_EVAL_WHERE_CONSTRAINTS:
+            {
+                // Eval function type for outside.
+               TODO: // Consider about how to eval recursive funciton call.
+
+                node->m_LANG_hold_state = AstValueFunction::HOLD_FOR_BODY_EVAL;
+                WO_CONTINUE_PROCESS(node->m_body);
+                return HOLD;
+            }
+            case AstValueFunction::HOLD_FOR_BODY_EVAL:
+            {
+                end_last_function();
+                break;
+            }
+            default:
+                wo_error("unknown hold state");
+                break;
+            }
+        }
+        else
+        {
+            end_last_function();
+        }
+
     }
 
 #undef WO_PASS_PROCESSER

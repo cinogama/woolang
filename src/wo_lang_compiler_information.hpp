@@ -69,3 +69,6 @@
 #define WO_ERR_TYPE_DETERMINED_FAILED L"类型未获确定"
 #define WO_ERR_RECURSIVE_TEMPLATE_INSTANCE L"递归依赖了正在具体化的泛型实例"
 #define WO_ERR_RECURSIVE_EVAL_PASS1 L"递归地依赖了自身"
+#define WO_ERR_CONSTRAINT_SHOULD_BE_CONST L"约束项应当是一个常量表达式"
+#define WO_ERR_CONSTRAINT_SHOULD_BE_BOOL L"约束项的值类型应该是 'bool'"
+#define WO_ERR_CONSTRAINT_FAILED L"约束项不满足"

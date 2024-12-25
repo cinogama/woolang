@@ -567,6 +567,7 @@ namespace wo
             m_sub_scopes;
 
         std::optional<lang_Scope*> m_parent_scope;
+        std::optional<ast::AstValueFunction*> m_function_instance;
         lang_Namespace* m_belongs_to_namespace;
 
         lang_Scope(const std::optional<lang_Scope*>& parent_scope, lang_Namespace* belongs);
@@ -850,6 +851,10 @@ namespace wo
         void begin_new_scope();
         void entry_spcify_scope(lang_Scope* scope);
         void end_last_scope();
+
+        void begin_new_function(ast::AstValueFunction* func_instance);
+        void end_last_function();
+
         bool begin_new_namespace(wo_pstring_t name);
         void entry_spcify_namespace(lang_Namespace* namespace_);
         void end_last_namespace();
@@ -881,11 +886,13 @@ namespace wo
         }
 
         lang_Scope* get_current_scope();
+        std::optional<ast::AstValueFunction*> get_current_function();
         lang_Namespace* get_current_namespace();
 
         bool declare_pattern_symbol_pass0_1(
             lexer& lex,
-            ast::AstVariableDefines* var_defines,
+            const std::optional<ast::AstDeclareAttribue*>& attribute,
+            const std::optional<ast::AstBase*>& var_defines,
             ast::AstPatternBase* pattern,
             const std::optional<ast::AstValueBase*>& init_value);
         bool update_pattern_symbol_variable_type_pass1(

@@ -439,6 +439,15 @@ namespace wo
         };
         struct AstValueFunction : public AstValueBase
         {
+            enum LANG_hold_state
+            {
+                UNPROCESSED,
+                HOLD_FOR_PARAMETER_EVAL,
+                HOLD_FOR_RETURN_TYPE_EVAL,
+                HOLD_FOR_EVAL_WHERE_CONSTRAINTS,
+                HOLD_FOR_BODY_EVAL,
+            };
+
             std::list<AstFunctionParameterDeclare*>     
                                             m_parameters;
             bool                            m_is_variadic;
@@ -448,6 +457,10 @@ namespace wo
             std::optional<std::list<wo_pstring_t>>
                                             m_pending_param_type_mark_template;
             AstBase*                        m_body;
+
+            std::optional<lang_TypeInstance*>   
+                                            m_LANG_determined_return_type;
+            LANG_hold_state                 m_LANG_hold_state;
 
             AstValueFunction(
                 const std::list<AstFunctionParameterDeclare*>& parameters,
