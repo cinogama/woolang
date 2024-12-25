@@ -72,3 +72,5 @@
 #define WO_ERR_CONSTRAINT_SHOULD_BE_CONST L"约束项应当是一个常量表达式"
 #define WO_ERR_CONSTRAINT_SHOULD_BE_BOOL L"约束项的值类型应该是 'bool'"
 #define WO_ERR_CONSTRAINT_FAILED L"约束项不满足"
+
+#define WO_ERR_UNEXPECTED_RETURN_TYPE L"未预料到的函数返回类型"

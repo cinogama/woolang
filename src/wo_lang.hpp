@@ -254,49 +254,7 @@ namespace wo
     struct lang_Namespace;
     struct lang_Scope;
     struct lang_Symbol;
-    struct lang_TypeInstance;
-    struct lang_AliasInstance;
-    struct lang_ValueInstance;
-
-    struct lang_TemplateAstEvalStateBase
-    {
-        enum state
-        {
-            UNPROCESSED,
-            EVALUATING,
-            EVALUATED,
-            FAILED,
-        };
-        state               m_state;
-        ast::AstBase*       m_ast;
-        lang_Symbol*        m_symbol;
-
-        lang_TemplateAstEvalStateBase(lang_Symbol* symbol, ast::AstBase* ast);
-
-        lang_TemplateAstEvalStateBase(const lang_TemplateAstEvalStateBase&) = delete;
-        lang_TemplateAstEvalStateBase(lang_TemplateAstEvalStateBase&&) = delete;
-        lang_TemplateAstEvalStateBase& operator=(const lang_TemplateAstEvalStateBase&) = delete;
-        lang_TemplateAstEvalStateBase& operator=(lang_TemplateAstEvalStateBase&&) = delete;
-    };
-    struct lang_TemplateAstEvalStateValue : public lang_TemplateAstEvalStateBase
-    {
-        std::optional<std::unique_ptr<lang_ValueInstance>> m_value_instance;
-
-        lang_TemplateAstEvalStateValue(lang_Symbol* symbol, ast::AstValueBase* ast);
-    };
-    struct lang_TemplateAstEvalStateType : public lang_TemplateAstEvalStateBase
-    {
-        std::optional<std::unique_ptr<lang_TypeInstance>> m_type_instance;
-
-        lang_TemplateAstEvalStateType(lang_Symbol* symbol, ast::AstTypeHolder* ast);
-    };
-    struct lang_TemplateAstEvalStateAlias : public lang_TemplateAstEvalStateBase
-    {
-        std::optional<std::unique_ptr<lang_AliasInstance>> m_alias_instance;
-
-        lang_TemplateAstEvalStateAlias(lang_Symbol* symbol, ast::AstTypeHolder* ast);
-    };
-
+  
     struct lang_TypeInstance
     {
         struct DeterminedType
@@ -338,7 +296,7 @@ namespace wo
                 struct StructMember
                 {
                     wo_integer_t              m_offset;
-                    lang_TypeInstance*        m_member_type;
+                    lang_TypeInstance* m_member_type;
                 };
                 std::unordered_map<wo_pstring_t, StructMember>
                     m_member_types;
@@ -388,6 +346,7 @@ namespace wo
 
         // NOTE: DeterminedType means immutable type, lang_TypeInstance* means mutable types.
         std::optional<DeterminedOrMutableType> m_determined_type;
+        std::unordered_map<lang_TypeInstance*, bool> m_LANG_accepted_types;
 
         lang_TypeInstance(lang_Symbol* symbol);
         lang_TypeInstance(const lang_TypeInstance&) = delete;
@@ -430,6 +389,46 @@ namespace wo
         lang_ValueInstance& operator=(const lang_ValueInstance&) = delete;
         lang_ValueInstance& operator=(lang_ValueInstance&&) = delete;
     };
+
+    struct lang_TemplateAstEvalStateBase
+    {
+        enum state
+        {
+            UNPROCESSED,
+            EVALUATING,
+            EVALUATED,
+            FAILED,
+        };
+        state               m_state;
+        ast::AstBase*       m_ast;
+        lang_Symbol*        m_symbol;
+
+        lang_TemplateAstEvalStateBase(lang_Symbol* symbol, ast::AstBase* ast);
+
+        lang_TemplateAstEvalStateBase(const lang_TemplateAstEvalStateBase&) = delete;
+        lang_TemplateAstEvalStateBase(lang_TemplateAstEvalStateBase&&) = delete;
+        lang_TemplateAstEvalStateBase& operator=(const lang_TemplateAstEvalStateBase&) = delete;
+        lang_TemplateAstEvalStateBase& operator=(lang_TemplateAstEvalStateBase&&) = delete;
+    };
+    struct lang_TemplateAstEvalStateValue : public lang_TemplateAstEvalStateBase
+    {
+        std::unique_ptr<lang_ValueInstance> m_value_instance;
+
+        lang_TemplateAstEvalStateValue(lang_Symbol* symbol, ast::AstValueBase* ast);
+    };
+    struct lang_TemplateAstEvalStateType : public lang_TemplateAstEvalStateBase
+    {
+        std::unique_ptr<lang_TypeInstance> m_type_instance;
+
+        lang_TemplateAstEvalStateType(lang_Symbol* symbol, ast::AstTypeHolder* ast);
+    };
+    struct lang_TemplateAstEvalStateAlias : public lang_TemplateAstEvalStateBase
+    {
+        std::unique_ptr<lang_AliasInstance> m_alias_instance;
+
+        lang_TemplateAstEvalStateAlias(lang_Symbol* symbol, ast::AstTypeHolder* ast);
+    };
+
     struct lang_Symbol
     {
         enum kind
@@ -510,6 +509,7 @@ namespace wo
 
         kind                            m_symbol_kind;
         bool                            m_is_template;
+        wo_pstring_t                    m_name;
         wo_pstring_t                    m_defined_source;
         std::optional<ast::AstDeclareAttribue*>
                                         m_declare_attribute;
@@ -535,6 +535,7 @@ namespace wo
         ~lang_Symbol();
 
         lang_Symbol(
+            wo_pstring_t name,
             const std::optional<ast::AstDeclareAttribue*>& attr,
             std::optional<ast::AstBase*> symbol_declare_ast,
             wo_pstring_t src_location,
@@ -542,6 +543,7 @@ namespace wo
             kind kind,
             bool mutable_variable);
         lang_Symbol(
+            wo_pstring_t name,
             const std::optional<ast::AstDeclareAttribue*>& attr,
             std::optional<ast::AstBase*> symbol_declare_ast,
             wo_pstring_t src_location,
@@ -550,6 +552,7 @@ namespace wo
             const std::list<wo_pstring_t>& template_params,
             bool mutable_variable);
         lang_Symbol(
+            wo_pstring_t name,
             const std::optional<ast::AstDeclareAttribue*>& attr,
             std::optional<ast::AstBase*> symbol_declare_ast,
             wo_pstring_t src_location,
@@ -581,12 +584,13 @@ namespace wo
     };
     struct lang_Namespace
     {
+        wo_pstring_t                            m_name;
         std::unordered_map<wo_pstring_t, std::unique_ptr<lang_Namespace>>
             m_sub_namespaces;
         std::unique_ptr<lang_Scope>             m_this_scope;
         std::optional<lang_Namespace*>          m_parent_namespace;
 
-        lang_Namespace(const std::optional<lang_Namespace*>& parent_namespace);
+        lang_Namespace(wo_pstring_t name, const std::optional<lang_Namespace*>& parent_namespace);
 
         lang_Namespace(const lang_Scope&) = delete;
         lang_Namespace(lang_Scope&&) = delete;
@@ -824,6 +828,7 @@ namespace wo
         WO_PASS_PROCESSER(AstScope, pass0);
         WO_PASS_PROCESSER(AstNamespace, pass0);
         WO_PASS_PROCESSER(AstVariableDefines, pass0);
+        WO_PASS_PROCESSER(AstVariableDefineItem, pass0);
         WO_PASS_PROCESSER(AstAliasTypeDeclare, pass0);
         WO_PASS_PROCESSER(AstUsingTypeDeclare, pass0);
         WO_PASS_PROCESSER(AstEnumDeclare, pass0);
@@ -878,7 +883,7 @@ namespace wo
                 return std::nullopt;
 
             auto new_symbol = std::make_unique<lang_Symbol>(
-                attr, symbol_declare_ast, src_location, std::forward<ArgTs>(args)...);
+                name, attr, symbol_declare_ast, src_location, std::forward<ArgTs>(args)...);
             auto* new_symbol_ptr = new_symbol.get();
             symbol_table.insert(std::make_pair(name, std::move(new_symbol)));
 
@@ -926,6 +931,7 @@ namespace wo
             lang_TemplateAstEvalStateBase* template_eval_instance);
 
         //////////////////////////////////////
+        bool is_type_accepted(lang_TypeInstance* accepter, lang_TypeInstance* provider);
     };
 #endif
 }

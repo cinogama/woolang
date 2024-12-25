@@ -409,6 +409,7 @@ namespace wo
             AstPatternBase* m_pattern;
             AstValueBase* m_init_value;
 
+            std::optional<AstDeclareAttribue*> m_LANG_declare_attribute;
         private:
             AstVariableDefineItem(const AstVariableDefineItem&);
         public:
@@ -461,6 +462,8 @@ namespace wo
             std::optional<lang_TypeInstance*>   
                                             m_LANG_determined_return_type;
             LANG_hold_state                 m_LANG_hold_state;
+            std::optional<lang_ValueInstance*>
+                                            m_LANG_value_instance_to_update;
 
             AstValueFunction(
                 const std::list<AstFunctionParameterDeclare*>& parameters,

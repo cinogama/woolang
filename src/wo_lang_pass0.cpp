@@ -104,6 +104,7 @@ namespace wo
         WO_LANG_REGISTER_PROCESSER(AstScope, AstBase::AST_SCOPE, pass0);
         WO_LANG_REGISTER_PROCESSER(AstNamespace, AstBase::AST_NAMESPACE, pass0);
         WO_LANG_REGISTER_PROCESSER(AstVariableDefines, AstBase::AST_VARIABLE_DEFINES, pass0);
+        WO_LANG_REGISTER_PROCESSER(AstVariableDefineItem, AstBase::AST_VARIABLE_DEFINE_ITEM, pass0);
         WO_LANG_REGISTER_PROCESSER(AstAliasTypeDeclare, AstBase::AST_ALIAS_TYPE_DECLARE, pass0);
         WO_LANG_REGISTER_PROCESSER(AstUsingTypeDeclare, AstBase::AST_USING_TYPE_DECLARE, pass0);
         WO_LANG_REGISTER_PROCESSER(AstEnumDeclare, AstBase::AST_ENUM_DECLARE, pass0);
@@ -157,20 +158,35 @@ namespace wo
         end_last_scope();
         return WO_EXCEPT_ERROR(state, OKAY);
     }
-    WO_PASS_PROCESSER(AstVariableDefines)
+    WO_PASS_PROCESSER(AstVariableDefineItem)
     {
         wo_assert(state == UNPROCESSED);
+
+        if (!declare_pattern_symbol_pass0_1(
+            lex,
+            node->m_LANG_declare_attribute,
+            node,
+            node->m_pattern,
+            node->m_init_value))
+            return FAILED;
+
+        return OKAY;
+    }
+    WO_PASS_PROCESSER(AstVariableDefines)
+    {
+        if (state == UNPROCESSED)
+        {
+            for (auto& defines : node->m_definitions)
+                defines->m_LANG_declare_attribute = node->m_attribute;
+
+            WO_CONTINUE_PROCESS_LIST(node->m_definitions);
+            return HOLD;
+        }
         
-        bool success = true;
-        for (auto& defines : node->m_definitions)
-            success = success && declare_pattern_symbol_pass0_1(
-                lex,
-                node->m_attribute,
-                node,
-                defines->m_pattern, 
-                defines->m_init_value);
+        return WO_EXCEPT_ERROR(state, OKAY);
+         /*   success = success && 
         
-        return success ? OKAY : FAILED;
+        return success ? OKAY : FAILED;*/
     }
     WO_PASS_PROCESSER(AstAliasTypeDeclare)
     {

@@ -51,6 +51,7 @@ namespace wo::fixstr
     WO_GLOBAL_PSTR_LIST;
     inline wo_pstring_t _global__iter = new std::wstring(L"$_iter");
     inline wo_pstring_t _global__val = new std::wstring(L"$_val");
+    inline wo_pstring_t _global_EMPTY = new std::wstring(L"");
 }
 
 #undef WO_GLOBAL_PSTR
@@ -89,6 +90,7 @@ namespace wo
                 WO_GLOBAL_PSTR_LIST;
                 WO_GLOBAL_PSTR(_iter);
                 WO_GLOBAL_PSTR(_val);
+                WO_GLOBAL_PSTR(EMPTY);
 #undef WO_GLOBAL_PSTR
             }
         }

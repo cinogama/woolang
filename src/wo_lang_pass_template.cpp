@@ -34,6 +34,15 @@ namespace wo
                 template_variable_prefab->find_or_create_template_instance(
                     template_arguments);
 
+            if (template_eval_state_instance->m_ast->node_type == ast::AstBase::AST_VALUE_FUNCTION)
+            {
+                ast::AstValueFunction* function = static_cast<ast::AstValueFunction*>(
+                    template_eval_state_instance->m_ast);
+
+                function->m_LANG_value_instance_to_update =
+                    template_eval_state_instance->m_value_instance.get();
+            }
+
             result = template_eval_state_instance;
             template_params = &template_variable_prefab->m_template_params;
             break;
@@ -93,11 +102,21 @@ namespace wo
                 WO_ERR_VALUE_TYPE_DETERMINED_FAILED);
             return std::nullopt;
         case lang_TemplateAstEvalStateValue::EVALUATING:
+        {
+            if (templating_symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE)
+            {
+                // For function, recursive template instance is allowed.
+                auto* template_eval_state_instance = static_cast<lang_TemplateAstEvalStateValue*>(result);
+                if (template_eval_state_instance->m_value_instance->m_determined_type.has_value())
+                    // Type has been determined, no need to evaluate again.
+                    return result;
+            }
             // NOTE: Donot modify eval state here.
             //  Some case like `is pending` may meet this error but it's not a real error.
             lex.lang_error(lexer::errorlevel::error, node,
                 WO_ERR_RECURSIVE_TEMPLATE_INSTANCE);
             return std::nullopt;
+        }
         case lang_TemplateAstEvalStateValue::UNPROCESSED:
             result->m_state = lang_TemplateAstEvalStateValue::EVALUATING;
 
@@ -132,8 +151,8 @@ namespace wo
             ast::AstValueBase* ast_value = static_cast<ast::AstValueBase*>(
                 template_eval_instance_value->m_ast);
 
-            auto new_template_variable_instance = std::make_unique<lang_ValueInstance>(
-                templating_symbol->m_template_value_instances->m_mutable, templating_symbol);
+            auto* new_template_variable_instance = 
+                template_eval_instance_value->m_value_instance.get();
 
             std::optional<wo::value> constant_value = std::nullopt;
             if (!new_template_variable_instance->m_mutable && template_eval_instance_value->m_ast)
@@ -142,9 +161,6 @@ namespace wo
             }
             new_template_variable_instance->determined_value_instance(
                 ast_value->m_LANG_determined_type.value(), constant_value);
-
-            template_eval_instance_value->m_value_instance = 
-                std::move(new_template_variable_instance);
 
             template_eval_instance_value->m_state = 
                 lang_TemplateAstEvalStateValue::EVALUATED;
@@ -159,14 +175,11 @@ namespace wo
             ast::AstTypeHolder* ast_type = static_cast<ast::AstTypeHolder*>(
                 template_eval_instance_alias->m_ast);
 
-            auto new_template_alias_instance = std::make_unique<lang_AliasInstance>(
-                templating_symbol);
+            auto* new_template_alias_instance =
+                template_eval_instance_alias->m_alias_instance.get();
 
             new_template_alias_instance->m_determined_type = ast_type->m_LANG_determined_type;
             wo_assert(new_template_alias_instance->m_determined_type.has_value());
-
-            template_eval_instance_alias->m_alias_instance =
-                std::move(new_template_alias_instance);
 
             template_eval_instance_alias->m_state =
                 lang_TemplateAstEvalStateAlias::EVALUATED;
@@ -181,14 +194,11 @@ namespace wo
             ast::AstTypeHolder* ast_type = static_cast<ast::AstTypeHolder*>(
                 template_eval_instance_type->m_ast);
 
-            auto new_template_type_instance = std::make_unique<lang_TypeInstance>(
-                templating_symbol);
+            auto* new_template_type_instance =
+                template_eval_instance_type->m_type_instance.get();
 
             new_template_type_instance->determine_base_type(
                 ast_type->m_LANG_determined_type.value()->get_determined_type());
-
-            template_eval_instance_type->m_type_instance =
-                std::move(new_template_type_instance);
 
             template_eval_instance_type->m_state =
                 lang_TemplateAstEvalStateType::EVALUATED;

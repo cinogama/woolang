@@ -232,7 +232,10 @@ namespace wo
                     auto holder = std::move(continues.front());
                     continues.pop_front();
 
-                    holder->set(holder->get()->make_dup(std::nullopt, continues));
+                    auto* origin_holder_ast = holder->get();
+                    auto* duped_holder_ast = origin_holder_ast->make_dup(std::nullopt, continues);
+                    duped_holder_ast->source_location = origin_holder_ast->source_location;
+                    holder->set(duped_holder_ast);
                 }
 
                 return result;
@@ -251,7 +254,7 @@ namespace wo
                 
                 new_instance->m_list = m_list;
 
-                for (auto* dup_child : new_instance->m_list)
+                for (auto*& dup_child : new_instance->m_list)
                     out_continues.push_back(make_holder(&dup_child));
 
                 return new_instance;

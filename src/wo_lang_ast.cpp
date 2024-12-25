@@ -926,6 +926,7 @@ namespace wo
             : AstBase(AST_VARIABLE_DEFINE_ITEM)
             , m_pattern(item.m_pattern)
             , m_init_value(item.m_init_value)
+            , m_LANG_declare_attribute(std::nullopt)
         {
         }
         AstVariableDefineItem::AstVariableDefineItem(
@@ -934,6 +935,7 @@ namespace wo
             : AstBase(AST_VARIABLE_DEFINE_ITEM)
             , m_pattern(pattern)
             , m_init_value(init_value)
+            , m_LANG_declare_attribute(std::nullopt)
         {
             if (pattern->node_type == AST_PATTERN_SINGLE && init_value->node_type == AST_VALUE_FUNCTION)
             {
@@ -945,7 +947,7 @@ namespace wo
                     if (!single_pattern->m_template_parameters)
                         single_pattern->m_template_parameters = std::list<wo_pstring_t>{};
 
-                    for (auto* p : func_value->m_pending_param_type_mark_template.value())
+                    for (auto*& p : func_value->m_pending_param_type_mark_template.value())
                         single_pattern->m_template_parameters.value().push_back(p);
                 }
             }
@@ -982,7 +984,7 @@ namespace wo
                 : new AstVariableDefines(*this)
                 ;
             new_instance->m_definitions = m_definitions;
-            for (auto* def : new_instance->m_definitions)
+            for (auto*& def : new_instance->m_definitions)
                 out_continues.push_back(AstBase::make_holder(&def));
 
             if (m_attribute)
@@ -1029,6 +1031,7 @@ namespace wo
             , m_body(body)
             , m_LANG_determined_return_type(std::nullopt)
             , m_LANG_hold_state(UNPROCESSED)
+            , m_LANG_value_instance_to_update(std::nullopt)
         {
             for (auto* param_define : parameters)
             {

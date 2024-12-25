@@ -47,6 +47,7 @@ namespace wo
         }
     }
     lang_Symbol::lang_Symbol(
+        wo_pstring_t name,
         const std::optional<ast::AstDeclareAttribue*>& attr,
         std::optional<ast::AstBase*> symbol_declare_ast,
         wo_pstring_t src_location,
@@ -55,6 +56,7 @@ namespace wo
         bool mutable_variable)
         : m_symbol_kind(kind)
         , m_is_template(false)
+        , m_name(name)
         , m_defined_source(src_location)
         , m_declare_attribute(attr)
         , m_belongs_to_scope(scope)
@@ -77,6 +79,7 @@ namespace wo
         }
     }
     lang_Symbol::lang_Symbol(
+        wo_pstring_t name,
         const std::optional<ast::AstDeclareAttribue*>& attr,
         std::optional<ast::AstBase*> symbol_declare_ast,
         wo_pstring_t src_location,
@@ -86,6 +89,7 @@ namespace wo
         bool mutable_variable)
         : m_symbol_kind(VARIABLE)
         , m_is_template(true)
+        , m_name(name)
         , m_defined_source(src_location)
         , m_declare_attribute(attr)
         , m_belongs_to_scope(scope)
@@ -96,6 +100,7 @@ namespace wo
             this, mutable_variable, template_value_base, template_params);
     }
     lang_Symbol::lang_Symbol(
+        wo_pstring_t name,
         const std::optional<ast::AstDeclareAttribue*>& attr,
         std::optional<ast::AstBase*> symbol_declare_ast,
         wo_pstring_t src_location,
@@ -104,6 +109,7 @@ namespace wo
         const std::list<wo_pstring_t>& template_params,
         bool is_alias)
         : m_is_template(true)
+        , m_name(name)
         , m_defined_source(src_location)
         , m_declare_attribute(attr)
         , m_belongs_to_scope(scope)
@@ -296,25 +302,25 @@ namespace wo
 
     lang_TemplateAstEvalStateValue::lang_TemplateAstEvalStateValue(lang_Symbol* symbol, ast::AstValueBase* ast)
         : lang_TemplateAstEvalStateBase(symbol, ast)
-        , m_value_instance(std::nullopt)
     {
+        m_value_instance = std::make_unique<lang_ValueInstance>(
+            symbol->m_template_value_instances->m_mutable, symbol);
     }
 
     //////////////////////////////////////
 
     lang_TemplateAstEvalStateType::lang_TemplateAstEvalStateType(lang_Symbol* symbol, ast::AstTypeHolder* ast)
         : lang_TemplateAstEvalStateBase(symbol, ast)
-        , m_type_instance(std::nullopt)
     {
-
+        m_type_instance = std::make_unique<lang_TypeInstance>(symbol);
     }
 
     //////////////////////////////////////
 
     lang_TemplateAstEvalStateAlias::lang_TemplateAstEvalStateAlias(lang_Symbol* symbol, ast::AstTypeHolder* ast)
         : lang_TemplateAstEvalStateBase(symbol, ast)
-        , m_alias_instance(std::nullopt)
     {
+        m_alias_instance = std::make_unique<lang_AliasInstance>(symbol);
     }
 
     //////////////////////////////////////
@@ -414,8 +420,9 @@ namespace wo
 
     //////////////////////////////////////
 
-    lang_Namespace::lang_Namespace(const std::optional<lang_Namespace*>& parent_namespace)
-        : m_parent_namespace(parent_namespace)
+    lang_Namespace::lang_Namespace(wo_pstring_t name, const std::optional<lang_Namespace*>& parent_namespace)
+        : m_name(name)
+        , m_parent_namespace(parent_namespace)
     {
         m_this_scope = std::make_unique<lang_Scope>(
             m_parent_namespace
@@ -781,7 +788,7 @@ namespace wo
     //////////////////////////////////////
 
     LangContext::LangContext()
-        : m_root_namespace(std::make_unique<lang_Namespace>(std::nullopt))
+        : m_root_namespace(std::make_unique<lang_Namespace>(WO_PSTR(EMPTY), std::nullopt))
     {
         m_scope_stack.push(m_root_namespace->m_this_scope.get());
     }
@@ -990,7 +997,7 @@ namespace wo
         if (fnd == current_namespace->m_sub_namespaces.end())
         {
             auto new_namespace = std::make_unique<lang_Namespace>(
-                std::make_optional(get_current_namespace()));
+                name, std::make_optional(get_current_namespace()));
 
             auto new_namespace_ptr = new_namespace.get();
 
