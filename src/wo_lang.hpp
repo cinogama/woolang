@@ -36,23 +36,23 @@ namespace wo
             {
             case ast::AstTypeHolder::IDENTIFIER:
             {
-                size_t hash_result = _hash_ptr(node->m_identifier->m_LANG_determined_symbol.value());
+                size_t hash_result = _hash_ptr(node->m_typeform.m_identifier->m_LANG_determined_symbol.value());
 
-                if (node->m_identifier->m_template_arguments)
+                if (node->m_typeform.m_identifier->m_template_arguments)
                 {
-                    for (auto* template_argument : node->m_identifier->m_template_arguments.value())
+                    for (auto* template_argument : node->m_typeform.m_identifier->m_template_arguments.value())
                         hash_result ^= _hash_rawtype(template_argument);
                 }
                 return hash_result | ast::AstTypeHolder::IDENTIFIER;
             }
             case ast::AstTypeHolder::FUNCTION:
             {
-                size_t hash_result = _hash_rawtype(node->m_function.m_return_type);
+                size_t hash_result = _hash_rawtype(node->m_typeform.m_function.m_return_type);
 
-                for (auto* param_type : node->m_function.m_parameters)
+                for (auto* param_type : node->m_typeform.m_function.m_parameters)
                     hash_result ^= _hash_rawtype(param_type);
 
-                if (node->m_function.m_is_variadic)
+                if (node->m_typeform.m_function.m_is_variadic)
                     hash_result = ~hash_result;
 
                 return hash_result | ast::AstTypeHolder::FUNCTION;
@@ -61,7 +61,7 @@ namespace wo
             {
                 size_t hash_result = 0;
 
-                for (auto& member : node->m_structure.m_fields)
+                for (auto& member : node->m_typeform.m_structure.m_fields)
                 {
                     hash_result ^= _hash_ptr(member->m_name);
                     hash_result ^= _hash_rawtype(member->m_type);
@@ -76,7 +76,7 @@ namespace wo
             {
                 size_t hash_result = 0;
 
-                for (auto* member : node->m_tuple.m_fields)
+                for (auto* member : node->m_typeform.m_tuple.m_fields)
                     hash_result ^= _hash_rawtype(member);
 
                 return hash_result | ast::AstTypeHolder::TUPLE;
@@ -85,7 +85,7 @@ namespace wo
             {
                 size_t hash_result = 0;
 
-                for (auto& member : node->m_union.m_fields)
+                for (auto& member : node->m_typeform.m_union.m_fields)
                 {
                     hash_result ^= _hash_ptr(member.m_label);
                     if (member.m_item)
@@ -122,18 +122,18 @@ namespace wo
             {
             case ast::AstTypeHolder::IDENTIFIER:
             {
-                if (lhs->m_identifier->m_LANG_determined_symbol.value()
-                    != rhs->m_identifier->m_LANG_determined_symbol.value())
+                if (lhs->m_typeform.m_identifier->m_LANG_determined_symbol.value()
+                    != rhs->m_typeform.m_identifier->m_LANG_determined_symbol.value())
                     return false;
 
-                if (lhs->m_identifier->m_template_arguments.has_value()
-                    != rhs->m_identifier->m_template_arguments.has_value())
+                if (lhs->m_typeform.m_identifier->m_template_arguments.has_value()
+                    != rhs->m_typeform.m_identifier->m_template_arguments.has_value())
                     return false;
 
-                if (lhs->m_identifier->m_template_arguments)
+                if (lhs->m_typeform.m_identifier->m_template_arguments)
                 {
-                    auto& lhs_template_args = lhs->m_identifier->m_template_arguments.value();
-                    auto& rhs_template_args = rhs->m_identifier->m_template_arguments.value();
+                    auto& lhs_template_args = lhs->m_typeform.m_identifier->m_template_arguments.value();
+                    auto& rhs_template_args = rhs->m_typeform.m_identifier->m_template_arguments.value();
 
                     if (lhs_template_args.size() != rhs_template_args.size())
                         return false;
@@ -154,18 +154,18 @@ namespace wo
             }
             case ast::AstTypeHolder::FUNCTION:
             {
-                if (lhs->m_function.m_is_variadic != rhs->m_function.m_is_variadic)
+                if (lhs->m_typeform.m_function.m_is_variadic != rhs->m_typeform.m_function.m_is_variadic)
                     return false;
 
-                if (lhs->m_function.m_parameters.size() != rhs->m_function.m_parameters.size())
+                if (lhs->m_typeform.m_function.m_parameters.size() != rhs->m_typeform.m_function.m_parameters.size())
                     return false;
 
-                if (!_equal_to_rawtype(lhs->m_function.m_return_type, rhs->m_function.m_return_type))
+                if (!_equal_to_rawtype(lhs->m_typeform.m_function.m_return_type, rhs->m_typeform.m_function.m_return_type))
                     return false;
 
-                auto lhs_iter = lhs->m_function.m_parameters.begin();
-                auto rhs_iter = rhs->m_function.m_parameters.begin();
-                auto lhs_end = lhs->m_function.m_parameters.end();
+                auto lhs_iter = lhs->m_typeform.m_function.m_parameters.begin();
+                auto rhs_iter = rhs->m_typeform.m_function.m_parameters.begin();
+                auto lhs_end = lhs->m_typeform.m_function.m_parameters.end();
 
                 for (; lhs_iter != lhs_end; ++lhs_iter, ++rhs_iter)
                 {
@@ -177,12 +177,12 @@ namespace wo
             }
             case ast::AstTypeHolder::STRUCTURE:
             {
-                if (lhs->m_structure.m_fields.size() != rhs->m_structure.m_fields.size())
+                if (lhs->m_typeform.m_structure.m_fields.size() != rhs->m_typeform.m_structure.m_fields.size())
                     return false;
 
-                auto lhs_iter = lhs->m_structure.m_fields.begin();
-                auto rhs_iter = rhs->m_structure.m_fields.begin();
-                auto lhs_end = lhs->m_structure.m_fields.end();
+                auto lhs_iter = lhs->m_typeform.m_structure.m_fields.begin();
+                auto rhs_iter = rhs->m_typeform.m_structure.m_fields.begin();
+                auto lhs_end = lhs->m_typeform.m_structure.m_fields.end();
 
                 for (; lhs_iter != lhs_end; ++lhs_iter, ++rhs_iter)
                 {
@@ -198,12 +198,12 @@ namespace wo
             }
             case ast::AstTypeHolder::TUPLE:
             {
-                if (lhs->m_tuple.m_fields.size() != rhs->m_tuple.m_fields.size())
+                if (lhs->m_typeform.m_tuple.m_fields.size() != rhs->m_typeform.m_tuple.m_fields.size())
                     return false;
 
-                auto lhs_iter = lhs->m_tuple.m_fields.begin();
-                auto rhs_iter = rhs->m_tuple.m_fields.begin();
-                auto lhs_end = lhs->m_tuple.m_fields.end();
+                auto lhs_iter = lhs->m_typeform.m_tuple.m_fields.begin();
+                auto rhs_iter = rhs->m_typeform.m_tuple.m_fields.begin();
+                auto lhs_end = lhs->m_typeform.m_tuple.m_fields.end();
 
                 for (; lhs_iter != lhs_end; ++lhs_iter, ++rhs_iter)
                 {
@@ -215,12 +215,12 @@ namespace wo
             }
             case ast::AstTypeHolder::UNION:
             {
-                if (lhs->m_union.m_fields.size() != rhs->m_union.m_fields.size())
+                if (lhs->m_typeform.m_union.m_fields.size() != rhs->m_typeform.m_union.m_fields.size())
                     return false;
 
-                auto lhs_iter = lhs->m_union.m_fields.begin();
-                auto rhs_iter = rhs->m_union.m_fields.begin();
-                auto lhs_end = lhs->m_union.m_fields.end();
+                auto lhs_iter = lhs->m_typeform.m_union.m_fields.begin();
+                auto rhs_iter = rhs->m_typeform.m_union.m_fields.begin();
+                auto lhs_end = lhs->m_typeform.m_union.m_fields.end();
 
                 for (; lhs_iter != lhs_end; ++lhs_iter, ++rhs_iter)
                 {

@@ -249,23 +249,23 @@ namespace wo
             switch (node->m_formal)
             {
             case AstTypeHolder::IDENTIFIER:
-                WO_CONTINUE_PROCESS(node->m_identifier);
+                WO_CONTINUE_PROCESS(node->m_typeform.m_identifier);
                 break;
             case AstTypeHolder::TYPEOF:
-                WO_CONTINUE_PROCESS(node->m_typefrom);
+                WO_CONTINUE_PROCESS(node->m_typeform.m_typefrom);
                 break;
             case AstTypeHolder::FUNCTION:
-                WO_CONTINUE_PROCESS_LIST(node->m_function.m_parameters);
-                WO_CONTINUE_PROCESS(node->m_function.m_return_type);
+                WO_CONTINUE_PROCESS_LIST(node->m_typeform.m_function.m_parameters);
+                WO_CONTINUE_PROCESS(node->m_typeform.m_function.m_return_type);
                 break;
             case AstTypeHolder::STRUCTURE:
-                WO_CONTINUE_PROCESS_LIST(node->m_structure.m_fields);
+                WO_CONTINUE_PROCESS_LIST(node->m_typeform.m_structure.m_fields);
                 break;
             case AstTypeHolder::TUPLE:
-                WO_CONTINUE_PROCESS_LIST(node->m_tuple.m_fields);
+                WO_CONTINUE_PROCESS_LIST(node->m_typeform.m_tuple.m_fields);
                 break;
             case AstTypeHolder::UNION:
-                for (auto& field : node->m_union.m_fields)
+                for (auto& field : node->m_typeform.m_union.m_fields)
                     break;
             default:
                 wo_error("unknown type holder formal");
@@ -279,13 +279,13 @@ namespace wo
             {
             case AstTypeHolder::IDENTIFIER:
             {
-                lang_Symbol* type_symbol = node->m_identifier->m_LANG_determined_symbol.value();
+                lang_Symbol* type_symbol = node->m_typeform.m_identifier->m_LANG_determined_symbol.value();
 
                 if (type_symbol->m_symbol_kind == lang_Symbol::VARIABLE)
                 {
                     lex.lang_error(lexer::errorlevel::error, node,
                         WO_ERR_UNEXPECTED_VAR_SYMBOL,
-                        node->m_identifier->m_name->c_str());
+                        node->m_typeform.m_identifier->m_name->c_str());
 
                     return FAILED;
                 }
@@ -304,7 +304,7 @@ namespace wo
                             if (type_symbol->m_is_template)
                             {
                                 lang_Symbol::TemplateArgumentListT template_args;
-                                for (auto* typeholder : node->m_identifier->m_template_arguments.value())
+                                for (auto* typeholder : node->m_typeform.m_identifier->m_template_arguments.value())
                                 {
                                     wo_assert(typeholder->m_LANG_determined_type);
                                     template_args.push_back(typeholder->m_LANG_determined_type.value());
@@ -433,8 +433,8 @@ namespace wo
                 node->m_LANG_determined_type = m_origin_types.create_or_find_origin_type(lex, node);
                 break;
             case AstTypeHolder::TYPEOF:
-                wo_assert(node->m_typefrom->m_LANG_determined_type);
-                node->m_LANG_determined_type = node->m_typefrom->m_LANG_determined_type.value();
+                wo_assert(node->m_typeform.m_typefrom->m_LANG_determined_type);
+                node->m_LANG_determined_type = node->m_typeform.m_typefrom->m_LANG_determined_type.value();
                 break;
             default:
                 wo_error("unknown type holder formal");

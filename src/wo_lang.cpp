@@ -480,9 +480,9 @@ namespace wo
         lexer& lex, ast::AstTypeHolder* type_holder)
     {
         wo_assert(type_holder->m_formal == ast::AstTypeHolder::IDENTIFIER);
-        if (type_holder->m_identifier->m_template_arguments)
+        if (type_holder->m_typeform.m_identifier->m_template_arguments)
         {
-            auto& template_arguments_list = type_holder->m_identifier->m_template_arguments.value();
+            auto& template_arguments_list = type_holder->m_typeform.m_identifier->m_template_arguments.value();
             if (template_arguments_list.size() == 2)
             {
                 lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
@@ -511,9 +511,9 @@ namespace wo
         lexer& lex, ast::AstTypeHolder* type_holder)
     {
         wo_assert(type_holder->m_formal == ast::AstTypeHolder::IDENTIFIER);
-        if (type_holder->m_identifier->m_template_arguments)
+        if (type_holder->m_typeform.m_identifier->m_template_arguments)
         {
-            auto& template_arguments_list = type_holder->m_identifier->m_template_arguments.value();
+            auto& template_arguments_list = type_holder->m_typeform.m_identifier->m_template_arguments.value();
             if (template_arguments_list.size() == 2)
             {
                 lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
@@ -542,9 +542,9 @@ namespace wo
         lexer& lex, ast::AstTypeHolder* type_holder)
     {
         wo_assert(type_holder->m_formal == ast::AstTypeHolder::IDENTIFIER);
-        if (type_holder->m_identifier->m_template_arguments)
+        if (type_holder->m_typeform.m_identifier->m_template_arguments)
         {
-            auto& template_arguments_list = type_holder->m_identifier->m_template_arguments.value();
+            auto& template_arguments_list = type_holder->m_typeform.m_identifier->m_template_arguments.value();
             if (template_arguments_list.size() == 1)
             {
                 lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
@@ -571,9 +571,9 @@ namespace wo
         lexer& lex, ast::AstTypeHolder* type_holder)
     {
         wo_assert(type_holder->m_formal == ast::AstTypeHolder::IDENTIFIER);
-        if (type_holder->m_identifier->m_template_arguments)
+        if (type_holder->m_typeform.m_identifier->m_template_arguments)
         {
-            auto& template_arguments_list = type_holder->m_identifier->m_template_arguments.value();
+            auto& template_arguments_list = type_holder->m_typeform.m_identifier->m_template_arguments.value();
             if (template_arguments_list.size() == 1)
             {
                 lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
@@ -604,7 +604,7 @@ namespace wo
         lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
         desc.m_tuple = new lang_TypeInstance::DeterminedType::Tuple();
 
-        for (auto& field : type_holder->m_tuple.m_fields)
+        for (auto& field : type_holder->m_typeform.m_tuple.m_fields)
             desc.m_tuple->m_element_types.push_back(field->m_LANG_determined_type.value());
 
         lang_TypeInstance::DeterminedType determined_type_detail(
@@ -623,12 +623,12 @@ namespace wo
         lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
         desc.m_function = new lang_TypeInstance::DeterminedType::Function();
 
-        desc.m_function->m_is_variadic = type_holder->m_function.m_is_variadic;
+        desc.m_function->m_is_variadic = type_holder->m_typeform.m_function.m_is_variadic;
 
-        for (auto& param_type : type_holder->m_function.m_parameters)
+        for (auto& param_type : type_holder->m_typeform.m_function.m_parameters)
             desc.m_function->m_param_types.push_back(param_type->m_LANG_determined_type.value());
 
-        desc.m_function->m_return_type = type_holder->m_function.m_return_type->m_LANG_determined_type.value();
+        desc.m_function->m_return_type = type_holder->m_typeform.m_function.m_return_type->m_LANG_determined_type.value();
 
         lang_TypeInstance::DeterminedType determined_type_detail(
             lang_TypeInstance::DeterminedType::base_type::FUNCTION, desc);
@@ -647,7 +647,7 @@ namespace wo
         desc.m_struct = new lang_TypeInstance::DeterminedType::Struct();
 
         wo_integer_t field_offset = 0;
-        for (auto& field : type_holder->m_structure.m_fields)
+        for (auto& field : type_holder->m_typeform.m_structure.m_fields)
         {
             lang_TypeInstance::DeterminedType::Struct::StructMember new_field;
             new_field.m_offset = field_offset++;
@@ -673,7 +673,7 @@ namespace wo
         desc.m_union = new lang_TypeInstance::DeterminedType::Union();
 
         wo_integer_t field_offset = 0;
-        for (auto& field : type_holder->m_union.m_fields)
+        for (auto& field : type_holder->m_typeform.m_union.m_fields)
         {
             lang_TypeInstance::DeterminedType::Union::UnionMember new_field;
             new_field.m_label = field_offset++;
@@ -707,7 +707,7 @@ namespace wo
         {
         case ast::AstTypeHolder::IDENTIFIER:
         {
-            auto* symbol = type_holder->m_identifier->m_LANG_determined_symbol.value();
+            auto* symbol = type_holder->m_typeform.m_identifier->m_LANG_determined_symbol.value();
 
             wo_assert(symbol->m_is_builtin);
             if (symbol == m_dictionary)
@@ -1173,13 +1173,13 @@ namespace wo
     }
     lang_TypeInstance* LangContext::immutable_type(lang_TypeInstance* origin_type)
     {
-        lang_TypeInstance* immutable_type =
-            *std::get_if<lang_TypeInstance*>(&origin_type->m_determined_type.value());
+        lang_TypeInstance** immutable_type =
+            std::get_if<lang_TypeInstance*>(&origin_type->m_determined_type.value());
 
         if (nullptr != immutable_type)
         {
             // Is mutable type.
-            return immutable_type;
+            return *immutable_type;
         }
         return origin_type;
     }

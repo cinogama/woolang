@@ -189,87 +189,81 @@ namespace wo
             : AstBase(AST_TYPE_HOLDER)
             , m_mutable_mark(NONE)
             , m_formal(IDENTIFIER)
-            , m_identifier(ident)
             , m_LANG_template_evalating_state(std::nullopt)
             , m_LANG_determined_type(std::nullopt)
             , m_LANG_trying_advancing_type_judgement(false)
         {
-
+            new (&m_typeform.m_identifier) AstIdentifier*(ident);
         }
         AstTypeHolder::AstTypeHolder(AstValueBase* expr)
             : AstBase(AST_TYPE_HOLDER)
             , m_mutable_mark(NONE)
             , m_formal(TYPEOF)
-            , m_typefrom(expr)
             , m_LANG_template_evalating_state(std::nullopt)
             , m_LANG_determined_type(std::nullopt)
             , m_LANG_trying_advancing_type_judgement(false)
         {
-
+            new (&m_typeform.m_typefrom) AstValueBase*(expr);
         }
         AstTypeHolder::AstTypeHolder(const FunctionType& functype)
             : AstBase(AST_TYPE_HOLDER)
             , m_mutable_mark(NONE)
             , m_formal(FUNCTION)
-            , m_function(functype)
             , m_LANG_template_evalating_state(std::nullopt)
             , m_LANG_determined_type(std::nullopt)
             , m_LANG_trying_advancing_type_judgement(false)
         {
-
+            new (&m_typeform.m_function) FunctionType(functype);
         }
         AstTypeHolder::AstTypeHolder(const StructureType& structtype)
             : AstBase(AST_TYPE_HOLDER)
             , m_mutable_mark(NONE)
             , m_formal(STRUCTURE)
-            , m_structure(structtype)
             , m_LANG_template_evalating_state(std::nullopt)
             , m_LANG_determined_type(std::nullopt)
             , m_LANG_trying_advancing_type_judgement(false)
         {
-
+            new (&m_typeform.m_structure) StructureType(structtype);
         }
         AstTypeHolder::AstTypeHolder(const TupleType& tupletype)
             : AstBase(AST_TYPE_HOLDER)
             , m_mutable_mark(NONE)
             , m_formal(TUPLE)
-            , m_tuple(tupletype)
             , m_LANG_template_evalating_state(std::nullopt)
             , m_LANG_determined_type(std::nullopt)
             , m_LANG_trying_advancing_type_judgement(false)
         {
-
+            new (&m_typeform.m_tuple) TupleType(tupletype);
         }
         AstTypeHolder::AstTypeHolder(const UnionType& uniontype)
             : AstBase(AST_TYPE_HOLDER)
             , m_mutable_mark(NONE)
             , m_formal(UNION)
-            , m_union(uniontype)
             , m_LANG_template_evalating_state(std::nullopt)
             , m_LANG_determined_type(std::nullopt)
             , m_LANG_trying_advancing_type_judgement(false)
         {
-
+            new (&m_typeform.m_union) UnionType(uniontype);
         }
         AstTypeHolder::~AstTypeHolder()
         {
             switch (m_formal)
             {
             case IDENTIFIER:
-                break;
             case TYPEOF:
+                // Pointer type no need to invoke destructor.
                 break;
             case FUNCTION:
-                m_function.~FunctionType();
+                m_typeform.m_function.~FunctionType();
                 break;
             case STRUCTURE:
-                m_structure.~StructureType();
+                m_typeform.m_structure.~StructureType();
                 break;
             case TUPLE:
-                m_tuple.~TupleType();
+                m_typeform.m_tuple.~TupleType();
                 break;
             case UNION:
-                m_union.~UnionType();
+                m_typeform.m_union.~UnionType();
                 break;
             default:
                 wo_error("Unknown type form.");
@@ -281,10 +275,10 @@ namespace wo
             switch (m_formal)
             {
             case IDENTIFIER:
-                if (m_identifier->m_formal == AstIdentifier::identifier_formal::FROM_TYPE)
+                if (m_typeform.m_identifier->m_formal == AstIdentifier::identifier_formal::FROM_TYPE)
                     return true;
-                if (m_identifier->m_template_arguments)
-                    for (auto& template_argument : m_identifier->m_template_arguments.value())
+                if (m_typeform.m_identifier->m_template_arguments)
+                    for (auto& template_argument : m_typeform.m_identifier->m_template_arguments.value())
                     {
                         if (template_argument->_check_if_has_typeof())
                             return true;
@@ -293,21 +287,21 @@ namespace wo
             case TYPEOF:
                 return true;
             case FUNCTION:
-                for (auto& param : m_function.m_parameters)
+                for (auto& param : m_typeform.m_function.m_parameters)
                 {
                     if (param->_check_if_has_typeof())
                         return true;
                 }
-                return m_function.m_return_type->_check_if_has_typeof();
+                return m_typeform.m_function.m_return_type->_check_if_has_typeof();
             case STRUCTURE:
-                for (auto& field : m_structure.m_fields)
+                for (auto& field : m_typeform.m_structure.m_fields)
                 {
                     if (field->m_type->_check_if_has_typeof())
                         return true;
                 }
                 return false;
             case TUPLE:
-                for (auto& field : m_tuple.m_fields)
+                for (auto& field : m_typeform.m_tuple.m_fields)
                 {
                     if (field->_check_if_has_typeof())
                         return true;
@@ -326,42 +320,42 @@ namespace wo
             switch (m_formal)
             {
             case IDENTIFIER:
-                if (m_identifier->m_formal == AstIdentifier::identifier_formal::FROM_TYPE)
+                if (m_typeform.m_identifier->m_formal == AstIdentifier::identifier_formal::FROM_TYPE)
                 {
-                    m_identifier->m_from_type.value()->_check_if_template_exist_in(template_params, out_contain_flags);
+                    m_typeform.m_identifier->m_from_type.value()->_check_if_template_exist_in(template_params, out_contain_flags);
                     return;
                 }
-                else if (m_identifier->m_formal == AstIdentifier::identifier_formal::FROM_CURRENT)
+                else if (m_typeform.m_identifier->m_formal == AstIdentifier::identifier_formal::FROM_CURRENT)
                 {
-                    if (m_identifier->m_scope.empty())
+                    if (m_typeform.m_identifier->m_scope.empty())
                     {
                         size_t offset = 0;
                         for (auto& template_ : template_params)
                         {
-                            if (m_identifier->m_name == template_)
+                            if (m_typeform.m_identifier->m_name == template_)
                                 out_contain_flags[offset] = true;
                             ++offset;
                         }
                     }
                 }
-                if (m_identifier->m_template_arguments)
-                    for (auto& template_argument : m_identifier->m_template_arguments.value())
+                if (m_typeform.m_identifier->m_template_arguments)
+                    for (auto& template_argument : m_typeform.m_identifier->m_template_arguments.value())
                         template_argument->_check_if_template_exist_in(template_params, out_contain_flags);
                 break;
             case TYPEOF:
                 // We are not able to check template in typefrom.
                 break;
             case FUNCTION:
-                for (auto& param : m_function.m_parameters)
+                for (auto& param : m_typeform.m_function.m_parameters)
                     param->_check_if_template_exist_in(template_params, out_contain_flags);
-                m_function.m_return_type->_check_if_template_exist_in(template_params, out_contain_flags);
+                m_typeform.m_function.m_return_type->_check_if_template_exist_in(template_params, out_contain_flags);
                 break;
             case STRUCTURE:
-                for (auto& field : m_structure.m_fields)
+                for (auto& field : m_typeform.m_structure.m_fields)
                     field->m_type->_check_if_template_exist_in(template_params, out_contain_flags);
                 break;
             case TUPLE:
-                for (auto& field : m_tuple.m_fields)
+                for (auto& field : m_typeform.m_tuple.m_fields)
                     field->_check_if_template_exist_in(template_params, out_contain_flags);
                 break;
             default:
@@ -378,32 +372,32 @@ namespace wo
             switch (m_formal)
             {
             case IDENTIFIER:
-                if (new_instance == nullptr)new_instance = new AstTypeHolder(m_identifier);
-                out_continues.push_back(AstBase::make_holder(&new_instance->m_identifier));
+                if (new_instance == nullptr)new_instance = new AstTypeHolder(m_typeform.m_identifier);
+                out_continues.push_back(AstBase::make_holder(&new_instance->m_typeform.m_identifier));
                 break;
             case TYPEOF:
-                if (new_instance == nullptr)new_instance = new AstTypeHolder(m_typefrom);
-                out_continues.push_back(AstBase::make_holder(&new_instance->m_typefrom));
+                if (new_instance == nullptr)new_instance = new AstTypeHolder(m_typeform.m_typefrom);
+                out_continues.push_back(AstBase::make_holder(&new_instance->m_typeform.m_typefrom));
                 break;
             case FUNCTION:
-                if (new_instance == nullptr)new_instance = new AstTypeHolder(m_function);
-                for (auto& param : new_instance->m_function.m_parameters)
+                if (new_instance == nullptr)new_instance = new AstTypeHolder(m_typeform.m_function);
+                for (auto& param : new_instance->m_typeform.m_function.m_parameters)
                     out_continues.push_back(AstBase::make_holder(&param));
-                out_continues.push_back(AstBase::make_holder(&new_instance->m_function.m_return_type));
+                out_continues.push_back(AstBase::make_holder(&new_instance->m_typeform.m_function.m_return_type));
                 break;
             case STRUCTURE:
-                if (new_instance == nullptr)new_instance = new AstTypeHolder(m_structure);
-                for (auto& field : new_instance->m_structure.m_fields)
+                if (new_instance == nullptr)new_instance = new AstTypeHolder(m_typeform.m_structure);
+                for (auto& field : new_instance->m_typeform.m_structure.m_fields)
                     out_continues.push_back(AstBase::make_holder(&field));
                 break;
             case TUPLE:
-                if (new_instance == nullptr)new_instance = new AstTypeHolder(m_tuple);
-                for (auto& field : new_instance->m_tuple.m_fields)
+                if (new_instance == nullptr)new_instance = new AstTypeHolder(m_typeform.m_tuple);
+                for (auto& field : new_instance->m_typeform.m_tuple.m_fields)
                     out_continues.push_back(AstBase::make_holder(&field));
                 break;
             case UNION:
-                if (new_instance == nullptr)new_instance = new AstTypeHolder(m_union);
-                for (auto& field : new_instance->m_union.m_fields)
+                if (new_instance == nullptr)new_instance = new AstTypeHolder(m_typeform.m_union);
+                for (auto& field : new_instance->m_typeform.m_union.m_fields)
                     if (field.m_item)
                         out_continues.push_back(AstBase::make_holder(&field.m_item.value()));
                 break;
@@ -1872,7 +1866,7 @@ namespace wo
 
                     if (template_parameters)
                     {
-                        wo_assert(union_type->m_identifier->m_template_arguments);
+                        wo_assert(union_type->m_typeform.m_identifier->m_template_arguments);
 
                         bool creator_param_has_typeof = creator_param_type->_check_if_has_typeof();
 
@@ -1883,7 +1877,8 @@ namespace wo
                         if (!creator_param_has_typeof)
                             creator_param_type->_check_if_template_exist_in(template_parameters.value(), used_template_parameters_flags);
 
-                        auto updating_union_type_template_argument_iter = union_type->m_identifier->m_template_arguments.value().begin();
+                        auto updating_union_type_template_argument_iter = 
+                            union_type->m_typeform.m_identifier->m_template_arguments.value().begin();
                         auto template_parameters_iter = template_parameters.value().begin();
 
                         for (bool template_param_this_place_has_been_used : used_template_parameters_flags)

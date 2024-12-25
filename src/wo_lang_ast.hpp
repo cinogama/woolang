@@ -35,9 +35,9 @@ namespace wo
         struct AstTypeHolder;
         struct AstValueBase;
         struct AstToken;
-        
+
         using AstEmpty = grammar::AstEmpty;
-        struct AstDeclareAttribue: public AstBase
+        struct AstDeclareAttribue : public AstBase
         {
             enum lifecycle_attrib
             {
@@ -58,7 +58,7 @@ namespace wo
             std::optional<accessc_attrib>   m_access;
             std::optional<external_attrib>  m_external;
 
-            bool modify_attrib(lexer& lex , AstToken* attrib_token);
+            bool modify_attrib(lexer& lex, AstToken* attrib_token);
 
             AstDeclareAttribue();
             AstDeclareAttribue(const AstDeclareAttribue&);
@@ -74,14 +74,14 @@ namespace wo
             };
             identifier_formal       m_formal;
             std::optional<AstTypeHolder*>
-                                    m_from_type;
+                m_from_type;
             std::list<wo_pstring_t> m_scope;
             wo_pstring_t            m_name;
             std::optional<std::list<AstTypeHolder*>>
-                                    m_template_arguments;
+                m_template_arguments;
 
             std::optional<lang_Symbol*>
-                                    m_LANG_determined_symbol;
+                m_LANG_determined_symbol;
 
             /*std::optional<lang_Scope*>
                                     m_LANG_determined_searching_from_scope;*/
@@ -102,7 +102,7 @@ namespace wo
 
             AstStructFieldDefine(
                 const std::optional<AstDeclareAttribue::accessc_attrib>& attrib,
-                wo_pstring_t name, 
+                wo_pstring_t name,
                 AstTypeHolder* type);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
@@ -151,8 +151,8 @@ namespace wo
             };
 
             mutable_mark    m_mutable_mark;
-            type_formal     m_formal;            
-            union
+            type_formal     m_formal;
+            union TypeForm
             {
                 AstIdentifier* m_identifier;
                 AstValueBase* m_typefrom;
@@ -160,7 +160,11 @@ namespace wo
                 StructureType m_structure;
                 TupleType m_tuple;
                 UnionType m_union;
+
+                TypeForm() {};
+                ~TypeForm() {};
             };
+            TypeForm        m_typeform;
 
             std::optional<lang_TemplateAstEvalStateBase*> m_LANG_template_evalating_state;
             std::optional<lang_TypeInstance*> m_LANG_determined_type;
@@ -197,14 +201,14 @@ namespace wo
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
 
-        struct AstValueMarkAsMutable: public AstValueBase
+        struct AstValueMarkAsMutable : public AstValueBase
         {
             AstValueBase* m_marked_value;
 
             AstValueMarkAsMutable(AstValueBase* marking_value);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
         };
-        
+
         struct AstValueMarkAsImmutable : public AstValueBase
         {
             AstValueBase* m_marked_value;
@@ -280,11 +284,11 @@ namespace wo
         struct AstValueMayConsiderOperatorOverload : public AstValueBase
         {
             std::optional<AstValueFunctionCall*> m_overload_call;
-         
+
             AstValueMayConsiderOperatorOverload(AstBase::node_type_t nodetype);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
-        struct AstValueBinaryOperator: public AstValueMayConsiderOperatorOverload
+        struct AstValueBinaryOperator : public AstValueMayConsiderOperatorOverload
         {
             enum operator_type
             {
@@ -422,7 +426,7 @@ namespace wo
         {
             std::list<AstVariableDefineItem*> m_definitions;
             std::optional<AstDeclareAttribue*>
-                                              m_attribute;
+                m_attribute;
 
         private:
             AstVariableDefines(const AstVariableDefines&);
@@ -449,21 +453,21 @@ namespace wo
                 HOLD_FOR_BODY_EVAL,
             };
 
-            std::list<AstFunctionParameterDeclare*>     
-                                            m_parameters;
+            std::list<AstFunctionParameterDeclare*>
+                m_parameters;
             bool                            m_is_variadic;
             std::optional<AstTypeHolder*>   m_marked_return_type;
             std::optional<AstWhereConstraints*>
-                                            m_where_constraints;
+                m_where_constraints;
             std::optional<std::list<wo_pstring_t>>
-                                            m_pending_param_type_mark_template;
-            AstBase*                        m_body;
+                m_pending_param_type_mark_template;
+            AstBase* m_body;
 
-            std::optional<lang_TypeInstance*>   
-                                            m_LANG_determined_return_type;
+            std::optional<lang_TypeInstance*>
+                m_LANG_determined_return_type;
             LANG_hold_state                 m_LANG_hold_state;
             std::optional<lang_ValueInstance*>
-                                            m_LANG_value_instance_to_update;
+                m_LANG_value_instance_to_update;
 
             AstValueFunction(
                 const std::list<AstFunctionParameterDeclare*>& parameters,
@@ -536,7 +540,7 @@ namespace wo
                 DIVIDE_ASSIGN,
                 MODULO_ASSIGN,
             };
-            
+
             bool m_valued_assign;
             assign_type m_assign_type;
             AstPatternBase* m_assign_place; // takeplace / variable / index
@@ -556,7 +560,7 @@ namespace wo
         struct AstNamespace : public AstBase
         {
             wo_pstring_t    m_name;
-            AstBase*        m_body;
+            AstBase* m_body;
 
             std::optional<lang_Namespace*> m_LANG_determined_namespace;
 
@@ -568,7 +572,7 @@ namespace wo
             AstBase* m_body;
 
             std::optional<lang_Scope*> m_LANG_determined_scope;
-        
+
             AstScope(AstBase* body);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
@@ -576,7 +580,7 @@ namespace wo
         struct AstMatchCase : public AstBase
         {
             AstPatternBase* m_pattern; // AstPatternTakeplace / AstPatternSingle / AstPatternUnion
-            AstBase*        m_body;
+            AstBase* m_body;
 
             AstMatchCase(AstPatternBase* pattern, AstBase* body);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
@@ -592,18 +596,18 @@ namespace wo
 
         struct AstIf : public AstBase
         {
-            AstValueBase*   m_condition;
-            AstBase*        m_true_body;
-            std::optional<AstBase*> 
-                            m_false_body;
+            AstValueBase* m_condition;
+            AstBase* m_true_body;
+            std::optional<AstBase*>
+                m_false_body;
 
             AstIf(AstValueBase* condition, AstBase* true_body, const std::optional<AstBase*>& false_body);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
         struct AstWhile : public AstBase
         {
-            AstValueBase*   m_condition;
-            AstBase*        m_body;
+            AstValueBase* m_condition;
+            AstBase* m_body;
 
             AstWhile(AstValueBase* condition, AstBase* body);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
@@ -613,11 +617,11 @@ namespace wo
             std::optional<AstBase*>             m_initial;
             std::optional<AstValueBase*>        m_condition;
             std::optional<AstValueBase*>        m_step;
-            AstBase*                            m_body;
+            AstBase* m_body;
 
             AstFor(
                 std::optional<AstBase*> initial,
-                std::optional<AstValueBase*> condition, 
+                std::optional<AstValueBase*> condition,
                 std::optional<AstValueBase*> step,
                 AstBase* body);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
@@ -685,14 +689,14 @@ namespace wo
 
             wo_pstring_t            m_typename;
             std::optional<std::list<wo_pstring_t>>
-                                    m_template_parameters;
-            AstTypeHolder*          m_type;
+                m_template_parameters;
+            AstTypeHolder* m_type;
             std::optional<AstNamespace*>
-                                    m_in_type_namespace;
+                m_in_type_namespace;
             std::optional<AstDeclareAttribue*>
-                                    m_attribute;
+                m_attribute;
             std::optional<lang_Symbol*>
-                                    m_LANG_declared_symbol;
+                m_LANG_declared_symbol;
             LANG_hold_state         m_LANG_hold_state;
 
         private:
@@ -700,8 +704,8 @@ namespace wo
         public:
             AstUsingTypeDeclare(
                 const std::optional<AstDeclareAttribue*>& attrib,
-                wo_pstring_t typename_, 
-                const std::optional<std::list<wo_pstring_t>>& template_parameters, 
+                wo_pstring_t typename_,
+                const std::optional<std::list<wo_pstring_t>>& template_parameters,
                 AstTypeHolder* type,
                 const std::optional<AstNamespace*>& in_type_namespace);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
@@ -710,12 +714,12 @@ namespace wo
         {
             wo_pstring_t            m_typename;
             std::optional<std::list<wo_pstring_t>>
-                                    m_template_parameters;
-            AstTypeHolder*          m_type;
+                m_template_parameters;
+            AstTypeHolder* m_type;
             std::optional<AstDeclareAttribue*>
-                                    m_attribute;
+                m_attribute;
             std::optional<lang_Symbol*>
-                                    m_LANG_declared_symbol;
+                m_LANG_declared_symbol;
 
         private:
             AstAliasTypeDeclare(const AstAliasTypeDeclare&);
@@ -731,7 +735,7 @@ namespace wo
         {
             wo_pstring_t        m_name;
             std::optional<AstValueBase*>
-                                m_value; // Will update in AstEnumDeclare pass and not NULLOPT.
+                m_value; // Will update in AstEnumDeclare pass and not NULLOPT.
 
             AstEnumItem(wo_pstring_t name, std::optional<AstValueBase*> value);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
@@ -739,14 +743,14 @@ namespace wo
         struct AstEnumDeclare : public AstBase
         {
             AstUsingTypeDeclare* m_enum_type_declare;
-            AstNamespace*        m_enum_body;
+            AstNamespace* m_enum_body;
 
         private:
             AstEnumDeclare(const AstEnumDeclare&);
         public:
             AstEnumDeclare(
                 const std::optional<AstDeclareAttribue*>& attrib,
-                wo_pstring_t enum_name, 
+                wo_pstring_t enum_name,
                 const std::list<AstEnumItem*>& enum_items);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
@@ -763,14 +767,14 @@ namespace wo
             //wo_pstring_t            m_union_type_name;
             //std::optional<std::list<wo_pstring_t>>
             //                        m_template_parameters;
-            AstUsingTypeDeclare*    m_union_type_declare;
+            AstUsingTypeDeclare* m_union_type_declare;
 
         private:
             AstUnionDeclare(const AstUnionDeclare&);
         public:
             AstUnionDeclare(
                 const std::optional<AstDeclareAttribue*>& attrib,
-                wo_pstring_t union_type_name, 
+                wo_pstring_t union_type_name,
                 const std::optional<std::list<wo_pstring_t>>& template_parameters,
                 const std::list<AstUnionItem*>& union_items);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
@@ -783,7 +787,7 @@ namespace wo
             std::optional<AstValueBase*> m_packed_value;
 
             AstValueMakeUnion(
-                wo_integer_t index, 
+                wo_integer_t index,
                 const std::optional<AstValueBase*>& packed_value);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
@@ -807,7 +811,7 @@ namespace wo
             std::optional<wo_pstring_t> m_extern_from_library;
             uint32_t m_attribute_flags;
 
-            enum extern_attribute: uint32_t
+            enum extern_attribute : uint32_t
             {
                 SLOW = 1 << 0,
                 REPEATABLE = 1 << 1,
