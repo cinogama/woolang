@@ -411,6 +411,8 @@ namespace wo
                 wo_error("Unknown type form.");
             }
 
+            new_instance->m_mutable_mark = m_mutable_mark;
+
             return new_instance;
         }
 

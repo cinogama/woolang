@@ -68,3 +68,4 @@
 #define WO_ERR_VALUE_TYPE_DETERMINED_FAILED L"变量的类型未获确定"
 #define WO_ERR_TYPE_DETERMINED_FAILED L"类型未获确定"
 #define WO_ERR_RECURSIVE_TEMPLATE_INSTANCE L"递归依赖了正在具体化的泛型实例"
+#define WO_ERR_RECURSIVE_EVAL_PASS1 L"递归地依赖了自身"

@@ -294,61 +294,130 @@ namespace wo
                 {
                     if (!type_symbol->m_is_builtin)
                     {
-                        if (type_symbol->m_is_template)
-                            // TODO: template type.
-                            wo_error("template type not implemented");
+                        union
+                        {
+                            lang_TypeInstance* type_instance;
+                            lang_AliasInstance* alias_instance;
+                        };
+
+                        if (!node->m_LANG_template_evalating_state)
+                        {
+                            if (type_symbol->m_is_template)
+                            {
+                                lang_Symbol::TemplateArgumentListT template_args;
+                                for (auto* typeholder : node->m_identifier->m_template_arguments.value())
+                                {
+                                    wo_assert(typeholder->m_LANG_determined_type);
+                                    template_args.push_back(typeholder->m_LANG_determined_type.value());
+                                }
+
+                                auto template_eval_state_instance_may_nullopt = begin_eval_template_ast(
+                                    lex, node, type_symbol, template_args, out_stack);
+
+                                if (!template_eval_state_instance_may_nullopt)
+                                    return FAILED;
+
+                                auto* template_eval_state_instance = template_eval_state_instance_may_nullopt.value();
+
+                                switch (template_eval_state_instance->m_state)
+                                {
+                                case lang_TemplateAstEvalStateValue::EVALUATING:
+                                    node->m_LANG_template_evalating_state = template_eval_state_instance;
+                                    return HOLD;
+                                case lang_TemplateAstEvalStateValue::EVALUATED:
+                                {
+                                    if (type_symbol->m_symbol_kind == lang_Symbol::ALIAS)
+                                        alias_instance = static_cast<lang_TemplateAstEvalStateAlias*>(
+                                            template_eval_state_instance)->m_alias_instance.value().get();
+                                    else
+                                        type_instance = static_cast<lang_TemplateAstEvalStateType*>(
+                                            template_eval_state_instance)->m_type_instance.value().get();
+
+                                    break;
+                                }
+                                default:
+                                    wo_error("Unexpected template eval state");
+                                    break;
+                                }
+                            }
+                            else
+                            {
+                                if (type_symbol->m_symbol_kind == lang_Symbol::ALIAS)
+                                {
+                                    alias_instance = type_symbol->m_alias_instance;
+
+                                    //if (type_symbol->m_alias_instance->m_determined_type)
+                                    //    /*&& type_symbol->m_alias_instance->m_determined_type.value()->m_determined_type*/
+                                    //    node->m_LANG_determined_type = type_symbol->m_alias_instance->m_determined_type.value();
+                                    //else
+                                    //    goto _label_depend_type_unjudged;
+                                }
+                                else
+                                {
+                                    type_instance = type_symbol->m_type_instance;
+
+                                    //wo_assert(type_symbol->m_symbol_kind == lang_Symbol::TYPE);
+                                    //if (type_symbol->m_type_instance->m_determined_type)
+                                    //    node->m_LANG_determined_type = type_symbol->m_type_instance;
+                                    //else
+                                    //    goto _label_depend_type_unjudged;
+                                }
+                            }
+
+                            bool type_determined = false;
+                            if (type_symbol->m_symbol_kind == lang_Symbol::ALIAS)
+                            {
+                                type_determined = 
+                                    alias_instance->m_determined_type 
+                                    && alias_instance->m_determined_type.value()->m_determined_type.has_value();
+                            }
+                            else
+                            {
+                                type_determined = 
+                                    type_instance->m_determined_type.has_value();
+                            }
+
+                            if (!type_determined)
+                            {
+                                if (!node->m_LANG_trying_advancing_type_judgement)
+                                {
+                                    node->m_LANG_trying_advancing_type_judgement = true;
+
+                                    // Immediately advance the processing of declaration nodes.
+                                    entry_spcify_scope(type_symbol->m_belongs_to_scope);
+                                    WO_CONTINUE_PROCESS(type_symbol->m_symbol_declare_ast.value());
+                                    return HOLD;
+                                }
+
+                                lex.lang_error(lexer::errorlevel::error, node,
+                                    WO_ERR_TYPE_DETERMINED_FAILED);
+                                return FAILED;
+                            }
+                        }
                         else
                         {
-                            // ...
+                            auto* state = static_cast<lang_TemplateAstEvalStateBase*>(
+                                node->m_LANG_template_evalating_state.value());
+
+                            finish_eval_template_ast(state);
+
+                            if (type_symbol->m_symbol_kind == lang_Symbol::ALIAS)
+                                alias_instance = static_cast<lang_TemplateAstEvalStateAlias*>(
+                                    state)->m_alias_instance.value().get();
+                            else
+                                type_instance = static_cast<lang_TemplateAstEvalStateType*>(
+                                    state)->m_type_instance.value().get();
                         }
 
                         if (type_symbol->m_symbol_kind == lang_Symbol::ALIAS)
                         {
-                            if (type_symbol->m_alias_instance->m_determined_type
-                                && type_symbol->m_alias_instance->m_determined_type.value()->m_determined_type)
-                                node->m_LANG_determined_type = type_symbol->m_alias_instance->m_determined_type.value();
-                            else
-                                goto _label_depend_type_unjudged;
+                            // Eval alias type.
+                            type_instance = alias_instance->m_determined_type.value();
                         }
-                        else
-                        {
-                            wo_assert(type_symbol->m_symbol_kind == lang_Symbol::TYPE);
-                            if (type_symbol->m_type_instance->m_determined_type)
-                                node->m_LANG_determined_type = type_symbol->m_type_instance;
-                            else
-                                goto _label_depend_type_unjudged;
-                        }
-
-                        wo_assert(node->m_LANG_determined_type);
-                        switch (node->m_mutable_mark)
-                        {
-                        case AstTypeHolder::MARK_AS_IMMUTABLE:
-                            node->m_LANG_determined_type = immutable_type(node->m_LANG_determined_type.value());
-                            break;
-                        case AstTypeHolder::MARK_AS_MUTABLE:
-                            node->m_LANG_determined_type = mutable_type(node->m_LANG_determined_type.value());
-                            break;
-                        default:
-                            // Do nothing.
-                            break;
-                        }
-
+                        
+                        wo_assert(type_instance != nullptr);
+                        node->m_LANG_determined_type = type_instance;
                         break;
-                    _label_depend_type_unjudged:
-
-                        if (!node->m_LANG_trying_advancing_type_judgement)
-                        {
-                            node->m_LANG_trying_advancing_type_judgement = true;
-
-                            // Immediately advance the processing of declaration nodes.
-                            entry_spcify_scope(type_symbol->m_belongs_to_scope);
-                            WO_CONTINUE_PROCESS(type_symbol->m_symbol_declare_ast.value());
-                            return HOLD;
-                        }
-
-                        lex.lang_error(lexer::errorlevel::error, node,
-                            WO_ERR_TYPE_DETERMINED_FAILED);
-                        return FAILED;
                     }
                     else
                     {
@@ -384,6 +453,15 @@ namespace wo
             default:
                 // Do nothing.
                 break;
+            }
+        }
+        else
+        {
+            if (node->m_LANG_template_evalating_state)
+            {
+                auto* state = node->m_LANG_template_evalating_state.value();
+
+                failed_eval_template_ast(state);
             }
         }
         return WO_EXCEPT_ERROR(state, OKAY);
@@ -469,9 +547,7 @@ namespace wo
                             if (!template_eval_state_instance_may_nullopt)
                                 return FAILED;
 
-                            auto* template_eval_state_instance = 
-                                static_cast<lang_TemplateAstEvalStateValue*>(
-                                    template_eval_state_instance_may_nullopt.value());
+                            auto* template_eval_state_instance = template_eval_state_instance_may_nullopt.value();
 
                             switch (template_eval_state_instance->m_state)
                             {
@@ -479,7 +555,8 @@ namespace wo
                                 node->m_LANG_template_evalating_state = template_eval_state_instance;
                                 return HOLD;
                             case lang_TemplateAstEvalStateValue::EVALUATED:
-                                value_instance = template_eval_state_instance->m_value_instance.value().get();
+                                value_instance = static_cast<lang_TemplateAstEvalStateValue*>(
+                                    template_eval_state_instance)->m_value_instance.value().get();
                                 break;
                             default:
                                 wo_error("Unexpected template eval state");

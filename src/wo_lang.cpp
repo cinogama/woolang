@@ -834,12 +834,30 @@ namespace wo
     LangContext::pass_behavior LangContext::pass_1_process_basic_type_marking_and_constant_eval(
         lexer& lex, const AstNodeWithState& node_state, PassProcessStackT& out_stack)
     {
-        if (node_state.m_ast_node->finished_state != 0)
-            return (LangContext::pass_behavior)node_state.m_ast_node->finished_state;
+        if (node_state.m_ast_node->finished_state != pass_behavior::UNPROCESSED)
+        {
+            if (node_state.m_ast_node->finished_state == pass_behavior::HOLD)
+            {
+                if (node_state.m_state != pass_behavior::HOLD
+                    && node_state.m_state != pass_behavior::HOLD_BUT_CHILD_FAILED)
+                {
+                    // RECURSIVE EVALUATION.
+                    lex.lang_error(lexer::errorlevel::error, node_state.m_ast_node,
+                        WO_ERR_RECURSIVE_EVAL_PASS1);
 
+                    return FAILED;
+                }
+                else
+                {
+                    // CONTINUE PROCESSING.
+                }
+            }
+            else
+                return (LangContext::pass_behavior)node_state.m_ast_node->finished_state;
+        }
         auto result = m_pass1_processers->process_node(this, lex, node_state, out_stack);
-        if (result != HOLD)
-            node_state.m_ast_node->finished_state = result;
+
+        node_state.m_ast_node->finished_state = result;
 
         wo_assert(result != pass_behavior::UNPROCESSED);
 
