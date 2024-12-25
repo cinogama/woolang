@@ -894,6 +894,25 @@ namespace wo
     }
     WO_PASS_PROCESSER(AstValueFunction)
     {
+        auto judge_function_return_type =
+            [&](lang_TypeInstance* ret_type)
+            {
+                std::list<lang_TypeInstance*> parameters;
+                for (auto& param : node->m_parameters)
+                    parameters.push_back(param->m_type.value()->m_LANG_determined_type.value());
+
+                node->m_LANG_determined_type = m_origin_types.create_function_type(
+                    node->m_is_variadic, parameters, ret_type);
+
+                wo_assert(node->m_LANG_determined_type.has_value());
+
+                if (node->m_LANG_value_instance_to_update)
+                {
+                    node->m_LANG_value_instance_to_update.value()->m_determined_type =
+                        node->m_LANG_determined_type;
+                }
+            };
+
         // Huston, we have a problem.
         if (state == UNPROCESSED)
         {
@@ -936,26 +955,8 @@ namespace wo
                 // Eval function type for outside.
                 if (node->m_marked_return_type)
                 {
-                    ast::AstTypeHolder::FunctionType function_type;
-
-                    function_type.m_is_variadic = node->m_is_variadic;
-                    for (auto& param : node->m_parameters)
-                        function_type.m_parameters.push_back(param->m_type.value());
-
-                    function_type.m_return_type = node->m_marked_return_type.value();
-
-                    ast::AstTypeHolder* function_type_holder = new ast::AstTypeHolder(function_type);
-
-                    node->m_LANG_determined_type = m_origin_types.create_or_find_origin_type(
-                        lex, function_type_holder);
-
-                    if (node->m_LANG_value_instance_to_update)
-                    {
-                        node->m_LANG_value_instance_to_update.value()->m_determined_type =
-                            node->m_LANG_determined_type;
-                    }
-
-                    wo_assert(node->m_LANG_determined_type.has_value());
+                    judge_function_return_type(
+                        node->m_marked_return_type.value()->m_LANG_determined_type.value());
                 }
 
                 node->m_LANG_hold_state = AstValueFunction::HOLD_FOR_BODY_EVAL;
@@ -976,34 +977,15 @@ namespace wo
                         node->m_marked_return_type.value()->m_LANG_determined_type.value(),
                         node->m_LANG_determined_return_type.value()))
                     {
-                        /*lex.lang_error(lexer::errorlevel::error, node,
-                            WO_ERR_RETURN_TYPE_NOT_MATCHED);*/
-                        wo_error("todo");
+                        lex.lang_error(lexer::errorlevel::error, node,
+                            WO_ERR_UNMATCHED_RETURN_TYPE);
+                        return FAILED;
                     }
                 }
                 else
                 {
-                    wo_error("todo");
-                  /*  ast::AstTypeHolder::FunctionType function_type;
-
-                    function_type.m_is_variadic = node->m_is_variadic;
-                    for (auto& param : node->m_parameters)
-                        function_type.m_parameters.push_back(param->m_type.value());
-
-                    function_type.m_return_type = node->m_LANG_determined_return_type.value();
-
-                    ast::AstTypeHolder* function_type_holder = new ast::AstTypeHolder(function_type);
-
-                    node->m_LANG_determined_type = m_origin_types.create_or_find_origin_type(
-                        lex, function_type_holder);
-
-                    if (node->m_LANG_value_instance_to_update)
-                    {
-                        node->m_LANG_value_instance_to_update.value()->m_determined_type =
-                            node->m_LANG_determined_type;
-                    }
-
-                    wo_assert(node->m_LANG_determined_type.has_value());*/
+                    judge_function_return_type(
+                        node->m_LANG_determined_return_type.value());
                 }
 
                 break;
@@ -1015,7 +997,7 @@ namespace wo
         }
         else
         {
-            end_last_function();
+            end_last_function(); // Failed, leave the function.
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }

@@ -470,228 +470,260 @@ namespace wo
         , m_union(nullptr)
     {
     }
-    LangContext::OriginTypeHolder::~OriginTypeHolder()
-    {
-        for (auto& [_, item] : m_origin_cached_types)
-            delete item;
-    }
 
-    std::optional<lang_TypeInstance*> LangContext::OriginTypeHolder::create_dictionary_type(
-        lexer& lex, ast::AstTypeHolder* type_holder)
+    //////////////////////////////////////
+
+    LangContext::OriginTypeHolder::OriginTypeChain*
+        LangContext::OriginTypeHolder::OriginTypeChain::path(const std::list<lang_TypeInstance*>& type_path)
     {
-        wo_assert(type_holder->m_formal == ast::AstTypeHolder::IDENTIFIER);
-        if (type_holder->m_typeform.m_identifier->m_template_arguments)
+        OriginTypeChain* current_chain = this;
+        for (auto* type : type_path)
         {
-            auto& template_arguments_list = type_holder->m_typeform.m_identifier->m_template_arguments.value();
-            if (template_arguments_list.size() == 2)
+            auto fnd = current_chain->m_chain.find(type);
+            if (fnd == current_chain->m_chain.end())
             {
-                lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
-                desc.m_dictionary_or_mapping = new lang_TypeInstance::DeterminedType::DictionaryOrMapping();
+                auto new_chain_node = std::make_unique<OriginTypeChain>();
+                auto* next_chain_node_p = new_chain_node.get();
 
-                auto iter = template_arguments_list.begin();
-                desc.m_dictionary_or_mapping->m_key_type = (*(iter++))->m_LANG_determined_type.value();
-                desc.m_dictionary_or_mapping->m_value_type = (*iter)->m_LANG_determined_type.value();
+                current_chain->m_chain.insert(std::make_pair(type, std::move(new_chain_node)));
 
-                lang_TypeInstance::DeterminedType determined_type_detail(
-                    lang_TypeInstance::DeterminedType::base_type::DICTIONARY, desc);
-
-                lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_dictionary);
-                new_type_instance->m_determined_type = std::move(determined_type_detail);
-
-                return new_type_instance;
+                current_chain = next_chain_node_p;
             }
-        }
-        lex.lang_error(lexer::errorlevel::error, type_holder,
-            WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
-            (size_t)2);
-
-        return std::nullopt;
-    }
-    std::optional<lang_TypeInstance*> LangContext::OriginTypeHolder::create_mapping_type(
-        lexer& lex, ast::AstTypeHolder* type_holder)
-    {
-        wo_assert(type_holder->m_formal == ast::AstTypeHolder::IDENTIFIER);
-        if (type_holder->m_typeform.m_identifier->m_template_arguments)
-        {
-            auto& template_arguments_list = type_holder->m_typeform.m_identifier->m_template_arguments.value();
-            if (template_arguments_list.size() == 2)
-            {
-                lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
-                desc.m_dictionary_or_mapping = new lang_TypeInstance::DeterminedType::DictionaryOrMapping();
-
-                auto iter = template_arguments_list.begin();
-                desc.m_dictionary_or_mapping->m_key_type = (*(iter++))->m_LANG_determined_type.value();
-                desc.m_dictionary_or_mapping->m_value_type = (*iter)->m_LANG_determined_type.value();
-
-                lang_TypeInstance::DeterminedType determined_type_detail(
-                    lang_TypeInstance::DeterminedType::base_type::MAPPING, desc);
-
-                lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_mapping);
-                new_type_instance->m_determined_type = std::move(determined_type_detail);
-
-                return new_type_instance;
-            }
-        }
-        lex.lang_error(lexer::errorlevel::error, type_holder,
-            WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
-            (size_t)2);
-
-        return std::nullopt;
-    }
-    std::optional<lang_TypeInstance*> LangContext::OriginTypeHolder::create_array_type(
-        lexer& lex, ast::AstTypeHolder* type_holder)
-    {
-        wo_assert(type_holder->m_formal == ast::AstTypeHolder::IDENTIFIER);
-        if (type_holder->m_typeform.m_identifier->m_template_arguments)
-        {
-            auto& template_arguments_list = type_holder->m_typeform.m_identifier->m_template_arguments.value();
-            if (template_arguments_list.size() == 1)
-            {
-                lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
-                desc.m_array_or_vector = new lang_TypeInstance::DeterminedType::ArrayOrVector();
-
-                desc.m_array_or_vector->m_element_type = template_arguments_list.front()->m_LANG_determined_type.value();
-
-                lang_TypeInstance::DeterminedType determined_type_detail(
-                    lang_TypeInstance::DeterminedType::base_type::ARRAY, desc);
-
-                lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_array);
-                new_type_instance->m_determined_type = std::move(determined_type_detail);
-
-                return new_type_instance;
-            }
-        }
-        lex.lang_error(lexer::errorlevel::error, type_holder,
-            WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
-            (size_t)1);
-
-        return std::nullopt;
-    }
-    std::optional<lang_TypeInstance*> LangContext::OriginTypeHolder::create_vector_type(
-        lexer& lex, ast::AstTypeHolder* type_holder)
-    {
-        wo_assert(type_holder->m_formal == ast::AstTypeHolder::IDENTIFIER);
-        if (type_holder->m_typeform.m_identifier->m_template_arguments)
-        {
-            auto& template_arguments_list = type_holder->m_typeform.m_identifier->m_template_arguments.value();
-            if (template_arguments_list.size() == 1)
-            {
-                lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
-                desc.m_array_or_vector = new lang_TypeInstance::DeterminedType::ArrayOrVector();
-
-                desc.m_array_or_vector->m_element_type = template_arguments_list.front()->m_LANG_determined_type.value();
-
-                lang_TypeInstance::DeterminedType determined_type_detail(
-                    lang_TypeInstance::DeterminedType::base_type::VECTOR, desc);
-
-                lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_vector);
-                new_type_instance->m_determined_type = std::move(determined_type_detail);
-
-                return new_type_instance;
-            }
-        }
-        lex.lang_error(lexer::errorlevel::error, type_holder,
-            WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
-            (size_t)1);
-
-        return std::nullopt;
-    }
-    std::optional<lang_TypeInstance*> LangContext::OriginTypeHolder::create_tuple_type(
-        lexer& lex, ast::AstTypeHolder* type_holder)
-    {
-        wo_assert(type_holder->m_formal == ast::AstTypeHolder::TUPLE);
-
-        lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
-        desc.m_tuple = new lang_TypeInstance::DeterminedType::Tuple();
-
-        for (auto& field : type_holder->m_typeform.m_tuple.m_fields)
-            desc.m_tuple->m_element_types.push_back(field->m_LANG_determined_type.value());
-
-        lang_TypeInstance::DeterminedType determined_type_detail(
-            lang_TypeInstance::DeterminedType::base_type::TUPLE, desc);
-
-        lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_tuple);
-        new_type_instance->m_determined_type = std::move(determined_type_detail);
-
-        return new_type_instance;
-    }
-    std::optional<lang_TypeInstance*> LangContext::OriginTypeHolder::create_function_type(
-        lexer& lex, ast::AstTypeHolder* type_holder)
-    {
-        wo_assert(type_holder->m_formal == ast::AstTypeHolder::FUNCTION);
-
-        lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
-        desc.m_function = new lang_TypeInstance::DeterminedType::Function();
-
-        desc.m_function->m_is_variadic = type_holder->m_typeform.m_function.m_is_variadic;
-
-        for (auto& param_type : type_holder->m_typeform.m_function.m_parameters)
-            desc.m_function->m_param_types.push_back(param_type->m_LANG_determined_type.value());
-
-        desc.m_function->m_return_type = type_holder->m_typeform.m_function.m_return_type->m_LANG_determined_type.value();
-
-        lang_TypeInstance::DeterminedType determined_type_detail(
-            lang_TypeInstance::DeterminedType::base_type::FUNCTION, desc);
-
-        lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_function);
-        new_type_instance->m_determined_type = std::move(determined_type_detail);
-
-        return new_type_instance;
-    }
-    std::optional<lang_TypeInstance*> LangContext::OriginTypeHolder::create_struct_type(
-        lexer& lex, ast::AstTypeHolder* type_holder)
-    {
-        wo_assert(type_holder->m_formal == ast::AstTypeHolder::STRUCTURE);
-
-        lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
-        desc.m_struct = new lang_TypeInstance::DeterminedType::Struct();
-
-        wo_integer_t field_offset = 0;
-        for (auto& field : type_holder->m_typeform.m_structure.m_fields)
-        {
-            lang_TypeInstance::DeterminedType::Struct::StructMember new_field;
-            new_field.m_offset = field_offset++;
-            new_field.m_member_type = field->m_type->m_LANG_determined_type.value();
-
-            desc.m_struct->m_member_types.insert(std::make_pair(field->m_name, new_field));
-        }
-
-        lang_TypeInstance::DeterminedType determined_type_detail(
-            lang_TypeInstance::DeterminedType::base_type::STRUCT, desc);
-
-        lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_struct);
-        new_type_instance->m_determined_type = std::move(determined_type_detail);
-
-        return new_type_instance;
-    }
-    std::optional<lang_TypeInstance*> LangContext::OriginTypeHolder::create_union_type(
-        lexer& lex, ast::AstTypeHolder* type_holder)
-    {
-        wo_assert(type_holder->m_formal == ast::AstTypeHolder::UNION);
-
-        lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
-        desc.m_union = new lang_TypeInstance::DeterminedType::Union();
-
-        wo_integer_t field_offset = 0;
-        for (auto& field : type_holder->m_typeform.m_union.m_fields)
-        {
-            lang_TypeInstance::DeterminedType::Union::UnionMember new_field;
-            new_field.m_label = field_offset++;
-            if (field.m_item)
-                new_field.m_item_type = field.m_item.value()->m_LANG_determined_type.value();
             else
-                new_field.m_item_type = std::nullopt;
-
-            desc.m_union->m_union_label.insert(std::make_pair(field.m_label, new_field));
+                current_chain = fnd->second.get();
         }
+        return current_chain;
+    }
+    LangContext::OriginTypeHolder::OriginTypeChain::~OriginTypeChain()
+    {
+        if (m_type_instance)
+            delete m_type_instance.value();
+    }
 
-        lang_TypeInstance::DeterminedType determined_type_detail(
-            lang_TypeInstance::DeterminedType::base_type::UNION, desc);
+    //////////////////////////////////////
 
-        lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_union);
-        new_type_instance->m_determined_type = std::move(determined_type_detail);
+    LangContext::OriginTypeHolder::UnionStructTypeIndexChain*
+        LangContext::OriginTypeHolder::UnionStructTypeIndexChain::path(
+            const std::list<std::tuple<ast::AstDeclareAttribue::accessc_attrib, wo_pstring_t, lang_TypeInstance*>>& type_path)
+    {
+        UnionStructTypeIndexChain* current_chain = this;
+        for (auto& [attrib, field, type_may_null] : type_path)
+        {
+            auto& field_chain = current_chain->m_chain[attrib][field];
+            auto fnd = field_chain.find(type_may_null);
+            if (fnd == field_chain.end())
+            {
+                auto new_chain_node = std::make_unique<UnionStructTypeIndexChain>();
+                auto* next_chain_node_p = new_chain_node.get();
 
-        return new_type_instance;
+                field_chain.insert(std::make_pair(type_may_null, std::move(new_chain_node)));
+
+                current_chain = next_chain_node_p;
+            }
+            else
+                current_chain = fnd->second.get();
+        }
+        return current_chain;
+    }
+    LangContext::OriginTypeHolder::UnionStructTypeIndexChain::~UnionStructTypeIndexChain()
+    {
+        if (m_type_instance)
+            delete m_type_instance.value();
+    }
+
+    //////////////////////////////////////
+
+    lang_TypeInstance* LangContext::OriginTypeHolder::create_dictionary_type(lang_TypeInstance* key_type, lang_TypeInstance* value_type)
+    {
+        OriginTypeChain* chain_node = m_dictionary_chain.path({ key_type, value_type });
+        if (!chain_node->m_type_instance)
+        {
+            lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
+
+            desc.m_dictionary_or_mapping = new lang_TypeInstance::DeterminedType::DictionaryOrMapping();
+
+            desc.m_dictionary_or_mapping->m_key_type = key_type;
+            desc.m_dictionary_or_mapping->m_value_type = value_type;
+
+            lang_TypeInstance::DeterminedType determined_type_detail(
+                lang_TypeInstance::DeterminedType::base_type::DICTIONARY, desc);
+
+            lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_dictionary);
+            new_type_instance->m_determined_type = std::move(determined_type_detail);
+
+            chain_node->m_type_instance = new_type_instance;
+        }
+        return chain_node->m_type_instance.value();
+    }
+    lang_TypeInstance* LangContext::OriginTypeHolder::create_mapping_type(lang_TypeInstance* key_type, lang_TypeInstance* value_type)
+    {
+        OriginTypeChain* chain_node = m_mapping_chain.path({ key_type, value_type });
+        if (!chain_node->m_type_instance)
+        {
+            lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
+
+            desc.m_dictionary_or_mapping = new lang_TypeInstance::DeterminedType::DictionaryOrMapping();
+
+            desc.m_dictionary_or_mapping->m_key_type = key_type;
+            desc.m_dictionary_or_mapping->m_value_type = value_type;
+
+            lang_TypeInstance::DeterminedType determined_type_detail(
+                lang_TypeInstance::DeterminedType::base_type::MAPPING, desc);
+
+            lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_mapping);
+            new_type_instance->m_determined_type = std::move(determined_type_detail);
+
+            chain_node->m_type_instance = new_type_instance;
+        }
+        return chain_node->m_type_instance.value();
+    }
+    lang_TypeInstance* LangContext::OriginTypeHolder::create_array_type(lang_TypeInstance* element_type)
+    {
+        OriginTypeChain* chain_node = m_array_chain.path({ element_type });
+        if (!chain_node->m_type_instance)
+        {
+            lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
+
+            desc.m_array_or_vector = new lang_TypeInstance::DeterminedType::ArrayOrVector();
+
+            desc.m_array_or_vector->m_element_type = element_type;
+
+            lang_TypeInstance::DeterminedType determined_type_detail(
+                lang_TypeInstance::DeterminedType::base_type::ARRAY, desc);
+
+            lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_array);
+            new_type_instance->m_determined_type = std::move(determined_type_detail);
+
+            chain_node->m_type_instance = new_type_instance;
+        }
+        return chain_node->m_type_instance.value();
+    }
+    lang_TypeInstance* LangContext::OriginTypeHolder::create_vector_type(lang_TypeInstance* element_type)
+    {
+        OriginTypeChain* chain_node = m_vector_chain.path({ element_type });
+        if (!chain_node->m_type_instance)
+        {
+            lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
+
+            desc.m_array_or_vector = new lang_TypeInstance::DeterminedType::ArrayOrVector();
+
+            desc.m_array_or_vector->m_element_type = element_type;
+
+            lang_TypeInstance::DeterminedType determined_type_detail(
+                lang_TypeInstance::DeterminedType::base_type::VECTOR, desc);
+
+            lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_vector);
+            new_type_instance->m_determined_type = std::move(determined_type_detail);
+
+            chain_node->m_type_instance = new_type_instance;
+        }
+        return chain_node->m_type_instance.value();
+    }
+    lang_TypeInstance* LangContext::OriginTypeHolder::create_tuple_type(const std::list<lang_TypeInstance*>& element_types)
+    {
+        OriginTypeChain* chain_node = m_tuple_chain.path(element_types);
+        if (!chain_node->m_type_instance)
+        {
+            lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
+
+            desc.m_tuple = new lang_TypeInstance::DeterminedType::Tuple();
+            desc.m_tuple->m_element_types = element_types;
+
+            lang_TypeInstance::DeterminedType determined_type_detail(
+                lang_TypeInstance::DeterminedType::base_type::TUPLE, desc);
+
+            lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_tuple);
+            new_type_instance->m_determined_type = std::move(determined_type_detail);
+
+            chain_node->m_type_instance = new_type_instance;
+        }
+        return chain_node->m_type_instance.value();
+    }
+    lang_TypeInstance* LangContext::OriginTypeHolder::create_function_type(bool is_variadic, const std::list<lang_TypeInstance*>& param_types, lang_TypeInstance* return_type)
+    {
+        OriginTypeChain* chain_node = m_function_chain[is_variadic ? 1 : 0].path(param_types)->path({ return_type });
+        if (!chain_node->m_type_instance)
+        {
+            lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
+
+            desc.m_function = new lang_TypeInstance::DeterminedType::Function();
+            desc.m_function->m_is_variadic = is_variadic;
+            desc.m_function->m_param_types = param_types;
+            desc.m_function->m_return_type = return_type;
+
+            lang_TypeInstance::DeterminedType determined_type_detail(
+                lang_TypeInstance::DeterminedType::base_type::FUNCTION, desc);
+
+            lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_function);
+            new_type_instance->m_determined_type = std::move(determined_type_detail);
+
+            chain_node->m_type_instance = new_type_instance;
+        }
+        return chain_node->m_type_instance.value();
+    }
+    lang_TypeInstance* LangContext::OriginTypeHolder::create_struct_type(
+        const std::list<std::tuple<ast::AstDeclareAttribue::accessc_attrib, wo_pstring_t, lang_TypeInstance*>>& member_types)
+    {
+        UnionStructTypeIndexChain* chain_node = m_struct_chain.path(member_types);
+        if (!chain_node->m_type_instance)
+        {
+            lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
+
+            desc.m_struct = new lang_TypeInstance::DeterminedType::Struct();
+
+            wo_integer_t index = 0;
+            for (auto& [access, field, type] : member_types)
+            {
+                auto& field_detail = desc.m_struct->m_member_types[field];
+                field_detail.m_attrib = access;
+                field_detail.m_member_type = type;
+                field_detail.m_offset = index++;
+            }
+
+            lang_TypeInstance::DeterminedType determined_type_detail(
+                lang_TypeInstance::DeterminedType::base_type::STRUCT, desc);
+
+            lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_struct);
+            new_type_instance->m_determined_type = std::move(determined_type_detail);
+
+            chain_node->m_type_instance = new_type_instance;
+        }
+        return chain_node->m_type_instance.value();
+    }
+    lang_TypeInstance* LangContext::OriginTypeHolder::create_union_type(const std::list<std::pair<wo_pstring_t, std::optional<lang_TypeInstance*>>>& member_types)
+    {
+        std::list<std::tuple<ast::AstDeclareAttribue::accessc_attrib, wo_pstring_t, lang_TypeInstance*>> 
+            member_types_no_optional;
+        for (auto& [field, type] : member_types)
+            member_types_no_optional.push_back(
+                std::make_tuple(ast::AstDeclareAttribue::accessc_attrib::PUBLIC, field, type ? type.value() : nullptr));
+
+        UnionStructTypeIndexChain* chain_node = m_union_chain.path(member_types_no_optional);
+        if (!chain_node->m_type_instance)
+        {
+            lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
+
+            desc.m_union = new lang_TypeInstance::DeterminedType::Union();
+
+            wo_integer_t index = 0;
+            for (auto& [_access, field, type] : member_types_no_optional)
+            {
+                (void)_access;
+
+                auto& field_detail = desc.m_union->m_union_label[field];
+                field_detail.m_item_type = type == nullptr ? std::nullopt : std::optional(type);
+                field_detail.m_label = index++;
+            }
+
+            lang_TypeInstance::DeterminedType determined_type_detail(
+                lang_TypeInstance::DeterminedType::base_type::UNION, desc);
+
+            lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_union);
+            new_type_instance->m_determined_type = std::move(determined_type_detail);
+
+            chain_node->m_type_instance = new_type_instance;
+        }
+        return chain_node->m_type_instance.value();
     }
 
     std::optional<lang_TypeInstance*> LangContext::OriginTypeHolder::create_or_find_origin_type(
@@ -699,48 +731,81 @@ namespace wo
     {
         wo_assert(!type_holder->m_LANG_determined_type);
 
-        auto fnd = m_origin_cached_types.find(type_holder);
-        if (fnd != m_origin_cached_types.end())
-            return fnd->second;
-
         switch (type_holder->m_formal)
         {
         case ast::AstTypeHolder::IDENTIFIER:
         {
-            auto* symbol = type_holder->m_typeform.m_identifier->m_LANG_determined_symbol.value();
+            auto& identifier = type_holder->m_typeform.m_identifier;
+            auto* symbol = identifier->m_LANG_determined_symbol.value();
 
             wo_assert(symbol->m_is_builtin);
+            if (!identifier->m_template_arguments)
+            {
+                lex.lang_error(lexer::errorlevel::error, type_holder,
+                    WO_ERR_EXPECTED_TEMPLATE_ARGUMENT);
+
+                return std::nullopt;
+            }
+
+            auto& template_arguments = identifier->m_template_arguments.value();
+
             if (symbol == m_dictionary)
             {
-                auto new_type_instance = create_dictionary_type(lex, type_holder);
-                if (new_type_instance)
-                    m_origin_cached_types.insert(std::make_pair(type_holder, new_type_instance.value()));
+                if (template_arguments.size() != 2)
+                {
+                    lex.lang_error(lexer::errorlevel::error, type_holder,
+                        WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
+                        (size_t)2);
 
-                return new_type_instance;
+                    return std::nullopt;
+                }
+                auto template_iter = template_arguments.begin();
+                auto* key_type = (*(template_iter++))->m_LANG_determined_type.value();
+                auto* value_type = (*template_iter)->m_LANG_determined_type.value();
+
+                return create_dictionary_type(key_type, value_type);
             }
             else if (symbol == m_mapping)
             {
-                auto new_type_instance = create_mapping_type(lex, type_holder);
-                if (new_type_instance)
-                    m_origin_cached_types.insert(std::make_pair(type_holder, new_type_instance.value()));
+                if (template_arguments.size() != 2)
+                {
+                    lex.lang_error(lexer::errorlevel::error, type_holder,
+                        WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
+                        (size_t)2);
 
-                return new_type_instance;
+                    return std::nullopt;
+                }
+                auto template_iter = template_arguments.begin();
+                auto* key_type = (*(template_iter++))->m_LANG_determined_type.value();
+                auto* value_type = (*template_iter)->m_LANG_determined_type.value();
+
+                return create_mapping_type(key_type, value_type);
             }
             else if (symbol == m_array)
             {
-                auto new_type_instance = create_array_type(lex, type_holder);
-                if (new_type_instance)
-                    m_origin_cached_types.insert(std::make_pair(type_holder, new_type_instance.value()));
+                if (template_arguments.size() != 1)
+                {
+                    lex.lang_error(lexer::errorlevel::error, type_holder,
+                        WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
+                        (size_t)1);
 
-                return new_type_instance;
+                    return std::nullopt;
+                }
+                auto* element_type = template_arguments.front()->m_LANG_determined_type.value();
+                return create_array_type(element_type);
             }
             else if (symbol == m_vector)
             {
-                auto new_type_instance = create_vector_type(lex, type_holder);
-                if (new_type_instance)
-                    m_origin_cached_types.insert(std::make_pair(type_holder, new_type_instance.value()));
+                if (template_arguments.size() != 1)
+                {
+                    lex.lang_error(lexer::errorlevel::error, type_holder,
+                        WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
+                        (size_t)1);
 
-                return new_type_instance;
+                    return std::nullopt;
+                }
+                auto* element_type = template_arguments.front()->m_LANG_determined_type.value();
+                return create_vector_type(element_type);
             }
             else
             {
@@ -749,35 +814,46 @@ namespace wo
         }
         case ast::AstTypeHolder::FUNCTION:
         {
-            auto new_type_instance = create_function_type(lex, type_holder);
-            if (new_type_instance)
-                m_origin_cached_types.insert(std::make_pair(type_holder, new_type_instance.value()));
+            std::list<lang_TypeInstance*> param_types;
+            for (auto* type_holder : type_holder->m_typeform.m_function.m_parameters)
+                param_types.push_back(type_holder->m_LANG_determined_type.value());
 
-            return new_type_instance;
+            return create_function_type(
+                type_holder->m_typeform.m_function.m_is_variadic,
+                param_types,
+                type_holder->m_typeform.m_function.m_return_type->m_LANG_determined_type.value());
         }
         case ast::AstTypeHolder::STRUCTURE:
         {
-            auto new_type_instance = create_struct_type(lex, type_holder);
-            if (new_type_instance)
-                m_origin_cached_types.insert(std::make_pair(type_holder, new_type_instance.value()));
+            std::list<std::tuple<ast::AstDeclareAttribue::accessc_attrib, wo_pstring_t, lang_TypeInstance*>> param_types;
+            for (auto* field : type_holder->m_typeform.m_structure.m_fields)
+                param_types.push_back(std::make_tuple(
+                    field->m_attribute.value_or(ast::AstDeclareAttribue::accessc_attrib::PRIVATE),
+                    field->m_name,
+                    field->m_type->m_LANG_determined_type.value()));
 
-            return new_type_instance;
+            return create_struct_type(param_types);
         }
         case ast::AstTypeHolder::UNION:
         {
-            auto new_type_instance = create_union_type(lex, type_holder);
-            if (new_type_instance)
-                m_origin_cached_types.insert(std::make_pair(type_holder, new_type_instance.value()));
-
-            return new_type_instance;
+            std::list<std::pair<wo_pstring_t, std::optional<lang_TypeInstance*>>> member_types;
+            for (auto& field : type_holder->m_typeform.m_union.m_fields)
+            {
+                member_types.push_back(std::make_pair(
+                    field.m_label,
+                    field.m_item
+                    ? std::optional(field.m_item.value()->m_LANG_determined_type.value())
+                    : std::nullopt));
+            }
+            return create_union_type(member_types);
         }
         case ast::AstTypeHolder::TUPLE:
         {
-            auto new_type_instance = create_tuple_type(lex, type_holder);
-            if (new_type_instance)
-                m_origin_cached_types.insert(std::make_pair(type_holder, new_type_instance.value()));
+            std::list<lang_TypeInstance*> element_types;
+            for (auto* type_holder : type_holder->m_typeform.m_tuple.m_fields)
+                element_types.push_back(type_holder->m_LANG_determined_type.value());
 
-            return new_type_instance;
+            return create_tuple_type(element_types);
         }
         default:
             wo_error("Unexpected type holder formal.");

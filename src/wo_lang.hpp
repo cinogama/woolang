@@ -9,248 +9,12 @@
 #include <set>
 #include <variant>
 #include <stack>
+#include <tuple>
 
 namespace wo
 {
 
 #ifndef WO_DISABLE_COMPILER
-
-    struct hash_type_holder_for_origin_cache
-    {
-        using AstTypeHolderPT = ast::AstTypeHolder*;
-
-        template<typename T>
-        static size_t _hash_ptr(T* ptr)
-        {
-            size_t result = (size_t)(uintptr_t)ptr;
-            result = result >> 4 | result << (sizeof(size_t) * 8 - 4);
-            return result;
-        }
-        static size_t _hash_rawtype(const AstTypeHolderPT& node)
-        {
-            return _hash_ptr(node->m_LANG_determined_type.value());
-        }
-        static size_t _hash(const AstTypeHolderPT& node)
-        {
-            switch (node->m_formal)
-            {
-            case ast::AstTypeHolder::IDENTIFIER:
-            {
-                size_t hash_result = _hash_ptr(node->m_typeform.m_identifier->m_LANG_determined_symbol.value());
-
-                if (node->m_typeform.m_identifier->m_template_arguments)
-                {
-                    for (auto* template_argument : node->m_typeform.m_identifier->m_template_arguments.value())
-                        hash_result ^= _hash_rawtype(template_argument);
-                }
-                return hash_result | ast::AstTypeHolder::IDENTIFIER;
-            }
-            case ast::AstTypeHolder::FUNCTION:
-            {
-                size_t hash_result = _hash_rawtype(node->m_typeform.m_function.m_return_type);
-
-                for (auto* param_type : node->m_typeform.m_function.m_parameters)
-                    hash_result ^= _hash_rawtype(param_type);
-
-                if (node->m_typeform.m_function.m_is_variadic)
-                    hash_result = ~hash_result;
-
-                return hash_result | ast::AstTypeHolder::FUNCTION;
-            }
-            case ast::AstTypeHolder::STRUCTURE:
-            {
-                size_t hash_result = 0;
-
-                for (auto& member : node->m_typeform.m_structure.m_fields)
-                {
-                    hash_result ^= _hash_ptr(member->m_name);
-                    hash_result ^= _hash_rawtype(member->m_type);
-                    hash_result ^= member->m_attribute
-                        ? member->m_attribute.value()
-                        : ast::AstDeclareAttribue::accessc_attrib::PRIVATE;
-                }
-
-                return hash_result | ast::AstTypeHolder::STRUCTURE;
-            }
-            case ast::AstTypeHolder::TUPLE:
-            {
-                size_t hash_result = 0;
-
-                for (auto* member : node->m_typeform.m_tuple.m_fields)
-                    hash_result ^= _hash_rawtype(member);
-
-                return hash_result | ast::AstTypeHolder::TUPLE;
-            }
-            case ast::AstTypeHolder::UNION:
-            {
-                size_t hash_result = 0;
-
-                for (auto& member : node->m_typeform.m_union.m_fields)
-                {
-                    hash_result ^= _hash_ptr(member.m_label);
-                    if (member.m_item)
-                        hash_result ^= _hash_rawtype(member.m_item.value());
-                }
-
-                return hash_result | ast::AstTypeHolder::UNION;
-            }
-            default:
-                wo_error("Unknown type holder type.");
-                return 0;
-            }
-        }
-
-        bool operator()(const AstTypeHolderPT& node) const
-        {
-            return _hash(node);
-        }
-    };
-    struct equal_to_type_holder_for_origin_cache
-    {
-        using AstTypeHolderPT = ast::AstTypeHolder*;
-
-        static size_t _equal_to_rawtype(const AstTypeHolderPT& lhs, const AstTypeHolderPT& rhs)
-        {
-            return lhs->m_LANG_determined_type.value() == rhs->m_LANG_determined_type.value();
-        }
-        static size_t _equal_to(const AstTypeHolderPT& lhs, const AstTypeHolderPT& rhs)
-        {
-            if (lhs->m_formal != rhs->m_formal)
-                return false;
-
-            switch (lhs->m_formal)
-            {
-            case ast::AstTypeHolder::IDENTIFIER:
-            {
-                if (lhs->m_typeform.m_identifier->m_LANG_determined_symbol.value()
-                    != rhs->m_typeform.m_identifier->m_LANG_determined_symbol.value())
-                    return false;
-
-                if (lhs->m_typeform.m_identifier->m_template_arguments.has_value()
-                    != rhs->m_typeform.m_identifier->m_template_arguments.has_value())
-                    return false;
-
-                if (lhs->m_typeform.m_identifier->m_template_arguments)
-                {
-                    auto& lhs_template_args = lhs->m_typeform.m_identifier->m_template_arguments.value();
-                    auto& rhs_template_args = rhs->m_typeform.m_identifier->m_template_arguments.value();
-
-                    if (lhs_template_args.size() != rhs_template_args.size())
-                        return false;
-
-                    auto lhs_iter = lhs_template_args.begin();
-                    auto rhs_iter = rhs_template_args.begin();
-                    auto lhs_end = lhs_template_args.end();
-
-                    for (; lhs_iter != lhs_end; ++lhs_iter, ++rhs_iter)
-                    {
-                        if (!_equal_to_rawtype(*lhs_iter, *rhs_iter))
-                            return false;
-                    }
-
-                }
-
-                return true;
-            }
-            case ast::AstTypeHolder::FUNCTION:
-            {
-                if (lhs->m_typeform.m_function.m_is_variadic != rhs->m_typeform.m_function.m_is_variadic)
-                    return false;
-
-                if (lhs->m_typeform.m_function.m_parameters.size() != rhs->m_typeform.m_function.m_parameters.size())
-                    return false;
-
-                if (!_equal_to_rawtype(lhs->m_typeform.m_function.m_return_type, rhs->m_typeform.m_function.m_return_type))
-                    return false;
-
-                auto lhs_iter = lhs->m_typeform.m_function.m_parameters.begin();
-                auto rhs_iter = rhs->m_typeform.m_function.m_parameters.begin();
-                auto lhs_end = lhs->m_typeform.m_function.m_parameters.end();
-
-                for (; lhs_iter != lhs_end; ++lhs_iter, ++rhs_iter)
-                {
-                    if (!_equal_to_rawtype(*lhs_iter, *rhs_iter))
-                        return false;
-                }
-
-                return true;
-            }
-            case ast::AstTypeHolder::STRUCTURE:
-            {
-                if (lhs->m_typeform.m_structure.m_fields.size() != rhs->m_typeform.m_structure.m_fields.size())
-                    return false;
-
-                auto lhs_iter = lhs->m_typeform.m_structure.m_fields.begin();
-                auto rhs_iter = rhs->m_typeform.m_structure.m_fields.begin();
-                auto lhs_end = lhs->m_typeform.m_structure.m_fields.end();
-
-                for (; lhs_iter != lhs_end; ++lhs_iter, ++rhs_iter)
-                {
-                    if ((*lhs_iter)->m_name != (*rhs_iter)->m_name)
-                        return false;
-
-                    if (!_equal_to_rawtype((*lhs_iter)->m_type, (*rhs_iter)->m_type))
-                        return false;
-
-                    if ((*lhs_iter)->m_attribute != (*rhs_iter)->m_attribute)
-                        return false;
-                }
-            }
-            case ast::AstTypeHolder::TUPLE:
-            {
-                if (lhs->m_typeform.m_tuple.m_fields.size() != rhs->m_typeform.m_tuple.m_fields.size())
-                    return false;
-
-                auto lhs_iter = lhs->m_typeform.m_tuple.m_fields.begin();
-                auto rhs_iter = rhs->m_typeform.m_tuple.m_fields.begin();
-                auto lhs_end = lhs->m_typeform.m_tuple.m_fields.end();
-
-                for (; lhs_iter != lhs_end; ++lhs_iter, ++rhs_iter)
-                {
-                    if (!_equal_to_rawtype(*lhs_iter, *rhs_iter))
-                        return false;
-                }
-
-                return true;
-            }
-            case ast::AstTypeHolder::UNION:
-            {
-                if (lhs->m_typeform.m_union.m_fields.size() != rhs->m_typeform.m_union.m_fields.size())
-                    return false;
-
-                auto lhs_iter = lhs->m_typeform.m_union.m_fields.begin();
-                auto rhs_iter = rhs->m_typeform.m_union.m_fields.begin();
-                auto lhs_end = lhs->m_typeform.m_union.m_fields.end();
-
-                for (; lhs_iter != lhs_end; ++lhs_iter, ++rhs_iter)
-                {
-                    if ((*lhs_iter).m_label != (*rhs_iter).m_label)
-                        return false;
-
-                    if ((*lhs_iter).m_item.has_value() != (*rhs_iter).m_item.has_value())
-                        return false;
-
-                    if ((*lhs_iter).m_item.has_value())
-                    {
-                        if (!_equal_to_rawtype((*lhs_iter).m_item.value(), (*rhs_iter).m_item.value()))
-                            return false;
-                    }
-                }
-
-                return true;
-            }
-            default:
-                wo_error("Unknown type holder type.");
-                return false;
-            }
-        }
-
-        bool operator()(const AstTypeHolderPT& lhs, const AstTypeHolderPT& rhs) const
-        {
-            return _equal_to(lhs, rhs);
-        }
-    };
-
     struct lang_Namespace;
     struct lang_Scope;
     struct lang_Symbol;
@@ -295,8 +59,10 @@ namespace wo
             {
                 struct StructMember
                 {
-                    wo_integer_t              m_offset;
-                    lang_TypeInstance* m_member_type;
+                    ast::AstDeclareAttribue::accessc_attrib
+                                            m_attrib;
+                    wo_integer_t            m_offset;
+                    lang_TypeInstance*      m_member_type;
                 };
                 std::unordered_map<wo_pstring_t, StructMember>
                     m_member_types;
@@ -304,8 +70,8 @@ namespace wo
             struct Function
             {
                 bool                            m_is_variadic;
-                std::vector<lang_TypeInstance*> m_param_types;
-                lang_TypeInstance* m_return_type;
+                std::list<lang_TypeInstance*>   m_param_types;
+                lang_TypeInstance*              m_return_type;
             };
             struct Union
             {
@@ -654,6 +420,39 @@ namespace wo
 
         struct OriginTypeHolder
         {
+            struct OriginTypeChain
+            {
+                using TypeIndexChain = std::unordered_map<lang_TypeInstance*, std::unique_ptr<OriginTypeChain>>;
+                
+                TypeIndexChain                    m_chain;
+                std::optional<lang_TypeInstance*> m_type_instance;
+
+                OriginTypeChain* path(const std::list<lang_TypeInstance*>& type_path);
+                ~OriginTypeChain();
+            };
+            struct UnionStructTypeIndexChain
+            {
+                using TypeIndexChain = std::unordered_map<lang_TypeInstance*, std::unique_ptr<UnionStructTypeIndexChain>>;
+                using FieldNameIndexChain = std::unordered_map<wo_pstring_t, TypeIndexChain>;
+                using AccessIndexChain = std::unordered_map<ast::AstDeclareAttribue::accessc_attrib, FieldNameIndexChain>;
+
+                AccessIndexChain                  m_chain;
+                std::optional<lang_TypeInstance*> m_type_instance;
+
+                UnionStructTypeIndexChain* path(
+                    const std::list<std::tuple<ast::AstDeclareAttribue::accessc_attrib, wo_pstring_t, lang_TypeInstance*>>& type_path);
+                ~UnionStructTypeIndexChain();
+            };
+
+            OriginTypeChain m_array_chain;
+            OriginTypeChain m_vector_chain;
+            OriginTypeChain m_dictionary_chain;
+            OriginTypeChain m_mapping_chain;
+            OriginTypeChain m_tuple_chain;
+            OriginTypeChain m_function_chain[2];
+            UnionStructTypeIndexChain m_union_chain;
+            UnionStructTypeIndexChain m_struct_chain;
+
             struct OriginNoTemplateSymbolAndInstance
             {
                 lang_Symbol* m_symbol;
@@ -675,6 +474,7 @@ namespace wo
             OriginNoTemplateSymbolAndInstance   m_handle;
             OriginNoTemplateSymbolAndInstance   m_bool;
             OriginNoTemplateSymbolAndInstance   m_string;
+
             lang_Symbol* m_dictionary;
             lang_Symbol* m_mapping;
             lang_Symbol* m_array;
@@ -684,27 +484,32 @@ namespace wo
             lang_Symbol* m_struct;
             lang_Symbol* m_union;
 
-            using OriginTypeInstanceMapping = 
-                std::unordered_map<
-                ast::AstTypeHolder*, 
-                lang_TypeInstance*,
-                hash_type_holder_for_origin_cache,
-                equal_to_type_holder_for_origin_cache>;
-
-            OriginTypeInstanceMapping m_origin_cached_types;
             std::optional<lang_TypeInstance*> create_or_find_origin_type(lexer& lex, ast::AstTypeHolder* type_holder);
 
-            std::optional<lang_TypeInstance*> create_dictionary_type(lexer& lex, ast::AstTypeHolder* type_holder);
+            /*std::optional<lang_TypeInstance*> create_dictionary_type(lexer& lex, ast::AstTypeHolder* type_holder);
             std::optional<lang_TypeInstance*> create_mapping_type(lexer& lex, ast::AstTypeHolder* type_holder);
             std::optional<lang_TypeInstance*> create_array_type(lexer& lex, ast::AstTypeHolder* type_holder);
             std::optional<lang_TypeInstance*> create_vector_type(lexer& lex, ast::AstTypeHolder* type_holder);
             std::optional<lang_TypeInstance*> create_tuple_type(lexer& lex, ast::AstTypeHolder* type_holder);
             std::optional<lang_TypeInstance*> create_function_type(lexer& lex, ast::AstTypeHolder* type_holder);
             std::optional<lang_TypeInstance*> create_struct_type(lexer& lex, ast::AstTypeHolder* type_holder);
-            std::optional<lang_TypeInstance*> create_union_type(lexer& lex, ast::AstTypeHolder* type_holder);
+            std::optional<lang_TypeInstance*> create_union_type(lexer& lex, ast::AstTypeHolder* type_holder);*/
+
+            lang_TypeInstance* create_dictionary_type(lang_TypeInstance* key_type, lang_TypeInstance* value_type);
+            lang_TypeInstance* create_mapping_type(lang_TypeInstance* key_type, lang_TypeInstance* value_type);
+            lang_TypeInstance* create_array_type(lang_TypeInstance* element_type);
+            lang_TypeInstance* create_vector_type(lang_TypeInstance* element_type);
+            lang_TypeInstance* create_tuple_type(const std::list<lang_TypeInstance*>& element_types);
+            lang_TypeInstance* create_function_type(bool is_variadic, const std::list<lang_TypeInstance*>& param_types, lang_TypeInstance* return_type);
+            lang_TypeInstance* create_struct_type(const std::list<std::tuple<ast::AstDeclareAttribue::accessc_attrib, wo_pstring_t, lang_TypeInstance*>>& member_types);
+            lang_TypeInstance* create_union_type(const std::list<std::pair<wo_pstring_t, std::optional<lang_TypeInstance*>>>& member_types);
 
             OriginTypeHolder();
-            ~OriginTypeHolder();
+
+            OriginTypeHolder(const OriginTypeHolder&) = delete;
+            OriginTypeHolder(OriginTypeHolder&&) = delete;
+            OriginTypeHolder& operator=(const OriginTypeHolder&) = delete;
+            OriginTypeHolder& operator=(OriginTypeHolder&&) = delete;
         };
         OriginTypeHolder                m_origin_types;
         std::unique_ptr<lang_Namespace> m_root_namespace;
