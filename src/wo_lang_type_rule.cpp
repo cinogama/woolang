@@ -166,6 +166,5 @@ namespace wo
 
         return result;
     }
-
 #endif
 }

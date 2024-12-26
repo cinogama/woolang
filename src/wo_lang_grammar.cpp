@@ -269,8 +269,7 @@ namespace wo
                                               gm::te(gm::ttype::l_right_curly_braces),
                                           } >>
                     WO_ASTBUILDER_INDEX(ast::pass_type_struct),
-                gm::nt(L"STRUCT_MEMBER_DEFINES") >> gm::symlist{gm::te(gm::ttype::l_empty)} >> WO_ASTBUILDER_INDEX(ast::pass_empty),
-                gm::nt(L"STRUCT_MEMBER_DEFINES") >> gm::symlist{gm::te(gm::ttype::l_comma)} >> WO_ASTBUILDER_INDEX(ast::pass_empty),
+                gm::nt(L"STRUCT_MEMBER_DEFINES") >> gm::symlist{gm::te(gm::ttype::l_empty)} >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
                 gm::nt(L"STRUCT_MEMBER_DEFINES") >> gm::symlist{gm::nt(L"STRUCT_MEMBERS_LIST"), gm::nt(L"COMMA_MAY_EMPTY")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 gm::nt(L"STRUCT_MEMBERS_LIST") >> gm::symlist{gm::nt(L"STRUCT_MEMBER_PAIR")} >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
                 gm::nt(L"STRUCT_MEMBERS_LIST") >> gm::symlist{gm::nt(L"STRUCT_MEMBERS_LIST"), gm::te(gm::ttype::l_comma), gm::nt(L"STRUCT_MEMBER_PAIR")} >> WO_ASTBUILDER_INDEX(ast::pass_append_list<2, 0>),

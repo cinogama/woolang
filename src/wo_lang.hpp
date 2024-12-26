@@ -111,10 +111,14 @@ namespace wo
         using DeterminedOrMutableType = std::variant<DeterminedType, lang_TypeInstance*>;
 
         // NOTE: DeterminedType means immutable type, lang_TypeInstance* means mutable types.
-        std::optional<DeterminedOrMutableType> m_determined_type;
+        std::optional<std::list<lang_TypeInstance*>> m_instance_template_arguments;
+        std::optional<DeterminedOrMutableType> m_determined_base_type_or_mutable;
         std::unordered_map<lang_TypeInstance*, bool> m_LANG_accepted_types;
 
-        lang_TypeInstance(lang_Symbol* symbol);
+        lang_TypeInstance(
+            lang_Symbol* symbol,
+            const std::optional<std::list<lang_TypeInstance*>>& template_arguments);
+
         lang_TypeInstance(const lang_TypeInstance&) = delete;
         lang_TypeInstance(lang_TypeInstance&&) = delete;
         lang_TypeInstance& operator=(const lang_TypeInstance&) = delete;
@@ -186,7 +190,10 @@ namespace wo
     {
         std::unique_ptr<lang_TypeInstance> m_type_instance;
 
-        lang_TemplateAstEvalStateType(lang_Symbol* symbol, ast::AstTypeHolder* ast);
+        lang_TemplateAstEvalStateType(
+            lang_Symbol* symbol, 
+            ast::AstTypeHolder* ast,
+            const std::list<lang_TypeInstance*>& template_arguments);
     };
     struct lang_TemplateAstEvalStateAlias : public lang_TemplateAstEvalStateBase
     {
@@ -517,6 +524,12 @@ namespace wo
         std::unordered_map<lang_TypeInstance*, std::unique_ptr<lang_TypeInstance>> 
                                         m_mutable_type_instance_cache;
 
+        // Used for print symbol & type names.
+        std::unordered_map<lang_Symbol*, std::pair<std::wstring, std::string>>
+                                        m_symbol_name_cache;
+        std::unordered_map<lang_TypeInstance*, std::pair<std::wstring, std::string>>
+                                        m_type_name_cache;
+
         static ProcessAstJobs* m_pass0_processers;
         static ProcessAstJobs* m_pass1_processers;
 
@@ -737,6 +750,14 @@ namespace wo
 
         //////////////////////////////////////
         bool is_type_accepted(lang_TypeInstance* accepter, lang_TypeInstance* provider);
+
+        std::wstring _get_scope_name(lang_Scope* scope);
+        std::wstring _get_symbol_name(lang_Symbol* scope);
+        std::wstring _get_type_name(lang_TypeInstance* scope);
+        const std::wstring& get_symbol_name_w(lang_Symbol* symbol);
+        const std::string& get_symbol_name(lang_Symbol* symbol);
+        const std::wstring& get_type_name_w(lang_TypeInstance* type);
+        const std::string& get_type_name(lang_TypeInstance* type);
     };
 #endif
 }

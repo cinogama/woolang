@@ -712,7 +712,7 @@ namespace wo
         {
             std::optional<AstDeclareAttribue::accessc_attrib> attrib = std::nullopt;
             token field_name = WO_NEED_TOKEN(1);
-            AstTypeHolder* field_type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(3, AstBase::AST_TYPE_HOLDER));
+            AstTypeHolder* field_type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(2, AstBase::AST_TYPE_HOLDER));
 
             if (!WO_IS_EMPTY(0))
             {

@@ -91,7 +91,7 @@ namespace wo
     {
         WO_LANG_REGISTER_PROCESSER(AstList, AstBase::AST_LIST, pass1);
         WO_LANG_REGISTER_PROCESSER(AstIdentifier, AstBase::AST_IDENTIFIER, pass1);
-        // WO_LANG_REGISTER_PROCESSER(AstStructFieldDefine, AstBase::AST_PATTERN_SINGLE, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstStructFieldDefine, AstBase::AST_STRUCT_FIELD_DEFINE, pass1);
         WO_LANG_REGISTER_PROCESSER(AstTypeHolder, AstBase::AST_TYPE_HOLDER, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstValueMarkAsMutable, AstBase::AST_VALUE_MARK_AS_MUTABLE, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstValueMarkAsImmutable, AstBase::AST_VALUE_MARK_AS_IMMUTABLE, pass1);
@@ -133,7 +133,7 @@ namespace wo
         // WO_LANG_REGISTER_PROCESSER(AstForeach, AstBase::AST_FOREACH, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstBreak, AstBase::AST_BREAK, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstContinue, AstBase::AST_CONTINUE, pass1);
-        // WO_LANG_REGISTER_PROCESSER(AstReturn, AstBase::AST_RETURN, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstReturn, AstBase::AST_RETURN, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstLabeled, AstBase::AST_LABELED, pass1);
         WO_LANG_REGISTER_PROCESSER(AstUsingTypeDeclare, AstBase::AST_USING_TYPE_DECLARE, pass1);
         WO_LANG_REGISTER_PROCESSER(AstAliasTypeDeclare, AstBase::AST_ALIAS_TYPE_DECLARE, pass1);
@@ -239,6 +239,16 @@ namespace wo
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
+    WO_PASS_PROCESSER(AstStructFieldDefine)
+    {
+        if (state == UNPROCESSED)
+        {
+            WO_CONTINUE_PROCESS(node->m_type);
+            return HOLD;
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+
+    }
     WO_PASS_PROCESSER(AstTypeHolder)
     {
         if (node->m_LANG_trying_advancing_type_judgement)
@@ -266,7 +276,11 @@ namespace wo
                 break;
             case AstTypeHolder::UNION:
                 for (auto& field : node->m_typeform.m_union.m_fields)
+                {
+                    if (field.m_item)
+                        WO_CONTINUE_PROCESS(field.m_item.value());
                     break;
+                }
             default:
                 wo_error("unknown type holder formal");
                 break;
@@ -342,25 +356,9 @@ namespace wo
                             else
                             {
                                 if (type_symbol->m_symbol_kind == lang_Symbol::ALIAS)
-                                {
                                     alias_instance = type_symbol->m_alias_instance;
-
-                                    //if (type_symbol->m_alias_instance->m_determined_type)
-                                    //    /*&& type_symbol->m_alias_instance->m_determined_type.value()->m_determined_type*/
-                                    //    node->m_LANG_determined_type = type_symbol->m_alias_instance->m_determined_type.value();
-                                    //else
-                                    //    goto _label_depend_type_unjudged;
-                                }
                                 else
-                                {
                                     type_instance = type_symbol->m_type_instance;
-
-                                    //wo_assert(type_symbol->m_symbol_kind == lang_Symbol::TYPE);
-                                    //if (type_symbol->m_type_instance->m_determined_type)
-                                    //    node->m_LANG_determined_type = type_symbol->m_type_instance;
-                                    //else
-                                    //    goto _label_depend_type_unjudged;
-                                }
                             }
 
                             bool type_determined = false;
@@ -368,12 +366,12 @@ namespace wo
                             {
                                 type_determined =
                                     alias_instance->m_determined_type
-                                    && alias_instance->m_determined_type.value()->m_determined_type.has_value();
+                                    && alias_instance->m_determined_type.value()->m_determined_base_type_or_mutable.has_value();
                             }
                             else
                             {
                                 type_determined =
-                                    type_instance->m_determined_type.has_value();
+                                    type_instance->m_determined_base_type_or_mutable.has_value();
                             }
 
                             if (!type_determined)
@@ -1001,6 +999,66 @@ namespace wo
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
+    WO_PASS_PROCESSER(AstReturn)
+    {
+        if (state == UNPROCESSED)
+        {
+            if (node->m_value)
+            {
+                WO_CONTINUE_PROCESS(node->m_value.value());
+                return HOLD;
+            }
+            return OKAY;
+        }
+        else if (state == HOLD)
+        {
+            auto current_function = get_current_function();
+            if (current_function)
+            {
+                auto* function_instance = current_function.value();
+                if (node->m_value)
+                {
+                    if (function_instance->m_LANG_determined_return_type)
+                    {
+                        if (!is_type_accepted(
+                            function_instance->m_LANG_determined_return_type.value(),
+                            node->m_value.value()->m_LANG_determined_type.value()))
+                        {
+                            lex.lang_error(lexer::errorlevel::error, node,
+                                WO_ERR_UNMATCHED_RETURN_TYPE);
+                            return FAILED;
+                        }
+                    }
+                    else
+                    {
+                        function_instance->m_LANG_determined_return_type =
+                            node->m_value.value()->m_LANG_determined_type;
+                    }
+                }
+                else
+                {
+                    if (function_instance->m_LANG_determined_return_type)
+                    {
+                        if (!is_type_accepted(
+                            function_instance->m_LANG_determined_return_type.value(),
+                            m_origin_types.m_void.m_type_instance))
+                        {
+                            lex.lang_error(lexer::errorlevel::error, node,
+                                WO_ERR_UNMATCHED_RETURN_TYPE);
+                            return FAILED;
+                        }
+                    }
+                    else
+                    {
+                        function_instance->m_LANG_determined_return_type =
+                            m_origin_types.m_void.m_type_instance;
+                    }
+                }
+            }
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+
 
 #undef WO_PASS_PROCESSER
 
