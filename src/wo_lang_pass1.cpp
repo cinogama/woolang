@@ -115,7 +115,7 @@ namespace wo
         // WO_LANG_REGISTER_PROCESSER(AstValueBinaryOperator, AstBase::AST_VALUE_BINARY_OPERATOR, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstValueUnaryOperator, AstBase::AST_VALUE_UNARY_OPERATOR, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstValueTribleOperator, AstBase::AST_VALUE_TRIPLE_OPERATOR, pass1);
-        // WO_LANG_REGISTER_PROCESSER(AstFakeValueUnpack, AstBase::AST_FAKE_VALUE_UNPACK, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstFakeValueUnpack, AstBase::AST_FAKE_VALUE_UNPACK, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstValueVariadicArgumentsPack, AstBase::AST_VALUE_VARIADIC_ARGUMENTS_PACK, pass1);
         WO_LANG_REGISTER_PROCESSER(AstValueIndex, AstBase::AST_VALUE_INDEX, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstPatternVariable, AstBase::AST_PATTERN_VARIABLE, pass1);
@@ -148,7 +148,7 @@ namespace wo
         WO_LANG_REGISTER_PROCESSER(AstAliasTypeDeclare, AstBase::AST_ALIAS_TYPE_DECLARE, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstEnumDeclare, AstBase::AST_ENUM_DECLARE, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstUnionDeclare, AstBase::AST_UNION_DECLARE, pass1);
-        // WO_LANG_REGISTER_PROCESSER(AstValueMakeUnion, AstBase::AST_VALUE_MAKE_UNION, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstValueMakeUnion, AstBase::AST_VALUE_MAKE_UNION, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstUsingNamespace, AstBase::AST_USING_NAMESPACE, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstExternInformation, AstBase::AST_EXTERN_INFORMATION, pass1);  
     }
@@ -288,8 +288,8 @@ namespace wo
                 {
                     if (field.m_item)
                         WO_CONTINUE_PROCESS(field.m_item.value());
-                    break;
                 }
+                break;
             default:
                 wo_error("unknown type holder formal");
                 break;
@@ -1221,8 +1221,25 @@ namespace wo
             std::list<lang_TypeInstance*> element_types;
             for (auto& element : node->m_elements)
             {
-                TODO; // 考虑元组在此处展开
-                element_types.push_back(element->m_LANG_determined_type.value());
+                auto determined_type = element->m_LANG_determined_type.value();
+                if (element->node_type == AstBase::AST_FAKE_VALUE_UNPACK)
+                {
+                    auto* determined_base_type_instance = determined_type->get_determined_type().value();
+                    // Unpacks base has been check in AstFakeValueUnpack.
+
+                    if (determined_base_type_instance->m_base_type != lang_TypeInstance::DeterminedType::TUPLE)
+                    {
+                        lex.lang_error(lexer::errorlevel::error, element,
+                            WO_ERR_ONLY_EXPAND_TUPLE,
+                            get_type_name_w(determined_type));
+                        return FAILED;
+                    }
+
+                    for (auto& element_type : determined_base_type_instance->m_external_type_description.m_tuple->m_element_types)
+                        element_types.push_back(element_type);
+                }
+                else
+                    element_types.push_back(determined_type);
             }
 
             node->m_LANG_determined_type = m_origin_types.create_tuple_type(element_types);
@@ -1323,20 +1340,140 @@ namespace wo
                 {
                     lex.lang_error(lexer::errorlevel::error, node->m_index,
                         WO_ERR_CANNOT_INDEX_STRUCT_WITH_NON_CONST);
+                    return FAILED;
                 }
-                TODO;
+                
+                wo_assert(node->m_index->m_evaled_const_value.value().type 
+                    == value::valuetype::string_type);
+
+                wo_pstring_t member_name = wo::wstring_pool::get_pstr(
+                    str_to_wstr(*node->m_index->m_evaled_const_value.value().string));
+
+                auto* struct_type = container_determined_base_type_instance
+                    ->m_external_type_description.m_struct;
+
+                auto fnd = struct_type->m_member_types.find(member_name);
+                if (fnd == struct_type->m_member_types.end())
+                {
+                    lex.lang_error(lexer::errorlevel::error, node->m_index,
+                        WO_ERR_STRUCT_DONOT_HAVE_MAMBER_NAMED,
+                        get_type_name_w(container_type_instance),
+                        member_name);
+                    return FAILED;
+                }
+
+                // TODO: check member's access permission.
+                node->m_LANG_determined_type = fnd->second.m_member_type;
+                node->m_LANG_fast_index_for_struct = fnd->second.m_offset;
+
                 break;
             }
             case lang_TypeInstance::DeterminedType::TUPLE:
             {
+                if (m_origin_types.m_int.m_type_instance
+                    != immutable_type(indexer_type_instance))
+                {
+                    lex.lang_error(lexer::errorlevel::error, node->m_index,
+                        WO_ERR_CANNOT_INDEX_TYPE_WITH_TYPE,
+                        get_type_name_w(container_type_instance),
+                        get_type_name_w(indexer_type_instance));
+                    return FAILED;
+                }
+                if (!node->m_index->m_evaled_const_value.has_value())
+                {
+                    lex.lang_error(lexer::errorlevel::error, node->m_index,
+                        WO_ERR_CANNOT_INDEX_TUPLE_WITH_NON_CONST);
+                    return FAILED;
+                }
+
+                wo_assert(node->m_index->m_evaled_const_value.value().type
+                    == value::valuetype::integer_type);
+
+                auto index = node->m_index->m_evaled_const_value.value().integer;
+                auto* tuple_type = container_determined_base_type_instance
+                    ->m_external_type_description.m_tuple;
+
+                if (index < 0 || (size_t)index >= tuple_type->m_element_types.size())
+                {
+                    lex.lang_error(lexer::errorlevel::error, node->m_index,
+                        WO_ERR_TUPLE_INDEX_OUT_OF_RANGE,
+                        get_type_name_w(container_type_instance),
+                        tuple_type->m_element_types.size(),
+                        (size_t)index);
+                    return FAILED;
+                }
+
+                node->m_LANG_determined_type = tuple_type->m_element_types[index];
+                node->m_LANG_fast_index_for_struct = index;
+
                 break;
             }
             default:
                 lex.lang_error(lexer::errorlevel::error, node->m_container,
                     WO_ERR_UNINDEXABLE_TYPE_NAMED,
                     get_type_name_w(container_type_instance));
+
                 return FAILED;
             }
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstFakeValueUnpack)
+    {
+        if (state == UNPROCESSED)
+        {
+            WO_CONTINUE_PROCESS(node->m_unpack_value);
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            auto* unpack_value_type_instance =
+                node->m_unpack_value->m_LANG_determined_type.value();
+            auto unpack_value_type_determined_base_type =
+                unpack_value_type_instance->get_determined_type();
+
+            if (!unpack_value_type_determined_base_type)
+            {
+                lex.lang_error(lexer::errorlevel::error, node->m_unpack_value,
+                    WO_ERR_TYPE_NAMED_DETERMINED_FAILED,
+                    get_type_name_w(unpack_value_type_instance));
+                return FAILED;
+            }
+
+            auto* unpack_value_determined_base_type_instance =
+                unpack_value_type_determined_base_type.value();
+
+            switch (unpack_value_determined_base_type_instance->m_base_type)
+            {
+            case lang_TypeInstance::DeterminedType::ARRAY:
+            case lang_TypeInstance::DeterminedType::VECTOR:
+            case lang_TypeInstance::DeterminedType::TUPLE:
+                break;
+            default:
+                lex.lang_error(lexer::errorlevel::error, node->m_unpack_value,
+                    WO_ERR_ONLY_EXPAND_ARRAY_VEC_AND_TUPLE,
+                    get_type_name_w(unpack_value_type_instance));
+                return FAILED;
+            }
+            
+            node->m_LANG_determined_type = unpack_value_type_instance;
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstValueMakeUnion)
+    {
+        if (state == UNPROCESSED)
+        {
+            if (node->m_packed_value)
+                WO_CONTINUE_PROCESS(node->m_packed_value.value());
+
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            // Trick to make compiler happy~.
+            node->m_LANG_determined_type =
+                m_origin_types.m_nothing.m_type_instance;
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }

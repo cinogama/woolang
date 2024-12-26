@@ -864,6 +864,7 @@ namespace wo
             : AstValueBase(AST_VALUE_INDEX)
             , m_container(container)
             , m_index(index)
+            , m_LANG_fast_index_for_struct(std::nullopt)
         {
         }
         AstBase* AstValueIndex::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const

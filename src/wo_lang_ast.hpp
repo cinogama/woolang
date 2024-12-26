@@ -353,6 +353,8 @@ namespace wo
             AstValueBase* m_container;
             AstValueBase* m_index;
 
+            std::optional<wo_integer_t> m_LANG_fast_index_for_struct;
+
             AstValueIndex(AstValueBase* container, AstValueBase* index);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };

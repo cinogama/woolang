@@ -53,7 +53,7 @@ namespace wo
             };
             struct Tuple
             {
-                std::list<lang_TypeInstance*> m_element_types;
+                std::vector<lang_TypeInstance*> m_element_types;
             };
             struct Struct
             {

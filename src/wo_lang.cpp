@@ -686,7 +686,8 @@ namespace wo
             lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
 
             desc.m_tuple = new lang_TypeInstance::DeterminedType::Tuple();
-            desc.m_tuple->m_element_types = element_types;
+            desc.m_tuple->m_element_types = std::vector<lang_TypeInstance*>(
+                element_types.begin(), element_types.end());
 
             lang_TypeInstance::DeterminedType determined_type_detail(
                 lang_TypeInstance::DeterminedType::base_type::TUPLE, desc);
