@@ -1409,7 +1409,7 @@ namespace wo
                 result_type_name += L"map<";
                 result_type_name += get_type_name_w(
                     base_determined_type->m_external_type_description.m_dictionary_or_mapping->m_key_type);
-                result_type_name += L",";
+                result_type_name += L", ";
                 result_type_name += get_type_name_w(
                     base_determined_type->m_external_type_description.m_dictionary_or_mapping->m_value_type);
                 result_type_name += L">";
@@ -1422,7 +1422,7 @@ namespace wo
                 for (auto* element_type : element_types)
                 {
                     if (!first)
-                        result_type_name += L",";
+                        result_type_name += L", ";
 
                     result_type_name += get_type_name_w(element_type);
                     first = false;
@@ -1438,7 +1438,7 @@ namespace wo
                 for (auto* param_type : param_types)
                 {
                     if (!first)
-                        result_type_name += L",";
+                        result_type_name += L", ";
 
                     result_type_name += get_type_name_w(param_type);
                     first = false;
@@ -1446,7 +1446,7 @@ namespace wo
                 if (base_determined_type->m_external_type_description.m_function->m_is_variadic)
                 {
                     if (!first)
-                        result_type_name += L",";
+                        result_type_name += L", ";
                     result_type_name += L"...";
                 }
                 result_type_name += L")=>";
@@ -1462,10 +1462,10 @@ namespace wo
                 for (auto& [name, field] : member_types)
                 {
                     if (!first)
-                        result_type_name += L",";
+                        result_type_name += L", ";
 
                     result_type_name += *name;
-                    result_type_name += L":";
+                    result_type_name += L": ";
                     result_type_name += get_type_name_w(field.m_member_type);
                     first = false;
                 }
@@ -1480,7 +1480,7 @@ namespace wo
                 for (auto& [name, field] : member_types)
                 {
                     if (!first)
-                        result_type_name += L",";
+                        result_type_name += L", ";
 
                     result_type_name += *name;
                     if (field.m_item_type)
@@ -1512,7 +1512,7 @@ namespace wo
             for (auto* template_arg : template_args)
             {
                 if (!first)
-                    result_type_name += L",";
+                    result_type_name += L", ";
                 result_type_name += get_type_name_w(template_arg);
                 first = false;
             }

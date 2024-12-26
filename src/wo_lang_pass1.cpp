@@ -102,8 +102,8 @@ namespace wo
         WO_LANG_REGISTER_PROCESSER(AstIdentifier, AstBase::AST_IDENTIFIER, pass1);
         WO_LANG_REGISTER_PROCESSER(AstStructFieldDefine, AstBase::AST_STRUCT_FIELD_DEFINE, pass1);
         WO_LANG_REGISTER_PROCESSER(AstTypeHolder, AstBase::AST_TYPE_HOLDER, pass1);
-        // WO_LANG_REGISTER_PROCESSER(AstValueMarkAsMutable, AstBase::AST_VALUE_MARK_AS_MUTABLE, pass1);
-        // WO_LANG_REGISTER_PROCESSER(AstValueMarkAsImmutable, AstBase::AST_VALUE_MARK_AS_IMMUTABLE, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstValueMarkAsMutable, AstBase::AST_VALUE_MARK_AS_MUTABLE, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstValueMarkAsImmutable, AstBase::AST_VALUE_MARK_AS_IMMUTABLE, pass1);
         WO_LANG_REGISTER_PROCESSER(AstValueLiteral, AstBase::AST_VALUE_LITERAL, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstValueTypeid, AstBase::AST_VALUE_TYPEID, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstValueTypeCast, AstBase::AST_VALUE_TYPE_CAST, pass1);
@@ -117,17 +117,17 @@ namespace wo
         // WO_LANG_REGISTER_PROCESSER(AstValueTribleOperator, AstBase::AST_VALUE_TRIPLE_OPERATOR, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstFakeValueUnpack, AstBase::AST_FAKE_VALUE_UNPACK, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstValueVariadicArgumentsPack, AstBase::AST_VALUE_VARIADIC_ARGUMENTS_PACK, pass1);
-        // WO_LANG_REGISTER_PROCESSER(AstValueIndex, AstBase::AST_VALUE_INDEX, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstValueIndex, AstBase::AST_VALUE_INDEX, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstPatternVariable, AstBase::AST_PATTERN_VARIABLE, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstPatternIndex, AstBase::AST_PATTERN_INDEX, pass1);
         WO_LANG_REGISTER_PROCESSER(AstVariableDefineItem, AstBase::AST_VARIABLE_DEFINE_ITEM, pass1);
         WO_LANG_REGISTER_PROCESSER(AstVariableDefines, AstBase::AST_VARIABLE_DEFINES, pass1);
         WO_LANG_REGISTER_PROCESSER(AstFunctionParameterDeclare, AstBase::AST_FUNCTION_PARAMETER_DECLARE, pass1);
         WO_LANG_REGISTER_PROCESSER(AstValueFunction, AstBase::AST_VALUE_FUNCTION, pass1);
-        // WO_LANG_REGISTER_PROCESSER(AstValueArrayOrVec, AstBase::AST_VALUE_ARRAY_OR_VEC, pass1);
-        // WO_LANG_REGISTER_PROCESSER(AstKeyValuePair, AstBase::AST_KEY_VALUE_PAIR, pass1);
-        // WO_LANG_REGISTER_PROCESSER(AstValueDictOrMap, AstBase::AST_VALUE_DICT_OR_MAP, pass1);
-        // WO_LANG_REGISTER_PROCESSER(AstValueTuple, AstBase::AST_VALUE_TUPLE, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstValueArrayOrVec, AstBase::AST_VALUE_ARRAY_OR_VEC, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstKeyValuePair, AstBase::AST_KEY_VALUE_PAIR, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstValueDictOrMap, AstBase::AST_VALUE_DICT_OR_MAP, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstValueTuple, AstBase::AST_VALUE_TUPLE, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstStructFieldValuePair, AstBase::AST_STRUCT_FIELD_VALUE_PAIR, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstValueStruct, AstBase::AST_VALUE_STRUCT, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstValueAssign, AstBase::AST_VALUE_ASSIGN, pass1);
@@ -388,7 +388,7 @@ namespace wo
                                         WO_ERR_TYPE_DETERMINED_FAILED);
                                     return FAILED;
                                 }
-                            }                            
+                            }
                         }
                         else
                         {
@@ -952,8 +952,8 @@ namespace wo
                 // Eval function type for outside.
                 if (node->m_marked_return_type)
                 {
-                    auto *return_type_instance = node->m_marked_return_type.value()->m_LANG_determined_type.value();
-                    judge_function_return_type( return_type_instance);
+                    auto* return_type_instance = node->m_marked_return_type.value()->m_LANG_determined_type.value();
+                    judge_function_return_type(return_type_instance);
                 }
 
                 node->m_LANG_hold_state = AstValueFunction::HOLD_FOR_BODY_EVAL;
@@ -970,7 +970,7 @@ namespace wo
                 if (node->m_marked_return_type)
                 {
                     // Function type has been determined.
-  
+
                     auto* marked_return_type = node->m_marked_return_type.value();
 
                     auto* return_type_instance = marked_return_type->m_LANG_determined_type.value();
@@ -1032,11 +1032,18 @@ namespace wo
                 else
                     return_value_type = m_origin_types.m_void.m_type_instance;
 
+                if (!function_instance->m_LANG_determined_return_type.has_value()
+                    && function_instance->m_marked_return_type.has_value())
+                {
+                    function_instance->m_LANG_determined_return_type =
+                        function_instance->m_marked_return_type.value()->m_LANG_determined_type.value();
+                }
+
                 if (function_instance->m_LANG_determined_return_type)
                 {
-                    auto* return_type_instance = 
+                    auto* return_type_instance =
                         function_instance->m_LANG_determined_return_type.value();
-                    auto* determined_return_type = 
+                    auto* determined_return_type =
                         node->m_value.value()->m_LANG_determined_type.value();
 
                     if (!is_type_accepted(
@@ -1061,7 +1068,275 @@ namespace wo
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
+    WO_PASS_PROCESSER(AstValueArrayOrVec)
+    {
+        if (state == UNPROCESSED)
+        {
+            WO_CONTINUE_PROCESS_LIST(node->m_elements);
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            lang_TypeInstance* array_elemnet_type = m_origin_types.m_nothing.m_type_instance;
+            if (!node->m_elements.empty())
+            {
+                auto element_iter = node->m_elements.begin();
+                auto element_end = node->m_elements.end();
 
+                array_elemnet_type = (*(element_iter++))->m_LANG_determined_type.value();
+                for (; element_iter != element_end; ++element_iter)
+                {
+                    AstValueBase* element = *element_iter;
+                    lang_TypeInstance* element_type = element->m_LANG_determined_type.value();
+                    if (!is_type_accepted(lex, element, array_elemnet_type, element_type))
+                    {
+                        lex.lang_error(lexer::errorlevel::error,
+                            element,
+                            WO_ERR_UNMATCHED_ARRAY_ELEMENT_TYPE_NAMED,
+                            get_type_name_w(element_type),
+                            get_type_name_w(array_elemnet_type));
+                        return FAILED;
+                    }
+                }
+            }
+            if (node->m_making_vec)
+            {
+                node->m_LANG_determined_type =
+                    m_origin_types.create_vector_type(array_elemnet_type);
+            }
+            else
+            {
+                node->m_LANG_determined_type =
+                    m_origin_types.create_array_type(array_elemnet_type);
+            }
+        }
+
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstValueMarkAsMutable)
+    {
+        if (state == UNPROCESSED)
+        {
+            WO_CONTINUE_PROCESS(node->m_marked_value);
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            node->m_LANG_determined_type = mutable_type(
+                node->m_marked_value->m_LANG_determined_type.value());
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstValueMarkAsImmutable)
+    {
+        if (state == UNPROCESSED)
+        {
+            WO_CONTINUE_PROCESS(node->m_marked_value);
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            node->m_LANG_determined_type = immutable_type(
+                node->m_marked_value->m_LANG_determined_type.value());
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstKeyValuePair)
+    {
+        if (state == UNPROCESSED)
+        {
+            WO_CONTINUE_PROCESS(node->m_key);
+            WO_CONTINUE_PROCESS(node->m_value);
+            return HOLD;
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstValueDictOrMap)
+    {
+        if (state == UNPROCESSED)
+        {
+            WO_CONTINUE_PROCESS_LIST(node->m_elements);
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            lang_TypeInstance* key_type = m_origin_types.m_nothing.m_type_instance;
+            lang_TypeInstance* value_type = m_origin_types.m_nothing.m_type_instance;
+
+            if (!node->m_elements.empty())
+            {
+                auto element_iter = node->m_elements.begin();
+                auto element_end = node->m_elements.end();
+
+                key_type = (*element_iter)->m_key->m_LANG_determined_type.value();
+                value_type = (*element_iter)->m_value->m_LANG_determined_type.value();
+
+                for (++element_iter; element_iter != element_end; ++element_iter)
+                {
+                    AstKeyValuePair* element = *element_iter;
+                    lang_TypeInstance* element_key_type = element->m_key->m_LANG_determined_type.value();
+                    lang_TypeInstance* element_value_type = element->m_value->m_LANG_determined_type.value();
+
+                    if (!is_type_accepted(lex, element, key_type, element_key_type))
+                    {
+                        lex.lang_error(lexer::errorlevel::error, element,
+                            WO_ERR_UNMATCHED_DICT_KEY_TYPE_NAMED,
+                            get_type_name_w(element_key_type),
+                            get_type_name_w(key_type));
+                        return FAILED;
+                    }
+
+                    if (!is_type_accepted(lex, element, value_type, element_value_type))
+                    {
+                        lex.lang_error(lexer::errorlevel::error, element,
+                            WO_ERR_UNMATCHED_DICT_VALUE_TYPE_NAMED,
+                            get_type_name_w(element_value_type),
+                            get_type_name_w(value_type));
+                        return FAILED;
+                    }
+                }
+            }
+            if (node->m_making_map)
+            {
+                node->m_LANG_determined_type =
+                    m_origin_types.create_mapping_type(key_type, value_type);
+            }
+            else
+            {
+                node->m_LANG_determined_type =
+                    m_origin_types.create_dictionary_type(key_type, value_type);
+            }
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstValueTuple)
+    {
+        if (state == UNPROCESSED)
+        {
+            WO_CONTINUE_PROCESS_LIST(node->m_elements);
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            std::list<lang_TypeInstance*> element_types;
+            for (auto& element : node->m_elements)
+                element_types.push_back(element->m_LANG_determined_type.value());
+
+            node->m_LANG_determined_type = m_origin_types.create_tuple_type(element_types);
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstValueIndex)
+    {
+        if (state == UNPROCESSED)
+        {
+            WO_CONTINUE_PROCESS(node->m_container);
+            WO_CONTINUE_PROCESS(node->m_index);
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            // Check is index able?
+            auto* container_type_instance = node->m_container->m_LANG_determined_type.value();
+            auto container_determined_base_type =
+                container_type_instance->get_determined_type();
+            auto* indexer_type_instance = node->m_index->m_LANG_determined_type.value();
+            auto indexer_determined_base_type =
+                indexer_type_instance->get_determined_type();
+
+            if (!container_determined_base_type)
+            {
+                lex.lang_error(lexer::errorlevel::error, node->m_container,
+                    WO_ERR_TYPE_NAMED_DETERMINED_FAILED,
+                    get_type_name_w(container_type_instance));
+
+                return FAILED;
+            }
+            if (!indexer_determined_base_type)
+            {
+                lex.lang_error(lexer::errorlevel::error, node->m_index,
+                    WO_ERR_TYPE_NAMED_DETERMINED_FAILED,
+                    get_type_name_w(indexer_type_instance));
+
+                return FAILED;
+            }
+
+            auto* container_determined_base_type_instance =
+                container_determined_base_type.value();
+            auto* indexer_determined_base_type_instance =
+                indexer_determined_base_type.value();
+
+            switch (container_determined_base_type_instance->m_base_type)
+            {
+            case lang_TypeInstance::DeterminedType::ARRAY:
+            case lang_TypeInstance::DeterminedType::VECTOR:
+            {
+                if (indexer_determined_base_type_instance->m_base_type
+                    != lang_TypeInstance::DeterminedType::INTEGER)
+                {
+                    lex.lang_error(lexer::errorlevel::error, node->m_index,
+                        WO_ERR_CANNOT_INDEX_TYPE_WITH_TYPE,
+                        get_type_name_w(container_type_instance),
+                        get_type_name_w(indexer_type_instance));
+                    return FAILED;
+                }
+                node->m_LANG_determined_type =
+                    container_determined_base_type_instance
+                    ->m_external_type_description.m_array_or_vector
+                    ->m_element_type;
+                break;
+            }
+            case lang_TypeInstance::DeterminedType::DICTIONARY:
+            case lang_TypeInstance::DeterminedType::MAPPING:
+            {
+                if (immutable_type(container_determined_base_type_instance
+                    ->m_external_type_description.m_dictionary_or_mapping
+                    ->m_key_type) != immutable_type(indexer_type_instance))
+                {
+                    lex.lang_error(lexer::errorlevel::error, node->m_index,
+                        WO_ERR_CANNOT_INDEX_TYPE_WITH_TYPE,
+                        get_type_name_w(container_type_instance),
+                        get_type_name_w(indexer_type_instance));
+                    return FAILED;
+                }
+                node->m_LANG_determined_type =
+                    container_determined_base_type_instance
+                    ->m_external_type_description.m_dictionary_or_mapping
+                    ->m_value_type;
+                break;
+            }
+            case lang_TypeInstance::DeterminedType::STRUCT:
+            {
+                if (m_origin_types.m_string.m_type_instance 
+                    != immutable_type(indexer_type_instance))
+                {
+                    lex.lang_error(lexer::errorlevel::error, node->m_index,
+                        WO_ERR_CANNOT_INDEX_TYPE_WITH_TYPE,
+                        get_type_name_w(container_type_instance),
+                        get_type_name_w(indexer_type_instance));
+                    return FAILED;
+                }
+                if (!node->m_index->m_evaled_const_value.has_value())
+                {
+                    lex.lang_error(lexer::errorlevel::error, node->m_index,
+                        WO_ERR_CANNOT_INDEX_STRUCT_WITH_NON_CONST);
+                }
+                TODO;
+                break;
+            }
+            case lang_TypeInstance::DeterminedType::TUPLE:
+            {
+                break;
+            }
+            default:
+                lex.lang_error(lexer::errorlevel::error, node->m_container,
+                    WO_ERR_UNINDEXABLE_TYPE_NAMED,
+                    get_type_name_w(container_type_instance));
+                return FAILED;
+            }
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
 
 #undef WO_PASS_PROCESSER
 

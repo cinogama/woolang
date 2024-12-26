@@ -75,3 +75,9 @@
 #define WO_ERR_CONSTRAINT_FAILED L"约束项不满足"
 
 #define WO_ERR_UNMATCHED_RETURN_TYPE_NAMED L"函数的实际返回类型（'%ls'）与标注或推导的类型（'%ls'）不匹配"
+#define WO_ERR_UNMATCHED_ARRAY_ELEMENT_TYPE_NAMED L"元素的类型（'%ls'）与先前推导的（'%ls'）不匹配"
+#define WO_ERR_UNMATCHED_DICT_KEY_TYPE_NAMED L"键元素的类型（'%ls'）与先前推导的（'%ls'）不匹配"
+#define WO_ERR_UNMATCHED_DICT_VALUE_TYPE_NAMED L"值元素的类型（'%ls'）与先前推导的（'%ls'）不匹配"
+#define WO_ERR_UNINDEXABLE_TYPE_NAMED L"不能作为容器的类型（'%ls'）"
+#define WO_ERR_CANNOT_INDEX_TYPE_WITH_TYPE L"容器类型（'%ls'）不接受索引类型（'%ls'）"
+#define WO_ERR_CANNOT_INDEX_STRUCT_WITH_NON_CONST L"结构体类型不接受非常量索引"
