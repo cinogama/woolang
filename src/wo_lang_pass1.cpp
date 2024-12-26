@@ -1220,7 +1220,10 @@ namespace wo
         {
             std::list<lang_TypeInstance*> element_types;
             for (auto& element : node->m_elements)
+            {
+                TODO; // 考虑元组在此处展开
                 element_types.push_back(element->m_LANG_determined_type.value());
+            }
 
             node->m_LANG_determined_type = m_origin_types.create_tuple_type(element_types);
         }
