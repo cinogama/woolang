@@ -91,7 +91,14 @@ namespace wo
                 gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"DECL_ATTRIBUTE"), // useless
                                                    gm::te(gm::ttype::l_using), gm::nt(L"SCOPED_LIST_NORMAL"), gm::te(gm::ttype::l_semicolon)} >>
                     WO_ASTBUILDER_INDEX(ast::pass_using_namespace),
-                gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_using), gm::nt(L"IDENTIFIER"), gm::nt(L"DEFINE_TEMPLATE_ITEM_MAY_EMPTY"), gm::te(gm::ttype::l_assign), gm::nt(L"TYPE"), gm::nt(L"SENTENCE_BLOCK_MAY_SEMICOLON")} >> WO_ASTBUILDER_INDEX(ast::pass_using_type_as),
+                gm::nt(L"SENTENCE") >> gm::symlist{
+                    gm::nt(L"DECL_ATTRIBUTE"), 
+                    gm::te(gm::ttype::l_using),
+                    gm::nt(L"IDENTIFIER"), 
+                    gm::nt(L"DEFINE_TEMPLATE_ITEM_MAY_EMPTY"), 
+                    gm::te(gm::ttype::l_assign), 
+                    gm::nt(L"TYPE"),
+                    gm::nt(L"SENTENCE_BLOCK_MAY_SEMICOLON")} >> WO_ASTBUILDER_INDEX(ast::pass_using_type_as),
                 gm::nt(L"SENTENCE_BLOCK_MAY_SEMICOLON") >> gm::symlist{gm::te(gm::ttype::l_semicolon)} >> WO_ASTBUILDER_INDEX(ast::pass_empty),
                 gm::nt(L"SENTENCE_BLOCK_MAY_SEMICOLON") >> gm::symlist{gm::nt(L"SENTENCE_BLOCK")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_alias), gm::nt(L"IDENTIFIER"), gm::nt(L"DEFINE_TEMPLATE_ITEM_MAY_EMPTY"), gm::te(gm::ttype::l_assign), gm::nt(L"TYPE"), gm::te(gm::ttype::l_semicolon)} >> WO_ASTBUILDER_INDEX(ast::pass_alias_type_as),
@@ -104,17 +111,22 @@ namespace wo
                 gm::nt(L"ENUM_ITEM") >> gm::symlist{gm::nt(L"IDENTIFIER")} >> WO_ASTBUILDER_INDEX(ast::pass_enum_item_create),
                 gm::nt(L"ENUM_ITEM") >> gm::symlist{gm::nt(L"IDENTIFIER"), gm::te(gm::ttype::l_assign), gm::nt(L"EXPRESSION")} >> WO_ASTBUILDER_INDEX(ast::pass_enum_item_create),
                 gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"DECL_NAMESPACE")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
-                gm::nt(L"DECL_NAMESPACE") >> gm::symlist{gm::te(gm::ttype::l_namespace), gm::nt(L"SPACE_NAME_LIST"), gm::nt(L"SENTENCE_BLOCK")} >> WO_ASTBUILDER_INDEX(ast::pass_namespace),
+                gm::nt(L"DECL_NAMESPACE") >> gm::symlist{
+                    gm::te(gm::ttype::l_namespace),
+                    gm::nt(L"SPACE_NAME_LIST"), 
+                    gm::nt(L"SENTENCE_BLOCK")} >> WO_ASTBUILDER_INDEX(ast::pass_namespace),
                 gm::nt(L"SPACE_NAME_LIST") >> gm::symlist{gm::nt(L"SPACE_NAME")} >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
                 gm::nt(L"SPACE_NAME_LIST") >> gm::symlist{gm::nt(L"SPACE_NAME_LIST"), gm::te(gm::ttype::l_scopeing), gm::nt(L"SPACE_NAME")} >> WO_ASTBUILDER_INDEX(ast::pass_append_list<2, 0>),
                 gm::nt(L"SPACE_NAME") >> gm::symlist{gm::nt(L"IDENTIFIER")} >> WO_ASTBUILDER_INDEX(ast::pass_token),
                 gm::nt(L"BLOCKED_SENTENCE") >> gm::symlist{gm::nt(L"LABELED_SENTENCE")} >> WO_ASTBUILDER_INDEX(ast::pass_sentence_block<0>),
                 gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"SENTENCE_BLOCK")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
-                gm::nt(L"SENTENCE_BLOCK") >> gm::symlist{gm::te(gm::ttype::l_left_curly_braces), gm::nt(L"PARAGRAPH"), gm::te(gm::ttype::l_right_curly_braces)} >> WO_ASTBUILDER_INDEX(ast::pass_sentence_block<1>),
+                gm::nt(L"SENTENCE_BLOCK") >> gm::symlist{
+                    gm::te(gm::ttype::l_left_curly_braces), gm::nt(L"PARAGRAPH"), gm::te(gm::ttype::l_right_curly_braces)} >> WO_ASTBUILDER_INDEX(ast::pass_sentence_block<1>),
                 // Because of CONSTANT MAP => ,,, => { l_empty } Following production will cause R-R Conflict
                 // gm::nt(L"PARAGRAPH") >> gm::symlist{gm::te(gm::ttype::l_empty)},
                 // So, just make a production like this:
-                gm::nt(L"SENTENCE_BLOCK") >> gm::symlist{gm::te(gm::ttype::l_left_curly_braces), gm::te(gm::ttype::l_right_curly_braces)} >> WO_ASTBUILDER_INDEX(ast::pass_empty),
+                gm::nt(L"SENTENCE_BLOCK") >> gm::symlist{
+                    gm::te(gm::ttype::l_left_curly_braces), gm::te(gm::ttype::l_right_curly_braces)} >> WO_ASTBUILDER_INDEX(ast::pass_empty),
                 // NOTE: Why the production can solve the conflict?
                 //       A > {}
                 //       B > {l_empty}
@@ -141,7 +153,17 @@ namespace wo
                 gm::nt(L"CONSTRAINT_LIST") >> gm::symlist{gm::nt(L"EXPRESSION")} >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
                 gm::nt(L"CONSTRAINT_LIST") >> gm::symlist{gm::nt(L"CONSTRAINT_LIST"), gm::te(gm::ttype::l_comma), gm::nt(L"EXPRESSION")} >> WO_ASTBUILDER_INDEX(ast::pass_append_list<2, 0>),
                 gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"FUNC_DEFINE_WITH_NAME")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
-                gm::nt(L"FUNC_DEFINE_WITH_NAME") >> gm::symlist{gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_func), gm::nt(L"AST_TOKEN_IDENTIFER"), gm::nt(L"DEFINE_TEMPLATE_ITEM_MAY_EMPTY"), gm::te(gm::ttype::l_left_brackets), gm::nt(L"ARGDEFINE"), gm::te(gm::ttype::l_right_brackets), gm::nt(L"RETURN_TYPE_DECLEAR_MAY_EMPTY"), gm::nt(L"WHERE_CONSTRAINT_WITH_SEMICOLON"), gm::nt(L"SENTENCE_BLOCK")} >> WO_ASTBUILDER_INDEX(ast::pass_func_def_named),
+                gm::nt(L"FUNC_DEFINE_WITH_NAME") >> gm::symlist{
+                    gm::nt(L"DECL_ATTRIBUTE"), 
+                    gm::te(gm::ttype::l_func), 
+                    gm::nt(L"AST_TOKEN_IDENTIFER"), 
+                    gm::nt(L"DEFINE_TEMPLATE_ITEM_MAY_EMPTY"), 
+                    gm::te(gm::ttype::l_left_brackets), 
+                    gm::nt(L"ARGDEFINE"), 
+                    gm::te(gm::ttype::l_right_brackets), 
+                    gm::nt(L"RETURN_TYPE_DECLEAR_MAY_EMPTY"), 
+                    gm::nt(L"WHERE_CONSTRAINT_WITH_SEMICOLON"), 
+                    gm::nt(L"SENTENCE_BLOCK")} >> WO_ASTBUILDER_INDEX(ast::pass_func_def_named),
                 gm::nt(L"FUNC_DEFINE_WITH_NAME") >> gm::symlist{gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_func), gm::te(gm::ttype::l_operator), gm::nt(L"OVERLOADINGABLE_OPERATOR"), gm::nt(L"DEFINE_TEMPLATE_ITEM_MAY_EMPTY"), gm::te(gm::ttype::l_left_brackets), gm::nt(L"ARGDEFINE"), gm::te(gm::ttype::l_right_brackets), gm::nt(L"RETURN_TYPE_DECLEAR_MAY_EMPTY"), gm::nt(L"WHERE_CONSTRAINT_WITH_SEMICOLON"), gm::nt(L"SENTENCE_BLOCK")} >> WO_ASTBUILDER_INDEX(ast::pass_func_def_oper),
                 gm::nt(L"OVERLOADINGABLE_OPERATOR") >> gm::symlist{gm::te(gm::ttype::l_add)} >> WO_ASTBUILDER_INDEX(ast::pass_token),
                 gm::nt(L"OVERLOADINGABLE_OPERATOR") >> gm::symlist{gm::te(gm::ttype::l_sub)} >> WO_ASTBUILDER_INDEX(ast::pass_token),

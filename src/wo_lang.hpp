@@ -108,12 +108,14 @@ namespace wo
 
         lang_Symbol* m_symbol;
 
-        using DeterminedOrMutableType = std::variant<DeterminedType, lang_TypeInstance*>;
+        using DeterminedOrMutableType = 
+            std::variant<std::optional<DeterminedType>, lang_TypeInstance*>;
 
         // NOTE: DeterminedType means immutable type, lang_TypeInstance* means mutable types.
         std::optional<std::list<lang_TypeInstance*>> m_instance_template_arguments;
-        std::optional<DeterminedOrMutableType> m_determined_base_type_or_mutable;
+        DeterminedOrMutableType m_determined_base_type_or_mutable;
         std::unordered_map<lang_TypeInstance*, bool> m_LANG_accepted_types;
+        std::unordered_set<lang_TypeInstance*> m_LANG_pending_depend_this;
 
         lang_TypeInstance(
             lang_Symbol* symbol,
@@ -126,8 +128,12 @@ namespace wo
 
         bool is_immutable() const;
         bool is_mutable() const;
-        const DeterminedType* get_determined_type() const;
-        void determine_base_type(const DeterminedType* from_determined);
+        std::optional<const DeterminedType*> get_determined_type() const;
+        
+        void determine_base_type_by_another_type(lang_TypeInstance* immutable_from_type);
+        void _update_type_instance_depend_this(const DeterminedType& copy_type);
+        void determine_base_type_copy(const DeterminedType& copy_type);
+        void determine_base_type_move(DeterminedType&& move_type);
     };
     struct lang_AliasInstance
     {
@@ -749,15 +755,19 @@ namespace wo
             lang_TemplateAstEvalStateBase* template_eval_instance);
 
         //////////////////////////////////////
-        bool is_type_accepted(lang_TypeInstance* accepter, lang_TypeInstance* provider);
+        bool is_type_accepted(
+            lexer&lex, 
+            ast::AstBase* node,
+            lang_TypeInstance* accepter,
+            lang_TypeInstance* provider);
 
         std::wstring _get_scope_name(lang_Scope* scope);
         std::wstring _get_symbol_name(lang_Symbol* scope);
         std::wstring _get_type_name(lang_TypeInstance* scope);
-        const std::wstring& get_symbol_name_w(lang_Symbol* symbol);
-        const std::string& get_symbol_name(lang_Symbol* symbol);
-        const std::wstring& get_type_name_w(lang_TypeInstance* type);
-        const std::string& get_type_name(lang_TypeInstance* type);
+        const wchar_t* get_symbol_name_w(lang_Symbol* symbol);
+        const char* get_symbol_name(lang_Symbol* symbol);
+        const wchar_t* get_type_name_w(lang_TypeInstance* type);
+        const char* get_type_name(lang_TypeInstance* type);
     };
 #endif
 }

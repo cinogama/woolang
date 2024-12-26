@@ -232,65 +232,118 @@ namespace wo
         lang_Symbol* symbol,
         const std::optional<std::list<lang_TypeInstance*>>& template_arguments)
         : m_symbol(symbol)
-        , m_instance_template_arguments(template_arguments)
         , m_determined_base_type_or_mutable(std::nullopt)
+        , m_instance_template_arguments(template_arguments)
     {
     }
 
     bool lang_TypeInstance::is_immutable() const
     {
-        return nullptr != std::get_if<lang_TypeInstance::DeterminedType>(&m_determined_base_type_or_mutable.value());
+        return nullptr != std::get_if<std::optional<DeterminedType>>(
+            &m_determined_base_type_or_mutable);
     }
     bool lang_TypeInstance::is_mutable() const
     {
         return !is_immutable();
     }
-    const lang_TypeInstance::DeterminedType* lang_TypeInstance::get_determined_type() const
+    std::optional<const lang_TypeInstance::DeterminedType*> lang_TypeInstance::get_determined_type() const
     {
-        auto* dtype = std::get_if<lang_TypeInstance::DeterminedType>(&m_determined_base_type_or_mutable.value());
+        const std::optional<DeterminedType>* dtype = std::get_if<std::optional<DeterminedType>>(
+            &m_determined_base_type_or_mutable);
 
         if (dtype != nullptr)
-            return dtype;
+        {
+            if (dtype->has_value())
+                return &dtype->value();
+            return std::nullopt;
+        }
 
-        return &std::get<lang_TypeInstance::DeterminedType>(
-            std::get<lang_TypeInstance*>(
-                m_determined_base_type_or_mutable.value())->m_determined_base_type_or_mutable.value());
+        return std::get<lang_TypeInstance*>(m_determined_base_type_or_mutable)
+            ->get_determined_type();
     }
-    void lang_TypeInstance::determine_base_type(const DeterminedType* from_determined)
+
+    void lang_TypeInstance::determine_base_type_by_another_type(lang_TypeInstance* immutable_from_type)
     {
-        wo_assert(!m_determined_base_type_or_mutable);
+        wo_assert(immutable_from_type->is_immutable());
+
+        auto determined_type_may_null = immutable_from_type->get_determined_type();
+        if (determined_type_may_null)
+            determine_base_type_copy(*determined_type_may_null.value());
+        else
+        {
+            // from_type it not decided, delay this type instance.
+            immutable_from_type->m_LANG_pending_depend_this.insert(this);
+        }
+    }
+    void lang_TypeInstance::_update_type_instance_depend_this(const DeterminedType& copy_type)
+    {
+        std::stack<lang_TypeInstance*> pending_stack;
+        for (auto* depended : m_LANG_pending_depend_this)
+            pending_stack.push(depended);
+
+        m_LANG_pending_depend_this.clear();
+
+        while (!pending_stack.empty())
+        {
+            lang_TypeInstance* current = pending_stack.top();
+            pending_stack.pop();
+
+            current->determine_base_type_copy(copy_type);
+
+            for (auto* depended : current->m_LANG_pending_depend_this)
+                pending_stack.push(depended);
+
+            current->m_LANG_pending_depend_this.clear();
+        }
+    }
+    void lang_TypeInstance::determine_base_type_copy(const DeterminedType& copy_type)
+    {
+        wo_assert(std::get<std::optional<DeterminedType>>(
+            m_determined_base_type_or_mutable).has_value() == false);
 
         DeterminedType::ExternalTypeDescription extern_desc;
-        switch (from_determined->m_base_type)
+        switch (copy_type.m_base_type)
         {
         case DeterminedType::base_type::ARRAY:
         case DeterminedType::base_type::VECTOR:
             extern_desc.m_array_or_vector = new DeterminedType::ArrayOrVector(
-                *from_determined->m_external_type_description.m_array_or_vector);
+                *copy_type.m_external_type_description.m_array_or_vector);
             break;
         case DeterminedType::base_type::DICTIONARY:
         case DeterminedType::base_type::MAPPING:
             extern_desc.m_dictionary_or_mapping = new DeterminedType::DictionaryOrMapping(
-                *from_determined->m_external_type_description.m_dictionary_or_mapping);
+                *copy_type.m_external_type_description.m_dictionary_or_mapping);
             break;
         case DeterminedType::base_type::TUPLE:
             extern_desc.m_tuple = new DeterminedType::Tuple(
-                *from_determined->m_external_type_description.m_tuple);
+                *copy_type.m_external_type_description.m_tuple);
             break;
         case DeterminedType::base_type::FUNCTION:
             extern_desc.m_function = new DeterminedType::Function(
-                *from_determined->m_external_type_description.m_function);
+                *copy_type.m_external_type_description.m_function);
             break;
         case DeterminedType::base_type::STRUCT:
             extern_desc.m_struct = new DeterminedType::Struct(
-                *from_determined->m_external_type_description.m_struct);
+                *copy_type.m_external_type_description.m_struct);
             break;
         default:
-            wo_error("Unexpected base type.");
+            // Nothing to do.
+            break;
         }
 
-        m_determined_base_type_or_mutable = std::move(DeterminedType(
-            from_determined->m_base_type, extern_desc));
+        _update_type_instance_depend_this(copy_type);
+
+        m_determined_base_type_or_mutable = 
+            std::move(DeterminedType(copy_type.m_base_type, extern_desc));
+    }
+    void lang_TypeInstance::determine_base_type_move(DeterminedType&& move_type)
+    {
+        wo_assert(std::get<std::optional<DeterminedType>>(
+            m_determined_base_type_or_mutable).has_value() == false);
+
+        _update_type_instance_depend_this(move_type);
+
+        m_determined_base_type_or_mutable = std::move(move_type);
     }
 
     //////////////////////////////////////
@@ -555,7 +608,7 @@ namespace wo
                 lang_TypeInstance::DeterminedType::base_type::DICTIONARY, desc);
 
             lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_dictionary, std::nullopt);
-            new_type_instance->m_determined_base_type_or_mutable = std::move(determined_type_detail);
+            new_type_instance->determine_base_type_move(std::move(determined_type_detail));
 
             chain_node->m_type_instance = new_type_instance;
         }
@@ -577,7 +630,7 @@ namespace wo
                 lang_TypeInstance::DeterminedType::base_type::MAPPING, desc);
 
             lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_mapping, std::nullopt);
-            new_type_instance->m_determined_base_type_or_mutable = std::move(determined_type_detail);
+            new_type_instance->determine_base_type_move(std::move(determined_type_detail));
 
             chain_node->m_type_instance = new_type_instance;
         }
@@ -598,7 +651,7 @@ namespace wo
                 lang_TypeInstance::DeterminedType::base_type::ARRAY, desc);
 
             lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_array, std::nullopt);
-            new_type_instance->m_determined_base_type_or_mutable = std::move(determined_type_detail);
+            new_type_instance->determine_base_type_move(std::move(determined_type_detail));
 
             chain_node->m_type_instance = new_type_instance;
         }
@@ -619,7 +672,7 @@ namespace wo
                 lang_TypeInstance::DeterminedType::base_type::VECTOR, desc);
 
             lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_vector, std::nullopt);
-            new_type_instance->m_determined_base_type_or_mutable = std::move(determined_type_detail);
+            new_type_instance->determine_base_type_move(std::move(determined_type_detail));
 
             chain_node->m_type_instance = new_type_instance;
         }
@@ -639,7 +692,7 @@ namespace wo
                 lang_TypeInstance::DeterminedType::base_type::TUPLE, desc);
 
             lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_tuple, std::nullopt);
-            new_type_instance->m_determined_base_type_or_mutable = std::move(determined_type_detail);
+            new_type_instance->determine_base_type_move(std::move(determined_type_detail));
 
             chain_node->m_type_instance = new_type_instance;
         }
@@ -661,7 +714,7 @@ namespace wo
                 lang_TypeInstance::DeterminedType::base_type::FUNCTION, desc);
 
             lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_function, std::nullopt);
-            new_type_instance->m_determined_base_type_or_mutable = std::move(determined_type_detail);
+            new_type_instance->determine_base_type_move(std::move(determined_type_detail));
 
             chain_node->m_type_instance = new_type_instance;
         }
@@ -690,7 +743,7 @@ namespace wo
                 lang_TypeInstance::DeterminedType::base_type::STRUCT, desc);
 
             lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_struct, std::nullopt);
-            new_type_instance->m_determined_base_type_or_mutable = std::move(determined_type_detail);
+            new_type_instance->determine_base_type_move(std::move(determined_type_detail));
 
             chain_node->m_type_instance = new_type_instance;
         }
@@ -726,7 +779,7 @@ namespace wo
                 lang_TypeInstance::DeterminedType::base_type::UNION, desc);
 
             lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_union, std::nullopt);
-            new_type_instance->m_determined_base_type_or_mutable = std::move(determined_type_detail);
+            new_type_instance->determine_base_type_move(std::move(determined_type_detail));
 
             chain_node->m_type_instance = new_type_instance;
         }
@@ -977,8 +1030,8 @@ namespace wo
                     false).value();
 
                 out_sni->m_type_instance = out_sni->m_symbol->m_type_instance;
-                out_sni->m_type_instance->m_determined_base_type_or_mutable =
-                    std::move(lang_TypeInstance::DeterminedType(basic_type, {}));
+                out_sni->m_type_instance->determine_base_type_move(
+                    std::move(lang_TypeInstance::DeterminedType(basic_type, {})));
             };
         create_builtin_non_template_symbol_and_instance(
             &m_origin_types.m_void, WO_PSTR(void), lang_TypeInstance::DeterminedType::VOID);
@@ -1242,7 +1295,8 @@ namespace wo
             if (fnd != m_mutable_type_instance_cache.end())
                 return fnd->second.get();
 
-            auto mutable_type_instance = std::make_unique<lang_TypeInstance>(origin_type->m_symbol, std::nullopt);
+            auto mutable_type_instance = std::make_unique<lang_TypeInstance>(
+                origin_type->m_symbol, std::nullopt);
             mutable_type_instance->m_determined_base_type_or_mutable = origin_type;
 
             auto* result = mutable_type_instance.get();
@@ -1257,13 +1311,11 @@ namespace wo
     lang_TypeInstance* LangContext::immutable_type(lang_TypeInstance* origin_type)
     {
         lang_TypeInstance** immutable_type =
-            std::get_if<lang_TypeInstance*>(&origin_type->m_determined_base_type_or_mutable.value());
+            std::get_if<lang_TypeInstance*>(&origin_type->m_determined_base_type_or_mutable);
 
-        if (nullptr != immutable_type)
-        {
-            // Is mutable type.
+        if (immutable_type != nullptr)
             return *immutable_type;
-        }
+
         return origin_type;
     }
     void LangContext::fast_create_template_type_alias_in_current_scope(
@@ -1302,12 +1354,14 @@ namespace wo
         {
             for (;;)
             {
-                result += *belong_namesapce->m_name + L"::";
+                auto* space_name = belong_namesapce->m_name;
 
                 if (belong_namesapce->m_parent_namespace)
                     belong_namesapce = belong_namesapce->m_parent_namespace.value();
                 else
                     break;
+
+                result = *space_name + L"::" + result;
             }
         }
         return result;
@@ -1327,7 +1381,7 @@ namespace wo
 
         if (immutable_type_instance->m_symbol->m_is_builtin)
         {
-            auto* base_determined_type = immutable_type_instance->get_determined_type();
+            auto* base_determined_type = immutable_type_instance->get_determined_type().value();
             switch (base_determined_type->m_base_type)
             {
             case lang_TypeInstance::DeterminedType::ARRAY:
@@ -1388,6 +1442,12 @@ namespace wo
 
                     result_type_name += get_type_name_w(param_type);
                     first = false;
+                }
+                if (base_determined_type->m_external_type_description.m_function->m_is_variadic)
+                {
+                    if (!first)
+                        result_type_name += L",";
+                    result_type_name += L"...";
                 }
                 result_type_name += L")=>";
                 result_type_name += get_type_name_w(
@@ -1462,55 +1522,59 @@ namespace wo
         return result_type_name;
     }
 
-    const std::wstring& LangContext::get_symbol_name_w(lang_Symbol* symbol)
+    const wchar_t* LangContext::get_symbol_name_w(lang_Symbol* symbol)
     {
         auto fnd = m_symbol_name_cache.find(symbol);
         if (fnd != m_symbol_name_cache.end())
-            return fnd->second.first;
+            return fnd->second.first.c_str();
 
         std::wstring result = _get_symbol_name(symbol);
         return m_symbol_name_cache.insert(
             std::make_pair(symbol, std::make_pair(result, wstrn_to_str(result)))).first
-            ->second.first;
+            ->second.first.c_str();
     }
-    const std::string& LangContext::get_symbol_name(lang_Symbol* symbol)
+    const char* LangContext::get_symbol_name(lang_Symbol* symbol)
     {
         auto fnd = m_symbol_name_cache.find(symbol);
         if (fnd != m_symbol_name_cache.end())
-            return fnd->second.second;
+            return fnd->second.second.c_str();
 
         std::wstring result = _get_symbol_name(symbol);
         return m_symbol_name_cache.insert(
             std::make_pair(symbol, std::make_pair(result, wstrn_to_str(result)))).first
-            ->second.second;
+            ->second.second.c_str();
     }
-    const std::wstring& LangContext::get_type_name_w(lang_TypeInstance* type)
+    const wchar_t* LangContext::get_type_name_w(lang_TypeInstance* type)
     {
         auto fnd = m_type_name_cache.find(type);
         if (fnd != m_type_name_cache.end())
-            return fnd->second.first;
+            return fnd->second.first.c_str();
 
         m_type_name_cache[type] = std::make_pair(
             *type->m_symbol->m_name + L"...", "...");
 
         std::wstring result = _get_type_name(type);
+
+        m_type_name_cache.erase(type);
         return m_type_name_cache.insert(
             std::make_pair(type, std::make_pair(result, wstrn_to_str(result)))).first
-            ->second.first;
+            ->second.first.c_str();
     }
-    const std::string& LangContext::get_type_name(lang_TypeInstance* type)
+    const char* LangContext::get_type_name(lang_TypeInstance* type)
     {
         auto fnd = m_type_name_cache.find(type);
         if (fnd != m_type_name_cache.end())
-            return fnd->second.second;
+            return fnd->second.second.c_str();
 
         m_type_name_cache[type] = std::make_pair(
             *type->m_symbol->m_name + L"...", "...");
 
         std::wstring result = _get_type_name(type);
+
+        m_type_name_cache.erase(type);
         return m_type_name_cache.insert(
             std::make_pair(type, std::make_pair(result, wstrn_to_str(result)))).first
-            ->second.second;
+            ->second.second.c_str();
     }
 
 #endif

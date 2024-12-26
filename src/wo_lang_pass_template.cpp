@@ -197,8 +197,8 @@ namespace wo
             auto* new_template_type_instance =
                 template_eval_instance_type->m_type_instance.get();
 
-            new_template_type_instance->determine_base_type(
-                ast_type->m_LANG_determined_type.value()->get_determined_type());
+            new_template_type_instance->determine_base_type_by_another_type(
+                ast_type->m_LANG_determined_type.value());
 
             template_eval_instance_type->m_state =
                 lang_TemplateAstEvalStateType::EVALUATED;

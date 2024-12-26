@@ -3,7 +3,11 @@
 namespace wo
 {
 #ifndef WO_DISABLE_COMPILER
-    bool LangContext::is_type_accepted(lang_TypeInstance* accepter, lang_TypeInstance* provider)
+    bool LangContext::is_type_accepted(
+        lexer& lex,
+        ast::AstBase* node,
+        lang_TypeInstance* accepter,
+        lang_TypeInstance* provider)
     {
         if (accepter == provider)
             return true;
@@ -21,14 +25,38 @@ namespace wo
             lang_TypeInstance* immutable_accepter = immutable_type(accepter);
             lang_TypeInstance* immutable_provider = immutable_type(provider);
 
+            // If provider is nothing, OK.
             if (immutable_provider == m_origin_types.m_nothing.m_type_instance)
                 return true;
 
+            // If not same symbol, fail.
             if (immutable_provider->m_symbol != immutable_accepter->m_symbol)
                 return false;
 
-            auto* determined_accepter = immutable_accepter->get_determined_type();
-            auto* determined_provider = immutable_provider->get_determined_type();
+            bool base_type_not_determined = false;
+
+            auto determined_accepter_may_null = immutable_accepter->get_determined_type();
+            auto determined_provider_may_null = immutable_provider->get_determined_type();
+
+            if (!determined_accepter_may_null)
+            {
+                base_type_not_determined = true;
+                lex.lang_error(lexer::errorlevel::error, node,
+                    WO_ERR_TYPE_NAMED_DETERMINED_FAILED,
+                    get_type_name_w(accepter));
+            }
+            if (!determined_provider_may_null)
+            {
+                base_type_not_determined = true;
+                lex.lang_error(lexer::errorlevel::error, node,
+                    WO_ERR_TYPE_NAMED_DETERMINED_FAILED,
+                    get_type_name_w(provider));
+            }
+            if (base_type_not_determined)
+                return false;
+
+            auto* determined_accepter = determined_accepter_may_null.value();
+            auto* determined_provider = determined_provider_may_null.value();
 
             if (determined_accepter->m_base_type != determined_provider->m_base_type)
                 return false;
@@ -41,7 +69,11 @@ namespace wo
                 auto ext_array_accepter = determined_accepter->m_external_type_description.m_array_or_vector;
                 auto ext_array_provider = determined_provider->m_external_type_description.m_array_or_vector;
 
-                if (!is_type_accepted(ext_array_accepter->m_element_type, ext_array_provider->m_element_type))
+                if (!is_type_accepted(
+                    lex,
+                    node,
+                    ext_array_accepter->m_element_type,
+                    ext_array_provider->m_element_type))
                     return false;
                 break;
             }
@@ -51,9 +83,17 @@ namespace wo
                 auto ext_dict_accepter = determined_accepter->m_external_type_description.m_dictionary_or_mapping;
                 auto ext_dict_provider = determined_provider->m_external_type_description.m_dictionary_or_mapping;
 
-                if (!is_type_accepted(ext_dict_accepter->m_key_type, ext_dict_provider->m_key_type))
+                if (!is_type_accepted(
+                    lex,
+                    node,
+                    ext_dict_accepter->m_key_type,
+                    ext_dict_provider->m_key_type))
                     return false;
-                if (!is_type_accepted(ext_dict_accepter->m_value_type, ext_dict_provider->m_value_type))
+                if (!is_type_accepted(
+                    lex,
+                    node,
+                    ext_dict_accepter->m_value_type,
+                    ext_dict_provider->m_value_type))
                     return false;
                 break;
             }
@@ -72,7 +112,7 @@ namespace wo
 
                 for (; it_accepter != it_accepter_end; ++it_accepter, ++it_provider)
                 {
-                    if (!is_type_accepted(*it_accepter, *it_provider))
+                    if (!is_type_accepted(lex, node, *it_accepter, *it_provider))
                         return false;
                 }
 
@@ -96,7 +136,7 @@ namespace wo
                     if (field.m_offset != fnd->second.m_offset)
                         return false;
 
-                    if (!is_type_accepted(field.m_member_type, fnd->second.m_member_type))
+                    if (!is_type_accepted(lex, node, field.m_member_type, fnd->second.m_member_type))
                         return false;
                 }
                 break;
@@ -123,7 +163,11 @@ namespace wo
                         return false;
                     if (type.m_item_type.has_value())
                     {
-                        if (!is_type_accepted(type.m_item_type.value(), fnd->second.m_item_type.value()))
+                        if (!is_type_accepted(
+                            lex, 
+                            node,
+                            type.m_item_type.value(),
+                            fnd->second.m_item_type.value()))
                             return false;
                     }
                 }

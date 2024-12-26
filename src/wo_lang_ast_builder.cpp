@@ -75,6 +75,9 @@ namespace wo
             AstList* space_names = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
             auto* body_of_space = WO_NEED_AST(2);
 
+            if (body_of_space->node_type == AstBase::AST_SCOPE)
+                body_of_space = static_cast<AstScope*>(body_of_space)->m_body;
+
             AstBase* content = body_of_space;
 
             auto names_rend = space_names->m_list.rend();
@@ -109,7 +112,13 @@ namespace wo
             if (!WO_IS_EMPTY(3))
                 template_params = static_cast<AstList*>(WO_NEED_AST_TYPE(3, AstBase::AST_LIST));
             if (!WO_IS_EMPTY(6))
-                in_block_sentence = WO_NEED_AST(6);
+            {
+                auto* in_block_sentence_instance = WO_NEED_AST(6);
+                if (in_block_sentence_instance->node_type == AstBase::AST_SCOPE)
+                    in_block_sentence_instance = static_cast<AstScope*>(in_block_sentence_instance)->m_body;
+
+                in_block_sentence = in_block_sentence_instance;
+            }
 
             std::optional<std::list<wo_pstring_t>> in_type_template_params = std::nullopt;
             if (template_params)

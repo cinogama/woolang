@@ -67,10 +67,11 @@
 #define WO_ERR_UNEXPECTED_MATCH_COUNT_FOR_TUPLE L"此处匹配期待一个包含 '%zu' 个元素的元组，但给定的元组包含 '%zu' 个元素"
 #define WO_ERR_VALUE_TYPE_DETERMINED_FAILED L"变量的类型未获确定"
 #define WO_ERR_TYPE_DETERMINED_FAILED L"类型未获确定"
+#define WO_ERR_TYPE_NAMED_DETERMINED_FAILED L"类型 '%ls' 暂未决，此处无法进行类型检查"
 #define WO_ERR_RECURSIVE_TEMPLATE_INSTANCE L"类型推断递归地依赖了正在具体化的泛型实例"
 #define WO_ERR_RECURSIVE_EVAL_PASS1 L"递归地依赖了自身"
 #define WO_ERR_CONSTRAINT_SHOULD_BE_CONST L"约束项应当是一个常量表达式"
 #define WO_ERR_CONSTRAINT_SHOULD_BE_BOOL L"约束项的值类型应该是 'bool'"
 #define WO_ERR_CONSTRAINT_FAILED L"约束项不满足"
 
-#define WO_ERR_UNMATCHED_RETURN_TYPE L"函数的实际返回类型与标注类型不匹配"
+#define WO_ERR_UNMATCHED_RETURN_TYPE_NAMED L"函数的实际返回类型（'%ls'）与标注或推导的类型（'%ls'）不匹配"

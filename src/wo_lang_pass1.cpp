@@ -41,7 +41,15 @@ namespace wo
         {
             AstPatternTuple* tuple_pattern = static_cast<AstPatternTuple*>(pattern);
 
-            auto* determined_type = init_value_type.value()->get_determined_type();
+            auto determined_type_may_nullopt = init_value_type.value()->get_determined_type();
+            if (!determined_type_may_nullopt.has_value())
+            {
+                lex.lang_error(lexer::errorlevel::error, pattern,
+                    WO_ERR_TYPE_DETERMINED_FAILED);
+
+                return false;
+            }
+            auto* determined_type = determined_type_may_nullopt.value();
 
             if (determined_type->m_base_type == lang_TypeInstance::DeterminedType::TUPLE)
             {
@@ -82,7 +90,8 @@ namespace wo
             break;
         }
         case AstBase::AST_PATTERN_TAKEPLACE:
-            break;
+            // Do nothing.
+            return true;
         }
         return false;
     }
@@ -361,35 +370,25 @@ namespace wo
                                     type_instance = type_symbol->m_type_instance;
                             }
 
-                            bool type_determined = false;
                             if (type_symbol->m_symbol_kind == lang_Symbol::ALIAS)
                             {
-                                type_determined =
-                                    alias_instance->m_determined_type
-                                    && alias_instance->m_determined_type.value()->m_determined_base_type_or_mutable.has_value();
-                            }
-                            else
-                            {
-                                type_determined =
-                                    type_instance->m_determined_base_type_or_mutable.has_value();
-                            }
-
-                            if (!type_determined)
-                            {
-                                if (!node->m_LANG_trying_advancing_type_judgement && type_symbol->m_symbol_declare_ast)
+                                if (!alias_instance->m_determined_type.has_value())
                                 {
-                                    node->m_LANG_trying_advancing_type_judgement = true;
+                                    if (!node->m_LANG_trying_advancing_type_judgement && type_symbol->m_symbol_declare_ast)
+                                    {
+                                        node->m_LANG_trying_advancing_type_judgement = true;
 
-                                    // Immediately advance the processing of declaration nodes.
-                                    entry_spcify_scope(type_symbol->m_belongs_to_scope);
-                                    WO_CONTINUE_PROCESS(type_symbol->m_symbol_declare_ast.value());
-                                    return HOLD;
+                                        // Immediately advance the processing of declaration nodes.
+                                        entry_spcify_scope(type_symbol->m_belongs_to_scope);
+                                        WO_CONTINUE_PROCESS(type_symbol->m_symbol_declare_ast.value());
+                                        return HOLD;
+                                    }
+
+                                    lex.lang_error(lexer::errorlevel::error, node,
+                                        WO_ERR_TYPE_DETERMINED_FAILED);
+                                    return FAILED;
                                 }
-
-                                lex.lang_error(lexer::errorlevel::error, node,
-                                    WO_ERR_TYPE_DETERMINED_FAILED);
-                                return FAILED;
-                            }
+                            }                            
                         }
                         else
                         {
@@ -800,8 +799,8 @@ namespace wo
                 {
                     // TYPE HAS BEEN DETERMINED, UPDATE THE SYMBOL;
                     lang_Symbol* symbol = node->m_LANG_declared_symbol.value();
-                    symbol->m_type_instance->determine_base_type(
-                        node->m_type->m_LANG_determined_type.value()->get_determined_type());
+                    symbol->m_type_instance->determine_base_type_by_another_type(
+                        node->m_type->m_LANG_determined_type.value());
                 }
 
                 node->m_LANG_hold_state = AstUsingTypeDeclare::LANG_hold_state::HOLD_FOR_NAMESPACE_BODY;
@@ -953,8 +952,8 @@ namespace wo
                 // Eval function type for outside.
                 if (node->m_marked_return_type)
                 {
-                    judge_function_return_type(
-                        node->m_marked_return_type.value()->m_LANG_determined_type.value());
+                    auto *return_type_instance = node->m_marked_return_type.value()->m_LANG_determined_type.value();
+                    judge_function_return_type( return_type_instance);
                 }
 
                 node->m_LANG_hold_state = AstValueFunction::HOLD_FOR_BODY_EVAL;
@@ -971,12 +970,22 @@ namespace wo
                 if (node->m_marked_return_type)
                 {
                     // Function type has been determined.
+  
+                    auto* marked_return_type = node->m_marked_return_type.value();
+
+                    auto* return_type_instance = marked_return_type->m_LANG_determined_type.value();
+                    auto* determined_return_type = node->m_LANG_determined_return_type.value();
+
                     if (!is_type_accepted(
-                        node->m_marked_return_type.value()->m_LANG_determined_type.value(),
-                        node->m_LANG_determined_return_type.value()))
+                        lex,
+                        marked_return_type,
+                        return_type_instance,
+                        determined_return_type))
                     {
                         lex.lang_error(lexer::errorlevel::error, node,
-                            WO_ERR_UNMATCHED_RETURN_TYPE);
+                            WO_ERR_UNMATCHED_RETURN_TYPE_NAMED,
+                            get_type_name_w(determined_return_type),
+                            get_type_name_w(return_type_instance));
                         return FAILED;
                     }
                 }
@@ -1016,43 +1025,37 @@ namespace wo
             if (current_function)
             {
                 auto* function_instance = current_function.value();
+
+                lang_TypeInstance* return_value_type;
                 if (node->m_value)
+                    return_value_type = node->m_value.value()->m_LANG_determined_type.value();
+                else
+                    return_value_type = m_origin_types.m_void.m_type_instance;
+
+                if (function_instance->m_LANG_determined_return_type)
                 {
-                    if (function_instance->m_LANG_determined_return_type)
+                    auto* return_type_instance = 
+                        function_instance->m_LANG_determined_return_type.value();
+                    auto* determined_return_type = 
+                        node->m_value.value()->m_LANG_determined_type.value();
+
+                    if (!is_type_accepted(
+                        lex,
+                        node,
+                        return_type_instance,
+                        determined_return_type))
                     {
-                        if (!is_type_accepted(
-                            function_instance->m_LANG_determined_return_type.value(),
-                            node->m_value.value()->m_LANG_determined_type.value()))
-                        {
-                            lex.lang_error(lexer::errorlevel::error, node,
-                                WO_ERR_UNMATCHED_RETURN_TYPE);
-                            return FAILED;
-                        }
-                    }
-                    else
-                    {
-                        function_instance->m_LANG_determined_return_type =
-                            node->m_value.value()->m_LANG_determined_type;
+                        lex.lang_error(lexer::errorlevel::error, node,
+                            WO_ERR_UNMATCHED_RETURN_TYPE_NAMED,
+                            get_type_name_w(determined_return_type),
+                            get_type_name_w(return_type_instance));
+                        return FAILED;
                     }
                 }
                 else
                 {
-                    if (function_instance->m_LANG_determined_return_type)
-                    {
-                        if (!is_type_accepted(
-                            function_instance->m_LANG_determined_return_type.value(),
-                            m_origin_types.m_void.m_type_instance))
-                        {
-                            lex.lang_error(lexer::errorlevel::error, node,
-                                WO_ERR_UNMATCHED_RETURN_TYPE);
-                            return FAILED;
-                        }
-                    }
-                    else
-                    {
-                        function_instance->m_LANG_determined_return_type =
-                            m_origin_types.m_void.m_type_instance;
-                    }
+                    function_instance->m_LANG_determined_return_type =
+                        node->m_value.value()->m_LANG_determined_type;
                 }
             }
         }

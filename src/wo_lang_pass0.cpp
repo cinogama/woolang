@@ -55,7 +55,6 @@ namespace wo
                 }
             }
             return true;
-            break;
         }
         case ast::AstBase::AST_PATTERN_TUPLE:
         {
@@ -70,7 +69,6 @@ namespace wo
                     std::nullopt);
 
             return success;
-            break;
         }
         case ast::AstBase::AST_PATTERN_UNION:
         {
@@ -85,12 +83,11 @@ namespace wo
                     std::nullopt);
 
             return success;
-            break;
         }
         case ast::AstBase::AST_PATTERN_TAKEPLACE:
         {
             // Nothing todo.
-            break;
+            return true;
         }
         default:
             wo_error("Unexpected pattern type.");
@@ -221,9 +218,10 @@ namespace wo
     }
     WO_PASS_PROCESSER(AstUsingTypeDeclare)
     {
-        wo_assert(!node->m_LANG_declared_symbol);
         if (state == UNPROCESSED)
         {
+            wo_assert(!node->m_LANG_declared_symbol);
+
             if (node->m_template_parameters)
                 node->m_LANG_declared_symbol = define_symbol_in_current_scope(
                     node->m_typename, 
