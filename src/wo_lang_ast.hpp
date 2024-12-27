@@ -231,8 +231,18 @@ namespace wo
         };
         struct AstValueTypeCast : public AstValueBase
         {
+            enum LANG_hold_state
+            {
+                UNPROCESSED,
+                HOLD_FOR_TEMPLATE_ARGUMENT_DEDUCTION,
+                HOLD_FOR_INSTANCE_TEMPLATE_FUNCTION,
+                HOLD_FOR_NORMAL_EVAL,
+            };
+
             AstTypeHolder* m_cast_type;
             AstValueBase* m_cast_value;
+
+            LANG_hold_state m_LANG_hold_state;
 
             AstValueTypeCast(AstTypeHolder* cast_type, AstValueBase* cast_value);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
@@ -470,6 +480,7 @@ namespace wo
             LANG_hold_state                 m_LANG_hold_state;
             std::optional<lang_ValueInstance*>
                 m_LANG_value_instance_to_update;
+            bool m_LANG_in_template_reification_context;
 
             AstValueFunction(
                 const std::list<AstFunctionParameterDeclare*>& parameters,
@@ -744,8 +755,17 @@ namespace wo
         };
         struct AstEnumDeclare : public AstBase
         {
+            enum LANG_hold_state
+            {
+                UNPROCESSED,
+                HOLD_FOR_ENUM_TYPE_DECL,
+                HOLD_FOR_ENUM_ITEMS_DECL,
+            };
+
             AstUsingTypeDeclare* m_enum_type_declare;
             AstNamespace* m_enum_body;
+
+            LANG_hold_state m_LANG_hold_state;
 
         private:
             AstEnumDeclare(const AstEnumDeclare&);

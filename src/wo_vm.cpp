@@ -1623,6 +1623,9 @@ namespace wo
             case value::valuetype::gchandle_type:
                 return "Cannot cast this value to 'gchandle'.";
                 break;
+            case value::valuetype::invalid:
+                return "Cannot cast this value to 'nil'.";
+                break;
             default:
                 return "Unknown type.";
             }

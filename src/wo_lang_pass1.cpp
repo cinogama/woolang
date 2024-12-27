@@ -106,7 +106,7 @@ namespace wo
         WO_LANG_REGISTER_PROCESSER(AstValueMarkAsImmutable, AstBase::AST_VALUE_MARK_AS_IMMUTABLE, pass1);
         WO_LANG_REGISTER_PROCESSER(AstValueLiteral, AstBase::AST_VALUE_LITERAL, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstValueTypeid, AstBase::AST_VALUE_TYPEID, pass1);
-        // WO_LANG_REGISTER_PROCESSER(AstValueTypeCast, AstBase::AST_VALUE_TYPE_CAST, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstValueTypeCast, AstBase::AST_VALUE_TYPE_CAST, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstValueTypeCheckIs, AstBase::AST_VALUE_TYPE_CHECK_IS, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstValueTypeCheckAs, AstBase::AST_VALUE_TYPE_CHECK_AS, pass1);
         WO_LANG_REGISTER_PROCESSER(AstValueVariable, AstBase::AST_VALUE_VARIABLE, pass1);
@@ -118,8 +118,8 @@ namespace wo
         WO_LANG_REGISTER_PROCESSER(AstFakeValueUnpack, AstBase::AST_FAKE_VALUE_UNPACK, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstValueVariadicArgumentsPack, AstBase::AST_VALUE_VARIADIC_ARGUMENTS_PACK, pass1);
         WO_LANG_REGISTER_PROCESSER(AstValueIndex, AstBase::AST_VALUE_INDEX, pass1);
-        // WO_LANG_REGISTER_PROCESSER(AstPatternVariable, AstBase::AST_PATTERN_VARIABLE, pass1);
-        // WO_LANG_REGISTER_PROCESSER(AstPatternIndex, AstBase::AST_PATTERN_INDEX, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstPatternVariable, AstBase::AST_PATTERN_VARIABLE, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstPatternIndex, AstBase::AST_PATTERN_INDEX, pass1);
         WO_LANG_REGISTER_PROCESSER(AstVariableDefineItem, AstBase::AST_VARIABLE_DEFINE_ITEM, pass1);
         WO_LANG_REGISTER_PROCESSER(AstVariableDefines, AstBase::AST_VARIABLE_DEFINES, pass1);
         WO_LANG_REGISTER_PROCESSER(AstFunctionParameterDeclare, AstBase::AST_FUNCTION_PARAMETER_DECLARE, pass1);
@@ -146,7 +146,7 @@ namespace wo
         // WO_LANG_REGISTER_PROCESSER(AstLabeled, AstBase::AST_LABELED, pass1);
         WO_LANG_REGISTER_PROCESSER(AstUsingTypeDeclare, AstBase::AST_USING_TYPE_DECLARE, pass1);
         WO_LANG_REGISTER_PROCESSER(AstAliasTypeDeclare, AstBase::AST_ALIAS_TYPE_DECLARE, pass1);
-        // WO_LANG_REGISTER_PROCESSER(AstEnumDeclare, AstBase::AST_ENUM_DECLARE, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstEnumDeclare, AstBase::AST_ENUM_DECLARE, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstUnionDeclare, AstBase::AST_UNION_DECLARE, pass1);
         WO_LANG_REGISTER_PROCESSER(AstValueMakeUnion, AstBase::AST_VALUE_MAKE_UNION, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstUsingNamespace, AstBase::AST_USING_NAMESPACE, pass1);
@@ -913,6 +913,14 @@ namespace wo
         // Huston, we have a problem.
         if (state == UNPROCESSED)
         {
+            if (node->m_pending_param_type_mark_template.has_value()
+                && !node->m_LANG_in_template_reification_context)
+            {
+                lex.lang_error(lexer::errorlevel::error, node,
+                    WO_ERR_NOT_IN_REIFICATION_TEMPLATE_FUNC);
+                return FAILED;
+            }
+
             node->m_LANG_hold_state = AstValueFunction::HOLD_FOR_PARAMETER_EVAL;
 
             // Begin new function.
@@ -1327,7 +1335,7 @@ namespace wo
             }
             case lang_TypeInstance::DeterminedType::STRUCT:
             {
-                if (m_origin_types.m_string.m_type_instance 
+                if (m_origin_types.m_string.m_type_instance
                     != immutable_type(indexer_type_instance))
                 {
                     lex.lang_error(lexer::errorlevel::error, node->m_index,
@@ -1342,8 +1350,8 @@ namespace wo
                         WO_ERR_CANNOT_INDEX_STRUCT_WITH_NON_CONST);
                     return FAILED;
                 }
-                
-                wo_assert(node->m_index->m_evaled_const_value.value().type 
+
+                wo_assert(node->m_index->m_evaled_const_value.value().type
                     == value::valuetype::string_type);
 
                 wo_pstring_t member_name = wo::wstring_pool::get_pstr(
@@ -1455,7 +1463,7 @@ namespace wo
                     get_type_name_w(unpack_value_type_instance));
                 return FAILED;
             }
-            
+
             node->m_LANG_determined_type = unpack_value_type_instance;
         }
         return WO_EXCEPT_ERROR(state, OKAY);
@@ -1474,6 +1482,230 @@ namespace wo
             // Trick to make compiler happy~.
             node->m_LANG_determined_type =
                 m_origin_types.m_nothing.m_type_instance;
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstEnumDeclare)
+    {
+        if (state == UNPROCESSED)
+        {
+            node->m_LANG_hold_state = AstEnumDeclare::HOLD_FOR_ENUM_TYPE_DECL;
+            WO_CONTINUE_PROCESS(node->m_enum_type_declare);
+
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            switch (node->m_LANG_hold_state)
+            {
+            case AstEnumDeclare::HOLD_FOR_ENUM_TYPE_DECL:
+            {
+                node->m_LANG_hold_state = AstEnumDeclare::HOLD_FOR_ENUM_ITEMS_DECL;
+                WO_CONTINUE_PROCESS(node->m_enum_body);
+
+                return HOLD;
+            }
+            case AstEnumDeclare::HOLD_FOR_ENUM_ITEMS_DECL:
+                break;
+            default:
+                wo_error("unknown hold state");
+                break;
+            }
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstPatternVariable)
+    {
+        if (state == UNPROCESSED)
+        {
+            WO_CONTINUE_PROCESS(node->m_variable);
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            lang_ValueInstance* variable_instance = node->m_variable->m_LANG_variable_instance.value();
+            if (!variable_instance->m_mutable)
+            {
+                lex.lang_error(lexer::errorlevel::error, node,
+                    WO_ERR_PATTERN_VARIABLE_SHOULD_BE_MUTABLE);
+                return FAILED;
+            }
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstPatternIndex)
+    {
+        if (state == UNPROCESSED)
+        {
+            WO_CONTINUE_PROCESS(node->m_index);
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            lang_TypeInstance* index_result_type = node->m_index->m_LANG_determined_type.value();
+            if (index_result_type->is_immutable())
+            {
+                lex.lang_error(lexer::errorlevel::error, node->m_index,
+                    WO_ERR_PATTERN_INDEX_SHOULD_BE_MUTABLE_TYPE);
+                return FAILED;
+            }
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstValueTypeCast)
+    {
+        if (state == UNPROCESSED)
+        {
+
+            WO_CONTINUE_PROCESS(node->m_cast_type);
+            if (node->m_cast_value->node_type == AstBase::AST_VALUE_FUNCTION)
+            {
+                AstValueFunction* casting_from_func = static_cast<AstValueFunction*>(node->m_cast_value);
+                if (casting_from_func->m_pending_param_type_mark_template)
+                {
+                    // Trying to cast a template, defer type checking and do 
+                    // template argument deduction later
+
+                    node->m_LANG_hold_state = AstValueTypeCast::HOLD_FOR_TEMPLATE_ARGUMENT_DEDUCTION;
+                    return HOLD;
+                }
+            }
+            WO_CONTINUE_PROCESS(node->m_cast_value);
+
+            node->m_LANG_hold_state = AstValueTypeCast::HOLD_FOR_NORMAL_EVAL;
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            switch (node->m_LANG_hold_state)
+            {
+            case AstValueTypeCast::HOLD_FOR_TEMPLATE_ARGUMENT_DEDUCTION:
+            {
+                // TODO;
+                wo_assert(node->m_cast_value->node_type == AstBase::AST_VALUE_FUNCTION);
+
+                AstValueFunction* casting_from_func = static_cast<AstValueFunction*>(node->m_cast_value);
+
+                const auto function_template_params =
+                    casting_from_func->m_pending_param_type_mark_template.value();
+                std::unordered_map<wo_pstring_t, lang_TypeInstance*> deduction_results;
+
+                lang_TypeInstance* cast_target_type = node->m_cast_type->m_LANG_determined_type.value();
+                auto cast_target_type_determined_base_type = cast_target_type->get_determined_type();
+                if (cast_target_type_determined_base_type.has_value())
+                {
+                    auto* cast_target_type_determined_base_type_instance =
+                        cast_target_type_determined_base_type.value();
+
+                    if (cast_target_type_determined_base_type_instance->m_base_type ==
+                        lang_TypeInstance::DeterminedType::FUNCTION)
+                    {
+                        auto* cast_target_determined_function_base_type =
+                            cast_target_type_determined_base_type_instance->m_external_type_description.m_function;
+
+                        if (cast_target_determined_function_base_type->m_is_variadic
+                            == casting_from_func->m_is_variadic
+                            && cast_target_determined_function_base_type->m_param_types.size()
+                            == casting_from_func->m_parameters.size())
+                        {
+                            // Start!
+                            if (casting_from_func->m_marked_return_type.has_value())
+                            {
+                                template_type_deduction_extraction_with_complete_type(
+                                    lex,
+                                    casting_from_func->m_marked_return_type.value(),
+                                    cast_target_determined_function_base_type->m_return_type,
+                                    function_template_params,
+                                    &deduction_results);
+                            }
+
+                            auto cast_target_determined_function_param_iter =
+                                cast_target_determined_function_base_type->m_param_types.begin();
+                            auto cast_target_determined_function_param_end =
+                                cast_target_determined_function_base_type->m_param_types.end();
+                            auto cast_from_param_iter = casting_from_func->m_parameters.begin();
+
+                            for (;
+                                cast_target_determined_function_param_iter
+                                != cast_target_determined_function_param_end;
+                                ++cast_target_determined_function_param_iter,
+                                ++cast_from_param_iter)
+                            {
+                                auto* cast_target_determined_function_param_type = *cast_target_determined_function_param_iter;
+                                auto* cast_from_param_type = (*cast_from_param_iter)->m_type.value();
+
+                                template_type_deduction_extraction_with_complete_type(
+                                    lex,
+                                    cast_from_param_type,
+                                    cast_target_determined_function_param_type,
+                                    function_template_params,
+                                    &deduction_results);
+                            }
+                        }
+                    }
+                }
+
+                if (deduction_results.size() != function_template_params.size())
+                {
+                    lex.lang_error(lexer::errorlevel::error, casting_from_func,
+                        WO_ERR_FAILED_TO_DEDUCE_TEMPLATE_TYPE);
+
+                    return FAILED;
+                }
+
+                // 
+                std::list<lang_TypeInstance*> template_arguments;
+                for (wo_pstring_t param : function_template_params)
+                {
+                    template_arguments.push_back(deduction_results.at(param));
+                }
+
+                begin_new_scope(); // Begin new scope for defining template type alias.
+                fast_create_template_type_alias_in_current_scope(
+                    lex,
+                    casting_from_func->source_location.source_file,
+                    function_template_params,
+                    template_arguments);
+
+                casting_from_func->m_LANG_in_template_reification_context = true;
+                WO_CONTINUE_PROCESS(casting_from_func);
+
+                node->m_LANG_hold_state = AstValueTypeCast::HOLD_FOR_INSTANCE_TEMPLATE_FUNCTION;
+                return HOLD;
+            }
+            case AstValueTypeCast::HOLD_FOR_INSTANCE_TEMPLATE_FUNCTION:
+
+                end_last_scope();
+                node->m_LANG_hold_state = AstValueTypeCast::HOLD_FOR_NORMAL_EVAL;
+
+                /* FALL THROUGH */
+                [[fallthrough]];
+            case AstValueTypeCast::HOLD_FOR_NORMAL_EVAL:
+            {
+                auto* target_type = node->m_cast_type->m_LANG_determined_type.value();
+                auto* casting_value_type = node->m_cast_value->m_LANG_determined_type.value();
+
+                if (!check_cast_able(lex, node, target_type, casting_value_type))
+                {
+                    lex.lang_error(lexer::errorlevel::error, node,
+                        WO_ERR_CANNOT_CAST_TYPE_TO_TYPE,
+                        get_type_name_w(casting_value_type),
+                        get_type_name_w(target_type));
+                    return FAILED;
+                }
+
+                node->m_LANG_determined_type = target_type;
+                break;
+            }
+            default:
+                wo_error("unknown hold state");
+                break;
+            }
+        }
+        else
+        {
+            if (node->m_LANG_hold_state == AstValueTypeCast::HOLD_FOR_INSTANCE_TEMPLATE_FUNCTION)
+                end_last_scope(); // Failed, leave the scope.
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }

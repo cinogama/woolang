@@ -529,6 +529,7 @@ namespace wo
             : AstValueBase(AST_VALUE_TYPE_CAST)
             , m_cast_type(cast_type)
             , m_cast_value(cast_value)
+            , m_LANG_hold_state(UNPROCESSED)
         {
 
         }
@@ -937,7 +938,7 @@ namespace wo
                 AstPatternSingle* single_pattern = static_cast<AstPatternSingle*>(pattern);
                 AstValueFunction* func_value = static_cast<AstValueFunction*>(init_value);
 
-                if (func_value->m_pending_param_type_mark_template)
+                if (func_value->m_pending_param_type_mark_template && !single_pattern->m_is_mutable)
                 {
                     if (!single_pattern->m_template_parameters)
                         single_pattern->m_template_parameters = std::list<wo_pstring_t>{};
@@ -1027,6 +1028,7 @@ namespace wo
             , m_LANG_determined_return_type(std::nullopt)
             , m_LANG_hold_state(UNPROCESSED)
             , m_LANG_value_instance_to_update(std::nullopt)
+            , m_LANG_in_template_reification_context(false)
         {
             for (auto* param_define : parameters)
             {
@@ -1634,6 +1636,7 @@ namespace wo
             : AstBase(AST_ENUM_DECLARE)
             , m_enum_type_declare(item.m_enum_type_declare)
             , m_enum_body(item.m_enum_body)
+            , m_LANG_hold_state(UNPROCESSED)
         {
         }
         AstEnumDeclare::AstEnumDeclare(
@@ -1643,6 +1646,7 @@ namespace wo
             : AstBase(AST_ENUM_DECLARE)
             , m_enum_type_declare(nullptr)
             , m_enum_body(nullptr)
+            , m_LANG_hold_state(UNPROCESSED)
         {
             wo_assert(!enum_items.empty());
 

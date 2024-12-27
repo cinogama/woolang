@@ -27,12 +27,14 @@ namespace wo
             {
                 VOID,
                 NOTHING,
+                DYNAMIC,
                 NIL,
                 INTEGER,
                 REAL,
                 HANDLE,
                 BOOLEAN,
                 STRING,
+                GCHANDLE,
                 DICTIONARY,
                 MAPPING,
                 ARRAY,
@@ -115,6 +117,7 @@ namespace wo
         std::optional<std::list<lang_TypeInstance*>> m_instance_template_arguments;
         DeterminedOrMutableType m_determined_base_type_or_mutable;
         std::unordered_map<lang_TypeInstance*, bool> m_LANG_accepted_types;
+        std::unordered_map<lang_TypeInstance*, bool> m_LANG_castfrom_types;
         std::unordered_set<lang_TypeInstance*> m_LANG_pending_depend_this;
 
         lang_TypeInstance(
@@ -481,12 +484,18 @@ namespace wo
             };
             OriginNoTemplateSymbolAndInstance   m_void;
             OriginNoTemplateSymbolAndInstance   m_nothing;
+            OriginNoTemplateSymbolAndInstance   m_dynamic;
+
             OriginNoTemplateSymbolAndInstance   m_nil;
             OriginNoTemplateSymbolAndInstance   m_int;
             OriginNoTemplateSymbolAndInstance   m_real;
             OriginNoTemplateSymbolAndInstance   m_handle;
             OriginNoTemplateSymbolAndInstance   m_bool;
             OriginNoTemplateSymbolAndInstance   m_string;
+            OriginNoTemplateSymbolAndInstance   m_gchandle;
+
+            lang_TypeInstance* m_array_dynamic;
+            lang_TypeInstance* m_dictionary_dynamic;
 
             lang_Symbol* m_dictionary;
             lang_Symbol* m_mapping;
@@ -499,15 +508,6 @@ namespace wo
 
             std::optional<lang_TypeInstance*> create_or_find_origin_type(lexer& lex, ast::AstTypeHolder* type_holder);
 
-            /*std::optional<lang_TypeInstance*> create_dictionary_type(lexer& lex, ast::AstTypeHolder* type_holder);
-            std::optional<lang_TypeInstance*> create_mapping_type(lexer& lex, ast::AstTypeHolder* type_holder);
-            std::optional<lang_TypeInstance*> create_array_type(lexer& lex, ast::AstTypeHolder* type_holder);
-            std::optional<lang_TypeInstance*> create_vector_type(lexer& lex, ast::AstTypeHolder* type_holder);
-            std::optional<lang_TypeInstance*> create_tuple_type(lexer& lex, ast::AstTypeHolder* type_holder);
-            std::optional<lang_TypeInstance*> create_function_type(lexer& lex, ast::AstTypeHolder* type_holder);
-            std::optional<lang_TypeInstance*> create_struct_type(lexer& lex, ast::AstTypeHolder* type_holder);
-            std::optional<lang_TypeInstance*> create_union_type(lexer& lex, ast::AstTypeHolder* type_holder);*/
-
             lang_TypeInstance* create_dictionary_type(lang_TypeInstance* key_type, lang_TypeInstance* value_type);
             lang_TypeInstance* create_mapping_type(lang_TypeInstance* key_type, lang_TypeInstance* value_type);
             lang_TypeInstance* create_array_type(lang_TypeInstance* element_type);
@@ -517,7 +517,7 @@ namespace wo
             lang_TypeInstance* create_struct_type(const std::list<std::tuple<ast::AstDeclareAttribue::accessc_attrib, wo_pstring_t, lang_TypeInstance*>>& member_types);
             lang_TypeInstance* create_union_type(const std::list<std::pair<wo_pstring_t, std::optional<lang_TypeInstance*>>>& member_types);
 
-            OriginTypeHolder();
+            OriginTypeHolder() = default;
 
             OriginTypeHolder(const OriginTypeHolder&) = delete;
             OriginTypeHolder(OriginTypeHolder&&) = delete;
@@ -737,7 +737,7 @@ namespace wo
 
         void fast_create_template_type_alias_in_current_scope(
             lexer& lex, 
-            lang_Symbol* for_symbol,
+            wo_pstring_t source_location,
             const std::list<wo_pstring_t>& template_params,
             const std::list<lang_TypeInstance*>& template_args);
 
@@ -761,6 +761,12 @@ namespace wo
             lang_TypeInstance* accepter,
             lang_TypeInstance* provider);
 
+        bool check_cast_able(
+            lexer& lex,
+            ast::AstBase* node,
+            lang_TypeInstance* aimtype,
+            lang_TypeInstance* srctype);
+
         std::wstring _get_scope_name(lang_Scope* scope);
         std::wstring _get_symbol_name(lang_Symbol* scope);
         std::wstring _get_type_name(lang_TypeInstance* scope);
@@ -768,6 +774,13 @@ namespace wo
         const char* get_symbol_name(lang_Symbol* symbol);
         const wchar_t* get_type_name_w(lang_TypeInstance* type);
         const char* get_type_name(lang_TypeInstance* type);
+
+        void template_type_deduction_extraction_with_complete_type(
+            lexer& lex,
+            ast::AstTypeHolder* accept_type_formal,
+            lang_TypeInstance* applying_type_instance,
+            const std::list<wo_pstring_t> pending_template_params,
+            std::unordered_map<wo_pstring_t, lang_TypeInstance*>* out_determined_template_arg_pair);
     };
 #endif
 }

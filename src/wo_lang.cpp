@@ -333,7 +333,7 @@ namespace wo
 
         _update_type_instance_depend_this(copy_type);
 
-        m_determined_base_type_or_mutable = 
+        m_determined_base_type_or_mutable =
             std::move(DeterminedType(copy_type.m_base_type, extern_desc));
     }
     void lang_TypeInstance::determine_base_type_move(DeterminedType&& move_type)
@@ -514,20 +514,6 @@ namespace wo
             return OKAY;
 
         return fnd->second(ctx, lex, node_state, out_stack);
-    }
-
-    //////////////////////////////////////
-
-    LangContext::OriginTypeHolder::OriginTypeHolder()
-        : m_dictionary(nullptr)
-        , m_mapping(nullptr)
-        , m_array(nullptr)
-        , m_vector(nullptr)
-        , m_tuple(nullptr)
-        , m_function(nullptr)
-        , m_struct(nullptr)
-        , m_union(nullptr)
-    {
     }
 
     //////////////////////////////////////
@@ -1039,6 +1025,8 @@ namespace wo
         create_builtin_non_template_symbol_and_instance(
             &m_origin_types.m_nothing, WO_PSTR(nothing), lang_TypeInstance::DeterminedType::NOTHING);
         create_builtin_non_template_symbol_and_instance(
+            &m_origin_types.m_dynamic, WO_PSTR(dynamic), lang_TypeInstance::DeterminedType::DYNAMIC);
+        create_builtin_non_template_symbol_and_instance(
             &m_origin_types.m_nil, WO_PSTR(nil), lang_TypeInstance::DeterminedType::NIL);
         create_builtin_non_template_symbol_and_instance(
             &m_origin_types.m_int, WO_PSTR(int), lang_TypeInstance::DeterminedType::INTEGER);
@@ -1050,6 +1038,8 @@ namespace wo
             &m_origin_types.m_bool, WO_PSTR(bool), lang_TypeInstance::DeterminedType::BOOLEAN);
         create_builtin_non_template_symbol_and_instance(
             &m_origin_types.m_string, WO_PSTR(string), lang_TypeInstance::DeterminedType::STRING);
+        create_builtin_non_template_symbol_and_instance(
+            &m_origin_types.m_gchandle, WO_PSTR(gchandle), lang_TypeInstance::DeterminedType::GCHANDLE);
 
         // Declare array/vec/... type symbol.
         auto create_builtin_complex_symbol_and_instance = [this](
@@ -1078,6 +1068,11 @@ namespace wo
         create_builtin_complex_symbol_and_instance(&m_origin_types.m_function, WO_PSTR(function));
         create_builtin_complex_symbol_and_instance(&m_origin_types.m_struct, WO_PSTR(struct));
         create_builtin_complex_symbol_and_instance(&m_origin_types.m_union, WO_PSTR(union));
+
+        m_origin_types.m_array_dynamic =
+            m_origin_types.create_array_type(m_origin_types.m_dynamic.m_type_instance);
+        m_origin_types.m_dictionary_dynamic =
+            m_origin_types.create_dictionary_type(m_origin_types.m_dynamic.m_type_instance, m_origin_types.m_dynamic.m_type_instance);
     }
 
     bool LangContext::process(lexer& lex, ast::AstBase* root)
@@ -1321,11 +1316,10 @@ namespace wo
     }
     void LangContext::fast_create_template_type_alias_in_current_scope(
         lexer& lex,
-        lang_Symbol* for_symbol,
+        wo_pstring_t source_location,
         const std::list<wo_pstring_t>& template_params,
         const std::list<lang_TypeInstance*>& template_args)
     {
-        wo_assert(for_symbol->m_is_template);
         wo_assert(template_params.size() == template_args.size());
 
         auto params_iter = template_params.begin();
@@ -1338,7 +1332,7 @@ namespace wo
                 *params_iter,
                 std::nullopt,
                 std::nullopt,
-                for_symbol->m_defined_source,
+                source_location,
                 get_current_scope(),
                 lang_Symbol::kind::ALIAS,
                 false).value();
