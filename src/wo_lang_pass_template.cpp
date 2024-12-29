@@ -163,7 +163,7 @@ namespace wo
             entry_spcify_scope(templating_symbol->m_belongs_to_scope); // Entry the scope where template variable defined.
             begin_new_scope(); // Begin new scope for defining template type alias.
             fast_create_template_type_alias_in_current_scope(
-                lex, templating_symbol->m_defined_source, *template_params, template_arguments);
+                templating_symbol->m_defined_source, *template_params, template_arguments);
 
             WO_CONTINUE_PROCESS(result->m_ast);
             break;
@@ -520,16 +520,6 @@ namespace wo
         }
 
         return;
-    }
-
-    void LangContext::template_type_deduction_extraction_with_incomplete_type(
-        lexer& lex,
-        ast::AstTypeHolder* accept_type_formal,
-        ast::AstTypeHolder* applying_type_formal,
-        const std::list<wo_pstring_t>& pending_template_params,
-        std::unordered_map<wo_pstring_t, ast::AstTypeHolder*>* out_determined_template_arg_pair)
-    {
-
     }
 
     bool LangContext::check_type_may_dependence_template_parameters(

@@ -495,6 +495,10 @@ namespace wo
     LangContext::AstNodeWithState::AstNodeWithState(ast::AstBase* node)
         : m_state(UNPROCESSED)
         , m_ast_node(node)
+#ifndef NDEBUG
+        , m_debug_scope_layer_count(0)
+        , m_debug_entry_scope(nullptr)
+#endif
     {
     }
     LangContext::AstNodeWithState::AstNodeWithState(
@@ -928,6 +932,14 @@ namespace wo
         {
             AstNodeWithState& top_state = process_stack.top();
 
+#ifndef NDEBUG
+            if (top_state.m_debug_entry_scope == nullptr)
+            {
+                top_state.m_debug_scope_layer_count = m_scope_stack.size();
+                top_state.m_debug_entry_scope = get_current_scope();
+            }
+#endif
+
             if (top_state.m_state == HOLD
                 || top_state.m_state == HOLD_BUT_CHILD_FAILED)
                 process_roots.pop();
@@ -948,6 +960,11 @@ namespace wo
                 [[fallthrough]];
             case OKAY:
                 process_stack.pop();
+#ifndef NDEBUG
+                wo_assert(top_state.m_debug_entry_scope != nullptr);
+                wo_assert(top_state.m_debug_scope_layer_count == m_scope_stack.size());
+                wo_assert(top_state.m_debug_entry_scope == get_current_scope());
+#endif
                 break;
             default:
                 wo_error("Unexpected pass behavior.");
@@ -1315,8 +1332,24 @@ namespace wo
 
         return origin_type;
     }
+
+    void LangContext::fast_create_one_template_type_alias_in_current_scope(
+        wo_pstring_t source_location,
+        wo_pstring_t template_param,
+        lang_TypeInstance* template_arg)
+    {
+        lang_Symbol* symbol = define_symbol_in_current_scope(
+            template_param,
+            std::nullopt,
+            std::nullopt,
+            source_location,
+            get_current_scope(),
+            lang_Symbol::kind::ALIAS,
+            false).value();
+
+        symbol->m_alias_instance->m_determined_type = template_arg;
+    }
     void LangContext::fast_create_template_type_alias_in_current_scope(
-        lexer& lex,
         wo_pstring_t source_location,
         const std::list<wo_pstring_t>& template_params,
         const std::list<lang_TypeInstance*>& template_args)
@@ -1329,16 +1362,10 @@ namespace wo
 
         for (; params_iter != params_end; ++params_iter, ++args_iter)
         {
-            lang_Symbol* symbol = define_symbol_in_current_scope(
-                *params_iter,
-                std::nullopt,
-                std::nullopt,
+            fast_create_one_template_type_alias_in_current_scope(
                 source_location,
-                get_current_scope(),
-                lang_Symbol::kind::ALIAS,
-                false).value();
-
-            symbol->m_alias_instance->m_determined_type = *args_iter;
+                *params_iter,
+                *args_iter);
         }
     }
     std::wstring LangContext::_get_scope_name(lang_Scope* scope)

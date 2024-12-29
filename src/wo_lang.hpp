@@ -399,6 +399,10 @@ namespace wo
         {
             pass_behavior m_state;
             ast::AstBase* m_ast_node;
+#ifndef NDEBUG
+            size_t m_debug_scope_layer_count;
+            lang_Scope* m_debug_entry_scope;
+#endif
 
             AstNodeWithState(ast::AstBase* node);
             AstNodeWithState(pass_behavior state, ast::AstBase* node);
@@ -597,6 +601,8 @@ namespace wo
     WO_AST_MACRO(AstValueTypeCheckAs);\
     WO_AST_MACRO(AstValueVariable);\
     WO_AST_MACRO(AstWhereConstraints);\
+    WO_AST_MACRO(AstValueFunctionCall_FakeAstArgumentDeductionContextA);\
+    WO_AST_MACRO(AstValueFunctionCall_FakeAstArgumentDeductionContextB);\
     WO_AST_MACRO(AstValueFunctionCall);\
     WO_AST_MACRO(AstValueMayConsiderOperatorOverload);\
     WO_AST_MACRO(AstValueBinaryOperator);\
@@ -738,8 +744,11 @@ namespace wo
         lang_TypeInstance* mutable_type(lang_TypeInstance* origin_type);
         lang_TypeInstance* immutable_type(lang_TypeInstance* origin_type);
 
+        void fast_create_one_template_type_alias_in_current_scope(
+            wo_pstring_t source_location,
+            wo_pstring_t template_param,
+            lang_TypeInstance* template_arg);
         void fast_create_template_type_alias_in_current_scope(
-            lexer& lex, 
             wo_pstring_t source_location,
             const std::list<wo_pstring_t>& template_params,
             const std::list<lang_TypeInstance*>& template_args);
@@ -802,12 +811,6 @@ namespace wo
             const std::list<wo_pstring_t>& pending_template_params,
             std::unordered_map<wo_pstring_t, lang_TypeInstance*>* out_determined_template_arg_pair
         );
-        void LangContext::template_type_deduction_extraction_with_incomplete_type(
-            lexer& lex,
-            ast::AstTypeHolder* accept_type_formal,
-            ast::AstTypeHolder* applying_type_formal,
-            const std::list<wo_pstring_t>& pending_template_params,
-            std::unordered_map<wo_pstring_t, ast::AstTypeHolder*>* out_determined_template_arg_pair);
         bool check_type_may_dependence_template_parameters(
             ast::AstTypeHolder* accept_type_formal,
             const std::list<wo_pstring_t>& pending_template_params);

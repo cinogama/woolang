@@ -92,3 +92,4 @@
 #define WO_ERR_PATTERN_INDEX_SHOULD_BE_MUTABLE_TYPE L"索引结果不是可变类型"
 #define WO_ERR_CANNOT_CAST_TYPE_TO_TYPE L"无法将类型 '%ls' 转换为 '%ls'"
 #define WO_ERR_FAILED_TO_DEDUCE_TEMPLATE_TYPE L"泛型参数自动推导失败"
+#define WO_ERR_NOT_ALL_TEMPLATE_ARGUMENT_DETERMINED L"有未能成功推导的泛型参数"

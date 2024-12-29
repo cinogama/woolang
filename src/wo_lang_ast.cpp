@@ -634,6 +634,36 @@ namespace wo
 
         ////////////////////////////////////////////////////////
 
+        AstValueFunctionCall_FakeAstArgumentDeductionContextA::
+            AstValueFunctionCall_FakeAstArgumentDeductionContextA(lang_Scope* scope)
+            : AstBase(AST_VALUE_FUNCTION_CALL_FAKE_AST_ARGUMENT_DEDUCTION_CONTEXT_A)
+            , m_LANG_hold_state(UNPROCESSED)
+            , m_apply_template_argument_scope(scope)
+        {
+
+        }
+        AstBase* AstValueFunctionCall_FakeAstArgumentDeductionContextA::make_dup(
+            std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        {
+            wo_error("This node should never be duplicated.");
+        }
+
+        ////////////////////////////////////////////////////////
+
+        AstValueFunctionCall_FakeAstArgumentDeductionContextB::
+            AstValueFunctionCall_FakeAstArgumentDeductionContextB()
+            : AstBase(AST_VALUE_FUNCTION_CALL_FAKE_AST_ARGUMENT_DEDUCTION_CONTEXT_B)
+            , m_LANG_hold_state(UNPROCESSED)
+        {
+        }
+        AstBase* AstValueFunctionCall_FakeAstArgumentDeductionContextB::make_dup(
+            std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        {
+            wo_error("This node should never be duplicated.");
+        }
+
+        ////////////////////////////////////////////////////////
+
         AstValueFunctionCall::AstValueFunctionCall(bool direct, AstValueBase* function, const std::list<AstValueBase*>& arguments)
             : AstValueBase(AST_VALUE_FUNCTION_CALL)
             , m_is_direct_call(direct)
@@ -641,6 +671,7 @@ namespace wo
             , m_arguments(arguments)
             , m_LANG_hold_state(UNPROCESSED)
             , m_LANG_target_function_need_deduct_template_arguments(false)
+            , m_LANG_branch_argument_deduction_context(std::nullopt)
         {
 
         }
@@ -953,6 +984,7 @@ namespace wo
                     for (auto*& p : func_value->m_pending_param_type_mark_template.value())
                         single_pattern->m_template_parameters.value().push_back(p);
                 }
+                func_value->m_pending_param_type_mark_template = single_pattern->m_template_parameters;
             }
         }
         AstBase* AstVariableDefineItem::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
@@ -1036,6 +1068,7 @@ namespace wo
             , m_LANG_hold_state(UNPROCESSED)
             , m_LANG_value_instance_to_update(std::nullopt)
             , m_LANG_in_template_reification_context(false)
+            , m_LANG_determined_template_arguments(std::nullopt)
         {
             for (auto* param_define : parameters)
             {

@@ -284,17 +284,66 @@ namespace wo
             AstWhereConstraints(const std::list<AstValueBase*>& constraints);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
         };
+        struct AstValueFunctionCall_FakeAstArgumentDeductionContextA : public AstBase
+        {
+            enum LANG_hold_state
+            {
+                UNPROCESSED,
+                HOLD_FOR_PREPARE,
+                HOLD_FOR_EVAL_PARAM_TYPE,
+                HOLD_FOR_DEDUCT_ARGUMENT,
+                HOLD_FOR_REVERSE_DEDUCT,
+                HOLD_TO_NEXT_ARGUMENT,
+            };
+            struct ArgumentMatch
+            {
+                AstValueBase* m_argument;
+                AstTypeHolder* m_duped_param_type;
+            };
+            LANG_hold_state m_LANG_hold_state;
+            lang_Scope* m_apply_template_argument_scope;
+
+            std::list<ArgumentMatch> m_arguments_tobe_deduct;
+            std::list<ArgumentMatch>::iterator m_current_argument;
+
+            std::unordered_map<wo_pstring_t, lang_TypeInstance*> m_deduction_results;
+            std::list<wo_pstring_t> m_undetermined_template_params;
+
+            AstValueFunctionCall_FakeAstArgumentDeductionContextA(lang_Scope* scope);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
+        };
+        struct AstValueFunctionCall_FakeAstArgumentDeductionContextB : public AstBase
+        {
+            enum LANG_hold_state
+            {
+                UNPROCESSED,
+                HOLD_FOR_DEDUCE,
+            };
+
+            struct ArgumentMatch
+            {
+                AstValueBase* m_argument;
+                lang_TypeInstance* m_param_type;
+            };
+
+            std::list<ArgumentMatch> m_arguments_tobe_deduct;
+            std::list<ArgumentMatch>::iterator m_current_argument;
+
+            LANG_hold_state m_LANG_hold_state;
+
+            AstValueFunctionCall_FakeAstArgumentDeductionContextB();
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
+        };
         struct AstValueFunctionCall : public AstValueBase
         {
             enum LANG_hold_state
             {
                 UNPROCESSED,
                 HOLD_FOR_FIRST_ARGUMENT_EVAL,
-
                 HOLD_FOR_FUNCTION_EVAL,
-
                 HOLD_FOR_ARGUMENTS_EVAL,
-                HOLD_FOR_TEMPLATE_ARGUMENT_DEDUCTION,
+                HOLD_BRANCH_A_TEMPLATE_ARGUMENT_DEDUCTION,
+                HOLD_BRANCH_B_TEMPLATE_ARGUMENT_DEDUCTION,
             };
 
             bool m_is_direct_call;  // -> |> <|
@@ -303,6 +352,12 @@ namespace wo
 
             LANG_hold_state m_LANG_hold_state;
             bool m_LANG_target_function_need_deduct_template_arguments;
+
+            std::optional<
+                std::variant<
+                AstValueFunctionCall_FakeAstArgumentDeductionContextA*,
+                AstValueFunctionCall_FakeAstArgumentDeductionContextB*>>
+                m_LANG_branch_argument_deduction_context;
 
             AstValueFunctionCall(bool direct, AstValueBase* function, const std::list<AstValueBase*>& arguments);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
@@ -498,6 +553,8 @@ namespace wo
             std::optional<lang_ValueInstance*>
                 m_LANG_value_instance_to_update;
             bool m_LANG_in_template_reification_context;
+            std::optional<std::list<lang_TypeInstance*>>
+                m_LANG_determined_template_arguments;
 
             AstValueFunction(
                 const std::list<AstFunctionParameterDeclare*>& parameters,

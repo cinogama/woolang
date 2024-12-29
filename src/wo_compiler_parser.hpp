@@ -117,6 +117,11 @@ namespace wo
                 AST_LABELED,
 
                 AST_EXTERN_INFORMATION,
+
+                //////////////////////////////////////////////////////
+
+                AST_VALUE_FUNCTION_CALL_FAKE_AST_ARGUMENT_DEDUCTION_CONTEXT_A,
+                AST_VALUE_FUNCTION_CALL_FAKE_AST_ARGUMENT_DEDUCTION_CONTEXT_B,
             };
         private:
             inline thread_local static std::forward_list<AstBase*>* list = nullptr;
