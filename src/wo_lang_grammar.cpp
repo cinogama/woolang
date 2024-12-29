@@ -276,7 +276,7 @@ namespace wo
                 gm::nt(L"TYPE") >> gm::symlist{gm::te(gm::ttype::l_mut), gm::nt(L"ORIGIN_TYPE")} >> WO_ASTBUILDER_INDEX(ast::pass_type_mutable),
                 gm::nt(L"TYPE") >> gm::symlist{gm::te(gm::ttype::l_immut), gm::nt(L"ORIGIN_TYPE")} >> WO_ASTBUILDER_INDEX(ast::pass_type_immutable),
 
-                gm::nt(L"ORIGIN_TYPE") >> gm::symlist{gm::te(gm::ttype::l_nil)} >> WO_ASTBUILDER_INDEX(ast::pass_type_nil),
+                gm::nt(L"ORIGIN_TYPE") >> gm::symlist{ gm::nt(L"AST_TOKEN_NIL") } >> WO_ASTBUILDER_INDEX(ast::pass_type_nil),
                 gm::nt(L"ORIGIN_TYPE") >> gm::symlist{
                                               gm::nt(L"TUPLE_TYPE_LIST"),
                                               gm::te(gm::ttype::l_function_result),

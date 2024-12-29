@@ -593,7 +593,7 @@ namespace wo
             lang_TypeInstance::DeterminedType determined_type_detail(
                 lang_TypeInstance::DeterminedType::base_type::DICTIONARY, desc);
 
-            lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_dictionary, std::nullopt);
+            lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_dictionary, std::list{ key_type, value_type });
             new_type_instance->determine_base_type_move(std::move(determined_type_detail));
 
             chain_node->m_type_instance = new_type_instance;
@@ -615,7 +615,7 @@ namespace wo
             lang_TypeInstance::DeterminedType determined_type_detail(
                 lang_TypeInstance::DeterminedType::base_type::MAPPING, desc);
 
-            lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_mapping, std::nullopt);
+            lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_mapping, std::list{ key_type, value_type });
             new_type_instance->determine_base_type_move(std::move(determined_type_detail));
 
             chain_node->m_type_instance = new_type_instance;
@@ -636,7 +636,7 @@ namespace wo
             lang_TypeInstance::DeterminedType determined_type_detail(
                 lang_TypeInstance::DeterminedType::base_type::ARRAY, desc);
 
-            lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_array, std::nullopt);
+            lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_array, std::list{ element_type });
             new_type_instance->determine_base_type_move(std::move(determined_type_detail));
 
             chain_node->m_type_instance = new_type_instance;
@@ -657,7 +657,7 @@ namespace wo
             lang_TypeInstance::DeterminedType determined_type_detail(
                 lang_TypeInstance::DeterminedType::base_type::VECTOR, desc);
 
-            lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_vector, std::nullopt);
+            lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_vector, std::list{ element_type });
             new_type_instance->determine_base_type_move(std::move(determined_type_detail));
 
             chain_node->m_type_instance = new_type_instance;
@@ -1077,10 +1077,10 @@ namespace wo
 
     bool LangContext::process(lexer& lex, ast::AstBase* root)
     {
+        pass_0_5_register_builtin_types();
+
         if (!anylize_pass(lex, root, &LangContext::pass_0_process_scope_and_non_local_defination))
             return false;
-
-        pass_0_5_register_builtin_types();
 
         if (!anylize_pass(lex, root, &LangContext::pass_1_process_basic_type_marking_and_constant_eval))
             return false;
@@ -1117,6 +1117,7 @@ namespace wo
     void LangContext::end_last_scope()
     {
         m_scope_stack.pop();
+        wo_assert(!m_scope_stack.empty());
     }
     bool LangContext::begin_new_namespace(wo_pstring_t name)
     {
@@ -1380,34 +1381,16 @@ namespace wo
             switch (base_determined_type->m_base_type)
             {
             case lang_TypeInstance::DeterminedType::ARRAY:
-                result_type_name += L"array<";
-                result_type_name += get_type_name_w(
-                    base_determined_type->m_external_type_description.m_array_or_vector->m_element_type);
-                result_type_name += L">";
+                result_type_name += L"array";
                 break;
             case lang_TypeInstance::DeterminedType::VECTOR:
-                result_type_name += L"vec<";
-                result_type_name += get_type_name_w(
-                    base_determined_type->m_external_type_description.m_array_or_vector->m_element_type);
-                result_type_name += L">";
+                result_type_name += L"vec";
                 break;
             case lang_TypeInstance::DeterminedType::DICTIONARY:
-                result_type_name += L"dict<";
-                result_type_name += get_type_name_w(
-                    base_determined_type->m_external_type_description.m_dictionary_or_mapping->m_key_type);
-                result_type_name += L", ";
-                result_type_name += get_type_name_w(
-                    base_determined_type->m_external_type_description.m_dictionary_or_mapping->m_value_type);
-                result_type_name += L">";
+                result_type_name += L"dict";
                 break;
             case lang_TypeInstance::DeterminedType::MAPPING:
-                result_type_name += L"map<";
-                result_type_name += get_type_name_w(
-                    base_determined_type->m_external_type_description.m_dictionary_or_mapping->m_key_type);
-                result_type_name += L", ";
-                result_type_name += get_type_name_w(
-                    base_determined_type->m_external_type_description.m_dictionary_or_mapping->m_value_type);
-                result_type_name += L">";
+                result_type_name += L"map";
                 break;
             case lang_TypeInstance::DeterminedType::TUPLE:
             {
@@ -1444,7 +1427,7 @@ namespace wo
                         result_type_name += L", ";
                     result_type_name += L"...";
                 }
-                result_type_name += L")=>";
+                result_type_name += L")=> ";
                 result_type_name += get_type_name_w(
                     base_determined_type->m_external_type_description.m_function->m_return_type);
                 break;

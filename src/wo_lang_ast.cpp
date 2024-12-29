@@ -85,6 +85,7 @@ namespace wo
             , m_name(identifier)
             , m_template_arguments(std::nullopt)
             , m_LANG_determined_symbol(std::nullopt)
+            , m_LANG_determined_and_appended_template_arguments(std::nullopt)
             //, m_LANG_determined_searching_from_scope(std::nullopt)
         {
 
@@ -99,6 +100,7 @@ namespace wo
             , m_name(identifier)
             , m_template_arguments(template_arguments)
             , m_LANG_determined_symbol(std::nullopt)
+            , m_LANG_determined_and_appended_template_arguments(std::nullopt)
             //, m_LANG_determined_searching_from_scope(std::nullopt)
         {
         }
@@ -114,6 +116,7 @@ namespace wo
             , m_name(identifier)
             , m_template_arguments(template_arguments)
             , m_LANG_determined_symbol(std::nullopt)
+            , m_LANG_determined_and_appended_template_arguments(std::nullopt)
             //, m_LANG_determined_searching_from_scope(std::nullopt)
         {
 
@@ -130,6 +133,7 @@ namespace wo
             , m_name(identifier)
             , m_template_arguments(template_arguments)
             , m_LANG_determined_symbol(std::nullopt)
+            , m_LANG_determined_and_appended_template_arguments(std::nullopt)
             //, m_LANG_determined_searching_from_scope(std::nullopt)
         {
 
@@ -143,6 +147,7 @@ namespace wo
             , m_name(identifer.m_name)
             , m_template_arguments(identifer.m_template_arguments)
             , m_LANG_determined_symbol(std::nullopt)
+            , m_LANG_determined_and_appended_template_arguments(std::nullopt)
             //, m_LANG_determined_searching_from_scope(std::nullopt)
         {
         }
@@ -634,6 +639,8 @@ namespace wo
             , m_is_direct_call(direct)
             , m_function(function)
             , m_arguments(arguments)
+            , m_LANG_hold_state(UNPROCESSED)
+            , m_LANG_target_function_need_deduct_template_arguments(false)
         {
 
         }

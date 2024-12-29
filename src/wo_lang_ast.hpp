@@ -83,6 +83,9 @@ namespace wo
             std::optional<lang_Symbol*>
                 m_LANG_determined_symbol;
 
+            std::optional<std::list<lang_TypeInstance*>>
+                m_LANG_determined_and_appended_template_arguments;
+
             /*std::optional<lang_Scope*>
                                     m_LANG_determined_searching_from_scope;*/
 
@@ -283,9 +286,23 @@ namespace wo
         };
         struct AstValueFunctionCall : public AstValueBase
         {
+            enum LANG_hold_state
+            {
+                UNPROCESSED,
+                HOLD_FOR_FIRST_ARGUMENT_EVAL,
+
+                HOLD_FOR_FUNCTION_EVAL,
+
+                HOLD_FOR_ARGUMENTS_EVAL,
+                HOLD_FOR_TEMPLATE_ARGUMENT_DEDUCTION,
+            };
+
             bool m_is_direct_call;  // -> |> <|
             AstValueBase* m_function;
             std::list<AstValueBase*> m_arguments;
+
+            LANG_hold_state m_LANG_hold_state;
+            bool m_LANG_target_function_need_deduct_template_arguments;
 
             AstValueFunctionCall(bool direct, AstValueBase* function, const std::list<AstValueBase*>& arguments);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;

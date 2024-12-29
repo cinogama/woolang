@@ -240,6 +240,9 @@ namespace wo
             lang_TemplateAstEvalStateValue* find_or_create_template_instance(
                 const TemplateArgumentListT& template_args);
 
+            lang_TemplateAstEvalStateValue* find_or_insert_te(
+                const TemplateArgumentListT& template_args);
+
             TemplateValuePrefab(const TemplateValuePrefab&) = delete;
             TemplateValuePrefab(TemplateValuePrefab&&) = delete;
             TemplateValuePrefab& operator=(const TemplateValuePrefab&) = delete;
@@ -741,6 +744,15 @@ namespace wo
             const std::list<wo_pstring_t>& template_params,
             const std::list<lang_TypeInstance*>& template_args);
 
+        //ast::AstValueFunction* begin_template_deduct_function(lang_Symbol* templating_symbol);
+        //std::optional<lang_TemplateAstEvalStateValue*> begin_eval_template_ast_with_instance(
+        //    lexer& lex,
+        //    ast::AstBase* node,
+        //    lang_Symbol* templating_symbol,
+        //    ast::AstValueFunction* instance,
+        //    const lang_Symbol::TemplateArgumentListT& template_arguments, 
+        //    PassProcessStackT& out_stack);
+
         std::optional<lang_TemplateAstEvalStateBase*> begin_eval_template_ast(
             lexer& lex,
             ast::AstBase* node,
@@ -779,8 +791,26 @@ namespace wo
             lexer& lex,
             ast::AstTypeHolder* accept_type_formal,
             lang_TypeInstance* applying_type_instance,
-            const std::list<wo_pstring_t> pending_template_params,
+            const std::list<wo_pstring_t>& pending_template_params,
             std::unordered_map<wo_pstring_t, lang_TypeInstance*>* out_determined_template_arg_pair);
+
+        void template_function_deduction_extraction_with_complete_type(
+            lexer& lex, 
+            ast::AstValueFunction* function_define,
+            const std::list<std::optional<lang_TypeInstance*>>& argument_types,
+            const std::optional< lang_TypeInstance*>& return_type,
+            const std::list<wo_pstring_t>& pending_template_params,
+            std::unordered_map<wo_pstring_t, lang_TypeInstance*>* out_determined_template_arg_pair
+        );
+        void LangContext::template_type_deduction_extraction_with_incomplete_type(
+            lexer& lex,
+            ast::AstTypeHolder* accept_type_formal,
+            ast::AstTypeHolder* applying_type_formal,
+            const std::list<wo_pstring_t>& pending_template_params,
+            std::unordered_map<wo_pstring_t, ast::AstTypeHolder*>* out_determined_template_arg_pair);
+        bool check_type_may_dependence_template_parameters(
+            ast::AstTypeHolder* accept_type_formal,
+            const std::list<wo_pstring_t>& pending_template_params);
     };
 #endif
 }

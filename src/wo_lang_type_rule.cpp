@@ -199,7 +199,7 @@ namespace wo
                         return false;
                 }
 
-                if (is_type_accepted(
+                if (!is_type_accepted(
                     lex,
                     node,
                     ext_func_accepter->m_return_type,

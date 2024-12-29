@@ -3,6 +3,45 @@
 namespace wo
 {
 #ifndef WO_DISABLE_COMPILER
+    
+    //ast::AstValueFunction* LangContext::begin_template_deduct_function(lang_Symbol* templating_symbol)
+    //{
+    //    wo_assert(templating_symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE
+    //        && templating_symbol->m_is_template
+    //        && templating_symbol->m_template_value_instances->m_origin_value_ast->node_type
+    //        == ast::AstBase::AST_VALUE_FUNCTION);
+
+    //    ast::AstValueFunction* function = static_cast<ast::AstValueFunction*>(
+    //        templating_symbol->m_template_value_instances->m_origin_value_ast->clone());
+
+    //    function->m_LANG_in_template_reification_context = true;
+
+    //    return function;
+    //}
+    //std::optional<lang_TemplateAstEvalStateValue*> LangContext::begin_eval_template_ast_with_instance(
+    //    lexer& lex,
+    //    ast::AstBase* node,
+    //    lang_Symbol* templating_symbol,
+    //    ast::AstValueFunction* instance,
+    //    const lang_Symbol::TemplateArgumentListT& template_arguments,
+    //    PassProcessStackT& out_stack)
+    //{
+    //    wo_assert(templating_symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE);
+    //    wo_assert(templating_symbol->m_is_template);
+
+    //    auto& template_variable_prefab = templating_symbol->m_template_value_instances;
+    //    if (template_arguments.size() != template_variable_prefab->m_template_params.size())
+    //    {
+    //        lex.lang_error(lexer::errorlevel::error, node,
+    //            WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
+    //            template_variable_prefab->m_template_params.size());
+
+    //        return std::nullopt;
+    //    }
+
+    //    instance->m_LANG_value_instance_to_update =
+    //        template_eval_state_instance->m_value_instance.get();
+    //}
 
     std::optional<lang_TemplateAstEvalStateBase*> LangContext::begin_eval_template_ast(
         lexer& lex,
@@ -226,7 +265,7 @@ namespace wo
         lexer& lex,
         ast::AstTypeHolder* accept_type_formal,
         lang_TypeInstance* applying_type_instance,
-        const std::list<wo_pstring_t> pending_template_params,
+        const std::list<wo_pstring_t>& pending_template_params,
         std::unordered_map<wo_pstring_t, lang_TypeInstance*>* out_determined_template_arg_pair)
     {
         switch (accept_type_formal->m_formal)
@@ -481,6 +520,157 @@ namespace wo
         }
 
         return;
+    }
+
+    void LangContext::template_type_deduction_extraction_with_incomplete_type(
+        lexer& lex,
+        ast::AstTypeHolder* accept_type_formal,
+        ast::AstTypeHolder* applying_type_formal,
+        const std::list<wo_pstring_t>& pending_template_params,
+        std::unordered_map<wo_pstring_t, ast::AstTypeHolder*>* out_determined_template_arg_pair)
+    {
+
+    }
+
+    bool LangContext::check_type_may_dependence_template_parameters(
+        ast::AstTypeHolder* accept_type_formal,
+        const std::list<wo_pstring_t>& pending_template_params)
+    {
+        switch (accept_type_formal->m_formal)
+        {
+        case ast::AstTypeHolder::IDENTIFIER:
+        {
+            auto* identifier = accept_type_formal->m_typeform.m_identifier;
+            switch (identifier->m_formal)
+            {
+            case ast::AstIdentifier::FROM_CURRENT:
+                // Current identifier might be template need to be pick.
+                if (!identifier->m_template_arguments.has_value()
+                    && identifier->m_scope.empty())
+                {
+                    if (std::find(
+                        pending_template_params.begin(),
+                        pending_template_params.end(),
+                        identifier->m_name) != pending_template_params.end())
+                        // Found!
+                        return true;
+                }
+                /* FALL THROUGH */
+                [[fallthrough]];
+            case ast::AstIdentifier::FROM_TYPE:
+                if (identifier->m_from_type.has_value()
+                    && check_type_may_dependence_template_parameters(
+                        identifier->m_from_type.value(), pending_template_params))
+                    return true;
+                /* FALL THROUGH */
+                [[fallthrough]];
+            case ast::AstIdentifier::FROM_GLOBAL:
+                if (identifier->m_template_arguments.has_value())
+                {
+                    auto& template_arguments = identifier->m_template_arguments.value();
+                    for (auto& template_argument : template_arguments)
+                    {
+                        if (check_type_may_dependence_template_parameters(
+                            template_argument,
+                            pending_template_params))
+                            return true;
+                    }
+                }
+                return false;
+            }
+        }
+        case ast::AstTypeHolder::TYPEOF:
+            // Cannot check, treat it as depdencs
+            return true;
+        case ast::AstTypeHolder::FUNCTION:
+        {
+            auto& function = accept_type_formal->m_typeform.m_function;
+            if (check_type_may_dependence_template_parameters(
+                function.m_return_type, pending_template_params))
+                return true;
+
+            for (auto& param : function.m_parameters)
+            {
+                if (check_type_may_dependence_template_parameters(
+                    param, pending_template_params))
+                    return true;
+            }
+
+            return false;
+        }
+        case ast::AstTypeHolder::STRUCTURE:
+        {
+            auto& structure = accept_type_formal->m_typeform.m_structure;
+            for (auto& field : structure.m_fields)
+            {
+                if (check_type_may_dependence_template_parameters(
+                    field->m_type, pending_template_params))
+                    return true;
+            }
+
+            return false;
+        }
+        case ast::AstTypeHolder::TUPLE:
+        {
+            auto& tuple = accept_type_formal->m_typeform.m_tuple;
+            for (auto& field : tuple.m_fields)
+            {
+                if (check_type_may_dependence_template_parameters(
+                    field, pending_template_params))
+                    return true;
+            }
+
+            return false;
+        }
+        case ast::AstTypeHolder::UNION:
+            // That's will never happend.
+            /* FALL THROUGH! */
+            [[fallthrough]];
+        default:
+            wo_error("unknown typeholder formal.");
+        }
+        
+        return false;
+    }
+
+    void LangContext::template_function_deduction_extraction_with_complete_type(
+        lexer& lex,
+        ast::AstValueFunction* function_define,
+        const std::list<std::optional<lang_TypeInstance*>>& argument_types,
+        const std::optional<lang_TypeInstance*>& return_type,
+        const std::list<wo_pstring_t>& pending_template_params,
+        std::unordered_map<wo_pstring_t, lang_TypeInstance*>* out_determined_template_arg_pair
+    )
+    {
+        if (function_define->m_marked_return_type.has_value() 
+            && return_type.has_value())
+        {
+            template_type_deduction_extraction_with_complete_type(
+                lex,
+                function_define->m_marked_return_type.value(),
+                return_type.value(),
+                pending_template_params,
+                out_determined_template_arg_pair);
+        }
+
+        auto it_arg_type = argument_types.begin();
+        auto it_arg_type_end = argument_types.end();
+        auto it_fn_param = function_define->m_parameters.begin();
+        auto it_fn_param_end = function_define->m_parameters.end();
+
+        for (; it_arg_type != it_arg_type_end && it_fn_param != it_fn_param_end;
+            ++it_arg_type, ++it_fn_param)
+        {
+            if (!it_arg_type->has_value())
+                continue;
+
+            template_type_deduction_extraction_with_complete_type(
+                lex,
+                (*it_fn_param)->m_type.value(),
+                (*it_arg_type).value(),
+                pending_template_params,
+                out_determined_template_arg_pair);
+        }
     }
 
 #endif

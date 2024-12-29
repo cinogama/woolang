@@ -463,7 +463,7 @@ namespace wo
         {
             std::optional<AstList*> template_params = std::nullopt;
             AstList* paraments = static_cast<AstList*>(WO_NEED_AST_TYPE(2, AstBase::AST_LIST));
-            AstReturn* body_0 = static_cast<AstReturn*>(WO_NEED_AST_TYPE(4, AstBase::AST_RETURN));
+            AstBase* body_0 = WO_NEED_AST(4);
             std::optional<AstVariableDefines*> body_1 = std::nullopt;
 
             if (!WO_IS_EMPTY(1))

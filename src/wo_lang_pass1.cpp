@@ -111,7 +111,7 @@ namespace wo
         // WO_LANG_REGISTER_PROCESSER(AstValueTypeCheckAs, AstBase::AST_VALUE_TYPE_CHECK_AS, pass1);
         WO_LANG_REGISTER_PROCESSER(AstValueVariable, AstBase::AST_VALUE_VARIABLE, pass1);
         WO_LANG_REGISTER_PROCESSER(AstWhereConstraints, AstBase::AST_WHERE_CONSTRAINTS, pass1);
-        // WO_LANG_REGISTER_PROCESSER(AstValueFunctionCall, AstBase::AST_VALUE_FUNCTION_CALL, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstValueFunctionCall, AstBase::AST_VALUE_FUNCTION_CALL, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstValueBinaryOperator, AstBase::AST_VALUE_BINARY_OPERATOR, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstValueUnaryOperator, AstBase::AST_VALUE_UNARY_OPERATOR, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstValueTribleOperator, AstBase::AST_VALUE_TRIPLE_OPERATOR, pass1);
@@ -229,7 +229,9 @@ namespace wo
             {
                 lang_Symbol* symbol = node->m_LANG_determined_symbol.value();
 
-                bool has_template_arguments = node->m_template_arguments.has_value();
+                bool has_template_arguments = node->m_template_arguments.has_value()
+                    || node->m_LANG_determined_and_appended_template_arguments.has_value();
+
                 bool accept_template_arguments = symbol->m_is_template;
 
                 if ((has_template_arguments != accept_template_arguments)
@@ -531,10 +533,19 @@ namespace wo
                             // NOTE: In function call, template arguments will be 
                             //  derived and filled completely.
                             lang_Symbol::TemplateArgumentListT template_args;
-                            for (auto* typeholder : node->m_identifier->m_template_arguments.value())
+                            if (node->m_identifier->m_template_arguments.has_value())
+                                for (auto* typeholder : node->m_identifier->m_template_arguments.value())
+                                {
+                                    wo_assert(typeholder->m_LANG_determined_type);
+                                    template_args.push_back(typeholder->m_LANG_determined_type.value());
+                                }
+                            if (node->m_identifier->m_LANG_determined_and_appended_template_arguments.has_value())
                             {
-                                wo_assert(typeholder->m_LANG_determined_type);
-                                template_args.push_back(typeholder->m_LANG_determined_type.value());
+                                const auto& determined_tyope_list =
+                                    node->m_identifier->m_LANG_determined_and_appended_template_arguments.value();
+                                template_args.insert(template_args.end(),
+                                    determined_tyope_list.begin(),
+                                    determined_tyope_list.end());
                             }
 
                             auto template_eval_state_instance_may_nullopt = begin_eval_template_ast(
@@ -1556,9 +1567,10 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
-
             WO_CONTINUE_PROCESS(node->m_cast_type);
-            if (node->m_cast_value->node_type == AstBase::AST_VALUE_FUNCTION)
+            switch (node->m_cast_value->node_type)
+            {
+            case AstBase::AST_VALUE_FUNCTION:
             {
                 AstValueFunction* casting_from_func = static_cast<AstValueFunction*>(node->m_cast_value);
                 if (casting_from_func->m_pending_param_type_mark_template)
@@ -1569,7 +1581,30 @@ namespace wo
                     node->m_LANG_hold_state = AstValueTypeCast::HOLD_FOR_TEMPLATE_ARGUMENT_DEDUCTION;
                     return HOLD;
                 }
+                break;
             }
+            case AstBase::AST_VALUE_VARIABLE:
+            {
+                AstValueVariable* casting_from_var = static_cast<AstValueVariable*>(node->m_cast_value);
+                if (find_symbol_in_current_scope(lex, casting_from_var->m_identifier))
+                {
+                    lang_Symbol* symbol = casting_from_var->m_identifier->m_LANG_determined_symbol.value();
+                    if (symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE
+                        && symbol->m_is_template
+                        && !symbol->m_template_value_instances->m_mutable
+                        && symbol->m_template_value_instances->m_origin_value_ast->node_type == AstBase::AST_VALUE_FUNCTION
+                        && (!casting_from_var->m_identifier->m_template_arguments.has_value()
+                            || casting_from_var->m_identifier->m_template_arguments.value().size()
+                            != symbol->m_template_value_instances->m_template_params.size()))
+                    {
+                        node->m_LANG_hold_state = AstValueTypeCast::HOLD_FOR_TEMPLATE_ARGUMENT_DEDUCTION;
+                        return HOLD;
+                    }
+                }
+                break;
+            }
+            }
+
             WO_CONTINUE_PROCESS(node->m_cast_value);
 
             node->m_LANG_hold_state = AstValueTypeCast::HOLD_FOR_NORMAL_EVAL;
@@ -1581,14 +1616,12 @@ namespace wo
             {
             case AstValueTypeCast::HOLD_FOR_TEMPLATE_ARGUMENT_DEDUCTION:
             {
-                // TODO;
-                wo_assert(node->m_cast_value->node_type == AstBase::AST_VALUE_FUNCTION);
-
-                AstValueFunction* casting_from_func = static_cast<AstValueFunction*>(node->m_cast_value);
-
-                const auto function_template_params =
-                    casting_from_func->m_pending_param_type_mark_template.value();
                 std::unordered_map<wo_pstring_t, lang_TypeInstance*> deduction_results;
+
+                std::list<std::optional<lang_TypeInstance*>> argument_types;
+                std::optional<lang_TypeInstance*> return_type;
+
+                bool able_to_deduce = false;
 
                 lang_TypeInstance* cast_target_type = node->m_cast_type->m_LANG_determined_type.value();
                 auto cast_target_type_determined_base_type = cast_target_type->get_determined_type();
@@ -1603,79 +1636,134 @@ namespace wo
                         auto* cast_target_determined_function_base_type =
                             cast_target_type_determined_base_type_instance->m_external_type_description.m_function;
 
-                        if (cast_target_determined_function_base_type->m_is_variadic
-                            == casting_from_func->m_is_variadic
-                            && cast_target_determined_function_base_type->m_param_types.size()
-                            == casting_from_func->m_parameters.size())
-                        {
-                            // Start!
-                            if (casting_from_func->m_marked_return_type.has_value())
-                            {
-                                template_type_deduction_extraction_with_complete_type(
-                                    lex,
-                                    casting_from_func->m_marked_return_type.value(),
-                                    cast_target_determined_function_base_type->m_return_type,
-                                    function_template_params,
-                                    &deduction_results);
-                            }
+                        return_type = cast_target_determined_function_base_type->m_return_type;
+                        for (auto& param_type : cast_target_determined_function_base_type->m_param_types)
+                            argument_types.push_back(param_type);
 
-                            auto cast_target_determined_function_param_iter =
-                                cast_target_determined_function_base_type->m_param_types.begin();
-                            auto cast_target_determined_function_param_end =
-                                cast_target_determined_function_base_type->m_param_types.end();
-                            auto cast_from_param_iter = casting_from_func->m_parameters.begin();
-
-                            for (;
-                                cast_target_determined_function_param_iter
-                                != cast_target_determined_function_param_end;
-                                ++cast_target_determined_function_param_iter,
-                                ++cast_from_param_iter)
-                            {
-                                auto* cast_target_determined_function_param_type = *cast_target_determined_function_param_iter;
-                                auto* cast_from_param_type = (*cast_from_param_iter)->m_type.value();
-
-                                template_type_deduction_extraction_with_complete_type(
-                                    lex,
-                                    cast_from_param_type,
-                                    cast_target_determined_function_param_type,
-                                    function_template_params,
-                                    &deduction_results);
-                            }
-                        }
+                        able_to_deduce = true;
                     }
                 }
 
-                if (deduction_results.size() != function_template_params.size())
+                if (!able_to_deduce)
                 {
-                    lex.lang_error(lexer::errorlevel::error, casting_from_func,
+                    // Target type is not a function, unable to deduce.
+                    lex.lang_error(lexer::errorlevel::error, node->m_cast_value,
                         WO_ERR_FAILED_TO_DEDUCE_TEMPLATE_TYPE);
 
                     return FAILED;
                 }
 
-                // 
-                std::list<lang_TypeInstance*> template_arguments;
-                for (wo_pstring_t param : function_template_params)
+                // Make function instance here.
+                switch (node->m_cast_value->node_type)
                 {
-                    template_arguments.push_back(deduction_results.at(param));
+                case AstBase::AST_VALUE_VARIABLE:
+                {
+                    AstValueVariable* casting_from_var = static_cast<AstValueVariable*>(node->m_cast_value);
+                    lang_Symbol* symbol = casting_from_var->m_identifier->m_LANG_determined_symbol.value();
+
+                    auto* template_instance_prefab = symbol->m_template_value_instances;
+
+                    std::list<wo_pstring_t> pending_template_params;
+                    auto it_template_param = symbol->m_template_value_instances->m_template_params.begin();
+                    auto it_template_param_end = symbol->m_template_value_instances->m_template_params.end();
+                    if (casting_from_var->m_identifier->m_template_arguments.has_value())
+                    {
+                        for (auto& _useless : casting_from_var->m_identifier->m_template_arguments.value())
+                        {
+                            (void)_useless;
+                            ++it_template_param;
+                        }
+                    }
+                    for (; it_template_param != it_template_param_end; ++it_template_param)
+                        pending_template_params.push_back(*it_template_param);
+
+                    entry_spcify_scope(symbol->m_belongs_to_scope);
+
+                    template_function_deduction_extraction_with_complete_type(
+                        lex,
+                        static_cast<AstValueFunction*>(symbol->m_template_value_instances->m_origin_value_ast),
+                        argument_types,
+                        return_type,
+                        pending_template_params,
+                        &deduction_results);
+
+                    end_last_scope();
+
+                    if (deduction_results.size() != pending_template_params.size())
+                    {
+                        lex.lang_error(lexer::errorlevel::error, casting_from_var,
+                            WO_ERR_FAILED_TO_DEDUCE_TEMPLATE_TYPE);
+
+                        return FAILED;
+                    }
+
+                    ////////////////////////////
+                    std::list<lang_TypeInstance*> template_arguments;
+                    for (wo_pstring_t param : pending_template_params)
+                    {
+                        template_arguments.push_back(deduction_results.at(param));
+                    }
+                    casting_from_var->m_identifier->m_LANG_determined_and_appended_template_arguments
+                        = template_arguments;
+
+                    WO_CONTINUE_PROCESS(casting_from_var);
+                    break;
                 }
+                case AstBase::AST_VALUE_FUNCTION:
+                {
+                    AstValueFunction* casting_from_func = static_cast<AstValueFunction*>(node->m_cast_value);
 
-                begin_new_scope(); // Begin new scope for defining template type alias.
-                fast_create_template_type_alias_in_current_scope(
-                    lex,
-                    casting_from_func->source_location.source_file,
-                    function_template_params,
-                    template_arguments);
+                    const auto function_template_params =
+                        casting_from_func->m_pending_param_type_mark_template.value();
 
-                casting_from_func->m_LANG_in_template_reification_context = true;
-                WO_CONTINUE_PROCESS(casting_from_func);
+                    template_function_deduction_extraction_with_complete_type(
+                        lex,
+                        casting_from_func,
+                        argument_types,
+                        return_type,
+                        casting_from_func->m_pending_param_type_mark_template.value(),
+                        &deduction_results);
+
+                    if (deduction_results.size() != function_template_params.size())
+                    {
+                        lex.lang_error(lexer::errorlevel::error, casting_from_func,
+                            WO_ERR_FAILED_TO_DEDUCE_TEMPLATE_TYPE);
+
+                        return FAILED;
+                    }
+
+                    ////////////////////////////
+
+                    std::list<lang_TypeInstance*> template_arguments;
+                    for (wo_pstring_t param : function_template_params)
+                    {
+                        template_arguments.push_back(deduction_results.at(param));
+                    }
+
+                    begin_new_scope(); // Begin new scope for defining template type alias.
+                    fast_create_template_type_alias_in_current_scope(
+                        lex,
+                        casting_from_func->source_location.source_file,
+                        function_template_params,
+                        template_arguments);
+
+                    casting_from_func->m_LANG_in_template_reification_context = true;
+                    WO_CONTINUE_PROCESS(casting_from_func);
+
+                    break;
+                }
+                default:
+                    wo_error("Unknown template target.");
+                }
 
                 node->m_LANG_hold_state = AstValueTypeCast::HOLD_FOR_INSTANCE_TEMPLATE_FUNCTION;
                 return HOLD;
             }
             case AstValueTypeCast::HOLD_FOR_INSTANCE_TEMPLATE_FUNCTION:
 
-                end_last_scope();
+                if (node->m_cast_value->node_type == AstBase::AST_VALUE_FUNCTION)
+                    end_last_scope();
+
                 node->m_LANG_hold_state = AstValueTypeCast::HOLD_FOR_NORMAL_EVAL;
 
                 /* FALL THROUGH */
@@ -1707,6 +1795,353 @@ namespace wo
             if (node->m_LANG_hold_state == AstValueTypeCast::HOLD_FOR_INSTANCE_TEMPLATE_FUNCTION)
                 end_last_scope(); // Failed, leave the scope.
         }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstValueFunctionCall)
+    {
+        // Huston, we have a problem, again.
+
+        if (state == UNPROCESSED)
+        {
+            if (node->m_is_direct_call)
+
+                // direct call(-> |> <|). first argument must be eval first;
+                WO_CONTINUE_PROCESS(node->m_arguments.front());
+            node->m_LANG_hold_state = AstValueFunctionCall::HOLD_FOR_FIRST_ARGUMENT_EVAL;
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            switch (node->m_LANG_hold_state)
+            {
+            case AstValueFunctionCall::HOLD_FOR_FIRST_ARGUMENT_EVAL:
+            {
+                if (node->m_is_direct_call)
+                {
+                    lang_TypeInstance* first_argument_type_instance =
+                        node->m_arguments.front()->m_LANG_determined_type.value();
+                    lang_Symbol* first_argument_type_symbol =
+                        first_argument_type_instance->m_symbol;
+
+                    if (node->m_function->node_type == AstBase::AST_VALUE_VARIABLE)
+                    {
+                        AstValueVariable* function_variable = static_cast<AstValueVariable*>(node->m_function);
+                        AstIdentifier* function_variable_identifier = function_variable->m_identifier;
+
+                        if (first_argument_type_symbol->m_belongs_to_scope->is_namespace_scope())
+                        {
+                            if (function_variable_identifier->m_formal == AstIdentifier::FROM_CURRENT)
+                            {
+                                // Trying to find the function in type instance.
+                                auto variable_scope_backup = function_variable_identifier->m_scope;
+
+                                std::optional<lang_Namespace*> symbol_located_namespace =
+                                    first_argument_type_symbol->m_belongs_to_scope->m_belongs_to_namespace;
+                                function_variable_identifier->m_scope.push_front(first_argument_type_symbol->m_name);
+                                for (;;)
+                                {
+                                    lang_Namespace* current_namespace = symbol_located_namespace.value();
+
+                                    if (current_namespace->m_parent_namespace.has_value())
+                                        symbol_located_namespace = current_namespace->m_parent_namespace;
+                                    else
+                                        break;
+                                    function_variable_identifier->m_scope.push_front(current_namespace->m_name);
+                                }
+
+                                if (!find_symbol_in_current_scope(lex, function_variable_identifier))
+                                    // Failed, restore the scope.
+                                    function_variable_identifier->m_scope = variable_scope_backup;
+                            }
+                        }
+                    }
+                }
+                switch (node->m_function->node_type)
+                {
+                case AstBase::AST_VALUE_VARIABLE:
+                {
+                    AstValueVariable* function_variable = static_cast<AstValueVariable*>(node->m_function);
+                    AstIdentifier* function_variable_identifier = function_variable->m_identifier;
+
+                    if (find_symbol_in_current_scope(lex, function_variable_identifier))
+                    {
+                        lang_Symbol* function_symbol = function_variable_identifier->m_LANG_determined_symbol.value();
+                        if (function_symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE
+                            && function_symbol->m_is_template
+                            && !function_symbol->m_template_value_instances->m_mutable
+                            && function_symbol->m_template_value_instances->m_origin_value_ast->node_type == AstBase::AST_VALUE_FUNCTION
+                            && (!function_variable_identifier->m_template_arguments.has_value()
+                                || function_symbol->m_template_value_instances->m_template_params.size()
+                                != function_variable_identifier->m_template_arguments.value().size()))
+                        {
+                            // Invoking function is a not complete template, defer type checking and do it later.
+                            node->m_LANG_target_function_need_deduct_template_arguments = true;
+                        }
+                    }
+                    break;
+                }
+                case AstBase::AST_VALUE_FUNCTION:
+                {
+                    AstValueFunction* function = static_cast<AstValueFunction*>(node->m_function);
+                    if (function->m_pending_param_type_mark_template.has_value())
+                        node->m_LANG_target_function_need_deduct_template_arguments = true;
+
+                    break;
+                }
+                }
+
+                if (!node->m_LANG_target_function_need_deduct_template_arguments)
+                {
+                    // TARGET FUNCTION HAS NO TEMPLATE PARAM TO BE DEDUCT, EVAL IT NOW.
+                    WO_CONTINUE_PROCESS(node->m_function);
+
+                    node->m_LANG_hold_state = AstValueFunctionCall::HOLD_FOR_FUNCTION_EVAL;
+                    return HOLD;
+                }
+                /* FALL THROUGH */
+            }
+            [[fallthrough]];
+            case AstValueFunctionCall::HOLD_FOR_FUNCTION_EVAL:
+            {
+                // Eval all arguments beside AstValueFunction or AstValueVariable which refer to
+               // uncomplete template function.
+                std::list<AstValueBase*> arguments;
+                for (auto* argument_value : node->m_arguments)
+                {
+                    switch (argument_value->node_type)
+                    {
+                    case AstBase::AST_VALUE_FUNCTION:
+                    {
+                        AstValueFunction* argument_function = static_cast<AstValueFunction*>(argument_value);
+                        if (argument_function->m_pending_param_type_mark_template.has_value())
+                            // Skip template function.
+                            continue;
+                        break;
+                    }
+                    case AstBase::AST_VALUE_VARIABLE:
+                    {
+                        AstValueVariable* argument_variable = static_cast<AstValueVariable*>(argument_value);
+                        if (find_symbol_in_current_scope(lex, argument_variable->m_identifier))
+                        {
+                            lang_Symbol* argument_symbol = argument_variable->m_identifier->m_LANG_determined_symbol.value();
+                            if (argument_symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE
+                                && argument_symbol->m_is_template
+                                && !argument_symbol->m_template_value_instances->m_mutable
+                                && argument_symbol->m_template_value_instances->m_origin_value_ast->node_type == AstBase::AST_VALUE_FUNCTION
+                                && (!argument_variable->m_identifier->m_template_arguments.has_value()
+                                    || argument_symbol->m_template_value_instances->m_template_params.size()
+                                    != argument_variable->m_identifier->m_template_arguments.value().size()))
+                            {
+                                // Skip uncomplete template variable.
+                                continue;
+                            }
+                        }
+                        break;
+                    }
+                    default:
+                        break;
+                    }
+                    arguments.push_back(argument_value);
+                }
+
+                WO_CONTINUE_PROCESS_LIST(arguments);
+
+                node->m_LANG_hold_state = AstValueFunctionCall::HOLD_FOR_ARGUMENTS_EVAL;
+                return HOLD;
+            }
+            case AstValueFunctionCall::HOLD_FOR_ARGUMENTS_EVAL:
+            {
+                // If target function is a template function, we need to deduce template arguments.
+                // HERE!
+                if (node->m_LANG_target_function_need_deduct_template_arguments)
+                {
+                    std::unordered_map<wo_pstring_t, lang_TypeInstance*> deduction_results;
+
+                    std::list<wo_pstring_t> pending_template_params;
+                    std::list<AstTypeHolder*> target_param_holders;
+
+                    bool entry_function_located_scope = false;
+
+                    switch (node->m_function->node_type)
+                    {
+                    case AstBase::AST_VALUE_VARIABLE:
+                    {
+                        AstValueVariable* function_variable = static_cast<AstValueVariable*>(node->m_function);
+                        lang_Symbol* function_symbol = function_variable->m_identifier->m_LANG_determined_symbol.value();
+
+                        wo_assert(function_symbol->m_is_template
+                            && function_symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE);
+
+                        auto it_template_param = function_symbol->m_template_value_instances->m_template_params.begin();
+                        auto it_template_param_end = function_symbol->m_template_value_instances->m_template_params.end();
+                        if (function_variable->m_identifier->m_template_arguments.has_value())
+                        {
+                            for (auto& _useless : function_variable->m_identifier->m_template_arguments.value())
+                            {
+                                (void)_useless;
+                                ++it_template_param;
+                            }
+                        }
+                        for (; it_template_param != it_template_param_end; ++it_template_param)
+                            pending_template_params.push_back(*it_template_param);
+
+                        // NOTE: node type has been checked in HOLD_FOR_FIRST_ARGUMENT_EVAL->HOLD_FOR_FUNCTION_EVAL
+                        wo_assert(function_symbol->m_template_value_instances->m_origin_value_ast->node_type
+                            == AstBase::AST_VALUE_FUNCTION);
+                        AstValueFunction* origin_ast_value_function = static_cast<AstValueFunction*>(
+                            function_symbol->m_template_value_instances->m_origin_value_ast);
+
+                        for (auto* template_param_declare : origin_ast_value_function->m_parameters)
+                            target_param_holders.push_back(template_param_declare->m_type.value());
+
+                        // Entry function located scope, template_type_deduction_extraction_with_complete_type require todo so.
+                        entry_function_located_scope = true;
+                        entry_spcify_scope(function_symbol->m_belongs_to_scope);
+                        break;
+                    }
+                    case AstBase::AST_VALUE_FUNCTION:
+                    {
+                        AstValueFunction* function = static_cast<AstValueFunction*>(node->m_function);
+
+                        pending_template_params = function->m_pending_param_type_mark_template.value();
+
+                        for (auto* template_param_declare : function->m_parameters)
+                            target_param_holders.push_back(template_param_declare->m_type.value());
+
+                        break;
+                    }
+                    default:
+                        wo_error("Unexpected template node type.");
+                    }
+
+                    auto it_target_param = target_param_holders.begin();
+                    auto it_target_param_end = target_param_holders.end();
+                    auto it_argument = node->m_arguments.begin();
+                    auto it_argument_end = node->m_arguments.end();
+
+                    for (; it_target_param != it_target_param_end
+                        && it_argument != it_argument_end;
+                        ++it_target_param, ++it_argument)
+                    {
+                        AstTypeHolder* param_type_holder = *it_target_param;
+                        AstValueBase* argument_value = *it_argument;
+
+                        if (!argument_value->m_LANG_determined_type.has_value())
+                            // tobe determined, skip;
+                            continue;
+
+                        lang_TypeInstance* argument_type_instance =
+                            argument_value->m_LANG_determined_type.value();
+
+                        template_type_deduction_extraction_with_complete_type(
+                            lex,
+                            param_type_holder,
+                            argument_type_instance,
+                            pending_template_params,
+                            &deduction_results);
+                    }
+
+                    if (entry_function_located_scope)
+                        end_last_scope();
+
+                    // NOTE: Some template arguments may not be deduced, it's okay.
+                    //   for example:
+                    //
+                    //  func map<T, R>(a: array<T>, f: (T)=> R)
+                    //
+                    //   in this case, R will not able to be determined in first step.
+
+                    it_target_param = target_param_holders.begin();
+                    it_argument = node->m_arguments.begin();
+
+                    for (; it_target_param != it_target_param_end
+                        && it_argument != it_argument_end;
+                        ++it_target_param, ++it_argument)
+                    {
+                        AstValueBase* argument_value = *it_argument;
+
+                        if (argument_value->m_LANG_determined_type.has_value())
+                            // has been determined, skip;
+                            continue;
+
+                        AstTypeHolder* param_type_holder = 
+                            static_cast<AstTypeHolder*>((*it_target_param)->clone());
+
+                        // It must be AstValueVariable point to functi on or AstValueFunction
+                        std::list<wo_pstring_t> argument_function_pending_templates;
+                        std::list<AstTypeHolder*> argument_function_params;
+                        std::optional<AstTypeHolder*> argument_function_marked_return_type;
+
+                        switch (argument_value->node_type)
+                        {
+                        case AstBase::AST_VALUE_FUNCTION:
+                        {
+                            AstValueFunction* function = static_cast<AstValueFunction*>(argument_value);
+                            argument_function_pending_templates = function->m_pending_param_type_mark_template.value();
+                            argument_function_marked_return_type = function->m_marked_return_type;
+
+                            for (auto* param : function->m_parameters)
+                                argument_function_params.push_back(param->m_type.value());
+
+                            break;
+                        }
+                        case AstBase::AST_VALUE_VARIABLE:
+                        {
+                            AstValueVariable* variable = static_cast<AstValueVariable*>(argument_value);
+                            lang_Symbol* symbol = variable->m_identifier->m_LANG_determined_symbol.value();
+
+                            wo_assert(symbol->m_is_template && symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE);
+
+                            auto& template_value_instances_prefab = symbol->m_template_value_instances;
+
+                            wo_assert(template_value_instances_prefab->m_origin_value_ast->node_type
+                                == AstBase::AST_VALUE_FUNCTION);
+
+                            auto it_template_param = template_value_instances_prefab->m_template_params.begin();
+                            if (variable->m_identifier->m_template_arguments.has_value())
+                            {
+                                for (auto& _useless : variable->m_identifier->m_template_arguments.value())
+                                {
+                                    (void)_useless;
+                                    ++it_template_param;
+                                }
+                            }
+
+                            argument_function_pending_templates.insert(
+                                argument_function_pending_templates.end(),
+                                it_template_param,
+                                template_value_instances_prefab->m_template_params.end());
+
+                            auto* origin_ast_value_function = static_cast<AstValueFunction*>(
+                                template_value_instances_prefab->m_origin_value_ast);
+
+                            for (auto* param : origin_ast_value_function->m_parameters)
+                                argument_function_params.push_back(param->m_type.value());
+
+                            argument_function_marked_return_type = origin_ast_value_function->m_marked_return_type;
+
+                            break;
+                        }
+                        default:
+                            wo_error("Unexpected template node type.");
+                        }
+
+                        for (;;);
+                    }
+                }
+                else
+                {
+                    // Function's parameters type has been determined, here will be more easier.
+                }
+
+                /* FALL THROUGH */
+            }
+            [[fallthrough]];
+            default:
+                wo_error("TODO;");
+            }
+        }
+        wo_error("TODO;");
         return WO_EXCEPT_ERROR(state, OKAY);
     }
 
