@@ -422,6 +422,9 @@ namespace wo
         {
             AstValueBase* m_unpack_value;
 
+            std::optional<size_t> 
+                m_LANG_need_to_be_unpack_count_FOR_RUNTIME_CHECK; 
+
             AstFakeValueUnpack(AstValueBase* unpack_value);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
         };
@@ -608,8 +611,19 @@ namespace wo
         };
         struct AstValueStruct : public AstValueBase
         {
+            enum LANG_hold_state
+            {
+                UNPROCESSED,
+                HOLD_FOR_EVAL_MEMBER_VALUE_BESIDE_TEMPLATE,
+                HOLD_TO_TEMPLATE_DEDUCTION,
+                HOLD_FOR_STRUCT_TYPE_EVAL,
+                HOLD_FOR_FIELD_EVAL,
+            };
+
             std::optional<AstTypeHolder*> m_marked_struct_type;
             std::list<AstStructFieldValuePair*> m_fields;
+
+            LANG_hold_state m_LANG_hold_state;
 
             AstValueStruct(
                 const std::optional<AstTypeHolder*>& marked_struct_type,

@@ -774,6 +774,7 @@ namespace wo
         AstFakeValueUnpack::AstFakeValueUnpack(AstValueBase* unpack_value)
             : AstValueBase(AST_FAKE_VALUE_UNPACK)
             , m_unpack_value(unpack_value)
+            , m_LANG_need_to_be_unpack_count_FOR_RUNTIME_CHECK(std::nullopt)
         {
         }
         AstBase* AstFakeValueUnpack::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
@@ -1215,6 +1216,7 @@ namespace wo
             : AstValueBase(AST_VALUE_STRUCT)
             , m_marked_struct_type(marked_struct_type)
             , m_fields(fields)
+            , m_LANG_hold_state(UNPROCESSED)
         {
         }
         AstBase* AstValueStruct::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const

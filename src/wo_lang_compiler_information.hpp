@@ -93,3 +93,8 @@
 #define WO_ERR_CANNOT_CAST_TYPE_TO_TYPE L"无法将类型 '%ls' 转换为 '%ls'"
 #define WO_ERR_FAILED_TO_DEDUCE_TEMPLATE_TYPE L"泛型参数自动推导失败"
 #define WO_ERR_NOT_ALL_TEMPLATE_ARGUMENT_DETERMINED L"有未能成功推导的泛型参数"
+#define WO_ERR_TARGET_TYPE_IS_NOT_A_FUNCTION L"调用的目标类型 '%ls' 不是一个函数"
+#define WO_ERR_ARGUMENT_TOO_MUCH L"参数过多"
+#define WO_ERR_ARGUMENT_TOO_LESS L"参数过少"
+#define WO_ERR_CANNOT_ACCEPTABLE_TYPE_NAMED L"此处不接受类型 '%ls'，应当是 '%ls'"
+#define WO_ERR_CANNOT_CAST_TYPE_NAMED_FROM_DYNMAIC L"无法在运行时从动态类型确认类型 '%ls'"

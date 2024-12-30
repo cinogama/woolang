@@ -272,7 +272,8 @@ namespace wo
         else
         {
             // from_type it not decided, delay this type instance.
-            immutable_from_type->m_LANG_pending_depend_this.insert(this);
+            if (this != immutable_from_type)
+                immutable_from_type->m_LANG_pending_depend_this.insert(this);
         }
     }
     void lang_TypeInstance::_update_type_instance_depend_this(const DeterminedType& copy_type)
@@ -325,6 +326,10 @@ namespace wo
         case DeterminedType::base_type::STRUCT:
             extern_desc.m_struct = new DeterminedType::Struct(
                 *copy_type.m_external_type_description.m_struct);
+            break;
+        case DeterminedType::base_type::UNION:
+            extern_desc.m_union = new DeterminedType::Union(
+                *copy_type.m_external_type_description.m_union);
             break;
         default:
             // Nothing to do.
@@ -458,6 +463,9 @@ namespace wo
             break;
         case base_type::STRUCT:
             delete m_external_type_description.m_struct;
+            break;
+        case base_type::UNION:
+            delete m_external_type_description.m_union;
             break;
         }
     }
