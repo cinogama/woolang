@@ -333,10 +333,21 @@ namespace wo
                             if (type_symbol->m_is_template)
                             {
                                 lang_Symbol::TemplateArgumentListT template_args;
-                                for (auto* typeholder : node->m_typeform.m_identifier->m_template_arguments.value())
+                                if (node->m_typeform.m_identifier->m_template_arguments.has_value())
                                 {
-                                    wo_assert(typeholder->m_LANG_determined_type);
-                                    template_args.push_back(typeholder->m_LANG_determined_type.value());
+                                    for (auto* typeholder : node->m_typeform.m_identifier->m_template_arguments.value())
+                                    {
+                                        wo_assert(typeholder->m_LANG_determined_type);
+                                        template_args.push_back(typeholder->m_LANG_determined_type.value());
+                                    }
+                                }
+                                if (node->m_typeform.m_identifier->m_LANG_determined_and_appended_template_arguments.has_value())
+                                {
+                                    const auto& determined_tyope_list =
+                                        node->m_typeform.m_identifier->m_LANG_determined_and_appended_template_arguments.value();
+                                    template_args.insert(template_args.end(),
+                                        determined_tyope_list.begin(),
+                                        determined_tyope_list.end());
                                 }
 
                                 auto template_eval_state_instance_may_nullopt = begin_eval_template_ast(
@@ -383,12 +394,17 @@ namespace wo
                                 {
                                     if (!node->m_LANG_trying_advancing_type_judgement && type_symbol->m_symbol_declare_ast)
                                     {
-                                        node->m_LANG_trying_advancing_type_judgement = true;
+                                        auto* define_ast = type_symbol->m_symbol_declare_ast.value();
 
-                                        // Immediately advance the processing of declaration nodes.
-                                        entry_spcify_scope(type_symbol->m_belongs_to_scope);
-                                        WO_CONTINUE_PROCESS(type_symbol->m_symbol_declare_ast.value());
-                                        return HOLD;
+                                        if (define_ast->finished_state == UNPROCESSED)
+                                        {
+                                            node->m_LANG_trying_advancing_type_judgement = true;
+
+                                            // Immediately advance the processing of declaration nodes.
+                                            entry_spcify_scope(type_symbol->m_belongs_to_scope);
+                                            WO_CONTINUE_PROCESS(define_ast);
+                                            return HOLD;
+                                        }
                                     }
 
                                     lex.lang_error(lexer::errorlevel::error, node,
@@ -539,11 +555,13 @@ namespace wo
                             //  derived and filled completely.
                             lang_Symbol::TemplateArgumentListT template_args;
                             if (node->m_identifier->m_template_arguments.has_value())
+                            {
                                 for (auto* typeholder : node->m_identifier->m_template_arguments.value())
                                 {
                                     wo_assert(typeholder->m_LANG_determined_type);
                                     template_args.push_back(typeholder->m_LANG_determined_type.value());
                                 }
+                            }
                             if (node->m_identifier->m_LANG_determined_and_appended_template_arguments.has_value())
                             {
                                 const auto& determined_tyope_list =
@@ -618,15 +636,20 @@ namespace wo
                 node->m_LANG_determined_type = determined_value_instance->m_determined_type.value();
             else
             {
-                if (!node->m_LANG_trying_advancing_type_judgement && determined_value_instance->m_symbol->m_symbol_declare_ast)
+                if (!node->m_LANG_trying_advancing_type_judgement 
+                    && determined_value_instance->m_symbol->m_symbol_declare_ast.has_value())
                 {
-                    node->m_LANG_trying_advancing_type_judgement = true;
+                    auto* define_ast = determined_value_instance->m_symbol->m_symbol_declare_ast.value();
+                    if (define_ast->finished_state == UNPROCESSED)
+                    {
+                        node->m_LANG_trying_advancing_type_judgement = true;
 
-                    // Type not determined, we need to determine it?
-                    // NOTE: Immediately advance the processing of declaration nodes.
-                    entry_spcify_scope(determined_value_instance->m_symbol->m_belongs_to_scope);
-                    WO_CONTINUE_PROCESS(determined_value_instance->m_symbol->m_symbol_declare_ast.value());
-                    return HOLD;
+                        // Type not determined, we need to determine it?
+                        // NOTE: Immediately advance the processing of declaration nodes.
+                        entry_spcify_scope(determined_value_instance->m_symbol->m_belongs_to_scope);
+                        WO_CONTINUE_PROCESS(define_ast);
+                        return HOLD;
+                    }
                 }
 
                 // Type determined failed in AstVariableDefines, treat as failed.
@@ -2345,6 +2368,9 @@ namespace wo
                         {
                             // Invoking function is a not complete template, defer type checking and do it later.
                             node->m_LANG_target_function_need_deduct_template_arguments = true;
+
+                            if (function_variable->m_identifier->m_template_arguments.has_value())
+                                WO_CONTINUE_PROCESS_LIST(function_variable->m_identifier->m_template_arguments.value());
                         }
                     }
                     break;
@@ -2366,16 +2392,7 @@ namespace wo
                     // TARGET FUNCTION HAS NO TEMPLATE PARAM TO BE DEDUCT, EVAL IT NOW.
                     WO_CONTINUE_PROCESS(node->m_function);
                 }
-                else
-                {
-                    if (node->m_function->node_type == AstBase::AST_VALUE_VARIABLE)
-                    {
-                        // EVAL IT'S TEMPLATE ARGUMENTS.
-                        AstValueVariable* function_variable = static_cast<AstValueVariable*>(node->m_function);
-                        if (function_variable->m_identifier->m_template_arguments.has_value())
-                            WO_CONTINUE_PROCESS_LIST(function_variable->m_identifier->m_template_arguments.value());
-                    }
-                }
+
                 node->m_LANG_hold_state = AstValueFunctionCall::HOLD_FOR_FUNCTION_EVAL;
                 return HOLD;
             }
@@ -2505,38 +2522,6 @@ namespace wo
                     auto it_argument = node->m_arguments.begin();
                     auto it_argument_end = node->m_arguments.end();
 
-                    for (; it_target_param != it_target_param_end
-                        && it_argument != it_argument_end;
-                        ++it_target_param, ++it_argument)
-                    {
-                        AstTypeHolder* param_type_holder = *it_target_param;
-                        AstValueBase* argument_value = *it_argument;
-
-                        if (!argument_value->m_LANG_determined_type.has_value())
-                            // tobe determined, skip;
-                            continue;
-
-                        lang_TypeInstance* argument_type_instance =
-                            argument_value->m_LANG_determined_type.value();
-
-                        template_type_deduction_extraction_with_complete_type(
-                            lex,
-                            param_type_holder,
-                            argument_type_instance,
-                            pending_template_params,
-                            &deduction_results);
-                    }
-
-                    if (entry_function_located_scope)
-                        end_last_scope();
-
-                    // NOTE: Some template arguments may not be deduced, it's okay.
-                    //   for example:
-                    //
-                    //  func map<T, R>(a: array<T>, f: (T)=> R)
-                    //
-                    //   in this case, R will not able to be determined in first step.
-
                     entry_spcify_scope(target_function_scope);
                     begin_new_scope();
 
@@ -2545,33 +2530,49 @@ namespace wo
 
                     node->m_LANG_branch_argument_deduction_context = branch_a_context;
 
-                    branch_a_context->m_apply_template_argument_scope = get_current_scope();
-                    branch_a_context->m_deduction_results = std::move(deduction_results);
-                    branch_a_context->m_undetermined_template_params = std::move(pending_template_params);
-
                     end_last_scope();
                     end_last_scope();
-
-                    it_target_param = target_param_holders.begin();
-                    it_argument = node->m_arguments.begin();
 
                     for (; it_target_param != it_target_param_end
                         && it_argument != it_argument_end;
                         ++it_target_param, ++it_argument)
                     {
+                        AstTypeHolder* param_type_holder = *it_target_param;
                         AstValueBase* argument_value = *it_argument;
 
-                        if (argument_value->m_LANG_determined_type.has_value())
-                            // has been determined, skip;
-                            continue;
+                        if (!argument_value->m_LANG_determined_type.has_value())
+                        {
+                            AstTypeHolder* param_type_holder =
+                                static_cast<AstTypeHolder*>((*it_target_param)->clone());
 
-                        AstTypeHolder* param_type_holder =
-                            static_cast<AstTypeHolder*>((*it_target_param)->clone());
+                            branch_a_context->m_arguments_tobe_deduct.push_back(
+                                AstValueFunctionCall_FakeAstArgumentDeductionContextA::ArgumentMatch{
+                                    argument_value, param_type_holder });
+                        }
+                        else
+                        {
+                            lang_TypeInstance* argument_type_instance =
+                                argument_value->m_LANG_determined_type.value();
 
-                        branch_a_context->m_arguments_tobe_deduct.push_back(
-                            AstValueFunctionCall_FakeAstArgumentDeductionContextA::ArgumentMatch{
-                                argument_value, param_type_holder });
+                            // NOTE: Some template arguments may not be deduced, it's okay.
+                            //   for example:
+                            //
+                            //  func map<T, R>(a: array<T>, f: (T)=> R)
+                            //
+                            //   in this case, R will not able to be determined in first step.
+                            template_type_deduction_extraction_with_complete_type(
+                                lex,
+                                param_type_holder,
+                                argument_type_instance,
+                                pending_template_params,
+                                &deduction_results);
+                        }
                     }
+
+                    branch_a_context->m_deduction_results = std::move(deduction_results);
+                    branch_a_context->m_undetermined_template_params = std::move(pending_template_params);
+                    if (entry_function_located_scope)
+                        end_last_scope();
 
                     WO_CONTINUE_PROCESS(branch_a_context);
                     node->m_LANG_hold_state = AstValueFunctionCall::HOLD_BRANCH_A_TEMPLATE_ARGUMENT_DEDUCTION;
@@ -2689,8 +2690,8 @@ namespace wo
                     auto& template_instance_prefab = symbol->m_template_value_instances;
 
                     std::unordered_map<wo_pstring_t, lang_TypeInstance*> deduction_results;
-                    auto it_template_param = symbol->m_template_value_instances->m_template_params.begin();
-                    auto it_template_param_end = symbol->m_template_value_instances->m_template_params.end();
+                    auto it_template_param = template_instance_prefab->m_template_params.begin();
+                    auto it_template_param_end = template_instance_prefab->m_template_params.end();
                     if (function_variable->m_identifier->m_template_arguments.has_value())
                     {
                         for (auto& _useless : function_variable->m_identifier->m_template_arguments.value())
@@ -3031,16 +3032,14 @@ namespace wo
                         {
                             // This struct need template deduction.
                             need_template_deduct = true;
+
+                            if (struct_type_identifier->m_template_arguments.has_value())
+                                WO_CONTINUE_PROCESS_LIST(struct_type_identifier->m_template_arguments.value());
                         }
                     }
                 }
 
-                if (!need_template_deduct)
-                {
-                    WO_CONTINUE_PROCESS(struct_type);
-                    node->m_LANG_hold_state = AstValueStruct::HOLD_FOR_STRUCT_TYPE_EVAL;
-                }
-                else
+                if (need_template_deduct)
                 {
                     // Walk through all members, but skip template member.
                     std::list<AstValueBase*> member_init_values;
@@ -3086,12 +3085,17 @@ namespace wo
                     WO_CONTINUE_PROCESS_LIST(member_init_values);
                     node->m_LANG_hold_state = AstValueStruct::HOLD_FOR_EVAL_MEMBER_VALUE_BESIDE_TEMPLATE;
                 }
+                else
+                {
+                    WO_CONTINUE_PROCESS(struct_type);
+                    node->m_LANG_hold_state = AstValueStruct::HOLD_FOR_ANYLIZE_ARGUMENTS_TEMAPLTE_INSTANCE;
+                }
             }
             else
             {
                 // Make raw struct.
                 WO_CONTINUE_PROCESS_LIST(node->m_fields);
-                node->m_LANG_hold_state = AstValueStruct::HOLD_FOR_FIELD_EVAL;
+                node->m_LANG_hold_state = AstValueStruct::HOLD_TO_FIELD_EVAL;
             }
             return HOLD;
         }
@@ -3114,15 +3118,347 @@ namespace wo
                 lang_Symbol* symbol = struct_type_identifier->m_LANG_determined_symbol.value();
                 auto& struct_type_def_prefab = symbol->m_template_type_instances;
 
-                AstTypeHolder* struct_def_type_holder = struct_type_def_prefab->m_origin_value_ast;
-                std::unordered_map<wo_pstring_t, lang_TypeInstance*> struct_template_deduction_results;
+                auto it_template_param = symbol->m_template_type_instances->m_template_params.begin();
+                auto it_template_param_end = symbol->m_template_type_instances->m_template_params.end();
+                if (struct_type_identifier->m_template_arguments.has_value())
+                {
+                    for (auto& exist_template_argument : struct_type_identifier->m_template_arguments.value())
+                    {
+                        deduction_results.insert(
+                            std::make_pair(
+                                *it_template_param,
+                                exist_template_argument->m_LANG_determined_type.value()));
+                        ++it_template_param;
+                    }
+                }
 
-                TODO;;;
+                for (; it_template_param != it_template_param_end; ++it_template_param)
+                    pending_template_params.push_back(*it_template_param);
+
+                AstTypeHolder* struct_def_type_holder = struct_type_def_prefab->m_origin_value_ast;
+                std::unordered_map<wo_pstring_t, AstTypeHolder*> struct_template_deduction_target;
+
+                for (auto& field_type : struct_def_type_holder->m_typeform.m_structure.m_fields)
+                {
+                    struct_template_deduction_target.insert(
+                        std::make_pair(field_type->m_name, field_type->m_type));
+                }
+
+                entry_spcify_scope(symbol->m_belongs_to_scope);
+
+                // Begin new scope for template deduction.
+                begin_new_scope();
+
+                AstValueFunctionCall_FakeAstArgumentDeductionContextA* branch_a_context =
+                    new AstValueFunctionCall_FakeAstArgumentDeductionContextA(get_current_scope());
+                node->m_LANG_branch_argument_deduction_context = branch_a_context;
+
+                end_last_scope();
+
+                for (auto& field_instance : node->m_fields)
+                {
+                    auto fnd = struct_template_deduction_target.find(field_instance->m_name);
+                    if (fnd == struct_template_deduction_target.end())
+                    {
+                        // Bad field, but we don't care.
+                        continue;
+                    }
+
+                    if (!field_instance->m_value->m_LANG_determined_type.has_value())
+                    {
+                        // Need to be determined.
+                        AstTypeHolder* param_type_holder = static_cast<AstTypeHolder*>(
+                            fnd->second->clone());
+
+                        branch_a_context->m_arguments_tobe_deduct.push_back(
+                            AstValueFunctionCall_FakeAstArgumentDeductionContextA::ArgumentMatch{
+                                field_instance->m_value, param_type_holder });
+                    }
+                    else
+                    {
+                        lang_TypeInstance* field_instance_type = field_instance->m_value->m_LANG_determined_type.value();
+
+                        template_type_deduction_extraction_with_complete_type(
+                            lex,
+                            fnd->second,
+                            field_instance_type,
+                            pending_template_params,
+                            &deduction_results);
+                    }
+                }
+
+                branch_a_context->m_deduction_results = std::move(deduction_results);
+                branch_a_context->m_undetermined_template_params = std::move(pending_template_params);
+                end_last_scope();
+
+                WO_CONTINUE_PROCESS(branch_a_context);
+                node->m_LANG_hold_state = AstValueStruct::HOLD_FOR_TEMPLATE_DEDUCTION;
+
+                return HOLD;
+            }
+            case AstValueStruct::HOLD_FOR_TEMPLATE_DEDUCTION:
+            {
+                AstValueFunctionCall_FakeAstArgumentDeductionContextA* branch_a_context =
+                    std::get<AstValueFunctionCall_FakeAstArgumentDeductionContextA*>(
+                        node->m_LANG_branch_argument_deduction_context.value());
+
+                // All template has been determined.
+                // Now we can do type checking.
+                AstTypeHolder* target_struct_typeholder = node->m_marked_struct_type.value();
+
+                lang_Symbol* symbol =
+                    target_struct_typeholder->m_typeform.m_identifier->m_LANG_determined_symbol.value();
+
+                wo_assert(symbol->m_is_template
+                    && symbol->m_symbol_kind == lang_Symbol::kind::TYPE);
+
+                auto& template_instance_prefab = symbol->m_template_type_instances;
+
+                std::unordered_map<wo_pstring_t, lang_TypeInstance*> deduction_results;
+                auto it_template_param = symbol->m_template_type_instances->m_template_params.begin();
+                auto it_template_param_end = symbol->m_template_type_instances->m_template_params.end();
+                if (target_struct_typeholder->m_typeform.m_identifier->m_template_arguments.has_value())
+                {
+                    for (auto& _useless : target_struct_typeholder->m_typeform.m_identifier->m_template_arguments.value())
+                    {
+                        (void)_useless;
+                        ++it_template_param;
+                    }
+                }
+                std::list<lang_TypeInstance*> template_argument_list;
+                for (; it_template_param != it_template_param_end; ++it_template_param)
+                {
+                    wo_pstring_t param_name = *it_template_param;
+                    auto fnd = branch_a_context->m_deduction_results.find(param_name);
+                    if (fnd == branch_a_context->m_deduction_results.end())
+                    {
+                        lex.lang_error(lexer::errorlevel::error, target_struct_typeholder,
+                            WO_ERR_NOT_ALL_TEMPLATE_ARGUMENT_DETERMINED);
+                        return FAILED;
+                    }
+                    template_argument_list.push_back(fnd->second);
+                }
+
+                target_struct_typeholder->m_typeform.m_identifier->m_LANG_determined_and_appended_template_arguments
+                    = template_argument_list;
+
+                WO_CONTINUE_PROCESS(target_struct_typeholder);
+
+                node->m_LANG_hold_state = AstValueStruct::HOLD_TO_FIELD_EVAL;
+                return HOLD;
+            }
+            case AstValueStruct::HOLD_FOR_ANYLIZE_ARGUMENTS_TEMAPLTE_INSTANCE:
+            {
+                AstTypeHolder* struct_type = node->m_marked_struct_type.value();
+
+                // It has been determined in UNPROCESSED state.
+                lang_TypeInstance* struct_type_instance = struct_type->m_LANG_determined_type.value();
+                auto determined_base_type = struct_type_instance->get_determined_type();
+
+                if (determined_base_type.has_value())
+                {
+                    std::list<AstValueFunctionCall_FakeAstArgumentDeductionContextB::ArgumentMatch>
+                        arguments_tobe_deduct;
+
+                    auto* determined_base_type_instance = determined_base_type.value();
+                    if (determined_base_type_instance->m_base_type == lang_TypeInstance::DeterminedType::STRUCT)
+                    {
+                        std::unordered_map<wo_pstring_t, lang_TypeInstance*> deduction_results;
+                        for (auto& field : determined_base_type_instance->m_external_type_description.m_struct->m_member_types)
+                        {
+                            deduction_results.insert(
+                                std::make_pair(field.first, field.second.m_member_type));
+                        }
+
+                        for (auto& field_instance : node->m_fields)
+                        {
+                            switch (field_instance->m_value->node_type)
+                            {
+                            case AstBase::AST_VALUE_FUNCTION:
+                            {
+                                AstValueFunction* field_function = static_cast<AstValueFunction*>(field_instance->m_value);
+                                if (field_function->m_pending_param_type_mark_template.has_value())
+                                {
+                                    auto fnd = deduction_results.find(field_instance->m_name);
+                                    if (fnd == deduction_results.end())
+                                        // Skip it.
+                                        continue;
+
+                                    arguments_tobe_deduct.push_back(
+                                        AstValueFunctionCall_FakeAstArgumentDeductionContextB::ArgumentMatch{
+                                            field_function, fnd->second });
+                                }
+                                break;
+                            }
+                            case AstBase::AST_VALUE_VARIABLE:
+                            {
+                                AstValueVariable* field_variable = static_cast<AstValueVariable*>(field_instance->m_value);
+                                if (find_symbol_in_current_scope(lex, field_variable->m_identifier))
+                                {
+                                    lang_Symbol* field_symbol = field_variable->m_identifier->m_LANG_determined_symbol.value();
+                                    if (field_symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE
+                                        && field_symbol->m_is_template
+                                        && !field_symbol->m_template_value_instances->m_mutable
+                                        && field_symbol->m_template_value_instances->m_origin_value_ast->node_type == AstBase::AST_VALUE_FUNCTION
+                                        && (!field_variable->m_identifier->m_template_arguments.has_value()
+                                            || field_symbol->m_template_value_instances->m_template_params.size()
+                                            != field_variable->m_identifier->m_template_arguments.value().size()))
+                                    {
+                                        auto fnd = deduction_results.find(field_instance->m_name);
+                                        if (fnd == deduction_results.end())
+                                            // Skip it.
+                                            continue;
+
+                                        arguments_tobe_deduct.push_back(
+                                            AstValueFunctionCall_FakeAstArgumentDeductionContextB::ArgumentMatch{
+                                                field_variable, fnd->second });
+                                    }
+                                }
+                                break;
+                            }
+                            }
+                        }
+                    }
+
+                    if (!arguments_tobe_deduct.empty())
+                    {
+                        AstValueFunctionCall_FakeAstArgumentDeductionContextB* branch_b_context =
+                            new AstValueFunctionCall_FakeAstArgumentDeductionContextB();
+
+                        branch_b_context->m_arguments_tobe_deduct = std::move(arguments_tobe_deduct);
+
+                        node->m_LANG_branch_argument_deduction_context = branch_b_context;
+
+                        WO_CONTINUE_PROCESS(branch_b_context);
+                    }
+                }
+                node->m_LANG_hold_state = AstValueStruct::HOLD_TO_FIELD_EVAL;
+                return HOLD;
+            }
+            case AstValueStruct::HOLD_TO_FIELD_EVAL:
+            {
+                if (node->m_marked_struct_type.has_value())
+                {
+                    AstTypeHolder* struct_type_holder = node->m_marked_struct_type.value();
+                    lang_TypeInstance* struct_type_instance = struct_type_holder->m_LANG_determined_type.value();
+                    auto determined_base_type = struct_type_instance->get_determined_type();
+
+                    if (!determined_base_type.has_value())
+                    {
+                        lex.lang_error(lexer::errorlevel::error, node,
+                            WO_ERR_TYPE_NAMED_DETERMINED_FAILED,
+                            get_type_name_w(struct_type_instance));
+
+                        return FAILED;
+                    }
+
+                    if (determined_base_type.value()->m_base_type != lang_TypeInstance::DeterminedType::STRUCT)
+                    {
+                        lex.lang_error(lexer::errorlevel::error, node,
+                            WO_ERR_TYPE_NAMED_IS_NOT_STRUCT,
+                            get_type_name_w(struct_type_instance));
+
+                        return FAILED;
+                    }
+                }
+
+                WO_CONTINUE_PROCESS_LIST(node->m_fields);
+                node->m_LANG_hold_state = AstValueStruct::HOLD_FOR_FIELD_EVAL;
+
+                return HOLD;
+            }
+            case AstValueStruct::HOLD_FOR_FIELD_EVAL:
+            {
+                lang_TypeInstance* struct_type_instanc;
+                if (node->m_marked_struct_type.has_value())
+                    struct_type_instanc = node->m_marked_struct_type.value()->m_LANG_determined_type.value();
+                else
+                {
+                    std::list<std::tuple<ast::AstDeclareAttribue::accessc_attrib, wo_pstring_t, lang_TypeInstance*>>
+                        struct_field_info_list;
+
+                    for (auto* field : node->m_fields)
+                    {
+                        struct_field_info_list.push_back(
+                            std::make_tuple(
+                                ast::AstDeclareAttribue::accessc_attrib::PUBLIC,
+                                field->m_name,
+                                field->m_value->m_LANG_determined_type.value()));
+                    }
+
+                    struct_type_instanc = m_origin_types.create_struct_type(struct_field_info_list);
+                }
+
+                auto struct_determined_base_type = struct_type_instanc->get_determined_type();
+                if (!struct_determined_base_type.has_value())
+                {
+                    lex.lang_error(lexer::errorlevel::error, node,
+                        WO_ERR_TYPE_NAMED_DETERMINED_FAILED,
+                        get_type_name_w(struct_type_instanc));
+
+                    return FAILED;
+                }
+
+                auto* struct_determined_base_type_instance = struct_determined_base_type.value();
+                wo_assert(struct_determined_base_type_instance->m_base_type 
+                    == lang_TypeInstance::DeterminedType::STRUCT);
+
+                auto* struct_type_info = 
+                    struct_determined_base_type_instance->m_external_type_description.m_struct;
+
+                if (node->m_fields.size() < struct_type_info->m_member_types.size())
+                {
+                    lex.lang_error(lexer::errorlevel::error, node,
+                        WO_ERR_NOT_ALL_FIELD_INITIALIZED);
+
+                    return FAILED;
+                }
+                else if (node->m_fields.size() > struct_type_info->m_member_types.size())
+                {
+                    lex.lang_error(lexer::errorlevel::error, node,
+                        WO_ERR_TOO_MUCH_FIELD_INITIALIZED);
+
+                    return FAILED;
+                }
+
+                bool failed = false;
+
+                for (auto* field : node->m_fields)
+                {
+                    auto fnd = struct_type_info->m_member_types.find(field->m_name);
+                    if (fnd == struct_type_info->m_member_types.end())
+                    {
+                        lex.lang_error(lexer::errorlevel::error, field,
+                            WO_ERR_NO_MEMBER_NAMED_IN_STRUCT,
+                            get_type_name_w(struct_type_instanc),
+                            field->m_name->c_str());
+
+                        failed = true;
+                    }
+
+                    lang_TypeInstance* accpet_field_type = fnd->second.m_member_type;
+                    if (!is_type_accepted(lex, field, accpet_field_type, field->m_value->m_LANG_determined_type.value()))
+                    {
+                        lex.lang_error(lexer::errorlevel::error, field->m_value,
+                            WO_ERR_CANNOT_ACCEPTABLE_TYPE_NAMED,
+                            get_type_name_w(field->m_value->m_LANG_determined_type.value()),
+                            get_type_name_w(accpet_field_type));
+
+                        failed = true;
+                    }
+                }
+
+                if (failed)
+                    return FAILED;
+
+                node->m_LANG_determined_type = struct_type_instanc;
+                break;
             }
             default:
                 wo_error("Unknown hold state.");
             }
         }
+        return WO_EXCEPT_ERROR(state, OKAY);
     }
 
 #undef WO_PASS_PROCESSER

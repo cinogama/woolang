@@ -615,8 +615,9 @@ namespace wo
             {
                 UNPROCESSED,
                 HOLD_FOR_EVAL_MEMBER_VALUE_BESIDE_TEMPLATE,
-                HOLD_TO_TEMPLATE_DEDUCTION,
-                HOLD_FOR_STRUCT_TYPE_EVAL,
+                HOLD_FOR_TEMPLATE_DEDUCTION,
+                HOLD_FOR_ANYLIZE_ARGUMENTS_TEMAPLTE_INSTANCE,
+                HOLD_TO_FIELD_EVAL,
                 HOLD_FOR_FIELD_EVAL,
             };
 
@@ -624,6 +625,11 @@ namespace wo
             std::list<AstStructFieldValuePair*> m_fields;
 
             LANG_hold_state m_LANG_hold_state;
+            std::optional<
+                std::variant<
+                AstValueFunctionCall_FakeAstArgumentDeductionContextA*,
+                AstValueFunctionCall_FakeAstArgumentDeductionContextB*>>
+                m_LANG_branch_argument_deduction_context;
 
             AstValueStruct(
                 const std::optional<AstTypeHolder*>& marked_struct_type,

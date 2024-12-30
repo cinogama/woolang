@@ -746,10 +746,18 @@ namespace wo
             AstList* members = static_cast<AstList*>(WO_NEED_AST_TYPE(2, AstBase::AST_LIST));
 
             std::list<AstStructFieldDefine*> fields;
+            std::unordered_set<wo_pstring_t> exist_field_name;
             for (auto& field : members->m_list)
             {
                 wo_assert(field->node_type == AstBase::AST_STRUCT_FIELD_DEFINE);
-                fields.push_back(static_cast<AstStructFieldDefine*>(field));
+                AstStructFieldDefine* field_define = static_cast<AstStructFieldDefine*>(field);
+
+                fields.push_back(field_define);
+
+                if (exist_field_name.insert(field_define->m_name).second == false)
+                    return token{ lex.lang_error(lexer::errorlevel::error, field,
+                        WO_ERR_REPEATED_FIELD_NAMED, 
+                        field_define->m_name->c_str()) };
             }
 
             return new AstTypeHolder(AstTypeHolder::StructureType{ fields });
@@ -1409,10 +1417,18 @@ namespace wo
                 type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(0, AstBase::AST_TYPE_HOLDER));
 
             std::list<AstStructFieldValuePair*> fields;
+            std::unordered_set<wo_pstring_t> exist_field_name;
             for (auto& field : members->m_list)
             {
                 wo_assert(field->node_type == AstBase::AST_STRUCT_FIELD_VALUE_PAIR);
-                fields.push_back(static_cast<AstStructFieldValuePair*>(field));
+
+                AstStructFieldValuePair* field_pair = static_cast<AstStructFieldValuePair*>(field);
+                fields.push_back(field_pair);
+
+                if (exist_field_name.find(field_pair->m_name) != exist_field_name.end())
+                    return token{ lex.lang_error(lexer::errorlevel::error, field, 
+                        WO_ERR_REPEATED_FIELD_NAMED,
+                        field_pair->m_name->c_str()) };
             }
 
             return new AstValueStruct(type, fields);

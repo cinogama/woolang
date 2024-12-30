@@ -1217,6 +1217,7 @@ namespace wo
             , m_marked_struct_type(marked_struct_type)
             , m_fields(fields)
             , m_LANG_hold_state(UNPROCESSED)
+            , m_LANG_branch_argument_deduction_context(std::nullopt)
         {
         }
         AstBase* AstValueStruct::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const

@@ -98,3 +98,8 @@
 #define WO_ERR_ARGUMENT_TOO_LESS L"参数过少"
 #define WO_ERR_CANNOT_ACCEPTABLE_TYPE_NAMED L"此处不接受类型 '%ls'，应当是 '%ls'"
 #define WO_ERR_CANNOT_CAST_TYPE_NAMED_FROM_DYNMAIC L"无法在运行时从动态类型确认类型 '%ls'"
+#define WO_ERR_TYPE_NAMED_IS_NOT_STRUCT L"类型 '%ls' 不是结构体类型"
+#define WO_ERR_NO_MEMBER_NAMED_IN_STRUCT L"结构体类型 '%ls' 没有名为 '%ls' 的成员"
+#define WO_ERR_REPEATED_FIELD_NAMED L"重复的字段名 '%ls'"
+#define WO_ERR_NOT_ALL_FIELD_INITIALIZED L"存在未初始化的结构体字段"
+#define WO_ERR_TOO_MUCH_FIELD_INITIALIZED L"结构体初始项的数量太多"
