@@ -3023,6 +3023,8 @@ namespace wo
                         lang_Symbol* symbol = finded_symbol.value();
                         if (symbol->m_symbol_kind == lang_Symbol::kind::TYPE
                             && symbol->m_is_template
+                            && symbol->m_template_type_instances->m_origin_value_ast->node_type == AstBase::AST_TYPE_HOLDER
+                            && static_cast<AstTypeHolder*>(symbol->m_template_type_instances->m_origin_value_ast)->m_formal == AstTypeHolder::STRUCTURE
                             && (!struct_type_identifier->m_template_arguments.has_value()
                                 || struct_type_identifier->m_template_arguments.value().size()
                                 != symbol->m_template_type_instances->m_template_params.size()))
@@ -3099,7 +3101,23 @@ namespace wo
             {
             case AstValueStruct::HOLD_FOR_EVAL_MEMBER_VALUE_BESIDE_TEMPLATE:
             {
-                TODO;
+                // First deduct
+                std::unordered_map<wo_pstring_t, lang_TypeInstance*> deduction_results;
+
+                std::list<wo_pstring_t> pending_template_params;
+                std::list<AstTypeHolder*> target_param_holders;
+
+                wo_assert(node->m_marked_struct_type.value()->m_formal == AstTypeHolder::IDENTIFIER);
+                AstTypeHolder* struct_type = node->m_marked_struct_type.value();
+                AstIdentifier* struct_type_identifier = struct_type->m_typeform.m_identifier;
+
+                lang_Symbol* symbol = struct_type_identifier->m_LANG_determined_symbol.value();
+                auto& struct_type_def_prefab = symbol->m_template_type_instances;
+
+                AstTypeHolder* struct_def_type_holder = struct_type_def_prefab->m_origin_value_ast;
+                std::unordered_map<wo_pstring_t, lang_TypeInstance*> struct_template_deduction_results;
+
+                TODO;;;
             }
             default:
                 wo_error("Unknown hold state.");
