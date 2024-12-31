@@ -234,18 +234,8 @@ namespace wo
         };
         struct AstValueTypeCast : public AstValueBase
         {
-            enum LANG_hold_state
-            {
-                UNPROCESSED,
-                HOLD_FOR_TEMPLATE_ARGUMENT_DEDUCTION,
-                HOLD_FOR_INSTANCE_TEMPLATE_FUNCTION,
-                HOLD_FOR_NORMAL_EVAL,
-            };
-
             AstTypeHolder* m_cast_type;
             AstValueBase* m_cast_value;
-
-            LANG_hold_state m_LANG_hold_state;
 
             AstValueTypeCast(AstTypeHolder* cast_type, AstValueBase* cast_value);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
@@ -617,7 +607,7 @@ namespace wo
                 HOLD_FOR_EVAL_MEMBER_VALUE_BESIDE_TEMPLATE,
                 HOLD_FOR_TEMPLATE_DEDUCTION,
                 HOLD_FOR_ANYLIZE_ARGUMENTS_TEMAPLTE_INSTANCE,
-                HOLD_TO_FIELD_EVAL,
+                HOLD_TO_STRUCT_TYPE_CHECK,
                 HOLD_FOR_FIELD_EVAL,
             };
 

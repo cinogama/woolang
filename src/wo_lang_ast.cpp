@@ -534,7 +534,6 @@ namespace wo
             : AstValueBase(AST_VALUE_TYPE_CAST)
             , m_cast_type(cast_type)
             , m_cast_value(cast_value)
-            , m_LANG_hold_state(UNPROCESSED)
         {
 
         }

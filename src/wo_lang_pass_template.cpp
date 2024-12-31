@@ -3,45 +3,6 @@
 namespace wo
 {
 #ifndef WO_DISABLE_COMPILER
-    
-    //ast::AstValueFunction* LangContext::begin_template_deduct_function(lang_Symbol* templating_symbol)
-    //{
-    //    wo_assert(templating_symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE
-    //        && templating_symbol->m_is_template
-    //        && templating_symbol->m_template_value_instances->m_origin_value_ast->node_type
-    //        == ast::AstBase::AST_VALUE_FUNCTION);
-
-    //    ast::AstValueFunction* function = static_cast<ast::AstValueFunction*>(
-    //        templating_symbol->m_template_value_instances->m_origin_value_ast->clone());
-
-    //    function->m_LANG_in_template_reification_context = true;
-
-    //    return function;
-    //}
-    //std::optional<lang_TemplateAstEvalStateValue*> LangContext::begin_eval_template_ast_with_instance(
-    //    lexer& lex,
-    //    ast::AstBase* node,
-    //    lang_Symbol* templating_symbol,
-    //    ast::AstValueFunction* instance,
-    //    const lang_Symbol::TemplateArgumentListT& template_arguments,
-    //    PassProcessStackT& out_stack)
-    //{
-    //    wo_assert(templating_symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE);
-    //    wo_assert(templating_symbol->m_is_template);
-
-    //    auto& template_variable_prefab = templating_symbol->m_template_value_instances;
-    //    if (template_arguments.size() != template_variable_prefab->m_template_params.size())
-    //    {
-    //        lex.lang_error(lexer::errorlevel::error, node,
-    //            WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
-    //            template_variable_prefab->m_template_params.size());
-
-    //        return std::nullopt;
-    //    }
-
-    //    instance->m_LANG_value_instance_to_update =
-    //        template_eval_state_instance->m_value_instance.get();
-    //}
 
     std::optional<lang_TemplateAstEvalStateBase*> LangContext::begin_eval_template_ast(
         lexer& lex,
@@ -619,7 +580,7 @@ namespace wo
         default:
             wo_error("unknown typeholder formal.");
         }
-        
+
         return false;
     }
 
@@ -632,7 +593,7 @@ namespace wo
         std::unordered_map<wo_pstring_t, lang_TypeInstance*>* out_determined_template_arg_pair
     )
     {
-        if (function_define->m_marked_return_type.has_value() 
+        if (function_define->m_marked_return_type.has_value()
             && return_type.has_value())
         {
             template_type_deduction_extraction_with_complete_type(
@@ -661,6 +622,75 @@ namespace wo
                 pending_template_params,
                 out_determined_template_arg_pair);
         }
+    }
+
+    bool LangContext::check_need_template_deduct_function(lexer& lex, ast::AstValueBase* target, PassProcessStackT& out_stack)
+    {
+        switch (target->node_type)
+        {
+        case ast::AstBase::AST_VALUE_FUNCTION:
+        {
+            ast::AstValueFunction* function = static_cast<ast::AstValueFunction*>(target);
+            if (function->m_pending_param_type_mark_template.has_value())
+                return true;
+
+            break;
+        }
+        case ast::AstBase::AST_VALUE_VARIABLE:
+        {
+            ast::AstValueVariable* function_variable = static_cast<ast::AstValueVariable*>(target);
+            ast::AstIdentifier* function_variable_identifier = function_variable->m_identifier;
+
+            if (find_symbol_in_current_scope(lex, function_variable_identifier))
+            {
+                lang_Symbol* function_symbol = function_variable_identifier->m_LANG_determined_symbol.value();
+                if (function_symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE
+                    && function_symbol->m_is_template
+                    && !function_symbol->m_template_value_instances->m_mutable
+                    && function_symbol->m_template_value_instances->m_origin_value_ast->node_type == ast::AstBase::AST_VALUE_FUNCTION
+                    && (!function_variable_identifier->m_template_arguments.has_value()
+                        || function_symbol->m_template_value_instances->m_template_params.size()
+                        != function_variable_identifier->m_template_arguments.value().size()))
+                {
+                    if (function_variable->m_identifier->m_template_arguments.has_value())
+                        WO_CONTINUE_PROCESS_LIST(function_variable->m_identifier->m_template_arguments.value());
+
+                    return true;
+                }
+            }
+            break;
+        }
+        default:
+            break;
+        }
+        return false;
+    }
+    bool LangContext::check_need_template_deduct_struct_type(lexer& lex, ast::AstTypeHolder* target, PassProcessStackT& out_stack)
+    {
+        if (target->m_formal == ast::AstTypeHolder::IDENTIFIER)
+        {
+            // Get it's symbol.
+            ast::AstIdentifier* struct_type_identifier = target->m_typeform.m_identifier;
+            auto finded_symbol = find_symbol_in_current_scope(lex, struct_type_identifier);
+            if (finded_symbol.has_value())
+            {
+                lang_Symbol* symbol = finded_symbol.value();
+                if (symbol->m_symbol_kind == lang_Symbol::kind::TYPE
+                    && symbol->m_is_template
+                    && symbol->m_template_type_instances->m_origin_value_ast->node_type == ast::AstBase::AST_TYPE_HOLDER
+                    && static_cast<ast::AstTypeHolder*>(symbol->m_template_type_instances->m_origin_value_ast)->m_formal == ast::AstTypeHolder::STRUCTURE
+                    && (!struct_type_identifier->m_template_arguments.has_value()
+                        || struct_type_identifier->m_template_arguments.value().size()
+                        != symbol->m_template_type_instances->m_template_params.size()))
+                {
+                    if (struct_type_identifier->m_template_arguments.has_value())
+                        WO_CONTINUE_PROCESS_LIST(struct_type_identifier->m_template_arguments.value());
+
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
 #endif
