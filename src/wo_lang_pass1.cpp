@@ -636,7 +636,7 @@ namespace wo
                 node->m_LANG_determined_type = determined_value_instance->m_determined_type.value();
             else
             {
-                if (!node->m_LANG_trying_advancing_type_judgement 
+                if (!node->m_LANG_trying_advancing_type_judgement
                     && determined_value_instance->m_symbol->m_symbol_declare_ast.has_value())
                 {
                     auto* define_ast = determined_value_instance->m_symbol->m_symbol_declare_ast.value();
@@ -1632,6 +1632,55 @@ namespace wo
             }
 
             node->m_LANG_determined_type = target_type;
+
+            if (node->m_cast_value->m_evaled_const_value.has_value())
+            {
+                auto& cast_from_const = node->m_cast_value->m_evaled_const_value.value();
+
+                // ATTENTION: If constant value evaled and can pass cast check, 
+                //  I think we can get determined type from the constant value.
+                //  But, I can't prove it's right.
+                auto* cast_from_determined_type = casting_value_type->get_determined_type().value();
+                auto* cast_target_determined_type = target_type->get_determined_type().value();
+
+                if (cast_from_determined_type->m_base_type != cast_target_determined_type->m_base_type)
+                {
+                    bool casted = true;
+                    wo::value casted_value;
+                    switch (cast_target_determined_type->m_base_type)
+                    {
+                    case lang_TypeInstance::DeterminedType::INTEGER:
+                        casted_value.set_integer(wo_cast_int(std::launder(reinterpret_cast<wo_value>(&cast_from_const))));
+                        break;
+                    case lang_TypeInstance::DeterminedType::REAL:
+                        casted_value.set_real(wo_cast_real(std::launder(reinterpret_cast<wo_value>(&cast_from_const))));
+                        break;
+                    case lang_TypeInstance::DeterminedType::HANDLE:
+                        casted_value.set_handle(wo_cast_handle(std::launder(reinterpret_cast<wo_value>(&cast_from_const))));
+                        break;
+                    case lang_TypeInstance::DeterminedType::BOOLEAN:
+                        casted_value.set_bool(
+                            wo_cast_bool(std::launder(reinterpret_cast<wo_value>(&cast_from_const)))
+                            == WO_TRUE
+                            ? true
+                            : false);
+                        break;
+                    case lang_TypeInstance::DeterminedType::STRING:
+                        casted_value.set_string(
+                            wo_cast_string(std::launder(reinterpret_cast<wo_value>(&cast_from_const))));
+                        break;
+                    default:
+                        // Cannot cast to constant.
+                        casted = false;
+                        break;
+                    }
+
+                    if (casted)
+                        node->decide_final_constant_value(casted_value);
+                }
+                else
+                    node->decide_final_constant_value(cast_from_const);
+            }
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
@@ -3052,10 +3101,10 @@ namespace wo
                 }
 
                 auto* struct_determined_base_type_instance = struct_determined_base_type.value();
-                wo_assert(struct_determined_base_type_instance->m_base_type 
+                wo_assert(struct_determined_base_type_instance->m_base_type
                     == lang_TypeInstance::DeterminedType::STRUCT);
 
-                auto* struct_type_info = 
+                auto* struct_type_info =
                     struct_determined_base_type_instance->m_external_type_description.m_struct;
 
                 if (node->m_fields.size() < struct_type_info->m_member_types.size())
