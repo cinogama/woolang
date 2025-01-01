@@ -270,8 +270,8 @@ namespace wo
                 [[fallthrough]];
             case ast::AstIdentifier::FROM_GLOBAL:
                 // Try determin symbol:
-                if (!find_symbol_in_current_scope(lex, identifier))
-                    // Not found!
+                if (!find_symbol_in_current_scope(lex, identifier, std::nullopt))
+                    // Not found or ambiguous.
                     return;
 
                 auto* determined_type_symbol = identifier->m_LANG_determined_symbol.value();
@@ -509,10 +509,16 @@ namespace wo
                 /* FALL THROUGH */
                 [[fallthrough]];
             case ast::AstIdentifier::FROM_TYPE:
-                if (identifier->m_from_type.has_value()
-                    && check_type_may_dependence_template_parameters(
-                        identifier->m_from_type.value(), pending_template_params))
-                    return true;
+                if (identifier->m_from_type.has_value())
+                {
+                    ast::AstTypeHolder** from_type =
+                        std::get_if<ast::AstTypeHolder*>(&identifier->m_from_type.value());
+
+                    if (from_type != nullptr
+                        && check_type_may_dependence_template_parameters(
+                            *from_type, pending_template_params))
+                        return true;
+                }
                 /* FALL THROUGH */
                 [[fallthrough]];
             case ast::AstIdentifier::FROM_GLOBAL:
@@ -641,7 +647,7 @@ namespace wo
             ast::AstValueVariable* function_variable = static_cast<ast::AstValueVariable*>(target);
             ast::AstIdentifier* function_variable_identifier = function_variable->m_identifier;
 
-            if (find_symbol_in_current_scope(lex, function_variable_identifier))
+            if (find_symbol_in_current_scope(lex, function_variable_identifier, std::nullopt))
             {
                 lang_Symbol* function_symbol = function_variable_identifier->m_LANG_determined_symbol.value();
                 if (function_symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE
@@ -671,7 +677,7 @@ namespace wo
         {
             // Get it's symbol.
             ast::AstIdentifier* struct_type_identifier = target->m_typeform.m_identifier;
-            auto finded_symbol = find_symbol_in_current_scope(lex, struct_type_identifier);
+            auto finded_symbol = find_symbol_in_current_scope(lex, struct_type_identifier, std::nullopt);
             if (finded_symbol.has_value())
             {
                 lang_Symbol* symbol = finded_symbol.value();

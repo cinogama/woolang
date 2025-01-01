@@ -1,5 +1,5 @@
 #include "wo_lang_ast_builder.hpp"
-
+#include "wo_lang_grammar_loader.hpp"
 #include <tuple>
 
 namespace wo
@@ -15,8 +15,65 @@ namespace wo
         }
         auto pass_import_files::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
-            wo_error("not implemented");
-            return token{ lex_type::l_error };
+            wo_test(input.size() == 3);
+            std::wstring path;
+            std::wstring filename;
+
+            AstList* import_scopes = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
+
+            bool first = true;
+            for (auto* scope : import_scopes->m_list)
+            {
+                AstToken* scope_token = static_cast<AstToken*>(scope);
+
+                filename = scope_token->m_token.identifier;
+
+                if (first)
+                    first = false;
+                else
+                    path += L"/";
+
+                path += filename;
+            }
+
+            // path += L".wo";
+            std::wstring src_full_path;
+            if (!wo::check_virtual_file_path(&src_full_path, path + L".wo", std::optional(&lex)))
+            {
+                // import a::b; cannot open a/b.wo, trying a/b/b.wo
+                if (!wo::check_virtual_file_path(&src_full_path, path + L"/" + filename + L".wo", std::optional(&lex)))
+                    return token{ lex.parser_error(lexer::errorlevel::error, WO_ERR_CANNOT_OPEN_FILE, path.c_str()) };
+            }
+
+            if (!lex.has_been_imported(wstring_pool::get_pstr(src_full_path)))
+            {
+                auto srcfile_stream = wo::open_virtual_file_stream(src_full_path);
+                if (srcfile_stream)
+                {
+                    lexer new_lex(std::move(srcfile_stream), src_full_path, &lex);
+
+                    new_lex.imported_file_list = lex.imported_file_list;
+                    new_lex.used_macro_list = lex.used_macro_list;
+
+                    auto* imported_ast = wo::get_wo_grammar()->gen(new_lex);
+
+                    lex.used_macro_list = new_lex.used_macro_list;
+                    lex.lex_error_list.insert(lex.lex_error_list.end(),
+                        new_lex.lex_error_list.begin(),
+                        new_lex.lex_error_list.end());
+
+                    lex.imported_file_list = new_lex.imported_file_list;
+
+                    if (imported_ast)
+                        lex.append_import_file_ast((ast_basic*)imported_ast);
+                    else
+                        return token{ lex_type::l_error };
+                }
+                else
+                    return token{ lex.parser_error(lexer::errorlevel::error, WO_ERR_CANNOT_OPEN_FILE, path.c_str()) };
+            }
+
+            return new AstEmpty();
         }
         auto pass_using_namespace::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
@@ -528,7 +585,7 @@ namespace wo
             if (!WO_IS_EMPTY(3))
                 condition = WO_NEED_AST_VALUE(3);
             if (!WO_IS_EMPTY(5))
-                step = WO_NEED_AST_VALUE(4);
+                step = WO_NEED_AST_VALUE(5);
 
             return new AstFor(init, condition, step, body);
         }
@@ -542,17 +599,17 @@ namespace wo
             if (!WO_IS_EMPTY(2))
                 init = WO_NEED_AST_VALUE(2);
             if (!WO_IS_EMPTY(4))
-                condition = WO_NEED_AST_VALUE(3);
+                condition = WO_NEED_AST_VALUE(4);
             if (!WO_IS_EMPTY(6))
-                step = WO_NEED_AST_VALUE(4);
+                step = WO_NEED_AST_VALUE(6);
 
             return new AstFor(init, condition, step, body);
         }
         auto pass_foreach::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
-            AstPatternBase* pattern = static_cast<AstPatternBase*>(WO_NEED_AST_PATTERN(3));
-            AstValueBase* iterating_value = WO_NEED_AST_VALUE(5);
-            AstBase* body = WO_NEED_AST(7);
+            AstPatternBase* pattern = static_cast<AstPatternBase*>(WO_NEED_AST_PATTERN(4));
+            AstValueBase* iterating_value = WO_NEED_AST_VALUE(6);
+            AstBase* body = WO_NEED_AST(8);
             return new AstForeach(pattern, iterating_value, body);
         }
         auto pass_mark_mut::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
@@ -725,7 +782,10 @@ namespace wo
 
             if (!WO_IS_EMPTY(0))
             {
-                switch (WO_NEED_TOKEN(0).type)
+                AstToken* describe = 
+                    static_cast<AstToken*>(WO_NEED_AST_TYPE(0, AstBase::AST_TOKEN));
+
+                switch (describe->m_token.type)
                 {
                 case lex_type::l_public:
                     attrib = AstDeclareAttribue::accessc_attrib::PUBLIC; break;
@@ -790,7 +850,7 @@ namespace wo
         auto pass_attribute_append::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstDeclareAttribue* attrib = static_cast<AstDeclareAttribue*>(WO_NEED_AST_TYPE(0, AstBase::AST_DECLARE_ATTRIBUTE));
-            AstToken* attrib_token = static_cast<AstToken*>(WO_NEED_AST_TYPE(2, AstBase::AST_TOKEN));
+            AstToken* attrib_token = static_cast<AstToken*>(WO_NEED_AST_TYPE(1, AstBase::AST_TOKEN));
 
             if (!attrib->modify_attrib(lex, attrib_token))
                 return token{ lex_type::l_error };
@@ -814,9 +874,17 @@ namespace wo
         }
         auto pass_reverse_vardef::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
-            AstVariableDefines* vardef = static_cast<AstVariableDefines*>(WO_NEED_AST_TYPE(1, AstBase::AST_VARIABLE_DEFINES));
-            vardef->m_definitions.reverse();
-            return vardef;
+            AstList* vardefs = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
+            vardefs->m_list.reverse();
+
+            AstVariableDefines* vardefines = new AstVariableDefines(std::nullopt);
+            for (auto* defitem : vardefs->m_list)
+            {
+                AstVariableDefineItem* item = static_cast<AstVariableDefineItem*>(defitem);
+                vardefines->m_definitions.push_back(item);
+            }
+
+            return vardefines;
         }
         auto pass_type_mutable::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
@@ -1249,7 +1317,7 @@ namespace wo
         auto pass_match_union_case::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstPatternBase* pattern = static_cast<AstPatternBase*>(WO_NEED_AST_PATTERN(0));
-            AstBase* body = WO_NEED_AST(1);
+            AstBase* body = WO_NEED_AST(2);
 
             return new AstMatchCase(pattern, body);
         }
@@ -1565,15 +1633,15 @@ namespace wo
             {
                 library = WO_NEED_TOKEN(2);
                 symbol = WO_NEED_TOKEN(4);
-                if (!WO_IS_EMPTY(3))
-                    attributes = static_cast<AstList*>(WO_NEED_AST_TYPE(0, AstBase::AST_LIST));
+                if (!WO_IS_EMPTY(5))
+                    attributes = static_cast<AstList*>(WO_NEED_AST_TYPE(5, AstBase::AST_LIST));
             }
             else
             {
                 wo_assert(input.size() == 5);
                 symbol = WO_NEED_TOKEN(2);
                 if (!WO_IS_EMPTY(3))
-                    attributes = static_cast<AstList*>(WO_NEED_AST_TYPE(0, AstBase::AST_LIST));
+                    attributes = static_cast<AstList*>(WO_NEED_AST_TYPE(3, AstBase::AST_LIST));
             }
 
             uint32_t attribute_mask = 0;

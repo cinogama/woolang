@@ -1,5 +1,7 @@
 #include "wo_lang.hpp"
 
+#include <unordered_set>
+
 namespace wo
 {
 #ifndef WO_DISABLE_COMPILER
@@ -1203,28 +1205,68 @@ namespace wo
         return std::nullopt;
     }
     std::optional<lang_Symbol*>
-        LangContext::_search_symbol_from_current_scope(lexer& lex, ast::AstIdentifier* ident)
+        LangContext::_search_symbol_from_current_scope(lexer& lex, ast::AstIdentifier* ident, const std::optional<bool*>& out_ambig)
     {
+        wo_assert(!out_ambig.has_value() || *out_ambig.value() == false);
+        wo_assert(ident->source_location.source_file != nullptr);
+
+        std::unordered_set<lang_Namespace*> searching_namesapaces;
+        std::unordered_set<lang_Symbol*> found_symbol;
+
         lang_Scope* current_scope = get_current_scope();
+
+        // Collect used namespaces;
+        for (lang_Scope* collecting_scope = current_scope;;)
+        {
+            if (collecting_scope->is_namespace_scope())
+            {
+                for (lang_Namespace* symbol_namespace = collecting_scope->m_belongs_to_namespace;;)
+                {
+                    auto fnd = symbol_namespace->m_declare_used_namespaces.find(
+                        ident->source_location.source_file);
+
+                    if (fnd != symbol_namespace->m_declare_used_namespaces.end())
+                        searching_namesapaces.insert(fnd->second.begin(), fnd->second.end());
+
+                    if (symbol_namespace->m_parent_namespace)
+                        symbol_namespace = symbol_namespace->m_parent_namespace.value();
+                    else
+                        break;
+                }
+                break;
+            }
+            else
+            {
+                searching_namesapaces.insert(
+                    collecting_scope->m_declare_used_namespaces.begin(),
+                    collecting_scope->m_declare_used_namespaces.end());
+                collecting_scope = collecting_scope->m_parent_scope.value();
+            }
+        }
+
         if (ident->m_scope.empty())
         {
             do
             {
                 auto fnd = current_scope->m_defined_symbols.find(ident->m_name);
                 if (fnd != current_scope->m_defined_symbols.end())
-                    return fnd->second.get();
+                {
+                    found_symbol.insert(fnd->second.get());
+                    break;
+                }
 
                 if (current_scope->m_parent_scope)
                     current_scope = current_scope->m_parent_scope.value();
                 else
-                    return std::nullopt;
+                    break;
             } while (true);
         }
+        else
+            searching_namesapaces.insert(get_current_namespace());
 
-        lang_Namespace* search_begin_namespace = current_scope->m_belongs_to_namespace;
-        do
+        for (auto* searching_namesapace : searching_namesapaces)
         {
-            lang_Namespace* symbol_namespace = search_begin_namespace;
+            lang_Namespace* symbol_namespace = searching_namesapace;
             for (auto* scope : ident->m_scope)
             {
                 auto fnd = symbol_namespace->m_sub_namespaces.find(scope);
@@ -1235,23 +1277,57 @@ namespace wo
             }
 
             // Ok, found the namespace.
-            do
+            if (auto fnd = symbol_namespace->m_this_scope->m_defined_symbols.find(ident->m_name); 
+                fnd != symbol_namespace->m_this_scope->m_defined_symbols.end())
             {
-                auto fnd = symbol_namespace->m_this_scope->m_defined_symbols.find(ident->m_name);
-                if (fnd != symbol_namespace->m_this_scope->m_defined_symbols.end())
-                    return fnd->second.get();
-            } while (0);
+                found_symbol.insert(fnd->second.get());
+                continue;
+            }
+
         _label_try_upper_namespace:
-            if (search_begin_namespace->m_parent_namespace)
-                search_begin_namespace = search_begin_namespace->m_parent_namespace.value();
+            if (searching_namesapace->m_parent_namespace)
+                searching_namesapace = searching_namesapace->m_parent_namespace.value();
             else
+                continue;
+        }
+
+        if (found_symbol.empty())
+            return std::nullopt;
+
+        lang_Symbol* result = *found_symbol.begin();
+        if (found_symbol.size() > 1)
+        {
+            if (!out_ambig.has_value())
                 return std::nullopt;
 
-        } while (true);
+            lex.lang_error(lexer::errorlevel::error, ident,
+                WO_ERR_AMBIGUOUS_TARGET_NAMED,
+                ident->m_name->c_str(),
+                get_symbol_name_w(result));
+
+            for (auto* symbol : found_symbol)
+            {
+                if (symbol->m_symbol_declare_ast.has_value())
+                    lex.lang_error(lexer::errorlevel::infom,
+                        symbol->m_symbol_declare_ast.value(),
+                        WO_INFO_MAYBE_NAMED_DEFINED_HERE,
+                        get_symbol_name_w(symbol));
+                else
+                    lex.lang_error(lexer::errorlevel::infom,
+                        ident,
+                        WO_INFO_MAYBE_NAMED_DEFINED_IN_COMPILER,
+                        get_symbol_name_w(symbol));
+            }
+            *out_ambig.value() = true;
+        }
+        return result;
     }
     std::optional<lang_Symbol*>
-        LangContext::find_symbol_in_current_scope(lexer& lex, ast::AstIdentifier* ident)
+        LangContext::find_symbol_in_current_scope(lexer& lex, ast::AstIdentifier* ident, const std::optional<bool*>& out_ambig)
     {
+        if (out_ambig.has_value())
+            *out_ambig.value() = false;
+
         if (ident->m_LANG_determined_symbol)
             return ident->m_LANG_determined_symbol;
 
@@ -1263,29 +1339,42 @@ namespace wo
             break;
         case ast::AstIdentifier::FROM_TYPE:
         {
-            ast::AstTypeHolder* from_type = ident->m_from_type.value();
-            auto determined_type = from_type->m_LANG_determined_type;
-            if (!determined_type)
+            lang_TypeInstance* type_instance;
+
+            if (ast::AstTypeHolder** from_type = std::get_if<ast::AstTypeHolder*>(&ident->m_from_type.value()); 
+                from_type != nullptr)
             {
-                lex.lang_error(lexer::errorlevel::error, from_type, WO_ERR_UNKNOWN_TYPE);
-                return std::nullopt;
+                auto determined_type = (*from_type)->m_LANG_determined_type;
+                if (!determined_type)
+                {
+                    lex.lang_error(lexer::errorlevel::error, *from_type, WO_ERR_UNKNOWN_TYPE);
+                    return std::nullopt;
+                }
+                type_instance = determined_type.value();
             }
-            lang_TypeInstance* type_instance = determined_type.value();
+            else
+                type_instance = std::get<lang_TypeInstance*>(ident->m_from_type.value());
+
             lang_Scope* search_from_scope = type_instance->m_symbol->m_belongs_to_scope;
             if (!type_instance->m_symbol->m_belongs_to_scope->is_namespace_scope())
                 return std::nullopt;
 
             search_begin_namespace =
                 type_instance->m_symbol->m_belongs_to_scope->m_belongs_to_namespace;
+            
+            auto fnd = search_begin_namespace->m_sub_namespaces.find(type_instance->m_symbol->m_name);
+            if (fnd == search_begin_namespace->m_sub_namespaces.end())
+                return std::nullopt; // Namespace not defined.
+
+            search_begin_namespace = fnd->second.get();
             break;
         }
         case ast::AstIdentifier::FROM_CURRENT:
         {
-            auto found_symbol = _search_symbol_from_current_scope(lex, ident);
+            auto found_symbol = _search_symbol_from_current_scope(lex, ident, out_ambig);
             if (found_symbol)
                 ident->m_LANG_determined_symbol = found_symbol.value();
             return found_symbol;
-            break;
         }
         }
 
@@ -1588,6 +1677,55 @@ namespace wo
         return m_type_name_cache.insert(
             std::make_pair(type, std::make_pair(result, wstrn_to_str(result)))).first
             ->second.second.c_str();
+    }
+    void LangContext::using_namespace_declare_for_current_scope(
+        ast::AstUsingNamespace* using_namespace)
+    {
+        wo_assert(using_namespace->source_location.source_file != nullptr);
+
+        std::unordered_set<lang_Namespace*> using_namespaces;
+
+        lang_Namespace* current_namespace = get_current_namespace();
+        for (;;)
+        {
+            // Find sub namespace;
+            bool found = true;
+            lang_Namespace* sub_namespace = current_namespace;
+            for (wo_pstring_t name : using_namespace->m_using_namespace)
+            {
+                auto fnd = sub_namespace->m_sub_namespaces.find(name);
+                if (fnd == sub_namespace->m_sub_namespaces.end())
+                {
+                    found = false;
+                    break;
+                }
+                else
+                    sub_namespace = fnd->second.get();
+            }
+
+            if (found)
+                using_namespaces.insert(sub_namespace);
+
+            if (current_namespace->m_parent_namespace.has_value())
+                current_namespace = current_namespace->m_parent_namespace.value();
+            else
+                break;
+        }
+
+        lang_Scope* current_scope = get_current_scope();
+        if (current_scope->is_namespace_scope())
+        {
+            auto& used_namespaces =
+                current_scope->m_belongs_to_namespace->m_declare_used_namespaces[
+                    using_namespace->source_location.source_file];
+
+            used_namespaces.insert(using_namespaces.begin(), using_namespaces.end());
+        }
+        else
+        {
+            current_scope->m_declare_used_namespaces.insert(
+                using_namespaces.begin(), using_namespaces.end());
+        }
     }
 
 #endif
