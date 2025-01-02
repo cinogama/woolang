@@ -758,6 +758,7 @@ namespace wo
             , m_condition(condition)
             , m_true_value(true_value)
             , m_false_value(false_value)
+            , m_LANG_hold_state(UNPROCESSED)
         {
         }
         AstBase* AstValueTribleOperator::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
@@ -1342,6 +1343,7 @@ namespace wo
             : AstBase(AST_MATCH)
             , m_matched_value(match_value)
             , m_cases(cases)
+            , n_LANG_hold_state(UNPROCESSED)
         {
         }
         AstBase* AstMatch::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const

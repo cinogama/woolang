@@ -118,9 +118,9 @@ namespace wo
         WO_LANG_REGISTER_PROCESSER(AstValueFunctionCall, AstBase::AST_VALUE_FUNCTION_CALL, pass1);
         WO_LANG_REGISTER_PROCESSER(AstValueBinaryOperator, AstBase::AST_VALUE_BINARY_OPERATOR, pass1);
         WO_LANG_REGISTER_PROCESSER(AstValueUnaryOperator, AstBase::AST_VALUE_UNARY_OPERATOR, pass1);
-        // WO_LANG_REGISTER_PROCESSER(AstValueTribleOperator, AstBase::AST_VALUE_TRIPLE_OPERATOR, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstValueTribleOperator, AstBase::AST_VALUE_TRIBLE_OPERATOR, pass1);
         WO_LANG_REGISTER_PROCESSER(AstFakeValueUnpack, AstBase::AST_FAKE_VALUE_UNPACK, pass1);
-        // WO_LANG_REGISTER_PROCESSER(AstValueVariadicArgumentsPack, AstBase::AST_VALUE_VARIADIC_ARGUMENTS_PACK, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstValueVariadicArgumentsPack, AstBase::AST_VALUE_VARIADIC_ARGUMENTS_PACK, pass1);
         WO_LANG_REGISTER_PROCESSER(AstValueIndex, AstBase::AST_VALUE_INDEX, pass1);
         WO_LANG_REGISTER_PROCESSER(AstPatternVariable, AstBase::AST_PATTERN_VARIABLE, pass1);
         WO_LANG_REGISTER_PROCESSER(AstPatternIndex, AstBase::AST_PATTERN_INDEX, pass1);
@@ -138,8 +138,8 @@ namespace wo
         WO_LANG_REGISTER_PROCESSER(AstValuePackedArgs, AstBase::AST_VALUE_PACKED_ARGS, pass1);
         WO_LANG_REGISTER_PROCESSER(AstNamespace, AstBase::AST_NAMESPACE, pass1);
         WO_LANG_REGISTER_PROCESSER(AstScope, AstBase::AST_SCOPE, pass1);
-        // WO_LANG_REGISTER_PROCESSER(AstMatchCase, AstBase::AST_MATCH_CASE, pass1);
-        // WO_LANG_REGISTER_PROCESSER(AstMatch, AstBase::AST_MATCH, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstMatchCase, AstBase::AST_MATCH_CASE, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstMatch, AstBase::AST_MATCH, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstIf, AstBase::AST_IF, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstWhile, AstBase::AST_WHILE, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstFor, AstBase::AST_FOR, pass1);
@@ -3300,7 +3300,7 @@ namespace wo
                     switch (node->m_operator)
                     {
                     case AstValueBinaryOperator::ADD:
-                        accept_type = 
+                        accept_type =
                             base_type == lang_TypeInstance::DeterminedType::INTEGER
                             || base_type == lang_TypeInstance::DeterminedType::REAL
                             || base_type == lang_TypeInstance::DeterminedType::HANDLE
@@ -3381,7 +3381,7 @@ namespace wo
                     {
                         lex.lang_error(lexer::errorlevel::error, node->m_left,
                             WO_ERR_UNACCEPTABLE_TYPE_IN_OPERATE,
-                            get_type_name_w(left_type)); 
+                            get_type_name_w(left_type));
                     }
 
                     node->m_LANG_determined_type = left_type;
@@ -3720,6 +3720,153 @@ namespace wo
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
+    WO_PASS_PROCESSER(AstValueTribleOperator)
+    {
+        if (state == UNPROCESSED)
+        {
+            WO_CONTINUE_PROCESS(node->m_condition);
+
+            node->m_LANG_hold_state = AstValueTribleOperator::HOLD_FOR_COND_EVAL;
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            switch (node->m_LANG_hold_state)
+            {
+            case AstValueTribleOperator::HOLD_FOR_COND_EVAL:
+            {
+                lang_TypeInstance* type_instance =
+                    node->m_condition->m_LANG_determined_type.value();
+
+                if (immutable_type(type_instance) != m_origin_types.m_bool.m_type_instance)
+                {
+                    lex.lang_error(lexer::errorlevel::error, node->m_condition,
+                        WO_ERR_UNACCEPTABLE_TYPE_IN_COND,
+                        get_type_name_w(type_instance));
+                }
+
+                // Conditional compile.
+                if (node->m_condition->m_evaled_const_value.has_value())
+                {
+                    if (node->m_condition->m_evaled_const_value.value().integer)
+                        // TRUE BRANCH.
+                        WO_CONTINUE_PROCESS(node->m_true_value);
+                    else
+                        // FALSE BRANCH
+                        WO_CONTINUE_PROCESS(node->m_false_value);
+                }
+                else
+                {
+                    WO_CONTINUE_PROCESS(node->m_true_value);
+                    WO_CONTINUE_PROCESS(node->m_false_value);
+                }
+
+                node->m_LANG_hold_state = AstValueTribleOperator::HOLD_FOR_BRANCH_EVAL;
+                return HOLD;
+            }
+            case AstValueTribleOperator::HOLD_FOR_BRANCH_EVAL:
+            {
+                lang_TypeInstance* node_final_type;
+                if (node->m_condition->m_evaled_const_value.has_value())
+                {
+
+                    if (node->m_condition->m_evaled_const_value.value().integer)
+                    {
+                        // TRUE BRANCH.
+                        node_final_type = node->m_true_value->m_LANG_determined_type.value();
+                        if (node->m_true_value->m_evaled_const_value.has_value())
+                            node->decide_final_constant_value(
+                                node->m_true_value->m_evaled_const_value.value());
+                    }
+                    else
+                    {
+                        // FALSE BRANCH
+                        node_final_type = node->m_false_value->m_LANG_determined_type.value();
+                        if (node->m_false_value->m_evaled_const_value.has_value())
+                            node->decide_final_constant_value(
+                                node->m_false_value->m_evaled_const_value.value());
+                    }
+                }
+                else
+                    node_final_type = node->m_true_value->m_LANG_determined_type.value();
+
+                node->m_LANG_determined_type = node_final_type;
+                break;
+            }
+            default:
+                wo_error("Unexpected hold state.");
+            }
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstValueVariadicArgumentsPack)
+    {
+        wo_assert(state == UNPROCESSED);
+
+        auto current_function = get_current_function();
+        if (!current_function.has_value() || !current_function.value()->m_is_variadic)
+        {
+            lex.lang_error(lexer::errorlevel::error, node, WO_ERR_UNEXPECTED_PACKEDARGS);
+            return FAILED;
+        }
+
+        node->m_LANG_determined_type = m_origin_types.m_array_dynamic;
+        return OKAY;
+    }
+    WO_PASS_PROCESSER(AstMatch)
+    {
+        if (state == UNPROCESSED)
+        {
+            WO_CONTINUE_PROCESS(node->m_matched_value);
+
+            node->n_LANG_hold_state = AstMatch::HOLD_FOR_EVAL_MATCHING_VALUE;
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            switch (node->n_LANG_hold_state)
+            {
+            case AstMatch::HOLD_FOR_EVAL_MATCHING_VALUE:
+            {
+                lang_TypeInstance* matching_typeinstance =
+                    node->m_matched_value->m_LANG_determined_type.value();
+
+                // Check is union.
+                auto determined_base_type =
+                    matching_typeinstance->get_determined_type();
+                if (!determined_base_type.has_value())
+                {
+                    lex.lang_error(lexer::errorlevel::error, node,
+                        WO_ERR_TYPE_NAMED_DETERMINED_FAILED,
+                        get_type_name_w(matching_typeinstance));
+
+                    return FAILED;
+                }
+
+                auto* determined_base_type_instance =
+                    determined_base_type.value();
+
+                if (determined_base_type_instance->m_base_type
+                    != lang_TypeInstance::DeterminedType::UNION)
+                {
+                    lex.lang_error(lexer::errorlevel::error, node,
+                        WO_ERR_UNEXPECTED_MACTHING_TYPE,
+                        get_type_name_w(matching_typeinstance));
+
+                    return FAILED;
+                }
+
+                // Check if branch covered.
+                TODO;
+            }
+            case AstMatch::HOLD_FOR_EVAL_CASES:
+            {
+
+            }
+            }
+        }
+    }
+
 
 #undef WO_PASS_PROCESSER
 

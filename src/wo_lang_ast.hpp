@@ -409,9 +409,18 @@ namespace wo
         };
         struct AstValueTribleOperator : public AstValueBase
         {
+            enum LANG_hold_state
+            {
+                UNPROCESSED,
+                HOLD_FOR_COND_EVAL,
+                HOLD_FOR_BRANCH_EVAL,
+            };
+
             AstValueBase* m_condition;
             AstValueBase* m_true_value;
             AstValueBase* m_false_value;
+
+            LANG_hold_state m_LANG_hold_state;
 
             AstValueTribleOperator(AstValueBase* condition, AstValueBase* true_value, AstValueBase* false_value);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
@@ -692,8 +701,17 @@ namespace wo
         };
         struct AstMatch : public AstBase
         {
+            enum LANG_hold_state
+            {
+                UNPROCESSED,
+                HOLD_FOR_EVAL_MATCHING_VALUE,
+                HOLD_FOR_EVAL_CASES,
+            };
+
             AstValueBase* m_matched_value;
             std::list<AstMatchCase*> m_cases;
+
+            LANG_hold_state n_LANG_hold_state;
 
             AstMatch(AstValueBase* match_value, const std::list<AstMatchCase*>& cases);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;

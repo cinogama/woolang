@@ -107,6 +107,9 @@
 #define WO_ERR_AMBIGUOUS_TARGET_NAMED L"'%ls' 不明确，编译器假定其在下文中指代的是 '%ls'"
 #define WO_ERR_DIFFERENT_TYPE_IN_BINARY L"运算符左右的操作数类型不相同，左操作数是 '%ls'，而右操作数是 '%ls'"
 #define WO_ERR_UNACCEPTABLE_TYPE_IN_OPERATE L"'%ls' 类型的操作数不能用于此计算"
+#define WO_ERR_UNACCEPTABLE_TYPE_IN_COND L"表达式类型不应该是 '%ls'，条件表达式的类型只能是 'bool'"
+#define WO_ERR_UNEXPECTED_PACKEDARGS L"变长参数包只能出现在变长参数的函数体之内"
+#define WO_ERR_UNEXPECTED_MACTHING_TYPE L"'match' 语句只支持匹配共用体类型，但此处是 '%ls'"
 
 #define WO_INFO_MAYBE_NAMED_DEFINED_HERE L"可能是此处定义的 '%ls'"
 #define WO_INFO_MAYBE_NAMED_DEFINED_IN_COMPILER L"可能是编译器内部定义的 '%ls'"
