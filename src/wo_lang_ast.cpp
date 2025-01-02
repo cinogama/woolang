@@ -929,6 +929,7 @@ namespace wo
         AstPatternVariable::AstPatternVariable(AstValueVariable* variable)
             : AstPatternBase(AST_PATTERN_VARIABLE)
             , m_variable(variable)
+            , m_LANG_assign_value_instance(std::nullopt)
         {
         }
         AstBase* AstPatternVariable::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
@@ -947,6 +948,7 @@ namespace wo
         AstPatternIndex::AstPatternIndex(AstValueIndex* index)
             : AstPatternBase(AST_PATTERN_INDEX)
             , m_index(index)
+            , m_LANG_assign_value_instance(std::nullopt)
         {
         }
         AstBase* AstPatternIndex::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
@@ -1324,6 +1326,8 @@ namespace wo
             : AstBase(AST_MATCH_CASE)
             , m_pattern(pattern)
             , m_body(body)
+            , m_LANG_pattern_value_apply_type(std::nullopt)
+            , m_LANG_case_label_or_takeplace(std::nullopt)
         {
         }
         AstBase* AstMatchCase::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
@@ -1343,7 +1347,7 @@ namespace wo
             : AstBase(AST_MATCH)
             , m_matched_value(match_value)
             , m_cases(cases)
-            , n_LANG_hold_state(UNPROCESSED)
+            , m_LANG_hold_state(UNPROCESSED)
         {
         }
         AstBase* AstMatch::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
@@ -1365,6 +1369,7 @@ namespace wo
             , m_condition(condition)
             , m_true_body(true_body)
             , m_false_body(false_body)
+            , m_LANG_hold_state(UNPROCESSED)
         {
         }
         AstBase* AstIf::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
@@ -1386,6 +1391,7 @@ namespace wo
             : AstBase(AST_WHILE)
             , m_condition(condition)
             , m_body(body)
+            , m_LANG_hold_state(UNPROCESSED)
         {
         }
         AstBase* AstWhile::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
@@ -1411,6 +1417,7 @@ namespace wo
             , m_condition(condition)
             , m_step(step)
             , m_body(body)
+            , m_LANG_hold_state(UNPROCESSED)
         {
         }
         AstBase* AstFor::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const

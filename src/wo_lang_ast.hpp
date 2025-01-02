@@ -492,12 +492,16 @@ namespace wo
         {
             AstValueVariable* m_variable;
 
+            std::optional<AstValueBase*> m_LANG_assign_value_instance;
+
             AstPatternVariable(AstValueVariable* variable);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
         struct AstPatternIndex : public AstPatternBase
         {
             AstValueIndex* m_index;
+
+            std::optional<AstValueBase*> m_LANG_assign_value_instance;
 
             AstPatternIndex(AstValueIndex* index);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
@@ -696,6 +700,9 @@ namespace wo
             AstPatternBase* m_pattern; // AstPatternTakeplace / AstPatternSingle / AstPatternUnion
             AstBase* m_body;
 
+            std::optional<lang_TypeInstance*> m_LANG_pattern_value_apply_type;
+            std::optional<wo_integer_t> m_LANG_case_label_or_takeplace;
+
             AstMatchCase(AstPatternBase* pattern, AstBase* body);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
@@ -711,7 +718,7 @@ namespace wo
             AstValueBase* m_matched_value;
             std::list<AstMatchCase*> m_cases;
 
-            LANG_hold_state n_LANG_hold_state;
+            LANG_hold_state m_LANG_hold_state;
 
             AstMatch(AstValueBase* match_value, const std::list<AstMatchCase*>& cases);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
@@ -719,28 +726,57 @@ namespace wo
 
         struct AstIf : public AstBase
         {
+            enum LANG_hold_state
+            {
+                UNPROCESSED,
+                HOLD_FOR_CONDITION_EVAL,
+                HOLD_FOR_BODY_EVAL,
+            };
+
             AstValueBase* m_condition;
             AstBase* m_true_body;
             std::optional<AstBase*>
                 m_false_body;
+
+            LANG_hold_state m_LANG_hold_state;
 
             AstIf(AstValueBase* condition, AstBase* true_body, const std::optional<AstBase*>& false_body);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
         struct AstWhile : public AstBase
         {
+            enum LANG_hold_state
+            {
+                UNPROCESSED,
+                HOLD_FOR_CONDITION_EVAL,
+                HOLD_FOR_BODY_EVAL,
+            };
+
             AstValueBase* m_condition;
             AstBase* m_body;
+
+            LANG_hold_state m_LANG_hold_state;
 
             AstWhile(AstValueBase* condition, AstBase* body);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
         struct AstFor : public AstBase
         {
+            enum LANG_hold_state
+            {
+                UNPROCESSED,
+                HOLD_FOR_INITIAL_EVAL,
+                HOLD_FOR_CONDITION_EVAL,
+                HOLD_FOR_STEP_EVAL,
+                HOLD_FOR_BODY_EVAL,
+            };
+
             std::optional<AstBase*>             m_initial;
             std::optional<AstValueBase*>        m_condition;
             std::optional<AstValueBase*>        m_step;
             AstBase* m_body;
+
+            LANG_hold_state m_LANG_hold_state;
 
             AstFor(
                 std::optional<AstBase*> initial,

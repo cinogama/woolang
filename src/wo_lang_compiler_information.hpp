@@ -110,6 +110,13 @@
 #define WO_ERR_UNACCEPTABLE_TYPE_IN_COND L"表达式类型不应该是 '%ls'，条件表达式的类型只能是 'bool'"
 #define WO_ERR_UNEXPECTED_PACKEDARGS L"变长参数包只能出现在变长参数的函数体之内"
 #define WO_ERR_UNEXPECTED_MACTHING_TYPE L"'match' 语句只支持匹配共用体类型，但此处是 '%ls'"
+#define WO_ERR_TAKEPLACE_PATTERN_MATCHED L"占位模式此前已经被使用，不能在占位分支之后匹配其他模式"
+#define WO_ERR_ALL_CASES_SHOULD_BE_MATCHED L"'match' 语句需要穷尽所有可能的分支"
+#define WO_ERR_UNEXISTS_CASE_NAMED_IN_MATCH L"在 'match' 语句中不存在名为 '%ls' 的匹配项"
+#define WO_ERR_EXISTS_CASE_NAMED_IN_MATCH L"匹配项 '%ls' 已经存在于 'match' 语句中"
+#define WO_ERR_HAVE_NOT_VALUE_CASE_IN_MATCH L"类型 `%ls` 的匹配项 '%ls' 需要包含值"
+#define WO_ERR_HAVE_VALUE_CASE_IN_MATCH L"类型 `%ls` 的匹配项 '%ls' 不应该包含值"
+
 
 #define WO_INFO_MAYBE_NAMED_DEFINED_HERE L"可能是此处定义的 '%ls'"
 #define WO_INFO_MAYBE_NAMED_DEFINED_IN_COMPILER L"可能是编译器内部定义的 '%ls'"

@@ -134,18 +134,18 @@ namespace wo
         WO_LANG_REGISTER_PROCESSER(AstValueTuple, AstBase::AST_VALUE_TUPLE, pass1);
         WO_LANG_REGISTER_PROCESSER(AstStructFieldValuePair, AstBase::AST_STRUCT_FIELD_VALUE_PAIR, pass1);
         WO_LANG_REGISTER_PROCESSER(AstValueStruct, AstBase::AST_VALUE_STRUCT, pass1);
-        // WO_LANG_REGISTER_PROCESSER(AstValueAssign, AstBase::AST_VALUE_ASSIGN, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstValueAssign, AstBase::AST_VALUE_ASSIGN, pass1);
         WO_LANG_REGISTER_PROCESSER(AstValuePackedArgs, AstBase::AST_VALUE_PACKED_ARGS, pass1);
         WO_LANG_REGISTER_PROCESSER(AstNamespace, AstBase::AST_NAMESPACE, pass1);
         WO_LANG_REGISTER_PROCESSER(AstScope, AstBase::AST_SCOPE, pass1);
         WO_LANG_REGISTER_PROCESSER(AstMatchCase, AstBase::AST_MATCH_CASE, pass1);
         WO_LANG_REGISTER_PROCESSER(AstMatch, AstBase::AST_MATCH, pass1);
-        // WO_LANG_REGISTER_PROCESSER(AstIf, AstBase::AST_IF, pass1);
-        // WO_LANG_REGISTER_PROCESSER(AstWhile, AstBase::AST_WHILE, pass1);
-        // WO_LANG_REGISTER_PROCESSER(AstFor, AstBase::AST_FOR, pass1);
-        // WO_LANG_REGISTER_PROCESSER(AstForeach, AstBase::AST_FOREACH, pass1);
-        // WO_LANG_REGISTER_PROCESSER(AstBreak, AstBase::AST_BREAK, pass1);
-        // WO_LANG_REGISTER_PROCESSER(AstContinue, AstBase::AST_CONTINUE, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstIf, AstBase::AST_IF, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstWhile, AstBase::AST_WHILE, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstFor, AstBase::AST_FOR, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstForeach, AstBase::AST_FOREACH, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstBreak, AstBase::AST_BREAK, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstContinue, AstBase::AST_CONTINUE, pass1);
         WO_LANG_REGISTER_PROCESSER(AstReturn, AstBase::AST_RETURN, pass1);
         WO_LANG_REGISTER_PROCESSER(AstLabeled, AstBase::AST_LABELED, pass1);
         WO_LANG_REGISTER_PROCESSER(AstUsingTypeDeclare, AstBase::AST_USING_TYPE_DECLARE, pass1);
@@ -1594,6 +1594,23 @@ namespace wo
                     WO_ERR_PATTERN_VARIABLE_SHOULD_BE_MUTABLE);
                 return FAILED;
             }
+
+            lang_TypeInstance* variable_type = node->m_variable->m_LANG_determined_type.value();
+            AstValueBase* assigned_form_value_instance = node->m_LANG_assign_value_instance.value();
+            lang_TypeInstance* assigned_from_value_type = assigned_form_value_instance->m_LANG_determined_type.value();
+            if (!is_type_accepted(
+                lex,
+                node,
+                immutable_type(variable_type),
+                immutable_type(assigned_from_value_type)))
+            {
+                lex.lang_error(lexer::errorlevel::error, assigned_form_value_instance,
+                    WO_ERR_CANNOT_ACCEPTABLE_TYPE_NAMED,
+                    get_type_name_w(assigned_from_value_type),
+                    get_type_name_w(variable_type));
+                return FAILED;
+
+            }
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
@@ -1612,6 +1629,23 @@ namespace wo
                 lex.lang_error(lexer::errorlevel::error, node->m_index,
                     WO_ERR_PATTERN_INDEX_SHOULD_BE_MUTABLE_TYPE);
                 return FAILED;
+            }
+
+            lang_TypeInstance* variable_type = node->m_index->m_LANG_determined_type.value();
+            AstValueBase* assigned_form_value_instance = node->m_LANG_assign_value_instance.value();
+            lang_TypeInstance* assigned_from_value_type = assigned_form_value_instance->m_LANG_determined_type.value();
+            if (!is_type_accepted(
+                lex,
+                node,
+                immutable_type(variable_type),
+                immutable_type(assigned_from_value_type)))
+            {
+                lex.lang_error(lexer::errorlevel::error, assigned_form_value_instance,
+                    WO_ERR_CANNOT_ACCEPTABLE_TYPE_NAMED,
+                    get_type_name_w(assigned_from_value_type),
+                    get_type_name_w(variable_type));
+                return FAILED;
+
             }
         }
         return WO_EXCEPT_ERROR(state, OKAY);
@@ -3819,12 +3853,12 @@ namespace wo
         {
             WO_CONTINUE_PROCESS(node->m_matched_value);
 
-            node->n_LANG_hold_state = AstMatch::HOLD_FOR_EVAL_MATCHING_VALUE;
+            node->m_LANG_hold_state = AstMatch::HOLD_FOR_EVAL_MATCHING_VALUE;
             return HOLD;
         }
         else if (state == HOLD)
         {
-            switch (node->n_LANG_hold_state)
+            switch (node->m_LANG_hold_state)
             {
             case AstMatch::HOLD_FOR_EVAL_MATCHING_VALUE:
             {
@@ -3856,17 +3890,346 @@ namespace wo
                     return FAILED;
                 }
 
+                auto* determined_base_type_instance_union_dat =
+                    determined_base_type_instance->m_external_type_description.m_union;
+
                 // Check if branch covered.
-                TODO;
+                std::unordered_set<wo_pstring_t> covered_branch;
+                bool has_take_place_pattern = false;
+
+                for (AstMatchCase* match_case : node->m_cases)
+                {
+                    if (has_take_place_pattern)
+                    {
+                        lex.lang_error(lexer::errorlevel::error, match_case,
+                            WO_ERR_TAKEPLACE_PATTERN_MATCHED);
+                        return FAILED;
+                    }
+                    switch (match_case->m_pattern->node_type)
+                    {
+                    case AstBase::AST_PATTERN_UNION:
+                    {
+                        AstPatternUnion* union_pattern =
+                            static_cast<AstPatternUnion*>(match_case->m_pattern);
+                        if (!covered_branch.insert(union_pattern->m_tag).second)
+                        {
+                            lex.lang_error(lexer::errorlevel::error, union_pattern,
+                                WO_ERR_EXISTS_CASE_NAMED_IN_MATCH,
+                                union_pattern->m_tag->c_str());
+                        }
+
+                        auto fnd = determined_base_type_instance_union_dat->m_union_label.find(union_pattern->m_tag);
+                        if (determined_base_type_instance_union_dat->m_union_label.end() == fnd)
+                        {
+                            lex.lang_error(lexer::errorlevel::error, union_pattern,
+                                WO_ERR_UNEXISTS_CASE_NAMED_IN_MATCH,
+                                union_pattern->m_tag->c_str());
+                        }
+
+                        bool pattern_include_value = union_pattern->m_field.has_value();
+                        if (pattern_include_value != fnd->second.m_item_type.has_value())
+                        {
+                            if (pattern_include_value)
+                                lex.lang_error(lexer::errorlevel::error, union_pattern,
+                                    WO_ERR_HAVE_VALUE_CASE_IN_MATCH,
+                                    get_type_name_w(matching_typeinstance),
+                                    union_pattern->m_tag->c_str());
+                            else
+                                lex.lang_error(lexer::errorlevel::error, union_pattern,
+                                    WO_ERR_HAVE_NOT_VALUE_CASE_IN_MATCH,
+                                    get_type_name_w(matching_typeinstance),
+                                    union_pattern->m_tag->c_str());
+
+                            return FAILED;
+                        }
+
+                        match_case->m_LANG_pattern_value_apply_type = fnd->second.m_item_type;
+                        match_case->m_LANG_case_label_or_takeplace = fnd->second.m_label;
+
+                        break;
+                    }
+                    case AstBase::AST_PATTERN_TAKEPLACE:
+                    {
+                        match_case->m_LANG_pattern_value_apply_type = std::nullopt;
+                        match_case->m_LANG_case_label_or_takeplace = std::nullopt;
+
+                        has_take_place_pattern = true;
+                        break;
+                    }
+                    default:
+                        wo_error("Unknown pattern.");
+                    }
+                }
+
+                if (!has_take_place_pattern
+                    && covered_branch.size() != determined_base_type_instance_union_dat->m_union_label.size())
+                {
+                    lex.lang_error(lexer::errorlevel::error, node,
+                        WO_ERR_ALL_CASES_SHOULD_BE_MATCHED);
+                    return FAILED;
+                }
+
+                WO_CONTINUE_PROCESS_LIST(node->m_cases);
+
+                node->m_LANG_hold_state = AstMatch::HOLD_FOR_EVAL_CASES;
+                return HOLD;
             }
             case AstMatch::HOLD_FOR_EVAL_CASES:
-            {
-
-            }
+                // Cases has been evaled.
+                break;
+            default:
+                wo_error("Unknown hold state.");
             }
         }
+        return WO_EXCEPT_ERROR(state, OKAY);
     }
+    WO_PASS_PROCESSER(AstMatchCase)
+    {
+        if (state == UNPROCESSED)
+        {
+            begin_new_scope();
 
+            // Decalare pattern if contained.
+            switch (node->m_pattern->node_type)
+            {
+            case AstBase::AST_PATTERN_UNION:
+            {
+                AstPatternUnion* union_pattern = static_cast<AstPatternUnion*>(node->m_pattern);
+                if (union_pattern->m_field.has_value())
+                {
+                    AstPatternBase* apply_pattern = union_pattern->m_field.value();
+                    if (!declare_pattern_symbol_pass0_1(
+                        lex,
+                        std::nullopt,
+                        std::nullopt,
+                        apply_pattern,
+                        std::nullopt))
+                    {
+                        // Failed.
+                        return FAILED;
+                    }
+
+                    // Update pattern symbol type.
+                    if (!update_pattern_symbol_variable_type_pass1(
+                        lex,
+                        apply_pattern,
+                        std::nullopt,
+                        node->m_LANG_pattern_value_apply_type.value()))
+                    {
+                        // Failed.
+                        return FAILED;
+                    }
+                }
+                break;
+            }
+            case AstBase::AST_PATTERN_TAKEPLACE:
+                break;
+            }
+
+            WO_CONTINUE_PROCESS(node->m_body);
+        }
+        else if (state == HOLD)
+        {
+            end_last_scope();
+        }
+        else
+        {
+            end_last_scope();
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstIf)
+    {
+        if (state == UNPROCESSED)
+        {
+            WO_CONTINUE_PROCESS(node->m_condition);
+
+            node->m_LANG_hold_state = AstIf::HOLD_FOR_CONDITION_EVAL;
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            switch (node->m_LANG_hold_state)
+            {
+            case AstIf::HOLD_FOR_CONDITION_EVAL:
+            {
+                lang_TypeInstance* condition_typeinstance =
+                    node->m_condition->m_LANG_determined_type.value();
+
+                if (condition_typeinstance != m_origin_types.m_bool.m_type_instance)
+                {
+                    lex.lang_error(lexer::errorlevel::error, node->m_condition,
+                        WO_ERR_UNACCEPTABLE_TYPE_IN_COND,
+                        get_type_name_w(condition_typeinstance));
+                    return FAILED;
+                }
+
+                if (node->m_condition->m_evaled_const_value.has_value())
+                {
+                    if (node->m_condition->m_evaled_const_value.value().integer)
+                        WO_CONTINUE_PROCESS(node->m_true_body);
+                    else if (node->m_false_body.has_value())
+                        WO_CONTINUE_PROCESS(node->m_false_body.value());
+                }
+                else
+                {
+                    WO_CONTINUE_PROCESS(node->m_true_body);
+                    if (node->m_false_body.has_value())
+                        WO_CONTINUE_PROCESS(node->m_false_body.value());
+                }
+
+                node->m_LANG_hold_state = AstIf::HOLD_FOR_BODY_EVAL;
+                return HOLD;
+            }
+            case AstIf::HOLD_FOR_BODY_EVAL:
+                break;
+            default:
+                wo_error("Unknown hold state.");
+            }
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstWhile)
+    {
+        if (state == UNPROCESSED)
+        {
+            WO_CONTINUE_PROCESS(node->m_condition);
+
+            node->m_LANG_hold_state = AstWhile::HOLD_FOR_CONDITION_EVAL;
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            switch (node->m_LANG_hold_state)
+            {
+            case AstWhile::HOLD_FOR_CONDITION_EVAL:
+            {
+                lang_TypeInstance* condition_typeinstance =
+                    node->m_condition->m_LANG_determined_type.value();
+
+                if (condition_typeinstance != m_origin_types.m_bool.m_type_instance)
+                {
+                    lex.lang_error(lexer::errorlevel::error, node->m_condition,
+                        WO_ERR_UNACCEPTABLE_TYPE_IN_COND,
+                        get_type_name_w(condition_typeinstance));
+                    return FAILED;
+                }
+
+                WO_CONTINUE_PROCESS(node->m_body);
+
+                node->m_LANG_hold_state = AstWhile::HOLD_FOR_BODY_EVAL;
+                return HOLD;
+            }
+            case AstWhile::HOLD_FOR_BODY_EVAL:
+                break;
+            default:
+                wo_error("Unknown hold state.");
+            }
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstFor)
+    {
+        if (state == UNPROCESSED)
+        {
+            begin_new_scope();
+
+            if (node->m_initial.has_value())
+                WO_CONTINUE_PROCESS(node->m_initial.value());
+
+            node->m_LANG_hold_state = AstFor::HOLD_FOR_INITIAL_EVAL;
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            switch (node->m_LANG_hold_state)
+            {
+            case AstFor::HOLD_FOR_INITIAL_EVAL:
+            {
+                if (node->m_condition.has_value())
+                {
+                    WO_CONTINUE_PROCESS(node->m_condition.value());
+
+                    node->m_LANG_hold_state = AstFor::HOLD_FOR_CONDITION_EVAL;
+                    return HOLD;
+                }
+                /*FALL THROUGH*/
+            }
+            [[fallthrough]];
+            case AstFor::HOLD_FOR_CONDITION_EVAL:
+            {
+                if (node->m_condition.has_value())
+                {
+                    lang_TypeInstance* condition_typeinstance =
+                        node->m_condition.value()->m_LANG_determined_type.value();
+
+                    if (condition_typeinstance != m_origin_types.m_bool.m_type_instance)
+                    {
+                        lex.lang_error(lexer::errorlevel::error, node->m_condition.value(),
+                            WO_ERR_UNACCEPTABLE_TYPE_IN_COND,
+                            get_type_name_w(condition_typeinstance));
+                        return FAILED;
+                    }
+                }
+                if (node->m_step.has_value())
+                {
+                    WO_CONTINUE_PROCESS(node->m_step.value());
+
+                    node->m_LANG_hold_state = AstFor::HOLD_FOR_STEP_EVAL;
+                    return HOLD;
+                }
+                /*FALL THROUGH*/
+            }
+            [[fallthrough]];
+            case AstFor::HOLD_FOR_STEP_EVAL:
+            {
+                WO_CONTINUE_PROCESS(node->m_body);
+
+                node->m_LANG_hold_state = AstFor::HOLD_FOR_BODY_EVAL;
+                break;
+            }
+            case AstFor::HOLD_FOR_BODY_EVAL:
+                end_last_scope();
+                break;
+            default:
+                wo_error("Unknown hold state.");
+            }
+        }
+        else
+        {
+            end_last_scope();
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstForeach)
+    {
+        if (state == UNPROCESSED)
+        {
+            WO_CONTINUE_PROCESS(node->m_job);
+            return HOLD;
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstBreak)
+    {
+        wo_assert(state == UNPROCESSED);
+        // Nothing todo.
+        return OKAY;
+    }
+    WO_PASS_PROCESSER(AstContinue)
+    {
+        wo_assert(state == UNPROCESSED);
+        // Nothing todo.
+        return OKAY;
+    }
+    WO_PASS_PROCESSER(AstValueAssign)
+    {
+        if (state == UNPROCESSED)
+        {
+            TODO;
+        
+        }
+    }
 
 #undef WO_PASS_PROCESSER
 
