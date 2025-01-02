@@ -649,6 +649,11 @@ namespace wo
         };
         struct AstValueAssign : public AstValueMayConsiderOperatorOverload
         {
+            enum
+            {
+                TODO;
+            };
+
             enum assign_type
             {
                 ASSIGN,
