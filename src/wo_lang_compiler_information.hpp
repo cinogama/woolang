@@ -103,3 +103,10 @@
 #define WO_ERR_REPEATED_FIELD_NAMED L"重复的字段名 '%ls'"
 #define WO_ERR_NOT_ALL_FIELD_INITIALIZED L"存在未初始化的结构体字段"
 #define WO_ERR_TOO_MUCH_FIELD_INITIALIZED L"结构体初始项的数量太多"
+
+#define WO_ERR_AMBIGUOUS_TARGET_NAMED L"'%ls' 不明确，编译器假定其在下文中指代的是 '%ls'"
+#define WO_ERR_DIFFERENT_TYPE_IN_BINARY L"运算符左右的操作数类型不相同，左操作数是 '%ls'，而右操作数是 '%ls'"
+#define WO_ERR_UNACCEPTABLE_TYPE_IN_OPERATE L"'%ls' 类型的操作数不能用于此计算"
+
+#define WO_INFO_MAYBE_NAMED_DEFINED_HERE L"可能是此处定义的 '%ls'"
+#define WO_INFO_MAYBE_NAMED_DEFINED_IN_COMPILER L"可能是编译器内部定义的 '%ls'"

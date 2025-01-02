@@ -179,8 +179,20 @@ namespace wo
                 gm::nt(L"OVERLOADINGABLE_OPERATOR") >> gm::symlist{gm::te(gm::ttype::l_land)} >> WO_ASTBUILDER_INDEX(ast::pass_token),
                 gm::nt(L"OVERLOADINGABLE_OPERATOR") >> gm::symlist{gm::te(gm::ttype::l_lor)} >> WO_ASTBUILDER_INDEX(ast::pass_token),
                 gm::nt(L"OVERLOADINGABLE_OPERATOR") >> gm::symlist{gm::te(gm::ttype::l_lnot)} >> WO_ASTBUILDER_INDEX(ast::pass_token),
-                gm::nt(L"EXTERN_FROM") >> gm::symlist{gm::te(gm::ttype::l_extern), gm::te(gm::ttype::l_left_brackets), gm::te(gm::ttype::l_literal_string), gm::te(gm::ttype::l_comma), gm::te(gm::ttype::l_literal_string), gm::nt(L"EXTERN_ATTRIBUTES"), gm::te(gm::ttype::l_right_brackets)} >> WO_ASTBUILDER_INDEX(ast::pass_extern),
-                gm::nt(L"EXTERN_FROM") >> gm::symlist{gm::te(gm::ttype::l_extern), gm::te(gm::ttype::l_left_brackets), gm::te(gm::ttype::l_literal_string), gm::nt(L"EXTERN_ATTRIBUTES"), gm::te(gm::ttype::l_right_brackets)} >> WO_ASTBUILDER_INDEX(ast::pass_extern),
+                gm::nt(L"EXTERN_FROM") >> gm::symlist{
+                    gm::te(gm::ttype::l_extern), 
+                    gm::te(gm::ttype::l_left_brackets),
+                    gm::te(gm::ttype::l_literal_string), 
+                    gm::te(gm::ttype::l_comma),
+                    gm::te(gm::ttype::l_literal_string),
+                    gm::nt(L"EXTERN_ATTRIBUTES"), 
+                    gm::te(gm::ttype::l_right_brackets)} >> WO_ASTBUILDER_INDEX(ast::pass_extern),
+                gm::nt(L"EXTERN_FROM") >> gm::symlist{
+                    gm::te(gm::ttype::l_extern),
+                    gm::te(gm::ttype::l_left_brackets),
+                    gm::te(gm::ttype::l_literal_string),
+                    gm::nt(L"EXTERN_ATTRIBUTES"),
+                    gm::te(gm::ttype::l_right_brackets)} >> WO_ASTBUILDER_INDEX(ast::pass_extern),
                 gm::nt(L"EXTERN_ATTRIBUTES") >> gm::symlist{gm::te(gm::ttype::l_empty)} >> WO_ASTBUILDER_INDEX(ast::pass_empty),
                 gm::nt(L"EXTERN_ATTRIBUTES") >> gm::symlist{gm::te(gm::ttype::l_comma), gm::nt(L"EXTERN_ATTRIBUTE_LIST")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<1>),
                 gm::nt(L"EXTERN_ATTRIBUTE_LIST") >> gm::symlist{gm::nt(L"EXTERN_ATTRIBUTE")} >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
@@ -195,8 +207,25 @@ namespace wo
                 gm::nt(L"WHILE") >> gm::symlist{gm::te(gm::ttype::l_while), gm::te(gm::ttype::l_left_brackets), gm::nt(L"EXPRESSION"), gm::te(gm::ttype::l_right_brackets), gm::nt(L"BLOCKED_SENTENCE")} >> WO_ASTBUILDER_INDEX(ast::pass_while),
                 gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"FORLOOP")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 gm::nt(L"VAR_DEFINE_WITH_SEMICOLON") >> gm::symlist{gm::nt(L"VAR_DEFINE_LET_SENTENCE"), gm::te(gm::ttype::l_semicolon)} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
-                gm::nt(L"FORLOOP") >> gm::symlist{gm::te(gm::ttype::l_for), gm::te(gm::ttype::l_left_brackets), gm::nt(L"VAR_DEFINE_WITH_SEMICOLON"), gm::nt(L"MAY_EMPTY_EXPRESSION"), gm::te(gm::ttype::l_semicolon), gm::nt(L"MAY_EMPTY_EXPRESSION"), gm::te(gm::ttype::l_right_brackets), gm::nt(L"BLOCKED_SENTENCE")} >> WO_ASTBUILDER_INDEX(ast::pass_for_defined),
-                gm::nt(L"FORLOOP") >> gm::symlist{gm::te(gm::ttype::l_for), gm::te(gm::ttype::l_left_brackets), gm::nt(L"MAY_EMPTY_EXPRESSION"), gm::te(gm::ttype::l_semicolon), gm::nt(L"MAY_EMPTY_EXPRESSION"), gm::te(gm::ttype::l_semicolon), gm::nt(L"MAY_EMPTY_EXPRESSION"), gm::te(gm::ttype::l_right_brackets), gm::nt(L"BLOCKED_SENTENCE")} >> WO_ASTBUILDER_INDEX(ast::pass_for_expr),
+                gm::nt(L"FORLOOP") >> gm::symlist{
+                    gm::te(gm::ttype::l_for), 
+                    gm::te(gm::ttype::l_left_brackets),
+                    gm::nt(L"VAR_DEFINE_WITH_SEMICOLON"),
+                    gm::nt(L"MAY_EMPTY_EXPRESSION"), 
+                    gm::te(gm::ttype::l_semicolon), 
+                    gm::nt(L"MAY_EMPTY_EXPRESSION"), 
+                    gm::te(gm::ttype::l_right_brackets), 
+                    gm::nt(L"BLOCKED_SENTENCE")} >> WO_ASTBUILDER_INDEX(ast::pass_for_defined),
+                gm::nt(L"FORLOOP") >> gm::symlist{
+                    gm::te(gm::ttype::l_for), 
+                    gm::te(gm::ttype::l_left_brackets), 
+                    gm::nt(L"MAY_EMPTY_EXPRESSION"), 
+                    gm::te(gm::ttype::l_semicolon), 
+                    gm::nt(L"MAY_EMPTY_EXPRESSION"), 
+                    gm::te(gm::ttype::l_semicolon), 
+                    gm::nt(L"MAY_EMPTY_EXPRESSION"),
+                    gm::te(gm::ttype::l_right_brackets), 
+                    gm::nt(L"BLOCKED_SENTENCE")} >> WO_ASTBUILDER_INDEX(ast::pass_for_expr),
                 gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_break), gm::te(gm::ttype::l_semicolon)} >> WO_ASTBUILDER_INDEX(ast::pass_break),
                 gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_continue), gm::te(gm::ttype::l_semicolon)} >> WO_ASTBUILDER_INDEX(ast::pass_continue),
                 gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_break), gm::nt(L"IDENTIFIER"), gm::te(gm::ttype::l_semicolon)} >> WO_ASTBUILDER_INDEX(ast::pass_break_label),
@@ -207,6 +236,7 @@ namespace wo
                 gm::nt(L"FOREACH") >> gm::symlist{
                     gm::te(gm::ttype::l_for), 
                     gm::te(gm::ttype::l_left_brackets), 
+                    gm::nt(L"DECL_ATTRIBUTE"),
                     gm::te(gm::ttype::l_let), 
                     gm::nt(L"DEFINE_PATTERN"), 
                     gm::te(gm::ttype::l_typecast), 
@@ -295,7 +325,10 @@ namespace wo
                 gm::nt(L"STRUCT_MEMBER_DEFINES") >> gm::symlist{gm::nt(L"STRUCT_MEMBERS_LIST"), gm::nt(L"COMMA_MAY_EMPTY")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 gm::nt(L"STRUCT_MEMBERS_LIST") >> gm::symlist{gm::nt(L"STRUCT_MEMBER_PAIR")} >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
                 gm::nt(L"STRUCT_MEMBERS_LIST") >> gm::symlist{gm::nt(L"STRUCT_MEMBERS_LIST"), gm::te(gm::ttype::l_comma), gm::nt(L"STRUCT_MEMBER_PAIR")} >> WO_ASTBUILDER_INDEX(ast::pass_append_list<2, 0>),
-                gm::nt(L"STRUCT_MEMBER_PAIR") >> gm::symlist{gm::nt(L"ACCESS_MODIFIER_MAY_EMPTY"), gm::nt(L"IDENTIFIER"), gm::nt(L"TYPE_DECLEAR")} >> WO_ASTBUILDER_INDEX(ast::pass_type_struct_field),
+                gm::nt(L"STRUCT_MEMBER_PAIR") >> gm::symlist{
+                    gm::nt(L"ACCESS_MODIFIER_MAY_EMPTY"), 
+                    gm::nt(L"IDENTIFIER"), 
+                    gm::nt(L"TYPE_DECLEAR")} >> WO_ASTBUILDER_INDEX(ast::pass_type_struct_field),
                 gm::nt(L"ACCESS_MODIFIER_MAY_EMPTY") >> gm::symlist{
                                                             gm::nt(L"ACCESS_MODIFIER"),
                                                         } >>
@@ -314,6 +347,14 @@ namespace wo
                                                   gm::nt(L"TYPEOF"),
                                               } >>
                     WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"STRUCTABLE_TYPE_FOR_CONSTRUCT") >> gm::symlist{
+                                                   gm::nt(L"SCOPED_IDENTIFIER_FOR_VAL"),
+                } >>
+                WO_ASTBUILDER_INDEX(ast::pass_type_from_identifier),
+                    gm::nt(L"STRUCTABLE_TYPE_FOR_CONSTRUCT") >> gm::symlist{
+                                                      gm::nt(L"TYPEOF"),
+                } >>
+                WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 gm::nt(L"TYPEOF") >> gm::symlist{gm::te(gm::ttype::l_typeof), gm::te(gm::ttype::l_left_brackets), gm::nt(L"MAY_MUT_PURE_VALUE"), gm::te(gm::ttype::l_right_brackets)} >> WO_ASTBUILDER_INDEX(ast::pass_typeof),
 
                 gm::nt(L"ORIGIN_TYPE") >> gm::symlist{gm::nt(L"TUPLE_TYPE_LIST")} >> WO_ASTBUILDER_INDEX(ast::pass_type_tuple),
@@ -456,7 +497,10 @@ namespace wo
                 gm::nt(L"ARGUMENT_LISTS_MAY_EMPTY") >> gm::symlist{gm::te(gm::ttype::l_empty)} >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
                 gm::nt(L"FUNCTION_CALL") >> gm::symlist{gm::nt(L"FACTOR"), gm::nt(L"ARGUMENT_LISTS")} >> WO_ASTBUILDER_INDEX(ast::pass_normal_function_call),
                 gm::nt(L"FUNCTION_CALL") >> gm::symlist{gm::nt(L"DIRECT_CALLABLE_VALUE"), gm::nt(L"ARGUMENT_LISTS_MAY_EMPTY")} >> WO_ASTBUILDER_INDEX(ast::pass_directly_function_call_append_arguments),
-                gm::nt(L"DIRECT_CALLABLE_VALUE") >> gm::symlist{gm::nt(L"DIRECT_CALL_FIRST_ARG"), gm::te(gm::ttype::l_direct), gm::nt(L"DIRECT_CALLABLE_TARGET")} >> WO_ASTBUILDER_INDEX(ast::pass_directly_function_call),
+                gm::nt(L"DIRECT_CALLABLE_VALUE") >> gm::symlist{
+                    gm::nt(L"DIRECT_CALL_FIRST_ARG"), 
+                    gm::te(gm::ttype::l_direct),
+                    gm::nt(L"DIRECT_CALLABLE_TARGET")} >> WO_ASTBUILDER_INDEX(ast::pass_directly_function_call),
                 gm::nt(L"INV_DIRECT_CALL_FIRST_ARG") >> gm::symlist{gm::nt(L"UNARIED_FACTOR")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 gm::nt(L"INV_DIRECT_CALL_FIRST_ARG") >> gm::symlist{gm::nt(L"ARGUMENT_EXPAND")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 gm::nt(L"INV_FUNCTION_CALL") >> gm::symlist{gm::nt(L"FUNCTION_CALL"), gm::te(gm::ttype::l_inv_direct), gm::nt(L"INV_DIRECT_CALL_FIRST_ARG")} >> WO_ASTBUILDER_INDEX(ast::pass_inverse_function_call),
@@ -513,7 +557,7 @@ namespace wo
                                        gm::te(gm::ttype::l_right_curly_braces),
                                    } >>
                     WO_ASTBUILDER_INDEX(ast::pass_struct_instance),
-                gm::nt(L"STRUCT_INSTANCE_BEGIN") >> gm::symlist{gm::nt(L"STRUCTABLE_TYPE")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"STRUCT_INSTANCE_BEGIN") >> gm::symlist{gm::nt(L"STRUCTABLE_TYPE_FOR_CONSTRUCT")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 gm::nt(L"STRUCT_INSTANCE_BEGIN") >> gm::symlist{gm::te(gm::ttype::l_struct)} >> WO_ASTBUILDER_INDEX(ast::pass_empty),
                 gm::nt(L"STRUCT_MEMBER_INITS") >> gm::symlist{gm::nt(L"STRUCT_MEMBER_INITS_EMPTY")} >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
                 gm::nt(L"STRUCT_MEMBER_INITS_EMPTY") >> gm::symlist{gm::te(gm::ttype::l_empty)} >> WO_ASTBUILDER_INDEX(ast::pass_empty),

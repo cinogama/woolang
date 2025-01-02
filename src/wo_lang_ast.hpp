@@ -73,7 +73,7 @@ namespace wo
                 FROM_TYPE,
             };
             identifier_formal       m_formal;
-            std::optional<AstTypeHolder*>
+            std::optional<std::variant<AstTypeHolder*, lang_TypeInstance*>>
                 m_from_type;
             std::list<wo_pstring_t> m_scope;
             wo_pstring_t            m_name;
@@ -355,7 +355,15 @@ namespace wo
 
         struct AstValueMayConsiderOperatorOverload : public AstValueBase
         {
-            std::optional<AstValueFunctionCall*> m_overload_call;
+            enum LANG_hold_state
+            {
+                UNPROCESSED,
+                HOLD_FOR_OPNUM_EVAL,
+                HOLD_FOR_OVERLOAD_FUNCTION_CALL_EVAL,
+            };
+
+            std::optional<AstValueFunctionCall*> m_LANG_overload_call;
+            LANG_hold_state m_LANG_hold_state;
 
             AstValueMayConsiderOperatorOverload(AstBase::node_type_t nodetype);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;

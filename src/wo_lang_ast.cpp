@@ -159,7 +159,11 @@ namespace wo
                 : new AstIdentifier(*this)
                 ;
             if (new_instance->m_from_type)
-                out_continues.push_back(AstBase::make_holder(&new_instance->m_from_type.value()));
+            {
+                AstTypeHolder** from_type = std::get_if<AstTypeHolder*>(&new_instance->m_from_type.value());
+                if (from_type != nullptr)
+                    out_continues.push_back(AstBase::make_holder(from_type));
+            }
             if (new_instance->m_template_arguments)
                 for (auto& arg : new_instance->m_template_arguments.value())
                     out_continues.push_back(AstBase::make_holder(&arg));
@@ -327,7 +331,9 @@ namespace wo
             case IDENTIFIER:
                 if (m_typeform.m_identifier->m_formal == AstIdentifier::identifier_formal::FROM_TYPE)
                 {
-                    m_typeform.m_identifier->m_from_type.value()->_check_if_template_exist_in(template_params, out_contain_flags);
+                    ast::AstTypeHolder** from_type = std::get_if<ast::AstTypeHolder*>(&m_typeform.m_identifier->m_from_type.value());
+                    if (from_type != nullptr)
+                        (*from_type)->_check_if_template_exist_in(template_params, out_contain_flags);
                     return;
                 }
                 else if (m_typeform.m_identifier->m_formal == AstIdentifier::identifier_formal::FROM_CURRENT)
@@ -690,7 +696,8 @@ namespace wo
 
         AstValueMayConsiderOperatorOverload::AstValueMayConsiderOperatorOverload(AstBase::node_type_t nodetype)
             : AstValueBase(nodetype)
-            , m_overload_call(std::nullopt)
+            , m_LANG_overload_call(std::nullopt)
+            , m_LANG_hold_state(UNPROCESSED)
         {
         }
         AstBase* AstValueMayConsiderOperatorOverload::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
@@ -700,8 +707,6 @@ namespace wo
                 : new AstValueMayConsiderOperatorOverload(node_type)
                 ;
             AstValueBase::make_dup(new_instance, out_continues);
-            if (m_overload_call)
-                out_continues.push_back(AstBase::make_holder(&new_instance->m_overload_call.value()));
             return new_instance;
         }
 
@@ -1713,43 +1718,40 @@ namespace wo
                 if (!item->m_value)
                 {
                     // No initial value specified, use the previous value + 1.
-                    AstValueBase* last_enum_item_value;
-                    std::optional<AstIdentifier*> last_enum_identifier = std::nullopt;
+                    AstValueBase* created_this_item_value;
                     if (last_enum_item_name)
                     {
                         auto* last_enum_identifier_instance = new AstIdentifier(last_enum_item_name.value());
-                        last_enum_item_value = new AstValueVariable(last_enum_identifier_instance);
+                        auto* last_enum_item_value = new AstValueVariable(last_enum_identifier_instance);
+                        auto* int_type_identifier = new AstIdentifier(WO_PSTR(int), std::nullopt, {}, true);
+                        auto* int_type = new AstTypeHolder(int_type_identifier);
+                        auto* cast_last_enum_item_value_into_int = new AstValueTypeCast(int_type, last_enum_item_value);
+                        wo::value one_literal_value;
+                        one_literal_value.set_integer(1);
+                        auto* one_literal = new AstValueLiteral();
+                        one_literal->decide_final_constant_value(one_literal_value);
+                        created_this_item_value = new AstValueBinaryOperator(
+                            AstValueBinaryOperator::operator_type::ADD, cast_last_enum_item_value_into_int, one_literal);
 
-                        last_enum_identifier = last_enum_identifier_instance;
+                        // Update source msg;
+                        last_enum_identifier_instance->source_location = item->source_location;
+                        last_enum_item_value->source_location = item->source_location;
+                        int_type_identifier->source_location = item->source_location;
+                        int_type->source_location = item->source_location;
+                        cast_last_enum_item_value_into_int->source_location = item->source_location;
+                        one_literal->source_location = item->source_location;
                     }
                     else
                     {
                         wo::value last_enum_item_value_value;
                         last_enum_item_value_value.set_integer(0);
-                        last_enum_item_value = new AstValueLiteral();
-                        last_enum_item_value->decide_final_constant_value(last_enum_item_value_value);
+                        created_this_item_value = new AstValueLiteral();
+                        created_this_item_value->decide_final_constant_value(last_enum_item_value_value);
                     }
-
-                    auto* int_type_identifier = new AstIdentifier(WO_PSTR(int), std::nullopt, {}, true);
-                    auto* int_type = new AstTypeHolder(int_type_identifier);
-                    auto* cast_last_enum_item_value_into_int = new AstValueTypeCast(int_type, last_enum_item_value);
-                    wo::value one_literal_value;
-                    one_literal_value.set_integer(1);
-                    auto* one_literal = new AstValueLiteral();
-                    one_literal->decide_final_constant_value(one_literal_value);
-                    auto* created_this_item_value = new AstValueBinaryOperator(
-                        AstValueBinaryOperator::operator_type::ADD, cast_last_enum_item_value_into_int, one_literal);
 
                     item->m_value = created_this_item_value;
 
                     // Update source msg;
-                    last_enum_item_value->source_location = item->source_location;
-                    if (last_enum_identifier)
-                        last_enum_identifier.value()->source_location = item->source_location;
-                    int_type_identifier->source_location = item->source_location;
-                    int_type->source_location = item->source_location;
-                    cast_last_enum_item_value_into_int->source_location = item->source_location;
-                    one_literal->source_location = item->source_location;
                     created_this_item_value->source_location = item->source_location;
                 }
 

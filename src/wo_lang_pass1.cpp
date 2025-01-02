@@ -116,8 +116,8 @@ namespace wo
         WO_LANG_REGISTER_PROCESSER(AstValueFunctionCall_FakeAstArgumentDeductionContextB,
             AstBase::AST_VALUE_FUNCTION_CALL_FAKE_AST_ARGUMENT_DEDUCTION_CONTEXT_B, pass1);
         WO_LANG_REGISTER_PROCESSER(AstValueFunctionCall, AstBase::AST_VALUE_FUNCTION_CALL, pass1);
-        // WO_LANG_REGISTER_PROCESSER(AstValueBinaryOperator, AstBase::AST_VALUE_BINARY_OPERATOR, pass1);
-        // WO_LANG_REGISTER_PROCESSER(AstValueUnaryOperator, AstBase::AST_VALUE_UNARY_OPERATOR, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstValueBinaryOperator, AstBase::AST_VALUE_BINARY_OPERATOR, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstValueUnaryOperator, AstBase::AST_VALUE_UNARY_OPERATOR, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstValueTribleOperator, AstBase::AST_VALUE_TRIPLE_OPERATOR, pass1);
         WO_LANG_REGISTER_PROCESSER(AstFakeValueUnpack, AstBase::AST_FAKE_VALUE_UNPACK, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstValueVariadicArgumentsPack, AstBase::AST_VALUE_VARIADIC_ARGUMENTS_PACK, pass1);
@@ -153,7 +153,7 @@ namespace wo
         WO_LANG_REGISTER_PROCESSER(AstEnumDeclare, AstBase::AST_ENUM_DECLARE, pass1);
         WO_LANG_REGISTER_PROCESSER(AstUnionDeclare, AstBase::AST_UNION_DECLARE, pass1);
         WO_LANG_REGISTER_PROCESSER(AstValueMakeUnion, AstBase::AST_VALUE_MAKE_UNION, pass1);
-        // WO_LANG_REGISTER_PROCESSER(AstUsingNamespace, AstBase::AST_USING_NAMESPACE, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstUsingNamespace, AstBase::AST_USING_NAMESPACE, pass1);
         // WO_LANG_REGISTER_PROCESSER(AstExternInformation, AstBase::AST_EXTERN_INFORMATION, pass1);  
     }
 
@@ -211,9 +211,14 @@ namespace wo
             case AstIdentifier::FROM_CURRENT:
                 break;
             case AstIdentifier::FROM_TYPE:
+            {
                 wo_assert(node->m_from_type);
-                WO_CONTINUE_PROCESS(node->m_from_type.value());
+
+                AstTypeHolder** type_holder = std::get_if<AstTypeHolder*>(&node->m_from_type.value());
+                if (type_holder != nullptr)
+                    WO_CONTINUE_PROCESS(*type_holder);
                 break;
+            }
             }
             if (node->m_template_arguments)
                 WO_CONTINUE_PROCESS_LIST(node->m_template_arguments.value());
@@ -221,7 +226,8 @@ namespace wo
         }
         else if (state == HOLD)
         {
-            if (!find_symbol_in_current_scope(lex, node))
+            bool ambiguous = false;
+            if (!find_symbol_in_current_scope(lex, node, &ambiguous))
             {
                 lex.lang_error(lexer::errorlevel::error, node,
                     WO_ERR_UNKNOWN_IDENTIFIER,
@@ -229,6 +235,8 @@ namespace wo
 
                 return FAILED;
             }
+            else if (ambiguous)
+                return FAILED;
             else
             {
                 lang_Symbol* symbol = node->m_LANG_determined_symbol.value();
@@ -2185,26 +2193,15 @@ namespace wo
                         {
                             if (function_variable_identifier->m_formal == AstIdentifier::FROM_CURRENT)
                             {
-                                // Trying to find the function in type instance.
-                                auto variable_scope_backup = function_variable_identifier->m_scope;
+                                function_variable_identifier->m_formal = AstIdentifier::FROM_TYPE;
+                                function_variable_identifier->m_from_type = first_argument_type_instance;
 
-                                std::optional<lang_Namespace*> symbol_located_namespace =
-                                    first_argument_type_symbol->m_belongs_to_scope->m_belongs_to_namespace;
-                                function_variable_identifier->m_scope.push_front(first_argument_type_symbol->m_name);
-                                for (;;)
+                                if (!find_symbol_in_current_scope(lex, function_variable_identifier, std::nullopt))
                                 {
-                                    lang_Namespace* current_namespace = symbol_located_namespace.value();
-
-                                    if (current_namespace->m_parent_namespace.has_value())
-                                        symbol_located_namespace = current_namespace->m_parent_namespace;
-                                    else
-                                        break;
-                                    function_variable_identifier->m_scope.push_front(current_namespace->m_name);
+                                    // Failed, restore.
+                                    function_variable_identifier->m_formal = AstIdentifier::FROM_CURRENT;
+                                    function_variable_identifier->m_from_type = std::nullopt;
                                 }
-
-                                if (!find_symbol_in_current_scope(lex, function_variable_identifier))
-                                    // Failed, restore the scope.
-                                    function_variable_identifier->m_scope = variable_scope_backup;
                             }
                         }
                     }
@@ -3157,6 +3154,568 @@ namespace wo
             }
             default:
                 wo_error("Unknown hold state.");
+            }
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstUsingNamespace)
+    {
+        wo_assert(state == UNPROCESSED);
+        using_namespace_declare_for_current_scope(node);
+
+        return OKAY;
+    }
+
+    WO_PASS_PROCESSER(AstValueBinaryOperator)
+    {
+        if (state == UNPROCESSED)
+        {
+            WO_CONTINUE_PROCESS(node->m_left);
+            WO_CONTINUE_PROCESS(node->m_right);
+
+            node->m_LANG_hold_state = AstValueBinaryOperator::HOLD_FOR_OPNUM_EVAL;
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            switch (node->m_LANG_hold_state)
+            {
+            case AstValueBinaryOperator::HOLD_FOR_OPNUM_EVAL:
+            {
+                // Get first operand type symbol.
+                lang_TypeInstance* left_type = node->m_left->m_LANG_determined_type.value();
+                lang_Symbol* left_type_symbol = left_type->m_symbol;
+
+                wo_pstring_t operator_name;
+                switch (node->m_operator)
+                {
+                case AstValueBinaryOperator::ADD:
+                    operator_name = WO_PSTR(operator_ADD);
+                    break;
+                case AstValueBinaryOperator::SUBSTRACT:
+                    operator_name = WO_PSTR(operator_SUB);
+                    break;
+                case AstValueBinaryOperator::MULTIPLY:
+                    operator_name = WO_PSTR(operator_MUL);
+                    break;
+                case AstValueBinaryOperator::DIVIDE:
+                    operator_name = WO_PSTR(operator_DIV);
+                    break;
+                case AstValueBinaryOperator::MODULO:
+                    operator_name = WO_PSTR(operator_MOD);
+                    break;
+                case AstValueBinaryOperator::LOGICAL_AND:
+                    operator_name = WO_PSTR(operator_LAND);
+                    break;
+                case AstValueBinaryOperator::LOGICAL_OR:
+                    operator_name = WO_PSTR(operator_LOR);
+                    break;
+                case AstValueBinaryOperator::GREATER:
+                    operator_name = WO_PSTR(operator_GREAT);
+                    break;
+                case AstValueBinaryOperator::GREATER_EQUAL:
+                    operator_name = WO_PSTR(operator_GREATEQ);
+                    break;
+                case AstValueBinaryOperator::LESS:
+                    operator_name = WO_PSTR(operator_LESS);
+                    break;
+                case AstValueBinaryOperator::LESS_EQUAL:
+                    operator_name = WO_PSTR(operator_LESSEQ);
+                    break;
+                case AstValueBinaryOperator::EQUAL:
+                    operator_name = WO_PSTR(operator_EQ);
+                    break;
+                case AstValueBinaryOperator::NOT_EQUAL:
+                    operator_name = WO_PSTR(operator_NEQ);
+                    break;
+                default:
+                    wo_error("Unknown operator.");
+                }
+
+                AstIdentifier* operator_identifier = new AstIdentifier(operator_name);
+                operator_identifier->m_formal = AstIdentifier::FROM_TYPE;
+                operator_identifier->m_from_type = left_type;
+
+                // Update source location.
+                operator_identifier->source_location = node->source_location;
+
+                bool ambiguous = false;
+                if (!find_symbol_in_current_scope(lex, operator_identifier, &ambiguous))
+                {
+                    operator_identifier->m_formal = AstIdentifier::FROM_CURRENT;
+                    operator_identifier->m_from_type = std::nullopt;
+
+                    find_symbol_in_current_scope(lex, operator_identifier, &ambiguous);
+                }
+                if (ambiguous)
+                    return FAILED;
+
+                if (operator_identifier->m_LANG_determined_symbol.has_value())
+                {
+                    // Has overload function.
+                    AstValueVariable* overload_function = new AstValueVariable(operator_identifier);
+                    AstValueFunctionCall* overload_function_call = new AstValueFunctionCall(
+                        false /* symbol has ben determined */, overload_function, { node->m_left, node->m_right });
+
+                    // Update source location.
+                    overload_function->source_location = node->source_location;
+                    overload_function_call->source_location = node->source_location;
+
+                    node->m_LANG_overload_call = overload_function_call;
+
+                    WO_CONTINUE_PROCESS(overload_function_call);
+
+                    node->m_LANG_hold_state = AstValueBinaryOperator::HOLD_FOR_OVERLOAD_FUNCTION_CALL_EVAL;
+                    return HOLD;
+                }
+                else
+                {
+                    // No function overload, type check.
+                    // 1) Base typecheck.
+                    lang_TypeInstance* left_type = node->m_left->m_LANG_determined_type.value();
+                    lang_TypeInstance* right_type = node->m_right->m_LANG_determined_type.value();
+
+                    if (left_type != right_type)
+                    {
+                        lex.lang_error(lexer::errorlevel::error, node,
+                            WO_ERR_DIFFERENT_TYPE_IN_BINARY,
+                            get_type_name_w(left_type),
+                            get_type_name_w(right_type));
+
+                        return FAILED;
+                    }
+                    auto left_base_type = left_type->get_determined_type();
+                    if (!left_base_type.has_value())
+                    {
+                        lex.lang_error(lexer::errorlevel::error, node->m_left,
+                            WO_ERR_TYPE_NAMED_DETERMINED_FAILED,
+                            get_type_name_w(left_type));
+
+                        return FAILED;
+                    }
+
+                    auto base_type = left_base_type.value()->m_base_type;
+                    bool accept_type = false;
+
+                    switch (node->m_operator)
+                    {
+                    case AstValueBinaryOperator::ADD:
+                        accept_type = 
+                            base_type == lang_TypeInstance::DeterminedType::INTEGER
+                            || base_type == lang_TypeInstance::DeterminedType::REAL
+                            || base_type == lang_TypeInstance::DeterminedType::HANDLE
+                            || base_type == lang_TypeInstance::DeterminedType::STRING;
+                        break;
+                    case AstValueBinaryOperator::SUBSTRACT:
+                        accept_type =
+                            base_type == lang_TypeInstance::DeterminedType::INTEGER
+                            || base_type == lang_TypeInstance::DeterminedType::REAL
+                            || base_type == lang_TypeInstance::DeterminedType::HANDLE;
+                        break;
+                    case AstValueBinaryOperator::MULTIPLY:
+                        accept_type =
+                            base_type == lang_TypeInstance::DeterminedType::INTEGER
+                            || base_type == lang_TypeInstance::DeterminedType::REAL;
+                        break;
+                    case AstValueBinaryOperator::DIVIDE:
+                        accept_type =
+                            base_type == lang_TypeInstance::DeterminedType::INTEGER
+                            || base_type == lang_TypeInstance::DeterminedType::REAL;
+                        break;
+                    case AstValueBinaryOperator::MODULO:
+                        accept_type =
+                            base_type == lang_TypeInstance::DeterminedType::INTEGER
+                            || base_type == lang_TypeInstance::DeterminedType::REAL;
+                        break;
+                    case AstValueBinaryOperator::LOGICAL_AND:
+                        accept_type =
+                            base_type == lang_TypeInstance::DeterminedType::BOOLEAN;
+                        break;
+                    case AstValueBinaryOperator::LOGICAL_OR:
+                        accept_type =
+                            base_type == lang_TypeInstance::DeterminedType::BOOLEAN;
+                        break;
+                    case AstValueBinaryOperator::GREATER:
+                        base_type == lang_TypeInstance::DeterminedType::INTEGER
+                            || base_type == lang_TypeInstance::DeterminedType::REAL
+                            || base_type == lang_TypeInstance::DeterminedType::HANDLE
+                            || base_type == lang_TypeInstance::DeterminedType::STRING;
+                        break;
+                    case AstValueBinaryOperator::GREATER_EQUAL:
+                        base_type == lang_TypeInstance::DeterminedType::INTEGER
+                            || base_type == lang_TypeInstance::DeterminedType::REAL
+                            || base_type == lang_TypeInstance::DeterminedType::HANDLE
+                            || base_type == lang_TypeInstance::DeterminedType::STRING;
+                        break;
+                    case AstValueBinaryOperator::LESS:
+                        base_type == lang_TypeInstance::DeterminedType::INTEGER
+                            || base_type == lang_TypeInstance::DeterminedType::REAL
+                            || base_type == lang_TypeInstance::DeterminedType::HANDLE
+                            || base_type == lang_TypeInstance::DeterminedType::STRING;
+                        break;
+                    case AstValueBinaryOperator::LESS_EQUAL:
+                        base_type == lang_TypeInstance::DeterminedType::INTEGER
+                            || base_type == lang_TypeInstance::DeterminedType::REAL
+                            || base_type == lang_TypeInstance::DeterminedType::HANDLE
+                            || base_type == lang_TypeInstance::DeterminedType::STRING;
+                        break;
+                    case AstValueBinaryOperator::EQUAL:
+                        base_type == lang_TypeInstance::DeterminedType::INTEGER
+                            || base_type == lang_TypeInstance::DeterminedType::REAL
+                            || base_type == lang_TypeInstance::DeterminedType::HANDLE
+                            || base_type == lang_TypeInstance::DeterminedType::STRING
+                            || base_type == lang_TypeInstance::DeterminedType::BOOLEAN;
+                        break;
+                    case AstValueBinaryOperator::NOT_EQUAL:
+                        base_type == lang_TypeInstance::DeterminedType::INTEGER
+                            || base_type == lang_TypeInstance::DeterminedType::REAL
+                            || base_type == lang_TypeInstance::DeterminedType::HANDLE
+                            || base_type == lang_TypeInstance::DeterminedType::STRING
+                            || base_type == lang_TypeInstance::DeterminedType::BOOLEAN;
+                        break;
+                    default:
+                        wo_error("Unknown operator.");
+                    }
+
+                    if (!accept_type)
+                    {
+                        lex.lang_error(lexer::errorlevel::error, node->m_left,
+                            WO_ERR_UNACCEPTABLE_TYPE_IN_OPERATE,
+                            get_type_name_w(left_type)); 
+                    }
+
+                    node->m_LANG_determined_type = left_type;
+
+                    if (node->m_left->m_evaled_const_value.has_value()
+                        && node->m_right->m_LANG_determined_type.has_value())
+                    {
+                        // Decide constant value.
+                        node->decide_final_constant_value(wo::value{});
+
+                        wo::value& result_value = node->m_evaled_const_value.value();
+                        wo::value left_value = node->m_left->m_evaled_const_value.value();
+                        wo::value right_value = node->m_right->m_evaled_const_value.value();
+                        wo_assert(left_value.type == right_value.type);
+
+                        switch (node->m_operator)
+                        {
+                        case AstValueBinaryOperator::ADD:
+                            switch (left_value.type)
+                            {
+                            case wo::value::valuetype::integer_type:
+                                result_value.set_integer(left_value.integer + right_value.integer);
+                                break;
+                            case wo::value::valuetype::real_type:
+                                result_value.set_real(left_value.real + right_value.real);
+                                break;
+                            case wo::value::valuetype::string_type:
+                                result_value.set_string_nogc(*left_value.string + *right_value.string);
+                                break;
+                            case wo::value::valuetype::handle_type:
+                                result_value.set_handle(left_value.handle + right_value.handle);
+                                break;
+                            default:
+                                wo_error("Unknown type.");
+                            }
+                            break;
+                        case AstValueBinaryOperator::SUBSTRACT:
+                            switch (left_value.type)
+                            {
+                            case wo::value::valuetype::integer_type:
+                                result_value.set_integer(left_value.integer - right_value.integer);
+                                break;
+                            case wo::value::valuetype::real_type:
+                                result_value.set_real(left_value.real - right_value.real);
+                                break;
+                            case wo::value::valuetype::handle_type:
+                                result_value.set_handle(left_value.handle - right_value.handle);
+                                break;
+                            default:
+                                wo_error("Unknown type.");
+                            }
+                            break;
+                        case AstValueBinaryOperator::MULTIPLY:
+                            switch (left_value.type)
+                            {
+                            case wo::value::valuetype::integer_type:
+                                result_value.set_integer(left_value.integer * right_value.integer);
+                                break;
+                            case wo::value::valuetype::real_type:
+                                result_value.set_real(left_value.real * right_value.real);
+                                break;
+                            default:
+                                wo_error("Unknown type.");
+                            }
+                            break;
+                        case AstValueBinaryOperator::DIVIDE:
+                            switch (left_value.type)
+                            {
+                            case wo::value::valuetype::integer_type:
+                                result_value.set_integer(left_value.integer / right_value.integer);
+                                break;
+                            case wo::value::valuetype::real_type:
+                                result_value.set_real(left_value.real / right_value.real);
+                                break;
+                            default:
+                                wo_error("Unknown type.");
+                            }
+                            break;
+                        case AstValueBinaryOperator::MODULO:
+                            switch (left_value.type)
+                            {
+                            case wo::value::valuetype::integer_type:
+                                result_value.set_integer(left_value.integer % right_value.integer);
+                                break;
+                            case wo::value::valuetype::real_type:
+                                result_value.set_real(std::fmod(left_value.real, right_value.real));
+                                break;
+                            default:
+                                wo_error("Unknown type.");
+                            }
+                            break;
+                        case AstValueBinaryOperator::LOGICAL_AND:
+                            result_value.set_bool((bool)left_value.integer && (bool)right_value.integer);
+                            break;
+                        case AstValueBinaryOperator::LOGICAL_OR:
+                            result_value.set_bool((bool)left_value.integer || (bool)right_value.integer);
+                            break;
+                        case AstValueBinaryOperator::GREATER:
+                            switch (left_value.type)
+                            {
+                            case wo::value::valuetype::integer_type:
+                                result_value.set_bool(left_value.integer > right_value.integer);
+                                break;
+                            case wo::value::valuetype::real_type:
+                                result_value.set_bool(left_value.real > right_value.real);
+                                break;
+                            case wo::value::valuetype::string_type:
+                                result_value.set_bool(*left_value.string > *right_value.string);
+                                break;
+                            case wo::value::valuetype::handle_type:
+                                result_value.set_bool(left_value.handle > right_value.handle);
+                                break;
+                            default:
+                                wo_error("Unknown type.");
+                            }
+                            break;
+                        case AstValueBinaryOperator::GREATER_EQUAL:
+                            switch (left_value.type)
+                            {
+                            case wo::value::valuetype::integer_type:
+                                result_value.set_bool(left_value.integer >= right_value.integer);
+                                break;
+                            case wo::value::valuetype::real_type:
+                                result_value.set_bool(left_value.real >= right_value.real);
+                                break;
+                            case wo::value::valuetype::string_type:
+                                result_value.set_bool(*left_value.string >= *right_value.string);
+                                break;
+                            case wo::value::valuetype::handle_type:
+                                result_value.set_bool(left_value.handle >= right_value.handle);
+                                break;
+                            default:
+                                wo_error("Unknown type.");
+                            }
+                            break;
+                        case AstValueBinaryOperator::LESS:
+                            switch (left_value.type)
+                            {
+                            case wo::value::valuetype::integer_type:
+                                result_value.set_bool(left_value.integer < right_value.integer);
+                                break;
+                            case wo::value::valuetype::real_type:
+                                result_value.set_bool(left_value.real < right_value.real);
+                                break;
+                            case wo::value::valuetype::string_type:
+                                result_value.set_bool(*left_value.string < *right_value.string);
+                                break;
+                            case wo::value::valuetype::handle_type:
+                                result_value.set_bool(left_value.handle < right_value.handle);
+                                break;
+                            default:
+                                wo_error("Unknown type.");
+                            }
+                            break;
+                        case AstValueBinaryOperator::LESS_EQUAL:
+                            switch (left_value.type)
+                            {
+                            case wo::value::valuetype::integer_type:
+                                result_value.set_bool(left_value.integer <= right_value.integer);
+                                break;
+                            case wo::value::valuetype::real_type:
+                                result_value.set_bool(left_value.real <= right_value.real);
+                                break;
+                            case wo::value::valuetype::string_type:
+                                result_value.set_bool(*left_value.string <= *right_value.string);
+                                break;
+                            case wo::value::valuetype::handle_type:
+                                result_value.set_bool(left_value.handle <= right_value.handle);
+                                break;
+                            default:
+                                wo_error("Unknown type.");
+                            }
+                            break;
+                        case AstValueBinaryOperator::EQUAL:
+                            switch (left_value.type)
+                            {
+                            case wo::value::valuetype::integer_type:
+                                result_value.set_bool(left_value.integer == right_value.integer);
+                                break;
+                            case wo::value::valuetype::real_type:
+                                result_value.set_bool(left_value.real == right_value.real);
+                                break;
+                            case wo::value::valuetype::string_type:
+                                result_value.set_bool(*left_value.string == *right_value.string);
+                                break;
+                            case wo::value::valuetype::handle_type:
+                                result_value.set_bool(left_value.handle == right_value.handle);
+                                break;
+                            case wo::value::valuetype::bool_type:
+                                result_value.set_bool(left_value.integer == right_value.integer);
+                                break;
+                            default:
+                                wo_error("Unknown type.");
+                            }
+                            break;
+                        case AstValueBinaryOperator::NOT_EQUAL:
+                            switch (left_value.type)
+                            {
+                            case wo::value::valuetype::integer_type:
+                                result_value.set_bool(left_value.integer != right_value.integer);
+                                break;
+                            case wo::value::valuetype::real_type:
+                                result_value.set_bool(left_value.real != right_value.real);
+                                break;
+                            case wo::value::valuetype::string_type:
+                                result_value.set_bool(*left_value.string != *right_value.string);
+                                break;
+                            case wo::value::valuetype::handle_type:
+                                result_value.set_bool(left_value.handle != right_value.handle);
+                                break;
+                            case wo::value::valuetype::bool_type:
+                                result_value.set_bool(left_value.integer != right_value.integer);
+                                break;
+                            default:
+                                wo_error("Unknown type.");
+                            }
+                            break;
+                        default:
+                            wo_error("Unknown operator.");
+                        }
+                    }
+
+                    break;
+                }
+            }
+            case AstValueBinaryOperator::HOLD_FOR_OVERLOAD_FUNCTION_CALL_EVAL:
+            {
+                AstValueFunctionCall* overload_function_call =
+                    node->m_LANG_overload_call.value();
+
+                node->m_LANG_determined_type =
+                    overload_function_call->m_LANG_determined_type;
+                break;
+            }
+            default:
+                wo_error("Unknown hold state.");
+            }
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstValueUnaryOperator)
+    {
+        if (state == UNPROCESSED)
+        {
+            WO_CONTINUE_PROCESS(node->m_operand);
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            switch (node->m_operator)
+            {
+            case AstValueUnaryOperator::NEGATIVE:
+            {
+                lang_TypeInstance* operand_type = node->m_operand->m_LANG_determined_type.value();
+                auto detrmined_type = operand_type->get_determined_type();
+                if (!detrmined_type.has_value())
+                {
+                    lex.lang_error(lexer::errorlevel::error, node->m_operand,
+                        WO_ERR_TYPE_NAMED_DETERMINED_FAILED,
+                        get_type_name_w(operand_type));
+
+                    return FAILED;
+                }
+
+                auto* detrmined_base_type = detrmined_type.value();
+                if (detrmined_base_type->m_base_type != lang_TypeInstance::DeterminedType::INTEGER
+                    && detrmined_base_type->m_base_type != lang_TypeInstance::DeterminedType::REAL)
+                {
+                    lex.lang_error(lexer::errorlevel::error, node->m_operand,
+                        WO_ERR_UNACCEPTABLE_TYPE_IN_OPERATE,
+                        get_type_name_w(operand_type));
+
+                    return FAILED;
+                }
+
+                node->m_LANG_determined_type = operand_type;
+
+                if (node->m_operand->m_evaled_const_value.has_value())
+                {
+                    wo::value result_value;
+                    wo::value operand_value = node->m_operand->m_evaled_const_value.value();
+
+                    switch (operand_value.type)
+                    {
+                    case wo::value::valuetype::integer_type:
+                        result_value.set_integer(-operand_value.integer);
+                        break;
+                    case wo::value::valuetype::real_type:
+                        result_value.set_real(-operand_value.real);
+                        break;
+                    default:
+                        wo_error("Unknown type.");
+                    }
+                    node->decide_final_constant_value(result_value);
+                }
+                break;
+            }
+            case AstValueUnaryOperator::LOGICAL_NOT:
+            {
+                lang_TypeInstance* operand_type = node->m_operand->m_LANG_determined_type.value();
+                auto detrmined_type = operand_type->get_determined_type();
+                if (!detrmined_type.has_value())
+                {
+                    lex.lang_error(lexer::errorlevel::error, node->m_operand,
+                        WO_ERR_TYPE_NAMED_DETERMINED_FAILED,
+                        get_type_name_w(operand_type));
+
+                    return FAILED;
+                }
+
+                auto* detrmined_base_type = detrmined_type.value();
+                if (detrmined_base_type->m_base_type != lang_TypeInstance::DeterminedType::BOOLEAN)
+                {
+                    lex.lang_error(lexer::errorlevel::error, node->m_operand,
+                        WO_ERR_UNACCEPTABLE_TYPE_IN_OPERATE,
+                        get_type_name_w(operand_type));
+
+                    return FAILED;
+                }
+
+                node->m_LANG_determined_type = operand_type;
+
+                if (node->m_operand->m_evaled_const_value.has_value())
+                {
+                    wo::value result_value;
+                    wo::value operand_value = node->m_operand->m_evaled_const_value.value();
+
+                    result_value.set_bool(!operand_value.integer);
+                    node->decide_final_constant_value(result_value);
+                }
+                break;
+            }
+            default:
+                wo_error("Unknown operator.");
             }
         }
         return WO_EXCEPT_ERROR(state, OKAY);

@@ -690,14 +690,18 @@ namespace wo
                 continue;
             }
 
+            //debug
+            if (type == lex_type::l_direct)
+                printf("");
+
             auto top_symbo =
                 (state_stack.size() == sym_stack.size()
                     ? TERM_MAP.at(type)
                     : NOW_STACK_SYMBO());
 
             no_prospect_action actions, e_actions;
-            LR1_TABLE_READ(NOW_STACK_STATE(), top_symbo, &actions);// .at().at();
-            LR1_TABLE_READ(NOW_STACK_STATE(), te_lempty_index, &e_actions);// LR1_TABLE.at(NOW_STACK_STATE()).at();
+            LR1_TABLE_READ(NOW_STACK_STATE(), top_symbo, &actions);
+            LR1_TABLE_READ(NOW_STACK_STATE(), te_lempty_index, &e_actions);
 
             if (actions.act != action::act_type::error || e_actions.act != action::act_type::error)
             {
@@ -791,10 +795,7 @@ namespace wo
                     if (node.is_ast())
                     {
                         // Append imported ast node front of specify ast-node;
-                        auto* ast_result = node.read_ast();
-                        tkr.merge_imported_script_trees(ast_result);
-
-                        return ast_result;
+                        return tkr.merge_imported_script_trees(node.read_ast());
                     }
                     else
                     {
@@ -992,6 +993,9 @@ namespace wo
             for (auto* imported_ast : imported_ast)
             {
                 merged_list->m_list.push_back(imported_ast);
+
+                // NOTE: Generate an `nop` for debug info gen, avoid ip/cr conflict
+                merged_list->m_list.push_back(new grammar::AstEmpty());
             }
             merged_list->m_list.push_back(node);
 

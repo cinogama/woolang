@@ -18,8 +18,8 @@
 #include "wo_const_string_pool.hpp"
 
 #ifdef ANSI_WIDE_CHAR_SIGN
-#undef ANSI_WIDE_CHAR_SIGN
-#define ANSI_WIDE_CHAR_SIGN L
+#   undef ANSI_WIDE_CHAR_SIGN
+#   define ANSI_WIDE_CHAR_SIGN L
 #endif
 
 namespace wo
@@ -552,7 +552,6 @@ namespace wo
                 tree_node->source_file ? wstr_to_str(*tree_node->source_file) : "?"
             };
         }
-
         template<typename ... TS>
         lex_type lex_error(lexer::errorlevel errorlevel, const wchar_t* fmt, TS&& ... args)
         {
@@ -572,7 +571,6 @@ namespace wo
             skip_error_line();
             return result;
         }
-
         template<typename ... TS>
         lex_type parser_error(lexer::errorlevel errorlevel, const wchar_t* fmt, TS&& ... args)
         {
@@ -590,7 +588,6 @@ namespace wo
                     wstr_to_str(*source_file)
                 });
         }
-
         template<typename AstT, typename ... TS>
         lex_type lang_error(lexer::errorlevel errorlevel, AstT* tree_node, const wchar_t* fmt, TS&& ... args)
         {
@@ -641,6 +638,6 @@ namespace wo
 }
 
 #ifdef ANSI_WIDE_CHAR_SIGN
-#undef ANSI_WIDE_CHAR_SIGN
-#define ANSI_WIDE_CHAR_SIGN /* NOTHING */
+#   undef ANSI_WIDE_CHAR_SIGN
+#   define ANSI_WIDE_CHAR_SIGN /* NOTHING */
 #endif
