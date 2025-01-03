@@ -504,6 +504,7 @@ namespace wo
             OriginNoTemplateSymbolAndInstance   m_bool;
             OriginNoTemplateSymbolAndInstance   m_string;
             OriginNoTemplateSymbolAndInstance   m_gchandle;
+            OriginNoTemplateSymbolAndInstance   m_char;
 
             lang_TypeInstance* m_array_dynamic;
             lang_TypeInstance* m_dictionary_dynamic;

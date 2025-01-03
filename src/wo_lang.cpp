@@ -1067,6 +1067,8 @@ namespace wo
             &m_origin_types.m_string, WO_PSTR(string), lang_TypeInstance::DeterminedType::STRING);
         create_builtin_non_template_symbol_and_instance(
             &m_origin_types.m_gchandle, WO_PSTR(gchandle), lang_TypeInstance::DeterminedType::GCHANDLE);
+        create_builtin_non_template_symbol_and_instance(
+            &m_origin_types.m_char, WO_PSTR(char), lang_TypeInstance::DeterminedType::INTEGER);
 
         // Declare array/vec/... type symbol.
         auto create_builtin_complex_symbol_and_instance = [this](

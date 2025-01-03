@@ -492,16 +492,12 @@ namespace wo
         {
             AstValueVariable* m_variable;
 
-            std::optional<AstValueBase*> m_LANG_assign_value_instance;
-
             AstPatternVariable(AstValueVariable* variable);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
         struct AstPatternIndex : public AstPatternBase
         {
             AstValueIndex* m_index;
-
-            std::optional<AstValueBase*> m_LANG_assign_value_instance;
 
             AstPatternIndex(AstValueIndex* index);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
@@ -649,11 +645,6 @@ namespace wo
         };
         struct AstValueAssign : public AstValueMayConsiderOperatorOverload
         {
-            enum
-            {
-                TODO;
-            };
-
             enum assign_type
             {
                 ASSIGN,

@@ -3448,7 +3448,7 @@ WO_API wo_api rslib_std_call_shell(wo_vm vm, wo_value args)
         return wo_ret_int(vm, system(wo_string(args + 0)));
     else
         return wo_ret_panic(vm, "Function defined in 'std/shell.wo' has been forbidden, "
-            "trying to restart without '--enable-shell 0'.");
+            "trying to restart without '--enable-shell 1'.");
 }
 
 WO_API wo_api rslib_std_get_env(wo_vm vm, wo_value args)
@@ -3462,7 +3462,7 @@ WO_API wo_api rslib_std_get_env(wo_vm vm, wo_value args)
     }
     else
         return wo_ret_panic(vm, "Function defined in 'std/shell.wo' has been forbidden, "
-            "trying to restart without '--enable-shell 0'.");
+            "trying to restart without '--enable-shell 1'.");
 }
 
 const char* wo_stdlib_shell_src_path = u8"woo/shell.wo";

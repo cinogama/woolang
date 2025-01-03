@@ -120,3 +120,4 @@
 
 #define WO_INFO_MAYBE_NAMED_DEFINED_HERE L"可能是此处定义的 '%ls'"
 #define WO_INFO_MAYBE_NAMED_DEFINED_IN_COMPILER L"可能是编译器内部定义的 '%ls'"
+#define WO_INFO_SYMBOL_NAMED_DEFINED_HERE L"'%ls' 在此处被定义"

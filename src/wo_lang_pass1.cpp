@@ -154,7 +154,7 @@ namespace wo
         WO_LANG_REGISTER_PROCESSER(AstUnionDeclare, AstBase::AST_UNION_DECLARE, pass1);
         WO_LANG_REGISTER_PROCESSER(AstValueMakeUnion, AstBase::AST_VALUE_MAKE_UNION, pass1);
         WO_LANG_REGISTER_PROCESSER(AstUsingNamespace, AstBase::AST_USING_NAMESPACE, pass1);
-        // WO_LANG_REGISTER_PROCESSER(AstExternInformation, AstBase::AST_EXTERN_INFORMATION, pass1);  
+        WO_LANG_REGISTER_PROCESSER(AstExternInformation, AstBase::AST_EXTERN_INFORMATION, pass1);  
     }
 
 #define WO_PASS_PROCESSER(AST) WO_PASS_PROCESSER_IMPL(AST, pass1)
@@ -320,9 +320,19 @@ namespace wo
 
                 if (type_symbol->m_symbol_kind == lang_Symbol::VARIABLE)
                 {
-                    lex.lang_error(lexer::errorlevel::error, node,
+                    lex.lang_error(
+                        lexer::errorlevel::error, node,
                         WO_ERR_UNEXPECTED_VAR_SYMBOL,
-                        node->m_typeform.m_identifier->m_name->c_str());
+                        get_symbol_name_w(type_symbol));
+
+                    if (type_symbol->m_symbol_declare_ast.has_value())
+                    {
+                        lex.lang_error(
+                            lexer::errorlevel::infom, 
+                            type_symbol->m_symbol_declare_ast.value(),
+                            WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
+                            get_symbol_name_w(type_symbol));
+                    }
 
                     return FAILED;
                 }
@@ -551,6 +561,15 @@ namespace wo
                         lex.lang_error(lexer::errorlevel::error, node,
                             WO_ERR_UNEXPECTED_TYPE_SYMBOL,
                             node->m_identifier->m_name->c_str());
+
+                        if (var_symbol->m_symbol_declare_ast.has_value())
+                        {
+                            lex.lang_error(
+                                lexer::errorlevel::infom,
+                                var_symbol->m_symbol_declare_ast.value(),
+                                WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
+                                get_symbol_name_w(var_symbol));
+                        }
 
                         return FAILED;
                     }
@@ -1594,23 +1613,6 @@ namespace wo
                     WO_ERR_PATTERN_VARIABLE_SHOULD_BE_MUTABLE);
                 return FAILED;
             }
-
-            lang_TypeInstance* variable_type = node->m_variable->m_LANG_determined_type.value();
-            AstValueBase* assigned_form_value_instance = node->m_LANG_assign_value_instance.value();
-            lang_TypeInstance* assigned_from_value_type = assigned_form_value_instance->m_LANG_determined_type.value();
-            if (!is_type_accepted(
-                lex,
-                node,
-                immutable_type(variable_type),
-                immutable_type(assigned_from_value_type)))
-            {
-                lex.lang_error(lexer::errorlevel::error, assigned_form_value_instance,
-                    WO_ERR_CANNOT_ACCEPTABLE_TYPE_NAMED,
-                    get_type_name_w(assigned_from_value_type),
-                    get_type_name_w(variable_type));
-                return FAILED;
-
-            }
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
@@ -1629,23 +1631,6 @@ namespace wo
                 lex.lang_error(lexer::errorlevel::error, node->m_index,
                     WO_ERR_PATTERN_INDEX_SHOULD_BE_MUTABLE_TYPE);
                 return FAILED;
-            }
-
-            lang_TypeInstance* variable_type = node->m_index->m_LANG_determined_type.value();
-            AstValueBase* assigned_form_value_instance = node->m_LANG_assign_value_instance.value();
-            lang_TypeInstance* assigned_from_value_type = assigned_form_value_instance->m_LANG_determined_type.value();
-            if (!is_type_accepted(
-                lex,
-                node,
-                immutable_type(variable_type),
-                immutable_type(assigned_from_value_type)))
-            {
-                lex.lang_error(lexer::errorlevel::error, assigned_form_value_instance,
-                    WO_ERR_CANNOT_ACCEPTABLE_TYPE_NAMED,
-                    get_type_name_w(assigned_from_value_type),
-                    get_type_name_w(variable_type));
-                return FAILED;
-
             }
         }
         return WO_EXCEPT_ERROR(state, OKAY);
@@ -3421,7 +3406,7 @@ namespace wo
                     node->m_LANG_determined_type = left_type;
 
                     if (node->m_left->m_evaled_const_value.has_value()
-                        && node->m_right->m_LANG_determined_type.has_value())
+                        && node->m_right->m_evaled_const_value.has_value())
                     {
                         // Decide constant value.
                         node->decide_final_constant_value(wo::value{});
@@ -4168,6 +4153,8 @@ namespace wo
                         lex.lang_error(lexer::errorlevel::error, node->m_condition.value(),
                             WO_ERR_UNACCEPTABLE_TYPE_IN_COND,
                             get_type_name_w(condition_typeinstance));
+
+                        end_last_scope();
                         return FAILED;
                     }
                 }
@@ -4186,7 +4173,7 @@ namespace wo
                 WO_CONTINUE_PROCESS(node->m_body);
 
                 node->m_LANG_hold_state = AstFor::HOLD_FOR_BODY_EVAL;
-                break;
+                return HOLD;
             }
             case AstFor::HOLD_FOR_BODY_EVAL:
                 end_last_scope();
@@ -4226,9 +4213,227 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
-            TODO;
-        
+            WO_CONTINUE_PROCESS(node->m_assign_place);
+            WO_CONTINUE_PROCESS(node->m_right);
+
+            node->m_LANG_hold_state = AstValueAssign::HOLD_FOR_OPNUM_EVAL;
+            return HOLD;
         }
+        else if (state == HOLD)
+        {
+            switch (node->m_LANG_hold_state)
+            {
+            case AstValueAssign::HOLD_FOR_OPNUM_EVAL:
+            {
+                AstValueBase* left_value;
+                switch (node->m_assign_place->node_type)
+                {
+                case AstBase::AST_PATTERN_VARIABLE:
+                {
+                    AstPatternVariable* pattern_variable =
+                        static_cast<AstPatternVariable*>(node->m_assign_place);
+
+                    left_value = pattern_variable->m_variable;
+                    break;
+                }
+                case AstBase::AST_PATTERN_INDEX:
+                {
+                    AstPatternIndex* pattern_index =
+                        static_cast<AstPatternIndex*>(node->m_assign_place);
+
+                    left_value = pattern_index->m_index;
+                    break;
+                }
+                default:
+                    wo_error("Unknown assign place.");
+                }
+
+                // Check if operator overload.
+                std::optional<wo_pstring_t> operator_name;
+                switch (node->m_assign_type)
+                {
+                case AstValueAssign::ASSIGN:
+                    // Nothing todo.
+                    break;
+                case AstValueAssign::ADD_ASSIGN:
+                    operator_name = WO_PSTR(operator_ADD);
+                    break;
+                case AstValueAssign::SUBSTRACT_ASSIGN:
+                    operator_name = WO_PSTR(operator_SUB);
+                    break;
+                case AstValueAssign::MULTIPLY_ASSIGN:
+                    operator_name = WO_PSTR(operator_MUL);
+                    break;
+                case AstValueAssign::DIVIDE_ASSIGN:
+                    operator_name = WO_PSTR(operator_DIV);
+                    break;
+                case AstValueAssign::MODULO_ASSIGN:
+                    operator_name = WO_PSTR(operator_MOD);
+                    break;
+                default:
+                    wo_error("Unknown assign type.");
+                }
+
+                lang_TypeInstance* left_type = left_value->m_LANG_determined_type.value();
+
+                if (operator_name.has_value())
+                {
+                    wo_pstring_t operator_name_str = operator_name.value();
+
+                    AstIdentifier* operator_identifier = new AstIdentifier(operator_name_str);
+                    operator_identifier->m_formal = AstIdentifier::FROM_TYPE;
+                    operator_identifier->m_from_type = left_type;
+
+                    // Update source location.
+                    operator_identifier->source_location = node->source_location;
+
+                    bool ambiguous = false;
+                    if (!find_symbol_in_current_scope(lex, operator_identifier, &ambiguous))
+                    {
+                        operator_identifier->m_formal = AstIdentifier::FROM_CURRENT;
+                        operator_identifier->m_from_type = std::nullopt;
+
+                        find_symbol_in_current_scope(lex, operator_identifier, &ambiguous);
+                    }
+                    if (ambiguous)
+                        return FAILED;
+
+                    if (operator_identifier->m_LANG_determined_symbol.has_value())
+                    {
+                        // Has overload function.
+                        AstValueVariable* overload_function = new AstValueVariable(operator_identifier);
+                        AstValueFunctionCall* overload_function_call = new AstValueFunctionCall(
+                            false /* symbol has ben determined */, overload_function, { left_value, node->m_right });
+
+                        // Update source location.
+                        overload_function->source_location = node->source_location;
+                        overload_function_call->source_location = node->source_location;
+
+                        node->m_LANG_overload_call = overload_function_call;
+
+                        WO_CONTINUE_PROCESS(overload_function_call);
+
+                        node->m_LANG_hold_state = AstValueAssign::HOLD_FOR_OVERLOAD_FUNCTION_CALL_EVAL;
+                        return HOLD;
+                    }
+
+                }
+
+                // No function overload, type check.
+                // 1) Base typecheck.
+                lang_TypeInstance* right_type = node->m_right->m_LANG_determined_type.value();
+
+                if (is_type_accepted(
+                    lex,
+                    node,
+                    immutable_type(left_type),
+                    immutable_type(right_type)))
+                {
+                    lex.lang_error(lexer::errorlevel::error, node->m_right,
+                        WO_ERR_CANNOT_ACCEPTABLE_TYPE_NAMED,
+                        get_type_name_w(right_type),
+                        get_type_name_w(left_type));
+
+                    return FAILED;
+                }
+
+                auto left_base_type = left_type->get_determined_type();
+                if (!left_base_type.has_value())
+                {
+                    lex.lang_error(lexer::errorlevel::error, node->m_assign_place,
+                        WO_ERR_TYPE_NAMED_DETERMINED_FAILED,
+                        get_type_name_w(left_type));
+
+                    return FAILED;
+                }
+
+                auto base_type = left_base_type.value()->m_base_type;
+                bool accept_type = false;
+
+                switch (node->m_assign_type)
+                {
+                case AstValueAssign::ASSIGN:
+                    accept_type = true;
+                    break;
+                case AstValueAssign::ADD_ASSIGN:
+                    accept_type =
+                        base_type == lang_TypeInstance::DeterminedType::INTEGER
+                        || base_type == lang_TypeInstance::DeterminedType::REAL
+                        || base_type == lang_TypeInstance::DeterminedType::HANDLE
+                        || base_type == lang_TypeInstance::DeterminedType::STRING;
+                    break;
+                case AstValueAssign::SUBSTRACT_ASSIGN:
+                    accept_type =
+                        base_type == lang_TypeInstance::DeterminedType::INTEGER
+                        || base_type == lang_TypeInstance::DeterminedType::REAL
+                        || base_type == lang_TypeInstance::DeterminedType::HANDLE;
+                    break;
+                case AstValueAssign::MULTIPLY_ASSIGN:
+                    accept_type =
+                        base_type == lang_TypeInstance::DeterminedType::INTEGER
+                        || base_type == lang_TypeInstance::DeterminedType::REAL;
+                    break;
+                case AstValueAssign::DIVIDE_ASSIGN:
+                    accept_type =
+                        base_type == lang_TypeInstance::DeterminedType::INTEGER
+                        || base_type == lang_TypeInstance::DeterminedType::REAL;
+                    break;
+                case AstValueAssign::MODULO_ASSIGN:
+                    accept_type =
+                        base_type == lang_TypeInstance::DeterminedType::INTEGER
+                        || base_type == lang_TypeInstance::DeterminedType::REAL;
+                    break;
+                default:
+                    wo_error("Unknown operator.");
+                }
+
+                if (!accept_type)
+                {
+                    lex.lang_error(lexer::errorlevel::error, node->m_right,
+                        WO_ERR_CANNOT_ACCEPTABLE_TYPE_NAMED,
+                        get_type_name_w(right_type),
+                        get_type_name_w(left_type));
+
+                    return FAILED;
+                }
+
+                if (node->m_valued_assign)
+                    node->m_LANG_determined_type = immutable_type(left_type);
+                else
+                    node->m_LANG_determined_type = m_origin_types.m_void.m_type_instance;
+
+                break; // Finish.
+            }
+            case AstValueAssign::HOLD_FOR_OVERLOAD_FUNCTION_CALL_EVAL:
+            {
+                AstValueFunctionCall* overload_function_call =
+                    node->m_LANG_overload_call.value();
+
+                if (node->m_valued_assign)
+                    node->m_LANG_determined_type =
+                        overload_function_call->m_LANG_determined_type;
+                else
+                    node->m_LANG_determined_type = m_origin_types.m_void.m_type_instance;
+                
+                break;
+            }
+            default:
+                wo_error("Unknown hold state.");
+            }
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstExternInformation)
+    {
+        wo_assert(state == UNPROCESSED);
+        // Mark return type as extern.
+
+        auto* function_instance = get_current_function().value();
+
+        function_instance->m_LANG_determined_return_type =
+            function_instance->m_marked_return_type.value()->m_LANG_determined_type.value();
+
+        return OKAY;
     }
 
 #undef WO_PASS_PROCESSER

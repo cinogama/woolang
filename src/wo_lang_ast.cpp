@@ -929,7 +929,6 @@ namespace wo
         AstPatternVariable::AstPatternVariable(AstValueVariable* variable)
             : AstPatternBase(AST_PATTERN_VARIABLE)
             , m_variable(variable)
-            , m_LANG_assign_value_instance(std::nullopt)
         {
         }
         AstBase* AstPatternVariable::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
@@ -948,7 +947,6 @@ namespace wo
         AstPatternIndex::AstPatternIndex(AstValueIndex* index)
             : AstPatternBase(AST_PATTERN_INDEX)
             , m_index(index)
-            , m_LANG_assign_value_instance(std::nullopt)
         {
         }
         AstBase* AstPatternIndex::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
