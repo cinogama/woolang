@@ -4335,7 +4335,7 @@ namespace wo
                 // 1) Base typecheck.
                 lang_TypeInstance* right_type = node->m_right->m_LANG_determined_type.value();
 
-                if (is_type_accepted(
+                if (!is_type_accepted(
                     lex,
                     node,
                     immutable_type(left_type),
@@ -4420,6 +4420,42 @@ namespace wo
             {
                 AstValueFunctionCall* overload_function_call =
                     node->m_LANG_overload_call.value();
+
+                lang_TypeInstance* func_result_type =
+                    overload_function_call->m_LANG_determined_type.value();
+                lang_TypeInstance* left_type;
+
+                switch (node->m_assign_place->node_type)
+                {
+                case AstBase::AST_PATTERN_VARIABLE:
+                {
+                    AstPatternVariable* pattern_variable =
+                        static_cast<AstPatternVariable*>(node->m_assign_place);
+
+                    left_type = pattern_variable->m_variable->m_LANG_determined_type.value();
+                    break;
+                }
+                case AstBase::AST_PATTERN_INDEX:
+                {
+                    AstPatternIndex* pattern_index =
+                        static_cast<AstPatternIndex*>(node->m_assign_place);
+
+                    left_type = pattern_index->m_index->m_LANG_determined_type.value();
+                    break;
+                }
+                default:
+                    wo_error("Unknown assign place.");
+                }
+
+                if (!is_type_accepted(lex, node, left_type, func_result_type))
+                {
+                    lex.lang_error(lexer::errorlevel::error, node,
+                        WO_ERR_CANNOT_ACCEPTABLE_TYPE_NAMED,
+                        get_type_name_w(func_result_type),
+                        get_type_name_w(left_type));
+
+                    return FAILED;
+                }
 
                 if (node->m_valued_assign)
                     node->m_LANG_determined_type =

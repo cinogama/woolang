@@ -2885,14 +2885,14 @@ std::wstring _dump_src_info(
                                 append_result += L" ";
                             for (; i < pointplace; i++)
                                 append_result += L"~";
-                            append_result += L"~\\ HERE: ";
+
                         }
                         else
                         {
                             for (size_t i = 1; i < pointplace; i++)
                                 append_result += L"~";
-                            append_result += L"~\\ HERE: ";
                         }
+                        append_result += L"~\\ " WO_HERE L": ";
                         append_result += errmsg.describe;
                     }
                     else

@@ -12,14 +12,13 @@
 #endif
 
 
+#define WO_HERE L"此处"
+
 #define WO_TERM_EXCEPTED L"应当是"
 
 #define WO_MACRO_CODE_END_HERE L"此宏定义在此处结束: "
-
 #define WO_MACRO_ANALYZE_END_HERE L"此宏解析在此处结束: "
-
 #define WO_TOO_MANY_ERROR(count) L"报告的错误数量太多，仅显示 " + std::to_wstring(count) +  L" 条，终止"
-
 
 #define WO_ERR_MISMATCH_ANNO_SYM L"不匹配的注释符"
 #define WO_ERR_UNEXCEPT_CH_AFTER_CH L"未预料的字符 '%lc' 位于 '%lc' 之后"
