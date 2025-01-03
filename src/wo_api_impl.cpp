@@ -68,15 +68,15 @@ struct dylib_table_instance
 {
     using fake_table_t = std::unordered_map<std::string, void*>;
 
-    void*           m_native_dylib_handle;
-    fake_table_t*   m_fake_dylib_table;
-    dylib_table_instance* 
-                    m_dependenced_dylib;
+    void* m_native_dylib_handle;
+    fake_table_t* m_fake_dylib_table;
+    dylib_table_instance*
+        m_dependenced_dylib;
     size_t          m_use_count;
 
     explicit dylib_table_instance(
-        const std::string& name, 
-        const wo_extern_lib_func_t* funcs, 
+        const std::string& name,
+        const wo_extern_lib_func_t* funcs,
         dylib_table_instance* dependenced_lib_may_null)
         : m_native_dylib_handle(nullptr)
         , m_fake_dylib_table(new fake_table_t())
@@ -221,7 +221,7 @@ struct loaded_lib_info
 
         bool bury_dylib = (method & wo_dylib_unload_method::WO_DYLIB_BURY) != 0;
 
-        if ((method & wo_dylib_unload_method::WO_DYLIB_UNREF) != 0 
+        if ((method & wo_dylib_unload_method::WO_DYLIB_UNREF) != 0
             && 0 == --lib->m_use_count)
         {
             bury_dylib = true;
@@ -396,7 +396,7 @@ wo_size_t _wo_ctrl_c_hit_count = 0;
 void _wo_ctrl_c_signal_handler(int)
 {
     // CTRL + C
-    wo::wo_stderr << ANSI_HIR "CTRL+C" ANSI_RST 
+    wo::wo_stderr << ANSI_HIR "CTRL+C" ANSI_RST
         ": Trying to breakdown all virtual-machine by default debuggee immediately." << wo::wo_endl;
 
     if (!wo_has_attached_debuggee())
@@ -409,13 +409,13 @@ void _wo_ctrl_c_signal_handler(int)
             wo_error("Panic termination.");
         else
         {
-            wo::wo_stderr << ANSI_HIY "CTRL+C" ANSI_RST 
+            wo::wo_stderr << ANSI_HIY "CTRL+C" ANSI_RST
                 ": Continue pressing Ctrl+C `" ANSI_HIG << 4 - _wo_ctrl_c_hit_count << ANSI_RST "` time(s) to trigger a panic termination" << wo::wo_endl;
         }
     }
     else
         _wo_ctrl_c_hit_count = 0;
-    
+
     _wo_last_ctrl_c_time = _ctrl_c_time;
     ++_wo_ctrl_c_hit_count;
 
@@ -474,7 +474,7 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
                 if (not_close_vm_count != 0 && not_close_vm_count != non_close_vm_last_warning_vm_count)
                 {
                     non_close_vm_last_warning_vm_count = not_close_vm_count;
-                    wo_warning((not_closed_vm_call_stacks.str() 
+                    wo_warning((not_closed_vm_call_stacks.str()
                         + "\n"
                         + std::to_string(not_close_vm_count)
                         + " vm(s) have not been closed, please check.").c_str());
@@ -989,9 +989,9 @@ void wo_set_union(wo_value value, wo_vm vm, wo_integer_t id, wo_value value_may_
     }
 
     structptr->m_values[0].set_integer(id);
-    
+
     wo_assert(
-        structptr->m_values[1].type == wo::value::valuetype::invalid && 
+        structptr->m_values[1].type == wo::value::valuetype::invalid &&
         structptr->m_values[1].handle == 0);
 
     if (value_may_null != nullptr)
@@ -2818,11 +2818,19 @@ wo_bool_t wo_has_compile_error(wo_vm vm)
     return WO_FALSE;
 }
 
-std::wstring _dump_src_info(const std::string& path, size_t beginaimrow, size_t beginpointplace, size_t aimrow, size_t pointplace, _wo_inform_style style)
+std::wstring _dump_src_info(
+    const std::wstring& path,
+    const wo::lexer::lex_error_msg& errmsg,
+    size_t depth,
+    size_t beginaimrow,
+    size_t beginpointplace,
+    size_t aimrow,
+    size_t pointplace,
+    _wo_inform_style style)
 {
     std::wstring src_full_path, result;
 
-    if (wo::check_virtual_file_path(&src_full_path, wo::str_to_wstr(path), std::nullopt))
+    if (wo::check_virtual_file_path(&src_full_path, path, std::nullopt))
     {
         auto content_stream = wo::open_virtual_file_stream<true>(src_full_path);
         if (content_stream)
@@ -2830,84 +2838,96 @@ std::wstring _dump_src_info(const std::string& path, size_t beginaimrow, size_t 
             auto& content_stream_ptr = content_stream.value();
             wo_assert(content_stream_ptr != nullptr);
 
-            constexpr size_t UP_DOWN_SHOWN_LINE = 2;
+            constexpr size_t UP_DOWN_SHOWN_LINE = 3;
             size_t current_row_no = 1;
             size_t current_col_no = 1;
             size_t from = beginaimrow > UP_DOWN_SHOWN_LINE ? beginaimrow - UP_DOWN_SHOWN_LINE : 0;
-            size_t to = aimrow + UP_DOWN_SHOWN_LINE;
+            size_t to = aimrow + 0;
 
             bool first_line = true;
 
-            auto print_src_file_print_lineno = [&current_row_no, &result, &first_line]() {
-                wchar_t buf[20] = {};
-                if (first_line)
+            auto print_src_file_print_lineno =
+                [&current_row_no, &result, &first_line, depth]()
                 {
-                    first_line = false;
+                    wchar_t buf[20] = {};
+                    if (first_line)
+                        first_line = false;
+                    else
+                        result += L"\n";
+
                     swprintf(buf, 19, L"%-5zu | ", current_row_no);
-                }
-                else
-                    swprintf(buf, 19, L"\n%-5zu | ", current_row_no);
-                result += buf;
-            };
-            auto print_notify_line = [&result, &first_line, &current_row_no, beginpointplace, pointplace, style, beginaimrow, aimrow](size_t line_end_place) {
-                wchar_t buf[20] = {};
-                if (first_line)
+                    result += std::wstring(depth == 0 ? 0 : depth + 1, L' ') + buf;
+                };
+            auto print_notify_line =
+                [&result, &first_line, &current_row_no, &errmsg, beginpointplace, pointplace, style, beginaimrow, aimrow, depth](
+                    size_t line_end_place)
                 {
-                    first_line = false;
+                    wchar_t buf[20] = {};
+                    if (first_line)
+                        first_line = false;
+                    else
+                        result += L"\n";
+
                     swprintf(buf, 19, L"      | ");
-                }
-                else
-                    swprintf(buf, 19, L"\n      | ");
+                    std::wstring append_result = buf;
 
-                std::wstring append_result = buf;
+                    if (style == _wo_inform_style::WO_NEED_COLOR)
+                        append_result += errmsg.error_level == wo::lexer::errorlevel::error
+                        ? wo::str_to_wstr(ANSI_HIR)
+                        : wo::str_to_wstr(ANSI_HIC);
 
-                if (style == _wo_inform_style::WO_NEED_COLOR)
-                    append_result += wo::str_to_wstr(ANSI_HIR);
-
-                if (current_row_no == beginaimrow && current_row_no == aimrow)
-                {
-                    size_t i = 1;
-                    for (; i < beginpointplace; i++)
-                        append_result += L" ";
-                    for (; i < pointplace; i++)
-                        append_result += L"~";
-                    append_result += L"~\\ HERE";
-                }
-                else if (current_row_no == beginaimrow)
-                {
-                    size_t i = 1;
-                    for (; i < beginpointplace; i++)
-                        append_result += L" ";
-                    if (i < line_end_place)
+                    if (current_row_no == aimrow)
                     {
-                        for (; i < line_end_place; i++)
-                            append_result += L"~";
+                        if (current_row_no == beginaimrow)
+                        {
+                            size_t i = 1;
+                            for (; i < beginpointplace; i++)
+                                append_result += L" ";
+                            for (; i < pointplace; i++)
+                                append_result += L"~";
+                            append_result += L"~\\ HERE: ";
+                        }
+                        else
+                        {
+                            for (size_t i = 1; i < pointplace; i++)
+                                append_result += L"~";
+                            append_result += L"~\\ HERE: ";
+                        }
+                        append_result += errmsg.describe;
                     }
                     else
-                        return;
-                }
-                else if (current_row_no == aimrow)
-                {
-                    for (size_t i = 1; i < pointplace; i++)
-                        append_result += L"~";
-                    append_result += L"~\\ HERE";
-                }
-                else
-                {
-                    size_t i = 1;
-                    if (i < line_end_place)
                     {
-                        for (; i < line_end_place; i++)
-                            append_result += L"~";
+                        if (current_row_no == beginaimrow)
+                        {
+                            size_t i = 1;
+                            for (; i < beginpointplace; i++)
+                                append_result += L" ";
+                            if (i < line_end_place)
+                            {
+                                for (; i < line_end_place; i++)
+                                    append_result += L"~";
+                            }
+                            else
+                                return;
+                        }
+                        else
+                        {
+                            size_t i = 1;
+                            if (i < line_end_place)
+                            {
+                                for (; i < line_end_place; i++)
+                                    append_result += L"~";
+                            }
+                            else
+                                return;
+                        }
                     }
-                    else
-                        return;
-                }
-                if (style == _wo_inform_style::WO_NEED_COLOR)
-                    append_result += wo::str_to_wstr(ANSI_RST);
 
-                result += append_result;
-            };
+                    if (style == _wo_inform_style::WO_NEED_COLOR)
+                        append_result += wo::str_to_wstr(ANSI_RST);
+
+                    result += std::wstring(depth == 0 ? 0 : depth + 1, L' ') + append_result;
+                };
 
             if (from <= current_row_no && current_row_no <= to)
                 print_src_file_print_lineno();
@@ -2963,7 +2983,7 @@ std::wstring _dump_src_info(const std::string& path, size_t beginaimrow, size_t 
 
 std::string _wo_dump_lexer_context_error(wo::lexer* lex, _wo_inform_style style)
 {
-    std::string src_file_path = "";
+    std::wstring src_file_path;
     size_t errcount = 0;
 
     std::string _vm_compile_errors;
@@ -2973,20 +2993,27 @@ std::string _wo_dump_lexer_context_error(wo::lexer* lex, _wo_inform_style style)
         if (src_file_path != err_info.filename)
         {
             if (style == WO_NEED_COLOR)
-                _vm_compile_errors += ANSI_HIR "In file: '" ANSI_RST + (src_file_path = err_info.filename) + ANSI_HIR "'" ANSI_RST "\n";
+                _vm_compile_errors += ANSI_HIR "In file: '" ANSI_RST + wo::wstrn_to_str(src_file_path = err_info.filename) + ANSI_HIR "'" ANSI_RST "\n";
             else
-                _vm_compile_errors += "In file: '" + (src_file_path = err_info.filename) + "'\n";
+                _vm_compile_errors += "In file: '" + wo::wstrn_to_str(src_file_path = err_info.filename) + "'\n";
         }
-        _vm_compile_errors += wo::wstr_to_str(err_info.to_wstring(style & WO_NEED_COLOR)) + "\n";
 
         // Print source informations..
         _vm_compile_errors += wo::wstr_to_str(
-            _dump_src_info(src_file_path, err_info.begin_row, err_info.begin_col, err_info.end_row, err_info.end_col, style)) + "\n";
+            _dump_src_info(
+                src_file_path,
+                err_info,
+                err_info.depth,
+                err_info.begin_row,
+                err_info.begin_col,
+                err_info.end_row,
+                err_info.end_col,
+                style));
     }
 
     if (lex->lex_error_list.size() >= WO_MAX_ERROR_COUNT)
         _vm_compile_errors += wo::wstr_to_str(WO_TOO_MANY_ERROR(WO_MAX_ERROR_COUNT) + L"\n");
-    
+
     return _vm_compile_errors;
 }
 
@@ -3035,12 +3062,12 @@ wo_value wo_reserve_stack(wo_vm vm, wo_size_t stack_sz, wo_value* inout_args_may
     // Check stack size.
     wo::vmbase* vmbase = WO_VM(vm);
 
-    wo_assert(inout_args_maynull == nullptr 
-        || (WO_VAL(*inout_args_maynull) > vmbase->_self_stack_mem_buf 
+    wo_assert(inout_args_maynull == nullptr
+        || (WO_VAL(*inout_args_maynull) > vmbase->_self_stack_mem_buf
             && WO_VAL(*inout_args_maynull) <= vmbase->stack_mem_begin));
 
     const size_t args_offset =
-        inout_args_maynull ? vmbase->stack_mem_begin - WO_VAL(*inout_args_maynull): 0;
+        inout_args_maynull ? vmbase->stack_mem_begin - WO_VAL(*inout_args_maynull) : 0;
 
     if (vmbase->assure_stack_size(stack_sz) && inout_args_maynull)
     {
@@ -3213,7 +3240,7 @@ wo_value wo_dispatch(
         auto dispatch_context = vmm->er->vmcallstack;
 
         auto dispatch_result = vmm->run();
-        
+
         switch (dispatch_result)
         {
         case wo_result_t::WO_API_RESYNC:
@@ -4087,7 +4114,10 @@ wo_size_t wo_lsp_get_compile_error_msg_count_from_vm(wo_vm vmm)
 
 wo_lsp_error_msg* wo_lsp_get_compile_error_msg_detail_from_vm(wo_vm vmm, wo_size_t index)
 {
-    auto& err_detail = WO_VM(vmm)->compile_info->lex_error_list[index];
+    auto id_err = WO_VM(vmm)->compile_info->lex_error_list.begin();
+    std::advance(id_err, index);
+
+    auto& err_detail = *id_err;
 
     wo_lsp_error_msg* msg = new wo_lsp_error_msg;
 
@@ -4104,9 +4134,10 @@ wo_lsp_error_msg* wo_lsp_get_compile_error_msg_detail_from_vm(wo_vm vmm, wo_size
     msg->m_end_location[0] = err_detail.end_row;
     msg->m_end_location[1] = err_detail.end_col;
 
-    auto* filename = new char[err_detail.filename.size() + 1];
-    strcpy(filename, err_detail.filename.data());
-    msg->m_file_name = filename;
+    std::string filename = wo::wstr_to_str(err_detail.filename);
+    auto* filename_p = new char[filename.size() + 1];
+    strcpy(filename_p, filename.data());
+    msg->m_file_name = filename_p;
     msg->m_describe = wo::u8wcstombs_zero_term(err_detail.describe.c_str());
 
     return msg;

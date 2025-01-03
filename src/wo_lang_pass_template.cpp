@@ -4,6 +4,55 @@ namespace wo
 {
 #ifndef WO_DISABLE_COMPILER
 
+    void LangContext::_collect_failed_template_instance(
+        lexer& lex, ast::AstBase* node, lang_TemplateAstEvalStateBase* inst)
+    {
+        std::list<wo_pstring_t>* template_params = nullptr;
+        switch (inst->m_symbol->m_symbol_kind)
+        {
+        case lang_Symbol::kind::VARIABLE:
+            template_params = &inst->m_symbol->m_template_value_instances->m_template_params;
+            break;
+        case lang_Symbol::kind::ALIAS:
+            template_params = &inst->m_symbol->m_template_alias_instances->m_template_params;
+            break;
+        case lang_Symbol::kind::TYPE:
+            template_params = &inst->m_symbol->m_template_type_instances->m_template_params;
+            break;
+
+        default:
+            wo_error("Unexpected symbol kind");
+            break;
+        }
+
+        wo_assert(inst->m_template_arguments.size() == template_params->size());
+        std::wstring failed_template_arg_list;
+
+        auto it_template_arg = inst->m_template_arguments.begin();
+        auto it_template_param = template_params->begin();
+        auto it_template_param_end = template_params->end();
+
+        for (; it_template_param != it_template_param_end;
+            ++it_template_param, ++it_template_arg)
+        {
+            if (!failed_template_arg_list.empty())
+                failed_template_arg_list += L", ";
+
+            failed_template_arg_list += **it_template_param;
+            failed_template_arg_list += L" = ";
+            failed_template_arg_list += get_type_name_w(*it_template_arg);
+        }
+
+        lex.lang_error(lexer::errorlevel::error, node,
+            WO_ERR_FAILED_REIFICATION_CAUSED_BY,
+            failed_template_arg_list.c_str(),
+            get_symbol_name_w(inst->m_symbol));
+
+        for (const auto& errmsg : inst->m_failed_error_for_this_instance.value())
+            // TODO: Describe the error support.
+            lex.error_impl(errmsg);
+    }
+
     std::optional<lang_TemplateAstEvalStateBase*> LangContext::begin_eval_template_ast(
         lexer& lex,
         ast::AstBase* node,
@@ -93,15 +142,17 @@ namespace wo
             return std::nullopt;
         }
 
+        result->m_template_arguments = template_arguments;
+
         switch (result->m_state)
         {
         case lang_TemplateAstEvalStateValue::EVALUATED:
             break;
         case lang_TemplateAstEvalStateValue::FAILED:
-            // TODO: Collect error message in template eval.
-            lex.lang_error(lexer::errorlevel::error, node,
-                WO_ERR_VALUE_TYPE_DETERMINED_FAILED);
+        {
+            _collect_failed_template_instance(lex, node, result);
             return std::nullopt;
+        }
         case lang_TemplateAstEvalStateValue::EVALUATING:
         {
             if (templating_symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE)
@@ -126,6 +177,7 @@ namespace wo
             fast_create_template_type_alias_in_current_scope(
                 templating_symbol->m_defined_source, *template_params, template_arguments);
 
+            lex.begin_trying_block();
             WO_CONTINUE_PROCESS(result->m_ast);
             break;
         }
@@ -133,8 +185,11 @@ namespace wo
     }
 
     void LangContext::finish_eval_template_ast(
-        lang_TemplateAstEvalStateBase* template_eval_instance)
+        lexer& lex, lang_TemplateAstEvalStateBase* template_eval_instance)
     {
+        wo_assert(lex.get_cur_error_frame().empty());
+        lex.end_trying_block();
+
         wo_assert(template_eval_instance->m_state == lang_TemplateAstEvalStateBase::EVALUATING);
         auto* templating_symbol = template_eval_instance->m_symbol;;
 
@@ -213,13 +268,21 @@ namespace wo
     }
 
     void LangContext::failed_eval_template_ast(
-        lang_TemplateAstEvalStateBase* template_eval_instance)
+        lexer& lex, ast::AstBase* node, lang_TemplateAstEvalStateBase* template_eval_instance)
     {
+        wo_assert(!lex.get_cur_error_frame().empty());
+        template_eval_instance->m_failed_error_for_this_instance.emplace(
+            std::move(lex.get_cur_error_frame()));
+
+        lex.end_trying_block();
+
         // Child failed, we need pop the scope anyway.
         end_last_scope(); // Leave temporary scope for template type alias.
         end_last_scope(); // Leave scope where template variable defined.
 
         template_eval_instance->m_state = lang_TemplateAstEvalStateBase::FAILED;
+
+        _collect_failed_template_instance(lex, node, template_eval_instance);
     }
 
     void LangContext::template_type_deduction_extraction_with_complete_type(

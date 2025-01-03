@@ -175,7 +175,9 @@ namespace wo
             size_t   begin_col;
             size_t   end_col;
             std::wstring describe;
-            std::string filename;
+            std::wstring filename;
+
+            size_t   depth;
 
             std::wstring to_wstring(bool need_ansi_describe = true)
             {
@@ -205,7 +207,7 @@ namespace wo
         int         format_string_count;
         int         curly_count;
 
-        std::vector<std::vector<lex_error_msg>> error_frame;
+        std::list<std::list<lex_error_msg>> error_frame;
 
         std::stack<std::pair<lex_type, std::wstring>> temp_token_buff_stack;
         lex_type peek_result_type = lex_type::l_error;
@@ -230,11 +232,11 @@ namespace wo
         bool just_have_err; // it will be clear at next()
 
         const wo_pstring_t   source_file;
-        std::vector<lex_error_msg> lex_error_list;
+        std::list<lex_error_msg> lex_error_list;
 
         std::unordered_set<wo_pstring_t> imported_file_list;
 
-        std::vector<ast::AstBase*> imported_ast;
+        std::list<ast::AstBase*> imported_ast;
         std::shared_ptr<std::unordered_map<std::wstring, std::shared_ptr<macro>>> used_macro_list;
         const lexer* last_lexer;
         std::wstring script_path;
@@ -510,11 +512,11 @@ namespace wo
             error_frame.pop_back();
         }
 
-        std::vector<lex_error_msg>& get_cur_error_frame()
+        std::list<lex_error_msg>& get_cur_error_frame()
         {
             if (error_frame.empty())
                 return lex_error_list;
-            return error_frame[error_frame.size() - 1];
+            return error_frame.back();
         }
 
         lex_type error_impl(const lex_error_msg& msg)
@@ -566,7 +568,8 @@ namespace wo
                     now_file_colno,
                     next_file_colno,
                     describe,
-                    source_file ? wstr_to_str(*source_file) : "json"
+                    source_file ? *source_file : L"json",
+                    0
                 });
             skip_error_line();
             return result;
@@ -585,7 +588,8 @@ namespace wo
                     now_file_colno,
                     next_file_colno,
                     describe,
-                    wstr_to_str(*source_file)
+                    *source_file,
+                    0
                 });
         }
         template<typename AstT, typename ... TS>
@@ -604,7 +608,8 @@ namespace wo
                 tree_node->source_location.begin_at.column,
                 tree_node->source_location.end_at.column,
                 describe,
-                wstr_to_str(*tree_node->source_location.source_file)
+                *tree_node->source_location.source_file,
+                error_frame.size(),
             });
         }
 

@@ -436,7 +436,7 @@ namespace wo
                             auto* state = static_cast<lang_TemplateAstEvalStateBase*>(
                                 node->m_LANG_template_evalating_state.value());
 
-                            finish_eval_template_ast(state);
+                            finish_eval_template_ast(lex, state);
 
                             if (type_symbol->m_symbol_kind == lang_Symbol::ALIAS)
                                 alias_instance = static_cast<lang_TemplateAstEvalStateAlias*>(
@@ -498,7 +498,7 @@ namespace wo
             {
                 auto* state = node->m_LANG_template_evalating_state.value();
 
-                failed_eval_template_ast(state);
+                failed_eval_template_ast(lex, node, state);
             }
         }
         return WO_EXCEPT_ERROR(state, OKAY);
@@ -645,7 +645,7 @@ namespace wo
                     auto* state = static_cast<lang_TemplateAstEvalStateValue*>(
                         node->m_LANG_template_evalating_state.value());
 
-                    finish_eval_template_ast(state);
+                    finish_eval_template_ast(lex, state);
 
                     value_instance = state->m_value_instance.get();
                 }
@@ -696,7 +696,7 @@ namespace wo
             {
                 auto* state = node->m_LANG_template_evalating_state.value();
 
-                failed_eval_template_ast(state);
+                failed_eval_template_ast(lex, node, state);
             }
         }
         return WO_EXCEPT_ERROR(state, OKAY);
@@ -2676,6 +2676,17 @@ namespace wo
                 wo_error("Unknown hold state.");
             }
         }
+        else
+        {
+            if (node->m_is_direct_call 
+                && node->m_LANG_hold_state == AstValueFunctionCall::HOLD_FOR_FUNCTION_EVAL)
+            {
+                AstValueBase* first_argument = node->m_arguments.front();
+                lex.lang_error(lexer::errorlevel::infom, first_argument,
+                    WO_INFO_TYPE_NAMED_BEFORE_DIRECT_SIGN,
+                    get_type_name_w(first_argument->m_LANG_determined_type.value()));
+            }
+        }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
     WO_PASS_PROCESSER(AstUnionDeclare)
@@ -3189,8 +3200,8 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
-            WO_CONTINUE_PROCESS(node->m_left);
             WO_CONTINUE_PROCESS(node->m_right);
+            WO_CONTINUE_PROCESS(node->m_left);
 
             node->m_LANG_hold_state = AstValueBinaryOperator::HOLD_FOR_OPNUM_EVAL;
             return HOLD;
@@ -3776,8 +3787,8 @@ namespace wo
                 }
                 else
                 {
-                    WO_CONTINUE_PROCESS(node->m_true_value);
                     WO_CONTINUE_PROCESS(node->m_false_value);
+                    WO_CONTINUE_PROCESS(node->m_true_value);
                 }
 
                 node->m_LANG_hold_state = AstValueTribleOperator::HOLD_FOR_BRANCH_EVAL;
@@ -4058,9 +4069,10 @@ namespace wo
                 }
                 else
                 {
-                    WO_CONTINUE_PROCESS(node->m_true_body);
                     if (node->m_false_body.has_value())
                         WO_CONTINUE_PROCESS(node->m_false_body.value());
+
+                    WO_CONTINUE_PROCESS(node->m_true_body);
                 }
 
                 node->m_LANG_hold_state = AstIf::HOLD_FOR_BODY_EVAL;
@@ -4213,8 +4225,8 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
-            WO_CONTINUE_PROCESS(node->m_assign_place);
             WO_CONTINUE_PROCESS(node->m_right);
+            WO_CONTINUE_PROCESS(node->m_assign_place);
 
             node->m_LANG_hold_state = AstValueAssign::HOLD_FOR_OPNUM_EVAL;
             return HOLD;

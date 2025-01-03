@@ -400,7 +400,7 @@ namespace wo
 
             auto* function_define = new AstVariableDefines(attrib);
             auto* function_value = new AstValueFunction(
-                in_params, is_variadic_function, in_template_params, marked_return_type, where_constraints, extern_info);
+                in_params, is_variadic_function, std::nullopt, marked_return_type, where_constraints, extern_info);
             auto* function_define_pattern = new AstPatternSingle(false, func_name, in_template_params);
             auto* function_define_item = new AstVariableDefineItem(function_define_pattern, function_value);
 
@@ -443,7 +443,7 @@ namespace wo
 
             auto* function_define = new AstVariableDefines(attrib);
             auto* function_value = new AstValueFunction(
-                in_params, is_variadic_function, in_template_params, marked_return_type, where_constraints, extern_info);
+                in_params, is_variadic_function, std::nullopt, marked_return_type, where_constraints, extern_info);
             auto* function_define_pattern = new AstPatternSingle(false, func_name, in_template_params);
             auto* function_define_item = new AstVariableDefineItem(function_define_pattern, function_value);
 

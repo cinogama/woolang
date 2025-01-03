@@ -1268,29 +1268,32 @@ namespace wo
 
         for (auto* searching_namesapace : searching_namesapaces)
         {
-            lang_Namespace* symbol_namespace = searching_namesapace;
-            for (auto* scope : ident->m_scope)
+            for (;;)
             {
-                auto fnd = symbol_namespace->m_sub_namespaces.find(scope);
-                if (fnd != symbol_namespace->m_sub_namespaces.end())
-                    symbol_namespace = fnd->second.get();
+                lang_Namespace* symbol_namespace = searching_namesapace;
+                for (auto* scope : ident->m_scope)
+                {
+                    auto fnd = symbol_namespace->m_sub_namespaces.find(scope);
+                    if (fnd != symbol_namespace->m_sub_namespaces.end())
+                        symbol_namespace = fnd->second.get();
+                    else
+                        goto _label_try_upper_namespace;
+                }
+
+                // Ok, found the namespace.
+                if (auto fnd = symbol_namespace->m_this_scope->m_defined_symbols.find(ident->m_name);
+                    fnd != symbol_namespace->m_this_scope->m_defined_symbols.end())
+                {
+                    found_symbol.insert(fnd->second.get());
+                    break; // Break for continue outside loop
+                }
+
+            _label_try_upper_namespace:
+                if (searching_namesapace->m_parent_namespace)
+                    searching_namesapace = searching_namesapace->m_parent_namespace.value();
                 else
-                    goto _label_try_upper_namespace;
+                    break; // Break for continue outside loop
             }
-
-            // Ok, found the namespace.
-            if (auto fnd = symbol_namespace->m_this_scope->m_defined_symbols.find(ident->m_name); 
-                fnd != symbol_namespace->m_this_scope->m_defined_symbols.end())
-            {
-                found_symbol.insert(fnd->second.get());
-                continue;
-            }
-
-        _label_try_upper_namespace:
-            if (searching_namesapace->m_parent_namespace)
-                searching_namesapace = searching_namesapace->m_parent_namespace.value();
-            else
-                continue;
         }
 
         if (found_symbol.empty())

@@ -14,9 +14,9 @@
 
 #define WO_TERM_EXCEPTED L"应当是"
 
-#define WO_MACRO_CODE_END_HERE L"此宏定义在此处结束："
+#define WO_MACRO_CODE_END_HERE L"此宏定义在此处结束: "
 
-#define WO_MACRO_ANALYZE_END_HERE L"此宏解析在此处结束："
+#define WO_MACRO_ANALYZE_END_HERE L"此宏解析在此处结束: "
 
 #define WO_TOO_MANY_ERROR(count) L"报告的错误数量太多，仅显示 " + std::to_wstring(count) +  L" 条，终止"
 
@@ -32,10 +32,10 @@
 #define WO_ERR_UNEXCEPTED_EOL_IN_STRING L"在字符串常量中发现换行符"
 #define WO_ERR_UNKNOWN_REPEAT_MACRO_DEFINE L"重复的宏定义 '%ls'"
 #define WO_ERR_UNKNOWN_PRAGMA_COMMAND L"未知的预处理指令 '%ls'"
-#define WO_ERR_FAILED_TO_COMPILE_MACRO_CONTROLOR L"宏控制器编译失败：\n"
-#define WO_ERR_FAILED_TO_RUN_MACRO_CONTROLOR L"宏 '%ls' 运行发生了错误：%ls"
+#define WO_ERR_FAILED_TO_COMPILE_MACRO_CONTROLOR L"宏控制器编译失败: \n"
+#define WO_ERR_FAILED_TO_RUN_MACRO_CONTROLOR L"宏 '%ls' 运行发生了错误: %ls"
 #define WO_ERR_UNKNOW_ESCSEQ_BEGIN_WITH_CH L"以 '%lc' 开头的未知转义序列."
-#define WO_ERR_INVALID_TOKEN_MACRO_CONTROLOR L"宏 '%ls' 生成了非法的词法序列：\n"
+#define WO_ERR_INVALID_TOKEN_MACRO_CONTROLOR L"宏 '%ls' 生成了非法的词法序列: \n"
 #define WO_ERR_RECURSIVE_FORMAT_STRING_IS_INVALID L"嵌套格式化字符串是不被允许的"
 #define WO_ERR_HERE_SHOULD_HAVE L"缺少 '%ls'"
 #define WO_ERR_LEXER_ERR_UNKNOW_NUM_BASE L"词法错误，未知的常量基数"
@@ -48,16 +48,16 @@
 #define WO_ERR_ARG_DEFINE_AFTER_VARIADIC L"在 '...' 之后不应该有其他参数"
 #define WO_ERR_UNKNOWN_TYPE L"未知或不完整的类型"
 #define WO_ERR_REDEFINED L"在当前作用域中重复定义了 '%ls'"
-#define WO_ERR_REPEAT_MEMBER_NAME L"重复的成员：'%ls'"
+#define WO_ERR_REPEAT_MEMBER_NAME L"重复的成员: '%ls'"
 #define WO_ERR_REPEAT_ATTRIBUTE L"重复出现的属性"
 #define WO_ERR_FAILED_TO_CREATE_TUPLE_WITH_VAARG L"元组类型中不允许出现 '...'"
 #define WO_ERR_INVALID_KEY_EXPR L"创建映射时遇到了非法的键表达式"
-#define WO_ERR_UNKNOWN_MACRO_NAMED L"未定义的宏：'%ls'"
+#define WO_ERR_UNKNOWN_MACRO_NAMED L"未定义的宏: '%ls'"
 #define WO_ERR_UNKNOWN_EXTERN_ATTRIB L"未知的外部函数说明符: '%ls'"
 #define WO_ERR_COMPILER_DISABLED L"编译器功能被禁用"
 #define WO_ERR_CANNOT_START_NAMESPACE L"此处不允许定义命名空间"
 
-#define WO_ERR_UNKNOWN_IDENTIFIER L"未定义的标识符：'%ls'"
+#define WO_ERR_UNKNOWN_IDENTIFIER L"未定义的标识符: '%ls'"
 #define WO_ERR_UNEXPECTED_TYPE_SYMBOL L"'%ls' 是一个类型"
 #define WO_ERR_UNEXPECTED_VAR_SYMBOL L"'%ls' 不是类型"
 #define WO_ERR_UNEXPECTED_TEMPLATE_COUNT L"目标期待有且仅有 '%zu' 个泛型参数"
@@ -117,7 +117,9 @@
 #define WO_ERR_HAVE_NOT_VALUE_CASE_IN_MATCH L"类型 `%ls` 的匹配项 '%ls' 需要包含值"
 #define WO_ERR_HAVE_VALUE_CASE_IN_MATCH L"类型 `%ls` 的匹配项 '%ls' 不应该包含值"
 
+#define WO_ERR_FAILED_REIFICATION_CAUSED_BY L"无法用泛型参数: <%ls> 具体化泛型实例 '%ls', 因为："
 
 #define WO_INFO_MAYBE_NAMED_DEFINED_HERE L"可能是此处定义的 '%ls'"
 #define WO_INFO_MAYBE_NAMED_DEFINED_IN_COMPILER L"可能是编译器内部定义的 '%ls'"
 #define WO_INFO_SYMBOL_NAMED_DEFINED_HERE L"'%ls' 在此处被定义"
+#define WO_INFO_TYPE_NAMED_BEFORE_DIRECT_SIGN L"首个参数的类型是 '%ls'"

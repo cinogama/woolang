@@ -179,8 +179,13 @@ namespace wo
             FAILED,
         };
         state               m_state;
-        ast::AstBase* m_ast;
-        lang_Symbol* m_symbol;
+        ast::AstBase*       m_ast;
+        lang_Symbol*        m_symbol;
+        std::list<lang_TypeInstance*> 
+                            m_template_arguments;
+
+        std::optional<std::list<lexer::lex_error_msg>>
+                            m_failed_error_for_this_instance;
 
         lang_TemplateAstEvalStateBase(lang_Symbol* symbol, ast::AstBase* ast);
 
@@ -781,10 +786,10 @@ namespace wo
             PassProcessStackT& out_stack);
 
         void finish_eval_template_ast(
-            lang_TemplateAstEvalStateBase* template_eval_instance);
+            lexer& lex, lang_TemplateAstEvalStateBase* template_eval_instance);
 
         void failed_eval_template_ast(
-            lang_TemplateAstEvalStateBase* template_eval_instance);
+            lexer& lex, ast::AstBase* node, lang_TemplateAstEvalStateBase* template_eval_instance);
 
         //////////////////////////////////////
         bool is_type_accepted(
@@ -830,6 +835,7 @@ namespace wo
         bool check_need_template_deduct_struct_type(lexer& lex, ast::AstTypeHolder* target, PassProcessStackT& out_stack);
 
         void using_namespace_declare_for_current_scope(ast::AstUsingNamespace* using_namespace);
+        void LangContext::_collect_failed_template_instance(lexer& lex, ast::AstBase* node, lang_TemplateAstEvalStateBase* inst);
     };
 #endif
 }

@@ -1474,7 +1474,7 @@ namespace wo
             auto* match_body = new AstMatch(invoke_next, { match_case_value, match_case_none });
             //    }
             // }
-            auto* for_body = new AstFor(std::nullopt, std::nullopt, std::nullopt, match_body);
+            auto* for_body = new AstFor(iterator_declear, std::nullopt, std::nullopt, match_body);
 
             job_list->m_list.push_back(for_body);
 
