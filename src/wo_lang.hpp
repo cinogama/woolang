@@ -156,11 +156,16 @@ namespace wo
         std::optional<std::variant<wo::value, ast::AstValueFunction*>> 
             m_determined_constant_or_function;
         std::optional<lang_TypeInstance*> m_determined_type;
+        std::optional<std::list<lang_TypeInstance*>> m_instance_template_arguments;
 
         void try_determine_function(ast::AstValueFunction* func);
         void try_determine_const_value(ast::AstValueBase* init_val);
 
-        lang_ValueInstance(bool mutable_, lang_Symbol* symbol);
+        lang_ValueInstance(
+            bool mutable_, 
+            lang_Symbol* symbol, 
+            const std::optional<std::list<lang_TypeInstance*>>& template_arguments);
+
         ~lang_ValueInstance();
 
         lang_ValueInstance(const lang_ValueInstance&) = delete;
@@ -198,7 +203,10 @@ namespace wo
     {
         std::unique_ptr<lang_ValueInstance> m_value_instance;
 
-        lang_TemplateAstEvalStateValue(lang_Symbol* symbol, ast::AstValueBase* ast);
+        lang_TemplateAstEvalStateValue(
+            lang_Symbol* symbol, 
+            ast::AstValueBase* ast, 
+            const std::list<lang_TypeInstance*>& template_arguments);
     };
     struct lang_TemplateAstEvalStateType : public lang_TemplateAstEvalStateBase
     {
@@ -577,6 +585,8 @@ namespace wo
             m_symbol_name_cache;
         std::unordered_map<lang_TypeInstance*, std::pair<std::wstring, std::string>>
             m_type_name_cache;
+        std::unordered_map<lang_ValueInstance*, std::pair<std::wstring, std::string>>
+            m_value_name_cache;
 
         // Used for bytecode generation
         BytecodeGenerateContext         m_ircontext;
@@ -843,10 +853,14 @@ namespace wo
         std::wstring _get_scope_name(lang_Scope* scope);
         std::wstring _get_symbol_name(lang_Symbol* scope);
         std::wstring _get_type_name(lang_TypeInstance* scope);
+        std::wstring _get_value_name(lang_ValueInstance* scope);
+
         const wchar_t* get_symbol_name_w(lang_Symbol* symbol);
         const char* get_symbol_name(lang_Symbol* symbol);
         const wchar_t* get_type_name_w(lang_TypeInstance* type);
         const char* get_type_name(lang_TypeInstance* type);
+        const wchar_t* get_value_name_w(lang_ValueInstance* val);
+        const char* get_value_name(lang_ValueInstance* val);
 
         void template_type_deduction_extraction_with_complete_type(
             lexer& lex,

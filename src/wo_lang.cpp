@@ -73,7 +73,8 @@ namespace wo
         switch (kind)
         {
         case VARIABLE:
-            m_value_instance = new lang_ValueInstance(mutable_variable, this);
+            m_value_instance = new lang_ValueInstance(
+                mutable_variable, this, std::nullopt);
             break;
         case TYPE:
             m_type_instance = new lang_TypeInstance(this, std::nullopt);
@@ -165,7 +166,7 @@ namespace wo
         ast::AstValueBase* template_instance = static_cast<ast::AstValueBase*>(
             m_origin_value_ast->clone());
         auto new_instance = std::make_unique<lang_TemplateAstEvalStateValue>(
-            m_symbol, template_instance);
+            m_symbol, template_instance, template_args);
 
         auto* result = new_instance.get();
 
@@ -373,11 +374,14 @@ namespace wo
 
     //////////////////////////////////////
 
-    lang_TemplateAstEvalStateValue::lang_TemplateAstEvalStateValue(lang_Symbol* symbol, ast::AstValueBase* ast)
+    lang_TemplateAstEvalStateValue::lang_TemplateAstEvalStateValue(
+        lang_Symbol* symbol, 
+        ast::AstValueBase* ast, 
+        const std::list<lang_TypeInstance*>& template_arguments)
         : lang_TemplateAstEvalStateBase(symbol, ast)
     {
         m_value_instance = std::make_unique<lang_ValueInstance>(
-            symbol->m_template_value_instances->m_mutable, symbol);
+            symbol->m_template_value_instances->m_mutable, symbol, template_arguments);
 
         if (!symbol->m_template_value_instances->m_mutable
             && ast->node_type == ast::AstBase::AST_VALUE_FUNCTION)
@@ -428,11 +432,15 @@ namespace wo
             m_determined_constant_or_function = new_constant;
         }
     }
-    lang_ValueInstance::lang_ValueInstance(bool mutable_, lang_Symbol* symbol)
+    lang_ValueInstance::lang_ValueInstance(
+        bool mutable_, 
+        lang_Symbol* symbol,
+        const std::optional<std::list<lang_TypeInstance*>>& template_arguments)
         : m_symbol(symbol)
         , m_mutable(mutable_)
         , m_determined_constant_or_function(std::nullopt)
         , m_determined_type(std::nullopt)
+        , m_instance_template_arguments(template_arguments)
     {
     }
     lang_ValueInstance::~lang_ValueInstance()
@@ -1654,6 +1662,27 @@ namespace wo
 
         return result_type_name;
     }
+    std::wstring LangContext::_get_value_name(lang_ValueInstance* scope)
+    {
+        std::wstring result_value_name = *scope->m_symbol->m_name;
+
+        if (scope->m_instance_template_arguments)
+        {
+            result_value_name += L"<";
+            auto& template_args = scope->m_instance_template_arguments.value();
+            bool first = true;
+            for (auto* template_arg : template_args)
+            {
+                if (!first)
+                    result_value_name += L", ";
+                result_value_name += get_type_name_w(template_arg);
+                first = false;
+            }
+            result_value_name += L">";
+        }
+
+        return result_value_name;
+    }
 
     const wchar_t* LangContext::get_symbol_name_w(lang_Symbol* symbol)
     {
@@ -1709,6 +1738,29 @@ namespace wo
             std::make_pair(type, std::make_pair(result, wstrn_to_str(result)))).first
             ->second.second.c_str();
     }
+    const wchar_t* LangContext::get_value_name_w(lang_ValueInstance* val)
+    {
+        auto fnd = m_value_name_cache.find(val);
+        if (fnd != m_value_name_cache.end())
+            return fnd->second.first.c_str();
+
+        std::wstring result = _get_value_name(val);
+        return m_value_name_cache.insert(
+            std::make_pair(val, std::make_pair(result, wstrn_to_str(result)))).first
+            ->second.first.c_str();
+    }
+    const char* LangContext::get_value_name(lang_ValueInstance* val)
+    {
+        auto fnd = m_value_name_cache.find(val);
+        if (fnd != m_value_name_cache.end())
+            return fnd->second.second.c_str();
+
+        std::wstring result = _get_value_name(val);
+        return m_value_name_cache.insert(
+            std::make_pair(val, std::make_pair(result, wstrn_to_str(result)))).first
+            ->second.second.c_str();
+    }
+
     void LangContext::using_namespace_declare_for_current_scope(
         ast::AstUsingNamespace* using_namespace)
     {

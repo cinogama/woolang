@@ -414,6 +414,9 @@ namespace wo
                                         {
                                             node->m_LANG_trying_advancing_type_judgement = true;
 
+                                            wo_assert(!type_symbol->m_is_template
+                                                && type_symbol->m_is_global);
+
                                             // Immediately advance the processing of declaration nodes.
                                             entry_spcify_scope(type_symbol->m_belongs_to_scope);
                                             WO_CONTINUE_PROCESS(define_ast);
@@ -645,17 +648,23 @@ namespace wo
                 node->m_LANG_determined_type = determined_value_instance->m_determined_type.value();
             else
             {
+                lang_Symbol* var_symbol = node->m_identifier->m_LANG_determined_symbol.value();
+
                 if (!node->m_LANG_trying_advancing_type_judgement
-                    && determined_value_instance->m_symbol->m_symbol_declare_ast.has_value())
+                    && var_symbol->m_symbol_declare_ast.has_value())
                 {
-                    auto* define_ast = determined_value_instance->m_symbol->m_symbol_declare_ast.value();
+                    auto* define_ast = var_symbol->m_symbol_declare_ast.value();
                     if (define_ast->finished_state == UNPROCESSED)
                     {
                         node->m_LANG_trying_advancing_type_judgement = true;
+                        node->m_LANG_variable_instance = determined_value_instance;
+
+                        wo_assert(!var_symbol->m_is_template
+                            && var_symbol->m_is_global);
 
                         // Type not determined, we need to determine it?
                         // NOTE: Immediately advance the processing of declaration nodes.
-                        entry_spcify_scope(determined_value_instance->m_symbol->m_belongs_to_scope);
+                        entry_spcify_scope(var_symbol->m_belongs_to_scope);
                         WO_CONTINUE_PROCESS(define_ast);
                         return HOLD;
                     }
@@ -664,6 +673,16 @@ namespace wo
                 // Type determined failed in AstVariableDefines, treat as failed.
                 lex.lang_error(lexer::errorlevel::error, node,
                     WO_ERR_VALUE_TYPE_DETERMINED_FAILED);
+
+                if (var_symbol->m_symbol_declare_ast.has_value())
+                {
+                    lex.lang_error(
+                        lexer::errorlevel::infom,
+                        var_symbol->m_symbol_declare_ast.value(),
+                        WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
+                        get_symbol_name_w(var_symbol));
+                }
+
                 return FAILED;
             }
 
@@ -683,7 +702,7 @@ namespace wo
                 check_and_update_captured_varibale_in_current_scope(
                     node,
                     determined_value_instance);
-            
+
             // NOTE: Value in advancing_type_judgement must not be a captured variable.
             wo_assert(!node->m_LANG_trying_advancing_type_judgement
                 || node->m_LANG_variable_instance == determined_value_instance);
@@ -1091,7 +1110,7 @@ namespace wo
                             lex.lang_error(lexer::errorlevel::infom,
                                 ref_variable,
                                 WO_INFO_CAPTURED_VARIABLE_USED_HERE,
-                                get_symbol_name_w(captured_from->m_symbol));
+                                get_value_name_w(captured_from));
                         }
                     }
                     return FAILED;

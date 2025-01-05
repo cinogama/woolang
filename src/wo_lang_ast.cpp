@@ -1074,7 +1074,7 @@ namespace wo
                 captured_variable_instance instance;
                 instance.m_instance = std::make_unique<lang_ValueInstance>(
                     false /* captured varible will never mutable*/,
-                    from_value->m_symbol);
+                    from_value->m_symbol, from_value->m_instance_template_arguments);
                 instance.m_instance->m_determined_type =
                     from_value->m_determined_type.value();
 

@@ -125,4 +125,4 @@
 #define WO_INFO_SYMBOL_NAMED_DEFINED_HERE L"'%ls' 的定义"
 #define WO_INFO_TYPE_NAMED_BEFORE_DIRECT_SIGN L"首个参数的类型是 '%ls'"
 #define WO_INFO_THIS_VALUE_IS_TYPE_NAMED L"表达式的类型是 '%ls'"
-#define WO_INFO_CAPTURED_VARIABLE_USED_HERE L"捕获了来自函数外部的变量 '%ls'"
+#define WO_INFO_CAPTURED_VARIABLE_USED_HERE L"捕获了来自函数外部的 '%ls'"
