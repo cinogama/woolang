@@ -546,6 +546,33 @@ namespace wo
                 HOLD_FOR_EVAL_WHERE_CONSTRAINTS,
                 HOLD_FOR_BODY_EVAL,
             };
+            struct LANG_capture_context
+            {
+                struct captured_variable_instance
+                {
+                    std::unique_ptr<lang_ValueInstance> m_instance;
+                    std::list<ast::AstValueVariable*> m_referenced_variables;
+                };
+
+                bool m_finished; // This function's all capture list has been determined.
+                // Recursive referenced?
+                // NOTE: Woolang 1.14.1: Recursive function is not allowed if it has captured
+                //      variable.
+                bool m_self_referenced; 
+                
+                std::unordered_map<lang_ValueInstance*, captured_variable_instance>
+                    m_captured_variables;
+
+                lang_ValueInstance* find_or_create_captured_instance(
+                    lang_ValueInstance* from_value, ast::AstValueVariable* variable);
+
+                LANG_capture_context();
+
+                LANG_capture_context(const LANG_capture_context&) = delete;
+                LANG_capture_context(LANG_capture_context&&) = delete;
+                LANG_capture_context& operator=(const LANG_capture_context&) = delete;
+                LANG_capture_context& operator=(LANG_capture_context&&) = delete;
+            };
 
             std::list<AstFunctionParameterDeclare*>
                 m_parameters;
@@ -565,6 +592,8 @@ namespace wo
             bool m_LANG_in_template_reification_context;
             std::optional<std::list<lang_TypeInstance*>>
                 m_LANG_determined_template_arguments;
+
+            LANG_capture_context m_LANG_captured_context;
 
             AstValueFunction(
                 const std::list<AstFunctionParameterDeclare*>& parameters,

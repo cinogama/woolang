@@ -166,7 +166,7 @@ namespace wo
                 wo_pstring_t source_file;
             };
 
-            node_type_t node_type;
+            const node_type_t node_type;
             source_location_t source_location;
             int finished_state;
 

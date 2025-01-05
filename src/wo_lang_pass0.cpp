@@ -7,10 +7,11 @@ namespace wo
 
     bool LangContext::declare_pattern_symbol_pass0_1(
         lexer& lex,
+        bool is_pass0,
         const std::optional<AstDeclareAttribue*>& attribute,
         const std::optional<AstBase*>& var_defines,
         ast::AstPatternBase* pattern,
-        const std::optional<ast::AstValueBase*>& init_value)
+        const std::optional<ast::AstValueBase*>& init_value_only_used_for_template_or_function)
     {
         switch (pattern->node_type)
         {
@@ -22,14 +23,13 @@ namespace wo
             {
                 if (single_pattern->m_template_parameters)
                 {
-                    wo_assert(init_value);
                     single_pattern->m_LANG_declared_symbol = define_symbol_in_current_scope(
                         single_pattern->m_name,
                         attribute,
                         var_defines,
                         pattern->source_location.source_file,
                         get_current_scope(),
-                        init_value.value(),
+                        init_value_only_used_for_template_or_function.value(),
                         single_pattern->m_template_parameters.value(),
                         single_pattern->m_is_mutable);
                 }
@@ -53,6 +53,25 @@ namespace wo
 
                     return false;
                 }
+                else
+                {
+                    lang_Symbol* symbol = single_pattern->m_LANG_declared_symbol.value();
+
+                    if (!symbol->m_value_instance->m_mutable
+                        && !symbol->m_is_template
+                        && init_value_only_used_for_template_or_function.has_value())
+                    {
+                        AstValueBase* init_value = init_value_only_used_for_template_or_function.value();
+                        if (init_value->node_type == AstBase::AST_VALUE_FUNCTION)
+                        {
+                            AstValueFunction* func = static_cast<AstValueFunction*>(init_value);
+                            symbol->m_value_instance->try_determine_function(func);
+                        }
+                    }
+
+                    if (is_pass0)
+                        symbol->m_is_global = true;
+                }
             }
             return true;
         }
@@ -63,6 +82,7 @@ namespace wo
             for (auto& sub_pattern : tuple_pattern->m_fields)
                 success = success && declare_pattern_symbol_pass0_1(
                     lex,
+                    is_pass0,
                     attribute,
                     var_defines,
                     sub_pattern,
@@ -77,6 +97,7 @@ namespace wo
             if (union_pattern->m_field)
                 success = declare_pattern_symbol_pass0_1(
                     lex,
+                    is_pass0,
                     attribute,
                     var_defines,
                     union_pattern->m_field.value(),
@@ -161,6 +182,7 @@ namespace wo
 
         if (!declare_pattern_symbol_pass0_1(
             lex,
+            true,
             node->m_LANG_declare_attribute,
             node,
             node->m_pattern,
@@ -179,28 +201,28 @@ namespace wo
             WO_CONTINUE_PROCESS_LIST(node->m_definitions);
             return HOLD;
         }
-        
+
         return WO_EXCEPT_ERROR(state, OKAY);
-         /*   success = success && 
-        
-        return success ? OKAY : FAILED;*/
+        /*   success = success &&
+
+       return success ? OKAY : FAILED;*/
     }
     WO_PASS_PROCESSER(AstAliasTypeDeclare)
     {
         wo_assert(!node->m_LANG_declared_symbol);
         if (node->m_template_parameters)
             node->m_LANG_declared_symbol = define_symbol_in_current_scope(
-                node->m_typename, 
+                node->m_typename,
                 node->m_attribute,
                 node,
                 node->source_location.source_file,
-                get_current_scope(), 
-                node->m_type, 
-                node->m_template_parameters.value(), 
+                get_current_scope(),
+                node->m_type,
+                node->m_template_parameters.value(),
                 true);
         else
             node->m_LANG_declared_symbol = define_symbol_in_current_scope(
-                node->m_typename, 
+                node->m_typename,
                 node->m_attribute,
                 node,
                 node->source_location.source_file,
@@ -224,17 +246,17 @@ namespace wo
 
             if (node->m_template_parameters)
                 node->m_LANG_declared_symbol = define_symbol_in_current_scope(
-                    node->m_typename, 
+                    node->m_typename,
                     node->m_attribute,
                     node,
                     node->source_location.source_file,
-                    get_current_scope(), 
-                    node->m_type, 
+                    get_current_scope(),
+                    node->m_type,
                     node->m_template_parameters.value(),
                     false);
             else
                 node->m_LANG_declared_symbol = define_symbol_in_current_scope(
-                    node->m_typename, 
+                    node->m_typename,
                     node->m_attribute,
                     node,
                     node->source_location.source_file,
@@ -248,7 +270,7 @@ namespace wo
                 return HOLD;
             }
         }
-        
+
         if (!node->m_LANG_declared_symbol)
         {
             lex.lang_error(lexer::errorlevel::error, node, WO_ERR_REDEFINED, node->m_typename->c_str());
@@ -278,5 +300,12 @@ namespace wo
     }
 
 #undef WO_PASS_PROCESSER
+
+    LangContext::pass_behavior LangContext::pass_0_process_scope_and_non_local_defination(
+        lexer& lex, const AstNodeWithState& node_state, PassProcessStackT& out_stack)
+    {
+        return m_pass0_processers->process_node(this, lex, node_state, out_stack);
+    }
+
 #endif
 }

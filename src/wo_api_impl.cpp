@@ -2731,8 +2731,9 @@ std::variant<
 
                 if (compile_lang_context.process(*lex, result))
                 {
-                    // TODO: REMAKING....
-                    wo_error("REMAKING");
+                    // Finish!, finalize the compiler.
+                    env_result = 
+                        compile_lang_context.m_ircontext.c().finalize(stacksz);
                 }
             }
         }
@@ -2838,11 +2839,11 @@ std::wstring _dump_src_info(
             auto& content_stream_ptr = content_stream.value();
             wo_assert(content_stream_ptr != nullptr);
 
-            constexpr size_t UP_DOWN_SHOWN_LINE = 3;
+            constexpr size_t UP_DOWN_SHOWN_LINE = 2;
             size_t current_row_no = 1;
             size_t current_col_no = 1;
             size_t from = beginaimrow > UP_DOWN_SHOWN_LINE ? beginaimrow - UP_DOWN_SHOWN_LINE : 0;
-            size_t to = aimrow + 0;
+            size_t to = aimrow + UP_DOWN_SHOWN_LINE;
 
             bool first_line = true;
 
@@ -2892,8 +2893,13 @@ std::wstring _dump_src_info(
                             for (size_t i = 1; i < pointplace; i++)
                                 append_result += L"~";
                         }
-                        append_result += L"~\\ " WO_HERE L": ";
-                        append_result += errmsg.describe;
+                        append_result += L"~\\"
+                            + wo::str_to_wstr(ANSI_UNDERLNE)
+                            + L" " WO_HERE
+                            + wo::str_to_wstr(ANSI_NUNDERLNE);
+
+                        if (depth != 0)
+                            append_result += L": " + errmsg.describe;
                     }
                     else
                     {
@@ -2990,6 +2996,9 @@ std::string _wo_dump_lexer_context_error(wo::lexer* lex, _wo_inform_style style)
 
     for (auto& err_info : lex->lex_error_list)
     {
+        if (err_info.depth != 0)
+            _vm_compile_errors += std::string(err_info.depth, ' ') + wo::wstr_to_str(WO_SEE_ALSO) + ":\n";
+
         if (src_file_path != err_info.filename)
         {
             if (style == WO_NEED_COLOR)
@@ -2997,6 +3006,9 @@ std::string _wo_dump_lexer_context_error(wo::lexer* lex, _wo_inform_style style)
             else
                 _vm_compile_errors += "In file: '" + wo::wstrn_to_str(src_file_path = err_info.filename) + "'\n";
         }
+
+        if (err_info.depth == 0)
+            _vm_compile_errors += wo::wstr_to_str(err_info.to_wstring(style & WO_NEED_COLOR)) + "\n";
 
         // Print source informations..
         _vm_compile_errors += wo::wstr_to_str(

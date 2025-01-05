@@ -58,7 +58,8 @@ namespace wo
         ast::AstBase* node,
         lang_Symbol* templating_symbol,
         const lang_Symbol::TemplateArgumentListT& template_arguments,
-        PassProcessStackT& out_stack)
+        PassProcessStackT& out_stack,
+        bool* out_continue_process_flag)
     {
         wo_assert(templating_symbol->m_is_template);
 
@@ -143,6 +144,7 @@ namespace wo
         }
 
         result->m_template_arguments = template_arguments;
+        *out_continue_process_flag = false;
 
         switch (result->m_state)
         {
@@ -163,6 +165,12 @@ namespace wo
                     // Type has been determined, no need to evaluate again.
                     return result;
             }
+            else if (templating_symbol->m_symbol_kind == lang_Symbol::kind::TYPE)
+            {
+                // For type, it's type instance has been determined, no need to evaluate again.
+                auto* template_eval_state_instance = static_cast<lang_TemplateAstEvalStateType*>(result);
+                    return result;
+            }
             // NOTE: Donot modify eval state here.
             //  Some case like `is pending` may meet this error but it's not a real error.
             lex.lang_error(lexer::errorlevel::error, node,
@@ -171,11 +179,19 @@ namespace wo
         }
         case lang_TemplateAstEvalStateValue::UNPROCESSED:
             result->m_state = lang_TemplateAstEvalStateValue::EVALUATING;
+            *out_continue_process_flag = true;
 
             entry_spcify_scope(templating_symbol->m_belongs_to_scope); // Entry the scope where template variable defined.
             begin_new_scope(); // Begin new scope for defining template type alias.
+
+            auto* current_scope = get_current_scope();
+           
             fast_create_template_type_alias_in_current_scope(
                 templating_symbol->m_defined_source, *template_params, template_arguments);
+            
+            // ATTENTION: LIMIT TEMPLATE INSTANCE SYMBOL VISIBILITY!
+            current_scope->m_visibility_from_edge_for_template_check =
+                templating_symbol->m_symbol_edge;
 
             lex.begin_trying_block();
             WO_CONTINUE_PROCESS(result->m_ast);
@@ -210,13 +226,9 @@ namespace wo
             auto* new_template_variable_instance =
                 template_eval_instance_value->m_value_instance.get();
 
-            std::optional<wo::value> constant_value = std::nullopt;
-            if (!new_template_variable_instance->m_mutable && template_eval_instance_value->m_ast)
-            {
-                constant_value = ast_value->m_evaled_const_value;
-            }
-            new_template_variable_instance->determined_value_instance(
-                ast_value->m_LANG_determined_type.value(), constant_value);
+            new_template_variable_instance->m_determined_type = 
+                ast_value->m_LANG_determined_type.value();
+            new_template_variable_instance->try_determine_const_value(ast_value);
 
             template_eval_instance_value->m_state =
                 lang_TemplateAstEvalStateValue::EVALUATED;

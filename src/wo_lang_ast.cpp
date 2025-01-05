@@ -1,4 +1,5 @@
 #include "wo_lang_ast.hpp"
+#include "wo_lang.hpp"
 
 #include <algorithm>
 
@@ -202,7 +203,7 @@ namespace wo
             , m_LANG_determined_type(std::nullopt)
             , m_LANG_trying_advancing_type_judgement(false)
         {
-            new (&m_typeform.m_identifier) AstIdentifier*(ident);
+            new (&m_typeform.m_identifier) AstIdentifier* (ident);
         }
         AstTypeHolder::AstTypeHolder(AstValueBase* expr)
             : AstBase(AST_TYPE_HOLDER)
@@ -212,7 +213,7 @@ namespace wo
             , m_LANG_determined_type(std::nullopt)
             , m_LANG_trying_advancing_type_judgement(false)
         {
-            new (&m_typeform.m_typefrom) AstValueBase*(expr);
+            new (&m_typeform.m_typefrom) AstValueBase* (expr);
         }
         AstTypeHolder::AstTypeHolder(const FunctionType& functype)
             : AstBase(AST_TYPE_HOLDER)
@@ -437,7 +438,7 @@ namespace wo
         void AstValueBase::decide_final_constant_value(const wo::value& val)
         {
             wo_assert(!m_evaled_const_value);
-           
+
             m_evaled_const_value = wo::value();
             m_evaled_const_value->set_val_compile_time(&val);
 
@@ -1056,6 +1057,35 @@ namespace wo
 
         ////////////////////////////////////////////////////////
 
+        AstValueFunction::LANG_capture_context::LANG_capture_context()
+            : m_finished(false)
+            , m_self_referenced(false)
+        {
+        }
+
+        lang_ValueInstance*
+            AstValueFunction::LANG_capture_context::find_or_create_captured_instance(
+                lang_ValueInstance* from_value, ast::AstValueVariable* variable)
+        {
+            auto fnd = m_captured_variables.find(from_value);
+            if (fnd == m_captured_variables.end())
+            {
+                // Create 
+                captured_variable_instance instance;
+                instance.m_instance = std::make_unique<lang_ValueInstance>(
+                    false /* captured varible will never mutable*/,
+                    from_value->m_symbol);
+                instance.m_instance->m_determined_type =
+                    from_value->m_determined_type.value();
+
+                instance.m_referenced_variables.push_back(variable);
+                return m_captured_variables.insert(
+                    std::move(std::make_pair(from_value, std::move(instance)))
+                ).first->second.m_instance.get();
+            }
+            return fnd->second.m_instance.get();
+        }
+
         AstValueFunction::AstValueFunction(
             const std::list<AstFunctionParameterDeclare*>& parameters,
             bool is_variadic,
@@ -1083,7 +1113,7 @@ namespace wo
                     if (!m_pending_param_type_mark_template)
                         m_pending_param_type_mark_template = std::list<wo_pstring_t>{};
 
-                    auto& pending_param_type_mark_template = 
+                    auto& pending_param_type_mark_template =
                         m_pending_param_type_mark_template.value();
 
                     wo_pstring_t pending_template_name
@@ -1933,7 +1963,7 @@ namespace wo
                         if (!creator_param_has_typeof)
                             creator_param_type->_check_if_template_exist_in(template_parameters.value(), used_template_parameters_flags);
 
-                        auto updating_union_type_template_argument_iter = 
+                        auto updating_union_type_template_argument_iter =
                             union_type->m_typeform.m_identifier->m_template_arguments.value().begin();
                         auto template_parameters_iter = template_parameters.value().begin();
 

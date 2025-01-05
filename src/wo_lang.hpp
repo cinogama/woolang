@@ -153,12 +153,12 @@ namespace wo
     {
         lang_Symbol* m_symbol;
         bool m_mutable;
-        std::optional<wo::value> m_determined_constant;
+        std::optional<std::variant<wo::value, ast::AstValueFunction*>> 
+            m_determined_constant_or_function;
         std::optional<lang_TypeInstance*> m_determined_type;
 
-        void determined_value_instance(
-            lang_TypeInstance* type,
-            const std::optional<wo::value>& constant);
+        void try_determine_function(ast::AstValueFunction* func);
+        void try_determine_const_value(ast::AstValueBase* init_val);
 
         lang_ValueInstance(bool mutable_, lang_Symbol* symbol);
         ~lang_ValueInstance();
@@ -299,6 +299,7 @@ namespace wo
 
         kind                            m_symbol_kind;
         bool                            m_is_template;
+        bool                            m_is_global;
         wo_pstring_t                    m_name;
         wo_pstring_t                    m_defined_source;
         std::optional<ast::AstDeclareAttribue*>
@@ -306,6 +307,7 @@ namespace wo
         lang_Scope* m_belongs_to_scope;
         std::optional<ast::AstBase*>    m_symbol_declare_ast;
         bool                            m_is_builtin;
+        size_t                          m_symbol_edge;
 
         union
         {
@@ -364,6 +366,7 @@ namespace wo
         std::optional<lang_Scope*> m_parent_scope;
         std::optional<ast::AstValueFunction*> m_function_instance;
         lang_Namespace* m_belongs_to_namespace;
+        size_t m_visibility_from_edge_for_template_check;
 
         lang_Scope(const std::optional<lang_Scope*>& parent_scope, lang_Namespace* belongs);
 
@@ -390,6 +393,26 @@ namespace wo
         lang_Namespace(lang_Scope&&) = delete;
         lang_Namespace& operator=(const lang_Scope&) = delete;
         lang_Namespace& operator=(lang_Scope&&) = delete;
+    };
+
+    struct BytecodeGenerateContext
+    {
+        ir_compiler m_compiler;
+        rslib_extern_symbols::extern_lib_set m_extern_libs;
+
+        std::unordered_set<ast::AstValueFunction*> m_processed_function_instance;
+        std::unordered_set<ast::AstValueFunction*> m_being_used_function_instance;
+
+        ir_compiler& c() noexcept
+        {
+            return m_compiler;
+        }
+
+        BytecodeGenerateContext() = default;
+        BytecodeGenerateContext(const BytecodeGenerateContext&) = delete;
+        BytecodeGenerateContext(BytecodeGenerateContext&&) = delete;
+        BytecodeGenerateContext& operator=(const BytecodeGenerateContext&) = delete;
+        BytecodeGenerateContext& operator=(BytecodeGenerateContext&&) = delete;
     };
 
     struct LangContext
@@ -547,14 +570,20 @@ namespace wo
         std::unordered_map<lang_TypeInstance*, std::unique_ptr<lang_TypeInstance>>
             m_mutable_type_instance_cache;
 
+        size_t                          m_created_symbol_edge;
+
         // Used for print symbol & type names.
         std::unordered_map<lang_Symbol*, std::pair<std::wstring, std::string>>
             m_symbol_name_cache;
         std::unordered_map<lang_TypeInstance*, std::pair<std::wstring, std::string>>
             m_type_name_cache;
 
+        // Used for bytecode generation
+        BytecodeGenerateContext         m_ircontext;
+
         static ProcessAstJobs* m_pass0_processers;
         static ProcessAstJobs* m_pass1_processers;
+        static ProcessAstJobs* m_passir_processers;
 
         LangContext();
 
@@ -562,6 +591,8 @@ namespace wo
         pass_behavior pass_0_process_scope_and_non_local_defination(
             lexer& lex, const AstNodeWithState& node_state, PassProcessStackT& out_stack);
         pass_behavior pass_1_process_basic_type_marking_and_constant_eval(
+            lexer& lex, const AstNodeWithState& node_state, PassProcessStackT& out_stack);
+        pass_behavior pass_final_process_bytecode_generation(
             lexer& lex, const AstNodeWithState& node_state, PassProcessStackT& out_stack);
 
         void pass_0_5_register_builtin_types();
@@ -575,6 +606,7 @@ namespace wo
 
         static void init_pass0();
         static void init_pass1();
+        static void init_passir();
 
         //////////////////////////////////////
 
@@ -726,29 +758,32 @@ namespace wo
             wo_pstring_t src_location,
             ArgTs&&...args)
         {
-            auto& symbol_table = get_current_scope()->m_defined_symbols;
+            auto* current_scope = get_current_scope();
+            auto& symbol_table = current_scope->m_defined_symbols;
             if (symbol_table.find(name) != symbol_table.end())
                 // Already defined.
                 return std::nullopt;
 
             auto new_symbol = std::make_unique<lang_Symbol>(
                 name, attr, symbol_declare_ast, src_location, std::forward<ArgTs>(args)...);
-            auto* new_symbol_ptr = new_symbol.get();
-            symbol_table.insert(std::make_pair(name, std::move(new_symbol)));
+            new_symbol->m_symbol_edge = ++m_created_symbol_edge;
 
-            return new_symbol_ptr;
+            return symbol_table.insert(
+                std::make_pair(name, std::move(new_symbol))).first->second.get();
         }
 
         lang_Scope* get_current_scope();
         std::optional<ast::AstValueFunction*> get_current_function();
+        std::optional<ast::AstValueFunction*> get_scope_located_function(lang_Scope* scope);
         lang_Namespace* get_current_namespace();
 
         bool declare_pattern_symbol_pass0_1(
             lexer& lex,
+            bool is_pass0,
             const std::optional<ast::AstDeclareAttribue*>& attribute,
             const std::optional<ast::AstBase*>& var_defines,
             ast::AstPatternBase* pattern,
-            const std::optional<ast::AstValueBase*>& init_value);
+            const std::optional<ast::AstValueBase*>& init_value_only_used_for_template_or_function);
         bool update_pattern_symbol_variable_type_pass1(
             lexer& lex,
             ast::AstPatternBase* pattern,
@@ -783,7 +818,8 @@ namespace wo
             ast::AstBase* node,
             lang_Symbol* templating_symbol,
             const lang_Symbol::TemplateArgumentListT& template_arguments,
-            PassProcessStackT& out_stack);
+            PassProcessStackT& out_stack,
+            bool* out_continue_process_flag);
 
         void finish_eval_template_ast(
             lexer& lex, lang_TemplateAstEvalStateBase* template_eval_instance);
@@ -836,6 +872,10 @@ namespace wo
 
         void using_namespace_declare_for_current_scope(ast::AstUsingNamespace* using_namespace);
         void LangContext::_collect_failed_template_instance(lexer& lex, ast::AstBase* node, lang_TemplateAstEvalStateBase* inst);
+
+        lang_ValueInstance* check_and_update_captured_varibale_in_current_scope(
+            ast::AstValueVariable* ref_from_variable,
+            lang_ValueInstance* variable_instance);
     };
 #endif
 }

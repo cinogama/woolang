@@ -7,14 +7,17 @@ namespace wo
 #ifndef WO_DISABLE_COMPILER
     LangContext::ProcessAstJobs* LangContext::m_pass0_processers;
     LangContext::ProcessAstJobs* LangContext::m_pass1_processers;
+    LangContext::ProcessAstJobs* LangContext::m_passir_processers;
 
     void LangContext::init_lang_processers()
     {
         m_pass0_processers = new ProcessAstJobs();
         m_pass1_processers = new ProcessAstJobs();
+        m_passir_processers = new ProcessAstJobs();
 
         init_pass0();
         init_pass1();
+        init_passir();
     }
     void LangContext::shutdown_lang_processers()
     {
@@ -58,12 +61,14 @@ namespace wo
         bool mutable_variable)
         : m_symbol_kind(kind)
         , m_is_template(false)
+        , m_is_global(false)
         , m_name(name)
         , m_defined_source(src_location)
         , m_declare_attribute(attr)
         , m_belongs_to_scope(scope)
         , m_symbol_declare_ast(symbol_declare_ast)
         , m_is_builtin(false)
+        , m_symbol_edge(0)
     {
         switch (kind)
         {
@@ -91,12 +96,14 @@ namespace wo
         bool mutable_variable)
         : m_symbol_kind(VARIABLE)
         , m_is_template(true)
+        , m_is_global(false)
         , m_name(name)
         , m_defined_source(src_location)
         , m_declare_attribute(attr)
         , m_belongs_to_scope(scope)
         , m_symbol_declare_ast(symbol_declare_ast)
         , m_is_builtin(false)
+        , m_symbol_edge(0)
     {
         m_template_value_instances = new TemplateValuePrefab(
             this, mutable_variable, template_value_base, template_params);
@@ -111,12 +118,14 @@ namespace wo
         const std::list<wo_pstring_t>& template_params,
         bool is_alias)
         : m_is_template(true)
+        , m_is_global(false)
         , m_name(name)
         , m_defined_source(src_location)
         , m_declare_attribute(attr)
         , m_belongs_to_scope(scope)
         , m_symbol_declare_ast(symbol_declare_ast)
         , m_is_builtin(false)
+        , m_symbol_edge(0)
     {
         if (is_alias)
         {
@@ -369,6 +378,10 @@ namespace wo
     {
         m_value_instance = std::make_unique<lang_ValueInstance>(
             symbol->m_template_value_instances->m_mutable, symbol);
+
+        if (!symbol->m_template_value_instances->m_mutable
+            && ast->node_type == ast::AstBase::AST_VALUE_FUNCTION)
+            m_value_instance->try_determine_function(static_cast<ast::AstValueFunction*>(ast));
     }
 
     //////////////////////////////////////
@@ -399,29 +412,42 @@ namespace wo
 
     //////////////////////////////////////
 
-    void lang_ValueInstance::determined_value_instance(
-        lang_TypeInstance* type,
-        const std::optional<wo::value>& constant)
+    void lang_ValueInstance::try_determine_function(ast::AstValueFunction* func)
     {
-        m_determined_type = type;
-
-        if (constant)
+        wo_assert(!m_mutable);
+        m_determined_constant_or_function = func;
+    }
+    void lang_ValueInstance::try_determine_const_value(ast::AstValueBase* init_val)
+    {
+        wo_assert(!m_mutable);
+        if (init_val->m_evaled_const_value.has_value())
         {
-            m_determined_constant = wo::value();
-            m_determined_constant.value().set_val_compile_time(&constant.value());
+            wo::value new_constant;
+            new_constant.set_val_compile_time(&init_val->m_evaled_const_value.value());
+
+            m_determined_constant_or_function = new_constant;
         }
     }
     lang_ValueInstance::lang_ValueInstance(bool mutable_, lang_Symbol* symbol)
         : m_symbol(symbol)
         , m_mutable(mutable_)
-        , m_determined_constant(std::nullopt)
+        , m_determined_constant_or_function(std::nullopt)
         , m_determined_type(std::nullopt)
     {
     }
     lang_ValueInstance::~lang_ValueInstance()
     {
-        if (m_determined_constant && m_determined_constant.value().is_gcunit())
-            delete m_determined_constant.value().gcunit;
+        if (m_determined_constant_or_function.has_value())
+        {
+            wo::value* determined_value = std::get_if<wo::value>(
+                &m_determined_constant_or_function.value());
+
+            if (determined_value != nullptr)
+            {
+                if (determined_value->is_gcunit())
+                    delete determined_value->gcunit;
+            }
+        }
     }
 
     //////////////////////////////////////
@@ -479,6 +505,7 @@ namespace wo
         , m_sub_scopes{}
         , m_parent_scope(parent_scope)
         , m_belongs_to_namespace(belongs)
+        , m_visibility_from_edge_for_template_check(0)
     {
     }
 
@@ -926,6 +953,7 @@ namespace wo
 
     LangContext::LangContext()
         : m_root_namespace(std::make_unique<lang_Namespace>(WO_PSTR(EMPTY), std::nullopt))
+        , m_created_symbol_edge(0)
     {
         m_scope_stack.push(m_root_namespace->m_this_scope.get());
     }
@@ -981,44 +1009,6 @@ namespace wo
             }
         }
         return true;
-    }
-
-    LangContext::pass_behavior LangContext::pass_0_process_scope_and_non_local_defination(
-        lexer& lex, const AstNodeWithState& node_state, PassProcessStackT& out_stack)
-    {
-        return m_pass0_processers->process_node(this, lex, node_state, out_stack);
-    }
-    LangContext::pass_behavior LangContext::pass_1_process_basic_type_marking_and_constant_eval(
-        lexer& lex, const AstNodeWithState& node_state, PassProcessStackT& out_stack)
-    {
-        if (node_state.m_ast_node->finished_state != pass_behavior::UNPROCESSED)
-        {
-            if (node_state.m_ast_node->finished_state == pass_behavior::HOLD)
-            {
-                if (node_state.m_state != pass_behavior::HOLD
-                    && node_state.m_state != pass_behavior::HOLD_BUT_CHILD_FAILED)
-                {
-                    // RECURSIVE EVALUATION.
-                    lex.lang_error(lexer::errorlevel::error, node_state.m_ast_node,
-                        WO_ERR_RECURSIVE_EVAL_PASS1);
-
-                    return FAILED;
-                }
-                else
-                {
-                    // CONTINUE PROCESSING.
-                }
-            }
-            else
-                return (LangContext::pass_behavior)node_state.m_ast_node->finished_state;
-        }
-        auto result = m_pass1_processers->process_node(this, lex, node_state, out_stack);
-
-        node_state.m_ast_node->finished_state = result;
-
-        wo_assert(result != pass_behavior::UNPROCESSED);
-
-        return result;
     }
 
     void LangContext::pass_0_5_register_builtin_types()
@@ -1114,6 +1104,22 @@ namespace wo
         if (!anylize_pass(lex, root, &LangContext::pass_1_process_basic_type_marking_and_constant_eval))
             return false;
 
+        // Final process, generate bytecode.
+
+        // Do something for prepare.
+
+        if (!anylize_pass(lex, root, &LangContext::pass_final_process_bytecode_generation))
+            return false;
+
+        // TEST CODE BEGIN
+
+        // m_ircontext.c().tag("test");
+        // m_ircontext.c().jmp(opnum::tag("test"));
+
+        // TEST CODE END
+
+        m_ircontext.c().end();
+
         return true;
     }
 
@@ -1134,6 +1140,9 @@ namespace wo
         lang_Scope* current_scope = get_current_scope();
         auto new_scope = std::make_unique<lang_Scope>(
             current_scope, get_current_scope()->m_belongs_to_namespace);
+
+        new_scope->m_visibility_from_edge_for_template_check =
+            m_created_symbol_edge;
 
         entry_spcify_scope(new_scope.get());
 
@@ -1161,10 +1170,11 @@ namespace wo
             auto new_namespace = std::make_unique<lang_Namespace>(
                 name, std::make_optional(get_current_namespace()));
 
-            auto new_namespace_ptr = new_namespace.get();
+            new_namespace->m_this_scope->m_visibility_from_edge_for_template_check =
+                m_created_symbol_edge;
 
-            get_current_namespace()->m_sub_namespaces.insert(
-                std::make_pair(name, std::move(new_namespace)));
+            auto* new_namespace_ptr = get_current_namespace()->m_sub_namespaces.insert(
+                std::make_pair(name, std::move(new_namespace))).first->second.get();
 
             m_scope_stack.push(new_namespace_ptr->m_this_scope.get());
         }
@@ -1193,9 +1203,9 @@ namespace wo
     {
         return get_current_scope()->m_belongs_to_namespace;
     }
-    std::optional<ast::AstValueFunction*> LangContext::get_current_function()
+    std::optional<ast::AstValueFunction*> LangContext::get_scope_located_function(lang_Scope* scope)
     {
-        std::optional<lang_Scope*> current_scope = get_current_scope();
+        std::optional<lang_Scope*> current_scope = scope;
         while (current_scope)
         {
             auto* current_scope_p = current_scope.value();
@@ -1206,8 +1216,13 @@ namespace wo
         }
         return std::nullopt;
     }
+    std::optional<ast::AstValueFunction*> LangContext::get_current_function()
+    {
+        return get_scope_located_function(get_current_scope());
+    }
     std::optional<lang_Symbol*>
-        LangContext::_search_symbol_from_current_scope(lexer& lex, ast::AstIdentifier* ident, const std::optional<bool*>& out_ambig)
+        LangContext::_search_symbol_from_current_scope(
+            lexer& lex, ast::AstIdentifier* ident, const std::optional<bool*>& out_ambig)
     {
         wo_assert(!out_ambig.has_value() || *out_ambig.value() == false);
         wo_assert(ident->source_location.source_file != nullptr);
@@ -1248,17 +1263,27 @@ namespace wo
 
         if (ident->m_scope.empty())
         {
+            // Can see all the symbol defined in current scope;
+            size_t visibility_edge_limit = m_created_symbol_edge;
             do
             {
                 auto fnd = current_scope->m_defined_symbols.find(ident->m_name);
                 if (fnd != current_scope->m_defined_symbols.end())
                 {
-                    found_symbol.insert(fnd->second.get());
+                    if (fnd->second->m_symbol_edge <= visibility_edge_limit)
+                        found_symbol.insert(fnd->second.get());
+
                     break;
                 }
 
                 if (current_scope->m_parent_scope)
+                {
+                    visibility_edge_limit = std::min(
+                        visibility_edge_limit,
+                        current_scope->m_visibility_from_edge_for_template_check);
+
                     current_scope = current_scope->m_parent_scope.value();
+                }
                 else
                     break;
             } while (true);
@@ -1328,7 +1353,8 @@ namespace wo
         return result;
     }
     std::optional<lang_Symbol*>
-        LangContext::find_symbol_in_current_scope(lexer& lex, ast::AstIdentifier* ident, const std::optional<bool*>& out_ambig)
+        LangContext::find_symbol_in_current_scope(
+            lexer& lex, ast::AstIdentifier* ident, const std::optional<bool*>& out_ambig)
     {
         if (out_ambig.has_value())
             *out_ambig.value() = false;
@@ -1346,7 +1372,7 @@ namespace wo
         {
             lang_TypeInstance* type_instance;
 
-            if (ast::AstTypeHolder** from_type = std::get_if<ast::AstTypeHolder*>(&ident->m_from_type.value()); 
+            if (ast::AstTypeHolder** from_type = std::get_if<ast::AstTypeHolder*>(&ident->m_from_type.value());
                 from_type != nullptr)
             {
                 auto determined_type = (*from_type)->m_LANG_determined_type;
@@ -1366,7 +1392,7 @@ namespace wo
 
             search_begin_namespace =
                 type_instance->m_symbol->m_belongs_to_scope->m_belongs_to_namespace;
-            
+
             auto fnd = search_begin_namespace->m_sub_namespaces.find(type_instance->m_symbol->m_name);
             if (fnd == search_begin_namespace->m_sub_namespaces.end())
                 return std::nullopt; // Namespace not defined.
@@ -1731,6 +1757,113 @@ namespace wo
             current_scope->m_declare_used_namespaces.insert(
                 using_namespaces.begin(), using_namespaces.end());
         }
+    }
+
+    lang_ValueInstance* LangContext::check_and_update_captured_varibale_in_current_scope(
+        ast::AstValueVariable* ref_from_variable,
+        lang_ValueInstance* variable_instance)
+    {
+        lang_Scope* const current_scope = get_current_scope();
+        lang_Scope* const variable_defined_scope =
+            variable_instance->m_symbol->m_belongs_to_scope;
+
+        std::optional<ast::AstValueFunction*> current_functiopn_may_null =
+            get_scope_located_function(current_scope);
+
+        if (!current_functiopn_may_null.has_value())
+            // Not in a function;
+            return variable_instance;
+
+        std::optional<ast::AstValueFunction*> variable_defined_in_function_may_null =
+            get_scope_located_function(variable_defined_scope);
+
+        if (!variable_defined_in_function_may_null.has_value()
+            || (variable_instance->m_symbol->m_declare_attribute.has_value()
+                && variable_instance->m_symbol->m_declare_attribute.value()->m_lifecycle.has_value()
+                && variable_instance->m_symbol->m_declare_attribute.value()->m_lifecycle.value()
+                == ast::AstDeclareAttribue::lifecycle_attrib::STATIC))
+        {
+            // Variable is global or static.
+            wo_assert(variable_instance->m_symbol->m_is_global);
+
+            return variable_instance;
+        }
+
+        ast::AstValueFunction* current_function = current_functiopn_may_null.value();
+        ast::AstValueFunction* varible_defined_in_function =
+            variable_defined_in_function_may_null.value();
+
+        if (current_function != varible_defined_in_function)
+        {
+            // Might need capture?;
+            bool need_capture = false;
+
+            if (variable_instance->m_determined_constant_or_function.has_value())
+            {
+                ast::AstValueFunction** captured_function =
+                    std::get_if<ast::AstValueFunction*>(&variable_instance->m_determined_constant_or_function.value());
+
+                need_capture = false;
+                if (captured_function != nullptr)
+                {
+                    if ((*captured_function)->m_LANG_captured_context.m_finished)
+                    {
+                        // Function is outside of the current function, check it's capture list.
+                        if (!(*captured_function)->m_LANG_captured_context.m_captured_variables.empty())
+                            // Is a closure, need capture.
+                            need_capture = true;
+                    }
+                    else
+                    {
+                        // Recursive function referenced or template function depend each other.
+                        // Woolang 1.14.1: Not allowed capture variable in recursive function.
+
+                        // Treat it as normal function, but we need to mark the referenced function as self-referenced.
+                        // If it has capture list, compile error will raised in pass1.
+                        (*captured_function)->m_LANG_captured_context.m_self_referenced = true;
+                    }
+                }
+            }
+            else
+                // Mutable, or not constant, need capture.
+                need_capture = true;
+
+            if (need_capture)
+            {
+                // Get function chain, create captured chain one by one;
+                std::list<ast::AstValueFunction*> function_chain;
+
+                lang_Scope* this_scope = current_scope;
+                for (;;)
+                {
+                    if (this_scope->m_function_instance.has_value())
+                    {
+                        ast::AstValueFunction* this_function = this_scope->m_function_instance.value();
+
+                        if (this_function == varible_defined_in_function)
+                            // Found the function.
+                            break;
+
+                        wo_assert(!this_function->m_LANG_captured_context.m_finished);
+                        function_chain.push_front(this_function);
+                    }
+
+                    // Loop will exit before it reach root scope.
+                    this_scope = this_scope->m_parent_scope.value();
+                }
+
+                lang_ValueInstance* this_value_instance = variable_instance;
+                for (auto* func : function_chain)
+                {
+                    this_value_instance = func->m_LANG_captured_context.find_or_create_captured_instance(
+                        this_value_instance, ref_from_variable);
+                }
+
+                // OK
+                return this_value_instance;
+            }
+        }
+        return variable_instance;
     }
 
 #endif

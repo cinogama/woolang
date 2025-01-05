@@ -390,7 +390,7 @@ namespace wo
                         _result.insert(wch);
                 return _result;
                 }();
-                return operator_char_set.find((wchar_t)ch) != operator_char_set.end();
+            return operator_char_set.find((wchar_t)ch) != operator_char_set.end();
         }
         static bool lex_isspace(int ch)
         {
@@ -499,8 +499,8 @@ namespace wo
         lexer& operator = (lexer&&) = delete;
 
         lexer(
-            std::optional<std::unique_ptr<std::wistream>>&& stream, 
-            const std::wstring _source_file, 
+            std::optional<std::unique_ptr<std::wistream>>&& stream,
+            const std::wstring _source_file,
             lexer* importer);
     public:
         void begin_trying_block()
@@ -569,7 +569,7 @@ namespace wo
                     next_file_colno,
                     describe,
                     source_file ? *source_file : L"json",
-                    0
+                    errorlevel == errorlevel::error ? (size_t)0 : (size_t)1
                 });
             skip_error_line();
             return result;
@@ -589,7 +589,7 @@ namespace wo
                     next_file_colno,
                     describe,
                     *source_file,
-                    0
+                   errorlevel == errorlevel::error ? (size_t)0 : (size_t)1
                 });
         }
         template<typename AstT, typename ... TS>
@@ -609,8 +609,8 @@ namespace wo
                 tree_node->source_location.end_at.column,
                 describe,
                 *tree_node->source_location.source_file,
-                error_frame.size(),
-            });
+                error_frame.size() + (errorlevel == errorlevel::error ? (size_t)0 : (size_t)1),
+                });
         }
 
         bool has_error() const

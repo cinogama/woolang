@@ -1746,18 +1746,18 @@ namespace std
     public let is_same_type<A, B> = typeid:<A> == typeid:<B>;
     public let is_mutable_type<A> = std::is_same_type:<A, mut A>;
 
-    public let is_array<AT> = std::declval:<array::item_t<AT>>() is pending == false;
-    public let is_vec<AT> = std::declval:<vec::item_t<AT>>() is pending == false;
-    public let is_dict<DT> = std::declval:<dict::item_t<DT>>() is pending == false;
-    public let is_map<DT> = std::declval:<map::item_t<DT>>() is pending == false;
+    public let is_array<AT> = typeid:<typeof(std::declval:<array::item_t<AT>>())> != 0;
+    public let is_vec<AT> = typeid:<typeof(std::declval:<vec::item_t<AT>>())> != 0;
+    public let is_dict<DT> = typeid:<typeof(std::declval:<dict::item_t<DT>>())> != 0;
+    public let is_map<DT> = typeid:<typeof(std::declval:<map::item_t<DT>>())> != 0;
 
     public let is_tuple<T> = 
         !is_array:<T> &&
         !is_vec:<T> && 
-        !(std::declval:<T>()...->\...=do nil; is pending);
+        typeid:<typeof(std::declval:<T>()...->\...=do nil;)> != 0;
     
     public func use<T, R>(val: T, f: (T)=> R)
-        where val->close is pending == false;
+        where typeid:<typeof(val->close)> != 0;
     {
         let v = f(val);
         do val->close;
@@ -1769,10 +1769,10 @@ namespace std
         option::item_t<typeof(std::declval:<T>()->next)>;
 
     public let is_iterator<T> = 
-        std::declval:<iterator_result_t<T>>() is pending == false;
+        typeid:<typeof(std::declval:<iterator_result_t<T>>())> != 0;
 
     public let is_iterable<T> = 
-        std::declval:<T>()->iter is pending == false
+        typeid:<typeof(std::declval:<T>()->iter)> != 0
         ? std::is_iterator:<typeof(std::declval:<T>()->iter)>
         | false;
         
@@ -2038,7 +2038,7 @@ namespace result
         {
         ok(v)? return v;
         err(e)? 
-            if (e: string is pending == false)
+            if (typeid:<typeof(e: string)> != 0)
                 return std::panic(F"An error was found in 'unwrap': {e}");
             else
                 return std::panic("An error was found in 'unwrap'.");
@@ -3135,7 +3135,7 @@ namespace std
 
         extern("rslib_std_debug_invoke")
             public func invoke<Ft>(f: Ft, ...) => dynamic
-                where f(......) is pending == false;
+                where typeid:<typeof(f(......))> != 0;
     }
 }
 )" };
