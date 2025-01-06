@@ -5,10 +5,10 @@
 namespace wo
 {
 #ifndef WO_DISABLE_COMPILER
-    LangContext::ProcessAstJobs *LangContext::m_pass0_processers;
-    LangContext::ProcessAstJobs *LangContext::m_pass1_processers;
-    LangContext::ProcessAstJobs *LangContext::m_passir_A_processers;
-    LangContext::ProcessAstJobs *LangContext::m_passir_B_processers;
+    LangContext::ProcessAstJobs* LangContext::m_pass0_processers;
+    LangContext::ProcessAstJobs* LangContext::m_pass1_processers;
+    LangContext::ProcessAstJobs* LangContext::m_passir_A_processers;
+    LangContext::ProcessAstJobs* LangContext::m_passir_B_processers;
 
     void LangContext::init_lang_processers()
     {
@@ -55,10 +55,10 @@ namespace wo
     }
     lang_Symbol::lang_Symbol(
         wo_pstring_t name,
-        const std::optional<ast::AstDeclareAttribue *> &attr,
-        std::optional<ast::AstBase *> symbol_declare_ast,
+        const std::optional<ast::AstDeclareAttribue*>& attr,
+        std::optional<ast::AstBase*> symbol_declare_ast,
         wo_pstring_t src_location,
-        lang_Scope *scope,
+        lang_Scope* scope,
         kind kind,
         bool mutable_variable)
         : m_symbol_kind(kind), m_is_template(false), m_is_global(false), m_name(name), m_defined_source(src_location), m_declare_attribute(attr), m_belongs_to_scope(scope), m_symbol_declare_ast(symbol_declare_ast), m_is_builtin(false), m_symbol_edge(0)
@@ -81,12 +81,12 @@ namespace wo
     }
     lang_Symbol::lang_Symbol(
         wo_pstring_t name,
-        const std::optional<ast::AstDeclareAttribue *> &attr,
-        std::optional<ast::AstBase *> symbol_declare_ast,
+        const std::optional<ast::AstDeclareAttribue*>& attr,
+        std::optional<ast::AstBase*> symbol_declare_ast,
         wo_pstring_t src_location,
-        lang_Scope *scope,
-        ast::AstValueBase *template_value_base,
-        const std::list<wo_pstring_t> &template_params,
+        lang_Scope* scope,
+        ast::AstValueBase* template_value_base,
+        const std::list<wo_pstring_t>& template_params,
         bool mutable_variable)
         : m_symbol_kind(VARIABLE), m_is_template(true), m_is_global(false), m_name(name), m_defined_source(src_location), m_declare_attribute(attr), m_belongs_to_scope(scope), m_symbol_declare_ast(symbol_declare_ast), m_is_builtin(false), m_symbol_edge(0)
     {
@@ -95,12 +95,12 @@ namespace wo
     }
     lang_Symbol::lang_Symbol(
         wo_pstring_t name,
-        const std::optional<ast::AstDeclareAttribue *> &attr,
-        std::optional<ast::AstBase *> symbol_declare_ast,
+        const std::optional<ast::AstDeclareAttribue*>& attr,
+        std::optional<ast::AstBase*> symbol_declare_ast,
         wo_pstring_t src_location,
-        lang_Scope *scope,
-        ast::AstTypeHolder *template_type_base,
-        const std::list<wo_pstring_t> &template_params,
+        lang_Scope* scope,
+        ast::AstTypeHolder* template_type_base,
+        const std::list<wo_pstring_t>& template_params,
         bool is_alias)
         : m_is_template(true), m_is_global(false), m_name(name), m_defined_source(src_location), m_declare_attribute(attr), m_belongs_to_scope(scope), m_symbol_declare_ast(symbol_declare_ast), m_is_builtin(false), m_symbol_edge(0)
     {
@@ -121,27 +121,27 @@ namespace wo
     //////////////////////////////////////
 
     lang_Symbol::TemplateValuePrefab::TemplateValuePrefab(
-        lang_Symbol *symbol,
+        lang_Symbol* symbol,
         bool mutable_,
-        ast::AstValueBase *ast,
-        const std::list<wo_pstring_t> &template_params)
+        ast::AstValueBase* ast,
+        const std::list<wo_pstring_t>& template_params)
         : m_symbol(symbol), m_mutable(mutable_), m_origin_value_ast(ast), m_template_params(template_params)
     {
     }
 
-    lang_TemplateAstEvalStateValue *lang_Symbol::TemplateValuePrefab::find_or_create_template_instance(
-        const TemplateArgumentListT &template_args)
+    lang_TemplateAstEvalStateValue* lang_Symbol::TemplateValuePrefab::find_or_create_template_instance(
+        const TemplateArgumentListT& template_args)
     {
         auto fnd = m_template_instances.find(template_args);
         if (fnd != m_template_instances.end())
             return fnd->second.get();
 
-        ast::AstValueBase *template_instance = static_cast<ast::AstValueBase *>(
+        ast::AstValueBase* template_instance = static_cast<ast::AstValueBase*>(
             m_origin_value_ast->clone());
         auto new_instance = std::make_unique<lang_TemplateAstEvalStateValue>(
             m_symbol, template_instance, template_args);
 
-        auto *result = new_instance.get();
+        auto* result = new_instance.get();
 
         m_template_instances.insert(
             std::make_pair(template_args, std::move(new_instance)));
@@ -152,25 +152,25 @@ namespace wo
     //////////////////////////////////////
 
     lang_Symbol::TemplateTypePrefab::TemplateTypePrefab(
-        lang_Symbol *symbol,
-        ast::AstTypeHolder *ast,
-        const std::list<wo_pstring_t> &template_params)
+        lang_Symbol* symbol,
+        ast::AstTypeHolder* ast,
+        const std::list<wo_pstring_t>& template_params)
         : m_symbol(symbol), m_origin_value_ast(ast), m_template_params(template_params)
     {
     }
-    lang_TemplateAstEvalStateType *lang_Symbol::TemplateTypePrefab::find_or_create_template_instance(
-        const TemplateArgumentListT &template_args)
+    lang_TemplateAstEvalStateType* lang_Symbol::TemplateTypePrefab::find_or_create_template_instance(
+        const TemplateArgumentListT& template_args)
     {
         auto fnd = m_template_instances.find(template_args);
         if (fnd != m_template_instances.end())
             return fnd->second.get();
 
-        ast::AstTypeHolder *template_instance = static_cast<ast::AstTypeHolder *>(
+        ast::AstTypeHolder* template_instance = static_cast<ast::AstTypeHolder*>(
             m_origin_value_ast->clone());
         auto new_instance = std::make_unique<lang_TemplateAstEvalStateType>(
             m_symbol, template_instance, template_args);
 
-        auto *result = new_instance.get();
+        auto* result = new_instance.get();
 
         m_template_instances.insert(
             std::make_pair(template_args, std::move(new_instance)));
@@ -181,25 +181,25 @@ namespace wo
     //////////////////////////////////////
 
     lang_Symbol::TemplateAliasPrefab::TemplateAliasPrefab(
-        lang_Symbol *symbol,
-        ast::AstTypeHolder *ast,
-        const std::list<wo_pstring_t> &template_params)
+        lang_Symbol* symbol,
+        ast::AstTypeHolder* ast,
+        const std::list<wo_pstring_t>& template_params)
         : m_symbol(symbol), m_origin_value_ast(ast), m_template_params(template_params)
     {
     }
-    lang_TemplateAstEvalStateAlias *lang_Symbol::TemplateAliasPrefab::find_or_create_template_instance(
-        const TemplateArgumentListT &template_args)
+    lang_TemplateAstEvalStateAlias* lang_Symbol::TemplateAliasPrefab::find_or_create_template_instance(
+        const TemplateArgumentListT& template_args)
     {
         auto fnd = m_template_instances.find(template_args);
         if (fnd != m_template_instances.end())
             return fnd->second.get();
 
-        ast::AstTypeHolder *template_instance = static_cast<ast::AstTypeHolder *>(
+        ast::AstTypeHolder* template_instance = static_cast<ast::AstTypeHolder*>(
             m_origin_value_ast->clone());
         auto new_instance = std::make_unique<lang_TemplateAstEvalStateAlias>(
             m_symbol, template_instance);
 
-        auto *result = new_instance.get();
+        auto* result = new_instance.get();
 
         m_template_instances.insert(
             std::make_pair(template_args, std::move(new_instance)));
@@ -210,8 +210,8 @@ namespace wo
     //////////////////////////////////////
 
     lang_TypeInstance::lang_TypeInstance(
-        lang_Symbol *symbol,
-        const std::optional<std::list<lang_TypeInstance *>> &template_arguments)
+        lang_Symbol* symbol,
+        const std::optional<std::list<lang_TypeInstance*>>& template_arguments)
         : m_symbol(symbol), m_determined_base_type_or_mutable(std::nullopt), m_instance_template_arguments(template_arguments)
     {
     }
@@ -219,15 +219,15 @@ namespace wo
     bool lang_TypeInstance::is_immutable() const
     {
         return nullptr != std::get_if<std::optional<DeterminedType>>(
-                              &m_determined_base_type_or_mutable);
+            &m_determined_base_type_or_mutable);
     }
     bool lang_TypeInstance::is_mutable() const
     {
         return !is_immutable();
     }
-    std::optional<const lang_TypeInstance::DeterminedType *> lang_TypeInstance::get_determined_type() const
+    std::optional<const lang_TypeInstance::DeterminedType*> lang_TypeInstance::get_determined_type() const
     {
-        const std::optional<DeterminedType> *dtype = std::get_if<std::optional<DeterminedType>>(
+        const std::optional<DeterminedType>* dtype = std::get_if<std::optional<DeterminedType>>(
             &m_determined_base_type_or_mutable);
 
         if (dtype != nullptr)
@@ -237,11 +237,11 @@ namespace wo
             return std::nullopt;
         }
 
-        return std::get<lang_TypeInstance *>(m_determined_base_type_or_mutable)
+        return std::get<lang_TypeInstance*>(m_determined_base_type_or_mutable)
             ->get_determined_type();
     }
 
-    void lang_TypeInstance::determine_base_type_by_another_type(lang_TypeInstance *immutable_from_type)
+    void lang_TypeInstance::determine_base_type_by_another_type(lang_TypeInstance* immutable_from_type)
     {
         wo_assert(immutable_from_type->is_immutable());
 
@@ -255,32 +255,32 @@ namespace wo
                 immutable_from_type->m_LANG_pending_depend_this.insert(this);
         }
     }
-    void lang_TypeInstance::_update_type_instance_depend_this(const DeterminedType &copy_type)
+    void lang_TypeInstance::_update_type_instance_depend_this(const DeterminedType& copy_type)
     {
-        std::stack<lang_TypeInstance *> pending_stack;
-        for (auto *depended : m_LANG_pending_depend_this)
+        std::stack<lang_TypeInstance*> pending_stack;
+        for (auto* depended : m_LANG_pending_depend_this)
             pending_stack.push(depended);
 
         m_LANG_pending_depend_this.clear();
 
         while (!pending_stack.empty())
         {
-            lang_TypeInstance *current = pending_stack.top();
+            lang_TypeInstance* current = pending_stack.top();
             pending_stack.pop();
 
             current->determine_base_type_copy(copy_type);
 
-            for (auto *depended : current->m_LANG_pending_depend_this)
+            for (auto* depended : current->m_LANG_pending_depend_this)
                 pending_stack.push(depended);
 
             current->m_LANG_pending_depend_this.clear();
         }
     }
-    void lang_TypeInstance::determine_base_type_copy(const DeterminedType &copy_type)
+    void lang_TypeInstance::determine_base_type_copy(const DeterminedType& copy_type)
     {
         wo_assert(std::get<std::optional<DeterminedType>>(
-                      m_determined_base_type_or_mutable)
-                      .has_value() == false);
+            m_determined_base_type_or_mutable)
+            .has_value() == false);
 
         DeterminedType::ExternalTypeDescription extern_desc;
         switch (copy_type.m_base_type)
@@ -321,11 +321,11 @@ namespace wo
         m_determined_base_type_or_mutable =
             std::move(DeterminedType(copy_type.m_base_type, extern_desc));
     }
-    void lang_TypeInstance::determine_base_type_move(DeterminedType &&move_type)
+    void lang_TypeInstance::determine_base_type_move(DeterminedType&& move_type)
     {
         wo_assert(std::get<std::optional<DeterminedType>>(
-                      m_determined_base_type_or_mutable)
-                      .has_value() == false);
+            m_determined_base_type_or_mutable)
+            .has_value() == false);
 
         _update_type_instance_depend_this(move_type);
 
@@ -334,7 +334,7 @@ namespace wo
 
     //////////////////////////////////////
 
-    lang_TemplateAstEvalStateBase::lang_TemplateAstEvalStateBase(lang_Symbol *symbol, ast::AstBase *ast)
+    lang_TemplateAstEvalStateBase::lang_TemplateAstEvalStateBase(lang_Symbol* symbol, ast::AstBase* ast)
         : m_state(UNPROCESSED), m_ast(ast), m_symbol(symbol)
     {
     }
@@ -342,22 +342,22 @@ namespace wo
     //////////////////////////////////////
 
     lang_TemplateAstEvalStateValue::lang_TemplateAstEvalStateValue(
-        lang_Symbol *symbol,
-        ast::AstValueBase *ast,
-        const std::list<lang_TypeInstance *> &template_arguments)
+        lang_Symbol* symbol,
+        ast::AstValueBase* ast,
+        const std::list<lang_TypeInstance*>& template_arguments)
         : lang_TemplateAstEvalStateBase(symbol, ast)
     {
         m_value_instance = std::make_unique<lang_ValueInstance>(
             symbol->m_template_value_instances->m_mutable, symbol, template_arguments);
 
         if (!symbol->m_template_value_instances->m_mutable && ast->node_type == ast::AstBase::AST_VALUE_FUNCTION)
-            m_value_instance->try_determine_function(static_cast<ast::AstValueFunction *>(ast));
+            m_value_instance->try_determine_function(static_cast<ast::AstValueFunction*>(ast));
     }
 
     //////////////////////////////////////
 
     lang_TemplateAstEvalStateType::lang_TemplateAstEvalStateType(
-        lang_Symbol *symbol, ast::AstTypeHolder *ast, const std::list<lang_TypeInstance *> &template_arguments)
+        lang_Symbol* symbol, ast::AstTypeHolder* ast, const std::list<lang_TypeInstance*>& template_arguments)
         : lang_TemplateAstEvalStateBase(symbol, ast)
     {
         m_type_instance = std::make_unique<lang_TypeInstance>(
@@ -366,7 +366,7 @@ namespace wo
 
     //////////////////////////////////////
 
-    lang_TemplateAstEvalStateAlias::lang_TemplateAstEvalStateAlias(lang_Symbol *symbol, ast::AstTypeHolder *ast)
+    lang_TemplateAstEvalStateAlias::lang_TemplateAstEvalStateAlias(lang_Symbol* symbol, ast::AstTypeHolder* ast)
         : lang_TemplateAstEvalStateBase(symbol, ast)
     {
         m_alias_instance = std::make_unique<lang_AliasInstance>(symbol);
@@ -374,19 +374,19 @@ namespace wo
 
     //////////////////////////////////////
 
-    lang_AliasInstance::lang_AliasInstance(lang_Symbol *symbol)
+    lang_AliasInstance::lang_AliasInstance(lang_Symbol* symbol)
         : m_symbol(symbol), m_determined_type(std::nullopt)
     {
     }
 
     //////////////////////////////////////
 
-    void lang_ValueInstance::try_determine_function(ast::AstValueFunction *func)
+    void lang_ValueInstance::try_determine_function(ast::AstValueFunction* func)
     {
         wo_assert(!m_mutable);
         m_determined_constant_or_function = func;
     }
-    void lang_ValueInstance::try_determine_const_value(ast::AstValueBase *init_val)
+    void lang_ValueInstance::try_determine_const_value(ast::AstValueBase* init_val)
     {
         wo_assert(!m_mutable);
         if (init_val->m_evaled_const_value.has_value())
@@ -399,8 +399,8 @@ namespace wo
     }
     lang_ValueInstance::lang_ValueInstance(
         bool mutable_,
-        lang_Symbol *symbol,
-        const std::optional<std::list<lang_TypeInstance *>> &template_arguments)
+        lang_Symbol* symbol,
+        const std::optional<std::list<lang_TypeInstance*>>& template_arguments)
         : m_symbol(symbol), m_mutable(mutable_), m_determined_constant_or_function(std::nullopt), m_determined_type(std::nullopt), m_instance_template_arguments(template_arguments)
     {
     }
@@ -408,7 +408,7 @@ namespace wo
     {
         if (m_determined_constant_or_function.has_value())
         {
-            wo::value *determined_value = std::get_if<wo::value>(
+            wo::value* determined_value = std::get_if<wo::value>(
                 &m_determined_constant_or_function.value());
 
             if (determined_value != nullptr)
@@ -422,16 +422,16 @@ namespace wo
     //////////////////////////////////////
 
     lang_TypeInstance::DeterminedType::DeterminedType(
-        base_type type, const ExternalTypeDescription &desc)
+        base_type type, const ExternalTypeDescription& desc)
         : m_base_type(type), m_external_type_description(desc)
     {
     }
-    lang_TypeInstance::DeterminedType::DeterminedType(DeterminedType &&item)
+    lang_TypeInstance::DeterminedType::DeterminedType(DeterminedType&& item)
         : m_base_type(item.m_base_type), m_external_type_description(item.m_external_type_description)
     {
         item.m_base_type = NIL;
     }
-    lang_TypeInstance::DeterminedType &lang_TypeInstance::DeterminedType::operator=(DeterminedType &&item)
+    lang_TypeInstance::DeterminedType& lang_TypeInstance::DeterminedType::operator=(DeterminedType&& item)
     {
         m_base_type = item.m_base_type;
         m_external_type_description = item.m_external_type_description;
@@ -467,7 +467,7 @@ namespace wo
 
     //////////////////////////////////////
 
-    lang_Scope::lang_Scope(const std::optional<lang_Scope *> &parent_scope, lang_Namespace *belongs)
+    lang_Scope::lang_Scope(const std::optional<lang_Scope*>& parent_scope, lang_Namespace* belongs)
         : m_defined_symbols{}, m_sub_scopes{}, m_parent_scope(parent_scope), m_belongs_to_namespace(belongs), m_visibility_from_edge_for_template_check(0)
     {
     }
@@ -479,28 +479,28 @@ namespace wo
 
     //////////////////////////////////////
 
-    lang_Namespace::lang_Namespace(wo_pstring_t name, const std::optional<lang_Namespace *> &parent_namespace)
+    lang_Namespace::lang_Namespace(wo_pstring_t name, const std::optional<lang_Namespace*>& parent_namespace)
         : m_name(name), m_parent_namespace(parent_namespace)
     {
         m_this_scope = std::make_unique<lang_Scope>(
             m_parent_namespace
-                ? std::optional(m_parent_namespace.value()->m_this_scope.get())
-                : std::nullopt,
+            ? std::optional(m_parent_namespace.value()->m_this_scope.get())
+            : std::nullopt,
             this);
     }
 
     //////////////////////////////////////
 
-    LangContext::AstNodeWithState::AstNodeWithState(ast::AstBase *node)
+    LangContext::AstNodeWithState::AstNodeWithState(ast::AstBase* node)
         : m_state(UNPROCESSED), m_ast_node(node)
 #ifndef NDEBUG
-          ,
-          m_debug_scope_layer_count(0), m_debug_entry_scope(nullptr)
+        ,
+        m_debug_scope_layer_count(0), m_debug_entry_scope(nullptr)
 #endif
     {
     }
     LangContext::AstNodeWithState::AstNodeWithState(
-        pass_behavior state, ast::AstBase *node)
+        pass_behavior state, ast::AstBase* node)
         : m_state(state), m_ast_node(node)
     {
     }
@@ -508,7 +508,7 @@ namespace wo
     //////////////////////////////////////
 
     LangContext::pass_behavior LangContext::ProcessAstJobs::process_node(
-        LangContext *ctx, lexer &lex, const AstNodeWithState &node_state, PassProcessStackT &out_stack)
+        LangContext* ctx, lexer& lex, const AstNodeWithState& node_state, PassProcessStackT& out_stack)
     {
         auto fnd = m_node_processer.find(node_state.m_ast_node->node_type);
         if (fnd == m_node_processer.end())
@@ -524,17 +524,17 @@ namespace wo
 
     //////////////////////////////////////
 
-    LangContext::OriginTypeHolder::OriginTypeChain *
-    LangContext::OriginTypeHolder::OriginTypeChain::path(const std::list<lang_TypeInstance *> &type_path)
+    LangContext::OriginTypeHolder::OriginTypeChain*
+        LangContext::OriginTypeHolder::OriginTypeChain::path(const std::list<lang_TypeInstance*>& type_path)
     {
-        OriginTypeChain *current_chain = this;
-        for (auto *type : type_path)
+        OriginTypeChain* current_chain = this;
+        for (auto* type : type_path)
         {
             auto fnd = current_chain->m_chain.find(type);
             if (fnd == current_chain->m_chain.end())
             {
                 auto new_chain_node = std::make_unique<OriginTypeChain>();
-                auto *next_chain_node_p = new_chain_node.get();
+                auto* next_chain_node_p = new_chain_node.get();
 
                 current_chain->m_chain.insert(std::make_pair(type, std::move(new_chain_node)));
 
@@ -553,19 +553,19 @@ namespace wo
 
     //////////////////////////////////////
 
-    LangContext::OriginTypeHolder::UnionStructTypeIndexChain *
-    LangContext::OriginTypeHolder::UnionStructTypeIndexChain::path(
-        const std::list<std::tuple<ast::AstDeclareAttribue::accessc_attrib, wo_pstring_t, lang_TypeInstance *>> &type_path)
+    LangContext::OriginTypeHolder::UnionStructTypeIndexChain*
+        LangContext::OriginTypeHolder::UnionStructTypeIndexChain::path(
+            const std::list<std::tuple<ast::AstDeclareAttribue::accessc_attrib, wo_pstring_t, lang_TypeInstance*>>& type_path)
     {
-        UnionStructTypeIndexChain *current_chain = this;
-        for (auto &[attrib, field, type_may_null] : type_path)
+        UnionStructTypeIndexChain* current_chain = this;
+        for (auto& [attrib, field, type_may_null] : type_path)
         {
-            auto &field_chain = current_chain->m_chain[attrib][field];
+            auto& field_chain = current_chain->m_chain[attrib][field];
             auto fnd = field_chain.find(type_may_null);
             if (fnd == field_chain.end())
             {
                 auto new_chain_node = std::make_unique<UnionStructTypeIndexChain>();
-                auto *next_chain_node_p = new_chain_node.get();
+                auto* next_chain_node_p = new_chain_node.get();
 
                 field_chain.insert(std::make_pair(type_may_null, std::move(new_chain_node)));
 
@@ -584,9 +584,9 @@ namespace wo
 
     //////////////////////////////////////
 
-    lang_TypeInstance *LangContext::OriginTypeHolder::create_dictionary_type(lang_TypeInstance *key_type, lang_TypeInstance *value_type)
+    lang_TypeInstance* LangContext::OriginTypeHolder::create_dictionary_type(lang_TypeInstance* key_type, lang_TypeInstance* value_type)
     {
-        OriginTypeChain *chain_node = m_dictionary_chain.path({key_type, value_type});
+        OriginTypeChain* chain_node = m_dictionary_chain.path({ key_type, value_type });
         if (!chain_node->m_type_instance)
         {
             lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
@@ -599,16 +599,16 @@ namespace wo
             lang_TypeInstance::DeterminedType determined_type_detail(
                 lang_TypeInstance::DeterminedType::base_type::DICTIONARY, desc);
 
-            lang_TypeInstance *new_type_instance = new lang_TypeInstance(m_dictionary, std::list{key_type, value_type});
+            lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_dictionary, std::list{ key_type, value_type });
             new_type_instance->determine_base_type_move(std::move(determined_type_detail));
 
             chain_node->m_type_instance = new_type_instance;
         }
         return chain_node->m_type_instance.value();
     }
-    lang_TypeInstance *LangContext::OriginTypeHolder::create_mapping_type(lang_TypeInstance *key_type, lang_TypeInstance *value_type)
+    lang_TypeInstance* LangContext::OriginTypeHolder::create_mapping_type(lang_TypeInstance* key_type, lang_TypeInstance* value_type)
     {
-        OriginTypeChain *chain_node = m_mapping_chain.path({key_type, value_type});
+        OriginTypeChain* chain_node = m_mapping_chain.path({ key_type, value_type });
         if (!chain_node->m_type_instance)
         {
             lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
@@ -621,16 +621,16 @@ namespace wo
             lang_TypeInstance::DeterminedType determined_type_detail(
                 lang_TypeInstance::DeterminedType::base_type::MAPPING, desc);
 
-            lang_TypeInstance *new_type_instance = new lang_TypeInstance(m_mapping, std::list{key_type, value_type});
+            lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_mapping, std::list{ key_type, value_type });
             new_type_instance->determine_base_type_move(std::move(determined_type_detail));
 
             chain_node->m_type_instance = new_type_instance;
         }
         return chain_node->m_type_instance.value();
     }
-    lang_TypeInstance *LangContext::OriginTypeHolder::create_array_type(lang_TypeInstance *element_type)
+    lang_TypeInstance* LangContext::OriginTypeHolder::create_array_type(lang_TypeInstance* element_type)
     {
-        OriginTypeChain *chain_node = m_array_chain.path({element_type});
+        OriginTypeChain* chain_node = m_array_chain.path({ element_type });
         if (!chain_node->m_type_instance)
         {
             lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
@@ -642,16 +642,16 @@ namespace wo
             lang_TypeInstance::DeterminedType determined_type_detail(
                 lang_TypeInstance::DeterminedType::base_type::ARRAY, desc);
 
-            lang_TypeInstance *new_type_instance = new lang_TypeInstance(m_array, std::list{element_type});
+            lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_array, std::list{ element_type });
             new_type_instance->determine_base_type_move(std::move(determined_type_detail));
 
             chain_node->m_type_instance = new_type_instance;
         }
         return chain_node->m_type_instance.value();
     }
-    lang_TypeInstance *LangContext::OriginTypeHolder::create_vector_type(lang_TypeInstance *element_type)
+    lang_TypeInstance* LangContext::OriginTypeHolder::create_vector_type(lang_TypeInstance* element_type)
     {
-        OriginTypeChain *chain_node = m_vector_chain.path({element_type});
+        OriginTypeChain* chain_node = m_vector_chain.path({ element_type });
         if (!chain_node->m_type_instance)
         {
             lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
@@ -663,37 +663,37 @@ namespace wo
             lang_TypeInstance::DeterminedType determined_type_detail(
                 lang_TypeInstance::DeterminedType::base_type::VECTOR, desc);
 
-            lang_TypeInstance *new_type_instance = new lang_TypeInstance(m_vector, std::list{element_type});
+            lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_vector, std::list{ element_type });
             new_type_instance->determine_base_type_move(std::move(determined_type_detail));
 
             chain_node->m_type_instance = new_type_instance;
         }
         return chain_node->m_type_instance.value();
     }
-    lang_TypeInstance *LangContext::OriginTypeHolder::create_tuple_type(const std::list<lang_TypeInstance *> &element_types)
+    lang_TypeInstance* LangContext::OriginTypeHolder::create_tuple_type(const std::list<lang_TypeInstance*>& element_types)
     {
-        OriginTypeChain *chain_node = m_tuple_chain.path(element_types);
+        OriginTypeChain* chain_node = m_tuple_chain.path(element_types);
         if (!chain_node->m_type_instance)
         {
             lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
 
             desc.m_tuple = new lang_TypeInstance::DeterminedType::Tuple();
-            desc.m_tuple->m_element_types = std::vector<lang_TypeInstance *>(
+            desc.m_tuple->m_element_types = std::vector<lang_TypeInstance*>(
                 element_types.begin(), element_types.end());
 
             lang_TypeInstance::DeterminedType determined_type_detail(
                 lang_TypeInstance::DeterminedType::base_type::TUPLE, desc);
 
-            lang_TypeInstance *new_type_instance = new lang_TypeInstance(m_tuple, std::nullopt);
+            lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_tuple, std::nullopt);
             new_type_instance->determine_base_type_move(std::move(determined_type_detail));
 
             chain_node->m_type_instance = new_type_instance;
         }
         return chain_node->m_type_instance.value();
     }
-    lang_TypeInstance *LangContext::OriginTypeHolder::create_function_type(bool is_variadic, const std::list<lang_TypeInstance *> &param_types, lang_TypeInstance *return_type)
+    lang_TypeInstance* LangContext::OriginTypeHolder::create_function_type(bool is_variadic, const std::list<lang_TypeInstance*>& param_types, lang_TypeInstance* return_type)
     {
-        OriginTypeChain *chain_node = m_function_chain[is_variadic ? 1 : 0].path(param_types)->path({return_type});
+        OriginTypeChain* chain_node = m_function_chain[is_variadic ? 1 : 0].path(param_types)->path({ return_type });
         if (!chain_node->m_type_instance)
         {
             lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
@@ -706,17 +706,17 @@ namespace wo
             lang_TypeInstance::DeterminedType determined_type_detail(
                 lang_TypeInstance::DeterminedType::base_type::FUNCTION, desc);
 
-            lang_TypeInstance *new_type_instance = new lang_TypeInstance(m_function, std::nullopt);
+            lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_function, std::nullopt);
             new_type_instance->determine_base_type_move(std::move(determined_type_detail));
 
             chain_node->m_type_instance = new_type_instance;
         }
         return chain_node->m_type_instance.value();
     }
-    lang_TypeInstance *LangContext::OriginTypeHolder::create_struct_type(
-        const std::list<std::tuple<ast::AstDeclareAttribue::accessc_attrib, wo_pstring_t, lang_TypeInstance *>> &member_types)
+    lang_TypeInstance* LangContext::OriginTypeHolder::create_struct_type(
+        const std::list<std::tuple<ast::AstDeclareAttribue::accessc_attrib, wo_pstring_t, lang_TypeInstance*>>& member_types)
     {
-        UnionStructTypeIndexChain *chain_node = m_struct_chain.path(member_types);
+        UnionStructTypeIndexChain* chain_node = m_struct_chain.path(member_types);
         if (!chain_node->m_type_instance)
         {
             lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
@@ -724,9 +724,9 @@ namespace wo
             desc.m_struct = new lang_TypeInstance::DeterminedType::Struct();
 
             wo_integer_t index = 0;
-            for (auto &[access, field, type] : member_types)
+            for (auto& [access, field, type] : member_types)
             {
-                auto &field_detail = desc.m_struct->m_member_types[field];
+                auto& field_detail = desc.m_struct->m_member_types[field];
                 field_detail.m_attrib = access;
                 field_detail.m_member_type = type;
                 field_detail.m_offset = index++;
@@ -735,23 +735,23 @@ namespace wo
             lang_TypeInstance::DeterminedType determined_type_detail(
                 lang_TypeInstance::DeterminedType::base_type::STRUCT, desc);
 
-            lang_TypeInstance *new_type_instance = new lang_TypeInstance(m_struct, std::nullopt);
+            lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_struct, std::nullopt);
             new_type_instance->determine_base_type_move(std::move(determined_type_detail));
 
             chain_node->m_type_instance = new_type_instance;
         }
         return chain_node->m_type_instance.value();
     }
-    lang_TypeInstance *LangContext::OriginTypeHolder::create_union_type(
-        const std::list<std::pair<wo_pstring_t, std::optional<lang_TypeInstance *>>> &member_types)
+    lang_TypeInstance* LangContext::OriginTypeHolder::create_union_type(
+        const std::list<std::pair<wo_pstring_t, std::optional<lang_TypeInstance*>>>& member_types)
     {
-        std::list<std::tuple<ast::AstDeclareAttribue::accessc_attrib, wo_pstring_t, lang_TypeInstance *>>
+        std::list<std::tuple<ast::AstDeclareAttribue::accessc_attrib, wo_pstring_t, lang_TypeInstance*>>
             member_types_no_optional;
-        for (auto &[field, type] : member_types)
+        for (auto& [field, type] : member_types)
             member_types_no_optional.push_back(
                 std::make_tuple(ast::AstDeclareAttribue::accessc_attrib::PUBLIC, field, type ? type.value() : nullptr));
 
-        UnionStructTypeIndexChain *chain_node = m_union_chain.path(member_types_no_optional);
+        UnionStructTypeIndexChain* chain_node = m_union_chain.path(member_types_no_optional);
         if (!chain_node->m_type_instance)
         {
             lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
@@ -759,11 +759,11 @@ namespace wo
             desc.m_union = new lang_TypeInstance::DeterminedType::Union();
 
             wo_integer_t index = 0;
-            for (auto &[_access, field, type] : member_types_no_optional)
+            for (auto& [_access, field, type] : member_types_no_optional)
             {
                 (void)_access;
 
-                auto &field_detail = desc.m_union->m_union_label[field];
+                auto& field_detail = desc.m_union->m_union_label[field];
                 field_detail.m_item_type = type == nullptr ? std::nullopt : std::optional(type);
                 field_detail.m_label = index++;
             }
@@ -771,7 +771,7 @@ namespace wo
             lang_TypeInstance::DeterminedType determined_type_detail(
                 lang_TypeInstance::DeterminedType::base_type::UNION, desc);
 
-            lang_TypeInstance *new_type_instance = new lang_TypeInstance(m_union, std::nullopt);
+            lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_union, std::nullopt);
             new_type_instance->determine_base_type_move(std::move(determined_type_detail));
 
             chain_node->m_type_instance = new_type_instance;
@@ -779,8 +779,8 @@ namespace wo
         return chain_node->m_type_instance.value();
     }
 
-    std::optional<lang_TypeInstance *> LangContext::OriginTypeHolder::create_or_find_origin_type(
-        lexer &lex, ast::AstTypeHolder *type_holder)
+    std::optional<lang_TypeInstance*> LangContext::OriginTypeHolder::create_or_find_origin_type(
+        lexer& lex, ast::AstTypeHolder* type_holder)
     {
         wo_assert(!type_holder->m_LANG_determined_type);
 
@@ -788,33 +788,33 @@ namespace wo
         {
         case ast::AstTypeHolder::IDENTIFIER:
         {
-            auto &identifier = type_holder->m_typeform.m_identifier;
-            auto *symbol = identifier->m_LANG_determined_symbol.value();
+            auto& identifier = type_holder->m_typeform.m_identifier;
+            auto* symbol = identifier->m_LANG_determined_symbol.value();
 
             wo_assert(symbol->m_is_builtin);
             if (!identifier->m_template_arguments)
             {
                 lex.lang_error(lexer::errorlevel::error, type_holder,
-                               WO_ERR_EXPECTED_TEMPLATE_ARGUMENT);
+                    WO_ERR_EXPECTED_TEMPLATE_ARGUMENT);
 
                 return std::nullopt;
             }
 
-            auto &template_arguments = identifier->m_template_arguments.value();
+            auto& template_arguments = identifier->m_template_arguments.value();
 
             if (symbol == m_dictionary)
             {
                 if (template_arguments.size() != 2)
                 {
                     lex.lang_error(lexer::errorlevel::error, type_holder,
-                                   WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
-                                   (size_t)2);
+                        WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
+                        (size_t)2);
 
                     return std::nullopt;
                 }
                 auto template_iter = template_arguments.begin();
-                auto *key_type = (*(template_iter++))->m_LANG_determined_type.value();
-                auto *value_type = (*template_iter)->m_LANG_determined_type.value();
+                auto* key_type = (*(template_iter++))->m_LANG_determined_type.value();
+                auto* value_type = (*template_iter)->m_LANG_determined_type.value();
 
                 return create_dictionary_type(key_type, value_type);
             }
@@ -823,14 +823,14 @@ namespace wo
                 if (template_arguments.size() != 2)
                 {
                     lex.lang_error(lexer::errorlevel::error, type_holder,
-                                   WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
-                                   (size_t)2);
+                        WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
+                        (size_t)2);
 
                     return std::nullopt;
                 }
                 auto template_iter = template_arguments.begin();
-                auto *key_type = (*(template_iter++))->m_LANG_determined_type.value();
-                auto *value_type = (*template_iter)->m_LANG_determined_type.value();
+                auto* key_type = (*(template_iter++))->m_LANG_determined_type.value();
+                auto* value_type = (*template_iter)->m_LANG_determined_type.value();
 
                 return create_mapping_type(key_type, value_type);
             }
@@ -839,12 +839,12 @@ namespace wo
                 if (template_arguments.size() != 1)
                 {
                     lex.lang_error(lexer::errorlevel::error, type_holder,
-                                   WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
-                                   (size_t)1);
+                        WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
+                        (size_t)1);
 
                     return std::nullopt;
                 }
-                auto *element_type = template_arguments.front()->m_LANG_determined_type.value();
+                auto* element_type = template_arguments.front()->m_LANG_determined_type.value();
                 return create_array_type(element_type);
             }
             else if (symbol == m_vector)
@@ -852,12 +852,12 @@ namespace wo
                 if (template_arguments.size() != 1)
                 {
                     lex.lang_error(lexer::errorlevel::error, type_holder,
-                                   WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
-                                   (size_t)1);
+                        WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
+                        (size_t)1);
 
                     return std::nullopt;
                 }
-                auto *element_type = template_arguments.front()->m_LANG_determined_type.value();
+                auto* element_type = template_arguments.front()->m_LANG_determined_type.value();
                 return create_vector_type(element_type);
             }
             else
@@ -867,8 +867,8 @@ namespace wo
         }
         case ast::AstTypeHolder::FUNCTION:
         {
-            std::list<lang_TypeInstance *> param_types;
-            for (auto *type_holder : type_holder->m_typeform.m_function.m_parameters)
+            std::list<lang_TypeInstance*> param_types;
+            for (auto* type_holder : type_holder->m_typeform.m_function.m_parameters)
                 param_types.push_back(type_holder->m_LANG_determined_type.value());
 
             return create_function_type(
@@ -878,8 +878,8 @@ namespace wo
         }
         case ast::AstTypeHolder::STRUCTURE:
         {
-            std::list<std::tuple<ast::AstDeclareAttribue::accessc_attrib, wo_pstring_t, lang_TypeInstance *>> param_types;
-            for (auto *field : type_holder->m_typeform.m_structure.m_fields)
+            std::list<std::tuple<ast::AstDeclareAttribue::accessc_attrib, wo_pstring_t, lang_TypeInstance*>> param_types;
+            for (auto* field : type_holder->m_typeform.m_structure.m_fields)
                 param_types.push_back(std::make_tuple(
                     field->m_attribute.value_or(ast::AstDeclareAttribue::accessc_attrib::PRIVATE),
                     field->m_name,
@@ -889,21 +889,21 @@ namespace wo
         }
         case ast::AstTypeHolder::UNION:
         {
-            std::list<std::pair<wo_pstring_t, std::optional<lang_TypeInstance *>>> member_types;
-            for (auto &field : type_holder->m_typeform.m_union.m_fields)
+            std::list<std::pair<wo_pstring_t, std::optional<lang_TypeInstance*>>> member_types;
+            for (auto& field : type_holder->m_typeform.m_union.m_fields)
             {
                 member_types.push_back(std::make_pair(
                     field.m_label,
                     field.m_item
-                        ? std::optional(field.m_item.value()->m_LANG_determined_type.value())
-                        : std::nullopt));
+                    ? std::optional(field.m_item.value()->m_LANG_determined_type.value())
+                    : std::nullopt));
             }
             return create_union_type(member_types);
         }
         case ast::AstTypeHolder::TUPLE:
         {
-            std::list<lang_TypeInstance *> element_types;
-            for (auto *type_holder : type_holder->m_typeform.m_tuple.m_fields)
+            std::list<lang_TypeInstance*> element_types;
+            for (auto* type_holder : type_holder->m_typeform.m_tuple.m_fields)
                 element_types.push_back(type_holder->m_LANG_determined_type.value());
 
             return create_tuple_type(element_types);
@@ -923,16 +923,16 @@ namespace wo
     }
 
     bool LangContext::anylize_pass(
-        lexer &lex, ast::AstBase *root, const PassFunctionT &pass_function)
+        lexer& lex, ast::AstBase* root, const PassFunctionT& pass_function)
     {
         PassProcessStackT process_stack;
-        std::stack<AstNodeWithState *> process_roots;
+        std::stack<AstNodeWithState*> process_roots;
 
         process_stack.push(AstNodeWithState(root));
 
         while (!process_stack.empty())
         {
-            AstNodeWithState &top_state = process_stack.top();
+            AstNodeWithState& top_state = process_stack.top();
 
 #ifndef NDEBUG
             if (top_state.m_debug_entry_scope == nullptr)
@@ -980,27 +980,27 @@ namespace wo
 
         // Register builtin types.
         auto create_builtin_non_template_symbol_and_instance = [this](
-                                                                   OriginTypeHolder::OriginNoTemplateSymbolAndInstance *out_sni,
-                                                                   wo_pstring_t name,
-                                                                   lang_TypeInstance::DeterminedType::base_type basic_type)
-        {
-            ast::AstDeclareAttribue *built_type_public_attrib = new ast::AstDeclareAttribue();
-            built_type_public_attrib->m_access = ast::AstDeclareAttribue::PUBLIC;
+            OriginTypeHolder::OriginNoTemplateSymbolAndInstance* out_sni,
+            wo_pstring_t name,
+            lang_TypeInstance::DeterminedType::base_type basic_type)
+            {
+                ast::AstDeclareAttribue* built_type_public_attrib = new ast::AstDeclareAttribue();
+                built_type_public_attrib->m_access = ast::AstDeclareAttribue::PUBLIC;
 
-            out_sni->m_symbol = define_symbol_in_current_scope(
-                                    name,
-                                    built_type_public_attrib,
-                                    std::nullopt,
-                                    WO_PSTR(_),
-                                    get_current_scope(),
-                                    lang_Symbol::kind::TYPE,
-                                    false)
-                                    .value();
+                out_sni->m_symbol = define_symbol_in_current_scope(
+                    name,
+                    built_type_public_attrib,
+                    std::nullopt,
+                    WO_PSTR(_),
+                    get_current_scope(),
+                    lang_Symbol::kind::TYPE,
+                    false)
+                    .value();
 
-            out_sni->m_type_instance = out_sni->m_symbol->m_type_instance;
-            out_sni->m_type_instance->determine_base_type_move(
-                std::move(lang_TypeInstance::DeterminedType(basic_type, {})));
-        };
+                out_sni->m_type_instance = out_sni->m_symbol->m_type_instance;
+                out_sni->m_type_instance->determine_base_type_move(
+                    std::move(lang_TypeInstance::DeterminedType(basic_type, {})));
+            };
         create_builtin_non_template_symbol_and_instance(
             &m_origin_types.m_void, WO_PSTR(void), lang_TypeInstance::DeterminedType::VOID);
         create_builtin_non_template_symbol_and_instance(
@@ -1026,23 +1026,23 @@ namespace wo
 
         // Declare array/vec/... type symbol.
         auto create_builtin_complex_symbol_and_instance = [this](
-                                                              lang_Symbol **out_symbol,
-                                                              wo_pstring_t name)
-        {
-            ast::AstDeclareAttribue *built_type_public_attrib = new ast::AstDeclareAttribue();
-            built_type_public_attrib->m_access = ast::AstDeclareAttribue::PUBLIC;
+            lang_Symbol** out_symbol,
+            wo_pstring_t name)
+            {
+                ast::AstDeclareAttribue* built_type_public_attrib = new ast::AstDeclareAttribue();
+                built_type_public_attrib->m_access = ast::AstDeclareAttribue::PUBLIC;
 
-            *out_symbol = define_symbol_in_current_scope(
-                              name,
-                              built_type_public_attrib,
-                              std::nullopt,
-                              WO_PSTR(_),
-                              get_current_scope(),
-                              lang_Symbol::kind::TYPE,
-                              false)
-                              .value();
-            (*out_symbol)->m_is_builtin = true;
-        };
+                *out_symbol = define_symbol_in_current_scope(
+                    name,
+                    built_type_public_attrib,
+                    std::nullopt,
+                    WO_PSTR(_),
+                    get_current_scope(),
+                    lang_Symbol::kind::TYPE,
+                    false)
+                    .value();
+                (*out_symbol)->m_is_builtin = true;
+            };
 
         create_builtin_complex_symbol_and_instance(&m_origin_types.m_dictionary, WO_PSTR(dict));
         create_builtin_complex_symbol_and_instance(&m_origin_types.m_mapping, WO_PSTR(map));
@@ -1059,7 +1059,7 @@ namespace wo
             m_origin_types.create_dictionary_type(m_origin_types.m_dynamic.m_type_instance, m_origin_types.m_dynamic.m_type_instance);
     }
 
-    bool LangContext::process(lexer &lex, ast::AstBase *root)
+    bool LangContext::process(lexer& lex, ast::AstBase* root)
     {
         pass_0_5_register_builtin_types();
 
@@ -1090,7 +1090,7 @@ namespace wo
 
     ////////////////////////
 
-    void LangContext::begin_new_function(ast::AstValueFunction *func_instance)
+    void LangContext::begin_new_function(ast::AstValueFunction* func_instance)
     {
         begin_new_scope();
         get_current_scope()->m_function_instance = func_instance;
@@ -1102,7 +1102,7 @@ namespace wo
     }
     void LangContext::begin_new_scope()
     {
-        lang_Scope *current_scope = get_current_scope();
+        lang_Scope* current_scope = get_current_scope();
         auto new_scope = std::make_unique<lang_Scope>(
             current_scope, get_current_scope()->m_belongs_to_namespace);
 
@@ -1113,7 +1113,7 @@ namespace wo
 
         current_scope->m_sub_scopes.emplace_back(std::move(new_scope));
     }
-    void LangContext::entry_spcify_scope(lang_Scope *scope)
+    void LangContext::entry_spcify_scope(lang_Scope* scope)
     {
         m_scope_stack.push(scope);
     }
@@ -1128,7 +1128,7 @@ namespace wo
             // Woolang 1.14.1: Define namespace in non-namespace scope is not allowed.
             return false;
 
-        auto *current_namespace = get_current_namespace();
+        auto* current_namespace = get_current_namespace();
         auto fnd = current_namespace->m_sub_namespaces.find(name);
         if (fnd == current_namespace->m_sub_namespaces.end())
         {
@@ -1138,9 +1138,9 @@ namespace wo
             new_namespace->m_this_scope->m_visibility_from_edge_for_template_check =
                 m_created_symbol_edge;
 
-            auto *new_namespace_ptr = get_current_namespace()->m_sub_namespaces.insert(
-                                                                                   std::make_pair(name, std::move(new_namespace)))
-                                          .first->second.get();
+            auto* new_namespace_ptr = get_current_namespace()->m_sub_namespaces.insert(
+                std::make_pair(name, std::move(new_namespace)))
+                .first->second.get();
 
             m_scope_stack.push(new_namespace_ptr->m_this_scope.get());
         }
@@ -1150,31 +1150,31 @@ namespace wo
         }
         return true;
     }
-    void LangContext::entry_spcify_namespace(lang_Namespace *namespace_)
+    void LangContext::entry_spcify_namespace(lang_Namespace* namespace_)
     {
         entry_spcify_scope(namespace_->m_this_scope.get());
     }
     void LangContext::end_last_namespace()
     {
         wo_assert(get_current_scope() ==
-                  get_current_namespace()->m_this_scope.get());
+            get_current_namespace()->m_this_scope.get());
 
         end_last_scope();
     }
-    lang_Scope *LangContext::get_current_scope()
+    lang_Scope* LangContext::get_current_scope()
     {
         return m_scope_stack.top();
     }
-    lang_Namespace *LangContext::get_current_namespace()
+    lang_Namespace* LangContext::get_current_namespace()
     {
         return get_current_scope()->m_belongs_to_namespace;
     }
-    std::optional<ast::AstValueFunction *> LangContext::get_scope_located_function(lang_Scope *scope)
+    std::optional<ast::AstValueFunction*> LangContext::get_scope_located_function(lang_Scope* scope)
     {
-        std::optional<lang_Scope *> current_scope = scope;
+        std::optional<lang_Scope*> current_scope = scope;
         while (current_scope)
         {
-            auto *current_scope_p = current_scope.value();
+            auto* current_scope_p = current_scope.value();
             current_scope = current_scope_p->m_parent_scope;
 
             if (current_scope_p->m_function_instance)
@@ -1182,28 +1182,28 @@ namespace wo
         }
         return std::nullopt;
     }
-    std::optional<ast::AstValueFunction *> LangContext::get_current_function()
+    std::optional<ast::AstValueFunction*> LangContext::get_current_function()
     {
         return get_scope_located_function(get_current_scope());
     }
-    std::optional<lang_Symbol *>
-    LangContext::_search_symbol_from_current_scope(
-        lexer &lex, ast::AstIdentifier *ident, const std::optional<bool *> &out_ambig)
+    std::optional<lang_Symbol*>
+        LangContext::_search_symbol_from_current_scope(
+            lexer& lex, ast::AstIdentifier* ident, const std::optional<bool*>& out_ambig)
     {
         wo_assert(!out_ambig.has_value() || *out_ambig.value() == false);
         wo_assert(ident->source_location.source_file != nullptr);
 
-        std::unordered_set<lang_Namespace *> searching_namesapaces;
-        std::unordered_set<lang_Symbol *> found_symbol;
+        std::unordered_set<lang_Namespace*> searching_namesapaces;
+        std::unordered_set<lang_Symbol*> found_symbol;
 
-        lang_Scope *current_scope = get_current_scope();
+        lang_Scope* current_scope = get_current_scope();
 
         // Collect used namespaces;
-        for (lang_Scope *collecting_scope = current_scope;;)
+        for (lang_Scope* collecting_scope = current_scope;;)
         {
             if (collecting_scope->is_namespace_scope())
             {
-                for (lang_Namespace *symbol_namespace = collecting_scope->m_belongs_to_namespace;;)
+                for (lang_Namespace* symbol_namespace = collecting_scope->m_belongs_to_namespace;;)
                 {
                     auto fnd = symbol_namespace->m_declare_used_namespaces.find(
                         ident->source_location.source_file);
@@ -1257,12 +1257,12 @@ namespace wo
         else
             searching_namesapaces.insert(get_current_namespace());
 
-        for (auto *searching_namesapace : searching_namesapaces)
+        for (auto* searching_namesapace : searching_namesapaces)
         {
             for (;;)
             {
-                lang_Namespace *symbol_namespace = searching_namesapace;
-                for (auto *scope : ident->m_scope)
+                lang_Namespace* symbol_namespace = searching_namesapace;
+                for (auto* scope : ident->m_scope)
                 {
                     auto fnd = symbol_namespace->m_sub_namespaces.find(scope);
                     if (fnd != symbol_namespace->m_sub_namespaces.end())
@@ -1290,37 +1290,37 @@ namespace wo
         if (found_symbol.empty())
             return std::nullopt;
 
-        lang_Symbol *result = *found_symbol.begin();
+        lang_Symbol* result = *found_symbol.begin();
         if (found_symbol.size() > 1)
         {
             if (!out_ambig.has_value())
                 return std::nullopt;
 
             lex.lang_error(lexer::errorlevel::error, ident,
-                           WO_ERR_AMBIGUOUS_TARGET_NAMED,
-                           ident->m_name->c_str(),
-                           get_symbol_name_w(result));
+                WO_ERR_AMBIGUOUS_TARGET_NAMED,
+                ident->m_name->c_str(),
+                get_symbol_name_w(result));
 
-            for (auto *symbol : found_symbol)
+            for (auto* symbol : found_symbol)
             {
                 if (symbol->m_symbol_declare_ast.has_value())
                     lex.lang_error(lexer::errorlevel::infom,
-                                   symbol->m_symbol_declare_ast.value(),
-                                   WO_INFO_MAYBE_NAMED_DEFINED_HERE,
-                                   get_symbol_name_w(symbol));
+                        symbol->m_symbol_declare_ast.value(),
+                        WO_INFO_MAYBE_NAMED_DEFINED_HERE,
+                        get_symbol_name_w(symbol));
                 else
                     lex.lang_error(lexer::errorlevel::infom,
-                                   ident,
-                                   WO_INFO_MAYBE_NAMED_DEFINED_IN_COMPILER,
-                                   get_symbol_name_w(symbol));
+                        ident,
+                        WO_INFO_MAYBE_NAMED_DEFINED_IN_COMPILER,
+                        get_symbol_name_w(symbol));
             }
             *out_ambig.value() = true;
         }
         return result;
     }
-    std::optional<lang_Symbol *>
-    LangContext::find_symbol_in_current_scope(
-        lexer &lex, ast::AstIdentifier *ident, const std::optional<bool *> &out_ambig)
+    std::optional<lang_Symbol*>
+        LangContext::find_symbol_in_current_scope(
+            lexer& lex, ast::AstIdentifier* ident, const std::optional<bool*>& out_ambig)
     {
         if (out_ambig.has_value())
             *out_ambig.value() = false;
@@ -1328,7 +1328,7 @@ namespace wo
         if (ident->m_LANG_determined_symbol)
             return ident->m_LANG_determined_symbol;
 
-        lang_Namespace *search_begin_namespace;
+        lang_Namespace* search_begin_namespace;
         switch (ident->m_formal)
         {
         case ast::AstIdentifier::FROM_GLOBAL:
@@ -1336,9 +1336,9 @@ namespace wo
             break;
         case ast::AstIdentifier::FROM_TYPE:
         {
-            lang_TypeInstance *type_instance;
+            lang_TypeInstance* type_instance;
 
-            if (ast::AstTypeHolder **from_type = std::get_if<ast::AstTypeHolder *>(&ident->m_from_type.value());
+            if (ast::AstTypeHolder** from_type = std::get_if<ast::AstTypeHolder*>(&ident->m_from_type.value());
                 from_type != nullptr)
             {
                 auto determined_type = (*from_type)->m_LANG_determined_type;
@@ -1350,9 +1350,9 @@ namespace wo
                 type_instance = determined_type.value();
             }
             else
-                type_instance = std::get<lang_TypeInstance *>(ident->m_from_type.value());
+                type_instance = std::get<lang_TypeInstance*>(ident->m_from_type.value());
 
-            lang_Scope *search_from_scope = type_instance->m_symbol->m_belongs_to_scope;
+            lang_Scope* search_from_scope = type_instance->m_symbol->m_belongs_to_scope;
             if (!type_instance->m_symbol->m_belongs_to_scope->is_namespace_scope())
                 return std::nullopt;
 
@@ -1375,7 +1375,7 @@ namespace wo
         }
         }
 
-        for (auto *scope : ident->m_scope)
+        for (auto* scope : ident->m_scope)
         {
             auto fnd = search_begin_namespace->m_sub_namespaces.find(scope);
             if (fnd != search_begin_namespace->m_sub_namespaces.end())
@@ -1387,14 +1387,14 @@ namespace wo
         auto fnd = search_begin_namespace->m_this_scope->m_defined_symbols.find(ident->m_name);
         if (fnd != search_begin_namespace->m_this_scope->m_defined_symbols.end())
         {
-            lang_Symbol *symbol = fnd->second.get();
+            lang_Symbol* symbol = fnd->second.get();
             ident->m_LANG_determined_symbol = symbol;
             return symbol;
         }
         return std::nullopt;
     }
 
-    lang_TypeInstance *LangContext::mutable_type(lang_TypeInstance *origin_type)
+    lang_TypeInstance* LangContext::mutable_type(lang_TypeInstance* origin_type)
     {
         if (origin_type->is_immutable())
         {
@@ -1407,7 +1407,7 @@ namespace wo
                 origin_type->m_symbol, std::nullopt);
             mutable_type_instance->m_determined_base_type_or_mutable = origin_type;
 
-            auto *result = mutable_type_instance.get();
+            auto* result = mutable_type_instance.get();
 
             m_mutable_type_instance_cache.insert(
                 std::make_pair(origin_type, std::move(mutable_type_instance)));
@@ -1416,10 +1416,10 @@ namespace wo
         }
         return origin_type;
     }
-    lang_TypeInstance *LangContext::immutable_type(lang_TypeInstance *origin_type)
+    lang_TypeInstance* LangContext::immutable_type(lang_TypeInstance* origin_type)
     {
-        lang_TypeInstance **immutable_type =
-            std::get_if<lang_TypeInstance *>(&origin_type->m_determined_base_type_or_mutable);
+        lang_TypeInstance** immutable_type =
+            std::get_if<lang_TypeInstance*>(&origin_type->m_determined_base_type_or_mutable);
 
         if (immutable_type != nullptr)
             return *immutable_type;
@@ -1430,24 +1430,24 @@ namespace wo
     void LangContext::fast_create_one_template_type_alias_in_current_scope(
         wo_pstring_t source_location,
         wo_pstring_t template_param,
-        lang_TypeInstance *template_arg)
+        lang_TypeInstance* template_arg)
     {
-        lang_Symbol *symbol = define_symbol_in_current_scope(
-                                  template_param,
-                                  std::nullopt,
-                                  std::nullopt,
-                                  source_location,
-                                  get_current_scope(),
-                                  lang_Symbol::kind::ALIAS,
-                                  false)
-                                  .value();
+        lang_Symbol* symbol = define_symbol_in_current_scope(
+            template_param,
+            std::nullopt,
+            std::nullopt,
+            source_location,
+            get_current_scope(),
+            lang_Symbol::kind::ALIAS,
+            false)
+            .value();
 
         symbol->m_alias_instance->m_determined_type = template_arg;
     }
     void LangContext::fast_create_template_type_alias_in_current_scope(
         wo_pstring_t source_location,
-        const std::list<wo_pstring_t> &template_params,
-        const std::list<lang_TypeInstance *> &template_args)
+        const std::list<wo_pstring_t>& template_params,
+        const std::list<lang_TypeInstance*>& template_args)
     {
         wo_assert(template_params.size() == template_args.size());
 
@@ -1463,16 +1463,16 @@ namespace wo
                 *args_iter);
         }
     }
-    std::wstring LangContext::_get_scope_name(lang_Scope *scope)
+    std::wstring LangContext::_get_scope_name(lang_Scope* scope)
     {
         std::wstring result = {};
-        auto *belong_namesapce = scope->m_belongs_to_namespace;
+        auto* belong_namesapce = scope->m_belongs_to_namespace;
 
         if (belong_namesapce->m_this_scope.get() == scope)
         {
             for (;;)
             {
-                auto *space_name = belong_namesapce->m_name;
+                auto* space_name = belong_namesapce->m_name;
 
                 if (belong_namesapce->m_parent_namespace)
                     belong_namesapce = belong_namesapce->m_parent_namespace.value();
@@ -1484,22 +1484,22 @@ namespace wo
         }
         return result;
     }
-    std::wstring LangContext::_get_symbol_name(lang_Symbol *symbol)
+    std::wstring LangContext::_get_symbol_name(lang_Symbol* symbol)
     {
         return _get_scope_name(symbol->m_belongs_to_scope) + *symbol->m_name;
     }
-    std::wstring LangContext::_get_type_name(lang_TypeInstance *type)
+    std::wstring LangContext::_get_type_name(lang_TypeInstance* type)
     {
         std::wstring result_type_name;
 
         if (type->is_mutable())
             result_type_name += L"mut ";
 
-        auto *immutable_type_instance = immutable_type(type);
+        auto* immutable_type_instance = immutable_type(type);
 
         if (immutable_type_instance->m_symbol->m_is_builtin)
         {
-            auto *base_determined_type = immutable_type_instance->get_determined_type().value();
+            auto* base_determined_type = immutable_type_instance->get_determined_type().value();
             switch (base_determined_type->m_base_type)
             {
             case lang_TypeInstance::DeterminedType::ARRAY:
@@ -1517,9 +1517,9 @@ namespace wo
             case lang_TypeInstance::DeterminedType::TUPLE:
             {
                 result_type_name += L"(";
-                auto &element_types = base_determined_type->m_external_type_description.m_tuple->m_element_types;
+                auto& element_types = base_determined_type->m_external_type_description.m_tuple->m_element_types;
                 bool first = true;
-                for (auto *element_type : element_types)
+                for (auto* element_type : element_types)
                 {
                     if (!first)
                         result_type_name += L", ";
@@ -1533,9 +1533,9 @@ namespace wo
             case lang_TypeInstance::DeterminedType::FUNCTION:
             {
                 result_type_name += L"(";
-                auto &param_types = base_determined_type->m_external_type_description.m_function->m_param_types;
+                auto& param_types = base_determined_type->m_external_type_description.m_function->m_param_types;
                 bool first = true;
-                for (auto *param_type : param_types)
+                for (auto* param_type : param_types)
                 {
                     if (!first)
                         result_type_name += L", ";
@@ -1557,9 +1557,9 @@ namespace wo
             case lang_TypeInstance::DeterminedType::STRUCT:
             {
                 result_type_name += L"struct{";
-                auto &member_types = base_determined_type->m_external_type_description.m_struct->m_member_types;
+                auto& member_types = base_determined_type->m_external_type_description.m_struct->m_member_types;
                 bool first = true;
-                for (auto &[name, field] : member_types)
+                for (auto& [name, field] : member_types)
                 {
                     if (!first)
                         result_type_name += L", ";
@@ -1575,9 +1575,9 @@ namespace wo
             case lang_TypeInstance::DeterminedType::UNION:
             {
                 result_type_name += L"union{";
-                auto &member_types = base_determined_type->m_external_type_description.m_union->m_union_label;
+                auto& member_types = base_determined_type->m_external_type_description.m_union->m_union_label;
                 bool first = true;
-                for (auto &[name, field] : member_types)
+                for (auto& [name, field] : member_types)
                 {
                     if (!first)
                         result_type_name += L", ";
@@ -1607,9 +1607,9 @@ namespace wo
         if (immutable_type_instance->m_instance_template_arguments)
         {
             result_type_name += L"<";
-            auto &template_args = immutable_type_instance->m_instance_template_arguments.value();
+            auto& template_args = immutable_type_instance->m_instance_template_arguments.value();
             bool first = true;
-            for (auto *template_arg : template_args)
+            for (auto* template_arg : template_args)
             {
                 if (!first)
                     result_type_name += L", ";
@@ -1621,16 +1621,16 @@ namespace wo
 
         return result_type_name;
     }
-    std::wstring LangContext::_get_value_name(lang_ValueInstance *scope)
+    std::wstring LangContext::_get_value_name(lang_ValueInstance* scope)
     {
         std::wstring result_value_name = *scope->m_symbol->m_name;
 
         if (scope->m_instance_template_arguments)
         {
             result_value_name += L"<";
-            auto &template_args = scope->m_instance_template_arguments.value();
+            auto& template_args = scope->m_instance_template_arguments.value();
             bool first = true;
-            for (auto *template_arg : template_args)
+            for (auto* template_arg : template_args)
             {
                 if (!first)
                     result_value_name += L", ";
@@ -1643,7 +1643,7 @@ namespace wo
         return result_value_name;
     }
 
-    const wchar_t *LangContext::get_symbol_name_w(lang_Symbol *symbol)
+    const wchar_t* LangContext::get_symbol_name_w(lang_Symbol* symbol)
     {
         auto fnd = m_symbol_name_cache.find(symbol);
         if (fnd != m_symbol_name_cache.end())
@@ -1651,11 +1651,11 @@ namespace wo
 
         std::wstring result = _get_symbol_name(symbol);
         return m_symbol_name_cache.insert(
-                                      std::make_pair(symbol, std::make_pair(result, wstrn_to_str(result))))
+            std::make_pair(symbol, std::make_pair(result, wstrn_to_str(result))))
             .first
             ->second.first.c_str();
     }
-    const char *LangContext::get_symbol_name(lang_Symbol *symbol)
+    const char* LangContext::get_symbol_name(lang_Symbol* symbol)
     {
         auto fnd = m_symbol_name_cache.find(symbol);
         if (fnd != m_symbol_name_cache.end())
@@ -1663,11 +1663,11 @@ namespace wo
 
         std::wstring result = _get_symbol_name(symbol);
         return m_symbol_name_cache.insert(
-                                      std::make_pair(symbol, std::make_pair(result, wstrn_to_str(result))))
+            std::make_pair(symbol, std::make_pair(result, wstrn_to_str(result))))
             .first
             ->second.second.c_str();
     }
-    const wchar_t *LangContext::get_type_name_w(lang_TypeInstance *type)
+    const wchar_t* LangContext::get_type_name_w(lang_TypeInstance* type)
     {
         auto fnd = m_type_name_cache.find(type);
         if (fnd != m_type_name_cache.end())
@@ -1680,11 +1680,11 @@ namespace wo
 
         m_type_name_cache.erase(type);
         return m_type_name_cache.insert(
-                                    std::make_pair(type, std::make_pair(result, wstrn_to_str(result))))
+            std::make_pair(type, std::make_pair(result, wstrn_to_str(result))))
             .first
             ->second.first.c_str();
     }
-    const char *LangContext::get_type_name(lang_TypeInstance *type)
+    const char* LangContext::get_type_name(lang_TypeInstance* type)
     {
         auto fnd = m_type_name_cache.find(type);
         if (fnd != m_type_name_cache.end())
@@ -1697,11 +1697,11 @@ namespace wo
 
         m_type_name_cache.erase(type);
         return m_type_name_cache.insert(
-                                    std::make_pair(type, std::make_pair(result, wstrn_to_str(result))))
+            std::make_pair(type, std::make_pair(result, wstrn_to_str(result))))
             .first
             ->second.second.c_str();
     }
-    const wchar_t *LangContext::get_value_name_w(lang_ValueInstance *val)
+    const wchar_t* LangContext::get_value_name_w(lang_ValueInstance* val)
     {
         auto fnd = m_value_name_cache.find(val);
         if (fnd != m_value_name_cache.end())
@@ -1709,11 +1709,11 @@ namespace wo
 
         std::wstring result = _get_value_name(val);
         return m_value_name_cache.insert(
-                                     std::make_pair(val, std::make_pair(result, wstrn_to_str(result))))
+            std::make_pair(val, std::make_pair(result, wstrn_to_str(result))))
             .first
             ->second.first.c_str();
     }
-    const char *LangContext::get_value_name(lang_ValueInstance *val)
+    const char* LangContext::get_value_name(lang_ValueInstance* val)
     {
         auto fnd = m_value_name_cache.find(val);
         if (fnd != m_value_name_cache.end())
@@ -1721,24 +1721,24 @@ namespace wo
 
         std::wstring result = _get_value_name(val);
         return m_value_name_cache.insert(
-                                     std::make_pair(val, std::make_pair(result, wstrn_to_str(result))))
+            std::make_pair(val, std::make_pair(result, wstrn_to_str(result))))
             .first
             ->second.second.c_str();
     }
 
     void LangContext::using_namespace_declare_for_current_scope(
-        ast::AstUsingNamespace *using_namespace)
+        ast::AstUsingNamespace* using_namespace)
     {
         wo_assert(using_namespace->source_location.source_file != nullptr);
 
-        std::unordered_set<lang_Namespace *> using_namespaces;
+        std::unordered_set<lang_Namespace*> using_namespaces;
 
-        lang_Namespace *current_namespace = get_current_namespace();
+        lang_Namespace* current_namespace = get_current_namespace();
         for (;;)
         {
             // Find sub namespace;
             bool found = true;
-            lang_Namespace *sub_namespace = current_namespace;
+            lang_Namespace* sub_namespace = current_namespace;
             for (wo_pstring_t name : using_namespace->m_using_namespace)
             {
                 auto fnd = sub_namespace->m_sub_namespaces.find(name);
@@ -1760,10 +1760,10 @@ namespace wo
                 break;
         }
 
-        lang_Scope *current_scope = get_current_scope();
+        lang_Scope* current_scope = get_current_scope();
         if (current_scope->is_namespace_scope())
         {
-            auto &used_namespaces =
+            auto& used_namespaces =
                 current_scope->m_belongs_to_namespace->m_declare_used_namespaces[using_namespace->source_location.source_file];
 
             used_namespaces.insert(using_namespaces.begin(), using_namespaces.end());
@@ -1775,25 +1775,28 @@ namespace wo
         }
     }
 
-    lang_ValueInstance *LangContext::check_and_update_captured_varibale_in_current_scope(
-        ast::AstValueVariable *ref_from_variable,
-        lang_ValueInstance *variable_instance)
+    lang_ValueInstance* LangContext::check_and_update_captured_varibale_in_current_scope(
+        ast::AstValueVariable* ref_from_variable,
+        lang_ValueInstance* variable_instance)
     {
-        lang_Scope *const current_scope = get_current_scope();
-        lang_Scope *const variable_defined_scope =
+        lang_Scope* const current_scope = get_current_scope();
+        lang_Scope* const variable_defined_scope =
             variable_instance->m_symbol->m_belongs_to_scope;
 
-        std::optional<ast::AstValueFunction *> current_functiopn_may_null =
+        std::optional<ast::AstValueFunction*> current_functiopn_may_null =
             get_scope_located_function(current_scope);
 
         if (!current_functiopn_may_null.has_value())
             // Not in a function;
             return variable_instance;
 
-        std::optional<ast::AstValueFunction *> variable_defined_in_function_may_null =
+        std::optional<ast::AstValueFunction*> variable_defined_in_function_may_null =
             get_scope_located_function(variable_defined_scope);
 
-        if (!variable_defined_in_function_may_null.has_value() || (variable_instance->m_symbol->m_declare_attribute.has_value() && variable_instance->m_symbol->m_declare_attribute.value()->m_lifecycle.has_value() && variable_instance->m_symbol->m_declare_attribute.value()->m_lifecycle.value() == ast::AstDeclareAttribue::lifecycle_attrib::STATIC))
+        if (!variable_defined_in_function_may_null.has_value()
+            || (variable_instance->m_symbol->m_declare_attribute.has_value()
+                && variable_instance->m_symbol->m_declare_attribute.value()->m_lifecycle.has_value()
+                && variable_instance->m_symbol->m_declare_attribute.value()->m_lifecycle.value() == ast::AstDeclareAttribue::lifecycle_attrib::STATIC))
         {
             // Variable is global or static.
             wo_assert(variable_instance->m_symbol->m_is_global);
@@ -1801,8 +1804,8 @@ namespace wo
             return variable_instance;
         }
 
-        ast::AstValueFunction *current_function = current_functiopn_may_null.value();
-        ast::AstValueFunction *varible_defined_in_function =
+        ast::AstValueFunction* current_function = current_functiopn_may_null.value();
+        ast::AstValueFunction* varible_defined_in_function =
             variable_defined_in_function_may_null.value();
 
         if (current_function != varible_defined_in_function)
@@ -1812,8 +1815,8 @@ namespace wo
 
             if (variable_instance->m_determined_constant_or_function.has_value())
             {
-                ast::AstValueFunction **captured_function =
-                    std::get_if<ast::AstValueFunction *>(&variable_instance->m_determined_constant_or_function.value());
+                ast::AstValueFunction** captured_function =
+                    std::get_if<ast::AstValueFunction*>(&variable_instance->m_determined_constant_or_function.value());
 
                 need_capture = false;
                 if (captured_function != nullptr)
@@ -1843,14 +1846,14 @@ namespace wo
             if (need_capture)
             {
                 // Get function chain, create captured chain one by one;
-                std::list<ast::AstValueFunction *> function_chain;
+                std::list<ast::AstValueFunction*> function_chain;
 
-                lang_Scope *this_scope = current_scope;
+                lang_Scope* this_scope = current_scope;
                 for (;;)
                 {
                     if (this_scope->m_function_instance.has_value())
                     {
-                        ast::AstValueFunction *this_function = this_scope->m_function_instance.value();
+                        ast::AstValueFunction* this_function = this_scope->m_function_instance.value();
 
                         if (this_function == varible_defined_in_function)
                             // Found the function.
@@ -1864,8 +1867,8 @@ namespace wo
                     this_scope = this_scope->m_parent_scope.value();
                 }
 
-                lang_ValueInstance *this_value_instance = variable_instance;
-                for (auto *func : function_chain)
+                lang_ValueInstance* this_value_instance = variable_instance;
+                for (auto* func : function_chain)
                 {
                     this_value_instance = func->m_LANG_captured_context.find_or_create_captured_instance(
                         this_value_instance, ref_from_variable);
@@ -1878,84 +1881,152 @@ namespace wo
         return variable_instance;
     }
 
-    opnum::global *BytecodeGenerateContext::opnum_global(int32_t offset) noexcept
+    void BytecodeGenerateContext::apply_eval_result(
+        const std::function<void(EvalResult&)>& bind_func) noexcept
+    {
+        auto& top_eval_state = m_eval_result_storage_target.top();
+
+        if (top_eval_state.m_request != EvalResult::Request::IGNORE_RESULT)
+        {
+            bind_func(top_eval_state);
+
+            m_evaled_result_storage.emplace(
+                std::move(top_eval_state));
+        }
+        m_eval_result_storage_target.pop();
+    }
+
+    void BytecodeGenerateContext::failed_eval_result() noexcept
+    {
+        m_eval_result_storage_target.pop();
+    }
+
+    void BytecodeGenerateContext::begin_eval(const std::optional<opnum::opnumbase*>& target)
+    {
+        m_eval_result_storage_target.push(EvalResult{
+            target.has_value()
+                ? EvalResult::Request::ASSIGN_TO_SPECIFIED_OPNUM
+                : EvalResult::Request::GET_RESULT_OPNUM_ONLY,
+            target,
+            });
+    }
+    void BytecodeGenerateContext::skip_eval_result()
+    {
+        m_eval_result_storage_target.push(EvalResult{
+            EvalResult::Request::IGNORE_RESULT,
+            std::nullopt,
+            });
+    }
+    opnum::opnumbase* BytecodeGenerateContext::get_eval_result()
+    {
+        auto* result = m_eval_result_storage_target.top().m_result.value();
+        m_eval_result_storage_target.pop();
+
+        auto* reg = dynamic_cast<opnum::reg*>(result);
+        if (reg != nullptr && reg->id >= opnum::reg::spreg::t0 && reg->id <= opnum::reg::spreg::r15)
+        {
+            // Is temporary register, release it.
+            return_opnum_temporary_register(reg);
+        }
+        return result;
+    }
+    opnum::global* BytecodeGenerateContext::opnum_global(int32_t offset) noexcept
     {
         auto fnd = m_opnum_cache_global.find(offset);
         if (fnd != m_opnum_cache_global.end())
             return fnd->second.get();
 
         return m_opnum_cache_global.insert(
-                                       std::make_pair(offset, std::make_unique<opnum::global>(offset)))
+            std::make_pair(offset, std::make_unique<opnum::global>(offset)))
             .first->second.get();
     }
-    opnum::immbase *BytecodeGenerateContext::opnum_imm_int(wo_integer_t value) noexcept
+    opnum::immbase* BytecodeGenerateContext::opnum_imm_int(wo_integer_t value) noexcept
     {
         auto fnd = m_opnum_cache_imm_int.find(value);
         if (fnd != m_opnum_cache_imm_int.end())
             return fnd->second.get();
 
         return m_opnum_cache_imm_int.insert(
-                                        std::make_pair(value, std::make_unique<opnum::imm<wo_integer_t>>(value)))
+            std::make_pair(value, std::make_unique<opnum::imm<wo_integer_t>>(value)))
             .first->second.get();
     }
-    opnum::immbase *BytecodeGenerateContext::opnum_imm_real(wo_real_t value) noexcept
+    opnum::immbase* BytecodeGenerateContext::opnum_imm_real(wo_real_t value) noexcept
     {
         auto fnd = m_opnum_cache_imm_real.find(value);
         if (fnd != m_opnum_cache_imm_real.end())
             return fnd->second.get();
 
         return m_opnum_cache_imm_real.insert(
-                                         std::make_pair(value, std::make_unique<opnum::imm<wo_real_t>>(value)))
+            std::make_pair(value, std::make_unique<opnum::imm<wo_real_t>>(value)))
             .first->second.get();
     }
-    opnum::immbase *BytecodeGenerateContext::opnum_imm_handle(wo_handle_t value) noexcept
+    opnum::immbase* BytecodeGenerateContext::opnum_imm_handle(wo_handle_t value) noexcept
     {
         auto fnd = m_opnum_cache_imm_handle.find(value);
         if (fnd != m_opnum_cache_imm_handle.end())
             return fnd->second.get();
 
         return m_opnum_cache_imm_handle.insert(
-                                           std::make_pair(value, std::make_unique<opnum::imm_hdl>(value)))
+            std::make_pair(value, std::make_unique<opnum::imm_hdl>(value)))
             .first->second.get();
     }
-    opnum::immbase *BytecodeGenerateContext::opnum_imm_string(const std::string &value) noexcept
+    opnum::immbase* BytecodeGenerateContext::opnum_imm_string(const std::string& value) noexcept
     {
         auto fnd = m_opnum_cache_imm_string.find(value);
         if (fnd != m_opnum_cache_imm_string.end())
             return fnd->second.get();
 
         return m_opnum_cache_imm_string.insert(
-                                           std::make_pair(value, std::make_unique<opnum::imm_str>(value)))
+            std::make_pair(value, std::make_unique<opnum::imm_str>(value)))
             .first->second.get();
     }
-    opnum::immbase *BytecodeGenerateContext::opnum_imm_bool(bool value) noexcept
+    opnum::immbase* BytecodeGenerateContext::opnum_imm_bool(bool value) noexcept
     {
         if (value)
             return m_opnum_cache_imm_true.get();
         else
             return m_opnum_cache_imm_false.get();
     }
-    opnum::tagimm_rsfunc *BytecodeGenerateContext::opnum_imm_rsfunc(const std::string &value) noexcept
+    opnum::immbase* BytecodeGenerateContext::opnum_imm_value(const wo::value& val)
+    {
+        switch (val.type)
+        {
+        case wo::value::valuetype::integer_type:
+            return opnum_imm_int(val.integer);
+        case wo::value::valuetype::real_type:
+            return opnum_imm_real(val.real);
+        case wo::value::valuetype::handle_type:
+            return opnum_imm_handle(val.handle);
+        case wo::value::valuetype::bool_type:
+            return opnum_imm_bool(val.integer ? true : false);
+        case wo::value::valuetype::string_type:
+            return opnum_imm_string(*val.string);
+        default:
+            wo_error("Unexpected value type");
+            return nullptr;
+        }
+    }
+    opnum::tagimm_rsfunc* BytecodeGenerateContext::opnum_imm_rsfunc(const std::string& value) noexcept
     {
         auto fnd = m_opnum_cache_imm_rsfunc.find(value);
         if (fnd != m_opnum_cache_imm_rsfunc.end())
             return fnd->second.get();
 
         return m_opnum_cache_imm_rsfunc.insert(
-                                           std::make_pair(value, std::make_unique<opnum::tagimm_rsfunc>(value)))
+            std::make_pair(value, std::make_unique<opnum::tagimm_rsfunc>(value)))
             .first->second.get();
     }
-    opnum::tag *BytecodeGenerateContext::opnum_tag(const std::string &value) noexcept
+    opnum::tag* BytecodeGenerateContext::opnum_tag(const std::string& value) noexcept
     {
         auto fnd = m_opnum_cache_tag.find(value);
         if (fnd != m_opnum_cache_tag.end())
             return fnd->second.get();
 
         return m_opnum_cache_tag.insert(
-                                    std::make_pair(value, std::make_unique<opnum::tag>(value)))
+            std::make_pair(value, std::make_unique<opnum::tag>(value)))
             .first->second.get();
     }
-    opnum::reg *BytecodeGenerateContext::opnum_spreg(opnum::reg::spreg value) noexcept
+    opnum::reg* BytecodeGenerateContext::opnum_spreg(opnum::reg::spreg value) noexcept
     {
         uint8_t regid = static_cast<uint8_t>(value);
         auto fnd = m_opnum_cache_reg_and_stack_offset.find(regid);
@@ -1963,10 +2034,10 @@ namespace wo
             return fnd->second.get();
 
         return m_opnum_cache_reg_and_stack_offset.insert(
-                                                     std::make_pair(regid, std::make_unique<opnum::reg>(value)))
+            std::make_pair(regid, std::make_unique<opnum::reg>(value)))
             .first->second.get();
     }
-    opnum::reg *BytecodeGenerateContext::opnum_stack_offset(int8_t value) noexcept
+    opnum::reg* BytecodeGenerateContext::opnum_stack_offset(int8_t value) noexcept
     {
         uint8_t regid = opnum::reg::bp_offset(value);
         auto fnd = m_opnum_cache_reg_and_stack_offset.find(regid);
@@ -1974,28 +2045,31 @@ namespace wo
             return fnd->second.get();
 
         return m_opnum_cache_reg_and_stack_offset.insert(
-                                                     std::make_pair(regid, std::make_unique<opnum::reg>(value)))
+            std::make_pair(regid, std::make_unique<opnum::reg>(value)))
             .first->second.get();
     }
 
-    ir_compiler &BytecodeGenerateContext::c() noexcept
+    ir_compiler& BytecodeGenerateContext::c() noexcept
     {
         return m_compiler;
     }
 
     BytecodeGenerateContext::BytecodeGenerateContext() noexcept
-        : m_opnum_cache_imm_true(std::make_unique<opnum::imm<bool>>(true)), m_opnum_cache_imm_false(std::make_unique<opnum::imm<bool>>(false))
+        : m_opnum_cache_imm_true(std::make_unique<opnum::imm<bool>>(true))
+        , m_opnum_cache_imm_false(std::make_unique<opnum::imm<bool>>(false))
+        , m_global_storage_allocating(0)
+
     {
         for (opnum::reg::spreg ireg = opnum::reg::spreg::t0;
-             ireg <= opnum::reg::spreg::r15;
-             ireg = (opnum::reg::spreg)((uint8_t)ireg + 1))
+            ireg <= opnum::reg::spreg::r15;
+            ireg = (opnum::reg::spreg)((uint8_t)ireg + 1))
         {
             return_opnum_temporary_register(opnum_spreg(ireg));
         }
         wo_assert(m_usable_temporary_registers.size() == 32);
     }
-    std::optional<opnum::reg *> BytecodeGenerateContext::borrow_opnum_temporary_register(
-        lexer &lex, ast::AstBase *node) noexcept
+    std::optional<opnum::reg*> BytecodeGenerateContext::borrow_opnum_temporary_register(
+        lexer& lex, ast::AstBase* node) noexcept
     {
         if (m_usable_temporary_registers.empty())
         {
@@ -2003,13 +2077,37 @@ namespace wo
             return std::nullopt;
         }
 
-        auto *result = m_usable_temporary_registers.front();
+        auto* result = m_usable_temporary_registers.front();
         m_usable_temporary_registers.pop_front();
         return result;
     }
-    void BytecodeGenerateContext::return_opnum_temporary_register(opnum::reg *reg) noexcept
+    void BytecodeGenerateContext::return_opnum_temporary_register(opnum::reg* reg) noexcept
     {
         m_usable_temporary_registers.push_back(reg);
+    }
+    opnum::opnumbase* BytecodeGenerateContext::get_storage_place(
+        const lang_ValueInstance::Storage& storage)
+    {
+        switch (storage.m_type)
+        {
+        case lang_ValueInstance::Storage::GLOBAL:
+            return opnum_global(storage.m_index);
+        case lang_ValueInstance::Storage::STACKOFFSET:
+            return opnum_stack_offset(storage.m_index);
+        default:
+            wo_error("Unexpected storage kind");
+            return nullptr;
+        }
+    }
+    const std::optional<opnum::opnumbase*>&
+        BytecodeGenerateContext::EvalResult::get_assign_target() noexcept
+    {
+        return m_result;
+    }
+    void BytecodeGenerateContext::EvalResult::set_result(opnum::opnumbase* result) noexcept
+    {
+        wo_assert(m_request == Request::GET_RESULT_OPNUM_ONLY);
+        m_result = result;
     }
 #endif
 }

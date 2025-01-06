@@ -150,12 +150,27 @@ namespace wo
     };
     struct lang_ValueInstance
     {
-        lang_Symbol* m_symbol;
-        bool m_mutable;
+        struct Storage
+        {
+            enum StorageType
+            {
+                GLOBAL,
+                STACKOFFSET,
+            };
+            StorageType m_type;
+
+            // for global, index is global index; for stack, index is offset.
+            int32_t     m_index;
+        };
+
+        lang_Symbol*    m_symbol;
+        bool            m_mutable;
         std::optional<std::variant<wo::value, ast::AstValueFunction*>>
-            m_determined_constant_or_function;
+                        m_determined_constant_or_function;
         std::optional<lang_TypeInstance*> m_determined_type;
         std::optional<std::list<lang_TypeInstance*>> m_instance_template_arguments;
+
+        std::optional<Storage> m_IR_storage;
 
         void try_determine_function(ast::AstValueFunction* func);
         void try_determine_const_value(ast::AstValueBase* init_val);
@@ -183,13 +198,13 @@ namespace wo
             FAILED,
         };
         state               m_state;
-        ast::AstBase* m_ast;
-        lang_Symbol* m_symbol;
+        ast::AstBase*       m_ast;
+        lang_Symbol*        m_symbol;
         std::list<lang_TypeInstance*>
-            m_template_arguments;
+                            m_template_arguments;
 
         std::optional<std::list<lexer::lex_error_msg>>
-            m_failed_error_for_this_instance;
+                            m_failed_error_for_this_instance;
 
         lang_TemplateAstEvalStateBase(lang_Symbol* symbol, ast::AstBase* ast);
 
@@ -459,32 +474,50 @@ namespace wo
                 // Simply ignore the result
                 IGNORE_RESULT,
             };
-            Request m_request;
+            Request      m_request;
 
             // NOTE: If ASSIGN_TO_SPECIFIED_OPNUM, m_result will store target opnum.
             //  If GET_RESULT_OPNUM, m_result will store the result opnum.
             //  Or m_result will be empty.
             std::optional<opnum::opnumbase*> m_result;
+
+            const std::optional<opnum::opnumbase*>& get_assign_target() noexcept;
+            void set_result(opnum::opnumbase* result) noexcept;
         };
         std::stack<EvalResult> m_eval_result_storage_target;
+        std::stack<EvalResult> m_evaled_result_storage;
         
+        int32_t m_global_storage_allocating;
+
         // Functions
+        void begin_eval(const std::optional<opnum::opnumbase*>& target);
+        void skip_eval_result();
+
+        // NOTE: get_eval_result will invoke `return_opnum_temporary_register`
+        //  to release temporary opnum.
+        opnum::opnumbase* get_eval_result();
+
+        // Apply and assign the value into specify 
+        void apply_eval_result(const std::function<void(EvalResult&)>& bind_func) noexcept;
+        void failed_eval_result() noexcept;
+
         opnum::global* opnum_global(int32_t offset) noexcept;
         opnum::immbase* opnum_imm_int(wo_integer_t value) noexcept;
         opnum::immbase* opnum_imm_real(wo_real_t value) noexcept;
         opnum::immbase* opnum_imm_handle(wo_handle_t value) noexcept;
         opnum::immbase* opnum_imm_string(const std::string& value) noexcept;
         opnum::immbase* opnum_imm_bool(bool value) noexcept;
+        opnum::immbase* opnum_imm_value(const wo::value& val);
         opnum::tagimm_rsfunc* opnum_imm_rsfunc(const std::string& value) noexcept;
         opnum::tag* opnum_tag(const std::string& value) noexcept;
         opnum::reg* opnum_spreg(opnum::reg::spreg value) noexcept;
         opnum::reg* opnum_stack_offset(int8_t value) noexcept;
 
-        // Apply and assign the value into specify 
-        void apply_eval_result(const std::function<void(EvalResult*)>& bind_func) noexcept;
-
         std::optional<opnum::reg*> borrow_opnum_temporary_register(lexer& lex, ast::AstBase* node) noexcept;
         void return_opnum_temporary_register(opnum::reg* reg) noexcept;
+
+        opnum::opnumbase* get_storage_place(
+            const lang_ValueInstance::Storage& storage);
 
         ir_compiler& c() noexcept;
 
@@ -902,6 +935,17 @@ namespace wo
             // NOTE: If template pattern, init_value_type will not able to be determined.
             // So here is optional.
             const std::optional<lang_TypeInstance*>& init_value_type);
+        bool update_allocate_instance_storage_passir(
+            lexer& lex,
+            lang_ValueInstance* instance);
+        bool update_pattern_instance_storage_and_code_gen_passir(
+            lexer& lex,
+            lang_ValueInstance* instance,
+            opnum::opnumbase* opnumval);
+        bool update_pattern_symbol_storage_and_code_gen_passir(
+            lexer& lex,
+            ast::AstPatternBase* pattern, 
+            opnum::opnumbase* opnumval);
 
         lang_TypeInstance* mutable_type(lang_TypeInstance* origin_type);
         lang_TypeInstance* immutable_type(lang_TypeInstance* origin_type);

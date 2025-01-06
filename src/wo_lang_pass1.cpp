@@ -16,7 +16,6 @@ namespace wo
         case AstBase::AST_PATTERN_SINGLE:
         {
             AstPatternSingle* single_pattern = static_cast<AstPatternSingle*>(pattern);
-
             if (!single_pattern->m_template_parameters)
             {
                 wo_assert(single_pattern->m_LANG_declared_symbol);
@@ -1529,6 +1528,43 @@ namespace wo
                 node->m_LANG_determined_type = tuple_type->m_element_types[index];
                 node->m_LANG_fast_index_for_struct = index;
 
+                break;
+            }
+            case lang_TypeInstance::DeterminedType::STRING:
+            {
+                if (indexer_determined_base_type_instance->m_base_type
+                    != lang_TypeInstance::DeterminedType::INTEGER)
+                {
+                    lex.lang_error(lexer::errorlevel::error, node->m_index,
+                        WO_ERR_CANNOT_INDEX_TYPE_WITH_TYPE,
+                        get_type_name_w(container_type_instance),
+                        get_type_name_w(indexer_type_instance));
+                    return FAILED;
+                }
+                node->m_LANG_determined_type = m_origin_types.m_char.m_type_instance;
+
+                if (node->m_container->m_evaled_const_value.has_value()
+                    && node->m_index->m_evaled_const_value.has_value())
+                {
+                    auto* string_instance = node->m_container->m_evaled_const_value.value().string;
+                    auto index = node->m_index->m_evaled_const_value.value().integer;
+
+                    wo_char_t ch = wo::u8strnidx(
+                        string_instance->c_str(), string_instance->size(), (size_t)index);
+                    if (ch == 0
+                        && wo::u8strnlen(
+                            string_instance->c_str(), string_instance->size()) <= (size_t)index)
+                    {
+                        lex.lang_error(lexer::errorlevel::error, node->m_index,
+                            WO_ERR_STRING_INDEX_OUT_OF_RANGE);
+                        return FAILED;
+                    }
+                    
+                    wo::value const_result_value;
+                    const_result_value.set_integer(ch);
+
+                    node->decide_final_constant_value(const_result_value);
+                }
                 break;
             }
             default:

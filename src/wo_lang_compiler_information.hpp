@@ -118,6 +118,7 @@
 #define WO_ERR_HAVE_VALUE_CASE_IN_MATCH L"类型 `%ls` 的匹配项 '%ls' 不应该包含值"
 #define WO_ERR_FAILED_REIFICATION_CAUSED_BY L"用泛型参数: <%ls> 具体化泛型实例 '%ls' 失败"
 #define WO_ERR_UNABLE_CAPTURE_IN_RECURSIVE_FUNC L"递归函数不允许捕获变量"
+#define WO_ERR_STRING_INDEX_OUT_OF_RANGE L"字符串索引超出范围"
 
 // PASS0_1 TYPE CHECK PARSE(INFO)
 #define WO_INFO_MAYBE_NAMED_DEFINED_HERE L"可能是这里的 '%ls'"
@@ -130,3 +131,4 @@
 // PASSIR BYTECODE GENERATOR
 #define WO_ERR_NON_VOID_TYPE_EXPR_AS_STMT L"非 'void' 类型 (此处是 '%ls') 的表达式不能作为语句，这可能导致表达式的结果被意外忽略"
 #define WO_ERR_EXPR_TOO_COMPLEX L"表达式过于复杂，编译器无法分配足够的寄存器，请尝试简化表达式"
+#define WO_ERR_VARIBALE_STORAGE_NOT_DETERMINED L"依赖了尚未完成初始化的变量 '%ls'"
