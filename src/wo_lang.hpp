@@ -408,9 +408,11 @@ namespace wo
         ir_compiler m_compiler;
         rslib_extern_symbols::extern_lib_set m_extern_libs;
 
+        // Processing and processed function instances
         std::unordered_set<ast::AstValueFunction*> m_processed_function_instance;
         std::unordered_set<ast::AstValueFunction*> m_being_used_function_instance;
 
+        // Opnum caches
         std::unique_ptr<opnum::immbase> m_opnum_cache_imm_true;
         std::unique_ptr<opnum::immbase> m_opnum_cache_imm_false;
         std::unordered_map<
@@ -438,6 +440,15 @@ namespace wo
             uint8_t,
             std::unique_ptr<opnum::reg>> m_opnum_cache_reg_and_stack_offset;
 
+        // Here will storage all use able temporary registers.
+        // ATTENTION: They will never used in bytecode generated post, all temporary registers will be
+        //      updated and be replaced by stack offset after function finalized;
+        std::list<opnum::reg*> m_usable_temporary_registers;
+
+        // Mutable context
+        //  opnum::opnumbase*
+        
+        // Functions
         opnum::global* opnum_global(int32_t offset) noexcept;
         opnum::immbase* opnum_imm_int(wo_integer_t value) noexcept;
         opnum::immbase* opnum_imm_real(wo_real_t value) noexcept;
@@ -448,6 +459,10 @@ namespace wo
         opnum::tag* opnum_tag(const std::string& value) noexcept;
         opnum::reg* opnum_spreg(opnum::reg::spreg value) noexcept;
         opnum::reg* opnum_stack_offset(int8_t value) noexcept;
+
+        std::optional<opnum::reg*> borrow_opnum_temporary_register(lexer& lex, ast::AstBase* node) noexcept;
+        void return_opnum_temporary_register(opnum::reg* reg) noexcept;
+
 
         ir_compiler& c() noexcept;
 
@@ -614,8 +629,9 @@ namespace wo
         std::unique_ptr<lang_Namespace> m_root_namespace;
         std::stack<lang_Scope*>         m_scope_stack;
         std::unordered_map<lang_TypeInstance*, std::unique_ptr<lang_TypeInstance>>
-            m_mutable_type_instance_cache;
+                                        m_mutable_type_instance_cache;
 
+        // Used for make sure template instance will never see the symbol declared after them.
         size_t                          m_created_symbol_edge;
 
         // Used for print symbol & type names.
@@ -876,15 +892,6 @@ namespace wo
             wo_pstring_t source_location,
             const std::list<wo_pstring_t>& template_params,
             const std::list<lang_TypeInstance*>& template_args);
-
-        //ast::AstValueFunction* begin_template_deduct_function(lang_Symbol* templating_symbol);
-        //std::optional<lang_TemplateAstEvalStateValue*> begin_eval_template_ast_with_instance(
-        //    lexer& lex,
-        //    ast::AstBase* node,
-        //    lang_Symbol* templating_symbol,
-        //    ast::AstValueFunction* instance,
-        //    const lang_Symbol::TemplateArgumentListT& template_arguments, 
-        //    PassProcessStackT& out_stack);
 
         std::optional<lang_TemplateAstEvalStateBase*> begin_eval_template_ast(
             lexer& lex,

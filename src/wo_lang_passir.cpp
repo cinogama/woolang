@@ -82,7 +82,7 @@ namespace wo
 #define WO_PASS_PROCESSER(AST) WO_PASS_PROCESSER_IMPL(AST, passir_B)
     WO_PASS_PROCESSER(AstValueLiteral)
     {
-        // TODO;
+        wo_error("Should not be here.");
         return OKAY;
     }
 #undef WO_PASS_PROCESSER
@@ -130,6 +130,17 @@ namespace wo
     {
         // PASS1 must process all nodes.
         wo_assert(m_passir_B_processers->check_has_processer(node_state.m_ast_node->node_type));
+        wo_assert(node_state.m_ast_node->node_type >= AstBase::AST_VALUE_begin
+           && node_state.m_ast_node->node_type < AstBase::AST_VALUE_end);
+
+        AstValueBase* ast_value = static_cast<AstValueBase*>(node_state.m_ast_node);
+        if (ast_value->m_evaled_const_value.has_value())
+        {
+            // This value has been evaluated as constant value.
+            
+            return OKAY;
+        }
+
         return m_passir_B_processers->process_node(this, lex, node_state, out_stack);
     }
 

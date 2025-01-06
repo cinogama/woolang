@@ -2025,7 +2025,23 @@ namespace wo
         : m_opnum_cache_imm_true(std::make_unique<opnum::imm<bool>>(true))
         , m_opnum_cache_imm_false(std::make_unique<opnum::imm<bool>>(false))
     {
+    }
+    std::optional<opnum::reg*> BytecodeGenerateContext::borrow_opnum_temporary_register(
+        lexer& lex, ast::AstBase* node) noexcept
+    {
+        if (m_usable_temporary_registers.empty())
+        {
+            lex.lang_error(lexer::errorlevel::error, node, WO_ERR_EXPR_TOO_COMPLEX);
+            return std::nullopt;
+        }
 
+        auto* result = m_usable_temporary_registers.front();
+        m_usable_temporary_registers.pop_front();
+        return result;
+    }
+    void BytecodeGenerateContext::return_opnum_temporary_register(opnum::reg* reg) noexcept
+    {
+        m_usable_temporary_registers.push_back(reg);
     }
 #endif
 }
