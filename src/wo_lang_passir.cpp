@@ -88,8 +88,11 @@ namespace wo
 #undef WO_PASS_PROCESSER
 
     bool LangContext::pass_final_value(lexer& lex, ast::AstValueBase* val)
-    {
-        return anylize_pass(lex, val, &LangContext::pass_final_B_process_bytecode_generation);
+    {  
+        bool anylize_result = 
+            anylize_pass(lex, val, &LangContext::pass_final_B_process_bytecode_generation);
+
+        return anylize_result;
     }
     LangContext::pass_behavior LangContext::pass_final_A_process_bytecode_generation(
         lexer& lex, const AstNodeWithState& node_state, PassProcessStackT& out_stack)
@@ -137,7 +140,9 @@ namespace wo
         if (ast_value->m_evaled_const_value.has_value())
         {
             // This value has been evaluated as constant value.
-            
+
+            TODO;
+            m_ircontext.apply_eval_result([](){});
             return OKAY;
         }
 

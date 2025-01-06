@@ -1,6 +1,7 @@
 #include "wo_compiler_ir.hpp"
 #include "wo_lang_ast.hpp"
 #include "wo_global_setting.hpp"
+#include "wo_lang.hpp"
 
 namespace wo
 {
@@ -169,7 +170,7 @@ namespace wo
             sprintf(ptrr, "0x%p>", rt_pos);
             return ptrr;
 
-        }();
+            }();
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -224,27 +225,27 @@ namespace wo
         std::vector<wo::byte_t> binary_buffer;
         auto write_buffer_to_buffer =
             [&binary_buffer](const void* written_data, size_t written_length, size_t allign)
-        {
-            const size_t write_begin_place = binary_buffer.size();
+            {
+                const size_t write_begin_place = binary_buffer.size();
 
-            wo_assert(write_begin_place % allign == 0);
+                wo_assert(write_begin_place % allign == 0);
 
-            binary_buffer.resize(write_begin_place + written_length);
+                binary_buffer.resize(write_begin_place + written_length);
 
-            memcpy(binary_buffer.data() + write_begin_place, written_data, written_length);
-            return binary_buffer.size();
-        };
+                memcpy(binary_buffer.data() + write_begin_place, written_data, written_length);
+                return binary_buffer.size();
+            };
 
         auto write_binary_to_buffer =
             [&write_buffer_to_buffer](const auto& d, size_t size_for_assert)
-        {
-            const wo::byte_t* written_data = std::launder(reinterpret_cast<const wo::byte_t*>(&d));
-            const size_t written_length = sizeof(d);
+            {
+                const wo::byte_t* written_data = std::launder(reinterpret_cast<const wo::byte_t*>(&d));
+                const size_t written_length = sizeof(d);
 
-            wo_assert(written_length == size_for_assert);
+                wo_assert(written_length == size_for_assert);
 
-            return write_buffer_to_buffer(written_data, written_length, sizeof(d) > 8 ? 8 : sizeof(d));
-        };
+                return write_buffer_to_buffer(written_data, written_length, sizeof(d) > 8 ? 8 : sizeof(d));
+            };
 
         class _string_pool_t
         {
@@ -272,10 +273,10 @@ namespace wo
 
         auto write_constant_str_to_buffer =
             [&write_binary_to_buffer, &constant_string_pool](const char* str, size_t len)
-        {
-            write_binary_to_buffer((uint32_t)constant_string_pool.insert(str, len), 4);
-            write_binary_to_buffer((uint32_t)len, 4);
-        };
+            {
+                write_binary_to_buffer((uint32_t)constant_string_pool.insert(str, len), 4);
+                write_binary_to_buffer((uint32_t)len, 4);
+            };
 
         // 1.1 (+0) Magic number(0x3001A26B look like WOOLANG B)
         write_binary_to_buffer((uint32_t)0x3001A26B, 4);
@@ -541,7 +542,7 @@ namespace wo
         shared_pointer<runtime_env> result = new runtime_env;
 
         result->real_register_count = (size_t)register_count;
-        result->constant_and_global_value_takeplace_count = 
+        result->constant_and_global_value_takeplace_count =
             (size_t)(constant_value_count + 1 + global_value_count + 1);
         result->constant_value_count = (size_t)constant_value_count;
 
@@ -554,7 +555,7 @@ namespace wo
         memset(preserved_memory, 0, preserve_memory_size * sizeof(value));
 
         result->constant_global = preserved_memory;
-        
+
         struct string_buffer_index
         {
             uint32_t index;
@@ -754,12 +755,12 @@ namespace wo
 
         auto restore_string_from_buffer =
             [&string_pool_buffer](const string_buffer_index& string_index, std::string* out_str)->bool
-        {
-            if (string_index.index + string_index.size > string_pool_buffer.size())
-                return false;
-            *out_str = std::string(string_pool_buffer.data() + string_index.index, string_index.size);
-            return true;
-        };
+            {
+                if (string_index.index + string_index.size > string_pool_buffer.size())
+                    return false;
+                *out_str = std::string(string_pool_buffer.data() + string_index.index, string_index.size);
+                return true;
+            };
 
         std::string constant_string;
         for (auto& [constant_offset, string_index] : constant_string_index_for_update)
@@ -1165,15 +1166,16 @@ namespace wo
         //  // Fill constant
         for (auto constant_record : constant_record_list)
         {
-            wo_assert((size_t)constant_record->constant_index < constant_value_count,
+            size_t constant_index = (size_t)constant_record->constant_index.value();
+            wo_assert(constant_index < constant_value_count,
                 "Constant index out of range.");
 
-            constant_record->apply(&preserved_memory[constant_record->constant_index]);
+            constant_record->apply(&preserved_memory[constant_index]);
 
             if (auto* addr_tagimm_rsfunc = dynamic_cast<opnum::tagimm_rsfunc*>(constant_record))
             {
                 jmp_record_table_for_immtag[addr_tagimm_rsfunc->name].push_back(
-                    constant_record->constant_index);
+                    constant_index);
             }
         }
 
@@ -1629,9 +1631,9 @@ namespace wo
                 case instruct::opcode::jt:
                     generated_runtime_code_buf.push_back(WO_OPCODE(jt));
 
-                    wo_assert(dynamic_cast<opnum::tag*>(WO_IR.op1) != nullptr, "Operator num should be a tag.");
+                    wo_assert(dynamic_cast<const opnum::tag*>(WO_IR.op1) != nullptr, "Operator num should be a tag.");
 
-                    jmp_record_table[dynamic_cast<opnum::tag*>(WO_IR.op1)->name]
+                    jmp_record_table[dynamic_cast<const opnum::tag*>(WO_IR.op1)->name]
                         .push_back(generated_runtime_code_buf.size());
 
                     generated_runtime_code_buf.push_back(0x00);
@@ -1643,9 +1645,9 @@ namespace wo
                 case instruct::opcode::jf:
                     generated_runtime_code_buf.push_back(WO_OPCODE(jf));
 
-                    wo_assert(dynamic_cast<opnum::tag*>(WO_IR.op1) != nullptr, "Operator num should be a tag.");
+                    wo_assert(dynamic_cast<const opnum::tag*>(WO_IR.op1) != nullptr, "Operator num should be a tag.");
 
-                    jmp_record_table[dynamic_cast<opnum::tag*>(WO_IR.op1)->name]
+                    jmp_record_table[dynamic_cast<const opnum::tag*>(WO_IR.op1)->name]
                         .push_back(generated_runtime_code_buf.size());
 
                     generated_runtime_code_buf.push_back(0x00);
@@ -1657,9 +1659,9 @@ namespace wo
                 case instruct::opcode::jmp:
                     generated_runtime_code_buf.push_back(WO_OPCODE(jmp, 00));
 
-                    wo_assert(dynamic_cast<opnum::tag*>(WO_IR.op1) != nullptr, "Operator num should be a tag.");
+                    wo_assert(dynamic_cast<const opnum::tag*>(WO_IR.op1) != nullptr, "Operator num should be a tag.");
 
-                    jmp_record_table[dynamic_cast<opnum::tag*>(WO_IR.op1)->name]
+                    jmp_record_table[dynamic_cast<const opnum::tag*>(WO_IR.op1)->name]
                         .push_back(generated_runtime_code_buf.size());
 
                     generated_runtime_code_buf.push_back(0x00);
@@ -1677,11 +1679,11 @@ namespace wo
                     {
                         env->_calln_opcode_offsets_for_jit.push_back(generated_runtime_code_buf.size());
 
-                        wo_assert(dynamic_cast<opnum::tag*>(WO_IR.op2) != nullptr, "Operator num should be a tag.");
+                        wo_assert(dynamic_cast<const opnum::tag*>(WO_IR.op2) != nullptr, "Operator num should be a tag.");
 
                         generated_runtime_code_buf.push_back(WO_OPCODE(calln, 00));
 
-                        jmp_record_table[dynamic_cast<opnum::tag*>(WO_IR.op2)->name]
+                        jmp_record_table[dynamic_cast<const opnum::tag*>(WO_IR.op2)->name]
                             .push_back(generated_runtime_code_buf.size());
 
                         generated_runtime_code_buf.push_back(0x00);
@@ -1754,13 +1756,13 @@ namespace wo
                     break;
                 case instruct::opcode::jnequb:
                 {
-                    wo_assert(dynamic_cast<opnum::tag*>(WO_IR.op2) != nullptr, "Operator num should be a tag.");
+                    wo_assert(dynamic_cast<const opnum::tag*>(WO_IR.op2) != nullptr, "Operator num should be a tag.");
 
                     generated_runtime_code_buf.push_back(WO_OPCODE(jnequb));
                     WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
 
                     // Write jmp
-                    jmp_record_table[dynamic_cast<opnum::tag*>(WO_IR.op2)->name]
+                    jmp_record_table[dynamic_cast<const opnum::tag*>(WO_IR.op2)->name]
                         .push_back(generated_runtime_code_buf.size());
                     generated_runtime_code_buf.push_back(0x00);
                     generated_runtime_code_buf.push_back(0x00);
@@ -1792,7 +1794,7 @@ namespace wo
                     generated_runtime_code_buf.push_back(readptr[0]);
                     generated_runtime_code_buf.push_back(readptr[1]);
 
-                    jmp_record_table[dynamic_cast<opnum::tag*>(WO_IR.op1)->name]
+                    jmp_record_table[dynamic_cast<const opnum::tag*>(WO_IR.op1)->name]
                         .push_back(generated_runtime_code_buf.size());
                     generated_runtime_code_buf.push_back(0x00);
                     generated_runtime_code_buf.push_back(0x00);
@@ -1997,5 +1999,196 @@ namespace wo
             env->program_debug_info = pdb_info;
 
         return env;
+    }
+
+    int32_t ir_compiler::update_all_temp_regist_to_stack(
+        BytecodeGenerateContext* ctx, size_t begin) noexcept
+    {
+        std::map<uint8_t, int8_t> tr_regist_mapping;
+
+        for (size_t i = begin; i < get_now_ip(); i++)
+        {
+            // ir_command_buffer problem..
+            auto& ircmbuf = ir_command_buffer[i];
+            if (ircmbuf.opcode != instruct::calln) // calln will not use opnum but do reptr_cast, dynamic_cast is dangerous
+            {
+                if (auto* op1 = dynamic_cast<const opnum::reg*>(ircmbuf.op1))
+                {
+                    if (op1->is_tmp_regist() && tr_regist_mapping.find(op1->id) == tr_regist_mapping.end())
+                    {
+                        // is temp reg 
+                        size_t stack_idx = tr_regist_mapping.size();
+                        tr_regist_mapping[op1->id] = (int8_t)stack_idx;
+                    }
+                }
+                if (auto* op2 = dynamic_cast<const opnum::reg*>(ircmbuf.op2))
+                {
+                    if (op2->is_tmp_regist() && tr_regist_mapping.find(op2->id) == tr_regist_mapping.end())
+                    {
+                        // is temp reg 
+                        size_t stack_idx = tr_regist_mapping.size();
+                        tr_regist_mapping[op2->id] = (int8_t)stack_idx;
+                    }
+                }
+                switch (ircmbuf.opcode & 0b11111100)
+                {
+                case instruct::opcode::sidarr:
+                case instruct::opcode::sidmap:
+                case instruct::opcode::siddict:
+                    if (ircmbuf.opinteger1 >= opnum::reg::t0
+                        && ircmbuf.opinteger1 <= opnum::reg::r15
+                        && tr_regist_mapping.find((uint8_t)ircmbuf.opinteger1) == tr_regist_mapping.end())
+                    {
+                        // is temp reg 
+                        size_t stack_idx = tr_regist_mapping.size();
+                        tr_regist_mapping[(uint8_t)ircmbuf.opinteger1] = (int8_t)stack_idx;
+                    }
+                    break;
+                default:
+                    break;
+                }
+            }
+        }
+
+        wo_test(tr_regist_mapping.size() <= 64); // fast bt_offset maxim offset
+        // TODO: IF FAIL, FALL BACK
+        //          OR REMOVE [BP-XXX]
+        int8_t maxim_offset = (int8_t)tr_regist_mapping.size();
+
+        // ATTENTION: DO NOT USE ircmbuf AFTER THIS LINE!!!
+        //            WILL INSERT SOME COMMAND BEFORE ir_command_buffer[i],
+        //            ircmbuf WILL POINT TO AN INVALID PLACE.
+
+        for (size_t i = begin; i < get_now_ip(); i++)
+        {
+            auto* opnum1 = ir_command_buffer[i].op1;
+            auto* opnum2 = ir_command_buffer[i].op2;
+
+            size_t skip_line = 0;
+            if (ir_command_buffer[i].opcode != instruct::calln)
+            {
+                if (ir_command_buffer[i].opcode == instruct::lds || ir_command_buffer[i].opcode == instruct::sts)
+                {
+                    auto* imm_opnum_stx_offset = dynamic_cast<const opnum::immbase*>(opnum2);
+                    if (imm_opnum_stx_offset)
+                    {
+                        auto stx_offset = imm_opnum_stx_offset->try_int();
+                        if (stx_offset <= 0)
+                        {
+                            opnum::imm offset_stack_place(stx_offset - maxim_offset);
+                            ir_command_buffer[i].op2 = WO_OPNUM(offset_stack_place);
+                        }
+                    }
+                    else
+                    {
+                        // Here only get arg from stack. so here nothing todo.
+                    }
+                }
+                if (auto* op1 = dynamic_cast<const opnum::reg*>(opnum1))
+                {
+                    if (op1->is_tmp_regist())
+                        opnum1 = ctx->opnum_stack_offset(-tr_regist_mapping[op1->id]);
+                    else if (op1->is_bp_offset() && op1->get_bp_offset() <= 0)
+                    {
+                        auto offseted_bp_offset = op1->get_bp_offset() - maxim_offset;
+                        if (offseted_bp_offset >= -64)
+                            opnum1 = ctx->opnum_stack_offset(offseted_bp_offset);
+                        else
+                        {
+                            auto* reg_r0 = ctx->opnum_spreg(opnum::reg::r0);
+                            auto* imm_offset = _check_and_add_const(ctx->opnum_imm_int(offseted_bp_offset));
+
+                            // out of bt_offset range, make lds ldsr
+                            ir_command_buffer.insert(ir_command_buffer.begin() + i,
+                                ir_command{ instruct::lds, reg_r0, imm_offset });         // lds r0, imm(real_offset)
+                            opnum1 = reg_r0;
+                            ++i;
+
+                            if (ir_command_buffer[i].opcode != instruct::call)
+                            {
+                                ir_command_buffer.insert(ir_command_buffer.begin() + i + 1,
+                                    ir_command{ instruct::sts, reg_r0, imm_offset });         // sts r0, imm(real_offset)
+
+                                ++skip_line;
+                            }
+                        }
+                    }
+                }
+                if (auto* op2 = dynamic_cast<const opnum::reg*>(opnum2))
+                {
+                    wo_assert(ir_command_buffer[i].opcode != instruct::call);
+
+                    if (op2->is_tmp_regist())
+                        opnum2 = ctx->opnum_stack_offset(-tr_regist_mapping[op2->id]);
+                    else if (op2->is_bp_offset() && op2->get_bp_offset() <= 0)
+                    {
+                        auto offseted_bp_offset = op2->get_bp_offset() - maxim_offset;
+                        if (offseted_bp_offset >= -64)
+                            opnum2 = ctx->opnum_stack_offset(offseted_bp_offset);
+                        else
+                        {
+                            wo_test(ir_command_buffer[i].opcode != instruct::call);
+
+                            auto* reg_r1 = ctx->opnum_spreg(opnum::reg::r1);
+                            auto* imm_offset = _check_and_add_const(ctx->opnum_imm_int(offseted_bp_offset));
+
+                            // out of bt_offset range, make lds ldsr
+                            ir_command_buffer.insert(ir_command_buffer.begin() + i,
+                                ir_command{ instruct::lds, reg_r1, imm_offset });         // lds r1, imm(real_offset)
+                            opnum2 = reg_r1;
+                            ++i;
+
+                            // No opcode will update opnum2, so here no need for update.
+                        }
+                    }
+                }
+
+                switch (ir_command_buffer[i].opcode & 0b11111100)
+                {
+                case instruct::opcode::sidarr:
+                case instruct::opcode::sidmap:
+                case instruct::opcode::siddict:
+                {
+                    opnum::reg op3((uint8_t)ir_command_buffer[i].opinteger1);
+                    if (op3.is_tmp_regist())
+                        op3.id = opnum::reg::bp_offset(-tr_regist_mapping[op3.id]);
+                    else if (op3.is_bp_offset() && op3.get_bp_offset() <= 0)
+                    {
+                        auto offseted_bp_offset = op3.get_bp_offset() - maxim_offset;
+                        if (offseted_bp_offset >= -64)
+                            op3.id = opnum::reg::bp_offset(offseted_bp_offset);
+                        else
+                        {
+                            auto* reg_r0 = ctx->opnum_spreg(opnum::reg::r0);
+                            auto* imm_offset = _check_and_add_const(ctx->opnum_imm_int(offseted_bp_offset));
+
+                            // out of bt_offset range, make lds ldsr
+                            ir_command_buffer.insert(ir_command_buffer.begin() + i,
+                                ir_command{ instruct::lds, reg_r0, imm_offset });         // lds r0, imm(real_offset)
+                            op3.id = opnum::reg::r0;
+                            i++;
+
+                            if (ir_command_buffer[i].opcode != instruct::call)
+                            {
+                                ir_command_buffer.insert(ir_command_buffer.begin() + i + 1,
+                                    ir_command{ instruct::sts, reg_r0, imm_offset });         // sts r0, imm(real_offset)
+
+                                ++skip_line;
+                            }
+                        }
+                    }
+
+                    ir_command_buffer[i].opinteger1 = (int32_t)op3.id;
+                    break;
+                }
+                default:
+                    break;
+                }
+            }
+
+            i += skip_line;
+        }
+
+        return (int32_t)tr_regist_mapping.size();
     }
 }

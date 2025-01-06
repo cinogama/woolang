@@ -13,7 +13,6 @@
 
 namespace wo
 {
-
 #ifndef WO_DISABLE_COMPILER
     struct lang_Namespace;
     struct lang_Scope;
@@ -446,7 +445,28 @@ namespace wo
         std::list<opnum::reg*> m_usable_temporary_registers;
 
         // Mutable context
-        //  opnum::opnumbase*
+        struct EvalResult
+        {
+            enum Request
+            {
+                // Request to assign the result to a specified opnum
+                ASSIGN_TO_SPECIFIED_OPNUM,
+                // Only get the opnum that stores the result, 
+                // if the result cannot be directly represented as an opnum, 
+                // a temporary opnum will be allocated
+                // NOTE: temporary opnum should be released by requestor.
+                GET_RESULT_OPNUM_ONLY,
+                // Simply ignore the result
+                IGNORE_RESULT,
+            };
+            Request m_request;
+
+            // NOTE: If ASSIGN_TO_SPECIFIED_OPNUM, m_result will store target opnum.
+            //  If GET_RESULT_OPNUM, m_result will store the result opnum.
+            //  Or m_result will be empty.
+            std::optional<opnum::opnumbase*> m_result;
+        };
+        std::stack<EvalResult> m_eval_result_storage_target;
         
         // Functions
         opnum::global* opnum_global(int32_t offset) noexcept;
@@ -460,9 +480,11 @@ namespace wo
         opnum::reg* opnum_spreg(opnum::reg::spreg value) noexcept;
         opnum::reg* opnum_stack_offset(int8_t value) noexcept;
 
+        // Apply and assign the value into specify 
+        void apply_eval_result(const std::function<void(EvalResult*)>& bind_func) noexcept;
+
         std::optional<opnum::reg*> borrow_opnum_temporary_register(lexer& lex, ast::AstBase* node) noexcept;
         void return_opnum_temporary_register(opnum::reg* reg) noexcept;
-
 
         ir_compiler& c() noexcept;
 
