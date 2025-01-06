@@ -7,13 +7,15 @@ namespace wo
 #ifndef WO_DISABLE_COMPILER
     LangContext::ProcessAstJobs* LangContext::m_pass0_processers;
     LangContext::ProcessAstJobs* LangContext::m_pass1_processers;
-    LangContext::ProcessAstJobs* LangContext::m_passir_processers;
+    LangContext::ProcessAstJobs* LangContext::m_passir_A_processers;
+    LangContext::ProcessAstJobs* LangContext::m_passir_B_processers;
 
     void LangContext::init_lang_processers()
     {
         m_pass0_processers = new ProcessAstJobs();
         m_pass1_processers = new ProcessAstJobs();
-        m_passir_processers = new ProcessAstJobs();
+        m_passir_A_processers = new ProcessAstJobs();
+        m_passir_B_processers = new ProcessAstJobs();
 
         init_pass0();
         init_pass1();
@@ -563,6 +565,11 @@ namespace wo
             return OKAY;
 
         return fnd->second(ctx, lex, node_state, out_stack);
+    }
+
+    bool LangContext::ProcessAstJobs::check_has_processer(ast::AstBase::node_type_t nodetype)
+    {
+        return m_node_processer.find(nodetype) != m_node_processer.end();
     }
 
     //////////////////////////////////////
@@ -1116,7 +1123,7 @@ namespace wo
 
         // Do something for prepare.
 
-        if (!anylize_pass(lex, root, &LangContext::pass_final_process_bytecode_generation))
+        if (!anylize_pass(lex, root, &LangContext::pass_final_A_process_bytecode_generation))
             return false;
 
         // TEST CODE BEGIN
@@ -1918,5 +1925,107 @@ namespace wo
         return variable_instance;
     }
 
+    opnum::global* BytecodeGenerateContext::opnum_global(int32_t offset) noexcept
+    {
+        auto fnd = m_opnum_cache_global.find(offset);
+        if (fnd != m_opnum_cache_global.end())
+            return fnd->second.get();
+
+        return m_opnum_cache_global.insert(
+            std::make_pair(offset, std::make_unique<opnum::global>(offset))).first->second.get();
+    }
+    opnum::immbase* BytecodeGenerateContext::opnum_imm_int(wo_integer_t value) noexcept
+    {
+        auto fnd = m_opnum_cache_imm_int.find(value);
+        if (fnd != m_opnum_cache_imm_int.end())
+            return fnd->second.get();
+
+        return m_opnum_cache_imm_int.insert(
+            std::make_pair(value, std::make_unique<opnum::imm<wo_integer_t>>(value))).first->second.get();
+    }
+    opnum::immbase* BytecodeGenerateContext::opnum_imm_real(wo_real_t value) noexcept
+    {
+        auto fnd = m_opnum_cache_imm_real.find(value);
+        if (fnd != m_opnum_cache_imm_real.end())
+            return fnd->second.get();
+
+        return m_opnum_cache_imm_real.insert(
+            std::make_pair(value, std::make_unique<opnum::imm<wo_real_t>>(value))).first->second.get();
+    }
+    opnum::immbase* BytecodeGenerateContext::opnum_imm_handle(wo_handle_t value) noexcept
+    {
+        auto fnd = m_opnum_cache_imm_handle.find(value);
+        if (fnd != m_opnum_cache_imm_handle.end())
+            return fnd->second.get();
+
+        return m_opnum_cache_imm_handle.insert(
+            std::make_pair(value, std::make_unique<opnum::imm_hdl>(value))).first->second.get();
+    }
+    opnum::immbase* BytecodeGenerateContext::opnum_imm_string(const std::string& value) noexcept
+    {
+        auto fnd = m_opnum_cache_imm_string.find(value);
+        if (fnd != m_opnum_cache_imm_string.end())
+            return fnd->second.get();
+
+        return m_opnum_cache_imm_string.insert(
+            std::make_pair(value, std::make_unique<opnum::imm_str>(value))).first->second.get();
+    }
+    opnum::immbase* BytecodeGenerateContext::opnum_imm_bool(bool value) noexcept
+    {
+        if (value)
+            return m_opnum_cache_imm_true.get();
+        else
+            return m_opnum_cache_imm_false.get();
+    }
+    opnum::tagimm_rsfunc* BytecodeGenerateContext::opnum_imm_rsfunc(const std::string& value) noexcept
+    {
+        auto fnd = m_opnum_cache_imm_rsfunc.find(value);
+        if (fnd != m_opnum_cache_imm_rsfunc.end())
+            return fnd->second.get();
+
+        return m_opnum_cache_imm_rsfunc.insert(
+            std::make_pair(value, std::make_unique<opnum::tagimm_rsfunc>(value))).first->second.get();
+    }
+    opnum::tag* BytecodeGenerateContext::opnum_tag(const std::string& value) noexcept
+    {
+        auto fnd = m_opnum_cache_tag.find(value);
+        if (fnd != m_opnum_cache_tag.end())
+            return fnd->second.get();
+
+        return m_opnum_cache_tag.insert(
+            std::make_pair(value, std::make_unique<opnum::tag>(value))).first->second.get();
+    }
+    opnum::reg* BytecodeGenerateContext::opnum_spreg(opnum::reg::spreg value) noexcept
+    {
+        uint8_t regid = static_cast<uint8_t>(value);
+        auto fnd = m_opnum_cache_reg_and_stack_offset.find(regid);
+        if (fnd != m_opnum_cache_reg_and_stack_offset.end())
+            return fnd->second.get();
+
+        return m_opnum_cache_reg_and_stack_offset.insert(
+            std::make_pair(regid, std::make_unique<opnum::reg>(value))).first->second.get();
+    }
+    opnum::reg* BytecodeGenerateContext::opnum_stack_offset(int8_t value) noexcept
+    {
+        uint8_t regid = opnum::reg::bp_offset(value);
+        auto fnd = m_opnum_cache_reg_and_stack_offset.find(regid);
+        if (fnd != m_opnum_cache_reg_and_stack_offset.end())
+            return fnd->second.get();
+
+        return m_opnum_cache_reg_and_stack_offset.insert(
+            std::make_pair(regid, std::make_unique<opnum::reg>(value))).first->second.get();
+    }
+
+    ir_compiler& BytecodeGenerateContext::c() noexcept
+    {
+        return m_compiler;
+    }
+
+    BytecodeGenerateContext::BytecodeGenerateContext() noexcept
+        : m_opnum_cache_imm_true(std::make_unique<opnum::imm<bool>>(true))
+        , m_opnum_cache_imm_false(std::make_unique<opnum::imm<bool>>(false))
+    {
+
+    }
 #endif
 }

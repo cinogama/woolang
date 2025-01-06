@@ -156,6 +156,7 @@ namespace wo
         WO_LANG_REGISTER_PROCESSER(AstValueMakeUnion, AstBase::AST_VALUE_MAKE_UNION, pass1);
         WO_LANG_REGISTER_PROCESSER(AstUsingNamespace, AstBase::AST_USING_NAMESPACE, pass1);
         WO_LANG_REGISTER_PROCESSER(AstExternInformation, AstBase::AST_EXTERN_INFORMATION, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstNop, AstBase::AST_NOP, pass1);
     }
 
 #define WO_PASS_PROCESSER(AST) WO_PASS_PROCESSER_IMPL(AST, pass1)
@@ -4605,6 +4606,11 @@ namespace wo
 
         return OKAY;
     }
+    WO_PASS_PROCESSER(AstNop)
+    {
+        wo_assert(state == UNPROCESSED);
+        return OKAY;
+    }
 
 #undef WO_PASS_PROCESSER
 
@@ -4632,6 +4638,10 @@ namespace wo
             else
                 return (LangContext::pass_behavior)node_state.m_ast_node->finished_state;
         }
+
+        // PASS1 must process all nodes.
+        wo_assert(m_pass1_processers->check_has_processer(node_state.m_ast_node->node_type));
+
         auto result = m_pass1_processers->process_node(this, lex, node_state, out_stack);
         node_state.m_ast_node->finished_state = result;
 

@@ -267,6 +267,22 @@ namespace wo
                 return new_instance;
             }
         };
+        class AstNop : public AstBase
+        {
+        public:
+            AstNop()
+                : AstBase(AST_NOP)
+            {
+            }
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override
+            {
+                auto* new_instance = exist_instance
+                    ? static_cast<AstNop*>(exist_instance.value())
+                    : new AstNop();
+
+                return new_instance;
+            }
+        };
     }
 
     struct token

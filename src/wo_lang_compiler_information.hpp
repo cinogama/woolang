@@ -126,3 +126,6 @@
 #define WO_INFO_TYPE_NAMED_BEFORE_DIRECT_SIGN L"首个参数的类型是 '%ls'"
 #define WO_INFO_THIS_VALUE_IS_TYPE_NAMED L"表达式的类型是 '%ls'"
 #define WO_INFO_CAPTURED_VARIABLE_USED_HERE L"捕获了来自函数外部的 '%ls'"
+
+// PASSIR BYTECODE GENERATOR
+#define WO_ERR_NON_VOID_TYPE_EXPR_AS_STMT L"非 'void' 类型 (此处是 '%ls') 的表达式不能作为语句，这可能导致表达式的结果被意外忽略"

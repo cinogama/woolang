@@ -105,8 +105,8 @@ namespace wo
             static constexpr uint8_t bp_offset(int8_t offset)
             {
                 wo_assert(offset >= -64 && offset <= 63);
-
-                return 0b10000000 | offset;
+                return static_cast<uint8_t>(
+                    0b10000000ui8 | static_cast<uint8_t>(offset));
             }
 
             bool is_tmp_regist() const

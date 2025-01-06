@@ -995,7 +995,7 @@ namespace wo
                 merged_list->m_list.push_back(imported_ast);
 
                 // NOTE: Generate an `nop` for debug info gen, avoid ip/cr conflict
-                merged_list->m_list.push_back(new grammar::AstEmpty());
+                merged_list->m_list.push_back(new ast::AstNop());
             }
             merged_list->m_list.push_back(node);
 

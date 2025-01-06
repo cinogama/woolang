@@ -153,7 +153,7 @@ namespace wo
     {
         lang_Symbol* m_symbol;
         bool m_mutable;
-        std::optional<std::variant<wo::value, ast::AstValueFunction*>> 
+        std::optional<std::variant<wo::value, ast::AstValueFunction*>>
             m_determined_constant_or_function;
         std::optional<lang_TypeInstance*> m_determined_type;
         std::optional<std::list<lang_TypeInstance*>> m_instance_template_arguments;
@@ -162,8 +162,8 @@ namespace wo
         void try_determine_const_value(ast::AstValueBase* init_val);
 
         lang_ValueInstance(
-            bool mutable_, 
-            lang_Symbol* symbol, 
+            bool mutable_,
+            lang_Symbol* symbol,
             const std::optional<std::list<lang_TypeInstance*>>& template_arguments);
 
         ~lang_ValueInstance();
@@ -184,13 +184,13 @@ namespace wo
             FAILED,
         };
         state               m_state;
-        ast::AstBase*       m_ast;
-        lang_Symbol*        m_symbol;
-        std::list<lang_TypeInstance*> 
-                            m_template_arguments;
+        ast::AstBase* m_ast;
+        lang_Symbol* m_symbol;
+        std::list<lang_TypeInstance*>
+            m_template_arguments;
 
         std::optional<std::list<lexer::lex_error_msg>>
-                            m_failed_error_for_this_instance;
+            m_failed_error_for_this_instance;
 
         lang_TemplateAstEvalStateBase(lang_Symbol* symbol, ast::AstBase* ast);
 
@@ -204,8 +204,8 @@ namespace wo
         std::unique_ptr<lang_ValueInstance> m_value_instance;
 
         lang_TemplateAstEvalStateValue(
-            lang_Symbol* symbol, 
-            ast::AstValueBase* ast, 
+            lang_Symbol* symbol,
+            ast::AstValueBase* ast,
             const std::list<lang_TypeInstance*>& template_arguments);
     };
     struct lang_TemplateAstEvalStateType : public lang_TemplateAstEvalStateBase
@@ -392,7 +392,7 @@ namespace wo
             m_sub_namespaces;
         std::unique_ptr<lang_Scope>             m_this_scope;
         std::optional<lang_Namespace*>          m_parent_namespace;
-        std::unordered_map<wo_pstring_t, std::unordered_set<lang_Namespace*>> 
+        std::unordered_map<wo_pstring_t, std::unordered_set<lang_Namespace*>>
             m_declare_used_namespaces;
 
         lang_Namespace(wo_pstring_t name, const std::optional<lang_Namespace*>& parent_namespace);
@@ -411,12 +411,47 @@ namespace wo
         std::unordered_set<ast::AstValueFunction*> m_processed_function_instance;
         std::unordered_set<ast::AstValueFunction*> m_being_used_function_instance;
 
-        ir_compiler& c() noexcept
-        {
-            return m_compiler;
-        }
+        std::unique_ptr<opnum::immbase> m_opnum_cache_imm_true;
+        std::unique_ptr<opnum::immbase> m_opnum_cache_imm_false;
+        std::unordered_map<
+            int32_t,
+            std::unique_ptr<opnum::global>> m_opnum_cache_global;
+        std::unordered_map<
+            wo_integer_t,
+            std::unique_ptr<opnum::immbase>> m_opnum_cache_imm_int;
+        std::unordered_map<
+            wo_real_t,
+            std::unique_ptr<opnum::immbase>> m_opnum_cache_imm_real;
+        std::unordered_map<
+            wo_handle_t,
+            std::unique_ptr<opnum::immbase>> m_opnum_cache_imm_handle;
+        std::unordered_map<
+            std::string,
+            std::unique_ptr<opnum::immbase>> m_opnum_cache_imm_string;
+        std::unordered_map<
+            std::string,
+            std::unique_ptr<opnum::tagimm_rsfunc>> m_opnum_cache_imm_rsfunc;
+        std::unordered_map<
+            std::string,
+            std::unique_ptr<opnum::tag>>  m_opnum_cache_tag;
+        std::unordered_map<
+            uint8_t,
+            std::unique_ptr<opnum::reg>> m_opnum_cache_reg_and_stack_offset;
 
-        BytecodeGenerateContext() = default;
+        opnum::global* opnum_global(int32_t offset) noexcept;
+        opnum::immbase* opnum_imm_int(wo_integer_t value) noexcept;
+        opnum::immbase* opnum_imm_real(wo_real_t value) noexcept;
+        opnum::immbase* opnum_imm_handle(wo_handle_t value) noexcept;
+        opnum::immbase* opnum_imm_string(const std::string& value) noexcept;
+        opnum::immbase* opnum_imm_bool(bool value) noexcept;
+        opnum::tagimm_rsfunc* opnum_imm_rsfunc(const std::string& value) noexcept;
+        opnum::tag* opnum_tag(const std::string& value) noexcept;
+        opnum::reg* opnum_spreg(opnum::reg::spreg value) noexcept;
+        opnum::reg* opnum_stack_offset(int8_t value) noexcept;
+
+        ir_compiler& c() noexcept;
+
+        BytecodeGenerateContext() noexcept;
         BytecodeGenerateContext(const BytecodeGenerateContext&) = delete;
         BytecodeGenerateContext(BytecodeGenerateContext&&) = delete;
         BytecodeGenerateContext& operator=(const BytecodeGenerateContext&) = delete;
@@ -478,7 +513,10 @@ namespace wo
                         return processer(ctx, lex, static_cast<T*>(node_state.m_ast_node), node_state.m_state, out_stack);
                     }));
             }
-            pass_behavior process_node(LangContext* ctx, lexer& lex, const AstNodeWithState& node_state, PassProcessStackT& out_stack);
+            pass_behavior process_node(
+                LangContext* ctx, lexer& lex, const AstNodeWithState& node_state, PassProcessStackT& out_stack);
+            bool check_has_processer(
+                ast::AstBase::node_type_t nodetype);
         };
 
         struct OriginTypeHolder
@@ -593,7 +631,8 @@ namespace wo
 
         static ProcessAstJobs* m_pass0_processers;
         static ProcessAstJobs* m_pass1_processers;
-        static ProcessAstJobs* m_passir_processers;
+        static ProcessAstJobs* m_passir_A_processers;
+        static ProcessAstJobs* m_passir_B_processers;
 
         LangContext();
 
@@ -602,8 +641,11 @@ namespace wo
             lexer& lex, const AstNodeWithState& node_state, PassProcessStackT& out_stack);
         pass_behavior pass_1_process_basic_type_marking_and_constant_eval(
             lexer& lex, const AstNodeWithState& node_state, PassProcessStackT& out_stack);
-        pass_behavior pass_final_process_bytecode_generation(
+        pass_behavior pass_final_A_process_bytecode_generation(
             lexer& lex, const AstNodeWithState& node_state, PassProcessStackT& out_stack);
+        pass_behavior pass_final_B_process_bytecode_generation(
+            lexer& lex, const AstNodeWithState& node_state, PassProcessStackT& out_stack);
+        bool pass_final_value(lexer& lex, ast::AstValueBase* val);
 
         void pass_0_5_register_builtin_types();
 
@@ -637,12 +679,8 @@ namespace wo
     out_stack.push(NODE)
 #define WO_CONTINUE_PROCESS_LIST(LIST)\
     continue_process_childs(LIST, out_stack)
-#define WO_ALL_AST_LIST\
-    WO_AST_MACRO(AstList);\
-    WO_AST_MACRO(AstDeclareAttribue);\
-    WO_AST_MACRO(AstIdentifier);\
-    WO_AST_MACRO(AstStructFieldDefine);\
-    WO_AST_MACRO(AstTypeHolder);\
+
+#define WO_ALL_AST_LIST_B\
     WO_AST_MACRO(AstValueBase);\
     WO_AST_MACRO(AstValueMarkAsMutable);\
     WO_AST_MACRO(AstValueMarkAsImmutable);\
@@ -652,9 +690,6 @@ namespace wo
     WO_AST_MACRO(AstValueTypeCheckIs);\
     WO_AST_MACRO(AstValueTypeCheckAs);\
     WO_AST_MACRO(AstValueVariable);\
-    WO_AST_MACRO(AstWhereConstraints);\
-    WO_AST_MACRO(AstValueFunctionCall_FakeAstArgumentDeductionContextA);\
-    WO_AST_MACRO(AstValueFunctionCall_FakeAstArgumentDeductionContextB);\
     WO_AST_MACRO(AstValueFunctionCall);\
     WO_AST_MACRO(AstValueMayConsiderOperatorOverload);\
     WO_AST_MACRO(AstValueBinaryOperator);\
@@ -663,6 +698,24 @@ namespace wo
     WO_AST_MACRO(AstFakeValueUnpack);\
     WO_AST_MACRO(AstValueVariadicArgumentsPack);\
     WO_AST_MACRO(AstValueIndex);\
+    WO_AST_MACRO(AstValueFunction);\
+    WO_AST_MACRO(AstValueArrayOrVec);\
+    WO_AST_MACRO(AstValueDictOrMap);\
+    WO_AST_MACRO(AstValueTuple);\
+    WO_AST_MACRO(AstValueStruct);\
+    WO_AST_MACRO(AstValueAssign);\
+    WO_AST_MACRO(AstValuePackedArgs);\
+    WO_AST_MACRO(AstValueMakeUnion)
+
+#define WO_ALL_AST_LIST_A\
+    WO_AST_MACRO(AstList);\
+    WO_AST_MACRO(AstValueFunctionCall_FakeAstArgumentDeductionContextA);\
+    WO_AST_MACRO(AstValueFunctionCall_FakeAstArgumentDeductionContextB);\
+    WO_AST_MACRO(AstDeclareAttribue);\
+    WO_AST_MACRO(AstIdentifier);\
+    WO_AST_MACRO(AstStructFieldDefine);\
+    WO_AST_MACRO(AstTypeHolder);\
+    WO_AST_MACRO(AstWhereConstraints);\
     WO_AST_MACRO(AstPatternBase);\
     WO_AST_MACRO(AstPatternTakeplace);\
     WO_AST_MACRO(AstPatternSingle);\
@@ -673,15 +726,8 @@ namespace wo
     WO_AST_MACRO(AstVariableDefineItem);\
     WO_AST_MACRO(AstVariableDefines);\
     WO_AST_MACRO(AstFunctionParameterDeclare);\
-    WO_AST_MACRO(AstValueFunction);\
-    WO_AST_MACRO(AstValueArrayOrVec);\
     WO_AST_MACRO(AstKeyValuePair);\
-    WO_AST_MACRO(AstValueDictOrMap);\
-    WO_AST_MACRO(AstValueTuple);\
     WO_AST_MACRO(AstStructFieldValuePair);\
-    WO_AST_MACRO(AstValueStruct);\
-    WO_AST_MACRO(AstValueAssign);\
-    WO_AST_MACRO(AstValuePackedArgs);\
     WO_AST_MACRO(AstNamespace);\
     WO_AST_MACRO(AstScope);\
     WO_AST_MACRO(AstMatchCase);\
@@ -700,10 +746,14 @@ namespace wo
     WO_AST_MACRO(AstEnumDeclare);\
     WO_AST_MACRO(AstUnionItem);\
     WO_AST_MACRO(AstUnionDeclare);\
-    WO_AST_MACRO(AstValueMakeUnion);\
     WO_AST_MACRO(AstUsingNamespace);\
     WO_AST_MACRO(AstToken);\
-    WO_AST_MACRO(AstExternInformation)
+    WO_AST_MACRO(AstExternInformation);\
+    WO_AST_MACRO(AstNop)
+
+#define WO_ALL_AST_LIST\
+    WO_ALL_AST_LIST_A;\
+    WO_ALL_AST_LIST_B
 
 #define WO_PASS_PROCESSER(AST, PASSNAME)\
     pass_behavior WO_LANG_PROCESSER_NAME(AST, PASSNAME)(\
@@ -725,6 +775,19 @@ namespace wo
         WO_ALL_AST_LIST;
 
 #undef WO_AST_MACRO
+#define WO_AST_MACRO(AST)\
+        WO_PASS_PROCESSER(AST, passir_A)
+
+        WO_ALL_AST_LIST_A;
+
+#undef WO_AST_MACRO
+#define WO_AST_MACRO(AST)\
+        WO_PASS_PROCESSER(AST, passir_B)
+
+        WO_ALL_AST_LIST_B;
+
+#undef WO_AST_MACRO
+
 #undef WO_PASS_PROCESSER
 
         //////////////////////////////////////
@@ -756,7 +819,7 @@ namespace wo
                 const std::optional<bool*>& out_ambig);
         std::optional<lang_Symbol*>
             find_symbol_in_current_scope(
-                lexer& lex, 
+                lexer& lex,
                 ast::AstIdentifier* ident,
                 const std::optional<bool*>& out_ambig);
 
