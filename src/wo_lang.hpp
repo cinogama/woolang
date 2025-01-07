@@ -475,7 +475,9 @@ namespace wo
                 // a temporary opnum will be allocated
                 // NOTE: temporary opnum will be released after `get_eval_result`.
                 GET_RESULT_OPNUM_ONLY,
-                // Just like GET_RESULT_OPNUM_ONLY, but keep the result opnum.
+                // Just like GET_RESULT_OPNUM_ONLY, but keep the result opnum, and if:
+                //  1) Result opnum is spreg(such as cr)
+                // GET_RESULT_OPNUM_AND_KEEP will borrow a temporary register to store the result.
                 GET_RESULT_OPNUM_AND_KEEP,
                 // Push the result opnum into stack, then ignore the result.
                 PUSH_RESULT_AND_IGNORE_RESULT,
@@ -490,7 +492,7 @@ namespace wo
             std::optional<opnum::opnumbase*> m_result;
 
             const std::optional<opnum::opnumbase*>& get_assign_target() noexcept;
-            void set_result(opnum::opnumbase* result) noexcept;
+            bool set_result(BytecodeGenerateContext& ctx, lexer& lex, ast::AstBase* node, opnum::opnumbase* result) noexcept;
         };
         std::stack<EvalResult> m_eval_result_storage_target;
         std::stack<EvalResult> m_evaled_result_storage;

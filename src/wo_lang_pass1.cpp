@@ -1423,9 +1423,9 @@ namespace wo
                     return FAILED;
                 }
                 node->m_LANG_determined_type =
-                    container_determined_base_type_instance
-                    ->m_external_type_description.m_array_or_vector
-                    ->m_element_type;
+                    immutable_type(container_determined_base_type_instance
+                        ->m_external_type_description.m_array_or_vector
+                        ->m_element_type);
                 break;
             }
             case lang_TypeInstance::DeterminedType::DICTIONARY:
@@ -1442,9 +1442,9 @@ namespace wo
                     return FAILED;
                 }
                 node->m_LANG_determined_type =
-                    container_determined_base_type_instance
-                    ->m_external_type_description.m_dictionary_or_mapping
-                    ->m_value_type;
+                    immutable_type(container_determined_base_type_instance
+                        ->m_external_type_description.m_dictionary_or_mapping
+                        ->m_value_type);
                 break;
             }
             case lang_TypeInstance::DeterminedType::STRUCT:
@@ -1485,7 +1485,7 @@ namespace wo
                 }
 
                 // TODO: check member's access permission.
-                node->m_LANG_determined_type = fnd->second.m_member_type;
+                node->m_LANG_determined_type = immutable_type(fnd->second.m_member_type);
                 node->m_LANG_fast_index_for_struct = fnd->second.m_offset;
 
                 break;
@@ -1525,7 +1525,7 @@ namespace wo
                     return FAILED;
                 }
 
-                node->m_LANG_determined_type = tuple_type->m_element_types[index];
+                node->m_LANG_determined_type = immutable_type(tuple_type->m_element_types[index]);
                 node->m_LANG_fast_index_for_struct = index;
 
                 break;
@@ -1559,7 +1559,7 @@ namespace wo
                             WO_ERR_STRING_INDEX_OUT_OF_RANGE);
                         return FAILED;
                     }
-                    
+
                     wo::value const_result_value;
                     const_result_value.set_integer(ch);
 
@@ -2862,16 +2862,25 @@ namespace wo
         }
         else if (state == HOLD)
         {
+            lang_TypeInstance* target_type =
+                node->m_check_type->m_LANG_determined_type.value();
             lang_TypeInstance* value_type =
                 node->m_check_value->m_LANG_determined_type.value();
 
-            if (value_type == m_origin_types.m_dynamic.m_type_instance)
-                ; // Dynamic type, do check in runtime.
+            if (immutable_type(value_type) == m_origin_types.m_dynamic.m_type_instance)
+            {
+                if (!check_cast_able(lex, node, target_type, value_type))
+                {
+                    lex.lang_error(lexer::errorlevel::error, node->m_check_type,
+                        WO_ERR_CANNOT_CAST_TYPE_NAMED_FROM_DYNMAIC,
+                        get_type_name_w(target_type));
+
+                    return FAILED;
+                }
+                // Dynamic type, do check in runtime.
+            }
             else
             {
-                lang_TypeInstance* target_type =
-                    node->m_check_type->m_LANG_determined_type.value();
-
                 wo::value cval;
                 cval.set_bool(is_type_accepted(
                     lex,
@@ -2898,11 +2907,10 @@ namespace wo
         {
             lang_TypeInstance* target_type =
                 node->m_check_type->m_LANG_determined_type.value();
-
             lang_TypeInstance* value_type =
                 node->m_check_value->m_LANG_determined_type.value();
 
-            if (value_type == m_origin_types.m_dynamic.m_type_instance)
+            if (immutable_type(value_type) == m_origin_types.m_dynamic.m_type_instance)
             {
                 if (!check_cast_able(lex, node, target_type, value_type))
                 {
@@ -2912,6 +2920,7 @@ namespace wo
 
                     return FAILED;
                 }
+                // Dynamic type, do check in runtime.
             }
             else
             {
@@ -3567,7 +3576,7 @@ namespace wo
                     if (node->m_operator > AstValueBinaryOperator::LOGICAL_AND)
                         node->m_LANG_determined_type = m_origin_types.m_bool.m_type_instance;
                     else
-                        node->m_LANG_determined_type = left_type;
+                        node->m_LANG_determined_type = immutable_type(left_type);
 
                     if (node->m_left->m_evaled_const_value.has_value()
                         && node->m_right->m_evaled_const_value.has_value())
@@ -3840,7 +3849,7 @@ namespace wo
                     return FAILED;
                 }
 
-                node->m_LANG_determined_type = operand_type;
+                node->m_LANG_determined_type = immutable_type(operand_type);
 
                 if (node->m_operand->m_evaled_const_value.has_value())
                 {
@@ -3885,7 +3894,7 @@ namespace wo
                     return FAILED;
                 }
 
-                node->m_LANG_determined_type = operand_type;
+                node->m_LANG_determined_type = immutable_type(operand_type);
 
                 if (node->m_operand->m_evaled_const_value.has_value())
                 {

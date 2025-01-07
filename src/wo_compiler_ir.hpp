@@ -681,8 +681,6 @@ namespace wo
         cxx_vec_t<opnum::global*>           global_record_list;
         cxx_vec_t<opnum::opnumbase*>        _created_opnum_buffer;
 
-        int32_t update_all_temp_regist_to_stack(BytecodeGenerateContext* ctx, size_t begin) noexcept;
-
         template<typename T>
         T* _created_opnum_item(const T& _opn) noexcept
         {
@@ -732,17 +730,14 @@ namespace wo
         {
             return ir_command_buffer.size();
         }
-
         std::string get_unique_tag_based_command_ip()const
         {
             return "ip_" + std::to_string(get_now_ip()) + "_" + std::to_string(_unique_id++);
         }
-
         void revert_code_to(size_t ip)
         {
             ir_command_buffer.resize(ip);
         }
-
         void record_extern_native_function(intptr_t function, const std::wstring& script_path, const std::optional<std::wstring>& library_name, const std::wstring& function_name)
         {
             if (extern_native_functions.find(function) == extern_native_functions.end())
@@ -762,7 +757,7 @@ namespace wo
             wo_assert(extern_script_functions.find(function_name) == extern_script_functions.end());
             extern_script_functions[function_name] = get_now_ip();
         }
-
+        int32_t update_all_temp_regist_to_stack(BytecodeGenerateContext* ctx, size_t begin) noexcept;
 #define WO_OPNUM(OPNUM) (_check_and_add_const(\
         (std::is_same<meta::origin_type<decltype(OPNUM)>, opnum::opnumbase>::value)\
         ? const_cast<meta::origin_type<decltype(OPNUM)>*>(&OPNUM)\

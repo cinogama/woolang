@@ -185,7 +185,7 @@ namespace wo
         WO_LANG_REGISTER_PROCESSER(AstValueLiteral, AstBase::AST_VALUE_LITERAL, passir_B);
         WO_LANG_REGISTER_PROCESSER(AstValueTypeid, AstBase::AST_VALUE_TYPEID, passir_B);
         WO_LANG_REGISTER_PROCESSER(AstValueTypeCast, AstBase::AST_VALUE_TYPE_CAST, passir_B);
-        // WO_LANG_REGISTER_PROCESSER(AstValueTypeCheckIs, AstBase::AST_VALUE_TYPE_CHECK_IS, passir_B);
+        WO_LANG_REGISTER_PROCESSER(AstValueTypeCheckIs, AstBase::AST_VALUE_TYPE_CHECK_IS, passir_B);
         // WO_LANG_REGISTER_PROCESSER(AstValueTypeCheckAs, AstBase::AST_VALUE_TYPE_CHECK_AS, passir_B);
         WO_LANG_REGISTER_PROCESSER(AstValueVariable, AstBase::AST_VALUE_VARIABLE, passir_B);
         // WO_LANG_REGISTER_PROCESSER(AstValueFunctionCall, AstBase::AST_VALUE_FUNCTION_CALL, passir_B);
@@ -420,7 +420,7 @@ namespace wo
                         WO_OPNUM(function_opnum));
                 }
                 else
-                    result.set_result(function_opnum);
+                    result.set_result(m_ircontext, lex, node, function_opnum);
 
                 return true;
             }
@@ -468,7 +468,7 @@ namespace wo
                             // Unable to borrow register.
                             return false;
 
-                        result.set_result(make_result_target);
+                        result.set_result(m_ircontext, lex, node, make_result_target);
                     }
 
                     m_ircontext.c().mkstruct(
@@ -504,7 +504,7 @@ namespace wo
                             WO_OPNUM(function_opnum));
                     }
                     else
-                        result.set_result(function_opnum);
+                        result.set_result(m_ircontext, lex, node, function_opnum);
 
                     return true;
                 }))
@@ -546,7 +546,7 @@ namespace wo
                         WO_OPNUM(storage_opnum));
                 }
                 else
-                    result.set_result(storage_opnum);
+                    result.set_result(m_ircontext, lex, node, storage_opnum);
 
                 return true;
             }))
@@ -557,16 +557,100 @@ namespace wo
 
         return OKAY;
     }
+    WO_PASS_PROCESSER(AstValueTypeCheckIs)
+    {
+        // Only dynamic check can be here.
+        if (state == UNPROCESSED)
+        {
+            wo_assert(immutable_type(
+                node->m_check_value->m_LANG_determined_type.value()) == m_origin_types.m_dynamic.m_type_instance);
+
+            m_ircontext.eval_sth_if_not_ignore(
+                &BytecodeGenerateContext::eval);
+
+            WO_CONTINUE_PROCESS(node->m_check_value);
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            if (!m_ircontext.apply_eval_result(
+                [&](BytecodeGenerateContext::EvalResult& result)
+                {
+                    auto* opnum_to_check = m_ircontext.get_eval_result();
+
+                    auto* target_type_instance =
+                        node->m_check_type->m_LANG_determined_type.value();
+                    auto* target_determined_type_instance =
+                        target_type_instance->get_determined_type().value();
+
+                    auto target_storage = result.get_assign_target();
+
+                    value::valuetype check_type;
+                    switch (target_determined_type_instance->m_base_type)
+                    {
+                    case lang_TypeInstance::DeterminedType::NIL:
+                        check_type = value::valuetype::invalid;
+                        break;
+                    case lang_TypeInstance::DeterminedType::INTEGER:
+                        check_type = value::valuetype::integer_type;
+                        break;
+                    case lang_TypeInstance::DeterminedType::REAL:
+                        check_type = value::valuetype::real_type;
+                        break;
+                    case lang_TypeInstance::DeterminedType::HANDLE:
+                        check_type = value::valuetype::handle_type;
+                        break;
+                    case lang_TypeInstance::DeterminedType::BOOLEAN:
+                        check_type = value::valuetype::bool_type;
+                        break;
+                    case lang_TypeInstance::DeterminedType::STRING:
+                        check_type = value::valuetype::string_type;
+                        break;
+                    case lang_TypeInstance::DeterminedType::GCHANDLE:
+                        check_type = value::valuetype::gchandle_type;
+                        break;
+                    case lang_TypeInstance::DeterminedType::DICTIONARY:
+                        check_type = value::valuetype::dict_type;
+                        break;
+                    case lang_TypeInstance::DeterminedType::ARRAY:
+                        check_type = value::valuetype::array_type;
+                    default:
+                        wo_error("Unknown type.");
+                        break;
+                    }
+
+                    m_ircontext.c().typeis(WO_OPNUM(opnum_to_check), check_type);
+
+                    if (target_storage.has_value())
+                    {
+                        m_ircontext.c().mov(
+                            WO_OPNUM(target_storage.value()),
+                            WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::spreg::cr)));
+                    }
+                    else
+                    {
+                        result.set_result(
+                            m_ircontext, lex, node, m_ircontext.opnum_spreg(opnum::reg::spreg::cr));
+                    }
+                    return true;
+                }))
+            {
+                // Eval failed.
+                return FAILED;
+            }
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
     WO_PASS_PROCESSER(AstValueTypeCast)
     {
         if (state == UNPROCESSED)
         {
-            auto* src_type_instance =
-                node->m_cast_value->m_LANG_determined_type.value();
-            auto* src_determined_type_instance =
-                src_type_instance->get_determined_type().value();
+            auto* target_type_instance =
+                node->m_cast_type->m_LANG_determined_type.value();
+            auto* target_determined_type_instance =
+                target_type_instance->get_determined_type().value();
 
-            if (src_determined_type_instance->m_base_type
+            if (target_determined_type_instance->m_base_type
                 != lang_TypeInstance::DeterminedType::VOID)
             {
                 m_ircontext.eval_sth_if_not_ignore(
@@ -593,7 +677,6 @@ namespace wo
                     auto* src_determined_type_instance =
                         src_type_instance->get_determined_type().value();
 
-                    auto* opnum_to_cast = m_ircontext.get_eval_result();
                     auto target_storage = result.get_assign_target();
 
                     if (target_determined_type_instance->m_base_type
@@ -632,10 +715,29 @@ namespace wo
                         case lang_TypeInstance::DeterminedType::ARRAY:
                             cast_type = value::valuetype::array_type;
                             break;
+                        case lang_TypeInstance::DeterminedType::VOID:
+                        {
+                            if (target_storage.has_value())
+                            {
+                                // NO NEED TO DO ANYTHING.
+                                // VOID VALUE IS PURE JUNK VALUE.
+                            }
+                            else
+                            {
+                                // Return a junk value.
+                                result.set_result(
+                                    m_ircontext, lex, node, m_ircontext.opnum_spreg(opnum::reg::spreg::ni));
+                            }
+                            return true;
+                        }
                         default:
                             wo_error("Unknown type.");
                             break;
                         }
+
+                        // NOTE: If target type is void, we can't get result from context.
+                        //  Expr has been evaled as non-result mode.
+                        auto* opnum_to_cast = m_ircontext.get_eval_result();
 
                         if (target_storage.has_value())
                         {
@@ -653,7 +755,7 @@ namespace wo
                                     WO_OPNUM(borrowed_reg.value()),
                                     WO_OPNUM(opnum_to_cast),
                                     cast_type);
-                                result.set_result(borrowed_reg.value());
+                                result.set_result(m_ircontext, lex, node, borrowed_reg.value());
                             }
                             else
                                 return false;
@@ -661,6 +763,9 @@ namespace wo
                     }
                     else
                     {
+
+                        auto* opnum_to_cast = m_ircontext.get_eval_result();
+
                         // No need to cast.
                         if (target_storage.has_value())
                         {
@@ -671,7 +776,7 @@ namespace wo
                         else
                         {
                             m_ircontext.try_keep_opnum_temporary_register(opnum_to_cast);
-                            result.set_result(opnum_to_cast);
+                            result.set_result(m_ircontext, lex, node, opnum_to_cast);
                         }
                     }
 
@@ -747,7 +852,7 @@ namespace wo
                     if (asigned_target.has_value())
                         m_ircontext.c().mov(WO_OPNUM(asigned_target.value()), WO_OPNUM(immediately_value));
                     else
-                        result.set_result(immediately_value);
+                        result.set_result(m_ircontext, lex, ast_value, immediately_value);
 
                     return true;
                 }))

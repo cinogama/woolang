@@ -227,7 +227,6 @@ namespace wo
     {
         // TODO CHECK LIST:
         // 1. Make sure recursive-type will not cause infinite loop and have good habit.
-
         if (aimtype == srctype)
             return true;
 
@@ -238,6 +237,10 @@ namespace wo
         auto judge =
             [&]()-> bool
             {
+                // -1. If mutable not match, failed.
+                if (srctype->is_mutable() != aimtype->is_mutable())
+                    return false;
+
                 // 0. If aimtype accept srctype, Ok
                 if (is_type_accepted(lex, node, aimtype, srctype))
                     return true;
@@ -484,18 +487,21 @@ namespace wo
                 // 10. Following types can cast from dynamic:
                 //  nil, int, real, handle, bool, string, gchandle, 
                 //  array<dynamic>, map<dynamic, dynamic>
-                if (srctype == m_origin_types.m_dynamic.m_type_instance &&
-                    (aimtype == m_origin_types.m_nil.m_type_instance
-                        || aimtype == m_origin_types.m_int.m_type_instance
-                        || aimtype == m_origin_types.m_real.m_type_instance
-                        || aimtype == m_origin_types.m_handle.m_type_instance
-                        || aimtype == m_origin_types.m_bool.m_type_instance
-                        || aimtype == m_origin_types.m_string.m_type_instance
-                        || aimtype == m_origin_types.m_gchandle.m_type_instance
-                        || aimtype == m_origin_types.m_array_dynamic
-                        || aimtype == m_origin_types.m_dictionary_dynamic))
+                if (immutable_type(srctype) == m_origin_types.m_dynamic.m_type_instance)
                 {
-                    return true;
+                    auto* immutable_aimtype = immutable_type(aimtype);
+                    if ((immutable_aimtype == m_origin_types.m_nil.m_type_instance
+                        || immutable_aimtype == m_origin_types.m_int.m_type_instance
+                        || immutable_aimtype == m_origin_types.m_real.m_type_instance
+                        || immutable_aimtype == m_origin_types.m_handle.m_type_instance
+                        || immutable_aimtype == m_origin_types.m_bool.m_type_instance
+                        || immutable_aimtype == m_origin_types.m_string.m_type_instance
+                        || immutable_aimtype == m_origin_types.m_gchandle.m_type_instance
+                        || immutable_aimtype == m_origin_types.m_array_dynamic
+                        || immutable_aimtype == m_origin_types.m_dictionary_dynamic))
+                    {
+                        return true;
+                    }
                 }
 
                 // All missmatch, failed.

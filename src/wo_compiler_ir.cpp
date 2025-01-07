@@ -2113,6 +2113,8 @@ namespace wo
                             }
                         }
                     }
+
+                    ir_command_buffer[i].op1 = opnum1;
                 }
                 if (auto* op2 = dynamic_cast<const opnum::reg*>(opnum2))
                 {
@@ -2141,6 +2143,8 @@ namespace wo
                             // No opcode will update opnum2, so here no need for update.
                         }
                     }
+
+                    ir_command_buffer[i].op2 = opnum2;
                 }
 
                 switch (ir_command_buffer[i].opcode & 0b11111100)
@@ -2185,7 +2189,6 @@ namespace wo
                     break;
                 }
             }
-
             i += skip_line;
         }
 

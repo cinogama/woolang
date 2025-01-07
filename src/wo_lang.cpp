@@ -1099,9 +1099,14 @@ namespace wo
         // Final process, generate bytecode.
 
         // Do something for prepare.
+        size_t global_block_begin_place = m_ircontext.c().get_now_ip();
+        auto global_reserving_ip = m_ircontext.c().reserved_stackvalue();
 
         if (!anylize_pass(lex, root, &LangContext::pass_final_A_process_bytecode_generation))
             return false;
+
+        auto used_tmp_regs = m_ircontext.c().update_all_temp_regist_to_stack(&m_ircontext, global_block_begin_place);
+        m_ircontext.c().reserved_stackvalue(global_reserving_ip, used_tmp_regs); // set reserved size
 
         // TEST CODE BEGIN
 
@@ -2116,7 +2121,7 @@ namespace wo
             return fnd->second.get();
 
         return m_opnum_cache_reg_and_stack_offset.insert(
-            std::make_pair(regid, std::make_unique<opnum::reg>(value)))
+            std::make_pair(regid, std::make_unique<opnum::reg>(regid)))
             .first->second.get();
     }
 
@@ -2208,12 +2213,35 @@ namespace wo
     {
         return m_result;
     }
-    void BytecodeGenerateContext::EvalResult::set_result(opnum::opnumbase* result) noexcept
+    bool BytecodeGenerateContext::EvalResult::set_result(
+        BytecodeGenerateContext& ctx, lexer& lex, ast::AstBase* node, opnum::opnumbase* result) noexcept
     {
         wo_assert(m_request == Request::GET_RESULT_OPNUM_ONLY
             || m_request == Request::GET_RESULT_OPNUM_AND_KEEP
             || m_request == Request::PUSH_RESULT_AND_IGNORE_RESULT);
+
+        if (m_request == Request::GET_RESULT_OPNUM_AND_KEEP)
+        {
+            auto* reg = dynamic_cast<opnum::reg*>(result);
+            if (reg != nullptr
+                && reg->id >= opnum::reg::spreg::cr
+                && reg->id <= opnum::reg::spreg::last_special_register)
+            {
+                auto borrowed_reg = ctx.borrow_opnum_temporary_register(lex, node);
+                if (!borrowed_reg.has_value())
+                    // Failed to allocate temporary register.
+                    return false;
+
+                ctx.c().mov(
+                    *(opnum::opnumbase*)borrowed_reg.value(), 
+                    *(opnum::opnumbase*)result);
+                
+                m_result = borrowed_reg.value();
+                return true;
+            }
+        }
         m_result = result;
+        return true;
     }
 #endif
 }
