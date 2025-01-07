@@ -2075,8 +2075,8 @@ namespace wo
                         auto stx_offset = imm_opnum_stx_offset->try_int();
                         if (stx_offset <= 0)
                         {
-                            opnum::imm offset_stack_place(stx_offset - maxim_offset);
-                            ir_command_buffer[i].op2 = WO_OPNUM(offset_stack_place);
+                            ir_command_buffer[i].op2 = 
+                                ctx->opnum_imm_int(stx_offset - maxim_offset);
                         }
                     }
                     else

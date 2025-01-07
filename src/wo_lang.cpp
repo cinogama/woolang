@@ -397,6 +397,33 @@ namespace wo
             m_determined_constant_or_function = new_constant;
         }
     }
+
+    bool lang_ValueInstance::IR_need_storage() const
+    {
+        if (m_determined_constant_or_function.has_value())
+        {
+            wo_assert(!m_mutable);
+
+            auto& determined_constant_or_function =
+                m_determined_constant_or_function.value();
+
+            ast::AstValueFunction* const* function_instance =
+                std::get_if<ast::AstValueFunction*>(&determined_constant_or_function);
+
+            if (function_instance != nullptr)
+            {
+                if (!(*function_instance)->m_LANG_captured_context.m_captured_variables.empty())
+                    // Function with captured variables, need storage.
+                    return true;
+            }
+
+            // Is constant or normal function, no need storage.
+            return false;
+        }
+
+        return true;
+    }
+
     lang_ValueInstance::lang_ValueInstance(
         bool mutable_,
         lang_Symbol* symbol,
@@ -1078,8 +1105,9 @@ namespace wo
 
         // TEST CODE BEGIN
 
-        // m_ircontext.c().tag("test");
-        // m_ircontext.c().jmp(opnum::tag("test"));
+        m_ircontext.c().tag("test");
+        m_ircontext.c().ext_panic(opnum::imm_str("TEST CODE GEN"));
+        m_ircontext.c().jmp(opnum::tag("test"));
 
         // TEST CODE END
 
@@ -1880,20 +1908,34 @@ namespace wo
         }
         return variable_instance;
     }
-
-    void BytecodeGenerateContext::apply_eval_result(
-        const std::function<void(EvalResult&)>& bind_func) noexcept
+    bool BytecodeGenerateContext::ignore_eval_result() noexcept
+    {
+        auto& top_eval_state = m_eval_result_storage_target.top();
+        return top_eval_state.m_request == EvalResult::Request::IGNORE_RESULT;
+    }
+    bool BytecodeGenerateContext::apply_eval_result(
+        const std::function<bool(EvalResult&)>& bind_func) noexcept
     {
         auto& top_eval_state = m_eval_result_storage_target.top();
 
-        if (top_eval_state.m_request != EvalResult::Request::IGNORE_RESULT)
+        bool eval_result = true;
+        if (!ignore_eval_result())
         {
-            bind_func(top_eval_state);
-
-            m_evaled_result_storage.emplace(
-                std::move(top_eval_state));
+            eval_result = bind_func(top_eval_state);
+            if (eval_result)
+            {
+                if (top_eval_state.m_request == EvalResult::Request::PUSH_RESULT_AND_IGNORE_RESULT)
+                {
+                    opnum::opnumbase* result_opnum = top_eval_state.m_result.value();
+                    try_return_opnum_temporary_register(result_opnum);
+                    c().psh(*result_opnum);
+                }
+                else
+                    m_evaled_result_storage.emplace(std::move(top_eval_state));
+            }
         }
         m_eval_result_storage_target.pop();
+        return eval_result;
     }
 
     void BytecodeGenerateContext::failed_eval_result() noexcept
@@ -1901,34 +1943,63 @@ namespace wo
         m_eval_result_storage_target.pop();
     }
 
-    void BytecodeGenerateContext::begin_eval(const std::optional<opnum::opnumbase*>& target)
+    void BytecodeGenerateContext::eval_keep()
     {
         m_eval_result_storage_target.push(EvalResult{
-            target.has_value()
-                ? EvalResult::Request::ASSIGN_TO_SPECIFIED_OPNUM
-                : EvalResult::Request::GET_RESULT_OPNUM_ONLY,
+            EvalResult::Request::GET_RESULT_OPNUM_AND_KEEP,
+            std::nullopt,
+            });
+    }
+    void BytecodeGenerateContext::eval_push()
+    {
+        m_eval_result_storage_target.push(EvalResult{
+            EvalResult::Request::PUSH_RESULT_AND_IGNORE_RESULT,
+            std::nullopt,
+            });
+    }
+    void BytecodeGenerateContext::eval()
+    {
+        m_eval_result_storage_target.push(EvalResult{
+            EvalResult::Request::GET_RESULT_OPNUM_ONLY,
+            std::nullopt,
+            });
+    }
+    void BytecodeGenerateContext::eval_to(opnum::opnumbase* target)
+    {
+        m_eval_result_storage_target.push(EvalResult{
+            EvalResult::Request::ASSIGN_TO_SPECIFIED_OPNUM,
             target,
             });
     }
-    void BytecodeGenerateContext::skip_eval_result()
+    void BytecodeGenerateContext::eval_ignore()
     {
         m_eval_result_storage_target.push(EvalResult{
             EvalResult::Request::IGNORE_RESULT,
             std::nullopt,
             });
     }
+    void BytecodeGenerateContext::eval_sth_if_not_ignore(void(BytecodeGenerateContext::* method)())
+    {
+        if (!ignore_eval_result())
+            (this->*method)();
+        else
+            eval_ignore();
+    }
     opnum::opnumbase* BytecodeGenerateContext::get_eval_result()
     {
-        auto* result = m_eval_result_storage_target.top().m_result.value();
-        m_eval_result_storage_target.pop();
+        auto& result = m_evaled_result_storage.top();
+        auto* result_opnum = result.m_result.value();
 
-        auto* reg = dynamic_cast<opnum::reg*>(result);
-        if (reg != nullptr && reg->id >= opnum::reg::spreg::t0 && reg->id <= opnum::reg::spreg::r15)
-        {
-            // Is temporary register, release it.
-            return_opnum_temporary_register(reg);
-        }
-        return result;
+        wo_assert(
+            result.m_request == EvalResult::Request::ASSIGN_TO_SPECIFIED_OPNUM
+            || result.m_request == EvalResult::Request::GET_RESULT_OPNUM_ONLY
+            || result.m_request == EvalResult::Request::GET_RESULT_OPNUM_AND_KEEP);
+
+        if (result.m_request == EvalResult::Request::GET_RESULT_OPNUM_ONLY)
+            try_return_opnum_temporary_register(result_opnum);
+
+        m_evaled_result_storage.pop();
+        return result_opnum;
     }
     opnum::global* BytecodeGenerateContext::opnum_global(int32_t offset) noexcept
     {
@@ -2060,31 +2131,64 @@ namespace wo
         , m_global_storage_allocating(0)
 
     {
-        for (opnum::reg::spreg ireg = opnum::reg::spreg::t0;
-            ireg <= opnum::reg::spreg::r15;
-            ireg = (opnum::reg::spreg)((uint8_t)ireg + 1))
-        {
-            return_opnum_temporary_register(opnum_spreg(ireg));
-        }
-        wo_assert(m_usable_temporary_registers.size() == 32);
+        static_assert(opnum::reg::spreg::t0 == 0 && opnum::reg::spreg::r15 == 31);
+        for (auto& useable_flag : m_usable_temporary_registers)
+            useable_flag = true;
     }
     std::optional<opnum::reg*> BytecodeGenerateContext::borrow_opnum_temporary_register(
         lexer& lex, ast::AstBase* node) noexcept
     {
-        if (m_usable_temporary_registers.empty())
+        for (uint8_t i = 0; i < 32; ++i)
         {
-            lex.lang_error(lexer::errorlevel::error, node, WO_ERR_EXPR_TOO_COMPLEX);
-            return std::nullopt;
+            if (m_usable_temporary_registers[i])
+            {
+                m_usable_temporary_registers[i] = false;
+                return opnum_spreg(static_cast<opnum::reg::spreg>(i));
+            }
         }
 
-        auto* result = m_usable_temporary_registers.front();
-        m_usable_temporary_registers.pop_front();
-        return result;
+        lex.lang_error(lexer::errorlevel::error, node, WO_ERR_EXPR_TOO_COMPLEX);
+        return std::nullopt;
+    }
+    void BytecodeGenerateContext::keep_opnum_temporary_register(opnum::reg* reg) noexcept
+    {
+        wo_assert(reg->id >= opnum::reg::spreg::t0
+            && reg->id <= opnum::reg::spreg::r15);
+
+        wo_assert(m_usable_temporary_registers[reg->id]);
+        m_usable_temporary_registers[reg->id] = false;
     }
     void BytecodeGenerateContext::return_opnum_temporary_register(opnum::reg* reg) noexcept
     {
-        m_usable_temporary_registers.push_back(reg);
+        wo_assert(reg->id >= opnum::reg::spreg::t0
+            && reg->id <= opnum::reg::spreg::r15);
+
+        wo_assert(!m_usable_temporary_registers[reg->id]);
+        m_usable_temporary_registers[reg->id] = true;
     }
+    void BytecodeGenerateContext::try_keep_opnum_temporary_register(
+        opnum::opnumbase* opnum_may_reg) noexcept
+    {
+        auto* reg = dynamic_cast<opnum::reg*>(opnum_may_reg);
+        if (reg != nullptr
+            && reg->id >= opnum::reg::spreg::t0
+            && reg->id <= opnum::reg::spreg::r15)
+        {
+            keep_opnum_temporary_register(reg);
+        }
+    }
+    void BytecodeGenerateContext::try_return_opnum_temporary_register(
+        opnum::opnumbase* opnum_may_reg) noexcept
+    {
+        auto* reg = dynamic_cast<opnum::reg*>(opnum_may_reg);
+        if (reg != nullptr
+            && reg->id >= opnum::reg::spreg::t0
+            && reg->id <= opnum::reg::spreg::r15)
+        {
+            return_opnum_temporary_register(reg);
+        }
+    }
+
     opnum::opnumbase* BytecodeGenerateContext::get_storage_place(
         const lang_ValueInstance::Storage& storage)
     {
@@ -2106,7 +2210,9 @@ namespace wo
     }
     void BytecodeGenerateContext::EvalResult::set_result(opnum::opnumbase* result) noexcept
     {
-        wo_assert(m_request == Request::GET_RESULT_OPNUM_ONLY);
+        wo_assert(m_request == Request::GET_RESULT_OPNUM_ONLY
+            || m_request == Request::GET_RESULT_OPNUM_AND_KEEP
+            || m_request == Request::PUSH_RESULT_AND_IGNORE_RESULT);
         m_result = result;
     }
 #endif

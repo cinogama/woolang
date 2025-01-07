@@ -131,6 +131,8 @@ namespace wo
         l_unknown_token,
     };
 
+#ifndef WO_DISABLE_COMPILER
+
     class lexer;
 
     class macro
@@ -640,6 +642,7 @@ namespace wo
 
         ast::AstBase* merge_imported_script_trees(ast::AstBase* node);
     };
+#endif
 }
 
 #ifdef ANSI_WIDE_CHAR_SIGN

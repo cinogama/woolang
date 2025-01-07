@@ -171,9 +171,13 @@ namespace wo
         std::optional<std::list<lang_TypeInstance*>> m_instance_template_arguments;
 
         std::optional<Storage> m_IR_storage;
+        std::optional<ast::AstValueFunction*>
+                               m_IR_normal_function;
 
         void try_determine_function(ast::AstValueFunction* func);
         void try_determine_const_value(ast::AstValueBase* init_val);
+
+        bool IR_need_storage() const;
 
         lang_ValueInstance(
             bool mutable_,
@@ -457,7 +461,7 @@ namespace wo
         // Here will storage all use able temporary registers.
         // ATTENTION: They will never used in bytecode generated post, all temporary registers will be
         //      updated and be replaced by stack offset after function finalized;
-        std::list<opnum::reg*> m_usable_temporary_registers;
+        bool m_usable_temporary_registers[32];
 
         // Mutable context
         struct EvalResult
@@ -469,8 +473,12 @@ namespace wo
                 // Only get the opnum that stores the result, 
                 // if the result cannot be directly represented as an opnum, 
                 // a temporary opnum will be allocated
-                // NOTE: temporary opnum should be released by requestor.
+                // NOTE: temporary opnum will be released after `get_eval_result`.
                 GET_RESULT_OPNUM_ONLY,
+                // Just like GET_RESULT_OPNUM_ONLY, but keep the result opnum.
+                GET_RESULT_OPNUM_AND_KEEP,
+                // Push the result opnum into stack, then ignore the result.
+                PUSH_RESULT_AND_IGNORE_RESULT,
                 // Simply ignore the result
                 IGNORE_RESULT,
             };
@@ -490,15 +498,20 @@ namespace wo
         int32_t m_global_storage_allocating;
 
         // Functions
-        void begin_eval(const std::optional<opnum::opnumbase*>& target);
-        void skip_eval_result();
+        void eval();
+        void eval_keep();
+        void eval_push();
+        void eval_to(opnum::opnumbase* target);
+        void eval_ignore();
+        void eval_sth_if_not_ignore(void(BytecodeGenerateContext::* method)());
 
         // NOTE: get_eval_result will invoke `return_opnum_temporary_register`
-        //  to release temporary opnum.
+        //  to release temporary opnum if GET_RESULT_OPNUM_ONLY.
         opnum::opnumbase* get_eval_result();
+        bool ignore_eval_result() noexcept;
 
         // Apply and assign the value into specify 
-        void apply_eval_result(const std::function<void(EvalResult&)>& bind_func) noexcept;
+        bool apply_eval_result(const std::function<bool(EvalResult&)>& bind_func) noexcept;
         void failed_eval_result() noexcept;
 
         opnum::global* opnum_global(int32_t offset) noexcept;
@@ -514,7 +527,10 @@ namespace wo
         opnum::reg* opnum_stack_offset(int8_t value) noexcept;
 
         std::optional<opnum::reg*> borrow_opnum_temporary_register(lexer& lex, ast::AstBase* node) noexcept;
+        void keep_opnum_temporary_register(opnum::reg* reg) noexcept;
         void return_opnum_temporary_register(opnum::reg* reg) noexcept;
+        void try_keep_opnum_temporary_register(opnum::opnumbase* opnum_may_reg) noexcept;
+        void try_return_opnum_temporary_register(opnum::opnumbase* opnum_may_reg) noexcept;
 
         opnum::opnumbase* get_storage_place(
             const lang_ValueInstance::Storage& storage);
@@ -938,14 +954,16 @@ namespace wo
         bool update_allocate_instance_storage_passir(
             lexer& lex,
             lang_ValueInstance* instance);
-        bool update_pattern_instance_storage_and_code_gen_passir(
+        bool update_instance_storage_and_code_gen_passir(
             lexer& lex,
             lang_ValueInstance* instance,
-            opnum::opnumbase* opnumval);
-        bool update_pattern_symbol_storage_and_code_gen_passir(
+            opnum::opnumbase* opnumval,
+            const std::optional<uint16_t>& tuple_member_offset);
+        bool update_pattern_storage_and_code_gen_passir(
             lexer& lex,
             ast::AstPatternBase* pattern, 
-            opnum::opnumbase* opnumval);
+            opnum::opnumbase* opnumval,
+            const std::optional<uint16_t>& tuple_member_offset);
 
         lang_TypeInstance* mutable_type(lang_TypeInstance* origin_type);
         lang_TypeInstance* immutable_type(lang_TypeInstance* origin_type);
@@ -1026,6 +1044,8 @@ namespace wo
         lang_ValueInstance* check_and_update_captured_varibale_in_current_scope(
             ast::AstValueVariable* ref_from_variable,
             lang_ValueInstance* variable_instance);
+
+        opnum::opnumbase* IR_function_opnum(ast::AstValueFunction* func);
     };
 #endif
 }

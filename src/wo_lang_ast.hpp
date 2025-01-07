@@ -536,6 +536,7 @@ namespace wo
             AstFunctionParameterDeclare(AstPatternBase* m_pattern, std::optional<AstTypeHolder*> m_type);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
+        struct AstExternInformation;
         struct AstValueFunction : public AstValueBase
         {
             enum LANG_hold_state
@@ -594,6 +595,9 @@ namespace wo
                 m_LANG_determined_template_arguments;
 
             LANG_capture_context m_LANG_captured_context;
+
+            std::optional<const wchar_t*> m_IR_marked_function_name;
+            std::optional<AstExternInformation*> m_IR_extern_information;
 
             AstValueFunction(
                 const std::list<AstFunctionParameterDeclare*>& parameters,
@@ -1000,9 +1004,11 @@ namespace wo
         };
         struct AstExternInformation : public AstBase
         {
-            wo_pstring_t m_extern_symbol;
-            std::optional<wo_pstring_t> m_extern_from_library;
-            uint32_t m_attribute_flags;
+            wo_pstring_t                    m_extern_symbol;
+            std::optional<wo_pstring_t>     m_extern_from_library;
+            uint32_t                        m_attribute_flags;
+
+            std::optional<wo_native_func_t> m_IR_externed_function;
 
             enum extern_attribute : uint32_t
             {

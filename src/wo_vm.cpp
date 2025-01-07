@@ -468,7 +468,7 @@ namespace wo
                         tmpos << wo_cast_string((wo_value)&env->constant_global[data_4b])
                         << " : " << wo_type_name((wo_type)env->constant_global[data_4b].type);
                     else
-                        tmpos << "g[" << data_4b - env->constant_value_count << "]";
+                        tmpos << "global[" << data_4b - env->constant_value_count << "]";
                 }
             };
             auto print_opnum2 = [&]() {

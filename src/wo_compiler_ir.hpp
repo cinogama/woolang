@@ -1634,7 +1634,7 @@ namespace wo
             codeb.m_type = ir_param::type::IMM_U64;
             codeb.m_immu64 = val;
         }
-
+#undef WO_OPNUM
 #undef WO_PUT_IR_TO_BUFFER
         shared_pointer<runtime_env> finalize(size_t stacksz);
 

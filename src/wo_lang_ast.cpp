@@ -1086,6 +1086,8 @@ namespace wo
             return fnd->second.m_instance.get();
         }
 
+        ////////////////////////////////////////////////////////
+
         AstValueFunction::AstValueFunction(
             const std::list<AstFunctionParameterDeclare*>& parameters,
             bool is_variadic,
@@ -1105,6 +1107,8 @@ namespace wo
             , m_LANG_value_instance_to_update(std::nullopt)
             , m_LANG_in_template_reification_context(false)
             , m_LANG_determined_template_arguments(std::nullopt)
+            , m_IR_marked_function_name(std::nullopt)
+            , m_IR_extern_information(std::nullopt)
         {
             for (auto* param_define : parameters)
             {
@@ -2100,6 +2104,7 @@ namespace wo
             , m_extern_symbol(item.m_extern_symbol)
             , m_extern_from_library(item.m_extern_from_library)
             , m_attribute_flags(item.m_attribute_flags)
+            , m_IR_externed_function(std::nullopt)
         {
         }
         AstExternInformation::AstExternInformation(
@@ -2110,6 +2115,7 @@ namespace wo
             , m_extern_symbol(extern_symbol)
             , m_extern_from_library(extern_from_library)
             , m_attribute_flags(attribute_flags)
+            , m_IR_externed_function(std::nullopt)
         {
         }
         AstBase* AstExternInformation::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
