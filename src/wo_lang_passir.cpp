@@ -482,7 +482,7 @@ namespace wo
             }
         }
 
-        return OKAY;
+        return WO_EXCEPT_ERROR(state, OKAY);
     }
     WO_PASS_PROCESSER(AstValueVariable)
     {
@@ -601,7 +601,63 @@ namespace wo
                         && target_determined_type_instance->m_base_type
                         != lang_TypeInstance::DeterminedType::DYNAMIC)
                     {
+                        // Need runtime cast.
+                        value::valuetype cast_type;
+                        switch (target_determined_type_instance->m_base_type)
+                        {
+                        case lang_TypeInstance::DeterminedType::NIL:
+                            cast_type = value::valuetype::invalid;
+                            break;
+                        case lang_TypeInstance::DeterminedType::INTEGER:
+                            cast_type = value::valuetype::integer_type;
+                            break;
+                        case lang_TypeInstance::DeterminedType::REAL:
+                            cast_type = value::valuetype::real_type;
+                            break;
+                        case lang_TypeInstance::DeterminedType::HANDLE:
+                            cast_type = value::valuetype::handle_type;
+                            break;
+                        case lang_TypeInstance::DeterminedType::BOOLEAN:
+                            cast_type = value::valuetype::bool_type;
+                            break;
+                        case lang_TypeInstance::DeterminedType::STRING:
+                            cast_type = value::valuetype::string_type;
+                            break;
+                        case lang_TypeInstance::DeterminedType::GCHANDLE:
+                            cast_type = value::valuetype::gchandle_type;
+                            break;
+                        case lang_TypeInstance::DeterminedType::DICTIONARY:
+                            cast_type = value::valuetype::dict_type;
+                            break;
+                        case lang_TypeInstance::DeterminedType::ARRAY:
+                            cast_type = value::valuetype::array_type;
+                            break;
+                        default:
+                            wo_error("Unknown type.");
+                            break;
+                        }
 
+                        if (target_storage.has_value())
+                        {
+                            m_ircontext.c().movcast(
+                                WO_OPNUM(target_storage.value()),
+                                WO_OPNUM(opnum_to_cast),
+                                cast_type);
+                        }
+                        else
+                        {
+                            auto borrowed_reg = m_ircontext.borrow_opnum_temporary_register(lex, node);
+                            if (borrowed_reg.has_value())
+                            {
+                                m_ircontext.c().movcast(
+                                    WO_OPNUM(borrowed_reg.value()),
+                                    WO_OPNUM(opnum_to_cast),
+                                    cast_type);
+                                result.set_result(borrowed_reg.value());
+                            }
+                            else
+                                return false;
+                        }
                     }
                     else
                     {
@@ -626,7 +682,7 @@ namespace wo
                 return FAILED;
             }
         }
-
+        return WO_EXCEPT_ERROR(state, OKAY);
     }
 #undef WO_PASS_PROCESSER
 
