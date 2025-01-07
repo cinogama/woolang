@@ -1921,7 +1921,13 @@ namespace wo
     bool BytecodeGenerateContext::apply_eval_result(
         const std::function<bool(EvalResult&)>& bind_func) noexcept
     {
+    _label_refetch_request:
         auto& top_eval_state = m_eval_result_storage_target.top();
+        if (top_eval_state.m_request == EvalResult::Request::EVAL_FOR_UPPER)
+        {
+            m_eval_result_storage_target.pop();
+            goto _label_refetch_request;
+        }
 
         bool eval_result = true;
         if (!ignore_eval_result())
@@ -1947,7 +1953,13 @@ namespace wo
     {
         m_eval_result_storage_target.pop();
     }
-
+    void BytecodeGenerateContext::eval_for_upper()
+    {
+        m_eval_result_storage_target.push(EvalResult{
+            EvalResult::Request::EVAL_FOR_UPPER,
+            std::nullopt,
+            });
+    }
     void BytecodeGenerateContext::eval_keep()
     {
         m_eval_result_storage_target.push(EvalResult{
@@ -2124,6 +2136,16 @@ namespace wo
             std::make_pair(regid, std::make_unique<opnum::reg>(regid)))
             .first->second.get();
     }
+    opnum::temporary* BytecodeGenerateContext::opnum_temporary(uint32_t id) noexcept
+    {
+        auto fnd = m_opnum_cache_temporarys.find(id);
+        if (fnd != m_opnum_cache_temporarys.end())
+            return fnd->second.get();
+
+        return m_opnum_cache_temporarys.insert(
+            std::make_pair(id, std::make_unique<opnum::temporary>(id)))
+            .first->second.get();
+    }
 
     ir_compiler& BytecodeGenerateContext::c() noexcept
     {
@@ -2134,50 +2156,35 @@ namespace wo
         : m_opnum_cache_imm_true(std::make_unique<opnum::imm<bool>>(true))
         , m_opnum_cache_imm_false(std::make_unique<opnum::imm<bool>>(false))
         , m_global_storage_allocating(0)
-
     {
-        static_assert(opnum::reg::spreg::t0 == 0 && opnum::reg::spreg::r15 == 31);
-        for (auto& useable_flag : m_usable_temporary_registers)
-            useable_flag = true;
     }
-    std::optional<opnum::reg*> BytecodeGenerateContext::borrow_opnum_temporary_register(
-        lexer& lex, ast::AstBase* node) noexcept
+    opnum::temporary* BytecodeGenerateContext::borrow_opnum_temporary_register() noexcept
     {
-        for (uint8_t i = 0; i < 32; ++i)
+        for (uint32_t i = 0; i < UINT32_MAX; ++i)
         {
-            if (m_usable_temporary_registers[i])
+            if (m_inused_temporary_registers.find(i) == m_inused_temporary_registers.end())
             {
-                m_usable_temporary_registers[i] = false;
-                return opnum_spreg(static_cast<opnum::reg::spreg>(i));
+                m_inused_temporary_registers.insert(i);
+                return opnum_temporary(i);
             }
         }
-
-        lex.lang_error(lexer::errorlevel::error, node, WO_ERR_EXPR_TOO_COMPLEX);
-        return std::nullopt;
+        wo_error("Temporary register exhausted.");
     }
-    void BytecodeGenerateContext::keep_opnum_temporary_register(opnum::reg* reg) noexcept
+    void BytecodeGenerateContext::keep_opnum_temporary_register(opnum::temporary* reg) noexcept
     {
-        wo_assert(reg->id >= opnum::reg::spreg::t0
-            && reg->id <= opnum::reg::spreg::r15);
-
-        wo_assert(m_usable_temporary_registers[reg->id]);
-        m_usable_temporary_registers[reg->id] = false;
+        wo_assert(m_inused_temporary_registers.find(reg->m_id) == m_inused_temporary_registers.end());
+        m_inused_temporary_registers.insert(reg->m_id);
     }
-    void BytecodeGenerateContext::return_opnum_temporary_register(opnum::reg* reg) noexcept
+    void BytecodeGenerateContext::return_opnum_temporary_register(opnum::temporary* reg) noexcept
     {
-        wo_assert(reg->id >= opnum::reg::spreg::t0
-            && reg->id <= opnum::reg::spreg::r15);
-
-        wo_assert(!m_usable_temporary_registers[reg->id]);
-        m_usable_temporary_registers[reg->id] = true;
+        wo_assert(m_inused_temporary_registers.find(reg->m_id) != m_inused_temporary_registers.end());
+        m_inused_temporary_registers.erase(reg->m_id);
     }
     void BytecodeGenerateContext::try_keep_opnum_temporary_register(
         opnum::opnumbase* opnum_may_reg) noexcept
     {
-        auto* reg = dynamic_cast<opnum::reg*>(opnum_may_reg);
-        if (reg != nullptr
-            && reg->id >= opnum::reg::spreg::t0
-            && reg->id <= opnum::reg::spreg::r15)
+        auto* reg = dynamic_cast<opnum::temporary*>(opnum_may_reg);
+        if (reg != nullptr)
         {
             keep_opnum_temporary_register(reg);
         }
@@ -2185,10 +2192,8 @@ namespace wo
     void BytecodeGenerateContext::try_return_opnum_temporary_register(
         opnum::opnumbase* opnum_may_reg) noexcept
     {
-        auto* reg = dynamic_cast<opnum::reg*>(opnum_may_reg);
-        if (reg != nullptr
-            && reg->id >= opnum::reg::spreg::t0
-            && reg->id <= opnum::reg::spreg::r15)
+        auto* reg = dynamic_cast<opnum::temporary*>(opnum_may_reg);
+        if (reg != nullptr)
         {
             return_opnum_temporary_register(reg);
         }
@@ -2213,8 +2218,8 @@ namespace wo
     {
         return m_result;
     }
-    bool BytecodeGenerateContext::EvalResult::set_result(
-        BytecodeGenerateContext& ctx, lexer& lex, ast::AstBase* node, opnum::opnumbase* result) noexcept
+    void BytecodeGenerateContext::EvalResult::set_result(
+        BytecodeGenerateContext& ctx, opnum::opnumbase* result) noexcept
     {
         wo_assert(m_request == Request::GET_RESULT_OPNUM_ONLY
             || m_request == Request::GET_RESULT_OPNUM_AND_KEEP
@@ -2227,21 +2232,17 @@ namespace wo
                 && reg->id >= opnum::reg::spreg::cr
                 && reg->id <= opnum::reg::spreg::last_special_register)
             {
-                auto borrowed_reg = ctx.borrow_opnum_temporary_register(lex, node);
-                if (!borrowed_reg.has_value())
-                    // Failed to allocate temporary register.
-                    return false;
+                auto* borrowed_reg = ctx.borrow_opnum_temporary_register();
 
                 ctx.c().mov(
-                    *(opnum::opnumbase*)borrowed_reg.value(), 
+                    *(opnum::opnumbase*)borrowed_reg,
                     *(opnum::opnumbase*)result);
-                
-                m_result = borrowed_reg.value();
-                return true;
+
+                m_result = borrowed_reg;
+                return;
             }
         }
         m_result = result;
-        return true;
     }
 #endif
 }

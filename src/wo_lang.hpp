@@ -457,11 +457,11 @@ namespace wo
         std::unordered_map<
             uint8_t,
             std::unique_ptr<opnum::reg>> m_opnum_cache_reg_and_stack_offset;
+        std::unordered_map<
+            int32_t,
+            std::unique_ptr<opnum::temporary>> m_opnum_cache_temporarys;
 
-        // Here will storage all use able temporary registers.
-        // ATTENTION: They will never used in bytecode generated post, all temporary registers will be
-        //      updated and be replaced by stack offset after function finalized;
-        bool m_usable_temporary_registers[32];
+        std::set<int32_t> m_inused_temporary_registers;
 
         // Mutable context
         struct EvalResult
@@ -481,6 +481,8 @@ namespace wo
                 GET_RESULT_OPNUM_AND_KEEP,
                 // Push the result opnum into stack, then ignore the result.
                 PUSH_RESULT_AND_IGNORE_RESULT,
+                // Donot eval for this request, get last one.
+                EVAL_FOR_UPPER,
                 // Simply ignore the result
                 IGNORE_RESULT,
             };
@@ -492,7 +494,7 @@ namespace wo
             std::optional<opnum::opnumbase*> m_result;
 
             const std::optional<opnum::opnumbase*>& get_assign_target() noexcept;
-            bool set_result(BytecodeGenerateContext& ctx, lexer& lex, ast::AstBase* node, opnum::opnumbase* result) noexcept;
+            void set_result(BytecodeGenerateContext& ctx, opnum::opnumbase* result) noexcept;
         };
         std::stack<EvalResult> m_eval_result_storage_target;
         std::stack<EvalResult> m_evaled_result_storage;
@@ -501,6 +503,7 @@ namespace wo
 
         // Functions
         void eval();
+        void eval_for_upper();
         void eval_keep();
         void eval_push();
         void eval_to(opnum::opnumbase* target);
@@ -527,10 +530,11 @@ namespace wo
         opnum::tag* opnum_tag(const std::string& value) noexcept;
         opnum::reg* opnum_spreg(opnum::reg::spreg value) noexcept;
         opnum::reg* opnum_stack_offset(int8_t value) noexcept;
+        opnum::temporary* opnum_temporary(uint32_t id) noexcept;
 
-        std::optional<opnum::reg*> borrow_opnum_temporary_register(lexer& lex, ast::AstBase* node) noexcept;
-        void keep_opnum_temporary_register(opnum::reg* reg) noexcept;
-        void return_opnum_temporary_register(opnum::reg* reg) noexcept;
+        opnum::temporary* borrow_opnum_temporary_register() noexcept;
+        void keep_opnum_temporary_register(opnum::temporary* reg) noexcept;
+        void return_opnum_temporary_register(opnum::temporary* reg) noexcept;
         void try_keep_opnum_temporary_register(opnum::opnumbase* opnum_may_reg) noexcept;
         void try_return_opnum_temporary_register(opnum::opnumbase* opnum_may_reg) noexcept;
 

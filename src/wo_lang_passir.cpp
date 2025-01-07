@@ -102,11 +102,7 @@ namespace wo
             if (tuple_member_offset.has_value())
             {
                 uint16_t index = tuple_member_offset.value();
-                auto borrowed_reg = m_ircontext.borrow_opnum_temporary_register(lex, pattern_tuple);
-                if (!borrowed_reg.has_value())
-                    return false;
-
-                tuple_source = borrowed_reg.value();
+                tuple_source = m_ircontext.borrow_opnum_temporary_register();
                 m_ircontext.c().idstruct(WO_OPNUM(tuple_source), WO_OPNUM(opnumval), index);
             }
             else
@@ -180,13 +176,13 @@ namespace wo
         // WO_LANG_REGISTER_PROCESSER(AstExternInformation, AstBase::AST_EXTERN_INFORMATION, passir_A);
         WO_LANG_REGISTER_PROCESSER(AstNop, AstBase::AST_EXTERN_INFORMATION, passir_A);
 
-        // WO_LANG_REGISTER_PROCESSER(AstValueMarkAsMutable, AstBase::AST_VALUE_MARK_AS_MUTABLE, passir_B);
-        // WO_LANG_REGISTER_PROCESSER(AstValueMarkAsImmutable, AstBase::AST_VALUE_MARK_AS_IMMUTABLE, passir_B);
+        WO_LANG_REGISTER_PROCESSER(AstValueMarkAsMutable, AstBase::AST_VALUE_MARK_AS_MUTABLE, passir_B);
+        WO_LANG_REGISTER_PROCESSER(AstValueMarkAsImmutable, AstBase::AST_VALUE_MARK_AS_IMMUTABLE, passir_B);
         WO_LANG_REGISTER_PROCESSER(AstValueLiteral, AstBase::AST_VALUE_LITERAL, passir_B);
         WO_LANG_REGISTER_PROCESSER(AstValueTypeid, AstBase::AST_VALUE_TYPEID, passir_B);
         WO_LANG_REGISTER_PROCESSER(AstValueTypeCast, AstBase::AST_VALUE_TYPE_CAST, passir_B);
         WO_LANG_REGISTER_PROCESSER(AstValueTypeCheckIs, AstBase::AST_VALUE_TYPE_CHECK_IS, passir_B);
-        // WO_LANG_REGISTER_PROCESSER(AstValueTypeCheckAs, AstBase::AST_VALUE_TYPE_CHECK_AS, passir_B);
+        WO_LANG_REGISTER_PROCESSER(AstValueTypeCheckAs, AstBase::AST_VALUE_TYPE_CHECK_AS, passir_B);
         WO_LANG_REGISTER_PROCESSER(AstValueVariable, AstBase::AST_VALUE_VARIABLE, passir_B);
         // WO_LANG_REGISTER_PROCESSER(AstValueFunctionCall, AstBase::AST_VALUE_FUNCTION_CALL, passir_B);
         // WO_LANG_REGISTER_PROCESSER(AstValueBinaryOperator, AstBase::AST_VALUE_BINARY_OPERATOR, passir_B);
@@ -420,7 +416,7 @@ namespace wo
                         WO_OPNUM(function_opnum));
                 }
                 else
-                    result.set_result(m_ircontext, lex, node, function_opnum);
+                    result.set_result(m_ircontext, function_opnum);
 
                 return true;
             }
@@ -461,14 +457,8 @@ namespace wo
                         make_result_target = asigned_target.value();
                     else
                     {
-                        auto borrowed_reg = m_ircontext.borrow_opnum_temporary_register(lex, node);
-                        if (borrowed_reg.has_value())
-                            make_result_target = borrowed_reg.value();
-                        else
-                            // Unable to borrow register.
-                            return false;
-
-                        result.set_result(m_ircontext, lex, node, make_result_target);
+                        make_result_target = m_ircontext.borrow_opnum_temporary_register();
+                        result.set_result(m_ircontext, make_result_target);
                     }
 
                     m_ircontext.c().mkstruct(
@@ -504,7 +494,7 @@ namespace wo
                             WO_OPNUM(function_opnum));
                     }
                     else
-                        result.set_result(m_ircontext, lex, node, function_opnum);
+                        result.set_result(m_ircontext, function_opnum);
 
                     return true;
                 }))
@@ -546,7 +536,7 @@ namespace wo
                         WO_OPNUM(storage_opnum));
                 }
                 else
-                    result.set_result(m_ircontext, lex, node, storage_opnum);
+                    result.set_result(m_ircontext, storage_opnum);
 
                 return true;
             }))
@@ -556,6 +546,117 @@ namespace wo
         }
 
         return OKAY;
+    }
+    WO_PASS_PROCESSER(AstValueMarkAsMutable)
+    {
+        if (state == UNPROCESSED)
+        {
+            m_ircontext.eval_for_upper();
+            WO_CONTINUE_PROCESS(node->m_marked_value);
+            return HOLD;
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstValueMarkAsImmutable)
+    {
+        if (state == UNPROCESSED)
+        {
+            m_ircontext.eval_for_upper();
+            WO_CONTINUE_PROCESS(node->m_marked_value);
+            return HOLD;
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstValueTypeCheckAs)
+    {
+        if (state == UNPROCESSED)
+        {
+            auto* src_type_instance =
+                node->m_check_value->m_LANG_determined_type.value();
+
+            if (immutable_type(src_type_instance) == m_origin_types.m_dynamic.m_type_instance)
+                m_ircontext.eval_sth_if_not_ignore(&BytecodeGenerateContext::eval);
+            else
+                m_ircontext.eval_for_upper();
+
+            WO_CONTINUE_PROCESS(node->m_check_value);
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            auto* src_type_instance =
+                node->m_check_value->m_LANG_determined_type.value();
+
+            if (immutable_type(src_type_instance)
+                == m_origin_types.m_dynamic.m_type_instance)
+            {
+                if (!m_ircontext.apply_eval_result(
+                    [&](BytecodeGenerateContext::EvalResult& result)
+                    {
+                        auto* opnum_to_check = m_ircontext.get_eval_result();
+                        // Runtime check here.
+
+                        auto* target_type_instance =
+                            node->m_check_type->m_LANG_determined_type.value();
+                        auto* target_determined_type_instance =
+                            target_type_instance->get_determined_type().value();
+
+                        value::valuetype check_type;
+                        switch (target_determined_type_instance->m_base_type)
+                        {
+                        case lang_TypeInstance::DeterminedType::NIL:
+                            check_type = value::valuetype::invalid;
+                            break;
+                        case lang_TypeInstance::DeterminedType::INTEGER:
+                            check_type = value::valuetype::integer_type;
+                            break;
+                        case lang_TypeInstance::DeterminedType::REAL:
+                            check_type = value::valuetype::real_type;
+                            break;
+                        case lang_TypeInstance::DeterminedType::HANDLE:
+                            check_type = value::valuetype::handle_type;
+                            break;
+                        case lang_TypeInstance::DeterminedType::BOOLEAN:
+                            check_type = value::valuetype::bool_type;
+                            break;
+                        case lang_TypeInstance::DeterminedType::STRING:
+                            check_type = value::valuetype::string_type;
+                            break;
+                        case lang_TypeInstance::DeterminedType::GCHANDLE:
+                            check_type = value::valuetype::gchandle_type;
+                            break;
+                        case lang_TypeInstance::DeterminedType::DICTIONARY:
+                            check_type = value::valuetype::dict_type;
+                            break;
+                        case lang_TypeInstance::DeterminedType::ARRAY:
+                            check_type = value::valuetype::array_type;
+                        default:
+                            wo_error("Unknown type.");
+                            break;
+                        }
+                        m_ircontext.c().typeas(WO_OPNUM(opnum_to_check), check_type);
+
+                        auto target_storage = result.get_assign_target();
+                        if (target_storage.has_value())
+                        {
+                            m_ircontext.c().mov(
+                                WO_OPNUM(target_storage.value()),
+                                WO_OPNUM(opnum_to_check));
+                        }
+                        else
+                        {
+                            m_ircontext.try_keep_opnum_temporary_register(opnum_to_check);
+                            result.set_result(m_ircontext, opnum_to_check);
+                        }
+                        return true;
+                    }))
+                {
+                    // Eval failed.
+                    return FAILED;
+                }
+            }
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
     }
     WO_PASS_PROCESSER(AstValueTypeCheckIs)
     {
@@ -630,7 +731,7 @@ namespace wo
                     else
                     {
                         result.set_result(
-                            m_ircontext, lex, node, m_ircontext.opnum_spreg(opnum::reg::spreg::cr));
+                            m_ircontext, m_ircontext.opnum_spreg(opnum::reg::spreg::cr));
                     }
                     return true;
                 }))
@@ -726,7 +827,7 @@ namespace wo
                             {
                                 // Return a junk value.
                                 result.set_result(
-                                    m_ircontext, lex, node, m_ircontext.opnum_spreg(opnum::reg::spreg::ni));
+                                    m_ircontext, m_ircontext.opnum_spreg(opnum::reg::spreg::ni));
                             }
                             return true;
                         }
@@ -748,17 +849,13 @@ namespace wo
                         }
                         else
                         {
-                            auto borrowed_reg = m_ircontext.borrow_opnum_temporary_register(lex, node);
-                            if (borrowed_reg.has_value())
-                            {
-                                m_ircontext.c().movcast(
-                                    WO_OPNUM(borrowed_reg.value()),
-                                    WO_OPNUM(opnum_to_cast),
-                                    cast_type);
-                                result.set_result(m_ircontext, lex, node, borrowed_reg.value());
-                            }
-                            else
-                                return false;
+                            auto* borrowed_reg = m_ircontext.borrow_opnum_temporary_register();
+
+                            m_ircontext.c().movcast(
+                                WO_OPNUM(borrowed_reg),
+                                WO_OPNUM(opnum_to_cast),
+                                cast_type);
+                            result.set_result(m_ircontext, borrowed_reg);
                         }
                     }
                     else
@@ -776,7 +873,7 @@ namespace wo
                         else
                         {
                             m_ircontext.try_keep_opnum_temporary_register(opnum_to_cast);
-                            result.set_result(m_ircontext, lex, node, opnum_to_cast);
+                            result.set_result(m_ircontext, opnum_to_cast);
                         }
                     }
 
@@ -852,7 +949,7 @@ namespace wo
                     if (asigned_target.has_value())
                         m_ircontext.c().mov(WO_OPNUM(asigned_target.value()), WO_OPNUM(immediately_value));
                     else
-                        result.set_result(m_ircontext, lex, ast_value, immediately_value);
+                        result.set_result(m_ircontext, immediately_value);
 
                     return true;
                 }))

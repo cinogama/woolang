@@ -64,7 +64,7 @@ namespace wo
 
                     for (; pattern_iter != pattern_end; ++pattern_iter, ++type_iter)
                         success = success && update_pattern_symbol_variable_type_pass1(
-                            lex, *pattern_iter, std::nullopt, *type_iter);
+                            lex, *pattern_iter, std::nullopt, immutable_type(*type_iter));
 
                     return success;
                 }
@@ -2788,7 +2788,7 @@ namespace wo
 
                 // Finished, all job done!.
                 node->m_LANG_determined_type =
-                    target_function_type_instance_determined_base_type_function->m_return_type;
+                    immutable_type(target_function_type_instance_determined_base_type_function->m_return_type);
 
                 break;
             }

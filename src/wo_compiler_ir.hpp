@@ -56,7 +56,14 @@ namespace wo
                 return 4;
             }
         };
-
+        struct temporary : virtual opnumbase
+        {
+            uint32_t m_id;
+            temporary(uint32_t id) noexcept
+                : m_id(id)
+            {
+            }
+        };
         struct reg :virtual opnumbase
         {
             // REGID
@@ -108,17 +115,10 @@ namespace wo
                 return static_cast<uint8_t>(
                     0b10000000ui8 | static_cast<uint8_t>(offset));
             }
-
-            bool is_tmp_regist() const
-            {
-                return id >= opnum::reg::t0 && id <= opnum::reg::r15;
-            }
-
             bool is_bp_offset() const
             {
                 return id & (uint8_t)0b10000000;
             }
-
             int8_t get_bp_offset() const
             {
                 wo_assert(is_bp_offset());
@@ -126,7 +126,6 @@ namespace wo
                 return WO_SIGNED_SHIFT(id);
 #undef WO_SIGNED_SHIFT
             }
-
             size_t generate_opnum_to_buffer(cxx_vec_t<byte_t>& buffer) const override
             {
                 buffer.push_back(id);
@@ -655,7 +654,7 @@ namespace wo
 #define WO_IS_REG(OPNUM)(dynamic_cast<const opnum::reg*>(OPNUM))
             uint8_t dr()
             {
-                return (WO_IS_REG(op1) ? 0b00000010ui8 : 0ui8) 
+                return (WO_IS_REG(op1) ? 0b00000010ui8 : 0ui8)
                     | (WO_IS_REG(op2) ? 0b00000001ui8 : 0ui8);
             }
 #undef WO_IS_REG
@@ -1438,32 +1437,53 @@ namespace wo
 
             WO_PUT_IR_TO_BUFFER(instruct::opcode::iddict, WO_OPNUM(op1), WO_OPNUM(op2));
         }
-        template<typename OP1T, typename OP2T>
-        void siddict(const OP1T& op1, const OP2T& op2, const opnum::reg& r)
+        template<typename OP1T, typename OP2T, typename OP3T>
+        void siddict(const OP1T& op1, const OP2T& op2, const OP3T& r)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
                 && std::is_base_of<opnum::opnumbase, OP2T>::value,
                 "Argument(s) should be opnum.");
 
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::siddict, WO_OPNUM(op1), WO_OPNUM(op2), (int32_t)r.id);
+            static_assert(std::is_same<OP3T, opnum::reg>::value
+                || std::is_same<OP3T, opnum::temporary>::value,
+                "Argument r should be reg or temporary.");
+
+            if constexpr (std::is_same<OP3T, opnum::reg>::value)
+                WO_PUT_IR_TO_BUFFER(instruct::opcode::siddict, WO_OPNUM(op1), WO_OPNUM(op2), (int32_t)r.id);
+            else
+                WO_PUT_IR_TO_BUFFER(instruct::opcode::sidarr, WO_OPNUM(op1), WO_OPNUM(op2), -(int32_t)(r.m_id + 1));
         }
-        template<typename OP1T, typename OP2T>
-        void sidmap(const OP1T& op1, const OP2T& op2, const opnum::reg& r)
+        template<typename OP1T, typename OP2T, typename OP3T>
+        void sidmap(const OP1T& op1, const OP2T& op2, const OP3T& r)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
                 && std::is_base_of<opnum::opnumbase, OP2T>::value,
                 "Argument(s) should be opnum.");
 
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::sidmap, WO_OPNUM(op1), WO_OPNUM(op2), (int32_t)r.id);
+            static_assert(std::is_same<OP3T, opnum::reg>::value
+                || std::is_same<OP3T, opnum::temporary>::value,
+                "Argument r should be reg or temporary.");
+
+            if constexpr (std::is_same<OP3T, opnum::reg>::value)
+                WO_PUT_IR_TO_BUFFER(instruct::opcode::sidmap, WO_OPNUM(op1), WO_OPNUM(op2), (int32_t)r.id);
+            else
+                WO_PUT_IR_TO_BUFFER(instruct::opcode::sidarr, WO_OPNUM(op1), WO_OPNUM(op2), -(int32_t)(r.m_id + 1));
         }
-        template<typename OP1T, typename OP2T>
-        void sidarr(const OP1T& op1, const OP2T& op2, const opnum::reg& r)
+        template<typename OP1T, typename OP2T, typename OP3T>
+        void sidarr(const OP1T& op1, const OP2T& op2, const OP3T& r)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
                 && std::is_base_of<opnum::opnumbase, OP2T>::value,
                 "Argument(s) should be opnum.");
 
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::sidarr, WO_OPNUM(op1), WO_OPNUM(op2), (int32_t)r.id);
+            static_assert(std::is_same<OP3T, opnum::reg>::value
+                || std::is_same<OP3T, opnum::temporary>::value,
+                "Argument r should be reg or temporary.");
+
+            if constexpr (std::is_same<OP3T, opnum::reg>::value)
+                WO_PUT_IR_TO_BUFFER(instruct::opcode::sidarr, WO_OPNUM(op1), WO_OPNUM(op2), (int32_t)r.id);
+            else
+                WO_PUT_IR_TO_BUFFER(instruct::opcode::sidarr, WO_OPNUM(op1), WO_OPNUM(op2), -(int32_t)(r.m_id + 1));
         }
         template<typename OP1T, typename OP2T>
         void sidstruct(const OP1T& op1, const OP2T& op2, uint16_t offset)
