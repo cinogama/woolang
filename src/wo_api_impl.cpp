@@ -3249,7 +3249,9 @@ wo_value wo_dispatch(
     if (vmm->env)
     {
         wo_assert(vmm->tc->type == wo::value::valuetype::integer_type);
-        auto dispatch_context = vmm->er->vmcallstack;
+        
+        auto origin_tc = (++(vmm->sp))->integer;
+        auto origin_spbp = (++(vmm->sp))->vmcallstack;
 
         auto dispatch_result = vmm->run();
 
@@ -3275,13 +3277,16 @@ wo_value wo_dispatch(
 
         if (vmm->get_and_clear_br_yield_flag())
         {
-            vmm->er->set_callstack(dispatch_context.ret_ip, dispatch_context.bp);
+            (vmm->sp++)->set_callstack(origin_spbp.ret_ip, origin_spbp.bp);
+            (vmm->sp++)->set_integer(origin_tc);
+
             return WO_CONTINUE;
         }
         else
         {
-            vmm->sp += dispatch_context.ret_ip; // ret_ip stores argc
-            vmm->bp = vmm->stack_mem_begin - dispatch_context.bp;
+            vmm->sp = vmm->stack_mem_begin - origin_spbp.ret_ip;
+            vmm->bp = vmm->stack_mem_begin - origin_spbp.bp;
+            vmm->tc->set_integer(origin_tc);
 
             vmm->set_br_yieldable(false);
 

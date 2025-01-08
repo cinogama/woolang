@@ -34,30 +34,24 @@ namespace wo
         return m_ircontext.opnum_imm_rsfunc(result);
     }
 
-    bool LangContext::update_allocate_instance_storage_passir(
-        lexer& lex,
+    void LangContext::update_allocate_global_instance_storage_passir(
         lang_ValueInstance* instance)
     {
         // Instance must not have storage.
-        wo_assert(!instance->m_IR_storage.has_value());
+        if (instance->m_IR_storage.has_value())
+            return;
 
         lang_Symbol* symbol = instance->m_symbol;
-        if (symbol->m_is_global ||
+        wo_assert(symbol->m_is_global ||
             (symbol->m_declare_attribute.has_value()
                 && symbol->m_declare_attribute.value()->m_lifecycle.has_value()
-                && symbol->m_declare_attribute.value()->m_lifecycle.value() == AstDeclareAttribue::lifecycle_attrib::STATIC))
-        {
-            // Global or staitc, allocate global storage.
-            instance->m_IR_storage = lang_ValueInstance::Storage{
-                lang_ValueInstance::lang_ValueInstance::Storage::GLOBAL,
-                m_ircontext.m_global_storage_allocating++
-            };
-        }
-        else
-        {
-            wo_error("TODO;");
-        }
-        return true;
+                && symbol->m_declare_attribute.value()->m_lifecycle.value() == AstDeclareAttribue::lifecycle_attrib::STATIC));
+
+        // Global or staitc, allocate global storage.
+        instance->m_IR_storage = lang_ValueInstance::Storage{
+            lang_ValueInstance::lang_ValueInstance::Storage::GLOBAL,
+            m_ircontext.m_global_storage_allocating++
+        };
     }
 
     bool LangContext::update_instance_storage_and_code_gen_passir(
@@ -66,19 +60,44 @@ namespace wo
         opnum::opnumbase* opnumval,
         const std::optional<uint16_t>& tuple_member_offset)
     {
-        if (!update_allocate_instance_storage_passir(lex, instance))
-            return false;
+        update_allocate_global_instance_storage_passir(instance);
 
-        auto* target_storage =
-            m_ircontext.get_storage_place(instance->m_IR_storage.value());
+        auto& storage = instance->m_IR_storage.value();
 
-        if (tuple_member_offset.has_value())
+        if (storage.m_type == lang_ValueInstance::Storage::GLOBAL
+            || (storage.m_index >= -64 && storage.m_index <= 63))
         {
-            uint16_t index = tuple_member_offset.value();
-            m_ircontext.c().idstruct(WO_OPNUM(target_storage), WO_OPNUM(opnumval), index);
+            auto* target_storage =
+                m_ircontext.get_storage_place(storage);
+
+            if (tuple_member_offset.has_value())
+            {
+                uint16_t index = tuple_member_offset.value();
+                m_ircontext.c().idstruct(WO_OPNUM(target_storage), WO_OPNUM(opnumval), index);
+            }
+            else
+                m_ircontext.c().mov(WO_OPNUM(target_storage), WO_OPNUM(opnumval));
         }
         else
-            m_ircontext.c().mov(WO_OPNUM(target_storage), WO_OPNUM(opnumval));
+        {
+            if (tuple_member_offset.has_value())
+            {
+                auto* tmp = m_ircontext.borrow_opnum_temporary_register();
+
+                uint16_t index = tuple_member_offset.value();
+                m_ircontext.c().idstruct(WO_OPNUM(tmp), WO_OPNUM(opnumval), index);
+                m_ircontext.c().sts(
+                    WO_OPNUM(tmp),
+                    WO_OPNUM(m_ircontext.opnum_imm_int(storage.m_index)));
+
+                m_ircontext.return_opnum_temporary_register(tmp);
+            }
+            else
+                m_ircontext.c().sts(
+                    WO_OPNUM(opnumval), 
+                    WO_OPNUM(m_ircontext.opnum_imm_int(storage.m_index)));
+        }
+        
         return true;
     }
     bool LangContext::update_pattern_storage_and_code_gen_passir(
@@ -200,8 +219,8 @@ namespace wo
         // WO_LANG_REGISTER_PROCESSER(AstValueVariadicArgumentsPack, AstBase::AST_VALUE_VARIADIC_ARGUMENTS_PACK, passir_B);
         // WO_LANG_REGISTER_PROCESSER(AstValueIndex, AstBase::AST_VALUE_INDEX, passir_B);
         WO_LANG_REGISTER_PROCESSER(AstValueFunction, AstBase::AST_VALUE_FUNCTION, passir_B);
-        // WO_LANG_REGISTER_PROCESSER(AstValueArrayOrVec, AstBase::AST_VALUE_ARRAY_OR_VEC, passir_B);
-        // WO_LANG_REGISTER_PROCESSER(AstValueDictOrMap, AstBase::AST_VALUE_DICT_OR_MAP, passir_B);
+        WO_LANG_REGISTER_PROCESSER(AstValueArrayOrVec, AstBase::AST_VALUE_ARRAY_OR_VEC, passir_B);
+        WO_LANG_REGISTER_PROCESSER(AstValueDictOrMap, AstBase::AST_VALUE_DICT_OR_MAP, passir_B);
         WO_LANG_REGISTER_PROCESSER(AstValueTuple, AstBase::AST_VALUE_TUPLE, passir_B);
         // WO_LANG_REGISTER_PROCESSER(AstValueStruct, AstBase::AST_VALUE_STRUCT, passir_B);
         // WO_LANG_REGISTER_PROCESSER(AstValueAssign, AstBase::AST_VALUE_ASSIGN, passir_B);
@@ -246,6 +265,11 @@ namespace wo
                     pattern_symbol->m_template_value_instances->m_template_instances)
                 {
                     (void)_useless;
+
+                    if (template_instance->m_state == lang_TemplateAstEvalStateValue::FAILED)
+                        continue; // Skip failed template instance.
+                       
+                    wo_assert(template_instance->m_state == lang_TemplateAstEvalStateValue::EVALUATED);
 
                     lang_ValueInstance* template_value_instance = template_instance->m_value_instance.get();
                     if (!template_value_instance->IR_need_storage())
@@ -368,6 +392,8 @@ namespace wo
         wo_assert(state == UNPROCESSED);
         if (node->m_body->node_type == AstBase::AST_EXTERN_INFORMATION)
         {
+            wo_assert(node->m_LANG_captured_context.m_captured_variables.empty());
+
             AstExternInformation* extern_info = static_cast<AstExternInformation*>(node->m_body);
             wo_native_func_t extern_function;
             if (extern_info->m_extern_from_library.has_value())
@@ -419,27 +445,36 @@ namespace wo
             m_ircontext.m_being_used_function_instance.insert(node);
         }
 
-        auto* function_opnum = IR_function_opnum(node);
-
-        if (!m_ircontext.apply_eval_result(
-            [&](BytecodeGenerateContext::EvalResult& result)
-            {
-                auto target_storage = result.get_assign_target();
-                if (target_storage.has_value())
-                {
-                    m_ircontext.c().mov(
-                        WO_OPNUM(target_storage.value()),
-                        WO_OPNUM(function_opnum));
-                }
-                else
-                    result.set_result(m_ircontext, function_opnum);
-
-                return true;
-            }
-        ))
+        if (node->m_LANG_captured_context.m_captured_variables.empty())
         {
-            // Eval failed.
-            return FAILED;
+            // Simple normal function
+            auto* function_opnum = IR_function_opnum(node);
+
+            if (!m_ircontext.apply_eval_result(
+                [&](BytecodeGenerateContext::EvalResult& result)
+                {
+                    auto target_storage = result.get_assign_target();
+                    if (target_storage.has_value())
+                    {
+                        m_ircontext.c().mov(
+                            WO_OPNUM(target_storage.value()),
+                            WO_OPNUM(function_opnum));
+                    }
+                    else
+                        result.set_result(m_ircontext, function_opnum);
+
+                    return true;
+                }
+            ))
+            {
+                // Eval failed.
+                return FAILED;
+            }
+        }
+        else
+        {
+            // Need capture.
+            wo_error("TODO;");
         }
 
         return OKAY;
@@ -514,6 +549,105 @@ namespace wo
             }
         }
 
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstValueDictOrMap)
+    {
+        if (state == UNPROCESSED)
+        {
+            auto rit_field_end = node->m_elements.rend();
+            for (auto rit_field = node->m_elements.rbegin();
+                rit_field != rit_field_end;
+                ++rit_field)
+            {
+                auto* field_value = *rit_field;
+
+                m_ircontext.eval_sth_if_not_ignore(
+                    &BytecodeGenerateContext::eval_push);
+
+                WO_CONTINUE_PROCESS(field_value->m_value);
+
+                m_ircontext.eval_sth_if_not_ignore(
+                    &BytecodeGenerateContext::eval_push);
+
+                WO_CONTINUE_PROCESS(field_value->m_key);
+            }
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            // Field has been pushed into stack.
+            if (!m_ircontext.apply_eval_result(
+                [&](BytecodeGenerateContext::EvalResult& result)
+                {
+                    opnum::opnumbase* make_result_target = nullptr;
+
+                    auto& asigned_target = result.get_assign_target();
+                    if (asigned_target.has_value())
+                        make_result_target = asigned_target.value();
+                    else
+                    {
+                        make_result_target = m_ircontext.borrow_opnum_temporary_register();
+                        result.set_result(m_ircontext, make_result_target);
+                    }
+
+                    uint16_t elem_count = (uint16_t)node->m_elements.size();
+                    m_ircontext.c().mkmap(WO_OPNUM(make_result_target), elem_count);
+
+                    return true;
+                }))
+            {
+                // Eval failed.
+                return FAILED;
+            }
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstValueArrayOrVec)
+    {
+        if (state == UNPROCESSED)
+        {
+            auto rit_field_end = node->m_elements.rend();
+            for (auto rit_field = node->m_elements.rbegin();
+                rit_field != rit_field_end;
+                ++rit_field)
+            {
+                auto* field_value = *rit_field;
+
+                m_ircontext.eval_sth_if_not_ignore(
+                    &BytecodeGenerateContext::eval_push);
+
+                WO_CONTINUE_PROCESS(field_value);
+            }
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            // Field has been pushed into stack.
+            if (!m_ircontext.apply_eval_result(
+                [&](BytecodeGenerateContext::EvalResult& result)
+                {
+                    opnum::opnumbase* make_result_target = nullptr;
+
+                    auto& asigned_target = result.get_assign_target();
+                    if (asigned_target.has_value())
+                        make_result_target = asigned_target.value();
+                    else
+                    {
+                        make_result_target = m_ircontext.borrow_opnum_temporary_register();
+                        result.set_result(m_ircontext, make_result_target);
+                    }
+
+                    uint16_t elem_count = (uint16_t)node->m_elements.size();
+                    m_ircontext.c().mkarr(WO_OPNUM(make_result_target), elem_count);
+
+                    return true;
+                }))
+            {
+                // Eval failed.
+                return FAILED;
+            }
+        }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
     WO_PASS_PROCESSER(AstValueFunctionCall)
@@ -692,27 +826,62 @@ namespace wo
             return FAILED;
         }
 
-        auto* storage_opnum =
-            m_ircontext.get_storage_place(value_instance->m_IR_storage.value());
+        auto& variable_storage = value_instance->m_IR_storage.value();
 
-        if (!m_ircontext.apply_eval_result(
-            [&](BytecodeGenerateContext::EvalResult& result)
-            {
-                auto target_storage = result.get_assign_target();
-                if (target_storage.has_value())
-                {
-                    m_ircontext.c().mov(
-                        WO_OPNUM(target_storage.value()),
-                        WO_OPNUM(storage_opnum));
-                }
-                else
-                    result.set_result(m_ircontext, storage_opnum);
-
-                return true;
-            }))
+        if (variable_storage.m_type == lang_ValueInstance::Storage::GLOBAL
+            || (variable_storage.m_index >= -64 && variable_storage.m_index <= 63))
         {
-            // Eval failed.
-            return FAILED;
+            // In global or stack range, we can use direct access.
+            auto* storage_opnum =
+                m_ircontext.get_storage_place(variable_storage);
+
+            if (!m_ircontext.apply_eval_result(
+                [&](BytecodeGenerateContext::EvalResult& result)
+                {
+                    auto target_storage = result.get_assign_target();
+                    if (target_storage.has_value())
+                    {
+                        m_ircontext.c().mov(
+                            WO_OPNUM(target_storage.value()),
+                            WO_OPNUM(storage_opnum));
+                    }
+                    else
+                        result.set_result(m_ircontext, storage_opnum);
+
+                    return true;
+                }))
+            {
+                // Eval failed.
+                return FAILED;
+            }
+        }
+        else
+        {
+            if (!m_ircontext.apply_eval_result(
+                [&](BytecodeGenerateContext::EvalResult& result)
+                {
+                    auto target_storage = result.get_assign_target();
+                    if (target_storage.has_value())
+                    {
+                        m_ircontext.c().lds(
+                            WO_OPNUM(target_storage.value()),
+                            WO_OPNUM(m_ircontext.opnum_imm_int(variable_storage.m_index)));
+                    }
+                    else
+                    {
+                        auto* storage_opnum = m_ircontext.borrow_opnum_temporary_register();
+                        m_ircontext.c().lds(
+                            WO_OPNUM(storage_opnum),
+                            WO_OPNUM(m_ircontext.opnum_imm_int(variable_storage.m_index)));
+                        result.set_result(m_ircontext, storage_opnum);
+                    }
+
+                    return true;
+                }))
+            {
+                // Eval failed.
+                return FAILED;
+            }
         }
 
         return OKAY;
@@ -1087,12 +1256,14 @@ namespace wo
 
                         for (uint16_t i = 0; i < tuple_elem_count; ++i)
                         {
+                            auto* tmp = m_ircontext.borrow_opnum_temporary_register();
                             m_ircontext.c().idstruct(
-                                WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tp)),
+                                WO_OPNUM(tmp),
                                 WO_OPNUM(unpacking_opnum),
                                 i);
-                            m_ircontext.c().psh(
-                                WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tp)));
+                            m_ircontext.c().psh(WO_OPNUM(tmp));
+
+                            m_ircontext.return_opnum_temporary_register(tmp);
 
                         }
                         m_ircontext.try_return_opnum_temporary_register(unpacking_opnum);
@@ -1162,14 +1333,16 @@ namespace wo
             else
                 return FAILED;
         }
-        wo_assert(m_passir_A_processers->check_has_processer(node_state.m_ast_node->node_type));
+        wo_assert(node_state.m_ast_node->node_type == AstBase::AST_EMPTY
+            || m_passir_A_processers->check_has_processer(node_state.m_ast_node->node_type));
         return m_passir_A_processers->process_node(this, lex, node_state, out_stack);
     }
     LangContext::pass_behavior LangContext::pass_final_B_process_bytecode_generation(
         lexer& lex, const AstNodeWithState& node_state, PassProcessStackT& out_stack)
     {
         // PASS1 must process all nodes.
-        wo_assert(m_passir_B_processers->check_has_processer(node_state.m_ast_node->node_type));
+        wo_assert(node_state.m_ast_node->node_type == AstBase::AST_EMPTY
+            || m_passir_B_processers->check_has_processer(node_state.m_ast_node->node_type));
         wo_assert(node_state.m_ast_node->node_type >= AstBase::AST_VALUE_begin && node_state.m_ast_node->node_type < AstBase::AST_VALUE_end);
 
         AstValueBase* ast_value = static_cast<AstValueBase*>(node_state.m_ast_node);

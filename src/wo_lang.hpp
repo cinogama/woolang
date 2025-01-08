@@ -960,8 +960,7 @@ namespace wo
             // NOTE: If template pattern, init_value_type will not able to be determined.
             // So here is optional.
             const std::optional<lang_TypeInstance*>& init_value_type);
-        bool update_allocate_instance_storage_passir(
-            lexer& lex,
+        void update_allocate_global_instance_storage_passir(
             lang_ValueInstance* instance);
         bool update_instance_storage_and_code_gen_passir(
             lexer& lex,

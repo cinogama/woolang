@@ -1017,6 +1017,8 @@ namespace wo
             // Begin new function.
             begin_new_function(node);
 
+            node->m_LANG_function_scope = get_current_scope();
+
             WO_CONTINUE_PROCESS_LIST(node->m_parameters);
             return HOLD;
         }
@@ -4701,7 +4703,9 @@ namespace wo
         }
 
         // PASS1 must process all nodes.
-        wo_assert(m_pass1_processers->check_has_processer(node_state.m_ast_node->node_type));
+        wo_assert(
+            node_state.m_ast_node->node_type == AstBase::AST_EMPTY
+            || m_pass1_processers->check_has_processer(node_state.m_ast_node->node_type));
 
         auto result = m_pass1_processers->process_node(this, lex, node_state, out_stack);
         node_state.m_ast_node->finished_state = result;

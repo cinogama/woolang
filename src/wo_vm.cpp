@@ -745,7 +745,7 @@ namespace wo
                         tmpos << "cdivir\t"; print_opnum1();
                         break;
                     case instruct::extern_opcode_page_0::popn:
-                        tmpos << "popn";  print_opnum1();
+                        tmpos << "popn\t";  print_opnum1();
                         break;
                     default:
                         tmpos << "??\t";
@@ -1033,12 +1033,20 @@ namespace wo
         {
             assure_stack_size(1);
             auto* return_sp = sp;
+            auto return_tc = tc->integer;
 
             (sp--)->set_native_callstack(ip);
             ip = env->rt_codes + wo_func_addr;
             tc->set_integer(argc);
-            er->set_callstack((uint32_t)argc, (uint32_t)(stack_mem_begin - bp));
+
             bp = sp;
+
+            // Push return place.
+            (sp--)->set_callstack(
+                (uint32_t)(stack_mem_begin - return_sp),
+                (uint32_t)(stack_mem_begin - bp));
+            // Push origin tc.
+            (sp--)->set_integer(return_tc);
         }
     }
     void vmbase::co_pre_invoke(wo_handle_t ex_func_addr, wo_int_t argc)noexcept
@@ -1051,12 +1059,20 @@ namespace wo
         {
             assure_stack_size(1);
             auto* return_sp = sp;
+            auto return_tc = tc->integer;
 
             (sp--)->set_native_callstack(ip);
             ip = (const byte_t*)ex_func_addr;
             tc->set_integer(argc);
-            er->set_callstack((uint32_t)argc, (uint32_t)(stack_mem_begin - bp));
+
             bp = sp;
+
+            // Push return place.
+            (sp--)->set_callstack(
+                (uint32_t)(stack_mem_begin - return_sp),
+                (uint32_t)(stack_mem_begin - bp));
+            // Push origin tc.
+            (sp--)->set_integer(return_tc);
         }
     }
     void vmbase::co_pre_invoke(closure_t* wo_func_addr, wo_int_t argc)noexcept
@@ -1068,10 +1084,10 @@ namespace wo
         else
         {
             wo::gcbase::gc_read_guard rg1(wo_func_addr);
-
             assure_stack_size((size_t)wo_func_addr->m_closure_args_count + 1);
 
             auto* return_sp = sp;
+            auto return_tc = tc->integer;
 
             for (auto idx = wo_func_addr->m_closure_args_count; idx > 0; --idx)
                 (sp--)->set_val(&wo_func_addr->m_closure_args[idx - 1]);
@@ -1081,8 +1097,15 @@ namespace wo
                 ? (const byte_t*)wo_func_addr->m_native_func
                 : env->rt_codes + wo_func_addr->m_vm_func;
             tc->set_integer(argc);
-            er->set_callstack((uint32_t)argc, (uint32_t)(stack_mem_begin - bp));
+
             bp = sp;
+
+            // Push return place.
+            (sp--)->set_callstack(
+                (uint32_t)(stack_mem_begin - return_sp),
+                (uint32_t)(stack_mem_begin - bp));
+            // Push origin tc.
+            (sp--)->set_integer(return_tc);
         }
     }
     value* vmbase::invoke(wo_int_t wo_func_addr, wo_int_t argc)noexcept

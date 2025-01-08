@@ -1086,6 +1086,93 @@ namespace wo
             m_origin_types.create_dictionary_type(m_origin_types.m_dynamic.m_type_instance, m_origin_types.m_dynamic.m_type_instance);
     }
 
+    int32_t _assign_storage_for_instance(lang_ValueInstance* value_instance, int32_t offset)
+    {
+        if (value_instance->IR_need_storage()
+            && !value_instance->m_IR_storage.has_value())
+        {
+            value_instance->m_IR_storage =
+                lang_ValueInstance::Storage{
+                    lang_ValueInstance::Storage::STACKOFFSET,
+                    offset,
+            };
+            return offset + 1;
+        }
+
+        // No need for storage.
+        return offset;
+    }
+    void _assign_storage_for_local_variable_instance(
+        lang_Scope* scope, int32_t stack_assign_offset)
+    {
+        int32_t next_assign_offset = stack_assign_offset;
+
+        auto next_it_sub_scope = scope->m_sub_scopes.begin();
+        size_t next_it_sub_scope_head_edge =
+            (*next_it_sub_scope)->m_visibility_from_edge_for_template_check;
+
+        std::vector<lang_Symbol*> local_symbols_in_this_scope(
+            scope->m_defined_symbols.size());
+
+        lang_Symbol** applying_symbol_place = local_symbols_in_this_scope.data();
+        for (auto& [_useless, symbol] : scope->m_defined_symbols)
+        {
+            (void)_useless;
+            *(applying_symbol_place++) = symbol.get();
+        }
+
+        std::sort(
+            local_symbols_in_this_scope.begin(),
+            local_symbols_in_this_scope.end(),
+            [](lang_Symbol* a, lang_Symbol* b)
+            {
+                return a->m_symbol_edge < b->m_symbol_edge;
+            });
+
+        // Ok, let's rock!.
+        for (auto* symbol : local_symbols_in_this_scope)
+        {
+            if (symbol->m_symbol_edge > next_it_sub_scope_head_edge)
+            {
+                _assign_storage_for_local_variable_instance(
+                    (*next_it_sub_scope).get(), next_assign_offset);
+            }
+
+            if (symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE
+                && !(symbol->m_is_global ||
+                    (symbol->m_declare_attribute.has_value()
+                        && symbol->m_declare_attribute.value()->m_lifecycle.has_value()
+                        && symbol->m_declare_attribute.value()->m_lifecycle.value()
+                        == ast::AstDeclareAttribue::lifecycle_attrib::STATIC)))
+            {
+                // Only local & varible need storage.
+                if (symbol->m_is_template)
+                {
+                    for (auto& [_useless, template_instance] : symbol->m_template_value_instances->m_template_instances)
+                    {
+                        (void)_useless;
+                        if (template_instance->m_state == lang_TemplateAstEvalStateValue::FAILED)
+                            continue; // Skip failed template instance.
+
+                        wo_assert(template_instance->m_state == lang_TemplateAstEvalStateValue::EVALUATED);
+
+                        next_assign_offset =
+                            _assign_storage_for_instance(
+                                template_instance->m_value_instance.get(),
+                                next_assign_offset);
+                    }
+                }
+                else
+                {
+                    next_assign_offset = 
+                        _assign_storage_for_instance(
+                            symbol->m_value_instance, 
+                            next_assign_offset);
+                }
+            }
+        }
+    }
+
     bool LangContext::process(lexer& lex, ast::AstBase* root)
     {
         pass_0_5_register_builtin_types();
@@ -1099,6 +1186,7 @@ namespace wo
         // Final process, generate bytecode.
 
         // Do something for prepare.
+        // final.1 Finalize global codes.
         size_t global_block_begin_place = m_ircontext.c().get_now_ip();
         auto global_reserving_ip = m_ircontext.c().reserved_stackvalue();
 
@@ -1107,6 +1195,74 @@ namespace wo
 
         auto used_tmp_regs = m_ircontext.c().update_all_temp_regist_to_stack(&m_ircontext, global_block_begin_place);
         m_ircontext.c().reserved_stackvalue(global_reserving_ip, used_tmp_regs); // set reserved size
+
+        // final.2 Finalize function codes.
+        for (;;)
+        {
+            auto functions_to_finalize =
+                std::move(m_ircontext.m_being_used_function_instance);
+            m_ircontext.m_being_used_function_instance.clear();
+
+            for (ast::AstValueFunction* eval_function : functions_to_finalize)
+            {
+                if (!m_ircontext.m_processed_function_instance.insert(
+                    eval_function).second)
+                    // Already processed.
+                    continue;
+
+                m_ircontext.c().ext_funcbegin();
+
+                size_t this_function_block_begin_place = m_ircontext.c().get_now_ip();
+                auto this_function_reserving_ip = m_ircontext.c().reserved_stackvalue();
+
+                /////////////////////////////////
+
+                // 0. Addressing for simple parameter settings
+                int32_t argument_place = 2;
+                for (auto* param_decls : eval_function->m_parameters)
+                {
+                    if (param_decls->m_pattern->node_type == ast::AstBase::AST_PATTERN_SINGLE)
+                    {
+                        ast::AstPatternSingle* pattern_single =
+                            static_cast<ast::AstPatternSingle*>(param_decls->m_pattern);
+
+                        if (!pattern_single->m_is_mutable)
+                        {
+                            // Immutable pattern single argument.
+                            lang_Symbol* symbol = pattern_single->m_LANG_declared_symbol.value();
+
+                            wo_assert(!symbol->m_is_template && symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE);
+                            symbol->m_value_instance->m_IR_storage =
+                                lang_ValueInstance::Storage{
+                                     lang_ValueInstance::Storage::STACKOFFSET,
+                                     argument_place,
+                            };
+                        }
+                    }
+                    ++argument_place;
+                }
+                // 1. Addressing for local variable settings
+                lang_Scope* function_scope = eval_function->m_LANG_function_scope.value();
+
+                _assign_storage_for_local_variable_instance(
+                    eval_function->m_LANG_function_scope.value(), 0);
+
+                // 2. Assign value arguments.
+                TODO;
+
+                /////////////////////////////////
+
+                auto this_function_used_tmp_regs = 
+                    m_ircontext.c().update_all_temp_regist_to_stack(&m_ircontext, this_function_block_begin_place);
+                m_ircontext.c().reserved_stackvalue(this_function_reserving_ip, this_function_used_tmp_regs); // set reserved size
+
+                m_ircontext.c().ext_funcend();
+
+            }
+        }
+
+
+
 
         // TEST CODE BEGIN
 
@@ -2221,6 +2377,7 @@ namespace wo
         case lang_ValueInstance::Storage::GLOBAL:
             return opnum_global(storage.m_index);
         case lang_ValueInstance::Storage::STACKOFFSET:
+            wo_assert(storage.m_index >= -64 && storage.m_index <= 63);
             return opnum_stack_offset(storage.m_index);
         default:
             wo_error("Unexpected storage kind");

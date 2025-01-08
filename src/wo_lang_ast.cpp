@@ -1111,6 +1111,7 @@ namespace wo
             , m_LANG_value_instance_to_update(std::nullopt)
             , m_LANG_in_template_reification_context(false)
             , m_LANG_determined_template_arguments(std::nullopt)
+            , m_LANG_function_scope(std::nullopt)
             , m_IR_marked_function_name(std::nullopt)
             , m_IR_extern_information(std::nullopt)
         {
