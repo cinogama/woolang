@@ -132,3 +132,4 @@
 #define WO_ERR_NON_VOID_TYPE_EXPR_AS_STMT L"非 'void' 类型 (此处是 '%ls') 的表达式不能作为语句，这可能导致表达式的结果被意外忽略"
 #define WO_ERR_VARIBALE_STORAGE_NOT_DETERMINED L"依赖了尚未完成初始化的变量 '%ls'"
 #define WO_ERR_UNABLE_TO_FIND_EXTERN_FUNCTION L"无法在库 '%ls' 找到外部函数 '%ls'"
+#define WO_ERR_CANNOT_UNPACK_HERE L"只能在函数的参数列表或元组元素列表中展开参数包"

@@ -583,6 +583,7 @@ namespace wo
             : AstValueBase(AST_VALUE_TYPE_CHECK_AS)
             , m_check_type(check_type)
             , m_check_value(check_value)
+            , m_IR_dynamic_need_runtime_check(false)
         {
 
         }
@@ -678,6 +679,8 @@ namespace wo
             , m_LANG_hold_state(UNPROCESSED)
             , m_LANG_target_function_need_deduct_template_arguments(false)
             , m_LANG_branch_argument_deduction_context(std::nullopt)
+            , m_LANG_invoking_variadic_function(false)
+            , m_IR_invoking_function_near(std::nullopt)
         {
 
         }
@@ -780,7 +783,8 @@ namespace wo
         AstFakeValueUnpack::AstFakeValueUnpack(AstValueBase* unpack_value)
             : AstValueBase(AST_FAKE_VALUE_UNPACK)
             , m_unpack_value(unpack_value)
-            , m_LANG_need_to_be_unpack_count_FOR_RUNTIME_CHECK(std::nullopt)
+            , m_IR_need_to_be_unpack_count(std::nullopt)
+            , m_IR_unpack_method(SHOULD_NOT_UNPACK)
         {
         }
         AstBase* AstFakeValueUnpack::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const

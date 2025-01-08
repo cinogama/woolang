@@ -1584,6 +1584,17 @@ namespace wo
             codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::cdivir;
         }
 
+        template<typename OP1T>
+        void ext_popn(const OP1T& op1)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value,
+                "Argument(s) should be opnum.");
+
+            auto& codeb = WO_PUT_IR_TO_BUFFER(instruct::opcode::ext, WO_OPNUM(op1));
+            codeb.ext_page_id = 0;
+            codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::popn;
+        }
+
         ir_param& _new_ir_param()
         {
             auto& codeb = ir_command_buffer.emplace_back();

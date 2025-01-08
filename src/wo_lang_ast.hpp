@@ -253,6 +253,8 @@ namespace wo
             AstTypeHolder* m_check_type;
             AstValueBase* m_check_value;
 
+            bool m_IR_dynamic_need_runtime_check;
+
             AstValueTypeCheckAs(AstTypeHolder* check_type, AstValueBase* check_value);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
         };
@@ -324,6 +326,7 @@ namespace wo
             AstValueFunctionCall_FakeAstArgumentDeductionContextB();
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
         };
+        struct AstValueFunction;
         struct AstValueFunctionCall : public AstValueBase
         {
             enum LANG_hold_state
@@ -348,6 +351,9 @@ namespace wo
                 AstValueFunctionCall_FakeAstArgumentDeductionContextA*,
                 AstValueFunctionCall_FakeAstArgumentDeductionContextB*>>
                 m_LANG_branch_argument_deduction_context;
+            bool m_LANG_invoking_variadic_function;
+            std::optional<AstValueFunction*> m_IR_invoking_function_near;
+            std::optional<wo_integer_t> m_IR_certenly_function_argument_count;
 
             AstValueFunctionCall(bool direct, AstValueBase* function, const std::list<AstValueBase*>& arguments);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
@@ -427,11 +433,23 @@ namespace wo
         };
         struct AstFakeValueUnpack : public AstValueBase
         {
+            enum IR_unpack_method
+            {
+                SHOULD_NOT_UNPACK,
+                UNPACK_FOR_FUNCTION_CALL,
+                UNPACK_FOR_TUPLE
+            };
+            struct IR_unpack_requirement
+            {
+                size_t m_require_unpack_count;
+                bool m_unpack_all;
+            };
+
             AstValueBase* m_unpack_value;
 
-            std::optional<size_t> 
-                m_LANG_need_to_be_unpack_count_FOR_RUNTIME_CHECK; 
-
+            std::optional<IR_unpack_requirement> m_IR_need_to_be_unpack_count;
+            IR_unpack_method m_IR_unpack_method;
+           
             AstFakeValueUnpack(AstValueBase* unpack_value);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
         };

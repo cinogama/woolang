@@ -8,7 +8,15 @@ namespace wo
     using namespace ast;
 
 #define WO_OPNUM(opnumptr) (*static_cast<opnum::opnumbase*>(opnumptr))
+    std::string _generate_label(const std::string& prefix, const void* p)
+    {
+        char result[128];
+        auto r = snprintf(result, 128, "%s_%p", prefix.c_str(), p);
+        if (r < 0 || r >= 128)
+            wo_error("Failed to generate label.");
 
+        return result;
+    }
     opnum::opnumbase* LangContext::IR_function_opnum(AstValueFunction* func)
     {
         if (func->m_IR_extern_information.has_value())
@@ -184,11 +192,11 @@ namespace wo
         WO_LANG_REGISTER_PROCESSER(AstValueTypeCheckIs, AstBase::AST_VALUE_TYPE_CHECK_IS, passir_B);
         WO_LANG_REGISTER_PROCESSER(AstValueTypeCheckAs, AstBase::AST_VALUE_TYPE_CHECK_AS, passir_B);
         WO_LANG_REGISTER_PROCESSER(AstValueVariable, AstBase::AST_VALUE_VARIABLE, passir_B);
-        // WO_LANG_REGISTER_PROCESSER(AstValueFunctionCall, AstBase::AST_VALUE_FUNCTION_CALL, passir_B);
+        WO_LANG_REGISTER_PROCESSER(AstValueFunctionCall, AstBase::AST_VALUE_FUNCTION_CALL, passir_B);
         // WO_LANG_REGISTER_PROCESSER(AstValueBinaryOperator, AstBase::AST_VALUE_BINARY_OPERATOR, passir_B);
         // WO_LANG_REGISTER_PROCESSER(AstValueUnaryOperator, AstBase::AST_VALUE_UNARY_OPERATOR, passir_B);
         // WO_LANG_REGISTER_PROCESSER(AstValueTribleOperator, AstBase::AST_VALUE_TRIBLE_OPERATOR, passir_B);
-        // WO_LANG_REGISTER_PROCESSER(AstFakeValueUnpack, AstBase::AST_FAKE_VALUE_UNPACK, passir_B);
+        WO_LANG_REGISTER_PROCESSER(AstFakeValueUnpack, AstBase::AST_FAKE_VALUE_UNPACK, passir_B);
         // WO_LANG_REGISTER_PROCESSER(AstValueVariadicArgumentsPack, AstBase::AST_VALUE_VARIADIC_ARGUMENTS_PACK, passir_B);
         // WO_LANG_REGISTER_PROCESSER(AstValueIndex, AstBase::AST_VALUE_INDEX, passir_B);
         WO_LANG_REGISTER_PROCESSER(AstValueFunction, AstBase::AST_VALUE_FUNCTION, passir_B);
@@ -395,6 +403,14 @@ namespace wo
                 }
             }
 
+            m_ircontext.c().record_extern_native_function(
+                (intptr_t)(void*)extern_info->m_IR_externed_function.value(),
+                *node->source_location.source_file,
+                extern_info->m_extern_from_library.has_value()
+                    ? std::optional(*extern_info->m_extern_from_library.value())
+                    : std::nullopt, 
+                *extern_info->m_extern_symbol);
+
             node->m_IR_extern_information = extern_info;
         }
         else
@@ -437,10 +453,19 @@ namespace wo
                 rit_field != rit_field_end;
                 ++rit_field)
             {
-                m_ircontext.eval_sth_if_not_ignore(
-                    &BytecodeGenerateContext::eval_push);
+                auto* field_value = *rit_field;
 
-                WO_CONTINUE_PROCESS(*rit_field);
+                if (field_value->node_type == AstBase::AST_FAKE_VALUE_UNPACK)
+                {
+                    m_ircontext.eval_sth_if_not_ignore(
+                        &BytecodeGenerateContext::eval_action);
+                }
+                else
+                {
+                    m_ircontext.eval_sth_if_not_ignore(
+                        &BytecodeGenerateContext::eval_push);
+                }
+                WO_CONTINUE_PROCESS(field_value);
             }
             return HOLD;
         }
@@ -461,8 +486,25 @@ namespace wo
                         result.set_result(m_ircontext, make_result_target);
                     }
 
+                    uint16_t elem_count = (uint16_t)node->m_elements.size();
+                    for (auto* elem_field : node->m_elements)
+                    {
+                        if (elem_field->node_type == AstBase::AST_FAKE_VALUE_UNPACK)
+                        {
+                            auto* unpacking_tuple_determined_type =
+                                elem_field->m_LANG_determined_type.value()->get_determined_type().value();
+
+                            wo_assert(unpacking_tuple_determined_type->m_base_type == lang_TypeInstance::DeterminedType::TUPLE);
+                            auto* tuple_info = unpacking_tuple_determined_type->m_external_type_description.m_tuple;
+                            uint16_t tuple_elem_count = (uint16_t)tuple_info->m_element_types.size();
+
+                            --elem_count;
+                            elem_count += tuple_elem_count;
+                        }
+                    }
+
                     m_ircontext.c().mkstruct(
-                        WO_OPNUM(make_result_target), (uint16_t)node->m_elements.size());
+                        WO_OPNUM(make_result_target), elem_count);
 
                     return true;
                 }))
@@ -472,6 +514,134 @@ namespace wo
             }
         }
 
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstValueFunctionCall)
+    {
+        if (state == UNPROCESSED)
+        {
+            bool argument_count_is_sured = true;
+            wo_integer_t argument_count_for_variadic_call = 0;
+            for (auto* arguments : node->m_arguments)
+            {
+                // Functions arguments will be pushed into stack inversely.
+                // So here we eval them by origin order, stack pop will be in reverse order.
+
+                if (arguments->node_type == AstBase::AST_FAKE_VALUE_UNPACK)
+                {
+                    m_ircontext.eval_action();
+                    AstFakeValueUnpack* unpack = static_cast<AstFakeValueUnpack*>(arguments);
+
+                    auto& unpack_context = unpack->m_IR_need_to_be_unpack_count.value();
+                    if (!unpack_context.m_unpack_all)
+                        argument_count_for_variadic_call += unpack_context.m_require_unpack_count;
+                    else
+                        argument_count_is_sured = false;
+                }
+                else
+                {
+                    m_ircontext.eval_push();
+                    ++argument_count_for_variadic_call;
+                }
+
+                WO_CONTINUE_PROCESS(arguments);
+            }
+
+            if (node->m_LANG_invoking_variadic_function)
+            {
+                m_ircontext.c().psh(WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tc)));
+                m_ircontext.c().mov(
+                    WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tc)),
+                    WO_OPNUM(m_ircontext.opnum_imm_int(argument_count_for_variadic_call)));
+            }
+            if (argument_count_is_sured)
+                node->m_IR_certenly_function_argument_count = argument_count_for_variadic_call;
+
+            if (node->m_function->node_type == AstBase::AST_VALUE_VARIABLE)
+            {
+                AstValueVariable* func_var = static_cast<AstValueVariable*>(node->m_function);
+                auto ir_normal_function_instance = func_var->m_LANG_variable_instance.value()->m_IR_normal_function;
+
+                // If no captured variables, we can call near.
+                node->m_IR_invoking_function_near = ir_normal_function_instance;
+            }
+            else if (node->m_function->node_type == AstBase::AST_VALUE_FUNCTION)
+            {
+                ast::AstValueFunction* invoking_target_function = static_cast<ast::AstValueFunction*>(node->m_function);
+                if (invoking_target_function->m_LANG_captured_context.m_captured_variables.empty())
+                {
+                    // No captured variables, we can call near.
+                    node->m_IR_invoking_function_near = invoking_target_function;
+
+                    // What ever, we still need compiler known this function.
+                    m_ircontext.eval_ignore();
+                    WO_CONTINUE_PROCESS(node->m_function);
+                }
+            }
+
+            if (!node->m_IR_invoking_function_near.has_value())
+            {
+                // We need eval it.
+                m_ircontext.eval_keep();
+                WO_CONTINUE_PROCESS(node->m_function);
+            }
+
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            if (node->m_IR_invoking_function_near.has_value())
+            {
+                AstValueFunction* invoking_function = node->m_IR_invoking_function_near.value();
+                wo_assert(invoking_function->m_LANG_captured_context.m_captured_variables.empty());
+
+                if (invoking_function->m_IR_extern_information.has_value()
+                    && 0 == (invoking_function->m_IR_extern_information.value()->m_attribute_flags & AstExternInformation::SLOW))
+                {
+                    m_ircontext.c().callfast(invoking_function->m_IR_extern_information.value()->m_IR_externed_function.value());
+                }
+                else
+                    m_ircontext.c().call(WO_OPNUM(IR_function_opnum(invoking_function)));
+            }
+            else
+            {
+                auto* opnumbase = m_ircontext.get_eval_result();
+                m_ircontext.c().call(WO_OPNUM(opnumbase));
+            }
+
+            if (node->m_IR_certenly_function_argument_count.has_value())
+                m_ircontext.c().pop(
+                    node->m_IR_certenly_function_argument_count.value());
+            else
+                m_ircontext.c().ext_popn(
+                    WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tc)));
+
+            if (node->m_LANG_invoking_variadic_function)
+                m_ircontext.c().pop(
+                    WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tc)));
+
+            // Ok, invoke finished.
+            if (!m_ircontext.apply_eval_result(
+                [&](BytecodeGenerateContext::EvalResult& result)
+                {
+                    auto target_storage = result.get_assign_target();
+                    if (target_storage.has_value())
+                    {
+                        m_ircontext.c().mov(
+                            WO_OPNUM(target_storage.value()),
+                            WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::cr)));
+                    }
+                    else
+                        result.set_result(
+                            m_ircontext, m_ircontext.opnum_spreg(opnum::reg::cr));
+
+                    return true;
+                }))
+            {
+                // Eval failed.
+                return FAILED;
+            }
+        }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
     WO_PASS_PROCESSER(AstValueVariable)
@@ -571,10 +741,7 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
-            auto* src_type_instance =
-                node->m_check_value->m_LANG_determined_type.value();
-
-            if (immutable_type(src_type_instance) == m_origin_types.m_dynamic.m_type_instance)
+            if (node->m_IR_dynamic_need_runtime_check)
                 m_ircontext.eval_sth_if_not_ignore(&BytecodeGenerateContext::eval);
             else
                 m_ircontext.eval_for_upper();
@@ -584,11 +751,7 @@ namespace wo
         }
         else if (state == HOLD)
         {
-            auto* src_type_instance =
-                node->m_check_value->m_LANG_determined_type.value();
-
-            if (immutable_type(src_type_instance)
-                == m_origin_types.m_dynamic.m_type_instance)
+            if (node->m_IR_dynamic_need_runtime_check)
             {
                 if (!m_ircontext.apply_eval_result(
                     [&](BytecodeGenerateContext::EvalResult& result)
@@ -877,6 +1040,80 @@ namespace wo
                         }
                     }
 
+                    return true;
+                }))
+            {
+                // Eval failed.
+                return FAILED;
+            }
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstFakeValueUnpack)
+    {
+        if (state == UNPROCESSED)
+        {
+            if (node->m_IR_unpack_method == AstFakeValueUnpack::SHOULD_NOT_UNPACK)
+            {
+                lex.lang_error(lexer::errorlevel::error, node,
+                    WO_ERR_CANNOT_UNPACK_HERE);
+
+                return FAILED;
+            }
+
+            m_ircontext.eval_sth_if_not_ignore(
+                &BytecodeGenerateContext::eval);
+
+            WO_CONTINUE_PROCESS(node->m_unpack_value);
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            if (!m_ircontext.apply_eval_result(
+                [&](BytecodeGenerateContext::EvalResult& result)
+                {
+                    auto* unpacking_opnum = m_ircontext.get_eval_result();
+
+                    if (node->m_IR_unpack_method == AstFakeValueUnpack::UNPACK_FOR_TUPLE)
+                    {
+                        m_ircontext.try_keep_opnum_temporary_register(unpacking_opnum);
+
+                        auto* unpacking_tuple_determined_type =
+                            node->m_LANG_determined_type.value()->get_determined_type().value();
+
+                        wo_assert(unpacking_tuple_determined_type->m_base_type == lang_TypeInstance::DeterminedType::TUPLE);
+                        auto* tuple_info = unpacking_tuple_determined_type->m_external_type_description.m_tuple;
+                        uint16_t tuple_elem_count = (uint16_t)tuple_info->m_element_types.size();
+
+                        for (uint16_t i = 0; i < tuple_elem_count; ++i)
+                        {
+                            m_ircontext.c().idstruct(
+                                WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tp)),
+                                WO_OPNUM(unpacking_opnum),
+                                i);
+                            m_ircontext.c().psh(
+                                WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tp)));
+
+                        }
+                        m_ircontext.try_return_opnum_temporary_register(unpacking_opnum);
+                    }
+                    else
+                    {
+                        const auto& unpack_requirement = node->m_IR_need_to_be_unpack_count.value();
+
+                        if (unpack_requirement.m_unpack_all)
+                            m_ircontext.c().unpackargs(
+                                WO_OPNUM(unpacking_opnum),
+                                -(int32_t)unpack_requirement.m_require_unpack_count);
+                        else
+                        {
+                            // If require to unpack 0 argument, just skip & ignore.
+                            if (unpack_requirement.m_require_unpack_count != 0)
+                                m_ircontext.c().unpackargs(
+                                    WO_OPNUM(unpacking_opnum),
+                                    (int32_t)unpack_requirement.m_require_unpack_count);
+                        }
+                    }
                     return true;
                 }))
             {

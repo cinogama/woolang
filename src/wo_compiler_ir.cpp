@@ -1879,6 +1879,12 @@ namespace wo
                             WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
                             break;
                         }
+                        case instruct::extern_opcode_page_0::popn:
+                        {
+                            generated_runtime_code_buf.push_back(WO_OPCODE_EXT0(popn));
+                            WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                            break;
+                        }
                         default:
                             wo_error("Unknown instruct.");
                             break;

@@ -1935,14 +1935,21 @@ namespace wo
             eval_result = bind_func(top_eval_state);
             if (eval_result)
             {
-                if (top_eval_state.m_request == EvalResult::Request::PUSH_RESULT_AND_IGNORE_RESULT)
+                switch (top_eval_state.m_request)
+                {
+                case EvalResult::Request::EVAL_PURE_ACTION:
+                    // Pure action, do nothing.
+                    break;
+                case EvalResult::Request::PUSH_RESULT_AND_IGNORE_RESULT:
                 {
                     opnum::opnumbase* result_opnum = top_eval_state.m_result.value();
                     try_return_opnum_temporary_register(result_opnum);
                     c().psh(*result_opnum);
+                    break;
                 }
-                else
+                default:
                     m_evaled_result_storage.emplace(std::move(top_eval_state));
+                }
             }
         }
         m_eval_result_storage_target.pop();
@@ -1952,6 +1959,13 @@ namespace wo
     void BytecodeGenerateContext::failed_eval_result() noexcept
     {
         m_eval_result_storage_target.pop();
+    }
+    void BytecodeGenerateContext::eval_action()
+    {
+        m_eval_result_storage_target.push(EvalResult{
+            EvalResult::Request::EVAL_PURE_ACTION,
+            std::nullopt,
+            });
     }
     void BytecodeGenerateContext::eval_for_upper()
     {

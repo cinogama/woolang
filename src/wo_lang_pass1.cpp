@@ -1346,6 +1346,8 @@ namespace wo
                 auto determined_type = element->m_LANG_determined_type.value();
                 if (element->node_type == AstBase::AST_FAKE_VALUE_UNPACK)
                 {
+                    auto* unpack = static_cast<AstFakeValueUnpack*>(element);
+                    unpack->m_IR_unpack_method = AstFakeValueUnpack::UNPACK_FOR_TUPLE;
                     auto* determined_base_type_instance = determined_type->get_determined_type().value();
                     // Unpacks base has been check in AstFakeValueUnpack.
 
@@ -2695,6 +2697,9 @@ namespace wo
                 auto& target_function_param_types =
                     target_function_type_instance_determined_base_type_function->m_param_types;
 
+                node->m_LANG_invoking_variadic_function = 
+                    target_function_type_instance_determined_base_type_function->m_is_variadic;
+
                 std::list<std::pair<lang_TypeInstance*, AstValueBase*>> argument_types;
                 bool expaned_array_or_vec = false;
 
@@ -2703,6 +2708,7 @@ namespace wo
                     if (argument_value->node_type == AstBase::AST_FAKE_VALUE_UNPACK)
                     {
                         AstFakeValueUnpack* unpack = static_cast<AstFakeValueUnpack*>(argument_value);
+                        unpack->m_IR_unpack_method = AstFakeValueUnpack::UNPACK_FOR_FUNCTION_CALL;
                         auto* unpacked_value_determined_value =
                             unpack->m_unpack_value->m_LANG_determined_type.value()->get_determined_type().value();
 
@@ -2715,7 +2721,11 @@ namespace wo
                             const size_t elem_count_to_be_expand =
                                 target_function_param_types.size() - argument_types.size();
 
-                            unpack->m_LANG_need_to_be_unpack_count_FOR_RUNTIME_CHECK = elem_count_to_be_expand;
+                            unpack->m_IR_need_to_be_unpack_count =
+                                AstFakeValueUnpack::IR_unpack_requirement{
+                                    elem_count_to_be_expand,
+                                     node->m_LANG_invoking_variadic_function,
+                            };
                             break;
                         }
                         case lang_TypeInstance::DeterminedType::TUPLE:
@@ -2729,6 +2739,11 @@ namespace wo
                                     std::make_pair(type, unpack->m_unpack_value));
                             }
 
+                            unpack->m_IR_need_to_be_unpack_count =
+                                AstFakeValueUnpack::IR_unpack_requirement{
+                                    tuple_determined_type->m_element_types.size(),
+                                    false,
+                            };
                             break;
                         }
                         default:
@@ -2754,7 +2769,7 @@ namespace wo
                     return FAILED;
                 }
                 else if (argument_types.size() > target_function_param_types.size()
-                    && !target_function_type_instance_determined_base_type_function->m_is_variadic)
+                    && !node->m_LANG_invoking_variadic_function)
                 {
                     lex.lang_error(lexer::errorlevel::error, node,
                         WO_ERR_ARGUMENT_TOO_MUCH);
@@ -2921,6 +2936,7 @@ namespace wo
                     return FAILED;
                 }
                 // Dynamic type, do check in runtime.
+                node->m_IR_dynamic_need_runtime_check = true;
             }
             else
             {

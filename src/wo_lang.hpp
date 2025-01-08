@@ -483,6 +483,8 @@ namespace wo
                 PUSH_RESULT_AND_IGNORE_RESULT,
                 // Donot eval for this request, get last one.
                 EVAL_FOR_UPPER,
+                // Like IGNORE_RESULT, but still in eval. no result will be apply.
+                EVAL_PURE_ACTION,
                 // Simply ignore the result
                 IGNORE_RESULT,
             };
@@ -503,6 +505,7 @@ namespace wo
 
         // Functions
         void eval();
+        void eval_action();
         void eval_for_upper();
         void eval_keep();
         void eval_push();
