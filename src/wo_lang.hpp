@@ -495,8 +495,12 @@ namespace wo
             //  Or m_result will be empty.
             std::optional<opnum::opnumbase*> m_result;
 
+            // Donot return temporary what ever
+            bool m_force_keep;
+
             const std::optional<opnum::opnumbase*>& get_assign_target() noexcept;
             void set_result(BytecodeGenerateContext& ctx, opnum::opnumbase* result) noexcept;
+            void set_result_force_keep(BytecodeGenerateContext& ctx, opnum::opnumbase* result) noexcept;
         };
         std::stack<EvalResult> m_eval_result_storage_target;
         std::stack<EvalResult> m_evaled_result_storage;
@@ -511,6 +515,7 @@ namespace wo
         void eval_push();
         void eval_to(opnum::opnumbase* target);
         void eval_ignore();
+        void eval_to_if_not_ignore(opnum::opnumbase* target);
         void eval_sth_if_not_ignore(void(BytecodeGenerateContext::* method)());
 
         // NOTE: get_eval_result will invoke `return_opnum_temporary_register`
@@ -800,7 +805,7 @@ namespace wo
     WO_AST_MACRO(AstValueTuple);\
     WO_AST_MACRO(AstValueStruct);\
     WO_AST_MACRO(AstValueAssign);\
-    WO_AST_MACRO(AstValuePackedArgs);\
+    WO_AST_MACRO(AstValueIROpnum);\
     WO_AST_MACRO(AstValueMakeUnion)
 
 #define WO_ALL_AST_LIST_A\
@@ -1053,6 +1058,7 @@ namespace wo
             ast::AstValueVariable* ref_from_variable,
             lang_ValueInstance* variable_instance);
 
+        std::string IR_function_label(ast::AstValueFunction* func);
         opnum::opnumbase* IR_function_opnum(ast::AstValueFunction* func);
     };
 #endif

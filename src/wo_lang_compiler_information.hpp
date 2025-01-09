@@ -90,7 +90,7 @@
 #define WO_ERR_STRUCT_DONOT_HAVE_MAMBER_NAMED L"结构体类型 '%ls' 没有名为 '%ls' 的成员"
 #define WO_ERR_TUPLE_INDEX_OUT_OF_RANGE L"元组类型 '%ls' 只有 %zu 个元素，但索引 %zu 超出了范围"
 #define WO_ERR_PATTERN_VARIABLE_SHOULD_BE_MUTABLE L"被赋值的变量应当可变"
-#define WO_ERR_PATTERN_INDEX_SHOULD_BE_MUTABLE_TYPE L"索引结果不是可变类型"
+#define WO_ERR_PATTERN_INDEX_SHOULD_BE_MUTABLE_TYPE L"不能向不可变索引结果赋值"
 #define WO_ERR_CANNOT_CAST_TYPE_TO_TYPE L"无法将类型 '%ls' 转换为 '%ls'"
 #define WO_ERR_FAILED_TO_DEDUCE_TEMPLATE_TYPE L"泛型参数自动推导失败"
 #define WO_ERR_NOT_ALL_TEMPLATE_ARGUMENT_DETERMINED L"有未能成功推导的泛型参数"

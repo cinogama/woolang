@@ -94,10 +94,10 @@ namespace wo
                 AST_VALUE_TUPLE,
                 AST_VALUE_STRUCT,
                 AST_VALUE_ASSIGN,
-                AST_VALUE_PACKED_ARGS,
                 AST_VALUE_INDEX_PACKED_ARGS,
                 AST_VALUE_MAKE_UNION,
                 AST_VALUE_VARIADIC_ARGUMENTS_PACK,
+                AST_VALUE_IR_OPNUM,
                 AST_FAKE_VALUE_UNPACK,
                 AST_VALUE_end,
 

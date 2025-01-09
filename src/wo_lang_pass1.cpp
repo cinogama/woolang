@@ -135,7 +135,6 @@ namespace wo
         WO_LANG_REGISTER_PROCESSER(AstStructFieldValuePair, AstBase::AST_STRUCT_FIELD_VALUE_PAIR, pass1);
         WO_LANG_REGISTER_PROCESSER(AstValueStruct, AstBase::AST_VALUE_STRUCT, pass1);
         WO_LANG_REGISTER_PROCESSER(AstValueAssign, AstBase::AST_VALUE_ASSIGN, pass1);
-        WO_LANG_REGISTER_PROCESSER(AstValuePackedArgs, AstBase::AST_VALUE_PACKED_ARGS, pass1);
         WO_LANG_REGISTER_PROCESSER(AstNamespace, AstBase::AST_NAMESPACE, pass1);
         WO_LANG_REGISTER_PROCESSER(AstScope, AstBase::AST_SCOPE, pass1);
         WO_LANG_REGISTER_PROCESSER(AstMatchCase, AstBase::AST_MATCH_CASE, pass1);
@@ -1412,6 +1411,7 @@ namespace wo
             auto* indexer_determined_base_type_instance =
                 indexer_determined_base_type.value();
 
+            lang_TypeInstance* index_raw_result;
             switch (container_determined_base_type_instance->m_base_type)
             {
             case lang_TypeInstance::DeterminedType::ARRAY:
@@ -1426,10 +1426,10 @@ namespace wo
                         get_type_name_w(indexer_type_instance));
                     return FAILED;
                 }
-                node->m_LANG_determined_type =
-                    immutable_type(container_determined_base_type_instance
+                index_raw_result =
+                    container_determined_base_type_instance
                         ->m_external_type_description.m_array_or_vector
-                        ->m_element_type);
+                        ->m_element_type;
                 break;
             }
             case lang_TypeInstance::DeterminedType::DICTIONARY:
@@ -1445,10 +1445,10 @@ namespace wo
                         get_type_name_w(indexer_type_instance));
                     return FAILED;
                 }
-                node->m_LANG_determined_type =
-                    immutable_type(container_determined_base_type_instance
+                index_raw_result =
+                    container_determined_base_type_instance
                         ->m_external_type_description.m_dictionary_or_mapping
-                        ->m_value_type);
+                        ->m_value_type;
                 break;
             }
             case lang_TypeInstance::DeterminedType::STRUCT:
@@ -1489,7 +1489,7 @@ namespace wo
                 }
 
                 // TODO: check member's access permission.
-                node->m_LANG_determined_type = immutable_type(fnd->second.m_member_type);
+                index_raw_result = fnd->second.m_member_type;
                 node->m_LANG_fast_index_for_struct = fnd->second.m_offset;
 
                 break;
@@ -1529,7 +1529,7 @@ namespace wo
                     return FAILED;
                 }
 
-                node->m_LANG_determined_type = immutable_type(tuple_type->m_element_types[index]);
+                index_raw_result = tuple_type->m_element_types[index];
                 node->m_LANG_fast_index_for_struct = index;
 
                 break;
@@ -1545,7 +1545,7 @@ namespace wo
                         get_type_name_w(indexer_type_instance));
                     return FAILED;
                 }
-                node->m_LANG_determined_type = m_origin_types.m_char.m_type_instance;
+                index_raw_result = m_origin_types.m_char.m_type_instance;
 
                 if (node->m_container->m_evaled_const_value.has_value()
                     && node->m_index->m_evaled_const_value.has_value())
@@ -1578,6 +1578,9 @@ namespace wo
 
                 return FAILED;
             }
+
+            node->m_LANG_result_is_mutable = index_raw_result->is_mutable();
+            node->m_LANG_determined_type = immutable_type(index_raw_result);
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
@@ -1700,7 +1703,7 @@ namespace wo
         else if (state == HOLD)
         {
             lang_TypeInstance* index_result_type = node->m_index->m_LANG_determined_type.value();
-            if (index_result_type->is_immutable())
+            if (!node->m_index->m_LANG_result_is_mutable)
             {
                 lex.lang_error(lexer::errorlevel::error, node->m_index,
                     WO_ERR_PATTERN_INDEX_SHOULD_BE_MUTABLE_TYPE);
@@ -2970,14 +2973,6 @@ namespace wo
             WO_CONTINUE_PROCESS(node->m_body);
             return HOLD;
         }
-        return WO_EXCEPT_ERROR(state, OKAY);
-    }
-    WO_PASS_PROCESSER(AstValuePackedArgs)
-    {
-        wo_assert(state == UNPROCESSED);
-
-        node->m_LANG_determined_type = m_origin_types.m_array_dynamic;
-
         return WO_EXCEPT_ERROR(state, OKAY);
     }
     WO_PASS_PROCESSER(AstStructFieldValuePair)

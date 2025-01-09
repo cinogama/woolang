@@ -914,6 +914,7 @@ namespace wo
             : AstValueBase(AST_VALUE_INDEX)
             , m_container(container)
             , m_index(index)
+            , m_LANG_result_is_mutable(false)
             , m_LANG_fast_index_for_struct(std::nullopt)
         {
         }
@@ -1301,22 +1302,6 @@ namespace wo
             AstValueMayConsiderOperatorOverload::make_dup(new_instance, out_continues);
             out_continues.push_back(AstBase::make_holder(&new_instance->m_assign_place));
             out_continues.push_back(AstBase::make_holder(&new_instance->m_right));
-            return new_instance;
-        }
-
-        ////////////////////////////////////////////////////////
-
-        AstValuePackedArgs::AstValuePackedArgs()
-            : AstValueBase(AST_VALUE_PACKED_ARGS)
-        {
-        }
-        AstBase* AstValuePackedArgs::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
-        {
-            AstValuePackedArgs* new_instance = exist_instance
-                ? static_cast<AstValuePackedArgs*>(exist_instance.value())
-                : new AstValuePackedArgs()
-                ;
-            AstValueBase::make_dup(new_instance, out_continues);
             return new_instance;
         }
 
@@ -2133,6 +2118,21 @@ namespace wo
         }
 
         ////////////////////////////////////////////////////////
+
+        AstValueIROpnum::AstValueIROpnum(opnum::opnumbase* spec_opnum)
+            : AstValueBase(AST_VALUE_IR_OPNUM)
+            , m_opnum(spec_opnum)
+        {
+        }
+        AstBase* AstValueIROpnum::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        {
+            AstValueIROpnum* new_instance = exist_instance
+                ? static_cast<AstValueIROpnum*>(exist_instance.value())
+                : new AstValueIROpnum(m_opnum)
+                ;
+            return new_instance;
+        }
+       
     }
 #endif
 }

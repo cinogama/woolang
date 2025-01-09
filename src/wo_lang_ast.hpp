@@ -30,6 +30,11 @@ namespace wo
     struct lang_Namespace;
     struct lang_TemplateAstEvalStateBase;
 
+    namespace opnum
+    {
+        struct opnumbase;
+    }
+
     namespace ast
     {
         struct AstTypeHolder;
@@ -366,6 +371,10 @@ namespace wo
                 UNPROCESSED,
                 HOLD_FOR_OPNUM_EVAL,
                 HOLD_FOR_OVERLOAD_FUNCTION_CALL_EVAL,
+
+                IR_HOLD_FOR_INDEX_PATTERN_EVAL,
+                IR_HOLD_TO_INDEX_PATTERN_OVERLOAD,
+                IR_HOLD_TO_APPLY_ASSIGN,
             };
 
             std::optional<AstValueFunctionCall*> m_LANG_overload_call;
@@ -420,6 +429,11 @@ namespace wo
                 UNPROCESSED,
                 HOLD_FOR_COND_EVAL,
                 HOLD_FOR_BRANCH_EVAL,
+
+                IR_HOLD_FOR_COND_EVAL,
+                IR_HOLD_FOR_BRANCH_A_EVAL,
+                IR_HOLD_FOR_BRANCH_B_EVAL,
+                IR_HOLD_FOR_BRANCH_CONST_EVAL,
             };
 
             AstValueBase* m_condition;
@@ -462,6 +476,8 @@ namespace wo
         {
             AstValueBase* m_container;
             AstValueBase* m_index;
+
+            bool m_LANG_result_is_mutable;
 
             std::optional<wo_integer_t> m_LANG_fast_index_for_struct;
 
@@ -713,11 +729,6 @@ namespace wo
             AstValueBase* m_right;
 
             AstValueAssign(bool valued_assign, assign_type type, AstPatternBase* assign_place, AstValueBase* right);
-            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
-        };
-        struct AstValuePackedArgs : public AstValueBase
-        {
-            AstValuePackedArgs();
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
 
@@ -1042,6 +1053,13 @@ namespace wo
                 wo_pstring_t extern_symbol,
                 const std::optional<wo_pstring_t>& extern_from_library,
                 uint32_t attribute_flags);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+        };
+        struct AstValueIROpnum : public AstValueBase
+        {
+            opnum::opnumbase* m_opnum;
+
+            AstValueIROpnum(opnum::opnumbase* spec_opnum);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
     }

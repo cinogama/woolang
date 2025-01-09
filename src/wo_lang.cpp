@@ -1096,20 +1096,23 @@ namespace wo
                     lang_ValueInstance::Storage::STACKOFFSET,
                     offset,
             };
-            return offset + 1;
+            return offset - 1;
         }
 
         // No need for storage.
         return offset;
     }
     void _assign_storage_for_local_variable_instance(
-        lang_Scope* scope, int32_t stack_assign_offset)
+        lang_Scope* scope, int32_t stack_assign_offset, int32_t* out_max_stack_count)
     {
         int32_t next_assign_offset = stack_assign_offset;
 
+        const auto it_sub_scope_end = scope->m_sub_scopes.end();
         auto next_it_sub_scope = scope->m_sub_scopes.begin();
-        size_t next_it_sub_scope_head_edge =
-            (*next_it_sub_scope)->m_visibility_from_edge_for_template_check;
+        std::optional<size_t> next_it_sub_scope_head_edge =
+            next_it_sub_scope == it_sub_scope_end ?
+            std::nullopt :
+            std::optional((*next_it_sub_scope)->m_visibility_from_edge_for_template_check);
 
         std::vector<lang_Symbol*> local_symbols_in_this_scope(
             scope->m_defined_symbols.size());
@@ -1132,10 +1135,16 @@ namespace wo
         // Ok, let's rock!.
         for (auto* symbol : local_symbols_in_this_scope)
         {
-            if (symbol->m_symbol_edge > next_it_sub_scope_head_edge)
+            if (next_it_sub_scope_head_edge.has_value()
+                && symbol->m_symbol_edge > next_it_sub_scope_head_edge.value())
             {
                 _assign_storage_for_local_variable_instance(
-                    (*next_it_sub_scope).get(), next_assign_offset);
+                    (*next_it_sub_scope).get(), next_assign_offset, out_max_stack_count);
+
+                if (++next_it_sub_scope != it_sub_scope_end)
+                    next_it_sub_scope_head_edge = (*next_it_sub_scope)->m_visibility_from_edge_for_template_check;
+                else
+                    next_it_sub_scope_head_edge = std::nullopt;
             }
 
             if (symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE
@@ -1164,13 +1173,16 @@ namespace wo
                 }
                 else
                 {
-                    next_assign_offset = 
+                    next_assign_offset =
                         _assign_storage_for_instance(
-                            symbol->m_value_instance, 
+                            symbol->m_value_instance,
                             next_assign_offset);
                 }
             }
         }
+
+        *out_max_stack_count = std::max(
+            *out_max_stack_count, -next_assign_offset);
     }
 
     bool LangContext::process(lexer& lex, ast::AstBase* root)
@@ -1190,11 +1202,22 @@ namespace wo
         size_t global_block_begin_place = m_ircontext.c().get_now_ip();
         auto global_reserving_ip = m_ircontext.c().reserved_stackvalue();
 
+        // TEST CODE BEGIN
+
+        m_ircontext.c().ext_panic(opnum::imm_str("TEST CODE GEN"));
+
+        // TEST CODE END
+
         if (!anylize_pass(lex, root, &LangContext::pass_final_A_process_bytecode_generation))
             return false;
 
-        auto used_tmp_regs = m_ircontext.c().update_all_temp_regist_to_stack(&m_ircontext, global_block_begin_place);
-        m_ircontext.c().reserved_stackvalue(global_reserving_ip, used_tmp_regs); // set reserved size
+        auto used_tmp_regs = m_ircontext.c().update_all_temp_regist_to_stack(
+            &m_ircontext, global_block_begin_place);
+        m_ircontext.c().reserved_stackvalue(
+            global_reserving_ip, 
+            used_tmp_regs); // set reserved size
+
+        m_ircontext.c().jmp(opnum::tag("#woolang_program_end"));
 
         // final.2 Finalize function codes.
         for (;;)
@@ -1203,6 +1226,7 @@ namespace wo
                 std::move(m_ircontext.m_being_used_function_instance);
             m_ircontext.m_being_used_function_instance.clear();
 
+            bool has_function_to_be_eval = false;
             for (ast::AstValueFunction* eval_function : functions_to_finalize)
             {
                 if (!m_ircontext.m_processed_function_instance.insert(
@@ -1210,7 +1234,12 @@ namespace wo
                     // Already processed.
                     continue;
 
+                has_function_to_be_eval = true;
+
                 m_ircontext.c().ext_funcbegin();
+
+                // Bind function label.
+                m_ircontext.c().tag(IR_function_label(eval_function));
 
                 size_t this_function_block_begin_place = m_ircontext.c().get_now_ip();
                 auto this_function_reserving_ip = m_ircontext.c().reserved_stackvalue();
@@ -1244,34 +1273,72 @@ namespace wo
                 // 1. Addressing for local variable settings
                 lang_Scope* function_scope = eval_function->m_LANG_function_scope.value();
 
+                int32_t local_storage_size = 0;
                 _assign_storage_for_local_variable_instance(
-                    eval_function->m_LANG_function_scope.value(), 0);
+                    eval_function->m_LANG_function_scope.value(), 0, &local_storage_size);
 
                 // 2. Assign value arguments.
-                TODO;
+                argument_place = 2;
+                for (auto* param_decls : eval_function->m_parameters)
+                {
+                    if (param_decls->m_pattern->node_type != ast::AstBase::AST_PATTERN_SINGLE
+                        || static_cast<ast::AstPatternSingle*>(param_decls->m_pattern)->m_is_mutable)
+                    {
+                        // Need assign value.
+                        opnum::opnumbase* argument_opnum;
+                        if (argument_place <= 63)
+                            argument_opnum = m_ircontext.opnum_stack_offset(argument_place);
+                        else
+                        {
+                            argument_opnum = m_ircontext.borrow_opnum_temporary_register();
+                            m_ircontext.c().lds(
+                                *(opnum::opnumbase*)argument_opnum,
+                                *(opnum::opnumbase*)m_ircontext.opnum_imm_int(argument_place));
+                        }
+
+                        update_pattern_storage_and_code_gen_passir(
+                            lex, param_decls->m_pattern, argument_opnum, std::nullopt);
+
+                        m_ircontext.try_return_opnum_temporary_register(argument_opnum);
+                    }
+                    ++argument_place;
+                }
+
+                // 3. Generate for function body.
+                if (!anylize_pass(
+                    lex, 
+                    eval_function->m_body,
+                    &LangContext::pass_final_A_process_bytecode_generation))
+                    return false;
 
                 /////////////////////////////////
 
-                auto this_function_used_tmp_regs = 
-                    m_ircontext.c().update_all_temp_regist_to_stack(&m_ircontext, this_function_block_begin_place);
-                m_ircontext.c().reserved_stackvalue(this_function_reserving_ip, this_function_used_tmp_regs); // set reserved size
+                if (immutable_type(eval_function->m_LANG_determined_return_type.value())
+                    != m_origin_types.m_void.m_type_instance)
+                {
+                    m_ircontext.c().ext_panic(
+                        opnum::imm_str("The function should have returned `"
+                            + std::string(get_type_name(eval_function->m_LANG_determined_return_type.value()))
+                            + "`, but ended without providing a return value"));
+                }
+                m_ircontext.c().ret();
+                
+                auto this_function_used_tmp_regs =
+                    m_ircontext.c().update_all_temp_regist_to_stack(
+                        &m_ircontext, this_function_block_begin_place);
+                m_ircontext.c().reserved_stackvalue(
+                    this_function_reserving_ip, 
+                    this_function_used_tmp_regs + local_storage_size); // set reserved size
 
                 m_ircontext.c().ext_funcend();
 
             }
+
+            if (!has_function_to_be_eval)
+                break;
         }
 
-
-
-
-        // TEST CODE BEGIN
-
-        m_ircontext.c().tag("test");
-        m_ircontext.c().ext_panic(opnum::imm_str("TEST CODE GEN"));
-        m_ircontext.c().jmp(opnum::tag("test"));
-
-        // TEST CODE END
-
+        m_ircontext.c().tag("#woolang_program_end");
         m_ircontext.c().end();
 
         return true;
@@ -2099,7 +2166,10 @@ namespace wo
                 case EvalResult::Request::PUSH_RESULT_AND_IGNORE_RESULT:
                 {
                     opnum::opnumbase* result_opnum = top_eval_state.m_result.value();
-                    try_return_opnum_temporary_register(result_opnum);
+
+                    if (!top_eval_state.m_force_keep)
+                        try_return_opnum_temporary_register(result_opnum);
+
                     c().psh(*result_opnum);
                     break;
                 }
@@ -2165,6 +2235,13 @@ namespace wo
             std::nullopt,
             });
     }
+    void BytecodeGenerateContext::eval_to_if_not_ignore(opnum::opnumbase* target)
+    {
+        if (!ignore_eval_result())
+            eval_to(target);
+        else
+            eval_ignore();
+    }
     void BytecodeGenerateContext::eval_sth_if_not_ignore(void(BytecodeGenerateContext::* method)())
     {
         if (!ignore_eval_result())
@@ -2182,7 +2259,8 @@ namespace wo
             || result.m_request == EvalResult::Request::GET_RESULT_OPNUM_ONLY
             || result.m_request == EvalResult::Request::GET_RESULT_OPNUM_AND_KEEP);
 
-        if (result.m_request == EvalResult::Request::GET_RESULT_OPNUM_ONLY)
+        if (result.m_request == EvalResult::Request::GET_RESULT_OPNUM_ONLY
+            && !result.m_force_keep)
             try_return_opnum_temporary_register(result_opnum);
 
         m_evaled_result_storage.pop();
@@ -2389,9 +2467,18 @@ namespace wo
     {
         return m_result;
     }
+    void BytecodeGenerateContext::EvalResult::set_result_force_keep(
+        BytecodeGenerateContext& ctx, opnum::opnumbase* result) noexcept
+    {
+        set_result(ctx, result);
+
+        m_force_keep = true;
+    }
     void BytecodeGenerateContext::EvalResult::set_result(
         BytecodeGenerateContext& ctx, opnum::opnumbase* result) noexcept
     {
+        m_force_keep = false;
+
         wo_assert(m_request == Request::GET_RESULT_OPNUM_ONLY
             || m_request == Request::GET_RESULT_OPNUM_AND_KEEP
             || m_request == Request::PUSH_RESULT_AND_IGNORE_RESULT);
@@ -2401,7 +2488,8 @@ namespace wo
             auto* reg = dynamic_cast<opnum::reg*>(result);
             if (reg != nullptr
                 && reg->id >= opnum::reg::spreg::cr
-                && reg->id <= opnum::reg::spreg::last_special_register)
+                && reg->id <= opnum::reg::spreg::last_special_register
+                && reg->id != opnum::reg::spreg::ni)
             {
                 auto* borrowed_reg = ctx.borrow_opnum_temporary_register();
 
