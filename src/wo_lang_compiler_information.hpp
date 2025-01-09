@@ -48,6 +48,7 @@
 // PASS AST BUILDER
 #define WO_ERR_CANNOT_OPEN_FILE L"无法打开文件: '%ls'"
 #define WO_ERR_ARG_DEFINE_AFTER_VARIADIC L"在 '...' 之后不应该有其他参数"
+#define WO_ERR_ARG_DEFINE_AFTER_EXPAND_VECARR L"在展开数组之后不能传入其他参数"
 #define WO_ERR_UNKNOWN_TYPE L"未知或不完整的类型"
 #define WO_ERR_REDEFINED L"在当前作用域中重复定义了 '%ls'"
 #define WO_ERR_REPEAT_MEMBER_NAME L"重复的成员: '%ls'"

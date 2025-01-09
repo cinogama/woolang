@@ -680,6 +680,8 @@ namespace wo
             , m_LANG_target_function_need_deduct_template_arguments(false)
             , m_LANG_branch_argument_deduction_context(std::nullopt)
             , m_LANG_invoking_variadic_function(false)
+            , m_LANG_has_runtime_full_unpackargs(false)
+            , m_LANG_certenly_function_argument_count(0)
             , m_IR_invoking_function_near(std::nullopt)
         {
 
@@ -802,6 +804,7 @@ namespace wo
 
         AstValueVariadicArgumentsPack::AstValueVariadicArgumentsPack()
             : AstValueBase(AST_VALUE_VARIADIC_ARGUMENTS_PACK)
+            , m_LANG_function_instance(std::nullopt)
         {
         }
         AstBase* AstValueVariadicArgumentsPack::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const

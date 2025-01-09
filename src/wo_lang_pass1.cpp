@@ -1428,8 +1428,8 @@ namespace wo
                 }
                 index_raw_result =
                     container_determined_base_type_instance
-                        ->m_external_type_description.m_array_or_vector
-                        ->m_element_type;
+                    ->m_external_type_description.m_array_or_vector
+                    ->m_element_type;
                 break;
             }
             case lang_TypeInstance::DeterminedType::DICTIONARY:
@@ -1447,8 +1447,8 @@ namespace wo
                 }
                 index_raw_result =
                     container_determined_base_type_instance
-                        ->m_external_type_description.m_dictionary_or_mapping
-                        ->m_value_type;
+                    ->m_external_type_description.m_dictionary_or_mapping
+                    ->m_value_type;
                 break;
             }
             case lang_TypeInstance::DeterminedType::STRUCT:
@@ -2702,14 +2702,31 @@ namespace wo
                 auto& target_function_param_types =
                     target_function_type_instance_determined_base_type_function->m_param_types;
 
-                node->m_LANG_invoking_variadic_function = 
+                node->m_LANG_invoking_variadic_function =
                     target_function_type_instance_determined_base_type_function->m_is_variadic;
 
                 std::list<std::pair<lang_TypeInstance*, AstValueBase*>> argument_types;
                 bool expaned_array_or_vec = false;
 
+                wo_assert(node->m_LANG_certenly_function_argument_count == 0
+                    && !node->m_LANG_has_runtime_full_unpackargs);
+
                 for (auto* argument_value : node->m_arguments)
                 {
+                    if (expaned_array_or_vec)
+                    {
+                        // ATTENTION: It is technically feasible to continue passing after parameter
+                        //  expansion; However, during the instruction generation phase, if the packargs
+                        //  instruction appears in the parameters, the instruction will depend on the tc
+                        //  register; And the unpackargs instruction working in full unpacking mode will 
+                        //  modify the value of the tc register; Therefore, if the calling behavior has
+                        //  unpackargs, the value of tc can only be set before this instruction occurs
+
+                        lex.lang_error(lexer::errorlevel::error, argument_value,
+                            WO_ERR_ARG_DEFINE_AFTER_EXPAND_VECARR);
+                        return FAILED;
+                    }
+
                     if (argument_value->node_type == AstBase::AST_FAKE_VALUE_UNPACK)
                     {
                         AstFakeValueUnpack* unpack = static_cast<AstFakeValueUnpack*>(argument_value);
@@ -2724,13 +2741,21 @@ namespace wo
                         {
                             expaned_array_or_vec = true;
                             const size_t elem_count_to_be_expand =
-                                target_function_param_types.size() - argument_types.size();
+                                target_function_param_types.size() >= argument_types.size()
+                                ? target_function_param_types.size() - argument_types.size()
+                                : 0;
 
                             unpack->m_IR_need_to_be_unpack_count =
                                 AstFakeValueUnpack::IR_unpack_requirement{
                                     elem_count_to_be_expand,
-                                     node->m_LANG_invoking_variadic_function,
+                                    node->m_LANG_invoking_variadic_function,
                             };
+
+                            if (node->m_LANG_invoking_variadic_function)
+                                node->m_LANG_has_runtime_full_unpackargs = true;
+                            else
+                                node->m_LANG_certenly_function_argument_count +=
+                                    elem_count_to_be_expand;
                             break;
                         }
                         case lang_TypeInstance::DeterminedType::TUPLE:
@@ -2749,6 +2774,9 @@ namespace wo
                                     tuple_determined_type->m_element_types.size(),
                                     false,
                             };
+
+                            node->m_LANG_certenly_function_argument_count +=
+                                tuple_determined_type->m_element_types.size();
                             break;
                         }
                         default:
@@ -2762,6 +2790,8 @@ namespace wo
 
                         argument_types.push_back(
                             std::make_pair(argument_type_instance, argument_value));
+
+                        ++node->m_LANG_certenly_function_argument_count;
                     }
                 }
 
@@ -4016,7 +4046,7 @@ namespace wo
             lex.lang_error(lexer::errorlevel::error, node, WO_ERR_UNEXPECTED_PACKEDARGS);
             return FAILED;
         }
-
+        node->m_LANG_function_instance = current_function;
         node->m_LANG_determined_type = m_origin_types.m_array_dynamic;
         return OKAY;
     }

@@ -107,6 +107,7 @@ namespace wo
 
         return true;
     }
+
     bool LangContext::update_pattern_storage_and_code_gen_passir(
         lexer& lex,
         ast::AstPatternBase* pattern,
@@ -174,7 +175,7 @@ namespace wo
 
     void LangContext::init_passir()
     {
-        WO_LANG_REGISTER_PROCESSER(AstList, AstBase::AST_LIST, passir_A);
+        // No need to impl:
         // WO_LANG_REGISTER_PROCESSER(AstIdentifier, AstBase::AST_IDENTIFIER, passir_A);
         // WO_LANG_REGISTER_PROCESSER(AstStructFieldDefine, AstBase::AST_STRUCT_FIELD_DEFINE, passir_A);
         // WO_LANG_REGISTER_PROCESSER(AstTypeHolder, AstBase::AST_TYPE_HOLDER, passir_A);
@@ -185,11 +186,15 @@ namespace wo
         //    AstBase::AST_VALUE_FUNCTION_CALL_FAKE_AST_ARGUMENT_DEDUCTION_CONTEXT_B, passir_A);
         // WO_LANG_REGISTER_PROCESSER(AstPatternVariable, AstBase::AST_PATTERN_VARIABLE, passir_A);
         // WO_LANG_REGISTER_PROCESSER(AstPatternIndex, AstBase::AST_PATTERN_INDEX, passir_A);
-        WO_LANG_REGISTER_PROCESSER(AstVariableDefineItem, AstBase::AST_VARIABLE_DEFINE_ITEM, passir_A);
-        WO_LANG_REGISTER_PROCESSER(AstVariableDefines, AstBase::AST_VARIABLE_DEFINES, passir_A);
         // WO_LANG_REGISTER_PROCESSER(AstFunctionParameterDeclare, AstBase::AST_FUNCTION_PARAMETER_DECLARE, passir_A);
         // WO_LANG_REGISTER_PROCESSER(AstKeyValuePair, AstBase::AST_KEY_VALUE_PAIR, passir_A);
         // WO_LANG_REGISTER_PROCESSER(AstStructFieldValuePair, AstBase::AST_STRUCT_FIELD_VALUE_PAIR, passir_A);
+        // WO_LANG_REGISTER_PROCESSER(AstUsingNamespace, AstBase::AST_USING_NAMESPACE, passir_A);
+        // WO_LANG_REGISTER_PROCESSER(AstExternInformation, AstBase::AST_EXTERN_INFORMATION, passir_A);
+
+        WO_LANG_REGISTER_PROCESSER(AstList, AstBase::AST_LIST, passir_A);
+        WO_LANG_REGISTER_PROCESSER(AstVariableDefineItem, AstBase::AST_VARIABLE_DEFINE_ITEM, passir_A);
+        WO_LANG_REGISTER_PROCESSER(AstVariableDefines, AstBase::AST_VARIABLE_DEFINES, passir_A);
         // WO_LANG_REGISTER_PROCESSER(AstNamespace, AstBase::AST_NAMESPACE, passir_A);
         WO_LANG_REGISTER_PROCESSER(AstScope, AstBase::AST_SCOPE, passir_A);
         // WO_LANG_REGISTER_PROCESSER(AstMatchCase, AstBase::AST_MATCH_CASE, passir_A);
@@ -206,8 +211,6 @@ namespace wo
         // WO_LANG_REGISTER_PROCESSER(AstAliasTypeDeclare, AstBase::AST_ALIAS_TYPE_DECLARE, passir_A);
         // WO_LANG_REGISTER_PROCESSER(AstEnumDeclare, AstBase::AST_ENUM_DECLARE, passir_A);
         // WO_LANG_REGISTER_PROCESSER(AstUnionDeclare, AstBase::AST_UNION_DECLARE, passir_A);
-        // WO_LANG_REGISTER_PROCESSER(AstUsingNamespace, AstBase::AST_USING_NAMESPACE, passir_A);
-        // WO_LANG_REGISTER_PROCESSER(AstExternInformation, AstBase::AST_EXTERN_INFORMATION, passir_A);
         WO_LANG_REGISTER_PROCESSER(AstNop, AstBase::AST_EXTERN_INFORMATION, passir_A);
 
         WO_LANG_REGISTER_PROCESSER(AstValueMarkAsMutable, AstBase::AST_VALUE_MARK_AS_MUTABLE, passir_B);
@@ -223,7 +226,7 @@ namespace wo
         WO_LANG_REGISTER_PROCESSER(AstValueUnaryOperator, AstBase::AST_VALUE_UNARY_OPERATOR, passir_B);
         WO_LANG_REGISTER_PROCESSER(AstValueTribleOperator, AstBase::AST_VALUE_TRIBLE_OPERATOR, passir_B);
         WO_LANG_REGISTER_PROCESSER(AstFakeValueUnpack, AstBase::AST_FAKE_VALUE_UNPACK, passir_B);
-        // WO_LANG_REGISTER_PROCESSER(AstValueVariadicArgumentsPack, AstBase::AST_VALUE_VARIADIC_ARGUMENTS_PACK, passir_B);
+        WO_LANG_REGISTER_PROCESSER(AstValueVariadicArgumentsPack, AstBase::AST_VALUE_VARIADIC_ARGUMENTS_PACK, passir_B);
         WO_LANG_REGISTER_PROCESSER(AstValueIndex, AstBase::AST_VALUE_INDEX, passir_B);
         WO_LANG_REGISTER_PROCESSER(AstValueFunction, AstBase::AST_VALUE_FUNCTION, passir_B);
         WO_LANG_REGISTER_PROCESSER(AstValueArrayOrVec, AstBase::AST_VALUE_ARRAY_OR_VEC, passir_B);
@@ -232,7 +235,7 @@ namespace wo
         WO_LANG_REGISTER_PROCESSER(AstValueStruct, AstBase::AST_VALUE_STRUCT, passir_B);
         WO_LANG_REGISTER_PROCESSER(AstValueAssign, AstBase::AST_VALUE_ASSIGN, passir_B);
         WO_LANG_REGISTER_PROCESSER(AstValueMakeUnion, AstBase::AST_VALUE_MAKE_UNION, passir_B);
-        WO_LANG_REGISTER_PROCESSER(AstValueIROpnum, AstBase::AST_VALUE_MAKE_UNION, passir_B);
+        WO_LANG_REGISTER_PROCESSER(AstValueIROpnum, AstBase::AST_VALUE_IR_OPNUM, passir_B);
     }
 
 #define WO_PASS_PROCESSER(AST) WO_PASS_PROCESSER_IMPL(AST, passir_A)
@@ -309,14 +312,25 @@ namespace wo
                     else
                     {
                         // Need storage and initialize.
-                        m_ircontext.eval();
+                        bool fast_eval = template_value_instance->m_IR_storage.has_value()
+                            && (template_value_instance->m_IR_storage.value().m_type == lang_ValueInstance::Storage::GLOBAL
+                                || (template_value_instance->m_IR_storage.value().m_index >= -64 
+                                    && template_value_instance->m_IR_storage.value().m_index < 63));
+                        if (fast_eval)
+                            m_ircontext.eval_to(
+                                m_ircontext.get_storage_place(
+                                    template_value_instance->m_IR_storage.value()));
+                        else
+                            m_ircontext.eval();
                         if (!pass_final_value(lex, static_cast<AstValueBase*>(template_instance->m_ast)))
                             // Failed 
                             return FAILED;
 
                         auto* result_opnum = m_ircontext.get_eval_result();
 
-                        if (!update_instance_storage_and_code_gen_passir(
+                        if (fast_eval)
+                            (void)result_opnum;
+                        else if (!update_instance_storage_and_code_gen_passir(
                             lex, template_value_instance, result_opnum, std::nullopt))
                             return FAILED;
                     }
@@ -343,15 +357,27 @@ namespace wo
             {
                 // Not template, but need storage.
 
-                // NOTE: 
-                m_ircontext.eval();
+                bool fast_eval = pattern_symbol->m_value_instance->m_IR_storage.has_value()
+                    && (pattern_symbol->m_value_instance->m_IR_storage.value().m_type == lang_ValueInstance::Storage::GLOBAL
+                        || (pattern_symbol->m_value_instance->m_IR_storage.value().m_index >= -64
+                            && pattern_symbol->m_value_instance->m_IR_storage.value().m_index < 63));
+
+                if (fast_eval)
+                    m_ircontext.eval_to(
+                        m_ircontext.get_storage_place(
+                            pattern_symbol->m_value_instance->m_IR_storage.value()));
+                else
+                    m_ircontext.eval();
+
                 if (!pass_final_value(lex, node->m_init_value))
                     // Failed 
                     return FAILED;
 
                 auto* result_opnum = m_ircontext.get_eval_result();
 
-                if (!update_instance_storage_and_code_gen_passir(
+                if (fast_eval)
+                    (void)result_opnum;
+                else if (!update_instance_storage_and_code_gen_passir(
                     lex, pattern_symbol->m_value_instance, result_opnum, std::nullopt))
                     return FAILED;
             }
@@ -507,9 +533,62 @@ namespace wo
         else
         {
             // Need capture.
-            wo_error("TODO;");
-        }
+            if (!m_ircontext.apply_eval_result(
+                [&](BytecodeGenerateContext::EvalResult& result)
+                {
+                    auto* borrowed_opnum = m_ircontext.borrow_opnum_temporary_register();
+                    for (auto& [capture_from_value, _useless] : node->m_LANG_captured_context.m_captured_variables)
+                    {
+                        (void)_useless;
 
+                        auto& storage = capture_from_value->m_IR_storage.value();
+                        if (storage.m_type == lang_ValueInstance::Storage::GLOBAL
+                            || (storage.m_index >= -64 && storage.m_index <= 63))
+                            m_ircontext.c().psh(
+                                WO_OPNUM(m_ircontext.get_storage_place(storage)));
+                        else
+                        {
+                            m_ircontext.c().lds(
+                                WO_OPNUM(borrowed_opnum), 
+                                WO_OPNUM(m_ircontext.opnum_imm_int(storage.m_index)));
+                            m_ircontext.c().psh(
+                                WO_OPNUM(borrowed_opnum));
+                        }
+                    }
+
+                    const auto& target_storage = result.get_assign_target();
+                    m_ircontext.c().mkclos(
+                        (uint16_t)node->m_LANG_captured_context.m_captured_variables.size(),
+                        opnum::tag(IR_function_label(node)));
+
+                    if (target_storage.has_value())
+                    {
+                        m_ircontext.return_opnum_temporary_register(borrowed_opnum);
+                        if (opnum::reg* target_reg = dynamic_cast<opnum::reg*>(target_storage.value());
+                            target_reg == nullptr || target_reg->id != opnum::reg::cr)
+                        {
+                            m_ircontext.c().mov(
+                                WO_OPNUM(target_storage.value()),
+                                WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::cr)));
+                            // Or do nothing, target is same.
+                        }
+                    }
+                    else
+                    {
+                        m_ircontext.c().mov(
+                            WO_OPNUM(borrowed_opnum),
+                            WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::cr)));
+
+                        result.set_result(m_ircontext, borrowed_opnum);
+                    }
+                    return true;
+                }
+            ))
+            {
+                // Eval failed.
+                return FAILED;
+            }
+        }
         return OKAY;
     }
     WO_PASS_PROCESSER(AstValueTuple)
@@ -688,41 +767,26 @@ namespace wo
         if (state == UNPROCESSED)
         {
             bool argument_count_is_sured = true;
-            wo_integer_t argument_count_for_variadic_call = 0;
             for (auto* arguments : node->m_arguments)
             {
                 // Functions arguments will be pushed into stack inversely.
                 // So here we eval them by origin order, stack pop will be in reverse order.
 
                 if (arguments->node_type == AstBase::AST_FAKE_VALUE_UNPACK)
-                {
                     m_ircontext.eval_action();
-                    AstFakeValueUnpack* unpack = static_cast<AstFakeValueUnpack*>(arguments);
-
-                    auto& unpack_context = unpack->m_IR_need_to_be_unpack_count.value();
-                    if (!unpack_context.m_unpack_all)
-                        argument_count_for_variadic_call += unpack_context.m_require_unpack_count;
-                    else
-                        argument_count_is_sured = false;
-                }
                 else
-                {
                     m_ircontext.eval_push();
-                    ++argument_count_for_variadic_call;
-                }
 
                 WO_CONTINUE_PROCESS(arguments);
             }
 
             if (node->m_LANG_invoking_variadic_function)
             {
-                m_ircontext.c().psh(WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tc)));
+                m_ircontext.c().psh(WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tp)));
                 m_ircontext.c().mov(
                     WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tc)),
-                    WO_OPNUM(m_ircontext.opnum_imm_int(argument_count_for_variadic_call)));
+                    WO_OPNUM(m_ircontext.opnum_imm_int(node->m_LANG_certenly_function_argument_count)));
             }
-            if (argument_count_is_sured)
-                node->m_IR_certenly_function_argument_count = argument_count_for_variadic_call;
 
             if (node->m_function->node_type == AstBase::AST_VALUE_VARIABLE)
             {
@@ -778,16 +842,16 @@ namespace wo
                 m_ircontext.try_return_opnum_temporary_register(opnumbase);
             }
 
-            if (node->m_IR_certenly_function_argument_count.has_value())
+            if (!node->m_LANG_has_runtime_full_unpackargs)
                 m_ircontext.c().pop(
-                    node->m_IR_certenly_function_argument_count.value());
+                    node->m_LANG_certenly_function_argument_count);
             else
                 m_ircontext.c().ext_popn(
                     WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tc)));
 
             if (node->m_LANG_invoking_variadic_function)
                 m_ircontext.c().pop(
-                    WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tc)));
+                    WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tp)));
 
             // Ok, invoke finished.
             if (!m_ircontext.apply_eval_result(
@@ -1318,9 +1382,11 @@ namespace wo
                         const auto& unpack_requirement = node->m_IR_need_to_be_unpack_count.value();
 
                         if (unpack_requirement.m_unpack_all)
+                        {
                             m_ircontext.c().unpackargs(
                                 WO_OPNUM(unpacking_opnum),
                                 -(int32_t)unpack_requirement.m_require_unpack_count);
+                        }
                         else
                         {
                             // If require to unpack 0 argument, just skip & ignore.
@@ -1600,6 +1666,7 @@ namespace wo
                             // Calculate result stored at left_opnum.
                             if (target_storage.has_value())
                             {
+                                m_ircontext.try_return_opnum_temporary_register(left_opnum);
                                 m_ircontext.c().mov(
                                     WO_OPNUM(target_storage.value()),
                                     WO_OPNUM(left_opnum));
@@ -1889,6 +1956,12 @@ namespace wo
                         wo_assert(!node->m_LANG_fast_index_for_struct.has_value());
                         m_ircontext.try_return_opnum_temporary_register(container_opnum);
 
+                        // NOTE: Keep index & container if is IR OPNUM node.
+                        if (node->m_index->node_type == AstBase::AST_VALUE_IR_OPNUM)
+                            m_ircontext.try_keep_opnum_temporary_register(index_opnum);
+                        if (node->m_container->node_type != AstBase::AST_VALUE_IR_OPNUM)
+                            m_ircontext.try_return_opnum_temporary_register(index_opnum);
+
                         if (determined_container_type->m_base_type == lang_TypeInstance::DeterminedType::ARRAY
                             || determined_container_type->m_base_type == lang_TypeInstance::DeterminedType::VECTOR)
                             m_ircontext.c().idarr(
@@ -1926,6 +1999,10 @@ namespace wo
                         auto* container_opnum = m_ircontext.get_eval_result();
 
                         wo_assert(node->m_LANG_fast_index_for_struct.has_value());
+
+                        // NOTE: Keep index & container if is IR OPNUM node.
+                        if (node->m_container->node_type == AstBase::AST_VALUE_IR_OPNUM)
+                            m_ircontext.try_return_opnum_temporary_register(container_opnum);
 
                         uint16_t fast_index = (uint16_t)node->m_LANG_fast_index_for_struct.value();
                         if (target_storage.has_value())
@@ -2071,6 +2148,40 @@ namespace wo
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
+    WO_PASS_PROCESSER(AstValueVariadicArgumentsPack)
+    {
+        wo_assert(state == UNPROCESSED);
+        if (!m_ircontext.apply_eval_result(
+            [&](BytecodeGenerateContext::EvalResult& result)
+            {
+                AstValueFunction* current_func = node->m_LANG_function_instance.value();
+
+                const auto& target_storage = result.get_assign_target();
+                if (target_storage.has_value())
+                {
+                    m_ircontext.c().ext_packargs(
+                        WO_OPNUM(target_storage.value()),
+                        (uint16_t)current_func->m_parameters.size(),
+                        (uint16_t)current_func->m_LANG_captured_context.m_captured_variables.size());
+                }
+                else
+                {
+                    auto* borrowed_opnum = m_ircontext.borrow_opnum_temporary_register();
+                    m_ircontext.c().ext_packargs(
+                        WO_OPNUM(borrowed_opnum),
+                        (uint16_t)current_func->m_parameters.size(),
+                        (uint16_t)current_func->m_LANG_captured_context.m_captured_variables.size());
+                    result.set_result(m_ircontext, borrowed_opnum);
+                }
+                return true;
+            }
+        ))
+        {
+            // Eval failed.
+            return FAILED;
+        }
+        return OKAY;
+    }
     WO_PASS_PROCESSER(AstValueIROpnum)
     {
         wo_assert(state == UNPROCESSED);
@@ -2086,8 +2197,7 @@ namespace wo
                 }
                 else
                 {
-                    // Donot return temporary register.
-                    result.set_result_force_keep(m_ircontext, node->m_opnum);
+                    result.set_result(m_ircontext, node->m_opnum);
                 }
                 return true;
             }
@@ -2187,8 +2297,11 @@ namespace wo
                     /* FALL THROUGH */
                     [[fallthrough]];
                 default:
-                    m_ircontext.eval_keep();
-                    WO_CONTINUE_PROCESS(pattern_index->m_index->m_index);
+                    if (!pattern_index->m_index->m_LANG_fast_index_for_struct.has_value())
+                    {
+                        m_ircontext.eval_keep();
+                        WO_CONTINUE_PROCESS(pattern_index->m_index->m_index);
+                    }
 
                     m_ircontext.eval_keep();
                     WO_CONTINUE_PROCESS(pattern_index->m_index->m_container);
@@ -2212,13 +2325,17 @@ namespace wo
                     || node->m_LANG_overload_call.value()->m_arguments.front() == pattern_index->m_index);
 
                 // ATTENTION: We will do bad things to update index op's container & index by AstValueIROpnum
-                AstValueIROpnum* index_opnum = new AstValueIROpnum(m_ircontext.get_eval_result());
+                if (!pattern_index->m_index->m_LANG_fast_index_for_struct.has_value())
+                {
+                    AstValueIROpnum* index_opnum = new AstValueIROpnum(m_ircontext.get_eval_result());
+                    index_opnum->m_LANG_determined_type = pattern_index->m_index->m_index->m_LANG_determined_type;
+                    index_opnum->source_location = pattern_index->m_index->m_index->source_location;
+                    pattern_index->m_index->m_index = index_opnum;
+                }
+
                 AstValueIROpnum* container_opnum = new AstValueIROpnum(m_ircontext.get_eval_result());
-
-                index_opnum->source_location = pattern_index->m_index->m_index->source_location;
+                container_opnum->m_LANG_determined_type = pattern_index->m_index->m_container->m_LANG_determined_type;
                 container_opnum->source_location = pattern_index->m_index->m_container->source_location;
-
-                pattern_index->m_index->m_index = index_opnum;
                 pattern_index->m_index->m_container = container_opnum;
 
                 if (node->m_LANG_overload_call.has_value())
@@ -2240,6 +2357,8 @@ namespace wo
             }
             case AstValueAssign::IR_HOLD_TO_APPLY_ASSIGN:
             {
+                opnum::opnumbase* assign_expr_result_opnum;
+
                 if (node->m_assign_place->node_type == AstBase::AST_PATTERN_VARIABLE)
                 {
                     AstPatternVariable* assign_var = static_cast<AstPatternVariable*>(node->m_assign_place);
@@ -2250,56 +2369,451 @@ namespace wo
                     switch (node->m_assign_type)
                     {
                     case AstValueAssign::ASSIGN:
-                    {
-                        if (storage.m_type == lang_ValueInstance::Storage::GLOBAL
-                            || (storage.m_index >= -64 && storage.m_index < 63))
-                            // Nothing todo, assign has been complete.
-                            ;
-                        else
-                        {
-                            auto* right_opnum = m_ircontext.get_eval_result();
-
-                            TODO;
-                            m_ircontext.try_keep_opnum_temporary_register(right_opnum);
-                        }
-                    }
+                        assign_expr_result_opnum = m_ircontext.get_eval_result();
+                        break;
                     default:
                         if (node->m_LANG_overload_call.has_value())
-                        {
-                            // WTF! WTF! WTF!
-                            // IT'S FXXKING FUNCTION OVERLOAD CALL!
-
-                            // We just eval it and assigned it to value.
-                            if (storage.m_type == lang_ValueInstance::Storage::GLOBAL
-                                || (storage.m_index >= -64 && storage.m_index < 63))
-                                m_ircontext.eval_to(m_ircontext.get_storage_place(storage));
-                            else
-                                m_ircontext.eval();
-
-                            WO_CONTINUE_PROCESS(node->m_LANG_overload_call.value());
-                        }
+                            assign_expr_result_opnum = m_ircontext.get_eval_result();
                         else
                         {
-                            m_ircontext.eval();
-                            WO_CONTINUE_PROCESS(node->m_right);
+                            auto* right_value_result = m_ircontext.get_eval_result();
+
+                            // Do normal assign operate;
+                            if (storage.m_type == lang_ValueInstance::Storage::GLOBAL
+                                || (storage.m_index >= -64 && storage.m_index < 63))
+                                assign_expr_result_opnum = m_ircontext.get_storage_place(storage);
+                            else
+                            {
+                                assign_expr_result_opnum = m_ircontext.borrow_opnum_temporary_register();
+                                m_ircontext.c().lds(
+                                    WO_OPNUM(assign_expr_result_opnum),
+                                    WO_OPNUM(m_ircontext.opnum_imm_int(storage.m_index)));
+                            }
+
+                            lang_TypeInstance* assign_type_instance = assign_var->m_variable->m_LANG_determined_type.value();
+                            auto* determined_assign_type = assign_type_instance->get_determined_type().value();
+
+                            switch (node->m_assign_type)
+                            {
+                            case AstValueAssign::ADD_ASSIGN:
+                                switch (determined_assign_type->m_base_type)
+                                {
+                                case lang_TypeInstance::DeterminedType::INTEGER:
+                                    m_ircontext.c().addi(
+                                        WO_OPNUM(assign_expr_result_opnum),
+                                        WO_OPNUM(right_value_result));
+                                    break;
+                                case lang_TypeInstance::DeterminedType::REAL:
+                                    m_ircontext.c().addr(
+                                        WO_OPNUM(assign_expr_result_opnum),
+                                        WO_OPNUM(right_value_result));
+                                    break;
+                                case lang_TypeInstance::DeterminedType::HANDLE:
+                                    m_ircontext.c().addh(
+                                        WO_OPNUM(assign_expr_result_opnum),
+                                        WO_OPNUM(right_value_result));
+                                    break;
+                                case lang_TypeInstance::DeterminedType::STRING:
+                                    m_ircontext.c().adds(
+                                        WO_OPNUM(assign_expr_result_opnum),
+                                        WO_OPNUM(right_value_result));
+                                    break;
+                                default:
+                                    wo_error("Unknown type.");
+                                    break;
+                                }
+                                break;
+                            case AstValueAssign::SUBSTRACT_ASSIGN:
+                                switch (determined_assign_type->m_base_type)
+                                {
+                                case lang_TypeInstance::DeterminedType::INTEGER:
+                                    m_ircontext.c().subi(
+                                        WO_OPNUM(assign_expr_result_opnum),
+                                        WO_OPNUM(right_value_result));
+                                    break;
+                                case lang_TypeInstance::DeterminedType::HANDLE:
+                                    m_ircontext.c().subh(
+                                        WO_OPNUM(assign_expr_result_opnum),
+                                        WO_OPNUM(right_value_result));
+                                    break;
+                                case lang_TypeInstance::DeterminedType::REAL:
+                                    m_ircontext.c().subr(
+                                        WO_OPNUM(assign_expr_result_opnum),
+                                        WO_OPNUM(right_value_result));
+                                    break;
+                                default:
+                                    wo_error("Unknown type.");
+                                    break;
+                                }
+                                break;
+                            case AstValueAssign::MULTIPLY_ASSIGN:
+                                switch (determined_assign_type->m_base_type)
+                                {
+                                case lang_TypeInstance::DeterminedType::INTEGER:
+                                    m_ircontext.c().muli(
+                                        WO_OPNUM(assign_expr_result_opnum),
+                                        WO_OPNUM(right_value_result));
+                                    break;
+                                case lang_TypeInstance::DeterminedType::REAL:
+                                    m_ircontext.c().mulr(
+                                        WO_OPNUM(assign_expr_result_opnum),
+                                        WO_OPNUM(right_value_result));
+                                    break;
+                                default:
+                                    wo_error("Unknown type.");
+                                    break;
+                                }
+                                break;
+                            case AstValueAssign::DIVIDE_ASSIGN:
+                                switch (determined_assign_type->m_base_type)
+                                {
+                                case lang_TypeInstance::DeterminedType::INTEGER:
+                                    m_ircontext.c().divi(
+                                        WO_OPNUM(assign_expr_result_opnum),
+                                        WO_OPNUM(right_value_result));
+                                    break;
+                                case lang_TypeInstance::DeterminedType::REAL:
+                                    m_ircontext.c().divr(
+                                        WO_OPNUM(assign_expr_result_opnum),
+                                        WO_OPNUM(right_value_result));
+                                    break;
+                                default:
+                                    wo_error("Unknown type.");
+                                    break;
+                                }
+                                break;
+                            case AstValueAssign::MODULO_ASSIGN:
+                                switch (determined_assign_type->m_base_type)
+                                {
+                                case lang_TypeInstance::DeterminedType::INTEGER:
+                                    m_ircontext.c().modi(
+                                        WO_OPNUM(assign_expr_result_opnum),
+                                        WO_OPNUM(right_value_result));
+                                    break;
+                                case lang_TypeInstance::DeterminedType::REAL:
+                                    m_ircontext.c().modr(
+                                        WO_OPNUM(assign_expr_result_opnum),
+                                        WO_OPNUM(right_value_result));
+                                    break;
+                                default:
+                                    wo_error("Unknown type.");
+                                    break;
+                                }
+                                break;
+                            default:
+                                wo_error("Unknown operator.");
+                                break;
+                            }
+
+                            if (storage.m_type == lang_ValueInstance::Storage::GLOBAL
+                                || (storage.m_index >= -64 && storage.m_index < 63))
+                                // Assign completed.
+                                ;
+                            else
+                                m_ircontext.try_return_opnum_temporary_register(
+                                    assign_expr_result_opnum);
                         }
                         break;
                     }
 
-                    node->m_LANG_hold_state = AstValueAssign::IR_HOLD_TO_APPLY_ASSIGN;
-                }
+                    /////////////////////// EVAL FINISHED ///////////////////////
+
+                    if (storage.m_type == lang_ValueInstance::Storage::GLOBAL
+                        || (storage.m_index >= -64 && storage.m_index < 63))
+                        // Nothing todo, assign has been complete.
+                        ;
+                    else
+                    {
+                        m_ircontext.c().sts(
+                            WO_OPNUM(assign_expr_result_opnum),
+                            WO_OPNUM(m_ircontext.opnum_imm_int(storage.m_index)));
+                    }
                 }
                 else
                 {
-                    // ATTENTION: Here still 2 temporary reg stores in AstValueIROpnum need to be free manually.
-                    todo;
-                    
+                    // ATTENTION: Here still 2(or 1) temporary reg stores in AstValueIROpnum need to be free manually.
+                    wo_assert(node->m_assign_place->node_type == AstBase::AST_PATTERN_INDEX);
+                    AstPatternIndex* pattern_index = static_cast<AstPatternIndex*>(node->m_assign_place);
+
+                    lang_TypeInstance* assign_type_instance = pattern_index->m_index->m_LANG_determined_type.value();
+                    auto* determined_assign_type = assign_type_instance->get_determined_type().value();
+
+                    lang_TypeInstance* container_type_instance =
+                        pattern_index->m_index->m_container->m_LANG_determined_type.value();
+
+                    auto* determined_container_type = container_type_instance->get_determined_type().value();
+
+                    opnum::opnumbase* container_opnum;
+                    opnum::opnumbase* index_opnum;
+
+                    switch (node->m_assign_type)
+                    {
+                    case AstValueAssign::ASSIGN:
+                    {
+                        assign_expr_result_opnum = m_ircontext.get_eval_result();
+
+                        if (!pattern_index->m_index->m_LANG_fast_index_for_struct.has_value())
+                            index_opnum = m_ircontext.get_eval_result();
+
+                        container_opnum = m_ircontext.get_eval_result();
+                        break;
+                    }
+                    default:
+                    {
+                        container_opnum = static_cast<AstValueIROpnum*>(
+                            pattern_index->m_index->m_container)->m_opnum;
+                        if (!pattern_index->m_index->m_LANG_fast_index_for_struct.has_value())
+                            index_opnum = static_cast<AstValueIROpnum*>(
+                                pattern_index->m_index->m_index)->m_opnum;
+
+                        if (node->m_LANG_overload_call.has_value())
+                            assign_expr_result_opnum = m_ircontext.get_eval_result();
+                        else
+                        {
+                            auto* right_value_result = m_ircontext.get_eval_result();
+                            assign_expr_result_opnum = m_ircontext.get_eval_result();
+
+                            m_ircontext.try_return_opnum_temporary_register(assign_expr_result_opnum);
+
+                            switch (node->m_assign_type)
+                            {
+                            case AstValueAssign::ADD_ASSIGN:
+                                switch (determined_assign_type->m_base_type)
+                                {
+                                case lang_TypeInstance::DeterminedType::INTEGER:
+                                    m_ircontext.c().addi(
+                                        WO_OPNUM(assign_expr_result_opnum),
+                                        WO_OPNUM(right_value_result));
+                                    break;
+                                case lang_TypeInstance::DeterminedType::REAL:
+                                    m_ircontext.c().addr(
+                                        WO_OPNUM(assign_expr_result_opnum),
+                                        WO_OPNUM(right_value_result));
+                                    break;
+                                case lang_TypeInstance::DeterminedType::HANDLE:
+                                    m_ircontext.c().addh(
+                                        WO_OPNUM(assign_expr_result_opnum),
+                                        WO_OPNUM(right_value_result));
+                                    break;
+                                case lang_TypeInstance::DeterminedType::STRING:
+                                    m_ircontext.c().adds(
+                                        WO_OPNUM(assign_expr_result_opnum),
+                                        WO_OPNUM(right_value_result));
+                                    break;
+                                default:
+                                    wo_error("Unknown type.");
+                                    break;
+                                }
+                                break;
+                            case AstValueAssign::SUBSTRACT_ASSIGN:
+                                switch (determined_assign_type->m_base_type)
+                                {
+                                case lang_TypeInstance::DeterminedType::INTEGER:
+                                    m_ircontext.c().subi(
+                                        WO_OPNUM(assign_expr_result_opnum),
+                                        WO_OPNUM(right_value_result));
+                                    break;
+                                case lang_TypeInstance::DeterminedType::HANDLE:
+                                    m_ircontext.c().subh(
+                                        WO_OPNUM(assign_expr_result_opnum),
+                                        WO_OPNUM(right_value_result));
+                                    break;
+                                case lang_TypeInstance::DeterminedType::REAL:
+                                    m_ircontext.c().subr(
+                                        WO_OPNUM(assign_expr_result_opnum),
+                                        WO_OPNUM(right_value_result));
+                                    break;
+                                default:
+                                    wo_error("Unknown type.");
+                                    break;
+                                }
+                                break;
+                            case AstValueAssign::MULTIPLY_ASSIGN:
+                                switch (determined_assign_type->m_base_type)
+                                {
+                                case lang_TypeInstance::DeterminedType::INTEGER:
+                                    m_ircontext.c().muli(
+                                        WO_OPNUM(assign_expr_result_opnum),
+                                        WO_OPNUM(right_value_result));
+                                    break;
+                                case lang_TypeInstance::DeterminedType::REAL:
+                                    m_ircontext.c().mulr(
+                                        WO_OPNUM(assign_expr_result_opnum),
+                                        WO_OPNUM(right_value_result));
+                                    break;
+                                default:
+                                    wo_error("Unknown type.");
+                                    break;
+                                }
+                                break;
+                            case AstValueAssign::DIVIDE_ASSIGN:
+                                switch (determined_assign_type->m_base_type)
+                                {
+                                case lang_TypeInstance::DeterminedType::INTEGER:
+                                    m_ircontext.c().divi(
+                                        WO_OPNUM(assign_expr_result_opnum),
+                                        WO_OPNUM(right_value_result));
+                                    break;
+                                case lang_TypeInstance::DeterminedType::REAL:
+                                    m_ircontext.c().divr(
+                                        WO_OPNUM(assign_expr_result_opnum),
+                                        WO_OPNUM(right_value_result));
+                                    break;
+                                default:
+                                    wo_error("Unknown type.");
+                                    break;
+                                }
+                                break;
+                            case AstValueAssign::MODULO_ASSIGN:
+                                switch (determined_assign_type->m_base_type)
+                                {
+                                case lang_TypeInstance::DeterminedType::INTEGER:
+                                    m_ircontext.c().modi(
+                                        WO_OPNUM(assign_expr_result_opnum),
+                                        WO_OPNUM(right_value_result));
+                                    break;
+                                case lang_TypeInstance::DeterminedType::REAL:
+                                    m_ircontext.c().modr(
+                                        WO_OPNUM(assign_expr_result_opnum),
+                                        WO_OPNUM(right_value_result));
+                                    break;
+                                default:
+                                    wo_error("Unknown type.");
+                                    break;
+                                }
+                                break;
+                            default:
+                                wo_error("Unknown operator.");
+                                break;
+                            }
+                        }
+                        break;
+                    }
+                    }
+
+                    /////////////////////// EVAL FINISHED ///////////////////////
+
+                    switch (determined_container_type->m_base_type)
+                    {
+                    case lang_TypeInstance::DeterminedType::ARRAY:
+                    case lang_TypeInstance::DeterminedType::VECTOR:
+                    case lang_TypeInstance::DeterminedType::DICTIONARY:
+                    case lang_TypeInstance::DeterminedType::MAPPING:
+                    {
+                        auto* assigned_right_value = assign_expr_result_opnum;
+
+                        bool is_register = dynamic_cast<opnum::reg*>(assigned_right_value) != nullptr;
+
+                        if (!is_register
+                            && dynamic_cast<opnum::temporary*>(assigned_right_value) == nullptr)
+                        {
+                            is_register = false;
+                            auto* borrowed_reg = m_ircontext.borrow_opnum_temporary_register();
+                            m_ircontext.c().mov(
+                                WO_OPNUM(borrowed_reg),
+                                WO_OPNUM(assigned_right_value));
+                            m_ircontext.return_opnum_temporary_register(borrowed_reg);
+                            assigned_right_value = borrowed_reg;
+                        }
+
+                        if (is_register)
+                        {
+                            if (determined_container_type->m_base_type == lang_TypeInstance::DeterminedType::DICTIONARY)
+                                m_ircontext.c().siddict(
+                                    WO_OPNUM(container_opnum),
+                                    WO_OPNUM(index_opnum),
+                                    *dynamic_cast<opnum::reg*>(assigned_right_value));
+                            else if (determined_container_type->m_base_type == lang_TypeInstance::DeterminedType::MAPPING)
+                                m_ircontext.c().sidmap(
+                                    WO_OPNUM(container_opnum),
+                                    WO_OPNUM(index_opnum),
+                                    *dynamic_cast<opnum::reg*>(assigned_right_value));
+                            else
+                                m_ircontext.c().sidarr(
+                                    WO_OPNUM(container_opnum),
+                                    WO_OPNUM(index_opnum),
+                                    *dynamic_cast<opnum::reg*>(assigned_right_value));
+                        }
+                        else
+                        {
+                            if (determined_container_type->m_base_type == lang_TypeInstance::DeterminedType::DICTIONARY)
+                                m_ircontext.c().siddict(
+                                    WO_OPNUM(container_opnum),
+                                    WO_OPNUM(index_opnum),
+                                    *dynamic_cast<opnum::temporary*>(assigned_right_value));
+                            else if (determined_container_type->m_base_type == lang_TypeInstance::DeterminedType::MAPPING)
+                                m_ircontext.c().sidmap(
+                                    WO_OPNUM(container_opnum),
+                                    WO_OPNUM(index_opnum),
+                                    *dynamic_cast<opnum::temporary*>(assigned_right_value));
+                            else
+                                m_ircontext.c().sidarr(
+                                    WO_OPNUM(container_opnum),
+                                    WO_OPNUM(index_opnum),
+                                    *dynamic_cast<opnum::temporary*>(assigned_right_value));
+                        }
+                        break;
+                    }
+                    case lang_TypeInstance::DeterminedType::STRUCT:
+                    case lang_TypeInstance::DeterminedType::TUPLE:
+                    {
+                        m_ircontext.c().sidstruct(
+                            WO_OPNUM(container_opnum),
+                            WO_OPNUM(assign_expr_result_opnum),
+                            (int16_t)pattern_index->m_index->m_LANG_fast_index_for_struct.value());
+                        break;
+                    }
+                    default:
+                        wo_error("Unknown type.");
+                        break;
+                    }
+
+                    if (!pattern_index->m_index->m_LANG_fast_index_for_struct.has_value())
+                        m_ircontext.try_return_opnum_temporary_register(index_opnum);
+                    m_ircontext.try_return_opnum_temporary_register(container_opnum);
+                }
+
+                if (!m_ircontext.apply_eval_result(
+                    [&](BytecodeGenerateContext::EvalResult& result)
+                    {
+                        const auto& target_storage = result.get_assign_target();
+                        if (target_storage.has_value())
+                        {
+                            if (node->m_valued_assign)
+                                m_ircontext.c().mov(
+                                    WO_OPNUM(target_storage.value()),
+                                    WO_OPNUM(assign_expr_result_opnum));
+                            else
+                                // No valued return, junk it.
+                                ;
+                        }
+                        else
+                        {
+                            if (node->m_valued_assign)
+                            {
+                                m_ircontext.try_keep_opnum_temporary_register(assign_expr_result_opnum);
+                                result.set_result(m_ircontext, assign_expr_result_opnum);
+                            }
+                            else
+                                // Give a junk value.
+                                result.set_result(
+                                    m_ircontext, m_ircontext.opnum_spreg(opnum::reg::spreg::ni));
+                        }
+                        return true;
+                    }
+                ))
+                {
+                    // Eval failed.
+                    return FAILED;
                 }
                 break;
             }
+            default:
+                wo_error("Unknown hold state.");
+                break;
             }
-
         }
+        return WO_EXCEPT_ERROR(state, OKAY);
     }
 #undef WO_PASS_PROCESSER
 

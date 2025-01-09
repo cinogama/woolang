@@ -170,6 +170,7 @@ namespace wo
         : virtual_machine_type(type)
         , cr(nullptr)
         , tc(nullptr)
+        , tp(nullptr)
         , er(nullptr)
         , sp(nullptr)
         , bp(nullptr)
@@ -298,6 +299,7 @@ namespace wo
         register_mem_begin = _self_register_mem_buf;
         cr = register_mem_begin + opnum::reg::spreg::cr;
         tc = register_mem_begin + opnum::reg::spreg::tc;
+        tp = register_mem_begin + opnum::reg::spreg::tp;
         er = register_mem_begin + opnum::reg::spreg::er;
     }
     void vmbase::_allocate_stack_space(size_t stacksz)noexcept
@@ -723,7 +725,7 @@ namespace wo
                     {
                         tmpos << "packargs\t"; print_opnum1(); tmpos << ",\t";
 
-                        auto this_func_argc = *(uint32_t*)((this_command_ptr += 2) - 2);
+                        auto this_func_argc = *(uint16_t*)((this_command_ptr += 2) - 2);
                         auto skip_closure = *(uint16_t*)((this_command_ptr += 2) - 2);
 
                         tmpos << ": skip " << this_func_argc << "/" << skip_closure;
@@ -1089,8 +1091,8 @@ namespace wo
             auto* return_sp = sp;
             auto return_tc = tc->integer;
 
-            for (auto idx = wo_func_addr->m_closure_args_count; idx > 0; --idx)
-                (sp--)->set_val(&wo_func_addr->m_closure_args[idx - 1]);
+            for (uint16_t idx = 0; idx < wo_func_addr->m_closure_args_count; ++idx)
+                (sp--)->set_val(&wo_func_addr->m_closure_args[idx]);
 
             (sp--)->set_native_callstack(ip);
             ip = wo_func_addr->m_native_call
@@ -1215,8 +1217,8 @@ namespace wo
                 auto return_bp_place = stack_mem_begin - bp;
                 auto return_tc = tc->integer;
 
-                for (auto idx = wo_func_closure->m_closure_args_count; idx > 0; --idx)
-                    (sp--)->set_val(&wo_func_closure->m_closure_args[idx - 1]);
+                for (uint16_t idx = 0; idx < wo_func_closure->m_closure_args_count; ++idx)
+                    (sp--)->set_val(&wo_func_closure->m_closure_args[idx]);
 
                 (sp--)->set_native_callstack(ip);
                 tc->set_integer(argc);
@@ -1509,13 +1511,20 @@ namespace wo
 
         return rt_sp;
     }
-    void vmbase::packargs_impl(value* opnum1, uint16_t argcount, value* tc, value* rt_bp, uint16_t skip_closure_arg_count) noexcept
+    void vmbase::packargs_impl(
+        value* opnum1, 
+        uint16_t argcount,
+        const value* tp,
+        value* rt_bp, 
+        uint16_t skip_closure_arg_count) noexcept
     {
         auto* packed_array = array_t::gc_new<gcbase::gctype::young>();
-        packed_array->resize((size_t)tc->integer - (size_t)argcount);
-        for (auto argindex = 0 + (size_t)argcount; argindex < (size_t)tc->integer; argindex++)
+        packed_array->resize((size_t)tp->integer - (size_t)argcount);
+        for (auto argindex = 0 + (size_t)argcount; argindex < (size_t)tp->integer; argindex++)
         {
-            (*packed_array)[(size_t)argindex - (size_t)argcount].set_val(rt_bp + 2 + argindex + skip_closure_arg_count);
+            (*packed_array)[
+                (size_t)argindex - (size_t)argcount].set_val(
+                    rt_bp + 2 + argindex + skip_closure_arg_count);
         }
         opnum1->set_gcunit<wo::value::valuetype::array_type>(packed_array);
     }
@@ -2277,8 +2286,8 @@ namespace wo
                             break;
                         }
 
-                        for (auto idx = opnum1->closure->m_closure_args_count; idx > 0; --idx)
-                            (sp--)->set_val(&opnum1->closure->m_closure_args[idx - 1]);
+                        for (uint16_t idx = 0; idx < opnum1->closure->m_closure_args_count; ++idx)
+                            (sp--)->set_val(&opnum1->closure->m_closure_args[idx]);
                     }
                     else
                     {
@@ -2759,7 +2768,12 @@ namespace wo
                         uint16_t this_function_arg_count = WO_IPVAL_MOVE_2;
                         uint16_t skip_closure_arg_count = WO_IPVAL_MOVE_2;
 
-                        packargs_impl(opnum1, this_function_arg_count, tc, bp, skip_closure_arg_count);
+                        packargs_impl(
+                            opnum1, 
+                            this_function_arg_count, 
+                            tp,
+                            bp, 
+                            skip_closure_arg_count);
                         break;
                     }
                     case instruct::extern_opcode_page_0::cdivilr:

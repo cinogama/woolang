@@ -687,10 +687,12 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             case value::valuetype::closure_type:
             {
                 wo_assert(target_function->closure->m_native_call);
+
                 if (rt_sp - target_function->closure->m_closure_args_count - 1 < vm->_self_stack_mem_buf)
                     break;
-                for (auto idx = target_function->closure->m_closure_args_count; idx > 0; --idx)
-                    (rt_sp--)->set_val(&target_function->closure->m_closure_args[idx - 1]);
+
+                for (uint16_t idx = 0; idx < target_function->closure->m_closure_args_count; ++idx)
+                    (rt_sp--)->set_val(&target_function->closure->m_closure_args[idx]);
                 return native_do_calln_vmfunc(vm, target_function->closure->m_native_func, retip, rt_sp, rt_bp);
             }
             default:
@@ -895,6 +897,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
         asmjit::x86::Gp _vmreg;
         asmjit::x86::Gp _vmcr;
         asmjit::x86::Gp _vmtc;
+        asmjit::x86::Gp _vmtp;
 
         runtime_env* env;
 
@@ -909,6 +912,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             _vmreg = c.newUIntPtr();
             _vmcr = c.newUIntPtr();
             _vmtc = c.newUIntPtr();
+            _vmtp = c.newUIntPtr();
         }
         X64CompileContext(const X64CompileContext&) = delete;
         X64CompileContext(X64CompileContext&&) = delete;
@@ -1244,6 +1248,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             wo_assure(!ctx->c.mov(ctx->_vmreg, asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, register_mem_begin))));
             wo_assure(!ctx->c.mov(ctx->_vmcr, asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, cr))));
             wo_assure(!ctx->c.mov(ctx->_vmtc, asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, tc))));
+            wo_assure(!ctx->c.mov(ctx->_vmtp, asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, tp))));
 
             return ctx;
         }
@@ -2685,11 +2690,17 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
 
             asmjit::InvokeNode* invoke_node;
             wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vmbase::packargs_impl,
-                asmjit::FuncSignatureT<void, wo::value*, uint16_t, wo::value*, wo::value*, uint16_t>()));
+                asmjit::FuncSignatureT<
+                    void,
+                    wo::value*,
+                    uint16_t,
+                    const wo::value*,
+                    wo::value*,
+                    uint16_t>()));
 
             invoke_node->setArg(0, op1);
             invoke_node->setArg(1, asmjit::Imm(this_function_arg_count));
-            invoke_node->setArg(2, ctx->_vmtc);
+            invoke_node->setArg(2, ctx->_vmtp);
             invoke_node->setArg(3, ctx->_vmsbp);
             invoke_node->setArg(4, asmjit::Imm(skip_closure_arg_count));
 
@@ -2784,7 +2795,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
 
             auto pop_count = ctx->c.newInt64();
             wo_assure(!ctx->c.mov(
-                pop_count, 
+                pop_count,
                 asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
             wo_assure(!ctx->c.shl(pop_count, asmjit::Imm(4)));
             wo_assure(!ctx->c.lea(ctx->_vmssp, asmjit::x86::qword_ptr(ctx->_vmsbp, pop_count)));

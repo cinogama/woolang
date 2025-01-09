@@ -495,12 +495,8 @@ namespace wo
             //  Or m_result will be empty.
             std::optional<opnum::opnumbase*> m_result;
 
-            // Donot return temporary what ever
-            bool m_force_keep;
-
             const std::optional<opnum::opnumbase*>& get_assign_target() noexcept;
             void set_result(BytecodeGenerateContext& ctx, opnum::opnumbase* result) noexcept;
-            void set_result_force_keep(BytecodeGenerateContext& ctx, opnum::opnumbase* result) noexcept;
         };
         std::stack<EvalResult> m_eval_result_storage_target;
         std::stack<EvalResult> m_evaled_result_storage;

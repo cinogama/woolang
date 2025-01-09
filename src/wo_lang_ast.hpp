@@ -357,8 +357,10 @@ namespace wo
                 AstValueFunctionCall_FakeAstArgumentDeductionContextB*>>
                 m_LANG_branch_argument_deduction_context;
             bool m_LANG_invoking_variadic_function;
+            bool m_LANG_has_runtime_full_unpackargs;
+            size_t m_LANG_certenly_function_argument_count;
+
             std::optional<AstValueFunction*> m_IR_invoking_function_near;
-            std::optional<wo_integer_t> m_IR_certenly_function_argument_count;
 
             AstValueFunctionCall(bool direct, AstValueBase* function, const std::list<AstValueBase*>& arguments);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
@@ -469,6 +471,8 @@ namespace wo
         };
         struct AstValueVariadicArgumentsPack : public AstValueBase
         {
+            std::optional<AstValueFunction*> m_LANG_function_instance;
+
             AstValueVariadicArgumentsPack();
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
         };
@@ -595,7 +599,7 @@ namespace wo
                 //      variable.
                 bool m_self_referenced; 
                 
-                std::unordered_map<lang_ValueInstance*, captured_variable_instance>
+                std::map<lang_ValueInstance*, captured_variable_instance>
                     m_captured_variables;
 
                 lang_ValueInstance* find_or_create_captured_instance(
