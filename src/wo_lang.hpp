@@ -1064,6 +1064,7 @@ namespace wo
         bool check_need_template_deduct_struct_type(lexer& lex, ast::AstTypeHolder* target, PassProcessStackT& out_stack);
 
         void using_namespace_declare_for_current_scope(ast::AstUsingNamespace* using_namespace);
+        void append_using_namespace_for_current_scope(const std::unordered_set<lang_Namespace*>& using_namespaces, wo_pstring_t source);
         void LangContext::_collect_failed_template_instance(lexer& lex, ast::AstBase* node, lang_TemplateAstEvalStateBase* inst);
 
         lang_ValueInstance* check_and_update_captured_varibale_in_current_scope(

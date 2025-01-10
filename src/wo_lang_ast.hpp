@@ -635,7 +635,7 @@ namespace wo
             LANG_capture_context m_LANG_captured_context;
             std::optional<lang_Scope*> m_LANG_function_scope;
 
-            std::optional<const wchar_t*> m_IR_marked_function_name;
+            std::optional<lang_ValueInstance*> m_IR_binded_value_instance;
             std::optional<AstExternInformation*> m_IR_extern_information;
 
             AstValueFunction(

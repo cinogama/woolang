@@ -1138,17 +1138,18 @@ namespace wo
             AstToken* middle_string_literal = static_cast<AstToken*>(WO_NEED_AST_TYPE(1, AstBase::AST_TOKEN));
             AstValueBase* last_value = WO_NEED_AST_VALUE(2);
 
-            AstIdentifier* string_identifier = new AstIdentifier(WO_PSTR(string), std::nullopt, {}, true);
-            AstTypeHolder* string_type = new AstTypeHolder(string_identifier);
-            AstValueTypeCast* cast = new AstValueTypeCast(string_type, first_string);
             AstValueLiteral* middle_string = new AstValueLiteral();
             middle_string->decide_final_constant_value(wstrn_to_str(middle_string_literal->m_token.identifier));
+
+            AstIdentifier* string_identifier = new AstIdentifier(WO_PSTR(string), std::nullopt, {}, true);
+            AstTypeHolder* string_type = new AstTypeHolder(string_identifier);
+            AstValueTypeCast* cast = new AstValueTypeCast(string_type, last_value);
 
             AstValueBinaryOperator* first_middle_add =
                 new AstValueBinaryOperator(AstValueBinaryOperator::ADD, first_string, middle_string);
 
             AstValueBinaryOperator* first_middle_last_add =
-                new AstValueBinaryOperator(AstValueBinaryOperator::ADD, first_middle_add, last_value);
+                new AstValueBinaryOperator(AstValueBinaryOperator::ADD, first_middle_add, cast);
 
             // Update source location
             string_identifier->source_location = first_string->source_location;

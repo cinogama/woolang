@@ -1792,6 +1792,7 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
+            TODO; TEST CASE FAILED CAUSED BY THIS entry_spcify_scope
             entry_spcify_scope(node->m_apply_template_argument_scope);
 
             for (auto& [param_name, arg_type_inst] : node->m_deduction_results)
@@ -2755,7 +2756,7 @@ namespace wo
                                 node->m_LANG_has_runtime_full_unpackargs = true;
                             else
                                 node->m_LANG_certenly_function_argument_count +=
-                                    elem_count_to_be_expand;
+                                elem_count_to_be_expand;
                             break;
                         }
                         case lang_TypeInstance::DeterminedType::TUPLE:
@@ -4054,6 +4055,8 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
+            begin_new_scope();
+
             WO_CONTINUE_PROCESS(node->m_matched_value);
 
             node->m_LANG_hold_state = AstMatch::HOLD_FOR_EVAL_MATCHING_VALUE;
@@ -4068,11 +4071,24 @@ namespace wo
                 lang_TypeInstance* matching_typeinstance =
                     node->m_matched_value->m_LANG_determined_type.value();
 
+                // union can only declared in namespace.
+                wo_assert(matching_typeinstance->m_symbol->m_belongs_to_scope->is_namespace_scope());
+
+                // Must contanin this sub namespace.
+                auto* union_namespace = matching_typeinstance->m_symbol->m_belongs_to_scope->m_belongs_to_namespace->m_sub_namespaces.at(
+                    matching_typeinstance->m_symbol->m_name).get();
+
+                append_using_namespace_for_current_scope(
+                    { union_namespace }, 
+                    node->source_location.source_file);
+
                 // Check is union.
                 auto determined_base_type =
                     matching_typeinstance->get_determined_type();
                 if (!determined_base_type.has_value())
                 {
+                    end_last_scope();
+
                     lex.lang_error(lexer::errorlevel::error, node,
                         WO_ERR_TYPE_NAMED_DETERMINED_FAILED,
                         get_type_name_w(matching_typeinstance));
@@ -4086,6 +4102,8 @@ namespace wo
                 if (determined_base_type_instance->m_base_type
                     != lang_TypeInstance::DeterminedType::UNION)
                 {
+                    end_last_scope();
+
                     lex.lang_error(lexer::errorlevel::error, node,
                         WO_ERR_UNEXPECTED_MACTHING_TYPE,
                         get_type_name_w(matching_typeinstance));
@@ -4104,6 +4122,8 @@ namespace wo
                 {
                     if (has_take_place_pattern)
                     {
+                        end_last_scope();
+
                         lex.lang_error(lexer::errorlevel::error, match_case,
                             WO_ERR_TAKEPLACE_PATTERN_MATCHED);
                         return FAILED;
@@ -4116,22 +4136,32 @@ namespace wo
                             static_cast<AstPatternUnion*>(match_case->m_pattern);
                         if (!covered_branch.insert(union_pattern->m_tag).second)
                         {
+                            end_last_scope();
+
                             lex.lang_error(lexer::errorlevel::error, union_pattern,
                                 WO_ERR_EXISTS_CASE_NAMED_IN_MATCH,
                                 union_pattern->m_tag->c_str());
+
+                            return FAILED;
                         }
 
                         auto fnd = determined_base_type_instance_union_dat->m_union_label.find(union_pattern->m_tag);
                         if (determined_base_type_instance_union_dat->m_union_label.end() == fnd)
                         {
+                            end_last_scope();
+
                             lex.lang_error(lexer::errorlevel::error, union_pattern,
                                 WO_ERR_UNEXISTS_CASE_NAMED_IN_MATCH,
                                 union_pattern->m_tag->c_str());
+
+                            return FAILED;
                         }
 
                         bool pattern_include_value = union_pattern->m_field.has_value();
                         if (pattern_include_value != fnd->second.m_item_type.has_value())
                         {
+                            end_last_scope();
+
                             if (pattern_include_value)
                                 lex.lang_error(lexer::errorlevel::error, union_pattern,
                                     WO_ERR_HAVE_VALUE_CASE_IN_MATCH,
@@ -4167,6 +4197,8 @@ namespace wo
                 if (!has_take_place_pattern
                     && covered_branch.size() != determined_base_type_instance_union_dat->m_union_label.size())
                 {
+                    end_last_scope();
+
                     lex.lang_error(lexer::errorlevel::error, node,
                         WO_ERR_ALL_CASES_SHOULD_BE_MATCHED);
                     return FAILED;
@@ -4179,10 +4211,15 @@ namespace wo
             }
             case AstMatch::HOLD_FOR_EVAL_CASES:
                 // Cases has been evaled.
+                end_last_scope();
                 break;
             default:
                 wo_error("Unknown hold state.");
             }
+        }
+        else
+        {
+            end_last_scope();
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }

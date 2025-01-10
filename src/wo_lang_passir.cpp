@@ -773,7 +773,7 @@ namespace wo
                         if (function != nullptr)
                         {
                             template_value_instance->m_IR_normal_function = *function;
-                            (*function)->m_IR_marked_function_name = get_value_name_w(template_value_instance);
+                            (*function)->m_IR_binded_value_instance = template_value_instance;
 
                             // We still eval the function to let compiler know the function.
                             m_ircontext.eval_ignore();
@@ -816,7 +816,7 @@ namespace wo
                 if (function != nullptr)
                 {
                     pattern_symbol->m_value_instance->m_IR_normal_function = *function;
-                    (*function)->m_IR_marked_function_name = get_value_name_w(pattern_symbol->m_value_instance);
+                    (*function)->m_IR_binded_value_instance = pattern_symbol->m_value_instance;
 
                     m_ircontext.eval_ignore();
                     if (!pass_final_value(lex, *function))
@@ -2124,6 +2124,7 @@ namespace wo
                                 wo_error("Unknown type.");
                                 break;
                             }
+                            break;
                         default:
                             wo_error("Unknown operator.");
                             break;

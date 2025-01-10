@@ -235,7 +235,10 @@ namespace wo
             lex.lang_error(lexer::errorlevel::error, node, WO_ERR_REDEFINED, node->m_typename->c_str());
             return FAILED;
         }
-
+        else
+        {
+            node->m_LANG_declared_symbol.value()->m_is_global = true;
+        }
         return OKAY;
     }
     WO_PASS_PROCESSER(AstUsingTypeDeclare)
@@ -275,6 +278,10 @@ namespace wo
         {
             lex.lang_error(lexer::errorlevel::error, node, WO_ERR_REDEFINED, node->m_typename->c_str());
             return FAILED;
+        }
+        else
+        {
+            node->m_LANG_declared_symbol.value()->m_is_global = true;
         }
 
         return WO_EXCEPT_ERROR(state, OKAY);

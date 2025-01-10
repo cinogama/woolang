@@ -1256,6 +1256,23 @@ namespace wo
                 // Bind function label.
                 m_ircontext.c().tag(IR_function_label(eval_function));
 
+                // Trying to register extern symbol.
+                if (eval_function->m_IR_binded_value_instance.has_value())
+                {
+                    lang_ValueInstance* value_instance = eval_function->m_IR_binded_value_instance.value();
+                    lang_Symbol* symbol = value_instance->m_symbol;
+                    if (symbol->m_declare_attribute.has_value())
+                    {
+                        ast::AstDeclareAttribue* declare_attribute = symbol->m_declare_attribute.value();
+                        if (declare_attribute->m_external.has_value()
+                            && declare_attribute->m_external.value() == ast::AstDeclareAttribue::external_attrib::EXTERNAL)
+                        {
+                            m_ircontext.c().record_extern_script_function(
+                                get_value_name(value_instance));
+                        }
+                    }
+                }
+
                 size_t this_function_block_begin_place = m_ircontext.c().get_now_ip();
                 auto this_function_reserving_ip = m_ircontext.c().reserved_stackvalue();
 
@@ -1530,7 +1547,8 @@ namespace wo
                 auto fnd = current_scope->m_defined_symbols.find(ident->m_name);
                 if (fnd != current_scope->m_defined_symbols.end())
                 {
-                    if (fnd->second->m_symbol_edge <= visibility_edge_limit)
+                    if (fnd->second->m_symbol_edge <= visibility_edge_limit
+                        || fnd->second->m_is_global)
                         found_symbol.insert(fnd->second.get());
 
                     break;
@@ -1733,8 +1751,7 @@ namespace wo
             source_location,
             get_current_scope(),
             lang_Symbol::kind::ALIAS,
-            false)
-            .value();
+            false).value();
 
         symbol->m_alias_instance->m_determined_type = template_arg;
     }
@@ -2019,7 +2036,24 @@ namespace wo
             .first
             ->second.second.c_str();
     }
+    void LangContext::append_using_namespace_for_current_scope(
+        const std::unordered_set<lang_Namespace*>& using_namespaces, wo_pstring_t source)
+    {
+        lang_Scope* current_scope = get_current_scope();
+        if (current_scope->is_namespace_scope())
+        {
+            auto& used_namespaces =
+                current_scope->m_belongs_to_namespace->m_declare_used_namespaces[
+                    source];
 
+            used_namespaces.insert(using_namespaces.begin(), using_namespaces.end());
+        }
+        else
+        {
+            current_scope->m_declare_used_namespaces.insert(
+                using_namespaces.begin(), using_namespaces.end());
+        }
+    }
     void LangContext::using_namespace_declare_for_current_scope(
         ast::AstUsingNamespace* using_namespace)
     {
@@ -2054,19 +2088,8 @@ namespace wo
                 break;
         }
 
-        lang_Scope* current_scope = get_current_scope();
-        if (current_scope->is_namespace_scope())
-        {
-            auto& used_namespaces =
-                current_scope->m_belongs_to_namespace->m_declare_used_namespaces[using_namespace->source_location.source_file];
-
-            used_namespaces.insert(using_namespaces.begin(), using_namespaces.end());
-        }
-        else
-        {
-            current_scope->m_declare_used_namespaces.insert(
-                using_namespaces.begin(), using_namespaces.end());
-        }
+        append_using_namespace_for_current_scope(
+            using_namespaces, using_namespace->source_location.source_file);
     }
 
     lang_ValueInstance* LangContext::check_and_update_captured_varibale_in_current_scope(
