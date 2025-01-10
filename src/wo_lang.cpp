@@ -1217,12 +1217,6 @@ namespace wo
         size_t global_block_begin_place = m_ircontext.c().get_now_ip();
         auto global_reserving_ip = m_ircontext.c().reserved_stackvalue();
 
-        // TEST CODE BEGIN
-
-        m_ircontext.c().ext_panic(opnum::imm_str("TEST CODE GEN"));
-
-        // TEST CODE END
-
         if (!anylize_pass(lex, root, &LangContext::pass_final_A_process_bytecode_generation))
             return false;
 
@@ -2366,10 +2360,12 @@ namespace wo
         else
             return m_opnum_cache_imm_false.get();
     }
-    opnum::immbase* BytecodeGenerateContext::opnum_imm_value(const wo::value& val)
+    opnum::opnumbase* BytecodeGenerateContext::opnum_imm_value(const wo::value& val)
     {
         switch (val.type)
         {
+        case wo::value::valuetype::invalid:
+            return opnum_spreg(opnum::reg::spreg::ni);
         case wo::value::valuetype::integer_type:
             return opnum_imm_int(val.integer);
         case wo::value::valuetype::real_type:

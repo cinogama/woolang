@@ -2798,7 +2798,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
                 pop_count,
                 asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
             wo_assure(!ctx->c.shl(pop_count, asmjit::Imm(4)));
-            wo_assure(!ctx->c.lea(ctx->_vmssp, asmjit::x86::qword_ptr(ctx->_vmsbp, pop_count)));
+            wo_assure(!ctx->c.lea(ctx->_vmssp, asmjit::x86::qword_ptr(ctx->_vmssp, pop_count)));
 
             return true;
         }

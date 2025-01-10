@@ -134,3 +134,8 @@
 #define WO_ERR_VARIBALE_STORAGE_NOT_DETERMINED L"依赖了尚未完成初始化的变量 '%ls'"
 #define WO_ERR_UNABLE_TO_FIND_EXTERN_FUNCTION L"无法在库 '%ls' 找到外部函数 '%ls'"
 #define WO_ERR_CANNOT_UNPACK_HERE L"只能在函数的参数列表或元组元素列表中展开参数包"
+#define WO_ERR_BAD_BREAK L"无效的 'break' 语句"
+#define WO_ERR_BAD_CONTINUE L"无效的 'continue' 语句"
+
+// PASSIR BYTECODE GENERATOR(INFO)
+#define WO_INFO_BAD_LABEL_NAMED L"无法找到标签为 `%ls` 的循环"

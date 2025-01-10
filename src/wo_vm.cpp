@@ -671,7 +671,6 @@ namespace wo
             case instruct::jnequb:
             {
                 tmpos << "jnequb\t"; print_opnum1();
-                tmpos << ",\t"; print_opnum2();
                 tmpos << "\t+" << *(uint32_t*)((this_command_ptr += 4) - 4);
                 break;
             }

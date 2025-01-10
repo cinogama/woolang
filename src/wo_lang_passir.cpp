@@ -17,6 +17,12 @@ namespace wo
 
         return result;
     }
+    bool _is_storage_can_addressing(lang_ValueInstance::Storage& storage)
+    {
+        return storage.m_type == lang_ValueInstance::Storage::GLOBAL
+            || (storage.m_index >= -64 && storage.m_index <= 63);
+    }
+
     std::string LangContext::IR_function_label(ast::AstValueFunction* func)
     {
         char result[48];
@@ -114,8 +120,7 @@ namespace wo
 
         auto& storage = instance->m_IR_storage.value();
 
-        if (storage.m_type == lang_ValueInstance::Storage::GLOBAL
-            || (storage.m_index >= -64 && storage.m_index <= 63))
+        if (_is_storage_can_addressing(storage))
         {
             auto* target_storage =
                 m_ircontext.get_storage_place(storage);
@@ -239,14 +244,14 @@ namespace wo
         WO_LANG_REGISTER_PROCESSER(AstVariableDefines, AstBase::AST_VARIABLE_DEFINES, passir_A);
         WO_LANG_REGISTER_PROCESSER(AstNamespace, AstBase::AST_NAMESPACE, passir_A);
         WO_LANG_REGISTER_PROCESSER(AstScope, AstBase::AST_SCOPE, passir_A);
-        // WO_LANG_REGISTER_PROCESSER(AstMatchCase, AstBase::AST_MATCH_CASE, passir_A);
-        // WO_LANG_REGISTER_PROCESSER(AstMatch, AstBase::AST_MATCH, passir_A);
+        WO_LANG_REGISTER_PROCESSER(AstMatchCase, AstBase::AST_MATCH_CASE, passir_A);
+        WO_LANG_REGISTER_PROCESSER(AstMatch, AstBase::AST_MATCH, passir_A);
         WO_LANG_REGISTER_PROCESSER(AstIf, AstBase::AST_IF, passir_A);
         WO_LANG_REGISTER_PROCESSER(AstWhile, AstBase::AST_WHILE, passir_A);
         WO_LANG_REGISTER_PROCESSER(AstFor, AstBase::AST_FOR, passir_A);
-        // WO_LANG_REGISTER_PROCESSER(AstForeach, AstBase::AST_FOREACH, passir_A);
-        // WO_LANG_REGISTER_PROCESSER(AstBreak, AstBase::AST_BREAK, passir_A);
-        // WO_LANG_REGISTER_PROCESSER(AstContinue, AstBase::AST_CONTINUE, passir_A);
+        WO_LANG_REGISTER_PROCESSER(AstForeach, AstBase::AST_FOREACH, passir_A);
+        WO_LANG_REGISTER_PROCESSER(AstBreak, AstBase::AST_BREAK, passir_A);
+        WO_LANG_REGISTER_PROCESSER(AstContinue, AstBase::AST_CONTINUE, passir_A);
         WO_LANG_REGISTER_PROCESSER(AstReturn, AstBase::AST_RETURN, passir_A);
         WO_LANG_REGISTER_PROCESSER(AstLabeled, AstBase::AST_LABELED, passir_A);
         WO_LANG_REGISTER_PROCESSER(AstUsingTypeDeclare, AstBase::AST_USING_TYPE_DECLARE, passir_A);
@@ -254,7 +259,7 @@ namespace wo
         WO_LANG_REGISTER_PROCESSER(AstUsingNamespace, AstBase::AST_USING_NAMESPACE, passir_A);
         WO_LANG_REGISTER_PROCESSER(AstEnumDeclare, AstBase::AST_ENUM_DECLARE, passir_A);
         WO_LANG_REGISTER_PROCESSER(AstUnionDeclare, AstBase::AST_UNION_DECLARE, passir_A);
-        WO_LANG_REGISTER_PROCESSER(AstNop, AstBase::AST_EXTERN_INFORMATION, passir_A);
+        WO_LANG_REGISTER_PROCESSER(AstNop, AstBase::AST_NOP, passir_A);
 
         WO_LANG_REGISTER_PROCESSER(AstValueMarkAsMutable, AstBase::AST_VALUE_MARK_AS_MUTABLE, passir_B);
         WO_LANG_REGISTER_PROCESSER(AstValueMarkAsImmutable, AstBase::AST_VALUE_MARK_AS_IMMUTABLE, passir_B);
@@ -554,6 +559,134 @@ namespace wo
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
+    WO_PASS_PROCESSER(AstForeach)
+    {
+        if (state == UNPROCESSED)
+        {
+            WO_CONTINUE_PROCESS(node->m_forloop_body);
+            return HOLD;
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstBreak)
+    {
+        wo_assert(state == UNPROCESSED);
+
+        auto loop = m_ircontext.find_nearest_loop_content_label(node->m_label);
+        if (!loop.has_value())
+        {
+            lex.lang_error(lexer::errorlevel::error, node, 
+                WO_ERR_BAD_BREAK);
+
+            if (node->m_label.has_value())
+                lex.lang_error(lexer::errorlevel::infom, node,
+                    WO_INFO_BAD_LABEL_NAMED,
+                    node->m_label.value());
+
+            return FAILED;
+        }
+        
+        m_ircontext.c().jmp(loop.value()->m_break_label);
+        return OKAY;
+    }
+    WO_PASS_PROCESSER(AstContinue)
+    {
+        wo_assert(state == UNPROCESSED);
+
+        auto loop = m_ircontext.find_nearest_loop_content_label(node->m_label);
+        if (!loop.has_value())
+        {
+            lex.lang_error(lexer::errorlevel::error, node,
+                WO_ERR_BAD_CONTINUE);
+
+            if (node->m_label.has_value())
+                lex.lang_error(lexer::errorlevel::infom, node,
+                    WO_INFO_BAD_LABEL_NAMED,
+                    node->m_label.value());
+
+            return FAILED;
+        }
+
+        m_ircontext.c().jmp(loop.value()->m_continue_label);
+        return OKAY;
+    }
+    WO_PASS_PROCESSER(AstMatch)
+    {
+        if (state == UNPROCESSED)
+        {
+            m_ircontext.eval_keep();
+            if (!pass_final_value(lex, node->m_matched_value))
+                return FAILED;
+
+            auto* matching_value = m_ircontext.get_eval_result();
+            m_ircontext.c().idstruct(
+                WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::spreg::cr)),
+                WO_OPNUM(matching_value),
+                0);
+
+            node->m_IR_matching_struct_opnum = matching_value;
+            for (auto& match_case : node->m_cases)
+            {
+                match_case->m_IR_matching_struct_opnum = matching_value;
+                match_case->m_IR_match = node;
+            }
+
+            WO_CONTINUE_PROCESS_LIST(node->m_cases);
+
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            m_ircontext.try_return_opnum_temporary_register(node->m_IR_matching_struct_opnum.value());
+            m_ircontext.c().ext_panic(WO_OPNUM(m_ircontext.opnum_imm_string(
+                "Bad label for union: '" 
+                + std::string(get_type_name(node->m_matched_value->m_LANG_determined_type.value())) 
+                + "', may be bad value returned by the external function.")));
+
+            m_ircontext.c().tag(_generate_label("#match_end_", node));
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstMatchCase)
+    {
+        if (state == UNPROCESSED)
+        {
+            std::string match_case_end_label = _generate_label("#match_case_end_", node);
+
+            if (node->m_LANG_case_label_or_takeplace.has_value())
+                m_ircontext.c().jnequb(
+                    WO_OPNUM(m_ircontext.opnum_imm_int(node->m_LANG_case_label_or_takeplace.value())),
+                    opnum::tag(match_case_end_label));
+
+            if (node->m_pattern->node_type == AstBase::AST_PATTERN_UNION)
+            {
+                AstPatternUnion* pattern_union = static_cast<AstPatternUnion*>(node->m_pattern);
+                if (pattern_union->m_field.has_value())
+                {
+                    AstPatternBase* pattern_base = pattern_union->m_field.value();
+
+                    update_pattern_storage_and_code_gen_passir(
+                        lex,
+                        pattern_base,
+                        node->m_IR_matching_struct_opnum.value(),
+                        (uint16_t)1);
+                }
+            }
+            else
+            {
+                wo_assert(node->m_pattern->node_type == AstBase::AST_PATTERN_TAKEPLACE);
+            }
+
+            WO_CONTINUE_PROCESS(node->m_body);
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            m_ircontext.c().jmp(_generate_label("#match_end_", node->m_IR_match.value()));
+            m_ircontext.c().tag(_generate_label("#match_case_end_", node));
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
     WO_PASS_PROCESSER(AstLabeled)
     {
         if (state == UNPROCESSED)
@@ -601,7 +734,16 @@ namespace wo
     {
         wo_assert(state == UNPROCESSED);
 
-        if (node->m_pattern->node_type == AstBase::AST_PATTERN_SINGLE)
+        if (node->m_pattern->node_type == AstBase::AST_PATTERN_TAKEPLACE)
+        {
+            m_ircontext.eval_ignore();
+            if (!pass_final_value(lex, node->m_init_value))
+                // Failed 
+                return FAILED;
+
+            return OKAY;
+        }
+        else if (node->m_pattern->node_type == AstBase::AST_PATTERN_SINGLE)
         {
             // Might be constant, template.
             AstPatternSingle* pattern_single = static_cast<AstPatternSingle*>(node->m_pattern);
@@ -644,9 +786,7 @@ namespace wo
                     {
                         // Need storage and initialize.
                         bool fast_eval = template_value_instance->m_IR_storage.has_value()
-                            && (template_value_instance->m_IR_storage.value().m_type == lang_ValueInstance::Storage::GLOBAL
-                                || (template_value_instance->m_IR_storage.value().m_index >= -64
-                                    && template_value_instance->m_IR_storage.value().m_index < 63));
+                            && (_is_storage_can_addressing(template_value_instance->m_IR_storage.value()));
                         if (fast_eval)
                             m_ircontext.eval_to(
                                 m_ircontext.get_storage_place(
@@ -689,9 +829,7 @@ namespace wo
                 // Not template, but need storage.
 
                 bool fast_eval = pattern_symbol->m_value_instance->m_IR_storage.has_value()
-                    && (pattern_symbol->m_value_instance->m_IR_storage.value().m_type == lang_ValueInstance::Storage::GLOBAL
-                        || (pattern_symbol->m_value_instance->m_IR_storage.value().m_index >= -64
-                            && pattern_symbol->m_value_instance->m_IR_storage.value().m_index < 63));
+                    && _is_storage_can_addressing(pattern_symbol->m_value_instance->m_IR_storage.value());
 
                 if (fast_eval)
                     m_ircontext.eval_to(
@@ -873,8 +1011,7 @@ namespace wo
                         (void)_useless;
 
                         auto& storage = capture_from_value->m_IR_storage.value();
-                        if (storage.m_type == lang_ValueInstance::Storage::GLOBAL
-                            || (storage.m_index >= -64 && storage.m_index <= 63))
+                        if (_is_storage_can_addressing(storage))
                             m_ircontext.c().psh(
                                 WO_OPNUM(m_ircontext.get_storage_place(storage)));
                         else
@@ -1263,8 +1400,7 @@ namespace wo
 
         auto& variable_storage = value_instance->m_IR_storage.value();
 
-        if (variable_storage.m_type == lang_ValueInstance::Storage::GLOBAL
-            || (variable_storage.m_index >= -64 && variable_storage.m_index <= 63))
+        if (_is_storage_can_addressing(variable_storage))
         {
             // In global or stack range, we can use direct access.
             auto* storage_opnum =
@@ -1555,7 +1691,9 @@ namespace wo
                     if (target_determined_type_instance->m_base_type
                         != src_determined_type_instance->m_base_type
                         && target_determined_type_instance->m_base_type
-                        != lang_TypeInstance::DeterminedType::DYNAMIC)
+                        != lang_TypeInstance::DeterminedType::DYNAMIC
+                        && src_determined_type_instance->m_base_type
+                        != lang_TypeInstance::DeterminedType::NOTHING)
                     {
                         // Need runtime cast.
                         value::valuetype cast_type;
@@ -2447,34 +2585,67 @@ namespace wo
         }
         else
         {
-            if (!m_ircontext.apply_eval_result(
-                [&](BytecodeGenerateContext::EvalResult& result)
-                {
-                    auto* packed_opnum = m_ircontext.get_eval_result();
-
-                    const auto& target_storage = result.get_assign_target();
-                    if (target_storage.has_value())
-                    {
-                        m_ircontext.c().mkunion(
-                            WO_OPNUM(target_storage.value()),
-                            WO_OPNUM(packed_opnum),
-                            (uint16_t)node->m_index);
-                    }
-                    else
-                    {
-                        auto* borrowed_reg = m_ircontext.borrow_opnum_temporary_register();
-                        m_ircontext.c().mkunion(
-                            WO_OPNUM(borrowed_reg),
-                            WO_OPNUM(packed_opnum),
-                            (uint16_t)node->m_index);
-                        result.set_result(m_ircontext, borrowed_reg);
-                    }
-                    return true;
-                }
-            ))
+            if (node->m_packed_value.has_value())
             {
-                // Eval failed.
-                return FAILED;
+                if (!m_ircontext.apply_eval_result(
+                    [&](BytecodeGenerateContext::EvalResult& result)
+                    {
+                        auto* packed_opnum = m_ircontext.get_eval_result();
+
+                        const auto& target_storage = result.get_assign_target();
+                        if (target_storage.has_value())
+                        {
+                            m_ircontext.c().mkunion(
+                                WO_OPNUM(target_storage.value()),
+                                WO_OPNUM(packed_opnum),
+                                (uint16_t)node->m_index);
+                        }
+                        else
+                        {
+                            auto* borrowed_reg = m_ircontext.borrow_opnum_temporary_register();
+                            m_ircontext.c().mkunion(
+                                WO_OPNUM(borrowed_reg),
+                                WO_OPNUM(packed_opnum),
+                                (uint16_t)node->m_index);
+                            result.set_result(m_ircontext, borrowed_reg);
+                        }
+                        return true;
+                    }
+                ))
+                {
+                    // Eval failed.
+                    return FAILED;
+                }
+            }
+            else
+            {
+                if (!m_ircontext.apply_eval_result(
+                    [&](BytecodeGenerateContext::EvalResult& result)
+                    {
+                        const auto& target_storage = result.get_assign_target();
+                        if (target_storage.has_value())
+                        {
+                            m_ircontext.c().mkunion(
+                                WO_OPNUM(target_storage.value()),
+                                WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::spreg::ni)),
+                                (uint16_t)node->m_index);
+                        }
+                        else
+                        {
+                            auto* borrowed_reg = m_ircontext.borrow_opnum_temporary_register();
+                            m_ircontext.c().mkunion(
+                                WO_OPNUM(borrowed_reg),
+                                WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::spreg::ni)),
+                                (uint16_t)node->m_index);
+                            result.set_result(m_ircontext, borrowed_reg);
+                        }
+                        return true;
+                    }
+                ))
+                {
+                    // Eval failed.
+                    return FAILED;
+                }
             }
         }
         return WO_EXCEPT_ERROR(state, OKAY);
@@ -2577,8 +2748,7 @@ namespace wo
                 switch (node->m_assign_type)
                 {
                 case AstValueAssign::ASSIGN:
-                    if (storage.m_type == lang_ValueInstance::Storage::GLOBAL
-                        || (storage.m_index >= -64 && storage.m_index < 63))
+                    if (_is_storage_can_addressing(storage))
                         m_ircontext.eval_to(m_ircontext.get_storage_place(storage));
                     else
                         m_ircontext.eval();
@@ -2592,8 +2762,7 @@ namespace wo
                         // IT'S FXXKING FUNCTION OVERLOAD CALL!
 
                         // We just eval it and assigned it to value.
-                        if (storage.m_type == lang_ValueInstance::Storage::GLOBAL
-                            || (storage.m_index >= -64 && storage.m_index < 63))
+                        if (_is_storage_can_addressing(storage))
                             m_ircontext.eval_to(m_ircontext.get_storage_place(storage));
                         else
                             m_ircontext.eval();
@@ -2710,8 +2879,7 @@ namespace wo
                             auto* right_value_result = m_ircontext.get_eval_result();
 
                             // Do normal assign operate;
-                            if (storage.m_type == lang_ValueInstance::Storage::GLOBAL
-                                || (storage.m_index >= -64 && storage.m_index < 63))
+                            if (_is_storage_can_addressing(storage))
                                 assign_expr_result_opnum = m_ircontext.get_storage_place(storage);
                             else
                             {
@@ -2836,8 +3004,7 @@ namespace wo
                                 break;
                             }
 
-                            if (storage.m_type == lang_ValueInstance::Storage::GLOBAL
-                                || (storage.m_index >= -64 && storage.m_index < 63))
+                            if (_is_storage_can_addressing(storage))
                                 // Assign completed.
                                 ;
                             else
@@ -2849,8 +3016,7 @@ namespace wo
 
                     /////////////////////// EVAL FINISHED ///////////////////////
 
-                    if (storage.m_type == lang_ValueInstance::Storage::GLOBAL
-                        || (storage.m_index >= -64 && storage.m_index < 63))
+                    if (_is_storage_can_addressing(storage))
                         // Nothing todo, assign has been complete.
                         ;
                     else

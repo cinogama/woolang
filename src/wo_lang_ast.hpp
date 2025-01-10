@@ -757,14 +757,17 @@ namespace wo
             AstScope(AstBase* body);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
-
+        struct AstMatch;
         struct AstMatchCase : public AstBase
         {
-            AstPatternBase* m_pattern; // AstPatternTakeplace / AstPatternSingle / AstPatternUnion
+            AstPatternBase* m_pattern; // AstPatternTakeplace / AstPatternUnion
             AstBase* m_body;
 
             std::optional<lang_TypeInstance*> m_LANG_pattern_value_apply_type;
             std::optional<wo_integer_t> m_LANG_case_label_or_takeplace;
+
+            std::optional<opnum::opnumbase*> m_IR_matching_struct_opnum;
+            std::optional<AstMatch*> m_IR_match;
 
             AstMatchCase(AstPatternBase* pattern, AstBase* body);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
@@ -782,6 +785,8 @@ namespace wo
             std::list<AstMatchCase*> m_cases;
 
             LANG_hold_state m_LANG_hold_state;
+
+            std::optional<opnum::opnumbase*> m_IR_matching_struct_opnum;
 
             AstMatch(AstValueBase* match_value, const std::list<AstMatchCase*>& cases);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;

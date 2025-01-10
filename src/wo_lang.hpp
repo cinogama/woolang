@@ -545,7 +545,7 @@ namespace wo
         opnum::immbase* opnum_imm_handle(wo_handle_t value) noexcept;
         opnum::immbase* opnum_imm_string(const std::string& value) noexcept;
         opnum::immbase* opnum_imm_bool(bool value) noexcept;
-        opnum::immbase* opnum_imm_value(const wo::value& val);
+        opnum::opnumbase* opnum_imm_value(const wo::value& val);
         opnum::tagimm_rsfunc* opnum_imm_rsfunc(const std::string& value) noexcept;
         opnum::tag* opnum_tag(const std::string& value) noexcept;
         opnum::reg* opnum_spreg(opnum::reg::spreg value) noexcept;
