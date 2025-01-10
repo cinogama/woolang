@@ -1228,6 +1228,9 @@ namespace wo
 
         // All temporary registers should be released.
         wo_assert(m_ircontext.m_inused_temporary_registers.empty());
+        wo_assert(m_ircontext.m_evaled_result_storage.empty());
+        wo_assert(m_ircontext.m_eval_result_storage_target.empty());
+        wo_assert(m_ircontext.m_loop_content_stack.empty());
 
         auto used_tmp_regs = m_ircontext.c().update_all_temp_regist_to_stack(
             &m_ircontext, global_block_begin_place);
@@ -1369,8 +1372,10 @@ namespace wo
 
                 m_ircontext.c().ext_funcend();
 
-                // All temporary registers should be released.
                 wo_assert(m_ircontext.m_inused_temporary_registers.empty());
+                wo_assert(m_ircontext.m_evaled_result_storage.empty());
+                wo_assert(m_ircontext.m_eval_result_storage_target.empty());
+                wo_assert(m_ircontext.m_loop_content_stack.empty());
             }
 
             if (!has_function_to_be_eval)
@@ -2287,6 +2292,7 @@ namespace wo
         else
             eval_ignore();
     }
+   
     opnum::opnumbase* BytecodeGenerateContext::get_eval_result()
     {
         auto& result = m_evaled_result_storage.top();

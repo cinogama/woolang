@@ -794,6 +794,9 @@ namespace wo
                 UNPROCESSED,
                 HOLD_FOR_CONDITION_EVAL,
                 HOLD_FOR_BODY_EVAL,
+
+                IR_HOLD_FOR_TRUE_BODY,
+                IR_HOLD_FOR_FALSE_BODY,
             };
 
             AstValueBase* m_condition;
@@ -806,6 +809,7 @@ namespace wo
             AstIf(AstValueBase* condition, AstBase* true_body, const std::optional<AstBase*>& false_body);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
+        struct AstLabeled;
         struct AstWhile : public AstBase
         {
             enum LANG_hold_state
@@ -820,6 +824,8 @@ namespace wo
 
             LANG_hold_state m_LANG_hold_state;
 
+            std::optional<AstLabeled*> m_IR_binded_label;
+
             AstWhile(AstValueBase* condition, AstBase* body);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
@@ -832,6 +838,11 @@ namespace wo
                 HOLD_FOR_CONDITION_EVAL,
                 HOLD_FOR_STEP_EVAL,
                 HOLD_FOR_BODY_EVAL,
+
+                IR_HOLD_FOR_INIT_EVAL,
+                IR_HOLD_FOR_BODY_EVAL,
+                IR_HOLD_FOR_NEXT_EVAL,
+                IR_HOLD_FOR_COND_EVAL,
             };
 
             std::optional<AstBase*>             m_initial;
@@ -840,6 +851,8 @@ namespace wo
             AstBase* m_body;
 
             LANG_hold_state m_LANG_hold_state;
+
+            std::optional<AstLabeled*> m_IR_binded_label;
 
             AstFor(
                 std::optional<AstBase*> initial,
@@ -850,12 +863,10 @@ namespace wo
         };
         struct AstForeach : public AstBase
         {
-            AstScope* m_job;
             /*
             for (let PPP : VVV)
-
-            let _ITER = std::iterator(VVV);
-            for (;;)
+            ====================>
+            for (let _ITER = std::iterator(VVV);;)
             {
                 match (_ITER->next)
                 {
@@ -865,8 +876,10 @@ namespace wo
             }
             */
 
+            AstFor* m_forloop_body;
+
         private:
-            AstForeach(AstScope* job);
+            AstForeach(AstFor* forloop_body);
         public:
             AstForeach(AstPatternBase* pattern, AstValueBase* container, AstBase* body);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;

@@ -4415,7 +4415,7 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
-            WO_CONTINUE_PROCESS(node->m_job);
+            WO_CONTINUE_PROCESS(node->m_forloop_body);
             return HOLD;
         }
         return WO_EXCEPT_ERROR(state, OKAY);

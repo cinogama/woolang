@@ -500,6 +500,14 @@ namespace wo
         };
         std::stack<EvalResult> m_eval_result_storage_target;
         std::stack<EvalResult> m_evaled_result_storage;
+
+        struct LoopContent
+        {
+            std::optional<wo_pstring_t> m_label;
+            std::string m_break_label;
+            std::string m_continue_label;
+        };
+        std::list<LoopContent> m_loop_content_stack;
         
         int32_t m_global_storage_allocating;
 
@@ -513,6 +521,14 @@ namespace wo
         void eval_ignore();
         void eval_to_if_not_ignore(opnum::opnumbase* target);
         void eval_sth_if_not_ignore(void(BytecodeGenerateContext::* method)());
+
+        void begin_loop_while(ast::AstWhile* ast);
+        void begin_loop_for(ast::AstFor* ast);
+
+        void end_loop();
+
+        std::optional<LoopContent*> find_nearest_loop_content_label(
+            const std::optional<wo_pstring_t>& label);
 
         // NOTE: get_eval_result will invoke `return_opnum_temporary_register`
         //  to release temporary opnum if GET_RESULT_OPNUM_ONLY.

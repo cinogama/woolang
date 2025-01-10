@@ -1417,6 +1417,7 @@ namespace wo
             , m_condition(condition)
             , m_body(body)
             , m_LANG_hold_state(UNPROCESSED)
+            , m_IR_binded_label(std::nullopt)
         {
         }
         AstBase* AstWhile::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
@@ -1443,6 +1444,7 @@ namespace wo
             , m_step(step)
             , m_body(body)
             , m_LANG_hold_state(UNPROCESSED)
+            , m_IR_binded_label(std::nullopt)
         {
         }
         AstBase* AstFor::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
@@ -1463,17 +1465,15 @@ namespace wo
 
         ////////////////////////////////////////////////////////
 
-        AstForeach::AstForeach(AstScope* job)
+        AstForeach::AstForeach(AstFor* forloop_body)
             : AstBase(AST_FOREACH)
-            , m_job(job)
+            , m_forloop_body(forloop_body)
         {
         }
         AstForeach::AstForeach(AstPatternBase* pattern, AstValueBase* container, AstBase* body)
             : AstBase(AST_FOREACH)
-            , m_job(nullptr)
+            , m_forloop_body(nullptr)
         {
-            auto* job_list = new AstList();
-
             // let $_iter = std::iterator(container);
             auto* std_iterator_identifier = new AstIdentifier(WO_PSTR(iterator), std::nullopt, { WO_PSTR(std) }, true);
             auto* std_iterator_value = new AstValueVariable(std_iterator_identifier);
@@ -1502,10 +1502,8 @@ namespace wo
             //    }
             // }
             auto* for_body = new AstFor(iterator_declear, std::nullopt, std::nullopt, match_body);
-
-            job_list->m_list.push_back(for_body);
-
-            m_job = new AstScope(job_list);
+            
+            m_forloop_body = for_body;
 
             // Update source msg;
             std_iterator_identifier->source_location = container->source_location;
@@ -1529,17 +1527,14 @@ namespace wo
 
             match_body->source_location = body->source_location;
             for_body->source_location = body->source_location;
-            job_list->source_location = body->source_location;
-            m_job->source_location = body->source_location;
         }
         AstBase* AstForeach::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
         {
             AstForeach* new_instance = exist_instance
                 ? static_cast<AstForeach*>(exist_instance.value())
-                : new AstForeach(m_job)
+                : new AstForeach(m_forloop_body)
                 ;
-            if (new_instance->m_job)
-                out_continues.push_back(AstBase::make_holder(&new_instance->m_job));
+            out_continues.push_back(AstBase::make_holder(&new_instance->m_forloop_body));
             return new_instance;
         }
 

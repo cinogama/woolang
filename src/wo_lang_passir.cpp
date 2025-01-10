@@ -41,6 +41,49 @@ namespace wo
         return m_ircontext.opnum_imm_rsfunc(IR_function_label(func));
     }
 
+    void BytecodeGenerateContext::begin_loop_while(ast::AstWhile* ast)
+    {
+        m_loop_content_stack.push_back(LoopContent{
+            ast->m_IR_binded_label.has_value()
+                ? std::optional(ast->m_IR_binded_label.value()->m_label)
+                : std::nullopt,
+            _generate_label("#while_end_", ast),
+            _generate_label("#while_begin_", ast)
+            });
+    }
+    void BytecodeGenerateContext::begin_loop_for(ast::AstFor* ast)
+    {
+        m_loop_content_stack.push_back(LoopContent{
+            ast->m_IR_binded_label.has_value()
+                ? std::optional(ast->m_IR_binded_label.value()->m_label)
+                : std::nullopt,
+            _generate_label("#for_end_", ast),
+            _generate_label("#for_next_", ast)
+            });
+    }
+
+    void BytecodeGenerateContext::end_loop()
+    {
+        wo_assert(!m_loop_content_stack.empty());
+        m_loop_content_stack.pop_back();
+    }
+
+    std::optional<BytecodeGenerateContext::LoopContent*>
+        BytecodeGenerateContext::find_nearest_loop_content_label(
+            const std::optional<wo_pstring_t>& label)
+    {
+        auto loop_rend = m_loop_content_stack.rend();
+        for (auto it = m_loop_content_stack.rbegin();
+            it != loop_rend;
+            ++it)
+        {
+            if (!label.has_value()
+                || (it->m_label.has_value() && it->m_label.value() == label.value()))
+                return &(*it);
+        }
+        return std::nullopt;
+    }
+
     void LangContext::update_allocate_global_instance_storage_passir(
         lang_ValueInstance* instance)
     {
@@ -189,28 +232,28 @@ namespace wo
         // WO_LANG_REGISTER_PROCESSER(AstFunctionParameterDeclare, AstBase::AST_FUNCTION_PARAMETER_DECLARE, passir_A);
         // WO_LANG_REGISTER_PROCESSER(AstKeyValuePair, AstBase::AST_KEY_VALUE_PAIR, passir_A);
         // WO_LANG_REGISTER_PROCESSER(AstStructFieldValuePair, AstBase::AST_STRUCT_FIELD_VALUE_PAIR, passir_A);
-        // WO_LANG_REGISTER_PROCESSER(AstUsingNamespace, AstBase::AST_USING_NAMESPACE, passir_A);
         // WO_LANG_REGISTER_PROCESSER(AstExternInformation, AstBase::AST_EXTERN_INFORMATION, passir_A);
 
         WO_LANG_REGISTER_PROCESSER(AstList, AstBase::AST_LIST, passir_A);
         WO_LANG_REGISTER_PROCESSER(AstVariableDefineItem, AstBase::AST_VARIABLE_DEFINE_ITEM, passir_A);
         WO_LANG_REGISTER_PROCESSER(AstVariableDefines, AstBase::AST_VARIABLE_DEFINES, passir_A);
-        // WO_LANG_REGISTER_PROCESSER(AstNamespace, AstBase::AST_NAMESPACE, passir_A);
+        WO_LANG_REGISTER_PROCESSER(AstNamespace, AstBase::AST_NAMESPACE, passir_A);
         WO_LANG_REGISTER_PROCESSER(AstScope, AstBase::AST_SCOPE, passir_A);
         // WO_LANG_REGISTER_PROCESSER(AstMatchCase, AstBase::AST_MATCH_CASE, passir_A);
         // WO_LANG_REGISTER_PROCESSER(AstMatch, AstBase::AST_MATCH, passir_A);
-        // WO_LANG_REGISTER_PROCESSER(AstIf, AstBase::AST_IF, passir_A);
-        // WO_LANG_REGISTER_PROCESSER(AstWhile, AstBase::AST_WHILE, passir_A);
-        // WO_LANG_REGISTER_PROCESSER(AstFor, AstBase::AST_FOR, passir_A);
+        WO_LANG_REGISTER_PROCESSER(AstIf, AstBase::AST_IF, passir_A);
+        WO_LANG_REGISTER_PROCESSER(AstWhile, AstBase::AST_WHILE, passir_A);
+        WO_LANG_REGISTER_PROCESSER(AstFor, AstBase::AST_FOR, passir_A);
         // WO_LANG_REGISTER_PROCESSER(AstForeach, AstBase::AST_FOREACH, passir_A);
         // WO_LANG_REGISTER_PROCESSER(AstBreak, AstBase::AST_BREAK, passir_A);
         // WO_LANG_REGISTER_PROCESSER(AstContinue, AstBase::AST_CONTINUE, passir_A);
         WO_LANG_REGISTER_PROCESSER(AstReturn, AstBase::AST_RETURN, passir_A);
-        // WO_LANG_REGISTER_PROCESSER(AstLabeled, AstBase::AST_LABELED, passir_A);
-        // WO_LANG_REGISTER_PROCESSER(AstUsingTypeDeclare, AstBase::AST_USING_TYPE_DECLARE, passir_A);
-        // WO_LANG_REGISTER_PROCESSER(AstAliasTypeDeclare, AstBase::AST_ALIAS_TYPE_DECLARE, passir_A);
-        // WO_LANG_REGISTER_PROCESSER(AstEnumDeclare, AstBase::AST_ENUM_DECLARE, passir_A);
-        // WO_LANG_REGISTER_PROCESSER(AstUnionDeclare, AstBase::AST_UNION_DECLARE, passir_A);
+        WO_LANG_REGISTER_PROCESSER(AstLabeled, AstBase::AST_LABELED, passir_A);
+        WO_LANG_REGISTER_PROCESSER(AstUsingTypeDeclare, AstBase::AST_USING_TYPE_DECLARE, passir_A);
+        WO_LANG_REGISTER_PROCESSER(AstAliasTypeDeclare, AstBase::AST_ALIAS_TYPE_DECLARE, passir_A);
+        WO_LANG_REGISTER_PROCESSER(AstUsingNamespace, AstBase::AST_USING_NAMESPACE, passir_A);
+        WO_LANG_REGISTER_PROCESSER(AstEnumDeclare, AstBase::AST_ENUM_DECLARE, passir_A);
+        WO_LANG_REGISTER_PROCESSER(AstUnionDeclare, AstBase::AST_UNION_DECLARE, passir_A);
         WO_LANG_REGISTER_PROCESSER(AstNop, AstBase::AST_EXTERN_INFORMATION, passir_A);
 
         WO_LANG_REGISTER_PROCESSER(AstValueMarkAsMutable, AstBase::AST_VALUE_MARK_AS_MUTABLE, passir_B);
@@ -252,6 +295,294 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
+            WO_CONTINUE_PROCESS(node->m_body);
+            return HOLD;
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstNamespace)
+    {
+        if (state == UNPROCESSED)
+        {
+            WO_CONTINUE_PROCESS(node->m_body);
+            return HOLD;
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstUsingTypeDeclare)
+    {
+        if (state == UNPROCESSED)
+        {
+            if (node->m_in_type_namespace.has_value())
+            {
+                WO_CONTINUE_PROCESS(node->m_in_type_namespace.value());
+                return HOLD;
+            }
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstAliasTypeDeclare)
+    {
+        wo_assert(state == UNPROCESSED);
+        return OKAY;
+    }
+    WO_PASS_PROCESSER(AstUsingNamespace)
+    {
+        wo_assert(state == UNPROCESSED);
+        return OKAY;
+    }
+    WO_PASS_PROCESSER(AstEnumDeclare)
+    {
+        if (state == UNPROCESSED)
+        {
+            WO_CONTINUE_PROCESS(node->m_enum_body);
+            WO_CONTINUE_PROCESS(node->m_enum_type_declare);
+            return HOLD;
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstUnionDeclare)
+    {
+        if (state == UNPROCESSED)
+        {
+            WO_CONTINUE_PROCESS(node->m_union_type_declare);
+            return HOLD;
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstIf)
+    {
+        if (state == UNPROCESSED)
+        {
+            if (node->m_condition->m_evaled_const_value.has_value())
+            {
+                if (node->m_condition->m_evaled_const_value.value().integer != 0)
+                    WO_CONTINUE_PROCESS(node->m_true_body);
+                else if (node->m_false_body.has_value())
+                    WO_CONTINUE_PROCESS(node->m_false_body.value());
+
+                node->m_LANG_hold_state = AstIf::IR_HOLD_FOR_FALSE_BODY;
+            }
+            else
+            {
+                m_ircontext.eval_to(m_ircontext.opnum_spreg(opnum::reg::cr));
+                if (!pass_final_value(lex, node->m_condition))
+                    return FAILED;
+
+                (void)m_ircontext.get_eval_result();
+
+                m_ircontext.c().jf(opnum::tag(_generate_label("#if_else_", node)));
+                WO_CONTINUE_PROCESS(node->m_true_body);
+
+                node->m_LANG_hold_state = AstIf::IR_HOLD_FOR_TRUE_BODY;
+            }
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            switch (node->m_LANG_hold_state)
+            {
+            case AstIf::IR_HOLD_FOR_TRUE_BODY:
+                if (node->m_false_body.has_value())
+                {
+                    m_ircontext.c().jmp(opnum::tag(_generate_label("#if_end_", node)));
+                    WO_CONTINUE_PROCESS(node->m_false_body.value());
+                }
+                m_ircontext.c().tag(_generate_label("#if_else_", node));
+                node->m_LANG_hold_state = AstIf::IR_HOLD_FOR_FALSE_BODY;
+
+                return HOLD;
+            case AstIf::IR_HOLD_FOR_FALSE_BODY:
+                if (!node->m_condition->m_evaled_const_value.has_value()
+                    && node->m_false_body.has_value())
+                {
+                    m_ircontext.c().tag(_generate_label("#if_end_", node));
+                }
+
+                break;
+            default:
+                wo_error("Unknown hold state.");
+                break;
+            }
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstWhile)
+    {
+        if (state == UNPROCESSED)
+        {
+            bool dead_loop = false;
+            if (node->m_condition->m_evaled_const_value.has_value())
+            {
+                if (node->m_condition->m_evaled_const_value.value().integer == 0)
+                    return OKAY; // Skip body.
+
+                dead_loop = true;
+            }
+            m_ircontext.c().tag(_generate_label("#while_begin_", node));
+
+            if (!dead_loop)
+            {
+                m_ircontext.eval_to(m_ircontext.opnum_spreg(opnum::reg::cr));
+                if (!pass_final_value(lex, node->m_condition))
+                    return FAILED;
+
+                (void)m_ircontext.get_eval_result();
+
+                m_ircontext.c().jf(opnum::tag(_generate_label("#while_end_", node)));
+            }
+
+            // Loop begin
+            m_ircontext.begin_loop_while(node);
+
+            WO_CONTINUE_PROCESS(node->m_body);
+
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            m_ircontext.c().jmp(opnum::tag(_generate_label("#while_begin_", node)));
+            m_ircontext.c().tag(_generate_label("#while_end_", node));
+
+            m_ircontext.end_loop();
+        }
+        else
+        {
+            // Failed, we still need to end the loop.
+            m_ircontext.end_loop();
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstFor)
+    {
+        /*
+        for (INITEXPR; COND; NEXT)
+            BODY
+        ===========================>
+            INITEXPR
+            jmp for_cond
+        for_begin:
+            BODY
+        for_next:
+            NEXT
+        for_cond:
+            COND
+            jt for_begin
+        for_end:
+        */
+
+        if (state == UNPROCESSED)
+        {
+            if (node->m_initial.has_value())
+                WO_CONTINUE_PROCESS(node->m_initial.value());
+
+            node->m_LANG_hold_state = AstFor::IR_HOLD_FOR_INIT_EVAL;
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            switch (node->m_LANG_hold_state)
+            {
+            case AstFor::IR_HOLD_FOR_INIT_EVAL:
+                if (node->m_condition.has_value()
+                    && !node->m_condition.value()->m_evaled_const_value.has_value())
+                    // Need runtime cond.
+                    m_ircontext.c().jmp(opnum::tag(_generate_label("#for_cond_", node)));
+                else
+                {
+                    if (node->m_condition.has_value()
+                        && node->m_condition.value()->m_evaled_const_value.has_value()
+                        && node->m_condition.value()->m_evaled_const_value.value().integer == 0)
+                    {
+                        // Skip body next and cond.
+                        return OKAY;
+                    }
+                }
+
+                m_ircontext.c().tag(_generate_label("#for_begin_", node));
+
+                // Loop begin
+                m_ircontext.begin_loop_for(node);
+
+                WO_CONTINUE_PROCESS(node->m_body);
+                node->m_LANG_hold_state = AstFor::IR_HOLD_FOR_BODY_EVAL;
+                return HOLD;
+
+            case AstFor::IR_HOLD_FOR_BODY_EVAL:
+                m_ircontext.end_loop();
+
+                m_ircontext.c().tag(_generate_label("#for_next_", node));
+
+                if (node->m_step.has_value())
+                {
+                    m_ircontext.eval_ignore();
+                    if (!pass_final_value(lex, node->m_step.value()))
+                        return FAILED;
+                }
+
+                if (node->m_condition.has_value()
+                    && !node->m_condition.value()->m_evaled_const_value.has_value())
+                {
+                    m_ircontext.c().tag(_generate_label("#for_cond_", node));
+
+                    m_ircontext.eval_to(m_ircontext.opnum_spreg(opnum::reg::cr));
+                    if (!pass_final_value(lex, node->m_condition.value()))
+                        return FAILED;
+
+                    (void)m_ircontext.get_eval_result();
+
+                    m_ircontext.c().jt(opnum::tag(_generate_label("#for_begin_", node)));
+                }
+                else
+                {
+                    // Must be dead loop here.
+                    wo_assert(!node->m_condition.has_value()
+                        || node->m_condition.value()->m_evaled_const_value.value().integer != 0);
+
+                    m_ircontext.c().jmp(opnum::tag(_generate_label("#for_begin_", node)));
+                }
+                m_ircontext.c().tag(_generate_label("#for_end_", node));
+
+                break;
+            }
+        }
+        else
+        {
+            // Failed, we still need to end the loop.
+            if (node->m_LANG_hold_state == AstFor::IR_HOLD_FOR_BODY_EVAL)
+                m_ircontext.end_loop();
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstLabeled)
+    {
+        if (state == UNPROCESSED)
+        {
+            switch (node->m_body->node_type)
+            {
+            case AstBase::AST_WHILE:
+            {
+                AstWhile* while_node = static_cast<AstWhile*>(node->m_body);
+                while_node->m_IR_binded_label = node;
+                break;
+            }
+            case AstBase::AST_FOR:
+            {
+                AstFor* for_node = static_cast<AstFor*>(node->m_body);
+                for_node->m_IR_binded_label = node;
+                break;
+            }
+            case AstBase::AST_FOREACH:
+            {
+                AstForeach* foreach_node = static_cast<AstForeach*>(node->m_body);
+                foreach_node->m_forloop_body->m_IR_binded_label = node;
+                break;
+            }
+            default:
+                // Not a loop, skip
+                break;
+            }
+
             WO_CONTINUE_PROCESS(node->m_body);
             return HOLD;
         }
@@ -314,7 +645,7 @@ namespace wo
                         // Need storage and initialize.
                         bool fast_eval = template_value_instance->m_IR_storage.has_value()
                             && (template_value_instance->m_IR_storage.value().m_type == lang_ValueInstance::Storage::GLOBAL
-                                || (template_value_instance->m_IR_storage.value().m_index >= -64 
+                                || (template_value_instance->m_IR_storage.value().m_index >= -64
                                     && template_value_instance->m_IR_storage.value().m_index < 63));
                         if (fast_eval)
                             m_ircontext.eval_to(
@@ -549,7 +880,7 @@ namespace wo
                         else
                         {
                             m_ircontext.c().lds(
-                                WO_OPNUM(borrowed_opnum), 
+                                WO_OPNUM(borrowed_opnum),
                                 WO_OPNUM(m_ircontext.opnum_imm_int(storage.m_index)));
                             m_ircontext.c().psh(
                                 WO_OPNUM(borrowed_opnum));
@@ -1837,7 +2168,7 @@ namespace wo
             {
             case AstValueTribleOperator::IR_HOLD_FOR_COND_EVAL:
             {
-                m_ircontext.c().jf(opnum::tag(_generate_label("#condfalse_", node)));
+                m_ircontext.c().jf(opnum::tag(_generate_label("#cond_false_", node)));
 
                 m_ircontext.eval_to_if_not_ignore(
                     m_ircontext.opnum_spreg(opnum::reg::spreg::cr));
@@ -1849,8 +2180,8 @@ namespace wo
             }
             case AstValueTribleOperator::IR_HOLD_FOR_BRANCH_A_EVAL:
             {
-                m_ircontext.c().jmp(opnum::tag(_generate_label("#condend_", node)));
-                m_ircontext.c().tag(_generate_label("#condfalse_", node));
+                m_ircontext.c().jmp(opnum::tag(_generate_label("#cond_end_", node)));
+                m_ircontext.c().tag(_generate_label("#cond_false_", node));
 
                 m_ircontext.eval_to_if_not_ignore(
                     m_ircontext.opnum_spreg(opnum::reg::spreg::cr));
@@ -1862,7 +2193,7 @@ namespace wo
             }
             case AstValueTribleOperator::IR_HOLD_FOR_BRANCH_B_EVAL:
             {
-                m_ircontext.c().tag(_generate_label("#condend_", node));
+                m_ircontext.c().tag(_generate_label("#cond_end_", node));
 
                 if (!m_ircontext.apply_eval_result(
                     [&](BytecodeGenerateContext::EvalResult& result)
