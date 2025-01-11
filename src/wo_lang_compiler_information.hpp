@@ -95,7 +95,7 @@
 #define WO_ERR_PATTERN_INDEX_SHOULD_BE_MUTABLE_TYPE L"不能向不可变索引结果赋值"
 #define WO_ERR_CANNOT_CAST_TYPE_TO_TYPE L"无法将类型 '%ls' 转换为 '%ls'"
 #define WO_ERR_FAILED_TO_DEDUCE_TEMPLATE_TYPE L"泛型参数自动推导失败"
-#define WO_ERR_NOT_ALL_TEMPLATE_ARGUMENT_DETERMINED L"有未能成功推导的泛型参数"
+#define WO_ERR_NOT_ALL_TEMPLATE_ARGUMENT_DETERMINED L"泛型参数 <%ls> 未能推导"
 #define WO_ERR_TARGET_TYPE_IS_NOT_A_FUNCTION L"调用的目标类型 '%ls' 不是一个函数"
 #define WO_ERR_ARGUMENT_TOO_MUCH L"参数过多"
 #define WO_ERR_ARGUMENT_TOO_LESS L"参数过少"

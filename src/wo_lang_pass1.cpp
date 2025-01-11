@@ -2634,16 +2634,35 @@ namespace wo
 
                     std::list<lang_TypeInstance*> template_arguments;
 
+                    std::list<wo_pstring_t> pending_template_params;
                     for (wo_pstring_t param : pending_template_arguments)
                     {
                         auto fnd = branch_a_context->m_deduction_results.find(param);
                         if (fnd == branch_a_context->m_deduction_results.end())
+                            pending_template_params.push_back(param);
+                        else
+                            template_arguments.push_back(fnd->second);
+                    }
+                    if (!pending_template_params.empty())
+                    {
+                        std::wstring pending_type_list;
+                        bool first_param = true;
+
+                        for (wo_pstring_t param : pending_template_params)
                         {
-                            lex.lang_error(lexer::errorlevel::error, function,
-                                WO_ERR_NOT_ALL_TEMPLATE_ARGUMENT_DETERMINED);
-                            return FAILED;
+                            if (!first_param)
+                                pending_type_list += L", ";
+                            else
+                                first_param = false;
+
+                            pending_type_list += *param;
                         }
-                        template_arguments.push_back(fnd->second);
+
+                        lex.lang_error(lexer::errorlevel::error, function,
+                            WO_ERR_NOT_ALL_TEMPLATE_ARGUMENT_DETERMINED,
+                            pending_type_list.c_str());
+
+                        return FAILED;
                     }
 
                     function->m_LANG_determined_template_arguments = template_arguments;
@@ -2675,17 +2694,45 @@ namespace wo
                         }
                     }
                     std::list<lang_TypeInstance*> template_argument_list;
+
+                    std::list<wo_pstring_t> pending_template_params;
                     for (; it_template_param != it_template_param_end; ++it_template_param)
                     {
                         wo_pstring_t param_name = *it_template_param;
                         auto fnd = branch_a_context->m_deduction_results.find(param_name);
                         if (fnd == branch_a_context->m_deduction_results.end())
+                            pending_template_params.push_back(param_name);
+                        else
+                            template_argument_list.push_back(fnd->second);
+                    }
+
+                    if (!pending_template_params.empty())
+                    {
+                        std::wstring pending_type_list;
+                        bool first_param = true;
+
+                        for (wo_pstring_t param : pending_template_params)
                         {
-                            lex.lang_error(lexer::errorlevel::error, function_variable,
-                                WO_ERR_NOT_ALL_TEMPLATE_ARGUMENT_DETERMINED);
-                            return FAILED;
+                            if (!first_param)
+                                pending_type_list += L", ";
+                            else
+                                first_param = false;
+
+                            pending_type_list += *param;
                         }
-                        template_argument_list.push_back(fnd->second);
+
+                        lex.lang_error(lexer::errorlevel::error, function_variable,
+                            WO_ERR_NOT_ALL_TEMPLATE_ARGUMENT_DETERMINED,
+                            pending_type_list.c_str());
+
+                        if (symbol->m_symbol_declare_ast.has_value())
+                        {
+                            lex.lang_error(lexer::errorlevel::infom, symbol->m_symbol_declare_ast.value(),
+                                WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
+                                get_symbol_name_w(symbol));
+                        }
+
+                        return FAILED;
                     }
 
                     function_variable->m_identifier->m_LANG_determined_and_appended_template_arguments
@@ -3218,17 +3265,45 @@ namespace wo
                     }
                 }
                 std::list<lang_TypeInstance*> template_argument_list;
+
+                std::list<wo_pstring_t> pending_template_params;
                 for (; it_template_param != it_template_param_end; ++it_template_param)
                 {
                     wo_pstring_t param_name = *it_template_param;
                     auto fnd = branch_a_context->m_deduction_results.find(param_name);
                     if (fnd == branch_a_context->m_deduction_results.end())
+                        pending_template_params.push_back(param_name);
+                    else
+                        template_argument_list.push_back(fnd->second);
+                }
+
+                if (!pending_template_params.empty())
+                {
+                    std::wstring pending_type_list;
+                    bool first_param = true;
+
+                    for (wo_pstring_t param : pending_template_params)
                     {
-                        lex.lang_error(lexer::errorlevel::error, target_struct_typeholder,
-                            WO_ERR_NOT_ALL_TEMPLATE_ARGUMENT_DETERMINED);
-                        return FAILED;
+                        if (!first_param)
+                            pending_type_list += L", ";
+                        else
+                            first_param = false;
+
+                        pending_type_list += *param;
                     }
-                    template_argument_list.push_back(fnd->second);
+
+                    lex.lang_error(lexer::errorlevel::error, target_struct_typeholder,
+                        WO_ERR_NOT_ALL_TEMPLATE_ARGUMENT_DETERMINED,
+                        pending_type_list.c_str());
+
+                    if (symbol->m_symbol_declare_ast.has_value())
+                    {
+                        lex.lang_error(lexer::errorlevel::infom, symbol->m_symbol_declare_ast.value(),
+                            WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
+                            get_symbol_name_w(symbol));
+                    }
+
+                    return FAILED;
                 }
 
                 target_struct_typeholder->m_typeform.m_identifier->m_LANG_determined_and_appended_template_arguments
