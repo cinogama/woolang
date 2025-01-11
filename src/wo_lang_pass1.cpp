@@ -3658,7 +3658,37 @@ namespace wo
                     else
                         node->m_LANG_determined_type = immutable_type(left_type);
 
-                    if (node->m_left->m_evaled_const_value.has_value()
+                    bool constant_has_been_determined = false;
+                    if (node->m_left->m_evaled_const_value.has_value())
+                    {
+                        wo::value left_value = node->m_left->m_evaled_const_value.value();
+                        switch (node->m_operator)
+                        {
+                        case AstValueBinaryOperator::LOGICAL_AND:
+                            if (left_value.integer == 0)
+                            {
+                                node->decide_final_constant_value(wo::value{});
+
+                                wo::value& result_value = node->m_evaled_const_value.value();
+                                result_value.set_bool(false);
+                                constant_has_been_determined = true;
+                            }
+                            break;
+                        case AstValueBinaryOperator::LOGICAL_OR:
+                            if (left_value.integer != 0)
+                            {
+                                node->decide_final_constant_value(wo::value{});
+
+                                wo::value& result_value = node->m_evaled_const_value.value();
+                                result_value.set_bool(true);
+                                constant_has_been_determined = true;
+                            }
+                            break;
+                        }
+                    }
+
+                    if (!constant_has_been_determined
+                        && node->m_left->m_evaled_const_value.has_value()
                         && node->m_right->m_evaled_const_value.has_value())
                     {
                         // Decide constant value.

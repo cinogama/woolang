@@ -576,7 +576,7 @@ namespace wo
         auto loop = m_ircontext.find_nearest_loop_content_label(node->m_label);
         if (!loop.has_value())
         {
-            lex.lang_error(lexer::errorlevel::error, node, 
+            lex.lang_error(lexer::errorlevel::error, node,
                 WO_ERR_BAD_BREAK);
 
             if (node->m_label.has_value())
@@ -586,7 +586,7 @@ namespace wo
 
             return FAILED;
         }
-        
+
         m_ircontext.c().jmp(loop.value()->m_break_label);
         return OKAY;
     }
@@ -640,8 +640,8 @@ namespace wo
         {
             m_ircontext.try_return_opnum_temporary_register(node->m_IR_matching_struct_opnum.value());
             m_ircontext.c().ext_panic(WO_OPNUM(m_ircontext.opnum_imm_string(
-                "Bad label for union: '" 
-                + std::string(get_type_name(node->m_matched_value->m_LANG_determined_type.value())) 
+                "Bad label for union: '"
+                + std::string(get_type_name(node->m_matched_value->m_LANG_determined_type.value()))
                 + "', may be bad value returned by the external function.")));
 
             m_ircontext.c().tag(_generate_label("#match_end_", node));
@@ -1784,7 +1784,7 @@ namespace wo
                         }
                         else
                         {
-                            m_ircontext.try_keep_opnum_temporary_register(opnum_to_cast 
+                            m_ircontext.try_keep_opnum_temporary_register(opnum_to_cast
                                 WO_BORROW_TEMPORARY_FROM_SP(node));
                             result.set_result(m_ircontext, opnum_to_cast);
                         }
@@ -1884,11 +1884,21 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
+            node->m_LANG_hold_state = AstValueBinaryOperator::IR_HOLD_FOR_NORMAL_LR_OR_OVERLOAD_EVAL;
             if (node->m_LANG_overload_call.has_value())
             {
                 m_ircontext.eval_sth_if_not_ignore(
                     &BytecodeGenerateContext::eval_for_upper);
                 WO_CONTINUE_PROCESS(node->m_LANG_overload_call.value());
+            }
+            else if (node->m_operator == AstValueBinaryOperator::LOGICAL_AND
+                || node->m_operator == AstValueBinaryOperator::LOGICAL_OR)
+            {
+                // Need short cut, 
+                m_ircontext.eval_to(m_ircontext.opnum_spreg(opnum::reg::cr));
+                WO_CONTINUE_PROCESS(node->m_left);
+
+                node->m_LANG_hold_state = AstValueBinaryOperator::IR_HOLD_FOR_LAND_LOR_LEFT_SHORT_CUT;
             }
             else
             {
@@ -1904,278 +1914,62 @@ namespace wo
         }
         else if (state == HOLD)
         {
-            if (!node->m_LANG_overload_call.has_value())
+            switch (node->m_LANG_hold_state)
             {
+            case AstValueBinaryOperator::IR_HOLD_FOR_LAND_LOR_LEFT_SHORT_CUT:
+            {
+                (void)m_ircontext.get_eval_result();
+
+                switch (node->m_operator)
+                {
+                case AstValueBinaryOperator::LOGICAL_AND:
+                    m_ircontext.c().jf(opnum::tag(_generate_label("#land_sc_end_", node)));
+                    break;
+                case AstValueBinaryOperator::LOGICAL_OR:
+                    m_ircontext.c().jt(opnum::tag(_generate_label("#lor_sc_end_", node)));
+                    break;
+                default:
+                    wo_error("Unknown operator.");
+                    break;
+                }
+
+                if (!m_ircontext.ignore_eval_result())
+                    m_ircontext.eval_to(m_ircontext.opnum_spreg(opnum::reg::cr));
+                else
+                    m_ircontext.eval_ignore();
+
+                WO_CONTINUE_PROCESS(node->m_right);
+
+                node->m_LANG_hold_state = AstValueBinaryOperator::IR_HOLD_FOR_LAND_LOR_RIGHT;
+                return HOLD;
+            }
+            case  AstValueBinaryOperator::IR_HOLD_FOR_LAND_LOR_RIGHT:
+            {
+                m_ircontext.c().tag(_generate_label("#land_sc_end_", node));
+
                 if (!m_ircontext.apply_eval_result(
                     [&](BytecodeGenerateContext::EvalResult& result)
                     {
-                        auto* right_opnum = m_ircontext.get_eval_result();
-                        auto* left_opnum = m_ircontext.get_eval_result();
-
-                        // We need to make sure following `borrow_opnum_temporary_register`
-                        // will not borrow the right value.
-                        m_ircontext.try_keep_opnum_temporary_register(
-                            right_opnum
-                            WO_BORROW_TEMPORARY_FROM_SP(node));
-
-                        if (node->m_operator < AstValueBinaryOperator::LOGICAL_AND
-                            && nullptr == dynamic_cast<opnum::temporary*>(left_opnum))
-                        {
-                            // Is not temporary register, we need keep it.
-                            // NOTE: If left not temporary, we dont need to return it.
-                            //  at the same time.
-                            auto* borrow_reg = m_ircontext.borrow_opnum_temporary_register(
-                                WO_BORROW_TEMPORARY_FROM(node));
-                            m_ircontext.c().mov(
-                                WO_OPNUM(borrow_reg),
-                                WO_OPNUM(left_opnum));
-
-                            left_opnum = borrow_reg;
-                        }
-
-                        // After all borrow_opnum_temporary_register, we can return right.
-                        m_ircontext.try_return_opnum_temporary_register(right_opnum);
-
-                        lang_TypeInstance* left_type_instance = node->m_left->m_LANG_determined_type.value();
-                        auto* left_determined_type = left_type_instance->get_determined_type().value();
-
-                        switch (node->m_operator)
-                        {
-                        case AstValueBinaryOperator::ADD:
-                            switch (left_determined_type->m_base_type)
-                            {
-                            case lang_TypeInstance::DeterminedType::INTEGER:
-                                m_ircontext.c().addi(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
-                                break;
-                            case lang_TypeInstance::DeterminedType::REAL:
-                                m_ircontext.c().addr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
-                                break;
-                            case lang_TypeInstance::DeterminedType::HANDLE:
-                                m_ircontext.c().addh(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
-                                break;
-                            case lang_TypeInstance::DeterminedType::STRING:
-                                m_ircontext.c().adds(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
-                                break;
-                            default:
-                                wo_error("Unknown type.");
-                                break;
-                            }
-                            break;
-                        case AstValueBinaryOperator::SUBSTRACT:
-                            switch (left_determined_type->m_base_type)
-                            {
-                            case lang_TypeInstance::DeterminedType::INTEGER:
-                                m_ircontext.c().subi(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
-                                break;
-                            case lang_TypeInstance::DeterminedType::REAL:
-                                m_ircontext.c().subr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
-                                break;
-                            case lang_TypeInstance::DeterminedType::HANDLE:
-                                m_ircontext.c().subh(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
-                                break;
-                            default:
-                                wo_error("Unknown type.");
-                                break;
-                            }
-                            break;
-                        case AstValueBinaryOperator::MULTIPLY:
-                            switch (left_determined_type->m_base_type)
-                            {
-                            case lang_TypeInstance::DeterminedType::INTEGER:
-                                m_ircontext.c().muli(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
-                                break;
-                            case lang_TypeInstance::DeterminedType::REAL:
-                                m_ircontext.c().mulr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
-                                break;
-                            default:
-                                wo_error("Unknown type.");
-                                break;
-                            }
-                            break;
-                        case AstValueBinaryOperator::DIVIDE:
-                            switch (left_determined_type->m_base_type)
-                            {
-                            case lang_TypeInstance::DeterminedType::INTEGER:
-                                m_ircontext.c().divi(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
-                                break;
-                            case lang_TypeInstance::DeterminedType::REAL:
-                                m_ircontext.c().divr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
-                                break;
-                            default:
-                                wo_error("Unknown type.");
-                                break;
-                            }
-                            break;
-                        case AstValueBinaryOperator::MODULO:
-                            switch (left_determined_type->m_base_type)
-                            {
-                            case lang_TypeInstance::DeterminedType::INTEGER:
-                                m_ircontext.c().modi(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
-                                break;
-                            case lang_TypeInstance::DeterminedType::REAL:
-                                m_ircontext.c().modr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
-                                break;
-                            default:
-                                wo_error("Unknown type.");
-                                break;
-                            }
-                            break;
-                        case AstValueBinaryOperator::LOGICAL_AND:
-                            m_ircontext.c().land(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
-                            break;
-                        case AstValueBinaryOperator::LOGICAL_OR:
-                            m_ircontext.c().lor(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
-                            break;
-                        case AstValueBinaryOperator::GREATER:
-                            switch (left_determined_type->m_base_type)
-                            {
-                            case lang_TypeInstance::DeterminedType::INTEGER:
-                                m_ircontext.c().gti(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
-                                break;
-                            case lang_TypeInstance::DeterminedType::REAL:
-                                m_ircontext.c().gtr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
-                                break;
-                            case lang_TypeInstance::DeterminedType::HANDLE:
-                            case lang_TypeInstance::DeterminedType::STRING:
-                                m_ircontext.c().gtx(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
-                                break;
-                            default:
-                                wo_error("Unknown type.");
-                                break;
-                            }
-                            break;
-                        case AstValueBinaryOperator::GREATER_EQUAL:
-                            switch (left_determined_type->m_base_type)
-                            {
-                            case lang_TypeInstance::DeterminedType::INTEGER:
-                                m_ircontext.c().egti(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
-                                break;
-                            case lang_TypeInstance::DeterminedType::REAL:
-                                m_ircontext.c().egtr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
-                                break;
-                            case lang_TypeInstance::DeterminedType::HANDLE:
-                            case lang_TypeInstance::DeterminedType::STRING:
-                                m_ircontext.c().egtx(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
-                                break;
-                            default:
-                                wo_error("Unknown type.");
-                                break;
-                            }
-                            break;
-                        case AstValueBinaryOperator::LESS:
-                            switch (left_determined_type->m_base_type)
-                            {
-                            case lang_TypeInstance::DeterminedType::INTEGER:
-                                m_ircontext.c().lti(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
-                                break;
-                            case lang_TypeInstance::DeterminedType::REAL:
-                                m_ircontext.c().ltr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
-                                break;
-                            case lang_TypeInstance::DeterminedType::HANDLE:
-                            case lang_TypeInstance::DeterminedType::STRING:
-                                m_ircontext.c().ltx(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
-                                break;
-                            default:
-                                wo_error("Unknown type.");
-                                break;
-                            }
-                            break;
-                        case AstValueBinaryOperator::LESS_EQUAL:
-                            switch (left_determined_type->m_base_type)
-                            {
-                            case lang_TypeInstance::DeterminedType::INTEGER:
-                                m_ircontext.c().elti(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
-                                break;
-                            case lang_TypeInstance::DeterminedType::REAL:
-                                m_ircontext.c().eltr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
-                                break;
-                            case lang_TypeInstance::DeterminedType::HANDLE:
-                            case lang_TypeInstance::DeterminedType::STRING:
-                                m_ircontext.c().eltx(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
-                                break;
-                            default:
-                                wo_error("Unknown type.");
-                                break;
-                            }
-                            break;
-                        case AstValueBinaryOperator::EQUAL:
-                            switch (left_determined_type->m_base_type)
-                            {
-                            case lang_TypeInstance::DeterminedType::HANDLE:
-                            case lang_TypeInstance::DeterminedType::INTEGER:
-                                m_ircontext.c().equb(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
-                                break;
-                            case lang_TypeInstance::DeterminedType::REAL:
-                                m_ircontext.c().equr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
-                                break;
-                            case lang_TypeInstance::DeterminedType::STRING:
-                                m_ircontext.c().equs(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
-                                break;
-                            default:
-                                wo_error("Unknown type.");
-                                break;
-                            }
-                            break;
-                        case AstValueBinaryOperator::NOT_EQUAL:
-                            switch (left_determined_type->m_base_type)
-                            {
-                            case lang_TypeInstance::DeterminedType::HANDLE:
-                            case lang_TypeInstance::DeterminedType::INTEGER:
-                                m_ircontext.c().nequb(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
-                                break;
-                            case lang_TypeInstance::DeterminedType::REAL:
-                                m_ircontext.c().nequr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
-                                break;
-                            case lang_TypeInstance::DeterminedType::STRING:
-                                m_ircontext.c().nequs(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
-                                break;
-                            default:
-                                wo_error("Unknown type.");
-                                break;
-                            }
-                            break;
-                        default:
-                            wo_error("Unknown operator.");
-                            break;
-                        }
+                        (void)m_ircontext.get_eval_result();
 
                         const auto& target_storage = result.get_assign_target();
-                        if (node->m_operator < AstValueBinaryOperator::LOGICAL_AND)
+                        if (target_storage.has_value())
                         {
-                            // Calculate result stored at left_opnum.
-                            if (target_storage.has_value())
+                            if (opnum::reg* target_reg = dynamic_cast<opnum::reg*>(target_storage.value());
+                                target_reg == nullptr || target_reg->id != opnum::reg::cr)
                             {
-                                m_ircontext.try_return_opnum_temporary_register(left_opnum);
                                 m_ircontext.c().mov(
                                     WO_OPNUM(target_storage.value()),
-                                    WO_OPNUM(left_opnum));
+                                    WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::cr)));
                             }
-                            else
-                            {
-                                result.set_result(m_ircontext, left_opnum);
-                            }
+                            // Or do nothing, target is same.
                         }
                         else
                         {
-                            // Calculate result stored at cr.
-                            m_ircontext.try_return_opnum_temporary_register(left_opnum);
-                            if (target_storage.has_value())
-                            {
-                                if (opnum::reg* target_reg = dynamic_cast<opnum::reg*>(target_storage.value());
-                                    target_reg == nullptr || target_reg->id != opnum::reg::cr)
-                                {
-                                    m_ircontext.c().mov(
-                                        WO_OPNUM(target_storage.value()),
-                                        WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::cr)));
-                                }
-                                // Or do nothing, target is same.
-                            }
-                            else
-                            {
-                                result.set_result(
-                                    m_ircontext, m_ircontext.opnum_spreg(opnum::reg::cr));
-                            }
+                            result.set_result(
+                                m_ircontext, m_ircontext.opnum_spreg(opnum::reg::spreg::cr));
                         }
+
                         return true;
                     }
                 ))
@@ -2183,6 +1977,290 @@ namespace wo
                     // Eval failed.
                     return FAILED;
                 }
+                break;
+            }
+            case AstValueBinaryOperator::IR_HOLD_FOR_NORMAL_LR_OR_OVERLOAD_EVAL:
+                if (!node->m_LANG_overload_call.has_value())
+                {
+                    if (!m_ircontext.apply_eval_result(
+                        [&](BytecodeGenerateContext::EvalResult& result)
+                        {
+                            auto* right_opnum = m_ircontext.get_eval_result();
+                            auto* left_opnum = m_ircontext.get_eval_result();
+
+                            // We need to make sure following `borrow_opnum_temporary_register`
+                            // will not borrow the right value.
+                            m_ircontext.try_keep_opnum_temporary_register(
+                                right_opnum
+                                WO_BORROW_TEMPORARY_FROM_SP(node));
+
+                            if (node->m_operator < AstValueBinaryOperator::LOGICAL_AND
+                                && nullptr == dynamic_cast<opnum::temporary*>(left_opnum))
+                            {
+                                // Is not temporary register, we need keep it.
+                                // NOTE: If left not temporary, we dont need to return it.
+                                //  at the same time.
+                                auto* borrow_reg = m_ircontext.borrow_opnum_temporary_register(
+                                    WO_BORROW_TEMPORARY_FROM(node));
+                                m_ircontext.c().mov(
+                                    WO_OPNUM(borrow_reg),
+                                    WO_OPNUM(left_opnum));
+
+                                left_opnum = borrow_reg;
+                            }
+
+                            // After all borrow_opnum_temporary_register, we can return right.
+                            m_ircontext.try_return_opnum_temporary_register(right_opnum);
+
+                            lang_TypeInstance* left_type_instance = node->m_left->m_LANG_determined_type.value();
+                            auto* left_determined_type = left_type_instance->get_determined_type().value();
+
+                            switch (node->m_operator)
+                            {
+                            case AstValueBinaryOperator::ADD:
+                                switch (left_determined_type->m_base_type)
+                                {
+                                case lang_TypeInstance::DeterminedType::INTEGER:
+                                    m_ircontext.c().addi(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                    break;
+                                case lang_TypeInstance::DeterminedType::REAL:
+                                    m_ircontext.c().addr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                    break;
+                                case lang_TypeInstance::DeterminedType::HANDLE:
+                                    m_ircontext.c().addh(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                    break;
+                                case lang_TypeInstance::DeterminedType::STRING:
+                                    m_ircontext.c().adds(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                    break;
+                                default:
+                                    wo_error("Unknown type.");
+                                    break;
+                                }
+                                break;
+                            case AstValueBinaryOperator::SUBSTRACT:
+                                switch (left_determined_type->m_base_type)
+                                {
+                                case lang_TypeInstance::DeterminedType::INTEGER:
+                                    m_ircontext.c().subi(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                    break;
+                                case lang_TypeInstance::DeterminedType::REAL:
+                                    m_ircontext.c().subr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                    break;
+                                case lang_TypeInstance::DeterminedType::HANDLE:
+                                    m_ircontext.c().subh(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                    break;
+                                default:
+                                    wo_error("Unknown type.");
+                                    break;
+                                }
+                                break;
+                            case AstValueBinaryOperator::MULTIPLY:
+                                switch (left_determined_type->m_base_type)
+                                {
+                                case lang_TypeInstance::DeterminedType::INTEGER:
+                                    m_ircontext.c().muli(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                    break;
+                                case lang_TypeInstance::DeterminedType::REAL:
+                                    m_ircontext.c().mulr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                    break;
+                                default:
+                                    wo_error("Unknown type.");
+                                    break;
+                                }
+                                break;
+                            case AstValueBinaryOperator::DIVIDE:
+                                switch (left_determined_type->m_base_type)
+                                {
+                                case lang_TypeInstance::DeterminedType::INTEGER:
+                                    m_ircontext.c().divi(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                    break;
+                                case lang_TypeInstance::DeterminedType::REAL:
+                                    m_ircontext.c().divr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                    break;
+                                default:
+                                    wo_error("Unknown type.");
+                                    break;
+                                }
+                                break;
+                            case AstValueBinaryOperator::MODULO:
+                                switch (left_determined_type->m_base_type)
+                                {
+                                case lang_TypeInstance::DeterminedType::INTEGER:
+                                    m_ircontext.c().modi(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                    break;
+                                case lang_TypeInstance::DeterminedType::REAL:
+                                    m_ircontext.c().modr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                    break;
+                                default:
+                                    wo_error("Unknown type.");
+                                    break;
+                                }
+                                break;
+                            case AstValueBinaryOperator::LOGICAL_AND:
+                                m_ircontext.c().land(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                break;
+                            case AstValueBinaryOperator::LOGICAL_OR:
+                                m_ircontext.c().lor(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                break;
+                            case AstValueBinaryOperator::GREATER:
+                                switch (left_determined_type->m_base_type)
+                                {
+                                case lang_TypeInstance::DeterminedType::INTEGER:
+                                    m_ircontext.c().gti(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                    break;
+                                case lang_TypeInstance::DeterminedType::REAL:
+                                    m_ircontext.c().gtr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                    break;
+                                case lang_TypeInstance::DeterminedType::HANDLE:
+                                case lang_TypeInstance::DeterminedType::STRING:
+                                    m_ircontext.c().gtx(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                    break;
+                                default:
+                                    wo_error("Unknown type.");
+                                    break;
+                                }
+                                break;
+                            case AstValueBinaryOperator::GREATER_EQUAL:
+                                switch (left_determined_type->m_base_type)
+                                {
+                                case lang_TypeInstance::DeterminedType::INTEGER:
+                                    m_ircontext.c().egti(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                    break;
+                                case lang_TypeInstance::DeterminedType::REAL:
+                                    m_ircontext.c().egtr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                    break;
+                                case lang_TypeInstance::DeterminedType::HANDLE:
+                                case lang_TypeInstance::DeterminedType::STRING:
+                                    m_ircontext.c().egtx(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                    break;
+                                default:
+                                    wo_error("Unknown type.");
+                                    break;
+                                }
+                                break;
+                            case AstValueBinaryOperator::LESS:
+                                switch (left_determined_type->m_base_type)
+                                {
+                                case lang_TypeInstance::DeterminedType::INTEGER:
+                                    m_ircontext.c().lti(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                    break;
+                                case lang_TypeInstance::DeterminedType::REAL:
+                                    m_ircontext.c().ltr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                    break;
+                                case lang_TypeInstance::DeterminedType::HANDLE:
+                                case lang_TypeInstance::DeterminedType::STRING:
+                                    m_ircontext.c().ltx(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                    break;
+                                default:
+                                    wo_error("Unknown type.");
+                                    break;
+                                }
+                                break;
+                            case AstValueBinaryOperator::LESS_EQUAL:
+                                switch (left_determined_type->m_base_type)
+                                {
+                                case lang_TypeInstance::DeterminedType::INTEGER:
+                                    m_ircontext.c().elti(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                    break;
+                                case lang_TypeInstance::DeterminedType::REAL:
+                                    m_ircontext.c().eltr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                    break;
+                                case lang_TypeInstance::DeterminedType::HANDLE:
+                                case lang_TypeInstance::DeterminedType::STRING:
+                                    m_ircontext.c().eltx(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                    break;
+                                default:
+                                    wo_error("Unknown type.");
+                                    break;
+                                }
+                                break;
+                            case AstValueBinaryOperator::EQUAL:
+                                switch (left_determined_type->m_base_type)
+                                {
+                                case lang_TypeInstance::DeterminedType::HANDLE:
+                                case lang_TypeInstance::DeterminedType::INTEGER:
+                                    m_ircontext.c().equb(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                    break;
+                                case lang_TypeInstance::DeterminedType::REAL:
+                                    m_ircontext.c().equr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                    break;
+                                case lang_TypeInstance::DeterminedType::STRING:
+                                    m_ircontext.c().equs(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                    break;
+                                default:
+                                    wo_error("Unknown type.");
+                                    break;
+                                }
+                                break;
+                            case AstValueBinaryOperator::NOT_EQUAL:
+                                switch (left_determined_type->m_base_type)
+                                {
+                                case lang_TypeInstance::DeterminedType::HANDLE:
+                                case lang_TypeInstance::DeterminedType::INTEGER:
+                                    m_ircontext.c().nequb(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                    break;
+                                case lang_TypeInstance::DeterminedType::REAL:
+                                    m_ircontext.c().nequr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                    break;
+                                case lang_TypeInstance::DeterminedType::STRING:
+                                    m_ircontext.c().nequs(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                    break;
+                                default:
+                                    wo_error("Unknown type.");
+                                    break;
+                                }
+                                break;
+                            default:
+                                wo_error("Unknown operator.");
+                                break;
+                            }
+
+                            const auto& target_storage = result.get_assign_target();
+                            if (node->m_operator < AstValueBinaryOperator::LOGICAL_AND)
+                            {
+                                // Calculate result stored at left_opnum.
+                                if (target_storage.has_value())
+                                {
+                                    m_ircontext.try_return_opnum_temporary_register(left_opnum);
+                                    m_ircontext.c().mov(
+                                        WO_OPNUM(target_storage.value()),
+                                        WO_OPNUM(left_opnum));
+                                }
+                                else
+                                {
+                                    result.set_result(m_ircontext, left_opnum);
+                                }
+                            }
+                            else
+                            {
+                                // Calculate result stored at cr.
+                                m_ircontext.try_return_opnum_temporary_register(left_opnum);
+                                if (target_storage.has_value())
+                                {
+                                    if (opnum::reg* target_reg = dynamic_cast<opnum::reg*>(target_storage.value());
+                                        target_reg == nullptr || target_reg->id != opnum::reg::cr)
+                                    {
+                                        m_ircontext.c().mov(
+                                            WO_OPNUM(target_storage.value()),
+                                            WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::cr)));
+                                    }
+                                    // Or do nothing, target is same.
+                                }
+                                else
+                                {
+                                    result.set_result(
+                                        m_ircontext, m_ircontext.opnum_spreg(opnum::reg::cr));
+                                }
+                            }
+                            return true;
+                        }
+                    ))
+                    {
+                        // Eval failed.
+                        return FAILED;
+                    }
+                }
+                break;
             }
         }
         return WO_EXCEPT_ERROR(state, OKAY);

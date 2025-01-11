@@ -379,6 +379,10 @@ namespace wo
                 IR_HOLD_FOR_INDEX_PATTERN_EVAL,
                 IR_HOLD_TO_INDEX_PATTERN_OVERLOAD,
                 IR_HOLD_TO_APPLY_ASSIGN,
+
+                IR_HOLD_FOR_NORMAL_LR_OR_OVERLOAD_EVAL,
+                IR_HOLD_FOR_LAND_LOR_LEFT_SHORT_CUT,
+                IR_HOLD_FOR_LAND_LOR_RIGHT,
             };
 
             std::optional<AstValueFunctionCall*> m_LANG_overload_call;
