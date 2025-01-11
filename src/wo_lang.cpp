@@ -1567,13 +1567,10 @@ namespace wo
             } while (true);
         }
         else
-            searching_namesapaces.insert(get_current_namespace());
-
-        for (auto* searching_namesapace : searching_namesapaces)
         {
+            lang_Namespace* symbol_namespace = get_current_namespace();
             for (;;)
             {
-                lang_Namespace* symbol_namespace = searching_namesapace;
                 for (auto* scope : ident->m_scope)
                 {
                     auto fnd = symbol_namespace->m_sub_namespaces.find(scope);
@@ -1592,10 +1589,34 @@ namespace wo
                 }
 
             _label_try_upper_namespace:
-                if (searching_namesapace->m_parent_namespace)
-                    searching_namesapace = searching_namesapace->m_parent_namespace.value();
+                if (symbol_namespace->m_parent_namespace)
+                    symbol_namespace = symbol_namespace->m_parent_namespace.value();
                 else
                     break; // Break for continue outside loop
+            }
+        }
+
+        for (auto* searching_namesapace : searching_namesapaces)
+        {
+            bool scope_located = true;
+            for (auto* scope : ident->m_scope)
+            {
+                auto fnd = searching_namesapace->m_sub_namespaces.find(scope);
+                if (fnd != searching_namesapace->m_sub_namespaces.end())
+                    searching_namesapace = fnd->second.get();
+                else
+                {
+                    scope_located = false;
+                    break;
+                }
+            }
+
+            if (scope_located)
+            {
+                // Ok, found the namespace.
+                if (auto fnd = searching_namesapace->m_this_scope->m_defined_symbols.find(ident->m_name);
+                    fnd != searching_namesapace->m_this_scope->m_defined_symbols.end())
+                    found_symbol.insert(fnd->second.get());
             }
         }
 

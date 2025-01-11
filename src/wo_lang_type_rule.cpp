@@ -22,15 +22,16 @@ namespace wo
         auto judge =
             [&]()-> bool {
 
-            if (accepter->is_mutable() != provider->is_mutable())
-                return false;
-
             lang_TypeInstance* immutable_accepter = immutable_type(accepter);
             lang_TypeInstance* immutable_provider = immutable_type(provider);
 
             // If provider is nothing, OK.
             if (immutable_provider == m_origin_types.m_nothing.m_type_instance)
                 return true;
+
+            // If mutable not match, except nothing, failed.
+            if (accepter->is_mutable() != provider->is_mutable())
+                return false;
 
             // If not same symbol, fail.
             if (immutable_provider->m_symbol != immutable_accepter->m_symbol)

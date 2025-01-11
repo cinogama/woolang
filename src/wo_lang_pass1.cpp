@@ -1792,7 +1792,6 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
-            TODO; TEST CASE FAILED CAUSED BY THIS entry_spcify_scope
             entry_spcify_scope(node->m_apply_template_argument_scope);
 
             for (auto& [param_name, arg_type_inst] : node->m_deduction_results)
@@ -1822,24 +1821,6 @@ namespace wo
             {
             case AstValueFunctionCall_FakeAstArgumentDeductionContextA::HOLD_FOR_PREPARE:
             {
-                // Remove determined template param
-                for (auto it = node->m_undetermined_template_params.begin();
-                    it != node->m_undetermined_template_params.end();)
-                {
-                    auto cur_it = it++;
-
-                    auto fnd = node->m_deduction_results.find(*cur_it);
-                    if (fnd != node->m_deduction_results.end())
-                    {
-                        fast_create_one_template_type_alias_in_current_scope(
-                            node->source_location.source_file,
-                            fnd->first,
-                            fnd->second);
-
-                        node->m_undetermined_template_params.erase(cur_it);
-                    }
-                }
-
                 if (node->m_arguments_tobe_deduct.empty())
                 {
                     // All arguments have been deduced.
@@ -1991,6 +1972,8 @@ namespace wo
                             argument_variable->m_identifier->m_LANG_determined_and_appended_template_arguments
                                 = template_arguments;
 
+                            entry_spcify_scope(node->m_scope_before_deduction);
+
                             WO_CONTINUE_PROCESS(argument_variable);
 
                             node->m_LANG_hold_state =
@@ -2027,6 +2010,9 @@ namespace wo
 
                             argument_function->m_LANG_determined_template_arguments = template_arguments;
                             argument_function->m_LANG_in_template_reification_context = true;
+
+                            entry_spcify_scope(node->m_scope_before_deduction);
+
                             WO_CONTINUE_PROCESS(argument_function);
 
                             node->m_LANG_hold_state =
@@ -2047,6 +2033,8 @@ namespace wo
             }
             case AstValueFunctionCall_FakeAstArgumentDeductionContextA::HOLD_FOR_REVERSE_DEDUCT:
             {
+                end_last_scope(); // End the scope.
+
                 AstValueFunctionCall_FakeAstArgumentDeductionContextA::ArgumentMatch& current_argument =
                     *node->m_current_argument;
 
@@ -2088,6 +2076,9 @@ namespace wo
         }
         else
         {
+            if (node->m_LANG_hold_state == AstValueFunctionCall_FakeAstArgumentDeductionContextA::HOLD_FOR_REVERSE_DEDUCT)
+                end_last_scope();
+
             end_last_scope(); // Child failed, and end the scope.
         }
 
@@ -2341,6 +2332,9 @@ namespace wo
             {
                 // If target function is a template function, we need to deduce template arguments.
                 // HERE!
+
+                auto* current_scope_before_deduction = get_current_scope();
+
                 if (node->m_LANG_target_function_need_deduct_template_arguments)
                 {
                     std::unordered_map<wo_pstring_t, lang_TypeInstance*> deduction_results;
@@ -2419,7 +2413,8 @@ namespace wo
                     begin_new_scope();
 
                     AstValueFunctionCall_FakeAstArgumentDeductionContextA* branch_a_context =
-                        new AstValueFunctionCall_FakeAstArgumentDeductionContextA(get_current_scope());
+                        new AstValueFunctionCall_FakeAstArgumentDeductionContextA(
+                            current_scope_before_deduction, get_current_scope());
 
                     node->m_LANG_branch_argument_deduction_context = branch_a_context;
 
@@ -3060,6 +3055,9 @@ namespace wo
             case AstValueStruct::HOLD_FOR_EVAL_MEMBER_VALUE_BESIDE_TEMPLATE:
             {
                 // First deduct
+
+                auto* current_scope_before_deduction = get_current_scope();
+
                 std::unordered_map<wo_pstring_t, lang_TypeInstance*> deduction_results;
 
                 std::list<wo_pstring_t> pending_template_params;
@@ -3104,7 +3102,8 @@ namespace wo
                 begin_new_scope();
 
                 AstValueFunctionCall_FakeAstArgumentDeductionContextA* branch_a_context =
-                    new AstValueFunctionCall_FakeAstArgumentDeductionContextA(get_current_scope());
+                    new AstValueFunctionCall_FakeAstArgumentDeductionContextA(
+                        current_scope_before_deduction, get_current_scope());
                 node->m_LANG_branch_argument_deduction_context = branch_a_context;
 
                 end_last_scope();
@@ -4071,16 +4070,19 @@ namespace wo
                 lang_TypeInstance* matching_typeinstance =
                     node->m_matched_value->m_LANG_determined_type.value();
 
-                // union can only declared in namespace.
-                wo_assert(matching_typeinstance->m_symbol->m_belongs_to_scope->is_namespace_scope());
+                if (node->m_auto_using_namespace)
+                {
+                    // union can only declared in namespace.
+                    wo_assert(matching_typeinstance->m_symbol->m_belongs_to_scope->is_namespace_scope());
 
-                // Must contanin this sub namespace.
-                auto* union_namespace = matching_typeinstance->m_symbol->m_belongs_to_scope->m_belongs_to_namespace->m_sub_namespaces.at(
-                    matching_typeinstance->m_symbol->m_name).get();
+                    // Must contanin this sub namespace.
+                    auto* union_namespace = matching_typeinstance->m_symbol->m_belongs_to_scope->m_belongs_to_namespace->m_sub_namespaces.at(
+                        matching_typeinstance->m_symbol->m_name).get();
 
-                append_using_namespace_for_current_scope(
-                    { union_namespace }, 
-                    node->source_location.source_file);
+                    append_using_namespace_for_current_scope(
+                        { union_namespace },
+                        node->source_location.source_file);
+                }
 
                 // Check is union.
                 auto determined_base_type =

@@ -298,6 +298,8 @@ namespace wo
                 AstTypeHolder* m_duped_param_type;
             };
             LANG_hold_state m_LANG_hold_state;
+
+            lang_Scope* m_scope_before_deduction;
             lang_Scope* m_apply_template_argument_scope;
 
             std::list<ArgumentMatch> m_arguments_tobe_deduct;
@@ -306,7 +308,7 @@ namespace wo
             std::unordered_map<wo_pstring_t, lang_TypeInstance*> m_deduction_results;
             std::list<wo_pstring_t> m_undetermined_template_params;
 
-            AstValueFunctionCall_FakeAstArgumentDeductionContextA(lang_Scope* scope);
+            AstValueFunctionCall_FakeAstArgumentDeductionContextA(lang_Scope* before, lang_Scope* scope);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
         };
         struct AstValueFunctionCall_FakeAstArgumentDeductionContextB : public AstBase
@@ -781,6 +783,9 @@ namespace wo
                 HOLD_FOR_EVAL_CASES,
             };
 
+            // Match was used in some other place as grammar-sugar.
+            // Do not use `using xxxx` in this case.
+            bool m_auto_using_namespace;
             AstValueBase* m_matched_value;
             std::list<AstMatchCase*> m_cases;
 
@@ -788,7 +793,7 @@ namespace wo
 
             std::optional<opnum::opnumbase*> m_IR_matching_struct_opnum;
 
-            AstMatch(AstValueBase* match_value, const std::list<AstMatchCase*>& cases);
+            AstMatch(AstValueBase* match_value, const std::list<AstMatchCase*>& cases, bool auto_using);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
 

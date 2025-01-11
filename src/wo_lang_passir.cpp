@@ -2430,7 +2430,7 @@ namespace wo
                         if (node->m_index->node_type == AstBase::AST_VALUE_IR_OPNUM)
                             m_ircontext.try_keep_opnum_temporary_register(index_opnum);
                         if (node->m_container->node_type != AstBase::AST_VALUE_IR_OPNUM)
-                            m_ircontext.try_return_opnum_temporary_register(index_opnum);
+                            m_ircontext.try_keep_opnum_temporary_register(index_opnum);
 
                         if (determined_container_type->m_base_type == lang_TypeInstance::DeterminedType::ARRAY
                             || determined_container_type->m_base_type == lang_TypeInstance::DeterminedType::VECTOR)
