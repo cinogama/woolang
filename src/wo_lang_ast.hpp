@@ -916,6 +916,8 @@ namespace wo
         {
             std::optional<AstValueBase*> m_value;
 
+            std::optional<AstValueFunction*> m_LANG_belong_function_may_null_if_outside;
+
             AstReturn(const std::optional<AstValueBase*>& value);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };

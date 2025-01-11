@@ -1372,6 +1372,13 @@ namespace wo
                              lang_ValueInstance::Storage::STACKOFFSET,
                              argument_place,
                     };
+
+                    m_ircontext.c().pdb_info->add_func_variable(
+                        eval_fucntion_name,
+                        get_value_name_w(captured_variable_instance.m_instance.get()),
+                        eval_function->source_location.begin_at.row,
+                        argument_place);
+
                     ++argument_place;
                 }
                 const auto no_captured_arguement_place = argument_place;
@@ -1393,6 +1400,12 @@ namespace wo
                                      lang_ValueInstance::Storage::STACKOFFSET,
                                      argument_place,
                             };
+
+                            m_ircontext.c().pdb_info->add_func_variable(
+                                eval_fucntion_name,
+                                get_value_name_w(symbol->m_value_instance),
+                                pattern_single->source_location.begin_at.row,
+                                argument_place);
                         }
                     }
                     ++argument_place;
@@ -1659,9 +1672,10 @@ namespace wo
         }
         else
         {
-            lang_Namespace* symbol_namespace = get_current_namespace();
+            lang_Namespace* searching_namesapace = get_current_namespace();;
             for (;;)
             {
+                lang_Namespace* symbol_namespace = searching_namesapace;
                 for (auto* scope : ident->m_scope)
                 {
                     auto fnd = symbol_namespace->m_sub_namespaces.find(scope);
@@ -1680,8 +1694,8 @@ namespace wo
                 }
 
             _label_try_upper_namespace:
-                if (symbol_namespace->m_parent_namespace)
-                    symbol_namespace = symbol_namespace->m_parent_namespace.value();
+                if (searching_namesapace->m_parent_namespace)
+                    searching_namesapace = searching_namesapace->m_parent_namespace.value();
                 else
                     break; // Break for continue outside loop
             }

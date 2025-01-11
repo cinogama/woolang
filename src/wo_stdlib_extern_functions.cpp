@@ -2582,8 +2582,8 @@ namespace vec
         public func swap<T>(val: vec<T>, another: vec<T>)=> void;
 
     extern("rslib_std_array_copy") 
-        public func copy<T, C>(val: vec<T>, another: C<T>)=> void
-            where std::is_array:<C<T>> || std::is_vec:<C<T>>;
+        public func copy<T, CT>(val: vec<T>, another: CT)=> void
+            where another is array<T> || another is vec<T>;
 
     extern("rslib_std_array_get", repeat)
         public func get<T>(a: vec<T>, index: int)=> option<T>;
@@ -2918,7 +2918,8 @@ namespace map
         public func swap<KT, VT>(val: ::map<KT, VT>, another: ::map<KT, VT>)=> void;
 
     extern("rslib_std_map_copy") 
-        public func copy<KT, VT>(val: ::map<KT, VT>, another: ::map<KT, VT>)=> void;
+        public func copy<KT, VT, CT>(val: ::map<KT, VT>, another: CT)=> void
+            where another is dict<KT, VT> || another is ::map<KT, VT>;
 
     extern("rslib_std_map_keys", repeat)
         public func keys<KT, VT>(self: ::map<KT, VT>)=> array<KT>;

@@ -892,7 +892,17 @@ namespace wo
             (void)m_ircontext.get_eval_result();
         }
 
-        m_ircontext.c().ret();
+        if (node->m_LANG_belong_function_may_null_if_outside.has_value())
+        {
+            AstValueFunction* returned_func = node->m_LANG_belong_function_may_null_if_outside.value();
+            if (!returned_func->m_LANG_captured_context.m_captured_variables.empty())
+                m_ircontext.c().ret(
+                    (uint16_t)returned_func->m_LANG_captured_context.m_captured_variables.size());
+            else
+                m_ircontext.c().ret();
+        }
+        else
+            m_ircontext.c().ret();
 
         return OKAY;
     }
@@ -1923,10 +1933,10 @@ namespace wo
                 switch (node->m_operator)
                 {
                 case AstValueBinaryOperator::LOGICAL_AND:
-                    m_ircontext.c().jf(opnum::tag(_generate_label("#land_sc_end_", node)));
+                    m_ircontext.c().jf(opnum::tag(_generate_label("#lshortcut_", node)));
                     break;
                 case AstValueBinaryOperator::LOGICAL_OR:
-                    m_ircontext.c().jt(opnum::tag(_generate_label("#lor_sc_end_", node)));
+                    m_ircontext.c().jt(opnum::tag(_generate_label("#lshortcut_", node)));
                     break;
                 default:
                     wo_error("Unknown operator.");
@@ -1945,7 +1955,7 @@ namespace wo
             }
             case  AstValueBinaryOperator::IR_HOLD_FOR_LAND_LOR_RIGHT:
             {
-                m_ircontext.c().tag(_generate_label("#land_sc_end_", node));
+                m_ircontext.c().tag(_generate_label("#lshortcut_", node));
 
                 if (!m_ircontext.apply_eval_result(
                     [&](BytecodeGenerateContext::EvalResult& result)
@@ -2179,6 +2189,7 @@ namespace wo
                                 {
                                 case lang_TypeInstance::DeterminedType::HANDLE:
                                 case lang_TypeInstance::DeterminedType::INTEGER:
+                                case lang_TypeInstance::DeterminedType::BOOLEAN:
                                     m_ircontext.c().equb(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
                                     break;
                                 case lang_TypeInstance::DeterminedType::REAL:
@@ -2197,6 +2208,7 @@ namespace wo
                                 {
                                 case lang_TypeInstance::DeterminedType::HANDLE:
                                 case lang_TypeInstance::DeterminedType::INTEGER:
+                                case lang_TypeInstance::DeterminedType::BOOLEAN:
                                     m_ircontext.c().nequb(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
                                     break;
                                 case lang_TypeInstance::DeterminedType::REAL:

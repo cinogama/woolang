@@ -13,7 +13,8 @@
 
 
 #define WO_HERE L"此处"
-#define WO_SEE_ALSO L"参见"
+#define WO_SEE_HERE L"参见"
+#define WO_SEE_ALSO L"另见"
 
 #define WO_TERM_EXCEPTED L"应当是"
 

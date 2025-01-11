@@ -1449,7 +1449,7 @@ namespace wo
             if constexpr (std::is_same<OP3T, opnum::reg>::value)
                 WO_PUT_IR_TO_BUFFER(instruct::opcode::siddict, WO_OPNUM(op1), WO_OPNUM(op2), (int32_t)r.id);
             else
-                WO_PUT_IR_TO_BUFFER(instruct::opcode::sidarr, WO_OPNUM(op1), WO_OPNUM(op2), -(int32_t)(r.m_id + 1));
+                WO_PUT_IR_TO_BUFFER(instruct::opcode::siddict, WO_OPNUM(op1), WO_OPNUM(op2), -(int32_t)(r.m_id + 1));
         }
         template<typename OP1T, typename OP2T, typename OP3T>
         void sidmap(const OP1T& op1, const OP2T& op2, const OP3T& r)
@@ -1465,7 +1465,7 @@ namespace wo
             if constexpr (std::is_same<OP3T, opnum::reg>::value)
                 WO_PUT_IR_TO_BUFFER(instruct::opcode::sidmap, WO_OPNUM(op1), WO_OPNUM(op2), (int32_t)r.id);
             else
-                WO_PUT_IR_TO_BUFFER(instruct::opcode::sidarr, WO_OPNUM(op1), WO_OPNUM(op2), -(int32_t)(r.m_id + 1));
+                WO_PUT_IR_TO_BUFFER(instruct::opcode::sidmap, WO_OPNUM(op1), WO_OPNUM(op2), -(int32_t)(r.m_id + 1));
         }
         template<typename OP1T, typename OP2T, typename OP3T>
         void sidarr(const OP1T& op1, const OP2T& op2, const OP3T& r)

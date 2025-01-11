@@ -1579,6 +1579,7 @@ namespace wo
         AstReturn::AstReturn(const std::optional<AstValueBase*>& value)
             : AstBase(AST_RETURN)
             , m_value(value)
+            , m_LANG_belong_function_may_null_if_outside(std::nullopt)
         {
         }
         AstBase* AstReturn::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const

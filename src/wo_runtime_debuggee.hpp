@@ -326,12 +326,12 @@ whereis                         <ipoffset>    Find the function that the ipoffse
         void display_variable(wo::vmbase* vmm, wo::program_debug_data_info::function_symbol_infor::variable_symbol_infor& varinfo)
         {
             // auto real_offset = -varinfo.bp_offset;
-            auto value_in_stack = current_frame_bp - varinfo.bp_offset;
+            auto value_in_stack = current_frame_bp + varinfo.bp_offset;
             wo_stdout << varinfo.name << " define at line: " << varinfo.define_place << wo_endl;
             if (varinfo.bp_offset >= 0)
-                wo_stdout << "[bp-" << varinfo.bp_offset << "]: ";
+                wo_stdout << "[bp+" << varinfo.bp_offset << "]: ";
             else
-                wo_stdout << "[bp+" << -varinfo.bp_offset << "]: ";
+                wo_stdout << "[bp-" << -varinfo.bp_offset << "]: ";
 
             if (value_in_stack <= current_frame_sp)
                 wo_stdout << value_in_stack << " (not in stack)" << wo_endl;

@@ -2732,7 +2732,7 @@ std::variant<
                 if (compile_lang_context.process(*lex, result))
                 {
                     // Finish!, finalize the compiler.
-                    env_result = 
+                    env_result =
                         compile_lang_context.m_ircontext.c().finalize(stacksz);
                 }
             }
@@ -2994,10 +2994,26 @@ std::string _wo_dump_lexer_context_error(wo::lexer* lex, _wo_inform_style style)
 
     std::string _vm_compile_errors;
 
+    size_t last_depth = 0;
+
     for (auto& err_info : lex->lex_error_list)
     {
         if (err_info.depth != 0)
-            _vm_compile_errors += std::string(err_info.depth, ' ') + wo::wstr_to_str(WO_SEE_ALSO) + ":\n";
+        {
+            auto see_also = wo::wstr_to_str(last_depth >= err_info.depth ? WO_SEE_ALSO : WO_SEE_HERE);
+            if (style == WO_NEED_COLOR)
+                _vm_compile_errors 
+                    += std::string(err_info.depth, ' ')
+                    + ANSI_HIY + see_also + ANSI_RST
+                    + ":\n";
+            else
+                _vm_compile_errors 
+                    += std::string(err_info.depth, ' ')
+                    + see_also
+                    + ":\n";
+        }
+
+        last_depth = err_info.depth;
 
         if (src_file_path != err_info.filename)
         {
@@ -3249,7 +3265,7 @@ wo_value wo_dispatch(
     if (vmm->env)
     {
         wo_assert(vmm->tc->type == wo::value::valuetype::integer_type);
-        
+
         auto origin_tc = (++(vmm->sp))->integer;
         auto origin_spbp = (++(vmm->sp))->vmcallstack;
 

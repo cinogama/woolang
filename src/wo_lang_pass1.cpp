@@ -64,7 +64,7 @@ namespace wo
 
                     for (; pattern_iter != pattern_end; ++pattern_iter, ++type_iter)
                         success = success && update_pattern_symbol_variable_type_pass1(
-                            lex, *pattern_iter, std::nullopt, immutable_type(*type_iter));
+                            lex, *pattern_iter, std::nullopt, *type_iter);
 
                     return success;
                 }
@@ -1211,6 +1211,8 @@ namespace wo
                         node->m_value.value()->m_LANG_determined_type;
                 }
             }
+
+            node->m_LANG_belong_function_may_null_if_outside = current_function;
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
