@@ -355,8 +355,16 @@ namespace wo
                                                       gm::nt(L"TYPEOF"),
                 } >>
                 WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
-                gm::nt(L"TYPEOF") >> gm::symlist{gm::te(gm::ttype::l_typeof), gm::te(gm::ttype::l_left_brackets), gm::nt(L"MAY_MUT_PURE_VALUE"), gm::te(gm::ttype::l_right_brackets)} >> WO_ASTBUILDER_INDEX(ast::pass_typeof),
-
+                gm::nt(L"TYPEOF") >> gm::symlist{
+                    gm::te(gm::ttype::l_typeof), 
+                    gm::te(gm::ttype::l_left_brackets), 
+                    gm::nt(L"MAY_MUT_PURE_VALUE"),
+                    gm::te(gm::ttype::l_right_brackets)} >> WO_ASTBUILDER_INDEX(ast::pass_typeof),
+                gm::nt(L"TYPEOF") >> gm::symlist{
+                    gm::te(gm::ttype::l_typeof), 
+                    gm::te(gm::ttype::l_template_using_begin),
+                    gm::nt(L"TYPE"),
+                    gm::te(gm::ttype::l_larg) } >> WO_ASTBUILDER_INDEX(ast::pass_direct<2>),
                 gm::nt(L"ORIGIN_TYPE") >> gm::symlist{gm::nt(L"TUPLE_TYPE_LIST")} >> WO_ASTBUILDER_INDEX(ast::pass_type_tuple),
                 gm::nt(L"TUPLE_TYPE_LIST") >> gm::symlist{gm::te(gm::ttype::l_left_brackets), gm::nt(L"TUPLE_TYPE_LIST_ITEMS_MAY_EMPTY"), gm::te(gm::ttype::l_right_brackets)} >> WO_ASTBUILDER_INDEX(ast::pass_direct<1>),
                 gm::nt(L"TUPLE_TYPE_LIST_ITEMS_MAY_EMPTY") >> gm::symlist{gm::nt(L"TUPLE_TYPE_LIST_ITEMS"), gm::nt(L"COMMA_MAY_EMPTY")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),

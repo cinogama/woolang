@@ -140,20 +140,18 @@ namespace wo
         return SIZE_MAX;
     }
 
-    //void program_debug_data_info::generate_func_begin(ast::ast_value_function_define* funcdef, ir_compiler* compiler)
-    //{
-    //    _function_ip_data_buf[funcdef->get_ir_func_signature_tag()].ir_begin = compiler->get_now_ip();
-    //    generate_debug_info_at_astnode(funcdef, compiler);
-    //}
-    //void program_debug_data_info::generate_func_end(ast::ast_value_function_define* funcdef, size_t tmpreg_count, ir_compiler* compiler)
-    //{
-    //    _function_ip_data_buf[funcdef->get_ir_func_signature_tag()].ir_end = compiler->get_now_ip();
-    //    _function_ip_data_buf[funcdef->get_ir_func_signature_tag()].in_stack_reg_count = tmpreg_count;
-    //}
-    //void program_debug_data_info::add_func_variable(ast::ast_value_function_define* funcdef, const std::wstring& varname, size_t rowno, wo_integer_t loc)
-    //{
-    //    _function_ip_data_buf[funcdef->get_ir_func_signature_tag()].add_variable_define(varname, rowno, loc);
-    //}
+    void program_debug_data_info::generate_func_begin(const std::string& function_name, ir_compiler* compiler)
+    {
+        _function_ip_data_buf[function_name].ir_begin = compiler->get_now_ip();
+    }
+    void program_debug_data_info::generate_func_end(const std::string& function_name, size_t tmpreg_count, ir_compiler* compiler)
+    {
+        _function_ip_data_buf[function_name].ir_end = compiler->get_now_ip();
+    }
+    void program_debug_data_info::add_func_variable(const std::string& function_name, const std::wstring& varname, size_t rowno, wo_integer_t loc)
+    {
+       _function_ip_data_buf[function_name].add_variable_define(varname, rowno, loc);
+    }
 
     std::string program_debug_data_info::get_current_func_signature_by_runtime_ip(const byte_t* rt_pos) const
     {
@@ -467,7 +465,6 @@ namespace wo
 
                 write_binary_to_buffer((uint32_t)func_symb_info.ir_begin, 4);
                 write_binary_to_buffer((uint32_t)func_symb_info.ir_end, 4);
-                write_binary_to_buffer((uint32_t)func_symb_info.in_stack_reg_count, 4);
 
                 write_binary_to_buffer((uint32_t)func_symb_info.variables.size(), 4);
                 for (auto& [varname, varinfolist] : func_symb_info.variables)
@@ -1006,10 +1003,6 @@ namespace wo
                 if (!stream->read_elem(&data))
                     WO_LOAD_BIN_FAILED("Failed to restore program debug informations record C's function ir_end.");
                 function_inform.ir_end = data;
-
-                if (!stream->read_elem(&data))
-                    WO_LOAD_BIN_FAILED("Failed to restore program debug informations record C's function in_stack_reg_count.");
-                function_inform.in_stack_reg_count = data;
 
                 uint32_t variable_count;
                 if (!stream->read_elem(&variable_count))
@@ -2067,7 +2060,8 @@ namespace wo
             auto* opnum2 = ir_command_buffer[i].op2;
 
             size_t skip_line = 0;
-            if (ir_command_buffer[i].opcode == instruct::lds || ir_command_buffer[i].opcode == instruct::sts)
+            if (ir_command_buffer[i].opcode == instruct::lds 
+                || ir_command_buffer[i].opcode == instruct::sts)
             {
                 auto* imm_opnum_stx_offset = dynamic_cast<const opnum::immbase*>(opnum2);
                 if (imm_opnum_stx_offset)
@@ -2084,7 +2078,7 @@ namespace wo
                     // Here only get arg from stack. so here nothing todo.
                 }
             }
-            else if (ir_command_buffer[i].opcode != instruct::calln)
+            if (ir_command_buffer[i].opcode != instruct::calln)
             {
                 std::optional<int32_t> stack_offset = std::nullopt;
                 if (auto* op1 = dynamic_cast<const opnum::temporary*>(opnum1))

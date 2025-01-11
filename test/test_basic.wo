@@ -160,8 +160,8 @@ namespace test_basic
 
         test_equal(foo(2)(1,2,3,4,5,6) as int, 3);
 
-        test_equal(noexist_foo() is pending, true);
-        test_equal(noexist_foo() is pending == false, false);
+        test_equal(typeid:<typeof(noexist_foo())>, 0);
+        test_equal(typeid:<typeof(A::B::get_foo())> == 0, false);
 
         test_equal(Aaa{b="Helloworld": Aaa::Bbb}.b: string, "Helloworld");
 

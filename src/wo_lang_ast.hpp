@@ -942,6 +942,7 @@ namespace wo
                 m_attribute;
             std::optional<lang_Symbol*>
                 m_LANG_declared_symbol;
+            bool m_LANG_type_namespace_entried;
             LANG_hold_state         m_LANG_hold_state;
 
         private:

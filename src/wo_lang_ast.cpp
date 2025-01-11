@@ -1620,6 +1620,7 @@ namespace wo
             , m_in_type_namespace(item.m_in_type_namespace)
             , m_attribute(item.m_attribute)
             , m_LANG_declared_symbol(std::nullopt)
+            , m_LANG_type_namespace_entried(false)
             , m_LANG_hold_state(LANG_hold_state::UNPROCESSED)
         {
         }
@@ -1636,6 +1637,7 @@ namespace wo
             , m_in_type_namespace(in_type_namespace)
             , m_attribute(attrib)
             , m_LANG_declared_symbol(std::nullopt)
+            , m_LANG_type_namespace_entried(false)
             , m_LANG_hold_state(LANG_hold_state::UNPROCESSED)
         {
         }

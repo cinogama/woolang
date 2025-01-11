@@ -251,10 +251,12 @@ namespace wo
                 {
                     if (accept_template_arguments)
                         lex.lang_error(lexer::errorlevel::error, node,
-                            WO_ERR_EXPECTED_TEMPLATE_ARGUMENT);
+                            WO_ERR_EXPECTED_TEMPLATE_ARGUMENT,
+                            get_symbol_name_w(symbol));
                     else
                         lex.lang_error(lexer::errorlevel::error, node,
-                            WO_ERR_UNEXPECTED_TEMPLATE_ARGUMENT);
+                            WO_ERR_UNEXPECTED_TEMPLATE_ARGUMENT,
+                            get_symbol_name_w(symbol));
 
                     return FAILED;
                 }
@@ -624,12 +626,12 @@ namespace wo
                 }
                 else
                 {
-                    auto* state = static_cast<lang_TemplateAstEvalStateValue*>(
+                    auto* eval_template_state = static_cast<lang_TemplateAstEvalStateValue*>(
                         node->m_LANG_template_evalating_state.value());
 
-                    finish_eval_template_ast(lex, state);
+                    finish_eval_template_ast(lex, eval_template_state);
 
-                    value_instance = state->m_value_instance.get();
+                    value_instance = eval_template_state->m_value_instance.get();
                 }
 
                 wo_assert(value_instance != nullptr);
@@ -862,6 +864,18 @@ namespace wo
             node->m_LANG_hold_state = AstUsingTypeDeclare::LANG_hold_state::HOLD_FOR_BASE_TYPE_EVAL;
             if (!node->m_template_parameters)
             {
+                lang_Symbol* type_symbol = node->m_LANG_declared_symbol.value();
+                if (type_symbol->m_belongs_to_scope->is_namespace_scope())
+                {
+                    lang_Namespace* type_namespace = type_symbol->m_belongs_to_scope->m_belongs_to_namespace;
+                    auto fnd = type_namespace->m_sub_namespaces.find(type_symbol->m_name);
+                    if (fnd != type_namespace->m_sub_namespaces.end())
+                    {
+                        node->m_LANG_type_namespace_entried = true;
+                        entry_spcify_scope(fnd->second->m_this_scope.get());
+                    }
+                }
+
                 // Update type instance.
                 WO_CONTINUE_PROCESS(node->m_type);
             }
@@ -873,6 +887,9 @@ namespace wo
             {
                 if (!node->m_template_parameters)
                 {
+                    if (node->m_LANG_type_namespace_entried)
+                        end_last_scope();
+
                     // TYPE HAS BEEN DETERMINED, UPDATE THE SYMBOL;
                     lang_Symbol* symbol = node->m_LANG_declared_symbol.value();
                     symbol->m_type_instance->determine_base_type_by_another_type(
@@ -886,6 +903,12 @@ namespace wo
                 }
                 return HOLD;
             }
+        }
+        else
+        {
+            if (node->m_LANG_hold_state == AstUsingTypeDeclare::LANG_hold_state::HOLD_FOR_BASE_TYPE_EVAL
+                && node->m_LANG_type_namespace_entried)
+                end_last_scope();
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
@@ -945,7 +968,7 @@ namespace wo
                 lex,
                 false,
                 std::nullopt,
-                std::nullopt,
+                node,
                 node->m_pattern,
                 std::nullopt))
             {
@@ -2255,6 +2278,20 @@ namespace wo
             if (node->m_is_direct_call)
                 // direct call(-> |> <|). first argument must be eval first;
                 WO_CONTINUE_PROCESS(node->m_arguments.front());
+
+            if (node->m_function->node_type == AstBase::AST_VALUE_VARIABLE)
+            {
+                // Eval from type first;
+                AstValueVariable* invoking_variable = static_cast<AstValueVariable*>(node->m_function);
+                if (invoking_variable->m_identifier->m_formal == AstIdentifier::FROM_TYPE)
+                {
+                    AstTypeHolder** type_holder = std::get_if<AstTypeHolder*>(
+                        &invoking_variable->m_identifier->m_from_type.value());
+
+                    if (type_holder != nullptr)
+                        WO_CONTINUE_PROCESS(*type_holder);
+                }
+            }
 
             node->m_LANG_hold_state = AstValueFunctionCall::HOLD_FOR_FIRST_ARGUMENT_EVAL;
             return HOLD;
@@ -4244,7 +4281,7 @@ namespace wo
                         lex,
                         false,
                         std::nullopt,
-                        std::nullopt,
+                        apply_pattern,
                         apply_pattern,
                         std::nullopt))
                     {

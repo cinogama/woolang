@@ -461,7 +461,16 @@ namespace wo
             int32_t,
             std::unique_ptr<opnum::temporary>> m_opnum_cache_temporarys;
 
+#ifdef NDEBUG
         std::set<int32_t> m_inused_temporary_registers;
+#else
+        struct DebugBorrowRecord
+        {
+            ast::AstBase* m_ast;
+            size_t m_lineno;
+        };
+        std::map<int32_t, DebugBorrowRecord> m_inused_temporary_registers;
+#endif
 
         // Mutable context
         struct EvalResult
@@ -552,10 +561,21 @@ namespace wo
         opnum::reg* opnum_stack_offset(int8_t value) noexcept;
         opnum::temporary* opnum_temporary(uint32_t id) noexcept;
 
+#ifdef NDEBUG
+#   define WO_BORROW_TEMPORARY_FROM(AST)
+#   define WO_BORROW_TEMPORARY_FROM_SP(AST)
         opnum::temporary* borrow_opnum_temporary_register() noexcept;
         void keep_opnum_temporary_register(opnum::temporary* reg) noexcept;
-        void return_opnum_temporary_register(opnum::temporary* reg) noexcept;
         void try_keep_opnum_temporary_register(opnum::opnumbase* opnum_may_reg) noexcept;
+#else
+#   define WO_BORROW_TEMPORARY_FROM(AST) AST, __LINE__
+#   define WO_BORROW_TEMPORARY_FROM_SP(AST) , WO_BORROW_TEMPORARY_FROM(AST)
+        opnum::temporary* borrow_opnum_temporary_register(ast::AstBase* borrow_from, size_t lineno) noexcept;
+        void keep_opnum_temporary_register(opnum::temporary* reg, ast::AstBase* borrow_from, size_t lineno) noexcept;
+        void try_keep_opnum_temporary_register(opnum::opnumbase* opnum_may_reg, ast::AstBase* borrow_from, size_t lineno) noexcept;
+#endif
+
+        void return_opnum_temporary_register(opnum::temporary* reg) noexcept;
         void try_return_opnum_temporary_register(opnum::opnumbase* opnum_may_reg) noexcept;
 
         opnum::opnumbase* get_storage_place(

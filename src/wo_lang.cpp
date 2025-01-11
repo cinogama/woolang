@@ -61,7 +61,16 @@ namespace wo
         lang_Scope* scope,
         kind kind,
         bool mutable_variable)
-        : m_symbol_kind(kind), m_is_template(false), m_is_global(false), m_name(name), m_defined_source(src_location), m_declare_attribute(attr), m_belongs_to_scope(scope), m_symbol_declare_ast(symbol_declare_ast), m_is_builtin(false), m_symbol_edge(0)
+        : m_symbol_kind(kind)
+        , m_is_template(false)
+        , m_is_global(false)
+        , m_name(name)
+        , m_defined_source(src_location)
+        , m_declare_attribute(attr)
+        , m_belongs_to_scope(scope)
+        , m_symbol_declare_ast(symbol_declare_ast)
+        , m_is_builtin(false)
+        , m_symbol_edge(0)
     {
         switch (kind)
         {
@@ -88,7 +97,16 @@ namespace wo
         ast::AstValueBase* template_value_base,
         const std::list<wo_pstring_t>& template_params,
         bool mutable_variable)
-        : m_symbol_kind(VARIABLE), m_is_template(true), m_is_global(false), m_name(name), m_defined_source(src_location), m_declare_attribute(attr), m_belongs_to_scope(scope), m_symbol_declare_ast(symbol_declare_ast), m_is_builtin(false), m_symbol_edge(0)
+        : m_symbol_kind(VARIABLE)
+        , m_is_template(true)
+        , m_is_global(false)
+        , m_name(name)
+        , m_defined_source(src_location)
+        , m_declare_attribute(attr)
+        , m_belongs_to_scope(scope)
+        , m_symbol_declare_ast(symbol_declare_ast)
+        , m_is_builtin(false)
+        , m_symbol_edge(0)
     {
         m_template_value_instances = new TemplateValuePrefab(
             this, mutable_variable, template_value_base, template_params);
@@ -102,7 +120,15 @@ namespace wo
         ast::AstTypeHolder* template_type_base,
         const std::list<wo_pstring_t>& template_params,
         bool is_alias)
-        : m_is_template(true), m_is_global(false), m_name(name), m_defined_source(src_location), m_declare_attribute(attr), m_belongs_to_scope(scope), m_symbol_declare_ast(symbol_declare_ast), m_is_builtin(false), m_symbol_edge(0)
+        : m_is_template(true)
+        , m_is_global(false)
+        , m_name(name)
+        , m_defined_source(src_location)
+        , m_declare_attribute(attr)
+        , m_belongs_to_scope(scope)
+        , m_symbol_declare_ast(symbol_declare_ast)
+        , m_is_builtin(false)
+        , m_symbol_edge(0)
     {
         if (is_alias)
         {
@@ -1086,24 +1112,48 @@ namespace wo
             m_origin_types.create_dictionary_type(m_origin_types.m_dynamic.m_type_instance, m_origin_types.m_dynamic.m_type_instance);
     }
 
-    int32_t _assign_storage_for_instance(lang_ValueInstance* value_instance, int32_t offset)
+    int32_t _assign_storage_for_instance(
+        LangContext* lctx,
+        const std::string& funcname,
+        lang_ValueInstance* value_instance,
+        int32_t offset)
     {
-        if (value_instance->IR_need_storage()
-            && !value_instance->m_IR_storage.has_value())
+        bool alligned = false;
+        if (value_instance->IR_need_storage())
         {
-            value_instance->m_IR_storage =
-                lang_ValueInstance::Storage{
-                    lang_ValueInstance::Storage::STACKOFFSET,
-                    offset,
-            };
-            return offset - 1;
+            if (!value_instance->m_IR_storage.has_value())
+            {
+                value_instance->m_IR_storage =
+                    lang_ValueInstance::Storage{
+                        lang_ValueInstance::Storage::STACKOFFSET,
+                        offset,
+                };
+
+                alligned = true;
+            }
+
+            wo_assert(value_instance->m_IR_storage.value().m_type
+                == lang_ValueInstance::Storage::STACKOFFSET);
+
+            lctx->m_ircontext.c().pdb_info->add_func_variable(
+                funcname,
+                lctx->get_value_name_w(value_instance),
+                value_instance->m_symbol->m_symbol_declare_ast.value()->source_location.begin_at.row,
+                value_instance->m_IR_storage.value().m_index);
         }
+
+        if (alligned)
+            return offset - 1;
 
         // No need for storage.
         return offset;
     }
     void _assign_storage_for_local_variable_instance(
-        lang_Scope* scope, int32_t stack_assign_offset, int32_t* out_max_stack_count)
+        LangContext* lctx,
+        const std::string& funcname,
+        lang_Scope* scope,
+        int32_t stack_assign_offset,
+        int32_t* out_max_stack_count)
     {
         int32_t next_assign_offset = stack_assign_offset;
 
@@ -1142,7 +1192,7 @@ namespace wo
 
                 if (!next_it_sub_scope_instance->m_function_instance.has_value())
                     _assign_storage_for_local_variable_instance(
-                        next_it_sub_scope_instance, next_assign_offset, out_max_stack_count);
+                        lctx, funcname, next_it_sub_scope_instance, next_assign_offset, out_max_stack_count);
 
                 if (++next_it_sub_scope != it_sub_scope_end)
                     next_it_sub_scope_head_edge = (*next_it_sub_scope)->m_visibility_from_edge_for_template_check;
@@ -1170,6 +1220,8 @@ namespace wo
 
                         next_assign_offset =
                             _assign_storage_for_instance(
+                                lctx,
+                                funcname,
                                 template_instance->m_value_instance.get(),
                                 next_assign_offset);
                     }
@@ -1178,6 +1230,8 @@ namespace wo
                 {
                     next_assign_offset =
                         _assign_storage_for_instance(
+                            lctx,
+                            funcname,
                             symbol->m_value_instance,
                             next_assign_offset);
                 }
@@ -1191,13 +1245,37 @@ namespace wo
 
             if (!next_it_sub_scope_instance->m_function_instance.has_value())
                 _assign_storage_for_local_variable_instance(
-                    (*next_it_sub_scope).get(), next_assign_offset, out_max_stack_count);
+                    lctx, funcname, (*next_it_sub_scope).get(), next_assign_offset, out_max_stack_count);
 
             ++next_it_sub_scope;
         }
 
         *out_max_stack_count = std::max(
             *out_max_stack_count, -next_assign_offset);
+    }
+
+    std::string get_anonymous_function_name(LangContext* lctx, ast::AstValueFunction* anonymous_func)
+    {
+        if (anonymous_func->m_IR_binded_value_instance.has_value())
+        {
+            lang_ValueInstance* value_instance = anonymous_func->m_IR_binded_value_instance.value();
+            return lctx->get_value_name(value_instance);
+        }
+
+        std::string result;
+
+        lang_Scope* function_located_scope =
+            anonymous_func->m_LANG_function_scope.value()->m_parent_scope.value();
+
+        auto function = lctx->get_scope_located_function(function_located_scope);
+        if (function.has_value())
+            result += get_anonymous_function_name(lctx, function.value()) + "::";
+
+        char anonymous_name[32];
+        sprintf(anonymous_name, "[anonymous_%p]", anonymous_func);
+        result += anonymous_name;
+
+        return result;
     }
 
     bool LangContext::process(lexer& lex, ast::AstBase* root)
@@ -1257,10 +1335,16 @@ namespace wo
                 m_ircontext.c().tag(IR_function_label(eval_function));
 
                 // Trying to register extern symbol.
+                std::string eval_fucntion_name = get_anonymous_function_name(this, eval_function);
+                m_ircontext.c().pdb_info->generate_func_begin(
+                    eval_fucntion_name,
+                    &m_ircontext.c());
+
                 if (eval_function->m_IR_binded_value_instance.has_value())
                 {
                     lang_ValueInstance* value_instance = eval_function->m_IR_binded_value_instance.value();
                     lang_Symbol* symbol = value_instance->m_symbol;
+
                     if (symbol->m_declare_attribute.has_value())
                     {
                         ast::AstDeclareAttribue* declare_attribute = symbol->m_declare_attribute.value();
@@ -1268,7 +1352,7 @@ namespace wo
                             && declare_attribute->m_external.value() == ast::AstDeclareAttribue::external_attrib::EXTERNAL)
                         {
                             m_ircontext.c().record_extern_script_function(
-                                get_value_name(value_instance));
+                                eval_fucntion_name);
                         }
                     }
                 }
@@ -1318,7 +1402,7 @@ namespace wo
 
                 int32_t local_storage_size = 0;
                 _assign_storage_for_local_variable_instance(
-                    eval_function->m_LANG_function_scope.value(), 0, &local_storage_size);
+                    this, eval_fucntion_name, eval_function->m_LANG_function_scope.value(), 0, &local_storage_size);
 
                 // 2. Assign value arguments.
                 argument_place = no_captured_arguement_place;
@@ -1333,7 +1417,9 @@ namespace wo
                             argument_opnum = m_ircontext.opnum_stack_offset(argument_place);
                         else
                         {
-                            argument_opnum = m_ircontext.borrow_opnum_temporary_register();
+                            argument_opnum = m_ircontext.borrow_opnum_temporary_register(
+                                WO_BORROW_TEMPORARY_FROM(nullptr)
+                            );
                             m_ircontext.c().lds(
                                 *(opnum::opnumbase*)argument_opnum,
                                 *(opnum::opnumbase*)m_ircontext.opnum_imm_int(argument_place));
@@ -1381,6 +1467,9 @@ namespace wo
                     this_function_reserving_ip,
                     this_function_used_tmp_regs + local_storage_size); // set reserved size
 
+                m_ircontext.c().pdb_info->generate_func_end(
+                    eval_fucntion_name, this_function_used_tmp_regs, &m_ircontext.c());
+
                 m_ircontext.c().ext_funcend();
 
                 wo_assert(m_ircontext.m_inused_temporary_registers.empty());
@@ -1395,6 +1484,8 @@ namespace wo
 
         m_ircontext.c().tag("#woolang_program_end");
         m_ircontext.c().end();
+
+        m_ircontext.c().loaded_libs = m_ircontext.m_extern_libs;
 
         return true;
     }
@@ -1955,7 +2046,7 @@ namespace wo
     }
     std::wstring LangContext::_get_value_name(lang_ValueInstance* scope)
     {
-        std::wstring result_value_name = *scope->m_symbol->m_name;
+        std::wstring result_value_name = get_symbol_name_w(scope->m_symbol);
 
         if (scope->m_instance_template_arguments)
         {
@@ -2330,7 +2421,7 @@ namespace wo
         else
             eval_ignore();
     }
-   
+
     opnum::opnumbase* BytecodeGenerateContext::get_eval_result()
     {
         auto& result = m_evaled_result_storage.top();
@@ -2489,22 +2580,39 @@ namespace wo
         , m_global_storage_allocating(0)
     {
     }
-    opnum::temporary* BytecodeGenerateContext::borrow_opnum_temporary_register() noexcept
+    opnum::temporary* BytecodeGenerateContext::borrow_opnum_temporary_register(
+#ifndef NDEBUG
+        ast::AstBase* borrow_from, size_t lineno
+#endif
+    ) noexcept
     {
         for (uint32_t i = 0; i < UINT32_MAX; ++i)
         {
             if (m_inused_temporary_registers.find(i) == m_inused_temporary_registers.end())
             {
+#ifdef NDEBUG
                 m_inused_temporary_registers.insert(i);
+#else
+                m_inused_temporary_registers.insert(std::make_pair(i, DebugBorrowRecord{ borrow_from , lineno }));
+#endif
                 return opnum_temporary(i);
             }
         }
         wo_error("Temporary register exhausted.");
     }
-    void BytecodeGenerateContext::keep_opnum_temporary_register(opnum::temporary* reg) noexcept
+    void BytecodeGenerateContext::keep_opnum_temporary_register(
+        opnum::temporary* reg
+#ifndef NDEBUG
+        , ast::AstBase* borrow_from, size_t lineno
+#endif
+    ) noexcept
     {
         wo_assert(m_inused_temporary_registers.find(reg->m_id) == m_inused_temporary_registers.end());
+#ifdef NDEBUG
         m_inused_temporary_registers.insert(reg->m_id);
+#else
+        m_inused_temporary_registers.insert(std::make_pair(reg->m_id, DebugBorrowRecord{ borrow_from , lineno }));
+#endif
     }
     void BytecodeGenerateContext::return_opnum_temporary_register(opnum::temporary* reg) noexcept
     {
@@ -2512,12 +2620,20 @@ namespace wo
         m_inused_temporary_registers.erase(reg->m_id);
     }
     void BytecodeGenerateContext::try_keep_opnum_temporary_register(
-        opnum::opnumbase* opnum_may_reg) noexcept
+        opnum::opnumbase* opnum_may_reg
+#ifndef NDEBUG
+        , ast::AstBase* borrow_from, size_t lineno
+#endif    
+    ) noexcept
     {
         auto* reg = dynamic_cast<opnum::temporary*>(opnum_may_reg);
         if (reg != nullptr)
         {
-            keep_opnum_temporary_register(reg);
+            keep_opnum_temporary_register(reg
+#ifndef NDEBUG
+                , borrow_from, lineno
+#endif    
+            );
         }
     }
     void BytecodeGenerateContext::try_return_opnum_temporary_register(
@@ -2566,7 +2682,9 @@ namespace wo
                 && reg->id <= opnum::reg::spreg::last_special_register
                 && reg->id != opnum::reg::spreg::ni)
             {
-                auto* borrowed_reg = ctx.borrow_opnum_temporary_register();
+                auto* borrowed_reg = ctx.borrow_opnum_temporary_register(
+                    WO_BORROW_TEMPORARY_FROM(nullptr)
+                );
 
                 ctx.c().mov(
                     *(opnum::opnumbase*)borrowed_reg,

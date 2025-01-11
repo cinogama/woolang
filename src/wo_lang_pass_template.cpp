@@ -169,7 +169,7 @@ namespace wo
             {
                 // For type, it's type instance has been determined, no need to evaluate again.
                 auto* template_eval_state_instance = static_cast<lang_TemplateAstEvalStateType*>(result);
-                    return result;
+                return result;
             }
             // NOTE: Donot modify eval state here.
             //  Some case like `is pending` may meet this error but it's not a real error.
@@ -181,14 +181,33 @@ namespace wo
             result->m_state = lang_TemplateAstEvalStateValue::EVALUATING;
             *out_continue_process_flag = true;
 
-            entry_spcify_scope(templating_symbol->m_belongs_to_scope); // Entry the scope where template variable defined.
+            // Entry the scope where template variable defined.
+
+            bool has_enter_specify_scope = false;
+            if (templating_symbol->m_symbol_kind == lang_Symbol::kind::TYPE)
+            {
+                if (templating_symbol->m_belongs_to_scope->is_namespace_scope())
+                {
+                    lang_Namespace* type_namespace = templating_symbol->m_belongs_to_scope->m_belongs_to_namespace;
+                    auto fnd = type_namespace->m_sub_namespaces.find(templating_symbol->m_name);
+                    if (fnd != type_namespace->m_sub_namespaces.end())
+                    {
+                        has_enter_specify_scope = true;
+                        entry_spcify_scope(fnd->second->m_this_scope.get());
+                    }
+                }
+            }
+           
+            if(!has_enter_specify_scope)
+                entry_spcify_scope(templating_symbol->m_belongs_to_scope);
+
             begin_new_scope(); // Begin new scope for defining template type alias.
 
             auto* current_scope = get_current_scope();
-           
+
             fast_create_template_type_alias_in_current_scope(
                 templating_symbol->m_defined_source, *template_params, template_arguments);
-            
+
             // ATTENTION: LIMIT TEMPLATE INSTANCE SYMBOL VISIBILITY!
             current_scope->m_visibility_from_edge_for_template_check =
                 templating_symbol->m_symbol_edge;
@@ -226,7 +245,7 @@ namespace wo
             auto* new_template_variable_instance =
                 template_eval_instance_value->m_value_instance.get();
 
-            new_template_variable_instance->m_determined_type = 
+            new_template_variable_instance->m_determined_type =
                 ast_value->m_LANG_determined_type.value();
             new_template_variable_instance->try_determine_const_value(ast_value);
 

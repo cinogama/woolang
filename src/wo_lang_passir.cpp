@@ -137,7 +137,8 @@ namespace wo
         {
             if (tuple_member_offset.has_value())
             {
-                auto* tmp = m_ircontext.borrow_opnum_temporary_register();
+                auto* tmp = m_ircontext.borrow_opnum_temporary_register(
+                    WO_BORROW_TEMPORARY_FROM(nullptr));
 
                 uint16_t index = tuple_member_offset.value();
                 m_ircontext.c().idstruct(WO_OPNUM(tmp), WO_OPNUM(opnumval), index);
@@ -185,7 +186,7 @@ namespace wo
             if (tuple_member_offset.has_value())
             {
                 uint16_t index = tuple_member_offset.value();
-                tuple_source = m_ircontext.borrow_opnum_temporary_register();
+                tuple_source = m_ircontext.borrow_opnum_temporary_register(WO_BORROW_TEMPORARY_FROM(nullptr));
                 m_ircontext.c().idstruct(WO_OPNUM(tuple_source), WO_OPNUM(opnumval), index);
             }
             else
@@ -1005,7 +1006,7 @@ namespace wo
             if (!m_ircontext.apply_eval_result(
                 [&](BytecodeGenerateContext::EvalResult& result)
                 {
-                    auto* borrowed_opnum = m_ircontext.borrow_opnum_temporary_register();
+                    auto* borrowed_opnum = m_ircontext.borrow_opnum_temporary_register(WO_BORROW_TEMPORARY_FROM(node));
                     for (auto& [capture_from_value, _useless] : node->m_LANG_captured_context.m_captured_variables)
                     {
                         (void)_useless;
@@ -1097,7 +1098,7 @@ namespace wo
                         make_result_target = asigned_target.value();
                     else
                     {
-                        make_result_target = m_ircontext.borrow_opnum_temporary_register();
+                        make_result_target = m_ircontext.borrow_opnum_temporary_register(WO_BORROW_TEMPORARY_FROM(node));
                         result.set_result(m_ircontext, make_result_target);
                     }
 
@@ -1167,7 +1168,7 @@ namespace wo
                         make_result_target = asigned_target.value();
                     else
                     {
-                        make_result_target = m_ircontext.borrow_opnum_temporary_register();
+                        make_result_target = m_ircontext.borrow_opnum_temporary_register(WO_BORROW_TEMPORARY_FROM(node));
                         result.set_result(m_ircontext, make_result_target);
                     }
 
@@ -1214,7 +1215,7 @@ namespace wo
                         make_result_target = asigned_target.value();
                     else
                     {
-                        make_result_target = m_ircontext.borrow_opnum_temporary_register();
+                        make_result_target = m_ircontext.borrow_opnum_temporary_register(WO_BORROW_TEMPORARY_FROM(node));
                         result.set_result(m_ircontext, make_result_target);
                     }
 
@@ -1440,7 +1441,7 @@ namespace wo
                     }
                     else
                     {
-                        auto* storage_opnum = m_ircontext.borrow_opnum_temporary_register();
+                        auto* storage_opnum = m_ircontext.borrow_opnum_temporary_register(WO_BORROW_TEMPORARY_FROM(node));
                         m_ircontext.c().lds(
                             WO_OPNUM(storage_opnum),
                             WO_OPNUM(m_ircontext.opnum_imm_int(variable_storage.m_index)));
@@ -1548,7 +1549,7 @@ namespace wo
                         }
                         else
                         {
-                            m_ircontext.try_keep_opnum_temporary_register(opnum_to_check);
+                            m_ircontext.try_keep_opnum_temporary_register(opnum_to_check WO_BORROW_TEMPORARY_FROM_SP(node));
                             result.set_result(m_ircontext, opnum_to_check);
                         }
                         return true;
@@ -1759,7 +1760,8 @@ namespace wo
                         }
                         else
                         {
-                            auto* borrowed_reg = m_ircontext.borrow_opnum_temporary_register();
+                            auto* borrowed_reg = m_ircontext.borrow_opnum_temporary_register(
+                                WO_BORROW_TEMPORARY_FROM(node));
 
                             m_ircontext.c().movcast(
                                 WO_OPNUM(borrowed_reg),
@@ -1782,7 +1784,8 @@ namespace wo
                         }
                         else
                         {
-                            m_ircontext.try_keep_opnum_temporary_register(opnum_to_cast);
+                            m_ircontext.try_keep_opnum_temporary_register(opnum_to_cast 
+                                WO_BORROW_TEMPORARY_FROM_SP(node));
                             result.set_result(m_ircontext, opnum_to_cast);
                         }
                     }
@@ -1823,7 +1826,9 @@ namespace wo
 
                     if (node->m_IR_unpack_method == AstFakeValueUnpack::UNPACK_FOR_TUPLE)
                     {
-                        m_ircontext.try_keep_opnum_temporary_register(unpacking_opnum);
+                        m_ircontext.try_keep_opnum_temporary_register(
+                            unpacking_opnum
+                            WO_BORROW_TEMPORARY_FROM_SP(node));
 
                         auto* unpacking_tuple_determined_type =
                             node->m_LANG_determined_type.value()->get_determined_type().value();
@@ -1834,7 +1839,8 @@ namespace wo
 
                         for (uint16_t i = 0; i < tuple_elem_count; ++i)
                         {
-                            auto* tmp = m_ircontext.borrow_opnum_temporary_register();
+                            auto* tmp = m_ircontext.borrow_opnum_temporary_register(
+                                WO_BORROW_TEMPORARY_FROM(node));
                             m_ircontext.c().idstruct(
                                 WO_OPNUM(tmp),
                                 WO_OPNUM(unpacking_opnum),
@@ -1908,7 +1914,9 @@ namespace wo
 
                         // We need to make sure following `borrow_opnum_temporary_register`
                         // will not borrow the right value.
-                        m_ircontext.try_keep_opnum_temporary_register(right_opnum);
+                        m_ircontext.try_keep_opnum_temporary_register(
+                            right_opnum
+                            WO_BORROW_TEMPORARY_FROM_SP(node));
 
                         if (node->m_operator < AstValueBinaryOperator::LOGICAL_AND
                             && nullptr == dynamic_cast<opnum::temporary*>(left_opnum))
@@ -1916,7 +1924,8 @@ namespace wo
                             // Is not temporary register, we need keep it.
                             // NOTE: If left not temporary, we dont need to return it.
                             //  at the same time.
-                            auto* borrow_reg = m_ircontext.borrow_opnum_temporary_register();
+                            auto* borrow_reg = m_ircontext.borrow_opnum_temporary_register(
+                                WO_BORROW_TEMPORARY_FROM(node));
                             m_ircontext.c().mov(
                                 WO_OPNUM(borrow_reg),
                                 WO_OPNUM(left_opnum));
@@ -2204,9 +2213,11 @@ namespace wo
                             target_result_opnum = target_storage.value();
                         else
                         {
-                            m_ircontext.try_keep_opnum_temporary_register(opnum_to_unary);
+                            m_ircontext.try_keep_opnum_temporary_register(opnum_to_unary
+                                WO_BORROW_TEMPORARY_FROM_SP(node));
 
-                            target_result_opnum = m_ircontext.borrow_opnum_temporary_register();
+                            target_result_opnum = m_ircontext.borrow_opnum_temporary_register(
+                                WO_BORROW_TEMPORARY_FROM(node));
                             result.set_result(m_ircontext, target_result_opnum);
 
                             m_ircontext.try_return_opnum_temporary_register(opnum_to_unary);
@@ -2239,7 +2250,7 @@ namespace wo
                     }
                     case AstValueUnaryOperator::LOGICAL_NOT:
                     {
-                        m_ircontext.c().equs(
+                        m_ircontext.c().equb(
                             WO_OPNUM(opnum_to_unary),
                             WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::ni)));
 
@@ -2428,9 +2439,13 @@ namespace wo
 
                         // NOTE: Keep index & container if is IR OPNUM node.
                         if (node->m_index->node_type == AstBase::AST_VALUE_IR_OPNUM)
-                            m_ircontext.try_keep_opnum_temporary_register(index_opnum);
-                        if (node->m_container->node_type != AstBase::AST_VALUE_IR_OPNUM)
-                            m_ircontext.try_keep_opnum_temporary_register(index_opnum);
+                            m_ircontext.try_keep_opnum_temporary_register(
+                                index_opnum
+                                WO_BORROW_TEMPORARY_FROM_SP(node));
+                        if (node->m_container->node_type == AstBase::AST_VALUE_IR_OPNUM)
+                            m_ircontext.try_keep_opnum_temporary_register(
+                                index_opnum
+                                WO_BORROW_TEMPORARY_FROM_SP(node));
 
                         if (determined_container_type->m_base_type == lang_TypeInstance::DeterminedType::ARRAY
                             || determined_container_type->m_base_type == lang_TypeInstance::DeterminedType::VECTOR)
@@ -2484,7 +2499,8 @@ namespace wo
                         }
                         else
                         {
-                            auto* borrowed_reg = m_ircontext.borrow_opnum_temporary_register();
+                            auto* borrowed_reg = m_ircontext.borrow_opnum_temporary_register(
+                                WO_BORROW_TEMPORARY_FROM(node));
                             m_ircontext.c().idstruct(
                                 WO_OPNUM(borrowed_reg),
                                 WO_OPNUM(container_opnum),
@@ -2555,7 +2571,8 @@ namespace wo
                     }
                     else
                     {
-                        auto* borrowed_reg = m_ircontext.borrow_opnum_temporary_register();
+                        auto* borrowed_reg = m_ircontext.borrow_opnum_temporary_register(
+                            WO_BORROW_TEMPORARY_FROM(node));
                         m_ircontext.c().mkstruct(
                             WO_OPNUM(borrowed_reg),
                             (uint16_t)node->m_fields.size());
@@ -2603,7 +2620,8 @@ namespace wo
                         }
                         else
                         {
-                            auto* borrowed_reg = m_ircontext.borrow_opnum_temporary_register();
+                            auto* borrowed_reg = m_ircontext.borrow_opnum_temporary_register(
+                                WO_BORROW_TEMPORARY_FROM(node));
                             m_ircontext.c().mkunion(
                                 WO_OPNUM(borrowed_reg),
                                 WO_OPNUM(packed_opnum),
@@ -2633,7 +2651,8 @@ namespace wo
                         }
                         else
                         {
-                            auto* borrowed_reg = m_ircontext.borrow_opnum_temporary_register();
+                            auto* borrowed_reg = m_ircontext.borrow_opnum_temporary_register(
+                                WO_BORROW_TEMPORARY_FROM(node));
                             m_ircontext.c().mkunion(
                                 WO_OPNUM(borrowed_reg),
                                 WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::spreg::ni)),
@@ -2669,7 +2688,8 @@ namespace wo
                 }
                 else
                 {
-                    auto* borrowed_opnum = m_ircontext.borrow_opnum_temporary_register();
+                    auto* borrowed_opnum = m_ircontext.borrow_opnum_temporary_register(
+                        WO_BORROW_TEMPORARY_FROM(node));
                     m_ircontext.c().ext_packargs(
                         WO_OPNUM(borrowed_opnum),
                         (uint16_t)current_func->m_parameters.size(),
@@ -2884,7 +2904,8 @@ namespace wo
                                 assign_expr_result_opnum = m_ircontext.get_storage_place(storage);
                             else
                             {
-                                assign_expr_result_opnum = m_ircontext.borrow_opnum_temporary_register();
+                                assign_expr_result_opnum = m_ircontext.borrow_opnum_temporary_register(
+                                    WO_BORROW_TEMPORARY_FROM(node));
                                 m_ircontext.c().lds(
                                     WO_OPNUM(assign_expr_result_opnum),
                                     WO_OPNUM(m_ircontext.opnum_imm_int(storage.m_index)));
@@ -3206,7 +3227,8 @@ namespace wo
                             && dynamic_cast<opnum::temporary*>(assigned_right_value) == nullptr)
                         {
                             is_register = false;
-                            auto* borrowed_reg = m_ircontext.borrow_opnum_temporary_register();
+                            auto* borrowed_reg = m_ircontext.borrow_opnum_temporary_register(
+                                WO_BORROW_TEMPORARY_FROM(node));
                             m_ircontext.c().mov(
                                 WO_OPNUM(borrowed_reg),
                                 WO_OPNUM(assigned_right_value));
@@ -3289,7 +3311,9 @@ namespace wo
                         {
                             if (node->m_valued_assign)
                             {
-                                m_ircontext.try_keep_opnum_temporary_register(assign_expr_result_opnum);
+                                m_ircontext.try_keep_opnum_temporary_register(
+                                    assign_expr_result_opnum
+                                    WO_BORROW_TEMPORARY_FROM_SP(node));
                                 result.set_result(m_ircontext, assign_expr_result_opnum);
                             }
                             else
@@ -3354,6 +3378,8 @@ namespace wo
         }
         wo_assert(node_state.m_ast_node->node_type == AstBase::AST_EMPTY
             || m_passir_A_processers->check_has_processer(node_state.m_ast_node->node_type));
+
+        m_ircontext.c().pdb_info->generate_debug_info_at_astnode(node_state.m_ast_node, &m_ircontext.c());
         return m_passir_A_processers->process_node(this, lex, node_state, out_stack);
     }
     LangContext::pass_behavior LangContext::pass_final_B_process_bytecode_generation(
@@ -3390,6 +3416,7 @@ namespace wo
             return OKAY;
         }
 
+        m_ircontext.c().pdb_info->generate_debug_info_at_astnode(node_state.m_ast_node, &m_ircontext.c());
         auto process_result =
             m_passir_B_processers->process_node(this, lex, node_state, out_stack);
 

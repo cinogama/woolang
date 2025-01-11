@@ -1680,6 +1680,7 @@ namespace wo
 #define WO_AST_BUILDER(...) _registed_builder_function_id_list[meta::type_hash<__VA_ARGS__>] = _register_builder<__VA_ARGS__>(); 
             WO_AST_BUILDER(pass_direct<0>);
             WO_AST_BUILDER(pass_direct<1>);
+            WO_AST_BUILDER(pass_direct<2>);
             WO_AST_BUILDER(pass_create_list<0>);
             WO_AST_BUILDER(pass_create_list<1>);
             WO_AST_BUILDER(pass_append_list<1, 0>);

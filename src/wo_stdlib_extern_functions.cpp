@@ -2478,7 +2478,7 @@ namespace array
         return result->unsafe::cast:<dict<K, V>>;
     }
 
-    public func reduce<T>(self: array<T>, reducer: (T, T)=> T)
+    public func reduce<T>(self: array<T>, reducer: (T, T)=> T)=> option<T>
     {
         if (self->empty)
             return option::none;
@@ -2490,7 +2490,7 @@ namespace array
         return option::value(result);
     }
 
-    public func rreduce<T>(self: array<T>, reducer: (T, T)=> T)
+    public func rreduce<T>(self: array<T>, reducer: (T, T)=> T)=> option<T>
     {
         if (self->empty)
             return option::none;
@@ -2681,7 +2681,7 @@ namespace vec
         return result->unsafe::cast:<dict<K, V>>;
     }
 
-    public func reduce<T>(self: vec<T>, reducer: (T, T)=>T)
+    public func reduce<T>(self: vec<T>, reducer: (T, T)=>T)=> option<T>
     {
         if (self->empty)
             return option::none;
@@ -2693,7 +2693,7 @@ namespace vec
         return option::value(result);
     }
 
-    public func rreduce<T>(self: vec<T>, reducer: (T, T)=>T)
+    public func rreduce<T>(self: vec<T>, reducer: (T, T)=>T)=> option<T>
     {
         if (self->empty)
             return option::none;
