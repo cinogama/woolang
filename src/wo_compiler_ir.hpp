@@ -112,7 +112,7 @@ namespace wo
             {
                 wo_assert(offset >= -64 && offset <= 63);
                 return static_cast<uint8_t>(
-                    0b10000000ui8 | static_cast<uint8_t>(offset));
+                    (uint8_t)0b10000000 | static_cast<uint8_t>(offset));
             }
             bool is_bp_offset() const
             {
@@ -652,8 +652,8 @@ namespace wo
 #define WO_IS_REG(OPNUM)(dynamic_cast<const opnum::reg*>(OPNUM))
             uint8_t dr()
             {
-                return (WO_IS_REG(op1) ? 0b00000010ui8 : 0ui8)
-                    | (WO_IS_REG(op2) ? 0b00000001ui8 : 0ui8);
+                return (WO_IS_REG(op1) ? (uint8_t)0b00000010 : (uint8_t)0)
+                    | (WO_IS_REG(op2) ? (uint8_t)0b00000001 : (uint8_t)0);
             }
 #undef WO_IS_REG
         };
