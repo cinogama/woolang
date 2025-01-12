@@ -456,7 +456,7 @@ namespace wo
                 return;
 
             auto& function = accept_type_formal->m_typeform.m_function;
-            auto& instance_type_determined_base_may_null = applying_type_instance->get_determined_type();
+            auto instance_type_determined_base_may_null = applying_type_instance->get_determined_type();
             if (!instance_type_determined_base_may_null.has_value())
                 // Not determined yet.
                 return;
@@ -504,7 +504,7 @@ namespace wo
                 return;
 
             auto& structure = accept_type_formal->m_typeform.m_structure;
-            auto& instance_type_determined_base_may_null = applying_type_instance->get_determined_type();
+            auto instance_type_determined_base_may_null = applying_type_instance->get_determined_type();
             if (!instance_type_determined_base_may_null.has_value())
                 // Not determined yet.
                 return;
@@ -561,7 +561,7 @@ namespace wo
                 return;
 
             auto& tuple = accept_type_formal->m_typeform.m_tuple;
-            auto& instance_type_determined_base_may_null = applying_type_instance->get_determined_type();
+            auto instance_type_determined_base_may_null = applying_type_instance->get_determined_type();
             if (!instance_type_determined_base_may_null.has_value())
                 // Not determined yet.
                 return;

@@ -1,4 +1,5 @@
 #include "wo_lang.hpp"
+#include <cmath>
 
 namespace wo
 {
@@ -4121,7 +4122,7 @@ namespace wo
                                 result_value.set_integer(left_value.integer % right_value.integer);
                                 break;
                             case wo::value::valuetype::real_type:
-                                result_value.set_real(std::fmod(left_value.real, right_value.real));
+                                result_value.set_real(fmod(left_value.real, right_value.real));
                                 break;
                             default:
                                 wo_error("Unknown type.");
