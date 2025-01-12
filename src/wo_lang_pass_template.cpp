@@ -197,8 +197,8 @@ namespace wo
                     }
                 }
             }
-           
-            if(!has_enter_specify_scope)
+
+            if (!has_enter_specify_scope)
                 entry_spcify_scope(templating_symbol->m_belongs_to_scope);
 
             begin_new_scope(); // Begin new scope for defining template type alias.
@@ -247,7 +247,9 @@ namespace wo
 
             new_template_variable_instance->m_determined_type =
                 ast_value->m_LANG_determined_type.value();
-            new_template_variable_instance->try_determine_const_value(ast_value);
+
+            if (!new_template_variable_instance->m_mutable)
+                new_template_variable_instance->try_determine_const_value(ast_value);
 
             template_eval_instance_value->m_state =
                 lang_TemplateAstEvalStateValue::EVALUATED;
@@ -337,8 +339,7 @@ namespace wo
                 return;
             case ast::AstIdentifier::FROM_CURRENT:
                 // Current identifier might be template need to be pick.
-                if (!identifier->m_template_arguments.has_value()
-                    && identifier->m_scope.empty())
+                if (identifier->m_scope.empty())
                 {
                     // TODO: Support HKT?
                     // PERFECT! We got the type we need.
@@ -354,39 +355,66 @@ namespace wo
 
                         // Got it!
                         wo_pstring_t template_param_name = *fnd;
-                        out_determined_template_arg_pair->insert(
-                            std::make_pair(template_param_name, applying_type_instance));
 
-                        return;
+                        switch (accept_type_formal->m_mutable_mark)
+                        {
+                        case ast::AstTypeHolder::mutable_mark::MARK_AS_MUTABLE:
+                            if (applying_type_instance->is_mutable())
+                            {
+                                // mut T <= mut Tinstance: T = Tinstance
+                                out_determined_template_arg_pair->insert(
+                                    std::make_pair(template_param_name, immutable_type(applying_type_instance)));
+                            }
+                            // Bad, continue;
+                            break;
+                        case ast::AstTypeHolder::mutable_mark::MARK_AS_IMMUTABLE:
+                            if (applying_type_instance->is_mutable())
+                                // immut T <X= mut Tinstance: Bad
+                                return;
+                            /* Fall through */
+                            [[fallthrough]];
+                        case ast::AstTypeHolder::mutable_mark::NONE:
+                            out_determined_template_arg_pair->insert(
+                                std::make_pair(template_param_name, applying_type_instance));
+                            break;
+                        default:
+                            wo_error("Unexpected mutable mark");
+                        }
+                        goto _label_fake_hkt_trying_template;
                     }
                 }
                 /* FALL THROUGH */
                 [[fallthrough]];
             case ast::AstIdentifier::FROM_GLOBAL:
-                // Try determin symbol:
-                if (!find_symbol_in_current_scope(lex, identifier, std::nullopt))
-                    // Not found or ambiguous.
-                    return;
-
-                auto* determined_type_symbol = identifier->m_LANG_determined_symbol.value();
-                if (determined_type_symbol->m_symbol_kind == lang_Symbol::ALIAS)
+                do
                 {
-                    if (determined_type_symbol->m_is_template)
-                        // Not support;
+                    // Try determin symbol:
+                    if (!find_symbol_in_current_scope(lex, identifier, std::nullopt))
+                        // Not found or ambiguous.
                         return;
 
-                    if (!determined_type_symbol->m_alias_instance->m_determined_type.has_value())
-                        // Not determined yet.
+                    auto* determined_type_symbol = identifier->m_LANG_determined_symbol.value();
+                    if (determined_type_symbol->m_symbol_kind == lang_Symbol::ALIAS)
+                    {
+                        if (determined_type_symbol->m_is_template)
+                            // Not support;
+                            return;
+
+                        if (!determined_type_symbol->m_alias_instance->m_determined_type.has_value())
+                            // Not determined yet.
+                            return;
+
+                        determined_type_symbol = determined_type_symbol
+                            ->m_alias_instance->m_determined_type.value()->m_symbol;
+                    }
+
+                    if (determined_type_symbol != applying_type_instance->m_symbol)
+                        // Not match!
                         return;
 
-                    determined_type_symbol = determined_type_symbol
-                        ->m_alias_instance->m_determined_type.value()->m_symbol;
-                }
+                } while (0);
 
-                if (determined_type_symbol != applying_type_instance->m_symbol)
-                    // Not match!
-                    return;
-
+            _label_fake_hkt_trying_template:
                 // Walk through template arguments.
                 if (identifier->m_template_arguments.has_value())
                 {
@@ -724,7 +752,8 @@ namespace wo
         }
     }
 
-    bool LangContext::check_need_template_deduct_function(lexer& lex, ast::AstValueBase* target, PassProcessStackT& out_stack)
+    bool LangContext::check_need_template_deduct_function(
+        lexer& lex, ast::AstValueBase* target, PassProcessStackT& out_stack)
     {
         switch (target->node_type)
         {
@@ -765,7 +794,8 @@ namespace wo
         }
         return false;
     }
-    bool LangContext::check_need_template_deduct_struct_type(lexer& lex, ast::AstTypeHolder* target, PassProcessStackT& out_stack)
+    bool LangContext::check_need_template_deduct_struct_type(
+        lexer& lex, ast::AstTypeHolder* target, PassProcessStackT& out_stack)
     {
         if (target->m_formal == ast::AstTypeHolder::IDENTIFIER)
         {

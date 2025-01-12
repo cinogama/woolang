@@ -3,17 +3,26 @@ import test_tool;
 
 namespace test_operator_overload
 {
-    func operator + (a:string, b:int)
+    func raw_add(a, b)
     {
-        return a + b:string;
+        return a + b;
     }
-
-    func operator * (a:string, b:int)
+    namespace add
     {
-        let mut result = "";
-        for (let mut i = 0; i<b; i+=1)
-            result += a;
-        return result;
+        func operator + (a:string, b:int)
+        {
+            return raw_add(a, b: string);
+        }
+    }
+    namespace mul
+    {
+        func operator * (a:string, b:int)
+        {
+            let mut result = "";
+            for (let mut i = 0; i<b; i+=1)
+                result += a;
+            return result;
+        }
     }
     
     func operator /(a, b)
@@ -31,15 +40,20 @@ namespace test_operator_overload
 
     func main()
     {
-        test_equal("Hello" + 25, "Hello25");
-        test_equal("Hello" * 3, "HelloHelloHello");
+        {
+            using add;
+            using mul;
 
-        let mut str = "example";
-        str = str + 123;
-        test_equal(str, "example123");
+            test_equal("Hello" + 25, "Hello25");
+            test_equal("Hello" * 3, "HelloHelloHello");
 
-        str += 321;
-        test_equal(str, "example123321");
+            let mut str = "example";
+            str = str + 123;
+            test_equal(str, "example123");
+
+            str += 321;
+            test_equal(str, "example123321");
+        }
 
         let state = std::mutable::create(0);
         let structdat = struct{m = mut "data_struct"};
@@ -49,15 +63,19 @@ namespace test_operator_overload
         test_equal(structdat.m, "data_structdata_struct");
         test_equal(state->get, 2);
 
-        let mut v = 856;
-        foo().m += 123 * v;
-        test_equal(structdat.m, "data_structdata_struct105288");
-        test_equal(state->get, 3);
-        
-        test_equal(bar().m /:= "asd", "dsa/asd");
-        test_equal("abc"/"111", "abc/111");
-        test_equal("abc"/ ("111" + 5), "abc/1115");
+        {
+            using add;
 
+            let mut v = 856;
+            foo().m += 123 * v;
+            test_equal(structdat.m, "data_structdata_struct105288");
+            test_equal(state->get, 3);
+            
+            test_equal(bar().m /:= "asd", "dsa/asd");
+            test_equal("abc"/"111", "abc/111");
+            test_equal("abc"/ ("111" + 5), "abc/1115");
+        }
+        
         let mut a = "654";
         a /= "321";
         test_equal(a +:= \="789";(), "654/321789");

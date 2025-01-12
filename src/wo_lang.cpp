@@ -71,6 +71,7 @@ namespace wo
         , m_symbol_declare_ast(symbol_declare_ast)
         , m_is_builtin(false)
         , m_symbol_edge(0)
+        , m_has_been_used(false)
     {
         switch (kind)
         {
@@ -107,6 +108,7 @@ namespace wo
         , m_symbol_declare_ast(symbol_declare_ast)
         , m_is_builtin(false)
         , m_symbol_edge(0)
+        , m_has_been_used(false)
     {
         m_template_value_instances = new TemplateValuePrefab(
             this, mutable_variable, template_value_base, template_params);
@@ -129,6 +131,7 @@ namespace wo
         , m_symbol_declare_ast(symbol_declare_ast)
         , m_is_builtin(false)
         , m_symbol_edge(0)
+        , m_has_been_used(false)
     {
         if (is_alias)
         {
@@ -833,7 +836,7 @@ namespace wo
     }
 
     std::optional<lang_TypeInstance*> LangContext::OriginTypeHolder::create_or_find_origin_type(
-        lexer& lex, ast::AstTypeHolder* type_holder)
+        lexer& lex, LangContext* ctx, ast::AstTypeHolder* type_holder)
     {
         wo_assert(!type_holder->m_LANG_determined_type);
 
@@ -844,11 +847,15 @@ namespace wo
             auto& identifier = type_holder->m_typeform.m_identifier;
             auto* symbol = identifier->m_LANG_determined_symbol.value();
 
+            if (type_holder->m_LANG_refilling_template_target_symbol.has_value())
+                symbol = type_holder->m_LANG_refilling_template_target_symbol.value();
+
             wo_assert(symbol->m_is_builtin);
             if (!identifier->m_template_arguments)
             {
                 lex.lang_error(lexer::errorlevel::error, type_holder,
-                    WO_ERR_EXPECTED_TEMPLATE_ARGUMENT);
+                    WO_ERR_EXPECTED_TEMPLATE_ARGUMENT,
+                    ctx->get_symbol_name_w(symbol));
 
                 return std::nullopt;
             }
@@ -992,6 +999,22 @@ namespace wo
             {
                 top_state.m_debug_scope_layer_count = m_scope_stack.size();
                 top_state.m_debug_entry_scope = get_current_scope();
+
+                top_state.m_debug_ir_eval_content =
+                    m_ircontext.m_eval_result_storage_target.size()
+                    + m_ircontext.m_evaled_result_storage.size();
+
+                if (!m_ircontext.m_eval_result_storage_target.empty())
+                {
+                    switch (m_ircontext.m_eval_result_storage_target.top().m_request)
+                    {
+                    case BytecodeGenerateContext::EvalResult::PUSH_RESULT_AND_IGNORE_RESULT:
+                    case BytecodeGenerateContext::EvalResult::EVAL_PURE_ACTION:
+                    case BytecodeGenerateContext::EvalResult::IGNORE_RESULT:
+                        --top_state.m_debug_ir_eval_content;
+                        break;
+                    }
+                }
             }
 #endif
 
@@ -1018,6 +1041,9 @@ namespace wo
                 wo_assert(top_state.m_debug_entry_scope != nullptr);
                 wo_assert(top_state.m_debug_scope_layer_count == m_scope_stack.size());
                 wo_assert(top_state.m_debug_entry_scope == get_current_scope());
+                wo_assert(top_state.m_debug_ir_eval_content ==
+                    m_ircontext.m_eval_result_storage_target.size()
+                    + m_ircontext.m_evaled_result_storage.size());
 #endif
                 break;
             default:
@@ -1148,7 +1174,8 @@ namespace wo
         // No need for storage.
         return offset;
     }
-    void _assign_storage_for_local_variable_instance(
+    bool _assign_storage_for_local_variable_instance(
+        lexer& lex,
         LangContext* lctx,
         const std::string& funcname,
         lang_Scope* scope,
@@ -1182,6 +1209,8 @@ namespace wo
                 return a->m_symbol_edge < b->m_symbol_edge;
             });
 
+        bool donot_have_unused_variable = true;
+
         // Ok, let's rock!.
         for (auto* symbol : local_symbols_in_this_scope)
         {
@@ -1191,8 +1220,8 @@ namespace wo
                 auto* next_it_sub_scope_instance = next_it_sub_scope->get();
 
                 if (!next_it_sub_scope_instance->m_function_instance.has_value())
-                    _assign_storage_for_local_variable_instance(
-                        lctx, funcname, next_it_sub_scope_instance, next_assign_offset, out_max_stack_count);
+                    donot_have_unused_variable = donot_have_unused_variable && _assign_storage_for_local_variable_instance(
+                        lex, lctx, funcname, next_it_sub_scope_instance, next_assign_offset, out_max_stack_count);
 
                 if (++next_it_sub_scope != it_sub_scope_end)
                     next_it_sub_scope_head_edge = (*next_it_sub_scope)->m_visibility_from_edge_for_template_check;
@@ -1200,41 +1229,60 @@ namespace wo
                     next_it_sub_scope_head_edge = std::nullopt;
             }
 
-            if (symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE
-                && !(symbol->m_is_global ||
-                    (symbol->m_declare_attribute.has_value()
-                        && symbol->m_declare_attribute.value()->m_lifecycle.has_value()
-                        && symbol->m_declare_attribute.value()->m_lifecycle.value()
-                        == ast::AstDeclareAttribue::lifecycle_attrib::STATIC)))
+            if (symbol->m_symbol_kind != lang_Symbol::kind::VARIABLE)
+                continue;
+
+            bool is_static_storage = (symbol->m_declare_attribute.has_value()
+                && symbol->m_declare_attribute.value()->m_lifecycle.has_value()
+                && symbol->m_declare_attribute.value()->m_lifecycle.value()
+                == ast::AstDeclareAttribue::lifecycle_attrib::STATIC);
+
+            // Symbol defined in function local cannot be global.
+            wo_assert(!symbol->m_is_global);
+
+            if (symbol->m_is_template)
             {
-                // Only local & varible need storage.
-                if (symbol->m_is_template)
+                for (auto& [_useless, template_instance] : symbol->m_template_value_instances->m_template_instances)
                 {
-                    for (auto& [_useless, template_instance] : symbol->m_template_value_instances->m_template_instances)
-                    {
-                        (void)_useless;
-                        if (template_instance->m_state == lang_TemplateAstEvalStateValue::FAILED)
-                            continue; // Skip failed template instance.
+                    (void)_useless;
+                    if (template_instance->m_state == lang_TemplateAstEvalStateValue::FAILED)
+                        continue; // Skip failed template instance.
 
-                        wo_assert(template_instance->m_state == lang_TemplateAstEvalStateValue::EVALUATED);
-
+                    wo_assert(template_instance->m_state == lang_TemplateAstEvalStateValue::EVALUATED);
+                    if (is_static_storage)
+                        lctx->update_allocate_global_instance_storage_passir(
+                            template_instance->m_value_instance.get());
+                    else
                         next_assign_offset =
-                            _assign_storage_for_instance(
-                                lctx,
-                                funcname,
-                                template_instance->m_value_instance.get(),
-                                next_assign_offset);
-                    }
-                }
-                else
-                {
-                    next_assign_offset =
                         _assign_storage_for_instance(
                             lctx,
                             funcname,
-                            symbol->m_value_instance,
+                            template_instance->m_value_instance.get(),
                             next_assign_offset);
                 }
+            }
+            else
+            {
+                if (is_static_storage)
+                    lctx->update_allocate_global_instance_storage_passir(
+                        symbol->m_value_instance);
+                else
+                    next_assign_offset =
+                    _assign_storage_for_instance(
+                        lctx,
+                        funcname,
+                        symbol->m_value_instance,
+                        next_assign_offset);
+            }
+
+            if (!symbol->m_has_been_used)
+            {
+                lex.lang_error(lexer::errorlevel::error,
+                    symbol->m_symbol_declare_ast.value(),
+                    WO_ERR_UNSED_VARIABLE,
+                    lctx->get_symbol_name_w(symbol));
+
+                donot_have_unused_variable = false;
             }
         }
 
@@ -1244,14 +1292,16 @@ namespace wo
             auto* next_it_sub_scope_instance = next_it_sub_scope->get();
 
             if (!next_it_sub_scope_instance->m_function_instance.has_value())
-                _assign_storage_for_local_variable_instance(
-                    lctx, funcname, (*next_it_sub_scope).get(), next_assign_offset, out_max_stack_count);
+                donot_have_unused_variable = donot_have_unused_variable && _assign_storage_for_local_variable_instance(
+                    lex, lctx, funcname, (*next_it_sub_scope).get(), next_assign_offset, out_max_stack_count);
 
             ++next_it_sub_scope;
         }
 
         *out_max_stack_count = std::max(
             *out_max_stack_count, -next_assign_offset);
+
+        return donot_have_unused_variable;
     }
 
     std::string get_anonymous_function_name(LangContext* lctx, ast::AstValueFunction* anonymous_func)
@@ -1313,6 +1363,7 @@ namespace wo
         m_ircontext.c().jmp(opnum::tag("#woolang_program_end"));
 
         // final.2 Finalize function codes.
+        bool donot_have_unused_local_variable = true;
         for (;;)
         {
             auto functions_to_finalize =
@@ -1414,8 +1465,9 @@ namespace wo
                 lang_Scope* function_scope = eval_function->m_LANG_function_scope.value();
 
                 int32_t local_storage_size = 0;
-                _assign_storage_for_local_variable_instance(
-                    this, eval_fucntion_name, eval_function->m_LANG_function_scope.value(), 0, &local_storage_size);
+                donot_have_unused_local_variable = donot_have_unused_local_variable
+                    && _assign_storage_for_local_variable_instance(
+                        lex, this, eval_fucntion_name, eval_function->m_LANG_function_scope.value(), 0, &local_storage_size);
 
                 // 2. Assign value arguments.
                 argument_place = no_captured_arguement_place;
@@ -1500,7 +1552,7 @@ namespace wo
 
         m_ircontext.c().loaded_libs = m_ircontext.m_extern_libs;
 
-        return true;
+        return donot_have_unused_local_variable;
     }
 
     ////////////////////////
@@ -2236,14 +2288,15 @@ namespace wo
         std::optional<ast::AstValueFunction*> variable_defined_in_function_may_null =
             get_scope_located_function(variable_defined_scope);
 
+        wo_assert(variable_instance->m_symbol->m_is_global
+            == !variable_defined_in_function_may_null.has_value());
+
         if (!variable_defined_in_function_may_null.has_value()
             || (variable_instance->m_symbol->m_declare_attribute.has_value()
                 && variable_instance->m_symbol->m_declare_attribute.value()->m_lifecycle.has_value()
                 && variable_instance->m_symbol->m_declare_attribute.value()->m_lifecycle.value() == ast::AstDeclareAttribue::lifecycle_attrib::STATIC))
         {
-            // Variable is global or static.
-            wo_assert(variable_instance->m_symbol->m_is_global);
-
+            // Variable cannot be global.
             return variable_instance;
         }
 
@@ -2331,13 +2384,7 @@ namespace wo
     bool BytecodeGenerateContext::apply_eval_result(
         const std::function<bool(EvalResult&)>& bind_func) noexcept
     {
-    _label_refetch_request:
         auto& top_eval_state = m_eval_result_storage_target.top();
-        if (top_eval_state.m_request == EvalResult::Request::EVAL_FOR_UPPER)
-        {
-            m_eval_result_storage_target.pop();
-            goto _label_refetch_request;
-        }
 
         bool eval_result = true;
         if (!ignore_eval_result())
@@ -2381,10 +2428,7 @@ namespace wo
     }
     void BytecodeGenerateContext::eval_for_upper()
     {
-        m_eval_result_storage_target.push(EvalResult{
-            EvalResult::Request::EVAL_FOR_UPPER,
-            std::nullopt,
-            });
+        wo_assert(!m_eval_result_storage_target.empty());
     }
     void BytecodeGenerateContext::eval_keep()
     {
@@ -2431,7 +2475,17 @@ namespace wo
     void BytecodeGenerateContext::eval_sth_if_not_ignore(void(BytecodeGenerateContext::* method)())
     {
         if (!ignore_eval_result())
+        {
+#ifndef NDEBUG
+            size_t current_request_count = m_eval_result_storage_target.size();
+#endif
             (this->*method)();
+#ifndef NDEBUG
+            // NOTE: Cannot `eval_for_upper` in eval_sth_if_not_ignore.
+            //  You can invoke `eval_for_upper` directly, it has same check effect.
+            wo_assert(m_eval_result_storage_target.size() == current_request_count + 1);
+#endif
+        }
         else
             eval_ignore();
     }
@@ -2610,10 +2664,10 @@ namespace wo
                 m_inused_temporary_registers.insert(std::make_pair(i, DebugBorrowRecord{ borrow_from , lineno }));
 #endif
                 return opnum_temporary(i);
-            }
         }
-        wo_error("Temporary register exhausted.");
     }
+        wo_error("Temporary register exhausted.");
+}
     void BytecodeGenerateContext::keep_opnum_temporary_register(
         opnum::temporary* reg
 #ifndef NDEBUG

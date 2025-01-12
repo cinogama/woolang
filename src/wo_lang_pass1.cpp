@@ -96,6 +96,134 @@ namespace wo
         return false;
     }
 
+    bool LangContext::check_symbol_is_reachable_in_current_scope(
+        lexer& lex, AstBase* node, lang_Symbol* symbol_instance, wo_pstring_t path)
+    {
+        if (!symbol_instance->m_is_global)
+            // Local symbol is always reachable.
+            return true;
+
+        AstDeclareAttribue::accessc_attrib attrib =
+            AstDeclareAttribue::accessc_attrib::PRIVATE;
+
+        if (symbol_instance->m_declare_attribute.has_value())
+        {
+            ast::AstDeclareAttribue* declare_attribute =
+                symbol_instance->m_declare_attribute.value();
+
+            if (declare_attribute->m_access.has_value())
+                attrib = declare_attribute->m_access.value();
+        }
+
+        switch (attrib)
+        {
+        case AstDeclareAttribue::accessc_attrib::PUBLIC:
+            return true;
+        case AstDeclareAttribue::accessc_attrib::PROTECTED:
+        {
+            auto* symbol_defined_in_name_space =
+                symbol_instance->m_belongs_to_scope->m_belongs_to_namespace;
+
+            for (auto* namespace_ = get_current_namespace();;
+                namespace_ = namespace_->m_parent_namespace.value())
+            {
+                if (namespace_ == symbol_defined_in_name_space)
+                    return true;
+
+                if (!namespace_->m_parent_namespace.has_value())
+                    break;
+            }
+
+            lex.lang_error(lexer::errorlevel::error, node,
+                WO_ERR_SYMBOL_IS_PROTECTED,
+                get_symbol_name_w(symbol_instance),
+                _get_scope_name(symbol_defined_in_name_space->m_this_scope.get()).c_str());
+
+            break;
+        }
+        case AstDeclareAttribue::accessc_attrib::PRIVATE:
+            if (symbol_instance->m_defined_source == path)
+                return true;
+
+            lex.lang_error(lexer::errorlevel::error, node,
+                WO_ERR_SYMBOL_IS_PRIVATE,
+                get_symbol_name_w(symbol_instance),
+                symbol_instance->m_defined_source->c_str());
+
+            break;
+        default:
+            wo_error("unknown access attribute");
+            break;
+        }
+
+        if (symbol_instance->m_symbol_declare_ast.has_value())
+        {
+            lex.lang_error(lexer::errorlevel::infom, symbol_instance->m_symbol_declare_ast.value(),
+                WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
+                get_symbol_name_w(symbol_instance));
+        }
+        return false;
+    }
+
+    bool LangContext::check_struct_field_is_reachable_in_current_scope(
+        lexer& lex,
+        ast::AstBase* node,
+        lang_Symbol* struct_type_inst,
+        ast::AstDeclareAttribue::accessc_attrib attrib,
+        wo_pstring_t field_name,
+        wo_pstring_t path)
+    {
+        if (!struct_type_inst->m_is_global)
+            // Local symbol is always reachable.
+            return true;
+
+        switch (attrib)
+        {
+        case AstDeclareAttribue::accessc_attrib::PUBLIC:
+            return true;
+        case AstDeclareAttribue::accessc_attrib::PROTECTED:
+        {
+            auto* symbol_defined_in_name_space =
+                struct_type_inst->m_belongs_to_scope->m_belongs_to_namespace;
+
+            for (auto* namespace_ = get_current_namespace();;
+                namespace_ = namespace_->m_parent_namespace.value())
+            {
+                if (namespace_ == symbol_defined_in_name_space)
+                    return true;
+
+                if (!namespace_->m_parent_namespace.has_value())
+                    break;
+            }
+
+            lex.lang_error(lexer::errorlevel::error, node,
+                WO_ERR_STRUCT_FIELD_IS_PROTECTED,
+                field_name,
+                _get_scope_name(symbol_defined_in_name_space->m_this_scope.get()).c_str());
+
+            break;
+        }
+        case AstDeclareAttribue::accessc_attrib::PRIVATE:
+            if (struct_type_inst->m_defined_source == path)
+                return true;
+
+            lex.lang_error(lexer::errorlevel::error, node,
+                WO_ERR_STRUCT_FIELD_IS_PRIVATE,
+                field_name,
+                struct_type_inst->m_defined_source->c_str());
+
+            break;
+        }
+
+        if (struct_type_inst->m_symbol_declare_ast.has_value())
+        {
+            lex.lang_error(lexer::errorlevel::infom, struct_type_inst->m_symbol_declare_ast.value(),
+                WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
+                get_symbol_name_w(struct_type_inst));
+        }
+        return false;
+    }
+
     void LangContext::init_pass1()
     {
         WO_LANG_REGISTER_PROCESSER(AstList, AstBase::AST_LIST, pass1);
@@ -250,15 +378,39 @@ namespace wo
                     && !symbol->m_is_builtin)
                 {
                     if (accept_template_arguments)
+                    {
                         lex.lang_error(lexer::errorlevel::error, node,
                             WO_ERR_EXPECTED_TEMPLATE_ARGUMENT,
                             get_symbol_name_w(symbol));
-                    else
-                        lex.lang_error(lexer::errorlevel::error, node,
-                            WO_ERR_UNEXPECTED_TEMPLATE_ARGUMENT,
-                            get_symbol_name_w(symbol));
 
-                    return FAILED;
+                        if (symbol->m_symbol_declare_ast.has_value())
+                        {
+                            lex.lang_error(lexer::errorlevel::infom, symbol->m_symbol_declare_ast.value(),
+                                WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
+                                get_symbol_name_w(symbol));
+                        }
+
+                        return FAILED;
+                    }
+                    else
+                    {
+                        // Template argument refill is vaild for alias.
+                        if (symbol->m_symbol_kind != lang_Symbol::kind::ALIAS)
+                        {
+                            lex.lang_error(lexer::errorlevel::error, node,
+                                WO_ERR_UNEXPECTED_TEMPLATE_ARGUMENT,
+                                get_symbol_name_w(symbol));
+
+                            if (symbol->m_symbol_declare_ast.has_value())
+                            {
+                                lex.lang_error(lexer::errorlevel::infom, symbol->m_symbol_declare_ast.value(),
+                                    WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
+                                    get_symbol_name_w(symbol));
+                            }
+
+                            return FAILED;
+                        }
+                    }
                 }
             }
         }
@@ -318,7 +470,12 @@ namespace wo
             {
             case AstTypeHolder::IDENTIFIER:
             {
-                lang_Symbol* type_symbol = node->m_typeform.m_identifier->m_LANG_determined_symbol.value();
+                AstIdentifier* identifier = node->m_typeform.m_identifier;
+                lang_Symbol* type_symbol = identifier->m_LANG_determined_symbol.value();
+
+                // If is refilling, use the target symbol.
+                if (node->m_LANG_refilling_template_target_symbol.has_value())
+                    type_symbol = node->m_LANG_refilling_template_target_symbol.value();
 
                 if (type_symbol->m_symbol_kind == lang_Symbol::VARIABLE)
                 {
@@ -405,6 +562,13 @@ namespace wo
 
                             if (type_symbol->m_symbol_kind == lang_Symbol::ALIAS)
                             {
+                                // Check symbol can be reach.
+                                if (!check_symbol_is_reachable_in_current_scope(
+                                    lex, node, type_symbol, node->source_location.source_file))
+                                {
+                                    return FAILED;
+                                }
+
                                 if (!alias_instance->m_determined_type.has_value())
                                 {
                                     if (!node->m_LANG_trying_advancing_type_judgement && type_symbol->m_symbol_declare_ast)
@@ -428,6 +592,44 @@ namespace wo
                                     lex.lang_error(lexer::errorlevel::error, node,
                                         WO_ERR_TYPE_DETERMINED_FAILED);
                                     return FAILED;
+                                }
+                                else if (!alias_instance->m_symbol->m_is_template
+                                    && identifier->m_template_arguments.has_value())
+                                {
+                                    lang_Symbol* refiliing_symbol =
+                                        alias_instance->m_determined_type.value()->m_symbol;
+
+                                    wo_assert(refiliing_symbol->m_symbol_kind == lang_Symbol::kind::TYPE);
+                                    if (!refiliing_symbol->m_is_template && !refiliing_symbol->m_is_builtin)
+                                    {
+                                        lex.lang_error(lexer::errorlevel::error, node,
+                                            WO_ERR_UNEXPECTED_TEMPLATE_ARGUMENT,
+                                            get_symbol_name_w(refiliing_symbol));
+
+                                        lex.lang_error(lexer::errorlevel::infom, node,
+                                            WO_INFO_TRYING_REFILL_TEMPLATE_ARGUMENT,
+                                            get_type_name_w(alias_instance->m_determined_type.value()),
+                                            get_symbol_name_w(alias_instance->m_symbol));
+
+                                        if (refiliing_symbol->m_symbol_declare_ast.has_value())
+                                        {
+                                            lex.lang_error(lexer::errorlevel::infom, refiliing_symbol->m_symbol_declare_ast.value(),
+                                                WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
+                                                get_symbol_name_w(refiliing_symbol));
+                                        }
+
+                                        return FAILED;
+                                    }
+
+                                    // Template refilling.
+                                    node->m_LANG_refilling_template_target_symbol = refiliing_symbol;
+
+                                    // NOTE: Reset m_LANG_trying_advancing_type_judgement, symbol has been determined.
+                                    if (node->m_LANG_trying_advancing_type_judgement)
+                                        node->m_LANG_trying_advancing_type_judgement = false;
+
+                                    // Re-eval it.
+                                    return HOLD;
                                 }
                             }
                         }
@@ -468,7 +670,9 @@ namespace wo
             case AstTypeHolder::TUPLE:
             case AstTypeHolder::UNION:
             case AstTypeHolder::STRUCTURE:
-                node->m_LANG_determined_type = m_origin_types.create_or_find_origin_type(lex, node);
+                node->m_LANG_determined_type = m_origin_types.create_or_find_origin_type(lex, this, node);
+                if (!node->m_LANG_determined_type.has_value())
+                    return FAILED;
                 break;
             case AstTypeHolder::TYPEOF:
                 wo_assert(node->m_typeform.m_typefrom->m_LANG_determined_type);
@@ -698,6 +902,16 @@ namespace wo
                     node->decide_final_constant_value(*determined_value);
             }
 
+            // Check symbol can be reach.
+            if (!check_symbol_is_reachable_in_current_scope(
+                lex, node, determined_value_instance->m_symbol, node->source_location.source_file))
+            {
+                return FAILED;
+            }
+
+            // Mark as been used
+            determined_value_instance->m_symbol->m_has_been_used = true;
+
             // Check and update value instance for captured variable.
             node->m_LANG_variable_instance =
                 check_and_update_captured_varibale_in_current_scope(
@@ -714,7 +928,6 @@ namespace wo
             if (node->m_LANG_template_evalating_state)
             {
                 auto* state = node->m_LANG_template_evalating_state.value();
-
                 failed_eval_template_ast(lex, node, state);
             }
         }
@@ -1101,7 +1314,7 @@ namespace wo
                     auto* return_type_instance = marked_return_type->m_LANG_determined_type.value();
                     auto* determined_return_type = node->m_LANG_determined_return_type.value();
 
-                    if (!is_type_accepted(
+                    if (lang_TypeInstance::TypeCheckResult::ACCEPT != is_type_accepted(
                         lex,
                         marked_return_type,
                         return_type_instance,
@@ -1192,7 +1405,7 @@ namespace wo
                     auto* determined_return_type =
                         node->m_value.value()->m_LANG_determined_type.value();
 
-                    if (!is_type_accepted(
+                    if (lang_TypeInstance::TypeCheckResult::ACCEPT != is_type_accepted(
                         lex,
                         node,
                         return_type_instance,
@@ -1236,7 +1449,8 @@ namespace wo
                 {
                     AstValueBase* element = *element_iter;
                     lang_TypeInstance* element_type = element->m_LANG_determined_type.value();
-                    if (!is_type_accepted(lex, element, array_elemnet_type, element_type))
+                    if (lang_TypeInstance::TypeCheckResult::ACCEPT
+                        != is_type_accepted(lex, element, array_elemnet_type, element_type))
                     {
                         lex.lang_error(lexer::errorlevel::error,
                             element,
@@ -1325,7 +1539,8 @@ namespace wo
                     lang_TypeInstance* element_key_type = element->m_key->m_LANG_determined_type.value();
                     lang_TypeInstance* element_value_type = element->m_value->m_LANG_determined_type.value();
 
-                    if (!is_type_accepted(lex, element, key_type, element_key_type))
+                    if (lang_TypeInstance::TypeCheckResult::ACCEPT
+                        != is_type_accepted(lex, element, key_type, element_key_type))
                     {
                         lex.lang_error(lexer::errorlevel::error, element,
                             WO_ERR_UNMATCHED_DICT_KEY_TYPE_NAMED,
@@ -1334,7 +1549,7 @@ namespace wo
                         return FAILED;
                     }
 
-                    if (!is_type_accepted(lex, element, value_type, element_value_type))
+                    if (lang_TypeInstance::TypeCheckResult::ACCEPT != is_type_accepted(lex, element, value_type, element_value_type))
                     {
                         lex.lang_error(lexer::errorlevel::error, element,
                             WO_ERR_UNMATCHED_DICT_VALUE_TYPE_NAMED,
@@ -1513,7 +1728,17 @@ namespace wo
                     return FAILED;
                 }
 
-                // TODO: check member's access permission.
+                if (!check_struct_field_is_reachable_in_current_scope(
+                    lex,
+                    node,
+                    container_type_instance->m_symbol,
+                    fnd->second.m_attrib,
+                    fnd->first,
+                    node->source_location.source_file))
+                {
+                    return FAILED;
+                }
+
                 index_raw_result = fnd->second.m_member_type;
                 node->m_LANG_fast_index_for_struct = fnd->second.m_offset;
 
@@ -1750,7 +1975,15 @@ namespace wo
             auto* target_type = node->m_cast_type->m_LANG_determined_type.value();
             auto* casting_value_type = node->m_cast_value->m_LANG_determined_type.value();
 
-            if (!check_cast_able(lex, node, target_type, casting_value_type))
+            // Check symbol can be reach.
+            if (!check_symbol_is_reachable_in_current_scope(
+                lex, node, target_type->m_symbol, node->source_location.source_file))
+            {
+                return FAILED;
+            }
+
+            if (lang_TypeInstance::TypeCheckResult::ACCEPT
+                != check_cast_able(lex, node, target_type, casting_value_type))
             {
                 lex.lang_error(lexer::errorlevel::error, node,
                     WO_ERR_CANNOT_CAST_TYPE_TO_TYPE,
@@ -2403,6 +2636,10 @@ namespace wo
                         {
                             for (AstTypeHolder* template_arg : function_variable->m_identifier->m_template_arguments.value())
                             {
+                                if (it_template_param == it_template_param_end)
+                                    // Too much template arguments.
+                                    break;
+
                                 wo_pstring_t param_name = *(it_template_param++);
 
                                 deduction_results.insert(
@@ -2690,6 +2927,10 @@ namespace wo
                         for (auto& _useless : function_variable->m_identifier->m_template_arguments.value())
                         {
                             (void)_useless;
+
+                            if (it_template_param == it_template_param_end)
+                                break;
+
                             ++it_template_param;
                         }
                     }
@@ -2907,7 +3148,8 @@ namespace wo
                     auto& [type, arg_node] = *it_argument_type;
                     lang_TypeInstance* param_type = *it_param_type;
 
-                    if (!is_type_accepted(lex, arg_node, param_type, type))
+                    if (lang_TypeInstance::TypeCheckResult::ACCEPT
+                        != is_type_accepted(lex, arg_node, param_type, type))
                     {
                         lex.lang_error(lexer::errorlevel::error, arg_node,
                             WO_ERR_CANNOT_ACCEPTABLE_TYPE_NAMED,
@@ -2999,9 +3241,12 @@ namespace wo
             lang_TypeInstance* value_type =
                 node->m_check_value->m_LANG_determined_type.value();
 
-            if (immutable_type(value_type) == m_origin_types.m_dynamic.m_type_instance)
+            if (immutable_type(value_type) == m_origin_types.m_dynamic.m_type_instance
+                && immutable_type(target_type) != m_origin_types.m_dynamic.m_type_instance
+                && immutable_type(target_type) != m_origin_types.m_void.m_type_instance)
             {
-                if (!check_cast_able(lex, node, target_type, value_type))
+                if (lang_TypeInstance::TypeCheckResult::ACCEPT
+                    != check_cast_able(lex, node, target_type, value_type))
                 {
                     lex.lang_error(lexer::errorlevel::error, node->m_check_type,
                         WO_ERR_CANNOT_CAST_TYPE_NAMED_FROM_DYNMAIC,
@@ -3014,11 +3259,12 @@ namespace wo
             else
             {
                 wo::value cval;
-                cval.set_bool(is_type_accepted(
-                    lex,
-                    node,
-                    target_type,
-                    value_type));
+                cval.set_bool(
+                    lang_TypeInstance::TypeCheckResult::ACCEPT == is_type_accepted(
+                        lex,
+                        node,
+                        target_type,
+                        value_type));
                 node->decide_final_constant_value(cval);
             }
             node->m_LANG_determined_type =
@@ -3042,9 +3288,12 @@ namespace wo
             lang_TypeInstance* value_type =
                 node->m_check_value->m_LANG_determined_type.value();
 
-            if (immutable_type(value_type) == m_origin_types.m_dynamic.m_type_instance)
+            if (immutable_type(value_type) == m_origin_types.m_dynamic.m_type_instance
+                && immutable_type(target_type) != m_origin_types.m_dynamic.m_type_instance
+                && immutable_type(target_type) != m_origin_types.m_void.m_type_instance)
             {
-                if (!check_cast_able(lex, node, target_type, value_type))
+                if (lang_TypeInstance::TypeCheckResult::ACCEPT
+                    != check_cast_able(lex, node, target_type, value_type))
                 {
                     lex.lang_error(lexer::errorlevel::error, node->m_check_type,
                         WO_ERR_CANNOT_CAST_TYPE_NAMED_FROM_DYNMAIC,
@@ -3057,7 +3306,7 @@ namespace wo
             }
             else
             {
-                if (!is_type_accepted(
+                if (lang_TypeInstance::TypeCheckResult::ACCEPT != is_type_accepted(
                     lex,
                     node,
                     target_type,
@@ -3141,7 +3390,6 @@ namespace wo
             case AstValueStruct::HOLD_FOR_EVAL_MEMBER_VALUE_BESIDE_TEMPLATE:
             {
                 // First deduct
-
                 auto* current_scope_before_deduction = get_current_scope();
 
                 std::unordered_map<wo_pstring_t, lang_TypeInstance*> deduction_results;
@@ -3390,6 +3638,13 @@ namespace wo
 
                         return FAILED;
                     }
+
+                    // Check symbol can be reach.
+                    if (!check_symbol_is_reachable_in_current_scope(
+                        lex, node, struct_type_instance->m_symbol, node->source_location.source_file))
+                    {
+                        return FAILED;
+                    }
                 }
 
                 node->m_LANG_hold_state = AstValueStruct::HOLD_FOR_FIELD_EVAL;
@@ -3462,10 +3717,24 @@ namespace wo
                             field->m_name->c_str());
 
                         failed = true;
+                        continue;
+                    }
+
+                    if (!check_struct_field_is_reachable_in_current_scope(
+                        lex,
+                        field,
+                        struct_type_instanc->m_symbol,
+                        fnd->second.m_attrib,
+                        fnd->first,
+                        node->source_location.source_file))
+                    {
+                        failed = true;
+                        continue;
                     }
 
                     lang_TypeInstance* accpet_field_type = fnd->second.m_member_type;
-                    if (!is_type_accepted(lex, field, accpet_field_type, field->m_value->m_LANG_determined_type.value()))
+                    if (lang_TypeInstance::TypeCheckResult::ACCEPT
+                        != is_type_accepted(lex, field, accpet_field_type, field->m_value->m_LANG_determined_type.value()))
                     {
                         lex.lang_error(lexer::errorlevel::error, field->m_value,
                             WO_ERR_CANNOT_ACCEPTABLE_TYPE_NAMED,
@@ -3473,6 +3742,7 @@ namespace wo
                             get_type_name_w(accpet_field_type));
 
                         failed = true;
+                        continue;
                     }
                 }
 
@@ -4214,20 +4484,6 @@ namespace wo
                 lang_TypeInstance* matching_typeinstance =
                     node->m_matched_value->m_LANG_determined_type.value();
 
-                if (node->m_auto_using_namespace)
-                {
-                    // union can only declared in namespace.
-                    wo_assert(matching_typeinstance->m_symbol->m_belongs_to_scope->is_namespace_scope());
-
-                    // Must contanin this sub namespace.
-                    auto* union_namespace = matching_typeinstance->m_symbol->m_belongs_to_scope->m_belongs_to_namespace->m_sub_namespaces.at(
-                        matching_typeinstance->m_symbol->m_name).get();
-
-                    append_using_namespace_for_current_scope(
-                        { union_namespace },
-                        node->source_location.source_file);
-                }
-
                 // Check is union.
                 auto determined_base_type =
                     matching_typeinstance->get_determined_type();
@@ -4255,6 +4511,20 @@ namespace wo
                         get_type_name_w(matching_typeinstance));
 
                     return FAILED;
+                }
+
+                if (node->m_auto_using_namespace)
+                {
+                    // union can only declared in namespace.
+                    wo_assert(matching_typeinstance->m_symbol->m_belongs_to_scope->is_namespace_scope());
+
+                    // Must contanin this sub namespace.
+                    auto* union_namespace = matching_typeinstance->m_symbol->m_belongs_to_scope->m_belongs_to_namespace->m_sub_namespaces.at(
+                        matching_typeinstance->m_symbol->m_name).get();
+
+                    append_using_namespace_for_current_scope(
+                        { union_namespace },
+                        node->source_location.source_file);
                 }
 
                 auto* determined_base_type_instance_union_dat =
@@ -4729,11 +4999,11 @@ namespace wo
                 // 1) Base typecheck.
                 lang_TypeInstance* right_type = node->m_right->m_LANG_determined_type.value();
 
-                if (!is_type_accepted(
+                if (lang_TypeInstance::TypeCheckResult::ACCEPT != is_type_accepted(
                     lex,
                     node,
-                    immutable_type(left_type),
-                    immutable_type(right_type)))
+                    left_type,
+                    right_type))
                 {
                     lex.lang_error(lexer::errorlevel::error, node->m_right,
                         WO_ERR_CANNOT_ACCEPTABLE_TYPE_NAMED,
@@ -4841,7 +5111,7 @@ namespace wo
                     wo_error("Unknown assign place.");
                 }
 
-                if (!is_type_accepted(lex, node, left_type, func_result_type))
+                if (lang_TypeInstance::TypeCheckResult::ACCEPT != is_type_accepted(lex, node, left_type, func_result_type))
                 {
                     lex.lang_error(lexer::errorlevel::error, node,
                         WO_ERR_CANNOT_ACCEPTABLE_TYPE_NAMED,

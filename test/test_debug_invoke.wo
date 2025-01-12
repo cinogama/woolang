@@ -5,7 +5,7 @@ import test_tool;
 
 namespace test_debug_invoke
 {
-    func foo(depth: int, param: string)
+    func foo(depth: int, param: string)=> string
     {
         if (depth > 100000)
             return param + "Hello";

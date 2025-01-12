@@ -71,7 +71,7 @@ namespace wo
         {
             AstDeclareAttribue* new_instance = exist_instance
                 ? static_cast<AstDeclareAttribue*>(exist_instance.value())
-                : new AstDeclareAttribue()
+                : new AstDeclareAttribue(*this)
                 ;
             return new_instance;
         }
@@ -202,6 +202,7 @@ namespace wo
             , m_LANG_template_evalating_state(std::nullopt)
             , m_LANG_determined_type(std::nullopt)
             , m_LANG_trying_advancing_type_judgement(false)
+            , m_LANG_refilling_template_target_symbol(std::nullopt)
         {
             new (&m_typeform.m_identifier) AstIdentifier* (ident);
         }
@@ -212,6 +213,7 @@ namespace wo
             , m_LANG_template_evalating_state(std::nullopt)
             , m_LANG_determined_type(std::nullopt)
             , m_LANG_trying_advancing_type_judgement(false)
+            , m_LANG_refilling_template_target_symbol(std::nullopt)
         {
             new (&m_typeform.m_typefrom) AstValueBase* (expr);
         }
@@ -222,6 +224,7 @@ namespace wo
             , m_LANG_template_evalating_state(std::nullopt)
             , m_LANG_determined_type(std::nullopt)
             , m_LANG_trying_advancing_type_judgement(false)
+            , m_LANG_refilling_template_target_symbol(std::nullopt)
         {
             new (&m_typeform.m_function) FunctionType(functype);
         }
@@ -232,6 +235,7 @@ namespace wo
             , m_LANG_template_evalating_state(std::nullopt)
             , m_LANG_determined_type(std::nullopt)
             , m_LANG_trying_advancing_type_judgement(false)
+            , m_LANG_refilling_template_target_symbol(std::nullopt)
         {
             new (&m_typeform.m_structure) StructureType(structtype);
         }
@@ -242,6 +246,7 @@ namespace wo
             , m_LANG_template_evalating_state(std::nullopt)
             , m_LANG_determined_type(std::nullopt)
             , m_LANG_trying_advancing_type_judgement(false)
+            , m_LANG_refilling_template_target_symbol(std::nullopt)
         {
             new (&m_typeform.m_tuple) TupleType(tupletype);
         }
@@ -252,6 +257,7 @@ namespace wo
             , m_LANG_template_evalating_state(std::nullopt)
             , m_LANG_determined_type(std::nullopt)
             , m_LANG_trying_advancing_type_judgement(false)
+            , m_LANG_refilling_template_target_symbol(std::nullopt)
         {
             new (&m_typeform.m_union) UnionType(uniontype);
         }
@@ -541,6 +547,7 @@ namespace wo
             : AstValueBase(AST_VALUE_TYPE_CAST)
             , m_cast_type(cast_type)
             , m_cast_value(cast_value)
+            , m_IR_need_runtime_check_eval(false)
         {
 
         }
@@ -1020,12 +1027,14 @@ namespace wo
             : AstBase(AST_VARIABLE_DEFINES)
             , m_definitions(item.m_definitions)
             , m_attribute(item.m_attribute)
+            , m_IR_static_init_flag_global_offset(std::nullopt)
         {
         }
         AstVariableDefines::AstVariableDefines(const std::optional<AstDeclareAttribue*>& attribute)
             : AstBase(AST_VARIABLE_DEFINES)
             , m_definitions{}
             , m_attribute(attribute)
+            , m_IR_static_init_flag_global_offset(std::nullopt)
         {
         }
         AstBase* AstVariableDefines::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const

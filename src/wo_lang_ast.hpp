@@ -177,6 +177,7 @@ namespace wo
             std::optional<lang_TemplateAstEvalStateBase*> m_LANG_template_evalating_state;
             std::optional<lang_TypeInstance*> m_LANG_determined_type;
             bool m_LANG_trying_advancing_type_judgement;
+            std::optional<lang_Symbol*> m_LANG_refilling_template_target_symbol;
 
         public:
             AstTypeHolder(AstIdentifier* ident);
@@ -241,6 +242,8 @@ namespace wo
         {
             AstTypeHolder* m_cast_type;
             AstValueBase* m_cast_value;
+
+            bool m_IR_need_runtime_check_eval;
 
             AstValueTypeCast(AstTypeHolder* cast_type, AstValueBase* cast_value);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
@@ -565,6 +568,8 @@ namespace wo
             std::list<AstVariableDefineItem*> m_definitions;
             std::optional<AstDeclareAttribue*>
                 m_attribute;
+
+            std::optional<int32_t> m_IR_static_init_flag_global_offset;
 
         private:
             AstVariableDefines(const AstVariableDefines&);

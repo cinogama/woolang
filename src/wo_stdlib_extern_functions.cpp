@@ -3116,7 +3116,7 @@ namespace std
             breakpoint();
         }
 
-        using callstack = struct{
+        public using callstack = struct{
             public function    : string,
             public file        : string,
             public row         : int,

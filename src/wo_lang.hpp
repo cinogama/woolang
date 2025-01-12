@@ -106,6 +106,12 @@ namespace wo
             DeterminedType(DeterminedType&&);
             DeterminedType& operator=(DeterminedType&&);
         };
+        enum TypeCheckResult
+        {
+            REJECT,
+            ACCEPT,
+            PENDING,
+        };
 
         lang_Symbol* m_symbol;
 
@@ -115,8 +121,8 @@ namespace wo
         // NOTE: DeterminedType means immutable type, lang_TypeInstance* means mutable types.
         std::optional<std::list<lang_TypeInstance*>> m_instance_template_arguments;
         DeterminedOrMutableType m_determined_base_type_or_mutable;
-        std::unordered_map<lang_TypeInstance*, bool> m_LANG_accepted_types;
-        std::unordered_map<lang_TypeInstance*, bool> m_LANG_castfrom_types;
+        std::unordered_map<lang_TypeInstance*, TypeCheckResult> m_LANG_accepted_types;
+        std::unordered_map<lang_TypeInstance*, TypeCheckResult> m_LANG_castfrom_types;
         std::unordered_set<lang_TypeInstance*> m_LANG_pending_depend_this;
 
         lang_TypeInstance(
@@ -329,11 +335,13 @@ namespace wo
         wo_pstring_t                    m_name;
         wo_pstring_t                    m_defined_source;
         std::optional<ast::AstDeclareAttribue*>
-            m_declare_attribute;
+                                        m_declare_attribute;
         lang_Scope* m_belongs_to_scope;
         std::optional<ast::AstBase*>    m_symbol_declare_ast;
         bool                            m_is_builtin;
         size_t                          m_symbol_edge;
+
+        bool                            m_has_been_used; // For variables.
 
         union
         {
@@ -491,7 +499,7 @@ namespace wo
                 // Push the result opnum into stack, then ignore the result.
                 PUSH_RESULT_AND_IGNORE_RESULT,
                 // Donot eval for this request, get last one.
-                EVAL_FOR_UPPER,
+                // EVAL_FOR_UPPER,
                 // Like IGNORE_RESULT, but still in eval. no result will be apply.
                 EVAL_PURE_ACTION,
                 // Simply ignore the result
@@ -609,6 +617,7 @@ namespace wo
 #ifndef NDEBUG
             size_t m_debug_scope_layer_count;
             lang_Scope* m_debug_entry_scope;
+            size_t m_debug_ir_eval_content;
 #endif
 
             AstNodeWithState(ast::AstBase* node);
@@ -724,7 +733,7 @@ namespace wo
             lang_Symbol* m_struct;
             lang_Symbol* m_union;
 
-            std::optional<lang_TypeInstance*> create_or_find_origin_type(lexer& lex, ast::AstTypeHolder* type_holder);
+            std::optional<lang_TypeInstance*> create_or_find_origin_type(lexer& lex, LangContext* ctx, ast::AstTypeHolder* type_holder);
 
             lang_TypeInstance* create_dictionary_type(lang_TypeInstance* key_type, lang_TypeInstance* value_type);
             lang_TypeInstance* create_mapping_type(lang_TypeInstance* key_type, lang_TypeInstance* value_type);
@@ -1037,13 +1046,13 @@ namespace wo
             lexer& lex, ast::AstBase* node, lang_TemplateAstEvalStateBase* template_eval_instance);
 
         //////////////////////////////////////
-        bool is_type_accepted(
+
+        lang_TypeInstance::TypeCheckResult is_type_accepted(
             lexer& lex,
             ast::AstBase* node,
             lang_TypeInstance* accepter,
             lang_TypeInstance* provider);
-
-        bool check_cast_able(
+        lang_TypeInstance::TypeCheckResult check_cast_able(
             lexer& lex,
             ast::AstBase* node,
             lang_TypeInstance* aimtype,
@@ -1085,11 +1094,22 @@ namespace wo
 
         void using_namespace_declare_for_current_scope(ast::AstUsingNamespace* using_namespace);
         void append_using_namespace_for_current_scope(const std::unordered_set<lang_Namespace*>& using_namespaces, wo_pstring_t source);
-        void LangContext::_collect_failed_template_instance(lexer& lex, ast::AstBase* node, lang_TemplateAstEvalStateBase* inst);
+        void _collect_failed_template_instance(lexer& lex, ast::AstBase* node, lang_TemplateAstEvalStateBase* inst);
 
         lang_ValueInstance* check_and_update_captured_varibale_in_current_scope(
             ast::AstValueVariable* ref_from_variable,
             lang_ValueInstance* variable_instance);
+
+        bool check_symbol_is_reachable_in_current_scope(
+            lexer& lex, ast::AstBase* node, lang_Symbol* symbol_instance, wo_pstring_t path);
+
+        bool check_struct_field_is_reachable_in_current_scope(
+            lexer& lex,
+            ast::AstBase* node,
+            lang_Symbol* struct_type_inst,
+            ast::AstDeclareAttribue::accessc_attrib attrib,
+            wo_pstring_t field_name,
+            wo_pstring_t path);
 
         std::string IR_function_label(ast::AstValueFunction* func);
         opnum::opnumbase* IR_function_opnum(ast::AstValueFunction* func);

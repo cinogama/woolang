@@ -15,8 +15,6 @@ namespace test_namespace
             let a = 456;
             func foo()
             {
-                using x;
-                
                 let a = 789;
                 return a;
             }

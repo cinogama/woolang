@@ -45,7 +45,7 @@ namespace test_template
     {
         return foo(n);
     }
-    func fib<T>(n:T)
+    func fib<T>(n:T)=> T
     {
         if (n <= 2:T)
             return 1:T;
@@ -142,7 +142,7 @@ namespace test_template
 
     func make_instance<T>()
     {
-        return typeof(T::instance())::create();
+        return typeof(typeof:<T>::instance())::create();
     }
 
     using gchandle_type = gchandle;
@@ -160,7 +160,7 @@ namespace test_template
 
     func is_same<T1, T2>()
     {
-        return func()=>T1{} is ()=>T2;
+        return std::declval:<T1> is ()=>T2;
     }
 
     let mut constexpr_if_test_flag = false;
@@ -279,7 +279,7 @@ namespace test_template
 
     func foo<T>()
     {
-        static let a<A> = T::someval;
+        static let a<A> = typeof:<T>::someval;
         return \<T>_: T = a:<T>;(15);
     }
 
@@ -295,12 +295,12 @@ namespace test_template
     {
         test_equal(foo:<real>(), "T is real");
         test_equal(foo:<int>(), "T is int");
-        test_assure(foo:<string>() is pending);
-        test_assure(foo:<bool>() is pending);
+        test_assure(typeid:<typeof(foo:<string>())> == 0);
+        test_assure(typeid:<typeof(foo:<bool>())> == 0);
 
         test_assure(std::is_same_type:<TEST_GLT2:<int>, string>);
         test_assure(std::is_same_type:<TEST_GLT2:<real>, string>);
-        test_assure(std::declval:<TEST_GLT4:<string>>() is pending);
+        test_assure(typeid:<typeof(std::declval:<TEST_GLT4:<string>>())> == 0);
 
         test_assure(call_and_return(return_2_times_val, 256) == 512);
         test_assure(call_and_return(return_2_times_val, 128.) == 256.);

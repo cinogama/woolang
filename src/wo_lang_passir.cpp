@@ -98,8 +98,10 @@ namespace wo
             return;
 
         lang_Symbol* symbol = instance->m_symbol;
-        wo_assert(symbol->m_is_global ||
-            (symbol->m_declare_attribute.has_value()
+        wo_assert(
+            !get_scope_located_function(symbol->m_belongs_to_scope).has_value()
+            || symbol->m_is_global
+            || (symbol->m_declare_attribute.has_value()
                 && symbol->m_declare_attribute.value()->m_lifecycle.has_value()
                 && symbol->m_declare_attribute.value()->m_lifecycle.value() == AstDeclareAttribue::lifecycle_attrib::STATIC));
 
@@ -726,8 +728,34 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
+            if (node->m_attribute.has_value())
+            {
+                auto& attribute = node->m_attribute.value();
+                if (attribute->m_lifecycle.has_value()
+                    && attribute->m_lifecycle.value() == AstDeclareAttribue::lifecycle_attrib::STATIC)
+                {
+                    node->m_IR_static_init_flag_global_offset = m_ircontext.m_global_storage_allocating++;
+                }
+            }
+
+            if (node->m_IR_static_init_flag_global_offset.has_value())
+            {
+                m_ircontext.c().equb(
+                    WO_OPNUM(m_ircontext.opnum_global(node->m_IR_static_init_flag_global_offset.value())),
+                    WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::ni)));
+                m_ircontext.c().jf(opnum::tag(_generate_label("#static_end_", node)));
+                m_ircontext.c().mov(
+                    WO_OPNUM(m_ircontext.opnum_global(node->m_IR_static_init_flag_global_offset.value())),
+                    WO_OPNUM(m_ircontext.opnum_imm_bool(true)));
+            }
+
             WO_CONTINUE_PROCESS_LIST(node->m_definitions);
             return HOLD;
+        }
+        if (state == HOLD)
+        {
+            if (node->m_IR_static_init_flag_global_offset.has_value())
+                m_ircontext.c().tag(_generate_label("#static_end_", node));
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
@@ -902,7 +930,7 @@ namespace wo
                 m_ircontext.c().ret();
         }
         else
-            m_ircontext.c().ret();
+            m_ircontext.c().jmp(opnum::tag("#woolang_program_end"));
 
         return OKAY;
     }
@@ -1544,6 +1572,7 @@ namespace wo
                             break;
                         case lang_TypeInstance::DeterminedType::ARRAY:
                             check_type = value::valuetype::array_type;
+                            break;
                         default:
                             wo_error("Unknown type.");
                             break;
@@ -1629,6 +1658,7 @@ namespace wo
                         break;
                     case lang_TypeInstance::DeterminedType::ARRAY:
                         check_type = value::valuetype::array_type;
+                        break;
                     default:
                         wo_error("Unknown type.");
                         break;
@@ -1670,42 +1700,60 @@ namespace wo
             auto* target_determined_type_instance =
                 target_type_instance->get_determined_type().value();
 
+            auto* src_type_instance =
+                node->m_cast_value->m_LANG_determined_type.value();
+            auto* src_determined_type_instance =
+                src_type_instance->get_determined_type().value();
+
+            // Eval.
+            WO_CONTINUE_PROCESS(node->m_cast_value);
+
             if (target_determined_type_instance->m_base_type
-                != lang_TypeInstance::DeterminedType::VOID)
+                == lang_TypeInstance::DeterminedType::VOID)
             {
+                node->m_IR_need_runtime_check_eval = true;
+                m_ircontext.eval_ignore();
+            }
+            else if (target_determined_type_instance->m_base_type
+                != src_determined_type_instance->m_base_type
+                && target_determined_type_instance->m_base_type
+                != lang_TypeInstance::DeterminedType::DYNAMIC
+                && src_determined_type_instance->m_base_type
+                != lang_TypeInstance::DeterminedType::NOTHING)
+            {
+                // Need runtime check.
+                node->m_IR_need_runtime_check_eval = true;
+
                 m_ircontext.eval_sth_if_not_ignore(
                     &BytecodeGenerateContext::eval);
             }
             else
-                m_ircontext.eval_ignore();
+            {
+                // No cast
+                m_ircontext.eval_for_upper();
+            }
 
-            WO_CONTINUE_PROCESS(node->m_cast_value);
             return HOLD;
         }
         else if (state == HOLD)
         {
-            if (!m_ircontext.apply_eval_result(
-                [&](BytecodeGenerateContext::EvalResult& result)
-                {
-                    auto* target_type_instance =
-                        node->m_cast_type->m_LANG_determined_type.value();
-                    auto* target_determined_type_instance =
-                        target_type_instance->get_determined_type().value();
-
-                    auto* src_type_instance =
-                        node->m_cast_value->m_LANG_determined_type.value();
-                    auto* src_determined_type_instance =
-                        src_type_instance->get_determined_type().value();
-
-                    const auto& target_storage = result.get_assign_target();
-
-                    if (target_determined_type_instance->m_base_type
-                        != src_determined_type_instance->m_base_type
-                        && target_determined_type_instance->m_base_type
-                        != lang_TypeInstance::DeterminedType::DYNAMIC
-                        && src_determined_type_instance->m_base_type
-                        != lang_TypeInstance::DeterminedType::NOTHING)
+            if (node->m_IR_need_runtime_check_eval)
+            {
+                if (!m_ircontext.apply_eval_result(
+                    [&](BytecodeGenerateContext::EvalResult& result)
                     {
+                        auto* target_type_instance =
+                            node->m_cast_type->m_LANG_determined_type.value();
+                        auto* target_determined_type_instance =
+                            target_type_instance->get_determined_type().value();
+
+                        auto* src_type_instance =
+                            node->m_cast_value->m_LANG_determined_type.value();
+                        auto* src_determined_type_instance =
+                            src_type_instance->get_determined_type().value();
+
+                        const auto& target_storage = result.get_assign_target();
+
                         // Need runtime cast.
                         value::valuetype cast_type;
                         switch (target_determined_type_instance->m_base_type)
@@ -1779,32 +1827,13 @@ namespace wo
                                 cast_type);
                             result.set_result(m_ircontext, borrowed_reg);
                         }
-                    }
-                    else
-                    {
 
-                        auto* opnum_to_cast = m_ircontext.get_eval_result();
-
-                        // No need to cast.
-                        if (target_storage.has_value())
-                        {
-                            m_ircontext.c().mov(
-                                WO_OPNUM(target_storage.value()),
-                                WO_OPNUM(opnum_to_cast));
-                        }
-                        else
-                        {
-                            m_ircontext.try_keep_opnum_temporary_register(opnum_to_cast
-                                WO_BORROW_TEMPORARY_FROM_SP(node));
-                            result.set_result(m_ircontext, opnum_to_cast);
-                        }
-                    }
-
-                    return true;
-                }))
-            {
-                // Eval failed.
-                return FAILED;
+                        return true;
+                    }))
+                {
+                    // Eval failed.
+                    return FAILED;
+                }
             }
         }
         return WO_EXCEPT_ERROR(state, OKAY);
@@ -1897,8 +1926,7 @@ namespace wo
             node->m_LANG_hold_state = AstValueBinaryOperator::IR_HOLD_FOR_NORMAL_LR_OR_OVERLOAD_EVAL;
             if (node->m_LANG_overload_call.has_value())
             {
-                m_ircontext.eval_sth_if_not_ignore(
-                    &BytecodeGenerateContext::eval_for_upper);
+                m_ircontext.eval_for_upper();
                 WO_CONTINUE_PROCESS(node->m_LANG_overload_call.value());
             }
             else if (node->m_operator == AstValueBinaryOperator::LOGICAL_AND
@@ -2383,8 +2411,7 @@ namespace wo
         {
             if (node->m_condition->m_evaled_const_value.has_value())
             {
-                m_ircontext.eval_sth_if_not_ignore(
-                    &BytecodeGenerateContext::eval_for_upper);
+                m_ircontext.eval_for_upper();
 
                 if (node->m_condition->m_evaled_const_value.value().integer != 0)
                     WO_CONTINUE_PROCESS(node->m_true_value);
@@ -2577,7 +2604,9 @@ namespace wo
 
                         // NOTE: Keep index & container if is IR OPNUM node.
                         if (node->m_container->node_type == AstBase::AST_VALUE_IR_OPNUM)
-                            m_ircontext.try_return_opnum_temporary_register(container_opnum);
+                            m_ircontext.try_keep_opnum_temporary_register(
+                                container_opnum
+                                WO_BORROW_TEMPORARY_FROM_SP(node));
 
                         uint16_t fast_index = (uint16_t)node->m_LANG_fast_index_for_struct.value();
                         if (target_storage.has_value())
@@ -2618,7 +2647,7 @@ namespace wo
         if (state == UNPROCESSED)
         {
             std::vector<AstStructFieldValuePair*> struct_value_tobe_make(
-                node->m_fields.begin(), node->m_fields.end());
+                node->m_fields.rbegin(), node->m_fields.rend());
 
             if (node->m_marked_struct_type.has_value())
             {
@@ -2632,8 +2661,6 @@ namespace wo
                     {
                         const auto offset_a = struct_detail_info->m_member_types.at(a->m_name).m_offset;
                         const auto offset_b = struct_detail_info->m_member_types.at(b->m_name).m_offset;
-
-                        // Sort by offset inversely.
                         return offset_a > offset_b;
                     });
             }
