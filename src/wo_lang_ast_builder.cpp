@@ -1494,7 +1494,7 @@ namespace wo
                 AstStructFieldValuePair* field_pair = static_cast<AstStructFieldValuePair*>(field);
                 fields.push_back(field_pair);
 
-                if (exist_field_name.find(field_pair->m_name) != exist_field_name.end())
+                if (!exist_field_name.insert(field_pair->m_name).second)
                     return token{ lex.lang_error(lexer::errorlevel::error, field, 
                         WO_ERR_REPEATED_FIELD_NAMED,
                         field_pair->m_name->c_str()) };

@@ -27,7 +27,7 @@ namespace wo
                     constant_value_or_function = std::nullopt;
 
                 // NOTE: Donot decide constant value for mutable variable.
-                lang_symbol->m_value_instance->m_determined_type = init_value_type.value();
+                lang_symbol->m_value_instance->m_determined_type = immutable_type(init_value_type.value());
                 if (!lang_symbol->m_value_instance->m_mutable
                     && init_value.has_value())
                 {
@@ -1549,7 +1549,8 @@ namespace wo
                         return FAILED;
                     }
 
-                    if (lang_TypeInstance::TypeCheckResult::ACCEPT != is_type_accepted(lex, element, value_type, element_value_type))
+                    if (lang_TypeInstance::TypeCheckResult::ACCEPT 
+                        != is_type_accepted(lex, element, value_type, element_value_type))
                     {
                         lex.lang_error(lexer::errorlevel::error, element,
                             WO_ERR_UNMATCHED_DICT_VALUE_TYPE_NAMED,
@@ -2178,11 +2179,13 @@ namespace wo
                 else
                 {
                     // Begin our main work!
-                    switch (current_argument.m_argument->node_type)
+                    auto* argument = get_marked_origin_value_node(current_argument.m_argument);
+
+                    switch (argument->node_type)
                     {
                     case AstBase::AST_VALUE_VARIABLE:
                     {
-                        AstValueVariable* argument_variable = static_cast<AstValueVariable*>(current_argument.m_argument);
+                        AstValueVariable* argument_variable = static_cast<AstValueVariable*>(argument);
                         lang_Symbol* symbol = argument_variable->m_identifier->m_LANG_determined_symbol.value();
 
                         wo_assert(symbol->m_is_template
@@ -2232,7 +2235,7 @@ namespace wo
 
                             entry_spcify_scope(node->m_scope_before_deduction);
 
-                            WO_CONTINUE_PROCESS(argument_variable);
+                            WO_CONTINUE_PROCESS(current_argument.m_argument);
 
                             node->m_LANG_hold_state =
                                 AstValueFunctionCall_FakeAstArgumentDeductionContextA::HOLD_FOR_REVERSE_DEDUCT;
@@ -2245,7 +2248,7 @@ namespace wo
                     }
                     case AstBase::AST_VALUE_FUNCTION:
                     {
-                        AstValueFunction* argument_function = static_cast<AstValueFunction*>(current_argument.m_argument);
+                        AstValueFunction* argument_function = static_cast<AstValueFunction*>(argument);
                         auto& pending_template_arguments = argument_function->m_pending_param_type_mark_template.value();
 
                         std::unordered_map<wo_pstring_t, lang_TypeInstance*> deduction_results;
@@ -2271,7 +2274,7 @@ namespace wo
 
                             entry_spcify_scope(node->m_scope_before_deduction);
 
-                            WO_CONTINUE_PROCESS(argument_function);
+                            WO_CONTINUE_PROCESS(current_argument.m_argument);
 
                             node->m_LANG_hold_state =
                                 AstValueFunctionCall_FakeAstArgumentDeductionContextA::HOLD_FOR_REVERSE_DEDUCT;
@@ -2364,7 +2367,7 @@ namespace wo
                 auto& param_and_argument_pair = node->m_arguments_tobe_deduct.front();
 
                 lang_TypeInstance* param_type = param_and_argument_pair.m_param_type;
-                AstValueBase* argument = param_and_argument_pair.m_argument;
+                
 
                 std::list<std::optional<lang_TypeInstance*>> param_argument_types;
                 std::optional<lang_TypeInstance*> param_return_type = std::nullopt;
@@ -2372,7 +2375,7 @@ namespace wo
                 auto param_type_determined_base_type = param_type->get_determined_type();
                 if (!param_type_determined_base_type.has_value())
                 {
-                    lex.lang_error(lexer::errorlevel::error, argument,
+                    lex.lang_error(lexer::errorlevel::error, param_and_argument_pair.m_argument,
                         WO_ERR_TYPE_NAMED_DETERMINED_FAILED,
                         get_type_name_w(param_type));
                     return FAILED;
@@ -2381,7 +2384,7 @@ namespace wo
                 auto* param_type_determined_base_type_instance = param_type_determined_base_type.value();
                 if (param_type_determined_base_type_instance->m_base_type != lang_TypeInstance::DeterminedType::FUNCTION)
                 {
-                    lex.lang_error(lexer::errorlevel::error, argument,
+                    lex.lang_error(lexer::errorlevel::error, param_and_argument_pair.m_argument,
                         WO_ERR_FAILED_TO_DEDUCE_TEMPLATE_TYPE);
                     return FAILED;
                 }
@@ -2392,6 +2395,8 @@ namespace wo
                 for (auto& param_type : param_type_determined_function_base_type->m_param_types)
                     param_argument_types.push_back(param_type);
                 param_return_type = param_type_determined_function_base_type->m_return_type;
+
+                AstValueBase* argument = get_marked_origin_value_node(param_and_argument_pair.m_argument);
 
                 switch (argument->node_type)
                 {
@@ -2420,7 +2425,7 @@ namespace wo
 
                         argument_function->m_LANG_determined_template_arguments = template_arguments;
                         argument_function->m_LANG_in_template_reification_context = true;
-                        WO_CONTINUE_PROCESS(argument_function);
+                        WO_CONTINUE_PROCESS(param_and_argument_pair.m_argument);
                     }
                     else
                     {
@@ -2480,7 +2485,7 @@ namespace wo
                         argument_variable->m_identifier->m_LANG_determined_and_appended_template_arguments
                             = template_arguments;
 
-                        WO_CONTINUE_PROCESS(argument_variable);
+                        WO_CONTINUE_PROCESS(param_and_argument_pair.m_argument);
                     }
                     else
                     {
@@ -3149,7 +3154,7 @@ namespace wo
                     lang_TypeInstance* param_type = *it_param_type;
 
                     if (lang_TypeInstance::TypeCheckResult::ACCEPT
-                        != is_type_accepted(lex, arg_node, param_type, type))
+                        != is_type_accepted(lex, arg_node, immutable_type(param_type), immutable_type(type)))
                     {
                         lex.lang_error(lexer::errorlevel::error, arg_node,
                             WO_ERR_CANNOT_ACCEPTABLE_TYPE_NAMED,
@@ -4420,7 +4425,6 @@ namespace wo
                 lang_TypeInstance* node_final_type;
                 if (node->m_condition->m_evaled_const_value.has_value())
                 {
-
                     if (node->m_condition->m_evaled_const_value.value().integer)
                     {
                         // TRUE BRANCH.
@@ -4439,7 +4443,24 @@ namespace wo
                     }
                 }
                 else
+                {
+
+                    if (lang_TypeInstance::TypeCheckResult::ACCEPT
+                        != is_type_accepted(
+                            lex,
+                            node, 
+                            node->m_true_value->m_LANG_determined_type.value(),
+                            node->m_false_value->m_LANG_determined_type.value()))
+                    {
+                        lex.lang_error(lexer::errorlevel::error, node->m_false_value,
+                            WO_ERR_CANNOT_ACCEPTABLE_TYPE_NAMED,
+                            get_type_name_w(node->m_false_value->m_LANG_determined_type.value()),
+                            get_type_name_w(node->m_true_value->m_LANG_determined_type.value()));
+
+                        return FAILED;
+                    }
                     node_final_type = node->m_true_value->m_LANG_determined_type.value();
+                }
 
                 node->m_LANG_determined_type = node_final_type;
                 break;
@@ -5002,8 +5023,8 @@ namespace wo
                 if (lang_TypeInstance::TypeCheckResult::ACCEPT != is_type_accepted(
                     lex,
                     node,
-                    left_type,
-                    right_type))
+                    immutable_type(left_type),
+                    immutable_type(right_type)))
                 {
                     lex.lang_error(lexer::errorlevel::error, node->m_right,
                         WO_ERR_CANNOT_ACCEPTABLE_TYPE_NAMED,

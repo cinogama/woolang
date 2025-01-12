@@ -751,10 +751,33 @@ namespace wo
                 out_determined_template_arg_pair);
         }
     }
-
+    ast::AstValueBase* LangContext::get_marked_origin_value_node(ast::AstValueBase* node)
+    {
+        for (;;)
+        {
+            switch (node->node_type)
+            {
+            case ast::AstBase::AST_VALUE_MARK_AS_IMMUTABLE:
+            {
+                node = static_cast<ast::AstValueMarkAsImmutable*>(node)->m_marked_value;
+                continue;
+            }
+            case ast::AstBase::AST_VALUE_MARK_AS_MUTABLE:
+            {
+                node = static_cast<ast::AstValueMarkAsMutable*>(node)->m_marked_value;
+                continue;
+            }
+            default:
+                break;
+            }
+            break;
+        }
+        return node;
+    }
     bool LangContext::check_need_template_deduct_function(
         lexer& lex, ast::AstValueBase* target, PassProcessStackT& out_stack)
     {
+        target = get_marked_origin_value_node(target);
         switch (target->node_type)
         {
         case ast::AstBase::AST_VALUE_FUNCTION:

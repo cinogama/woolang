@@ -1220,8 +1220,10 @@ namespace wo
                 auto* next_it_sub_scope_instance = next_it_sub_scope->get();
 
                 if (!next_it_sub_scope_instance->m_function_instance.has_value())
-                    donot_have_unused_variable = donot_have_unused_variable && _assign_storage_for_local_variable_instance(
-                        lex, lctx, funcname, next_it_sub_scope_instance, next_assign_offset, out_max_stack_count);
+                    donot_have_unused_variable = 
+                    _assign_storage_for_local_variable_instance(
+                        lex, lctx, funcname, next_it_sub_scope_instance, next_assign_offset, out_max_stack_count)
+                    && donot_have_unused_variable;
 
                 if (++next_it_sub_scope != it_sub_scope_end)
                     next_it_sub_scope_head_edge = (*next_it_sub_scope)->m_visibility_from_edge_for_template_check;
@@ -1292,8 +1294,10 @@ namespace wo
             auto* next_it_sub_scope_instance = next_it_sub_scope->get();
 
             if (!next_it_sub_scope_instance->m_function_instance.has_value())
-                donot_have_unused_variable = donot_have_unused_variable && _assign_storage_for_local_variable_instance(
-                    lex, lctx, funcname, (*next_it_sub_scope).get(), next_assign_offset, out_max_stack_count);
+                donot_have_unused_variable = 
+                _assign_storage_for_local_variable_instance(
+                    lex, lctx, funcname, (*next_it_sub_scope).get(), next_assign_offset, out_max_stack_count)
+                && donot_have_unused_variable;
 
             ++next_it_sub_scope;
         }
@@ -1465,9 +1469,21 @@ namespace wo
                 lang_Scope* function_scope = eval_function->m_LANG_function_scope.value();
 
                 int32_t local_storage_size = 0;
-                donot_have_unused_local_variable = donot_have_unused_local_variable
-                    && _assign_storage_for_local_variable_instance(
+
+                bool this_function_dont_have_unused_local_variable =
+                    _assign_storage_for_local_variable_instance(
                         lex, this, eval_fucntion_name, eval_function->m_LANG_function_scope.value(), 0, &local_storage_size);
+
+                if (!this_function_dont_have_unused_local_variable)
+                {
+                    lex.lang_error(lexer::errorlevel::infom, eval_function,
+                        WO_INFO_IN_FUNCTION_NAMED,
+                        str_to_wstr(eval_fucntion_name).c_str());
+                }
+
+                donot_have_unused_local_variable =
+                    this_function_dont_have_unused_local_variable
+                    && donot_have_unused_local_variable;
 
                 // 2. Assign value arguments.
                 argument_place = no_captured_arguement_place;
@@ -2664,7 +2680,7 @@ namespace wo
                 m_inused_temporary_registers.insert(std::make_pair(i, DebugBorrowRecord{ borrow_from , lineno }));
 #endif
                 return opnum_temporary(i);
-        }
+            }
     }
         wo_error("Temporary register exhausted.");
 }

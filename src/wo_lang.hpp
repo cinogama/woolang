@@ -1089,6 +1089,7 @@ namespace wo
             ast::AstTypeHolder* accept_type_formal,
             const std::list<wo_pstring_t>& pending_template_params);
 
+        ast::AstValueBase* get_marked_origin_value_node(ast::AstValueBase* node);
         bool check_need_template_deduct_function(lexer& lex, ast::AstValueBase* target, PassProcessStackT& out_stack);
         bool check_need_template_deduct_struct_type(lexer& lex, ast::AstTypeHolder* target, PassProcessStackT& out_stack);
 

@@ -82,5 +82,6 @@ int main(int argc, char** argv)
     }
 
     wo_finish(nullptr, nullptr);
+
     return ret;
 }

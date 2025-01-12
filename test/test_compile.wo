@@ -474,19 +474,21 @@ func main()
         "@);
 
         assure_compile_success(@"
-        let mut dd = 0;
+            let mut dd = 0;
 
-        union result<T, F>
-        {
-            ok(T), err(F)
-        }
+            union result<T, F>
+            {
+                ok(T), err(F)
+            }
 
-        let mut opt = \_: void = 
-            dd == 1
-            ? result::ok(233.5)
-            | result::err("fuck");;
+            let mut opt = \_: void = 
+                dd == 1
+                ? result::ok(233.5): result<real, string>
+                | result::err("fuck"): result<real, string>
+                ;
+            ;
 
-        opt = \_: void = result::ok(3.14); as (void)=>result<real, string>;
+            opt = \_: void = result::ok(3.14); as (void)=>result<real, string>;
         "@);
 
         // Cannot index unindexable type or invalid index
@@ -573,13 +575,13 @@ func main()
             foo(func(x: string){do x;}, "Helloworld");
         "@);
         assure_compile_success(@"
-            let x = std::declval:<nothing>() is pending;
+            let x = typeid:<typeof(std::declval:<nothing>())>;
         "@);
         assure_compile_success(@"
-            let x = std::declval:<pending>() is pending;
+            let x = typeid:<typeof(std::declval:<pending>())>;
         "@);
         assure_compile_success(@"
-            let x = fooexist() is pending;
+            let x = typeid:<typeof(fooexist())>;
         "@);
         assure_compile_fail(@"
             func foo(x:string){}
@@ -667,8 +669,8 @@ func main()
             let m = option::value(1);
             match(m)
             { 
-                option::none?; 
-                option::value(n)?
+                none?; 
+                value(n)?
                     std::println(n); 
             }
         "@);
@@ -747,7 +749,7 @@ func main()
             }
         "@);
 
-        assure_compile_fail(@"
+        assure_compile_success(@"
             union Test
             {
                 A(int),
@@ -761,6 +763,22 @@ func main()
                 B(n)?;
                 C(n)?;
                 _?; 
+            }
+        "@);
+
+        assure_compile_fail(@"
+            union Test
+            {
+                A(int),
+                B(int),
+                C(int),
+            }
+
+            match(Test::A(3))
+            { 
+                A(n)?; 
+                A(n)?; 
+                A(n)?; 
             }
         "@);
 
@@ -797,7 +815,7 @@ func main()
         // Issue N221109: ref has been removed.
         assure_compile_success(@"let (a, b) = (1, mut 2);"@);
         assure_compile_fail(@"let (a, b) = (1, mut 2); a = 2;"@);
-        assure_compile_success(@"import woo::std; match(option::value(1)){option::value(a)?;option::none?;}"@);
+        assure_compile_success(@"import woo::std; match(option::value(1)){value(a)?;none?;}"@);
         assure_compile_success(@"import woo::std; match(option::value(1)){value(a)?;none?;}"@);
         assure_compile_fail(@"match(option::value(1)){option::value((a,))?;option::none?;}"@);
         assure_compile_fail(@"match(1){value((a,))?;none?;}"@);
@@ -919,39 +937,6 @@ func main()
             a[0] = 6;
             b[0] = 6;
         "@);
-
-        // Conflict gadt type is not allowed
-        assure_compile_success(@"
-            union gadt<T, A>
-            {
-                value(A): gadt<T, A>,
-            }
-        "@);
-        assure_compile_success(@"
-            union gadt<T>
-            {
-                value(int): gadt<T>,
-            }
-        "@);
-        assure_compile_fail(@"
-            union gadt<T, A>
-            {
-                value(A): gadt<A, T>,
-            }
-        "@);
-        assure_compile_fail(@"
-            union gadt<T>
-            {
-                value(T): gadt<string>,
-            }
-        "@);
-        assure_compile_success(@"
-            union gadt<T>
-            {
-                value(int): gadt<real>,
-            }
-            let a = gadt::value(1) as gadt<real>;
-        "@);
         
         assure_compile_fail(@"
             namespace prot
@@ -1017,10 +1002,12 @@ func main()
                 func f(){};
                 {
                     func f(){};
+                    do f;
                 }
+                do f;
             }
             "@);
-        assure_compile_success(@"
+        assure_compile_fail(@"
             import woo::std;
 
             func main()
@@ -1062,7 +1049,7 @@ func main()
 
             let _ = 5;
             "@);
-        assure_compile_fail(@"
+        assure_compile_success(@"
             import woo::std;
 
             let _<T> = 5;
@@ -1201,17 +1188,17 @@ func main()
             let a = struct{_ = do nil}: aaa::example_t;
             "@);
 
-        assure_compile_fail(@"
+        assure_compile_success(@"
             import woo::std;
             using RecursiveT = (RecursiveT, void);
             do option::none: option<RecursiveT>;
             "@);
-        assure_compile_fail(@"
+        assure_compile_success(@"
             import woo::std;
             using RecursiveT = (void, RecursiveT);
             do option::none: option<RecursiveT>;
             "@);
-        assure_compile_fail(@"
+        assure_compile_success(@"
             import woo::std;
             using RecursiveT = (RecursiveT, RecursiveT);
             do option::none: option<RecursiveT>;
@@ -1247,7 +1234,7 @@ func main()
 
         assure_compile_success(@"
             alias A<T> = struct{a: T<int>};
-            let a = []: array<A<array>>;
+            let a = []: array<A<array<nothing>>>;
             "@);
         assure_compile_fail(@"
             alias A<T> = struct{a: T<int>};
@@ -1336,10 +1323,10 @@ func main()
             foo(\_, _=do nil;);
             "@);
         
-        assure_compile_success(@"
+        assure_compile_fail(@"
             func foo()=> mut int{return 0;}
             "@);
-        assure_compile_success(@"
+        assure_compile_fail(@"
             func foo()=> int{return mut 0;}
             "@);
         assure_compile_success(@"
@@ -1425,11 +1412,11 @@ func main()
                 a = 5,
             }
         "@);
-        assure_compile_fail(@"
+        assure_compile_success(@"
             using AA = struct{protected __m: int};
             let a = AA{__m = 5};
         "@);
-        assure_compile_fail(@"
+        assure_compile_success(@"
             using AA = struct{protected __m: int};
             let a = struct{__m = 5}: AA;
         "@);
@@ -1452,42 +1439,51 @@ func main()
             let a = AA::create();
         "@);
         assure_compile_fail(@"
-            using AA = struct{protected __m: int}
+            namespace DDD
             {
-                public func create()
+                using AA = struct{protected __m: int}
                 {
-                    return AA{__m = 5};
+                    public func create()
+                    {
+                        return AA{__m = 5};
+                    }
                 }
             }
-            let a = AA::create();
+            let a = DDD::AA::create();
 
             do a.__m;
         "@);
         assure_compile_success(@"
-            using AA = struct{protected __m: int}
+            namespace DDD
             {
-                public func create()
+                using AA = struct{protected __m: int}
                 {
-                    return AA{__m = 5};
+                    public func create()
+                    {
+                        return AA{__m = 5};
+                    }
                 }
             }
-            let a = AA::create();
+            let a = DDD::AA::create();
 
-            namespace AA
+            namespace DDD
             {
                 do a.__m;
             }
         "@);
         assure_compile_fail(@"
-            using AA = struct{protected __m: int}
+            namespace DDD
             {
-                using AA = int;
-                public func create()
+                using AA = struct{protected __m: int}
                 {
-                    return AA{__m = 5};
+                    using AA = int;
+                    public func create()
+                    {
+                        return AA{__m = 5};
+                    }
                 }
             }
-            let a = AA::create();
+            let a = DDD::AA::create();
 
             do a.__m;
         "@);
@@ -1507,36 +1503,63 @@ func main()
             let a = AA::create(): BB: AA;
         "@);
         assure_compile_fail(@"
-            using AA = struct{protected __m: int}
+            namespace DDD
             {
-                using AA = real;
-                public func create()
+                using AA = struct{protected __m: int}
                 {
-                    return BB{__m = 5};
+                    using AA = real;
+                    public func create()
+                    {
+                        return BB{__m = 5};
+                    }
                 }
             }
+            alias BB = DDD::AA;
 
-            alias BB = AA;
-
-            let a = AA::create(): AA: BB;
+            let a = DDD::AA::create(): DDD::AA: BB;
 
             do a.__m;
         "@);
         assure_compile_fail(@"
-            using AA = struct{protected __m: int}
+            namespace DDD
             {
-                using AA = real;
-                public func create()
+                using AA = struct{protected __m: int}
                 {
-                    return BB{__m = 5};
+                    using AA = real;
+                    public func create()
+                    {
+                        return BB{__m = 5};
+                    }
                 }
             }
 
-            alias BB = AA;
+            alias BB = DDD::AA;
 
-            let a = AA::create(): AA: BB: AA;
+            let a = DDD::AA::create(): DDD::AA: BB: DDD::AA;
 
             namespace BB
+            {
+                do a.__m;
+            }
+        "@);
+        assure_compile_success(@"
+            namespace DDD
+            {
+                using AA = struct{protected __m: int}
+                {
+                    using AA = real;
+                    public func create()
+                    {
+                        return BB{__m = 5};
+                    }
+                }
+            }
+
+            alias BB = DDD::AA;
+
+            let a = DDD::AA::create(): DDD::AA: BB: DDD::AA;
+
+            namespace DDD
             {
                 do a.__m;
             }
@@ -1555,28 +1578,9 @@ func main()
 
             let a = AA::create(): AA: BB: AA;
 
-            namespace AA
-            {
-                do a.__m;
-            }
-        "@);
-        assure_compile_fail(@"
-            using AA = struct{protected __m: int}
-            {
-                using AA = real;
-                public func create()
-                {
-                    return BB{__m = 5};
-                }
-            }
-
-            alias BB = AA;
-
-            let a = AA::create(): AA: BB: AA;
-
             do a.__m;
         "@);
-        assure_compile_fail(@"
+        assure_compile_success(@"
             using AA = struct{protected __m: int}
             {
                 using AA = real;
@@ -1651,16 +1655,16 @@ func main()
         assure_compile_success(@"
         extern func foo(){}
         "@);
-        assure_compile_fail(@"
+        assure_compile_success(@"
         extern func foo(_){}
         "@);
 
         assure_compile_success(@"
-        func declval<T>()=> T{}
+        import woo::std;
 
         using aa = void
         {
-            alias test<T> = typeof(declval:<T>()->foo);
+            alias test<T> = typeof(std::declval:<T>()->foo);
         }
 
         namespace xxx
@@ -1677,7 +1681,7 @@ func main()
         assure_compile_success(@"
         using aa = void
         {
-            alias test<T> = T::ut;
+            alias test<T> = typeof:<T>::ut;
 
             alias ut = real;
         }
@@ -1696,7 +1700,7 @@ func main()
         assure_compile_fail(@"
         using aa = void
         {
-            alias test<T> = T::ut;
+            alias test<T> = typeof:<T>::ut;
 
             alias ut = real;
         }
@@ -1715,7 +1719,7 @@ func main()
         assure_compile_success(@"
         using aa = void
         {
-            alias test<T> = T::ut;
+            alias test<T> = typeof:<T>::ut;
 
             alias bx = real;
         }
@@ -1733,11 +1737,9 @@ func main()
         "@);
 
         assure_compile_success(@"
-        func declval<T>()=> T{}
-
         using aa = void
         {
-            alias test<T> = typeof(T::bk:<T>);
+            alias test<T> = typeof(typeof:<T>::bk:<T>);
 
             let bk = 0;
         }
@@ -1813,7 +1815,7 @@ func main()
             work: (interface::Instance,) => void,
         };
         protected let proxy<T> = Proxy {
-            work = \self = self->unsafe::cast:<T>->T::work();
+            work = \self = self->unsafe::cast:<T>->typeof:<T>::work();
         };
         namespace int
         {
@@ -1832,7 +1834,7 @@ func main()
             work: (interface::Instance,) => void,
         };
         protected let proxy<T> = Proxy {
-            work = \self = self->unsafe::cast:<T>->T::work();
+            work = \self = self->unsafe::cast:<T>->typeof:<T>::work();
         };
         do proxy:<int>;
         "@);
@@ -1895,7 +1897,7 @@ func main()
         "@);
 
         assure_compile_fail(@"
-        do foo is pending;
+        do typeid:<typeof(foo)>;
         func foo()
         {
             do abc;
@@ -1903,7 +1905,7 @@ func main()
         "@);
 
         assure_compile_fail(@"
-        do foo is pending;
+        do typeid:<typeof(foo)>;
         let foo = abc;
         "@);
 
@@ -1936,7 +1938,7 @@ func main()
 
         assure_compile_success(@"
         let v<T> = 1 + T{};
-        do v:<int> is pending;
+        do typeid:<typeof(v:<int>)>;
         "@);
 
         assure_compile_fail(@"

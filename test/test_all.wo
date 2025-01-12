@@ -9,7 +9,7 @@ import test_string_u8;
 import test_basic;
 import test_monad;
 import test_container;
-// import test_compile;
+import test_compile;
 import test_coroutine;
 import test_hkt;
 import test_exception;

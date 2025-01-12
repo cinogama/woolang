@@ -146,3 +146,4 @@
 
 // PASSIR BYTECODE GENERATOR(INFO)
 #define WO_INFO_BAD_LABEL_NAMED L"无法找到标签为 `%ls` 的循环"
+#define WO_INFO_IN_FUNCTION_NAMED L"在函数 '%ls' 中"

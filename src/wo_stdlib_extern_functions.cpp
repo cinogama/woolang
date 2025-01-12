@@ -2158,15 +2158,20 @@ namespace std
     public func rand<T>(from: T, to: T)=> T
         where from is int || from is real;
     {
-        extern("rslib_std_randomint") 
+        if (from is int)
+        {
+            extern("rslib_std_randomint") 
             func rand_int(from: int, to: int)=> int;
-        extern("rslib_std_randomreal") 
+
+            return rand_int(from, to);
+        }
+        else
+        {
+            extern("rslib_std_randomreal") 
             func rand_real(from: real, to: real)=> real;
 
-        if (from is int)
-            return rand_int(from, to);
-        else
             return rand_real(from, to);
+        }
     }
 
     extern("rslib_std_break_yield") 
@@ -2464,8 +2469,7 @@ namespace array
         let result = []mut: vec<R>;
         for (let elem : val)
         {
-            let r = functor(elem);
-            result->add(r);
+            result->add(functor(elem));
         }
         return result->unsafe::cast:<array<R>>;
     }
