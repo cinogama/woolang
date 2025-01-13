@@ -3904,17 +3904,7 @@ namespace wo
                 operator_identifier->source_location = node->source_location;
 
                 bool ambiguous = false;
-                if (!find_symbol_in_current_scope(lex, operator_identifier, &ambiguous))
-                {
-                    operator_identifier->m_formal = AstIdentifier::FROM_CURRENT;
-                    operator_identifier->m_from_type = std::nullopt;
-
-                    find_symbol_in_current_scope(lex, operator_identifier, &ambiguous);
-                }
-                if (ambiguous)
-                    return FAILED;
-
-                if (operator_identifier->m_LANG_determined_symbol.has_value())
+                if (find_symbol_in_current_scope(lex, operator_identifier, &ambiguous))
                 {
                     // Has overload function.
                     AstValueVariable* overload_function = new AstValueVariable(operator_identifier);
@@ -3932,6 +3922,8 @@ namespace wo
                     node->m_LANG_hold_state = AstValueBinaryOperator::HOLD_FOR_OVERLOAD_FUNCTION_CALL_EVAL;
                     return HOLD;
                 }
+                else if (ambiguous)
+                    return FAILED;
                 else
                 {
                     // No function overload, type check.
@@ -5125,17 +5117,7 @@ namespace wo
                     operator_identifier->source_location = node->source_location;
 
                     bool ambiguous = false;
-                    if (!find_symbol_in_current_scope(lex, operator_identifier, &ambiguous))
-                    {
-                        operator_identifier->m_formal = AstIdentifier::FROM_CURRENT;
-                        operator_identifier->m_from_type = std::nullopt;
-
-                        find_symbol_in_current_scope(lex, operator_identifier, &ambiguous);
-                    }
-                    if (ambiguous)
-                        return FAILED;
-
-                    if (operator_identifier->m_LANG_determined_symbol.has_value())
+                    if (find_symbol_in_current_scope(lex, operator_identifier, &ambiguous))
                     {
                         // Has overload function.
                         AstValueVariable* overload_function = new AstValueVariable(operator_identifier);
@@ -5153,7 +5135,10 @@ namespace wo
                         node->m_LANG_hold_state = AstValueAssign::HOLD_FOR_OVERLOAD_FUNCTION_CALL_EVAL;
                         return HOLD;
                     }
-
+                    else if (ambiguous)
+                        return FAILED;
+                    else
+                        ; // No function overload, continue;
                 }
 
                 // No function overload, type check.

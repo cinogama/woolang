@@ -267,7 +267,7 @@ namespace wo
             return std::nullopt;
         }
         static auto _process_function_params(lexer& lex, AstList* paraments)
-            ->std::tuple<bool, std::list<AstFunctionParameterDeclare*>>
+            -> std::tuple<bool, std::list<AstFunctionParameterDeclare*>>
         {
             bool is_variadic_function = false;
             std::list<AstFunctionParameterDeclare*> in_params;
@@ -309,11 +309,11 @@ namespace wo
             if (!WO_IS_EMPTY(8))
                 where_constraints = static_cast<AstWhereConstraints*>(WO_NEED_AST_TYPE(8, AstBase::AST_WHERE_CONSTRAINTS));
 
-            std::optional<std::list<wo_pstring_t>> in_template_params = 
+            std::optional<std::list<wo_pstring_t>> in_template_params =
                 _process_template_params(template_params);
 
-            auto[is_variadic_function, in_params] = _process_function_params(lex, paraments);
-    
+            auto [is_variadic_function, in_params] = _process_function_params(lex, paraments);
+
             auto* function_define = new AstVariableDefines(attrib);
             auto* function_value = new AstValueFunction(
                 in_params, is_variadic_function, std::nullopt, marked_return_type, where_constraints, body);
@@ -351,7 +351,7 @@ namespace wo
             if (!WO_IS_EMPTY(9))
                 where_constraints = static_cast<AstWhereConstraints*>(WO_NEED_AST_TYPE(9, AstBase::AST_WHERE_CONSTRAINTS));
 
-            std::optional<std::list<wo_pstring_t>> in_template_params = 
+            std::optional<std::list<wo_pstring_t>> in_template_params =
                 _process_template_params(template_params);
 
             auto [is_variadic_function, in_params] = _process_function_params(lex, paraments);
@@ -373,7 +373,7 @@ namespace wo
         }
         auto pass_func_def_extn::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
-            AstExternInformation* extern_info = 
+            AstExternInformation* extern_info =
                 static_cast<AstExternInformation*>(WO_NEED_AST_TYPE(0, AstBase::AST_EXTERN_INFORMATION));
             std::optional<AstDeclareAttribue*> attrib = std::nullopt;
             AstToken* function_name = static_cast<AstToken*>(WO_NEED_AST_TYPE(3, AstBase::AST_TOKEN));
@@ -393,7 +393,7 @@ namespace wo
             if (!WO_IS_EMPTY(9))
                 where_constraints = static_cast<AstWhereConstraints*>(WO_NEED_AST_TYPE(9, AstBase::AST_WHERE_CONSTRAINTS));
 
-            std::optional<std::list<wo_pstring_t>> in_template_params = 
+            std::optional<std::list<wo_pstring_t>> in_template_params =
                 _process_template_params(template_params);
 
             auto [is_variadic_function, in_params] = _process_function_params(lex, paraments);
@@ -503,17 +503,17 @@ namespace wo
             if (!WO_IS_EMPTY(7))
                 where_constraints = static_cast<AstWhereConstraints*>(WO_NEED_AST_TYPE(7, AstBase::AST_WHERE_CONSTRAINTS));
 
-            std::optional<std::list<wo_pstring_t>> in_template_params = 
+            std::optional<std::list<wo_pstring_t>> in_template_params =
                 _process_template_params(template_params);
 
             auto [is_variadic_function, in_params] = _process_function_params(lex, paraments);
 
             return new AstValueFunction(
-                in_params, 
-                is_variadic_function, 
-                in_template_params, 
-                marked_return_type, 
-                where_constraints, 
+                in_params,
+                is_variadic_function,
+                in_template_params,
+                marked_return_type,
+                where_constraints,
                 body);
         }
         auto pass_func_lambda::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
@@ -529,7 +529,7 @@ namespace wo
             if (!WO_IS_EMPTY(5))
                 body_1 = static_cast<AstVariableDefines*>(WO_NEED_AST_TYPE(5, AstBase::AST_VARIABLE_DEFINES));
 
-            std::optional<std::list<wo_pstring_t>> in_template_params = 
+            std::optional<std::list<wo_pstring_t>> in_template_params =
                 _process_template_params(template_params);
 
             auto [is_variadic_function, in_params] = _process_function_params(lex, paraments);
@@ -548,11 +548,11 @@ namespace wo
             function_scope->source_location = body_0->source_location;
 
             return new AstValueFunction(
-                in_params, 
-                is_variadic_function, 
-                in_template_params, 
-                std::nullopt, 
-                std::nullopt, 
+                in_params,
+                is_variadic_function,
+                in_template_params,
+                std::nullopt,
+                std::nullopt,
                 function_scope);
         }
         auto pass_if::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
@@ -782,7 +782,7 @@ namespace wo
 
             if (!WO_IS_EMPTY(0))
             {
-                AstToken* describe = 
+                AstToken* describe =
                     static_cast<AstToken*>(WO_NEED_AST_TYPE(0, AstBase::AST_TOKEN));
 
                 switch (describe->m_token.type)
@@ -816,7 +816,7 @@ namespace wo
 
                 if (exist_field_name.insert(field_define->m_name).second == false)
                     return token{ lex.lang_error(lexer::errorlevel::error, field,
-                        WO_ERR_REPEATED_FIELD_NAMED, 
+                        WO_ERR_REPEATED_FIELD_NAMED,
                         field_define->m_name->c_str()) };
             }
 
@@ -914,7 +914,7 @@ namespace wo
 
             AstIdentifier* void_identifier = new AstIdentifier(WO_PSTR(void), std::nullopt, {}, true);
             AstTypeHolder* void_type = new AstTypeHolder(void_identifier);
-            
+
             AstValueTypeCast* cast = new AstValueTypeCast(void_type, value);
 
             // Update source location
@@ -1033,7 +1033,7 @@ namespace wo
                 wo_error("Unknown literal type.");
                 break;
             }
-            
+
             return literal_instance;
         }
         auto pass_literal_char::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
@@ -1124,7 +1124,7 @@ namespace wo
 
             AstIdentifier* string_identifier = new AstIdentifier(WO_PSTR(string), std::nullopt, {}, true);
             AstTypeHolder* string_type = new AstTypeHolder(string_identifier);
-            
+
             AstValueTypeCast* cast = new AstValueTypeCast(string_type, value);
 
             // Update source location
@@ -1235,8 +1235,15 @@ namespace wo
         }
         auto pass_inverse_function_call::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
-            AstValueFunctionCall* function_call = 
-                static_cast<AstValueFunctionCall*>(WO_NEED_AST_TYPE(0, AstBase::AST_VALUE_FUNCTION_CALL));
+            AstValueBase* inverse_func = WO_NEED_AST_VALUE(0);
+            AstValueFunctionCall* function_call;
+            if (inverse_func->node_type == AstBase::AST_VALUE_FUNCTION_CALL)
+                function_call = static_cast<AstValueFunctionCall*>(inverse_func);
+            else
+            {
+                function_call = new AstValueFunctionCall(false, inverse_func, {});
+                function_call->source_location = inverse_func->source_location;
+            }
             AstValueBase* inverse_argument = WO_NEED_AST_VALUE(2);
 
             if (function_call->m_is_direct_call)
@@ -1496,7 +1503,7 @@ namespace wo
                 fields.push_back(field_pair);
 
                 if (!exist_field_name.insert(field_pair->m_name).second)
-                    return token{ lex.lang_error(lexer::errorlevel::error, field, 
+                    return token{ lex.lang_error(lexer::errorlevel::error, field,
                         WO_ERR_REPEATED_FIELD_NAMED,
                         field_pair->m_name->c_str()) };
             }
@@ -1506,7 +1513,7 @@ namespace wo
         auto pass_array_instance::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstList* elements = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
-           
+
             std::list<AstValueBase*> values;
             for (auto& element : elements->m_list)
             {
@@ -1667,16 +1674,16 @@ namespace wo
 
             return new AstExternInformation(
                 wo::wstring_pool::get_pstr(symbol.identifier),
-                library 
-                    ? std::optional(wo::wstring_pool::get_pstr(library->identifier)) 
-                    : std::nullopt, 
+                library
+                ? std::optional(wo::wstring_pool::get_pstr(library->identifier))
+                : std::nullopt,
                 attribute_mask);
         }
     }
 
     namespace ast
     {
-        void init_builder() 
+        void init_builder()
         {
 #define WO_AST_BUILDER(...) _registed_builder_function_id_list[meta::type_hash<__VA_ARGS__>] = _register_builder<__VA_ARGS__>(); 
             WO_AST_BUILDER(pass_direct<0>);

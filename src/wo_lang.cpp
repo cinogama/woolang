@@ -2325,9 +2325,6 @@ namespace wo
         std::optional<ast::AstValueFunction*> variable_defined_in_function_may_null =
             get_scope_located_function(variable_defined_scope);
 
-        wo_assert(variable_instance->m_symbol->m_is_global
-            == !variable_defined_in_function_may_null.has_value());
-
         if (!variable_defined_in_function_may_null.has_value()
             || (variable_instance->m_symbol->m_declare_attribute.has_value()
                 && variable_instance->m_symbol->m_declare_attribute.value()->m_lifecycle.has_value()
