@@ -1313,7 +1313,27 @@ namespace wo
         if (anonymous_func->m_IR_binded_value_instance.has_value())
         {
             lang_ValueInstance* value_instance = anonymous_func->m_IR_binded_value_instance.value();
-            return lctx->get_value_name(value_instance);
+            std::string name = lctx->get_value_name(value_instance);
+            
+            lang_Scope* function_located_scope =
+                anonymous_func->m_LANG_function_scope.value()->m_parent_scope.value();
+
+            if (!function_located_scope->is_namespace_scope())
+            {
+                char local_name[32];
+                sprintf(local_name, "[local_%p]", function_located_scope);
+
+                auto function = lctx->get_scope_located_function(function_located_scope);
+                if (function.has_value())
+                    name = 
+                        get_anonymous_function_name(lctx, function.value()) 
+                        + "::" 
+                        + local_name
+                        + "::"
+                        + name;
+            }
+
+            return name;
         }
 
         std::string result;
@@ -1393,6 +1413,7 @@ namespace wo
                 std::string eval_fucntion_name = get_anonymous_function_name(this, eval_function);
                 m_ircontext.c().pdb_info->generate_func_begin(
                     eval_fucntion_name,
+                    eval_function,
                     &m_ircontext.c());
 
                 if (eval_function->m_IR_binded_value_instance.has_value())

@@ -930,7 +930,15 @@ namespace wo
                 m_ircontext.c().ret();
         }
         else
+        {
+            if (!node->m_value.has_value())
+                // If return void outside function, treat as return 0;
+                m_ircontext.c().mov(
+                    WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::cr)),
+                    WO_OPNUM(m_ircontext.opnum_imm_int(0)));
+
             m_ircontext.c().jmp(opnum::tag("#woolang_program_end"));
+        }
 
         return OKAY;
     }

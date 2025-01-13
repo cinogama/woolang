@@ -11,16 +11,23 @@ namespace wo
         // funcdef should not genrate val..
         if (ast_node->source_location.source_file)
         {
-            bool unbreakable = /*dynamic_cast<ast::ast_value_function_define*>(ast_node)
-                || dynamic_cast<ast::ast_list*>(ast_node)
-                || dynamic_cast<ast::ast_namespace*>(ast_node)
-                || dynamic_cast<ast::ast_sentence_block*>(ast_node)
-                || dynamic_cast<ast::ast_if*>(ast_node)
-                || dynamic_cast<ast::ast_while*>(ast_node)
-                || dynamic_cast<ast::ast_forloop*>(ast_node)
-                || dynamic_cast<ast::ast_foreach*>(ast_node)
-                || dynamic_cast<ast::ast_match*>(ast_node)*/
-                false;
+            bool unbreakable = false;
+            switch (ast_node->node_type)
+            {
+            case ast::AstBase::AST_VALUE_FUNCTION:
+            case ast::AstBase::AST_LIST:
+            case ast::AstBase::AST_NAMESPACE:
+            case ast::AstBase::AST_SCOPE:
+            case ast::AstBase::AST_IF:
+            case ast::AstBase::AST_WHILE:
+            case ast::AstBase::AST_FOR:
+            case ast::AstBase::AST_FOREACH:
+            case ast::AstBase::AST_MATCH:
+                unbreakable = true;
+                break;
+            default:
+                break;
+            }
 
             auto& location_list_of_file = _general_src_data_buf_a[*ast_node->source_location.source_file];
 
@@ -29,7 +36,7 @@ namespace wo
                 ast_node->source_location.begin_at.row,
                 ast_node->source_location.begin_at.column,
                 ast_node->source_location.end_at.row,
-                ast_node->source_location.begin_at.column,
+                ast_node->source_location.end_at.column,
                 *ast_node->source_location.source_file,
                 unbreakable
             };
@@ -140,9 +147,10 @@ namespace wo
         return SIZE_MAX;
     }
 
-    void program_debug_data_info::generate_func_begin(const std::string& function_name, ir_compiler* compiler)
+    void program_debug_data_info::generate_func_begin(const std::string& function_name, ast::AstBase* ast_node, ir_compiler* compiler)
     {
         _function_ip_data_buf[function_name].ir_begin = compiler->get_now_ip();
+        generate_debug_info_at_astnode(ast_node, compiler);
     }
     void program_debug_data_info::generate_func_end(const std::string& function_name, size_t tmpreg_count, ir_compiler* compiler)
     {
@@ -150,7 +158,7 @@ namespace wo
     }
     void program_debug_data_info::add_func_variable(const std::string& function_name, const std::wstring& varname, size_t rowno, wo_integer_t loc)
     {
-       _function_ip_data_buf[function_name].add_variable_define(varname, rowno, loc);
+        _function_ip_data_buf[function_name].add_variable_define(varname, rowno, loc);
     }
 
     std::string program_debug_data_info::get_current_func_signature_by_runtime_ip(const byte_t* rt_pos) const
@@ -2060,7 +2068,7 @@ namespace wo
             auto* opnum2 = ir_command_buffer[i].op2;
 
             size_t skip_line = 0;
-            if (ir_command_buffer[i].opcode == instruct::lds 
+            if (ir_command_buffer[i].opcode == instruct::lds
                 || ir_command_buffer[i].opcode == instruct::sts)
             {
                 auto* imm_opnum_stx_offset = dynamic_cast<const opnum::immbase*>(opnum2);
@@ -2202,7 +2210,7 @@ namespace wo
                     }
                 }
 
-                
+
                 break;
             }
             default:

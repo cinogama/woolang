@@ -438,7 +438,7 @@ namespace wo
         void generate_debug_info_at_astnode(ast::AstBase* ast_node, ir_compiler* compiler);
         void finalize_generate_debug_info();
 
-        void generate_func_begin(const std::string& function_name, ir_compiler* compiler);
+        void generate_func_begin(const std::string& function_name, ast::AstBase* ast_node, ir_compiler* compiler);
         void generate_func_end(const std::string& function_name, size_t tmpreg_count, ir_compiler* compiler);
         void add_func_variable(const std::string& function_name, const std::wstring& varname, size_t rowno, wo_integer_t loc);
 #endif
