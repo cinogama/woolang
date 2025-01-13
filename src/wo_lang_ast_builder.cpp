@@ -1004,7 +1004,8 @@ namespace wo
             token literal = WO_NEED_TOKEN(0);
             AstValueLiteral* literal_instance = new AstValueLiteral();
 
-            wo::value literal_value;
+            literal_instance->decide_final_constant_value(wo::value{});
+            wo::value& literal_value = literal_instance->m_evaled_const_value.value();
             switch (literal.type)
             {
             case lex_type::l_literal_integer:
@@ -1032,7 +1033,7 @@ namespace wo
                 wo_error("Unknown literal type.");
                 break;
             }
-            literal_instance->decide_final_constant_value(literal_value);
+            
             return literal_instance;
         }
         auto pass_literal_char::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
