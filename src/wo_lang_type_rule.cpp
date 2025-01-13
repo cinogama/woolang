@@ -628,9 +628,13 @@ namespace wo
         lang_TypeInstance* btype,
         PassProcessStackT& out_stack)
     {
-        if (atype == btype)
-            // Two type is same, return them.
+        if (is_type_accepted(lex, node, atype, btype) == lang_TypeInstance::TypeCheckResult::ACCEPT)
+            // A accept B, return A.
             return TypeMixtureResult{ TypeMixtureResult::ACCEPT, atype };
+
+        if (is_type_accepted(lex, node, btype, atype) == lang_TypeInstance::TypeCheckResult::ACCEPT)
+            // B accept A, return B.
+            return TypeMixtureResult{ TypeMixtureResult::ACCEPT, btype };
 
         auto* immutable_atype = immutable_type(atype);
         auto* immutable_btype = immutable_type(btype);
