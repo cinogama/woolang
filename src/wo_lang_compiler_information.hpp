@@ -125,6 +125,7 @@
 #define WO_ERR_SYMBOL_IS_PROTECTED L"符号 '%ls' 是受保护的, 只能在命名空间 '%ls' 内访问"
 #define WO_ERR_STRUCT_FIELD_IS_PRIVATE L"结构体字段 '%ls' 是私有的, 只能在 '%ls' 中访问"
 #define WO_ERR_STRUCT_FIELD_IS_PROTECTED L"结构体字段 '%ls' 是受保护的, 只能在命名空间 '%ls' 内访问"
+#define WO_ERR_UNABLE_TO_MIX_TYPES L"无法推导出同时接受 '%ls' 和 '%ls' 的类型"
 
 // PASS0_1 TYPE CHECK PARSE(INFO)
 #define WO_INFO_MAYBE_NAMED_DEFINED_HERE L"可能是这里的 '%ls'"
@@ -134,6 +135,7 @@
 #define WO_INFO_THIS_VALUE_IS_TYPE_NAMED L"表达式的类型是 '%ls'"
 #define WO_INFO_CAPTURED_VARIABLE_USED_HERE L"捕获了来自函数外部的 '%ls'"
 #define WO_INFO_TRYING_REFILL_TEMPLATE_ARGUMENT L"尝试为类型 '%ls'(通过类型别名 '%ls' 指示) 重新提供泛型参数"
+#define WO_INFO_OLD_FUNCTION_RETURN_TYPE_IS L"此前函数的返回类型被推断为 '%ls'"
 
 // PASSIR BYTECODE GENERATOR
 #define WO_ERR_NON_VOID_TYPE_EXPR_AS_STMT L"非 'void' 类型 (此处是 '%ls') 的表达式不能作为语句, 这可能导致表达式的结果被意外忽略"

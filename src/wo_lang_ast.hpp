@@ -29,6 +29,7 @@ namespace wo
     struct lang_Scope;
     struct lang_Namespace;
     struct lang_TemplateAstEvalStateBase;
+    struct lang_TemplateAstEvalStateType;
 
     namespace opnum
     {
@@ -452,6 +453,9 @@ namespace wo
             AstValueBase* m_false_value;
 
             LANG_hold_state m_LANG_hold_state;
+
+            std::optional<std::pair<lang_TemplateAstEvalStateType*, bool>> 
+                m_LANG_template_evalating_state_is_mutable;
 
             AstValueTribleOperator(AstValueBase* condition, AstValueBase* true_value, AstValueBase* false_value);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
@@ -922,6 +926,8 @@ namespace wo
             std::optional<AstValueBase*> m_value;
 
             std::optional<AstValueFunction*> m_LANG_belong_function_may_null_if_outside;
+            std::optional<std::pair<lang_TemplateAstEvalStateType*, bool>>
+                                             m_LANG_template_evalating_state_is_mutable;
 
             AstReturn(const std::optional<AstValueBase*>& value);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;

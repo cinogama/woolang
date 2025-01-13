@@ -1058,6 +1058,27 @@ namespace wo
             lang_TypeInstance* aimtype,
             lang_TypeInstance* srctype);
 
+        struct TypeMixtureResult
+        {
+            enum action
+            {
+                REJECT,
+                ACCEPT,
+                TEMPLATE_NORMAL,
+                TEMPLATE_MUTABLE,
+            };
+            action                          m_state;
+            lang_TypeInstance*              m_result;
+            lang_TemplateAstEvalStateType*  m_template_instance;
+        };
+
+        TypeMixtureResult easy_mixture_types(
+            lexer& lex,
+            ast::AstBase* node,
+            lang_TypeInstance* atype,
+            lang_TypeInstance* btype,
+            PassProcessStackT& out_stack);
+
         std::wstring _get_scope_name(lang_Scope* scope);
         std::wstring _get_symbol_name(lang_Symbol* scope);
         std::wstring _get_type_name(lang_TypeInstance* scope);

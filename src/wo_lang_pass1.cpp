@@ -1372,6 +1372,8 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
+            node->m_LANG_belong_function_may_null_if_outside = get_current_function();
+
             if (node->m_value.has_value())
                 WO_CONTINUE_PROCESS(node->m_value.value());
 
@@ -1379,55 +1381,110 @@ namespace wo
         }
         else if (state == HOLD)
         {
-            auto current_function = get_current_function();
-            node->m_LANG_belong_function_may_null_if_outside = current_function;
-
-            if (node->m_value.has_value())
+            if (node->m_LANG_belong_function_may_null_if_outside.has_value())
             {
-                if (current_function)
+                lang_TypeInstance* return_value_type;
+                if (node->m_value)
+                    return_value_type = node->m_value.value()->m_LANG_determined_type.value();
+                else
+                    return_value_type = m_origin_types.m_void.m_type_instance;
+
+                auto* function_instance = node->m_LANG_belong_function_may_null_if_outside.value();
+
+                // Has marked return type?
+                if (function_instance->m_marked_return_type.has_value())
                 {
-                    auto* function_instance = current_function.value();
-
-                    lang_TypeInstance* return_value_type;
-                    if (node->m_value)
-                        return_value_type = node->m_value.value()->m_LANG_determined_type.value();
-                    else
-                        return_value_type = m_origin_types.m_void.m_type_instance;
-
-                    if (!function_instance->m_LANG_determined_return_type.has_value()
-                        && function_instance->m_marked_return_type.has_value())
-                    {
+                    if (function_instance->m_LANG_determined_return_type.has_value())
                         function_instance->m_LANG_determined_return_type =
                             function_instance->m_marked_return_type.value()->m_LANG_determined_type.value();
-                    }
 
-                    if (function_instance->m_LANG_determined_return_type)
+                    // Cannot mixture deduce type.
+                }
+                else if (function_instance->m_LANG_determined_return_type.has_value())
+                {
+                    if (node->m_LANG_template_evalating_state_is_mutable.has_value())
                     {
-                        auto* return_type_instance =
-                            function_instance->m_LANG_determined_return_type.value();
-                        auto* determined_return_type =
-                            node->m_value.value()->m_LANG_determined_type.value();
+                        auto& eval_content = node->m_LANG_template_evalating_state_is_mutable.value();
+                        finish_eval_template_ast(lex, eval_content.first);
 
-                        if (lang_TypeInstance::TypeCheckResult::ACCEPT != is_type_accepted(
+                        function_instance->m_LANG_determined_return_type =
+                            eval_content.second
+                            ? mutable_type(eval_content.first->m_type_instance.get())
+                            : eval_content.first->m_type_instance.get();
+                    }
+                    else
+                    {
+                        auto* last_function_return_type = function_instance->m_LANG_determined_return_type.value();
+
+                        // Mixture it!
+                        auto mixture_branch_type = easy_mixture_types(
                             lex,
                             node,
-                            return_type_instance,
-                            determined_return_type))
+                            return_value_type,
+                            last_function_return_type,
+                            out_stack);
+
+                        if (mixture_branch_type.m_state == TypeMixtureResult::ACCEPT)
+                        {
+                            function_instance->m_LANG_determined_return_type = mixture_branch_type.m_result;
+                        }
+                        else if (mixture_branch_type.m_state == TypeMixtureResult::TEMPLATE_MUTABLE
+                            || mixture_branch_type.m_state == TypeMixtureResult::TEMPLATE_NORMAL)
+                        {
+                            node->m_LANG_template_evalating_state_is_mutable = std::make_pair(
+                                mixture_branch_type.m_template_instance,
+                                mixture_branch_type.m_state == TypeMixtureResult::TEMPLATE_MUTABLE);
+
+                            return HOLD;
+                        }
+                        else
                         {
                             lex.lang_error(lexer::errorlevel::error, node,
-                                WO_ERR_UNMATCHED_RETURN_TYPE_NAMED,
-                                get_type_name_w(determined_return_type),
-                                get_type_name_w(return_type_instance));
+                                WO_ERR_UNABLE_TO_MIX_TYPES,
+                                get_type_name_w(last_function_return_type),
+                                get_type_name_w(return_value_type));
+
+                            lex.lang_error(lexer::errorlevel::infom, function_instance,
+                                WO_INFO_OLD_FUNCTION_RETURN_TYPE_IS,
+                                get_type_name_w(last_function_return_type));
+
                             return FAILED;
                         }
                     }
-                    else
+                }
+
+                if (function_instance->m_LANG_determined_return_type.has_value())
+                {
+                    // Check acceptable?
+                    auto* return_type_instance =
+                        function_instance->m_LANG_determined_return_type.value();
+
+                    if (lang_TypeInstance::TypeCheckResult::ACCEPT != is_type_accepted(
+                        lex,
+                        node,
+                        return_type_instance,
+                        return_value_type))
                     {
-                        function_instance->m_LANG_determined_return_type =
-                            node->m_value.value()->m_LANG_determined_type;
+                        lex.lang_error(lexer::errorlevel::error, node,
+                            WO_ERR_UNMATCHED_RETURN_TYPE_NAMED,
+                            get_type_name_w(return_value_type),
+                            get_type_name_w(return_type_instance));
+                        return FAILED;
                     }
                 }
+                else
+                    function_instance->m_LANG_determined_return_type = return_value_type;
+
             }
+        }
+        else
+        {
+            if (node->m_LANG_template_evalating_state_is_mutable.has_value())
+            {
+                auto& eval_content = node->m_LANG_template_evalating_state_is_mutable.value();
+                failed_eval_template_ast(lex, node, eval_content.first);
+            }
+
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
@@ -1551,7 +1608,7 @@ namespace wo
                         return FAILED;
                     }
 
-                    if (lang_TypeInstance::TypeCheckResult::ACCEPT 
+                    if (lang_TypeInstance::TypeCheckResult::ACCEPT
                         != is_type_accepted(lex, element, value_type, element_value_type))
                     {
                         lex.lang_error(lexer::errorlevel::error, element,
@@ -2369,7 +2426,7 @@ namespace wo
                 auto& param_and_argument_pair = node->m_arguments_tobe_deduct.front();
 
                 lang_TypeInstance* param_type = param_and_argument_pair.m_param_type;
-                
+
 
                 std::list<std::optional<lang_TypeInstance*>> param_argument_types;
                 std::optional<lang_TypeInstance*> param_return_type = std::nullopt;
@@ -4446,22 +4503,94 @@ namespace wo
                 }
                 else
                 {
+                    auto* true_type_instance = node->m_true_value->m_LANG_determined_type.value();
+                    auto* false_type_instance = node->m_false_value->m_LANG_determined_type.value();
+
+                    if (node->m_LANG_template_evalating_state_is_mutable.has_value())
+                    {
+                        auto& eval_content = node->m_LANG_template_evalating_state_is_mutable.value();
+                        finish_eval_template_ast(lex, eval_content.first);
+
+                        node_final_type =
+                            eval_content.second
+                            ? mutable_type(eval_content.first->m_type_instance.get())
+                            : eval_content.first->m_type_instance.get();
+                    }
+                    else
+                    {
+                        auto mixture_branch_type = easy_mixture_types(
+                            lex,
+                            node,
+                            true_type_instance,
+                            false_type_instance,
+                            out_stack);
+
+                        node_final_type = true_type_instance;
+                        if (mixture_branch_type.m_state == TypeMixtureResult::ACCEPT)
+                        {
+                            node_final_type = mixture_branch_type.m_result;
+                        }
+                        else if (mixture_branch_type.m_state == TypeMixtureResult::TEMPLATE_MUTABLE
+                            || mixture_branch_type.m_state == TypeMixtureResult::TEMPLATE_NORMAL)
+                        {
+                            node->m_LANG_template_evalating_state_is_mutable = std::make_pair(
+                                mixture_branch_type.m_template_instance,
+                                mixture_branch_type.m_state == TypeMixtureResult::TEMPLATE_MUTABLE);
+
+                            return HOLD;
+                        }
+                        else
+                        {
+                            lex.lang_error(lexer::errorlevel::error, node,
+                                WO_ERR_UNABLE_TO_MIX_TYPES,
+                                get_type_name_w(true_type_instance),
+                                get_type_name_w(false_type_instance));
+
+                            lex.lang_error(lexer::errorlevel::infom, node->m_true_value,
+                                WO_INFO_THIS_VALUE_IS_TYPE_NAMED,
+                                get_type_name_w(true_type_instance));
+
+                            lex.lang_error(lexer::errorlevel::infom, node->m_false_value,
+                                WO_INFO_THIS_VALUE_IS_TYPE_NAMED,
+                                get_type_name_w(false_type_instance));
+
+                            return FAILED;
+                        }
+                    }
+
+                    bool failed = false;
+                    if (lang_TypeInstance::TypeCheckResult::ACCEPT
+                        != is_type_accepted(
+                            lex,
+                            node,
+                            node_final_type,
+                            true_type_instance))
+                    {
+                        lex.lang_error(lexer::errorlevel::error, node->m_true_value,
+                            WO_ERR_CANNOT_ACCEPTABLE_TYPE_NAMED,
+                            get_type_name_w(node_final_type),
+                            get_type_name_w(true_type_instance));
+
+                        failed = true;
+                    }
 
                     if (lang_TypeInstance::TypeCheckResult::ACCEPT
                         != is_type_accepted(
                             lex,
-                            node, 
-                            node->m_true_value->m_LANG_determined_type.value(),
-                            node->m_false_value->m_LANG_determined_type.value()))
+                            node,
+                            node_final_type,
+                            false_type_instance))
                     {
                         lex.lang_error(lexer::errorlevel::error, node->m_false_value,
                             WO_ERR_CANNOT_ACCEPTABLE_TYPE_NAMED,
-                            get_type_name_w(node->m_false_value->m_LANG_determined_type.value()),
-                            get_type_name_w(node->m_true_value->m_LANG_determined_type.value()));
+                            get_type_name_w(node_final_type),
+                            get_type_name_w(false_type_instance));
 
-                        return FAILED;
+                        failed = true;
                     }
-                    node_final_type = node->m_true_value->m_LANG_determined_type.value();
+
+                    if (failed)
+                        return FAILED;
                 }
 
                 node->m_LANG_determined_type = node_final_type;
@@ -4470,6 +4599,15 @@ namespace wo
             default:
                 wo_error("Unexpected hold state.");
             }
+        }
+        else
+        {
+            if (node->m_LANG_template_evalating_state_is_mutable.has_value())
+            {
+                auto& eval_content = node->m_LANG_template_evalating_state_is_mutable.value();
+                failed_eval_template_ast(lex, node, eval_content.first);
+            }
+
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }

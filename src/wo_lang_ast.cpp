@@ -773,6 +773,7 @@ namespace wo
             , m_true_value(true_value)
             , m_false_value(false_value)
             , m_LANG_hold_state(UNPROCESSED)
+            , m_LANG_template_evalating_state_is_mutable(std::nullopt)
         {
         }
         AstBase* AstValueTribleOperator::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
@@ -1589,6 +1590,7 @@ namespace wo
             : AstBase(AST_RETURN)
             , m_value(value)
             , m_LANG_belong_function_may_null_if_outside(std::nullopt)
+            , m_LANG_template_evalating_state_is_mutable(std::nullopt)
         {
         }
         AstBase* AstReturn::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const

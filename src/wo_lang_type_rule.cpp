@@ -348,7 +348,7 @@ namespace wo
                 // 3. If aimtype is dynamic, Ok
                 if (immutable_aimtype == m_origin_types.m_dynamic.m_type_instance)
                     return lang_TypeInstance::TypeCheckResult::ACCEPT;
-             
+
                 // Following step needs determined base type.
                 auto determined_srctype_may_null = immutable_srctype->get_determined_type();
                 auto determined_aimtype_may_null = immutable_aimtype->get_determined_type();
@@ -619,6 +619,252 @@ namespace wo
         aimtype->m_LANG_castfrom_types.at(srctype) = result;
 
         return result;
+    }
+
+    LangContext::TypeMixtureResult LangContext::easy_mixture_types(
+        lexer& lex,
+        ast::AstBase* node,
+        lang_TypeInstance* atype,
+        lang_TypeInstance* btype,
+        PassProcessStackT& out_stack)
+    {
+        if (atype == btype)
+            // Two type is same, return them.
+            return TypeMixtureResult{ TypeMixtureResult::ACCEPT, atype };
+
+        auto* immutable_atype = immutable_type(atype);
+        auto* immutable_btype = immutable_type(btype);
+
+        if (immutable_atype == m_origin_types.m_nothing.m_type_instance)
+            // A is nothing, return B.
+            return TypeMixtureResult{ TypeMixtureResult::ACCEPT, btype };
+
+        if (immutable_btype == m_origin_types.m_nothing.m_type_instance)
+            // B is nothing, return A.
+            return TypeMixtureResult{ TypeMixtureResult::ACCEPT, atype };
+
+        bool a_is_mutable = atype->is_mutable();
+        if (atype->is_mutable() != btype->is_mutable())
+            // Rule 0, if one is mutable, one is immutable, REJECT.
+            return TypeMixtureResult{ TypeMixtureResult::REJECT };
+
+        if (immutable_atype->m_symbol != immutable_btype->m_symbol)
+            // Rule 1, not same type symbol, REJECT.
+            return TypeMixtureResult{ TypeMixtureResult::REJECT };
+
+        // NOTE: Symbol is same, but instance not same, consider builtin or template?
+        auto fast_mixture_with_instance =
+            [this](lang_TypeInstance* a, lang_TypeInstance* b)-> std::optional<lang_TypeInstance*>
+            {
+                if (a == b)
+                    return a;
+
+                if (immutable_type(a) == m_origin_types.m_nothing.m_type_instance)
+                    return b;
+
+                if (immutable_type(b) == m_origin_types.m_nothing.m_type_instance)
+                    return a;
+
+                return std::nullopt;
+            };
+
+        if (immutable_atype->m_symbol->m_is_builtin)
+        {
+            auto* a_determined_type = immutable_atype->get_determined_type().value();
+            auto* b_determined_type = immutable_btype->get_determined_type().value();
+
+            // Built-in type, check base type.
+            switch (a_determined_type->m_base_type)
+            {
+            case lang_TypeInstance::DeterminedType::ARRAY:
+            case lang_TypeInstance::DeterminedType::VECTOR:
+            {
+                auto mixed_elem_type = fast_mixture_with_instance(
+                    a_determined_type->m_external_type_description.m_array_or_vector->m_element_type,
+                    b_determined_type->m_external_type_description.m_array_or_vector->m_element_type);
+
+                lang_TypeInstance* result_type;
+                if (!mixed_elem_type.has_value())
+                    return TypeMixtureResult{ TypeMixtureResult::REJECT };
+                else if (a_determined_type->m_base_type == lang_TypeInstance::DeterminedType::ARRAY)
+                    result_type = m_origin_types.create_array_type(mixed_elem_type.value());
+                else
+                    result_type = m_origin_types.create_vector_type(mixed_elem_type.value());
+
+                return TypeMixtureResult{
+                    TypeMixtureResult::ACCEPT,
+                    a_is_mutable ? mutable_type(result_type) : result_type
+                };
+
+                // No need to break;
+            }
+            case lang_TypeInstance::DeterminedType::DICTIONARY:
+            case lang_TypeInstance::DeterminedType::MAPPING:
+            {
+                auto mixed_key_type = fast_mixture_with_instance(
+                    a_determined_type->m_external_type_description.m_dictionary_or_mapping->m_key_type,
+                    b_determined_type->m_external_type_description.m_dictionary_or_mapping->m_key_type);
+                auto mixed_val_type = fast_mixture_with_instance(
+                    a_determined_type->m_external_type_description.m_dictionary_or_mapping->m_value_type,
+                    b_determined_type->m_external_type_description.m_dictionary_or_mapping->m_value_type);
+
+                lang_TypeInstance* result_type;
+                if (!mixed_key_type.has_value() || !mixed_val_type.has_value())
+                    return TypeMixtureResult{ TypeMixtureResult::REJECT };
+                else if (a_determined_type->m_base_type == lang_TypeInstance::DeterminedType::DICTIONARY)
+                    result_type = m_origin_types.create_dictionary_type(mixed_key_type.value(), mixed_val_type.value());
+                else
+                    result_type = m_origin_types.create_mapping_type(mixed_key_type.value(), mixed_val_type.value());
+
+                return TypeMixtureResult{
+                    TypeMixtureResult::ACCEPT,
+                    a_is_mutable ? mutable_type(result_type) : result_type
+                };
+                // No need to break;
+            }
+            case lang_TypeInstance::DeterminedType::TUPLE:
+            {
+                std::list<lang_TypeInstance*> mixed_elem_types;
+
+                auto* a_tuple = a_determined_type->m_external_type_description.m_tuple;
+                auto* b_tuple = b_determined_type->m_external_type_description.m_tuple;
+                if (a_tuple->m_element_types.size() != b_tuple->m_element_types.size())
+                    return TypeMixtureResult{ TypeMixtureResult::REJECT };
+
+                auto it_a = a_tuple->m_element_types.begin();
+                auto it_b = b_tuple->m_element_types.begin();
+                auto it_end = a_tuple->m_element_types.end();
+
+                for (; it_a != it_end; ++it_a, ++it_b)
+                {
+                    auto mixed_elem_type = fast_mixture_with_instance(*it_a, *it_b);
+                    if (!mixed_elem_type.has_value())
+                        return TypeMixtureResult{ TypeMixtureResult::REJECT };
+                    mixed_elem_types.push_back(mixed_elem_type.value());
+                }
+
+                lang_TypeInstance* result_type = 
+                    m_origin_types.create_tuple_type(mixed_elem_types);
+
+                return TypeMixtureResult{
+                    TypeMixtureResult::ACCEPT,
+                    a_is_mutable ? mutable_type(result_type) : result_type
+                };
+            }
+            case lang_TypeInstance::DeterminedType::FUNCTION:
+            {
+                auto* a_function = a_determined_type->m_external_type_description.m_function;
+                auto* b_function = b_determined_type->m_external_type_description.m_function;
+
+                if (a_function->m_is_variadic != b_function->m_is_variadic
+                    || a_function->m_param_types.size() != b_function->m_param_types.size())
+                    return TypeMixtureResult{ TypeMixtureResult::REJECT };
+
+                std::list<lang_TypeInstance*> mixed_param_types;
+                auto it_a = a_function->m_param_types.begin();
+                auto it_b = b_function->m_param_types.begin();
+                auto it_end = a_function->m_param_types.end();
+
+                for (; it_a != it_end; ++it_a, ++it_b)
+                {
+                    auto mixed_param_type = fast_mixture_with_instance(*it_a, *it_b);
+                    if (!mixed_param_type.has_value())
+                        return TypeMixtureResult{ TypeMixtureResult::REJECT };
+                    mixed_param_types.push_back(mixed_param_type.value());
+                }
+
+                auto mixed_return_type = fast_mixture_with_instance(
+                    a_function->m_return_type,
+                    b_function->m_return_type);
+
+                if (!mixed_return_type.has_value())
+                    return TypeMixtureResult{ TypeMixtureResult::REJECT };
+
+                lang_TypeInstance* result_type =
+                    m_origin_types.create_function_type(
+                        a_function->m_is_variadic,
+                        mixed_param_types,
+                        mixed_return_type.value());
+
+                return TypeMixtureResult{
+                    TypeMixtureResult::ACCEPT,
+                    a_is_mutable ? mutable_type(result_type) : result_type
+                };
+            }
+            case lang_TypeInstance::DeterminedType::STRUCT:
+                // TODO: Support struct mixture.
+                return TypeMixtureResult{ TypeMixtureResult::REJECT };
+            case lang_TypeInstance::DeterminedType::UNION:
+                return TypeMixtureResult{ TypeMixtureResult::REJECT };
+            default:
+                wo_error("Unknown base type.");
+                return TypeMixtureResult{ TypeMixtureResult::REJECT };
+            }
+        }
+        else
+        {
+            // Template type, do easy mixture.
+            wo_assert(immutable_atype->m_symbol->m_is_template
+                && immutable_atype->m_symbol->m_symbol_kind == lang_Symbol::kind::TYPE
+                && immutable_atype->m_instance_template_arguments.has_value()
+                && immutable_btype->m_instance_template_arguments.has_value());
+
+            auto* template_prefab = immutable_atype->m_symbol->m_template_type_instances;
+            auto& a_template_arguments = immutable_atype->m_instance_template_arguments.value();
+            auto& b_template_arguments = immutable_btype->m_instance_template_arguments.value();
+
+            std::list<lang_TypeInstance*> mixed_template_args;
+
+            auto it_a = a_template_arguments.begin();
+            auto it_b = b_template_arguments.begin();
+            auto it_end = a_template_arguments.end();
+
+            for (; it_a != it_end; ++it_a, ++it_b)
+            {
+                auto mixed_template_arg = fast_mixture_with_instance(*it_a, *it_b);
+                if (!mixed_template_arg.has_value())
+                    return TypeMixtureResult{ TypeMixtureResult::REJECT };
+                mixed_template_args.push_back(mixed_template_arg.value());
+            }
+
+            bool need_continue_process = false;
+            auto instance = 
+                begin_eval_template_ast(
+                    lex,
+                    node, 
+                    immutable_atype->m_symbol,
+                    mixed_template_args, 
+                    out_stack,
+                    &need_continue_process);
+
+            if (!instance.has_value())
+                return TypeMixtureResult{ TypeMixtureResult::REJECT };
+
+            lang_TemplateAstEvalStateType* instance_state = 
+                static_cast<lang_TemplateAstEvalStateType*>(instance.value());
+            if (need_continue_process)
+            {
+                if (atype->is_mutable())
+                    return TypeMixtureResult{
+                        TypeMixtureResult::TEMPLATE_MUTABLE,
+                        nullptr,
+                        instance_state,
+                    };
+                else
+                    return TypeMixtureResult{
+                        TypeMixtureResult::TEMPLATE_NORMAL,
+                        nullptr,
+                        instance_state,
+                    };
+            }
+
+            lang_TypeInstance* result_type = instance_state->m_type_instance.get();
+            return TypeMixtureResult{
+                TypeMixtureResult::ACCEPT,
+                atype->is_mutable() ? mutable_type(result_type) : result_type,
+            };
+        }
+
     }
 #endif
 }
