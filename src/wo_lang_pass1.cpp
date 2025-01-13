@@ -1372,61 +1372,62 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
-            if (node->m_value)
-            {
+            if (node->m_value.has_value())
                 WO_CONTINUE_PROCESS(node->m_value.value());
-                return HOLD;
-            }
-            return OKAY;
+
+            return HOLD;
         }
         else if (state == HOLD)
         {
             auto current_function = get_current_function();
-            if (current_function)
+            node->m_LANG_belong_function_may_null_if_outside = current_function;
+
+            if (node->m_value.has_value())
             {
-                auto* function_instance = current_function.value();
-
-                lang_TypeInstance* return_value_type;
-                if (node->m_value)
-                    return_value_type = node->m_value.value()->m_LANG_determined_type.value();
-                else
-                    return_value_type = m_origin_types.m_void.m_type_instance;
-
-                if (!function_instance->m_LANG_determined_return_type.has_value()
-                    && function_instance->m_marked_return_type.has_value())
+                if (current_function)
                 {
-                    function_instance->m_LANG_determined_return_type =
-                        function_instance->m_marked_return_type.value()->m_LANG_determined_type.value();
-                }
+                    auto* function_instance = current_function.value();
 
-                if (function_instance->m_LANG_determined_return_type)
-                {
-                    auto* return_type_instance =
-                        function_instance->m_LANG_determined_return_type.value();
-                    auto* determined_return_type =
-                        node->m_value.value()->m_LANG_determined_type.value();
+                    lang_TypeInstance* return_value_type;
+                    if (node->m_value)
+                        return_value_type = node->m_value.value()->m_LANG_determined_type.value();
+                    else
+                        return_value_type = m_origin_types.m_void.m_type_instance;
 
-                    if (lang_TypeInstance::TypeCheckResult::ACCEPT != is_type_accepted(
-                        lex,
-                        node,
-                        return_type_instance,
-                        determined_return_type))
+                    if (!function_instance->m_LANG_determined_return_type.has_value()
+                        && function_instance->m_marked_return_type.has_value())
                     {
-                        lex.lang_error(lexer::errorlevel::error, node,
-                            WO_ERR_UNMATCHED_RETURN_TYPE_NAMED,
-                            get_type_name_w(determined_return_type),
-                            get_type_name_w(return_type_instance));
-                        return FAILED;
+                        function_instance->m_LANG_determined_return_type =
+                            function_instance->m_marked_return_type.value()->m_LANG_determined_type.value();
+                    }
+
+                    if (function_instance->m_LANG_determined_return_type)
+                    {
+                        auto* return_type_instance =
+                            function_instance->m_LANG_determined_return_type.value();
+                        auto* determined_return_type =
+                            node->m_value.value()->m_LANG_determined_type.value();
+
+                        if (lang_TypeInstance::TypeCheckResult::ACCEPT != is_type_accepted(
+                            lex,
+                            node,
+                            return_type_instance,
+                            determined_return_type))
+                        {
+                            lex.lang_error(lexer::errorlevel::error, node,
+                                WO_ERR_UNMATCHED_RETURN_TYPE_NAMED,
+                                get_type_name_w(determined_return_type),
+                                get_type_name_w(return_type_instance));
+                            return FAILED;
+                        }
+                    }
+                    else
+                    {
+                        function_instance->m_LANG_determined_return_type =
+                            node->m_value.value()->m_LANG_determined_type;
                     }
                 }
-                else
-                {
-                    function_instance->m_LANG_determined_return_type =
-                        node->m_value.value()->m_LANG_determined_type;
-                }
             }
-
-            node->m_LANG_belong_function_may_null_if_outside = current_function;
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }

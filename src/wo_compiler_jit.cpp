@@ -365,8 +365,17 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             state->m_code_buffer.init(get_jit_runtime().environment());
             state->m_code_buffer.setErrorHandler(&woo_jit_error_handler);
 
+#if 0
+            // Only for debug
+            auto current_funcname = 
+                env->program_debug_info->get_current_func_signature_by_runtime_ip(rt_ip);
+
+            fprintf(stderr, "Woolang debug: jit compiling: %s\n", current_funcname.c_str());
+#endif
+
             asmjit::BaseCompiler* compiler;
-            state->_m_ctx = this->prepare_compiler(&compiler, &state->m_code_buffer, state, env);
+            state->_m_ctx = this->prepare_compiler(
+                &compiler, &state->m_code_buffer, state, env);
 
             compiler->setErrorHandler(&woo_jit_error_handler);
 
@@ -1236,6 +1245,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
 
             state->m_jitfunc = ctx->c.addFunc(
                 asmjit::FuncSignatureT<wo_result_t, vmbase*, value*>());
+
             // void _jit_(vmbase*  vm , value* bp, value* reg, value* const_global);
 
             // 0. Get vmptr reg stack base global ptr.
