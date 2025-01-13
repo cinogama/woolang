@@ -690,10 +690,6 @@ namespace wo
                 continue;
             }
 
-            //debug
-            if (type == lex_type::l_direct)
-                printf("");
-
             auto top_symbo =
                 (state_stack.size() == sym_stack.size()
                     ? TERM_MAP.at(type)
