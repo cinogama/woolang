@@ -561,37 +561,48 @@ namespace wo
                                     type_instance = type_symbol->m_type_instance;
                             }
 
+                            bool type_or_alias_determined = 
+                                type_symbol->m_symbol_kind == lang_Symbol::ALIAS
+                                    ? alias_instance->m_determined_type.has_value() 
+                                    : type_instance->get_determined_type().has_value()
+                                ;
+
+                            if (!type_or_alias_determined)
+                            {
+                                // NOTE: What ever type or alias, we should trying to determine the type.
+                                if (!node->m_LANG_trying_advancing_type_judgement && type_symbol->m_symbol_declare_ast)
+                                {
+                                    auto* define_ast = type_symbol->m_symbol_declare_ast.value();
+
+                                    if (define_ast->finished_state == UNPROCESSED)
+                                    {
+                                        node->m_LANG_trying_advancing_type_judgement = true;
+
+                                        wo_assert(!type_symbol->m_is_template
+                                            && type_symbol->m_is_global);
+
+                                        // Immediately advance the processing of declaration nodes.
+                                        entry_spcify_scope(type_symbol->m_belongs_to_scope);
+                                        WO_CONTINUE_PROCESS(define_ast);
+                                        return HOLD;
+                                    }
+                                }
+
+                                // NOTE: Type not decided is okay, but alias not.
+                                if (type_symbol->m_symbol_kind == lang_Symbol::ALIAS)
+                                {
+                                    lex.lang_error(lexer::errorlevel::error, node,
+                                        WO_ERR_TYPE_DETERMINED_FAILED);
+                                    return FAILED;
+                                }
+                            }
+
                             if (type_symbol->m_symbol_kind == lang_Symbol::ALIAS)
                             {
                                 // Check symbol can be reach.
                                 if (!check_symbol_is_reachable_in_current_scope(
                                     lex, node, type_symbol, node->source_location.source_file))
                                 {
-                                    return FAILED;
-                                }
-
-                                if (!alias_instance->m_determined_type.has_value())
-                                {
-                                    if (!node->m_LANG_trying_advancing_type_judgement && type_symbol->m_symbol_declare_ast)
-                                    {
-                                        auto* define_ast = type_symbol->m_symbol_declare_ast.value();
-
-                                        if (define_ast->finished_state == UNPROCESSED)
-                                        {
-                                            node->m_LANG_trying_advancing_type_judgement = true;
-
-                                            wo_assert(!type_symbol->m_is_template
-                                                && type_symbol->m_is_global);
-
-                                            // Immediately advance the processing of declaration nodes.
-                                            entry_spcify_scope(type_symbol->m_belongs_to_scope);
-                                            WO_CONTINUE_PROCESS(define_ast);
-                                            return HOLD;
-                                        }
-                                    }
-
-                                    lex.lang_error(lexer::errorlevel::error, node,
-                                        WO_ERR_TYPE_DETERMINED_FAILED);
                                     return FAILED;
                                 }
                                 else if (!alias_instance->m_symbol->m_is_template
