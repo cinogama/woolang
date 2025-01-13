@@ -69,24 +69,25 @@ namespace wo
                 if (determined_accepter->m_base_type != determined_provider->m_base_type)
                     return lang_TypeInstance::TypeCheckResult::REJECT;
 
-                if (immutable_provider->m_symbol->m_is_builtin
-                    || determined_accepter->m_base_type == lang_TypeInstance::DeterminedType::UNION)
+                bool sub_match_is_pending = false;
+                
+                if (!immutable_provider->m_symbol->m_is_builtin)
                 {
-                    bool sub_match_is_pending = false;
+                    // We need check template arguments of instance.
+                    wo_assert(immutable_provider->m_symbol->m_is_template);
 
-                    switch (determined_accepter->m_base_type)
-                    {
-                    case lang_TypeInstance::DeterminedType::ARRAY:
-                    case lang_TypeInstance::DeterminedType::VECTOR:
-                    {
-                        auto ext_array_accepter = determined_accepter->m_external_type_description.m_array_or_vector;
-                        auto ext_array_provider = determined_provider->m_external_type_description.m_array_or_vector;
+                    auto& provider_template_arguments = 
+                        immutable_provider->m_instance_template_arguments.value();
+                    auto& accepter_template_arguments = 
+                        immutable_accepter->m_instance_template_arguments.value();
 
-                        switch (is_type_accepted(
-                            lex,
-                            node,
-                            ext_array_accepter->m_element_type,
-                            ext_array_provider->m_element_type))
+                    auto it_provider = provider_template_arguments.begin();
+                    auto it_accepter = accepter_template_arguments.begin();
+                    auto it_end = provider_template_arguments.end();
+
+                    for (; it_provider != it_end; ++it_provider, ++it_accepter)
+                    {
+                        switch (is_type_accepted(lex, node, *it_accepter, *it_provider))
                         {
                         case lang_TypeInstance::TypeCheckResult::REJECT:
                             return lang_TypeInstance::TypeCheckResult::REJECT;
@@ -96,203 +97,225 @@ namespace wo
                         default:
                             break;
                         }
-
-                        break;
                     }
-                    case lang_TypeInstance::DeterminedType::DICTIONARY:
-                    case lang_TypeInstance::DeterminedType::MAPPING:
-                    {
-                        auto ext_dict_accepter = determined_accepter->m_external_type_description.m_dictionary_or_mapping;
-                        auto ext_dict_provider = determined_provider->m_external_type_description.m_dictionary_or_mapping;
-
-                        switch (is_type_accepted(
-                            lex,
-                            node,
-                            ext_dict_accepter->m_key_type,
-                            ext_dict_provider->m_key_type))
-                        {
-                        case lang_TypeInstance::TypeCheckResult::REJECT:
-                            return lang_TypeInstance::TypeCheckResult::REJECT;
-                        case lang_TypeInstance::TypeCheckResult::PENDING:
-                            sub_match_is_pending = true;
-                            break;
-                        default:
-                            break;
-                        }
-
-                        switch (is_type_accepted(
-                            lex,
-                            node,
-                            ext_dict_accepter->m_value_type,
-                            ext_dict_provider->m_value_type))
-                        {
-                        case lang_TypeInstance::TypeCheckResult::REJECT:
-                            return lang_TypeInstance::TypeCheckResult::REJECT;
-                        case lang_TypeInstance::TypeCheckResult::PENDING:
-                            sub_match_is_pending = true;
-                            break;
-                        default:
-                            break;
-                        }
-                        break;
-                    }
-                    case lang_TypeInstance::DeterminedType::TUPLE:
-                    {
-                        auto ext_tuple_accepter = determined_accepter->m_external_type_description.m_tuple;
-                        auto ext_tuple_provider = determined_provider->m_external_type_description.m_tuple;
-
-                        if (ext_tuple_accepter->m_element_types.size()
-                            != ext_tuple_provider->m_element_types.size())
-                            return lang_TypeInstance::TypeCheckResult::REJECT;
-
-                        auto it_accepter = ext_tuple_accepter->m_element_types.begin();
-                        auto it_provider = ext_tuple_provider->m_element_types.begin();
-                        auto it_accepter_end = ext_tuple_accepter->m_element_types.end();
-
-                        for (; it_accepter != it_accepter_end; ++it_accepter, ++it_provider)
-                        {
-                            switch (is_type_accepted(
-                                lex,
-                                node,
-                                *it_accepter,
-                                *it_provider))
-                            {
-                            case lang_TypeInstance::TypeCheckResult::REJECT:
-                                return lang_TypeInstance::TypeCheckResult::REJECT;
-                            case lang_TypeInstance::TypeCheckResult::PENDING:
-                                sub_match_is_pending = true;
-                                break;
-                            default:
-                                break;
-                            }
-                        }
-
-                        break;
-                    }
-                    case lang_TypeInstance::DeterminedType::STRUCT:
-                    {
-                        auto ext_struct_accepter = determined_accepter->m_external_type_description.m_struct;
-                        auto ext_struct_provider = determined_provider->m_external_type_description.m_struct;
-
-                        if (ext_struct_accepter->m_member_types.size()
-                            != ext_struct_provider->m_member_types.size())
-                            return lang_TypeInstance::TypeCheckResult::REJECT;
-
-                        for (auto& [name, field] : ext_struct_accepter->m_member_types)
-                        {
-                            auto fnd = ext_struct_provider->m_member_types.find(name);
-                            if (fnd == ext_struct_provider->m_member_types.end())
-                                return lang_TypeInstance::TypeCheckResult::REJECT;
-
-                            if (field.m_offset != fnd->second.m_offset)
-                                return lang_TypeInstance::TypeCheckResult::REJECT;
-
-                            switch (is_type_accepted(
-                                lex,
-                                node,
-                                field.m_member_type,
-                                fnd->second.m_member_type))
-                            {
-                            case lang_TypeInstance::TypeCheckResult::REJECT:
-                                return lang_TypeInstance::TypeCheckResult::REJECT;
-                            case lang_TypeInstance::TypeCheckResult::PENDING:
-                                sub_match_is_pending = true;
-                                break;
-                            default:
-                                break;
-                            }
-                        }
-                        break;
-                    }
-                    case lang_TypeInstance::DeterminedType::UNION:
-                    {
-                        auto ext_union_accepter = determined_accepter->m_external_type_description.m_union;
-                        auto ext_union_provider = determined_provider->m_external_type_description.m_union;
-
-                        if (ext_union_accepter->m_union_label.size()
-                            != ext_union_provider->m_union_label.size())
-                            return lang_TypeInstance::TypeCheckResult::REJECT;
-
-                        for (auto& [label, type] : ext_union_accepter->m_union_label)
-                        {
-                            auto fnd = ext_union_provider->m_union_label.find(label);
-                            if (fnd == ext_union_provider->m_union_label.end())
-                                return lang_TypeInstance::TypeCheckResult::REJECT;
-
-                            if (type.m_label != fnd->second.m_label)
-                                return lang_TypeInstance::TypeCheckResult::REJECT;
-
-                            if (type.m_item_type.has_value() != fnd->second.m_item_type.has_value())
-                                return lang_TypeInstance::TypeCheckResult::REJECT;
-                            if (type.m_item_type.has_value())
-                            {
-                                switch (is_type_accepted(
-                                    lex,
-                                    node,
-                                    type.m_item_type.value(),
-                                    fnd->second.m_item_type.value()))
-                                {
-                                case lang_TypeInstance::TypeCheckResult::REJECT:
-                                    return lang_TypeInstance::TypeCheckResult::REJECT;
-                                case lang_TypeInstance::TypeCheckResult::PENDING:
-                                    sub_match_is_pending = true;
-                                    break;
-                                default:
-                                    break;
-                                }
-                            }
-                        }
-                        break;
-                    }
-                    case lang_TypeInstance::DeterminedType::FUNCTION:
-                    {
-                        auto ext_func_accepter = determined_accepter->m_external_type_description.m_function;
-                        auto ext_func_provider = determined_provider->m_external_type_description.m_function;
-
-                        if (ext_func_accepter->m_is_variadic
-                            != ext_func_provider->m_is_variadic)
-                            return lang_TypeInstance::TypeCheckResult::REJECT;
-
-                        if (ext_func_accepter->m_param_types.size()
-                            != ext_func_provider->m_param_types.size())
-                            return lang_TypeInstance::TypeCheckResult::REJECT;
-
-                        auto it_accepter = ext_func_accepter->m_param_types.begin();
-                        auto it_provider = ext_func_provider->m_param_types.begin();
-                        auto it_accepter_end = ext_func_accepter->m_param_types.end();
-
-                        for (; it_accepter != it_accepter_end; ++it_accepter, ++it_provider)
-                        {
-                            if (*it_accepter != *it_provider)
-                                return lang_TypeInstance::TypeCheckResult::REJECT;
-                        }
-
-                        switch (is_type_accepted(
-                            lex,
-                            node,
-                            ext_func_accepter->m_return_type,
-                            ext_func_provider->m_return_type))
-                        {
-                        case lang_TypeInstance::TypeCheckResult::REJECT:
-                            return lang_TypeInstance::TypeCheckResult::REJECT;
-                        case lang_TypeInstance::TypeCheckResult::PENDING:
-                            sub_match_is_pending = true;
-                            break;
-                        default:
-                            break;
-                        }
-
-                        break;
-                    }
-                    }
-
-                    // TODO: If sub match PENDING, return PENDING here.
-                    return sub_match_is_pending
-                        ? lang_TypeInstance::TypeCheckResult::PENDING
-                        : lang_TypeInstance::TypeCheckResult::ACCEPT;
                 }
-                else
-                    return lang_TypeInstance::TypeCheckResult::REJECT;
+
+                switch (determined_accepter->m_base_type)
+                {
+                case lang_TypeInstance::DeterminedType::ARRAY:
+                case lang_TypeInstance::DeterminedType::VECTOR:
+                {
+                    auto ext_array_accepter = determined_accepter->m_external_type_description.m_array_or_vector;
+                    auto ext_array_provider = determined_provider->m_external_type_description.m_array_or_vector;
+
+                    switch (is_type_accepted(
+                        lex,
+                        node,
+                        ext_array_accepter->m_element_type,
+                        ext_array_provider->m_element_type))
+                    {
+                    case lang_TypeInstance::TypeCheckResult::REJECT:
+                        return lang_TypeInstance::TypeCheckResult::REJECT;
+                    case lang_TypeInstance::TypeCheckResult::PENDING:
+                        sub_match_is_pending = true;
+                        break;
+                    default:
+                        break;
+                    }
+
+                    break;
+                }
+                case lang_TypeInstance::DeterminedType::DICTIONARY:
+                case lang_TypeInstance::DeterminedType::MAPPING:
+                {
+                    auto ext_dict_accepter = determined_accepter->m_external_type_description.m_dictionary_or_mapping;
+                    auto ext_dict_provider = determined_provider->m_external_type_description.m_dictionary_or_mapping;
+
+                    switch (is_type_accepted(
+                        lex,
+                        node,
+                        ext_dict_accepter->m_key_type,
+                        ext_dict_provider->m_key_type))
+                    {
+                    case lang_TypeInstance::TypeCheckResult::REJECT:
+                        return lang_TypeInstance::TypeCheckResult::REJECT;
+                    case lang_TypeInstance::TypeCheckResult::PENDING:
+                        sub_match_is_pending = true;
+                        break;
+                    default:
+                        break;
+                    }
+
+                    switch (is_type_accepted(
+                        lex,
+                        node,
+                        ext_dict_accepter->m_value_type,
+                        ext_dict_provider->m_value_type))
+                    {
+                    case lang_TypeInstance::TypeCheckResult::REJECT:
+                        return lang_TypeInstance::TypeCheckResult::REJECT;
+                    case lang_TypeInstance::TypeCheckResult::PENDING:
+                        sub_match_is_pending = true;
+                        break;
+                    default:
+                        break;
+                    }
+                    break;
+                }
+                case lang_TypeInstance::DeterminedType::TUPLE:
+                {
+                    auto ext_tuple_accepter = determined_accepter->m_external_type_description.m_tuple;
+                    auto ext_tuple_provider = determined_provider->m_external_type_description.m_tuple;
+
+                    if (ext_tuple_accepter->m_element_types.size()
+                        != ext_tuple_provider->m_element_types.size())
+                        return lang_TypeInstance::TypeCheckResult::REJECT;
+
+                    auto it_accepter = ext_tuple_accepter->m_element_types.begin();
+                    auto it_provider = ext_tuple_provider->m_element_types.begin();
+                    auto it_accepter_end = ext_tuple_accepter->m_element_types.end();
+
+                    for (; it_accepter != it_accepter_end; ++it_accepter, ++it_provider)
+                    {
+                        switch (is_type_accepted(
+                            lex,
+                            node,
+                            *it_accepter,
+                            *it_provider))
+                        {
+                        case lang_TypeInstance::TypeCheckResult::REJECT:
+                            return lang_TypeInstance::TypeCheckResult::REJECT;
+                        case lang_TypeInstance::TypeCheckResult::PENDING:
+                            sub_match_is_pending = true;
+                            break;
+                        default:
+                            break;
+                        }
+                    }
+
+                    break;
+                }
+                case lang_TypeInstance::DeterminedType::STRUCT:
+                {
+                    auto ext_struct_accepter = determined_accepter->m_external_type_description.m_struct;
+                    auto ext_struct_provider = determined_provider->m_external_type_description.m_struct;
+
+                    if (ext_struct_accepter->m_member_types.size()
+                        != ext_struct_provider->m_member_types.size())
+                        return lang_TypeInstance::TypeCheckResult::REJECT;
+
+                    for (auto& [name, field] : ext_struct_accepter->m_member_types)
+                    {
+                        auto fnd = ext_struct_provider->m_member_types.find(name);
+                        if (fnd == ext_struct_provider->m_member_types.end())
+                            return lang_TypeInstance::TypeCheckResult::REJECT;
+
+                        if (field.m_offset != fnd->second.m_offset)
+                            return lang_TypeInstance::TypeCheckResult::REJECT;
+
+                        switch (is_type_accepted(
+                            lex,
+                            node,
+                            field.m_member_type,
+                            fnd->second.m_member_type))
+                        {
+                        case lang_TypeInstance::TypeCheckResult::REJECT:
+                            return lang_TypeInstance::TypeCheckResult::REJECT;
+                        case lang_TypeInstance::TypeCheckResult::PENDING:
+                            sub_match_is_pending = true;
+                            break;
+                        default:
+                            break;
+                        }
+                    }
+                    break;
+                }
+                case lang_TypeInstance::DeterminedType::UNION:
+                {
+                    auto ext_union_accepter = determined_accepter->m_external_type_description.m_union;
+                    auto ext_union_provider = determined_provider->m_external_type_description.m_union;
+
+                    if (ext_union_accepter->m_union_label.size()
+                        != ext_union_provider->m_union_label.size())
+                        return lang_TypeInstance::TypeCheckResult::REJECT;
+
+                    for (auto& [label, type] : ext_union_accepter->m_union_label)
+                    {
+                        auto fnd = ext_union_provider->m_union_label.find(label);
+                        if (fnd == ext_union_provider->m_union_label.end())
+                            return lang_TypeInstance::TypeCheckResult::REJECT;
+
+                        if (type.m_label != fnd->second.m_label)
+                            return lang_TypeInstance::TypeCheckResult::REJECT;
+
+                        if (type.m_item_type.has_value() != fnd->second.m_item_type.has_value())
+                            return lang_TypeInstance::TypeCheckResult::REJECT;
+                        if (type.m_item_type.has_value())
+                        {
+                            switch (is_type_accepted(
+                                lex,
+                                node,
+                                type.m_item_type.value(),
+                                fnd->second.m_item_type.value()))
+                            {
+                            case lang_TypeInstance::TypeCheckResult::REJECT:
+                                return lang_TypeInstance::TypeCheckResult::REJECT;
+                            case lang_TypeInstance::TypeCheckResult::PENDING:
+                                sub_match_is_pending = true;
+                                break;
+                            default:
+                                break;
+                            }
+                        }
+                    }
+                    break;
+                }
+                case lang_TypeInstance::DeterminedType::FUNCTION:
+                {
+                    auto ext_func_accepter = determined_accepter->m_external_type_description.m_function;
+                    auto ext_func_provider = determined_provider->m_external_type_description.m_function;
+
+                    if (ext_func_accepter->m_is_variadic
+                        != ext_func_provider->m_is_variadic)
+                        return lang_TypeInstance::TypeCheckResult::REJECT;
+
+                    if (ext_func_accepter->m_param_types.size()
+                        != ext_func_provider->m_param_types.size())
+                        return lang_TypeInstance::TypeCheckResult::REJECT;
+
+                    auto it_accepter = ext_func_accepter->m_param_types.begin();
+                    auto it_provider = ext_func_provider->m_param_types.begin();
+                    auto it_accepter_end = ext_func_accepter->m_param_types.end();
+
+                    for (; it_accepter != it_accepter_end; ++it_accepter, ++it_provider)
+                    {
+                        if (*it_accepter != *it_provider)
+                            return lang_TypeInstance::TypeCheckResult::REJECT;
+                    }
+
+                    switch (is_type_accepted(
+                        lex,
+                        node,
+                        ext_func_accepter->m_return_type,
+                        ext_func_provider->m_return_type))
+                    {
+                    case lang_TypeInstance::TypeCheckResult::REJECT:
+                        return lang_TypeInstance::TypeCheckResult::REJECT;
+                    case lang_TypeInstance::TypeCheckResult::PENDING:
+                        sub_match_is_pending = true;
+                        break;
+                    default:
+                        break;
+                    }
+
+                    break;
+                }
+                }
+
+                // TODO: If sub match PENDING, return PENDING here.
+                return sub_match_is_pending
+                    ? lang_TypeInstance::TypeCheckResult::PENDING
+                    : lang_TypeInstance::TypeCheckResult::ACCEPT;
             };
 
         auto result = judge();
@@ -380,41 +403,41 @@ namespace wo
 
                 // 5. bool, handle, real, string can cast to int.
                 if (immutable_aimtype == m_origin_types.m_int.m_type_instance &&
-                    (determined_srctype->m_base_type == lang_TypeInstance::DeterminedType::BOOLEAN ||
-                        determined_srctype->m_base_type == lang_TypeInstance::DeterminedType::HANDLE ||
-                        determined_srctype->m_base_type == lang_TypeInstance::DeterminedType::REAL ||
-                        determined_srctype->m_base_type == lang_TypeInstance::DeterminedType::STRING))
+                    (immutable_srctype == m_origin_types.m_bool.m_type_instance ||
+                        immutable_srctype == m_origin_types.m_handle.m_type_instance ||
+                        immutable_srctype == m_origin_types.m_real.m_type_instance ||
+                        immutable_srctype == m_origin_types.m_string.m_type_instance))
                 {
                     return lang_TypeInstance::TypeCheckResult::ACCEPT;
                 }
 
                 // 6. bool, int, handle, string can cast to real.
                 if (immutable_aimtype == m_origin_types.m_real.m_type_instance &&
-                    (determined_srctype->m_base_type == lang_TypeInstance::DeterminedType::BOOLEAN ||
-                        determined_srctype->m_base_type == lang_TypeInstance::DeterminedType::INTEGER ||
-                        determined_srctype->m_base_type == lang_TypeInstance::DeterminedType::HANDLE ||
-                        determined_srctype->m_base_type == lang_TypeInstance::DeterminedType::STRING))
+                    (immutable_srctype == m_origin_types.m_bool.m_type_instance ||
+                        immutable_srctype == m_origin_types.m_handle.m_type_instance ||
+                        immutable_srctype == m_origin_types.m_int.m_type_instance ||
+                        immutable_srctype == m_origin_types.m_string.m_type_instance))
                 {
                     return lang_TypeInstance::TypeCheckResult::ACCEPT;
                 }
 
                 // 7. bool, int, gchandle, real, string can cast to handle.
                 if (immutable_aimtype == m_origin_types.m_handle.m_type_instance &&
-                    (determined_srctype->m_base_type == lang_TypeInstance::DeterminedType::BOOLEAN ||
-                        determined_srctype->m_base_type == lang_TypeInstance::DeterminedType::INTEGER ||
-                        determined_srctype->m_base_type == lang_TypeInstance::DeterminedType::GCHANDLE ||
-                        determined_srctype->m_base_type == lang_TypeInstance::DeterminedType::REAL ||
-                        determined_srctype->m_base_type == lang_TypeInstance::DeterminedType::STRING))
+                    (immutable_srctype == m_origin_types.m_bool.m_type_instance ||
+                        immutable_srctype == m_origin_types.m_int.m_type_instance ||
+                        immutable_srctype == m_origin_types.m_gchandle.m_type_instance ||
+                        immutable_srctype == m_origin_types.m_real.m_type_instance ||
+                        immutable_srctype == m_origin_types.m_string.m_type_instance))
                 {
                     return lang_TypeInstance::TypeCheckResult::ACCEPT;
                 }
 
                 // 8. integer, handle, real, string can cast to bool.
                 if (immutable_aimtype == m_origin_types.m_bool.m_type_instance &&
-                    (determined_srctype->m_base_type == lang_TypeInstance::DeterminedType::INTEGER ||
-                        determined_srctype->m_base_type == lang_TypeInstance::DeterminedType::HANDLE ||
-                        determined_srctype->m_base_type == lang_TypeInstance::DeterminedType::REAL ||
-                        determined_srctype->m_base_type == lang_TypeInstance::DeterminedType::STRING))
+                    (immutable_srctype == m_origin_types.m_int.m_type_instance ||
+                        immutable_srctype == m_origin_types.m_handle.m_type_instance ||
+                        immutable_srctype == m_origin_types.m_real.m_type_instance ||
+                        immutable_srctype == m_origin_types.m_string.m_type_instance))
                 {
                     return lang_TypeInstance::TypeCheckResult::ACCEPT;
                 }
@@ -658,16 +681,12 @@ namespace wo
 
         // NOTE: Symbol is same, but instance not same, consider builtin or template?
         auto fast_mixture_with_instance =
-            [this](lang_TypeInstance* a, lang_TypeInstance* b)-> std::optional<lang_TypeInstance*>
+            [&](lang_TypeInstance* a, lang_TypeInstance* b)-> std::optional<lang_TypeInstance*>
             {
-                if (a == b)
+                if (is_type_accepted(lex, node, a, b) == lang_TypeInstance::TypeCheckResult::ACCEPT)
                     return a;
-
-                if (immutable_type(a) == m_origin_types.m_nothing.m_type_instance)
+                if (is_type_accepted(lex, node, b, a) == lang_TypeInstance::TypeCheckResult::ACCEPT)
                     return b;
-
-                if (immutable_type(b) == m_origin_types.m_nothing.m_type_instance)
-                    return a;
 
                 return std::nullopt;
             };
@@ -747,7 +766,7 @@ namespace wo
                     mixed_elem_types.push_back(mixed_elem_type.value());
                 }
 
-                lang_TypeInstance* result_type = 
+                lang_TypeInstance* result_type =
                     m_origin_types.create_tuple_type(mixed_elem_types);
 
                 return TypeMixtureResult{
@@ -832,19 +851,19 @@ namespace wo
             }
 
             bool need_continue_process = false;
-            auto instance = 
+            auto instance =
                 begin_eval_template_ast(
                     lex,
-                    node, 
+                    node,
                     immutable_atype->m_symbol,
-                    mixed_template_args, 
+                    mixed_template_args,
                     out_stack,
                     &need_continue_process);
 
             if (!instance.has_value())
                 return TypeMixtureResult{ TypeMixtureResult::REJECT };
 
-            lang_TemplateAstEvalStateType* instance_state = 
+            lang_TemplateAstEvalStateType* instance_state =
                 static_cast<lang_TemplateAstEvalStateType*>(instance.value());
             if (need_continue_process)
             {
@@ -853,13 +872,13 @@ namespace wo
                         TypeMixtureResult::TEMPLATE_MUTABLE,
                         nullptr,
                         instance_state,
-                    };
+                };
                 else
                     return TypeMixtureResult{
                         TypeMixtureResult::TEMPLATE_NORMAL,
                         nullptr,
                         instance_state,
-                    };
+                };
             }
 
             lang_TypeInstance* result_type = instance_state->m_type_instance.get();

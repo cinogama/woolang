@@ -160,7 +160,14 @@ namespace wo
     {
         _function_ip_data_buf[function_name].add_variable_define(varname, rowno, loc);
     }
-
+    void program_debug_data_info::update_func_variable(const std::string& function_name, wo_integer_t offset)
+    {
+        for (auto& [_useless, infors] : _function_ip_data_buf[function_name].variables)
+        {
+            for (auto& info : infors)
+                info.bp_offset += offset;
+        }
+    }
     std::string program_debug_data_info::get_current_func_signature_by_runtime_ip(const byte_t* rt_pos) const
     {
         auto compile_ip = get_ip_by_runtime_ip(rt_pos);

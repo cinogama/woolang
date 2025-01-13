@@ -506,13 +506,25 @@ func main()
         "@);
 
         // Call fail
-        assure_compile_fail(@"func foo(a:int, let b: string){} foo(1);"@);
-        assure_compile_fail(@"func foo(a:int, let b: string){} foo(1., "");"@);
-        assure_compile_fail(@"func foo(a:int, let b: string){} foo(1, "", 1);"@);
+        assure_compile_fail(@"func foo(a:int, b: string){} foo(1);"@);
+        assure_compile_fail(@"func foo(a:int, b: string){} foo(1., "");"@);
+        assure_compile_fail(@"func foo(a:int, b: string){} foo(1, "", 1);"@);
         assure_compile_fail(@"let a = 1; a();"@);
         assure_compile_fail(@"
-            func operator == (a: array<int>, let b: array<int>)=> string{return "Helloworld";}
+            namespace array
+            {
+                func operator == (_: array<int>, _: array<int>)=> string{
+                    return "Helloworld";}
+            }
             let a = 1; let b = (a == 1) as string;
+        "@);
+        assure_compile_success(@"
+            namespace array
+            {
+                func operator == (_: array<int>, _: array<int>)=> string{
+                    return "Helloworld";}
+            }
+            let a = [1]; let b = (a == [1]) as string;
         "@);
         assure_compile_fail(@"
             func foo<Ft, ArgTs>(f: Ft, args: ArgTs) where f(args...) is void;{}
@@ -1840,57 +1852,58 @@ func main()
         "@);
         
         assure_compile_success(@"
-        func operator * (a, b)
-        {
-            return a + b;
-        }
         enum Demo
         {
             A, B
+        }
+        namespace Demo
+        {
+            func operator * (a, b)
+            {
+                return a + b;
+            }
         }
         do Demo::A * Demo::B;
         "@);
         assure_compile_fail(@"
-        func operator * (a, b)
-        {
-            return (a + b) + "";
-        }
         enum Demo
         {
             A, B
+        }
+        namespace Demo
+        {
+            func operator * (a, b)
+            {
+                return (a + b) + "";
+            }
         }
         do Demo::A * Demo::B;
-        "@);
-        assure_compile_success(@"
-        func operator * (a, b)
-        {
-            return (a + b) + "";
-        }
-        enum Demo
-        {
-            A, B
-        }
-        do "" * "";
         "@);
 
         assure_compile_fail(@"
-        func operator * (_, _)
-        {
-        }
         enum Demo
         {
             A, B
+        }
+        namespace Demo
+        {
+            func operator * (_, _)
+            {
+            }
         }
         let mut a = Demo::A;
         a *= Demo::B;
         "@);
         assure_compile_success(@"
-        func operator * (_, _)
-        {
-        }
         enum Demo
         {
             A, B
+        }
+        namespace Demo
+        {
+            func operator * (_, _)
+            {
+            }
         }
         let mut a = Demo::A;
         a * Demo::B;

@@ -1572,6 +1572,9 @@ namespace wo
                 m_ircontext.c().pdb_info->generate_func_end(
                     eval_fucntion_name, this_function_used_tmp_regs, &m_ircontext.c());
 
+                m_ircontext.c().pdb_info->update_func_variable(
+                    eval_fucntion_name, -(wo_integer_t)this_function_used_tmp_regs);
+
                 m_ircontext.c().ext_funcend();
 
                 wo_assert(m_ircontext.m_inused_temporary_registers.empty());
