@@ -1310,9 +1310,9 @@ namespace wo
 
     std::string get_anonymous_function_name(LangContext* lctx, ast::AstValueFunction* anonymous_func)
     {
-        if (anonymous_func->m_IR_binded_value_instance.has_value())
+        if (anonymous_func->m_LANG_value_instance_to_update.has_value())
         {
-            lang_ValueInstance* value_instance = anonymous_func->m_IR_binded_value_instance.value();
+            lang_ValueInstance* value_instance = anonymous_func->m_LANG_value_instance_to_update.value();
             std::string name = lctx->get_value_name(value_instance);
             
             lang_Scope* function_located_scope =
@@ -1416,9 +1416,9 @@ namespace wo
                     eval_function,
                     &m_ircontext.c());
 
-                if (eval_function->m_IR_binded_value_instance.has_value())
+                if (eval_function->m_LANG_value_instance_to_update.has_value())
                 {
-                    lang_ValueInstance* value_instance = eval_function->m_IR_binded_value_instance.value();
+                    lang_ValueInstance* value_instance = eval_function->m_LANG_value_instance_to_update.value();
                     lang_Symbol* symbol = value_instance->m_symbol;
 
                     if (symbol->m_declare_attribute.has_value())

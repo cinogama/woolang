@@ -154,13 +154,12 @@ namespace wo
 
             return content;
         }
-        auto pass_using_type_as::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        auto pass_using_type_as::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             std::optional<AstDeclareAttribue*> attrib = std::nullopt;
             token new_type_name = WO_NEED_TOKEN(2);
             std::optional<AstList*> template_params = std::nullopt;
             AstTypeHolder* base_type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(5, AstBase::AST_TYPE_HOLDER));
-            std::optional<AstBase*> in_block_sentence = std::nullopt;
 
             wo_pstring_t type_name = wstring_pool::get_pstr(new_type_name.identifier);
 
@@ -168,14 +167,6 @@ namespace wo
                 attrib = static_cast<AstDeclareAttribue*>(WO_NEED_AST_TYPE(0, AstBase::AST_DECLARE_ATTRIBUTE));
             if (!WO_IS_EMPTY(3))
                 template_params = static_cast<AstList*>(WO_NEED_AST_TYPE(3, AstBase::AST_LIST));
-            if (!WO_IS_EMPTY(6))
-            {
-                auto* in_block_sentence_instance = WO_NEED_AST(6);
-                if (in_block_sentence_instance->node_type == AstBase::AST_SCOPE)
-                    in_block_sentence_instance = static_cast<AstScope*>(in_block_sentence_instance)->m_body;
-
-                in_block_sentence = in_block_sentence_instance;
-            }
 
             std::optional<std::list<wo_pstring_t>> in_type_template_params = std::nullopt;
             if (template_params)
@@ -193,16 +184,39 @@ namespace wo
                 in_type_template_params = std::move(params);
             }
 
+            return new AstUsingTypeDeclare(attrib, type_name, in_type_template_params, base_type);
+        }
+        auto pass_using_typename_space::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        {
+            AstUsingTypeDeclare* using_type_declare = 
+                static_cast<AstUsingTypeDeclare*>(WO_NEED_AST_TYPE(0, AstBase::AST_USING_TYPE_DECLARE));
+            std::optional<AstBase*> in_block_sentence = std::nullopt;
+
+            if (!WO_IS_EMPTY(1))
+            {
+                auto* in_block_sentence_instance = WO_NEED_AST(1);
+                if (in_block_sentence_instance->node_type == AstBase::AST_SCOPE)
+                    in_block_sentence_instance = static_cast<AstScope*>(in_block_sentence_instance)->m_body;
+
+                in_block_sentence = in_block_sentence_instance;
+            }
+
             std::optional<AstNamespace*> in_type_namespace = std::nullopt;
             if (in_block_sentence)
             {
-                AstNamespace* typed_namespace = new AstNamespace(type_name, in_block_sentence.value());
+                AstNamespace* typed_namespace = 
+                    new AstNamespace(using_type_declare->m_typename, in_block_sentence.value());
                 in_type_namespace = typed_namespace;
 
                 typed_namespace->source_location = in_block_sentence.value()->source_location;
             }
 
-            return new AstUsingTypeDeclare(attrib, type_name, in_type_template_params, base_type, in_type_namespace);
+            AstList* result_list =  new AstList;
+            result_list->m_list.push_back(using_type_declare);
+            if (in_type_namespace)
+                result_list->m_list.push_back(in_type_namespace.value());
+
+            return result_list;
         }
         auto pass_alias_type_as::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
@@ -1707,6 +1721,7 @@ namespace wo
             WO_AST_BUILDER(pass_enum_finalize);
             WO_AST_BUILDER(pass_namespace);
             WO_AST_BUILDER(pass_using_type_as);
+            WO_AST_BUILDER(pass_using_typename_space);
             WO_AST_BUILDER(pass_alias_type_as);
             WO_AST_BUILDER(pass_build_where_constraint);
             WO_AST_BUILDER(pass_func_def_named);

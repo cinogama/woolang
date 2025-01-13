@@ -1127,7 +1127,6 @@ namespace wo
             , m_LANG_in_template_reification_context(false)
             , m_LANG_determined_template_arguments(std::nullopt)
             , m_LANG_function_scope(std::nullopt)
-            , m_IR_binded_value_instance(std::nullopt)
             , m_IR_extern_information(std::nullopt)
         {
             for (auto* param_define : parameters)
@@ -1629,28 +1628,23 @@ namespace wo
             , m_typename(item.m_typename)
             , m_template_parameters(item.m_template_parameters)
             , m_type(item.m_type)
-            , m_in_type_namespace(item.m_in_type_namespace)
             , m_attribute(item.m_attribute)
             , m_LANG_declared_symbol(std::nullopt)
             , m_LANG_type_namespace_entried(false)
-            , m_LANG_hold_state(LANG_hold_state::UNPROCESSED)
         {
         }
         AstUsingTypeDeclare::AstUsingTypeDeclare(
             const std::optional<AstDeclareAttribue*>& attrib,
             wo_pstring_t typename_,
             const std::optional<std::list<wo_pstring_t>>& template_parameters,
-            AstTypeHolder* type,
-            const std::optional<AstNamespace*>& in_type_namespace)
+            AstTypeHolder* type)
             : AstBase(AST_USING_TYPE_DECLARE)
             , m_typename(typename_)
             , m_template_parameters(template_parameters)
             , m_type(type)
-            , m_in_type_namespace(in_type_namespace)
             , m_attribute(attrib)
             , m_LANG_declared_symbol(std::nullopt)
             , m_LANG_type_namespace_entried(false)
-            , m_LANG_hold_state(LANG_hold_state::UNPROCESSED)
         {
         }
         AstBase* AstUsingTypeDeclare::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
@@ -1661,8 +1655,6 @@ namespace wo
                 ;
 
             out_continues.push_back(AstBase::make_holder(&new_instance->m_type));
-            if (m_in_type_namespace)
-                out_continues.push_back(AstBase::make_holder(&new_instance->m_in_type_namespace.value()));
             if (m_attribute)
                 out_continues.push_back(AstBase::make_holder(&new_instance->m_attribute.value()));
             return new_instance;
@@ -1746,7 +1738,7 @@ namespace wo
 
             auto* enum_base_type_identifier = new AstIdentifier(WO_PSTR(int), std::nullopt, {}, true);
             auto* enum_base_type = new AstTypeHolder(enum_base_type_identifier);
-            auto* enum_type_declare = new AstUsingTypeDeclare(attrib, enum_name, std::nullopt, enum_base_type, std::nullopt);
+            auto* enum_type_declare = new AstUsingTypeDeclare(attrib, enum_name, std::nullopt, enum_base_type);
 
             std::optional<AstDeclareAttribue*> enum_item_attrib = std::nullopt;
             if (attrib)
@@ -1893,6 +1885,7 @@ namespace wo
             //, m_template_parameters(another.m_template_parameters)
             , m_union_type_declare(another.m_union_type_declare)
             //, m_union_items(another.m_union_items)
+            , m_union_namespace(another.m_union_namespace)
         {
         }
         AstUnionDeclare::AstUnionDeclare(
@@ -1905,6 +1898,7 @@ namespace wo
             //, m_template_parameters(template_parameters)
             , m_union_type_declare(nullptr)
             //, m_union_items(nullptr)
+            , m_union_namespace(std::nullopt)
         {
             wo_assert(!union_items.empty());
             auto* union_item_or_creator_declare = new AstVariableDefines(attrib);
@@ -2051,9 +2045,10 @@ namespace wo
             auto* union_namespace = new AstNamespace(union_type_name, union_item_or_creator_declare);
             AstTypeHolder* using_declare_union_type = new AstTypeHolder(union_type_info);
             AstUsingTypeDeclare* using_type_declare = new AstUsingTypeDeclare(
-                attrib, union_type_name, template_parameters, using_declare_union_type, union_namespace);
+                attrib, union_type_name, template_parameters, using_declare_union_type);
 
             m_union_type_declare = using_type_declare;
+            m_union_namespace = union_namespace;
 
             // Update source msg;
             union_item_or_creator_declare->source_location = union_items.front()->source_location;
@@ -2068,6 +2063,8 @@ namespace wo
                 : new AstUnionDeclare(*this)
                 ;
             out_continues.push_back(AstBase::make_holder(&new_instance->m_union_type_declare));
+            if (new_instance->m_union_namespace)
+                out_continues.push_back(AstBase::make_holder(&new_instance->m_union_namespace.value()));
             return new_instance;
         }
 

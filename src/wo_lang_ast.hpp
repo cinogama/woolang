@@ -649,8 +649,6 @@ namespace wo
 
             LANG_capture_context m_LANG_captured_context;
             std::optional<lang_Scope*> m_LANG_function_scope;
-
-            std::optional<lang_ValueInstance*> m_IR_binded_value_instance;
             std::optional<AstExternInformation*> m_IR_extern_information;
 
             AstValueFunction(
@@ -942,26 +940,15 @@ namespace wo
         };
         struct AstUsingTypeDeclare : public AstBase
         {
-            enum LANG_hold_state
-            {
-                UNPROCESSED,
-                HOLD_FOR_BASE_TYPE_EVAL,
-                HOLD_FOR_NAMESPACE_BODY,
-            };
-
             wo_pstring_t            m_typename;
             std::optional<std::list<wo_pstring_t>>
                 m_template_parameters;
             AstTypeHolder* m_type;
-            std::optional<AstNamespace*>
-                m_in_type_namespace;
             std::optional<AstDeclareAttribue*>
                 m_attribute;
             std::optional<lang_Symbol*>
                 m_LANG_declared_symbol;
             bool m_LANG_type_namespace_entried;
-            LANG_hold_state         m_LANG_hold_state;
-
         private:
             AstUsingTypeDeclare(const AstUsingTypeDeclare&);
         public:
@@ -969,8 +956,7 @@ namespace wo
                 const std::optional<AstDeclareAttribue*>& attrib,
                 wo_pstring_t typename_,
                 const std::optional<std::list<wo_pstring_t>>& template_parameters,
-                AstTypeHolder* type,
-                const std::optional<AstNamespace*>& in_type_namespace);
+                AstTypeHolder* type);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
         struct AstAliasTypeDeclare : public AstBase
@@ -1040,6 +1026,7 @@ namespace wo
             //std::optional<std::list<wo_pstring_t>>
             //                        m_template_parameters;
             AstUsingTypeDeclare* m_union_type_declare;
+            std::optional<AstNamespace*> m_union_namespace;
 
         private:
             AstUnionDeclare(const AstUnionDeclare&);

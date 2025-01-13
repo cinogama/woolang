@@ -251,36 +251,28 @@ namespace wo
     }
     WO_PASS_PROCESSER(AstUsingTypeDeclare)
     {
-        if (state == UNPROCESSED)
-        {
-            wo_assert(!node->m_LANG_declared_symbol);
+        wo_assert(state == UNPROCESSED);
+        wo_assert(!node->m_LANG_declared_symbol);
 
-            if (node->m_template_parameters)
-                node->m_LANG_declared_symbol = define_symbol_in_current_scope(
-                    node->m_typename,
-                    node->m_attribute,
-                    node,
-                    node->source_location.source_file,
-                    get_current_scope(),
-                    node->m_type,
-                    node->m_template_parameters.value(),
-                    false);
-            else
-                node->m_LANG_declared_symbol = define_symbol_in_current_scope(
-                    node->m_typename,
-                    node->m_attribute,
-                    node,
-                    node->source_location.source_file,
-                    get_current_scope(),
-                    lang_Symbol::kind::TYPE,
-                    false);
-
-            if (node->m_in_type_namespace)
-            {
-                WO_CONTINUE_PROCESS(node->m_in_type_namespace.value());
-                return HOLD;
-            }
-        }
+        if (node->m_template_parameters)
+            node->m_LANG_declared_symbol = define_symbol_in_current_scope(
+                node->m_typename,
+                node->m_attribute,
+                node,
+                node->source_location.source_file,
+                get_current_scope(),
+                node->m_type,
+                node->m_template_parameters.value(),
+                false);
+        else
+            node->m_LANG_declared_symbol = define_symbol_in_current_scope(
+                node->m_typename,
+                node->m_attribute,
+                node,
+                node->source_location.source_file,
+                get_current_scope(),
+                lang_Symbol::kind::TYPE,
+                false);
 
         if (!node->m_LANG_declared_symbol)
         {
@@ -308,6 +300,9 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
+            if (node->m_union_namespace.has_value())
+                WO_CONTINUE_PROCESS(node->m_union_namespace.value());
+
             WO_CONTINUE_PROCESS(node->m_union_type_declare);
             return HOLD;
         }

@@ -561,10 +561,10 @@ namespace wo
                                     type_instance = type_symbol->m_type_instance;
                             }
 
-                            bool type_or_alias_determined = 
+                            bool type_or_alias_determined =
                                 type_symbol->m_symbol_kind == lang_Symbol::ALIAS
-                                    ? alias_instance->m_determined_type.has_value() 
-                                    : type_instance->get_determined_type().has_value()
+                                ? alias_instance->m_determined_type.has_value()
+                                : type_instance->get_determined_type().has_value()
                                 ;
 
                             if (!type_or_alias_determined)
@@ -976,6 +976,7 @@ namespace wo
                 if (single_pattern->m_template_parameters)
                     // Template variable, skip process init value.
                     return HOLD;
+
                 else if (node->m_init_value->node_type == AstBase::AST_VALUE_FUNCTION)
                 {
                     AstValueFunction* value_function = static_cast<AstValueFunction*>(node->m_init_value);
@@ -1086,7 +1087,6 @@ namespace wo
                 }
             }
 
-            node->m_LANG_hold_state = AstUsingTypeDeclare::LANG_hold_state::HOLD_FOR_BASE_TYPE_EVAL;
             if (!node->m_template_parameters)
             {
                 lang_Symbol* type_symbol = node->m_LANG_declared_symbol.value();
@@ -1108,31 +1108,20 @@ namespace wo
         }
         else if (state == HOLD)
         {
-            if (node->m_LANG_hold_state == AstUsingTypeDeclare::LANG_hold_state::HOLD_FOR_BASE_TYPE_EVAL)
+            if (!node->m_template_parameters)
             {
-                if (!node->m_template_parameters)
-                {
-                    if (node->m_LANG_type_namespace_entried)
-                        end_last_scope();
+                if (node->m_LANG_type_namespace_entried)
+                    end_last_scope();
 
-                    // TYPE HAS BEEN DETERMINED, UPDATE THE SYMBOL;
-                    lang_Symbol* symbol = node->m_LANG_declared_symbol.value();
-                    symbol->m_type_instance->determine_base_type_by_another_type(
-                        node->m_type->m_LANG_determined_type.value());
-                }
-
-                node->m_LANG_hold_state = AstUsingTypeDeclare::LANG_hold_state::HOLD_FOR_NAMESPACE_BODY;
-                if (node->m_in_type_namespace)
-                {
-                    WO_CONTINUE_PROCESS(node->m_in_type_namespace.value());
-                }
-                return HOLD;
+                // TYPE HAS BEEN DETERMINED, UPDATE THE SYMBOL;
+                lang_Symbol* symbol = node->m_LANG_declared_symbol.value();
+                symbol->m_type_instance->determine_base_type_by_another_type(
+                    node->m_type->m_LANG_determined_type.value());
             }
         }
         else
         {
-            if (node->m_LANG_hold_state == AstUsingTypeDeclare::LANG_hold_state::HOLD_FOR_BASE_TYPE_EVAL
-                && node->m_LANG_type_namespace_entried)
+            if (node->m_LANG_type_namespace_entried)
                 end_last_scope();
         }
         return WO_EXCEPT_ERROR(state, OKAY);
@@ -1346,23 +1335,31 @@ namespace wo
                 }
 
                 node->m_LANG_captured_context.m_finished = true;
-                if (node->m_LANG_captured_context.m_self_referenced
-                    && !node->m_LANG_captured_context.m_captured_variables.empty())
-                {
-                    lex.lang_error(lexer::errorlevel::error, node,
-                        WO_ERR_UNABLE_CAPTURE_IN_RECURSIVE_FUNC);
 
-                    for (auto& [captured_from, capture_instance] : node->m_LANG_captured_context.m_captured_variables)
+                if (!node->m_LANG_captured_context.m_captured_variables.empty())
+                {
+                    if (node->m_LANG_captured_context.m_self_referenced)
                     {
-                        for (auto& ref_variable : capture_instance.m_referenced_variables)
+                        lex.lang_error(lexer::errorlevel::error, node,
+                            WO_ERR_UNABLE_CAPTURE_IN_RECURSIVE_FUNC);
+
+                        for (auto& [captured_from, capture_instance] : node->m_LANG_captured_context.m_captured_variables)
                         {
-                            lex.lang_error(lexer::errorlevel::infom,
-                                ref_variable,
-                                WO_INFO_CAPTURED_VARIABLE_USED_HERE,
-                                get_value_name_w(captured_from));
+                            for (auto& ref_variable : capture_instance.m_referenced_variables)
+                            {
+                                lex.lang_error(lexer::errorlevel::infom,
+                                    ref_variable,
+                                    WO_INFO_CAPTURED_VARIABLE_USED_HERE,
+                                    get_value_name_w(captured_from));
+                            }
                         }
+                        return FAILED;
                     }
-                    return FAILED;
+                }
+                else if (node->m_LANG_value_instance_to_update.has_value())
+                {
+                    // This function no need capture variables in runtime.
+                    node->m_LANG_value_instance_to_update.value()->m_IR_normal_function = node;
                 }
                 break;
             }
@@ -1407,7 +1404,7 @@ namespace wo
                 {
                     if (function_instance->m_LANG_determined_return_type.has_value())
                         function_instance->m_LANG_determined_return_type =
-                            function_instance->m_marked_return_type.value()->m_LANG_determined_type.value();
+                        function_instance->m_marked_return_type.value()->m_LANG_determined_type.value();
 
                     // Cannot mixture deduce type.
                 }
@@ -3262,6 +3259,9 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
+            if (node->m_union_namespace.has_value())
+                WO_CONTINUE_PROCESS(node->m_union_namespace.value());
+
             WO_CONTINUE_PROCESS(node->m_union_type_declare);
             return HOLD;
         }

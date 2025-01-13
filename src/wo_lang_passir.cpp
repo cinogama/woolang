@@ -319,15 +319,9 @@ namespace wo
     }
     WO_PASS_PROCESSER(AstUsingTypeDeclare)
     {
-        if (state == UNPROCESSED)
-        {
-            if (node->m_in_type_namespace.has_value())
-            {
-                WO_CONTINUE_PROCESS(node->m_in_type_namespace.value());
-                return HOLD;
-            }
-        }
-        return WO_EXCEPT_ERROR(state, OKAY);
+        wo_assert(state == UNPROCESSED);
+     
+        return OKAY;
     }
     WO_PASS_PROCESSER(AstAliasTypeDeclare)
     {
@@ -353,6 +347,9 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
+            if (node->m_union_namespace.has_value())
+                WO_CONTINUE_PROCESS(node->m_union_namespace.value());
+
             WO_CONTINUE_PROCESS(node->m_union_type_declare);
             return HOLD;
         }
@@ -801,8 +798,8 @@ namespace wo
 
                         if (function != nullptr)
                         {
-                            template_value_instance->m_IR_normal_function = *function;
-                            (*function)->m_IR_binded_value_instance = template_value_instance;
+                            wo_assert((*function)->m_LANG_value_instance_to_update.value()
+                                == template_value_instance);
 
                             // We still eval the function to let compiler know the function.
                             m_ircontext.eval_ignore();
@@ -844,8 +841,8 @@ namespace wo
 
                 if (function != nullptr)
                 {
-                    pattern_symbol->m_value_instance->m_IR_normal_function = *function;
-                    (*function)->m_IR_binded_value_instance = pattern_symbol->m_value_instance;
+                    wo_assert((*function)->m_LANG_value_instance_to_update.value()
+                        == pattern_symbol->m_value_instance);
 
                     m_ircontext.eval_ignore();
                     if (!pass_final_value(lex, *function))
