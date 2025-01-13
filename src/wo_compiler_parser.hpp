@@ -185,14 +185,13 @@ namespace wo
             AstBase& operator = (const AstBase&) = delete;
             AstBase& operator = (AstBase&&) = delete;
 
-            virtual ~AstBase()
-            {
-            }
+            virtual ~AstBase() = default;
 
         public:
             class _AstSafeHolderBase
             {
             public:
+                virtual ~_AstSafeHolderBase() = default;
                 virtual const AstBase* get() = 0;
                 virtual void set(AstBase* ast) = 0;
             };
