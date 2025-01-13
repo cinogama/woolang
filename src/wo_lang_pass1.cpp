@@ -2599,6 +2599,23 @@ namespace wo
                         WO_CONTINUE_PROCESS(*type_holder);
                 }
             }
+            for (auto& argument: node->m_arguments)
+            {
+                auto* origin_argument = get_marked_origin_value_node(argument);
+                if (origin_argument->node_type == AstBase::AST_VALUE_VARIABLE)
+                {
+                    // Eval from type first;
+                    AstValueVariable* argument_variabl = static_cast<AstValueVariable*>(origin_argument);
+                    if (argument_variabl->m_identifier->m_formal == AstIdentifier::FROM_TYPE)
+                    {
+                        AstTypeHolder** type_holder = std::get_if<AstTypeHolder*>(
+                            &argument_variabl->m_identifier->m_from_type.value());
+
+                        if (type_holder != nullptr)
+                            WO_CONTINUE_PROCESS(*type_holder);
+                    }
+                }
+            }
 
             node->m_LANG_hold_state = AstValueFunctionCall::HOLD_FOR_FIRST_ARGUMENT_EVAL;
             return HOLD;
@@ -3426,29 +3443,24 @@ namespace wo
         {
             if (node->m_marked_struct_type.has_value())
             {
-                AstTypeHolder* struct_type = node->m_marked_struct_type.value();
-                bool need_template_deduct = check_need_template_deduct_struct_type(lex, struct_type, out_stack);
-
-                std::list<AstValueBase*> member_init_values;
-
                 for (auto* member_pair : node->m_fields)
                 {
-                    if (check_need_template_deduct_function(lex, member_pair->m_value, out_stack))
-                        continue;
+                    auto* origin_value = get_marked_origin_value_node(member_pair->m_value);
+                    if (origin_value->node_type == AstBase::AST_VALUE_VARIABLE)
+                    {
+                        // Eval from type first;
+                        AstValueVariable* value_variabl = static_cast<AstValueVariable*>(origin_value);
+                        if (value_variabl->m_identifier->m_formal == AstIdentifier::FROM_TYPE)
+                        {
+                            AstTypeHolder** type_holder = std::get_if<AstTypeHolder*>(
+                                &value_variabl->m_identifier->m_from_type.value());
 
-                    member_init_values.push_back(member_pair->m_value);
+                            if (type_holder != nullptr)
+                                WO_CONTINUE_PROCESS(*type_holder);
+                        }
+                    }
                 }
-                WO_CONTINUE_PROCESS_LIST(member_init_values);
-
-                if (need_template_deduct)
-                {
-                    node->m_LANG_hold_state = AstValueStruct::HOLD_FOR_EVAL_MEMBER_VALUE_BESIDE_TEMPLATE;
-                }
-                else
-                {
-                    WO_CONTINUE_PROCESS(struct_type);
-                    node->m_LANG_hold_state = AstValueStruct::HOLD_FOR_ANYLIZE_ARGUMENTS_TEMAPLTE_INSTANCE;
-                }
+                node->m_LANG_hold_state = AstValueStruct::HOLD_FOR_MEMBER_TYPE_EVAL;
             }
             else
             {
@@ -3462,6 +3474,34 @@ namespace wo
         {
             switch (node->m_LANG_hold_state)
             {
+            case AstValueStruct::HOLD_FOR_MEMBER_TYPE_EVAL:
+            {
+                std::list<AstValueBase*> member_init_values;
+
+                for (auto* member_pair : node->m_fields)
+                {
+                    if (check_need_template_deduct_function(lex, member_pair->m_value, out_stack))
+                        continue;
+
+                    member_init_values.push_back(member_pair->m_value);
+                }
+
+                WO_CONTINUE_PROCESS_LIST(member_init_values);
+
+                AstTypeHolder* struct_type = node->m_marked_struct_type.value();
+                bool need_template_deduct = check_need_template_deduct_struct_type(lex, struct_type, out_stack);
+
+                if (need_template_deduct)
+                {
+                    node->m_LANG_hold_state = AstValueStruct::HOLD_FOR_EVAL_MEMBER_VALUE_BESIDE_TEMPLATE;
+                }
+                else
+                {
+                    WO_CONTINUE_PROCESS(struct_type);
+                    node->m_LANG_hold_state = AstValueStruct::HOLD_FOR_ANYLIZE_ARGUMENTS_TEMAPLTE_INSTANCE;
+                }
+                return HOLD;
+            }
             case AstValueStruct::HOLD_FOR_EVAL_MEMBER_VALUE_BESIDE_TEMPLATE:
             {
                 // First deduct

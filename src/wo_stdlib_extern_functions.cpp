@@ -1825,7 +1825,7 @@ public union option<T>
 }
 namespace option
 {
-    alias item_t<T> = 
+    public alias item_t<T> = 
         typeof(std::declval:<T>()->\<E>_: option<E> = std::declval:<E>(););
 
     public func map<T, R>(self: option<T>, functor: (T)=> R)
@@ -1952,10 +1952,10 @@ public union result<T, F>
 }
 namespace result
 {
-    alias item_t<T> = 
+    public alias item_t<T> = 
         typeof(std::declval:<T>()->\<O, E>_: result<O, E> = std::declval:<(O, E)>(););
-    alias ok_t<T> = typeof(std::declval:<item_t<T>>().0);
-    alias err_t<T> = typeof(std::declval:<item_t<T>>().1);
+    public alias ok_t<T> = typeof(std::declval:<item_t<T>>().0);
+    public alias err_t<T> = typeof(std::declval:<item_t<T>>().1);
 
     public func map<T, F, R>(self: result<T, F>, functor: (T)=> R)
         => result<R, F>

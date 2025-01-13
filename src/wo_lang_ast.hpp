@@ -706,6 +706,7 @@ namespace wo
             enum LANG_hold_state
             {
                 UNPROCESSED,
+                HOLD_FOR_MEMBER_TYPE_EVAL,
                 HOLD_FOR_EVAL_MEMBER_VALUE_BESIDE_TEMPLATE,
                 HOLD_FOR_TEMPLATE_DEDUCTION,
                 HOLD_FOR_ANYLIZE_ARGUMENTS_TEMAPLTE_INSTANCE,
