@@ -1015,6 +1015,51 @@ namespace wo
         }
         auto pass_literal::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
+            auto read_from_unsigned_literal = 
+                [](const wchar_t* text)-> uint64_t
+                {
+                    uint64_t base = 10;
+                    uint64_t result = 0;
+
+                    if (text[0] == L'0')
+                    {
+                        if (text[1] == 0)
+                            return 0;
+
+                        switch (lexer::lex_toupper(text[1]))
+                        {
+                        case L'X':
+                            base = 16;
+                            text = text + 2;
+                            break;
+                        case L'B':
+                            base = 2;
+                            text = text + 2;
+                            break;
+                        default:
+                            base = 8;
+                            ++text;
+                            break;
+                        }
+                       
+                        while (*text)
+                        {
+                            if (*text == L'H' || *text == L'h')
+                                break;
+                            result = base * result + lexer::lex_hextonum(*text);
+                            ++text;
+                        }
+                        return result;
+                    }
+                };
+            auto read_from_literal =
+                [&read_from_unsigned_literal](const wchar_t* text)-> int64_t
+                {
+                    if (text[0] == L'-')
+                        return -(int64_t)read_from_unsigned_literal(text + 1);
+                    return (int64_t)read_from_unsigned_literal(text);
+                };
+
             token literal = WO_NEED_TOKEN(0);
             AstValueLiteral* literal_instance = new AstValueLiteral();
 
@@ -1023,10 +1068,14 @@ namespace wo
             switch (literal.type)
             {
             case lex_type::l_literal_integer:
-                literal_value.set_integer((wo_integer_t)std::stoll(literal.identifier));
+            {
+                literal_value.set_integer(
+                    (wo_integer_t)read_from_literal(literal.identifier.c_str()));
                 break;
+            }
             case lex_type::l_literal_handle:
-                literal_value.set_handle((wo_handle_t)std::stoull(literal.identifier));
+                literal_value.set_handle(
+                    (wo_handle_t)read_from_unsigned_literal(literal.identifier.c_str()));
                 break;
             case lex_type::l_literal_real:
                 literal_value.set_real((wo_real_t)std::stod(literal.identifier));
