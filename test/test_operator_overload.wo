@@ -3,65 +3,71 @@ import test_tool;
 
 namespace test_operator_overload
 {
-    func operator + (a:string, b:int)
+    using SpString = string
     {
-        return a + b:string;
-    }
-
-    func operator * (a:string, b:int)
-    {
-        let mut result = "";
-        for (let mut i = 0; i<b; i+=1)
-            result += a;
-        return result;
+        func operator + (a: SpString, b:int)
+        {
+            return a: string + b: string;
+        }
+        func operator * (a: SpString, b:int)
+        {
+            let mut result = "";
+            for (let mut i = 0; i<b; i+=1)
+                result += a: string;
+            return result;
+        }
+        func operator /(a, b)
+        {
+            std::println("Helloworld~");
+            return a: string + "/" + b;
+        }
+        func operator %(a, b)
+        {
+            return (a + b: int): SpString;
+        }
     }
     
-    func operator /(a, b)
-    {
-        std::println("Helloworld~");
-        return a + "/" + b;
-    }
-
     func bar()
     {
         std::println("foo called~");
 
-        return struct{m=mut"dsa"};
+        return struct{m=mut "dsa": SpString};
     }
 
     func main()
     {
-        test_equal("Hello" + 25, "Hello25");
-        test_equal("Hello" * 3, "HelloHelloHello");
+        test_equal("Hello": SpString + 25, "Hello25");
+        test_equal("Hello": SpString * 3, "HelloHelloHello");
 
         let mut str = "example";
-        str = str + 123;
+        str = str: SpString + 123;
         test_equal(str, "example123");
 
-        str += 321;
-        test_equal(str, "example123321");
+        let mut spstr = str: SpString;
+        spstr %= 321;
+        test_equal(spstr: string, "example123321");
 
         let state = std::mutable::create(0);
-        let structdat = struct{m = mut "data_struct"};
+        let structdat = struct{m = mut "data_struct": SpString};
         let foo = func(){state->set(state->get + 1); return structdat;};
 
-        foo().m += foo().m;
-        test_equal(structdat.m, "data_structdata_struct");
+        foo().m %= foo().m: string;
+        test_equal(structdat.m: string, "data_struct0");
         test_equal(state->get, 2);
 
         let mut v = 856;
-        foo().m += 123 * v;
-        test_equal(structdat.m, "data_structdata_struct105288");
+        foo().m %= 123 * v;
+        test_equal(structdat.m: string, "data_struct0105288");
         test_equal(state->get, 3);
         
-        test_equal(bar().m /:= "asd", "dsa/asd");
-        test_equal("abc"/"111", "abc/111");
-        test_equal("abc"/ ("111" + 5), "abc/1115");
+        test_equal((bar().m %:= 133): string, "dsa133");
+        test_equal("abc": SpString / "111", "abc/111");
+        test_equal("abc": SpString / ("111": SpString + 5), "abc/1115");
 
-        let mut a = "654";
-        a /= "321";
-        test_equal(a +:= \="789";(), "654/321789");
-        test_equal(a, "654/321789");
+        let mut a = "654": SpString;
+        a %= 321;
+        test_equal((a %:= \=789;()): string, "654321789");
+        test_equal(a: string, "654321789");
     }
 }
 

@@ -12,19 +12,12 @@ namespace test_hkt
     {
     }
 
-    func get_finalize_hkt_func<AHKT>()
-    {
-        return finalize_hkt_func:<AHKT>;
-    }
-
-    func get_finalize_hkt_func_2<BHKT>()
-    {
-        return get_finalize_hkt_func:<BHKT>();
-    }
-  
     func test_complex_types()
     {
-        using MyT<T> = typeof(std::declval:<T>() is int ? std::declval:<()=>MyT<real>>() | std::declval:<int>());
+        using MyT<T> = typeof(
+            std::declval:<T>() is int 
+                ? std::declval:<()=>MyT<real>>() 
+                | std::declval:<int>());
         let yf = option::none: option<MyT<int>>;
         test_assure(yf->unwrap()() is MyT<real>);
     }
@@ -44,17 +37,9 @@ namespace test_hkt
         alias MyArr_T<VT> = array<VT>;
         alias SpArr_T<VT> = array<VT>;
 
-        test_equal(get_finalize_hkt_func_2:<MyArr_T>(), get_finalize_hkt_func:<MyArr_T>());
-        test_equal(get_finalize_hkt_func_2:<MyArr_T>(), get_finalize_hkt_func:<SpArr_T>());
-        test_equal(get_finalize_hkt_func_2:<SpArr_T>(), get_finalize_hkt_func:<MyArr_T>());
-
-        test_equal(finalize_hkt_func:<MyArr_T>, get_finalize_hkt_func:<MyArr_T>());
-        test_equal(finalize_hkt_func:<MyArr_T>, get_finalize_hkt_func_2:<SpArr_T>());
-        test_equal(finalize_hkt_func:<SpArr_T>, get_finalize_hkt_func:<MyArr_T>());
-
-        test_equal(get_finalize_hkt_func_2:<MyArr_T>(), finalize_hkt_func:<MyArr_T>);
-        test_equal(get_finalize_hkt_func:<MyArr_T>(), finalize_hkt_func:<SpArr_T>);
-        test_equal(get_finalize_hkt_func_2:<SpArr_T>(), finalize_hkt_func:<MyArr_T>);
+        test_equal(typeid:<MyArr_T<int>>, typeid:<SpArr_T<int>>);   
+        test_equal(typeid:<MyArr_T<int>>, typeid:<MyArr_T<int>>);
+        test_equal(typeid:<SpArr_T<int>>, typeid:<MyArr_T<int>>);
 
         test_complex_types();
     }

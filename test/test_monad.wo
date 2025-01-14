@@ -132,7 +132,7 @@ namespace test_monad
                     next_ch_index = 0,
                 };
             }
-            public func next(self: State)
+            public func next(self: State)=> option<(char, State)>
             {
                 if (self.next_ch_index >= self.source_text_length)
                     return option::none;
@@ -147,7 +147,9 @@ namespace test_monad
 
         let pred = 
             \p: (char)=> bool = Parser::id:<State>
-                =>> \c = p(c) ? Parser::pure:<State>(c) | Parser::fail:<State>();
+                =>> \c = p(c) 
+                    ? Parser::pure:<State>(c) 
+                    | Parser::fail:<State>(): Parser<test_monad::parsermonad::State, char>;
             ;
         ;
         let ch = \tc: char = pred(\c = c == tc;);;

@@ -1125,6 +1125,10 @@ enum _wo_opcode_ext0
                 // DRH: Opnum1 desc
                 // OPNUM1: RS/GLB                       Trigger a panic when:
                 //                                      * OPNUM1 == 0
+    WO_POPN = 6,
+                // DRH: Opnum1 desc
+                // DRL: 0
+                // -- No OPNUM --                       Pop N values from stack, N is the value of Opnum1.
 };
 
 enum _wo_opcode_ext3

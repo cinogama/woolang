@@ -202,6 +202,7 @@ namespace wo
         // special regist
         value* cr;  // op result trace & function return;
         value* tc;  // arugument count
+        value* tp;  // stored argument count
         value* er;  // exception result
 
         // stack info
@@ -320,7 +321,7 @@ namespace wo
         static value* make_array_impl(value* opnum1, uint16_t size, value* rt_sp) noexcept;
         static value* make_map_impl(value* opnum1, uint16_t size, value* rt_sp) noexcept;
         static value* make_struct_impl(value* opnum1, uint16_t size, value* rt_sp) noexcept;
-        static void packargs_impl(value* opnum1, uint16_t argcount, value* tc, value* rt_bp, uint16_t skip_closure_arg_count) noexcept;
+        static void packargs_impl(value* opnum1, uint16_t argcount, const value* tp, value* rt_bp, uint16_t skip_closure_arg_count) noexcept;
         static value* unpackargs_impl(vmbase* vm, value* opnum1, int32_t unpack_argc, value* tc, const byte_t* rt_ip, value* rt_sp, value* rt_bp) noexcept;
         static const char* movcast_impl(value* opnum1, value* opnum2, value::valuetype aim_type) noexcept;
     };

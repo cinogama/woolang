@@ -147,7 +147,7 @@ namespace test_container
     }
     func test_index()
     {
-        let a = [mut 1,2,3,4,5];
+        let a = [mut 1,mut 2,mut 3,mut 4,mut 5];
         test_assure(a[3] == 4);
         a[3] = 6;
 

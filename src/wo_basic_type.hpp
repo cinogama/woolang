@@ -133,7 +133,7 @@ namespace wo
             set_gcunit<wo::value::valuetype::string_type>(new string_t(str));
             return this;
         }
-        inline value* set_val_compile_time(value* val)
+        inline value* set_val_compile_time(const value* val)
         {
             if (val->type == valuetype::string_type)
                 return set_string_nogc(*val->string);
@@ -215,6 +215,13 @@ namespace wo
             if (type & valuetype::need_gc_flag)
                 return std::launder(reinterpret_cast<gcbase*>(
                     womem_verify(gcunit, std::launder(reinterpret_cast<womem_attrib_t**>(attrib)))));
+            return nullptr;
+        }
+        inline gcbase::unit_attrib* fast_get_attrib_for_assert_check() const
+        {
+            gcbase::unit_attrib* r;
+            if (nullptr != get_gcunit_and_attrib_ref(&r))
+                return r;
             return nullptr;
         }
         inline bool is_gcunit() const

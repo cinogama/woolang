@@ -39,7 +39,7 @@ namespace test_struct
         test_equal(s.c, 3);
     }
 
-    func test_raw_struct_1(a: bool)
+    func test_raw_struct_1(a: bool)=> struct{a: array<string>, b: array<real>}
     {
         if (a)
             return struct{a = [], b = [3.14]};
