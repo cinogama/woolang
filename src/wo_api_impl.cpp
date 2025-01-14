@@ -3293,8 +3293,8 @@ wo_value wo_dispatch(
 
         if (vmm->get_and_clear_br_yield_flag())
         {
-            (vmm->sp++)->set_callstack(origin_spbp.ret_ip, origin_spbp.bp);
-            (vmm->sp++)->set_integer(origin_tc);
+            (vmm->sp--)->set_callstack(origin_spbp.ret_ip, origin_spbp.bp);
+            (vmm->sp--)->set_integer(origin_tc);
 
             return WO_CONTINUE;
         }

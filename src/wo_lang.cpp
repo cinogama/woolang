@@ -1538,6 +1538,8 @@ namespace wo
                 // 3. If function is variadic, move tc to tp;
                 if (eval_function->m_is_variadic)
                 {
+                    m_ircontext.c().psh(
+                        *(opnum::opnumbase*)m_ircontext.opnum_spreg(opnum::reg::spreg::tp));
                     m_ircontext.c().mov(
                         *(opnum::opnumbase*)m_ircontext.opnum_spreg(opnum::reg::spreg::tp),
                         *(opnum::opnumbase*)m_ircontext.opnum_spreg(opnum::reg::spreg::tc));
@@ -1560,7 +1562,19 @@ namespace wo
                             + std::string(get_type_name(eval_function->m_LANG_determined_return_type.value()))
                             + "`, but ended without providing a return value"));
                 }
-                m_ircontext.c().ret();
+
+                if (eval_function->m_is_variadic)
+                {
+                    m_ircontext.c().tag(IR_function_label(eval_function) + "_ret");
+                    m_ircontext.c().pop(
+                        *(opnum::opnumbase*)m_ircontext.opnum_spreg(opnum::reg::spreg::tp));
+                }
+
+                if (eval_function->m_LANG_captured_context.m_captured_variables.empty())
+                    m_ircontext.c().ret();
+                else
+                    m_ircontext.c().ret(
+                        (uint16_t)eval_function->m_LANG_captured_context.m_captured_variables.size());
 
                 auto this_function_used_tmp_regs =
                     m_ircontext.c().update_all_temp_regist_to_stack(

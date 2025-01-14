@@ -188,7 +188,7 @@ namespace wo
         }
         auto pass_using_typename_space::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
-            AstUsingTypeDeclare* using_type_declare = 
+            AstUsingTypeDeclare* using_type_declare =
                 static_cast<AstUsingTypeDeclare*>(WO_NEED_AST_TYPE(0, AstBase::AST_USING_TYPE_DECLARE));
             std::optional<AstBase*> in_block_sentence = std::nullopt;
 
@@ -204,14 +204,14 @@ namespace wo
             std::optional<AstNamespace*> in_type_namespace = std::nullopt;
             if (in_block_sentence)
             {
-                AstNamespace* typed_namespace = 
+                AstNamespace* typed_namespace =
                     new AstNamespace(using_type_declare->m_typename, in_block_sentence.value());
                 in_type_namespace = typed_namespace;
 
                 typed_namespace->source_location = in_block_sentence.value()->source_location;
             }
 
-            AstList* result_list =  new AstList;
+            AstList* result_list = new AstList;
             result_list->m_list.push_back(using_type_declare);
             if (in_type_namespace)
                 result_list->m_list.push_back(in_type_namespace.value());
@@ -1015,7 +1015,7 @@ namespace wo
         }
         auto pass_literal::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
-            auto read_from_unsigned_literal = 
+            auto read_from_unsigned_literal =
                 [](const wchar_t* text)-> uint64_t
                 {
                     uint64_t base = 10;
@@ -1041,16 +1041,15 @@ namespace wo
                             ++text;
                             break;
                         }
-                       
-                        while (*text)
-                        {
-                            if (*text == L'H' || *text == L'h')
-                                break;
-                            result = base * result + lexer::lex_hextonum(*text);
-                            ++text;
-                        }
-                        return result;
                     }
+                    while (*text)
+                    {
+                        if (*text == L'H' || *text == L'h')
+                            break;
+                        result = base * result + lexer::lex_hextonum(*text);
+                        ++text;
+                    }
+                    return result;
                 };
             auto read_from_literal =
                 [&read_from_unsigned_literal](const wchar_t* text)-> int64_t
@@ -1068,11 +1067,9 @@ namespace wo
             switch (literal.type)
             {
             case lex_type::l_literal_integer:
-            {
                 literal_value.set_integer(
                     (wo_integer_t)read_from_literal(literal.identifier.c_str()));
                 break;
-            }
             case lex_type::l_literal_handle:
                 literal_value.set_handle(
                     (wo_handle_t)read_from_unsigned_literal(literal.identifier.c_str()));

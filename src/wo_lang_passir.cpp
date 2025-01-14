@@ -918,11 +918,18 @@ namespace wo
         if (node->m_LANG_belong_function_may_null_if_outside.has_value())
         {
             AstValueFunction* returned_func = node->m_LANG_belong_function_may_null_if_outside.value();
-            if (!returned_func->m_LANG_captured_context.m_captured_variables.empty())
-                m_ircontext.c().ret(
-                    (uint16_t)returned_func->m_LANG_captured_context.m_captured_variables.size());
+            if (returned_func->m_is_variadic)
+            {
+                m_ircontext.c().jmp(opnum::tag(IR_function_label(returned_func) + "_ret"));
+            }
             else
-                m_ircontext.c().ret();
+            {
+                if (!returned_func->m_LANG_captured_context.m_captured_variables.empty())
+                    m_ircontext.c().ret(
+                        (uint16_t)returned_func->m_LANG_captured_context.m_captured_variables.size());
+                else
+                    m_ircontext.c().ret();
+            }
         }
         else
         {
@@ -1258,7 +1265,7 @@ namespace wo
 
             if (node->m_LANG_invoking_variadic_function)
             {
-                m_ircontext.c().psh(WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tp)));
+                m_ircontext.c().psh(WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tc)));
                 m_ircontext.c().mov(
                     WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tc)),
                     WO_OPNUM(m_ircontext.opnum_imm_int(node->m_LANG_certenly_function_argument_count)));
@@ -1328,7 +1335,7 @@ namespace wo
 
             if (node->m_LANG_invoking_variadic_function)
                 m_ircontext.c().pop(
-                    WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tp)));
+                    WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tc)));
 
             // Ok, invoke finished.
             if (!m_ircontext.apply_eval_result(
