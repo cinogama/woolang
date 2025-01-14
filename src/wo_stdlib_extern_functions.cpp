@@ -1555,6 +1555,20 @@ WO_API wo_api rslib_std_get_extern_symb(wo_vm vm, wo_value args)
     return wo_ret_option_none(vm);
 }
 
+WO_API wo_api rslib_std_replace_tp(wo_vm vm, wo_value args)
+{
+    wo_integer_t new_tp_val = wo_int(args + 0);
+    wo_value tp = wo_register(vm, WO_REG_TP);
+
+    wo_integer_t old_tp_val = 0;
+    if (wo_valuetype(tp) == WO_INTEGER_TYPE)
+        old_tp_val = wo_int(tp);
+
+    wo_set_int(tp, new_tp_val);
+
+    return wo_ret_int(vm, old_tp_val);
+}
+
 WO_API wo_api rslib_std_equal_byte(wo_vm vm, wo_value args)
 {
     return wo_ret_bool(vm, wo_equal_byte(args + 0, args + 1));
@@ -1732,6 +1746,9 @@ namespace unsafe
     
     extern("rslib_std_get_extern_symb")
         public func extsymbol<T>(fullname: string)=> option<T>;
+
+    extern("rslib_std_replace_tp")
+        public func replace_argc(argc: int)=> int;
 }
 namespace std
 {
@@ -1746,18 +1763,18 @@ namespace std
     public let is_same_type<A, B> = typeid:<A> == typeid:<B>;
     public let is_mutable_type<A> = std::is_same_type:<A, mut A>;
 
-    public let is_array<AT> = std::declval:<array::item_t<AT>>() is pending == false;
-    public let is_vec<AT> = std::declval:<vec::item_t<AT>>() is pending == false;
-    public let is_dict<DT> = std::declval:<dict::item_t<DT>>() is pending == false;
-    public let is_map<DT> = std::declval:<map::item_t<DT>>() is pending == false;
+    public let is_array<AT> = typeid:<typeof(std::declval:<array::item_t<AT>>())> != 0;
+    public let is_vec<AT> = typeid:<typeof(std::declval:<vec::item_t<AT>>())> != 0;
+    public let is_dict<DT> = typeid:<typeof(std::declval:<dict::item_t<DT>>())> != 0;
+    public let is_map<DT> = typeid:<typeof(std::declval:<map::item_t<DT>>())> != 0;
 
     public let is_tuple<T> = 
         !is_array:<T> &&
         !is_vec:<T> && 
-        !(std::declval:<T>()...->\...=do nil; is pending);
+        typeid:<typeof(std::declval:<T>()...->\...=do nil;)> != 0;
     
     public func use<T, R>(val: T, f: (T)=> R)
-        where val->close is pending == false;
+        where typeid:<typeof(val->close)> != 0;
     {
         let v = f(val);
         do val->close;
@@ -1769,10 +1786,10 @@ namespace std
         option::item_t<typeof(std::declval:<T>()->next)>;
 
     public let is_iterator<T> = 
-        std::declval:<iterator_result_t<T>>() is pending == false;
+        typeid:<typeof(std::declval:<iterator_result_t<T>>())> != 0;
 
     public let is_iterable<T> = 
-        std::declval:<T>()->iter is pending == false
+        typeid:<typeof(std::declval:<T>()->iter)> != 0
         ? std::is_iterator:<typeof(std::declval:<T>()->iter)>
         | false;
         
@@ -1825,7 +1842,7 @@ public union option<T>
 }
 namespace option
 {
-    alias item_t<T> = 
+    public alias item_t<T> = 
         typeof(std::declval:<T>()->\<E>_: option<E> = std::declval:<E>(););
 
     public func map<T, R>(self: option<T>, functor: (T)=> R)
@@ -1952,10 +1969,10 @@ public union result<T, F>
 }
 namespace result
 {
-    alias item_t<T> = 
+    public alias item_t<T> = 
         typeof(std::declval:<T>()->\<O, E>_: result<O, E> = std::declval:<(O, E)>(););
-    alias ok_t<T> = typeof(std::declval:<item_t<T>>().0);
-    alias err_t<T> = typeof(std::declval:<item_t<T>>().1);
+    public alias ok_t<T> = typeof(std::declval:<item_t<T>>().0);
+    public alias err_t<T> = typeof(std::declval:<item_t<T>>().1);
 
     public func map<T, F, R>(self: result<T, F>, functor: (T)=> R)
         => result<R, F>
@@ -2038,7 +2055,7 @@ namespace result
         {
         ok(v)? return v;
         err(e)? 
-            if (e: string is pending == false)
+            if (typeid:<typeof(e: string)> != 0)
                 return std::panic(F"An error was found in 'unwrap': {e}");
             else
                 return std::panic("An error was found in 'unwrap'.");
@@ -2158,15 +2175,20 @@ namespace std
     public func rand<T>(from: T, to: T)=> T
         where from is int || from is real;
     {
-        extern("rslib_std_randomint") 
+        if (from is int)
+        {
+            extern("rslib_std_randomint") 
             func rand_int(from: int, to: int)=> int;
-        extern("rslib_std_randomreal") 
+
+            return rand_int(from, to);
+        }
+        else
+        {
+            extern("rslib_std_randomreal") 
             func rand_real(from: real, to: real)=> real;
 
-        if (from is int)
-            return rand_int(from, to);
-        else
             return rand_real(from, to);
+        }
     }
 
     extern("rslib_std_break_yield") 
@@ -2464,21 +2486,20 @@ namespace array
         let result = []mut: vec<R>;
         for (let elem : val)
         {
-            let r = functor(elem);
-            result->add(r);
+            result->add(functor(elem));
         }
         return result->unsafe::cast:<array<R>>;
     }
 
     public func mapping<K, V>(val: array<(K, V)>)
     {
-        let result = {}mut: map<K, V>;
+        let result = {}mut: ::map<K, V>;
         for (let (k, v) : val)
             result->set(k, v);
         return result->unsafe::cast:<dict<K, V>>;
     }
 
-    public func reduce<T>(self: array<T>, reducer: (T, T)=> T)
+    public func reduce<T>(self: array<T>, reducer: (T, T)=> T)=> option<T>
     {
         if (self->empty)
             return option::none;
@@ -2490,7 +2511,7 @@ namespace array
         return option::value(result);
     }
 
-    public func rreduce<T>(self: array<T>, reducer: (T, T)=> T)
+    public func rreduce<T>(self: array<T>, reducer: (T, T)=> T)=> option<T>
     {
         if (self->empty)
             return option::none;
@@ -2582,8 +2603,8 @@ namespace vec
         public func swap<T>(val: vec<T>, another: vec<T>)=> void;
 
     extern("rslib_std_array_copy") 
-        public func copy<T, C>(val: vec<T>, another: C<T>)=> void
-            where std::is_array:<C<T>> || std::is_vec:<C<T>>;
+        public func copy<T, CT>(val: vec<T>, another: CT)=> void
+            where another is array<T> || another is vec<T>;
 
     extern("rslib_std_array_get", repeat)
         public func get<T>(a: vec<T>, index: int)=> option<T>;
@@ -2675,13 +2696,13 @@ namespace vec
 
     public func mapping<K, V>(val: vec<(K, V)>)
     {
-        let result = {}mut: map<K, V>;
+        let result = {}mut: ::map<K, V>;
         for (let (k, v) : val)
             result->set(k, v);
         return result->unsafe::cast:<dict<K, V>>;
     }
 
-    public func reduce<T>(self: vec<T>, reducer: (T, T)=>T)
+    public func reduce<T>(self: vec<T>, reducer: (T, T)=>T)=> option<T>
     {
         if (self->empty)
             return option::none;
@@ -2693,7 +2714,7 @@ namespace vec
         return option::value(result);
     }
 
-    public func rreduce<T>(self: vec<T>, reducer: (T, T)=>T)
+    public func rreduce<T>(self: vec<T>, reducer: (T, T)=>T)=> option<T>
     {
         if (self->empty)
             return option::none;
@@ -2743,7 +2764,7 @@ namespace dict
 
     public func bind<KT, VT, RK, RV>(val: dict<KT, VT>, functor: (KT, VT)=> dict<RK, RV>)
     {
-        let result = {}mut: map<RK, RV>;
+        let result = {}mut: ::map<RK, RV>;
         for (let (k, v) : val)
             for (let (rk, rv) : functor(k, v))
                 result->set(rk, rv);
@@ -2765,7 +2786,7 @@ namespace dict
         public func dup<KT, VT>(self: dict<KT, VT>)=> dict<KT, VT>;
 
     extern("rslib_std_make_dup", repeat)
-        public func to_map<KT, VT>(self: dict<KT, VT>)=> map<KT, VT>;
+        public func to_map<KT, VT>(self: dict<KT, VT>)=> ::map<KT, VT>;
 
     public func find_if<KT, VT>(self: dict<KT, VT>, judger:(KT)=> bool)
     {
@@ -2821,7 +2842,7 @@ namespace dict
 
     public func forall<KT, VT>(self: dict<KT, VT>, functor: (KT, VT)=> bool)
     {
-        let result = {}mut: map<KT, VT>;
+        let result = {}mut: ::map<KT, VT>;
         for (let (key, val) : self)
             if (functor(key, val))
                 result->set(key, val);
@@ -2829,7 +2850,7 @@ namespace dict
     }
     public func map<KT, VT, AT, BT>(self: dict<KT, VT>, functor: (KT, VT)=> (AT, BT))
     {
-        let result = {}mut: map<AT, BT>;
+        let result = {}mut: ::map<AT, BT>;
         for (let (key, val) : self)
         {
             let (nk, nv) = functor(key, val);
@@ -2849,43 +2870,43 @@ namespace dict
 namespace map
 {
     public alias item_t<DT> = 
-        typeof(std::declval:<DT>()->\<KT, VT>_: map<KT, VT> = std::declval:<(KT, VT)>(););
-    public alias key_t<DT> = typeof(std::declval:<map::item_t<DT>>().0);
-    public alias val_t<DT> = typeof(std::declval:<map::item_t<DT>>().1);
+        typeof(std::declval:<DT>()->\<KT, VT>_: ::map<KT, VT> = std::declval:<(KT, VT)>(););
+    public alias key_t<DT> = typeof(std::declval:<::map::item_t<DT>>().0);
+    public alias val_t<DT> = typeof(std::declval:<::map::item_t<DT>>().1);
 
     extern("rslib_std_serialize", repeat) 
-        public func serialize<KT, VT>(self: map<KT, VT>)=> option<string>;
+        public func serialize<KT, VT>(self: ::map<KT, VT>)=> option<string>;
                     
     extern("rslib_std_parse_map_from_string", repeat) 
-        public func deserialize(val: string)=> option<map<dynamic, dynamic>>;
+        public func deserialize(val: string)=> option<::map<dynamic, dynamic>>;
 
-    public func bind<KT, VT, RK, RV>(val: map<KT, VT>, functor: (KT, VT)=> map<RK, RV>)
+    public func bind<KT, VT, RK, RV>(val: ::map<KT, VT>, functor: (KT, VT)=> ::map<RK, RV>)
     {
-        let result = {}mut: map<RK, RV>;
+        let result = {}mut: ::map<RK, RV>;
         for (let (k, v) : val)
             for (let (rk, rv) : functor(k, v))
                 result->set(rk, rv);
         return result;
     }
     extern("rslib_std_map_create")
-        public func create<KT, VT>(sz: int)=> map<KT, VT>;
+        public func create<KT, VT>(sz: int)=> ::map<KT, VT>;
 
     extern("rslib_std_map_reserve")
-        public func reserve<KT, VT>(self: map<KT, VT>, newsz: int)=> void;
+        public func reserve<KT, VT>(self: ::map<KT, VT>, newsz: int)=> void;
 
     extern("rslib_std_map_set") 
-        public func set<KT, VT>(self: map<KT, VT>, key: KT, val: VT)=> void;
+        public func set<KT, VT>(self: ::map<KT, VT>, key: KT, val: VT)=> void;
 
     extern("rslib_std_lengthof", repeat) 
-        public func len<KT, VT>(self: map<KT, VT>)=> int;
+        public func len<KT, VT>(self: ::map<KT, VT>)=> int;
 
     extern("rslib_std_make_dup", repeat)
-        public func dup<KT, VT>(self: map<KT, VT>)=> map<KT, VT>;
+        public func dup<KT, VT>(self: ::map<KT, VT>)=> ::map<KT, VT>;
 
     extern("rslib_std_make_dup", repeat)
-        public func to_dict<KT, VT>(self: map<KT, VT>)=> dict<KT, VT>;
+        public func to_dict<KT, VT>(self: ::map<KT, VT>)=> dict<KT, VT>;
 
-    public func find_if<KT, VT>(self: map<KT, VT>, judger:(KT)=> bool)
+    public func find_if<KT, VT>(self: ::map<KT, VT>, judger:(KT)=> bool)
     {
         for (let (k, _) : self)
             if (judger(k))
@@ -2894,18 +2915,18 @@ namespace map
     }
 
     extern("rslib_std_map_find", repeat) 
-        public func contain<KT, VT>(self: map<KT, VT>, index: KT)=> bool;
+        public func contain<KT, VT>(self: ::map<KT, VT>, index: KT)=> bool;
 
     extern("rslib_std_map_only_get", repeat) 
-        public func get<KT, VT>(self: map<KT, VT>, index: KT)=> option<VT>;
+        public func get<KT, VT>(self: ::map<KT, VT>, index: KT)=> option<VT>;
 
     extern("rslib_std_map_get_or_default", repeat) 
-        public func get_or<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=> VT;
+        public func get_or<KT, VT>(self: ::map<KT, VT>, index: KT, default_val: VT)=> VT;
 
     extern("rslib_std_map_get_or_set_default") 
-        public func get_or_set<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=> VT;
+        public func get_or_set<KT, VT>(self: ::map<KT, VT>, index: KT, default_val: VT)=> VT;
 
-    public func get_or_do<KT, VT>(self: map<KT, VT>, index: KT, f: ()=> VT)=> VT
+    public func get_or_do<KT, VT>(self: ::map<KT, VT>, index: KT, f: ()=> VT)=> VT
     {
         match (a->get(index))
         {
@@ -2915,25 +2936,26 @@ namespace map
     }
 
     extern("rslib_std_map_swap") 
-        public func swap<KT, VT>(val: map<KT, VT>, another: map<KT, VT>)=> void;
+        public func swap<KT, VT>(val: ::map<KT, VT>, another: ::map<KT, VT>)=> void;
 
     extern("rslib_std_map_copy") 
-        public func copy<KT, VT>(val: map<KT, VT>, another: map<KT, VT>)=> void;
+        public func copy<KT, VT, CT>(val: ::map<KT, VT>, another: CT)=> void
+            where another is dict<KT, VT> || another is ::map<KT, VT>;
 
     extern("rslib_std_map_keys", repeat)
-        public func keys<KT, VT>(self: map<KT, VT>)=> array<KT>;
+        public func keys<KT, VT>(self: ::map<KT, VT>)=> array<KT>;
 
     extern("rslib_std_map_vals", repeat)
-        public func vals<KT, VT>(self: map<KT, VT>)=> array<VT>;
+        public func vals<KT, VT>(self: ::map<KT, VT>)=> array<VT>;
 
     extern("rslib_std_map_empty", repeat)
-        public func empty<KT, VT>(self: map<KT, VT>)=> bool;
+        public func empty<KT, VT>(self: ::map<KT, VT>)=> bool;
 
     extern("rslib_std_map_remove")
-        public func remove<KT, VT>(self: map<KT, VT>, index: KT)=> bool;
+        public func remove<KT, VT>(self: ::map<KT, VT>, index: KT)=> bool;
 
     extern("rslib_std_map_clear")
-        public func clear<KT, VT>(self: map<KT, VT>)=> void;
+        public func clear<KT, VT>(self: ::map<KT, VT>)=> void;
 
     public using iterator<KT, VT> = gchandle
     {
@@ -2942,27 +2964,27 @@ namespace map
     }
 
     extern("rslib_std_map_iter", repeat)
-        public func iter<KT, VT>(self: map<KT, VT>)=> iterator<KT, VT>;
+        public func iter<KT, VT>(self: ::map<KT, VT>)=> iterator<KT, VT>;
 
-    public func forall<KT, VT>(self: map<KT, VT>, functor: (KT, VT)=>bool)
+    public func forall<KT, VT>(self: ::map<KT, VT>, functor: (KT, VT)=>bool)
     {
-        let result = {}mut: map<KT, VT>;
+        let result = {}mut: ::map<KT, VT>;
         for (let (key, val) : self)
             if (functor(key, val))
                 result->set(key, val);
         return result;
     }
-    public func map<KT, VT, AT, BT>(self: map<KT, VT>, functor: (KT, VT)=>(AT, BT))
+    public func map<KT, VT, AT, BT>(self: ::map<KT, VT>, functor: (KT, VT)=>(AT, BT))
     {
-        let result = {}mut: map<AT, BT>;
+        let result = {}mut: ::map<AT, BT>;
         for (let (key, val) : self)
         {
             let (nk, nv) = functor(key, val);
             result->set(nk, nv);
         }
-        return result->unsafe::cast:<map<AT, BT>>;
+        return result->unsafe::cast:<::map<AT, BT>>;
     }
-    public func unmapping<KT, VT>(self: map<KT, VT>)
+    public func unmapping<KT, VT>(self: ::map<KT, VT>)
     {
         let result = []mut: vec<(KT, VT)>;
         for (let kvpair : self)
@@ -3115,7 +3137,7 @@ namespace std
             breakpoint();
         }
 
-        using callstack = struct{
+        public using callstack = struct{
             public function    : string,
             public file        : string,
             public row         : int,
@@ -3135,7 +3157,7 @@ namespace std
 
         extern("rslib_std_debug_invoke")
             public func invoke<Ft>(f: Ft, ...) => dynamic
-                where f(......) is pending == false;
+                where typeid:<typeof(f(......))> != 0;
     }
 }
 )" };
@@ -3448,7 +3470,7 @@ WO_API wo_api rslib_std_call_shell(wo_vm vm, wo_value args)
         return wo_ret_int(vm, system(wo_string(args + 0)));
     else
         return wo_ret_panic(vm, "Function defined in 'std/shell.wo' has been forbidden, "
-            "trying to restart without '--enable-shell 0'.");
+            "trying to restart without '--enable-shell 1'.");
 }
 
 WO_API wo_api rslib_std_get_env(wo_vm vm, wo_value args)
@@ -3462,7 +3484,7 @@ WO_API wo_api rslib_std_get_env(wo_vm vm, wo_value args)
     }
     else
         return wo_ret_panic(vm, "Function defined in 'std/shell.wo' has been forbidden, "
-            "trying to restart without '--enable-shell 0'.");
+            "trying to restart without '--enable-shell 1'.");
 }
 
 const char* wo_stdlib_shell_src_path = u8"woo/shell.wo";
@@ -3591,6 +3613,7 @@ namespace wo
             {"rslib_std_print", (void*)&rslib_std_print},
             {"rslib_std_randomint", (void*)&rslib_std_randomint},
             {"rslib_std_randomreal", (void*)&rslib_std_randomreal},
+            {"rslib_std_replace_tp", (void*)rslib_std_replace_tp},
             {"rslib_std_return_itself", (void*)&rslib_std_return_itself},
             {"rslib_std_serialize", (void*)&rslib_std_serialize},
             {"rslib_std_str_bytelen", (void*)&rslib_std_str_bytelen},

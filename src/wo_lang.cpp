@@ -1,3533 +1,2819 @@
 #include "wo_lang.hpp"
 
+#include <unordered_set>
+
 namespace wo
 {
-    using namespace ast;
-    bool lang_symbol::is_constexpr_or_immut_no_closure_func()
-    {
-        // If constexpr or immut binded with function define, 
-        // No need generate code for it's stack space and init.
-        auto* init_value_expr = variable_value;
-        if (auto* real_init_expr = dynamic_cast<ast_value_init*>(init_value_expr))
-            init_value_expr = real_init_expr->init_value;
+#ifndef WO_DISABLE_COMPILER
+    LangContext::ProcessAstJobs* LangContext::m_pass0_processers;
+    LangContext::ProcessAstJobs* LangContext::m_pass1_processers;
+    LangContext::ProcessAstJobs* LangContext::m_passir_A_processers;
+    LangContext::ProcessAstJobs* LangContext::m_passir_B_processers;
 
-        return is_constexpr
-            || (decl == wo::ast::identifier_decl::IMMUTABLE
-                && !is_argument
-                && !is_captured_variable
-                && type == lang_symbol::symbol_type::variable
-                && dynamic_cast<ast::ast_value_function_define*>(init_value_expr) != nullptr
-                // Only normal func (without capture vars) can use this way to optimize.
-                && dynamic_cast<ast::ast_value_function_define*>(init_value_expr)->capture_variables.empty());
+    void LangContext::init_lang_processers()
+    {
+        m_pass0_processers = new ProcessAstJobs();
+        m_pass1_processers = new ProcessAstJobs();
+        m_passir_A_processers = new ProcessAstJobs();
+        m_passir_B_processers = new ProcessAstJobs();
+
+        init_pass0();
+        init_pass1();
+        init_passir();
+    }
+    void LangContext::shutdown_lang_processers()
+    {
+        delete m_pass0_processers;
+        delete m_pass1_processers;
     }
 
-    bool lang::record_error_for_constration(
-        ast::ast_where_constraint_constration* c,
-        std::function<void(void)> job,
-        bool clear_current_err)
+    //////////////////////////////////////
+
+    lang_Symbol::~lang_Symbol()
     {
-        const size_t anylizer_error_count =
-            lang_anylizer->get_cur_error_frame().size();
-
-        job();
-
-        auto& current_error_frame = lang_anylizer->get_cur_error_frame();
-        if (current_error_frame.size() != anylizer_error_count)
+        switch (m_symbol_kind)
         {
-            wo_assert(current_error_frame.size() > anylizer_error_count);
-
-            if (c->where_constraint == nullptr)
-            {
-                c->where_constraint = new ast_where_constraint;
-                c->where_constraint->copy_source_info(c);
-                c->where_constraint->where_constraint_list = new ast_list;
-            }
-
-            c->where_constraint->accept = false;
-
-            for (size_t i = anylizer_error_count; i < current_error_frame.size(); ++i)
-            {
-                if (c->where_constraint->unmatched_constraint.size() >= WO_MAX_ERROR_COUNT)
-                    break;
-
-                c->where_constraint->unmatched_constraint.push_back(
-                    current_error_frame.at(i));
-            }
-
-            if (clear_current_err)
-                current_error_frame.resize(anylizer_error_count);
-
-            return false;
-        }
-        return true;
-    }
-    void lang::report_error_for_constration(ast::ast_base* b, ast::ast_where_constraint_constration* c, const wchar_t* errmsg)
-    {
-        if (c->where_constraint != nullptr
-            && !c->where_constraint->accept)
-        {
-            lang_anylizer->lang_error(lexer::errorlevel::error, b, L"%ls", errmsg);
-
-            for (auto& error_info : c->where_constraint->unmatched_constraint)
-            {
-                auto copied_err_info = error_info;
-                copied_err_info.error_level = lexer::errorlevel::infom;
-                lang_anylizer->error_impl(copied_err_info);
-            }
-        }
-    }
-
-    namespace ast
-    {
-        bool ast_type::is_same(const ast_type* another, bool ignore_prefix) const
-        {
-            if (is_pending_function() || another->is_pending_function())
-                return false;
-
-            if (is_hkt() && another->is_hkt())
-            {
-                auto* ltsymb = symbol ? base_typedef_symbol(symbol) : nullptr;
-                auto* rtsymb = another->symbol ? base_typedef_symbol(another->symbol) : nullptr;
-
-                if (ltsymb && rtsymb && ltsymb == rtsymb)
-                    return true;
-                if (ltsymb == nullptr || rtsymb == nullptr)
-                {
-                    if (ltsymb && ltsymb->type == lang_symbol::symbol_type::type_alias)
-                    {
-                        wo_assert(another->value_type == wo::value::valuetype::dict_type
-                            || another->value_type == wo::value::valuetype::array_type);
-                        return ltsymb->type_informatiom->value_type == another->value_type
-                            && ltsymb->type_informatiom->type_name == another->type_name;
-                    }
-                    if (rtsymb && rtsymb->type == lang_symbol::symbol_type::type_alias)
-                    {
-                        wo_assert(value_type == wo::value::valuetype::dict_type
-                            || value_type == wo::value::valuetype::array_type);
-                        return rtsymb->type_informatiom->value_type == value_type
-                            && rtsymb->type_informatiom->type_name == type_name;
-                    }
-                    // both nullptr, check base type
-                    wo_assert(another->value_type == wo::value::valuetype::dict_type
-                        || another->value_type == wo::value::valuetype::array_type);
-                    wo_assert(value_type == wo::value::valuetype::dict_type
-                        || value_type == wo::value::valuetype::array_type);
-                    return value_type == another->value_type
-                        && type_name == another->type_name;
-                }
-                else if (ltsymb->type == lang_symbol::symbol_type::type_alias && rtsymb->type == lang_symbol::symbol_type::type_alias)
-                {
-                    // TODO: struct/pending type need check, struct!
-                    return ltsymb->type_informatiom->value_type == rtsymb->type_informatiom->value_type;
-                }
-                return false;
-            }
-
-            if (is_pending() || another->is_pending())
-                return false;
-
-            if (!ignore_prefix)
-            {
-                if (is_mutable() != another->is_mutable())
-                    return false;
-            }
-
-            if (is_function())
-            {
-                if (!another->is_function())
-                    return false;
-
-                if (argument_types.size() != another->argument_types.size())
-                    return false;
-
-                for (size_t index = 0; index < argument_types.size(); index++)
-                {
-                    if (!argument_types[index]->is_same(another->argument_types[index], true))
-                        return false;
-                }
-                if (is_variadic_function_type != another->is_variadic_function_type)
-                    return false;
-
-                wo_assert(is_function() && another->is_function());
-                if (!function_ret_type->is_same(another->function_ret_type, false))
-                    return false;
-            }
-            else if (another->is_function())
-                return false;
-
-            if (type_name != another->type_name)
-                return false;
-
-            if (using_type_name || another->using_type_name)
-            {
-                if (!using_type_name || !another->using_type_name)
-                    return false;
-
-                if (find_type_in_this_scope(using_type_name) != find_type_in_this_scope(another->using_type_name))
-                    return false;
-
-                if (using_type_name->template_arguments.size() != another->using_type_name->template_arguments.size())
-                    return false;
-
-                for (size_t i = 0; i < using_type_name->template_arguments.size(); ++i)
-                    if (!using_type_name->template_arguments[i]->is_same(another->using_type_name->template_arguments[i], false))
-                        return false;
-            }
-
-            if (template_arguments.size() != another->template_arguments.size())
-                return false;
-            for (size_t index = 0; index < template_arguments.size(); index++)
-            {
-                if (!template_arguments[index]->is_same(another->template_arguments[index], false))
-                    return false;
-            }
-
-            // NOTE: Only anonymous structs need this check
-            if (is_struct() && using_type_name == nullptr)
-            {
-                wo_assert(another->is_struct());
-                if (struct_member_index.size() != another->struct_member_index.size())
-                    return false;
-
-                for (auto& [memname, memberinfo] : struct_member_index)
-                {
-                    auto fnd = another->struct_member_index.find(memname);
-                    if (fnd == another->struct_member_index.end())
-                        return false;
-
-                    if (memberinfo.offset != fnd->second.offset)
-                        return false;
-
-                    if (!memberinfo.member_type->is_same(fnd->second.member_type, false))
-                        return false;
-                }
-            }
-            return true;
-        }
-        bool ast_type::accept_type(const ast_type* another, bool ignore_using_type, bool ignore_prefix) const
-        {
-            if (is_pending_function() || another->is_pending_function())
-                return false;
-
-            if (is_hkt() && another->is_hkt())
-            {
-                auto* ltsymb = symbol ? base_typedef_symbol(symbol) : nullptr;
-                auto* rtsymb = another->symbol ? base_typedef_symbol(another->symbol) : nullptr;
-
-                if (ltsymb && rtsymb && ltsymb == rtsymb)
-                    return true;
-                if (ltsymb == nullptr || rtsymb == nullptr)
-                {
-                    if (ltsymb && ltsymb->type == lang_symbol::symbol_type::type_alias)
-                    {
-                        wo_assert(another->value_type == wo::value::valuetype::dict_type
-                            || another->value_type == wo::value::valuetype::array_type);
-                        return ltsymb->type_informatiom->value_type == another->value_type
-                            && ltsymb->type_informatiom->type_name == another->type_name;
-                    }
-                    if (rtsymb && rtsymb->type == lang_symbol::symbol_type::type_alias)
-                    {
-                        wo_assert(value_type == wo::value::valuetype::dict_type
-                            || value_type == wo::value::valuetype::array_type);
-                        return rtsymb->type_informatiom->value_type == value_type
-                            && rtsymb->type_informatiom->type_name == type_name;
-                    }
-                    // both nullptr, check base type
-                    wo_assert(another->value_type == wo::value::valuetype::dict_type
-                        || another->value_type == wo::value::valuetype::array_type);
-                    wo_assert(value_type == wo::value::valuetype::dict_type
-                        || value_type == wo::value::valuetype::array_type);
-                    return value_type == another->value_type
-                        && type_name == another->type_name;
-                }
-                else if (ltsymb->type == lang_symbol::symbol_type::type_alias && rtsymb->type == lang_symbol::symbol_type::type_alias)
-                {
-                    // TODO: struct/pending type need check, struct!
-                    return ltsymb->type_informatiom->value_type == rtsymb->type_informatiom->value_type;
-                }
-                return false;
-            }
-
-            if (is_pending() || another->is_pending())
-                return false;
-
-            if (another->is_nothing())
-                return true; // Buttom type, OK
-
-            if (!ignore_prefix)
-            {
-                if (is_mutable() != another->is_mutable())
-                    return false;
-            }
-
-            if (is_function())
-            {
-                if (!another->is_function())
-                    return false;
-
-                if (argument_types.size() != another->argument_types.size())
-                    return false;
-                for (size_t index = 0; index < argument_types.size(); index++)
-                {
-                    // Woolang 1.12.6: Argument types of functions are no longer covariant but
-                    //                  invariant during associating and receiving
-                    if (!argument_types[index]->is_same(another->argument_types[index], false))
-                        return false;
-                }
-                if (is_variadic_function_type != another->is_variadic_function_type)
-                    return false;
-
-                wo_assert(is_function() && another->is_function());
-                if (!function_ret_type->accept_type(another->function_ret_type, ignore_using_type, false))
-                    return false;
-            }
-            else if (another->is_function())
-                return false;
-
-            if (type_name != another->type_name)
-                return false;
-
-            if (!ignore_using_type && (using_type_name || another->using_type_name))
-            {
-                if (!using_type_name || !another->using_type_name)
-                    return false;
-
-                if (find_type_in_this_scope(using_type_name) != find_type_in_this_scope(another->using_type_name))
-                    return false;
-
-                if (using_type_name->template_arguments.size() != another->using_type_name->template_arguments.size())
-                    return false;
-
-                for (size_t i = 0; i < using_type_name->template_arguments.size(); ++i)
-                    if (!using_type_name->template_arguments[i]->accept_type(
-                        another->using_type_name->template_arguments[i], ignore_using_type, false))
-                        return false;
-            }
-
-            if (template_arguments.size() != another->template_arguments.size())
-                return false;
-            for (size_t index = 0; index < template_arguments.size(); index++)
-            {
-                if (!template_arguments[index]->accept_type(
-                    another->template_arguments[index], ignore_using_type, false))
-                    return false;
-            }
-
-            // NOTE: Only anonymous structs need this check
-            if (is_struct() && (using_type_name == nullptr || another->using_type_name == nullptr))
-            {
-                wo_assert(another->is_struct());
-                if (struct_member_index.size() != another->struct_member_index.size())
-                    return false;
-
-                for (auto& [memname, memberinfo] : struct_member_index)
-                {
-                    auto fnd = another->struct_member_index.find(memname);
-                    if (fnd == another->struct_member_index.end())
-                        return false;
-
-                    if (memberinfo.offset != fnd->second.offset)
-                        return false;
-
-                    if (!memberinfo.member_type->is_same(fnd->second.member_type, false))
-                        return false;
-                }
-            }
-            return true;
-        }
-        std::wstring ast_type::get_type_name(bool ignore_using_type, bool ignore_prefix) const
-        {
-            std::wstring result;
-
-            if (!ignore_prefix)
-            {
-                if (is_mutable())
-                    result += L"mut ";
-            }
-
-            if (!ignore_using_type && using_type_name)
-            {
-                result += using_type_name->get_type_name(ignore_using_type, true);
-            }
+        case VARIABLE:
+            if (m_is_template)
+                delete m_template_value_instances;
             else
-            {
-                if (is_function())
-                {
-                    result += L"(";
-                    for (size_t index = 0; index < argument_types.size(); index++)
-                    {
-                        result += argument_types[index]->get_type_name(ignore_using_type, false);
-                        if (index + 1 != argument_types.size() || is_variadic_function_type)
-                            result += L", ";
-                    }
-
-                    if (is_variadic_function_type)
-                    {
-                        result += L"...";
-                    }
-                    result += L")=>" + function_ret_type->get_type_name(ignore_using_type, false);
-                }
-                else
-                {
-                    if (is_hkt_typing() && symbol)
-                    {
-                        auto* base_symbol = base_typedef_symbol(symbol);
-                        wo_assert(base_symbol && base_symbol->name != nullptr);
-                        result += *base_symbol->name;
-                    }
-                    else if (type_name != WO_PSTR(tuple))
-                    {
-                        result += get_namespace_chain() + *type_name;
-                    }
-
-                    if (has_template() || type_name == WO_PSTR(tuple))
-                    {
-                        result += (type_name != WO_PSTR(tuple)) ? L"<" : L"(";
-                        for (size_t index = 0; index < template_arguments.size(); index++)
-                        {
-                            result += template_arguments[index]->get_type_name(ignore_using_type, false);
-                            if (index + 1 != template_arguments.size())
-                                result += L", ";
-                        }
-                        result += (type_name != WO_PSTR(tuple)) ? L">" : L")";
-                    }
-
-                    if (is_struct())
-                    {
-                        result += L"{";
-                        std::vector<const ast_type::struct_member_infos_t::value_type*> memberinfors;
-                        memberinfors.reserve(struct_member_index.size());
-                        for (auto& memberinfo : this->struct_member_index)
-                        {
-                            memberinfors.push_back(&memberinfo);
-                        }
-                        std::sort(memberinfors.begin(), memberinfors.end(),
-                            [](const ast_type::struct_member_infos_t::value_type* a,
-                                const ast_type::struct_member_infos_t::value_type* b)
-                            {
-                                return a->second.offset < b->second.offset;
-                            });
-                        bool first_member = true;
-                        for (auto* memberinfo : memberinfors)
-                        {
-                            if (first_member)
-                                first_member = false;
-                            else
-                                result += L",";
-
-                            result += *memberinfo->first + L":" + memberinfo->second.member_type->get_type_name(false, false);
-                        }
-                        result += L"}";
-                    }
-                }
-            }
-            return result;
-        }
-        bool ast_type::is_hkt() const
-        {
-            if (is_function())
-                return false;   // HKT cannot be return-type of function
-
-            if (is_hkt_typing())
-                return true;
-
-            if (template_arguments.empty())
-            {
-                if (symbol && symbol->is_template_symbol && is_custom())
-                    return true;
-                else if (is_array() || is_dict() || is_vec() || is_map())
-                    return true;
-            }
-            return false;
-        }
-        bool ast_type::is_hkt_typing() const
-        {
-            if (symbol)
-                return symbol->is_hkt_typing_symb;
-            return false;
-        }
-        lang_symbol* ast_type::base_typedef_symbol(lang_symbol* symb)
-        {
-            wo_assert(symb->type == lang_symbol::symbol_type::typing
-                || symb->type == lang_symbol::symbol_type::type_alias);
-
-            if (symb->type == lang_symbol::symbol_type::typing)
-                return symb;
-            else if (symb->type_informatiom->symbol)
-                return base_typedef_symbol(symb->type_informatiom->symbol);
+                delete m_value_instance;
+            break;
+        case TYPE:
+            if (m_is_template)
+                delete m_template_type_instances;
             else
-                return symb;
+                delete m_type_instance;
+            break;
+        case ALIAS:
+            if (m_is_template)
+                delete m_template_alias_instances;
+            else
+                delete m_alias_instance;
+            break;
         }
-        void ast_value_variable::update_constant_value(lexer* lex)
+    }
+    lang_Symbol::lang_Symbol(
+        wo_pstring_t name,
+        const std::optional<ast::AstDeclareAttribue*>& attr,
+        std::optional<ast::AstBase*> symbol_declare_ast,
+        wo_pstring_t src_location,
+        lang_Scope* scope,
+        kind kind,
+        bool mutable_variable)
+        : m_symbol_kind(kind)
+        , m_is_template(false)
+        , m_is_global(false)
+        , m_name(name)
+        , m_defined_source(src_location)
+        , m_declare_attribute(attr)
+        , m_belongs_to_scope(scope)
+        , m_symbol_declare_ast(symbol_declare_ast)
+        , m_is_builtin(false)
+        , m_symbol_edge(0)
+        , m_has_been_used(false)
+    {
+        switch (kind)
         {
-            if (is_constant)
-                return;
-
-            // TODO: constant variable here..
-            if (symbol && symbol->decl == identifier_decl::IMMUTABLE)
-            {
-                symbol->variable_value->eval_constant_value(lex);
-                if (symbol->variable_value->is_constant
-                    && !symbol->is_captured_variable)
-                {
-                    is_constant = true;
-                    symbol->is_constexpr = true;
-                    constant_value.set_val_compile_time(&symbol->variable_value->get_constant_value());
-                }
-            }
+        case VARIABLE:
+            m_value_instance = new lang_ValueInstance(
+                mutable_variable, this, std::nullopt);
+            break;
+        case TYPE:
+            m_type_instance = new lang_TypeInstance(this, std::nullopt);
+            break;
+        case ALIAS:
+            m_alias_instance = new lang_AliasInstance(this);
+            break;
+        default:
+            wo_error("Unexpected symbol kind.");
+        }
+    }
+    lang_Symbol::lang_Symbol(
+        wo_pstring_t name,
+        const std::optional<ast::AstDeclareAttribue*>& attr,
+        std::optional<ast::AstBase*> symbol_declare_ast,
+        wo_pstring_t src_location,
+        lang_Scope* scope,
+        ast::AstValueBase* template_value_base,
+        const std::list<wo_pstring_t>& template_params,
+        bool mutable_variable)
+        : m_symbol_kind(VARIABLE)
+        , m_is_template(true)
+        , m_is_global(false)
+        , m_name(name)
+        , m_defined_source(src_location)
+        , m_declare_attribute(attr)
+        , m_belongs_to_scope(scope)
+        , m_symbol_declare_ast(symbol_declare_ast)
+        , m_is_builtin(false)
+        , m_symbol_edge(0)
+        , m_has_been_used(false)
+    {
+        m_template_value_instances = new TemplateValuePrefab(
+            this, mutable_variable, template_value_base, template_params);
+    }
+    lang_Symbol::lang_Symbol(
+        wo_pstring_t name,
+        const std::optional<ast::AstDeclareAttribue*>& attr,
+        std::optional<ast::AstBase*> symbol_declare_ast,
+        wo_pstring_t src_location,
+        lang_Scope* scope,
+        ast::AstTypeHolder* template_type_base,
+        const std::list<wo_pstring_t>& template_params,
+        bool is_alias)
+        : m_is_template(true)
+        , m_is_global(false)
+        , m_name(name)
+        , m_defined_source(src_location)
+        , m_declare_attribute(attr)
+        , m_belongs_to_scope(scope)
+        , m_symbol_declare_ast(symbol_declare_ast)
+        , m_is_builtin(false)
+        , m_symbol_edge(0)
+        , m_has_been_used(false)
+    {
+        if (is_alias)
+        {
+            m_symbol_kind = ALIAS;
+            m_template_alias_instances = new TemplateAliasPrefab(
+                this, template_type_base, template_params);
+        }
+        else
+        {
+            m_symbol_kind = TYPE;
+            m_template_type_instances = new TemplateTypePrefab(
+                this, template_type_base, template_params);
         }
     }
 
-    //////////////////////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////
 
-    std::optional<uint32_t> lang::get_typing_hash_after_pass1(ast::ast_type* typing)
+    lang_Symbol::TemplateValuePrefab::TemplateValuePrefab(
+        lang_Symbol* symbol,
+        bool mutable_,
+        ast::AstValueBase* ast,
+        const std::list<wo_pstring_t>& template_params)
+        : m_symbol(symbol), m_mutable(mutable_), m_origin_value_ast(ast), m_template_params(template_params)
     {
-        uint64_t hashval = (uint64_t)typing->value_type;
+    }
 
-        if (typing->is_hkt())
+    lang_TemplateAstEvalStateValue* lang_Symbol::TemplateValuePrefab::find_or_create_template_instance(
+        const TemplateArgumentListT& template_args)
+    {
+        auto fnd = m_template_instances.find(template_args);
+        if (fnd != m_template_instances.end())
+            return fnd->second.get();
+
+        ast::AstValueBase* template_instance = static_cast<ast::AstValueBase*>(
+            m_origin_value_ast->clone());
+        auto new_instance = std::make_unique<lang_TemplateAstEvalStateValue>(
+            m_symbol, template_instance, template_args);
+
+        auto* result = new_instance.get();
+
+        m_template_instances.insert(
+            std::make_pair(template_args, std::move(new_instance)));
+
+        return result;
+    }
+
+    //////////////////////////////////////
+
+    lang_Symbol::TemplateTypePrefab::TemplateTypePrefab(
+        lang_Symbol* symbol,
+        ast::AstTypeHolder* ast,
+        const std::list<wo_pstring_t>& template_params)
+        : m_symbol(symbol), m_origin_value_ast(ast), m_template_params(template_params)
+    {
+    }
+    lang_TemplateAstEvalStateType* lang_Symbol::TemplateTypePrefab::find_or_create_template_instance(
+        const TemplateArgumentListT& template_args)
+    {
+        auto fnd = m_template_instances.find(template_args);
+        if (fnd != m_template_instances.end())
+            return fnd->second.get();
+
+        ast::AstTypeHolder* template_instance = static_cast<ast::AstTypeHolder*>(
+            m_origin_value_ast->clone());
+        auto new_instance = std::make_unique<lang_TemplateAstEvalStateType>(
+            m_symbol, template_instance, template_args);
+
+        auto* result = new_instance.get();
+
+        m_template_instances.insert(
+            std::make_pair(template_args, std::move(new_instance)));
+
+        return result;
+    }
+
+    //////////////////////////////////////
+
+    lang_Symbol::TemplateAliasPrefab::TemplateAliasPrefab(
+        lang_Symbol* symbol,
+        ast::AstTypeHolder* ast,
+        const std::list<wo_pstring_t>& template_params)
+        : m_symbol(symbol), m_origin_value_ast(ast), m_template_params(template_params)
+    {
+    }
+    lang_TemplateAstEvalStateAlias* lang_Symbol::TemplateAliasPrefab::find_or_create_template_instance(
+        const TemplateArgumentListT& template_args)
+    {
+        auto fnd = m_template_instances.find(template_args);
+        if (fnd != m_template_instances.end())
+            return fnd->second.get();
+
+        ast::AstTypeHolder* template_instance = static_cast<ast::AstTypeHolder*>(
+            m_origin_value_ast->clone());
+        auto new_instance = std::make_unique<lang_TemplateAstEvalStateAlias>(
+            m_symbol, template_instance);
+
+        auto* result = new_instance.get();
+
+        m_template_instances.insert(
+            std::make_pair(template_args, std::move(new_instance)));
+
+        return result;
+    }
+
+    //////////////////////////////////////
+
+    lang_TypeInstance::lang_TypeInstance(
+        lang_Symbol* symbol,
+        const std::optional<std::list<lang_TypeInstance*>>& template_arguments)
+        : m_symbol(symbol), m_determined_base_type_or_mutable(std::nullopt), m_instance_template_arguments(template_arguments)
+    {
+    }
+
+    bool lang_TypeInstance::is_immutable() const
+    {
+        return nullptr != std::get_if<std::optional<DeterminedType>>(
+            &m_determined_base_type_or_mutable);
+    }
+    bool lang_TypeInstance::is_mutable() const
+    {
+        return !is_immutable();
+    }
+    std::optional<const lang_TypeInstance::DeterminedType*> lang_TypeInstance::get_determined_type() const
+    {
+        const std::optional<DeterminedType>* dtype = std::get_if<std::optional<DeterminedType>>(
+            &m_determined_base_type_or_mutable);
+
+        if (dtype != nullptr)
         {
-            if (typing->value_type != wo::value::valuetype::array_type
-                && typing->value_type != wo::value::valuetype::dict_type)
-            {
-                wo_assert(typing->symbol);
-                auto* base_type_symb = ast::ast_type::base_typedef_symbol(typing->symbol);
-
-                if (base_type_symb->type == lang_symbol::symbol_type::type_alias)
-                {
-                    if (base_type_symb->type_informatiom->using_type_name)
-                        hashval = (uint64_t)base_type_symb->type_informatiom->using_type_name->symbol;
-                    else
-                        hashval = (uint64_t)base_type_symb->type_informatiom->value_type;
-                }
-                else
-                    hashval = (uint64_t)base_type_symb;
-            }
-            else
-            {
-                hashval = (uint64_t)reinterpret_cast<intptr_t>(typing->type_name);
-            }
-        }
-        else if (typing->is_pending())
-        {
-            lang_anylizer->lang_error(lexer::errorlevel::error, typing, WO_ERR_UNKNOWN_TYPE,
-                typing->get_type_name(false, false).c_str());
-
+            if (dtype->has_value())
+                return &dtype->value();
             return std::nullopt;
         }
 
-        ++hashval;
-
-        if (typing->is_function())
-        {
-            if (auto opthash = get_typing_hash_after_pass1(typing->function_ret_type))
-                hashval += opthash.value();
-            else
-                return std::nullopt;
-        }
-
-        hashval *= hashval;
-
-        if (lang_symbol* using_type_symb = typing->using_type_name ? find_type_in_this_scope(typing->using_type_name) : nullptr)
-        {
-            hashval <<= 1;
-            hashval += (uint64_t)using_type_symb;
-            hashval *= hashval;
-        }
-
-        if (!typing->is_hkt_typing() && typing->has_template())
-        {
-            for (auto& template_arg : typing->template_arguments)
-            {
-                hashval <<= 1;
-                if (auto opthash = get_typing_hash_after_pass1(template_arg))
-                    hashval += opthash.value();
-                else
-                    return std::nullopt;
-
-                hashval *= hashval;
-            }
-        }
-
-        if (typing->is_function())
-        {
-            for (auto& arg : typing->argument_types)
-            {
-                hashval <<= 1;
-                if (auto opthash = get_typing_hash_after_pass1(arg))
-                    hashval += opthash.value();
-                else
-                    return std::nullopt;
-                hashval *= hashval;
-            }
-        }
-
-        if (typing->is_struct() && typing->using_type_name == nullptr)
-        {
-            for (auto& [member_name, member_info] : typing->struct_member_index)
-            {
-                hashval ^= std::hash<std::wstring>()(*member_name);
-                hashval *= member_info.offset;
-                if (auto opthash = get_typing_hash_after_pass1(member_info.member_type))
-                    hashval += opthash.value();
-                else
-                    return std::nullopt;
-            }
-        }
-
-        if (typing->is_mutable())
-            hashval *= hashval;
-
-        uint32_t hash32 = hashval & 0xFFFFFFFF;
-        while (hashed_typing.find(hash32) != hashed_typing.end())
-        {
-            if (hashed_typing[hash32]->is_same(typing, false))
-                return hash32;
-            hash32++;
-        }
-        hashed_typing[hash32] = typing;
-
-        return hash32;
+        return std::get<lang_TypeInstance*>(m_determined_base_type_or_mutable)
+            ->get_determined_type();
     }
-    bool lang::begin_template_scope(
-        ast::ast_base* reporterr,
-        lang_scope* belong_scope,
-        const std::vector<wo_pstring_t>& template_defines_args,
-        const std::vector<ast::ast_type*>& template_args)
+
+    void lang_TypeInstance::determine_base_type_by_another_type(lang_TypeInstance* immutable_from_type)
     {
-        wo_assert(reporterr);
-        if (template_defines_args.size() != template_args.size())
+        wo_assert(immutable_from_type->is_immutable());
+
+        auto determined_type_may_null = immutable_from_type->get_determined_type();
+        if (determined_type_may_null)
+            determine_base_type_copy(*determined_type_may_null.value());
+        else
         {
-            lang_anylizer->lang_error(lexer::errorlevel::error, reporterr, WO_ERR_TEMPLATE_ARG_NOT_MATCH);
+            // from_type it not decided, delay this type instance.
+            if (this != immutable_from_type)
+                immutable_from_type->m_LANG_pending_depend_this.insert(this);
+        }
+    }
+    void lang_TypeInstance::_update_type_instance_depend_this(const DeterminedType& copy_type)
+    {
+        std::stack<lang_TypeInstance*> pending_stack;
+        for (auto* depended : m_LANG_pending_depend_this)
+            pending_stack.push(depended);
+
+        m_LANG_pending_depend_this.clear();
+
+        while (!pending_stack.empty())
+        {
+            lang_TypeInstance* current = pending_stack.top();
+            pending_stack.pop();
+
+            current->determine_base_type_copy(copy_type);
+
+            for (auto* depended : current->m_LANG_pending_depend_this)
+                pending_stack.push(depended);
+
+            current->m_LANG_pending_depend_this.clear();
+        }
+    }
+    void lang_TypeInstance::determine_base_type_copy(const DeterminedType& copy_type)
+    {
+        wo_assert(std::get<std::optional<DeterminedType>>(
+            m_determined_base_type_or_mutable)
+            .has_value() == false);
+
+        DeterminedType::ExternalTypeDescription extern_desc;
+        switch (copy_type.m_base_type)
+        {
+        case DeterminedType::base_type::ARRAY:
+        case DeterminedType::base_type::VECTOR:
+            extern_desc.m_array_or_vector = new DeterminedType::ArrayOrVector(
+                *copy_type.m_external_type_description.m_array_or_vector);
+            break;
+        case DeterminedType::base_type::DICTIONARY:
+        case DeterminedType::base_type::MAPPING:
+            extern_desc.m_dictionary_or_mapping = new DeterminedType::DictionaryOrMapping(
+                *copy_type.m_external_type_description.m_dictionary_or_mapping);
+            break;
+        case DeterminedType::base_type::TUPLE:
+            extern_desc.m_tuple = new DeterminedType::Tuple(
+                *copy_type.m_external_type_description.m_tuple);
+            break;
+        case DeterminedType::base_type::FUNCTION:
+            extern_desc.m_function = new DeterminedType::Function(
+                *copy_type.m_external_type_description.m_function);
+            break;
+        case DeterminedType::base_type::STRUCT:
+            extern_desc.m_struct = new DeterminedType::Struct(
+                *copy_type.m_external_type_description.m_struct);
+            break;
+        case DeterminedType::base_type::UNION:
+            extern_desc.m_union = new DeterminedType::Union(
+                *copy_type.m_external_type_description.m_union);
+            break;
+        default:
+            // Nothing to do.
+            break;
+        }
+
+        _update_type_instance_depend_this(copy_type);
+
+        m_determined_base_type_or_mutable =
+            std::move(DeterminedType(copy_type.m_base_type, extern_desc));
+    }
+    void lang_TypeInstance::determine_base_type_move(DeterminedType&& move_type)
+    {
+        wo_assert(std::get<std::optional<DeterminedType>>(
+            m_determined_base_type_or_mutable)
+            .has_value() == false);
+
+        _update_type_instance_depend_this(move_type);
+
+        m_determined_base_type_or_mutable = std::move(move_type);
+    }
+
+    //////////////////////////////////////
+
+    lang_TemplateAstEvalStateBase::lang_TemplateAstEvalStateBase(lang_Symbol* symbol, ast::AstBase* ast)
+        : m_state(UNPROCESSED), m_ast(ast), m_symbol(symbol)
+    {
+    }
+
+    //////////////////////////////////////
+
+    lang_TemplateAstEvalStateValue::lang_TemplateAstEvalStateValue(
+        lang_Symbol* symbol,
+        ast::AstValueBase* ast,
+        const std::list<lang_TypeInstance*>& template_arguments)
+        : lang_TemplateAstEvalStateBase(symbol, ast)
+    {
+        m_value_instance = std::make_unique<lang_ValueInstance>(
+            symbol->m_template_value_instances->m_mutable, symbol, template_arguments);
+
+        if (!symbol->m_template_value_instances->m_mutable && ast->node_type == ast::AstBase::AST_VALUE_FUNCTION)
+            m_value_instance->try_determine_function(static_cast<ast::AstValueFunction*>(ast));
+    }
+
+    //////////////////////////////////////
+
+    lang_TemplateAstEvalStateType::lang_TemplateAstEvalStateType(
+        lang_Symbol* symbol, ast::AstTypeHolder* ast, const std::list<lang_TypeInstance*>& template_arguments)
+        : lang_TemplateAstEvalStateBase(symbol, ast)
+    {
+        m_type_instance = std::make_unique<lang_TypeInstance>(
+            symbol, std::optional(template_arguments));
+    }
+
+    //////////////////////////////////////
+
+    lang_TemplateAstEvalStateAlias::lang_TemplateAstEvalStateAlias(lang_Symbol* symbol, ast::AstTypeHolder* ast)
+        : lang_TemplateAstEvalStateBase(symbol, ast)
+    {
+        m_alias_instance = std::make_unique<lang_AliasInstance>(symbol);
+    }
+
+    //////////////////////////////////////
+
+    lang_AliasInstance::lang_AliasInstance(lang_Symbol* symbol)
+        : m_symbol(symbol), m_determined_type(std::nullopt)
+    {
+    }
+
+    //////////////////////////////////////
+
+    void lang_ValueInstance::try_determine_function(ast::AstValueFunction* func)
+    {
+        wo_assert(!m_mutable);
+        m_determined_constant_or_function = func;
+    }
+    void lang_ValueInstance::try_determine_const_value(ast::AstValueBase* init_val)
+    {
+        wo_assert(!m_mutable);
+        if (init_val->m_evaled_const_value.has_value())
+        {
+            wo::value new_constant;
+            new_constant.set_val_compile_time(&init_val->m_evaled_const_value.value());
+
+            m_determined_constant_or_function = new_constant;
+        }
+    }
+
+    bool lang_ValueInstance::IR_need_storage() const
+    {
+        if (m_determined_constant_or_function.has_value())
+        {
+            wo_assert(!m_mutable);
+
+            auto& determined_constant_or_function =
+                m_determined_constant_or_function.value();
+
+            ast::AstValueFunction* const* function_instance =
+                std::get_if<ast::AstValueFunction*>(&determined_constant_or_function);
+
+            if (function_instance != nullptr)
+            {
+                if (!(*function_instance)->m_LANG_captured_context.m_captured_variables.empty())
+                    // Function with captured variables, need storage.
+                    return true;
+            }
+
+            // Is constant or normal function, no need storage.
             return false;
         }
 
-        belong_scope->template_stack.push_back(lang_scope::template_type_map{});
-        auto& current_template = belong_scope->template_stack.back();
-
-        for (size_t index = 0; index < template_defines_args.size(); index++)
-        {
-            auto* applying_type = template_args[index];
-            if (applying_type == nullptr)
-                continue;
-
-            lang_symbol* sym = new lang_symbol;
-            sym->attribute = new ast::ast_decl_attribute();
-            sym->type = lang_symbol::symbol_type::type_alias;
-            sym->name = template_defines_args[index];
-            sym->type_informatiom = new ast::ast_type(WO_PSTR(pending));
-            sym->has_been_completed_defined = true;
-            sym->type_informatiom->set_type(applying_type);
-            sym->defined_in_scope = belong_scope;
-
-            if (sym->type_informatiom->is_hkt())
-            {
-                sym->is_hkt_typing_symb = true;
-                sym->is_template_symbol = true;
-
-                sym->type_informatiom->template_arguments.clear();
-
-                // Update template setting info...
-                if (sym->type_informatiom->is_array() || sym->type_informatiom->is_vec())
-                {
-                    sym->template_types = { WO_PSTR(VT) };
-                    sym->type_informatiom->template_arguments.push_back(
-                        new ast::ast_type(WO_PSTR(VT)));
-                }
-                else if (sym->type_informatiom->is_dict() || sym->type_informatiom->is_map())
-                {
-                    sym->template_types = { WO_PSTR(KT), WO_PSTR(VT) };
-                    sym->type_informatiom->template_arguments.push_back(
-                        new ast::ast_type(WO_PSTR(KT)));
-                    sym->type_informatiom->template_arguments.push_back(
-                        new ast::ast_type(WO_PSTR(VT)));
-                }
-                else
-                {
-                    wo_assert(sym->type_informatiom->symbol && sym->type_informatiom->symbol->is_template_symbol);
-
-                    sym->template_types = sym->type_informatiom->symbol->template_types;
-                    wo_assert(sym->type_informatiom->symbol);
-
-                    for (auto& template_def_name : sym->type_informatiom->symbol->template_types)
-                    {
-                        sym->type_informatiom->template_arguments.push_back(
-                            new ast::ast_type(template_def_name));
-                    }
-                }
-
-                // Update searching_begin_namespace_in_pass2 for template type update.
-                for (auto& template_arg : sym->type_informatiom->template_arguments)
-                {
-                    template_arg->searching_begin_namespace_in_pass2 = sym->defined_in_scope;
-                }
-            }
-
-            lang_symbols.push_back(current_template[sym->name] = sym);
-        }
         return true;
     }
-    bool lang::begin_template_scope(
-        ast::ast_base* reporterr,
-        lang_scope* belong_scope,
-        ast::ast_defines* template_defines,
-        const std::vector<ast::ast_type*>& template_args)
-    {
-        return begin_template_scope(
-            reporterr,
-            belong_scope,
-            template_defines->template_type_name_list,
-            template_args);
-    }
-    void lang::end_template_scope(lang_scope* scop)
-    {
-        scop->template_stack.pop_back();
-    }
-    void lang::temporary_entry_scope_in_pass1(lang_scope* scop)
-    {
-        lang_scopes.push_back(current_namespace);
-        current_namespace =
-            scop->type == lang_scope::scope_type::namespace_scope ? scop : scop->belong_namespace
-            ;
-        lang_scopes.push_back(scop);
-    }
-    lang_scope* lang::temporary_leave_scope_in_pass1()
-    {
-        auto* scop = lang_scopes.back();
-        lang_scopes.pop_back();
 
-        current_namespace = lang_scopes.back();
-        lang_scopes.pop_back();
-
-        return scop;
-    }
-
-    lang::lang(lexer& lex) :
-        lang_anylizer(&lex)
+    lang_ValueInstance::lang_ValueInstance(
+        bool mutable_,
+        lang_Symbol* symbol,
+        const std::optional<std::list<lang_TypeInstance*>>& template_arguments)
+        : m_symbol(symbol), m_mutable(mutable_), m_determined_constant_or_function(std::nullopt), m_determined_type(std::nullopt), m_instance_template_arguments(template_arguments)
     {
-        _this_thread_lang_context = this;
-        ast::ast_namespace* global = new ast::ast_namespace;
-        global->scope_name = wstring_pool::get_pstr(L"");
-        global->source_file = wstring_pool::get_pstr(L"::");
-        global->col_begin_no =
-            global->col_end_no =
-            global->row_begin_no =
-            global->row_end_no = 1;
-        begin_namespace(global);   // global namespace
-
-        // Define 'char' as built-in type
-        ast::ast_using_type_as* using_type_def_char = new ast::ast_using_type_as();
-        using_type_def_char->new_type_identifier = WO_PSTR(char);
-        using_type_def_char->old_type = new ast::ast_type(WO_PSTR(int));
-        using_type_def_char->declear_attribute = new ast::ast_decl_attribute();
-        using_type_def_char->declear_attribute->add_attribute(lang_anylizer, lex_type::l_public);
-        define_type_in_this_scope(
-            using_type_def_char,
-            using_type_def_char->old_type,
-            using_type_def_char->declear_attribute)->has_been_completed_defined = true;
     }
-    lang::~lang()
+    lang_ValueInstance::~lang_ValueInstance()
     {
-        _this_thread_lang_context = nullptr;
-        clean_and_close_lang();
-    }
-    ast::ast_type* lang::generate_type_instance_by_templates(lang_symbol* symb, const std::vector<ast::ast_type*>& templates)
-    {
-        std::vector<uint32_t> hashs;
-        for (auto& template_type : templates)
+        if (m_determined_constant_or_function.has_value())
         {
-            if (template_type->is_pending() && !template_type->is_hkt())
-                return nullptr;
+            wo::value* determined_value = std::get_if<wo::value>(
+                &m_determined_constant_or_function.value());
 
-            if (auto opthash = get_typing_hash_after_pass1(template_type))
-                hashs.push_back(opthash.value());
-            else
-                return nullptr;
-        }
-
-        auto fnd = symb->template_type_instances.find(hashs);
-        if (fnd == symb->template_type_instances.end())
-        {
-            auto& newtype = symb->template_type_instances[hashs];
-            newtype = new ast::ast_type(WO_PSTR(pending));
-
-            newtype->set_type(symb->type_informatiom);
-            symb->type_informatiom->instance(newtype);
-
-            if (symb->type_informatiom->source_file != nullptr)
-                newtype->copy_source_info(symb->type_informatiom);
-
-            temporary_entry_scope_in_pass1(symb->defined_in_scope);
+            if (determined_value != nullptr)
             {
-                if (begin_template_scope(symb->type_informatiom, symb->defined_in_scope, symb->template_types, templates))
-                {
-                    std::unordered_set<ast::ast_type*> _repeat_guard;
-                    update_typeof_in_type(newtype, _repeat_guard);
-
-                    end_template_scope(symb->defined_in_scope);
-                }
-            }
-            temporary_leave_scope_in_pass1();
-        }
-        return symb->template_type_instances[hashs];
-    }
-    void lang::update_typeof_in_type(ast::ast_type* type, std::unordered_set<ast::ast_type*>& s)
-    {
-        if (s.find(type) != s.end())
-            return;
-
-        s.insert(type);
-
-        // NOTE: Only work for update typefrom;
-        if (type->typefrom != nullptr)
-            analyze_pass1(type->typefrom);
-
-        if (type->has_template())
-            for (auto* t : type->template_arguments)
-                update_typeof_in_type(t, s);
-
-        if (type->is_struct() && type->using_type_name == nullptr)
-        {
-            for (auto& [_, memberinfo] : type->struct_member_index)
-                update_typeof_in_type(memberinfo.member_type, s);
-        }
-        else if (type->is_function())
-        {
-            for (auto* t : type->argument_types)
-                update_typeof_in_type(t, s);
-            update_typeof_in_type(type->function_ret_type, s);
-        }
-    }
-    bool lang::fully_update_type(
-        ast::ast_type* type,
-        bool in_pass_1,
-        const std::vector<wo_pstring_t>& template_types,
-        std::unordered_set<ast::ast_type*>& s)
-    {
-        if (s.find(type) != s.end())
-            return true;
-
-        s.insert(type);
-
-        if (in_pass_1 && type->searching_begin_namespace_in_pass2 == nullptr)
-        {
-            type->searching_begin_namespace_in_pass2 = now_scope();
-            if (type->source_file == nullptr)
-                type->copy_source_info(type->searching_begin_namespace_in_pass2->last_entry_ast);
-        }
-
-        if (type->typefrom != nullptr)
-        {
-            bool is_mutable_typeof = type->is_mutable();
-            bool is_force_immut_typeof = type->is_force_immutable();
-
-            auto used_type_info = type->using_type_name;
-
-            if (in_pass_1)
-                analyze_pass1(type->typefrom, false);
-            if (has_step_in_step2)
-                analyze_pass2(type->typefrom, false);
-
-            if (!type->typefrom->value_type->is_pending())
-            {
-                if (type->is_function())
-                    type->set_ret_type(type->typefrom->value_type);
-                else
-                    type->set_type(type->typefrom->value_type);
-            }
-
-            if (used_type_info)
-                type->using_type_name = used_type_info;
-            if (is_mutable_typeof)
-                type->set_is_mutable(true);
-            if (is_force_immut_typeof)
-                type->set_is_force_immutable();
-        }
-
-        if (type->using_type_name)
-        {
-            if (!type->using_type_name->symbol)
-                type->using_type_name->symbol = find_type_in_this_scope(type->using_type_name);
-        }
-
-        // todo: begin_template_scope here~
-        if (type->has_custom())
-        {
-            bool stop_update = false;
-            if (type->is_function())
-            {
-                if (type->function_ret_type->has_custom() && !type->function_ret_type->is_hkt())
-                {
-                    if (fully_update_type(type->function_ret_type, in_pass_1, template_types, s))
-                    {
-                        if (type->function_ret_type->has_custom() && !type->function_ret_type->is_hkt())
-                            stop_update = true;
-                    }
-                }
-                for (auto& a_t : type->argument_types)
-                {
-                    if (a_t->has_custom() && !a_t->is_hkt())
-                        if (fully_update_type(a_t, in_pass_1, template_types, s))
-                        {
-                            if (a_t->has_custom() && !a_t->is_hkt())
-                                stop_update = true;
-                        }
-                }
-            }
-
-            for (auto* template_type : type->template_arguments)
-            {
-                if (template_type->has_custom() && !template_type->is_hkt())
-                    if (fully_update_type(template_type, in_pass_1, template_types, s))
-                        if (template_type->has_custom() && !template_type->is_hkt())
-                            stop_update = true;
-            }
-
-            // ready for update..
-            if (!stop_update && ast::ast_type::is_custom_type(type->type_name))
-            {
-                if (!type->scope_namespaces.empty() ||
-                    type->search_from_global_namespace ||
-                    template_types.end() == std::find(template_types.begin(), template_types.end(), type->type_name))
-                {
-                    lang_symbol* type_sym = find_type_in_this_scope(type);
-
-                    if (nullptr == type_sym)
-                        type_sym = type->symbol;
-
-                    if (traving_symbols.find(type_sym) != traving_symbols.end())
-                        return false;
-
-                    struct traving_guard
-                    {
-                        lang* _lang;
-                        lang_symbol* _tving_node;
-                        traving_guard(lang* _lg, lang_symbol* ast_ndoe)
-                            : _lang(_lg)
-                            , _tving_node(ast_ndoe)
-                        {
-                            _lang->traving_symbols.insert(_tving_node);
-                        }
-                        ~traving_guard()
-                        {
-                            _lang->traving_symbols.erase(_tving_node);
-                        }
-                    };
-
-                    if (type_sym
-                        && type_sym->type != lang_symbol::symbol_type::typing
-                        && type_sym->type != lang_symbol::symbol_type::type_alias)
-                    {
-                        lang_anylizer->lang_error(lexer::errorlevel::error, type, WO_ERR_IS_NOT_A_TYPE, type_sym->name->c_str());
-                        type_sym = nullptr;
-                    }
-
-                    traving_guard g1(this, type_sym);
-
-                    if (type_sym)
-                    {
-                        if (type_sym->has_been_completed_defined == false)
-                            return false;
-
-                        auto already_has_using_type_name = type->using_type_name;
-
-                        auto type_has_mutable_mark = type->is_mutable();
-                        bool is_force_immut_typeof = type->is_force_immutable();
-
-                        bool using_template = false;
-                        const auto using_template_args = type->template_arguments;
-
-                        type->symbol = type_sym;
-                        if (type_sym->template_types.size() != type->template_arguments.size())
-                        {
-                            // Template count is not match.
-                            if (type->has_template())
-                            {
-                                if (in_pass_1 == false)
-                                {
-                                    // Error! if template_arguments.size() is 0, it will be 
-                                    // high-ranked-templated type.
-                                    if (type->template_arguments.size() > type_sym->template_types.size())
-                                    {
-                                        lang_anylizer->lang_error(lexer::errorlevel::error, type, WO_ERR_TOO_MANY_TEMPLATE_ARGS,
-                                            type_sym->name->c_str());
-                                    }
-                                    else
-                                    {
-                                        wo_assert(type->template_arguments.size() < type_sym->template_types.size());
-                                        lang_anylizer->lang_error(lexer::errorlevel::error, type, WO_ERR_TOO_FEW_TEMPLATE_ARGS,
-                                            type_sym->name->c_str());
-                                    }
-
-                                    lang_anylizer->lang_error(lexer::errorlevel::infom, type, WO_INFO_THE_TYPE_IS_ALIAS_OF,
-                                        type_sym->name->c_str(),
-                                        type_sym->type_informatiom->get_type_name(false).c_str());
-                                }
-
-                            }
-                        }
-                        else
-                        {
-                            if (type->has_template())
-                                using_template =
-                                type_sym->define_node != nullptr ?
-                                begin_template_scope(type, type_sym->defined_in_scope, type_sym->define_node, type->template_arguments)
-                                : (type_sym->type_informatiom->using_type_name
-                                    ? begin_template_scope(
-                                        type,
-                                        type_sym->defined_in_scope,
-                                        type_sym->type_informatiom->using_type_name->symbol->define_node,
-                                        type->template_arguments)
-                                    : begin_template_scope(
-                                        type,
-                                        type_sym->defined_in_scope,
-                                        type_sym->template_types,
-                                        type->template_arguments));
-
-                            ast::ast_type* symboled_type = nullptr;
-
-                            if (using_template)
-                            {
-                                // template arguments not anlyzed.
-                                if (auto* template_instance_type =
-                                    generate_type_instance_by_templates(type_sym, type->template_arguments))
-                                    // Get template type instance.
-                                    symboled_type = template_instance_type;
-                                else
-                                {
-                                    // Failed to instance current template type, skip.
-                                    end_template_scope(type_sym->defined_in_scope);
-                                    return false;
-                                }
-                            }
-                            else
-                                symboled_type = type_sym->type_informatiom;
-                            //symboled_type->set_type(type_sym->type_informatiom);
-
-                            wo_assert(symboled_type != nullptr);
-
-                            // NOTE: The type here should have all the template parameters applied.
-                            // We should not need give `template_types` here.
-                            fully_update_type(symboled_type, in_pass_1, {}, s);
-
-                            // NOTE: In old version, function's return type is not stores in complex.
-                            //       But now, the type here cannot be a function.
-                            wo_assert(type->is_function() == false);
-
-                            // NOTE: Set type will make new instance of typefrom, but it will cause symbol loss.
-                            //       To avoid dup-copy, we will let new type use typedef's typefrom directly.
-                            do {
-                                auto* defined_typefrom = symboled_type->typefrom;
-                                symboled_type->typefrom = nullptr;
-                                type->set_type(symboled_type);
-                                type->typefrom = symboled_type->typefrom = defined_typefrom;
-                            } while (false);
-
-                            if (already_has_using_type_name)
-                                type->using_type_name = already_has_using_type_name;
-                            else if (type_sym->type != lang_symbol::symbol_type::type_alias)
-                            {
-                                auto* using_type = new ast::ast_type(type_sym->name);
-                                using_type->template_arguments = type->template_arguments;
-
-                                type->using_type_name = using_type;
-                                type->using_type_name->template_arguments = using_template_args;
-
-                                // Gen namespace chain
-                                auto* inscopes = type_sym->defined_in_scope;
-                                while (inscopes && inscopes->belong_namespace)
-                                {
-                                    if (inscopes->type == lang_scope::scope_type::namespace_scope)
-                                    {
-                                        type->using_type_name->scope_namespaces.insert(
-                                            type->using_type_name->scope_namespaces.begin(),
-                                            inscopes->scope_namespace);
-                                    }
-                                    inscopes = inscopes->belong_namespace;
-                                }
-
-                                type->using_type_name->symbol = type_sym;
-                            }
-
-                            if (type_has_mutable_mark)
-                                // TODO; REPEATED MUT SIGN NEED REPORT ERROR?
-                                type->set_is_mutable(true);
-                            if (is_force_immut_typeof)
-                                type->set_is_force_immutable();
-                            if (using_template)
-                                end_template_scope(type_sym->defined_in_scope);
-                        }// end template argu check & update
-                    }
-                }
+                if (determined_value->is_gcunit())
+                    delete determined_value->gcunit;
             }
         }
-
-        for (auto& [name, struct_info] : type->struct_member_index)
-        {
-            if (struct_info.member_type)
-            {
-                if (in_pass_1)
-                    fully_update_type(struct_info.member_type, in_pass_1, template_types, s);
-                if (has_step_in_step2)
-                    fully_update_type(struct_info.member_type, in_pass_1, template_types, s);
-            }
-        }
-
-        wo_test(!type->using_type_name || !type->using_type_name->using_type_name);
-        return false;
     }
-    void lang::fully_update_type(ast::ast_type* type, bool in_pass_1, const std::vector<wo_pstring_t>& template_types)
+
+    //////////////////////////////////////
+
+    lang_TypeInstance::DeterminedType::DeterminedType(
+        base_type type, const ExternalTypeDescription& desc)
+        : m_base_type(type), m_external_type_description(desc)
     {
-        std::unordered_set<ast::ast_type*> us;
-        wo_assert(type != nullptr);
-        wo_assure(!fully_update_type(type, in_pass_1, template_types, us));
-        wo_assert(type->using_type_name == nullptr || (type->is_mutable() == type->using_type_name->is_mutable()));
     }
-    void lang::analyze_pattern_in_pass0(ast::ast_pattern_base* pattern, ast::ast_decl_attribute* attrib, ast::ast_value* initval)
+    lang_TypeInstance::DeterminedType::DeterminedType(DeterminedType&& item)
+        : m_base_type(item.m_base_type), m_external_type_description(item.m_external_type_description)
     {
-        using namespace ast;
-        // Like analyze_pattern_in_pass1, but donot analyze initval.
-        // Only declear the symbol.
-
-        if (ast_pattern_takeplace* a_pattern_takeplace = dynamic_cast<ast_pattern_takeplace*>(pattern))
+        item.m_base_type = NIL;
+    }
+    lang_TypeInstance::DeterminedType& lang_TypeInstance::DeterminedType::operator=(DeterminedType&& item)
+    {
+        m_base_type = item.m_base_type;
+        m_external_type_description = item.m_external_type_description;
+        item.m_base_type = NIL;
+        return *this;
+    }
+    lang_TypeInstance::DeterminedType::~DeterminedType()
+    {
+        switch (m_base_type)
         {
-            (void)a_pattern_takeplace;
+        case base_type::ARRAY:
+        case base_type::VECTOR:
+            delete m_external_type_description.m_array_or_vector;
+            break;
+        case base_type::DICTIONARY:
+        case base_type::MAPPING:
+            delete m_external_type_description.m_dictionary_or_mapping;
+            break;
+        case base_type::TUPLE:
+            delete m_external_type_description.m_tuple;
+            break;
+        case base_type::FUNCTION:
+            delete m_external_type_description.m_function;
+            break;
+        case base_type::STRUCT:
+            delete m_external_type_description.m_struct;
+            break;
+        case base_type::UNION:
+            delete m_external_type_description.m_union;
+            break;
         }
-        else
+    }
+
+    //////////////////////////////////////
+
+    lang_Scope::lang_Scope(const std::optional<lang_Scope*>& parent_scope, lang_Namespace* belongs)
+        : m_defined_symbols{}, m_sub_scopes{}, m_parent_scope(parent_scope), m_belongs_to_namespace(belongs), m_visibility_from_edge_for_template_check(0)
+    {
+    }
+
+    bool lang_Scope::is_namespace_scope() const
+    {
+        return m_belongs_to_namespace->m_this_scope.get() == this;
+    }
+
+    //////////////////////////////////////
+
+    lang_Namespace::lang_Namespace(wo_pstring_t name, const std::optional<lang_Namespace*>& parent_namespace)
+        : m_name(name), m_parent_namespace(parent_namespace)
+    {
+        m_this_scope = std::make_unique<lang_Scope>(
+            m_parent_namespace
+            ? std::optional(m_parent_namespace.value()->m_this_scope.get())
+            : std::nullopt,
+            this);
+    }
+
+    //////////////////////////////////////
+
+    LangContext::AstNodeWithState::AstNodeWithState(ast::AstBase* node)
+        : m_state(UNPROCESSED), m_ast_node(node)
+#ifndef NDEBUG
+        ,
+        m_debug_scope_layer_count(0), m_debug_entry_scope(nullptr)
+#endif
+    {
+    }
+    LangContext::AstNodeWithState::AstNodeWithState(
+        pass_behavior state, ast::AstBase* node)
+        : m_state(state), m_ast_node(node)
+    {
+    }
+
+    //////////////////////////////////////
+
+    LangContext::pass_behavior LangContext::ProcessAstJobs::process_node(
+        LangContext* ctx, lexer& lex, const AstNodeWithState& node_state, PassProcessStackT& out_stack)
+    {
+        auto fnd = m_node_processer.find(node_state.m_ast_node->node_type);
+        if (fnd == m_node_processer.end())
+            return OKAY;
+
+        return fnd->second(ctx, lex, node_state, out_stack);
+    }
+
+    bool LangContext::ProcessAstJobs::check_has_processer(ast::AstBase::node_type_t nodetype)
+    {
+        return m_node_processer.find(nodetype) != m_node_processer.end();
+    }
+
+    //////////////////////////////////////
+
+    LangContext::OriginTypeHolder::OriginTypeChain*
+        LangContext::OriginTypeHolder::OriginTypeChain::path(const std::list<lang_TypeInstance*>& type_path)
+    {
+        OriginTypeChain* current_chain = this;
+        for (auto* type : type_path)
         {
-            if (ast_pattern_identifier* a_pattern_identifier = dynamic_cast<ast_pattern_identifier*>(pattern))
+            auto fnd = current_chain->m_chain.find(type);
+            if (fnd == current_chain->m_chain.end())
             {
-                // Merge all attrib 
-                a_pattern_identifier->attr->attributes.insert(attrib->attributes.begin(), attrib->attributes.end());
+                auto new_chain_node = std::make_unique<OriginTypeChain>();
+                auto* next_chain_node_p = new_chain_node.get();
 
-                if (a_pattern_identifier->template_arguments.empty())
-                {
-                    if (!a_pattern_identifier->symbol)
-                    {
-                        a_pattern_identifier->symbol = define_variable_in_this_scope(
-                            a_pattern_identifier,
-                            a_pattern_identifier->identifier,
-                            initval,
-                            a_pattern_identifier->attr,
-                            template_style::NORMAL,
-                            a_pattern_identifier->decl);
-                    }
-                }
-                else
-                {
-                    // Template variable!!! we just define symbol here.
-                    if (!a_pattern_identifier->symbol)
-                    {
-                        auto* symb = define_variable_in_this_scope(
-                            a_pattern_identifier,
-                            a_pattern_identifier->identifier,
-                            initval,
-                            a_pattern_identifier->attr,
-                            template_style::IS_TEMPLATE_VARIABLE_DEFINE,
-                            a_pattern_identifier->decl);
-                        symb->is_template_symbol = true;
-                        wo_assert(symb->template_types.empty());
-                        symb->template_types = a_pattern_identifier->template_arguments;
-                        a_pattern_identifier->symbol = symb;
-                    }
-                }
-            }
-            else if (ast_pattern_tuple* a_pattern_tuple = dynamic_cast<ast_pattern_tuple*>(pattern))
-            {
-                for (auto* take_place : a_pattern_tuple->tuple_takeplaces)
-                    take_place->copy_source_info(pattern);
+                current_chain->m_chain.insert(std::make_pair(type, std::move(new_chain_node)));
 
-                for (size_t i = 0; i < a_pattern_tuple->tuple_takeplaces.size(); i++)
-                    analyze_pattern_in_pass0(a_pattern_tuple->tuple_patterns[i], attrib, a_pattern_tuple->tuple_takeplaces[i]);
+                current_chain = next_chain_node_p;
             }
             else
-                lang_anylizer->lang_error(lexer::errorlevel::error, pattern, WO_ERR_UNEXPECT_PATTERN_MODE);
+                current_chain = fnd->second.get();
         }
+        return current_chain;
     }
-    void lang::analyze_pattern_in_pass1(ast::ast_pattern_base* pattern, ast::ast_decl_attribute* attrib, ast::ast_value* initval)
+    LangContext::OriginTypeHolder::OriginTypeChain::~OriginTypeChain()
     {
-        using namespace ast;
+        if (m_type_instance)
+            delete m_type_instance.value();
+    }
 
-        if (ast_pattern_takeplace* a_pattern_takeplace = dynamic_cast<ast_pattern_takeplace*>(pattern))
+    //////////////////////////////////////
+
+    LangContext::OriginTypeHolder::UnionStructTypeIndexChain*
+        LangContext::OriginTypeHolder::UnionStructTypeIndexChain::path(
+            const std::list<std::tuple<ast::AstDeclareAttribue::accessc_attrib, wo_pstring_t, lang_TypeInstance*>>& type_path)
+    {
+        UnionStructTypeIndexChain* current_chain = this;
+        for (auto& [attrib, field, type_may_null] : type_path)
         {
-            (void)a_pattern_takeplace;
-            analyze_pass1(initval);
-        }
-        else
-        {
-            if (ast_pattern_identifier* a_pattern_identifier = dynamic_cast<ast_pattern_identifier*>(pattern))
+            auto& field_chain = current_chain->m_chain[attrib][field];
+            auto fnd = field_chain.find(type_may_null);
+            if (fnd == field_chain.end())
             {
-                // Merge all attrib 
-                a_pattern_identifier->attr->attributes.insert(attrib->attributes.begin(), attrib->attributes.end());
+                auto new_chain_node = std::make_unique<UnionStructTypeIndexChain>();
+                auto* next_chain_node_p = new_chain_node.get();
 
-                if (a_pattern_identifier->template_arguments.empty())
-                {
-                    analyze_pass1(initval);
+                field_chain.insert(std::make_pair(type_may_null, std::move(new_chain_node)));
 
-                    if (!a_pattern_identifier->symbol)
-                    {
-                        a_pattern_identifier->symbol = define_variable_in_this_scope(
-                            a_pattern_identifier,
-                            a_pattern_identifier->identifier,
-                            initval,
-                            a_pattern_identifier->attr,
-                            template_style::NORMAL,
-                            a_pattern_identifier->decl);
-                    }
-                }
-                else
-                {
-                    // Template variable!!! we just define symbol here.
-                    if (!a_pattern_identifier->symbol)
-                    {
-                        auto* symb = define_variable_in_this_scope(
-                            a_pattern_identifier,
-                            a_pattern_identifier->identifier,
-                            initval,
-                            a_pattern_identifier->attr,
-                            template_style::IS_TEMPLATE_VARIABLE_DEFINE,
-                            a_pattern_identifier->decl);
-                        symb->is_template_symbol = true;
-                        wo_assert(symb->template_types.empty());
-                        symb->template_types = a_pattern_identifier->template_arguments;
-                        a_pattern_identifier->symbol = symb;
-                    }
-                }
-            }
-            else if (ast_pattern_tuple* a_pattern_tuple = dynamic_cast<ast_pattern_tuple*>(pattern))
-            {
-                analyze_pass1(initval);
-                for (auto* take_place : a_pattern_tuple->tuple_takeplaces)
-                {
-                    take_place->copy_source_info(pattern);
-                }
-                if (initval->value_type->is_tuple() && !initval->value_type->is_pending()
-                    && initval->value_type->template_arguments.size() == a_pattern_tuple->tuple_takeplaces.size())
-                {
-                    for (size_t i = 0; i < a_pattern_tuple->tuple_takeplaces.size(); i++)
-                    {
-                        a_pattern_tuple->tuple_takeplaces[i]->value_type->set_type(initval->value_type->template_arguments[i]);
-                    }
-                }
-                for (size_t i = 0; i < a_pattern_tuple->tuple_takeplaces.size(); i++)
-                    analyze_pattern_in_pass1(a_pattern_tuple->tuple_patterns[i], attrib, a_pattern_tuple->tuple_takeplaces[i]);
+                current_chain = next_chain_node_p;
             }
             else
-                lang_anylizer->lang_error(lexer::errorlevel::error, pattern, WO_ERR_UNEXPECT_PATTERN_MODE);
+                current_chain = fnd->second.get();
         }
+        return current_chain;
     }
-    void lang::analyze_pattern_in_pass2(ast::ast_pattern_base* pattern, ast::ast_value* initval)
+    LangContext::OriginTypeHolder::UnionStructTypeIndexChain::~UnionStructTypeIndexChain()
     {
-        using namespace ast;
-
-        if (ast_pattern_takeplace* a_pattern_takeplace = dynamic_cast<ast_pattern_takeplace*>(pattern))
-        {
-            (void)a_pattern_takeplace;
-            analyze_pass2(initval);
-        }
-        else
-        {
-            if (ast_pattern_identifier* a_pattern_identifier = dynamic_cast<ast_pattern_identifier*>(pattern))
-            {
-                if (a_pattern_identifier->template_arguments.empty())
-                {
-                    analyze_pass2(initval);
-                    a_pattern_identifier->symbol->has_been_completed_defined = true;
-
-                    if (initval->is_constant &&
-                        a_pattern_identifier->symbol->decl == identifier_decl::IMMUTABLE &&
-                        !a_pattern_identifier->symbol->is_captured_variable)
-                    {
-                        a_pattern_identifier->symbol->is_constexpr = true;
-                    }
-                }
-                else
-                {
-                    a_pattern_identifier->symbol->has_been_completed_defined = true;
-                    for (auto& [_, impl_symbol] : a_pattern_identifier->symbol->template_typehashs_reification_instance_symbol_list)
-                    {
-                        impl_symbol->has_been_completed_defined = true;
-                    }
-                }
-            }
-            else if (ast_pattern_tuple* a_pattern_tuple = dynamic_cast<ast_pattern_tuple*>(pattern))
-            {
-                analyze_pass2(initval);
-                if (!initval->value_type->is_pending())
-                {
-                    if (initval->value_type->is_tuple()
-                        && initval->value_type->template_arguments.size() == a_pattern_tuple->tuple_takeplaces.size())
-                    {
-                        for (size_t i = 0; i < a_pattern_tuple->tuple_takeplaces.size(); i++)
-                        {
-                            a_pattern_tuple->tuple_takeplaces[i]->value_type->set_type(initval->value_type->template_arguments[i]);
-                        }
-                        for (size_t i = 0; i < a_pattern_tuple->tuple_takeplaces.size(); i++)
-                            analyze_pattern_in_pass2(a_pattern_tuple->tuple_patterns[i], a_pattern_tuple->tuple_takeplaces[i]);
-
-                    }
-                    else
-                    {
-                        if (!initval->value_type->is_tuple())
-                            lang_anylizer->lang_error(lexer::errorlevel::error, pattern, WO_ERR_UNMATCHED_PATTERN_TYPE_EXPECT_TUPLE,
-                                initval->value_type->get_type_name(false).c_str());
-                        else if (initval->value_type->template_arguments.size() != a_pattern_tuple->tuple_takeplaces.size())
-                            lang_anylizer->lang_error(lexer::errorlevel::error, pattern, WO_ERR_UNMATCHED_PATTERN_TYPE_TUPLE_DNT_MATCH,
-                                (int)a_pattern_tuple->tuple_takeplaces.size(),
-                                (int)initval->value_type->template_arguments.size());
-                    }
-                }
-            }
-            else
-                lang_anylizer->lang_error(lexer::errorlevel::error, pattern, WO_ERR_UNEXPECT_PATTERN_MODE);
-        }
-    }
-    void lang::analyze_pattern_in_finalize(ast::ast_pattern_base* pattern, ast::ast_value* initval, bool in_pattern_expr, ir_compiler* compiler)
-    {
-        using namespace ast;
-        using namespace opnum;
-
-        if (ast_pattern_identifier* a_pattern_identifier = dynamic_cast<ast_pattern_identifier*>(pattern))
-        {
-            if (a_pattern_identifier->template_arguments.empty())
-            {
-                if (a_pattern_identifier->symbol->is_marked_as_used_variable == false
-                    && a_pattern_identifier->symbol->define_in_function == true)
-                {
-                    auto* scope = a_pattern_identifier->symbol->defined_in_scope;
-                    while (scope->type != wo::lang_scope::scope_type::function_scope)
-                        scope = scope->parent_scope;
-
-                    lang_anylizer->lang_error(lexer::errorlevel::error, pattern, WO_ERR_UNUSED_VARIABLE_DEFINE,
-                        a_pattern_identifier->identifier->c_str(),
-                        str_to_wstr(scope->function_node->get_ir_func_signature_tag()).c_str()
-                    );
-                }
-                if (!a_pattern_identifier->symbol->is_constexpr_or_immut_no_closure_func())
-                {
-                    auto ref_ob = get_opnum_by_symbol(pattern, a_pattern_identifier->symbol, compiler);
-
-                    if (auto** opnum = std::get_if<opnum::opnumbase*>(&ref_ob))
-                    {
-                        if (ast_value_takeplace* valtkpls = dynamic_cast<ast_value_takeplace*>(initval);
-                            !valtkpls || valtkpls->used_reg)
-                        {
-                            compiler->mov(**opnum, analyze_value(initval, compiler));
-                        }
-                    }
-                    else
-                    {
-                        auto stackoffset = std::get<int16_t>(ref_ob);
-                        compiler->sts(analyze_value(initval, compiler), imm(stackoffset));
-                    }
-                }
-            }
-            else
-            {
-                // Template variable impl here, give init value to correct place.
-                const auto& all_template_impl_variable_symbol
-                    = a_pattern_identifier->symbol->template_typehashs_reification_instance_symbol_list;
-                for (auto& [_, symbol] : all_template_impl_variable_symbol)
-                {
-                    if (ast_value_init* init = dynamic_cast<ast_value_init*>(symbol->variable_value))
-                    {
-                        // Woolang 1.13.9.14: The rejected template variable is compile error if it has been used.
-                        // or it is used in `is pending` expr, just ignore.
-                        if (init->where_constraint != nullptr
-                            && init->where_constraint->accept == false)
-                            continue;
-                    }
-
-                    if (!symbol->is_constexpr_or_immut_no_closure_func())
-                    {
-                        auto ref_ob = get_opnum_by_symbol(a_pattern_identifier, symbol, compiler);
-
-                        if (auto** opnum = std::get_if<opnum::opnumbase*>(&ref_ob))
-                        {
-                            if (ast_value_takeplace* valtkpls = dynamic_cast<ast_value_takeplace*>(initval);
-                                !valtkpls || valtkpls->used_reg)
-                            {
-                                compiler->mov(**opnum, analyze_value(symbol->variable_value, compiler));
-                            }
-                        }
-                        else
-                        {
-                            auto stackoffset = std::get<int16_t>(ref_ob);
-                            compiler->sts(analyze_value(initval, compiler), imm(stackoffset));
-                        }
-                    }
-                } // end of for (auto& [_, symbol] : all_template_impl_variable_symbol)
-
-            }
-        }
-        else if (ast_pattern_tuple* a_pattern_tuple = dynamic_cast<ast_pattern_tuple*>(pattern))
-        {
-            auto& struct_val = analyze_value(initval, compiler);
-            auto& current_values = get_useable_register_for_pure_value();
-            for (size_t i = 0; i < a_pattern_tuple->tuple_takeplaces.size(); i++)
-            {
-                // FOR OPTIMIZE, SKIP TAKEPLACE PATTERN
-                if (dynamic_cast<ast_pattern_takeplace*>(a_pattern_tuple->tuple_patterns[i]) == nullptr)
-                {
-                    compiler->idstruct(current_values, struct_val, (uint16_t)i);
-                    a_pattern_tuple->tuple_takeplaces[i]->used_reg = &current_values;
-
-                    analyze_pattern_in_finalize(a_pattern_tuple->tuple_patterns[i], a_pattern_tuple->tuple_takeplaces[i], true, compiler);
-                }
-            }
-            complete_using_register(current_values);
-        }
-        else if (ast_pattern_takeplace* a_pattern_takeplace = dynamic_cast<ast_pattern_takeplace*>(pattern))
-        {
-            (void)a_pattern_takeplace;
-
-            // DO NOTHING
-            if (!in_pattern_expr)
-                analyze_value(initval, compiler);
-        }
-        else
-            lang_anylizer->lang_error(lexer::errorlevel::error, pattern, WO_ERR_UNEXPECT_PATTERN_MODE);
+        if (m_type_instance)
+            delete m_type_instance.value();
     }
 
-    void lang::check_division(
-        ast::ast_base* divop, 
-        ast::ast_value* left, 
-        ast::ast_value* right, 
-        opnum::opnumbase& left_opnum, 
-        opnum::opnumbase& right_opnum, 
-        ir_compiler* compiler)
+    //////////////////////////////////////
+
+    lang_TypeInstance* LangContext::OriginTypeHolder::create_dictionary_type(lang_TypeInstance* key_type, lang_TypeInstance* value_type)
     {
-        wo_assert(left->value_type->is_integer() == right->value_type->is_integer());
-        if (left->value_type->is_integer())
+        OriginTypeChain* chain_node = m_dictionary_chain.path({ key_type, value_type });
+        if (!chain_node->m_type_instance)
         {
-            std::optional<wo_integer_t> constant_right = std::nullopt;
-            std::optional<wo_integer_t> constant_left = std::nullopt;
+            lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
 
-            if (right->is_constant)
-            {
-                auto& const_r_value = right->get_constant_value();
-                wo_assert(const_r_value.type == wo::value::valuetype::integer_type);
+            desc.m_dictionary_or_mapping = new lang_TypeInstance::DeterminedType::DictionaryOrMapping();
 
-                constant_right = std::optional(const_r_value.integer);
-            }
+            desc.m_dictionary_or_mapping->m_key_type = key_type;
+            desc.m_dictionary_or_mapping->m_value_type = value_type;
 
-            if (left->is_constant)
-            {
-                auto& const_l_value = left->get_constant_value();
-                wo_assert(const_l_value.type == wo::value::valuetype::integer_type);
+            lang_TypeInstance::DeterminedType determined_type_detail(
+                lang_TypeInstance::DeterminedType::base_type::DICTIONARY, desc);
 
-                constant_left = std::optional(const_l_value.integer);
-            }
+            lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_dictionary, std::list{ key_type, value_type });
+            new_type_instance->determine_base_type_move(std::move(determined_type_detail));
 
-            if (constant_right.has_value())
-            {
-                auto const_rvalue = constant_right.value();
-                if (const_rvalue == 0)
-                    lang_anylizer->lang_error(wo::lexer::errorlevel::error, right, WO_ERR_CANNOT_DIV_ZERO);
-                else if (const_rvalue == -1)
-                {
-                    if (constant_left.has_value())
-                    {
-                        if (constant_left.value() == INT64_MIN)
-                            lang_anylizer->lang_error(wo::lexer::errorlevel::error, divop, WO_ERR_DIV_OVERFLOW);
-                    }
-                }
-            }
-
-            // Generate extra code for div checking.
-            if (config::ENABLE_RUNTIME_CHECKING_INTEGER_DIVISION)
-            {
-                if (constant_right.has_value() == false)
-                {
-                    if (constant_left.has_value() == false)
-                        compiler->ext_cdivilr(left_opnum, right_opnum);
-                    else if (constant_left.value() == INT64_MIN)
-                        compiler->ext_cdivir(right_opnum);
-                    else
-                        compiler->ext_cdivirz(right_opnum);
-                }
-                else if (constant_right.value() == -1)
-                {
-                    if (constant_left.has_value() == false)
-                        compiler->ext_cdivil(left_opnum);
-                }
-            }
+            chain_node->m_type_instance = new_type_instance;
         }
+        return chain_node->m_type_instance.value();
+    }
+    lang_TypeInstance* LangContext::OriginTypeHolder::create_mapping_type(lang_TypeInstance* key_type, lang_TypeInstance* value_type)
+    {
+        OriginTypeChain* chain_node = m_mapping_chain.path({ key_type, value_type });
+        if (!chain_node->m_type_instance)
+        {
+            lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
+
+            desc.m_dictionary_or_mapping = new lang_TypeInstance::DeterminedType::DictionaryOrMapping();
+
+            desc.m_dictionary_or_mapping->m_key_type = key_type;
+            desc.m_dictionary_or_mapping->m_value_type = value_type;
+
+            lang_TypeInstance::DeterminedType determined_type_detail(
+                lang_TypeInstance::DeterminedType::base_type::MAPPING, desc);
+
+            lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_mapping, std::list{ key_type, value_type });
+            new_type_instance->determine_base_type_move(std::move(determined_type_detail));
+
+            chain_node->m_type_instance = new_type_instance;
+        }
+        return chain_node->m_type_instance.value();
+    }
+    lang_TypeInstance* LangContext::OriginTypeHolder::create_array_type(lang_TypeInstance* element_type)
+    {
+        OriginTypeChain* chain_node = m_array_chain.path({ element_type });
+        if (!chain_node->m_type_instance)
+        {
+            lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
+
+            desc.m_array_or_vector = new lang_TypeInstance::DeterminedType::ArrayOrVector();
+
+            desc.m_array_or_vector->m_element_type = element_type;
+
+            lang_TypeInstance::DeterminedType determined_type_detail(
+                lang_TypeInstance::DeterminedType::base_type::ARRAY, desc);
+
+            lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_array, std::list{ element_type });
+            new_type_instance->determine_base_type_move(std::move(determined_type_detail));
+
+            chain_node->m_type_instance = new_type_instance;
+        }
+        return chain_node->m_type_instance.value();
+    }
+    lang_TypeInstance* LangContext::OriginTypeHolder::create_vector_type(lang_TypeInstance* element_type)
+    {
+        OriginTypeChain* chain_node = m_vector_chain.path({ element_type });
+        if (!chain_node->m_type_instance)
+        {
+            lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
+
+            desc.m_array_or_vector = new lang_TypeInstance::DeterminedType::ArrayOrVector();
+
+            desc.m_array_or_vector->m_element_type = element_type;
+
+            lang_TypeInstance::DeterminedType determined_type_detail(
+                lang_TypeInstance::DeterminedType::base_type::VECTOR, desc);
+
+            lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_vector, std::list{ element_type });
+            new_type_instance->determine_base_type_move(std::move(determined_type_detail));
+
+            chain_node->m_type_instance = new_type_instance;
+        }
+        return chain_node->m_type_instance.value();
+    }
+    lang_TypeInstance* LangContext::OriginTypeHolder::create_tuple_type(const std::list<lang_TypeInstance*>& element_types)
+    {
+        OriginTypeChain* chain_node = m_tuple_chain.path(element_types);
+        if (!chain_node->m_type_instance)
+        {
+            lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
+
+            desc.m_tuple = new lang_TypeInstance::DeterminedType::Tuple();
+            desc.m_tuple->m_element_types = std::vector<lang_TypeInstance*>(
+                element_types.begin(), element_types.end());
+
+            lang_TypeInstance::DeterminedType determined_type_detail(
+                lang_TypeInstance::DeterminedType::base_type::TUPLE, desc);
+
+            lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_tuple, std::nullopt);
+            new_type_instance->determine_base_type_move(std::move(determined_type_detail));
+
+            chain_node->m_type_instance = new_type_instance;
+        }
+        return chain_node->m_type_instance.value();
+    }
+    lang_TypeInstance* LangContext::OriginTypeHolder::create_function_type(bool is_variadic, const std::list<lang_TypeInstance*>& param_types, lang_TypeInstance* return_type)
+    {
+        OriginTypeChain* chain_node = m_function_chain[is_variadic ? 1 : 0].path(param_types)->path({ return_type });
+        if (!chain_node->m_type_instance)
+        {
+            lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
+
+            desc.m_function = new lang_TypeInstance::DeterminedType::Function();
+            desc.m_function->m_is_variadic = is_variadic;
+            desc.m_function->m_param_types = param_types;
+            desc.m_function->m_return_type = return_type;
+
+            lang_TypeInstance::DeterminedType determined_type_detail(
+                lang_TypeInstance::DeterminedType::base_type::FUNCTION, desc);
+
+            lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_function, std::nullopt);
+            new_type_instance->determine_base_type_move(std::move(determined_type_detail));
+
+            chain_node->m_type_instance = new_type_instance;
+        }
+        return chain_node->m_type_instance.value();
+    }
+    lang_TypeInstance* LangContext::OriginTypeHolder::create_struct_type(
+        const std::list<std::tuple<ast::AstDeclareAttribue::accessc_attrib, wo_pstring_t, lang_TypeInstance*>>& member_types)
+    {
+        UnionStructTypeIndexChain* chain_node = m_struct_chain.path(member_types);
+        if (!chain_node->m_type_instance)
+        {
+            lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
+
+            desc.m_struct = new lang_TypeInstance::DeterminedType::Struct();
+
+            wo_integer_t index = 0;
+            for (auto& [access, field, type] : member_types)
+            {
+                auto& field_detail = desc.m_struct->m_member_types[field];
+                field_detail.m_attrib = access;
+                field_detail.m_member_type = type;
+                field_detail.m_offset = index++;
+            }
+
+            lang_TypeInstance::DeterminedType determined_type_detail(
+                lang_TypeInstance::DeterminedType::base_type::STRUCT, desc);
+
+            lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_struct, std::nullopt);
+            new_type_instance->determine_base_type_move(std::move(determined_type_detail));
+
+            chain_node->m_type_instance = new_type_instance;
+        }
+        return chain_node->m_type_instance.value();
+    }
+    lang_TypeInstance* LangContext::OriginTypeHolder::create_union_type(
+        const std::list<std::pair<wo_pstring_t, std::optional<lang_TypeInstance*>>>& member_types)
+    {
+        std::list<std::tuple<ast::AstDeclareAttribue::accessc_attrib, wo_pstring_t, lang_TypeInstance*>>
+            member_types_no_optional;
+        for (auto& [field, type] : member_types)
+            member_types_no_optional.push_back(
+                std::make_tuple(ast::AstDeclareAttribue::accessc_attrib::PUBLIC, field, type ? type.value() : nullptr));
+
+        UnionStructTypeIndexChain* chain_node = m_union_chain.path(member_types_no_optional);
+        if (!chain_node->m_type_instance)
+        {
+            lang_TypeInstance::DeterminedType::ExternalTypeDescription desc;
+
+            desc.m_union = new lang_TypeInstance::DeterminedType::Union();
+
+            wo_integer_t index = 0;
+            for (auto& [_access, field, type] : member_types_no_optional)
+            {
+                (void)_access;
+
+                auto& field_detail = desc.m_union->m_union_label[field];
+                field_detail.m_item_type = type == nullptr ? std::nullopt : std::optional(type);
+                field_detail.m_label = index++;
+            }
+
+            lang_TypeInstance::DeterminedType determined_type_detail(
+                lang_TypeInstance::DeterminedType::base_type::UNION, desc);
+
+            lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_union, std::nullopt);
+            new_type_instance->determine_base_type_move(std::move(determined_type_detail));
+
+            chain_node->m_type_instance = new_type_instance;
+        }
+        return chain_node->m_type_instance.value();
     }
 
-    void lang::collect_ast_nodes_for_pass1(ast::ast_base* ast_node)
+    std::optional<lang_TypeInstance*> LangContext::OriginTypeHolder::create_or_find_origin_type(
+        lexer& lex, LangContext* ctx, ast::AstTypeHolder* type_holder)
     {
-        std::vector<ast::ast_base*> _pass1_analyze_ast_nodes_list;
-        std::stack<ast::ast_base*> _pending_ast_nodes;
+        wo_assert(!type_holder->m_LANG_determined_type);
 
-        _pending_ast_nodes.push(ast_node);
-
-        while (!_pending_ast_nodes.empty())
+        switch (type_holder->m_formal)
         {
-            auto* cur_node = _pending_ast_nodes.top();
-            _pending_ast_nodes.pop();
-
-            if (_pass1_analyze_ast_nodes_list.end() !=
-                std::find(_pass1_analyze_ast_nodes_list.begin(),
-                    _pass1_analyze_ast_nodes_list.end(),
-                    cur_node))
-                // Cur node has been append to list. return!
-                continue;
-
-            _pass1_analyze_ast_nodes_list.push_back(cur_node);
-        }
-    }
-    void lang::analyze_pass0(ast::ast_base* ast_node)
-    {
-        wo_assert(has_step_in_step2 == false);
-
-        // Used for pre-define all global define, we need walk through all:
-        //  ast_list
-        //  ast_namespace
-        //  ast_sentence_block
-        // 
-        // We will do pass1 job for following declare:
-        //  ast_varref_defines
-        //  ast_value_function_define
-        //  ast_using_type_as
-
-        this->m_global_pass_table->pass<0>(this, ast_node);
-    }
-
-    void lang::analyze_pass1(ast::ast_base* ast_node, bool type_degradation)
-    {
-        bool old_has_step_in_pass2 = has_step_in_step2;
-        has_step_in_step2 = false;
-
-        _analyze_pass1(ast_node, type_degradation);
-
-        has_step_in_step2 = old_has_step_in_pass2;
-    }
-    void lang::_analyze_pass1(ast::ast_base* ast_node, bool type_degradation)
-    {
-        if (!ast_node)
-            return;
-
-        if (ast_node->completed_in_pass1)
-            return;
-
-        ast_node->completed_in_pass1 = true;
-
-        using namespace ast;
-
-        ast_node->located_scope = now_scope();
-
-        if (ast_symbolable_base* a_symbol_ob = dynamic_cast<ast_symbolable_base*>(ast_node))
+        case ast::AstTypeHolder::IDENTIFIER:
         {
-            a_symbol_ob->searching_begin_namespace_in_pass2 = now_scope();
-            if (a_symbol_ob->source_file == nullptr)
-                a_symbol_ob->copy_source_info(a_symbol_ob->searching_begin_namespace_in_pass2->last_entry_ast);
-        }
-        if (ast_value* a_value = dynamic_cast<ast_value*>(ast_node))
-        {
-            a_value->value_type->copy_source_info(a_value);
-        }
+            auto& identifier = type_holder->m_typeform.m_identifier;
+            auto* symbol = identifier->m_LANG_determined_symbol.value();
 
-        ///////////////////////////////////////////////////////////////////////////////////////////
+            if (type_holder->m_LANG_refilling_template_target_symbol.has_value())
+                symbol = type_holder->m_LANG_refilling_template_target_symbol.value();
 
-        if (false == this->m_global_pass_table->pass<1>(this, ast_node))
-        {
-            ast::ast_base* child = ast_node->children;
-            while (child)
+            wo_assert(symbol->m_is_builtin);
+            if (!identifier->m_template_arguments)
             {
-                analyze_pass1(child);
-                child = child->sibling;
-            }
-        }
+                lex.lang_error(lexer::errorlevel::error, type_holder,
+                    WO_ERR_EXPECTED_TEMPLATE_ARGUMENT,
+                    ctx->get_symbol_name_w(symbol));
 
-        if (ast_value* a_val = dynamic_cast<ast_value*>(ast_node))
-        {
-            if (ast_defines* a_def = dynamic_cast<ast_defines*>(ast_node);
-                a_def && a_def->is_template_define)
-            {
-                // Do nothing
-            }
-            else
-            {
-                wo_assert(a_val->value_type != nullptr);
-
-                if (a_val->value_type->is_pending())
-                {
-                    if (!dynamic_cast<ast_value_function_define*>(a_val))
-                        // ready for update..
-                        fully_update_type(a_val->value_type, true);
-                }
-                if (!a_val->value_type->is_pending())
-                {
-                    if (a_val->value_type->is_mutable())
-                    {
-                        bool forced_mark_as_mutable = false;
-                        if (dynamic_cast<ast_value_mutable*>(a_val) != nullptr
-                            || dynamic_cast<ast_value_type_cast*>(a_val) != nullptr
-                            || dynamic_cast<ast_value_type_judge*>(a_val) != nullptr)
-                            forced_mark_as_mutable = true;
-
-                        if (type_degradation && !forced_mark_as_mutable)
-                        {
-                            a_val->can_be_assign = true;
-                            a_val->value_type->set_is_mutable(false);
-                        }
-                    }
-                }
-                a_val->eval_constant_value(lang_anylizer);
-            }
-
-        }
-        wo_assert(ast_node->completed_in_pass1);
-    }
-
-    lang_symbol* lang::analyze_pass_template_reification_var(ast::ast_value_variable* origin_variable, std::vector<ast::ast_type*> template_args_types)
-    {
-        // NOTE: template_args_types will be modified in this function. donot use ref type.
-
-        using namespace ast;
-        std::vector<uint32_t> template_args_hashtypes;
-
-        wo_assert(origin_variable->symbol != nullptr);
-        if (origin_variable->symbol->type == lang_symbol::symbol_type::function)
-        {
-            if (origin_variable->symbol->get_funcdef()->is_template_define
-                && origin_variable->symbol->get_funcdef()->template_type_name_list.size() == template_args_types.size())
-            {
-                // TODO: finding repeated template? goon
-                ast_value_function_define* dumpped_template_func_define =
-                    analyze_pass_template_reification_func(origin_variable->symbol->get_funcdef(), template_args_types);
-
-                if (dumpped_template_func_define)
-                    return dumpped_template_func_define->this_reification_lang_symbol;
-                return nullptr;
-            }
-            else if (!template_args_types.empty())
-            {
-                lang_anylizer->lang_error(lexer::errorlevel::error, origin_variable, WO_ERR_NO_MATCHED_FUNC_TEMPLATE);
-                return nullptr;
-            }
-            else
-                // NOTE: Not specify template arguments, might want auto impl?
-                // Give error in finalize step.
-                return origin_variable->symbol;
-
-        }
-        else if (origin_variable->symbol->type == lang_symbol::symbol_type::variable)
-        {
-            // Is variable?
-            for (auto temtype : template_args_types)
-            {
-                auto step_in_pass2 = has_step_in_step2;
-                has_step_in_step2 = true;
-                fully_update_type(temtype, false, origin_variable->symbol->template_types);
-                has_step_in_step2 = step_in_pass2;
-
-                if (auto opthash = get_typing_hash_after_pass1(temtype))
-                    template_args_hashtypes.push_back(opthash.value());
-                else
-                    return nullptr;
-            }
-
-            if (auto fnd = origin_variable->symbol->template_typehashs_reification_instance_symbol_list.find(template_args_hashtypes);
-                fnd != origin_variable->symbol->template_typehashs_reification_instance_symbol_list.end())
-            {
-                return fnd->second;
-            }
-
-            ast_value* dumpped_template_init_value = dynamic_cast<ast_value*>(origin_variable->symbol->variable_value->instance());
-            wo_assert(dumpped_template_init_value);
-
-            lang_symbol* template_reification_symb = nullptr;
-
-            temporary_entry_scope_in_pass1(origin_variable->symbol->defined_in_scope);
-            if (begin_template_scope(origin_variable, origin_variable->symbol->defined_in_scope, origin_variable->symbol->template_types, template_args_types))
-            {
-                analyze_pass1(dumpped_template_init_value);
-
-                auto step_in_pass2 = has_step_in_step2;
-                has_step_in_step2 = false;
-
-                template_reification_symb = define_variable_in_this_scope(
-                    dumpped_template_init_value,
-                    origin_variable->var_name,
-                    dumpped_template_init_value,
-                    origin_variable->symbol->attribute,
-                    template_style::IS_TEMPLATE_VARIABLE_IMPL,
-                    origin_variable->symbol->decl);
-                end_template_scope(origin_variable->symbol->defined_in_scope);
-
-                has_step_in_step2 = step_in_pass2;
-            }
-            temporary_leave_scope_in_pass1();
-            origin_variable->symbol->template_typehashs_reification_instance_symbol_list[template_args_hashtypes] = template_reification_symb;
-            return template_reification_symb;
-        }
-        else
-        {
-            lang_anylizer->lang_error(lexer::errorlevel::error, origin_variable, WO_ERR_NO_TEMPLATE_VARIABLE_OR_FUNCTION);
-            return nullptr;
-        }
-    }
-
-    ast::ast_value_function_define* lang::analyze_pass_template_reification_func(
-        ast::ast_value_function_define* origin_template_func_define,
-        std::vector<ast::ast_type*> template_args_types)
-    {
-        // NOTE: template_args_types will be modified in this function. donot use ref type.
-
-        using namespace ast;
-
-        std::vector<uint32_t> template_args_hashtypes;
-        for (auto temtype : template_args_types)
-        {
-            auto step_in_pass2 = has_step_in_step2;
-            has_step_in_step2 = true;
-
-            fully_update_type(temtype, false, origin_template_func_define->template_type_name_list);
-
-            has_step_in_step2 = step_in_pass2;
-
-            if (temtype->is_pending() && !temtype->is_hkt())
-            {
-                lang_anylizer->lang_error(lexer::errorlevel::error, temtype, WO_ERR_UNKNOWN_TYPE, temtype->get_type_name(false).c_str());
-                return nullptr;
-            }
-
-            if (auto opthash = get_typing_hash_after_pass1(temtype))
-                template_args_hashtypes.push_back(opthash.value());
-            else
-                return nullptr;
-        }
-
-        ast_value_function_define* dumpped_template_func_define = nullptr;
-
-        if (auto fnd = origin_template_func_define->template_typehashs_reification_instance_list.find(template_args_hashtypes);
-            fnd != origin_template_func_define->template_typehashs_reification_instance_list.end())
-        {
-            return  dynamic_cast<ast_value_function_define*>(fnd->second);
-        }
-
-        dumpped_template_func_define = dynamic_cast<ast_value_function_define*>(origin_template_func_define->instance());
-        wo_assert(dumpped_template_func_define);
-
-        // Reset compile state..
-        dumpped_template_func_define->reification_defines = origin_template_func_define;
-        dumpped_template_func_define->symbol = nullptr;
-        dumpped_template_func_define->searching_begin_namespace_in_pass2 = nullptr;
-        dumpped_template_func_define->completed_in_pass2 = false;
-        dumpped_template_func_define->is_template_define = false;
-        dumpped_template_func_define->is_template_reification = true;
-        dumpped_template_func_define->this_reification_template_args = template_args_types;
-
-        origin_template_func_define->template_typehashs_reification_instance_list[template_args_hashtypes] =
-            dumpped_template_func_define;
-
-        wo_assert(origin_template_func_define->symbol == nullptr
-            || origin_template_func_define->symbol->defined_in_scope == origin_template_func_define->this_func_scope->parent_scope);
-
-        temporary_entry_scope_in_pass1(origin_template_func_define->this_func_scope->parent_scope);
-        if (begin_template_scope(dumpped_template_func_define, origin_template_func_define->this_func_scope, origin_template_func_define, template_args_types))
-        {
-            analyze_pass1(dumpped_template_func_define);
-
-            auto step_in_pass2 = has_step_in_step2;
-            has_step_in_step2 = false;
-
-            end_template_scope(origin_template_func_define->this_func_scope);
-
-            has_step_in_step2 = step_in_pass2;
-        }
-
-        lang_symbol* template_reification_symb = new lang_symbol;
-
-        template_reification_symb->type = lang_symbol::symbol_type::function;
-        template_reification_symb->name = dumpped_template_func_define->function_name;
-        template_reification_symb->defined_in_scope = now_scope();
-        template_reification_symb->attribute = dumpped_template_func_define->declear_attribute;
-        template_reification_symb->variable_value = dumpped_template_func_define;
-
-        dumpped_template_func_define->this_reification_lang_symbol = template_reification_symb;
-
-        temporary_leave_scope_in_pass1();
-
-        lang_symbols.push_back(template_reification_symb);
-
-        return dumpped_template_func_define;
-    }
-
-    std::optional<lang::judge_result_t> lang::judge_auto_type_of_funcdef_with_type(
-        lang_scope* located_scope,
-        ast::ast_type* param,
-        ast::ast_value* callaim,
-        bool update,
-        ast::ast_defines* template_defines,
-        const std::vector<ast::ast_type*>* template_args)
-    {
-        wo_assert(located_scope != nullptr);
-        if (!param->is_function())
-            return std::nullopt;
-
-        ast::ast_value_function_define* function_define = nullptr;
-
-        ast::ast_value_mutable* marking_mutable = dynamic_cast<ast::ast_value_mutable*>(callaim);
-        if (marking_mutable != nullptr)
-        {
-            callaim = marking_mutable->val;
-        }
-
-        if (auto* variable = dynamic_cast<ast::ast_symbolable_base*>(callaim))
-        {
-            if (variable->symbol != nullptr && variable->symbol->type == lang_symbol::symbol_type::function)
-                function_define = variable->symbol->get_funcdef();
-        }
-        if (auto* funcdef = dynamic_cast<ast::ast_value_function_define*>(callaim))
-            function_define = funcdef;
-
-        if (function_define != nullptr && function_define->is_template_define
-            && function_define->value_type->argument_types.size() == param->argument_types.size())
-        {
-            ast::ast_type* new_type = dynamic_cast<ast::ast_type*>(function_define->value_type->instance(nullptr));
-            wo_assert(new_type->is_function());
-
-            std::vector<ast::ast_type*> arg_func_template_args(function_define->template_type_name_list.size(), nullptr);
-            const auto analyze_template_derivation_for_type =
-                [this, &arg_func_template_args, &function_define](size_t tempindex, ast_type* type, ast_type* param_type)
-            {
-                if (auto* pending_template_arg = analyze_template_derivation(
-                    function_define->template_type_name_list[tempindex],
-                    function_define->template_type_name_list,
-                    type, param_type))
-                {
-                    ast::ast_type* template_value_type = new ast::ast_type(WO_PSTR(pending));
-                    template_value_type->set_type(pending_template_arg);
-                    template_value_type->copy_source_info(function_define);
-
-                    arg_func_template_args[tempindex] = template_value_type;
-                }
-            };
-
-            for (size_t tempindex = 0; tempindex < function_define->template_type_name_list.size(); ++tempindex)
-            {
-                if (arg_func_template_args[tempindex] == nullptr)
-                {
-                    for (size_t index = 0; index < new_type->argument_types.size(); ++index)
-                    {
-                        analyze_template_derivation_for_type(
-                            tempindex, new_type->argument_types[index], param->argument_types[index]);
-                    }
-                    analyze_template_derivation_for_type(
-                        tempindex, new_type->function_ret_type, param->function_ret_type);
-                }
-            }
-
-            if (std::find(arg_func_template_args.begin(), arg_func_template_args.end(), nullptr) != arg_func_template_args.end())
-                return std::nullopt;
-
-            // Auto judge here...
-            if (update)
-            {
-                if (!(template_defines && template_args)
-                    || begin_template_scope(callaim, located_scope, template_defines, *template_args))
-                {
-                    temporary_entry_scope_in_pass1(located_scope);
-                    {
-                        for (auto* template_arg : arg_func_template_args)
-                            fully_update_type(template_arg, true);
-                    }
-                    temporary_leave_scope_in_pass1();
-
-                    for (auto* template_arg : arg_func_template_args)
-                        fully_update_type(template_arg, false);
-
-                    if (template_defines && template_args)
-                        end_template_scope(located_scope);
-
-                    auto* reificated = analyze_pass_template_reification_func(
-                        function_define, arg_func_template_args);
-
-                    if (reificated != nullptr)
-                    {
-                        if (marking_mutable != nullptr)
-                        {
-                            marking_mutable->val = reificated;
-                            marking_mutable->completed_in_pass2 = false;
-                            analyze_pass2(marking_mutable);
-                        }
-                        else
-                        {
-                            analyze_pass2(reificated);
-                        }
-                        report_error_for_constration(callaim, reificated, WO_ERR_FAILED_TO_INVOKE_BECAUSE);
-                        return reificated;
-                    }
-                }
                 return std::nullopt;
             }
+
+            auto& template_arguments = identifier->m_template_arguments.value();
+
+            if (symbol == m_dictionary)
+            {
+                if (template_arguments.size() != 2)
+                {
+                    lex.lang_error(lexer::errorlevel::error, type_holder,
+                        WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
+                        (size_t)2);
+
+                    return std::nullopt;
+                }
+                auto template_iter = template_arguments.begin();
+                auto* key_type = (*(template_iter++))->m_LANG_determined_type.value();
+                auto* value_type = (*template_iter)->m_LANG_determined_type.value();
+
+                return create_dictionary_type(key_type, value_type);
+            }
+            else if (symbol == m_mapping)
+            {
+                if (template_arguments.size() != 2)
+                {
+                    lex.lang_error(lexer::errorlevel::error, type_holder,
+                        WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
+                        (size_t)2);
+
+                    return std::nullopt;
+                }
+                auto template_iter = template_arguments.begin();
+                auto* key_type = (*(template_iter++))->m_LANG_determined_type.value();
+                auto* value_type = (*template_iter)->m_LANG_determined_type.value();
+
+                return create_mapping_type(key_type, value_type);
+            }
+            else if (symbol == m_array)
+            {
+                if (template_arguments.size() != 1)
+                {
+                    lex.lang_error(lexer::errorlevel::error, type_holder,
+                        WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
+                        (size_t)1);
+
+                    return std::nullopt;
+                }
+                auto* element_type = template_arguments.front()->m_LANG_determined_type.value();
+                return create_array_type(element_type);
+            }
+            else if (symbol == m_vector)
+            {
+                if (template_arguments.size() != 1)
+                {
+                    lex.lang_error(lexer::errorlevel::error, type_holder,
+                        WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
+                        (size_t)1);
+
+                    return std::nullopt;
+                }
+                auto* element_type = template_arguments.front()->m_LANG_determined_type.value();
+                return create_vector_type(element_type);
+            }
             else
             {
-                if (begin_template_scope(callaim, function_define->this_func_scope, function_define, arg_func_template_args))
-                {
-                    temporary_entry_scope_in_pass1(located_scope);
-                    {
-                        fully_update_type(new_type, true);
-                    }
-                    temporary_leave_scope_in_pass1();
-
-                    fully_update_type(new_type, false);
-
-                    end_template_scope(function_define->this_func_scope);
-                }
-
-                return new_type;
+                wo_error("Unexpected builtin type.");
             }
         }
+        case ast::AstTypeHolder::FUNCTION:
+        {
+            std::list<lang_TypeInstance*> param_types;
+            for (auto* type_holder : type_holder->m_typeform.m_function.m_parameters)
+                param_types.push_back(type_holder->m_LANG_determined_type.value());
 
-        // no need to judge, 
+            return create_function_type(
+                type_holder->m_typeform.m_function.m_is_variadic,
+                param_types,
+                type_holder->m_typeform.m_function.m_return_type->m_LANG_determined_type.value());
+        }
+        case ast::AstTypeHolder::STRUCTURE:
+        {
+            std::list<std::tuple<ast::AstDeclareAttribue::accessc_attrib, wo_pstring_t, lang_TypeInstance*>> param_types;
+            for (auto* field : type_holder->m_typeform.m_structure.m_fields)
+                param_types.push_back(std::make_tuple(
+                    field->m_attribute.value_or(ast::AstDeclareAttribue::accessc_attrib::PRIVATE),
+                    field->m_name,
+                    field->m_type->m_LANG_determined_type.value()));
+
+            return create_struct_type(param_types);
+        }
+        case ast::AstTypeHolder::UNION:
+        {
+            std::list<std::pair<wo_pstring_t, std::optional<lang_TypeInstance*>>> member_types;
+            for (auto& field : type_holder->m_typeform.m_union.m_fields)
+            {
+                member_types.push_back(std::make_pair(
+                    field.m_label,
+                    field.m_item
+                    ? std::optional(field.m_item.value()->m_LANG_determined_type.value())
+                    : std::nullopt));
+            }
+            return create_union_type(member_types);
+        }
+        case ast::AstTypeHolder::TUPLE:
+        {
+            std::list<lang_TypeInstance*> element_types;
+            for (auto* type_holder : type_holder->m_typeform.m_tuple.m_fields)
+                element_types.push_back(type_holder->m_LANG_determined_type.value());
+
+            return create_tuple_type(element_types);
+        }
+        default:
+            wo_error("Unexpected type holder formal.");
+        }
         return std::nullopt;
     }
 
-    std::vector<ast::ast_type*> lang::judge_auto_type_in_funccall(
-        ast::ast_value_funccall* funccall,
-        lang_scope* located_scope,
-        bool update,
-        ast::ast_defines* template_defines,
-        const std::vector<ast::ast_type*>* template_args)
+    //////////////////////////////////////
+
+    LangContext::LangContext()
+        : m_root_namespace(std::make_unique<lang_Namespace>(WO_PSTR(EMPTY), std::nullopt)), m_created_symbol_edge(0)
     {
-        using namespace ast;
+        m_scope_stack.push(m_root_namespace->m_this_scope.get());
+    }
 
-        std::vector<ast_value*> args_might_be_nullptr_if_unpack;
-        std::vector<ast::ast_type*> new_arguments_types_result;
+    bool LangContext::anylize_pass(
+        lexer& lex, ast::AstBase* root, const PassFunctionT& pass_function)
+    {
+        PassProcessStackT process_stack;
+        std::stack<AstNodeWithState*> process_roots;
 
-        auto* arg = dynamic_cast<ast_value*>(funccall->arguments->children);
-        while (arg)
+        process_stack.push(AstNodeWithState(root));
+
+        while (!process_stack.empty())
         {
-            if (auto* fake_unpack_value = dynamic_cast<ast_fakevalue_unpacked_args*>(arg))
+            AstNodeWithState& top_state = process_stack.top();
+
+#ifndef NDEBUG
+            if (top_state.m_debug_entry_scope == nullptr)
             {
-                if (fake_unpack_value->unpacked_pack->value_type->is_tuple())
+                top_state.m_debug_scope_layer_count = m_scope_stack.size();
+                top_state.m_debug_entry_scope = get_current_scope();
+
+                top_state.m_debug_ir_eval_content =
+                    m_ircontext.m_eval_result_storage_target.size()
+                    + m_ircontext.m_evaled_result_storage.size();
+
+                if (!m_ircontext.m_eval_result_storage_target.empty())
                 {
-                    wo_assert(fake_unpack_value->expand_count >= 0);
-
-                    size_t expand_count = std::min((size_t)fake_unpack_value->expand_count,
-                        fake_unpack_value->unpacked_pack->value_type->template_arguments.size());
-
-                    for (size_t i = 0; i < expand_count; ++i)
+                    switch (m_ircontext.m_eval_result_storage_target.top().m_request)
                     {
-                        args_might_be_nullptr_if_unpack.push_back(nullptr);
-                        new_arguments_types_result.push_back(nullptr);
-                    }
-                }
-            }
-            else
-            {
-                args_might_be_nullptr_if_unpack.push_back(arg);
-                new_arguments_types_result.push_back(nullptr);
-            }
-            arg = dynamic_cast<ast_value*>(arg->sibling);
-        }
-
-        // If a function has been implized, this flag will be setting and function's
-        //  argument list will be updated later.
-        bool has_updated_arguments = false;
-
-        for (size_t i = 0; i < args_might_be_nullptr_if_unpack.size() && i < funccall->called_func->value_type->argument_types.size(); ++i)
-        {
-            if (args_might_be_nullptr_if_unpack[i] == nullptr)
-                continue;
-
-            std::optional<judge_result_t> judge_result = judge_auto_type_of_funcdef_with_type(
-                located_scope,
-                funccall->called_func->value_type->argument_types[i],
-                args_might_be_nullptr_if_unpack[i], update, template_defines, template_args);
-
-            if (judge_result.has_value())
-            {
-                if (auto** realized_func = std::get_if<ast::ast_value_function_define*>(&judge_result.value()))
-                {
-                    auto* pending_variable = dynamic_cast<ast::ast_value_variable*>(args_might_be_nullptr_if_unpack[i]);
-                    if (pending_variable != nullptr)
-                    {
-                        pending_variable->value_type->set_type((*realized_func)->value_type);
-                        pending_variable->symbol = (*realized_func)->this_reification_lang_symbol;
-                        report_error_for_constration(pending_variable, *realized_func, WO_ERR_FAILED_TO_INVOKE_BECAUSE);
-                    }
-                    else
-                    {
-                        auto& arg = args_might_be_nullptr_if_unpack[i];
-                        if (dynamic_cast<ast::ast_value_mutable*>(arg) == nullptr)
-                        {
-                            wo_assert(dynamic_cast<ast::ast_value_function_define*>(arg) != nullptr);
-                            arg = *realized_func;
-                        }
-                    }
-                    has_updated_arguments = true;
-                }
-                else
-                {
-                    auto* updated_type = std::get<ast::ast_type*>(judge_result.value());
-                    wo_assert(updated_type != nullptr);
-                    new_arguments_types_result[i] = updated_type;
-                }
-            }
-        }
-
-        if (has_updated_arguments)
-        {
-            // Re-generate argument list for current function-call;
-            funccall->arguments->remove_all_childs();
-            for (auto* arg : args_might_be_nullptr_if_unpack)
-            {
-                arg->sibling = nullptr;
-                funccall->arguments->append_at_end(arg);
-            }
-        }
-
-        return new_arguments_types_result;
-    }
-
-    void lang::analyze_pass2(ast::ast_base* ast_node, bool type_degradation)
-    {
-        bool old_has_step_in_pass2 = has_step_in_step2;
-        has_step_in_step2 = true;
-
-        _analyze_pass2(ast_node, type_degradation);
-
-        has_step_in_step2 = old_has_step_in_pass2;
-    }
-
-    void lang::_analyze_pass2(ast::ast_base* ast_node, bool type_degradation)
-    {
-        wo_assert(ast_node);
-
-        if (ast_node->completed_in_pass2)
-            return;
-
-        wo_assert(ast_node->completed_in_pass1 == true);
-        ast_node->completed_in_pass2 = true;
-
-        using namespace ast;
-
-        if (ast_value* a_value = dynamic_cast<ast_value*>(ast_node))
-        {
-            a_value->eval_constant_value(lang_anylizer);
-
-            if (ast_defines* a_defines = dynamic_cast<ast_defines*>(a_value);
-                a_defines && a_defines->is_template_define)
-            {
-                for (auto& [typehashs, astnode] : a_defines->template_typehashs_reification_instance_list)
-                {
-                    analyze_pass2(astnode);
-                }
-            }
-            else
-            {
-                // TODO: REPORT THE REAL UNKNOWN TYPE HERE, EXAMPLE:
-                //       'void(ERRTYPE, int)' should report 'ERRTYPE', not 'void' or 'void(ERRTYPE, int)'
-                if (a_value->value_type->may_need_update())
-                {
-                    // ready for update..
-                    fully_update_type(a_value->value_type, false);
-
-                    if (dynamic_cast<ast_value_function_define*>(a_value) == nullptr
-                        // ast_value_make_struct_instance might need to auto judge types.
-                        && dynamic_cast<ast_value_make_struct_instance*>(a_value) == nullptr
-                        && a_value->value_type->has_custom())
-                    {
-                        lang_anylizer->lang_error(lexer::errorlevel::error, a_value, WO_ERR_UNKNOWN_TYPE
-                            , a_value->value_type->get_type_name().c_str());
-
-                        auto fuzz_symbol = find_symbol_in_this_scope(
-                            a_value->value_type, a_value->value_type->type_name,
-                            lang_symbol::symbol_type::typing | lang_symbol::symbol_type::type_alias, true);
-                        if (fuzz_symbol)
-                        {
-                            auto fuzz_symbol_full_name = str_to_wstr(get_belong_namespace_path_with_lang_scope(fuzz_symbol));
-                            if (!fuzz_symbol_full_name.empty())
-                                fuzz_symbol_full_name += L"::";
-                            fuzz_symbol_full_name += *fuzz_symbol->name;
-                            lang_anylizer->lang_error(lexer::errorlevel::infom,
-                                fuzz_symbol->type_informatiom,
-                                WO_INFO_IS_THIS_ONE,
-                                fuzz_symbol_full_name.c_str());
-                        }
-                    }
-                }
-
-                this->m_global_pass_table->pass<2>(this, ast_node);
-            }
-
-            if (ast_defines* a_def = dynamic_cast<ast_defines*>(ast_node);
-                a_def && a_def->is_template_define)
-            {
-                // Do nothing
-            }
-            else
-            {
-                a_value->eval_constant_value(lang_anylizer);
-
-                // some expr may set 'bool'/'char'..., it cannot used directly. update it.
-                if (a_value->value_type->is_builtin_using_type())
-                    fully_update_type(a_value->value_type, false);
-
-                if (!a_value->value_type->is_pending())
-                {
-                    if (a_value->value_type->is_mutable())
-                    {
-                        bool forced_mark_as_mutable = false;
-                        if (dynamic_cast<ast_value_mutable*>(a_value) != nullptr
-                            || dynamic_cast<ast_value_type_cast*>(a_value) != nullptr
-                            || dynamic_cast<ast_value_type_judge*>(a_value) != nullptr)
-                            forced_mark_as_mutable = true;
-
-                        if (type_degradation && !forced_mark_as_mutable)
-                        {
-                            a_value->can_be_assign = true;
-                            a_value->value_type->set_is_mutable(false);
-                        }
-                    }
-                }
-            }
-        }
-        else
-        {
-            this->m_global_pass_table->pass<2>(this, ast_node);
-        }
-
-        ast::ast_base* child = ast_node->children;
-        while (child)
-        {
-            analyze_pass2(child);
-            child = child->sibling;
-        }
-
-        wo_assert(ast_node->completed_in_pass2);
-    }
-    void lang::clean_and_close_lang()
-    {
-        for (auto& created_symbols : lang_symbols)
-            delete created_symbols;
-        for (auto* created_scopes : lang_scopes_buffers)
-        {
-            delete created_scopes;
-        }
-        for (auto* created_temp_opnum : generated_opnum_list_for_clean)
-            delete created_temp_opnum;
-        for (auto generated_ast_node : generated_ast_nodes_buffers)
-            delete generated_ast_node;
-
-        lang_symbols.clear();
-        lang_scopes_buffers.clear();
-        generated_opnum_list_for_clean.clear();
-        generated_ast_nodes_buffers.clear();
-    }
-
-    ast::ast_type* lang::analyze_template_derivation(
-        wo_pstring_t temp_form,
-        const std::vector<wo_pstring_t>& termplate_set,
-        ast::ast_type* para, ast::ast_type* args)
-    {
-        // Must match all formal
-        if (!para->is_like(args, termplate_set, &para, &args))
-        {
-            if (!para->is_function()
-                && !para->has_template()
-                && para->scope_namespaces.empty()
-                && !para->search_from_global_namespace
-                && para->type_name == temp_form)
-            {
-                // do nothing..
-            }
-            else
-                return nullptr;
-        }
-        if (para->is_mutable() && !args->is_mutable())
-            return nullptr;
-
-        if (para->is_function() && args->is_function())
-        {
-            if (auto* derivation_result = analyze_template_derivation(
-                temp_form,
-                termplate_set,
-                para->function_ret_type,
-                args->function_ret_type))
-                return derivation_result;
-        }
-
-        if (para->is_struct() && para->using_type_name == nullptr
-            && args->is_struct() && args->using_type_name == nullptr)
-        {
-            if (para->struct_member_index.size() == args->struct_member_index.size())
-            {
-                for (auto& [memname, memberinfo] : para->struct_member_index)
-                {
-                    auto fnd = args->struct_member_index.find(memname);
-                    if (fnd == args->struct_member_index.end())
-                        continue;
-
-                    if (memberinfo.offset != fnd->second.offset)
-                        continue;
-
-                    if (auto* derivation_result = analyze_template_derivation(
-                        temp_form,
-                        termplate_set,
-                        memberinfo.member_type,
-                        fnd->second.member_type))
-                        return derivation_result;
-                }
-            }
-        }
-
-        if (para->type_name == temp_form
-            && para->scope_namespaces.empty()
-            && !para->search_from_global_namespace)
-        {
-            ast::ast_type* picked_type = args;
-
-            wo_assert(picked_type);
-            if (!para->template_arguments.empty())
-            {
-                ast::ast_type* type_hkt = new ast::ast_type(WO_PSTR(pending));
-                if (picked_type->using_type_name)
-                    type_hkt->set_type(picked_type->using_type_name);
-                else
-                    type_hkt->set_type(picked_type);
-
-                type_hkt->template_arguments.clear();
-                return type_hkt;
-            }
-
-            if ((picked_type->is_mutable() && para->is_mutable()))
-            {
-                // mut T <<== mut InstanceT
-                // Should get (immutable) InstanceT.
-
-                ast::ast_type* immutable_type = new ast::ast_type(WO_PSTR(pending));
-                immutable_type->set_type(picked_type);
-
-                if (picked_type->is_mutable() && para->is_mutable())
-                    immutable_type->set_is_mutable(false);
-
-                return immutable_type;
-            }
-
-            return picked_type;
-        }
-
-        for (size_t index = 0;
-            index < para->template_arguments.size()
-            && index < args->template_arguments.size();
-            index++)
-        {
-            if (auto* derivation_result = analyze_template_derivation(temp_form,
-                termplate_set,
-                para->template_arguments[index],
-                args->template_arguments[index]))
-                return derivation_result;
-        }
-
-        if (para->using_type_name && args->using_type_name)
-        {
-            if (auto* derivation_result =
-                analyze_template_derivation(temp_form, termplate_set, para->using_type_name, args->using_type_name))
-                return derivation_result;
-        }
-
-        for (size_t index = 0;
-            index < para->argument_types.size()
-            && index < args->argument_types.size();
-            index++)
-        {
-            if (auto* derivation_result = analyze_template_derivation(temp_form,
-                termplate_set,
-                para->argument_types[index],
-                args->argument_types[index]))
-                return derivation_result;
-        }
-
-        return nullptr;
-    }
-#define WO_NEW_OPNUM(...) (*generated_opnum_list_for_clean.emplace_back(new __VA_ARGS__))
-
-    opnum::opnumbase& lang::get_useable_register_for_pure_value(bool must_release)
-    {
-        using namespace ast;
-        using namespace opnum;
-
-        for (size_t i = 0; i < opnum::reg::T_REGISTER_COUNT + opnum::reg::R_REGISTER_COUNT; i++)
-        {
-            if (RegisterUsingState::FREE == assigned_tr_register_list[i])
-            {
-                assigned_tr_register_list[i] = must_release ? RegisterUsingState::BLOCKING : RegisterUsingState::NORMAL;
-                return WO_NEW_OPNUM(reg(reg::t0 + (uint8_t)i));
-            }
-        }
-        wo_error("cannot get a useable register..");
-        return WO_NEW_OPNUM(reg(reg::cr));
-    }
-
-    void lang::_complete_using_register_for_pure_value(opnum::opnumbase& completed_reg)
-    {
-        using namespace ast;
-        using namespace opnum;
-        if (auto* reg_ptr = dynamic_cast<opnum::reg*>(&completed_reg);
-            reg_ptr && reg_ptr->id >= 0 && reg_ptr->id < opnum::reg::T_REGISTER_COUNT + opnum::reg::R_REGISTER_COUNT)
-        {
-            assigned_tr_register_list[reg_ptr->id] = RegisterUsingState::FREE;
-        }
-    }
-    void lang::_complete_using_all_register_for_pure_value()
-    {
-        for (size_t i = 0; i < opnum::reg::T_REGISTER_COUNT + opnum::reg::R_REGISTER_COUNT; i++)
-        {
-            if (assigned_tr_register_list[i] != RegisterUsingState::BLOCKING)
-                assigned_tr_register_list[i] = RegisterUsingState::FREE;
-        }
-    }
-    opnum::opnumbase& lang::complete_using_register(opnum::opnumbase& completed_reg)
-    {
-        _complete_using_register_for_pure_value(completed_reg);
-
-        return completed_reg;
-    }
-    void lang::complete_using_all_register()
-    {
-        _complete_using_all_register_for_pure_value();
-    }
-    bool lang::is_reg(opnum::opnumbase& op_num)
-    {
-        using namespace opnum;
-        if (auto* regist = dynamic_cast<reg*>(&op_num))
-        {
-            (void)regist;
-            return true;
-        }
-        return false;
-    }
-    bool lang::is_cr_reg(opnum::opnumbase& op_num)
-    {
-        using namespace opnum;
-        if (auto* regist = dynamic_cast<reg*>(&op_num))
-        {
-            if (regist->id == reg::cr)
-                return true;
-        }
-        return false;
-    }
-    bool lang::is_non_ref_tem_reg(opnum::opnumbase& op_num)
-    {
-        using namespace opnum;
-        if (auto* regist = dynamic_cast<reg*>(&op_num))
-        {
-            if (regist->id >= reg::t0 && regist->id <= reg::t15)
-                return true;
-        }
-        return false;
-    }
-    bool lang::is_temp_reg(opnum::opnumbase& op_num)
-    {
-        using namespace opnum;
-        if (auto* regist = dynamic_cast<reg*>(&op_num))
-        {
-            if (regist->id >= reg::t0 && regist->id <= reg::r15)
-                return true;
-        }
-        return false;
-    }
-    void lang::mov_value_to_cr(opnum::opnumbase& op_num, ir_compiler* compiler)
-    {
-        using namespace ast;
-        using namespace opnum;
-
-        if (_last_value_also_stored_to_cr)
-            return;
-
-        if (auto* regist = dynamic_cast<reg*>(&op_num))
-        {
-            if (regist->id == reg::cr)
-                return;
-        }
-        compiler->mov(reg(reg::cr), op_num);
-        return;
-    }
-
-    opnum::opnumbase& lang::get_new_global_variable()
-    {
-        using namespace opnum;
-        return WO_NEW_OPNUM(global((int32_t)global_symbol_index++));
-    }
-    std::variant<opnum::opnumbase*, int16_t> lang::get_opnum_by_symbol(
-        ast::ast_base* error_prud,
-        lang_symbol* symb,
-        ir_compiler* compiler,
-        bool get_pure_value)
-    {
-        using namespace opnum;
-
-        wo_assert(symb != nullptr);
-
-        if (symb->is_constexpr_or_immut_no_closure_func())
-            return &analyze_value(symb->variable_value, compiler, get_pure_value);
-
-        if (symb->type == lang_symbol::symbol_type::variable)
-        {
-            if (symb->static_symbol)
-            {
-                if (!get_pure_value)
-                    return &WO_NEW_OPNUM(global((int32_t)symb->global_index_in_lang));
-                else
-                {
-                    auto& loaded_pure_glb_opnum = get_useable_register_for_pure_value();
-                    compiler->mov(loaded_pure_glb_opnum, global((int32_t)symb->global_index_in_lang));
-                    return &loaded_pure_glb_opnum;
-                }
-            }
-            else
-            {
-                wo_integer_t stackoffset = 0;
-
-                if (symb->is_captured_variable)
-                    stackoffset = -2 - symb->captured_index;
-                else
-                    stackoffset = symb->stackvalue_index_in_funcs;
-                if (!get_pure_value)
-                {
-                    if (stackoffset <= 64 && stackoffset >= -63)
-                        return &WO_NEW_OPNUM(reg(reg::bp_offset(-(int8_t)stackoffset)));
-                    else
-                    {
-                        // Fuck GCC!
-                        return (int16_t)-stackoffset;
-                    }
-                }
-                else
-                {
-                    if (stackoffset <= 64 && stackoffset >= -63)
-                    {
-                        auto& loaded_pure_glb_opnum = get_useable_register_for_pure_value();
-                        compiler->mov(loaded_pure_glb_opnum, reg(reg::bp_offset(-(int8_t)stackoffset)));
-                        return &loaded_pure_glb_opnum;
-                    }
-                    else
-                    {
-                        auto& lds_aim = get_useable_register_for_pure_value();
-                        compiler->lds(lds_aim, imm(-(int16_t)stackoffset));
-                        return &lds_aim;
-                    }
-                }
-            }
-        }
-        else
-            return &analyze_value(symb->get_funcdef(), compiler, get_pure_value);
-    }
-
-    opnum::opnumbase& lang::analyze_value(ast::ast_value* value, ir_compiler* compiler, bool get_pure_value)
-    {
-        raii_value_clear_guard<bool> guard_last_also_stores_cr(
-            &_last_value_also_stored_to_cr, false, &_current_also_cr_store_flag);
-
-        raii_value_clear_guard<std::optional<int16_t>> guard_stackoffset_reg(
-            &_last_value_from_stack_offset_may_null, std::nullopt, &_current_stack_offset_store_flag);
-
-        using namespace ast;
-        using namespace opnum;
-        if (value->is_constant)
-        {
-            if (ast_value_trib_expr* a_value_trib_expr = dynamic_cast<ast_value_trib_expr*>(value))
-                // Only generate expr if const-expr is a function call
-                analyze_value(a_value_trib_expr->judge_expr, compiler, false);
-
-            const auto& const_value = value->get_constant_value();
-            switch (const_value.type)
-            {
-            case value::valuetype::bool_type:
-                if (!get_pure_value)
-                    return WO_NEW_OPNUM(imm((bool)(const_value.integer != 0)));
-                else
-                {
-                    auto& treg = get_useable_register_for_pure_value();
-                    compiler->mov(treg, imm((bool)(const_value.integer != 0)));
-                    return treg;
-                }
-            case value::valuetype::integer_type:
-                if (!get_pure_value)
-                    return WO_NEW_OPNUM(imm(const_value.integer));
-                else
-                {
-                    auto& treg = get_useable_register_for_pure_value();
-                    compiler->mov(treg, imm(const_value.integer));
-                    return treg;
-                }
-            case value::valuetype::real_type:
-                if (!get_pure_value)
-                    return WO_NEW_OPNUM(imm(const_value.real));
-                else
-                {
-                    auto& treg = get_useable_register_for_pure_value();
-                    compiler->mov(treg, imm(const_value.real));
-                    return treg;
-                }
-            case value::valuetype::handle_type:
-                if (!get_pure_value)
-                    return WO_NEW_OPNUM(imm_hdl(const_value.handle));
-                else
-                {
-                    auto& treg = get_useable_register_for_pure_value();
-                    compiler->mov(treg, imm_hdl(const_value.handle));
-                    return treg;
-                }
-            case value::valuetype::string_type:
-                if (!get_pure_value)
-                    return WO_NEW_OPNUM(imm_str(std::string(*const_value.string)));
-                else
-                {
-                    auto& treg = get_useable_register_for_pure_value();
-                    compiler->mov(treg, imm_str(std::string(*const_value.string)));
-                    return treg;
-                }
-            case value::valuetype::invalid:  // for nil
-            case value::valuetype::array_type:  // for nil
-            case value::valuetype::dict_type:  // for nil
-            case value::valuetype::gchandle_type:  // for nil
-                if (!get_pure_value)
-                    return WO_NEW_OPNUM(reg(reg::ni));
-                else
-                {
-                    auto& treg = get_useable_register_for_pure_value();
-                    compiler->mov(treg, reg(reg::ni));
-                    return treg;
-                }
-            default:
-                wo_error("error constant type..");
-                break;
-            }
-        }
-        else
-        {
-            if (!this->m_global_pass_table->ignore_debug_info(value))
-                compiler->pdb_info->generate_debug_info_at_astnode(value, compiler);
-
-            return this->m_global_pass_table->finalize_value(this, value, compiler, get_pure_value);
-        }
-#undef WO_NEW_OPNUM
-    }
-    opnum::opnumbase& lang::auto_analyze_value(ast::ast_value* value, ir_compiler* compiler, bool get_pure_value)
-    {
-        auto& result = analyze_value(value, compiler, get_pure_value);
-        complete_using_all_register();
-
-        return result;
-    }
-
-    void lang::real_analyze_finalize(ast::ast_base* ast_node, ir_compiler* compiler)
-    {
-        wo_assert(ast_node->completed_in_pass2);
-
-        compiler->pdb_info->generate_debug_info_at_astnode(ast_node, compiler);
-
-        using namespace ast;
-        using namespace opnum;
-
-        if (auto* a_value = dynamic_cast<ast_value*>(ast_node))
-        {
-            if (auto* a_val_funcdef = dynamic_cast<ast_value_function_define*>(a_value);
-                a_val_funcdef == nullptr || a_val_funcdef->function_name == nullptr)
-            {
-                // Woolang 1.10.2: The value is not void type, cannot be a sentence.
-                if (!a_value->value_type->is_void() &&
-                    !a_value->value_type->is_nothing())
-                    lang_anylizer->lang_error(lexer::errorlevel::error, a_value, WO_ERR_NOT_ALLOW_IGNORE_VALUE,
-                        a_value->value_type->get_type_name(false).c_str());
-            }
-            auto_analyze_value(a_value, compiler);
-        }
-        else
-        {
-            // 
-            wo_assure(this->m_global_pass_table->finalize(this, ast_node, compiler));
-        }
-    }
-    void lang::analyze_finalize(ast::ast_base* ast_node, ir_compiler* compiler)
-    {
-        // first, check each extern func
-        for (auto& [_, symb_maps] : extern_symb_infos)
-        {
-            for (auto& [_, symb] : symb_maps)
-            {
-                wo_assert(symb != nullptr && symb->externed_func != nullptr);
-
-                compiler->record_extern_native_function(
-                    (intptr_t)symb->externed_func,
-                    *symb->source_file,
-                    symb->library_name,
-                    symb->symbol_name);
-            }
-        }
-
-        size_t public_block_begin = compiler->get_now_ip();
-        auto res_ip = compiler->reserved_stackvalue(); // reserved..
-        real_analyze_finalize(ast_node, compiler);
-        auto used_tmp_regs = compiler->update_all_temp_regist_to_stack(public_block_begin);
-        compiler->reserved_stackvalue(res_ip, used_tmp_regs); // set reserved size
-
-        compiler->mov(opnum::reg(opnum::reg::spreg::cr), opnum::imm(0));
-        compiler->jmp(opnum::tag("__rsir_rtcode_seg_function_define_end"));
-
-        while (!in_used_functions.empty())
-        {
-            const auto tmp_build_func_list = in_used_functions;
-            in_used_functions.clear();
-            for (auto* funcdef : tmp_build_func_list)
-            {
-                // If current is template, the node will not be compile, just skip it.
-                if (funcdef->is_template_define)
-                    continue;
-                else if (funcdef->where_constraint != nullptr &&
-                    funcdef->where_constraint->accept == false)
-                {
-                    report_error_for_constration(funcdef, funcdef, WO_ERR_FAILED_TO_INVOKE_BECAUSE);
-                    continue;
-                }
-
-                wo_assert(funcdef->completed_in_pass2);
-
-                size_t funcbegin_ip = compiler->get_now_ip();
-                now_function_in_final_anylize = funcdef;
-
-                compiler->ext_funcbegin();
-
-                compiler->tag(funcdef->get_ir_func_signature_tag());
-                if (funcdef->declear_attribute->is_extern_attr())
-                {
-                    // this function is externed, put it into extern-table and update the value in ir-compiler
-                    auto&& spacename = funcdef->get_full_namespace_chain_after_pass1();
-                    auto&& fname = (spacename.empty() ? "" : spacename + "::") + wstr_to_str(*funcdef->function_name);
-
-                    compiler->record_extern_script_function(fname);
-                }
-                compiler->pdb_info->generate_func_begin(funcdef, compiler);
-
-                auto res_ip = compiler->reserved_stackvalue();                      // reserved..
-
-                // apply args.
-                int arg_count = 0;
-                auto arg_index = funcdef->argument_list->children;
-                while (arg_index)
-                {
-                    if (auto* a_value_arg_define = dynamic_cast<ast::ast_value_arg_define*>(arg_index))
-                    {
-                        // Issue N221109: Reference will not support.
-                        // All arguments will 'psh' to stack & no 'pshr' command in future.
-                        if (a_value_arg_define->symbol != nullptr)
-                        {
-                            if (a_value_arg_define->symbol->is_marked_as_used_variable == false
-                                && a_value_arg_define->symbol->define_in_function == true)
-                            {
-                                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_arg_define,
-                                    WO_ERR_UNUSED_VARIABLE_DEFINE,
-                                    a_value_arg_define->arg_name->c_str(),
-                                    str_to_wstr(funcdef->get_ir_func_signature_tag()).c_str());
-                            }
-
-                            funcdef->this_func_scope->
-                                reduce_function_used_stack_size_at(a_value_arg_define->symbol->stackvalue_index_in_funcs);
-
-                            wo_assert(0 == a_value_arg_define->symbol->stackvalue_index_in_funcs);
-                            a_value_arg_define->symbol->stackvalue_index_in_funcs =
-                                -2 - arg_count - (wo_integer_t)funcdef->capture_variables.size();
-                        }
-
-                        // NOTE: If argument's name is `_`, still need continue;
-                    }
-                    else // variadic
+                    case BytecodeGenerateContext::EvalResult::PUSH_RESULT_AND_IGNORE_RESULT:
+                    case BytecodeGenerateContext::EvalResult::EVAL_PURE_ACTION:
+                    case BytecodeGenerateContext::EvalResult::IGNORE_RESULT:
+                        --top_state.m_debug_ir_eval_content;
                         break;
-                    arg_count++;
-                    arg_index = arg_index->sibling;
-                }
-
-                for (auto& symb : funcdef->this_func_scope->in_function_symbols)
-                {
-                    if (symb->is_constexpr_or_immut_no_closure_func())
-                        symb->is_constexpr = true;
-                }
-
-                funcdef->this_func_scope->in_function_symbols.erase(
-                    std::remove_if(
-                        funcdef->this_func_scope->in_function_symbols.begin(),
-                        funcdef->this_func_scope->in_function_symbols.end(),
-                        [](auto* symb) {return symb->is_constexpr; }),
-                    funcdef->this_func_scope->in_function_symbols.end());
-
-                real_analyze_finalize(funcdef->in_function_sentence, compiler);
-
-                auto temp_reg_to_stack_count = compiler->update_all_temp_regist_to_stack(funcbegin_ip);
-                auto reserved_stack_size =
-                    funcdef->this_func_scope->max_used_stack_size_in_func
-                    + temp_reg_to_stack_count;
-
-                compiler->reserved_stackvalue(res_ip, (uint16_t)reserved_stack_size); // set reserved size
-                compiler->tag(funcdef->get_ir_func_signature_tag() + "_do_ret");
-
-                wo_assert(funcdef->value_type->is_function());
-                if (!funcdef->value_type->function_ret_type->is_void())
-                    compiler->ext_panic(opnum::imm_str("Function returned without valid value."));
-
-                // do default return
-                if (funcdef->is_closure_function())
-                    compiler->ret((uint16_t)funcdef->capture_variables.size());
-                else
-                    compiler->ret();
-
-                compiler->pdb_info->generate_func_end(funcdef, temp_reg_to_stack_count, compiler);
-                compiler->ext_funcend();
-
-                for (auto funcvar : funcdef->this_func_scope->in_function_symbols)
-                    compiler->pdb_info->add_func_variable(
-                        funcdef, *funcvar->name,
-                        funcvar->variable_value->row_end_no,
-                        funcvar->stackvalue_index_in_funcs);
-            }
-        }
-        compiler->tag("__rsir_rtcode_seg_function_define_end");
-        compiler->loaded_libs = extern_libs;
-        compiler->pdb_info->finalize_generate_debug_info();
-
-        wo::ast::ast_base::exchange_this_thread_ast(generated_ast_nodes_buffers);
-    }
-    lang_scope* lang::begin_namespace(ast::ast_namespace* a_namespace)
-    {
-        wo_assert(a_namespace->source_file != nullptr);
-        if (lang_scopes.size())
-        {
-            auto fnd = lang_scopes.back()->sub_namespaces.find(a_namespace->scope_name);
-            if (fnd != lang_scopes.back()->sub_namespaces.end())
-            {
-                lang_scopes.push_back(fnd->second);
-                current_namespace = lang_scopes.back();
-                current_namespace->last_entry_ast = a_namespace;
-                return current_namespace;
-            }
-        }
-
-        lang_scope* scope = new lang_scope;
-        lang_scopes_buffers.push_back(scope);
-
-        scope->type = lang_scope::scope_type::namespace_scope;
-        scope->belong_namespace = current_namespace;
-        scope->parent_scope = lang_scopes.empty() ? nullptr : lang_scopes.back();
-        scope->scope_namespace = a_namespace->scope_name;
-
-        if (lang_scopes.size())
-            lang_scopes.back()->sub_namespaces[a_namespace->scope_name] = scope;
-
-        lang_scopes.push_back(scope);
-        current_namespace = lang_scopes.back();
-        current_namespace->last_entry_ast = a_namespace;
-        return current_namespace;
-    }
-    void lang::end_namespace()
-    {
-        wo_assert(lang_scopes.back()->type == lang_scope::scope_type::namespace_scope);
-
-        current_namespace = lang_scopes.back()->belong_namespace;
-        lang_scopes.pop_back();
-    }
-    lang_scope* lang::begin_scope(ast::ast_base* block_beginer)
-    {
-        lang_scope* scope = new lang_scope;
-        lang_scopes_buffers.push_back(scope);
-
-        scope->last_entry_ast = block_beginer;
-        wo_assert(block_beginer->source_file != nullptr);
-        scope->type = lang_scope::scope_type::just_scope;
-        scope->belong_namespace = current_namespace;
-        scope->parent_scope = lang_scopes.empty() ? nullptr : lang_scopes.back();
-
-        lang_scopes.push_back(scope);
-        return scope;
-    }
-    void lang::end_scope()
-    {
-        wo_assert(lang_scopes.back()->type == lang_scope::scope_type::just_scope);
-
-        auto scope = now_scope();
-        if (auto* func = in_function())
-        {
-            func->used_stackvalue_index -= scope->this_block_used_stackvalue_count;
-        }
-        lang_scopes.pop_back();
-    }
-    lang_scope* lang::begin_function(ast::ast_value_function_define* ast_value_funcdef)
-    {
-        bool already_created_func_scope = ast_value_funcdef->this_func_scope != nullptr;
-        lang_scope* scope =
-            already_created_func_scope ? ast_value_funcdef->this_func_scope : new lang_scope;
-        scope->last_entry_ast = ast_value_funcdef;
-        wo_assert(ast_value_funcdef->source_file != nullptr);
-        if (!already_created_func_scope)
-        {
-            lang_scopes_buffers.push_back(scope);
-
-            scope->type = lang_scope::scope_type::function_scope;
-            scope->belong_namespace = current_namespace;
-            scope->parent_scope = lang_scopes.empty() ? nullptr : lang_scopes.back();
-            scope->function_node = ast_value_funcdef;
-
-            if (ast_value_funcdef->function_name != nullptr && !ast_value_funcdef->is_template_reification)
-            {
-                // Not anymous function or template_reification , define func-symbol..
-                auto* sym = define_variable_in_this_scope(
-                    ast_value_funcdef,
-                    ast_value_funcdef->function_name,
-                    ast_value_funcdef,
-                    ast_value_funcdef->declear_attribute,
-                    template_style::NORMAL,
-                    ast::identifier_decl::IMMUTABLE);
-                ast_value_funcdef->symbol = sym;
-            }
-        }
-        lang_scopes.push_back(scope);
-        return scope;
-    }
-    void lang::end_function()
-    {
-        wo_assert(lang_scopes.back()->type == lang_scope::scope_type::function_scope);
-        lang_scopes.pop_back();
-    }
-    lang_scope* lang::now_scope() const
-    {
-        wo_assert(!lang_scopes.empty());
-        return lang_scopes.back();
-    }
-    lang_scope* lang::now_namespace() const
-    {
-        auto* current_scope = now_scope();
-        if (current_scope->type != lang_scope::scope_type::namespace_scope)
-            current_scope = current_scope->belong_namespace;
-
-        wo_assert(current_scope->type == lang_scope::scope_type::namespace_scope);
-
-        return current_scope;
-    }
-    lang_scope* lang::in_function() const
-    {
-        for (auto rindex = lang_scopes.rbegin(); rindex != lang_scopes.rend(); rindex++)
-        {
-            if ((*rindex)->type == lang_scope::scope_type::function_scope)
-                return *rindex;
-        }
-        return nullptr;
-    }
-    lang_scope* lang::in_function_pass2() const
-    {
-        return current_function_in_pass2;
-    }
-
-    lang_symbol* lang::define_variable_in_this_scope(
-        ast::ast_base* errreporter,
-        wo_pstring_t names,
-        ast::ast_value* init_val,
-        ast::ast_decl_attribute* attr,
-        template_style is_template_value,
-        ast::identifier_decl mutable_type,
-        size_t captureindex)
-    {
-        wo_assert(lang_scopes.size());
-
-        if (is_template_value != template_style::IS_TEMPLATE_VARIABLE_IMPL &&
-            (lang_scopes.back()->symbols.find(names) != lang_scopes.back()->symbols.end()))
-        {
-            auto* last_found_symbol = lang_scopes.back()->symbols[names];
-
-            lang_anylizer->lang_error(lexer::errorlevel::error, errreporter, WO_ERR_REDEFINED, names->c_str());
-            lang_anylizer->lang_error(lexer::errorlevel::infom,
-                (last_found_symbol->type == lang_symbol::symbol_type::typing || 
-                    last_found_symbol->type == lang_symbol::symbol_type::type_alias)
-                ? (ast::ast_base*)last_found_symbol->type_informatiom
-                : (ast::ast_base*)last_found_symbol->variable_value
-                , WO_INFO_ITEM_IS_DEFINED_HERE, names->c_str());
-
-            return last_found_symbol;
-        }
-
-        if (auto* func_def = dynamic_cast<ast::ast_value_function_define*>(init_val);
-            func_def != nullptr && func_def->function_name != nullptr)
-        {
-            wo_assert(template_style::NORMAL == is_template_value);
-
-            lang_symbol* sym;
-
-            sym = lang_scopes.back()->symbols[names] = new lang_symbol;
-            sym->type = lang_symbol::symbol_type::function;
-            sym->attribute = attr;
-            sym->name = names;
-            sym->defined_in_scope = lang_scopes.back();
-            sym->variable_value = func_def;
-            sym->is_template_symbol = func_def->is_template_define;
-            sym->decl = mutable_type;
-
-            lang_symbols.push_back(sym);
-
-            return sym;
-        }
-        else
-        {
-            lang_symbol* sym = new lang_symbol;
-            if (is_template_value != template_style::IS_TEMPLATE_VARIABLE_IMPL)
-                lang_scopes.back()->symbols[names] = sym;
-
-            sym->type = lang_symbol::symbol_type::variable;
-            sym->attribute = attr;
-            sym->name = names;
-            sym->variable_value = init_val;
-            sym->defined_in_scope = lang_scopes.back();
-            sym->decl = mutable_type;
-
-            auto* func = in_function();
-            if (attr->is_extern_attr() && func)
-                lang_anylizer->lang_error(lexer::errorlevel::error, attr, WO_ERR_CANNOT_EXPORT_SYMB_IN_FUNC);
-
-            if (func && !sym->attribute->is_static_attr())
-            {
-                sym->define_in_function = true;
-                sym->static_symbol = false;
-
-                if (captureindex == (size_t)-1)
-                {
-                    if (sym->decl == ast::identifier_decl::MUTABLE || !init_val->is_constant)
-                    {
-                        if (is_template_value != template_style::IS_TEMPLATE_VARIABLE_DEFINE)
-                        {
-                            sym->stackvalue_index_in_funcs = func->assgin_stack_index(sym);
-                            lang_scopes.back()->this_block_used_stackvalue_count++;
-                        }
                     }
-                    else
-                        sym->is_constexpr = true;
-                }
-                else
-                {
-                    // Is capture symbol;
-                    sym->is_captured_variable = true;
-                    sym->captured_index = captureindex;
                 }
             }
-            else
+#endif
+
+            if (top_state.m_state == HOLD || top_state.m_state == HOLD_BUT_CHILD_FAILED)
+                process_roots.pop();
+
+            auto process_state = pass_function(this, lex, top_state, process_stack);
+
+            switch (process_state)
             {
-                wo_assert(captureindex == (size_t)-1);
-
-                if (func)
-                    sym->define_in_function = true;
-                else
-                    sym->define_in_function = false;
-
-                sym->static_symbol = true;
-
-                if (sym->decl == ast::identifier_decl::MUTABLE || !init_val->is_constant)
-                {
-                    if (is_template_value != template_style::IS_TEMPLATE_VARIABLE_DEFINE)
-                        sym->global_index_in_lang = global_symbol_index++;
-                }
-                else
-                    sym->is_constexpr = true;
-            }
-            lang_symbols.push_back(sym);
-            return sym;
-        }
-    }
-    lang_symbol* lang::define_type_in_this_scope(ast::ast_using_type_as* def, ast::ast_type* as_type, ast::ast_decl_attribute* attr)
-    {
-        wo_assert(lang_scopes.size());
-
-        if (lang_scopes.back()->symbols.find(def->new_type_identifier) != lang_scopes.back()->symbols.end())
-        {
-            auto* last_found_symbol = lang_scopes.back()->symbols[def->new_type_identifier];
-
-            lang_anylizer->lang_error(lexer::errorlevel::error, as_type, WO_ERR_REDEFINED, def->new_type_identifier->c_str());
-            lang_anylizer->lang_error(lexer::errorlevel::infom,
-                (last_found_symbol->type == lang_symbol::symbol_type::typing || last_found_symbol->type == lang_symbol::symbol_type::type_alias)
-                ? (ast::ast_base*)last_found_symbol->type_informatiom
-                : (ast::ast_base*)last_found_symbol->variable_value
-                , WO_INFO_ITEM_IS_DEFINED_HERE, def->new_type_identifier->c_str());
-            return last_found_symbol;
-        }
-        else
-        {
-            lang_symbol* sym = lang_scopes.back()->symbols[def->new_type_identifier] = new lang_symbol;
-            sym->attribute = attr;
-            if (def->is_alias)
-                sym->type = lang_symbol::symbol_type::type_alias;
-            else
-                sym->type = lang_symbol::symbol_type::typing;
-            sym->name = def->new_type_identifier;
-
-            sym->type_informatiom = as_type;
-            sym->defined_in_scope = lang_scopes.back();
-            sym->define_node = def;
-
-            lang_symbols.push_back(sym);
-            return sym;
-        }
-    }
-
-    bool lang::check_symbol_is_accessable(lang_symbol* symbol, lang_scope* current_scope, ast::ast_base* ast, bool give_error)
-    {
-        if (symbol->attribute)
-        {
-            if (symbol->attribute->is_protected_attr())
-            {
-                auto* symbol_defined_space = symbol->defined_in_scope;
-                if (current_scope->belongs_to(symbol_defined_space) == false)
-                {
-                    if (give_error)
-                        lang_anylizer->lang_error(lexer::errorlevel::error, ast, WO_ERR_CANNOT_REACH_PROTECTED_IN_OTHER_FUNC, symbol->name->c_str());
+            case HOLD:
+                top_state.m_state = HOLD;
+                process_roots.push(&top_state);
+                break;
+            case FAILED:
+                if (process_roots.empty())
                     return false;
-                }
-                return true;
-            }
-            if (symbol->attribute->is_private_attr())
-            {
-                if (ast->source_file == symbol->defined_source())
-                    return true;
-                if (give_error)
-                    lang_anylizer->lang_error(lexer::errorlevel::error, ast, WO_ERR_CANNOT_REACH_PRIVATE_IN_OTHER_FUNC, symbol->name->c_str(),
-                        symbol->defined_source()->c_str());
-                return false;
+                process_roots.top()->m_state = HOLD_BUT_CHILD_FAILED;
+                /* FALL THROUGH */
+                [[fallthrough]];
+            case OKAY:
+                process_stack.pop();
+#ifndef NDEBUG
+                wo_assert(top_state.m_debug_entry_scope != nullptr);
+                wo_assert(top_state.m_debug_scope_layer_count == m_scope_stack.size());
+                wo_assert(top_state.m_debug_entry_scope == get_current_scope());
+                wo_assert(top_state.m_debug_ir_eval_content ==
+                    m_ircontext.m_eval_result_storage_target.size()
+                    + m_ircontext.m_evaled_result_storage.size());
+#endif
+                break;
+            default:
+                wo_error("Unexpected pass behavior.");
             }
         }
         return true;
     }
 
-    template<typename T>
-    double levenshtein_distance(const T& s, const T& t)
+    void LangContext::pass_0_5_register_builtin_types()
     {
-        size_t n = s.size();
-        size_t m = t.size();
-        std::vector<size_t> d((n + 1) * (m + 1));
+        wo_assert(get_current_scope() == get_current_namespace()->m_this_scope.get());
 
-        auto df = [&d, n](size_t x, size_t y)->size_t& {return d[y * (n + 1) + x]; };
-
-        if (n == m && n == 0)
-            return 0.;
-        if (n == 0)
-            return (double)m / (double)std::max(n, m);
-        if (m == 0)
-            return (double)n / (double)std::max(n, m);
-
-        for (size_t i = 0; i <= n; ++i)
-            df(i, 0) = i;
-        for (size_t j = 0; j <= m; ++j)
-            df(0, j) = j;
-
-        for (size_t i = 1; i <= n; i++)
-        {
-            for (size_t j = 1; j <= m; j++)
+        // Register builtin types.
+        auto create_builtin_non_template_symbol_and_instance = [this](
+            OriginTypeHolder::OriginNoTemplateSymbolAndInstance* out_sni,
+            wo_pstring_t name,
+            lang_TypeInstance::DeterminedType::base_type basic_type)
             {
-                size_t cost = (t[j - 1] == s[i - 1]) ? 0 : 1;
-                df(i, j) = std::min(
-                    std::min(df(i - 1, j) + 1, df(i, j - 1) + 1),
-                    df(i - 1, j - 1) + cost);
-            }
-        }
+                ast::AstDeclareAttribue* built_type_public_attrib = new ast::AstDeclareAttribue();
+                built_type_public_attrib->m_access = ast::AstDeclareAttribue::PUBLIC;
 
-        return (double)df(n, m) / (double)std::max(n, m);
+                out_sni->m_symbol = define_symbol_in_current_scope(
+                    name,
+                    built_type_public_attrib,
+                    std::nullopt,
+                    WO_PSTR(_),
+                    get_current_scope(),
+                    lang_Symbol::kind::TYPE,
+                    false)
+                    .value();
+
+                out_sni->m_type_instance = out_sni->m_symbol->m_type_instance;
+                out_sni->m_type_instance->determine_base_type_move(
+                    std::move(lang_TypeInstance::DeterminedType(basic_type, {})));
+            };
+        create_builtin_non_template_symbol_and_instance(
+            &m_origin_types.m_void, WO_PSTR(void), lang_TypeInstance::DeterminedType::VOID);
+        create_builtin_non_template_symbol_and_instance(
+            &m_origin_types.m_nothing, WO_PSTR(nothing), lang_TypeInstance::DeterminedType::NOTHING);
+        create_builtin_non_template_symbol_and_instance(
+            &m_origin_types.m_dynamic, WO_PSTR(dynamic), lang_TypeInstance::DeterminedType::DYNAMIC);
+        create_builtin_non_template_symbol_and_instance(
+            &m_origin_types.m_nil, WO_PSTR(nil), lang_TypeInstance::DeterminedType::NIL);
+        create_builtin_non_template_symbol_and_instance(
+            &m_origin_types.m_int, WO_PSTR(int), lang_TypeInstance::DeterminedType::INTEGER);
+        create_builtin_non_template_symbol_and_instance(
+            &m_origin_types.m_real, WO_PSTR(real), lang_TypeInstance::DeterminedType::REAL);
+        create_builtin_non_template_symbol_and_instance(
+            &m_origin_types.m_handle, WO_PSTR(handle), lang_TypeInstance::DeterminedType::HANDLE);
+        create_builtin_non_template_symbol_and_instance(
+            &m_origin_types.m_bool, WO_PSTR(bool), lang_TypeInstance::DeterminedType::BOOLEAN);
+        create_builtin_non_template_symbol_and_instance(
+            &m_origin_types.m_string, WO_PSTR(string), lang_TypeInstance::DeterminedType::STRING);
+        create_builtin_non_template_symbol_and_instance(
+            &m_origin_types.m_gchandle, WO_PSTR(gchandle), lang_TypeInstance::DeterminedType::GCHANDLE);
+        create_builtin_non_template_symbol_and_instance(
+            &m_origin_types.m_char, WO_PSTR(char), lang_TypeInstance::DeterminedType::INTEGER);
+
+        // Declare array/vec/... type symbol.
+        auto create_builtin_complex_symbol_and_instance = [this](
+            lang_Symbol** out_symbol,
+            wo_pstring_t name)
+            {
+                ast::AstDeclareAttribue* built_type_public_attrib = new ast::AstDeclareAttribue();
+                built_type_public_attrib->m_access = ast::AstDeclareAttribue::PUBLIC;
+
+                *out_symbol = define_symbol_in_current_scope(
+                    name,
+                    built_type_public_attrib,
+                    std::nullopt,
+                    WO_PSTR(_),
+                    get_current_scope(),
+                    lang_Symbol::kind::TYPE,
+                    false)
+                    .value();
+                (*out_symbol)->m_is_builtin = true;
+            };
+
+        create_builtin_complex_symbol_and_instance(&m_origin_types.m_dictionary, WO_PSTR(dict));
+        create_builtin_complex_symbol_and_instance(&m_origin_types.m_mapping, WO_PSTR(map));
+        create_builtin_complex_symbol_and_instance(&m_origin_types.m_vector, WO_PSTR(vec));
+        create_builtin_complex_symbol_and_instance(&m_origin_types.m_array, WO_PSTR(array));
+        create_builtin_complex_symbol_and_instance(&m_origin_types.m_tuple, WO_PSTR(tuple));
+        create_builtin_complex_symbol_and_instance(&m_origin_types.m_function, WO_PSTR(function));
+        create_builtin_complex_symbol_and_instance(&m_origin_types.m_struct, WO_PSTR(struct));
+        create_builtin_complex_symbol_and_instance(&m_origin_types.m_union, WO_PSTR(union));
+
+        m_origin_types.m_array_dynamic =
+            m_origin_types.create_array_type(m_origin_types.m_dynamic.m_type_instance);
+        m_origin_types.m_dictionary_dynamic =
+            m_origin_types.create_dictionary_type(m_origin_types.m_dynamic.m_type_instance, m_origin_types.m_dynamic.m_type_instance);
     }
 
-    lang_symbol* lang::find_symbol_in_this_scope(
-        ast::ast_symbolable_base* var_ident, 
-        wo_pstring_t ident_str, 
-        int target_type_mask, 
-        bool fuzzy_for_err_report)
+    int32_t _assign_storage_for_instance(
+        LangContext* lctx,
+        const std::string& funcname,
+        lang_ValueInstance* value_instance,
+        int32_t offset)
     {
-        wo_assert(lang_scopes.size());
-
-        if (var_ident->symbol && !fuzzy_for_err_report)
-            return var_ident->symbol;
-
-        lang_symbol* fuzzy_nearest_symbol = nullptr;
-        auto update_fuzzy_nearest_symbol =
-            [&fuzzy_nearest_symbol, fuzzy_for_err_report, ident_str, target_type_mask]
-        (lang_symbol* symbol) {
-            if (fuzzy_for_err_report)
-            {
-                auto distance = levenshtein_distance(*symbol->name, *ident_str);
-                if (distance <= 0.3 && (symbol->type & target_type_mask) != 0)
-                {
-                    if (fuzzy_nearest_symbol == nullptr
-                        || distance < levenshtein_distance(*fuzzy_nearest_symbol->name, *ident_str))
-                        fuzzy_nearest_symbol = symbol;
-                }
-            }
-        };
-
-        if (var_ident->searching_from_type)
+        bool alligned = false;
+        if (value_instance->IR_need_storage())
         {
-            fully_update_type(var_ident->searching_from_type, !has_step_in_step2);
-
-            if (!var_ident->searching_from_type->is_pending() || var_ident->searching_from_type->using_type_name)
+            if (!value_instance->m_IR_storage.has_value())
             {
-                auto* finding_from_type = var_ident->searching_from_type;
-                if (var_ident->searching_from_type->using_type_name)
-                    finding_from_type = var_ident->searching_from_type->using_type_name;
+                value_instance->m_IR_storage =
+                    lang_ValueInstance::Storage{
+                        lang_ValueInstance::Storage::STACKOFFSET,
+                        offset,
+                };
 
-                if (finding_from_type->symbol)
-                {
-                    var_ident->searching_begin_namespace_in_pass2 = finding_from_type->symbol->defined_in_scope;
-                    wo_assert(var_ident->source_file != nullptr);
-                }
+                alligned = true;
+            }
+
+            wo_assert(value_instance->m_IR_storage.value().m_type
+                == lang_ValueInstance::Storage::STACKOFFSET);
+
+            lctx->m_ircontext.c().pdb_info->add_func_variable(
+                funcname,
+                lctx->get_value_name_w(value_instance),
+                value_instance->m_symbol->m_symbol_declare_ast.value()->source_location.begin_at.row,
+                value_instance->m_IR_storage.value().m_index);
+        }
+
+        if (alligned)
+            return offset - 1;
+
+        // No need for storage.
+        return offset;
+    }
+    bool _assign_storage_for_local_variable_instance(
+        lexer& lex,
+        LangContext* lctx,
+        const std::string& funcname,
+        lang_Scope* scope,
+        int32_t stack_assign_offset,
+        int32_t* out_max_stack_count)
+    {
+        int32_t next_assign_offset = stack_assign_offset;
+
+        const auto it_sub_scope_end = scope->m_sub_scopes.end();
+        auto next_it_sub_scope = scope->m_sub_scopes.begin();
+        std::optional<size_t> next_it_sub_scope_head_edge =
+            next_it_sub_scope == it_sub_scope_end ?
+            std::nullopt :
+            std::optional((*next_it_sub_scope)->m_visibility_from_edge_for_template_check);
+
+        std::vector<lang_Symbol*> local_symbols_in_this_scope(
+            scope->m_defined_symbols.size());
+
+        lang_Symbol** applying_symbol_place = local_symbols_in_this_scope.data();
+        for (auto& [_useless, symbol] : scope->m_defined_symbols)
+        {
+            (void)_useless;
+            *(applying_symbol_place++) = symbol.get();
+        }
+
+        std::sort(
+            local_symbols_in_this_scope.begin(),
+            local_symbols_in_this_scope.end(),
+            [](lang_Symbol* a, lang_Symbol* b)
+            {
+                return a->m_symbol_edge < b->m_symbol_edge;
+            });
+
+        bool donot_have_unused_variable = true;
+
+        // Ok, let's rock!.
+        for (auto* symbol : local_symbols_in_this_scope)
+        {
+            if (next_it_sub_scope_head_edge.has_value()
+                && symbol->m_symbol_edge > next_it_sub_scope_head_edge.value())
+            {
+                auto* next_it_sub_scope_instance = next_it_sub_scope->get();
+
+                if (!next_it_sub_scope_instance->m_function_instance.has_value())
+                    donot_have_unused_variable = 
+                    _assign_storage_for_local_variable_instance(
+                        lex, lctx, funcname, next_it_sub_scope_instance, next_assign_offset, out_max_stack_count)
+                    && donot_have_unused_variable;
+
+                if (++next_it_sub_scope != it_sub_scope_end)
+                    next_it_sub_scope_head_edge = (*next_it_sub_scope)->m_visibility_from_edge_for_template_check;
                 else
-                    var_ident->search_from_global_namespace = true;
+                    next_it_sub_scope_head_edge = std::nullopt;
+            }
 
-                var_ident->scope_namespaces.insert(var_ident->scope_namespaces.begin(),
-                    finding_from_type->type_name);
+            if (symbol->m_symbol_kind != lang_Symbol::kind::VARIABLE)
+                continue;
 
-                var_ident->searching_from_type = nullptr;
+            bool is_static_storage = (symbol->m_declare_attribute.has_value()
+                && symbol->m_declare_attribute.value()->m_lifecycle.has_value()
+                && symbol->m_declare_attribute.value()->m_lifecycle.value()
+                == ast::AstDeclareAttribue::lifecycle_attrib::STATIC);
+
+            // Symbol defined in function local cannot be global.
+            wo_assert(!symbol->m_is_global);
+
+            if (symbol->m_is_template)
+            {
+                for (auto& [_useless, template_instance] : symbol->m_template_value_instances->m_template_instances)
+                {
+                    (void)_useless;
+                    if (template_instance->m_state == lang_TemplateAstEvalStateValue::FAILED)
+                        continue; // Skip failed template instance.
+
+                    wo_assert(template_instance->m_state == lang_TemplateAstEvalStateValue::EVALUATED);
+                    if (is_static_storage)
+                        lctx->update_allocate_global_instance_storage_passir(
+                            template_instance->m_value_instance.get());
+                    else
+                        next_assign_offset =
+                        _assign_storage_for_instance(
+                            lctx,
+                            funcname,
+                            template_instance->m_value_instance.get(),
+                            next_assign_offset);
+                }
             }
             else
             {
-                return nullptr;
-            }
-        }
-        else if (!var_ident->search_from_global_namespace && !var_ident->scope_namespaces.empty())
-        {
-            if (!var_ident->search_from_global_namespace)
-            {
-                auto* searching_template_scope = var_ident->searching_begin_namespace_in_pass2;
-                while (searching_template_scope)
-                {
-                    for (auto rind = searching_template_scope->template_stack.rbegin();
-                        rind != searching_template_scope->template_stack.rend();
-                        rind++)
-                    {
-                        if (auto fnd = rind->find(var_ident->scope_namespaces.front());
-                            fnd != rind->end())
-                        {
-                            auto* fnd_template_type = fnd->second->type_informatiom;
-                            if (fnd_template_type->using_type_name)
-                                fnd_template_type = fnd_template_type->using_type_name;
-
-                            if (fnd_template_type->symbol != nullptr)
-                            {
-                                var_ident->searching_begin_namespace_in_pass2 = fnd_template_type->symbol->defined_in_scope;
-                                wo_assert(var_ident->source_file != nullptr);
-                            }
-                            else
-                                var_ident->search_from_global_namespace = true;
-
-                            var_ident->scope_namespaces[0] = fnd_template_type->type_name;
-                            break;
-                        }
-                    }
-                    searching_template_scope = searching_template_scope->parent_scope;
-                }
-            }
-        }
-
-        auto* const searching_begin_place = var_ident->searching_begin_namespace_in_pass2;
-        auto* searching = var_ident->search_from_global_namespace
-            ? lang_scopes.front() : searching_begin_place;
-
-        if (searching == nullptr)
-            // No searching begin place.
-            return nullptr;
-
-        std::vector<lang_scope*> searching_namespace;
-        searching_namespace.push_back(searching);
-        // ATTENTION: IF SYMBOL WITH SAME NAME, IT MAY BE DUP HERE BECAUSE BY USING-NAMESPACE,
-        //            WE NEED CHOOSE NEAREST SYMBOL
-        //            So we should search in scope chain, if found, return it immediately.
-        auto* _first_searching = searching;
-        while (_first_searching)
-        {
-            size_t namespace_index = 0;
-
-            auto* indet_finding_namespace = _first_searching;
-            while (namespace_index < var_ident->scope_namespaces.size())
-            {
-                if (auto fnd = indet_finding_namespace->sub_namespaces.find(var_ident->scope_namespaces[namespace_index]);
-                    fnd != indet_finding_namespace->sub_namespaces.end())
-                {
-                    namespace_index++;
-                    indet_finding_namespace = fnd->second;
-                }
+                if (is_static_storage)
+                    lctx->update_allocate_global_instance_storage_passir(
+                        symbol->m_value_instance);
                 else
-                    goto TRY_UPPER_SCOPE;
+                    next_assign_offset =
+                    _assign_storage_for_instance(
+                        lctx,
+                        funcname,
+                        symbol->m_value_instance,
+                        next_assign_offset);
             }
 
-            if (fuzzy_for_err_report)
+            if (!symbol->m_has_been_used)
             {
-                for (auto& finding_symbol : indet_finding_namespace->symbols)
-                    update_fuzzy_nearest_symbol(finding_symbol.second);
-            }
-            else if (auto fnd = indet_finding_namespace->symbols.find(ident_str);
-                fnd != indet_finding_namespace->symbols.end())
-            {
-                if ((fnd->second->type & target_type_mask) != 0
-                    && (fnd->second->type == lang_symbol::symbol_type::typing
-                        || fnd->second->type == lang_symbol::symbol_type::type_alias
-                        || check_symbol_is_accessable(fnd->second, searching_begin_place, var_ident, false)))
-                    return var_ident->symbol = fnd->second;
-            }
+                lex.lang_error(lexer::errorlevel::error,
+                    symbol->m_symbol_declare_ast.value(),
+                    WO_ERR_UNSED_VARIABLE,
+                    lctx->get_symbol_name_w(symbol));
 
-        TRY_UPPER_SCOPE:
-            _first_searching = _first_searching->parent_scope;
+                donot_have_unused_variable = false;
+            }
         }
 
-        // Not found in current scope, trying to find it in using-namespace/root namespace
-        auto* _searching_in_all = searching;
-        while (_searching_in_all)
+        // Ok, finish sub scopes;
+        while (next_it_sub_scope != it_sub_scope_end)
         {
-            for (auto* a_using_namespace : _searching_in_all->used_namespace)
+            auto* next_it_sub_scope_instance = next_it_sub_scope->get();
+
+            if (!next_it_sub_scope_instance->m_function_instance.has_value())
+                donot_have_unused_variable = 
+                _assign_storage_for_local_variable_instance(
+                    lex, lctx, funcname, (*next_it_sub_scope).get(), next_assign_offset, out_max_stack_count)
+                && donot_have_unused_variable;
+
+            ++next_it_sub_scope;
+        }
+
+        *out_max_stack_count = std::max(
+            *out_max_stack_count, -next_assign_offset);
+
+        return donot_have_unused_variable;
+    }
+
+    std::string get_anonymous_function_name(LangContext* lctx, ast::AstValueFunction* anonymous_func)
+    {
+        if (anonymous_func->m_LANG_value_instance_to_update.has_value())
+        {
+            lang_ValueInstance* value_instance = anonymous_func->m_LANG_value_instance_to_update.value();
+            std::string name = lctx->get_value_name(value_instance);
+            
+            lang_Scope* function_located_scope =
+                anonymous_func->m_LANG_function_scope.value()->m_parent_scope.value();
+
+            if (!function_located_scope->is_namespace_scope())
             {
-                wo_assert(a_using_namespace->source_file != nullptr);
-                if (a_using_namespace->source_file != var_ident->source_file)
+                char local_name[32];
+                sprintf(local_name, "[local_%p]", function_located_scope);
+
+                auto function = lctx->get_scope_located_function(function_located_scope);
+                if (function.has_value())
+                    name = 
+                        get_anonymous_function_name(lctx, function.value()) 
+                        + "::" 
+                        + local_name
+                        + "::"
+                        + name;
+            }
+
+            return name;
+        }
+
+        std::string result;
+
+        lang_Scope* function_located_scope =
+            anonymous_func->m_LANG_function_scope.value()->m_parent_scope.value();
+
+        auto function = lctx->get_scope_located_function(function_located_scope);
+        if (function.has_value())
+            result += get_anonymous_function_name(lctx, function.value()) + "::";
+
+        char anonymous_name[32];
+        sprintf(anonymous_name, "[anonymous_%p]", anonymous_func);
+        result += anonymous_name;
+
+        return result;
+    }
+
+    bool LangContext::process(lexer& lex, ast::AstBase* root)
+    {
+        pass_0_5_register_builtin_types();
+
+        if (!anylize_pass(lex, root, &LangContext::pass_0_process_scope_and_non_local_defination))
+            return false;
+
+        if (!anylize_pass(lex, root, &LangContext::pass_1_process_basic_type_marking_and_constant_eval))
+            return false;
+
+        // Final process, generate bytecode.
+
+        // Do something for prepare.
+        // final.1 Finalize global codes.
+        size_t global_block_begin_place = m_ircontext.c().get_now_ip();
+        auto global_reserving_ip = m_ircontext.c().reserved_stackvalue();
+
+        if (!anylize_pass(lex, root, &LangContext::pass_final_A_process_bytecode_generation))
+            return false;
+
+        // All temporary registers should be released.
+        wo_assert(m_ircontext.m_inused_temporary_registers.empty());
+        wo_assert(m_ircontext.m_evaled_result_storage.empty());
+        wo_assert(m_ircontext.m_eval_result_storage_target.empty());
+        wo_assert(m_ircontext.m_loop_content_stack.empty());
+
+        auto used_tmp_regs = m_ircontext.c().update_all_temp_regist_to_stack(
+            &m_ircontext, global_block_begin_place);
+        m_ircontext.c().reserved_stackvalue(
+            global_reserving_ip,
+            used_tmp_regs); // set reserved size
+
+        m_ircontext.c().jmp(opnum::tag("#woolang_program_end"));
+
+        // final.2 Finalize function codes.
+        bool donot_have_unused_local_variable = true;
+        for (;;)
+        {
+            auto functions_to_finalize =
+                std::move(m_ircontext.m_being_used_function_instance);
+            m_ircontext.m_being_used_function_instance.clear();
+
+            bool has_function_to_be_eval = false;
+            for (ast::AstValueFunction* eval_function : functions_to_finalize)
+            {
+                if (!m_ircontext.m_processed_function_instance.insert(
+                    eval_function).second)
+                    // Already processed.
                     continue;
 
-                if (!a_using_namespace->from_global_namespace)
+                has_function_to_be_eval = true;
+
+                m_ircontext.c().ext_funcbegin();
+
+                // Bind function label.
+                m_ircontext.c().tag(IR_function_label(eval_function));
+
+                // Trying to register extern symbol.
+                std::string eval_fucntion_name = get_anonymous_function_name(this, eval_function);
+                m_ircontext.c().pdb_info->generate_func_begin(
+                    eval_fucntion_name,
+                    eval_function,
+                    &m_ircontext.c());
+
+                if (eval_function->m_LANG_value_instance_to_update.has_value())
                 {
-                    auto* finding_namespace = _searching_in_all;
-                    while (finding_namespace)
+                    lang_ValueInstance* value_instance = eval_function->m_LANG_value_instance_to_update.value();
+                    lang_Symbol* symbol = value_instance->m_symbol;
+
+                    if (symbol->m_declare_attribute.has_value())
                     {
-                        auto* _deep_in_namespace = finding_namespace;
-                        for (auto& nspace : a_using_namespace->used_namespace_chain)
+                        ast::AstDeclareAttribue* declare_attribute = symbol->m_declare_attribute.value();
+                        if (declare_attribute->m_external.has_value()
+                            && declare_attribute->m_external.value() == ast::AstDeclareAttribue::external_attrib::EXTERNAL)
                         {
-                            if (auto fnd = _deep_in_namespace->sub_namespaces.find(nspace);
-                                fnd != _deep_in_namespace->sub_namespaces.end())
-                                _deep_in_namespace = fnd->second;
-                            else
-                            {
-                                // fail
-                                goto failed_in_this_namespace;
-                            }
+                            m_ircontext.c().record_extern_script_function(
+                                eval_fucntion_name);
                         }
-                        // ok!
-                        searching_namespace.push_back(_deep_in_namespace);
-                    failed_in_this_namespace:;
-                        finding_namespace = finding_namespace->belong_namespace;
                     }
                 }
-                else
+
+                size_t this_function_block_begin_place = m_ircontext.c().get_now_ip();
+                auto this_function_reserving_ip = m_ircontext.c().reserved_stackvalue();
+
+                /////////////////////////////////
+
+                // 0. Addressing for simple parameter settings
+                int32_t argument_place = 2;
+                for (auto& [_useless, captured_variable_instance] :
+                    eval_function->m_LANG_captured_context.m_captured_variables)
                 {
-                    auto* _deep_in_namespace = lang_scopes.front();
-                    for (auto& nspace : a_using_namespace->used_namespace_chain)
+                    captured_variable_instance.m_instance->m_IR_storage =
+                        lang_ValueInstance::Storage{
+                             lang_ValueInstance::Storage::STACKOFFSET,
+                             argument_place,
+                    };
+
+                    m_ircontext.c().pdb_info->add_func_variable(
+                        eval_fucntion_name,
+                        get_value_name_w(captured_variable_instance.m_instance.get()),
+                        eval_function->source_location.begin_at.row,
+                        argument_place);
+
+                    ++argument_place;
+                }
+                const auto no_captured_arguement_place = argument_place;
+                for (auto* param_decls : eval_function->m_parameters)
+                {
+                    if (param_decls->m_pattern->node_type == ast::AstBase::AST_PATTERN_SINGLE)
                     {
-                        if (auto fnd = _deep_in_namespace->sub_namespaces.find(nspace);
-                            fnd != _deep_in_namespace->sub_namespaces.end())
-                            _deep_in_namespace = fnd->second;
+                        ast::AstPatternSingle* pattern_single =
+                            static_cast<ast::AstPatternSingle*>(param_decls->m_pattern);
+
+                        if (!pattern_single->m_is_mutable)
+                        {
+                            // Immutable pattern single argument.
+                            lang_Symbol* symbol = pattern_single->m_LANG_declared_symbol.value();
+
+                            wo_assert(!symbol->m_is_template && symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE);
+                            symbol->m_value_instance->m_IR_storage =
+                                lang_ValueInstance::Storage{
+                                     lang_ValueInstance::Storage::STACKOFFSET,
+                                     argument_place,
+                            };
+
+                            m_ircontext.c().pdb_info->add_func_variable(
+                                eval_fucntion_name,
+                                get_value_name_w(symbol->m_value_instance),
+                                pattern_single->source_location.begin_at.row,
+                                argument_place);
+                        }
+                    }
+                    ++argument_place;
+                }
+                // 1. Addressing for local variable settings
+                lang_Scope* function_scope = eval_function->m_LANG_function_scope.value();
+
+                int32_t local_storage_size = 0;
+
+                bool this_function_dont_have_unused_local_variable =
+                    _assign_storage_for_local_variable_instance(
+                        lex, this, eval_fucntion_name, eval_function->m_LANG_function_scope.value(), 0, &local_storage_size);
+
+                if (!this_function_dont_have_unused_local_variable)
+                {
+                    lex.lang_error(lexer::errorlevel::infom, eval_function,
+                        WO_INFO_IN_FUNCTION_NAMED,
+                        str_to_wstr(eval_fucntion_name).c_str());
+                }
+
+                donot_have_unused_local_variable =
+                    this_function_dont_have_unused_local_variable
+                    && donot_have_unused_local_variable;
+
+                // 2. Assign value arguments.
+                argument_place = no_captured_arguement_place;
+                for (auto* param_decls : eval_function->m_parameters)
+                {
+                    if (param_decls->m_pattern->node_type != ast::AstBase::AST_PATTERN_SINGLE
+                        || static_cast<ast::AstPatternSingle*>(param_decls->m_pattern)->m_is_mutable)
+                    {
+                        // Need assign value.
+                        opnum::opnumbase* argument_opnum;
+                        if (argument_place <= 63)
+                            argument_opnum = m_ircontext.opnum_stack_offset(argument_place);
                         else
                         {
-                            // fail
-                            goto failed_in_this_namespace_from_global;
+                            argument_opnum = m_ircontext.borrow_opnum_temporary_register(
+                                WO_BORROW_TEMPORARY_FROM(nullptr)
+                            );
+                            m_ircontext.c().lds(
+                                *(opnum::opnumbase*)argument_opnum,
+                                *(opnum::opnumbase*)m_ircontext.opnum_imm_int(argument_place));
                         }
+
+                        update_pattern_storage_and_code_gen_passir(
+                            lex, param_decls->m_pattern, argument_opnum, std::nullopt);
+
+                        m_ircontext.try_return_opnum_temporary_register(argument_opnum);
                     }
-                    // ok!
-                    searching_namespace.push_back(_deep_in_namespace);
-                failed_in_this_namespace_from_global:;
+                    ++argument_place;
                 }
-            }
-            _searching_in_all = _searching_in_all->parent_scope;
-        }
-        std::set<lang_symbol*> searching_result;
-        std::set<lang_scope*> searched_scopes;
 
-        for (auto _searching : searching_namespace)
-        {
-            bool deepin_search = _searching == searching;
-            while (_searching)
-            {
-                // search_in 
-                if (var_ident->scope_namespaces.size())
+                // 3. If function is variadic, move tc to tp;
+                if (eval_function->m_is_variadic)
                 {
-                    size_t namespace_index = 0;
-                    if (_searching->type != lang_scope::scope_type::namespace_scope)
-                        _searching = _searching->belong_namespace;
-
-                    auto* stored_scope_for_next_try = _searching;
-
-                    while (namespace_index < var_ident->scope_namespaces.size())
-                    {
-                        if (auto fnd = _searching->sub_namespaces.find(var_ident->scope_namespaces[namespace_index]);
-                            fnd != _searching->sub_namespaces.end() && searched_scopes.find(fnd->second) == searched_scopes.end())
-                        {
-                            namespace_index++;
-                            _searching = fnd->second;
-                        }
-                        else
-                        {
-                            _searching = stored_scope_for_next_try;
-                            goto there_is_no_such_namespace;
-                        }
-                    }
+                    m_ircontext.c().psh(
+                        *(opnum::opnumbase*)m_ircontext.opnum_spreg(opnum::reg::spreg::tp));
+                    m_ircontext.c().mov(
+                        *(opnum::opnumbase*)m_ircontext.opnum_spreg(opnum::reg::spreg::tp),
+                        *(opnum::opnumbase*)m_ircontext.opnum_spreg(opnum::reg::spreg::tc));
                 }
 
-                searched_scopes.insert(_searching);
-                if (fuzzy_for_err_report)
+                // 4. Generate for function body.
+                if (!anylize_pass(
+                    lex,
+                    eval_function->m_body,
+                    &LangContext::pass_final_A_process_bytecode_generation))
+                    return false;
+
+                /////////////////////////////////
+
+                if (immutable_type(eval_function->m_LANG_determined_return_type.value())
+                    != m_origin_types.m_void.m_type_instance)
                 {
-                    for (auto& finding_symbol : _searching->symbols)
-                        update_fuzzy_nearest_symbol(finding_symbol.second);
-                }
-                else if (auto fnd = _searching->symbols.find(ident_str);
-                    fnd != _searching->symbols.end())
-                {
-                    if ((fnd->second->type & target_type_mask) != 0)
-                        searching_result.insert(fnd->second);
-                    goto next_searching_point;
-                }
-                else if (!_searching->template_stack.empty())
-                {
-                    if (auto fnd = _searching->template_stack.back().find(ident_str);
-                        fnd != _searching->template_stack.back().end())
-                    {
-                        if ((fnd->second->type & target_type_mask) != 0)
-                            searching_result.insert(fnd->second);
-                        goto next_searching_point;
-                    }
+                    m_ircontext.c().ext_panic(
+                        opnum::imm_str("The function should have returned `"
+                            + std::string(get_type_name(eval_function->m_LANG_determined_return_type.value()))
+                            + "`, but ended without providing a return value"));
                 }
 
-            there_is_no_such_namespace:
-                if (deepin_search)
-                    _searching = _searching->parent_scope;
+                if (eval_function->m_is_variadic)
+                {
+                    m_ircontext.c().tag(IR_function_label(eval_function) + "_ret");
+                    m_ircontext.c().pop(
+                        *(opnum::opnumbase*)m_ircontext.opnum_spreg(opnum::reg::spreg::tp));
+                }
+
+                if (eval_function->m_LANG_captured_context.m_captured_variables.empty())
+                    m_ircontext.c().ret();
                 else
-                    _searching = nullptr;
+                    m_ircontext.c().ret(
+                        (uint16_t)eval_function->m_LANG_captured_context.m_captured_variables.size());
+
+                auto this_function_used_tmp_regs =
+                    m_ircontext.c().update_all_temp_regist_to_stack(
+                        &m_ircontext, this_function_block_begin_place);
+                m_ircontext.c().reserved_stackvalue(
+                    this_function_reserving_ip,
+                    this_function_used_tmp_regs + local_storage_size); // set reserved size
+
+                m_ircontext.c().pdb_info->generate_func_end(
+                    eval_fucntion_name, this_function_used_tmp_regs, &m_ircontext.c());
+
+                m_ircontext.c().pdb_info->update_func_variable(
+                    eval_fucntion_name, -(wo_integer_t)this_function_used_tmp_regs);
+
+                m_ircontext.c().ext_funcend();
+
+                wo_assert(m_ircontext.m_inused_temporary_registers.empty());
+                wo_assert(m_ircontext.m_evaled_result_storage.empty());
+                wo_assert(m_ircontext.m_eval_result_storage_target.empty());
+                wo_assert(m_ircontext.m_loop_content_stack.empty());
             }
 
-        next_searching_point:;
+            if (!has_function_to_be_eval)
+                break;
         }
 
-        if (fuzzy_for_err_report)
-            return fuzzy_nearest_symbol;
+        m_ircontext.c().tag("#woolang_program_end");
+        m_ircontext.c().end();
 
-        if (searching_result.empty())
-            return (var_ident->symbol = nullptr);
+        m_ircontext.c().loaded_libs = m_ircontext.m_extern_libs;
 
-        // Result might have un-accessable type? remove them
-        std::set<lang_symbol*> selecting_results;
-        selecting_results.swap(searching_result);
-        for (auto fnd_result : selecting_results)
-            if (fnd_result->type == lang_symbol::symbol_type::typing
-                || fnd_result->type == lang_symbol::symbol_type::type_alias
-                || check_symbol_is_accessable(fnd_result, searching_begin_place, var_ident, false))
-                searching_result.insert(fnd_result);
-
-        if (searching_result.empty())
-            return var_ident->symbol = nullptr;
-        else if (searching_result.size() > 1)
-        {
-            // Donot report error if in pass1 to avoid a->>f; when `using option;/ using result;`
-            if (has_step_in_step2)
-            {
-                std::wstring err_info = WO_ERR_SYMBOL_IS_AMBIGUOUS;
-                size_t fnd_count = 0;
-                for (auto fnd_result : searching_result)
-                {
-                    auto _full_namespace_ = wo::str_to_wstr(get_belong_namespace_path_with_lang_scope(fnd_result->defined_in_scope));
-                    if (_full_namespace_ == L"")
-                        err_info += WO_TERM_GLOBAL_NAMESPACE;
-                    else
-                        err_info += L"'" + _full_namespace_ + L"'";
-                    fnd_count++;
-                    if (fnd_count + 1 == searching_result.size())
-                        err_info += L" " WO_TERM_AND L" ";
-                    else
-                        err_info += L", ";
-                }
-
-                lang_anylizer->lang_error(lexer::errorlevel::error, var_ident, err_info.c_str(), ident_str->c_str());
-            }
-            return var_ident->symbol = nullptr;
-        }
-        else
-        {
-            return var_ident->symbol = *searching_result.begin();
-        }
-    }
-    lang_symbol* lang::find_type_in_this_scope(ast::ast_type* var_ident)
-    {
-        auto* result = find_symbol_in_this_scope(var_ident, var_ident->type_name,
-            lang_symbol::symbol_type::type_alias | lang_symbol::symbol_type::typing, false);
-
-        return result;
+        return donot_have_unused_local_variable;
     }
 
-    // Only used for check symbol is exist?
-    lang_symbol* lang::find_value_symbol_in_this_scope(ast::ast_value_variable* var_ident)
+    ////////////////////////
+
+    void LangContext::begin_new_function(ast::AstValueFunction* func_instance)
     {
-        return find_symbol_in_this_scope(var_ident, var_ident->var_name,
-            lang_symbol::symbol_type::variable | lang_symbol::symbol_type::function, false);
+        begin_new_scope();
+        get_current_scope()->m_function_instance = func_instance;
     }
-
-    lang_symbol* lang::find_value_in_this_scope(ast::ast_value_variable* var_ident)
+    void LangContext::end_last_function()
     {
-        auto* result = find_value_symbol_in_this_scope(var_ident);
-
-        if (result)
-        {
-            auto symb_defined_in_func = result->defined_in_scope;
-            while (symb_defined_in_func->parent_scope &&
-                symb_defined_in_func->type != wo::lang_scope::scope_type::function_scope)
-                symb_defined_in_func = symb_defined_in_func->parent_scope;
-
-            auto* current_function = in_function();
-
-            if (current_function &&
-                result->define_in_function
-                && !result->static_symbol
-                && symb_defined_in_func != current_function
-                && symb_defined_in_func->function_node != current_function->function_node)
-            {
-                if (result->is_template_symbol)
-                    lang_anylizer->lang_error(lexer::errorlevel::error, var_ident, WO_ERR_CANNOT_CAPTURE_TEMPLATE_VAR,
-                        result->name->c_str());
-
-                // The variable is not static and define outside the function. ready to capture it!
-                if (current_function->function_node->function_name != nullptr)
-                    // Only anonymous can capture variablel;
-                    lang_anylizer->lang_error(lexer::errorlevel::error, var_ident, WO_ERR_CANNOT_CAPTURE_IN_NAMED_FUNC,
-                        result->name->c_str());
-
-                if (result->decl == identifier_decl::IMMUTABLE)
-                {
-                    result->variable_value->eval_constant_value(lang_anylizer);
-                    if (result->variable_value->is_constant)
-                        // Woolang 1.10.4: Constant variable not need to capture.
-                        return result;
-                }
-
-                auto* current_func_defined_in_function = current_function->parent_scope;
-                while (current_func_defined_in_function->parent_scope &&
-                    current_func_defined_in_function->type != wo::lang_scope::scope_type::function_scope)
-                    current_func_defined_in_function = current_func_defined_in_function->parent_scope;
-
-                std::vector<lang_scope*> need_capture_func_list;
-
-                while (current_func_defined_in_function
-                    && current_func_defined_in_function != symb_defined_in_func)
-                {
-                    need_capture_func_list.insert(need_capture_func_list.begin(), current_func_defined_in_function);
-
-                    // goto last function
-                    current_func_defined_in_function = current_func_defined_in_function->parent_scope;
-                    while (current_func_defined_in_function->parent_scope &&
-                        current_func_defined_in_function->type != wo::lang_scope::scope_type::function_scope)
-                        current_func_defined_in_function = current_func_defined_in_function->parent_scope;
-                }
-                need_capture_func_list.push_back(current_function);
-
-                // Add symbol to capture list.
-                for (auto* cur_capture_func_scope : need_capture_func_list)
-                {
-                    auto& capture_list = cur_capture_func_scope->function_node->capture_variables;
-                    wo_assert(std::find(capture_list.begin(), capture_list.end(), result) == capture_list.end()
-                        || cur_capture_func_scope == cur_capture_func_scope);
-
-                    if (std::find(capture_list.begin(), capture_list.end(), result) == capture_list.end())
-                    {
-                        result->is_marked_as_used_variable = true;
-                        capture_list.push_back(result);
-                        // Define a closure symbol instead of current one.
-                        temporary_entry_scope_in_pass1(cur_capture_func_scope);
-                        result = define_variable_in_this_scope(
-                            result->variable_value,
-                            result->name,
-                            result->variable_value,
-                            result->attribute,
-                            template_style::NORMAL,
-                            ast::identifier_decl::IMMUTABLE,
-                            capture_list.size() - 1);
-                        temporary_leave_scope_in_pass1();
-                    }
-                }
-                var_ident->symbol = result;
-            }
-        }
-        return result;
+        wo_assert(get_current_scope()->m_function_instance);
+        end_last_scope();
     }
-    bool lang::has_compile_error()const
+    void LangContext::begin_new_scope()
     {
-        return lang_anylizer->has_error();
-    }
+        lang_Scope* current_scope = get_current_scope();
+        auto new_scope = std::make_unique<lang_Scope>(
+            current_scope, get_current_scope()->m_belongs_to_namespace);
 
-    bool lang::check_if_need_try_operation_overload_binary(ast::ast_type* left, ast::ast_type* right, lex_type op, ast::ast_type** out_type)
-    {
-        if (!left->is_builtin_basic_type() || !right->is_builtin_basic_type())
-        {
-            // IS CUSTOM TYPE, DELAY THE TYPE CALC TO PASS2
-            return true;
-        }
-        else
-        {
-            *out_type = ast_value_binary::binary_upper_type_with_operator(left, right, op);
-            if (*out_type != nullptr)
-                return false;
+        new_scope->m_visibility_from_edge_for_template_check =
+            m_created_symbol_edge;
 
-            return true;
-        }
+        entry_spcify_scope(new_scope.get());
+
+        current_scope->m_sub_scopes.emplace_back(std::move(new_scope));
     }
-    bool lang::check_if_need_try_operation_overload_assign(ast::ast_type* left, ast::ast_type* right, lex_type op)
+    void LangContext::entry_spcify_scope(lang_Scope* scope)
     {
-        if (op == lex_type::l_assign || op == lex_type::l_value_assign)
+        m_scope_stack.push(scope);
+    }
+    void LangContext::end_last_scope()
+    {
+        m_scope_stack.pop();
+        wo_assert(!m_scope_stack.empty());
+    }
+    bool LangContext::begin_new_namespace(wo_pstring_t name)
+    {
+        if (get_current_namespace()->m_this_scope.get() != get_current_scope())
+            // Woolang 1.14.1: Define namespace in non-namespace scope is not allowed.
             return false;
+
+        auto* current_namespace = get_current_namespace();
+        auto fnd = current_namespace->m_sub_namespaces.find(name);
+        if (fnd == current_namespace->m_sub_namespaces.end())
+        {
+            auto new_namespace = std::make_unique<lang_Namespace>(
+                name, std::make_optional(get_current_namespace()));
+
+            new_namespace->m_this_scope->m_visibility_from_edge_for_template_check =
+                m_created_symbol_edge;
+
+            auto* new_namespace_ptr = get_current_namespace()->m_sub_namespaces.insert(
+                std::make_pair(name, std::move(new_namespace)))
+                .first->second.get();
+
+            m_scope_stack.push(new_namespace_ptr->m_this_scope.get());
+        }
         else
         {
-            if (!left->is_builtin_basic_type() || !right->is_builtin_basic_type())
-                return true;
+            m_scope_stack.push(fnd->second->m_this_scope.get());
+        }
+        return true;
+    }
+    void LangContext::entry_spcify_namespace(lang_Namespace* namespace_)
+    {
+        entry_spcify_scope(namespace_->m_this_scope.get());
+    }
+    void LangContext::end_last_namespace()
+    {
+        wo_assert(get_current_scope() ==
+            get_current_namespace()->m_this_scope.get());
+
+        end_last_scope();
+    }
+    lang_Scope* LangContext::get_current_scope()
+    {
+        return m_scope_stack.top();
+    }
+    lang_Namespace* LangContext::get_current_namespace()
+    {
+        return get_current_scope()->m_belongs_to_namespace;
+    }
+    std::optional<ast::AstValueFunction*> LangContext::get_scope_located_function(lang_Scope* scope)
+    {
+        std::optional<lang_Scope*> current_scope = scope;
+        while (current_scope)
+        {
+            auto* current_scope_p = current_scope.value();
+            current_scope = current_scope_p->m_parent_scope;
+
+            if (current_scope_p->m_function_instance)
+                return current_scope_p->m_function_instance;
+        }
+        return std::nullopt;
+    }
+    std::optional<ast::AstValueFunction*> LangContext::get_current_function()
+    {
+        return get_scope_located_function(get_current_scope());
+    }
+    std::optional<lang_Symbol*>
+        LangContext::_search_symbol_from_current_scope(
+            lexer& lex, ast::AstIdentifier* ident, const std::optional<bool*>& out_ambig)
+    {
+        wo_assert(!out_ambig.has_value() || *out_ambig.value() == false);
+        wo_assert(ident->source_location.source_file != nullptr);
+
+        std::unordered_set<lang_Namespace*> searching_namesapaces;
+        std::unordered_set<lang_Symbol*> found_symbol;
+
+        lang_Scope* current_scope = get_current_scope();
+
+        // Collect used namespaces;
+        for (lang_Scope* collecting_scope = current_scope;;)
+        {
+            if (collecting_scope->is_namespace_scope())
+            {
+                for (lang_Namespace* symbol_namespace = collecting_scope->m_belongs_to_namespace;;)
+                {
+                    auto fnd = symbol_namespace->m_declare_used_namespaces.find(
+                        ident->source_location.source_file);
+
+                    if (fnd != symbol_namespace->m_declare_used_namespaces.end())
+                        searching_namesapaces.insert(fnd->second.begin(), fnd->second.end());
+
+                    if (symbol_namespace->m_parent_namespace)
+                        symbol_namespace = symbol_namespace->m_parent_namespace.value();
+                    else
+                        break;
+                }
+                break;
+            }
             else
             {
-                lex_type optype = op;
-                wo_assert(optype != lex_type::l_assign && optype != lex_type::l_value_assign);
-                switch (optype)
+                searching_namesapaces.insert(
+                    collecting_scope->m_declare_used_namespaces.begin(),
+                    collecting_scope->m_declare_used_namespaces.end());
+                collecting_scope = collecting_scope->m_parent_scope.value();
+            }
+        }
+
+        if (ident->m_scope.empty())
+        {
+            // Can see all the symbol defined in current scope;
+            size_t visibility_edge_limit = m_created_symbol_edge;
+            do
+            {
+                auto fnd = current_scope->m_defined_symbols.find(ident->m_name);
+                if (fnd != current_scope->m_defined_symbols.end())
                 {
-                case lex_type::l_add_assign:
-                case lex_type::l_value_add_assign:
-                    optype = lex_type::l_add;
+                    if (fnd->second->m_symbol_edge <= visibility_edge_limit
+                        || fnd->second->m_is_global)
+                        found_symbol.insert(fnd->second.get());
+
                     break;
-                case lex_type::l_sub_assign:
-                case lex_type::l_value_sub_assign:
-                    optype = lex_type::l_sub;
-                    break;
-                case lex_type::l_mul_assign:
-                case lex_type::l_value_mul_assign:
-                    optype = lex_type::l_mul;
-                    break;
-                case lex_type::l_div_assign:
-                case lex_type::l_value_div_assign:
-                    optype = lex_type::l_div;
-                    break;
-                case lex_type::l_mod_assign:
-                case lex_type::l_value_mod_assign:
-                    optype = lex_type::l_mod;
-                    break;
-                default:
-                    wo_error("Unexpected assign method.");
                 }
 
-                if (left->accept_type(right, false, false) &&
-                    nullptr != ast_value_binary::binary_upper_type_with_operator(left, right, op))
-                    return false;
+                if (current_scope->m_parent_scope)
+                {
+                    visibility_edge_limit = std::min(
+                        visibility_edge_limit,
+                        current_scope->m_visibility_from_edge_for_template_check);
 
-                return true;
-            }
+                    current_scope = current_scope->m_parent_scope.value();
+                }
+                else
+                    break;
+            } while (true);
         }
-    }
-    bool lang::check_if_need_try_operation_overload_logical(ast::ast_type* left, ast::ast_type* right, lex_type op)
-    {
-        if (!left->is_builtin_basic_type()
-            || !right->is_builtin_basic_type())
-            return true;
         else
         {
-            if (op == lex_type::l_lor || op == lex_type::l_land)
+            lang_Namespace* searching_namesapace = get_current_namespace();;
+            for (;;)
             {
-                if (left->is_bool() && right->is_bool())
-                    return false;
-            }
-            else if ((left->is_integer()
-                || left->is_handle()
-                || left->is_real()
-                || left->is_string()
-                || left->is_bool())
-                && left->is_same(right, true))
-                return false;
+                lang_Namespace* symbol_namespace = searching_namesapace;
+                for (auto* scope : ident->m_scope)
+                {
+                    auto fnd = symbol_namespace->m_sub_namespaces.find(scope);
+                    if (fnd != symbol_namespace->m_sub_namespaces.end())
+                        symbol_namespace = fnd->second.get();
+                    else
+                        goto _label_try_upper_namespace;
+                }
 
-            return true;
+                // Ok, found the namespace.
+                if (auto fnd = symbol_namespace->m_this_scope->m_defined_symbols.find(ident->m_name);
+                    fnd != symbol_namespace->m_this_scope->m_defined_symbols.end())
+                {
+                    found_symbol.insert(fnd->second.get());
+                    break; // Break for continue outside loop
+                }
+
+            _label_try_upper_namespace:
+                if (searching_namesapace->m_parent_namespace)
+                    searching_namesapace = searching_namesapace->m_parent_namespace.value();
+                else
+                    break; // Break for continue outside loop
+            }
+        }
+
+        for (auto* searching_namesapace : searching_namesapaces)
+        {
+            bool scope_located = true;
+            for (auto* scope : ident->m_scope)
+            {
+                auto fnd = searching_namesapace->m_sub_namespaces.find(scope);
+                if (fnd != searching_namesapace->m_sub_namespaces.end())
+                    searching_namesapace = fnd->second.get();
+                else
+                {
+                    scope_located = false;
+                    break;
+                }
+            }
+
+            if (scope_located)
+            {
+                // Ok, found the namespace.
+                if (auto fnd = searching_namesapace->m_this_scope->m_defined_symbols.find(ident->m_name);
+                    fnd != searching_namesapace->m_this_scope->m_defined_symbols.end())
+                    found_symbol.insert(fnd->second.get());
+            }
+        }
+
+        if (found_symbol.empty())
+            return std::nullopt;
+
+        lang_Symbol* result = *found_symbol.begin();
+        if (found_symbol.size() > 1)
+        {
+            if (!out_ambig.has_value())
+                return std::nullopt;
+
+            lex.lang_error(lexer::errorlevel::error, ident,
+                WO_ERR_AMBIGUOUS_TARGET_NAMED,
+                ident->m_name->c_str(),
+                get_symbol_name_w(result));
+
+            for (auto* symbol : found_symbol)
+            {
+                if (symbol->m_symbol_declare_ast.has_value())
+                    lex.lang_error(lexer::errorlevel::infom,
+                        symbol->m_symbol_declare_ast.value(),
+                        WO_INFO_MAYBE_NAMED_DEFINED_HERE,
+                        get_symbol_name_w(symbol));
+                else
+                    lex.lang_error(lexer::errorlevel::infom,
+                        ident,
+                        WO_INFO_MAYBE_NAMED_DEFINED_IN_COMPILER,
+                        get_symbol_name_w(symbol));
+            }
+            *out_ambig.value() = true;
+        }
+        return result;
+    }
+    std::optional<lang_Symbol*>
+        LangContext::find_symbol_in_current_scope(
+            lexer& lex, ast::AstIdentifier* ident, const std::optional<bool*>& out_ambig)
+    {
+        if (out_ambig.has_value())
+            *out_ambig.value() = false;
+
+        if (ident->m_LANG_determined_symbol)
+            return ident->m_LANG_determined_symbol;
+
+        lang_Namespace* search_begin_namespace;
+        switch (ident->m_formal)
+        {
+        case ast::AstIdentifier::FROM_GLOBAL:
+            search_begin_namespace = m_root_namespace.get();
+            break;
+        case ast::AstIdentifier::FROM_TYPE:
+        {
+            lang_TypeInstance* type_instance;
+
+            if (ast::AstTypeHolder** from_type = std::get_if<ast::AstTypeHolder*>(&ident->m_from_type.value());
+                from_type != nullptr)
+            {
+                auto determined_type = (*from_type)->m_LANG_determined_type;
+                if (!determined_type)
+                {
+                    lex.lang_error(lexer::errorlevel::error, *from_type, WO_ERR_UNKNOWN_TYPE);
+                    return std::nullopt;
+                }
+                type_instance = determined_type.value();
+            }
+            else
+                type_instance = std::get<lang_TypeInstance*>(ident->m_from_type.value());
+
+            lang_Scope* search_from_scope = type_instance->m_symbol->m_belongs_to_scope;
+            if (!type_instance->m_symbol->m_belongs_to_scope->is_namespace_scope())
+                return std::nullopt;
+
+            search_begin_namespace =
+                type_instance->m_symbol->m_belongs_to_scope->m_belongs_to_namespace;
+
+            auto fnd = search_begin_namespace->m_sub_namespaces.find(type_instance->m_symbol->m_name);
+            if (fnd == search_begin_namespace->m_sub_namespaces.end())
+                return std::nullopt; // Namespace not defined.
+
+            search_begin_namespace = fnd->second.get();
+            break;
+        }
+        case ast::AstIdentifier::FROM_CURRENT:
+        {
+            auto found_symbol = _search_symbol_from_current_scope(lex, ident, out_ambig);
+            if (found_symbol)
+                ident->m_LANG_determined_symbol = found_symbol.value();
+            return found_symbol;
+        }
+        }
+
+        for (auto* scope : ident->m_scope)
+        {
+            auto fnd = search_begin_namespace->m_sub_namespaces.find(scope);
+            if (fnd != search_begin_namespace->m_sub_namespaces.end())
+                search_begin_namespace = fnd->second.get();
+            else
+                return std::nullopt;
+        }
+
+        auto fnd = search_begin_namespace->m_this_scope->m_defined_symbols.find(ident->m_name);
+        if (fnd != search_begin_namespace->m_this_scope->m_defined_symbols.end())
+        {
+            lang_Symbol* symbol = fnd->second.get();
+            ident->m_LANG_determined_symbol = symbol;
+            return symbol;
+        }
+        return std::nullopt;
+    }
+
+    lang_TypeInstance* LangContext::mutable_type(lang_TypeInstance* origin_type)
+    {
+        if (origin_type->is_immutable())
+        {
+            // Is immutable type.
+            auto fnd = m_mutable_type_instance_cache.find(origin_type);
+            if (fnd != m_mutable_type_instance_cache.end())
+                return fnd->second.get();
+
+            auto mutable_type_instance = std::make_unique<lang_TypeInstance>(
+                origin_type->m_symbol, std::nullopt);
+            mutable_type_instance->m_determined_base_type_or_mutable = origin_type;
+
+            auto* result = mutable_type_instance.get();
+
+            m_mutable_type_instance_cache.insert(
+                std::make_pair(origin_type, std::move(mutable_type_instance)));
+
+            return result;
+        }
+        return origin_type;
+    }
+    lang_TypeInstance* LangContext::immutable_type(lang_TypeInstance* origin_type)
+    {
+        lang_TypeInstance** immutable_type =
+            std::get_if<lang_TypeInstance*>(&origin_type->m_determined_base_type_or_mutable);
+
+        if (immutable_type != nullptr)
+            return *immutable_type;
+
+        return origin_type;
+    }
+
+    void LangContext::fast_create_one_template_type_alias_in_current_scope(
+        wo_pstring_t source_location,
+        wo_pstring_t template_param,
+        lang_TypeInstance* template_arg)
+    {
+        lang_Symbol* symbol = define_symbol_in_current_scope(
+            template_param,
+            std::nullopt,
+            std::nullopt,
+            source_location,
+            get_current_scope(),
+            lang_Symbol::kind::ALIAS,
+            false).value();
+
+        symbol->m_alias_instance->m_determined_type = template_arg;
+    }
+    void LangContext::fast_create_template_type_alias_in_current_scope(
+        wo_pstring_t source_location,
+        const std::list<wo_pstring_t>& template_params,
+        const std::list<lang_TypeInstance*>& template_args)
+    {
+        wo_assert(template_params.size() == template_args.size());
+
+        auto params_iter = template_params.begin();
+        auto args_iter = template_args.begin();
+        auto params_end = template_params.end();
+
+        for (; params_iter != params_end; ++params_iter, ++args_iter)
+        {
+            fast_create_one_template_type_alias_in_current_scope(
+                source_location,
+                *params_iter,
+                *args_iter);
         }
     }
+    std::wstring LangContext::_get_scope_name(lang_Scope* scope)
+    {
+        std::wstring result = {};
+        auto* belong_namesapce = scope->m_belongs_to_namespace;
+
+        if (belong_namesapce->m_this_scope.get() == scope)
+        {
+            for (;;)
+            {
+                auto* space_name = belong_namesapce->m_name;
+
+                if (belong_namesapce->m_parent_namespace)
+                    belong_namesapce = belong_namesapce->m_parent_namespace.value();
+                else
+                    break;
+
+                result = *space_name + L"::" + result;
+            }
+        }
+        return result;
+    }
+    std::wstring LangContext::_get_symbol_name(lang_Symbol* symbol)
+    {
+        return _get_scope_name(symbol->m_belongs_to_scope) + *symbol->m_name;
+    }
+    std::wstring LangContext::_get_type_name(lang_TypeInstance* type)
+    {
+        std::wstring result_type_name;
+
+        if (type->is_mutable())
+            result_type_name += L"mut ";
+
+        auto* immutable_type_instance = immutable_type(type);
+
+        if (immutable_type_instance->m_symbol->m_is_builtin)
+        {
+            auto* base_determined_type = immutable_type_instance->get_determined_type().value();
+            switch (base_determined_type->m_base_type)
+            {
+            case lang_TypeInstance::DeterminedType::ARRAY:
+                result_type_name += L"array";
+                break;
+            case lang_TypeInstance::DeterminedType::VECTOR:
+                result_type_name += L"vec";
+                break;
+            case lang_TypeInstance::DeterminedType::DICTIONARY:
+                result_type_name += L"dict";
+                break;
+            case lang_TypeInstance::DeterminedType::MAPPING:
+                result_type_name += L"map";
+                break;
+            case lang_TypeInstance::DeterminedType::TUPLE:
+            {
+                result_type_name += L"(";
+                auto& element_types = base_determined_type->m_external_type_description.m_tuple->m_element_types;
+                bool first = true;
+                for (auto* element_type : element_types)
+                {
+                    if (!first)
+                        result_type_name += L", ";
+
+                    result_type_name += get_type_name_w(element_type);
+                    first = false;
+                }
+                result_type_name += L")";
+                break;
+            }
+            case lang_TypeInstance::DeterminedType::FUNCTION:
+            {
+                result_type_name += L"(";
+                auto& param_types = base_determined_type->m_external_type_description.m_function->m_param_types;
+                bool first = true;
+                for (auto* param_type : param_types)
+                {
+                    if (!first)
+                        result_type_name += L", ";
+
+                    result_type_name += get_type_name_w(param_type);
+                    first = false;
+                }
+                if (base_determined_type->m_external_type_description.m_function->m_is_variadic)
+                {
+                    if (!first)
+                        result_type_name += L", ";
+                    result_type_name += L"...";
+                }
+                result_type_name += L")=> ";
+                result_type_name += get_type_name_w(
+                    base_determined_type->m_external_type_description.m_function->m_return_type);
+                break;
+            }
+            case lang_TypeInstance::DeterminedType::STRUCT:
+            {
+                result_type_name += L"struct{";
+                auto& member_types = base_determined_type->m_external_type_description.m_struct->m_member_types;
+                bool first = true;
+                for (auto& [name, field] : member_types)
+                {
+                    if (!first)
+                        result_type_name += L", ";
+
+                    result_type_name += *name;
+                    result_type_name += L": ";
+                    result_type_name += get_type_name_w(field.m_member_type);
+                    first = false;
+                }
+                result_type_name += L"}";
+                break;
+            }
+            case lang_TypeInstance::DeterminedType::UNION:
+            {
+                result_type_name += L"union{";
+                auto& member_types = base_determined_type->m_external_type_description.m_union->m_union_label;
+                bool first = true;
+                for (auto& [name, field] : member_types)
+                {
+                    if (!first)
+                        result_type_name += L", ";
+
+                    result_type_name += *name;
+                    if (field.m_item_type)
+                    {
+                        result_type_name += L"(";
+                        result_type_name += get_type_name_w(field.m_item_type.value());
+                        result_type_name += L")";
+                    }
+                    first = false;
+                }
+                result_type_name += L"}";
+                break;
+            }
+            default:
+                wo_error("Unexpected builtin type.");
+            }
+        }
+        else
+        {
+            // Get symbol name directly.
+            result_type_name += get_symbol_name_w(immutable_type_instance->m_symbol);
+        }
+
+        if (immutable_type_instance->m_instance_template_arguments)
+        {
+            result_type_name += L"<";
+            auto& template_args = immutable_type_instance->m_instance_template_arguments.value();
+            bool first = true;
+            for (auto* template_arg : template_args)
+            {
+                if (!first)
+                    result_type_name += L", ";
+                result_type_name += get_type_name_w(template_arg);
+                first = false;
+            }
+            result_type_name += L">";
+        }
+
+        return result_type_name;
+    }
+    std::wstring LangContext::_get_value_name(lang_ValueInstance* scope)
+    {
+        std::wstring result_value_name = get_symbol_name_w(scope->m_symbol);
+
+        if (scope->m_instance_template_arguments)
+        {
+            result_value_name += L"<";
+            auto& template_args = scope->m_instance_template_arguments.value();
+            bool first = true;
+            for (auto* template_arg : template_args)
+            {
+                if (!first)
+                    result_value_name += L", ";
+                result_value_name += get_type_name_w(template_arg);
+                first = false;
+            }
+            result_value_name += L">";
+        }
+
+        return result_value_name;
+    }
+
+    const wchar_t* LangContext::get_symbol_name_w(lang_Symbol* symbol)
+    {
+        auto fnd = m_symbol_name_cache.find(symbol);
+        if (fnd != m_symbol_name_cache.end())
+            return fnd->second.first.c_str();
+
+        std::wstring result = _get_symbol_name(symbol);
+        return m_symbol_name_cache.insert(
+            std::make_pair(symbol, std::make_pair(result, wstrn_to_str(result))))
+            .first
+            ->second.first.c_str();
+    }
+    const char* LangContext::get_symbol_name(lang_Symbol* symbol)
+    {
+        auto fnd = m_symbol_name_cache.find(symbol);
+        if (fnd != m_symbol_name_cache.end())
+            return fnd->second.second.c_str();
+
+        std::wstring result = _get_symbol_name(symbol);
+        return m_symbol_name_cache.insert(
+            std::make_pair(symbol, std::make_pair(result, wstrn_to_str(result))))
+            .first
+            ->second.second.c_str();
+    }
+    const wchar_t* LangContext::get_type_name_w(lang_TypeInstance* type)
+    {
+        auto fnd = m_type_name_cache.find(type);
+        if (fnd != m_type_name_cache.end())
+            return fnd->second.first.c_str();
+
+        m_type_name_cache[type] = std::make_pair(
+            *type->m_symbol->m_name + L"...", "...");
+
+        std::wstring result = _get_type_name(type);
+
+        m_type_name_cache.erase(type);
+        return m_type_name_cache.insert(
+            std::make_pair(type, std::make_pair(result, wstrn_to_str(result))))
+            .first
+            ->second.first.c_str();
+    }
+    const char* LangContext::get_type_name(lang_TypeInstance* type)
+    {
+        auto fnd = m_type_name_cache.find(type);
+        if (fnd != m_type_name_cache.end())
+            return fnd->second.second.c_str();
+
+        m_type_name_cache[type] = std::make_pair(
+            *type->m_symbol->m_name + L"...", "...");
+
+        std::wstring result = _get_type_name(type);
+
+        m_type_name_cache.erase(type);
+        return m_type_name_cache.insert(
+            std::make_pair(type, std::make_pair(result, wstrn_to_str(result))))
+            .first
+            ->second.second.c_str();
+    }
+    const wchar_t* LangContext::get_value_name_w(lang_ValueInstance* val)
+    {
+        auto fnd = m_value_name_cache.find(val);
+        if (fnd != m_value_name_cache.end())
+            return fnd->second.first.c_str();
+
+        std::wstring result = _get_value_name(val);
+        return m_value_name_cache.insert(
+            std::make_pair(val, std::make_pair(result, wstrn_to_str(result))))
+            .first
+            ->second.first.c_str();
+    }
+    const char* LangContext::get_value_name(lang_ValueInstance* val)
+    {
+        auto fnd = m_value_name_cache.find(val);
+        if (fnd != m_value_name_cache.end())
+            return fnd->second.second.c_str();
+
+        std::wstring result = _get_value_name(val);
+        return m_value_name_cache.insert(
+            std::make_pair(val, std::make_pair(result, wstrn_to_str(result))))
+            .first
+            ->second.second.c_str();
+    }
+    void LangContext::append_using_namespace_for_current_scope(
+        const std::unordered_set<lang_Namespace*>& using_namespaces, wo_pstring_t source)
+    {
+        lang_Scope* current_scope = get_current_scope();
+        if (current_scope->is_namespace_scope())
+        {
+            auto& used_namespaces =
+                current_scope->m_belongs_to_namespace->m_declare_used_namespaces[
+                    source];
+
+            used_namespaces.insert(using_namespaces.begin(), using_namespaces.end());
+        }
+        else
+        {
+            current_scope->m_declare_used_namespaces.insert(
+                using_namespaces.begin(), using_namespaces.end());
+        }
+    }
+    void LangContext::using_namespace_declare_for_current_scope(
+        ast::AstUsingNamespace* using_namespace)
+    {
+        wo_assert(using_namespace->source_location.source_file != nullptr);
+
+        std::unordered_set<lang_Namespace*> using_namespaces;
+
+        lang_Namespace* current_namespace = get_current_namespace();
+        for (;;)
+        {
+            // Find sub namespace;
+            bool found = true;
+            lang_Namespace* sub_namespace = current_namespace;
+            for (wo_pstring_t name : using_namespace->m_using_namespace)
+            {
+                auto fnd = sub_namespace->m_sub_namespaces.find(name);
+                if (fnd == sub_namespace->m_sub_namespaces.end())
+                {
+                    found = false;
+                    break;
+                }
+                else
+                    sub_namespace = fnd->second.get();
+            }
+
+            if (found)
+                using_namespaces.insert(sub_namespace);
+
+            if (current_namespace->m_parent_namespace.has_value())
+                current_namespace = current_namespace->m_parent_namespace.value();
+            else
+                break;
+        }
+
+        append_using_namespace_for_current_scope(
+            using_namespaces, using_namespace->source_location.source_file);
+    }
+
+    lang_ValueInstance* LangContext::check_and_update_captured_varibale_in_current_scope(
+        ast::AstValueVariable* ref_from_variable,
+        lang_ValueInstance* variable_instance)
+    {
+        lang_Scope* const current_scope = get_current_scope();
+        lang_Scope* const variable_defined_scope =
+            variable_instance->m_symbol->m_belongs_to_scope;
+
+        std::optional<ast::AstValueFunction*> current_functiopn_may_null =
+            get_scope_located_function(current_scope);
+
+        if (!current_functiopn_may_null.has_value())
+            // Not in a function;
+            return variable_instance;
+
+        std::optional<ast::AstValueFunction*> variable_defined_in_function_may_null =
+            get_scope_located_function(variable_defined_scope);
+
+        if (!variable_defined_in_function_may_null.has_value()
+            || (variable_instance->m_symbol->m_declare_attribute.has_value()
+                && variable_instance->m_symbol->m_declare_attribute.value()->m_lifecycle.has_value()
+                && variable_instance->m_symbol->m_declare_attribute.value()->m_lifecycle.value() == ast::AstDeclareAttribue::lifecycle_attrib::STATIC))
+        {
+            // Variable cannot be global.
+            return variable_instance;
+        }
+
+        ast::AstValueFunction* current_function = current_functiopn_may_null.value();
+        ast::AstValueFunction* varible_defined_in_function =
+            variable_defined_in_function_may_null.value();
+
+        if (current_function != varible_defined_in_function)
+        {
+            // Might need capture?;
+            bool need_capture = false;
+
+            if (variable_instance->m_determined_constant_or_function.has_value())
+            {
+                ast::AstValueFunction** captured_function =
+                    std::get_if<ast::AstValueFunction*>(&variable_instance->m_determined_constant_or_function.value());
+
+                need_capture = false;
+                if (captured_function != nullptr)
+                {
+                    if ((*captured_function)->m_LANG_captured_context.m_finished)
+                    {
+                        // Function is outside of the current function, check it's capture list.
+                        if (!(*captured_function)->m_LANG_captured_context.m_captured_variables.empty())
+                            // Is a closure, need capture.
+                            need_capture = true;
+                    }
+                    else
+                    {
+                        // Recursive function referenced or template function depend each other.
+                        // Woolang 1.14.1: Not allowed capture variable in recursive function.
+
+                        // Treat it as normal function, but we need to mark the referenced function as self-referenced.
+                        // If it has capture list, compile error will raised in pass1.
+                        (*captured_function)->m_LANG_captured_context.m_self_referenced = true;
+                    }
+                }
+            }
+            else
+                // Mutable, or not constant, need capture.
+                need_capture = true;
+
+            if (need_capture)
+            {
+                // Get function chain, create captured chain one by one;
+                std::list<ast::AstValueFunction*> function_chain;
+
+                lang_Scope* this_scope = current_scope;
+                for (;;)
+                {
+                    if (this_scope->m_function_instance.has_value())
+                    {
+                        ast::AstValueFunction* this_function = this_scope->m_function_instance.value();
+
+                        if (this_function == varible_defined_in_function)
+                            // Found the function.
+                            break;
+
+                        wo_assert(!this_function->m_LANG_captured_context.m_finished);
+                        function_chain.push_front(this_function);
+                    }
+
+                    // Loop will exit before it reach root scope.
+                    this_scope = this_scope->m_parent_scope.value();
+                }
+
+                lang_ValueInstance* this_value_instance = variable_instance;
+                for (auto* func : function_chain)
+                {
+                    this_value_instance = func->m_LANG_captured_context.find_or_create_captured_instance(
+                        this_value_instance, ref_from_variable);
+                }
+
+                // OK
+                return this_value_instance;
+            }
+        }
+        return variable_instance;
+    }
+    bool BytecodeGenerateContext::ignore_eval_result() noexcept
+    {
+        auto& top_eval_state = m_eval_result_storage_target.top();
+        return top_eval_state.m_request == EvalResult::Request::IGNORE_RESULT;
+    }
+    bool BytecodeGenerateContext::apply_eval_result(
+        const std::function<bool(EvalResult&)>& bind_func) noexcept
+    {
+        auto& top_eval_state = m_eval_result_storage_target.top();
+
+        bool eval_result = true;
+        if (!ignore_eval_result())
+        {
+            eval_result = bind_func(top_eval_state);
+            if (eval_result)
+            {
+                switch (top_eval_state.m_request)
+                {
+                case EvalResult::Request::EVAL_PURE_ACTION:
+                    // Pure action, do nothing.
+                    break;
+                case EvalResult::Request::PUSH_RESULT_AND_IGNORE_RESULT:
+                {
+                    opnum::opnumbase* result_opnum = top_eval_state.m_result.value();
+
+                    try_return_opnum_temporary_register(result_opnum);
+
+                    c().psh(*result_opnum);
+                    break;
+                }
+                default:
+                    m_evaled_result_storage.emplace(std::move(top_eval_state));
+                }
+            }
+        }
+        m_eval_result_storage_target.pop();
+        return eval_result;
+    }
+
+    void BytecodeGenerateContext::failed_eval_result() noexcept
+    {
+        m_eval_result_storage_target.pop();
+    }
+    void BytecodeGenerateContext::eval_action()
+    {
+        m_eval_result_storage_target.push(EvalResult{
+            EvalResult::Request::EVAL_PURE_ACTION,
+            std::nullopt,
+            });
+    }
+    void BytecodeGenerateContext::eval_for_upper()
+    {
+        wo_assert(!m_eval_result_storage_target.empty());
+    }
+    void BytecodeGenerateContext::eval_keep()
+    {
+        m_eval_result_storage_target.push(EvalResult{
+            EvalResult::Request::GET_RESULT_OPNUM_AND_KEEP,
+            std::nullopt,
+            });
+    }
+    void BytecodeGenerateContext::eval_push()
+    {
+        m_eval_result_storage_target.push(EvalResult{
+            EvalResult::Request::PUSH_RESULT_AND_IGNORE_RESULT,
+            std::nullopt,
+            });
+    }
+    void BytecodeGenerateContext::eval()
+    {
+        m_eval_result_storage_target.push(EvalResult{
+            EvalResult::Request::GET_RESULT_OPNUM_ONLY,
+            std::nullopt,
+            });
+    }
+    void BytecodeGenerateContext::eval_to(opnum::opnumbase* target)
+    {
+        m_eval_result_storage_target.push(EvalResult{
+            EvalResult::Request::ASSIGN_TO_SPECIFIED_OPNUM,
+            target,
+            });
+    }
+    void BytecodeGenerateContext::eval_ignore()
+    {
+        m_eval_result_storage_target.push(EvalResult{
+            EvalResult::Request::IGNORE_RESULT,
+            std::nullopt,
+            });
+    }
+    void BytecodeGenerateContext::eval_to_if_not_ignore(opnum::opnumbase* target)
+    {
+        if (!ignore_eval_result())
+            eval_to(target);
+        else
+            eval_ignore();
+    }
+    void BytecodeGenerateContext::eval_sth_if_not_ignore(void(BytecodeGenerateContext::* method)())
+    {
+        if (!ignore_eval_result())
+        {
+#ifndef NDEBUG
+            size_t current_request_count = m_eval_result_storage_target.size();
+#endif
+            (this->*method)();
+#ifndef NDEBUG
+            // NOTE: Cannot `eval_for_upper` in eval_sth_if_not_ignore.
+            //  You can invoke `eval_for_upper` directly, it has same check effect.
+            wo_assert(m_eval_result_storage_target.size() == current_request_count + 1);
+#endif
+        }
+        else
+            eval_ignore();
+    }
+
+    opnum::opnumbase* BytecodeGenerateContext::get_eval_result()
+    {
+        auto& result = m_evaled_result_storage.top();
+        auto* result_opnum = result.m_result.value();
+
+        wo_assert(
+            result.m_request == EvalResult::Request::ASSIGN_TO_SPECIFIED_OPNUM
+            || result.m_request == EvalResult::Request::GET_RESULT_OPNUM_ONLY
+            || result.m_request == EvalResult::Request::GET_RESULT_OPNUM_AND_KEEP);
+
+        if (result.m_request == EvalResult::Request::GET_RESULT_OPNUM_ONLY)
+            try_return_opnum_temporary_register(result_opnum);
+
+        m_evaled_result_storage.pop();
+        return result_opnum;
+    }
+    opnum::global* BytecodeGenerateContext::opnum_global(int32_t offset) noexcept
+    {
+        auto fnd = m_opnum_cache_global.find(offset);
+        if (fnd != m_opnum_cache_global.end())
+            return fnd->second.get();
+
+        return m_opnum_cache_global.insert(
+            std::make_pair(offset, std::make_unique<opnum::global>(offset)))
+            .first->second.get();
+    }
+    opnum::immbase* BytecodeGenerateContext::opnum_imm_int(wo_integer_t value) noexcept
+    {
+        auto fnd = m_opnum_cache_imm_int.find(value);
+        if (fnd != m_opnum_cache_imm_int.end())
+            return fnd->second.get();
+
+        return m_opnum_cache_imm_int.insert(
+            std::make_pair(value, std::make_unique<opnum::imm<wo_integer_t>>(value)))
+            .first->second.get();
+    }
+    opnum::immbase* BytecodeGenerateContext::opnum_imm_real(wo_real_t value) noexcept
+    {
+        auto fnd = m_opnum_cache_imm_real.find(value);
+        if (fnd != m_opnum_cache_imm_real.end())
+            return fnd->second.get();
+
+        return m_opnum_cache_imm_real.insert(
+            std::make_pair(value, std::make_unique<opnum::imm<wo_real_t>>(value)))
+            .first->second.get();
+    }
+    opnum::immbase* BytecodeGenerateContext::opnum_imm_handle(wo_handle_t value) noexcept
+    {
+        auto fnd = m_opnum_cache_imm_handle.find(value);
+        if (fnd != m_opnum_cache_imm_handle.end())
+            return fnd->second.get();
+
+        return m_opnum_cache_imm_handle.insert(
+            std::make_pair(value, std::make_unique<opnum::imm_hdl>(value)))
+            .first->second.get();
+    }
+    opnum::immbase* BytecodeGenerateContext::opnum_imm_string(const std::string& value) noexcept
+    {
+        auto fnd = m_opnum_cache_imm_string.find(value);
+        if (fnd != m_opnum_cache_imm_string.end())
+            return fnd->second.get();
+
+        return m_opnum_cache_imm_string.insert(
+            std::make_pair(value, std::make_unique<opnum::imm_str>(value)))
+            .first->second.get();
+    }
+    opnum::immbase* BytecodeGenerateContext::opnum_imm_bool(bool value) noexcept
+    {
+        if (value)
+            return m_opnum_cache_imm_true.get();
+        else
+            return m_opnum_cache_imm_false.get();
+    }
+    opnum::opnumbase* BytecodeGenerateContext::opnum_imm_value(const wo::value& val)
+    {
+        switch (val.type)
+        {
+        case wo::value::valuetype::invalid:
+            return opnum_spreg(opnum::reg::spreg::ni);
+        case wo::value::valuetype::integer_type:
+            return opnum_imm_int(val.integer);
+        case wo::value::valuetype::real_type:
+            return opnum_imm_real(val.real);
+        case wo::value::valuetype::handle_type:
+            return opnum_imm_handle(val.handle);
+        case wo::value::valuetype::bool_type:
+            return opnum_imm_bool(val.integer ? true : false);
+        case wo::value::valuetype::string_type:
+            return opnum_imm_string(*val.string);
+        default:
+            wo_error("Unexpected value type");
+            return nullptr;
+        }
+    }
+    opnum::tagimm_rsfunc* BytecodeGenerateContext::opnum_imm_rsfunc(const std::string& value) noexcept
+    {
+        auto fnd = m_opnum_cache_imm_rsfunc.find(value);
+        if (fnd != m_opnum_cache_imm_rsfunc.end())
+            return fnd->second.get();
+
+        return m_opnum_cache_imm_rsfunc.insert(
+            std::make_pair(value, std::make_unique<opnum::tagimm_rsfunc>(value)))
+            .first->second.get();
+    }
+    opnum::tag* BytecodeGenerateContext::opnum_tag(const std::string& value) noexcept
+    {
+        auto fnd = m_opnum_cache_tag.find(value);
+        if (fnd != m_opnum_cache_tag.end())
+            return fnd->second.get();
+
+        return m_opnum_cache_tag.insert(
+            std::make_pair(value, std::make_unique<opnum::tag>(value)))
+            .first->second.get();
+    }
+    opnum::reg* BytecodeGenerateContext::opnum_spreg(opnum::reg::spreg value) noexcept
+    {
+        uint8_t regid = static_cast<uint8_t>(value);
+        auto fnd = m_opnum_cache_reg_and_stack_offset.find(regid);
+        if (fnd != m_opnum_cache_reg_and_stack_offset.end())
+            return fnd->second.get();
+
+        return m_opnum_cache_reg_and_stack_offset.insert(
+            std::make_pair(regid, std::make_unique<opnum::reg>(value)))
+            .first->second.get();
+    }
+    opnum::reg* BytecodeGenerateContext::opnum_stack_offset(int8_t value) noexcept
+    {
+        uint8_t regid = opnum::reg::bp_offset(value);
+        auto fnd = m_opnum_cache_reg_and_stack_offset.find(regid);
+        if (fnd != m_opnum_cache_reg_and_stack_offset.end())
+            return fnd->second.get();
+
+        return m_opnum_cache_reg_and_stack_offset.insert(
+            std::make_pair(regid, std::make_unique<opnum::reg>(regid)))
+            .first->second.get();
+    }
+    opnum::temporary* BytecodeGenerateContext::opnum_temporary(uint32_t id) noexcept
+    {
+        auto fnd = m_opnum_cache_temporarys.find(id);
+        if (fnd != m_opnum_cache_temporarys.end())
+            return fnd->second.get();
+
+        return m_opnum_cache_temporarys.insert(
+            std::make_pair(id, std::make_unique<opnum::temporary>(id)))
+            .first->second.get();
+    }
+
+    ir_compiler& BytecodeGenerateContext::c() noexcept
+    {
+        return m_compiler;
+    }
+
+    BytecodeGenerateContext::BytecodeGenerateContext() noexcept
+        : m_opnum_cache_imm_true(std::make_unique<opnum::imm<bool>>(true))
+        , m_opnum_cache_imm_false(std::make_unique<opnum::imm<bool>>(false))
+        , m_global_storage_allocating(0)
+    {
+    }
+    opnum::temporary* BytecodeGenerateContext::borrow_opnum_temporary_register(
+#ifndef NDEBUG
+        ast::AstBase* borrow_from, size_t lineno
+#endif
+    ) noexcept
+    {
+        for (uint32_t i = 0; i < UINT32_MAX; ++i)
+        {
+            if (m_inused_temporary_registers.find(i) == m_inused_temporary_registers.end())
+            {
+#ifdef NDEBUG
+                m_inused_temporary_registers.insert(i);
+#else
+                m_inused_temporary_registers.insert(std::make_pair(i, DebugBorrowRecord{ borrow_from , lineno }));
+#endif
+                return opnum_temporary(i);
+            }
+    }
+        wo_error("Temporary register exhausted.");
+}
+    void BytecodeGenerateContext::keep_opnum_temporary_register(
+        opnum::temporary* reg
+#ifndef NDEBUG
+        , ast::AstBase* borrow_from, size_t lineno
+#endif
+    ) noexcept
+    {
+        wo_assert(m_inused_temporary_registers.find(reg->m_id) == m_inused_temporary_registers.end());
+#ifdef NDEBUG
+        m_inused_temporary_registers.insert(reg->m_id);
+#else
+        m_inused_temporary_registers.insert(std::make_pair(reg->m_id, DebugBorrowRecord{ borrow_from , lineno }));
+#endif
+    }
+    void BytecodeGenerateContext::return_opnum_temporary_register(opnum::temporary* reg) noexcept
+    {
+        wo_assert(m_inused_temporary_registers.find(reg->m_id) != m_inused_temporary_registers.end());
+        m_inused_temporary_registers.erase(reg->m_id);
+    }
+    void BytecodeGenerateContext::try_keep_opnum_temporary_register(
+        opnum::opnumbase* opnum_may_reg
+#ifndef NDEBUG
+        , ast::AstBase* borrow_from, size_t lineno
+#endif    
+    ) noexcept
+    {
+        auto* reg = dynamic_cast<opnum::temporary*>(opnum_may_reg);
+        if (reg != nullptr)
+        {
+            keep_opnum_temporary_register(reg
+#ifndef NDEBUG
+                , borrow_from, lineno
+#endif    
+            );
+        }
+    }
+    void BytecodeGenerateContext::try_return_opnum_temporary_register(
+        opnum::opnumbase* opnum_may_reg) noexcept
+    {
+        auto* reg = dynamic_cast<opnum::temporary*>(opnum_may_reg);
+        if (reg != nullptr)
+        {
+            return_opnum_temporary_register(reg);
+        }
+    }
+
+    opnum::opnumbase* BytecodeGenerateContext::get_storage_place(
+        const lang_ValueInstance::Storage& storage)
+    {
+        switch (storage.m_type)
+        {
+        case lang_ValueInstance::Storage::GLOBAL:
+            return opnum_global(storage.m_index);
+        case lang_ValueInstance::Storage::STACKOFFSET:
+            wo_assert(storage.m_index >= -64 && storage.m_index <= 63);
+            return opnum_stack_offset(storage.m_index);
+        default:
+            wo_error("Unexpected storage kind");
+            return nullptr;
+        }
+    }
+    const std::optional<opnum::opnumbase*>&
+        BytecodeGenerateContext::EvalResult::get_assign_target() noexcept
+    {
+        return m_result;
+    }
+
+    void BytecodeGenerateContext::EvalResult::set_result(
+        BytecodeGenerateContext& ctx, opnum::opnumbase* result) noexcept
+    {
+        wo_assert(m_request == Request::GET_RESULT_OPNUM_ONLY
+            || m_request == Request::GET_RESULT_OPNUM_AND_KEEP
+            || m_request == Request::PUSH_RESULT_AND_IGNORE_RESULT);
+
+        if (m_request == Request::GET_RESULT_OPNUM_AND_KEEP)
+        {
+            auto* reg = dynamic_cast<opnum::reg*>(result);
+            if (reg != nullptr
+                && reg->id >= opnum::reg::spreg::cr
+                && reg->id <= opnum::reg::spreg::last_special_register
+                && reg->id != opnum::reg::spreg::ni)
+            {
+                auto* borrowed_reg = ctx.borrow_opnum_temporary_register(
+                    WO_BORROW_TEMPORARY_FROM(nullptr)
+                );
+
+                ctx.c().mov(
+                    *(opnum::opnumbase*)borrowed_reg,
+                    *(opnum::opnumbase*)result);
+
+                m_result = borrowed_reg;
+                return;
+            }
+        }
+        m_result = result;
+    }
+#endif
 }

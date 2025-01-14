@@ -3,7 +3,7 @@ import test_tool;
 
 namespace test_while
 {
-    func fib(n:int)
+    func fib(n:int)=> int
     {
         if (n <= 2)
             return 1;

@@ -73,7 +73,7 @@ namespace test_optional
             {
                 match(self.node)
                 {
-                linknode::next((elem, nextnode))?
+                next((elem, nextnode))?
                 {
                     self.node = nextnode;
                     return option::value(elem);
@@ -128,14 +128,14 @@ namespace test_optional
 
         match(gval)
         {
-            option::value(x)?
+            value(x)?
             {
                 do x as vec<string>;
                 x->add("Helloworld");
                 do x[0] as string;
                 test_assure(x->len() == 1);
             }
-            option::none?
+            none?
                 std::panic("Here should not be 'none'.");
         }
 
@@ -143,9 +143,9 @@ namespace test_optional
         let b = a->map(func(v: string){return v + "world";});
         match(b)
         {
-            option::value(x)?
+            value(x)?
                 test_assure(x == "Helloworld");
-            option::none?
+            none?
                 std::panic("Here should not be 'none'.");
         }
         let c = option::none as option<string>;
@@ -153,9 +153,9 @@ namespace test_optional
                                        return "That's should not been exec.";});
         match(d)
         {
-            option::value(_)?
+            value(_)?
                 std::panic("Here should not be 'value'.");
-            option::none?
+            none?
                 ;/* ok do nothing */
         }
     }

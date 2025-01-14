@@ -170,6 +170,7 @@ namespace wo
         : virtual_machine_type(type)
         , cr(nullptr)
         , tc(nullptr)
+        , tp(nullptr)
         , er(nullptr)
         , sp(nullptr)
         , bp(nullptr)
@@ -298,6 +299,7 @@ namespace wo
         register_mem_begin = _self_register_mem_buf;
         cr = register_mem_begin + opnum::reg::spreg::cr;
         tc = register_mem_begin + opnum::reg::spreg::tc;
+        tp = register_mem_begin + opnum::reg::spreg::tp;
         er = register_mem_begin + opnum::reg::spreg::er;
     }
     void vmbase::_allocate_stack_space(size_t stacksz)noexcept
@@ -414,7 +416,7 @@ namespace wo
                 }
                 for (int i = 0; i < MAX_BYTE_COUNT - displayed_count; i++)
                     printf("   ");
-            };
+                };
 #define WO_SIGNED_SHIFT(VAL) (((signed char)((unsigned char)(((unsigned char)(VAL))<<1)))>>1)
             auto print_reg_bpoffset = [&]() {
                 byte_t data_1b = *(this_command_ptr++);
@@ -453,7 +455,7 @@ namespace wo
                         tmpos << "reg(" << (uint32_t)data_1b << ")";
 
                 }
-            };
+                };
             auto print_opnum1 = [&]() {
                 if (main_command & (byte_t)0b00000010)
                 {
@@ -470,7 +472,7 @@ namespace wo
                     else
                         tmpos << "g[" << data_4b - env->constant_value_count << "]";
                 }
-            };
+                };
             auto print_opnum2 = [&]() {
                 if (main_command & (byte_t)0b00000001)
                 {
@@ -487,7 +489,7 @@ namespace wo
                     else
                         tmpos << "g[" << data_4b - env->constant_value_count << "]";
                 }
-            };
+                };
 
 #undef WO_SIGNED_SHIFT
             switch (main_command & (byte_t)0b11111100)
@@ -722,7 +724,7 @@ namespace wo
                     {
                         tmpos << "packargs\t"; print_opnum1(); tmpos << ",\t";
 
-                        auto this_func_argc = *(uint32_t*)((this_command_ptr += 2) - 2);
+                        auto this_func_argc = *(uint16_t*)((this_command_ptr += 2) - 2);
                         auto skip_closure = *(uint16_t*)((this_command_ptr += 2) - 2);
 
                         tmpos << ": skip " << this_func_argc << "/" << skip_closure;
@@ -742,6 +744,9 @@ namespace wo
                         break;
                     case instruct::extern_opcode_page_0::cdivir:
                         tmpos << "cdivir\t"; print_opnum1();
+                        break;
+                    case instruct::extern_opcode_page_0::popn:
+                        tmpos << "popn\t";  print_opnum1();
                         break;
                     default:
                         tmpos << "??\t";
@@ -829,61 +834,61 @@ namespace wo
 
         std::vector<callstack_info> result;
         auto generate_callstack_info_with_ip = [this, need_offset](const wo::byte_t* rip, bool is_extern_func)
-        {
-            const program_debug_data_info::location* src_location_info = nullptr;
-            std::string function_signature;
-            std::string file_path;
-            size_t row_number = 0;
-            size_t col_number = 0;
-
-            if (is_extern_func)
             {
-                auto fnd = env->extern_native_functions.find((intptr_t)rip);
+                const program_debug_data_info::location* src_location_info = nullptr;
+                std::string function_signature;
+                std::string file_path;
+                size_t row_number = 0;
+                size_t col_number = 0;
 
-                if (fnd != env->extern_native_functions.end())
+                if (is_extern_func)
                 {
-                    function_signature = fnd->second.function_name;
-                    file_path = fnd->second.library_name.value_or("<builtin>");
+                    auto fnd = env->extern_native_functions.find((intptr_t)rip);
+
+                    if (fnd != env->extern_native_functions.end())
+                    {
+                        function_signature = fnd->second.function_name;
+                        file_path = fnd->second.library_name.value_or("<builtin>");
+                    }
+                    else
+                    {
+                        char rip_str[sizeof(rip) * 2 + 4];
+                        sprintf(rip_str, "0x%p>", rip);
+
+                        function_signature = std::string("<unknown extern function ") + rip_str;
+                        file_path = "<unknown library>";
+                    }
                 }
                 else
                 {
-                    char rip_str[sizeof(rip) * 2 + 4];
-                    sprintf(rip_str, "0x%p>", rip);
+                    if (env->program_debug_info != nullptr)
+                    {
+                        src_location_info = &env->program_debug_info
+                            ->get_src_location_by_runtime_ip(rip - (need_offset ? 1 : 0));
+                        function_signature = env->program_debug_info
+                            ->get_current_func_signature_by_runtime_ip(rip - (need_offset ? 1 : 0));
 
-                    function_signature = std::string("<unknown extern function ") + rip_str;
-                    file_path = "<unknown library>";
-                }
-            }
-            else
-            {
-                if (env->program_debug_info != nullptr)
-                {
-                    src_location_info = &env->program_debug_info
-                        ->get_src_location_by_runtime_ip(rip - (need_offset ? 1 : 0));
-                    function_signature = env->program_debug_info
-                        ->get_current_func_signature_by_runtime_ip(rip - (need_offset ? 1 : 0));
+                        file_path = wo::wstrn_to_str(src_location_info->source_file);
+                        row_number = src_location_info->begin_row_no;
+                        col_number = src_location_info->begin_col_no;
+                    }
+                    else
+                    {
+                        char rip_str[sizeof(rip) * 2 + 4];
+                        sprintf(rip_str, "0x%p>", rip);
 
-                    file_path = wo::wstrn_to_str(src_location_info->source_file);
-                    row_number = src_location_info->begin_row_no;
-                    col_number = src_location_info->begin_col_no;
+                        function_signature = std::string("<unknown function ") + rip_str;
+                        file_path = "<unknown file>";
+                    }
                 }
-                else
-                {
-                    char rip_str[sizeof(rip) * 2 + 4];
-                    sprintf(rip_str, "0x%p>", rip);
-
-                    function_signature = std::string("<unknown function ") + rip_str;
-                    file_path = "<unknown file>";
-                }
-            }
-            return callstack_info{
-                function_signature,
-                file_path,
-                row_number,
-                col_number,
-                is_extern_func,
+                return callstack_info{
+                    function_signature,
+                    file_path,
+                    row_number,
+                    col_number,
+                    is_extern_func,
+                };
             };
-        };
 
         result.push_back(generate_callstack_info_with_ip(ip, ip < env->rt_codes || ip >= env->rt_codes + env->rt_code_len));
         value* base_callstackinfo_ptr = (bp + 1);
@@ -997,7 +1002,7 @@ namespace wo
         return false;
     }
 
-    bool vmbase::assure_stack_size(wo_size_t assure_stack_size) noexcept 
+    bool vmbase::assure_stack_size(wo_size_t assure_stack_size) noexcept
     {
         if (sp - assure_stack_size < _self_stack_mem_buf)
         {
@@ -1029,12 +1034,20 @@ namespace wo
         {
             assure_stack_size(1);
             auto* return_sp = sp;
+            auto return_tc = tc->integer;
 
             (sp--)->set_native_callstack(ip);
             ip = env->rt_codes + wo_func_addr;
             tc->set_integer(argc);
-            er->set_callstack((uint32_t)argc, (uint32_t)(stack_mem_begin - bp));
+
             bp = sp;
+
+            // Push return place.
+            (sp--)->set_callstack(
+                (uint32_t)(stack_mem_begin - return_sp),
+                (uint32_t)(stack_mem_begin - bp));
+            // Push origin tc.
+            (sp--)->set_integer(return_tc);
         }
     }
     void vmbase::co_pre_invoke(wo_handle_t ex_func_addr, wo_int_t argc)noexcept
@@ -1047,12 +1060,20 @@ namespace wo
         {
             assure_stack_size(1);
             auto* return_sp = sp;
+            auto return_tc = tc->integer;
 
             (sp--)->set_native_callstack(ip);
             ip = (const byte_t*)ex_func_addr;
             tc->set_integer(argc);
-            er->set_callstack((uint32_t)argc, (uint32_t)(stack_mem_begin - bp));
+
             bp = sp;
+
+            // Push return place.
+            (sp--)->set_callstack(
+                (uint32_t)(stack_mem_begin - return_sp),
+                (uint32_t)(stack_mem_begin - bp));
+            // Push origin tc.
+            (sp--)->set_integer(return_tc);
         }
     }
     void vmbase::co_pre_invoke(closure_t* wo_func_addr, wo_int_t argc)noexcept
@@ -1064,21 +1085,28 @@ namespace wo
         else
         {
             wo::gcbase::gc_read_guard rg1(wo_func_addr);
-
             assure_stack_size((size_t)wo_func_addr->m_closure_args_count + 1);
 
             auto* return_sp = sp;
+            auto return_tc = tc->integer;
 
-            for (auto idx = wo_func_addr->m_closure_args_count; idx > 0; --idx)
-                (sp--)->set_val(&wo_func_addr->m_closure_args[idx - 1]);
+            for (uint16_t idx = 0; idx < wo_func_addr->m_closure_args_count; ++idx)
+                (sp--)->set_val(&wo_func_addr->m_closure_args[idx]);
 
             (sp--)->set_native_callstack(ip);
-            ip = wo_func_addr->m_native_call 
-                ? (const byte_t*)wo_func_addr ->m_native_func
+            ip = wo_func_addr->m_native_call
+                ? (const byte_t*)wo_func_addr->m_native_func
                 : env->rt_codes + wo_func_addr->m_vm_func;
             tc->set_integer(argc);
-            er->set_callstack((uint32_t)argc, (uint32_t)(stack_mem_begin - bp));
+
             bp = sp;
+
+            // Push return place.
+            (sp--)->set_callstack(
+                (uint32_t)(stack_mem_begin - return_sp),
+                (uint32_t)(stack_mem_begin - bp));
+            // Push origin tc.
+            (sp--)->set_integer(return_tc);
         }
     }
     value* vmbase::invoke(wo_int_t wo_func_addr, wo_int_t argc)noexcept
@@ -1093,10 +1121,11 @@ namespace wo
             auto* return_ip = ip;
             auto return_sp_place = stack_mem_begin - sp;
             auto return_bp_place = stack_mem_begin - bp;
+            auto return_tc = tc->integer;
 
             (sp--)->set_native_callstack(ip);
-            ip = env->rt_codes + wo_func_addr;
             tc->set_integer(argc);
+            ip = env->rt_codes + wo_func_addr;
             bp = sp;
 
             run();
@@ -1104,6 +1133,7 @@ namespace wo
             ip = return_ip;
             sp = stack_mem_begin - return_sp_place;
             bp = stack_mem_begin - return_bp_place;
+            tc->set_integer(return_tc);
 
             if (is_aborted())
                 return nullptr;
@@ -1124,10 +1154,11 @@ namespace wo
             auto* return_ip = ip;
             auto return_sp_place = stack_mem_begin - sp;
             auto return_bp_place = stack_mem_begin - bp;
+            auto return_tc = tc->integer;
 
             (sp--)->set_native_callstack(ip);
-            ip = env->rt_codes + wo_func_addr;
             tc->set_integer(argc);
+            ip = env->rt_codes + wo_func_addr;
             bp = sp;
 
             if (!is_aborted())
@@ -1155,6 +1186,7 @@ namespace wo
             ip = return_ip;
             sp = stack_mem_begin - return_sp_place;
             bp = stack_mem_begin - return_bp_place;
+            tc->set_integer(return_tc);
 
             if (is_aborted())
                 return nullptr;
@@ -1182,11 +1214,13 @@ namespace wo
                 // NOTE: No need to reduce expand arg count.
                 auto return_sp_place = stack_mem_begin - sp;
                 auto return_bp_place = stack_mem_begin - bp;
+                auto return_tc = tc->integer;
 
-                for (auto idx = wo_func_closure->m_closure_args_count; idx > 0; --idx)
-                    (sp--)->set_val(&wo_func_closure->m_closure_args[idx - 1]);
+                for (uint16_t idx = 0; idx < wo_func_closure->m_closure_args_count; ++idx)
+                    (sp--)->set_val(&wo_func_closure->m_closure_args[idx]);
 
                 (sp--)->set_native_callstack(ip);
+                tc->set_integer(argc);
                 bp = sp;
 
                 if (wo_func_closure->m_native_call)
@@ -1216,13 +1250,13 @@ namespace wo
                 else
                 {
                     ip = env->rt_codes + wo_func_closure->m_vm_func;
-                    tc->set_integer(argc);
                     run();
                 }
 
                 ip = return_ip;
                 sp = stack_mem_begin - return_sp_place;
                 bp = stack_mem_begin - return_bp_place;
+                tc->set_integer(return_tc);
 
                 if (is_aborted())
                     return nullptr;
@@ -1476,17 +1510,31 @@ namespace wo
 
         return rt_sp;
     }
-    void vmbase::packargs_impl(value* opnum1, uint16_t argcount, value* tc, value* rt_bp, uint16_t skip_closure_arg_count) noexcept
+    void vmbase::packargs_impl(
+        value* opnum1, 
+        uint16_t argcount,
+        const value* tp,
+        value* rt_bp, 
+        uint16_t skip_closure_arg_count) noexcept
     {
         auto* packed_array = array_t::gc_new<gcbase::gctype::young>();
-        packed_array->resize((size_t)tc->integer - (size_t)argcount);
-        for (auto argindex = 0 + (size_t)argcount; argindex < (size_t)tc->integer; argindex++)
+        packed_array->resize((size_t)tp->integer - (size_t)argcount);
+        for (auto argindex = 0 + (size_t)argcount; argindex < (size_t)tp->integer; argindex++)
         {
-            (*packed_array)[(size_t)argindex - (size_t)argcount].set_val(rt_bp + 2 + argindex + skip_closure_arg_count);
+            (*packed_array)[
+                (size_t)argindex - (size_t)argcount].set_val(
+                    rt_bp + 2 + argindex + skip_closure_arg_count);
         }
         opnum1->set_gcunit<wo::value::valuetype::array_type>(packed_array);
     }
-    value* vmbase::unpackargs_impl(vmbase* vm, value* opnum1, int32_t unpack_argc, value* tc, const byte_t* rt_ip, value* rt_sp, value* rt_bp) noexcept
+    value* vmbase::unpackargs_impl(
+        vmbase* vm,
+        value* opnum1,
+        int32_t unpack_argc,
+        value* tc,
+        const byte_t* rt_ip,
+        value* rt_sp,
+        value* rt_bp) noexcept
     {
         if (opnum1->type == value::valuetype::struct_type)
         {
@@ -1500,7 +1548,8 @@ namespace wo
                     vm->sp = rt_sp;
                     vm->bp = rt_bp;
 
-                    wo_fail(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
+                    wo_fail(WO_FAIL_INDEX_FAIL,
+                        "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
                 }
                 else
                 {
@@ -1519,7 +1568,9 @@ namespace wo
                     vm->sp = rt_sp;
                     vm->bp = rt_bp;
 
-                    wo_fail(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
+                    wo_fail(WO_FAIL_INDEX_FAIL,
+                        "The number of arguments required for unpack exceeds the number "
+                        "of arguments in the given arguments-package.");
                 }
                 else
                 {
@@ -1545,14 +1596,19 @@ namespace wo
                     vm->ip = rt_ip;
                     vm->sp = rt_sp;
                     vm->bp = rt_bp;
-                    wo_fail(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
+
+                    wo_fail(WO_FAIL_INDEX_FAIL,
+                        "The number of arguments required for unpack exceeds the number "
+                        "of arguments in the given arguments-package.");
                 }
                 else
                 {
                     if (rt_sp - unpack_argc < vm->_self_stack_mem_buf)
                         goto _wo_unpackargs_stack_overflow;
 
-                    for (auto arg_idx = arg_array->rbegin() + (size_t)((wo_integer_t)arg_array->size() - unpack_argc);
+                    for (
+                        auto arg_idx = arg_array->rbegin() + (size_t)(
+                            (wo_integer_t)arg_array->size() - unpack_argc);
                         arg_idx != arg_array->rend();
                         arg_idx++)
                         (rt_sp--)->set_val(&*arg_idx);
@@ -1568,7 +1624,10 @@ namespace wo
                     vm->ip = rt_ip;
                     vm->sp = rt_sp;
                     vm->bp = rt_bp;
-                    wo_fail(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
+
+                    wo_fail(WO_FAIL_INDEX_FAIL,
+                        "The number of arguments required for unpack exceeds the number "
+                        "of arguments in the given arguments-package.");
                 }
                 else
                 {
@@ -1622,6 +1681,9 @@ namespace wo
                 break;
             case value::valuetype::gchandle_type:
                 return "Cannot cast this value to 'gchandle'.";
+                break;
+            case value::valuetype::invalid:
+                return "Cannot cast this value to 'nil'.";
                 break;
             default:
                 return "Unknown type.";
@@ -2193,7 +2255,7 @@ namespace wo
                 bp = stored_bp;
 
                 // DEBUG
-                
+
                 sp += pop_count;
 
                 // TODO: Panic if rt_ip is outof range.
@@ -2223,8 +2285,8 @@ namespace wo
                             break;
                         }
 
-                        for (auto idx = opnum1->closure->m_closure_args_count; idx > 0; --idx)
-                            (sp--)->set_val(&opnum1->closure->m_closure_args[idx - 1]);
+                        for (uint16_t idx = 0; idx < opnum1->closure->m_closure_args_count; ++idx)
+                            (sp--)->set_val(&opnum1->closure->m_closure_args[idx]);
                     }
                     else
                     {
@@ -2705,7 +2767,12 @@ namespace wo
                         uint16_t this_function_arg_count = WO_IPVAL_MOVE_2;
                         uint16_t skip_closure_arg_count = WO_IPVAL_MOVE_2;
 
-                        packargs_impl(opnum1, this_function_arg_count, tc, bp, skip_closure_arg_count);
+                        packargs_impl(
+                            opnum1, 
+                            this_function_arg_count, 
+                            tp,
+                            bp, 
+                            skip_closure_arg_count);
                         break;
                     }
                     case instruct::extern_opcode_page_0::cdivilr:
@@ -2747,6 +2814,15 @@ namespace wo
                         else if (opnum1->integer == -1)
                             WO_VM_FAIL(WO_FAIL_UNEXPECTED, "Division overflow.");
 
+                        break;
+                    }
+                    case instruct::extern_opcode_page_0::popn:
+                    {
+                        WO_ADDRESSING_N1;
+                        sp += opnum1->integer;
+
+                        // Check if stack is overflow.
+                        wo_assert(sp <= bp);
                         break;
                     }
                     default:

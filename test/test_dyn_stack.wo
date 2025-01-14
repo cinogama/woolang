@@ -39,7 +39,7 @@ namespace test_dyn_stack
     }
     func test_super_depth_function()
     {
-        func depth_foo(list: vec<int>, layer: int)   
+        func depth_foo(list: vec<int>, layer: int)=> void
         {
             if (layer == 500_0000)
                 return;                

@@ -163,7 +163,7 @@ namespace test_benchmark
     }
     func set_1e7()
     {
-        let m = {}mut: map<int, mut void>;
+        let m = {}mut: map<int, void>;
         for (let mut i = 0; i < 100_0000; i += 1)
             m->set(i, do nil);
         m->clear;
@@ -177,7 +177,7 @@ namespace test_benchmark
     }
     func prealloc_set_1e7()
     {
-        let m = {}mut: map<int, mut void>;
+        let m = {}mut: map<int, void>;
         m->reserve(100_0000);
         for (let mut i = 0; i < 100_0000; i += 1)
             m->set(i, do nil);

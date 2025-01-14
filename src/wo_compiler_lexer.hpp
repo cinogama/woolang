@@ -8,6 +8,7 @@
 #include <map>
 #include <set>
 #include <stack>
+#include <list>
 #include <unordered_map>
 
 #include <cwctype>
@@ -18,15 +19,15 @@
 #include "wo_const_string_pool.hpp"
 
 #ifdef ANSI_WIDE_CHAR_SIGN
-#undef ANSI_WIDE_CHAR_SIGN
-#define ANSI_WIDE_CHAR_SIGN L
+#   undef ANSI_WIDE_CHAR_SIGN
+#   define ANSI_WIDE_CHAR_SIGN L
 #endif
 
 namespace wo
 {
     namespace ast
     {
-        class ast_base;
+        class AstBase;
     }
 
     using lex_type_base_t = int8_t;
@@ -131,6 +132,8 @@ namespace wo
         l_unknown_token,
     };
 
+#ifndef WO_DISABLE_COMPILER
+
     class lexer;
 
     class macro
@@ -175,7 +178,9 @@ namespace wo
             size_t   begin_col;
             size_t   end_col;
             std::wstring describe;
-            std::string filename;
+            std::wstring filename;
+
+            size_t   depth;
 
             std::wstring to_wstring(bool need_ansi_describe = true)
             {
@@ -205,7 +210,7 @@ namespace wo
         int         format_string_count;
         int         curly_count;
 
-        std::vector<std::vector<lex_error_msg>> error_frame;
+        std::list<std::list<lex_error_msg>> error_frame;
 
         std::stack<std::pair<lex_type, std::wstring>> temp_token_buff_stack;
         lex_type peek_result_type = lex_type::l_error;
@@ -230,11 +235,11 @@ namespace wo
         bool just_have_err; // it will be clear at next()
 
         const wo_pstring_t   source_file;
-        std::vector<lex_error_msg> lex_error_list;
+        std::list<lex_error_msg> lex_error_list;
 
         std::unordered_set<wo_pstring_t> imported_file_list;
 
-        std::vector<ast::ast_base*> imported_ast;
+        std::list<ast::AstBase*> imported_ast;
         std::shared_ptr<std::unordered_map<std::wstring, std::shared_ptr<macro>>> used_macro_list;
         const lexer* last_lexer;
         std::wstring script_path;
@@ -340,7 +345,7 @@ namespace wo
                 return true;
             return false;
         }
-        void append_import_file_ast(ast::ast_base* astbase)
+        void append_import_file_ast(ast::AstBase* astbase)
         {
             imported_ast.push_back(astbase);
         }
@@ -388,7 +393,7 @@ namespace wo
                         _result.insert(wch);
                 return _result;
                 }();
-                return operator_char_set.find((wchar_t)ch) != operator_char_set.end();
+            return operator_char_set.find((wchar_t)ch) != operator_char_set.end();
         }
         static bool lex_isspace(int ch)
         {
@@ -497,8 +502,8 @@ namespace wo
         lexer& operator = (lexer&&) = delete;
 
         lexer(
-            std::optional<std::unique_ptr<std::wistream>>&& stream, 
-            const std::wstring _source_file, 
+            std::optional<std::unique_ptr<std::wistream>>&& stream,
+            const std::wstring _source_file,
             lexer* importer);
     public:
         void begin_trying_block()
@@ -510,11 +515,11 @@ namespace wo
             error_frame.pop_back();
         }
 
-        std::vector<lex_error_msg>& get_cur_error_frame()
+        std::list<lex_error_msg>& get_cur_error_frame()
         {
             if (error_frame.empty())
                 return lex_error_list;
-            return error_frame[error_frame.size() - 1];
+            return error_frame.back();
         }
 
         lex_type error_impl(const lex_error_msg& msg)
@@ -552,7 +557,6 @@ namespace wo
                 tree_node->source_file ? wstr_to_str(*tree_node->source_file) : "?"
             };
         }
-
         template<typename ... TS>
         lex_type lex_error(lexer::errorlevel errorlevel, const wchar_t* fmt, TS&& ... args)
         {
@@ -567,12 +571,12 @@ namespace wo
                     now_file_colno,
                     next_file_colno,
                     describe,
-                    source_file ? wstr_to_str(*source_file) : "json"
+                    source_file ? *source_file : L"json",
+                    errorlevel == errorlevel::error ? (size_t)0 : (size_t)1
                 });
             skip_error_line();
             return result;
         }
-
         template<typename ... TS>
         lex_type parser_error(lexer::errorlevel errorlevel, const wchar_t* fmt, TS&& ... args)
         {
@@ -587,33 +591,29 @@ namespace wo
                     now_file_colno,
                     next_file_colno,
                     describe,
-                    wstr_to_str(*source_file)
+                    *source_file,
+                   errorlevel == errorlevel::error ? (size_t)0 : (size_t)1
                 });
         }
-
         template<typename AstT, typename ... TS>
         lex_type lang_error(lexer::errorlevel errorlevel, AstT* tree_node, const wchar_t* fmt, TS&& ... args)
         {
-            if (tree_node->source_file == nullptr)
+            if (tree_node->source_location.source_file == nullptr)
                 return parser_error(errorlevel, fmt, args...);
-
-            size_t begin_row_no = tree_node->row_begin_no ? tree_node->row_begin_no : now_file_rowno;
-            size_t begin_col_no = tree_node->col_begin_no ? tree_node->col_begin_no : now_file_colno;
-            size_t end_row_no = tree_node->row_end_no ? tree_node->row_end_no : next_file_rowno;
-            size_t end_col_no = tree_node->col_end_no ? tree_node->col_end_no : next_file_colno;
 
             wchar_t describe[256] = {};
             swprintf(describe, 255, fmt, args...);
 
             return error_impl(lex_error_msg{
                 errorlevel,
-                begin_row_no,
-                end_row_no,
-                begin_col_no,
-                end_col_no,
+                tree_node->source_location.begin_at.row,
+                tree_node->source_location.end_at.row,
+                tree_node->source_location.begin_at.column,
+                tree_node->source_location.end_at.column,
                 describe,
-                wstr_to_str(*tree_node->source_file)
-            });
+                *tree_node->source_location.source_file,
+                error_frame.size() + (errorlevel == errorlevel::error ? (size_t)0 : (size_t)1),
+                });
         }
 
         bool has_error() const
@@ -641,11 +641,12 @@ namespace wo
         lex_type next(std::wstring* out_literal);
         void push_temp_for_error_recover(lex_type type, const std::wstring& out_literal);
 
-        void merge_imported_script_trees(ast::ast_base* node);
+        ast::AstBase* merge_imported_script_trees(ast::AstBase* node);
     };
+#endif
 }
 
 #ifdef ANSI_WIDE_CHAR_SIGN
-#undef ANSI_WIDE_CHAR_SIGN
-#define ANSI_WIDE_CHAR_SIGN /* NOTHING */
+#   undef ANSI_WIDE_CHAR_SIGN
+#   define ANSI_WIDE_CHAR_SIGN /* NOTHING */
 #endif

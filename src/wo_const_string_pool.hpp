@@ -11,6 +11,7 @@ using wo_pstring_t = const std::wstring*;
 #define WO_GLOBAL_PSTR(str) inline wo_pstring_t _global_##str = new std::wstring(L ## #str);
 
 #define WO_GLOBAL_PSTR_LIST \
+WO_GLOBAL_PSTR(woolang)\
 WO_GLOBAL_PSTR(int)\
 WO_GLOBAL_PSTR(handle)\
 WO_GLOBAL_PSTR(real)\
@@ -49,8 +50,23 @@ WO_GLOBAL_PSTR(_)\
 namespace wo::fixstr
 {
     WO_GLOBAL_PSTR_LIST;
+    inline wo_pstring_t _global_EMPTY = new std::wstring(L"");
     inline wo_pstring_t _global__iter = new std::wstring(L"$_iter");
     inline wo_pstring_t _global__val = new std::wstring(L"$_val");
+   
+    inline wo_pstring_t _global_operator_ADD = new std::wstring(L"operator +");
+    inline wo_pstring_t _global_operator_SUB = new std::wstring(L"operator -");
+    inline wo_pstring_t _global_operator_MUL = new std::wstring(L"operator *");
+    inline wo_pstring_t _global_operator_DIV = new std::wstring(L"operator /");
+    inline wo_pstring_t _global_operator_MOD = new std::wstring(L"operator %");
+    inline wo_pstring_t _global_operator_LAND = new std::wstring(L"operator &&");
+    inline wo_pstring_t _global_operator_LOR = new std::wstring(L"operator ||");
+    inline wo_pstring_t _global_operator_LESS = new std::wstring(L"operator <");
+    inline wo_pstring_t _global_operator_LESSEQ = new std::wstring(L"operator <=");
+    inline wo_pstring_t _global_operator_GREAT = new std::wstring(L"operator >");
+    inline wo_pstring_t _global_operator_GREATEQ = new std::wstring(L"operator >=");
+    inline wo_pstring_t _global_operator_EQ = new std::wstring(L"operator ==");
+    inline wo_pstring_t _global_operator_NEQ = new std::wstring(L"operator !=");
 }
 
 #undef WO_GLOBAL_PSTR
@@ -87,8 +103,22 @@ namespace wo
 
 #define WO_GLOBAL_PSTR(str) _m_global_string_pool->_m_string_pool.insert(WO_PSTR(str));
                 WO_GLOBAL_PSTR_LIST;
+                WO_GLOBAL_PSTR(EMPTY);
                 WO_GLOBAL_PSTR(_iter);
                 WO_GLOBAL_PSTR(_val);
+                WO_GLOBAL_PSTR(operator_ADD);
+                WO_GLOBAL_PSTR(operator_SUB);
+                WO_GLOBAL_PSTR(operator_MUL);
+                WO_GLOBAL_PSTR(operator_DIV);
+                WO_GLOBAL_PSTR(operator_MOD);
+                WO_GLOBAL_PSTR(operator_LAND);
+                WO_GLOBAL_PSTR(operator_LOR);
+                WO_GLOBAL_PSTR(operator_LESS);
+                WO_GLOBAL_PSTR(operator_LESSEQ);
+                WO_GLOBAL_PSTR(operator_GREAT);
+                WO_GLOBAL_PSTR(operator_GREATEQ);
+                WO_GLOBAL_PSTR(operator_EQ);
+                WO_GLOBAL_PSTR(operator_NEQ);
 #undef WO_GLOBAL_PSTR
             }
         }

@@ -2,216 +2,320 @@
 
 namespace wo
 {
+#ifndef WO_DISABLE_COMPILER
     using namespace ast;
 
-#define WO_AST() astnode; wo_assert(astnode != nullptr)
-
-#define WO_PASS0(NODETYPE) void lang::pass0_##NODETYPE (ast::NODETYPE* astnode)
-
-    WO_PASS0(ast_list)
+    bool LangContext::declare_pattern_symbol_pass0_1(
+        lexer& lex,
+        bool is_pass0,
+        const std::optional<AstDeclareAttribue*>& attribute,
+        const std::optional<AstBase*>& var_defines,
+        ast::AstPatternBase* pattern,
+        const std::optional<ast::AstValueBase*>& init_value_only_used_for_template_or_function)
     {
-        auto* a_list = WO_AST();
-
-        auto* child = a_list->children;
-        while (child != nullptr)
+        switch (pattern->node_type)
         {
-            analyze_pass0(child);
-            child = child->sibling;
-        }
-    }
-    WO_PASS0(ast_namespace)
-    {
-        auto* a_namespace = WO_AST();
-
-        begin_namespace(a_namespace);
-        if (a_namespace->in_scope_sentence != nullptr)
+        case ast::AstBase::AST_PATTERN_SINGLE:
         {
-            a_namespace->add_child(a_namespace->in_scope_sentence);
-            analyze_pass0(a_namespace->in_scope_sentence);
+            ast::AstPatternSingle* single_pattern = static_cast<ast::AstPatternSingle*>(pattern);
+            // Check has been declared?
+            if (!single_pattern->m_LANG_declared_symbol)
+            {
+                if (single_pattern->m_template_parameters)
+                {
+                    single_pattern->m_LANG_declared_symbol = define_symbol_in_current_scope(
+                        single_pattern->m_name,
+                        attribute,
+                        var_defines,
+                        pattern->source_location.source_file,
+                        get_current_scope(),
+                        init_value_only_used_for_template_or_function.value(),
+                        single_pattern->m_template_parameters.value(),
+                        single_pattern->m_is_mutable);
+                }
+                else
+                {
+                    single_pattern->m_LANG_declared_symbol = define_symbol_in_current_scope(
+                        single_pattern->m_name,
+                        attribute,
+                        var_defines,
+                        pattern->source_location.source_file,
+                        get_current_scope(),
+                        lang_Symbol::kind::VARIABLE,
+                        single_pattern->m_is_mutable);
+                }
+
+                if (!single_pattern->m_LANG_declared_symbol)
+                {
+                    lex.lang_error(lexer::errorlevel::error, single_pattern,
+                        WO_ERR_REDEFINED,
+                        single_pattern->m_name->c_str());
+
+                    return false;
+                }
+                else
+                {
+                    lang_Symbol* symbol = single_pattern->m_LANG_declared_symbol.value();
+
+                    if (!symbol->m_value_instance->m_mutable
+                        && !symbol->m_is_template
+                        && init_value_only_used_for_template_or_function.has_value())
+                    {
+                        AstValueBase* init_value = init_value_only_used_for_template_or_function.value();
+                        if (init_value->node_type == AstBase::AST_VALUE_FUNCTION)
+                        {
+                            AstValueFunction* func = static_cast<AstValueFunction*>(init_value);
+                            symbol->m_value_instance->try_determine_function(func);
+                        }
+                    }
+
+                    if (is_pass0)
+                        symbol->m_is_global = true;
+                }
+            }
+            return true;
         }
-        end_namespace();
-    }
-    WO_PASS0(ast_varref_defines)
-    {
-        auto* a_varref_defs = WO_AST();
-        a_varref_defs->located_function = in_function();
-        for (auto& varref : a_varref_defs->var_refs)
+        case ast::AstBase::AST_PATTERN_TUPLE:
         {
-            analyze_pattern_in_pass0(varref.pattern, a_varref_defs->declear_attribute, varref.init_val);
+            ast::AstPatternTuple* tuple_pattern = static_cast<ast::AstPatternTuple*>(pattern);
+            bool success = true;
+            for (auto& sub_pattern : tuple_pattern->m_fields)
+                success = success && declare_pattern_symbol_pass0_1(
+                    lex,
+                    is_pass0,
+                    attribute,
+                    var_defines,
+                    sub_pattern,
+                    std::nullopt);
+
+            return success;
         }
-    }
-    WO_PASS0(ast_value_function_define)
-    {
-        auto* a_value_func_decl = WO_AST();
-
-        // Only declear symbol in pass0
-        a_value_func_decl->this_func_scope = begin_function(a_value_func_decl);
-        end_function();
-    }
-    WO_PASS0(ast_using_type_as)
-    {
-        auto* a_using_type_as = WO_AST();
-
-        if (a_using_type_as->type_symbol == nullptr)
+        case ast::AstBase::AST_PATTERN_UNION:
         {
-            auto* typing_symb = define_type_in_this_scope(
-                a_using_type_as, a_using_type_as->old_type, a_using_type_as->declear_attribute);
-            typing_symb->apply_template_setting(a_using_type_as);
+            ast::AstPatternUnion* union_pattern = static_cast<ast::AstPatternUnion*>(pattern);
+            bool success = true;
+            if (union_pattern->m_field)
+                success = declare_pattern_symbol_pass0_1(
+                    lex,
+                    is_pass0,
+                    attribute,
+                    var_defines,
+                    union_pattern->m_field.value(),
+                    std::nullopt);
 
-            a_using_type_as->type_symbol = typing_symb;
-
-            wo_assert(a_using_type_as->type_symbol->has_been_completed_defined == false);
+            return success;
         }
-        analyze_pass0(a_using_type_as->namespace_decl);
+        case ast::AstBase::AST_PATTERN_TAKEPLACE:
+        {
+            // Nothing todo.
+            return true;
+        }
+        default:
+            wo_error("Unexpected pattern type.");
+        }
+        return false;
     }
 
-#undef WO_PASS0
-
-    void lang::init_global_pass_table()
+    void LangContext::init_pass0()
     {
-        wo_assert(m_global_pass_table == nullptr);
-
-        m_global_pass_table = std::make_unique<dynamic_cast_pass_table>();
-#define WO_PASS(N, T) m_global_pass_table->register_pass_table<T, N>(&lang::pass##N##_##T)
-#define WO_PASS0(T) WO_PASS(0, T)
-#define WO_PASS1(T) WO_PASS(1, T)
-#define WO_PASS2(T) WO_PASS(2, T)
-
-#define WO_FINALIZE(T) m_global_pass_table->register_finalize_table(&lang::finalize_##T)
-#define WO_FINALIZE_VALUE(T) m_global_pass_table->register_finalize_value_table(&lang::finalize_value_##T)
-
-        WO_PASS0(ast_list);
-        WO_PASS0(ast_namespace);
-        WO_PASS0(ast_varref_defines);
-        WO_PASS0(ast_value_function_define);
-        WO_PASS0(ast_using_type_as);
-
-        WO_PASS1(ast_namespace);
-        WO_PASS1(ast_varref_defines);
-        WO_PASS1(ast_value_binary);
-        WO_PASS1(ast_value_mutable);
-        WO_PASS1(ast_value_index);
-        WO_PASS1(ast_value_assign);
-        WO_PASS1(ast_value_logical_binary);
-        WO_PASS1(ast_value_variable);
-        WO_PASS1(ast_value_type_cast);
-        WO_PASS1(ast_value_type_judge);
-        WO_PASS1(ast_value_type_check);
-        WO_PASS1(ast_value_function_define);
-        WO_PASS1(ast_fakevalue_unpacked_args);
-        WO_PASS1(ast_value_funccall);
-        WO_PASS1(ast_value_array);
-        WO_PASS1(ast_value_mapping);
-        WO_PASS1(ast_value_indexed_variadic_args);
-        WO_PASS1(ast_return);
-        WO_PASS1(ast_sentence_block);
-        WO_PASS1(ast_if);
-        WO_PASS1(ast_while);
-        WO_PASS1(ast_forloop);
-        WO_PASS1(ast_value_unary);
-        WO_PASS1(ast_mapping_pair);
-        WO_PASS1(ast_using_namespace);
-        WO_PASS1(ast_using_type_as);
-        WO_PASS1(ast_foreach);
-        WO_PASS1(ast_union_make_option_ob_to_cr_and_ret);
-        WO_PASS1(ast_match);
-        WO_PASS1(ast_match_union_case);
-        WO_PASS1(ast_value_make_struct_instance);
-        WO_PASS1(ast_value_make_tuple_instance);
-        WO_PASS1(ast_struct_member_define);
-        WO_PASS1(ast_where_constraint);
-        WO_PASS1(ast_value_trib_expr);
-        WO_PASS1(ast_value_typeid);
-        WO_PASS1(ast_value_init);
-
-        WO_PASS2(ast_mapping_pair);
-        WO_PASS2(ast_using_type_as);
-        WO_PASS2(ast_return);
-        WO_PASS2(ast_sentence_block);
-        WO_PASS2(ast_if);
-        WO_PASS2(ast_value_mutable);
-        WO_PASS2(ast_while);
-        WO_PASS2(ast_forloop);
-        WO_PASS2(ast_foreach);
-        WO_PASS2(ast_varref_defines);
-        WO_PASS2(ast_union_make_option_ob_to_cr_and_ret);
-        WO_PASS2(ast_match);
-        WO_PASS2(ast_match_union_case);
-        WO_PASS2(ast_struct_member_define);
-        WO_PASS2(ast_where_constraint);
-        WO_PASS2(ast_value_function_define);
-        WO_PASS2(ast_value_assign);
-        WO_PASS2(ast_value_type_cast);
-        WO_PASS2(ast_value_type_judge);
-        WO_PASS2(ast_value_type_check);
-        WO_PASS2(ast_value_index);
-        WO_PASS2(ast_value_indexed_variadic_args);
-        WO_PASS2(ast_fakevalue_unpacked_args);
-        WO_PASS2(ast_value_binary);
-        WO_PASS2(ast_value_logical_binary);
-        WO_PASS2(ast_value_array);
-        WO_PASS2(ast_value_mapping);
-        WO_PASS2(ast_value_make_tuple_instance);
-        WO_PASS2(ast_value_make_struct_instance);
-        WO_PASS2(ast_value_trib_expr);
-        WO_PASS2(ast_value_variable);
-        WO_PASS2(ast_value_unary);
-        WO_PASS2(ast_value_funccall);
-        WO_PASS2(ast_value_typeid);
-        WO_PASS2(ast_value_init);
-
-        WO_FINALIZE(ast_varref_defines);
-        WO_FINALIZE(ast_list);
-        WO_FINALIZE(ast_if);
-        WO_FINALIZE(ast_while);
-        WO_FINALIZE(ast_forloop);
-        WO_FINALIZE(ast_sentence_block);
-        WO_FINALIZE(ast_return);
-        WO_FINALIZE(ast_namespace);
-        WO_FINALIZE(ast_using_namespace);
-        WO_FINALIZE(ast_using_type_as);
-        WO_FINALIZE(ast_nop);
-        WO_FINALIZE(ast_foreach);
-        WO_FINALIZE(ast_break);
-        WO_FINALIZE(ast_continue);
-        WO_FINALIZE(ast_union_make_option_ob_to_cr_and_ret);
-        WO_FINALIZE(ast_match);
-        WO_FINALIZE(ast_match_union_case);
-
-        WO_FINALIZE_VALUE(ast_value_function_define);
-        WO_FINALIZE_VALUE(ast_value_variable);
-        WO_FINALIZE_VALUE(ast_value_binary);
-        WO_FINALIZE_VALUE(ast_value_assign);
-        WO_FINALIZE_VALUE(ast_value_mutable);
-        WO_FINALIZE_VALUE(ast_value_type_cast);
-        WO_FINALIZE_VALUE(ast_value_type_judge);
-        WO_FINALIZE_VALUE(ast_value_type_check);
-        WO_FINALIZE_VALUE(ast_value_funccall);
-        WO_FINALIZE_VALUE(ast_value_logical_binary);
-        WO_FINALIZE_VALUE(ast_value_array);
-        WO_FINALIZE_VALUE(ast_value_mapping);
-        WO_FINALIZE_VALUE(ast_value_index);
-        WO_FINALIZE_VALUE(ast_value_packed_variadic_args);
-        WO_FINALIZE_VALUE(ast_value_indexed_variadic_args);
-        WO_FINALIZE_VALUE(ast_fakevalue_unpacked_args);
-        WO_FINALIZE_VALUE(ast_value_unary);
-        WO_FINALIZE_VALUE(ast_value_takeplace);
-        WO_FINALIZE_VALUE(ast_value_make_struct_instance);
-        WO_FINALIZE_VALUE(ast_value_make_tuple_instance);
-        WO_FINALIZE_VALUE(ast_value_trib_expr);
-        WO_FINALIZE_VALUE(ast_value_init);
-
-        m_global_pass_table->register_ignore_debug_info_table<ast_value_variable>();
-        m_global_pass_table->register_ignore_debug_info_table<ast_value_function_define>();
-
-#undef WO_PASS
-#undef WO_PASS0
-#undef WO_PASS1
-#undef WO_PASS2
+        WO_LANG_REGISTER_PROCESSER(AstList, AstBase::AST_LIST, pass0);
+        WO_LANG_REGISTER_PROCESSER(AstScope, AstBase::AST_SCOPE, pass0);
+        WO_LANG_REGISTER_PROCESSER(AstNamespace, AstBase::AST_NAMESPACE, pass0);
+        WO_LANG_REGISTER_PROCESSER(AstVariableDefines, AstBase::AST_VARIABLE_DEFINES, pass0);
+        WO_LANG_REGISTER_PROCESSER(AstVariableDefineItem, AstBase::AST_VARIABLE_DEFINE_ITEM, pass0);
+        WO_LANG_REGISTER_PROCESSER(AstAliasTypeDeclare, AstBase::AST_ALIAS_TYPE_DECLARE, pass0);
+        WO_LANG_REGISTER_PROCESSER(AstUsingTypeDeclare, AstBase::AST_USING_TYPE_DECLARE, pass0);
+        WO_LANG_REGISTER_PROCESSER(AstEnumDeclare, AstBase::AST_ENUM_DECLARE, pass0);
+        WO_LANG_REGISTER_PROCESSER(AstUnionDeclare, AstBase::AST_UNION_DECLARE, pass0);
+        WO_LANG_REGISTER_PROCESSER(AstUsingNamespace, AstBase::AST_USING_NAMESPACE, pass0);
     }
-    void lang::release_global_pass_table()
+
+#define WO_PASS_PROCESSER(AST) WO_PASS_PROCESSER_IMPL(AST, pass0)
+
+    WO_PASS_PROCESSER(AstList)
     {
-        wo_assert(m_global_pass_table != nullptr);
-        m_global_pass_table.reset();
+        if (state == UNPROCESSED)
+        {
+            WO_CONTINUE_PROCESS_LIST(node->m_list);
+
+            return HOLD;
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
     }
+    WO_PASS_PROCESSER(AstUsingNamespace)
+    {
+        wo_assert(state == UNPROCESSED);
+        using_namespace_declare_for_current_scope(node);
+
+        return OKAY;
+    }
+    WO_PASS_PROCESSER(AstScope)
+    {
+        if (state == UNPROCESSED)
+        {
+            wo_assert(!node->m_LANG_determined_scope);
+
+            begin_new_scope();
+            node->m_LANG_determined_scope = get_current_scope();
+
+            WO_CONTINUE_PROCESS(node->m_body);
+
+            return HOLD;
+        }
+        end_last_scope();
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstNamespace)
+    {
+        if (state == UNPROCESSED)
+        {
+            wo_assert(!node->m_LANG_determined_namespace);
+
+            if (!begin_new_namespace(node->m_name))
+            {
+                lex.lang_error(lexer::errorlevel::error, node, WO_ERR_CANNOT_START_NAMESPACE);
+                return FAILED;
+            }
+            node->m_LANG_determined_namespace = get_current_namespace();
+            WO_CONTINUE_PROCESS(node->m_body);
+
+            return HOLD;
+        }
+        end_last_scope();
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstVariableDefineItem)
+    {
+        wo_assert(state == UNPROCESSED);
+
+        if (!declare_pattern_symbol_pass0_1(
+            lex,
+            true,
+            node->m_LANG_declare_attribute,
+            node,
+            node->m_pattern,
+            node->m_init_value))
+            return FAILED;
+
+        return OKAY;
+    }
+    WO_PASS_PROCESSER(AstVariableDefines)
+    {
+        if (state == UNPROCESSED)
+        {
+            for (auto& defines : node->m_definitions)
+                defines->m_LANG_declare_attribute = node->m_attribute;
+
+            WO_CONTINUE_PROCESS_LIST(node->m_definitions);
+            return HOLD;
+        }
+
+        return WO_EXCEPT_ERROR(state, OKAY);
+        /*   success = success &&
+
+       return success ? OKAY : FAILED;*/
+    }
+    WO_PASS_PROCESSER(AstAliasTypeDeclare)
+    {
+        wo_assert(!node->m_LANG_declared_symbol);
+        if (node->m_template_parameters)
+            node->m_LANG_declared_symbol = define_symbol_in_current_scope(
+                node->m_typename,
+                node->m_attribute,
+                node,
+                node->source_location.source_file,
+                get_current_scope(),
+                node->m_type,
+                node->m_template_parameters.value(),
+                true);
+        else
+            node->m_LANG_declared_symbol = define_symbol_in_current_scope(
+                node->m_typename,
+                node->m_attribute,
+                node,
+                node->source_location.source_file,
+                get_current_scope(),
+                lang_Symbol::kind::ALIAS,
+                false);
+
+        if (!node->m_LANG_declared_symbol)
+        {
+            lex.lang_error(lexer::errorlevel::error, node, WO_ERR_REDEFINED, node->m_typename->c_str());
+            return FAILED;
+        }
+        else
+        {
+            node->m_LANG_declared_symbol.value()->m_is_global = true;
+        }
+        return OKAY;
+    }
+    WO_PASS_PROCESSER(AstUsingTypeDeclare)
+    {
+        wo_assert(state == UNPROCESSED);
+        wo_assert(!node->m_LANG_declared_symbol);
+
+        if (node->m_template_parameters)
+            node->m_LANG_declared_symbol = define_symbol_in_current_scope(
+                node->m_typename,
+                node->m_attribute,
+                node,
+                node->source_location.source_file,
+                get_current_scope(),
+                node->m_type,
+                node->m_template_parameters.value(),
+                false);
+        else
+            node->m_LANG_declared_symbol = define_symbol_in_current_scope(
+                node->m_typename,
+                node->m_attribute,
+                node,
+                node->source_location.source_file,
+                get_current_scope(),
+                lang_Symbol::kind::TYPE,
+                false);
+
+        if (!node->m_LANG_declared_symbol)
+        {
+            lex.lang_error(lexer::errorlevel::error, node, WO_ERR_REDEFINED, node->m_typename->c_str());
+            return FAILED;
+        }
+        else
+        {
+            node->m_LANG_declared_symbol.value()->m_is_global = true;
+        }
+
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstEnumDeclare)
+    {
+        if (state == UNPROCESSED)
+        {
+            WO_CONTINUE_PROCESS(node->m_enum_body);
+            WO_CONTINUE_PROCESS(node->m_enum_type_declare);
+            return HOLD;
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstUnionDeclare)
+    {
+        if (state == UNPROCESSED)
+        {
+            if (node->m_union_namespace.has_value())
+                WO_CONTINUE_PROCESS(node->m_union_namespace.value());
+
+            WO_CONTINUE_PROCESS(node->m_union_type_declare);
+            return HOLD;
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+
+#undef WO_PASS_PROCESSER
+
+    LangContext::pass_behavior LangContext::pass_0_process_scope_and_non_local_defination(
+        lexer& lex, const AstNodeWithState& node_state, PassProcessStackT& out_stack)
+    {
+        return m_pass0_processers->process_node(this, lex, node_state, out_stack);
+    }
+
+#endif
 }

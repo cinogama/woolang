@@ -3,6 +3,7 @@
 
 namespace wo
 {
+#ifndef WO_DISABLE_COMPILER
     std::set<grammar::te>& grammar::FIRST(const sym& _sym)
     {
         if (std::holds_alternative<te>(_sym))//_sym is te
@@ -238,7 +239,6 @@ namespace wo
         }
         P_TERMINAL_SET.insert(te(ttype::l_eof));
         //FIRST SET
-
 
         auto CALC_FIRST_SET_COUNT = [this] {
 
@@ -646,7 +646,7 @@ namespace wo
 
         // OK!
     }
-    ast::ast_base* grammar::gen(lexer& tkr) const
+    ast::AstBase* grammar::gen(lexer& tkr) const
     {
         size_t last_error_rowno = 0;
         size_t last_error_colno = 0;
@@ -696,8 +696,8 @@ namespace wo
                     : NOW_STACK_SYMBO());
 
             no_prospect_action actions, e_actions;
-            LR1_TABLE_READ(NOW_STACK_STATE(), top_symbo, &actions);// .at().at();
-            LR1_TABLE_READ(NOW_STACK_STATE(), te_lempty_index, &e_actions);// LR1_TABLE.at(NOW_STACK_STATE()).at();
+            LR1_TABLE_READ(NOW_STACK_STATE(), top_symbo, &actions);
+            LR1_TABLE_READ(NOW_STACK_STATE(), te_lempty_index, &e_actions);
 
             if (actions.act != action::act_type::error || e_actions.act != action::act_type::error)
             {
@@ -764,27 +764,26 @@ namespace wo
 
                             if (!srcinfo_bnodes.empty())
                             {
-                                ast_node_->row_end_no = tkr.now_file_rowno;
-                                ast_node_->col_end_no = tkr.now_file_colno;
-                                ast_node_->row_begin_no = srcinfo_bnodes.front().row_no;
-                                ast_node_->col_begin_no = srcinfo_bnodes.front().col_no;
+                                ast_node_->source_location.begin_at = 
+                                    ast::AstBase::location_t{ srcinfo_bnodes.front().row_no,srcinfo_bnodes.front().col_no };
+                                ast_node_->source_location.end_at = 
+                                    ast::AstBase::location_t{ tkr.now_file_rowno,tkr.now_file_colno };
                             }
                             else
                             {
-                                ast_node_->row_end_no = tkr.after_pick_next_file_rowno;
-                                ast_node_->col_end_no = tkr.after_pick_next_file_colno;
-                                ast_node_->row_begin_no = tkr.after_pick_next_file_rowno;
-                                ast_node_->col_begin_no = tkr.after_pick_next_file_colno;
+                                ast_node_->source_location.begin_at = 
+                                    ast::AstBase::location_t{ tkr.after_pick_next_file_rowno,tkr.after_pick_next_file_colno };
+                                ast_node_->source_location.end_at = 
+                                    ast_node_->source_location.begin_at;
                             }
 
-                            ast_node_->source_file = tkr.source_file;
+                            ast_node_->source_location.source_file = tkr.source_file;
                         }
                         node_stack.push(std::make_pair(srcinfo_bnodes.front(), astnode));
                     }
                 }
                 else if (take_action.act == grammar::action::act_type::accept)
                 {
-                    //std::wcout << "acc!" << std::endl;
                     if (!tkr.lex_error_list.empty())
                         return nullptr;
 
@@ -792,10 +791,7 @@ namespace wo
                     if (node.is_ast())
                     {
                         // Append imported ast node front of specify ast-node;
-                        auto* ast_result = node.read_ast();
-                        tkr.merge_imported_script_trees(ast_result);
-
-                        return ast_result;
+                        return tkr.merge_imported_script_trees(node.read_ast());
                     }
                     else
                     {
@@ -982,30 +978,26 @@ namespace wo
         return ost;
     }
 
-    void lexer::merge_imported_script_trees(ast::ast_base* node)
+    ast::AstBase* lexer::merge_imported_script_trees(ast::AstBase* node)
     {
         wo_assert(node != nullptr);
 
         if (!imported_ast.empty())
         {
-            // MERGE IMPORTED AST!
-            auto* origin_last = node->last;
-            auto* origin_childs = node->children;
-
-            node->remove_all_childs();
-
-            // APPEND IMPORTED AST AT THE BEGIN.
+            auto* merged_list = new ast::AstList();
+            
             for (auto* imported_ast : imported_ast)
-                node->add_child(imported_ast);
-
-            // MERGE! FINISH!
-            if (origin_childs != nullptr)
             {
-                wo_assert(origin_last != nullptr);
+                merged_list->m_list.push_back(imported_ast);
 
-                imported_ast.back()->sibling = origin_childs;
-                node->last = origin_last;
+                // NOTE: Generate an `nop` for debug info gen, avoid ip/cr conflict
+                merged_list->m_list.push_back(new ast::AstNop());
             }
+            merged_list->m_list.push_back(node);
+
+            return merged_list;
         }
+        return node;
     }
+#endif
 }

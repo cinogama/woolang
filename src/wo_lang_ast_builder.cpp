@@ -1,1329 +1,40 @@
 #include "wo_lang_ast_builder.hpp"
+#include "wo_lang_grammar_loader.hpp"
+#include <tuple>
 
 namespace wo
 {
     namespace ast
     {
-        ast_value* dude_dump_ast_value(ast_value* dude)
+        auto pass_mark_label::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
-            if (dude)
-                return dynamic_cast<ast_value*>(dude->instance());
-            return nullptr;
-        }
-        ast_type* dude_dump_ast_type(ast_type* dude)
-        {
-            if (dude)
-                return dynamic_cast<ast_type*>(dude->instance());
-            return nullptr;
-        }
-        ////////////////////////////////////////////////////////////////////
-        std::wstring ast_symbolable_base::get_namespace_chain() const
-        {
-            std::wstring result = L"";
-            if (search_from_global_namespace)
-                result += L"::";
-            else if (searching_from_type != nullptr)
-                result += L"typeof(..)::";
-
-            for (auto* name : this->scope_namespaces)
-                result += *name + L"::";
-
-            return result;
-        }
-        std::string ast_symbolable_base::get_full_namespace_chain_after_pass1() const
-        {
-            return get_belong_namespace_path_with_lang_scope(searching_begin_namespace_in_pass2);
-        }
-        ast::ast_base* ast_symbolable_base::instance(ast_base* child_instance) const
-        {
-            using astnode_type = decltype(MAKE_INSTANCE(this));
-            auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
-            if (!child_instance) *dumm = *this;
-            // ast_base::instance(dumm);
-
-            // Write self copy functions here..
-            dumm->searching_from_type = dude_dump_ast_type(searching_from_type);
-            dumm->symbol = nullptr;
-            dumm->searching_begin_namespace_in_pass2 = nullptr;
-
-            return dumm;
-        }
-        ast::ast_base* ast_varref_defines::instance(ast_base* child_instance) const
-        {
-            using astnode_type = decltype(MAKE_INSTANCE(this));
-            auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
-            if (!child_instance) *dumm = *this;
-            ast_defines::instance(dumm);
-            // Write self copy functions here..
-
-            for (auto& varref : dumm->var_refs)
-            {
-                WO_REINSTANCE(varref.pattern);
-                WO_REINSTANCE(varref.init_val);
-            }
-
-            return dumm;
-        }
-        //////////////////////////////////////////
-
-        ast_type::ast_type(wo_pstring_t _type_name)
-        {
-            set_type_with_name(_type_name);
-        }
-        wo_pstring_t ast_type::get_name_from_type(value::valuetype _type)
-        {
-            if (_type == value::valuetype::invalid)
-                return WO_PSTR(nil);
-
-            for (auto& [tname, vtype] : name_type_pair)
-                if (vtype == _type)
-                    return tname;
-
-            return WO_PSTR(pending);
-        }
-        value::valuetype ast_type::get_type_from_name(wo_pstring_t name)
-        {
-            if (name_type_pair.find(name) != name_type_pair.end())
-                return name_type_pair.at(name);
-            return value::valuetype::invalid;
-        }
-        bool ast_type::check_castable(ast_type* to, ast_type* from)
-        {
-            // MUST BE FORCE CAST HERE!
-            if (from->is_pending() || to->is_pending())
-                return false;
-
-            // Any type can cast to void;
-            if (to->is_void())
-                return true;
-
-            // Cannot cast void to any other type.
-            if (from->is_void())
-                return false;
-
-            if (to->is_dynamic())
-                return true;
-
-            if (from->is_dynamic())
-            {
-                // Not allowed cast template type from dynamic
-                // In fact, cast func from dynamic is dangerous too...
-                if (!to->is_pure_base_type() || to->is_nothing())
-                    return false;
-                return true;
-            }
-
-            // ISSUE-16: using type is create a new type based on old-type, impl-cast from base-type & using-type is invalid.
-            if (to->accept_type(from, true, false))
-                return true;
-
-            if (to->value_type == value::valuetype::string_type
-                && to->using_type_name == nullptr)
-                return true;
-
-            if (to->value_type == value::valuetype::integer_type
-                || to->value_type == value::valuetype::real_type
-                || to->value_type == value::valuetype::handle_type
-                || to->value_type == value::valuetype::string_type
-                || to->value_type == value::valuetype::bool_type)
-            {
-                if (from->value_type == value::valuetype::integer_type
-                    || from->value_type == value::valuetype::real_type
-                    || from->value_type == value::valuetype::handle_type
-                    || from->value_type == value::valuetype::string_type)
-                {
-                    return to->using_type_name == nullptr
-                        && from->using_type_name == nullptr;
-                }
-            }
-            return false;
-        }
-        bool ast_type::is_custom_type(wo_pstring_t name)
-        {
-            if (name_type_pair.find(name) != name_type_pair.end())
-                return false;
-            return true;
-        }
-        void ast_type::set_type_with_name(wo_pstring_t _type_name)
-        {
-            function_ret_type = nullptr;
-            type_name = _type_name;
-            value_type = get_type_from_name(_type_name);
-            using_type_name = nullptr;
-            is_non_update_custom_type = _type_name == WO_PSTR(pending); // reset state;
-
-            template_arguments.clear();
-
-            if (is_custom_type(_type_name))
-                is_non_update_custom_type = true;
-        }
-        void ast_type::set_type(const ast_type* _type)
-        {
-            // Skip!
-            if (this == _type)
-                return;
-
-            *this = *_type;
-            _type->instance_impl(this, false);
-        }
-        void ast_type::set_type_with_constant_value(const value& _val)
-        {
-            type_name = get_name_from_type(_val.type);
-            value_type = _val.type;
-            is_non_update_custom_type = false;
-        }
-        void ast_type::set_ret_type(const ast_type* _type)
-        {
-            type_name = WO_PSTR(function);
-
-            if (function_ret_type == nullptr)
-                function_ret_type = new ast_type(WO_PSTR(pending));
-
-            function_ret_type->set_type(_type);
-
-            is_non_update_custom_type = false; // reset state;
-            value_type = value::valuetype::invalid;
-            template_arguments.clear();
-        }
-
-        ast_type* ast_type::get_return_type() const
-        {
-            wo_assert(is_function());
-            return function_ret_type;
-        }
-        void ast_type::append_function_argument_type(ast_type* arg_type)
-        {
-            argument_types.push_back(arg_type);
-        }
-        void ast_type::set_as_variadic_arg_func()
-        {
-            is_variadic_function_type = true;
-        }
-        bool ast_type::has_typeof() const
-        {
-            if (typefrom != nullptr)
-                return true;
-
-            if (has_template())
-                for (auto* t : template_arguments)
-                    if (t->has_typeof())
-                        return true;
-            if (is_struct() && using_type_name == nullptr)
-                for (auto& [_, memberinfo] : struct_member_index)
-                {
-                    if (memberinfo.member_type->has_typeof())
-                        return true;
-                }
-            else if (is_function())
-            {
-                for (auto arg_type : argument_types)
-                {
-                    if (arg_type->has_typeof())
-                        return true;
-                }
-                return function_ret_type->has_typeof();                     
-            }
-            return false;
-        }
-
-        bool ast_type::is_mutable() const
-        {
-            return is_mutable_type;
-        }
-        void ast_type::set_is_force_immutable()
-        {
-            set_is_mutable(false);
-            is_force_immutable_type = true;
-        }
-        bool ast_type::is_force_immutable() const
-        {
-            return is_force_immutable_type;
-        }
-        bool ast_type::is_dynamic() const
-        {
-            return !is_function() && type_name == WO_PSTR(dynamic);
-        }
-
-        bool ast_type::is_custom() const
-        {
-            return is_custom_type(type_name);
-        }
-
-        bool ast_type::has_custom() const
-        {
-            if (has_template())
-            {
-                for (auto arg_type : template_arguments)
-                {
-                    if (arg_type->has_custom())
-                        return true;
-                }
-            }
-            // NOTE: Only anonymous structs need this check
-            if (is_struct() && using_type_name == nullptr)
-            {
-                for (auto& [_, memberinfo] : struct_member_index)
-                {
-                    if (memberinfo.member_type->has_custom())
-                        return true;
-                }
-            }
-            else if (is_function())
-            {
-                for (auto arg_type : argument_types)
-                {
-                    if (arg_type->has_custom())
-                        return true;
-                }
-                return function_ret_type->has_custom();
-            }
-            return is_custom_type(type_name) || (is_pending() && typefrom != nullptr);
-        }
-
-        bool ast_type::is_pure_pending() const
-        {
-            return type_name == WO_PSTR(pending) && typefrom == nullptr;
-        }
-        bool ast_type::is_pending() const
-        {
-            if (is_non_update_custom_type)
-                return true;
-
-            if (is_hkt_typing())
-                return false;
-
-            if (has_template())
-            {
-                for (auto arg_type : template_arguments)
-                {
-                    if (arg_type->is_pending())
-                        return true;
-                }
-            }
-            else if (value_type == value::valuetype::array_type
-                || value_type == value::valuetype::dict_type)
-                return true;
-
-            // NOTE: Only anonymous structs need this check
-            if (is_struct() && using_type_name == nullptr)
-            {
-                for (auto& [_, memberinfo] : struct_member_index)
-                {
-                    if (memberinfo.member_type->is_pending())
-                        return true;
-                }
-            }
-
-            bool base_type_pending;
-            if (is_function())
-            {
-                for (auto arg_type : argument_types)
-                {
-                    if (arg_type->is_pending())
-                        return true;
-                }
-                base_type_pending = function_ret_type->is_pending();
-            }
-            else
-                base_type_pending = type_name == WO_PSTR(pending);
-
-            return base_type_pending;
-        }
-        bool ast_type::may_need_update() const
-        {
-            if (is_non_update_custom_type)
-                return true;
-
-            if (has_template())
-            {
-                for (auto arg_type : template_arguments)
-                {
-                    if (arg_type->may_need_update())
-                        return true;
-                }
-            }
-            // NOTE: Only anonymous structs need this check
-            if (is_struct() && using_type_name == nullptr)
-            {
-                for (auto& [_, memberinfo] : struct_member_index)
-                {
-                    if (memberinfo.member_type->may_need_update())
-                        return true;
-                }
-            }
-
-            bool base_type_pending;
-            if (is_function())
-            {
-                for (auto arg_type : argument_types)
-                {
-                    if (arg_type->may_need_update())
-                        return true;
-                }
-                base_type_pending = function_ret_type->may_need_update();
-            }
-            else
-                base_type_pending = type_name == WO_PSTR(pending);
-
-            return base_type_pending;
-        }
-        bool ast_type::is_pending_function() const
-        {
-            if (is_function())
-                return is_pending();
-            return false;
-        }
-        bool ast_type::is_void() const
-        {
-            return type_name == WO_PSTR(void);
-        }
-        bool ast_type::is_nil() const
-        {
-            return type_name == WO_PSTR(nil);
-        }
-        bool ast_type::is_gc_type() const
-        {
-            return value_type & value::valuetype::need_gc_flag;
-        }
-        bool ast_type::is_like(
-            const ast_type* another, 
-            const std::vector<wo_pstring_t>& termplate_set, 
-            ast_type** out_para,
-            ast_type** out_args)const
-        {
-            // Only used after pass1
-            auto* this_origin_type = this->using_type_name ? this->using_type_name : this;
-            auto* another_origin_type = another->using_type_name ? another->using_type_name : another;
-            if (this_origin_type->is_function() != another_origin_type->is_function()
-                || this_origin_type->is_variadic_function_type != another_origin_type->is_variadic_function_type
-                || this_origin_type->template_arguments.size() != another_origin_type->template_arguments.size()
-                || this_origin_type->argument_types.size() != another_origin_type->argument_types.size())
-                return false;
-
-            if ((using_type_name == nullptr && another->using_type_name)
-                || (using_type_name && another->using_type_name == nullptr))
-            {
-                const ast_type* chtype = another->is_function() ? another->get_return_type() : another;
-                if (using_type_name && using_type_name->is_like(chtype, termplate_set))
-                {
-                    if (out_para)*out_para = dynamic_cast<ast_type*>(using_type_name->instance());
-                    if (out_args)*out_args = const_cast<ast_type*>(chtype);
-                    return true;
-                }
-                chtype = is_function() ? get_return_type() : this;
-                if (another->using_type_name && chtype->is_like(another->using_type_name, termplate_set))
-                {
-                    if (out_para)*out_para = const_cast<ast_type*>(chtype);
-                    if (out_args)*out_args = dynamic_cast<ast_type*>(another->using_type_name->instance());
-                    return true;
-                }
-                return false;
-            }
-
-            if (using_type_name)
-            {
-                if (find_type_in_this_scope(using_type_name) != find_type_in_this_scope(another->using_type_name))
-                    return false;
-            }
-            else
-            {
-                if (std::find(termplate_set.begin(), termplate_set.end(), type_name) != termplate_set.end()
-                    || std::find(termplate_set.begin(), termplate_set.end(), type_name) != termplate_set.end())
-                {
-                    // Do nothing
-                }
-                else if (value_type != another->value_type
-                    || type_name != another->type_name)
-                    return false;
-                else if (is_struct())
-                {
-                    wo_assert(another->is_struct());
-                    if (struct_member_index.size() != another->struct_member_index.size())
-                        return false;
-
-                    for (auto& [memname, memberinfo] : struct_member_index)
-                    {
-                        auto fnd = another->struct_member_index.find(memname);
-                        if (fnd == another->struct_member_index.end())
-                            return false;
-
-                        if (memberinfo.offset != fnd->second.offset)
-                            return false;
-
-                        if (!memberinfo.member_type->is_like(fnd->second.member_type, termplate_set))
-                            return false;
-                    }
-                }
-            }
-
-            bool prefix_modified = false;
-            if (is_mutable())
-            {
-                prefix_modified = true;
-                if (!another->is_mutable())
-                    return false;
-
-                if (out_para)
-                {
-                    *out_para = dynamic_cast<ast_type*>(this->instance());
-                    (**out_para).set_is_mutable(false);
-                }
-                if (out_args)
-                {
-                    *out_args = dynamic_cast<ast_type*>(another->instance());
-                    (**out_args).set_is_mutable(false);
-                }
-            }
-
-            if (!prefix_modified)
-            {
-                if (out_para)*out_para = const_cast<ast_type*>(this);
-                if (out_args)*out_args = const_cast<ast_type*>(another);
-            }
-            return true;
-        }
-        bool ast_type::is_builtin_basic_type()
-        {
-            if (is_custom() || using_type_name)
-                return false;
-            return true;
-        }
-
-        bool ast_type::set_mix_types(ast_type* another, bool ignore_mutable)
-        {
-            if (is_pending() || another->is_pending())
-                return false;
-
-            if (is_same(another, ignore_mutable))
-                return true;
-
-            if (accept_type(another, false, ignore_mutable))
-            {
-                wo_assert(!another->accept_type(this, false, ignore_mutable));
-                this->set_type(this);
-                return true;
-            }
-            if (another->accept_type(this, false, ignore_mutable))
-            {
-                wo_assert(!accept_type(another, false, ignore_mutable));
-                this->set_type(another);
-                return true;
-            }
-
-            // 2. fast mix check failed, do full check
-
-            if (is_pending_function() || another->is_pending_function())
-                return false;
-
-            if (is_pending() || another->is_pending())
-                return false;
-
-            if (another->is_nothing())
-            {
-                this->set_type(this);
-                return true;
-            }
-            if (is_nothing())
-            {
-                this->set_type(another);
-                return true;
-            }
-
-            if (is_mutable() != another->is_mutable())
-                return false;
-
-            // Might HKT
-            if (is_hkt_typing() && another->is_hkt_typing())
-            {
-                if (base_typedef_symbol(symbol) == base_typedef_symbol(another->symbol))
-                {
-                    this->set_type(this);
-                    return true;
-                }
-                return false;
-            }
-
-            if (is_function())
-            {
-                if (!another->is_function())
-                    return false;
-
-                if (argument_types.size() != another->argument_types.size())
-                    return false;
-                for (size_t index = 0; index < argument_types.size(); index++)
-                {
-                    // Woolang 1.12.6: Argument types of functions are no longer covariant but
-                    //                  invariant during associating and receiving
-                    if (!argument_types[index]->is_same(another->argument_types[index], true))
-                        return false;
-                }
-                if (is_variadic_function_type != another->is_variadic_function_type)
-                    return false;
-
-                if (!function_ret_type->set_mix_types(another->function_ret_type, false))
-                    return false;
-            }
-            else if (another->is_function())
-                return false;
-            else// if (!is_function() && !another->is_function())
-            {
-                if (type_name != another->type_name)
-                    return false;
-
-                wo_assert(!is_non_update_custom_type);
-            }
-
-            if (using_type_name || another->using_type_name)
-            {
-                if (!using_type_name || !another->using_type_name)
-                    return false;
-
-                if (find_type_in_this_scope(using_type_name) != find_type_in_this_scope(another->using_type_name))
-                    return false;
-
-                if (using_type_name->template_arguments.size() != another->using_type_name->template_arguments.size())
-                    return false;
-
-                for (size_t i = 0; i < using_type_name->template_arguments.size(); ++i)
-                    if (!using_type_name->template_arguments[i]->set_mix_types(another->using_type_name->template_arguments[i], false))
-                        return false;
-            }
-            else if (is_struct() && another->is_struct())
-            {
-                if (struct_member_index.size() != another->struct_member_index.size())
-                    return false;
-
-                for (auto& [memname, memberinfo] : struct_member_index)
-                {
-                    auto fnd = another->struct_member_index.find(memname);
-                    if (fnd == another->struct_member_index.end())
-                        return false;
-
-                    if (memberinfo.offset != fnd->second.offset)
-                        return false;
-
-                    if (!memberinfo.member_type->set_mix_types(fnd->second.member_type, false))
-                        return false;
-                }
-            }
-            if (has_template())
-            {
-                if (template_arguments.size() != another->template_arguments.size())
-                    return false;
-                for (size_t index = 0; index < template_arguments.size(); index++)
-                {
-                    if (!template_arguments[index]->set_mix_types(another->template_arguments[index], false))
-                        return false;
-                }
-            }
-            this->is_non_update_custom_type = false;
-            return true;
-        }
-
-        bool ast_type::is_bool() const
-        {
-            return value_type == value::valuetype::bool_type;
-        }
-        bool ast_type::is_char() const
-        {
-            return type_name == WO_PSTR(char) || (using_type_name && using_type_name->type_name == WO_PSTR(char));
-        }
-        bool ast_type::is_builtin_using_type() const
-        {
-            return is_char();
-        }
-        bool ast_type::is_union() const
-        {
-            return type_name == WO_PSTR(union);
-        }
-        bool ast_type::is_tuple() const
-        {
-            return type_name == WO_PSTR(tuple);
-        }
-        bool ast_type::is_nothing() const
-        {
-            return type_name == WO_PSTR(nothing);
-        }
-        bool ast_type::is_struct() const
-        {
-            return type_name == WO_PSTR(struct);
-        }
-        bool ast_type::has_template() const
-        {
-            return !template_arguments.empty();
-        }
-        bool ast_type::is_function() const
-        {
-            if (function_ret_type != nullptr)
-            {
-                wo_assert(type_name == WO_PSTR(function));
-                return true;
-            }
-            return false;
-        }
-        bool ast_type::is_string() const
-        {
-            return value_type == value::valuetype::string_type;
-        }
-        bool ast_type::is_waiting_create_template_for_auto() const
-        {
-            return type_name == WO_PSTR(auto);
-        }
-        bool ast_type::is_pure_base_type() const
-        {
-            if (using_type_name != nullptr
-                || is_function()
-                || is_union()
-                || is_struct()
-                || is_tuple()
-                || is_vec()
-                || is_map())
-                return false;
-
-            if (is_array() || is_dict())
-            {
-                for (auto* temp : template_arguments)
-                {
-                    if (!temp->is_dynamic())
-                        return false;
-                }
-                return true;
-            }
-
-            return false == has_template();
-        }
-        bool ast_type::is_array() const
-        {
-            return value_type == value::valuetype::array_type &&
-                (type_name == WO_PSTR(array) || (using_type_name && using_type_name->type_name == WO_PSTR(array)));
-        }
-        bool ast_type::is_dict() const
-        {
-            return value_type == value::valuetype::dict_type &&
-                (type_name == WO_PSTR(dict) || (using_type_name && using_type_name->type_name == WO_PSTR(dict)));
-        }
-        bool ast_type::is_vec() const
-        {
-            return value_type == value::valuetype::array_type &&
-                (type_name == WO_PSTR(vec) || (using_type_name && using_type_name->type_name == WO_PSTR(vec)));
-        }
-        bool ast_type::is_map() const
-        {
-            return value_type == value::valuetype::dict_type &&
-                (type_name == WO_PSTR(map) || (using_type_name && using_type_name->type_name == WO_PSTR(map)));
-        }
-        bool ast_type::is_integer() const
-        {
-            return value_type == value::valuetype::integer_type;
-        }
-        bool ast_type::is_real() const
-        {
-            return value_type == value::valuetype::real_type;
-        }
-        bool ast_type::is_handle() const
-        {
-            return value_type == value::valuetype::handle_type;
-        }
-        bool ast_type::is_gchandle() const
-        {
-            return value_type == value::valuetype::gchandle_type;
-        }
-        void ast_type::set_is_mutable(bool is_mutable)
-        {
-            if (is_mutable)
-                is_force_immutable_type = false;
-
-            is_mutable_type = is_mutable;
-            if (using_type_name && using_type_name->is_mutable() != is_mutable)
-                using_type_name->is_mutable_type = is_mutable;
-        }
-        ast::ast_base* ast_type::instance_impl(ast_base* child_instance, bool clone_raw_struct_member) const
-        {
-            using astnode_type = decltype(MAKE_INSTANCE(this));
-            auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this, WO_PSTR(pending));
-            if (!child_instance) *dumm = *this;
-            ast_symbolable_base::instance(dumm);
-
-            // Write self copy functions here..
-            dumm->symbol = symbol;
-            dumm->searching_begin_namespace_in_pass2 = searching_begin_namespace_in_pass2;
-
-            if (dumm->typefrom != nullptr && dumm->typefrom->completed_in_pass1 == false)
-                // If 'dumm->typefrom' passed pass1, no need to clone them.
-                dumm->typefrom = dude_dump_ast_value(dumm->typefrom);
-
-            WO_REINSTANCE(dumm->function_ret_type);
-
-            for (auto& argtype : dumm->argument_types)
-            {
-                WO_REINSTANCE(argtype);
-            }
-            for (auto& argtype : dumm->template_arguments)
-            {
-                WO_REINSTANCE(argtype);
-            }
-            if (clone_raw_struct_member && (is_union() || is_struct()) && using_type_name == nullptr)
-            {
-                for (auto& [_, member_info] : dumm->struct_member_index)
-                {
-                    WO_REINSTANCE(member_info.member_type);
-                }
-            }
-
-            WO_REINSTANCE(dumm->using_type_name);
-            return dumm;
-        }
-        ast::ast_base* ast_type::instance(ast_base* child_instance) const
-        {
-            return instance_impl(child_instance, true);
-        }
-        //////////////////////////////////////////
-
-        ast_value::~ast_value()
-        {
-            if (constant_value.type == value::valuetype::string_type)
-            {
-                delete constant_value.string;
-            }
-        }
-        ast_value::ast_value(ast_type* type)
-            : value_type(type)
-        {
-            wo_assert(type != nullptr);
-        }
-        wo::value& ast_value::get_constant_value()
-        {
-            if (!this->is_constant)
-                wo_error("This value is not a constant.");
-
-            return constant_value;
-        };
-        void  ast_value::update_constant_value(lexer* lex)
-        {
-            wo_error("ast_value cannot update_constant_value.");
-        }
-        ast::ast_base* ast_value::instance(ast_base* child_instance) const
-        {
-            wo_assert(child_instance != nullptr);
-            // ast_value is abstract class, will not make instance here.
-
-            auto* dumm = dynamic_cast<ast_value*>(child_instance);
-
-            // Write self copy functions here..
-            if (constant_value.type == value::valuetype::string_type)
-                dumm->constant_value.set_string_nogc(*constant_value.string);
-            WO_REINSTANCE(dumm->value_type);
-
-            return dumm;
-        }
-
-        //////////////////////////////////////////
-
-        void ast_value_literal::update_constant_value(lexer* lex)
-        {
-            // do nothing
-        }
-
-        wo_handle_t ast_value_literal::wstr_to_handle(const std::wstring& str)
-        {
-            wo_handle_t base = 10;
-            wo_handle_t sum = 0;
-
-            const wchar_t* wstr = str.c_str();
-
-            bool neg = false;
-            if (wstr[0] == L'-')
-            {
-                neg = true, ++wstr;
-            }
-            else if (wstr[0] == L'+')
-                ++wstr;
-
-            if (wstr[0] == L'0')
-            {
-                if (wstr[1] == 0)
-                    return 0;
-                else if (lexer::lex_toupper(wstr[1]) == L'X')
-                {
-                    base = 16;
-                    wstr = wstr + 2;
-                }
-                else if (lexer::lex_toupper(wstr[1]) == L'B')
-                {
-                    base = 2;
-                    wstr = wstr + 2;
-                }
-                else
-                {
-                    base = 8;
-                    wstr++;
-                }
-            }
-
-            while (*wstr)
-            {
-                if (*wstr == L'H' || *wstr == L'h')
-                    break;
-                sum = base * sum + lexer::lex_hextonum(*wstr);
-                ++wstr;
-            }
-            if (neg)
-                return (wo_handle_t)(-(wo_integer_t)sum);
-            return sum;
-        }
-        wo_integer_t ast_value_literal::wstr_to_integer(const std::wstring& str)
-        {
-            wo_integer_t base = 10;
-            wo_integer_t sum = 0;
-            const wchar_t* wstr = str.c_str();
-
-            bool neg = false;
-            if (wstr[0] == L'-')
-            {
-                neg = true, ++wstr;
-            }
-            else if (wstr[0] == L'+')
-                ++wstr;
-
-            if (wstr[0] == L'0')
-            {
-                if (wstr[1] == 0)
-                    return 0;
-                else if (lexer::lex_toupper(wstr[1]) == L'X')
-                {
-                    base = 16;
-                    wstr = wstr + 2;
-                }
-                else if (lexer::lex_toupper(wstr[1]) == L'B')
-                {
-                    base = 2;
-                    wstr = wstr + 2;
-                }
-                else
-                {
-                    base = 8;
-                    wstr++;
-                }
-            }
-
-            while (*wstr)
-            {
-                sum = base * sum + lexer::lex_hextonum(*wstr);
-                ++wstr;
-            }
-            if (neg)
-                return -sum;
-            return sum;
-        }
-        wo_real_t ast_value_literal::wstr_to_real(const std::wstring& str)
-        {
-            return (wo_real_t)std::stold(str);
-        }
-
-        ast_value_literal::ast_value_literal()
-            : ast_value(new ast_type(WO_PSTR(nil)))
-        {
-            is_constant = true;
-            constant_value.set_nil();
-        }
-
-        ast_value_literal::ast_value_literal(const token& te)
-            : ast_value(new ast_type(WO_PSTR(pending)))
-        {
-            is_constant = true;
-
-            switch (te.type)
-            {
-            case lex_type::l_literal_handle:
-                constant_value.set_handle(wstr_to_handle(te.identifier));
-                break;
-            case lex_type::l_literal_integer:
-                constant_value.set_integer(wstr_to_integer(te.identifier));
-                break;
-            case lex_type::l_literal_real:
-                constant_value.set_real(wstr_to_real(te.identifier));
-                break;
-            case lex_type::l_literal_string:
-            case lex_type::l_format_string_begin:
-            case lex_type::l_format_string:
-            case lex_type::l_format_string_end:
-            case lex_type::l_identifier: // Special for xxx.index
-                constant_value.set_string_nogc(wstrn_to_str(te.identifier));
-                break;
-            case lex_type::l_literal_char:
-                wo_assert(te.identifier.size() == 1);
-                constant_value.set_integer((wo_integer_t)(wo_handle_t)te.identifier[0]);
-                break;
-            case lex_type::l_nil:
-                constant_value.set_nil();
-                break;
-            case lex_type::l_true:
-                constant_value.set_bool(true);
-                break;
-            case lex_type::l_false:
-                constant_value.set_bool(false);
-                break;
-            default:
-                wo_error("Unexcepted literal type.");
-                break;
-            }
-            if (te.type == lex_type::l_literal_char)
-                value_type->set_type_with_name(WO_PSTR(char));
-            else
-                value_type->set_type_with_constant_value(constant_value);
-        }
-
-        ast::ast_base* ast_value_literal::instance(ast_base* child_instance) const
-        {
-            using astnode_type = decltype(MAKE_INSTANCE(this));
-            auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
-            if (!child_instance) *dumm = *this;
-            ast_value::instance(dumm);
-
-            // Write self copy functions here..
-            return dumm;
-        }
-
-        //////////////////////////////////////////
-
-        ast_value_type_cast::ast_value_type_cast(ast_value* value, ast_type* target_type)
-            : ast_value(target_type)
-        {
-            is_constant = false;
-            _be_cast_value_node = value;
-        }
-
-        ast_value_type_cast::ast_value_type_cast() :ast_value(new ast_type(WO_PSTR(pending)))
-        {
-        }
-        ast::ast_base* ast_value_type_cast::instance(ast_base* child_instance) const
-        {
-            using astnode_type = decltype(MAKE_INSTANCE(this));
-            auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
-            if (!child_instance) *dumm = *this;
-            ast_value::instance(dumm);
-
-            // Write self copy functions here..
-            WO_REINSTANCE(dumm->_be_cast_value_node);
-
-            return dumm;
-        }
-
-        void ast_value_type_cast::update_constant_value(lexer* lex)
-        {
-            if (is_constant)
-                return;
-
-            _be_cast_value_node->eval_constant_value(lex);
-
-            if (!_be_cast_value_node->value_type->is_pending() && !value_type->is_pending())
-            {
-                if (_be_cast_value_node->is_constant)
-                {
-                    // just cast the value!
-                    value& last_value = _be_cast_value_node->get_constant_value();
-
-                    value::valuetype aim_real_type = value_type->value_type;
-
-                    if (value_type->is_dynamic())
-                        aim_real_type = last_value.type;
-
-                    is_constant = true;
-
-                    if (last_value.type == aim_real_type || value_type->is_void())
-                        constant_value.set_val_compile_time(&last_value);
-                    else if (last_value.type == value::valuetype::invalid)
-                        is_constant = false; // Cannot cast nil to other type.
-                    else
-                    {
-                        switch (aim_real_type)
-                        {
-                        case value::valuetype::real_type:
-                            constant_value.set_real(wo_cast_real((wo_value)&last_value));
-                            break;
-                        case value::valuetype::integer_type:
-                            constant_value.set_integer(wo_cast_int((wo_value)&last_value));
-                            break;
-                        case value::valuetype::string_type:
-                            constant_value.set_string_nogc(wo_cast_string((wo_value)&last_value));
-                            break;
-                        case value::valuetype::handle_type:
-                            constant_value.set_handle(wo_cast_handle((wo_value)&last_value));
-                            break;
-                        case value::valuetype::bool_type:
-                            constant_value.set_bool(wo_cast_bool((wo_value)&last_value));
-                            break;
-                        default:
-                            is_constant = false;
-                            break;
-                        }
-                    }
-                    // end of match
-                }
-            }
-        }
-
-        //////////////////////////////////////////
-
-        ast_value_type_judge::ast_value_type_judge(ast_value* value, ast_type* type)
-            : ast_value(type)
-        {
-            _be_cast_value_node = value;
-            value_type = type;
-        }
-        ast_value_type_judge::ast_value_type_judge() : ast_value(new ast_type(WO_PSTR(pending))) {}
-        ast::ast_base* ast_value_type_judge::instance(ast_base* child_instance) const
-        {
-            using astnode_type = decltype(MAKE_INSTANCE(this));
-            auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
-            if (!child_instance) *dumm = *this;
-            ast_value::instance(dumm);
-
-            // Write self copy functions here..
-            WO_REINSTANCE(dumm->_be_cast_value_node);
-
-            return dumm;
-        }
-
-        void ast_value_type_judge::update_constant_value(lexer* lex)
-        {
-            // do nothing
-            if (is_constant)
-                return;
-
-            _be_cast_value_node->eval_constant_value(lex);
-            if (!_be_cast_value_node->value_type->is_pending() && _be_cast_value_node->is_constant)
-            {
-                if (value_type->accept_type(_be_cast_value_node->value_type, false, true))
-                {
-                    constant_value.set_val_compile_time(&_be_cast_value_node->get_constant_value());
-                    is_constant = true;
-                }
-            }
-        }
-
-        //////////////////////////////////////////
-        void ast_decl_attribute::varify_attributes(lexer* lex) const
-        {
-            // 1) Check if public, protected or private at same time
-            lex_type has_describe = lex_type::l_error;
-            for (auto att : attributes)
-            {
-                if (att == lex_type::l_public || att == lex_type::l_private || att == lex_type::l_protected)
-                {
-                    if (has_describe != lex_type::l_error)
-                    {
-                        lex->parser_error(lexer::errorlevel::error, WO_ERR_CANNOT_DECL_PUB_PRI_PRO_SAME_TIME);
-                        break;
-                    }
-                    has_describe = att;
-                }
-            }
-        }
-        void ast_decl_attribute::add_attribute(lexer* lex, lex_type attr)
-        {
-            if (attributes.find(attr) == attributes.end())
-            {
-                attributes.insert(attr);
-            }
-            else
-                lex->parser_error(lexer::errorlevel::error, WO_ERR_REPEAT_ATTRIBUTE);
-        }
-        bool ast_decl_attribute::is_static_attr() const
-        {
-            return attributes.find(lex_type::l_static) != attributes.end();
-        }
-        bool ast_decl_attribute::is_private_attr() const
-        {
-            return attributes.find(lex_type::l_private) != attributes.end()
-                || (!is_protected_attr() && !is_public_attr());
-        }
-        bool ast_decl_attribute::is_protected_attr() const
-        {
-            return attributes.find(lex_type::l_protected) != attributes.end();
-        }
-        bool ast_decl_attribute::is_public_attr() const
-        {
-            return attributes.find(lex_type::l_public) != attributes.end();
-        }
-        bool ast_decl_attribute::is_extern_attr() const
-        {
-            return attributes.find(lex_type::l_extern) != attributes.end();
-        }
-        ast::ast_base* ast_decl_attribute::instance(ast_base* child_instance) const
-        {
-            using astnode_type = decltype(MAKE_INSTANCE(this));
-            auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
-            if (!child_instance) *dumm = *this;
-            // ast_value::instance(dumm);
-
-            // Write self copy functions here..
-
-            return dumm;
-        }
-
-        //////////////////////////////////////////
-
-        ast_value_binary::ast_value_binary()
-            : ast_value(new ast_type(WO_PSTR(pending)))
-        {
-        }
-
-        ast::ast_base* ast_value_binary::instance(ast_base* child_instance) const
-        {
-            using astnode_type = decltype(MAKE_INSTANCE(this));
-            auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
-            if (!child_instance) *dumm = *this;
-            ast_value::instance(dumm);
-            // Write self copy functions here..
-
-            WO_REINSTANCE(dumm->left);
-            WO_REINSTANCE(dumm->right);
-
-            return dumm;
-        }
-
-        ast_type* ast_value_binary::binary_upper_type(ast_type* left_v, ast_type* right_v)
-        {
-            if (left_v->is_nothing())
-                return right_v;
-            if (right_v->is_nothing())
-                return left_v;
-
-            if (left_v->is_dynamic() || right_v->is_dynamic())
-            {
-                return nullptr;
-            }
-            if (left_v->is_function() || right_v->is_function())
-            {
-                return nullptr;
-            }
-
-            if (left_v->is_same(right_v, true))
-                return left_v;
-
-            return nullptr;
-        }
-        ast_type* ast_value_binary::binary_upper_type_with_operator(ast_type* left_v, ast_type* right_v, lex_type op)
-        {
-            if (left_v->is_custom() || right_v->is_custom())
-                return nullptr;
-            if (left_v->is_function() || right_v->is_function())
-                return nullptr;
-            if ((left_v->is_string() || right_v->is_string()) && op != lex_type::l_add && op != lex_type::l_add_assign)
-                return nullptr;
-            if (left_v->is_dict() || right_v->is_dict())
-                return nullptr;
-            if (left_v->is_array() || right_v->is_array())
-                return nullptr;
-            if (left_v->is_nothing() || right_v->is_nothing())
-                return nullptr;
-            if (left_v->is_bool() || right_v->is_bool())
-                return nullptr;
-            if (left_v->is_tuple() || right_v->is_tuple())
-                return nullptr;
-            if (left_v->is_struct() || right_v->is_struct())
-                return nullptr;
-            if (left_v->is_union() || right_v->is_union())
-                return nullptr;
-
-            return binary_upper_type(left_v, right_v);
-        }
-        void ast_value_binary::update_constant_value(lexer* lex)
-        {
-            if (is_constant)
-                return;
-
-            left->eval_constant_value(lex);
-            right->eval_constant_value(lex);
+            token label = WO_NEED_TOKEN(0);
+            auto* node = WO_NEED_AST(2);
 
-            // if left/right is custom, donot calculate them 
-            if (!left->value_type->is_builtin_basic_type()
-                || !right->value_type->is_builtin_basic_type())
-                return;
-
-            if (overrided_operation_call)
-                return;
-
-            if (left->value_type->is_dynamic() || right->value_type->is_dynamic())
-                return;
-
-            else if (left->value_type->is_pending() || right->value_type->is_pending())
-                return;
-
-            if (nullptr == (value_type = binary_upper_type_with_operator(left->value_type, right->value_type, operate)))
-            {
-                value_type = new ast_type(WO_PSTR(pending));
-                return;
-            }
-
-            if (left->is_constant && right->is_constant)
-            {
-                is_constant = true;
-
-                value _left_val = left->get_constant_value();
-                value _right_val = right->get_constant_value();
-
-                switch (value_type->value_type)
-                {
-                case value::valuetype::integer_type:
-                {
-                    constant_value.set_integer(
-                        binary_operate(*lex,
-                            _left_val.integer,
-                            _right_val.integer,
-                            operate, &is_constant));
-                    break;
-                }
-                case value::valuetype::real_type:
-                    constant_value.set_real(
-                        binary_operate(*lex,
-                            _left_val.real,
-                            _right_val.real,
-                            operate, &is_constant));
-                    break;
-                case value::valuetype::handle_type:
-                    constant_value.set_handle(
-                        binary_operate(*lex,
-                            _left_val.handle,
-                            _right_val.handle,
-                            operate, &is_constant));
-                    break;
-                case value::valuetype::string_type:
-                {
-                    std::string val = binary_operate(*lex,
-                        *_left_val.string,
-                        *_right_val.string,
-                        operate, &is_constant);
-
-                    if (is_constant)
-                        constant_value.set_string_nogc(val);
-                }
-                break;
-                default:
-                    is_constant = false;
-                    return;
-                }
-            }
+            return new AstLabeled(wstring_pool::get_pstr(label.identifier), node);
         }
-
-        //////////////////////////////////////////
-
-        grammar::produce pass_import_files::build(lexer& lex, inputs_t& input)
+        auto pass_import_files::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
             wo_test(input.size() == 3);
             std::wstring path;
             std::wstring filename;
 
-            ast_token* importfilepaths = dynamic_cast<ast_token*>(
-                dynamic_cast<ast_list*>(WO_NEED_AST(1))->children);
-            do
+            AstList* import_scopes = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
+
+            bool first = true;
+            for (auto* scope : import_scopes->m_list)
             {
-                path += filename = importfilepaths->tokens.identifier;
-                importfilepaths = dynamic_cast<ast_token*>(importfilepaths->sibling);
-                if (importfilepaths)
+                AstToken* scope_token = static_cast<AstToken*>(scope);
+
+                filename = scope_token->m_token.identifier;
+
+                if (first)
+                    first = false;
+                else
                     path += L"/";
-            } while (importfilepaths);
+
+                path += filename;
+            }
 
             // path += L".wo";
             std::wstring src_full_path;
@@ -1354,954 +65,1804 @@ namespace wo
                     lex.imported_file_list = new_lex.imported_file_list;
 
                     if (imported_ast)
-                    {
-                        // NOTE: Generate an `nop` for debug info gen, avoid ip/cr conflict
-                        imported_ast->add_child(new ast_nop);
                         lex.append_import_file_ast((ast_basic*)imported_ast);
-                    }
                     else
-                    {
                         return token{ lex_type::l_error };
-                    }
                 }
                 else
-                {
                     return token{ lex.parser_error(lexer::errorlevel::error, WO_ERR_CANNOT_OPEN_FILE, path.c_str()) };
-                }
             }
 
-            return (ast_basic*)new ast_empty();
+            return new AstEmpty();
         }
-
-        grammar::produce pass_foreach::build(lexer& lex, inputs_t& input)
+        auto pass_using_namespace::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
-            ast_foreach* afor = new ast_foreach;
+            AstList* using_namespace_list = static_cast<AstList*>(WO_NEED_AST_TYPE(2, AstBase::AST_LIST));
 
-            // for ( DECL_ATTRIBUTE let LIST : EXP ) SENT
-            // 0   1        2        3   4   5  6  7   8
-
-            // build EXP->iter() / var LIST;
-
-            //{{{{
-                // var _iter = XXXXXX->std::iterator();
-            ast_value* be_iter_value = dynamic_cast<ast_value*>(WO_NEED_AST(6));
-
-            ast_value_funccall* exp_dir_iter_call = new ast_value_funccall();
-            exp_dir_iter_call->arguments = new ast_list();
-            ast_value_variable* std_iterator = new ast_value_variable(WO_PSTR(iterator));
-            std_iterator->search_from_global_namespace = true;
-            std_iterator->scope_namespaces.push_back(WO_PSTR(std));
-            exp_dir_iter_call->called_func = std_iterator;
-            exp_dir_iter_call->arguments->append_at_head(be_iter_value);
-            exp_dir_iter_call->directed_value_from = be_iter_value;
-            exp_dir_iter_call->called_func->copy_source_info(be_iter_value);
-            exp_dir_iter_call->copy_source_info(be_iter_value);
-
-            ast_value_init* init_val_box = new ast_value_init();
-            init_val_box->init_value = exp_dir_iter_call;
-            init_val_box->copy_source_info(be_iter_value);
-
-            afor->used_iter_define = new ast_varref_defines;
-            afor->used_iter_define->declear_attribute = new ast_decl_attribute;
-
-            auto* afor_iter_define = new ast_pattern_identifier;
-            afor_iter_define->identifier = WO_PSTR(_iter);
-            afor_iter_define->attr = new ast_decl_attribute();
-            afor_iter_define->copy_source_info(be_iter_value);
-
-            afor->used_iter_define->var_refs.push_back({ afor_iter_define, init_val_box });
-            afor->used_iter_define->copy_source_info(be_iter_value);
-
-            // in loop body..
-            // {{{{
-            //    while (_iter->next(..., a,b))
-            // DONOT INSERT ARGUS NOW, TAKE PLACE IN PASS2..    
-            // }}}}
-
-            ast_value_funccall* iter_dir_next_call = new ast_value_funccall();
-            iter_dir_next_call->arguments = new ast_list();
-            iter_dir_next_call->called_func = new ast_value_variable(WO_PSTR(next));
-            iter_dir_next_call->directed_value_from = new ast_value_variable(WO_PSTR(_iter));
-            iter_dir_next_call->arguments->append_at_head(iter_dir_next_call->directed_value_from);
-
-            iter_dir_next_call->called_func->copy_source_info(be_iter_value);
-
-            iter_dir_next_call->copy_source_info(be_iter_value);
-
-            //WO_NEED_AST(8);
-
-            ast_match* match_for_exec = new ast_match();
-            match_for_exec->match_value = iter_dir_next_call;
-            match_for_exec->cases = new ast_list;
-
-            auto* for_decl_vars = dynamic_cast<ast_pattern_base*>(WO_NEED_AST(4));
-
-            auto* pattern_none_case = new ast_match_union_case;
+            std::list<wo_pstring_t> used_namespaces;
+            for (auto& ns : using_namespace_list->m_list)
             {
-                pattern_none_case->take_place_value_may_nil = nullptr;
-                pattern_none_case->union_pattern = new ast_pattern_union_value;
-                pattern_none_case->union_pattern->union_expr = new ast_value_variable(WO_PSTR(none));
-                pattern_none_case->union_pattern->union_expr->copy_source_info(for_decl_vars);
-                pattern_none_case->union_pattern->copy_source_info(for_decl_vars);
-                auto* sentence_in_list = new ast_list;
-                sentence_in_list->append_at_end(new ast_break());
-                pattern_none_case->in_case_sentence = new ast_sentence_block(sentence_in_list);
-                pattern_none_case->in_case_sentence->copy_source_info(for_decl_vars);
-                pattern_none_case->copy_source_info(for_decl_vars);
-            }
-            pattern_none_case->copy_source_info(for_decl_vars);
+                wo_assert(ns->node_type == AstBase::AST_TOKEN);
+                AstToken* ns_token = static_cast<AstToken*>(ns);
 
-            auto* pattern_value_case = new ast_match_union_case;
-            {
-                pattern_value_case->take_place_value_may_nil = nullptr;
-                pattern_value_case->union_pattern = new ast_pattern_union_value;
-                pattern_value_case->union_pattern->union_expr = new ast_value_variable(WO_PSTR(value));
-                pattern_value_case->union_pattern->pattern_arg_in_union_may_nil = for_decl_vars;
-                pattern_value_case->union_pattern->union_expr->copy_source_info(for_decl_vars);
-                pattern_value_case->union_pattern->copy_source_info(for_decl_vars);
-                auto* sentence_in_list = new ast_list;
-                sentence_in_list->append_at_end(WO_NEED_AST(8));
-                pattern_value_case->in_case_sentence = new ast_sentence_block(sentence_in_list);
-                pattern_value_case->in_case_sentence->copy_source_info(for_decl_vars);
-                pattern_value_case->copy_source_info(for_decl_vars);
+                auto* namespace_pstr = wstring_pool::get_pstr(ns_token->m_token.identifier);
+                if (namespace_pstr == WO_PSTR(unsafe))
+                    lex.lang_error(lexer::errorlevel::error, ns_token, WO_ERR_CANNOT_USING_UNSAFE);
+
+                used_namespaces.push_back(namespace_pstr);
             }
 
-            match_for_exec->cases->append_at_end(pattern_value_case);
-            match_for_exec->cases->append_at_end(pattern_none_case);
-
-            match_for_exec->copy_source_info(be_iter_value);
-
-            afor->loop_sentences = new ast_while(nullptr, match_for_exec);
-
-            return (ast_basic*)afor;
+            return new AstUsingNamespace(used_namespaces);
         }
-
-        grammar::produce pass_format_string::build(lexer& lex, inputs_t& input)
+        auto pass_empty::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
-            wo_assert(input.size() == 1 || input.size() == 3);
-            if (input.size() == 1)
-            {
-                auto* right = dynamic_cast<ast_value*>(WO_NEED_AST(0));
-                return (ast_basic*)new ast_value_type_cast(right, new ast_type(WO_PSTR(string)));
-            }
-            else
-            {
-                auto* left = new ast_value_literal(WO_NEED_TOKEN(1));
-                auto* right = dynamic_cast<ast_value*>(WO_NEED_AST(2));
-
-                auto cast_right = new ast_value_type_cast(right, new ast_type(WO_PSTR(string)));
-
-                left->copy_source_info(right);
-                cast_right->copy_source_info(left);
-
-                ast_value_binary* vbin = new ast_value_binary();
-                vbin->left = left;
-                vbin->operate = lex_type::l_add;
-                vbin->right = cast_right;
-                vbin->eval_constant_value(&lex);
-
-                auto* origin_list = dynamic_cast<ast_value*>(WO_NEED_AST(0));
-
-                vbin->copy_source_info(origin_list);
-
-                ast_value_binary* vbinresult = new ast_value_binary();
-                vbinresult->left = origin_list;
-                vbinresult->operate = lex_type::l_add;
-                vbinresult->right = vbin;
-                vbinresult->eval_constant_value(&lex);
-                return (ast_basic*)vbinresult;
-            }
+            return new AstEmpty();
         }
-
-        //////////////////////////////////////////
-
-        void pass_union_define::find_used_template(
-            ast_type* type_decl,
-            const std::vector<wo_pstring_t>& template_defines,
-            std::set<wo_pstring_t>& out_used_type)
+        auto pass_token::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
-            // No need for checking using-type.
-            if (type_decl->scope_namespaces.empty()
-                && !type_decl->search_from_global_namespace
-                && std::find(template_defines.begin(), template_defines.end(), type_decl->type_name)
-                != template_defines.end())
-                out_used_type.insert(type_decl->type_name);
-            if (type_decl->is_function())
-            {
-                find_used_template(type_decl->function_ret_type, template_defines, out_used_type);
-                for (auto* argtype : type_decl->argument_types)
-                    find_used_template(argtype, template_defines, out_used_type);
-            }
-            if (type_decl->has_template())
-                for (auto* argtype : type_decl->template_arguments)
-                    find_used_template(argtype, template_defines, out_used_type);
+            return new AstToken(WO_NEED_TOKEN(0));
         }
-        grammar::produce pass_union_define::build(lexer& lex, inputs_t& input)
+        auto pass_enum_item_create::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
-            wo_assert(input.size() == 7);
-            // ATTRIBUTE union IDENTIFIER <TEMPLATE_DEF> { ITEMS }
-            //    0                    2             3          5
+            token name = WO_NEED_TOKEN(0);
 
-            // Create a namespace 
-            ast_decl_attribute* union_arttribute = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(0));
-
-            ast_list* bind_using_type_namespace_result = new ast_list;
-
-            ast_namespace* union_scope = new ast_namespace;
-            union_scope->scope_name = wstring_pool::get_pstr(WO_NEED_TOKEN(2).identifier);
-            union_scope->copy_source_info(union_arttribute);
-            union_scope->in_scope_sentence = new ast_list;
-
-            // Get templates here(If have?)
-            ast_template_define* defined_template_args = nullptr;
-            ast_list* defined_template_arg_lists = nullptr;
-
-            if (!ast_empty::is_empty(input[3]))
+            if (input.size() == 3)
             {
-                defined_template_arg_lists = dynamic_cast<ast_list*>(WO_NEED_AST(3));
-                defined_template_args = dynamic_cast<ast_template_define*>(
-                    defined_template_arg_lists->children);
+                // ITEM = $INTVAL
+                auto* initval = WO_NEED_AST_VALUE(2);
+                return new AstEnumItem(wstring_pool::get_pstr(name.identifier), initval);
+            }
+            return new AstEnumItem(wstring_pool::get_pstr(name.identifier), std::nullopt);
+        }
+        auto pass_enum_finalize::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        {
+            std::optional<AstDeclareAttribue*> attrib = std::nullopt;
+            token enum_name = WO_NEED_TOKEN(2);
+            AstList* enum_items = static_cast<AstList*>(WO_NEED_AST_TYPE(4, AstBase::AST_LIST));
+
+            if (!WO_IS_EMPTY(0))
+                attrib = static_cast<AstDeclareAttribue*>(WO_NEED_AST_TYPE(0, AstBase::AST_DECLARE_ATTRIBUTE));
+
+            std::list<AstEnumItem*> items;
+            for (auto& item : enum_items->m_list)
+            {
+                wo_assert(item->node_type == AstBase::AST_ENUM_ITEM);
+                items.push_back(static_cast<AstEnumItem*>(item));
             }
 
-            // Then we decl a using-type here;
-            ast_using_type_as* using_type = new ast_using_type_as;
-            using_type->new_type_identifier = union_scope->scope_name;
-            using_type->old_type = new ast_type(WO_PSTR(union));
-            using_type->declear_attribute = union_arttribute;
-            using_type->copy_source_info(union_arttribute);
-            using_type->old_type->copy_source_info(union_arttribute);
+            return new AstEnumDeclare(attrib, wstring_pool::get_pstr(enum_name.identifier), items);
+        }
+        auto pass_namespace::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        {
+            AstList* space_names = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
+            auto* body_of_space = WO_NEED_AST(2);
 
-            std::vector<wo_pstring_t>& template_arg_defines = using_type->template_type_name_list;
-            if (defined_template_args)
+            if (body_of_space->node_type == AstBase::AST_SCOPE)
+                body_of_space = static_cast<AstScope*>(body_of_space)->m_body;
+
+            AstBase* content = body_of_space;
+
+            auto names_rend = space_names->m_list.rend();
+            for (auto ridx = space_names->m_list.rbegin(); ridx != names_rend; ++ridx)
             {
-                using_type->is_template_define = true;
+                if (content != body_of_space)
+                    content->source_location = body_of_space->source_location;
 
-                ast_template_define* template_type = defined_template_args;
-                wo_test(template_type);
-                while (template_type)
+                AstToken* name_token = static_cast<AstToken*>(*ridx);
+                wo_assert(name_token->node_type == AstBase::AST_TOKEN);
+
+                wo_pstring_t space_name = wstring_pool::get_pstr(name_token->m_token.identifier);
+                AstNamespace* new_space = new AstNamespace(space_name, content);
+
+                content = new_space;
+            }
+
+            return content;
+        }
+        auto pass_using_type_as::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            std::optional<AstDeclareAttribue*> attrib = std::nullopt;
+            token new_type_name = WO_NEED_TOKEN(2);
+            std::optional<AstList*> template_params = std::nullopt;
+            AstTypeHolder* base_type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(5, AstBase::AST_TYPE_HOLDER));
+
+            wo_pstring_t type_name = wstring_pool::get_pstr(new_type_name.identifier);
+
+            if (!WO_IS_EMPTY(0))
+                attrib = static_cast<AstDeclareAttribue*>(WO_NEED_AST_TYPE(0, AstBase::AST_DECLARE_ATTRIBUTE));
+            if (!WO_IS_EMPTY(3))
+                template_params = static_cast<AstList*>(WO_NEED_AST_TYPE(3, AstBase::AST_LIST));
+
+            std::optional<std::list<wo_pstring_t>> in_type_template_params = std::nullopt;
+            if (template_params)
+            {
+                AstList* template_param_list = template_params.value();
+                std::list<wo_pstring_t> params;
+
+                for (auto& param : template_param_list->m_list)
                 {
-                    using_type->template_type_name_list.push_back(template_type->template_ident);
-                    template_type = dynamic_cast<ast_template_define*>(template_type->sibling);
+                    wo_assert(param->node_type == AstBase::AST_TOKEN);
+                    AstToken* param_token = static_cast<AstToken*>(param);
+                    params.push_back(wstring_pool::get_pstr(param_token->m_token.identifier));
                 }
+
+                in_type_template_params = std::move(params);
             }
-            bind_using_type_namespace_result->append_at_head(using_type);
 
-            // OK, We need decl union items/function here
-            ast_union_item* items =
-                dynamic_cast<ast_union_item*>(dynamic_cast<ast_list*>(WO_NEED_AST(5))->children);
+            return new AstUsingTypeDeclare(attrib, type_name, in_type_template_params, base_type);
+        }
+        auto pass_using_typename_space::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        {
+            AstUsingTypeDeclare* using_type_declare =
+                static_cast<AstUsingTypeDeclare*>(WO_NEED_AST_TYPE(0, AstBase::AST_USING_TYPE_DECLARE));
+            std::optional<AstBase*> in_block_sentence = std::nullopt;
 
-            uint16_t union_item_id = 0;
-
-            while (items)
+            if (!WO_IS_EMPTY(1))
             {
-                std::set<wo_pstring_t> used_template_args;
+                auto* in_block_sentence_instance = WO_NEED_AST(1);
+                if (in_block_sentence_instance->node_type == AstBase::AST_SCOPE)
+                    in_block_sentence_instance = static_cast<AstScope*>(in_block_sentence_instance)->m_body;
 
-                auto create_union_type = [&]() {
-                    ast_type* union_type_with_template = new ast_type(using_type->new_type_identifier);
-                    for (auto& ident : using_type->template_type_name_list)
-                    {
-                        // Current template-type has been used.
-                        if (used_template_args.find(ident) != used_template_args.end())
-                            union_type_with_template->template_arguments.push_back(new ast_type(ident));
-                        else
-                            // Not used template-type, 
-                            union_type_with_template->template_arguments.push_back(new ast_type(WO_PSTR(nothing)));
-                    }
-                    return union_type_with_template;
-                    };
+                in_block_sentence = in_block_sentence_instance;
+            }
 
-                auto& member = using_type->old_type->struct_member_index[items->identifier];
-                member.offset = union_item_id++;
+            std::optional<AstNamespace*> in_type_namespace = std::nullopt;
+            if (in_block_sentence)
+            {
+                AstNamespace* typed_namespace =
+                    new AstNamespace(using_type_declare->m_typename, in_block_sentence.value());
+                in_type_namespace = typed_namespace;
 
-                if (items->gadt_out_type_may_nil)
-                    find_used_template(items->gadt_out_type_may_nil, template_arg_defines, used_template_args);
-                if (items->type_may_nil)
+                typed_namespace->source_location = in_block_sentence.value()->source_location;
+            }
+
+            AstList* result_list = new AstList;
+            result_list->m_list.push_back(using_type_declare);
+            if (in_type_namespace)
+                result_list->m_list.push_back(in_type_namespace.value());
+
+            return result_list;
+        }
+        auto pass_alias_type_as::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        {
+            std::optional<AstDeclareAttribue*> attrib = std::nullopt;
+            token new_type_name = WO_NEED_TOKEN(2);
+            std::optional<AstList*> template_params = std::nullopt;
+            AstTypeHolder* base_type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(5, AstBase::AST_TYPE_HOLDER));
+
+            wo_pstring_t type_name = wstring_pool::get_pstr(new_type_name.identifier);
+
+            if (!WO_IS_EMPTY(0))
+                attrib = static_cast<AstDeclareAttribue*>(WO_NEED_AST_TYPE(0, AstBase::AST_DECLARE_ATTRIBUTE));
+            if (!WO_IS_EMPTY(3))
+                template_params = static_cast<AstList*>(WO_NEED_AST_TYPE(3, AstBase::AST_LIST));
+
+            std::optional<std::list<wo_pstring_t>> in_type_template_params = std::nullopt;
+            if (template_params)
+            {
+                AstList* template_param_list = template_params.value();
+                std::list<wo_pstring_t> params;
+
+                for (auto& param : template_param_list->m_list)
                 {
-                    find_used_template(items->type_may_nil, template_arg_defines, used_template_args);
-
-                    // Generate func here!
-                    ast_value_function_define* avfd_item_type_builder = new ast_value_function_define;
-                    avfd_item_type_builder->function_name = items->identifier;
-                    avfd_item_type_builder->argument_list = new ast_list;
-                    avfd_item_type_builder->declear_attribute = union_arttribute;
-
-                    ast_value_arg_define* argdef = new ast_value_arg_define;
-                    argdef->arg_name = WO_PSTR(_val);
-                    argdef->value_type = items->type_may_nil;
-                    argdef->declear_attribute = new ast_decl_attribute;
-                    avfd_item_type_builder->argument_list->add_child(argdef);
-                    argdef->copy_source_info(items);
-
-                    auto* adt_type = create_union_type();
-                    if (items->gadt_out_type_may_nil)
-                    {
-                        auto* gadt_type = items->gadt_out_type_may_nil;
-                        bool conflict = false;
-
-                        // TODO: Need verify gadt type is current union?
-                        if (gadt_type->template_arguments.size() == template_arg_defines.size())
-                        {
-                            for (size_t i = 0; i < adt_type->template_arguments.size(); ++i)
-                            {
-                                if (!adt_type->template_arguments[i]->is_nothing())
-                                {
-                                    wo_assert(adt_type->template_arguments[i]->search_from_global_namespace == false
-                                        && adt_type->template_arguments[i]->scope_namespaces.empty());
-
-                                    if (adt_type->template_arguments[i]->type_name != gadt_type->template_arguments[i]->type_name
-                                        || gadt_type->template_arguments[i]->search_from_global_namespace
-                                        || !gadt_type->template_arguments[i]->scope_namespaces.empty())
-                                    {
-                                        conflict = true;
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                        else
-                            conflict = true;
-
-                        if (conflict)
-                            lex.lang_error(lexer::errorlevel::error, items->gadt_out_type_may_nil, WO_ERR_INVALID_GADT_CONFLICT);
-
-                        avfd_item_type_builder->value_type->set_ret_type(items->gadt_out_type_may_nil);
-                    }
-                    else
-                        avfd_item_type_builder->value_type->set_ret_type(adt_type);
-
-                    avfd_item_type_builder->value_type->argument_types.push_back(dynamic_cast<ast_type*>(items->type_may_nil->instance()));
-
-                    avfd_item_type_builder->auto_adjust_return_type = true;
-                    avfd_item_type_builder->copy_source_info(items);
-                    avfd_item_type_builder->value_type->get_return_type()->copy_source_info(items);
-
-                    if (using_type->is_template_define)
-                    {
-                        size_t id = 0;
-                        for (auto& templatedef : using_type->template_type_name_list)
-                        {
-                            if (used_template_args.find(templatedef) != used_template_args.end())
-                            {
-                                avfd_item_type_builder->template_type_name_list.push_back(templatedef);
-                                member.union_used_template_index.push_back(id);
-                            }
-                            ++id;
-                        }
-                        if (!avfd_item_type_builder->template_type_name_list.empty())
-                            avfd_item_type_builder->is_template_define = true;
-                    }
-
-                    avfd_item_type_builder->in_function_sentence = new ast_list;
-
-                    ast_union_make_option_ob_to_cr_and_ret* result = new ast_union_make_option_ob_to_cr_and_ret();
-                    result->copy_source_info(items);
-                    result->argument_may_nil = new ast_value_variable(argdef->arg_name);
-                    result->id = member.offset;
-                    // all done ~ fuck!
-
-                    avfd_item_type_builder->in_function_sentence->append_at_end(result);
-                    union_scope->in_scope_sentence->append_at_end(avfd_item_type_builder);
+                    wo_assert(param->node_type == AstBase::AST_TOKEN);
+                    AstToken* param_token = static_cast<AstToken*>(param);
+                    params.push_back(wstring_pool::get_pstr(param_token->m_token.identifier));
                 }
+
+                in_type_template_params = std::move(params);
+            }
+
+            return new AstAliasTypeDeclare(attrib, type_name, in_type_template_params, base_type);
+        }
+        auto pass_build_where_constraint::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        {
+            AstList* expr_list = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
+
+            std::list<AstValueBase*> constraints;
+            for (auto* cons : expr_list->m_list)
+            {
+                wo_assert(cons->node_type >= AstBase::AST_VALUE_begin && cons->node_type < AstBase::AST_VALUE_end);
+                constraints.push_back(static_cast<AstValueBase*>(cons));
+            }
+
+            return new AstWhereConstraints(constraints);
+        }
+
+        static auto _process_template_params(const std::optional<AstList*>& template_params)
+            -> std::optional<std::list<wo_pstring_t>>
+        {
+            if (template_params)
+            {
+                std::list<wo_pstring_t> template_param_list;
+                for (auto& param : template_params.value()->m_list)
+                {
+                    wo_assert(param->node_type == AstBase::AST_TOKEN);
+                    AstToken* param_token = static_cast<AstToken*>(param);
+                    template_param_list.push_back(wstring_pool::get_pstr(param_token->m_token.identifier));
+                }
+                return template_param_list;
+            }
+            return std::nullopt;
+        }
+        static auto _process_function_params(lexer& lex, AstList* paraments)
+            -> std::tuple<bool, std::list<AstFunctionParameterDeclare*>>
+        {
+            bool is_variadic_function = false;
+            std::list<AstFunctionParameterDeclare*> in_params;
+            for (auto& param : paraments->m_list)
+            {
+                if (is_variadic_function)
+                    lex.lang_error(lexer::errorlevel::error, param, WO_ERR_ARG_DEFINE_AFTER_VARIADIC);
+
+                if (param->node_type == AstBase::AST_FUNCTION_PARAMETER_DECLARE)
+                    in_params.push_back(static_cast<AstFunctionParameterDeclare*>(param));
                 else
                 {
-                    // Generate const here!
-                    ast_value_function_define* avfd_item_type_builder = new ast_value_function_define;
-                    avfd_item_type_builder->function_name = nullptr; // Is a lambda function!
-                    avfd_item_type_builder->argument_list = new ast_list;
-                    avfd_item_type_builder->declear_attribute = union_arttribute;
-
-                    if (items->gadt_out_type_may_nil)
-                        avfd_item_type_builder->value_type->set_ret_type(items->gadt_out_type_may_nil);
-                    else
-                        avfd_item_type_builder->value_type->set_ret_type(create_union_type());
-
-
-                    avfd_item_type_builder->auto_adjust_return_type = true;
-                    avfd_item_type_builder->copy_source_info(items);
-                    avfd_item_type_builder->value_type->get_return_type()->copy_source_info(items);
-
-                    avfd_item_type_builder->in_function_sentence = new ast_list;
-
-                    ast_union_make_option_ob_to_cr_and_ret* result = new ast_union_make_option_ob_to_cr_and_ret();
-                    result->copy_source_info(items);
-                    result->id = member.offset;
-                    // all done ~ fuck!
-                    avfd_item_type_builder->in_function_sentence->append_at_end(result);
-
-                    ast_value_funccall* funccall = new ast_value_funccall();
-                    funccall->copy_source_info(avfd_item_type_builder);
-                    funccall->called_func = avfd_item_type_builder;
-                    funccall->arguments = new ast_list();
-
-                    ast_value_init* init_val_box = new ast_value_init();
-                    init_val_box->init_value = funccall;
-                    init_val_box->copy_source_info(avfd_item_type_builder);
-
-                    ast_varref_defines* define_union_item = new ast_varref_defines();
-                    define_union_item->copy_source_info(items);
-
-                    auto* union_item_define = new ast_pattern_identifier;
-                    union_item_define->identifier = items->identifier;
-                    union_item_define->attr = union_arttribute;
-
-                    if (using_type->is_template_define)
-                    {
-                        size_t id = 0;
-                        for (auto& templatedef : using_type->template_type_name_list)
-                        {
-                            if (used_template_args.find(templatedef) != used_template_args.end())
-                            {
-                                union_item_define->template_arguments.push_back(templatedef);
-                                member.union_used_template_index.push_back(id);
-                            }
-                            ++id;
-                        }
-                    }
-
-                    define_union_item->var_refs.push_back({ union_item_define, init_val_box });
-                    define_union_item->declear_attribute = new ast_decl_attribute();
-
-                    union_scope->in_scope_sentence->append_at_end(define_union_item);
+                    wo_assert(param->node_type == AstBase::AST_TOKEN);
+                    wo_assert(static_cast<AstToken*>(param)->m_token.type == lex_type::l_variadic_sign);
+                    is_variadic_function = true;
                 }
-                items = dynamic_cast<ast_union_item*>(items->sibling);
             }
-            bind_using_type_namespace_result->append_at_end(union_scope);
-            return (ast_basic*)bind_using_type_namespace_result;
+            return std::make_tuple(is_variadic_function, in_params);
         }
 
-        grammar::produce pass_namespace::build(lexer& lex, inputs_t& input)
+        auto pass_func_def_named::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
-            wo_test(input.size() == 3);
-            if (ast_empty::is_empty(input[2]))
-                return input[2];
+            std::optional<AstDeclareAttribue*> attrib = std::nullopt;
+            AstToken* function_name = static_cast<AstToken*>(WO_NEED_AST_TYPE(2, AstBase::AST_TOKEN));
+            std::optional<AstList*> template_params = std::nullopt;
+            AstList* paraments = static_cast<AstList*>(WO_NEED_AST_TYPE(5, AstBase::AST_LIST));
+            std::optional<AstTypeHolder*> marked_return_type = std::nullopt;
+            std::optional<AstWhereConstraints*> where_constraints = std::nullopt;
+            AstBase* body = WO_NEED_AST(9);
 
-            ast_namespace* last_namespace = nullptr;
-            ast_namespace* output_namespace = nullptr;
-            auto* space_name_list = WO_NEED_AST(1)->children;
-            while (space_name_list)
+            wo_pstring_t func_name = wstring_pool::get_pstr(function_name->m_token.identifier);
+
+            if (!WO_IS_EMPTY(0))
+                attrib = static_cast<AstDeclareAttribue*>(WO_NEED_AST_TYPE(0, AstBase::AST_DECLARE_ATTRIBUTE));
+            if (!WO_IS_EMPTY(3))
+                template_params = static_cast<AstList*>(WO_NEED_AST_TYPE(3, AstBase::AST_LIST));
+            if (!WO_IS_EMPTY(7))
+                marked_return_type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(7, AstBase::AST_TYPE_HOLDER));
+            if (!WO_IS_EMPTY(8))
+                where_constraints = static_cast<AstWhereConstraints*>(WO_NEED_AST_TYPE(8, AstBase::AST_WHERE_CONSTRAINTS));
+
+            std::optional<std::list<wo_pstring_t>> in_template_params =
+                _process_template_params(template_params);
+
+            auto [is_variadic_function, in_params] = _process_function_params(lex, paraments);
+
+            auto* function_define = new AstVariableDefines(attrib);
+            auto* function_value = new AstValueFunction(
+                in_params, is_variadic_function, std::nullopt, marked_return_type, where_constraints, body);
+            auto* function_define_pattern = new AstPatternSingle(false, func_name, in_template_params);
+            auto* function_define_item = new AstVariableDefineItem(function_define_pattern, function_value);
+
+            function_define->m_definitions.push_back(function_define_item);
+
+            // Update source location
+            function_value->source_location = function_name->source_location;
+            function_define_pattern->source_location = function_name->source_location;
+            function_define_item->source_location = function_name->source_location;
+
+            return function_define;
+        }
+        auto pass_func_def_oper::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            std::optional<AstDeclareAttribue*> attrib = std::nullopt;
+            AstToken* overloading_operator = static_cast<AstToken*>(WO_NEED_AST_TYPE(3, AstBase::AST_TOKEN));
+            std::optional<AstList*> template_params = std::nullopt;
+            AstList* paraments = static_cast<AstList*>(WO_NEED_AST_TYPE(6, AstBase::AST_LIST));
+            std::optional<AstTypeHolder*> marked_return_type = std::nullopt;
+            std::optional<AstWhereConstraints*> where_constraints = std::nullopt;
+            AstBase* body = WO_NEED_AST(10);
+
+            wo_pstring_t func_name = wstring_pool::get_pstr(
+                L"operator " + overloading_operator->m_token.identifier);
+
+            if (!WO_IS_EMPTY(0))
+                attrib = static_cast<AstDeclareAttribue*>(WO_NEED_AST_TYPE(0, AstBase::AST_DECLARE_ATTRIBUTE));
+            if (!WO_IS_EMPTY(4))
+                template_params = static_cast<AstList*>(WO_NEED_AST_TYPE(4, AstBase::AST_LIST));
+            if (!WO_IS_EMPTY(8))
+                marked_return_type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(8, AstBase::AST_TYPE_HOLDER));
+            if (!WO_IS_EMPTY(9))
+                where_constraints = static_cast<AstWhereConstraints*>(WO_NEED_AST_TYPE(9, AstBase::AST_WHERE_CONSTRAINTS));
+
+            std::optional<std::list<wo_pstring_t>> in_template_params =
+                _process_template_params(template_params);
+
+            auto [is_variadic_function, in_params] = _process_function_params(lex, paraments);
+
+            auto* function_define = new AstVariableDefines(attrib);
+            auto* function_value = new AstValueFunction(
+                in_params, is_variadic_function, std::nullopt, marked_return_type, where_constraints, body);
+            auto* function_define_pattern = new AstPatternSingle(false, func_name, in_template_params);
+            auto* function_define_item = new AstVariableDefineItem(function_define_pattern, function_value);
+
+            function_define->m_definitions.push_back(function_define_item);
+
+            // Update source location
+            function_value->source_location = overloading_operator->source_location;
+            function_define_pattern->source_location = overloading_operator->source_location;
+            function_define_item->source_location = overloading_operator->source_location;
+
+            return function_define;
+        }
+        auto pass_func_def_extn::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstExternInformation* extern_info =
+                static_cast<AstExternInformation*>(WO_NEED_AST_TYPE(0, AstBase::AST_EXTERN_INFORMATION));
+            std::optional<AstDeclareAttribue*> attrib = std::nullopt;
+            AstToken* function_name = static_cast<AstToken*>(WO_NEED_AST_TYPE(3, AstBase::AST_TOKEN));
+            std::optional<AstList*> template_params = std::nullopt;
+            AstList* paraments = static_cast<AstList*>(WO_NEED_AST_TYPE(6, AstBase::AST_LIST));
+            AstTypeHolder* marked_return_type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(8, AstBase::AST_TYPE_HOLDER));
+            std::optional<AstWhereConstraints*> where_constraints = std::nullopt;
+
+            wo_pstring_t func_name = wstring_pool::get_pstr(function_name->m_token.identifier);
+
+            if (!WO_IS_EMPTY(1))
+                attrib = static_cast<AstDeclareAttribue*>(WO_NEED_AST_TYPE(1, AstBase::AST_DECLARE_ATTRIBUTE));
+
+            if (!WO_IS_EMPTY(4))
+                template_params = static_cast<AstList*>(WO_NEED_AST_TYPE(4, AstBase::AST_LIST));
+
+            if (!WO_IS_EMPTY(9))
+                where_constraints = static_cast<AstWhereConstraints*>(WO_NEED_AST_TYPE(9, AstBase::AST_WHERE_CONSTRAINTS));
+
+            std::optional<std::list<wo_pstring_t>> in_template_params =
+                _process_template_params(template_params);
+
+            auto [is_variadic_function, in_params] = _process_function_params(lex, paraments);
+
+            auto* function_define = new AstVariableDefines(attrib);
+            auto* function_value = new AstValueFunction(
+                in_params, is_variadic_function, std::nullopt, marked_return_type, where_constraints, extern_info);
+            auto* function_define_pattern = new AstPatternSingle(false, func_name, in_template_params);
+            auto* function_define_item = new AstVariableDefineItem(function_define_pattern, function_value);
+
+            function_define->m_definitions.push_back(function_define_item);
+
+            // Update source location
+            function_value->source_location = function_name->source_location;
+            function_define_pattern->source_location = function_name->source_location;
+            function_define_item->source_location = function_name->source_location;
+
+            return function_define;
+        }
+        auto pass_func_def_extn_oper::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstExternInformation* extern_info =
+                static_cast<AstExternInformation*>(WO_NEED_AST_TYPE(0, AstBase::AST_EXTERN_INFORMATION));
+            std::optional<AstDeclareAttribue*> attrib = std::nullopt;
+            AstToken* overloading_operator = static_cast<AstToken*>(WO_NEED_AST_TYPE(4, AstBase::AST_TOKEN));
+            std::optional<AstList*> template_params = std::nullopt;
+            AstList* paraments = static_cast<AstList*>(WO_NEED_AST_TYPE(7, AstBase::AST_LIST));
+            AstTypeHolder* marked_return_type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(9, AstBase::AST_TYPE_HOLDER));
+            std::optional<AstWhereConstraints*> where_constraints = std::nullopt;
+
+            wo_pstring_t func_name = wstring_pool::get_pstr(
+                L"operator " + overloading_operator->m_token.identifier);
+
+            if (!WO_IS_EMPTY(1))
+                attrib = static_cast<AstDeclareAttribue*>(WO_NEED_AST_TYPE(1, AstBase::AST_DECLARE_ATTRIBUTE));
+
+            if (!WO_IS_EMPTY(5))
+                template_params = static_cast<AstList*>(WO_NEED_AST_TYPE(5, AstBase::AST_LIST));
+
+            if (!WO_IS_EMPTY(10))
+                where_constraints = static_cast<AstWhereConstraints*>(WO_NEED_AST_TYPE(10, AstBase::AST_WHERE_CONSTRAINTS));
+
+            std::optional<std::list<wo_pstring_t>> in_template_params =
+                _process_template_params(template_params);
+
+            auto [is_variadic_function, in_params] = _process_function_params(lex, paraments);
+
+            auto* function_define = new AstVariableDefines(attrib);
+            auto* function_value = new AstValueFunction(
+                in_params, is_variadic_function, std::nullopt, marked_return_type, where_constraints, extern_info);
+            auto* function_define_pattern = new AstPatternSingle(false, func_name, in_template_params);
+            auto* function_define_item = new AstVariableDefineItem(function_define_pattern, function_value);
+
+            function_define->m_definitions.push_back(function_define_item);
+
+            // Update source location
+            function_value->source_location = overloading_operator->source_location;
+            function_define_pattern->source_location = overloading_operator->source_location;
+            function_define_item->source_location = overloading_operator->source_location;
+
+            return function_define;
+        }
+        auto pass_break::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        {
+            return new AstBreak(std::nullopt);
+        }
+        auto pass_break_label::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        {
+            token label = WO_NEED_TOKEN(1);
+            return new AstBreak(wstring_pool::get_pstr(label.identifier));
+        }
+        auto pass_continue::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        {
+            return new AstContinue(std::nullopt);
+        }
+        auto pass_continue_label::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        {
+            token label = WO_NEED_TOKEN(1);
+            return new AstContinue(wstring_pool::get_pstr(label.identifier));
+        }
+        auto pass_return::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        {
+            return new AstReturn(std::nullopt);
+        }
+        auto pass_return_value::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        {
+            return new AstReturn(WO_NEED_AST_VALUE(1));
+        }
+        auto pass_return_lambda::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        {
+            return new AstReturn(WO_NEED_AST_VALUE(0));
+        }
+        auto pass_func_lambda_ml::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        {
+            std::optional<AstList*> template_params = std::nullopt;
+            AstList* paraments = static_cast<AstList*>(WO_NEED_AST_TYPE(4, AstBase::AST_LIST));
+            std::optional<AstTypeHolder*> marked_return_type = std::nullopt;
+            std::optional<AstWhereConstraints*> where_constraints = std::nullopt;
+            AstBase* body = WO_NEED_AST(8);
+
+            if (!WO_IS_EMPTY(2))
+                template_params = static_cast<AstList*>(WO_NEED_AST_TYPE(2, AstBase::AST_LIST));
+
+            if (!WO_IS_EMPTY(6))
+                marked_return_type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(6, AstBase::AST_TYPE_HOLDER));
+
+            if (!WO_IS_EMPTY(7))
+                where_constraints = static_cast<AstWhereConstraints*>(WO_NEED_AST_TYPE(7, AstBase::AST_WHERE_CONSTRAINTS));
+
+            std::optional<std::list<wo_pstring_t>> in_template_params =
+                _process_template_params(template_params);
+
+            auto [is_variadic_function, in_params] = _process_function_params(lex, paraments);
+
+            return new AstValueFunction(
+                in_params,
+                is_variadic_function,
+                in_template_params,
+                marked_return_type,
+                where_constraints,
+                body);
+        }
+        auto pass_func_lambda::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        {
+            std::optional<AstList*> template_params = std::nullopt;
+            AstList* paraments = static_cast<AstList*>(WO_NEED_AST_TYPE(2, AstBase::AST_LIST));
+            AstBase* body_0 = WO_NEED_AST(4);
+            std::optional<AstVariableDefines*> body_1 = std::nullopt;
+
+            if (!WO_IS_EMPTY(1))
+                template_params = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
+
+            if (!WO_IS_EMPTY(5))
+                body_1 = static_cast<AstVariableDefines*>(WO_NEED_AST_TYPE(5, AstBase::AST_VARIABLE_DEFINES));
+
+            std::optional<std::list<wo_pstring_t>> in_template_params =
+                _process_template_params(template_params);
+
+            auto [is_variadic_function, in_params] = _process_function_params(lex, paraments);
+
+            auto* function_body = new AstList();
+
+            if (body_1)
+                // Append body_1 before body_0.
+                function_body->m_list.push_back(body_1.value());
+            function_body->m_list.push_back(body_0);
+
+            auto* function_scope = new AstScope(function_body);
+
+            // Update source location
+            function_body->source_location = body_0->source_location;
+            function_scope->source_location = body_0->source_location;
+
+            return new AstValueFunction(
+                in_params,
+                is_variadic_function,
+                in_template_params,
+                std::nullopt,
+                std::nullopt,
+                function_scope);
+        }
+        auto pass_if::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        {
+            auto* condition = WO_NEED_AST_VALUE(2);
+            auto* body = WO_NEED_AST(4);
+            std::optional<AstBase*> else_body = std::nullopt;
+
+            if (!WO_IS_EMPTY(5))
+                else_body = WO_NEED_AST(5);
+
+            return new AstIf(condition, body, else_body);
+        }
+        auto pass_while::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        {
+            auto* condition = WO_NEED_AST_VALUE(2);
+            auto* body = WO_NEED_AST(4);
+
+            return new AstWhile(condition, body);
+        }
+        auto pass_for_defined::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        {
+            std::optional<AstVariableDefines*> init = std::nullopt;
+            std::optional<AstValueBase*> condition = std::nullopt;
+            std::optional<AstValueBase*> step = std::nullopt;
+            auto* body = WO_NEED_AST(7);
+
+            if (!WO_IS_EMPTY(2))
+                init = static_cast<AstVariableDefines*>(WO_NEED_AST_TYPE(2, AstBase::AST_VARIABLE_DEFINES));
+            if (!WO_IS_EMPTY(3))
+                condition = WO_NEED_AST_VALUE(3);
+            if (!WO_IS_EMPTY(5))
+                step = WO_NEED_AST_VALUE(5);
+
+            return new AstFor(init, condition, step, body);
+        }
+        auto pass_for_expr::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        {
+            std::optional<AstBase*> init = std::nullopt;
+            std::optional<AstValueBase*> condition = std::nullopt;
+            std::optional<AstValueBase*> step = std::nullopt;
+            auto* body = WO_NEED_AST(8);
+
+            if (!WO_IS_EMPTY(2))
+                init = WO_NEED_AST_VALUE(2);
+            if (!WO_IS_EMPTY(4))
+                condition = WO_NEED_AST_VALUE(4);
+            if (!WO_IS_EMPTY(6))
+                step = WO_NEED_AST_VALUE(6);
+
+            return new AstFor(init, condition, step, body);
+        }
+        auto pass_foreach::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        {
+            AstPatternBase* pattern = static_cast<AstPatternBase*>(WO_NEED_AST_PATTERN(4));
+            AstValueBase* iterating_value = WO_NEED_AST_VALUE(6);
+            AstBase* body = WO_NEED_AST(8);
+            return new AstForeach(pattern, iterating_value, body);
+        }
+        auto pass_mark_mut::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        {
+            return new AstValueMarkAsMutable(WO_NEED_AST_VALUE(1));
+        }
+        auto pass_mark_immut::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        {
+            return new AstValueMarkAsImmutable(WO_NEED_AST_VALUE(1));
+        }
+        auto pass_typeof::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        {
+            AstValueBase* value = WO_NEED_AST_VALUE(2);
+            return new AstTypeHolder(value);
+        }
+        auto pass_build_identifier_typeof::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        {
+            AstList* scope_identifier = static_cast<AstList*>(WO_NEED_AST_TYPE(0, AstBase::AST_LIST));
+            std::optional<AstList*> template_arguments = std::nullopt;
+
+            wo_assert(scope_identifier->m_list.size() >= 2);
+
+            if (!WO_IS_EMPTY(1))
+                template_arguments = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
+
+            std::optional<std::list<AstTypeHolder*>> template_args = std::nullopt;
+            if (template_arguments)
             {
-                auto* name = dynamic_cast<ast_token*>(space_name_list);
-                wo_assert(name);
-
-                ast_namespace* result = new ast_namespace();
-                result->scope_name = wstring_pool::get_pstr(name->tokens.identifier);
-                result->copy_source_info(name);
-
-                if (last_namespace)
+                std::list<AstTypeHolder*> args;
+                for (auto& arg : template_arguments.value()->m_list)
                 {
-                    last_namespace->in_scope_sentence = new ast_list;
-                    last_namespace->in_scope_sentence->append_at_end(result);
+                    wo_assert(arg->node_type == AstBase::AST_TYPE_HOLDER);
+                    args.push_back(static_cast<AstTypeHolder*>(arg));
                 }
+                template_args = std::move(args);
+            }
+
+            std::list<wo_pstring_t> scope_identifiers_and_name;
+            auto token_iter = scope_identifier->m_list.begin();
+            auto token_end = scope_identifier->m_list.end();
+
+            wo_assert((*token_iter)->node_type == AstBase::AST_TYPE_HOLDER);
+            AstTypeHolder* typeof_holder = static_cast<AstTypeHolder*>(*token_iter);
+
+            ++token_iter;
+            for (; token_iter != token_end; ++token_iter)
+            {
+                auto* asttoken = *token_iter;
+                wo_assert(asttoken->node_type == AstBase::AST_TOKEN);
+                scope_identifiers_and_name.push_back(
+                    wstring_pool::get_pstr(static_cast<AstToken*>(asttoken)->m_token.identifier));
+            }
+
+            wo_pstring_t identifier_name = scope_identifiers_and_name.back();
+            scope_identifiers_and_name.pop_back();
+
+            return new AstIdentifier(identifier_name, template_args, scope_identifiers_and_name, typeof_holder);
+        }
+        auto pass_build_identifier_normal::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstList* scope_identifier = static_cast<AstList*>(WO_NEED_AST_TYPE(0, AstBase::AST_LIST));
+            std::optional<AstList*> template_arguments = std::nullopt;
+
+            wo_assert(scope_identifier->m_list.size() >= 1);
+
+            if (!WO_IS_EMPTY(1))
+                template_arguments = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
+
+            std::optional<std::list<AstTypeHolder*>> template_args = std::nullopt;
+            if (template_arguments)
+            {
+                std::list<AstTypeHolder*> args;
+                for (auto& arg : template_arguments.value()->m_list)
+                {
+                    wo_assert(arg->node_type == AstBase::AST_TYPE_HOLDER);
+                    args.push_back(static_cast<AstTypeHolder*>(arg));
+                }
+                template_args = std::move(args);
+            }
+
+            std::list<wo_pstring_t> scope_identifiers_and_name;
+            for (auto* asttoken : scope_identifier->m_list)
+            {
+                wo_assert(asttoken->node_type == AstBase::AST_TOKEN);
+                scope_identifiers_and_name.push_back(
+                    wstring_pool::get_pstr(static_cast<AstToken*>(asttoken)->m_token.identifier));
+            }
+            wo_pstring_t identifier_name = scope_identifiers_and_name.back();
+            scope_identifiers_and_name.pop_back();
+
+            return new AstIdentifier(identifier_name, template_args, scope_identifiers_and_name, false);
+        }
+        auto pass_build_identifier_global::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstList* scope_identifier = static_cast<AstList*>(WO_NEED_AST_TYPE(0, AstBase::AST_LIST));
+            std::optional<AstList*> template_arguments = std::nullopt;
+
+            wo_assert(scope_identifier->m_list.size() >= 1);
+
+            if (!WO_IS_EMPTY(1))
+                template_arguments = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
+
+            std::optional<std::list<AstTypeHolder*>> template_args = std::nullopt;
+            if (template_arguments)
+            {
+                std::list<AstTypeHolder*> args;
+                for (auto& arg : template_arguments.value()->m_list)
+                {
+                    wo_assert(arg->node_type == AstBase::AST_TYPE_HOLDER);
+                    args.push_back(static_cast<AstTypeHolder*>(arg));
+                }
+                template_args = std::move(args);
+            }
+
+            std::list<wo_pstring_t> scope_identifiers_and_name;
+            for (auto* asttoken : scope_identifier->m_list)
+            {
+                wo_assert(asttoken->node_type == AstBase::AST_TOKEN);
+                scope_identifiers_and_name.push_back(
+                    wstring_pool::get_pstr(static_cast<AstToken*>(asttoken)->m_token.identifier));
+            }
+            wo_pstring_t identifier_name = scope_identifiers_and_name.back();
+            scope_identifiers_and_name.pop_back();
+
+            return new AstIdentifier(identifier_name, template_args, scope_identifiers_and_name, true);
+        }
+        auto pass_type_nil::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        {
+            AstToken* nil_token = static_cast<AstToken*>(WO_NEED_AST_TYPE(0, AstBase::AST_TOKEN));
+            wo_assert(nil_token->m_token.type == lex_type::l_nil);
+
+            AstIdentifier* nil_type_identifier = new AstIdentifier(WO_PSTR(nil), std::nullopt, {}, true);
+
+            // Update source location
+            nil_type_identifier->source_location = nil_token->source_location;
+
+            return new AstTypeHolder(nil_type_identifier);
+        }
+        auto pass_type_func::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        {
+            AstList* parament_types = static_cast<AstList*>(WO_NEED_AST_TYPE(0, AstBase::AST_LIST));
+            AstTypeHolder* return_type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(2, AstBase::AST_TYPE_HOLDER));
+
+            bool is_variadic_function = false;
+            std::list<AstTypeHolder*> paraments;
+            for (auto& param : parament_types->m_list)
+            {
+                if (is_variadic_function)
+                    return token{ lex.lang_error(
+                        lexer::errorlevel::error, param, WO_ERR_ARG_DEFINE_AFTER_VARIADIC) };
+
+                if (param->node_type == AstBase::AST_TYPE_HOLDER)
+                    paraments.push_back(static_cast<AstTypeHolder*>(param));
                 else
-                    output_namespace = result;
-
-                last_namespace = result;
-
-                space_name_list = space_name_list->sibling;
+                {
+                    wo_assert(param->node_type == AstBase::AST_TOKEN);
+                    wo_assert(static_cast<AstToken*>(param)->m_token.type == lex_type::l_variadic_sign);
+                    is_variadic_function = true;
+                }
             }
-            auto* list = dynamic_cast<ast_sentence_block*>(WO_NEED_AST(2));
-            wo_test(list);
-            last_namespace->in_scope_sentence = list->sentence_list;
 
-            return (ast_basic*)output_namespace;
+            return new AstTypeHolder(AstTypeHolder::FunctionType{
+                is_variadic_function, paraments, return_type });
         }
-
-        grammar::produce pass_function_define::build(lexer& lex, inputs_t& input)
+        auto pass_type_struct_field::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
-            auto* ast_func = new ast_value_function_define;
-            ast_type* return_type = nullptr;
-            ast_list* template_types = nullptr;
+            std::optional<AstDeclareAttribue::accessc_attrib> attrib = std::nullopt;
+            token field_name = WO_NEED_TOKEN(1);
+            AstTypeHolder* field_type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(2, AstBase::AST_TYPE_HOLDER));
 
-            if (input.size() == 10)
+            if (!WO_IS_EMPTY(0))
             {
-                // function with name..
-                ast_func->declear_attribute = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(0));
-                wo_assert(ast_func->declear_attribute);
+                AstToken* describe =
+                    static_cast<AstToken*>(WO_NEED_AST_TYPE(0, AstBase::AST_TOKEN));
 
-                ast_func->function_name = wstring_pool::get_pstr(WO_NEED_TOKEN(2).identifier);
-
-                if (!ast_empty::is_empty(input[3]))
-                    template_types = dynamic_cast<ast_list*>(WO_NEED_AST(3));
-
-                ast_func->argument_list = dynamic_cast<ast_list*>(WO_NEED_AST(5));
-
-                return_type = dynamic_cast<ast_type*>(WO_NEED_AST(7));
-                if (!ast_empty::is_empty(input[8]))
+                switch (describe->m_token.type)
                 {
-                    ast_func->where_constraint = dynamic_cast<ast_where_constraint*>(WO_NEED_AST(8));
-                    wo_assert(ast_func->where_constraint);
-                }
-
-                ast_func->in_function_sentence = dynamic_cast<ast_sentence_block*>(WO_NEED_AST(9))->sentence_list;
-            }
-            else if (input.size() == 9)
-            {
-                // anonymous function
-                ast_func->declear_attribute = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(0));
-                wo_assert(ast_func->declear_attribute);
-
-                if (!ast_empty::is_empty(input[2]))
-                    template_types = dynamic_cast<ast_list*>(WO_NEED_AST(2));
-
-                ast_func->function_name = nullptr; // just get a fucking name
-                ast_func->argument_list = dynamic_cast<ast_list*>(WO_NEED_AST(4));
-
-                return_type = dynamic_cast<ast_type*>(WO_NEED_AST(6));
-                if (!ast_empty::is_empty(input[7]))
-                {
-                    ast_func->where_constraint = dynamic_cast<ast_where_constraint*>(WO_NEED_AST(7));
-                    wo_assert(ast_func->where_constraint);
-                }
-
-                ast_func->in_function_sentence = dynamic_cast<ast_sentence_block*>(WO_NEED_AST(8))->sentence_list;
-            }
-            else if (input.size() == 11)
-            {
-                if (WO_IS_TOKEN(2) && WO_NEED_TOKEN(2).type == lex_type::l_operator)
-                {
-                    // operator function
-                    ast_func->declear_attribute = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(0));
-                    wo_assert(ast_func->declear_attribute);
-
-                    ast_func->function_name = wstring_pool::get_pstr(L"operator " + dynamic_cast<ast_token*>(WO_NEED_AST(3))->tokens.identifier);
-
-                    if (!ast_empty::is_empty(input[4]))
-                        template_types = dynamic_cast<ast_list*>(WO_NEED_AST(4));
-
-                    ast_func->argument_list = dynamic_cast<ast_list*>(WO_NEED_AST(6));
-
-                    return_type = dynamic_cast<ast_type*>(WO_NEED_AST(8));
-                    if (!ast_empty::is_empty(input[9]))
-                    {
-                        ast_func->where_constraint = dynamic_cast<ast_where_constraint*>(WO_NEED_AST(9));
-                        wo_assert(ast_func->where_constraint);
-                    }
-
-                    ast_func->in_function_sentence = dynamic_cast<ast_sentence_block*>(WO_NEED_AST(10))->sentence_list;
-                }
-                else
-                {
-                    // function with name.. export func
-                    ast_func->declear_attribute = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(1));
-                    wo_assert(ast_func->declear_attribute);
-
-                    ast_func->function_name = wstring_pool::get_pstr(WO_NEED_TOKEN(3).identifier);
-
-                    if (!ast_empty::is_empty(input[4]))
-                    {
-                        template_types = dynamic_cast<ast_list*>(WO_NEED_AST(4));
-                    }
-
-                    ast_func->argument_list = dynamic_cast<ast_list*>(WO_NEED_AST(6));
-                    ast_func->in_function_sentence = nullptr;
-
-                    return_type = dynamic_cast<ast_type*>(WO_NEED_AST(8));
-                    if (!ast_empty::is_empty(input[9]))
-                    {
-                        ast_func->where_constraint = dynamic_cast<ast_where_constraint*>(WO_NEED_AST(9));
-                        wo_assert(ast_func->where_constraint);
-                    }
-
-                    ast_func->externed_func_info = dynamic_cast<ast_extern_info*>(WO_NEED_AST(0));
-                }
-            }
-            else if (input.size() == 12)
-            {
-                // export func
-                ast_func->declear_attribute = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(1));
-                wo_assert(ast_func->declear_attribute);
-
-                ast_func->function_name = wstring_pool::get_pstr(L"operator " + dynamic_cast<ast_token*>(WO_NEED_AST(4))->tokens.identifier);
-
-                if (!ast_empty::is_empty(input[5]))
-                {
-                    template_types = dynamic_cast<ast_list*>(WO_NEED_AST(5));
-                }
-
-                ast_func->argument_list = dynamic_cast<ast_list*>(WO_NEED_AST(7));
-                ast_func->in_function_sentence = nullptr;
-                return_type = dynamic_cast<ast_type*>(WO_NEED_AST(9));
-                if (!ast_empty::is_empty(input[10]))
-                {
-                    ast_func->where_constraint = dynamic_cast<ast_where_constraint*>(WO_NEED_AST(10));
-                    wo_assert(ast_func->where_constraint);
-                }
-
-                ast_func->externed_func_info = dynamic_cast<ast_extern_info*>(WO_NEED_AST(0));
-            }
-            else if (input.size() == 7)
-            {
-                // \ <> ARGS  = EXPR where;
-                // 0 1   2    3    4  5 
-                // anonymous function
-                ast_func->declear_attribute = new ast_decl_attribute();
-                wo_assert(ast_func->declear_attribute);
-
-                if (!ast_empty::is_empty(input[1]))
-                    template_types = dynamic_cast<ast_list*>(WO_NEED_AST(1));
-
-                ast_func->function_name = nullptr; // just get a fucking name
-                ast_func->argument_list = dynamic_cast<ast_list*>(WO_NEED_AST(2));
-
-                return_type = nullptr;
-
-                ast_sentence_block* sentences = dynamic_cast<ast_sentence_block*>(WO_NEED_AST(4));
-                wo_assert(sentences);
-
-                ast_func->in_function_sentence = sentences->sentence_list;
-                wo_assert(ast_func->in_function_sentence);
-
-                if (ast_varref_defines* where_decls = dynamic_cast<ast_varref_defines*>(WO_NEED_AST(5)))
-                {
-                    // Inverse where_decls
-                    std::reverse(where_decls->var_refs.begin(), where_decls->var_refs.end());
-
-                    sentences->sentence_list->append_at_head(where_decls);
-                }
-            }
-            else
-                wo_error("Unknown ast type.");
-            // many things to do..
-
-            if (return_type)
-            {
-                // complex type;;
-                ast_func->value_type->set_ret_type(return_type);
-                ast_func->value_type->get_return_type()->copy_source_info(return_type);
-                ast_func->auto_adjust_return_type = false;
-            }
-            else
-            {
-                ast_func->auto_adjust_return_type = true;
-            }
-
-            size_t auto_template_id = 0;
-            auto* argchild = ast_func->argument_list->children;
-            while (argchild)
-            {
-                if (auto* arg_node = dynamic_cast<ast_value_arg_define*>(argchild))
-                {
-                    if (arg_node->value_type->is_waiting_create_template_for_auto())
-                    {
-                        // Create a template for this fucking arguments...
-                        std::wstring auto_template_name = L"auto_" + std::to_wstring(auto_template_id++) + L"_t";
-
-                        ast_template_define* atn = new ast_template_define;
-                        atn->template_ident = wstring_pool::get_pstr(auto_template_name);
-
-                        // If no template arguments defined, create a new list~
-                        if (template_types == nullptr)
-                            template_types = new ast_list;
-
-                        template_types->append_at_end(atn);
-                        // Update typename at last:
-                        arg_node->value_type->set_type_with_name(atn->template_ident);
-                    }
-
-                    if (ast_func->value_type->is_variadic_function_type)
-                        return token{ lex.parser_error(lexer::errorlevel::error, WO_ERR_ARG_DEFINE_AFTER_VARIADIC) };
-
-                    ast_func->value_type->append_function_argument_type(arg_node->value_type);
-                }
-                else if (dynamic_cast<ast_token*>(argchild))
-                    ast_func->value_type->set_as_variadic_arg_func();
-                argchild = argchild->sibling;
-            }
-
-            ast_list* template_const_list = new ast_list;
-
-            if (template_types)
-            {
-                ast_func->is_template_define = true;
-                ast_template_define* template_type = dynamic_cast<ast_template_define*>(template_types->children);
-                wo_assert(template_type);
-
-                while (template_type)
-                {
-                    ast_func->template_type_name_list.push_back(template_type->template_ident);
-                    template_type = dynamic_cast<ast_template_define*>(template_type->sibling);
-                }
-            }
-
-            if (ast_func->in_function_sentence)
-                ast_func->in_function_sentence->append_at_head(template_const_list);
-            else
-                ast_func->in_function_sentence = template_const_list;
-
-            // if ast_func->in_function_sentence == nullptr it means this function have no sentences...
-            return (ast::ast_base*)ast_func;
-        }
-
-
-        grammar::produce pass_using_type_as::build(lexer& lex, inputs_t& input)
-        {
-            // attrib using/alias xxx <>  = xxx ;/{...}
-            ast_using_type_as* using_type = new ast_using_type_as;
-            using_type->new_type_identifier = wstring_pool::get_pstr(WO_NEED_TOKEN(2).identifier);
-            using_type->old_type = dynamic_cast<ast_type*>(WO_NEED_AST(5));
-            using_type->declear_attribute = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(0));
-            using_type->is_alias = WO_NEED_TOKEN(1).type == lex_type::l_alias;
-
-            using_type->old_type = dynamic_cast<ast_type*>(WO_NEED_AST(5));
-            ast_namespace* type_namespace = new ast_namespace;
-            type_namespace->copy_source_info(using_type->old_type);
-            type_namespace->scope_name = using_type->new_type_identifier;
-            using_type->namespace_decl = type_namespace;
-
-            if (!ast_empty::is_empty(input[3]))
-            {
-                ast_list* template_defines = dynamic_cast<ast_list*>(WO_NEED_AST(3));
-                wo_test(template_defines);
-                using_type->is_template_define = true;
-
-                ast_template_define* template_type = dynamic_cast<ast_template_define*>(template_defines->children);
-                wo_test(template_type);
-                while (template_type)
-                {
-                    using_type->template_type_name_list.push_back(template_type->template_ident);
-                    template_type = dynamic_cast<ast_template_define*>(template_type->sibling);
-                }
-            }
-
-            if (!using_type->is_alias && WO_IS_AST(6) && !ast_empty::is_empty(input[6]))
-            {
-                ast_sentence_block* in_namespace = dynamic_cast<ast_sentence_block*>(WO_NEED_AST(6));
-                wo_assert(in_namespace);
-
-                using_type->namespace_decl->in_scope_sentence = in_namespace->sentence_list;
-            }
-
-            return (ast_basic*)using_type;
-        }
-
-        //////////////////////////////////////////
-
-        ast_value_logical_binary::ast_value_logical_binary() : ast_value(new ast_type(WO_PSTR(bool)))
-        {
-        }
-        ast::ast_base* ast_value_logical_binary::instance(ast_base* child_instance) const
-        {
-            using astnode_type = decltype(MAKE_INSTANCE(this));
-            auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
-            if (!child_instance) *dumm = *this;
-            ast_value::instance(dumm);
-            // Write self copy functions here..
-
-            WO_REINSTANCE(dumm->left);
-            WO_REINSTANCE(dumm->right);
-
-            return dumm;
-        }
-        void ast_value_logical_binary::update_constant_value(lexer* lex)
-        {
-            if (is_constant)
-                return;
-
-            left->eval_constant_value(lex);
-            right->eval_constant_value(lex);
-
-            if (!left->value_type->is_same(right->value_type, true))
-                return;
-
-            // if left/right is custom, donot calculate them 
-            if (operate == lex_type::l_land
-                || operate == lex_type::l_lor)
-            {
-                if (!left->value_type->is_bool() || !right->value_type->is_bool())
-                    return;
-            }
-            else if (!left->value_type->is_builtin_basic_type()
-                || !right->value_type->is_builtin_basic_type())
-                return;
-
-            if (overrided_operation_call)
-                return;
-
-            if (left->is_constant && right->is_constant)
-            {
-                is_constant = true;
-                value_type->set_type_with_name(WO_PSTR(bool));
-
-                switch (operate)
-                {
-                case lex_type::l_land:
-                    constant_value.set_bool(left->get_constant_value().handle && right->get_constant_value().handle);
-                    break;
-                case lex_type::l_lor:
-                    constant_value.set_bool(left->get_constant_value().handle || right->get_constant_value().handle);
-                    break;
-                case lex_type::l_equal:
-                case lex_type::l_not_equal:
-                    if (left->value_type->is_integer() || left->value_type->is_bool())
-                        constant_value.set_bool(left->get_constant_value().integer == right->get_constant_value().integer);
-                    else if (left->value_type->is_real())
-                        constant_value.set_bool(left->get_constant_value().real == right->get_constant_value().real);
-                    else if (left->value_type->is_string())
-                        constant_value.set_bool(*left->get_constant_value().string == *right->get_constant_value().string);
-                    else if (left->value_type->is_handle())
-                        constant_value.set_bool(left->get_constant_value().handle == right->get_constant_value().handle);
-                    else
-                    {
-                        is_constant = false;
-                        return;
-                    }
-                    if (operate == lex_type::l_not_equal)
-                        constant_value.set_bool(!constant_value.integer);
-                    break;
-
-                case lex_type::l_less:
-                case lex_type::l_larg_or_equal:
-                    if (left->value_type->is_integer())
-                        constant_value.set_bool(left->get_constant_value().integer < right->get_constant_value().integer);
-                    else if (left->value_type->is_real())
-                        constant_value.set_bool(left->get_constant_value().real < right->get_constant_value().real);
-                    else if (left->value_type->is_string())
-                        constant_value.set_bool(*left->get_constant_value().string < *right->get_constant_value().string);
-                    else if (left->value_type->is_handle())
-                        constant_value.set_bool(left->get_constant_value().handle < right->get_constant_value().handle);
-                    else
-                    {
-                        is_constant = false;
-                        return;
-                    }
-
-
-                    if (operate == lex_type::l_larg_or_equal)
-                        constant_value.set_bool(!constant_value.integer);
-                    break;
-
-                case lex_type::l_larg:
-                case lex_type::l_less_or_equal:
-
-                    if (left->value_type->is_integer())
-                        constant_value.set_bool(left->get_constant_value().integer > right->get_constant_value().integer);
-                    else if (left->value_type->is_real())
-                        constant_value.set_bool(left->get_constant_value().real > right->get_constant_value().real);
-                    else if (left->value_type->is_string())
-                        constant_value.set_bool(*left->get_constant_value().string > *right->get_constant_value().string);
-                    else if (left->value_type->is_handle())
-                        constant_value.set_bool(left->get_constant_value().handle > right->get_constant_value().handle);
-                    else
-                    {
-                        is_constant = false;
-                        return;
-                    }
-
-                    if (operate == lex_type::l_less_or_equal)
-                        constant_value.set_bool(!constant_value.integer);
-                    break;
-
+                case lex_type::l_public:
+                    attrib = AstDeclareAttribue::accessc_attrib::PUBLIC; break;
+                case lex_type::l_private:
+                    attrib = AstDeclareAttribue::accessc_attrib::PRIVATE; break;
+                case lex_type::l_protected:
+                    attrib = AstDeclareAttribue::accessc_attrib::PROTECTED; break;
                 default:
-                    wo_error("Do not support this op.");
+                    wo_error("Unknown attribute.");
                 }
             }
+
+            return new AstStructFieldDefine(
+                attrib, wstring_pool::get_pstr(field_name.identifier), field_type);
         }
+        auto pass_type_struct::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        {
+            AstList* members = static_cast<AstList*>(WO_NEED_AST_TYPE(2, AstBase::AST_LIST));
 
-        //////////////////////////////////////////
-        //////////////////////////////////////////
+            std::list<AstStructFieldDefine*> fields;
+            std::unordered_set<wo_pstring_t> exist_field_name;
+            for (auto& field : members->m_list)
+            {
+                wo_assert(field->node_type == AstBase::AST_STRUCT_FIELD_DEFINE);
+                AstStructFieldDefine* field_define = static_cast<AstStructFieldDefine*>(field);
 
+                fields.push_back(field_define);
+
+                if (exist_field_name.insert(field_define->m_name).second == false)
+                    return token{ lex.lang_error(lexer::errorlevel::error, field,
+                        WO_ERR_REPEATED_FIELD_NAMED,
+                        field_define->m_name->c_str()) };
+            }
+
+            return new AstTypeHolder(AstTypeHolder::StructureType{ fields });
+        }
+        auto pass_type_tuple::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        {
+            AstList* tuple_types = static_cast<AstList*>(WO_NEED_AST_TYPE(0, AstBase::AST_LIST));
+
+            std::list<AstTypeHolder*> fields;
+            for (auto& field : tuple_types->m_list)
+            {
+                if (field->node_type != AstBase::AST_TYPE_HOLDER)
+                    return token{ lex.lang_error(lexer::errorlevel::error, field, WO_ERR_FAILED_TO_CREATE_TUPLE_WITH_VAARG) };
+
+                fields.push_back(static_cast<AstTypeHolder*>(field));
+            }
+
+            return new AstTypeHolder(AstTypeHolder::TupleType{ fields });
+        }
+        auto pass_attribute::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstToken* attrib_token = static_cast<AstToken*>(WO_NEED_AST_TYPE(0, AstBase::AST_TOKEN));
+
+            auto* attrib = new AstDeclareAttribue();
+            if (!attrib->modify_attrib(lex, attrib_token))
+                return token{ lex_type::l_error };
+
+            return attrib;
+        }
+        auto pass_attribute_append::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstDeclareAttribue* attrib = static_cast<AstDeclareAttribue*>(WO_NEED_AST_TYPE(0, AstBase::AST_DECLARE_ATTRIBUTE));
+            AstToken* attrib_token = static_cast<AstToken*>(WO_NEED_AST_TYPE(1, AstBase::AST_TOKEN));
+
+            if (!attrib->modify_attrib(lex, attrib_token))
+                return token{ lex_type::l_error };
+
+            return attrib;
+        }
+        auto pass_pattern_for_assign::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstValueBase* been_assigned_lvalue = WO_NEED_AST_VALUE(0);
+
+            switch (been_assigned_lvalue->node_type)
+            {
+            case AstBase::AST_VALUE_VARIABLE:
+                return new AstPatternVariable(static_cast<AstValueVariable*>(been_assigned_lvalue));
+            case AstBase::AST_VALUE_INDEX:
+                return new AstPatternIndex(static_cast<AstValueIndex*>(been_assigned_lvalue));
+            default:
+                wo_error("Unknown pattern for assign.");
+                return token{ lex_type::l_error };
+            }
+        }
+        auto pass_reverse_vardef::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstList* vardefs = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
+            vardefs->m_list.reverse();
+
+            AstVariableDefines* vardefines = new AstVariableDefines(std::nullopt);
+            for (auto* defitem : vardefs->m_list)
+            {
+                AstVariableDefineItem* item = static_cast<AstVariableDefineItem*>(defitem);
+                vardefines->m_definitions.push_back(item);
+            }
+
+            return vardefines;
+        }
+        auto pass_type_mutable::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstTypeHolder* type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(1, AstBase::AST_TYPE_HOLDER));
+            type->m_mutable_mark = AstTypeHolder::mutable_mark::MARK_AS_MUTABLE;
+            return type;
+        }
+        auto pass_type_immutable::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstTypeHolder* type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(1, AstBase::AST_TYPE_HOLDER));
+            type->m_mutable_mark = AstTypeHolder::mutable_mark::MARK_AS_IMMUTABLE;
+            return type;
+        }
+        auto pass_func_argument::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstPatternBase* pattern = static_cast<AstPatternBase*>(WO_NEED_AST_PATTERN(0));
+            std::optional<AstTypeHolder*> type = std::nullopt;
+
+            if (!WO_IS_EMPTY(1))
+                type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(1, AstBase::AST_TYPE_HOLDER));
+
+            return new AstFunctionParameterDeclare(pattern, type);
+        }
+        auto pass_do_void_cast::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstValueBase* value = WO_NEED_AST_VALUE(1);
+
+            AstIdentifier* void_identifier = new AstIdentifier(WO_PSTR(void), std::nullopt, {}, true);
+            AstTypeHolder* void_type = new AstTypeHolder(void_identifier);
+
+            AstValueTypeCast* cast = new AstValueTypeCast(void_type, value);
+
+            // Update source location
+            void_identifier->source_location = value->source_location;
+            void_type->source_location = value->source_location;
+
+            return cast;
+        }
+        auto pass_assign_operation::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstPatternBase* lpattern = WO_NEED_AST_PATTERN(0);
+            token operation = WO_NEED_TOKEN(1);
+            AstValueBase* rvalue = WO_NEED_AST_VALUE(2);
+
+            switch (operation.type)
+            {
+            case lex_type::l_assign:
+                return new AstValueAssign(false, AstValueAssign::ASSIGN, lpattern, rvalue);
+            case lex_type::l_add_assign:
+                return new AstValueAssign(false, AstValueAssign::ADD_ASSIGN, lpattern, rvalue);
+            case lex_type::l_sub_assign:
+                return new AstValueAssign(false, AstValueAssign::SUBSTRACT_ASSIGN, lpattern, rvalue);
+            case lex_type::l_mul_assign:
+                return new AstValueAssign(false, AstValueAssign::MULTIPLY_ASSIGN, lpattern, rvalue);
+            case lex_type::l_div_assign:
+                return new AstValueAssign(false, AstValueAssign::DIVIDE_ASSIGN, lpattern, rvalue);
+            case lex_type::l_mod_assign:
+                return new AstValueAssign(false, AstValueAssign::MODULO_ASSIGN, lpattern, rvalue);
+            case lex_type::l_value_assign:
+                return new AstValueAssign(true, AstValueAssign::ASSIGN, lpattern, rvalue);
+            case lex_type::l_value_add_assign:
+                return new AstValueAssign(true, AstValueAssign::ADD_ASSIGN, lpattern, rvalue);
+            case lex_type::l_value_sub_assign:
+                return new AstValueAssign(true, AstValueAssign::SUBSTRACT_ASSIGN, lpattern, rvalue);
+            case lex_type::l_value_mul_assign:
+                return new AstValueAssign(true, AstValueAssign::MULTIPLY_ASSIGN, lpattern, rvalue);
+            case lex_type::l_value_div_assign:
+                return new AstValueAssign(true, AstValueAssign::DIVIDE_ASSIGN, lpattern, rvalue);
+            case lex_type::l_value_mod_assign:
+                return new AstValueAssign(true, AstValueAssign::MODULO_ASSIGN, lpattern, rvalue);
+            default:
+                wo_error("Unknown assign operation.");
+                return token{ lex_type::l_error };
+            }
+        }
+        auto pass_binary_operation::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstValueBase* lvalue = WO_NEED_AST_VALUE(0);
+            token operation = WO_NEED_TOKEN(1);
+            AstValueBase* rvalue = WO_NEED_AST_VALUE(2);
+
+            switch (operation.type)
+            {
+            case lex_type::l_add:
+                return new AstValueBinaryOperator(AstValueBinaryOperator::ADD, lvalue, rvalue);
+            case lex_type::l_sub:
+                return new AstValueBinaryOperator(AstValueBinaryOperator::SUBSTRACT, lvalue, rvalue);
+            case lex_type::l_mul:
+                return new AstValueBinaryOperator(AstValueBinaryOperator::MULTIPLY, lvalue, rvalue);
+            case lex_type::l_div:
+                return new AstValueBinaryOperator(AstValueBinaryOperator::DIVIDE, lvalue, rvalue);
+            case lex_type::l_mod:
+                return new AstValueBinaryOperator(AstValueBinaryOperator::MODULO, lvalue, rvalue);
+            case lex_type::l_land:
+                return new AstValueBinaryOperator(AstValueBinaryOperator::LOGICAL_AND, lvalue, rvalue);
+            case lex_type::l_lor:
+                return new AstValueBinaryOperator(AstValueBinaryOperator::LOGICAL_OR, lvalue, rvalue);
+            case lex_type::l_equal:
+                return new AstValueBinaryOperator(AstValueBinaryOperator::EQUAL, lvalue, rvalue);
+            case lex_type::l_not_equal:
+                return new AstValueBinaryOperator(AstValueBinaryOperator::NOT_EQUAL, lvalue, rvalue);
+            case lex_type::l_less:
+                return new AstValueBinaryOperator(AstValueBinaryOperator::LESS, lvalue, rvalue);
+            case lex_type::l_less_or_equal:
+                return new AstValueBinaryOperator(AstValueBinaryOperator::LESS_EQUAL, lvalue, rvalue);
+            case lex_type::l_larg:
+                return new AstValueBinaryOperator(AstValueBinaryOperator::GREATER, lvalue, rvalue);
+            case lex_type::l_larg_or_equal:
+                return new AstValueBinaryOperator(AstValueBinaryOperator::GREATER_EQUAL, lvalue, rvalue);
+            default:
+                wo_error("Unknown binary operation.");
+                return token{ lex_type::l_error };
+            }
+        }
+        auto pass_literal::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            auto read_from_unsigned_literal =
+                [](const wchar_t* text)-> uint64_t
+                {
+                    uint64_t base = 10;
+                    uint64_t result = 0;
+
+                    if (text[0] == L'0')
+                    {
+                        if (text[1] == 0)
+                            return 0;
+
+                        switch (lexer::lex_toupper(text[1]))
+                        {
+                        case L'X':
+                            base = 16;
+                            text = text + 2;
+                            break;
+                        case L'B':
+                            base = 2;
+                            text = text + 2;
+                            break;
+                        default:
+                            base = 8;
+                            ++text;
+                            break;
+                        }
+                    }
+                    while (*text)
+                    {
+                        if (*text == L'H' || *text == L'h')
+                            break;
+                        result = base * result + lexer::lex_hextonum(*text);
+                        ++text;
+                    }
+                    return result;
+                };
+            auto read_from_literal =
+                [&read_from_unsigned_literal](const wchar_t* text)-> int64_t
+                {
+                    if (text[0] == L'-')
+                        return -(int64_t)read_from_unsigned_literal(text + 1);
+                    return (int64_t)read_from_unsigned_literal(text);
+                };
+
+            token literal = WO_NEED_TOKEN(0);
+            AstValueLiteral* literal_instance = new AstValueLiteral();
+
+            literal_instance->decide_final_constant_value(wo::value{});
+            wo::value& literal_value = literal_instance->m_evaled_const_value.value();
+            switch (literal.type)
+            {
+            case lex_type::l_literal_integer:
+                literal_value.set_integer(
+                    (wo_integer_t)read_from_literal(literal.identifier.c_str()));
+                break;
+            case lex_type::l_literal_handle:
+                literal_value.set_handle(
+                    (wo_handle_t)read_from_unsigned_literal(literal.identifier.c_str()));
+                break;
+            case lex_type::l_literal_real:
+                literal_value.set_real((wo_real_t)std::stod(literal.identifier));
+                break;
+            case lex_type::l_literal_string:
+                literal_value.set_string_nogc(wstrn_to_str(literal.identifier));
+                break;
+            case lex_type::l_nil:
+                literal_value.set_nil();
+                break;
+            case lex_type::l_true:
+                literal_value.set_bool(true);
+                break;
+            case lex_type::l_false:
+                literal_value.set_bool(false);
+                break;
+            default:
+                wo_error("Unknown literal type.");
+                break;
+            }
+
+            return literal_instance;
+        }
+        auto pass_literal_char::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstToken* literal = static_cast<AstToken*>(WO_NEED_AST_TYPE(0, AstBase::AST_TOKEN));
+
+            wo_assert(literal->m_token.type == lex_type::l_literal_char);
+
+            AstValueLiteral* literal_instance = new AstValueLiteral();
+            wo::value literal_value;
+            literal_value.set_integer((wo_integer_t)(wo_handle_t)literal->m_token.identifier[0]);
+            literal_instance->decide_final_constant_value(literal_value);
+
+            AstIdentifier* char_identifier = new AstIdentifier(WO_PSTR(char), std::nullopt, {}, true);
+            AstTypeHolder* char_type = new AstTypeHolder(char_identifier);
+
+            AstValueTypeCast* cast = new AstValueTypeCast(char_type, literal_instance);
+
+            // Update source location
+            literal_instance->source_location = literal_instance->source_location;
+            char_identifier->source_location = literal_instance->source_location;
+            char_type->source_location = literal_instance->source_location;
+
+            return cast;
+        }
+        auto pass_typeid::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstTypeHolder* type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(2, AstBase::AST_TYPE_HOLDER));
+            return new AstValueTypeid(type);
+        }
+        auto pass_unary_operation::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            token operation = WO_NEED_TOKEN(0);
+            AstValueBase* value = WO_NEED_AST_VALUE(1);
+
+            switch (operation.type)
+            {
+            case lex_type::l_sub:
+                return new AstValueUnaryOperator(AstValueUnaryOperator::NEGATIVE, value);
+            case lex_type::l_lnot:
+                return new AstValueUnaryOperator(AstValueUnaryOperator::LOGICAL_NOT, value);
+            default:
+                wo_error("Unknown unary operation.");
+                return token{ lex_type::l_error };
+            }
+        }
+        auto pass_variable::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstIdentifier* identifier = static_cast<AstIdentifier*>(WO_NEED_AST_TYPE(0, AstBase::AST_IDENTIFIER));
+            return new AstValueVariable(identifier);
+        }
+        auto pass_cast_type::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstValueBase* value = WO_NEED_AST_VALUE(0);
+            AstTypeHolder* type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(1, AstBase::AST_TYPE_HOLDER));
+
+            return new AstValueTypeCast(type, value);
+        }
+        auto pass_format_finish::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstToken* format_string_begin = static_cast<AstToken*>(WO_NEED_AST_TYPE(0, AstBase::AST_TOKEN));
+            AstValueBase* middle_value = WO_NEED_AST_VALUE(1);
+            AstToken* format_string_end = static_cast<AstToken*>(WO_NEED_AST_TYPE(2, AstBase::AST_TOKEN));
+
+            wo_assert(format_string_begin->m_token.type == lex_type::l_format_string_begin);
+            wo_assert(format_string_end->m_token.type == lex_type::l_format_string_end);
+
+            AstValueLiteral* format_string_begin_literal = new AstValueLiteral();
+            format_string_begin_literal->decide_final_constant_value(wstrn_to_str(format_string_begin->m_token.identifier));
+            AstValueLiteral* format_string_end_literal = new AstValueLiteral();
+            format_string_end_literal->decide_final_constant_value(wstrn_to_str(format_string_end->m_token.identifier));
+
+            AstValueBinaryOperator* first_middle_add =
+                new AstValueBinaryOperator(AstValueBinaryOperator::ADD, format_string_begin_literal, middle_value);
+            AstValueBinaryOperator* first_middle_end_add =
+                new AstValueBinaryOperator(AstValueBinaryOperator::ADD, first_middle_add, format_string_end_literal);
+
+            // Update source location
+            format_string_begin_literal->source_location = format_string_begin->source_location;
+            format_string_end_literal->source_location = format_string_end->source_location;
+            first_middle_add->source_location = format_string_begin->source_location;
+
+            return first_middle_end_add;
+        }
+        auto pass_format_cast_string::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstValueBase* value = WO_NEED_AST_VALUE(0);
+
+            AstIdentifier* string_identifier = new AstIdentifier(WO_PSTR(string), std::nullopt, {}, true);
+            AstTypeHolder* string_type = new AstTypeHolder(string_identifier);
+
+            AstValueTypeCast* cast = new AstValueTypeCast(string_type, value);
+
+            // Update source location
+            string_identifier->source_location = value->source_location;
+            string_type->source_location = value->source_location;
+
+            return cast;
+        }
+        auto pass_format_connect::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstValueBase* first_string = WO_NEED_AST_VALUE(0);
+            AstToken* middle_string_literal = static_cast<AstToken*>(WO_NEED_AST_TYPE(1, AstBase::AST_TOKEN));
+            AstValueBase* last_value = WO_NEED_AST_VALUE(2);
+
+            AstValueLiteral* middle_string = new AstValueLiteral();
+            middle_string->decide_final_constant_value(wstrn_to_str(middle_string_literal->m_token.identifier));
+
+            AstIdentifier* string_identifier = new AstIdentifier(WO_PSTR(string), std::nullopt, {}, true);
+            AstTypeHolder* string_type = new AstTypeHolder(string_identifier);
+            AstValueTypeCast* cast = new AstValueTypeCast(string_type, last_value);
+
+            AstValueBinaryOperator* first_middle_add =
+                new AstValueBinaryOperator(AstValueBinaryOperator::ADD, first_string, middle_string);
+
+            AstValueBinaryOperator* first_middle_last_add =
+                new AstValueBinaryOperator(AstValueBinaryOperator::ADD, first_middle_add, cast);
+
+            // Update source location
+            string_identifier->source_location = first_string->source_location;
+            string_type->source_location = first_string->source_location;
+            cast->source_location = first_string->source_location;
+            middle_string->source_location = middle_string_literal->source_location;
+            first_middle_add->source_location = first_string->source_location;
+
+            return first_middle_last_add;
+        }
+        auto pass_build_bind_monad::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstValueBase* bind_value = WO_NEED_AST_VALUE(0);
+            AstValueBase* bind_func = WO_NEED_AST_VALUE(2);
+
+            AstIdentifier* bind_identifier = new AstIdentifier(WO_PSTR(bind));
+            AstValueVariable* bind_variable = new AstValueVariable(bind_identifier);
+            AstValueFunctionCall* bind_call = new AstValueFunctionCall(true, bind_variable, { bind_value, bind_func });
+
+            // Update source location
+            bind_identifier->source_location = bind_value->source_location;
+            bind_variable->source_location = bind_value->source_location;
+
+            return bind_call;
+        }
+        auto pass_build_map_monad::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstValueBase* map_value = WO_NEED_AST_VALUE(0);
+            AstValueBase* map_func = WO_NEED_AST_VALUE(2);
+
+            AstIdentifier* map_identifier = new AstIdentifier(WO_PSTR(map));
+            AstValueVariable* map_variable = new AstValueVariable(map_identifier);
+            AstValueFunctionCall* map_call = new AstValueFunctionCall(true, map_variable, { map_value, map_func });
+
+            // Update source location
+            map_identifier->source_location = map_value->source_location;
+            map_variable->source_location = map_value->source_location;
+
+            return map_call;
+        }
+        auto pass_normal_function_call::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstValueBase* call_func = WO_NEED_AST_VALUE(0);
+            AstList* call_arguments = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
+
+            std::list<AstValueBase*> arguments;
+            for (auto& argument : call_arguments->m_list)
+            {
+                wo_assert(argument->node_type >= AstBase::AST_VALUE_begin && argument->node_type < AstBase::AST_VALUE_end);
+                arguments.push_back(static_cast<AstValueBase*>(argument));
+            }
+
+            return new AstValueFunctionCall(false, call_func, arguments);
+        }
+        auto pass_directly_function_call::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstValueBase* first_argument = WO_NEED_AST_VALUE(0);
+            AstValueBase* call_func = WO_NEED_AST_VALUE(2);
+
+            return new AstValueFunctionCall(true, call_func, { first_argument });
+        }
+        auto pass_directly_function_call_append_arguments::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstValueFunctionCall* direct_call =
+                static_cast<AstValueFunctionCall*>(WO_NEED_AST_TYPE(0, AstBase::AST_VALUE_FUNCTION_CALL));
+            std::optional<AstList*> arguments = std::nullopt;
+
+            wo_assert(direct_call->m_is_direct_call);
+
+            if (!WO_IS_EMPTY(1))
+                arguments = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
+
+            if (arguments)
+            {
+                for (auto* argument : arguments.value()->m_list)
+                {
+                    wo_assert(argument->node_type >= AstBase::AST_VALUE_begin && argument->node_type < AstBase::AST_VALUE_end);
+                    direct_call->m_arguments.push_back(static_cast<AstValueBase*>(argument));
+                }
+            }
+            return direct_call;
+        }
+        auto pass_inverse_function_call::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstValueBase* inverse_func = WO_NEED_AST_VALUE(0);
+            AstValueFunctionCall* function_call;
+            if (inverse_func->node_type == AstBase::AST_VALUE_FUNCTION_CALL)
+                function_call = static_cast<AstValueFunctionCall*>(inverse_func);
+            else
+            {
+                function_call = new AstValueFunctionCall(false, inverse_func, {});
+                function_call->source_location = inverse_func->source_location;
+            }
+            AstValueBase* inverse_argument = WO_NEED_AST_VALUE(2);
+
+            if (function_call->m_is_direct_call)
+            {
+                auto insert_place = function_call->m_arguments.cbegin();
+                ++insert_place;
+                function_call->m_arguments.insert(insert_place, inverse_argument);
+            }
+            else
+            {
+                function_call->m_is_direct_call = true;
+                function_call->m_arguments.push_front(inverse_argument);
+            }
+
+            return function_call;
+        }
+        auto pass_union_item::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            token union_item = WO_NEED_TOKEN(0);
+
+            return new AstUnionItem(wstring_pool::get_pstr(union_item.identifier), std::nullopt);
+        }
+        auto pass_union_item_constructor::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            token union_item = WO_NEED_TOKEN(0);
+            AstTypeHolder* constructor_type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(2, AstBase::AST_TYPE_HOLDER));
+
+            return new AstUnionItem(wstring_pool::get_pstr(union_item.identifier), constructor_type);
+        }
+        auto pass_union_declare::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            std::optional<AstDeclareAttribue*> attrib = std::nullopt;
+            token union_name = WO_NEED_TOKEN(2);
+            std::optional<AstList*> union_template_params = std::nullopt;
+            AstList* union_items = static_cast<AstList*>(WO_NEED_AST_TYPE(5, AstBase::AST_LIST));
+
+            if (!WO_IS_EMPTY(0))
+                attrib = static_cast<AstDeclareAttribue*>(WO_NEED_AST_TYPE(0, AstBase::AST_DECLARE_ATTRIBUTE));
+            if (!WO_IS_EMPTY(3))
+                union_template_params = static_cast<AstList*>(WO_NEED_AST_TYPE(3, AstBase::AST_LIST));
+
+            std::list<AstUnionItem*> items;
+            for (auto& item : union_items->m_list)
+            {
+                wo_assert(item->node_type == AstBase::AST_UNION_ITEM);
+                items.push_back(static_cast<AstUnionItem*>(item));
+            }
+
+            std::optional<std::list<wo_pstring_t>> template_params = std::nullopt;
+            if (union_template_params)
+            {
+                std::list<wo_pstring_t> params;
+                for (auto& param : union_template_params.value()->m_list)
+                {
+                    wo_assert(param->node_type == AstBase::AST_TOKEN);
+                    params.push_back(wstring_pool::get_pstr(static_cast<AstToken*>(param)->m_token.identifier));
+                }
+                template_params = std::move(params);
+            }
+
+            return new AstUnionDeclare(attrib, wstring_pool::get_pstr(union_name.identifier), template_params, items);
+        }
+        auto pass_union_pattern_identifier_or_takeplace::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            token identifier = WO_NEED_TOKEN(0);
+
+            wo_pstring_t identifier_name = wstring_pool::get_pstr(identifier.identifier);
+            if (identifier_name == WO_PSTR(_))
+                return new AstPatternTakeplace();
+            else
+                return new AstPatternUnion(identifier_name, std::nullopt);
+        }
+        auto pass_union_pattern_contain_element::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            token identifier = WO_NEED_TOKEN(0);
+            AstPatternBase* element = static_cast<AstPatternBase*>(WO_NEED_AST_PATTERN(2));
+
+            return new AstPatternUnion(wstring_pool::get_pstr(identifier.identifier), element);
+        }
+        auto pass_match_union_case::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstPatternBase* pattern = static_cast<AstPatternBase*>(WO_NEED_AST_PATTERN(0));
+            AstBase* body = WO_NEED_AST(2);
+
+            return new AstMatchCase(pattern, body);
+        }
+        auto pass_match::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstValueBase* match_value = WO_NEED_AST_VALUE(2);
+            AstList* match_cases = static_cast<AstList*>(WO_NEED_AST_TYPE(5, AstBase::AST_LIST));
+
+            std::list<AstMatchCase*> cases;
+            for (auto& match_case : match_cases->m_list)
+            {
+                wo_assert(match_case->node_type == AstBase::AST_MATCH_CASE);
+                cases.push_back(static_cast<AstMatchCase*>(match_case));
+            }
+
+            return new AstMatch(match_value, cases, true);
+        }
+        auto pass_pattern_identifier_or_takepace::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            token identifier = WO_NEED_TOKEN(0);
+
+            wo_pstring_t identifier_name = wstring_pool::get_pstr(identifier.identifier);
+            if (identifier_name == WO_PSTR(_))
+                return new AstPatternTakeplace();
+            else
+                return new AstPatternSingle(false, identifier_name, std::nullopt);
+        }
+        auto pass_pattern_mut_identifier_or_takepace::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            token identifier = WO_NEED_TOKEN(1);
+
+            wo_pstring_t identifier_name = wstring_pool::get_pstr(identifier.identifier);
+            if (identifier_name == WO_PSTR(_))
+                return new AstPatternTakeplace();
+            else
+                return new AstPatternSingle(true, identifier_name, std::nullopt);
+        }
+        auto pass_pattern_identifier_or_takepace_with_template::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            token identifier = WO_NEED_TOKEN(0);
+            AstList* template_arguments = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
+
+            // identifier_name == WO_PSTR(_)
+            // `_` here is useless and meaningless.
+            // TODO: Give error message.
+
+            wo_pstring_t identifier_name = wstring_pool::get_pstr(identifier.identifier);
+            std::list<wo_pstring_t> args;
+            for (auto& arg : template_arguments->m_list)
+            {
+                wo_assert(arg->node_type == AstBase::AST_TOKEN);
+                args.push_back(wstring_pool::get_pstr(static_cast<AstToken*>(arg)->m_token.identifier));
+            }
+            return new AstPatternSingle(false, identifier_name, args);
+        }
+        auto pass_pattern_mut_identifier_or_takepace_with_template::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            token identifier = WO_NEED_TOKEN(1);
+            AstList* template_arguments = static_cast<AstList*>(WO_NEED_AST_TYPE(2, AstBase::AST_LIST));
+
+            // identifier_name == WO_PSTR(_)
+            // `_` here is useless and meaningless.
+            // TODO: Give error message.
+
+            wo_pstring_t identifier_name = wstring_pool::get_pstr(identifier.identifier);
+            std::list<wo_pstring_t> args;
+            for (auto& arg : template_arguments->m_list)
+            {
+                wo_assert(arg->node_type == AstBase::AST_TOKEN);
+                args.push_back(wstring_pool::get_pstr(static_cast<AstToken*>(arg)->m_token.identifier));
+            }
+            return new AstPatternSingle(true, identifier_name, args);
+        }
+        auto pass_pattern_tuple::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            std::optional<AstList*> pattern_list = std::nullopt;
+
+            if (!WO_IS_EMPTY(1))
+                pattern_list = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
+
+            std::list<AstPatternBase*> patterns;
+            if (pattern_list)
+            {
+                for (auto& pattern : pattern_list.value()->m_list)
+                {
+                    wo_assert(pattern->node_type >= AstBase::AST_PATTERN_begin && pattern->node_type < AstBase::AST_PATTERN_end);
+                    patterns.push_back(static_cast<AstPatternBase*>(pattern));
+                }
+            }
+            return new AstPatternTuple(patterns);
+        }
+        auto pass_macro_failed::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            wo_assert(WO_NEED_TOKEN(0).type == lex_type::l_macro);
+            return token{ lex.parser_error(lexer::errorlevel::error, WO_ERR_UNKNOWN_MACRO_NAMED, WO_NEED_TOKEN(0).identifier.c_str()) };
+        }
+        auto pass_variable_define_item::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstPatternBase* define_pattern = static_cast<AstPatternBase*>(WO_NEED_AST_PATTERN(0));
+            AstValueBase* define_value = WO_NEED_AST_VALUE(2);
+
+            return new AstVariableDefineItem(define_pattern, define_value);
+        }
+        auto pass_variable_defines::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            std::optional<AstDeclareAttribue*> attrib = std::nullopt;
+            AstList* items = static_cast<AstList*>(WO_NEED_AST_TYPE(2, AstBase::AST_LIST));
+
+            if (!WO_IS_EMPTY(0))
+                attrib = static_cast<AstDeclareAttribue*>(WO_NEED_AST_TYPE(0, AstBase::AST_DECLARE_ATTRIBUTE));
+
+            std::list<AstVariableDefineItem*> defines;
+            for (auto& item : items->m_list)
+            {
+                wo_assert(item->node_type == AstBase::AST_VARIABLE_DEFINE_ITEM);
+                defines.push_back(static_cast<AstVariableDefineItem*>(item));
+            }
+
+            AstVariableDefines* variable_defines = new AstVariableDefines(attrib);
+            variable_defines->m_definitions = std::move(defines);
+
+            return variable_defines;
+        }
+        auto pass_conditional_expression::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstValueBase* condition = WO_NEED_AST_VALUE(0);
+            AstValueBase* true_branch = WO_NEED_AST_VALUE(2);
+            AstValueBase* false_branch = WO_NEED_AST_VALUE(4);
+
+            return new AstValueTribleOperator(condition, true_branch, false_branch);
+        }
+        auto pass_type_from_identifier::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstIdentifier* identifier = static_cast<AstIdentifier*>(WO_NEED_AST_TYPE(0, AstBase::AST_IDENTIFIER));
+            return new AstTypeHolder(identifier);
+        }
+        auto pass_check_type_as::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstValueBase* value = WO_NEED_AST_VALUE(0);
+            AstTypeHolder* type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(1, AstBase::AST_TYPE_HOLDER));
+
+            return new AstValueTypeCheckAs(type, value);
+        }
+        auto pass_check_type_is::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstValueBase* value = WO_NEED_AST_VALUE(0);
+            AstTypeHolder* type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(1, AstBase::AST_TYPE_HOLDER));
+
+            return new AstValueTypeCheckIs(type, value);
+        }
+        auto pass_struct_member_init_pair::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            token member_name = WO_NEED_TOKEN(0);
+            AstValueBase* member_value = WO_NEED_AST_VALUE(2);
+
+            return new AstStructFieldValuePair(
+                wstring_pool::get_pstr(member_name.identifier), member_value);
+        }
+        auto pass_struct_instance::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            std::optional<AstTypeHolder*> type = std::nullopt;
+            AstList* members = static_cast<AstList*>(WO_NEED_AST_TYPE(2, AstBase::AST_LIST));
+
+            if (!WO_IS_EMPTY(0))
+                type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(0, AstBase::AST_TYPE_HOLDER));
+
+            std::list<AstStructFieldValuePair*> fields;
+            std::unordered_set<wo_pstring_t> exist_field_name;
+            for (auto& field : members->m_list)
+            {
+                wo_assert(field->node_type == AstBase::AST_STRUCT_FIELD_VALUE_PAIR);
+
+                AstStructFieldValuePair* field_pair = static_cast<AstStructFieldValuePair*>(field);
+                fields.push_back(field_pair);
+
+                if (!exist_field_name.insert(field_pair->m_name).second)
+                    return token{ lex.lang_error(lexer::errorlevel::error, field,
+                        WO_ERR_REPEATED_FIELD_NAMED,
+                        field_pair->m_name->c_str()) };
+            }
+
+            return new AstValueStruct(type, fields);
+        }
+        auto pass_array_instance::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstList* elements = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
+
+            std::list<AstValueBase*> values;
+            for (auto& element : elements->m_list)
+            {
+                wo_assert(element->node_type >= AstBase::AST_VALUE_begin && element->node_type < AstBase::AST_VALUE_end);
+                values.push_back(static_cast<AstValueBase*>(element));
+            }
+
+            return new AstValueArrayOrVec(values, false);
+        }
+        auto pass_vec_instance::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstList* elements = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
+
+            std::list<AstValueBase*> values;
+            for (auto& element : elements->m_list)
+            {
+                wo_assert(element->node_type >= AstBase::AST_VALUE_begin && element->node_type < AstBase::AST_VALUE_end);
+                values.push_back(static_cast<AstValueBase*>(element));
+            }
+
+            return new AstValueArrayOrVec(values, true);
+        }
+        auto pass_dict_field_init_pair::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstValueArrayOrVec* key = static_cast<AstValueArrayOrVec*>(WO_NEED_AST_TYPE(0, AstBase::AST_VALUE_ARRAY_OR_VEC));
+            AstValueBase* value = WO_NEED_AST_VALUE(2);
+
+            if (key->m_making_vec || key->m_elements.size() != 1)
+                return token{ lex.lang_error(lexer::errorlevel::error, key, WO_ERR_INVALID_KEY_EXPR) };
+
+            // NOTE: Abondon the key node.
+
+            return new AstKeyValuePair(key->m_elements.front(), value);
+        }
+        auto pass_dict_instance::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstList* elements = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
+
+            std::list<AstKeyValuePair*> pairs;
+            for (auto& element : elements->m_list)
+            {
+                wo_assert(element->node_type == AstBase::AST_KEY_VALUE_PAIR);
+                pairs.push_back(static_cast<AstKeyValuePair*>(element));
+            }
+
+            return new AstValueDictOrMap(pairs, false);
+        }
+        auto pass_map_instance::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstList* elements = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
+
+            std::list<AstKeyValuePair*> pairs;
+            for (auto& element : elements->m_list)
+            {
+                wo_assert(element->node_type == AstBase::AST_KEY_VALUE_PAIR);
+                pairs.push_back(static_cast<AstKeyValuePair*>(element));
+            }
+
+            return new AstValueDictOrMap(pairs, true);
+        }
+        auto pass_tuple_instance::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstList* elements = static_cast<AstList*>(WO_NEED_AST_TYPE(0, AstBase::AST_LIST));
+
+            std::list<AstValueBase*> values;
+            for (auto& element : elements->m_list)
+            {
+                wo_assert(element->node_type >= AstBase::AST_VALUE_begin && element->node_type < AstBase::AST_VALUE_end);
+                values.push_back(static_cast<AstValueBase*>(element));
+            }
+
+            return new AstValueTuple(values);
+        }
+        auto pass_index_operation_regular::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstValueBase* value = WO_NEED_AST_VALUE(0);
+            AstValueBase* index = WO_NEED_AST_VALUE(2);
+
+            return new AstValueIndex(value, index);
+        }
+        auto pass_index_operation_member::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstValueBase* value = WO_NEED_AST_VALUE(0);
+            AstToken* index = static_cast<AstToken*>(WO_NEED_AST_TYPE(2, AstBase::AST_TOKEN));
+
+            AstValueLiteral* index_literal;
+            switch (index->m_token.type)
+            {
+            case lex_type::l_identifier:
+            {
+                index_literal = new AstValueLiteral();
+                index_literal->decide_final_constant_value(wstrn_to_str(index->m_token.identifier));
+                break;
+            }
+            case lex_type::l_literal_integer:
+            {
+                wo::value index_value;
+                index_value.set_integer((wo_integer_t)std::stoll(index->m_token.identifier));
+                index_literal = new AstValueLiteral();
+                index_literal->decide_final_constant_value(index_value);
+                break;
+            }
+            default:
+                wo_error("Unknown index type.");
+                return token{ lex_type::l_error };
+            }
+
+            return new AstValueIndex(value, index_literal);
+        }
+        auto pass_expand_arguments::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstValueBase* value = WO_NEED_AST_VALUE(0);
+            return new AstFakeValueUnpack(value);
+        }
+        auto pass_variadic_arguments_pack::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            return new AstValueVariadicArgumentsPack();
+        }
+        auto pass_extern::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            token symbol;
+            std::optional<token> library = std::nullopt;
+            std::optional<AstList*> attributes = std::nullopt;
+
+            if (input.size() == 7)
+            {
+                library = WO_NEED_TOKEN(2);
+                symbol = WO_NEED_TOKEN(4);
+                if (!WO_IS_EMPTY(5))
+                    attributes = static_cast<AstList*>(WO_NEED_AST_TYPE(5, AstBase::AST_LIST));
+            }
+            else
+            {
+                wo_assert(input.size() == 5);
+                symbol = WO_NEED_TOKEN(2);
+                if (!WO_IS_EMPTY(3))
+                    attributes = static_cast<AstList*>(WO_NEED_AST_TYPE(3, AstBase::AST_LIST));
+            }
+
+            uint32_t attribute_mask = 0;
+            if (attributes)
+            {
+                for (auto& attribute : attributes.value()->m_list)
+                {
+                    wo_assert(attribute->node_type == AstBase::AST_TOKEN);
+                    AstToken* attribute_token = static_cast<AstToken*>(attribute);
+
+                    wo_assert(attribute_token->m_token.type == lex_type::l_identifier);
+
+                    if (attribute_token->m_token.identifier == L"slow")
+                        attribute_mask |= AstExternInformation::SLOW;
+                    else if (attribute_token->m_token.identifier == L"repeat")
+                        attribute_mask |= AstExternInformation::REPEATABLE;
+                    else
+                        return token{ lex.lang_error(lexer::errorlevel::error, attribute, WO_ERR_UNKNOWN_EXTERN_ATTRIB) };
+                }
+            }
+
+            return new AstExternInformation(
+                wo::wstring_pool::get_pstr(symbol.identifier),
+                library
+                ? std::optional(wo::wstring_pool::get_pstr(library->identifier))
+                : std::nullopt,
+                attribute_mask);
+        }
+    }
+
+    namespace ast
+    {
         void init_builder()
         {
-#define WO_REGISTER_BUILDER(...) _registed_builder_function_id_list[meta::type_hash<__VA_ARGS__>] = _register_builder<__VA_ARGS__>(); 
-            WO_REGISTER_BUILDER(pass_template_decl);
-            WO_REGISTER_BUILDER(pass_mark_label);
-            WO_REGISTER_BUILDER(pass_break);
-            WO_REGISTER_BUILDER(pass_continue);
-            WO_REGISTER_BUILDER(pass_forloop);
-            WO_REGISTER_BUILDER(pass_foreach);
-            WO_REGISTER_BUILDER(pass_typeof);
-            WO_REGISTER_BUILDER(pass_build_mutable_type);
-            WO_REGISTER_BUILDER(pass_template_reification);
-            WO_REGISTER_BUILDER(pass_type_check);
-            WO_REGISTER_BUILDER(pass_directed_value_for_call);
-            WO_REGISTER_BUILDER(pass_type_judgement);
-            WO_REGISTER_BUILDER(pass_mark_value_as_mut);
-            WO_REGISTER_BUILDER(pass_using_type_as);
-            WO_REGISTER_BUILDER(pass_enum_item_create);
-            WO_REGISTER_BUILDER(pass_enum_declear_begin);
-            WO_REGISTER_BUILDER(pass_enum_declear_append);
-            WO_REGISTER_BUILDER(pass_enum_finalize);
-            WO_REGISTER_BUILDER(pass_decl_attrib_begin);
-            WO_REGISTER_BUILDER(pass_append_attrib);
-            WO_REGISTER_BUILDER(pass_using_namespace);
-            WO_REGISTER_BUILDER(pass_mapping_pair);
-            WO_REGISTER_BUILDER(pass_unary_op);
-            WO_REGISTER_BUILDER(pass_unpack_args);
-            WO_REGISTER_BUILDER(pass_pack_variadic_args);
-            WO_REGISTER_BUILDER(pass_extern);
-            WO_REGISTER_BUILDER(pass_binary_logical_op);
-            WO_REGISTER_BUILDER(pass_assign_op);
-            WO_REGISTER_BUILDER(pass_while);
-            WO_REGISTER_BUILDER(pass_if);
-            WO_REGISTER_BUILDER(pass_map_builder);
-            WO_REGISTER_BUILDER(pass_empty_sentence_block);
-            WO_REGISTER_BUILDER(pass_sentence_block<0>);
-            WO_REGISTER_BUILDER(pass_sentence_block<1>);
-            WO_REGISTER_BUILDER(pass_array_builder);
-            WO_REGISTER_BUILDER(pass_function_call);
-            WO_REGISTER_BUILDER(pass_function_inv_call);
-            WO_REGISTER_BUILDER(pass_function_inv_call2);
-            WO_REGISTER_BUILDER(pass_return);
-            WO_REGISTER_BUILDER(pass_function_define);
-            WO_REGISTER_BUILDER(pass_func_argument);
-            WO_REGISTER_BUILDER(pass_token);
-            WO_REGISTER_BUILDER(pass_finalize_serching_namespace);
-            WO_REGISTER_BUILDER(pass_append_serching_namespace);
-            WO_REGISTER_BUILDER(pass_variable_in_namespace);
-            WO_REGISTER_BUILDER(pass_begin_varref_define);
-            WO_REGISTER_BUILDER(pass_add_varref_define);
-            WO_REGISTER_BUILDER(pass_mark_as_var_define);
-            WO_REGISTER_BUILDER(pass_trans_where_decl_in_lambda);
-            WO_REGISTER_BUILDER(pass_namespace);
-            WO_REGISTER_BUILDER(pass_index_op);
-            WO_REGISTER_BUILDER(pass_empty);
-            WO_REGISTER_BUILDER(pass_binary_op);
-            WO_REGISTER_BUILDER(pass_create_list<0>);
-            WO_REGISTER_BUILDER(pass_append_list<1, 0>);
-            WO_REGISTER_BUILDER(pass_append_list<0, 1>);
-            WO_REGISTER_BUILDER(pass_append_list<0, 2>);
-            WO_REGISTER_BUILDER(pass_append_list<2, 0>);
-            WO_REGISTER_BUILDER(pass_append_list<1, 2>);
-            WO_REGISTER_BUILDER(pass_append_list<1, 3>);
-            WO_REGISTER_BUILDER(pass_import_files);
-            WO_REGISTER_BUILDER(pass_variable);
-            WO_REGISTER_BUILDER(pass_build_function_type);
-            WO_REGISTER_BUILDER(pass_build_type_may_template);
-            WO_REGISTER_BUILDER(pass_build_nil_type);
-            WO_REGISTER_BUILDER(pass_type_cast);
-            WO_REGISTER_BUILDER(pass_literal);
-            WO_REGISTER_BUILDER(pass_typeid);
-            WO_REGISTER_BUILDER(pass_format_string);
-            WO_REGISTER_BUILDER(pass_finish_format_string);
-            WO_REGISTER_BUILDER(pass_union_item);
-            WO_REGISTER_BUILDER(pass_union_define);
-            WO_REGISTER_BUILDER(pass_match);
-            WO_REGISTER_BUILDER(pass_match_case_for_union);
-            WO_REGISTER_BUILDER(pass_union_pattern);
-            WO_REGISTER_BUILDER(pass_identifier_pattern);
-            WO_REGISTER_BUILDER(pass_tuple_pattern);
-            WO_REGISTER_BUILDER(pass_struct_member_def);
-            WO_REGISTER_BUILDER(pass_struct_member_init_pair);
-            WO_REGISTER_BUILDER(pass_struct_type_define);
-            WO_REGISTER_BUILDER(pass_make_struct_instance);
-            WO_REGISTER_BUILDER(pass_build_tuple_type);
-            WO_REGISTER_BUILDER(pass_tuple_types_list);
-            WO_REGISTER_BUILDER(pass_make_tuple);
-            WO_REGISTER_BUILDER(pass_build_where_constraint);
-            WO_REGISTER_BUILDER(pass_build_bind_map_monad);
-            WO_REGISTER_BUILDER(pass_trib_expr);
-            WO_REGISTER_BUILDER(pass_direct<0>);
-            WO_REGISTER_BUILDER(pass_direct<1>);
-            WO_REGISTER_BUILDER(pass_direct<2>);
-            WO_REGISTER_BUILDER(pass_direct<3>);
-            WO_REGISTER_BUILDER(pass_direct<4>);
-            WO_REGISTER_BUILDER(pass_direct<5>);
-            WO_REGISTER_BUILDER(pass_macro_failed);
-            WO_REGISTER_BUILDER(pass_do_expr_as_sentence);
-            WO_REGISTER_BUILDER(pass_decl_attrib_check);
-#undef WO_REGISTER_BUILDER
+#define WO_AST_BUILDER(...) _registed_builder_function_id_list[meta::type_hash<__VA_ARGS__>] = _register_builder<__VA_ARGS__>(); 
+            WO_AST_BUILDER(pass_direct<0>);
+            WO_AST_BUILDER(pass_direct<1>);
+            WO_AST_BUILDER(pass_direct<2>);
+            WO_AST_BUILDER(pass_create_list<0>);
+            WO_AST_BUILDER(pass_create_list<1>);
+            WO_AST_BUILDER(pass_append_list<1, 0>);
+            WO_AST_BUILDER(pass_append_list<0, 1>);
+            WO_AST_BUILDER(pass_append_list<2, 0>);
+            WO_AST_BUILDER(pass_append_list<1, 2>);
+            WO_AST_BUILDER(pass_append_list<1, 3>);
+            WO_AST_BUILDER(pass_sentence_block<0>);
+            WO_AST_BUILDER(pass_sentence_block<1>);
+            WO_AST_BUILDER(pass_mark_label);
+            WO_AST_BUILDER(pass_import_files);
+            WO_AST_BUILDER(pass_using_namespace);
+            WO_AST_BUILDER(pass_empty);
+            WO_AST_BUILDER(pass_token);
+            WO_AST_BUILDER(pass_enum_item_create);
+            WO_AST_BUILDER(pass_enum_finalize);
+            WO_AST_BUILDER(pass_namespace);
+            WO_AST_BUILDER(pass_using_type_as);
+            WO_AST_BUILDER(pass_using_typename_space);
+            WO_AST_BUILDER(pass_alias_type_as);
+            WO_AST_BUILDER(pass_build_where_constraint);
+            WO_AST_BUILDER(pass_func_def_named);
+            WO_AST_BUILDER(pass_func_def_oper);
+            WO_AST_BUILDER(pass_func_lambda_ml);
+            WO_AST_BUILDER(pass_func_lambda);
+            WO_AST_BUILDER(pass_break);
+            WO_AST_BUILDER(pass_break_label);
+            WO_AST_BUILDER(pass_continue);
+            WO_AST_BUILDER(pass_continue_label);
+            WO_AST_BUILDER(pass_return);
+            WO_AST_BUILDER(pass_return_value);
+            WO_AST_BUILDER(pass_return_lambda);
+            WO_AST_BUILDER(pass_if);
+            WO_AST_BUILDER(pass_while);
+            WO_AST_BUILDER(pass_for_defined);
+            WO_AST_BUILDER(pass_for_expr);
+            WO_AST_BUILDER(pass_foreach);
+            WO_AST_BUILDER(pass_mark_mut);
+            WO_AST_BUILDER(pass_mark_immut);
+            WO_AST_BUILDER(pass_typeof);
+            WO_AST_BUILDER(pass_build_identifier_typeof);
+            WO_AST_BUILDER(pass_build_identifier_normal);
+            WO_AST_BUILDER(pass_build_identifier_global);
+            WO_AST_BUILDER(pass_type_nil);
+            WO_AST_BUILDER(pass_type_func);
+            WO_AST_BUILDER(pass_type_struct_field);
+            WO_AST_BUILDER(pass_type_struct);
+            WO_AST_BUILDER(pass_type_from_identifier);
+            WO_AST_BUILDER(pass_type_tuple);
+            WO_AST_BUILDER(pass_type_mutable);
+            WO_AST_BUILDER(pass_type_immutable);
+            WO_AST_BUILDER(pass_attribute);
+            WO_AST_BUILDER(pass_attribute_append);
+            WO_AST_BUILDER(pass_pattern_for_assign);
+            WO_AST_BUILDER(pass_reverse_vardef);
+            WO_AST_BUILDER(pass_func_argument);
+            WO_AST_BUILDER(pass_do_void_cast);
+            WO_AST_BUILDER(pass_assign_operation);
+            WO_AST_BUILDER(pass_binary_operation);
+            WO_AST_BUILDER(pass_literal);
+            WO_AST_BUILDER(pass_literal_char);
+            WO_AST_BUILDER(pass_typeid);
+            WO_AST_BUILDER(pass_unary_operation);
+            WO_AST_BUILDER(pass_variable);
+            WO_AST_BUILDER(pass_cast_type);
+            WO_AST_BUILDER(pass_format_finish);
+            WO_AST_BUILDER(pass_format_cast_string);
+            WO_AST_BUILDER(pass_format_connect);
+            WO_AST_BUILDER(pass_build_bind_monad);
+            WO_AST_BUILDER(pass_build_map_monad);
+            WO_AST_BUILDER(pass_normal_function_call);
+            WO_AST_BUILDER(pass_directly_function_call);
+            WO_AST_BUILDER(pass_directly_function_call_append_arguments);
+            WO_AST_BUILDER(pass_inverse_function_call);
+            WO_AST_BUILDER(pass_union_item);
+            WO_AST_BUILDER(pass_union_item_constructor);
+            WO_AST_BUILDER(pass_union_declare);
+            WO_AST_BUILDER(pass_union_pattern_identifier_or_takeplace);
+            WO_AST_BUILDER(pass_union_pattern_contain_element);
+            WO_AST_BUILDER(pass_match_union_case);
+            WO_AST_BUILDER(pass_match);
+            WO_AST_BUILDER(pass_pattern_identifier_or_takepace);
+            WO_AST_BUILDER(pass_pattern_mut_identifier_or_takepace);
+            WO_AST_BUILDER(pass_pattern_identifier_or_takepace_with_template);
+            WO_AST_BUILDER(pass_pattern_mut_identifier_or_takepace_with_template);
+            WO_AST_BUILDER(pass_pattern_tuple);
+            WO_AST_BUILDER(pass_macro_failed);
+            WO_AST_BUILDER(pass_variable_define_item);
+            WO_AST_BUILDER(pass_variable_defines);
+            WO_AST_BUILDER(pass_conditional_expression);
+            WO_AST_BUILDER(pass_check_type_as);
+            WO_AST_BUILDER(pass_check_type_is);
+            WO_AST_BUILDER(pass_struct_member_init_pair);
+            WO_AST_BUILDER(pass_struct_instance);
+            WO_AST_BUILDER(pass_array_instance);
+            WO_AST_BUILDER(pass_vec_instance);
+            WO_AST_BUILDER(pass_dict_instance);
+            WO_AST_BUILDER(pass_map_instance);
+            WO_AST_BUILDER(pass_tuple_instance);
+            WO_AST_BUILDER(pass_dict_field_init_pair);
+            WO_AST_BUILDER(pass_index_operation_regular);
+            WO_AST_BUILDER(pass_index_operation_member);
+            WO_AST_BUILDER(pass_expand_arguments);
+            WO_AST_BUILDER(pass_variadic_arguments_pack);
+            WO_AST_BUILDER(pass_extern);
+            WO_AST_BUILDER(pass_func_def_extn);
+            WO_AST_BUILDER(pass_func_def_extn_oper);
+#undef WO_AST_BUILDER
         }
-
     }
 
     grammar::rule operator>>(grammar::rule ost, size_t builder_index)
