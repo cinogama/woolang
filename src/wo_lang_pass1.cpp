@@ -1372,7 +1372,7 @@ namespace wo
                 // Has marked return type?
                 if (function_instance->m_marked_return_type.has_value())
                 {
-                    if (function_instance->m_LANG_determined_return_type.has_value())
+                    if (!function_instance->m_LANG_determined_return_type.has_value())
                         function_instance->m_LANG_determined_return_type =
                         function_instance->m_marked_return_type.value()->m_LANG_determined_type.value();
 
