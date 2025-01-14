@@ -1220,7 +1220,7 @@ namespace wo
                 auto* next_it_sub_scope_instance = next_it_sub_scope->get();
 
                 if (!next_it_sub_scope_instance->m_function_instance.has_value())
-                    donot_have_unused_variable = 
+                    donot_have_unused_variable =
                     _assign_storage_for_local_variable_instance(
                         lex, lctx, funcname, next_it_sub_scope_instance, next_assign_offset, out_max_stack_count)
                     && donot_have_unused_variable;
@@ -1294,7 +1294,7 @@ namespace wo
             auto* next_it_sub_scope_instance = next_it_sub_scope->get();
 
             if (!next_it_sub_scope_instance->m_function_instance.has_value())
-                donot_have_unused_variable = 
+                donot_have_unused_variable =
                 _assign_storage_for_local_variable_instance(
                     lex, lctx, funcname, (*next_it_sub_scope).get(), next_assign_offset, out_max_stack_count)
                 && donot_have_unused_variable;
@@ -1314,7 +1314,7 @@ namespace wo
         {
             lang_ValueInstance* value_instance = anonymous_func->m_LANG_value_instance_to_update.value();
             std::string name = lctx->get_value_name(value_instance);
-            
+
             lang_Scope* function_located_scope =
                 anonymous_func->m_LANG_function_scope.value()->m_parent_scope.value();
 
@@ -1325,12 +1325,12 @@ namespace wo
 
                 auto function = lctx->get_scope_located_function(function_located_scope);
                 if (function.has_value())
-                    name = 
-                        get_anonymous_function_name(lctx, function.value()) 
-                        + "::" 
-                        + local_name
-                        + "::"
-                        + name;
+                    name =
+                    get_anonymous_function_name(lctx, function.value())
+                    + "::"
+                    + local_name
+                    + "::"
+                    + name;
             }
 
             return name;
@@ -1757,8 +1757,8 @@ namespace wo
                 auto fnd = current_scope->m_defined_symbols.find(ident->m_name);
                 if (fnd != current_scope->m_defined_symbols.end())
                 {
-                    if (fnd->second->m_symbol_edge <= visibility_edge_limit
-                        || fnd->second->m_is_global)
+                    if ((fnd->second->m_symbol_edge <= visibility_edge_limit || fnd->second->m_is_global)
+                        && ident->m_find_type_only != (fnd->second->m_symbol_kind == lang_Symbol::kind::VARIABLE))
                         found_symbol.insert(fnd->second.get());
 
                     break;
@@ -1793,7 +1793,8 @@ namespace wo
 
                 // Ok, found the namespace.
                 if (auto fnd = symbol_namespace->m_this_scope->m_defined_symbols.find(ident->m_name);
-                    fnd != symbol_namespace->m_this_scope->m_defined_symbols.end())
+                    fnd != symbol_namespace->m_this_scope->m_defined_symbols.end()
+                    && ident->m_find_type_only != (fnd->second->m_symbol_kind == lang_Symbol::kind::VARIABLE))
                 {
                     found_symbol.insert(fnd->second.get());
                     break; // Break for continue outside loop
@@ -1826,7 +1827,8 @@ namespace wo
             {
                 // Ok, found the namespace.
                 if (auto fnd = searching_namesapace->m_this_scope->m_defined_symbols.find(ident->m_name);
-                    fnd != searching_namesapace->m_this_scope->m_defined_symbols.end())
+                    fnd != searching_namesapace->m_this_scope->m_defined_symbols.end()
+                    && ident->m_find_type_only != (fnd->second->m_symbol_kind == lang_Symbol::kind::VARIABLE))
                     found_symbol.insert(fnd->second.get());
             }
         }
@@ -1932,7 +1934,10 @@ namespace wo
         if (fnd != search_begin_namespace->m_this_scope->m_defined_symbols.end())
         {
             lang_Symbol* symbol = fnd->second.get();
-            ident->m_LANG_determined_symbol = symbol;
+
+            if (ident->m_find_type_only != (symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE))
+                ident->m_LANG_determined_symbol = symbol;
+
             return symbol;
         }
         return std::nullopt;
@@ -2716,9 +2721,9 @@ namespace wo
 #endif
                 return opnum_temporary(i);
             }
-    }
+        }
         wo_error("Temporary register exhausted.");
-}
+    }
     void BytecodeGenerateContext::keep_opnum_temporary_register(
         opnum::temporary* reg
 #ifndef NDEBUG
