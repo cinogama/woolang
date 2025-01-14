@@ -4156,22 +4156,27 @@ wo_lsp_error_msg* wo_lsp_get_compile_error_msg_detail_from_vm(wo_vm vmm, wo_size
 
     switch (err_detail.error_level)
     {
-    case wo::lexer::errorlevel::error: msg->m_level = wo_lsp_error_level::WO_LSP_ERROR; break;
-    case wo::lexer::errorlevel::infom: msg->m_level = wo_lsp_error_level::WO_LSP_INFORMATION; break;
+    case wo::lexer::errorlevel::error: 
+        msg->m_level = wo_lsp_error_level::WO_LSP_ERROR; break;
+    case wo::lexer::errorlevel::infom: 
+        msg->m_level = wo_lsp_error_level::WO_LSP_INFORMATION; break;
     default:
         wo_error("Unknown error level.");
         break;
     }
-    msg->m_begin_location[0] = err_detail.begin_row;
-    msg->m_begin_location[1] = err_detail.begin_col;
-    msg->m_end_location[0] = err_detail.end_row;
-    msg->m_end_location[1] = err_detail.end_col;
+    msg->m_depth = err_detail.depth;
 
     std::string filename = wo::wstr_to_str(err_detail.filename);
     auto* filename_p = new char[filename.size() + 1];
     strcpy(filename_p, filename.data());
+
     msg->m_file_name = filename_p;
     msg->m_describe = wo::u8wcstombs_zero_term(err_detail.describe.c_str());
+
+    msg->m_begin_location[0] = err_detail.begin_row;
+    msg->m_begin_location[1] = err_detail.begin_col;
+    msg->m_end_location[0] = err_detail.end_row;
+    msg->m_end_location[1] = err_detail.end_col;
 
     return msg;
 }

@@ -399,7 +399,7 @@ namespace wo
                     if (!find_symbol_in_current_scope(lex, identifier, &ambiguous))
                     {
                         lex.lang_error(lexer::errorlevel::error, accept_type_formal,
-                            WO_ERR_UNKNOWN_IDENTIFIER,
+                            WO_ERR_UNFOUND_TYPE_NAMED,
                             identifier->m_name->c_str());
 
                         // Not found or ambiguous.
@@ -412,25 +412,6 @@ namespace wo
                     auto* determined_type_symbol = identifier->m_LANG_determined_symbol.value();
                     switch (determined_type_symbol->m_symbol_kind)
                     {
-                    case lang_Symbol::kind::VARIABLE:
-                    {
-                        // WTF..
-                        lex.lang_error(
-                            lexer::errorlevel::error, 
-                            accept_type_formal,
-                            WO_ERR_UNEXPECTED_VAR_SYMBOL,
-                            get_symbol_name_w(determined_type_symbol));
-
-                        if (determined_type_symbol->m_symbol_declare_ast.has_value())
-                        {
-                            lex.lang_error(
-                                lexer::errorlevel::infom,
-                                determined_type_symbol->m_symbol_declare_ast.value(),
-                                WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
-                                get_symbol_name_w(determined_type_symbol));
-                        }
-                        return false;
-                    }
                     case lang_Symbol::kind::TYPE:
                         break;
                     case lang_Symbol::kind::ALIAS:
@@ -448,6 +429,8 @@ namespace wo
 
                         break;
                     }
+                    default:
+                        wo_error("Unexpected symbol kind");
                     }
 
                     if (determined_type_symbol != applying_type_instance->m_symbol)

@@ -72,25 +72,28 @@ namespace wo
         };
         struct AstIdentifier : public AstBase
         {
-            enum identifier_formal
+            enum identifier_formal: uint8_t
             {
                 FROM_GLOBAL,
                 FROM_CURRENT,
                 FROM_TYPE,
             };
             identifier_formal       m_formal;
-            std::optional<std::variant<AstTypeHolder*, lang_TypeInstance*>>
-                m_from_type;
+
+            // Find type symbol only if true, else find value symbol.
+            bool                    m_find_type_only; 
+
+            std::optional<std::variant<AstTypeHolder*, lang_TypeInstance*>> 
+                                    m_from_type;
             std::list<wo_pstring_t> m_scope;
             wo_pstring_t            m_name;
             std::optional<std::list<AstTypeHolder*>>
-                m_template_arguments;
+                                    m_template_arguments;
 
             std::optional<lang_Symbol*>
-                m_LANG_determined_symbol;
-
+                                    m_LANG_determined_symbol;
             std::optional<std::list<lang_TypeInstance*>>
-                m_LANG_determined_and_appended_template_arguments;
+                                    m_LANG_determined_and_appended_template_arguments;
 
             /*std::optional<lang_Scope*>
                                     m_LANG_determined_searching_from_scope;*/
