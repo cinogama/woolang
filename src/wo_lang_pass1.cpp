@@ -2369,12 +2369,18 @@ namespace wo
                 lang_TypeInstance* argument_final_type =
                     current_argument.m_argument->m_LANG_determined_type.value();
 
-                template_type_deduction_extraction_with_complete_type(
+                if (!template_type_deduction_extraction_with_complete_type(
                     lex,
                     current_argument.m_duped_param_type,
                     argument_final_type,
                     node->m_undetermined_template_params,
-                    &node->m_deduction_results);
+                    &node->m_deduction_results))
+                {
+                    // Error happend in deduction.
+                    end_last_scope(); // End the scope.
+
+                    return FAILED;
+                }
 
                 // Now we make progress, we can do more things.
                 node->m_arguments_tobe_deduct.erase(node->m_current_argument);
@@ -2599,7 +2605,7 @@ namespace wo
                         WO_CONTINUE_PROCESS(*type_holder);
                 }
             }
-            for (auto& argument: node->m_arguments)
+            for (auto& argument : node->m_arguments)
             {
                 auto* origin_argument = get_marked_origin_value_node(argument);
                 if (origin_argument->node_type == AstBase::AST_VALUE_VARIABLE)
@@ -2751,6 +2757,7 @@ namespace wo
                         // Entry function located scope, template_type_deduction_extraction_with_complete_type require todo so.
                         entry_function_located_scope = true;
                         entry_spcify_scope(function_symbol->m_belongs_to_scope);
+
                         break;
                     }
                     case AstBase::AST_VALUE_FUNCTION:
@@ -2785,6 +2792,8 @@ namespace wo
 
                     end_last_scope();
                     end_last_scope();
+
+                    bool deduction_error = false;
 
                     for (; it_target_param != it_target_param_end
                         && it_argument != it_argument_end;
@@ -2834,13 +2843,16 @@ namespace wo
                                     {
                                         AstTypeHolder* unpacking_param_type_holder = *it_target_param;
 
-                                        template_type_deduction_extraction_with_complete_type(
+                                        deduction_error = !template_type_deduction_extraction_with_complete_type(
                                             lex,
                                             unpacking_param_type_holder,
                                             *it_unpacking_arg_type,
                                             pending_template_params,
                                             &deduction_results);
-                                        // TODO:!!!! 
+
+                                        if (deduction_error)
+                                            break;
+
                                         if (++it_target_param == it_target_param_end)
                                         {
                                             --it_target_param;
@@ -2859,13 +2871,17 @@ namespace wo
                                 lang_TypeInstance* argument_type_instance =
                                     argument_value->m_LANG_determined_type.value();
 
-                                template_type_deduction_extraction_with_complete_type(
+                                deduction_error = !template_type_deduction_extraction_with_complete_type(
                                     lex,
                                     param_type_holder,
                                     argument_type_instance,
                                     pending_template_params,
                                     &deduction_results);
                             }
+
+                            // If deduction error, break.
+                            if (deduction_error)
+                                break;
                         }
                     }
 
@@ -2873,6 +2889,16 @@ namespace wo
                     branch_a_context->m_undetermined_template_params = std::move(pending_template_params);
                     if (entry_function_located_scope)
                         end_last_scope();
+
+                    if (deduction_error)
+                    {
+                        wo_assert(it_argument != it_argument_end);
+
+                        lex.lang_error(lexer::errorlevel::error, *it_argument,
+                            WO_ERR_FAILED_TO_DEDUCE_TEMPLATE_TYPE);
+
+                        return FAILED;
+                    }
 
                     WO_CONTINUE_PROCESS(branch_a_context);
                     node->m_LANG_hold_state = AstValueFunctionCall::HOLD_BRANCH_A_TEMPLATE_ARGUMENT_DEDUCTION;
@@ -3557,8 +3583,14 @@ namespace wo
 
                 end_last_scope();
 
-                for (auto& field_instance : node->m_fields)
+                bool deduction_error = false;
+
+                auto it_field = node->m_fields.begin();
+                auto it_field_end = node->m_fields.end();
+                for (; it_field != it_field_end; ++it_field)
                 {
+                    auto* field_instance = *it_field;
+
                     auto fnd = struct_template_deduction_target.find(field_instance->m_name);
                     if (fnd == struct_template_deduction_target.end())
                     {
@@ -3580,18 +3612,31 @@ namespace wo
                     {
                         lang_TypeInstance* field_instance_type = field_instance->m_value->m_LANG_determined_type.value();
 
-                        template_type_deduction_extraction_with_complete_type(
+                        deduction_error = !template_type_deduction_extraction_with_complete_type(
                             lex,
                             fnd->second,
                             field_instance_type,
                             pending_template_params,
                             &deduction_results);
+
+                        if (deduction_error)
+                            break;
                     }
                 }
 
                 branch_a_context->m_deduction_results = std::move(deduction_results);
                 branch_a_context->m_undetermined_template_params = std::move(pending_template_params);
                 end_last_scope();
+
+                if (deduction_error)
+                {
+                    wo_assert(it_field != it_field_end);
+
+                    lex.lang_error(lexer::errorlevel::error, *it_field,
+                        WO_ERR_FAILED_TO_DEDUCE_TEMPLATE_TYPE);
+
+                    return FAILED;
+                }
 
                 WO_CONTINUE_PROCESS(branch_a_context);
                 node->m_LANG_hold_state = AstValueStruct::HOLD_FOR_TEMPLATE_DEDUCTION;

@@ -1092,7 +1092,7 @@ namespace wo
         const wchar_t* get_value_name_w(lang_ValueInstance* val);
         const char* get_value_name(lang_ValueInstance* val);
 
-        void template_type_deduction_extraction_with_complete_type(
+        bool template_type_deduction_extraction_with_complete_type(
             lexer& lex,
             ast::AstTypeHolder* accept_type_formal,
             lang_TypeInstance* applying_type_instance,
