@@ -1,6 +1,8 @@
 #include "wo_lang.hpp"
 #include <cmath>
 
+WO_API wo_api rslib_std_bad_function(wo_vm vm, wo_value args);
+
 namespace wo
 {
 #ifndef WO_DISABLE_COMPILER
@@ -1792,7 +1794,7 @@ namespace wo
                     lex.lang_error(lexer::errorlevel::error, node->m_index,
                         WO_ERR_STRUCT_DONOT_HAVE_MAMBER_NAMED,
                         get_type_name_w(container_type_instance),
-                        member_name);
+                        member_name->c_str());
                     return FAILED;
                 }
 
@@ -3872,7 +3874,7 @@ namespace wo
                     if (fnd == struct_type_info->m_member_types.end())
                     {
                         lex.lang_error(lexer::errorlevel::error, field,
-                            WO_ERR_NO_MEMBER_NAMED_IN_STRUCT,
+                            WO_ERR_STRUCT_DONOT_HAVE_MAMBER_NAMED,
                             get_type_name_w(struct_type_instanc),
                             field->m_name->c_str());
 
@@ -5383,6 +5385,41 @@ namespace wo
         // Mark return type as extern.
 
         auto* function_instance = get_current_function().value();
+
+        wo_native_func_t extern_function;
+        if (node->m_extern_from_library.has_value())
+        {
+            extern_function =
+                rslib_extern_symbols::get_lib_symbol(
+                    wstr_to_str(*node->source_location.source_file).c_str(),
+                    wstr_to_str(*node->m_extern_from_library.value()).c_str(),
+                    wstr_to_str(*node->m_extern_symbol).c_str(),
+                    m_ircontext.m_extern_libs);
+        }
+        else
+        {
+            extern_function =
+                rslib_extern_symbols::get_global_symbol(
+                    wstr_to_str(*node->m_extern_symbol).c_str());
+        }
+
+        if (extern_function != nullptr)
+            node->m_IR_externed_function = extern_function;
+        else
+        {
+            if (config::ENABLE_IGNORE_NOT_FOUND_EXTERN_SYMBOL)
+                node->m_IR_externed_function = rslib_std_bad_function;
+            else
+            {
+                lex.lang_error(lexer::errorlevel::error, node,
+                    WO_ERR_UNABLE_TO_FIND_EXTERN_FUNCTION,
+                    node->m_extern_from_library.value_or(WO_PSTR(woolang))->c_str(),
+                    node->m_extern_symbol->c_str());
+
+                return FAILED;
+            }
+        }
+        function_instance->m_IR_extern_information = node;
 
         function_instance->m_LANG_determined_return_type =
             function_instance->m_marked_return_type.value()->m_LANG_determined_type.value();

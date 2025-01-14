@@ -1,7 +1,5 @@
 #include "wo_lang.hpp"
 
-WO_API wo_api rslib_std_bad_function(wo_vm vm, wo_value args);
-
 namespace wo
 {
 #ifndef WO_DISABLE_COMPILER
@@ -962,44 +960,12 @@ namespace wo
     WO_PASS_PROCESSER(AstValueFunction)
     {
         wo_assert(state == UNPROCESSED);
-        if (node->m_body->node_type == AstBase::AST_EXTERN_INFORMATION)
+        if (node->m_IR_extern_information.has_value())
         {
             wo_assert(node->m_LANG_captured_context.m_captured_variables.empty());
 
-            AstExternInformation* extern_info = static_cast<AstExternInformation*>(node->m_body);
-            wo_native_func_t extern_function;
-            if (extern_info->m_extern_from_library.has_value())
-            {
-                extern_function =
-                    rslib_extern_symbols::get_lib_symbol(
-                        wstr_to_str(*node->source_location.source_file).c_str(),
-                        wstr_to_str(*extern_info->m_extern_from_library.value()).c_str(),
-                        wstr_to_str(*extern_info->m_extern_symbol).c_str(),
-                        m_ircontext.m_extern_libs);
-            }
-            else
-            {
-                extern_function =
-                    rslib_extern_symbols::get_global_symbol(
-                        wstr_to_str(*extern_info->m_extern_symbol).c_str());
-            }
-
-            if (extern_function != nullptr)
-                extern_info->m_IR_externed_function = extern_function;
-            else
-            {
-                if (config::ENABLE_IGNORE_NOT_FOUND_EXTERN_SYMBOL)
-                    extern_info->m_IR_externed_function = rslib_std_bad_function;
-                else
-                {
-                    lex.lang_error(lexer::errorlevel::error, node,
-                        WO_ERR_UNABLE_TO_FIND_EXTERN_FUNCTION,
-                        extern_info->m_extern_from_library.value_or(WO_PSTR(woolang))->c_str(),
-                        extern_info->m_extern_symbol->c_str());
-
-                    return FAILED;
-                }
-            }
+            AstExternInformation* extern_info = node->m_IR_extern_information.value();
+            wo_assert(extern_info == static_cast<AstExternInformation*>(node->m_body));
 
             m_ircontext.c().record_extern_native_function(
                 (intptr_t)(void*)extern_info->m_IR_externed_function.value(),
@@ -1008,8 +974,6 @@ namespace wo
                 ? std::optional(*extern_info->m_extern_from_library.value())
                 : std::nullopt,
                 *extern_info->m_extern_symbol);
-
-            node->m_IR_extern_information = extern_info;
         }
         else
         {
