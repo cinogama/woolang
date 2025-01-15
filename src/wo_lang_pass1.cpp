@@ -360,9 +360,14 @@ namespace wo
             bool ambiguous = false;
             if (!find_symbol_in_current_scope(lex, node, &ambiguous))
             {
-                lex.lang_error(lexer::errorlevel::error, node,
-                    WO_ERR_UNKNOWN_IDENTIFIER,
-                    node->m_name->c_str());
+                if (node->m_find_type_only)
+                    lex.lang_error(lexer::errorlevel::error, node,
+                        WO_ERR_UNFOUND_TYPE_NAMED,
+                        node->m_name->c_str());
+                else
+                    lex.lang_error(lexer::errorlevel::error, node,
+                        WO_ERR_UNFOUND_VARIABLE_NAMED,
+                        node->m_name->c_str());
 
                 return FAILED;
             }
@@ -480,203 +485,185 @@ namespace wo
                 if (node->m_LANG_refilling_template_target_symbol.has_value())
                     type_symbol = node->m_LANG_refilling_template_target_symbol.value();
 
-                if (type_symbol->m_symbol_kind == lang_Symbol::VARIABLE)
+                wo_assert(type_symbol->m_symbol_kind != lang_Symbol::VARIABLE);
+
+                if (!type_symbol->m_is_builtin)
                 {
-                    lex.lang_error(
-                        lexer::errorlevel::error, node,
-                        WO_ERR_UNEXPECTED_VAR_SYMBOL,
-                        get_symbol_name_w(type_symbol));
-
-                    if (type_symbol->m_symbol_declare_ast.has_value())
+                    union
                     {
-                        lex.lang_error(
-                            lexer::errorlevel::infom,
-                            type_symbol->m_symbol_declare_ast.value(),
-                            WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
-                            get_symbol_name_w(type_symbol));
-                    }
+                        lang_TypeInstance* type_instance;
+                        lang_AliasInstance* alias_instance;
+                    };
 
-                    return FAILED;
-                }
-                else
-                {
-                    if (!type_symbol->m_is_builtin)
+                    if (!node->m_LANG_template_evalating_state)
                     {
-                        union
+                        if (type_symbol->m_is_template)
                         {
-                            lang_TypeInstance* type_instance;
-                            lang_AliasInstance* alias_instance;
-                        };
-
-                        if (!node->m_LANG_template_evalating_state)
-                        {
-                            if (type_symbol->m_is_template)
+                            lang_Symbol::TemplateArgumentListT template_args;
+                            if (node->m_typeform.m_identifier->m_template_arguments.has_value())
                             {
-                                lang_Symbol::TemplateArgumentListT template_args;
-                                if (node->m_typeform.m_identifier->m_template_arguments.has_value())
+                                for (auto* typeholder : node->m_typeform.m_identifier->m_template_arguments.value())
                                 {
-                                    for (auto* typeholder : node->m_typeform.m_identifier->m_template_arguments.value())
-                                    {
-                                        wo_assert(typeholder->m_LANG_determined_type);
-                                        template_args.push_back(typeholder->m_LANG_determined_type.value());
-                                    }
+                                    wo_assert(typeholder->m_LANG_determined_type);
+                                    template_args.push_back(typeholder->m_LANG_determined_type.value());
                                 }
-                                if (node->m_typeform.m_identifier->m_LANG_determined_and_appended_template_arguments.has_value())
-                                {
-                                    const auto& determined_tyope_list =
-                                        node->m_typeform.m_identifier->m_LANG_determined_and_appended_template_arguments.value();
-                                    template_args.insert(template_args.end(),
-                                        determined_tyope_list.begin(),
-                                        determined_tyope_list.end());
-                                }
+                            }
+                            if (node->m_typeform.m_identifier->m_LANG_determined_and_appended_template_arguments.has_value())
+                            {
+                                const auto& determined_tyope_list =
+                                    node->m_typeform.m_identifier->m_LANG_determined_and_appended_template_arguments.value();
+                                template_args.insert(template_args.end(),
+                                    determined_tyope_list.begin(),
+                                    determined_tyope_list.end());
+                            }
 
-                                bool continue_process = false;
-                                auto template_eval_state_instance_may_nullopt = begin_eval_template_ast(
-                                    lex, node, type_symbol, template_args, out_stack, &continue_process);
+                            bool continue_process = false;
+                            auto template_eval_state_instance_may_nullopt = begin_eval_template_ast(
+                                lex, node, type_symbol, template_args, out_stack, &continue_process);
 
-                                if (!template_eval_state_instance_may_nullopt)
-                                    return FAILED;
+                            if (!template_eval_state_instance_may_nullopt)
+                                return FAILED;
 
-                                auto* template_eval_state_instance =
-                                    template_eval_state_instance_may_nullopt.value();
+                            auto* template_eval_state_instance =
+                                template_eval_state_instance_may_nullopt.value();
 
-                                if (continue_process)
-                                {
-                                    node->m_LANG_template_evalating_state = template_eval_state_instance;
-                                    return HOLD;
-                                }
-                                else
-                                {
-                                    if (type_symbol->m_symbol_kind == lang_Symbol::ALIAS)
-                                        alias_instance = static_cast<lang_TemplateAstEvalStateAlias*>(
-                                            template_eval_state_instance)->m_alias_instance.get();
-                                    else
-                                        type_instance = static_cast<lang_TemplateAstEvalStateType*>(
-                                            template_eval_state_instance)->m_type_instance.get();
-                                }
+                            if (continue_process)
+                            {
+                                node->m_LANG_template_evalating_state = template_eval_state_instance;
+                                return HOLD;
                             }
                             else
                             {
                                 if (type_symbol->m_symbol_kind == lang_Symbol::ALIAS)
-                                    alias_instance = type_symbol->m_alias_instance;
+                                    alias_instance = static_cast<lang_TemplateAstEvalStateAlias*>(
+                                        template_eval_state_instance)->m_alias_instance.get();
                                 else
-                                    type_instance = type_symbol->m_type_instance;
-                            }
-
-                            bool type_or_alias_determined =
-                                type_symbol->m_symbol_kind == lang_Symbol::ALIAS
-                                ? alias_instance->m_determined_type.has_value()
-                                : type_instance->get_determined_type().has_value()
-                                ;
-
-                            if (!type_or_alias_determined)
-                            {
-                                // NOTE: What ever type or alias, we should trying to determine the type.
-                                if (!node->m_LANG_trying_advancing_type_judgement && type_symbol->m_symbol_declare_ast)
-                                {
-                                    auto* define_ast = type_symbol->m_symbol_declare_ast.value();
-
-                                    if (define_ast->finished_state == UNPROCESSED)
-                                    {
-                                        node->m_LANG_trying_advancing_type_judgement = true;
-
-                                        wo_assert(!type_symbol->m_is_template
-                                            && type_symbol->m_is_global);
-
-                                        // Immediately advance the processing of declaration nodes.
-                                        entry_spcify_scope(type_symbol->m_belongs_to_scope);
-                                        WO_CONTINUE_PROCESS(define_ast);
-                                        return HOLD;
-                                    }
-                                }
-
-                                // NOTE: Type not decided is okay, but alias not.
-                                if (type_symbol->m_symbol_kind == lang_Symbol::ALIAS)
-                                {
-                                    lex.lang_error(lexer::errorlevel::error, node,
-                                        WO_ERR_TYPE_DETERMINED_FAILED);
-                                    return FAILED;
-                                }
-                            }
-
-                            if (type_symbol->m_symbol_kind == lang_Symbol::ALIAS)
-                            {
-                                // Check symbol can be reach.
-                                if (!check_symbol_is_reachable_in_current_scope(
-                                    lex, node, type_symbol, node->source_location.source_file))
-                                {
-                                    return FAILED;
-                                }
-                                else if (!alias_instance->m_symbol->m_is_template
-                                    && identifier->m_template_arguments.has_value())
-                                {
-                                    lang_Symbol* refiliing_symbol =
-                                        alias_instance->m_determined_type.value()->m_symbol;
-
-                                    wo_assert(refiliing_symbol->m_symbol_kind == lang_Symbol::kind::TYPE);
-                                    if (!refiliing_symbol->m_is_template && !refiliing_symbol->m_is_builtin)
-                                    {
-                                        lex.lang_error(lexer::errorlevel::error, node,
-                                            WO_ERR_UNEXPECTED_TEMPLATE_ARGUMENT,
-                                            get_symbol_name_w(refiliing_symbol));
-
-                                        lex.lang_error(lexer::errorlevel::infom, node,
-                                            WO_INFO_TRYING_REFILL_TEMPLATE_ARGUMENT,
-                                            get_type_name_w(alias_instance->m_determined_type.value()),
-                                            get_symbol_name_w(alias_instance->m_symbol));
-
-                                        if (refiliing_symbol->m_symbol_declare_ast.has_value())
-                                        {
-                                            lex.lang_error(lexer::errorlevel::infom, refiliing_symbol->m_symbol_declare_ast.value(),
-                                                WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
-                                                get_symbol_name_w(refiliing_symbol));
-                                        }
-
-                                        return FAILED;
-                                    }
-
-                                    // Template refilling.
-                                    node->m_LANG_refilling_template_target_symbol = refiliing_symbol;
-
-                                    // NOTE: Reset m_LANG_trying_advancing_type_judgement, symbol has been determined.
-                                    if (node->m_LANG_trying_advancing_type_judgement)
-                                        node->m_LANG_trying_advancing_type_judgement = false;
-
-                                    // Re-eval it.
-                                    return HOLD;
-                                }
+                                    type_instance = static_cast<lang_TemplateAstEvalStateType*>(
+                                        template_eval_state_instance)->m_type_instance.get();
                             }
                         }
                         else
                         {
-                            auto* state = static_cast<lang_TemplateAstEvalStateBase*>(
-                                node->m_LANG_template_evalating_state.value());
-
-                            finish_eval_template_ast(lex, state);
-
                             if (type_symbol->m_symbol_kind == lang_Symbol::ALIAS)
-                                alias_instance = static_cast<lang_TemplateAstEvalStateAlias*>(
-                                    state)->m_alias_instance.get();
+                                alias_instance = type_symbol->m_alias_instance;
                             else
-                                type_instance = static_cast<lang_TemplateAstEvalStateType*>(
-                                    state)->m_type_instance.get();
+                                type_instance = type_symbol->m_type_instance;
+                        }
+
+                        bool type_or_alias_determined =
+                            type_symbol->m_symbol_kind == lang_Symbol::ALIAS
+                            ? alias_instance->m_determined_type.has_value()
+                            : type_instance->get_determined_type().has_value()
+                            ;
+
+                        if (!type_or_alias_determined)
+                        {
+                            // NOTE: What ever type or alias, we should trying to determine the type.
+                            if (!node->m_LANG_trying_advancing_type_judgement && type_symbol->m_symbol_declare_ast)
+                            {
+                                auto* define_ast = type_symbol->m_symbol_declare_ast.value();
+
+                                if (define_ast->finished_state == UNPROCESSED)
+                                {
+                                    node->m_LANG_trying_advancing_type_judgement = true;
+
+                                    wo_assert(!type_symbol->m_is_template
+                                        && type_symbol->m_is_global);
+
+                                    // Immediately advance the processing of declaration nodes.
+                                    entry_spcify_scope(type_symbol->m_belongs_to_scope);
+                                    WO_CONTINUE_PROCESS(define_ast);
+                                    return HOLD;
+                                }
+                            }
+
+                            // NOTE: Type not decided is okay, but alias not.
+                            if (type_symbol->m_symbol_kind == lang_Symbol::ALIAS)
+                            {
+                                lex.lang_error(lexer::errorlevel::error, node,
+                                    WO_ERR_TYPE_DETERMINED_FAILED);
+                                return FAILED;
+                            }
                         }
 
                         if (type_symbol->m_symbol_kind == lang_Symbol::ALIAS)
                         {
-                            // Eval alias type.
-                            type_instance = alias_instance->m_determined_type.value();
-                        }
+                            // Check symbol can be reach.
+                            if (!check_symbol_is_reachable_in_current_scope(
+                                lex, node, type_symbol, node->source_location.source_file))
+                            {
+                                return FAILED;
+                            }
+                            else if (!alias_instance->m_symbol->m_is_template
+                                && identifier->m_template_arguments.has_value())
+                            {
+                                lang_Symbol* refiliing_symbol =
+                                    alias_instance->m_determined_type.value()->m_symbol;
 
-                        wo_assert(type_instance != nullptr);
-                        node->m_LANG_determined_type = type_instance;
-                        break;
+                                wo_assert(refiliing_symbol->m_symbol_kind == lang_Symbol::kind::TYPE);
+                                if (!refiliing_symbol->m_is_template && !refiliing_symbol->m_is_builtin)
+                                {
+                                    lex.lang_error(lexer::errorlevel::error, node,
+                                        WO_ERR_UNEXPECTED_TEMPLATE_ARGUMENT,
+                                        get_symbol_name_w(refiliing_symbol));
+
+                                    lex.lang_error(lexer::errorlevel::infom, node,
+                                        WO_INFO_TRYING_REFILL_TEMPLATE_ARGUMENT,
+                                        get_type_name_w(alias_instance->m_determined_type.value()),
+                                        get_symbol_name_w(alias_instance->m_symbol));
+
+                                    if (refiliing_symbol->m_symbol_declare_ast.has_value())
+                                    {
+                                        lex.lang_error(lexer::errorlevel::infom, refiliing_symbol->m_symbol_declare_ast.value(),
+                                            WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
+                                            get_symbol_name_w(refiliing_symbol));
+                                    }
+
+                                    return FAILED;
+                                }
+
+                                // Template refilling.
+                                node->m_LANG_refilling_template_target_symbol = refiliing_symbol;
+
+                                // NOTE: Reset m_LANG_trying_advancing_type_judgement, symbol has been determined.
+                                if (node->m_LANG_trying_advancing_type_judgement)
+                                    node->m_LANG_trying_advancing_type_judgement = false;
+
+                                // Re-eval it.
+                                return HOLD;
+                            }
+                        }
                     }
                     else
                     {
-                        /* FALL-THROUGH */
+                        auto* state = static_cast<lang_TemplateAstEvalStateBase*>(
+                            node->m_LANG_template_evalating_state.value());
+
+                        finish_eval_template_ast(lex, state);
+
+                        if (type_symbol->m_symbol_kind == lang_Symbol::ALIAS)
+                            alias_instance = static_cast<lang_TemplateAstEvalStateAlias*>(
+                                state)->m_alias_instance.get();
+                        else
+                            type_instance = static_cast<lang_TemplateAstEvalStateType*>(
+                                state)->m_type_instance.get();
                     }
+
+                    if (type_symbol->m_symbol_kind == lang_Symbol::ALIAS)
+                    {
+                        // Eval alias type.
+                        type_instance = alias_instance->m_determined_type.value();
+                    }
+
+                    wo_assert(type_instance != nullptr);
+                    node->m_LANG_determined_type = type_instance;
+                    break;
                 }
+                else
+                {
+                    /* FALL-THROUGH */
+                }
+
                 /* FALL-THROUGH */
             }
             [[fallthrough]];
@@ -775,71 +762,52 @@ namespace wo
                     wo_assert(node->m_identifier->m_LANG_determined_symbol);
                     lang_Symbol* var_symbol = node->m_identifier->m_LANG_determined_symbol.value();
 
-                    if (var_symbol->m_symbol_kind != lang_Symbol::VARIABLE)
+                    wo_assert(var_symbol->m_symbol_kind == lang_Symbol::VARIABLE);
+                    if (var_symbol->m_is_template)
                     {
-                        lex.lang_error(lexer::errorlevel::error, node,
-                            WO_ERR_UNEXPECTED_TYPE_SYMBOL,
-                            node->m_identifier->m_name->c_str());
-
-                        if (var_symbol->m_symbol_declare_ast.has_value())
+                        // TEMPLATE!!!
+                        // NOTE: In function call, template arguments will be 
+                        //  derived and filled completely.
+                        lang_Symbol::TemplateArgumentListT template_args;
+                        if (node->m_identifier->m_template_arguments.has_value())
                         {
-                            lex.lang_error(
-                                lexer::errorlevel::infom,
-                                var_symbol->m_symbol_declare_ast.value(),
-                                WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
-                                get_symbol_name_w(var_symbol));
+                            for (auto* typeholder : node->m_identifier->m_template_arguments.value())
+                            {
+                                wo_assert(typeholder->m_LANG_determined_type);
+                                template_args.push_back(typeholder->m_LANG_determined_type.value());
+                            }
+                        }
+                        if (node->m_identifier->m_LANG_determined_and_appended_template_arguments.has_value())
+                        {
+                            const auto& determined_tyope_list =
+                                node->m_identifier->m_LANG_determined_and_appended_template_arguments.value();
+                            template_args.insert(template_args.end(),
+                                determined_tyope_list.begin(),
+                                determined_tyope_list.end());
                         }
 
-                        return FAILED;
+                        bool continue_process = false;
+                        auto template_eval_state_instance_may_nullopt = begin_eval_template_ast(
+                            lex, node, var_symbol, template_args, out_stack, &continue_process);
+
+                        if (!template_eval_state_instance_may_nullopt)
+                            return FAILED;
+
+                        auto* template_eval_state_instance =
+                            static_cast<lang_TemplateAstEvalStateValue*>(
+                                template_eval_state_instance_may_nullopt.value());
+
+                        if (continue_process)
+                        {
+                            node->m_LANG_template_evalating_state = template_eval_state_instance;
+                            return HOLD;
+                        }
+                        else
+                            value_instance = template_eval_state_instance->m_value_instance.get();
                     }
                     else
                     {
-                        if (var_symbol->m_is_template)
-                        {
-                            // TEMPLATE!!!
-                            // NOTE: In function call, template arguments will be 
-                            //  derived and filled completely.
-                            lang_Symbol::TemplateArgumentListT template_args;
-                            if (node->m_identifier->m_template_arguments.has_value())
-                            {
-                                for (auto* typeholder : node->m_identifier->m_template_arguments.value())
-                                {
-                                    wo_assert(typeholder->m_LANG_determined_type);
-                                    template_args.push_back(typeholder->m_LANG_determined_type.value());
-                                }
-                            }
-                            if (node->m_identifier->m_LANG_determined_and_appended_template_arguments.has_value())
-                            {
-                                const auto& determined_tyope_list =
-                                    node->m_identifier->m_LANG_determined_and_appended_template_arguments.value();
-                                template_args.insert(template_args.end(),
-                                    determined_tyope_list.begin(),
-                                    determined_tyope_list.end());
-                            }
-
-                            bool continue_process = false;
-                            auto template_eval_state_instance_may_nullopt = begin_eval_template_ast(
-                                lex, node, var_symbol, template_args, out_stack, &continue_process);
-
-                            if (!template_eval_state_instance_may_nullopt)
-                                return FAILED;
-
-                            auto* template_eval_state_instance =
-                                static_cast<lang_TemplateAstEvalStateValue*>(
-                                    template_eval_state_instance_may_nullopt.value());
-
-                            if (continue_process)
-                            {
-                                node->m_LANG_template_evalating_state = template_eval_state_instance;
-                                return HOLD;
-                            }
-                            else
-                                value_instance = template_eval_state_instance->m_value_instance.get();
-                        }
-                        else
-                        {
-                            value_instance = var_symbol->m_value_instance;
-                        }
+                        value_instance = var_symbol->m_value_instance;
                     }
                 }
                 else
@@ -1404,7 +1372,7 @@ namespace wo
                 // Has marked return type?
                 if (function_instance->m_marked_return_type.has_value())
                 {
-                    if (function_instance->m_LANG_determined_return_type.has_value())
+                    if (!function_instance->m_LANG_determined_return_type.has_value())
                         function_instance->m_LANG_determined_return_type =
                         function_instance->m_marked_return_type.value()->m_LANG_determined_type.value();
 
@@ -2656,7 +2624,9 @@ namespace wo
                                 function_variable_identifier->m_formal = AstIdentifier::FROM_TYPE;
                                 function_variable_identifier->m_from_type = first_argument_type_instance;
 
-                                if (!find_symbol_in_current_scope(lex, function_variable_identifier, std::nullopt))
+                                wo_assert(!function_variable_identifier->m_find_type_only);
+                                if (!find_symbol_in_current_scope(
+                                    lex, function_variable_identifier, std::nullopt))
                                 {
                                     // Failed, restore.
                                     function_variable_identifier->m_formal = AstIdentifier::FROM_CURRENT;
@@ -3997,6 +3967,7 @@ namespace wo
                 AstIdentifier* operator_identifier = new AstIdentifier(operator_name);
                 operator_identifier->m_formal = AstIdentifier::FROM_TYPE;
                 operator_identifier->m_from_type = left_type;
+                operator_identifier->m_find_type_only = false;
 
                 // Update source location.
                 operator_identifier->source_location = node->source_location;
@@ -5210,6 +5181,7 @@ namespace wo
                     AstIdentifier* operator_identifier = new AstIdentifier(operator_name_str);
                     operator_identifier->m_formal = AstIdentifier::FROM_TYPE;
                     operator_identifier->m_from_type = left_type;
+                    operator_identifier->m_find_type_only = false;
 
                     // Update source location.
                     operator_identifier->source_location = node->source_location;

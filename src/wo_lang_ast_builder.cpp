@@ -126,7 +126,12 @@ namespace wo
             {
                 wo_assert(ns->node_type == AstBase::AST_TOKEN);
                 AstToken* ns_token = static_cast<AstToken*>(ns);
-                used_namespaces.push_back(wstring_pool::get_pstr(ns_token->m_token.identifier));
+
+                auto* namespace_pstr = wstring_pool::get_pstr(ns_token->m_token.identifier);
+                if (namespace_pstr == WO_PSTR(unsafe))
+                    lex.lang_error(lexer::errorlevel::error, ns_token, WO_ERR_CANNOT_USING_UNSAFE);
+
+                used_namespaces.push_back(namespace_pstr);
             }
 
             return new AstUsingNamespace(used_namespaces);

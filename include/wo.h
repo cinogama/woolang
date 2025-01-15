@@ -633,6 +633,7 @@ typedef enum _wo_lsp_error_level
 typedef struct _wo_lsp_error_msg
 {
     wo_lsp_error_level  m_level;
+    wo_size_t           m_depth;
     const char*         m_file_name;
     const char*         m_describe;
     wo_size_t           m_begin_location[2];       // An array stores row & col

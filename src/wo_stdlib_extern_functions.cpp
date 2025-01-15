@@ -1555,6 +1555,20 @@ WO_API wo_api rslib_std_get_extern_symb(wo_vm vm, wo_value args)
     return wo_ret_option_none(vm);
 }
 
+WO_API wo_api rslib_std_replace_tp(wo_vm vm, wo_value args)
+{
+    wo_integer_t new_tp_val = wo_int(args + 0);
+    wo_value tp = wo_register(vm, WO_REG_TP);
+
+    wo_integer_t old_tp_val = 0;
+    if (wo_valuetype(tp) == WO_INTEGER_TYPE)
+        old_tp_val = wo_int(tp);
+
+    wo_set_int(tp, new_tp_val);
+
+    return wo_ret_int(vm, old_tp_val);
+}
+
 WO_API wo_api rslib_std_equal_byte(wo_vm vm, wo_value args)
 {
     return wo_ret_bool(vm, wo_equal_byte(args + 0, args + 1));
@@ -1732,6 +1746,9 @@ namespace unsafe
     
     extern("rslib_std_get_extern_symb")
         public func extsymbol<T>(fullname: string)=> option<T>;
+
+    extern("rslib_std_replace_tp")
+        public func replace_argc(argc: int)=> int;
 }
 namespace std
 {
@@ -3596,6 +3613,7 @@ namespace wo
             {"rslib_std_print", (void*)&rslib_std_print},
             {"rslib_std_randomint", (void*)&rslib_std_randomint},
             {"rslib_std_randomreal", (void*)&rslib_std_randomreal},
+            {"rslib_std_replace_tp", (void*)rslib_std_replace_tp},
             {"rslib_std_return_itself", (void*)&rslib_std_return_itself},
             {"rslib_std_serialize", (void*)&rslib_std_serialize},
             {"rslib_std_str_bytelen", (void*)&rslib_std_str_bytelen},

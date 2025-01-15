@@ -60,11 +60,11 @@
 #define WO_ERR_UNKNOWN_EXTERN_ATTRIB L"未知的外部函数说明符: '%ls'"
 #define WO_ERR_COMPILER_DISABLED L"编译器功能被禁用"
 #define WO_ERR_CANNOT_START_NAMESPACE L"不允许在这里定义命名空间"
+#define WO_ERR_CANNOT_USING_UNSAFE L"不允许 'using' 名为 'unsafe' 的命名空间"
 
 // PASS0_1 TYPE CHECK PARSE
-#define WO_ERR_UNKNOWN_IDENTIFIER L"未定义的标识符: '%ls'"
-#define WO_ERR_UNEXPECTED_TYPE_SYMBOL L"'%ls' 是一个类型"
-#define WO_ERR_UNEXPECTED_VAR_SYMBOL L"'%ls' 不是类型"
+#define WO_ERR_UNFOUND_TYPE_NAMED L"没有找到名为 '%ls' 的类型"
+#define WO_ERR_UNFOUND_VARIABLE_NAMED L"没有找到名为 '%ls' 的常量、变量或函数"
 #define WO_ERR_UNEXPECTED_TEMPLATE_COUNT L"目标期待有且仅有 '%zu' 个泛型参数"
 #define WO_ERR_EXPECTED_TEMPLATE_ARGUMENT L"'%ls' 是一个泛型目标"
 #define WO_ERR_UNEXPECTED_TEMPLATE_ARGUMENT L"'%ls' 不是一个泛型目标"
