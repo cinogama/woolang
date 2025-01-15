@@ -1,5 +1,7 @@
 #include "wo_lang.hpp"
 
+WO_API wo_api rslib_std_return_itself(wo_vm vm, wo_value args);
+
 namespace wo
 {
 #ifndef WO_DISABLE_COMPILER
@@ -318,7 +320,7 @@ namespace wo
     WO_PASS_PROCESSER(AstUsingTypeDeclare)
     {
         wo_assert(state == UNPROCESSED);
-     
+
         return OKAY;
     }
     WO_PASS_PROCESSER(AstAliasTypeDeclare)
@@ -1249,6 +1251,50 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
+            if (node->m_function->node_type == AstBase::AST_VALUE_VARIABLE)
+            {
+                AstValueVariable* func_var = static_cast<AstValueVariable*>(node->m_function);
+                auto ir_normal_function_instance = func_var->m_LANG_variable_instance.value()->m_IR_normal_function;
+
+                // If no captured variables, we can call near.
+                node->m_IR_invoking_function_near = ir_normal_function_instance;
+            }
+            else if (node->m_function->node_type == AstBase::AST_VALUE_FUNCTION)
+            {
+                ast::AstValueFunction* invoking_target_function = static_cast<ast::AstValueFunction*>(node->m_function);
+                if (invoking_target_function->m_LANG_captured_context.m_captured_variables.empty())
+                {
+                    // No captured variables, we can call near.
+                    node->m_IR_invoking_function_near = invoking_target_function;
+
+                    // What ever, we still need compiler known this function.
+                    m_ircontext.eval_ignore();
+                    WO_CONTINUE_PROCESS(node->m_function);
+                }
+            }
+            bool has_invoking_function_near = node->m_IR_invoking_function_near.has_value();
+            if (has_invoking_function_near)
+            {
+                auto* function = node->m_IR_invoking_function_near.value();
+                if (function->m_IR_extern_information.has_value())
+                {
+                    auto* extern_information = function->m_IR_extern_information.value();
+                    if (extern_information->m_IR_externed_function.has_value())
+                    {
+                        auto* externed_function = extern_information->m_IR_externed_function.value();
+                        if ((void*)&rslib_std_return_itself == (void*)externed_function)
+                        {
+                            // Optimized for rslib_std_return_itself.
+                            m_ircontext.eval_for_upper();
+                            WO_CONTINUE_PROCESS(node->m_arguments.front());
+
+                            node->m_LANG_hold_state = AstValueFunctionCall::IR_HOLD_FOR_FAST_ITSELF;
+                            return HOLD;
+                        }
+                    }
+                }
+            }
+
             bool argument_count_is_sured = true;
             for (auto* arguments : node->m_arguments)
             {
@@ -1271,97 +1317,87 @@ namespace wo
                     WO_OPNUM(m_ircontext.opnum_imm_int(node->m_LANG_certenly_function_argument_count)));
             }
 
-            if (node->m_function->node_type == AstBase::AST_VALUE_VARIABLE)
-            {
-                AstValueVariable* func_var = static_cast<AstValueVariable*>(node->m_function);
-                auto ir_normal_function_instance = func_var->m_LANG_variable_instance.value()->m_IR_normal_function;
-
-                // If no captured variables, we can call near.
-                node->m_IR_invoking_function_near = ir_normal_function_instance;
-            }
-            else if (node->m_function->node_type == AstBase::AST_VALUE_FUNCTION)
-            {
-                ast::AstValueFunction* invoking_target_function = static_cast<ast::AstValueFunction*>(node->m_function);
-                if (invoking_target_function->m_LANG_captured_context.m_captured_variables.empty())
-                {
-                    // No captured variables, we can call near.
-                    node->m_IR_invoking_function_near = invoking_target_function;
-
-                    // What ever, we still need compiler known this function.
-                    m_ircontext.eval_ignore();
-                    WO_CONTINUE_PROCESS(node->m_function);
-                }
-            }
-
-            if (!node->m_IR_invoking_function_near.has_value())
+            if (!has_invoking_function_near)
             {
                 // We need eval it.
                 m_ircontext.eval_keep();
                 WO_CONTINUE_PROCESS(node->m_function);
             }
 
+            node->m_LANG_hold_state = AstValueFunctionCall::IR_HOLD_FOR_NORMAL_CALL;
             return HOLD;
         }
         else if (state == HOLD)
         {
-            if (node->m_IR_invoking_function_near.has_value())
+            switch (node->m_LANG_hold_state)
             {
-                AstValueFunction* invoking_function = node->m_IR_invoking_function_near.value();
-                wo_assert(invoking_function->m_LANG_captured_context.m_captured_variables.empty());
-
-                if (invoking_function->m_IR_extern_information.has_value()
-                    && 0 == (invoking_function->m_IR_extern_information.value()->m_attribute_flags & AstExternInformation::SLOW))
-                {
-                    m_ircontext.c().callfast(
-                        (void*)invoking_function->m_IR_extern_information.value()->m_IR_externed_function.value());
-                }
-                else
-                    m_ircontext.c().call(WO_OPNUM(IR_function_opnum(invoking_function)));
-            }
-            else
+            case AstValueFunctionCall::IR_HOLD_FOR_FAST_ITSELF:
+                break;
+            case AstValueFunctionCall::IR_HOLD_FOR_NORMAL_CALL:
             {
-                auto* opnumbase = m_ircontext.get_eval_result();
-                m_ircontext.c().call(WO_OPNUM(opnumbase));
-
-                m_ircontext.try_return_opnum_temporary_register(opnumbase);
-            }
-
-            if (!node->m_LANG_has_runtime_full_unpackargs)
-                m_ircontext.c().pop(
-                    node->m_LANG_certenly_function_argument_count);
-            else
-                m_ircontext.c().ext_popn(
-                    WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tc)));
-
-            if (node->m_LANG_invoking_variadic_function)
-                m_ircontext.c().pop(
-                    WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tc)));
-
-            // Ok, invoke finished.
-            if (!m_ircontext.apply_eval_result(
-                [&](BytecodeGenerateContext::EvalResult& result)
+                if (node->m_IR_invoking_function_near.has_value())
                 {
-                    const auto& target_storage = result.get_assign_target();
-                    if (target_storage.has_value())
+                    AstValueFunction* invoking_function = node->m_IR_invoking_function_near.value();
+                    wo_assert(invoking_function->m_LANG_captured_context.m_captured_variables.empty());
+
+                    if (invoking_function->m_IR_extern_information.has_value()
+                        && 0 == (invoking_function->m_IR_extern_information.value()->m_attribute_flags & AstExternInformation::SLOW))
                     {
-                        if (opnum::reg* target_reg = dynamic_cast<opnum::reg*>(target_storage.value());
-                            target_reg == nullptr || target_reg->id != opnum::reg::cr)
-                        {
-                            m_ircontext.c().mov(
-                                WO_OPNUM(target_storage.value()),
-                                WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::cr)));
-                        }
-                        // Or do nothing, target is same.
+                        m_ircontext.c().callfast(
+                            (void*)invoking_function->m_IR_extern_information.value()->m_IR_externed_function.value());
                     }
                     else
-                        result.set_result(
-                            m_ircontext, m_ircontext.opnum_spreg(opnum::reg::cr));
+                        m_ircontext.c().call(WO_OPNUM(IR_function_opnum(invoking_function)));
+                }
+                else
+                {
+                    auto* opnumbase = m_ircontext.get_eval_result();
+                    m_ircontext.c().call(WO_OPNUM(opnumbase));
 
-                    return true;
-                }))
-            {
-                // Eval failed.
-                return FAILED;
+                    m_ircontext.try_return_opnum_temporary_register(opnumbase);
+                }
+
+                if (!node->m_LANG_has_runtime_full_unpackargs)
+                    m_ircontext.c().pop(
+                        node->m_LANG_certenly_function_argument_count);
+                else
+                    m_ircontext.c().ext_popn(
+                        WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tc)));
+
+                if (node->m_LANG_invoking_variadic_function)
+                    m_ircontext.c().pop(
+                        WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tc)));
+
+                // Ok, invoke finished.
+                if (!m_ircontext.apply_eval_result(
+                    [&](BytecodeGenerateContext::EvalResult& result)
+                    {
+                        const auto& target_storage = result.get_assign_target();
+                        if (target_storage.has_value())
+                        {
+                            if (opnum::reg* target_reg = dynamic_cast<opnum::reg*>(target_storage.value());
+                                target_reg == nullptr || target_reg->id != opnum::reg::cr)
+                            {
+                                m_ircontext.c().mov(
+                                    WO_OPNUM(target_storage.value()),
+                                    WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::cr)));
+                            }
+                            // Or do nothing, target is same.
+                        }
+                        else
+                            result.set_result(
+                                m_ircontext, m_ircontext.opnum_spreg(opnum::reg::cr));
+
+                        return true;
+                    }))
+                {
+                    // Eval failed.
+                    return FAILED;
+                }
+                break;
+            }
+            default:
+                break;
             }
         }
         return WO_EXCEPT_ERROR(state, OKAY);

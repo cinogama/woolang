@@ -351,6 +351,9 @@ namespace wo
                 HOLD_FOR_ARGUMENTS_EVAL,
                 HOLD_BRANCH_A_TEMPLATE_ARGUMENT_DEDUCTION,
                 HOLD_BRANCH_B_TEMPLATE_ARGUMENT_DEDUCTION,
+
+                IR_HOLD_FOR_FAST_ITSELF,
+                IR_HOLD_FOR_NORMAL_CALL,
             };
 
             bool m_is_direct_call;  // -> |> <|
