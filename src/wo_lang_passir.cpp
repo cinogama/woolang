@@ -1,5 +1,7 @@
 #include "wo_lang.hpp"
 
+#include <algorithm>
+
 WO_API wo_api rslib_std_return_itself(wo_vm vm, wo_value args);
 
 namespace wo

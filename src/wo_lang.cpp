@@ -1,6 +1,7 @@
 #include "wo_lang.hpp"
 
 #include <unordered_set>
+#include <algorithm>
 
 namespace wo
 {
