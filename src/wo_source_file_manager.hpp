@@ -10,6 +10,7 @@
 #include <shared_mutex>
 #include <optional>
 #include <cwchar>
+#include <memory>
 
 #if WO_BUILD_WITH_MINGW
 #   include <mingw.shared_mutex.h>
