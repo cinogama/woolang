@@ -6,6 +6,48 @@ namespace wo
 {
     namespace ast
     {
+        uint64_t read_from_unsigned_literal(const wchar_t* text)
+        {
+            uint64_t base = 10;
+            uint64_t result = 0;
+
+            if (text[0] == L'0')
+            {
+                if (text[1] == 0)
+                    return 0;
+
+                switch (lexer::lex_toupper(text[1]))
+                {
+                case L'X':
+                    base = 16;
+                    text = text + 2;
+                    break;
+                case L'B':
+                    base = 2;
+                    text = text + 2;
+                    break;
+                default:
+                    base = 8;
+                    ++text;
+                    break;
+                }
+            }
+            while (*text)
+            {
+                if (*text == L'H' || *text == L'h')
+                    break;
+                result = base * result + lexer::lex_hextonum(*text);
+                ++text;
+            }
+            return result;
+        }
+        int64_t read_from_literal(const wchar_t* text)
+        {
+            if (text[0] == L'-')
+                return -(int64_t)read_from_unsigned_literal(text + 1);
+            return (int64_t)read_from_unsigned_literal(text);
+        }
+
         auto pass_mark_label::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
             token label = WO_NEED_TOKEN(0);
@@ -1020,50 +1062,6 @@ namespace wo
         }
         auto pass_literal::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
-            auto read_from_unsigned_literal =
-                [](const wchar_t* text)-> uint64_t
-                {
-                    uint64_t base = 10;
-                    uint64_t result = 0;
-
-                    if (text[0] == L'0')
-                    {
-                        if (text[1] == 0)
-                            return 0;
-
-                        switch (lexer::lex_toupper(text[1]))
-                        {
-                        case L'X':
-                            base = 16;
-                            text = text + 2;
-                            break;
-                        case L'B':
-                            base = 2;
-                            text = text + 2;
-                            break;
-                        default:
-                            base = 8;
-                            ++text;
-                            break;
-                        }
-                    }
-                    while (*text)
-                    {
-                        if (*text == L'H' || *text == L'h')
-                            break;
-                        result = base * result + lexer::lex_hextonum(*text);
-                        ++text;
-                    }
-                    return result;
-                };
-            auto read_from_literal =
-                [&read_from_unsigned_literal](const wchar_t* text)-> int64_t
-                {
-                    if (text[0] == L'-')
-                        return -(int64_t)read_from_unsigned_literal(text + 1);
-                    return (int64_t)read_from_unsigned_literal(text);
-                };
-
             token literal = WO_NEED_TOKEN(0);
             AstValueLiteral* literal_instance = new AstValueLiteral();
 
@@ -1664,20 +1662,20 @@ namespace wo
             AstValueBase* value = WO_NEED_AST_VALUE(0);
             AstToken* index = static_cast<AstToken*>(WO_NEED_AST_TYPE(2, AstBase::AST_TOKEN));
 
-            AstValueLiteral* index_literal;
+            AstValueLiteral* index_literal = new AstValueLiteral();
             switch (index->m_token.type)
             {
             case lex_type::l_identifier:
             {
-                index_literal = new AstValueLiteral();
-                index_literal->decide_final_constant_value(wstrn_to_str(index->m_token.identifier));
+                index_literal->decide_final_constant_value(
+                    wstrn_to_str(index->m_token.identifier));
                 break;
             }
             case lex_type::l_literal_integer:
             {
                 wo::value index_value;
-                index_value.set_integer((wo_integer_t)std::stoll(index->m_token.identifier));
-                index_literal = new AstValueLiteral();
+                index_value.set_integer(
+                    (wo_integer_t)read_from_literal(index->m_token.identifier.c_str()));
                 index_literal->decide_final_constant_value(index_value);
                 break;
             }
@@ -1685,6 +1683,9 @@ namespace wo
                 wo_error("Unknown index type.");
                 return token{ lex_type::l_error };
             }
+
+            // Update source location
+            index_literal->source_location = index->source_location;
 
             return new AstValueIndex(value, index_literal);
         }
