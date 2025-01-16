@@ -2807,7 +2807,7 @@ namespace dict
 
     public func get_or_do<KT, VT>(self: dict<KT, VT>, index: KT, f: ()=> VT)=> VT
     {
-        match (a->get(index))
+        match (self->get(index))
         {
         value(v)? return v;
         none? return f();
@@ -2928,7 +2928,7 @@ namespace map
 
     public func get_or_do<KT, VT>(self: ::map<KT, VT>, index: KT, f: ()=> VT)=> VT
     {
-        match (a->get(index))
+        match (self->get(index))
         {
         value(v)? return v;
         none? return f();
