@@ -1068,6 +1068,12 @@ WO_API wo_api rslib_std_map_get_or_set_default(wo_vm vm, wo_value args)
     return wo_ret_val(vm, elem);
 }
 
+
+WO_API wo_api rslib_std_map_get_or_set_default_do(wo_vm vm, wo_value args)
+{
+    return wo_ret_map_get_or_set_do(vm, args + 0, args + 1, args + 2, &args, nullptr);
+}
+
 WO_API wo_api rslib_std_map_get_or_default(wo_vm vm, wo_value args)
 {
     wo_value elem =  wo_reserve_stack(vm, 1, &args);
@@ -2807,7 +2813,7 @@ namespace dict
 
     public func get_or_do<KT, VT>(self: dict<KT, VT>, index: KT, f: ()=> VT)=> VT
     {
-        match (a->get(index))
+        match (self->get(index))
         {
         value(v)? return v;
         none? return f();
@@ -2926,9 +2932,12 @@ namespace map
     extern("rslib_std_map_get_or_set_default") 
         public func get_or_set<KT, VT>(self: ::map<KT, VT>, index: KT, default_val: VT)=> VT;
 
+    extern("rslib_std_map_get_or_set_default_do") 
+        public func get_or_set_do<KT, VT>(self: ::map<KT, VT>, index: KT, defalt_do: ()=>VT)=> VT;
+
     public func get_or_do<KT, VT>(self: ::map<KT, VT>, index: KT, f: ()=> VT)=> VT
     {
-        match (a->get(index))
+        match (self->get(index))
         {
         value(v)? return v;
         none? return f();
@@ -3597,6 +3606,7 @@ namespace wo
             {"rslib_std_map_find", (void*)&rslib_std_map_find},
             {"rslib_std_map_get_or_default", (void*)&rslib_std_map_get_or_default},
             {"rslib_std_map_get_or_set_default", (void*)&rslib_std_map_get_or_set_default},
+            {"rslib_std_map_get_or_set_default_do", (void*)&rslib_std_map_get_or_set_default_do},
             {"rslib_std_map_iter", (void*)&rslib_std_map_iter},
             {"rslib_std_map_iter_next", (void*)&rslib_std_map_iter_next},
             {"rslib_std_map_keys", (void*)&rslib_std_map_keys},

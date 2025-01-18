@@ -1367,7 +1367,8 @@ namespace wo
                 else
                     return_value_type = m_origin_types.m_void.m_type_instance;
 
-                auto* function_instance = node->m_LANG_belong_function_may_null_if_outside.value();
+                auto* function_instance = 
+                    node->m_LANG_belong_function_may_null_if_outside.value();
 
                 // Has marked return type?
                 if (function_instance->m_marked_return_type.has_value())
