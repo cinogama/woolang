@@ -3783,6 +3783,60 @@ wo_bool_t wo_map_get_or_set(wo_value out_val, wo_value map, wo_value index, wo_v
     return WO_FALSE;
 }
 
+wo_result_t wo_ret_map_get_or_set_do(
+    wo_vm vm, 
+    wo_value map, 
+    wo_value index, 
+    wo_value value_function, 
+    wo_value* inout_args_maynull, 
+    wo_value* inout_s_maynull)
+{
+    wo::vmbase* vmbase = WO_VM(vm);
+
+    // function call might modify stack, we should pay attention to it.
+    auto _map = WO_VAL(map);
+    if (_map->type == wo::value::valuetype::dict_type)
+    {
+        wo::value* result = nullptr;
+        wo::gcbase::gc_read_guard g1(_map->dict);
+        do
+        {
+            auto fnd = _map->dict->find(*WO_VAL(index));
+            if (fnd != _map->dict->end())
+                result = &fnd->second;
+        } while (false);
+
+        if (!result)
+        {
+            wo::dict_t* dict = _map->dict;
+            wo::value raw_index;
+
+            raw_index.set_val(WO_VAL(index));
+
+            wo_value result = wo_invoke_value(
+                vm, value_function, 0, inout_args_maynull, inout_s_maynull);
+
+            ////////////////////////////////////////////////////////////////////
+           // DONOT USE map, index, value_function after this line
+           ////////////////////////////////////////////////////////////////////
+
+            if (nullptr == result)
+                // Aborted.
+                return WO_API_RESYNC;
+
+            (*dict)[raw_index] = *WO_VAL(result);
+            return WO_API_STATE_OF_VM(vmbase);
+        }
+        else
+            return wo_ret_val(vm, CS_VAL(result));
+    }
+    else
+    {
+        wo_fail(WO_FAIL_TYPE_FAIL, "Value is not a map.");
+        return WO_API_RESYNC;
+    }
+}
+
 wo_bool_t wo_map_get_or_default(wo_value out_val, wo_value map, wo_value index, wo_value default_value)
 {
     auto _map = WO_VAL(map);
