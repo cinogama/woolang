@@ -923,7 +923,11 @@ namespace wo
             }
             else
             {
-                wo_error("Unexpected builtin type.");
+                lex.lang_error(lexer::errorlevel::error, type_holder,
+                    WO_ERR_CANNOT_USE_BUILTIN_TYPENAME_HERE,
+                    ctx->get_symbol_name_w(symbol));
+
+                return std::nullopt;
             }
         }
         case ast::AstTypeHolder::FUNCTION:
