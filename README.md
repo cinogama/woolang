@@ -29,21 +29,21 @@ main(); // Execute `main`
 
 ### 自动构建与安装
 
-<del>推荐使用 [Chief_Reloaded](https://github.com/BiDuang/Chief_Reloaded) 来自动化管理和安装 Woolang 编译器。  </del>
+使用 `PowerShell` 运行:
 
-<del>注意: [Chief](https://github.com/BiDuang/Chief) 已不赞成使用, 其源码已过时且有较大性能问题, 请尽快迁移至 [Chief_Reloaded](https://github.com/BiDuang/Chief_Reloaded)。</del>
-
-新版本 Chief 开发中，在此之前请先手动构建或下载现成产物。
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://install.woolang.net/install.ps1 | iex"
+```
 
 ### 手动构建
 
 对于 `Windows` 平台（构建 `.exe` 文件）:
 
-**必须** 具有以下工具:  
+**必须** 具有以下工具:
 
 - Visual Studio 2019 及以上
-    - MSBuild 构建工具
-    - CMake 工具
+  - MSBuild 构建工具
+  - CMake 工具
 
 1. 拉取本仓库源代码并更新依赖
 
@@ -56,15 +56,13 @@ git submodule update --init --recursive --force
 2. 使用 `PowerShell` 将提交信息写入到 `wo_info.hpp`
 
 ```bash
-echo $(git rev-parse HEAD) > ./woolang/wo_info.hpp
+echo $(git rev-parse HEAD) > ./wo_info.hpp
 ```
 
 3. 使用 `CMake` 编译
 
 ```bash
-mkdir build
-cd build
-del CMakeCache.txt
+mkdir build && cd build
 cmake .. -DWO_MAKE_OUTPUT_IN_SAME_PATH=ON -DCMAKE_BUILD_TYPE=RELWITHDEBINFO -DBUILD_SHARED_LIBS=ON
 ```
 
@@ -76,7 +74,7 @@ cmake .. -DWO_MAKE_OUTPUT_IN_SAME_PATH=ON -DCMAKE_BUILD_TYPE=RELWITHDEBINFO -DBU
 cmake .. -DWO_MAKE_OUTPUT_IN_SAME_PATH=ON -DCMAKE_BUILD_TYPE=RELWITHDEBINFO -DBUILD_SHARED_LIBS=ON -DWO_SUPPORT_ASMJIT=OFF
 ```
 
-*禁用 JIT 仅导致性能损失*
+_禁用 JIT 仅导致性能损失_
 
 1. 使用 `MSBuild` 构建 `.exe` 文件
 
@@ -94,7 +92,7 @@ MSBuild driver/woodriver.vcxproj -p:Configuration=Release -maxCpuCount -m
 
 对于 `Linux` 平台 (构建二进制文件):
 
-**必须** 具有以下工具:  
+**必须** 具有以下工具:
 
 - CMake 工具
 - Make 工具
@@ -119,7 +117,7 @@ make -j 4
 
 ## 鸣谢（Acknowledgments）
 
-感谢 [asmjit](https://asmjit.com/) 提供的jit支持，虽然woolang对jit的支持尚未全部完成，但是asmjit让我拥有了愉快的开发体验。
+感谢 [asmjit](https://asmjit.com/) 提供的 jit 支持，虽然 woolang 对 jit 的支持尚未全部完成，但是 asmjit 让我拥有了愉快的开发体验。
 
 Thanks to [asmjit](https://asmjit.com/) for the jit support. Although Woolang's support for jit has not been fully completed, asmjit has given me a pleasant development experience.
 
