@@ -126,6 +126,7 @@
 #define WO_ERR_STRUCT_FIELD_IS_PROTECTED L"结构体字段 '%ls' 是受保护的, 只能在命名空间 '%ls' 内访问"
 #define WO_ERR_UNABLE_TO_MIX_TYPES L"无法推导出同时接受 '%ls' 和 '%ls' 的类型"
 #define WO_ERR_UNACCEPTABLE_MUTABLE L"明确要求类型为不可变的，但收到的是 '%ls'"
+#define WO_ERR_CANNOT_USE_BUILTIN_TYPENAME_HERE L"内置类型 '%ls' 的名称不能被直接使用"
 
 // PASS0_1 TYPE CHECK PARSE(INFO)
 #define WO_INFO_MAYBE_NAMED_DEFINED_HERE L"可能是这里的 '%ls'"
