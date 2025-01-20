@@ -519,7 +519,7 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
 
 void wo_init(int argc, char** argv)
 {
-    const char* basic_env_local = "en_US.UTF-8";
+    const char* basic_env_local = wo::DEFAULT_LOCALE_NAME;
     bool enable_std_package = true;
     bool enable_ctrl_c_to_debug = true;
     bool enable_vm_pool = true;

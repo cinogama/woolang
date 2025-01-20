@@ -7,6 +7,8 @@
 
 namespace wo
 {
+    extern const char* DEFAULT_LOCALE_NAME;
+
     const std::locale& get_locale();
     const std::vector<std::string>& get_args();
 

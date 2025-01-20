@@ -23,8 +23,14 @@
 namespace wo
 {
     // ATTENTION:
-    // RS will work in UTF-8 mode as default 
-    // (Before Windows 10 build 17134, setlocale will not work when using UTF-8).
+    // Woolang will work in UTF-8 mode as default 
+
+#ifdef _WIN32
+    const char* DEFAULT_LOCALE_NAME = ".UTF-8";
+#else
+    const char* DEFAULT_LOCALE_NAME = "C.UTF-8"
+#endif
+
     inline std::locale wo_global_locale = std::locale::classic();
     inline std::string wo_global_locale_name = "";
     inline std::optional<std::wstring> wo_binary_path = std::nullopt;
