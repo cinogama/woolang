@@ -2131,29 +2131,31 @@ namespace std
             || std::declval:<T>() is real
             || std::declval:<T>() is string;
     {
-        extern("rslib_std_input_readint", slow) 
-            func input_int()=> int;
-        extern("rslib_std_input_readreal", slow) 
-            func input_real()=> real;
-        extern("rslib_std_input_readstring", slow) 
-            func input_string()=> string;
-
         while (true)
         {
             if (std::declval:<T>() is int)
             {
+                extern("rslib_std_input_readint", slow) 
+                    func input_int()=> int;
+
                 let result = input_int();
                 if (validator(result))
                     return result;
             }
             else if (std::declval:<T>() is real)
             {
+                extern("rslib_std_input_readreal", slow) 
+                    func input_real()=> real;
+
                 let result = input_real();
                 if (validator(result))
                     return result;
             }
             else
             {
+                extern("rslib_std_input_readstring", slow) 
+                    func input_string()=> string;
+
                 let result = input_string();
                 if (validator(result))
                     return result;
