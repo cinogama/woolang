@@ -1758,10 +1758,12 @@ namespace unsafe
 }
 namespace std
 {
-    extern("rslib_std_halt") public func halt(msg: string) => nothing;
-    extern("rslib_std_panic") public func panic(msg: string)=> nothing;
-
-    extern("rslib_std_bad_function") public func declval<T>()=> T;
+    extern("rslib_std_halt")
+        public func halt(msg: string) => nothing;
+    extern("rslib_std_panic")
+        public func panic(msg: string)=> nothing;
+    extern("rslib_std_bad_function")
+        public func declval<T>()=> T;
 
     namespace type_traits
     {
@@ -1822,7 +1824,7 @@ namespace std
         extern("rslib_std_weakref_trylock")
         public func get<T>(self: weakref<T>)=> option<T>;
 
-        public func close<T>(self: weakref<T>)
+        public func close<T>(self: weakref<T>)=> bool
         {
             return self: gchandle->close;
         }
@@ -1832,15 +1834,15 @@ namespace std
         val : mut T
     }
     {
-        public func create<T>(val: T)
+        public func create<T>(val: T)=> mutable<T>
         {
             return mutable:<T>{val = mut val};
         }
-        public func set<T>(self: mutable<T>, val: T)
+        public func set<T>(self: mutable<T>, val: T)=> void
         {
             self.val = val;
         }
-        public func get<T>(self: mutable<T>)
+        public func get<T>(self: mutable<T>)=> T
         {
             return self.val;
         }
@@ -2126,13 +2128,13 @@ namespace std
     extern("rslib_std_time_sec") 
         public func time()=> real;
 
-    public func println(...)
+    public func println(...)=> void
     {
         print((...)...);
         print("\n");
     }
 
-    public func input<T>(validator: (T)=>bool)
+    public func input<T>(validator: (T)=>bool)=> T
         where declval:<T>() is int
             || declval:<T>() is real
             || declval:<T>() is string;
@@ -2169,7 +2171,7 @@ namespace std
         }
     }
 )" R"(
-    public func input_line<T>(parser: (string)=>option<T>)
+    public func input_line<T>(parser: (string)=>option<T>)=> T
     {
         while (true)
         {
@@ -2392,7 +2394,7 @@ namespace array
     extern("rslib_std_parse_array_from_string", repeat)
         public func deserialize(val: string)=> option<array<dynamic>>;
 
-    public func append<T>(self: array<T>, elem: T)
+    public func append<T>(self: array<T>, elem: T)=> array<T>
     {
         let newarr = self->to_vec;
         newarr->add(elem);
@@ -2400,14 +2402,14 @@ namespace array
         return newarr->unsafe::cast:<array<T>>;
     }
 
-    public func erase<T>(self: array<T>, index: int)
+    public func erase<T>(self: array<T>, index: int)=> array<T>
     {
         let newarr = self->to_vec;
         do newarr->remove(index);
 
         return newarr->unsafe::cast:<array<T>>;
     }
-    public func inlay<T>(self: array<T>, index: int, insert_value: T)
+    public func inlay<T>(self: array<T>, index: int, insert_value: T)=> array<T>
     {
         let newarr = self->to_vec;
         newarr->insert(index, insert_value);
@@ -2433,14 +2435,14 @@ namespace array
     extern("rslib_std_array_empty", repeat)
         public func empty<T>(val: array<T>)=> bool;
 
-    public func resize<T>(val: array<T>, newsz: int, init_val: T)
+    public func resize<T>(val: array<T>, newsz: int, init_val: T)=> array<T>
     {
         let newarr = val->to_vec;
         newarr->resize(newsz, init_val);
 
         return newarr as vec<T>->unsafe::cast:<array<T>>;
     }
-    public func shrink<T>(val: array<T>, newsz: int)
+    public func shrink<T>(val: array<T>, newsz: int)=> array<T>
     {
         let newarr = val->to_vec;
         do newarr->shrink(newsz);
@@ -2466,7 +2468,7 @@ namespace array
     extern("rslib_std_array_find", repeat)
         public func find<T>(val: array<T>, elem: T)=> int;
 
-    public func find_if<T>(val: array<T>, judger:(T)=> bool)
+    public func find_if<T>(val: array<T>, judger:(T)=> bool)=> int
     {
         let mut count = 0;
         for (let v : val)
@@ -2476,7 +2478,7 @@ namespace array
                 count += 1;
         return -1;
     }
-    public func forall<T>(val: array<T>, functor: (T)=> bool)
+    public func forall<T>(val: array<T>, functor: (T)=> bool)=> array<T>
     {
         let result = []mut: vec<T>;
         for (let elem : val)
@@ -2485,7 +2487,7 @@ namespace array
         return result->unsafe::cast:<array<T>>;
     }
 
-    public func bind<T, R>(val: array<T>, functor: (T)=> array<R>)
+    public func bind<T, R>(val: array<T>, functor: (T)=> array<R>)=> array<R>
     {
         let result = []mut: vec<R>;
         for (let elem : val)
@@ -2494,7 +2496,7 @@ namespace array
         return result->unsafe::cast:<array<R>>;
     }
 
-    public func map<T, R>(val: array<T>, functor: (T)=> R)
+    public func map<T, R>(val: array<T>, functor: (T)=> R)=> array<R>
     {
         let result = []mut: vec<R>;
         for (let elem : val)
@@ -2504,7 +2506,7 @@ namespace array
         return result->unsafe::cast:<array<R>>;
     }
 
-    public func mapping<K, V>(val: array<(K, V)>)
+    public func mapping<K, V>(val: array<(K, V)>)=> dict<K, V>
     {
         let result = {}mut: map<K, V>;
         for (let (k, v) : val)
@@ -2667,7 +2669,7 @@ namespace vec
     extern("rslib_std_array_find", repeat)
         public func find<T>(val: vec<T>, elem: T)=> int;
 
-    public func find_if<T>(val: vec<T>, judger:(T)=> bool)
+    public func find_if<T>(val: vec<T>, judger:(T)=> bool)=> int
     {
         let mut count = 0;
         for (let v : val)
@@ -2681,7 +2683,7 @@ namespace vec
     extern("rslib_std_array_clear")
         public func clear<T>(val: vec<T>)=> void;
 
-    public func forall<T>(val: vec<T>, functor: (T)=> bool)
+    public func forall<T>(val: vec<T>, functor: (T)=> bool)=> vec<T>
     {
         let result = []mut: vec<T>;
         for (let elem : val)
@@ -2690,7 +2692,7 @@ namespace vec
         return result;
     }
 
-    public func bind<T, R>(val: vec<T>, functor: (T)=>vec<R>)
+    public func bind<T, R>(val: vec<T>, functor: (T)=>vec<R>)=> vec<R>
     {
         let result = []mut: vec<R>;
         for (let elem : val)
@@ -2699,7 +2701,7 @@ namespace vec
         return result;
     }
 
-    public func map<T, R>(val: vec<T>, functor: (T)=> R)
+    public func map<T, R>(val: vec<T>, functor: (T)=> R)=> vec<R>
     {
         let result = []mut: vec<R>;
         for (let elem : val)
@@ -2707,7 +2709,7 @@ namespace vec
         return result;
     }
 
-    public func mapping<K, V>(val: vec<(K, V)>)
+    public func mapping<K, V>(val: vec<(K, V)>)=> dict<K, V>
     {
         let result = {}mut: map<K, V>;
         for (let (k, v) : val)
@@ -2775,7 +2777,7 @@ namespace dict
     extern("rslib_std_parse_map_from_string", repeat) 
         public func deserialize(val: string)=> option<dict<dynamic, dynamic>>;
 
-    public func bind<KT, VT, RK, RV>(val: dict<KT, VT>, functor: (KT, VT)=> dict<RK, RV>)
+    public func bind<KT, VT, RK, RV>(val: dict<KT, VT>, functor: (KT, VT)=> dict<RK, RV>)=> dict<RK, RV>
     {
         let result = {}mut: map<RK, RV>;
         for (let (k, v) : val)
@@ -2784,7 +2786,7 @@ namespace dict
         return result->unsafe::cast:<dict<RK, RV>>;
     }
 
-    public func apply<KT, VT>(self: dict<KT, VT>, key: KT, val: VT)
+    public func apply<KT, VT>(self: dict<KT, VT>, key: KT, val: VT)=> dict<KT, VT>
     {
         let newmap = self->to_map;
         newmap->set(key, val);
@@ -2800,7 +2802,7 @@ namespace dict
     extern("rslib_std_make_dup", repeat)
         public func to_map<KT, VT>(self: dict<KT, VT>)=> map<KT, VT>;
 
-    public func find_if<KT, VT>(self: dict<KT, VT>, judger:(KT)=> bool)
+    public func find_if<KT, VT>(self: dict<KT, VT>, judger:(KT)=> bool)=> option<KT>
     {
         for (let (k, _) : self)
             if (judger(k))
@@ -2835,7 +2837,7 @@ namespace dict
     extern("rslib_std_map_empty", repeat)
         public func empty<KT, VT>(self: dict<KT, VT>)=> bool;
 
-    public func erase<KT, VT>(self: dict<KT, VT>, index: KT)
+    public func erase<KT, VT>(self: dict<KT, VT>, index: KT)=> dict<KT, VT>
     {
         let newmap = self->to_map;
         do newmap->remove(index);
@@ -2852,7 +2854,7 @@ namespace dict
     extern("rslib_std_map_iter", repeat)
         public func iter<KT, VT>(self: dict<KT, VT>)=> iterator<KT, VT>;
 
-    public func forall<KT, VT>(self: dict<KT, VT>, functor: (KT, VT)=> bool)
+    public func forall<KT, VT>(self: dict<KT, VT>, functor: (KT, VT)=> bool)=> dict<KT, VT>
     {
         let result = {}mut: map<KT, VT>;
         for (let (key, val) : self)
@@ -2860,7 +2862,7 @@ namespace dict
                 result->set(key, val);
         return result->unsafe::cast:<dict<KT, VT>>;
     }
-    public func map<KT, VT, AT, BT>(self: dict<KT, VT>, functor: (KT, VT)=> (AT, BT))
+    public func map<KT, VT, AT, BT>(self: dict<KT, VT>, functor: (KT, VT)=> (AT, BT))=> dict<AT, BT>
     {
         let result = {}mut: map<AT, BT>;
         for (let (key, val) : self)
@@ -2870,7 +2872,7 @@ namespace dict
         }
         return result->unsafe::cast:<dict<AT, BT>>;
     }
-    public func unmapping<KT, VT>(self: dict<KT, VT>)
+    public func unmapping<KT, VT>(self: dict<KT, VT>)=> array<(KT, VT)>
     {
         let result = []mut: vec<(KT, VT)>;
         for (let kvpair : self)
@@ -2892,7 +2894,7 @@ namespace map
     extern("rslib_std_parse_map_from_string", repeat) 
         public func deserialize(val: string)=> option<map<dynamic, dynamic>>;
 
-    public func bind<KT, VT, RK, RV>(val: map<KT, VT>, functor: (KT, VT)=> map<RK, RV>)
+    public func bind<KT, VT, RK, RV>(val: map<KT, VT>, functor: (KT, VT)=> map<RK, RV>)=> map<RK, RV>
     {
         let result = {}mut: map<RK, RV>;
         for (let (k, v) : val)
@@ -2918,7 +2920,7 @@ namespace map
     extern("rslib_std_make_dup", repeat)
         public func to_dict<KT, VT>(self: map<KT, VT>)=> dict<KT, VT>;
 
-    public func find_if<KT, VT>(self: map<KT, VT>, judger:(KT)=> bool)
+    public func find_if<KT, VT>(self: map<KT, VT>, judger:(KT)=> bool)=> option<KT>
     {
         for (let (k, _) : self)
             if (judger(k))
@@ -2981,7 +2983,7 @@ namespace map
     extern("rslib_std_map_iter", repeat)
         public func iter<KT, VT>(self: map<KT, VT>)=> iterator<KT, VT>;
 
-    public func forall<KT, VT>(self: map<KT, VT>, functor: (KT, VT)=>bool)
+    public func forall<KT, VT>(self: map<KT, VT>, functor: (KT, VT)=>bool)=> map<KT, VT>
     {
         let result = {}mut: map<KT, VT>;
         for (let (key, val) : self)
@@ -2989,7 +2991,7 @@ namespace map
                 result->set(key, val);
         return result;
     }
-    public func map<KT, VT, AT, BT>(self: map<KT, VT>, functor: (KT, VT)=>(AT, BT))
+    public func map<KT, VT, AT, BT>(self: map<KT, VT>, functor: (KT, VT)=>(AT, BT))=> map<AT, BT>
     {
         let result = {}mut: map<AT, BT>;
         for (let (key, val) : self)
@@ -2999,7 +3001,7 @@ namespace map
         }
         return result->unsafe::cast:<map<AT, BT>>;
     }
-    public func unmapping<KT, VT>(self: map<KT, VT>)
+    public func unmapping<KT, VT>(self: map<KT, VT>)=> array<(KT, VT)>
     {
         let result = []mut: vec<(KT, VT)>;
         for (let kvpair : self)
