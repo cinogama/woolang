@@ -155,8 +155,8 @@ namespace test_basic
     func main()
     {
         test_equal(A::B::get_foo(), "A::B::foo");
-        test_assure(std::is_same_type:<A::B::T, typeof(A::B::get_t())>);
-        test_assure(!std::is_same_type:<A::T, typeof(A::B::get_t())>);
+        test_assure(std::type_traits::is_same:<A::B::T, typeof(A::B::get_t())>);
+        test_assure(!std::type_traits::is_same:<A::T, typeof(A::B::get_t())>);
 
         test_equal(foo(2)(1,2,3,4,5,6) as int, 3);
 
@@ -313,12 +313,12 @@ namespace test_basic
         test_equal(aav +: 2, 16);
         test_equal(aav, 16);
 
-        test_equal(std::is_same_type:< int, int >, true);
-        test_equal(std::is_same_type:< int, real >, false);
-        test_equal(std::is_same_type:< mut int, int >, false);
+        test_equal(std::type_traits::is_same:< int, int >, true);
+        test_equal(std::type_traits::is_same:< int, real >, false);
+        test_equal(std::type_traits::is_same:< mut int, int >, false);
        
-        test_equal(std::is_mutable_type:< mut int >, true);
-        test_equal(std::is_mutable_type:< int >, false);
+        test_equal(std::type_traits::is_mutable:< mut int >, true);
+        test_equal(std::type_traits::is_mutable:< int >, false);
 
         test_assure(() is ());
         test_assure(!((1, 2, 3) is ()));
@@ -327,26 +327,26 @@ namespace test_basic
         test_assure(!((1, 2, 3) is (int, mut int, int)));
         test_assure((mut 1, 2, 3) is (mut int, int, int));
 
-        test_assure(std::is_tuple:<typeof((mut 1, 2, 3))>);
-        test_assure(std::is_tuple:<typeof(())>);
-        test_assure(std::is_tuple:<()>);
-        test_assure(std::is_tuple:<(mut int,)>);
-        test_assure(!std::is_tuple:<vec<int>>);
-        test_assure(!std::is_tuple:<array<int>>);
-        test_assure(!std::is_tuple:<int>);
+        test_assure(std::type_traits::is_tuple:<typeof((mut 1, 2, 3))>);
+        test_assure(std::type_traits::is_tuple:<typeof(())>);
+        test_assure(std::type_traits::is_tuple:<()>);
+        test_assure(std::type_traits::is_tuple:<(mut int,)>);
+        test_assure(!std::type_traits::is_tuple:<vec<int>>);
+        test_assure(!std::type_traits::is_tuple:<array<int>>);
+        test_assure(!std::type_traits::is_tuple:<int>);
 
-        test_assure(std::is_vec:<vec<array<int>>>);
-        test_assure(std::is_array:<array<vec<string>>>);
-        test_assure(std::is_map:<map<string, array<int>>>);
-        test_assure(std::is_dict:<dict<vec<string>, int>>);
-        test_assure(!std::is_vec:<array<int>>);
-        test_assure(!std::is_array:<vec<string>>);
-        test_assure(!std::is_map:<dict<string, array<int>>>);
-        test_assure(!std::is_dict:<map<vec<string>, int>>);
-        test_assure(!std::is_vec:<int>);
-        test_assure(!std::is_array:<int>);
-        test_assure(!std::is_map:<int>);
-        test_assure(!std::is_dict:<int>);
+        test_assure(std::type_traits::is_vec:<vec<array<int>>>);
+        test_assure(std::type_traits::is_array:<array<vec<string>>>);
+        test_assure(std::type_traits::is_map:<map<string, array<int>>>);
+        test_assure(std::type_traits::is_dict:<dict<vec<string>, int>>);
+        test_assure(!std::type_traits::is_vec:<array<int>>);
+        test_assure(!std::type_traits::is_array:<vec<string>>);
+        test_assure(!std::type_traits::is_map:<dict<string, array<int>>>);
+        test_assure(!std::type_traits::is_dict:<map<vec<string>, int>>);
+        test_assure(!std::type_traits::is_vec:<int>);
+        test_assure(!std::type_traits::is_array:<int>);
+        test_assure(!std::type_traits::is_map:<int>);
+        test_assure(!std::type_traits::is_dict:<int>);
 
         let mut test_break_label = true;
 

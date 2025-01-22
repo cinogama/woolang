@@ -26,9 +26,6 @@ namespace wo
                 auto* lang_symbol = single_pattern->m_LANG_declared_symbol.value();
                 wo_assert(lang_symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE);
 
-                std::optional<std::variant<wo::value, ast::AstValueFunction*>>
-                    constant_value_or_function = std::nullopt;
-
                 // NOTE: Donot decide constant value for mutable variable.
                 lang_symbol->m_value_instance->m_determined_type = immutable_type(init_value_type.value());
                 if (!lang_symbol->m_value_instance->m_mutable
@@ -1245,7 +1242,14 @@ namespace wo
             [[fallthrough]];
             case AstValueFunction::HOLD_FOR_RETURN_TYPE_EVAL:
             {
-                if (node->m_where_constraints)
+                // Eval function type for outside.
+                if (node->m_marked_return_type)
+                {
+                    auto* return_type_instance = node->m_marked_return_type.value()->m_LANG_determined_type.value();
+                    judge_function_return_type(return_type_instance);
+                }
+
+                if (node->m_where_constraints.has_value())
                 {
                     node->m_LANG_hold_state = AstValueFunction::HOLD_FOR_EVAL_WHERE_CONSTRAINTS;
                     WO_CONTINUE_PROCESS(node->m_where_constraints.value());
@@ -1256,13 +1260,6 @@ namespace wo
             [[fallthrough]];
             case AstValueFunction::HOLD_FOR_EVAL_WHERE_CONSTRAINTS:
             {
-                // Eval function type for outside.
-                if (node->m_marked_return_type)
-                {
-                    auto* return_type_instance = node->m_marked_return_type.value()->m_LANG_determined_type.value();
-                    judge_function_return_type(return_type_instance);
-                }
-
                 node->m_LANG_hold_state = AstValueFunction::HOLD_FOR_BODY_EVAL;
                 WO_CONTINUE_PROCESS(node->m_body);
                 return HOLD;

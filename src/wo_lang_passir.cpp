@@ -843,9 +843,6 @@ namespace wo
 
                 if (function != nullptr)
                 {
-                    wo_assert((*function)->m_LANG_value_instance_to_update.value()
-                        == pattern_symbol->m_value_instance);
-
                     m_ircontext.eval_ignore();
                     if (!pass_final_value(lex, *function))
                         // Failed 

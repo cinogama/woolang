@@ -1966,6 +1966,57 @@ func main()
         b += a;
         "@);
 
+        assure_compile_success(@"
+        func foo()=> void
+            where foo() is void;
+        {
+        }
+        "@);
+        assure_compile_fail(@"
+        func foo()
+            where foo() is void;
+        {
+        }
+        "@);
+        assure_compile_fail(@"
+        func foo()=> void
+            where foo() is int;
+        {
+        }
+        "@);
+
+        assure_compile_success(@"
+        namespace foo
+        {
+            using AA = int;
+            union BB
+            {
+                AA(AA),
+            }
+        }
+        "@);
+        assure_compile_fail(@"
+        namespace foo
+        {
+            union BB
+            {
+                AA(AA),
+            }
+        }
+        "@);
+        assure_compile_success(@"
+        func foo()
+        {
+            func bar<T>()
+            {
+            }
+            for (;;);
+            
+            let ax = bar:<int>;
+            do ax;
+        }
+        foo();        
+        "@);
         // ISSUE: 1.13: anything has been removed from woolang.
         // assure_compile_success(@"
         //     import woo::std;

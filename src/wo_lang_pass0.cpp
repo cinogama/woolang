@@ -144,6 +144,10 @@ namespace wo
     }
     WO_PASS_PROCESSER(AstUsingNamespace)
     {
+        // ATTENTION: Some global symbol will be advanced the processing 
+        // of declaration nodes. In this case, used namespace must be 
+        // declared here to make sure the processing can find the symbol 
+        // correctly.
         wo_assert(state == UNPROCESSED);
         using_namespace_declare_for_current_scope(node);
 
