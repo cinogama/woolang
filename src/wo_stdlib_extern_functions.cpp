@@ -1769,6 +1769,8 @@ namespace std
             typeof(declval:<F>()([]...));
         public alias invoke_result_t<F, ArgTs> = 
             typeof(declval:<F>()(declval:<ArgTs>()...));
+        public alias iterator_result_t<T> = 
+            option::item_t<typeof(declval:<T>()->next)>;
         public let is_same<A, B> = typeid:<A> == typeid:<B>;
         public let is_mutable<A> = is_same:<A, mut A>;
         public let is_invocable<F, ArgTs> = 
@@ -1781,6 +1783,12 @@ namespace std
             !is_array:<T> &&
             !is_vec:<T> &&
             typeid:<typeof(declval:<T>()...->\...=do nil;)> != 0;
+        public let is_iterator<T> = 
+            typeid:<typeof(declval:<iterator_result_t<T>>())> != 0;
+        public let is_iterable<T> = 
+            typeid:<typeof(declval:<T>()->iter)> != 0
+            ? is_iterator:<typeof(declval:<T>()->iter)>
+            | false;
     }
         
     public func use<T, R>(val: T, f: (T)=> R)
@@ -1790,19 +1798,10 @@ namespace std
         do val->close;
         return v;
     }
-    public alias iterator_result_t<T> = 
-        option::item_t<typeof(declval:<T>()->next)>;
-    public let is_iterator<T> = 
-        typeid:<typeof(declval:<iterator_result_t<T>>())> != 0;
-    public let is_iterable<T> = 
-        typeid:<typeof(declval:<T>()->iter)> != 0
-        ? is_iterator:<typeof(declval:<T>()->iter)>
-        | false;
-        
     public func iterator<T>(v: T)
-        where is_iterator:<T> || is_iterable:<T>;
+        where type_traits::is_iterator:<T> || type_traits::is_iterable:<T>;
     {
-        if (is_iterator:<T>)
+        if (type_traits::is_iterator:<T>)
             return v;
         else
             return v->iter;
