@@ -910,7 +910,6 @@ namespace wo
         WO_PASS_PROCESSER(AstUsingTypeDeclare, pass0);
         WO_PASS_PROCESSER(AstEnumDeclare, pass0);
         WO_PASS_PROCESSER(AstUnionDeclare, pass0);
-        WO_PASS_PROCESSER(AstUsingNamespace, pass0);
 
 #define WO_AST_MACRO(AST)\
         WO_PASS_PROCESSER(AST, pass1)

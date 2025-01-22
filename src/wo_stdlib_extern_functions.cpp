@@ -1763,22 +1763,28 @@ namespace std
 
     extern("rslib_std_bad_function") public func declval<T>()=> T;
 
-    public alias origin_t<T> = immut T;
-    public alias function_result_t<FT> = typeof(std::declval:<FT>()([]...));
+    namespace type_traits
+    {
+        public alias result_t<F> = 
+            typeof(declval:<F>()([]...));
+        public alias invoke_result_t<F, ArgTs> = 
+            typeof(declval:<F>()(declval:<ArgTs>()...));
 
-    public let is_same_type<A, B> = typeid:<A> == typeid:<B>;
-    public let is_mutable_type<A> = std::is_same_type:<A, mut A>;
+        public let is_same<A, B> = typeid:<A> == typeid:<B>;
+        public let is_mutable<A> = is_same:<A, mut A>;
+        public let is_invocable<F, ArgTs> = 
+            typeid:<typeof(declval:<F>()(declval:<ArgTs>()...))> != 0;
 
-    public let is_array<AT> = typeid:<typeof(std::declval:<array::item_t<AT>>())> != 0;
-    public let is_vec<AT> = typeid:<typeof(std::declval:<vec::item_t<AT>>())> != 0;
-    public let is_dict<DT> = typeid:<typeof(std::declval:<dict::item_t<DT>>())> != 0;
-    public let is_map<DT> = typeid:<typeof(std::declval:<map::item_t<DT>>())> != 0;
-
-    public let is_tuple<T> = 
-        !is_array:<T> &&
-        !is_vec:<T> && 
-        typeid:<typeof(std::declval:<T>()...->\...=do nil;)> != 0;
-    
+        public let is_array<AT> = typeid:<typeof(declval:<array::item_t<AT>>())> != 0;
+        public let is_vec<AT> = typeid:<typeof(declval:<vec::item_t<AT>>())> != 0;
+        public let is_dict<DT> = typeid:<typeof(declval:<dict::item_t<DT>>())> != 0;
+        public let is_map<DT> = typeid:<typeof(declval:<map::item_t<DT>>())> != 0;
+        public let is_tuple<T> =
+            !is_array:<T> &&
+            !is_vec:<T> &&
+            typeid:<typeof(declval:<T>()...->\...=do nil;)> != 0;
+    }
+        
     public func use<T, R>(val: T, f: (T)=> R)
         where typeid:<typeof(val->close)> != 0;
     {
@@ -1789,18 +1795,18 @@ namespace std
     }
 
     public alias iterator_result_t<T> = 
-        option::item_t<typeof(std::declval:<T>()->next)>;
+        option::item_t<typeof(declval:<T>()->next)>;
 
     public let is_iterator<T> = 
-        typeid:<typeof(std::declval:<iterator_result_t<T>>())> != 0;
+        typeid:<typeof(declval:<iterator_result_t<T>>())> != 0;
 
     public let is_iterable<T> = 
-        typeid:<typeof(std::declval:<T>()->iter)> != 0
-        ? std::is_iterator:<typeof(std::declval:<T>()->iter)>
+        typeid:<typeof(declval:<T>()->iter)> != 0
+        ? is_iterator:<typeof(declval:<T>()->iter)>
         | false;
         
     public func iterator<T>(v: T)
-        where std::is_iterator:<T> || std::is_iterable:<T>;
+        where is_iterator:<T> || is_iterable:<T>;
     {
         if (is_iterator:<T>)
             return v;
@@ -2127,13 +2133,13 @@ namespace std
     }
 
     public func input<T>(validator: (T)=>bool)
-        where std::declval:<T>() is int
-            || std::declval:<T>() is real
-            || std::declval:<T>() is string;
+        where declval:<T>() is int
+            || declval:<T>() is real
+            || declval:<T>() is string;
     {
         while (true)
         {
-            if (std::declval:<T>() is int)
+            if (declval:<T>() is int)
             {
                 extern("rslib_std_input_readint", slow) 
                     func input_int()=> int;
@@ -2142,7 +2148,7 @@ namespace std
                 if (validator(result))
                     return result;
             }
-            else if (std::declval:<T>() is real)
+            else if (declval:<T>() is real)
             {
                 extern("rslib_std_input_readreal", slow) 
                     func input_real()=> real;
@@ -2162,7 +2168,7 @@ namespace std
             }
         }
     }
-
+)" R"(
     public func input_line<T>(parser: (string)=>option<T>)
     {
         while (true)
@@ -2372,7 +2378,6 @@ namespace string
         }
     }
 }
-)" R"(
 namespace array
 {
     public alias item_t<AT> = 
@@ -2501,7 +2506,7 @@ namespace array
 
     public func mapping<K, V>(val: array<(K, V)>)
     {
-        let result = {}mut: ::map<K, V>;
+        let result = {}mut: map<K, V>;
         for (let (k, v) : val)
             result->set(k, v);
         return result->unsafe::cast:<dict<K, V>>;
@@ -2565,7 +2570,7 @@ namespace array
     extern("rslib_std_array_back_val", repeat)
     public func unwrap_back<T>(val: array<T>)=> T;
 }
-
+)" R"(
 namespace vec
 {
     public alias item_t<AT> = 
@@ -2704,7 +2709,7 @@ namespace vec
 
     public func mapping<K, V>(val: vec<(K, V)>)
     {
-        let result = {}mut: ::map<K, V>;
+        let result = {}mut: map<K, V>;
         for (let (k, v) : val)
             result->set(k, v);
         return result->unsafe::cast:<dict<K, V>>;
@@ -2772,7 +2777,7 @@ namespace dict
 
     public func bind<KT, VT, RK, RV>(val: dict<KT, VT>, functor: (KT, VT)=> dict<RK, RV>)
     {
-        let result = {}mut: ::map<RK, RV>;
+        let result = {}mut: map<RK, RV>;
         for (let (k, v) : val)
             for (let (rk, rv) : functor(k, v))
                 result->set(rk, rv);
@@ -2786,7 +2791,6 @@ namespace dict
 
         return newmap->unsafe::cast:<dict<KT, VT>>;
     }
-)" R"(
     extern("rslib_std_lengthof", repeat) 
         public func len<KT, VT>(self: dict<KT, VT>)=> int;
 
@@ -2794,7 +2798,7 @@ namespace dict
         public func dup<KT, VT>(self: dict<KT, VT>)=> dict<KT, VT>;
 
     extern("rslib_std_make_dup", repeat)
-        public func to_map<KT, VT>(self: dict<KT, VT>)=> ::map<KT, VT>;
+        public func to_map<KT, VT>(self: dict<KT, VT>)=> map<KT, VT>;
 
     public func find_if<KT, VT>(self: dict<KT, VT>, judger:(KT)=> bool)
     {
@@ -2850,7 +2854,7 @@ namespace dict
 
     public func forall<KT, VT>(self: dict<KT, VT>, functor: (KT, VT)=> bool)
     {
-        let result = {}mut: ::map<KT, VT>;
+        let result = {}mut: map<KT, VT>;
         for (let (key, val) : self)
             if (functor(key, val))
                 result->set(key, val);
@@ -2858,7 +2862,7 @@ namespace dict
     }
     public func map<KT, VT, AT, BT>(self: dict<KT, VT>, functor: (KT, VT)=> (AT, BT))
     {
-        let result = {}mut: ::map<AT, BT>;
+        let result = {}mut: map<AT, BT>;
         for (let (key, val) : self)
         {
             let (nk, nv) = functor(key, val);
@@ -2874,47 +2878,47 @@ namespace dict
         return result->unsafe::cast:<array<(KT, VT)>>;
     }
 }
-
+)" R"(
 namespace map
 {
     public alias item_t<DT> = 
-        typeof(std::declval:<DT>()->\<KT, VT>_: ::map<KT, VT> = std::declval:<(KT, VT)>(););
-    public alias key_t<DT> = typeof(std::declval:<::map::item_t<DT>>().0);
-    public alias val_t<DT> = typeof(std::declval:<::map::item_t<DT>>().1);
+        typeof(std::declval:<DT>()->\<KT, VT>_: map<KT, VT> = std::declval:<(KT, VT)>(););
+    public alias key_t<DT> = typeof(std::declval:<map::item_t<DT>>().0);
+    public alias val_t<DT> = typeof(std::declval:<map::item_t<DT>>().1);
 
     extern("rslib_std_serialize", repeat) 
-        public func serialize<KT, VT>(self: ::map<KT, VT>)=> option<string>;
+        public func serialize<KT, VT>(self: map<KT, VT>)=> option<string>;
                     
     extern("rslib_std_parse_map_from_string", repeat) 
-        public func deserialize(val: string)=> option<::map<dynamic, dynamic>>;
+        public func deserialize(val: string)=> option<map<dynamic, dynamic>>;
 
-    public func bind<KT, VT, RK, RV>(val: ::map<KT, VT>, functor: (KT, VT)=> ::map<RK, RV>)
+    public func bind<KT, VT, RK, RV>(val: map<KT, VT>, functor: (KT, VT)=> map<RK, RV>)
     {
-        let result = {}mut: ::map<RK, RV>;
+        let result = {}mut: map<RK, RV>;
         for (let (k, v) : val)
             for (let (rk, rv) : functor(k, v))
                 result->set(rk, rv);
         return result;
     }
     extern("rslib_std_map_create")
-        public func create<KT, VT>(sz: int)=> ::map<KT, VT>;
+        public func create<KT, VT>(sz: int)=> map<KT, VT>;
 
     extern("rslib_std_map_reserve")
-        public func reserve<KT, VT>(self: ::map<KT, VT>, newsz: int)=> void;
+        public func reserve<KT, VT>(self: map<KT, VT>, newsz: int)=> void;
 
     extern("rslib_std_map_set") 
-        public func set<KT, VT>(self: ::map<KT, VT>, key: KT, val: VT)=> void;
+        public func set<KT, VT>(self: map<KT, VT>, key: KT, val: VT)=> void;
 
     extern("rslib_std_lengthof", repeat) 
-        public func len<KT, VT>(self: ::map<KT, VT>)=> int;
+        public func len<KT, VT>(self: map<KT, VT>)=> int;
 
     extern("rslib_std_make_dup", repeat)
-        public func dup<KT, VT>(self: ::map<KT, VT>)=> ::map<KT, VT>;
+        public func dup<KT, VT>(self: map<KT, VT>)=> map<KT, VT>;
 
     extern("rslib_std_make_dup", repeat)
-        public func to_dict<KT, VT>(self: ::map<KT, VT>)=> dict<KT, VT>;
+        public func to_dict<KT, VT>(self: map<KT, VT>)=> dict<KT, VT>;
 
-    public func find_if<KT, VT>(self: ::map<KT, VT>, judger:(KT)=> bool)
+    public func find_if<KT, VT>(self: map<KT, VT>, judger:(KT)=> bool)
     {
         for (let (k, _) : self)
             if (judger(k))
@@ -2923,21 +2927,21 @@ namespace map
     }
 
     extern("rslib_std_map_find", repeat) 
-        public func contain<KT, VT>(self: ::map<KT, VT>, index: KT)=> bool;
+        public func contain<KT, VT>(self: map<KT, VT>, index: KT)=> bool;
 
     extern("rslib_std_map_only_get", repeat) 
-        public func get<KT, VT>(self: ::map<KT, VT>, index: KT)=> option<VT>;
+        public func get<KT, VT>(self: map<KT, VT>, index: KT)=> option<VT>;
 
     extern("rslib_std_map_get_or_default", repeat) 
-        public func get_or<KT, VT>(self: ::map<KT, VT>, index: KT, default_val: VT)=> VT;
+        public func get_or<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=> VT;
 
     extern("rslib_std_map_get_or_set_default") 
-        public func get_or_set<KT, VT>(self: ::map<KT, VT>, index: KT, default_val: VT)=> VT;
+        public func get_or_set<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=> VT;
 
     extern("rslib_std_map_get_or_set_default_do") 
-        public func get_or_set_do<KT, VT>(self: ::map<KT, VT>, index: KT, defalt_do: ()=>VT)=> VT;
+        public func get_or_set_do<KT, VT>(self: map<KT, VT>, index: KT, defalt_do: ()=>VT)=> VT;
 
-    public func get_or_do<KT, VT>(self: ::map<KT, VT>, index: KT, f: ()=> VT)=> VT
+    public func get_or_do<KT, VT>(self: map<KT, VT>, index: KT, f: ()=> VT)=> VT
     {
         match (self->get(index))
         {
@@ -2947,26 +2951,26 @@ namespace map
     }
 
     extern("rslib_std_map_swap") 
-        public func swap<KT, VT>(val: ::map<KT, VT>, another: ::map<KT, VT>)=> void;
+        public func swap<KT, VT>(val: map<KT, VT>, another: map<KT, VT>)=> void;
 
     extern("rslib_std_map_copy") 
-        public func copy<KT, VT, CT>(val: ::map<KT, VT>, another: CT)=> void
-            where another is dict<KT, VT> || another is ::map<KT, VT>;
+        public func copy<KT, VT, CT>(val: map<KT, VT>, another: CT)=> void
+            where another is dict<KT, VT> || another is map<KT, VT>;
 
     extern("rslib_std_map_keys", repeat)
-        public func keys<KT, VT>(self: ::map<KT, VT>)=> array<KT>;
+        public func keys<KT, VT>(self: map<KT, VT>)=> array<KT>;
 
     extern("rslib_std_map_vals", repeat)
-        public func vals<KT, VT>(self: ::map<KT, VT>)=> array<VT>;
+        public func vals<KT, VT>(self: map<KT, VT>)=> array<VT>;
 
     extern("rslib_std_map_empty", repeat)
-        public func empty<KT, VT>(self: ::map<KT, VT>)=> bool;
+        public func empty<KT, VT>(self: map<KT, VT>)=> bool;
 
     extern("rslib_std_map_remove")
-        public func remove<KT, VT>(self: ::map<KT, VT>, index: KT)=> bool;
+        public func remove<KT, VT>(self: map<KT, VT>, index: KT)=> bool;
 
     extern("rslib_std_map_clear")
-        public func clear<KT, VT>(self: ::map<KT, VT>)=> void;
+        public func clear<KT, VT>(self: map<KT, VT>)=> void;
 
     public using iterator<KT, VT> = gchandle
     {
@@ -2975,27 +2979,27 @@ namespace map
     }
 
     extern("rslib_std_map_iter", repeat)
-        public func iter<KT, VT>(self: ::map<KT, VT>)=> iterator<KT, VT>;
+        public func iter<KT, VT>(self: map<KT, VT>)=> iterator<KT, VT>;
 
-    public func forall<KT, VT>(self: ::map<KT, VT>, functor: (KT, VT)=>bool)
+    public func forall<KT, VT>(self: map<KT, VT>, functor: (KT, VT)=>bool)
     {
-        let result = {}mut: ::map<KT, VT>;
+        let result = {}mut: map<KT, VT>;
         for (let (key, val) : self)
             if (functor(key, val))
                 result->set(key, val);
         return result;
     }
-    public func map<KT, VT, AT, BT>(self: ::map<KT, VT>, functor: (KT, VT)=>(AT, BT))
+    public func map<KT, VT, AT, BT>(self: map<KT, VT>, functor: (KT, VT)=>(AT, BT))
     {
-        let result = {}mut: ::map<AT, BT>;
+        let result = {}mut: map<AT, BT>;
         for (let (key, val) : self)
         {
             let (nk, nv) = functor(key, val);
             result->set(nk, nv);
         }
-        return result->unsafe::cast:<::map<AT, BT>>;
+        return result->unsafe::cast:<map<AT, BT>>;
     }
-    public func unmapping<KT, VT>(self: ::map<KT, VT>)
+    public func unmapping<KT, VT>(self: map<KT, VT>)
     {
         let result = []mut: vec<(KT, VT)>;
         for (let kvpair : self)

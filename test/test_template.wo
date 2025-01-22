@@ -298,8 +298,8 @@ namespace test_template
         test_assure(typeid:<typeof(foo:<string>())> == 0);
         test_assure(typeid:<typeof(foo:<bool>())> == 0);
 
-        test_assure(std::is_same_type:<TEST_GLT2:<int>, string>);
-        test_assure(std::is_same_type:<TEST_GLT2:<real>, string>);
+        test_assure(std::type_traits::is_same:<TEST_GLT2:<int>, string>);
+        test_assure(std::type_traits::is_same:<TEST_GLT2:<real>, string>);
         test_assure(typeid:<typeof(std::declval:<TEST_GLT4:<string>>())> == 0);
 
         test_assure(call_and_return(return_2_times_val, 256) == 512);
