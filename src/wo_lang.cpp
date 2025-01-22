@@ -1764,9 +1764,10 @@ namespace wo
                 {
                     if ((fnd->second->m_symbol_edge <= visibility_edge_limit || fnd->second->m_is_global)
                         && ident->m_find_type_only != (fnd->second->m_symbol_kind == lang_Symbol::kind::VARIABLE))
+                    {
                         found_symbol.insert(fnd->second.get());
-
-                    break;
+                        break;
+                    }
                 }
 
                 if (current_scope->m_parent_scope)
