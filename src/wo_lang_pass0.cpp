@@ -127,6 +127,7 @@ namespace wo
         WO_LANG_REGISTER_PROCESSER(AstUsingTypeDeclare, AstBase::AST_USING_TYPE_DECLARE, pass0);
         WO_LANG_REGISTER_PROCESSER(AstEnumDeclare, AstBase::AST_ENUM_DECLARE, pass0);
         WO_LANG_REGISTER_PROCESSER(AstUnionDeclare, AstBase::AST_UNION_DECLARE, pass0);
+        WO_LANG_REGISTER_PROCESSER(AstUsingNamespace, AstBase::AST_USING_NAMESPACE, pass0);
     }
 
 #define WO_PASS_PROCESSER(AST) WO_PASS_PROCESSER_IMPL(AST, pass0)
@@ -140,6 +141,17 @@ namespace wo
             return HOLD;
         }
         return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstUsingNamespace)
+    {
+        // ATTENTION: Some global symbol will be advanced the processing 
+        // of declaration nodes. In this case, used namespace must be 
+        // declared here to make sure the processing can find the symbol 
+        // correctly.
+        wo_assert(state == UNPROCESSED);
+        using_namespace_declare_for_current_scope(node);
+
+        return OKAY;
     }
     WO_PASS_PROCESSER(AstScope)
     {
