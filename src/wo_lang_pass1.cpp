@@ -26,9 +26,6 @@ namespace wo
                 auto* lang_symbol = single_pattern->m_LANG_declared_symbol.value();
                 wo_assert(lang_symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE);
 
-                std::optional<std::variant<wo::value, ast::AstValueFunction*>>
-                    constant_value_or_function = std::nullopt;
-
                 // NOTE: Donot decide constant value for mutable variable.
                 lang_symbol->m_value_instance->m_determined_type = immutable_type(init_value_type.value());
                 if (!lang_symbol->m_value_instance->m_mutable

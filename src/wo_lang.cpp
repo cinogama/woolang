@@ -426,6 +426,24 @@ namespace wo
 
             m_determined_constant_or_function = new_constant;
         }
+        else if (init_val->node_type == ast::AstBase::AST_VALUE_VARIABLE)
+        {
+            ast::AstValueVariable* variable_value = static_cast<ast::AstValueVariable*>(init_val);
+            lang_ValueInstance* variable_instance = variable_value->m_LANG_variable_instance.value();
+
+            if (variable_instance->m_determined_constant_or_function.has_value())
+            {
+                ast::AstValueFunction** function_instance =
+                    std::get_if< ast::AstValueFunction*>(
+                        &variable_instance->m_determined_constant_or_function.value());
+
+                if (function_instance != nullptr)
+                {
+                    m_determined_constant_or_function = *function_instance;
+                    m_IR_normal_function = *function_instance;
+                }
+            }
+        }
     }
 
     bool lang_ValueInstance::IR_need_storage() const
