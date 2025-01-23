@@ -4,11 +4,12 @@
 #include "wo_compiler_parser.hpp"
 
 #define WO_LANG_GRAMMAR_LR1_AUTO_GENED
-#define WO_LANG_GRAMMAR_CRC64 0x95771a34f4f7bbd0ull
+#define WO_LANG_GRAMMAR_CRC64 0xc8d5cac9229a8e47ull
 
 
 namespace wo
 {
+#ifndef WO_DISABLE_COMPILER
 #ifdef WO_LANG_GRAMMAR_LR1_IMPL
 const wchar_t* woolang_id_nonterm_list[153+ 1] = {
     nullptr,
@@ -14759,5 +14760,6 @@ void wo_read_lr1_cache(wo::grammar & gram);
 void wo_read_lr1_to(wo::grammar::lr1table_t & out_lr1table);
 void wo_read_follow_set_to(wo::grammar::sym_nts_t & out_followset);
 void wo_read_origin_p_to(std::vector<wo::grammar::rule> & out_origin_p);
+#endif
 #endif
 }// end of namespace 'wo'

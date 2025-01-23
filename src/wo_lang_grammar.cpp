@@ -647,6 +647,7 @@ namespace wo
                 cachefile << endl;
                 cachefile << L"namespace wo" << endl;
                 cachefile << L"{" << endl;
+                cachefile << L"#ifndef WO_DISABLE_COMPILER" << endl;
                 cachefile << L"#ifdef WO_LANG_GRAMMAR_LR1_IMPL" << endl;
 
                 // Generate StateID - NontermName Pair & StateID - TermInt Pair
@@ -880,6 +881,7 @@ namespace wo
                 cachefile << L"void wo_read_lr1_to(wo::grammar::lr1table_t & out_lr1table);" << endl;
                 cachefile << L"void wo_read_follow_set_to(wo::grammar::sym_nts_t & out_followset);" << endl;
                 cachefile << L"void wo_read_origin_p_to(std::vector<wo::grammar::rule> & out_origin_p);" << endl;
+                cachefile << L"#endif" << endl;
                 cachefile << L"#endif" << endl;
                 cachefile << L"}// end of namespace 'wo'" << endl;
                 cachefile.flush();
