@@ -165,7 +165,10 @@ namespace wo
         for (auto& [_useless, infors] : _function_ip_data_buf[function_name].variables)
         {
             for (auto& info : infors)
-                info.bp_offset += offset;
+            {
+                if (info.bp_offset <= 0)
+                    info.bp_offset += offset;
+            }
         }
     }
     std::string program_debug_data_info::get_current_func_signature_by_runtime_ip(const byte_t* rt_pos) const
@@ -183,7 +186,7 @@ namespace wo
             sprintf(ptrr, "0x%p>", rt_pos);
             return ptrr;
 
-            }();
+        }();
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -238,27 +241,27 @@ namespace wo
         std::vector<wo::byte_t> binary_buffer;
         auto write_buffer_to_buffer =
             [&binary_buffer](const void* written_data, size_t written_length, size_t allign)
-            {
-                const size_t write_begin_place = binary_buffer.size();
+        {
+            const size_t write_begin_place = binary_buffer.size();
 
-                wo_assert(write_begin_place % allign == 0);
+            wo_assert(write_begin_place % allign == 0);
 
-                binary_buffer.resize(write_begin_place + written_length);
+            binary_buffer.resize(write_begin_place + written_length);
 
-                memcpy(binary_buffer.data() + write_begin_place, written_data, written_length);
-                return binary_buffer.size();
-            };
+            memcpy(binary_buffer.data() + write_begin_place, written_data, written_length);
+            return binary_buffer.size();
+        };
 
         auto write_binary_to_buffer =
             [&write_buffer_to_buffer](const auto& d, size_t size_for_assert)
-            {
-                const wo::byte_t* written_data = std::launder(reinterpret_cast<const wo::byte_t*>(&d));
-                const size_t written_length = sizeof(d);
+        {
+            const wo::byte_t* written_data = std::launder(reinterpret_cast<const wo::byte_t*>(&d));
+            const size_t written_length = sizeof(d);
 
-                wo_assert(written_length == size_for_assert);
+            wo_assert(written_length == size_for_assert);
 
-                return write_buffer_to_buffer(written_data, written_length, sizeof(d) > 8 ? 8 : sizeof(d));
-            };
+            return write_buffer_to_buffer(written_data, written_length, sizeof(d) > 8 ? 8 : sizeof(d));
+        };
 
         class _string_pool_t
         {
@@ -286,10 +289,10 @@ namespace wo
 
         auto write_constant_str_to_buffer =
             [&write_binary_to_buffer, &constant_string_pool](const char* str, size_t len)
-            {
-                write_binary_to_buffer((uint32_t)constant_string_pool.insert(str, len), 4);
-                write_binary_to_buffer((uint32_t)len, 4);
-            };
+        {
+            write_binary_to_buffer((uint32_t)constant_string_pool.insert(str, len), 4);
+            write_binary_to_buffer((uint32_t)len, 4);
+        };
 
         // 1.1 (+0) Magic number(0x3001A26B look like WOOLANG B)
         write_binary_to_buffer((uint32_t)0x3001A26B, 4);
@@ -767,12 +770,12 @@ namespace wo
 
         auto restore_string_from_buffer =
             [&string_pool_buffer](const string_buffer_index& string_index, std::string* out_str)->bool
-            {
-                if (string_index.index + string_index.size > string_pool_buffer.size())
-                    return false;
-                *out_str = std::string(string_pool_buffer.data() + string_index.index, string_index.size);
-                return true;
-            };
+        {
+            if (string_index.index + string_index.size > string_pool_buffer.size())
+                return false;
+            *out_str = std::string(string_pool_buffer.data() + string_index.index, string_index.size);
+            return true;
+        };
 
         std::string constant_string;
         for (auto& [constant_offset, string_index] : constant_string_index_for_update)

@@ -394,9 +394,9 @@ namespace wo
         {
             struct variable_symbol_infor
             {
-                std::string name;
-                size_t define_place;
-                wo_integer_t bp_offset;
+                std::string     name;
+                size_t          define_place;
+                wo_integer_t    bp_offset;
             };
             size_t ir_begin;
             size_t ir_end;
