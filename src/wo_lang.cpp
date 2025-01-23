@@ -1499,12 +1499,6 @@ namespace wo
                                      lang_ValueInstance::Storage::STACKOFFSET,
                                      argument_place,
                             };
-
-                            m_ircontext.c().pdb_info->add_func_variable(
-                                eval_fucntion_name,
-                                get_value_name_w(symbol->m_value_instance),
-                                pattern_single->source_location.begin_at.row,
-                                argument_place);
                         }
                     }
                     ++argument_place;

@@ -132,8 +132,6 @@ namespace wo
         l_unknown_token,
     };
 
-#ifndef WO_DISABLE_COMPILER
-
     class lexer;
 
     class macro
@@ -234,7 +232,7 @@ namespace wo
 
         bool just_have_err; // it will be clear at next()
 
-        const wo_pstring_t   source_file;
+        const wo_pstring_t source_file;
         std::list<lex_error_msg> lex_error_list;
 
         std::unordered_set<wo_pstring_t> imported_file_list;
@@ -242,7 +240,6 @@ namespace wo
         std::list<ast::AstBase*> imported_ast;
         std::shared_ptr<std::unordered_map<std::wstring, std::shared_ptr<macro>>> used_macro_list;
         const lexer* last_lexer;
-        std::wstring script_path;
 
     private:
         inline const static std::map<std::wstring, lex_operator_info> lex_operator_list =
@@ -392,7 +389,7 @@ namespace wo
                     for (wchar_t wch : _operator)
                         _result.insert(wch);
                 return _result;
-                }();
+            }();
             return operator_char_set.find((wchar_t)ch) != operator_char_set.end();
         }
         static bool lex_isspace(int ch)
@@ -493,7 +490,6 @@ namespace wo
 
             return (wchar_t)ch - L'0';
         }
-
     public:
         lexer(const lexer&) = delete;
         lexer(lexer&&) = delete;
@@ -503,7 +499,7 @@ namespace wo
 
         lexer(
             std::optional<std::unique_ptr<std::wistream>>&& stream,
-            const std::wstring _source_file,
+            wo_pstring_t _source_file_may_null,
             lexer* importer);
     public:
         void begin_trying_block()
@@ -643,7 +639,7 @@ namespace wo
 
         ast::AstBase* merge_imported_script_trees(ast::AstBase* node);
     };
-#endif
+
 }
 
 #ifdef ANSI_WIDE_CHAR_SIGN

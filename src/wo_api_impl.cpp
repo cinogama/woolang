@@ -502,7 +502,10 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
     wo::debuggee_base::_free_abandons();
 
     wo::rslib_extern_symbols::free_wo_lib();
+
+#ifndef WO_DISABLE_COMPILER
     wo::LangContext::shutdown_lang_processers();
+#endif
 
     do
     {
@@ -526,7 +529,6 @@ void wo_init(int argc, char** argv)
 
     wo::wo_init_args(argc, argv);
 
-    wo::LangContext::init_lang_processers();
     wo::rslib_extern_symbols::init_wo_lib();
 
     for (int command_idx = 0; command_idx + 1 < argc; command_idx++)
@@ -595,6 +597,7 @@ void wo_init(int argc, char** argv)
 
 #ifndef WO_DISABLE_COMPILER
     wo_assure(wo::get_wo_grammar()); // Create grammar when init.
+    wo::LangContext::init_lang_processers();
 #endif
 }
 
@@ -1358,7 +1361,8 @@ wo_bool_t wo_deserialize(wo_vm vm, wo_value value, wo_string_t str, wo_type exce
 
     std::wstring strbuffer = wo::str_to_wstr(str);
 
-    wo::lexer lex(std::make_unique<std::wistringstream>(strbuffer), L"json", nullptr);
+    // NOTE: File name must be nullptr here to make sure macro not work.
+    wo::lexer lex(std::make_unique<std::wistringstream>(strbuffer), nullptr, nullptr);
     return _wo_cast_value(vm, WO_VAL(value), &lex, (wo::value::valuetype)except_type);
 }
 
@@ -2680,7 +2684,10 @@ std::variant<
         // Has error, create a fake lexer to store error reason.
 
         std::wstring empty_strbuffer;
-        lex = new wo::lexer(std::make_unique<std::wistringstream>(empty_strbuffer), vwpath.c_str(), nullptr);
+        lex = new wo::lexer(
+            std::make_unique<std::wistringstream>(empty_strbuffer), 
+            wo::wstring_pool::get_pstr(vwpath), 
+            nullptr);
         lex->lex_error(wo::lexer::errorlevel::error, wo::str_to_wstr(load_binary_failed_reason).c_str());
     }
     else
@@ -2690,7 +2697,10 @@ std::variant<
         if (src != nullptr)
         {
             std::wstring strbuffer = wo::str_to_wstr(std::string((const char*)src, len).c_str());
-            lex = new wo::lexer(std::make_unique<std::wistringstream>(strbuffer), vwpath.c_str(), nullptr);
+            lex = new wo::lexer(
+                std::make_unique<std::wistringstream>(strbuffer), 
+                wo::wstring_pool::get_pstr(vwpath),
+                nullptr);
         }
         else
         {
@@ -2712,7 +2722,10 @@ std::variant<
                     src_crc64_result = wo::crc_64(*content_stream.value(), 0);
             }
 
-            lex = new wo::lexer(std::move(content_stream), real_file_path.c_str(), nullptr);
+            lex = new wo::lexer(
+                std::move(content_stream), 
+                wo::wstring_pool::get_pstr(real_file_path),
+                nullptr);
         }
 
         lex->has_been_imported(lex->source_file);

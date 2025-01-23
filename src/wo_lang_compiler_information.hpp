@@ -58,7 +58,7 @@
 #define WO_ERR_INVALID_KEY_EXPR L"创建映射时遇到了非法的键表达式"
 #define WO_ERR_UNKNOWN_MACRO_NAMED L"未定义的宏: '%ls'"
 #define WO_ERR_UNKNOWN_EXTERN_ATTRIB L"未知的外部函数说明符: '%ls'"
-#define WO_ERR_COMPILER_DISABLED L"编译器功能被禁用"
+#define WO_ERR_COMPILER_DISABLED L"编译器已经被禁用"
 #define WO_ERR_CANNOT_START_NAMESPACE L"不允许在这里定义命名空间"
 #define WO_ERR_CANNOT_USING_UNSAFE L"不允许 'using' 名为 'unsafe' 的命名空间"
 

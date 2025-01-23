@@ -48,6 +48,245 @@ namespace wo
     void program_debug_data_info::finalize_generate_debug_info()
     {
     }
+    void program_debug_data_info::generate_func_begin(const std::string& function_name, ast::AstBase* ast_node, ir_compiler* compiler)
+    {
+        _function_ip_data_buf[function_name].ir_begin = compiler->get_now_ip();
+        generate_debug_info_at_astnode(ast_node, compiler);
+    }
+    void program_debug_data_info::generate_func_end(const std::string& function_name, size_t tmpreg_count, ir_compiler* compiler)
+    {
+        _function_ip_data_buf[function_name].ir_end = compiler->get_now_ip();
+    }
+    void program_debug_data_info::add_func_variable(const std::string& function_name, const std::wstring& varname, size_t rowno, wo_integer_t loc)
+    {
+        _function_ip_data_buf[function_name].add_variable_define(varname, rowno, loc);
+    }
+    void program_debug_data_info::update_func_variable(const std::string& function_name, wo_integer_t offset)
+    {
+        for (auto& [_useless, infors] : _function_ip_data_buf[function_name].variables)
+        {
+            for (auto& info : infors)
+            {
+                if (info.bp_offset <= 0)
+                    info.bp_offset += offset;
+            }
+        }
+    }
+
+
+    int32_t ir_compiler::update_all_temp_regist_to_stack(
+        BytecodeGenerateContext* ctx, size_t begin) noexcept
+    {
+        std::map<uint32_t, int32_t> tr_regist_mapping;
+
+        for (size_t i = begin; i < get_now_ip(); i++)
+        {
+            // ir_command_buffer problem..
+            auto& ircmbuf = ir_command_buffer[i];
+            if (ircmbuf.opcode != instruct::calln) // calln will not use opnum but do reptr_cast, dynamic_cast is dangerous
+            {
+                if (auto* op1 = dynamic_cast<const opnum::temporary*>(ircmbuf.op1))
+                {
+                    if (tr_regist_mapping.find(op1->m_id) == tr_regist_mapping.end())
+                    {
+                        // is temp reg 
+                        size_t stack_idx = tr_regist_mapping.size();
+                        tr_regist_mapping[op1->m_id] = (int32_t)stack_idx;
+                    }
+                }
+                if (auto* op2 = dynamic_cast<const opnum::temporary*>(ircmbuf.op2))
+                {
+                    if (tr_regist_mapping.find(op2->m_id) == tr_regist_mapping.end())
+                    {
+                        // is temp reg 
+                        size_t stack_idx = tr_regist_mapping.size();
+                        tr_regist_mapping[op2->m_id] = (int32_t)stack_idx;
+                    }
+                }
+                switch (ircmbuf.opcode & 0b11111100)
+                {
+                case instruct::opcode::sidarr:
+                case instruct::opcode::sidmap:
+                case instruct::opcode::siddict:
+                    if (ircmbuf.opinteger1 < 0
+                        && tr_regist_mapping.find(
+                            (uint32_t)(-(ircmbuf.opinteger1 + 1))) == tr_regist_mapping.end())
+                    {
+                        // is temp reg 
+                        size_t stack_idx = tr_regist_mapping.size();
+                        tr_regist_mapping[(uint32_t)(-(ircmbuf.opinteger1 + 1))] = (int32_t)stack_idx;
+                    }
+                    break;
+                default:
+                    break;
+                }
+            }
+        }
+        int32_t maxim_offset = (int32_t)tr_regist_mapping.size();
+
+        // ATTENTION: DO NOT USE ircmbuf AFTER THIS LINE!!!
+        //            WILL INSERT SOME COMMAND BEFORE ir_command_buffer[i],
+        //            ircmbuf WILL POINT TO AN INVALID PLACE.
+
+        for (size_t i = begin; i < get_now_ip(); i++)
+        {
+            auto* opnum1 = ir_command_buffer[i].op1;
+            auto* opnum2 = ir_command_buffer[i].op2;
+
+            size_t skip_line = 0;
+            if (ir_command_buffer[i].opcode == instruct::lds
+                || ir_command_buffer[i].opcode == instruct::sts)
+            {
+                auto* imm_opnum_stx_offset = dynamic_cast<const opnum::immbase*>(opnum2);
+                if (imm_opnum_stx_offset)
+                {
+                    auto stx_offset = imm_opnum_stx_offset->try_int();
+                    if (stx_offset <= 0)
+                    {
+                        ir_command_buffer[i].op2 =
+                            ctx->opnum_imm_int(stx_offset - maxim_offset);
+                    }
+                }
+                else
+                {
+                    // Here only get arg from stack. so here nothing todo.
+                }
+            }
+            if (ir_command_buffer[i].opcode != instruct::calln)
+            {
+                std::optional<int32_t> stack_offset = std::nullopt;
+                if (auto* op1 = dynamic_cast<const opnum::temporary*>(opnum1))
+                {
+                    stack_offset = -(int32_t)tr_regist_mapping[op1->m_id];
+                }
+                else if (auto* op1 = dynamic_cast<const opnum::reg*>(opnum1);
+                    op1 != nullptr && op1->is_bp_offset() && op1->get_bp_offset() <= 0)
+                {
+                    stack_offset = (int32_t)op1->get_bp_offset() - (int32_t)maxim_offset;
+                }
+
+                if (stack_offset.has_value())
+                {
+                    auto stack_offset_val = stack_offset.value();
+                    if (stack_offset_val >= -64)
+                        opnum1 = ctx->opnum_stack_offset(stack_offset_val);
+                    else
+                    {
+                        auto* reg_r0 = ctx->opnum_spreg(opnum::reg::r0);
+                        auto* imm_offset = _check_and_add_const(ctx->opnum_imm_int(stack_offset_val));
+
+                        // out of bt_offset range, make lds ldsr
+                        ir_command_buffer.insert(ir_command_buffer.begin() + i,
+                            ir_command{ instruct::lds, reg_r0, imm_offset });         // lds r0, imm(real_offset)
+                        opnum1 = reg_r0;
+                        ++i;
+
+                        if (ir_command_buffer[i].opcode != instruct::call)
+                        {
+                            ir_command_buffer.insert(ir_command_buffer.begin() + i + 1,
+                                ir_command{ instruct::sts, reg_r0, imm_offset });         // sts r0, imm(real_offset)
+
+                            ++skip_line;
+                        }
+                    }
+                    ir_command_buffer[i].op1 = opnum1;
+                }
+            }
+            /////////////////////////////////////////////////////////////////////////////////////////////////
+            do
+            {
+                std::optional<int32_t> stack_offset = std::nullopt;
+
+                if (auto* op2 = dynamic_cast<const opnum::temporary*>(opnum2))
+                {
+                    stack_offset = -(int32_t)tr_regist_mapping[op2->m_id];
+                }
+                else if (auto* op2 = dynamic_cast<const opnum::reg*>(opnum2);
+                    op2 != nullptr && op2->is_bp_offset() && op2->get_bp_offset() <= 0)
+                {
+                    stack_offset = (int32_t)op2->get_bp_offset() - (int32_t)maxim_offset;
+                }
+
+                if (stack_offset.has_value())
+                {
+                    auto stack_offset_val = stack_offset.value();
+                    if (stack_offset_val >= -64)
+                        opnum2 = ctx->opnum_stack_offset(stack_offset_val);
+                    else
+                    {
+                        wo_assert(ir_command_buffer[i].opcode != instruct::call);
+
+                        auto* reg_r1 = ctx->opnum_spreg(opnum::reg::r1);
+                        auto* imm_offset = _check_and_add_const(ctx->opnum_imm_int(stack_offset_val));
+
+                        // out of bt_offset range, make lds ldsr
+                        ir_command_buffer.insert(ir_command_buffer.begin() + i,
+                            ir_command{ instruct::lds, reg_r1, imm_offset });         // lds r1, imm(real_offset)
+                        opnum2 = reg_r1;
+                        ++i;
+
+                        // No opcode will update opnum2, so here no need for update.
+                    }
+                    ir_command_buffer[i].op2 = opnum2;
+                }
+            } while (0);
+
+            switch (ir_command_buffer[i].opcode & 0b11111100)
+            {
+            case instruct::opcode::sidarr:
+            case instruct::opcode::sidmap:
+            case instruct::opcode::siddict:
+            {
+                std::optional<int32_t> stack_offset = std::nullopt;
+                if (ir_command_buffer[i].opinteger1 < 0)
+                {
+                    stack_offset = -(int32_t)tr_regist_mapping[(uint32_t)(-(ir_command_buffer[i].opinteger1 + 1))];
+                }
+                else
+                {
+                    opnum::reg op3((uint8_t)ir_command_buffer[i].opinteger1);
+                    if (op3.is_bp_offset() && op3.get_bp_offset() <= 0)
+                    {
+                        stack_offset = (int32_t)op3.get_bp_offset() - (int32_t)maxim_offset;
+                    }
+                }
+
+                if (stack_offset.has_value())
+                {
+                    auto stack_offset_val = stack_offset.value();
+                    if (stack_offset_val >= -64)
+                    {
+                        opnum::reg op3(opnum::reg::bp_offset(stack_offset_val));
+                        ir_command_buffer[i].opinteger1 = (int32_t)op3.id;
+                    }
+                    else
+                    {
+                        auto* reg_r2 = ctx->opnum_spreg(opnum::reg::r2);
+                        auto* imm_offset = _check_and_add_const(ctx->opnum_imm_int(stack_offset_val));
+
+                        // out of bt_offset range, make lds ldsr
+                        ir_command_buffer.insert(ir_command_buffer.begin() + i,
+                            ir_command{ instruct::lds, reg_r2, imm_offset });         // lds r2, imm(real_offset)
+
+                        opnum::reg op3(opnum::reg::r2);
+                        ++i;
+
+                        // No opcode will update opnum3, so here no need for update.
+                        ir_command_buffer[i].opinteger1 = (int32_t)op3.id;
+                    }
+                }
+
+
+                break;
+            }
+            default:
+                break;
+            }
+
+            i += skip_line;
+        }
+        return (int32_t)tr_regist_mapping.size();
+    }
 #endif
     const program_debug_data_info::location program_debug_data_info::FAIL_LOC = {};
     const program_debug_data_info::location& program_debug_data_info::get_src_location_by_runtime_ip(const byte_t* rt_pos) const
@@ -147,27 +386,6 @@ namespace wo
         return SIZE_MAX;
     }
 
-    void program_debug_data_info::generate_func_begin(const std::string& function_name, ast::AstBase* ast_node, ir_compiler* compiler)
-    {
-        _function_ip_data_buf[function_name].ir_begin = compiler->get_now_ip();
-        generate_debug_info_at_astnode(ast_node, compiler);
-    }
-    void program_debug_data_info::generate_func_end(const std::string& function_name, size_t tmpreg_count, ir_compiler* compiler)
-    {
-        _function_ip_data_buf[function_name].ir_end = compiler->get_now_ip();
-    }
-    void program_debug_data_info::add_func_variable(const std::string& function_name, const std::wstring& varname, size_t rowno, wo_integer_t loc)
-    {
-        _function_ip_data_buf[function_name].add_variable_define(varname, rowno, loc);
-    }
-    void program_debug_data_info::update_func_variable(const std::string& function_name, wo_integer_t offset)
-    {
-        for (auto& [_useless, infors] : _function_ip_data_buf[function_name].variables)
-        {
-            for (auto& info : infors)
-                info.bp_offset += offset;
-        }
-    }
     std::string program_debug_data_info::get_current_func_signature_by_runtime_ip(const byte_t* rt_pos) const
     {
         auto compile_ip = get_ip_by_runtime_ip(rt_pos);
@@ -183,7 +401,7 @@ namespace wo
             sprintf(ptrr, "0x%p>", rt_pos);
             return ptrr;
 
-            }();
+        }();
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -238,27 +456,27 @@ namespace wo
         std::vector<wo::byte_t> binary_buffer;
         auto write_buffer_to_buffer =
             [&binary_buffer](const void* written_data, size_t written_length, size_t allign)
-            {
-                const size_t write_begin_place = binary_buffer.size();
+        {
+            const size_t write_begin_place = binary_buffer.size();
 
-                wo_assert(write_begin_place % allign == 0);
+            wo_assert(write_begin_place % allign == 0);
 
-                binary_buffer.resize(write_begin_place + written_length);
+            binary_buffer.resize(write_begin_place + written_length);
 
-                memcpy(binary_buffer.data() + write_begin_place, written_data, written_length);
-                return binary_buffer.size();
-            };
+            memcpy(binary_buffer.data() + write_begin_place, written_data, written_length);
+            return binary_buffer.size();
+        };
 
         auto write_binary_to_buffer =
             [&write_buffer_to_buffer](const auto& d, size_t size_for_assert)
-            {
-                const wo::byte_t* written_data = std::launder(reinterpret_cast<const wo::byte_t*>(&d));
-                const size_t written_length = sizeof(d);
+        {
+            const wo::byte_t* written_data = std::launder(reinterpret_cast<const wo::byte_t*>(&d));
+            const size_t written_length = sizeof(d);
 
-                wo_assert(written_length == size_for_assert);
+            wo_assert(written_length == size_for_assert);
 
-                return write_buffer_to_buffer(written_data, written_length, sizeof(d) > 8 ? 8 : sizeof(d));
-            };
+            return write_buffer_to_buffer(written_data, written_length, sizeof(d) > 8 ? 8 : sizeof(d));
+        };
 
         class _string_pool_t
         {
@@ -286,10 +504,10 @@ namespace wo
 
         auto write_constant_str_to_buffer =
             [&write_binary_to_buffer, &constant_string_pool](const char* str, size_t len)
-            {
-                write_binary_to_buffer((uint32_t)constant_string_pool.insert(str, len), 4);
-                write_binary_to_buffer((uint32_t)len, 4);
-            };
+        {
+            write_binary_to_buffer((uint32_t)constant_string_pool.insert(str, len), 4);
+            write_binary_to_buffer((uint32_t)len, 4);
+        };
 
         // 1.1 (+0) Magic number(0x3001A26B look like WOOLANG B)
         write_binary_to_buffer((uint32_t)0x3001A26B, 4);
@@ -767,12 +985,12 @@ namespace wo
 
         auto restore_string_from_buffer =
             [&string_pool_buffer](const string_buffer_index& string_index, std::string* out_str)->bool
-            {
-                if (string_index.index + string_index.size > string_pool_buffer.size())
-                    return false;
-                *out_str = std::string(string_pool_buffer.data() + string_index.index, string_index.size);
-                return true;
-            };
+        {
+            if (string_index.index + string_index.size > string_pool_buffer.size())
+                return false;
+            *out_str = std::string(string_pool_buffer.data() + string_index.index, string_index.size);
+            return true;
+        };
 
         std::string constant_string;
         for (auto& [constant_offset, string_index] : constant_string_index_for_update)
@@ -2013,219 +2231,5 @@ namespace wo
             env->program_debug_info = pdb_info;
 
         return env;
-    }
-
-    int32_t ir_compiler::update_all_temp_regist_to_stack(
-        BytecodeGenerateContext* ctx, size_t begin) noexcept
-    {
-        std::map<uint32_t, int32_t> tr_regist_mapping;
-
-        for (size_t i = begin; i < get_now_ip(); i++)
-        {
-            // ir_command_buffer problem..
-            auto& ircmbuf = ir_command_buffer[i];
-            if (ircmbuf.opcode != instruct::calln) // calln will not use opnum but do reptr_cast, dynamic_cast is dangerous
-            {
-                if (auto* op1 = dynamic_cast<const opnum::temporary*>(ircmbuf.op1))
-                {
-                    if (tr_regist_mapping.find(op1->m_id) == tr_regist_mapping.end())
-                    {
-                        // is temp reg 
-                        size_t stack_idx = tr_regist_mapping.size();
-                        tr_regist_mapping[op1->m_id] = (int32_t)stack_idx;
-                    }
-                }
-                if (auto* op2 = dynamic_cast<const opnum::temporary*>(ircmbuf.op2))
-                {
-                    if (tr_regist_mapping.find(op2->m_id) == tr_regist_mapping.end())
-                    {
-                        // is temp reg 
-                        size_t stack_idx = tr_regist_mapping.size();
-                        tr_regist_mapping[op2->m_id] = (int32_t)stack_idx;
-                    }
-                }
-                switch (ircmbuf.opcode & 0b11111100)
-                {
-                case instruct::opcode::sidarr:
-                case instruct::opcode::sidmap:
-                case instruct::opcode::siddict:
-                    if (ircmbuf.opinteger1 < 0
-                        && tr_regist_mapping.find(
-                            (uint32_t)(-(ircmbuf.opinteger1 + 1))) == tr_regist_mapping.end())
-                    {
-                        // is temp reg 
-                        size_t stack_idx = tr_regist_mapping.size();
-                        tr_regist_mapping[(uint32_t)(-(ircmbuf.opinteger1 + 1))] = (int32_t)stack_idx;
-                    }
-                    break;
-                default:
-                    break;
-                }
-            }
-        }
-        int32_t maxim_offset = (int32_t)tr_regist_mapping.size();
-
-        // ATTENTION: DO NOT USE ircmbuf AFTER THIS LINE!!!
-        //            WILL INSERT SOME COMMAND BEFORE ir_command_buffer[i],
-        //            ircmbuf WILL POINT TO AN INVALID PLACE.
-
-        for (size_t i = begin; i < get_now_ip(); i++)
-        {
-            auto* opnum1 = ir_command_buffer[i].op1;
-            auto* opnum2 = ir_command_buffer[i].op2;
-
-            size_t skip_line = 0;
-            if (ir_command_buffer[i].opcode == instruct::lds
-                || ir_command_buffer[i].opcode == instruct::sts)
-            {
-                auto* imm_opnum_stx_offset = dynamic_cast<const opnum::immbase*>(opnum2);
-                if (imm_opnum_stx_offset)
-                {
-                    auto stx_offset = imm_opnum_stx_offset->try_int();
-                    if (stx_offset <= 0)
-                    {
-                        ir_command_buffer[i].op2 =
-                            ctx->opnum_imm_int(stx_offset - maxim_offset);
-                    }
-                }
-                else
-                {
-                    // Here only get arg from stack. so here nothing todo.
-                }
-            }
-            if (ir_command_buffer[i].opcode != instruct::calln)
-            {
-                std::optional<int32_t> stack_offset = std::nullopt;
-                if (auto* op1 = dynamic_cast<const opnum::temporary*>(opnum1))
-                {
-                    stack_offset = -(int32_t)tr_regist_mapping[op1->m_id];
-                }
-                else if (auto* op1 = dynamic_cast<const opnum::reg*>(opnum1);
-                    op1 != nullptr && op1->is_bp_offset() && op1->get_bp_offset() <= 0)
-                {
-                    stack_offset = (int32_t)op1->get_bp_offset() - (int32_t)maxim_offset;
-                }
-
-                if (stack_offset.has_value())
-                {
-                    auto stack_offset_val = stack_offset.value();
-                    if (stack_offset_val >= -64)
-                        opnum1 = ctx->opnum_stack_offset(stack_offset_val);
-                    else
-                    {
-                        auto* reg_r0 = ctx->opnum_spreg(opnum::reg::r0);
-                        auto* imm_offset = _check_and_add_const(ctx->opnum_imm_int(stack_offset_val));
-
-                        // out of bt_offset range, make lds ldsr
-                        ir_command_buffer.insert(ir_command_buffer.begin() + i,
-                            ir_command{ instruct::lds, reg_r0, imm_offset });         // lds r0, imm(real_offset)
-                        opnum1 = reg_r0;
-                        ++i;
-
-                        if (ir_command_buffer[i].opcode != instruct::call)
-                        {
-                            ir_command_buffer.insert(ir_command_buffer.begin() + i + 1,
-                                ir_command{ instruct::sts, reg_r0, imm_offset });         // sts r0, imm(real_offset)
-
-                            ++skip_line;
-                        }
-                    }
-                    ir_command_buffer[i].op1 = opnum1;
-                }
-            }
-            /////////////////////////////////////////////////////////////////////////////////////////////////
-            do
-            {
-                std::optional<int32_t> stack_offset = std::nullopt;
-
-                if (auto* op2 = dynamic_cast<const opnum::temporary*>(opnum2))
-                {
-                    stack_offset = -(int32_t)tr_regist_mapping[op2->m_id];
-                }
-                else if (auto* op2 = dynamic_cast<const opnum::reg*>(opnum2);
-                    op2 != nullptr && op2->is_bp_offset() && op2->get_bp_offset() <= 0)
-                {
-                    stack_offset = (int32_t)op2->get_bp_offset() - (int32_t)maxim_offset;
-                }
-
-                if (stack_offset.has_value())
-                {
-                    auto stack_offset_val = stack_offset.value();
-                    if (stack_offset_val >= -64)
-                        opnum2 = ctx->opnum_stack_offset(stack_offset_val);
-                    else
-                    {
-                        wo_assert(ir_command_buffer[i].opcode != instruct::call);
-
-                        auto* reg_r1 = ctx->opnum_spreg(opnum::reg::r1);
-                        auto* imm_offset = _check_and_add_const(ctx->opnum_imm_int(stack_offset_val));
-
-                        // out of bt_offset range, make lds ldsr
-                        ir_command_buffer.insert(ir_command_buffer.begin() + i,
-                            ir_command{ instruct::lds, reg_r1, imm_offset });         // lds r1, imm(real_offset)
-                        opnum2 = reg_r1;
-                        ++i;
-
-                        // No opcode will update opnum2, so here no need for update.
-                    }
-                    ir_command_buffer[i].op2 = opnum2;
-                }
-            } while (0);
-
-            switch (ir_command_buffer[i].opcode & 0b11111100)
-            {
-            case instruct::opcode::sidarr:
-            case instruct::opcode::sidmap:
-            case instruct::opcode::siddict:
-            {
-                std::optional<int32_t> stack_offset = std::nullopt;
-                if (ir_command_buffer[i].opinteger1 < 0)
-                {
-                    stack_offset = -(int32_t)tr_regist_mapping[(uint32_t)(-(ir_command_buffer[i].opinteger1 + 1))];
-                }
-                else
-                {
-                    opnum::reg op3((uint8_t)ir_command_buffer[i].opinteger1);
-                    if (op3.is_bp_offset() && op3.get_bp_offset() <= 0)
-                    {
-                        stack_offset = (int32_t)op3.get_bp_offset() - (int32_t)maxim_offset;
-                    }
-                }
-
-                if (stack_offset.has_value())
-                {
-                    auto stack_offset_val = stack_offset.value();
-                    if (stack_offset_val >= -64)
-                    {
-                        opnum::reg op3(opnum::reg::bp_offset(stack_offset_val));
-                        ir_command_buffer[i].opinteger1 = (int32_t)op3.id;
-                    }
-                    else
-                    {
-                        auto* reg_r2 = ctx->opnum_spreg(opnum::reg::r2);
-                        auto* imm_offset = _check_and_add_const(ctx->opnum_imm_int(stack_offset_val));
-
-                        // out of bt_offset range, make lds ldsr
-                        ir_command_buffer.insert(ir_command_buffer.begin() + i,
-                            ir_command{ instruct::lds, reg_r2, imm_offset });         // lds r2, imm(real_offset)
-
-                        opnum::reg op3(opnum::reg::r2);
-                        ++i;
-
-                        // No opcode will update opnum3, so here no need for update.
-                        ir_command_buffer[i].opinteger1 = (int32_t)op3.id;
-                    }
-                }
-
-
-                break;
-            }
-            default:
-                break;
-            }
-
-            i += skip_line;
-        }
-        return (int32_t)tr_regist_mapping.size();
     }
 }
