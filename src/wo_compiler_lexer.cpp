@@ -21,7 +21,6 @@ namespace wo
         , source_file(_source_file_may_null)
         , last_lexer(importer)
     {
-        wo_pstring_t;
         if (stream)
             reading_buffer = std::move(stream.value());
         else
