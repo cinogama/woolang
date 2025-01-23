@@ -2,6 +2,7 @@
 
 namespace wo
 {
+#ifndef WO_DISABLE_COMPILER
     namespace ast
     {
         void init_builder();
@@ -222,4 +223,5 @@ struct NAME : public astnode_builder               \
 
 #undef WO_AST_BUILDER
     }
+#endif
 }

@@ -4,6 +4,7 @@
 
 namespace wo
 {
+#ifndef WO_DISABLE_COMPILER
     namespace ast
     {
         uint64_t read_from_unsigned_literal(const wchar_t* text)
@@ -1871,4 +1872,5 @@ namespace wo
         ost.first.builder_index = builder_index;
         return ost;
     }
+#endif
 }

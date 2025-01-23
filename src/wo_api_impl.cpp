@@ -502,7 +502,10 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
     wo::debuggee_base::_free_abandons();
 
     wo::rslib_extern_symbols::free_wo_lib();
+
+#ifndef WO_DISABLE_COMPILER
     wo::LangContext::shutdown_lang_processers();
+#endif
 
     do
     {
@@ -526,7 +529,6 @@ void wo_init(int argc, char** argv)
 
     wo::wo_init_args(argc, argv);
 
-    wo::LangContext::init_lang_processers();
     wo::rslib_extern_symbols::init_wo_lib();
 
     for (int command_idx = 0; command_idx + 1 < argc; command_idx++)
@@ -595,6 +597,7 @@ void wo_init(int argc, char** argv)
 
 #ifndef WO_DISABLE_COMPILER
     wo_assure(wo::get_wo_grammar()); // Create grammar when init.
+    wo::LangContext::init_lang_processers();
 #endif
 }
 

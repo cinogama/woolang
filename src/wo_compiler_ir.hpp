@@ -755,7 +755,11 @@ namespace wo
             wo_assert(extern_script_functions.find(function_name) == extern_script_functions.end());
             extern_script_functions[function_name] = get_now_ip();
         }
+
+#ifndef WO_DISABLE_COMPILER
         int32_t update_all_temp_regist_to_stack(BytecodeGenerateContext* ctx, size_t begin) noexcept;
+#endif
+
 #define WO_OPNUM(OPNUM) (_check_and_add_const(\
         (std::is_same<meta::origin_type<decltype(OPNUM)>, opnum::opnumbase>::value)\
         ? const_cast<meta::origin_type<decltype(OPNUM)>*>(&OPNUM)\

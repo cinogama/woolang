@@ -132,8 +132,6 @@ namespace wo
         l_unknown_token,
     };
 
-#ifndef WO_DISABLE_COMPILER
-
     class lexer;
 
     class macro
@@ -392,7 +390,7 @@ namespace wo
                     for (wchar_t wch : _operator)
                         _result.insert(wch);
                 return _result;
-                }();
+            }();
             return operator_char_set.find((wchar_t)ch) != operator_char_set.end();
         }
         static bool lex_isspace(int ch)
@@ -493,7 +491,6 @@ namespace wo
 
             return (wchar_t)ch - L'0';
         }
-
     public:
         lexer(const lexer&) = delete;
         lexer(lexer&&) = delete;
@@ -643,7 +640,7 @@ namespace wo
 
         ast::AstBase* merge_imported_script_trees(ast::AstBase* node);
     };
-#endif
+
 }
 
 #ifdef ANSI_WIDE_CHAR_SIGN

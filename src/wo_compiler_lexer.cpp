@@ -161,7 +161,10 @@ namespace wo
 
     lex_type lexer::try_handle_macro(std::wstring* out_literal, lex_type result_type, const std::wstring& result_str, bool workinpeek)
     {
-        // ATTENTION: out_literal may point to result_str, please make sure donot read result_str after modify *out_literal.
+        // ATTENTION: out_literal may point to result_str, 
+        //  please make sure donot read result_str after modify *out_literal.
+        
+        wo_assert(source_file != nullptr);
         if (result_type == lex_type::l_macro)
         {
             if (used_macro_list)
@@ -1056,7 +1059,10 @@ namespace wo
                     pragma_name += (wchar_t)next_one();
             }
 
-            if (pragma_name == L"macro")
+            // ATTENTION, SECURE:
+            //  Disable macro handler if source_file == nullptr, it's in deserialize.
+            //  Processing macros here may lead to arbitrary code execution.
+            if (pragma_name == L"macro" && source_file != nullptr)
             {
                 // OK FINISH PRAGMA, CONTINUE
 
@@ -1099,7 +1105,10 @@ namespace wo
 
             if (lex_type keyword_type = lex_is_keyword(read_result()); lex_type::l_error == keyword_type)
             {
-                if (peek_one() == L'!')
+                // ATTENTION, SECURE:
+                //  Disable macro handler if source_file == nullptr, it's in deserialize.
+                //  Processing macros here may lead to arbitrary code execution.
+                if (peek_one() == L'!'&& source_file != nullptr)
                 {
                     next_one();
                     return try_handle_macro(out_literal, lex_type::l_macro, read_result(), false);

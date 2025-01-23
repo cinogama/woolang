@@ -6,6 +6,7 @@
 
 namespace wo
 {
+#ifndef WO_DISABLE_COMPILER
     void wo_read_lr1_cache(wo::grammar& gram)
     {
 #if WOOLANG_LR1_OPTIMIZE_LR1_TABLE
@@ -116,6 +117,7 @@ namespace wo
                 });
         }
     }
+#endif
 }
 
 #endif
