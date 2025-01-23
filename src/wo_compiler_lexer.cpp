@@ -7,7 +7,7 @@ namespace wo
 {
     lexer::lexer(
         std::optional<std::unique_ptr<std::wistream>>&& stream,
-        const std::wstring _source_file, 
+        wo_pstring_t _source_file_may_null,
         lexer* importer)
         : format_string_count(0)
         , curly_count(0)
@@ -18,13 +18,10 @@ namespace wo
         , next_file_rowno(1)
         , next_file_colno(1)
         , just_have_err(false)
-        , source_file(
-            wstring_pool::_m_this_thread_pool != nullptr
-            ? wstring_pool::get_pstr(_source_file)
-            : nullptr)
+        , source_file(_source_file_may_null)
         , last_lexer(importer)
-        , script_path(_source_file)
     {
+        wo_pstring_t;
         if (stream)
             reading_buffer = std::move(stream.value());
         else
@@ -163,9 +160,7 @@ namespace wo
     {
         // ATTENTION: out_literal may point to result_str, 
         //  please make sure donot read result_str after modify *out_literal.
-        
-        wo_assert(source_file != nullptr);
-        if (result_type == lex_type::l_macro)
+        if (result_type == lex_type::l_macro && source_file != nullptr)
         {
             if (used_macro_list)
             {
@@ -216,10 +211,19 @@ namespace wo
                             wo::str_to_wstr(wo_get_runtime_error(fnd->second->_macro_action_vm)).c_str());
                     else
                     {
-                        std::wstring result_content_vfile =
-                            L"woo/macro_" + fnd->second->macro_name + L"_result_" + std::to_wstring((intptr_t)this) + L".wo";
+                        // String pool is available during compiling.
+                        // We can use it directly.
+                        wo_pstring_t result_content_vfile =
+                            wstring_pool::get_pstr(
+                                L"woo/macro_" 
+                                + fnd->second->macro_name 
+                                + L"_result_" 
+                                + std::to_wstring((intptr_t)this) 
+                                + L".wo");
 
-                        wo_assure(WO_TRUE == wo_virtual_source(wo::wstr_to_str(result_content_vfile).c_str(), wo_string(result), WO_TRUE));
+                        wo_assure(WO_TRUE == wo_virtual_source(
+                            wo::wstr_to_str(*result_content_vfile).c_str(), wo_string(result), WO_TRUE));
+
                         std::wstring macro_result_buffer = wo::str_to_wstr(wo_string(result));
 
                         wo::lexer tmp_lex(std::make_unique<std::wistringstream>(macro_result_buffer), result_content_vfile, nullptr);
@@ -248,7 +252,7 @@ namespace wo
                             get_cur_error_frame().back().describe +=
                                 str_to_wstr(_wo_dump_lexer_context_error(&tmp_lex, WO_NOTHING)) + WO_MACRO_ANALYZE_END_HERE;
                         }
-                        wo_assure(WO_TRUE == wo_remove_virtual_file(wo::wstr_to_str(result_content_vfile).c_str()));
+                        wo_assure(WO_TRUE == wo_remove_virtual_file(wo::wstr_to_str(*result_content_vfile).c_str()));
 
                         for (auto ri = lex_tokens.rbegin(); ri != lex_tokens.rend(); ri++)
                             push_temp_for_error_recover(ri->first, ri->second);

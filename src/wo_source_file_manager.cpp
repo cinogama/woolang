@@ -45,7 +45,10 @@ namespace wo
             auto* finding_lex = lex.value();
             while (finding_lex != nullptr)
             {
-                *out_real_read_path = wo::get_file_loc(finding_lex->script_path) + L"/" + filepath;
+                wo_assert(finding_lex->source_file != nullptr);
+
+                *out_real_read_path = 
+                    wo::get_file_loc(*finding_lex->source_file) + L"/" + filepath;
 
                 if (is_virtual_uri(*out_real_read_path))
                 {

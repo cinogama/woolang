@@ -88,12 +88,16 @@ namespace wo
                     return token{ lex.parser_error(lexer::errorlevel::error, WO_ERR_CANNOT_OPEN_FILE, path.c_str()) };
             }
 
-            if (!lex.has_been_imported(wstring_pool::get_pstr(src_full_path)))
+            wo_pstring_t src_full_path_pstr = wstring_pool::get_pstr(src_full_path);
+            if (!lex.has_been_imported(src_full_path_pstr))
             {
                 auto srcfile_stream = wo::open_virtual_file_stream(src_full_path);
                 if (srcfile_stream)
                 {
-                    lexer new_lex(std::move(srcfile_stream), src_full_path, &lex);
+                    lexer new_lex(
+                        std::move(srcfile_stream), 
+                        src_full_path_pstr,
+                        &lex);
 
                     new_lex.imported_file_list = lex.imported_file_list;
                     new_lex.used_macro_list = lex.used_macro_list;
