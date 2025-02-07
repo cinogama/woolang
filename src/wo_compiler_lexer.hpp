@@ -140,6 +140,12 @@ namespace wo
         std::wstring macro_name;
         wo_vm _macro_action_vm;
 
+        size_t   begin_row;
+        size_t   end_row;
+        size_t   begin_col;
+        size_t   end_col;
+        wo_pstring_t filename;
+
         macro(lexer& lex);
 
         ~macro()
