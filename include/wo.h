@@ -647,15 +647,22 @@ WO_API void                 wo_lsp_free_compile_error_msg(wo_lsp_error_msg* msg)
 
 // LSPv2 API
 typedef struct _wo_lspv2_source_meta wo_lspv2_source_meta;
+typedef struct _wo_lspv2_scope wo_lspv2_scope;
 typedef struct _wo_lspv2_scope_iter wo_lspv2_scope_iter;
+typedef struct _wo_lspv2_symbol wo_lspv2_symbol;
+typedef struct _wo_lspv2_symbol_iter wo_lspv2_symbol_iter;
 
 WO_API wo_lspv2_source_meta* wo_lspv2_compile_to_meta(
     wo_string_t virtual_src_path, 
     wo_string_t src);
 WO_API void wo_lspv2_free_meta_v2(wo_lspv2_source_meta* meta);
 
-WO_API wo_lspv2_scope_iter* wo_lspv2_meta_get_global_sub_iter(wo_lspv2_source_meta* meta);
-WO_API wo_lspv2_scope_iter* wo_lspv2_scope_sub_iter(wo_lspv2_scope_iter* iter);
+WO_API wo_lspv2_scope* wo_lspv2_meta_get_global_scope(wo_lspv2_source_meta* meta);
+WO_API wo_lspv2_scope_iter* wo_lspv2_scope_sub_scope_iter(wo_lspv2_scope* scope);
+WO_API wo_lspv2_scope* /* null if end */ wo_lspv2_scope_sub_scope_next(wo_lspv2_scope_iter* iter);
+
+WO_API const char* /* null if not namespace */ wo_lspv2_scope_name(wo_lspv2_scope* scope);
+WO_API void wo_lspv2_scope_name_free(const char* name);
 
 #endif
 

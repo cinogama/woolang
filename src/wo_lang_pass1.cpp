@@ -434,7 +434,31 @@ namespace wo
     WO_PASS_PROCESSER(AstTypeHolder)
     {
         if (node->m_LANG_trying_advancing_type_judgement)
+        {
             end_last_scope(); // Leave temporary advance the processing of declaration nodes.
+
+            auto current_error_frame = lex.get_cur_error_frame();
+            lex.end_trying_block();
+
+            auto& last_error_frame = lex.get_cur_error_frame();
+
+            for (auto& errinform : current_error_frame)
+            {
+                // NOTE: Advanced judgement failed, only non-template will be here. 
+                // make sure report it into error list.
+
+                last_error_frame.push_back(errinform);
+
+                if (&last_error_frame != &lex.lex_error_list)
+                {
+                    auto& supper_error = lex.lex_error_list.emplace_back(errinform);
+                    if (supper_error.error_level == lexer::errorlevel::error)
+                        supper_error.depth = 0;
+                    else
+                        supper_error.depth = 1;
+                }
+            }
+        }
 
         if (state == UNPROCESSED)
         {
@@ -566,6 +590,9 @@ namespace wo
 
                                     wo_assert(!type_symbol->m_is_template
                                         && type_symbol->m_is_global);
+
+                                    // Capture all error happend in this block.
+                                    lex.begin_trying_block();
 
                                     // Immediately advance the processing of declaration nodes.
                                     entry_spcify_scope(type_symbol->m_belongs_to_scope);
@@ -740,7 +767,31 @@ namespace wo
     WO_PASS_PROCESSER(AstValueVariable)
     {
         if (node->m_LANG_trying_advancing_type_judgement)
+        {
             end_last_scope(); // Leave temporary advance the processing of declaration nodes.
+
+            auto current_error_frame = lex.get_cur_error_frame();
+            lex.end_trying_block();
+
+            auto& last_error_frame = lex.get_cur_error_frame();
+
+            for (auto& errinform : current_error_frame)
+            {
+                // NOTE: Advanced judgement failed, only non-template will be here. 
+                // make sure report it into error list.
+
+                last_error_frame.push_back(errinform);
+
+                if (&last_error_frame != &lex.lex_error_list)
+                {
+                    auto& supper_error = lex.lex_error_list.emplace_back(errinform);
+                    if (supper_error.error_level == lexer::errorlevel::error)
+                        supper_error.depth = 0;
+                    else
+                        supper_error.depth = 1;
+                }
+            }
+        }
 
         if (state == UNPROCESSED)
         {
@@ -845,6 +896,9 @@ namespace wo
 
                         wo_assert(!var_symbol->m_is_template
                             && var_symbol->m_is_global);
+
+                        // Capture all error happend in this block.
+                        lex.begin_trying_block();
 
                         // Type not determined, we need to determine it?
                         // NOTE: Immediately advance the processing of declaration nodes.
@@ -1364,7 +1418,7 @@ namespace wo
                 else
                     return_value_type = m_origin_types.m_void.m_type_instance;
 
-                auto* function_instance = 
+                auto* function_instance =
                     node->m_LANG_belong_function_may_null_if_outside.value();
 
                 // Has marked return type?
