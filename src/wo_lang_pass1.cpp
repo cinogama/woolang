@@ -142,15 +142,23 @@ namespace wo
             break;
         }
         case AstDeclareAttribue::accessc_attrib::PRIVATE:
-            if (symbol_instance->m_defined_source == path)
+        {
+            if (!symbol_instance->m_symbol_declare_location.has_value())
+                // Builtin & compiler generated symbol is always reachable.
+                return true;
+
+            auto& location = symbol_instance->m_symbol_declare_location.value();
+
+            if (location.source_file == path)
                 return true;
 
             lex.lang_error(lexer::errorlevel::error, node,
                 WO_ERR_SYMBOL_IS_PRIVATE,
                 get_symbol_name_w(symbol_instance),
-                symbol_instance->m_defined_source->c_str());
+                location.source_file->c_str());
 
             break;
+        }
         default:
             wo_error("unknown access attribute");
             break;
@@ -204,14 +212,25 @@ namespace wo
             break;
         }
         case AstDeclareAttribue::accessc_attrib::PRIVATE:
-            if (struct_type_inst->m_defined_source == path)
+        {
+            if (!struct_type_inst->m_symbol_declare_location.has_value())
+                // Builtin & compiler generated symbol is always reachable.
+                return true;
+
+            auto& location = struct_type_inst->m_symbol_declare_location.value();
+
+            if (location.source_file == path)
                 return true;
 
             lex.lang_error(lexer::errorlevel::error, node,
                 WO_ERR_STRUCT_FIELD_IS_PRIVATE,
                 field_name,
-                struct_type_inst->m_defined_source->c_str());
+                location.source_file->c_str());
 
+            break;
+        }
+        default:
+            wo_error("unknown access attribute");
             break;
         }
 
@@ -305,7 +324,7 @@ namespace wo
                 entry_spcify_scope(node->m_LANG_determined_scope.value());
             else
             {
-                begin_new_scope();
+                begin_new_scope(node->source_location);
                 node->m_LANG_determined_scope = get_current_scope();
             }
 
@@ -1032,7 +1051,7 @@ namespace wo
                         node->m_typename,
                         node->m_attribute,
                         node,
-                        node->source_location.source_file,
+                        node->source_location,
                         get_current_scope(),
                         node->m_type,
                         node->m_template_parameters.value(),
@@ -1042,7 +1061,7 @@ namespace wo
                         node->m_typename,
                         node->m_attribute,
                         node,
-                        node->source_location.source_file,
+                        node->source_location,
                         get_current_scope(),
                         lang_Symbol::kind::ALIAS,
                         false);
@@ -1084,7 +1103,7 @@ namespace wo
                         node->m_typename,
                         node->m_attribute,
                         node,
-                        node->source_location.source_file,
+                        node->source_location,
                         get_current_scope(),
                         node->m_type,
                         node->m_template_parameters.value(),
@@ -1094,7 +1113,7 @@ namespace wo
                         node->m_typename,
                         node->m_attribute,
                         node,
-                        node->source_location.source_file,
+                        node->source_location,
                         get_current_scope(),
                         lang_Symbol::kind::TYPE,
                         false);
@@ -1258,13 +1277,12 @@ namespace wo
 
             if (node->m_LANG_determined_template_arguments.has_value())
             {
-                begin_new_scope();
+                begin_new_scope(std::nullopt);
 
                 wo_assert(node->m_LANG_determined_template_arguments.value().size()
                     == node->m_pending_param_type_mark_template.value().size());
 
                 fast_create_template_type_alias_in_current_scope(
-                    node->source_location.source_file,
                     node->m_pending_param_type_mark_template.value(),
                     node->m_LANG_determined_template_arguments.value());
             }
@@ -2145,7 +2163,6 @@ namespace wo
             for (auto& [param_name, arg_type_inst] : node->m_deduction_results)
             {
                 fast_create_one_template_type_alias_in_current_scope(
-                    node->source_location.source_file,
                     param_name,
                     arg_type_inst);
 
@@ -2736,6 +2753,7 @@ namespace wo
                     bool entry_function_located_scope = false;
 
                     lang_Scope* target_function_scope;
+                    lang_Scope* current_scope = get_current_scope();
 
                     switch (node->m_function->node_type)
                     {
@@ -2788,7 +2806,7 @@ namespace wo
                     {
                         AstValueFunction* function = static_cast<AstValueFunction*>(node->m_function);
 
-                        target_function_scope = get_current_scope();
+                        target_function_scope = current_scope;
                         pending_template_params = function->m_pending_param_type_mark_template.value();
 
                         for (auto* template_param_declare : function->m_parameters)
@@ -2806,7 +2824,7 @@ namespace wo
                     auto it_argument_end = node->m_arguments.end();
 
                     entry_spcify_scope(target_function_scope);
-                    begin_new_scope();
+                    begin_new_scope(std::nullopt);
 
                     AstValueFunctionCall_FakeAstArgumentDeductionContextA* branch_a_context =
                         new AstValueFunctionCall_FakeAstArgumentDeductionContextA(
@@ -3608,7 +3626,7 @@ namespace wo
                 entry_spcify_scope(symbol->m_belongs_to_scope);
 
                 // Begin new scope for template deduction.
-                begin_new_scope();
+                begin_new_scope(std::nullopt);
 
                 AstValueFunctionCall_FakeAstArgumentDeductionContextA* branch_a_context =
                     new AstValueFunctionCall_FakeAstArgumentDeductionContextA(
@@ -4752,7 +4770,7 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
-            begin_new_scope();
+            begin_new_scope(node->source_location);
 
             WO_CONTINUE_PROCESS(node->m_matched_value);
 
@@ -4927,7 +4945,7 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
-            begin_new_scope();
+            begin_new_scope(node->source_location);
 
             // Decalare pattern if contained.
             switch (node->m_pattern->node_type)
@@ -5077,7 +5095,7 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
-            begin_new_scope();
+            begin_new_scope(node->source_location);
 
             if (node->m_initial.has_value())
                 WO_CONTINUE_PROCESS(node->m_initial.value());
