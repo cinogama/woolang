@@ -2650,145 +2650,164 @@ void wo_release_vm(wo_vm vm)
         wo_close_vm(vm);
 }
 
-std::variant<
-    wo::shared_pointer<wo::runtime_env>,
-    wo::lexer*
-> _wo_compile_to_nojit_env(wo_string_t virtual_src_path, const void* src, size_t len, size_t stacksz)
+bool _wo_compile_impl(
+    wo_string_t virtual_src_path,
+    const void* src,
+    size_t      len,
+    std::optional<wo::shared_pointer<wo::runtime_env>>* out_env_if_success,
+    std::optional<std::unique_ptr<wo::LangContext>>* out_langcontext_if_success_and_not_binary,
+    std::optional<std::unique_ptr<wo::lexer>>* out_lexer_if_failed)
 {
-    if (stacksz == 0)
-        stacksz = wo::vmbase::VM_DEFAULT_STACK_SIZE;
-
     // 0. Try load binary
     const char* load_binary_failed_reason = nullptr;
     bool is_valid_binary = false;
 
-    wo::shared_pointer<wo::runtime_env> env_result =
+    std::optional<std::unique_ptr<wo::LangContext>> compile_lang_context = std::nullopt;
+    std::optional<wo::shared_pointer<wo::runtime_env>> compile_env_result =
         wo::runtime_env::load_create_env_from_binary(
-            virtual_src_path, src, len, stacksz,
+            virtual_src_path, src, len, wo::vmbase::VM_DEFAULT_STACK_SIZE,
             &load_binary_failed_reason,
             &is_valid_binary);
+    std::unique_ptr<wo::lexer> compile_lexer;
 
-    const std::wstring vwpath = wo::str_to_wstr(virtual_src_path);
-    wo::lexer* lex = nullptr;
+    std::wstring wvspath = wo::str_to_wstr(virtual_src_path);
 
-    if (env_result != nullptr)
+    if (!compile_env_result.has_value())
     {
-        // Load binary successfully!
-        wo_assert(load_binary_failed_reason == nullptr);
-        return env_result;
-    }
-    else if (is_valid_binary)
-    {
-        // Failed to load binary, maybe broken or version missing.
-        wo_assert(load_binary_failed_reason != nullptr);
-        // Has error, create a fake lexer to store error reason.
-
-        std::wstring empty_strbuffer;
-        lex = new wo::lexer(
-            std::make_unique<std::wistringstream>(empty_strbuffer), 
-            wo::wstring_pool::get_pstr(vwpath), 
-            nullptr);
-        lex->lex_error(wo::lexer::errorlevel::error, wo::str_to_wstr(load_binary_failed_reason).c_str());
-    }
-    else
-    {
-
-        // 1. Prepare lexer..
-        if (src != nullptr)
+        if (is_valid_binary)
         {
-            std::wstring strbuffer = wo::str_to_wstr(std::string((const char*)src, len).c_str());
-            lex = new wo::lexer(
-                std::make_unique<std::wistringstream>(strbuffer), 
-                wo::wstring_pool::get_pstr(vwpath),
-                nullptr);
+            // Is Woolang format binary, but failed to load.
+            // Failed to load binary, maybe broken or version missing.
+            wo_assert(load_binary_failed_reason != nullptr);
+
+            compile_lexer =
+                std::move(std::make_unique<wo::lexer>(
+                    std::make_unique<std::wistringstream>(std::wstring()),
+                    wo::wstring_pool::get_pstr(wvspath),
+                    nullptr));
+
+            compile_lexer->lex_error(
+                wo::lexer::errorlevel::error,
+                wo::str_to_wstr(load_binary_failed_reason).c_str());
         }
         else
         {
-            std::wstring real_file_path;
-
-            std::optional<std::unique_ptr<std::wistream>> content_stream =
-                std::nullopt;
-
-            uint64_t src_crc64_result = 0;
-
-            if (wo::check_virtual_file_path(
-                &real_file_path,
-                vwpath,
-                std::nullopt))
+            // 1. Prepare lexer..
+            if (src != nullptr)
             {
-                content_stream = wo::open_virtual_file_stream<true>(real_file_path);
-
-                if (content_stream)
-                    src_crc64_result = wo::crc_64(*content_stream.value(), 0);
+                // Load from virtual source.
+                std::wstring strbuffer = wo::str_to_wstr(std::string((const char*)src, len).c_str());
+                compile_lexer = std::move(std::make_unique<wo::lexer>(
+                    std::make_unique<std::wistringstream>(strbuffer),
+                    wo::wstring_pool::get_pstr(wvspath),
+                    nullptr));
             }
+            else
+            {
+                // Load from real file.
+                std::wstring real_file_path;
 
-            lex = new wo::lexer(
-                std::move(content_stream), 
-                wo::wstring_pool::get_pstr(real_file_path),
-                nullptr);
-        }
+                std::optional<std::unique_ptr<std::wistream>> content_stream =
+                    std::nullopt;
 
-        lex->has_been_imported(lex->source_file);
+                uint64_t src_crc64_result = 0;
+
+                if (wo::check_virtual_file_path(
+                    &real_file_path,
+                    wvspath,
+                    std::nullopt))
+                {
+                    content_stream = wo::open_virtual_file_stream<true>(real_file_path);
+                    if (content_stream)
+                        src_crc64_result = wo::crc_64(*content_stream.value(), 0);
+                }
+
+                compile_lexer = std::move(std::make_unique<wo::lexer>(
+                    std::move(content_stream),
+                    wo::wstring_pool::get_pstr(real_file_path),
+                    nullptr));
+            }
+            compile_lexer->has_been_imported(compile_lexer->source_file);
 
 #ifndef WO_DISABLE_COMPILER
-
-        std::forward_list<wo::ast::AstBase*> m_last_context;
-        bool need_exchange_back = wo::ast::AstBase::exchange_this_thread_ast(m_last_context);
-        if (!lex->has_error())
-        {
-            // 2. Lexer will create ast_tree;
-            auto* result = wo::get_wo_grammar()->gen(*lex);
-            if (result != nullptr)
+            std::forward_list<wo::ast::AstBase*> m_last_context;
+            bool need_exchange_back = wo::ast::AstBase::exchange_this_thread_ast(m_last_context);
+            if (!compile_lexer->has_error())
             {
-                wo::LangContext compile_lang_context;
-
-                if (compile_lang_context.process(*lex, result))
+                // 2. Lexer will create ast_tree;
+                auto* result = wo::get_wo_grammar()->gen(*compile_lexer);
+                if (result != nullptr)
                 {
-                    // Finish!, finalize the compiler.
-                    env_result =
-                        compile_lang_context.m_ircontext.c().finalize(stacksz);
+                    std::unique_ptr<wo::LangContext> lang_context =
+                        std::make_unique<wo::LangContext>();
+
+                    if (lang_context->process(*compile_lexer, result))
+                    {
+                        // Finish!, finalize the compiler.
+                        compile_env_result = std::move(
+                            lang_context->m_ircontext.c().finalize(
+                                wo::vmbase::VM_DEFAULT_STACK_SIZE));
+
+                        compile_lang_context = std::move(lang_context);
+                    }
                 }
             }
-        }
+            wo::ast::AstBase::clean_this_thread_ast();
 
-        wo::ast::AstBase::clean_this_thread_ast();
-
-        if (need_exchange_back)
-            wo::ast::AstBase::exchange_this_thread_ast(m_last_context);
-
-        if (env_result)
-        {
-            delete lex;
-            return env_result;
-        }
+            if (need_exchange_back)
+                wo::ast::AstBase::exchange_this_thread_ast(m_last_context);
 #else
-        lex->lex_error(wo::lexer::errorlevel::error, WO_ERR_COMPILER_DISABLED);
+            lex->lex_error(wo::lexer::errorlevel::error, WO_ERR_COMPILER_DISABLED);
 #endif
+        }
     }
-    return lex;
+
+    // Compile finished.
+    if (compile_env_result.has_value())
+    {
+        // Success
+        if (out_env_if_success != nullptr)
+            *out_env_if_success = std::move(compile_env_result.value());
+
+        if (out_langcontext_if_success_and_not_binary != nullptr)
+            *out_langcontext_if_success_and_not_binary = std::move(compile_lang_context);
+
+        return true;
+    }
+    else
+    {
+        // Failed
+        wo_assert((bool)compile_lexer);
+
+        if (out_lexer_if_failed != nullptr)
+            *out_lexer_if_failed = std::move(compile_lexer);
+
+        return false;
+    }
 }
 
-wo_bool_t _wo_load_source(wo_vm vm, wo_string_t virtual_src_path, const void* src, size_t len, size_t stacksz)
+wo_bool_t _wo_load_source(wo_vm vm, wo_string_t virtual_src_path, const void* src, size_t len)
 {
     wo::start_string_pool_guard sg;
 
-    auto&& env_or_lex = _wo_compile_to_nojit_env(virtual_src_path, src, len, stacksz);
-    if (auto* env_p = std::get_if<wo::shared_pointer<wo::runtime_env>>(&env_or_lex))
+    std::optional<wo::shared_pointer<wo::runtime_env>> _env_if_success;
+    std::optional<std::unique_ptr<wo::lexer>> _lexer_if_failed;
+
+    if (_wo_compile_impl(virtual_src_path, src, len, &_env_if_success, nullptr, &_lexer_if_failed))
     {
-        auto& env = *env_p;
-        WO_VM(vm)->set_runtime(env);
+        WO_VM(vm)->set_runtime(_env_if_success.value());
         return WO_TRUE;
     }
     else
     {
-        auto* lex_p = std::get_if<wo::lexer*>(&env_or_lex);
-        wo_assert(nullptr != lex_p);
-        WO_VM(vm)->compile_info = *lex_p;
+        wo_assert(_lexer_if_failed.has_value() && _lexer_if_failed.value()->has_error());
+
+        WO_VM(vm)->compile_info = std::move(_lexer_if_failed);
         return WO_FALSE;
     }
 }
 
-wo_bool_t wo_load_binary_with_stacksz(wo_vm vm, wo_string_t virtual_src_path, const void* buffer, wo_size_t length, wo_size_t stacksz)
+wo_bool_t wo_load_binary(wo_vm vm, wo_string_t virtual_src_path, const void* buffer, wo_size_t length)
 {
     static std::atomic_size_t vcount = 0;
     std::string vpath;
@@ -2804,12 +2823,7 @@ wo_bool_t wo_load_binary_with_stacksz(wo_vm vm, wo_string_t virtual_src_path, co
     if (!wo_virtual_binary(vpath.c_str(), buffer, length, WO_TRUE))
         return WO_FALSE;
 
-    return _wo_load_source(vm, vpath.c_str(), buffer, length, stacksz);
-}
-
-wo_bool_t wo_load_binary(wo_vm vm, wo_string_t virtual_src_path, const void* buffer, wo_size_t length)
-{
-    return wo_load_binary_with_stacksz(vm, virtual_src_path, buffer, length, 0);
+    return _wo_load_source(vm, vpath.c_str(), buffer, length);
 }
 
 void* wo_dump_binary(wo_vm vm, wo_bool_t saving_pdi, wo_size_t* out_length)
@@ -2827,8 +2841,9 @@ wo_bool_t wo_has_compile_error(wo_vm vm)
 {
     auto* vmm = WO_VM(vm);
 
-    if (vm && vmm->compile_info && vmm->compile_info->has_error())
+    if (vm && vmm->compile_info.has_value())
         return WO_TRUE;
+
     return WO_FALSE;
 }
 
@@ -3015,15 +3030,15 @@ std::string _wo_dump_lexer_context_error(wo::lexer* lex, _wo_inform_style style)
         {
             auto see_also = wo::wstr_to_str(last_depth >= err_info.depth ? WO_SEE_ALSO : WO_SEE_HERE);
             if (style == WO_NEED_COLOR)
-                _vm_compile_errors 
-                    += std::string(err_info.depth, ' ')
-                    + ANSI_HIY + see_also + ANSI_RST
-                    + ":\n";
+                _vm_compile_errors
+                += std::string(err_info.depth, ' ')
+                + ANSI_HIY + see_also + ANSI_RST
+                + ":\n";
             else
-                _vm_compile_errors 
-                    += std::string(err_info.depth, ' ')
-                    + see_also
-                    + ":\n";
+                _vm_compile_errors
+                += std::string(err_info.depth, ' ')
+                + see_also
+                + ":\n";
         }
 
         last_depth = err_info.depth;
@@ -3068,10 +3083,10 @@ wo_string_t wo_get_compile_error(wo_vm vm, _wo_inform_style style)
     thread_local std::string _vm_compile_errors;
     _vm_compile_errors = "";
 
-    if (vm && vmm->compile_info)
+    if (vm && vmm->compile_info.has_value())
     {
-        auto& lex = *vmm->compile_info;
-        _vm_compile_errors += _wo_dump_lexer_context_error(&lex, style);
+        _vm_compile_errors += _wo_dump_lexer_context_error(
+            vmm->compile_info.value().get(), style);
     }
     return _vm_compile_errors.c_str();
 }
@@ -3326,24 +3341,14 @@ wo_value wo_dispatch(
     return nullptr;
 }
 
-wo_bool_t wo_load_source_with_stacksz(wo_vm vm, wo_string_t virtual_src_path, wo_string_t src, wo_size_t stacksz)
-{
-    return wo_load_binary_with_stacksz(vm, virtual_src_path, src, strlen(src), stacksz);
-}
-
-wo_bool_t wo_load_file_with_stacksz(wo_vm vm, wo_string_t virtual_src_path, wo_size_t stacksz)
-{
-    return _wo_load_source(vm, virtual_src_path, nullptr, 0, stacksz);
-}
-
 wo_bool_t wo_load_source(wo_vm vm, wo_string_t virtual_src_path, wo_string_t src)
 {
-    return wo_load_source_with_stacksz(vm, virtual_src_path, src, 0);
+    return wo_load_binary(vm, virtual_src_path, src, strlen(src));
 }
 
 wo_bool_t wo_load_file(wo_vm vm, wo_string_t virtual_src_path)
 {
-    return wo_load_file_with_stacksz(vm, virtual_src_path, 0);
+    return _wo_load_source(vm, virtual_src_path, nullptr, 0);
 }
 
 wo_bool_t wo_jit(wo_vm vm)
@@ -3797,11 +3802,11 @@ wo_bool_t wo_map_get_or_set(wo_value out_val, wo_value map, wo_value index, wo_v
 }
 
 wo_result_t wo_ret_map_get_or_set_do(
-    wo_vm vm, 
-    wo_value map, 
-    wo_value index, 
-    wo_value value_function, 
-    wo_value* inout_args_maynull, 
+    wo_vm vm,
+    wo_value map,
+    wo_value index,
+    wo_value value_function,
+    wo_value* inout_args_maynull,
     wo_value* inout_s_maynull)
 {
     wo::vmbase* vmbase = WO_VM(vm);
@@ -4209,12 +4214,17 @@ wo_bool_t wo_lock_weak_ref(wo_value out_val, wo_weak_ref ref)
 // LSP-API
 wo_size_t wo_lsp_get_compile_error_msg_count_from_vm(wo_vm vmm)
 {
-    return WO_VM(vmm)->compile_info->lex_error_list.size();
+    wo::vmbase* vm = WO_VM(vmm);
+
+    if (!vm->compile_info.has_value())
+        return 0;
+
+    return vm->compile_info.value()->lex_error_list.size();
 }
 
 wo_lsp_error_msg* wo_lsp_get_compile_error_msg_detail_from_vm(wo_vm vmm, wo_size_t index)
 {
-    auto id_err = WO_VM(vmm)->compile_info->lex_error_list.begin();
+    auto id_err = WO_VM(vmm)->compile_info.value()->lex_error_list.begin();
     std::advance(id_err, index);
 
     auto& err_detail = *id_err;
@@ -4223,9 +4233,9 @@ wo_lsp_error_msg* wo_lsp_get_compile_error_msg_detail_from_vm(wo_vm vmm, wo_size
 
     switch (err_detail.error_level)
     {
-    case wo::lexer::errorlevel::error: 
+    case wo::lexer::errorlevel::error:
         msg->m_level = wo_lsp_error_level::WO_LSP_ERROR; break;
-    case wo::lexer::errorlevel::infom: 
+    case wo::lexer::errorlevel::infom:
         msg->m_level = wo_lsp_error_level::WO_LSP_INFORMATION; break;
     default:
         wo_error("Unknown error level.");
@@ -4429,14 +4439,10 @@ void wo_ir_register_extern_function(
         wo::str_to_wstr(function_name));
 }
 
-void wo_load_ir_compiler_with_stacksz(wo_vm vm, wo_ir_compiler compiler, wo_size_t stacksz)
-{
-    auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
-
-    c->end();
-    WO_VM(vm)->set_runtime(c->finalize(stacksz));
-}
 void wo_load_ir_compiler(wo_vm vm, wo_ir_compiler compiler)
 {
-    wo_load_ir_compiler_with_stacksz(vm, compiler, wo::vmbase::VM_DEFAULT_STACK_SIZE);
+    auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
+    c->end();
+
+    WO_VM(vm)->set_runtime(c->finalize(wo::vmbase::VM_DEFAULT_STACK_SIZE));
 }

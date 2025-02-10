@@ -231,9 +231,6 @@ namespace wo
 
         } while (0);
 
-        if (compile_info)
-            delete compile_info;
-
         if (env)
             --env->_running_on_vm_count;
 

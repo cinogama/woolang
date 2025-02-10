@@ -58,7 +58,7 @@ namespace wo
         wo_pstring_t name,
         const std::optional<ast::AstDeclareAttribue*>& attr,
         std::optional<ast::AstBase*> symbol_declare_ast,
-        wo_pstring_t src_location,
+        const std::optional<ast::AstBase::source_location_t>& location,
         lang_Scope* scope,
         kind kind,
         bool mutable_variable)
@@ -66,10 +66,10 @@ namespace wo
         , m_is_template(false)
         , m_is_global(false)
         , m_name(name)
-        , m_defined_source(src_location)
         , m_declare_attribute(attr)
         , m_belongs_to_scope(scope)
         , m_symbol_declare_ast(symbol_declare_ast)
+        , m_symbol_declare_location(location)
         , m_is_builtin(false)
         , m_symbol_edge(0)
         , m_has_been_used(false)
@@ -94,7 +94,7 @@ namespace wo
         wo_pstring_t name,
         const std::optional<ast::AstDeclareAttribue*>& attr,
         std::optional<ast::AstBase*> symbol_declare_ast,
-        wo_pstring_t src_location,
+        const  std::optional<ast::AstBase::source_location_t>& location,
         lang_Scope* scope,
         ast::AstValueBase* template_value_base,
         const std::list<wo_pstring_t>& template_params,
@@ -103,10 +103,10 @@ namespace wo
         , m_is_template(true)
         , m_is_global(false)
         , m_name(name)
-        , m_defined_source(src_location)
         , m_declare_attribute(attr)
         , m_belongs_to_scope(scope)
         , m_symbol_declare_ast(symbol_declare_ast)
+        , m_symbol_declare_location(location)
         , m_is_builtin(false)
         , m_symbol_edge(0)
         , m_has_been_used(false)
@@ -118,7 +118,7 @@ namespace wo
         wo_pstring_t name,
         const std::optional<ast::AstDeclareAttribue*>& attr,
         std::optional<ast::AstBase*> symbol_declare_ast,
-        wo_pstring_t src_location,
+        const std::optional<ast::AstBase::source_location_t>& location,
         lang_Scope* scope,
         ast::AstTypeHolder* template_type_base,
         const std::list<wo_pstring_t>& template_params,
@@ -126,10 +126,10 @@ namespace wo
         : m_is_template(true)
         , m_is_global(false)
         , m_name(name)
-        , m_defined_source(src_location)
         , m_declare_attribute(attr)
         , m_belongs_to_scope(scope)
         , m_symbol_declare_ast(symbol_declare_ast)
+        , m_symbol_declare_location(location)
         , m_is_builtin(false)
         , m_symbol_edge(0)
         , m_has_been_used(false)
@@ -543,7 +543,13 @@ namespace wo
     //////////////////////////////////////
 
     lang_Scope::lang_Scope(const std::optional<lang_Scope*>& parent_scope, lang_Namespace* belongs)
-        : m_defined_symbols{}, m_sub_scopes{}, m_parent_scope(parent_scope), m_belongs_to_namespace(belongs), m_visibility_from_edge_for_template_check(0)
+        : m_defined_symbols{}
+        , m_sub_scopes{}
+        , m_parent_scope(parent_scope)
+        , m_function_instance(std::nullopt)
+        , m_scope_location(std::nullopt)
+        , m_belongs_to_namespace(belongs)
+        , m_visibility_from_edge_for_template_check(0)
     {
     }
 
@@ -1093,7 +1099,7 @@ namespace wo
                     name,
                     built_type_public_attrib,
                     std::nullopt,
-                    WO_PSTR(_),
+                    std::nullopt,
                     get_current_scope(),
                     lang_Symbol::kind::TYPE,
                     false)
@@ -1138,7 +1144,7 @@ namespace wo
                     name,
                     built_type_public_attrib,
                     std::nullopt,
-                    WO_PSTR(_),
+                    std::nullopt,
                     get_current_scope(),
                     lang_Symbol::kind::TYPE,
                     false)
@@ -1630,7 +1636,7 @@ namespace wo
 
     void LangContext::begin_new_function(ast::AstValueFunction* func_instance)
     {
-        begin_new_scope();
+        begin_new_scope(func_instance->source_location);
         get_current_scope()->m_function_instance = func_instance;
     }
     void LangContext::end_last_function()
@@ -1638,7 +1644,7 @@ namespace wo
         wo_assert(get_current_scope()->m_function_instance);
         end_last_scope();
     }
-    void LangContext::begin_new_scope()
+    void LangContext::begin_new_scope(const std::optional<ast::AstBase::source_location_t>& locations)
     {
         lang_Scope* current_scope = get_current_scope();
         auto new_scope = std::make_unique<lang_Scope>(
@@ -1646,6 +1652,7 @@ namespace wo
 
         new_scope->m_visibility_from_edge_for_template_check =
             m_created_symbol_edge;
+        new_scope->m_scope_location = locations;
 
         entry_spcify_scope(new_scope.get());
 
@@ -1995,7 +2002,6 @@ namespace wo
     }
 
     void LangContext::fast_create_one_template_type_alias_in_current_scope(
-        wo_pstring_t source_location,
         wo_pstring_t template_param,
         lang_TypeInstance* template_arg)
     {
@@ -2003,7 +2009,7 @@ namespace wo
             template_param,
             std::nullopt,
             std::nullopt,
-            source_location,
+            std::nullopt,
             get_current_scope(),
             lang_Symbol::kind::ALIAS,
             false).value();
@@ -2011,7 +2017,6 @@ namespace wo
         symbol->m_alias_instance->m_determined_type = template_arg;
     }
     void LangContext::fast_create_template_type_alias_in_current_scope(
-        wo_pstring_t source_location,
         const std::list<wo_pstring_t>& template_params,
         const std::list<lang_TypeInstance*>& template_args)
     {
@@ -2024,7 +2029,6 @@ namespace wo
         for (; params_iter != params_end; ++params_iter, ++args_iter)
         {
             fast_create_one_template_type_alias_in_current_scope(
-                source_location,
                 *params_iter,
                 *args_iter);
         }

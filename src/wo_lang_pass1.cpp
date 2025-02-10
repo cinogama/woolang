@@ -142,15 +142,23 @@ namespace wo
             break;
         }
         case AstDeclareAttribue::accessc_attrib::PRIVATE:
-            if (symbol_instance->m_defined_source == path)
+        {
+            if (!symbol_instance->m_symbol_declare_location.has_value())
+                // Builtin & compiler generated symbol is always reachable.
+                return true;
+
+            auto& location = symbol_instance->m_symbol_declare_location.value();
+
+            if (location.source_file == path)
                 return true;
 
             lex.lang_error(lexer::errorlevel::error, node,
                 WO_ERR_SYMBOL_IS_PRIVATE,
                 get_symbol_name_w(symbol_instance),
-                symbol_instance->m_defined_source->c_str());
+                location.source_file->c_str());
 
             break;
+        }
         default:
             wo_error("unknown access attribute");
             break;
@@ -204,14 +212,25 @@ namespace wo
             break;
         }
         case AstDeclareAttribue::accessc_attrib::PRIVATE:
-            if (struct_type_inst->m_defined_source == path)
+        {
+            if (!struct_type_inst->m_symbol_declare_location.has_value())
+                // Builtin & compiler generated symbol is always reachable.
+                return true;
+
+            auto& location = struct_type_inst->m_symbol_declare_location.value();
+
+            if (location.source_file == path)
                 return true;
 
             lex.lang_error(lexer::errorlevel::error, node,
                 WO_ERR_STRUCT_FIELD_IS_PRIVATE,
                 field_name,
-                struct_type_inst->m_defined_source->c_str());
+                location.source_file->c_str());
 
+            break;
+        }
+        default:
+            wo_error("unknown access attribute");
             break;
         }
 
@@ -305,7 +324,7 @@ namespace wo
                 entry_spcify_scope(node->m_LANG_determined_scope.value());
             else
             {
-                begin_new_scope();
+                begin_new_scope(node->source_location);
                 node->m_LANG_determined_scope = get_current_scope();
             }
 
@@ -434,7 +453,31 @@ namespace wo
     WO_PASS_PROCESSER(AstTypeHolder)
     {
         if (node->m_LANG_trying_advancing_type_judgement)
+        {
             end_last_scope(); // Leave temporary advance the processing of declaration nodes.
+
+            auto current_error_frame = lex.get_cur_error_frame();
+            lex.end_trying_block();
+
+            auto& last_error_frame = lex.get_cur_error_frame();
+
+            for (auto& errinform : current_error_frame)
+            {
+                // NOTE: Advanced judgement failed, only non-template will be here. 
+                // make sure report it into error list.
+
+                last_error_frame.push_back(errinform);
+
+                if (&last_error_frame != &lex.lex_error_list)
+                {
+                    auto& supper_error = lex.lex_error_list.emplace_back(errinform);
+                    if (supper_error.error_level == lexer::errorlevel::error)
+                        supper_error.depth = 0;
+                    else
+                        supper_error.depth = 1;
+                }
+            }
+        }
 
         if (state == UNPROCESSED)
         {
@@ -566,6 +609,9 @@ namespace wo
 
                                     wo_assert(!type_symbol->m_is_template
                                         && type_symbol->m_is_global);
+
+                                    // Capture all error happend in this block.
+                                    lex.begin_trying_block();
 
                                     // Immediately advance the processing of declaration nodes.
                                     entry_spcify_scope(type_symbol->m_belongs_to_scope);
@@ -740,7 +786,31 @@ namespace wo
     WO_PASS_PROCESSER(AstValueVariable)
     {
         if (node->m_LANG_trying_advancing_type_judgement)
+        {
             end_last_scope(); // Leave temporary advance the processing of declaration nodes.
+
+            auto current_error_frame = lex.get_cur_error_frame();
+            lex.end_trying_block();
+
+            auto& last_error_frame = lex.get_cur_error_frame();
+
+            for (auto& errinform : current_error_frame)
+            {
+                // NOTE: Advanced judgement failed, only non-template will be here. 
+                // make sure report it into error list.
+
+                last_error_frame.push_back(errinform);
+
+                if (&last_error_frame != &lex.lex_error_list)
+                {
+                    auto& supper_error = lex.lex_error_list.emplace_back(errinform);
+                    if (supper_error.error_level == lexer::errorlevel::error)
+                        supper_error.depth = 0;
+                    else
+                        supper_error.depth = 1;
+                }
+            }
+        }
 
         if (state == UNPROCESSED)
         {
@@ -845,6 +915,9 @@ namespace wo
 
                         wo_assert(!var_symbol->m_is_template
                             && var_symbol->m_is_global);
+
+                        // Capture all error happend in this block.
+                        lex.begin_trying_block();
 
                         // Type not determined, we need to determine it?
                         // NOTE: Immediately advance the processing of declaration nodes.
@@ -978,7 +1051,7 @@ namespace wo
                         node->m_typename,
                         node->m_attribute,
                         node,
-                        node->source_location.source_file,
+                        node->source_location,
                         get_current_scope(),
                         node->m_type,
                         node->m_template_parameters.value(),
@@ -988,7 +1061,7 @@ namespace wo
                         node->m_typename,
                         node->m_attribute,
                         node,
-                        node->source_location.source_file,
+                        node->source_location,
                         get_current_scope(),
                         lang_Symbol::kind::ALIAS,
                         false);
@@ -1030,7 +1103,7 @@ namespace wo
                         node->m_typename,
                         node->m_attribute,
                         node,
-                        node->source_location.source_file,
+                        node->source_location,
                         get_current_scope(),
                         node->m_type,
                         node->m_template_parameters.value(),
@@ -1040,7 +1113,7 @@ namespace wo
                         node->m_typename,
                         node->m_attribute,
                         node,
-                        node->source_location.source_file,
+                        node->source_location,
                         get_current_scope(),
                         lang_Symbol::kind::TYPE,
                         false);
@@ -1204,13 +1277,12 @@ namespace wo
 
             if (node->m_LANG_determined_template_arguments.has_value())
             {
-                begin_new_scope();
+                begin_new_scope(std::nullopt);
 
                 wo_assert(node->m_LANG_determined_template_arguments.value().size()
                     == node->m_pending_param_type_mark_template.value().size());
 
                 fast_create_template_type_alias_in_current_scope(
-                    node->source_location.source_file,
                     node->m_pending_param_type_mark_template.value(),
                     node->m_LANG_determined_template_arguments.value());
             }
@@ -1364,7 +1436,7 @@ namespace wo
                 else
                     return_value_type = m_origin_types.m_void.m_type_instance;
 
-                auto* function_instance = 
+                auto* function_instance =
                     node->m_LANG_belong_function_may_null_if_outside.value();
 
                 // Has marked return type?
@@ -2091,7 +2163,6 @@ namespace wo
             for (auto& [param_name, arg_type_inst] : node->m_deduction_results)
             {
                 fast_create_one_template_type_alias_in_current_scope(
-                    node->source_location.source_file,
                     param_name,
                     arg_type_inst);
 
@@ -2682,6 +2753,7 @@ namespace wo
                     bool entry_function_located_scope = false;
 
                     lang_Scope* target_function_scope;
+                    lang_Scope* current_scope = get_current_scope();
 
                     switch (node->m_function->node_type)
                     {
@@ -2734,7 +2806,7 @@ namespace wo
                     {
                         AstValueFunction* function = static_cast<AstValueFunction*>(node->m_function);
 
-                        target_function_scope = get_current_scope();
+                        target_function_scope = current_scope;
                         pending_template_params = function->m_pending_param_type_mark_template.value();
 
                         for (auto* template_param_declare : function->m_parameters)
@@ -2752,7 +2824,7 @@ namespace wo
                     auto it_argument_end = node->m_arguments.end();
 
                     entry_spcify_scope(target_function_scope);
-                    begin_new_scope();
+                    begin_new_scope(std::nullopt);
 
                     AstValueFunctionCall_FakeAstArgumentDeductionContextA* branch_a_context =
                         new AstValueFunctionCall_FakeAstArgumentDeductionContextA(
@@ -3203,19 +3275,29 @@ namespace wo
                     }
                 }
 
+                bool failed = false;
                 if (argument_types.size() < target_function_param_types.size()
                     && !expaned_array_or_vec)
                 {
                     lex.lang_error(lexer::errorlevel::error, node,
                         WO_ERR_ARGUMENT_TOO_LESS);
 
-                    return FAILED;
+                    failed = true; // FAILED;
                 }
                 else if (argument_types.size() > target_function_param_types.size()
                     && !node->m_LANG_invoking_variadic_function)
                 {
                     lex.lang_error(lexer::errorlevel::error, node,
                         WO_ERR_ARGUMENT_TOO_MUCH);
+
+                    failed = true; // FAILED;
+                }
+
+                if (failed)
+                {
+                    lex.lang_error(lexer::errorlevel::infom, node->m_function,
+                        WO_INFO_THIS_VALUE_IS_TYPE_NAMED,
+                        get_type_name_w(target_function_type_instance));
 
                     return FAILED;
                 }
@@ -3544,7 +3626,7 @@ namespace wo
                 entry_spcify_scope(symbol->m_belongs_to_scope);
 
                 // Begin new scope for template deduction.
-                begin_new_scope();
+                begin_new_scope(std::nullopt);
 
                 AstValueFunctionCall_FakeAstArgumentDeductionContextA* branch_a_context =
                     new AstValueFunctionCall_FakeAstArgumentDeductionContextA(
@@ -4688,7 +4770,7 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
-            begin_new_scope();
+            begin_new_scope(node->source_location);
 
             WO_CONTINUE_PROCESS(node->m_matched_value);
 
@@ -4863,7 +4945,7 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
-            begin_new_scope();
+            begin_new_scope(node->source_location);
 
             // Decalare pattern if contained.
             switch (node->m_pattern->node_type)
@@ -5013,7 +5095,7 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
-            begin_new_scope();
+            begin_new_scope(node->source_location);
 
             if (node->m_initial.has_value())
                 WO_CONTINUE_PROCESS(node->m_initial.value());

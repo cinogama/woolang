@@ -201,12 +201,12 @@ namespace wo
             if (!has_enter_specify_scope)
                 entry_spcify_scope(templating_symbol->m_belongs_to_scope);
 
-            begin_new_scope(); // Begin new scope for defining template type alias.
+            begin_new_scope(std::nullopt); // Begin new scope for defining template type alias.
 
             auto* current_scope = get_current_scope();
 
             fast_create_template_type_alias_in_current_scope(
-                templating_symbol->m_defined_source, *template_params, template_arguments);
+                *template_params, template_arguments);
 
             // ATTENTION: LIMIT TEMPLATE INSTANCE SYMBOL VISIBILITY!
             current_scope->m_visibility_from_edge_for_template_check =

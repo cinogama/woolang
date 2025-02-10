@@ -333,11 +333,12 @@ namespace wo
         bool                            m_is_template;
         bool                            m_is_global;
         wo_pstring_t                    m_name;
-        wo_pstring_t                    m_defined_source;
         std::optional<ast::AstDeclareAttribue*>
                                         m_declare_attribute;
         lang_Scope* m_belongs_to_scope;
         std::optional<ast::AstBase*>    m_symbol_declare_ast;
+        std::optional<ast::AstBase::source_location_t>
+                                        m_symbol_declare_location;
         bool                            m_is_builtin;
         size_t                          m_symbol_edge;
 
@@ -364,7 +365,7 @@ namespace wo
             wo_pstring_t name,
             const std::optional<ast::AstDeclareAttribue*>& attr,
             std::optional<ast::AstBase*> symbol_declare_ast,
-            wo_pstring_t src_location,
+            const std::optional<ast::AstBase::source_location_t>& location,
             lang_Scope* scope,
             kind kind,
             bool mutable_variable);
@@ -372,7 +373,7 @@ namespace wo
             wo_pstring_t name,
             const std::optional<ast::AstDeclareAttribue*>& attr,
             std::optional<ast::AstBase*> symbol_declare_ast,
-            wo_pstring_t src_location,
+            const std::optional<ast::AstBase::source_location_t>& location,
             lang_Scope* scope,
             ast::AstValueBase* template_value_base,
             const std::list<wo_pstring_t>& template_params,
@@ -381,7 +382,7 @@ namespace wo
             wo_pstring_t name,
             const std::optional<ast::AstDeclareAttribue*>& attr,
             std::optional<ast::AstBase*> symbol_declare_ast,
-            wo_pstring_t src_location,
+            const std::optional<ast::AstBase::source_location_t>& location,
             lang_Scope* scope,
             ast::AstTypeHolder* template_type_base,
             const std::list<wo_pstring_t>& template_params,
@@ -399,6 +400,8 @@ namespace wo
 
         std::optional<lang_Scope*> m_parent_scope;
         std::optional<ast::AstValueFunction*> m_function_instance;
+        std::optional<ast::AstBase::source_location_t> m_scope_location;
+
         lang_Namespace* m_belongs_to_namespace;
         size_t m_visibility_from_edge_for_template_check;
 
@@ -769,7 +772,7 @@ namespace wo
             m_value_name_cache;
 
         // Used for bytecode generation
-        BytecodeGenerateContext         m_ircontext;
+        BytecodeGenerateContext m_ircontext;
 
         static ProcessAstJobs* m_pass0_processers;
         static ProcessAstJobs* m_pass1_processers;
@@ -944,7 +947,7 @@ namespace wo
                 out_stack.push(AstNodeWithState(*it));
         }
 
-        void begin_new_scope();
+        void begin_new_scope(const std::optional<ast::AstBase::source_location_t>& location);
         void entry_spcify_scope(lang_Scope* scope);
         void end_last_scope();
 
@@ -971,7 +974,7 @@ namespace wo
             wo_pstring_t name,
             const std::optional<ast::AstDeclareAttribue*>& attr,
             std::optional<ast::AstBase*> symbol_declare_ast,
-            wo_pstring_t src_location,
+            const std::optional<ast::AstBase::source_location_t>& src_location,
             ArgTs&&...args)
         {
             auto* current_scope = get_current_scope();
@@ -1024,11 +1027,9 @@ namespace wo
         lang_TypeInstance* immutable_type(lang_TypeInstance* origin_type);
 
         void fast_create_one_template_type_alias_in_current_scope(
-            wo_pstring_t source_location,
             wo_pstring_t template_param,
             lang_TypeInstance* template_arg);
         void fast_create_template_type_alias_in_current_scope(
-            wo_pstring_t source_location,
             const std::list<wo_pstring_t>& template_params,
             const std::list<lang_TypeInstance*>& template_args);
 

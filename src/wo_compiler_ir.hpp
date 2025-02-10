@@ -545,8 +545,8 @@ namespace wo
         runtime_env& operator = (runtime_env&&) = delete;
 
         std::tuple<void*, size_t> create_env_binary(bool savepdi) noexcept;
-        static shared_pointer<runtime_env> _create_from_stream(binary_source_stream* stream, size_t stackcount, wo_string_t* out_reason, bool* out_is_binary);
-        static shared_pointer<runtime_env> load_create_env_from_binary(
+        static std::optional<shared_pointer<runtime_env>> _create_from_stream(binary_source_stream* stream, size_t stackcount, wo_string_t* out_reason, bool* out_is_binary);
+        static std::optional<shared_pointer<runtime_env>> load_create_env_from_binary(
             wo_string_t virtual_file,
             const void* bytestream,
             size_t streamsz,

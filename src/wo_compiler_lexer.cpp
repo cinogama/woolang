@@ -38,9 +38,9 @@ namespace wo
         if (peeked_flag)
         {
             return try_handle_macro(
-                out_literal, 
-                peek_result_type, 
-                peek_result_str, 
+                out_literal,
+                peek_result_type,
+                peek_result_str,
                 true);
         }
 
@@ -48,9 +48,9 @@ namespace wo
         {
             just_have_err = false;
             return try_handle_macro(
-                out_literal, 
-                temp_token_buff_stack.top().first, 
-                temp_token_buff_stack.top().second, 
+                out_literal,
+                temp_token_buff_stack.top().first,
+                temp_token_buff_stack.top().second,
                 true);
         }
 
@@ -123,7 +123,7 @@ namespace wo
 
         } while (result != L'\n' && result != EOF);
     }
-        
+
     int lexer::next_one()
     {
         int readed_ch = next_ch();
@@ -214,10 +214,10 @@ namespace wo
                         // We can use it directly.
                         wo_pstring_t result_content_vfile =
                             wstring_pool::get_pstr(
-                                L"woo/macro_" 
-                                + fnd->second->macro_name 
-                                + L"_result_" 
-                                + std::to_wstring((intptr_t)this) 
+                                L"woo/macro_"
+                                + fnd->second->macro_name
+                                + L"_result_"
+                                + std::to_wstring((intptr_t)this)
                                 + L".wo");
 
                         wo_assure(WO_TRUE == wo_virtual_source(
@@ -240,7 +240,7 @@ namespace wo
                         }
                         if (peeked_flag)
                         {
-                            lex_tokens.push_back({peek_result_type, peek_result_str});
+                            lex_tokens.push_back({ peek_result_type, peek_result_str });
                             peeked_flag = false;
                         }
                         if (tmp_lex.has_error())
@@ -1073,8 +1073,26 @@ namespace wo
                 if (this->used_macro_list == nullptr)
                     this->used_macro_list = std::make_shared<std::unordered_map<std::wstring, std::shared_ptr<macro>>>();
 
-                if (this->used_macro_list->find(p->macro_name) != this->used_macro_list->end())
+                if (auto fnd = this->used_macro_list->find(p->macro_name);
+                    fnd != this->used_macro_list->end())
+                {
                     lex_error(lexer::errorlevel::error, WO_ERR_UNKNOWN_REPEAT_MACRO_DEFINE, p->macro_name.c_str());
+                 
+                    wchar_t describe[256] = {};
+                    swprintf(describe, 255, WO_INFO_SYMBOL_NAMED_DEFINED_HERE, p->macro_name.c_str());
+                    error_impl(
+                        lex_error_msg{
+                            lexer::errorlevel::infom,
+                            fnd->second->begin_row,
+                            fnd->second->end_row,
+                            fnd->second->begin_col,
+                            fnd->second->end_col,
+                            describe,
+                            *fnd->second->filename,
+                            (size_t)1
+                        });
+                    
+                }
                 else
                     (*this->used_macro_list)[p->macro_name] = p;
 
@@ -1111,7 +1129,7 @@ namespace wo
                 // ATTENTION, SECURE:
                 //  Disable macro handler if source_file == nullptr, it's in deserialize.
                 //  Processing macros here may lead to arbitrary code execution.
-                if (peek_one() == L'!'&& source_file != nullptr)
+                if (peek_one() == L'!' && source_file != nullptr)
                 {
                     next_one();
                     return try_handle_macro(out_literal, lex_type::l_macro, read_result(), false);
@@ -1137,6 +1155,11 @@ namespace wo
 
     macro::macro(lexer& lex)
         : _macro_action_vm(nullptr)
+        , begin_row(lex.now_file_rowno)
+        , end_row(lex.next_file_rowno)
+        , begin_col(lex.now_file_colno)
+        , end_col(lex.next_file_colno)
+        , filename(lex.source_file)
     {
         /*
         #macro PRINT_HELLOWORLD

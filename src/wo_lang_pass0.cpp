@@ -27,7 +27,7 @@ namespace wo
                         single_pattern->m_name,
                         attribute,
                         var_defines,
-                        pattern->source_location.source_file,
+                        pattern->source_location,
                         get_current_scope(),
                         init_value_only_used_for_template_or_function.value(),
                         single_pattern->m_template_parameters.value(),
@@ -39,7 +39,7 @@ namespace wo
                         single_pattern->m_name,
                         attribute,
                         var_defines,
-                        pattern->source_location.source_file,
+                        pattern->source_location,
                         get_current_scope(),
                         lang_Symbol::kind::VARIABLE,
                         single_pattern->m_is_mutable);
@@ -159,7 +159,7 @@ namespace wo
         {
             wo_assert(!node->m_LANG_determined_scope);
 
-            begin_new_scope();
+            begin_new_scope(node->source_location);
             node->m_LANG_determined_scope = get_current_scope();
 
             WO_CONTINUE_PROCESS(node->m_body);
@@ -227,7 +227,7 @@ namespace wo
                 node->m_typename,
                 node->m_attribute,
                 node,
-                node->source_location.source_file,
+                node->source_location,
                 get_current_scope(),
                 node->m_type,
                 node->m_template_parameters.value(),
@@ -237,7 +237,7 @@ namespace wo
                 node->m_typename,
                 node->m_attribute,
                 node,
-                node->source_location.source_file,
+                node->source_location,
                 get_current_scope(),
                 lang_Symbol::kind::ALIAS,
                 false);
@@ -263,7 +263,7 @@ namespace wo
                 node->m_typename,
                 node->m_attribute,
                 node,
-                node->source_location.source_file,
+                node->source_location,
                 get_current_scope(),
                 node->m_type,
                 node->m_template_parameters.value(),
@@ -273,7 +273,7 @@ namespace wo
                 node->m_typename,
                 node->m_attribute,
                 node,
-                node->source_location.source_file,
+                node->source_location,
                 get_current_scope(),
                 lang_Symbol::kind::TYPE,
                 false);
