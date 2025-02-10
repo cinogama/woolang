@@ -16,6 +16,7 @@
 #include <sstream>
 #include <ctime>
 #include <chrono>
+#include <memory>
 
 #if WO_BUILD_WITH_MINGW
 #   include <mingw.thread.h>
@@ -219,7 +220,7 @@ namespace wo
 
         vmbase* gc_vm;
 
-        lexer* compile_info;
+        std::optional<std::unique_ptr<lexer>> compile_info;
 
         // next ircode pointer
         const byte_t* codes;

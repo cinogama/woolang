@@ -399,6 +399,7 @@ namespace wo
 
         std::optional<lang_Scope*> m_parent_scope;
         std::optional<ast::AstValueFunction*> m_function_instance;
+
         lang_Namespace* m_belongs_to_namespace;
         size_t m_visibility_from_edge_for_template_check;
 
@@ -769,7 +770,7 @@ namespace wo
             m_value_name_cache;
 
         // Used for bytecode generation
-        BytecodeGenerateContext         m_ircontext;
+        BytecodeGenerateContext m_ircontext;
 
         static ProcessAstJobs* m_pass0_processers;
         static ProcessAstJobs* m_pass1_processers;

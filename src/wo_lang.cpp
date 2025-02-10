@@ -543,7 +543,12 @@ namespace wo
     //////////////////////////////////////
 
     lang_Scope::lang_Scope(const std::optional<lang_Scope*>& parent_scope, lang_Namespace* belongs)
-        : m_defined_symbols{}, m_sub_scopes{}, m_parent_scope(parent_scope), m_belongs_to_namespace(belongs), m_visibility_from_edge_for_template_check(0)
+        : m_defined_symbols{}
+        , m_sub_scopes{}
+        , m_parent_scope(parent_scope)
+        , m_function_instance(std::nullopt)
+        , m_belongs_to_namespace(belongs)
+        , m_visibility_from_edge_for_template_check(0)
     {
     }
 

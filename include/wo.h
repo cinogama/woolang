@@ -437,9 +437,6 @@ WO_API void         wo_release_vm(wo_vm vm);
 
 WO_API wo_bool_t    wo_load_source(wo_vm vm, wo_string_t virtual_src_path, wo_string_t src);
 WO_API wo_bool_t    wo_load_file(wo_vm vm, wo_string_t virtual_src_path);
-WO_API wo_bool_t    wo_load_source_with_stacksz(wo_vm vm, wo_string_t virtual_src_path, wo_string_t src, wo_size_t stacksz);
-WO_API wo_bool_t    wo_load_file_with_stacksz(wo_vm vm, wo_string_t virtual_src_path, wo_size_t stacksz);
-WO_API wo_bool_t    wo_load_binary_with_stacksz(wo_vm vm, wo_string_t virtual_src_path, const void* buffer, wo_size_t length, wo_size_t stacksz);
 WO_API wo_bool_t    wo_load_binary(wo_vm vm, wo_string_t virtual_src_path, const void* buffer, wo_size_t length);
 
 // NOTE: wo_dump_binary must invoke before wo_run.
@@ -641,11 +638,24 @@ typedef struct _wo_lsp_error_msg
     wo_size_t           m_begin_location[2];       // An array stores row & col
     wo_size_t           m_end_location[2];         // An array stores row & col
 
-}wo_lsp_error_msg;
+} wo_lsp_error_msg;
 
+// LSPv1 API (IN OBSOLETE)
 WO_API wo_size_t            wo_lsp_get_compile_error_msg_count_from_vm(wo_vm vmm);
 WO_API wo_lsp_error_msg*    wo_lsp_get_compile_error_msg_detail_from_vm(wo_vm vmm, wo_size_t index);
 WO_API void                 wo_lsp_free_compile_error_msg(wo_lsp_error_msg* msg);
+
+// LSPv2 API
+typedef struct _wo_lspv2_source_meta wo_lspv2_source_meta;
+typedef struct _wo_lspv2_scope_iter wo_lspv2_scope_iter;
+
+WO_API wo_lspv2_source_meta* wo_lspv2_compile_to_meta(
+    wo_string_t virtual_src_path, 
+    wo_string_t src);
+WO_API void wo_lspv2_free_meta_v2(wo_lspv2_source_meta* meta);
+
+WO_API wo_lspv2_scope_iter* wo_lspv2_meta_get_global_sub_iter(wo_lspv2_source_meta* meta);
+WO_API wo_lspv2_scope_iter* wo_lspv2_scope_sub_iter(wo_lspv2_scope_iter* iter);
 
 #endif
 
@@ -1170,7 +1180,6 @@ WO_API void wo_ir_immu16(wo_ir_compiler compiler, uint16_t val);
 WO_API void wo_ir_immu32(wo_ir_compiler compiler, uint32_t val);
 WO_API void wo_ir_immu64(wo_ir_compiler compiler, uint64_t val);
 
-WO_API void wo_load_ir_compiler_with_stacksz(wo_vm vm, wo_ir_compiler compiler, wo_size_t stacksz);
 WO_API void wo_load_ir_compiler(wo_vm vm, wo_ir_compiler compiler);
 
 #endif

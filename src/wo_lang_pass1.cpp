@@ -3203,19 +3203,29 @@ namespace wo
                     }
                 }
 
+                bool failed = false;
                 if (argument_types.size() < target_function_param_types.size()
                     && !expaned_array_or_vec)
                 {
                     lex.lang_error(lexer::errorlevel::error, node,
                         WO_ERR_ARGUMENT_TOO_LESS);
 
-                    return FAILED;
+                    failed = true; // FAILED;
                 }
                 else if (argument_types.size() > target_function_param_types.size()
                     && !node->m_LANG_invoking_variadic_function)
                 {
                     lex.lang_error(lexer::errorlevel::error, node,
                         WO_ERR_ARGUMENT_TOO_MUCH);
+
+                    failed = true; // FAILED;
+                }
+
+                if (failed)
+                {
+                    lex.lang_error(lexer::errorlevel::infom, node->m_function,
+                        WO_INFO_THIS_VALUE_IS_TYPE_NAMED,
+                        get_type_name_w(target_function_type_instance));
 
                     return FAILED;
                 }

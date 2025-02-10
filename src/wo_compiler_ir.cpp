@@ -732,11 +732,12 @@ namespace wo
         return std::make_tuple(finalbinary, binary_buffer.size());
     }
 
-    shared_pointer<runtime_env> runtime_env::_create_from_stream(binary_source_stream* stream, size_t stackcount, wo_string_t* out_reason, bool* out_is_binary)
+    std::optional<shared_pointer<runtime_env>> runtime_env::_create_from_stream(
+        binary_source_stream* stream, size_t stackcount, wo_string_t* out_reason, bool* out_is_binary)
     {
         *out_is_binary = true;
 
-#define WO_LOAD_BIN_FAILED(reason) do{*out_reason = reason; return nullptr;}while(0)
+#define WO_LOAD_BIN_FAILED(reason) do{*out_reason = reason; return std::nullopt;}while(0)
         // 1.1 (+0) Magic number(0x3001A26B look like WOOLANG B)
         uint32_t magic_number;
         if (!stream->read_elem(&magic_number) || magic_number != (uint32_t)0x3001A26B)
@@ -1305,7 +1306,7 @@ namespace wo
 #undef WO_LOAD_BIN_FAILED
     }
 
-    shared_pointer<runtime_env> runtime_env::load_create_env_from_binary(
+    std::optional<shared_pointer<runtime_env>> runtime_env::load_create_env_from_binary(
         wo_string_t virtual_file,
         const void* bytestream,
         size_t streamsz,
