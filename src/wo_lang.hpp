@@ -983,6 +983,9 @@ namespace wo
                 // Already defined.
                 return std::nullopt;
 
+            wo_assert(!src_location.has_value() 
+                || src_location.value().source_file != nullptr);
+
             auto new_symbol = std::make_unique<lang_Symbol>(
                 name, attr, symbol_declare_ast, src_location, std::forward<ArgTs>(args)...);
             new_symbol->m_symbol_edge = ++m_created_symbol_edge;

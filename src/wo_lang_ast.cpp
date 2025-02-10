@@ -2003,8 +2003,9 @@ namespace wo
                     auto* union_creator_make_union = new AstValueMakeUnion(current_item_index, union_creator_value);
                     auto* union_creator_return = new AstReturn(union_creator_make_union);
 
+                    auto* union_creator_param_pattern = new AstPatternSingle(false, WO_PSTR(_val), std::nullopt);
                     auto* union_creator_param_decl = new AstFunctionParameterDeclare(
-                        new AstPatternSingle(false, WO_PSTR(_val), std::nullopt),
+                        union_creator_param_pattern,
                         creator_param_type);
                     auto* union_creator_function = new AstValueFunction(
                         { union_creator_param_decl },
@@ -2024,6 +2025,7 @@ namespace wo
                     union_creator_value->source_location = item->source_location;
                     union_creator_make_union->source_location = item->source_location;
                     union_creator_return->source_location = item->source_location;
+                    union_creator_param_pattern->source_location = item->source_location;
                     union_creator_param_decl->source_location = item->source_location;
                     union_creator_function->source_location = item->source_location;
                     union_creator_pattern->source_location = item->source_location;
