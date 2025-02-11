@@ -707,7 +707,7 @@ WO_API wo_lspv2_error_info* /* null if end */
 WO_API void wo_lspv2_err_info_free(wo_lspv2_error_info* info);
 
 // Scope API
-WO_API wo_lspv2_scope* wo_lspv2_meta_get_global_scope(wo_lspv2_source_meta* meta);
+WO_API wo_lspv2_scope* /* null if pass1 failed */ wo_lspv2_meta_get_global_scope(wo_lspv2_source_meta* meta);
 WO_API wo_lspv2_scope_iter* wo_lspv2_scope_sub_scope_iter(wo_lspv2_scope* scope);
 WO_API wo_lspv2_scope* /* null if end */ wo_lspv2_scope_sub_scope_next(wo_lspv2_scope_iter* iter);
 WO_API void wo_lspv2_scope_free(wo_lspv2_scope* scope);

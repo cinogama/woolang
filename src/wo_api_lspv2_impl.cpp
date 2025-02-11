@@ -8,7 +8,7 @@ bool _wo_compile_impl(
     const void* src,
     size_t      len,
     std::optional<wo::shared_pointer<wo::runtime_env>>* out_env_if_success,
-    std::optional<std::unique_ptr<wo::LangContext>>* out_langcontext_if_success_and_not_binary,
+    std::optional<std::unique_ptr<wo::LangContext>>* out_langcontext_if_passed_pass1,
     std::optional<std::unique_ptr<wo::lexer>>* out_lexer_if_failed);
 
 static_assert(WO_NEED_LSP_API);
@@ -16,7 +16,7 @@ static_assert(WO_NEED_LSP_API);
 struct _wo_lspv2_source_meta
 {
     std::optional<wo::shared_pointer<wo::runtime_env>> m_env_if_success;
-    std::optional<std::unique_ptr<wo::LangContext>> m_langcontext_if_success_and_not_binary;
+    std::optional<std::unique_ptr<wo::LangContext>> m_langcontext_if_passed_pass1;
     std::optional<std::unique_ptr<wo::lexer>> m_lexer_if_failed;
 };
 
@@ -27,7 +27,6 @@ const char* _wo_strdup(const char* str)
     memcpy(new_str, str, len);
     new_str[len] = '\0';
     return new_str;
-
 }
 
 wo_lspv2_source_meta* wo_lspv2_compile_to_meta(
@@ -42,7 +41,7 @@ wo_lspv2_source_meta* wo_lspv2_compile_to_meta(
         src,
         src == nullptr ? 0 : strlen(src),
         &meta->m_env_if_success,
-        &meta->m_langcontext_if_success_and_not_binary,
+        &meta->m_langcontext_if_passed_pass1,
         &meta->m_lexer_if_failed);
 
     return meta;
@@ -121,11 +120,11 @@ struct _wo_lspv2_scope_iter
 
 wo_lspv2_scope* wo_lspv2_meta_get_global_scope(wo_lspv2_source_meta* meta)
 {
-    if (!meta->m_langcontext_if_success_and_not_binary.has_value())
-        abort();
+    if (!meta->m_langcontext_if_passed_pass1.has_value())
+        return nullptr;
 
     return new wo_lspv2_scope{
-        meta->m_langcontext_if_success_and_not_binary.value()->
+        meta->m_langcontext_if_passed_pass1.value()->
             m_root_namespace->m_this_scope.get(),
     };
 }

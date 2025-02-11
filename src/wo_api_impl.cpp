@@ -2655,14 +2655,13 @@ bool _wo_compile_impl(
     const void* src,
     size_t      len,
     std::optional<wo::shared_pointer<wo::runtime_env>>* out_env_if_success,
-    std::optional<std::unique_ptr<wo::LangContext>>* out_langcontext_if_success_and_not_binary,
+    std::optional<std::unique_ptr<wo::LangContext>>* out_langcontext_if_passed_pass1,
     std::optional<std::unique_ptr<wo::lexer>>* out_lexer_if_failed)
 {
     // 0. Try load binary
     const char* load_binary_failed_reason = nullptr;
     bool is_valid_binary = false;
 
-    std::optional<std::unique_ptr<wo::LangContext>> compile_lang_context = std::nullopt;
     std::optional<wo::shared_pointer<wo::runtime_env>> compile_env_result =
         wo::runtime_env::load_create_env_from_binary(
             virtual_src_path, src, len, wo::vmbase::VM_DEFAULT_STACK_SIZE,
@@ -2732,6 +2731,7 @@ bool _wo_compile_impl(
 #ifndef WO_DISABLE_COMPILER
             std::forward_list<wo::ast::AstBase*> m_last_context;
             bool need_exchange_back = wo::ast::AstBase::exchange_this_thread_ast(m_last_context);
+
             if (!compile_lexer->has_error())
             {
                 // 2. Lexer will create ast_tree;
@@ -2748,7 +2748,8 @@ bool _wo_compile_impl(
                             lang_context->m_ircontext.c().finalize(
                                 wo::vmbase::VM_DEFAULT_STACK_SIZE));
 
-                        compile_lang_context = std::move(lang_context);
+                        if (out_langcontext_if_passed_pass1 != nullptr)
+                            *out_langcontext_if_passed_pass1 = std::move(lang_context);
                     }
                 }
             }
@@ -2768,9 +2769,6 @@ bool _wo_compile_impl(
         // Success
         if (out_env_if_success != nullptr)
             *out_env_if_success = std::move(compile_env_result.value());
-
-        if (out_langcontext_if_success_and_not_binary != nullptr)
-            *out_langcontext_if_success_and_not_binary = std::move(compile_lang_context);
 
         return true;
     }
