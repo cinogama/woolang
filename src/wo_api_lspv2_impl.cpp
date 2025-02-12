@@ -66,24 +66,27 @@ wo_lspv2_source_meta* wo_lspv2_compile_to_meta(
     if (need_exchange_back)
         wo::ast::AstBase::exchange_this_thread_ast(old_ast_list);
 
-    for (auto* ast_base_instance : meta->m_origin_astbase_list)
+    if (meta->m_langcontext_if_passed_pass1.has_value())
     {
-        if (ast_base_instance->node_type < wo::ast::AstBase::node_type_t::AST_VALUE_begin
-            || ast_base_instance->node_type >= wo::ast::AstBase::node_type_t::AST_VALUE_end)
-            continue;
-
-        wo::ast::AstValueBase* ast_value =
-            static_cast<wo::ast::AstValueBase*>(ast_base_instance);
-
-        if (ast_base_instance->source_location.source_file != nullptr
-            && ast_value->m_LANG_determined_type.has_value())
+        for (auto* ast_base_instance : meta->m_origin_astbase_list)
         {
-            auto& record =
-                meta->m_source_expr_collection[
-                    ast_base_instance->source_location.source_file];
+            if (ast_base_instance->node_type < wo::ast::AstBase::node_type_t::AST_VALUE_begin
+                || ast_base_instance->node_type >= wo::ast::AstBase::node_type_t::AST_VALUE_end)
+                continue;
 
-            record[ast_base_instance->source_location.begin_at].insert(
-                std::make_pair(ast_base_instance->source_location.end_at, ast_value));
+            wo::ast::AstValueBase* ast_value =
+                static_cast<wo::ast::AstValueBase*>(ast_base_instance);
+
+            if (ast_base_instance->source_location.source_file != nullptr
+                && ast_value->m_LANG_determined_type.has_value())
+            {
+                auto& record =
+                    meta->m_source_expr_collection[
+                        ast_base_instance->source_location.source_file];
+
+                record[ast_base_instance->source_location.begin_at].insert(
+                    std::make_pair(ast_base_instance->source_location.end_at, ast_value));
+            }
         }
     }
     return meta;
@@ -466,23 +469,31 @@ wo_lspv2_expr_iter* /* null if not found */ wo_lspv2_expr_collection_get_by_rang
     wo_size_t end_row,
     wo_size_t end_col)
 {
-    wo::ast::AstBase::location_t begin_location{ begin_row, begin_col - 1 };
-    wo::ast::AstBase::location_t end_location{ begin_row, begin_col };
+    wo::ast::AstBase::location_t begin_location{ begin_row, begin_col };
+    wo::ast::AstBase::location_t end_location{ end_row, end_col };
 
     auto begin_iter =
         collection->m_expr_collection->begin();
+    auto upper_bound_iter =
+        collection->m_expr_collection->upper_bound(begin_location);
+
+    if (upper_bound_iter == begin_iter)
+        return nullptr;
 
     return new wo_lspv2_expr_iter{
         begin_location,
         end_location,
         begin_iter,
-        collection->m_expr_collection->upper_bound(begin_location),
+        upper_bound_iter,
         begin_iter->second.lower_bound(wo::ast::AstBase::location_t{ end_row, end_col }),
         begin_iter->second.end(),
     };
 }
 WO_API wo_lspv2_expr* /* null if end */ wo_lspv2_expr_next(wo_lspv2_expr_iter* iter)
 {
+    if (iter == nullptr)
+        return nullptr;
+
     if (iter->m_current == iter->m_end)
     {
         for (;;)
@@ -570,7 +581,7 @@ void wo_lspv2_type_info_free(wo_lspv2_type_info* info)
     {
         for (size_t i = 0; i < info->m_template_arguments_count; i++)
             delete info->m_template_arguments[i];
-        
+
         free((void*)info->m_template_arguments);
     }
     delete info;

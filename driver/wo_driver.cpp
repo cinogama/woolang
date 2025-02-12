@@ -1,5 +1,3 @@
-#define WO_NEED_LSP_API 1
-
 #include "wo.h"
 
 #include <cstdio>
@@ -13,48 +11,75 @@ int main(int argc, char** argv)
 
     int ret = 0;
 
-    auto* meta = wo_lspv2_compile_to_meta("test.wo", nullptr);
+    if (argc >= 2)
     {
-        auto* iter = wo_lspv2_meta_expr_collection_iter(meta);
-        for (;;)
+        wo_vm vmm = wo_create_vm();
+        bool compile_successful_flag = wo_load_file(vmm, argv[1]);
+
+        if (compile_successful_flag)
         {
-            auto* expr_collect = wo_lspv2_expr_collection_next(iter);
-            if (expr_collect == nullptr)
-                break;
+            wo_value    return_state = nullptr;
 
-            auto* expr_collect_info = wo_lspv2_expr_collection_get_info(expr_collect);
+            const char* out_binary_path = nullptr;
+            bool        out_binary_file_ok = false;
+
+            for (int i = 0; i < argc - 1; ++i)
             {
-                printf("%s\n", expr_collect_info->m_file_name);
-
-                if (strcmp("D:/Cinogama/woolang/msvc/driver/test.wo", expr_collect_info->m_file_name) == 0)
+                if (strcmp(argv[i], "-o") == 0)
+                    out_binary_path = argv[i + 1];
+            }
+            if (out_binary_path == nullptr)
+            {
+                wo_jit(vmm);
+                return_state = wo_run(vmm);
+            }
+            else
+            {
+                if (FILE* out_binary_file = fopen(out_binary_path, "wb"))
                 {
-                    auto* expr_iter = wo_lspv2_expr_collection_get_by_range(expr_collect, 6, 11, 6, 12);
-                    for (;;)
-                    {
-                        auto* expr = wo_lspv2_expr_next(expr_iter);
-                        if (expr == nullptr)
-                            break;
+                    size_t binary_len = 0;
+                    void* binary_buf = wo_dump_binary(vmm, true, &binary_len);
 
-                        auto* expr_info = wo_lspv2_expr_get_info(expr);
-                        {
-                            auto* type_info = wo_lspv2_type_get_info(expr_info->m_type, meta);
-                            {
-                                printf("  %s\n", type_info->m_name);
-                            }
-                            wo_lspv2_type_info_free(type_info);
-                        }
-                        wo_lspv2_expr_info_free(expr_info);
+                    if (fwrite(binary_buf, sizeof(char), binary_len, out_binary_file) == binary_len)
+                        out_binary_file_ok = true;
 
-                        wo_lspv2_expr_free(expr);
-                    }
+                    fclose(out_binary_file);
+                    wo_free_binary(binary_buf);
                 }
             }
-            wo_lspv2_expr_collection_info_free(expr_collect_info);
 
-            wo_lspv2_expr_collection_free(expr_collect);
+            if (return_state != nullptr)
+            {
+                if (wo_valuetype(return_state) == WO_INTEGER_TYPE)
+                    ret = (int)wo_cast_int(return_state);
+                else
+                    ret = 0;
+            }
+            else if (out_binary_path != nullptr)
+            {
+                if (out_binary_file_ok)
+                    ret = 0;
+                else
+                    ret = errno;
+            }
+            else
+                ret = -1;
         }
+        else
+        {
+            std::cerr << wo_get_compile_error(vmm, WO_DEFAULT) << std::endl;
+            ret = -2;
+        }
+
+        wo_close_vm(vmm);
     }
-    wo_lspv2_free_meta(meta);
+    else
+    {
+        std::cout << "Woolang (C) Cinogama project. 2021." << std::endl;
+        std::cout << "Version: " << wo_version() << std::endl;
+        std::cout << "Commit: " << wo_commit_sha() << std::endl;
+        std::cout << "Date: " << wo_compile_date() << std::endl;
+    }
 
     wo_finish(nullptr, nullptr);
 
