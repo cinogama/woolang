@@ -624,6 +624,7 @@ namespace wo
             pass_behavior m_state;
             ast::AstBase* m_ast_node;
 #ifndef NDEBUG
+            size_t m_lex_error_frame_count;
             size_t m_debug_scope_layer_count;
             lang_Scope* m_debug_entry_scope;
             size_t m_debug_ir_eval_content;

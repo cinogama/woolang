@@ -395,7 +395,7 @@ namespace wo
                     for (wchar_t wch : _operator)
                         _result.insert(wch);
                 return _result;
-            }();
+                }();
             return operator_char_set.find((wchar_t)ch) != operator_char_set.end();
         }
         static bool lex_isspace(int ch)
@@ -523,6 +523,10 @@ namespace wo
                 return lex_error_list;
             return error_frame.back();
         }
+        size_t get_error_frame_count()const
+        {
+            return error_frame.size();
+        }
 
         lex_type error_impl(const lex_error_msg& msg)
         {
@@ -532,7 +536,8 @@ namespace wo
                 return lex_type::l_error;
 
             just_have_err = true;
-            current_err_frame.emplace_back(msg);
+            current_err_frame.emplace_back(msg).depth =
+                error_frame.size() + (msg.error_level == errorlevel::error ? (size_t)0 : (size_t)1);
             return lex_type::l_error;
         }
 
@@ -574,7 +579,7 @@ namespace wo
                     next_file_colno,
                     describe,
                     source_file ? *source_file : L"json",
-                    errorlevel == errorlevel::error ? (size_t)0 : (size_t)1
+                    0,
                 });
             skip_error_line();
             return result;
@@ -594,7 +599,7 @@ namespace wo
                     next_file_colno,
                     describe,
                     *source_file,
-                   errorlevel == errorlevel::error ? (size_t)0 : (size_t)1
+                    0,
                 });
         }
         template<typename AstT, typename ... TS>
@@ -606,15 +611,16 @@ namespace wo
             wchar_t describe[256] = {};
             swprintf(describe, 255, fmt, args...);
 
-            return error_impl(lex_error_msg{
-                errorlevel,
-                tree_node->source_location.begin_at.row,
-                tree_node->source_location.end_at.row,
-                tree_node->source_location.begin_at.column,
-                tree_node->source_location.end_at.column,
-                describe,
-                *tree_node->source_location.source_file,
-                error_frame.size() + (errorlevel == errorlevel::error ? (size_t)0 : (size_t)1),
+            return error_impl(
+                lex_error_msg{
+                    errorlevel,
+                    tree_node->source_location.begin_at.row,
+                    tree_node->source_location.end_at.row,
+                    tree_node->source_location.begin_at.column,
+                    tree_node->source_location.end_at.column,
+                    describe,
+                    *tree_node->source_location.source_file,
+                    0,
                 });
         }
 
