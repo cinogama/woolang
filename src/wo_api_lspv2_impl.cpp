@@ -69,7 +69,7 @@ wo_lspv2_source_meta* wo_lspv2_compile_to_meta(
     for (auto* ast_base_instance : meta->m_origin_astbase_list)
     {
         if (ast_base_instance->node_type < wo::ast::AstBase::node_type_t::AST_VALUE_begin
-            && ast_base_instance->node_type >= wo::ast::AstBase::node_type_t::AST_VALUE_end)
+            || ast_base_instance->node_type >= wo::ast::AstBase::node_type_t::AST_VALUE_end)
             continue;
 
         wo::ast::AstValueBase* ast_value =
@@ -436,9 +436,10 @@ wo_lspv2_expr_collection* /* null if end */ wo_lspv2_expr_collection_next(
     }
     else
     {
+        auto collect_iter = iter->m_current++;
         return new wo_lspv2_expr_collection{
-            iter->m_current->first,
-            &iter->m_current->second,
+            collect_iter->first,
+            & collect_iter->second,
         };
     }
 }
@@ -465,7 +466,7 @@ wo_lspv2_expr_iter* /* null if not found */ wo_lspv2_expr_collection_get_by_rang
     wo_size_t end_row,
     wo_size_t end_col)
 {
-    wo::ast::AstBase::location_t begin_location{ begin_row, begin_col };
+    wo::ast::AstBase::location_t begin_location{ begin_row, begin_col - 1 };
     wo::ast::AstBase::location_t end_location{ begin_row, begin_col };
 
     auto begin_iter =
@@ -495,15 +496,14 @@ WO_API wo_lspv2_expr* /* null if end */ wo_lspv2_expr_next(wo_lspv2_expr_iter* i
 
             iter->m_current = iter->m_current_collection->second.lower_bound(
                 iter->m_begin_location);
-
-            if (iter->m_current == iter->m_end)
-                continue;
-
             iter->m_end = iter->m_current_collection->second.end();
+
+            if (iter->m_current != iter->m_end)
+                break;
         }
     }
 
-    auto* result = new wo_lspv2_expr{
+    return new wo_lspv2_expr{
         (iter->m_current++)->second,
     };
 }
@@ -556,6 +556,8 @@ wo_lspv2_type_info* wo_lspv2_type_get_info(
             };
         }
     }
+
+    return result;
 }
 void wo_lspv2_type_info_free(wo_lspv2_type_info* info)
 {
