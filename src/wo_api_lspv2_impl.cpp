@@ -91,7 +91,7 @@ wo_lspv2_source_meta* wo_lspv2_compile_to_meta(
     }
     return meta;
 }
-void wo_lspv2_free_meta(wo_lspv2_source_meta* meta)
+void wo_lspv2_meta_free(wo_lspv2_source_meta* meta)
 {
     if (!meta->m_origin_astbase_list.empty())
     {
