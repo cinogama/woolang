@@ -647,9 +647,9 @@ WO_API void                 wo_lsp_free_compile_error_msg(wo_lsp_error_msg* msg)
 
 // LSPv2 API
 typedef struct _wo_lspv2_location {
-    const char* m_file_name;
-    wo_size_t m_begin_location[2];       // An array stores row & col
-    wo_size_t m_end_location[2];         // An array stores row & col
+    const char*     m_file_name;
+    wo_size_t       m_begin_location[2];       // An array stores row & col
+    wo_size_t       m_end_location[2];         // An array stores row & col
 } wo_lspv2_location;
 
 typedef struct _wo_lspv2_source_meta wo_lspv2_source_meta;
@@ -657,8 +657,6 @@ typedef struct _wo_lspv2_scope wo_lspv2_scope;
 typedef struct _wo_lspv2_scope_iter wo_lspv2_scope_iter;
 typedef struct _wo_lspv2_symbol wo_lspv2_symbol;
 typedef struct _wo_lspv2_symbol_iter wo_lspv2_symbol_iter;
-
-typedef struct _wo_lspv2_type wo_lspv2_type;
 
 typedef struct _wo_lspv2_scope_info
 {
@@ -695,15 +693,36 @@ typedef struct _wo_lspv2_error_info
 
 }wo_lspv2_error_info;
 
+typedef struct _wo_lspv2_expr_collection_iter wo_lspv2_expr_collection_iter;
+typedef struct _wo_lspv2_expr_collection wo_lspv2_expr_collection;
+typedef struct _wo_lspv2_expr_collection_info {
+    const char*         m_file_name;
+}wo_lspv2_expr_collection_info;
+
+typedef struct _wo_lspv2_type wo_lspv2_type;
+typedef struct _wo_lspv2_type_info {
+    const char*         m_name;
+    wo_lspv2_symbol*    m_type_symbol;
+    size_t              m_template_arguments_count;
+    wo_lspv2_type**     m_template_arguments;
+} wo_lspv2_type_info;
+
+typedef struct _wo_lspv2_expr_iter wo_lspv2_expr_iter;
+typedef struct _wo_lspv2_expr wo_lspv2_expr;
+typedef struct _wo_lspv2_expr_info {
+    wo_lspv2_type*      m_type;
+    wo_lspv2_location   m_location;
+} wo_lspv2_expr_info;
+
 WO_API wo_lspv2_source_meta* wo_lspv2_compile_to_meta(
     wo_string_t virtual_src_path,
     wo_string_t src);
 WO_API void wo_lspv2_free_meta(wo_lspv2_source_meta* meta);
 
 WO_API wo_lspv2_error_iter* /* null if not exist */
-    wo_lspv2_compile_err_iter(wo_lspv2_source_meta* meta);
-WO_API wo_lspv2_error_info* /* null if end */ 
-    wo_lspv2_compile_err_next(wo_lspv2_error_iter* iter);
+wo_lspv2_compile_err_iter(wo_lspv2_source_meta* meta);
+WO_API wo_lspv2_error_info* /* null if end */
+wo_lspv2_compile_err_next(wo_lspv2_error_iter* iter);
 WO_API void wo_lspv2_err_info_free(wo_lspv2_error_info* info);
 
 // Scope API
@@ -720,6 +739,31 @@ WO_API wo_lspv2_symbol* /* null if end */ wo_lspv2_scope_symbol_next(wo_lspv2_sy
 WO_API void wo_lspv2_symbol_free(wo_lspv2_symbol* symbol);
 WO_API wo_lspv2_symbol_info* wo_lspv2_symbol_get_info(wo_lspv2_symbol* symbol);
 WO_API void wo_lspv2_symbol_info_free(wo_lspv2_symbol_info* info);
+
+// Expr API
+WO_API wo_lspv2_expr_collection_iter* wo_lspv2_meta_expr_collection_iter(
+    wo_lspv2_source_meta* meta);
+WO_API wo_lspv2_expr_collection* /* null if end */ wo_lspv2_expr_collection_next(
+    wo_lspv2_expr_collection_iter* iter);
+WO_API void wo_lspv2_expr_collection_free(wo_lspv2_expr_collection* collection);
+WO_API wo_lspv2_expr_collection_info* wo_lspv2_expr_collection_get_info(
+    wo_lspv2_expr_collection* collection);
+WO_API void wo_lspv2_expr_collection_info_free(wo_lspv2_expr_collection_info* collection);
+WO_API wo_lspv2_expr_iter* /* null if not found */ wo_lspv2_expr_collection_get_by_range(
+    wo_lspv2_expr_collection* collection,
+    wo_size_t begin_row,
+    wo_size_t begin_col,
+    wo_size_t end_row,
+    wo_size_t end_col);
+WO_API wo_lspv2_expr* /* null if end */ wo_lspv2_expr_next(wo_lspv2_expr_iter* iter);
+WO_API void wo_lspv2_expr_free(wo_lspv2_expr* expr);
+WO_API wo_lspv2_expr_info* wo_lspv2_expr_get_info(wo_lspv2_expr* expr);
+WO_API void wo_lspv2_expr_info_free(wo_lspv2_expr_info*);
+
+// Type API
+WO_API wo_lspv2_type_info* wo_lspv2_type_get_info(
+    wo_lspv2_type* type, wo_lspv2_source_meta* meta);
+WO_API void wo_lspv2_type_info_free(wo_lspv2_type_info* info);
 
 #endif
 
