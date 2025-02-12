@@ -603,6 +603,12 @@ namespace wo
 
     struct LangContext
     {
+        enum class process_result
+        {
+            PROCESS_OK,
+            PROCESS_FAILED,
+            PROCESS_FAILED_BUT_PASS_1_OK,
+        };
         // Symbol & definition.
         enum pass_behavior
         {
@@ -794,7 +800,7 @@ namespace wo
 
         void pass_0_5_register_builtin_types();
 
-        bool process(lexer& lex, ast::AstBase* root);
+        process_result process(lexer& lex, ast::AstBase* root);
 
         //////////////////////////////////////
 

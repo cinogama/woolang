@@ -2655,14 +2655,13 @@ bool _wo_compile_impl(
     const void* src,
     size_t      len,
     std::optional<wo::shared_pointer<wo::runtime_env>>* out_env_if_success,
-    std::optional<std::unique_ptr<wo::LangContext>>* out_langcontext_if_success_and_not_binary,
+    std::optional<std::unique_ptr<wo::LangContext>>* out_langcontext_if_passed_pass1,
     std::optional<std::unique_ptr<wo::lexer>>* out_lexer_if_failed)
 {
     // 0. Try load binary
     const char* load_binary_failed_reason = nullptr;
     bool is_valid_binary = false;
 
-    std::optional<std::unique_ptr<wo::LangContext>> compile_lang_context = std::nullopt;
     std::optional<wo::shared_pointer<wo::runtime_env>> compile_env_result =
         wo::runtime_env::load_create_env_from_binary(
             virtual_src_path, src, len, wo::vmbase::VM_DEFAULT_STACK_SIZE,
@@ -2730,8 +2729,6 @@ bool _wo_compile_impl(
             compile_lexer->has_been_imported(compile_lexer->source_file);
 
 #ifndef WO_DISABLE_COMPILER
-            std::forward_list<wo::ast::AstBase*> m_last_context;
-            bool need_exchange_back = wo::ast::AstBase::exchange_this_thread_ast(m_last_context);
             if (!compile_lexer->has_error())
             {
                 // 2. Lexer will create ast_tree;
@@ -2741,26 +2738,25 @@ bool _wo_compile_impl(
                     std::unique_ptr<wo::LangContext> lang_context =
                         std::make_unique<wo::LangContext>();
 
-                    if (lang_context->process(*compile_lexer, result))
+                    const auto process_result = lang_context->process(*compile_lexer, result);
+                    if (wo::LangContext::process_result::PROCESS_OK == process_result)
                     {
                         // Finish!, finalize the compiler.
                         compile_env_result = std::move(
                             lang_context->m_ircontext.c().finalize(
                                 wo::vmbase::VM_DEFAULT_STACK_SIZE));
-
-                        compile_lang_context = std::move(lang_context);
                     }
+
+                    if (wo::LangContext::process_result::PROCESS_FAILED != process_result)
+                        if (out_langcontext_if_passed_pass1 != nullptr)
+                            *out_langcontext_if_passed_pass1 = std::move(lang_context);
                 }
             }
-            wo::ast::AstBase::clean_this_thread_ast();
-
-            if (need_exchange_back)
-                wo::ast::AstBase::exchange_this_thread_ast(m_last_context);
 #else
             lex->lex_error(wo::lexer::errorlevel::error, WO_ERR_COMPILER_DISABLED);
 #endif
+            }
         }
-    }
 
     // Compile finished.
     if (compile_env_result.has_value())
@@ -2768,9 +2764,6 @@ bool _wo_compile_impl(
         // Success
         if (out_env_if_success != nullptr)
             *out_env_if_success = std::move(compile_env_result.value());
-
-        if (out_langcontext_if_success_and_not_binary != nullptr)
-            *out_langcontext_if_success_and_not_binary = std::move(compile_lang_context);
 
         return true;
     }
@@ -2784,7 +2777,7 @@ bool _wo_compile_impl(
 
         return false;
     }
-}
+    }
 
 wo_bool_t _wo_load_source(wo_vm vm, wo_string_t virtual_src_path, const void* src, size_t len)
 {
@@ -2793,7 +2786,20 @@ wo_bool_t _wo_load_source(wo_vm vm, wo_string_t virtual_src_path, const void* sr
     std::optional<wo::shared_pointer<wo::runtime_env>> _env_if_success;
     std::optional<std::unique_ptr<wo::lexer>> _lexer_if_failed;
 
-    if (_wo_compile_impl(virtual_src_path, src, len, &_env_if_success, nullptr, &_lexer_if_failed))
+    std::forward_list<wo::ast::AstBase*> m_last_context;
+    bool need_exchange_back =
+        wo::ast::AstBase::exchange_this_thread_ast(m_last_context);
+
+    bool compile_result =
+        _wo_compile_impl(virtual_src_path, src, len, &_env_if_success, nullptr, &_lexer_if_failed);
+
+    wo::ast::AstBase::clean_this_thread_ast();
+
+    if (need_exchange_back)
+        wo::ast::AstBase::exchange_this_thread_ast(
+            m_last_context);
+
+    if (compile_result)
     {
         WO_VM(vm)->set_runtime(_env_if_success.value());
         return WO_TRUE;

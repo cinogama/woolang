@@ -2,22 +2,33 @@
 
 #include <memory>
 #include <optional>
+#include <forward_list>
+#include <map>
+#include <unordered_map>
 
 bool _wo_compile_impl(
     wo_string_t virtual_src_path,
     const void* src,
     size_t      len,
     std::optional<wo::shared_pointer<wo::runtime_env>>* out_env_if_success,
-    std::optional<std::unique_ptr<wo::LangContext>>* out_langcontext_if_success_and_not_binary,
+    std::optional<std::unique_ptr<wo::LangContext>>* out_langcontext_if_passed_pass1,
     std::optional<std::unique_ptr<wo::lexer>>* out_lexer_if_failed);
 
 static_assert(WO_NEED_LSP_API);
 
 struct _wo_lspv2_source_meta
 {
+    std::forward_list<wo::ast::AstBase*> m_origin_astbase_list;
+
     std::optional<wo::shared_pointer<wo::runtime_env>> m_env_if_success;
-    std::optional<std::unique_ptr<wo::LangContext>> m_langcontext_if_success_and_not_binary;
+    std::optional<std::unique_ptr<wo::LangContext>> m_langcontext_if_passed_pass1;
     std::optional<std::unique_ptr<wo::lexer>> m_lexer_if_failed;
+
+    using expr_map_t = std::multimap<
+        wo::ast::AstBase::location_t /* end place */, wo::ast::AstValueBase*>;
+    using expr_location_map_t = std::map<wo::ast::AstBase::location_t /* begin place */, expr_map_t>;
+    using source_expr_collection_t = std::unordered_map<wo_pstring_t, expr_location_map_t>;
+    source_expr_collection_t m_source_expr_collection;
 };
 
 const char* _wo_strdup(const char* str)
@@ -27,7 +38,6 @@ const char* _wo_strdup(const char* str)
     memcpy(new_str, str, len);
     new_str[len] = '\0';
     return new_str;
-
 }
 
 wo_lspv2_source_meta* wo_lspv2_compile_to_meta(
@@ -37,18 +47,69 @@ wo_lspv2_source_meta* wo_lspv2_compile_to_meta(
     wo::wstring_pool::begin_new_pool();
 
     wo_lspv2_source_meta* meta = new wo_lspv2_source_meta();
+
+    std::forward_list<wo::ast::AstBase*> old_ast_list;
+    bool need_exchange_back =
+        wo::ast::AstBase::exchange_this_thread_ast(
+            old_ast_list);
+
     (void)_wo_compile_impl(
         virtual_src_path,
         src,
         src == nullptr ? 0 : strlen(src),
         &meta->m_env_if_success,
-        &meta->m_langcontext_if_success_and_not_binary,
+        &meta->m_langcontext_if_passed_pass1,
         &meta->m_lexer_if_failed);
 
+    wo::ast::AstBase::exchange_this_thread_ast(meta->m_origin_astbase_list);
+
+    if (need_exchange_back)
+        wo::ast::AstBase::exchange_this_thread_ast(old_ast_list);
+
+    if (meta->m_langcontext_if_passed_pass1.has_value())
+    {
+        for (auto* ast_base_instance : meta->m_origin_astbase_list)
+        {
+            if (ast_base_instance->node_type < wo::ast::AstBase::node_type_t::AST_VALUE_begin
+                || ast_base_instance->node_type >= wo::ast::AstBase::node_type_t::AST_VALUE_end)
+                continue;
+
+            wo::ast::AstValueBase* ast_value =
+                static_cast<wo::ast::AstValueBase*>(ast_base_instance);
+
+            if (ast_base_instance->source_location.source_file != nullptr
+                && ast_value->m_LANG_determined_type.has_value())
+            {
+                auto& record =
+                    meta->m_source_expr_collection[
+                        ast_base_instance->source_location.source_file];
+
+                record[ast_base_instance->source_location.begin_at].insert(
+                    std::make_pair(ast_base_instance->source_location.end_at, ast_value));
+            }
+        }
+    }
     return meta;
 }
 void wo_lspv2_free_meta(wo_lspv2_source_meta* meta)
 {
+    if (!meta->m_origin_astbase_list.empty())
+    {
+        // free ast
+        std::forward_list<wo::ast::AstBase*> old_ast_list;
+        bool need_exchange_back =
+            wo::ast::AstBase::exchange_this_thread_ast(
+                old_ast_list);
+
+        (void)wo::ast::AstBase::exchange_this_thread_ast(
+            meta->m_origin_astbase_list);
+
+        wo::ast::AstBase::clean_this_thread_ast();
+
+        if (need_exchange_back)
+            wo::ast::AstBase::exchange_this_thread_ast(old_ast_list);
+    }
+
     delete meta;
     wo::wstring_pool::end_pool();
 }
@@ -121,11 +182,11 @@ struct _wo_lspv2_scope_iter
 
 wo_lspv2_scope* wo_lspv2_meta_get_global_scope(wo_lspv2_source_meta* meta)
 {
-    if (!meta->m_langcontext_if_success_and_not_binary.has_value())
-        abort();
+    if (!meta->m_langcontext_if_passed_pass1.has_value())
+        return nullptr;
 
     return new wo_lspv2_scope{
-        meta->m_langcontext_if_success_and_not_binary.value()->
+        meta->m_langcontext_if_passed_pass1.value()->
             m_root_namespace->m_this_scope.get(),
     };
 }
@@ -322,6 +383,206 @@ void wo_lspv2_symbol_info_free(wo_lspv2_symbol_info* info)
             free((void*)info->m_template_params[i]);
         }
         free((void*)info->m_template_params);
+    }
+    delete info;
+}
+
+struct _wo_lspv2_type
+{
+    wo::lang_TypeInstance* m_type;
+};
+
+struct _wo_lspv2_expr_collection_iter
+{
+    using source_expr_collection_iter_t =
+        _wo_lspv2_source_meta::source_expr_collection_t::const_iterator;
+
+    source_expr_collection_iter_t m_current;
+    source_expr_collection_iter_t m_end;
+};
+struct _wo_lspv2_expr_collection
+{
+    wo_pstring_t m_file_name;
+    const _wo_lspv2_source_meta::expr_location_map_t* m_expr_collection;
+};
+struct _wo_lspv2_expr
+{
+    wo::ast::AstValueBase* m_expr;
+};
+struct _wo_lspv2_expr_iter
+{
+    wo::ast::AstBase::location_t m_begin_location;
+    wo::ast::AstBase::location_t m_end_location;
+
+    _wo_lspv2_source_meta::expr_location_map_t::const_iterator m_current_collection;
+    _wo_lspv2_source_meta::expr_location_map_t::const_iterator m_end_collection;
+
+    _wo_lspv2_source_meta::expr_map_t::const_iterator m_current;
+    _wo_lspv2_source_meta::expr_map_t::const_iterator m_end;
+};
+
+wo_lspv2_expr_collection_iter* wo_lspv2_meta_expr_collection_iter(
+    wo_lspv2_source_meta* meta)
+{
+    return new wo_lspv2_expr_collection_iter{
+        meta->m_source_expr_collection.begin(),
+        meta->m_source_expr_collection.end(),
+    };
+}
+wo_lspv2_expr_collection* /* null if end */ wo_lspv2_expr_collection_next(
+    wo_lspv2_expr_collection_iter* iter)
+{
+    if (iter->m_current == iter->m_end)
+    {
+        delete iter;
+        return nullptr;
+    }
+    else
+    {
+        auto collect_iter = iter->m_current++;
+        return new wo_lspv2_expr_collection{
+            collect_iter->first,
+            & collect_iter->second,
+        };
+    }
+}
+void wo_lspv2_expr_collection_free(wo_lspv2_expr_collection* collection)
+{
+    delete collection;
+}
+wo_lspv2_expr_collection_info* wo_lspv2_expr_collection_get_info(
+    wo_lspv2_expr_collection* collection)
+{
+    return new wo_lspv2_expr_collection_info{
+        _wo_strdup(wo::wstr_to_str(*collection->m_file_name).c_str()),
+    };
+}
+void wo_lspv2_expr_collection_info_free(wo_lspv2_expr_collection_info* collection)
+{
+    free((void*)collection->m_file_name);
+    delete collection;
+}
+wo_lspv2_expr_iter* /* null if not found */ wo_lspv2_expr_collection_get_by_range(
+    wo_lspv2_expr_collection* collection,
+    wo_size_t begin_row,
+    wo_size_t begin_col,
+    wo_size_t end_row,
+    wo_size_t end_col)
+{
+    wo::ast::AstBase::location_t begin_location{ begin_row, begin_col };
+    wo::ast::AstBase::location_t end_location{ end_row, end_col };
+
+    auto begin_iter =
+        collection->m_expr_collection->begin();
+    auto upper_bound_iter =
+        collection->m_expr_collection->upper_bound(begin_location);
+
+    if (upper_bound_iter == begin_iter)
+        return nullptr;
+
+    return new wo_lspv2_expr_iter{
+        begin_location,
+        end_location,
+        begin_iter,
+        upper_bound_iter,
+        begin_iter->second.lower_bound(wo::ast::AstBase::location_t{ end_row, end_col }),
+        begin_iter->second.end(),
+    };
+}
+WO_API wo_lspv2_expr* /* null if end */ wo_lspv2_expr_next(wo_lspv2_expr_iter* iter)
+{
+    if (iter == nullptr)
+        return nullptr;
+
+    if (iter->m_current == iter->m_end)
+    {
+        for (;;)
+        {
+            ++iter->m_current_collection;
+            if (iter->m_current_collection == iter->m_end_collection)
+            {
+                delete iter;
+                return nullptr;
+            }
+
+            iter->m_current = iter->m_current_collection->second.lower_bound(
+                iter->m_begin_location);
+            iter->m_end = iter->m_current_collection->second.end();
+
+            if (iter->m_current != iter->m_end)
+                break;
+        }
+    }
+
+    return new wo_lspv2_expr{
+        (iter->m_current++)->second,
+    };
+}
+void wo_lspv2_expr_free(wo_lspv2_expr* expr)
+{
+    delete expr;
+}
+wo_lspv2_expr_info* wo_lspv2_expr_get_info(wo_lspv2_expr* expr)
+{
+    return new wo_lspv2_expr_info{
+        new wo_lspv2_type {
+            expr->m_expr->m_LANG_determined_type.value(),},
+        wo_lspv2_location {
+            _wo_strdup(wo::wstr_to_str(*expr->m_expr->source_location.source_file).c_str()),
+            { expr->m_expr->source_location.begin_at.row, expr->m_expr->source_location.begin_at.column },
+            { expr->m_expr->source_location.end_at.row, expr->m_expr->source_location.end_at.column },},
+    };
+}
+void wo_lspv2_expr_info_free(wo_lspv2_expr_info* expr_info)
+{
+    delete expr_info->m_type;
+    free((void*)expr_info->m_location.m_file_name);
+    delete expr_info;
+}
+
+// Type API
+wo_lspv2_type_info* wo_lspv2_type_get_info(
+    wo_lspv2_type* type, wo_lspv2_source_meta* meta)
+{
+    auto* result = new wo_lspv2_type_info{
+        meta->m_langcontext_if_passed_pass1.value()->get_type_name(type->m_type),
+        new wo_lspv2_symbol{type->m_type->m_symbol},
+        0,
+        nullptr
+    };
+
+    if (type->m_type->m_instance_template_arguments.has_value())
+    {
+        auto& template_arguments = type->m_type->m_instance_template_arguments.value();
+
+        result->m_template_arguments_count = template_arguments.size();
+        result->m_template_arguments = (wo_lspv2_type**)malloc(
+            sizeof(wo_lspv2_type*) * result->m_template_arguments_count);
+
+        size_t count = 0;
+        for (auto& arg : template_arguments)
+        {
+            result->m_template_arguments[count++] = new wo_lspv2_type{
+                arg,
+            };
+        }
+    }
+
+    return result;
+}
+void wo_lspv2_type_info_free(wo_lspv2_type_info* info)
+{
+    // This string stored in context, no need to free
+    // free((void*)info->m_name);
+
+    wo_lspv2_symbol_free(info->m_type_symbol);
+
+    if (info->m_template_arguments_count > 0)
+    {
+        for (size_t i = 0; i < info->m_template_arguments_count; i++)
+            delete info->m_template_arguments[i];
+
+        free((void*)info->m_template_arguments);
     }
     delete info;
 }

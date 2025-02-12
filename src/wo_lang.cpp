@@ -1381,15 +1381,15 @@ namespace wo
         return result;
     }
 
-    bool LangContext::process(lexer& lex, ast::AstBase* root)
+    LangContext::process_result LangContext::process(lexer& lex, ast::AstBase* root)
     {
         pass_0_5_register_builtin_types();
 
         if (!anylize_pass(lex, root, &LangContext::pass_0_process_scope_and_non_local_defination))
-            return false;
+            return process_result::PROCESS_FAILED;
 
         if (!anylize_pass(lex, root, &LangContext::pass_1_process_basic_type_marking_and_constant_eval))
-            return false;
+            return process_result::PROCESS_FAILED;
 
         // Final process, generate bytecode.
 
@@ -1399,7 +1399,7 @@ namespace wo
         auto global_reserving_ip = m_ircontext.c().reserved_stackvalue();
 
         if (!anylize_pass(lex, root, &LangContext::pass_final_A_process_bytecode_generation))
-            return false;
+            return process_result::PROCESS_FAILED_BUT_PASS_1_OK;
 
         // All temporary registers should be released.
         wo_assert(m_ircontext.m_inused_temporary_registers.empty());
@@ -1573,7 +1573,7 @@ namespace wo
                     lex,
                     eval_function->m_body,
                     &LangContext::pass_final_A_process_bytecode_generation))
-                    return false;
+                    return process_result::PROCESS_FAILED_BUT_PASS_1_OK;
 
                 /////////////////////////////////
 
@@ -1629,7 +1629,8 @@ namespace wo
 
         m_ircontext.c().loaded_libs = m_ircontext.m_extern_libs;
 
-        return donot_have_unused_local_variable;
+        return donot_have_unused_local_variable ? 
+            process_result::PROCESS_OK : process_result::PROCESS_FAILED_BUT_PASS_1_OK;
     }
 
     ////////////////////////

@@ -145,12 +145,10 @@ namespace wo
 
                 bool need_swap_back = true;
                 if (!list)
-                {
                     list = new std::forward_list<AstBase*>;
-                    need_swap_back = false;
-                }
+
                 out_list.swap(*list);
-                return need_swap_back;
+                return !out_list.empty();
             }
 
         public:
@@ -158,6 +156,16 @@ namespace wo
             {
                 size_t row;
                 size_t column;
+
+                bool operator < (const location_t& another_loc) const
+                {
+                    if (row < another_loc.row)
+                        return true;
+                    else if (row == another_loc.row)
+                        return column < another_loc.column;
+                    else
+                        return false;
+                }
             };
             struct source_location_t
             {
