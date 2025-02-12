@@ -712,6 +712,7 @@ typedef struct _wo_lspv2_expr wo_lspv2_expr;
 typedef struct _wo_lspv2_expr_info {
     wo_lspv2_type*      m_type;
     wo_lspv2_location   m_location;
+    wo_lspv2_symbol*    m_symbol_may_null;
 } wo_lspv2_expr_info;
 
 WO_API wo_lspv2_source_meta* wo_lspv2_compile_to_meta(
