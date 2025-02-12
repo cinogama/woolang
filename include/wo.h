@@ -712,12 +712,13 @@ typedef struct _wo_lspv2_expr wo_lspv2_expr;
 typedef struct _wo_lspv2_expr_info {
     wo_lspv2_type*      m_type;
     wo_lspv2_location   m_location;
+    wo_lspv2_symbol*    m_symbol_may_null;
 } wo_lspv2_expr_info;
 
 WO_API wo_lspv2_source_meta* wo_lspv2_compile_to_meta(
     wo_string_t virtual_src_path,
     wo_string_t src);
-WO_API void wo_lspv2_free_meta(wo_lspv2_source_meta* meta);
+WO_API void wo_lspv2_meta_free(wo_lspv2_source_meta* meta);
 
 WO_API wo_lspv2_error_iter* /* null if not exist */
 wo_lspv2_compile_err_iter(wo_lspv2_source_meta* meta);

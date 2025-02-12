@@ -91,7 +91,7 @@ wo_lspv2_source_meta* wo_lspv2_compile_to_meta(
     }
     return meta;
 }
-void wo_lspv2_free_meta(wo_lspv2_source_meta* meta)
+void wo_lspv2_meta_free(wo_lspv2_source_meta* meta)
 {
     if (!meta->m_origin_astbase_list.empty())
     {
@@ -442,7 +442,7 @@ wo_lspv2_expr_collection* /* null if end */ wo_lspv2_expr_collection_next(
         auto collect_iter = iter->m_current++;
         return new wo_lspv2_expr_collection{
             collect_iter->first,
-            & collect_iter->second,
+            &collect_iter->second,
         };
     }
 }
@@ -524,6 +524,14 @@ void wo_lspv2_expr_free(wo_lspv2_expr* expr)
 }
 wo_lspv2_expr_info* wo_lspv2_expr_get_info(wo_lspv2_expr* expr)
 {
+    wo::lang_Symbol* variable_symbol = nullptr;
+    if (expr->m_expr->node_type == wo::ast::AstBase::node_type_t::AST_VALUE_VARIABLE)
+    {
+        auto* ast_value_variable = static_cast<wo::ast::AstValueVariable*>(expr->m_expr);
+        if (ast_value_variable->m_LANG_variable_instance.has_value())
+            variable_symbol = ast_value_variable->m_LANG_variable_instance.value()->m_symbol;
+    }
+
     return new wo_lspv2_expr_info{
         new wo_lspv2_type {
             expr->m_expr->m_LANG_determined_type.value(),},
@@ -531,12 +539,15 @@ wo_lspv2_expr_info* wo_lspv2_expr_get_info(wo_lspv2_expr* expr)
             _wo_strdup(wo::wstr_to_str(*expr->m_expr->source_location.source_file).c_str()),
             { expr->m_expr->source_location.begin_at.row, expr->m_expr->source_location.begin_at.column },
             { expr->m_expr->source_location.end_at.row, expr->m_expr->source_location.end_at.column },},
+       variable_symbol == nullptr ? nullptr : new wo_lspv2_symbol{variable_symbol},
     };
 }
 void wo_lspv2_expr_info_free(wo_lspv2_expr_info* expr_info)
 {
     delete expr_info->m_type;
     free((void*)expr_info->m_location.m_file_name);
+    if (expr_info->m_symbol_may_null != nullptr)
+        delete expr_info->m_symbol_may_null;
     delete expr_info;
 }
 
