@@ -304,6 +304,7 @@ namespace wo
         lexer& lex, ast::AstBase* node, lang_TemplateAstEvalStateBase* template_eval_instance)
     {
         wo_assert(!lex.get_cur_error_frame().empty());
+
         template_eval_instance->m_failed_error_for_this_instance.emplace(
             std::move(lex.get_cur_error_frame()));
 

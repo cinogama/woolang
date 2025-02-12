@@ -465,8 +465,7 @@ namespace wo
             {
                 // NOTE: Advanced judgement failed, only non-template will be here. 
                 // make sure report it into error list.
-
-                last_error_frame.push_back(errinform);
+                lex.error_impl(errinform);
 
                 if (&last_error_frame != &lex.lex_error_list)
                 {
@@ -798,8 +797,7 @@ namespace wo
             {
                 // NOTE: Advanced judgement failed, only non-template will be here. 
                 // make sure report it into error list.
-
-                last_error_frame.push_back(errinform);
+                lex.error_impl(errinform);
 
                 if (&last_error_frame != &lex.lex_error_list)
                 {

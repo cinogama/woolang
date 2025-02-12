@@ -1026,6 +1026,7 @@ namespace wo
 #ifndef NDEBUG
             if (top_state.m_debug_entry_scope == nullptr)
             {
+                top_state.m_lex_error_frame_count = lex.get_error_frame_count();
                 top_state.m_debug_scope_layer_count = m_scope_stack.size();
                 top_state.m_debug_entry_scope = get_current_scope();
 
@@ -1069,6 +1070,7 @@ namespace wo
 #ifndef NDEBUG
                 wo_assert(top_state.m_debug_entry_scope != nullptr);
                 wo_assert(top_state.m_debug_scope_layer_count == m_scope_stack.size());
+                wo_assert(top_state.m_lex_error_frame_count == lex.get_error_frame_count());
                 wo_assert(top_state.m_debug_entry_scope == get_current_scope());
                 wo_assert(top_state.m_debug_ir_eval_content ==
                     m_ircontext.m_eval_result_storage_target.size()
