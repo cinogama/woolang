@@ -1042,7 +1042,7 @@ namespace wo
         public:
             AstUnionDeclare(
                 const std::optional<AstDeclareAttribue*>& attrib,
-                wo_pstring_t union_type_name,
+                AstToken* union_type_name,
                 const std::optional<std::list<wo_pstring_t>>& template_parameters,
                 const std::list<AstUnionItem*>& union_items);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;

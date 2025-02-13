@@ -1097,15 +1097,18 @@ namespace wo
                 ast::AstDeclareAttribue* built_type_public_attrib = new ast::AstDeclareAttribue();
                 built_type_public_attrib->m_access = ast::AstDeclareAttribue::PUBLIC;
 
-                out_sni->m_symbol = define_symbol_in_current_scope(
+                bool symbol_defined = define_symbol_in_current_scope(
+                    &out_sni->m_symbol,
                     name,
                     built_type_public_attrib,
                     std::nullopt,
                     std::nullopt,
                     get_current_scope(),
                     lang_Symbol::kind::TYPE,
-                    false)
-                    .value();
+                    false);
+
+                wo_assert(symbol_defined);
+                (void)symbol_defined;
 
                 out_sni->m_type_instance = out_sni->m_symbol->m_type_instance;
                 out_sni->m_type_instance->determine_base_type_move(
@@ -1142,15 +1145,19 @@ namespace wo
                 ast::AstDeclareAttribue* built_type_public_attrib = new ast::AstDeclareAttribue();
                 built_type_public_attrib->m_access = ast::AstDeclareAttribue::PUBLIC;
 
-                *out_symbol = define_symbol_in_current_scope(
+                bool symbol_defined = define_symbol_in_current_scope(
+                    out_symbol,
                     name,
                     built_type_public_attrib,
                     std::nullopt,
                     std::nullopt,
                     get_current_scope(),
                     lang_Symbol::kind::TYPE,
-                    false)
-                    .value();
+                    false);
+
+                wo_assert(symbol_defined);
+                (void)symbol_defined;
+
                 (*out_symbol)->m_is_builtin = true;
             };
 
@@ -1631,7 +1638,7 @@ namespace wo
 
         m_ircontext.c().loaded_libs = m_ircontext.m_extern_libs;
 
-        return donot_have_unused_local_variable ? 
+        return donot_have_unused_local_variable ?
             process_result::PROCESS_OK : process_result::PROCESS_FAILED_BUT_PASS_1_OK;
     }
 
@@ -2008,14 +2015,21 @@ namespace wo
         wo_pstring_t template_param,
         lang_TypeInstance* template_arg)
     {
-        lang_Symbol* symbol = define_symbol_in_current_scope(
+        lang_Symbol* symbol;
+        
+        bool symbol_defined = define_symbol_in_current_scope(
+            &symbol,
             template_param,
             std::nullopt,
             std::nullopt,
             std::nullopt,
             get_current_scope(),
             lang_Symbol::kind::ALIAS,
-            false).value();
+            false);
+
+        wo_assert(symbol_defined);
+        (void)symbol_defined;
+        (void)symbol;
 
         symbol->m_alias_instance->m_determined_type = template_arg;
     }
@@ -2569,7 +2583,7 @@ namespace wo
         }
         else
             eval_ignore();
-    }
+}
 
     opnum::opnumbase* BytecodeGenerateContext::get_eval_result()
     {
@@ -2745,8 +2759,8 @@ namespace wo
                 m_inused_temporary_registers.insert(std::make_pair(i, DebugBorrowRecord{ borrow_from , lineno }));
 #endif
                 return opnum_temporary(i);
-            }
         }
+    }
         wo_error("Temporary register exhausted.");
     }
     void BytecodeGenerateContext::keep_opnum_temporary_register(
@@ -2783,7 +2797,7 @@ namespace wo
                 , borrow_from, lineno
 #endif    
             );
-        }
+    }
     }
     void BytecodeGenerateContext::try_return_opnum_temporary_register(
         opnum::opnumbase* opnum_may_reg) noexcept

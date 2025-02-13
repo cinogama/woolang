@@ -2669,10 +2669,9 @@ bool _wo_compile_impl(
             &is_valid_binary);
     std::unique_ptr<wo::lexer> compile_lexer;
 
-    std::wstring wvspath = wo::str_to_wstr(virtual_src_path);
-
     if (!compile_env_result.has_value())
     {
+        std::wstring wvspath = wo::str_to_wstr(virtual_src_path);
         if (is_valid_binary)
         {
             // Is Woolang format binary, but failed to load.
@@ -2695,6 +2694,8 @@ bool _wo_compile_impl(
             if (src != nullptr)
             {
                 // Load from virtual source.
+                wo::normalize_path(&wvspath);
+
                 std::wstring strbuffer = wo::str_to_wstr(std::string((const char*)src, len).c_str());
                 compile_lexer = std::move(std::make_unique<wo::lexer>(
                     std::make_unique<std::wistringstream>(strbuffer),

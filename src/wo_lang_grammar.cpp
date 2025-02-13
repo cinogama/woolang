@@ -304,8 +304,10 @@ namespace wo
                 gm::nt(L"RETURN_EXPR_IN_LAMBDA") >> gm::symlist{gm::nt(L"MAY_MUT_PURE_VALUE")} >> WO_ASTBUILDER_INDEX(ast::pass_return_lambda),
                 gm::nt(L"RETURN_TYPE_DECLEAR_MAY_EMPTY") >> gm::symlist{gm::te(gm::ttype::l_empty)} >> WO_ASTBUILDER_INDEX(ast::pass_empty),
                 gm::nt(L"RETURN_TYPE_DECLEAR_MAY_EMPTY") >> gm::symlist{gm::nt(L"RETURN_TYPE_DECLEAR")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
-                gm::nt(L"RETURN_TYPE_DECLEAR") >> gm::symlist{gm::te(gm::ttype::l_function_result), gm::nt(L"TYPE")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<1>),
-                gm::nt(L"TYPE_DECLEAR") >> gm::symlist{gm::te(gm::ttype::l_typecast), gm::nt(L"TYPE")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<1>),
+                gm::nt(L"RETURN_TYPE_DECLEAR") >> gm::symlist{
+                        gm::te(gm::ttype::l_function_result), gm::nt(L"TYPE")} 
+                        >> WO_ASTBUILDER_INDEX(ast::pass_direct_keep_source_location<1>),
+                gm::nt(L"TYPE_DECLEAR") >> gm::symlist{gm::te(gm::ttype::l_typecast), gm::nt(L"TYPE")} >> WO_ASTBUILDER_INDEX(ast::pass_direct_keep_source_location<1>),
                 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
                 gm::nt(L"TYPE") >> gm::symlist{gm::nt(L"ORIGIN_TYPE")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 gm::nt(L"TYPE") >> gm::symlist{gm::te(gm::ttype::l_mut), gm::nt(L"ORIGIN_TYPE")} >> WO_ASTBUILDER_INDEX(ast::pass_type_mutable),
@@ -411,8 +413,8 @@ namespace wo
                 gm::nt(L"SINGLE_VALUE") >> gm::symlist{gm::nt(L"FACTOR_TYPE_CASTING")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 gm::nt(L"FACTOR_TYPE_CASTING") >> gm::symlist{gm::nt(L"FACTOR_TYPE_CASTING"), gm::nt(L"AS_TYPE")} >> WO_ASTBUILDER_INDEX(ast::pass_check_type_as),
                 gm::nt(L"FACTOR_TYPE_CASTING") >> gm::symlist{gm::nt(L"FACTOR_TYPE_CASTING"), gm::nt(L"IS_TYPE")} >> WO_ASTBUILDER_INDEX(ast::pass_check_type_is),
-                gm::nt(L"AS_TYPE") >> gm::symlist{gm::te(gm::ttype::l_as), gm::nt(L"TYPE")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<1>),
-                gm::nt(L"IS_TYPE") >> gm::symlist{gm::te(gm::ttype::l_is), gm::nt(L"TYPE")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<1>),
+                gm::nt(L"AS_TYPE") >> gm::symlist{gm::te(gm::ttype::l_as), gm::nt(L"TYPE")} >> WO_ASTBUILDER_INDEX(ast::pass_direct_keep_source_location<1>),
+                gm::nt(L"IS_TYPE") >> gm::symlist{gm::te(gm::ttype::l_is), gm::nt(L"TYPE")} >> WO_ASTBUILDER_INDEX(ast::pass_direct_keep_source_location<1>),
 
                 gm::nt(L"FACTOR_TYPE_CASTING") >> gm::symlist{gm::nt(L"FACTOR_TYPE_CASTING"), gm::nt(L"TYPE_DECLEAR")} >> WO_ASTBUILDER_INDEX(ast::pass_cast_type),
                 gm::nt(L"FACTOR_TYPE_CASTING") >> gm::symlist{gm::nt(L"FACTOR")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
@@ -550,7 +552,7 @@ namespace wo
                 gm::nt(L"DECL_UNION") >> gm::symlist{
                         gm::nt(L"DECL_ATTRIBUTE"), 
                         gm::te(gm::ttype::l_union), 
-                        gm::nt(L"IDENTIFIER"), 
+                        gm::nt(L"AST_TOKEN_IDENTIFER"), 
                         gm::nt(L"DEFINE_TEMPLATE_ITEM_MAY_EMPTY"), 
                         gm::te(gm::ttype::l_left_curly_braces), 
                         gm::nt(L"UNION_ITEMS"), 
