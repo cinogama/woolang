@@ -639,3 +639,51 @@ void wo_lspv2_type_info_free(wo_lspv2_type_info* info)
     }
     delete info;
 }
+
+wo_lspv2_type_struct_info* wo_lspv2_type_get_struct_info(
+    wo_lspv2_type* type, wo_lspv2_source_meta* meta)
+{
+    auto determined_type = type->m_type->get_determined_type();
+    if (determined_type.has_value())
+    {
+        auto* determined_type_instance = determined_type.value();
+        if (determined_type_instance->m_base_type
+            == wo::lang_TypeInstance::DeterminedType::base_type::STRUCT)
+        {
+            auto* struct_type_detail = 
+                determined_type_instance->m_external_type_description.m_struct;
+
+            wo_lspv2_type_struct_info* result = new wo_lspv2_type_struct_info{
+                struct_type_detail->m_member_types.size(),
+            };
+            result->m_member_names = (const char**)malloc(
+                sizeof(const char*) * result->m_member_count);
+            result->m_member_types = (wo_lspv2_type**)malloc(
+                sizeof(wo_lspv2_type*) * result->m_member_count);
+
+            for (auto&[member, member_detail]: struct_type_detail->m_member_types)
+            {
+                result->m_member_names[member_detail.m_offset] =
+                    _wo_strdup(wo::wstr_to_str(*member).c_str());
+                result->m_member_types[member_detail.m_offset] = new wo_lspv2_type{
+                    member_detail.m_member_type,
+                };
+            }
+
+            return result;
+        }
+    }
+    return nullptr;
+}
+
+void wo_lspv2_type_struct_info_free(wo_lspv2_type_struct_info* info)
+{
+    for (size_t i = 0; i < info->m_member_count; i++)
+    {
+        free((void*)info->m_member_names[i]);
+        delete info->m_member_types[i];
+    }
+    free((void*)info->m_member_names);
+    free((void*)info->m_member_types);
+    delete info;
+}

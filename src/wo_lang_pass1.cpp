@@ -206,7 +206,7 @@ namespace wo
 
             lex.lang_error(lexer::errorlevel::error, node,
                 WO_ERR_STRUCT_FIELD_IS_PROTECTED,
-                field_name,
+                field_name->c_str(),
                 _get_scope_name(symbol_defined_in_name_space->m_this_scope.get()).c_str());
 
             break;
@@ -224,7 +224,7 @@ namespace wo
 
             lex.lang_error(lexer::errorlevel::error, node,
                 WO_ERR_STRUCT_FIELD_IS_PRIVATE,
-                field_name,
+                field_name->c_str(),
                 location.source_file->c_str());
 
             break;
