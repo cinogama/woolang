@@ -739,14 +739,12 @@ WO_API void wo_lspv2_err_info_free(wo_lspv2_error_info* info);
 WO_API wo_lspv2_scope* /* null if pass1 failed */ wo_lspv2_meta_get_global_scope(wo_lspv2_source_meta* meta);
 WO_API wo_lspv2_scope_iter* wo_lspv2_scope_sub_scope_iter(wo_lspv2_scope* scope);
 WO_API wo_lspv2_scope* /* null if end */ wo_lspv2_scope_sub_scope_next(wo_lspv2_scope_iter* iter);
-WO_API void wo_lspv2_scope_free(wo_lspv2_scope* scope);
 WO_API wo_lspv2_scope_info* wo_lspv2_scope_get_info(wo_lspv2_scope* scope);
 WO_API void wo_lspv2_scope_info_free(wo_lspv2_scope_info* info);
 
 // Symbol API
 WO_API wo_lspv2_symbol_iter* wo_lspv2_scope_symbol_iter(wo_lspv2_scope* scope);
 WO_API wo_lspv2_symbol* /* null if end */ wo_lspv2_scope_symbol_next(wo_lspv2_symbol_iter* iter);
-WO_API void wo_lspv2_symbol_free(wo_lspv2_symbol* symbol);
 WO_API wo_lspv2_symbol_info* wo_lspv2_symbol_get_info(wo_lspv2_symbol* symbol);
 WO_API void wo_lspv2_symbol_info_free(wo_lspv2_symbol_info* info);
 
@@ -766,7 +764,6 @@ WO_API wo_lspv2_expr_iter* /* null if not found */ wo_lspv2_expr_collection_get_
     wo_size_t end_row,
     wo_size_t end_col);
 WO_API wo_lspv2_expr* /* null if end */ wo_lspv2_expr_next(wo_lspv2_expr_iter* iter);
-WO_API void wo_lspv2_expr_free(wo_lspv2_expr* expr);
 WO_API wo_lspv2_expr_info* wo_lspv2_expr_get_info(wo_lspv2_expr* expr);
 WO_API void wo_lspv2_expr_info_free(wo_lspv2_expr_info*);
 

@@ -24,7 +24,7 @@ struct _wo_lspv2_source_meta
     std::optional<std::unique_ptr<wo::LangContext>> m_langcontext_if_passed_pass1;
     std::optional<std::unique_ptr<wo::lexer>> m_lexer_if_failed;
 
-    using value_or_type_expr_t = std::variant<wo::ast::AstValueBase*, wo::ast::AstTypeHolder*>;
+    using value_or_type_expr_t = wo::ast::AstBase*;
     using expr_map_t = std::multimap<
         wo::ast::AstBase::location_t /* end place */, value_or_type_expr_t>;
     using expr_location_map_t = std::map<wo::ast::AstBase::location_t /* begin place */, expr_map_t>;
@@ -180,10 +180,6 @@ void wo_lspv2_err_info_free(wo_lspv2_error_info* info)
     delete info;
 }
 
-struct _wo_lspv2_scope
-{
-    wo::lang_Scope* m_scope;
-};
 struct _wo_lspv2_scope_iter
 {
     using namespace_iter_t = decltype(wo::lang_Namespace::m_sub_namespaces)::const_iterator;
@@ -201,22 +197,22 @@ wo_lspv2_scope* wo_lspv2_meta_get_global_scope(wo_lspv2_source_meta* meta)
     if (!meta->m_langcontext_if_passed_pass1.has_value())
         return nullptr;
 
-    return new wo_lspv2_scope{
-        meta->m_langcontext_if_passed_pass1.value()->
-            m_root_namespace->m_this_scope.get(),
-    };
+    return reinterpret_cast<wo_lspv2_scope*>(
+        meta->m_langcontext_if_passed_pass1.value()->m_root_namespace->m_this_scope.get());
 }
 wo_lspv2_scope_iter* wo_lspv2_scope_sub_scope_iter(wo_lspv2_scope* scope)
 {
+    wo::lang_Scope* lang_scope = std::launder(reinterpret_cast<wo::lang_Scope*>(scope));
+
     return new wo_lspv2_scope_iter{
-        scope->m_scope->is_namespace_scope() ?
-            std::optional(scope->m_scope->m_belongs_to_namespace->m_sub_namespaces.cbegin())
+        lang_scope->is_namespace_scope() ?
+            std::optional(lang_scope->m_belongs_to_namespace->m_sub_namespaces.cbegin())
             : std::nullopt,
-        scope->m_scope->is_namespace_scope() ?
-            std::optional(scope->m_scope->m_belongs_to_namespace->m_sub_namespaces.cend())
+        lang_scope->is_namespace_scope() ?
+            std::optional(lang_scope->m_belongs_to_namespace->m_sub_namespaces.cend())
             : std::nullopt,
-        scope->m_scope->m_sub_scopes.cbegin(),
-        scope->m_scope->m_sub_scopes.cend(),
+        lang_scope->m_sub_scopes.cbegin(),
+        lang_scope->m_sub_scopes.cend(),
     };
 }
 wo_lspv2_scope* wo_lspv2_scope_sub_scope_next(wo_lspv2_scope_iter* iter)
@@ -224,9 +220,8 @@ wo_lspv2_scope* wo_lspv2_scope_sub_scope_next(wo_lspv2_scope_iter* iter)
     if (iter->m_current_ns.has_value())
     {
         if (iter->m_current_ns.value() != iter->m_end_ns.value())
-            return new wo_lspv2_scope{
-                (iter->m_current_ns.value()++)->second->m_this_scope.get(),
-        };
+            return reinterpret_cast<wo_lspv2_scope*>(
+                (iter->m_current_ns.value()++)->second->m_this_scope.get());
         else
         {
             iter->m_current_ns = std::nullopt;
@@ -236,9 +231,8 @@ wo_lspv2_scope* wo_lspv2_scope_sub_scope_next(wo_lspv2_scope_iter* iter)
 
     if (iter->m_current != iter->m_end)
     {
-        return new wo_lspv2_scope{
-            (iter->m_current++)->get(),
-        };
+        return reinterpret_cast<wo_lspv2_scope*>(
+            (iter->m_current++)->get());
     }
     else
     {
@@ -246,23 +240,20 @@ wo_lspv2_scope* wo_lspv2_scope_sub_scope_next(wo_lspv2_scope_iter* iter)
         return nullptr;
     }
 }
-void wo_lspv2_scope_free(wo_lspv2_scope* scope)
-{
-    delete scope;
-}
 wo_lspv2_scope_info* wo_lspv2_scope_get_info(wo_lspv2_scope* scope)
 {
+    wo::lang_Scope* lang_scope = std::launder(reinterpret_cast<wo::lang_Scope*>(scope));
     auto* result = new wo_lspv2_scope_info{
-       scope->m_scope->is_namespace_scope() ? _wo_strdup(
-            wo::wstr_to_str(*scope->m_scope->m_belongs_to_namespace->m_name).c_str())
+       lang_scope->is_namespace_scope() ? _wo_strdup(
+            wo::wstr_to_str(*lang_scope->m_belongs_to_namespace->m_name).c_str())
             : nullptr,
-        scope->m_scope->m_scope_location.has_value() ? WO_TRUE : WO_FALSE,
+        lang_scope->m_scope_location.has_value() ? WO_TRUE : WO_FALSE,
         {},
     };
 
     if (result->m_has_location)
     {
-        auto& loc = scope->m_scope->m_scope_location.value();
+        auto& loc = lang_scope->m_scope_location.value();
         result->m_location.m_file_name = _wo_strdup(wo::wstr_to_str(*loc.source_file).c_str());
         result->m_location.m_begin_location[0] = loc.begin_at.row;
         result->m_location.m_begin_location[1] = loc.begin_at.column;
@@ -280,10 +271,6 @@ void wo_lspv2_scope_info_free(wo_lspv2_scope_info* info)
     delete info;
 }
 
-struct _wo_lspv2_symbol
-{
-    wo::lang_Symbol* m_symbol;
-};
 struct _wo_lspv2_symbol_iter
 {
     using symbol_iter_t = decltype(wo::lang_Scope::m_defined_symbols)::const_iterator;
@@ -293,9 +280,10 @@ struct _wo_lspv2_symbol_iter
 
 wo_lspv2_symbol_iter* wo_lspv2_scope_symbol_iter(wo_lspv2_scope* scope)
 {
+    wo::lang_Scope* lang_scope = std::launder(reinterpret_cast<wo::lang_Scope*>(scope));
     return new wo_lspv2_symbol_iter{
-        scope->m_scope->m_defined_symbols.cbegin(),
-        scope->m_scope->m_defined_symbols.cend(),
+        lang_scope->m_defined_symbols.cbegin(),
+        lang_scope->m_defined_symbols.cend(),
     };
 }
 wo_lspv2_symbol* wo_lspv2_scope_symbol_next(wo_lspv2_symbol_iter* iter)
@@ -307,14 +295,9 @@ wo_lspv2_symbol* wo_lspv2_scope_symbol_next(wo_lspv2_symbol_iter* iter)
     }
     else
     {
-        return new wo_lspv2_symbol{
-            (iter->m_current++)->second.get(),
-        };
+        return reinterpret_cast<wo_lspv2_symbol*>(
+            (iter->m_current++)->second.get());
     }
-}
-void wo_lspv2_symbol_free(wo_lspv2_symbol* symbol)
-{
-    delete symbol;
 }
 wo_lspv2_symbol_info* wo_lspv2_symbol_get_info(wo_lspv2_symbol* symbol)
 {
@@ -322,16 +305,19 @@ wo_lspv2_symbol_info* wo_lspv2_symbol_get_info(wo_lspv2_symbol* symbol)
     wo_size_t template_param_count = 0;
     const char** template_params = nullptr;
 
-    switch (symbol->m_symbol->m_symbol_kind)
+    wo::lang_Symbol* lang_symbol = 
+        std::launder(reinterpret_cast<wo::lang_Symbol*>(symbol));
+
+    switch (lang_symbol->m_symbol_kind)
     {
     case wo::lang_Symbol::kind::VARIABLE:
         symbol_kind = WO_LSPV2_SYMBOL_VARIBALE;
-        if (symbol->m_symbol->m_is_template)
+        if (lang_symbol->m_is_template)
         {
-            template_param_count = symbol->m_symbol->m_template_value_instances->m_template_params.size();
+            template_param_count = lang_symbol->m_template_value_instances->m_template_params.size();
             template_params = (const char**)malloc(sizeof(const char*) * template_param_count);
             size_t count = 0;
-            for (auto& param : symbol->m_symbol->m_template_value_instances->m_template_params)
+            for (auto& param : lang_symbol->m_template_value_instances->m_template_params)
             {
                 template_params[count++] =
                     _wo_strdup(wo::wstr_to_str(*param).c_str());
@@ -340,12 +326,12 @@ wo_lspv2_symbol_info* wo_lspv2_symbol_get_info(wo_lspv2_symbol* symbol)
         break;
     case wo::lang_Symbol::kind::ALIAS:
         symbol_kind = WO_LSPV2_SYMBOL_ALIAS;
-        if (symbol->m_symbol->m_is_template)
+        if (lang_symbol->m_is_template)
         {
-            template_param_count = symbol->m_symbol->m_template_alias_instances->m_template_params.size();
+            template_param_count = lang_symbol->m_template_alias_instances->m_template_params.size();
             template_params = (const char**)malloc(sizeof(const char*) * template_param_count);
             size_t count = 0;
-            for (auto& param : symbol->m_symbol->m_template_alias_instances->m_template_params)
+            for (auto& param : lang_symbol->m_template_alias_instances->m_template_params)
             {
                 template_params[count++] = _wo_strdup(wo::wstr_to_str(*param).c_str());
             }
@@ -353,12 +339,12 @@ wo_lspv2_symbol_info* wo_lspv2_symbol_get_info(wo_lspv2_symbol* symbol)
         break;
     case wo::lang_Symbol::kind::TYPE:
         symbol_kind = WO_LSPV2_SYMBOL_TYPE;
-        if (symbol->m_symbol->m_is_template)
+        if (lang_symbol->m_is_template)
         {
-            template_param_count = symbol->m_symbol->m_template_type_instances->m_template_params.size();
+            template_param_count = lang_symbol->m_template_type_instances->m_template_params.size();
             template_params = (const char**)malloc(sizeof(const char*) * template_param_count);
             size_t count = 0;
-            for (auto& param : symbol->m_symbol->m_template_type_instances->m_template_params)
+            for (auto& param : lang_symbol->m_template_type_instances->m_template_params)
             {
                 template_params[count++] = _wo_strdup(wo::wstr_to_str(*param).c_str());
             }
@@ -370,15 +356,15 @@ wo_lspv2_symbol_info* wo_lspv2_symbol_get_info(wo_lspv2_symbol* symbol)
 
     auto* result = new wo_lspv2_symbol_info{
         symbol_kind,
-        _wo_strdup(wo::wstr_to_str(*symbol->m_symbol->m_name).c_str()),
+        _wo_strdup(wo::wstr_to_str(*lang_symbol->m_name).c_str()),
         template_param_count,
         template_params,
-        symbol->m_symbol->m_symbol_declare_location.has_value() ? WO_TRUE : WO_FALSE,
+        lang_symbol->m_symbol_declare_location.has_value() ? WO_TRUE : WO_FALSE,
         {},
     };
     if (result->m_has_location)
     {
-        auto& loc = symbol->m_symbol->m_symbol_declare_location.value();
+        auto& loc = lang_symbol->m_symbol_declare_location.value();
         result->m_location.m_file_name = _wo_strdup(wo::wstr_to_str(*loc.source_file).c_str());
         result->m_location.m_begin_location[0] = loc.begin_at.row;
         result->m_location.m_begin_location[1] = loc.begin_at.column;
@@ -403,11 +389,6 @@ void wo_lspv2_symbol_info_free(wo_lspv2_symbol_info* info)
     delete info;
 }
 
-struct _wo_lspv2_type
-{
-    wo::lang_TypeInstance* m_type;
-};
-
 struct _wo_lspv2_expr_collection_iter
 {
     using source_expr_collection_iter_t =
@@ -420,10 +401,6 @@ struct _wo_lspv2_expr_collection
 {
     wo_pstring_t m_file_name;
     const _wo_lspv2_source_meta::expr_location_map_t* m_expr_collection;
-};
-struct _wo_lspv2_expr
-{
-    _wo_lspv2_source_meta::value_or_type_expr_t m_expr;
 };
 struct _wo_lspv2_expr_iter
 {
@@ -530,28 +507,35 @@ WO_API wo_lspv2_expr* /* null if end */ wo_lspv2_expr_next(wo_lspv2_expr_iter* i
         }
     }
 
-    return new wo_lspv2_expr{
-        (--iter->m_post_current)->second,
-    };
+    return reinterpret_cast<wo_lspv2_expr*>(
+        (--iter->m_post_current)->second);
 }
-void wo_lspv2_expr_free(wo_lspv2_expr* expr)
-{
-    delete expr;
-}
+
 wo_lspv2_expr_info* wo_lspv2_expr_get_info(wo_lspv2_expr* expr)
 {
+    wo::ast::AstBase* ast_base = std::launder(reinterpret_cast<wo::ast::AstBase*>(expr));
     wo::lang_TypeInstance* type_instance = nullptr;
-    wo::ast::AstBase* ast_base = nullptr;
     wo::lang_Symbol* variable_or_type_symbol = nullptr;
     wo_bool_t is_value = WO_TRUE;
 
-    if (auto* valuep = std::get_if<wo::ast::AstValueBase*>(&expr->m_expr))
+    if (ast_base->node_type ==wo::ast::AstBase::node_type_t::AST_TYPE_HOLDER)
     {
-        wo::ast::AstValueBase* value = *valuep;
+        wo::ast::AstTypeHolder* type_holder = static_cast<wo::ast::AstTypeHolder*>(ast_base);
 
-        ast_base = value;
+        is_value = WO_FALSE;
+        type_instance = type_holder->m_LANG_determined_type.value();
+
+        if (type_holder->m_formal == wo::ast::AstTypeHolder::IDENTIFIER)
+        {
+            variable_or_type_symbol =
+                type_holder->m_typeform.m_identifier->m_LANG_determined_symbol.value();
+        }
+    }
+    else
+    {
+        wo::ast::AstValueBase* value = static_cast<wo::ast::AstValueBase*>(ast_base);
+
         type_instance = value->m_LANG_determined_type.value();
-
         if (value->node_type == wo::ast::AstBase::node_type_t::AST_VALUE_VARIABLE)
         {
             auto* ast_value_variable = static_cast<wo::ast::AstValueVariable*>(value);
@@ -559,37 +543,20 @@ wo_lspv2_expr_info* wo_lspv2_expr_get_info(wo_lspv2_expr* expr)
                 variable_or_type_symbol = ast_value_variable->m_LANG_variable_instance.value()->m_symbol;
         }
     }
-    else
-    {
-        wo::ast::AstTypeHolder* type_holder = std::get<wo::ast::AstTypeHolder*>(expr->m_expr);
-
-        is_value= WO_FALSE;
-        ast_base = type_holder;
-        type_instance = type_holder->m_LANG_determined_type.value();
-
-        if (type_holder->m_formal == wo::ast::AstTypeHolder::IDENTIFIER)
-        {
-            variable_or_type_symbol = 
-                type_holder->m_typeform.m_identifier->m_LANG_determined_symbol.value();
-        }
-    }
 
     return new wo_lspv2_expr_info{
-        new wo_lspv2_type { type_instance,},
+        reinterpret_cast<wo_lspv2_type*>(type_instance),
         wo_lspv2_location {
             _wo_strdup(wo::wstr_to_str(*ast_base->source_location.source_file).c_str()),
             { ast_base->source_location.begin_at.row, ast_base->source_location.begin_at.column },
             { ast_base->source_location.end_at.row, ast_base->source_location.end_at.column },},
-        variable_or_type_symbol == nullptr ? nullptr : new wo_lspv2_symbol{variable_or_type_symbol},
+        variable_or_type_symbol == nullptr ? nullptr : reinterpret_cast<wo_lspv2_symbol*>(variable_or_type_symbol),
         is_value,
     };
 }
 void wo_lspv2_expr_info_free(wo_lspv2_expr_info* expr_info)
 {
-    delete expr_info->m_type;
     free((void*)expr_info->m_location.m_file_name);
-    if (expr_info->m_symbol_may_null != nullptr)
-        delete expr_info->m_symbol_may_null;
     delete expr_info;
 }
 
@@ -597,16 +564,19 @@ void wo_lspv2_expr_info_free(wo_lspv2_expr_info* expr_info)
 wo_lspv2_type_info* wo_lspv2_type_get_info(
     wo_lspv2_type* type, wo_lspv2_source_meta* meta)
 {
+    wo::lang_TypeInstance* type_instance =
+        std::launder(reinterpret_cast<wo::lang_TypeInstance*>(type));
+
     auto* result = new wo_lspv2_type_info{
-        meta->m_langcontext_if_passed_pass1.value()->get_type_name(type->m_type),
-        new wo_lspv2_symbol{type->m_type->m_symbol},
+        meta->m_langcontext_if_passed_pass1.value()->get_type_name(type_instance),
+        reinterpret_cast<wo_lspv2_symbol*>(type_instance->m_symbol),
         0,
-        nullptr
+        nullptr,
     };
 
-    if (type->m_type->m_instance_template_arguments.has_value())
+    if (type_instance->m_instance_template_arguments.has_value())
     {
-        auto& template_arguments = type->m_type->m_instance_template_arguments.value();
+        auto& template_arguments = type_instance->m_instance_template_arguments.value();
 
         result->m_template_arguments_count = template_arguments.size();
         result->m_template_arguments = (wo_lspv2_type**)malloc(
@@ -615,9 +585,8 @@ wo_lspv2_type_info* wo_lspv2_type_get_info(
         size_t count = 0;
         for (auto& arg : template_arguments)
         {
-            result->m_template_arguments[count++] = new wo_lspv2_type{
-                arg,
-            };
+            result->m_template_arguments[count++] =
+                reinterpret_cast<wo_lspv2_type*>(arg);
         }
     }
 
@@ -628,29 +597,25 @@ void wo_lspv2_type_info_free(wo_lspv2_type_info* info)
     // This string stored in context, no need to free
     // free((void*)info->m_name);
 
-    wo_lspv2_symbol_free(info->m_type_symbol);
+    free((void*)info->m_template_arguments);
 
-    if (info->m_template_arguments_count > 0)
-    {
-        for (size_t i = 0; i < info->m_template_arguments_count; i++)
-            delete info->m_template_arguments[i];
-
-        free((void*)info->m_template_arguments);
-    }
     delete info;
 }
 
 wo_lspv2_type_struct_info* wo_lspv2_type_get_struct_info(
     wo_lspv2_type* type, wo_lspv2_source_meta* meta)
 {
-    auto determined_type = type->m_type->get_determined_type();
+    wo::lang_TypeInstance* type_instance =
+        std::launder(reinterpret_cast<wo::lang_TypeInstance*>(type));
+
+    auto determined_type = type_instance->get_determined_type();
     if (determined_type.has_value())
     {
         auto* determined_type_instance = determined_type.value();
         if (determined_type_instance->m_base_type
             == wo::lang_TypeInstance::DeterminedType::base_type::STRUCT)
         {
-            auto* struct_type_detail = 
+            auto* struct_type_detail =
                 determined_type_instance->m_external_type_description.m_struct;
 
             wo_lspv2_type_struct_info* result = new wo_lspv2_type_struct_info{
@@ -661,13 +626,13 @@ wo_lspv2_type_struct_info* wo_lspv2_type_get_struct_info(
             result->m_member_types = (wo_lspv2_type**)malloc(
                 sizeof(wo_lspv2_type*) * result->m_member_count);
 
-            for (auto&[member, member_detail]: struct_type_detail->m_member_types)
+            for (auto& [member, member_detail] : struct_type_detail->m_member_types)
             {
                 result->m_member_names[member_detail.m_offset] =
                     _wo_strdup(wo::wstr_to_str(*member).c_str());
-                result->m_member_types[member_detail.m_offset] = new wo_lspv2_type{
-                    member_detail.m_member_type,
-                };
+                result->m_member_types[member_detail.m_offset] =
+                    reinterpret_cast<wo_lspv2_type*>(
+                        member_detail.m_member_type);
             }
 
             return result;
@@ -681,7 +646,6 @@ void wo_lspv2_type_struct_info_free(wo_lspv2_type_struct_info* info)
     for (size_t i = 0; i < info->m_member_count; i++)
     {
         free((void*)info->m_member_names[i]);
-        delete info->m_member_types[i];
     }
     free((void*)info->m_member_names);
     free((void*)info->m_member_types);
