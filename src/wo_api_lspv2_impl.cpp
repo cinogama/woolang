@@ -518,7 +518,7 @@ wo_lspv2_expr_info* wo_lspv2_expr_get_info(wo_lspv2_expr* expr)
     wo::lang_Symbol* variable_or_type_symbol = nullptr;
     wo_bool_t is_value = WO_TRUE;
 
-    if (ast_base->node_type ==wo::ast::AstBase::node_type_t::AST_TYPE_HOLDER)
+    if (ast_base->node_type == wo::ast::AstBase::node_type_t::AST_TYPE_HOLDER)
     {
         wo::ast::AstTypeHolder* type_holder = static_cast<wo::ast::AstTypeHolder*>(ast_base);
 
@@ -533,8 +533,11 @@ wo_lspv2_expr_info* wo_lspv2_expr_get_info(wo_lspv2_expr* expr)
     }
     else
     {
-        wo::ast::AstValueBase* value = static_cast<wo::ast::AstValueBase*>(ast_base);
+        wo_assert(ast_base->node_type >= wo::ast::AstBase::node_type_t::AST_VALUE_begin
+            && ast_base->node_type < wo::ast::AstBase::node_type_t::AST_VALUE_end);
 
+        wo::ast::AstValueBase* value = static_cast<wo::ast::AstValueBase*>(ast_base);
+        
         type_instance = value->m_LANG_determined_type.value();
         if (value->node_type == wo::ast::AstBase::node_type_t::AST_VALUE_VARIABLE)
         {
