@@ -716,6 +716,14 @@ typedef struct _wo_lspv2_expr_info {
     wo_bool_t           m_is_value_expr;     // False if type.
 } wo_lspv2_expr_info;
 
+typedef struct _wo_lspv2_type_struct_info
+{
+    wo_size_t           m_member_count;
+    const char**        m_member_names;
+    wo_lspv2_type**     m_member_types;
+
+}wo_lspv2_type_struct_info;
+
 WO_API wo_lspv2_source_meta* wo_lspv2_compile_to_meta(
     wo_string_t virtual_src_path,
     wo_string_t src);
@@ -766,7 +774,9 @@ WO_API void wo_lspv2_expr_info_free(wo_lspv2_expr_info*);
 WO_API wo_lspv2_type_info* wo_lspv2_type_get_info(
     wo_lspv2_type* type, wo_lspv2_source_meta* meta);
 WO_API void wo_lspv2_type_info_free(wo_lspv2_type_info* info);
-
+WO_API wo_lspv2_type_struct_info* /* null if not struct */ wo_lspv2_type_get_struct_info(
+    wo_lspv2_type* type, wo_lspv2_source_meta* meta);
+WO_API void wo_lspv2_type_struct_info_free(wo_lspv2_type_struct_info* info);
 #endif
 
 
