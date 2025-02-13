@@ -2017,6 +2017,13 @@ func main()
         }
         foo();        
         "@);
+        assure_compile_fail(@"
+        func foo(n)
+        {
+        }
+
+        foo(0, \x= x;);
+        "@);
         // ISSUE: 1.13: anything has been removed from woolang.
         // assure_compile_success(@"
         //     import woo::std;

@@ -248,7 +248,7 @@ namespace wo
                 SUM += fpair.second.size();
             }
             return SUM;
-        };
+            };
         size_t LAST_FIRST_SIZE = 0;
         size_t FIRST_SIZE = 0;
         do
@@ -300,7 +300,7 @@ namespace wo
                 SUM += fpair.second.size();
             }
             return SUM;
-        };
+            };
         size_t LAST_FOLLOW_SIZE = 0;
         size_t FOLLOW_SIZE = 0;
 
@@ -359,23 +359,23 @@ namespace wo
         //LR0
         //1. BUILD LR-ITEM-COLLECTION
         auto LR_ITEM_SET_EQULE = [](const std::set<lr_item>& A, const std::set<lr_item>& B)
-        {
-            if (A.size() == B.size())
             {
-                for (auto aim_ind = A.begin(), iset_ind = B.begin();
-                    aim_ind != A.end();
-                    aim_ind++, iset_ind++)
+                if (A.size() == B.size())
                 {
-                    if ((*aim_ind) != (*iset_ind))
+                    for (auto aim_ind = A.begin(), iset_ind = B.begin();
+                        aim_ind != A.end();
+                        aim_ind++, iset_ind++)
                     {
-                        return false;
+                        if ((*aim_ind) != (*iset_ind))
+                        {
+                            return false;
+                        }
                     }
-                }
 
-                return true;
-            }
-            return false;
-        };
+                    return true;
+                }
+                return false;
+            };
 
         std::vector<std::set<lr_item>> C = { CLOSURE({ lr_item{p[0] ,0,{ttype::l_eof}} }) };
         size_t LAST_C_SIZE = C.size();
@@ -674,6 +674,10 @@ namespace wo
         std::wstring out_indentifier;
         lex_type type;
         bool refetch_flag = true;
+
+        std::vector<source_info> srcinfo_bnodes;
+        std::vector<produce> te_or_nt_bnodes;
+
         do
         {
             if (refetch_flag)
@@ -720,7 +724,7 @@ namespace wo
                     {
                         node_stack.push(std::make_pair(source_info{ tkr.this_time_peek_from_rowno, tkr.this_time_peek_from_colno }, token{ type, out_indentifier }));
                         sym_stack.push(TERM_MAP.at(type));
-                       
+
                         refetch_flag = true;
                         tkr.next(nullptr);
                     }
@@ -734,8 +738,8 @@ namespace wo
 
                     auto& red_rule = RT_PRODUCTION[take_action.state];
 
-                    std::vector<source_info> srcinfo_bnodes(red_rule.rule_right_count);
-                    std::vector<produce> te_or_nt_bnodes(red_rule.rule_right_count);
+                    srcinfo_bnodes.resize(red_rule.rule_right_count);
+                    te_or_nt_bnodes.resize(red_rule.rule_right_count);
 
                     for (size_t i = red_rule.rule_right_count; i > 0; i--)
                     {
@@ -762,22 +766,30 @@ namespace wo
                             auto* ast_node_ = astnode.read_ast();
                             wo_assert(!te_or_nt_bnodes.empty());
 
-                            if (!srcinfo_bnodes.empty())
+                            if (ast_node_->source_location.source_file == nullptr)
                             {
-                                ast_node_->source_location.begin_at = 
-                                    ast::AstBase::location_t{ srcinfo_bnodes.front().row_no,srcinfo_bnodes.front().col_no };
-                                ast_node_->source_location.end_at = 
-                                    ast::AstBase::location_t{ tkr.now_file_rowno,tkr.now_file_colno };
+                                if (red_rule.rule_right_count != 0)
+                                {
+                                    ast_node_->source_location.begin_at =
+                                        ast::AstBase::location_t{
+                                        srcinfo_bnodes.front().row_no,
+                                        srcinfo_bnodes.front().col_no };
+                                    ast_node_->source_location.end_at =
+                                        ast::AstBase::location_t{
+                                        tkr.now_file_rowno,
+                                        tkr.now_file_colno };
+                                }
+                                else
+                                {
+                                    ast_node_->source_location.begin_at =
+                                        ast::AstBase::location_t{
+                                        tkr.after_pick_next_file_rowno,
+                                        tkr.after_pick_next_file_colno };
+                                    ast_node_->source_location.end_at =
+                                        ast_node_->source_location.begin_at;
+                                }
+                                ast_node_->source_location.source_file = tkr.source_file;
                             }
-                            else
-                            {
-                                ast_node_->source_location.begin_at = 
-                                    ast::AstBase::location_t{ tkr.after_pick_next_file_rowno,tkr.after_pick_next_file_colno };
-                                ast_node_->source_location.end_at = 
-                                    ast_node_->source_location.begin_at;
-                            }
-
-                            ast_node_->source_location.source_file = tkr.source_file;
                         }
                         node_stack.push(std::make_pair(srcinfo_bnodes.front(), astnode));
                     }
@@ -985,7 +997,7 @@ namespace wo
         if (!imported_ast.empty())
         {
             auto* merged_list = new ast::AstList();
-            
+
             for (auto* imported_ast : imported_ast)
             {
                 merged_list->m_list.push_back(imported_ast);

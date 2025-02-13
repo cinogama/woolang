@@ -2738,7 +2738,6 @@ namespace wo
             {
                 // If target function is a template function, we need to deduce template arguments.
                 // HERE!
-
                 auto* current_scope_before_deduction = get_current_scope();
 
                 if (node->m_LANG_target_function_need_deduct_template_arguments)
@@ -2817,9 +2816,9 @@ namespace wo
                     }
 
                     auto it_target_param = target_param_holders.begin();
-                    auto it_target_param_end = target_param_holders.end();
+                    const auto it_target_param_end = target_param_holders.end();
                     auto it_argument = node->m_arguments.begin();
-                    auto it_argument_end = node->m_arguments.end();
+                    const auto it_argument_end = node->m_arguments.end();
 
                     entry_spcify_scope(target_function_scope);
                     begin_new_scope(std::nullopt);
@@ -2922,6 +2921,18 @@ namespace wo
                             // If deduction error, break.
                             if (deduction_error)
                                 break;
+                        }
+                    }
+
+                    for (; it_argument != it_argument_end; ++it_argument)
+                    {
+                        // Here still have some argument, too much arguments.
+                        AstValueBase* argument_value = *it_argument;
+
+                        if (!argument_value->m_LANG_determined_type.has_value())
+                        {
+                            // Eval it, report `WO_ERR_NOT_IN_REIFICATION_TEMPLATE_FUNC` error.
+                            WO_CONTINUE_PROCESS(argument_value);
                         }
                     }
 

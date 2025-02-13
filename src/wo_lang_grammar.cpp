@@ -261,7 +261,7 @@ namespace wo
                 gm::nt(L"DEFINE_PATTERN_MAY_TEMPLATE") >> gm::symlist{gm::nt(L"DEFINE_PATTERN_WITH_TEMPLATE")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_return), gm::nt(L"MAY_MUT_PURE_VALUE"), gm::te(gm::ttype::l_semicolon)} >> WO_ASTBUILDER_INDEX(ast::pass_return_value),
                 gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_return), gm::te(gm::ttype::l_semicolon)} >> WO_ASTBUILDER_INDEX(ast::pass_return),
-                gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"EXPRESSION"), gm::te(gm::ttype::l_semicolon)} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"EXPRESSION"), gm::te(gm::ttype::l_semicolon)} >> WO_ASTBUILDER_INDEX(ast::pass_direct_keep_source_location<0>),
                 gm::nt(L"EXPRESSION") >> gm::symlist{gm::nt(L"RIGHT")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 gm::nt(L"RIGHT") >> gm::symlist{gm::te(gm::ttype::l_do), gm::nt(L"RIGHT")} >> WO_ASTBUILDER_INDEX(ast::pass_do_void_cast),
                 gm::nt(L"RIGHT") >> gm::symlist{gm::nt(L"ASSIGNMENT")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),

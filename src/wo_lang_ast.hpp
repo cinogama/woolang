@@ -288,6 +288,7 @@ namespace wo
             AstWhereConstraints(const std::list<AstValueBase*>& constraints);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
         };
+        // Current function/struct.. need tobe deduced.
         struct AstValueFunctionCall_FakeAstArgumentDeductionContextA : public AstBase
         {
             enum LANG_hold_state
@@ -318,6 +319,7 @@ namespace wo
             AstValueFunctionCall_FakeAstArgumentDeductionContextA(lang_Scope* before, lang_Scope* scope);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
         };
+        // Current function/struct.. is deduced, but argument or member need.
         struct AstValueFunctionCall_FakeAstArgumentDeductionContextB : public AstBase
         {
             enum LANG_hold_state
