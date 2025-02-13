@@ -63,6 +63,21 @@ namespace wo
         {
             static grammar::produce build(lexer& lex, const inputs_t& input)
             {
+                auto& token_or_ast = input[pass_idx];
+                if (input.size() > 1 && token_or_ast.is_ast())
+                {
+                    AstBase* ast = token_or_ast.read_ast();
+                    ast->source_location.source_file = nullptr;
+                }
+                return token_or_ast;
+            }
+        };
+
+        template <size_t pass_idx>
+        struct pass_direct_keep_source_location : public astnode_builder
+        {
+            static grammar::produce build(lexer& lex, const inputs_t& input)
+            {
                 return input[pass_idx];
             }
         };
@@ -73,7 +88,7 @@ namespace wo
             static grammar::produce build(lexer& lex, const inputs_t& input)
             {
                 AstList* result = new AstList();
-                if (! WO_IS_EMPTY(first_node))
+                if (!WO_IS_EMPTY(first_node))
                 {
                     result->m_list.push_back(WO_NEED_AST(first_node));
                 }
@@ -90,7 +105,7 @@ namespace wo
             static grammar::produce build(lexer& lex, const inputs_t& input)
             {
                 AstList* list = static_cast<AstList*>(WO_NEED_AST_TYPE(to_list, AstBase::AST_LIST));
-                if (! WO_IS_EMPTY(from))
+                if (!WO_IS_EMPTY(from))
                 {
                     if (from < to_list)
                         list->m_list.push_front(WO_NEED_AST(from));

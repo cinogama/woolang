@@ -95,7 +95,7 @@ namespace wo
                 if (srcfile_stream)
                 {
                     lexer new_lex(
-                        std::move(srcfile_stream), 
+                        std::move(srcfile_stream),
                         src_full_path_pstr,
                         &lex);
 
@@ -1757,6 +1757,7 @@ namespace wo
         void init_builder()
         {
 #define WO_AST_BUILDER(...) _registed_builder_function_id_list[meta::type_hash<__VA_ARGS__>] = _register_builder<__VA_ARGS__>(); 
+            WO_AST_BUILDER(pass_direct_keep_source_location<0>);
             WO_AST_BUILDER(pass_direct<0>);
             WO_AST_BUILDER(pass_direct<1>);
             WO_AST_BUILDER(pass_direct<2>);

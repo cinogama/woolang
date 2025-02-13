@@ -417,8 +417,8 @@ struct _wo_lspv2_expr_iter
     _wo_lspv2_source_meta::expr_location_map_t::const_iterator m_current_collection;
     _wo_lspv2_source_meta::expr_location_map_t::const_iterator m_end_collection;
 
-    _wo_lspv2_source_meta::expr_map_t::const_iterator m_current;
-    _wo_lspv2_source_meta::expr_map_t::const_iterator m_end;
+    _wo_lspv2_source_meta::expr_map_t::const_iterator m_most_front;
+    _wo_lspv2_source_meta::expr_map_t::const_iterator m_post_current;
 };
 
 wo_lspv2_expr_collection_iter* wo_lspv2_meta_expr_collection_iter(
@@ -494,7 +494,7 @@ WO_API wo_lspv2_expr* /* null if end */ wo_lspv2_expr_next(wo_lspv2_expr_iter* i
     if (iter == nullptr)
         return nullptr;
 
-    if (iter->m_current == iter->m_end)
+    if (iter->m_post_current == iter->m_most_front)
     {
         for (;;)
         {
@@ -505,17 +505,17 @@ WO_API wo_lspv2_expr* /* null if end */ wo_lspv2_expr_next(wo_lspv2_expr_iter* i
                 return nullptr;
             }
 
-            iter->m_current = iter->m_current_collection->second.lower_bound(
+            iter->m_most_front = iter->m_current_collection->second.lower_bound(
                 iter->m_begin_location);
-            iter->m_end = iter->m_current_collection->second.end();
+            iter->m_post_current = iter->m_current_collection->second.end();
 
-            if (iter->m_current != iter->m_end)
+            if (iter->m_most_front != iter->m_post_current)
                 break;
         }
     }
 
     return new wo_lspv2_expr{
-        (iter->m_current++)->second,
+        (--iter->m_post_current)->second,
     };
 }
 void wo_lspv2_expr_free(wo_lspv2_expr* expr)
