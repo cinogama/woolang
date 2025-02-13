@@ -1044,8 +1044,12 @@ namespace wo
         {
             if (!node->m_LANG_declared_symbol)
             {
+                bool symbol_defined_success = false;
+                lang_Symbol* defined_symbol = nullptr;
+
                 if (node->m_template_parameters)
-                    node->m_LANG_declared_symbol = define_symbol_in_current_scope(
+                    symbol_defined_success = define_symbol_in_current_scope(
+                        &defined_symbol,
                         node->m_typename,
                         node->m_attribute,
                         node,
@@ -1055,7 +1059,8 @@ namespace wo
                         node->m_template_parameters.value(),
                         true);
                 else
-                    node->m_LANG_declared_symbol = define_symbol_in_current_scope(
+                    symbol_defined_success = define_symbol_in_current_scope(
+                        &defined_symbol,
                         node->m_typename,
                         node->m_attribute,
                         node,
@@ -1064,11 +1069,23 @@ namespace wo
                         lang_Symbol::kind::ALIAS,
                         false);
 
-                if (!node->m_LANG_declared_symbol)
+                if (symbol_defined_success)
+                {
+                    wo_assert(defined_symbol != nullptr);
+                    node->m_LANG_declared_symbol = defined_symbol;
+                }
+                else
                 {
                     lex.lang_error(lexer::errorlevel::error, node,
                         WO_ERR_REDEFINED,
                         node->m_typename->c_str());
+
+                    if (defined_symbol->m_symbol_declare_ast.has_value())
+                        lex.lang_error(lexer::errorlevel::infom,
+                            defined_symbol->m_symbol_declare_ast.value(),
+                            WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
+                            get_symbol_name_w(defined_symbol));
+
                     return FAILED;
                 }
             }
@@ -1094,10 +1111,14 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
+            bool symbol_defined_success = false;
+            lang_Symbol* defined_symbol = nullptr;
+
             if (!node->m_LANG_declared_symbol)
             {
                 if (node->m_template_parameters)
-                    node->m_LANG_declared_symbol = define_symbol_in_current_scope(
+                    symbol_defined_success = define_symbol_in_current_scope(
+                        &defined_symbol,
                         node->m_typename,
                         node->m_attribute,
                         node,
@@ -1107,7 +1128,8 @@ namespace wo
                         node->m_template_parameters.value(),
                         false);
                 else
-                    node->m_LANG_declared_symbol = define_symbol_in_current_scope(
+                    symbol_defined_success = define_symbol_in_current_scope(
+                        &defined_symbol,
                         node->m_typename,
                         node->m_attribute,
                         node,
@@ -1116,11 +1138,23 @@ namespace wo
                         lang_Symbol::kind::TYPE,
                         false);
 
-                if (!node->m_LANG_declared_symbol)
+                if (symbol_defined_success)
+                {
+                    wo_assert(defined_symbol != nullptr);
+                    node->m_LANG_declared_symbol = defined_symbol;
+                }
+                else
                 {
                     lex.lang_error(lexer::errorlevel::error, node,
                         WO_ERR_REDEFINED,
                         node->m_typename->c_str());
+
+                    if (defined_symbol->m_symbol_declare_ast.has_value())
+                        lex.lang_error(lexer::errorlevel::infom,
+                            defined_symbol->m_symbol_declare_ast.value(),
+                            WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
+                            get_symbol_name_w(defined_symbol));
+
                     return FAILED;
                 }
             }

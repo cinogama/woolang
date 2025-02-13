@@ -1344,7 +1344,7 @@ namespace wo
         auto pass_union_declare::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             std::optional<AstDeclareAttribue*> attrib = std::nullopt;
-            token union_name = WO_NEED_TOKEN(2);
+            AstToken* union_name = static_cast<AstToken*>(WO_NEED_AST_TYPE(2, AstBase::AST_TOKEN));
             std::optional<AstList*> union_template_params = std::nullopt;
             AstList* union_items = static_cast<AstList*>(WO_NEED_AST_TYPE(5, AstBase::AST_LIST));
 
@@ -1372,7 +1372,7 @@ namespace wo
                 template_params = std::move(params);
             }
 
-            return new AstUnionDeclare(attrib, wstring_pool::get_pstr(union_name.identifier), template_params, items);
+            return new AstUnionDeclare(attrib, union_name, template_params, items);
         }
         auto pass_union_pattern_identifier_or_takeplace::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
@@ -1758,6 +1758,7 @@ namespace wo
         {
 #define WO_AST_BUILDER(...) _registed_builder_function_id_list[meta::type_hash<__VA_ARGS__>] = _register_builder<__VA_ARGS__>(); 
             WO_AST_BUILDER(pass_direct_keep_source_location<0>);
+            WO_AST_BUILDER(pass_direct_keep_source_location<1>);
             WO_AST_BUILDER(pass_direct<0>);
             WO_AST_BUILDER(pass_direct<1>);
             WO_AST_BUILDER(pass_direct<2>);

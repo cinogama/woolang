@@ -21,9 +21,13 @@ namespace wo
             // Check has been declared?
             if (!single_pattern->m_LANG_declared_symbol)
             {
+                bool symbol_defined_success = false;
+                lang_Symbol* defined_symbol = nullptr;
+
                 if (single_pattern->m_template_parameters)
                 {
-                    single_pattern->m_LANG_declared_symbol = define_symbol_in_current_scope(
+                    symbol_defined_success = define_symbol_in_current_scope(
+                        &defined_symbol,
                         single_pattern->m_name,
                         attribute,
                         var_defines,
@@ -35,7 +39,8 @@ namespace wo
                 }
                 else
                 {
-                    single_pattern->m_LANG_declared_symbol = define_symbol_in_current_scope(
+                    symbol_defined_success = define_symbol_in_current_scope(
+                        &defined_symbol,
                         single_pattern->m_name,
                         attribute,
                         var_defines,
@@ -45,32 +50,39 @@ namespace wo
                         single_pattern->m_is_mutable);
                 }
 
-                if (!single_pattern->m_LANG_declared_symbol)
+                if (symbol_defined_success)
                 {
-                    lex.lang_error(lexer::errorlevel::error, single_pattern,
-                        WO_ERR_REDEFINED,
-                        single_pattern->m_name->c_str());
+                    wo_assert(defined_symbol != nullptr);
+                    single_pattern->m_LANG_declared_symbol = defined_symbol;
 
-                    return false;
-                }
-                else
-                {
-                    lang_Symbol* symbol = single_pattern->m_LANG_declared_symbol.value();
-
-                    if (!symbol->m_value_instance->m_mutable
-                        && !symbol->m_is_template
+                    if (!defined_symbol->m_value_instance->m_mutable
+                        && !defined_symbol->m_is_template
                         && init_value_only_used_for_template_or_function.has_value())
                     {
                         AstValueBase* init_value = init_value_only_used_for_template_or_function.value();
                         if (init_value->node_type == AstBase::AST_VALUE_FUNCTION)
                         {
                             AstValueFunction* func = static_cast<AstValueFunction*>(init_value);
-                            symbol->m_value_instance->try_determine_function(func);
+                            defined_symbol->m_value_instance->try_determine_function(func);
                         }
                     }
 
                     if (is_pass0)
-                        symbol->m_is_global = true;
+                        defined_symbol->m_is_global = true;
+                }
+                else
+                {
+                    lex.lang_error(lexer::errorlevel::error, single_pattern,
+                        WO_ERR_REDEFINED,
+                        single_pattern->m_name->c_str());
+                    
+                    if (defined_symbol->m_symbol_declare_ast.has_value())
+                        lex.lang_error(lexer::errorlevel::infom,
+                            defined_symbol->m_symbol_declare_ast.value(),
+                            WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
+                            get_symbol_name_w(defined_symbol));
+
+                    return false;
                 }
             }
             return true;
@@ -222,8 +234,13 @@ namespace wo
     WO_PASS_PROCESSER(AstAliasTypeDeclare)
     {
         wo_assert(!node->m_LANG_declared_symbol);
+
+        bool symbol_defined_success = false;
+        lang_Symbol* defined_symbol = nullptr;
+
         if (node->m_template_parameters)
-            node->m_LANG_declared_symbol = define_symbol_in_current_scope(
+            symbol_defined_success = define_symbol_in_current_scope(
+                &defined_symbol,
                 node->m_typename,
                 node->m_attribute,
                 node,
@@ -233,7 +250,8 @@ namespace wo
                 node->m_template_parameters.value(),
                 true);
         else
-            node->m_LANG_declared_symbol = define_symbol_in_current_scope(
+            symbol_defined_success = define_symbol_in_current_scope(
+                &defined_symbol,
                 node->m_typename,
                 node->m_attribute,
                 node,
@@ -242,14 +260,23 @@ namespace wo
                 lang_Symbol::kind::ALIAS,
                 false);
 
-        if (!node->m_LANG_declared_symbol)
+        if (symbol_defined_success)
         {
-            lex.lang_error(lexer::errorlevel::error, node, WO_ERR_REDEFINED, node->m_typename->c_str());
-            return FAILED;
+            wo_assert(defined_symbol != nullptr);
+            node->m_LANG_declared_symbol = defined_symbol;
+
+            defined_symbol->m_is_global = true;
         }
         else
         {
-            node->m_LANG_declared_symbol.value()->m_is_global = true;
+            lex.lang_error(lexer::errorlevel::error, node, WO_ERR_REDEFINED, node->m_typename->c_str());
+            if (defined_symbol->m_symbol_declare_ast.has_value())
+                lex.lang_error(lexer::errorlevel::infom,
+                    defined_symbol->m_symbol_declare_ast.value(),
+                    WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
+                    get_symbol_name_w(defined_symbol));
+
+            return FAILED;
         }
         return OKAY;
     }
@@ -258,8 +285,12 @@ namespace wo
         wo_assert(state == UNPROCESSED);
         wo_assert(!node->m_LANG_declared_symbol);
 
+        bool symbol_defined_success = false;
+        lang_Symbol* defined_symbol = nullptr;
+
         if (node->m_template_parameters)
-            node->m_LANG_declared_symbol = define_symbol_in_current_scope(
+            symbol_defined_success = define_symbol_in_current_scope(
+                &defined_symbol,
                 node->m_typename,
                 node->m_attribute,
                 node,
@@ -269,7 +300,8 @@ namespace wo
                 node->m_template_parameters.value(),
                 false);
         else
-            node->m_LANG_declared_symbol = define_symbol_in_current_scope(
+            symbol_defined_success = define_symbol_in_current_scope(
+                &defined_symbol,
                 node->m_typename,
                 node->m_attribute,
                 node,
@@ -278,14 +310,23 @@ namespace wo
                 lang_Symbol::kind::TYPE,
                 false);
 
-        if (!node->m_LANG_declared_symbol)
+        if (symbol_defined_success)
         {
-            lex.lang_error(lexer::errorlevel::error, node, WO_ERR_REDEFINED, node->m_typename->c_str());
-            return FAILED;
+            wo_assert(defined_symbol != nullptr);
+            node->m_LANG_declared_symbol = defined_symbol;
+
+            defined_symbol->m_is_global = true;
         }
         else
         {
-            node->m_LANG_declared_symbol.value()->m_is_global = true;
+            lex.lang_error(lexer::errorlevel::error, node, WO_ERR_REDEFINED, node->m_typename->c_str());
+            if (defined_symbol->m_symbol_declare_ast.has_value())
+                lex.lang_error(lexer::errorlevel::infom,
+                    defined_symbol->m_symbol_declare_ast.value(),
+                    WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
+                    get_symbol_name_w(defined_symbol));
+
+            return FAILED;
         }
 
         return WO_EXCEPT_ERROR(state, OKAY);

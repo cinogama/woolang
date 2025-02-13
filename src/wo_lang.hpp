@@ -977,7 +977,8 @@ namespace wo
                 const std::optional<bool*>& out_ambig);
 
         template<typename ... ArgTs>
-        std::optional<lang_Symbol*> define_symbol_in_current_scope(
+        bool define_symbol_in_current_scope(
+            lang_Symbol**  out_defined_or_exist_symbol,
             wo_pstring_t name,
             const std::optional<ast::AstDeclareAttribue*>& attr,
             std::optional<ast::AstBase*> symbol_declare_ast,
@@ -986,9 +987,14 @@ namespace wo
         {
             auto* current_scope = get_current_scope();
             auto& symbol_table = current_scope->m_defined_symbols;
-            if (symbol_table.find(name) != symbol_table.end())
+
+            auto fnd = symbol_table.find(name);
+            if (fnd != symbol_table.end())
+            {
                 // Already defined.
-                return std::nullopt;
+                *out_defined_or_exist_symbol = fnd->second.get();
+                return false;
+            }
 
             wo_assert(!src_location.has_value() 
                 || src_location.value().source_file != nullptr);
@@ -997,8 +1003,9 @@ namespace wo
                 name, attr, symbol_declare_ast, src_location, std::forward<ArgTs>(args)...);
             new_symbol->m_symbol_edge = ++m_created_symbol_edge;
 
-            return symbol_table.insert(
+            *out_defined_or_exist_symbol = symbol_table.insert(
                 std::make_pair(name, std::move(new_symbol))).first->second.get();
+            return true;
         }
 
         lang_Scope* get_current_scope();

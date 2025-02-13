@@ -24,8 +24,9 @@ struct _wo_lspv2_source_meta
     std::optional<std::unique_ptr<wo::LangContext>> m_langcontext_if_passed_pass1;
     std::optional<std::unique_ptr<wo::lexer>> m_lexer_if_failed;
 
+    using value_or_type_expr_t = std::variant<wo::ast::AstValueBase*, wo::ast::AstTypeHolder*>;
     using expr_map_t = std::multimap<
-        wo::ast::AstBase::location_t /* end place */, wo::ast::AstValueBase*>;
+        wo::ast::AstBase::location_t /* end place */, value_or_type_expr_t>;
     using expr_location_map_t = std::map<wo::ast::AstBase::location_t /* begin place */, expr_map_t>;
     using source_expr_collection_t = std::unordered_map<wo_pstring_t, expr_location_map_t>;
     source_expr_collection_t m_source_expr_collection;
@@ -70,22 +71,37 @@ wo_lspv2_source_meta* wo_lspv2_compile_to_meta(
     {
         for (auto* ast_base_instance : meta->m_origin_astbase_list)
         {
-            if (ast_base_instance->node_type < wo::ast::AstBase::node_type_t::AST_VALUE_begin
+            if (((ast_base_instance->node_type < wo::ast::AstBase::node_type_t::AST_VALUE_begin
                 || ast_base_instance->node_type >= wo::ast::AstBase::node_type_t::AST_VALUE_end)
+                && ast_base_instance->node_type != wo::ast::AstBase::node_type_t::AST_TYPE_HOLDER)
+                || ast_base_instance->source_location.source_file == nullptr)
                 continue;
 
-            wo::ast::AstValueBase* ast_value =
-                static_cast<wo::ast::AstValueBase*>(ast_base_instance);
+            auto& record =
+                meta->m_source_expr_collection[
+                    ast_base_instance->source_location.source_file];
 
-            if (ast_base_instance->source_location.source_file != nullptr
-                && ast_value->m_LANG_determined_type.has_value())
+            if (ast_base_instance->node_type == wo::ast::AstBase::node_type_t::AST_TYPE_HOLDER)
             {
-                auto& record =
-                    meta->m_source_expr_collection[
-                        ast_base_instance->source_location.source_file];
+                wo::ast::AstTypeHolder* ast_type_holder =
+                    static_cast<wo::ast::AstTypeHolder*>(ast_base_instance);
 
-                record[ast_base_instance->source_location.begin_at].insert(
-                    std::make_pair(ast_base_instance->source_location.end_at, ast_value));
+                if (ast_type_holder->m_LANG_determined_type.has_value())
+                {
+                    record[ast_base_instance->source_location.begin_at].insert(
+                        std::make_pair(ast_base_instance->source_location.end_at, ast_type_holder));
+                }
+            }
+            else
+            {
+                wo::ast::AstValueBase* ast_value =
+                    static_cast<wo::ast::AstValueBase*>(ast_base_instance);
+
+                if (ast_value->m_LANG_determined_type.has_value())
+                {
+                    record[ast_base_instance->source_location.begin_at].insert(
+                        std::make_pair(ast_base_instance->source_location.end_at, ast_value));
+                }
             }
         }
     }
@@ -407,7 +423,7 @@ struct _wo_lspv2_expr_collection
 };
 struct _wo_lspv2_expr
 {
-    wo::ast::AstValueBase* m_expr;
+    _wo_lspv2_source_meta::value_or_type_expr_t m_expr;
 };
 struct _wo_lspv2_expr_iter
 {
@@ -524,22 +540,48 @@ void wo_lspv2_expr_free(wo_lspv2_expr* expr)
 }
 wo_lspv2_expr_info* wo_lspv2_expr_get_info(wo_lspv2_expr* expr)
 {
-    wo::lang_Symbol* variable_symbol = nullptr;
-    if (expr->m_expr->node_type == wo::ast::AstBase::node_type_t::AST_VALUE_VARIABLE)
+    wo::lang_TypeInstance* type_instance = nullptr;
+    wo::ast::AstBase* ast_base = nullptr;
+    wo::lang_Symbol* variable_or_type_symbol = nullptr;
+    wo_bool_t is_value = WO_TRUE;
+
+    if (auto* valuep = std::get_if<wo::ast::AstValueBase*>(&expr->m_expr))
     {
-        auto* ast_value_variable = static_cast<wo::ast::AstValueVariable*>(expr->m_expr);
-        if (ast_value_variable->m_LANG_variable_instance.has_value())
-            variable_symbol = ast_value_variable->m_LANG_variable_instance.value()->m_symbol;
+        wo::ast::AstValueBase* value = *valuep;
+
+        ast_base = value;
+        type_instance = value->m_LANG_determined_type.value();
+
+        if (value->node_type == wo::ast::AstBase::node_type_t::AST_VALUE_VARIABLE)
+        {
+            auto* ast_value_variable = static_cast<wo::ast::AstValueVariable*>(value);
+            if (ast_value_variable->m_LANG_variable_instance.has_value())
+                variable_or_type_symbol = ast_value_variable->m_LANG_variable_instance.value()->m_symbol;
+        }
+    }
+    else
+    {
+        wo::ast::AstTypeHolder* type_holder = std::get<wo::ast::AstTypeHolder*>(expr->m_expr);
+
+        is_value= WO_FALSE;
+        ast_base = type_holder;
+        type_instance = type_holder->m_LANG_determined_type.value();
+
+        if (type_holder->m_formal == wo::ast::AstTypeHolder::IDENTIFIER)
+        {
+            variable_or_type_symbol = 
+                type_holder->m_typeform.m_identifier->m_LANG_determined_symbol.value();
+        }
     }
 
     return new wo_lspv2_expr_info{
-        new wo_lspv2_type {
-            expr->m_expr->m_LANG_determined_type.value(),},
+        new wo_lspv2_type { type_instance,},
         wo_lspv2_location {
-            _wo_strdup(wo::wstr_to_str(*expr->m_expr->source_location.source_file).c_str()),
-            { expr->m_expr->source_location.begin_at.row, expr->m_expr->source_location.begin_at.column },
-            { expr->m_expr->source_location.end_at.row, expr->m_expr->source_location.end_at.column },},
-       variable_symbol == nullptr ? nullptr : new wo_lspv2_symbol{variable_symbol},
+            _wo_strdup(wo::wstr_to_str(*ast_base->source_location.source_file).c_str()),
+            { ast_base->source_location.begin_at.row, ast_base->source_location.begin_at.column },
+            { ast_base->source_location.end_at.row, ast_base->source_location.end_at.column },},
+        variable_or_type_symbol == nullptr ? nullptr : new wo_lspv2_symbol{variable_or_type_symbol},
+        is_value,
     };
 }
 void wo_lspv2_expr_info_free(wo_lspv2_expr_info* expr_info)

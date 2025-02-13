@@ -1895,7 +1895,7 @@ namespace wo
         }
         AstUnionDeclare::AstUnionDeclare(
             const std::optional<AstDeclareAttribue*>& attrib,
-            wo_pstring_t union_type_name,
+            AstToken* union_type_name,
             const std::optional<std::list<wo_pstring_t>>& template_parameters,
             const std::list<AstUnionItem*>& union_items)
             : AstBase(AST_UNION_DECLARE)
@@ -1909,6 +1909,8 @@ namespace wo
             auto* union_item_or_creator_declare = new AstVariableDefines(attrib);
 
             AstTypeHolder::UnionType union_type_info;
+            wo_pstring_t union_type_name_pstr = 
+                wo::wstring_pool::get_pstr(union_type_name->m_token.identifier);
 
             wo_integer_t current_item_index = 0;
             for (auto& item : union_items)
@@ -1935,14 +1937,17 @@ namespace wo
                         template_argument->source_location = item->source_location;
                     }
 
-                    auto* union_type_identifier = new AstIdentifier(union_type_name, template_arguments);
+                    auto* union_type_identifier = new AstIdentifier(
+                        union_type_name_pstr,
+                        template_arguments);
+
                     union_type = new AstTypeHolder(union_type_identifier);
 
                     union_type_identifier->source_location = item->source_location;
                 }
                 else
                 {
-                    auto* union_type_identifier = new AstIdentifier(union_type_name);
+                    auto* union_type_identifier = new AstIdentifier(union_type_name_pstr);
                     union_type = new AstTypeHolder(union_type_identifier);
 
                     union_type_identifier->source_location = item->source_location;
@@ -2049,19 +2054,19 @@ namespace wo
                 ++current_item_index;
             }
 
-            auto* union_namespace = new AstNamespace(union_type_name, union_item_or_creator_declare);
+            auto* union_namespace = new AstNamespace(union_type_name_pstr, union_item_or_creator_declare);
             AstTypeHolder* using_declare_union_type = new AstTypeHolder(union_type_info);
             AstUsingTypeDeclare* using_type_declare = new AstUsingTypeDeclare(
-                attrib, union_type_name, template_parameters, using_declare_union_type);
+                attrib, union_type_name_pstr, template_parameters, using_declare_union_type);
 
             m_union_type_declare = using_type_declare;
             m_union_namespace = union_namespace;
 
             // Update source msg;
-            union_item_or_creator_declare->source_location = union_items.front()->source_location;
-            union_namespace->source_location = union_items.front()->source_location;
-            using_declare_union_type->source_location = union_items.front()->source_location;
-            using_type_declare->source_location = union_items.front()->source_location;
+            union_item_or_creator_declare->source_location = union_type_name->source_location;
+            union_namespace->source_location = union_type_name->source_location;
+            using_declare_union_type->source_location = union_type_name->source_location;
+            using_type_declare->source_location = union_type_name->source_location;
         }
         AstBase* AstUnionDeclare::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
         {
