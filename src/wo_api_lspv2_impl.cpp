@@ -6,22 +6,26 @@
 #include <map>
 #include <unordered_map>
 
-bool _wo_compile_impl(
+#ifndef WO_DISABLE_COMPILER
+
+wo::compile_result _wo_compile_impl(
     wo_string_t virtual_src_path,
     const void* src,
     size_t      len,
     std::optional<wo::shared_pointer<wo::runtime_env>>* out_env_if_success,
-    std::optional<std::unique_ptr<wo::LangContext>>* out_langcontext_if_passed_pass1,
-    std::optional<std::unique_ptr<wo::lexer>>* out_lexer_if_failed);
+    std::optional<std::unique_ptr<wo::lexer>>* out_lexer_if_failed,
+    std::optional<std::unique_ptr<wo::LangContext>>* out_langcontext_if_pass_grammar);
 
 static_assert(WO_NEED_LSP_API);
 
 struct _wo_lspv2_source_meta
 {
+    wo::compile_result m_step;
+
     std::forward_list<wo::ast::AstBase*> m_origin_astbase_list;
 
     std::optional<wo::shared_pointer<wo::runtime_env>> m_env_if_success;
-    std::optional<std::unique_ptr<wo::LangContext>> m_langcontext_if_passed_pass1;
+    std::optional<std::unique_ptr<wo::LangContext>> m_langcontext_if_passed_grammar;
     std::optional<std::unique_ptr<wo::lexer>> m_lexer_if_failed;
 
     using value_or_type_expr_t = wo::ast::AstBase*;
@@ -54,20 +58,21 @@ wo_lspv2_source_meta* wo_lspv2_compile_to_meta(
         wo::ast::AstBase::exchange_this_thread_ast(
             old_ast_list);
 
-    (void)_wo_compile_impl(
+    meta->m_step = _wo_compile_impl(
         virtual_src_path,
         src,
         src == nullptr ? 0 : strlen(src),
         &meta->m_env_if_success,
-        &meta->m_langcontext_if_passed_pass1,
-        &meta->m_lexer_if_failed);
+        &meta->m_lexer_if_failed,
+        &meta->m_langcontext_if_passed_grammar);
 
     wo::ast::AstBase::exchange_this_thread_ast(meta->m_origin_astbase_list);
 
     if (need_exchange_back)
         wo::ast::AstBase::exchange_this_thread_ast(old_ast_list);
 
-    if (meta->m_langcontext_if_passed_pass1.has_value())
+    // Grammar passed, get more type information as possiable.
+    if (meta->m_langcontext_if_passed_grammar.has_value())
     {
         for (auto* ast_base_instance : meta->m_origin_astbase_list)
         {
@@ -194,11 +199,11 @@ struct _wo_lspv2_scope_iter
 
 wo_lspv2_scope* wo_lspv2_meta_get_global_scope(wo_lspv2_source_meta* meta)
 {
-    if (!meta->m_langcontext_if_passed_pass1.has_value())
+    if (!meta->m_langcontext_if_passed_grammar.has_value())
         return nullptr;
 
     return reinterpret_cast<wo_lspv2_scope*>(
-        meta->m_langcontext_if_passed_pass1.value()->m_root_namespace->m_this_scope.get());
+        meta->m_langcontext_if_passed_grammar.value()->m_root_namespace->m_this_scope.get());
 }
 wo_lspv2_scope_iter* wo_lspv2_scope_sub_scope_iter(wo_lspv2_scope* scope)
 {
@@ -571,7 +576,7 @@ wo_lspv2_type_info* wo_lspv2_type_get_info(
         std::launder(reinterpret_cast<wo::lang_TypeInstance*>(type));
 
     auto* result = new wo_lspv2_type_info{
-        meta->m_langcontext_if_passed_pass1.value()->get_type_name(type_instance),
+        meta->m_langcontext_if_passed_grammar.value()->get_type_name(type_instance),
         reinterpret_cast<wo_lspv2_symbol*>(type_instance->m_symbol),
         0,
         nullptr,
@@ -654,3 +659,5 @@ void wo_lspv2_type_struct_info_free(wo_lspv2_type_struct_info* info)
     free((void*)info->m_member_types);
     delete info;
 }
+
+#endif

@@ -2650,17 +2650,23 @@ void wo_release_vm(wo_vm vm)
         wo_close_vm(vm);
 }
 
-bool _wo_compile_impl(
+wo::compile_result _wo_compile_impl(
     wo_string_t virtual_src_path,
     const void* src,
     size_t      len,
     std::optional<wo::shared_pointer<wo::runtime_env>>* out_env_if_success,
-    std::optional<std::unique_ptr<wo::LangContext>>* out_langcontext_if_passed_pass1,
-    std::optional<std::unique_ptr<wo::lexer>>* out_lexer_if_failed)
+    std::optional<std::unique_ptr<wo::lexer>>* out_lexer_if_failed
+#ifndef WO_DISABLE_COMPILER
+    , std::optional<std::unique_ptr<wo::LangContext>>* out_langcontext_if_pass_grammar
+#endif
+)
 {
     // 0. Try load binary
     const char* load_binary_failed_reason = nullptr;
     bool is_valid_binary = false;
+
+    wo::compile_result compile_result
+        = wo::compile_result::PROCESS_FAILED;
 
     std::optional<wo::shared_pointer<wo::runtime_env>> compile_env_result =
         wo::runtime_env::load_create_env_from_binary(
@@ -2736,11 +2742,14 @@ bool _wo_compile_impl(
                 auto* result = wo::get_wo_grammar()->gen(*compile_lexer);
                 if (result != nullptr)
                 {
+                    compile_result =
+                        wo::compile_result::PROCESS_FAILED_BUT_GRAMMAR_OK;
+
                     std::unique_ptr<wo::LangContext> lang_context =
                         std::make_unique<wo::LangContext>();
 
-                    const auto process_result = lang_context->process(*compile_lexer, result);
-                    if (wo::LangContext::process_result::PROCESS_OK == process_result)
+                    compile_result = lang_context->process(*compile_lexer, result);
+                    if (wo::compile_result::PROCESS_OK == compile_result)
                     {
                         // Finish!, finalize the compiler.
                         compile_env_result = std::move(
@@ -2748,37 +2757,37 @@ bool _wo_compile_impl(
                                 wo::vmbase::VM_DEFAULT_STACK_SIZE));
                     }
 
-                    if (wo::LangContext::process_result::PROCESS_FAILED != process_result)
-                        if (out_langcontext_if_passed_pass1 != nullptr)
-                            *out_langcontext_if_passed_pass1 = std::move(lang_context);
+                    if (out_langcontext_if_pass_grammar != nullptr)
+                        *out_langcontext_if_pass_grammar = std::move(lang_context);
                 }
             }
 #else
-            lex->lex_error(wo::lexer::errorlevel::error, WO_ERR_COMPILER_DISABLED);
+            compile_lexer->lex_error(
+                wo::lexer::errorlevel::error, WO_ERR_COMPILER_DISABLED);
 #endif
-            }
         }
+    }
 
     // Compile finished.
     if (compile_env_result.has_value())
     {
         // Success
+        wo_assert(compile_result == wo::LangContext::compile_result::PROCESS_OK);
+
         if (out_env_if_success != nullptr)
             *out_env_if_success = std::move(compile_env_result.value());
-
-        return true;
     }
     else
     {
         // Failed
         wo_assert((bool)compile_lexer);
+        wo_assert(compile_result != wo::LangContext::compile_result::PROCESS_OK);
 
         if (out_lexer_if_failed != nullptr)
             *out_lexer_if_failed = std::move(compile_lexer);
-
-        return false;
     }
-    }
+    return compile_result;
+}
 
 wo_bool_t _wo_load_source(wo_vm vm, wo_string_t virtual_src_path, const void* src, size_t len)
 {
@@ -2787,20 +2796,33 @@ wo_bool_t _wo_load_source(wo_vm vm, wo_string_t virtual_src_path, const void* sr
     std::optional<wo::shared_pointer<wo::runtime_env>> _env_if_success;
     std::optional<std::unique_ptr<wo::lexer>> _lexer_if_failed;
 
+#ifndef WO_DISABLE_COMPILER
     std::forward_list<wo::ast::AstBase*> m_last_context;
     bool need_exchange_back =
         wo::ast::AstBase::exchange_this_thread_ast(m_last_context);
+#endif
 
-    bool compile_result =
-        _wo_compile_impl(virtual_src_path, src, len, &_env_if_success, nullptr, &_lexer_if_failed);
+    auto compile_result =
+        _wo_compile_impl(
+            virtual_src_path,
+            src, 
+            len,
+            &_env_if_success,
+            &_lexer_if_failed
+#ifndef WO_DISABLE_COMPILER
+            , nullptr
+#endif
+        );
 
+#ifndef WO_DISABLE_COMPILER
     wo::ast::AstBase::clean_this_thread_ast();
 
     if (need_exchange_back)
         wo::ast::AstBase::exchange_this_thread_ast(
             m_last_context);
+#endif
 
-    if (compile_result)
+    if (compile_result == wo::compile_result::PROCESS_OK)
     {
         WO_VM(vm)->set_runtime(_env_if_success.value());
         return WO_TRUE;
@@ -2884,91 +2906,91 @@ std::wstring _dump_src_info(
 
             auto print_src_file_print_lineno =
                 [&current_row_no, &result, &first_line, depth]()
-                {
-                    wchar_t buf[20] = {};
-                    if (first_line)
-                        first_line = false;
-                    else
-                        result += L"\n";
+            {
+                wchar_t buf[20] = {};
+                if (first_line)
+                    first_line = false;
+                else
+                    result += L"\n";
 
-                    swprintf(buf, 19, L"%-5zu | ", current_row_no);
-                    result += std::wstring(depth == 0 ? 0 : depth + 1, L' ') + buf;
-                };
+                swprintf(buf, 19, L"%-5zu | ", current_row_no);
+                result += std::wstring(depth == 0 ? 0 : depth + 1, L' ') + buf;
+            };
             auto print_notify_line =
                 [&result, &first_line, &current_row_no, &errmsg, beginpointplace, pointplace, style, beginaimrow, aimrow, depth](
                     size_t line_end_place)
+            {
+                wchar_t buf[20] = {};
+                if (first_line)
+                    first_line = false;
+                else
+                    result += L"\n";
+
+                swprintf(buf, 19, L"      | ");
+                std::wstring append_result = buf;
+
+                if (style == _wo_inform_style::WO_NEED_COLOR)
+                    append_result += errmsg.error_level == wo::lexer::errorlevel::error
+                    ? wo::str_to_wstr(ANSI_HIR)
+                    : wo::str_to_wstr(ANSI_HIC);
+
+                if (current_row_no == aimrow)
                 {
-                    wchar_t buf[20] = {};
-                    if (first_line)
-                        first_line = false;
-                    else
-                        result += L"\n";
-
-                    swprintf(buf, 19, L"      | ");
-                    std::wstring append_result = buf;
-
-                    if (style == _wo_inform_style::WO_NEED_COLOR)
-                        append_result += errmsg.error_level == wo::lexer::errorlevel::error
-                        ? wo::str_to_wstr(ANSI_HIR)
-                        : wo::str_to_wstr(ANSI_HIC);
-
-                    if (current_row_no == aimrow)
+                    if (current_row_no == beginaimrow)
                     {
-                        if (current_row_no == beginaimrow)
-                        {
-                            size_t i = 1;
-                            for (; i < beginpointplace; i++)
-                                append_result += L" ";
-                            for (; i < pointplace; i++)
-                                append_result += L"~";
+                        size_t i = 1;
+                        for (; i < beginpointplace; i++)
+                            append_result += L" ";
+                        for (; i < pointplace; i++)
+                            append_result += L"~";
 
-                        }
-                        else
-                        {
-                            for (size_t i = 1; i < pointplace; i++)
-                                append_result += L"~";
-                        }
-                        append_result += L"~\\"
-                            + wo::str_to_wstr(ANSI_UNDERLNE)
-                            + L" " WO_HERE
-                            + wo::str_to_wstr(ANSI_NUNDERLNE);
-
-                        if (depth != 0)
-                            append_result += L": " + errmsg.describe;
                     }
                     else
                     {
-                        if (current_row_no == beginaimrow)
+                        for (size_t i = 1; i < pointplace; i++)
+                            append_result += L"~";
+                    }
+                    append_result += L"~\\"
+                        + wo::str_to_wstr(ANSI_UNDERLNE)
+                        + L" " WO_HERE
+                        + wo::str_to_wstr(ANSI_NUNDERLNE);
+
+                    if (depth != 0)
+                        append_result += L": " + errmsg.describe;
+                }
+                else
+                {
+                    if (current_row_no == beginaimrow)
+                    {
+                        size_t i = 1;
+                        for (; i < beginpointplace; i++)
+                            append_result += L" ";
+                        if (i < line_end_place)
                         {
-                            size_t i = 1;
-                            for (; i < beginpointplace; i++)
-                                append_result += L" ";
-                            if (i < line_end_place)
-                            {
-                                for (; i < line_end_place; i++)
-                                    append_result += L"~";
-                            }
-                            else
-                                return;
+                            for (; i < line_end_place; i++)
+                                append_result += L"~";
                         }
                         else
-                        {
-                            size_t i = 1;
-                            if (i < line_end_place)
-                            {
-                                for (; i < line_end_place; i++)
-                                    append_result += L"~";
-                            }
-                            else
-                                return;
-                        }
+                            return;
                     }
+                    else
+                    {
+                        size_t i = 1;
+                        if (i < line_end_place)
+                        {
+                            for (; i < line_end_place; i++)
+                                append_result += L"~";
+                        }
+                        else
+                            return;
+                    }
+                }
 
-                    if (style == _wo_inform_style::WO_NEED_COLOR)
-                        append_result += wo::str_to_wstr(ANSI_RST);
+                if (style == _wo_inform_style::WO_NEED_COLOR)
+                    append_result += wo::str_to_wstr(ANSI_RST);
 
-                    result += std::wstring(depth == 0 ? 0 : depth + 1, L' ') + append_result;
-                };
+                result += std::wstring(depth == 0 ? 0 : depth + 1, L' ') + append_result;
+            };
 
             if (from <= current_row_no && current_row_no <= to)
                 print_src_file_print_lineno();
