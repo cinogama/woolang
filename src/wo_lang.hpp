@@ -13,6 +13,14 @@
 
 namespace wo
 {
+    enum class compile_result
+    {
+        PROCESS_OK,
+        PROCESS_FAILED_BUT_PASS_1_OK,
+        PROCESS_FAILED_BUT_GRAMMAR_OK,
+        PROCESS_FAILED,
+    };
+
 #ifndef WO_DISABLE_COMPILER
     struct lang_Namespace;
     struct lang_Scope;
@@ -603,12 +611,6 @@ namespace wo
 
     struct LangContext
     {
-        enum class process_result
-        {
-            PROCESS_OK,
-            PROCESS_FAILED,
-            PROCESS_FAILED_BUT_PASS_1_OK,
-        };
         // Symbol & definition.
         enum pass_behavior
         {
@@ -801,7 +803,7 @@ namespace wo
 
         void pass_0_5_register_builtin_types();
 
-        process_result process(lexer& lex, ast::AstBase* root);
+        compile_result process(lexer& lex, ast::AstBase* root);
 
         //////////////////////////////////////
 

@@ -3546,13 +3546,13 @@ namespace wo
         }
 
         m_ircontext.c().pdb_info->generate_debug_info_at_astnode(node_state.m_ast_node, &m_ircontext.c());
-        auto process_result =
+        auto compile_result =
             m_passir_B_processers->process_node(this, lex, node_state, out_stack);
 
-        if (process_result == FAILED)
+        if (compile_result == FAILED)
             m_ircontext.failed_eval_result();
 
-        return process_result;
+        return compile_result;
     }
 
 #endif
