@@ -921,6 +921,8 @@ namespace wo
             if (!attrib->modify_attrib(lex, attrib_token))
                 return token{ lex_type::l_error };
 
+            // Update source location
+            attrib->source_location.source_file = nullptr;
             return attrib;
         }
         auto pass_pattern_for_assign::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
@@ -956,12 +958,20 @@ namespace wo
         {
             AstTypeHolder* type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(1, AstBase::AST_TYPE_HOLDER));
             type->m_mutable_mark = AstTypeHolder::mutable_mark::MARK_AS_MUTABLE;
+
+            // Update source location
+            type->source_location.source_file = nullptr;
+
             return type;
         }
         auto pass_type_immutable::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstTypeHolder* type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(1, AstBase::AST_TYPE_HOLDER));
             type->m_mutable_mark = AstTypeHolder::mutable_mark::MARK_AS_IMMUTABLE;
+
+            // Update source location
+            type->source_location.source_file = nullptr;
+
             return type;
         }
         auto pass_func_argument::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
@@ -1299,6 +1309,10 @@ namespace wo
                     direct_call->m_arguments.push_back(static_cast<AstValueBase*>(argument));
                 }
             }
+
+            // Update source location
+            direct_call->source_location.source_file = nullptr;
+
             return direct_call;
         }
         auto pass_inverse_function_call::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
@@ -1306,12 +1320,15 @@ namespace wo
             AstValueBase* inverse_func = WO_NEED_AST_VALUE(0);
             AstValueFunctionCall* function_call;
             if (inverse_func->node_type == AstBase::AST_VALUE_FUNCTION_CALL)
-                function_call = static_cast<AstValueFunctionCall*>(inverse_func);
-            else
             {
-                function_call = new AstValueFunctionCall(false, inverse_func, {});
-                function_call->source_location = inverse_func->source_location;
+                function_call = static_cast<AstValueFunctionCall*>(inverse_func);
+                
+                // Update source location
+                function_call->source_location.source_file = nullptr;
             }
+            else
+                function_call = new AstValueFunctionCall(false, inverse_func, {});
+            
             AstValueBase* inverse_argument = WO_NEED_AST_VALUE(2);
 
             if (function_call->m_is_direct_call)
