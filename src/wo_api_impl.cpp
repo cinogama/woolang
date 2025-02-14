@@ -2772,7 +2772,7 @@ wo::compile_result _wo_compile_impl(
     if (compile_env_result.has_value())
     {
         // Success
-        wo_assert(compile_result == wo::LangContext::compile_result::PROCESS_OK);
+        wo_assert(compile_result == wo::compile_result::PROCESS_OK);
 
         if (out_env_if_success != nullptr)
             *out_env_if_success = std::move(compile_env_result.value());
@@ -2781,7 +2781,7 @@ wo::compile_result _wo_compile_impl(
     {
         // Failed
         wo_assert((bool)compile_lexer);
-        wo_assert(compile_result != wo::LangContext::compile_result::PROCESS_OK);
+        wo_assert(compile_result != wo::compile_result::PROCESS_OK);
 
         if (out_lexer_if_failed != nullptr)
             *out_lexer_if_failed = std::move(compile_lexer);
