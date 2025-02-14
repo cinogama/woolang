@@ -487,7 +487,7 @@ wo_lspv2_expr_iter* /* null if not found */ wo_lspv2_expr_collection_get_by_rang
         begin_iter->second.end(),
     };
 }
-WO_API wo_lspv2_expr* /* null if end */ wo_lspv2_expr_next(wo_lspv2_expr_iter* iter)
+wo_lspv2_expr* /* null if end */ wo_lspv2_expr_next(wo_lspv2_expr_iter* iter)
 {
     if (iter == nullptr)
         return nullptr;
