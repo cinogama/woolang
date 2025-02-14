@@ -2767,6 +2767,9 @@ wo::compile_result _wo_compile_impl(
 #endif
         }
     }
+    else
+        // Load binary success. 
+        compile_result = wo::compile_result::PROCESS_OK;
 
     // Compile finished.
     if (compile_env_result.has_value())
@@ -2805,7 +2808,7 @@ wo_bool_t _wo_load_source(wo_vm vm, wo_string_t virtual_src_path, const void* sr
     auto compile_result =
         _wo_compile_impl(
             virtual_src_path,
-            src, 
+            src,
             len,
             &_env_if_success,
             &_lexer_if_failed
