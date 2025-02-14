@@ -112,6 +112,9 @@ namespace wo
                     else
                         list->m_list.push_back(WO_NEED_AST(from));
                 }
+
+                // Update source location.
+                list->source_location.source_file = nullptr;
                 return list;
             }
         };

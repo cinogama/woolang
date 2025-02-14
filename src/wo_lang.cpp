@@ -1971,9 +1971,10 @@ namespace wo
             lang_Symbol* symbol = fnd->second.get();
 
             if (ident->m_find_type_only != (symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE))
+            {
                 ident->m_LANG_determined_symbol = symbol;
-
-            return symbol;
+                return symbol;
+            }
         }
         return std::nullopt;
     }
