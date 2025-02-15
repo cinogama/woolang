@@ -662,20 +662,19 @@ void wo_lspv2_type_struct_info_free(wo_lspv2_type_struct_info* info)
 
 struct _wo_lspv2_macro_iter
 {
-    using macro_iter_t = decltype(wo::lexer::used_macro_list)::element_type::const_iterator;
+    using macro_iter_t = decltype(wo::LangContext::m_macros)::const_iterator;
     macro_iter_t m_current;
     macro_iter_t m_end;
 };
 
 wo_lspv2_macro_iter* wo_lspv2_meta_macro_iter(wo_lspv2_source_meta* meta)
 {
-    if (meta->m_lexer_if_failed.has_value())
+    if (meta->m_langcontext_if_passed_grammar.has_value())
     {
-        wo::lexer* lexer = meta->m_lexer_if_failed.value().get();
-
+        auto& macro_list = meta->m_langcontext_if_passed_grammar.value()->m_macros;
         return new _wo_lspv2_macro_iter{
-            lexer->used_macro_list->cbegin(),
-            lexer->used_macro_list->cend(),
+            macro_list.cbegin(),
+            macro_list.cend(),
         };
     }
     return nullptr;
@@ -690,18 +689,18 @@ wo_lspv2_macro* /* null if end */ wo_lspv2_macro_next(wo_lspv2_macro_iter* iter)
     else
     {
         return reinterpret_cast<wo_lspv2_macro*>(
-            (iter->m_current++)->second.get());
+            (iter->m_current++)->get());
     }
 }
 wo_lspv2_macro_info* wo_lspv2_macro_get_info(wo_lspv2_macro* macro)
 {
-    wo::macro* lang_macro = std::launder(reinterpret_cast<wo::macro*>(macro));
+    wo::lang_Macro* lang_macro = std::launder(reinterpret_cast<wo::lang_Macro*>(macro));
     return new wo_lspv2_macro_info{
-        _wo_strdup(wo::wstr_to_str(lang_macro->macro_name).c_str()),
+        _wo_strdup(wo::wstr_to_str(*lang_macro->m_name).c_str()),
         wo_lspv2_location{
-            _wo_strdup(wo::wstr_to_str(*lang_macro->filename).c_str()),
-            { lang_macro->begin_row, lang_macro->begin_col },
-            { lang_macro->end_row, lang_macro->end_row },
+            _wo_strdup(wo::wstr_to_str(*lang_macro->m_location.source_file).c_str()),
+            { lang_macro->m_location.begin_at.row, lang_macro->m_location.begin_at.column },
+            { lang_macro->m_location.end_at.row, lang_macro->m_location.end_at.column },
         },
     };
     

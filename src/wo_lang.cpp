@@ -572,6 +572,19 @@ namespace wo
 
     //////////////////////////////////////
 
+    lang_Macro::lang_Macro(const wo::macro& macro_instance)
+        : m_name(wo::wstring_pool::get_pstr(macro_instance.macro_name))
+        , m_location{}
+    {
+        m_location.source_file = macro_instance.filename;
+        m_location.begin_at.row = macro_instance.begin_row;
+        m_location.begin_at.column = macro_instance.begin_col;
+        m_location.end_at.row = macro_instance.end_row;
+        m_location.end_at.column = macro_instance.end_col;
+    }
+
+    //////////////////////////////////////
+
     LangContext::AstNodeWithState::AstNodeWithState(ast::AstBase* node)
         : m_state(UNPROCESSED), m_ast_node(node)
 #ifndef NDEBUG
@@ -1392,6 +1405,13 @@ namespace wo
 
     compile_result LangContext::process(lexer& lex, ast::AstBase* root)
     {
+        if (lex.used_macro_list != nullptr)
+            for (auto& [_useless, macro_msg] : *lex.used_macro_list)
+            {
+                (void)_useless;
+                m_macros.push_back(std::make_unique<lang_Macro>(*macro_msg));
+            }
+
         pass_0_5_register_builtin_types();
 
         if (!anylize_pass(lex, root, &LangContext::pass_0_process_scope_and_non_local_defination))

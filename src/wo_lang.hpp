@@ -439,6 +439,14 @@ namespace wo
         lang_Namespace& operator=(const lang_Scope&) = delete;
         lang_Namespace& operator=(lang_Scope&&) = delete;
     };
+    struct lang_Macro
+    {
+        wo_pstring_t    m_name;
+        ast::AstBase::source_location_t 
+                        m_location;
+
+        lang_Macro(const wo::macro& macro_instance);
+    };
 
     struct BytecodeGenerateContext
     {
@@ -768,6 +776,9 @@ namespace wo
         std::stack<lang_Scope*>         m_scope_stack;
         std::unordered_map<lang_TypeInstance*, std::unique_ptr<lang_TypeInstance>>
                                         m_mutable_type_instance_cache;
+        // NOTE: For LSPv2 only.
+        std::list<std::unique_ptr< lang_Macro>>
+                                        m_macros;   
 
         // Used for make sure template instance will never see the symbol declared after them.
         size_t                          m_created_symbol_edge;
