@@ -724,6 +724,13 @@ typedef struct _wo_lspv2_type_struct_info
 
 }wo_lspv2_type_struct_info;
 
+typedef struct _wo_lspv2_macro wo_lspv2_macro;
+typedef struct _wo_lspv2_macro_iter wo_lspv2_macro_iter;
+typedef struct _wo_lspv2_macro_info {
+    const char*         m_name;
+    wo_lspv2_location   m_location;
+}wo_lspv2_macro_info;
+
 WO_API wo_lspv2_source_meta* wo_lspv2_compile_to_meta(
     wo_string_t virtual_src_path,
     wo_string_t src);
@@ -735,8 +742,16 @@ WO_API wo_lspv2_error_info* /* null if end */
 wo_lspv2_compile_err_next(wo_lspv2_error_iter* iter);
 WO_API void wo_lspv2_err_info_free(wo_lspv2_error_info* info);
 
+// Macro API
+WO_API wo_lspv2_macro_iter* /* null if grammar failed */ 
+    wo_lspv2_meta_macro_iter(wo_lspv2_source_meta* meta);
+WO_API wo_lspv2_macro* /* null if end */ wo_lspv2_macro_next(wo_lspv2_macro_iter* iter);
+WO_API wo_lspv2_macro_info* wo_lspv2_macro_get_info(wo_lspv2_macro* macro);
+WO_API void wo_lspv2_macro_info_free(wo_lspv2_macro_info* info);
+
 // Scope API
-WO_API wo_lspv2_scope* /* null if pass1 failed */ wo_lspv2_meta_get_global_scope(wo_lspv2_source_meta* meta);
+WO_API wo_lspv2_scope* /* null if grammar failed */ 
+    wo_lspv2_meta_get_global_scope(wo_lspv2_source_meta* meta);
 WO_API wo_lspv2_scope_iter* wo_lspv2_scope_sub_scope_iter(wo_lspv2_scope* scope);
 WO_API wo_lspv2_scope* /* null if end */ wo_lspv2_scope_sub_scope_next(wo_lspv2_scope_iter* iter);
 WO_API wo_lspv2_scope_info* wo_lspv2_scope_get_info(wo_lspv2_scope* scope);
