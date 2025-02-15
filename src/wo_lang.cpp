@@ -1646,7 +1646,7 @@ namespace wo
 
     void LangContext::begin_new_function(ast::AstValueFunction* func_instance)
     {
-        begin_new_scope(func_instance->source_location);
+        begin_new_scope(func_instance->m_body->source_location);
         get_current_scope()->m_function_instance = func_instance;
     }
     void LangContext::end_last_function()
