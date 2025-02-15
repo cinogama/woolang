@@ -660,4 +660,57 @@ void wo_lspv2_type_struct_info_free(wo_lspv2_type_struct_info* info)
     delete info;
 }
 
+struct _wo_lspv2_macro_iter
+{
+    using macro_iter_t = decltype(wo::lexer::used_macro_list)::element_type::const_iterator;
+    macro_iter_t m_current;
+    macro_iter_t m_end;
+};
+
+wo_lspv2_macro_iter* wo_lspv2_meta_macro_iter(wo_lspv2_source_meta* meta)
+{
+    if (meta->m_lexer_if_failed.has_value())
+    {
+        wo::lexer* lexer = meta->m_lexer_if_failed.value().get();
+
+        return new _wo_lspv2_macro_iter{
+            lexer->used_macro_list->cbegin(),
+            lexer->used_macro_list->cend(),
+        };
+    }
+    return nullptr;
+}
+wo_lspv2_macro* /* null if end */ wo_lspv2_macro_next(wo_lspv2_macro_iter* iter)
+{
+    if (iter->m_current == iter->m_end)
+    {
+        delete iter;
+        return nullptr;
+    }
+    else
+    {
+        return reinterpret_cast<wo_lspv2_macro*>(
+            (iter->m_current++)->second.get());
+    }
+}
+wo_lspv2_macro_info* wo_lspv2_macro_get_info(wo_lspv2_macro* macro)
+{
+    wo::macro* lang_macro = std::launder(reinterpret_cast<wo::macro*>(macro));
+    return new wo_lspv2_macro_info{
+        _wo_strdup(wo::wstr_to_str(lang_macro->macro_name).c_str()),
+        wo_lspv2_location{
+            _wo_strdup(wo::wstr_to_str(*lang_macro->filename).c_str()),
+            { lang_macro->begin_row, lang_macro->begin_col },
+            { lang_macro->end_row, lang_macro->end_row },
+        },
+    };
+    
+}
+void wo_lspv2_macro_info_free(wo_lspv2_macro_info* info)
+{
+    free((void*)info->m_name);
+    free((void*)info->m_location.m_file_name);
+    delete info;
+}
+
 #endif
