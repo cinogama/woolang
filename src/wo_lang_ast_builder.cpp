@@ -987,17 +987,7 @@ namespace wo
         auto pass_do_void_cast::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstValueBase* value = WO_NEED_AST_VALUE(1);
-
-            AstIdentifier* void_identifier = new AstIdentifier(WO_PSTR(void), std::nullopt, {}, true);
-            AstTypeHolder* void_type = new AstTypeHolder(void_identifier);
-
-            AstValueTypeCast* cast = new AstValueTypeCast(void_type, value);
-
-            // Update source location
-            void_identifier->source_location = value->source_location;
-            void_type->source_location = value->source_location;
-
-            return cast;
+            return new AstValueDoAsVoid(value);
         }
         auto pass_assign_operation::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {

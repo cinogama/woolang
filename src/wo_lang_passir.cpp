@@ -271,6 +271,7 @@ namespace wo
         WO_LANG_REGISTER_PROCESSER(AstValueLiteral, AstBase::AST_VALUE_LITERAL, passir_B);
         WO_LANG_REGISTER_PROCESSER(AstValueTypeid, AstBase::AST_VALUE_TYPEID, passir_B);
         WO_LANG_REGISTER_PROCESSER(AstValueTypeCast, AstBase::AST_VALUE_TYPE_CAST, passir_B);
+        WO_LANG_REGISTER_PROCESSER(AstValueDoAsVoid, AstBase::AST_VALUE_DO_AS_VOID, passir_B);
         WO_LANG_REGISTER_PROCESSER(AstValueTypeCheckIs, AstBase::AST_VALUE_TYPE_CHECK_IS, passir_B);
         WO_LANG_REGISTER_PROCESSER(AstValueTypeCheckAs, AstBase::AST_VALUE_TYPE_CHECK_AS, passir_B);
         WO_LANG_REGISTER_PROCESSER(AstValueVariable, AstBase::AST_VALUE_VARIABLE, passir_B);
@@ -1717,13 +1718,11 @@ namespace wo
             auto* src_determined_type_instance =
                 src_type_instance->get_determined_type().value();
 
-            // Eval.
-            WO_CONTINUE_PROCESS(node->m_cast_value);
-
             if (target_determined_type_instance->m_base_type
                 == lang_TypeInstance::DeterminedType::VOID)
             {
-                node->m_IR_need_runtime_check_eval = true;
+                // Here we need mark this sign to apply `eval_ignore`.
+                node->m_IR_need_eval = true;
                 m_ircontext.eval_ignore();
             }
             else if (target_determined_type_instance->m_base_type
@@ -1734,7 +1733,7 @@ namespace wo
                 != lang_TypeInstance::DeterminedType::NOTHING)
             {
                 // Need runtime check.
-                node->m_IR_need_runtime_check_eval = true;
+                node->m_IR_need_eval = true;
 
                 m_ircontext.eval_sth_if_not_ignore(
                     &BytecodeGenerateContext::eval);
@@ -1742,14 +1741,19 @@ namespace wo
             else
             {
                 // No cast
+                node->m_IR_need_eval = false;
+
                 m_ircontext.eval_for_upper();
             }
+
+            // Eval.
+            WO_CONTINUE_PROCESS(node->m_cast_value);
 
             return HOLD;
         }
         else if (state == HOLD)
         {
-            if (node->m_IR_need_runtime_check_eval)
+            if (node->m_IR_need_eval)
             {
                 if (!m_ircontext.apply_eval_result(
                     [&](BytecodeGenerateContext::EvalResult& result)
@@ -1846,6 +1850,44 @@ namespace wo
                     // Eval failed.
                     return FAILED;
                 }
+            }
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstValueDoAsVoid)
+    {
+        if (state == UNPROCESSED)
+        {
+            // Cast to void, just ignore it.
+            m_ircontext.eval_ignore();
+            WO_CONTINUE_PROCESS(node->m_do_value);
+
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            if (!m_ircontext.apply_eval_result(
+                [&](BytecodeGenerateContext::EvalResult& result)
+                {
+                    const auto& target_storage = result.get_assign_target();
+
+                    if (target_storage.has_value())
+                    {
+                        // NO NEED TO DO ANYTHING.
+                        // VOID VALUE IS PURE JUNK VALUE.
+                    }
+                    else
+                    {
+                        // Return a junk value.
+                        result.set_result(
+                            m_ircontext, m_ircontext.opnum_spreg(opnum::reg::spreg::ni));
+                    }
+
+                    return true;
+                }))
+            {
+                // Eval failed.
+                return FAILED;
             }
         }
         return WO_EXCEPT_ERROR(state, OKAY);

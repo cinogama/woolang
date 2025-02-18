@@ -558,7 +558,7 @@ namespace wo
             : AstValueBase(AST_VALUE_TYPE_CAST)
             , m_cast_type(cast_type)
             , m_cast_value(cast_value)
-            , m_IR_need_runtime_check_eval(false)
+            , m_IR_need_eval(false)
         {
 
         }
@@ -571,6 +571,24 @@ namespace wo
             AstValueBase::make_dup(new_instance, out_continues);
             out_continues.push_back(AstBase::make_holder(&new_instance->m_cast_type));
             out_continues.push_back(AstBase::make_holder(&new_instance->m_cast_value));
+            return new_instance;
+        }
+
+        ////////////////////////////////////////////////////////
+
+        AstValueDoAsVoid::AstValueDoAsVoid(AstValueBase* do_value)
+            : AstValueBase(AST_VALUE_DO_AS_VOID)
+            , m_do_value(do_value)
+        {
+        }
+        AstBase* AstValueDoAsVoid::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        {
+            AstValueDoAsVoid* new_instance = exist_instance
+                ? static_cast<AstValueDoAsVoid*>(exist_instance.value())
+                : new AstValueDoAsVoid(m_do_value)
+                ;
+            AstValueBase::make_dup(new_instance, out_continues);
+            out_continues.push_back(AstBase::make_holder(&new_instance->m_do_value));
             return new_instance;
         }
 

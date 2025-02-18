@@ -860,6 +860,7 @@ namespace wo
     WO_AST_MACRO(AstValueLiteral);\
     WO_AST_MACRO(AstValueTypeid);\
     WO_AST_MACRO(AstValueTypeCast);\
+    WO_AST_MACRO(AstValueDoAsVoid);\
     WO_AST_MACRO(AstValueTypeCheckIs);\
     WO_AST_MACRO(AstValueTypeCheckAs);\
     WO_AST_MACRO(AstValueVariable);\
