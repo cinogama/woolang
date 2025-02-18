@@ -127,8 +127,9 @@ namespace wo
             std::variant<std::optional<DeterminedType>, lang_TypeInstance*>;
 
         // NOTE: DeterminedType means immutable type, lang_TypeInstance* means mutable types.
-        std::optional<std::list<lang_TypeInstance*>> m_instance_template_arguments;
         DeterminedOrMutableType m_determined_base_type_or_mutable;
+
+        std::optional<std::list<lang_TypeInstance*>> m_instance_template_arguments;
         std::unordered_map<lang_TypeInstance*, TypeCheckResult> m_LANG_accepted_types;
         std::unordered_map<lang_TypeInstance*, TypeCheckResult> m_LANG_castfrom_types;
         std::unordered_set<lang_TypeInstance*> m_LANG_pending_depend_this;
@@ -154,9 +155,13 @@ namespace wo
     struct lang_AliasInstance
     {
         lang_Symbol* m_symbol;
+
+        std::optional<std::list<lang_TypeInstance*>> m_instance_template_arguments;
         std::optional<lang_TypeInstance*> m_determined_type;
 
-        lang_AliasInstance(lang_Symbol* symbol);
+        lang_AliasInstance(
+            lang_Symbol* symbol, 
+            const std::optional<std::list<lang_TypeInstance*>>& template_arguments);
         lang_AliasInstance(const lang_AliasInstance&) = delete;
         lang_AliasInstance(lang_AliasInstance&&) = delete;
         lang_AliasInstance& operator=(const lang_AliasInstance&) = delete;
@@ -179,10 +184,12 @@ namespace wo
 
         lang_Symbol*    m_symbol;
         bool            m_mutable;
+
+        std::optional<std::list<lang_TypeInstance*>> m_instance_template_arguments;
         std::optional<std::variant<wo::value, ast::AstValueFunction*>>
                         m_determined_constant_or_function;
         std::optional<lang_TypeInstance*> m_determined_type;
-        std::optional<std::list<lang_TypeInstance*>> m_instance_template_arguments;
+
 
         std::optional<Storage> m_IR_storage;
         std::optional<ast::AstValueFunction*>
@@ -253,7 +260,8 @@ namespace wo
     {
         std::unique_ptr<lang_AliasInstance> m_alias_instance;
 
-        lang_TemplateAstEvalStateAlias(lang_Symbol* symbol, ast::AstTypeHolder* ast);
+        lang_TemplateAstEvalStateAlias(
+            lang_Symbol* symbol, ast::AstTypeHolder* ast, const std::list<lang_TypeInstance*>& template_arguments);
     };
 
     struct lang_Symbol

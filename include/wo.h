@@ -715,6 +715,8 @@ typedef struct _wo_lspv2_expr_info {
     wo_lspv2_symbol*    m_symbol_may_null;
     wo_bool_t           m_is_value_expr;        // false if type.
     wo_value            m_const_value_may_null; // null if not const or is type.
+    size_t              m_template_arguments_count;
+    wo_lspv2_type**     m_template_arguments;   // null if not template instance.
 } wo_lspv2_expr_info;
 
 typedef struct _wo_lspv2_type_struct_info

@@ -24,6 +24,7 @@ namespace wo
 {
 #ifndef WO_DISABLE_COMPILER
     struct lang_TypeInstance;
+    struct lang_AliasInstance;
     struct lang_ValueInstance;
     struct lang_Symbol;
     struct lang_Scope;
@@ -180,6 +181,7 @@ namespace wo
 
             std::optional<lang_TemplateAstEvalStateBase*> m_LANG_template_evalating_state;
             std::optional<lang_TypeInstance*> m_LANG_determined_type;
+            std::optional<lang_AliasInstance*> m_LANG_alias_instance_only_for_lspv2;
             bool m_LANG_trying_advancing_type_judgement;
             std::optional<lang_Symbol*> m_LANG_refilling_template_target_symbol;
 

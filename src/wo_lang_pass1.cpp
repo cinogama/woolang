@@ -694,7 +694,9 @@ namespace wo
                     if (type_symbol->m_symbol_kind == lang_Symbol::ALIAS)
                     {
                         // Eval alias type.
+                        node->m_LANG_alias_instance_only_for_lspv2 = alias_instance;
                         type_instance = alias_instance->m_determined_type.value();
+                        
                     }
 
                     wo_assert(type_instance != nullptr);
