@@ -244,9 +244,16 @@ namespace wo
             AstTypeHolder* m_cast_type;
             AstValueBase* m_cast_value;
 
-            bool m_IR_need_runtime_check_eval;
+            bool m_IR_need_eval;
 
             AstValueTypeCast(AstTypeHolder* cast_type, AstValueBase* cast_value);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
+        };
+        struct AstValueDoAsVoid : public AstValueBase
+        {
+            AstValueBase* m_do_value;
+
+            AstValueDoAsVoid(AstValueBase* do_value);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
         };
         struct AstValueTypeCheckIs : public AstValueBase
