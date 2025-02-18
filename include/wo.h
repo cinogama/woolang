@@ -233,7 +233,7 @@ WO_API wo_ptr_t     wo_pointer(wo_value value);
 WO_API wo_string_t  wo_string(wo_value value);
 WO_API wo_bool_t    wo_bool(wo_value value);
 WO_API float        wo_float(wo_value value);
-WO_API const void* wo_buffer(wo_value value, wo_size_t* bytelen);
+WO_API const void*  wo_buffer(wo_value value, wo_size_t* bytelen);
 #define wo_raw_string(value, bytelen) ((wo_string_t)wo_buffer(value, bytelen))
 
 WO_API void wo_set_nil(wo_value value);
@@ -415,7 +415,7 @@ typedef struct _wo_virtual_file* wo_virtual_file_t;
 
 WO_API wo_virtual_file_t    wo_open_virtual_file(wo_string_t filepath);
 WO_API wo_string_t          wo_virtual_file_path(wo_virtual_file_t file);
-WO_API const void* wo_virtual_file_data(wo_virtual_file_t file, size_t* len);
+WO_API const void*          wo_virtual_file_data(wo_virtual_file_t file, size_t* len);
 WO_API void                 wo_close_virtual_file(wo_virtual_file_t file);
 
 typedef struct _wo_virtual_file_iter* wo_virtual_file_iter_t;
@@ -440,7 +440,7 @@ WO_API wo_bool_t    wo_load_file(wo_vm vm, wo_string_t virtual_src_path);
 WO_API wo_bool_t    wo_load_binary(wo_vm vm, wo_string_t virtual_src_path, const void* buffer, wo_size_t length);
 
 // NOTE: wo_dump_binary must invoke before wo_run.
-WO_API void* wo_dump_binary(wo_vm vm, wo_bool_t saving_pdi, wo_size_t* out_length);
+WO_API void*        wo_dump_binary(wo_vm vm, wo_bool_t saving_pdi, wo_size_t* out_length);
 WO_API void         wo_free_binary(void* buffer);
 
 WO_API wo_bool_t    wo_jit(wo_vm vm);
@@ -713,7 +713,8 @@ typedef struct _wo_lspv2_expr_info {
     wo_lspv2_type*      m_type;
     wo_lspv2_location   m_location;
     wo_lspv2_symbol*    m_symbol_may_null;
-    wo_bool_t           m_is_value_expr;     // False if type.
+    wo_bool_t           m_is_value_expr;        // false if type.
+    wo_value            m_const_value_may_null; // null if not const or is type.
 } wo_lspv2_expr_info;
 
 typedef struct _wo_lspv2_type_struct_info

@@ -522,6 +522,7 @@ wo_lspv2_expr_info* wo_lspv2_expr_get_info(wo_lspv2_expr* expr)
     wo::lang_TypeInstance* type_instance = nullptr;
     wo::lang_Symbol* variable_or_type_symbol = nullptr;
     wo_bool_t is_value = WO_TRUE;
+    wo_value const_value = nullptr;
 
     if (ast_base->node_type == wo::ast::AstBase::node_type_t::AST_TYPE_HOLDER)
     {
@@ -550,6 +551,13 @@ wo_lspv2_expr_info* wo_lspv2_expr_get_info(wo_lspv2_expr* expr)
             if (ast_value_variable->m_LANG_variable_instance.has_value())
                 variable_or_type_symbol = ast_value_variable->m_LANG_variable_instance.value()->m_symbol;
         }
+
+        if (value->m_evaled_const_value.has_value())
+        {
+            const_value = 
+                reinterpret_cast<wo_value>(
+                    &value->m_evaled_const_value.value());
+        }
     }
 
     return new wo_lspv2_expr_info{
@@ -560,6 +568,7 @@ wo_lspv2_expr_info* wo_lspv2_expr_get_info(wo_lspv2_expr* expr)
             { ast_base->source_location.end_at.row, ast_base->source_location.end_at.column },},
         variable_or_type_symbol == nullptr ? nullptr : reinterpret_cast<wo_lspv2_symbol*>(variable_or_type_symbol),
         is_value,
+        const_value,
     };
 }
 void wo_lspv2_expr_info_free(wo_lspv2_expr_info* expr_info)

@@ -204,11 +204,6 @@ namespace wo
             AstValueBase(AstBase::node_type_t nodetype);
             ~AstValueBase();
 
-            // TBD: Not sure when and how to eval `type`.
-            //using EvalTobeEvalConstList = std::list<AstValueBase*>;
-
-            /*virtual void collect_eval_const_list(EvalTobeEvalConstList& out_vals) const = 0;
-            virtual void eval_const_value() = 0;*/
             void decide_final_constant_value(const wo::value& val);
             void decide_final_constant_value(const std::string& cstr);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
