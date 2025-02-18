@@ -84,7 +84,7 @@ namespace wo
             m_type_instance = new lang_TypeInstance(this, std::nullopt);
             break;
         case ALIAS:
-            m_alias_instance = new lang_AliasInstance(this);
+            m_alias_instance = new lang_AliasInstance(this, std::nullopt);
             break;
         default:
             wo_error("Unexpected symbol kind.");
@@ -227,7 +227,7 @@ namespace wo
         ast::AstTypeHolder* template_instance = static_cast<ast::AstTypeHolder*>(
             m_origin_value_ast->clone());
         auto new_instance = std::make_unique<lang_TemplateAstEvalStateAlias>(
-            m_symbol, template_instance);
+            m_symbol, template_instance, template_args);
 
         auto* result = new_instance.get();
 
@@ -396,16 +396,21 @@ namespace wo
 
     //////////////////////////////////////
 
-    lang_TemplateAstEvalStateAlias::lang_TemplateAstEvalStateAlias(lang_Symbol* symbol, ast::AstTypeHolder* ast)
+    lang_TemplateAstEvalStateAlias::lang_TemplateAstEvalStateAlias(
+        lang_Symbol* symbol, ast::AstTypeHolder* ast, const std::list<lang_TypeInstance*>& template_arguments)
         : lang_TemplateAstEvalStateBase(symbol, ast)
     {
-        m_alias_instance = std::make_unique<lang_AliasInstance>(symbol);
+        m_alias_instance = std::make_unique<lang_AliasInstance>(symbol, template_arguments);
     }
 
     //////////////////////////////////////
 
-    lang_AliasInstance::lang_AliasInstance(lang_Symbol* symbol)
-        : m_symbol(symbol), m_determined_type(std::nullopt)
+    lang_AliasInstance::lang_AliasInstance(
+        lang_Symbol* symbol, 
+        const std::optional<std::list<lang_TypeInstance*>>& template_arguments)
+        : m_symbol(symbol)
+        , m_instance_template_arguments(template_arguments)
+        , m_determined_type(std::nullopt)
     {
     }
 

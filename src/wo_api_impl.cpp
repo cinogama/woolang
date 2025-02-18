@@ -452,14 +452,13 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
 
             std::stringstream not_closed_vm_call_stacks;
 
-            not_closed_vm_call_stacks << "Unclosed VM list:";
-
             size_t not_close_vm_count = 0;
             for (auto& alive_vms : wo::vmbase::_alive_vm_list)
             {
                 if (alive_vms->virtual_machine_type == wo::vmbase::vm_type::NORMAL)
                 {
-                    not_close_vm_count++;
+                    if (0 == not_close_vm_count++)
+                        not_closed_vm_call_stacks << "Unclosed VM list:";
 
                     not_closed_vm_call_stacks << std::endl << "<unclosed " << (void*)alive_vms << ">" << std::endl;
                     alive_vms->dump_call_stack(32, true, not_closed_vm_call_stacks);

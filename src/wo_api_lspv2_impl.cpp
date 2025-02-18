@@ -310,7 +310,7 @@ wo_lspv2_symbol_info* wo_lspv2_symbol_get_info(wo_lspv2_symbol* symbol)
     wo_size_t template_param_count = 0;
     const char** template_params = nullptr;
 
-    wo::lang_Symbol* lang_symbol = 
+    wo::lang_Symbol* lang_symbol =
         std::launder(reinterpret_cast<wo::lang_Symbol*>(symbol));
 
     switch (lang_symbol->m_symbol_kind)
@@ -522,6 +522,10 @@ wo_lspv2_expr_info* wo_lspv2_expr_get_info(wo_lspv2_expr* expr)
     wo::lang_TypeInstance* type_instance = nullptr;
     wo::lang_Symbol* variable_or_type_symbol = nullptr;
     wo_bool_t is_value = WO_TRUE;
+    wo_value const_value = nullptr;
+
+    std::list<wo::lang_TypeInstance*>* template_instance_argument_list
+        = nullptr;
 
     if (ast_base->node_type == wo::ast::AstBase::node_type_t::AST_TYPE_HOLDER)
     {
@@ -534,6 +538,20 @@ wo_lspv2_expr_info* wo_lspv2_expr_get_info(wo_lspv2_expr* expr)
         {
             variable_or_type_symbol =
                 type_holder->m_typeform.m_identifier->m_LANG_determined_symbol.value();
+
+            if (type_holder->m_LANG_alias_instance_only_for_lspv2.has_value())
+            {
+                wo_assert(variable_or_type_symbol->m_symbol_kind == wo::lang_Symbol::kind::ALIAS);
+                auto* alias_instance = type_holder->m_LANG_alias_instance_only_for_lspv2.value();
+
+                if (alias_instance->m_instance_template_arguments.has_value())
+                    template_instance_argument_list = &alias_instance->m_instance_template_arguments.value();
+            }
+            else if (type_instance->m_instance_template_arguments.has_value())
+            {
+                wo_assert(variable_or_type_symbol->m_symbol_kind == wo::lang_Symbol::kind::TYPE);
+                template_instance_argument_list = &type_instance->m_instance_template_arguments.value();
+            }
         }
     }
     else
@@ -542,13 +560,41 @@ wo_lspv2_expr_info* wo_lspv2_expr_get_info(wo_lspv2_expr* expr)
             && ast_base->node_type < wo::ast::AstBase::node_type_t::AST_VALUE_end);
 
         wo::ast::AstValueBase* value = static_cast<wo::ast::AstValueBase*>(ast_base);
-        
+
         type_instance = value->m_LANG_determined_type.value();
         if (value->node_type == wo::ast::AstBase::node_type_t::AST_VALUE_VARIABLE)
         {
             auto* ast_value_variable = static_cast<wo::ast::AstValueVariable*>(value);
             if (ast_value_variable->m_LANG_variable_instance.has_value())
-                variable_or_type_symbol = ast_value_variable->m_LANG_variable_instance.value()->m_symbol;
+            {
+                auto* variable_instance = ast_value_variable->m_LANG_variable_instance.value();
+                variable_or_type_symbol = variable_instance->m_symbol;
+
+                if (variable_instance->m_instance_template_arguments.has_value())
+                    template_instance_argument_list =
+                    &variable_instance->m_instance_template_arguments.value();
+            }
+        }
+
+        if (value->m_evaled_const_value.has_value())
+        {
+            wo::value* value_addr = &value->m_evaled_const_value.value();
+            const_value = reinterpret_cast<wo_value>(value_addr);
+        }
+    }
+
+    size_t template_arguments_count = 0;
+    wo_lspv2_type** template_args = nullptr;
+    if (template_instance_argument_list != nullptr)
+    {
+        template_arguments_count = template_instance_argument_list->size();
+        template_args = (wo_lspv2_type**)malloc(
+            sizeof(wo_lspv2_type*) * template_arguments_count);
+
+        size_t i = 0;
+        for (auto* arg : *template_instance_argument_list)
+        {
+            template_args[i++] = reinterpret_cast<wo_lspv2_type*>(arg);
         }
     }
 
@@ -560,11 +606,15 @@ wo_lspv2_expr_info* wo_lspv2_expr_get_info(wo_lspv2_expr* expr)
             { ast_base->source_location.end_at.row, ast_base->source_location.end_at.column },},
         variable_or_type_symbol == nullptr ? nullptr : reinterpret_cast<wo_lspv2_symbol*>(variable_or_type_symbol),
         is_value,
+        const_value,
+        template_arguments_count,
+        template_args,
     };
 }
 void wo_lspv2_expr_info_free(wo_lspv2_expr_info* expr_info)
 {
     free((void*)expr_info->m_location.m_file_name);
+    free((void*)expr_info->m_template_arguments);
     delete expr_info;
 }
 
@@ -703,7 +753,7 @@ wo_lspv2_macro_info* wo_lspv2_macro_get_info(wo_lspv2_macro* macro)
             { lang_macro->m_location.end_at.row, lang_macro->m_location.end_at.column },
         },
     };
-    
+
 }
 void wo_lspv2_macro_info_free(wo_lspv2_macro_info* info)
 {

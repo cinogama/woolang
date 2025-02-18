@@ -24,6 +24,7 @@ namespace wo
 {
 #ifndef WO_DISABLE_COMPILER
     struct lang_TypeInstance;
+    struct lang_AliasInstance;
     struct lang_ValueInstance;
     struct lang_Symbol;
     struct lang_Scope;
@@ -180,6 +181,7 @@ namespace wo
 
             std::optional<lang_TemplateAstEvalStateBase*> m_LANG_template_evalating_state;
             std::optional<lang_TypeInstance*> m_LANG_determined_type;
+            std::optional<lang_AliasInstance*> m_LANG_alias_instance_only_for_lspv2;
             bool m_LANG_trying_advancing_type_judgement;
             std::optional<lang_Symbol*> m_LANG_refilling_template_target_symbol;
 
@@ -204,11 +206,6 @@ namespace wo
             AstValueBase(AstBase::node_type_t nodetype);
             ~AstValueBase();
 
-            // TBD: Not sure when and how to eval `type`.
-            //using EvalTobeEvalConstList = std::list<AstValueBase*>;
-
-            /*virtual void collect_eval_const_list(EvalTobeEvalConstList& out_vals) const = 0;
-            virtual void eval_const_value() = 0;*/
             void decide_final_constant_value(const wo::value& val);
             void decide_final_constant_value(const std::string& cstr);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;

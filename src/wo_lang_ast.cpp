@@ -206,6 +206,7 @@ namespace wo
             , m_formal(IDENTIFIER)
             , m_LANG_template_evalating_state(std::nullopt)
             , m_LANG_determined_type(std::nullopt)
+            , m_LANG_alias_instance_only_for_lspv2(std::nullopt)
             , m_LANG_trying_advancing_type_judgement(false)
             , m_LANG_refilling_template_target_symbol(std::nullopt)
         {
@@ -217,6 +218,7 @@ namespace wo
             , m_formal(TYPEOF)
             , m_LANG_template_evalating_state(std::nullopt)
             , m_LANG_determined_type(std::nullopt)
+            , m_LANG_alias_instance_only_for_lspv2(std::nullopt)
             , m_LANG_trying_advancing_type_judgement(false)
             , m_LANG_refilling_template_target_symbol(std::nullopt)
         {
@@ -228,6 +230,7 @@ namespace wo
             , m_formal(FUNCTION)
             , m_LANG_template_evalating_state(std::nullopt)
             , m_LANG_determined_type(std::nullopt)
+            , m_LANG_alias_instance_only_for_lspv2(std::nullopt)
             , m_LANG_trying_advancing_type_judgement(false)
             , m_LANG_refilling_template_target_symbol(std::nullopt)
         {
@@ -239,6 +242,7 @@ namespace wo
             , m_formal(STRUCTURE)
             , m_LANG_template_evalating_state(std::nullopt)
             , m_LANG_determined_type(std::nullopt)
+            , m_LANG_alias_instance_only_for_lspv2(std::nullopt)
             , m_LANG_trying_advancing_type_judgement(false)
             , m_LANG_refilling_template_target_symbol(std::nullopt)
         {
@@ -250,6 +254,7 @@ namespace wo
             , m_formal(TUPLE)
             , m_LANG_template_evalating_state(std::nullopt)
             , m_LANG_determined_type(std::nullopt)
+            , m_LANG_alias_instance_only_for_lspv2(std::nullopt)
             , m_LANG_trying_advancing_type_judgement(false)
             , m_LANG_refilling_template_target_symbol(std::nullopt)
         {
@@ -261,6 +266,7 @@ namespace wo
             , m_formal(UNION)
             , m_LANG_template_evalating_state(std::nullopt)
             , m_LANG_determined_type(std::nullopt)
+            , m_LANG_alias_instance_only_for_lspv2(std::nullopt)
             , m_LANG_trying_advancing_type_judgement(false)
             , m_LANG_refilling_template_target_symbol(std::nullopt)
         {
