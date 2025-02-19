@@ -60,26 +60,26 @@ namespace wo
         */
         enum valuetype : uint8_t
         {
-            invalid         = WO_INVALID_TYPE,
+            invalid = WO_INVALID_TYPE,
 
-            need_gc_flag    = WO_NEED_GC_FLAG,
-            stack_externed_flag  
-                            = WO_STACK_EXTERNED_FLAG,
+            need_gc_flag = WO_NEED_GC_FLAG,
+            stack_externed_flag
+            = WO_STACK_EXTERNED_FLAG,
 
-            integer_type    = WO_INTEGER_TYPE,
-            real_type       = WO_REAL_TYPE,
-            handle_type     = WO_HANDLE_TYPE,
-            bool_type       = WO_BOOL_TYPE,
+            integer_type = WO_INTEGER_TYPE,
+            real_type = WO_REAL_TYPE,
+            handle_type = WO_HANDLE_TYPE,
+            bool_type = WO_BOOL_TYPE,
 
-            callstack       = WO_CALLSTACK_TYPE,
+            callstack = WO_CALLSTACK_TYPE,
             nativecallstack = WO_NATIVE_CALLSTACK_TYPE,
 
-            string_type     = WO_STRING_TYPE,
-            dict_type       = WO_MAPPING_TYPE,
-            array_type      = WO_ARRAY_TYPE,
-            gchandle_type   = WO_GCHANDLE_TYPE,
-            closure_type    = WO_CLOSURE_TYPE,
-            struct_type     = WO_STRUCT_TYPE,
+            string_type = WO_STRING_TYPE,
+            dict_type = WO_MAPPING_TYPE,
+            array_type = WO_ARRAY_TYPE,
+            gchandle_type = WO_GCHANDLE_TYPE,
+            closure_type = WO_CLOSURE_TYPE,
+            struct_type = WO_STRUCT_TYPE,
         };
 
         struct callstack_t
@@ -351,19 +351,58 @@ namespace wo
 
     struct gc_handle_base_t
     {
-        using destructor_func_t = void(*)(void*);
+        using destructor_func_t = wo_gchandle_close_func_t;
+        using gcmark_func_t = wo_gcstruct_mark_func_t;
 
-        gcbase*             m_holding_gcbase;
-        void*               m_holding_handle;
-        destructor_func_t   m_destructor;
+        void* m_holding_handle;
+        destructor_func_t       m_destructor;
+
+        struct custom_marker
+        {
+            intptr_t            m_is_callback : 1;
+
+#ifdef WO_PLATFORM_64
+            static_assert(sizeof(intptr_t) == sizeof(int64_t));
+            intptr_t            m_marker63 : 63;
+#else
+            static_assert(sizeof(intptr_t) == sizeof(int32_t));
+            intptr_t            m_marker31 : 31;
+#endif
+        };
+
         // ATTENTION: Only used for decrease destructable count in env of vm;
-        wo_vm               m_gc_vm;
+        wo_vm                   m_gc_vm;
+        custom_marker           m_custom_marker;
 
-        bool close();
+        void set_custom_mark_callback(gcmark_func_t callback)
+        {
+            static_assert(sizeof(intptr_t) >= sizeof(gcmark_func_t));
+
+            m_custom_marker.m_is_callback = true;
+#ifdef WO_PLATFORM_64
+            m_custom_marker.m_marker63 = reinterpret_cast<intptr_t>(callback);
+#else
+            m_custom_marker.m_marker31 = reinterpret_cast<intptr_t>(callback);
+#endif
+        }
+        void set_custom_mark_unit(gcbase* unit_may_null)
+        {
+            static_assert(sizeof(intptr_t) >= sizeof(gcbase*));
+
+            m_custom_marker.m_is_callback = false;
+#ifdef WO_PLATFORM_64
+            m_custom_marker.m_marker63 = reinterpret_cast<intptr_t>(unit_may_null);
+#else
+            m_custom_marker.m_marker31 = reinterpret_cast<intptr_t>(unit_may_null);
+#endif
+        }
+
+        bool do_close();
+        void do_custom_mark(wo_gc_work_context ctx);
 
         ~gc_handle_base_t()
         {
-            close();
+            do_close();
         }
     };
 

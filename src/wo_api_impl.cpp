@@ -786,11 +786,11 @@ wo_ptr_t wo_pointer(wo_value value)
         wo_fail(WO_FAIL_TYPE_FAIL, "This value is not a handle.");
         return wo_cast_pointer(value);
     }
-    return _rsvalue->type == wo::value::valuetype::handle_type ?
-        (wo_ptr_t)_rsvalue->handle
-        :
-        (wo_ptr_t)wo_safety_pointer(_rsvalue->gchandle);
+    return _rsvalue->type == wo::value::valuetype::handle_type 
+        ? (wo_ptr_t)_rsvalue->handle
+        : (wo_ptr_t)wo_safety_pointer(_rsvalue->gchandle);
 }
+
 wo_string_t wo_string(wo_value value)
 {
     auto* _rsvalue = WO_VAL(value);
@@ -910,7 +910,12 @@ void wo_set_bool(wo_value value, wo_bool_t val)
     auto* _rsvalue = WO_VAL(value);
     _rsvalue->set_bool(val != WO_FALSE);
 }
-void wo_set_gchandle(wo_value value, wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t))
+void wo_set_gchandle(
+    wo_value value, 
+    wo_vm vm, 
+    wo_ptr_t resource_ptr, 
+    wo_value holding_val, 
+    wo_gchandle_close_func_t destruct_func)
 {
     wo_assert(resource_ptr != nullptr && destruct_func != nullptr);
 
@@ -929,15 +934,43 @@ void wo_set_gchandle(wo_value value, wo_vm vm, wo_ptr_t resource_ptr, wo_value h
     handle_ptr->m_holding_handle = resource_ptr;
     handle_ptr->m_destructor = destruct_func;
 
-    handle_ptr->m_holding_gcbase = nullptr;
+    wo::gcbase* holding_gcbase = nullptr;
     if (holding_val)
     {
         wo::value* holding_value = WO_VAL(holding_val);
 
         if (holding_value->type >= wo::value::valuetype::need_gc_flag)
-            handle_ptr->m_holding_gcbase = holding_value->gcunit;
+            holding_gcbase = holding_value->gcunit;
     }
+    handle_ptr->set_custom_mark_unit(holding_gcbase);
 }
+
+void wo_set_gcstruct(
+    wo_value value,
+    wo_vm vm,
+    wo_ptr_t resource_ptr,
+    wo_gcstruct_mark_func_t mark_func,
+    wo_gchandle_close_func_t destruct_func)
+{
+    wo_assert(resource_ptr != nullptr && destruct_func != nullptr);
+
+    wo::gchandle_t* handle_ptr;
+    {
+        _wo_enter_gc_guard g(vm);
+        handle_ptr = wo::gchandle_t::gc_new<wo::gcbase::gctype::young>();
+
+        // NOTE: This function may defined in other libraries,
+        //      so we need store gc vm for decrease.
+        WO_VM(vm)->inc_destructable_instance_count();
+        WO_VAL(value)->set_gcunit<wo::value::valuetype::gchandle_type>(handle_ptr);
+    }
+
+    handle_ptr->m_gc_vm = wo_gc_vm(vm);
+    handle_ptr->m_holding_handle = resource_ptr;
+    handle_ptr->m_destructor = destruct_func;
+    handle_ptr->set_custom_mark_callback(mark_func);
+}
+
 void wo_set_val(wo_value value, wo_value val)
 {
     auto* _rsvalue = WO_VAL(value);
@@ -1744,10 +1777,16 @@ wo_result_t wo_ret_buffer(wo_vm vm, const void* result, wo_size_t len)
     WO_VM(vm)->cr->set_buffer(result, len);
     return WO_API_STATE_OF_VM(vmbase);
 }
-wo_result_t wo_ret_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t))
+wo_result_t wo_ret_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, wo_gchandle_close_func_t destruct_func)
 {
     wo::vmbase* vmbase = WO_VM(vm);
     wo_set_gchandle(CS_VAL(WO_VM(vm)->cr), vm, resource_ptr, holding_val, destruct_func);
+    return WO_API_STATE_OF_VM(vmbase);
+}
+wo_result_t wo_ret_gcstruct(wo_value value, wo_vm vm, wo_ptr_t resource_ptr, wo_gcstruct_mark_func_t mark_func, wo_gchandle_close_func_t destruct_func)
+{
+    wo::vmbase* vmbase = WO_VM(vm);
+    wo_set_gcstruct(CS_VAL(WO_VM(vm)->cr), vm, resource_ptr, mark_func, destruct_func);
     return WO_API_STATE_OF_VM(vmbase);
 }
 wo_result_t wo_ret_val(wo_vm vm, wo_value result)
@@ -2003,7 +2042,7 @@ void wo_set_option_val(wo_value val, wo_vm vm, wo_value result)
     structptr->m_values[0].set_integer(0);
     structptr->m_values[1].set_val(WO_VAL(result));
 }
-void wo_set_option_gchandle(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t))
+void wo_set_option_gchandle(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, wo_gchandle_close_func_t destruct_func)
 {
     auto* target_val = WO_VAL(val);
 
@@ -2016,6 +2055,20 @@ void wo_set_option_gchandle(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, wo_va
 
     structptr->m_values[0].set_integer(0);
     wo_set_gchandle(CS_VAL(&structptr->m_values[1]), vm, resource_ptr, holding_val, destruct_func);
+}
+void wo_set_option_gcstruct(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, wo_gcstruct_mark_func_t mark_func, wo_gchandle_close_func_t destruct_func)
+{
+    auto* target_val = WO_VAL(val);
+
+    wo::struct_t* structptr;
+    {
+        _wo_enter_gc_guard g(vm);
+        structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(2);
+        target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
+    }
+
+    structptr->m_values[0].set_integer(0);
+    wo_set_gcstruct(CS_VAL(&structptr->m_values[1]), vm, resource_ptr, mark_func, destruct_func);
 }
 void wo_set_option_none(wo_value val, wo_vm vm)
 {
@@ -2207,7 +2260,7 @@ void wo_set_err_val(wo_value val, wo_vm vm, wo_value result)
 
 
 }
-void wo_set_err_gchandle(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t))
+void wo_set_err_gchandle(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, wo_gchandle_close_func_t destruct_func)
 {
     auto* target_val = WO_VAL(val);
 
@@ -2220,7 +2273,20 @@ void wo_set_err_gchandle(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, wo_value
 
     structptr->m_values[0].set_integer(1);
     wo_set_gchandle(CS_VAL(&structptr->m_values[1]), vm, resource_ptr, holding_val, destruct_func);
+}
+void wo_set_err_gcstruct(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, wo_gcstruct_mark_func_t mark_func, wo_gchandle_close_func_t destruct_func)
+{
+    auto* target_val = WO_VAL(val);
 
+    wo::struct_t* structptr;
+    {
+        _wo_enter_gc_guard g(vm);
+        structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(2);
+        target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
+    }
+
+    structptr->m_values[0].set_integer(1);
+    wo_set_gcstruct(CS_VAL(&structptr->m_values[1]), vm, resource_ptr, mark_func, destruct_func);
 }
 wo_result_t wo_ret_union(wo_vm vm, wo_integer_t id, wo_value value_may_null)
 {
@@ -2309,10 +2375,16 @@ wo_result_t wo_ret_option_val(wo_vm vm, wo_value result)
     wo_set_option_val(CS_VAL(vmbase->cr), vm, result);
     return WO_API_STATE_OF_VM(vmbase);
 }
-wo_result_t wo_ret_option_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t))
+wo_result_t wo_ret_option_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, wo_gchandle_close_func_t destruct_func)
 {
     wo::vmbase* vmbase = WO_VM(vm);
     wo_set_option_gchandle(CS_VAL(vmbase->cr), vm, resource_ptr, holding_val, destruct_func);
+    return WO_API_STATE_OF_VM(vmbase);
+}
+wo_result_t wo_ret_option_gcstruct(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, wo_gcstruct_mark_func_t mark_func, wo_gchandle_close_func_t destruct_func)
+{
+    wo::vmbase* vmbase = WO_VM(vm);
+    wo_set_option_gcstruct(CS_VAL(vmbase->cr), vm, resource_ptr, mark_func, destruct_func);
     return WO_API_STATE_OF_VM(vmbase);
 }
 wo_result_t wo_ret_option_none(wo_vm vm)
@@ -2398,10 +2470,16 @@ wo_result_t wo_ret_err_val(wo_vm vm, wo_value result)
     wo_set_err_val(CS_VAL(vmbase->cr), vm, result);
     return WO_API_STATE_OF_VM(vmbase);
 }
-wo_result_t wo_ret_err_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t))
+wo_result_t wo_ret_err_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, wo_gchandle_close_func_t destruct_func)
 {
     wo::vmbase* vmbase = WO_VM(vm);
     wo_set_err_gchandle(CS_VAL(vmbase->cr), vm, resource_ptr, holding_val, destruct_func);
+    return WO_API_STATE_OF_VM(vmbase);
+}
+wo_result_t wo_ret_err_gcstruct(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, wo_gcstruct_mark_func_t mark_func, wo_gchandle_close_func_t destruct_func)
+{
+    wo::vmbase* vmbase = WO_VM(vm);
+    wo_set_err_gcstruct(CS_VAL(vmbase->cr), vm, resource_ptr, mark_func, destruct_func);
     return WO_API_STATE_OF_VM(vmbase);
 }
 wo_result_t wo_ret_yield(wo_vm vm)
@@ -2908,91 +2986,91 @@ std::wstring _dump_src_info(
 
             auto print_src_file_print_lineno =
                 [&current_row_no, &result, &first_line, depth]()
-            {
-                wchar_t buf[20] = {};
-                if (first_line)
-                    first_line = false;
-                else
-                    result += L"\n";
+                {
+                    wchar_t buf[20] = {};
+                    if (first_line)
+                        first_line = false;
+                    else
+                        result += L"\n";
 
-                swprintf(buf, 19, L"%-5zu | ", current_row_no);
-                result += std::wstring(depth == 0 ? 0 : depth + 1, L' ') + buf;
-            };
+                    swprintf(buf, 19, L"%-5zu | ", current_row_no);
+                    result += std::wstring(depth == 0 ? 0 : depth + 1, L' ') + buf;
+                };
             auto print_notify_line =
                 [&result, &first_line, &current_row_no, &errmsg, beginpointplace, pointplace, style, beginaimrow, aimrow, depth](
                     size_t line_end_place)
-            {
-                wchar_t buf[20] = {};
-                if (first_line)
-                    first_line = false;
-                else
-                    result += L"\n";
-
-                swprintf(buf, 19, L"      | ");
-                std::wstring append_result = buf;
-
-                if (style == _wo_inform_style::WO_NEED_COLOR)
-                    append_result += errmsg.error_level == wo::lexer::errorlevel::error
-                    ? wo::str_to_wstr(ANSI_HIR)
-                    : wo::str_to_wstr(ANSI_HIC);
-
-                if (current_row_no == aimrow)
                 {
-                    if (current_row_no == beginaimrow)
-                    {
-                        size_t i = 1;
-                        for (; i < beginpointplace; i++)
-                            append_result += L" ";
-                        for (; i < pointplace; i++)
-                            append_result += L"~";
+                    wchar_t buf[20] = {};
+                    if (first_line)
+                        first_line = false;
+                    else
+                        result += L"\n";
 
+                    swprintf(buf, 19, L"      | ");
+                    std::wstring append_result = buf;
+
+                    if (style == _wo_inform_style::WO_NEED_COLOR)
+                        append_result += errmsg.error_level == wo::lexer::errorlevel::error
+                        ? wo::str_to_wstr(ANSI_HIR)
+                        : wo::str_to_wstr(ANSI_HIC);
+
+                    if (current_row_no == aimrow)
+                    {
+                        if (current_row_no == beginaimrow)
+                        {
+                            size_t i = 1;
+                            for (; i < beginpointplace; i++)
+                                append_result += L" ";
+                            for (; i < pointplace; i++)
+                                append_result += L"~";
+
+                        }
+                        else
+                        {
+                            for (size_t i = 1; i < pointplace; i++)
+                                append_result += L"~";
+                        }
+                        append_result += L"~\\"
+                            + wo::str_to_wstr(ANSI_UNDERLNE)
+                            + L" " WO_HERE
+                            + wo::str_to_wstr(ANSI_NUNDERLNE);
+
+                        if (depth != 0)
+                            append_result += L": " + errmsg.describe;
                     }
                     else
                     {
-                        for (size_t i = 1; i < pointplace; i++)
-                            append_result += L"~";
-                    }
-                    append_result += L"~\\"
-                        + wo::str_to_wstr(ANSI_UNDERLNE)
-                        + L" " WO_HERE
-                        + wo::str_to_wstr(ANSI_NUNDERLNE);
-
-                    if (depth != 0)
-                        append_result += L": " + errmsg.describe;
-                }
-                else
-                {
-                    if (current_row_no == beginaimrow)
-                    {
-                        size_t i = 1;
-                        for (; i < beginpointplace; i++)
-                            append_result += L" ";
-                        if (i < line_end_place)
+                        if (current_row_no == beginaimrow)
                         {
-                            for (; i < line_end_place; i++)
-                                append_result += L"~";
+                            size_t i = 1;
+                            for (; i < beginpointplace; i++)
+                                append_result += L" ";
+                            if (i < line_end_place)
+                            {
+                                for (; i < line_end_place; i++)
+                                    append_result += L"~";
+                            }
+                            else
+                                return;
                         }
                         else
-                            return;
-                    }
-                    else
-                    {
-                        size_t i = 1;
-                        if (i < line_end_place)
                         {
-                            for (; i < line_end_place; i++)
-                                append_result += L"~";
+                            size_t i = 1;
+                            if (i < line_end_place)
+                            {
+                                for (; i < line_end_place; i++)
+                                    append_result += L"~";
+                            }
+                            else
+                                return;
                         }
-                        else
-                            return;
                     }
-                }
 
-                if (style == _wo_inform_style::WO_NEED_COLOR)
-                    append_result += wo::str_to_wstr(ANSI_RST);
+                    if (style == _wo_inform_style::WO_NEED_COLOR)
+                        append_result += wo::str_to_wstr(ANSI_RST);
 
-                result += std::wstring(depth == 0 ? 0 : depth + 1, L' ') + append_result;
-            };
+                    result += std::wstring(depth == 0 ? 0 : depth + 1, L' ') + append_result;
+                };
 
             if (from <= current_row_no && current_row_no <= to)
                 print_src_file_print_lineno();
@@ -4062,7 +4140,78 @@ wo_bool_t wo_gchandle_close(wo_value gchandle)
 {
     auto* gchandle_ptr = WO_VAL(gchandle)->gchandle;
     wo::gcbase::gc_write_guard g1(gchandle_ptr);
-    return WO_CBOOL(gchandle_ptr->close());
+    return WO_CBOOL(gchandle_ptr->do_close());
+}
+
+void wo_gcunit_lock(wo_value gc_reference_object)
+{
+    auto* value = WO_VAL(gc_reference_object);
+    if (value->is_gcunit())
+    {
+        auto* gcunit = WO_VAL(gc_reference_object)->gcunit;
+        gcunit->write();
+    }
+    else
+    {
+        wo_fail(WO_FAIL_TYPE_FAIL, "Value is not lockable.");
+    }
+}
+void wo_gcunit_unlock(wo_value gc_reference_object)
+{
+    auto* value = WO_VAL(gc_reference_object);
+    if (value->is_gcunit())
+    {
+        auto* gcunit = WO_VAL(gc_reference_object)->gcunit;
+        gcunit->write_end();
+    }
+    else
+    {
+        wo_fail(WO_FAIL_TYPE_FAIL, "Value is not lockable.");
+    }
+}
+void wo_gcunit_lock_shared_force(wo_value gc_reference_object)
+{
+    auto* value = WO_VAL(gc_reference_object);
+    if (value->is_gcunit())
+    {
+        auto* gcunit = WO_VAL(gc_reference_object)->gcunit;
+        gcunit->read();
+    }
+    else
+    {
+        wo_fail(WO_FAIL_TYPE_FAIL, "Value is not lockable.");
+    }
+}
+void wo_gcunit_unlock_shared_force(wo_value gc_reference_object)
+{
+    auto* value = WO_VAL(gc_reference_object);
+    if (value->is_gcunit())
+    {
+        auto* gcunit = WO_VAL(gc_reference_object)->gcunit;
+        gcunit->read_end();
+    }
+    else
+    {
+        wo_fail(WO_FAIL_TYPE_FAIL, "Value is not lockable.");
+    }
+}
+void wo_gcunit_lock_shared(wo_value gc_reference_object)
+{
+#if WO_FORCE_GC_OBJ_THREAD_SAFETY
+    wo_gcunit_lock_shared_force(gc_reference_object);
+#endif
+    (void)gc_reference_object;
+}
+void wo_gcunit_unlock_shared(wo_value gc_reference_object)
+{
+#if WO_FORCE_GC_OBJ_THREAD_SAFETY
+    wo_gcunit_unlock_shared_force(gc_reference_object);
+#endif
+    (void)gc_reference_object;
+}
+void wo_gc_barrier_before_overwrite(wo_value gc_reference_object_tobe_overwrite)
+{
+    wo::gcbase::write_barrier(WO_VAL(gc_reference_object_tobe_overwrite));
 }
 
 // DEBUGGEE TOOLS
@@ -4243,60 +4392,6 @@ void wo_close_weak_ref(wo_weak_ref ref)
 wo_bool_t wo_lock_weak_ref(wo_value out_val, wo_weak_ref ref)
 {
     return WO_CBOOL(wo::weakref::lock_weak_ref(WO_VAL(out_val), ref));
-}
-
-// LSP-API
-wo_size_t wo_lsp_get_compile_error_msg_count_from_vm(wo_vm vmm)
-{
-    wo::vmbase* vm = WO_VM(vmm);
-
-    if (!vm->compile_info.has_value())
-        return 0;
-
-    return vm->compile_info.value()->lex_error_list.size();
-}
-
-wo_lsp_error_msg* wo_lsp_get_compile_error_msg_detail_from_vm(wo_vm vmm, wo_size_t index)
-{
-    auto id_err = WO_VM(vmm)->compile_info.value()->lex_error_list.begin();
-    std::advance(id_err, index);
-
-    auto& err_detail = *id_err;
-
-    wo_lsp_error_msg* msg = new wo_lsp_error_msg;
-
-    switch (err_detail.error_level)
-    {
-    case wo::lexer::errorlevel::error:
-        msg->m_level = wo_lsp_error_level::WO_LSP_ERROR; break;
-    case wo::lexer::errorlevel::infom:
-        msg->m_level = wo_lsp_error_level::WO_LSP_INFORMATION; break;
-    default:
-        wo_error("Unknown error level.");
-        break;
-    }
-    msg->m_depth = err_detail.depth;
-
-    std::string filename = wo::wstr_to_str(err_detail.filename);
-    auto* filename_p = new char[filename.size() + 1];
-    strcpy(filename_p, filename.data());
-
-    msg->m_file_name = filename_p;
-    msg->m_describe = wo::u8wcstombs_zero_term(err_detail.describe.c_str());
-
-    msg->m_begin_location[0] = err_detail.begin_row;
-    msg->m_begin_location[1] = err_detail.begin_col;
-    msg->m_end_location[0] = err_detail.end_row;
-    msg->m_end_location[1] = err_detail.end_col;
-
-    return msg;
-}
-
-void wo_lsp_free_compile_error_msg(wo_lsp_error_msg* msg)
-{
-    delete[] msg->m_describe;
-    delete[] msg->m_file_name;
-    delete msg;
 }
 
 wo_bool_t wo_execute(wo_string_t src, wo_execute_callback_ft callback, void* data)
