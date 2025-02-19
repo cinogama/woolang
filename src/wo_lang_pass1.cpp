@@ -4854,7 +4854,7 @@ namespace wo
                 {
                     end_last_scope();
 
-                    lex.lang_error(lexer::errorlevel::error, node,
+                    lex.lang_error(lexer::errorlevel::error, node->m_matched_value,
                         WO_ERR_TYPE_NAMED_DETERMINED_FAILED,
                         get_type_name_w(matching_typeinstance));
 
@@ -4869,7 +4869,7 @@ namespace wo
                 {
                     end_last_scope();
 
-                    lex.lang_error(lexer::errorlevel::error, node,
+                    lex.lang_error(lexer::errorlevel::error, node->m_matched_value,
                         WO_ERR_UNEXPECTED_MACTHING_TYPE,
                         get_type_name_w(matching_typeinstance));
 
