@@ -4209,10 +4209,6 @@ void wo_gcunit_unlock_shared(wo_value gc_reference_object)
 #endif
     (void)gc_reference_object;
 }
-void wo_gc_barrier_before_overwrite(wo_value gc_reference_object_tobe_overwrite)
-{
-    wo::gcbase::write_barrier(WO_VAL(gc_reference_object_tobe_overwrite));
-}
 
 // DEBUGGEE TOOLS
 void wo_attach_default_debuggee()
