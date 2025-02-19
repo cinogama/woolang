@@ -23,23 +23,23 @@ namespace test_string_u8
         test_equal("你好\0世界"->len, 5);
         test_equal("你好\0世界"->chars->len, 5);
 
-        test_equal("abcdef"->find("zzz"), -1);
-        test_equal("abcdef"->find("cd"), 2);
-        test_equal("abcdef"->find_from("cd", 3), -1);
-        test_equal("abcdefcd"->find("cd"), 2);
-        test_equal("abcdefcd"->rfind("cd"), 6);
-        test_equal("abcdefcd"->find_from("cd", 4), 6);
-        test_equal("abcdefcd"->rfind_from("cd", 4), 2);
+        test_equal("abcdef"->find("zzz")->or(-1), -1);
+        test_equal("abcdef"->find("cd")->or(-1), 2);
+        test_equal("abcdef"->find_from("cd", 3)->or(-1), -1);
+        test_equal("abcdefcd"->find("cd")->or(-1), 2);
+        test_equal("abcdefcd"->rfind("cd")->or(-1), 6);
+        test_equal("abcdefcd"->find_from("cd", 4)->or(-1), 6);
+        test_equal("abcdefcd"->rfind_from("cd", 4)->or(-1), 2);
 
-        test_equal("中文abcd中文abcd"->find("ab"), 2);
-        test_equal("中文abcd中文abcd"->rfind("ab"), 8);
-        test_equal("中文abcd中文abcd"->find_from("ab", 2), 2);
-        test_equal("中文abcd中文abcd"->find_from("ab", 3), 8);
-        test_equal("中文abcd中文abcd"->rfind_from("ab", 6), 2);
-        test_equal("中文abcd中文abcd"->rfind_from("ab", 3), 2);
-        test_equal("中文abcd中文abcd"->rfind_from("abc", 3), 2);
-        test_equal("中文abcd中文abcd"->rfind_from("abc", 4), 2);
-        test_equal("中文abcd中文abcd"->rfind_from("ab", 2), -1);
+        test_equal("中文abcd中文abcd"->find("ab")->or(-1), 2);
+        test_equal("中文abcd中文abcd"->rfind("ab")->or(-1), 8);
+        test_equal("中文abcd中文abcd"->find_from("ab", 2)->or(-1), 2);
+        test_equal("中文abcd中文abcd"->find_from("ab", 3)->or(-1), 8);
+        test_equal("中文abcd中文abcd"->rfind_from("ab", 6)->or(-1), 2);
+        test_equal("中文abcd中文abcd"->rfind_from("ab", 3)->or(-1), 2);
+        test_equal("中文abcd中文abcd"->rfind_from("abc", 3)->or(-1), 2);
+        test_equal("中文abcd中文abcd"->rfind_from("abc", 4)->or(-1), 2);
+        test_equal("中文abcd中文abcd"->rfind_from("ab", 2)->or(-1), -1);
 
         let str = "Helloworld";
         test_equal(str, "Helloworld");

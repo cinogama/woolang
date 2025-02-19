@@ -3,7 +3,7 @@
 
 #include <thread>
 #include <chrono>
-#include <list>
+#include <forward_list>
 #include <future>
 
 #if WO_BUILD_WITH_MINGW
@@ -188,7 +188,7 @@ namespace wo
         std::atomic_bool _gc_pause = false;
 
         using _wo_memory_atomic_list_t = atomic_list<gcbase::memo_unit>;
-        using _wo_gray_unit_list_t = std::list<std::pair<gcbase*, gcbase::unit_attrib*>>;
+        using _wo_gray_unit_list_t = std::forward_list<std::pair<gcbase*, gcbase::unit_attrib*>>;
         using _wo_gc_memory_pages_t = std::vector<char*>;
         using _wo_vm_gray_unit_list_map_t = std::unordered_map <vmbase*, _wo_gray_unit_list_t>;
 
@@ -225,15 +225,15 @@ namespace wo
 
             return nullptr;
         }
-        void gc_mark_unit_as_gray(std::list<std::pair<gcbase*, gcbase::unit_attrib*>>* worklist, gcbase* unitvalue, gcbase::unit_attrib* attr)
+        void gc_mark_unit_as_gray(_wo_gray_unit_list_t* worklist, gcbase* unitvalue, gcbase::unit_attrib* attr)
         {
             if (attr->m_marked == (uint8_t)gcbase::gcmarkcolor::no_mark)
             {
                 attr->m_marked = (uint8_t)gcbase::gcmarkcolor::self_mark;
-                worklist->push_back(std::make_pair(unitvalue, attr));
+                worklist->push_front(std::make_pair(unitvalue, attr));
             }
         }
-        void gc_mark_unit_as_black(std::list<std::pair<gcbase*, gcbase::unit_attrib*>>* worklist, gcbase* unit, gcbase::unit_attrib* unitattr)
+        void gc_mark_unit_as_black(_wo_gray_unit_list_t* worklist, gcbase* unit, gcbase::unit_attrib* unitattr)
         {
             if (unitattr->m_marked == (uint8_t)gcbase::gcmarkcolor::full_mark)
                 return;
@@ -269,16 +269,8 @@ namespace wo
             }
             else if (gchandle_t* wo_gchandle = dynamic_cast<gchandle_t*>(unit))
             {
-                gcbase::unit_attrib* guard_val_attr;
-                if (gcbase* guard_gcunit_addr =
-                    std::launder(
-                        reinterpret_cast<gcbase*>(
-                            womem_verify(wo_gchandle->m_holding_gcbase,
-                                std::launder(reinterpret_cast<womem_attrib_t**>(&guard_val_attr)
-                                )
-                            ))
-                    ))
-                    gc_mark_unit_as_gray(worklist, guard_gcunit_addr, guard_val_attr);
+                wo_gchandle->do_custom_mark(
+                    std::launder(reinterpret_cast<wo_gc_work_context>(worklist)));
             }
             else if (closure_t* wo_closure = dynamic_cast<closure_t*>(unit))
             {
@@ -293,9 +285,9 @@ namespace wo
                         gc_mark_unit_as_gray(worklist, gcunit_addr, attr);
             }
         }
-        void gc_mark_all_gray_unit(std::list<std::pair<gcbase*, gcbase::unit_attrib*>>* worklist)
+        void gc_mark_all_gray_unit(_wo_gray_unit_list_t* worklist)
         {
-            std::list<std::pair<gcbase*, gcbase::unit_attrib*>> graylist;
+            _wo_gray_unit_list_t graylist;
             while (!worklist->empty())
             {
                 graylist.clear();
@@ -543,11 +535,10 @@ namespace wo
             // Pick all gcunit before 1st mark begin.
             // It means all unit alloced when marking will be skiped to free.
             std::vector<vmbase*> gc_marking_vmlist, self_marking_vmlist, time_out_vmlist;
-            std::list<std::pair<gcbase*, gcbase::unit_attrib*>> mem_gray_list;
+            _wo_gray_unit_list_t mem_gray_list;
 
             // 0. get current vm list, set stop world flag to TRUE:
             _gc_mark_thread_groups_instance->reset_alive_unit_count();
-
             do
             {
                 std::shared_lock sg1(vmbase::_alive_vm_list_mx); // Lock alive vm list, block new vm create.
@@ -731,7 +722,9 @@ namespace wo
                     for (auto& [_vm, gray_list] : _gc_vm_gray_unit_lists)
                     {
                         auto& worker_gray_list = _gc_gray_unit_lists[worker_id_counter++ % _gc_work_thread_count];
-                        worker_gray_list.insert(worker_gray_list.end(), gray_list.begin(), gray_list.end());
+
+                        // Merge!
+                        worker_gray_list.splice_after(worker_gray_list.cbefore_begin(), gray_list);
                     }
                 }
 
@@ -823,7 +816,7 @@ namespace wo
             _gc_mark_thread_groups_instance->launch_round_of_mark();
 
             // 12. Remove orpho vm
-            std::list<vmbase*> need_destruct_gc_destructor_list;
+            std::forward_list<vmbase*> need_destruct_gc_destructor_list;
             do
             {
                 std::shared_lock sg1(vmbase::_alive_vm_list_mx);
@@ -844,7 +837,7 @@ namespace wo
                         if (0 == env->_created_destructable_instance_count.load(
                             std::memory_order::memory_order_relaxed))
                         {
-                            need_destruct_gc_destructor_list.push_back(vmimpl);
+                            need_destruct_gc_destructor_list.push_front(vmimpl);
                         }
                     }
                 }
@@ -936,7 +929,7 @@ namespace wo
             _gc_work_thread_count = (uint16_t)wo::config::GC_WORKER_THREAD_COUNT;
             wo_assert(_gc_work_thread_count > 0);
 
-            _gc_gray_unit_lists = new std::list<std::pair<gcbase*, gcbase::unit_attrib*>>[_gc_work_thread_count];
+            _gc_gray_unit_lists = new _wo_gray_unit_list_t[_gc_work_thread_count];
             _gc_memory_pages = new _wo_gc_memory_pages_t[_gc_work_thread_count];
             _gc_mark_thread_groups_instance = new _gc_mark_thread_groups();
 
@@ -1057,7 +1050,7 @@ namespace wo
         }
     }
 
-    bool gc_handle_base_t::close()
+    bool gc_handle_base_t::do_close()
     {
         if (m_holding_handle != nullptr)
         {
@@ -1072,6 +1065,51 @@ namespace wo
             return true;
         }
         return false;
+    }
+    void gc_handle_base_t::do_custom_mark(wo_gc_work_context context)
+    {
+        if (m_custom_marker.m_is_callback)
+        {
+            gcmark_func_t marker;
+#ifdef WO_PLATFORM_64
+            marker = reinterpret_cast<gcmark_func_t>(
+                m_custom_marker.m_marker63);
+#else
+            marker = std::launder(reinterpret_cast<gcmark_func_t>(
+                m_custom_marker.m_marker31));
+#endif
+            marker(context, m_holding_handle);
+        }
+        else
+        {
+            gcbase* gcbase_addr;
+#ifdef WO_PLATFORM_64
+            gcbase_addr = std::launder(reinterpret_cast<gcbase*>(
+                m_custom_marker.m_marker63));
+#else
+            gcbase_addr = std::launder(reinterpret_cast<gcbase*>(
+                m_custom_marker.m_marker31));
+#endif
+
+            if (gcbase_addr != nullptr)
+            {
+                gcbase::unit_attrib* guard_val_attr;
+                if (gcbase* guard_gcunit_addr =
+                    std::launder(
+                        reinterpret_cast<gcbase*>(
+                            womem_verify(gcbase_addr,
+                                std::launder(reinterpret_cast<womem_attrib_t**>(&guard_val_attr)
+                                )
+                            ))
+                    ))
+                {
+                    gc::gc_mark_unit_as_gray(
+                        std::launder(reinterpret_cast<gc::_wo_gray_unit_list_t*>(context)),
+                        guard_gcunit_addr,
+                        guard_val_attr);
+                }
+            }
+        }
     }
 
     void* alloc64(size_t memsz, womem_attrib_t attrib)
@@ -1127,8 +1165,8 @@ namespace wo
 
         gc_destructed = true;
 #endif
-};
-    }
+    };
+}
 void wo_gc_pause(void)
 {
     wo::gc::_gc_pause = true;
@@ -1151,4 +1189,13 @@ void wo_gc_immediately(wo_bool_t fullgc)
     wo::gc::_gc_advise_to_full_gc = (bool)fullgc;
     wo::gc::_gc_immediately.clear();
     wo::gc::_gc_work_cv.notify_one();
+}
+void wo_gc_mark(wo_gc_work_context* context, wo_value gc_reference_object)
+{
+    wo::value* val = std::launder(reinterpret_cast<wo::value*>(gc_reference_object));
+    auto* worklist = std::launder(reinterpret_cast<wo::gc::_wo_gray_unit_list_t*>(context));
+
+    wo::gcbase::unit_attrib* attr;
+    if (wo::gcbase* gcunit_addr = val->get_gcunit_and_attrib_ref(&attr))
+        wo::gc::gc_mark_unit_as_gray(worklist, gcunit_addr, attr);
 }

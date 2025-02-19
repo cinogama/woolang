@@ -181,6 +181,11 @@ typedef enum _wo_inform_style
 typedef void(*wo_dylib_entry_func_t)(wo_dylib_handle_t);
 typedef void(*wo_dylib_exit_func_t)(void);
 
+typedef struct _wo_gc_work_context* wo_gc_work_context;
+
+typedef void(*wo_gchandle_close_func_t)(wo_ptr_t);
+typedef void(*wo_gcstruct_mark_func_t)(wo_gc_work_context, wo_ptr_t);
+
 WO_API wo_fail_handler wo_register_fail_handler(wo_fail_handler new_handler);
 WO_API void         wo_cause_fail(wo_string_t src_file, uint32_t lineno, wo_string_t functionname, uint32_t rterrcode, wo_string_t reasonfmt, ...);
 WO_API void         wo_execute_fail_handler(wo_vm vm, wo_string_t src_file, uint32_t lineno, wo_string_t functionname, uint32_t rterrcode, wo_string_t reason);
@@ -252,7 +257,8 @@ WO_API void wo_set_string(wo_value value, wo_vm vm, wo_string_t val);
 WO_API void wo_set_string_fmt(wo_value value, wo_vm vm, wo_string_t fmt, ...);
 WO_API void wo_set_buffer(wo_value value, wo_vm vm, const void* val, wo_size_t len);
 #define wo_set_raw_string wo_set_buffer
-WO_API void wo_set_gchandle(wo_value value, wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t));
+WO_API void wo_set_gchandle(wo_value value, wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val_may_null, wo_gchandle_close_func_t destruct_func);
+WO_API void wo_set_gcstruct(wo_value value, wo_vm vm, wo_ptr_t resource_ptr, wo_gcstruct_mark_func_t mark_func, wo_gchandle_close_func_t destruct_func);
 WO_API void wo_set_struct(wo_value value, wo_vm vm, uint16_t structsz);
 WO_API void wo_set_arr(wo_value value, wo_vm vm, wo_int_t count);
 WO_API void wo_set_map(wo_value value, wo_vm vm, wo_size_t reserved);
@@ -285,7 +291,8 @@ WO_API wo_result_t  wo_ret_string(wo_vm vm, wo_string_t result);
 WO_API wo_result_t  wo_ret_string_fmt(wo_vm vm, wo_string_t fmt, ...);
 WO_API wo_result_t  wo_ret_buffer(wo_vm vm, const void* result, wo_size_t len);
 #define wo_ret_raw_string wo_ret_buffer
-WO_API wo_result_t  wo_ret_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t));
+WO_API wo_result_t  wo_ret_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val_may_null, wo_gchandle_close_func_t destruct_func);
+WO_API wo_result_t  wo_ret_gcstruct(wo_value value, wo_vm vm, wo_ptr_t resource_ptr, wo_gcstruct_mark_func_t mark_func, wo_gchandle_close_func_t destruct_func);
 WO_API wo_result_t  wo_ret_dup(wo_vm vm, wo_value result);
 
 WO_API wo_result_t  wo_ret_halt(wo_vm vm, wo_string_t reasonfmt, ...);
@@ -306,7 +313,8 @@ WO_API void  wo_set_option_buffer(wo_value val, wo_vm vm, const void* result, wo
 WO_API void  wo_set_option_ptr_may_null(wo_value val, wo_vm vm, wo_ptr_t result);
 WO_API void  wo_set_option_pointer(wo_value val, wo_vm vm, wo_ptr_t result);
 WO_API void  wo_set_option_val(wo_value val, wo_vm vm, wo_value result);
-WO_API void  wo_set_option_gchandle(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t));
+WO_API void  wo_set_option_gchandle(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val_may_null, wo_gchandle_close_func_t destruct_func);
+WO_API void  wo_set_option_gcstruct(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, wo_gcstruct_mark_func_t mark_func, wo_gchandle_close_func_t destruct_func);
 WO_API void  wo_set_option_none(wo_value val, wo_vm vm);
 
 #define     wo_set_ok_void          wo_set_option_void
@@ -323,6 +331,7 @@ WO_API void  wo_set_option_none(wo_value val, wo_vm vm);
 #define     wo_set_ok_pointer       wo_set_option_pointer
 #define     wo_set_ok_val           wo_set_option_val
 #define     wo_set_ok_gchandle      wo_set_option_gchandle
+#define     wo_set_ok_gcstruct      wo_set_option_gcstruct
 
 WO_API void  wo_set_err_void(wo_value val, wo_vm vm);
 WO_API void  wo_set_err_char(wo_value val, wo_vm vm, wo_char_t result);
@@ -337,7 +346,8 @@ WO_API void  wo_set_err_buffer(wo_value val, wo_vm vm, const void* result, wo_si
 #define wo_set_err_raw_string wo_set_option_buffer
 WO_API void  wo_set_err_pointer(wo_value val, wo_vm vm, wo_ptr_t result);
 WO_API void  wo_set_err_val(wo_value val, wo_vm vm, wo_value result);
-WO_API void  wo_set_err_gchandle(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t));
+WO_API void  wo_set_err_gchandle(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val_may_null, wo_gchandle_close_func_t destruct_func);
+WO_API void  wo_set_err_gcstruct(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, wo_gcstruct_mark_func_t mark_func, wo_gchandle_close_func_t destruct_func);
 
 WO_API wo_result_t  wo_ret_option_void(wo_vm vm);
 WO_API wo_result_t  wo_ret_option_char(wo_vm vm, wo_char_t result);
@@ -353,7 +363,8 @@ WO_API wo_result_t  wo_ret_option_buffer(wo_vm vm, const void* result, wo_size_t
 WO_API wo_result_t  wo_ret_option_ptr_may_null(wo_vm vm, wo_ptr_t result);
 WO_API wo_result_t  wo_ret_option_pointer(wo_vm vm, wo_ptr_t result);
 WO_API wo_result_t  wo_ret_option_val(wo_vm vm, wo_value result);
-WO_API wo_result_t  wo_ret_option_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t));
+WO_API wo_result_t  wo_ret_option_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val_may_null, wo_gchandle_close_func_t destruct_func);
+WO_API wo_result_t  wo_ret_option_gcstruct(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, wo_gcstruct_mark_func_t mark_func, wo_gchandle_close_func_t destruct_func);
 WO_API wo_result_t  wo_ret_option_none(wo_vm vm);
 
 #define     wo_ret_ok_void          wo_ret_option_void
@@ -370,6 +381,7 @@ WO_API wo_result_t  wo_ret_option_none(wo_vm vm);
 #define     wo_ret_ok_pointer       wo_ret_option_pointer
 #define     wo_ret_ok_val           wo_ret_option_val
 #define     wo_ret_ok_gchandle      wo_ret_option_gchandle
+#define     wo_ret_ok_gcstruct      wo_ret_option_gcstruct
 
 WO_API wo_result_t  wo_ret_err_void(wo_vm vm);
 WO_API wo_result_t  wo_ret_err_char(wo_vm vm, wo_char_t result);
@@ -384,7 +396,8 @@ WO_API wo_result_t  wo_ret_err_buffer(wo_vm vm, const void* result, wo_size_t le
 #define wo_ret_err_raw_string wo_ret_err_buffer
 WO_API wo_result_t  wo_ret_err_pointer(wo_vm vm, wo_ptr_t result);
 WO_API wo_result_t  wo_ret_err_val(wo_vm vm, wo_value result);
-WO_API wo_result_t  wo_ret_err_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t));
+WO_API wo_result_t  wo_ret_err_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val_may_null, wo_gchandle_close_func_t destruct_func);
+WO_API wo_result_t  wo_ret_err_gcstruct(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, wo_gcstruct_mark_func_t mark_func, wo_gchandle_close_func_t destruct_func);
 
 // ATTENTION: This function used for let vm yield-break by setting
 //            yield flag. But this flag only work after return from
@@ -540,7 +553,7 @@ WO_API wo_bool_t    wo_arr_front(wo_value out_val, wo_value arr);
 WO_API wo_bool_t    wo_arr_back(wo_value out_val, wo_value arr);
 WO_API void         wo_arr_front_val(wo_value out_val, wo_value arr);
 WO_API void         wo_arr_back_val(wo_value out_val, wo_value arr);
-WO_API wo_int_t     wo_arr_find(wo_value arr, wo_value elem);
+WO_API wo_bool_t    wo_arr_find(wo_value arr, wo_value elem, wo_size_t* out_index);
 WO_API wo_bool_t    wo_arr_is_empty(wo_value arr);
 
 WO_API wo_bool_t    wo_map_find(wo_value map, wo_value index);
@@ -575,6 +588,28 @@ WO_API wo_bool_t    wo_map_remove(wo_value map, wo_value index);
 WO_API void         wo_map_clear(wo_value map);
 
 WO_API wo_bool_t    wo_gchandle_close(wo_value gchandle);
+
+// User gc struct API.
+
+// Woolang 1.14.4, gcstruct is a gchandle with a mark callback. Users should perform 
+//  correct locking, marking and barrier operations through the following functions:
+WO_API void wo_gcunit_lock(wo_value gc_reference_object);
+WO_API void wo_gcunit_unlock(wo_value gc_reference_object);
+WO_API void wo_gcunit_lock_shared_force(wo_value gc_reference_object);
+WO_API void wo_gcunit_unlock_shared_force(wo_value gc_reference_object);
+
+// ATTENTION: If woolang DONOT support WO_FORCE_GC_OBJ_THREAD_SAFETY, following
+//  function will DO NOTHING, to lock shared forcely, you need use the force version.
+// 
+// To ensure compatibility with WO_FORCE_GC_OBJ_THREAD_SAFETY mode, this function
+//  still needs to be called when reading wo_value_storage of gcstruct
+WO_API void wo_gcunit_lock_shared(wo_value gc_reference_object);
+WO_API void wo_gcunit_unlock_shared(wo_value gc_reference_object);
+
+// If overwriting a wo_value_storage in gcstruct, wo_gc_barrier_before_overwrite 
+//  must be executed before the operation.
+WO_API void wo_gc_barrier_before_overwrite(wo_value value_tobe_overwrite);
+WO_API void wo_gc_mark(wo_gc_work_context* context, wo_value value_to_mark);
 
 // Here to define RSRuntime debug tools API
 typedef struct _wo_debuggee_handle
@@ -623,27 +658,13 @@ WO_API wo_bool_t    wo_lock_weak_ref(wo_value out_val, wo_weak_ref ref);
 
 #if defined(WO_NEED_LSP_API)
 // Following API named with wo_lsp_... will be used for getting meta-data by language-service.
+
 typedef enum _wo_lsp_error_level
 {
     WO_LSP_ERROR,
     WO_LSP_INFORMATION,
 
 } wo_lsp_error_level;
-typedef struct _wo_lsp_error_msg
-{
-    wo_lsp_error_level  m_level;
-    wo_size_t           m_depth;
-    const char*         m_file_name;
-    const char*         m_describe;
-    wo_size_t           m_begin_location[2];       // An array stores row & col
-    wo_size_t           m_end_location[2];         // An array stores row & col
-
-} wo_lsp_error_msg;
-
-// LSPv1 API (IN OBSOLETE)
-WO_API wo_size_t            wo_lsp_get_compile_error_msg_count_from_vm(wo_vm vmm);
-WO_API wo_lsp_error_msg*    wo_lsp_get_compile_error_msg_detail_from_vm(wo_vm vmm, wo_size_t index);
-WO_API void                 wo_lsp_free_compile_error_msg(wo_lsp_error_msg* msg);
 
 // LSPv2 API
 typedef struct _wo_lspv2_location {
