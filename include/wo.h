@@ -292,7 +292,7 @@ WO_API wo_result_t  wo_ret_string_fmt(wo_vm vm, wo_string_t fmt, ...);
 WO_API wo_result_t  wo_ret_buffer(wo_vm vm, const void* result, wo_size_t len);
 #define wo_ret_raw_string wo_ret_buffer
 WO_API wo_result_t  wo_ret_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val_may_null, wo_gchandle_close_func_t destruct_func);
-WO_API wo_result_t  wo_ret_gcstruct(wo_value value, wo_vm vm, wo_ptr_t resource_ptr, wo_gcstruct_mark_func_t mark_func, wo_gchandle_close_func_t destruct_func);
+WO_API wo_result_t  wo_ret_gcstruct(wo_vm vm, wo_ptr_t resource_ptr, wo_gcstruct_mark_func_t mark_func, wo_gchandle_close_func_t destruct_func);
 WO_API wo_result_t  wo_ret_dup(wo_vm vm, wo_value result);
 
 WO_API wo_result_t  wo_ret_halt(wo_vm vm, wo_string_t reasonfmt, ...);
@@ -364,7 +364,7 @@ WO_API wo_result_t  wo_ret_option_ptr_may_null(wo_vm vm, wo_ptr_t result);
 WO_API wo_result_t  wo_ret_option_pointer(wo_vm vm, wo_ptr_t result);
 WO_API wo_result_t  wo_ret_option_val(wo_vm vm, wo_value result);
 WO_API wo_result_t  wo_ret_option_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val_may_null, wo_gchandle_close_func_t destruct_func);
-WO_API wo_result_t  wo_ret_option_gcstruct(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, wo_gcstruct_mark_func_t mark_func, wo_gchandle_close_func_t destruct_func);
+WO_API wo_result_t  wo_ret_option_gcstruct(wo_vm vm, wo_ptr_t resource_ptr, wo_gcstruct_mark_func_t mark_func, wo_gchandle_close_func_t destruct_func);
 WO_API wo_result_t  wo_ret_option_none(wo_vm vm);
 
 #define     wo_ret_ok_void          wo_ret_option_void
@@ -397,7 +397,7 @@ WO_API wo_result_t  wo_ret_err_buffer(wo_vm vm, const void* result, wo_size_t le
 WO_API wo_result_t  wo_ret_err_pointer(wo_vm vm, wo_ptr_t result);
 WO_API wo_result_t  wo_ret_err_val(wo_vm vm, wo_value result);
 WO_API wo_result_t  wo_ret_err_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val_may_null, wo_gchandle_close_func_t destruct_func);
-WO_API wo_result_t  wo_ret_err_gcstruct(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, wo_gcstruct_mark_func_t mark_func, wo_gchandle_close_func_t destruct_func);
+WO_API wo_result_t  wo_ret_err_gcstruct(wo_vm vm, wo_ptr_t resource_ptr, wo_gcstruct_mark_func_t mark_func, wo_gchandle_close_func_t destruct_func);
 
 // ATTENTION: This function used for let vm yield-break by setting
 //            yield flag. But this flag only work after return from

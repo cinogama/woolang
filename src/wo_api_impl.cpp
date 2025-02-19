@@ -1783,7 +1783,7 @@ wo_result_t wo_ret_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_va
     wo_set_gchandle(CS_VAL(WO_VM(vm)->cr), vm, resource_ptr, holding_val, destruct_func);
     return WO_API_STATE_OF_VM(vmbase);
 }
-wo_result_t wo_ret_gcstruct(wo_value value, wo_vm vm, wo_ptr_t resource_ptr, wo_gcstruct_mark_func_t mark_func, wo_gchandle_close_func_t destruct_func)
+wo_result_t wo_ret_gcstruct(wo_vm vm, wo_ptr_t resource_ptr, wo_gcstruct_mark_func_t mark_func, wo_gchandle_close_func_t destruct_func)
 {
     wo::vmbase* vmbase = WO_VM(vm);
     wo_set_gcstruct(CS_VAL(WO_VM(vm)->cr), vm, resource_ptr, mark_func, destruct_func);
@@ -2381,7 +2381,7 @@ wo_result_t wo_ret_option_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value hol
     wo_set_option_gchandle(CS_VAL(vmbase->cr), vm, resource_ptr, holding_val, destruct_func);
     return WO_API_STATE_OF_VM(vmbase);
 }
-wo_result_t wo_ret_option_gcstruct(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, wo_gcstruct_mark_func_t mark_func, wo_gchandle_close_func_t destruct_func)
+wo_result_t wo_ret_option_gcstruct(wo_vm vm, wo_ptr_t resource_ptr, wo_gcstruct_mark_func_t mark_func, wo_gchandle_close_func_t destruct_func)
 {
     wo::vmbase* vmbase = WO_VM(vm);
     wo_set_option_gcstruct(CS_VAL(vmbase->cr), vm, resource_ptr, mark_func, destruct_func);
@@ -2476,7 +2476,7 @@ wo_result_t wo_ret_err_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holdin
     wo_set_err_gchandle(CS_VAL(vmbase->cr), vm, resource_ptr, holding_val, destruct_func);
     return WO_API_STATE_OF_VM(vmbase);
 }
-wo_result_t wo_ret_err_gcstruct(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, wo_gcstruct_mark_func_t mark_func, wo_gchandle_close_func_t destruct_func)
+wo_result_t wo_ret_err_gcstruct(wo_vm vm, wo_ptr_t resource_ptr, wo_gcstruct_mark_func_t mark_func, wo_gchandle_close_func_t destruct_func)
 {
     wo::vmbase* vmbase = WO_VM(vm);
     wo_set_err_gcstruct(CS_VAL(vmbase->cr), vm, resource_ptr, mark_func, destruct_func);
