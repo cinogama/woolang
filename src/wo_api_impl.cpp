@@ -3709,7 +3709,7 @@ void wo_arr_pop_back_val(wo_value out_val, wo_value arr)
     }
 }
 
-wo_int_t wo_arr_find(wo_value arr, wo_value elem)
+wo_bool_t wo_arr_find(wo_value arr, wo_value elem, wo_size_t* out_index)
 {
     auto _arr = WO_VAL(arr);
     auto _aim = WO_VAL(elem);
@@ -3729,12 +3729,15 @@ wo_int_t wo_arr_find(wo_value arr, wo_value elem)
                 return false;
             });
         if (fnd != _arr->array->end())
-            return fnd - _arr->array->begin();
+        {
+            *out_index = fnd - _arr->array->begin();
+            return WO_TRUE;
+        }
     }
     else
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not an array.");
 
-    return -1;
+    return WO_FALSE;
 }
 wo_bool_t wo_arr_remove(wo_value arr, wo_size_t index)
 {

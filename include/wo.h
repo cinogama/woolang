@@ -540,7 +540,7 @@ WO_API wo_bool_t    wo_arr_front(wo_value out_val, wo_value arr);
 WO_API wo_bool_t    wo_arr_back(wo_value out_val, wo_value arr);
 WO_API void         wo_arr_front_val(wo_value out_val, wo_value arr);
 WO_API void         wo_arr_back_val(wo_value out_val, wo_value arr);
-WO_API wo_int_t     wo_arr_find(wo_value arr, wo_value elem);
+WO_API wo_bool_t    wo_arr_find(wo_value arr, wo_value elem, wo_size_t* out_index);
 WO_API wo_bool_t    wo_arr_is_empty(wo_value arr);
 
 WO_API wo_bool_t    wo_map_find(wo_value map, wo_value index);

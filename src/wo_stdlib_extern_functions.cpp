@@ -451,11 +451,10 @@ WO_API wo_api rslib_std_string_find(wo_vm vm, wo_value args)
 
     size_t fnd_place = aim.find(match);
     if (fnd_place >= 0 && fnd_place < aim.size())
-        return wo_ret_int(vm, (wo_integer_t)wo::clen2u8blen(str, fnd_place));
+        return wo_ret_option_int(vm, (wo_integer_t)wo::clen2u8blen(str, fnd_place));
 
-    return wo_ret_int(vm, -1);
+    return wo_ret_option_none(vm);
 }
-
 WO_API wo_api rslib_std_string_find_from(wo_vm vm, wo_value args)
 {
     size_t len = 0;
@@ -467,11 +466,10 @@ WO_API wo_api rslib_std_string_find_from(wo_vm vm, wo_value args)
 
     size_t fnd_place = aim.find(match, from);
     if (fnd_place >= from && fnd_place < aim.size())
-        return wo_ret_int(vm, (wo_integer_t)wo::clen2u8blen(str, fnd_place));
+        return wo_ret_option_int(vm, (wo_integer_t)wo::clen2u8blen(str, fnd_place));
 
-    return wo_ret_int(vm, -1);
+    return wo_ret_option_none(vm);
 }
-
 WO_API wo_api rslib_std_string_rfind(wo_vm vm, wo_value args)
 {
     size_t len = 0;
@@ -482,11 +480,10 @@ WO_API wo_api rslib_std_string_rfind(wo_vm vm, wo_value args)
 
     size_t fnd_place = aim.rfind(match);
     if (fnd_place >= 0 && fnd_place < aim.size())
-        return wo_ret_int(vm, (wo_integer_t)wo::clen2u8blen(str, fnd_place));
+        return wo_ret_option_int(vm, (wo_integer_t)wo::clen2u8blen(str, fnd_place));
 
-    return wo_ret_int(vm, -1);
+    return wo_ret_option_none(vm);
 }
-
 WO_API wo_api rslib_std_string_rfind_from(wo_vm vm, wo_value args)
 {
     size_t len = 0;
@@ -498,9 +495,9 @@ WO_API wo_api rslib_std_string_rfind_from(wo_vm vm, wo_value args)
 
     size_t fnd_place = aim.rfind(match, from);
     if (fnd_place >= 0 && fnd_place < from)
-        return wo_ret_int(vm, (wo_integer_t)wo::clen2u8blen(str, fnd_place));
+        return wo_ret_option_int(vm, (wo_integer_t)wo::clen2u8blen(str, fnd_place));
 
-    return wo_ret_int(vm, -1);
+    return wo_ret_option_none(vm);
 }
 
 WO_API wo_api rslib_std_string_trim(wo_vm vm, wo_value args)
@@ -943,7 +940,12 @@ WO_API wo_api rslib_std_array_remove(wo_vm vm, wo_value args)
 
 WO_API wo_api rslib_std_array_find(wo_vm vm, wo_value args)
 {
-    return wo_ret_int(vm, wo_arr_find(args + 0, args + 1));
+    wo_size_t index;
+    if (WO_TRUE == wo_arr_find(args + 0, args + 1, &index))
+    {
+        return wo_ret_option_int(vm, (wo_int_t)index);
+    }
+    return wo_ret_option_none(vm);
 }
 
 WO_API wo_api rslib_std_array_front(wo_vm vm, wo_value args)
@@ -2270,13 +2272,13 @@ namespace string
     extern("rslib_std_string_replace")
         public func replace(val: string, match_aim: string, str: string)=> string;
     extern("rslib_std_string_find")
-        public func find(val: string, match_aim: string)=> int;
+        public func find(val: string, match_aim: string)=> option<int>;
     extern("rslib_std_string_find_from")
-        public func find_from(val: string, match_aim: string, from: int)=> int;
+        public func find_from(val: string, match_aim: string, from: int)=> option<int>;
     extern("rslib_std_string_rfind")
-        public func rfind(val: string, match_aim: string)=> int;
+        public func rfind(val: string, match_aim: string)=> option<int>;
     extern("rslib_std_string_rfind_from")
-        public func rfind_from(val: string, match_aim: string, from: int)=> int;
+        public func rfind_from(val: string, match_aim: string, from: int)=> option<int>;
     extern("rslib_std_string_trim")
         public func trim(val: string)=> string;
     extern("rslib_std_string_split")
@@ -2361,7 +2363,7 @@ namespace array
         }
     }
     extern("rslib_std_array_find", repeat)
-        public func find<T>(val: array<T>, elem: T)=> int;
+        public func find<T>(val: array<T>, elem: T)=> option<int>;
     public func find_if<T>(val: array<T>, judger:(T)=> bool)=> int
     {
         let mut count = 0;
@@ -2517,7 +2519,7 @@ namespace vec
     extern("rslib_std_array_remove")
         public func remove<T>(val: vec<T>, index: int)=> bool;
     extern("rslib_std_array_find", repeat)
-        public func find<T>(val: vec<T>, elem: T)=> int;
+        public func find<T>(val: vec<T>, elem: T)=> option<int>;
     public func find_if<T>(val: vec<T>, judger:(T)=> bool)=> int
     {
         let mut count = 0;
@@ -2627,10 +2629,10 @@ namespace dict
         public func dup<KT, VT>(self: dict<KT, VT>)=> dict<KT, VT>;
     extern("rslib_std_make_dup", repeat)
         public func to_map<KT, VT>(self: dict<KT, VT>)=> map<KT, VT>;
-    public func find_if<KT, VT>(self: dict<KT, VT>, judger:(KT)=> bool)=> option<KT>
+    public func find_if<KT, VT>(self: dict<KT, VT>, judger:(KT, VT)=> bool)=> option<KT>
     {
-        for (let (k, _) : self)
-            if (judger(k))
+        for (let (k, v) : self)
+            if (judger(k, v))
                 return option::value(k);
         return option::none;            
     }
@@ -2725,10 +2727,10 @@ namespace map
         public func dup<KT, VT>(self: map<KT, VT>)=> map<KT, VT>;
     extern("rslib_std_make_dup", repeat)
         public func to_dict<KT, VT>(self: map<KT, VT>)=> dict<KT, VT>;
-    public func find_if<KT, VT>(self: map<KT, VT>, judger:(KT)=> bool)=> option<KT>
+    public func find_if<KT, VT>(self: map<KT, VT>, judger:(KT, VT)=> bool)=> option<KT>
     {
-        for (let (k, _) : self)
-            if (judger(k))
+        for (let (k, v) : self)
+            if (judger(k, v))
                 return option::value(k);
         return option::none;            
     }
