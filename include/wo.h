@@ -292,7 +292,7 @@ WO_API wo_result_t  wo_ret_string_fmt(wo_vm vm, wo_string_t fmt, ...);
 WO_API wo_result_t  wo_ret_buffer(wo_vm vm, const void* result, wo_size_t len);
 #define wo_ret_raw_string wo_ret_buffer
 WO_API wo_result_t  wo_ret_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val_may_null, wo_gchandle_close_func_t destruct_func);
-WO_API wo_result_t  wo_ret_gcstruct(wo_value value, wo_vm vm, wo_ptr_t resource_ptr, wo_gcstruct_mark_func_t mark_func, wo_gchandle_close_func_t destruct_func);
+WO_API wo_result_t  wo_ret_gcstruct(wo_vm vm, wo_ptr_t resource_ptr, wo_gcstruct_mark_func_t mark_func, wo_gchandle_close_func_t destruct_func);
 WO_API wo_result_t  wo_ret_dup(wo_vm vm, wo_value result);
 
 WO_API wo_result_t  wo_ret_halt(wo_vm vm, wo_string_t reasonfmt, ...);
@@ -364,7 +364,7 @@ WO_API wo_result_t  wo_ret_option_ptr_may_null(wo_vm vm, wo_ptr_t result);
 WO_API wo_result_t  wo_ret_option_pointer(wo_vm vm, wo_ptr_t result);
 WO_API wo_result_t  wo_ret_option_val(wo_vm vm, wo_value result);
 WO_API wo_result_t  wo_ret_option_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val_may_null, wo_gchandle_close_func_t destruct_func);
-WO_API wo_result_t  wo_ret_option_gcstruct(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, wo_gcstruct_mark_func_t mark_func, wo_gchandle_close_func_t destruct_func);
+WO_API wo_result_t  wo_ret_option_gcstruct(wo_vm vm, wo_ptr_t resource_ptr, wo_gcstruct_mark_func_t mark_func, wo_gchandle_close_func_t destruct_func);
 WO_API wo_result_t  wo_ret_option_none(wo_vm vm);
 
 #define     wo_ret_ok_void          wo_ret_option_void
@@ -397,7 +397,7 @@ WO_API wo_result_t  wo_ret_err_buffer(wo_vm vm, const void* result, wo_size_t le
 WO_API wo_result_t  wo_ret_err_pointer(wo_vm vm, wo_ptr_t result);
 WO_API wo_result_t  wo_ret_err_val(wo_vm vm, wo_value result);
 WO_API wo_result_t  wo_ret_err_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val_may_null, wo_gchandle_close_func_t destruct_func);
-WO_API wo_result_t  wo_ret_err_gcstruct(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, wo_gcstruct_mark_func_t mark_func, wo_gchandle_close_func_t destruct_func);
+WO_API wo_result_t  wo_ret_err_gcstruct(wo_vm vm, wo_ptr_t resource_ptr, wo_gcstruct_mark_func_t mark_func, wo_gchandle_close_func_t destruct_func);
 
 // ATTENTION: This function used for let vm yield-break by setting
 //            yield flag. But this flag only work after return from
@@ -520,6 +520,27 @@ WO_API void wo_dispatch_value(
 WO_API wo_value     wo_dispatch(
     wo_vm vm, wo_value* inout_args_maynull, wo_value* inout_s_maynull);
 
+// User gc struct API.
+
+// Woolang 1.14.4, gcstruct is a gchandle with a mark callback. Users should perform 
+//  correct locking, marking and barrier operations through the following functions:
+WO_API void wo_gcunit_lock(wo_value gc_reference_object);
+WO_API void wo_gcunit_unlock(wo_value gc_reference_object);
+WO_API void wo_gcunit_lock_shared_force(wo_value gc_reference_object);
+WO_API void wo_gcunit_unlock_shared_force(wo_value gc_reference_object);
+
+// ATTENTION: If woolang DONOT support WO_FORCE_GC_OBJ_THREAD_SAFETY, following
+//  function will DO NOTHING, to lock shared forcely, you need use the force version.
+// 
+// To ensure compatibility with WO_FORCE_GC_OBJ_THREAD_SAFETY mode, this function
+//  still needs to be called when reading wo_value_storage of gcstruct
+WO_API void wo_gcunit_lock_shared(wo_value gc_reference_object);
+WO_API void wo_gcunit_unlock_shared(wo_value gc_reference_object);
+
+// If overwriting a wo_value_storage in gcstruct, wo_gc_record_memory 
+//  must be executed before the operation.
+WO_API void         wo_gc_mark(wo_gc_work_context context, wo_value value_to_mark);
+
 WO_API void         wo_gc_checkpoint(wo_vm vm);
 WO_API void         wo_gc_record_memory(wo_value val);
 
@@ -588,28 +609,6 @@ WO_API wo_bool_t    wo_map_remove(wo_value map, wo_value index);
 WO_API void         wo_map_clear(wo_value map);
 
 WO_API wo_bool_t    wo_gchandle_close(wo_value gchandle);
-
-// User gc struct API.
-
-// Woolang 1.14.4, gcstruct is a gchandle with a mark callback. Users should perform 
-//  correct locking, marking and barrier operations through the following functions:
-WO_API void wo_gcunit_lock(wo_value gc_reference_object);
-WO_API void wo_gcunit_unlock(wo_value gc_reference_object);
-WO_API void wo_gcunit_lock_shared_force(wo_value gc_reference_object);
-WO_API void wo_gcunit_unlock_shared_force(wo_value gc_reference_object);
-
-// ATTENTION: If woolang DONOT support WO_FORCE_GC_OBJ_THREAD_SAFETY, following
-//  function will DO NOTHING, to lock shared forcely, you need use the force version.
-// 
-// To ensure compatibility with WO_FORCE_GC_OBJ_THREAD_SAFETY mode, this function
-//  still needs to be called when reading wo_value_storage of gcstruct
-WO_API void wo_gcunit_lock_shared(wo_value gc_reference_object);
-WO_API void wo_gcunit_unlock_shared(wo_value gc_reference_object);
-
-// If overwriting a wo_value_storage in gcstruct, wo_gc_barrier_before_overwrite 
-//  must be executed before the operation.
-WO_API void wo_gc_barrier_before_overwrite(wo_value value_tobe_overwrite);
-WO_API void wo_gc_mark(wo_gc_work_context* context, wo_value value_to_mark);
 
 // Here to define RSRuntime debug tools API
 typedef struct _wo_debuggee_handle

@@ -1190,7 +1190,7 @@ void wo_gc_immediately(wo_bool_t fullgc)
     wo::gc::_gc_immediately.clear();
     wo::gc::_gc_work_cv.notify_one();
 }
-void wo_gc_mark(wo_gc_work_context* context, wo_value gc_reference_object)
+void wo_gc_mark(wo_gc_work_context context, wo_value gc_reference_object)
 {
     wo::value* val = std::launder(reinterpret_cast<wo::value*>(gc_reference_object));
     auto* worklist = std::launder(reinterpret_cast<wo::gc::_wo_gray_unit_list_t*>(context));
