@@ -1447,7 +1447,9 @@ namespace wo
             global_reserving_ip,
             used_tmp_regs); // set reserved size
 
-        m_ircontext.c().jmp(opnum::tag("#woolang_program_end"));
+        // Generate default return 0 for global block.
+        m_ircontext.c().mov(opnum::reg(opnum::reg::spreg::cr), opnum::imm(0));  // mov cr, 0
+        m_ircontext.c().jmp(opnum::tag("#woolang_program_end"));    // jmp #woolang_program_end
 
         // final.2 Finalize function codes.
         bool donot_have_unused_local_variable = true;
@@ -1882,7 +1884,6 @@ namespace wo
                     break;
                 }
             }
-
             if (scope_located)
             {
                 // Ok, found the namespace.
