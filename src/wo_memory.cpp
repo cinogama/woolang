@@ -55,6 +55,7 @@ bool _womem_commit_mem(void* mem, size_t sz)
 {
 #if WO_DISABLE_FUNCTION_FOR_WASM
     // Do nothing
+    return true;
 #else
 #   ifdef WIN32
     return nullptr != VirtualAlloc(mem, sz, MEM_COMMIT, PAGE_READWRITE);
@@ -67,6 +68,7 @@ bool _womem_decommit_mem(void* mem, size_t sz)
 {
 #if WO_DISABLE_FUNCTION_FOR_WASM
     // Do nothing
+    return true;
 #else
 #   ifdef WIN32
     return 0 != VirtualFree(mem, sz, MEM_DECOMMIT);
