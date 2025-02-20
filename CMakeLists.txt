@@ -11,6 +11,7 @@ option(WO_BUILD_FOR_COVERAGE_TEST       "Build woo for code coverage test" OFF)
 option(WO_BUILD_FOR_ASAN_TEST           "Build woo for code asan test" OFF)
 option(WO_SUPPORT_ASMJIT                "Support asmjit for compile" ON)
 option(WO_DISABLE_COMPILER              "Only keep the runtime, which helps to reduce the file size" OFF)
+option(WO_DISABLE_DYNAMIC_LIB_LOADING   "Disable dynamic lib loading" OFF)
 
 if (WO_MAKE_OUTPUT_IN_SAME_PATH)
     set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/build")

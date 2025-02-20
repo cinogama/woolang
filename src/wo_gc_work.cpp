@@ -270,7 +270,7 @@ namespace wo
             else if (gchandle_t* wo_gchandle = dynamic_cast<gchandle_t*>(unit))
             {
                 wo_gchandle->do_custom_mark(
-                    std::launder(reinterpret_cast<wo_gc_work_context>(worklist)));
+                    reinterpret_cast<wo_gc_work_context>(worklist));
             }
             else if (closure_t* wo_closure = dynamic_cast<closure_t*>(unit))
             {
@@ -1075,8 +1075,8 @@ namespace wo
             marker = reinterpret_cast<gcmark_func_t>(
                 m_custom_marker.m_marker63);
 #else
-            marker = std::launder(reinterpret_cast<gcmark_func_t>(
-                m_custom_marker.m_marker31));
+            marker = reinterpret_cast<gcmark_func_t>(
+                m_custom_marker.m_marker31);
 #endif
             marker(context, m_holding_handle);
         }
