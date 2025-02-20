@@ -26,45 +26,68 @@
 
 size_t _womem_page_size()
 {
-#ifdef WIN32
+#if WO_DISABLE_FUNCTION_FOR_WASM
+        return 4096;
+#else
+#   ifdef WIN32
     SYSTEM_INFO s;
     GetSystemInfo(&s);
     return s.dwPageSize;
-#else
+#   else
     return getpagesize();
+#   endif
 #endif
 }
 
 void* _womem_reserve_mem(size_t sz)
 {
-#ifdef WIN32
-    return VirtualAlloc(nullptr, sz, MEM_RESERVE, PAGE_NOACCESS);
+#if WO_DISABLE_FUNCTION_FOR_WASM
+    return malloc(sz);
 #else
+#   ifdef WIN32
+    return VirtualAlloc(nullptr, sz, MEM_RESERVE, PAGE_NOACCESS);
+#   else
     return mmap(nullptr, sz, PROT_NONE, MAP_PRIVATE | MAP_ANON, -1, 0);
+#   endif
 #endif
 }
 bool _womem_commit_mem(void* mem, size_t sz)
 {
-#ifdef WIN32
-    return nullptr != VirtualAlloc(mem, sz, MEM_COMMIT, PAGE_READWRITE);
+#if WO_DISABLE_FUNCTION_FOR_WASM
+    // Do nothing
+    return true;
 #else
+#   ifdef WIN32
+    return nullptr != VirtualAlloc(mem, sz, MEM_COMMIT, PAGE_READWRITE);
+#   else
     return 0 == mprotect(mem, sz, PROT_READ | PROT_WRITE);
+#   endif
 #endif
 }
 bool _womem_decommit_mem(void* mem, size_t sz)
 {
-#ifdef WIN32
-    return 0 != VirtualFree(mem, sz, MEM_DECOMMIT);
+#if WO_DISABLE_FUNCTION_FOR_WASM
+    // Do nothing
+    return true;
 #else
+#   ifdef WIN32
+    return 0 != VirtualFree(mem, sz, MEM_DECOMMIT);
+#   else
     return 0 == mprotect(mem, sz, PROT_NONE);
+#   endif
 #endif
 }
 bool _womem_release_mem(void* mem, size_t sz)
 {
-#ifdef WIN32
-    return 0 != VirtualFree(mem, 0, MEM_RELEASE);
+#if WO_DISABLE_FUNCTION_FOR_WASM
+    free(mem);
+    return true;
 #else
+#   ifdef WIN32
+    return 0 != VirtualFree(mem, 0, MEM_RELEASE);
+#   else
     return 0 == munmap(mem, sz);
+#   endif
 #endif
 }
 int _womem_get_last_error(void)

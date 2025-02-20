@@ -7,28 +7,33 @@
 #include <unordered_map>
 #include <shared_mutex>
 
-#ifdef _WIN32
-#include <Windows.h>
-#elif defined(__linux__)
-#include <dlfcn.h>
-#elif defined(__APPLE__)
-#include <dlfcn.h>
-#include <mach-o/dyld.h>
-#endif
+#if WO_DISABLE_FUNCTION_FOR_WASM
+#else
+#   ifdef _WIN32
+#       include <Windows.h>
+#   elif defined(__linux__)
+#       include <dlfcn.h>
+#   elif defined(__APPLE__)
+#       include <dlfcn.h>
+#       include <mach-o/dyld.h>
+#   endif
 
-#ifdef _WIN32
-#   define WO_DYNAMIC_LIB_EXT L".dll"
-#elif defined(__linux__)
-#   define WO_DYNAMIC_LIB_EXT L".so"
-#elif defined(__APPLE__)
-#   define WO_DYNAMIC_LIB_EXT L".dylib"
+#   ifdef _WIN32
+#       define WO_DYNAMIC_LIB_EXT L".dll"
+#   elif defined(__linux__)
+#       define WO_DYNAMIC_LIB_EXT L".so"
+#   elif defined(__APPLE__)
+#      define WO_DYNAMIC_LIB_EXT L".dylib"
+#   endif
 #endif
 
 namespace wo
 {
     namespace osapi
     {
-#ifdef _WIN32
+#if WO_DISABLE_FUNCTION_FOR_WASM
+#else
+#   ifdef _WIN32
         void* _loadlib(const char* dllpath)
         {
             if (nullptr == dllpath)
@@ -47,7 +52,7 @@ namespace wo
         {
             FreeLibrary((HINSTANCE)libhandle);
         }
-#elif defined(__linux__) || defined(__APPLE__)
+#   elif defined(__linux__) || defined(__APPLE__)
         void* _loadlib(const char* dllpath)
         {
             if (nullptr == dllpath)
@@ -63,15 +68,20 @@ namespace wo
         {
             dlclose(libhandle);
         }
-#endif
+#   endif
         bool file_exists(const char* path)
         {
             struct stat st;
             return stat(path, &st) == 0;
         }
+#endif
+
 
         std::optional<void*> try_open_lib(const char* dllpath)
         {
+#if WO_DISABLE_FUNCTION_FOR_WASM
+            // Do nothing.
+#else
             if (file_exists(dllpath))
             {
                 void* lib = _loadlib(dllpath);
@@ -84,10 +94,15 @@ namespace wo
                 }
                 return lib;
             }
+#endif
             return std::nullopt;
         }
         void* loadlib(const wchar_t* dllpath, const wchar_t* scriptpath_may_null)
         {
+#if WO_DISABLE_FUNCTION_FOR_WASM
+            // Do nothing.
+            return nullptr;
+#else
             if (dllpath == nullptr)
                 return _loadlib(nullptr);
 
@@ -116,14 +131,23 @@ namespace wo
                 return _loadlib(wstr_to_str(dllpath).c_str());
             else
                 return nullptr;
+#endif
         }
         void* loadfunc(void* libhandle, const char* funcname)
         {
+#if WO_DISABLE_FUNCTION_FOR_WASM
+            // Do nothing.
+            return nullptr;
+#else
             return _loadfunc(libhandle, funcname);
+#endif
         }
         void freelib(void* libhandle)
         {
+#if WO_DISABLE_FUNCTION_FOR_WASM
+#else
             _freelib(libhandle);
+#endif
         }
     }
 
