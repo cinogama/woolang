@@ -55,7 +55,6 @@ namespace wo
 
     void wo_init_locale(const char* local_type)
     {
-
         // SUPPORT ANSI_CONTROL
 #if !WO_BUILD_WITH_MINGW && defined(WO_NEED_ANSI_CONTROL) && defined(_WIN32)
         auto this_console_handle = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -98,18 +97,22 @@ namespace wo
         if (!wo_binary_path)
         {
             std::wstring result;
-#ifdef _WIN32
+#if WO_DISABLE_FUNCTION_FOR_WASM
+#else
+#   ifdef _WIN32
             wchar_t _w_exe_path[WO_MAX_EXE_OR_RPATH_LEN] = {};
             const size_t len = (size_t)GetModuleFileNameW(NULL, _w_exe_path, WO_MAX_EXE_OR_RPATH_LEN);
-
-            result.assign(_w_exe_path, len);
-#else
-            char _exe_path[WO_MAX_EXE_OR_RPATH_LEN] = {};
-            const size_t len = (size_t)readlink("/proc/self/exe", _exe_path, WO_MAX_EXE_OR_RPATH_LEN);
-            result = str_to_wstr(_exe_path);
-#endif
             wo_test(len < WO_MAX_EXE_OR_RPATH_LEN);
 
+            result.assign(_w_exe_path, len);
+#   else
+            char _exe_path[WO_MAX_EXE_OR_RPATH_LEN] = {};
+            const size_t len = (size_t)readlink("/proc/self/exe", _exe_path, WO_MAX_EXE_OR_RPATH_LEN);
+            wo_test(len < WO_MAX_EXE_OR_RPATH_LEN);
+
+            result = str_to_wstr(_exe_path);
+#   endif
+#endif
             normalize_path(&result);
 
             wo_binary_path = get_file_loc(result);
@@ -124,33 +127,37 @@ namespace wo
     std::wstring work_path()
     {
         std::wstring result;
-#ifdef _WIN32
+#if WO_DISABLE_FUNCTION_FOR_WASM
+#else
+#   ifdef _WIN32
         wchar_t _w_exe_path[WO_MAX_EXE_OR_RPATH_LEN] = {};
         const size_t len = (size_t)GetCurrentDirectoryW(WO_MAX_EXE_OR_RPATH_LEN, _w_exe_path);
         
         wo_test(len < WO_MAX_EXE_OR_RPATH_LEN);
 
         result.assign(_w_exe_path, len);
-#else
+#   else
         char _exe_path[WO_MAX_EXE_OR_RPATH_LEN] = {};
         char* ptr = getcwd(_exe_path, WO_MAX_EXE_OR_RPATH_LEN);
 
         wo_test(ptr != nullptr);
 
         result = str_to_wstr(_exe_path);
+#   endif
 #endif
-
-
         normalize_path(&result);
 
         return result;
     }
     bool set_work_path(const std::wstring& path)
     {
-#ifdef _WIN32
-        return (bool)SetCurrentDirectoryW(path.c_str());
+#if WO_DISABLE_FUNCTION_FOR_WASM
 #else
+#   ifdef _WIN32
+        return (bool)SetCurrentDirectoryW(path.c_str());
+#   else
         return 0 == chdir(wstr_to_str(path).c_str());
+#   endif
 #endif
     }
 }

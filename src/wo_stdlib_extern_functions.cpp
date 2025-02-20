@@ -1706,7 +1706,7 @@ namespace std
     "os_type::UNKNOWN;\n"
 #   endif
 #else
-    "os::UNKNOWN;\n"
+    "os_type::UNKNOWN;\n"
 #endif
     //////////////////////////////////////////////////////////////////////
     "        public let arch = "

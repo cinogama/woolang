@@ -7,7 +7,7 @@
 #include <unordered_map>
 #include <shared_mutex>
 
-#if WO_DISABLE_DYNAMIC_LIB_LOADING
+#if WO_DISABLE_FUNCTION_FOR_WASM
 #else
 #   ifdef _WIN32
 #       include <Windows.h>
@@ -31,7 +31,7 @@ namespace wo
 {
     namespace osapi
     {
-#if WO_DISABLE_DYNAMIC_LIB_LOADING
+#if WO_DISABLE_FUNCTION_FOR_WASM
 #else
 #   ifdef _WIN32
         void* _loadlib(const char* dllpath)
@@ -79,7 +79,7 @@ namespace wo
 
         std::optional<void*> try_open_lib(const char* dllpath)
         {
-#if WO_DISABLE_DYNAMIC_LIB_LOADING
+#if WO_DISABLE_FUNCTION_FOR_WASM
             // Do nothing.
 #else
             if (file_exists(dllpath))
@@ -99,7 +99,7 @@ namespace wo
         }
         void* loadlib(const wchar_t* dllpath, const wchar_t* scriptpath_may_null)
         {
-#if WO_DISABLE_DYNAMIC_LIB_LOADING
+#if WO_DISABLE_FUNCTION_FOR_WASM
             // Do nothing.
             return nullptr;
 #else
@@ -135,7 +135,7 @@ namespace wo
         }
         void* loadfunc(void* libhandle, const char* funcname)
         {
-#if WO_DISABLE_DYNAMIC_LIB_LOADING
+#if WO_DISABLE_FUNCTION_FOR_WASM
             // Do nothing.
             return nullptr;
 #else
@@ -144,7 +144,7 @@ namespace wo
         }
         void freelib(void* libhandle)
         {
-#if WO_DISABLE_DYNAMIC_LIB_LOADING
+#if WO_DISABLE_FUNCTION_FOR_WASM
 #else
             _freelib(libhandle);
 #endif
