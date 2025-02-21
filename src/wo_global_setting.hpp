@@ -66,9 +66,20 @@ namespace wo
 #           define WO_PLATFORM_64
 #           define WO_PLATFORM_ARM64
 #else
-            ArchType::UNKNOWN | (sizeof(size_t) == 64 ? ArchType::BIT64 : ArchType::UNKNOWN);
+#   if not defined(WO_PLATFORM_32) and not defined(WO_PLATFORM_64)
+#       error "Unknown platform, you must specify platform manually."
+#   endif
+            ArchType::UNKNOWN
+#   ifdef WO_PLATFORM_64
+            | ArchType::BIT64
+#   endif
+            ;
 #endif
-            
+#ifdef WO_PLATFORM_32
+        static_assert(0 == (ARCH_TYPE & ArchType::BIT64));
+#else
+        static_assert(0 != (ARCH_TYPE & ArchType::BIT64));
+#endif
     }
     namespace config
     {
@@ -200,6 +211,7 @@ namespace wo
         * --------------------------------------------------------------------
         *   
         */
-        inline size_t GC_WORKER_THREAD_COUNT = ((size_t)std::thread::hardware_concurrency()) / 4;
+        inline size_t GC_WORKER_THREAD_COUNT = 
+            std::max(((size_t)std::thread::hardware_concurrency()) / 4, (size_t)1);
     }
 }

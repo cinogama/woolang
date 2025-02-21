@@ -6,6 +6,7 @@
 #include "wo_assert.hpp"
 #include "wo_os_api.hpp"
 #include "wo_shared_ptr.hpp"
+#include "wo_global_setting.hpp"
 
 #include <shared_mutex>
 #include <unordered_map>
@@ -20,15 +21,7 @@
 #		define OS_UNKNOWN
 #endif
 
-#if WO_CPU_BITWIDTH == 32
-#   define PLATFORM_M32
-#elif WO_CPU_BITWIDTH == 64
-#   define PLATFORM_M64
-#else
-#   error "Unsupported cpu archtype."
-#endif
-
-#if defined(PLATFORM_M32)
+#if defined(WO_PLATFORM_32)
 #   define WO_EXT_LIB_ARCH_TYPE_SUFFIX "32"
 #else
 #   define WO_EXT_LIB_ARCH_TYPE_SUFFIX ""
