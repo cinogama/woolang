@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <new>
 #include <thread>
+#include <algorithm>
 
 #if WO_BUILD_WITH_MINGW
 #   include <mingw.thread.h>
@@ -124,7 +125,7 @@ namespace wo
         inline bool ENABLE_SHELL_PACKAGE = true;
 
         /*
-        * MEMORY_CHUNK_SIZE = 512MB
+        * MEMORY_CHUNK_SIZE = 512MB/128MB
         * --------------------------------------------------------------------
         *   Maximum managed heap memory used by Woolang.
         * 
@@ -132,7 +133,12 @@ namespace wo
         *   is only used to store GC objects.
         * --------------------------------------------------------------------
         */
-        inline size_t MEMORY_CHUNK_SIZE = 512ull * 1024ull * 1024ull;
+        inline size_t MEMORY_CHUNK_SIZE = 
+#ifdef WO_PLATFORM_64
+            512ull * 1024ull * 1024ull;
+#else
+            128ull * 1024ull * 1024ull;
+#endif
 
         /*
         * ENABLE_HALT_WHEN_PANIC = false
