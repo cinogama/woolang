@@ -137,7 +137,7 @@ namespace wo
 #ifdef WO_PLATFORM_64
             512ull * 1024ull * 1024ull;
 #else
-            256ull * 1024ull * 1024ull;
+            128ull * 1024ull * 1024ull;
 #endif
 
         /*
