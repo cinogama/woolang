@@ -1719,9 +1719,9 @@ namespace std
     #elif defined(__aarch64__) || defined(_M_ARM64)
         "arch_type::ARM64;\n"
     #else
-    #   if WO_CPU_BITWIDTH == 32
+    #   if defined(WO_PLATFORM_32)
         "arch_type::UNKNOWN32;\n"
-    #   elif WO_CPU_BITWIDTH == 64
+    #   elif defined(WO_PLATFORM_64)
         "arch_type::UNKNOWN64;\n"
     #   else
     #       error "Unsupported cpu archtype."
@@ -1729,9 +1729,9 @@ namespace std
     #endif
     //////////////////////////////////////////////////////////////////////
     "        public let bitwidth = "
-    #if WO_CPU_BITWIDTH == 32
+    #if defined(WO_PLATFORM_32)
         "32;\n"
-    #elif WO_CPU_BITWIDTH == 64
+    #elif defined(WO_PLATFORM_64)
         "64;\n"
     #else
     #    error "Unsupported cpu archtype."

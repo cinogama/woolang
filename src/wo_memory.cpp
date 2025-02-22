@@ -23,32 +23,25 @@
 #include <unistd.h>
 #endif
 
-
 size_t _womem_page_size()
 {
-#if WO_DISABLE_FUNCTION_FOR_WASM
-        return 4096;
-#else
-#   ifdef WIN32
+#ifdef WIN32
     SYSTEM_INFO s;
     GetSystemInfo(&s);
     return s.dwPageSize;
-#   else
+#else
     return getpagesize();
-#   endif
 #endif
 }
 
 void* _womem_reserve_mem(size_t sz)
 {
-#if WO_DISABLE_FUNCTION_FOR_WASM
-    return malloc(sz);
-#else
-#   ifdef WIN32
+#ifdef WIN32
     return VirtualAlloc(nullptr, sz, MEM_RESERVE, PAGE_NOACCESS);
-#   else
+#elif WO_DISABLE_FUNCTION_FOR_WASM
+    return mmap(nullptr, sz, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+#else
     return mmap(nullptr, sz, PROT_NONE, MAP_PRIVATE | MAP_ANON, -1, 0);
-#   endif
 #endif
 }
 bool _womem_commit_mem(void* mem, size_t sz)
@@ -79,15 +72,12 @@ bool _womem_decommit_mem(void* mem, size_t sz)
 }
 bool _womem_release_mem(void* mem, size_t sz)
 {
-#if WO_DISABLE_FUNCTION_FOR_WASM
-    free(mem);
-    return true;
-#else
-#   ifdef WIN32
+#ifdef WIN32
     return 0 != VirtualFree(mem, 0, MEM_RELEASE);
-#   else
+#elif WO_DISABLE_FUNCTION_FOR_WASM
     return 0 == munmap(mem, sz);
-#   endif
+#else
+    return 0 == munmap(mem, sz);
 #endif
 }
 int _womem_get_last_error(void)
@@ -156,7 +146,7 @@ namespace womem
 
             const size_t unit_size = (size_t)_WO_EVAL_ALLOC_GROUP_SZ(normal_group);
 
-            m_normal_page.m_max_avliable_unit_count = 
+            m_normal_page.m_max_avliable_unit_count =
                 (uint16_t)((WO_SYS_MEM_PAGE_SIZE - 8 - sizeof(Page*)) / ((size_t)unit_size + sizeof(PageUnitHead)));
 
             m_normal_page.m_free_offset_idx = m_normal_page.m_max_avliable_unit_count;
@@ -279,7 +269,7 @@ namespace womem
         ~Chunk()
         {
             // De commit all pages.
-            auto check_and_decommit_page = 
+            auto check_and_decommit_page =
                 [this](Page* page)
                 {
                     if (page->m_normal_page.m_alloc_count != 0)

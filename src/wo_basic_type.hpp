@@ -262,6 +262,8 @@ namespace wo
         inline value* set_dup(value* from);
     };
     static_assert(sizeof(value) == 16);
+    static_assert(alignof(value) == 8);
+    static_assert(alignof(value) == alignof(_wo_value));
     static_assert(sizeof(std::atomic<gcbase*>) == sizeof(gcbase*));
     static_assert(std::atomic<gcbase*>::is_always_lock_free);
     static_assert(sizeof(std::atomic<byte_t>) == sizeof(byte_t));
