@@ -5,18 +5,21 @@
 //
 
 #ifdef __cplusplus
-#include <cstdint>
-#include <cstddef>
-#include <clocale>
+#   include <cstdint>
+#   include <cstddef>
+#   include <clocale>
 #   define WO_FORCE_CAPI extern "C"{
 #   define WO_FORCE_CAPI_END }
+#   define WO_DECLARE_ALIGNAS(VAL) alignas(VAL)
 #else
-#include <stdint.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <locale.h>
+#   include <stdint.h>
+#   include <stdbool.h>
+#   include <stddef.h>
+#   include <locale.h>
+#   include <stdalign.h>
 #   define WO_FORCE_CAPI /* nothing */
 #   define WO_FORCE_CAPI_END /* nothing */
+#   define WO_DECLARE_ALIGNAS(VAL) _Alignas(VAL)
 #endif
 
 
@@ -61,7 +64,7 @@ typedef struct _wo_vm
 *wo_vm;
 typedef struct _wo_value
 { /* reserved, and prevent from type casting. */
-    WO_STRUCT_TAKE_PLACE(16);
+    WO_DECLARE_ALIGNAS(8) WO_STRUCT_TAKE_PLACE(16);
 }
 *wo_value;
 

@@ -125,7 +125,7 @@ namespace wo
         inline bool ENABLE_SHELL_PACKAGE = true;
 
         /*
-        * MEMORY_CHUNK_SIZE = 512MB/128MB
+        * MEMORY_CHUNK_SIZE = 512MB/256MB
         * --------------------------------------------------------------------
         *   Maximum managed heap memory used by Woolang.
         * 
@@ -137,7 +137,7 @@ namespace wo
 #ifdef WO_PLATFORM_64
             512ull * 1024ull * 1024ull;
 #else
-            128ull * 1024ull * 1024ull;
+            256ull * 1024ull * 1024ull;
 #endif
 
         /*
@@ -211,13 +211,17 @@ namespace wo
         inline bool ENABLE_SKIP_INVOKE_UNSAFE_CAST = true;
 
         /*
-        * GC_WORKER_THREAD_COUNT = [1/4 of hardware_concurrency]
+        * GC_WORKER_THREAD_COUNT = [1/4 of hardware_concurrency] or 1(in wasm)
         * --------------------------------------------------------------------
         *   The number of threads used by the GC worker.
         * --------------------------------------------------------------------
         *   
         */
-        inline size_t GC_WORKER_THREAD_COUNT = 
+        inline size_t GC_WORKER_THREAD_COUNT =
+#if WO_DISABLE_FUNCTION_FOR_WASM
+            1;
+#else
             std::max(((size_t)std::thread::hardware_concurrency()) / 4, (size_t)1);
+#endif
     }
 }

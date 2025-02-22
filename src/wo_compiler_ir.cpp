@@ -2188,7 +2188,10 @@ namespace wo
             uint32_t offset_val = tag_offset_vector_table[tag];
             for (auto offset : offsets)
             {
-                *(uint32_t*)(generated_runtime_code_buf.data() + offset) = offset_val;
+                memcpy(
+                    generated_runtime_code_buf.data() + offset, 
+                    &offset_val, 
+                    sizeof(offset_val));
             }
         }
 
