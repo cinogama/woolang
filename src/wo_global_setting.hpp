@@ -67,7 +67,7 @@ namespace wo
 #           define WO_PLATFORM_64
 #           define WO_PLATFORM_ARM64
 #else
-#   if not defined(WO_PLATFORM_32) and not defined(WO_PLATFORM_64)
+#   if !defined(WO_PLATFORM_32) && !defined(WO_PLATFORM_64)
 #       error "Unknown platform, you must specify platform manually."
 #   endif
             ArchType::UNKNOWN
