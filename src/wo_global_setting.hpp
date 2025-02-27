@@ -125,7 +125,7 @@ namespace wo
         inline bool ENABLE_SHELL_PACKAGE = true;
 
         /*
-        * MEMORY_CHUNK_SIZE = 512MB/256MB
+        * MEMORY_CHUNK_SIZE = 512MB/128MB
         * --------------------------------------------------------------------
         *   Maximum managed heap memory used by Woolang.
         * 
@@ -164,7 +164,7 @@ namespace wo
         inline bool ENABLE_IGNORE_NOT_FOUND_EXTERN_SYMBOL = false;
 
         /*
-        * ENABLE_RUNTIME_CHECKING_INTEGER_DIVISION = false
+        * ENABLE_RUNTIME_CHECKING_INTEGER_DIVISION = true
         * --------------------------------------------------------------------
         *   Whether to check both the divisor is zero and the overflow when the
         * division operation is performed in runtime.
@@ -178,7 +178,7 @@ namespace wo
         inline bool ENABLE_RUNTIME_CHECKING_INTEGER_DIVISION = true;
 
         /*
-        * INTERRUPT_CHECK_TIME_LIMIT = 25
+        * INTERRUPT_CHECK_TIME_LIMIT = 50
         * --------------------------------------------------------------------
         *   When the virtual machine is within the GC scope and does not respond
         * to the specified interrupt request beyond this time limit, a warning 
@@ -191,8 +191,8 @@ namespace wo
         *   The GC check signal timeout is not an expected behavior. Once this warning
         * is triggered, you should rule out behaviors that may cause blocking.
         * 
-        *   Do not set this value too large or too small, the recommended range is 
-        * 10-50 (100ms - 500ms). Excessively large values will block the GC workflow 
+        *   Do not set this value too large or too small, the recommended value is 
+        * 50 (500ms). Excessively large values will block the GC workflow 
         * and affect recycling efficiency. A value that is too small will cause 
         * warnings to be triggered frequently and may cause GC marking to change from
         * parallel to serial.
