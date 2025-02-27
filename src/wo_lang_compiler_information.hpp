@@ -127,6 +127,8 @@
 #define WO_ERR_UNABLE_TO_MIX_TYPES L"无法推导出同时接受 '%ls' 和 '%ls' 的类型"
 #define WO_ERR_UNACCEPTABLE_MUTABLE L"明确要求类型为不可变的，但收到的是 '%ls'"
 #define WO_ERR_CANNOT_USE_BUILTIN_TYPENAME_HERE L"内置类型 '%ls' 的名称不能被直接使用"
+#define WO_ERR_BAD_DIV_ZERO L"除数不能为零"
+#define WO_ERR_BAD_DIV_OVERFLOW L"除法溢出"
 
 // PASS0_1 TYPE CHECK PARSE(INFO)
 #define WO_INFO_MAYBE_NAMED_DEFINED_HERE L"可能是这里的 '%ls'"

@@ -697,7 +697,7 @@ namespace wo
                         // Eval alias type.
                         node->m_LANG_alias_instance_only_for_lspv2 = alias_instance;
                         type_instance = alias_instance->m_determined_type.value();
-                        
+
                     }
 
                     wo_assert(type_instance != nullptr);
@@ -2198,7 +2198,7 @@ namespace wo
         }
         else if (state == HOLD)
         {
-            node->m_LANG_determined_type 
+            node->m_LANG_determined_type
                 = m_origin_types.m_void.m_type_instance;
         }
 
@@ -4271,6 +4271,27 @@ namespace wo
                     else
                         node->m_LANG_determined_type = immutable_type(left_type);
 
+                    // Check for divide by zero.
+                    if ((node->m_operator == AstValueBinaryOperator::DIVIDE
+                        || node->m_operator == AstValueBinaryOperator::MODULO)
+                        && base_type == lang_TypeInstance::DeterminedType::INTEGER
+                        && node->m_right->m_evaled_const_value.has_value())
+                    {
+                        wo_integer_t right_int_value = node->m_right->m_evaled_const_value.value().integer;
+                        if (right_int_value == 0)
+                        {
+                            lex.lang_error(lexer::errorlevel::error, node->m_right, WO_ERR_BAD_DIV_ZERO);
+                            return FAILED;
+                        }
+                        else if (right_int_value == -1 
+                            && node->m_left->m_evaled_const_value.has_value()
+                            && node->m_left->m_evaled_const_value.value().integer == INT64_MIN)
+                        {
+                            lex.lang_error(lexer::errorlevel::error, node, WO_ERR_BAD_DIV_OVERFLOW);
+                            return FAILED;
+                        }
+                    }
+
                     bool constant_has_been_determined = false;
                     if (node->m_left->m_evaled_const_value.has_value())
                     {
@@ -5434,6 +5455,19 @@ namespace wo
                     node->m_LANG_determined_type = immutable_type(left_type);
                 else
                     node->m_LANG_determined_type = m_origin_types.m_void.m_type_instance;
+
+                if ((node->m_assign_type == AstValueAssign::DIVIDE_ASSIGN
+                    || node->m_assign_type == AstValueAssign::MODULO_ASSIGN)
+                    && base_type == lang_TypeInstance::DeterminedType::INTEGER
+                    && node->m_right->m_evaled_const_value.has_value())
+                {
+                    wo_integer_t right_int_value = node->m_right->m_evaled_const_value.value().integer;
+                    if (right_int_value == 0)
+                    {
+                        lex.lang_error(lexer::errorlevel::error, node->m_right, WO_ERR_BAD_DIV_ZERO);
+                        return FAILED;
+                    }
+                }
 
                 break; // Finish.
             }

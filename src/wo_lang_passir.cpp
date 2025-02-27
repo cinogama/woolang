@@ -1282,7 +1282,8 @@ namespace wo
                     if (extern_information->m_IR_externed_function.has_value())
                     {
                         auto* externed_function = extern_information->m_IR_externed_function.value();
-                        if ((void*)&rslib_std_return_itself == (void*)externed_function)
+                        if (config::ENABLE_SKIP_INVOKE_UNSAFE_CAST 
+                            && (void*)&rslib_std_return_itself == (void*)externed_function)
                         {
                             // Optimized for rslib_std_return_itself.
                             m_ircontext.eval_for_upper();
@@ -1892,6 +1893,47 @@ namespace wo
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
+
+    void check_and_generate_check_ir_for_divi_and_modi(
+        BytecodeGenerateContext& bgc,
+        const std::optional<ast::AstValueBase*>& left,
+        ast::AstValueBase* right,
+        opnum::opnumbase* left_opnum,
+        opnum::opnumbase* right_opnum)
+    {
+        if (!config::ENABLE_RUNTIME_CHECKING_INTEGER_DIVISION)
+            // Skip runtime check if disabled.
+            return;
+
+        if (right->m_evaled_const_value.has_value())
+        {
+            wo_integer_t right_value = right->m_evaled_const_value.value().integer;
+            wo_assert(right_value != 0);
+            wo_assert(!left.has_value() || !left.value()->m_evaled_const_value.has_value());
+
+            if (right_value == -1)
+                // Need check l
+                bgc.c().ext_cdivil(*left_opnum);
+
+            // Otherwise, no need to check.
+        }
+        else if (left.has_value() && left.value()->m_evaled_const_value.has_value())
+        {
+            wo_integer_t left_value = left.value()->m_evaled_const_value.value().integer;
+            if (left_value == INT64_MIN)
+                // Need check r
+                bgc.c().ext_cdivir(*right_opnum);
+            else
+                // Need check rz
+                bgc.c().ext_cdivirz(*right_opnum);
+        }
+        else
+        {
+            // Left & right both not constant.
+            bgc.c().ext_cdivilr(*left_opnum, *right_opnum);
+        }
+    }
+
     WO_PASS_PROCESSER(AstFakeValueUnpack)
     {
         if (state == UNPROCESSED)
@@ -2164,6 +2206,8 @@ namespace wo
                                 switch (left_determined_type->m_base_type)
                                 {
                                 case lang_TypeInstance::DeterminedType::INTEGER:
+                                    check_and_generate_check_ir_for_divi_and_modi(
+                                        m_ircontext, node->m_left, node->m_right, left_opnum, right_opnum);
                                     m_ircontext.c().divi(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
                                     break;
                                 case lang_TypeInstance::DeterminedType::REAL:
@@ -2178,6 +2222,8 @@ namespace wo
                                 switch (left_determined_type->m_base_type)
                                 {
                                 case lang_TypeInstance::DeterminedType::INTEGER:
+                                    check_and_generate_check_ir_for_divi_and_modi(
+                                        m_ircontext, node->m_left, node->m_right, left_opnum, right_opnum);
                                     m_ircontext.c().modi(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
                                     break;
                                 case lang_TypeInstance::DeterminedType::REAL:
@@ -3160,6 +3206,9 @@ namespace wo
                                 switch (determined_assign_type->m_base_type)
                                 {
                                 case lang_TypeInstance::DeterminedType::INTEGER:
+                                    check_and_generate_check_ir_for_divi_and_modi(
+                                        m_ircontext, std::nullopt, node->m_right,
+                                        assign_expr_result_opnum, right_value_result);
                                     m_ircontext.c().divi(
                                         WO_OPNUM(assign_expr_result_opnum),
                                         WO_OPNUM(right_value_result));
@@ -3178,6 +3227,9 @@ namespace wo
                                 switch (determined_assign_type->m_base_type)
                                 {
                                 case lang_TypeInstance::DeterminedType::INTEGER:
+                                    check_and_generate_check_ir_for_divi_and_modi(
+                                        m_ircontext, std::nullopt, node->m_right,
+                                        assign_expr_result_opnum, right_value_result);
                                     m_ircontext.c().modi(
                                         WO_OPNUM(assign_expr_result_opnum),
                                         WO_OPNUM(right_value_result));
@@ -3340,6 +3392,9 @@ namespace wo
                                 switch (determined_assign_type->m_base_type)
                                 {
                                 case lang_TypeInstance::DeterminedType::INTEGER:
+                                    check_and_generate_check_ir_for_divi_and_modi(
+                                        m_ircontext, std::nullopt, node->m_right,
+                                        assign_expr_result_opnum, right_value_result);
                                     m_ircontext.c().divi(
                                         WO_OPNUM(assign_expr_result_opnum),
                                         WO_OPNUM(right_value_result));
@@ -3358,6 +3413,9 @@ namespace wo
                                 switch (determined_assign_type->m_base_type)
                                 {
                                 case lang_TypeInstance::DeterminedType::INTEGER:
+                                    check_and_generate_check_ir_for_divi_and_modi(
+                                        m_ircontext, std::nullopt, node->m_right,
+                                        assign_expr_result_opnum, right_value_result);
                                     m_ircontext.c().modi(
                                         WO_OPNUM(assign_expr_result_opnum),
                                         WO_OPNUM(right_value_result));
