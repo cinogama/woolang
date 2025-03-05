@@ -1792,7 +1792,6 @@ namespace std
             ? is_iterator:<typeof(declval:<T>()->iter)>
             | false;
     }
-        
     public func use<T, R>(val: T, f: (T)=> R)
         where typeid:<typeof(val->close)> != 0;
     {
@@ -1834,6 +1833,10 @@ namespace std
         public func get<T>(self: mutable<T>)=> T
         {
             return self.val;
+        }
+        public func modify<T>(self: mutable<T>, f: (T)=> T)
+        {
+            self.val = f(self.val);
         }
     }
 }
