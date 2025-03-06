@@ -152,6 +152,7 @@ namespace wo
     bool set_work_path(const std::wstring& path)
     {
 #if WO_DISABLE_FUNCTION_FOR_WASM
+        return false;
 #else
 #   ifdef _WIN32
         return (bool)SetCurrentDirectoryW(path.c_str());

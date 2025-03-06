@@ -1792,7 +1792,6 @@ namespace std
             ? is_iterator:<typeof(declval:<T>()->iter)>
             | false;
     }
-        
     public func use<T, R>(val: T, f: (T)=> R)
         where typeid:<typeof(val->close)> != 0;
     {
@@ -1834,6 +1833,10 @@ namespace std
         public func get<T>(self: mutable<T>)=> T
         {
             return self.val;
+        }
+        public func modify<T>(self: mutable<T>, f: (T)=> T)
+        {
+            self.val = f(self.val);
         }
     }
 }
@@ -2364,15 +2367,15 @@ namespace array
     }
     extern("rslib_std_array_find", repeat)
         public func find<T>(val: array<T>, elem: T)=> option<int>;
-    public func find_if<T>(val: array<T>, judger:(T)=> bool)=> int
+    public func find_if<T>(val: array<T>, judger:(T)=> bool)=> option<int>
     {
         let mut count = 0;
         for (let v : val)
             if (judger(v))
-                return count;
+                return option::value(count);
             else
                 count += 1;
-        return -1;
+        return option::none;
     }
     public func forall<T>(val: array<T>, functor: (T)=> bool)=> array<T>
     {
@@ -2520,15 +2523,15 @@ namespace vec
         public func remove<T>(val: vec<T>, index: int)=> bool;
     extern("rslib_std_array_find", repeat)
         public func find<T>(val: vec<T>, elem: T)=> option<int>;
-    public func find_if<T>(val: vec<T>, judger:(T)=> bool)=> int
+    public func find_if<T>(val: vec<T>, judger:(T)=> bool)=> option<int>
     {
         let mut count = 0;
         for (let v : val)
             if (judger(v))
-                return count;
+                return option::value(count);
             else
                 count += 1;
-        return -1;
+        return option::none;
     }
     extern("rslib_std_array_clear")
         public func clear<T>(val: vec<T>)=> void;
