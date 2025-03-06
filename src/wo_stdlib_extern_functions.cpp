@@ -2367,15 +2367,15 @@ namespace array
     }
     extern("rslib_std_array_find", repeat)
         public func find<T>(val: array<T>, elem: T)=> option<int>;
-    public func find_if<T>(val: array<T>, judger:(T)=> bool)=> int
+    public func find_if<T>(val: array<T>, judger:(T)=> bool)=> option<int>
     {
         let mut count = 0;
         for (let v : val)
             if (judger(v))
-                return count;
+                return option::value(count);
             else
                 count += 1;
-        return -1;
+        return option::none;
     }
     public func forall<T>(val: array<T>, functor: (T)=> bool)=> array<T>
     {
@@ -2523,15 +2523,15 @@ namespace vec
         public func remove<T>(val: vec<T>, index: int)=> bool;
     extern("rslib_std_array_find", repeat)
         public func find<T>(val: vec<T>, elem: T)=> option<int>;
-    public func find_if<T>(val: vec<T>, judger:(T)=> bool)=> int
+    public func find_if<T>(val: vec<T>, judger:(T)=> bool)=> option<int>
     {
         let mut count = 0;
         for (let v : val)
             if (judger(v))
-                return count;
+                return option::value(count);
             else
                 count += 1;
-        return -1;
+        return option::none;
     }
     extern("rslib_std_array_clear")
         public func clear<T>(val: vec<T>)=> void;
