@@ -270,7 +270,7 @@ namespace wo
             else if (gchandle_t* wo_gchandle = dynamic_cast<gchandle_t*>(unit))
             {
                 wo_gchandle->do_custom_mark(
-                    reinterpret_cast<wo_gc_work_context>(worklist));
+                    reinterpret_cast<wo_gc_work_context_t>(worklist));
             }
             else if (closure_t* wo_closure = dynamic_cast<closure_t*>(unit))
             {
@@ -1066,7 +1066,7 @@ namespace wo
         }
         return false;
     }
-    void gc_handle_base_t::do_custom_mark(wo_gc_work_context context)
+    void gc_handle_base_t::do_custom_mark(wo_gc_work_context_t context)
     {
         if (m_custom_marker.m_is_callback)
         {
@@ -1190,7 +1190,7 @@ void wo_gc_immediately(wo_bool_t fullgc)
     wo::gc::_gc_immediately.clear();
     wo::gc::_gc_work_cv.notify_one();
 }
-void wo_gc_mark(wo_gc_work_context context, wo_value gc_reference_object)
+void wo_gc_mark(wo_gc_work_context_t context, wo_value gc_reference_object)
 {
     wo::value* val = std::launder(reinterpret_cast<wo::value*>(gc_reference_object));
     auto* worklist = std::launder(reinterpret_cast<wo::gc::_wo_gray_unit_list_t*>(context));

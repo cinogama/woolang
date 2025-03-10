@@ -1,7 +1,7 @@
 #include "wo_compiler_ir.hpp"
 
 // Function from other source.
-std::string _wo_dump_lexer_context_error(wo::lexer* lex, _wo_inform_style style);
+std::string _wo_dump_lexer_context_error(wo::lexer* lex, wo_inform_style_t style);
 
 namespace wo
 {

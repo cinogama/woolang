@@ -11,7 +11,7 @@ wo_real_t _wo_inside_time_sec();
 
 namespace wo
 {
-    class default_debuggee : public wo::debuggee_base
+    class default_cli_debuggee_bridge : public wo::vm_debuggee_bridge_base
     {
         struct _env_context
         {
@@ -43,10 +43,8 @@ namespace wo
         std::unordered_map<wo::vmbase*, double> profiler_last_sampling_times = {};
 
     public:
-        default_debuggee()
-        {
+        default_cli_debuggee_bridge() = default;
 
-        }
         void set_breakpoint_with_ips(wo::vmbase* vmm, const std::wstring& src_file, size_t rowno, std::vector<size_t> ips)
         {
             auto& context = env_context[vmm->env];
@@ -317,7 +315,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
             }
 
             auto result = std::string("<")
-                + wo_type_name((wo_type)val->type) + "> "
+                + wo_type_name((wo_type_t)val->type) + "> "
                 + wo_cast_string(std::launder(reinterpret_cast<wo_value>(val)));
 
             return result;
@@ -666,14 +664,21 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                                             if (funcname.find(specify_funcname) < funcname.size())
                                             {
                                                 auto&& fndresult = search_function_begin_rtip_scope_with_name(vmm, funcname, true);
-                                                wo_assert(fndresult.size() == 1);
-                                                auto& func_info = fndresult[0];
 
-                                                auto& src = vmm->env->program_debug_info->get_src_location_by_runtime_ip(
+                                                if (fndresult.empty())
+                                                    continue;
+
+                                                wo_assert(fndresult.size() == 1);
+                                                auto& func_info = fndresult.front();
+
+                                                auto& src_begin = vmm->env->program_debug_info->get_src_location_by_runtime_ip(
                                                     vmm->env->rt_codes + func_info.rt_ip_begin);
 
-                                                print_src_file(vmm, wstr_to_str(src.source_file), 0, 0, 0, 0,
-                                                    src.begin_row_no, src.end_row_no, &record);
+                                                auto& src_end = vmm->env->program_debug_info->get_src_location_by_runtime_ip(
+                                                    vmm->env->rt_codes + func_info.rt_ip_end);
+
+                                                print_src_file(vmm, wstr_to_str(src_begin.source_file), 0, 0, 0, 0,
+                                                    src_begin.begin_row_no, src_end.end_row_no, &record);
                                             }
                                         }
                                     }
@@ -1361,23 +1366,6 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                 wo_abort_all_vm_to_exit();
                 return;
             }
-        }
-    };
-
-    class c_style_debuggee_binder : public wo::debuggee_base
-    {
-        void* custom_items;
-        wo_debuggee_handler_func c_debuggee_handler;
-
-        virtual void debug_interrupt(vmbase* vmm) override
-        {
-            c_debuggee_handler((wo_debuggee)this, (wo_vm)vmm, custom_items);
-        }
-    public:
-        c_style_debuggee_binder(wo_debuggee_handler_func func, void* custom)
-        {
-            c_debuggee_handler = func;
-            custom_items = custom;
         }
     };
 }
