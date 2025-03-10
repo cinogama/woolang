@@ -666,14 +666,21 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                                             if (funcname.find(specify_funcname) < funcname.size())
                                             {
                                                 auto&& fndresult = search_function_begin_rtip_scope_with_name(vmm, funcname, true);
-                                                wo_assert(fndresult.size() == 1);
-                                                auto& func_info = fndresult[0];
 
-                                                auto& src = vmm->env->program_debug_info->get_src_location_by_runtime_ip(
+                                                if (fndresult.empty())
+                                                    continue;
+
+                                                wo_assert(fndresult.size() == 1);
+                                                auto& func_info = fndresult.front();
+
+                                                auto& src_begin = vmm->env->program_debug_info->get_src_location_by_runtime_ip(
                                                     vmm->env->rt_codes + func_info.rt_ip_begin);
 
-                                                print_src_file(vmm, wstr_to_str(src.source_file), 0, 0, 0, 0,
-                                                    src.begin_row_no, src.end_row_no, &record);
+                                                auto& src_end = vmm->env->program_debug_info->get_src_location_by_runtime_ip(
+                                                    vmm->env->rt_codes + func_info.rt_ip_end);
+
+                                                print_src_file(vmm, wstr_to_str(src_begin.source_file), 0, 0, 0, 0,
+                                                    src_begin.begin_row_no, src_end.end_row_no, &record);
                                             }
                                         }
                                     }
