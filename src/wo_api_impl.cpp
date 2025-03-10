@@ -115,7 +115,7 @@ struct dylib_table_instance
             delete m_fake_dylib_table;
 
         if (m_dependenced_dylib != nullptr)
-            wo_unload_lib(m_dependenced_dylib, wo_dylib_unload_method::WO_DYLIB_UNREF);
+            wo_unload_lib(m_dependenced_dylib, WO_DYLIB_UNREF);
     }
     dylib_table_instance(const dylib_table_instance&) = delete;
     dylib_table_instance(dylib_table_instance&&) = delete;
@@ -213,15 +213,15 @@ struct loaded_lib_info
 
         return instance;
     }
-    static void unload_lib(dylib_table_instance* lib, wo_dylib_unload_method method)
+    static void unload_lib(dylib_table_instance* lib, wo_dylib_unload_method_t method)
     {
         wo_assert(lib != nullptr);
 
         std::lock_guard sg1(loaded_named_libs_mx);
 
-        bool bury_dylib = (method & wo_dylib_unload_method::WO_DYLIB_BURY) != 0;
+        bool bury_dylib = (method & WO_DYLIB_BURY) != 0;
 
-        if ((method & wo_dylib_unload_method::WO_DYLIB_UNREF) != 0
+        if ((method & WO_DYLIB_UNREF) != 0
             && 0 == --lib->m_use_count)
         {
             bury_dylib = true;
@@ -364,9 +364,9 @@ void _default_fail_handler(wo_vm vm, wo_string_t src_file, uint32_t lineno, wo_s
         wo_enter_gcguard(reinterpret_cast<wo_vm>(cur_thread_vm));
     }
 }
-static std::atomic<wo_fail_handler> _wo_fail_handler_function = &_default_fail_handler;
+static std::atomic<wo_fail_handler_t> _wo_fail_handler_function = &_default_fail_handler;
 
-wo_fail_handler wo_register_fail_handler(wo_fail_handler new_handler)
+wo_fail_handler_t wo_register_fail_handler(wo_fail_handler_t new_handler)
 {
     return _wo_fail_handler_function.exchange(new_handler);
 }
@@ -498,7 +498,7 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
         do_after_shutdown(custom_data);
 
     womem_shutdown();
-    wo::debuggee_base::_free_abandons();
+    wo::vm_debuggee_bridge_base::_free_abandons_in_shutdown();
 
     wo::rslib_extern_symbols::free_wo_lib();
 
@@ -723,11 +723,11 @@ wo_ptr_t wo_safety_pointer(wo::gchandle_t* gchandle)
     return pointer;
 }
 
-wo_type wo_valuetype(wo_value value)
+wo_type_t wo_valuetype(wo_value value)
 {
     auto* _rsvalue = WO_VAL(value);
 
-    return (wo_type)_rsvalue->type;
+    return (wo_type_t)_rsvalue->type;
 }
 wo_integer_t wo_int(wo_value value)
 {
@@ -1387,7 +1387,7 @@ wo_bool_t _wo_cast_value(wo_vm vm, wo::value* value, wo::lexer* lex, wo::value::
     return WO_TRUE;
 
 }
-wo_bool_t wo_deserialize(wo_vm vm, wo_value value, wo_string_t str, wo_type except_type)
+wo_bool_t wo_deserialize(wo_vm vm, wo_value value, wo_string_t str, wo_type_t except_type)
 {
     _wo_enter_gc_guard g(vm);
 
@@ -1663,7 +1663,7 @@ wo_string_t wo_cast_string(wo_value value)
     return _buf.c_str();
 }
 
-wo_string_t wo_type_name(wo_type type)
+wo_string_t wo_type_name(wo_type_t type)
 {
     switch ((wo::value::valuetype)type)
     {
@@ -2698,9 +2698,9 @@ void wo_close_virtual_file_iter(wo_virtual_file_iter_t iter)
     delete iter;
 }
 
-wo_vm wo_sub_vm(wo_vm vm, wo_size_t stacksz)
+wo_vm wo_sub_vm(wo_vm vm)
 {
-    return CS_VM(WO_VM(vm)->make_machine(stacksz, wo::vmbase::vm_type::NORMAL));
+    return CS_VM(WO_VM(vm)->make_machine(wo::vmbase::vm_type::NORMAL));
 }
 
 wo_vm wo_gc_vm(wo_vm vm)
@@ -2717,7 +2717,7 @@ wo_vm wo_borrow_vm(wo_vm vm)
 {
     if (global_vm_pool != nullptr)
         return CS_VM(global_vm_pool->borrow_vm_from_exists_vm(WO_VM(vm)));
-    return wo_sub_vm(vm, wo::vmbase::VM_DEFAULT_STACK_SIZE);
+    return wo_sub_vm(vm);
 }
 void wo_release_vm(wo_vm vm)
 {
@@ -2964,7 +2964,7 @@ std::wstring _dump_src_info(
     size_t beginpointplace,
     size_t aimrow,
     size_t pointplace,
-    _wo_inform_style style)
+    wo_inform_style_t style)
 {
     std::wstring src_full_path, result;
 
@@ -3009,7 +3009,7 @@ std::wstring _dump_src_info(
                     swprintf(buf, 19, L"      | ");
                     std::wstring append_result = buf;
 
-                    if (style == _wo_inform_style::WO_NEED_COLOR)
+                    if (style == WO_NEED_COLOR)
                         append_result += errmsg.error_level == wo::lexer::errorlevel::error
                         ? wo::str_to_wstr(ANSI_HIR)
                         : wo::str_to_wstr(ANSI_HIC);
@@ -3066,7 +3066,7 @@ std::wstring _dump_src_info(
                         }
                     }
 
-                    if (style == _wo_inform_style::WO_NEED_COLOR)
+                    if (style == WO_NEED_COLOR)
                         append_result += wo::str_to_wstr(ANSI_RST);
 
                     result += std::wstring(depth == 0 ? 0 : depth + 1, L' ') + append_result;
@@ -3124,7 +3124,7 @@ std::wstring _dump_src_info(
     return result;
 }
 
-std::string _wo_dump_lexer_context_error(wo::lexer* lex, _wo_inform_style style)
+std::string _wo_dump_lexer_context_error(wo::lexer* lex, wo_inform_style_t style)
 {
     std::wstring src_file_path;
     size_t errcount = 0;
@@ -3182,7 +3182,7 @@ std::string _wo_dump_lexer_context_error(wo::lexer* lex, _wo_inform_style style)
     return _vm_compile_errors;
 }
 
-wo_string_t wo_get_compile_error(wo_vm vm, _wo_inform_style style)
+wo_string_t wo_get_compile_error(wo_vm vm, wo_inform_style_t style)
 {
     auto* vmm = WO_VM(vm);
 
@@ -3267,12 +3267,12 @@ void wo_pop_stack(wo_vm vm, wo_size_t stack_sz)
     WO_VM(vm)->sp += stack_sz;
 }
 
-wo_stack_value wo_cast_stack_value(wo_vm vm, wo_value _stack_value)
+wo_stack_value wo_cast_stack_value(wo_vm vm, wo_value value_in_stack)
 {
     auto* vmbase = WO_VM(vm);
 
     auto* stack_begin = vmbase->stack_mem_begin;
-    auto* stack_value = WO_VAL(_stack_value);
+    auto* stack_value = WO_VAL(value_in_stack);
 
     if (stack_value > vmbase->sp && stack_value <= stack_begin)
         return stack_begin - stack_value;
@@ -4213,9 +4213,16 @@ void wo_gcunit_unlock_shared(wo_value gc_reference_object)
 // DEBUGGEE TOOLS
 void wo_attach_default_debuggee()
 {
-    wo::default_debuggee* dgb = new wo::default_debuggee;
-    if (auto* old_debuggee = wo::vmbase::attach_debuggee(dgb))
-        delete old_debuggee;
+    wo::default_cli_debuggee_bridge* dbg = new wo::default_cli_debuggee_bridge();
+    if (auto* old_debuggee = wo::vmbase::attach_debuggee(dbg))
+        old_debuggee->_abandon();
+}
+
+void wo_attach_user_debuggee(wo_debuggee_callback_func_t callback, void* userdata)
+{
+    wo::c_debuggee_bridge* dbg = new wo::c_debuggee_bridge(callback, userdata);
+    if (auto* old_debuggee = wo::vmbase::attach_debuggee(dbg))
+        old_debuggee->_abandon();
 }
 
 wo_bool_t wo_has_attached_debuggee()
@@ -4228,12 +4235,12 @@ wo_bool_t wo_has_attached_debuggee()
 void wo_detach_debuggee()
 {
     if (auto* old_debuggee = wo::vmbase::attach_debuggee(nullptr))
-        delete old_debuggee;
+        old_debuggee->_abandon();
 }
 
 void wo_break_immediately()
 {
-    if (auto* debuggee = dynamic_cast<wo::default_debuggee*>(wo::vmbase::current_debuggee()))
+    if (auto* debuggee = dynamic_cast<wo::default_cli_debuggee_bridge*>(wo::vmbase::current_debuggee()))
         debuggee->breakdown_immediately();
     else
         wo_fail(WO_FAIL_DEBUGGEE_FAIL, "'wo_break_immediately' can only break the vm attached default debuggee.");
@@ -4241,10 +4248,10 @@ void wo_break_immediately()
 
 void wo_break_specify_immediately(wo_vm vmm)
 {
-    if (auto* debuggee = dynamic_cast<wo::default_debuggee*>(wo::vmbase::current_debuggee()))
+    if (auto* debuggee = dynamic_cast<wo::default_cli_debuggee_bridge*>(wo::vmbase::current_debuggee()))
         debuggee->breakdown_at_vm_immediately(WO_VM(vmm));
     else
-        wo_fail(WO_FAIL_DEBUGGEE_FAIL, "'wo_break_immediately' can only break the vm attached default debuggee.");
+        wo_fail(WO_FAIL_DEBUGGEE_FAIL, "'wo_break_specify_immediately' can only break the vm attached default debuggee.");
 }
 
 wo_bool_t wo_extern_symb(wo_vm vm, wo_string_t fullname, wo_integer_t* out_wo_func, wo_handle_t* out_jit_func)
@@ -4294,7 +4301,7 @@ wo_dylib_handle_t wo_load_func(void* lib, const char* funcname)
     auto* dylib = std::launder(reinterpret_cast<dylib_table_instance*>(lib));
     return dylib->load_func(funcname);
 }
-void wo_unload_lib(wo_dylib_handle_t lib, wo_dylib_unload_method method)
+void wo_unload_lib(wo_dylib_handle_t lib, wo_dylib_unload_method_t method)
 {
     auto* dylib = std::launder(reinterpret_cast<dylib_table_instance*>(lib));
     loaded_lib_info::unload_lib(dylib, method);
@@ -4412,7 +4419,7 @@ wo_bool_t wo_execute(wo_string_t src, wo_execute_callback_ft callback, void* dat
     else
     {
         std::string err = "Failed to compile: \n";
-        err += wo_get_compile_error(_vm, _wo_inform_style::WO_NEED_COLOR);
+        err += wo_get_compile_error(_vm, WO_NEED_COLOR);
         wo_execute_fail(_vm, WO_FAIL_EXECUTE_FAIL, err.c_str());
     }
 

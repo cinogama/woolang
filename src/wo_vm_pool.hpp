@@ -98,7 +98,7 @@ namespace wo
                 if (vmbase* borrowed_vm = pool->try_borrow_vm())
                     return borrowed_vm;
             }
-            return (vmbase*)wo_sub_vm((wo_vm)vm, vmbase::VM_DEFAULT_STACK_SIZE);
+            return (vmbase*)wo_sub_vm((wo_vm)vm);
         }
 
         void release_vm(vmbase* vm)noexcept

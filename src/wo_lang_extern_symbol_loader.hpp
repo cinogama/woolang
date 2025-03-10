@@ -46,7 +46,7 @@ namespace wo
         {
             if (_current_wo_lib_handle != nullptr)
             {
-                wo_unload_lib(_current_wo_lib_handle, wo_dylib_unload_method::WO_DYLIB_UNREF_AND_BURY);
+                wo_unload_lib(_current_wo_lib_handle, wo_dylib_unload_method_t::WO_DYLIB_UNREF_AND_BURY);
                 _current_wo_lib_handle = nullptr;
             }
         }
@@ -82,7 +82,7 @@ namespace wo
                     if (auto* leave = (wo_dylib_exit_func_t)load_func("wolib_exit"))
                         leave();
 
-                    wo_unload_lib(m_extern_library, wo_dylib_unload_method::WO_DYLIB_UNREF);
+                    wo_unload_lib(m_extern_library, wo_dylib_unload_method_t::WO_DYLIB_UNREF);
                 }
             }
         };

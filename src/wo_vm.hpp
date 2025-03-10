@@ -29,38 +29,32 @@ namespace wo
 {
     class vmbase;
 
-    class debuggee_base
+    class vm_debuggee_bridge_base
     {
         inline static std::mutex _abandon_debuggees_mx;
-        inline static std::vector<debuggee_base*> _abandon_debuggees;
+        inline static std::vector<vm_debuggee_bridge_base*> _abandon_debuggees;
 
         std::mutex _debug_entry_guard_block_mx;
     public:
-        debuggee_base() = default;
-        virtual~debuggee_base() = default;
+        vm_debuggee_bridge_base() = default;
+        virtual~vm_debuggee_bridge_base() = default;
 
-        debuggee_base(const debuggee_base&) = delete;
-        debuggee_base(debuggee_base&&) = delete;
-        debuggee_base& operator = (const debuggee_base&) = delete;
-        debuggee_base& operator = (debuggee_base&&) = delete;
+        vm_debuggee_bridge_base(const vm_debuggee_bridge_base&) = delete;
+        vm_debuggee_bridge_base(vm_debuggee_bridge_base&&) = delete;
+        vm_debuggee_bridge_base& operator = (const vm_debuggee_bridge_base&) = delete;
+        vm_debuggee_bridge_base& operator = (vm_debuggee_bridge_base&&) = delete;
 
         virtual void debug_interrupt(vmbase*) = 0;
 
     public:
-        void _vm_invoke_debuggee(vmbase* _vm)
-        {
-            std::lock_guard _(_debug_entry_guard_block_mx);
-
-            // Just make a block
-            debug_interrupt(_vm);
-        }
+        void _vm_invoke_debuggee(vmbase* _vm);
     public:
         void _abandon()
         {
             std::lock_guard _(_abandon_debuggees_mx);
             _abandon_debuggees.push_back(this);
         }
-        static void _free_abandons()
+        static void _free_abandons_in_shutdown()
         {
             std::lock_guard _(_abandon_debuggees_mx);
             for (auto* debuggee : _abandon_debuggees)
@@ -68,6 +62,27 @@ namespace wo
                 delete debuggee;
             }
             _abandon_debuggees.clear();
+        }
+    };
+
+    class c_debuggee_bridge : public vm_debuggee_bridge_base
+    {
+        wo_debuggee_callback_func_t m_callback;
+        void*                       m_userdata;
+
+    public:
+        c_debuggee_bridge(wo_debuggee_callback_func_t callback, void* userdata)
+            : m_callback(callback)
+            , m_userdata(userdata)
+        {
+        }
+        ~c_debuggee_bridge()
+        {
+            m_callback(nullptr, m_userdata);
+        }
+        virtual void debug_interrupt(vmbase* vm) override
+        {
+            m_callback(std::launder(reinterpret_cast<wo_vm>(vm)), m_userdata);
         }
     };
 
@@ -180,12 +195,17 @@ namespace wo
             bool        m_is_extern;
         };
     public:
-        inline static constexpr size_t VM_DEFAULT_STACK_SIZE = 128;
+        inline static constexpr size_t VM_DEFAULT_STACK_SIZE = 32;
+        inline static constexpr size_t VM_MAX_STACK_SIZE = 128 * 1024 * 1024;
         inline static constexpr size_t VM_SHRINK_STACK_COUNT = 3;
         inline static constexpr size_t VM_SHRINK_STACK_MAX_EDGE = 16;
-        inline static constexpr size_t VM_MAX_JIT_FUNCTION_DEPTH = 256;
+        inline static constexpr size_t VM_MAX_JIT_FUNCTION_DEPTH = 32;
 
         static_assert(VM_SHRINK_STACK_COUNT < VM_SHRINK_STACK_MAX_EDGE);
+        static_assert(VM_MAX_STACK_SIZE >= VM_DEFAULT_STACK_SIZE);
+        static_assert((VM_DEFAULT_STACK_SIZE& (VM_DEFAULT_STACK_SIZE - 1)) == 0);
+        static_assert((VM_MAX_STACK_SIZE& (VM_MAX_STACK_SIZE - 1)) == 0);
+
     public:
         inline static std::shared_mutex _alive_vm_list_mx;
         inline static cxx_set_t<vmbase*> _alive_vm_list;
@@ -195,7 +215,7 @@ namespace wo
         inline static std::atomic_uint32_t _alive_vm_count_for_gc_vm_destruct;
 
     protected:
-        inline static debuggee_base* attaching_debuggee = nullptr;
+        inline static vm_debuggee_bridge_base* attaching_debuggee = nullptr;
 
     public:
         const vm_type virtual_machine_type;
@@ -267,8 +287,8 @@ namespace wo
         bool get_and_clear_br_yield_flag() noexcept;
         void mark_br_yield() noexcept;
 
-        static debuggee_base* attach_debuggee(debuggee_base* dbg) noexcept;
-        static debuggee_base* current_debuggee() noexcept;
+        static vm_debuggee_bridge_base* attach_debuggee(vm_debuggee_bridge_base* dbg) noexcept;
+        static vm_debuggee_bridge_base* current_debuggee() noexcept;
         bool is_aborted() const noexcept;
         bool interrupt(vm_interrupt_type type) noexcept;
         bool clear_interrupt(vm_interrupt_type type)noexcept;
@@ -296,7 +316,7 @@ namespace wo
         void _allocate_stack_space(size_t stacksz) noexcept;
         bool _reallocate_stack_space(size_t stacksz) noexcept;
         void set_runtime(shared_pointer<runtime_env> runtime_environment) noexcept;
-        vmbase* make_machine(size_t stack_sz, vm_type type) const noexcept;
+        vmbase* make_machine(vm_type type) const noexcept;
         void dump_program_bin(size_t begin = 0, size_t end = SIZE_MAX, std::ostream& os = std::cout) const noexcept;
         void dump_call_stack(size_t max_count = 32, bool need_offset = true, std::ostream& os = std::cout)const noexcept;
         std::vector<callstack_info> dump_call_stack_func_info(size_t max_count, bool need_offset, bool* out_finished)const noexcept;

@@ -11,7 +11,7 @@ wo_real_t _wo_inside_time_sec();
 
 namespace wo
 {
-    class default_debuggee : public wo::debuggee_base
+    class default_cli_debuggee_bridge : public wo::vm_debuggee_bridge_base
     {
         struct _env_context
         {
@@ -43,10 +43,8 @@ namespace wo
         std::unordered_map<wo::vmbase*, double> profiler_last_sampling_times = {};
 
     public:
-        default_debuggee()
-        {
+        default_cli_debuggee_bridge() = default;
 
-        }
         void set_breakpoint_with_ips(wo::vmbase* vmm, const std::wstring& src_file, size_t rowno, std::vector<size_t> ips)
         {
             auto& context = env_context[vmm->env];
@@ -317,7 +315,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
             }
 
             auto result = std::string("<")
-                + wo_type_name((wo_type)val->type) + "> "
+                + wo_type_name((wo_type_t)val->type) + "> "
                 + wo_cast_string(std::launder(reinterpret_cast<wo_value>(val)));
 
             return result;
@@ -1368,23 +1366,6 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                 wo_abort_all_vm_to_exit();
                 return;
             }
-        }
-    };
-
-    class c_style_debuggee_binder : public wo::debuggee_base
-    {
-        void* custom_items;
-        wo_debuggee_handler_func c_debuggee_handler;
-
-        virtual void debug_interrupt(vmbase* vmm) override
-        {
-            c_debuggee_handler((wo_debuggee)this, (wo_vm)vmm, custom_items);
-        }
-    public:
-        c_style_debuggee_binder(wo_debuggee_handler_func func, void* custom)
-        {
-            c_debuggee_handler = func;
-            custom_items = custom;
         }
     };
 }

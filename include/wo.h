@@ -70,7 +70,7 @@ typedef struct _wo_value
 
 typedef wo_size_t wo_stack_value;
 
-typedef enum _wo_value_type
+typedef enum _wo_value_type_t
 {
     WO_INVALID_TYPE = 0,
 
@@ -91,7 +91,7 @@ typedef enum _wo_value_type
     WO_GCHANDLE_TYPE = WO_NEED_GC_FLAG | (4 << 1),
     WO_CLOSURE_TYPE = WO_NEED_GC_FLAG | (5 << 1),
     WO_STRUCT_TYPE = WO_NEED_GC_FLAG | (6 << 1),
-}wo_type;
+}wo_type_t;
 
 typedef enum _wo_reg
 {
@@ -125,7 +125,7 @@ typedef int wo_bool_t;
 #define WO_TRUE (1)
 #endif
 
-#define WO_CBOOL(EXPR) ((EXPR)?WO_TRUE:WO_FALSE)
+#define WO_CBOOL(EXPR) ((EXPR) ? WO_TRUE : WO_FALSE)
 
 typedef enum _wo_api
 {
@@ -145,7 +145,7 @@ typedef enum _wo_api
 
 typedef wo_result_t(*wo_native_func_t)(wo_vm, wo_value);
 
-typedef void(*wo_fail_handler)(
+typedef void(*wo_fail_handler_t)(
     wo_vm vm,
     wo_string_t src_file,
     uint32_t lineno,
@@ -155,7 +155,7 @@ typedef void(*wo_fail_handler)(
 
 typedef void* wo_dylib_handle_t;
 
-typedef enum _wo_dylib_unload_method
+typedef enum _wo_dylib_unload_method_t
 {
     WO_DYLIB_NONE = 0,
 
@@ -170,26 +170,28 @@ typedef enum _wo_dylib_unload_method
 
     WO_DYLIB_UNREF_AND_BURY = WO_DYLIB_UNREF | WO_DYLIB_BURY,
 
-}wo_dylib_unload_method;
+}wo_dylib_unload_method_t;
 
-typedef enum _wo_inform_style
+typedef enum _wo_inform_style_t
 {
     WO_DEFAULT = 0,
 
     WO_NOTHING = 1,
     WO_NEED_COLOR = 2,
 
-} wo_inform_style;
+} wo_inform_style_t;
 
 typedef void(*wo_dylib_entry_func_t)(wo_dylib_handle_t);
 typedef void(*wo_dylib_exit_func_t)(void);
 
-typedef struct _wo_gc_work_context* wo_gc_work_context;
+typedef struct _wo_gc_work_context_t* wo_gc_work_context_t;
 
 typedef void(*wo_gchandle_close_func_t)(wo_ptr_t);
-typedef void(*wo_gcstruct_mark_func_t)(wo_gc_work_context, wo_ptr_t);
+typedef void(*wo_gcstruct_mark_func_t)(wo_gc_work_context_t, wo_ptr_t);
 
-WO_API wo_fail_handler wo_register_fail_handler(wo_fail_handler new_handler);
+typedef void(*wo_debuggee_callback_func_t)(wo_vm, void*);
+
+WO_API wo_fail_handler_t wo_register_fail_handler(wo_fail_handler_t new_handler);
 WO_API void         wo_cause_fail(wo_string_t src_file, uint32_t lineno, wo_string_t functionname, uint32_t rterrcode, wo_string_t reasonfmt, ...);
 WO_API void         wo_execute_fail_handler(wo_vm vm, wo_string_t src_file, uint32_t lineno, wo_string_t functionname, uint32_t rterrcode, wo_string_t reason);
 #define wo_fail(ERRID, ...) ((void)wo_cause_fail(__FILE__, __LINE__, __func__,ERRID, __VA_ARGS__))
@@ -221,9 +223,9 @@ typedef struct _wo_extern_lib_func_pair
 WO_API wo_dylib_handle_t    wo_fake_lib(const char* libname, const wo_extern_lib_func_t* funcs, wo_dylib_handle_t dependence_dylib_may_null);
 WO_API wo_dylib_handle_t    wo_load_lib(const char* libname, const char* path, const char* script_path, wo_bool_t panic_when_fail);
 WO_API wo_dylib_handle_t    wo_load_func(void* lib, const char* funcname);
-WO_API void                 wo_unload_lib(wo_dylib_handle_t lib, wo_dylib_unload_method method_mask);
+WO_API void                 wo_unload_lib(wo_dylib_handle_t lib, wo_dylib_unload_method_t method_mask);
 
-WO_API wo_type      wo_valuetype(const wo_value value);
+WO_API wo_type_t    wo_valuetype(const wo_value value);
 
 // Woolang 1.13 NOTE: According to the Woolang calling convention, 
 //      this method is only applicable for use within 
@@ -276,9 +278,9 @@ WO_API float        wo_cast_float(wo_value value);
 WO_API wo_string_t  wo_cast_string(wo_value value);
 
 WO_API wo_bool_t    wo_serialize(wo_value value, wo_string_t* out_str);
-WO_API wo_bool_t    wo_deserialize(wo_vm vm, wo_value value, wo_string_t str, wo_type except_type);
+WO_API wo_bool_t    wo_deserialize(wo_vm vm, wo_value value, wo_string_t str, wo_type_t except_type);
 
-WO_API wo_string_t  wo_type_name(wo_type value);
+WO_API wo_string_t  wo_type_name(wo_type_t value);
 
 WO_API wo_result_t  wo_ret_void(wo_vm vm);
 WO_API wo_result_t  wo_ret_char(wo_vm vm, wo_char_t result);
@@ -402,13 +404,6 @@ WO_API wo_result_t  wo_ret_err_val(wo_vm vm, wo_value result);
 WO_API wo_result_t  wo_ret_err_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val_may_null, wo_gchandle_close_func_t destruct_func);
 WO_API wo_result_t  wo_ret_err_gcstruct(wo_vm vm, wo_ptr_t resource_ptr, wo_gcstruct_mark_func_t mark_func, wo_gchandle_close_func_t destruct_func);
 
-// ATTENTION: This function used for let vm yield-break by setting
-//            yield flag. But this flag only work after return from
-//            native function (in vm-loop).
-//            So, you should make sure it called in `return`. Such as:
-//
-//                return wo_ret_yield(vm, wo_ret_int(vm, 1));
-//
 WO_API wo_result_t  wo_ret_yield(wo_vm vm);
 
 WO_API wo_bool_t    wo_extern_symb(wo_vm vm, wo_string_t fullname, wo_integer_t* out_wo_func, wo_handle_t* out_jit_func);
@@ -441,7 +436,7 @@ WO_API void                     wo_close_virtual_file_iter(wo_virtual_file_iter_
 
 WO_API wo_bool_t    wo_remove_virtual_file(wo_string_t filepath);
 WO_API wo_vm        wo_create_vm(void);
-WO_API wo_vm        wo_sub_vm(wo_vm vm, wo_size_t stacksz);
+WO_API wo_vm        wo_sub_vm(wo_vm vm);
 WO_API wo_vm        wo_gc_vm(wo_vm vm);
 WO_API wo_bool_t    wo_abort_vm(wo_vm vm);
 WO_API void         wo_close_vm(wo_vm vm);
@@ -468,7 +463,7 @@ WO_API wo_bool_t    wo_execute(wo_string_t src, wo_execute_callback_ft callback,
 WO_API wo_value     wo_run(wo_vm vm);
 
 WO_API wo_bool_t    wo_has_compile_error(wo_vm vm);
-WO_API wo_string_t  wo_get_compile_error(wo_vm vm, wo_inform_style style);
+WO_API wo_string_t  wo_get_compile_error(wo_vm vm, wo_inform_style_t style);
 
 WO_API wo_string_t  wo_get_runtime_error(wo_vm vm);
 
@@ -490,7 +485,7 @@ WO_API wo_value     wo_register(wo_vm vm, wo_reg regid);
 WO_API wo_value wo_reserve_stack(wo_vm vm, wo_size_t sz, wo_value* inout_args_maynull);
 WO_API void     wo_pop_stack(wo_vm vm, wo_size_t sz);
 
-WO_API wo_stack_value wo_cast_stack_value(wo_vm vm, wo_value _stack_value);
+WO_API wo_stack_value wo_cast_stack_value(wo_vm vm, wo_value value_in_stack);
 WO_API void wo_stack_value_set(wo_stack_value sv, wo_vm vm, wo_value val);
 WO_API void wo_stack_value_get(wo_value outval, wo_stack_value sv, wo_vm vm);
 
@@ -542,7 +537,7 @@ WO_API void wo_gcunit_unlock_shared(wo_value gc_reference_object);
 
 // If overwriting a wo_value_storage in gcstruct, wo_gc_record_memory 
 //  must be executed before the operation.
-WO_API void         wo_gc_mark(wo_gc_work_context context, wo_value value_to_mark);
+WO_API void         wo_gc_mark(wo_gc_work_context_t context, wo_value value_to_mark);
 
 WO_API void         wo_gc_checkpoint(wo_vm vm);
 WO_API void         wo_gc_record_memory(wo_value val);
@@ -622,6 +617,7 @@ typedef struct _wo_debuggee_handle
 typedef void(*wo_debuggee_handler_func)(wo_debuggee, wo_vm, void*);
 
 WO_API void         wo_attach_default_debuggee(void);
+WO_API void         wo_attach_user_debuggee(wo_debuggee_callback_func_t callback, void* userdata);
 WO_API wo_bool_t    wo_has_attached_debuggee(void);
 WO_API void         wo_detach_debuggee(void);
 WO_API void         wo_break_immediately(void);

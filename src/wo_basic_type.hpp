@@ -400,7 +400,7 @@ namespace wo
         }
 
         bool do_close();
-        void do_custom_mark(wo_gc_work_context ctx);
+        void do_custom_mark(wo_gc_work_context_t ctx);
 
         ~gc_handle_base_t()
         {
