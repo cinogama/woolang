@@ -2,6 +2,8 @@
 
 namespace wo
 {
+    const value value::TAKEPLACE = *value().set_takeplace();
+
     void vm_debuggee_bridge_base::_vm_invoke_debuggee(vmbase* _vm)
     {
         std::lock_guard _(_debug_entry_guard_block_mx);
@@ -59,7 +61,7 @@ namespace wo
                 vm_instance->interrupt(vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT);
         for (auto* vm_instance : _alive_vm_list)
             if (vm_instance->virtual_machine_type != vmbase::vm_type::GC_DESTRUCTOR)
-                vm_instance->wait_interrupt(vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT);
+                vm_instance->wait_interrupt(vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT, false);
 
         auto* old_debuggee = attaching_debuggee;
         attaching_debuggee = dbg;
@@ -104,10 +106,12 @@ namespace wo
     {
         return 0 != (vm_interrupt & type);
     }
-    vmbase::interrupt_wait_result vmbase::wait_interrupt(vm_interrupt_type type)noexcept
+    vmbase::interrupt_wait_result vmbase::wait_interrupt(vm_interrupt_type type, bool force_wait)noexcept
     {
         using namespace std;
         size_t retry_count = 0;
+
+        bool warning_raised = false;
 
         constexpr int MAX_TRY_COUNT = 0;
         int i = 0;
@@ -126,20 +130,24 @@ namespace wo
             else
                 i = 0;
 
-            std::this_thread::sleep_for(10ms);
-            if (++retry_count == config::INTERRUPT_CHECK_TIME_LIMIT)
+            if (force_wait)
             {
-                // Wait for too much time.
-                std::string warning_info = "Wait for too much time for waiting interrupt.\n";
-                std::stringstream dump_callstack_info;
+                std::this_thread::sleep_for(10ms);
+                if (!warning_raised && ++retry_count == config::INTERRUPT_CHECK_TIME_LIMIT)
+                {
+                    // Wait for too much time.
+                    std::string warning_info = "Wait for too much time for waiting interrupt.\n";
+                    std::stringstream dump_callstack_info;
 
-                dump_call_stack(32, false, dump_callstack_info);
-                warning_info += dump_callstack_info.str();
-                wo_warning(warning_info.c_str());
+                    dump_call_stack(32, false, dump_callstack_info);
+                    warning_info += dump_callstack_info.str();
+                    wo_warning(warning_info.c_str());
 
-                return interrupt_wait_result::TIMEOUT;
+                    warning_raised = true;
+                }
             }
-
+            else
+                return interrupt_wait_result::TIMEOUT;
         } while (true);
 
         return interrupt_wait_result::ACCEPT;

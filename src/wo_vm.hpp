@@ -293,7 +293,7 @@ namespace wo
         bool interrupt(vm_interrupt_type type) noexcept;
         bool clear_interrupt(vm_interrupt_type type)noexcept;
         bool check_interrupt(vm_interrupt_type type)noexcept;
-        interrupt_wait_result wait_interrupt(vm_interrupt_type type)noexcept;
+        interrupt_wait_result wait_interrupt(vm_interrupt_type type, bool force_wait)noexcept;
         void block_interrupt(vm_interrupt_type type)noexcept;
 
         void hangup()noexcept;

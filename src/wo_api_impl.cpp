@@ -1261,12 +1261,12 @@ std::string _destring(const std::string& dstr)
 wo_bool_t _wo_cast_value(wo_vm vm, wo::value* value, wo::lexer* lex, wo::value::valuetype except_type);
 wo_bool_t _wo_cast_array(wo_vm vm, wo::value* value, wo::lexer* lex)
 {
-    // _wo_cast_map is in GC-GUARD, we can use the template value here.
-    _wo_value tmp_value;
-    wo_set_arr(&tmp_value, vm, 0);
-
-    wo::array_t* rsarr = WO_VAL(&tmp_value)->array;
+    // NOTE: _wo_cast_array is in GC-GUARD.
+    wo::array_t* rsarr = wo::array_t::gc_new<wo::gcbase::gctype::young>(0);;
     wo::gcbase::gc_modify_write_guard g1(rsarr);
+
+    // Store array into instance to make sure it can be marked if GC launched by `out of memory`.
+    value->set_gcunit<wo::value::valuetype::array_type>(rsarr);
 
     while (true)
     {
@@ -1277,24 +1277,24 @@ wo_bool_t _wo_cast_array(wo_vm vm, wo::value* value, wo::lexer* lex)
             break;
         }
 
-        if (!_wo_cast_value(vm, value, lex, wo::value::valuetype::invalid)) // val!
+        if (!_wo_cast_value(vm, &rsarr->emplace_back(), lex, wo::value::valuetype::invalid)) // val!
             return WO_FALSE;
-        rsarr->push_back(*value);
 
         if (lex->peek(nullptr) == wo::lex_type::l_comma)
             lex->next(nullptr);
     }
-    value->set_gcunit<wo::value::valuetype::array_type>(rsarr);
     return WO_TRUE;
 }
 wo_bool_t _wo_cast_map(wo_vm vm, wo::value* value, wo::lexer* lex)
 {
-    // _wo_cast_map is in GC-GUARD, we can use the template value here.
-    _wo_value tmp_value;
-    wo_set_map(&tmp_value, vm, 0);
-
-    wo::dict_t* rsmap = WO_VAL(&tmp_value)->dict;
+    // NOTE: _wo_cast_map is in GC-GUARD.
+    wo::dict_t* rsmap = wo::dict_t::gc_new<wo::gcbase::gctype::young>(0);
     wo::gcbase::gc_modify_write_guard g1(rsmap);
+
+    // Store array into instance to make sure it can be marked if GC launched by `out of memory`.
+    value->set_gcunit<wo::value::valuetype::dict_type>(rsmap);
+
+    wo::value* tempory_key_value_storage = nullptr;
 
     while (true)
     {
@@ -1306,13 +1306,18 @@ wo_bool_t _wo_cast_map(wo_vm vm, wo::value* value, wo::lexer* lex)
             break;
         }
 
-        if (!_wo_cast_value(vm, value, lex, wo::value::valuetype::invalid))// key!
+        // We need to make sure the map instance can be marked if gc work
+        // launched by `out of memory`.
+        if (tempory_key_value_storage == nullptr)
+            tempory_key_value_storage = &(*rsmap)[wo::value::TAKEPLACE];
+
+        if (!_wo_cast_value(vm, tempory_key_value_storage, lex, wo::value::valuetype::invalid)) // key!
             return WO_FALSE;
-        auto& val_place = (*rsmap)[*value];
+
+        auto& val_place = (*rsmap)[*tempory_key_value_storage];
 
         lex_type = lex->next(nullptr);
         if (lex_type != wo::lex_type::l_typecast)
-            //wo_fail(WO_FAIL_TYPE_FAIL, "Unexcept token while parsing map, here should be ':'.");
             return WO_FALSE;
 
         if (!_wo_cast_value(vm, &val_place, lex, wo::value::valuetype::invalid)) // value!
@@ -1322,7 +1327,9 @@ wo_bool_t _wo_cast_map(wo_vm vm, wo::value* value, wo::lexer* lex)
             lex->next(nullptr);
     }
 
-    value->set_gcunit<wo::value::valuetype::dict_type>(rsmap);
+    if (tempory_key_value_storage != nullptr)
+        rsmap->erase(wo::value::TAKEPLACE);
+
     return WO_TRUE;
 }
 wo_bool_t _wo_cast_value(wo_vm vm, wo::value* value, wo::lexer* lex, wo::value::valuetype except_type)
@@ -1340,7 +1347,9 @@ wo_bool_t _wo_cast_value(wo_vm vm, wo::value* value, wo::lexer* lex, wo::value::
             return WO_FALSE;
     }
     else if (lex_type == wo::lex_type::l_literal_string) // is string   
+    {
         value->set_string(wo::wstr_to_str(wstr));
+    }
     else if (lex_type == wo::lex_type::l_add
         || lex_type == wo::lex_type::l_sub
         || lex_type == wo::lex_type::l_literal_integer
@@ -3741,7 +3750,12 @@ wo_bool_t wo_arr_pop_front(wo_value out_val, wo_value arr)
 
         if (!_arr->array->empty())
         {
-            WO_VAL(out_val)->set_val(&_arr->array->front());
+            auto* value_to_pop = &_arr->array->front();
+
+            if (wo::gc::gc_is_marking())
+                wo::gcbase::write_barrier(value_to_pop);
+
+            WO_VAL(out_val)->set_val(value_to_pop);
             _arr->array->erase(_arr->array->begin());
             return WO_TRUE;
         }
@@ -3760,7 +3774,12 @@ wo_bool_t wo_arr_pop_back(wo_value out_val, wo_value arr)
 
         if (!_arr->array->empty())
         {
-            WO_VAL(out_val)->set_val(&_arr->array->back());
+            auto* value_to_pop = &_arr->array->back();
+
+            if (wo::gc::gc_is_marking())
+                wo::gcbase::write_barrier(value_to_pop);
+
+            WO_VAL(out_val)->set_val(value_to_pop);
             _arr->array->pop_back();
             return WO_TRUE;
         }

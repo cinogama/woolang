@@ -135,7 +135,7 @@ namespace wo
         */
         inline size_t MEMORY_CHUNK_SIZE = 
 #ifdef WO_PLATFORM_64
-            512ull * 1024ull * 1024ull;
+            1024ull * 1024ull * 1024ull;
 #else
             128ull * 1024ull * 1024ull;
 #endif
