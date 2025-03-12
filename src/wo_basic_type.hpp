@@ -63,8 +63,7 @@ namespace wo
             invalid = WO_INVALID_TYPE,
 
             need_gc_flag = WO_NEED_GC_FLAG,
-            stack_externed_flag
-            = WO_STACK_EXTERNED_FLAG,
+            stack_externed_flag = WO_STACK_EXTERNED_FLAG,
 
             integer_type = WO_INTEGER_TYPE,
             real_type = WO_REAL_TYPE,
@@ -108,13 +107,18 @@ namespace wo
             // std::atomic<gcbase*> atomic_gcunit_ptr;
             uint64_t value_space;
         };
-
         union
         {
             valuetype type;
             uint64_t type_space;
         };
 
+        inline value* set_takeplace()
+        {
+            type = valuetype::stack_externed_flag;
+            handle = 0;
+            return this;
+        }
         inline value* set_string(const std::string& str)
         {
             set_gcunit<wo::value::valuetype::string_type>(
@@ -260,6 +264,9 @@ namespace wo
         }
 
         inline value* set_dup(value* from);
+
+        // Used for storing key-value when deserilizing a map.
+        static const value TAKEPLACE;
     };
     static_assert(sizeof(value) == 16);
     static_assert(alignof(value) == 8);

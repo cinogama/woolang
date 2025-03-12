@@ -575,7 +575,7 @@ namespace wo
                     {
                         if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
                         {
-                            switch (vmimpl->wait_interrupt(vmbase::GC_INTERRUPT))
+                            switch (vmimpl->wait_interrupt(vmbase::GC_INTERRUPT, false))
                             {
                             case vmbase::interrupt_wait_result::LEAVED:
                                 if (vmimpl->interrupt(vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT))
@@ -625,8 +625,7 @@ namespace wo
                     {
                         if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
                             // Must make sure HANGUP successfully.
-                            while (vmbase::interrupt_wait_result::TIMEOUT == vmimpl->wait_interrupt(vmbase::GC_HANGUP_INTERRUPT))
-                                ;
+                            (void)vmimpl->wait_interrupt(vmbase::GC_HANGUP_INTERRUPT, true);
 
                         // Current vm will be mark by gc-work-thread.
                         gc_marking_vmlist.push_back(vmimpl);
@@ -662,8 +661,9 @@ namespace wo
                     // 6. Wait until all self-marking vm work finished
                     for (auto* vmimpl : self_marking_vmlist)
                     {
-                        auto self_mark_gc_state = vmimpl->wait_interrupt(vmbase::GC_INTERRUPT);
+                        auto self_mark_gc_state = vmimpl->wait_interrupt(vmbase::GC_INTERRUPT, true);
                         wo_assert(vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL);
+                        wo_assert(self_mark_gc_state != vmbase::interrupt_wait_result::TIMEOUT);
 
                         // vmimpl may be in leave state here, in which case: 
                         // 1. the vm self-marked successfully ended and has returned to executing
@@ -900,7 +900,6 @@ namespace wo
                                 gcbase::gc_new_count -= _gc_immediately_edge;
                             break;
                         }
-
                         _gc_work_cv.wait_for(ug1, 0.1s,
                             [&]()
                             {
@@ -1035,7 +1034,7 @@ namespace wo
                 current_vm_instance->sp = current_vm_stack_top;
             }
         }
-    } // END NAME SPACE gc
+    } // namespace gc end.
 
     void gcbase::write_barrier(const value* val)
     {
