@@ -142,8 +142,8 @@ namespace wo
         wo_vm _macro_action_vm;
 
         size_t   begin_row;
-        size_t   end_row;
         size_t   begin_col;
+        size_t   end_row;
         size_t   end_col;
         wo_pstring_t filename;
 
@@ -653,7 +653,6 @@ namespace wo
         ast::AstBase* merge_imported_script_trees(ast::AstBase* node);
     };
 
-
     class tobe_lexer
     {
         tobe_lexer(const tobe_lexer&) = delete;
@@ -692,12 +691,43 @@ namespace wo
             size_t          m_token_begin[2];
             size_t          m_token_end[2];
         };
+        using declared_macro_map_t =
+            std::unordered_map<std::wstring, std::unique_ptr<macro>>;
+        using imported_source_path_set_t =
+            std::unordered_set<wo_pstring_t>;
 
+    private:
+        const static std::map<std::wstring, lex_type> _lex_operator_list;
+        const static std::map<std::wstring, lex_type> _key_word_list;
+
+    public:
+        static const wchar_t* lex_is_operate_type(lex_type tt);
+        static const wchar_t* lex_is_keyword_type(lex_type tt);
+        static lex_type lex_is_valid_operator(const std::wstring& op);
+        static lex_type lex_is_keyword(const std::wstring& op);
+        static bool lex_isoperatorch(int ch);
+        static bool lex_isspace(int ch);
+        static bool lex_isalpha(int ch);
+        static bool lex_isidentbeg(int ch);
+        static bool lex_isident(int ch);
+        static bool lex_isalnum(int ch);
+        static bool lex_isdigit(int ch);
+        static bool lex_isxdigit(int ch);
+        static bool lex_isodigit(int ch);
+        static int lex_toupper(int ch);
+        static int lex_tolower(int ch);
+        static int lex_hextonum(int ch);
+        static int lex_octtonum(int ch);
+
+    private:
         std::optional<tobe_lexer*> m_who_import_me;
         std::optional<wo_pstring_t> m_source_path;
         std::unique_ptr<std::wistream> m_source_stream;
 
         std::stack<compiler_message_list_t> m_error_frame;
+        std::shared_ptr<declared_macro_map_t> m_declared_macro_list;
+        std::shared_ptr<imported_source_path_set_t> m_imported_source_path_set;
+        std::list<ast::AstBase*> m_imported_ast_tree_list;
 
         std::queue<peeked_token_t> _m_peeked_tokens;
         size_t _m_row_counter;
@@ -748,7 +778,10 @@ namespace wo
         }
 
         template<typename ... FmtArgTs>
-        void record_lexer(msglevel_t level, const wchar_t* format, FmtArgTs&& ... format_args)
+        void produce_lexer_error(
+            msglevel_t level, 
+            const wchar_t* format,
+            FmtArgTs&& ... format_args)
         {
             record_format(
                 level, 
@@ -759,7 +792,52 @@ namespace wo
                 *m_source_path.value(),
                 format,
                 format_args...);
+
+            produce_token(lex_type::l_error, L"");
         }
+
+        template<typename ... FmtArgTs>
+        void produce_parser_error(
+            msglevel_t level,
+            const wchar_t* format,
+            FmtArgTs&& ... format_args)
+        {
+            record_format(
+                level,
+                _m_this_token_begin_row,
+                _m_this_token_begin_col,
+                _m_row_counter,
+                _m_col_counter,
+                *m_source_path.value(),
+                format,
+                format_args...);
+
+            produce_token(lex_type::l_error, L"");
+        }
+
+        template<typename AstT, typename ... FmtArgTs>
+        void produce_lang_error(
+            msglevel_t level,
+            AstT* ast_node,
+            const wchar_t* format,
+            FmtArgTs&& ... format_args)
+        {
+            record_format(
+                level,
+                ast_node->source_location.begin_at.row,
+                ast_node->source_location.end_at.row,
+                ast_node->source_location.begin_at.column,
+                ast_node->source_location.end_at.column,
+                *ast_node->source_location.source_file,
+                format,
+                format_args...);
+            produce_token(lex_type::l_error, L"");
+        }
+        [[nodiscard]]
+
+        bool check_source_path_has_been_imported(wo_pstring_t full_path);
+        void import_ast_tree(ast::AstBase* astbase);
+        ast::AstBase* merge_imported_ast_trees(ast::AstBase* node);
 
         [[nodiscard]]
         int     peek_char();
