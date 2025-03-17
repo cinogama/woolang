@@ -1077,7 +1077,7 @@ namespace wo
                     fnd != this->used_macro_list->end())
                 {
                     lex_error(lexer::errorlevel::error, WO_ERR_UNKNOWN_REPEAT_MACRO_DEFINE, p->macro_name.c_str());
-                 
+
                     wchar_t describe[256] = {};
                     swprintf(describe, 255, WO_INFO_SYMBOL_NAMED_DEFINED_HERE, p->macro_name.c_str());
                     error_impl(
@@ -1091,7 +1091,7 @@ namespace wo
                             *fnd->second->filename,
                             (size_t)1
                         });
-                    
+
                 }
                 else
                     (*this->used_macro_list)[p->macro_name] = p;
@@ -1241,5 +1241,428 @@ namespace wo
         }
         else
             lex.lex_error(lexer::errorlevel::error, WO_ERR_HERE_SHOULD_HAVE, L"{");
+    }
+
+    ///////////////////////////////////////////////////
+
+    tobe_lexer::tobe_lexer(
+        std::optional<tobe_lexer*> who_import_me,
+        const std::optional<wo_pstring_t>& source_path,
+        std::unique_ptr<std::wistream>&& source_stream)
+        : m_who_import_me(who_import_me)
+        , m_source_path(source_path)
+        , m_source_stream(std::move(source_stream))
+        //
+        , m_error_frame{}
+        //
+        , _m_peeked_tokens{}
+        , _m_row_counter(0)
+        , _m_col_counter(0)
+        , _m_this_token_begin_row(0)
+        , _m_this_token_begin_col(0)
+        , _m_in_format_string(false)
+        , _m_curry_count_in_format_string(0)
+    {
+        // Make sure error frame has one frame.
+        (void)m_error_frame.emplace();
+        wo_assert((bool)source_stream);
+    }
+
+    int tobe_lexer::peek_char()
+    {
+        wchar_t ch = m_source_stream->peek();
+
+        if (m_source_stream->eof() || !*m_source_stream)
+        {
+            m_source_stream->clear(
+                m_source_stream->rdstate() &
+                ~(std::ios_base::failbit | std::ios_base::eofbit));
+            return EOF;
+        }
+
+        if (ch == L'\r')
+            return L'\n';
+
+        return static_cast<int>(ch);
+    }
+    int tobe_lexer::read_char()
+    {
+        wchar_t ch = m_source_stream->get();
+        if (m_source_stream->eof() || !*m_source_stream)
+        {
+            m_source_stream->clear(
+                m_source_stream->rdstate() &
+                ~(std::ios_base::failbit | std::ios_base::eofbit));
+            return EOF;
+        }
+
+        if (ch == L'\r')
+        {
+            if (peek_char() == L'\n')
+                // Eat \r\n as \n
+                (void)m_source_stream->get();
+
+            ch = L'\n';
+        }
+
+        if (ch == L'\n')
+        {
+            _m_col_counter = 0;
+            ++_m_row_counter;
+        }
+        else
+            ++_m_col_counter;
+
+        return static_cast<int>(ch);
+    }
+
+    void tobe_lexer::record_message(compiler_message_t&& message)
+    {
+        auto& emplaced_message = m_error_frame.top().emplace_back(std::move(message));
+
+        emplaced_message.m_layer
+            = m_error_frame.size() - 1 + (
+                emplaced_message.m_level == msglevel_t::error ? 0 : 1);
+    }
+
+    void tobe_lexer::produce_token(lex_type type, std::wstring&& moved_token_text)
+    {
+        _m_peeked_tokens.emplace(std::move(
+            peeked_token_t
+            {
+                type,
+                std::move(moved_token_text),
+                { _m_this_token_begin_row, _m_this_token_begin_col },
+                { _m_row_counter, _m_col_counter },
+            }));
+    }
+    void tobe_lexer::token_begin_here()
+    {
+        _m_this_token_begin_row = _m_row_counter;
+        _m_this_token_begin_col = _m_col_counter;
+    }
+
+    const tobe_lexer::peeked_token_t* tobe_lexer::peek()
+    {
+        while (_m_peeked_tokens.empty())
+            move_forward();
+
+        wo_assert(!m_peeked_tokens.empty());
+        return &_m_peeked_tokens.front();
+    }
+    void tobe_lexer::move_forward()
+    {
+        if (size_t count = _m_peeked_tokens.size(); count > 0)
+        {
+            _m_peeked_tokens.pop();
+            if (count > 1)
+                return;
+        }
+
+        int readed_char;
+
+        do
+        {
+            readed_char = read_char();
+
+            if (!lexer::lex_isspace(readed_char))
+                break;
+
+        } while (true);
+
+        // Mark token begin place.
+        token_begin_here();
+        if (_m_this_token_begin_col != 0)
+            // Shift 1 col.
+            --_m_this_token_begin_col;
+
+        // Check if comment?
+        if (readed_char == L'/')
+        {
+            int peeked_char = peek_char();
+            if (peeked_char == L'/')
+            {
+                // Skip this line.
+                do
+                {
+                    peeked_char = read_char();
+
+                } while (peeked_char != L'\n' && peeked_char != EOF);
+                return;
+            }
+            else if (peeked_char == L'*')
+            {
+                // Skip to next '*/'
+                do
+                {
+                    peeked_char = read_char();
+                    if (peeked_char == EOF)
+                        break;
+                    else if (peeked_char == L'*')
+                    {
+                        peeked_char = read_char();
+                        if (peeked_char == EOF || peeked_char == L'/')
+                            break;
+                    }
+                } while (true);
+                return;
+            }
+        }
+
+        std::wstring token_literal_result;
+        auto append_result_char =
+            [&token_literal_result](auto ch) {token_literal_result.push_back(static_cast<wchar_t>(ch)); };
+
+        // Format string.
+        if (/*readed_char == L'f' || */readed_char == L'F')
+        {
+            if (peek_char() == L'"')
+            {
+                // Is f"..."
+                if (_m_in_format_string)
+                {
+                    record_lexer(msglevel_t::error, WO_ERR_RECURSIVE_FORMAT_STRING_IS_INVALID);
+                    return;
+                }
+
+                (void)read_char();
+
+                int following_ch;
+                while (true)
+                {
+                    following_ch = read_char();
+                    if (following_ch == L'"')
+                        return produce_token(lex_type::l_literal_string, std::move(token_literal_result));
+                    if (following_ch == L'{')
+                    {
+                        _m_curry_count_in_format_string = 0;
+                        _m_in_format_string = true;
+                        return produce_token(lex_type::l_format_string_begin, std::move(token_literal_result));
+                    }
+                    if (following_ch != EOF && following_ch != '\n')
+                    {
+                        if (following_ch == L'\\')
+                        {
+                            // Escape character 
+                            int escape_ch = read_char();
+                            switch (escape_ch)
+                            {
+                            case L'\'':
+                            case L'"':
+                            case L'?':
+                            case L'\\':
+                            case L'{':
+                            case L'}':
+                                append_result_char(escape_ch); break;
+                            case L'a':
+                                append_result_char(L'\a'); break;
+                            case L'b':
+                                append_result_char(L'\b'); break;
+                            case L'f':
+                                append_result_char(L'\f'); break;
+                            case L'n':
+                                append_result_char(L'\n'); break;
+                            case L'r':
+                                append_result_char(L'\r'); break;
+                            case L't':
+                                append_result_char(L'\t'); break;
+                            case L'v':
+                                append_result_char(L'\v'); break;
+                            case L'0': case L'1': case L'2': case L'3': case L'4':
+                            case L'5': case L'6': case L'7': case L'8': case L'9':
+                            {
+                                // oct 1byte 
+                                int oct_ascii = escape_ch - L'0';
+                                for (int i = 0; i < 2; i++)
+                                {
+                                    if (lexer::lex_isodigit(peek_char()))
+                                    {
+                                        oct_ascii *= 8;
+                                        oct_ascii += lexer::lex_hextonum(read_char());
+                                    }
+                                    else
+                                        break;
+                                }
+                                append_result_char(oct_ascii);
+                                break;
+                            }
+                            case L'X':
+                            case L'x':
+                            {
+                                // hex 1byte 
+                                int hex_ascii = 0;
+                                for (int i = 0; i < 2; i++)
+                                {
+                                    if (lexer::lex_isxdigit(peek_char()))
+                                    {
+                                        hex_ascii *= 16;
+                                        hex_ascii += lexer::lex_hextonum(read_char());
+                                    }
+                                    else if (i == 0)
+                                        goto str_escape_sequences_fail_in_format_begin;
+                                    else
+                                        break;
+                                }
+                                append_result_char(hex_ascii);
+                                break;
+                            }
+                            case L'U':
+                            case L'u':
+                            {
+                                // hex 1byte 
+                                int hex_ascii = 0;
+                                for (int i = 0; i < 4; i++)
+                                {
+                                    if (lexer::lex_isxdigit(peek_char()))
+                                    {
+                                        hex_ascii *= 16;
+                                        hex_ascii += lexer::lex_hextonum(read_char());
+                                    }
+                                    else if (i == 0)
+                                        goto str_escape_sequences_fail_in_format_begin;
+                                    else
+                                        break;
+                                }
+                                append_result_char(hex_ascii);
+                                break;
+                            }
+                            default:
+                            str_escape_sequences_fail_in_format_begin:
+                                record_lexer(msglevel_t::error, WO_ERR_UNKNOW_ESCSEQ_BEGIN_WITH_CH, escape_ch);
+                                append_result_char(escape_ch);
+                                break;
+                            }
+                        }
+                        else
+                            append_result_char(following_ch);
+                    }
+                    else
+                        return record_lexer(lexer::errorlevel::error, WO_ERR_UNEXCEPTED_EOL_IN_STRING);
+                }
+            }
+            //else if (peek_ch() == L'@')
+            //{
+            //    // Is f@"..."@
+            //}
+        }
+        if (_m_in_format_string && readed_ch == L'}' && _m_curry_count_in_format_string == 0)
+        {
+            int following_ch;
+            while (true)
+            {
+                following_ch = next_one();
+                if (following_ch == L'"')
+                {
+                    _m_in_format_string = false;
+                    return lex_type::l_format_string_end;
+                }
+                if (following_ch == L'{')
+                {
+                    _m_curry_count_in_format_string = 0;
+                    return lex_type::l_format_string;
+                }
+                if (following_ch != EOF && following_ch != '\n')
+                {
+                    if (following_ch == L'\\')
+                    {
+                        // Escape character 
+                        int escape_ch = next_one();
+                        switch (escape_ch)
+                        {
+                        case L'\'':
+                        case L'"':
+                        case L'?':
+                        case L'\\':
+                        case L'{':
+                        case L'}':
+                            append_result_char(escape_ch); break;
+                        case L'a':
+                            append_result_char(L'\a'); break;
+                        case L'b':
+                            append_result_char(L'\b'); break;
+                        case L'f':
+                            append_result_char(L'\f'); break;
+                        case L'n':
+                            append_result_char(L'\n'); break;
+                        case L'r':
+                            append_result_char(L'\r'); break;
+                        case L't':
+                            append_result_char(L'\t'); break;
+                        case L'v':
+                            append_result_char(L'\v'); break;
+                        case L'0': case L'1': case L'2': case L'3': case L'4':
+                        case L'5': case L'6': case L'7': case L'8': case L'9':
+                        {
+                            // oct 1byte 
+                            int oct_ascii = escape_ch - L'0';
+                            for (int i = 0; i < 2; i++)
+                            {
+                                if (lex_isodigit(peek_one()))
+                                {
+                                    oct_ascii *= 8;
+                                    oct_ascii += lex_hextonum(next_one());
+                                }
+                                else
+                                    break;
+                            }
+                            append_result_char(oct_ascii);
+                            break;
+                        }
+                        case L'X':
+                        case L'x':
+                        {
+                            // hex 1byte 
+                            int hex_ascii = 0;
+                            for (int i = 0; i < 2; i++)
+                            {
+                                if (lex_isxdigit(peek_one()))
+                                {
+                                    hex_ascii *= 16;
+                                    hex_ascii += lex_hextonum(next_one());
+                                }
+                                else if (i == 0)
+                                    goto str_escape_sequences_fail_in_format_string;
+                                else
+                                    break;
+                            }
+                            append_result_char(hex_ascii);
+                            break;
+                        }
+                        case L'U':
+                        case L'u':
+                        {
+                            // hex 1byte 
+                            int hex_ascii = 0;
+                            for (int i = 0; i < 4; i++)
+                            {
+                                if (lex_isxdigit(peek_one()))
+                                {
+                                    hex_ascii *= 16;
+                                    hex_ascii += lex_hextonum(next_one());
+                                }
+                                else if (i == 0)
+                                    goto str_escape_sequences_fail_in_format_string;
+                                else
+                                    break;
+                            }
+                            append_result_char(hex_ascii);
+                            break;
+                        }
+                        default:
+                        str_escape_sequences_fail_in_format_string:
+                            lex_error(lexer::errorlevel::error, WO_ERR_UNKNOW_ESCSEQ_BEGIN_WITH_CH, escape_ch);
+                            append_result_char(escape_ch);
+                            break;
+                        }
+                    }
+                    else
+                        append_result_char(following_ch);
+                }
+                else
+                    return lex_error(lexer::errorlevel::error, WO_ERR_UNEXCEPTED_EOL_IN_STRING);
+            }
+
+        }
+
     }
 }

@@ -3656,7 +3656,7 @@ void wo_arr_add(wo_value arr, wo_value elem)
         if (elem)
             _arr->array->push_back(*WO_VAL(elem));
         else
-            _arr->array->emplace_back(wo::value());
+            (void)_arr->array->emplace_back();
     }
     else
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not an array.");

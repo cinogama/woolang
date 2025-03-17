@@ -9,6 +9,7 @@
 #include <set>
 #include <stack>
 #include <list>
+#include <queue>
 #include <unordered_map>
 
 #include <cwctype>
@@ -395,7 +396,7 @@ namespace wo
                     for (wchar_t wch : _operator)
                         _result.insert(wch);
                 return _result;
-                }();
+            }();
             return operator_char_set.find((wchar_t)ch) != operator_char_set.end();
         }
         static bool lex_isspace(int ch)
@@ -652,6 +653,126 @@ namespace wo
         ast::AstBase* merge_imported_script_trees(ast::AstBase* node);
     };
 
+
+    class tobe_lexer
+    {
+        tobe_lexer(const tobe_lexer&) = delete;
+        tobe_lexer(tobe_lexer&&) = delete;
+
+        tobe_lexer& operator = (const tobe_lexer&) = delete;
+        tobe_lexer& operator = (tobe_lexer&&) = delete;
+    public:
+        enum class msglevel_t
+        {
+            error,
+            infom,
+        };
+
+        struct compiler_message_t
+        {
+            msglevel_t  m_level;
+
+            size_t      m_range_begin[2];
+            size_t      m_range_end[2];
+            std::wstring m_filename;
+
+            std::wstring m_describe;
+
+            // Auto assigned in `record_message`
+            size_t      m_layer;
+        };
+        using compiler_message_list_t =
+            std::list<compiler_message_t>;
+
+    private:
+        struct peeked_token_t
+        {
+            lex_type        m_lex_type;
+            std::wstring    m_token_text;
+            size_t          m_token_begin[2];
+            size_t          m_token_end[2];
+        };
+
+        std::optional<tobe_lexer*> m_who_import_me;
+        std::optional<wo_pstring_t> m_source_path;
+        std::unique_ptr<std::wistream> m_source_stream;
+
+        std::stack<compiler_message_list_t> m_error_frame;
+
+        std::queue<peeked_token_t> _m_peeked_tokens;
+        size_t _m_row_counter;
+        size_t _m_col_counter;
+
+        // Only used in move next;
+        size_t _m_this_token_begin_row;
+        size_t _m_this_token_begin_col;
+        bool _m_in_format_string;
+        size_t _m_curry_count_in_format_string;
+
+    public:
+        tobe_lexer(
+            std::optional<tobe_lexer*> who_import_me,
+            const std::optional<wo_pstring_t>& source_path,
+            std::unique_ptr<std::wistream>&& source_stream);
+    private:
+        void    produce_token(lex_type type, std::wstring&& moved_token_text);
+        void    token_begin_here();
+
+    public:
+        void    record_message(compiler_message_t&& moved_message);
+
+        template<typename ... FmtArgTs>
+        void record_format(
+            msglevel_t level,
+            size_t range_begin_row,
+            size_t range_begin_col,
+            size_t range_end_row,
+            size_t range_end_col,
+            const std::wstring& source,
+            const wchar_t* format,
+            FmtArgTs&& ... format_args)
+        {
+            wchar_t describe[256] = {};
+            swprintf(describe, 255, format, format_args...);
+
+            record_message(std::move(
+                compiler_message_t
+                {
+                    level,
+                    { range_begin_row, range_begin_col },
+                    { range_end_row, range_end_col },
+                    source,
+                    describe,
+                }
+            ));
+        }
+
+        template<typename ... FmtArgTs>
+        void record_lexer(msglevel_t level, const wchar_t* format, FmtArgTs&& ... format_args)
+        {
+            record_format(
+                level, 
+                _m_row_counter,
+                _m_col_counter,
+                _m_row_counter,
+                _m_col_counter,
+                *m_source_path.value(),
+                format,
+                format_args...);
+        }
+
+        [[nodiscard]]
+        int     peek_char();
+
+        [[nodiscard]]
+        int     read_char();
+
+        [[nodiscard]]
+        const peeked_token_t*
+                peek();
+
+        void    move_forward();
+    };
 }
 
 #ifdef ANSI_WIDE_CHAR_SIGN
