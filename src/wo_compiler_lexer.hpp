@@ -158,508 +158,13 @@ namespace wo
 
     class lexer
     {
-    public:
         friend class macro;
 
-        struct lex_operator_info
-        {
-            lex_type in_lexer_type;
-        };
-        struct lex_keyword_info
-        {
-            lex_type in_lexer_type;
-        };
-        enum class errorlevel
-        {
-            error,
-            infom,
-        };
-
-        struct lex_error_msg
-        {
-            errorlevel error_level;
-            size_t   begin_row;
-            size_t   end_row;
-            size_t   begin_col;
-            size_t   end_col;
-            std::wstring describe;
-            std::wstring filename;
-
-            size_t   depth;
-
-            std::wstring to_wstring(bool need_ansi_describe = true)
-            {
-                using namespace std;
-
-                if (need_ansi_describe)
-                    return (
-                        error_level == errorlevel::error
-                        ? (ANSI_HIR L"error" ANSI_RST)
-                        : (ANSI_HIC L"infom" ANSI_RST)
-                        )
-                    + (L" (" + std::to_wstring(end_row) + L"," + std::to_wstring(end_col))
-                    + (L") " + describe);
-                else
-                    return (
-                        error_level == errorlevel::error
-                        ? (L"error")
-                        : (L"info")
-                        )
-                    + (L" (" + std::to_wstring(end_row) + L"," + std::to_wstring(end_col))
-                    + (L") " + describe);
-            }
-        };
-    private:
-        std::unique_ptr<std::wistream> reading_buffer;
-
-        int         format_string_count;
-        int         curly_count;
-
-        std::list<std::list<lex_error_msg>> error_frame;
-
-        std::stack<std::pair<lex_type, std::wstring>> temp_token_buff_stack;
-        lex_type peek_result_type = lex_type::l_error;
-        std::wstring peek_result_str;
-        bool peeked_flag;
-
-    public:
-        size_t        now_file_rowno;
-        size_t        now_file_colno;
-
-        size_t        next_file_rowno;
-        size_t        next_file_colno;
-
-        size_t after_pick_now_file_rowno;
-        size_t after_pick_now_file_colno;
-        size_t after_pick_next_file_rowno;
-        size_t after_pick_next_file_colno;
-
-        size_t this_time_peek_from_rowno;
-        size_t this_time_peek_from_colno;
-
-        bool just_have_err; // it will be clear at next()
-
-        const wo_pstring_t source_file;
-        std::list<lex_error_msg> lex_error_list;
-
-        std::unordered_set<wo_pstring_t> imported_file_list;
-
-        std::list<ast::AstBase*> imported_ast;
-        std::shared_ptr<std::unordered_map<std::wstring, std::shared_ptr<macro>>> used_macro_list;
-        const lexer* last_lexer;
-
-    private:
-        inline const static std::map<std::wstring, lex_operator_info> lex_operator_list =
-        {
-            {L"+",      {lex_type::l_add}},
-            {L"-",      {lex_type::l_sub}},
-            {L"*",      {lex_type::l_mul}},
-            {L"/",      {lex_type::l_div}},
-            {L"%",      {lex_type::l_mod}},
-            {L"=",      {lex_type::l_assign}},
-            {L"+=",     {lex_type::l_add_assign}},
-            {L"-=",     {lex_type::l_sub_assign}},
-            {L"*=",     {lex_type::l_mul_assign}},
-            {L"/=",     {lex_type::l_div_assign}},
-            {L"%=",     {lex_type::l_mod_assign}},
-            {L":=",     {lex_type::l_value_assign}},
-            {L"+:=",    {lex_type::l_value_add_assign}},
-            {L"-:=",    {lex_type::l_value_sub_assign}},
-            {L"*:=",    {lex_type::l_value_mul_assign}},
-            {L"/:=",    {lex_type::l_value_div_assign}},
-            {L"%:=",    {lex_type::l_value_mod_assign}},
-            {L"+:",     {lex_type::l_value_add_assign}},
-            {L"-:",     {lex_type::l_value_sub_assign}},
-            {L"*:",     {lex_type::l_value_mul_assign}},
-            {L"/:",     {lex_type::l_value_div_assign}},
-            {L"%:",     {lex_type::l_value_mod_assign}},
-            {L"==",     {lex_type::l_equal}},                // ==
-            {L"!=",     {lex_type::l_not_equal}},            // !=
-            {L">=",     {lex_type::l_larg_or_equal}},        // >=
-            {L"<=",     {lex_type::l_less_or_equal}},        // <=
-            {L"<",      {lex_type::l_less}},                 // <
-            {L">",      {lex_type::l_larg}},                 // >
-            {L"&&",     {lex_type::l_land}},                 // &&
-            {L"||",     {lex_type::l_lor}},                  // ||
-            {L"|",      {lex_type::l_or}},                  // ||
-            {L"!",      {lex_type::l_lnot}},                  // !=
-            {L"::",     {lex_type::l_scopeing}},
-            {L":<",     {lex_type::l_template_using_begin}},
-            {L",",      {lex_type::l_comma}},
-            {L":",      {lex_type::l_typecast}},
-            {L".",      {lex_type::l_index_point}},
-            {L"..",     {lex_type::l_double_index_point}},
-            {L"...",    {lex_type::l_variadic_sign}},
-            {L"[",      {lex_type::l_index_begin}},
-            {L"]",      {lex_type::l_index_end}},
-            {L"->",     {lex_type::l_direct }},
-            {L"|>",     {lex_type::l_direct }},
-            {L"<|",     {lex_type::l_inv_direct}},
-            {L"=>",     {lex_type::l_function_result }},
-            {L"=>>",    {lex_type::l_bind_monad }},
-            {L"->>",    {lex_type::l_map_monad }},
-            {L"@",      {lex_type::l_at }},
-            {L"?",      {lex_type::l_question }},
-            {L"\\",     {lex_type::l_lambda}},
-            {L"λ",      {lex_type::l_lambda}},
-        };
-        inline const static std::map<std::wstring, lex_keyword_info> key_word_list =
-        {
-            {L"import", {lex_type::l_import}},
-            {L"nil", {lex_type::l_nil}},
-            {L"true", {lex_type::l_true}},
-            {L"false", {lex_type::l_false}},
-            {L"while", {lex_type::l_while}},
-            {L"for", {lex_type::l_for}},
-            {L"if", {lex_type::l_if}},
-            {L"else", {lex_type::l_else}},
-            {L"let", {lex_type::l_let }},
-            {L"mut", {lex_type::l_mut}},
-            {L"immut", {lex_type::l_immut}},
-            {L"func", {lex_type::l_func}},
-            {L"return", {lex_type::l_return}},
-            {L"using", {lex_type::l_using} },
-            {L"alias", {lex_type::l_alias} },
-            {L"namespace", {lex_type::l_namespace}},
-            {L"extern", {lex_type::l_extern}},
-            {L"public", {lex_type::l_public}},
-            {L"private", {lex_type::l_private}},
-            {L"protected", {lex_type::l_protected}},
-            {L"static", {lex_type::l_static}},
-            {L"enum", {lex_type::l_enum}},
-            {L"as", {lex_type::l_as}},
-            {L"is", {lex_type::l_is}},
-            {L"typeof", {lex_type::l_typeof}},
-            {L"break", {lex_type::l_break}},
-            {L"continue", {lex_type::l_continue}},
-            {L"where", {lex_type::l_where}},
-            {L"operator", {lex_type::l_operator}},
-            {L"union", {lex_type::l_union}},
-            {L"match", {lex_type::l_match}},
-            {L"struct", {lex_type::l_struct}},
-            {L"typeid", {lex_type::l_typeid}},
-            {L"do", {lex_type::l_do}},
-        };
-    public:
-        bool has_been_imported(wo_pstring_t full_path)
-        {
-            if (imported_file_list.find(full_path) == imported_file_list.end())
-                imported_file_list.insert(full_path);
-            else
-                return true;
-            return false;
-        }
-        void append_import_file_ast(ast::AstBase* astbase)
-        {
-            imported_ast.push_back(astbase);
-        }
-    public:
-        static const wchar_t* lex_is_operate_type(lex_type tt)
-        {
-            for (auto& [op_str, op_type] : lex_operator_list)
-            {
-                if (op_type.in_lexer_type == tt)
-                    return op_str.c_str();
-            }
-            return nullptr;
-        }
-        static const wchar_t* lex_is_keyword_type(lex_type tt)
-        {
-            for (auto& [op_str, op_type] : key_word_list)
-            {
-                if (op_type.in_lexer_type == tt)
-                    return op_str.c_str();
-            }
-            return nullptr;
-        }
-        static lex_type lex_is_valid_operator(const std::wstring& op)
-        {
-            if (lex_operator_list.find(op) != lex_operator_list.end())
-            {
-                return lex_operator_list.at(op).in_lexer_type;
-            }
-            return lex_type::l_error;
-        }
-        static lex_type lex_is_keyword(const std::wstring& op)
-        {
-            if (key_word_list.find(op) != key_word_list.end())
-            {
-                return key_word_list.at(op).in_lexer_type;
-            }
-            return lex_type::l_error;
-        }
-        static bool lex_isoperatorch(int ch)
-        {
-            const static std::set<wchar_t> operator_char_set = []() {
-                std::set<wchar_t> _result;
-                for (auto& [_operator, operator_info] : lex_operator_list)
-                    for (wchar_t wch : _operator)
-                        _result.insert(wch);
-                return _result;
-            }();
-            return operator_char_set.find((wchar_t)ch) != operator_char_set.end();
-        }
-        static bool lex_isspace(int ch)
-        {
-            if (ch == EOF)
-                return false;
-
-            return ch == 0 || iswspace((wchar_t)ch);
-        }
-        static bool lex_isalpha(int ch)
-        {
-            // if ch can used as begin of identifier, return true
-            if (ch == EOF)
-                return false;
-
-            // according to ISO-30112, Chinese character is belonging alpha-set,
-            // so we can use 'iswalpha' directly.
-            return iswalpha((wchar_t)ch);
-        }
-        static bool lex_isidentbeg(int ch)
-        {
-            // if ch can used as begin of identifier, return true
-            if (ch == EOF)
-                return false;
-
-            // according to ISO-30112, Chinese character is belonging alpha-set,
-            // so we can use 'iswalpha' directly.
-            return iswalpha((wchar_t)ch) || (wchar_t)ch == L'_';
-        }
-        static bool lex_isident(int ch)
-        {
-            // if ch can used as begin of identifier, return true
-            if (ch == EOF)
-                return false;
-
-            // according to ISO-30112, Chinese character is belonging alpha-set,
-            // so we can use 'iswalpha' directly.
-            return iswalnum((wchar_t)ch) || (wchar_t)ch == L'_';
-        }
-        static bool lex_isalnum(int ch)
-        {
-            // if ch can used in identifier (not first character), return true
-            if (ch == EOF)
-                return false;
-
-            // according to ISO-30112, Chinese character is belonging alpha-set,
-            // so we can use 'iswalpha' directly.
-            return iswalnum((wchar_t)ch);
-        }
-        static bool lex_isdigit(int ch)
-        {
-            if (ch == EOF)
-                return false;
-
-            return iswdigit((wchar_t)ch);
-        }
-        static bool lex_isxdigit(int ch)
-        {
-            if (ch == EOF)
-                return false;
-
-            return iswxdigit((wchar_t)ch);
-        }
-        static bool lex_isodigit(int ch)
-        {
-            if (ch == EOF)
-                return false;
-
-            return (wchar_t)ch >= L'0' && (wchar_t)ch <= L'7';
-        }
-        static int lex_toupper(int ch)
-        {
-            if (ch == EOF)
-                return EOF;
-
-            return towupper((wchar_t)ch);
-        }
-        static int lex_tolower(int ch)
-        {
-            if (ch == EOF)
-                return EOF;
-
-            return towlower((wchar_t)ch);
-        }
-        static int lex_hextonum(int ch)
-        {
-            wo_assert(lex_isxdigit(ch));
-
-            if (iswdigit((wchar_t)ch))
-            {
-                return (wchar_t)ch - L'0';
-            }
-            return towupper((wchar_t)ch) - L'A' + 10;
-        }
-        static int lex_octtonum(int ch)
-        {
-            wo_assert(lex_isodigit(ch));
-
-            return (wchar_t)ch - L'0';
-        }
-    public:
         lexer(const lexer&) = delete;
         lexer(lexer&&) = delete;
 
         lexer& operator = (const lexer&) = delete;
         lexer& operator = (lexer&&) = delete;
-
-        lexer(
-            std::optional<std::unique_ptr<std::wistream>>&& stream,
-            wo_pstring_t _source_file_may_null,
-            lexer* importer);
-    public:
-        void begin_trying_block()
-        {
-            error_frame.push_back({});
-        }
-        void end_trying_block()
-        {
-            error_frame.pop_back();
-        }
-
-        std::list<lex_error_msg>& get_cur_error_frame()
-        {
-            if (error_frame.empty())
-                return lex_error_list;
-            return error_frame.back();
-        }
-        size_t get_error_frame_count()const
-        {
-            return error_frame.size();
-        }
-
-        lex_type error_impl(const lex_error_msg& msg)
-        {
-            auto& current_err_frame = get_cur_error_frame();
-            if (current_err_frame.size() >= WO_MAX_ERROR_COUNT)
-                // To many error, skip.
-                return lex_type::l_error;
-
-            just_have_err = true;
-            current_err_frame.emplace_back(msg).depth =
-                error_frame.size() + (msg.error_level == errorlevel::error ? (size_t)0 : (size_t)1);
-            return lex_type::l_error;
-        }
-
-        template<typename AstT, typename ... TS>
-        lex_error_msg make_error(lexer::errorlevel errorlevel, AstT* tree_node, const wchar_t* fmt, TS&& ... args)
-        {
-            size_t begin_row_no = tree_node->row_begin_no ? tree_node->row_begin_no : now_file_rowno;
-            size_t begin_col_no = tree_node->col_begin_no ? tree_node->col_begin_no : now_file_colno;
-            size_t end_row_no = tree_node->row_end_no ? tree_node->row_end_no : next_file_rowno;
-            size_t end_col_no = tree_node->col_end_no ? tree_node->col_end_no : next_file_colno;
-
-            wchar_t describe[256] = {};
-            swprintf(describe, 255, fmt, args...);
-
-            return
-                lex_error_msg
-            {
-                errorlevel,
-                begin_row_no,
-                end_row_no,
-                begin_col_no,
-                end_col_no,
-                describe,
-                tree_node->source_file ? wstr_to_str(*tree_node->source_file) : "?"
-            };
-        }
-        template<typename ... TS>
-        lex_type lex_error(lexer::errorlevel errorlevel, const wchar_t* fmt, TS&& ... args)
-        {
-            wchar_t describe[256] = {};
-            swprintf(describe, 255, fmt, args...);
-
-            auto result = error_impl(
-                lex_error_msg{
-                    errorlevel,
-                    now_file_rowno,
-                    next_file_rowno,
-                    now_file_colno,
-                    next_file_colno,
-                    describe,
-                    source_file ? *source_file : L"json",
-                    0,
-                });
-            skip_error_line();
-            return result;
-        }
-        template<typename ... TS>
-        lex_type parser_error(lexer::errorlevel errorlevel, const wchar_t* fmt, TS&& ... args)
-        {
-            wchar_t describe[256] = {};
-            swprintf(describe, 255, fmt, args...);
-
-            return error_impl(
-                lex_error_msg{
-                    errorlevel,
-                    now_file_rowno,
-                    next_file_rowno,
-                    now_file_colno,
-                    next_file_colno,
-                    describe,
-                    *source_file,
-                    0,
-                });
-        }
-        template<typename AstT, typename ... TS>
-        lex_type lang_error(lexer::errorlevel errorlevel, AstT* tree_node, const wchar_t* fmt, TS&& ... args)
-        {
-            if (tree_node->source_location.source_file == nullptr)
-                return parser_error(errorlevel, fmt, args...);
-
-            wchar_t describe[256] = {};
-            swprintf(describe, 255, fmt, args...);
-
-            return error_impl(
-                lex_error_msg{
-                    errorlevel,
-                    tree_node->source_location.begin_at.row,
-                    tree_node->source_location.end_at.row,
-                    tree_node->source_location.begin_at.column,
-                    tree_node->source_location.end_at.column,
-                    describe,
-                    *tree_node->source_location.source_file,
-                    0,
-                });
-        }
-
-        bool has_error() const
-        {
-            return !lex_error_list.empty();
-        }
-
-    private:
-        int peek_ch();
-        int next_ch();
-        void new_line();
-        void skip_error_line();
-
-        lex_type try_handle_macro(
-            std::wstring* out_literal,
-            lex_type result_type,
-            const std::wstring& result_str,
-            bool workinpeek);
-
-    public:
-        int next_one();
-        int peek_one();
-        lex_type peek(std::wstring* out_literal);
-
-        lex_type next(std::wstring* out_literal);
-        void push_temp_for_error_recover(lex_type type, const std::wstring& out_literal);
-
-        ast::AstBase* merge_imported_script_trees(ast::AstBase* node);
-    };
-
-    class tobe_lexer
-    {
-        tobe_lexer(const tobe_lexer&) = delete;
-        tobe_lexer(tobe_lexer&&) = delete;
-
-        tobe_lexer& operator = (const tobe_lexer&) = delete;
-        tobe_lexer& operator = (tobe_lexer&&) = delete;
     public:
         enum class msglevel_t
         {
@@ -720,7 +225,7 @@ namespace wo
         static int lex_octtonum(int ch);
 
     private:
-        std::optional<tobe_lexer*> m_who_import_me;
+        std::optional<lexer*> m_who_import_me;
         std::optional<wo_pstring_t> m_source_path;
         std::unique_ptr<std::wistream> m_source_stream;
 
@@ -740,8 +245,8 @@ namespace wo
         size_t _m_curry_count_in_format_string;
 
     public:
-        tobe_lexer(
-            std::optional<tobe_lexer*> who_import_me,
+        lexer(
+            std::optional<lexer*> who_import_me,
             const std::optional<wo_pstring_t>& source_path,
             std::unique_ptr<std::wistream>&& source_stream);
     private:
@@ -749,6 +254,7 @@ namespace wo
         void    token_begin_here();
 
     public:
+        compiler_message_list_t& get_current_error_frame();
         void    record_message(compiler_message_t&& moved_message);
 
         template<typename ... FmtArgTs>
@@ -774,30 +280,31 @@ namespace wo
                     source,
                     describe,
                 }
-            ));
+                ));
         }
 
         template<typename ... FmtArgTs>
         void produce_lexer_error(
-            msglevel_t level, 
+            msglevel_t level,
             const wchar_t* format,
             FmtArgTs&& ... format_args)
         {
-            record_format(
-                level, 
-                _m_row_counter,
-                _m_col_counter,
-                _m_row_counter,
-                _m_col_counter,
-                *m_source_path.value(),
-                format,
-                format_args...);
+            if (m_source_path.has_value())
+                record_format(
+                    level,
+                    _m_row_counter,
+                    _m_col_counter,
+                    _m_row_counter,
+                    _m_col_counter,
+                    *m_source_path.value(),
+                    format,
+                    format_args...);
 
             produce_token(lex_type::l_error, L"");
         }
 
         template<typename ... FmtArgTs>
-        void produce_parser_error(
+        void record_parser_error(
             msglevel_t level,
             const wchar_t* format,
             FmtArgTs&& ... format_args)
@@ -811,12 +318,10 @@ namespace wo
                 *m_source_path.value(),
                 format,
                 format_args...);
-
-            produce_token(lex_type::l_error, L"");
         }
 
         template<typename AstT, typename ... FmtArgTs>
-        void produce_lang_error(
+        void record_lang_error(
             msglevel_t level,
             AstT* ast_node,
             const wchar_t* format,
@@ -831,7 +336,6 @@ namespace wo
                 *ast_node->source_location.source_file,
                 format,
                 format_args...);
-            produce_token(lex_type::l_error, L"");
         }
         [[nodiscard]]
 
@@ -847,7 +351,7 @@ namespace wo
 
         [[nodiscard]]
         const peeked_token_t*
-                peek();
+            peek();
 
         void    move_forward();
     };
