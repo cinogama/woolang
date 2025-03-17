@@ -228,7 +228,7 @@ namespace wo
         std::list<lang_TypeInstance*>
                             m_template_arguments;
 
-        std::optional<std::list<lexer::lex_error_msg>>
+        std::optional<std::list<lexer::compiler_message_t>>
                             m_failed_error_for_this_instance;
 
         lang_TemplateAstEvalStateBase(lang_Symbol* symbol, ast::AstBase* ast);

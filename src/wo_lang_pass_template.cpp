@@ -43,14 +43,14 @@ namespace wo
             failed_template_arg_list += get_type_name_w(*it_template_arg);
         }
 
-        lex.lang_error(lexer::errorlevel::error, node,
+        lex.record_lang_error(lexer::msglevel_t::error, node,
             WO_ERR_FAILED_REIFICATION_CAUSED_BY,
             failed_template_arg_list.c_str(),
             get_symbol_name_w(inst->m_symbol));
 
         for (const auto& errmsg : inst->m_failed_error_for_this_instance.value())
             // TODO: Describe the error support.
-            lex.error_impl(errmsg);
+            lex.append_message(errmsg);
     }
 
     std::optional<lang_TemplateAstEvalStateBase*> LangContext::begin_eval_template_ast(
@@ -73,7 +73,7 @@ namespace wo
             auto& template_variable_prefab = templating_symbol->m_template_value_instances;
             if (template_arguments.size() != template_variable_prefab->m_template_params.size())
             {
-                lex.lang_error(lexer::errorlevel::error, node,
+                lex.record_lang_error(lexer::msglevel_t::error, node,
                     WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
                     template_variable_prefab->m_template_params.size());
 
@@ -103,7 +103,7 @@ namespace wo
             auto& template_alias_prefab = templating_symbol->m_template_alias_instances;
             if (template_arguments.size() != template_alias_prefab->m_template_params.size())
             {
-                lex.lang_error(lexer::errorlevel::error, node,
+                lex.record_lang_error(lexer::msglevel_t::error, node,
                     WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
                     template_alias_prefab->m_template_params.size());
 
@@ -123,7 +123,7 @@ namespace wo
             auto& template_type_prefab = templating_symbol->m_template_type_instances;
             if (template_arguments.size() != template_type_prefab->m_template_params.size())
             {
-                lex.lang_error(lexer::errorlevel::error, node,
+                lex.record_lang_error(lexer::msglevel_t::error, node,
                     WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
                     template_type_prefab->m_template_params.size());
 
@@ -173,7 +173,7 @@ namespace wo
             }
             // NOTE: Donot modify eval state here.
             //  Some case like `is pending` may meet this error but it's not a real error.
-            lex.lang_error(lexer::errorlevel::error, node,
+            lex.record_lang_error(lexer::msglevel_t::error, node,
                 WO_ERR_RECURSIVE_TEMPLATE_INSTANCE);
             return std::nullopt;
         }
@@ -222,7 +222,7 @@ namespace wo
     void LangContext::finish_eval_template_ast(
         lexer& lex, lang_TemplateAstEvalStateBase* template_eval_instance)
     {
-        wo_assert(lex.get_cur_error_frame().empty());
+        wo_assert(lex.get_current_error_frame().empty());
         lex.end_trying_block();
 
         wo_assert(template_eval_instance->m_state == lang_TemplateAstEvalStateBase::EVALUATING);
@@ -303,10 +303,10 @@ namespace wo
     void LangContext::failed_eval_template_ast(
         lexer& lex, ast::AstBase* node, lang_TemplateAstEvalStateBase* template_eval_instance)
     {
-        wo_assert(!lex.get_cur_error_frame().empty());
+        wo_assert(!lex.get_current_error_frame().empty());
 
         template_eval_instance->m_failed_error_for_this_instance.emplace(
-            std::move(lex.get_cur_error_frame()));
+            std::move(lex.get_current_error_frame()));
 
         lex.end_trying_block();
 
@@ -372,7 +372,7 @@ namespace wo
                             if (applying_type_instance->is_mutable())
                             {
                                 // immut T <X= mut Tinstance: Bad
-                                lex.lang_error(lexer::errorlevel::error, accept_type_formal,
+                                lex.record_lang_error(lexer::msglevel_t::error, accept_type_formal,
                                     WO_ERR_UNACCEPTABLE_MUTABLE,
                                     get_type_name_w(applying_type_instance));
                                 
@@ -399,7 +399,7 @@ namespace wo
                     bool ambiguous = false;
                     if (!find_symbol_in_current_scope(lex, identifier, &ambiguous))
                     {
-                        lex.lang_error(lexer::errorlevel::error, accept_type_formal,
+                        lex.record_lang_error(lexer::msglevel_t::error, accept_type_formal,
                             WO_ERR_UNFOUND_TYPE_NAMED,
                             identifier->m_name->c_str());
 

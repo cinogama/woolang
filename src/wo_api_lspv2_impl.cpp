@@ -137,7 +137,7 @@ void wo_lspv2_meta_free(wo_lspv2_source_meta* meta)
 
 struct _wo_lspv2_error_iter
 {
-    using error_iter_t = decltype(wo::lexer::lex_error_list)::const_iterator;
+    using error_iter_t = wo::lexer::compiler_message_list_t::const_iterator;
     error_iter_t m_current;
     error_iter_t m_end;
 };
@@ -146,7 +146,7 @@ wo_lspv2_error_iter* wo_lspv2_compile_err_iter(wo_lspv2_source_meta* meta)
 {
     if (meta->m_lexer_if_failed.has_value())
     {
-        auto& error_list = meta->m_lexer_if_failed->get()->lex_error_list;
+        auto& error_list = meta->m_lexer_if_failed->get()->get_current_error_frame();
         return new wo_lspv2_error_iter{
             error_list.cbegin(),
             error_list.cend() };
@@ -165,14 +165,14 @@ wo_lspv2_error_info* wo_lspv2_compile_err_next(wo_lspv2_error_iter* iter)
     {
         auto& error = *(iter->m_current++);
         return new wo_lspv2_error_info{
-            error.error_level == wo::lexer::errorlevel::error ? (
+            error.m_level == wo::lexer::msglevel_t::error ? (
                 WO_LSP_ERROR) : WO_LSP_INFORMATION,
-            error.depth,
-            _wo_strdup(wo::wstr_to_str(error.describe).c_str()),
+            error.m_layer,
+            _wo_strdup(wo::wstr_to_str(error.m_describe).c_str()),
             wo_lspv2_location{
-                _wo_strdup(wo::wstr_to_str(error.filename).c_str()),
-                { error.begin_row, error.begin_col },
-                { error.end_row, error.end_col },
+                _wo_strdup(wo::wstr_to_str(error.m_filename).c_str()),
+                { error.m_range_begin[0], error.m_range_begin[1] },
+                { error.m_range_end[0], error.m_range_end[1] },
             },
         };
     }

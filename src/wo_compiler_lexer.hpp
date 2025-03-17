@@ -184,11 +184,12 @@ namespace wo
 
             // Auto assigned in `record_message`
             size_t      m_layer;
+
+            std::wstring to_wstring(bool need_ansi_describe);
         };
         using compiler_message_list_t =
             std::list<compiler_message_t>;
 
-    private:
         struct peeked_token_t
         {
             lex_type        m_lex_type;
@@ -196,6 +197,7 @@ namespace wo
             size_t          m_token_begin[2];
             size_t          m_token_end[2];
         };
+    private:
         using declared_macro_map_t =
             std::unordered_map<std::wstring, std::unique_ptr<macro>>;
         using imported_source_path_set_t =
@@ -229,7 +231,7 @@ namespace wo
         std::optional<wo_pstring_t> m_source_path;
         std::unique_ptr<std::wistream> m_source_stream;
 
-        std::stack<compiler_message_list_t> m_error_frame;
+        std::list<compiler_message_list_t> m_error_frame;
         std::shared_ptr<declared_macro_map_t> m_declared_macro_list;
         std::shared_ptr<imported_source_path_set_t> m_imported_source_path_set;
         std::list<ast::AstBase*> m_imported_ast_tree_list;
@@ -248,14 +250,16 @@ namespace wo
         lexer(
             std::optional<lexer*> who_import_me,
             const std::optional<wo_pstring_t>& source_path,
-            std::unique_ptr<std::wistream>&& source_stream);
+            std::optional<std::unique_ptr<std::wistream>>&& source_stream);
     private:
         void    produce_token(lex_type type, std::wstring&& moved_token_text);
         void    token_begin_here();
 
     public:
         compiler_message_list_t& get_current_error_frame();
+        compiler_message_list_t& get_root_error_frame();
         void    record_message(compiler_message_t&& moved_message);
+        void    append_message(const compiler_message_t& moved_message);
 
         template<typename ... FmtArgTs>
         void record_format(
@@ -304,7 +308,8 @@ namespace wo
         }
 
         template<typename ... FmtArgTs>
-        void record_parser_error(
+        [[nodiscard]]
+        lex_type record_parser_error(
             msglevel_t level,
             const wchar_t* format,
             FmtArgTs&& ... format_args)
@@ -318,10 +323,12 @@ namespace wo
                 *m_source_path.value(),
                 format,
                 format_args...);
+
+            return lex_type::l_error;
         }
 
         template<typename AstT, typename ... FmtArgTs>
-        void record_lang_error(
+        lex_type record_lang_error(
             msglevel_t level,
             AstT* ast_node,
             const wchar_t* format,
@@ -336,24 +343,49 @@ namespace wo
                 *ast_node->source_location.source_file,
                 format,
                 format_args...);
-        }
-        [[nodiscard]]
 
+            return lex_type::l_error;
+        }
+
+        [[nodiscard]]
         bool check_source_path_has_been_imported(wo_pstring_t full_path);
         void import_ast_tree(ast::AstBase* astbase);
         ast::AstBase* merge_imported_ast_trees(ast::AstBase* node);
+        void merge_lexer_or_parser_error_from_import(lexer& abnother_lexer);
 
         [[nodiscard]]
-        int     peek_char();
+        int peek_char();
 
         [[nodiscard]]
-        int     read_char();
+        int read_char();
 
         [[nodiscard]]
         const peeked_token_t*
             peek();
 
-        void    move_forward();
+        void move_forward();
+        void consume_forward();
+        void try_handle_macro(const std::wstring& macro_name);
+
+        [[nodiscard]]
+        bool has_error() const;
+
+        [[nodiscard]]
+        wo_pstring_t get_source_path() const;
+
+        [[nodiscard]]
+        size_t get_error_frame_count_for_debug() const;
+
+        [[nodiscard]]
+        const declared_macro_map_t& get_declared_macro_list_for_debug() const;
+
+        void begin_trying_block();
+        void end_trying_block();
+
+        [[nodiscard]]
+        const std::optional<lexer*>& get_who_import_me() const;
+
+        void get_now_location(size_t* out_row, size_t* out_col) const;
     };
 }
 

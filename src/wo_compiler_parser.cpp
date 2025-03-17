@@ -671,32 +671,25 @@ namespace wo
         auto NOW_STACK_STATE = [&]()->size_t& {return state_stack.top(); };
         auto NOW_STACK_SYMBO = [&]()->te_nt_index_t& {return sym_stack.top(); };
 
-        std::wstring out_indentifier;
-        lex_type type;
-        bool refetch_flag = true;
+        const lexer::peeked_token_t* peeked_token_instance = nullptr;
 
         std::vector<source_info> srcinfo_bnodes;
         std::vector<produce> te_or_nt_bnodes;
 
         do
         {
-            if (refetch_flag)
-            {
-                refetch_flag = false;
-                type = tkr.peek(&out_indentifier);
-            }
+            const lexer::peeked_token_t* peeked_token_instance = tkr.peek();
 
-            if (type == lex_type::l_error)
+            if (peeked_token_instance->m_lex_type == lex_type::l_error)
             {
                 // have a lex error, skip this error.
-                refetch_flag = true;
-                tkr.next(nullptr);
+                tkr.move_forward();
                 continue;
             }
 
             auto top_symbo =
                 (state_stack.size() == sym_stack.size()
-                    ? TERM_MAP.at(type)
+                    ? TERM_MAP.at(peeked_token_instance->m_lex_type)
                     : NOW_STACK_SYMBO());
 
             no_prospect_action actions, e_actions;
@@ -717,25 +710,32 @@ namespace wo
                     state_stack.push(take_action.state);
                     if (e_rule)
                     {
-                        node_stack.push(std::make_pair(source_info{ tkr.this_time_peek_from_rowno, tkr.this_time_peek_from_colno }, token{ grammar::ttype::l_empty }));
+                        node_stack.push(
+                            std::make_pair(
+                                source_info{
+                                    peeked_token_instance->m_token_begin[0],
+                                    peeked_token_instance->m_token_begin[1]
+                                },
+                                token{ grammar::ttype::l_empty }));
                         sym_stack.push(te_lempty_index);
                     }
                     else
                     {
-                        node_stack.push(std::make_pair(source_info{ tkr.this_time_peek_from_rowno, tkr.this_time_peek_from_colno }, token{ type, out_indentifier }));
-                        sym_stack.push(TERM_MAP.at(type));
+                        node_stack.push(
+                            std::make_pair(
+                                source_info{
+                                    peeked_token_instance->m_token_begin[0],
+                                    peeked_token_instance->m_token_begin[1]
+                                },
+                                token{ peeked_token_instance->m_lex_type, peeked_token_instance->m_token_text }));
+                        sym_stack.push(TERM_MAP.at(peeked_token_instance->m_lex_type));
 
-                        refetch_flag = true;
-                        tkr.next(nullptr);
+                        tkr.move_forward();
                     }
 
                 }
                 else if (take_action.act == grammar::action::act_type::reduction)
                 {
-                    if (type == lex_type::l_macro)
-                        // Macro might be updated after reduction(like import). So we need to refetch it.
-                        refetch_flag = true;
-
                     auto& red_rule = RT_PRODUCTION[take_action.state];
 
                     srcinfo_bnodes.resize(red_rule.rule_right_count);
@@ -755,7 +755,13 @@ namespace wo
                         return astn.is_token() && astn.read_token().type == lex_type::l_error;
                         }))
                     {
-                        node_stack.push(std::make_pair(source_info{ tkr.next_file_rowno, tkr.next_file_colno }, token{ lex_type::l_error }));
+                        node_stack.push(
+                            std::make_pair(
+                                source_info{
+                                    peeked_token_instance->m_token_end[0],
+                                    peeked_token_instance->m_token_end[1],
+                                },
+                                token{ lex_type::l_error }));
                     }
                     else
                     {
@@ -776,19 +782,19 @@ namespace wo
                                         srcinfo_bnodes.front().col_no };
                                     ast_node_->source_location.end_at =
                                         ast::AstBase::location_t{
-                                        tkr.now_file_rowno,
-                                        tkr.now_file_colno };
+                                        peeked_token_instance->m_token_end[0],
+                                        peeked_token_instance->m_token_end[1] };
                                 }
                                 else
                                 {
                                     ast_node_->source_location.begin_at =
                                         ast::AstBase::location_t{
-                                        tkr.after_pick_next_file_rowno,
-                                        tkr.after_pick_next_file_colno };
+                                        peeked_token_instance->m_token_end[0],
+                                        peeked_token_instance->m_token_end[1] };
                                     ast_node_->source_location.end_at =
                                         ast_node_->source_location.begin_at;
                                 }
-                                ast_node_->source_location.source_file = tkr.source_file;
+                                ast_node_->source_location.source_file = tkr.get_source_path();
                             }
                         }
                         node_stack.push(std::make_pair(srcinfo_bnodes.front(), astnode));
@@ -796,18 +802,20 @@ namespace wo
                 }
                 else if (take_action.act == grammar::action::act_type::accept)
                 {
-                    if (!tkr.lex_error_list.empty())
+                    if (tkr.has_error())
                         return nullptr;
 
                     auto& node = node_stack.top().second;
                     if (node.is_ast())
                     {
                         // Append imported ast node front of specify ast-node;
-                        return tkr.merge_imported_script_trees(node.read_ast());
+                        return tkr.merge_imported_ast_trees(node.read_ast());
                     }
                     else
                     {
-                        tkr.parser_error(lexer::errorlevel::error, WO_ERR_SHOULD_BE_AST_BASE);
+                        (void)tkr.record_parser_error(
+                            lexer::msglevel_t::error,
+                            WO_ERR_SHOULD_BE_AST_BASE);
                         return nullptr;
                     }
                 }
@@ -826,15 +834,14 @@ namespace wo
             error_handle:
                 std::wstring err_info;
 
-                if (type == lex_type::l_eof)
+                if (peeked_token_instance->m_lex_type == lex_type::l_eof)
                     err_info = WO_ERR_UNEXCEPT_EOF;
                 else
-                    err_info = WO_ERR_UNEXCEPT_TOKEN + (L"'" + out_indentifier + L"'");
+                    err_info = WO_ERR_UNEXCEPT_TOKEN + (L"'" + peeked_token_instance->m_token_text + L"'");
 
                 // IF SAME ERROR HAPPEND, JUST STOP COMPILE
-                if (tkr.just_have_err ||
-                    (last_error_rowno == tkr.now_file_rowno &&
-                        last_error_colno == tkr.now_file_colno))
+                if (last_error_rowno == peeked_token_instance->m_token_end[0] &&
+                    last_error_colno == peeked_token_instance->m_token_end[1])
                 {
                     try_recover_count++;
 
@@ -845,9 +852,9 @@ namespace wo
                 else
                 {
                     try_recover_count = 0;
-                    tkr.parser_error(lexer::errorlevel::error, err_info.c_str());
-                    last_error_rowno = tkr.now_file_rowno;
-                    last_error_colno = tkr.now_file_colno;
+                    (void)tkr.record_parser_error(lexer::msglevel_t::error, err_info.c_str());
+                    last_error_rowno = peeked_token_instance->m_token_end[0];
+                    last_error_colno = peeked_token_instance->m_token_end[1];
 
                 }
 
@@ -879,11 +886,9 @@ namespace wo
 
                     if (!reduceables.empty())
                     {
-                        refetch_flag = true;
-
                         wo::lex_type out_lex = lex_type::l_empty;
                         std::wstring out_str;
-                        while ((out_lex = tkr.peek(&out_str)) != lex_type::l_eof)
+                        while ((out_lex = tkr.peek()->m_lex_type) != lex_type::l_eof)
                         {
                             for (te_nt_index_t fr : reduceables)
                             {
@@ -902,7 +907,7 @@ namespace wo
                                 if (place != follow_set.end())
                                     goto error_progress_end;
                             }
-                            tkr.next(nullptr);
+                            tkr.move_forward();
                         }
                         goto error_handle_fail;
                     }
@@ -919,7 +924,7 @@ namespace wo
                     }
                 }
             error_handle_fail:
-                tkr.parser_error(lexer::errorlevel::error, WO_ERR_UNABLE_RECOVER_FROM_ERR);
+                (void)tkr.record_parser_error(lexer::msglevel_t::error, WO_ERR_UNABLE_RECOVER_FROM_ERR);
                 return nullptr;
 
             error_progress_end:;
@@ -927,7 +932,7 @@ namespace wo
 
         } while (true);
 
-        tkr.parser_error(lexer::errorlevel::error, WO_ERR_UNEXCEPT_EOF);
+        (void)tkr.record_parser_error(lexer::msglevel_t::error, WO_ERR_UNEXCEPT_EOF);
 
         return nullptr;
     }
@@ -990,15 +995,15 @@ namespace wo
         return ost;
     }
 
-    ast::AstBase* lexer::merge_imported_script_trees(ast::AstBase* node)
+    ast::AstBase* lexer::merge_imported_ast_trees(ast::AstBase* node)
     {
         wo_assert(node != nullptr);
 
-        if (!imported_ast.empty())
+        if (!m_imported_ast_tree_list.empty())
         {
             auto* merged_list = new ast::AstList();
 
-            for (auto* imported_ast : imported_ast)
+            for (auto* imported_ast : m_imported_ast_tree_list)
             {
                 merged_list->m_list.push_back(imported_ast);
 

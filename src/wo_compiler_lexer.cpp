@@ -122,13 +122,15 @@ namespace wo
         size_t scope_count = 1;
         if (lex.peek()->m_lex_type == lex_type::l_left_curly_braces)
         {
+            std::streampos macro_begin_place = lex.m_source_stream->tellg();
+
             lex.move_forward();
 
             std::wstring macro_anylzing_src =
                 L"import woo::macro; extern func macro_" +
                 macro_name + L"(lexer:std::lexer)=> string { do lexer;\n{";
             ;
-            auto begin_place = lex.m_source_stream->tellg();
+
             bool meet_eof = false;
             do
             {
@@ -143,8 +145,7 @@ namespace wo
                     scope_count = 0;
                     meet_eof = true;
                 }
-
-                lex.move_forward();
+                lex.consume_forward();
 
             } while (scope_count);
 
@@ -152,14 +153,14 @@ namespace wo
                 lex.produce_lexer_error(lexer::msglevel_t::error, WO_ERR_UNEXCEPT_EOF);
             else
             {
-                auto macro_content_end_place = lex.m_source_stream->tellg();
-                lex.m_source_stream->seekg(begin_place);
+                std::streampos macro_end_place = lex.m_source_stream->tellg();
+                lex.m_source_stream->seekg(macro_begin_place);
 
                 std::vector<wchar_t> macro_content;
 
                 while (lex.m_source_stream->eof() == false
                     && lex.m_source_stream
-                    && lex.m_source_stream->tellg() < macro_content_end_place)
+                    && lex.m_source_stream->tellg() < macro_end_place)
                 {
                     wchar_t ch;
                     lex.m_source_stream->read(&ch, 1);
@@ -193,6 +194,28 @@ namespace wo
         }
         else
             lex.produce_lexer_error(lexer::msglevel_t::error, WO_ERR_HERE_SHOULD_HAVE, L"{");
+    }
+
+    std::wstring lexer::compiler_message_t::to_wstring(bool need_ansi_describe)
+    {
+        using namespace std;
+
+        if (need_ansi_describe)
+            return (
+                m_level == msglevel_t::error
+                ? (ANSI_HIR L"error" ANSI_RST)
+                : (ANSI_HIC L"infom" ANSI_RST)
+                )
+            + (L" (" + std::to_wstring(m_range_end[0]) + L"," + std::to_wstring(m_range_end[1]))
+            + (L") " + m_describe);
+        else
+            return (
+                m_level == msglevel_t::error
+                ? (L"error")
+                : (L"info")
+                )
+            + (L" (" + std::to_wstring(m_range_end[0]) + L"," + std::to_wstring(m_range_end[1]))
+            + (L") " + m_describe);
     }
 
     ///////////////////////////////////////////////////
@@ -342,10 +365,10 @@ namespace wo
     lexer::lexer(
         std::optional<lexer*> who_import_me,
         const std::optional<wo_pstring_t>& source_path,
-        std::unique_ptr<std::wistream>&& source_stream)
+        std::optional<std::unique_ptr<std::wistream>>&& source_stream)
         : m_who_import_me(who_import_me)
         , m_source_path(source_path)
-        , m_source_stream(std::move(source_stream))
+        , m_source_stream{}
         //
         , m_error_frame{}
         , m_declared_macro_list(
@@ -359,7 +382,10 @@ namespace wo
             // Share from root script.
             ? who_import_me.value()->m_imported_source_path_set
             // Create for root script.
-            : std::make_shared<imported_source_path_set_t>())
+            : std::make_shared<imported_source_path_set_t>(
+                source_path.has_value() 
+                ? imported_source_path_set_t{ source_path.value()} 
+                : imported_source_path_set_t{}))
         , m_imported_ast_tree_list{}
         //
         , _m_peeked_tokens{}
@@ -370,13 +396,28 @@ namespace wo
         , _m_in_format_string(false)
         , _m_curry_count_in_format_string(0)
     {
+        if (source_stream)
+            m_source_stream = std::move(source_stream.value());
+        else
+        {
+            wo_assert(source_path.has_value());
+            (void)record_parser_error(
+                lexer::msglevel_t::error,
+                WO_ERR_CANNOT_OPEN_FILE,
+                source_path.value()->c_str());
+        }
+
         // Make sure error frame has one frame.
-        (void)m_error_frame.emplace();
+        (void)m_error_frame.emplace_back();
         wo_assert((bool)m_source_stream);
     }
     lexer::compiler_message_list_t& lexer::get_current_error_frame()
     {
-        return m_error_frame.top();
+        return m_error_frame.back();
+    }
+    lexer::compiler_message_list_t& lexer::get_root_error_frame()
+    {
+        return m_error_frame.front();
     }
     bool lexer::check_source_path_has_been_imported(wo_pstring_t full_path)
     {
@@ -385,6 +426,14 @@ namespace wo
     void lexer::import_ast_tree(ast::AstBase* astbase)
     {
         m_imported_ast_tree_list.push_back(astbase);
+    }
+    void lexer::merge_lexer_or_parser_error_from_import(lexer& abnother_lexer)
+    {
+        wo_assert(m_error_frame.size() == 1 && abnother_lexer.m_error_frame.size() == 1);
+        m_error_frame.back().insert(
+            m_error_frame.back().end(),
+            abnother_lexer.m_error_frame.back().begin(),
+            abnother_lexer.m_error_frame.back().end());
     }
     int lexer::peek_char()
     {
@@ -436,7 +485,15 @@ namespace wo
 
     void lexer::record_message(compiler_message_t&& message)
     {
-        auto& emplaced_message = m_error_frame.top().emplace_back(std::move(message));
+        auto& emplaced_message = m_error_frame.back().emplace_back(std::move(message));
+
+        emplaced_message.m_layer
+            = m_error_frame.size() - 1 + (
+                emplaced_message.m_level == msglevel_t::error ? 0 : 1);
+    }
+    void lexer::append_message(const compiler_message_t& message)
+    {
+        auto& emplaced_message = m_error_frame.back().emplace_back(message);
 
         emplaced_message.m_layer
             = m_error_frame.size() - 1 + (
@@ -467,6 +524,45 @@ namespace wo
 
         wo_assert(!_m_peeked_tokens.empty());
         return &_m_peeked_tokens.front();
+    }
+    bool lexer::has_error() const
+    {
+        wo_assert(m_error_frame.size() == 1);
+        return !m_error_frame.back().empty();
+    }
+    wo_pstring_t lexer::get_source_path() const
+    {
+        return m_source_path.value();
+    }
+    size_t lexer::get_error_frame_count_for_debug() const
+    {
+        return m_error_frame.size();
+    }
+    const std::optional<lexer*>& lexer::get_who_import_me() const
+    {
+        return m_who_import_me;
+    }
+    void lexer::get_now_location(size_t* out_row, size_t* out_col) const
+    {
+        *out_row = _m_row_counter;
+        *out_col = _m_col_counter;
+    }
+    const lexer::declared_macro_map_t& lexer::get_declared_macro_list_for_debug() const
+    {
+        return *m_declared_macro_list;
+    }
+    void lexer::begin_trying_block()
+    {
+        m_error_frame.emplace_back();
+    }
+    void lexer::end_trying_block()
+    {
+        m_error_frame.pop_back();
+    }
+    void lexer::consume_forward()
+    {
+        if (!_m_peeked_tokens.empty())
+            _m_peeked_tokens.pop();
     }
     void lexer::move_forward()
     {
@@ -532,32 +628,45 @@ namespace wo
             [&token_literal_result](auto ch) {token_literal_result.push_back(static_cast<wchar_t>(ch)); };
 
         // Format string.
-        bool is_format_string = false;
+        bool is_format_string_begin = false, is_format_string_middle = false;
         if ((readed_char == L'f' || readed_char == L'F') && peek_char() == L'"')
         {
             (void)read_char();
-            is_format_string = true;
-        }
-        else if (_m_in_format_string && readed_char == L'}' && _m_curry_count_in_format_string == 0)
-            is_format_string = true;
 
-        if (is_format_string)
-        {
-            // Is f"..."
             if (_m_in_format_string)
                 return produce_lexer_error(msglevel_t::error, WO_ERR_RECURSIVE_FORMAT_STRING_IS_INVALID);
 
+            is_format_string_begin = true;
+        }
+        else if (_m_in_format_string && readed_char == L'}' && _m_curry_count_in_format_string == 0)
+            is_format_string_middle = true;
+
+        if (is_format_string_begin || is_format_string_middle)
+        {
+            // Is f"..."
             int following_ch;
             while (true)
             {
                 following_ch = read_char();
                 if (following_ch == L'"')
-                    return produce_token(lex_type::l_literal_string, std::move(token_literal_result));
+                {
+                    if (is_format_string_begin)
+                        return produce_token(lex_type::l_literal_string, std::move(token_literal_result));
+                    else
+                    {
+                        _m_in_format_string = false;
+                        return produce_token(lex_type::l_format_string_end, std::move(token_literal_result));
+                    }
+                }
                 if (following_ch == L'{')
                 {
                     _m_curry_count_in_format_string = 0;
                     _m_in_format_string = true;
-                    return produce_token(lex_type::l_format_string_begin, std::move(token_literal_result));
+
+                    if (is_format_string_begin)
+                        return produce_token(lex_type::l_format_string_begin, std::move(token_literal_result));
+                    else
+                        return produce_token(lex_type::l_format_string, std::move(token_literal_result));
                 }
                 if (following_ch != EOF && following_ch != '\n')
                 {
@@ -678,8 +787,10 @@ namespace wo
                     base = 16;                      // is hex
                 else if (lexer::lex_toupper(sec_ch) == 'B')
                     base = 2;                      // is bin
+                else if (lexer::lex_isodigit(sec_ch))
+                    base = 8;                       // is oct
                 else
-                    base = 8;                       // is oct or 0
+                    base = 10;                      // is dec
             }
 
             int following_chs;
@@ -1113,7 +1224,7 @@ namespace wo
                 auto macro_name = macro_instance->macro_name;
                 if (auto fnd = m_declared_macro_list->insert(
                     std::make_pair(macro_name, std::move(macro_instance)));
-                    fnd.second)
+                    !fnd.second)
                 {
                     produce_lexer_error(
                         msglevel_t::error, WO_ERR_UNKNOWN_REPEAT_MACRO_DEFINE, macro_name.c_str());
@@ -1163,13 +1274,7 @@ namespace wo
             if (peek_char() == L'!' && m_source_path != nullptr)
             {
                 (void)read_char(); // Eat `!`
-                //try_handle_macro(
-                //    out_literal, 
-                //    lex_type::l_macro, 
-                //    token_literal_result, 
-                //    false), 
-                //    std::move(token_literal_result);
-                return;
+                return try_handle_macro(token_literal_result);
             }
 
             if (lex_type keyword_type = lexer::lex_is_keyword(token_literal_result);
@@ -1183,6 +1288,100 @@ namespace wo
         {
             append_result_char(readed_char);
             return produce_token(lex_type::l_unknown_token, std::move(token_literal_result));
+        }
+    }
+    void lexer::try_handle_macro(const std::wstring& macro_name)
+    {
+        wo_assert(m_source_path.has_value());
+
+        auto fnd = m_declared_macro_list->find(macro_name);
+        if (fnd != m_declared_macro_list->end() && fnd->second->_macro_action_vm)
+        {
+            wo_integer_t script_func;
+            [[maybe_unused]] wo_handle_t jit_func;
+
+#if WO_ENABLE_RUNTIME_CHECK
+            auto found =
+#endif
+                wo_extern_symb(
+                    fnd->second->_macro_action_vm,
+                    wstr_to_str(L"macro_" + fnd->second->macro_name).c_str(),
+                    &script_func,
+                    &jit_func);
+
+
+#if WO_ENABLE_RUNTIME_CHECK
+            wo_assert(found == WO_TRUE);
+#endif
+            wo_value s = wo_reserve_stack(fnd->second->_macro_action_vm, 1, nullptr);
+            wo_set_pointer(s, this);
+            wo_value result = wo_invoke_rsfunc(
+                fnd->second->_macro_action_vm, script_func, 1, nullptr, &s);
+
+            wo_pop_stack(fnd->second->_macro_action_vm, 1);
+
+            if (result == nullptr)
+            {
+                return produce_lexer_error(msglevel_t::error,
+                    WO_ERR_FAILED_TO_RUN_MACRO_CONTROLOR,
+                    fnd->second->macro_name.c_str(),
+                    wo::str_to_wstr(wo_get_runtime_error(fnd->second->_macro_action_vm)).c_str());
+            }
+            else
+            {
+                // String pool is available during compiling.
+                // We can use it directly.
+                wo_pstring_t result_content_vfile =
+                    wstring_pool::get_pstr(
+                        L"woo/macro_"
+                        + fnd->second->macro_name
+                        + L"_result_"
+                        + std::to_wstring((intptr_t)this)
+                        + L".wo");
+
+                wo_assure(WO_TRUE == wo_virtual_source(
+                    wo::wstr_to_str(*result_content_vfile).c_str(), wo_string(result), WO_TRUE));
+
+                std::wstring macro_result_buffer = wo::str_to_wstr(wo_string(result));
+
+                wo::lexer tmp_lex(
+                    this, // We can generate macro define by macro result.
+                    result_content_vfile,
+                    std::make_unique<std::wistringstream>(macro_result_buffer));
+
+                std::queue<peeked_token_t> origin_peeked_queue;
+                origin_peeked_queue.swap(_m_peeked_tokens);
+                for (;;)
+                {
+                    std::wstring result;
+                    auto* token_instance = tmp_lex.peek();
+
+                    if (token_instance->m_lex_type == wo::lex_type::l_error 
+                        || token_instance->m_lex_type == wo::lex_type::l_eof)
+                        break;
+
+                    _m_peeked_tokens.emplace(std::move(*token_instance));
+                    tmp_lex.move_forward();
+                }
+
+                while (!origin_peeked_queue.empty())
+                {
+                    _m_peeked_tokens.emplace(std::move(origin_peeked_queue.front()));
+                    origin_peeked_queue.pop();
+                }
+
+                if (tmp_lex.has_error())
+                {
+                    produce_lexer_error(msglevel_t::error, WO_ERR_INVALID_TOKEN_MACRO_CONTROLOR,
+                        fnd->second->macro_name.c_str());
+
+                    get_current_error_frame().back().m_describe +=
+                        str_to_wstr(_wo_dump_lexer_context_error(&tmp_lex, WO_NOTHING)) + WO_MACRO_ANALYZE_END_HERE;
+
+                    return;
+                }
+                wo_assure(WO_TRUE == wo_remove_virtual_file(wo::wstr_to_str(*result_content_vfile).c_str()));
+            }
         }
     }
 }

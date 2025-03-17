@@ -85,39 +85,30 @@ namespace wo
             {
                 // import a::b; cannot open a/b.wo, trying a/b/b.wo
                 if (!wo::check_virtual_file_path(&src_full_path, path + L"/" + filename + L".wo", std::optional(&lex)))
-                    return token{ lex.parser_error(lexer::errorlevel::error, WO_ERR_CANNOT_OPEN_FILE, path.c_str()) };
+                    return token{ lex.record_parser_error(lexer::msglevel_t::error, WO_ERR_CANNOT_OPEN_FILE, path.c_str()) };
             }
 
             wo_pstring_t src_full_path_pstr = wstring_pool::get_pstr(src_full_path);
-            if (!lex.has_been_imported(src_full_path_pstr))
+            if (!lex.check_source_path_has_been_imported(src_full_path_pstr))
             {
                 auto srcfile_stream = wo::open_virtual_file_stream(src_full_path);
                 if (srcfile_stream)
                 {
                     lexer new_lex(
-                        std::move(srcfile_stream),
+                        &lex,
                         src_full_path_pstr,
-                        &lex);
-
-                    new_lex.imported_file_list = lex.imported_file_list;
-                    new_lex.used_macro_list = lex.used_macro_list;
+                        std::move(srcfile_stream.value()));
 
                     auto* imported_ast = wo::get_wo_grammar()->gen(new_lex);
+                    lex.merge_lexer_or_parser_error_from_import(new_lex);
 
-                    lex.used_macro_list = new_lex.used_macro_list;
-                    lex.lex_error_list.insert(lex.lex_error_list.end(),
-                        new_lex.lex_error_list.begin(),
-                        new_lex.lex_error_list.end());
-
-                    lex.imported_file_list = new_lex.imported_file_list;
-
-                    if (imported_ast)
-                        lex.append_import_file_ast((ast_basic*)imported_ast);
+                    if (imported_ast != nullptr)
+                        lex.import_ast_tree((ast_basic*)imported_ast);
                     else
                         return token{ lex_type::l_error };
                 }
                 else
-                    return token{ lex.parser_error(lexer::errorlevel::error, WO_ERR_CANNOT_OPEN_FILE, path.c_str()) };
+                    return token{ lex.record_parser_error(lexer::msglevel_t::error, WO_ERR_CANNOT_OPEN_FILE, path.c_str()) };
             }
 
             return new AstEmpty();
@@ -134,7 +125,7 @@ namespace wo
 
                 auto* namespace_pstr = wstring_pool::get_pstr(ns_token->m_token.identifier);
                 if (namespace_pstr == WO_PSTR(unsafe))
-                    lex.lang_error(lexer::errorlevel::error, ns_token, WO_ERR_CANNOT_USING_UNSAFE);
+                    lex.record_lang_error(lexer::msglevel_t::error, ns_token, WO_ERR_CANNOT_USING_UNSAFE);
 
                 used_namespaces.push_back(namespace_pstr);
             }
@@ -340,7 +331,7 @@ namespace wo
             for (auto& param : paraments->m_list)
             {
                 if (is_variadic_function)
-                    lex.lang_error(lexer::errorlevel::error, param, WO_ERR_ARG_DEFINE_AFTER_VARIADIC);
+                    lex.record_lang_error(lexer::msglevel_t::error, param, WO_ERR_ARG_DEFINE_AFTER_VARIADIC);
 
                 if (param->node_type == AstBase::AST_FUNCTION_PARAMETER_DECLARE)
                     in_params.push_back(static_cast<AstFunctionParameterDeclare*>(param));
@@ -824,8 +815,8 @@ namespace wo
             for (auto& param : parament_types->m_list)
             {
                 if (is_variadic_function)
-                    return token{ lex.lang_error(
-                        lexer::errorlevel::error, param, WO_ERR_ARG_DEFINE_AFTER_VARIADIC) };
+                    return token{ lex.record_lang_error(
+                        lexer::msglevel_t::error, param, WO_ERR_ARG_DEFINE_AFTER_VARIADIC) };
 
                 if (param->node_type == AstBase::AST_TYPE_HOLDER)
                     paraments.push_back(static_cast<AstTypeHolder*>(param));
@@ -881,7 +872,7 @@ namespace wo
                 fields.push_back(field_define);
 
                 if (exist_field_name.insert(field_define->m_name).second == false)
-                    return token{ lex.lang_error(lexer::errorlevel::error, field,
+                    return token{ lex.record_lang_error(lexer::msglevel_t::error, field,
                         WO_ERR_REPEATED_FIELD_NAMED,
                         field_define->m_name->c_str()) };
             }
@@ -896,7 +887,7 @@ namespace wo
             for (auto& field : tuple_types->m_list)
             {
                 if (field->node_type != AstBase::AST_TYPE_HOLDER)
-                    return token{ lex.lang_error(lexer::errorlevel::error, field, WO_ERR_FAILED_TO_CREATE_TUPLE_WITH_VAARG) };
+                    return token{ lex.record_lang_error(lexer::msglevel_t::error, field, WO_ERR_FAILED_TO_CREATE_TUPLE_WITH_VAARG) };
 
                 fields.push_back(static_cast<AstTypeHolder*>(field));
             }
@@ -1496,7 +1487,7 @@ namespace wo
         auto pass_macro_failed::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             wo_assert(WO_NEED_TOKEN(0).type == lex_type::l_macro);
-            return token{ lex.parser_error(lexer::errorlevel::error, WO_ERR_UNKNOWN_MACRO_NAMED, WO_NEED_TOKEN(0).identifier.c_str()) };
+            return token{ lex.record_parser_error(lexer::msglevel_t::error, WO_ERR_UNKNOWN_MACRO_NAMED, WO_NEED_TOKEN(0).identifier.c_str()) };
         }
         auto pass_variable_define_item::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
@@ -1578,7 +1569,7 @@ namespace wo
                 fields.push_back(field_pair);
 
                 if (!exist_field_name.insert(field_pair->m_name).second)
-                    return token{ lex.lang_error(lexer::errorlevel::error, field,
+                    return token{ lex.record_lang_error(lexer::msglevel_t::error, field,
                         WO_ERR_REPEATED_FIELD_NAMED,
                         field_pair->m_name->c_str()) };
             }
@@ -1617,7 +1608,7 @@ namespace wo
             AstValueBase* value = WO_NEED_AST_VALUE(2);
 
             if (key->m_making_vec || key->m_elements.size() != 1)
-                return token{ lex.lang_error(lexer::errorlevel::error, key, WO_ERR_INVALID_KEY_EXPR) };
+                return token{ lex.record_lang_error(lexer::msglevel_t::error, key, WO_ERR_INVALID_KEY_EXPR) };
 
             // NOTE: Abondon the key node.
 
@@ -1746,7 +1737,7 @@ namespace wo
                     else if (attribute_token->m_token.identifier == L"repeat")
                         attribute_mask |= AstExternInformation::REPEATABLE;
                     else
-                        return token{ lex.lang_error(lexer::errorlevel::error, attribute, WO_ERR_UNKNOWN_EXTERN_ATTRIB) };
+                        return token{ lex.record_lang_error(lexer::msglevel_t::error, attribute, WO_ERR_UNKNOWN_EXTERN_ATTRIB) };
                 }
             }
 

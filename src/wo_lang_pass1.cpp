@@ -44,7 +44,7 @@ namespace wo
             auto determined_type_may_nullopt = init_value_type.value()->get_determined_type();
             if (!determined_type_may_nullopt.has_value())
             {
-                lex.lang_error(lexer::errorlevel::error, pattern,
+                lex.record_lang_error(lexer::msglevel_t::error, pattern,
                     WO_ERR_TYPE_DETERMINED_FAILED);
 
                 return false;
@@ -70,7 +70,7 @@ namespace wo
                 }
                 else
                 {
-                    lex.lang_error(lexer::errorlevel::error, pattern,
+                    lex.record_lang_error(lexer::msglevel_t::error, pattern,
                         WO_ERR_UNEXPECTED_MATCH_COUNT_FOR_TUPLE,
                         determined_type->m_external_type_description.m_tuple->m_element_types.size(),
                         tuple_pattern->m_fields.size());
@@ -79,7 +79,7 @@ namespace wo
             else
             {
                 // TODO: Give typename.
-                lex.lang_error(lexer::errorlevel::error, pattern,
+                lex.record_lang_error(lexer::msglevel_t::error, pattern,
                     WO_ERR_UNEXPECTED_MATCH_TYPE_FOR_TUPLE);
             }
             return false;
@@ -134,7 +134,7 @@ namespace wo
                     break;
             }
 
-            lex.lang_error(lexer::errorlevel::error, node,
+            lex.record_lang_error(lexer::msglevel_t::error, node,
                 WO_ERR_SYMBOL_IS_PROTECTED,
                 get_symbol_name_w(symbol_instance),
                 _get_scope_name(symbol_defined_in_name_space->m_this_scope.get()).c_str());
@@ -152,7 +152,7 @@ namespace wo
             if (location.source_file == path)
                 return true;
 
-            lex.lang_error(lexer::errorlevel::error, node,
+            lex.record_lang_error(lexer::msglevel_t::error, node,
                 WO_ERR_SYMBOL_IS_PRIVATE,
                 get_symbol_name_w(symbol_instance),
                 location.source_file->c_str());
@@ -166,7 +166,7 @@ namespace wo
 
         if (symbol_instance->m_symbol_declare_ast.has_value())
         {
-            lex.lang_error(lexer::errorlevel::infom, symbol_instance->m_symbol_declare_ast.value(),
+            lex.record_lang_error(lexer::msglevel_t::infom, symbol_instance->m_symbol_declare_ast.value(),
                 WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
                 get_symbol_name_w(symbol_instance));
         }
@@ -204,7 +204,7 @@ namespace wo
                     break;
             }
 
-            lex.lang_error(lexer::errorlevel::error, node,
+            lex.record_lang_error(lexer::msglevel_t::error, node,
                 WO_ERR_STRUCT_FIELD_IS_PROTECTED,
                 field_name->c_str(),
                 _get_scope_name(symbol_defined_in_name_space->m_this_scope.get()).c_str());
@@ -222,7 +222,7 @@ namespace wo
             if (location.source_file == path)
                 return true;
 
-            lex.lang_error(lexer::errorlevel::error, node,
+            lex.record_lang_error(lexer::msglevel_t::error, node,
                 WO_ERR_STRUCT_FIELD_IS_PRIVATE,
                 field_name->c_str(),
                 location.source_file->c_str());
@@ -236,7 +236,7 @@ namespace wo
 
         if (struct_type_inst->m_symbol_declare_ast.has_value())
         {
-            lex.lang_error(lexer::errorlevel::infom, struct_type_inst->m_symbol_declare_ast.value(),
+            lex.record_lang_error(lexer::msglevel_t::infom, struct_type_inst->m_symbol_declare_ast.value(),
                 WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
                 get_symbol_name_w(struct_type_inst));
         }
@@ -378,11 +378,11 @@ namespace wo
             if (!find_symbol_in_current_scope(lex, node, &ambiguous))
             {
                 if (node->m_find_type_only)
-                    lex.lang_error(lexer::errorlevel::error, node,
+                    lex.record_lang_error(lexer::msglevel_t::error, node,
                         WO_ERR_UNFOUND_TYPE_NAMED,
                         node->m_name->c_str());
                 else
-                    lex.lang_error(lexer::errorlevel::error, node,
+                    lex.record_lang_error(lexer::msglevel_t::error, node,
                         WO_ERR_UNFOUND_VARIABLE_NAMED,
                         node->m_name->c_str());
 
@@ -404,13 +404,13 @@ namespace wo
                 {
                     if (accept_template_arguments)
                     {
-                        lex.lang_error(lexer::errorlevel::error, node,
+                        lex.record_lang_error(lexer::msglevel_t::error, node,
                             WO_ERR_EXPECTED_TEMPLATE_ARGUMENT,
                             get_symbol_name_w(symbol));
 
                         if (symbol->m_symbol_declare_ast.has_value())
                         {
-                            lex.lang_error(lexer::errorlevel::infom, symbol->m_symbol_declare_ast.value(),
+                            lex.record_lang_error(lexer::msglevel_t::infom, symbol->m_symbol_declare_ast.value(),
                                 WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
                                 get_symbol_name_w(symbol));
                         }
@@ -422,13 +422,13 @@ namespace wo
                         // Template argument refill is vaild for alias.
                         if (symbol->m_symbol_kind != lang_Symbol::kind::ALIAS)
                         {
-                            lex.lang_error(lexer::errorlevel::error, node,
+                            lex.record_lang_error(lexer::msglevel_t::error, node,
                                 WO_ERR_UNEXPECTED_TEMPLATE_ARGUMENT,
                                 get_symbol_name_w(symbol));
 
                             if (symbol->m_symbol_declare_ast.has_value())
                             {
-                                lex.lang_error(lexer::errorlevel::infom, symbol->m_symbol_declare_ast.value(),
+                                lex.record_lang_error(lexer::msglevel_t::infom, symbol->m_symbol_declare_ast.value(),
                                     WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
                                     get_symbol_name_w(symbol));
                             }
@@ -457,24 +457,25 @@ namespace wo
         {
             end_last_scope(); // Leave temporary advance the processing of declaration nodes.
 
-            auto current_error_frame = lex.get_cur_error_frame();
+            auto /* copy */ current_error_frame = lex.get_current_error_frame();
             lex.end_trying_block();
 
-            auto& last_error_frame = lex.get_cur_error_frame();
+            auto& last_error_frame = lex.get_current_error_frame();
 
             for (auto& errinform : current_error_frame)
             {
                 // NOTE: Advanced judgement failed, only non-template will be here. 
                 // make sure report it into error list.
-                lex.error_impl(errinform);
+                lex.append_message(errinform);
 
-                if (&last_error_frame != &lex.lex_error_list)
+                auto& root_error_frame = lex.get_root_error_frame();
+                if (&last_error_frame != &root_error_frame)
                 {
-                    auto& supper_error = lex.lex_error_list.emplace_back(errinform);
-                    if (supper_error.error_level == lexer::errorlevel::error)
-                        supper_error.depth = 0;
+                    auto& supper_error = root_error_frame.emplace_back(errinform);
+                    if (supper_error.m_level == lexer::msglevel_t::error)
+                        supper_error.m_layer = 0;
                     else
-                        supper_error.depth = 1;
+                        supper_error.m_layer = 1;
                 }
             }
         }
@@ -623,7 +624,7 @@ namespace wo
                             // NOTE: Type not decided is okay, but alias not.
                             if (type_symbol->m_symbol_kind == lang_Symbol::ALIAS)
                             {
-                                lex.lang_error(lexer::errorlevel::error, node,
+                                lex.record_lang_error(lexer::msglevel_t::error, node,
                                     WO_ERR_TYPE_DETERMINED_FAILED);
                                 return FAILED;
                             }
@@ -646,18 +647,18 @@ namespace wo
                                 wo_assert(refiliing_symbol->m_symbol_kind == lang_Symbol::kind::TYPE);
                                 if (!refiliing_symbol->m_is_template && !refiliing_symbol->m_is_builtin)
                                 {
-                                    lex.lang_error(lexer::errorlevel::error, node,
+                                    lex.record_lang_error(lexer::msglevel_t::error, node,
                                         WO_ERR_UNEXPECTED_TEMPLATE_ARGUMENT,
                                         get_symbol_name_w(refiliing_symbol));
 
-                                    lex.lang_error(lexer::errorlevel::infom, node,
+                                    lex.record_lang_error(lexer::msglevel_t::infom, node,
                                         WO_INFO_TRYING_REFILL_TEMPLATE_ARGUMENT,
                                         get_type_name_w(alias_instance->m_determined_type.value()),
                                         get_symbol_name_w(alias_instance->m_symbol));
 
                                     if (refiliing_symbol->m_symbol_declare_ast.has_value())
                                     {
-                                        lex.lang_error(lexer::errorlevel::infom, refiliing_symbol->m_symbol_declare_ast.value(),
+                                        lex.record_lang_error(lexer::msglevel_t::infom, refiliing_symbol->m_symbol_declare_ast.value(),
                                             WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
                                             get_symbol_name_w(refiliing_symbol));
                                     }
@@ -791,24 +792,25 @@ namespace wo
         {
             end_last_scope(); // Leave temporary advance the processing of declaration nodes.
 
-            auto current_error_frame = lex.get_cur_error_frame();
+            auto current_error_frame = lex.get_current_error_frame();
             lex.end_trying_block();
 
-            auto& last_error_frame = lex.get_cur_error_frame();
+            auto& last_error_frame = lex.get_current_error_frame();
 
             for (auto& errinform : current_error_frame)
             {
                 // NOTE: Advanced judgement failed, only non-template will be here. 
                 // make sure report it into error list.
-                lex.error_impl(errinform);
+                lex.append_message(errinform);
 
-                if (&last_error_frame != &lex.lex_error_list)
+                auto& root_error_frame = lex.get_root_error_frame();
+                if (&last_error_frame != &root_error_frame)
                 {
-                    auto& supper_error = lex.lex_error_list.emplace_back(errinform);
-                    if (supper_error.error_level == lexer::errorlevel::error)
-                        supper_error.depth = 0;
+                    auto& supper_error = root_error_frame.emplace_back(errinform);
+                    if (supper_error.m_level == lexer::msglevel_t::error)
+                        supper_error.m_layer = 0;
                     else
-                        supper_error.depth = 1;
+                        supper_error.m_layer = 1;
                 }
             }
         }
@@ -929,13 +931,13 @@ namespace wo
                 }
 
                 // Type determined failed in AstVariableDefines, treat as failed.
-                lex.lang_error(lexer::errorlevel::error, node,
+                lex.record_lang_error(lexer::msglevel_t::error, node,
                     WO_ERR_VALUE_TYPE_DETERMINED_FAILED);
 
                 if (var_symbol->m_symbol_declare_ast.has_value())
                 {
-                    lex.lang_error(
-                        lexer::errorlevel::infom,
+                    lex.record_lang_error(
+                        lexer::msglevel_t::infom,
                         var_symbol->m_symbol_declare_ast.value(),
                         WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
                         get_symbol_name_w(var_symbol));
@@ -1079,12 +1081,12 @@ namespace wo
                 }
                 else
                 {
-                    lex.lang_error(lexer::errorlevel::error, node,
+                    lex.record_lang_error(lexer::msglevel_t::error, node,
                         WO_ERR_REDEFINED,
                         node->m_typename->c_str());
 
                     if (defined_symbol->m_symbol_declare_ast.has_value())
-                        lex.lang_error(lexer::errorlevel::infom,
+                        lex.record_lang_error(lexer::msglevel_t::infom,
                             defined_symbol->m_symbol_declare_ast.value(),
                             WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
                             get_symbol_name_w(defined_symbol));
@@ -1148,12 +1150,12 @@ namespace wo
                 }
                 else
                 {
-                    lex.lang_error(lexer::errorlevel::error, node,
+                    lex.record_lang_error(lexer::msglevel_t::error, node,
                         WO_ERR_REDEFINED,
                         node->m_typename->c_str());
 
                     if (defined_symbol->m_symbol_declare_ast.has_value())
-                        lex.lang_error(lexer::errorlevel::infom,
+                        lex.record_lang_error(lexer::msglevel_t::infom,
                             defined_symbol->m_symbol_declare_ast.value(),
                             WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
                             get_symbol_name_w(defined_symbol));
@@ -1216,7 +1218,7 @@ namespace wo
                 if (!constraint->m_evaled_const_value)
                 {
                     failed = true;
-                    lex.lang_error(lexer::errorlevel::error, constraint,
+                    lex.record_lang_error(lexer::msglevel_t::error, constraint,
                         WO_ERR_CONSTRAINT_SHOULD_BE_CONST);
                     continue;
                 }
@@ -1225,7 +1227,7 @@ namespace wo
                 if (constraint_type != m_origin_types.m_bool.m_type_instance)
                 {
                     failed = true;
-                    lex.lang_error(lexer::errorlevel::error, constraint,
+                    lex.record_lang_error(lexer::msglevel_t::error, constraint,
                         WO_ERR_CONSTRAINT_SHOULD_BE_BOOL);
                     continue;
                 }
@@ -1233,7 +1235,7 @@ namespace wo
                 if (!constraint->m_evaled_const_value.value().integer)
                 {
                     failed = true;
-                    lex.lang_error(lexer::errorlevel::error, constraint,
+                    lex.record_lang_error(lexer::msglevel_t::error, constraint,
                         WO_ERR_CONSTRAINT_FAILED);
                     continue;
                 }
@@ -1305,7 +1307,7 @@ namespace wo
             if (node->m_pending_param_type_mark_template.has_value()
                 && !node->m_LANG_in_template_reification_context)
             {
-                lex.lang_error(lexer::errorlevel::error, node,
+                lex.record_lang_error(lexer::msglevel_t::error, node,
                     WO_ERR_NOT_IN_REIFICATION_TEMPLATE_FUNC);
                 return FAILED;
             }
@@ -1395,7 +1397,7 @@ namespace wo
                         return_type_instance,
                         determined_return_type))
                     {
-                        lex.lang_error(lexer::errorlevel::error, node,
+                        lex.record_lang_error(lexer::msglevel_t::error, node,
                             WO_ERR_UNMATCHED_RETURN_TYPE_NAMED,
                             get_type_name_w(determined_return_type),
                             get_type_name_w(return_type_instance));
@@ -1414,14 +1416,14 @@ namespace wo
                 {
                     if (node->m_LANG_captured_context.m_self_referenced)
                     {
-                        lex.lang_error(lexer::errorlevel::error, node,
+                        lex.record_lang_error(lexer::msglevel_t::error, node,
                             WO_ERR_UNABLE_CAPTURE_IN_RECURSIVE_FUNC);
 
                         for (auto& [captured_from, capture_instance] : node->m_LANG_captured_context.m_captured_variables)
                         {
                             for (auto& ref_variable : capture_instance.m_referenced_variables)
                             {
-                                lex.lang_error(lexer::errorlevel::infom,
+                                lex.record_lang_error(lexer::msglevel_t::infom,
                                     ref_variable,
                                     WO_INFO_CAPTURED_VARIABLE_USED_HERE,
                                     get_value_name_w(captured_from));
@@ -1522,12 +1524,12 @@ namespace wo
                         }
                         else
                         {
-                            lex.lang_error(lexer::errorlevel::error, node,
+                            lex.record_lang_error(lexer::msglevel_t::error, node,
                                 WO_ERR_UNABLE_TO_MIX_TYPES,
                                 get_type_name_w(last_function_return_type),
                                 get_type_name_w(return_value_type));
 
-                            lex.lang_error(lexer::errorlevel::infom, function_instance,
+                            lex.record_lang_error(lexer::msglevel_t::infom, function_instance,
                                 WO_INFO_OLD_FUNCTION_RETURN_TYPE_IS,
                                 get_type_name_w(last_function_return_type));
 
@@ -1548,7 +1550,7 @@ namespace wo
                         return_type_instance,
                         return_value_type))
                     {
-                        lex.lang_error(lexer::errorlevel::error, node,
+                        lex.record_lang_error(lexer::msglevel_t::error, node,
                             WO_ERR_UNMATCHED_RETURN_TYPE_NAMED,
                             get_type_name_w(return_value_type),
                             get_type_name_w(return_type_instance));
@@ -1594,7 +1596,7 @@ namespace wo
                     if (lang_TypeInstance::TypeCheckResult::ACCEPT
                         != is_type_accepted(lex, element, array_elemnet_type, element_type))
                     {
-                        lex.lang_error(lexer::errorlevel::error,
+                        lex.record_lang_error(lexer::msglevel_t::error,
                             element,
                             WO_ERR_UNMATCHED_ARRAY_ELEMENT_TYPE_NAMED,
                             get_type_name_w(element_type),
@@ -1684,7 +1686,7 @@ namespace wo
                     if (lang_TypeInstance::TypeCheckResult::ACCEPT
                         != is_type_accepted(lex, element, key_type, element_key_type))
                     {
-                        lex.lang_error(lexer::errorlevel::error, element,
+                        lex.record_lang_error(lexer::msglevel_t::error, element,
                             WO_ERR_UNMATCHED_DICT_KEY_TYPE_NAMED,
                             get_type_name_w(element_key_type),
                             get_type_name_w(key_type));
@@ -1694,7 +1696,7 @@ namespace wo
                     if (lang_TypeInstance::TypeCheckResult::ACCEPT
                         != is_type_accepted(lex, element, value_type, element_value_type))
                     {
-                        lex.lang_error(lexer::errorlevel::error, element,
+                        lex.record_lang_error(lexer::msglevel_t::error, element,
                             WO_ERR_UNMATCHED_DICT_VALUE_TYPE_NAMED,
                             get_type_name_w(element_value_type),
                             get_type_name_w(value_type));
@@ -1737,7 +1739,7 @@ namespace wo
 
                     if (determined_base_type_instance->m_base_type != lang_TypeInstance::DeterminedType::TUPLE)
                     {
-                        lex.lang_error(lexer::errorlevel::error, element,
+                        lex.record_lang_error(lexer::msglevel_t::error, element,
                             WO_ERR_ONLY_EXPAND_TUPLE,
                             get_type_name_w(determined_type));
                         return FAILED;
@@ -1774,7 +1776,7 @@ namespace wo
 
             if (!container_determined_base_type)
             {
-                lex.lang_error(lexer::errorlevel::error, node->m_container,
+                lex.record_lang_error(lexer::msglevel_t::error, node->m_container,
                     WO_ERR_TYPE_NAMED_DETERMINED_FAILED,
                     get_type_name_w(container_type_instance));
 
@@ -1782,7 +1784,7 @@ namespace wo
             }
             if (!indexer_determined_base_type)
             {
-                lex.lang_error(lexer::errorlevel::error, node->m_index,
+                lex.record_lang_error(lexer::msglevel_t::error, node->m_index,
                     WO_ERR_TYPE_NAMED_DETERMINED_FAILED,
                     get_type_name_w(indexer_type_instance));
 
@@ -1803,7 +1805,7 @@ namespace wo
                 if (indexer_determined_base_type_instance->m_base_type
                     != lang_TypeInstance::DeterminedType::INTEGER)
                 {
-                    lex.lang_error(lexer::errorlevel::error, node->m_index,
+                    lex.record_lang_error(lexer::msglevel_t::error, node->m_index,
                         WO_ERR_CANNOT_INDEX_TYPE_WITH_TYPE,
                         get_type_name_w(container_type_instance),
                         get_type_name_w(indexer_type_instance));
@@ -1822,7 +1824,7 @@ namespace wo
                     ->m_external_type_description.m_dictionary_or_mapping
                     ->m_key_type) != immutable_type(indexer_type_instance))
                 {
-                    lex.lang_error(lexer::errorlevel::error, node->m_index,
+                    lex.record_lang_error(lexer::msglevel_t::error, node->m_index,
                         WO_ERR_CANNOT_INDEX_TYPE_WITH_TYPE,
                         get_type_name_w(container_type_instance),
                         get_type_name_w(indexer_type_instance));
@@ -1839,7 +1841,7 @@ namespace wo
                 if (m_origin_types.m_string.m_type_instance
                     != immutable_type(indexer_type_instance))
                 {
-                    lex.lang_error(lexer::errorlevel::error, node->m_index,
+                    lex.record_lang_error(lexer::msglevel_t::error, node->m_index,
                         WO_ERR_CANNOT_INDEX_TYPE_WITH_TYPE,
                         get_type_name_w(container_type_instance),
                         get_type_name_w(indexer_type_instance));
@@ -1847,7 +1849,7 @@ namespace wo
                 }
                 if (!node->m_index->m_evaled_const_value.has_value())
                 {
-                    lex.lang_error(lexer::errorlevel::error, node->m_index,
+                    lex.record_lang_error(lexer::msglevel_t::error, node->m_index,
                         WO_ERR_CANNOT_INDEX_STRUCT_WITH_NON_CONST);
                     return FAILED;
                 }
@@ -1864,7 +1866,7 @@ namespace wo
                 auto fnd = struct_type->m_member_types.find(member_name);
                 if (fnd == struct_type->m_member_types.end())
                 {
-                    lex.lang_error(lexer::errorlevel::error, node->m_index,
+                    lex.record_lang_error(lexer::msglevel_t::error, node->m_index,
                         WO_ERR_STRUCT_DONOT_HAVE_MAMBER_NAMED,
                         get_type_name_w(container_type_instance),
                         member_name->c_str());
@@ -1892,7 +1894,7 @@ namespace wo
                 if (m_origin_types.m_int.m_type_instance
                     != immutable_type(indexer_type_instance))
                 {
-                    lex.lang_error(lexer::errorlevel::error, node->m_index,
+                    lex.record_lang_error(lexer::msglevel_t::error, node->m_index,
                         WO_ERR_CANNOT_INDEX_TYPE_WITH_TYPE,
                         get_type_name_w(container_type_instance),
                         get_type_name_w(indexer_type_instance));
@@ -1900,7 +1902,7 @@ namespace wo
                 }
                 if (!node->m_index->m_evaled_const_value.has_value())
                 {
-                    lex.lang_error(lexer::errorlevel::error, node->m_index,
+                    lex.record_lang_error(lexer::msglevel_t::error, node->m_index,
                         WO_ERR_CANNOT_INDEX_TUPLE_WITH_NON_CONST);
                     return FAILED;
                 }
@@ -1914,7 +1916,7 @@ namespace wo
 
                 if (index < 0 || (size_t)index >= tuple_type->m_element_types.size())
                 {
-                    lex.lang_error(lexer::errorlevel::error, node->m_index,
+                    lex.record_lang_error(lexer::msglevel_t::error, node->m_index,
                         WO_ERR_TUPLE_INDEX_OUT_OF_RANGE,
                         get_type_name_w(container_type_instance),
                         tuple_type->m_element_types.size(),
@@ -1932,7 +1934,7 @@ namespace wo
                 if (indexer_determined_base_type_instance->m_base_type
                     != lang_TypeInstance::DeterminedType::INTEGER)
                 {
-                    lex.lang_error(lexer::errorlevel::error, node->m_index,
+                    lex.record_lang_error(lexer::msglevel_t::error, node->m_index,
                         WO_ERR_CANNOT_INDEX_TYPE_WITH_TYPE,
                         get_type_name_w(container_type_instance),
                         get_type_name_w(indexer_type_instance));
@@ -1952,7 +1954,7 @@ namespace wo
                         && wo::u8strnlen(
                             string_instance->c_str(), string_instance->size()) <= (size_t)index)
                     {
-                        lex.lang_error(lexer::errorlevel::error, node->m_index,
+                        lex.record_lang_error(lexer::msglevel_t::error, node->m_index,
                             WO_ERR_STRING_INDEX_OUT_OF_RANGE);
                         return FAILED;
                     }
@@ -1965,7 +1967,7 @@ namespace wo
                 break;
             }
             default:
-                lex.lang_error(lexer::errorlevel::error, node->m_container,
+                lex.record_lang_error(lexer::msglevel_t::error, node->m_container,
                     WO_ERR_UNINDEXABLE_TYPE_NAMED,
                     get_type_name_w(container_type_instance));
 
@@ -1993,7 +1995,7 @@ namespace wo
 
             if (!unpack_value_type_determined_base_type)
             {
-                lex.lang_error(lexer::errorlevel::error, node->m_unpack_value,
+                lex.record_lang_error(lexer::msglevel_t::error, node->m_unpack_value,
                     WO_ERR_TYPE_NAMED_DETERMINED_FAILED,
                     get_type_name_w(unpack_value_type_instance));
                 return FAILED;
@@ -2009,7 +2011,7 @@ namespace wo
             case lang_TypeInstance::DeterminedType::TUPLE:
                 break;
             default:
-                lex.lang_error(lexer::errorlevel::error, node->m_unpack_value,
+                lex.record_lang_error(lexer::msglevel_t::error, node->m_unpack_value,
                     WO_ERR_ONLY_EXPAND_ARRAY_VEC_AND_TUPLE,
                     get_type_name_w(unpack_value_type_instance));
                 return FAILED;
@@ -2079,7 +2081,7 @@ namespace wo
 
             if (!variable_instance->m_mutable)
             {
-                lex.lang_error(lexer::errorlevel::error, node,
+                lex.record_lang_error(lexer::msglevel_t::error, node,
                     WO_ERR_PATTERN_VARIABLE_SHOULD_BE_MUTABLE);
                 return FAILED;
             }
@@ -2098,7 +2100,7 @@ namespace wo
             lang_TypeInstance* index_result_type = node->m_index->m_LANG_determined_type.value();
             if (!node->m_index->m_LANG_result_is_mutable)
             {
-                lex.lang_error(lexer::errorlevel::error, node->m_index,
+                lex.record_lang_error(lexer::msglevel_t::error, node->m_index,
                     WO_ERR_PATTERN_INDEX_SHOULD_BE_MUTABLE_TYPE);
                 return FAILED;
             }
@@ -2128,7 +2130,7 @@ namespace wo
             if (lang_TypeInstance::TypeCheckResult::ACCEPT
                 != check_cast_able(lex, node, target_type, casting_value_type))
             {
-                lex.lang_error(lexer::errorlevel::error, node,
+                lex.record_lang_error(lexer::msglevel_t::error, node,
                     WO_ERR_CANNOT_CAST_TYPE_TO_TYPE,
                     get_type_name_w(casting_value_type),
                     get_type_name_w(target_type));
@@ -2483,7 +2485,7 @@ namespace wo
                 if (++node->m_current_argument == node->m_arguments_tobe_deduct.end())
                 {
                     // Failed...
-                    lex.lang_error(lexer::errorlevel::error, node->m_arguments_tobe_deduct.front().m_argument,
+                    lex.record_lang_error(lexer::msglevel_t::error, node->m_arguments_tobe_deduct.front().m_argument,
                         WO_ERR_FAILED_TO_DEDUCE_TEMPLATE_TYPE);
 
                     end_last_scope(); // End the scope.
@@ -2537,7 +2539,7 @@ namespace wo
                 auto param_type_determined_base_type = param_type->get_determined_type();
                 if (!param_type_determined_base_type.has_value())
                 {
-                    lex.lang_error(lexer::errorlevel::error, param_and_argument_pair.m_argument,
+                    lex.record_lang_error(lexer::msglevel_t::error, param_and_argument_pair.m_argument,
                         WO_ERR_TYPE_NAMED_DETERMINED_FAILED,
                         get_type_name_w(param_type));
                     return FAILED;
@@ -2546,7 +2548,7 @@ namespace wo
                 auto* param_type_determined_base_type_instance = param_type_determined_base_type.value();
                 if (param_type_determined_base_type_instance->m_base_type != lang_TypeInstance::DeterminedType::FUNCTION)
                 {
-                    lex.lang_error(lexer::errorlevel::error, param_and_argument_pair.m_argument,
+                    lex.record_lang_error(lexer::msglevel_t::error, param_and_argument_pair.m_argument,
                         WO_ERR_FAILED_TO_DEDUCE_TEMPLATE_TYPE);
                     return FAILED;
                 }
@@ -2591,7 +2593,7 @@ namespace wo
                     }
                     else
                     {
-                        lex.lang_error(lexer::errorlevel::error, argument,
+                        lex.record_lang_error(lexer::msglevel_t::error, argument,
                             WO_ERR_FAILED_TO_DEDUCE_TEMPLATE_TYPE);
                         return FAILED;
                     }
@@ -2651,7 +2653,7 @@ namespace wo
                     }
                     else
                     {
-                        lex.lang_error(lexer::errorlevel::error, argument,
+                        lex.record_lang_error(lexer::msglevel_t::error, argument,
                             WO_ERR_FAILED_TO_DEDUCE_TEMPLATE_TYPE);
                         return FAILED;
                     }
@@ -2997,7 +2999,7 @@ namespace wo
                     {
                         wo_assert(it_argument != it_argument_end);
 
-                        lex.lang_error(lexer::errorlevel::error, *it_argument,
+                        lex.record_lang_error(lexer::msglevel_t::error, *it_argument,
                             WO_ERR_FAILED_TO_DEDUCE_TEMPLATE_TYPE);
 
                         return FAILED;
@@ -3018,7 +3020,7 @@ namespace wo
 
                     if (!target_function_type_instance_determined_base_type.has_value())
                     {
-                        lex.lang_error(lexer::errorlevel::error, node->m_function,
+                        lex.record_lang_error(lexer::msglevel_t::error, node->m_function,
                             WO_ERR_FAILED_TO_DEDUCE_TEMPLATE_TYPE);
                         return FAILED;
                     }
@@ -3030,7 +3032,7 @@ namespace wo
                         != lang_TypeInstance::DeterminedType::FUNCTION)
                     {
                         // TODO: More detail.
-                        lex.lang_error(lexer::errorlevel::error, node->m_function,
+                        lex.record_lang_error(lexer::msglevel_t::error, node->m_function,
                             WO_ERR_TARGET_TYPE_IS_NOT_A_FUNCTION,
                             get_type_name_w(target_function_type_instance));
                         return FAILED;
@@ -3113,7 +3115,7 @@ namespace wo
                             pending_type_list += *param;
                         }
 
-                        lex.lang_error(lexer::errorlevel::error, function,
+                        lex.record_lang_error(lexer::msglevel_t::error, function,
                             WO_ERR_NOT_ALL_TEMPLATE_ARGUMENT_DETERMINED,
                             pending_type_list.c_str());
 
@@ -3180,13 +3182,13 @@ namespace wo
                             pending_type_list += *param;
                         }
 
-                        lex.lang_error(lexer::errorlevel::error, function_variable,
+                        lex.record_lang_error(lexer::msglevel_t::error, function_variable,
                             WO_ERR_NOT_ALL_TEMPLATE_ARGUMENT_DETERMINED,
                             pending_type_list.c_str());
 
                         if (symbol->m_symbol_declare_ast.has_value())
                         {
-                            lex.lang_error(lexer::errorlevel::infom, symbol->m_symbol_declare_ast.value(),
+                            lex.record_lang_error(lexer::msglevel_t::infom, symbol->m_symbol_declare_ast.value(),
                                 WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
                                 get_symbol_name_w(symbol));
                         }
@@ -3220,7 +3222,7 @@ namespace wo
 
                 if (!target_function_type_instance_determined_base_type.has_value())
                 {
-                    lex.lang_error(lexer::errorlevel::error, node->m_function,
+                    lex.record_lang_error(lexer::msglevel_t::error, node->m_function,
                         WO_ERR_TYPE_NAMED_DETERMINED_FAILED,
                         get_type_name_w(target_function_type_instance));
                     return FAILED;
@@ -3232,7 +3234,7 @@ namespace wo
                 if (target_function_type_instance_determined_base_type_instance->m_base_type
                     != lang_TypeInstance::DeterminedType::FUNCTION)
                 {
-                    lex.lang_error(lexer::errorlevel::error, node->m_function,
+                    lex.record_lang_error(lexer::msglevel_t::error, node->m_function,
                         WO_ERR_TARGET_TYPE_IS_NOT_A_FUNCTION,
                         get_type_name_w(target_function_type_instance));
                     return FAILED;
@@ -3263,7 +3265,7 @@ namespace wo
                         //  modify the value of the tc register; Therefore, if the calling behavior has
                         //  unpackargs, the value of tc can only be set before this instruction occurs
 
-                        lex.lang_error(lexer::errorlevel::error, argument_value,
+                        lex.record_lang_error(lexer::msglevel_t::error, argument_value,
                             WO_ERR_ARG_DEFINE_AFTER_EXPAND_VECARR);
                         return FAILED;
                     }
@@ -3340,7 +3342,7 @@ namespace wo
                 if (argument_types.size() < target_function_param_types.size()
                     && !expaned_array_or_vec)
                 {
-                    lex.lang_error(lexer::errorlevel::error, node,
+                    lex.record_lang_error(lexer::msglevel_t::error, node,
                         WO_ERR_ARGUMENT_TOO_LESS);
 
                     failed = true; // FAILED;
@@ -3348,7 +3350,7 @@ namespace wo
                 else if (argument_types.size() > target_function_param_types.size()
                     && !node->m_LANG_invoking_variadic_function)
                 {
-                    lex.lang_error(lexer::errorlevel::error, node,
+                    lex.record_lang_error(lexer::msglevel_t::error, node,
                         WO_ERR_ARGUMENT_TOO_MUCH);
 
                     failed = true; // FAILED;
@@ -3356,7 +3358,7 @@ namespace wo
 
                 if (failed)
                 {
-                    lex.lang_error(lexer::errorlevel::infom, node->m_function,
+                    lex.record_lang_error(lexer::msglevel_t::infom, node->m_function,
                         WO_INFO_THIS_VALUE_IS_TYPE_NAMED,
                         get_type_name_w(target_function_type_instance));
 
@@ -3379,7 +3381,7 @@ namespace wo
                     if (lang_TypeInstance::TypeCheckResult::ACCEPT
                         != is_type_accepted(lex, arg_node, immutable_type(param_type), immutable_type(type)))
                     {
-                        lex.lang_error(lexer::errorlevel::error, arg_node,
+                        lex.record_lang_error(lexer::msglevel_t::error, arg_node,
                             WO_ERR_CANNOT_ACCEPTABLE_TYPE_NAMED,
                             get_type_name_w(type),
                             get_type_name_w(param_type));
@@ -3404,7 +3406,7 @@ namespace wo
                 && node->m_LANG_hold_state == AstValueFunctionCall::HOLD_FOR_FUNCTION_EVAL)
             {
                 AstValueBase* first_argument = node->m_arguments.front();
-                lex.lang_error(lexer::errorlevel::infom, first_argument,
+                lex.record_lang_error(lexer::msglevel_t::infom, first_argument,
                     WO_INFO_TYPE_NAMED_BEFORE_DIRECT_SIGN,
                     get_type_name_w(first_argument->m_LANG_determined_type.value()));
             }
@@ -3438,13 +3440,13 @@ namespace wo
             wo_integer_t hash = 0;
             if (state == HOLD)
             {
-                wo_assert(lex.get_cur_error_frame().empty());
+                wo_assert(lex.get_current_error_frame().empty());
 
                 lang_TypeInstance* id_type_instance = node->m_id_type->m_LANG_determined_type.value();
                 hash = (wo_integer_t)(intptr_t)id_type_instance;
             }
             else
-                wo_assert(!lex.get_cur_error_frame().empty());
+                wo_assert(!lex.get_current_error_frame().empty());
 
             lex.end_trying_block();
 
@@ -3479,7 +3481,7 @@ namespace wo
                 if (lang_TypeInstance::TypeCheckResult::ACCEPT
                     != check_cast_able(lex, node, target_type, value_type))
                 {
-                    lex.lang_error(lexer::errorlevel::error, node->m_check_type,
+                    lex.record_lang_error(lexer::msglevel_t::error, node->m_check_type,
                         WO_ERR_CANNOT_CAST_TYPE_NAMED_FROM_DYNMAIC,
                         get_type_name_w(target_type));
 
@@ -3526,7 +3528,7 @@ namespace wo
                 if (lang_TypeInstance::TypeCheckResult::ACCEPT
                     != check_cast_able(lex, node, target_type, value_type))
                 {
-                    lex.lang_error(lexer::errorlevel::error, node->m_check_type,
+                    lex.record_lang_error(lexer::msglevel_t::error, node->m_check_type,
                         WO_ERR_CANNOT_CAST_TYPE_NAMED_FROM_DYNMAIC,
                         get_type_name_w(target_type));
 
@@ -3543,7 +3545,7 @@ namespace wo
                     target_type,
                     value_type))
                 {
-                    lex.lang_error(lexer::errorlevel::error, node->m_check_value,
+                    lex.record_lang_error(lexer::msglevel_t::error, node->m_check_value,
                         WO_ERR_CANNOT_ACCEPTABLE_TYPE_NAMED,
                         get_type_name_w(value_type),
                         get_type_name_w(target_type));
@@ -3745,7 +3747,7 @@ namespace wo
                 {
                     wo_assert(it_field != it_field_end);
 
-                    lex.lang_error(lexer::errorlevel::error, *it_field,
+                    lex.record_lang_error(lexer::msglevel_t::error, *it_field,
                         WO_ERR_FAILED_TO_DEDUCE_TEMPLATE_TYPE);
 
                     return FAILED;
@@ -3813,13 +3815,13 @@ namespace wo
                         pending_type_list += *param;
                     }
 
-                    lex.lang_error(lexer::errorlevel::error, target_struct_typeholder,
+                    lex.record_lang_error(lexer::msglevel_t::error, target_struct_typeholder,
                         WO_ERR_NOT_ALL_TEMPLATE_ARGUMENT_DETERMINED,
                         pending_type_list.c_str());
 
                     if (symbol->m_symbol_declare_ast.has_value())
                     {
-                        lex.lang_error(lexer::errorlevel::infom, symbol->m_symbol_declare_ast.value(),
+                        lex.record_lang_error(lexer::msglevel_t::infom, symbol->m_symbol_declare_ast.value(),
                             WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
                             get_symbol_name_w(symbol));
                     }
@@ -3896,7 +3898,7 @@ namespace wo
 
                     if (!determined_base_type.has_value())
                     {
-                        lex.lang_error(lexer::errorlevel::error, node,
+                        lex.record_lang_error(lexer::msglevel_t::error, node,
                             WO_ERR_TYPE_NAMED_DETERMINED_FAILED,
                             get_type_name_w(struct_type_instance));
 
@@ -3905,7 +3907,7 @@ namespace wo
 
                     if (determined_base_type.value()->m_base_type != lang_TypeInstance::DeterminedType::STRUCT)
                     {
-                        lex.lang_error(lexer::errorlevel::error, node,
+                        lex.record_lang_error(lexer::msglevel_t::error, node,
                             WO_ERR_TYPE_NAMED_IS_NOT_STRUCT,
                             get_type_name_w(struct_type_instance));
 
@@ -3948,7 +3950,7 @@ namespace wo
                 auto struct_determined_base_type = struct_type_instanc->get_determined_type();
                 if (!struct_determined_base_type.has_value())
                 {
-                    lex.lang_error(lexer::errorlevel::error, node,
+                    lex.record_lang_error(lexer::msglevel_t::error, node,
                         WO_ERR_TYPE_NAMED_DETERMINED_FAILED,
                         get_type_name_w(struct_type_instanc));
 
@@ -3964,14 +3966,14 @@ namespace wo
 
                 if (node->m_fields.size() < struct_type_info->m_member_types.size())
                 {
-                    lex.lang_error(lexer::errorlevel::error, node,
+                    lex.record_lang_error(lexer::msglevel_t::error, node,
                         WO_ERR_NOT_ALL_FIELD_INITIALIZED);
 
                     return FAILED;
                 }
                 else if (node->m_fields.size() > struct_type_info->m_member_types.size())
                 {
-                    lex.lang_error(lexer::errorlevel::error, node,
+                    lex.record_lang_error(lexer::msglevel_t::error, node,
                         WO_ERR_TOO_MUCH_FIELD_INITIALIZED);
 
                     return FAILED;
@@ -3984,7 +3986,7 @@ namespace wo
                     auto fnd = struct_type_info->m_member_types.find(field->m_name);
                     if (fnd == struct_type_info->m_member_types.end())
                     {
-                        lex.lang_error(lexer::errorlevel::error, field,
+                        lex.record_lang_error(lexer::msglevel_t::error, field,
                             WO_ERR_STRUCT_DONOT_HAVE_MAMBER_NAMED,
                             get_type_name_w(struct_type_instanc),
                             field->m_name->c_str());
@@ -4009,7 +4011,7 @@ namespace wo
                     if (lang_TypeInstance::TypeCheckResult::ACCEPT
                         != is_type_accepted(lex, field, accpet_field_type, field->m_value->m_LANG_determined_type.value()))
                     {
-                        lex.lang_error(lexer::errorlevel::error, field->m_value,
+                        lex.record_lang_error(lexer::msglevel_t::error, field->m_value,
                             WO_ERR_CANNOT_ACCEPTABLE_TYPE_NAMED,
                             get_type_name_w(field->m_value->m_LANG_determined_type.value()),
                             get_type_name_w(accpet_field_type));
@@ -4143,16 +4145,16 @@ namespace wo
 
                     if (left_type != right_type)
                     {
-                        lex.lang_error(lexer::errorlevel::error, node,
+                        lex.record_lang_error(lexer::msglevel_t::error, node,
                             WO_ERR_DIFFERENT_TYPE_IN_BINARY,
                             get_type_name_w(left_type),
                             get_type_name_w(right_type));
 
-                        lex.lang_error(lexer::errorlevel::infom, node->m_left,
+                        lex.record_lang_error(lexer::msglevel_t::infom, node->m_left,
                             WO_INFO_THIS_VALUE_IS_TYPE_NAMED,
                             get_type_name_w(left_type));
 
-                        lex.lang_error(lexer::errorlevel::infom, node->m_right,
+                        lex.record_lang_error(lexer::msglevel_t::infom, node->m_right,
                             WO_INFO_THIS_VALUE_IS_TYPE_NAMED,
                             get_type_name_w(right_type));
 
@@ -4161,7 +4163,7 @@ namespace wo
                     auto left_base_type = left_type->get_determined_type();
                     if (!left_base_type.has_value())
                     {
-                        lex.lang_error(lexer::errorlevel::error, node->m_left,
+                        lex.record_lang_error(lexer::msglevel_t::error, node->m_left,
                             WO_ERR_TYPE_NAMED_DETERMINED_FAILED,
                             get_type_name_w(left_type));
 
@@ -4259,7 +4261,7 @@ namespace wo
 
                     if (!accept_type)
                     {
-                        lex.lang_error(lexer::errorlevel::error, node->m_left,
+                        lex.record_lang_error(lexer::msglevel_t::error, node->m_left,
                             WO_ERR_UNACCEPTABLE_TYPE_IN_OPERATE,
                             get_type_name_w(left_type));
 
@@ -4280,14 +4282,14 @@ namespace wo
                         wo_integer_t right_int_value = node->m_right->m_evaled_const_value.value().integer;
                         if (right_int_value == 0)
                         {
-                            lex.lang_error(lexer::errorlevel::error, node->m_right, WO_ERR_BAD_DIV_ZERO);
+                            lex.record_lang_error(lexer::msglevel_t::error, node->m_right, WO_ERR_BAD_DIV_ZERO);
                             return FAILED;
                         }
                         else if (right_int_value == -1 
                             && node->m_left->m_evaled_const_value.has_value()
                             && node->m_left->m_evaled_const_value.value().integer == INT64_MIN)
                         {
-                            lex.lang_error(lexer::errorlevel::error, node, WO_ERR_BAD_DIV_OVERFLOW);
+                            lex.record_lang_error(lexer::msglevel_t::error, node, WO_ERR_BAD_DIV_OVERFLOW);
                             return FAILED;
                         }
                     }
@@ -4575,7 +4577,7 @@ namespace wo
                 auto detrmined_type = operand_type->get_determined_type();
                 if (!detrmined_type.has_value())
                 {
-                    lex.lang_error(lexer::errorlevel::error, node->m_operand,
+                    lex.record_lang_error(lexer::msglevel_t::error, node->m_operand,
                         WO_ERR_TYPE_NAMED_DETERMINED_FAILED,
                         get_type_name_w(operand_type));
 
@@ -4586,7 +4588,7 @@ namespace wo
                 if (detrmined_base_type->m_base_type != lang_TypeInstance::DeterminedType::INTEGER
                     && detrmined_base_type->m_base_type != lang_TypeInstance::DeterminedType::REAL)
                 {
-                    lex.lang_error(lexer::errorlevel::error, node->m_operand,
+                    lex.record_lang_error(lexer::msglevel_t::error, node->m_operand,
                         WO_ERR_UNACCEPTABLE_TYPE_IN_OPERATE,
                         get_type_name_w(operand_type));
 
@@ -4621,7 +4623,7 @@ namespace wo
                 auto detrmined_type = operand_type->get_determined_type();
                 if (!detrmined_type.has_value())
                 {
-                    lex.lang_error(lexer::errorlevel::error, node->m_operand,
+                    lex.record_lang_error(lexer::msglevel_t::error, node->m_operand,
                         WO_ERR_TYPE_NAMED_DETERMINED_FAILED,
                         get_type_name_w(operand_type));
 
@@ -4631,7 +4633,7 @@ namespace wo
                 auto* detrmined_base_type = detrmined_type.value();
                 if (detrmined_base_type->m_base_type != lang_TypeInstance::DeterminedType::BOOLEAN)
                 {
-                    lex.lang_error(lexer::errorlevel::error, node->m_operand,
+                    lex.record_lang_error(lexer::msglevel_t::error, node->m_operand,
                         WO_ERR_UNACCEPTABLE_TYPE_IN_OPERATE,
                         get_type_name_w(operand_type));
 
@@ -4676,7 +4678,7 @@ namespace wo
 
                 if (immutable_type(type_instance) != m_origin_types.m_bool.m_type_instance)
                 {
-                    lex.lang_error(lexer::errorlevel::error, node->m_condition,
+                    lex.record_lang_error(lexer::msglevel_t::error, node->m_condition,
                         WO_ERR_UNACCEPTABLE_TYPE_IN_COND,
                         get_type_name_w(type_instance));
 
@@ -4764,16 +4766,16 @@ namespace wo
                         }
                         else
                         {
-                            lex.lang_error(lexer::errorlevel::error, node,
+                            lex.record_lang_error(lexer::msglevel_t::error, node,
                                 WO_ERR_UNABLE_TO_MIX_TYPES,
                                 get_type_name_w(true_type_instance),
                                 get_type_name_w(false_type_instance));
 
-                            lex.lang_error(lexer::errorlevel::infom, node->m_true_value,
+                            lex.record_lang_error(lexer::msglevel_t::infom, node->m_true_value,
                                 WO_INFO_THIS_VALUE_IS_TYPE_NAMED,
                                 get_type_name_w(true_type_instance));
 
-                            lex.lang_error(lexer::errorlevel::infom, node->m_false_value,
+                            lex.record_lang_error(lexer::msglevel_t::infom, node->m_false_value,
                                 WO_INFO_THIS_VALUE_IS_TYPE_NAMED,
                                 get_type_name_w(false_type_instance));
 
@@ -4789,7 +4791,7 @@ namespace wo
                             node_final_type,
                             true_type_instance))
                     {
-                        lex.lang_error(lexer::errorlevel::error, node->m_true_value,
+                        lex.record_lang_error(lexer::msglevel_t::error, node->m_true_value,
                             WO_ERR_CANNOT_ACCEPTABLE_TYPE_NAMED,
                             get_type_name_w(node_final_type),
                             get_type_name_w(true_type_instance));
@@ -4804,7 +4806,7 @@ namespace wo
                             node_final_type,
                             false_type_instance))
                     {
-                        lex.lang_error(lexer::errorlevel::error, node->m_false_value,
+                        lex.record_lang_error(lexer::msglevel_t::error, node->m_false_value,
                             WO_ERR_CANNOT_ACCEPTABLE_TYPE_NAMED,
                             get_type_name_w(node_final_type),
                             get_type_name_w(false_type_instance));
@@ -4841,7 +4843,7 @@ namespace wo
         auto current_function = get_current_function();
         if (!current_function.has_value() || !current_function.value()->m_is_variadic)
         {
-            lex.lang_error(lexer::errorlevel::error, node, WO_ERR_UNEXPECTED_PACKEDARGS);
+            lex.record_lang_error(lexer::msglevel_t::error, node, WO_ERR_UNEXPECTED_PACKEDARGS);
             return FAILED;
         }
         node->m_LANG_function_instance = current_function;
@@ -4875,7 +4877,7 @@ namespace wo
                 {
                     end_last_scope();
 
-                    lex.lang_error(lexer::errorlevel::error, node->m_matched_value,
+                    lex.record_lang_error(lexer::msglevel_t::error, node->m_matched_value,
                         WO_ERR_TYPE_NAMED_DETERMINED_FAILED,
                         get_type_name_w(matching_typeinstance));
 
@@ -4890,7 +4892,7 @@ namespace wo
                 {
                     end_last_scope();
 
-                    lex.lang_error(lexer::errorlevel::error, node->m_matched_value,
+                    lex.record_lang_error(lexer::msglevel_t::error, node->m_matched_value,
                         WO_ERR_UNEXPECTED_MACTHING_TYPE,
                         get_type_name_w(matching_typeinstance));
 
@@ -4924,7 +4926,7 @@ namespace wo
                     {
                         end_last_scope();
 
-                        lex.lang_error(lexer::errorlevel::error, match_case,
+                        lex.record_lang_error(lexer::msglevel_t::error, match_case,
                             WO_ERR_TAKEPLACE_PATTERN_MATCHED);
                         return FAILED;
                     }
@@ -4938,7 +4940,7 @@ namespace wo
                         {
                             end_last_scope();
 
-                            lex.lang_error(lexer::errorlevel::error, union_pattern,
+                            lex.record_lang_error(lexer::msglevel_t::error, union_pattern,
                                 WO_ERR_EXISTS_CASE_NAMED_IN_MATCH,
                                 union_pattern->m_tag->c_str());
 
@@ -4950,7 +4952,7 @@ namespace wo
                         {
                             end_last_scope();
 
-                            lex.lang_error(lexer::errorlevel::error, union_pattern,
+                            lex.record_lang_error(lexer::msglevel_t::error, union_pattern,
                                 WO_ERR_UNEXISTS_CASE_NAMED_IN_MATCH,
                                 union_pattern->m_tag->c_str());
 
@@ -4963,12 +4965,12 @@ namespace wo
                             end_last_scope();
 
                             if (pattern_include_value)
-                                lex.lang_error(lexer::errorlevel::error, union_pattern,
+                                lex.record_lang_error(lexer::msglevel_t::error, union_pattern,
                                     WO_ERR_HAVE_VALUE_CASE_IN_MATCH,
                                     get_type_name_w(matching_typeinstance),
                                     union_pattern->m_tag->c_str());
                             else
-                                lex.lang_error(lexer::errorlevel::error, union_pattern,
+                                lex.record_lang_error(lexer::msglevel_t::error, union_pattern,
                                     WO_ERR_HAVE_NOT_VALUE_CASE_IN_MATCH,
                                     get_type_name_w(matching_typeinstance),
                                     union_pattern->m_tag->c_str());
@@ -4999,7 +5001,7 @@ namespace wo
                 {
                     end_last_scope();
 
-                    lex.lang_error(lexer::errorlevel::error, node,
+                    lex.record_lang_error(lexer::msglevel_t::error, node,
                         WO_ERR_ALL_CASES_SHOULD_BE_MATCHED);
                     return FAILED;
                 }
@@ -5102,7 +5104,7 @@ namespace wo
 
                 if (condition_typeinstance != m_origin_types.m_bool.m_type_instance)
                 {
-                    lex.lang_error(lexer::errorlevel::error, node->m_condition,
+                    lex.record_lang_error(lexer::msglevel_t::error, node->m_condition,
                         WO_ERR_UNACCEPTABLE_TYPE_IN_COND,
                         get_type_name_w(condition_typeinstance));
                     return FAILED;
@@ -5154,7 +5156,7 @@ namespace wo
 
                 if (condition_typeinstance != m_origin_types.m_bool.m_type_instance)
                 {
-                    lex.lang_error(lexer::errorlevel::error, node->m_condition,
+                    lex.record_lang_error(lexer::msglevel_t::error, node->m_condition,
                         WO_ERR_UNACCEPTABLE_TYPE_IN_COND,
                         get_type_name_w(condition_typeinstance));
                     return FAILED;
@@ -5210,7 +5212,7 @@ namespace wo
 
                     if (condition_typeinstance != m_origin_types.m_bool.m_type_instance)
                     {
-                        lex.lang_error(lexer::errorlevel::error, node->m_condition.value(),
+                        lex.record_lang_error(lexer::msglevel_t::error, node->m_condition.value(),
                             WO_ERR_UNACCEPTABLE_TYPE_IN_COND,
                             get_type_name_w(condition_typeinstance));
 
@@ -5383,7 +5385,7 @@ namespace wo
                     immutable_type(left_type),
                     immutable_type(right_type)))
                 {
-                    lex.lang_error(lexer::errorlevel::error, node->m_right,
+                    lex.record_lang_error(lexer::msglevel_t::error, node->m_right,
                         WO_ERR_CANNOT_ACCEPTABLE_TYPE_NAMED,
                         get_type_name_w(right_type),
                         get_type_name_w(left_type));
@@ -5394,7 +5396,7 @@ namespace wo
                 auto left_base_type = left_type->get_determined_type();
                 if (!left_base_type.has_value())
                 {
-                    lex.lang_error(lexer::errorlevel::error, node->m_assign_place,
+                    lex.record_lang_error(lexer::msglevel_t::error, node->m_assign_place,
                         WO_ERR_TYPE_NAMED_DETERMINED_FAILED,
                         get_type_name_w(left_type));
 
@@ -5443,7 +5445,7 @@ namespace wo
 
                 if (!accept_type)
                 {
-                    lex.lang_error(lexer::errorlevel::error, node->m_right,
+                    lex.record_lang_error(lexer::msglevel_t::error, node->m_right,
                         WO_ERR_CANNOT_ACCEPTABLE_TYPE_NAMED,
                         get_type_name_w(right_type),
                         get_type_name_w(left_type));
@@ -5464,7 +5466,7 @@ namespace wo
                     wo_integer_t right_int_value = node->m_right->m_evaled_const_value.value().integer;
                     if (right_int_value == 0)
                     {
-                        lex.lang_error(lexer::errorlevel::error, node->m_right, WO_ERR_BAD_DIV_ZERO);
+                        lex.record_lang_error(lexer::msglevel_t::error, node->m_right, WO_ERR_BAD_DIV_ZERO);
                         return FAILED;
                     }
                 }
@@ -5504,7 +5506,7 @@ namespace wo
 
                 if (lang_TypeInstance::TypeCheckResult::ACCEPT != is_type_accepted(lex, node, left_type, func_result_type))
                 {
-                    lex.lang_error(lexer::errorlevel::error, node,
+                    lex.record_lang_error(lexer::msglevel_t::error, node,
                         WO_ERR_CANNOT_ACCEPTABLE_TYPE_NAMED,
                         get_type_name_w(func_result_type),
                         get_type_name_w(left_type));
@@ -5558,7 +5560,7 @@ namespace wo
                 node->m_IR_externed_function = rslib_std_bad_function;
             else
             {
-                lex.lang_error(lexer::errorlevel::error, node,
+                lex.record_lang_error(lexer::msglevel_t::error, node,
                     WO_ERR_UNABLE_TO_FIND_EXTERN_FUNCTION,
                     node->m_extern_from_library.value_or(WO_PSTR(woolang))->c_str(),
                     node->m_extern_symbol->c_str());
@@ -5592,7 +5594,7 @@ namespace wo
                     && node_state.m_state != pass_behavior::HOLD_BUT_CHILD_FAILED)
                 {
                     // RECURSIVE EVALUATION.
-                    lex.lang_error(lexer::errorlevel::error, node_state.m_ast_node,
+                    lex.record_lang_error(lexer::msglevel_t::error, node_state.m_ast_node,
                         WO_ERR_RECURSIVE_EVAL_PASS1);
 
                     return FAILED;

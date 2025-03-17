@@ -1270,18 +1270,17 @@ wo_bool_t _wo_cast_array(wo_vm vm, wo::value* value, wo::lexer* lex)
 
     while (true)
     {
-        auto lex_type = lex->peek(nullptr);
-        if (lex_type == wo::lex_type::l_index_end)
+        if (lex->peek()->m_lex_type == wo::lex_type::l_index_end)
         {
-            lex->next(nullptr);
+            lex->move_forward();
             break;
         }
 
         if (!_wo_cast_value(vm, &rsarr->emplace_back(), lex, wo::value::valuetype::invalid)) // val!
             return WO_FALSE;
 
-        if (lex->peek(nullptr) == wo::lex_type::l_comma)
-            lex->next(nullptr);
+        if (lex->peek()->m_lex_type == wo::lex_type::l_comma)
+            lex->move_forward();
     }
     return WO_TRUE;
 }
@@ -1298,11 +1297,10 @@ wo_bool_t _wo_cast_map(wo_vm vm, wo::value* value, wo::lexer* lex)
 
     while (true)
     {
-        auto lex_type = lex->peek(nullptr);
-        if (lex_type == wo::lex_type::l_right_curly_braces)
+        if (lex->peek()->m_lex_type == wo::lex_type::l_right_curly_braces)
         {
             // end
-            lex->next(nullptr);
+            lex->move_forward();
             break;
         }
 
@@ -1316,15 +1314,17 @@ wo_bool_t _wo_cast_map(wo_vm vm, wo::value* value, wo::lexer* lex)
 
         auto& val_place = (*rsmap)[*tempory_key_value_storage];
 
-        lex_type = lex->next(nullptr);
+        auto lex_type = lex->peek()->m_lex_type;
+        lex->move_forward();
+
         if (lex_type != wo::lex_type::l_typecast)
             return WO_FALSE;
 
         if (!_wo_cast_value(vm, &val_place, lex, wo::value::valuetype::invalid)) // value!
             return WO_FALSE;
 
-        if (lex->peek(nullptr) == wo::lex_type::l_comma)
-            lex->next(nullptr);
+        if (lex->peek()->m_lex_type == wo::lex_type::l_comma)
+            lex->move_forward();
     }
 
     if (tempory_key_value_storage != nullptr)
@@ -1334,58 +1334,77 @@ wo_bool_t _wo_cast_map(wo_vm vm, wo::value* value, wo::lexer* lex)
 }
 wo_bool_t _wo_cast_value(wo_vm vm, wo::value* value, wo::lexer* lex, wo::value::valuetype except_type)
 {
-    std::wstring wstr;
-    auto lex_type = lex->next(&wstr);
-    if (lex_type == wo::lex_type::l_left_curly_braces) // is map
+    auto* token = lex->peek();
+
+    if (token->m_lex_type == wo::lex_type::l_left_curly_braces) // is map
     {
+        lex->move_forward();
         if (!_wo_cast_map(vm, value, lex))
             return WO_FALSE;
     }
-    else if (lex_type == wo::lex_type::l_index_begin) // is array
+    else if (token->m_lex_type == wo::lex_type::l_index_begin) // is array
     {
+        lex->move_forward();
         if (!_wo_cast_array(vm, value, lex))
             return WO_FALSE;
     }
-    else if (lex_type == wo::lex_type::l_literal_string) // is string   
+    else if (token->m_lex_type == wo::lex_type::l_literal_string) // is string   
     {
-        value->set_string(wo::wstr_to_str(wstr));
+       value->set_string(wo::wstr_to_str(token->m_token_text));
+       lex->move_forward();
     }
-    else if (lex_type == wo::lex_type::l_add
-        || lex_type == wo::lex_type::l_sub
-        || lex_type == wo::lex_type::l_literal_integer
-        || lex_type == wo::lex_type::l_literal_real) // is integer
+    else if (token->m_lex_type == wo::lex_type::l_add
+        || token->m_lex_type == wo::lex_type::l_sub
+        || token->m_lex_type == wo::lex_type::l_literal_integer
+        || token->m_lex_type == wo::lex_type::l_literal_real) // is integer
     {
         bool positive = true;
-        if (lex_type == wo::lex_type::l_sub || lex_type == wo::lex_type::l_add)
+        if (token->m_lex_type == wo::lex_type::l_sub 
+            || token->m_lex_type == wo::lex_type::l_add)
         {
-            if (lex_type == wo::lex_type::l_sub)
+            if (token->m_lex_type == wo::lex_type::l_sub)
                 positive = false;
 
-            lex_type = lex->next(&wstr);
-            if (lex_type != wo::lex_type::l_literal_integer
-                && lex_type != wo::lex_type::l_literal_real)
+            lex->move_forward();
+
+            token = lex->peek();
+            if (token->m_lex_type != wo::lex_type::l_literal_integer
+                && token->m_lex_type != wo::lex_type::l_literal_real)
                 // wo_fail(WO_FAIL_TYPE_FAIL, "Unknown token while parsing.");
                 return WO_FALSE;
         }
 
-        if (lex_type == wo::lex_type::l_literal_integer) // is real
+        if (token->m_lex_type == wo::lex_type::l_literal_integer) // is real
             value->set_integer(positive
-                ? std::stoll(wo::wstr_to_str(wstr).c_str())
-                : -std::stoll(wo::wstr_to_str(wstr).c_str()));
-        else if (lex_type == wo::lex_type::l_literal_real) // is real
+                ? std::stoll(wo::wstr_to_str(token->m_token_text).c_str())
+                : -std::stoll(wo::wstr_to_str(token->m_token_text).c_str()));
+        else if (token->m_lex_type == wo::lex_type::l_literal_real) // is real
             value->set_real(positive
-                ? std::stod(wo::wstr_to_str(wstr).c_str())
-                : -std::stod(wo::wstr_to_str(wstr).c_str()));
+                ? std::stod(wo::wstr_to_str(token->m_token_text).c_str())
+                : -std::stod(wo::wstr_to_str(token->m_token_text).c_str()));
 
+        lex->move_forward();
     }
-    else if (lex_type == wo::lex_type::l_nil) // is nil
+    else if (token->m_lex_type == wo::lex_type::l_nil) // is nil
+    {
         value->set_nil();
-    else if (wstr == L"true")
+        lex->move_forward();
+    }
+    else if (token->m_token_text == L"true")
+    {
         value->set_bool(true);// true
-    else if (wstr == L"false")
+        lex->move_forward();
+    }
+    else if (token->m_token_text == L"false")
+    {
         value->set_bool(false);// false
-    else if (wstr == L"null")
+        lex->move_forward();
+    }
+    else if (token->m_token_text == L"null")
+    {
         value->set_nil();// null
+        lex->move_forward();
+    }
     else
         //wo_fail(WO_FAIL_TYPE_FAIL, "Unknown token while parsing.");
         return WO_FALSE;
@@ -1403,7 +1422,7 @@ wo_bool_t wo_deserialize(wo_vm vm, wo_value value, wo_string_t str, wo_type_t ex
     std::wstring strbuffer = wo::str_to_wstr(str);
 
     // NOTE: File name must be nullptr here to make sure macro not work.
-    wo::lexer lex(std::make_unique<std::wistringstream>(strbuffer), nullptr, nullptr);
+    wo::lexer lex(std::nullopt, std::nullopt, std::make_unique<std::wistringstream>(strbuffer));
     return _wo_cast_value(vm, WO_VAL(value), &lex, (wo::value::valuetype)except_type);
 }
 
@@ -2772,12 +2791,12 @@ wo::compile_result _wo_compile_impl(
 
             compile_lexer =
                 std::move(std::make_unique<wo::lexer>(
-                    std::make_unique<std::wistringstream>(std::wstring()),
+                    std::nullopt,
                     wo::wstring_pool::get_pstr(wvspath),
-                    nullptr));
+                    std::make_unique<std::wistringstream>(std::wstring())));
 
-            compile_lexer->lex_error(
-                wo::lexer::errorlevel::error,
+            (void)compile_lexer->record_parser_error(
+                wo::lexer::msglevel_t::error,
                 wo::str_to_wstr(load_binary_failed_reason).c_str());
         }
         else
@@ -2790,9 +2809,9 @@ wo::compile_result _wo_compile_impl(
 
                 std::wstring strbuffer = wo::str_to_wstr(std::string((const char*)src, len).c_str());
                 compile_lexer = std::move(std::make_unique<wo::lexer>(
-                    std::make_unique<std::wistringstream>(strbuffer),
+                    std::nullopt,
                     wo::wstring_pool::get_pstr(wvspath),
-                    nullptr));
+                    std::make_unique<std::wistringstream>(strbuffer)));
             }
             else
             {
@@ -2815,11 +2834,10 @@ wo::compile_result _wo_compile_impl(
                 }
 
                 compile_lexer = std::move(std::make_unique<wo::lexer>(
-                    std::move(content_stream),
+                    std::nullopt,
                     wo::wstring_pool::get_pstr(real_file_path),
-                    nullptr));
+                    std::move(content_stream)));
             }
-            compile_lexer->has_been_imported(compile_lexer->source_file);
 
 #ifndef WO_DISABLE_COMPILER
             if (!compile_lexer->has_error())
@@ -2849,7 +2867,7 @@ wo::compile_result _wo_compile_impl(
             }
 #else
             compile_lexer->lex_error(
-                wo::lexer::errorlevel::error, WO_ERR_COMPILER_DISABLED);
+                wo::lexer::msglevel_t::error, WO_ERR_COMPILER_DISABLED);
 #endif
         }
     }
@@ -2967,7 +2985,7 @@ wo_bool_t wo_has_compile_error(wo_vm vm)
 
 std::wstring _dump_src_info(
     const std::wstring& path,
-    const wo::lexer::lex_error_msg& errmsg,
+    const wo::lexer::compiler_message_t& errmsg,
     size_t depth,
     size_t beginaimrow,
     size_t beginpointplace,
@@ -3019,7 +3037,7 @@ std::wstring _dump_src_info(
                     std::wstring append_result = buf;
 
                     if (style == WO_NEED_COLOR)
-                        append_result += errmsg.error_level == wo::lexer::errorlevel::error
+                        append_result += errmsg.m_level == wo::lexer::msglevel_t::error
                         ? wo::str_to_wstr(ANSI_HIR)
                         : wo::str_to_wstr(ANSI_HIC);
 
@@ -3045,7 +3063,7 @@ std::wstring _dump_src_info(
                             + wo::str_to_wstr(ANSI_NUNDERLNE);
 
                         if (depth != 0)
-                            append_result += L": " + errmsg.describe;
+                            append_result += L": " + errmsg.m_describe;
                     }
                     else
                     {
@@ -3142,34 +3160,40 @@ std::string _wo_dump_lexer_context_error(wo::lexer* lex, wo_inform_style_t style
 
     size_t last_depth = 0;
 
-    for (auto& err_info : lex->lex_error_list)
+    for (auto& err_info : lex->get_current_error_frame())
     {
-        if (err_info.depth != 0)
+        if (err_info.m_layer != 0)
         {
-            auto see_also = wo::wstr_to_str(last_depth >= err_info.depth ? WO_SEE_ALSO : WO_SEE_HERE);
+            auto see_also = wo::wstr_to_str(last_depth >= err_info.m_layer ? WO_SEE_ALSO : WO_SEE_HERE);
             if (style == WO_NEED_COLOR)
                 _vm_compile_errors
-                += std::string(err_info.depth, ' ')
+                += std::string(err_info.m_layer, ' ')
                 + ANSI_HIY + see_also + ANSI_RST
                 + ":\n";
             else
                 _vm_compile_errors
-                += std::string(err_info.depth, ' ')
+                += std::string(err_info.m_layer, ' ')
                 + see_also
                 + ":\n";
         }
 
-        last_depth = err_info.depth;
+        last_depth = err_info.m_layer;
 
-        if (src_file_path != err_info.filename)
+        if (src_file_path != err_info.m_filename)
         {
             if (style == WO_NEED_COLOR)
-                _vm_compile_errors += ANSI_HIR "In file: '" ANSI_RST + wo::wstrn_to_str(src_file_path = err_info.filename) + ANSI_HIR "'" ANSI_RST "\n";
+                _vm_compile_errors += 
+                ANSI_HIR "In file: '" ANSI_RST 
+                + wo::wstrn_to_str(src_file_path = err_info.m_filename) 
+                + ANSI_HIR "'" ANSI_RST "\n";
             else
-                _vm_compile_errors += "In file: '" + wo::wstrn_to_str(src_file_path = err_info.filename) + "'\n";
+                _vm_compile_errors += 
+                "In file: '" 
+                + wo::wstrn_to_str(src_file_path = err_info.m_filename)
+                + "'\n";
         }
 
-        if (err_info.depth == 0)
+        if (err_info.m_layer == 0)
             _vm_compile_errors += wo::wstr_to_str(err_info.to_wstring(style & WO_NEED_COLOR)) + "\n";
 
         // Print source informations..
@@ -3177,15 +3201,15 @@ std::string _wo_dump_lexer_context_error(wo::lexer* lex, wo_inform_style_t style
             _dump_src_info(
                 src_file_path,
                 err_info,
-                err_info.depth,
-                err_info.begin_row,
-                err_info.begin_col,
-                err_info.end_row,
-                err_info.end_col,
+                err_info.m_layer,
+                err_info.m_range_begin[0],
+                err_info.m_range_begin[1],
+                err_info.m_range_end[0],
+                err_info.m_range_end[1],
                 style));
     }
 
-    if (lex->lex_error_list.size() >= WO_MAX_ERROR_COUNT)
+    if (lex->get_current_error_frame().size() >= WO_MAX_ERROR_COUNT)
         _vm_compile_errors += wo::wstr_to_str(WO_TOO_MANY_ERROR(WO_MAX_ERROR_COUNT) + L"\n");
 
     return _vm_compile_errors;
