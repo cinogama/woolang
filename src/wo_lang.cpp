@@ -406,7 +406,7 @@ namespace wo
     //////////////////////////////////////
 
     lang_AliasInstance::lang_AliasInstance(
-        lang_Symbol* symbol, 
+        lang_Symbol* symbol,
         const std::optional<std::list<lang_TypeInstance*>>& template_arguments)
         : m_symbol(symbol)
         , m_instance_template_arguments(template_arguments)
@@ -896,7 +896,7 @@ namespace wo
             wo_assert(symbol->m_is_builtin);
             if (!identifier->m_template_arguments)
             {
-                lex.lang_error(lexer::errorlevel::error, type_holder,
+                lex.record_lang_error(lexer::msglevel_t::error, type_holder,
                     WO_ERR_EXPECTED_TEMPLATE_ARGUMENT,
                     ctx->get_symbol_name_w(symbol));
 
@@ -909,7 +909,7 @@ namespace wo
             {
                 if (template_arguments.size() != 2)
                 {
-                    lex.lang_error(lexer::errorlevel::error, type_holder,
+                    lex.record_lang_error(lexer::msglevel_t::error, type_holder,
                         WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
                         (size_t)2);
 
@@ -925,7 +925,7 @@ namespace wo
             {
                 if (template_arguments.size() != 2)
                 {
-                    lex.lang_error(lexer::errorlevel::error, type_holder,
+                    lex.record_lang_error(lexer::msglevel_t::error, type_holder,
                         WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
                         (size_t)2);
 
@@ -941,7 +941,7 @@ namespace wo
             {
                 if (template_arguments.size() != 1)
                 {
-                    lex.lang_error(lexer::errorlevel::error, type_holder,
+                    lex.record_lang_error(lexer::msglevel_t::error, type_holder,
                         WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
                         (size_t)1);
 
@@ -954,7 +954,7 @@ namespace wo
             {
                 if (template_arguments.size() != 1)
                 {
-                    lex.lang_error(lexer::errorlevel::error, type_holder,
+                    lex.record_lang_error(lexer::msglevel_t::error, type_holder,
                         WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
                         (size_t)1);
 
@@ -965,7 +965,7 @@ namespace wo
             }
             else
             {
-                lex.lang_error(lexer::errorlevel::error, type_holder,
+                lex.record_lang_error(lexer::msglevel_t::error, type_holder,
                     WO_ERR_CANNOT_USE_BUILTIN_TYPENAME_HERE,
                     ctx->get_symbol_name_w(symbol));
 
@@ -1044,7 +1044,7 @@ namespace wo
 #ifndef NDEBUG
             if (top_state.m_debug_entry_scope == nullptr)
             {
-                top_state.m_lex_error_frame_count = lex.get_error_frame_count();
+                top_state.m_lex_error_frame_count = lex.get_error_frame_count_for_debug();
                 top_state.m_debug_scope_layer_count = m_scope_stack.size();
                 top_state.m_debug_entry_scope = get_current_scope();
 
@@ -1088,7 +1088,7 @@ namespace wo
 #ifndef NDEBUG
                 wo_assert(top_state.m_debug_entry_scope != nullptr);
                 wo_assert(top_state.m_debug_scope_layer_count == m_scope_stack.size());
-                wo_assert(top_state.m_lex_error_frame_count == lex.get_error_frame_count());
+                wo_assert(top_state.m_lex_error_frame_count == lex.get_error_frame_count_for_debug());
                 wo_assert(top_state.m_debug_entry_scope == get_current_scope());
                 wo_assert(top_state.m_debug_ir_eval_content ==
                     m_ircontext.m_eval_result_storage_target.size()
@@ -1335,7 +1335,7 @@ namespace wo
 
             if (!symbol->m_has_been_used)
             {
-                lex.lang_error(lexer::errorlevel::error,
+                lex.record_lang_error(lexer::msglevel_t::error,
                     symbol->m_symbol_declare_ast.value(),
                     WO_ERR_UNSED_VARIABLE,
                     lctx->get_symbol_name_w(symbol));
@@ -1410,12 +1410,11 @@ namespace wo
 
     compile_result LangContext::process(lexer& lex, ast::AstBase* root)
     {
-        if (lex.used_macro_list != nullptr)
-            for (auto& [_useless, macro_msg] : *lex.used_macro_list)
-            {
-                (void)_useless;
-                m_macros.push_back(std::make_unique<lang_Macro>(*macro_msg));
-            }
+        for (auto& [_useless, macro_msg] : lex.get_declared_macro_list_for_debug())
+        {
+            (void)_useless;
+            m_macros.push_back(std::make_unique<lang_Macro>(*macro_msg));
+        }
 
         pass_0_5_register_builtin_types();
 
@@ -1556,7 +1555,7 @@ namespace wo
 
                 if (!this_function_dont_have_unused_local_variable)
                 {
-                    lex.lang_error(lexer::errorlevel::infom, eval_function,
+                    lex.record_lang_error(lexer::msglevel_t::infom, eval_function,
                         WO_INFO_IN_FUNCTION_NAMED,
                         str_to_wstr(eval_fucntion_name).c_str());
                 }
@@ -1903,7 +1902,7 @@ namespace wo
             if (!out_ambig.has_value())
                 return std::nullopt;
 
-            lex.lang_error(lexer::errorlevel::error, ident,
+            lex.record_lang_error(lexer::msglevel_t::error, ident,
                 WO_ERR_AMBIGUOUS_TARGET_NAMED,
                 ident->m_name->c_str(),
                 get_symbol_name_w(result));
@@ -1911,12 +1910,12 @@ namespace wo
             for (auto* symbol : found_symbol)
             {
                 if (symbol->m_symbol_declare_ast.has_value())
-                    lex.lang_error(lexer::errorlevel::infom,
+                    lex.record_lang_error(lexer::msglevel_t::infom,
                         symbol->m_symbol_declare_ast.value(),
                         WO_INFO_MAYBE_NAMED_DEFINED_HERE,
                         get_symbol_name_w(symbol));
                 else
-                    lex.lang_error(lexer::errorlevel::infom,
+                    lex.record_lang_error(lexer::msglevel_t::infom,
                         ident,
                         WO_INFO_MAYBE_NAMED_DEFINED_IN_COMPILER,
                         get_symbol_name_w(symbol));
@@ -1951,7 +1950,7 @@ namespace wo
                 auto determined_type = (*from_type)->m_LANG_determined_type;
                 if (!determined_type)
                 {
-                    lex.lang_error(lexer::errorlevel::error, *from_type, WO_ERR_UNKNOWN_TYPE);
+                    lex.record_lang_error(lexer::msglevel_t::error, *from_type, WO_ERR_UNKNOWN_TYPE);
                     return std::nullopt;
                 }
                 type_instance = determined_type.value();
@@ -2043,7 +2042,7 @@ namespace wo
         lang_TypeInstance* template_arg)
     {
         lang_Symbol* symbol;
-        
+
         bool symbol_defined = define_symbol_in_current_scope(
             &symbol,
             template_param,
@@ -2610,7 +2609,7 @@ namespace wo
         }
         else
             eval_ignore();
-}
+    }
 
     opnum::opnumbase* BytecodeGenerateContext::get_eval_result()
     {
@@ -2786,8 +2785,8 @@ namespace wo
                 m_inused_temporary_registers.insert(std::make_pair(i, DebugBorrowRecord{ borrow_from , lineno }));
 #endif
                 return opnum_temporary(i);
+            }
         }
-    }
         wo_error("Temporary register exhausted.");
     }
     void BytecodeGenerateContext::keep_opnum_temporary_register(
@@ -2824,7 +2823,7 @@ namespace wo
                 , borrow_from, lineno
 #endif    
             );
-    }
+        }
     }
     void BytecodeGenerateContext::try_return_opnum_temporary_register(
         opnum::opnumbase* opnum_may_reg) noexcept

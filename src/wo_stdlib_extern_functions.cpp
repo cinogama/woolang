@@ -2972,7 +2972,8 @@ WO_API wo_api rslib_std_macro_lexer_error(wo_vm vm, wo_value args)
 {
     wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
 
-    lex->lex_error(wo::lexer::errorlevel::error, wo::str_to_wstr(wo_string(args + 1)).c_str());
+    (void)lex->record_parser_error(
+        wo::lexer::msglevel_t::error, wo::str_to_wstr(wo_string(args + 1)).c_str());
     return wo_ret_void(vm);
 }
 
@@ -2982,16 +2983,15 @@ WO_API wo_api rslib_std_macro_lexer_peek(wo_vm vm, wo_value args)
 
     wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
 
-    std::wstring out_result;
-    auto token_type = lex->peek(&out_result);
+    auto* token_instance = lex->peek();
 
     wo_value result = s + 0;
     wo_value elem = s + 1;
 
     wo_set_struct(result, vm, 2);
-    wo_set_int(elem, (wo_integer_t)token_type);
+    wo_set_int(elem, (wo_integer_t)token_instance->m_lex_type);
     wo_struct_set(result, 0, elem);
-    wo_set_string(elem, vm, wo::wstr_to_str(out_result).c_str());
+    wo_set_string(elem, vm, wo::wstr_to_str(token_instance->m_token_text).c_str());
     wo_struct_set(result, 1, elem);
 
     return wo_ret_val(vm, result);
@@ -3003,17 +3003,18 @@ WO_API wo_api rslib_std_macro_lexer_next(wo_vm vm, wo_value args)
 
     wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
 
-    std::wstring out_result;
-    auto token_type = lex->next(&out_result);
+    auto* token_instance = lex->peek();
 
     wo_value result = s + 0;
     wo_value elem = s + 1;
 
     wo_set_struct(result, vm, 2);
-    wo_set_int(elem, (wo_integer_t)token_type);
+    wo_set_int(elem, (wo_integer_t)token_instance->m_lex_type);
     wo_struct_set(result, 0, elem);
-    wo_set_string(elem, vm, wo::wstr_to_str(out_result).c_str());
+    wo_set_string(elem, vm, wo::wstr_to_str(token_instance->m_token_text).c_str());
     wo_struct_set(result, 1, elem);
+
+    lex->move_forward();
 
     return wo_ret_val(vm, result);
 }
@@ -3024,7 +3025,7 @@ WO_API wo_api rslib_std_macro_lexer_nextch(wo_vm vm, wo_value args)
 
     wchar_t ch[2] = {};
 
-    int readch = lex->next_one();
+    int readch = lex->read_char();
 
     if (readch == EOF)
         return wo_ret_string(vm, "");
@@ -3039,7 +3040,7 @@ WO_API wo_api rslib_std_macro_lexer_peekch(wo_vm vm, wo_value args)
 
     wchar_t ch[2] = {};
 
-    int readch = lex->peek_one();
+    int readch = lex->peek_char();
 
     if (readch == EOF)
         return wo_ret_string(vm, "");
@@ -3051,19 +3052,26 @@ WO_API wo_api rslib_std_macro_lexer_peekch(wo_vm vm, wo_value args)
 WO_API wo_api rslib_std_macro_lexer_current_path(wo_vm vm, wo_value args)
 {
     wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
-    return wo_ret_string(vm, wo::wstr_to_str(*lex->source_file).c_str());
+    return wo_ret_string(vm, wo::wstr_to_str(*lex->get_source_path()).c_str());
 }
 
-WO_API wo_api rslib_std_macro_lexer_current_rowno(wo_vm vm, wo_value args)
+WO_API wo_api rslib_std_macro_lexer_current_location(wo_vm vm, wo_value args)
 {
-    wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
-    return wo_ret_int(vm, (wo_integer_t)lex->now_file_rowno);
-}
+    wo_value s = wo_reserve_stack(vm, 2, &args);
 
-WO_API wo_api rslib_std_macro_lexer_current_colno(wo_vm vm, wo_value args)
-{
     wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
-    return wo_ret_int(vm, (wo_integer_t)lex->now_file_colno);
+
+    size_t row, col;
+    lex->get_now_location(&row, &col);
+
+    wo_value result = s + 0;
+    wo_value elem = s + 1;
+
+    wo_set_struct(result, vm, 2);
+    wo_set_int(elem, (wo_integer_t)row);
+    wo_struct_set(result, 0, elem);
+
+    return wo_ret_val(vm, result);
 }
 
 const char* wo_stdlib_macro_src_path = u8"woo/macro.wo";
@@ -3179,10 +3187,10 @@ namespace std
         extern("rslib_std_macro_lexer_error")
             public func error(lex: lexer, msg: string)=> void;
 
-        extern("rslib_std_macro_lexer_peek")
+        extern("rslib_std_macro_lexer_peek", slow)
             public func peek_token(lex: lexer)=> (token_type, string);
 
-        extern("rslib_std_macro_lexer_next")
+        extern("rslib_std_macro_lexer_next", slow)
             public func next_token(lex: lexer)=> (token_type, string);
         
         private func wrap_token(type: token_type, str: string)
@@ -3230,11 +3238,8 @@ namespace std
         extern("rslib_std_macro_lexer_current_path")
             public func path(lex: lexer) => string;
 
-        extern("rslib_std_macro_lexer_current_rowno")
-            public func row(lex: lexer) => int;
-
-        extern("rslib_std_macro_lexer_current_colno")
-            public func col(lex: lexer) => int;
+        extern("rslib_std_macro_lexer_current_location")
+            public func location(lex: lexer) => (int, int);
 
         public func try_token(self: lexer, token: token_type)=> option<string>
         {
@@ -3387,9 +3392,8 @@ namespace wo
             {"rslib_std_int_to_hex", (void*)&rslib_std_int_to_hex},
             {"rslib_std_int_to_oct", (void*)&rslib_std_int_to_oct},
             {"rslib_std_lengthof", (void*)&rslib_std_lengthof},
-            {"rslib_std_macro_lexer_current_colno", (void*)&rslib_std_macro_lexer_current_colno},
+            {"rslib_std_macro_lexer_current_location", (void*)&rslib_std_macro_lexer_current_location},
             {"rslib_std_macro_lexer_current_path", (void*)&rslib_std_macro_lexer_current_path},
-            {"rslib_std_macro_lexer_current_rowno", (void*)&rslib_std_macro_lexer_current_rowno},
             {"rslib_std_macro_lexer_error", (void*)&rslib_std_macro_lexer_error},
             {"rslib_std_macro_lexer_next", (void*)&rslib_std_macro_lexer_next},
             {"rslib_std_macro_lexer_nextch", (void*)&rslib_std_macro_lexer_nextch},

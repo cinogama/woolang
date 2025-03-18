@@ -72,12 +72,12 @@ namespace wo
                 }
                 else
                 {
-                    lex.lang_error(lexer::errorlevel::error, single_pattern,
+                    lex.record_lang_error(lexer::msglevel_t::error, single_pattern,
                         WO_ERR_REDEFINED,
                         single_pattern->m_name->c_str());
                     
                     if (defined_symbol->m_symbol_declare_ast.has_value())
-                        lex.lang_error(lexer::errorlevel::infom,
+                        lex.record_lang_error(lexer::msglevel_t::infom,
                             defined_symbol->m_symbol_declare_ast.value(),
                             WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
                             get_symbol_name_w(defined_symbol));
@@ -189,7 +189,7 @@ namespace wo
 
             if (!begin_new_namespace(node->m_name))
             {
-                lex.lang_error(lexer::errorlevel::error, node, WO_ERR_CANNOT_START_NAMESPACE);
+                lex.record_lang_error(lexer::msglevel_t::error, node, WO_ERR_CANNOT_START_NAMESPACE);
                 return FAILED;
             }
             node->m_LANG_determined_namespace = get_current_namespace();
@@ -269,9 +269,9 @@ namespace wo
         }
         else
         {
-            lex.lang_error(lexer::errorlevel::error, node, WO_ERR_REDEFINED, node->m_typename->c_str());
+            lex.record_lang_error(lexer::msglevel_t::error, node, WO_ERR_REDEFINED, node->m_typename->c_str());
             if (defined_symbol->m_symbol_declare_ast.has_value())
-                lex.lang_error(lexer::errorlevel::infom,
+                lex.record_lang_error(lexer::msglevel_t::infom,
                     defined_symbol->m_symbol_declare_ast.value(),
                     WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
                     get_symbol_name_w(defined_symbol));
@@ -319,9 +319,9 @@ namespace wo
         }
         else
         {
-            lex.lang_error(lexer::errorlevel::error, node, WO_ERR_REDEFINED, node->m_typename->c_str());
+            lex.record_lang_error(lexer::msglevel_t::error, node, WO_ERR_REDEFINED, node->m_typename->c_str());
             if (defined_symbol->m_symbol_declare_ast.has_value())
-                lex.lang_error(lexer::errorlevel::infom,
+                lex.record_lang_error(lexer::msglevel_t::infom,
                     defined_symbol->m_symbol_declare_ast.value(),
                     WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
                     get_symbol_name_w(defined_symbol));

@@ -33,6 +33,11 @@ import test_tool;
     return result;
 }
 
+#macro test_generated_macro
+{
+    return "#macro test_generated_macro_instance{return \"1\";}";
+}
+
 test_macro_test_matching!
 abc123
 using
@@ -57,6 +62,9 @@ namespace test_macro
         test_assure(test_bad_token_reader! 123 == "123");
         test_assure(test_bad_token_reader! 3.14 == "3.14");
         test_assure(test_bad_token_reader! $ != "#");
+
+        test_generated_macro!;
+        test_assure(test_generated_macro_instance! == 1);
     }
 }
 test_function("test_macro.main", test_macro::main);
