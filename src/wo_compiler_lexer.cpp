@@ -5,7 +5,7 @@ std::string _wo_dump_lexer_context_error(wo::lexer* lex, wo_inform_style_t style
 
 namespace wo
 {
-    const std::map<std::wstring, lex_type> lexer::_lex_operator_list =
+    const std::unordered_map<std::wstring, lex_type> lexer::_lex_operator_list =
     {
         {L"+",      {lex_type::l_add}},
         {L"-",      {lex_type::l_sub}},
@@ -59,7 +59,7 @@ namespace wo
         {L"\\",     {lex_type::l_lambda}},
         {L"λ",      {lex_type::l_lambda}},
     };
-    const std::map<std::wstring, lex_type> lexer::_key_word_list =
+    const std::unordered_map<std::wstring, lex_type> lexer::_key_word_list =
     {
         {L"import", {lex_type::l_import}},
         {L"nil", {lex_type::l_nil}},
@@ -254,8 +254,8 @@ namespace wo
     }
     bool lexer::lex_isoperatorch(int ch)
     {
-        const static std::set<wchar_t> operator_char_set = []() {
-            std::set<wchar_t> _result;
+        const static std::unordered_set<wchar_t> operator_char_set = []() {
+            std::unordered_set<wchar_t> _result;
             for (auto& [_operator, operator_info] : _lex_operator_list)
                 for (wchar_t wch : _operator)
                     _result.insert(wch);

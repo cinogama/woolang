@@ -1086,9 +1086,9 @@ whereis                         <ipoffset>    Find the function that the ipoffse
             }
 
             if (breakpoint_found_id == SIZE_MAX)
-                printf(ANSI_HIM "%-5zu " ANSI_RST "| ", current_row_no);
+                printf(ANSI_HIM "%-5zu " ANSI_RST "| ", current_row_no + 1);
             else
-                printf(ANSI_BHIR ANSI_WHI "%-5zu " ANSI_RST "| ", current_row_no);
+                printf(ANSI_BHIR ANSI_WHI "%-5zu " ANSI_RST "| ", current_row_no + 1);
 
             if (info != nullptr)
             {
@@ -1130,13 +1130,14 @@ whereis                         <ipoffset>    Find the function that the ipoffse
 
                 // print source;
                 // here is a easy lexer..
-                size_t current_row_no = 1;
+                size_t current_row_no = 0;
                 size_t current_col_no = 0;
                 size_t last_line_is_breakline = SIZE_MAX;
 
                 if (from <= current_row_no && current_row_no <= to)
                 {
-                    last_line_is_breakline = print_src_file_print_lineno(vmm, filepath, current_row_no, info);
+                    last_line_is_breakline = print_src_file_print_lineno(
+                        vmm, filepath, current_row_no, info);
                 }
                 for (size_t index = 0; index < srcfile.size(); index++)
                 {
@@ -1151,7 +1152,8 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                                 printf("    " ANSI_HIR "# Breakpoint %zu" ANSI_RST, last_line_is_breakline);
 
                             wo_stdout << ANSI_RST << wo_endl;
-                            last_line_is_breakline = print_src_file_print_lineno(vmm, filepath, current_row_no, info);
+                            last_line_is_breakline = print_src_file_print_lineno(
+                                vmm, filepath, current_row_no, info);
                         }
                         continue;
                     }
@@ -1329,7 +1331,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                         "in virtual-machine: " ANSI_HIG " %p\n" ANSI_RST,
 
                         (int)next_execute_ip_diff,
-                        wstr_to_str(loc->source_file).c_str(), loc->begin_row_no, loc->begin_col_no,
+                        wstr_to_str(loc->source_file).c_str(), loc->begin_row_no + 1, loc->begin_col_no,
                         vmm->env->program_debug_info == nullptr ?
                         "__unknown_func_without_pdb_" :
                         vmm->env->program_debug_info->get_current_func_signature_by_runtime_ip(next_execute_ip).c_str(),

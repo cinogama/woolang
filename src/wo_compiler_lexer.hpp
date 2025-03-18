@@ -5,7 +5,6 @@
 
 #include <string>
 #include <vector>
-#include <map>
 #include <set>
 #include <stack>
 #include <list>
@@ -204,8 +203,8 @@ namespace wo
             std::unordered_set<wo_pstring_t>;
 
     private:
-        const static std::map<std::wstring, lex_type> _lex_operator_list;
-        const static std::map<std::wstring, lex_type> _key_word_list;
+        const static std::unordered_map<std::wstring, lex_type> _lex_operator_list;
+        const static std::unordered_map<std::wstring, lex_type> _key_word_list;
 
     public:
         static const wchar_t* lex_is_operate_type(lex_type tt);
