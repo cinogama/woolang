@@ -578,11 +578,11 @@ namespace wo
         auto loop = m_ircontext.find_nearest_loop_content_label(node->m_label);
         if (!loop.has_value())
         {
-            lex.lang_error(lexer::errorlevel::error, node,
+            lex.record_lang_error(lexer::msglevel_t::error, node,
                 WO_ERR_BAD_BREAK);
 
             if (node->m_label.has_value())
-                lex.lang_error(lexer::errorlevel::infom, node,
+                lex.record_lang_error(lexer::msglevel_t::infom, node,
                     WO_INFO_BAD_LABEL_NAMED,
                     node->m_label.value());
 
@@ -599,11 +599,11 @@ namespace wo
         auto loop = m_ircontext.find_nearest_loop_content_label(node->m_label);
         if (!loop.has_value())
         {
-            lex.lang_error(lexer::errorlevel::error, node,
+            lex.record_lang_error(lexer::msglevel_t::error, node,
                 WO_ERR_BAD_CONTINUE);
 
             if (node->m_label.has_value())
-                lex.lang_error(lexer::errorlevel::infom, node,
+                lex.record_lang_error(lexer::msglevel_t::infom, node,
                     WO_INFO_BAD_LABEL_NAMED,
                     node->m_label.value());
 
@@ -1438,12 +1438,12 @@ namespace wo
 
         if (!value_instance->m_IR_storage.has_value())
         {
-            lex.lang_error(lexer::errorlevel::error, node,
+            lex.record_lang_error(lexer::msglevel_t::error, node,
                 WO_ERR_VARIBALE_STORAGE_NOT_DETERMINED,
                 get_value_name_w(value_instance));
 
             if (value_instance->m_symbol->m_symbol_declare_ast.has_value())
-                lex.lang_error(lexer::errorlevel::infom,
+                lex.record_lang_error(lexer::msglevel_t::infom,
                     value_instance->m_symbol->m_symbol_declare_ast.value(),
                     WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
                     get_value_name_w(value_instance));
@@ -1940,7 +1940,7 @@ namespace wo
         {
             if (node->m_IR_unpack_method == AstFakeValueUnpack::SHOULD_NOT_UNPACK)
             {
-                lex.lang_error(lexer::errorlevel::error, node,
+                lex.record_lang_error(lexer::msglevel_t::error, node,
                     WO_ERR_CANNOT_UNPACK_HERE);
 
                 return FAILED;
@@ -2968,12 +2968,12 @@ namespace wo
 
                 if (!assign_value_instance->m_IR_storage.has_value())
                 {
-                    lex.lang_error(lexer::errorlevel::error, node,
+                    lex.record_lang_error(lexer::msglevel_t::error, node,
                         WO_ERR_VARIBALE_STORAGE_NOT_DETERMINED,
                         get_value_name_w(assign_value_instance));
 
                     if (assign_value_instance->m_symbol->m_symbol_declare_ast.has_value())
-                        lex.lang_error(lexer::errorlevel::infom,
+                        lex.record_lang_error(lexer::msglevel_t::infom,
                             assign_value_instance->m_symbol->m_symbol_declare_ast.value(),
                             WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
                             get_value_name_w(assign_value_instance));
@@ -3590,7 +3590,7 @@ namespace wo
             if (immutable_type_instance != m_origin_types.m_void.m_type_instance
                 && immutable_type_instance != m_origin_types.m_nothing.m_type_instance)
             {
-                lex.lang_error(lexer::errorlevel::error, eval_value,
+                lex.record_lang_error(lexer::msglevel_t::error, eval_value,
                     WO_ERR_NON_VOID_TYPE_EXPR_AS_STMT,
                     get_type_name_w(type_instance));
 

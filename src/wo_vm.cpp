@@ -806,8 +806,6 @@ namespace wo
 
             os << "| " << tmpos.str() << std::endl;
 
-
-
             program_ptr = this_command_ptr;
         }
 
@@ -824,7 +822,7 @@ namespace wo
 
             os << "\t\t-- at " << idx->m_file_path;
             if (!idx->m_is_extern)
-                os << " (" << idx->m_row << ", " << idx->m_col << ")";
+                os << " (" << idx->m_row + 1 << ", " << idx->m_col << ")";
             os << std::endl;
         }
         if (!trace_finished)

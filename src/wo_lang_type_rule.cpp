@@ -49,14 +49,14 @@ namespace wo
                 if (!determined_accepter_may_null)
                 {
                     base_type_not_determined = true;
-                    lex.lang_error(lexer::errorlevel::error, node,
+                    lex.record_lang_error(lexer::msglevel_t::error, node,
                         WO_ERR_TYPE_NAMED_DETERMINED_FAILED,
                         get_type_name_w(accepter));
                 }
                 if (!determined_provider_may_null)
                 {
                     base_type_not_determined = true;
-                    lex.lang_error(lexer::errorlevel::error, node,
+                    lex.record_lang_error(lexer::msglevel_t::error, node,
                         WO_ERR_TYPE_NAMED_DETERMINED_FAILED,
                         get_type_name_w(provider));
                 }
@@ -378,14 +378,14 @@ namespace wo
 
                 if (!determined_srctype_may_null)
                 {
-                    lex.lang_error(lexer::errorlevel::error, node,
+                    lex.record_lang_error(lexer::msglevel_t::error, node,
                         WO_ERR_TYPE_NAMED_DETERMINED_FAILED,
                         get_type_name_w(srctype));
                     return lang_TypeInstance::TypeCheckResult::REJECT;
                 }
                 if (!determined_aimtype_may_null)
                 {
-                    lex.lang_error(lexer::errorlevel::error, node,
+                    lex.record_lang_error(lexer::msglevel_t::error, node,
                         WO_ERR_TYPE_NAMED_DETERMINED_FAILED,
                         get_type_name_w(aimtype));
                     return lang_TypeInstance::TypeCheckResult::REJECT;

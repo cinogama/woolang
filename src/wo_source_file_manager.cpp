@@ -40,35 +40,32 @@ namespace wo
 
         // 1. Try exists file
         // 1) Read file from script loc
-        if (lex)
+        auto finding_lex = lex;
+        while (finding_lex.has_value())
         {
-            auto* finding_lex = lex.value();
-            while (finding_lex != nullptr)
+            auto* lex_instance = finding_lex.value();
+
+            *out_real_read_path =
+                wo::get_file_loc(*lex_instance->get_source_path()) + L"/" + filepath;
+
+            if (is_virtual_uri(*out_real_read_path))
             {
-                wo_assert(finding_lex->source_file != nullptr);
+                // Virtual path, check it.
+                std::shared_lock g1(vfile_list_guard);
+                auto fnd = vfile_list.find(
+                    out_real_read_path->substr(VIRTUAL_FILE_SCHEME_LEN));
 
-                *out_real_read_path = 
-                    wo::get_file_loc(*finding_lex->source_file) + L"/" + filepath;
+                if (fnd != vfile_list.end())
+                    return true;
 
-                if (is_virtual_uri(*out_real_read_path))
-                {
-                    // Virtual path, check it.
-                    std::shared_lock g1(vfile_list_guard);
-                    auto fnd = vfile_list.find(
-                        out_real_read_path->substr(VIRTUAL_FILE_SCHEME_LEN));
-
-                    if (fnd != vfile_list.end())
-                        return true;
-
-                }
-                else
-                {
-                    // Not virtual path, check if file exist?
-                    if (is_file_exist_and_readable(*out_real_read_path))
-                        return true;
-                }
-                finding_lex = finding_lex->last_lexer;
             }
+            else
+            {
+                // Not virtual path, check if file exist?
+                if (is_file_exist_and_readable(*out_real_read_path))
+                    return true;
+            }
+            finding_lex = lex_instance->get_who_import_me();
         }
 
         // 2) Read file from rpath
