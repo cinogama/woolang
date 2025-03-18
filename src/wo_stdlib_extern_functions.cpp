@@ -3061,15 +3061,16 @@ WO_API wo_api rslib_std_macro_lexer_current_location(wo_vm vm, wo_value args)
 
     wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
 
-    size_t row, col;
-    lex->get_now_location(&row, &col);
+    auto* peek_token = lex->peek();
 
     wo_value result = s + 0;
     wo_value elem = s + 1;
 
     wo_set_struct(result, vm, 2);
-    wo_set_int(elem, (wo_integer_t)row);
+    wo_set_int(elem, (wo_integer_t)peek_token->m_token_begin[2]);
     wo_struct_set(result, 0, elem);
+    wo_set_int(elem, (wo_integer_t)peek_token->m_token_begin[3]);
+    wo_struct_set(result, 1, elem);
 
     return wo_ret_val(vm, result);
 }
