@@ -2979,34 +2979,43 @@ WO_API wo_api rslib_std_macro_lexer_error(wo_vm vm, wo_value args)
 
 WO_API wo_api rslib_std_macro_lexer_peek(wo_vm vm, wo_value args)
 {
-    wo_value s = wo_reserve_stack(vm, 2, &args);
-
     wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
 
+    // ATTENTION: args might invalid after peek (
+    //      if stack extension happend in recursive macro handling), 
+    //  we cannot use args after peek.
     auto* token_instance = lex->peek();
 
-    wo_value result = s + 0;
-    wo_value elem = s + 1;
+    auto has_enter_gcguard = wo_enter_gcguard(vm);
+
+    wo_value result = wo_register(vm, WO_REG_T0);
+    wo_value elem = wo_register(vm, WO_REG_T1);
 
     wo_set_struct(result, vm, 2);
     wo_set_int(elem, (wo_integer_t)token_instance->m_lex_type);
     wo_struct_set(result, 0, elem);
     wo_set_string(elem, vm, wo::wstr_to_str(token_instance->m_token_text).c_str());
     wo_struct_set(result, 1, elem);
+
+    if (has_enter_gcguard != WO_FALSE)
+        wo_leave_gcguard(vm);
 
     return wo_ret_val(vm, result);
 }
 
 WO_API wo_api rslib_std_macro_lexer_next(wo_vm vm, wo_value args)
 {
-    wo_value s = wo_reserve_stack(vm, 2, &args);
-
     wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
 
+    // ATTENTION: args might invalid after peek (
+    //      if stack extension happend in recursive macro handling), 
+    //  we cannot use args after peek.
     auto* token_instance = lex->peek();
 
-    wo_value result = s + 0;
-    wo_value elem = s + 1;
+    auto has_enter_gcguard = wo_enter_gcguard(vm);
+
+    wo_value result = wo_register(vm, WO_REG_T0);
+    wo_value elem = wo_register(vm, WO_REG_T1);
 
     wo_set_struct(result, vm, 2);
     wo_set_int(elem, (wo_integer_t)token_instance->m_lex_type);
@@ -3014,7 +3023,11 @@ WO_API wo_api rslib_std_macro_lexer_next(wo_vm vm, wo_value args)
     wo_set_string(elem, vm, wo::wstr_to_str(token_instance->m_token_text).c_str());
     wo_struct_set(result, 1, elem);
 
-    lex->move_forward();
+    // Use consume_forward to avoid recursive macro handler invoke.
+    lex->consume_forward();
+
+    if (has_enter_gcguard != WO_FALSE)
+        wo_leave_gcguard(vm);
 
     return wo_ret_val(vm, result);
 }
