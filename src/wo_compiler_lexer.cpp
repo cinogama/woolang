@@ -206,7 +206,7 @@ namespace wo
                 ? (ANSI_HIR L"error" ANSI_RST)
                 : (ANSI_HIC L"infom" ANSI_RST)
                 )
-            + (L" (" + std::to_wstring(m_range_end[0]) + L"," + std::to_wstring(m_range_end[1]))
+            + (L" (" + std::to_wstring(m_range_end[0] + 1) + L"," + std::to_wstring(m_range_end[1]))
             + (L") " + m_describe);
         else
             return (
@@ -214,7 +214,7 @@ namespace wo
                 ? (L"error")
                 : (L"info")
                 )
-            + (L" (" + std::to_wstring(m_range_end[0]) + L"," + std::to_wstring(m_range_end[1]))
+            + (L" (" + std::to_wstring(m_range_end[0] + 1) + L"," + std::to_wstring(m_range_end[1]))
             + (L") " + m_describe);
     }
 
@@ -391,11 +391,16 @@ namespace wo
         , _m_peeked_tokens{}
         , _m_row_counter(0)
         , _m_col_counter(0)
+        , _m_this_token_pre_begin_row(0)
+        , _m_this_token_pre_begin_col(0)
         , _m_this_token_begin_row(0)
         , _m_this_token_begin_col(0)
         , _m_in_format_string(false)
         , _m_curry_count_in_format_string(0)
     {
+        // Make sure error frame has one frame.
+        (void)m_error_frame.emplace_back();
+
         if (source_stream)
             m_source_stream = std::move(source_stream.value());
         else
@@ -406,10 +411,6 @@ namespace wo
                 WO_ERR_CANNOT_OPEN_FILE,
                 source_path.value()->c_str());
         }
-
-        // Make sure error frame has one frame.
-        (void)m_error_frame.emplace_back();
-        wo_assert((bool)m_source_stream);
     }
     lexer::compiler_message_list_t& lexer::get_current_error_frame()
     {
@@ -507,9 +508,19 @@ namespace wo
             {
                 type,
                 std::move(moved_token_text),
-                { _m_this_token_begin_row, _m_this_token_begin_col },
+                {
+                    _m_this_token_begin_row, 
+                    _m_this_token_begin_col, 
+                    _m_this_token_pre_begin_row, 
+                    _m_this_token_pre_begin_col 
+                },
                 { _m_row_counter, _m_col_counter },
             }));
+    }
+    void lexer::token_pre_begin_here()
+    {
+        _m_this_token_pre_begin_row = _m_row_counter;
+        _m_this_token_pre_begin_col = _m_col_counter;
     }
     void lexer::token_begin_here()
     {
@@ -574,6 +585,7 @@ namespace wo
         }
 
         int readed_char;
+        token_pre_begin_here();
 
         do
         {
@@ -1294,6 +1306,11 @@ namespace wo
     {
         wo_assert(m_source_path.has_value());
 
+        const size_t macro_pre_begin_row = _m_this_token_pre_begin_row;
+        const size_t macro_pre_begin_col = _m_this_token_pre_begin_col;
+        const size_t macro_begin_row = _m_this_token_begin_row;
+        const size_t macro_begin_col = _m_this_token_begin_col;
+
         auto fnd = m_declared_macro_list->find(macro_name);
         if (fnd != m_declared_macro_list->end() && fnd->second->_macro_action_vm)
         {
@@ -1351,6 +1368,16 @@ namespace wo
 
                 std::queue<peeked_token_t> origin_peeked_queue;
                 origin_peeked_queue.swap(_m_peeked_tokens);
+
+                size_t macro_end_row = _m_row_counter;
+                size_t macro_end_col = _m_col_counter;
+                if (!origin_peeked_queue.empty())
+                {
+                    const auto& first_token = origin_peeked_queue.front();
+                    macro_end_row = first_token.m_token_begin[2];
+                    macro_end_col = first_token.m_token_begin[3];
+                }
+
                 for (;;)
                 {
                     std::wstring result;
@@ -1360,7 +1387,14 @@ namespace wo
                         || token_instance->m_lex_type == wo::lex_type::l_eof)
                         break;
 
-                    _m_peeked_tokens.emplace(std::move(*token_instance));
+                    auto& token = _m_peeked_tokens.emplace(std::move(*token_instance));
+                    token.m_token_begin[0] = macro_begin_row;
+                    token.m_token_begin[1] = macro_begin_col;
+                    token.m_token_begin[2] = macro_pre_begin_row;
+                    token.m_token_begin[3] = macro_pre_begin_col;
+                    token.m_token_end[0] = macro_end_row;
+                    token.m_token_end[1] = macro_end_col;
+
                     tmp_lex.move_forward();
                 }
 

@@ -64,7 +64,7 @@ namespace test_macro
         test_assure(test_bad_token_reader! $ != "#");
 
         test_generated_macro!;
-        test_assure(test_generated_macro_instance! == 1);
+        test_assure(test_generated_macro_instance! == "1");
     }
 }
 test_function("test_macro.main", test_macro::main);

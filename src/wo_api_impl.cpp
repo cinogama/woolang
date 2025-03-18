@@ -3004,8 +3004,8 @@ std::wstring _dump_src_info(
             wo_assert(content_stream_ptr != nullptr);
 
             constexpr size_t UP_DOWN_SHOWN_LINE = 2;
-            size_t current_row_no = 1;
-            size_t current_col_no = 1;
+            size_t current_row_no = 0;
+            size_t current_col_no = 0;
             size_t from = beginaimrow > UP_DOWN_SHOWN_LINE ? beginaimrow - UP_DOWN_SHOWN_LINE : 0;
             size_t to = aimrow + UP_DOWN_SHOWN_LINE;
 
@@ -3046,11 +3046,10 @@ std::wstring _dump_src_info(
                         if (current_row_no == beginaimrow)
                         {
                             size_t i = 1;
-                            for (; i < beginpointplace; i++)
+                            for (; i <= beginpointplace; i++)
                                 append_result += L" ";
                             for (; i < pointplace; i++)
                                 append_result += L"~";
-
                         }
                         else
                         {
@@ -3070,7 +3069,7 @@ std::wstring _dump_src_info(
                         if (current_row_no == beginaimrow)
                         {
                             size_t i = 1;
-                            for (; i < beginpointplace; i++)
+                            for (; i <= beginpointplace; i++)
                                 append_result += L" ";
                             if (i < line_end_place)
                             {
@@ -3114,7 +3113,7 @@ std::wstring _dump_src_info(
                 {
                     if (current_row_no >= beginaimrow && current_row_no <= aimrow)
                         print_notify_line(current_col_no);
-                    current_col_no = 1;
+                    current_col_no = 0;
                     current_row_no++;
                     if (from <= current_row_no && current_row_no <= to)
                         print_src_file_print_lineno();
@@ -3124,7 +3123,7 @@ std::wstring _dump_src_info(
                 {
                     if (current_row_no >= beginaimrow && current_row_no <= aimrow)
                         print_notify_line(current_col_no);
-                    current_col_no = 1;
+                    current_col_no = 0;
                     current_row_no++;
                     if (from <= current_row_no && current_row_no <= to)
                         print_src_file_print_lineno();
@@ -3145,6 +3144,7 @@ std::wstring _dump_src_info(
             }
             if (current_row_no >= beginaimrow && current_row_no <= aimrow)
                 print_notify_line(current_col_no);
+
             result += L"\n";
         }
     }

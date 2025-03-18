@@ -194,7 +194,7 @@ namespace wo
         {
             lex_type        m_lex_type;
             std::wstring    m_token_text;
-            size_t          m_token_begin[2];
+            size_t          m_token_begin[4];
             size_t          m_token_end[2];
         };
     private:
@@ -241,6 +241,8 @@ namespace wo
         size_t _m_col_counter;
 
         // Only used in move next;
+        size_t _m_this_token_pre_begin_row;
+        size_t _m_this_token_pre_begin_col;
         size_t _m_this_token_begin_row;
         size_t _m_this_token_begin_col;
         bool _m_in_format_string;
@@ -253,6 +255,7 @@ namespace wo
             std::optional<std::unique_ptr<std::wistream>>&& source_stream);
     private:
         void    produce_token(lex_type type, std::wstring&& moved_token_text);
+        void    token_pre_begin_here();
         void    token_begin_here();
 
     public:
@@ -337,8 +340,8 @@ namespace wo
             record_format(
                 level,
                 ast_node->source_location.begin_at.row,
-                ast_node->source_location.end_at.row,
                 ast_node->source_location.begin_at.column,
+                ast_node->source_location.end_at.row,
                 ast_node->source_location.end_at.column,
                 *ast_node->source_location.source_file,
                 format,
