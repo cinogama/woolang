@@ -191,11 +191,22 @@ typedef void(*wo_gcstruct_mark_func_t)(wo_gc_work_context_t, wo_ptr_t);
 
 typedef void(*wo_debuggee_callback_func_t)(wo_vm, void*);
 
+typedef struct _wo_extern_lib_func_pair
+{
+    wo_string_t     m_name;
+    void*           m_func_addr;
+} wo_extern_lib_func_t;
+
+typedef struct _wo_reserved_stack_args_update_guard
+    wo_stack_arg_extension_guard_t;
+
+#define WO_EXTERN_LIB_FUNC_END wo_extern_lib_func_t{nullptr, nullptr}
+#define wo_fail(ERRID, ...) ((void)wo_cause_fail(__FILE__, __LINE__, __func__,ERRID, __VA_ARGS__))
+#define wo_execute_fail(VM, ERRID, REASON) ((void)wo_execute_fail_handler(VM, __FILE__, __LINE__, __func__, ERRID, REASON))
+
 WO_API wo_fail_handler_t wo_register_fail_handler(wo_fail_handler_t new_handler);
 WO_API void         wo_cause_fail(wo_string_t src_file, uint32_t lineno, wo_string_t functionname, uint32_t rterrcode, wo_string_t reasonfmt, ...);
 WO_API void         wo_execute_fail_handler(wo_vm vm, wo_string_t src_file, uint32_t lineno, wo_string_t functionname, uint32_t rterrcode, wo_string_t reason);
-#define wo_fail(ERRID, ...) ((void)wo_cause_fail(__FILE__, __LINE__, __func__,ERRID, __VA_ARGS__))
-#define wo_execute_fail(VM, ERRID, REASON) ((void)wo_execute_fail_handler(VM, __FILE__, __LINE__, __func__, ERRID, REASON))
 
 WO_API wo_string_t  wo_commit_sha(void);
 WO_API wo_string_t  wo_compile_date(void);
@@ -210,15 +221,6 @@ WO_API void         wo_gc_pause(void);
 WO_API void         wo_gc_resume(void);
 WO_API void         wo_gc_wait_sync(void);
 WO_API void         wo_gc_immediately(wo_bool_t fullgc);
-
-typedef struct _wo_extern_lib_func_pair
-{
-    wo_string_t     m_name;
-    void* m_func_addr;
-
-} wo_extern_lib_func_t;
-
-#define WO_EXTERN_LIB_FUNC_END wo_extern_lib_func_t{nullptr, nullptr}
 
 WO_API wo_dylib_handle_t    wo_fake_lib(const char* libname, const wo_extern_lib_func_t* funcs, wo_dylib_handle_t dependence_dylib_may_null);
 WO_API wo_dylib_handle_t    wo_load_lib(const char* libname, const char* path, const char* script_path, wo_bool_t panic_when_fail);
