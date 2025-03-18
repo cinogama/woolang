@@ -3070,6 +3070,8 @@ WO_API wo_api rslib_std_macro_lexer_current_location(wo_vm vm, wo_value args)
     wo_set_struct(result, vm, 2);
     wo_set_int(elem, (wo_integer_t)row);
     wo_struct_set(result, 0, elem);
+    wo_set_int(elem, (wo_integer_t)col);
+    wo_struct_set(result, 1, elem);
 
     return wo_ret_val(vm, result);
 }
