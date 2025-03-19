@@ -70,8 +70,7 @@ struct dylib_table_instance
 
     void* m_native_dylib_handle;
     fake_table_t* m_fake_dylib_table;
-    dylib_table_instance*
-        m_dependenced_dylib;
+    dylib_table_instance* m_dependenced_dylib;
     size_t          m_use_count;
 
     explicit dylib_table_instance(
@@ -80,8 +79,8 @@ struct dylib_table_instance
         dylib_table_instance* dependenced_lib_may_null)
         : m_native_dylib_handle(nullptr)
         , m_fake_dylib_table(new fake_table_t())
-        , m_use_count(1)
         , m_dependenced_dylib(dependenced_lib_may_null)
+        , m_use_count(1)
     {
         const auto* func_pair = funcs;
         while (func_pair->m_name != nullptr)
@@ -101,8 +100,8 @@ struct dylib_table_instance
     explicit dylib_table_instance(void* handle_may_null)
         : m_native_dylib_handle(handle_may_null)
         , m_fake_dylib_table(nullptr)
-        , m_use_count(1)
         , m_dependenced_dylib(nullptr)
+        , m_use_count(1)
     {
     }
 
@@ -2124,8 +2123,6 @@ void wo_set_err_void(wo_value val, wo_vm vm)
 
     structptr->m_values[0].set_integer(1);
     structptr->m_values[1].set_nil();
-
-
 }
 void wo_set_err_char(wo_value val, wo_vm vm, wo_char_t result)
 {
@@ -2789,11 +2786,10 @@ wo::compile_result _wo_compile_impl(
             // Failed to load binary, maybe broken or version missing.
             wo_assert(load_binary_failed_reason != nullptr);
 
-            compile_lexer =
-                std::move(std::make_unique<wo::lexer>(
+            compile_lexer = std::make_unique<wo::lexer>(
                     std::nullopt,
                     wo::wstring_pool::get_pstr(wvspath),
-                    std::make_unique<std::wistringstream>(std::wstring())));
+                    std::make_unique<std::wistringstream>(std::wstring()));
 
             (void)compile_lexer->record_parser_error(
                 wo::lexer::msglevel_t::error,
@@ -2808,10 +2804,10 @@ wo::compile_result _wo_compile_impl(
                 wo::normalize_path(&wvspath);
 
                 std::wstring strbuffer = wo::str_to_wstr(std::string((const char*)src, len).c_str());
-                compile_lexer = std::move(std::make_unique<wo::lexer>(
+                compile_lexer = std::make_unique<wo::lexer>(
                     std::nullopt,
                     wo::wstring_pool::get_pstr(wvspath),
-                    std::make_unique<std::wistringstream>(strbuffer)));
+                    std::make_unique<std::wistringstream>(strbuffer));
             }
             else
             {
@@ -2821,22 +2817,19 @@ wo::compile_result _wo_compile_impl(
                 std::optional<std::unique_ptr<std::wistream>> content_stream =
                     std::nullopt;
 
-                uint64_t src_crc64_result = 0;
-
                 if (wo::check_virtual_file_path(
                     &real_file_path,
                     wvspath,
                     std::nullopt))
                 {
-                    content_stream = wo::open_virtual_file_stream<true>(real_file_path);
-                    if (content_stream)
-                        src_crc64_result = wo::crc_64(*content_stream.value(), 0);
+                    content_stream = 
+                        wo::open_virtual_file_stream<true>(real_file_path);
                 }
 
-                compile_lexer = std::move(std::make_unique<wo::lexer>(
+                compile_lexer = std::make_unique<wo::lexer>(
                     std::nullopt,
                     wo::wstring_pool::get_pstr(real_file_path),
-                    std::move(content_stream)));
+                    std::move(content_stream));
             }
 
 #ifndef WO_DISABLE_COMPILER
@@ -2866,7 +2859,7 @@ wo::compile_result _wo_compile_impl(
                 }
             }
 #else
-            compile_lexer->lex_error(
+            (void)compile_lexer->record_parser_error(
                 wo::lexer::msglevel_t::error, WO_ERR_COMPILER_DISABLED);
 #endif
         }
@@ -3041,7 +3034,6 @@ std::wstring _dump_src_info(
                         ? wo::str_to_wstr(ANSI_HIR)
                         : wo::str_to_wstr(ANSI_HIC);
 
-
                     if (current_row_no == aimrow)
                     {
                         if (current_row_no == beginaimrow)
@@ -3150,8 +3142,6 @@ std::wstring _dump_src_info(
 std::string _wo_dump_lexer_context_error(wo::lexer* lex, wo_inform_style_t style)
 {
     std::wstring src_file_path;
-    size_t errcount = 0;
-
     std::string _vm_compile_errors;
 
     size_t last_depth = 0;

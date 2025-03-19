@@ -50,7 +50,7 @@ namespace wo
             auto& context = env_context[vmm->env];
             for (size_t bip : ips)
                 context.break_ips.insert(bip);
-            context.break_point_traps.emplace_back(std::move(_env_context::breakpoint_info{ src_file, rowno, ips }));
+            context.break_point_traps.emplace_back(_env_context::breakpoint_info{ src_file, rowno, ips });
         }
         bool set_breakpoint(wo::vmbase* vmm, const std::wstring& src_file, size_t rowno)
         {
