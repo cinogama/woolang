@@ -503,7 +503,7 @@ namespace wo
                     for (size_t id = 0; id < _gc_work_thread_count; ++id)
                     {
                         _m_gc_begin_flags[id].test_and_set(); // make sure gcmarkers donot work at begin.
-                        _m_gc_mark_threads[id] = std::move(std::thread(_gcmarker_thread_work, this, id));
+                        _m_gc_mark_threads[id] = std::thread(_gcmarker_thread_work, this, id);
                     }
                 }
             }
@@ -934,7 +934,7 @@ namespace wo
 
             _gc_stop_flag = false;
             _gc_immediately.test_and_set();
-            _gc_scheduler_thread = std::move(std::thread(_gc_main_thread));
+            _gc_scheduler_thread = std::thread(_gc_main_thread);
         }
         void gc_stop()
         {

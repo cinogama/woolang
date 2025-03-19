@@ -270,7 +270,7 @@ namespace womem
         {
             // De commit all pages.
             auto check_and_decommit_page =
-                [this](Page* page)
+                [](Page* page)
                 {
                     if (page->m_normal_page.m_alloc_count != 0)
                     {

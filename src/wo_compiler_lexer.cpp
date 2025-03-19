@@ -503,7 +503,7 @@ namespace wo
 
     void lexer::produce_token(lex_type type, std::wstring&& moved_token_text)
     {
-        _m_peeked_tokens.emplace(std::move(
+        _m_peeked_tokens.emplace(
             peeked_token_t
             {
                 type,
@@ -515,7 +515,7 @@ namespace wo
                     _m_this_token_pre_begin_col 
                 },
                 { _m_row_counter, _m_col_counter },
-            }));
+            });
     }
     void lexer::token_pre_begin_here()
     {

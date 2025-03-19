@@ -1279,8 +1279,6 @@ namespace wo
             else if constexpr (std::is_integral<OP1T>::value)
             {
                 wo_assert(0 <= op1 && op1 <= UINT32_MAX, "Immediate instruct address is to large to call.");
-
-                uint32_t address = (uint32_t)op1;
                 WO_PUT_IR_TO_BUFFER(instruct::opcode::calln, nullptr, nullptr, static_cast<int32_t>(op1));
             }
             else

@@ -277,7 +277,7 @@ namespace wo
             wchar_t describe[256] = {};
             swprintf(describe, 255, format, format_args...);
 
-            record_message(std::move(
+            record_message(
                 compiler_message_t
                 {
                     level,
@@ -285,8 +285,7 @@ namespace wo
                     { range_end_row, range_end_col },
                     source,
                     describe,
-                }
-                ));
+                });
         }
 
         template<typename ... FmtArgTs>
