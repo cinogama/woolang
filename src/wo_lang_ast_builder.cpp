@@ -58,7 +58,7 @@ namespace wo
         }
         auto pass_import_files::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
-            wo_test(input.size() == 3);
+            wo_test(input.size() == 2);
             std::wstring path;
             std::wstring filename;
 
@@ -1484,11 +1484,6 @@ namespace wo
             }
             return new AstPatternTuple(patterns);
         }
-        auto pass_macro_failed::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
-        {
-            wo_assert(WO_NEED_TOKEN(0).type == lex_type::l_macro);
-            return token{ lex.record_parser_error(lexer::msglevel_t::error, WO_ERR_UNKNOWN_MACRO_NAMED, WO_NEED_TOKEN(0).identifier.c_str()) };
-        }
         auto pass_variable_define_item::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstPatternBase* define_pattern = static_cast<AstPatternBase*>(WO_NEED_AST_PATTERN(0));
@@ -1846,7 +1841,6 @@ namespace wo
             WO_AST_BUILDER(pass_pattern_identifier_or_takepace_with_template);
             WO_AST_BUILDER(pass_pattern_mut_identifier_or_takepace_with_template);
             WO_AST_BUILDER(pass_pattern_tuple);
-            WO_AST_BUILDER(pass_macro_failed);
             WO_AST_BUILDER(pass_variable_define_item);
             WO_AST_BUILDER(pass_variable_defines);
             WO_AST_BUILDER(pass_conditional_expression);

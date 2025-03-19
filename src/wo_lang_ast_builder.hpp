@@ -217,7 +217,6 @@ struct NAME : public astnode_builder               \
         WO_AST_BUILDER(pass_pattern_identifier_or_takepace_with_template);
         WO_AST_BUILDER(pass_pattern_mut_identifier_or_takepace_with_template);
         WO_AST_BUILDER(pass_pattern_tuple);
-        WO_AST_BUILDER(pass_macro_failed);
         WO_AST_BUILDER(pass_variable_define_item);
         WO_AST_BUILDER(pass_variable_defines);
         WO_AST_BUILDER(pass_conditional_expression);

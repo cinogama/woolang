@@ -679,10 +679,9 @@ namespace wo
         do
         {
             const lexer::peeked_token_t* peeked_token_instance = tkr.peek();
-
-            if (peeked_token_instance->m_lex_type == lex_type::l_error)
+            if (lex_type::l_error == peeked_token_instance->m_lex_type)
             {
-                // have a lex error, skip this error.
+                // Move forward;
                 tkr.move_forward();
                 continue;
             }
@@ -728,8 +727,20 @@ namespace wo
                                     peeked_token_instance->m_token_begin[1]
                                 },
                                 token{ peeked_token_instance->m_lex_type, peeked_token_instance->m_token_text }));
+                        
+                        if (peeked_token_instance->m_lex_type == lex_type::l_macro)
+                        {
+                            tkr.record_format(
+                                lexer::msglevel_t::error,
+                                peeked_token_instance->m_token_begin[0],
+                                peeked_token_instance->m_token_begin[1],
+                                peeked_token_instance->m_token_end[0],
+                                peeked_token_instance->m_token_end[1],
+                                *tkr.get_source_path(),
+                                WO_ERR_UNKNOWN_MACRO_NAMED,
+                                peeked_token_instance->m_token_text.c_str());
+                        }
                         sym_stack.push(TERM_MAP.at(peeked_token_instance->m_lex_type));
-
                         tkr.move_forward();
                     }
 
@@ -832,13 +843,6 @@ namespace wo
             else
             {
             error_handle:
-                std::wstring err_info;
-
-                if (peeked_token_instance->m_lex_type == lex_type::l_eof)
-                    err_info = WO_ERR_UNEXCEPT_EOF;
-                else
-                    err_info = WO_ERR_UNEXCEPT_TOKEN + (L"'" + peeked_token_instance->m_token_text + L"'");
-
                 // IF SAME ERROR HAPPEND, JUST STOP COMPILE
                 if (last_error_rowno == peeked_token_instance->m_token_end[0] &&
                     last_error_colno == peeked_token_instance->m_token_end[1])
@@ -847,15 +851,35 @@ namespace wo
 
                     if (try_recover_count >= 3)
                         goto error_handle_fail;
-
                 }
                 else
                 {
+                    if (peeked_token_instance->m_lex_type == lex_type::l_macro)
+                    {
+                        tkr.record_format(
+                            lexer::msglevel_t::error,
+                            peeked_token_instance->m_token_begin[0],
+                            peeked_token_instance->m_token_begin[1],
+                            peeked_token_instance->m_token_end[0],
+                            peeked_token_instance->m_token_end[1],
+                            *tkr.get_source_path(),
+                            WO_ERR_UNKNOWN_MACRO_NAMED,
+                            peeked_token_instance->m_token_text.c_str());
+                    }
+                    else
+                    {
+                        std::wstring err_info;
+
+                        if (peeked_token_instance->m_lex_type == lex_type::l_eof)
+                            err_info = WO_ERR_UNEXCEPT_EOF;
+                        else
+                            err_info = WO_ERR_UNEXCEPT_TOKEN + (L"'" + peeked_token_instance->m_token_text + L"'");
+                        (void)tkr.record_parser_error(lexer::msglevel_t::error, err_info.c_str());
+                    }
+
                     try_recover_count = 0;
-                    (void)tkr.record_parser_error(lexer::msglevel_t::error, err_info.c_str());
                     last_error_rowno = peeked_token_instance->m_token_end[0];
                     last_error_colno = peeked_token_instance->m_token_end[1];
-
                 }
 
                 //tokens_queue.front();// CURRENT TOKEN ERROR HAPPEND

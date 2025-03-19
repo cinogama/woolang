@@ -3013,7 +3013,7 @@ std::wstring _dump_src_info(
                     else
                         result += L"\n";
 
-                    swprintf(buf, 19, L"%-5zu | ", current_row_no);
+                    swprintf(buf, 19, L"%-5zu | ", current_row_no + 1);
                     result += std::wstring(depth == 0 ? 0 : depth + 1, L' ') + buf;
                 };
             auto print_notify_line =

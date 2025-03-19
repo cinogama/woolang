@@ -83,10 +83,15 @@ namespace wo
                 gm::nt(L"SENTENCE_LIST") >> gm::symlist{gm::nt(L"LABELED_SENTENCE")} >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
                 gm::nt(L"LABELED_SENTENCE") >> gm::symlist{gm::nt(L"IDENTIFIER"), gm::te(gm::ttype::l_at), gm::nt(L"SENTENCE")} >> WO_ASTBUILDER_INDEX(ast::pass_mark_label),
                 gm::nt(L"LABELED_SENTENCE") >> gm::symlist{gm::nt(L"SENTENCE")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                // NOTE: macro might defined after import sentence. to make sure macro can be handle correctly.
+                //      we make sure import happend before macro been peek and check.
                 gm::nt(L"SENTENCE") >> gm::symlist{
-                    gm::te(gm::ttype::l_import),
-                    gm::nt(L"SCOPED_LIST_NORMAL"),
+                    gm::nt(L"IMPORT_SENTENCE"),
                     gm::te(gm::ttype::l_semicolon)} >>
+                    WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"IMPORT_SENTENCE") >> gm::symlist{
+                    gm::te(gm::ttype::l_import),
+                    gm::nt(L"SCOPED_LIST_NORMAL")} >>
                     WO_ASTBUILDER_INDEX(ast::pass_import_files),
                 gm::nt(L"SENTENCE") >> gm::symlist{
                     gm::nt(L"DECL_ATTRIBUTE"), // useless
@@ -602,9 +607,9 @@ namespace wo
                 gm::nt(L"AST_TOKEN_IDENTIFER") >> gm::symlist{gm::nt(L"IDENTIFIER")} >> WO_ASTBUILDER_INDEX(ast::pass_token),
                 gm::nt(L"AST_TOKEN_NIL") >> gm::symlist{gm::te(gm::ttype::l_nil)} >> WO_ASTBUILDER_INDEX(ast::pass_token),
                 gm::nt(L"IDENTIFIER") >> gm::symlist{gm::te(gm::ttype::l_identifier)} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
-                gm::nt(L"IDENTIFIER") >> gm::symlist{gm::te(gm::ttype::l_macro)} >> WO_ASTBUILDER_INDEX(ast::pass_macro_failed),
                 gm::nt(L"USELESS_TOKEN") >> gm::symlist{gm::te(gm::ttype::l_double_index_point)} >> WO_ASTBUILDER_INDEX(ast::pass_token),
                 gm::nt(L"USELESS_TOKEN") >> gm::symlist{gm::te(gm::ttype::l_unknown_token)} >> WO_ASTBUILDER_INDEX(ast::pass_token),
+                gm::nt(L"USELESS_TOKEN") >> gm::symlist{ gm::te(gm::ttype::l_macro) } >> WO_ASTBUILDER_INDEX(ast::pass_token),
             });
 
             wo_stdout << ANSI_HIY "WooGramma: " ANSI_RST "Checking LR(1) table..." << wo_endl;
