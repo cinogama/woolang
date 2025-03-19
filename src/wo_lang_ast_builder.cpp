@@ -58,7 +58,7 @@ namespace wo
         }
         auto pass_import_files::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
-            wo_test(input.size() == 3);
+            wo_test(input.size() == 2);
             std::wstring path;
             std::wstring filename;
 
