@@ -619,8 +619,8 @@ namespace wo
         std::set<te> P_TERMINAL_SET;
         std::set<nt> P_NOTERMINAL_SET;
 
-        std::map<std::wstring, te_nt_index_t> NONTERM_MAP;
-        std::map<lex_type, te_nt_index_t> TERM_MAP;
+        std::unordered_map<std::wstring, te_nt_index_t> NONTERM_MAP;
+        std::unordered_map<lex_type, te_nt_index_t> TERM_MAP;
 
         struct action/*_lr1*/
         {

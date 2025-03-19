@@ -620,7 +620,16 @@ namespace wo
             --_m_this_token_begin_col;
 
         // Check if comment?
-        if (readed_char == L'/')
+
+        std::wstring token_literal_result;
+        auto append_result_char =
+            [&token_literal_result](auto ch) {token_literal_result.push_back(static_cast<wchar_t>(ch)); };
+
+        // Format string.
+        bool is_format_string_begin = false, is_format_string_middle = false;
+        switch (readed_char)
+        {
+        case L'/':
         {
             int peeked_char = peek_char();
             if (peeked_char == L'/')
@@ -651,289 +660,14 @@ namespace wo
                 return;
             }
         }
-
-        std::wstring token_literal_result;
-        auto append_result_char =
-            [&token_literal_result](auto ch) {token_literal_result.push_back(static_cast<wchar_t>(ch)); };
-
-        // Format string.
-        bool is_format_string_begin = false, is_format_string_middle = false;
-        if ((readed_char == L'f' || readed_char == L'F') && peek_char() == L'"')
-        {
-            (void)read_char();
-
-            if (_m_in_format_string)
-                return produce_lexer_error(msglevel_t::error, WO_ERR_RECURSIVE_FORMAT_STRING_IS_INVALID);
-
-            is_format_string_begin = true;
-        }
-        else if (_m_in_format_string && readed_char == L'}' && _m_curry_count_in_format_string == 0)
-            is_format_string_middle = true;
-
-        if (is_format_string_begin || is_format_string_middle)
-        {
-            // Is f"..."
-            int following_ch;
-            while (true)
-            {
-                following_ch = read_char();
-                if (following_ch == L'"')
-                {
-                    if (is_format_string_begin)
-                        return produce_token(lex_type::l_literal_string, std::move(token_literal_result));
-                    else
-                    {
-                        _m_in_format_string = false;
-                        return produce_token(lex_type::l_format_string_end, std::move(token_literal_result));
-                    }
-                }
-                if (following_ch == L'{')
-                {
-                    _m_curry_count_in_format_string = 0;
-                    _m_in_format_string = true;
-
-                    if (is_format_string_begin)
-                        return produce_token(lex_type::l_format_string_begin, std::move(token_literal_result));
-                    else
-                        return produce_token(lex_type::l_format_string, std::move(token_literal_result));
-                }
-                if (following_ch != EOF && following_ch != '\n')
-                {
-                    if (following_ch == L'\\')
-                    {
-                        // Escape character 
-                        int escape_ch = read_char();
-                        switch (escape_ch)
-                        {
-                        case L'\'':
-                        case L'"':
-                        case L'?':
-                        case L'\\':
-                        case L'{':
-                        case L'}':
-                            append_result_char(escape_ch); break;
-                        case L'a':
-                            append_result_char(L'\a'); break;
-                        case L'b':
-                            append_result_char(L'\b'); break;
-                        case L'f':
-                            append_result_char(L'\f'); break;
-                        case L'n':
-                            append_result_char(L'\n'); break;
-                        case L'r':
-                            append_result_char(L'\r'); break;
-                        case L't':
-                            append_result_char(L'\t'); break;
-                        case L'v':
-                            append_result_char(L'\v'); break;
-                        case L'0': case L'1': case L'2': case L'3': case L'4':
-                        case L'5': case L'6': case L'7': case L'8': case L'9':
-                        {
-                            // oct 1byte 
-                            int oct_ascii = escape_ch - L'0';
-                            for (int i = 0; i < 2; i++)
-                            {
-                                if (lexer::lex_isodigit(peek_char()))
-                                {
-                                    oct_ascii *= 8;
-                                    oct_ascii += lexer::lex_hextonum(read_char());
-                                }
-                                else
-                                    break;
-                            }
-                            append_result_char(oct_ascii);
-                            break;
-                        }
-                        case L'X':
-                        case L'x':
-                        {
-                            // hex 1byte 
-                            int hex_ascii = 0;
-                            for (int i = 0; i < 2; i++)
-                            {
-                                if (lexer::lex_isxdigit(peek_char()))
-                                {
-                                    hex_ascii *= 16;
-                                    hex_ascii += lexer::lex_hextonum(read_char());
-                                }
-                                else if (i == 0)
-                                    goto str_escape_sequences_fail_in_format_begin;
-                                else
-                                    break;
-                            }
-                            append_result_char(hex_ascii);
-                            break;
-                        }
-                        case L'U':
-                        case L'u':
-                        {
-                            // hex 1byte 
-                            int hex_ascii = 0;
-                            for (int i = 0; i < 4; i++)
-                            {
-                                if (lexer::lex_isxdigit(peek_char()))
-                                {
-                                    hex_ascii *= 16;
-                                    hex_ascii += lexer::lex_hextonum(read_char());
-                                }
-                                else if (i == 0)
-                                    goto str_escape_sequences_fail_in_format_begin;
-                                else
-                                    break;
-                            }
-                            append_result_char(hex_ascii);
-                            break;
-                        }
-                        default:
-                        str_escape_sequences_fail_in_format_begin:
-                            return produce_lexer_error(msglevel_t::error, WO_ERR_UNKNOW_ESCSEQ_BEGIN_WITH_CH, escape_ch);
-                        }
-                    }
-                    else
-                        append_result_char(following_ch);
-                }
-                else
-                    return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXCEPTED_EOL_IN_STRING);
-            }
-
-            // Cannot be here.
-            wo_error("Cannot be here.");
-        }
-        else if (lexer::lex_isdigit(readed_char))
-        {
-            append_result_char(readed_char);
-
-            int base = 10;
-            bool is_real = false;
-            bool is_handle = false;
-
-            // is digit, return l_literal_integer/l_literal_handle/l_literal_real
-            if (readed_char == L'0')
-            {
-                // it may be OCT DEC HEX
-                int sec_ch = peek_char();
-                if (lexer::lex_toupper(sec_ch) == 'X')
-                    base = 16;                      // is hex
-                else if (lexer::lex_toupper(sec_ch) == 'B')
-                    base = 2;                      // is bin
-                else if (lexer::lex_isodigit(sec_ch))
-                    base = 8;                       // is oct
-                else
-                    base = 10;                      // is dec
-            }
-
-            int following_chs;
-            do
-            {
-                following_chs = peek_char();
-
-                if (following_chs == '_' || following_chs == '\'')
-                {
-                    // this behavior is learn from rust and c++
-                    // You can freely use the _/' mark in the number literal, except for the leading mark (0 0x 0b) 
-                    (void)read_char();
-                    continue;
-                }
-
-                if (base == 10)
-                {
-                    if (lexer::lex_isdigit(following_chs))
-                        append_result_char(read_char());
-                    else if (following_chs == L'.')
-                    {
-                        append_result_char(read_char());
-                        if (is_real)
-                            return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXCEPT_CH_AFTER_CH, following_chs, readed_char);
-                        is_real = true;
-                    }
-                    else if (lexer::lex_toupper(following_chs) == L'H')
-                    {
-                        if (is_real)
-                            return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXCEPT_CH_AFTER_CH, following_chs, readed_char);
-                        (void)read_char();
-                        is_handle = true;
-                        break;
-                    }
-                    else if (lexer::lex_isalnum(following_chs))
-                        return produce_lexer_error(msglevel_t::error, WO_ERR_ILLEGAL_LITERAL);
-                    else
-                        break;                  // end read
-                }
-                else if (base == 16)
-                {
-                    if (lexer::lex_isxdigit(following_chs) || lexer::lex_toupper(following_chs) == L'X')
-                        append_result_char(read_char());
-                    else if (following_chs == L'.')
-                        return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXCEPT_CH_AFTER_CH, following_chs, readed_char);
-                    else if (lexer::lex_toupper(following_chs) == L'H')
-                    {
-                        (void)read_char();
-                        is_handle = true;
-                        break;
-                    }
-                    else if (lexer::lex_isalnum(following_chs))
-                        return produce_lexer_error(msglevel_t::error, WO_ERR_ILLEGAL_LITERAL);
-                    else
-                        break;                  // end read
-                }
-                else if (base == 8)
-                {
-                    if (lexer::lex_isodigit(following_chs))
-                        append_result_char(read_char());
-                    else if (following_chs == L'.')
-                        return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXCEPT_CH_AFTER_CH, following_chs, readed_char);
-                    else if (lexer::lex_toupper(following_chs) == L'H')
-                    {
-                        (void)read_char();
-                        is_handle = true;
-                        break;
-                    }
-                    else if (lexer::lex_isalnum(following_chs))
-                        return produce_lexer_error(msglevel_t::error, WO_ERR_ILLEGAL_LITERAL);
-                    else
-                        break;                  // end read
-                }
-                else if (base == 2)
-                {
-                    if (following_chs == L'1' || following_chs == L'0' || lexer::lex_toupper(following_chs) == L'B')
-                        append_result_char(read_char());
-                    else if (following_chs == L'.')
-                        return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXCEPT_CH_AFTER_CH, following_chs, readed_char);
-                    else if (lexer::lex_toupper(following_chs) == L'H')
-                    {
-                        (void)read_char();
-                        is_handle = true;
-                    }
-                    else if (lexer::lex_isalnum(following_chs))
-                        return produce_lexer_error(msglevel_t::error, WO_ERR_ILLEGAL_LITERAL);
-                    else
-                        break;                  // end read
-                }
-                else
-                    return produce_lexer_error(msglevel_t::error, WO_ERR_LEXER_ERR_UNKNOW_NUM_BASE);
-
-            } while (true);
-
-            // end reading, decide which type to return;
-            wo_assert(!(is_real && is_handle));
-
-            if (is_real)
-                return produce_token(lex_type::l_literal_real, std::move(token_literal_result));
-            if (is_handle)
-                return produce_token(lex_type::l_literal_handle, std::move(token_literal_result));
-            return produce_token(lex_type::l_literal_integer, std::move(token_literal_result));
-
-
-        } // l_literal_integer/l_literal_handle/l_literal_real end
-        else if (readed_char == L';')
+        case L';':
         {
             append_result_char(readed_char);
             return produce_token(lex_type::l_semicolon, std::move(token_literal_result));
         }
-        else if (readed_char == L'@')
+        case L'@':
         {
             // @"(Example string "without" '\' it will be very happy!)"
-
             if (int tmp_ch = peek_char(); tmp_ch == L'"')
             {
                 (void)read_char();
@@ -957,7 +691,7 @@ namespace wo
             else
                 goto checking_valid_operator;
         }
-        else if (readed_char == L'"')
+        case L'"':
         {
             int following_ch;
             while (true)
@@ -1062,7 +796,7 @@ namespace wo
                     return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXCEPTED_EOL_IN_STRING);
             }
         }
-        else if (readed_char == L'\'')
+        case L'\'':
         {
             int following_ch;
 
@@ -1171,74 +905,48 @@ namespace wo
             else
                 return produce_lexer_error(msglevel_t::error, WO_ERR_LEXER_ERR_UNKNOW_BEGIN_CH L" " WO_TERM_EXCEPTED L" '\''", following_ch);
         }
-        else if (lexer::lex_isoperatorch(readed_char))
-        {
-        checking_valid_operator:
-            append_result_char(readed_char);
-            lex_type operator_type = lexer::lex_is_valid_operator(token_literal_result);
-
-            int following_ch;
-            do
-            {
-                following_ch = peek_char();
-
-                if (!lexer::lex_isoperatorch(following_ch))
-                    break;
-
-                lex_type tmp_op_type = lexer::lex_is_valid_operator(token_literal_result + (wchar_t)following_ch);
-                if (tmp_op_type != lex_type::l_error)
-                {
-                    // maxim eat!
-                    operator_type = tmp_op_type;
-                    append_result_char(read_char());
-                }
-                else if (operator_type == lex_type::l_error)
-                {
-                    // not valid yet, continue...
-                }
-                else // is already a operator ready, return it.
-                    break;
-
-            } while (true);
-
-            if (operator_type == lex_type::l_error)
-                return produce_lexer_error(msglevel_t::error, WO_ERR_UNKNOW_OPERATOR_STR, token_literal_result.c_str());
-
-            return produce_token(operator_type, std::move(token_literal_result));
-        }
-        else if (readed_char == L'(')
+        case L'(':
         {
             append_result_char(readed_char);
-
             return produce_token(lex_type::l_left_brackets, std::move(token_literal_result));
         }
-        else if (readed_char == L')')
+        case L')':
         {
             append_result_char(readed_char);
 
             return produce_token(lex_type::l_right_brackets, std::move(token_literal_result));
         }
-        else if (readed_char == L'{')
+        case L'{':
         {
             append_result_char(readed_char);
             ++_m_curry_count_in_format_string;
             return produce_token(lex_type::l_left_curly_braces, std::move(token_literal_result));
         }
-        else if (readed_char == L'}')
+        case L'}':
         {
+            if (_m_in_format_string && _m_curry_count_in_format_string == 0)
+            {
+                is_format_string_middle = true;
+                break;
+            }
             append_result_char(readed_char);
             --_m_curry_count_in_format_string;
             return produce_token(lex_type::l_right_curly_braces, std::move(token_literal_result));
         }
-        // ATTENTION, SECURE:
-        //  Disable pragma if source_file == nullptr, it's in deserialize.
-        //  Processing pragma here may lead to arbitrary code execution.
-        else if (readed_char == L'#' && m_source_path.has_value())
+        case L'#':
         {
+            // ATTENTION, SECURE:
+            //  Disable pragma if source_file == nullptr, it's in deserialize.
+            //  Processing pragma here may lead to arbitrary code execution.
+            if (!m_source_path.has_value())
+            {
+                append_result_char(readed_char);
+                return produce_token(lex_type::l_unknown_token, std::move(token_literal_result));
+            }
+
             // Read sharp
             // #macro
             std::wstring pragma_name;
-
             if (lexer::lex_isidentbeg(peek_char()))
             {
                 pragma_name += (wchar_t)read_char();
@@ -1278,46 +986,349 @@ namespace wo
             }
             return;
         }
-        else if (readed_char == EOF)
+        case EOF:
         {
             return produce_token(lex_type::l_eof, std::move(token_literal_result));
         }
-        else if (lexer::lex_isidentbeg(readed_char))
-        {
-            // l_identifier or key world..
-            append_result_char(readed_char);
-
-            int following_ch;
-            while (true)
+        case 'F':
+        case 'f':
+            if (peek_char() == '"')
             {
-                following_ch = peek_char();
-                if (lexer::lex_isident(following_ch))
-                    append_result_char(read_char());
+                (void)read_char();
+
+                if (_m_in_format_string)
+                    return produce_lexer_error(msglevel_t::error, WO_ERR_RECURSIVE_FORMAT_STRING_IS_INVALID);
+
+                is_format_string_begin = true;
+                break;
+            }
+            [[fallthrough]];
+        default:
+            if (lexer::lex_isidentbeg(readed_char))
+            {
+                // l_identifier or key world..
+                append_result_char(readed_char);
+
+                int following_ch;
+                while (true)
+                {
+                    following_ch = peek_char();
+                    if (lexer::lex_isident(following_ch))
+                        append_result_char(read_char());
+                    else
+                        break;
+                }
+
+                // ATTENTION, SECURE:
+                //  Disable macro handler if source_file == nullptr, it's in deserialize.
+                //  Processing macros here may lead to arbitrary code execution.
+                if (peek_char() == L'!' && m_source_path != nullptr)
+                {
+                    (void)read_char(); // Eat `!`
+                    return produce_token(lex_type::l_macro, std::move(token_literal_result));
+                }
+
+                if (lex_type keyword_type = lexer::lex_is_keyword(token_literal_result);
+                    lex_type::l_error != keyword_type)
+                    return produce_token(keyword_type, std::move(token_literal_result));
+
+                return produce_token(lex_type::l_identifier, std::move(token_literal_result));
+            }
+            else if (lexer::lex_isdigit(readed_char))
+            {
+                append_result_char(readed_char);
+
+                int base = 10;
+                bool is_real = false;
+                bool is_handle = false;
+
+                // is digit, return l_literal_integer/l_literal_handle/l_literal_real
+                if (readed_char == L'0')
+                {
+                    // it may be OCT DEC HEX
+                    int sec_ch = peek_char();
+                    if (lexer::lex_toupper(sec_ch) == 'X')
+                        base = 16;                      // is hex
+                    else if (lexer::lex_toupper(sec_ch) == 'B')
+                        base = 2;                      // is bin
+                    else if (lexer::lex_isodigit(sec_ch))
+                        base = 8;                       // is oct
+                    else
+                        base = 10;                      // is dec
+                }
+
+                int following_chs;
+                do
+                {
+                    following_chs = peek_char();
+
+                    if (following_chs == '_' || following_chs == '\'')
+                    {
+                        // this behavior is learn from rust and c++
+                        // You can freely use the _/' mark in the number literal, except for the leading mark (0 0x 0b) 
+                        (void)read_char();
+                        continue;
+                    }
+
+                    if (base == 10)
+                    {
+                        if (lexer::lex_isdigit(following_chs))
+                            append_result_char(read_char());
+                        else if (following_chs == L'.')
+                        {
+                            append_result_char(read_char());
+                            if (is_real)
+                                return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXCEPT_CH_AFTER_CH, following_chs, readed_char);
+                            is_real = true;
+                        }
+                        else if (lexer::lex_toupper(following_chs) == L'H')
+                        {
+                            if (is_real)
+                                return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXCEPT_CH_AFTER_CH, following_chs, readed_char);
+                            (void)read_char();
+                            is_handle = true;
+                            break;
+                        }
+                        else if (lexer::lex_isalnum(following_chs))
+                            return produce_lexer_error(msglevel_t::error, WO_ERR_ILLEGAL_LITERAL);
+                        else
+                            break;                  // end read
+                    }
+                    else if (base == 16)
+                    {
+                        if (lexer::lex_isxdigit(following_chs) || lexer::lex_toupper(following_chs) == L'X')
+                            append_result_char(read_char());
+                        else if (following_chs == L'.')
+                            return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXCEPT_CH_AFTER_CH, following_chs, readed_char);
+                        else if (lexer::lex_toupper(following_chs) == L'H')
+                        {
+                            (void)read_char();
+                            is_handle = true;
+                            break;
+                        }
+                        else if (lexer::lex_isalnum(following_chs))
+                            return produce_lexer_error(msglevel_t::error, WO_ERR_ILLEGAL_LITERAL);
+                        else
+                            break;                  // end read
+                    }
+                    else if (base == 8)
+                    {
+                        if (lexer::lex_isodigit(following_chs))
+                            append_result_char(read_char());
+                        else if (following_chs == L'.')
+                            return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXCEPT_CH_AFTER_CH, following_chs, readed_char);
+                        else if (lexer::lex_toupper(following_chs) == L'H')
+                        {
+                            (void)read_char();
+                            is_handle = true;
+                            break;
+                        }
+                        else if (lexer::lex_isalnum(following_chs))
+                            return produce_lexer_error(msglevel_t::error, WO_ERR_ILLEGAL_LITERAL);
+                        else
+                            break;                  // end read
+                    }
+                    else if (base == 2)
+                    {
+                        if (following_chs == L'1' || following_chs == L'0' || lexer::lex_toupper(following_chs) == L'B')
+                            append_result_char(read_char());
+                        else if (following_chs == L'.')
+                            return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXCEPT_CH_AFTER_CH, following_chs, readed_char);
+                        else if (lexer::lex_toupper(following_chs) == L'H')
+                        {
+                            (void)read_char();
+                            is_handle = true;
+                        }
+                        else if (lexer::lex_isalnum(following_chs))
+                            return produce_lexer_error(msglevel_t::error, WO_ERR_ILLEGAL_LITERAL);
+                        else
+                            break;                  // end read
+                    }
+                    else
+                        return produce_lexer_error(msglevel_t::error, WO_ERR_LEXER_ERR_UNKNOW_NUM_BASE);
+
+                } while (true);
+
+                // end reading, decide which type to return;
+                wo_assert(!(is_real && is_handle));
+
+                if (is_real)
+                    return produce_token(lex_type::l_literal_real, std::move(token_literal_result));
+                if (is_handle)
+                    return produce_token(lex_type::l_literal_handle, std::move(token_literal_result));
+                return produce_token(lex_type::l_literal_integer, std::move(token_literal_result));
+
+
+            } // l_literal_integer/l_literal_handle/l_literal_real end
+            else if (lexer::lex_isoperatorch(readed_char))
+            {
+            checking_valid_operator:
+                append_result_char(readed_char);
+                lex_type operator_type = lexer::lex_is_valid_operator(token_literal_result);
+
+                int following_ch;
+                do
+                {
+                    following_ch = peek_char();
+
+                    if (!lexer::lex_isoperatorch(following_ch))
+                        break;
+
+                    lex_type tmp_op_type = lexer::lex_is_valid_operator(token_literal_result + (wchar_t)following_ch);
+                    if (tmp_op_type != lex_type::l_error)
+                    {
+                        // maxim eat!
+                        operator_type = tmp_op_type;
+                        append_result_char(read_char());
+                    }
+                    else if (operator_type == lex_type::l_error)
+                    {
+                        // not valid yet, continue...
+                    }
+                    else // is already a operator ready, return it.
+                        break;
+
+                } while (true);
+
+                if (operator_type == lex_type::l_error)
+                    return produce_lexer_error(msglevel_t::error, WO_ERR_UNKNOW_OPERATOR_STR, token_literal_result.c_str());
+
+                return produce_token(operator_type, std::move(token_literal_result));
+            }
+            else
+            {
+                append_result_char(readed_char);
+                return produce_token(lex_type::l_unknown_token, std::move(token_literal_result));
+            }
+        }
+
+        wo_assert(is_format_string_begin || is_format_string_middle);
+        // Is f"..."
+        int following_ch;
+        while (true)
+        {
+            following_ch = read_char();
+            if (following_ch == L'"')
+            {
+                if (is_format_string_begin)
+                    return produce_token(lex_type::l_literal_string, std::move(token_literal_result));
                 else
-                    break;
+                {
+                    _m_in_format_string = false;
+                    return produce_token(lex_type::l_format_string_end, std::move(token_literal_result));
+                }
             }
-
-            // ATTENTION, SECURE:
-            //  Disable macro handler if source_file == nullptr, it's in deserialize.
-            //  Processing macros here may lead to arbitrary code execution.
-            if (peek_char() == L'!' && m_source_path != nullptr)
+            if (following_ch == L'{')
             {
-                (void)read_char(); // Eat `!`
-                return produce_token(lex_type::l_macro, std::move(token_literal_result));
+                _m_curry_count_in_format_string = 0;
+                _m_in_format_string = true;
+
+                if (is_format_string_begin)
+                    return produce_token(lex_type::l_format_string_begin, std::move(token_literal_result));
+                else
+                    return produce_token(lex_type::l_format_string, std::move(token_literal_result));
             }
-
-            if (lex_type keyword_type = lexer::lex_is_keyword(token_literal_result);
-                lex_type::l_error != keyword_type)
-                return produce_token(keyword_type, std::move(token_literal_result));
-
-            return produce_token(lex_type::l_identifier, std::move(token_literal_result));
+            if (following_ch != EOF && following_ch != '\n')
+            {
+                if (following_ch == L'\\')
+                {
+                    // Escape character 
+                    int escape_ch = read_char();
+                    switch (escape_ch)
+                    {
+                    case L'\'':
+                    case L'"':
+                    case L'?':
+                    case L'\\':
+                    case L'{':
+                    case L'}':
+                        append_result_char(escape_ch); break;
+                    case L'a':
+                        append_result_char(L'\a'); break;
+                    case L'b':
+                        append_result_char(L'\b'); break;
+                    case L'f':
+                        append_result_char(L'\f'); break;
+                    case L'n':
+                        append_result_char(L'\n'); break;
+                    case L'r':
+                        append_result_char(L'\r'); break;
+                    case L't':
+                        append_result_char(L'\t'); break;
+                    case L'v':
+                        append_result_char(L'\v'); break;
+                    case L'0': case L'1': case L'2': case L'3': case L'4':
+                    case L'5': case L'6': case L'7': case L'8': case L'9':
+                    {
+                        // oct 1byte 
+                        int oct_ascii = escape_ch - L'0';
+                        for (int i = 0; i < 2; i++)
+                        {
+                            if (lexer::lex_isodigit(peek_char()))
+                            {
+                                oct_ascii *= 8;
+                                oct_ascii += lexer::lex_hextonum(read_char());
+                            }
+                            else
+                                break;
+                        }
+                        append_result_char(oct_ascii);
+                        break;
+                    }
+                    case L'X':
+                    case L'x':
+                    {
+                        // hex 1byte 
+                        int hex_ascii = 0;
+                        for (int i = 0; i < 2; i++)
+                        {
+                            if (lexer::lex_isxdigit(peek_char()))
+                            {
+                                hex_ascii *= 16;
+                                hex_ascii += lexer::lex_hextonum(read_char());
+                            }
+                            else if (i == 0)
+                                goto str_escape_sequences_fail_in_format_begin;
+                            else
+                                break;
+                        }
+                        append_result_char(hex_ascii);
+                        break;
+                    }
+                    case L'U':
+                    case L'u':
+                    {
+                        // hex 1byte 
+                        int hex_ascii = 0;
+                        for (int i = 0; i < 4; i++)
+                        {
+                            if (lexer::lex_isxdigit(peek_char()))
+                            {
+                                hex_ascii *= 16;
+                                hex_ascii += lexer::lex_hextonum(read_char());
+                            }
+                            else if (i == 0)
+                                goto str_escape_sequences_fail_in_format_begin;
+                            else
+                                break;
+                        }
+                        append_result_char(hex_ascii);
+                        break;
+                    }
+                    default:
+                    str_escape_sequences_fail_in_format_begin:
+                        return produce_lexer_error(msglevel_t::error, WO_ERR_UNKNOW_ESCSEQ_BEGIN_WITH_CH, escape_ch);
+                    }
+                }
+                else
+                    append_result_char(following_ch);
+            }
+            else
+                return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXCEPTED_EOL_IN_STRING);
         }
-        ///////////////////////////////////////////////////////////////////////////////////////
-        else
-        {
-            append_result_char(readed_char);
-            return produce_token(lex_type::l_unknown_token, std::move(token_literal_result));
-        }
+
+        // Cannot be here.
+        wo_error("Cannot be here.");
     }
     bool lexer::try_handle_macro(const std::wstring& macro_name)
     {
