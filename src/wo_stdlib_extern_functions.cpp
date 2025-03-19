@@ -3070,14 +3070,15 @@ WO_API wo_api rslib_std_macro_lexer_current_path(wo_vm vm, wo_value args)
 
 WO_API wo_api rslib_std_macro_lexer_current_location(wo_vm vm, wo_value args)
 {
-    wo_value s = wo_reserve_stack(vm, 2, &args);
-
     wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
 
+    // ATTENTION: args might invalid after peek (
+    //      if stack extension happend in recursive macro handling), 
+    //  we cannot use args after peek.
     auto* peek_token = lex->peek();
 
-    wo_value result = s + 0;
-    wo_value elem = s + 1;
+    wo_value result = wo_register(vm, WO_REG_T0);
+    wo_value elem = wo_register(vm, WO_REG_T1);
 
     wo_set_struct(result, vm, 2);
     wo_set_int(elem, (wo_integer_t)peek_token->m_token_begin[2]);
