@@ -83,10 +83,15 @@ namespace wo
                 gm::nt(L"SENTENCE_LIST") >> gm::symlist{gm::nt(L"LABELED_SENTENCE")} >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
                 gm::nt(L"LABELED_SENTENCE") >> gm::symlist{gm::nt(L"IDENTIFIER"), gm::te(gm::ttype::l_at), gm::nt(L"SENTENCE")} >> WO_ASTBUILDER_INDEX(ast::pass_mark_label),
                 gm::nt(L"LABELED_SENTENCE") >> gm::symlist{gm::nt(L"SENTENCE")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                // NOTE: macro might defined after import sentence. to make sure macro can be handle correctly.
+                //      we make sure import happend before macro been peek and check.
                 gm::nt(L"SENTENCE") >> gm::symlist{
-                    gm::te(gm::ttype::l_import),
-                    gm::nt(L"SCOPED_LIST_NORMAL"),
+                    gm::nt(L"IMPORT_SENTENCE"),
                     gm::te(gm::ttype::l_semicolon)} >>
+                    WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"IMPORT_SENTENCE") >> gm::symlist{
+                    gm::te(gm::ttype::l_import),
+                    gm::nt(L"SCOPED_LIST_NORMAL")} >>
                     WO_ASTBUILDER_INDEX(ast::pass_import_files),
                 gm::nt(L"SENTENCE") >> gm::symlist{
                     gm::nt(L"DECL_ATTRIBUTE"), // useless
