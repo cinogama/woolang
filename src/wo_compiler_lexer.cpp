@@ -659,6 +659,8 @@ namespace wo
                 } while (true);
                 return;
             }
+            else
+                goto checking_valid_operator;
         }
         case L';':
         {
