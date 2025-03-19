@@ -604,6 +604,7 @@ namespace wo
                 gm::nt(L"IDENTIFIER") >> gm::symlist{gm::te(gm::ttype::l_identifier)} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 gm::nt(L"USELESS_TOKEN") >> gm::symlist{gm::te(gm::ttype::l_double_index_point)} >> WO_ASTBUILDER_INDEX(ast::pass_token),
                 gm::nt(L"USELESS_TOKEN") >> gm::symlist{gm::te(gm::ttype::l_unknown_token)} >> WO_ASTBUILDER_INDEX(ast::pass_token),
+                gm::nt(L"USELESS_TOKEN") >> gm::symlist{ gm::te(gm::ttype::l_macro) } >> WO_ASTBUILDER_INDEX(ast::pass_token),
             });
 
             wo_stdout << ANSI_HIY "WooGramma: " ANSI_RST "Checking LR(1) table..." << wo_endl;
