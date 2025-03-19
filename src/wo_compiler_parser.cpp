@@ -139,63 +139,62 @@ namespace wo
 #if WOOLANG_LR1_OPTIMIZE_LR1_TABLE
         if (lr1_fast_cache_enabled())
         {
+            auto& lr1_goto_rs_map_state = LR1_GOTO_RS_MAP[a];
             if (b >= 0)
             {
                 // Is Terminate, b didn't need to add 1, l_error is 0 and not able to exist in cache.
-
                 if (a == LR1_ACCEPT_STATE && b == LR1_ACCEPT_TERM)
                 {
                     write_act->act = action::act_type::accept;
                     write_act->state = 0;
                     return;
                 }
-
-                if (LR1_GOTO_RS_MAP[a][1] == -1)
+                if (lr1_goto_rs_map_state[1] == -1)
                 {
                     write_act->act = action::act_type::error;
                     write_act->state = -1;
                     return;
                 }
 
-                auto state = LR1_R_S_CACHE[LR1_GOTO_RS_MAP[a][1] * LR1_R_S_CACHE_SZ + b];
+                auto state = LR1_R_S_CACHE[lr1_goto_rs_map_state[1] * LR1_R_S_CACHE_SZ + b];
                 if (state == 0)
                 {
                     // No action for this state&te, return error.
                     write_act->act = action::act_type::error;
-                    write_act->state = -1;
+                    write_act->state = SIZE_MAX;
                     return;
                 }
                 else if (state > 0)
                 {
                     // Push!
                     write_act->act = action::act_type::push_stack;
-                    write_act->state = state - 1;
+                    write_act->state = (size_t)state - 1;
                     return;
                 }
                 else
                 {
                     // Reduce!
                     write_act->act = action::act_type::reduction;
-                    write_act->state = (-state) - 1;
+                    write_act->state = (size_t)(-state) - 1;
                     return;
                 }
             }
             else
             {
                 // Is NonTerminate
-                if (LR1_GOTO_RS_MAP[a][0] == -1)
+                if (lr1_goto_rs_map_state[0] == -1)
                 {
                     write_act->act = action::act_type::error;
-                    write_act->state = -1;
+                    write_act->state = SIZE_MAX;
                     return;
                 }
 
-                auto state = LR1_GOTO_CACHE[LR1_GOTO_RS_MAP[a][0] * LR1_GOTO_CACHE_SZ + (-b)];
+                auto state = LR1_GOTO_CACHE[lr1_goto_rs_map_state[0] * LR1_GOTO_CACHE_SZ + (-b)];
                 if (state == -1)
                 {
                     // No action for this state&nt, return error.
                     write_act->act = action::act_type::error;
-                    write_act->state = -1;
+                    write_act->state = SIZE_MAX;
                     return;
                 }
 
@@ -657,10 +656,14 @@ namespace wo
             size_t row_no;
             size_t col_no;
         };
+        
+        using state_stack_t = std::stack<size_t, std::vector<size_t>>;
+        using symbol_stack_t = std::stack<te_nt_index_t, std::vector<te_nt_index_t>>;
+        using node_stack_t = std::stack<std::pair<source_info, produce>, std::vector<std::pair<source_info, produce>>>;
 
-        std::stack<size_t> state_stack;
-        std::stack<te_nt_index_t> sym_stack;
-        std::stack<std::pair<source_info, produce>> node_stack;
+        state_stack_t state_stack;
+        symbol_stack_t sym_stack;
+        node_stack_t node_stack;
 
         const te_nt_index_t te_leof_index = TERM_MAP.at(lex_type::l_eof);
         const te_nt_index_t te_lempty_index = TERM_MAP.at(lex_type::l_empty);
@@ -691,43 +694,29 @@ namespace wo
                     ? TERM_MAP.at(peeked_token_instance->m_lex_type)
                     : NOW_STACK_SYMBO());
 
-            no_prospect_action actions, e_actions;
+            no_prospect_action actions;
+            
+            bool e_rule = false;
             LR1_TABLE_READ(NOW_STACK_STATE(), top_symbo, &actions);
-            LR1_TABLE_READ(NOW_STACK_STATE(), te_lempty_index, &e_actions);
-
-            if (actions.act != action::act_type::error || e_actions.act != action::act_type::error)
+            if (actions.act == action::act_type::error)
             {
-                bool e_rule = false;
+                e_rule = true;
+
+                LR1_TABLE_READ(NOW_STACK_STATE(), te_lempty_index, &actions);
                 if (actions.act == action::act_type::error)
                 {
-                    e_rule = true;
-                }
-                auto& take_action = actions.act != action::act_type::error ? actions : e_actions;
-
-                if (take_action.act == grammar::action::act_type::push_stack)
-                {
-                    state_stack.push(take_action.state);
-                    if (e_rule)
+                error_handle:
+                    // IF SAME ERROR HAPPEND, JUST STOP COMPILE
+                    if (last_error_rowno == peeked_token_instance->m_token_end[0] &&
+                        last_error_colno == peeked_token_instance->m_token_end[1])
                     {
-                        node_stack.push(
-                            std::make_pair(
-                                source_info{
-                                    peeked_token_instance->m_token_begin[0],
-                                    peeked_token_instance->m_token_begin[1]
-                                },
-                                token{ grammar::ttype::l_empty }));
-                        sym_stack.push(te_lempty_index);
+                        try_recover_count++;
+
+                        if (try_recover_count >= 3)
+                            goto error_handle_fail;
                     }
                     else
                     {
-                        node_stack.push(
-                            std::make_pair(
-                                source_info{
-                                    peeked_token_instance->m_token_begin[0],
-                                    peeked_token_instance->m_token_begin[1]
-                                },
-                                token{ peeked_token_instance->m_lex_type, peeked_token_instance->m_token_text }));
-                        
                         if (peeked_token_instance->m_lex_type == lex_type::l_macro)
                         {
                             tkr.record_format(
@@ -740,120 +729,122 @@ namespace wo
                                 WO_ERR_UNKNOWN_MACRO_NAMED,
                                 peeked_token_instance->m_token_text.c_str());
                         }
-                        sym_stack.push(TERM_MAP.at(peeked_token_instance->m_lex_type));
-                        tkr.move_forward();
-                    }
-
-                }
-                else if (take_action.act == grammar::action::act_type::reduction)
-                {
-                    auto& red_rule = RT_PRODUCTION[take_action.state];
-
-                    srcinfo_bnodes.resize(red_rule.rule_right_count);
-                    te_or_nt_bnodes.resize(red_rule.rule_right_count);
-
-                    for (size_t i = red_rule.rule_right_count; i > 0; i--)
-                    {
-                        state_stack.pop();
-                        sym_stack.pop();
-                        srcinfo_bnodes[i - 1] = std::move(node_stack.top().first);
-                        te_or_nt_bnodes[i - 1] = std::move(node_stack.top().second);
-                        node_stack.pop();
-                    }
-                    sym_stack.push(red_rule.production_aim);
-
-                    if (std::any_of(te_or_nt_bnodes.begin(), te_or_nt_bnodes.end(), [](const produce& astn) {
-                        return astn.is_token() && astn.read_token().type == lex_type::l_error;
-                        }))
-                    {
-                        node_stack.push(
-                            std::make_pair(
-                                source_info{
-                                    peeked_token_instance->m_token_end[0],
-                                    peeked_token_instance->m_token_end[1],
-                                },
-                                token{ lex_type::l_error }));
-                    }
-                    else
-                    {
-                        auto astnode = red_rule.ast_create_func(tkr, te_or_nt_bnodes);
-
-                        if (astnode.is_ast())
+                        else
                         {
-                            auto* ast_node_ = astnode.read_ast();
-                            wo_assert(!te_or_nt_bnodes.empty());
+                            std::wstring err_info;
 
-                            if (ast_node_->source_location.source_file == nullptr)
+                            if (peeked_token_instance->m_lex_type == lex_type::l_eof)
+                                err_info = WO_ERR_UNEXCEPT_EOF;
+                            else
+                                err_info = WO_ERR_UNEXCEPT_TOKEN + (L"'" + peeked_token_instance->m_token_text + L"'");
+                            (void)tkr.record_parser_error(lexer::msglevel_t::error, err_info.c_str());
+                        }
+
+                        try_recover_count = 0;
+                        last_error_rowno = peeked_token_instance->m_token_end[0];
+                        last_error_colno = peeked_token_instance->m_token_end[1];
+                    }
+
+                    //tokens_queue.front();// CURRENT TOKEN ERROR HAPPEND
+                    // FIND USABLE STATE A TO REDUCE.
+                    while (!state_stack.empty())
+                    {
+                        size_t stateid = state_stack.top();
+
+                        std::unordered_set<te_nt_index_t> reduceables;
+#if WOOLANG_LR1_OPTIMIZE_LR1_TABLE
+                        if (lr1_fast_cache_enabled())
+                        {
+                            for (size_t i = 1/* 0 is l_error/state, skip it */; i < LR1_R_S_CACHE_SZ; i++)
                             {
-                                if (red_rule.rule_right_count != 0)
-                                {
-                                    ast_node_->source_location.begin_at =
-                                        ast::AstBase::location_t{
-                                        srcinfo_bnodes.front().row_no,
-                                        srcinfo_bnodes.front().col_no };
-                                    ast_node_->source_location.end_at =
-                                        ast::AstBase::location_t{
-                                        peeked_token_instance->m_token_begin[2],
-                                        peeked_token_instance->m_token_begin[3] };
-                                }
-                                else
-                                {
-                                    ast_node_->source_location.begin_at =
-                                        ast::AstBase::location_t{
-                                        peeked_token_instance->m_token_end[0],
-                                        peeked_token_instance->m_token_end[1] };
-                                    ast_node_->source_location.end_at =
-                                        ast_node_->source_location.begin_at;
-                                }
-                                ast_node_->source_location.source_file = tkr.get_source_path();
+                                int state = LR1_R_S_CACHE[LR1_GOTO_RS_MAP[stateid][1] * LR1_R_S_CACHE_SZ + i];
+                                if (state < 0)
+                                    reduceables.insert(RT_PRODUCTION[(-state) - 1].production_aim);
                             }
                         }
-                        node_stack.push(std::make_pair(srcinfo_bnodes.front(), astnode));
-                    }
-                }
-                else if (take_action.act == grammar::action::act_type::accept)
-                {
-                    if (tkr.has_error())
-                        return nullptr;
+                        else
+#endif
+                        {
+                            if (LR1_TABLE.find(stateid) != LR1_TABLE.end())
+                                for (auto act : LR1_TABLE.at(stateid))
+                                    if (act.second.size() && act.second.begin()->act == action::act_type::reduction)
+                                        reduceables.insert(RT_PRODUCTION[act.second.begin()->state].production_aim);
+                        }
 
-                    auto& node = node_stack.top().second;
-                    if (node.is_ast())
-                    {
-                        // Append imported ast node front of specify ast-node;
-                        return tkr.merge_imported_ast_trees(node.read_ast());
+                        if (!reduceables.empty())
+                        {
+                            wo::lex_type out_lex = lex_type::l_empty;
+                            std::wstring out_str;
+                            while ((out_lex = tkr.peek()->m_lex_type) != lex_type::l_eof)
+                            {
+                                for (te_nt_index_t fr : reduceables)
+                                {
+                                    // FIND NON-TE AND IT'S FOLLOW
+                                    auto& follow_set = FOLLOW_READ(fr);
+
+                                    auto place = std::find_if(follow_set.begin(), follow_set.end(), [&](const te& t) {
+
+                                        return t.t_name == L"" ?
+                                            t.t_type == out_lex
+                                            :
+                                            t.t_name == out_str &&
+                                            t.t_type == out_lex;
+
+                                        });
+                                    if (place != follow_set.end())
+                                        goto error_progress_end;
+                                }
+                                tkr.move_forward();
+                            }
+                            goto error_handle_fail;
+                        }
+
+                        if (node_stack.size())
+                        {
+                            state_stack.pop();
+                            sym_stack.pop();
+                            node_stack.pop();
+                        }
+                        else
+                        {
+                            goto error_handle_fail;
+                        }
                     }
-                    else
-                    {
-                        (void)tkr.record_parser_error(
-                            lexer::msglevel_t::error,
-                            WO_ERR_SHOULD_BE_AST_BASE);
-                        return nullptr;
-                    }
-                }
-                else if (take_action.act == grammar::action::act_type::state_goto)
-                {
-                    // std::wcout << "goto: " << take_action.state << std::endl;
-                    state_stack.push(take_action.state);
-                }
-                else
-                {
-                    goto error_handle;
+                error_handle_fail:
+                    (void)tkr.record_parser_error(lexer::msglevel_t::error, WO_ERR_UNABLE_RECOVER_FROM_ERR);
+                    return nullptr;
+
+                error_progress_end:
+                    continue;
                 }
             }
-            else
-            {
-            error_handle:
-                // IF SAME ERROR HAPPEND, JUST STOP COMPILE
-                if (last_error_rowno == peeked_token_instance->m_token_end[0] &&
-                    last_error_colno == peeked_token_instance->m_token_end[1])
-                {
-                    try_recover_count++;
 
-                    if (try_recover_count >= 3)
-                        goto error_handle_fail;
+            wo_assert(actions.act != action::act_type::error);
+
+            if (actions.act == grammar::action::act_type::push_stack)
+            {
+                state_stack.push(actions.state);
+                if (e_rule)
+                {
+                    node_stack.push(
+                        std::make_pair(
+                            source_info{
+                                peeked_token_instance->m_token_begin[0],
+                                peeked_token_instance->m_token_begin[1]
+                            },
+                            token{ grammar::ttype::l_empty }));
+                    sym_stack.push(te_lempty_index);
                 }
                 else
                 {
+                    node_stack.push(
+                        std::make_pair(
+                            source_info{
+                                peeked_token_instance->m_token_begin[0],
+                                peeked_token_instance->m_token_begin[1]
+                            },
+                            token{ peeked_token_instance->m_lex_type, peeked_token_instance->m_token_text }));
+
                     if (peeked_token_instance->m_lex_type == lex_type::l_macro)
                     {
                         tkr.record_format(
@@ -866,92 +857,103 @@ namespace wo
                             WO_ERR_UNKNOWN_MACRO_NAMED,
                             peeked_token_instance->m_token_text.c_str());
                     }
-                    else
-                    {
-                        std::wstring err_info;
-
-                        if (peeked_token_instance->m_lex_type == lex_type::l_eof)
-                            err_info = WO_ERR_UNEXCEPT_EOF;
-                        else
-                            err_info = WO_ERR_UNEXCEPT_TOKEN + (L"'" + peeked_token_instance->m_token_text + L"'");
-                        (void)tkr.record_parser_error(lexer::msglevel_t::error, err_info.c_str());
-                    }
-
-                    try_recover_count = 0;
-                    last_error_rowno = peeked_token_instance->m_token_end[0];
-                    last_error_colno = peeked_token_instance->m_token_end[1];
+                    sym_stack.push(TERM_MAP.at(peeked_token_instance->m_lex_type));
+                    tkr.move_forward();
                 }
 
-                //tokens_queue.front();// CURRENT TOKEN ERROR HAPPEND
-                // FIND USABLE STATE A TO REDUCE.
-                while (!state_stack.empty())
+            }
+            else if (actions.act == grammar::action::act_type::reduction)
+            {
+                auto& red_rule = RT_PRODUCTION[actions.state];
+
+                srcinfo_bnodes.resize(red_rule.rule_right_count);
+                te_or_nt_bnodes.resize(red_rule.rule_right_count);
+
+                for (size_t i = red_rule.rule_right_count; i > 0; i--)
                 {
-                    size_t stateid = state_stack.top();
-
-                    std::unordered_set<te_nt_index_t> reduceables;
-#if WOOLANG_LR1_OPTIMIZE_LR1_TABLE
-                    if (lr1_fast_cache_enabled())
-                    {
-                        for (size_t i = 1/* 0 is l_error/state, skip it */; i < LR1_R_S_CACHE_SZ; i++)
-                        {
-                            int state = LR1_R_S_CACHE[LR1_GOTO_RS_MAP[stateid][1] * LR1_R_S_CACHE_SZ + i];
-                            if (state < 0)
-                                reduceables.insert(RT_PRODUCTION[(-state) - 1].production_aim);
-                        }
-                    }
-                    else
-#endif
-                    {
-                        if (LR1_TABLE.find(stateid) != LR1_TABLE.end())
-                            for (auto act : LR1_TABLE.at(stateid))
-                                if (act.second.size() && act.second.begin()->act == action::act_type::reduction)
-                                    reduceables.insert(RT_PRODUCTION[act.second.begin()->state].production_aim);
-                    }
-
-                    if (!reduceables.empty())
-                    {
-                        wo::lex_type out_lex = lex_type::l_empty;
-                        std::wstring out_str;
-                        while ((out_lex = tkr.peek()->m_lex_type) != lex_type::l_eof)
-                        {
-                            for (te_nt_index_t fr : reduceables)
-                            {
-                                // FIND NON-TE AND IT'S FOLLOW
-                                auto& follow_set = FOLLOW_READ(fr);
-
-                                auto place = std::find_if(follow_set.begin(), follow_set.end(), [&](const te& t) {
-
-                                    return t.t_name == L"" ?
-                                        t.t_type == out_lex
-                                        :
-                                        t.t_name == out_str &&
-                                        t.t_type == out_lex;
-
-                                    });
-                                if (place != follow_set.end())
-                                    goto error_progress_end;
-                            }
-                            tkr.move_forward();
-                        }
-                        goto error_handle_fail;
-                    }
-
-                    if (node_stack.size())
-                    {
-                        state_stack.pop();
-                        sym_stack.pop();
-                        node_stack.pop();
-                    }
-                    else
-                    {
-                        goto error_handle_fail;
-                    }
+                    state_stack.pop();
+                    sym_stack.pop();
+                    srcinfo_bnodes[i - 1] = std::move(node_stack.top().first);
+                    te_or_nt_bnodes[i - 1] = std::move(node_stack.top().second);
+                    node_stack.pop();
                 }
-            error_handle_fail:
-                (void)tkr.record_parser_error(lexer::msglevel_t::error, WO_ERR_UNABLE_RECOVER_FROM_ERR);
-                return nullptr;
+                sym_stack.push(red_rule.production_aim);
 
-            error_progress_end:;
+                if (std::any_of(te_or_nt_bnodes.begin(), te_or_nt_bnodes.end(), [](const produce& astn) {
+                    return astn.is_token() && astn.read_token().type == lex_type::l_error;
+                    }))
+                {
+                    node_stack.push(
+                        std::make_pair(
+                            source_info{
+                                peeked_token_instance->m_token_end[0],
+                                peeked_token_instance->m_token_end[1],
+                            },
+                            token{ lex_type::l_error }));
+                }
+                else
+                {
+                    auto astnode = red_rule.ast_create_func(tkr, te_or_nt_bnodes);
+
+                    if (astnode.is_ast())
+                    {
+                        auto* ast_node_ = astnode.read_ast();
+                        wo_assert(!te_or_nt_bnodes.empty());
+
+                        if (ast_node_->source_location.source_file == nullptr)
+                        {
+                            if (red_rule.rule_right_count != 0)
+                            {
+                                ast_node_->source_location.begin_at =
+                                    ast::AstBase::location_t{
+                                    srcinfo_bnodes.front().row_no,
+                                    srcinfo_bnodes.front().col_no };
+                                ast_node_->source_location.end_at =
+                                    ast::AstBase::location_t{
+                                    peeked_token_instance->m_token_begin[2],
+                                    peeked_token_instance->m_token_begin[3] };
+                            }
+                            else
+                            {
+                                ast_node_->source_location.begin_at =
+                                    ast::AstBase::location_t{
+                                    peeked_token_instance->m_token_end[0],
+                                    peeked_token_instance->m_token_end[1] };
+                                ast_node_->source_location.end_at =
+                                    ast_node_->source_location.begin_at;
+                            }
+                            ast_node_->source_location.source_file = tkr.get_source_path();
+                        }
+                    }
+                    node_stack.push(std::make_pair(srcinfo_bnodes.front(), astnode));
+                }
+            }
+            else if (actions.act == grammar::action::act_type::accept)
+            {
+                if (tkr.has_error())
+                    return nullptr;
+
+                auto& node = node_stack.top().second;
+                if (node.is_ast())
+                {
+                    // Append imported ast node front of specify ast-node;
+                    return tkr.merge_imported_ast_trees(node.read_ast());
+                }
+                else
+                {
+                    (void)tkr.record_parser_error(
+                        lexer::msglevel_t::error,
+                        WO_ERR_SHOULD_BE_AST_BASE);
+                    return nullptr;
+                }
+            }
+            else if (actions.act == grammar::action::act_type::state_goto)
+            {
+                state_stack.push(actions.state);
+            }
+            else
+            {
+                goto error_handle;
             }
 
         } while (true);
