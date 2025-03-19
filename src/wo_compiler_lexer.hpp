@@ -366,7 +366,9 @@ namespace wo
 
         void move_forward();
         void consume_forward();
-        void try_handle_macro(const std::wstring& macro_name);
+
+        [[nodiscard]]
+        bool try_handle_macro(const std::wstring& macro_name);
 
         [[nodiscard]]
         bool has_error() const;

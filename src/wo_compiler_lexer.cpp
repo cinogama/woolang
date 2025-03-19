@@ -530,11 +530,28 @@ namespace wo
 
     const lexer::peeked_token_t* lexer::peek()
     {
-        while (_m_peeked_tokens.empty())
-            move_forward();
+        for (;;)
+        {
+            while (_m_peeked_tokens.empty())
+                move_forward();
 
-        wo_assert(!_m_peeked_tokens.empty());
-        return &_m_peeked_tokens.front();
+            wo_assert(!_m_peeked_tokens.empty());
+            const lexer::peeked_token_t* peeked_token = &_m_peeked_tokens.front();
+            if (peeked_token->m_lex_type == lex_type::l_macro)
+            {
+                // We need to expand this macro here.
+                std::wstring macro_name = peeked_token->m_token_text;
+                _m_peeked_tokens.pop();
+
+                if (!try_handle_macro(macro_name))
+                {
+                    wo_assert(!_m_peeked_tokens.empty());
+                    return &_m_peeked_tokens.front();
+                }
+                continue;
+            }
+            return peeked_token;
+        }
     }
     bool lexer::has_error() const
     {
@@ -1286,7 +1303,7 @@ namespace wo
             if (peek_char() == L'!' && m_source_path != nullptr)
             {
                 (void)read_char(); // Eat `!`
-                return try_handle_macro(token_literal_result);
+                return produce_token(lex_type::l_macro, std::move(token_literal_result));
             }
 
             if (lex_type keyword_type = lexer::lex_is_keyword(token_literal_result);
@@ -1302,7 +1319,7 @@ namespace wo
             return produce_token(lex_type::l_unknown_token, std::move(token_literal_result));
         }
     }
-    void lexer::try_handle_macro(const std::wstring& macro_name)
+    bool lexer::try_handle_macro(const std::wstring& macro_name)
     {
         wo_assert(m_source_path.has_value());
 
@@ -1339,10 +1356,12 @@ namespace wo
 
             if (result == nullptr)
             {
-                return produce_lexer_error(msglevel_t::error,
+                produce_lexer_error(msglevel_t::error,
                     WO_ERR_FAILED_TO_RUN_MACRO_CONTROLOR,
                     fnd->second->macro_name.c_str(),
                     wo::str_to_wstr(wo_get_runtime_error(fnd->second->_macro_action_vm)).c_str());
+
+                return false;
             }
             else
             {
@@ -1412,15 +1431,18 @@ namespace wo
                     get_current_error_frame().back().m_describe +=
                         str_to_wstr(_wo_dump_lexer_context_error(&tmp_lex, WO_NOTHING)) + WO_MACRO_ANALYZE_END_HERE;
 
-                    return;
+                    return false;
                 }
                 wo_assure(WO_TRUE == wo_remove_virtual_file(wo::wstr_to_str(*result_content_vfile).c_str()));
             }
+
+            return true;
         }
         else
         {
             // Unfound macro.
             produce_token(lex_type::l_macro, std::wstring(macro_name));
+            return false;
         }
     }
 }
