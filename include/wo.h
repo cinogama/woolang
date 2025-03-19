@@ -197,9 +197,6 @@ typedef struct _wo_extern_lib_func_pair
     void*           m_func_addr;
 } wo_extern_lib_func_t;
 
-typedef struct _wo_reserved_stack_args_update_guard
-    wo_stack_arg_extension_guard_t;
-
 #define WO_EXTERN_LIB_FUNC_END wo_extern_lib_func_t{nullptr, nullptr}
 #define wo_fail(ERRID, ...) ((void)wo_cause_fail(__FILE__, __LINE__, __func__,ERRID, __VA_ARGS__))
 #define wo_execute_fail(VM, ERRID, REASON) ((void)wo_execute_fail_handler(VM, __FILE__, __LINE__, __func__, ERRID, REASON))
