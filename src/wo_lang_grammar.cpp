@@ -602,7 +602,6 @@ namespace wo
                 gm::nt(L"AST_TOKEN_IDENTIFER") >> gm::symlist{gm::nt(L"IDENTIFIER")} >> WO_ASTBUILDER_INDEX(ast::pass_token),
                 gm::nt(L"AST_TOKEN_NIL") >> gm::symlist{gm::te(gm::ttype::l_nil)} >> WO_ASTBUILDER_INDEX(ast::pass_token),
                 gm::nt(L"IDENTIFIER") >> gm::symlist{gm::te(gm::ttype::l_identifier)} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
-                gm::nt(L"IDENTIFIER") >> gm::symlist{gm::te(gm::ttype::l_macro)} >> WO_ASTBUILDER_INDEX(ast::pass_macro_failed),
                 gm::nt(L"USELESS_TOKEN") >> gm::symlist{gm::te(gm::ttype::l_double_index_point)} >> WO_ASTBUILDER_INDEX(ast::pass_token),
                 gm::nt(L"USELESS_TOKEN") >> gm::symlist{gm::te(gm::ttype::l_unknown_token)} >> WO_ASTBUILDER_INDEX(ast::pass_token),
             });

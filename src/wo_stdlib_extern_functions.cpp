@@ -3231,6 +3231,9 @@ namespace std
                 let enstr = str->enstring;
                 return F"'{enstr->sub_len(1, enstr->len-2)}'";
             }
+            else if (type == token_type::l_macro)
+                return str + "!";
+
             return str;
         }
 

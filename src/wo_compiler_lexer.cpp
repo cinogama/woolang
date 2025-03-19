@@ -260,7 +260,7 @@ namespace wo
                 for (wchar_t wch : _operator)
                     _result.insert(wch);
             return _result;
-            }();
+        }();
         return operator_char_set.find((wchar_t)ch) != operator_char_set.end();
     }
     bool lexer::lex_isspace(int ch)
@@ -383,8 +383,8 @@ namespace wo
             ? who_import_me.value()->m_imported_source_path_set
             // Create for root script.
             : std::make_shared<imported_source_path_set_t>(
-                source_path.has_value() 
-                ? imported_source_path_set_t{ source_path.value()} 
+                source_path.has_value()
+                ? imported_source_path_set_t{ source_path.value() }
                 : imported_source_path_set_t{}))
         , m_imported_ast_tree_list{}
         //
@@ -509,10 +509,10 @@ namespace wo
                 type,
                 std::move(moved_token_text),
                 {
-                    _m_this_token_begin_row, 
-                    _m_this_token_begin_col, 
-                    _m_this_token_pre_begin_row, 
-                    _m_this_token_pre_begin_col 
+                    _m_this_token_begin_row,
+                    _m_this_token_begin_col,
+                    _m_this_token_pre_begin_row,
+                    _m_this_token_pre_begin_col
                 },
                 { _m_row_counter, _m_col_counter },
             });
@@ -1383,7 +1383,7 @@ namespace wo
                     std::wstring result;
                     auto* token_instance = tmp_lex.peek();
 
-                    if (token_instance->m_lex_type == wo::lex_type::l_error 
+                    if (token_instance->m_lex_type == wo::lex_type::l_error
                         || token_instance->m_lex_type == wo::lex_type::l_eof)
                         break;
 
@@ -1416,6 +1416,11 @@ namespace wo
                 }
                 wo_assure(WO_TRUE == wo_remove_virtual_file(wo::wstr_to_str(*result_content_vfile).c_str()));
             }
+        }
+        else
+        {
+            // Unfound macro.
+            produce_token(lex_type::l_macro, std::wstring(macro_name));
         }
     }
 }

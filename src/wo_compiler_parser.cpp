@@ -680,11 +680,24 @@ namespace wo
         {
             const lexer::peeked_token_t* peeked_token_instance = tkr.peek();
 
-            if (peeked_token_instance->m_lex_type == lex_type::l_error)
+            switch (peeked_token_instance->m_lex_type)
             {
-                // have a lex error, skip this error.
+            case lex_type::l_macro:
+                tkr.record_format(
+                    lexer::msglevel_t::error,
+                    peeked_token_instance->m_token_begin[0],
+                    peeked_token_instance->m_token_begin[1],
+                    peeked_token_instance->m_token_end[0],
+                    peeked_token_instance->m_token_end[1],
+                    *tkr.get_source_path(),
+                    WO_ERR_UNKNOWN_MACRO_NAMED,
+                    peeked_token_instance->m_token_text.c_str());
+                [[fallthrough]];
+            case lex_type::l_error:
                 tkr.move_forward();
                 continue;
+            default:
+                break;
             }
 
             auto top_symbo =
