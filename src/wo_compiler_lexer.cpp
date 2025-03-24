@@ -446,7 +446,11 @@ namespace wo
     }
     void lexer::record_import_relationship(wo_pstring_t imported_path)
     {
-        (*m_who_import_me_map_tree)[imported_path].insert(m_source_path.value());
+        auto& map_instance = *m_who_import_me_map_tree;
+        
+        // Record forward and backward import relationship.
+        map_instance[imported_path].insert(m_source_path.value());
+        map_instance[m_source_path.value()].insert(imported_path);
     }
     void lexer::import_ast_tree(ast::AstBase* astbase)
     {

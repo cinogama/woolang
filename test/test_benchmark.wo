@@ -1,6 +1,7 @@
 import woo::std;
-import pkg::math;
+import test_tool;
 
+import pkg::math;
 import pkg::iterator;
 
 namespace test_benchmark
