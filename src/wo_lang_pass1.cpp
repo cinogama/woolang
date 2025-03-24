@@ -97,7 +97,7 @@ namespace wo
     }
 
     bool LangContext::check_symbol_is_reachable_in_current_scope(
-        lexer& lex, AstBase* node, lang_Symbol* symbol_instance, wo_pstring_t path)
+        lexer& lex, AstBase* node, lang_Symbol* symbol_instance, wo_pstring_t path, bool need_import_check)
     {
         if (!symbol_instance->m_is_global)
             // Local symbol is always reachable.
@@ -119,7 +119,7 @@ namespace wo
         if (symbol_instance->m_symbol_declare_location.has_value())
         {
             symbol_location_may_null = &symbol_instance->m_symbol_declare_location.value();
-            if (! lex.check_source_has_been_imported_by_specify_source(
+            if (need_import_check && ! lex.check_source_has_been_imported_by_specify_source(
                 symbol_location_may_null->source_file, path))
             {
                 lex.record_lang_error(lexer::msglevel_t::error, node,
@@ -480,7 +480,7 @@ namespace wo
             {
                 // NOTE: Advanced judgement failed, only non-template will be here. 
                 // make sure report it into error list.
-                lex.append_message(errinform);
+                (void)lex.append_message(errinform);
 
                 auto& root_error_frame = lex.get_root_error_frame();
                 if (&last_error_frame != &root_error_frame)
@@ -622,8 +622,7 @@ namespace wo
                                 {
                                     node->m_LANG_trying_advancing_type_judgement = true;
 
-                                    wo_assert(!type_symbol->m_is_template
-                                        && type_symbol->m_is_global);
+                                    wo_assert(!type_symbol->m_is_template && type_symbol->m_is_global);
 
                                     // Capture all error happend in this block.
                                     lex.begin_trying_block();
@@ -648,7 +647,11 @@ namespace wo
                         {
                             // Check symbol can be reach.
                             if (!check_symbol_is_reachable_in_current_scope(
-                                lex, node, type_symbol, node->source_location.source_file))
+                                lex, 
+                                node, 
+                                type_symbol, 
+                                node->source_location.source_file,
+                                !node->duplicated_node /* TMP: Skip import check in template function. */))
                             {
                                 return FAILED;
                             }
@@ -815,7 +818,7 @@ namespace wo
             {
                 // NOTE: Advanced judgement failed, only non-template will be here. 
                 // make sure report it into error list.
-                lex.append_message(errinform);
+                (void)lex.append_message(errinform);
 
                 auto& root_error_frame = lex.get_root_error_frame();
                 if (&last_error_frame != &root_error_frame)
@@ -973,7 +976,11 @@ namespace wo
 
             // Check symbol can be reach.
             if (!check_symbol_is_reachable_in_current_scope(
-                lex, node, determined_value_instance->m_symbol, node->source_location.source_file))
+                lex, 
+                node, 
+                determined_value_instance->m_symbol, 
+                node->source_location.source_file,
+                !node->duplicated_node /* TMP: Skip import check in template function. */))
             {
                 return FAILED;
             }
@@ -2136,7 +2143,11 @@ namespace wo
 
             // Check symbol can be reach.
             if (!check_symbol_is_reachable_in_current_scope(
-                lex, node, target_type->m_symbol, node->source_location.source_file))
+                lex,
+                node, 
+                target_type->m_symbol, 
+                node->source_location.source_file,
+                !node->duplicated_node /* TMP: Skip import check in template function. */))
             {
                 return FAILED;
             }
@@ -3930,7 +3941,11 @@ namespace wo
 
                     // Check symbol can be reach.
                     if (!check_symbol_is_reachable_in_current_scope(
-                        lex, node, struct_type_instance->m_symbol, node->source_location.source_file))
+                        lex, 
+                        node, 
+                        struct_type_instance->m_symbol, 
+                        node->source_location.source_file,
+                        !node->duplicated_node /* TMP: Skip import check in template function. */))
                     {
                         return FAILED;
                     }

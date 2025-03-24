@@ -50,7 +50,7 @@ namespace wo
 
         for (const auto& errmsg : inst->m_failed_error_for_this_instance.value())
             // TODO: Describe the error support.
-            lex.append_message(errmsg);
+            ++lex.append_message(errmsg).m_layer;
     }
 
     std::optional<lang_TemplateAstEvalStateBase*> LangContext::begin_eval_template_ast(

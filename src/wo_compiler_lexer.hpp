@@ -264,7 +264,8 @@ namespace wo
         compiler_message_list_t& get_current_error_frame();
         compiler_message_list_t& get_root_error_frame();
         void    record_message(compiler_message_t&& moved_message);
-        void    append_message(const compiler_message_t& moved_message);
+        [[nodiscard]]
+        compiler_message_t& append_message(const compiler_message_t& moved_message);
 
         template<typename ... FmtArgTs>
         void record_format(

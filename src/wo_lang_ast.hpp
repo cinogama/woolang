@@ -2,21 +2,6 @@
 #include "wo_compiler_parser.hpp"
 #include "wo_basic_type.hpp"
 
-//#include "wo_meta.hpp"
-//#include "wo_basic_type.hpp"
-//#include "wo_env_locale.hpp"
-//#include "wo_lang_extern_symbol_loader.hpp"
-//#include "wo_source_file_manager.hpp"
-//#include "wo_utf8.hpp"
-//#include "wo_memory.hpp"
-//#include "wo_const_string_pool.hpp"
-//#include "wo_crc_64.hpp"
-
-//#include <type_traits>
-//#include <cmath>
-//#include <unordered_map>
-//#include <algorithm>
-
 #include <optional>
 #include <list>
 
@@ -95,9 +80,6 @@ namespace wo
                                     m_LANG_determined_symbol;
             std::optional<std::list<lang_TypeInstance*>>
                                     m_LANG_determined_and_appended_template_arguments;
-
-            /*std::optional<lang_Scope*>
-                                    m_LANG_determined_searching_from_scope;*/
 
             AstIdentifier(wo_pstring_t identifier);
             AstIdentifier(wo_pstring_t identifier, const std::optional<std::list<AstTypeHolder*>>& template_arguments);

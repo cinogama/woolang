@@ -520,13 +520,14 @@ namespace wo
             = m_error_frame.size() - 1 + (
                 emplaced_message.m_level == msglevel_t::error ? 0 : 1);
     }
-    void lexer::append_message(const compiler_message_t& message)
+    lexer::compiler_message_t& lexer::append_message(const compiler_message_t& message)
     {
         auto& emplaced_message = m_error_frame.back().emplace_back(message);
 
         emplaced_message.m_layer
             = m_error_frame.size() - 1 + (
                 emplaced_message.m_level == msglevel_t::error ? 0 : 1);
+        return emplaced_message;
     }
 
     void lexer::produce_token(lex_type type, std::wstring&& moved_token_text)
