@@ -512,13 +512,14 @@ namespace wo
         return static_cast<int>(ch);
     }
 
-    void lexer::record_message(compiler_message_t&& message)
+    lexer::compiler_message_t& lexer::record_message(compiler_message_t&& message)
     {
         auto& emplaced_message = m_shared_context->m_error_frame.back().emplace_back(std::move(message));
 
         emplaced_message.m_layer
             = m_shared_context->m_error_frame.size() - 1 + (
                 emplaced_message.m_level == msglevel_t::error ? 0 : 1);
+        return emplaced_message;
     }
     lexer::compiler_message_t& lexer::append_message(const compiler_message_t& message)
     {
@@ -584,7 +585,7 @@ namespace wo
     }
     bool lexer::has_error() const
     {
-        wo_assert(m_error_frame.size() == 1);
+        wo_assert(m_shared_context->m_error_frame.size() == 1);
         return !m_shared_context->m_error_frame.back().empty();
     }
     wo_pstring_t lexer::get_source_path() const
@@ -999,7 +1000,7 @@ namespace wo
 
                     wchar_t describe[256] = {};
                     swprintf(describe, 255, WO_INFO_SYMBOL_NAMED_DEFINED_HERE, macro_name.c_str());
-                    record_message(
+                    (void)record_message(
                         compiler_message_t{
                             msglevel_t::infom,
                             { fnd.first->second->begin_row, fnd.first->second->begin_col },
@@ -1427,6 +1428,8 @@ namespace wo
                     result_content_vfile,
                     std::make_unique<std::wistringstream>(macro_result_buffer));
 
+                tmp_lex.begin_trying_block();
+
                 std::queue<peeked_token_t> origin_peeked_queue;
                 origin_peeked_queue.swap(_m_peeked_tokens);
 
@@ -1465,16 +1468,23 @@ namespace wo
                     origin_peeked_queue.pop();
                 }
 
-                if (tmp_lex.has_error())
+                auto& current_error_frame = tmp_lex.get_current_error_frame();
+                if (!tmp_lex.get_current_error_frame().empty())
                 {
+                    auto lexer_error_frame = std::move(current_error_frame);
+                    tmp_lex.end_trying_block();
+
                     produce_lexer_error(msglevel_t::error, WO_ERR_INVALID_TOKEN_MACRO_CONTROLOR,
                         fnd->second->macro_name.c_str());
 
-                    get_current_error_frame().back().m_describe +=
-                        str_to_wstr(_wo_dump_lexer_context_error(&tmp_lex, WO_NOTHING)) + WO_MACRO_ANALYZE_END_HERE;
-
+                    for (auto& error_message : lexer_error_frame)
+                        ++record_message(std::move(error_message)).m_layer;
+                    
                     return false;
                 }
+                else
+                    tmp_lex.end_trying_block();
+
                 wo_assure(WO_TRUE == wo_remove_virtual_file(wo::wstr_to_str(*result_content_vfile).c_str()));
             }
 

@@ -278,7 +278,9 @@ namespace wo
     public:
         compiler_message_list_t& get_current_error_frame();
         compiler_message_list_t& get_root_error_frame();
-        void    record_message(compiler_message_t&& moved_message);
+
+        [[nodiscard]]
+        compiler_message_t& record_message(compiler_message_t&& moved_message);
         [[nodiscard]]
         compiler_message_t& append_message(const compiler_message_t& moved_message);
 
@@ -296,7 +298,7 @@ namespace wo
             wchar_t describe[256] = {};
             swprintf(describe, 255, format, format_args...);
 
-            record_message(
+            (void)record_message(
                 compiler_message_t
                 {
                     level,
