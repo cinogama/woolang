@@ -122,6 +122,7 @@
 #define WO_ERR_STRING_INDEX_OUT_OF_RANGE L"字符串索引超出范围"
 #define WO_ERR_SYMBOL_IS_PRIVATE L"符号 '%ls' 是私有的, 只能在 '%ls' 中访问"
 #define WO_ERR_SYMBOL_IS_PROTECTED L"符号 '%ls' 是受保护的, 只能在命名空间 '%ls' 内访问"
+#define WO_ERR_SOURCE_MUST_BE_IMPORTED L"符号 '%ls' 来自脚本 '%ls'，但并未导入此脚本"
 #define WO_ERR_STRUCT_FIELD_IS_PRIVATE L"结构体字段 '%ls' 是私有的, 只能在 '%ls' 中访问"
 #define WO_ERR_STRUCT_FIELD_IS_PROTECTED L"结构体字段 '%ls' 是受保护的, 只能在命名空间 '%ls' 内访问"
 #define WO_ERR_UNABLE_TO_MIX_TYPES L"无法推导出同时接受 '%ls' 和 '%ls' 的类型"

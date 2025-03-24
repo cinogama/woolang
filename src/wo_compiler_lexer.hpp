@@ -201,6 +201,8 @@ namespace wo
             std::unordered_map<std::wstring, std::unique_ptr<macro>>;
         using imported_source_path_set_t =
             std::unordered_set<wo_pstring_t>;
+        using who_import_me_map_t =
+            std::unordered_map<wo_pstring_t, std::unordered_set<wo_pstring_t>>;
 
     private:
         const static std::unordered_map<std::wstring, lex_type> _lex_operator_list;
@@ -233,6 +235,7 @@ namespace wo
         std::list<compiler_message_list_t> m_error_frame;
         std::shared_ptr<declared_macro_map_t> m_declared_macro_list;
         std::shared_ptr<imported_source_path_set_t> m_imported_source_path_set;
+        std::shared_ptr<who_import_me_map_t> m_who_import_me_map_tree;
         std::list<ast::AstBase*> m_imported_ast_tree_list;
 
         std::queue<peeked_token_t> _m_peeked_tokens;
@@ -349,7 +352,11 @@ namespace wo
         }
 
         [[nodiscard]]
-        bool check_source_path_has_been_imported(wo_pstring_t full_path);
+        bool check_source_path_has_been_linked_in(wo_pstring_t full_path);
+        [[nodiscard]]
+        bool check_source_has_been_imported_by_specify_source(
+            wo_pstring_t checking_path, wo_pstring_t current_path) const;
+        void record_import_relationship(wo_pstring_t imported_path);
         void import_ast_tree(ast::AstBase* astbase);
         ast::AstBase* merge_imported_ast_trees(ast::AstBase* node);
         void merge_lexer_or_parser_error_from_import(lexer& abnother_lexer);

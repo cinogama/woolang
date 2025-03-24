@@ -73,7 +73,7 @@ namespace wo
         };
         struct AstIdentifier : public AstBase
         {
-            enum identifier_formal: uint8_t
+            enum class identifier_formal: uint8_t
             {
                 FROM_GLOBAL,
                 FROM_CURRENT,

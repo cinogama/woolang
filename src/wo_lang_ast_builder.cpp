@@ -89,7 +89,7 @@ namespace wo
             }
 
             wo_pstring_t src_full_path_pstr = wstring_pool::get_pstr(src_full_path);
-            if (!lex.check_source_path_has_been_imported(src_full_path_pstr))
+            if (!lex.check_source_path_has_been_linked_in(src_full_path_pstr))
             {
                 auto srcfile_stream = wo::open_virtual_file_stream(src_full_path);
                 if (srcfile_stream)
@@ -110,6 +110,9 @@ namespace wo
                 else
                     return token{ lex.record_parser_error(lexer::msglevel_t::error, WO_ERR_CANNOT_OPEN_FILE, path.c_str()) };
             }
+
+            // Record import relationship.
+            lex.record_import_relationship(src_full_path_pstr);
 
             return new AstEmpty();
         }

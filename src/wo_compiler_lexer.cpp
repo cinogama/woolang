@@ -127,7 +127,7 @@ namespace wo
             lex.move_forward();
 
             std::wstring macro_anylzing_src =
-                L"import woo::macro; extern func macro_" +
+                L"import woo::std; import woo::macro; extern func macro_" +
                 macro_name + L"(lexer:std::lexer)=> string { do lexer;\n{";
             ;
 
@@ -212,7 +212,7 @@ namespace wo
             return (
                 m_level == msglevel_t::error
                 ? (L"error")
-                : (L"info")
+                : (L"infom")
                 )
             + (L" (" + std::to_wstring(m_range_end[0] + 1) + L"," + std::to_wstring(m_range_end[1]))
             + (L") " + m_describe);
@@ -386,6 +386,11 @@ namespace wo
                 source_path.has_value()
                 ? imported_source_path_set_t{ source_path.value() }
                 : imported_source_path_set_t{}))
+        , m_who_import_me_map_tree(
+            who_import_me.has_value()
+            // Share from root script.
+            ? who_import_me.value()->m_who_import_me_map_tree
+            : std::make_shared<who_import_me_map_t>())
         , m_imported_ast_tree_list{}
         //
         , _m_peeked_tokens{}
@@ -402,7 +407,9 @@ namespace wo
         (void)m_error_frame.emplace_back();
 
         if (source_stream)
+        {
             m_source_stream = std::move(source_stream.value());
+        }
         else
         {
             wo_assert(source_path.has_value());
@@ -420,9 +427,26 @@ namespace wo
     {
         return m_error_frame.front();
     }
-    bool lexer::check_source_path_has_been_imported(wo_pstring_t full_path)
+    bool lexer::check_source_path_has_been_linked_in(wo_pstring_t full_path)
     {
         return !m_imported_source_path_set->insert(full_path).second;
+    }
+    bool lexer::check_source_has_been_imported_by_specify_source(
+        wo_pstring_t checking_path, wo_pstring_t current_path) const
+    {
+        if (checking_path == current_path)
+            return true;
+
+        auto fnd = m_who_import_me_map_tree->find(checking_path);
+        if (fnd != m_who_import_me_map_tree->end())
+        {
+            return fnd->second.find(current_path) != fnd->second.end();
+        }
+        return false;
+    }
+    void lexer::record_import_relationship(wo_pstring_t imported_path)
+    {
+        (*m_who_import_me_map_tree)[imported_path].insert(m_source_path.value());
     }
     void lexer::import_ast_tree(ast::AstBase* astbase)
     {

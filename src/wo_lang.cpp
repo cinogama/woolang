@@ -1937,10 +1937,10 @@ namespace wo
         lang_Namespace* search_begin_namespace;
         switch (ident->m_formal)
         {
-        case ast::AstIdentifier::FROM_GLOBAL:
+        case ast::AstIdentifier::identifier_formal::FROM_GLOBAL:
             search_begin_namespace = m_root_namespace.get();
             break;
-        case ast::AstIdentifier::FROM_TYPE:
+        case ast::AstIdentifier::identifier_formal::FROM_TYPE:
         {
             lang_TypeInstance* type_instance;
 
@@ -1972,7 +1972,7 @@ namespace wo
             search_begin_namespace = fnd->second.get();
             break;
         }
-        case ast::AstIdentifier::FROM_CURRENT:
+        case ast::AstIdentifier::identifier_formal::FROM_CURRENT:
         {
             auto found_symbol = _search_symbol_from_current_scope(lex, ident, out_ambig);
             if (found_symbol)

@@ -335,10 +335,10 @@ namespace wo
 
             switch (identifier->m_formal)
             {
-            case ast::AstIdentifier::FROM_TYPE:
+            case ast::AstIdentifier::identifier_formal::FROM_TYPE:
                 // Not support.
                 return true;
-            case ast::AstIdentifier::FROM_CURRENT:
+            case ast::AstIdentifier::identifier_formal::FROM_CURRENT:
                 // Current identifier might be template need to be pick.
                 if (identifier->m_scope.empty())
                 {
@@ -392,7 +392,7 @@ namespace wo
                 }
                 /* FALL THROUGH */
                 [[fallthrough]];
-            case ast::AstIdentifier::FROM_GLOBAL:
+            case ast::AstIdentifier::identifier_formal::FROM_GLOBAL:
                 do
                 {
                     // Try determin symbol:
@@ -649,7 +649,7 @@ namespace wo
             auto* identifier = accept_type_formal->m_typeform.m_identifier;
             switch (identifier->m_formal)
             {
-            case ast::AstIdentifier::FROM_CURRENT:
+            case ast::AstIdentifier::identifier_formal::FROM_CURRENT:
                 // Current identifier might be template need to be pick.
                 if (!identifier->m_template_arguments.has_value()
                     && identifier->m_scope.empty())
@@ -663,7 +663,7 @@ namespace wo
                 }
                 /* FALL THROUGH */
                 [[fallthrough]];
-            case ast::AstIdentifier::FROM_TYPE:
+            case ast::AstIdentifier::identifier_formal::FROM_TYPE:
                 if (identifier->m_from_type.has_value())
                 {
                     ast::AstTypeHolder** from_type =
@@ -676,7 +676,7 @@ namespace wo
                 }
                 /* FALL THROUGH */
                 [[fallthrough]];
-            case ast::AstIdentifier::FROM_GLOBAL:
+            case ast::AstIdentifier::identifier_formal::FROM_GLOBAL:
                 if (identifier->m_template_arguments.has_value())
                 {
                     auto& template_arguments = identifier->m_template_arguments.value();
