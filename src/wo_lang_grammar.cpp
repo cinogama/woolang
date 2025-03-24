@@ -93,6 +93,11 @@ namespace wo
                     gm::te(gm::ttype::l_import),
                     gm::nt(L"SCOPED_LIST_NORMAL")} >>
                     WO_ASTBUILDER_INDEX(ast::pass_import_files),
+                gm::nt(L"IMPORT_SENTENCE") >> gm::symlist{
+                    gm::te(gm::ttype::l_export),
+                    gm::te(gm::ttype::l_import),
+                    gm::nt(L"SCOPED_LIST_NORMAL")} >>
+                    WO_ASTBUILDER_INDEX(ast::pass_import_files),
                 gm::nt(L"SENTENCE") >> gm::symlist{
                     gm::nt(L"DECL_ATTRIBUTE"), // useless
                     gm::te(gm::ttype::l_using), 

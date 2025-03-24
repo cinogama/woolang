@@ -3104,8 +3104,8 @@ namespace std
         l_identifier,           // identifier.
         l_literal_integer,      // 1 233 0x123456 0b1101001 032
         l_literal_handle,       // 0L 256L 0xFFL
-        l_literal_real,         // 0.2  0.  .235
-        l_literal_string,       // "" "helloworld" @"println("hello");"@
+        l_literal_real,         // 0.2  0.
+        l_literal_string,       // "helloworld"
         l_literal_char,         // 'x'
         l_format_string_begin,  // F"..{
         l_format_string,        // }..{ 
@@ -3123,12 +3123,12 @@ namespace std
         l_mul_assign,           // *=
         l_div_assign,           // /= 
         l_mod_assign,           // %= 
-        l_value_assign,               // :=
-        l_value_add_assign,           // +:=
-        l_value_sub_assign,           // -:= 
-        l_value_mul_assign,           // *:=
-        l_value_div_assign,           // /:= 
-        l_value_mod_assign,           // %:= 
+        l_value_assign,         // :=
+        l_value_add_assign,     // +:=
+        l_value_sub_assign,     // -:= 
+        l_value_mul_assign,     // *:=
+        l_value_div_assign,     // /:= 
+        l_value_mod_assign,     // %:= 
         l_equal,                // ==
         l_not_equal,            // !=
         l_larg_or_equal,        // >=
@@ -3138,17 +3138,17 @@ namespace std
         l_land,                 // &&
         l_lor,                  // ||
         l_or,                   // |
-        l_lnot,                  // !
+        l_lnot,                 // !
         l_scopeing,             // ::
-        l_template_using_begin,             // ::<
-        l_typecast,              // :
+        l_template_using_begin, // ::<
+        l_typecast,             // :
         l_index_point,          // .
-        l_double_index_point,          // ..  may be used? hey..
-        l_variadic_sign,          // ...
+        l_double_index_point,   // ..  may be used? hey..
+        l_variadic_sign,        // ...
         l_index_begin,          // '['
         l_index_end,            // ']'
         l_direct,               // '->'
-        l_inv_direct,
+        l_inv_direct,           // '<|'
         l_function_result,      // '=>'
         l_bind_monad,           // '>>'
         l_map_monad,            // '>>'
@@ -3156,8 +3156,9 @@ namespace std
         l_right_brackets,       // )
         l_left_curly_braces,    // {
         l_right_curly_braces,   // }
-        l_question,   // ?
-        l_import,               // import
+        l_question,             // ?
+        l_import,
+        l_export,
         l_nil,
         l_true,
         l_false,

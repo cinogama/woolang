@@ -58,11 +58,13 @@ namespace wo
         }
         auto pass_import_files::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
-            wo_test(input.size() == 2);
+            wo_test(input.size() == 2 || input.size() == 3);
             std::wstring path;
             std::wstring filename;
 
-            AstList* import_scopes = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
+            bool is_export_import = input.size() == 3;
+            AstList* import_scopes = static_cast<AstList*>(
+                WO_NEED_AST_TYPE(is_export_import ? 2 : 1, AstBase::AST_LIST));
 
             bool first = true;
             for (auto* scope : import_scopes->m_list)
@@ -100,8 +102,6 @@ namespace wo
                         std::move(srcfile_stream.value()));
 
                     auto* imported_ast = wo::get_wo_grammar()->gen(new_lex);
-                    lex.merge_lexer_or_parser_error_from_import(new_lex);
-
                     if (imported_ast != nullptr)
                         lex.import_ast_tree((ast_basic*)imported_ast);
                     else
@@ -112,7 +112,7 @@ namespace wo
             }
 
             // Record import relationship.
-            lex.record_import_relationship(src_full_path_pstr);
+            lex.record_import_relationship(src_full_path_pstr, is_export_import);
 
             return new AstEmpty();
         }

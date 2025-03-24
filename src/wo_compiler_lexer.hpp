@@ -39,8 +39,8 @@ namespace wo
         l_identifier,           // identifier.
         l_literal_integer,      // 1 233 0x123456 0b1101001 032
         l_literal_handle,       // 0L 256L 0xFFL
-        l_literal_real,         // 0.2  0.  .235
-        l_literal_string,       // "" "helloworld" @"println("hello");"@
+        l_literal_real,         // 0.2  0.
+        l_literal_string,       // "helloworld"
         l_literal_char,         // 'x'
         l_format_string_begin,  // F"..{
         l_format_string,        // }..{ 
@@ -58,12 +58,12 @@ namespace wo
         l_mul_assign,           // *=
         l_div_assign,           // /= 
         l_mod_assign,           // %= 
-        l_value_assign,               // :=
-        l_value_add_assign,           // +:=
-        l_value_sub_assign,           // -:= 
-        l_value_mul_assign,           // *:=
-        l_value_div_assign,           // /:= 
-        l_value_mod_assign,           // %:= 
+        l_value_assign,         // :=
+        l_value_add_assign,     // +:=
+        l_value_sub_assign,     // -:= 
+        l_value_mul_assign,     // *:=
+        l_value_div_assign,     // /:= 
+        l_value_mod_assign,     // %:= 
         l_equal,                // ==
         l_not_equal,            // !=
         l_larg_or_equal,        // >=
@@ -73,17 +73,17 @@ namespace wo
         l_land,                 // &&
         l_lor,                  // ||
         l_or,                   // |
-        l_lnot,                  // !
+        l_lnot,                 // !
         l_scopeing,             // ::
-        l_template_using_begin,             // ::<
-        l_typecast,              // :
+        l_template_using_begin, // ::<
+        l_typecast,             // :
         l_index_point,          // .
-        l_double_index_point,          // ..  may be used? hey..
-        l_variadic_sign,          // ...
+        l_double_index_point,   // ..  may be used? hey..
+        l_variadic_sign,        // ...
         l_index_begin,          // '['
         l_index_end,            // ']'
         l_direct,               // '->'
-        l_inv_direct,
+        l_inv_direct,           // '<|'
         l_function_result,      // '=>'
         l_bind_monad,           // '>>'
         l_map_monad,            // '>>'
@@ -91,8 +91,9 @@ namespace wo
         l_right_brackets,       // )
         l_left_curly_braces,    // {
         l_right_curly_braces,   // }
-        l_question,   // ?
-        l_import,               // import
+        l_question,             // ?
+        l_import,
+        l_export,
         l_nil,
         l_true,
         l_false,
@@ -203,6 +204,7 @@ namespace wo
             std::unordered_set<wo_pstring_t>;
         using who_import_me_map_t =
             std::unordered_map<wo_pstring_t, std::unordered_set<wo_pstring_t>>;
+        using export_import_map_t = who_import_me_map_t;
 
     private:
         const static std::unordered_map<std::wstring, lex_type> _lex_operator_list;
@@ -228,14 +230,27 @@ namespace wo
         static int lex_octtonum(int ch);
 
     private:
+        struct SharedContext
+        {
+            std::list<compiler_message_list_t> m_error_frame;
+            declared_macro_map_t m_declared_macro_list;
+            imported_source_path_set_t m_imported_source_path_set;
+            who_import_me_map_t m_who_import_me_map_tree;
+            export_import_map_t m_export_import_map;
+
+            SharedContext(const std::optional<wo_pstring_t>& source_path);
+            ~SharedContext() = default;
+            SharedContext(const SharedContext&) = delete;
+            SharedContext(SharedContext&&) = delete;
+            SharedContext& operator = (const SharedContext&) = delete;
+            SharedContext& operator = (SharedContext&&) = delete;
+        };
+
         std::optional<lexer*> m_who_import_me;
         std::optional<wo_pstring_t> m_source_path;
         std::unique_ptr<std::wistream> m_source_stream;
+        std::shared_ptr<SharedContext> m_shared_context;
 
-        std::list<compiler_message_list_t> m_error_frame;
-        std::shared_ptr<declared_macro_map_t> m_declared_macro_list;
-        std::shared_ptr<imported_source_path_set_t> m_imported_source_path_set;
-        std::shared_ptr<who_import_me_map_t> m_who_import_me_map_tree;
         std::list<ast::AstBase*> m_imported_ast_tree_list;
 
         std::queue<peeked_token_t> _m_peeked_tokens;
@@ -357,10 +372,9 @@ namespace wo
         [[nodiscard]]
         bool check_source_has_been_imported_by_specify_source(
             wo_pstring_t checking_path, wo_pstring_t current_path) const;
-        void record_import_relationship(wo_pstring_t imported_path);
+        void record_import_relationship(wo_pstring_t imported_path, bool export_imports);
         void import_ast_tree(ast::AstBase* astbase);
         ast::AstBase* merge_imported_ast_trees(ast::AstBase* node);
-        void merge_lexer_or_parser_error_from_import(lexer& abnother_lexer);
 
         [[nodiscard]]
         int peek_char();

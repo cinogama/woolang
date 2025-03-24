@@ -62,6 +62,7 @@ namespace wo
     const std::unordered_map<std::wstring, lex_type> lexer::_key_word_list =
     {
         {L"import", {lex_type::l_import}},
+        {L"export", {lex_type::l_export}},
         {L"nil", {lex_type::l_nil}},
         {L"true", {lex_type::l_true}},
         {L"false", {lex_type::l_false}},
@@ -362,6 +363,15 @@ namespace wo
         return (wchar_t)ch - L'0';
     }
 
+    lexer::SharedContext::SharedContext(const std::optional<wo_pstring_t>& source_path)
+    {
+        // Make sure error frame has one frame.
+        (void)m_error_frame.emplace_back();
+
+        if (source_path.has_value())
+            m_imported_source_path_set.insert(source_path.value());
+    }
+
     lexer::lexer(
         std::optional<lexer*> who_import_me,
         const std::optional<wo_pstring_t>& source_path,
@@ -370,28 +380,12 @@ namespace wo
         , m_source_path(source_path)
         , m_source_stream{}
         //
-        , m_error_frame{}
-        , m_declared_macro_list(
+        , m_shared_context(
             who_import_me.has_value()
             // Share from root script.
-            ? who_import_me.value()->m_declared_macro_list
+            ? who_import_me.value()->m_shared_context
             // Create for root script.
-            : std::make_shared<declared_macro_map_t>())
-        , m_imported_source_path_set(
-            who_import_me.has_value()
-            // Share from root script.
-            ? who_import_me.value()->m_imported_source_path_set
-            // Create for root script.
-            : std::make_shared<imported_source_path_set_t>(
-                source_path.has_value()
-                ? imported_source_path_set_t{ source_path.value() }
-                : imported_source_path_set_t{}))
-        , m_who_import_me_map_tree(
-            who_import_me.has_value()
-            // Share from root script.
-            ? who_import_me.value()->m_who_import_me_map_tree
-            : std::make_shared<who_import_me_map_t>())
-        , m_imported_ast_tree_list{}
+            : std::make_shared<SharedContext>(source_path))
         //
         , _m_peeked_tokens{}
         , _m_row_counter(0)
@@ -403,9 +397,6 @@ namespace wo
         , _m_in_format_string(false)
         , _m_curry_count_in_format_string(0)
     {
-        // Make sure error frame has one frame.
-        (void)m_error_frame.emplace_back();
-
         if (source_stream)
         {
             m_source_stream = std::move(source_stream.value());
@@ -421,15 +412,15 @@ namespace wo
     }
     lexer::compiler_message_list_t& lexer::get_current_error_frame()
     {
-        return m_error_frame.back();
+        return m_shared_context->m_error_frame.back();
     }
     lexer::compiler_message_list_t& lexer::get_root_error_frame()
     {
-        return m_error_frame.front();
+        return m_shared_context->m_error_frame.front();
     }
     bool lexer::check_source_path_has_been_linked_in(wo_pstring_t full_path)
     {
-        return !m_imported_source_path_set->insert(full_path).second;
+        return !m_shared_context->m_imported_source_path_set.insert(full_path).second;
     }
     bool lexer::check_source_has_been_imported_by_specify_source(
         wo_pstring_t checking_path, wo_pstring_t current_path) const
@@ -437,32 +428,41 @@ namespace wo
         if (checking_path == current_path)
             return true;
 
-        auto fnd = m_who_import_me_map_tree->find(checking_path);
-        if (fnd != m_who_import_me_map_tree->end())
+        auto fnd = m_shared_context->m_who_import_me_map_tree.find(checking_path);
+        if (fnd != m_shared_context->m_who_import_me_map_tree.end())
         {
             return fnd->second.find(current_path) != fnd->second.end();
         }
         return false;
     }
-    void lexer::record_import_relationship(wo_pstring_t imported_path)
-    {
-        auto& map_instance = *m_who_import_me_map_tree;
-        
+    void lexer::record_import_relationship(wo_pstring_t imported_path, bool export_imports)
+    {        
+        auto* my_source_path = m_source_path.value();
+        auto& who_import_me_map_tree = m_shared_context->m_who_import_me_map_tree;
+        auto& export_import_map = m_shared_context->m_export_import_map;
+
         // Record forward and backward import relationship.
-        map_instance[imported_path].insert(m_source_path.value());
-        map_instance[m_source_path.value()].insert(imported_path);
+        who_import_me_map_tree[imported_path].insert(
+            my_source_path);
+
+        for (auto* export_import : export_import_map[imported_path])
+            who_import_me_map_tree[export_import].insert(
+                my_source_path);
+
+        if (export_imports)
+        {
+            // Update the import relationship for who-import-me;
+            for (auto& who_import_me : who_import_me_map_tree[my_source_path])
+                who_import_me_map_tree[imported_path].insert(who_import_me);
+
+            // Update export map.
+            export_import_map[my_source_path].insert(
+                imported_path);
+        }       
     }
     void lexer::import_ast_tree(ast::AstBase* astbase)
     {
         m_imported_ast_tree_list.push_back(astbase);
-    }
-    void lexer::merge_lexer_or_parser_error_from_import(lexer& abnother_lexer)
-    {
-        wo_assert(m_error_frame.size() == 1 && abnother_lexer.m_error_frame.size() == 1);
-        m_error_frame.back().insert(
-            m_error_frame.back().end(),
-            abnother_lexer.m_error_frame.back().begin(),
-            abnother_lexer.m_error_frame.back().end());
     }
     int lexer::peek_char()
     {
@@ -514,18 +514,18 @@ namespace wo
 
     void lexer::record_message(compiler_message_t&& message)
     {
-        auto& emplaced_message = m_error_frame.back().emplace_back(std::move(message));
+        auto& emplaced_message = m_shared_context->m_error_frame.back().emplace_back(std::move(message));
 
         emplaced_message.m_layer
-            = m_error_frame.size() - 1 + (
+            = m_shared_context->m_error_frame.size() - 1 + (
                 emplaced_message.m_level == msglevel_t::error ? 0 : 1);
     }
     lexer::compiler_message_t& lexer::append_message(const compiler_message_t& message)
     {
-        auto& emplaced_message = m_error_frame.back().emplace_back(message);
+        auto& emplaced_message = m_shared_context->m_error_frame.back().emplace_back(message);
 
         emplaced_message.m_layer
-            = m_error_frame.size() - 1 + (
+            = m_shared_context->m_error_frame.size() - 1 + (
                 emplaced_message.m_level == msglevel_t::error ? 0 : 1);
         return emplaced_message;
     }
@@ -585,7 +585,7 @@ namespace wo
     bool lexer::has_error() const
     {
         wo_assert(m_error_frame.size() == 1);
-        return !m_error_frame.back().empty();
+        return !m_shared_context->m_error_frame.back().empty();
     }
     wo_pstring_t lexer::get_source_path() const
     {
@@ -593,7 +593,7 @@ namespace wo
     }
     size_t lexer::get_error_frame_count_for_debug() const
     {
-        return m_error_frame.size();
+        return m_shared_context->m_error_frame.size();
     }
     const std::optional<lexer*>& lexer::get_who_import_me() const
     {
@@ -606,15 +606,15 @@ namespace wo
     }
     const lexer::declared_macro_map_t& lexer::get_declared_macro_list_for_debug() const
     {
-        return *m_declared_macro_list;
+        return m_shared_context->m_declared_macro_list;
     }
     void lexer::begin_trying_block()
     {
-        m_error_frame.emplace_back();
+        m_shared_context->m_error_frame.emplace_back();
     }
     void lexer::end_trying_block()
     {
-        m_error_frame.pop_back();
+        m_shared_context->m_error_frame.pop_back();
     }
     void lexer::consume_forward()
     {
@@ -990,7 +990,7 @@ namespace wo
                 // OK FINISH PRAGMA, CONTINUE
                 auto macro_instance = std::make_unique<macro>(*this);
                 auto macro_name = macro_instance->macro_name;
-                if (auto fnd = m_declared_macro_list->insert(
+                if (auto fnd = m_shared_context->m_declared_macro_list.insert(
                     std::make_pair(macro_name, std::move(macro_instance)));
                     !fnd.second)
                 {
@@ -1370,8 +1370,8 @@ namespace wo
         const size_t macro_begin_row = _m_this_token_begin_row;
         const size_t macro_begin_col = _m_this_token_begin_col;
 
-        auto fnd = m_declared_macro_list->find(macro_name);
-        if (fnd != m_declared_macro_list->end() && fnd->second->_macro_action_vm)
+        auto fnd = m_shared_context->m_declared_macro_list.find(macro_name);
+        if (fnd != m_shared_context->m_declared_macro_list.end() && fnd->second->_macro_action_vm)
         {
             wo_integer_t script_func;
             [[maybe_unused]] wo_handle_t jit_func;
