@@ -18,8 +18,6 @@
 
 #define WO_TERM_EXCEPTED L"应当是"
 
-#define WO_MACRO_CODE_END_HERE L"此宏定义在此处结束: "
-#define WO_MACRO_ANALYZE_END_HERE L"此宏解析在此处结束: "
 #define WO_TOO_MANY_ERROR(count) L"报告的错误数量太多, 仅显示 " + std::to_wstring(count) +  L" 条, 终止"
 
 // PASS LEXER
@@ -34,7 +32,7 @@
 #define WO_ERR_UNEXCEPTED_EOL_IN_STRING L"在字符串常量中发现换行符"
 #define WO_ERR_UNKNOWN_REPEAT_MACRO_DEFINE L"重复的宏定义 '%ls'"
 #define WO_ERR_UNKNOWN_PRAGMA_COMMAND L"未知的预处理指令 '%ls'"
-#define WO_ERR_FAILED_TO_COMPILE_MACRO_CONTROLOR L"宏控制器编译失败:\n"
+#define WO_ERR_FAILED_TO_COMPILE_MACRO_CONTROLOR L"宏控制器编译失败"
 #define WO_ERR_FAILED_TO_RUN_MACRO_CONTROLOR L"宏 '%ls' 运行发生了错误: %ls"
 #define WO_ERR_UNKNOW_ESCSEQ_BEGIN_WITH_CH L"以 '%lc' 开头的未知转义序列."
 #define WO_ERR_INVALID_TOKEN_MACRO_CONTROLOR L"宏 '%ls' 生成了非法的词法序列"

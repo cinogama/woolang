@@ -2756,6 +2756,7 @@ wo::compile_result _wo_compile_impl(
     wo_string_t virtual_src_path,
     const void* src,
     size_t      len,
+    const std::optional<wo::lexer*>& parent_lexer,
     std::optional<wo::shared_pointer<wo::runtime_env>>* out_env_if_success,
     std::optional<std::unique_ptr<wo::lexer>>* out_lexer_if_failed
 #ifndef WO_DISABLE_COMPILER
@@ -2767,8 +2768,7 @@ wo::compile_result _wo_compile_impl(
     const char* load_binary_failed_reason = nullptr;
     bool is_valid_binary = false;
 
-    wo::compile_result compile_result
-        = wo::compile_result::PROCESS_FAILED;
+    wo::compile_result compile_result = wo::compile_result::PROCESS_FAILED;
 
     std::optional<wo::shared_pointer<wo::runtime_env>> compile_env_result =
         wo::runtime_env::load_create_env_from_binary(
@@ -2787,7 +2787,7 @@ wo::compile_result _wo_compile_impl(
             wo_assert(load_binary_failed_reason != nullptr);
 
             compile_lexer = std::make_unique<wo::lexer>(
-                    std::nullopt,
+                    parent_lexer,
                     wo::wstring_pool::get_pstr(wvspath),
                     std::make_unique<std::wistringstream>(std::wstring()));
 
@@ -2805,7 +2805,7 @@ wo::compile_result _wo_compile_impl(
 
                 std::wstring strbuffer = wo::str_to_wstr(std::string((const char*)src, len).c_str());
                 compile_lexer = std::make_unique<wo::lexer>(
-                    std::nullopt,
+                    parent_lexer,
                     wo::wstring_pool::get_pstr(wvspath),
                     std::make_unique<std::wistringstream>(strbuffer));
             }
@@ -2827,7 +2827,7 @@ wo::compile_result _wo_compile_impl(
                 }
 
                 compile_lexer = std::make_unique<wo::lexer>(
-                    std::nullopt,
+                    parent_lexer,
                     wo::wstring_pool::get_pstr(real_file_path),
                     std::move(content_stream));
             }
@@ -2889,7 +2889,12 @@ wo::compile_result _wo_compile_impl(
     return compile_result;
 }
 
-wo_bool_t _wo_load_source(wo_vm vm, wo_string_t virtual_src_path, const void* src, size_t len)
+wo_bool_t _wo_load_source(
+    wo_vm vm, 
+    wo_string_t virtual_src_path, 
+    const void* src, 
+    size_t len, 
+    const std::optional<wo::lexer*>& parent_lexer)
 {
     wo::start_string_pool_guard sg;
 
@@ -2907,6 +2912,7 @@ wo_bool_t _wo_load_source(wo_vm vm, wo_string_t virtual_src_path, const void* sr
             virtual_src_path,
             src,
             len,
+            parent_lexer,
             &_env_if_success,
             &_lexer_if_failed
 #ifndef WO_DISABLE_COMPILER
@@ -2952,7 +2958,7 @@ wo_bool_t wo_load_binary(wo_vm vm, wo_string_t virtual_src_path, const void* buf
     if (!wo_virtual_binary(vpath.c_str(), buffer, length, WO_TRUE))
         return WO_FALSE;
 
-    return _wo_load_source(vm, vpath.c_str(), buffer, length);
+    return _wo_load_source(vm, vpath.c_str(), buffer, length, std::nullopt);
 }
 
 void* wo_dump_binary(wo_vm vm, wo_bool_t saving_pdi, wo_size_t* out_length)
@@ -3476,7 +3482,7 @@ wo_bool_t wo_load_source(wo_vm vm, wo_string_t virtual_src_path, wo_string_t src
 
 wo_bool_t wo_load_file(wo_vm vm, wo_string_t virtual_src_path)
 {
-    return _wo_load_source(vm, virtual_src_path, nullptr, 0);
+    return _wo_load_source(vm, virtual_src_path, nullptr, 0, std::nullopt);
 }
 
 wo_bool_t wo_jit(wo_vm vm)

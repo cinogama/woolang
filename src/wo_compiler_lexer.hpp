@@ -229,21 +229,30 @@ namespace wo
         static int lex_hextonum(int ch);
         static int lex_octtonum(int ch);
 
+        static uint64_t read_from_unsigned_literal(const wchar_t* text);
+        static int64_t read_from_literal(const wchar_t* text);
+
     private:
         struct SharedContext
         {
             std::list<compiler_message_list_t> m_error_frame;
             declared_macro_map_t m_declared_macro_list;
-            imported_source_path_set_t m_imported_source_path_set;
+
+            // NOTE: Following wo_pstring_t only used in pass1.
+            imported_source_path_set_t m_linked_script_path_set;
             who_import_me_map_t m_who_import_me_map_tree;
             export_import_map_t m_export_import_map;
 
+            std::list<std::string> m_temp_virtual_file_path;
+
             SharedContext(const std::optional<wo_pstring_t>& source_path);
-            ~SharedContext() = default;
+            ~SharedContext();
             SharedContext(const SharedContext&) = delete;
             SharedContext(SharedContext&&) = delete;
             SharedContext& operator = (const SharedContext&) = delete;
             SharedContext& operator = (SharedContext&&) = delete;
+
+            const char* register_temp_virtual_file(wo_string_t context);
         };
 
         std::optional<lexer*> m_who_import_me;
@@ -276,6 +285,7 @@ namespace wo
         void    token_begin_here();
 
     public:
+        size_t get_error_frame_layer() const;
         compiler_message_list_t& get_current_error_frame();
         compiler_message_list_t& get_root_error_frame();
 
@@ -380,29 +390,21 @@ namespace wo
 
         [[nodiscard]]
         int peek_char();
-
         [[nodiscard]]
         int read_char();
-
         [[nodiscard]]
         const peeked_token_t*
             peek();
-
         void move_forward();
         void consume_forward();
-
         [[nodiscard]]
         bool try_handle_macro(const std::wstring& macro_name);
-
         [[nodiscard]]
         bool has_error() const;
-
         [[nodiscard]]
         wo_pstring_t get_source_path() const;
-
         [[nodiscard]]
         size_t get_error_frame_count_for_debug() const;
-
         [[nodiscard]]
         const declared_macro_map_t& get_declared_macro_list_for_debug() const;
 

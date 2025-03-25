@@ -245,15 +245,13 @@ WO_API wo_api rslib_std_char_octnum(wo_vm vm, wo_value args)
     return wo_ret_int(vm, wo::lexer::lex_octtonum(ch));
 }
 
-WO_API wo_api rslib_std_string_enstring(wo_vm vm, wo_value args)
+std::string _rslib_std_string_enstring_impl(wo_string_t str, size_t len)
 {
-    size_t len = 0;
-    wo_string_t str = wo_raw_string(args + 0, &len);
     std::string result;
     while (len)
     {
         unsigned char uch = (unsigned char)*str;
-        if (uch == 0 || iscntrl(uch))
+        if (uch <= 127 && (uch == 0 || iscntrl(uch)))
         {
             char encode[5] = {};
             sprintf(encode, "\\x%02x", (unsigned int)uch);
@@ -275,8 +273,15 @@ WO_API wo_api rslib_std_string_enstring(wo_vm vm, wo_value args)
         ++str;
         --len;
     }
-    result = "\"" + result + "\"";
-    return wo_ret_string(vm, result.c_str());
+    return "\"" + result + "\"";
+}
+
+WO_API wo_api rslib_std_string_enstring(wo_vm vm, wo_value args)
+{
+    size_t len = 0;
+    wo_string_t str = wo_raw_string(args + 0, &len);
+    
+    return wo_ret_string(vm, _rslib_std_string_enstring_impl(str, len).c_str());
 }
 
 WO_API wo_api rslib_std_string_destring(wo_vm vm, wo_value args)
