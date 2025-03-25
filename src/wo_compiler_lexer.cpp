@@ -1481,14 +1481,16 @@ extern func macro_entry(lexer: std::lexer)=> string
                     }
                     default:
                     str_escape_sequences_fail_in_format_begin:
-                        return produce_lexer_error(msglevel_t::error, WO_ERR_UNKNOW_ESCSEQ_BEGIN_WITH_CH, escape_ch);
+                        return produce_lexer_error(
+                            msglevel_t::error, WO_ERR_UNKNOW_ESCSEQ_BEGIN_WITH_CH, escape_ch);
                     }
                 }
                 else
                     append_result_char(following_ch);
             }
             else
-                return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXCEPTED_EOL_IN_STRING);
+                return produce_lexer_error(
+                    msglevel_t::error, WO_ERR_UNEXCEPTED_EOL_IN_STRING);
         }
 
         // Cannot be here.
