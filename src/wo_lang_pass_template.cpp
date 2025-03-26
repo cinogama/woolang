@@ -49,10 +49,8 @@ namespace wo
             get_symbol_name_w(inst->m_symbol));
 
         for (const auto& error_message : inst->m_failed_error_for_this_instance.value())
-        {
             // TODO: Describe the error support.
-            ++lex.append_message(error_message).m_layer;
-        }
+            lex.append_message(error_message).m_layer += error_message.m_layer + 1;
     }
 
     std::optional<lang_TemplateAstEvalStateBase*> LangContext::begin_eval_template_ast(
