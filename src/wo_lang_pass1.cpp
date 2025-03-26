@@ -471,25 +471,23 @@ namespace wo
         {
             end_last_scope(); // Leave temporary advance the processing of declaration nodes.
 
-            auto /* copy */ current_error_frame = lex.get_current_error_frame();
+            auto current_error_frame = std::move(lex.get_current_error_frame());
             lex.end_trying_block();
 
             auto& last_error_frame = lex.get_current_error_frame();
+            const size_t current_error_frame_depth = lex.get_error_frame_layer();
 
             for (auto& errinform : current_error_frame)
             {
                 // NOTE: Advanced judgement failed, only non-template will be here. 
                 // make sure report it into error list.
-                (void)lex.append_message(errinform);
+                lex.append_message(errinform).m_layer = errinform.m_layer - 1;
 
                 auto& root_error_frame = lex.get_root_error_frame();
                 if (&last_error_frame != &root_error_frame)
                 {
                     auto& supper_error = root_error_frame.emplace_back(errinform);
-                    if (supper_error.m_level == lexer::msglevel_t::error)
-                        supper_error.m_layer = 0;
-                    else
-                        supper_error.m_layer = 1;
+                    supper_error.m_layer -= current_error_frame_depth;
                 }
             }
         }
@@ -809,25 +807,23 @@ namespace wo
         {
             end_last_scope(); // Leave temporary advance the processing of declaration nodes.
 
-            auto current_error_frame = lex.get_current_error_frame();
+            auto current_error_frame = std::move(lex.get_current_error_frame());
             lex.end_trying_block();
 
             auto& last_error_frame = lex.get_current_error_frame();
+            const size_t current_error_frame_depth = lex.get_error_frame_layer();
 
             for (auto& errinform : current_error_frame)
             {
                 // NOTE: Advanced judgement failed, only non-template will be here. 
                 // make sure report it into error list.
-                (void)lex.append_message(errinform);
+                lex.append_message(errinform).m_layer = errinform.m_layer - 1;
 
                 auto& root_error_frame = lex.get_root_error_frame();
                 if (&last_error_frame != &root_error_frame)
                 {
                     auto& supper_error = root_error_frame.emplace_back(errinform);
-                    if (supper_error.m_level == lexer::msglevel_t::error)
-                        supper_error.m_layer = 0;
-                    else
-                        supper_error.m_layer = 1;
+                    supper_error.m_layer -= current_error_frame_depth;
                 }
             }
         }
