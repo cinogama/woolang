@@ -1,9 +1,9 @@
 import woo::std;
-import pkg::vm;
-
-import pkg::thread;
-
 import test_tool;
+
+import pkg::vm;
+import pkg::thread;
+import pkg::buffer;
 
 namespace test_compile
 {

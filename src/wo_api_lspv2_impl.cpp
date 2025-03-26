@@ -12,6 +12,7 @@ wo::compile_result _wo_compile_impl(
     wo_string_t virtual_src_path,
     const void* src,
     size_t      len,
+    const std::optional<wo::lexer*>& parent_lexer,
     std::optional<wo::shared_pointer<wo::runtime_env>>* out_env_if_success,
     std::optional<std::unique_ptr<wo::lexer>>* out_lexer_if_failed,
     std::optional<std::unique_ptr<wo::LangContext>>* out_langcontext_if_pass_grammar);
@@ -62,6 +63,7 @@ wo_lspv2_source_meta* wo_lspv2_compile_to_meta(
         virtual_src_path,
         src,
         src == nullptr ? 0 : strlen(src),
+        std::nullopt,
         &meta->m_env_if_success,
         &meta->m_lexer_if_failed,
         &meta->m_langcontext_if_passed_grammar);

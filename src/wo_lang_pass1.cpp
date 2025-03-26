@@ -97,7 +97,7 @@ namespace wo
     }
 
     bool LangContext::check_symbol_is_reachable_in_current_scope(
-        lexer& lex, AstBase* node, lang_Symbol* symbol_instance, wo_pstring_t path)
+        lexer& lex, AstBase* node, lang_Symbol* symbol_instance, wo_pstring_t path, bool need_import_check)
     {
         if (!symbol_instance->m_is_global)
             // Local symbol is always reachable.
@@ -113,6 +113,22 @@ namespace wo
 
             if (declare_attribute->m_access.has_value())
                 attrib = declare_attribute->m_access.value();
+        }
+
+        const ast::AstBase::source_location_t* symbol_location_may_null = nullptr;
+        if (symbol_instance->m_symbol_declare_location.has_value())
+        {
+            symbol_location_may_null = &symbol_instance->m_symbol_declare_location.value();
+            if (need_import_check && ! lex.check_source_has_been_imported_by_specify_source(
+                symbol_location_may_null->source_file, path))
+            {
+                lex.record_lang_error(lexer::msglevel_t::error, node,
+                    WO_ERR_SOURCE_MUST_BE_IMPORTED,
+                    get_symbol_name_w(symbol_instance),
+                    symbol_location_may_null->source_file->c_str());
+
+                return false;
+            }
         }
 
         switch (attrib)
@@ -143,19 +159,17 @@ namespace wo
         }
         case AstDeclareAttribue::accessc_attrib::PRIVATE:
         {
-            if (!symbol_instance->m_symbol_declare_location.has_value())
+            if (symbol_location_may_null == nullptr)
                 // Builtin & compiler generated symbol is always reachable.
                 return true;
 
-            auto& location = symbol_instance->m_symbol_declare_location.value();
-
-            if (location.source_file == path)
+            if (symbol_location_may_null->source_file == path)
                 return true;
 
             lex.record_lang_error(lexer::msglevel_t::error, node,
                 WO_ERR_SYMBOL_IS_PRIVATE,
                 get_symbol_name_w(symbol_instance),
-                location.source_file->c_str());
+                symbol_location_may_null->source_file->c_str());
 
             break;
         }
@@ -355,10 +369,10 @@ namespace wo
         {
             switch (node->m_formal)
             {
-            case AstIdentifier::FROM_GLOBAL:
-            case AstIdentifier::FROM_CURRENT:
+            case AstIdentifier::identifier_formal::FROM_GLOBAL:
+            case AstIdentifier::identifier_formal::FROM_CURRENT:
                 break;
-            case AstIdentifier::FROM_TYPE:
+            case AstIdentifier::identifier_formal::FROM_TYPE:
             {
                 wo_assert(node->m_from_type);
 
@@ -466,7 +480,7 @@ namespace wo
             {
                 // NOTE: Advanced judgement failed, only non-template will be here. 
                 // make sure report it into error list.
-                lex.append_message(errinform);
+                (void)lex.append_message(errinform);
 
                 auto& root_error_frame = lex.get_root_error_frame();
                 if (&last_error_frame != &root_error_frame)
@@ -608,8 +622,7 @@ namespace wo
                                 {
                                     node->m_LANG_trying_advancing_type_judgement = true;
 
-                                    wo_assert(!type_symbol->m_is_template
-                                        && type_symbol->m_is_global);
+                                    wo_assert(!type_symbol->m_is_template && type_symbol->m_is_global);
 
                                     // Capture all error happend in this block.
                                     lex.begin_trying_block();
@@ -634,7 +647,11 @@ namespace wo
                         {
                             // Check symbol can be reach.
                             if (!check_symbol_is_reachable_in_current_scope(
-                                lex, node, type_symbol, node->source_location.source_file))
+                                lex, 
+                                node, 
+                                type_symbol, 
+                                node->source_location.source_file,
+                                !node->duplicated_node /* TMP: Skip import check in template function. */))
                             {
                                 return FAILED;
                             }
@@ -801,7 +818,7 @@ namespace wo
             {
                 // NOTE: Advanced judgement failed, only non-template will be here. 
                 // make sure report it into error list.
-                lex.append_message(errinform);
+                (void)lex.append_message(errinform);
 
                 auto& root_error_frame = lex.get_root_error_frame();
                 if (&last_error_frame != &root_error_frame)
@@ -959,7 +976,11 @@ namespace wo
 
             // Check symbol can be reach.
             if (!check_symbol_is_reachable_in_current_scope(
-                lex, node, determined_value_instance->m_symbol, node->source_location.source_file))
+                lex, 
+                node, 
+                determined_value_instance->m_symbol, 
+                node->source_location.source_file,
+                !node->duplicated_node /* TMP: Skip import check in template function. */))
             {
                 return FAILED;
             }
@@ -2122,7 +2143,11 @@ namespace wo
 
             // Check symbol can be reach.
             if (!check_symbol_is_reachable_in_current_scope(
-                lex, node, target_type->m_symbol, node->source_location.source_file))
+                lex,
+                node, 
+                target_type->m_symbol, 
+                node->source_location.source_file,
+                !node->duplicated_node /* TMP: Skip import check in template function. */))
             {
                 return FAILED;
             }
@@ -2687,7 +2712,7 @@ namespace wo
             {
                 // Eval from type first;
                 AstValueVariable* invoking_variable = static_cast<AstValueVariable*>(node->m_function);
-                if (invoking_variable->m_identifier->m_formal == AstIdentifier::FROM_TYPE)
+                if (invoking_variable->m_identifier->m_formal == AstIdentifier::identifier_formal::FROM_TYPE)
                 {
                     AstTypeHolder** type_holder = std::get_if<AstTypeHolder*>(
                         &invoking_variable->m_identifier->m_from_type.value());
@@ -2703,7 +2728,7 @@ namespace wo
                 {
                     // Eval from type first;
                     AstValueVariable* argument_variabl = static_cast<AstValueVariable*>(origin_argument);
-                    if (argument_variabl->m_identifier->m_formal == AstIdentifier::FROM_TYPE)
+                    if (argument_variabl->m_identifier->m_formal == AstIdentifier::identifier_formal::FROM_TYPE)
                     {
                         AstTypeHolder** type_holder = std::get_if<AstTypeHolder*>(
                             &argument_variabl->m_identifier->m_from_type.value());
@@ -2740,9 +2765,9 @@ namespace wo
 
                         if (first_argument_type_symbol->m_belongs_to_scope->is_namespace_scope())
                         {
-                            if (function_variable_identifier->m_formal == AstIdentifier::FROM_CURRENT)
+                            if (function_variable_identifier->m_formal == AstIdentifier::identifier_formal::FROM_CURRENT)
                             {
-                                function_variable_identifier->m_formal = AstIdentifier::FROM_TYPE;
+                                function_variable_identifier->m_formal = AstIdentifier::identifier_formal::FROM_TYPE;
                                 function_variable_identifier->m_from_type = first_argument_type_instance;
 
                                 wo_assert(!function_variable_identifier->m_find_type_only);
@@ -2750,7 +2775,7 @@ namespace wo
                                     lex, function_variable_identifier, std::nullopt))
                                 {
                                     // Failed, restore.
-                                    function_variable_identifier->m_formal = AstIdentifier::FROM_CURRENT;
+                                    function_variable_identifier->m_formal = AstIdentifier::identifier_formal::FROM_CURRENT;
                                     function_variable_identifier->m_from_type = std::nullopt;
                                 }
                             }
@@ -3591,7 +3616,7 @@ namespace wo
                     {
                         // Eval from type first;
                         AstValueVariable* value_variabl = static_cast<AstValueVariable*>(origin_value);
-                        if (value_variabl->m_identifier->m_formal == AstIdentifier::FROM_TYPE)
+                        if (value_variabl->m_identifier->m_formal == AstIdentifier::identifier_formal::FROM_TYPE)
                         {
                             AstTypeHolder** type_holder = std::get_if<AstTypeHolder*>(
                                 &value_variabl->m_identifier->m_from_type.value());
@@ -3916,7 +3941,11 @@ namespace wo
 
                     // Check symbol can be reach.
                     if (!check_symbol_is_reachable_in_current_scope(
-                        lex, node, struct_type_instance->m_symbol, node->source_location.source_file))
+                        lex, 
+                        node, 
+                        struct_type_instance->m_symbol, 
+                        node->source_location.source_file,
+                        !node->duplicated_node /* TMP: Skip import check in template function. */))
                     {
                         return FAILED;
                     }
@@ -4108,7 +4137,7 @@ namespace wo
                 }
 
                 AstIdentifier* operator_identifier = new AstIdentifier(operator_name);
-                operator_identifier->m_formal = AstIdentifier::FROM_TYPE;
+                operator_identifier->m_formal = AstIdentifier::identifier_formal::FROM_TYPE;
                 operator_identifier->m_from_type = left_type;
                 operator_identifier->m_find_type_only = false;
 
@@ -5343,7 +5372,7 @@ namespace wo
                     wo_pstring_t operator_name_str = operator_name.value();
 
                     AstIdentifier* operator_identifier = new AstIdentifier(operator_name_str);
-                    operator_identifier->m_formal = AstIdentifier::FROM_TYPE;
+                    operator_identifier->m_formal = AstIdentifier::identifier_formal::FROM_TYPE;
                     operator_identifier->m_from_type = left_type;
                     operator_identifier->m_find_type_only = false;
 

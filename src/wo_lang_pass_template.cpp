@@ -48,9 +48,11 @@ namespace wo
             failed_template_arg_list.c_str(),
             get_symbol_name_w(inst->m_symbol));
 
-        for (const auto& errmsg : inst->m_failed_error_for_this_instance.value())
+        for (const auto& error_message : inst->m_failed_error_for_this_instance.value())
+        {
             // TODO: Describe the error support.
-            lex.append_message(errmsg);
+            ++lex.append_message(error_message).m_layer;
+        }
     }
 
     std::optional<lang_TemplateAstEvalStateBase*> LangContext::begin_eval_template_ast(
@@ -310,6 +312,10 @@ namespace wo
 
         lex.end_trying_block();
 
+        const size_t current_error_frame_layer = lex.get_error_frame_layer();
+        for (auto& error_message : template_eval_instance->m_failed_error_for_this_instance.value())
+            error_message.m_layer -= current_error_frame_layer;
+
         // Child failed, we need pop the scope anyway.
         end_last_scope(); // Leave temporary scope for template type alias.
         end_last_scope(); // Leave scope where template variable defined.
@@ -335,10 +341,10 @@ namespace wo
 
             switch (identifier->m_formal)
             {
-            case ast::AstIdentifier::FROM_TYPE:
+            case ast::AstIdentifier::identifier_formal::FROM_TYPE:
                 // Not support.
                 return true;
-            case ast::AstIdentifier::FROM_CURRENT:
+            case ast::AstIdentifier::identifier_formal::FROM_CURRENT:
                 // Current identifier might be template need to be pick.
                 if (identifier->m_scope.empty())
                 {
@@ -375,7 +381,7 @@ namespace wo
                                 lex.record_lang_error(lexer::msglevel_t::error, accept_type_formal,
                                     WO_ERR_UNACCEPTABLE_MUTABLE,
                                     get_type_name_w(applying_type_instance));
-                                
+
                                 return false;
                             }
                             /* Fall through */
@@ -392,7 +398,7 @@ namespace wo
                 }
                 /* FALL THROUGH */
                 [[fallthrough]];
-            case ast::AstIdentifier::FROM_GLOBAL:
+            case ast::AstIdentifier::identifier_formal::FROM_GLOBAL:
                 do
                 {
                     // Try determin symbol:
@@ -649,7 +655,7 @@ namespace wo
             auto* identifier = accept_type_formal->m_typeform.m_identifier;
             switch (identifier->m_formal)
             {
-            case ast::AstIdentifier::FROM_CURRENT:
+            case ast::AstIdentifier::identifier_formal::FROM_CURRENT:
                 // Current identifier might be template need to be pick.
                 if (!identifier->m_template_arguments.has_value()
                     && identifier->m_scope.empty())
@@ -663,7 +669,7 @@ namespace wo
                 }
                 /* FALL THROUGH */
                 [[fallthrough]];
-            case ast::AstIdentifier::FROM_TYPE:
+            case ast::AstIdentifier::identifier_formal::FROM_TYPE:
                 if (identifier->m_from_type.has_value())
                 {
                     ast::AstTypeHolder** from_type =
@@ -676,7 +682,7 @@ namespace wo
                 }
                 /* FALL THROUGH */
                 [[fallthrough]];
-            case ast::AstIdentifier::FROM_GLOBAL:
+            case ast::AstIdentifier::identifier_formal::FROM_GLOBAL:
                 if (identifier->m_template_arguments.has_value())
                 {
                     auto& template_arguments = identifier->m_template_arguments.value();

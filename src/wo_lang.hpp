@@ -628,15 +628,17 @@ namespace wo
     struct LangContext
     {
         // Symbol & definition.
-        enum pass_behavior
+        enum pass_behavior: uint8_t
         {
-            UNPROCESSED, // Not processed yet.
+            UNPROCESSED,            // Not processed yet.
 
             OKAY,                   // Pop this ast node.
             HOLD,                   // Something need to be done.
             HOLD_BUT_CHILD_FAILED,  // Something need to be done, but child failed.
             FAILED,                 // Error occured.
         };
+        static_assert(sizeof(ast::AstBase::finished_state) == sizeof(pass_behavior));
+
         struct AstNodeWithState
         {
             pass_behavior m_state;
@@ -1164,7 +1166,11 @@ namespace wo
             lang_ValueInstance* variable_instance);
 
         bool check_symbol_is_reachable_in_current_scope(
-            lexer& lex, ast::AstBase* node, lang_Symbol* symbol_instance, wo_pstring_t path);
+            lexer& lex,
+            ast::AstBase* node, 
+            lang_Symbol* symbol_instance, 
+            wo_pstring_t path, 
+            bool need_import_check);
 
         bool check_struct_field_is_reachable_in_current_scope(
             lexer& lex,

@@ -7,48 +7,6 @@ namespace wo
 #ifndef WO_DISABLE_COMPILER
     namespace ast
     {
-        uint64_t read_from_unsigned_literal(const wchar_t* text)
-        {
-            uint64_t base = 10;
-            uint64_t result = 0;
-
-            if (text[0] == L'0')
-            {
-                if (text[1] == 0)
-                    return 0;
-
-                switch (lexer::lex_toupper(text[1]))
-                {
-                case L'X':
-                    base = 16;
-                    text = text + 2;
-                    break;
-                case L'B':
-                    base = 2;
-                    text = text + 2;
-                    break;
-                default:
-                    base = 8;
-                    ++text;
-                    break;
-                }
-            }
-            while (*text)
-            {
-                if (*text == L'H' || *text == L'h')
-                    break;
-                result = base * result + lexer::lex_hextonum(*text);
-                ++text;
-            }
-            return result;
-        }
-        int64_t read_from_literal(const wchar_t* text)
-        {
-            if (text[0] == L'-')
-                return -(int64_t)read_from_unsigned_literal(text + 1);
-            return (int64_t)read_from_unsigned_literal(text);
-        }
-
         auto pass_mark_label::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
             token label = WO_NEED_TOKEN(0);
@@ -58,11 +16,13 @@ namespace wo
         }
         auto pass_import_files::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
-            wo_test(input.size() == 2);
+            wo_test(input.size() == 2 || input.size() == 3);
             std::wstring path;
             std::wstring filename;
 
-            AstList* import_scopes = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
+            bool is_export_import = input.size() == 3;
+            AstList* import_scopes = static_cast<AstList*>(
+                WO_NEED_AST_TYPE(is_export_import ? 2 : 1, AstBase::AST_LIST));
 
             bool first = true;
             for (auto* scope : import_scopes->m_list)
@@ -89,7 +49,7 @@ namespace wo
             }
 
             wo_pstring_t src_full_path_pstr = wstring_pool::get_pstr(src_full_path);
-            if (!lex.check_source_path_has_been_imported(src_full_path_pstr))
+            if (!lex.check_source_path_has_been_linked_in(src_full_path_pstr))
             {
                 auto srcfile_stream = wo::open_virtual_file_stream(src_full_path);
                 if (srcfile_stream)
@@ -100,8 +60,6 @@ namespace wo
                         std::move(srcfile_stream.value()));
 
                     auto* imported_ast = wo::get_wo_grammar()->gen(new_lex);
-                    lex.merge_lexer_or_parser_error_from_import(new_lex);
-
                     if (imported_ast != nullptr)
                         lex.import_ast_tree((ast_basic*)imported_ast);
                     else
@@ -110,6 +68,9 @@ namespace wo
                 else
                     return token{ lex.record_parser_error(lexer::msglevel_t::error, WO_ERR_CANNOT_OPEN_FILE, path.c_str()) };
             }
+
+            // Record import relationship.
+            lex.record_import_relationship(src_full_path_pstr, is_export_import);
 
             return new AstEmpty();
         }
@@ -1067,11 +1028,11 @@ namespace wo
             {
             case lex_type::l_literal_integer:
                 literal_value.set_integer(
-                    (wo_integer_t)read_from_literal(literal.identifier.c_str()));
+                    (wo_integer_t)lexer::read_from_literal(literal.identifier.c_str()));
                 break;
             case lex_type::l_literal_handle:
                 literal_value.set_handle(
-                    (wo_handle_t)read_from_unsigned_literal(literal.identifier.c_str()));
+                    (wo_handle_t)lexer::read_from_unsigned_literal(literal.identifier.c_str()));
                 break;
             case lex_type::l_literal_real:
                 literal_value.set_real((wo_real_t)std::stod(literal.identifier));
@@ -1673,7 +1634,7 @@ namespace wo
             {
                 wo::value index_value;
                 index_value.set_integer(
-                    (wo_integer_t)read_from_literal(index->m_token.identifier.c_str()));
+                    (wo_integer_t)lexer::read_from_literal(index->m_token.identifier.c_str()));
                 index_literal->decide_final_constant_value(index_value);
                 break;
             }

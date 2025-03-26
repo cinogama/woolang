@@ -80,7 +80,7 @@ namespace wo
 
         AstIdentifier::AstIdentifier(wo_pstring_t identifier)
             : AstBase(AST_IDENTIFIER)
-            , m_formal(FROM_CURRENT)
+            , m_formal(identifier_formal::FROM_CURRENT)
             , m_find_type_only(true)
             , m_from_type(std::nullopt)
             , m_scope({})
@@ -96,7 +96,7 @@ namespace wo
             wo_pstring_t identifier,
             const std::optional<std::list<AstTypeHolder*>>& template_arguments)
             : AstBase(AST_IDENTIFIER)
-            , m_formal(FROM_CURRENT)
+            , m_formal(identifier_formal::FROM_CURRENT)
             , m_find_type_only(true)
             , m_from_type(std::nullopt)
             , m_scope{}
@@ -113,7 +113,7 @@ namespace wo
             const std::list<wo_pstring_t>& scopes,
             bool from_global)
             : AstBase(AST_IDENTIFIER)
-            , m_formal(from_global ? FROM_GLOBAL : FROM_CURRENT)
+            , m_formal(from_global ? identifier_formal::FROM_GLOBAL : identifier_formal::FROM_CURRENT)
             , m_find_type_only(true)
             , m_from_type(std::nullopt)
             , m_scope(scopes)
@@ -131,7 +131,7 @@ namespace wo
             const std::list<wo_pstring_t>& scopes,
             AstTypeHolder* from_type)
             : AstBase(AST_IDENTIFIER)
-            , m_formal(FROM_TYPE)
+            , m_formal(identifier_formal::FROM_TYPE)
             , m_find_type_only(true)
             , m_from_type(from_type)
             , m_scope(scopes)

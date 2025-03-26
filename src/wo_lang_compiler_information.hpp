@@ -18,8 +18,6 @@
 
 #define WO_TERM_EXCEPTED L"应当是"
 
-#define WO_MACRO_CODE_END_HERE L"此宏定义在此处结束: "
-#define WO_MACRO_ANALYZE_END_HERE L"此宏解析在此处结束: "
 #define WO_TOO_MANY_ERROR(count) L"报告的错误数量太多, 仅显示 " + std::to_wstring(count) +  L" 条, 终止"
 
 // PASS LEXER
@@ -34,10 +32,10 @@
 #define WO_ERR_UNEXCEPTED_EOL_IN_STRING L"在字符串常量中发现换行符"
 #define WO_ERR_UNKNOWN_REPEAT_MACRO_DEFINE L"重复的宏定义 '%ls'"
 #define WO_ERR_UNKNOWN_PRAGMA_COMMAND L"未知的预处理指令 '%ls'"
-#define WO_ERR_FAILED_TO_COMPILE_MACRO_CONTROLOR L"宏控制器编译失败: \n"
+#define WO_ERR_FAILED_TO_COMPILE_MACRO_CONTROLOR L"宏控制器编译失败"
 #define WO_ERR_FAILED_TO_RUN_MACRO_CONTROLOR L"宏 '%ls' 运行发生了错误: %ls"
 #define WO_ERR_UNKNOW_ESCSEQ_BEGIN_WITH_CH L"以 '%lc' 开头的未知转义序列."
-#define WO_ERR_INVALID_TOKEN_MACRO_CONTROLOR L"宏 '%ls' 生成了非法的词法序列: \n"
+#define WO_ERR_INVALID_TOKEN_MACRO_CONTROLOR L"宏 '%ls' 生成了非法的词法序列"
 #define WO_ERR_RECURSIVE_FORMAT_STRING_IS_INVALID L"嵌套格式化字符串是不被允许的"
 #define WO_ERR_HERE_SHOULD_HAVE L"缺少 '%ls'"
 #define WO_ERR_LEXER_ERR_UNKNOW_NUM_BASE L"词法错误, 未知的常量基数"
@@ -120,8 +118,9 @@
 #define WO_ERR_FAILED_REIFICATION_CAUSED_BY L"用泛型参数: <%ls> 具体化泛型实例 '%ls' 失败"
 #define WO_ERR_UNABLE_CAPTURE_IN_RECURSIVE_FUNC L"递归函数不允许捕获变量"
 #define WO_ERR_STRING_INDEX_OUT_OF_RANGE L"字符串索引超出范围"
-#define WO_ERR_SYMBOL_IS_PRIVATE L"符号 '%ls' 是私有的, 只能在 '%ls' 中访问"
-#define WO_ERR_SYMBOL_IS_PROTECTED L"符号 '%ls' 是受保护的, 只能在命名空间 '%ls' 内访问"
+#define WO_ERR_SYMBOL_IS_PRIVATE L"'%ls' 是私有的, 只能在 '%ls' 中访问"
+#define WO_ERR_SYMBOL_IS_PROTECTED L"'%ls' 是受保护的, 只能在命名空间 '%ls' 内访问"
+#define WO_ERR_SOURCE_MUST_BE_IMPORTED L"'%ls' 来自未导入的脚本 '%ls'"
 #define WO_ERR_STRUCT_FIELD_IS_PRIVATE L"结构体字段 '%ls' 是私有的, 只能在 '%ls' 中访问"
 #define WO_ERR_STRUCT_FIELD_IS_PROTECTED L"结构体字段 '%ls' 是受保护的, 只能在命名空间 '%ls' 内访问"
 #define WO_ERR_UNABLE_TO_MIX_TYPES L"无法推导出同时接受 '%ls' 和 '%ls' 的类型"

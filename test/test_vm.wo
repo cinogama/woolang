@@ -1,7 +1,8 @@
 import woo::std;
-import pkg::vm;
-
 import test_tool;
+
+import pkg::vm;
+import pkg::buffer;
 
 namespace test_vm
 {

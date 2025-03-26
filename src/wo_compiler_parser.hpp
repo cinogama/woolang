@@ -33,7 +33,7 @@ namespace wo
         class AstBase
         {
         public:
-            enum node_type_t
+            enum node_type_t: uint8_t
             {
                 AST_BASE,
                 AST_LIST,
@@ -176,13 +176,15 @@ namespace wo
             };
 
             const node_type_t node_type;
+            uint8_t           finished_state;
+            bool              duplicated_node;
             source_location_t source_location;
-            int finished_state;
 
             AstBase(node_type_t ty)
                 : node_type(ty)
-                , source_location{}
                 , finished_state(0)
+                , duplicated_node(false)
+                , source_location{}
             {
                 if (!list)
                     list = new std::forward_list<AstBase*>;
@@ -241,6 +243,7 @@ namespace wo
 
                 AstBase* result = make_dup(std::nullopt, continues);
                 result->source_location = source_location;
+                result->duplicated_node = true;
 
                 while (!continues.empty())
                 {
@@ -250,6 +253,7 @@ namespace wo
                     auto* origin_holder_ast = holder->get();
                     auto* duped_holder_ast = origin_holder_ast->make_dup(std::nullopt, continues);
                     duped_holder_ast->source_location = origin_holder_ast->source_location;
+                    duped_holder_ast->duplicated_node = true;
                     holder->set(duped_holder_ast);
                 }
 

@@ -133,7 +133,7 @@ namespace wo
         };
 
 #define WO_AST_BUILDER(NAME)                            \
-struct NAME : public astnode_builder               \
+struct NAME : public astnode_builder                    \
 {                                                       \
     static grammar::produce build(                      \
         lexer& lex,                                     \
