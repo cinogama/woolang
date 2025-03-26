@@ -4159,6 +4159,7 @@ namespace wo
                 operator_identifier->m_formal = AstIdentifier::identifier_formal::FROM_TYPE;
                 operator_identifier->m_from_type = left_type;
                 operator_identifier->m_find_type_only = false;
+                operator_identifier->duplicated_node = node->duplicated_node;
 
                 // Update source location.
                 operator_identifier->source_location = node->source_location;
@@ -4168,6 +4169,8 @@ namespace wo
                 {
                     // Has overload function.
                     AstValueVariable* overload_function = new AstValueVariable(operator_identifier);
+                    overload_function->duplicated_node = node->duplicated_node;
+
                     AstValueFunctionCall* overload_function_call = new AstValueFunctionCall(
                         false /* symbol has ben determined */, overload_function, { node->m_left, node->m_right });
 
@@ -5394,6 +5397,7 @@ namespace wo
                     operator_identifier->m_formal = AstIdentifier::identifier_formal::FROM_TYPE;
                     operator_identifier->m_from_type = left_type;
                     operator_identifier->m_find_type_only = false;
+                    operator_identifier->duplicated_node = node->duplicated_node;
 
                     // Update source location.
                     operator_identifier->source_location = node->source_location;
@@ -5403,6 +5407,8 @@ namespace wo
                     {
                         // Has overload function.
                         AstValueVariable* overload_function = new AstValueVariable(operator_identifier);
+                        overload_function->duplicated_node = node->duplicated_node;
+
                         AstValueFunctionCall* overload_function_call = new AstValueFunctionCall(
                             false /* symbol has ben determined */, overload_function, { left_value, node->m_right });
 
