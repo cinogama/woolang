@@ -1165,6 +1165,11 @@ namespace wo
             ast::AstValueVariable* ref_from_variable,
             lang_ValueInstance* variable_instance);
 
+        bool check_symbol_is_imported(
+            lexer& lex,
+            ast::AstBase* node,
+            lang_Symbol* symbol_instance,
+            wo_pstring_t path);
         bool check_symbol_is_reachable_in_current_scope(
             lexer& lex,
             ast::AstBase* node, 
