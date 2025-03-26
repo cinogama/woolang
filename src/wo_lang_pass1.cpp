@@ -95,7 +95,29 @@ namespace wo
         }
         return false;
     }
+    bool LangContext::check_symbol_is_imported(
+        lexer& lex,
+        ast::AstBase* node,
+        lang_Symbol* symbol_instance,
+        wo_pstring_t path)
+    {
+        const ast::AstBase::source_location_t* symbol_location_may_null = nullptr;
+        if (symbol_instance->m_symbol_declare_location.has_value())
+        {
+            symbol_location_may_null = &symbol_instance->m_symbol_declare_location.value();
+            if (!lex.check_source_has_been_imported_by_specify_source(
+                symbol_location_may_null->source_file, path))
+            {
+                lex.record_lang_error(lexer::msglevel_t::error, node,
+                    WO_ERR_SOURCE_MUST_BE_IMPORTED,
+                    get_symbol_name_w(symbol_instance),
+                    symbol_location_may_null->source_file->c_str());
 
+                return false;
+            }
+        }
+        return true;
+    }
     bool LangContext::check_symbol_is_reachable_in_current_scope(
         lexer& lex, AstBase* node, lang_Symbol* symbol_instance, wo_pstring_t path, bool need_import_check)
     {
@@ -117,19 +139,10 @@ namespace wo
 
         const ast::AstBase::source_location_t* symbol_location_may_null = nullptr;
         if (symbol_instance->m_symbol_declare_location.has_value())
-        {
             symbol_location_may_null = &symbol_instance->m_symbol_declare_location.value();
-            if (need_import_check && ! lex.check_source_has_been_imported_by_specify_source(
-                symbol_location_may_null->source_file, path))
-            {
-                lex.record_lang_error(lexer::msglevel_t::error, node,
-                    WO_ERR_SOURCE_MUST_BE_IMPORTED,
-                    get_symbol_name_w(symbol_instance),
-                    symbol_location_may_null->source_file->c_str());
 
-                return false;
-            }
-        }
+        if (need_import_check && !check_symbol_is_imported(lex, node, symbol_instance, path))
+            return false;
 
         switch (attrib)
         {
@@ -645,9 +658,9 @@ namespace wo
                         {
                             // Check symbol can be reach.
                             if (!check_symbol_is_reachable_in_current_scope(
-                                lex, 
-                                node, 
-                                type_symbol, 
+                                lex,
+                                node,
+                                type_symbol,
                                 node->source_location.source_file,
                                 !node->duplicated_node /* TMP: Skip import check in template function. */))
                             {
@@ -691,6 +704,16 @@ namespace wo
                                 // Re-eval it.
                                 return HOLD;
                             }
+                        }
+                        else if (!node->duplicated_node)
+                        {
+                            wo_assert(type_symbol->m_symbol_kind == lang_Symbol::TYPE);
+                            if (!check_symbol_is_imported(
+                                lex,
+                                node,
+                                type_symbol,
+                                node->source_location.source_file))
+                                return FAILED;
                         }
                     }
                     else
@@ -972,9 +995,9 @@ namespace wo
 
             // Check symbol can be reach.
             if (!check_symbol_is_reachable_in_current_scope(
-                lex, 
-                node, 
-                determined_value_instance->m_symbol, 
+                lex,
+                node,
+                determined_value_instance->m_symbol,
                 node->source_location.source_file,
                 !node->duplicated_node /* TMP: Skip import check in template function. */))
             {
@@ -1301,22 +1324,22 @@ namespace wo
     {
         auto judge_function_return_type =
             [&](lang_TypeInstance* ret_type)
+        {
+            std::list<lang_TypeInstance*> parameters;
+            for (auto& param : node->m_parameters)
+                parameters.push_back(param->m_type.value()->m_LANG_determined_type.value());
+
+            node->m_LANG_determined_type = m_origin_types.create_function_type(
+                node->m_is_variadic, parameters, ret_type);
+
+            wo_assert(node->m_LANG_determined_type.has_value());
+
+            if (node->m_LANG_value_instance_to_update)
             {
-                std::list<lang_TypeInstance*> parameters;
-                for (auto& param : node->m_parameters)
-                    parameters.push_back(param->m_type.value()->m_LANG_determined_type.value());
-
-                node->m_LANG_determined_type = m_origin_types.create_function_type(
-                    node->m_is_variadic, parameters, ret_type);
-
-                wo_assert(node->m_LANG_determined_type.has_value());
-
-                if (node->m_LANG_value_instance_to_update)
-                {
-                    node->m_LANG_value_instance_to_update.value()->m_determined_type =
-                        node->m_LANG_determined_type;
-                }
-            };
+                node->m_LANG_value_instance_to_update.value()->m_determined_type =
+                    node->m_LANG_determined_type;
+            }
+        };
 
         // Huston, we have a problem.
         if (state == UNPROCESSED)
@@ -2140,8 +2163,8 @@ namespace wo
             // Check symbol can be reach.
             if (!check_symbol_is_reachable_in_current_scope(
                 lex,
-                node, 
-                target_type->m_symbol, 
+                node,
+                target_type->m_symbol,
                 node->source_location.source_file,
                 !node->duplicated_node /* TMP: Skip import check in template function. */))
             {
@@ -3937,9 +3960,9 @@ namespace wo
 
                     // Check symbol can be reach.
                     if (!check_symbol_is_reachable_in_current_scope(
-                        lex, 
-                        node, 
-                        struct_type_instance->m_symbol, 
+                        lex,
+                        node,
+                        struct_type_instance->m_symbol,
                         node->source_location.source_file,
                         !node->duplicated_node /* TMP: Skip import check in template function. */))
                     {
@@ -4310,7 +4333,7 @@ namespace wo
                             lex.record_lang_error(lexer::msglevel_t::error, node->m_right, WO_ERR_BAD_DIV_ZERO);
                             return FAILED;
                         }
-                        else if (right_int_value == -1 
+                        else if (right_int_value == -1
                             && node->m_left->m_evaled_const_value.has_value()
                             && node->m_left->m_evaled_const_value.value().integer == INT64_MIN)
                         {

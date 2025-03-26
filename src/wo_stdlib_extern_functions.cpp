@@ -3325,6 +3325,7 @@ WO_API wo_api rslib_std_get_env(wo_vm vm, wo_value args)
 const char* wo_stdlib_shell_src_path = u8"woo/shell.wo";
 const char* wo_stdlib_shell_src_data = {
 u8R"(
+import woo::std;
 namespace std
 {
     extern("rslib_std_call_shell", slow)
