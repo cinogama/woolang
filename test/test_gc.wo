@@ -86,7 +86,7 @@ namespace test_gc
         
         do thread::create(\ = test_gchandle_work();, ());
 
-        for (let (i, _): array::create(2, do nil)->iter |> iterator::enumerate) 
+        for (let (i, _): array::create(4, do nil)->iter |> iterator::enumerate) 
             do thread::create(\ = test_gc_parallel_work(i);, ());
     }
 }
