@@ -102,7 +102,7 @@ test_coverage_debug:
     - sudo baozi install -profile debug
     - sudo chmod -R 777 ./pkg
     - sudo chmod -R 777 .
-    - ../build/woodriver_debug ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 1 --enable-halt-when-panic 1
+    - ../build/woodriver_debug ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 1 --enable-halt-when-panic 1 --mem-chunk-size 536870912
     - cd ../build/src/CMakeFiles/woolang.dir
     - sudo gcov -b -l -p -c *.gcno
     - cd ../../../../
@@ -145,7 +145,7 @@ test_debug_arm64:
     - sudo baozi install -profile debug
     - sudo chmod -R 777 ./pkg
     - sudo chmod -R 777 .
-    - ../build/woodriver_debug ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 1 --enable-halt-when-panic 1
+    - ../build/woodriver_debug ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 1 --enable-halt-when-panic 1 --mem-chunk-size 536870912
     - cd ../../../../../
   artifacts:
     name: ubuntu-wo-$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA
@@ -175,12 +175,12 @@ test_release:
     - sudo baozi install
     - sudo chmod -R 777 ./pkg
     - sudo chmod -R 777 .
-    - ../build/woodriver ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 1 -o test_nojit.woo --enable-halt-when-panic 1
-    - ../build/woodriver ./test_nojit.woo --enable-ctrlc-debug 0 --enable-jit 0 --enable-halt-when-panic 1
-    - ../build/woodriver ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 0 -o test_nojit.woo --enable-halt-when-panic 1
-    - ../build/woodriver ./test_nojit.woo --enable-ctrlc-debug 0 --enable-jit 1 --enable-halt-when-panic 1
-    - ../build/woodriver ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 0 --enable-halt-when-panic 1
-    - ../build/woodriver ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 1 --enable-halt-when-panic 1
+    - ../build/woodriver ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 1 -o test_nojit.woo --enable-halt-when-panic 1 --mem-chunk-size 536870912
+    - ../build/woodriver ./test_nojit.woo --enable-ctrlc-debug 0 --enable-jit 0 --enable-halt-when-panic 1 --mem-chunk-size 536870912
+    - ../build/woodriver ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 0 -o test_nojit.woo --enable-halt-when-panic 1 --mem-chunk-size 536870912
+    - ../build/woodriver ./test_nojit.woo --enable-ctrlc-debug 0 --enable-jit 1 --enable-halt-when-panic 1 --mem-chunk-size 536870912
+    - ../build/woodriver ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 0 --enable-halt-when-panic 1 --mem-chunk-size 536870912
+    - ../build/woodriver ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 1 --enable-halt-when-panic 1 --mem-chunk-size 536870912
     - cd ..
   tags:
     - ubuntu20
@@ -207,12 +207,12 @@ test_release_arm64:
     - sudo baozi install
     - sudo chmod -R 777 ./pkg
     - sudo chmod -R 777 .
-    - ../build/woodriver ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 1 -o test_nojit.woo --enable-halt-when-panic 1
-    - ../build/woodriver ./test_nojit.woo --enable-ctrlc-debug 0 --enable-jit 0 --enable-halt-when-panic 1
-    - ../build/woodriver ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 0 -o test_nojit.woo --enable-halt-when-panic 1
-    - ../build/woodriver ./test_nojit.woo --enable-ctrlc-debug 0 --enable-jit 1 --enable-halt-when-panic 1
-    - ../build/woodriver ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 0 --enable-halt-when-panic 1
-    - ../build/woodriver ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 1 --enable-halt-when-panic 1
+    - ../build/woodriver ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 1 -o test_nojit.woo --enable-halt-when-panic 1 --mem-chunk-size 536870912
+    - ../build/woodriver ./test_nojit.woo --enable-ctrlc-debug 0 --enable-jit 0 --enable-halt-when-panic 1 --mem-chunk-size 536870912
+    - ../build/woodriver ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 0 -o test_nojit.woo --enable-halt-when-panic 1 --mem-chunk-size 536870912
+    - ../build/woodriver ./test_nojit.woo --enable-ctrlc-debug 0 --enable-jit 1 --enable-halt-when-panic 1 --mem-chunk-size 536870912
+    - ../build/woodriver ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 0 --enable-halt-when-panic 1 --mem-chunk-size 536870912
+    - ../build/woodriver ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 1 --enable-halt-when-panic 1 --mem-chunk-size 536870912
     - cd ..
   tags:
     - ubuntu22_arm64
@@ -249,7 +249,7 @@ test_memory_debug:
     - sudo baozi install -profile debug
     - sudo chmod -R 777 ./pkg
     - sudo chmod -R 777 .
-    - valgrind --tool=memcheck --leak-check=yes --show-reachable=yes ../build/woodriver_debug ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 1 --enable-halt-when-panic 1
+    - valgrind --tool=memcheck --leak-check=yes --show-reachable=yes ../build/woodriver_debug ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 1 --enable-halt-when-panic 1 --mem-chunk-size 536870912
     - cd ..
   artifacts:
     name: ubuntu-wo-coverage-$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA
@@ -279,8 +279,8 @@ test_memory_release:
     - sudo baozi install
     - sudo chmod -R 777 ./pkg
     - sudo chmod -R 777 .
-    - valgrind --tool=memcheck --leak-check=yes --show-reachable=yes ../build/woodriver ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 0 --enable-halt-when-panic 1
-    - valgrind --tool=memcheck --leak-check=yes --show-reachable=yes ../build/woodriver ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 1 --enable-halt-when-panic 1
+    - valgrind --tool=memcheck --leak-check=yes --show-reachable=yes ../build/woodriver ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 0 --enable-halt-when-panic 1 --mem-chunk-size 536870912
+    - valgrind --tool=memcheck --leak-check=yes --show-reachable=yes ../build/woodriver ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 1 --enable-halt-when-panic 1 --mem-chunk-size 536870912
     - cd ..
   tags:
     - ubuntu20

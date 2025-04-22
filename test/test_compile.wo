@@ -2041,6 +2041,13 @@ func main()
         //     foo() as void;
         // "@);
 
+        assure_compile_fail(@"
+            func foo<ET>(_: ET, _: unexist)
+            {
+            }
+            foo(0, 1);
+        "@);
+
         assure_compile_fail("let a = a + 1;");
     }
 
