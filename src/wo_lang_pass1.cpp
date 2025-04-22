@@ -3022,18 +3022,6 @@ namespace wo
                         }
                     }
 
-                    for (; it_argument != it_argument_end; ++it_argument)
-                    {
-                        // Here still have some argument, too much arguments.
-                        AstValueBase* argument_value = *it_argument;
-
-                        if (!argument_value->m_LANG_determined_type.has_value())
-                        {
-                            // Eval it, report `WO_ERR_NOT_IN_REIFICATION_TEMPLATE_FUNC` error.
-                            WO_CONTINUE_PROCESS(argument_value);
-                        }
-                    }
-
                     branch_a_context->m_deduction_results = std::move(deduction_results);
                     branch_a_context->m_undetermined_template_params = std::move(pending_template_params);
                     if (entry_function_located_scope)
@@ -3047,6 +3035,18 @@ namespace wo
                             WO_ERR_FAILED_TO_DEDUCE_TEMPLATE_TYPE);
 
                         return FAILED;
+                    }
+
+                    for (; it_argument != it_argument_end; ++it_argument)
+                    {
+                        // Here still have some argument, too much arguments.
+                        AstValueBase* argument_value = *it_argument;
+
+                        if (!argument_value->m_LANG_determined_type.has_value())
+                        {
+                            // Eval it, report `WO_ERR_NOT_IN_REIFICATION_TEMPLATE_FUNC` error.
+                            WO_CONTINUE_PROCESS(argument_value);
+                        }
                     }
 
                     WO_CONTINUE_PROCESS(branch_a_context);
