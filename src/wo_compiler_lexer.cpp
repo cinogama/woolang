@@ -1116,7 +1116,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                 if (file_name->m_lex_type != lex_type::l_literal_string)
                 {
                     return produce_lexer_error(
-                        msglevel_t::error, L"TEST 000");
+                        msglevel_t::error, WO_ERR_LINE_NEED_STRING_AS_PATH);
                 }
                 auto new_shown_file_path = wo::wstring_pool::get_pstr(file_name->m_token_text);
                 move_forward();
@@ -1125,7 +1125,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                 if (row_no->m_lex_type != lex_type::l_literal_integer)
                 {
                     return produce_lexer_error(
-                        msglevel_t::error, L"TEST 000");
+                        msglevel_t::error, WO_ERR_LINE_NEED_INTEGER_AS_ROW);
                 }
                 auto new_row_counter = read_from_unsigned_literal(row_no->m_token_text.c_str());
                 move_forward();
@@ -1134,7 +1134,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                 if (col_no->m_lex_type != lex_type::l_literal_integer)
                 {
                     return produce_lexer_error(
-                        msglevel_t::error, L"TEST 000");
+                        msglevel_t::error, WO_ERR_LINE_NEED_INTEGER_AS_COL);
                 }
                 auto new_col_counter = read_from_unsigned_literal(col_no->m_token_text.c_str());
                 consume_forward();
