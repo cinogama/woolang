@@ -1089,11 +1089,17 @@ extern func macro_entry(lexer: std::lexer)=> string
             {
                 // OK FINISH PRAGMA, CONTINUE
                 auto macro_instance = std::make_unique<macro>(*this);
+
                 auto macro_name = macro_instance->macro_name;
                 if (auto fnd = m_shared_context->m_declared_macro_list.insert(
                     std::make_pair(macro_name, std::move(macro_instance)));
                     !fnd.second)
                 {
+                    if (fnd.first->second->filename == this->m_source_path)
+                        // NOTE: This script has been imported in another macro, and
+                        //  the macro define has been inherted, just ignore and skip.
+                        return;
+
                     produce_lexer_error(
                         msglevel_t::error, WO_ERR_UNKNOWN_REPEAT_MACRO_DEFINE, macro_name.c_str());
 
