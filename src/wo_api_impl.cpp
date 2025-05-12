@@ -785,7 +785,7 @@ wo_ptr_t wo_pointer(wo_value value)
         wo_fail(WO_FAIL_TYPE_FAIL, "This value is not a handle.");
         return wo_cast_pointer(value);
     }
-    return _rsvalue->type == wo::value::valuetype::handle_type 
+    return _rsvalue->type == wo::value::valuetype::handle_type
         ? (wo_ptr_t)_rsvalue->handle
         : (wo_ptr_t)wo_safety_pointer(_rsvalue->gchandle);
 }
@@ -910,10 +910,10 @@ void wo_set_bool(wo_value value, wo_bool_t val)
     _rsvalue->set_bool(val != WO_FALSE);
 }
 void wo_set_gchandle(
-    wo_value value, 
-    wo_vm vm, 
-    wo_ptr_t resource_ptr, 
-    wo_value holding_val, 
+    wo_value value,
+    wo_vm vm,
+    wo_ptr_t resource_ptr,
+    wo_value holding_val,
     wo_gchandle_close_func_t destruct_func)
 {
     wo_assert(resource_ptr != nullptr && destruct_func != nullptr);
@@ -1349,8 +1349,8 @@ wo_bool_t _wo_cast_value(wo_vm vm, wo::value* value, wo::lexer* lex, wo::value::
     }
     else if (token->m_lex_type == wo::lex_type::l_literal_string) // is string   
     {
-       value->set_string(wo::wstr_to_str(token->m_token_text));
-       lex->move_forward();
+        value->set_string(wo::wstr_to_str(token->m_token_text));
+        lex->move_forward();
     }
     else if (token->m_lex_type == wo::lex_type::l_add
         || token->m_lex_type == wo::lex_type::l_sub
@@ -1358,7 +1358,7 @@ wo_bool_t _wo_cast_value(wo_vm vm, wo::value* value, wo::lexer* lex, wo::value::
         || token->m_lex_type == wo::lex_type::l_literal_real) // is integer
     {
         bool positive = true;
-        if (token->m_lex_type == wo::lex_type::l_sub 
+        if (token->m_lex_type == wo::lex_type::l_sub
             || token->m_lex_type == wo::lex_type::l_add)
         {
             if (token->m_lex_type == wo::lex_type::l_sub)
@@ -2540,41 +2540,45 @@ void wo_abort_all_vm_to_exit()
     std::atexit(_wo_check_atexit);
 }
 
+wo_size_t wo_str_char_len(wo_value value)
+{
+    auto _rsvalue = WO_VAL(value);
+
+    if (_rsvalue->type == wo::value::valuetype::string_type)
+        return (wo_integer_t)wo::u8strnlen(
+            _rsvalue->string->c_str(), _rsvalue->string->size());
+
+    wo_fail(WO_FAIL_TYPE_FAIL, "Value is not a string.");
+    return 0;
+}
+
 wo_size_t wo_lengthof(wo_value value)
 {
     auto _rsvalue = WO_VAL(value);
 
-    if (_rsvalue->type == wo::value::valuetype::array_type)
+    switch (_rsvalue->type)
     {
-        wo::gcbase::gc_read_guard rg1(_rsvalue->array);
-        return (wo_integer_t)_rsvalue->array->size();
-    }
-    else if (_rsvalue->type == wo::value::valuetype::dict_type)
-    {
-        wo::gcbase::gc_read_guard rg1(_rsvalue->dict);
-        return (wo_integer_t)_rsvalue->dict->size();
-    }
-    else if (_rsvalue->type == wo::value::valuetype::string_type)
-        return (wo_integer_t)wo::u8strnlen(_rsvalue->string->c_str(), _rsvalue->string->size());
-    else if (_rsvalue->type == wo::value::valuetype::struct_type)
-    {
-        // no need lock for struct's count
-        return (wo_integer_t)_rsvalue->structs->m_count;
-    }
-    else
-    {
-        wo_fail(WO_FAIL_TYPE_FAIL, "Only 'string','array', 'struct' or 'map' can get length.");
+    case wo::value::valuetype::array_type:
+        return wo_arr_len(value);
+    case wo::value::valuetype::dict_type:
+        return wo_map_len(value);
+    case wo::value::valuetype::string_type:
+        return wo_str_char_len(value);
+    case wo::value::valuetype::struct_type:
+        return wo_struct_len(value);
+    default:
+        wo_fail(WO_FAIL_TYPE_FAIL, "Only 'string','array', 'struct' or 'dict' can get length.");
         return 0;
     }
 }
 
-wo_size_t wo_str_bytelen(wo_value value)
+wo_size_t wo_str_byte_len(wo_value value)
 {
     auto _rsvalue = WO_VAL(value);
     if (_rsvalue->type == wo::value::valuetype::string_type)
         return (wo_int_t)_rsvalue->string->size();
 
-    wo_fail(WO_FAIL_TYPE_FAIL, "Only 'string' can get byte length.");
+    wo_fail(WO_FAIL_TYPE_FAIL, "Value is not a string.");
     return 0;
 }
 
@@ -2787,9 +2791,9 @@ wo::compile_result _wo_compile_impl(
             wo_assert(load_binary_failed_reason != nullptr);
 
             compile_lexer = std::make_unique<wo::lexer>(
-                    parent_lexer,
-                    wo::wstring_pool::get_pstr(wvspath),
-                    std::make_unique<std::wistringstream>(std::wstring()));
+                parent_lexer,
+                wo::wstring_pool::get_pstr(wvspath),
+                std::make_unique<std::wistringstream>(std::wstring()));
 
             (void)compile_lexer->record_parser_error(
                 wo::lexer::msglevel_t::error,
@@ -2822,7 +2826,7 @@ wo::compile_result _wo_compile_impl(
                     wvspath,
                     std::nullopt))
                 {
-                    content_stream = 
+                    content_stream =
                         wo::open_virtual_file_stream<true>(real_file_path);
                 }
 
@@ -2890,10 +2894,10 @@ wo::compile_result _wo_compile_impl(
 }
 
 wo_bool_t _wo_load_source(
-    wo_vm vm, 
-    wo_string_t virtual_src_path, 
-    const void* src, 
-    size_t len, 
+    wo_vm vm,
+    wo_string_t virtual_src_path,
+    const void* src,
+    size_t len,
     const std::optional<wo::lexer*>& parent_lexer)
 {
     wo::start_string_pool_guard sg;
@@ -3012,85 +3016,85 @@ std::wstring _dump_src_info(
 
             auto print_src_file_print_lineno =
                 [&current_row_no, &result, &first_line, depth]()
-                {
-                    wchar_t buf[20] = {};
-                    if (first_line)
-                        first_line = false;
-                    else
-                        result += L"\n";
+            {
+                wchar_t buf[20] = {};
+                if (first_line)
+                    first_line = false;
+                else
+                    result += L"\n";
 
-                    swprintf(buf, 19, L"%-5zu | ", current_row_no + 1);
-                    result += std::wstring(depth == 0 ? 0 : depth + 1, L' ') + buf;
-                };
+                swprintf(buf, 19, L"%-5zu | ", current_row_no + 1);
+                result += std::wstring(depth == 0 ? 0 : depth + 1, L' ') + buf;
+            };
             auto print_notify_line =
                 [&result, &first_line, &current_row_no, &errmsg, beginpointplace, pointplace, style, beginaimrow, aimrow, depth](
                     size_t line_end_place)
+            {
+                wchar_t buf[20] = {};
+                if (first_line)
+                    first_line = false;
+                else
+                    result += L"\n";
+
+                swprintf(buf, 19, L"      | ");
+                std::wstring append_result = buf;
+
+                if (style == WO_NEED_COLOR)
+                    append_result += errmsg.m_level == wo::lexer::msglevel_t::error
+                    ? wo::str_to_wstr(ANSI_HIR)
+                    : wo::str_to_wstr(ANSI_HIC);
+
+                if (current_row_no == aimrow)
                 {
-                    wchar_t buf[20] = {};
-                    if (first_line)
-                        first_line = false;
-                    else
-                        result += L"\n";
-
-                    swprintf(buf, 19, L"      | ");
-                    std::wstring append_result = buf;
-
-                    if (style == WO_NEED_COLOR)
-                        append_result += errmsg.m_level == wo::lexer::msglevel_t::error
-                        ? wo::str_to_wstr(ANSI_HIR)
-                        : wo::str_to_wstr(ANSI_HIC);
-
-                    if (current_row_no == aimrow)
+                    if (current_row_no == beginaimrow)
                     {
-                        if (current_row_no == beginaimrow)
-                        {
-                            size_t i = 1;
-                            for (; i <= beginpointplace; i++)
-                                append_result += L" ";
-                            for (; i < pointplace; i++)
+                        size_t i = 1;
+                        for (; i <= beginpointplace; i++)
+                            append_result += L" ";
+                        for (; i < pointplace; i++)
+                            append_result += L"~";
+                    }
+                    else
+                        for (size_t i = 1; i < pointplace; i++)
+                            append_result += L"~";
+
+                    append_result += L"~\\"
+                        + wo::str_to_wstr(ANSI_UNDERLNE)
+                        + L" " WO_HERE
+                        + wo::str_to_wstr(ANSI_NUNDERLNE);
+
+                    if (depth != 0)
+                        append_result += L": " + errmsg.m_describe;
+                }
+                else
+                {
+                    if (current_row_no == beginaimrow)
+                    {
+                        size_t i = 1;
+                        for (; i <= beginpointplace; i++)
+                            append_result += L" ";
+                        if (i < line_end_place)
+                            for (; i < line_end_place; i++)
                                 append_result += L"~";
-                        }
                         else
-                            for (size_t i = 1; i < pointplace; i++)
-                                append_result += L"~";
-
-                        append_result += L"~\\"
-                            + wo::str_to_wstr(ANSI_UNDERLNE)
-                            + L" " WO_HERE
-                            + wo::str_to_wstr(ANSI_NUNDERLNE);
-
-                        if (depth != 0)
-                            append_result += L": " + errmsg.m_describe;
+                            return;
                     }
                     else
                     {
-                        if (current_row_no == beginaimrow)
-                        {
-                            size_t i = 1;
-                            for (; i <= beginpointplace; i++)
-                                append_result += L" ";
-                            if (i < line_end_place)
-                                for (; i < line_end_place; i++)
-                                    append_result += L"~";
-                            else
-                                return;
-                        }
+                        size_t i = 1;
+                        if (i < line_end_place)
+                            for (; i < line_end_place; i++)
+                                append_result += L"~";
                         else
-                        {
-                            size_t i = 1;
-                            if (i < line_end_place)
-                                for (; i < line_end_place; i++)
-                                    append_result += L"~";
-                            else
-                                return;
-                        }
+                            return;
                     }
+                }
 
-                    if (style == WO_NEED_COLOR)
-                        append_result += wo::str_to_wstr(ANSI_RST);
+                if (style == WO_NEED_COLOR)
+                    append_result += wo::str_to_wstr(ANSI_RST);
 
-                    result += std::wstring(depth == 0 ? 0 : depth + 1, L' ') + append_result;
-                };
+                result += std::wstring(depth == 0 ? 0 : depth + 1, L' ') + append_result;
+            };
 
             if (from <= current_row_no && current_row_no <= to)
                 print_src_file_print_lineno();
@@ -3174,13 +3178,13 @@ std::string _wo_dump_lexer_context_error(wo::lexer* lex, wo_inform_style_t style
         if (src_file_path != err_info.m_filename)
         {
             if (style == WO_NEED_COLOR)
-                _vm_compile_errors += 
-                ANSI_HIR "In file: '" ANSI_RST 
-                + wo::wstrn_to_str(src_file_path = err_info.m_filename) 
+                _vm_compile_errors +=
+                ANSI_HIR "In file: '" ANSI_RST
+                + wo::wstrn_to_str(src_file_path = err_info.m_filename)
                 + ANSI_HIR "'" ANSI_RST "\n";
             else
-                _vm_compile_errors += 
-                "In file: '" 
+                _vm_compile_errors +=
+                "In file: '"
                 + wo::wstrn_to_str(src_file_path = err_info.m_filename)
                 + "'\n";
         }
@@ -3518,7 +3522,20 @@ wo_value wo_run(wo_vm vm)
     return nullptr;
 }
 
-// CONTAINER OPERATE
+wo_size_t wo_struct_len(wo_value value)
+{
+    auto _struct = WO_VAL(value);
+
+    if (_struct->type == wo::value::valuetype::struct_type)
+    {
+        // no need lock for struct's count
+        return (wo_size_t)_struct->structs->m_count;
+    }
+
+    wo_fail(WO_FAIL_TYPE_FAIL, "Value is not a struct.");
+    return 0;
+}
+
 wo_bool_t wo_struct_try_get(wo_value out_val, wo_value value, uint16_t offset)
 {
     auto _struct = WO_VAL(value);
@@ -3676,6 +3693,19 @@ void wo_arr_add(wo_value arr, wo_value elem)
     }
     else
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not an array.");
+}
+
+wo_size_t wo_arr_len(wo_value arr)
+{
+    auto _arr = WO_VAL(arr);
+    if (_arr->type == wo::value::valuetype::array_type)
+    {
+        wo::gcbase::gc_read_guard g1(_arr->array);
+        return (wo_size_t)_arr->array->size();
+    }
+
+    wo_fail(WO_FAIL_TYPE_FAIL, "Value is not an array.");
+    return 0;
 }
 
 wo_bool_t wo_arr_try_get(wo_value out_val, wo_value arr, wo_size_t index)
@@ -3902,6 +3932,18 @@ wo_bool_t wo_arr_is_empty(wo_value arr)
     else
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not an array.");
     return WO_TRUE;
+}
+
+wo_size_t wo_map_len(wo_value map)
+{
+    auto _map = WO_VAL(map);
+    if (_map->type == wo::value::valuetype::dict_type)
+    {
+        wo::gcbase::gc_read_guard g1(_map->dict);
+        return (wo_size_t)_map->dict->size();
+    }
+    wo_fail(WO_FAIL_TYPE_FAIL, "Value is not a map.");
+    return 0;
 }
 
 wo_bool_t wo_map_find(wo_value map, wo_value index)
@@ -4224,12 +4266,12 @@ void wo_gcunit_unlock_shared_force(wo_value gc_reference_object)
     {
         auto* gcunit = WO_VAL(gc_reference_object)->gcunit;
         gcunit->read_end();
-    }
+}
     else
     {
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not lockable.");
     }
-}
+    }
 void wo_gcunit_lock_shared(wo_value gc_reference_object)
 {
 #if WO_FORCE_GC_OBJ_THREAD_SAFETY

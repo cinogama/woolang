@@ -1964,7 +1964,6 @@ namespace wo
                     string_t::gc_new<gcbase::gctype::young>(*opnum1->string + *opnum2->string));
                 break;
             }
-            /// OPERATE
             case instruct::opcode::mov:
             {
                 WO_ADDRESSING_N1;
