@@ -910,8 +910,8 @@ namespace wo
                                     srcinfo_bnodes.front().col_no };
                                 ast_node_->source_location.end_at =
                                     ast::AstBase::location_t{
-                                    peeked_token_instance->m_token_begin[2],
-                                    peeked_token_instance->m_token_begin[3] };
+                                    peeked_token_instance->m_token_end[0],
+                                    peeked_token_instance->m_token_end[1] };
                             }
                             else
                             {
