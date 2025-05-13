@@ -763,16 +763,21 @@ extern func macro_entry(lexer: std::lexer)=> string
             int peeked_char = peek_char();
             if (peeked_char == L'/')
             {
+                // Skip '/'
+                (void)read_char(); 
+
                 // Skip this line.
                 do
                 {
                     peeked_char = read_char();
-
                 } while (peeked_char != L'\n' && peeked_char != EOF);
                 return;
             }
             else if (peeked_char == L'*')
             {
+                // Skip '/'
+                (void)read_char();
+
                 // Skip to next '*/'
                 do
                 {
