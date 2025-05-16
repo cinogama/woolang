@@ -658,7 +658,7 @@ extern func macro_entry(lexer: std::lexer)=> string
         _m_this_token_begin_col = _m_col_counter;
     }
 
-    const lexer::peeked_token_t* lexer::peek()
+    lexer::peeked_token_t* lexer::peek()
     {
         for (;;)
         {
@@ -666,7 +666,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                 move_forward();
 
             wo_assert(!_m_peeked_tokens.empty());
-            const lexer::peeked_token_t* peeked_token = &_m_peeked_tokens.front();
+            lexer::peeked_token_t* peeked_token = &_m_peeked_tokens.front();
             if (peeked_token->m_lex_type == lex_type::l_macro)
             {
                 // We need to expand this macro here.
@@ -1509,8 +1509,8 @@ extern func macro_entry(lexer: std::lexer)=> string
     }
     bool lexer::try_handle_macro(const std::wstring& macro_name)
     {
-        const size_t macro_pre_begin_row = _m_this_token_pre_begin_row;
-        const size_t macro_pre_begin_col = _m_this_token_pre_begin_col;
+        size_t macro_pre_begin_row = _m_this_token_pre_begin_row;
+        size_t macro_pre_begin_col = _m_this_token_pre_begin_col;
         const size_t macro_begin_row = _m_this_token_begin_row;
         const size_t macro_begin_col = _m_this_token_begin_col;
 
@@ -1595,6 +1595,10 @@ extern func macro_entry(lexer: std::lexer)=> string
                     token.m_token_begin[3] = macro_pre_begin_col;
                     token.m_token_end[0] = macro_end_row;
                     token.m_token_end[1] = macro_end_col;
+
+                    // Update the `pre location` for correct token location in macro results.
+                    macro_pre_begin_row = macro_end_row;
+                    macro_pre_begin_col = macro_end_col;
 
                     tmp_lex.move_forward();
                 }
