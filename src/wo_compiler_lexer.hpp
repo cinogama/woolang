@@ -393,8 +393,7 @@ namespace wo
         [[nodiscard]]
         int read_char();
         [[nodiscard]]
-        const peeked_token_t*
-            peek();
+        peeked_token_t* peek();
         void move_forward();
         void consume_forward();
         [[nodiscard]]

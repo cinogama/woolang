@@ -37,87 +37,36 @@ powershell -ExecutionPolicy ByPass -c "irm https://install.woolang.net/install.p
 
 ### 手动构建
 
-对于 `Windows` 平台（构建 `.exe` 文件）:
+准备工作：
+  * CMake 3.8+
+  * 适合的构建工具，至少能被 cmake 愉快地识别到，使用 `Visual Studio Toolchain` 或者 `Make` 等都可以
+  * 适合的编译器，Woolang 使用了部分 C++17 的特性，至少确保这些特性得到支持
 
-**必须** 具有以下工具:
-
-- Visual Studio 2019 及以上
-  - MSBuild 构建工具
-  - CMake 工具
-
-1. 拉取本仓库源代码并更新依赖
+拉取源代码，获取依赖的子模块。使用 `CMake` 构建配置：
 
 ```bash
 git clone https://git.cinogama.net/cinogamaproject/woolang.git
 cd ./woolang
 git submodule update --init --recursive --force
-```
-
-2. 使用 `PowerShell` 将提交信息写入到 `wo_info.hpp`
-
-```bash
-echo $(git rev-parse HEAD) > ./wo_info.hpp
-```
-
-3. 使用 `CMake` 编译
-
-```bash
-mkdir build && cd build
+mkdir cmakebuild && cd cmakebuild
 cmake .. -DWO_MAKE_OUTPUT_IN_SAME_PATH=ON -DCMAKE_BUILD_TYPE=RELWITHDEBINFO -DBUILD_SHARED_LIBS=ON
 ```
 
-如果在尝试构建时出错，可能是由于系统平台不支持 `JIT`（目前仅支持 x86_64 和 aarch64）, 导致构建失败, 详见 [#145](https://git.cinogama.net/cinogamaproject/woolang/-/issues/145)。
+考虑到 `asmjit` 可能在部分平台无法通过构建，如果遇到 `asmjit` 构建失败的情况，可以尝试使用 `-DWO_SUPPORT_ASMJIT=OFF` 选项明确禁用 `asmjit`。
 
-若要禁用 `JIT` 支持, 只需将最后一句命令改为:
-
-```bash
-cmake .. -DWO_MAKE_OUTPUT_IN_SAME_PATH=ON -DCMAKE_BUILD_TYPE=RELWITHDEBINFO -DBUILD_SHARED_LIBS=ON -DWO_SUPPORT_ASMJIT=OFF
-```
-
-_禁用 JIT 仅导致性能损失_
-
-1. 使用 `MSBuild` 构建 `.exe` 文件
-
-打开 `Developer PowerShell for VS`, 一般情况下它位于 `开始菜单` -> `程序` -> `Visual Studio`
-
-输入以下命令开始构建:
+接着即可构建：
 
 ```bash
-MSBuild driver/woodriver.vcxproj -p:Configuration=Release -maxCpuCount -m
+cmake --build . --config RELWITHDEBINFO
 ```
 
-等待构建完成后, 产物即在 `./build/Release/` 呈现。
-
----
-
-对于 `Linux` 平台 (构建二进制文件):
-
-**必须** 具有以下工具:
-
-- CMake 工具
-- Make 工具
-
-步骤 1-3 与 `Windows` 平台一致。
-
-4. 使用 `Make` 构建二进制文件
-
-在命令行输入以下命令:
-
-```bash
-make -j 4
-```
-
-等待构建完成后, 产物即在 `./build/` 呈现。
-
----
-
-其它平台, 可以尝试使用 `CMake` + `Make` 工具进行编译构建, 欢迎提交相关测试样例。
+等待构建完成后, 产物生成在源码目录的 `build/` 中。
 
 ---
 
 ## 鸣谢（Acknowledgments）
 
-感谢 [asmjit](https://asmjit.com/) 提供的 jit 支持，虽然 woolang 对 jit 的支持尚未全部完成，但是 asmjit 让我拥有了愉快的开发体验。
+感谢 [asmjit](https://asmjit.com/) 提供的 jit 支持，asmjit 让我拥有了愉快的开发体验。
 
 Thanks to [asmjit](https://asmjit.com/) for the jit support. Although Woolang's support for jit has not been fully completed, asmjit has given me a pleasant development experience.
 
