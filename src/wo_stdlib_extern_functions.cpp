@@ -1981,8 +1981,10 @@ namespace result
 {
     public alias item_t<T> = 
         typeof(std::declval:<T>()->\<O, E>_: result<O, E> = std::declval:<(O, E)>(););
-    public alias ok_t<T> = typeof(std::declval:<item_t<T>>().0);
-    public alias err_t<T> = typeof(std::declval:<item_t<T>>().1);
+    public alias ok_t<T> = 
+        typeof(std::declval:<T>()->\<O, E>_: result<O, E> = std::declval:<O>(););
+    public alias err_t<T> = 
+        typeof(std::declval:<T>()->\<O, E>_: result<O, E> = std::declval:<E>(););
     public func map<T, F, R>(self: result<T, F>, functor: (T)=> R)
         => result<R, F>
     {
@@ -2055,7 +2057,8 @@ namespace result
         err(e)? return default(e);
         }
     }
-    public func unwrap<T, F>(self: result<T, F>)=> T
+    public func unwrap<T, F>(self: result<T, F>)
+        => T
     {
         match(self)
         {
@@ -2067,7 +2070,8 @@ namespace result
                 return std::panic("An error was found in 'unwrap'.");
         }
     }
-    public func unwrap_err<T, F>(self: result<T, F>)=> F
+    public func unwrap_err<T, F>(self: result<T, F>)
+        => F
     {
         match(self)
         {
@@ -2075,7 +2079,8 @@ namespace result
         err(e)? return e;
         }
     }
-    public func is_ok<T, F>(self: result<T, F>)=> bool
+    public func is_ok<T, F>(self: result<T, F>)
+        => bool
     {
         match(self)
         {
@@ -2083,7 +2088,8 @@ namespace result
         err(_)? return false;
         }
     }
-    public func is_err<T, F>(self: result<T, F>)=> bool
+    public func is_err<T, F>(self: result<T, F>)
+        => bool
     {
         match(self)
         {
@@ -2964,7 +2970,7 @@ namespace std
             public func to_string(self: callstack)
             {
                 return F"{self.function}\n\t\t-- at {self.file}"
-                    + (self.external ? "" | F" ({self.row}, {self.column}\x29");
+                    + (self.external ? "" | F" ({self.row + 1}, {self.column + 1}\x29");
             }
         }
 

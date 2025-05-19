@@ -641,7 +641,7 @@ namespace wo
 
         for (; origin_p != ORGIN_P.end(); ++origin_p, ++rt_pi)
         {
-            rt_pi->production_aim = NONTERM_MAP.at(origin_p->first.nt_name);
+            rt_pi->production_aim = NONTERM_MAP[origin_p->first.nt_name];
             rt_pi->rule_right_count = origin_p->second.size();
             rt_pi->ast_create_func = origin_p->first.ast_create_func;
             rt_pi->rule_left_name = origin_p->first.nt_name;

@@ -945,7 +945,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                         printf(ANSI_HIR "Need to specify ipoffset for command 'whereis'.\n" ANSI_RST);
                     else
                     {
-                        if (vmm->env->program_debug_info  == nullptr)
+                        if (vmm->env->program_debug_info == nullptr)
                             printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
                         else
                         {
@@ -1068,7 +1068,11 @@ whereis                         <ipoffset>    Find the function that the ipoffse
 
             return false;
         }
-        size_t print_src_file_print_lineno(wo::vmbase* vmm, const std::string& filepath, size_t current_row_no, cpu_profiler_record_infornmation* info)
+        size_t print_src_file_print_lineno(
+            wo::vmbase* vmm,
+            const std::string& filepath,
+            size_t current_row_no,
+            cpu_profiler_record_infornmation* info)
         {
             auto& context = env_context[vmm->env];
 
@@ -1116,16 +1120,12 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                 printf(ANSI_HIR "Cannot open source: '%s'.\n" ANSI_RST, filepath.c_str());
             else
             {
-                wo_stdout << filepath << " from: ";
-                if (from == 0)
-                    wo_stdout << "File begin";
-                else
-                    wo_stdout << from;
-                wo_stdout << " to: ";
+                wo_stdout << filepath << " from: " << from + 1 << " to: ";
                 if (to == SIZE_MAX)
-                    wo_stdout << "File end";
+                    wo_stdout << "<file end>";
                 else
-                    wo_stdout << to;
+                    wo_stdout << to + 1;
+
                 wo_stdout << wo_endl;
 
                 // print source;
@@ -1141,12 +1141,14 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                 }
                 for (size_t index = 0; index < srcfile.size(); index++)
                 {
-                    current_col_no++;
-                    if (srcfile[index] == L'\n')
+                    const auto ch = srcfile[index];
+                    if (ch == L'\n' || ch == L'\r')
                     {
                         current_col_no = 0;
-                        current_row_no++;
-                        if (from <= current_row_no && current_row_no <= to)
+                        ++current_row_no;
+
+                        // If next line in range, display the line number & breakpoint state & profiler result.
+                        if (from <= current_row_no  && current_row_no <= to)
                         {
                             if (last_line_is_breakline != SIZE_MAX)
                                 printf("    " ANSI_HIR "# Breakpoint %zu" ANSI_RST, last_line_is_breakline);
@@ -1155,22 +1157,10 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                             last_line_is_breakline = print_src_file_print_lineno(
                                 vmm, filepath, current_row_no, info);
                         }
-                        continue;
-                    }
-                    else if (srcfile[index] == L'\r')
-                    {
-                        current_col_no = 0;
-                        current_row_no++;
-                        if (from <= current_row_no && current_row_no <= to)
-                        {
-                            if (last_line_is_breakline != SIZE_MAX)
-                                printf("\t" ANSI_HIR "# Breakpoint %zu" ANSI_RST, last_line_is_breakline);
 
-                            wo_stdout << ANSI_RST << wo_endl;
-                            last_line_is_breakline = print_src_file_print_lineno(vmm, filepath, current_row_no, info);
-                        }
-                        if (index + 1 < srcfile.size() && srcfile[index + 1] == L'\n')
+                        if (ch == L'\r' && index + 1 < srcfile.size() && srcfile[index + 1] == L'\n')
                             index++;
+
                         continue;
                     }
 
@@ -1185,7 +1175,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                             if ((current_row_no == hightlight_range_begin_row
                                 && current_col_no < hightlight_range_begin_col)
                                 || (current_row_no == hightlight_range_end_row
-                                    && current_col_no > hightlight_range_end_col))
+                                    && current_col_no >= hightlight_range_end_col))
                                 print_inv = false;
                         }
 
@@ -1194,8 +1184,9 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                         else
                             printf(ANSI_RST);
 
-                        wo_wstdout << srcfile[index];
+                        wo_wstdout << ch;
                     }
+                    ++current_col_no;
                 }
             }
             wo_stdout << ANSI_RST << wo_endl;
@@ -1331,7 +1322,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                         "in virtual-machine: " ANSI_HIG " %p\n" ANSI_RST,
 
                         (int)next_execute_ip_diff,
-                        wstr_to_str(loc->source_file).c_str(), loc->begin_row_no + 1, loc->begin_col_no,
+                        wstr_to_str(loc->source_file).c_str(), loc->begin_row_no + 1, loc->begin_col_no + 1,
                         vmm->env->program_debug_info == nullptr ?
                         "__unknown_func_without_pdb_" :
                         vmm->env->program_debug_info->get_current_func_signature_by_runtime_ip(next_execute_ip).c_str(),
@@ -1341,7 +1332,15 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                     {
                         printf("-------------------------------------------\n");
                         auto& loc = vmm->env->program_debug_info->get_src_location_by_runtime_ip(current_runtime_ip);
-                        print_src_file(vmm, wstr_to_str(loc.source_file), loc.begin_row_no, loc.end_row_no, loc.begin_col_no, loc.end_col_no, (loc.begin_row_no < 2 ? 0 : loc.begin_row_no - 2), loc.end_row_no + 2);
+                        print_src_file(
+                            vmm,
+                            wstr_to_str(loc.source_file),
+                            loc.begin_row_no,
+                            loc.end_row_no,
+                            loc.begin_col_no,
+                            loc.end_col_no,
+                            std::max((size_t)2, loc.begin_row_no) - 2,
+                            loc.end_row_no + 2);
                     }
                     printf("===========================================\n");
 
