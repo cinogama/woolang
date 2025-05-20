@@ -242,7 +242,9 @@ namespace wo
     lang_TypeInstance::lang_TypeInstance(
         lang_Symbol* symbol,
         const std::optional<std::list<lang_TypeInstance*>>& template_arguments)
-        : m_symbol(symbol), m_determined_base_type_or_mutable(std::nullopt), m_instance_template_arguments(template_arguments)
+        : m_symbol(symbol)
+        , m_determined_base_type_or_mutable(std::nullopt)
+        , m_instance_template_arguments(template_arguments)
     {
     }
 
@@ -2015,7 +2017,12 @@ namespace wo
 
             auto mutable_type_instance = std::make_unique<lang_TypeInstance>(
                 origin_type->m_symbol, std::nullopt);
+
             mutable_type_instance->m_determined_base_type_or_mutable = origin_type;
+
+            // NOTE: Copy template arguments.
+            mutable_type_instance->m_instance_template_arguments = 
+                origin_type->m_instance_template_arguments;
 
             auto* result = mutable_type_instance.get();
 
