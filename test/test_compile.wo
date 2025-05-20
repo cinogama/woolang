@@ -2064,6 +2064,19 @@ func main()
         "@);
 
         assure_compile_fail("let a = a + 1;");
+        
+        assure_compile_success(@"
+            import woo::std;
+
+            let a = mut {}: dict<int, mut void>;
+            do dict::map(a, \k, v = (k, v););
+        "@);
+        assure_compile_success(@"
+            import woo::std;
+
+            let a = {}: dict<int, mut void>;
+            do dict::map(mut a, \k, v = (k, v););
+        "@);
     }
 
     func main()
