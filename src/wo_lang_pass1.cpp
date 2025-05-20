@@ -27,7 +27,7 @@ namespace wo
                 wo_assert(lang_symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE);
 
                 // NOTE: Donot decide constant value for mutable variable.
-                lang_symbol->m_value_instance->m_determined_type = immutable_type(init_value_type.value());
+                lang_symbol->m_value_instance->m_determined_type = init_value_type.value();
                 if (!lang_symbol->m_value_instance->m_mutable
                     && init_value.has_value())
                 {
@@ -1960,7 +1960,7 @@ namespace wo
                         WO_ERR_TUPLE_INDEX_OUT_OF_RANGE,
                         get_type_name_w(container_type_instance),
                         tuple_type->m_element_types.size(),
-                        (size_t)index);
+                        index);
                     return FAILED;
                 }
 
@@ -3436,7 +3436,7 @@ namespace wo
 
                 // Finished, all job done!.
                 node->m_LANG_determined_type =
-                    immutable_type(target_function_type_instance_determined_base_type_function->m_return_type);
+                    target_function_type_instance_determined_base_type_function->m_return_type;
 
                 break;
             }

@@ -578,10 +578,6 @@ WO_API void wo_gc_record_memory(wo_value val);
 WO_API wo_bool_t wo_leave_gcguard(wo_vm vm);
 WO_API wo_bool_t wo_enter_gcguard(wo_vm vm);
 
-// NOTE: `wo_lengthof` has been deprecated in version 1.14.5.2
-//      and will be removed in a subsequent version.
-WO_API wo_size_t wo_lengthof(wo_value value);
-
 WO_API wo_size_t wo_str_char_len(wo_value value);
 WO_API wo_size_t wo_str_byte_len(wo_value value);
 

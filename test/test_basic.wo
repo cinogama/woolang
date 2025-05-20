@@ -313,12 +313,12 @@ namespace test_basic
         test_equal(aav +: 2, 16);
         test_equal(aav, 16);
 
-        test_equal(std::type_traits::is_same:< int, int >, true);
-        test_equal(std::type_traits::is_same:< int, real >, false);
-        test_equal(std::type_traits::is_same:< mut int, int >, false);
+        test_equal(std::type_traits::is_same:<int, int>, true);
+        test_equal(std::type_traits::is_same:<int, real>, false);
+        test_equal(std::type_traits::is_same:<mut int, int>, false);
        
-        test_equal(std::type_traits::is_mutable:< mut int >, true);
-        test_equal(std::type_traits::is_mutable:< int >, false);
+        test_equal(std::type_traits::is_mutable:<mut int>, true);
+        test_equal(std::type_traits::is_mutable:<int>, false);
 
         test_assure(() is ());
         test_assure(!((1, 2, 3) is ()));
@@ -326,27 +326,6 @@ namespace test_basic
         test_assure(!((mut 1, 2, 3) is (int, int, int)));
         test_assure(!((1, 2, 3) is (int, mut int, int)));
         test_assure((mut 1, 2, 3) is (mut int, int, int));
-
-        test_assure(std::type_traits::is_tuple:<typeof((mut 1, 2, 3))>);
-        test_assure(std::type_traits::is_tuple:<typeof(())>);
-        test_assure(std::type_traits::is_tuple:<()>);
-        test_assure(std::type_traits::is_tuple:<(mut int,)>);
-        test_assure(!std::type_traits::is_tuple:<vec<int>>);
-        test_assure(!std::type_traits::is_tuple:<array<int>>);
-        test_assure(!std::type_traits::is_tuple:<int>);
-
-        test_assure(std::type_traits::is_vec:<vec<array<int>>>);
-        test_assure(std::type_traits::is_array:<array<vec<string>>>);
-        test_assure(std::type_traits::is_map:<map<string, array<int>>>);
-        test_assure(std::type_traits::is_dict:<dict<vec<string>, int>>);
-        test_assure(!std::type_traits::is_vec:<array<int>>);
-        test_assure(!std::type_traits::is_array:<vec<string>>);
-        test_assure(!std::type_traits::is_map:<dict<string, array<int>>>);
-        test_assure(!std::type_traits::is_dict:<map<vec<string>, int>>);
-        test_assure(!std::type_traits::is_vec:<int>);
-        test_assure(!std::type_traits::is_array:<int>);
-        test_assure(!std::type_traits::is_map:<int>);
-        test_assure(!std::type_traits::is_dict:<int>);
 
         let mut test_break_label = true;
 

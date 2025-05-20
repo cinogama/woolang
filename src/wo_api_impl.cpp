@@ -2552,26 +2552,6 @@ wo_size_t wo_str_char_len(wo_value value)
     return 0;
 }
 
-wo_size_t wo_lengthof(wo_value value)
-{
-    auto _rsvalue = WO_VAL(value);
-
-    switch (_rsvalue->type)
-    {
-    case wo::value::valuetype::array_type:
-        return wo_arr_len(value);
-    case wo::value::valuetype::dict_type:
-        return wo_map_len(value);
-    case wo::value::valuetype::string_type:
-        return wo_str_char_len(value);
-    case wo::value::valuetype::struct_type:
-        return wo_struct_len(value);
-    default:
-        wo_fail(WO_FAIL_TYPE_FAIL, "Only 'string','array', 'struct' or 'dict' can get length.");
-        return 0;
-    }
-}
-
 wo_size_t wo_str_byte_len(wo_value value)
 {
     auto _rsvalue = WO_VAL(value);

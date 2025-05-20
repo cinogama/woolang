@@ -168,7 +168,6 @@ namespace wo
         uint16_t                    _gc_work_thread_count = 0;
 
         std::atomic_bool            _gc_stop_flag = false;
-        std::thread                 _gc_scheduler_thread;
         std::condition_variable     _gc_work_cv;
         std::mutex                  _gc_work_mx;
 
@@ -301,6 +300,7 @@ namespace wo
 
         class _gc_mark_thread_groups
         {
+            std::thread _gc_scheduler_thread;
             std::thread* _m_gc_mark_threads;
             std::atomic_flag* _m_gc_begin_flags;
 
@@ -340,13 +340,403 @@ namespace wo
                     _m_gc_end_cv.notify_all();
                 }
             }
+            bool _gc_work_list(bool stopworld, bool fullgc)
+            {
+                // Pick all gcunit before 1st mark begin.
+                // It means all unit alloced when marking will be skiped to free.
+                std::vector<vmbase*> gc_marking_vmlist, self_marking_vmlist, time_out_vmlist;
+                _wo_gray_unit_list_t mem_gray_list;
 
-            static void _gcmarker_thread_work(_gc_mark_thread_groups* self, size_t worker_id)
+                // 0. get current vm list, set stop world flag to TRUE:
+                reset_alive_unit_count();
+                do
+                {
+                    std::shared_lock sg1(vmbase::_alive_vm_list_mx); // Lock alive vm list, block new vm create.
+                    _gc_round_count++;
+
+                    // Ignore old memo, they are useless.
+                    auto* old_mem_units = m_memo_mark_gray_list.pick_all();
+                    while (old_mem_units)
+                    {
+                        auto* cur_unit = old_mem_units;
+                        old_mem_units = old_mem_units->last;
+
+                        delete cur_unit;
+                    }
+
+                    _gc_is_marking = true;
+
+                    // 0. Prepare vm gray unit list
+                    if (!stopworld)
+                    {
+                        _gc_vm_gray_unit_lists.clear();
+                        for (auto* vmimpl : vmbase::_gc_ready_vm_list)
+                        {
+                            if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
+                                _gc_vm_gray_unit_lists[vmimpl] = {};
+                        }
+
+                        // 1. Interrupt all vm as GC_INTERRUPT, let all vm hang-up
+                        for (auto* vmimpl : vmbase::_gc_ready_vm_list)
+                            if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
+                                wo_assure(vmimpl->interrupt(vmbase::GC_INTERRUPT));
+
+                        for (auto* vmimpl : vmbase::_gc_ready_vm_list)
+                        {
+                            if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
+                            {
+                                switch (vmimpl->wait_interrupt(vmbase::GC_INTERRUPT, false))
+                                {
+                                case vmbase::interrupt_wait_result::LEAVED:
+                                    if (vmimpl->interrupt(vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT))
+                                    {
+                                        // NOTE: In fact, there is a very small probability that the 
+                                        //      vm just completes self-marking within a subtle time interval.
+                                        //      So we need recheck for GC_INTERRUPT
+                                        if (vmimpl->clear_interrupt(vmbase::GC_INTERRUPT))
+                                            // Current VM not receive GC_INTERRUPT, and we already mark GC_HANGUP_INTERRUPT
+                                            // the vm will be mark by gc-worker-thread.
+                                            break;
+
+                                        // NOTE: Oh! the small probability event happened! the vm has been
+                                        //       self marked. We need clear GC_INTERRUPT & GC_HANGUP_INTERRUPT
+                                        //       and wake up the vm;
+                                        if (!vmimpl->clear_interrupt(vmbase::GC_HANGUP_INTERRUPT))
+                                            // NOTE: GC_HANGUP_INTERRUPT has been received by vm, we need wake it up.
+                                            vmimpl->wakeup();
+                                    }
+                                case vmbase::interrupt_wait_result::TIMEOUT:
+                                case vmbase::interrupt_wait_result::ACCEPT:
+                                    // Current vm is self marking...
+                                    self_marking_vmlist.push_back(vmimpl);
+                                    continue;
+                                }
+                            }
+
+                            // Current vm will be mark by gc-work-thread.
+                            gc_marking_vmlist.push_back(vmimpl);
+                        }
+                    }
+                    else
+                    {
+                        for (auto* vmimpl : vmbase::_gc_ready_vm_list)
+                        {
+                            // NOTE: Let vm hang up for stop the world GC
+                            if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
+                            {
+                                // NOTE: See gc_checkpoint, we have very small probability when last round
+                                // stw GC, an vm still in gc_checkpoint and mark GC_HANGUP_INTERRUPT it self,
+                                // we need mark until success.
+                                while (!vmimpl->interrupt(vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT));
+                            }
+                        }
+
+                        for (auto* vmimpl : vmbase::_gc_ready_vm_list)
+                        {
+                            if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
+                                // Must make sure HANGUP successfully.
+                                (void)vmimpl->wait_interrupt(vmbase::GC_HANGUP_INTERRUPT, true);
+
+                            // Current vm will be mark by gc-work-thread.
+                            gc_marking_vmlist.push_back(vmimpl);
+                        }
+                    }
+
+                    // 2. Mark all unit in vm's stack, register, global(only once)
+                    _gc_scan_vm_count = gc_marking_vmlist.size();
+
+                    _gc_vm_list.store(gc_marking_vmlist.data());
+                    _gc_scan_vm_index.store(0);
+
+                    // 3. Start GC Worker for first marking
+                    launch_round_of_mark();
+
+                    // 4. Mark all pin-value
+                    do
+                    {
+                        std::lock_guard g1(pin::_pin_value_list_mx);
+
+                        for (auto* pin_value : pin::_pin_value_list)
+                        {
+                            gcbase::unit_attrib* attr;
+                            if (gcbase* gcunit_address = pin_value->get_gcunit_and_attrib_ref(&attr))
+                                gc_mark_unit_as_gray(&mem_gray_list, gcunit_address, attr);
+                        }
+
+                    } while (false);
+
+                    // 5. Wake up all hanged vm.
+                    if (!stopworld)
+                    {
+                        // 6. Wait until all self-marking vm work finished
+                        for (auto* vmimpl : self_marking_vmlist)
+                        {
+                            auto self_mark_gc_state = vmimpl->wait_interrupt(vmbase::GC_INTERRUPT, true);
+                            wo_assert(vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL);
+                            wo_assert(self_mark_gc_state != vmbase::interrupt_wait_result::TIMEOUT);
+
+                            // vmimpl may be in leave state here, in which case: 
+                            // 1. the vm self-marked successfully ended and has returned to executing
+                            //  its code. There is a probability that slow call native is being carried
+                            //  out.
+                            // 2. the vm work on jit/extern-func and not received GC_INTERRUPT, then it
+                            //  invokes `wo_leave_gcguard` leave the gc-guard, in this case, here will
+                            //  receive LEAVED. too, before 1.13.2.3, we will skip the vm-self-mark-end
+                            //  waiting. It will cause some unit still in gray list or loss marked. 
+                            //  since 1.13.2.3, we will receive GC_INTERRUPT both in `wo_leave_gcguard` 
+                            //  and `wo_enter_gcguard`.
+                            // Whatever, we will recheck for them to avoid missing mark.
+
+                            if (self_mark_gc_state != vmbase::interrupt_wait_result::ACCEPT)
+                            {
+                                // Current vm is still structed, let it hangup and mark it here.
+                                // NOTE: If GC_HANGUP_INTERRUPT interrupt successfully, it means:
+                                //      1. Current vm still not receive GC_INTERRUPT
+                                //      2. Current vm already receive GC_INTERRUPT, but don't interrupt GC_HANGUP_INTERRUPT
+                                //          in this moment, vm will skip self mark and continue handle GC_HANGUP_INTERRUPT 
+                                //          to hangup
+                                //      3. Current vm already receive GC_INTERRUPT, and it has already finish mark itself
+                                //          in this moment, we will not able to clear GC_INTERRUPT
+                                //      In case 1, 2: we will clear GC_INTERRUPT successfully, and we will mark the vm here
+                                //      But in case 3, we will not able to clear GC_INTERRUPT, vm has already mark it self.
+                                //          we will skip mark.
+                                if (vmimpl->interrupt(vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT))
+                                {
+                                    // Check if this vm still have GC_INTERRUPT, if not, it means the vm has been 
+                                    // self-marked.
+                                    if (vmimpl->clear_interrupt(vmbase::vm_interrupt_type::GC_INTERRUPT))
+                                    {
+                                        mark_vm(vmimpl, SIZE_MAX);
+                                    }
+
+                                    if (!vmimpl->clear_interrupt(vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT))
+                                        vmimpl->wakeup();
+                                }
+                            }
+
+                            // Wait until specifing vm self-marking end.
+                            // ATTENTION: 
+                            //      WE MUST WAIT UNTIL VM SELF-MARKING END EVEN IF THE VM IS LEAVED.
+                            //  OR SOME MARK JOB WILL NOT ABLE TO BE DONE. SOME OF THE UNIT MIGHT
+                            //  BE MISSING MARKED. IT'S VERY DANGEROUS!!!!
+                            while (vmimpl->check_interrupt(
+                                (vmbase::vm_interrupt_type)(vmbase::GC_INTERRUPT | vmbase::GC_HANGUP_INTERRUPT)))
+                            {
+                                using namespace std;
+                                std::this_thread::sleep_for(10ms);
+                            }
+                        }
+
+                        // 7. Merge gray lists.
+                        size_t worker_id_counter = 0;
+                        for (auto& [_vm, gray_list] : _gc_vm_gray_unit_lists)
+                        {
+                            auto& worker_gray_list = _gc_gray_unit_lists[worker_id_counter++ % _gc_work_thread_count];
+
+                            // Merge!
+                            worker_gray_list.splice_after(worker_gray_list.cbefore_begin(), gray_list);
+                        }
+                    }
+
+                } while (0);
+
+                // 8. OK, Continue mark gray to black
+                launch_round_of_mark();
+
+
+                // Marking finished.
+                // NOTE: It is safe to do this here, because if the mark has ended, 
+                //      if there is a unit trying to enter the memory set at the same time
+                //      there are only two possibilities:
+                //      1) This unit is a new unit generated during the GC process. In this case, 
+                //          this unit will be regarded as marked and will not be recycled.
+                //      2) This unit is being removed from a fullmark object. In this case, 
+                //          it means that this object is actually attached to the fullmark object 
+                //          during the GC process. Since this unit is still in the nomark stage, 
+                //          it means that this unit is either generated during the gc process like case 1,
+                //          or it is detached from other objects and is not marked: for this case, 
+                //          this unit should have entered the memory set, it's safe to skip.
+                _gc_is_collecting_memo = true;
+                _gc_is_marking = false;
+
+                // 9. Collect gray units in memo set.
+                for (;;)
+                {
+                    auto* memo_units = m_memo_mark_gray_list.pick_all();
+                    if (memo_units == nullptr)
+                        break;
+
+                    while (memo_units)
+                    {
+                        auto* cur_unit = memo_units;
+                        memo_units = memo_units->last;
+
+                        gc_mark_unit_as_gray(&mem_gray_list, cur_unit->gcunit, cur_unit->gcunit_attr);
+                        delete cur_unit;
+                    }
+                }
+                gc_mark_all_gray_unit(&mem_gray_list);
+
+                // 10. OK, All unit has been marked. recheck weakref, remove it from list if ref has been lost
+                do
+                {
+                    std::lock_guard g1(weakref::_weak_ref_list_mx);
+
+                    auto record_end = weakref::_weak_ref_record_list.end();
+                    for (auto idx = weakref::_weak_ref_record_list.begin();
+                        idx != record_end;)
+                    {
+                        auto current_idx = idx++;
+
+                        auto weakref_instance = *current_idx;
+
+                        while (weakref_instance->m_spin.test_and_set(std::memory_order_acquire))
+                            std::this_thread::yield();
+
+                        gcbase::unit_attrib* attrib;
+                        wo_assure(weakref_instance->m_weak_value_record.get_gcunit_and_attrib_ref(&attrib));
+                        if (attrib->m_marked == (uint8_t)wo::gcbase::gcmarkcolor::no_mark)
+                        {
+                            weakref_instance->m_alive = false;
+                            weakref::_weak_ref_record_list.erase(current_idx);
+                        }
+                        weakref_instance->m_spin.clear(std::memory_order_release);
+
+                    }
+                } while (0);
+
+                _gc_is_recycling = true;
+                _gc_is_collecting_memo = false;
+
+                // 11. OK, All unit has been marked. reduce gcunits
+                size_t page_count, page_size;
+                char* pages = (char*)womem_enum_pages(&page_count, &page_size);
+
+                // TODO: _gc_memory_pages donot need to be clear & fill every round.
+                //      Optimize this.
+                for (size_t i = 0; i < _gc_work_thread_count; ++i)
+                    _gc_memory_pages[i].clear();
+
+                for (size_t pageidx = 0; pageidx < page_count; ++pageidx)
+                {
+                    _gc_memory_pages[pageidx % _gc_work_thread_count]
+                        .push_back(pages + pageidx * page_size);
+                }
+
+                launch_round_of_mark();
+
+                // 12. Remove orpho vm
+                std::forward_list<vmbase*> need_destruct_gc_destructor_list;
+                do
+                {
+                    std::shared_lock sg1(vmbase::_alive_vm_list_mx);
+
+                    for (auto* vmimpl : vmbase::_gc_ready_vm_list)
+                    {
+                        auto* env = vmimpl->env.get();
+                        wo_assert(env != nullptr);
+
+                        if (vmimpl->virtual_machine_type == vmbase::vm_type::GC_DESTRUCTOR
+                            && env->_running_on_vm_count == 1)
+                        {
+                            // Assure vm's stack if empty
+                            wo_assert(vmimpl->sp == vmimpl->bp && vmimpl->bp == vmimpl->stack_mem_begin);
+
+                            // If there is no instance of gc-handle which may use library loaded in env,
+                            // then free the gc destructor vm.
+                            if (0 == env->_created_destructable_instance_count.load(
+                                std::memory_order::memory_order_relaxed))
+                            {
+                                need_destruct_gc_destructor_list.push_front(vmimpl);
+                            }
+                        }
+                    }
+
+                    if (stopworld)
+                    {
+                        for (auto* vmimpl : vmbase::_gc_ready_vm_list)
+                        {
+                            if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
+                            {
+                                if (!vmimpl->clear_interrupt(vmbase::GC_HANGUP_INTERRUPT))
+                                    vmimpl->wakeup();
+                            }
+                        }
+                    }
+
+                } while (0);
+
+
+                for (auto* destruct_vm : need_destruct_gc_destructor_list)
+                    delete destruct_vm;
+
+                womem_tidy_pages(fullgc);
+
+                _gc_is_recycling = false;
+
+                // All jobs done.
+                return get_alive_unit_count() != 0;
+            }
+            void _gc_main_thread()
+            {
+                do
+                {
+                    if (_gc_round_count == 0)
+                        _gc_advise_to_full_gc = true;
+
+                    if (_gc_pause.load() == false)
+                        _gc_work_list(_gc_stopping_world_gc, _gc_advise_to_full_gc);
+
+                    _gc_stopping_world_gc = WO_GC_FORCE_STOP_WORLD;
+                    _gc_advise_to_full_gc = WO_GC_FORCE_FULL_GC;
+
+                    do
+                    {
+                        std::unique_lock ug1(_gc_work_mx);
+                        for (size_t i = 0; i < 100; ++i)
+                        {
+                            using namespace std;
+                            bool breakout = false;
+
+                            if (gcbase::gc_new_count > _gc_immediately_edge)
+                            {
+                                if (gcbase::gc_new_count > _gc_stop_the_world_edge)
+                                {
+                                    _gc_stopping_world_gc = true;
+                                    gcbase::gc_new_count -= _gc_stop_the_world_edge;
+                                }
+                                else
+                                    gcbase::gc_new_count -= _gc_immediately_edge;
+                                break;
+                            }
+                            _gc_work_cv.wait_for(ug1, 0.1s,
+                                [&]()
+                                {
+                                    if (_gc_stop_flag || !_gc_immediately.test_and_set())
+                                        breakout = true;
+
+                                    return breakout;
+                                });
+
+                            if (breakout)
+                                break;
+                        }
+                    } while (false);
+
+                } while (!_gc_stop_flag);
+
+                while (_gc_work_list(true, true))
+                {
+                    using namespace std;
+                    std::this_thread::sleep_for(10ms);
+                }
+            }
+            void _gcmarker_thread_work(size_t worker_id)
             {
                 do
                 {
                     // Stage 1, mark vms.
-                    if (self->_wait_for_next_stage_signal(worker_id))
+                    if (_wait_for_next_stage_signal(worker_id))
                     {
                         vmbase* marking_vm = nullptr;
                         vmbase::vm_type vm_type;
@@ -388,18 +778,18 @@ namespace wo
                         }
                     }
                     else break;
-                    self->_notify_this_stage_finished(worker_id);
+                    _notify_this_stage_finished(worker_id);
 
                     // Stage 2, full mark units.
-                    if (self->_wait_for_next_stage_signal(worker_id))
+                    if (_wait_for_next_stage_signal(worker_id))
                     {
                         gc_mark_all_gray_unit(&_gc_gray_unit_lists[worker_id]);
                     }
                     else break;
-                    self->_notify_this_stage_finished(worker_id);
+                    _notify_this_stage_finished(worker_id);
 
                     // Stage 3, free units
-                    if (self->_wait_for_next_stage_signal(worker_id))
+                    if (_wait_for_next_stage_signal(worker_id))
                     {
                         auto& page_list = _gc_memory_pages[worker_id];
 
@@ -435,7 +825,7 @@ namespace wo
                                     }
                                     else
                                     {
-                                        ++self->_m_alive_units;
+                                        ++_m_alive_units;
                                         wo_assert(attr->m_marked != (uint8_t)gcbase::gcmarkcolor::self_mark);
                                         attr->m_marked = (uint8_t)gcbase::gcmarkcolor::no_mark;
 
@@ -447,7 +837,7 @@ namespace wo
                         }
                     }
                     else break;
-                    self->_notify_this_stage_finished(worker_id);
+                    _notify_this_stage_finished(worker_id);
 
                 } while (true);
             }
@@ -468,9 +858,16 @@ namespace wo
                 _m_gc_begin_flags = new std::atomic_flag[_gc_work_thread_count];
 
                 start();
+
+                // NOTE: Make sure _m_gc_begin_flags has been marked, or `launch_round_of_mark`
+                //  in _gc_main_thread may cause dead lock.
+                _gc_scheduler_thread = std::thread(
+                    &_gc_mark_thread_groups::_gc_main_thread, this);
             }
             ~_gc_mark_thread_groups()
             {
+                _gc_scheduler_thread.join();
+
                 stop();
 
                 delete[] _m_gc_mark_threads;
@@ -503,7 +900,7 @@ namespace wo
                     for (size_t id = 0; id < _gc_work_thread_count; ++id)
                     {
                         _m_gc_begin_flags[id].test_and_set(); // make sure gcmarkers donot work at begin.
-                        _m_gc_mark_threads[id] = std::thread(_gcmarker_thread_work, this, id);
+                        _m_gc_mark_threads[id] = std::thread(&_gc_mark_thread_groups::_gcmarker_thread_work, this, id);
                     }
                 }
             }
@@ -530,411 +927,17 @@ namespace wo
 
         _gc_mark_thread_groups* _gc_mark_thread_groups_instance;
 
-        bool _gc_work_list(bool stopworld, bool fullgc)
-        {
-            // Pick all gcunit before 1st mark begin.
-            // It means all unit alloced when marking will be skiped to free.
-            std::vector<vmbase*> gc_marking_vmlist, self_marking_vmlist, time_out_vmlist;
-            _wo_gray_unit_list_t mem_gray_list;
-
-            // 0. get current vm list, set stop world flag to TRUE:
-            _gc_mark_thread_groups_instance->reset_alive_unit_count();
-            do
-            {
-                std::shared_lock sg1(vmbase::_alive_vm_list_mx); // Lock alive vm list, block new vm create.
-                _gc_round_count++;
-
-                // Ignore old memo, they are useless.
-                auto* old_mem_units = m_memo_mark_gray_list.pick_all();
-                while (old_mem_units)
-                {
-                    auto* cur_unit = old_mem_units;
-                    old_mem_units = old_mem_units->last;
-
-                    delete cur_unit;
-                }
-
-                _gc_is_marking = true;
-
-                // 0. Prepare vm gray unit list
-                if (!stopworld)
-                {
-                    _gc_vm_gray_unit_lists.clear();
-                    for (auto* vmimpl : vmbase::_gc_ready_vm_list)
-                    {
-                        if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
-                            _gc_vm_gray_unit_lists[vmimpl] = {};
-                    }
-
-                    // 1. Interrupt all vm as GC_INTERRUPT, let all vm hang-up
-                    for (auto* vmimpl : vmbase::_gc_ready_vm_list)
-                        if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
-                            wo_assure(vmimpl->interrupt(vmbase::GC_INTERRUPT));
-
-                    for (auto* vmimpl : vmbase::_gc_ready_vm_list)
-                    {
-                        if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
-                        {
-                            switch (vmimpl->wait_interrupt(vmbase::GC_INTERRUPT, false))
-                            {
-                            case vmbase::interrupt_wait_result::LEAVED:
-                                if (vmimpl->interrupt(vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT))
-                                {
-                                    // NOTE: In fact, there is a very small probability that the 
-                                    //      vm just completes self-marking within a subtle time interval.
-                                    //      So we need recheck for GC_INTERRUPT
-                                    if (vmimpl->clear_interrupt(vmbase::GC_INTERRUPT))
-                                        // Current VM not receive GC_INTERRUPT, and we already mark GC_HANGUP_INTERRUPT
-                                        // the vm will be mark by gc-worker-thread.
-                                        break;
-
-                                    // NOTE: Oh! the small probability event happened! the vm has been
-                                    //       self marked. We need clear GC_INTERRUPT & GC_HANGUP_INTERRUPT
-                                    //       and wake up the vm;
-                                    if (!vmimpl->clear_interrupt(vmbase::GC_HANGUP_INTERRUPT))
-                                        // NOTE: GC_HANGUP_INTERRUPT has been received by vm, we need wake it up.
-                                        vmimpl->wakeup();
-                                }
-                            case vmbase::interrupt_wait_result::TIMEOUT:
-                            case vmbase::interrupt_wait_result::ACCEPT:
-                                // Current vm is self marking...
-                                self_marking_vmlist.push_back(vmimpl);
-                                continue;
-                            }
-                        }
-
-                        // Current vm will be mark by gc-work-thread.
-                        gc_marking_vmlist.push_back(vmimpl);
-                    }
-                }
-                else
-                {
-                    for (auto* vmimpl : vmbase::_gc_ready_vm_list)
-                    {
-                        // NOTE: Let vm hang up for stop the world GC
-                        if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
-                        {
-                            // NOTE: See gc_checkpoint, we have very small probability when last round
-                            // stw GC, an vm still in gc_checkpoint and mark GC_HANGUP_INTERRUPT it self,
-                            // we need mark until success.
-                            while (!vmimpl->interrupt(vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT));
-                        }
-                    }
-
-                    for (auto* vmimpl : vmbase::_gc_ready_vm_list)
-                    {
-                        if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
-                            // Must make sure HANGUP successfully.
-                            (void)vmimpl->wait_interrupt(vmbase::GC_HANGUP_INTERRUPT, true);
-
-                        // Current vm will be mark by gc-work-thread.
-                        gc_marking_vmlist.push_back(vmimpl);
-                    }
-                }
-
-                // 2. Mark all unit in vm's stack, register, global(only once)
-                _gc_scan_vm_count = gc_marking_vmlist.size();
-
-                _gc_vm_list.store(gc_marking_vmlist.data());
-                _gc_scan_vm_index.store(0);
-
-                // 3. Start GC Worker for first marking
-                _gc_mark_thread_groups_instance->launch_round_of_mark();
-
-                // 4. Mark all pin-value
-                do
-                {
-                    std::lock_guard g1(pin::_pin_value_list_mx);
-
-                    for (auto* pin_value : pin::_pin_value_list)
-                    {
-                        gcbase::unit_attrib* attr;
-                        if (gcbase* gcunit_address = pin_value->get_gcunit_and_attrib_ref(&attr))
-                            gc_mark_unit_as_gray(&mem_gray_list, gcunit_address, attr);
-                    }
-
-                } while (false);
-
-                // 5. Wake up all hanged vm.
-                if (!stopworld)
-                {
-                    // 6. Wait until all self-marking vm work finished
-                    for (auto* vmimpl : self_marking_vmlist)
-                    {
-                        auto self_mark_gc_state = vmimpl->wait_interrupt(vmbase::GC_INTERRUPT, true);
-                        wo_assert(vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL);
-                        wo_assert(self_mark_gc_state != vmbase::interrupt_wait_result::TIMEOUT);
-
-                        // vmimpl may be in leave state here, in which case: 
-                        // 1. the vm self-marked successfully ended and has returned to executing
-                        //  its code. There is a probability that slow call native is being carried
-                        //  out.
-                        // 2. the vm work on jit/extern-func and not received GC_INTERRUPT, then it
-                        //  invokes `wo_leave_gcguard` leave the gc-guard, in this case, here will
-                        //  receive LEAVED. too, before 1.13.2.3, we will skip the vm-self-mark-end
-                        //  waiting. It will cause some unit still in gray list or loss marked. 
-                        //  since 1.13.2.3, we will receive GC_INTERRUPT both in `wo_leave_gcguard` 
-                        //  and `wo_enter_gcguard`.
-                        // Whatever, we will recheck for them to avoid missing mark.
-
-                        if (self_mark_gc_state != vmbase::interrupt_wait_result::ACCEPT)
-                        {
-                            // Current vm is still structed, let it hangup and mark it here.
-                            // NOTE: If GC_HANGUP_INTERRUPT interrupt successfully, it means:
-                            //      1. Current vm still not receive GC_INTERRUPT
-                            //      2. Current vm already receive GC_INTERRUPT, but don't interrupt GC_HANGUP_INTERRUPT
-                            //          in this moment, vm will skip self mark and continue handle GC_HANGUP_INTERRUPT 
-                            //          to hangup
-                            //      3. Current vm already receive GC_INTERRUPT, and it has already finish mark itself
-                            //          in this moment, we will not able to clear GC_INTERRUPT
-                            //      In case 1, 2: we will clear GC_INTERRUPT successfully, and we will mark the vm here
-                            //      But in case 3, we will not able to clear GC_INTERRUPT, vm has already mark it self.
-                            //          we will skip mark.
-                            if (vmimpl->interrupt(vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT))
-                            {
-                                // Check if this vm still have GC_INTERRUPT, if not, it means the vm has been 
-                                // self-marked.
-                                if (vmimpl->clear_interrupt(vmbase::vm_interrupt_type::GC_INTERRUPT))
-                                {
-                                    mark_vm(vmimpl, SIZE_MAX);
-                                }
-
-                                if (!vmimpl->clear_interrupt(vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT))
-                                    vmimpl->wakeup();
-                            }
-                        }
-
-                        // Wait until specifing vm self-marking end.
-                        // ATTENTION: 
-                        //      WE MUST WAIT UNTIL VM SELF-MARKING END EVEN IF THE VM IS LEAVED.
-                        //  OR SOME MARK JOB WILL NOT ABLE TO BE DONE. SOME OF THE UNIT MIGHT
-                        //  BE MISSING MARKED. IT'S VERY DANGEROUS!!!!
-                        while (vmimpl->check_interrupt(
-                            (vmbase::vm_interrupt_type)(vmbase::GC_INTERRUPT | vmbase::GC_HANGUP_INTERRUPT)))
-                        {
-                            using namespace std;
-                            std::this_thread::sleep_for(10ms);
-                        }
-                    }
-
-                    // 7. Merge gray lists.
-                    size_t worker_id_counter = 0;
-                    for (auto& [_vm, gray_list] : _gc_vm_gray_unit_lists)
-                    {
-                        auto& worker_gray_list = _gc_gray_unit_lists[worker_id_counter++ % _gc_work_thread_count];
-
-                        // Merge!
-                        worker_gray_list.splice_after(worker_gray_list.cbefore_begin(), gray_list);
-                    }
-                }
-
-            } while (0);
-
-            // 8. OK, Continue mark gray to black
-            _gc_mark_thread_groups_instance->launch_round_of_mark();
-
-
-            // Marking finished.
-            // NOTE: It is safe to do this here, because if the mark has ended, 
-            //      if there is a unit trying to enter the memory set at the same time
-            //      there are only two possibilities:
-            //      1) This unit is a new unit generated during the GC process. In this case, 
-            //          this unit will be regarded as marked and will not be recycled.
-            //      2) This unit is being removed from a fullmark object. In this case, 
-            //          it means that this object is actually attached to the fullmark object 
-            //          during the GC process. Since this unit is still in the nomark stage, 
-            //          it means that this unit is either generated during the gc process like case 1,
-            //          or it is detached from other objects and is not marked: for this case, 
-            //          this unit should have entered the memory set, it's safe to skip.
-            _gc_is_collecting_memo = true;
-            _gc_is_marking = false;
-
-            // 9. Collect gray units in memo set.
-            for (;;)
-            {
-                auto* memo_units = m_memo_mark_gray_list.pick_all();
-                if (memo_units == nullptr)
-                    break;
-
-                while (memo_units)
-                {
-                    auto* cur_unit = memo_units;
-                    memo_units = memo_units->last;
-
-                    gc_mark_unit_as_gray(&mem_gray_list, cur_unit->gcunit, cur_unit->gcunit_attr);
-                    delete cur_unit;
-                }
-            }
-            gc_mark_all_gray_unit(&mem_gray_list);
-
-            // 10. OK, All unit has been marked. recheck weakref, remove it from list if ref has been lost
-            do
-            {
-                std::lock_guard g1(weakref::_weak_ref_list_mx);
-
-                auto record_end = weakref::_weak_ref_record_list.end();
-                for (auto idx = weakref::_weak_ref_record_list.begin();
-                    idx != record_end;)
-                {
-                    auto current_idx = idx++;
-
-                    auto weakref_instance = *current_idx;
-
-                    while (weakref_instance->m_spin.test_and_set(std::memory_order_acquire))
-                        std::this_thread::yield();
-
-                    gcbase::unit_attrib* attrib;
-                    wo_assure(weakref_instance->m_weak_value_record.get_gcunit_and_attrib_ref(&attrib));
-                    if (attrib->m_marked == (uint8_t)wo::gcbase::gcmarkcolor::no_mark)
-                    {
-                        weakref_instance->m_alive = false;
-                        weakref::_weak_ref_record_list.erase(current_idx);
-                    }
-                    weakref_instance->m_spin.clear(std::memory_order_release);
-
-                }
-            } while (0);
-
-            _gc_is_recycling = true;
-            _gc_is_collecting_memo = false;
-
-            // 11. OK, All unit has been marked. reduce gcunits
-            size_t page_count, page_size;
-            char* pages = (char*)womem_enum_pages(&page_count, &page_size);
-
-            // TODO: _gc_memory_pages donot need to be clear & fill every round.
-            //      Optimize this.
-            for (size_t i = 0; i < _gc_work_thread_count; ++i)
-                _gc_memory_pages[i].clear();
-
-            for (size_t pageidx = 0; pageidx < page_count; ++pageidx)
-            {
-                _gc_memory_pages[pageidx % _gc_work_thread_count]
-                    .push_back(pages + pageidx * page_size);
-            }
-
-            _gc_mark_thread_groups_instance->launch_round_of_mark();
-
-            // 12. Remove orpho vm
-            std::forward_list<vmbase*> need_destruct_gc_destructor_list;
-            do
-            {
-                std::shared_lock sg1(vmbase::_alive_vm_list_mx);
-
-                for (auto* vmimpl : vmbase::_gc_ready_vm_list)
-                {
-                    auto* env = vmimpl->env.get();
-                    wo_assert(env != nullptr);
-
-                    if (vmimpl->virtual_machine_type == vmbase::vm_type::GC_DESTRUCTOR
-                        && env->_running_on_vm_count == 1)
-                    {
-                        // Assure vm's stack if empty
-                        wo_assert(vmimpl->sp == vmimpl->bp && vmimpl->bp == vmimpl->stack_mem_begin);
-
-                        // If there is no instance of gc-handle which may use library loaded in env,
-                        // then free the gc destructor vm.
-                        if (0 == env->_created_destructable_instance_count.load(
-                            std::memory_order::memory_order_relaxed))
-                        {
-                            need_destruct_gc_destructor_list.push_front(vmimpl);
-                        }
-                    }
-                }
-
-                if (stopworld)
-                {
-                    for (auto* vmimpl : vmbase::_gc_ready_vm_list)
-                    {
-                        if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
-                        {
-                            if (!vmimpl->clear_interrupt(vmbase::GC_HANGUP_INTERRUPT))
-                                vmimpl->wakeup();
-                        }
-                    }
-                }
-
-            } while (0);
-
-
-            for (auto* destruct_vm : need_destruct_gc_destructor_list)
-                delete destruct_vm;
-
-            womem_tidy_pages(fullgc);
-
-            _gc_is_recycling = false;
-
-            // All jobs done.
-            return _gc_mark_thread_groups_instance->get_alive_unit_count() != 0;
-        }
-
-        void _gc_main_thread()
-        {
-            do
-            {
-                if (_gc_round_count == 0)
-                    _gc_advise_to_full_gc = true;
-
-                if (_gc_pause.load() == false)
-                    _gc_work_list(_gc_stopping_world_gc, _gc_advise_to_full_gc);
-
-                _gc_stopping_world_gc = WO_GC_FORCE_STOP_WORLD;
-                _gc_advise_to_full_gc = WO_GC_FORCE_FULL_GC;
-
-                do
-                {
-                    std::unique_lock ug1(_gc_work_mx);
-                    for (size_t i = 0; i < 100; ++i)
-                    {
-                        using namespace std;
-                        bool breakout = false;
-
-                        if (gcbase::gc_new_count > _gc_immediately_edge)
-                        {
-                            if (gcbase::gc_new_count > _gc_stop_the_world_edge)
-                            {
-                                _gc_stopping_world_gc = true;
-                                gcbase::gc_new_count -= _gc_stop_the_world_edge;
-                            }
-                            else
-                                gcbase::gc_new_count -= _gc_immediately_edge;
-                            break;
-                        }
-                        _gc_work_cv.wait_for(ug1, 0.1s,
-                            [&]()
-                            {
-                                if (_gc_stop_flag || !_gc_immediately.test_and_set())
-                                    breakout = true;
-
-                                return breakout;
-                            });
-
-                        if (breakout)
-                            break;
-                    }
-                } while (false);
-
-            } while (!_gc_stop_flag);
-
-            while (_gc_work_list(true, true))
-            {
-                using namespace std;
-                std::this_thread::sleep_for(10ms);
-            }
-        }
-
         void gc_start()
         {
             _gc_work_thread_count = (uint16_t)wo::config::GC_WORKER_THREAD_COUNT;
             wo_assert(_gc_work_thread_count > 0);
 
+            _gc_stop_flag = false;
+            _gc_immediately.test_and_set();
+
             _gc_gray_unit_lists = new _wo_gray_unit_list_t[_gc_work_thread_count];
             _gc_memory_pages = new _wo_gc_memory_pages_t[_gc_work_thread_count];
             _gc_mark_thread_groups_instance = new _gc_mark_thread_groups();
-
-            _gc_stop_flag = false;
-            _gc_immediately.test_and_set();
-            _gc_scheduler_thread = std::thread(_gc_main_thread);
         }
         void gc_stop()
         {
@@ -944,8 +947,6 @@ namespace wo
                 _gc_stop_flag = true;
                 _gc_work_cv.notify_one();
             } while (false);
-
-            _gc_scheduler_thread.join();
 
             delete _gc_mark_thread_groups_instance;
             delete[] _gc_memory_pages;

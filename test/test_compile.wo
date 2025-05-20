@@ -398,9 +398,17 @@ func main()
                 return 1;
                 return 1;
             }"@);
-        assure_compile_fail(@"func xx()
+        // 1.14.6: Type of Variable & Function invoke will keep mutability.
+        assure_compile_success(@"func xx()
             {
                 return mut 1;
+            }
+            let p = [xx()];
+            p[0] = 1;
+            "@);
+        assure_compile_fail(@"func xx()
+            {
+                return 1;
             }
             let p = [xx()];
             p[0] = 1;
@@ -409,6 +417,13 @@ func main()
             import woo::std;
 
             let a = [1,2,3]->>\n=mut n;;
+            a[0] = 6;
+            "@);
+        // 1.14.6: Type of Variable & Function invoke will keep mutability.
+        assure_compile_success(@"
+            import woo::std;
+
+            let a = [1,2,3]->>\n=v where v = mut n;;
             a[0] = 6;
             "@);
         assure_compile_fail(@"
