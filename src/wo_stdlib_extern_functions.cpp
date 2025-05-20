@@ -1777,20 +1777,18 @@ namespace std
         public func declval<T>()=> T;
     namespace type_traits
     {
-        public alias invoke_result_t<F, ArgTs> = 
-            typeof(declval:<F>()(declval:<ArgTs>()...));
-        public alias iterator_result_t<T> = 
-            option::item_t<typeof(declval:<T>()->next)>;
-        public let is_same<A, B> = typeid:<A> == typeid:<B>;
+        public alias invoke_result_t<F, ArgTs> = typeof(declval:<F>()(declval:<ArgTs>()...));
+        public alias iterator_result_t<T> = option::item_t<typeof(declval:<T>()->next)>;
+        public let is_array<AT> = typeid:<typeof(declval:<array::item_t<AT>>())> != 0;
+        public let is_vec<AT> = typeid:<typeof(declval:<vec::item_t<AT>>())> != 0;
+        public let is_dict<DT> = typeid:<typeof(declval:<dict::item_t<DT>>())> != 0;
+        public let is_map<DT> = typeid:<typeof(declval:<map::item_t<DT>>())> != 0;
+        public let is_same<A, B> = typeid:<A> == typeid:<B> && typeid:<A> != 0;
         public let is_mutable<A> = is_same:<A, mut A>;
-        public let is_invocable<F, ArgTs> = 
-            typeid:<typeof(declval:<F>()(declval:<ArgTs>()...))> != 0;
-        public let is_iterator<T> = 
-            typeid:<typeof(declval:<iterator_result_t<T>>())> != 0;
+        public let is_invocable<F, ArgTs> = typeid:<typeof(declval:<F>()(declval:<ArgTs>()...))> != 0;
+        public let is_iterator<T> = typeid:<typeof(declval:<iterator_result_t<T>>())> != 0;
         public let is_iterable<T> = 
-            typeid:<typeof(declval:<T>()->iter)> != 0
-            ? is_iterator:<typeof(declval:<T>()->iter)>
-            | false;
+            typeid:<typeof(declval:<T>()->iter)> != 0 ? is_iterator:<typeof(declval:<T>()->iter)> | false;
     }
     public func use<T, R>(val: T, f: (T)=> R)
         where typeid:<typeof(val->close)> != 0;
@@ -1834,7 +1832,7 @@ namespace std
         {
             return self.val;
         }
-        public func modify<T>(self: mutable<T>, f: (T)=> T)
+        public func apply<T>(self: mutable<T>, f: (T)=> T)
         {
             self.val = f(self.val);
         }
