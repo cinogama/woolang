@@ -91,7 +91,7 @@
 #define WO_ERR_ONLY_EXPAND_ARRAY_VEC_AND_TUPLE L"只有数组、向量和元组可以展开, 但这里是 '%ls'"
 #define WO_ERR_ONLY_EXPAND_TUPLE L"只允许展开元组, 但实际尝试展开 '%ls'"
 #define WO_ERR_STRUCT_DONOT_HAVE_MAMBER_NAMED L"结构体类型 '%ls' 没有名为 '%ls' 的成员"
-#define WO_ERR_TUPLE_INDEX_OUT_OF_RANGE L"元组类型 '%ls' 只有 %zu 个元素, 但索引 %zu 超出了范围"
+#define WO_ERR_TUPLE_INDEX_OUT_OF_RANGE L"元组类型 '%ls' 只有 %zu 个元素, 但索引 %lld 超出了范围"
 #define WO_ERR_PATTERN_VARIABLE_SHOULD_BE_MUTABLE L"被赋值的变量应当可变"
 #define WO_ERR_PATTERN_INDEX_SHOULD_BE_MUTABLE_TYPE L"不能向不可变索引结果赋值"
 #define WO_ERR_CANNOT_CAST_TYPE_TO_TYPE L"无法将类型 '%ls' 转换为 '%ls'"

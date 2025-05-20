@@ -1960,7 +1960,7 @@ namespace wo
                         WO_ERR_TUPLE_INDEX_OUT_OF_RANGE,
                         get_type_name_w(container_type_instance),
                         tuple_type->m_element_types.size(),
-                        (size_t)index);
+                        index);
                     return FAILED;
                 }
 

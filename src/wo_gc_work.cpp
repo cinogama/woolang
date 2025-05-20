@@ -854,11 +854,15 @@ namespace wo
             _gc_mark_thread_groups()
                 : _m_worker_enabled(false)
             {
-                _gc_scheduler_thread = std::thread(&_gc_mark_thread_groups::_gc_main_thread, this);
                 _m_gc_mark_threads = new std::thread[_gc_work_thread_count];
                 _m_gc_begin_flags = new std::atomic_flag[_gc_work_thread_count];
 
                 start();
+
+                // NOTE: Make sure _m_gc_begin_flags has been marked, or `launch_round_of_mark`
+                //  in _gc_main_thread may cause dead lock.
+                _gc_scheduler_thread = std::thread(
+                    &_gc_mark_thread_groups::_gc_main_thread, this);
             }
             ~_gc_mark_thread_groups()
             {
