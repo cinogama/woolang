@@ -4950,20 +4950,6 @@ namespace wo
                     return FAILED;
                 }
 
-                if (node->m_auto_using_namespace)
-                {
-                    // union can only declared in namespace.
-                    wo_assert(matching_typeinstance->m_symbol->m_belongs_to_scope->is_namespace_scope());
-
-                    // Must contanin this sub namespace.
-                    auto* union_namespace = matching_typeinstance->m_symbol->m_belongs_to_scope->m_belongs_to_namespace->m_sub_namespaces.at(
-                        matching_typeinstance->m_symbol->m_name).get();
-
-                    append_using_namespace_for_current_scope(
-                        { union_namespace },
-                        node->source_location.source_file);
-                }
-
                 auto* determined_base_type_instance_union_dat =
                     determined_base_type_instance->m_external_type_description.m_union;
 

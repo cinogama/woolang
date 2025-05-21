@@ -102,9 +102,9 @@ namespace test_monad
                                 match (self->many()(r_and_state[1]))
                                 {
                                 value((rr, ss))?
-                                    return value((rr->inlay(0, r_and_state[0]), ss));
+                                    return option::value((rr->inlay(0, r_and_state[0]), ss));
                                 none?
-                                    return none;
+                                    return option::none;
                                 }
                             } 
                         ->  or_bind(\= option::value(([], s));)
