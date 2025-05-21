@@ -1860,9 +1860,9 @@ namespace wo
             case lang_TypeInstance::DeterminedType::DICTIONARY:
             case lang_TypeInstance::DeterminedType::MAPPING:
             {
-                if (immutable_type(container_determined_base_type_instance
+                if (container_determined_base_type_instance
                     ->m_external_type_description.m_dictionary_or_mapping
-                    ->m_key_type) != immutable_type(indexer_type_instance))
+                    ->m_key_type != indexer_type_instance)
                 {
                     lex.record_lang_error(lexer::msglevel_t::error, node->m_index,
                         WO_ERR_CANNOT_INDEX_TYPE_WITH_TYPE,
@@ -3423,7 +3423,7 @@ namespace wo
                     lang_TypeInstance* param_type = *it_param_type;
 
                     if (lang_TypeInstance::TypeCheckResult::ACCEPT
-                        != is_type_accepted(lex, arg_node, immutable_type(param_type), immutable_type(type)))
+                        != is_type_accepted(lex, arg_node, param_type, type))
                     {
                         lex.record_lang_error(lexer::msglevel_t::error, arg_node,
                             WO_ERR_CANNOT_ACCEPTABLE_TYPE_NAMED,
@@ -4057,7 +4057,11 @@ namespace wo
 
                     lang_TypeInstance* accpet_field_type = fnd->second.m_member_type;
                     if (lang_TypeInstance::TypeCheckResult::ACCEPT
-                        != is_type_accepted(lex, field, accpet_field_type, field->m_value->m_LANG_determined_type.value()))
+                        != is_type_accepted(
+                            lex,
+                            field, 
+                            accpet_field_type, 
+                            field->m_value->m_LANG_determined_type.value()))
                     {
                         lex.record_lang_error(lexer::msglevel_t::error, field->m_value,
                             WO_ERR_CANNOT_ACCEPTABLE_TYPE_NAMED,
@@ -5436,8 +5440,8 @@ namespace wo
                 if (lang_TypeInstance::TypeCheckResult::ACCEPT != is_type_accepted(
                     lex,
                     node,
-                    immutable_type(left_type),
-                    immutable_type(right_type)))
+                    left_type,
+                    right_type))
                 {
                     lex.record_lang_error(lexer::msglevel_t::error, node->m_right,
                         WO_ERR_CANNOT_ACCEPTABLE_TYPE_NAMED,
@@ -5558,7 +5562,8 @@ namespace wo
                     wo_error("Unknown assign place.");
                 }
 
-                if (lang_TypeInstance::TypeCheckResult::ACCEPT != is_type_accepted(lex, node, left_type, func_result_type))
+                if (lang_TypeInstance::TypeCheckResult::ACCEPT != 
+                    is_type_accepted(lex, node, left_type, func_result_type))
                 {
                     lex.record_lang_error(lexer::msglevel_t::error, node,
                         WO_ERR_CANNOT_ACCEPTABLE_TYPE_NAMED,

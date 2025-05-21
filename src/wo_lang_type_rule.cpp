@@ -11,7 +11,6 @@ namespace wo
     {
         // TODO CHECK LIST:
         // 1. Make sure recursive-type will not cause infinite loop and have good habit.
-
         if (accepter == provider)
             return lang_TypeInstance::TypeCheckResult::ACCEPT;
 
