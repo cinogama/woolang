@@ -1118,7 +1118,7 @@ func main()
         assure_compile_fail(@"
             func main(a : mut int)
             {
-                a = 5;
+                a = mut 5;
                 do a;
             }
             "@);
@@ -1129,7 +1129,21 @@ func main()
                 do a;
             }
             "@);
+        assure_compile_fail(@"
+            func main(mut a : int)
+            {
+                a = mut 5;
+                do a;
+            }
+            "@);
         assure_compile_success(@"
+            func main(mut a : mut int)
+            {
+                a = mut 5;
+                do a;
+            }
+            "@);
+        assure_compile_fail(@"
             func main(mut a : mut int)
             {
                 a = 5;
@@ -1343,11 +1357,11 @@ func main()
             "@);
         assure_compile_success(@"
             func foo(_: mut (int)=>void){}
-            foo(\_=do nil;);
+            foo(mut \_=do nil;);
             "@);
         assure_compile_fail(@"
             func foo(_: mut (int)=>void){}
-            foo(\_, _=do nil;);
+            foo(mut \_, _=do nil;);
             "@);
         
         assure_compile_fail(@"
@@ -2065,17 +2079,29 @@ func main()
 
         assure_compile_fail("let a = a + 1;");
         
-        assure_compile_success(@"
+        assure_compile_fail(@"
             import woo::std;
 
             let a = mut {}: dict<int, mut void>;
             do dict::map(a, \k, v = (k, v););
         "@);
-        assure_compile_success(@"
+        assure_compile_fail(@"
             import woo::std;
 
             let a = {}: dict<int, mut void>;
             do dict::map(mut a, \k, v = (k, v););
+        "@);
+        assure_compile_success(@"
+            import woo::std;
+
+            let a = mut {}: dict<int, mut void>;
+            do dict::map(immut a, \k, v = (k, v););
+        "@);
+        assure_compile_success(@"
+            import woo::std;
+
+            let a = {}: dict<int, mut void>;
+            do dict::map(a, \k, v = (k, v););
         "@);
     }
 
