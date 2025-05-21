@@ -1369,7 +1369,7 @@ namespace wo
                 cases.push_back(static_cast<AstMatchCase*>(match_case));
             }
 
-            return new AstMatch(match_value, cases, true);
+            return new AstMatch(match_value, cases);
         }
         auto pass_pattern_identifier_or_takepace::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {

@@ -1408,9 +1408,8 @@ namespace wo
 
         ////////////////////////////////////////////////////////
 
-        AstMatch::AstMatch(AstValueBase* match_value, const std::list<AstMatchCase*>& cases, bool auto_using)
+        AstMatch::AstMatch(AstValueBase* match_value, const std::list<AstMatchCase*>& cases)
             : AstBase(AST_MATCH)
-            , m_auto_using_namespace(auto_using)
             , m_matched_value(match_value)
             , m_cases(cases)
             , m_LANG_hold_state(UNPROCESSED)
@@ -1421,7 +1420,7 @@ namespace wo
         {
             AstMatch* new_instance = exist_instance
                 ? static_cast<AstMatch*>(exist_instance.value())
-                : new AstMatch(m_matched_value, m_cases, m_auto_using_namespace)
+                : new AstMatch(m_matched_value, m_cases)
                 ;
             out_continues.push_back(AstBase::make_holder(&new_instance->m_matched_value));
             for (auto& c : new_instance->m_cases)
@@ -1540,7 +1539,7 @@ namespace wo
             //        _? break;
             auto* match_case_none_pattern = new AstPatternTakeplace();
             auto* match_case_none = new AstMatchCase(match_case_none_pattern, new AstBreak(std::nullopt));
-            auto* match_body = new AstMatch(invoke_next, { match_case_value, match_case_none }, false);
+            auto* match_body = new AstMatch(invoke_next, { match_case_value, match_case_none });
             //    }
             // }
             auto* for_body = new AstFor(iterator_declear, std::nullopt, std::nullopt, match_body);
