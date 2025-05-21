@@ -3041,7 +3041,8 @@ std::wstring _dump_src_info(
                     append_result += L"~\\"
                         + wo::str_to_wstr(ANSI_UNDERLNE)
                         + L" " WO_HERE
-                        + wo::str_to_wstr(ANSI_NUNDERLNE);
+                        + wo::str_to_wstr(ANSI_NUNDERLNE)
+                        + L"_";
 
                     if (depth != 0)
                         append_result += L": " + errmsg.m_describe;
