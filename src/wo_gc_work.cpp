@@ -1068,6 +1068,10 @@ namespace wo
     }
     void gc_handle_base_t::do_custom_mark(wo_gc_work_context_t context)
     {
+        if (m_holding_handle == nullptr)
+            // Handle has been closed.
+            return;
+
         if (m_custom_marker.m_is_callback)
         {
             gcmark_func_t marker;
