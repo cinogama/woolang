@@ -128,7 +128,7 @@ namespace wo
             auto* wref = std::launder(reinterpret_cast<_wo_weak_ref*>(weak_ref));
 
             while (wref->m_spin.test_and_set(std::memory_order_acquire))
-                std::this_thread::yield();
+                gcbase::rw_lock::spin_loop_hint();
 
             if (wref->m_alive == false)
                 return false;
@@ -144,11 +144,11 @@ namespace wo
                 wref->m_spin.clear(std::memory_order_release);
 
                 while (gc::gc_is_collecting_memo())
-                    std::this_thread::yield();
+                    gcbase::rw_lock::spin_loop_hint();
 
                 // Relock the weakref.
                 while (wref->m_spin.test_and_set(std::memory_order_acquire))
-                    std::this_thread::yield();
+                    gcbase::rw_lock::spin_loop_hint();
 
                 if (wref->m_alive == false)
                     return false;
@@ -591,7 +591,7 @@ namespace wo
                         auto weakref_instance = *current_idx;
 
                         while (weakref_instance->m_spin.test_and_set(std::memory_order_acquire))
-                            std::this_thread::yield();
+                            gcbase::rw_lock::spin_loop_hint();
 
                         gcbase::unit_attrib* attrib;
                         wo_assure(weakref_instance->m_weak_value_record.get_gcunit_and_attrib_ref(&attrib));
@@ -698,15 +698,15 @@ namespace wo
                             using namespace std;
                             bool breakout = false;
 
-                            if (gcbase::gc_new_count > _gc_immediately_edge)
+                            if (gcbase::gc_new_releax_count > _gc_immediately_edge)
                             {
-                                if (gcbase::gc_new_count > _gc_stop_the_world_edge)
+                                if (gcbase::gc_new_releax_count > _gc_stop_the_world_edge)
                                 {
                                     _gc_stopping_world_gc = true;
-                                    gcbase::gc_new_count -= _gc_stop_the_world_edge;
+                                    gcbase::gc_new_releax_count -= _gc_stop_the_world_edge;
                                 }
                                 else
-                                    gcbase::gc_new_count -= _gc_immediately_edge;
+                                    gcbase::gc_new_releax_count -= _gc_immediately_edge;
                                 break;
                             }
                             _gc_work_cv.wait_for(ug1, 0.1s,
@@ -1185,7 +1185,7 @@ void wo_gc_wait_sync(void)
     while (wo::gc::gc_is_marking()
         || wo::gc::gc_is_collecting_memo()
         || wo::gc::gc_is_recycling())
-        std::this_thread::yield();
+        wo::gcbase::rw_lock::spin_loop_hint();
 }
 void wo_gc_immediately(wo_bool_t fullgc)
 {

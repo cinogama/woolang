@@ -459,8 +459,6 @@ namespace wo
         size_t constant_value_count = 0;
         size_t real_register_count = 0;
 
-        size_t runtime_stack_count = 0;
-
         size_t rt_code_len = 0;
         const byte_t* rt_codes = nullptr;
 
@@ -545,12 +543,14 @@ namespace wo
         runtime_env& operator = (runtime_env&&) = delete;
 
         std::tuple<void*, size_t> create_env_binary(bool savepdi) noexcept;
-        static std::optional<shared_pointer<runtime_env>> _create_from_stream(binary_source_stream* stream, size_t stackcount, wo_string_t* out_reason, bool* out_is_binary);
+        static std::optional<shared_pointer<runtime_env>> _create_from_stream(
+            binary_source_stream* stream, 
+            wo_string_t* out_reason, 
+            bool* out_is_binary);
         static std::optional<shared_pointer<runtime_env>> load_create_env_from_binary(
             wo_string_t virtual_file,
             const void* bytestream,
             size_t streamsz,
-            size_t stack_count,
             wo_string_t* out_reason,
             bool* out_is_binary);
 
@@ -1663,7 +1663,7 @@ namespace wo
         }
 #undef WO_OPNUM
 #undef WO_PUT_IR_TO_BUFFER
-        shared_pointer<runtime_env> finalize(size_t stacksz);
+        shared_pointer<runtime_env> finalize();
 
     };
 }

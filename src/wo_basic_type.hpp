@@ -323,8 +323,6 @@ namespace wo
             : m_count(sz)
         {
             m_values = (value*)malloc(sz * sizeof(value));
-            for (uint16_t i = 0; i < sz; ++i)
-                m_values[i].set_nil();
         }
         ~struct_values()
         {
@@ -344,12 +342,24 @@ namespace wo
         };
         value* m_closure_args;
 
-        closure_function(uint16_t sz) noexcept
-            : m_closure_args_count(sz)
+        closure_function(const closure_function&) = delete;
+        closure_function(closure_function&&) = delete;
+        closure_function& operator=(const closure_function&) = delete;
+        closure_function& operator=(closure_function&&) = delete;
+
+        closure_function(wo_integer_t vmfunc, uint16_t argc) noexcept
+            : m_native_call(false)
+            , m_vm_func(vmfunc)
+            , m_closure_args_count(argc)
         {
-            m_closure_args = (value*)malloc(sz * sizeof(value));
-            for (uint16_t i = 0; i < sz; ++i)
-                m_closure_args[i].set_nil();
+            m_closure_args = (value*)malloc(argc * sizeof(value));
+        }
+        closure_function(wo_native_func_t nfunc, uint16_t argc) noexcept
+            : m_native_call(true)
+            , m_native_func(nfunc)
+            , m_closure_args_count(argc)
+        {
+            m_closure_args = (value*)malloc(argc * sizeof(value));
         }
         ~closure_function()
         {

@@ -950,7 +950,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                         else
                         {
                             std::string func_name = vmm->env->program_debug_info
-                                ->get_current_func_signature_by_runtime_ip(vmm->codes + offset);
+                                ->get_current_func_signature_by_runtime_ip(vmm->env->rt_codes + offset);
 
                             printf("The ip offset %zu is in function: `" ANSI_HIG "%s" ANSI_RST "`\n",
                                 offset, func_name.c_str());

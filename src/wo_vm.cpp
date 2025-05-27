@@ -32,25 +32,6 @@ namespace wo
         wo_assert(old_count > 0);
     }
 
-    void vmbase::set_br_yieldable(bool able) noexcept
-    {
-        _vm_br_yieldable = able;
-    }
-    bool vmbase::get_br_yieldable() noexcept
-    {
-        return _vm_br_yieldable;
-    }
-    bool vmbase::get_and_clear_br_yield_flag() noexcept
-    {
-        bool result = _vm_br_yield_flag;
-        _vm_br_yield_flag = false;
-        return result;
-    }
-    void vmbase::mark_br_yield() noexcept
-    {
-        _vm_br_yield_flag = true;
-    }
-
     vm_debuggee_bridge_base* vmbase::attach_debuggee(vm_debuggee_bridge_base* dbg) noexcept
     {
         std::shared_lock g1(_alive_vm_list_mx);
@@ -91,20 +72,20 @@ namespace wo
     }
     bool vmbase::is_aborted() const noexcept
     {
-        return vm_interrupt & vm_interrupt_type::ABORT_INTERRUPT;
+        return vm_interrupt.load(std::memory_order::memory_order_acquire) & vm_interrupt_type::ABORT_INTERRUPT;
     }
     bool vmbase::interrupt(vm_interrupt_type type)noexcept
     {
-        return !(type & vm_interrupt.fetch_or(type));
+        return !(type & vm_interrupt.fetch_or(type, std::memory_order::memory_order_acq_rel));
     }
     bool vmbase::clear_interrupt(vm_interrupt_type type)noexcept
     {
-        return type & vm_interrupt.fetch_and(~type);
+        return type & vm_interrupt.fetch_and(~type, std::memory_order::memory_order_acq_rel);
     }
 
     bool vmbase::check_interrupt(vm_interrupt_type type)noexcept
     {
-        return 0 != (vm_interrupt & type);
+        return 0 != (vm_interrupt.load(std::memory_order::memory_order_acquire) & type);
     }
     vmbase::interrupt_wait_result vmbase::wait_interrupt(vm_interrupt_type type, bool force_wait)noexcept
     {
@@ -117,7 +98,7 @@ namespace wo
         int i = 0;
         do
         {
-            uint32_t vm_interrupt_mask = vm_interrupt.load();
+            uint32_t vm_interrupt_mask = vm_interrupt.load(std::memory_order::memory_order_acquire);
 
             if (0 == (vm_interrupt_mask & type))
                 break;
@@ -156,7 +137,7 @@ namespace wo
     {
         using namespace std;
 
-        while (vm_interrupt & type)
+        while (vm_interrupt.load(std::memory_order::memory_order_acquire) & type)
             std::this_thread::sleep_for(10ms);
     }
 
@@ -187,7 +168,6 @@ namespace wo
         , cr(nullptr)
         , tc(nullptr)
         , tp(nullptr)
-        , er(nullptr)
         , sp(nullptr)
         , bp(nullptr)
         , register_mem_begin(nullptr)
@@ -201,8 +181,6 @@ namespace wo
         , ip(nullptr)
         , env(nullptr)
         , _vm_hang_flag(0)
-        , _vm_br_yieldable(false)
-        , _vm_br_yield_flag(false)
 #if WO_ENABLE_RUNTIME_CHECK
         // runtime information
         , attaching_thread_id(std::thread::id{})
@@ -257,47 +235,7 @@ namespace wo
     {
         // TODO: GC will mark globle space when current vm is gc vm, we cannot do it now!
         return gc_vm;
-#if 0
-        static_assert(std::atomic<vmbase*>::is_always_lock_free);
-
-        std::atomic<vmbase*>* vmbase_atomic = reinterpret_cast<std::atomic<vmbase*>*>(const_cast<vmbase**>(&gc_vm));
-        vmbase* const INVALID_VM_PTR = (vmbase*)(intptr_t)-1;
-
-    retry_to_fetch_gcvm:
-        if (vmbase_atomic->load())
-        {
-            vmbase* loaded_gcvm;
-            do
-                loaded_gcvm = vmbase_atomic->load();
-            while (loaded_gcvm == INVALID_VM_PTR);
-
-            return loaded_gcvm;
-        }
-
-        vmbase* excepted = nullptr;
-        bool exchange_result = false;
-        do
-        {
-            exchange_result = vmbase_atomic->compare_exchange_weak(excepted, INVALID_VM_PTR);
-            if (!exchange_result && excepted)
-            {
-                if (excepted == INVALID_VM_PTR)
-                    goto retry_to_fetch_gcvm;
-                return excepted;
-            }
-        } while (!exchange_result);
-
-        wo_assert(vmbase_atomic->load() == INVALID_VM_PTR);
-        // Create a new VM using for GC destruct
-        auto* created_subvm_for_gc = make_machine(1024);
-        // gc_thread will be destructed by gc_work..
-        created_subvm_for_gc->virtual_machine_type = vm_type::GC_DESTRUCTOR;
-
-        vmbase_atomic->store(created_subvm_for_gc);
-        return created_subvm_for_gc;
-#endif
     }
-
     bool vmbase::advise_shrink_stack() noexcept
     {
         return ++shrink_stack_advise >= shrink_stack_edge;
@@ -313,7 +251,6 @@ namespace wo
         cr = register_mem_begin + opnum::reg::spreg::cr;
         tc = register_mem_begin + opnum::reg::spreg::tc;
         tp = register_mem_begin + opnum::reg::spreg::tp;
-        er = register_mem_begin + opnum::reg::spreg::er;
     }
     void vmbase::_allocate_stack_space(size_t stacksz)noexcept
     {
@@ -364,9 +301,9 @@ namespace wo
         ++env->_running_on_vm_count;
 
         const_global_begin = env->constant_global;
-        codes = ip = env->rt_codes;
+        ip = env->rt_codes;
 
-        _allocate_stack_space(env->runtime_stack_count);
+        _allocate_stack_space(VM_DEFAULT_STACK_SIZE);
         _allocate_register_space(env->real_register_count);
 
         do
@@ -395,8 +332,8 @@ namespace wo
         wo_assure(wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(new_vm))));
         new_vm->const_global_begin = const_global_begin;
 
-        new_vm->codes = new_vm->ip = env->rt_codes;
-        new_vm->_allocate_stack_space(env->runtime_stack_count);
+        new_vm->ip = env->rt_codes;
+        new_vm->_allocate_stack_space(VM_DEFAULT_STACK_SIZE);
         new_vm->_allocate_register_space(env->real_register_count);
 
         do
@@ -431,7 +368,7 @@ namespace wo
                 }
                 for (int i = 0; i < MAX_BYTE_COUNT - displayed_count; i++)
                     printf("   ");
-            };
+                };
 #define WO_SIGNED_SHIFT(VAL) (((signed char)((unsigned char)(((unsigned char)(VAL))<<1)))>>1)
             auto print_reg_bpoffset = [&]() {
                 byte_t data_1b = *(this_command_ptr++);
@@ -470,7 +407,7 @@ namespace wo
                         tmpos << "reg(" << (uint32_t)data_1b << ")";
 
                 }
-            };
+                };
             auto print_opnum1 = [&]() {
                 if (main_command & (byte_t)0b00000010)
                 {
@@ -487,7 +424,7 @@ namespace wo
                     else
                         tmpos << "g[" << data_4b - env->constant_value_count << "]";
                 }
-            };
+                };
             auto print_opnum2 = [&]() {
                 if (main_command & (byte_t)0b00000001)
                 {
@@ -504,7 +441,7 @@ namespace wo
                     else
                         tmpos << "g[" << data_4b - env->constant_value_count << "]";
                 }
-            };
+                };
 
 #undef WO_SIGNED_SHIFT
             switch (main_command & (byte_t)0b11111100)
@@ -847,61 +784,61 @@ namespace wo
 
         std::vector<callstack_info> result;
         auto generate_callstack_info_with_ip = [this, need_offset](const wo::byte_t* rip, bool is_extern_func)
-        {
-            const program_debug_data_info::location* src_location_info = nullptr;
-            std::string function_signature;
-            std::string file_path;
-            size_t row_number = 0;
-            size_t col_number = 0;
-
-            if (is_extern_func)
             {
-                auto fnd = env->extern_native_functions.find((intptr_t)rip);
+                const program_debug_data_info::location* src_location_info = nullptr;
+                std::string function_signature;
+                std::string file_path;
+                size_t row_number = 0;
+                size_t col_number = 0;
 
-                if (fnd != env->extern_native_functions.end())
+                if (is_extern_func)
                 {
-                    function_signature = fnd->second.function_name;
-                    file_path = fnd->second.library_name.value_or("<builtin>");
+                    auto fnd = env->extern_native_functions.find((intptr_t)rip);
+
+                    if (fnd != env->extern_native_functions.end())
+                    {
+                        function_signature = fnd->second.function_name;
+                        file_path = fnd->second.library_name.value_or("<builtin>");
+                    }
+                    else
+                    {
+                        char rip_str[sizeof(rip) * 2 + 4];
+                        sprintf(rip_str, "0x%p>", rip);
+
+                        function_signature = std::string("<unknown extern function ") + rip_str;
+                        file_path = "<unknown library>";
+                    }
                 }
                 else
                 {
-                    char rip_str[sizeof(rip) * 2 + 4];
-                    sprintf(rip_str, "0x%p>", rip);
+                    if (env->program_debug_info != nullptr)
+                    {
+                        src_location_info = &env->program_debug_info
+                            ->get_src_location_by_runtime_ip(rip - (need_offset ? 1 : 0));
+                        function_signature = env->program_debug_info
+                            ->get_current_func_signature_by_runtime_ip(rip - (need_offset ? 1 : 0));
 
-                    function_signature = std::string("<unknown extern function ") + rip_str;
-                    file_path = "<unknown library>";
-                }
-            }
-            else
-            {
-                if (env->program_debug_info != nullptr)
-                {
-                    src_location_info = &env->program_debug_info
-                        ->get_src_location_by_runtime_ip(rip - (need_offset ? 1 : 0));
-                    function_signature = env->program_debug_info
-                        ->get_current_func_signature_by_runtime_ip(rip - (need_offset ? 1 : 0));
+                        file_path = wo::wstrn_to_str(src_location_info->source_file);
+                        row_number = src_location_info->begin_row_no;
+                        col_number = src_location_info->begin_col_no;
+                    }
+                    else
+                    {
+                        char rip_str[sizeof(rip) * 2 + 4];
+                        sprintf(rip_str, "0x%p>", rip);
 
-                    file_path = wo::wstrn_to_str(src_location_info->source_file);
-                    row_number = src_location_info->begin_row_no;
-                    col_number = src_location_info->begin_col_no;
+                        function_signature = std::string("<unknown function ") + rip_str;
+                        file_path = "<unknown file>";
+                    }
                 }
-                else
-                {
-                    char rip_str[sizeof(rip) * 2 + 4];
-                    sprintf(rip_str, "0x%p>", rip);
-
-                    function_signature = std::string("<unknown function ") + rip_str;
-                    file_path = "<unknown file>";
-                }
-            }
-            return callstack_info{
-                function_signature,
-                file_path,
-                row_number,
-                col_number,
-                is_extern_func,
+                return callstack_info{
+                    function_signature,
+                    file_path,
+                    row_number,
+                    col_number,
+                    is_extern_func,
+                };
             };
-        };
 
         result.push_back(generate_callstack_info_with_ip(ip, ip < env->rt_codes || ip >= env->rt_codes + env->rt_code_len));
         value* base_callstackinfo_ptr = (bp + 1);
@@ -1141,17 +1078,26 @@ namespace wo
             ip = env->rt_codes + wo_func_addr;
             bp = sp;
 
-            run();
+            auto vm_exec_result = run();
 
             ip = return_ip;
             sp = stack_mem_begin - return_sp_place;
             bp = stack_mem_begin - return_bp_place;
             tc->set_integer(return_tc);
 
-            if (is_aborted())
-                return nullptr;
-
-            return cr;
+            switch (vm_exec_result)
+            {
+            case wo_result_t::WO_API_NORMAL:
+                return cr;
+            case wo_result_t::WO_API_SIM_ABORT:
+                break;
+            case wo_result_t::WO_API_SIM_YIELD:
+                wo_fail(WO_FAIL_CALL_FAIL, "The virtual machine is interrupted by `yield`, but the caller is not `dispatch`.");
+                break;
+            default:
+                wo_fail(WO_FAIL_CALL_FAIL, "Unexpected execution status: %d.", (int)vm_exec_result);
+                break;
+            }
         }
         return nullptr;
     }
@@ -1163,6 +1109,9 @@ namespace wo
             wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
         else
         {
+            if (is_aborted())
+                return nullptr;
+
             assure_stack_size(1);
             auto* return_ip = ip;
             auto return_sp_place = stack_mem_begin - sp;
@@ -1174,26 +1123,27 @@ namespace wo
             ip = env->rt_codes + wo_func_addr;
             bp = sp;
 
-            if (!is_aborted())
+            auto vm_exec_result = ((wo_native_func_t)wo_func_addr)(
+                std::launder(reinterpret_cast<wo_vm>(this)),
+                std::launder(reinterpret_cast<wo_value>(sp + 2)));
+
+            switch (vm_exec_result)
             {
-                switch (((wo_native_func_t)wo_func_addr)(
-                    std::launder(reinterpret_cast<wo_vm>(this)),
-                    std::launder(reinterpret_cast<wo_value>(sp + 2))))
-                {
-                case wo_result_t::WO_API_RESYNC:
-                    // NOTE: WO_API_RESYNC returned by `wo_func_addr`(and it's a extern function)
-                    //  Only following cases happend:
-                    //  1) Stack reallocated.
-                    //  2) Aborted
-                    //  3) Yield
-                    //  For case 1) & 2), return immediately; in case 3), just like invoke std::yield,
-                    //  let interrupt stay at VM, let it handled outside.
-                case wo_result_t::WO_API_NORMAL:
-                    break;
-                case wo_result_t::WO_API_SYNC:
-                    run();
-                    break;
-                }
+            case wo_result_t::WO_API_RESYNC:
+                // NOTE: WO_API_RESYNC returned by `wo_func_addr`(and it's a extern function)
+                //  Only following cases happend:
+                //  1) Stack reallocated.
+                //  2) Aborted
+                //  3) Yield
+                //  For case 1) & 2), return immediately; in case 3), just like invoke std::yield,
+                //  let interrupt stay at VM, let it handled outside.
+                vm_exec_result = wo_result_t::WO_API_NORMAL;
+                [[fallthrough]];
+            case wo_result_t::WO_API_NORMAL:
+                break;
+            case wo_result_t::WO_API_SYNC:
+                vm_exec_result = run();
+                break;
             }
 
             ip = return_ip;
@@ -1201,10 +1151,19 @@ namespace wo
             bp = stack_mem_begin - return_bp_place;
             tc->set_integer(return_tc);
 
-            if (is_aborted())
-                return nullptr;
-
-            return cr;
+            switch (vm_exec_result)
+            {
+            case wo_result_t::WO_API_NORMAL:
+                return cr;
+            case wo_result_t::WO_API_SIM_ABORT:
+                break;
+            case wo_result_t::WO_API_SIM_YIELD:
+                wo_fail(WO_FAIL_CALL_FAIL, "The virtual machine is interrupted by `yield`, but the caller is not `dispatch`.");
+                break;
+            default:
+                wo_fail(WO_FAIL_CALL_FAIL, "Unexpected execution status: %d.", (int)vm_exec_result);
+                break;
+            }
         }
         return nullptr;
     }
@@ -1216,6 +1175,9 @@ namespace wo
             wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
         else
         {
+            if (is_aborted())
+                return nullptr;
+
             wo::gcbase::gc_read_guard rg1(wo_func_closure);
             if (!wo_func_closure->m_vm_func)
                 wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
@@ -1236,34 +1198,37 @@ namespace wo
                 tc->set_integer(argc);
                 bp = sp;
 
+                wo_result_t vm_exec_result;
+
                 if (wo_func_closure->m_native_call)
                 {
-                    if (!is_aborted())
+                    vm_exec_result = wo_func_closure->m_native_func(
+                        std::launder(reinterpret_cast<wo_vm>(this)),
+                        std::launder(reinterpret_cast<wo_value>(sp + 2)));
+
+                    switch (vm_exec_result)
                     {
-                        switch (wo_func_closure->m_native_func(
-                            std::launder(reinterpret_cast<wo_vm>(this)),
-                            std::launder(reinterpret_cast<wo_value>(sp + 2))))
-                        {
-                        case wo_result_t::WO_API_RESYNC:
-                            // NOTE: WO_API_RESYNC returned by `wo_func_addr`(and it's a extern function)
-                            //  Only following cases happend:
-                            //  1) Stack reallocated.
-                            //  2) Aborted
-                            //  3) Yield
-                            //  For case 1) & 2), return immediately; in case 3), just like invoke std::yield,
-                            //  let interrupt stay at VM, let it handled outside.
-                        case wo_result_t::WO_API_NORMAL:
-                            break;
-                        case wo_result_t::WO_API_SYNC:
-                            run();
-                            break;
-                        }
+                    case wo_result_t::WO_API_RESYNC:
+                        // NOTE: WO_API_RESYNC returned by `wo_func_addr`(and it's a extern function)
+                        //  Only following cases happend:
+                        //  1) Stack reallocated.
+                        //  2) Aborted
+                        //  3) Yield
+                        //  For case 1) & 2), return immediately; in case 3), just like invoke std::yield,
+                        //  let interrupt stay at VM, let it handled outside.
+                        vm_exec_result = wo_result_t::WO_API_NORMAL;
+                        [[fallthrough]];
+                    case wo_result_t::WO_API_NORMAL:
+                        break;
+                    case wo_result_t::WO_API_SYNC:
+                        vm_exec_result = run();
+                        break;
                     }
                 }
                 else
                 {
                     ip = env->rt_codes + wo_func_closure->m_vm_func;
-                    run();
+                    vm_exec_result = run();
                 }
 
                 ip = return_ip;
@@ -1271,15 +1236,23 @@ namespace wo
                 bp = stack_mem_begin - return_bp_place;
                 tc->set_integer(return_tc);
 
-                if (is_aborted())
-                    return nullptr;
-
-                return cr;
+                switch (vm_exec_result)
+                {
+                case wo_result_t::WO_API_NORMAL:
+                    return cr;
+                case wo_result_t::WO_API_SIM_ABORT:
+                    break;
+                case wo_result_t::WO_API_SIM_YIELD:
+                    wo_fail(WO_FAIL_CALL_FAIL, "The virtual machine is interrupted by `yield`, but the caller is not `dispatch`.");
+                    break;
+                default:
+                    wo_fail(WO_FAIL_CALL_FAIL, "Unexpected execution status: %d.", (int)vm_exec_result);
+                    break;
+                }
             }
         }
         return nullptr;
     }
-
 
 #define WO_SAFE_READ_OFFSET_GET_QWORD (*(uint64_t*)(rt_ip-8))
 #define WO_SAFE_READ_OFFSET_GET_DWORD (*(uint32_t*)(rt_ip-4))
@@ -1322,7 +1295,7 @@ namespace wo
 #endif
 
 // VM Operate
-#define WO_VM_RETURN do{ ip = rt_ip; return; }while(0)
+#define WO_VM_RETURN(V) do{ ip = rt_ip; return (V); }while(0)
 #define WO_SIGNED_SHIFT(VAL) (((signed char)((unsigned char)(((unsigned char)(VAL))<<1)))>>1)
 
 #define WO_ADDRESSING_N1 opnum1 = ((dr >> 1) ?\
@@ -1448,16 +1421,14 @@ namespace wo
     }
     value* vmbase::make_closure_fast_impl(value* opnum1, const byte_t* rt_ip, value* rt_sp) noexcept
     {
-        bool is_native_call = !!(0b0011 & *(rt_ip - 1));
-        uint16_t closure_arg_count = WO_FAST_READ_MOVE_2;
+        const bool make_native_closure = !!(0b0011 & *(rt_ip - 1));
+        const uint16_t closure_arg_count = WO_FAST_READ_MOVE_2;
 
-        auto* created_closure = closure_t::gc_new<gcbase::gctype::young>(closure_arg_count);
-        created_closure->m_native_call = is_native_call;
-
-        if (is_native_call)
-            created_closure->m_native_func = (wo_native_func_t)WO_FAST_READ_MOVE_8;
-        else
-            created_closure->m_vm_func = WO_FAST_READ_MOVE_4;
+        auto* created_closure = make_native_closure
+            ? closure_t::gc_new<gcbase::gctype::young>(
+                (wo_native_func_t)WO_FAST_READ_MOVE_8, closure_arg_count)
+            : closure_t::gc_new<gcbase::gctype::young>(
+                (wo_integer_t)WO_FAST_READ_MOVE_4, closure_arg_count);
 
         for (size_t i = 0; i < (size_t)closure_arg_count; i++)
         {
@@ -1469,16 +1440,14 @@ namespace wo
     }
     value* vmbase::make_closure_safe_impl(value* opnum1, const byte_t* rt_ip, value* rt_sp) noexcept
     {
-        bool is_native_call = !!(0b0011 & *(rt_ip - 1));
-        uint16_t closure_arg_count = WO_SAFE_READ_MOVE_2;
+        const bool make_native_closure = !!(0b0011 & *(rt_ip - 1));
+        const uint16_t closure_arg_count = WO_FAST_READ_MOVE_2;
 
-        auto* created_closure = closure_t::gc_new<gcbase::gctype::young>(closure_arg_count);
-        created_closure->m_native_call = is_native_call;
-
-        if (is_native_call)
-            created_closure->m_native_func = (wo_native_func_t)WO_SAFE_READ_MOVE_8;
-        else
-            created_closure->m_vm_func = WO_SAFE_READ_MOVE_4;
+        auto* created_closure = make_native_closure
+            ? closure_t::gc_new<gcbase::gctype::young>(
+                (wo_native_func_t)WO_SAFE_READ_MOVE_8, closure_arg_count)
+            : closure_t::gc_new<gcbase::gctype::young>(
+                (wo_integer_t)WO_SAFE_READ_MOVE_4, closure_arg_count);
 
         for (size_t i = 0; i < (size_t)closure_arg_count; i++)
         {
@@ -1713,7 +1682,7 @@ namespace wo
         virtual vmbase* create_machine(vm_type type) const noexcept override;
         virtual wo_result_t run() noexcept override;
     public:
-        void run_impl() noexcept;
+        wo_result_t run_impl() noexcept;
     };
 
     vm::vm(vm_type type) noexcept
@@ -1729,16 +1698,14 @@ namespace wo
     wo_result_t vm::run() noexcept
     {
         if (ip >= env->rt_codes && ip < env->rt_codes + env->rt_code_len)
-            run_impl();
+            return run_impl();
         else
             return ((wo_extern_native_func_t)ip)(
                 std::launder(reinterpret_cast<wo_vm>(this)),
                 std::launder(reinterpret_cast<wo_value>(sp + 2)));
-
-        return wo_result_t::WO_API_NORMAL;
     }
 
-    void vm::run_impl() noexcept
+    wo_result_t vm::run_impl() noexcept
     {
         // Must not leave when run.
         wo_assert((this->vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
@@ -2258,7 +2225,7 @@ namespace wo
                     sp += pop_count;
 
                     // last stack is native_func, just do return; stack balance should be keeped by invoker
-                    WO_VM_RETURN;
+                    WO_VM_RETURN(wo_result_t::WO_API_NORMAL);
                 }
 
                 value* stored_bp = stack_mem_begin - bp->vmcallstack.bp;
@@ -2867,7 +2834,8 @@ namespace wo
             case instruct::opcode::abrt:
             {
                 if (dr & 0b10)
-                    WO_VM_RETURN;
+                    // END.
+                    WO_VM_RETURN(wo_result_t::WO_API_NORMAL);
                 else
                     wo_error("executed 'abrt'.");
             }
@@ -2891,18 +2859,12 @@ namespace wo
                 {
                     // ABORTED VM WILL NOT ABLE TO RUN AGAIN, SO DO NOT
                     // CLEAR ABORT_INTERRUPT
-                    WO_VM_RETURN;
+                    WO_VM_RETURN(wo_result_t::WO_API_SIM_ABORT);
                 }
                 else if (interrupt_state & vm_interrupt_type::BR_YIELD_INTERRUPT)
                 {
                     wo_assure(clear_interrupt(vm_interrupt_type::BR_YIELD_INTERRUPT));
-                    if (get_br_yieldable())
-                    {
-                        mark_br_yield();
-                        WO_VM_RETURN;
-                    }
-                    else
-                        wo_fail(WO_FAIL_NOT_SUPPORT, "BR_YIELD_INTERRUPT only work at br_yieldable vm.");
+                    WO_VM_RETURN(wo_result_t::WO_API_SIM_YIELD);
                 }
                 else if (interrupt_state & vm_interrupt_type::LEAVE_INTERRUPT)
                 {
@@ -2922,9 +2884,9 @@ namespace wo
                 else if (interrupt_state & vm_interrupt_type::STACK_OVERFLOW_INTERRUPT)
                 {
                     while (!interrupt(vm_interrupt_type::STACK_MODIFING_INTERRUPT))
-                        std::this_thread::yield();
+                        gcbase::rw_lock::spin_loop_hint();
 
-                    shrink_stack_edge = std::min(VM_SHRINK_STACK_MAX_EDGE, shrink_stack_edge + 1);
+                    shrink_stack_edge = std::min(VM_SHRINK_STACK_MAX_EDGE, (uint8_t)(shrink_stack_edge + 1));
                     // Force realloc stack buffer.
                     bool r = _reallocate_stack_space(stack_size << 1);
 
@@ -2938,7 +2900,7 @@ namespace wo
                 else if (interrupt_state & vm_interrupt_type::SHRINK_STACK_INTERRUPT)
                 {
                     while (!interrupt(vm_interrupt_type::STACK_MODIFING_INTERRUPT))
-                        std::this_thread::yield();
+                        gcbase::rw_lock::spin_loop_hint();
 
                     if (_reallocate_stack_space(stack_size >> 1))
                         shrink_stack_edge = VM_SHRINK_STACK_COUNT;
@@ -2973,7 +2935,7 @@ namespace wo
             }
         }// vm loop end.
 
-        WO_VM_RETURN;
+        WO_VM_RETURN(wo_result_t::WO_API_NORMAL);
     }
 
 

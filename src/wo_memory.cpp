@@ -516,18 +516,18 @@ namespace womem
                 auto& preserve = m_prepare_alloc_page_reserve_count[group];
                 preserve = std::min((size_t)512, preserve * 2);
 
-                *pages = _global_chunk->alloc_normal_pages((uint8_t)sz, (uint8_t)group, preserve);
+                *pages = _global_chunk->alloc_normal_pages(
+                    (uint8_t)sz, (uint8_t)group, preserve);
             }
 
             if (*pages == nullptr)
-            {
                 // Failed
                 return nullptr;
-            }
 
             auto* ptr = (*pages)->alloc_normal(attrib);
 
-            if ((*pages)->m_normal_page.m_free_offset_idx >= (*pages)->m_normal_page.m_max_avliable_unit_count)
+            if ((*pages)->m_normal_page.m_free_offset_idx 
+                >= (*pages)->m_normal_page.m_max_avliable_unit_count)
             {
                 // Page ran out
                 auto* abondon_page = *pages;

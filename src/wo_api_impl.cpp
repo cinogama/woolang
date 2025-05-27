@@ -486,7 +486,7 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
         wo_gc_immediately(WO_TRUE);
         std::this_thread::sleep_for(10ms);
 
-        if (wo::vmbase::_alive_vm_count_for_gc_vm_destruct == 0)
+        if (wo::vmbase::_alive_vm_count_for_gc_vm_destruct.load() == 0)
             break;
 
     } while (true);
@@ -1023,10 +1023,6 @@ void wo_set_union(wo_value value, wo_vm vm, wo_integer_t id, wo_value value_may_
     }
 
     structptr->m_values[0].set_integer(id);
-
-    wo_assert(
-        structptr->m_values[1].type == wo::value::valuetype::invalid &&
-        structptr->m_values[1].handle == 0);
 
     if (value_may_null != nullptr)
         structptr->m_values[1].set_val(WO_VAL(value_may_null));
@@ -1850,10 +1846,14 @@ wo_result_t wo_ret_halt(wo_vm vm, wo_string_t reasonfmt, ...)
     wo::vmbase* vmbase = WO_VM(vm);
     {
         _wo_enter_gc_guard g(vm);
-        vmbase->er->set_string(buf.data());
+        vmbase->register_mem_begin[wo::opnum::reg::er].set_string(buf.data());
     }
     vmbase->interrupt(wo::vmbase::vm_interrupt_type::ABORT_INTERRUPT);
-    wo::wo_stderr << ANSI_HIR "Halt happend: " ANSI_RST << wo_cast_string((wo_value)vmbase->er) << wo::wo_endl;
+    wo::wo_stderr 
+        << ANSI_HIR "Halt happend: " ANSI_RST 
+        << wo_cast_string(CS_VAL(&vmbase->register_mem_begin[wo::opnum::reg::er])) 
+        << wo::wo_endl;
+
     vmbase->dump_call_stack(32, true, std::cerr);
     return wo_result_t::WO_API_RESYNC;
 }
@@ -1871,9 +1871,9 @@ wo_result_t wo_ret_panic(wo_vm vm, wo_string_t reasonfmt, ...)
     wo::vmbase* vmbase = WO_VM(vm);
     {
         _wo_enter_gc_guard g(vm);
-        vmbase->er->set_string(buf.data());
+        vmbase->register_mem_begin[wo::opnum::reg::er].set_string(buf.data());
     }
-    wo_fail(WO_FAIL_USER_PANIC, vmbase->er->string->c_str());
+    wo_fail(WO_FAIL_USER_PANIC, vmbase->register_mem_begin[wo::opnum::reg::er].string->c_str());
     return wo_result_t::WO_API_RESYNC;
 }
 
@@ -2756,7 +2756,7 @@ wo::compile_result _wo_compile_impl(
 
     std::optional<wo::shared_pointer<wo::runtime_env>> compile_env_result =
         wo::runtime_env::load_create_env_from_binary(
-            virtual_src_path, src, len, wo::vmbase::VM_DEFAULT_STACK_SIZE,
+            virtual_src_path, src, len,
             &load_binary_failed_reason,
             &is_valid_binary);
     std::unique_ptr<wo::lexer> compile_lexer;
@@ -2834,8 +2834,7 @@ wo::compile_result _wo_compile_impl(
                     {
                         // Finish!, finalize the compiler.
                         compile_env_result = std::move(
-                            lang_context->m_ircontext.c().finalize(
-                                wo::vmbase::VM_DEFAULT_STACK_SIZE));
+                            lang_context->m_ircontext.c().finalize());
                     }
 
                     if (out_langcontext_if_pass_grammar != nullptr)
@@ -2996,86 +2995,86 @@ std::wstring _dump_src_info(
 
             auto print_src_file_print_lineno =
                 [&current_row_no, &result, &first_line, depth]()
-            {
-                wchar_t buf[20] = {};
-                if (first_line)
-                    first_line = false;
-                else
-                    result += L"\n";
+                {
+                    wchar_t buf[20] = {};
+                    if (first_line)
+                        first_line = false;
+                    else
+                        result += L"\n";
 
-                swprintf(buf, 19, L"%-5zu | ", current_row_no + 1);
-                result += std::wstring(depth == 0 ? 0 : depth + 1, L' ') + buf;
-            };
+                    swprintf(buf, 19, L"%-5zu | ", current_row_no + 1);
+                    result += std::wstring(depth == 0 ? 0 : depth + 1, L' ') + buf;
+                };
             auto print_notify_line =
                 [&result, &first_line, &current_row_no, &errmsg, beginpointplace, pointplace, style, beginaimrow, aimrow, depth](
                     size_t line_end_place)
-            {
-                wchar_t buf[20] = {};
-                if (first_line)
-                    first_line = false;
-                else
-                    result += L"\n";
-
-                swprintf(buf, 19, L"      | ");
-                std::wstring append_result = buf;
-
-                if (style == WO_NEED_COLOR)
-                    append_result += errmsg.m_level == wo::lexer::msglevel_t::error
-                    ? wo::str_to_wstr(ANSI_HIR)
-                    : wo::str_to_wstr(ANSI_HIC);
-
-                if (current_row_no == aimrow)
                 {
-                    if (current_row_no == beginaimrow)
-                    {
-                        size_t i = 1;
-                        for (; i <= beginpointplace; i++)
-                            append_result += L" ";
-                        for (; i < pointplace; i++)
-                            append_result += L"~";
-                    }
+                    wchar_t buf[20] = {};
+                    if (first_line)
+                        first_line = false;
                     else
-                        for (size_t i = 1; i < pointplace; i++)
-                            append_result += L"~";
+                        result += L"\n";
 
-                    append_result += L"~\\"
-                        + wo::str_to_wstr(ANSI_UNDERLNE)
-                        + L" " WO_HERE
-                        + wo::str_to_wstr(ANSI_NUNDERLNE)
-                        + L"_";
+                    swprintf(buf, 19, L"      | ");
+                    std::wstring append_result = buf;
 
-                    if (depth != 0)
-                        append_result += L": " + errmsg.m_describe;
-                }
-                else
-                {
-                    if (current_row_no == beginaimrow)
+                    if (style == WO_NEED_COLOR)
+                        append_result += errmsg.m_level == wo::lexer::msglevel_t::error
+                        ? wo::str_to_wstr(ANSI_HIR)
+                        : wo::str_to_wstr(ANSI_HIC);
+
+                    if (current_row_no == aimrow)
                     {
-                        size_t i = 1;
-                        for (; i <= beginpointplace; i++)
-                            append_result += L" ";
-                        if (i < line_end_place)
-                            for (; i < line_end_place; i++)
+                        if (current_row_no == beginaimrow)
+                        {
+                            size_t i = 1;
+                            for (; i <= beginpointplace; i++)
+                                append_result += L" ";
+                            for (; i < pointplace; i++)
                                 append_result += L"~";
+                        }
                         else
-                            return;
+                            for (size_t i = 1; i < pointplace; i++)
+                                append_result += L"~";
+
+                        append_result += L"~\\"
+                            + wo::str_to_wstr(ANSI_UNDERLNE)
+                            + L" " WO_HERE
+                            + wo::str_to_wstr(ANSI_NUNDERLNE)
+                            + L"_";
+
+                        if (depth != 0)
+                            append_result += L": " + errmsg.m_describe;
                     }
                     else
                     {
-                        size_t i = 1;
-                        if (i < line_end_place)
-                            for (; i < line_end_place; i++)
-                                append_result += L"~";
+                        if (current_row_no == beginaimrow)
+                        {
+                            size_t i = 1;
+                            for (; i <= beginpointplace; i++)
+                                append_result += L" ";
+                            if (i < line_end_place)
+                                for (; i < line_end_place; i++)
+                                    append_result += L"~";
+                            else
+                                return;
+                        }
                         else
-                            return;
+                        {
+                            size_t i = 1;
+                            if (i < line_end_place)
+                                for (; i < line_end_place; i++)
+                                    append_result += L"~";
+                            else
+                                return;
+                        }
                     }
-                }
 
-                if (style == WO_NEED_COLOR)
-                    append_result += wo::str_to_wstr(ANSI_RST);
+                    if (style == WO_NEED_COLOR)
+                        append_result += wo::str_to_wstr(ANSI_RST);
 
-                result += std::wstring(depth == 0 ? 0 : depth + 1, L' ') + append_result;
-            };
+                    result += std::wstring(depth == 0 ? 0 : depth + 1, L' ') + append_result;
+                };
 
             if (from <= current_row_no && current_row_no <= to)
                 print_src_file_print_lineno();
@@ -3212,7 +3211,7 @@ wo_string_t wo_get_compile_error(wo_vm vm, wo_inform_style_t style)
 
 wo_string_t wo_get_runtime_error(wo_vm vm)
 {
-    return wo_cast_string(CS_VAL(WO_VM(vm)->er));
+    return wo_cast_string(CS_VAL(&WO_VM(vm)->register_mem_begin[wo::opnum::reg::er]));
 }
 
 wo_bool_t wo_abort_vm(wo_vm vm)
@@ -3354,7 +3353,6 @@ void wo_dispatch_rsfunc(wo_vm vm, wo_int_t vmfunc, wo_int_t argc, wo_value* inou
 
     auto* vmm = WO_VM(vm);
 
-    vmm->set_br_yieldable(true);
     vmm->co_pre_invoke(vmfunc, argc);
 }
 void wo_dispatch_exfunc(
@@ -3366,7 +3364,6 @@ void wo_dispatch_exfunc(
 
     auto* vmm = WO_VM(vm);
 
-    vmm->set_br_yieldable(true);
     vmm->co_pre_invoke(exfunc, argc);
 }
 void wo_dispatch_value(
@@ -3382,7 +3379,6 @@ void wo_dispatch_value(
 
         auto* vmm = WO_VM(vm);
 
-        vmm->set_br_yieldable(true);
         vmm->co_pre_invoke(WO_VAL(vmfunc)->closure, argc);
         break;
     }
@@ -3407,7 +3403,6 @@ wo_value wo_dispatch(
     _wo_reserved_stack_args_update_guard g3(vm, inout_args_maynull, inout_s_maynull);
 
     auto* vmm = WO_VM(vm);
-    wo_assert(vmm->get_br_yieldable());
 
     if (vmm->env)
     {
@@ -3429,32 +3424,38 @@ wo_value wo_dispatch(
             //  For case 1) & 2), return immediately; for 3) we should clean it and mark 
             //  the VM's yield flag.
             if (vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::BR_YIELD_INTERRUPT))
-                vmm->mark_br_yield();
-            break;
+            {
+                dispatch_result = wo_result_t::WO_API_SIM_YIELD;
+                break;
+            }
+            dispatch_result = wo_result_t::WO_API_NORMAL;
+            [[fallthrough]];
         case wo_result_t::WO_API_NORMAL:
             break;
         case wo_result_t::WO_API_SYNC:
-            vmm->run();
+            dispatch_result = vmm->run();
             break;
         }
 
-        if (vmm->get_and_clear_br_yield_flag())
+        switch (dispatch_result)
         {
-            (vmm->sp--)->set_callstack(origin_spbp.ret_ip, origin_spbp.bp);
-            (vmm->sp--)->set_integer(origin_tc);
-
-            return WO_CONTINUE;
-        }
-        else
-        {
+        case wo_result_t::WO_API_NORMAL:
             vmm->sp = vmm->stack_mem_begin - origin_spbp.ret_ip;
             vmm->bp = vmm->stack_mem_begin - origin_spbp.bp;
             vmm->tc->set_integer(origin_tc);
 
-            vmm->set_br_yieldable(false);
+            return CS_VAL(vmm->cr);
+        case wo_result_t::WO_API_SIM_ABORT:
+            // Aborted, donot restore states.
+            return nullptr;
+        case wo_result_t::WO_API_SIM_YIELD:
+            (vmm->sp--)->set_callstack(origin_spbp.ret_ip, origin_spbp.bp);
+            (vmm->sp--)->set_integer(origin_tc);
 
-            if (!vmm->is_aborted())
-                return CS_VAL(vmm->cr);
+            return WO_CONTINUE;
+        default:
+            wo_fail(WO_FAIL_CALL_FAIL, "Unexpected execution status: %d.", (int)dispatch_result);
+            break;
         }
     }
     return nullptr;
@@ -3495,10 +3496,21 @@ wo_value wo_run(wo_vm vm)
     if (vmm->env)
     {
         vmm->ip = vmm->env->rt_codes;
-        vmm->run();
+        auto vm_exec_result = vmm->run();
 
-        if (!vmm->is_aborted())
+        switch (vm_exec_result)
+        {
+        case wo_result_t::WO_API_NORMAL:
             return CS_VAL(vmm->cr);
+        case wo_result_t::WO_API_SIM_ABORT:
+            break;
+        case wo_result_t::WO_API_SIM_YIELD:
+            wo_fail(WO_FAIL_CALL_FAIL, "The virtual machine is interrupted by `yield`, but the caller is not `dispatch`.");
+            break;
+        default:
+            wo_fail(WO_FAIL_CALL_FAIL, "Unexpected execution status: %d.", (int)vm_exec_result);
+            break;
+        }
     }
     return nullptr;
 }
@@ -4247,12 +4259,12 @@ void wo_gcunit_unlock_shared_force(wo_value gc_reference_object)
     {
         auto* gcunit = WO_VAL(gc_reference_object)->gcunit;
         gcunit->read_end();
-}
+    }
     else
     {
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not lockable.");
     }
-    }
+}
 void wo_gcunit_lock_shared(wo_value gc_reference_object)
 {
 #if WO_FORCE_GC_OBJ_THREAD_SAFETY
@@ -4332,10 +4344,10 @@ wo_string_t wo_debug_trace_callstack(wo_vm vm, wo_size_t layer)
     std::stringstream sstream;
     vmm->dump_call_stack(layer, true, sstream);
 
-    wo_set_string(CS_VAL(vmm->er), vm, sstream.str().c_str());
-    wo_assert(vmm->er->type == wo::value::valuetype::string_type);
+    wo_set_string(CS_VAL(&vmm->register_mem_begin[wo::opnum::reg::er]), vm, sstream.str().c_str());
+    wo_assert(vmm->register_mem_begin[wo::opnum::reg::er].type == wo::value::valuetype::string_type);
 
-    return vmm->er->string->c_str();
+    return vmm->register_mem_begin[wo::opnum::reg::er].string->c_str();
 }
 
 wo_dylib_handle_t wo_fake_lib(
@@ -4634,5 +4646,5 @@ void wo_load_ir_compiler(wo_vm vm, wo_ir_compiler compiler)
     auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
     c->end();
 
-    WO_VM(vm)->set_runtime(c->finalize(wo::vmbase::VM_DEFAULT_STACK_SIZE));
+    WO_VM(vm)->set_runtime(c->finalize());
 }
