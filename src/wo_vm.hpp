@@ -239,13 +239,10 @@ namespace wo
         size_t stack_size;
 
         vmbase* gc_vm;
-
-        std::optional<std::unique_ptr<lexer>> compile_info;
-
         // next ircode pointer
-        const byte_t* codes;
         const byte_t* ip;
 
+        std::optional<std::unique_ptr<lexer>> compile_info;
         shared_pointer<runtime_env> env;
 
         std::mutex _vm_hang_mx;
@@ -364,7 +361,7 @@ namespace wo
             {
                 while (!reading_vm->interrupt(
                     vmbase::vm_interrupt_type::STACK_MODIFING_INTERRUPT))
-                    std::this_thread::yield();
+                    gcbase::rw_lock::spin_loop_hint();
 
                 m_reading_vm = reading_vm;
             }

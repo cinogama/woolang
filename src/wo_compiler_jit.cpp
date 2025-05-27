@@ -645,7 +645,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             {
                 vm->sp = vm->stack_mem_begin - sp_offset;
                 vm->bp = vm->stack_mem_begin - bp_offset;
-                vm->ip = vm->codes + retip;
+                vm->ip = vm->env->rt_codes + retip;
 
                 return WO_API_SYNC;
             }
@@ -672,7 +672,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             {
                 vm->sp = vm->stack_mem_begin - sp_offset;
                 vm->bp = vm->stack_mem_begin - bp_offset;
-                vm->ip = vm->codes + retip;
+                vm->ip = vm->env->rt_codes + retip;
 
                 return WO_API_SYNC;
             }

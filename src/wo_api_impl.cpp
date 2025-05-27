@@ -1024,10 +1024,6 @@ void wo_set_union(wo_value value, wo_vm vm, wo_integer_t id, wo_value value_may_
 
     structptr->m_values[0].set_integer(id);
 
-    wo_assert(
-        structptr->m_values[1].type == wo::value::valuetype::invalid &&
-        structptr->m_values[1].handle == 0);
-
     if (value_may_null != nullptr)
         structptr->m_values[1].set_val(WO_VAL(value_may_null));
     else

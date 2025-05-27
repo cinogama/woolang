@@ -91,20 +91,20 @@ namespace wo
     }
     bool vmbase::is_aborted() const noexcept
     {
-        return vm_interrupt & vm_interrupt_type::ABORT_INTERRUPT;
+        return vm_interrupt.load(std::memory_order::memory_order_acquire) & vm_interrupt_type::ABORT_INTERRUPT;
     }
     bool vmbase::interrupt(vm_interrupt_type type)noexcept
     {
-        return !(type & vm_interrupt.fetch_or(type));
+        return !(type & vm_interrupt.fetch_or(type, std::memory_order::memory_order_acq_rel));
     }
     bool vmbase::clear_interrupt(vm_interrupt_type type)noexcept
     {
-        return type & vm_interrupt.fetch_and(~type);
+        return type & vm_interrupt.fetch_and(~type, std::memory_order::memory_order_acq_rel);
     }
 
     bool vmbase::check_interrupt(vm_interrupt_type type)noexcept
     {
-        return 0 != (vm_interrupt & type);
+        return 0 != (vm_interrupt.load(std::memory_order::memory_order_acquire) & type);
     }
     vmbase::interrupt_wait_result vmbase::wait_interrupt(vm_interrupt_type type, bool force_wait)noexcept
     {
@@ -117,7 +117,7 @@ namespace wo
         int i = 0;
         do
         {
-            uint32_t vm_interrupt_mask = vm_interrupt.load();
+            uint32_t vm_interrupt_mask = vm_interrupt.load(std::memory_order::memory_order_acquire);
 
             if (0 == (vm_interrupt_mask & type))
                 break;
@@ -156,7 +156,7 @@ namespace wo
     {
         using namespace std;
 
-        while (vm_interrupt & type)
+        while (vm_interrupt.load(std::memory_order::memory_order_acquire) & type)
             std::this_thread::sleep_for(10ms);
     }
 
@@ -257,47 +257,7 @@ namespace wo
     {
         // TODO: GC will mark globle space when current vm is gc vm, we cannot do it now!
         return gc_vm;
-#if 0
-        static_assert(std::atomic<vmbase*>::is_always_lock_free);
-
-        std::atomic<vmbase*>* vmbase_atomic = reinterpret_cast<std::atomic<vmbase*>*>(const_cast<vmbase**>(&gc_vm));
-        vmbase* const INVALID_VM_PTR = (vmbase*)(intptr_t)-1;
-
-    retry_to_fetch_gcvm:
-        if (vmbase_atomic->load())
-        {
-            vmbase* loaded_gcvm;
-            do
-                loaded_gcvm = vmbase_atomic->load();
-            while (loaded_gcvm == INVALID_VM_PTR);
-
-            return loaded_gcvm;
-        }
-
-        vmbase* excepted = nullptr;
-        bool exchange_result = false;
-        do
-        {
-            exchange_result = vmbase_atomic->compare_exchange_weak(excepted, INVALID_VM_PTR);
-            if (!exchange_result && excepted)
-            {
-                if (excepted == INVALID_VM_PTR)
-                    goto retry_to_fetch_gcvm;
-                return excepted;
-            }
-        } while (!exchange_result);
-
-        wo_assert(vmbase_atomic->load() == INVALID_VM_PTR);
-        // Create a new VM using for GC destruct
-        auto* created_subvm_for_gc = make_machine(1024);
-        // gc_thread will be destructed by gc_work..
-        created_subvm_for_gc->virtual_machine_type = vm_type::GC_DESTRUCTOR;
-
-        vmbase_atomic->store(created_subvm_for_gc);
-        return created_subvm_for_gc;
-#endif
     }
-
     bool vmbase::advise_shrink_stack() noexcept
     {
         return ++shrink_stack_advise >= shrink_stack_edge;
@@ -364,7 +324,7 @@ namespace wo
         ++env->_running_on_vm_count;
 
         const_global_begin = env->constant_global;
-        codes = ip = env->rt_codes;
+        ip = env->rt_codes;
 
         _allocate_stack_space(env->runtime_stack_count);
         _allocate_register_space(env->real_register_count);
@@ -395,7 +355,7 @@ namespace wo
         wo_assure(wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(new_vm))));
         new_vm->const_global_begin = const_global_begin;
 
-        new_vm->codes = new_vm->ip = env->rt_codes;
+        new_vm->ip = env->rt_codes;
         new_vm->_allocate_stack_space(env->runtime_stack_count);
         new_vm->_allocate_register_space(env->real_register_count);
 
@@ -1448,16 +1408,14 @@ namespace wo
     }
     value* vmbase::make_closure_fast_impl(value* opnum1, const byte_t* rt_ip, value* rt_sp) noexcept
     {
-        bool is_native_call = !!(0b0011 & *(rt_ip - 1));
-        uint16_t closure_arg_count = WO_FAST_READ_MOVE_2;
+        const bool make_native_closure = !!(0b0011 & *(rt_ip - 1));
+        const uint16_t closure_arg_count = WO_FAST_READ_MOVE_2;
 
-        auto* created_closure = closure_t::gc_new<gcbase::gctype::young>(closure_arg_count);
-        created_closure->m_native_call = is_native_call;
-
-        if (is_native_call)
-            created_closure->m_native_func = (wo_native_func_t)WO_FAST_READ_MOVE_8;
-        else
-            created_closure->m_vm_func = WO_FAST_READ_MOVE_4;
+        auto* created_closure = make_native_closure
+            ? closure_t::gc_new<gcbase::gctype::young>(
+                (wo_native_func_t)WO_FAST_READ_MOVE_8, closure_arg_count)
+            : closure_t::gc_new<gcbase::gctype::young>(
+                (wo_integer_t)WO_FAST_READ_MOVE_4, closure_arg_count);
 
         for (size_t i = 0; i < (size_t)closure_arg_count; i++)
         {
@@ -1469,16 +1427,14 @@ namespace wo
     }
     value* vmbase::make_closure_safe_impl(value* opnum1, const byte_t* rt_ip, value* rt_sp) noexcept
     {
-        bool is_native_call = !!(0b0011 & *(rt_ip - 1));
-        uint16_t closure_arg_count = WO_SAFE_READ_MOVE_2;
+        const bool make_native_closure = !!(0b0011 & *(rt_ip - 1));
+        const uint16_t closure_arg_count = WO_FAST_READ_MOVE_2;
 
-        auto* created_closure = closure_t::gc_new<gcbase::gctype::young>(closure_arg_count);
-        created_closure->m_native_call = is_native_call;
-
-        if (is_native_call)
-            created_closure->m_native_func = (wo_native_func_t)WO_SAFE_READ_MOVE_8;
-        else
-            created_closure->m_vm_func = WO_SAFE_READ_MOVE_4;
+        auto* created_closure = make_native_closure
+            ? closure_t::gc_new<gcbase::gctype::young>(
+                (wo_native_func_t)WO_SAFE_READ_MOVE_8, closure_arg_count)
+            : closure_t::gc_new<gcbase::gctype::young>(
+                (wo_integer_t)WO_SAFE_READ_MOVE_4, closure_arg_count);
 
         for (size_t i = 0; i < (size_t)closure_arg_count; i++)
         {
@@ -2922,7 +2878,7 @@ namespace wo
                 else if (interrupt_state & vm_interrupt_type::STACK_OVERFLOW_INTERRUPT)
                 {
                     while (!interrupt(vm_interrupt_type::STACK_MODIFING_INTERRUPT))
-                        std::this_thread::yield();
+                        gcbase::rw_lock::spin_loop_hint();
 
                     shrink_stack_edge = std::min(VM_SHRINK_STACK_MAX_EDGE, shrink_stack_edge + 1);
                     // Force realloc stack buffer.
@@ -2938,7 +2894,7 @@ namespace wo
                 else if (interrupt_state & vm_interrupt_type::SHRINK_STACK_INTERRUPT)
                 {
                     while (!interrupt(vm_interrupt_type::STACK_MODIFING_INTERRUPT))
-                        std::this_thread::yield();
+                        gcbase::rw_lock::spin_loop_hint();
 
                     if (_reallocate_stack_space(stack_size >> 1))
                         shrink_stack_edge = VM_SHRINK_STACK_COUNT;

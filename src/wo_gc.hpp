@@ -64,43 +64,82 @@ namespace wo
     {
         struct _shared_spin
         {
-            std::atomic_flag _sspin_write_flag = ATOMIC_FLAG_INIT;
-            std::atomic_uint _sspin_read_flag = ATOMIC_VAR_INIT(0);
+            std::atomic<bool> write_lock = ATOMIC_VAR_INIT(false);
+            std::atomic<unsigned> readers = ATOMIC_VAR_INIT(0);
 
-            inline bool try_lock() noexcept
+            static void spin_loop_hint()
             {
-                if (_sspin_write_flag.test_and_set(std::memory_order_acquire))
+                // If in msvc
+#if defined(_MSC_VER) && _MSC_VER >= 1900
+                _mm_pause();
+#elif defined(__GNUC__) || defined(__clang__)
+#if defined(__aarch64__) || defined(_M_ARM64)
+                __asm__ __volatile__("yield");
+#elif defined(__x86_64__) || defined(_M_X64)
+                __asm__ __volatile__("pause");
+#else
+                std::this_thread::yield();
+#endif
+#else
+                // No specific pause instruction available, use a generic hint
+                std::this_thread::yield();
+#endif
+            }
+
+            bool try_lock() noexcept
+            {
+                if (write_lock.exchange(true, std::memory_order_acquire))
                     return false;
-                if (_sspin_read_flag.load(std::memory_order_relaxed))
-                {
-                    _sspin_write_flag.clear(std::memory_order_release);
+
+                if (readers.load(std::memory_order_acquire) != 0) {
+                    write_lock.store(false, std::memory_order_release);
                     return false;
                 }
                 return true;
             }
-            inline void lock() noexcept
+            void lock() noexcept
             {
-                while (_sspin_write_flag.test_and_set(std::memory_order_acquire));
-                while (_sspin_read_flag.load(std::memory_order_relaxed));
+                bool expected = false;
+                while (!write_lock.compare_exchange_weak(expected, true,
+                    std::memory_order_acquire,
+                    std::memory_order_relaxed)) {
+                    expected = false;
+                }
+
+                while (readers.load(std::memory_order_acquire) != 0)
+                    spin_loop_hint();
             }
-            inline void unlock() noexcept
+            void unlock() noexcept
             {
-                _sspin_write_flag.clear(std::memory_order_release);
+                write_lock.store(false, std::memory_order_release);
             }
-            inline void lock_shared() noexcept
+            void lock_shared() noexcept
             {
-                while (_sspin_write_flag.test_and_set(std::memory_order_acquire));
-                _sspin_read_flag.fetch_add(1, std::memory_order_relaxed);
-                _sspin_write_flag.clear(std::memory_order_release);
+                while (true) {
+                    while (write_lock.load(std::memory_order_acquire))
+                        spin_loop_hint();
+
+                    readers.fetch_add(1, std::memory_order_acq_rel);
+                    if (!write_lock.load(std::memory_order_acquire))
+                        break;
+
+                    readers.fetch_sub(1, std::memory_order_release);
+                }
             }
-            inline void unlock_shared() noexcept
+            void unlock_shared() noexcept
             {
-                _sspin_read_flag.fetch_sub(1, std::memory_order_relaxed);
+                readers.fetch_sub(1, std::memory_order_release);
             }
         };
         struct gc_mark_read_guard
         {
             gcbase* _mx;
+
+            gc_mark_read_guard(const gc_mark_read_guard&) = delete;
+            gc_mark_read_guard(gc_mark_read_guard&&) = delete;
+            gc_mark_read_guard& operator=(const gc_mark_read_guard&) = delete;
+            gc_mark_read_guard& operator=(gc_mark_read_guard&&) = delete;
+
             inline gc_mark_read_guard(gcbase* sp)
                 :_mx(sp)
             {
@@ -114,6 +153,12 @@ namespace wo
         struct gc_modify_write_guard
         {
             gcbase* _mx;
+
+            gc_modify_write_guard(const gc_modify_write_guard&) = delete;
+            gc_modify_write_guard(gc_modify_write_guard&&) = delete;
+            gc_modify_write_guard& operator=(const gc_modify_write_guard&) = delete;
+            gc_modify_write_guard& operator=(gc_modify_write_guard&&) = delete;
+
             inline gc_modify_write_guard(gcbase* sp)
                 :_mx(sp)
             {
@@ -129,16 +174,17 @@ namespace wo
         using gc_read_guard = gc_mark_read_guard;
         using gc_write_guard = gc_modify_write_guard;
 #else
-        struct gc_read_guard
+        struct gc_non_lock_guard
         {
-            inline gc_read_guard(gcbase* _)
+            inline gc_non_lock_guard(gcbase* _)
             {
             }
-            inline ~gc_read_guard()
+            inline ~gc_non_lock_guard()
             {
             }
         };
-        using gc_write_guard = gc_read_guard;
+        using gc_read_guard = gc_non_lock_guard;
+        using gc_write_guard = gc_non_lock_guard;
 #endif
 
         enum class gctype : uint8_t
@@ -204,8 +250,8 @@ namespace wo
 
         virtual ~gcbase();
 
-        inline static std::atomic_uint32_t gc_new_count = 0;
-        };
+        inline static uint32_t gc_new_releax_count = 0;
+    };
 
     template<typename T>
     struct gcunit : public gcbase, public T
@@ -213,7 +259,7 @@ namespace wo
         template<gcbase::gctype AllocType, typename ... ArgTs >
         static gcunit<T>* gc_new(ArgTs && ... args)
         {
-            ++gc_new_count;
+            ++gc_new_releax_count;
 
             // TODO: Optimize this.
             gcbase::unit_attrib a;
@@ -241,4 +287,4 @@ namespace wo
             return static_cast<T*>(this);
         }
     };
-    }
+}
