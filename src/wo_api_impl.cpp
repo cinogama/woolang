@@ -486,7 +486,7 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
         wo_gc_immediately(WO_TRUE);
         std::this_thread::sleep_for(10ms);
 
-        if (wo::vmbase::_alive_vm_count_for_gc_vm_destruct == 0)
+        if (wo::vmbase::_alive_vm_count_for_gc_vm_destruct.load() == 0)
             break;
 
     } while (true);
@@ -1846,10 +1846,14 @@ wo_result_t wo_ret_halt(wo_vm vm, wo_string_t reasonfmt, ...)
     wo::vmbase* vmbase = WO_VM(vm);
     {
         _wo_enter_gc_guard g(vm);
-        vmbase->er->set_string(buf.data());
+        vmbase->register_mem_begin[wo::opnum::reg::er].set_string(buf.data());
     }
     vmbase->interrupt(wo::vmbase::vm_interrupt_type::ABORT_INTERRUPT);
-    wo::wo_stderr << ANSI_HIR "Halt happend: " ANSI_RST << wo_cast_string((wo_value)vmbase->er) << wo::wo_endl;
+    wo::wo_stderr 
+        << ANSI_HIR "Halt happend: " ANSI_RST 
+        << wo_cast_string(CS_VAL(&vmbase->register_mem_begin[wo::opnum::reg::er])) 
+        << wo::wo_endl;
+
     vmbase->dump_call_stack(32, true, std::cerr);
     return wo_result_t::WO_API_RESYNC;
 }
@@ -1867,9 +1871,9 @@ wo_result_t wo_ret_panic(wo_vm vm, wo_string_t reasonfmt, ...)
     wo::vmbase* vmbase = WO_VM(vm);
     {
         _wo_enter_gc_guard g(vm);
-        vmbase->er->set_string(buf.data());
+        vmbase->register_mem_begin[wo::opnum::reg::er].set_string(buf.data());
     }
-    wo_fail(WO_FAIL_USER_PANIC, vmbase->er->string->c_str());
+    wo_fail(WO_FAIL_USER_PANIC, vmbase->register_mem_begin[wo::opnum::reg::er].string->c_str());
     return wo_result_t::WO_API_RESYNC;
 }
 
@@ -3207,7 +3211,7 @@ wo_string_t wo_get_compile_error(wo_vm vm, wo_inform_style_t style)
 
 wo_string_t wo_get_runtime_error(wo_vm vm)
 {
-    return wo_cast_string(CS_VAL(WO_VM(vm)->er));
+    return wo_cast_string(CS_VAL(&WO_VM(vm)->register_mem_begin[wo::opnum::reg::er]));
 }
 
 wo_bool_t wo_abort_vm(wo_vm vm)
@@ -4340,10 +4344,10 @@ wo_string_t wo_debug_trace_callstack(wo_vm vm, wo_size_t layer)
     std::stringstream sstream;
     vmm->dump_call_stack(layer, true, sstream);
 
-    wo_set_string(CS_VAL(vmm->er), vm, sstream.str().c_str());
-    wo_assert(vmm->er->type == wo::value::valuetype::string_type);
+    wo_set_string(CS_VAL(&vmm->register_mem_begin[wo::opnum::reg::er]), vm, sstream.str().c_str());
+    wo_assert(vmm->register_mem_begin[wo::opnum::reg::er].type == wo::value::valuetype::string_type);
 
-    return vmm->er->string->c_str();
+    return vmm->register_mem_begin[wo::opnum::reg::er].string->c_str();
 }
 
 wo_dylib_handle_t wo_fake_lib(

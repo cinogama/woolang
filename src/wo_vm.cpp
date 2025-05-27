@@ -168,7 +168,6 @@ namespace wo
         , cr(nullptr)
         , tc(nullptr)
         , tp(nullptr)
-        , er(nullptr)
         , sp(nullptr)
         , bp(nullptr)
         , register_mem_begin(nullptr)
@@ -252,7 +251,6 @@ namespace wo
         cr = register_mem_begin + opnum::reg::spreg::cr;
         tc = register_mem_begin + opnum::reg::spreg::tc;
         tp = register_mem_begin + opnum::reg::spreg::tp;
-        er = register_mem_begin + opnum::reg::spreg::er;
     }
     void vmbase::_allocate_stack_space(size_t stacksz)noexcept
     {

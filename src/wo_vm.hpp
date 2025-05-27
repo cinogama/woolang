@@ -228,7 +228,6 @@ namespace wo
         value* cr;  // op result trace & function return;
         value* tc;  // arugument count
         value* tp;  // stored argument count
-        value* er;  // exception result
 
         // stack info
         value* sp;
@@ -243,6 +242,7 @@ namespace wo
         size_t stack_size;
 
         vmbase* gc_vm;
+
         // next ircode pointer
         const byte_t* ip;
 
