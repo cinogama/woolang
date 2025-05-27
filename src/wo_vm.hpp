@@ -17,6 +17,7 @@
 #include <ctime>
 #include <chrono>
 #include <memory>
+#include <optional>
 
 #if WO_BUILD_WITH_MINGW
 #   include <mingw.thread.h>
@@ -197,9 +198,9 @@ namespace wo
     public:
         inline static constexpr size_t VM_DEFAULT_STACK_SIZE = 32;
         inline static constexpr size_t VM_MAX_STACK_SIZE = 128 * 1024 * 1024;
-        inline static constexpr size_t VM_SHRINK_STACK_COUNT = 3;
-        inline static constexpr size_t VM_SHRINK_STACK_MAX_EDGE = 16;
-        inline static constexpr size_t VM_MAX_JIT_FUNCTION_DEPTH = 32;
+        inline static constexpr uint8_t VM_SHRINK_STACK_COUNT = 3;
+        inline static constexpr uint8_t VM_SHRINK_STACK_MAX_EDGE = 16;
+        inline static constexpr uint8_t VM_MAX_JIT_FUNCTION_DEPTH = 32;
 
         static_assert(VM_SHRINK_STACK_COUNT < VM_SHRINK_STACK_MAX_EDGE);
         static_assert(VM_MAX_STACK_SIZE >= VM_DEFAULT_STACK_SIZE);
@@ -218,7 +219,10 @@ namespace wo
         inline static vm_debuggee_bridge_base* attaching_debuggee = nullptr;
 
     public:
-        const vm_type virtual_machine_type;
+#if WO_ENABLE_RUNTIME_CHECK
+        // runtime information
+        std::thread::id attaching_thread_id;
+#endif 
 
         // special regist
         value* cr;  // op result trace & function return;
@@ -249,9 +253,6 @@ namespace wo
         std::condition_variable _vm_hang_cv;
         std::atomic_int8_t _vm_hang_flag;
 
-        bool _vm_br_yieldable;
-        bool _vm_br_yield_flag;
-
         union
         {
             std::atomic<uint32_t> vm_interrupt;
@@ -260,14 +261,12 @@ namespace wo
         static_assert(sizeof(std::atomic<uint32_t>) == sizeof(uint32_t));
         static_assert(std::atomic<uint32_t>::is_always_lock_free);
 
-#if WO_ENABLE_RUNTIME_CHECK
-        // runtime information
-        std::thread::id attaching_thread_id;
-#endif     
-        size_t jit_function_call_depth;
+        uint8_t jit_function_call_depth;
+        const vm_type virtual_machine_type;
+
     protected:
-        size_t shrink_stack_advise;
-        size_t shrink_stack_edge;
+        uint8_t shrink_stack_advise;
+        uint8_t shrink_stack_edge;
 
     private:
         vmbase(const vmbase&) = delete;
@@ -278,11 +277,6 @@ namespace wo
     public:
         void inc_destructable_instance_count() noexcept;
         void dec_destructable_instance_count() noexcept;
-
-        void set_br_yieldable(bool able) noexcept;
-        bool get_br_yieldable() noexcept;
-        bool get_and_clear_br_yield_flag() noexcept;
-        void mark_br_yield() noexcept;
 
         static vm_debuggee_bridge_base* attach_debuggee(vm_debuggee_bridge_base* dbg) noexcept;
         static vm_debuggee_bridge_base* current_debuggee() noexcept;

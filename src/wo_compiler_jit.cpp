@@ -222,8 +222,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             instruct::opcode    opcode = (instruct::opcode)(opcode_dr & 0b11111100u);
             unsigned int        dr = opcode_dr & 0b00000011u;
 
-            ir_make_checkpoint(ctx, rt_ip);
-
             for (;;)
             {
                 uint32_t current_ip_byteoffset = (uint32_t)(rt_ip - m_codes);
@@ -540,20 +538,13 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             }
             else if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::BR_YIELD_INTERRUPT)
             {
-                // wo_assure(vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::BR_YIELD_INTERRUPT));
-                if (vmm->get_br_yieldable())
-                {
-                    // store current context, then break out of jit function
-                    vmm->ip = rt_ip;
-                    vmm->sp = rt_sp;
-                    vmm->bp = rt_bp;
-                    // NOTE: DONOT CLEAR BR_YIELD_INTERRUPT, IT SHOULD BE CLEAR IN VM-RUN
+                // NOTE: DONOT CLEAR BR_YIELD_INTERRUPT, IT SHOULD BE CLEAR IN VM-RUN
+                // store current context, then break out of jit function
+                vmm->ip = rt_ip;
+                vmm->sp = rt_sp;
+                vmm->bp = rt_bp;
 
-                    vmm->mark_br_yield();
-                    return wo_result_t::WO_API_SYNC; // return 
-                }
-                else
-                    wo_fail(WO_FAIL_NOT_SUPPORT, "BR_YIELD_INTERRUPT only work at br_yieldable vm.");
+                return wo_result_t::WO_API_SYNC; // return 
             }
             else if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT)
             {
@@ -618,7 +609,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             wo_assure(!x86compiler.int3());
             wo_assure(!x86compiler.bind(not_resync));
 #endif
-            wo_assure(!x86compiler.dec(asmjit::x86::qword_ptr(vm, offsetof(vmbase, jit_function_call_depth))));
+            wo_assure(!x86compiler.dec(asmjit::x86::byte_ptr(vm, offsetof(vmbase, jit_function_call_depth))));
             wo_assure(!x86compiler.ret(result)); // break this execute!!!
 
             wo_assure(!x86compiler.bind(normal));
@@ -1045,7 +1036,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
 
             wo_assure(!ctx->c.cmp(result, asmjit::Imm(wo_result_t::WO_API_NORMAL)));
             wo_assure(!ctx->c.je(no_interrupt_label));
-            wo_assure(!ctx->c.dec(asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, jit_function_call_depth))));
+            wo_assure(!ctx->c.dec(asmjit::x86::byte_ptr(ctx->_vmbase, offsetof(vmbase, jit_function_call_depth))));
             wo_assure(!ctx->c.ret(result)); // break this execute!!!
             wo_assure(!ctx->c.bind(no_interrupt_label));
         }
@@ -1060,24 +1051,24 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
         virtual void ir_check_jit_invoke_depth(X64CompileContext* ctx, const wo::byte_t* rollback_ip) override
         {
             auto check_ok_label = ctx->c.newLabel();
-            auto depth_count = ctx->c.newUInt64();
-            wo_assure(!ctx->c.mov(depth_count, asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, jit_function_call_depth))));
+            auto depth_count = ctx->c.newUInt8();
+            wo_assure(!ctx->c.mov(depth_count, asmjit::x86::byte_ptr(ctx->_vmbase, offsetof(vmbase, jit_function_call_depth))));
             wo_assure(!ctx->c.cmp(depth_count, asmjit::Imm(wo::vmbase::VM_MAX_JIT_FUNCTION_DEPTH)));
             wo_assure(!ctx->c.jb(check_ok_label));
 
-            wo_assure(!ctx->c.mov(depth_count, asmjit::Imm((intptr_t)rollback_ip)));
-            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, ip)), depth_count));
+            auto rollback_ip_addr = ctx->c.newUInt64();
+            wo_assure(!ctx->c.mov(rollback_ip_addr, asmjit::Imm((intptr_t)rollback_ip)));
+            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, ip)), rollback_ip_addr));
             wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, sp)), ctx->_vmssp));
             wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, bp)), ctx->_vmsbp));
             wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, bp)), ctx->_vmsbp));
-            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, jit_function_call_depth)), asmjit::imm(0)));
+            wo_assure(!ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmbase, offsetof(vmbase, jit_function_call_depth)), asmjit::imm(0)));
 
-            wo_assure(!ctx->c.mov(depth_count, asmjit::Imm(wo_result_t::WO_API_SYNC)));
-            wo_assure(!ctx->c.ret(depth_count));
+            wo_assure(!ctx->c.mov(rollback_ip_addr, asmjit::Imm(wo_result_t::WO_API_SYNC)));
+            wo_assure(!ctx->c.ret(rollback_ip_addr));
 
             wo_assure(!ctx->c.bind(check_ok_label));
-            wo_assure(!ctx->c.inc(depth_count));
-            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, jit_function_call_depth)), depth_count));
+            wo_assure(!ctx->c.inc(asmjit::x86::byte_ptr(ctx->_vmbase, offsetof(vmbase, jit_function_call_depth))));
         }
         static asmjit::x86::Gp x86_set_imm(asmjit::x86::Compiler& x86compiler, asmjit::x86::Gp val, const wo::value& instance)
         {
@@ -2234,7 +2225,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
 
             auto stat = ctx->c.newInt32();
             static_assert(sizeof(wo_result_t) == sizeof(int32_t));
-            wo_assure(!ctx->c.dec(asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, jit_function_call_depth))));
+            wo_assure(!ctx->c.dec(asmjit::x86::byte_ptr(ctx->_vmbase, offsetof(vmbase, jit_function_call_depth))));
             wo_assure(!ctx->c.mov(stat, asmjit::Imm(wo_result_t::WO_API_NORMAL)));
             wo_assure(!ctx->c.ret(stat));
             return true;

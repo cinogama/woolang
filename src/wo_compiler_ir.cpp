@@ -410,7 +410,6 @@ namespace wo
         , constant_and_global_value_takeplace_count(0)
         , constant_value_count(0)
         , real_register_count(0)
-        , runtime_stack_count(0)
         , rt_code_len(0)
         , rt_codes(nullptr)
         , _running_on_vm_count(0)
@@ -733,7 +732,7 @@ namespace wo
     }
 
     std::optional<shared_pointer<runtime_env>> runtime_env::_create_from_stream(
-        binary_source_stream* stream, size_t stackcount, wo_string_t* out_reason, bool* out_is_binary)
+        binary_source_stream* stream, wo_string_t* out_reason, bool* out_is_binary)
     {
         *out_is_binary = true;
 
@@ -776,8 +775,6 @@ namespace wo
         result->constant_and_global_value_takeplace_count =
             (size_t)(constant_value_count + 1 + global_value_count + 1);
         result->constant_value_count = (size_t)constant_value_count;
-
-        result->runtime_stack_count = stackcount;
 
         size_t preserve_memory_size =
             result->constant_and_global_value_takeplace_count;
@@ -1310,7 +1307,6 @@ namespace wo
         wo_string_t virtual_file,
         const void* bytestream,
         size_t streamsz,
-        size_t stack_count,
         wo_string_t* out_reason,
         bool* out_is_binary)
     {
@@ -1328,7 +1324,7 @@ namespace wo
             buffer_to_store_data_from_file_or_mem = std::string((const char*)bytestream, streamsz);
 
         binary_source_stream buf(buffer_to_store_data_from_file_or_mem.data(), buffer_to_store_data_from_file_or_mem.size());
-        return _create_from_stream(&buf, stack_count, out_reason, out_is_binary);
+        return _create_from_stream(&buf, out_reason, out_is_binary);
     }
 
     bool runtime_env::try_find_script_func(const std::string& name, wo_integer_t* out_script_func)
@@ -1354,7 +1350,7 @@ namespace wo
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    shared_pointer<runtime_env> ir_compiler::finalize(size_t stacksz)
+    shared_pointer<runtime_env> ir_compiler::finalize()
     {
         // 1. Generate constant & global & register & runtime_stack memory buffer
         size_t constant_value_count = constant_record_list.size();
@@ -1372,7 +1368,6 @@ namespace wo
         }
 
         size_t real_register_count = 64;     // t0-t15 r0-r15 (32) special reg (32)
-        size_t runtime_stack_count = stacksz;  // by default
 
         size_t preserve_memory_size =
             constant_value_count
@@ -2212,7 +2207,6 @@ namespace wo
         env->constant_and_global_value_takeplace_count = preserve_memory_size;
 
         env->real_register_count = real_register_count;
-        env->runtime_stack_count = runtime_stack_count;
         env->rt_code_len = generated_runtime_code_buf.size();
         byte_t* code_buf = (byte_t*)malloc(env->rt_code_len * sizeof(byte_t));
 

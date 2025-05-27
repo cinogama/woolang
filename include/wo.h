@@ -155,17 +155,39 @@ typedef int wo_bool_t;
 
 typedef enum _wo_api
 {
+    // [Returned by both VM, JIT and EXTERN function]
+    // Normal end.
+    // Nothing todo.
     WO_API_NORMAL = 0,
 
-    // RESYNC used for:
-    // 1) In JIT, ip, sp, bp should be sync to vm state, and return WO_API_SYNC immediately.
-    // 2) In VM, treat it as WO_API_NORMAL.
-    WO_API_RESYNC = 1,
+    // [Returned by VM]
+    // Program ended by abort flag.
+    // Nothing todo.
+    WO_API_SIM_ABORT = 1,
 
-    // SYNC used for:
-    // 1) In JIT, the function should return WO_API_SYNC immediately.
-    // 2) In VM, resync rt_ip from vm state.
-    WO_API_SYNC = 2,
+    // [Returned by VM]
+    // Program yield break, can be dispatched later.
+    // Nothing todo.
+    WO_API_SIM_YIELD = 2,
+
+    // [Returned by EXTERN function]
+    // External functions change the state of the virtual machine, 
+    // which needs to be synchronized immediately
+    //
+    // If JIT received this: ip, sp, bp should be sync to vm state, 
+    //      and return WO_API_SYNC immediately.
+    // If VM received this: nothing todo.
+    WO_API_RESYNC = 3,
+
+    // [Returned by JIT function]
+    // When the JIT function encounters an unhandled interrupt, or 
+    // the state has changed from WO_API_RESYNC, it is passed upward 
+    // via WO_API_SYNC
+    //
+    // If JIT received this: return WO_API_SYNC immediately.
+    // If VM received this: refetch ip from vm state, then continue
+    //      execute.
+    WO_API_SYNC = 4,
 
 } wo_api,
     wo_result_t;

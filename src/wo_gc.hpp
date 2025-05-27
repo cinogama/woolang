@@ -207,9 +207,9 @@ namespace wo
             struct
             {
                 uint8_t m_gc_age : 4;
+                uint8_t m_nogc : 1;
                 uint8_t m_marked : 2;
                 uint8_t m_alloc_mask : 1;
-                uint8_t m_nogc : 1;
             };
             womem_attrib_t m_attr;
         };
@@ -250,7 +250,7 @@ namespace wo
 
         virtual ~gcbase();
 
-        inline static uint32_t gc_new_releax_count = 0;
+        inline static std::atomic_uint32_t gc_new_releax_count = 0;
     };
 
     template<typename T>
@@ -259,16 +259,18 @@ namespace wo
         template<gcbase::gctype AllocType, typename ... ArgTs >
         static gcunit<T>* gc_new(ArgTs && ... args)
         {
-            ++gc_new_releax_count;
+            (void)gc_new_releax_count.fetch_add(
+                1, std::memory_order::memory_order_relaxed);
 
             // TODO: Optimize this.
             gcbase::unit_attrib a;
             a.m_gc_age = AllocType == gcbase::gctype::young ? (uint8_t)0x0F : (uint8_t)0;
-            a.m_marked = 0;
             a.m_nogc = AllocType == gcbase::gctype::no_gc ? (uint8_t)0x01 : (uint8_t)0;
+            a.m_marked = 0;
             a.m_alloc_mask = 0;
 
-            auto* created_gcnuit = new (alloc64(sizeof(gcunit<T>), a.m_attr))gcunit<T>(args...);
+            auto* created_gcnuit = 
+                new (alloc64(sizeof(gcunit<T>), a.m_attr))gcunit<T>(args...);
 
 #if WO_ENABLE_RUNTIME_CHECK
             created_gcnuit->gc_typename = typeid(T).name();
