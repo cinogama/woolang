@@ -15,7 +15,7 @@
 #   include <mingw.mutex.h>
 #endif
 
-#ifdef WIN32
+#ifdef _WIN32
 #   include <Windows.h>
 #   undef min
 #else
@@ -25,7 +25,7 @@
 
 size_t _womem_page_size()
 {
-#ifdef WIN32
+#ifdef _WIN32
     SYSTEM_INFO s;
     GetSystemInfo(&s);
     return s.dwPageSize;
@@ -36,7 +36,7 @@ size_t _womem_page_size()
 
 void* _womem_reserve_mem(size_t sz)
 {
-#ifdef WIN32
+#ifdef _WIN32
     return VirtualAlloc(nullptr, sz, MEM_RESERVE, PAGE_NOACCESS);
 #elif WO_DISABLE_FUNCTION_FOR_WASM
     return mmap(nullptr, sz, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
@@ -50,7 +50,7 @@ bool _womem_commit_mem(void* mem, size_t sz)
     // Do nothing
     return true;
 #else
-#   ifdef WIN32
+#   ifdef _WIN32
     return nullptr != VirtualAlloc(mem, sz, MEM_COMMIT, PAGE_READWRITE);
 #   else
     return 0 == mprotect(mem, sz, PROT_READ | PROT_WRITE);
@@ -63,7 +63,7 @@ bool _womem_decommit_mem(void* mem, size_t sz)
     // Do nothing
     return true;
 #else
-#   ifdef WIN32
+#   ifdef _WIN32
     return 0 != VirtualFree(mem, sz, MEM_DECOMMIT);
 #   else
     return 0 == mprotect(mem, sz, PROT_NONE);
@@ -72,7 +72,7 @@ bool _womem_decommit_mem(void* mem, size_t sz)
 }
 bool _womem_release_mem(void* mem, size_t sz)
 {
-#ifdef WIN32
+#ifdef _WIN32
     return 0 != VirtualFree(mem, 0, MEM_RELEASE);
 #elif WO_DISABLE_FUNCTION_FOR_WASM
     return 0 == munmap(mem, sz);
@@ -82,7 +82,7 @@ bool _womem_release_mem(void* mem, size_t sz)
 }
 int _womem_get_last_error(void)
 {
-#ifdef WIN32
+#ifdef _WIN32
     return GetLastError();
 #else
     return errno;

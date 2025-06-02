@@ -12,7 +12,6 @@ file(GLOB_RECURSE woo_src_hpp *.hpp)
 
 if (WIN32)
 	list(APPEND woo_system_libs "")
-
 else()
 	if (NOT ANDROID)
 		list(APPEND woo_system_libs pthread)
