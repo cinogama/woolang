@@ -1,6 +1,6 @@
 # libwoo
 #
-cmake_minimum_required (VERSION 3.8)
+cmake_minimum_required (VERSION 3.10)
 
 include_directories("../include")
 include_directories("../3rd/asmjit/src")
@@ -12,7 +12,6 @@ file(GLOB_RECURSE woo_src_hpp *.hpp)
 
 if (WIN32)
 	list(APPEND woo_system_libs "")
-
 else()
 	if (NOT ANDROID)
 		list(APPEND woo_system_libs pthread)
