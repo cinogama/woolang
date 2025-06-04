@@ -1878,8 +1878,8 @@ namespace wo
             }
             case lang_TypeInstance::DeterminedType::STRUCT:
             {
-                if (m_origin_types.m_string.m_type_instance
-                    != immutable_type(indexer_type_instance))
+                if (indexer_determined_base_type_instance->m_base_type
+                    != lang_TypeInstance::DeterminedType::STRING)
                 {
                     lex.record_lang_error(lexer::msglevel_t::error, node->m_index,
                         WO_ERR_CANNOT_INDEX_TYPE_WITH_TYPE,
@@ -1931,8 +1931,8 @@ namespace wo
             }
             case lang_TypeInstance::DeterminedType::TUPLE:
             {
-                if (m_origin_types.m_int.m_type_instance
-                    != immutable_type(indexer_type_instance))
+                if (indexer_determined_base_type_instance->m_base_type
+                    != lang_TypeInstance::DeterminedType::INTEGER)
                 {
                     lex.record_lang_error(lexer::msglevel_t::error, node->m_index,
                         WO_ERR_CANNOT_INDEX_TYPE_WITH_TYPE,
@@ -4326,7 +4326,7 @@ namespace wo
                     if (node->m_operator > AstValueBinaryOperator::LOGICAL_AND)
                         node->m_LANG_determined_type = m_origin_types.m_bool.m_type_instance;
                     else
-                        node->m_LANG_determined_type = immutable_type(left_type);
+                        node->m_LANG_determined_type = left_type;
 
                     // Check for divide by zero.
                     if ((node->m_operator == AstValueBinaryOperator::DIVIDE
@@ -4650,7 +4650,7 @@ namespace wo
                     return FAILED;
                 }
 
-                node->m_LANG_determined_type = immutable_type(operand_type);
+                node->m_LANG_determined_type = operand_type;
 
                 if (node->m_operand->m_evaled_const_value.has_value())
                 {
@@ -4695,7 +4695,7 @@ namespace wo
                     return FAILED;
                 }
 
-                node->m_LANG_determined_type = immutable_type(operand_type);
+                node->m_LANG_determined_type = operand_type;
 
                 if (node->m_operand->m_evaled_const_value.has_value())
                 {
@@ -5498,7 +5498,7 @@ namespace wo
                 }
 
                 if (node->m_valued_assign)
-                    node->m_LANG_determined_type = immutable_type(left_type);
+                    node->m_LANG_determined_type = left_type;
                 else
                     node->m_LANG_determined_type = m_origin_types.m_void.m_type_instance;
 

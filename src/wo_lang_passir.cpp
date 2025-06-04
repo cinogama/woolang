@@ -1620,8 +1620,9 @@ namespace wo
         // Only dynamic check can be here.
         if (state == UNPROCESSED)
         {
-            wo_assert(immutable_type(
-                node->m_check_value->m_LANG_determined_type.value()) == m_origin_types.m_dynamic.m_type_instance);
+            wo_assert(
+                m_origin_types.m_dynamic.m_type_instance == 
+                immutable_type(node->m_check_value->m_LANG_determined_type.value()));
 
             m_ircontext.eval_sth_if_not_ignore(
                 &BytecodeGenerateContext::eval);
