@@ -108,8 +108,7 @@ namespace test_string_u8
                         for (let mut i = 0; i < badstr_r->len; i += 1)
                             std::print(badstr_r[i], "");
                     }
-                }, ()
-            );
+                });
             ->> \t = t->wait;
             ->> \_ = thread::create(
                 func()
@@ -126,8 +125,7 @@ namespace test_string_u8
                         test_equal(badstr_r as string->len, badstr_r->chars as array<char>->len);
                         test_assure(badstr_r as string->len <= badstr_r->cchars as array<cchar>->len);
                     }
-                }, ()
-            );
+                });
             ->> \t = t->wait;
             ;
         
