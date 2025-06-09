@@ -2109,7 +2109,7 @@ func main()
     {
         let test_threads = []mut: vec<thread>;
         for (let mut i = 0 ; i < 4; i += 1)
-            test_threads->add(thread::create(test_compile_success_or_fail, ()));
+            test_threads->add(thread::create(test_compile_success_or_fail));
 
         test_compile_success_or_fail();
 

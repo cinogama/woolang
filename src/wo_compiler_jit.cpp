@@ -929,6 +929,14 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             {
                 return m_is_constant;
             }
+            bool is_constant_i32() const
+            {
+                return m_is_constant && m_constant->integer >= INT32_MIN && m_constant->integer <= INT32_MAX;
+            }
+            bool is_constant_h32() const
+            {
+                return m_is_constant && m_constant->handle <= INT32_MAX;
+            }
             bool is_constant_and_not_tag(X64CompileContext* ctx) const
             {
                 if (is_constant())
@@ -1062,7 +1070,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, sp)), ctx->_vmssp));
             wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, bp)), ctx->_vmsbp));
             wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, bp)), ctx->_vmsbp));
-            wo_assure(!ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmbase, offsetof(vmbase, jit_function_call_depth)), asmjit::imm(0)));
+            wo_assure(!ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmbase, offsetof(vmbase, jit_function_call_depth)), asmjit::Imm(0)));
 
             wo_assure(!ctx->c.mov(rollback_ip_addr, asmjit::Imm(wo_result_t::WO_API_SYNC)));
             wo_assure(!ctx->c.ret(rollback_ip_addr));
@@ -1289,7 +1297,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
-            if (opnum2.is_constant())
+            if (opnum2.is_constant_i32())
                 wo_assure(!ctx->c.add(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), opnum2.const_value()->integer));
             else
             {
@@ -1304,7 +1312,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
-            if (opnum2.is_constant())
+            if (opnum2.is_constant_i32())
             {
                 wo_assure(!ctx->c.sub(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), opnum2.const_value()->integer));
             }
@@ -1322,7 +1330,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             WO_JIT_ADDRESSING_N2;
 
             auto int_of_op2 = ctx->c.newInt64();
-            if (opnum2.is_constant())
+            if (opnum2.is_constant_i32())
                 wo_assure(!ctx->c.mov(int_of_op2, opnum2.const_value()->integer));
             else
                 wo_assure(!ctx->c.mov(int_of_op2, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
@@ -1341,7 +1349,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             auto div_op_num = ctx->c.newInt64();
 
             wo_assure(!ctx->c.mov(int_of_op1, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
-            if (opnum2.is_constant())
+            if (opnum2.is_constant_i32())
                 wo_assure(!ctx->c.mov(int_of_op2, opnum2.const_value()->integer));
             else
                 wo_assure(!ctx->c.mov(int_of_op2, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
@@ -1363,7 +1371,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             auto div_op_num = ctx->c.newInt64();
 
             wo_assure(!ctx->c.mov(int_of_op1, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
-            if (opnum2.is_constant())
+            if (opnum2.is_constant_i32())
                 wo_assure(!ctx->c.mov(int_of_op2, opnum2.const_value()->integer));
             else
                 wo_assure(!ctx->c.mov(int_of_op2, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
@@ -1442,7 +1450,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
-            if (opnum2.is_constant())
+            if (opnum2.is_constant_h32())
                 wo_assure(!ctx->c.add(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, handle)), opnum2.const_value()->handle));
             else
             {
@@ -1457,7 +1465,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
-            if (opnum2.is_constant())
+            if (opnum2.is_constant_h32())
                 wo_assure(!ctx->c.sub(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, handle)), opnum2.const_value()->handle));
             else
             {
@@ -1702,14 +1710,14 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             auto x86_cmp_fail = ctx->c.newLabel();
             auto x86_cmp_end = ctx->c.newLabel();
 
-            if (opnum1.is_constant())
+            if (opnum1.is_constant_i32())
             {
-                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer)), opnum1.m_constant->integer));
+                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer)), opnum1.const_value()->integer));
                 wo_assure(!ctx->c.jl(x86_cmp_fail));
             }
-            else if (opnum2.is_constant())
+            else if (opnum2.is_constant_i32())
             {
-                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), opnum2.m_constant->integer));
+                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), opnum2.const_value()->integer));
                 wo_assure(!ctx->c.jge(x86_cmp_fail));
             }
             else
@@ -1738,14 +1746,14 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             auto x86_cmp_fail = ctx->c.newLabel();
             auto x86_cmp_end = ctx->c.newLabel();
 
-            if (opnum1.is_constant())
+            if (opnum1.is_constant_i32())
             {
-                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer)), opnum1.m_constant->integer));
+                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer)), opnum1.const_value()->integer));
                 ctx->c.jg(x86_cmp_fail);
             }
-            else if (opnum2.is_constant())
+            else if (opnum2.is_constant_i32())
             {
-                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), opnum2.m_constant->integer));
+                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), opnum2.const_value()->integer));
                 ctx->c.jle(x86_cmp_fail);
             }
             else
@@ -1775,14 +1783,14 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             auto x86_cmp_fail = ctx->c.newLabel();
             auto x86_cmp_end = ctx->c.newLabel();
 
-            if (opnum1.is_constant())
+            if (opnum1.is_constant_i32())
             {
-                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer)), opnum1.m_constant->integer));
+                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer)), opnum1.const_value()->integer));
                 ctx->c.jle(x86_cmp_fail);
             }
-            else if (opnum2.is_constant())
+            else if (opnum2.is_constant_i32())
             {
-                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), opnum2.m_constant->integer));
+                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), opnum2.const_value()->integer));
                 ctx->c.jg(x86_cmp_fail);
             }
             else
@@ -1811,14 +1819,14 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             auto x86_cmp_fail = ctx->c.newLabel();
             auto x86_cmp_end = ctx->c.newLabel();
 
-            if (opnum1.is_constant())
+            if (opnum1.is_constant_i32())
             {
-                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer)), opnum1.m_constant->integer));
+                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer)), opnum1.const_value()->integer));
                 ctx->c.jge(x86_cmp_fail);
             }
-            else if (opnum2.is_constant())
+            else if (opnum2.is_constant_i32())
             {
-                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), opnum2.m_constant->integer));
+                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), opnum2.const_value()->integer));
                 ctx->c.jl(x86_cmp_fail);
             }
             else
@@ -2631,7 +2639,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             if (jmp_place < (uint32_t)(rt_ip - ctx->env->rt_codes))
                 ir_make_checkpoint_fastcheck(ctx, check_point_ipaddr);
 
-            if (opnum1.is_constant())
+            if (opnum1.is_constant_i32())
                 wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, integer)), opnum1.const_value()->integer));
             else
             {
