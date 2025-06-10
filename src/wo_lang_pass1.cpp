@@ -478,8 +478,12 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
-            if (state)
+            if (node->m_marked_type.has_value())
+                WO_CONTINUE_PROCESS(node->m_marked_type.value());
+            
+            return HOLD;
         }
+        return WO_EXCEPT_ERROR(state, OKAY);
     }
     WO_PASS_PROCESSER(AstTemplateArgument)
     {
