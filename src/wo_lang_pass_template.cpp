@@ -7,7 +7,7 @@ namespace wo
     void LangContext::_collect_failed_template_instance(
         lexer& lex, ast::AstBase* node, lang_TemplateAstEvalStateBase* inst)
     {
-        std::list<wo_pstring_t>* template_params = nullptr;
+        std::list<ast::AstTemplateParam*>* template_params = nullptr;
         switch (inst->m_symbol->m_symbol_kind)
         {
         case lang_Symbol::kind::VARIABLE:
@@ -38,15 +38,13 @@ namespace wo
             if (!failed_template_arg_list.empty())
                 failed_template_arg_list += L", ";
 
-            failed_template_arg_list += **it_template_param;
+            failed_template_arg_list += *(*it_template_param)->m_param_name;
             failed_template_arg_list += L" = ";
 
-            if (it_template_arg->is_type())
-                failed_template_arg_list += get_type_name_w(it_template_arg->get_type());
-            else
-            {
+            if (it_template_arg->m_constant.has_value())
                 wo_error("Not impl yet.");
-            }
+            else
+                failed_template_arg_list += get_type_name_w(it_template_arg->m_type);
         }
 
         lex.record_lang_error(lexer::msglevel_t::error, node,
@@ -70,7 +68,7 @@ namespace wo
         wo_assert(templating_symbol->m_is_template);
 
         lang_TemplateAstEvalStateBase* result;
-        const std::list<wo_pstring_t>* template_params;
+        const std::list<ast::AstTemplateParam*>* template_params;
 
         switch (templating_symbol->m_symbol_kind)
         {
@@ -333,7 +331,7 @@ namespace wo
         lexer& lex,
         const ast::AstTypeHolder* accept_type_formal,
         lang_TypeInstance* applying_type_instance,
-        const std::list<wo_pstring_t>& pending_template_params,
+        const std::list<ast::AstTemplateParam*>& pending_template_params,
         std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance>* out_determined_template_arg_pair)
     {
         switch (accept_type_formal->m_formal)
@@ -355,17 +353,21 @@ namespace wo
                     // TODO: Support HKT?
                     // PERFECT! We got the type we need.
 
-                    auto fnd = std::find(
+                    auto fnd = std::find_if(
                         pending_template_params.begin(),
                         pending_template_params.end(),
-                        identifier->m_name);
+                        [identifier](ast::AstTemplateParam* p)
+                        {
+                            return p->m_param_name == identifier->m_name 
+                                && !p->m_marked_type.has_value() /* Is not constant */;
+                        });
 
                     if (fnd != pending_template_params.end())
                     {
                         try_eval_symbol_of_identifier = false;
 
                         // Got it!
-                        wo_pstring_t template_param_name = *fnd;
+                        ast::AstTemplateParam* template_param = *fnd;
 
                         switch (accept_type_formal->m_mutable_mark)
                         {
@@ -374,7 +376,7 @@ namespace wo
                             {
                                 // mut T <= mut Tinstance: T = Tinstance
                                 out_determined_template_arg_pair->insert(
-                                    std::make_pair(template_param_name, immutable_type(applying_type_instance)));
+                                    std::make_pair(template_param->m_param_name, immutable_type(applying_type_instance)));
                             }
                             // Bad, continue;
                             break;
@@ -392,7 +394,7 @@ namespace wo
                             [[fallthrough]];
                         case ast::AstTypeHolder::mutable_mark::NONE:
                             out_determined_template_arg_pair->insert(
-                                std::make_pair(template_param_name, applying_type_instance));
+                                std::make_pair(template_param->m_param_name, applying_type_instance));
                             break;
                         default:
                             wo_error("Unexpected mutable mark");
@@ -650,11 +652,11 @@ namespace wo
         lexer& lex,
         const ast::AstTemplateArgument* accept_template_param_formal,
         const ast::AstIdentifier::TemplateArgumentInstance& applying_template_argument_instance,
-        const std::list<wo_pstring_t>& pending_template_params,
+        const std::list<ast::AstTemplateParam*>& pending_template_params,
         std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance>* out_determined_template_arg_pair)
     {
         if (accept_template_param_formal->is_type()
-            != applying_template_argument_instance.is_type())
+            != !applying_template_argument_instance.m_constant.has_value())
         {
             if (accept_template_param_formal->is_type())
                 lex.record_lang_error(lexer::msglevel_t::error, 
@@ -673,7 +675,7 @@ namespace wo
             return template_arguments_deduction_extraction_with_type(
                 lex, 
                 accept_template_param_formal->get_type(),
-                applying_template_argument_instance.get_type(),
+                applying_template_argument_instance.m_type,
                 pending_template_params,
                 out_determined_template_arg_pair);
         }
@@ -687,7 +689,7 @@ namespace wo
 
     bool LangContext::check_type_may_dependence_template_parameters(
         const ast::AstTypeHolder* accept_template_argument_formal,
-        const std::list<wo_pstring_t>& pending_template_params)
+        const std::list<ast::AstTemplateParam*>& pending_template_params)
     {
         std::vector<bool> template_mask(pending_template_params.size(), false);
 
@@ -703,7 +705,7 @@ namespace wo
     }
     bool LangContext::check_constant_may_dependence_template_parameters(
         const ast::AstValueBase* accept_template_argument_formal,
-        const std::list<wo_pstring_t>& pending_template_params)
+        const std::list<ast::AstTemplateParam*>& pending_template_params)
     {
         std::vector<bool> template_mask(pending_template_params.size(), false);
 
@@ -720,7 +722,7 @@ namespace wo
 
     bool LangContext::check_formal_may_dependence_template_parameters(
         const ast::AstTemplateArgument* accept_template_argument_formal,
-        const std::list<wo_pstring_t>& pending_template_params)
+        const std::list<ast::AstTemplateParam*>& pending_template_params)
     {
         
         if (accept_template_argument_formal->is_type())
@@ -736,7 +738,7 @@ namespace wo
         ast::AstValueFunction* function_define,
         const std::list<std::optional<lang_TypeInstance*>>& argument_types,
         const std::optional<lang_TypeInstance*>& return_type,
-        const std::list<wo_pstring_t>& pending_template_params,
+        const std::list<ast::AstTemplateParam*>& pending_template_params,
         std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance>* out_determined_template_arg_pair
     )
     {

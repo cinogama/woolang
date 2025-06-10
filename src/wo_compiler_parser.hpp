@@ -78,7 +78,8 @@ namespace wo
                 AST_FUNCTION_PARAMETER_DECLARE,
 
                 AST_VALUE_begin,
-                AST_VALUE_MARK_AS_MUTABLE = AST_VALUE_begin,
+                AST_VALUE_NOTHING = AST_VALUE_begin,
+                AST_VALUE_MARK_AS_MUTABLE,
                 AST_VALUE_MARK_AS_IMMUTABLE,
                 AST_VALUE_LITERAL,
                 AST_VALUE_TYPEID,

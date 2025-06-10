@@ -86,11 +86,11 @@ namespace wo
 
                     for (; it_provider != it_end; ++it_provider, ++it_accepter)
                     {
-                        if (it_accepter->is_type() != it_provider->is_type())
+                        if (it_accepter->m_constant.has_value() != it_provider->m_constant.has_value())
                             return lang_TypeInstance::TypeCheckResult::REJECT;
-                        else if (it_accepter->is_type())
+                        else
                         {
-                            switch (is_type_accepted(lex, node, it_accepter->get_type(), it_provider->get_type()))
+                            switch (is_type_accepted(lex, node, it_accepter->m_type, it_provider->m_type))
                             {
                             case lang_TypeInstance::TypeCheckResult::REJECT:
                                 return lang_TypeInstance::TypeCheckResult::REJECT;
@@ -100,10 +100,6 @@ namespace wo
                             default:
                                 break;
                             }
-                        }
-                        else
-                        {
-                            wo_error("Not impl yet.");
                         }
                     }
                 }
@@ -852,19 +848,15 @@ namespace wo
 
             for (; it_a != it_end; ++it_a, ++it_b)
             {
-                if (it_a->is_type() != it_b->is_type())
+                if (it_a->m_constant.has_value() != it_b->m_constant.has_value())
                     return TypeMixtureResult{ TypeMixtureResult::REJECT };
-                else if (it_a->is_type())
+                else
                 {
-                    auto mixed_template_arg = fast_mixture_with_instance(it_a->get_type(), it_b->get_type());
+                    auto mixed_template_arg = fast_mixture_with_instance(it_a->m_type, it_b->m_type);
                     if (!mixed_template_arg.has_value())
                         return TypeMixtureResult{ TypeMixtureResult::REJECT };
                     mixed_template_args.push_back(mixed_template_arg.value());
-                }
-                else
-                {
-                    wo_error("Not impl yet");
-                }               
+                }          
             }
 
             bool need_continue_process = false;

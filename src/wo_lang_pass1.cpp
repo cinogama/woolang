@@ -278,6 +278,7 @@ namespace wo
         WO_LANG_REGISTER_PROCESSER(AstTemplateParam, AstBase::AST_TEMPLATE_PARAM, pass1);
         WO_LANG_REGISTER_PROCESSER(AstStructFieldDefine, AstBase::AST_STRUCT_FIELD_DEFINE, pass1);
         WO_LANG_REGISTER_PROCESSER(AstTypeHolder, AstBase::AST_TYPE_HOLDER, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstValueNothing, AstBase::AST_VALUE_NOTHING, pass1);
         WO_LANG_REGISTER_PROCESSER(AstValueMarkAsMutable, AstBase::AST_VALUE_MARK_AS_MUTABLE, pass1);
         WO_LANG_REGISTER_PROCESSER(AstValueMarkAsImmutable, AstBase::AST_VALUE_MARK_AS_IMMUTABLE, pass1);
         WO_LANG_REGISTER_PROCESSER(AstValueLiteral, AstBase::AST_VALUE_LITERAL, pass1);
@@ -426,7 +427,7 @@ namespace wo
             {
                 lang_Symbol* symbol = node->m_LANG_determined_symbol.value();
 
-                bool has_template_arguments = 
+                bool has_template_arguments =
                     node->m_template_arguments.has_value()
                     || node->m_LANG_determined_and_appended_template_arguments.has_value();
 
@@ -480,7 +481,7 @@ namespace wo
         {
             if (node->m_marked_type.has_value())
                 WO_CONTINUE_PROCESS(node->m_marked_type.value());
-            
+
             return HOLD;
         }
         return WO_EXCEPT_ERROR(state, OKAY);
@@ -615,11 +616,11 @@ namespace wo
                                 for (auto& template_argument : node->m_typeform.m_identifier->m_template_arguments.value())
                                 {
                                     if (template_argument->is_type())
-                                        template_args.push_back(
-                                            template_argument->get_type()->m_LANG_determined_type.value());
+                                        template_args.emplace_back(
+                                                template_argument->get_type()->m_LANG_determined_type.value());
                                     else
-                                        template_args.push_back(
-                                            template_argument->get_constant()->m_evaled_const_value.value());
+                                        template_args.emplace_back(
+                                            template_argument->get_constant());
                                 }
                             }
                             if (node->m_typeform.m_identifier->m_LANG_determined_and_appended_template_arguments.has_value())
@@ -932,7 +933,7 @@ namespace wo
                                         template_argument->get_type()->m_LANG_determined_type.value());
                                 else
                                     template_args.push_back(
-                                        template_argument->get_constant()->m_evaled_const_value.value());
+                                        template_argument->get_constant());
                             }
                         }
                         if (node->m_identifier->m_LANG_determined_and_appended_template_arguments.has_value())
@@ -1376,22 +1377,22 @@ namespace wo
     {
         auto judge_function_return_type =
             [&](lang_TypeInstance* ret_type)
-        {
-            std::list<lang_TypeInstance*> parameters;
-            for (auto& param : node->m_parameters)
-                parameters.push_back(param->m_type.value()->m_LANG_determined_type.value());
-
-            node->m_LANG_determined_type = m_origin_types.create_function_type(
-                node->m_is_variadic, parameters, ret_type);
-
-            wo_assert(node->m_LANG_determined_type.has_value());
-
-            if (node->m_LANG_value_instance_to_update)
             {
-                node->m_LANG_value_instance_to_update.value()->m_determined_type =
-                    node->m_LANG_determined_type;
-            }
-        };
+                std::list<lang_TypeInstance*> parameters;
+                for (auto& param : node->m_parameters)
+                    parameters.push_back(param->m_type.value()->m_LANG_determined_type.value());
+
+                node->m_LANG_determined_type = m_origin_types.create_function_type(
+                    node->m_is_variadic, parameters, ret_type);
+
+                wo_assert(node->m_LANG_determined_type.has_value());
+
+                if (node->m_LANG_value_instance_to_update)
+                {
+                    node->m_LANG_value_instance_to_update.value()->m_determined_type =
+                        node->m_LANG_determined_type;
+                }
+            };
 
         // Huston, we have a problem.
         if (state == UNPROCESSED)
@@ -1710,6 +1711,17 @@ namespace wo
         }
 
         return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstValueNothing)
+    {
+        wo_assert(state == UNPROCESSED);
+
+        node->m_LANG_determined_type = 
+            m_origin_types.m_nothing.m_type_instance;
+
+        node->decide_final_constant_value(wo::value{});
+
+        return OKAY;
     }
     WO_PASS_PROCESSER(AstValueMarkAsMutable)
     {
@@ -2462,7 +2474,7 @@ namespace wo
                             }
                         }
                         for (; it_template_param != it_template_param_end; ++it_template_param)
-                            pending_template_params.push_back(*it_template_param);
+                            pending_template_params.push_back((*it_template_param)->m_param_name);
 
                         entry_spcify_scope(symbol->m_belongs_to_scope);
 
@@ -2934,7 +2946,7 @@ namespace wo
                                 else
                                     deduction_results.insert(
                                         std::make_pair(
-                                            param_name, template_arg->get_constant()->m_evaled_const_value.value()));
+                                            param_name, template_arg->get_constant()));
                             }
                         }
                         for (; it_template_param != it_template_param_end; ++it_template_param)
@@ -3777,7 +3789,7 @@ namespace wo
                             deduction_results.insert(
                                 std::make_pair(
                                     *it_template_param,
-                                    exist_template_argument->get_constant()->m_evaled_const_value.value()));
+                                    exist_template_argument->get_constant()));
 
                         ++it_template_param;
                     }

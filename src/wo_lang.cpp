@@ -97,7 +97,7 @@ namespace wo
         const  std::optional<ast::AstBase::source_location_t>& location,
         lang_Scope* scope,
         ast::AstValueBase* template_value_base,
-        const std::list<wo_pstring_t>& template_params,
+        const std::list<ast::AstTemplateParam*>& template_params,
         bool mutable_variable)
         : m_symbol_kind(VARIABLE)
         , m_is_template(true)
@@ -121,7 +121,7 @@ namespace wo
         const std::optional<ast::AstBase::source_location_t>& location,
         lang_Scope* scope,
         ast::AstTypeHolder* template_type_base,
-        const std::list<wo_pstring_t>& template_params,
+        const std::list<ast::AstTemplateParam*>& template_params,
         bool is_alias)
         : m_is_template(true)
         , m_is_global(false)
@@ -154,7 +154,7 @@ namespace wo
         lang_Symbol* symbol,
         bool mutable_,
         ast::AstValueBase* ast,
-        const std::list<wo_pstring_t>& template_params)
+        const std::list<ast::AstTemplateParam*>& template_params)
         : m_symbol(symbol), m_mutable(mutable_), m_origin_value_ast(ast), m_template_params(template_params)
     {
     }
@@ -184,7 +184,7 @@ namespace wo
     lang_Symbol::TemplateTypePrefab::TemplateTypePrefab(
         lang_Symbol* symbol,
         ast::AstTypeHolder* ast,
-        const std::list<wo_pstring_t>& template_params)
+        const std::list<ast::AstTemplateParam*>& template_params)
         : m_symbol(symbol), m_origin_value_ast(ast), m_template_params(template_params)
     {
     }
@@ -213,7 +213,7 @@ namespace wo
     lang_Symbol::TemplateAliasPrefab::TemplateAliasPrefab(
         lang_Symbol* symbol,
         ast::AstTypeHolder* ast,
-        const std::list<wo_pstring_t>& template_params)
+        const std::list<ast::AstTemplateParam*>& template_params)
         : m_symbol(symbol), m_origin_value_ast(ast), m_template_params(template_params)
     {
     }
@@ -2074,7 +2074,11 @@ namespace wo
     {
         lang_Symbol* symbol;
 
-        if (template_arg.is_type())
+        if (template_arg.m_constant.has_value())
+        {
+            wo_error("Not impl yet.");
+        }
+        else
         {
             bool symbol_defined = define_symbol_in_current_scope(
                 &symbol,
@@ -2090,11 +2094,7 @@ namespace wo
             (void)symbol_defined;
             (void)symbol;
 
-            symbol->m_alias_instance->m_determined_type = template_arg.get_type();
-        }
-        else
-        {
-            wo_error("Not impl yet.");
+            symbol->m_alias_instance->m_determined_type = template_arg.m_type;
         }
     }
     void LangContext::fast_create_template_type_alias_and_constant_in_current_scope(
@@ -2265,12 +2265,10 @@ namespace wo
                 if (!first)
                     result_type_name += L", ";
 
-                if (template_arg.is_type())
-                    result_type_name += get_type_name_w(template_arg.get_type());
-                else
-                {
+                if (template_arg.m_constant.has_value())
                     wo_error("Not impl yet");
-                }
+                else
+                    result_type_name += get_type_name_w(template_arg.m_type);
 
                 first = false;
             }
@@ -2293,12 +2291,10 @@ namespace wo
                 if (!first)
                     result_value_name += L", ";
                
-                if (template_arg.is_type())
-                    result_value_name += get_type_name_w(template_arg.get_type());
-                else
-                {
+                if (template_arg.m_constant.has_value())
                     wo_error("Not impl yet");
-                }
+                else
+                    result_value_name += get_type_name_w(template_arg.m_type);
 
                 first = false;
             }

@@ -7,6 +7,22 @@ namespace wo
 #ifndef WO_DISABLE_COMPILER
     namespace ast
     {
+        static auto _process_template_params(const std::optional<AstList*>& template_params)
+            -> std::optional<std::list<AstTemplateParam*>>
+        {
+            if (template_params)
+            {
+                std::list<AstTemplateParam*> template_param_list;
+                for (auto& param : template_params.value()->m_list)
+                {
+                    wo_assert(param->node_type == AstBase::AST_TEMPLATE_PARAM);
+                    template_param_list.push_back(static_cast<AstTemplateParam*>(param));
+                }
+                return template_param_list;
+            }
+            return std::nullopt;
+        }
+
         auto pass_mark_label::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
             token label = WO_NEED_TOKEN(0);
@@ -172,21 +188,8 @@ namespace wo
             if (!WO_IS_EMPTY(3))
                 template_params = static_cast<AstList*>(WO_NEED_AST_TYPE(3, AstBase::AST_LIST));
 
-            std::optional<std::list<wo_pstring_t>> in_type_template_params = std::nullopt;
-            if (template_params)
-            {
-                AstList* template_param_list = template_params.value();
-                std::list<wo_pstring_t> params;
-
-                for (auto& param : template_param_list->m_list)
-                {
-                    wo_assert(param->node_type == AstBase::AST_TOKEN);
-                    AstToken* param_token = static_cast<AstToken*>(param);
-                    params.push_back(wstring_pool::get_pstr(param_token->m_token.identifier));
-                }
-
-                in_type_template_params = std::move(params);
-            }
+            std::optional<std::list<AstTemplateParam*>> in_type_template_params = 
+                _process_template_params(template_params);
 
             return new AstUsingTypeDeclare(attrib, type_name, in_type_template_params, base_type);
         }
@@ -236,21 +239,8 @@ namespace wo
             if (!WO_IS_EMPTY(3))
                 template_params = static_cast<AstList*>(WO_NEED_AST_TYPE(3, AstBase::AST_LIST));
 
-            std::optional<std::list<wo_pstring_t>> in_type_template_params = std::nullopt;
-            if (template_params)
-            {
-                AstList* template_param_list = template_params.value();
-                std::list<wo_pstring_t> params;
-
-                for (auto& param : template_param_list->m_list)
-                {
-                    wo_assert(param->node_type == AstBase::AST_TOKEN);
-                    AstToken* param_token = static_cast<AstToken*>(param);
-                    params.push_back(wstring_pool::get_pstr(param_token->m_token.identifier));
-                }
-
-                in_type_template_params = std::move(params);
-            }
+            std::optional<std::list<AstTemplateParam*>> in_type_template_params =
+                _process_template_params(template_params);
 
             return new AstAliasTypeDeclare(attrib, type_name, in_type_template_params, base_type);
         }
@@ -268,22 +258,6 @@ namespace wo
             return new AstWhereConstraints(constraints);
         }
 
-        static auto _process_template_params(const std::optional<AstList*>& template_params)
-            -> std::optional<std::list<wo_pstring_t>>
-        {
-            if (template_params)
-            {
-                std::list<wo_pstring_t> template_param_list;
-                for (auto& param : template_params.value()->m_list)
-                {
-                    wo_assert(param->node_type == AstBase::AST_TOKEN);
-                    AstToken* param_token = static_cast<AstToken*>(param);
-                    template_param_list.push_back(wstring_pool::get_pstr(param_token->m_token.identifier));
-                }
-                return template_param_list;
-            }
-            return std::nullopt;
-        }
         static auto _process_function_params(lexer& lex, AstList* paraments)
             -> std::tuple<bool, std::list<AstFunctionParameterDeclare*>>
         {
@@ -327,7 +301,7 @@ namespace wo
             if (!WO_IS_EMPTY(8))
                 where_constraints = static_cast<AstWhereConstraints*>(WO_NEED_AST_TYPE(8, AstBase::AST_WHERE_CONSTRAINTS));
 
-            std::optional<std::list<wo_pstring_t>> in_template_params =
+            std::optional<std::list<AstTemplateParam*>> in_template_params =
                 _process_template_params(template_params);
 
             auto [is_variadic_function, in_params] = _process_function_params(lex, paraments);
@@ -369,7 +343,7 @@ namespace wo
             if (!WO_IS_EMPTY(9))
                 where_constraints = static_cast<AstWhereConstraints*>(WO_NEED_AST_TYPE(9, AstBase::AST_WHERE_CONSTRAINTS));
 
-            std::optional<std::list<wo_pstring_t>> in_template_params =
+            std::optional<std::list<AstTemplateParam*>> in_template_params =
                 _process_template_params(template_params);
 
             auto [is_variadic_function, in_params] = _process_function_params(lex, paraments);
@@ -411,7 +385,7 @@ namespace wo
             if (!WO_IS_EMPTY(9))
                 where_constraints = static_cast<AstWhereConstraints*>(WO_NEED_AST_TYPE(9, AstBase::AST_WHERE_CONSTRAINTS));
 
-            std::optional<std::list<wo_pstring_t>> in_template_params =
+            std::optional<std::list<AstTemplateParam*>> in_template_params =
                 _process_template_params(template_params);
 
             auto [is_variadic_function, in_params] = _process_function_params(lex, paraments);
@@ -454,7 +428,7 @@ namespace wo
             if (!WO_IS_EMPTY(10))
                 where_constraints = static_cast<AstWhereConstraints*>(WO_NEED_AST_TYPE(10, AstBase::AST_WHERE_CONSTRAINTS));
 
-            std::optional<std::list<wo_pstring_t>> in_template_params =
+            std::optional<std::list<AstTemplateParam*>> in_template_params =
                 _process_template_params(template_params);
 
             auto [is_variadic_function, in_params] = _process_function_params(lex, paraments);
@@ -521,7 +495,7 @@ namespace wo
             if (!WO_IS_EMPTY(7))
                 where_constraints = static_cast<AstWhereConstraints*>(WO_NEED_AST_TYPE(7, AstBase::AST_WHERE_CONSTRAINTS));
 
-            std::optional<std::list<wo_pstring_t>> in_template_params =
+            std::optional<std::list<AstTemplateParam*>> in_template_params =
                 _process_template_params(template_params);
 
             auto [is_variadic_function, in_params] = _process_function_params(lex, paraments);
@@ -547,7 +521,7 @@ namespace wo
             if (!WO_IS_EMPTY(5))
                 body_1 = static_cast<AstVariableDefines*>(WO_NEED_AST_TYPE(5, AstBase::AST_VARIABLE_DEFINES));
 
-            std::optional<std::list<wo_pstring_t>> in_template_params =
+            std::optional<std::list<AstTemplateParam*>> in_template_params =
                 _process_template_params(template_params);
 
             auto [is_variadic_function, in_params] = _process_function_params(lex, paraments);
@@ -1319,17 +1293,8 @@ namespace wo
                 items.push_back(static_cast<AstUnionItem*>(item));
             }
 
-            std::optional<std::list<wo_pstring_t>> template_params = std::nullopt;
-            if (union_template_params)
-            {
-                std::list<wo_pstring_t> params;
-                for (auto& param : union_template_params.value()->m_list)
-                {
-                    wo_assert(param->node_type == AstBase::AST_TOKEN);
-                    params.push_back(wstring_pool::get_pstr(static_cast<AstToken*>(param)->m_token.identifier));
-                }
-                template_params = std::move(params);
-            }
+            std::optional<std::list<AstTemplateParam*>> template_params = 
+                _process_template_params(union_template_params);
 
             return new AstUnionDeclare(attrib, union_name, template_params, items);
         }
@@ -1400,14 +1365,10 @@ namespace wo
             // `_` here is useless and meaningless.
             // TODO: Give error message.
 
-            wo_pstring_t identifier_name = wstring_pool::get_pstr(identifier.identifier);
-            std::list<wo_pstring_t> args;
-            for (auto& arg : template_arguments->m_list)
-            {
-                wo_assert(arg->node_type == AstBase::AST_TOKEN);
-                args.push_back(wstring_pool::get_pstr(static_cast<AstToken*>(arg)->m_token.identifier));
-            }
-            return new AstPatternSingle(false, identifier_name, args);
+            return new AstPatternSingle(
+                false,
+                wstring_pool::get_pstr(identifier.identifier),
+                _process_template_params(template_arguments).value());
         }
         auto pass_pattern_mut_identifier_or_takepace_with_template::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
@@ -1418,14 +1379,10 @@ namespace wo
             // `_` here is useless and meaningless.
             // TODO: Give error message.
 
-            wo_pstring_t identifier_name = wstring_pool::get_pstr(identifier.identifier);
-            std::list<wo_pstring_t> args;
-            for (auto& arg : template_arguments->m_list)
-            {
-                wo_assert(arg->node_type == AstBase::AST_TOKEN);
-                args.push_back(wstring_pool::get_pstr(static_cast<AstToken*>(arg)->m_token.identifier));
-            }
-            return new AstPatternSingle(true, identifier_name, args);
+            return new AstPatternSingle(
+                true, 
+                wstring_pool::get_pstr(identifier.identifier), 
+                _process_template_params(template_arguments).value());
         }
         auto pass_pattern_tuple::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
@@ -1670,6 +1627,21 @@ namespace wo
                 wo_error("Not impl yet");
             }
         }
+        auto pass_create_template_param::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            if (input.size() == 1)
+            {
+                
+                return new AstTemplateParam(
+                    wstring_pool::get_pstr(WO_NEED_TOKEN(0).identifier),
+                    std::nullopt);
+            }
+            else
+            {
+                wo_assert(input.size() == 3);
+                wo_error("Not impl yet");
+            }
+        }
         auto pass_extern::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             token symbol;
@@ -1836,6 +1808,7 @@ namespace wo
             WO_AST_BUILDER(pass_func_def_extn);
             WO_AST_BUILDER(pass_func_def_extn_oper);
             WO_AST_BUILDER(pass_create_template_argument);
+            WO_AST_BUILDER(pass_create_template_param);
 #undef WO_AST_BUILDER
         }
     }

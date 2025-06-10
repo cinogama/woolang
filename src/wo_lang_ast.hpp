@@ -84,23 +84,14 @@ namespace wo
         {
             struct TemplateArgumentInstance
             {
-                std::variant<lang_TypeInstance*, value> m_argument_instance;
-
-                TemplateArgumentInstance()
-                    : m_argument_instance()
-                {
-                    // Note that this is only used to deceive some strange STL implementations. 
-                    // This construction method should not be used under normal circumstances.
-                }
+                lang_TypeInstance* m_type;
+                std::optional<value> m_constant;
 
                 TemplateArgumentInstance(lang_TypeInstance* type);
-                TemplateArgumentInstance(const value& val);
-                TemplateArgumentInstance(const std::variant<lang_TypeInstance*, value>& v);
+                TemplateArgumentInstance(AstValueBase* value);
 
-                bool is_type() const;
-                bool is_constant() const;
-                lang_TypeInstance* get_type() const;
-                const value& get_constant()const;
+                TemplateArgumentInstance(const TemplateArgumentInstance&) = default;
+                TemplateArgumentInstance(TemplateArgumentInstance&&) = default;
 
                 bool operator < (const TemplateArgumentInstance& a) const;
             };
@@ -223,7 +214,7 @@ namespace wo
             AstTypeHolder(const UnionType& tupletype);
             ~AstTypeHolder();
 
-            void _check_if_template_exist_in(const std::list<wo_pstring_t>& template_params, std::vector<bool>& out_contain_flags) const;
+            void _check_if_template_exist_in(const std::list<AstTemplateParam*>& template_params, std::vector<bool>& out_contain_flags) const;
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
         struct AstValueBase : public AstBase
@@ -235,13 +226,17 @@ namespace wo
             ~AstValueBase();
 
             void _check_if_template_exist_in(
-                const std::list<wo_pstring_t>& template_params, std::vector<bool>& out_contain_flags) const;
+                const std::list<AstTemplateParam*>& template_params, std::vector<bool>& out_contain_flags) const;
 
             void decide_final_constant_value(const wo::value& val);
             void decide_final_constant_value(const std::string& cstr);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
-
+        struct AstValueNothing : public AstValueBase
+        {
+            AstValueNothing();
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+        };
         struct AstValueMarkAsMutable : public AstValueBase
         {
             AstValueBase* m_marked_value;
@@ -249,7 +244,6 @@ namespace wo
             AstValueMarkAsMutable(AstValueBase* marking_value);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
         };
-
         struct AstValueMarkAsImmutable : public AstValueBase
         {
             AstValueBase* m_marked_value;
@@ -547,7 +541,7 @@ namespace wo
         struct AstPatternBase : public AstBase
         {
             void _check_if_template_exist_in(
-                const std::list<wo_pstring_t>& template_params, std::vector<bool>& out_contain_flags) const;
+                const std::list<AstTemplateParam*>& template_params, std::vector<bool>& out_contain_flags) const;
 
             AstPatternBase(AstBase::node_type_t nodetype);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
@@ -561,13 +555,13 @@ namespace wo
         {
             bool m_is_mutable;
             wo_pstring_t m_name;
-            std::optional<std::list<wo_pstring_t>> m_template_parameters;
+            std::optional<std::list<AstTemplateParam*>> m_template_parameters;
             std::optional<lang_Symbol*> m_LANG_declared_symbol;
 
             AstPatternSingle(
                 bool is_mutable,
                 wo_pstring_t name,
-                const std::optional<std::list<wo_pstring_t>>& template_parameters);
+                const std::optional<std::list<AstTemplateParam*>>& template_parameters);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
         struct AstPatternTuple : public AstPatternBase
@@ -680,7 +674,7 @@ namespace wo
             std::optional<AstTypeHolder*>   m_marked_return_type;
             std::optional<AstWhereConstraints*>
                 m_where_constraints;
-            std::optional<std::list<wo_pstring_t>>
+            std::optional<std::list<AstTemplateParam*>>
                 m_pending_param_type_mark_template;
             AstBase* m_body;
 
@@ -700,7 +694,7 @@ namespace wo
             AstValueFunction(
                 const std::list<AstFunctionParameterDeclare*>& parameters,
                 bool is_variadic,
-                const std::optional<std::list<wo_pstring_t>>& defined_function_template_only_for_lambda,
+                const std::optional<std::list<AstTemplateParam*>>& defined_function_template_only_for_lambda,
                 const std::optional<AstTypeHolder*>& marked_return_type,
                 const std::optional<AstWhereConstraints*>& where_constraints,
                 AstBase* body);
@@ -985,7 +979,7 @@ namespace wo
         struct AstUsingTypeDeclare : public AstBase
         {
             wo_pstring_t            m_typename;
-            std::optional<std::list<wo_pstring_t>>
+            std::optional<std::list<AstTemplateParam*>>
                 m_template_parameters;
             AstTypeHolder* m_type;
             std::optional<AstDeclareAttribue*>
@@ -999,14 +993,14 @@ namespace wo
             AstUsingTypeDeclare(
                 const std::optional<AstDeclareAttribue*>& attrib,
                 wo_pstring_t typename_,
-                const std::optional<std::list<wo_pstring_t>>& template_parameters,
+                const std::optional<std::list<AstTemplateParam*>>& template_parameters,
                 AstTypeHolder* type);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
         struct AstAliasTypeDeclare : public AstBase
         {
             wo_pstring_t            m_typename;
-            std::optional<std::list<wo_pstring_t>>
+            std::optional<std::list<AstTemplateParam*>>
                 m_template_parameters;
             AstTypeHolder* m_type;
             std::optional<AstDeclareAttribue*>
@@ -1020,7 +1014,7 @@ namespace wo
             AstAliasTypeDeclare(
                 const std::optional<AstDeclareAttribue*>& attrib,
                 wo_pstring_t typename_,
-                const std::optional<std::list<wo_pstring_t>>& template_parameters,
+                const std::optional<std::list<AstTemplateParam*>>& template_parameters,
                 AstTypeHolder* type);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
@@ -1078,7 +1072,7 @@ namespace wo
             AstUnionDeclare(
                 const std::optional<AstDeclareAttribue*>& attrib,
                 AstToken* union_type_name,
-                const std::optional<std::list<wo_pstring_t>>& template_parameters,
+                const std::optional<std::list<AstTemplateParam*>>& template_parameters,
                 const std::list<AstUnionItem*>& union_items);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };

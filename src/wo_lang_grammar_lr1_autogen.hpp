@@ -4,7 +4,7 @@
 #include "wo_compiler_parser.hpp"
 
 #define WO_LANG_GRAMMAR_LR1_AUTO_GENED
-#define WO_LANG_GRAMMAR_CRC64 0xe2e3d34f440dc0eaull
+#define WO_LANG_GRAMMAR_CRC64 0xab280d7d82cf939eull
 
 
 namespace wo
@@ -139,10 +139,10 @@ const wchar_t* woolang_id_nonterm_list[151+ 1] = {
     L"TYPE_TEMPLATE_ITEM",
     L"TEMPLATE_ARGUMENT_LIST",
     L"TEMPLATE_ARGUMENT_ITEM",
-    L"DEFINE_TEMPLATE_ITEM_MAY_EMPTY",
-    L"DEFINE_TEMPLATE_ITEM",
-    L"DEFINE_TEMPLATE_TYPE_LIST",
-    L"DEFINE_TEMPLATE_TYPE",
+    L"DEFINE_TEMPLATE_PARAM_ITEM_MAY_EMPTY",
+    L"DEFINE_TEMPLATE_PARAM_ITEM",
+    L"DEFINE_TEMPLATE_PARAM_LIST",
+    L"DEFINE_TEMPLATE_PARAM",
     L"DECL_UNION",
     L"UNION_ITEMS",
     L"UNION_ITEM_LIST",
@@ -13341,9 +13341,9 @@ const int woolang_follow_sets[][97 + 1] = {
 { 146,  23, },
 { 45,  7, },
 { 145,  7, },
+{ 130,  12, 31, },
 { 128,  40, 12, 7, 71, 22, 10, 51, },
 { 127,  40, 12, 7, 71, 22, 10, 51, },
-{ 130,  12, 31, },
 { 129,  12, 31, },
 { 109,  83, 84, 3, 12, 25, 26, 27, 28, 29, 34, 35, 33, 32, 30, 31, 36, 37, 65, 46, 87, 71, 85, 86, 90, 91, 88, 89, 22, 23, 11, 64, 72, 73, 20, },
 { 114,  83, 84, 3, 12, 25, 26, 27, 28, 29, 34, 35, 33, 32, 30, 31, 36, 37, 65, 46, 87, 71, 85, 86, 90, 91, 88, 89, 22, 23, 11, 64, 72, 73, 20, },

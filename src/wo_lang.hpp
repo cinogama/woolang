@@ -280,7 +280,7 @@ namespace wo
         {
             lang_Symbol* m_symbol;
             bool m_mutable;
-            std::list<wo_pstring_t> m_template_params;
+            std::list<ast::AstTemplateParam*> m_template_params;
             ast::AstValueBase* m_origin_value_ast;
             std::map<TemplateArgumentListT, std::unique_ptr<lang_TemplateAstEvalStateValue>>
                 m_template_instances;
@@ -289,7 +289,7 @@ namespace wo
                 lang_Symbol* symbol,
                 bool mutable_,
                 ast::AstValueBase* ast,
-                const std::list<wo_pstring_t>& template_params);
+                const std::list<ast::AstTemplateParam*>& template_params);
 
             lang_TemplateAstEvalStateValue* find_or_create_template_instance(
                 const TemplateArgumentListT& template_args);
@@ -306,7 +306,7 @@ namespace wo
         struct TemplateTypePrefab
         {
             lang_Symbol* m_symbol;
-            std::list<wo_pstring_t> m_template_params;
+            std::list<ast::AstTemplateParam*> m_template_params;
             ast::AstTypeHolder* m_origin_value_ast;
             std::map<TemplateArgumentListT, std::unique_ptr<lang_TemplateAstEvalStateType>>
                 m_template_instances;
@@ -314,7 +314,7 @@ namespace wo
             TemplateTypePrefab(
                 lang_Symbol* symbol,
                 ast::AstTypeHolder* ast,
-                const std::list<wo_pstring_t>& template_params);
+                const std::list<ast::AstTemplateParam*>& template_params);
 
             lang_TemplateAstEvalStateType* find_or_create_template_instance(
                 const TemplateArgumentListT& template_args);
@@ -327,7 +327,7 @@ namespace wo
         struct TemplateAliasPrefab
         {
             lang_Symbol* m_symbol;
-            std::list<wo_pstring_t> m_template_params;
+            std::list<ast::AstTemplateParam*> m_template_params;
             ast::AstTypeHolder* m_origin_value_ast;
             std::map<TemplateArgumentListT, std::unique_ptr<lang_TemplateAstEvalStateAlias>>
                 m_template_instances;
@@ -335,7 +335,7 @@ namespace wo
             TemplateAliasPrefab(
                 lang_Symbol* symbol,
                 ast::AstTypeHolder* ast,
-                const std::list<wo_pstring_t>& template_params);
+                const std::list<ast::AstTemplateParam*>& template_params);
 
             lang_TemplateAstEvalStateAlias* find_or_create_template_instance(
                 const TemplateArgumentListT& template_args);
@@ -393,7 +393,7 @@ namespace wo
             const std::optional<ast::AstBase::source_location_t>& location,
             lang_Scope* scope,
             ast::AstValueBase* template_value_base,
-            const std::list<wo_pstring_t>& template_params,
+            const std::list<ast::AstTemplateParam*>& template_params,
             bool mutable_variable);
         lang_Symbol(
             wo_pstring_t name,
@@ -402,7 +402,7 @@ namespace wo
             const std::optional<ast::AstBase::source_location_t>& location,
             lang_Scope* scope,
             ast::AstTypeHolder* template_type_base,
-            const std::list<wo_pstring_t>& template_params,
+            const std::list<ast::AstTemplateParam*>& template_params,
             bool is_alias);
     };
 
@@ -858,6 +858,7 @@ namespace wo
 
 #define WO_ALL_AST_LIST_B\
     WO_AST_MACRO(AstValueBase);\
+    WO_AST_MACRO(AstValueNothing);\
     WO_AST_MACRO(AstValueMarkAsMutable);\
     WO_AST_MACRO(AstValueMarkAsImmutable);\
     WO_AST_MACRO(AstValueLiteral);\
@@ -1141,34 +1142,34 @@ namespace wo
             lexer& lex,
             const ast::AstTypeHolder* accept_type_formal,
             lang_TypeInstance* applying_type_instance,
-            const std::list<wo_pstring_t>& pending_template_params,
+            const std::list<ast::AstTemplateParam*>& pending_template_params,
             std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance>* out_determined_template_arg_pair);
 
         bool template_arguments_deduction_extraction_with_formal(
             lexer& lex,
             const ast::AstTemplateArgument* accept_template_param_formal,
             const ast::AstIdentifier::TemplateArgumentInstance& applying_template_argument_instance,
-            const std::list<wo_pstring_t>& pending_template_params,
+            const std::list<ast::AstTemplateParam*>& pending_template_params,
             std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance>* out_determined_template_arg_pair);
 
         void template_function_deduction_extraction_with_complete_type(
             lexer& lex,
             ast::AstValueFunction* function_define,
             const std::list<std::optional<lang_TypeInstance*>>& argument_types,
-            const std::optional< lang_TypeInstance*>& return_type,
-            const std::list<wo_pstring_t>& pending_template_params,
+            const std::optional<lang_TypeInstance*>& return_type,
+            const std::list<ast::AstTemplateParam*>& pending_template_params,
             std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance>* out_determined_template_arg_pair
         );
 
         bool check_type_may_dependence_template_parameters(
             const ast::AstTypeHolder* accept_template_argument_formal,
-            const std::list<wo_pstring_t>& pending_template_params);
+            const std::list<ast::AstTemplateParam*>& pending_template_params);
         bool check_constant_may_dependence_template_parameters(
             const ast::AstValueBase* accept_template_argument_formal,
-            const std::list<wo_pstring_t>& pending_template_params);
+            const std::list<ast::AstTemplateParam*>& pending_template_params);
         bool check_formal_may_dependence_template_parameters(
             const ast::AstTemplateArgument* accept_template_argument_formal,
-            const std::list<wo_pstring_t>& pending_template_params);
+            const std::list<ast::AstTemplateParam*>& pending_template_params);
 
         ast::AstValueBase* get_marked_origin_value_node(ast::AstValueBase* node);
         bool check_need_template_deduct_function(lexer& lex, ast::AstValueBase* target, PassProcessStackT& out_stack);
