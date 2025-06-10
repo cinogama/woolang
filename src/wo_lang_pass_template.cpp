@@ -329,374 +329,406 @@ namespace wo
         _collect_failed_template_instance(lex, node, template_eval_instance);
     }
 
-    bool LangContext::template_arguments_deduction_extraction_with_complete_type(
+    bool LangContext::template_arguments_deduction_extraction_with_type(
         lexer& lex,
-        const ast::AstIdentifier::TemplateArgument& accept_template_param_formal,
+        const ast::AstTypeHolder* accept_type_formal,
+        lang_TypeInstance* applying_type_instance,
+        const std::list<wo_pstring_t>& pending_template_params,
+        std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance>* out_determined_template_arg_pair)
+    {
+        switch (accept_type_formal->m_formal)
+        {
+        case ast::AstTypeHolder::IDENTIFIER:
+        {
+            auto* identifier = accept_type_formal->m_typeform.m_identifier;
+            bool try_eval_symbol_of_identifier = true;
+
+            switch (identifier->m_formal)
+            {
+            case ast::AstIdentifier::identifier_formal::FROM_TYPE:
+                // Not support.
+                return true;
+            case ast::AstIdentifier::identifier_formal::FROM_CURRENT:
+                // Current identifier might be template need to be pick.
+                if (identifier->m_scope.empty())
+                {
+                    // TODO: Support HKT?
+                    // PERFECT! We got the type we need.
+
+                    auto fnd = std::find(
+                        pending_template_params.begin(),
+                        pending_template_params.end(),
+                        identifier->m_name);
+
+                    if (fnd != pending_template_params.end())
+                    {
+                        try_eval_symbol_of_identifier = false;
+
+                        // Got it!
+                        wo_pstring_t template_param_name = *fnd;
+
+                        switch (accept_type_formal->m_mutable_mark)
+                        {
+                        case ast::AstTypeHolder::mutable_mark::MARK_AS_MUTABLE:
+                            if (applying_type_instance->is_mutable())
+                            {
+                                // mut T <= mut Tinstance: T = Tinstance
+                                out_determined_template_arg_pair->insert(
+                                    std::make_pair(template_param_name, immutable_type(applying_type_instance)));
+                            }
+                            // Bad, continue;
+                            break;
+                        case ast::AstTypeHolder::mutable_mark::MARK_AS_IMMUTABLE:
+                            if (applying_type_instance->is_mutable())
+                            {
+                                // immut T <X= mut Tinstance: Bad
+                                lex.record_lang_error(lexer::msglevel_t::error, accept_type_formal,
+                                    WO_ERR_UNACCEPTABLE_MUTABLE,
+                                    get_type_name_w(applying_type_instance));
+
+                                return false;
+                            }
+                            /* Fall through */
+                            [[fallthrough]];
+                        case ast::AstTypeHolder::mutable_mark::NONE:
+                            out_determined_template_arg_pair->insert(
+                                std::make_pair(template_param_name, applying_type_instance));
+                            break;
+                        default:
+                            wo_error("Unexpected mutable mark");
+                        }
+                        goto _label_fake_hkt_trying_template;
+                    }
+                }
+                /* FALL THROUGH */
+                [[fallthrough]];
+            case ast::AstIdentifier::identifier_formal::FROM_GLOBAL:
+                do
+                {
+                    // Try determin symbol:
+                    bool ambiguous = false;
+                    if (!find_symbol_in_current_scope(lex, identifier, &ambiguous))
+                    {
+                        lex.record_lang_error(lexer::msglevel_t::error, accept_type_formal,
+                            WO_ERR_UNFOUND_TYPE_NAMED,
+                            identifier->m_name->c_str());
+
+                        // Not found or ambiguous.
+                        return false;
+                    }
+                    else if (ambiguous)
+                        // Ambiguous.
+                        return false;
+
+                    auto* determined_type_symbol = identifier->m_LANG_determined_symbol.value();
+                    switch (determined_type_symbol->m_symbol_kind)
+                    {
+                    case lang_Symbol::kind::TYPE:
+                        break;
+                    case lang_Symbol::kind::ALIAS:
+                    {
+                        if (determined_type_symbol->m_is_template)
+                            // Not support;
+                            return true;
+
+                        if (!determined_type_symbol->m_alias_instance->m_determined_type.has_value())
+                            // Not determined yet.
+                            return true;
+
+                        determined_type_symbol = determined_type_symbol
+                            ->m_alias_instance->m_determined_type.value()->m_symbol;
+
+                        break;
+                    }
+                    default:
+                        wo_error("Unexpected symbol kind");
+                    }
+
+                    if (determined_type_symbol != applying_type_instance->m_symbol)
+                        // Not match!
+                        return true;
+
+                } while (0);
+
+            _label_fake_hkt_trying_template:
+                // Walk through template arguments.
+                if (identifier->m_template_arguments.has_value())
+                {
+                    // Has template, check if applying_type_instance match.
+                    wo_assert(applying_type_instance->m_instance_template_arguments.has_value());
+
+                    auto& identifier_template_arguments =
+                        identifier->m_template_arguments.value();
+                    auto& instance_template_arguments =
+                        applying_type_instance->m_instance_template_arguments.value();
+
+                    wo_assert(identifier_template_arguments.size() == instance_template_arguments.size());
+
+                    auto it_identifier = identifier_template_arguments.begin();
+                    auto it_instance = instance_template_arguments.begin();
+                    auto it_end = identifier_template_arguments.end();
+
+                    bool all_ok = true;
+                    for (; it_identifier != it_end; ++it_identifier, ++it_instance)
+                    {
+                        all_ok = template_arguments_deduction_extraction_with_formal(
+                            lex,
+                            *it_identifier,
+                            *it_instance,
+                            pending_template_params,
+                            out_determined_template_arg_pair) && all_ok;
+                    }
+
+                    if (!all_ok)
+                        return false;
+                }
+            }
+
+            return true;
+        }
+        case ast::AstTypeHolder::TYPEOF:
+            // Junk! I cannot do any thing!
+            return true;
+        case ast::AstTypeHolder::FUNCTION:
+        {
+            if (applying_type_instance->m_symbol != m_origin_types.m_function)
+                // User define type;
+                return true;
+
+            auto& function = accept_type_formal->m_typeform.m_function;
+            auto instance_type_determined_base_may_null = applying_type_instance->get_determined_type();
+            if (!instance_type_determined_base_may_null.has_value())
+                // Not determined yet.
+                return true;
+
+            auto* instance_type_determined_base = instance_type_determined_base_may_null.value();
+            if (instance_type_determined_base->m_base_type != lang_TypeInstance::DeterminedType::FUNCTION)
+                // Not function.
+                return true;
+
+            auto* instance_type_determined_base_fn =
+                instance_type_determined_base->m_external_type_description.m_function;
+
+            if (function.m_is_variadic != instance_type_determined_base_fn->m_is_variadic
+                || function.m_parameters.size() != instance_type_determined_base_fn->m_param_types.size())
+                // Not match.
+                return true;
+
+            auto it_fn_param = function.m_parameters.begin();
+            auto it_instance_param = instance_type_determined_base_fn->m_param_types.begin();
+            auto it_fn_param_end = function.m_parameters.end();
+
+            bool all_ok = true;
+            for (; it_fn_param != it_fn_param_end; ++it_fn_param, ++it_instance_param)
+            {
+                all_ok = template_arguments_deduction_extraction_with_type(
+                    lex,
+                    *it_fn_param,
+                    *it_instance_param,
+                    pending_template_params,
+                    out_determined_template_arg_pair) && all_ok;
+            }
+
+            all_ok = template_arguments_deduction_extraction_with_type(
+                lex,
+                function.m_return_type,
+                instance_type_determined_base_fn->m_return_type,
+                pending_template_params,
+                out_determined_template_arg_pair) && all_ok;
+
+            return all_ok;
+        }
+        case ast::AstTypeHolder::STRUCTURE:
+        {
+            if (applying_type_instance->m_symbol != m_origin_types.m_struct)
+                // User define type;
+                return true;
+
+            auto& structure = accept_type_formal->m_typeform.m_structure;
+            auto instance_type_determined_base_may_null = applying_type_instance->get_determined_type();
+            if (!instance_type_determined_base_may_null.has_value())
+                // Not determined yet.
+                return true;
+
+            auto* instance_type_determined_base = instance_type_determined_base_may_null.value();
+            if (instance_type_determined_base->m_base_type != lang_TypeInstance::DeterminedType::STRUCT)
+                // Not structure.
+                return true;
+
+            auto* instance_type_determined_base_struct =
+                instance_type_determined_base->m_external_type_description.m_struct;
+
+            if (structure.m_fields.size() != instance_type_determined_base_struct->m_member_types.size())
+                // Not match.
+                return true;
+
+            std::list<std::pair<ast::AstTypeHolder*, lang_TypeInstance*>>
+                member_type_instance_pairs;
+
+            wo_integer_t member_index = 0;
+            for (auto& field : structure.m_fields)
+            {
+                auto fnd = instance_type_determined_base_struct->m_member_types.find(field->m_name);
+                if (fnd == instance_type_determined_base_struct->m_member_types.end())
+                    // Not match.
+                    return true;
+
+                if (member_index != fnd->second.m_offset)
+                    // Not match.
+                    return true;
+
+                member_type_instance_pairs.push_back(
+                    std::make_pair(field->m_type, fnd->second.m_member_type));
+
+                ++member_index;
+            }
+
+            bool all_ok = true;
+            for (auto& member_type_instance_pair : member_type_instance_pairs)
+            {
+                all_ok = template_arguments_deduction_extraction_with_type(
+                    lex,
+                    member_type_instance_pair.first,
+                    member_type_instance_pair.second,
+                    pending_template_params,
+                    out_determined_template_arg_pair) && all_ok;
+            }
+
+            return all_ok;
+        }
+        case ast::AstTypeHolder::TUPLE:
+        {
+            if (applying_type_instance->m_symbol != m_origin_types.m_tuple)
+                // User define type;
+                return true;
+
+            auto& tuple = accept_type_formal->m_typeform.m_tuple;
+            auto instance_type_determined_base_may_null = applying_type_instance->get_determined_type();
+            if (!instance_type_determined_base_may_null.has_value())
+                // Not determined yet.
+                return true;
+
+            auto* instance_type_determined_base = instance_type_determined_base_may_null.value();
+            if (instance_type_determined_base->m_base_type != lang_TypeInstance::DeterminedType::TUPLE)
+                // Not tuple.
+                return true;
+
+            auto* instance_type_determined_base_tuple =
+                instance_type_determined_base->m_external_type_description.m_tuple;
+
+            if (tuple.m_fields.size() != instance_type_determined_base_tuple->m_element_types.size())
+                // Not match.
+                return true;
+
+            auto it_tuple_field = tuple.m_fields.begin();
+            auto it_instance_field = instance_type_determined_base_tuple->m_element_types.begin();
+            auto it_tuple_field_end = tuple.m_fields.end();
+
+            bool all_ok = true;
+            for (; it_tuple_field != it_tuple_field_end; ++it_tuple_field, ++it_instance_field)
+            {
+                all_ok = template_arguments_deduction_extraction_with_type(
+                    lex,
+                    *it_tuple_field,
+                    *it_instance_field,
+                    pending_template_params,
+                    out_determined_template_arg_pair) && all_ok;
+            }
+
+            return all_ok;
+        }
+        case ast::AstTypeHolder::UNION:
+            // That's will never happend.
+            /* FALL THROUGH! */
+            [[fallthrough]];
+        default:
+            wo_error("unknown typeholder formal.");
+        }
+    }
+
+    bool LangContext::template_arguments_deduction_extraction_with_formal(
+        lexer& lex,
+        const ast::AstTemplateArgument* accept_template_param_formal,
         const ast::AstIdentifier::TemplateArgumentInstance& applying_template_argument_instance,
         const std::list<wo_pstring_t>& pending_template_params,
         std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance>* out_determined_template_arg_pair)
     {
-        if (accept_template_param_formal.is_type()
+        if (accept_template_param_formal->is_type()
             != applying_template_argument_instance.is_type())
         {
-            if (accept_template_param_formal.is_type())
+            if (accept_template_param_formal->is_type())
                 lex.record_lang_error(lexer::msglevel_t::error, 
-                    accept_template_param_formal.get_ast_base_for_err_report(),
+                    accept_template_param_formal,
                     WO_ERR_THIS_TEMPLATE_ARG_SHOULD_BE_TYPE);
             else
                 lex.record_lang_error(lexer::msglevel_t::error, 
-                    accept_template_param_formal.get_ast_base_for_err_report(),
+                    accept_template_param_formal,
                     WO_ERR_THIS_TEMPLATE_ARG_SHOULD_BE_CONST);
 
             return false;
         }
 
-        if (accept_template_param_formal.is_type())
+        if (accept_template_param_formal->is_type())
         {
-            auto* accept_type_formal = accept_template_param_formal.get_type();
-            auto* applying_type_instance = applying_template_argument_instance.get_type();
-
-            switch (accept_type_formal->m_formal)
-            {
-            case ast::AstTypeHolder::IDENTIFIER:
-            {
-                auto* identifier = accept_type_formal->m_typeform.m_identifier;
-                bool try_eval_symbol_of_identifier = true;
-
-                switch (identifier->m_formal)
-                {
-                case ast::AstIdentifier::identifier_formal::FROM_TYPE:
-                    // Not support.
-                    return true;
-                case ast::AstIdentifier::identifier_formal::FROM_CURRENT:
-                    // Current identifier might be template need to be pick.
-                    if (identifier->m_scope.empty())
-                    {
-                        // TODO: Support HKT?
-                        // PERFECT! We got the type we need.
-
-                        auto fnd = std::find(
-                            pending_template_params.begin(),
-                            pending_template_params.end(),
-                            identifier->m_name);
-
-                        if (fnd != pending_template_params.end())
-                        {
-                            try_eval_symbol_of_identifier = false;
-
-                            // Got it!
-                            wo_pstring_t template_param_name = *fnd;
-
-                            switch (accept_type_formal->m_mutable_mark)
-                            {
-                            case ast::AstTypeHolder::mutable_mark::MARK_AS_MUTABLE:
-                                if (applying_type_instance->is_mutable())
-                                {
-                                    // mut T <= mut Tinstance: T = Tinstance
-                                    out_determined_template_arg_pair->insert(
-                                        std::make_pair(template_param_name, immutable_type(applying_type_instance)));
-                                }
-                                // Bad, continue;
-                                break;
-                            case ast::AstTypeHolder::mutable_mark::MARK_AS_IMMUTABLE:
-                                if (applying_type_instance->is_mutable())
-                                {
-                                    // immut T <X= mut Tinstance: Bad
-                                    lex.record_lang_error(lexer::msglevel_t::error, accept_type_formal,
-                                        WO_ERR_UNACCEPTABLE_MUTABLE,
-                                        get_type_name_w(applying_type_instance));
-
-                                    return false;
-                                }
-                                /* Fall through */
-                                [[fallthrough]];
-                            case ast::AstTypeHolder::mutable_mark::NONE:
-                                out_determined_template_arg_pair->insert(
-                                    std::make_pair(template_param_name, applying_type_instance));
-                                break;
-                            default:
-                                wo_error("Unexpected mutable mark");
-                            }
-                            goto _label_fake_hkt_trying_template;
-                        }
-                    }
-                    /* FALL THROUGH */
-                    [[fallthrough]];
-                case ast::AstIdentifier::identifier_formal::FROM_GLOBAL:
-                    do
-                    {
-                        // Try determin symbol:
-                        bool ambiguous = false;
-                        if (!find_symbol_in_current_scope(lex, identifier, &ambiguous))
-                        {
-                            lex.record_lang_error(lexer::msglevel_t::error, accept_type_formal,
-                                WO_ERR_UNFOUND_TYPE_NAMED,
-                                identifier->m_name->c_str());
-
-                            // Not found or ambiguous.
-                            return false;
-                        }
-                        else if (ambiguous)
-                            // Ambiguous.
-                            return false;
-
-                        auto* determined_type_symbol = identifier->m_LANG_determined_symbol.value();
-                        switch (determined_type_symbol->m_symbol_kind)
-                        {
-                        case lang_Symbol::kind::TYPE:
-                            break;
-                        case lang_Symbol::kind::ALIAS:
-                        {
-                            if (determined_type_symbol->m_is_template)
-                                // Not support;
-                                return true;
-
-                            if (!determined_type_symbol->m_alias_instance->m_determined_type.has_value())
-                                // Not determined yet.
-                                return true;
-
-                            determined_type_symbol = determined_type_symbol
-                                ->m_alias_instance->m_determined_type.value()->m_symbol;
-
-                            break;
-                        }
-                        default:
-                            wo_error("Unexpected symbol kind");
-                        }
-
-                        if (determined_type_symbol != applying_type_instance->m_symbol)
-                            // Not match!
-                            return true;
-
-                    } while (0);
-
-                _label_fake_hkt_trying_template:
-                    // Walk through template arguments.
-                    if (identifier->m_template_arguments.has_value())
-                    {
-                        // Has template, check if applying_type_instance match.
-                        wo_assert(applying_type_instance->m_instance_template_arguments.has_value());
-
-                        auto& identifier_template_arguments =
-                            identifier->m_template_arguments.value();
-                        auto& instance_template_arguments =
-                            applying_type_instance->m_instance_template_arguments.value();
-
-                        wo_assert(identifier_template_arguments.size() == instance_template_arguments.size());
-
-                        auto it_identifier = identifier_template_arguments.begin();
-                        auto it_instance = instance_template_arguments.begin();
-                        auto it_end = identifier_template_arguments.end();
-
-                        bool all_ok = true;
-                        for (; it_identifier != it_end; ++it_identifier, ++it_instance)
-                        {
-                            all_ok = template_arguments_deduction_extraction_with_complete_type(
-                                lex,
-                                *it_identifier,
-                                *it_instance,
-                                pending_template_params,
-                                out_determined_template_arg_pair) && all_ok;
-                        }
-
-                        if (!all_ok)
-                            return false;
-                    }
-                }
-
-                return true;
-            }
-            case ast::AstTypeHolder::TYPEOF:
-                // Junk! I cannot do any thing!
-                return true;
-            case ast::AstTypeHolder::FUNCTION:
-            {
-                if (applying_type_instance->m_symbol != m_origin_types.m_function)
-                    // User define type;
-                    return true;
-
-                auto& function = accept_type_formal->m_typeform.m_function;
-                auto instance_type_determined_base_may_null = applying_type_instance->get_determined_type();
-                if (!instance_type_determined_base_may_null.has_value())
-                    // Not determined yet.
-                    return true;
-
-                auto* instance_type_determined_base = instance_type_determined_base_may_null.value();
-                if (instance_type_determined_base->m_base_type != lang_TypeInstance::DeterminedType::FUNCTION)
-                    // Not function.
-                    return true;
-
-                auto* instance_type_determined_base_fn =
-                    instance_type_determined_base->m_external_type_description.m_function;
-
-                if (function.m_is_variadic != instance_type_determined_base_fn->m_is_variadic
-                    || function.m_parameters.size() != instance_type_determined_base_fn->m_param_types.size())
-                    // Not match.
-                    return true;
-
-                auto it_fn_param = function.m_parameters.begin();
-                auto it_instance_param = instance_type_determined_base_fn->m_param_types.begin();
-                auto it_fn_param_end = function.m_parameters.end();
-
-                bool all_ok = true;
-                for (; it_fn_param != it_fn_param_end; ++it_fn_param, ++it_instance_param)
-                {
-                    all_ok = template_arguments_deduction_extraction_with_complete_type(
-                        lex,
-                        *it_fn_param,
-                        *it_instance_param,
-                        pending_template_params,
-                        out_determined_template_arg_pair) && all_ok;
-                }
-
-                all_ok = template_arguments_deduction_extraction_with_complete_type(
-                    lex,
-                    function.m_return_type,
-                    instance_type_determined_base_fn->m_return_type,
-                    pending_template_params,
-                    out_determined_template_arg_pair) && all_ok;
-
-                return all_ok;
-            }
-            case ast::AstTypeHolder::STRUCTURE:
-            {
-                if (applying_type_instance->m_symbol != m_origin_types.m_struct)
-                    // User define type;
-                    return true;
-
-                auto& structure = accept_type_formal->m_typeform.m_structure;
-                auto instance_type_determined_base_may_null = applying_type_instance->get_determined_type();
-                if (!instance_type_determined_base_may_null.has_value())
-                    // Not determined yet.
-                    return true;
-
-                auto* instance_type_determined_base = instance_type_determined_base_may_null.value();
-                if (instance_type_determined_base->m_base_type != lang_TypeInstance::DeterminedType::STRUCT)
-                    // Not structure.
-                    return true;
-
-                auto* instance_type_determined_base_struct =
-                    instance_type_determined_base->m_external_type_description.m_struct;
-
-                if (structure.m_fields.size() != instance_type_determined_base_struct->m_member_types.size())
-                    // Not match.
-                    return true;
-
-                std::list<std::pair<ast::AstTypeHolder*, lang_TypeInstance*>>
-                    member_type_instance_pairs;
-
-                wo_integer_t member_index = 0;
-                for (auto& field : structure.m_fields)
-                {
-                    auto fnd = instance_type_determined_base_struct->m_member_types.find(field->m_name);
-                    if (fnd == instance_type_determined_base_struct->m_member_types.end())
-                        // Not match.
-                        return true;
-
-                    if (member_index != fnd->second.m_offset)
-                        // Not match.
-                        return true;
-
-                    member_type_instance_pairs.push_back(
-                        std::make_pair(field->m_type, fnd->second.m_member_type));
-
-                    ++member_index;
-                }
-
-                bool all_ok = true;
-                for (auto& member_type_instance_pair : member_type_instance_pairs)
-                {
-                    all_ok = template_arguments_deduction_extraction_with_complete_type(
-                        lex,
-                        member_type_instance_pair.first,
-                        member_type_instance_pair.second,
-                        pending_template_params,
-                        out_determined_template_arg_pair) && all_ok;
-                }
-
-                return all_ok;
-            }
-            case ast::AstTypeHolder::TUPLE:
-            {
-                if (applying_type_instance->m_symbol != m_origin_types.m_tuple)
-                    // User define type;
-                    return true;
-
-                auto& tuple = accept_type_formal->m_typeform.m_tuple;
-                auto instance_type_determined_base_may_null = applying_type_instance->get_determined_type();
-                if (!instance_type_determined_base_may_null.has_value())
-                    // Not determined yet.
-                    return true;
-
-                auto* instance_type_determined_base = instance_type_determined_base_may_null.value();
-                if (instance_type_determined_base->m_base_type != lang_TypeInstance::DeterminedType::TUPLE)
-                    // Not tuple.
-                    return true;
-
-                auto* instance_type_determined_base_tuple =
-                    instance_type_determined_base->m_external_type_description.m_tuple;
-
-                if (tuple.m_fields.size() != instance_type_determined_base_tuple->m_element_types.size())
-                    // Not match.
-                    return true;
-
-                auto it_tuple_field = tuple.m_fields.begin();
-                auto it_instance_field = instance_type_determined_base_tuple->m_element_types.begin();
-                auto it_tuple_field_end = tuple.m_fields.end();
-
-                bool all_ok = true;
-                for (; it_tuple_field != it_tuple_field_end; ++it_tuple_field, ++it_instance_field)
-                {
-                    all_ok = template_arguments_deduction_extraction_with_complete_type(
-                        lex,
-                        *it_tuple_field,
-                        *it_instance_field,
-                        pending_template_params,
-                        out_determined_template_arg_pair) && all_ok;
-                }
-
-                return all_ok;
-            }
-            case ast::AstTypeHolder::UNION:
-                // That's will never happend.
-                /* FALL THROUGH! */
-                [[fallthrough]];
-            default:
-                wo_error("unknown typeholder formal.");
-            }
-
+            return template_arguments_deduction_extraction_with_type(
+                lex, 
+                accept_template_param_formal->get_type(),
+                applying_template_argument_instance.get_type(),
+                pending_template_params,
+                out_determined_template_arg_pair);
         }
         else
         {
-
+            wo_error("Not impl yet");
         }
 
-        
         return true;
     }
 
     bool LangContext::check_type_may_dependence_template_parameters(
-        const ast::AstIdentifier::TemplateArgument& accept_template_argument_formal,
+        const ast::AstTypeHolder* accept_template_argument_formal,
         const std::list<wo_pstring_t>& pending_template_params)
     {
         std::vector<bool> template_mask(pending_template_params.size(), false);
-        if (accept_template_argument_formal.is_type())
-        {
-            accept_template_argument_formal.get_type()->_check_if_template_exist_in(
-                pending_template_params, template_mask);
-        }
-        else
-        {
-            accept_template_argument_formal.get_constant()->_check_if_template_exist_in(
-                pending_template_params, template_mask);
-        }
-        
+
+        accept_template_argument_formal->_check_if_template_exist_in(
+            pending_template_params, template_mask);
+
         for (bool b : template_mask)
         {
             if (b)
                 return true;
         }
         return false;
+    }
+    bool LangContext::check_constant_may_dependence_template_parameters(
+        const ast::AstValueBase* accept_template_argument_formal,
+        const std::list<wo_pstring_t>& pending_template_params)
+    {
+        std::vector<bool> template_mask(pending_template_params.size(), false);
+
+        accept_template_argument_formal->_check_if_template_exist_in(
+            pending_template_params, template_mask);
+
+        for (bool b : template_mask)
+        {
+            if (b)
+                return true;
+        }
+        return false;
+    }
+
+    bool LangContext::check_formal_may_dependence_template_parameters(
+        const ast::AstTemplateArgument* accept_template_argument_formal,
+        const std::list<wo_pstring_t>& pending_template_params)
+    {
+        
+        if (accept_template_argument_formal->is_type())
+            return check_type_may_dependence_template_parameters(
+                accept_template_argument_formal->get_type(), pending_template_params);
+        else
+            return check_constant_may_dependence_template_parameters(
+                accept_template_argument_formal->get_constant(), pending_template_params);
     }
 
     void LangContext::template_function_deduction_extraction_with_complete_type(
@@ -711,7 +743,7 @@ namespace wo
         if (function_define->m_marked_return_type.has_value()
             && return_type.has_value())
         {
-            template_arguments_deduction_extraction_with_complete_type(
+            template_arguments_deduction_extraction_with_type(
                 lex,
                 function_define->m_marked_return_type.value(),
                 return_type.value(),
@@ -730,7 +762,7 @@ namespace wo
             if (!it_arg_type->has_value())
                 continue;
 
-            template_arguments_deduction_extraction_with_complete_type(
+            template_arguments_deduction_extraction_with_type(
                 lex,
                 (*it_fn_param)->m_type.value(),
                 (*it_arg_type).value(),
@@ -792,19 +824,7 @@ namespace wo
                         != function_variable_identifier->m_template_arguments.value().size()))
                 {
                     if (function_variable->m_identifier->m_template_arguments.has_value())
-                    {
-                        //  WO_CONTINUE_PROCESS_LIST(..);
-                        auto& list = function_variable->m_identifier->m_template_arguments.value();
-
-                        auto r_end = list.rend();
-                        for (auto it = list.rbegin(); it != r_end; ++it)
-                        {
-                            if (it->is_type())
-                                out_stack.push(AstNodeWithState(it->get_type()));
-                            else
-                                out_stack.push(AstNodeWithState(it->get_constant()));
-                        }
-                    }
+                        WO_CONTINUE_PROCESS_LIST(function_variable->m_identifier->m_template_arguments.value());
 
                     return true;
                 }
@@ -836,19 +856,7 @@ namespace wo
                         != symbol->m_template_type_instances->m_template_params.size()))
                 {
                     if (struct_type_identifier->m_template_arguments.has_value())
-                    {
-                        //  WO_CONTINUE_PROCESS_LIST(..);
-                        auto& list = struct_type_identifier->m_template_arguments.value();
-
-                        auto r_end = list.rend();
-                        for (auto it = list.rbegin(); it != r_end; ++it)
-                        {
-                            if (it->is_type())
-                                out_stack.push(AstNodeWithState(it->get_type()));
-                            else
-                                out_stack.push(AstNodeWithState(it->get_constant()));
-                        }
-                    }
+                        WO_CONTINUE_PROCESS_LIST(struct_type_identifier->m_template_arguments.value());
 
                     return true;
                 }

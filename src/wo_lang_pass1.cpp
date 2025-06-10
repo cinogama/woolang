@@ -274,6 +274,7 @@ namespace wo
     {
         WO_LANG_REGISTER_PROCESSER(AstList, AstBase::AST_LIST, pass1);
         WO_LANG_REGISTER_PROCESSER(AstIdentifier, AstBase::AST_IDENTIFIER, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstTemplateArgument, AstBase::AST_TEMPLATE_ARGUMENT, pass1);
         WO_LANG_REGISTER_PROCESSER(AstStructFieldDefine, AstBase::AST_STRUCT_FIELD_DEFINE, pass1);
         WO_LANG_REGISTER_PROCESSER(AstTypeHolder, AstBase::AST_TYPE_HOLDER, pass1);
         WO_LANG_REGISTER_PROCESSER(AstValueMarkAsMutable, AstBase::AST_VALUE_MARK_AS_MUTABLE, pass1);
@@ -398,16 +399,7 @@ namespace wo
             if (node->m_template_arguments)
             {
                 // WO_CONTINUE_PROCESS_LIST(..)
-                auto& list = node->m_template_arguments.value();
-
-                auto r_end = list.rend();
-                for (auto it = list.rbegin(); it != r_end; ++it)
-                {
-                    if (it->is_type())
-                        out_stack.push(AstNodeWithState(it->get_type()));
-                    else
-                        out_stack.push(AstNodeWithState(it->get_constant()));
-                }
+                WO_CONTINUE_PROCESS_LIST(node->m_template_arguments.value());
             }
             return HOLD;
         }
@@ -433,37 +425,9 @@ namespace wo
             {
                 lang_Symbol* symbol = node->m_LANG_determined_symbol.value();
 
-                bool has_template_arguments;
-                if (node->m_template_arguments.has_value())
-                {
-                    has_template_arguments = true;
-
-                    bool failed = false;
-                    for (auto& template_argument : node->m_template_arguments.value())
-                    {
-                        if (template_argument.is_constant())
-                        {
-                            auto* constant_template_argument = template_argument.get_constant();
-                            if (!constant_template_argument->m_evaled_const_value.has_value())
-                            {
-                                lex.record_lang_error(lexer::msglevel_t::error, node,
-                                    WO_ERR_VALUE_SHOULD_BE_CONST_FOR_TEMPLATE_ARG,
-                                    get_symbol_name_w(symbol));
-
-                                failed = true;
-                            }
-                        }
-
-                        if (failed)
-                            return FAILED;
-                    }
-                }
-                else
-                {
-                    has_template_arguments =
-                        node->m_LANG_determined_and_appended_template_arguments.has_value();
-                }
-
+                bool has_template_arguments = 
+                    node->m_template_arguments.has_value()
+                    || node->m_LANG_determined_and_appended_template_arguments.has_value();
 
                 bool accept_template_arguments = symbol->m_is_template;
 
@@ -504,6 +468,33 @@ namespace wo
                             return FAILED;
                         }
                     }
+                }
+            }
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstTemplateArgument)
+    {
+        if (state == UNPROCESSED)
+        {
+            if (node->is_type())
+                WO_CONTINUE_PROCESS(node->get_type());
+            else
+                WO_CONTINUE_PROCESS(node->get_constant());
+
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            if (node->is_constant())
+            {
+                AstValueBase* val = node->get_constant();
+                if (!val->m_evaled_const_value.has_value())
+                {
+                    lex.record_lang_error(lexer::msglevel_t::error, val,
+                        WO_ERR_VALUE_SHOULD_BE_CONST_FOR_TEMPLATE_ARG);
+
+                    return FAILED;
                 }
             }
         }
@@ -611,12 +602,12 @@ namespace wo
                             {
                                 for (auto& template_argument : node->m_typeform.m_identifier->m_template_arguments.value())
                                 {
-                                    if (template_argument.is_type())
+                                    if (template_argument->is_type())
                                         template_args.push_back(
-                                            template_argument.get_type()->m_LANG_determined_type.value());
+                                            template_argument->get_type()->m_LANG_determined_type.value());
                                     else
                                         template_args.push_back(
-                                            template_argument.get_constant()->m_evaled_const_value.value());
+                                            template_argument->get_constant()->m_evaled_const_value.value());
                                 }
                             }
                             if (node->m_typeform.m_identifier->m_LANG_determined_and_appended_template_arguments.has_value())
@@ -924,12 +915,12 @@ namespace wo
                         {
                             for (auto& template_argument : node->m_identifier->m_template_arguments.value())
                             {
-                                if (template_argument.is_type())
+                                if (template_argument->is_type())
                                     template_args.push_back(
-                                        template_argument.get_type()->m_LANG_determined_type.value());
+                                        template_argument->get_type()->m_LANG_determined_type.value());
                                 else
                                     template_args.push_back(
-                                        template_argument.get_constant()->m_evaled_const_value.value());
+                                        template_argument->get_constant()->m_evaled_const_value.value());
                             }
                         }
                         if (node->m_identifier->m_LANG_determined_and_appended_template_arguments.has_value())
@@ -2368,7 +2359,8 @@ namespace wo
                     auto& function_formal = current_argument.m_duped_param_type->m_typeform.m_function;
                     for (auto* param : function_formal.m_parameters)
                     {
-                        if (!check_type_may_dependence_template_parameters(param, node->m_undetermined_template_params))
+                        if (!check_type_may_dependence_template_parameters(
+                            param, node->m_undetermined_template_params))
                             type_to_eval.push_back(param);
                     }
                     if (!check_type_may_dependence_template_parameters(
@@ -2553,7 +2545,7 @@ namespace wo
                 lang_TypeInstance* argument_final_type =
                     current_argument.m_argument->m_LANG_determined_type.value();
 
-                if (!template_arguments_deduction_extraction_with_complete_type(
+                if (!template_arguments_deduction_extraction_with_type(
                     lex,
                     current_argument.m_duped_param_type,
                     argument_final_type,
@@ -2923,14 +2915,14 @@ namespace wo
 
                                 wo_pstring_t param_name = *(it_template_param++);
 
-                                if (template_arg.is_type())
+                                if (template_arg->is_type())
                                     deduction_results.insert(
                                         std::make_pair(
-                                            param_name, template_arg.get_type()->m_LANG_determined_type.value()));
+                                            param_name, template_arg->get_type()->m_LANG_determined_type.value()));
                                 else
                                     deduction_results.insert(
                                         std::make_pair(
-                                            param_name, template_arg.get_constant()->m_evaled_const_value.value()));
+                                            param_name, template_arg->get_constant()->m_evaled_const_value.value()));
                             }
                         }
                         for (; it_template_param != it_template_param_end; ++it_template_param)
@@ -3034,7 +3026,7 @@ namespace wo
                                     {
                                         AstTypeHolder* unpacking_param_type_holder = *it_target_param;
 
-                                        deduction_error = !template_arguments_deduction_extraction_with_complete_type(
+                                        deduction_error = !template_arguments_deduction_extraction_with_type(
                                             lex,
                                             unpacking_param_type_holder,
                                             *it_unpacking_arg_type,
@@ -3062,7 +3054,7 @@ namespace wo
                                 lang_TypeInstance* argument_type_instance =
                                     argument_value->m_LANG_determined_type.value();
 
-                                deduction_error = !template_arguments_deduction_extraction_with_complete_type(
+                                deduction_error = !template_arguments_deduction_extraction_with_type(
                                     lex,
                                     param_type_holder,
                                     argument_type_instance,
@@ -3764,16 +3756,16 @@ namespace wo
                 {
                     for (auto& exist_template_argument : struct_type_identifier->m_template_arguments.value())
                     {
-                        if (exist_template_argument.is_type())
+                        if (exist_template_argument->is_type())
                             deduction_results.insert(
                                 std::make_pair(
                                     *it_template_param,
-                                    exist_template_argument.get_type()->m_LANG_determined_type.value()));
+                                    exist_template_argument->get_type()->m_LANG_determined_type.value()));
                         else
                             deduction_results.insert(
                                 std::make_pair(
                                     *it_template_param,
-                                    exist_template_argument.get_constant()->m_evaled_const_value.value()));
+                                    exist_template_argument->get_constant()->m_evaled_const_value.value()));
 
                         ++it_template_param;
                     }
@@ -3832,7 +3824,7 @@ namespace wo
                     {
                         lang_TypeInstance* field_instance_type = field_instance->m_value->m_LANG_determined_type.value();
 
-                        deduction_error = !template_arguments_deduction_extraction_with_complete_type(
+                        deduction_error = !template_arguments_deduction_extraction_with_type(
                             lex,
                             fnd->second,
                             field_instance_type,

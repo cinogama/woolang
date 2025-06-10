@@ -599,11 +599,13 @@ namespace wo
         m_debug_scope_layer_count(0), m_debug_entry_scope(nullptr)
 #endif
     {
+        wo_assert(m_ast_node != nullptr);
     }
     LangContext::AstNodeWithState::AstNodeWithState(
         pass_behavior state, ast::AstBase* node)
         : m_state(state), m_ast_node(node)
     {
+        wo_assert(m_ast_node != nullptr);
     }
 
     //////////////////////////////////////
@@ -932,27 +934,27 @@ namespace wo
                 auto& key_type_template = *(template_iter++);
                 auto& val_type_template = *(template_iter);
 
-                if (key_type_template.is_constant())
+                if (key_type_template->is_constant())
                 {
                     lex.record_lang_error(
                         lexer::msglevel_t::error,
-                        key_type_template.get_constant(),
+                        key_type_template,
                         WO_ERR_THIS_TEMPLATE_ARG_SHOULD_BE_TYPE);
 
                     return std::nullopt;
                 }
-                if (val_type_template.is_constant())
+                if (val_type_template->is_constant())
                 {
                     lex.record_lang_error(
                         lexer::msglevel_t::error,
-                        val_type_template.get_constant(),
+                        key_type_template,
                         WO_ERR_THIS_TEMPLATE_ARG_SHOULD_BE_TYPE);
 
                     return std::nullopt;
                 }
 
-                auto* key_type = key_type_template.get_type()->m_LANG_determined_type.value();
-                auto* value_type = val_type_template.get_type()->m_LANG_determined_type.value();
+                auto* key_type = key_type_template->get_type()->m_LANG_determined_type.value();
+                auto* value_type = val_type_template->get_type()->m_LANG_determined_type.value();
 
                 return symbol == m_dictionary
                     ? create_dictionary_type(key_type, value_type)
@@ -971,17 +973,17 @@ namespace wo
                 }
                 auto& element_type_template = template_arguments.front();
 
-                if (element_type_template.is_constant())
+                if (element_type_template->is_constant())
                 {
                     lex.record_lang_error(
                         lexer::msglevel_t::error,
-                        element_type_template.get_constant(),
+                        element_type_template,
                         WO_ERR_THIS_TEMPLATE_ARG_SHOULD_BE_TYPE);
 
                     return std::nullopt;
                 }
 
-                auto* element_type = element_type_template.get_type()->m_LANG_determined_type.value();
+                auto* element_type = element_type_template->get_type()->m_LANG_determined_type.value();
                 return symbol == m_array
                     ? create_array_type(element_type)
                     : create_vector_type(element_type)

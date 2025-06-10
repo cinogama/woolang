@@ -653,14 +653,14 @@ namespace wo
             if (!WO_IS_EMPTY(1))
                 template_arguments = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
 
-            std::optional<std::list<AstIdentifier::TemplateArgument>> template_args = std::nullopt;
+            std::optional<std::list<AstTemplateArgument*>> template_args = std::nullopt;
             if (template_arguments)
             {
-                std::list<AstIdentifier::TemplateArgument> args;
+                std::list<AstTemplateArgument*> args;
                 for (auto& arg : template_arguments.value()->m_list)
                 {
-                    wo_assert(arg->node_type == AstBase::AST_TYPE_HOLDER);
-                    args.push_back(static_cast<AstTypeHolder*>(arg));
+                    wo_assert(arg->node_type == AstBase::AST_TEMPLATE_ARGUMENT);
+                    args.push_back(static_cast<AstTemplateArgument*>(arg));
                 }
                 template_args = std::move(args);
             }
@@ -696,14 +696,14 @@ namespace wo
             if (!WO_IS_EMPTY(1))
                 template_arguments = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
 
-            std::optional<std::list<AstIdentifier::TemplateArgument>> template_args = std::nullopt;
+            std::optional<std::list<AstTemplateArgument*>> template_args = std::nullopt;
             if (template_arguments)
             {
-                std::list<AstIdentifier::TemplateArgument> args;
+                std::list<AstTemplateArgument*> args;
                 for (auto& arg : template_arguments.value()->m_list)
                 {
-                    wo_assert(arg->node_type == AstBase::AST_TYPE_HOLDER);
-                    args.push_back(static_cast<AstTypeHolder*>(arg));
+                    wo_assert(arg->node_type == AstBase::AST_TEMPLATE_ARGUMENT);
+                    args.push_back(static_cast<AstTemplateArgument*>(arg));
                 }
                 template_args = std::move(args);
             }
@@ -730,14 +730,14 @@ namespace wo
             if (!WO_IS_EMPTY(1))
                 template_arguments = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
 
-            std::optional<std::list<AstIdentifier::TemplateArgument>> template_args = std::nullopt;
+            std::optional<std::list<AstTemplateArgument*>> template_args = std::nullopt;
             if (template_arguments)
             {
-                std::list<AstIdentifier::TemplateArgument> args;
+                std::list<AstTemplateArgument*> args;
                 for (auto& arg : template_arguments.value()->m_list)
                 {
-                    wo_assert(arg->node_type == AstBase::AST_TYPE_HOLDER);
-                    args.push_back(static_cast<AstTypeHolder*>(arg));
+                    wo_assert(arg->node_type == AstBase::AST_TEMPLATE_ARGUMENT);
+                    args.push_back(static_cast<AstTemplateArgument*>(arg));
                 }
                 template_args = std::move(args);
             }
@@ -1657,6 +1657,19 @@ namespace wo
         {
             return new AstValueVariadicArgumentsPack();
         }
+        auto pass_create_template_argument::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            if (input.size() == 1)
+            {
+                return new AstTemplateArgument(
+                    static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(0, AstBase::AST_TYPE_HOLDER)));
+            }
+            else
+            {
+                wo_assert(input.size() == 3);
+                wo_error("Not impl yet");
+            }
+        }
         auto pass_extern::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             token symbol;
@@ -1822,6 +1835,7 @@ namespace wo
             WO_AST_BUILDER(pass_extern);
             WO_AST_BUILDER(pass_func_def_extn);
             WO_AST_BUILDER(pass_func_def_extn_oper);
+            WO_AST_BUILDER(pass_create_template_argument);
 #undef WO_AST_BUILDER
         }
     }

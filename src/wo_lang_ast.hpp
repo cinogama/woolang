@@ -56,6 +56,23 @@ namespace wo
             AstDeclareAttribue(const AstDeclareAttribue&);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
+        struct AstTemplateArgument : public AstBase
+        {
+            std::variant<AstTypeHolder*, AstValueBase*> m_argument;
+
+            AstTemplateArgument();
+            AstTemplateArgument(AstTypeHolder* type);
+            AstTemplateArgument(AstValueBase* constant);
+
+            bool is_type() const;
+            bool is_constant() const;
+            AstTypeHolder* get_type() const;
+            AstValueBase* get_constant() const;
+            AstTypeHolder** get_type_ptr();
+            AstValueBase** get_constant_ptr();
+
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+        };
         struct AstIdentifier : public AstBase
         {
             struct TemplateArgumentInstance
@@ -80,28 +97,6 @@ namespace wo
 
                 bool operator < (const TemplateArgumentInstance& a) const;
             };
-            struct TemplateArgument
-            {
-                std::variant<AstTypeHolder*, AstValueBase*> m_argument;
-
-                TemplateArgument() 
-                    : m_argument()
-                {
-                    // Note that this is only used to deceive some strange STL implementations. 
-                    // This construction method should not be used under normal circumstances.
-                }
-                TemplateArgument(AstTypeHolder* type);
-                TemplateArgument(AstValueBase* constant);
-
-                bool is_type() const;
-                bool is_constant() const;
-                AstTypeHolder* get_type() const;
-                AstValueBase* get_constant() const;
-                AstTypeHolder** get_type_ptr();
-                AstValueBase** get_constant_ptr();
-
-                AstBase* get_ast_base_for_err_report() const;
-            };
 
             enum class identifier_formal : uint8_t
             {
@@ -118,7 +113,7 @@ namespace wo
                 m_from_type;
             std::list<wo_pstring_t> m_scope;
             wo_pstring_t            m_name;
-            std::optional<std::list<TemplateArgument>>
+            std::optional<std::list<AstTemplateArgument*>>
                 m_template_arguments;
 
             std::optional<lang_Symbol*>
@@ -127,9 +122,9 @@ namespace wo
                 m_LANG_determined_and_appended_template_arguments;
 
             AstIdentifier(wo_pstring_t identifier);
-            AstIdentifier(wo_pstring_t identifier, const std::optional<std::list<TemplateArgument>>& template_arguments);
-            AstIdentifier(wo_pstring_t identifier, const std::optional<std::list<TemplateArgument>>& template_arguments, const std::list<wo_pstring_t>& scopes, bool from_global);
-            AstIdentifier(wo_pstring_t identifier, const std::optional<std::list<TemplateArgument>>& template_arguments, const std::list<wo_pstring_t>& scopes, AstTypeHolder* from_type);
+            AstIdentifier(wo_pstring_t identifier, const std::optional<std::list<AstTemplateArgument*>>& template_arguments);
+            AstIdentifier(wo_pstring_t identifier, const std::optional<std::list<AstTemplateArgument*>>& template_arguments, const std::list<wo_pstring_t>& scopes, bool from_global);
+            AstIdentifier(wo_pstring_t identifier, const std::optional<std::list<AstTemplateArgument*>>& template_arguments, const std::list<wo_pstring_t>& scopes, AstTypeHolder* from_type);
 
             AstIdentifier(const AstIdentifier& ident);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;

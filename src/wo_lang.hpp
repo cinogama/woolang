@@ -890,6 +890,7 @@ namespace wo
     WO_AST_MACRO(AstValueFunctionCall_FakeAstArgumentDeductionContextB);\
     WO_AST_MACRO(AstDeclareAttribue);\
     WO_AST_MACRO(AstIdentifier);\
+    WO_AST_MACRO(AstTemplateArgument);\
     WO_AST_MACRO(AstStructFieldDefine);\
     WO_AST_MACRO(AstTypeHolder);\
     WO_AST_MACRO(AstWhereConstraints);\
@@ -1135,9 +1136,16 @@ namespace wo
         const wchar_t* get_value_name_w(lang_ValueInstance* val);
         const char* get_value_name(lang_ValueInstance* val);
 
-        bool template_arguments_deduction_extraction_with_complete_type(
+        bool template_arguments_deduction_extraction_with_type(
             lexer& lex,
-            const ast::AstIdentifier::TemplateArgument& accept_template_param_formal,
+            const ast::AstTypeHolder* accept_type_formal,
+            lang_TypeInstance* applying_type_instance,
+            const std::list<wo_pstring_t>& pending_template_params,
+            std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance>* out_determined_template_arg_pair);
+
+        bool template_arguments_deduction_extraction_with_formal(
+            lexer& lex,
+            const ast::AstTemplateArgument* accept_template_param_formal,
             const ast::AstIdentifier::TemplateArgumentInstance& applying_template_argument_instance,
             const std::list<wo_pstring_t>& pending_template_params,
             std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance>* out_determined_template_arg_pair);
@@ -1150,8 +1158,15 @@ namespace wo
             const std::list<wo_pstring_t>& pending_template_params,
             std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance>* out_determined_template_arg_pair
         );
+
         bool check_type_may_dependence_template_parameters(
-            const ast::AstIdentifier::TemplateArgument& accept_template_argument_formal,
+            const ast::AstTypeHolder* accept_template_argument_formal,
+            const std::list<wo_pstring_t>& pending_template_params);
+        bool check_constant_may_dependence_template_parameters(
+            const ast::AstValueBase* accept_template_argument_formal,
+            const std::list<wo_pstring_t>& pending_template_params);
+        bool check_formal_may_dependence_template_parameters(
+            const ast::AstTemplateArgument* accept_template_argument_formal,
             const std::list<wo_pstring_t>& pending_template_params);
 
         ast::AstValueBase* get_marked_origin_value_node(ast::AstValueBase* node);

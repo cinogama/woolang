@@ -90,11 +90,10 @@ namespace wo
             , m_LANG_determined_and_appended_template_arguments(std::nullopt)
             //, m_LANG_determined_searching_from_scope(std::nullopt)
         {
-
         }
         AstIdentifier::AstIdentifier(
             wo_pstring_t identifier,
-            const std::optional<std::list<TemplateArgument>>& template_arguments)
+            const std::optional<std::list<AstTemplateArgument*>>& template_arguments)
             : AstBase(AST_IDENTIFIER)
             , m_formal(identifier_formal::FROM_CURRENT)
             , m_find_type_only(true)
@@ -109,7 +108,7 @@ namespace wo
         }
         AstIdentifier::AstIdentifier(
             wo_pstring_t identifier,
-            const std::optional<std::list<TemplateArgument>>& template_arguments,
+            const std::optional<std::list<AstTemplateArgument*>>& template_arguments,
             const std::list<wo_pstring_t>& scopes,
             bool from_global)
             : AstBase(AST_IDENTIFIER)
@@ -123,11 +122,10 @@ namespace wo
             , m_LANG_determined_and_appended_template_arguments(std::nullopt)
             //, m_LANG_determined_searching_from_scope(std::nullopt)
         {
-
         }
         AstIdentifier::AstIdentifier(
             wo_pstring_t identifier,
-            const std::optional<std::list<TemplateArgument>>& template_arguments,
+            const std::optional<std::list<AstTemplateArgument*>>& template_arguments,
             const std::list<wo_pstring_t>& scopes,
             AstTypeHolder* from_type)
             : AstBase(AST_IDENTIFIER)
@@ -141,7 +139,6 @@ namespace wo
             , m_LANG_determined_and_appended_template_arguments(std::nullopt)
             //, m_LANG_determined_searching_from_scope(std::nullopt)
         {
-
         }
 
         AstIdentifier::AstIdentifier(const AstIdentifier& identifer)
@@ -172,10 +169,8 @@ namespace wo
             }
             if (new_instance->m_template_arguments.has_value())
                 for (auto& arg : new_instance->m_template_arguments.value())
-                {
-                    out_continues.push_back(AstBase::make_holder(
-                        arg.is_type() ? arg.get_type_ptr() : arg.get_type_ptr()));
-                }
+                    out_continues.push_back(AstBase::make_holder(&arg));
+
             return new_instance;
         }
 
@@ -255,52 +250,68 @@ namespace wo
         }
 
         ////////////////////////////////////////////////////////
-
-        AstIdentifier::TemplateArgument::TemplateArgument(AstTypeHolder* type)
-            :m_argument(type)
+        AstTemplateArgument::AstTemplateArgument()
+            : AstBase(AST_TEMPLATE_ARGUMENT)
+            , m_argument()
+        {
+            // Note that this is only used to deceive some strange STL implementations. 
+            // This construction method should not be used under normal circumstances.
+        }
+        AstTemplateArgument::AstTemplateArgument(AstTypeHolder* type)
+            : AstBase(AST_TEMPLATE_ARGUMENT)
+            , m_argument(type)
         {
         }
-        AstIdentifier::TemplateArgument::TemplateArgument(AstValueBase* constant)
-            :m_argument(constant)
+        AstTemplateArgument::AstTemplateArgument(AstValueBase* constant)
+            : AstBase(AST_TEMPLATE_ARGUMENT)
+            , m_argument(constant)
         {
         }
 
-        bool AstIdentifier::TemplateArgument::is_type() const
+        bool AstTemplateArgument::is_type() const
         {
             return std::holds_alternative<AstTypeHolder*>(m_argument);
         }
-        bool AstIdentifier::TemplateArgument::is_constant() const
+        bool AstTemplateArgument::is_constant() const
         {
             return std::holds_alternative<AstValueBase*>(m_argument);
         }
-        AstTypeHolder* AstIdentifier::TemplateArgument::get_type() const
+        AstTypeHolder* AstTemplateArgument::get_type() const
         {
             return std::get<AstTypeHolder*>(m_argument);
         }
-        AstValueBase* AstIdentifier::TemplateArgument::get_constant() const
+        AstValueBase* AstTemplateArgument::get_constant() const
         {
             return std::get<AstValueBase*>(m_argument);
         }
-        AstTypeHolder** AstIdentifier::TemplateArgument::get_type_ptr()
+        AstTypeHolder** AstTemplateArgument::get_type_ptr()
         {
             auto* p = std::get_if<AstTypeHolder*>(&m_argument);
             wo_assert(p != nullptr);
 
             return p;
         }
-        AstValueBase** AstIdentifier::TemplateArgument::get_constant_ptr()
+        AstValueBase** AstTemplateArgument::get_constant_ptr()
         {
             auto* p = std::get_if<AstValueBase*>(&m_argument);
             wo_assert(p != nullptr);
 
             return p;
         }
-        AstBase* AstIdentifier::TemplateArgument::get_ast_base_for_err_report() const
-        {
-            if (is_type())
-                return get_type();
 
-            return get_constant();
+        AstBase* AstTemplateArgument::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        {
+            AstTemplateArgument* new_instance = exist_instance
+                ? static_cast<AstTemplateArgument*>(exist_instance.value())
+                : is_type() ? new AstTemplateArgument(get_type()) : new AstTemplateArgument(get_constant())
+                ;
+
+            if (new_instance->is_type())
+                out_continues.push_back(AstBase::make_holder(new_instance->get_type_ptr()));
+            else
+                out_continues.push_back(AstBase::make_holder(new_instance->get_constant_ptr()));
+
+            return new_instance;
         }
 
         ////////////////////////////////////////////////////////
@@ -446,7 +457,7 @@ namespace wo
             }
             case AST_PATTERN_VARIABLE: // Only used in assign
                 static_cast<const AstPatternVariable*>(this)->m_variable->_check_if_template_exist_in(
-                        template_params, out_contain_flags);
+                    template_params, out_contain_flags);
                 return;
             case AST_PATTERN_INDEX:  // Only used in assign
                 static_cast<const AstPatternIndex*>(this)->m_index->_check_if_template_exist_in(
@@ -523,11 +534,11 @@ namespace wo
                     if (variable->m_identifier->m_template_arguments.has_value())
                         for (auto& template_argument : variable->m_identifier->m_template_arguments.value())
                         {
-                            if (template_argument.is_constant())
-                                template_argument.get_constant()->_check_if_template_exist_in(
+                            if (template_argument->is_constant())
+                                template_argument->get_constant()->_check_if_template_exist_in(
                                     template_params, out_contain_flags);
                             else
-                                template_argument.get_type()->_check_if_template_exist_in(
+                                template_argument->get_type()->_check_if_template_exist_in(
                                     template_params, out_contain_flags);
                         }
 
@@ -631,7 +642,7 @@ namespace wo
                 case AST_VALUE_VARIADIC_ARGUMENTS_PACK:
                 case AST_FAKE_VALUE_UNPACK:
                     return;
-                case AST_VALUE_MAKE_UNION:              
+                case AST_VALUE_MAKE_UNION:
                 case AST_VALUE_IR_OPNUM:
                     wo_error("Cannot be here.");
                     return;
@@ -670,11 +681,11 @@ namespace wo
                 if (m_typeform.m_identifier->m_template_arguments)
                     for (auto& template_argument : m_typeform.m_identifier->m_template_arguments.value())
                     {
-                        if (template_argument.is_constant())
-                            template_argument.get_constant()->_check_if_template_exist_in(
+                        if (template_argument->is_constant())
+                            template_argument->get_constant()->_check_if_template_exist_in(
                                 template_params, out_contain_flags);
                         else
-                            template_argument.get_type()->_check_if_template_exist_in(
+                            template_argument->get_type()->_check_if_template_exist_in(
                                 template_params, out_contain_flags);
                     }
                 break;
@@ -2257,16 +2268,18 @@ namespace wo
 
                 if (template_parameters)
                 {
-                    std::list<AstIdentifier::TemplateArgument> template_arguments(template_parameters.value().size());
+                    std::list<AstTemplateArgument*> template_arguments(template_parameters.value().size());
                     for (auto& template_argument : template_arguments)
                     {
                         auto* template_argument_identifier = new AstIdentifier(WO_PSTR(nothing), std::nullopt, {}, true);
                         auto* typeholder = new AstTypeHolder(template_argument_identifier);
+                        auto* template_argument_instance = new AstTemplateArgument(typeholder);
 
                         template_argument_identifier->source_location = item->source_location;
                         typeholder->source_location = item->source_location;
+                        template_argument_instance->source_location = item->source_location;
 
-                        template_argument = typeholder;
+                        template_argument = template_argument_instance;
                     }
 
                     auto* union_type_identifier = new AstIdentifier(
@@ -2315,14 +2328,16 @@ namespace wo
                                 // Used, update the template argument.
                                 auto* new_template_identifier = new AstIdentifier(*template_parameters_iter);
                                 auto* new_template = new AstTypeHolder(new_template_identifier);
+                                auto* new_template_argument = new AstTemplateArgument(new_template);
 
-                                *updating_union_type_template_argument_iter = new_template;
+                                *updating_union_type_template_argument_iter = new_template_argument;
 
                                 used_template_parameters.push_back(*template_parameters_iter);
 
                                 // Update source msg;
                                 new_template_identifier->source_location = item->source_location;
                                 new_template->source_location = item->source_location;
+                                new_template_argument->source_location = item->source_location;
                             }
 
                             ++updating_union_type_template_argument_iter;
