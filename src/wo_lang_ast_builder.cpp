@@ -653,10 +653,10 @@ namespace wo
             if (!WO_IS_EMPTY(1))
                 template_arguments = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
 
-            std::optional<std::list<AstTypeHolder*>> template_args = std::nullopt;
+            std::optional<std::list<AstIdentifier::TemplateArgument>> template_args = std::nullopt;
             if (template_arguments)
             {
-                std::list<AstTypeHolder*> args;
+                std::list<AstIdentifier::TemplateArgument> args;
                 for (auto& arg : template_arguments.value()->m_list)
                 {
                     wo_assert(arg->node_type == AstBase::AST_TYPE_HOLDER);
@@ -696,10 +696,10 @@ namespace wo
             if (!WO_IS_EMPTY(1))
                 template_arguments = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
 
-            std::optional<std::list<AstTypeHolder*>> template_args = std::nullopt;
+            std::optional<std::list<AstIdentifier::TemplateArgument>> template_args = std::nullopt;
             if (template_arguments)
             {
-                std::list<AstTypeHolder*> args;
+                std::list<AstIdentifier::TemplateArgument> args;
                 for (auto& arg : template_arguments.value()->m_list)
                 {
                     wo_assert(arg->node_type == AstBase::AST_TYPE_HOLDER);
@@ -730,10 +730,10 @@ namespace wo
             if (!WO_IS_EMPTY(1))
                 template_arguments = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
 
-            std::optional<std::list<AstTypeHolder*>> template_args = std::nullopt;
+            std::optional<std::list<AstIdentifier::TemplateArgument>> template_args = std::nullopt;
             if (template_arguments)
             {
-                std::list<AstTypeHolder*> args;
+                std::list<AstIdentifier::TemplateArgument> args;
                 for (auto& arg : template_arguments.value()->m_list)
                 {
                     wo_assert(arg->node_type == AstBase::AST_TYPE_HOLDER);

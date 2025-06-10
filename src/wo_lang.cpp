@@ -907,7 +907,7 @@ namespace wo
 
             auto& template_arguments = identifier->m_template_arguments.value();
 
-            if (symbol == m_dictionary)
+            if (symbol == m_dictionary || symbol == m_mapping)
             {
                 if (template_arguments.size() != 2)
                 {
@@ -918,41 +918,37 @@ namespace wo
                     return std::nullopt;
                 }
                 auto template_iter = template_arguments.begin();
-                auto* key_type = (*(template_iter++))->m_LANG_determined_type.value();
-                auto* value_type = (*template_iter)->m_LANG_determined_type.value();
+                auto& key_type_template = *(template_iter++);
+                auto& val_type_template = *(template_iter);
 
-                return create_dictionary_type(key_type, value_type);
-            }
-            else if (symbol == m_mapping)
-            {
-                if (template_arguments.size() != 2)
+                if (key_type_template.is_constant())
                 {
-                    lex.record_lang_error(lexer::msglevel_t::error, type_holder,
-                        WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
-                        (size_t)2);
+                    lex.record_lang_error(
+                        lexer::msglevel_t::error,
+                        key_type_template.get_constant(),
+                        WO_ERR_THIS_TEMPLATE_ARG_SHOULD_BE_TYPE);
 
                     return std::nullopt;
                 }
-                auto template_iter = template_arguments.begin();
-                auto* key_type = (*(template_iter++))->m_LANG_determined_type.value();
-                auto* value_type = (*template_iter)->m_LANG_determined_type.value();
-
-                return create_mapping_type(key_type, value_type);
-            }
-            else if (symbol == m_array)
-            {
-                if (template_arguments.size() != 1)
+                if (val_type_template.is_constant())
                 {
-                    lex.record_lang_error(lexer::msglevel_t::error, type_holder,
-                        WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
-                        (size_t)1);
+                    lex.record_lang_error(
+                        lexer::msglevel_t::error,
+                        val_type_template.get_constant(),
+                        WO_ERR_THIS_TEMPLATE_ARG_SHOULD_BE_TYPE);
 
                     return std::nullopt;
                 }
-                auto* element_type = template_arguments.front()->m_LANG_determined_type.value();
-                return create_array_type(element_type);
+
+                auto* key_type = key_type_template.get_type()->m_LANG_determined_type.value();
+                auto* value_type = val_type_template.get_type()->m_LANG_determined_type.value();
+
+                return symbol == m_dictionary 
+                    ? create_dictionary_type(key_type, value_type)
+                    : create_mapping_type(key_type, value_type);
+                    ;
             }
-            else if (symbol == m_vector)
+            else if (symbol == m_array || symbol == m_vector)
             {
                 if (template_arguments.size() != 1)
                 {
@@ -962,8 +958,23 @@ namespace wo
 
                     return std::nullopt;
                 }
-                auto* element_type = template_arguments.front()->m_LANG_determined_type.value();
-                return create_vector_type(element_type);
+                auto& element_type_template = template_arguments.front();
+
+                if (element_type_template.is_constant())
+                {
+                    lex.record_lang_error(
+                        lexer::msglevel_t::error,
+                        element_type_template.get_constant(),
+                        WO_ERR_THIS_TEMPLATE_ARG_SHOULD_BE_TYPE);
+
+                    return std::nullopt;
+                }
+
+                auto* element_type = element_type_template.get_type()->m_LANG_determined_type.value();
+                return symbol == m_array 
+                    ? create_array_type(element_type)
+                    : create_vector_type(element_type)
+                    ;
             }
             else
             {

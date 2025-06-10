@@ -225,7 +225,7 @@ namespace wo
         state               m_state;
         ast::AstBase*       m_ast;
         lang_Symbol*        m_symbol;
-        std::list<lang_TypeInstance*>
+        std::list<ast::AstIdentifier::TemplateArgumentInstance>
                             m_template_arguments;
 
         std::optional<std::list<lexer::compiler_message_t>>
@@ -273,7 +273,8 @@ namespace wo
             ALIAS,
         };
 
-        using TemplateArgumentListT = std::list<lang_TypeInstance*>;
+        using TemplateArgumentListT = std::list<
+            ast::AstIdentifier::TemplateArgumentInstance>;
 
         struct TemplateValuePrefab
         {

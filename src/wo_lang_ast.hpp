@@ -58,7 +58,37 @@ namespace wo
         };
         struct AstIdentifier : public AstBase
         {
-            enum class identifier_formal: uint8_t
+            struct TemplateArgumentInstance
+            {
+                std::variant<lang_TypeInstance*, value> m_argument_instance;
+
+                TemplateArgumentInstance(lang_TypeInstance* type);
+                TemplateArgumentInstance(const value& val);
+                TemplateArgumentInstance(const std::variant<lang_TypeInstance*, value>& v);
+
+                bool is_type() const;
+                bool is_constant() const;
+                const lang_TypeInstance* get_type() const;
+                const value& get_constant()const;
+
+                bool operator < (const TemplateArgumentInstance& a) const;
+            };
+            struct TemplateArgument
+            {
+                std::variant<AstTypeHolder*, AstValueBase*> m_argument;
+
+                TemplateArgument(AstTypeHolder* type);
+                TemplateArgument(AstValueBase* constant);
+
+                bool is_type() const;
+                bool is_constant() const;
+                AstTypeHolder* get_type() const;
+                AstValueBase* get_constant() const;
+                AstTypeHolder** get_type_ptr();
+                AstValueBase** get_constant_ptr();
+            };
+
+            enum class identifier_formal : uint8_t
             {
                 FROM_GLOBAL,
                 FROM_CURRENT,
@@ -67,24 +97,24 @@ namespace wo
             identifier_formal       m_formal;
 
             // Find type symbol only if true, else find value symbol.
-            bool                    m_find_type_only; 
+            bool                    m_find_type_only;
 
-            std::optional<std::variant<AstTypeHolder*, lang_TypeInstance*>> 
-                                    m_from_type;
+            std::optional<std::variant<AstTypeHolder*, lang_TypeInstance*>>
+                m_from_type;
             std::list<wo_pstring_t> m_scope;
             wo_pstring_t            m_name;
-            std::optional<std::list<AstTypeHolder*>>
-                                    m_template_arguments;
+            std::optional<std::list<TemplateArgument>>
+                m_template_arguments;
 
             std::optional<lang_Symbol*>
-                                    m_LANG_determined_symbol;
-            std::optional<std::list<lang_TypeInstance*>>
-                                    m_LANG_determined_and_appended_template_arguments;
+                m_LANG_determined_symbol;
+            std::optional<std::list<TemplateArgumentInstance>>
+                m_LANG_determined_and_appended_template_arguments;
 
             AstIdentifier(wo_pstring_t identifier);
-            AstIdentifier(wo_pstring_t identifier, const std::optional<std::list<AstTypeHolder*>>& template_arguments);
-            AstIdentifier(wo_pstring_t identifier, const std::optional<std::list<AstTypeHolder*>>& template_arguments, const std::list<wo_pstring_t>& scopes, bool from_global);
-            AstIdentifier(wo_pstring_t identifier, const std::optional<std::list<AstTypeHolder*>>& template_arguments, const std::list<wo_pstring_t>& scopes, AstTypeHolder* from_type);
+            AstIdentifier(wo_pstring_t identifier, const std::optional<std::list<TemplateArgument>>& template_arguments);
+            AstIdentifier(wo_pstring_t identifier, const std::optional<std::list<TemplateArgument>>& template_arguments, const std::list<wo_pstring_t>& scopes, bool from_global);
+            AstIdentifier(wo_pstring_t identifier, const std::optional<std::list<TemplateArgument>>& template_arguments, const std::list<wo_pstring_t>& scopes, AstTypeHolder* from_type);
 
             AstIdentifier(const AstIdentifier& ident);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
@@ -176,7 +206,6 @@ namespace wo
             AstTypeHolder(const UnionType& tupletype);
             ~AstTypeHolder();
 
-            bool _check_if_has_typeof() const;
             void _check_if_template_exist_in(const std::list<wo_pstring_t>& template_params, std::vector<bool>& out_contain_flags) const;
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
@@ -187,6 +216,9 @@ namespace wo
 
             AstValueBase(AstBase::node_type_t nodetype);
             ~AstValueBase();
+
+            void _check_if_template_exist_in(
+                const std::list<wo_pstring_t>& template_params, std::vector<bool>& out_contain_flags) const;
 
             void decide_final_constant_value(const wo::value& val);
             void decide_final_constant_value(const std::string& cstr);
@@ -448,7 +480,7 @@ namespace wo
 
             LANG_hold_state m_LANG_hold_state;
 
-            std::optional<std::pair<lang_TemplateAstEvalStateType*, bool>> 
+            std::optional<std::pair<lang_TemplateAstEvalStateType*, bool>>
                 m_LANG_template_evalating_state_is_mutable;
 
             AstValueTribleOperator(AstValueBase* condition, AstValueBase* true_value, AstValueBase* false_value);
@@ -472,7 +504,7 @@ namespace wo
 
             std::optional<IR_unpack_requirement> m_IR_need_to_be_unpack_count;
             IR_unpack_method m_IR_unpack_method;
-           
+
             AstFakeValueUnpack(AstValueBase* unpack_value);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
         };
@@ -497,6 +529,9 @@ namespace wo
         };
         struct AstPatternBase : public AstBase
         {
+            void _check_if_template_exist_in(
+                const std::list<wo_pstring_t>& template_params, std::vector<bool>& out_contain_flags) const;
+
             AstPatternBase(AstBase::node_type_t nodetype);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
@@ -606,8 +641,8 @@ namespace wo
                 // Recursive referenced?
                 // NOTE: Woolang 1.14.1: Recursive function is not allowed if it has captured
                 //      variable.
-                bool m_self_referenced; 
-                
+                bool m_self_referenced;
+
                 std::map<lang_ValueInstance*, captured_variable_instance>
                     m_captured_variables;
 
@@ -917,7 +952,7 @@ namespace wo
 
             std::optional<AstValueFunction*> m_LANG_belong_function_may_null_if_outside;
             std::optional<std::pair<lang_TemplateAstEvalStateType*, bool>>
-                                             m_LANG_template_evalating_state_is_mutable;
+                m_LANG_template_evalating_state_is_mutable;
 
             AstReturn(const std::optional<AstValueBase*>& value);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
