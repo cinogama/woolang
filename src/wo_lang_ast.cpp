@@ -576,7 +576,7 @@ namespace wo
                 }
                 case AST_VALUE_FUNCTION:
                     // We cannot check if there is any template usage in function body, treat as used.
-                    for (auto& f : out_contain_flags)
+                    for (std::vector<bool>::reference f : out_contain_flags)
                         f = true;
 
                     return;
