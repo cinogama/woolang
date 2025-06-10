@@ -891,6 +891,7 @@ namespace wo
     WO_AST_MACRO(AstDeclareAttribue);\
     WO_AST_MACRO(AstIdentifier);\
     WO_AST_MACRO(AstTemplateArgument);\
+    WO_AST_MACRO(AstTemplateParam);\
     WO_AST_MACRO(AstStructFieldDefine);\
     WO_AST_MACRO(AstTypeHolder);\
     WO_AST_MACRO(AstWhereConstraints);\

@@ -56,11 +56,18 @@ namespace wo
             AstDeclareAttribue(const AstDeclareAttribue&);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
+        struct AstTemplateParam : public AstBase
+        {
+            wo_pstring_t m_param_name;
+            std::optional<AstTypeHolder*> m_marked_type;
+
+            AstTemplateParam(wo_pstring_t name, std::optional<AstTypeHolder*> marked_type);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+        };
         struct AstTemplateArgument : public AstBase
         {
             std::variant<AstTypeHolder*, AstValueBase*> m_argument;
 
-            AstTemplateArgument();
             AstTemplateArgument(AstTypeHolder* type);
             AstTemplateArgument(AstValueBase* constant);
 

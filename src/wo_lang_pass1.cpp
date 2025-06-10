@@ -275,6 +275,7 @@ namespace wo
         WO_LANG_REGISTER_PROCESSER(AstList, AstBase::AST_LIST, pass1);
         WO_LANG_REGISTER_PROCESSER(AstIdentifier, AstBase::AST_IDENTIFIER, pass1);
         WO_LANG_REGISTER_PROCESSER(AstTemplateArgument, AstBase::AST_TEMPLATE_ARGUMENT, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstTemplateParam, AstBase::AST_TEMPLATE_PARAM, pass1);
         WO_LANG_REGISTER_PROCESSER(AstStructFieldDefine, AstBase::AST_STRUCT_FIELD_DEFINE, pass1);
         WO_LANG_REGISTER_PROCESSER(AstTypeHolder, AstBase::AST_TYPE_HOLDER, pass1);
         WO_LANG_REGISTER_PROCESSER(AstValueMarkAsMutable, AstBase::AST_VALUE_MARK_AS_MUTABLE, pass1);
@@ -472,6 +473,13 @@ namespace wo
             }
         }
         return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstTemplateParam)
+    {
+        if (state == UNPROCESSED)
+        {
+            if (state)
+        }
     }
     WO_PASS_PROCESSER(AstTemplateArgument)
     {

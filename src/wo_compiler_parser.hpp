@@ -42,6 +42,7 @@ namespace wo
                 AST_TOKEN,
                 AST_IDENTIFIER,
 
+                AST_TEMPLATE_PARAM,
                 AST_TEMPLATE_ARGUMENT,
 
                 AST_ENUM_ITEM,

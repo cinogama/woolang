@@ -248,15 +248,29 @@ namespace wo
             else
                 return aindex < bindex;
         }
+        ////////////////////////////////////////////////////////
+
+        AstTemplateParam::AstTemplateParam(wo_pstring_t name, std::optional<AstTypeHolder*> marked_type)
+            : AstBase(AST_TEMPLATE_PARAM)
+            , m_param_name(name)
+            , m_marked_type(marked_type)
+        {
+        }
+        AstBase* AstTemplateParam::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        {
+            AstTemplateParam* new_instance = exist_instance
+                ? static_cast<AstTemplateParam*>(exist_instance.value())
+                : new AstTemplateParam(m_param_name, m_marked_type)
+                ;
+
+            if (new_instance->m_marked_type.has_value())
+                out_continues.push_back(AstBase::make_holder(&new_instance->m_marked_type.value()));
+
+            return new_instance;
+        }
 
         ////////////////////////////////////////////////////////
-        AstTemplateArgument::AstTemplateArgument()
-            : AstBase(AST_TEMPLATE_ARGUMENT)
-            , m_argument()
-        {
-            // Note that this is only used to deceive some strange STL implementations. 
-            // This construction method should not be used under normal circumstances.
-        }
+        
         AstTemplateArgument::AstTemplateArgument(AstTypeHolder* type)
             : AstBase(AST_TEMPLATE_ARGUMENT)
             , m_argument(type)
