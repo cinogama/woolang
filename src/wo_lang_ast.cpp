@@ -170,7 +170,7 @@ namespace wo
                 if (from_type != nullptr)
                     out_continues.push_back(AstBase::make_holder(from_type));
             }
-            if (new_instance->m_template_arguments)
+            if (new_instance->m_template_arguments.has_value())
                 for (auto& arg : new_instance->m_template_arguments.value())
                 {
                     out_continues.push_back(AstBase::make_holder(
@@ -200,13 +200,13 @@ namespace wo
 
         bool AstIdentifier::TemplateArgumentInstance::is_type() const
         {
-            return std::holds_alternative<ast::AstTypeHolder*>(m_argument_instance);
+            return std::holds_alternative<lang_TypeInstance*>(m_argument_instance);
         }
         bool AstIdentifier::TemplateArgumentInstance::is_constant() const
         {
             return std::holds_alternative<value>(m_argument_instance);
         }
-        const lang_TypeInstance* AstIdentifier::TemplateArgumentInstance::get_type() const
+        lang_TypeInstance* AstIdentifier::TemplateArgumentInstance::get_type() const
         {
             return std::get<lang_TypeInstance*>(m_argument_instance);
         }
@@ -294,6 +294,13 @@ namespace wo
             wo_assert(p != nullptr);
 
             return p;
+        }
+        AstBase* AstIdentifier::TemplateArgument::get_ast_base_for_err_report() const
+        {
+            if (is_type())
+                return get_type();
+
+            return get_constant();
         }
 
         ////////////////////////////////////////////////////////
@@ -629,6 +636,8 @@ namespace wo
                     wo_error("Cannot be here.");
                     return;
                 }
+
+                static_assert(AST_VALUE_end == AST_FAKE_VALUE_UNPACK + 1);
             }
         }
 

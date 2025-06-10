@@ -129,14 +129,14 @@ namespace wo
         // NOTE: DeterminedType means immutable type, lang_TypeInstance* means mutable types.
         DeterminedOrMutableType m_determined_base_type_or_mutable;
 
-        std::optional<std::list<lang_TypeInstance*>> m_instance_template_arguments;
+        std::optional<std::list<ast::AstIdentifier::TemplateArgumentInstance>> m_instance_template_arguments;
         std::unordered_map<lang_TypeInstance*, TypeCheckResult> m_LANG_accepted_types;
         std::unordered_map<lang_TypeInstance*, TypeCheckResult> m_LANG_castfrom_types;
         std::unordered_set<lang_TypeInstance*> m_LANG_pending_depend_this;
 
         lang_TypeInstance(
             lang_Symbol* symbol,
-            const std::optional<std::list<lang_TypeInstance*>>& template_arguments);
+            const std::optional<std::list<ast::AstIdentifier::TemplateArgumentInstance>>& template_arguments);
 
         lang_TypeInstance(const lang_TypeInstance&) = delete;
         lang_TypeInstance(lang_TypeInstance&&) = delete;
@@ -156,12 +156,12 @@ namespace wo
     {
         lang_Symbol* m_symbol;
 
-        std::optional<std::list<lang_TypeInstance*>> m_instance_template_arguments;
+        std::optional<std::list<ast::AstIdentifier::TemplateArgumentInstance>> m_instance_template_arguments;
         std::optional<lang_TypeInstance*> m_determined_type;
 
         lang_AliasInstance(
             lang_Symbol* symbol, 
-            const std::optional<std::list<lang_TypeInstance*>>& template_arguments);
+            const std::optional<std::list<ast::AstIdentifier::TemplateArgumentInstance>>& template_arguments);
         lang_AliasInstance(const lang_AliasInstance&) = delete;
         lang_AliasInstance(lang_AliasInstance&&) = delete;
         lang_AliasInstance& operator=(const lang_AliasInstance&) = delete;
@@ -185,7 +185,7 @@ namespace wo
         lang_Symbol*    m_symbol;
         bool            m_mutable;
 
-        std::optional<std::list<lang_TypeInstance*>> m_instance_template_arguments;
+        std::optional<std::list<ast::AstIdentifier::TemplateArgumentInstance>> m_instance_template_arguments;
         std::optional<std::variant<wo::value, ast::AstValueFunction*>>
                         m_determined_constant_or_function;
         std::optional<lang_TypeInstance*> m_determined_type;
@@ -203,7 +203,7 @@ namespace wo
         lang_ValueInstance(
             bool mutable_,
             lang_Symbol* symbol,
-            const std::optional<std::list<lang_TypeInstance*>>& template_arguments);
+            const std::optional<std::list<ast::AstIdentifier::TemplateArgumentInstance>>& template_arguments);
 
         ~lang_ValueInstance();
 
@@ -245,7 +245,7 @@ namespace wo
         lang_TemplateAstEvalStateValue(
             lang_Symbol* symbol,
             ast::AstValueBase* ast,
-            const std::list<lang_TypeInstance*>& template_arguments);
+            const std::list<ast::AstIdentifier::TemplateArgumentInstance>& template_arguments);
     };
     struct lang_TemplateAstEvalStateType : public lang_TemplateAstEvalStateBase
     {
@@ -254,14 +254,14 @@ namespace wo
         lang_TemplateAstEvalStateType(
             lang_Symbol* symbol,
             ast::AstTypeHolder* ast,
-            const std::list<lang_TypeInstance*>& template_arguments);
+            const std::list<ast::AstIdentifier::TemplateArgumentInstance>& template_arguments);
     };
     struct lang_TemplateAstEvalStateAlias : public lang_TemplateAstEvalStateBase
     {
         std::unique_ptr<lang_AliasInstance> m_alias_instance;
 
         lang_TemplateAstEvalStateAlias(
-            lang_Symbol* symbol, ast::AstTypeHolder* ast, const std::list<lang_TypeInstance*>& template_arguments);
+            lang_Symbol* symbol, ast::AstTypeHolder* ast, const std::list<ast::AstIdentifier::TemplateArgumentInstance>& template_arguments);
     };
 
     struct lang_Symbol
@@ -1068,12 +1068,12 @@ namespace wo
         lang_TypeInstance* mutable_type(lang_TypeInstance* origin_type);
         lang_TypeInstance* immutable_type(lang_TypeInstance* origin_type);
 
-        void fast_create_one_template_type_alias_in_current_scope(
+        void fast_create_one_template_type_alias_and_constant_in_current_scope(
             wo_pstring_t template_param,
-            lang_TypeInstance* template_arg);
-        void fast_create_template_type_alias_in_current_scope(
+            const ast::AstIdentifier::TemplateArgumentInstance& template_arg);
+        void fast_create_template_type_alias_and_constant_in_current_scope(
             const std::list<wo_pstring_t>& template_params,
-            const std::list<lang_TypeInstance*>& template_args);
+            const std::list<ast::AstIdentifier::TemplateArgumentInstance>& template_args);
 
         std::optional<lang_TemplateAstEvalStateBase*> begin_eval_template_ast(
             lexer& lex,
@@ -1135,12 +1135,12 @@ namespace wo
         const wchar_t* get_value_name_w(lang_ValueInstance* val);
         const char* get_value_name(lang_ValueInstance* val);
 
-        bool template_type_deduction_extraction_with_complete_type(
+        bool template_arguments_deduction_extraction_with_complete_type(
             lexer& lex,
-            ast::AstTypeHolder* accept_type_formal,
-            lang_TypeInstance* applying_type_instance,
+            const ast::AstIdentifier::TemplateArgument& accept_template_param_formal,
+            const ast::AstIdentifier::TemplateArgumentInstance& applying_template_argument_instance,
             const std::list<wo_pstring_t>& pending_template_params,
-            std::unordered_map<wo_pstring_t, lang_TypeInstance*>* out_determined_template_arg_pair);
+            std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance>* out_determined_template_arg_pair);
 
         void template_function_deduction_extraction_with_complete_type(
             lexer& lex,
@@ -1148,10 +1148,10 @@ namespace wo
             const std::list<std::optional<lang_TypeInstance*>>& argument_types,
             const std::optional< lang_TypeInstance*>& return_type,
             const std::list<wo_pstring_t>& pending_template_params,
-            std::unordered_map<wo_pstring_t, lang_TypeInstance*>* out_determined_template_arg_pair
+            std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance>* out_determined_template_arg_pair
         );
         bool check_type_may_dependence_template_parameters(
-            ast::AstTypeHolder* accept_type_formal,
+            const ast::AstIdentifier::TemplateArgument& accept_template_argument_formal,
             const std::list<wo_pstring_t>& pending_template_params);
 
         ast::AstValueBase* get_marked_origin_value_node(ast::AstValueBase* node);

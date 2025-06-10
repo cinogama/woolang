@@ -397,6 +397,7 @@ namespace wo
             }
             if (node->m_template_arguments)
             {
+                // WO_CONTINUE_PROCESS_LIST(..)
                 auto& list = node->m_template_arguments.value();
 
                 auto r_end = list.rend();
@@ -462,7 +463,7 @@ namespace wo
                     has_template_arguments =
                         node->m_LANG_determined_and_appended_template_arguments.has_value();
                 }
-                    
+
 
                 bool accept_template_arguments = symbol->m_is_template;
 
@@ -1407,7 +1408,7 @@ namespace wo
                 wo_assert(node->m_LANG_determined_template_arguments.value().size()
                     == node->m_pending_param_type_mark_template.value().size());
 
-                fast_create_template_type_alias_in_current_scope(
+                fast_create_template_type_alias_and_constant_in_current_scope(
                     node->m_pending_param_type_mark_template.value(),
                     node->m_LANG_determined_template_arguments.value());
             }
@@ -2306,7 +2307,7 @@ namespace wo
 
             for (auto& [param_name, arg_type_inst] : node->m_deduction_results)
             {
-                fast_create_one_template_type_alias_in_current_scope(
+                fast_create_one_template_type_alias_and_constant_in_current_scope(
                     param_name,
                     arg_type_inst);
 
@@ -2444,7 +2445,7 @@ namespace wo
 
                         auto& template_instance_prefab = symbol->m_template_value_instances;
 
-                        std::unordered_map<wo_pstring_t, lang_TypeInstance*> deduction_results;
+                        std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance> deduction_results;
                         std::list<wo_pstring_t> pending_template_params;
                         auto it_template_param = symbol->m_template_value_instances->m_template_params.begin();
                         auto it_template_param_end = symbol->m_template_value_instances->m_template_params.end();
@@ -2474,7 +2475,7 @@ namespace wo
                         if (deduction_results.size() == pending_template_params.size())
                         {
                             // We can decided this argument now.
-                            std::list<lang_TypeInstance*> template_arguments;
+                            std::list<ast::AstIdentifier::TemplateArgumentInstance> template_arguments;
                             for (wo_pstring_t param : pending_template_params)
                             {
                                 template_arguments.push_back(deduction_results.at(param));
@@ -2501,7 +2502,7 @@ namespace wo
                         AstValueFunction* argument_function = static_cast<AstValueFunction*>(argument);
                         auto& pending_template_arguments = argument_function->m_pending_param_type_mark_template.value();
 
-                        std::unordered_map<wo_pstring_t, lang_TypeInstance*> deduction_results;
+                        std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance> deduction_results;
                         template_function_deduction_extraction_with_complete_type(
                             lex,
                             argument_function,
@@ -2513,7 +2514,7 @@ namespace wo
                         if (deduction_results.size() == pending_template_arguments.size())
                         {
                             // We can decided this argument now.
-                            std::list<lang_TypeInstance*> template_arguments;
+                            std::list<ast::AstIdentifier::TemplateArgumentInstance> template_arguments;
                             for (wo_pstring_t param : pending_template_arguments)
                             {
                                 template_arguments.push_back(deduction_results.at(param));
@@ -2552,7 +2553,7 @@ namespace wo
                 lang_TypeInstance* argument_final_type =
                     current_argument.m_argument->m_LANG_determined_type.value();
 
-                if (!template_type_deduction_extraction_with_complete_type(
+                if (!template_arguments_deduction_extraction_with_complete_type(
                     lex,
                     current_argument.m_duped_param_type,
                     argument_final_type,
@@ -2661,7 +2662,7 @@ namespace wo
                     AstValueFunction* argument_function = static_cast<AstValueFunction*>(argument);
                     auto& pending_template_arguments = argument_function->m_pending_param_type_mark_template.value();
 
-                    std::unordered_map<wo_pstring_t, lang_TypeInstance*> deduction_results;
+                    std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance> deduction_results;
                     template_function_deduction_extraction_with_complete_type(
                         lex,
                         argument_function,
@@ -2673,7 +2674,7 @@ namespace wo
                     if (deduction_results.size() == pending_template_arguments.size())
                     {
                         // We can decided this argument now.
-                        std::list<lang_TypeInstance*> template_arguments;
+                        std::list<ast::AstIdentifier::TemplateArgumentInstance> template_arguments;
                         for (wo_pstring_t param : pending_template_arguments)
                         {
                             template_arguments.push_back(deduction_results.at(param));
@@ -2702,7 +2703,7 @@ namespace wo
 
                     auto& template_instance_prefab = symbol->m_template_value_instances;
 
-                    std::unordered_map<wo_pstring_t, lang_TypeInstance*> deduction_results;
+                    std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance> deduction_results;
                     std::list<wo_pstring_t> pending_template_params;
                     auto it_template_param = symbol->m_template_value_instances->m_template_params.begin();
                     auto it_template_param_end = symbol->m_template_value_instances->m_template_params.end();
@@ -2732,7 +2733,7 @@ namespace wo
                     if (deduction_results.size() == pending_template_params.size())
                     {
                         // We can decided this argument now.
-                        std::list<lang_TypeInstance*> template_arguments;
+                        std::list<ast::AstIdentifier::TemplateArgumentInstance> template_arguments;
                         for (wo_pstring_t param : pending_template_params)
                         {
                             template_arguments.push_back(deduction_results.at(param));
@@ -2888,7 +2889,7 @@ namespace wo
 
                 if (node->m_LANG_target_function_need_deduct_template_arguments)
                 {
-                    std::unordered_map<wo_pstring_t, lang_TypeInstance*> deduction_results;
+                    std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance> deduction_results;
 
                     std::list<wo_pstring_t> pending_template_params;
                     std::list<AstTypeHolder*> target_param_holders;
@@ -2914,7 +2915,7 @@ namespace wo
                         auto it_template_param_end = function_symbol->m_template_value_instances->m_template_params.end();
                         if (function_variable->m_identifier->m_template_arguments.has_value())
                         {
-                            for (AstTypeHolder* template_arg : function_variable->m_identifier->m_template_arguments.value())
+                            for (auto& template_arg : function_variable->m_identifier->m_template_arguments.value())
                             {
                                 if (it_template_param == it_template_param_end)
                                     // Too much template arguments.
@@ -2922,9 +2923,14 @@ namespace wo
 
                                 wo_pstring_t param_name = *(it_template_param++);
 
-                                deduction_results.insert(
-                                    std::make_pair(
-                                        param_name, template_arg->m_LANG_determined_type.value()));
+                                if (template_arg.is_type())
+                                    deduction_results.insert(
+                                        std::make_pair(
+                                            param_name, template_arg.get_type()->m_LANG_determined_type.value()));
+                                else
+                                    deduction_results.insert(
+                                        std::make_pair(
+                                            param_name, template_arg.get_constant()->m_evaled_const_value.value()));
                             }
                         }
                         for (; it_template_param != it_template_param_end; ++it_template_param)
@@ -3028,7 +3034,7 @@ namespace wo
                                     {
                                         AstTypeHolder* unpacking_param_type_holder = *it_target_param;
 
-                                        deduction_error = !template_type_deduction_extraction_with_complete_type(
+                                        deduction_error = !template_arguments_deduction_extraction_with_complete_type(
                                             lex,
                                             unpacking_param_type_holder,
                                             *it_unpacking_arg_type,
@@ -3056,7 +3062,7 @@ namespace wo
                                 lang_TypeInstance* argument_type_instance =
                                     argument_value->m_LANG_determined_type.value();
 
-                                deduction_error = !template_type_deduction_extraction_with_complete_type(
+                                deduction_error = !template_arguments_deduction_extraction_with_complete_type(
                                     lex,
                                     param_type_holder,
                                     argument_type_instance,
@@ -3181,7 +3187,7 @@ namespace wo
                     AstValueFunction* function = static_cast<AstValueFunction*>(node->m_function);
                     auto& pending_template_arguments = function->m_pending_param_type_mark_template.value();
 
-                    std::list<lang_TypeInstance*> template_arguments;
+                    std::list<ast::AstIdentifier::TemplateArgumentInstance> template_arguments;
 
                     std::list<wo_pstring_t> pending_template_params;
                     for (wo_pstring_t param : pending_template_arguments)
@@ -3246,7 +3252,7 @@ namespace wo
                             ++it_template_param;
                         }
                     }
-                    std::list<lang_TypeInstance*> template_argument_list;
+                    std::list<ast::AstIdentifier::TemplateArgumentInstance> template_argument_list;
 
                     std::list<wo_pstring_t> pending_template_params;
                     for (; it_template_param != it_template_param_end; ++it_template_param)
@@ -3740,7 +3746,7 @@ namespace wo
                 // First deduct
                 auto* current_scope_before_deduction = get_current_scope();
 
-                std::unordered_map<wo_pstring_t, lang_TypeInstance*> deduction_results;
+                std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance> deduction_results;
 
                 std::list<wo_pstring_t> pending_template_params;
                 std::list<AstTypeHolder*> target_param_holders;
@@ -3758,10 +3764,17 @@ namespace wo
                 {
                     for (auto& exist_template_argument : struct_type_identifier->m_template_arguments.value())
                     {
-                        deduction_results.insert(
-                            std::make_pair(
-                                *it_template_param,
-                                exist_template_argument->m_LANG_determined_type.value()));
+                        if (exist_template_argument.is_type())
+                            deduction_results.insert(
+                                std::make_pair(
+                                    *it_template_param,
+                                    exist_template_argument.get_type()->m_LANG_determined_type.value()));
+                        else
+                            deduction_results.insert(
+                                std::make_pair(
+                                    *it_template_param,
+                                    exist_template_argument.get_constant()->m_evaled_const_value.value()));
+
                         ++it_template_param;
                     }
                 }
@@ -3819,7 +3832,7 @@ namespace wo
                     {
                         lang_TypeInstance* field_instance_type = field_instance->m_value->m_LANG_determined_type.value();
 
-                        deduction_error = !template_type_deduction_extraction_with_complete_type(
+                        deduction_error = !template_arguments_deduction_extraction_with_complete_type(
                             lex,
                             fnd->second,
                             field_instance_type,
@@ -3868,7 +3881,6 @@ namespace wo
 
                 auto& template_instance_prefab = symbol->m_template_type_instances;
 
-                std::unordered_map<wo_pstring_t, lang_TypeInstance*> deduction_results;
                 auto it_template_param = symbol->m_template_type_instances->m_template_params.begin();
                 auto it_template_param_end = symbol->m_template_type_instances->m_template_params.end();
                 if (target_struct_typeholder->m_typeform.m_identifier->m_template_arguments.has_value())
@@ -3879,7 +3891,7 @@ namespace wo
                         ++it_template_param;
                     }
                 }
-                std::list<lang_TypeInstance*> template_argument_list;
+                std::list<ast::AstIdentifier::TemplateArgumentInstance> template_argument_list;
 
                 std::list<wo_pstring_t> pending_template_params;
                 for (; it_template_param != it_template_param_end; ++it_template_param)
@@ -4107,8 +4119,8 @@ namespace wo
                     if (lang_TypeInstance::TypeCheckResult::ACCEPT
                         != is_type_accepted(
                             lex,
-                            field, 
-                            accpet_field_type, 
+                            field,
+                            accpet_field_type,
                             field->m_value->m_LANG_determined_type.value()))
                     {
                         lex.record_lang_error(lexer::msglevel_t::error, field->m_value,
@@ -5596,7 +5608,7 @@ namespace wo
                     wo_error("Unknown assign place.");
                 }
 
-                if (lang_TypeInstance::TypeCheckResult::ACCEPT != 
+                if (lang_TypeInstance::TypeCheckResult::ACCEPT !=
                     is_type_accepted(lex, node, left_type, func_result_type))
                 {
                     lex.record_lang_error(lexer::msglevel_t::error, node,

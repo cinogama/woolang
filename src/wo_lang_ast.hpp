@@ -62,13 +62,20 @@ namespace wo
             {
                 std::variant<lang_TypeInstance*, value> m_argument_instance;
 
+                TemplateArgumentInstance()
+                    : m_argument_instance()
+                {
+                    // Note that this is only used to deceive some strange STL implementations. 
+                    // This construction method should not be used under normal circumstances.
+                }
+
                 TemplateArgumentInstance(lang_TypeInstance* type);
                 TemplateArgumentInstance(const value& val);
                 TemplateArgumentInstance(const std::variant<lang_TypeInstance*, value>& v);
 
                 bool is_type() const;
                 bool is_constant() const;
-                const lang_TypeInstance* get_type() const;
+                lang_TypeInstance* get_type() const;
                 const value& get_constant()const;
 
                 bool operator < (const TemplateArgumentInstance& a) const;
@@ -77,6 +84,12 @@ namespace wo
             {
                 std::variant<AstTypeHolder*, AstValueBase*> m_argument;
 
+                TemplateArgument() 
+                    : m_argument()
+                {
+                    // Note that this is only used to deceive some strange STL implementations. 
+                    // This construction method should not be used under normal circumstances.
+                }
                 TemplateArgument(AstTypeHolder* type);
                 TemplateArgument(AstValueBase* constant);
 
@@ -86,6 +99,8 @@ namespace wo
                 AstValueBase* get_constant() const;
                 AstTypeHolder** get_type_ptr();
                 AstValueBase** get_constant_ptr();
+
+                AstBase* get_ast_base_for_err_report() const;
             };
 
             enum class identifier_formal : uint8_t
@@ -331,7 +346,7 @@ namespace wo
             std::list<ArgumentMatch> m_arguments_tobe_deduct;
             std::list<ArgumentMatch>::iterator m_current_argument;
 
-            std::unordered_map<wo_pstring_t, lang_TypeInstance*> m_deduction_results;
+            std::unordered_map<wo_pstring_t, AstIdentifier::TemplateArgumentInstance> m_deduction_results;
             std::list<wo_pstring_t> m_undetermined_template_params;
 
             AstValueFunctionCall_FakeAstArgumentDeductionContextA(lang_Scope* before, lang_Scope* scope);
@@ -673,7 +688,7 @@ namespace wo
             std::optional<lang_ValueInstance*>
                 m_LANG_value_instance_to_update;
             bool m_LANG_in_template_reification_context;
-            std::optional<std::list<lang_TypeInstance*>>
+            std::optional<std::list<AstIdentifier::TemplateArgumentInstance>>
                 m_LANG_determined_template_arguments;
 
             LANG_capture_context m_LANG_captured_context;

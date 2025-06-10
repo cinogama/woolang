@@ -6,6 +6,7 @@
 #include <map>
 #include <unordered_map>
 
+#if 0
 #ifndef WO_DISABLE_COMPILER
 
 wo::compile_result _wo_compile_impl(
@@ -526,7 +527,7 @@ wo_lspv2_expr_info* wo_lspv2_expr_get_info(wo_lspv2_expr* expr)
     wo_bool_t is_value = WO_TRUE;
     wo_value const_value = nullptr;
 
-    std::list<wo::lang_TypeInstance*>* template_instance_argument_list
+    std::list<wo::ast::AstIdentifier::TemplateArgumentInstance>* template_instance_argument_list
         = nullptr;
 
     if (ast_base->node_type == wo::ast::AstBase::node_type_t::AST_TYPE_HOLDER)
@@ -594,7 +595,7 @@ wo_lspv2_expr_info* wo_lspv2_expr_get_info(wo_lspv2_expr* expr)
             sizeof(wo_lspv2_type*) * template_arguments_count);
 
         size_t i = 0;
-        for (auto* arg : *template_instance_argument_list)
+        for (auto& arg : *template_instance_argument_list)
         {
             template_args[i++] = reinterpret_cast<wo_lspv2_type*>(arg);
         }
@@ -764,4 +765,5 @@ void wo_lspv2_macro_info_free(wo_lspv2_macro_info* info)
     delete info;
 }
 
+#endif
 #endif
