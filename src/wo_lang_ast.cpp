@@ -2313,7 +2313,12 @@ namespace wo
                         if (template_parameter->m_marked_type.has_value())
                         {
                             auto* template_argumnet_nothing = new AstValueNothing();
-                            TODO;
+                            auto* template_argument_instance = new AstTemplateArgument(template_argumnet_nothing);
+
+                            template_argumnet_nothing->source_location = item->source_location;
+                            template_argument_instance->source_location = item->source_location;
+
+                            template_argument = template_argument_instance;
                         }
                         else
                         {
@@ -2380,7 +2385,13 @@ namespace wo
                                 AstTemplateArgument* new_template_argument;
 
                                 if (template_parameter->m_marked_type.has_value())
-                                    wo_error("Not impl yet");
+                                {
+                                    auto* new_template = new AstValueVariable(new_template_identifier);
+                                    new_template_argument = new AstTemplateArgument(new_template);
+
+                                    // Update source msg;
+                                    new_template->source_location = item->source_location;
+                                }
                                 else
                                 {
                                     auto* new_template = new AstTypeHolder(new_template_identifier);
@@ -2559,6 +2570,20 @@ namespace wo
             return new_instance;
         }
 
+        ////////////////////////////////////////////////////////
+
+        AstTemplateConstantTypeCheckInPass1::AstTemplateConstantTypeCheckInPass1(AstBase* instance)
+            : AstBase(AST_TEMPLATE_CONSTANT_TYPE_CHECK_IN_PASS1)
+            , m_LANG_hold_state(LANG_hold_state::UNPROCESSED)
+            , m_template_instance(instance)
+            , m_LANG_constant_check_pairs{}
+        {
+        }
+        AstBase* AstTemplateConstantTypeCheckInPass1::make_dup(
+            std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        {
+            wo_error("This node should never be duplicated.");
+        }
     }
 #endif
 }

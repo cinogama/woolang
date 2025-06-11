@@ -790,7 +790,7 @@ namespace wo
                 {
                     (void)_useless;
 
-                    if (template_instance->m_state == lang_TemplateAstEvalStateValue::FAILED)
+                    if (template_instance->m_state == lang_TemplateAstEvalStateValue::state::FAILED)
                         continue; // Skip failed template instance.
 
                     wo_assert(template_instance->m_state == lang_TemplateAstEvalStateValue::EVALUATED);

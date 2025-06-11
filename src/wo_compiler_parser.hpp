@@ -128,6 +128,8 @@ namespace wo
 
                 AST_VALUE_FUNCTION_CALL_FAKE_AST_ARGUMENT_DEDUCTION_CONTEXT_A,
                 AST_VALUE_FUNCTION_CALL_FAKE_AST_ARGUMENT_DEDUCTION_CONTEXT_B,
+
+                AST_TEMPLATE_CONSTANT_TYPE_CHECK_IN_PASS1,
             };
         private:
             inline thread_local static std::forward_list<AstBase*>* list = nullptr;

@@ -42,9 +42,13 @@ namespace wo
             failed_template_arg_list += L" = ";
 
             if (it_template_arg->m_constant.has_value())
-                failed_template_arg_list += get_constant_str_w(it_template_arg->m_constant.value()) + L": ";
-
-            failed_template_arg_list += get_type_name_w(it_template_arg->m_type);
+                failed_template_arg_list += L"{"
+                + get_constant_str_w(it_template_arg->m_constant.value())
+                + L": "
+                + get_type_name_w(it_template_arg->m_type)
+                + L"}";
+            else
+                failed_template_arg_list += get_type_name_w(it_template_arg->m_type);
         }
 
         lex.record_lang_error(lexer::msglevel_t::error, node,
@@ -55,6 +59,46 @@ namespace wo
         for (const auto& error_message : inst->m_failed_error_for_this_instance.value())
             // TODO: Describe the error support.
             lex.append_message(error_message).m_layer += error_message.m_layer + 1;
+    }
+
+    bool check_template_argument_count_and_type(
+        lexer& lex,
+        ast::AstBase* node,
+        const lang_Symbol::TemplateArgumentListT& template_arguments,
+        const std::list<ast::AstTemplateParam*>& template_params)
+    {
+        if (template_arguments.size() != template_params.size())
+        {
+            lex.record_lang_error(lexer::msglevel_t::error, node,
+                WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
+                template_params.size());
+
+            return false;
+        }
+
+        /* auto arg_iter = template_arguments.begin();
+         auto param_iter = template_params.begin();
+         const auto arg_iter_end = template_arguments.end();
+
+         for (; arg_iter != arg_iter_end; ++arg_iter)
+         {
+             auto& arg = *arg_iter;
+             auto* param = *param_iter;
+
+             if (arg.m_constant.has_value() != param->m_marked_type.has_value())
+             {
+                 if (param->m_marked_type.has_value())
+                 {
+                     lex.record_lang_error(
+                         lexer::msglevel_t::error,
+                         key_type_template,
+                         WO_ERR_THIS_TEMPLATE_ARG_SHOULD_BE_TYPE);
+                 }
+             }
+
+         }*/
+
+        return true;
     }
 
     std::optional<lang_TemplateAstEvalStateBase*> LangContext::begin_eval_template_ast(
@@ -75,14 +119,6 @@ namespace wo
         case lang_Symbol::kind::VARIABLE:
         {
             auto& template_variable_prefab = templating_symbol->m_template_value_instances;
-            if (template_arguments.size() != template_variable_prefab->m_template_params.size())
-            {
-                lex.record_lang_error(lexer::msglevel_t::error, node,
-                    WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
-                    template_variable_prefab->m_template_params.size());
-
-                return std::nullopt;
-            }
 
             auto* template_eval_state_instance =
                 template_variable_prefab->find_or_create_template_instance(
@@ -105,14 +141,6 @@ namespace wo
         case lang_Symbol::kind::ALIAS:
         {
             auto& template_alias_prefab = templating_symbol->m_template_alias_instances;
-            if (template_arguments.size() != template_alias_prefab->m_template_params.size())
-            {
-                lex.record_lang_error(lexer::msglevel_t::error, node,
-                    WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
-                    template_alias_prefab->m_template_params.size());
-
-                return std::nullopt;
-            }
 
             auto* template_eval_state_instance =
                 template_alias_prefab->find_or_create_template_instance(
@@ -125,14 +153,6 @@ namespace wo
         case lang_Symbol::kind::TYPE:
         {
             auto& template_type_prefab = templating_symbol->m_template_type_instances;
-            if (template_arguments.size() != template_type_prefab->m_template_params.size())
-            {
-                lex.record_lang_error(lexer::msglevel_t::error, node,
-                    WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
-                    template_type_prefab->m_template_params.size());
-
-                return std::nullopt;
-            }
 
             auto* template_eval_state_instance =
                 template_type_prefab->find_or_create_template_instance(
@@ -152,14 +172,14 @@ namespace wo
 
         switch (result->m_state)
         {
-        case lang_TemplateAstEvalStateValue::EVALUATED:
+        case lang_TemplateAstEvalStateValue::state::EVALUATED:
             break;
-        case lang_TemplateAstEvalStateValue::FAILED:
+        case lang_TemplateAstEvalStateValue::state::FAILED:
         {
             _collect_failed_template_instance(lex, node, result);
             return std::nullopt;
         }
-        case lang_TemplateAstEvalStateValue::EVALUATING:
+        case lang_TemplateAstEvalStateValue::state::EVALUATING:
         {
             if (templating_symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE)
             {
@@ -181,8 +201,8 @@ namespace wo
                 WO_ERR_RECURSIVE_TEMPLATE_INSTANCE);
             return std::nullopt;
         }
-        case lang_TemplateAstEvalStateValue::UNPROCESSED:
-            result->m_state = lang_TemplateAstEvalStateValue::EVALUATING;
+        case lang_TemplateAstEvalStateValue::state::UNPROCESSED:
+            result->m_state = lang_TemplateAstEvalStateValue::state::EVALUATING;
             *out_continue_process_flag = true;
 
             // Entry the scope where template variable defined.
@@ -207,23 +227,25 @@ namespace wo
 
             begin_new_scope(std::nullopt); // Begin new scope for defining template type alias.
 
-            auto* current_scope = get_current_scope();
-
-            if (!fast_check_and_create_template_type_alias_and_constant_in_current_scope(
-                lex, *template_params, template_arguments))
-            {
-                end_last_scope();
-                end_last_scope();
-
-                return std::nullopt;
-            }
-
             // ATTENTION: LIMIT TEMPLATE INSTANCE SYMBOL VISIBILITY!
+            auto* current_scope = get_current_scope();
             current_scope->m_visibility_from_edge_for_template_check =
                 templating_symbol->m_symbol_edge;
 
             lex.begin_trying_block();
-            WO_CONTINUE_PROCESS(result->m_ast);
+
+            ast::AstTemplateConstantTypeCheckInPass1* checker = 
+                new ast::AstTemplateConstantTypeCheckInPass1(result->m_ast);
+
+            if (!fast_check_and_create_template_type_alias_and_constant_in_current_scope(
+                lex, *template_params, template_arguments, checker))
+            {
+                failed_eval_template_ast(lex, node, result);
+                return std::nullopt;
+            }
+            else
+                WO_CONTINUE_PROCESS(checker);
+
             break;
         }
         return result;
@@ -262,7 +284,7 @@ namespace wo
                 new_template_variable_instance->try_determine_const_value(ast_value);
 
             template_eval_instance_value->m_state =
-                lang_TemplateAstEvalStateValue::EVALUATED;
+                lang_TemplateAstEvalStateValue::state::EVALUATED;
 
             break;
         }
@@ -281,7 +303,7 @@ namespace wo
             wo_assert(new_template_alias_instance->m_determined_type.has_value());
 
             template_eval_instance_alias->m_state =
-                lang_TemplateAstEvalStateAlias::EVALUATED;
+                lang_TemplateAstEvalStateAlias::state::EVALUATED;
 
             break;
         }
@@ -300,7 +322,7 @@ namespace wo
                 ast_type->m_LANG_determined_type.value());
 
             template_eval_instance_type->m_state =
-                lang_TemplateAstEvalStateType::EVALUATED;
+                lang_TemplateAstEvalStateType::state::EVALUATED;
 
             break;
         }
@@ -328,10 +350,11 @@ namespace wo
         end_last_scope(); // Leave temporary scope for template type alias.
         end_last_scope(); // Leave scope where template variable defined.
 
-        template_eval_instance->m_state = lang_TemplateAstEvalStateBase::FAILED;
+        template_eval_instance->m_state = lang_TemplateAstEvalStateBase::state::FAILED;
 
         _collect_failed_template_instance(lex, node, template_eval_instance);
     }
+
     bool LangContext::template_arguments_deduction_extraction_with_constant(
         lexer& lex,
         ast::AstValueBase* accept_constant_formal,
@@ -364,7 +387,7 @@ namespace wo
 
                     out_determined_template_arg_pair->insert(
                         std::make_pair(
-                            template_param->m_param_name, 
+                            template_param->m_param_name,
                             ast::AstIdentifier::TemplateArgumentInstance::TemplateArgumentInstance(
                                 applying_type_instance,
                                 constant_instance)));

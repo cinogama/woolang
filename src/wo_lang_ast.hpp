@@ -1135,6 +1135,28 @@ namespace wo
             AstValueIROpnum(opnum::opnumbase* spec_opnum);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
+        struct AstTemplateConstantTypeCheckInPass1 : public AstBase
+        {
+            struct CheckingPair
+            {
+                AstTypeHolder* m_cloned_param_type;
+                lang_TypeInstance* m_constant_type;
+            };
+            enum LANG_hold_state
+            {
+                UNPROCESSED,
+                HOLD_FOR_TYPE_UPDATE,
+                HOLD_FOR_MAKING_TEMPALTE_INSTANCE,
+            };
+
+            LANG_hold_state m_LANG_hold_state;
+
+            AstBase* m_template_instance;
+            std::list<CheckingPair> m_LANG_constant_check_pairs;
+
+            AstTemplateConstantTypeCheckInPass1(AstBase* instance);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+        };
     }
 
     grammar::rule operator >> (grammar::rule ost, size_t builder_index);

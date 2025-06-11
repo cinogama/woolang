@@ -216,7 +216,7 @@ namespace wo
 
     struct lang_TemplateAstEvalStateBase
     {
-        enum state
+        enum class state
         {
             UNPROCESSED,
             EVALUATING,
@@ -890,6 +890,7 @@ namespace wo
     WO_AST_MACRO(AstList);\
     WO_AST_MACRO(AstValueFunctionCall_FakeAstArgumentDeductionContextA);\
     WO_AST_MACRO(AstValueFunctionCall_FakeAstArgumentDeductionContextB);\
+    WO_AST_MACRO(AstTemplateConstantTypeCheckInPass1);\
     WO_AST_MACRO(AstDeclareAttribue);\
     WO_AST_MACRO(AstIdentifier);\
     WO_AST_MACRO(AstTemplateArgument);\
@@ -1078,7 +1079,8 @@ namespace wo
         bool fast_check_and_create_template_type_alias_and_constant_in_current_scope(
             lexer& lex,
             const std::list<ast::AstTemplateParam*>& template_params,
-            const std::list<ast::AstIdentifier::TemplateArgumentInstance>& template_args);
+            const std::list<ast::AstIdentifier::TemplateArgumentInstance>& template_args,
+            std::optional<ast::AstTemplateConstantTypeCheckInPass1*> template_checker);
 
         std::optional<lang_TemplateAstEvalStateBase*> begin_eval_template_ast(
             lexer& lex,

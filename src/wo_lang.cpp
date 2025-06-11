@@ -369,7 +369,7 @@ namespace wo
     //////////////////////////////////////
 
     lang_TemplateAstEvalStateBase::lang_TemplateAstEvalStateBase(lang_Symbol* symbol, ast::AstBase* ast)
-        : m_state(UNPROCESSED), m_ast(ast), m_symbol(symbol)
+        : m_state(state::UNPROCESSED), m_ast(ast), m_symbol(symbol)
     {
     }
 
@@ -1335,10 +1335,10 @@ namespace wo
                 for (auto& [_useless, template_instance] : symbol->m_template_value_instances->m_template_instances)
                 {
                     (void)_useless;
-                    if (template_instance->m_state == lang_TemplateAstEvalStateValue::FAILED)
+                    if (template_instance->m_state == lang_TemplateAstEvalStateValue::state::FAILED)
                         continue; // Skip failed template instance.
 
-                    wo_assert(template_instance->m_state == lang_TemplateAstEvalStateValue::EVALUATED);
+                    wo_assert(template_instance->m_state == lang_TemplateAstEvalStateValue::state::EVALUATED);
                     if (is_static_storage)
                         lctx->update_allocate_global_instance_storage_passir(
                             template_instance->m_value_instance.get());
@@ -2122,9 +2122,12 @@ namespace wo
     bool LangContext::fast_check_and_create_template_type_alias_and_constant_in_current_scope(
         lexer& lex,
         const std::list<ast::AstTemplateParam*>& template_params,
-        const std::list<ast::AstIdentifier::TemplateArgumentInstance>& template_args)
+        const std::list<ast::AstIdentifier::TemplateArgumentInstance>& template_args,
+        std::optional<ast::AstTemplateConstantTypeCheckInPass1*> template_checker)
     {
         wo_assert(template_params.size() == template_args.size());
+
+        ast::AstTemplateConstantTypeCheckInPass1* template_checker_p_may_null = template_checker.value_or(nullptr);
 
         auto params_iter = template_params.begin();
         auto args_iter = template_args.begin();
@@ -2138,26 +2141,15 @@ namespace wo
             if (param->m_marked_type.has_value())
             {
                 if (argument.m_constant.has_value())
-                    // Delay the constant type check, param->m_marked_type not determined now.
-                    ;
-                //{
-                //    // Check type;
-                //    if (!is_type_accepted(
-                //        lex,
-                //        param,
-                //        param->m_marked_type.value()->m_LANG_determined_type.value(),
-                //        argument.m_type))
-                //    {
-                //        lex.record_lang_error(
-                //            lexer::msglevel_t::error,
-                //            param,
-                //            WO_ERR_CANNOT_ACCEPTABLE_TYPE_NAMED,
-                //            get_type_name_w(argument.m_type),
-                //            get_type_name_w(param->m_marked_type.value()->m_LANG_determined_type.value()));
+                {
+                    wo_assert(template_checker_p_may_null != nullptr);
 
-                //        return false;
-                //    }
-                //}
+                    template_checker_p_may_null->m_LANG_constant_check_pairs.emplace_back(
+                        ast::AstTemplateConstantTypeCheckInPass1::CheckingPair{
+                            static_cast<ast::AstTypeHolder*>(param->m_marked_type.value()->clone()),
+                            argument.m_type,
+                        });
+                }
                 else
                 {
                     lex.record_lang_error(
@@ -2341,9 +2333,13 @@ namespace wo
                     result_type_name += L", ";
 
                 if (template_arg.m_constant.has_value())
-                    result_type_name += get_constant_str_w(template_arg.m_constant.value()) + L": ";
-
-                result_type_name += get_type_name_w(template_arg.m_type);
+                    result_type_name += L"{"
+                    + get_constant_str_w(template_arg.m_constant.value())
+                    + L": "
+                    + get_type_name_w(template_arg.m_type)
+                    + L"}";
+                else
+                    result_type_name += get_type_name_w(template_arg.m_type);
 
                 first = false;
             }
@@ -2367,9 +2363,13 @@ namespace wo
                     result_value_name += L", ";
 
                 if (template_arg.m_constant.has_value())
-                    result_value_name += get_constant_str_w(template_arg.m_constant.value()) + L": ";
-
-                result_value_name += get_type_name_w(template_arg.m_type);
+                    result_value_name += L"{"
+                    + get_constant_str_w(template_arg.m_constant.value())
+                    + L": "
+                    + get_type_name_w(template_arg.m_type)
+                    + L"}";
+                else
+                    result_value_name += get_type_name_w(template_arg.m_type);
 
                 first = false;
             }
@@ -2739,7 +2739,7 @@ namespace wo
             //  You can invoke `eval_for_upper` directly, it has same check effect.
             wo_assert(m_eval_result_storage_target.size() == current_request_count + 1);
 #endif
-        }
+}
         else
             eval_ignore();
     }
@@ -3019,4 +3019,4 @@ namespace wo
         m_result = result;
     }
 #endif
-}
+    }

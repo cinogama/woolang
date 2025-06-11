@@ -293,6 +293,8 @@ namespace wo
             AstBase::AST_VALUE_FUNCTION_CALL_FAKE_AST_ARGUMENT_DEDUCTION_CONTEXT_A, pass1);
         WO_LANG_REGISTER_PROCESSER(AstValueFunctionCall_FakeAstArgumentDeductionContextB,
             AstBase::AST_VALUE_FUNCTION_CALL_FAKE_AST_ARGUMENT_DEDUCTION_CONTEXT_B, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstTemplateConstantTypeCheckInPass1,
+            AstBase::AST_TEMPLATE_CONSTANT_TYPE_CHECK_IN_PASS1, pass1);
         WO_LANG_REGISTER_PROCESSER(AstValueFunctionCall, AstBase::AST_VALUE_FUNCTION_CALL, pass1);
         WO_LANG_REGISTER_PROCESSER(AstValueBinaryOperator, AstBase::AST_VALUE_BINARY_OPERATOR, pass1);
         WO_LANG_REGISTER_PROCESSER(AstValueUnaryOperator, AstBase::AST_VALUE_UNARY_OPERATOR, pass1);
@@ -1373,6 +1375,58 @@ namespace wo
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
+    WO_PASS_PROCESSER(AstTemplateConstantTypeCheckInPass1)
+    {
+        if (state == UNPROCESSED)
+        {
+            for (auto& pair : node->m_LANG_constant_check_pairs)
+                WO_CONTINUE_PROCESS(pair.m_cloned_param_type);
+            
+            node->m_LANG_hold_state = 
+                AstTemplateConstantTypeCheckInPass1::HOLD_FOR_TYPE_UPDATE;
+
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            switch (node->m_LANG_hold_state)
+            {
+            case AstTemplateConstantTypeCheckInPass1::HOLD_FOR_TYPE_UPDATE:
+            {
+                bool failed = false;
+                for (auto& [param_type, argument_type] : node->m_LANG_constant_check_pairs)
+                {
+                    if (lang_TypeInstance::TypeCheckResult::ACCEPT != is_type_accepted(
+                        lex, param_type, param_type->m_LANG_determined_type.value(), argument_type))
+                    {
+                        failed = true;
+
+                        lex.record_lang_error(lexer::msglevel_t::error, param_type,
+                            WO_ERR_CANNOT_ACCEPTABLE_TYPE_NAMED,
+                            get_type_name_w(argument_type),
+                            get_type_name_w(param_type->m_LANG_determined_type.value()));
+                    }
+                }
+
+                if (failed)
+                    return FAILED;
+
+                node->m_LANG_hold_state =
+                    AstTemplateConstantTypeCheckInPass1::HOLD_FOR_MAKING_TEMPALTE_INSTANCE;
+
+                WO_CONTINUE_PROCESS(node->m_template_instance);
+
+                return HOLD;
+            }
+            case AstTemplateConstantTypeCheckInPass1::HOLD_FOR_MAKING_TEMPALTE_INSTANCE:    
+                break;
+            default:
+                wo_error("unknown hold state");
+                break;
+            }
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
     WO_PASS_PROCESSER(AstValueFunction)
     {
         auto judge_function_return_type =
@@ -1415,7 +1469,8 @@ namespace wo
                 if (!fast_check_and_create_template_type_alias_and_constant_in_current_scope(
                     lex,
                     node->m_pending_param_type_mark_template.value(),
-                    node->m_LANG_determined_template_arguments.value()))
+                    node->m_LANG_determined_template_arguments.value(),
+                    std::nullopt))
                 {
                     end_last_scope();
                     return FAILED;
@@ -1739,6 +1794,9 @@ namespace wo
         {
             node->m_LANG_determined_type = mutable_type(
                 node->m_marked_value->m_LANG_determined_type.value());
+
+            if (node->m_marked_value->m_evaled_const_value.has_value())
+                node->decide_final_constant_value(node->m_marked_value->m_evaled_const_value.value());
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
@@ -1753,6 +1811,9 @@ namespace wo
         {
             node->m_LANG_determined_type = immutable_type(
                 node->m_marked_value->m_LANG_determined_type.value());
+
+            if (node->m_marked_value->m_evaled_const_value.has_value())
+                node->decide_final_constant_value(node->m_marked_value->m_evaled_const_value.value());
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
@@ -2990,11 +3051,6 @@ namespace wo
                         wo_error("Unexpected template node type.");
                     }
 
-                    auto it_target_param = target_param_holders.begin();
-                    const auto it_target_param_end = target_param_holders.end();
-                    auto it_argument = node->m_arguments.begin();
-                    const auto it_argument_end = node->m_arguments.end();
-
                     entry_spcify_scope(target_function_scope);
                     begin_new_scope(std::nullopt);
 
@@ -3008,6 +3064,13 @@ namespace wo
                     end_last_scope();
 
                     bool deduction_error = false;
+
+                    // Prepare to 
+
+                    auto it_target_param = target_param_holders.begin();
+                    const auto it_target_param_end = target_param_holders.end();
+                    auto it_argument = node->m_arguments.begin();
+                    const auto it_argument_end = node->m_arguments.end();
 
                     for (; it_target_param != it_target_param_end
                         && it_argument != it_argument_end;
