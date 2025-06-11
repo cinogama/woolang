@@ -767,6 +767,7 @@ typedef struct _wo_lspv2_template_argument
 {
     wo_lspv2_template_param_kind m_kind;
     wo_lspv2_type* m_type;
+    wo_value m_constant_may_null;
 
 }wo_lspv2_template_argument;
 
