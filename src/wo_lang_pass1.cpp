@@ -5731,12 +5731,12 @@ namespace wo
 
         wo_native_func_t extern_function;
 
-        if (config::DISABLE_LOAD_EXTERN_FUNCTION)
-            extern_function = rslib_std_bad_function;
-        else if (node->m_extern_from_library.has_value())
+        if (node->m_extern_from_library.has_value())
         {
-            extern_function =
-                rslib_extern_symbols::get_lib_symbol(
+            if (config::DISABLE_LOAD_EXTERN_FUNCTION)
+                extern_function = rslib_std_bad_function;
+            else
+                extern_function = rslib_extern_symbols::get_lib_symbol(
                     wstr_to_str(*node->source_location.source_file).c_str(),
                     wstr_to_str(*node->m_extern_from_library.value()).c_str(),
                     wstr_to_str(*node->m_extern_symbol).c_str(),
