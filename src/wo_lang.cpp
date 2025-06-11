@@ -3,6 +3,8 @@
 #include <unordered_set>
 #include <algorithm>
 
+std::string _rslib_std_string_enstring_impl(wo_string_t str, size_t len);
+
 namespace wo
 {
 #ifndef WO_DISABLE_COMPILER
@@ -97,7 +99,7 @@ namespace wo
         const  std::optional<ast::AstBase::source_location_t>& location,
         lang_Scope* scope,
         ast::AstValueBase* template_value_base,
-        const std::list<wo_pstring_t>& template_params,
+        const std::list<ast::AstTemplateParam*>& template_params,
         bool mutable_variable)
         : m_symbol_kind(VARIABLE)
         , m_is_template(true)
@@ -121,7 +123,7 @@ namespace wo
         const std::optional<ast::AstBase::source_location_t>& location,
         lang_Scope* scope,
         ast::AstTypeHolder* template_type_base,
-        const std::list<wo_pstring_t>& template_params,
+        const std::list<ast::AstTemplateParam*>& template_params,
         bool is_alias)
         : m_is_template(true)
         , m_is_global(false)
@@ -154,7 +156,7 @@ namespace wo
         lang_Symbol* symbol,
         bool mutable_,
         ast::AstValueBase* ast,
-        const std::list<wo_pstring_t>& template_params)
+        const std::list<ast::AstTemplateParam*>& template_params)
         : m_symbol(symbol), m_mutable(mutable_), m_origin_value_ast(ast), m_template_params(template_params)
     {
     }
@@ -184,7 +186,7 @@ namespace wo
     lang_Symbol::TemplateTypePrefab::TemplateTypePrefab(
         lang_Symbol* symbol,
         ast::AstTypeHolder* ast,
-        const std::list<wo_pstring_t>& template_params)
+        const std::list<ast::AstTemplateParam*>& template_params)
         : m_symbol(symbol), m_origin_value_ast(ast), m_template_params(template_params)
     {
     }
@@ -213,7 +215,7 @@ namespace wo
     lang_Symbol::TemplateAliasPrefab::TemplateAliasPrefab(
         lang_Symbol* symbol,
         ast::AstTypeHolder* ast,
-        const std::list<wo_pstring_t>& template_params)
+        const std::list<ast::AstTemplateParam*>& template_params)
         : m_symbol(symbol), m_origin_value_ast(ast), m_template_params(template_params)
     {
     }
@@ -241,7 +243,7 @@ namespace wo
 
     lang_TypeInstance::lang_TypeInstance(
         lang_Symbol* symbol,
-        const std::optional<std::list<lang_TypeInstance*>>& template_arguments)
+        const std::optional<std::list<ast::AstIdentifier::TemplateArgumentInstance>>& template_arguments)
         : m_symbol(symbol)
         , m_determined_base_type_or_mutable(std::nullopt)
         , m_instance_template_arguments(template_arguments)
@@ -367,7 +369,7 @@ namespace wo
     //////////////////////////////////////
 
     lang_TemplateAstEvalStateBase::lang_TemplateAstEvalStateBase(lang_Symbol* symbol, ast::AstBase* ast)
-        : m_state(UNPROCESSED), m_ast(ast), m_symbol(symbol)
+        : m_state(state::UNPROCESSED), m_ast(ast), m_symbol(symbol)
     {
     }
 
@@ -376,7 +378,7 @@ namespace wo
     lang_TemplateAstEvalStateValue::lang_TemplateAstEvalStateValue(
         lang_Symbol* symbol,
         ast::AstValueBase* ast,
-        const std::list<lang_TypeInstance*>& template_arguments)
+        const std::list<ast::AstIdentifier::TemplateArgumentInstance>& template_arguments)
         : lang_TemplateAstEvalStateBase(symbol, ast)
     {
         m_value_instance = std::make_unique<lang_ValueInstance>(
@@ -389,7 +391,7 @@ namespace wo
     //////////////////////////////////////
 
     lang_TemplateAstEvalStateType::lang_TemplateAstEvalStateType(
-        lang_Symbol* symbol, ast::AstTypeHolder* ast, const std::list<lang_TypeInstance*>& template_arguments)
+        lang_Symbol* symbol, ast::AstTypeHolder* ast, const std::list<ast::AstIdentifier::TemplateArgumentInstance>& template_arguments)
         : lang_TemplateAstEvalStateBase(symbol, ast)
     {
         m_type_instance = std::make_unique<lang_TypeInstance>(
@@ -399,7 +401,7 @@ namespace wo
     //////////////////////////////////////
 
     lang_TemplateAstEvalStateAlias::lang_TemplateAstEvalStateAlias(
-        lang_Symbol* symbol, ast::AstTypeHolder* ast, const std::list<lang_TypeInstance*>& template_arguments)
+        lang_Symbol* symbol, ast::AstTypeHolder* ast, const std::list<ast::AstIdentifier::TemplateArgumentInstance>& template_arguments)
         : lang_TemplateAstEvalStateBase(symbol, ast)
     {
         m_alias_instance = std::make_unique<lang_AliasInstance>(symbol, template_arguments);
@@ -409,7 +411,7 @@ namespace wo
 
     lang_AliasInstance::lang_AliasInstance(
         lang_Symbol* symbol,
-        const std::optional<std::list<lang_TypeInstance*>>& template_arguments)
+        const std::optional<std::list<ast::AstIdentifier::TemplateArgumentInstance>>& template_arguments)
         : m_symbol(symbol)
         , m_instance_template_arguments(template_arguments)
         , m_determined_type(std::nullopt)
@@ -428,10 +430,7 @@ namespace wo
         wo_assert(!m_mutable);
         if (init_val->m_evaled_const_value.has_value())
         {
-            wo::value new_constant;
-            new_constant.set_val_compile_time(&init_val->m_evaled_const_value.value());
-
-            m_determined_constant_or_function = new_constant;
+            set_const_value(init_val->m_evaled_const_value.value());
         }
         else if (init_val->node_type == ast::AstBase::AST_VALUE_VARIABLE)
         {
@@ -451,6 +450,13 @@ namespace wo
                 }
             }
         }
+    }
+    void lang_ValueInstance::set_const_value(const value& init_val)
+    {
+        wo::value new_constant;
+        new_constant.set_val_compile_time(&init_val);
+
+        m_determined_constant_or_function = new_constant;
     }
 
     bool lang_ValueInstance::IR_need_storage() const
@@ -482,7 +488,7 @@ namespace wo
     lang_ValueInstance::lang_ValueInstance(
         bool mutable_,
         lang_Symbol* symbol,
-        const std::optional<std::list<lang_TypeInstance*>>& template_arguments)
+        const std::optional<std::list<ast::AstIdentifier::TemplateArgumentInstance>>& template_arguments)
         : m_symbol(symbol), m_mutable(mutable_), m_determined_constant_or_function(std::nullopt), m_determined_type(std::nullopt), m_instance_template_arguments(template_arguments)
     {
     }
@@ -599,11 +605,13 @@ namespace wo
         m_debug_scope_layer_count(0), m_debug_entry_scope(nullptr)
 #endif
     {
+        wo_assert(m_ast_node != nullptr);
     }
     LangContext::AstNodeWithState::AstNodeWithState(
         pass_behavior state, ast::AstBase* node)
         : m_state(state), m_ast_node(node)
     {
+        wo_assert(m_ast_node != nullptr);
     }
 
     //////////////////////////////////////
@@ -700,7 +708,11 @@ namespace wo
             lang_TypeInstance::DeterminedType determined_type_detail(
                 lang_TypeInstance::DeterminedType::base_type::DICTIONARY, desc);
 
-            lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_dictionary, std::list{ key_type, value_type });
+            lang_TypeInstance* new_type_instance = new lang_TypeInstance(
+                m_dictionary,
+                std::list{
+                    ast::AstIdentifier::TemplateArgumentInstance(key_type),
+                    ast::AstIdentifier::TemplateArgumentInstance(value_type) });
             new_type_instance->determine_base_type_move(std::move(determined_type_detail));
 
             chain_node->m_type_instance = new_type_instance;
@@ -722,7 +734,11 @@ namespace wo
             lang_TypeInstance::DeterminedType determined_type_detail(
                 lang_TypeInstance::DeterminedType::base_type::MAPPING, desc);
 
-            lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_mapping, std::list{ key_type, value_type });
+            lang_TypeInstance* new_type_instance = new lang_TypeInstance(
+                m_mapping,
+                std::list{
+                    ast::AstIdentifier::TemplateArgumentInstance(key_type),
+                    ast::AstIdentifier::TemplateArgumentInstance(value_type) });
             new_type_instance->determine_base_type_move(std::move(determined_type_detail));
 
             chain_node->m_type_instance = new_type_instance;
@@ -743,7 +759,9 @@ namespace wo
             lang_TypeInstance::DeterminedType determined_type_detail(
                 lang_TypeInstance::DeterminedType::base_type::ARRAY, desc);
 
-            lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_array, std::list{ element_type });
+            lang_TypeInstance* new_type_instance = new lang_TypeInstance(
+                m_array,
+                std::list{ ast::AstIdentifier::TemplateArgumentInstance(element_type) });
             new_type_instance->determine_base_type_move(std::move(determined_type_detail));
 
             chain_node->m_type_instance = new_type_instance;
@@ -764,7 +782,8 @@ namespace wo
             lang_TypeInstance::DeterminedType determined_type_detail(
                 lang_TypeInstance::DeterminedType::base_type::VECTOR, desc);
 
-            lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_vector, std::list{ element_type });
+            lang_TypeInstance* new_type_instance = new lang_TypeInstance(
+                m_vector, std::list{ ast::AstIdentifier::TemplateArgumentInstance(element_type) });
             new_type_instance->determine_base_type_move(std::move(determined_type_detail));
 
             chain_node->m_type_instance = new_type_instance;
@@ -907,7 +926,7 @@ namespace wo
 
             auto& template_arguments = identifier->m_template_arguments.value();
 
-            if (symbol == m_dictionary)
+            if (symbol == m_dictionary || symbol == m_mapping)
             {
                 if (template_arguments.size() != 2)
                 {
@@ -918,41 +937,37 @@ namespace wo
                     return std::nullopt;
                 }
                 auto template_iter = template_arguments.begin();
-                auto* key_type = (*(template_iter++))->m_LANG_determined_type.value();
-                auto* value_type = (*template_iter)->m_LANG_determined_type.value();
+                auto& key_type_template = *(template_iter++);
+                auto& val_type_template = *(template_iter);
 
-                return create_dictionary_type(key_type, value_type);
-            }
-            else if (symbol == m_mapping)
-            {
-                if (template_arguments.size() != 2)
+                if (key_type_template->is_constant())
                 {
-                    lex.record_lang_error(lexer::msglevel_t::error, type_holder,
-                        WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
-                        (size_t)2);
+                    lex.record_lang_error(
+                        lexer::msglevel_t::error,
+                        key_type_template,
+                        WO_ERR_THIS_TEMPLATE_ARG_SHOULD_BE_TYPE);
 
                     return std::nullopt;
                 }
-                auto template_iter = template_arguments.begin();
-                auto* key_type = (*(template_iter++))->m_LANG_determined_type.value();
-                auto* value_type = (*template_iter)->m_LANG_determined_type.value();
-
-                return create_mapping_type(key_type, value_type);
-            }
-            else if (symbol == m_array)
-            {
-                if (template_arguments.size() != 1)
+                if (val_type_template->is_constant())
                 {
-                    lex.record_lang_error(lexer::msglevel_t::error, type_holder,
-                        WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
-                        (size_t)1);
+                    lex.record_lang_error(
+                        lexer::msglevel_t::error,
+                        key_type_template,
+                        WO_ERR_THIS_TEMPLATE_ARG_SHOULD_BE_TYPE);
 
                     return std::nullopt;
                 }
-                auto* element_type = template_arguments.front()->m_LANG_determined_type.value();
-                return create_array_type(element_type);
+
+                auto* key_type = key_type_template->get_type()->m_LANG_determined_type.value();
+                auto* value_type = val_type_template->get_type()->m_LANG_determined_type.value();
+
+                return symbol == m_dictionary
+                    ? create_dictionary_type(key_type, value_type)
+                    : create_mapping_type(key_type, value_type);
+                ;
             }
-            else if (symbol == m_vector)
+            else if (symbol == m_array || symbol == m_vector)
             {
                 if (template_arguments.size() != 1)
                 {
@@ -962,8 +977,23 @@ namespace wo
 
                     return std::nullopt;
                 }
-                auto* element_type = template_arguments.front()->m_LANG_determined_type.value();
-                return create_vector_type(element_type);
+                auto& element_type_template = template_arguments.front();
+
+                if (element_type_template->is_constant())
+                {
+                    lex.record_lang_error(
+                        lexer::msglevel_t::error,
+                        element_type_template,
+                        WO_ERR_THIS_TEMPLATE_ARG_SHOULD_BE_TYPE);
+
+                    return std::nullopt;
+                }
+
+                auto* element_type = element_type_template->get_type()->m_LANG_determined_type.value();
+                return symbol == m_array
+                    ? create_array_type(element_type)
+                    : create_vector_type(element_type)
+                    ;
             }
             else
             {
@@ -1113,27 +1143,27 @@ namespace wo
             OriginTypeHolder::OriginNoTemplateSymbolAndInstance* out_sni,
             wo_pstring_t name,
             lang_TypeInstance::DeterminedType::base_type basic_type)
-            {
-                ast::AstDeclareAttribue* built_type_public_attrib = new ast::AstDeclareAttribue();
-                built_type_public_attrib->m_access = ast::AstDeclareAttribue::PUBLIC;
+        {
+            ast::AstDeclareAttribue* built_type_public_attrib = new ast::AstDeclareAttribue();
+            built_type_public_attrib->m_access = ast::AstDeclareAttribue::PUBLIC;
 
-                bool symbol_defined = define_symbol_in_current_scope(
-                    &out_sni->m_symbol,
-                    name,
-                    built_type_public_attrib,
-                    std::nullopt,
-                    std::nullopt,
-                    get_current_scope(),
-                    lang_Symbol::kind::TYPE,
-                    false);
+            bool symbol_defined = define_symbol_in_current_scope(
+                &out_sni->m_symbol,
+                name,
+                built_type_public_attrib,
+                std::nullopt,
+                std::nullopt,
+                get_current_scope(),
+                lang_Symbol::kind::TYPE,
+                false);
 
-                wo_assert(symbol_defined);
-                (void)symbol_defined;
+            wo_assert(symbol_defined);
+            (void)symbol_defined;
 
-                out_sni->m_type_instance = out_sni->m_symbol->m_type_instance;
-                out_sni->m_type_instance->determine_base_type_move(
-                    std::move(lang_TypeInstance::DeterminedType(basic_type, {})));
-            };
+            out_sni->m_type_instance = out_sni->m_symbol->m_type_instance;
+            out_sni->m_type_instance->determine_base_type_move(
+                std::move(lang_TypeInstance::DeterminedType(basic_type, {})));
+        };
         create_builtin_non_template_symbol_and_instance(
             &m_origin_types.m_void, WO_PSTR(void), lang_TypeInstance::DeterminedType::VOID);
         create_builtin_non_template_symbol_and_instance(
@@ -1161,25 +1191,25 @@ namespace wo
         auto create_builtin_complex_symbol_and_instance = [this](
             lang_Symbol** out_symbol,
             wo_pstring_t name)
-            {
-                ast::AstDeclareAttribue* built_type_public_attrib = new ast::AstDeclareAttribue();
-                built_type_public_attrib->m_access = ast::AstDeclareAttribue::PUBLIC;
+        {
+            ast::AstDeclareAttribue* built_type_public_attrib = new ast::AstDeclareAttribue();
+            built_type_public_attrib->m_access = ast::AstDeclareAttribue::PUBLIC;
 
-                bool symbol_defined = define_symbol_in_current_scope(
-                    out_symbol,
-                    name,
-                    built_type_public_attrib,
-                    std::nullopt,
-                    std::nullopt,
-                    get_current_scope(),
-                    lang_Symbol::kind::TYPE,
-                    false);
+            bool symbol_defined = define_symbol_in_current_scope(
+                out_symbol,
+                name,
+                built_type_public_attrib,
+                std::nullopt,
+                std::nullopt,
+                get_current_scope(),
+                lang_Symbol::kind::TYPE,
+                false);
 
-                wo_assert(symbol_defined);
-                (void)symbol_defined;
+            wo_assert(symbol_defined);
+            (void)symbol_defined;
 
-                (*out_symbol)->m_is_builtin = true;
-            };
+            (*out_symbol)->m_is_builtin = true;
+        };
 
         create_builtin_complex_symbol_and_instance(&m_origin_types.m_dictionary, WO_PSTR(dict));
         create_builtin_complex_symbol_and_instance(&m_origin_types.m_mapping, WO_PSTR(map));
@@ -1305,10 +1335,10 @@ namespace wo
                 for (auto& [_useless, template_instance] : symbol->m_template_value_instances->m_template_instances)
                 {
                     (void)_useless;
-                    if (template_instance->m_state == lang_TemplateAstEvalStateValue::FAILED)
+                    if (template_instance->m_state == lang_TemplateAstEvalStateValue::state::FAILED)
                         continue; // Skip failed template instance.
 
-                    wo_assert(template_instance->m_state == lang_TemplateAstEvalStateValue::EVALUATED);
+                    wo_assert(template_instance->m_state == lang_TemplateAstEvalStateValue::state::EVALUATED);
                     if (is_static_storage)
                         lctx->update_allocate_global_instance_storage_passir(
                             template_instance->m_value_instance.get());
@@ -2021,7 +2051,7 @@ namespace wo
             mutable_type_instance->m_determined_base_type_or_mutable = origin_type;
 
             // NOTE: Copy template arguments.
-            mutable_type_instance->m_instance_template_arguments = 
+            mutable_type_instance->m_instance_template_arguments =
                 origin_type->m_instance_template_arguments;
 
             auto* result = mutable_type_instance.get();
@@ -2044,33 +2074,59 @@ namespace wo
         return origin_type;
     }
 
-    void LangContext::fast_create_one_template_type_alias_in_current_scope(
+    bool LangContext::fast_create_one_template_type_alias_and_constant_in_current_scope(
         wo_pstring_t template_param,
-        lang_TypeInstance* template_arg)
+        const ast::AstIdentifier::TemplateArgumentInstance& template_arg)
     {
         lang_Symbol* symbol;
 
-        bool symbol_defined = define_symbol_in_current_scope(
-            &symbol,
-            template_param,
-            std::nullopt,
-            std::nullopt,
-            std::nullopt,
-            get_current_scope(),
-            lang_Symbol::kind::ALIAS,
-            false);
+        if (template_arg.m_constant.has_value())
+        {
+            bool symbol_defined = define_symbol_in_current_scope(
+                &symbol,
+                template_param,
+                std::nullopt,
+                std::nullopt,
+                std::nullopt,
+                get_current_scope(),
+                lang_Symbol::kind::VARIABLE,
+                false);
 
-        wo_assert(symbol_defined);
-        (void)symbol_defined;
-        (void)symbol;
+            if (!symbol_defined)
+                return false;
 
-        symbol->m_alias_instance->m_determined_type = template_arg;
+            symbol->m_value_instance->set_const_value(
+                template_arg.m_constant.value());
+            symbol->m_value_instance->m_determined_type = template_arg.m_type;
+        }
+        else
+        {
+            bool symbol_defined = define_symbol_in_current_scope(
+                &symbol,
+                template_param,
+                std::nullopt,
+                std::nullopt,
+                std::nullopt,
+                get_current_scope(),
+                lang_Symbol::kind::ALIAS,
+                false);
+
+            if (!symbol_defined)
+                return false;
+
+            symbol->m_alias_instance->m_determined_type = template_arg.m_type;
+        }
+        return true;
     }
-    void LangContext::fast_create_template_type_alias_in_current_scope(
-        const std::list<wo_pstring_t>& template_params,
-        const std::list<lang_TypeInstance*>& template_args)
+    bool LangContext::fast_check_and_create_template_type_alias_and_constant_in_current_scope(
+        lexer& lex,
+        const std::list<ast::AstTemplateParam*>& template_params,
+        const std::list<ast::AstIdentifier::TemplateArgumentInstance>& template_args,
+        std::optional<ast::AstTemplateConstantTypeCheckInPass1*> template_checker)
     {
         wo_assert(template_params.size() == template_args.size());
+
+        ast::AstTemplateConstantTypeCheckInPass1* template_checker_p_may_null = template_checker.value_or(nullptr);
 
         auto params_iter = template_params.begin();
         auto args_iter = template_args.begin();
@@ -2078,10 +2134,58 @@ namespace wo
 
         for (; params_iter != params_end; ++params_iter, ++args_iter)
         {
-            fast_create_one_template_type_alias_in_current_scope(
-                *params_iter,
-                *args_iter);
+            auto* param = *params_iter;
+            auto& argument = *args_iter;
+
+            if (param->m_marked_type.has_value())
+            {
+                if (argument.m_constant.has_value())
+                {
+                    wo_assert(template_checker_p_may_null != nullptr);
+
+                    template_checker_p_may_null->m_LANG_constant_check_pairs.emplace_back(
+                        ast::AstTemplateConstantTypeCheckInPass1::CheckingPair{
+                            static_cast<ast::AstTypeHolder*>(param->m_marked_type.value()->clone()),
+                            argument.m_type,
+                        });
+                }
+                else
+                {
+                    lex.record_lang_error(
+                        lexer::msglevel_t::error,
+                        param,
+                        WO_ERR_THIS_TEMPLATE_ARG_SHOULD_BE_CONST);
+
+                    return false;
+                }
+            }
+            else
+            {
+                if (argument.m_constant.has_value())
+                {
+                    lex.record_lang_error(
+                        lexer::msglevel_t::error,
+                        param,
+                        WO_ERR_THIS_TEMPLATE_ARG_SHOULD_BE_TYPE);
+                }
+                else
+                    // No need to check.
+                    ;
+            }
+
+            if (!fast_create_one_template_type_alias_and_constant_in_current_scope(
+                param->m_param_name,
+                *args_iter))
+            {
+                lex.record_lang_error(lexer::msglevel_t::error, param,
+                    WO_ERR_REDEFINED,
+                    param->m_param_name->c_str());
+
+                return false;
+            }
         }
+
+        return true;
     }
     std::wstring LangContext::_get_scope_name(lang_Scope* scope)
     {
@@ -2229,11 +2333,20 @@ namespace wo
             result_type_name += L"<";
             auto& template_args = immutable_type_instance->m_instance_template_arguments.value();
             bool first = true;
-            for (auto* template_arg : template_args)
+            for (auto& template_arg : template_args)
             {
                 if (!first)
                     result_type_name += L", ";
-                result_type_name += get_type_name_w(template_arg);
+
+                if (template_arg.m_constant.has_value())
+                    result_type_name += L"{"
+                    + get_constant_str_w(template_arg.m_constant.value())
+                    + L": "
+                    + get_type_name_w(template_arg.m_type)
+                    + L"}";
+                else
+                    result_type_name += get_type_name_w(template_arg.m_type);
+
                 first = false;
             }
             result_type_name += L">";
@@ -2250,11 +2363,20 @@ namespace wo
             result_value_name += L"<";
             auto& template_args = scope->m_instance_template_arguments.value();
             bool first = true;
-            for (auto* template_arg : template_args)
+            for (auto& template_arg : template_args)
             {
                 if (!first)
                     result_value_name += L", ";
-                result_value_name += get_type_name_w(template_arg);
+
+                if (template_arg.m_constant.has_value())
+                    result_value_name += L"{"
+                    + get_constant_str_w(template_arg.m_constant.value())
+                    + L": "
+                    + get_type_name_w(template_arg.m_type)
+                    + L"}";
+                else
+                    result_value_name += get_type_name_w(template_arg.m_type);
+
                 first = false;
             }
             result_value_name += L">";
@@ -2344,6 +2466,16 @@ namespace wo
             std::make_pair(val, std::make_pair(result, wstrn_to_str(result))))
             .first
             ->second.second.c_str();
+    }
+    std::string LangContext::get_constant_str(const value& val)
+    {
+        if (val.type == value::valuetype::string_type)
+            return _rslib_std_string_enstring_impl(val.string->data(), val.string->length());
+        return wo_cast_string(std::launder((wo_value)(&val)));
+    }
+    std::wstring LangContext::get_constant_str_w(const value& val)
+    {
+        return str_to_wstr(get_constant_str(val));
     }
     void LangContext::append_using_namespace_for_current_scope(
         const std::unordered_set<lang_Namespace*>& using_namespaces, wo_pstring_t source)
@@ -2613,7 +2745,7 @@ namespace wo
             //  You can invoke `eval_for_upper` directly, it has same check effect.
             wo_assert(m_eval_result_storage_target.size() == current_request_count + 1);
 #endif
-        }
+}
         else
             eval_ignore();
     }
@@ -2893,4 +3025,4 @@ namespace wo
         m_result = result;
     }
 #endif
-}
+    }

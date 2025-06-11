@@ -747,12 +747,35 @@ typedef enum _wo_lspv2_symbol_kind
 
 } wo_lspv2_symbol_kind;
 
+typedef struct _wo_lspv2_type wo_lspv2_type;
+
+typedef enum _wo_lspv2_template_param_kind
+{
+    WO_LSPV2_TEMPLATE_PARAM_TYPE,
+    WO_LSPV2_TEMPLATE_PARAM_CONSTANT,
+
+}wo_lspv2_template_param_kind;
+
+typedef struct _wo_lspv2_template_param
+{
+    wo_lspv2_template_param_kind m_kind;
+    const char* m_name;
+
+}wo_lspv2_template_param;
+
+typedef struct _wo_lspv2_template_argument
+{
+    wo_lspv2_template_param_kind m_kind;
+    wo_lspv2_type* m_type;
+
+}wo_lspv2_template_argument;
+
 typedef struct _wo_lspv2_symbol_info
 {
     wo_lspv2_symbol_kind m_type;
     const char *m_name;
     wo_size_t m_template_params_count;
-    const char **m_template_params;
+    const _wo_lspv2_template_param* m_template_params;
     wo_bool_t m_has_location;
     wo_lspv2_location m_location;
 } wo_lspv2_symbol_info;
@@ -774,13 +797,12 @@ typedef struct _wo_lspv2_expr_collection_info
     const char *m_file_name;
 } wo_lspv2_expr_collection_info;
 
-typedef struct _wo_lspv2_type wo_lspv2_type;
 typedef struct _wo_lspv2_type_info
 {
     const char *m_name;
     wo_lspv2_symbol *m_type_symbol;
     size_t m_template_arguments_count;
-    wo_lspv2_type **m_template_arguments;
+    const wo_lspv2_template_argument* m_template_arguments;
 } wo_lspv2_type_info;
 
 typedef struct _wo_lspv2_expr_iter wo_lspv2_expr_iter;
@@ -793,7 +815,7 @@ typedef struct _wo_lspv2_expr_info
     wo_bool_t m_is_value_expr;       // false if type.
     wo_value m_const_value_may_null; // null if not const or is type.
     size_t m_template_arguments_count;
-    wo_lspv2_type **m_template_arguments; // null if not template instance.
+    const wo_lspv2_template_argument* m_template_arguments; // null if not template instance.
 } wo_lspv2_expr_info;
 
 typedef struct _wo_lspv2_type_struct_info
@@ -811,6 +833,8 @@ typedef struct _wo_lspv2_macro_info
     const char *m_name;
     wo_lspv2_location m_location;
 } wo_lspv2_macro_info;
+
+WO_API wo_size_t wo_lspv2_sub_version(void);
 
 WO_API wo_lspv2_source_meta *wo_lspv2_compile_to_meta(
     wo_string_t virtual_src_path,

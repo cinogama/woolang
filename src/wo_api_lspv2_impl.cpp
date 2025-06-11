@@ -8,6 +8,13 @@
 
 #ifndef WO_DISABLE_COMPILER
 
+constexpr wo_size_t WO_LSPV2_SUB_VERSION = 1;
+
+wo_size_t wo_lspv2_sub_version(void)
+{
+    return WO_LSPV2_SUB_VERSION;
+}
+
 wo::compile_result _wo_compile_impl(
     wo_string_t virtual_src_path,
     const void* src,
@@ -310,7 +317,7 @@ wo_lspv2_symbol_info* wo_lspv2_symbol_get_info(wo_lspv2_symbol* symbol)
 {
     wo_lspv2_symbol_kind symbol_kind;
     wo_size_t template_param_count = 0;
-    const char** template_params = nullptr;
+    wo_lspv2_template_param* template_params = nullptr;
 
     wo::lang_Symbol* lang_symbol =
         std::launder(reinterpret_cast<wo::lang_Symbol*>(symbol));
@@ -322,12 +329,19 @@ wo_lspv2_symbol_info* wo_lspv2_symbol_get_info(wo_lspv2_symbol* symbol)
         if (lang_symbol->m_is_template)
         {
             template_param_count = lang_symbol->m_template_value_instances->m_template_params.size();
-            template_params = (const char**)malloc(sizeof(const char*) * template_param_count);
+            template_params = new wo_lspv2_template_param[template_param_count];
             size_t count = 0;
             for (auto& param : lang_symbol->m_template_value_instances->m_template_params)
             {
-                template_params[count++] =
-                    _wo_strdup(wo::wstr_to_str(*param).c_str());
+                auto& template_param = template_params[count++];
+
+                template_param.m_kind =
+                    param->m_marked_type.has_value()
+                    ? WO_LSPV2_TEMPLATE_PARAM_CONSTANT
+                    : WO_LSPV2_TEMPLATE_PARAM_TYPE
+                    ;
+
+                template_param.m_name = _wo_strdup(wo::wstr_to_str(*param->m_param_name).c_str());
             }
         }
         break;
@@ -336,11 +350,19 @@ wo_lspv2_symbol_info* wo_lspv2_symbol_get_info(wo_lspv2_symbol* symbol)
         if (lang_symbol->m_is_template)
         {
             template_param_count = lang_symbol->m_template_alias_instances->m_template_params.size();
-            template_params = (const char**)malloc(sizeof(const char*) * template_param_count);
+            template_params = new wo_lspv2_template_param[template_param_count];
             size_t count = 0;
             for (auto& param : lang_symbol->m_template_alias_instances->m_template_params)
             {
-                template_params[count++] = _wo_strdup(wo::wstr_to_str(*param).c_str());
+                auto& template_param = template_params[count++];
+
+                template_param.m_kind =
+                    param->m_marked_type.has_value()
+                    ? WO_LSPV2_TEMPLATE_PARAM_CONSTANT
+                    : WO_LSPV2_TEMPLATE_PARAM_TYPE
+                    ;
+
+                template_param.m_name = _wo_strdup(wo::wstr_to_str(*param->m_param_name).c_str());
             }
         }
         break;
@@ -349,11 +371,19 @@ wo_lspv2_symbol_info* wo_lspv2_symbol_get_info(wo_lspv2_symbol* symbol)
         if (lang_symbol->m_is_template)
         {
             template_param_count = lang_symbol->m_template_type_instances->m_template_params.size();
-            template_params = (const char**)malloc(sizeof(const char*) * template_param_count);
+            template_params = new wo_lspv2_template_param[template_param_count];
             size_t count = 0;
             for (auto& param : lang_symbol->m_template_type_instances->m_template_params)
             {
-                template_params[count++] = _wo_strdup(wo::wstr_to_str(*param).c_str());
+                auto& template_param = template_params[count++];
+
+                template_param.m_kind =
+                    param->m_marked_type.has_value()
+                    ? WO_LSPV2_TEMPLATE_PARAM_CONSTANT
+                    : WO_LSPV2_TEMPLATE_PARAM_TYPE
+                    ;
+
+                template_param.m_name = _wo_strdup(wo::wstr_to_str(*param->m_param_name).c_str());
             }
         }
         break;
@@ -388,10 +418,9 @@ void wo_lspv2_symbol_info_free(wo_lspv2_symbol_info* info)
     if (info->m_template_params_count > 0)
     {
         for (size_t i = 0; i < info->m_template_params_count; i++)
-        {
-            free((void*)info->m_template_params[i]);
-        }
-        free((void*)info->m_template_params);
+            free((void*)info->m_template_params[i].m_name);
+
+        delete[]info->m_template_params;
     }
     delete info;
 }
@@ -526,7 +555,7 @@ wo_lspv2_expr_info* wo_lspv2_expr_get_info(wo_lspv2_expr* expr)
     wo_bool_t is_value = WO_TRUE;
     wo_value const_value = nullptr;
 
-    std::list<wo::lang_TypeInstance*>* template_instance_argument_list
+    std::list<wo::ast::AstIdentifier::TemplateArgumentInstance>* template_instance_argument_list
         = nullptr;
 
     if (ast_base->node_type == wo::ast::AstBase::node_type_t::AST_TYPE_HOLDER)
@@ -586,17 +615,25 @@ wo_lspv2_expr_info* wo_lspv2_expr_get_info(wo_lspv2_expr* expr)
     }
 
     size_t template_arguments_count = 0;
-    wo_lspv2_type** template_args = nullptr;
+    wo_lspv2_template_argument* template_args = nullptr;
     if (template_instance_argument_list != nullptr)
     {
         template_arguments_count = template_instance_argument_list->size();
-        template_args = (wo_lspv2_type**)malloc(
-            sizeof(wo_lspv2_type*) * template_arguments_count);
+        template_args = new wo_lspv2_template_argument[template_arguments_count];
 
         size_t i = 0;
-        for (auto* arg : *template_instance_argument_list)
+        for (auto& arg : *template_instance_argument_list)
         {
-            template_args[i++] = reinterpret_cast<wo_lspv2_type*>(arg);
+            auto& template_arg = template_args[i++];
+
+            template_arg.m_kind =
+                arg.m_constant.has_value()
+                ? WO_LSPV2_TEMPLATE_PARAM_CONSTANT
+                : WO_LSPV2_TEMPLATE_PARAM_TYPE
+                ;
+
+            template_arg.m_type =
+                reinterpret_cast<wo_lspv2_type*>(arg.m_type);
         }
     }
 
@@ -616,7 +653,7 @@ wo_lspv2_expr_info* wo_lspv2_expr_get_info(wo_lspv2_expr* expr)
 void wo_lspv2_expr_info_free(wo_lspv2_expr_info* expr_info)
 {
     free((void*)expr_info->m_location.m_file_name);
-    free((void*)expr_info->m_template_arguments);
+    delete[] expr_info->m_template_arguments;
     delete expr_info;
 }
 
@@ -627,38 +664,44 @@ wo_lspv2_type_info* wo_lspv2_type_get_info(
     wo::lang_TypeInstance* type_instance =
         std::launder(reinterpret_cast<wo::lang_TypeInstance*>(type));
 
-    auto* result = new wo_lspv2_type_info{
-        meta->m_langcontext_if_passed_grammar.value()->get_type_name(type_instance),
-        reinterpret_cast<wo_lspv2_symbol*>(type_instance->m_symbol),
-        0,
-        nullptr,
-    };
-
+    size_t template_arguments_count = 0;
+    wo_lspv2_template_argument* template_args = nullptr;
     if (type_instance->m_instance_template_arguments.has_value())
     {
         auto& template_arguments = type_instance->m_instance_template_arguments.value();
 
-        result->m_template_arguments_count = template_arguments.size();
-        result->m_template_arguments = (wo_lspv2_type**)malloc(
-            sizeof(wo_lspv2_type*) * result->m_template_arguments_count);
+        template_arguments_count = template_arguments.size();
+        template_args = new wo_lspv2_template_argument[template_arguments_count];
 
-        size_t count = 0;
+        size_t i = 0;
         for (auto& arg : template_arguments)
         {
-            result->m_template_arguments[count++] =
-                reinterpret_cast<wo_lspv2_type*>(arg);
+            auto& template_arg = template_args[i++];
+
+            template_arg.m_kind =
+                arg.m_constant.has_value()
+                ? WO_LSPV2_TEMPLATE_PARAM_CONSTANT
+                : WO_LSPV2_TEMPLATE_PARAM_TYPE
+                ;
+
+            template_arg.m_type =
+                reinterpret_cast<wo_lspv2_type*>(arg.m_type);
         }
     }
 
-    return result;
+    return new wo_lspv2_type_info{
+        meta->m_langcontext_if_passed_grammar.value()->get_type_name(type_instance),
+        reinterpret_cast<wo_lspv2_symbol*>(type_instance->m_symbol),
+        template_arguments_count,
+        template_args,
+    };
 }
 void wo_lspv2_type_info_free(wo_lspv2_type_info* info)
 {
     // This string stored in context, no need to free
     // free((void*)info->m_name);
 
-    free((void*)info->m_template_arguments);
-
+    delete[]info->m_template_arguments;
     delete info;
 }
 

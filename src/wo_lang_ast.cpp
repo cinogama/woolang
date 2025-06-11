@@ -90,11 +90,10 @@ namespace wo
             , m_LANG_determined_and_appended_template_arguments(std::nullopt)
             //, m_LANG_determined_searching_from_scope(std::nullopt)
         {
-
         }
         AstIdentifier::AstIdentifier(
             wo_pstring_t identifier,
-            const std::optional<std::list<AstTypeHolder*>>& template_arguments)
+            const std::optional<std::list<AstTemplateArgument*>>& template_arguments)
             : AstBase(AST_IDENTIFIER)
             , m_formal(identifier_formal::FROM_CURRENT)
             , m_find_type_only(true)
@@ -109,7 +108,7 @@ namespace wo
         }
         AstIdentifier::AstIdentifier(
             wo_pstring_t identifier,
-            const std::optional<std::list<AstTypeHolder*>>& template_arguments,
+            const std::optional<std::list<AstTemplateArgument*>>& template_arguments,
             const std::list<wo_pstring_t>& scopes,
             bool from_global)
             : AstBase(AST_IDENTIFIER)
@@ -123,11 +122,10 @@ namespace wo
             , m_LANG_determined_and_appended_template_arguments(std::nullopt)
             //, m_LANG_determined_searching_from_scope(std::nullopt)
         {
-
         }
         AstIdentifier::AstIdentifier(
             wo_pstring_t identifier,
-            const std::optional<std::list<AstTypeHolder*>>& template_arguments,
+            const std::optional<std::list<AstTemplateArgument*>>& template_arguments,
             const std::list<wo_pstring_t>& scopes,
             AstTypeHolder* from_type)
             : AstBase(AST_IDENTIFIER)
@@ -141,7 +139,6 @@ namespace wo
             , m_LANG_determined_and_appended_template_arguments(std::nullopt)
             //, m_LANG_determined_searching_from_scope(std::nullopt)
         {
-
         }
 
         AstIdentifier::AstIdentifier(const AstIdentifier& identifer)
@@ -170,9 +167,150 @@ namespace wo
                 if (from_type != nullptr)
                     out_continues.push_back(AstBase::make_holder(from_type));
             }
-            if (new_instance->m_template_arguments)
+            if (new_instance->m_template_arguments.has_value())
                 for (auto& arg : new_instance->m_template_arguments.value())
                     out_continues.push_back(AstBase::make_holder(&arg));
+
+            return new_instance;
+        }
+
+        ////////////////////////////////////////////////////////
+
+        AstIdentifier::TemplateArgumentInstance::TemplateArgumentInstance(lang_TypeInstance* type)
+            : m_type(type)
+            , m_constant(std::nullopt)
+        {
+        }
+        AstIdentifier::TemplateArgumentInstance::TemplateArgumentInstance(AstValueBase* value)
+            : m_type(value->m_LANG_determined_type.value())
+            , m_constant(value->m_evaled_const_value.value())
+        {
+        }
+        AstIdentifier::TemplateArgumentInstance::TemplateArgumentInstance(
+            lang_TypeInstance* type, const value& constant)
+            : m_type(type)
+            , m_constant(constant)
+        {
+        }
+        bool AstIdentifier::TemplateArgumentInstance::operator < (const TemplateArgumentInstance& a) const
+        {
+            if (m_type != a.m_type)
+                return m_type < a.m_type;
+
+            auto a_is_constant = m_constant.has_value();
+            auto b_is_constant = a.m_constant.has_value();
+
+            if (a_is_constant == b_is_constant)
+            {
+                if (a_is_constant)
+                {
+                    auto& aconstant = m_constant.value();
+                    auto& bconstant = a.m_constant.value();
+
+                    if (aconstant.type == bconstant.type)
+                    {
+                        switch (aconstant.type)
+                        {
+                        case value::valuetype::bool_type:
+                        case value::valuetype::integer_type:
+                            return aconstant.integer < bconstant.integer;
+                        case value::valuetype::handle_type:
+                            return aconstant.handle < bconstant.handle;
+                        case value::valuetype::real_type:
+                            return aconstant.real < bconstant.real;
+                        case value::valuetype::string_type:
+                            return *aconstant.string < *bconstant.string;
+                        default:
+                            wo_error("Unsupport constant type.");
+                            return false;
+                        }
+                    }
+                    else
+                        return aconstant.type < bconstant.type;
+                }
+                else
+                    return false; // Equal.
+            }
+            else
+                return a_is_constant;
+        }
+        ////////////////////////////////////////////////////////
+
+        AstTemplateParam::AstTemplateParam(wo_pstring_t name, std::optional<AstTypeHolder*> marked_type)
+            : AstBase(AST_TEMPLATE_PARAM)
+            , m_param_name(name)
+            , m_marked_type(marked_type)
+        {
+        }
+        AstBase* AstTemplateParam::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        {
+            AstTemplateParam* new_instance = exist_instance
+                ? static_cast<AstTemplateParam*>(exist_instance.value())
+                : new AstTemplateParam(m_param_name, m_marked_type)
+                ;
+
+            if (new_instance->m_marked_type.has_value())
+                out_continues.push_back(AstBase::make_holder(&new_instance->m_marked_type.value()));
+
+            return new_instance;
+        }
+
+        ////////////////////////////////////////////////////////
+
+        AstTemplateArgument::AstTemplateArgument(AstTypeHolder* type)
+            : AstBase(AST_TEMPLATE_ARGUMENT)
+            , m_argument(type)
+        {
+        }
+        AstTemplateArgument::AstTemplateArgument(AstValueBase* constant)
+            : AstBase(AST_TEMPLATE_ARGUMENT)
+            , m_argument(constant)
+        {
+        }
+
+        bool AstTemplateArgument::is_type() const
+        {
+            return std::holds_alternative<AstTypeHolder*>(m_argument);
+        }
+        bool AstTemplateArgument::is_constant() const
+        {
+            return std::holds_alternative<AstValueBase*>(m_argument);
+        }
+        AstTypeHolder* AstTemplateArgument::get_type() const
+        {
+            return std::get<AstTypeHolder*>(m_argument);
+        }
+        AstValueBase* AstTemplateArgument::get_constant() const
+        {
+            return std::get<AstValueBase*>(m_argument);
+        }
+        AstTypeHolder** AstTemplateArgument::get_type_ptr()
+        {
+            auto* p = std::get_if<AstTypeHolder*>(&m_argument);
+            wo_assert(p != nullptr);
+
+            return p;
+        }
+        AstValueBase** AstTemplateArgument::get_constant_ptr()
+        {
+            auto* p = std::get_if<AstValueBase*>(&m_argument);
+            wo_assert(p != nullptr);
+
+            return p;
+        }
+
+        AstBase* AstTemplateArgument::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        {
+            AstTemplateArgument* new_instance = exist_instance
+                ? static_cast<AstTemplateArgument*>(exist_instance.value())
+                : is_type() ? new AstTemplateArgument(get_type()) : new AstTemplateArgument(get_constant())
+                ;
+
+            if (new_instance->is_type())
+                out_continues.push_back(AstBase::make_holder(new_instance->get_type_ptr()));
+            else
+                out_continues.push_back(AstBase::make_holder(new_instance->get_constant_ptr()));
+
             return new_instance;
         }
 
@@ -296,53 +434,239 @@ namespace wo
                 wo_error("Unknown type form.");
             }
         }
-
-        bool AstTypeHolder::_check_if_has_typeof() const
+        void AstPatternBase::_check_if_template_exist_in(
+            const std::list<AstTemplateParam*>& template_params, std::vector<bool>& out_contain_flags) const
         {
-            switch (m_formal)
+            switch (this->node_type)
             {
-            case IDENTIFIER:
-                if (m_typeform.m_identifier->m_formal == AstIdentifier::identifier_formal::FROM_TYPE)
-                    return true;
-                if (m_typeform.m_identifier->m_template_arguments)
-                    for (auto& template_argument : m_typeform.m_identifier->m_template_arguments.value())
+            case AST_PATTERN_TAKEPLACE:
+                return;
+            case AST_PATTERN_SINGLE:
+                return;
+            case AST_PATTERN_TUPLE:
+                for (auto* field : static_cast<const AstPatternTuple*>(this)->m_fields)
+                    field->_check_if_template_exist_in(template_params, out_contain_flags);
+                return;
+            case AST_PATTERN_UNION:  // Only used in match
+            {
+                auto* union_pattern = static_cast<const AstPatternUnion*>(this);
+                if (union_pattern->m_field)
+                    union_pattern->m_field.value()->_check_if_template_exist_in(
+                        template_params, out_contain_flags);
+                return;
+            }
+            case AST_PATTERN_VARIABLE: // Only used in assign
+                static_cast<const AstPatternVariable*>(this)->m_variable->_check_if_template_exist_in(
+                    template_params, out_contain_flags);
+                return;
+            case AST_PATTERN_INDEX:  // Only used in assign
+                static_cast<const AstPatternIndex*>(this)->m_index->_check_if_template_exist_in(
+                    template_params, out_contain_flags);
+                return;
+            }
+            static_assert(AST_PATTERN_end == AST_PATTERN_INDEX + 1);
+        }
+        void AstValueBase::_check_if_template_exist_in(
+            const std::list<AstTemplateParam*>& template_params, std::vector<bool>& out_contain_flags) const
+        {
+            const AstValueBase* value = this;
+            for (;;)
+            {
+                switch (value->node_type)
+                {
+                case AST_VALUE_MARK_AS_MUTABLE:
+                    value = static_cast<const AstValueMarkAsMutable*>(value)->m_marked_value;
+                    continue;
+                case AST_VALUE_MARK_AS_IMMUTABLE:
+                    value = static_cast<const AstValueMarkAsImmutable*>(value)->m_marked_value;
+                    continue;
+                case AST_VALUE_LITERAL:
+                    return;
+                case AST_VALUE_TYPEID:
+                    static_cast<const AstValueTypeid*>(value)->m_id_type->
+                        _check_if_template_exist_in(template_params, out_contain_flags);
+                    return;
+                case AST_VALUE_TYPE_CAST:
+                {
+                    auto* cast = static_cast<const AstValueTypeCast*>(value);
+                    cast->m_cast_type->_check_if_template_exist_in(template_params, out_contain_flags);
+                    value = cast->m_cast_value;
+                    continue;
+                }
+                case AST_VALUE_DO_AS_VOID:
+                    value = static_cast<const AstValueDoAsVoid*>(value)->m_do_value;
+                    continue;
+                case AST_VALUE_TYPE_CHECK_IS:
+                {
+                    auto* check = static_cast<const AstValueTypeCheckIs*> (value);
+                    check->m_check_type->_check_if_template_exist_in(template_params, out_contain_flags);
+                    value = check->m_check_value;
+                    continue;
+                }
+                case AST_VALUE_TYPE_CHECK_AS:
+                {
+                    auto* check = static_cast<const AstValueTypeCheckAs*> (value);
+                    check->m_check_type->_check_if_template_exist_in(template_params, out_contain_flags);
+                    value = check->m_check_value;
+                    continue;
+                }
+                case AST_VALUE_VARIABLE:
+                {
+                    auto* variable = static_cast<const AstValueVariable*> (value);
+                    switch (variable->m_identifier->m_formal)
                     {
-                        if (template_argument->_check_if_has_typeof())
-                            return true;
+                    case AstIdentifier::identifier_formal::FROM_TYPE:
+                    {
+                        auto& kind = variable->m_identifier->m_from_type.value();
+                        AstTypeHolder** hold_type = std::get_if<AstTypeHolder*>(&kind);
+                        if (hold_type != nullptr)
+                            (*hold_type)->_check_if_template_exist_in(template_params, out_contain_flags);
+
+                        break;
                     }
-                return false;
-            case TYPEOF:
-                return true;
-            case FUNCTION:
-                for (auto& param : m_typeform.m_function.m_parameters)
-                {
-                    if (param->_check_if_has_typeof())
-                        return true;
+                    case AstIdentifier::identifier_formal::FROM_CURRENT:
+                    {
+                        if (variable->m_identifier->m_scope.empty() 
+                            && !variable->m_identifier->m_template_arguments.has_value())
+                        {
+                            size_t offset = 0;
+                            for (auto& template_ : template_params)
+                            {
+                                if (variable->m_identifier->m_name == template_->m_param_name
+                                    && template_->m_marked_type.has_value())
+                                    out_contain_flags[offset] = true;
+                                ++offset;
+                            }
+                        }
+                        break;
+                    }
+                    default:
+                        break;
+                    }
+
+                    if (variable->m_identifier->m_template_arguments.has_value())
+                        for (auto& template_argument : variable->m_identifier->m_template_arguments.value())
+                        {
+                            if (template_argument->is_constant())
+                                template_argument->get_constant()->_check_if_template_exist_in(
+                                    template_params, out_contain_flags);
+                            else
+                                template_argument->get_type()->_check_if_template_exist_in(
+                                    template_params, out_contain_flags);
+                        }
+
+                    return;
                 }
-                return m_typeform.m_function.m_return_type->_check_if_has_typeof();
-            case STRUCTURE:
-                for (auto& field : m_typeform.m_structure.m_fields)
+                case AST_VALUE_FUNCTION_CALL:
                 {
-                    if (field->m_type->_check_if_has_typeof())
-                        return true;
+                    auto* call = static_cast<const AstValueFunctionCall*>(value);
+
+                    for (auto* argument : call->m_arguments)
+                        argument->_check_if_template_exist_in(template_params, out_contain_flags);
+
+                    value = call->m_function;
+                    continue;
                 }
-                return false;
-            case TUPLE:
-                for (auto& field : m_typeform.m_tuple.m_fields)
+                case AST_VALUE_BINARY_OPERATOR:
                 {
-                    if (field->_check_if_has_typeof())
-                        return true;
+                    auto* binop = static_cast<const AstValueBinaryOperator*>(value);
+
+                    binop->m_left->_check_if_template_exist_in(template_params, out_contain_flags);
+                    value = binop->m_right;
+
+                    continue;
                 }
-                return false;
-            case UNION:
-                return false;
-            default:
-                wo_error("Unknown type form.");
-                return false;
+                case AST_VALUE_UNARY_OPERATOR:
+                    value = static_cast<const AstValueUnaryOperator*>(value)->m_operand;
+                    continue;
+                case AST_VALUE_TRIBLE_OPERATOR:
+                {
+                    auto* triop = static_cast<const AstValueTribleOperator*>(value);
+
+                    triop->m_condition->_check_if_template_exist_in(template_params, out_contain_flags);
+                    triop->m_true_value->_check_if_template_exist_in(template_params, out_contain_flags);
+                    value = triop->m_false_value;
+
+                    continue;
+                }
+                case AST_VALUE_INDEX:
+                {
+                    auto* index = static_cast<const AstValueIndex*>(value);
+
+                    index->m_container->_check_if_template_exist_in(template_params, out_contain_flags);
+                    value = index->m_index;
+
+                    continue;
+                }
+                case AST_VALUE_FUNCTION:
+                    // We cannot check if there is any template usage in function body, treat as used.
+                    for (std::vector<bool>::reference f : out_contain_flags)
+                        f = true;
+
+                    return;
+                case AST_VALUE_ARRAY_OR_VEC:
+                {
+                    auto* arr = static_cast<const AstValueArrayOrVec*>(value);
+                    for (auto* elem : arr->m_elements)
+                        elem->_check_if_template_exist_in(template_params, out_contain_flags);
+
+                    return;
+                }
+                case AST_VALUE_DICT_OR_MAP:
+                {
+                    auto* dict = static_cast<const AstValueDictOrMap*>(value);
+                    for (auto* elem : dict->m_elements)
+                    {
+                        elem->m_key->_check_if_template_exist_in(template_params, out_contain_flags);
+                        elem->m_value->_check_if_template_exist_in(template_params, out_contain_flags);
+                    }
+
+                    return;
+                }
+                case AST_VALUE_TUPLE:
+                {
+                    auto* tuple = static_cast<const AstValueTuple*>(value);
+                    for (auto* elem : tuple->m_elements)
+                        elem->_check_if_template_exist_in(template_params, out_contain_flags);
+
+                    return;
+                }
+                case AST_VALUE_STRUCT:
+                {
+                    auto* structure = static_cast<const AstValueStruct*>(value);
+                    if (structure->m_marked_struct_type.has_value())
+                        structure->m_marked_struct_type.value()->_check_if_template_exist_in(
+                            template_params, out_contain_flags);
+
+                    for (auto* elem : structure->m_fields)
+                        elem->m_value->_check_if_template_exist_in(template_params, out_contain_flags);
+
+                    return;
+                }
+                case AST_VALUE_ASSIGN:
+                {
+                    auto* assign = static_cast<const AstValueAssign*>(value);
+
+                    assign->m_assign_place->_check_if_template_exist_in(template_params, out_contain_flags);
+                    value = assign->m_right;
+
+                    continue;
+                }
+                case AST_VALUE_VARIADIC_ARGUMENTS_PACK:
+                case AST_FAKE_VALUE_UNPACK:
+                    return;
+                case AST_VALUE_MAKE_UNION:
+                case AST_VALUE_IR_OPNUM:
+                    wo_error("Cannot be here.");
+                    return;
+                }
+
+                static_assert(AST_VALUE_end == AST_FAKE_VALUE_UNPACK + 1);
             }
         }
+
         void AstTypeHolder::_check_if_template_exist_in(
-            const std::list<wo_pstring_t>& template_params, std::vector<bool>& out_contain_flags) const
+            const std::list<AstTemplateParam*>& template_params, std::vector<bool>& out_contain_flags) const
         {
             switch (m_formal)
             {
@@ -361,7 +685,8 @@ namespace wo
                         size_t offset = 0;
                         for (auto& template_ : template_params)
                         {
-                            if (m_typeform.m_identifier->m_name == template_)
+                            if (m_typeform.m_identifier->m_name == template_->m_param_name
+                                && !template_->m_marked_type.has_value())
                                 out_contain_flags[offset] = true;
                             ++offset;
                         }
@@ -369,10 +694,17 @@ namespace wo
                 }
                 if (m_typeform.m_identifier->m_template_arguments)
                     for (auto& template_argument : m_typeform.m_identifier->m_template_arguments.value())
-                        template_argument->_check_if_template_exist_in(template_params, out_contain_flags);
+                    {
+                        if (template_argument->is_constant())
+                            template_argument->get_constant()->_check_if_template_exist_in(
+                                template_params, out_contain_flags);
+                        else
+                            template_argument->get_type()->_check_if_template_exist_in(
+                                template_params, out_contain_flags);
+                    }
                 break;
             case TYPEOF:
-                // We are not able to check template in typefrom.
+                m_typeform.m_typefrom->_check_if_template_exist_in(template_params, out_contain_flags);
                 break;
             case FUNCTION:
                 for (auto& param : m_typeform.m_function.m_parameters)
@@ -473,6 +805,22 @@ namespace wo
             AstValueBase* new_instance = static_cast<AstValueBase*>(exist_instance.value());
             // new_instance->m_determined_type = std::nullopt;
             // new_instance->m_evaled_const_value = std::nullopt;
+            return new_instance;
+        }
+
+        ////////////////////////////////////////////////////////
+        
+        AstValueNothing::AstValueNothing()
+            : AstValueBase(AST_VALUE_NOTHING)
+        {
+        }
+        AstBase* AstValueNothing::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        {
+            AstValueNothing* new_instance = exist_instance
+                ? static_cast<AstValueNothing*>(exist_instance.value())
+                : new AstValueNothing()
+                ;
+
             return new_instance;
         }
 
@@ -891,7 +1239,7 @@ namespace wo
         AstPatternSingle::AstPatternSingle(
             bool is_mutable,
             wo_pstring_t name,
-            const std::optional<std::list<wo_pstring_t>>& template_parameters)
+            const std::optional<std::list<AstTemplateParam*>>& template_parameters)
             : AstPatternBase(AST_PATTERN_SINGLE)
             , m_is_mutable(is_mutable)
             , m_name(name)
@@ -1032,7 +1380,7 @@ namespace wo
                 if (func_value->m_pending_param_type_mark_template && !single_pattern->m_is_mutable)
                 {
                     if (!single_pattern->m_template_parameters)
-                        single_pattern->m_template_parameters = std::list<wo_pstring_t>{};
+                        single_pattern->m_template_parameters = std::list<AstTemplateParam*>{};
 
                     for (auto*& p : func_value->m_pending_param_type_mark_template.value())
                         single_pattern->m_template_parameters.value().push_back(p);
@@ -1139,7 +1487,7 @@ namespace wo
         AstValueFunction::AstValueFunction(
             const std::list<AstFunctionParameterDeclare*>& parameters,
             bool is_variadic,
-            const std::optional<std::list<wo_pstring_t>>& defined_function_template_only_for_lambda,
+            const std::optional<std::list<AstTemplateParam*>>& defined_function_template_only_for_lambda,
             const std::optional<AstTypeHolder*>& marked_return_type,
             const std::optional<AstWhereConstraints*>& where_constraints,
             AstBase* body)
@@ -1163,19 +1511,24 @@ namespace wo
                 if (!param_define->m_type)
                 {
                     if (!m_pending_param_type_mark_template)
-                        m_pending_param_type_mark_template = std::list<wo_pstring_t>{};
+                        m_pending_param_type_mark_template = std::list<AstTemplateParam*>{};
 
                     auto& pending_param_type_mark_template =
                         m_pending_param_type_mark_template.value();
 
-                    wo_pstring_t pending_template_name
-                        = wstring_pool::get_pstr(L"*T" + std::to_wstring(pending_param_type_mark_template.size()));
-                    pending_param_type_mark_template.push_back(pending_template_name);
+                    wo_pstring_t pending_template_name =
+                        wstring_pool::get_pstr(L"*T" + std::to_wstring(pending_param_type_mark_template.size()));
+
+                    AstTemplateParam* pending_template_param = new AstTemplateParam(
+                        pending_template_name,
+                        std::nullopt);
+                    pending_param_type_mark_template.push_back(pending_template_param);
 
                     AstIdentifier* template_identifier = new AstIdentifier(pending_template_name);
                     AstTypeHolder* template_type = new AstTypeHolder(template_identifier);
                     param_define->m_type = template_type;
 
+                    pending_template_param->source_location = param_define->source_location;
                     template_identifier->source_location = param_define->source_location;
                     template_type->source_location = param_define->source_location;
                 }
@@ -1543,7 +1896,7 @@ namespace wo
             //    }
             // }
             auto* for_body = new AstFor(iterator_declear, std::nullopt, std::nullopt, match_body);
-            
+
             m_forloop_body = for_body;
 
             // Update source msg;
@@ -1664,7 +2017,7 @@ namespace wo
         AstUsingTypeDeclare::AstUsingTypeDeclare(
             const std::optional<AstDeclareAttribue*>& attrib,
             wo_pstring_t typename_,
-            const std::optional<std::list<wo_pstring_t>>& template_parameters,
+            const std::optional<std::list<AstTemplateParam*>>& template_parameters,
             AstTypeHolder* type)
             : AstBase(AST_USING_TYPE_DECLARE)
             , m_typename(typename_)
@@ -1702,7 +2055,7 @@ namespace wo
         AstAliasTypeDeclare::AstAliasTypeDeclare(
             const std::optional<AstDeclareAttribue*>& attrib,
             wo_pstring_t typename_,
-            const std::optional<std::list<wo_pstring_t>>& template_parameters,
+            const std::optional<std::list<AstTemplateParam*>>& template_parameters,
             AstTypeHolder* type)
             : AstBase(AST_ALIAS_TYPE_DECLARE)
             , m_typename(typename_)
@@ -1919,7 +2272,7 @@ namespace wo
         AstUnionDeclare::AstUnionDeclare(
             const std::optional<AstDeclareAttribue*>& attrib,
             AstToken* union_type_name,
-            const std::optional<std::list<wo_pstring_t>>& template_parameters,
+            const std::optional<std::list<AstTemplateParam*>>& template_parameters,
             const std::list<AstUnionItem*>& union_items)
             : AstBase(AST_UNION_DECLARE)
             //, m_union_type_name(union_type_name)
@@ -1932,7 +2285,7 @@ namespace wo
             auto* union_item_or_creator_declare = new AstVariableDefines(attrib);
 
             AstTypeHolder::UnionType union_type_info;
-            wo_pstring_t union_type_name_pstr = 
+            wo_pstring_t union_type_name_pstr =
                 wo::wstring_pool::get_pstr(union_type_name->m_token.identifier);
 
             wo_integer_t current_item_index = 0;
@@ -1950,14 +2303,35 @@ namespace wo
 
                 if (template_parameters)
                 {
-                    std::list<AstTypeHolder*> template_arguments(template_parameters.value().size());
+                    std::list<AstTemplateArgument*> template_arguments(template_parameters.value().size());
+                    auto template_parameter_iter = template_parameters.value().begin();
+   
                     for (auto& template_argument : template_arguments)
                     {
-                        auto* template_argument_identifier = new AstIdentifier(WO_PSTR(nothing), std::nullopt, {}, true);
-                        template_argument = new AstTypeHolder(template_argument_identifier);
+                        auto* template_parameter = *template_parameter_iter;
 
-                        template_argument_identifier->source_location = item->source_location;
-                        template_argument->source_location = item->source_location;
+                        if (template_parameter->m_marked_type.has_value())
+                        {
+                            auto* template_argumnet_nothing = new AstValueNothing();
+                            auto* template_argument_instance = new AstTemplateArgument(template_argumnet_nothing);
+
+                            template_argumnet_nothing->source_location = item->source_location;
+                            template_argument_instance->source_location = item->source_location;
+
+                            template_argument = template_argument_instance;
+                        }
+                        else
+                        {
+                            auto* template_argument_identifier = new AstIdentifier(WO_PSTR(nothing), std::nullopt, {}, true);
+                            auto* typeholder = new AstTypeHolder(template_argument_identifier);
+                            auto* template_argument_instance = new AstTemplateArgument(typeholder);
+
+                            template_argument_identifier->source_location = item->source_location;
+                            typeholder->source_location = item->source_location;
+                            template_argument_instance->source_location = item->source_location;
+
+                            template_argument = template_argument_instance;
+                        }
                     }
 
                     auto* union_type_identifier = new AstIdentifier(
@@ -1985,20 +2359,15 @@ namespace wo
 
                     // Declare a function to construct the union item.
                     // 1) Count used template parameters.
-                    std::list<wo_pstring_t> used_template_parameters;
+                    std::list<AstTemplateParam*> used_template_parameters;
 
                     if (template_parameters)
                     {
                         wo_assert(union_type->m_typeform.m_identifier->m_template_arguments);
 
-                        bool creator_param_has_typeof = creator_param_type->_check_if_has_typeof();
-
-                        // NOTE: We cannot check template param has been used or not in from typeof.
-                        //  So we treat all template param as used if `creator_param_has_typeof`
-                        std::vector<bool> used_template_parameters_flags(template_parameters.value().size(), creator_param_has_typeof);
-
-                        if (!creator_param_has_typeof)
-                            creator_param_type->_check_if_template_exist_in(template_parameters.value(), used_template_parameters_flags);
+                        std::vector<bool> used_template_parameters_flags(template_parameters.value().size(), false);
+                        creator_param_type->_check_if_template_exist_in(
+                            template_parameters.value(), used_template_parameters_flags);
 
                         auto updating_union_type_template_argument_iter =
                             union_type->m_typeform.m_identifier->m_template_arguments.value().begin();
@@ -2008,17 +2377,37 @@ namespace wo
                         {
                             if (template_param_this_place_has_been_used)
                             {
-                                // Used, update the template argument.
-                                auto* new_template_identifier = new AstIdentifier(*template_parameters_iter);
-                                auto* new_template = new AstTypeHolder(new_template_identifier);
+                                auto* template_parameter = *template_parameters_iter;
 
-                                *updating_union_type_template_argument_iter = new_template;
+                                // Used, update the template argument.
+                                auto* new_template_identifier = new AstIdentifier(template_parameter->m_param_name);
+
+                                AstTemplateArgument* new_template_argument;
+
+                                if (template_parameter->m_marked_type.has_value())
+                                {
+                                    auto* new_template = new AstValueVariable(new_template_identifier);
+                                    new_template_argument = new AstTemplateArgument(new_template);
+
+                                    // Update source msg;
+                                    new_template->source_location = item->source_location;
+                                }
+                                else
+                                {
+                                    auto* new_template = new AstTypeHolder(new_template_identifier);
+                                    new_template_argument = new AstTemplateArgument(new_template);
+
+                                    // Update source msg;
+                                    new_template->source_location = item->source_location;
+                                }
+
+                                *updating_union_type_template_argument_iter = new_template_argument;
 
                                 used_template_parameters.push_back(*template_parameters_iter);
 
                                 // Update source msg;
                                 new_template_identifier->source_location = item->source_location;
-                                new_template->source_location = item->source_location;
+                                new_template_argument->source_location = item->source_location;
                             }
 
                             ++updating_union_type_template_argument_iter;
@@ -2180,7 +2569,21 @@ namespace wo
                 ;
             return new_instance;
         }
-       
+
+        ////////////////////////////////////////////////////////
+
+        AstTemplateConstantTypeCheckInPass1::AstTemplateConstantTypeCheckInPass1(AstBase* instance)
+            : AstBase(AST_TEMPLATE_CONSTANT_TYPE_CHECK_IN_PASS1)
+            , m_LANG_hold_state(LANG_hold_state::UNPROCESSED)
+            , m_template_instance(instance)
+            , m_LANG_constant_check_pairs{}
+        {
+        }
+        AstBase* AstTemplateConstantTypeCheckInPass1::make_dup(
+            std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        {
+            wo_error("This node should never be duplicated.");
+        }
     }
 #endif
 }

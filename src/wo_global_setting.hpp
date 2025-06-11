@@ -150,18 +150,18 @@ namespace wo
         inline bool ENABLE_HALT_WHEN_PANIC = false;
 
         /*
-        * ENABLE_IGNORE_NOT_FOUND_EXTERN_SYMBOL = false
+        * DISABLE_LOAD_EXTERN_FUNCTION = false
         * --------------------------------------------------------------------
-        *   When importing external functions using the extern syntax, ignore
-        *   missing function symbols and replace them with the default panic 
-        *   function.
+        *   When importing external functions using the extern syntax, Do not 
+        *   actually import external libraries and functions and replace them 
+        *   with the default panic function.
         * --------------------------------------------------------------------
         * ATTENTION:
         *   This configuration item is only meaningful when used for LSP or 
         *   compiled into a binary, and should not be abused. Please properly 
         *   handle the situation where symbols are indeed lost.
         */
-        inline bool ENABLE_IGNORE_NOT_FOUND_EXTERN_SYMBOL = false;
+        inline bool DISABLE_LOAD_EXTERN_FUNCTION = false;
 
         /*
         * ENABLE_RUNTIME_CHECKING_INTEGER_DIVISION = true

@@ -42,6 +42,9 @@ namespace wo
                 AST_TOKEN,
                 AST_IDENTIFIER,
 
+                AST_TEMPLATE_PARAM,
+                AST_TEMPLATE_ARGUMENT,
+
                 AST_ENUM_ITEM,
                 AST_ENUM_DECLARE,
                 AST_UNION_ITEM,
@@ -75,7 +78,8 @@ namespace wo
                 AST_FUNCTION_PARAMETER_DECLARE,
 
                 AST_VALUE_begin,
-                AST_VALUE_MARK_AS_MUTABLE = AST_VALUE_begin,
+                AST_VALUE_NOTHING = AST_VALUE_begin,
+                AST_VALUE_MARK_AS_MUTABLE,
                 AST_VALUE_MARK_AS_IMMUTABLE,
                 AST_VALUE_LITERAL,
                 AST_VALUE_TYPEID,
@@ -95,7 +99,6 @@ namespace wo
                 AST_VALUE_TUPLE,
                 AST_VALUE_STRUCT,
                 AST_VALUE_ASSIGN,
-                AST_VALUE_INDEX_PACKED_ARGS,
                 AST_VALUE_MAKE_UNION,
                 AST_VALUE_VARIADIC_ARGUMENTS_PACK,
                 AST_VALUE_IR_OPNUM,
@@ -125,6 +128,8 @@ namespace wo
 
                 AST_VALUE_FUNCTION_CALL_FAKE_AST_ARGUMENT_DEDUCTION_CONTEXT_A,
                 AST_VALUE_FUNCTION_CALL_FAKE_AST_ARGUMENT_DEDUCTION_CONTEXT_B,
+
+                AST_TEMPLATE_CONSTANT_TYPE_CHECK_IN_PASS1,
             };
         private:
             inline thread_local static std::forward_list<AstBase*>* list = nullptr;
