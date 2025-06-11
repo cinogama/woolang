@@ -131,6 +131,9 @@
 #define WO_ERR_CANNOT_USE_BUILTIN_TYPENAME_HERE L"内置类型 '%ls' 的名称不能被直接使用"
 #define WO_ERR_BAD_DIV_ZERO L"除数不能为零"
 #define WO_ERR_BAD_DIV_OVERFLOW L"除法溢出"
+#define WO_ERR_VALUE_SHOULD_BE_CONST_FOR_TEMPLATE_ARG L"作为泛型参数的值应当是一个常量"
+#define WO_ERR_THIS_TEMPLATE_ARG_SHOULD_BE_TYPE L"这个泛型参数应该是一个类型"
+#define WO_ERR_THIS_TEMPLATE_ARG_SHOULD_BE_CONST L"这个泛型参数应该是一个常量"
 
 // PASS0_1 TYPE CHECK PARSE(INFO)
 #define WO_INFO_MAYBE_NAMED_DEFINED_HERE L"可能是这里的 '%ls'"

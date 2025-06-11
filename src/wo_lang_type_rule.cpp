@@ -86,15 +86,20 @@ namespace wo
 
                     for (; it_provider != it_end; ++it_provider, ++it_accepter)
                     {
-                        switch (is_type_accepted(lex, node, *it_accepter, *it_provider))
-                        {
-                        case lang_TypeInstance::TypeCheckResult::REJECT:
+                        if (it_accepter->m_constant.has_value() != it_provider->m_constant.has_value())
                             return lang_TypeInstance::TypeCheckResult::REJECT;
-                        case lang_TypeInstance::TypeCheckResult::PENDING:
-                            sub_match_is_pending = true;
-                            break;
-                        default:
-                            break;
+                        else
+                        {
+                            switch (is_type_accepted(lex, node, it_accepter->m_type, it_provider->m_type))
+                            {
+                            case lang_TypeInstance::TypeCheckResult::REJECT:
+                                return lang_TypeInstance::TypeCheckResult::REJECT;
+                            case lang_TypeInstance::TypeCheckResult::PENDING:
+                                sub_match_is_pending = true;
+                                break;
+                            default:
+                                break;
+                            }
                         }
                     }
                 }
@@ -835,7 +840,7 @@ namespace wo
             auto& a_template_arguments = immutable_atype->m_instance_template_arguments.value();
             auto& b_template_arguments = immutable_btype->m_instance_template_arguments.value();
 
-            std::list<lang_TypeInstance*> mixed_template_args;
+            std::list<ast::AstIdentifier::TemplateArgumentInstance> mixed_template_args;
 
             auto it_a = a_template_arguments.begin();
             auto it_b = b_template_arguments.begin();
@@ -843,10 +848,15 @@ namespace wo
 
             for (; it_a != it_end; ++it_a, ++it_b)
             {
-                auto mixed_template_arg = fast_mixture_with_instance(*it_a, *it_b);
-                if (!mixed_template_arg.has_value())
+                if (it_a->m_constant.has_value() != it_b->m_constant.has_value())
                     return TypeMixtureResult{ TypeMixtureResult::REJECT };
-                mixed_template_args.push_back(mixed_template_arg.value());
+                else
+                {
+                    auto mixed_template_arg = fast_mixture_with_instance(it_a->m_type, it_b->m_type);
+                    if (!mixed_template_arg.has_value())
+                        return TypeMixtureResult{ TypeMixtureResult::REJECT };
+                    mixed_template_args.push_back(mixed_template_arg.value());
+                }          
             }
 
             bool need_continue_process = false;
