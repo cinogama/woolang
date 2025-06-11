@@ -626,12 +626,18 @@ wo_lspv2_expr_info* wo_lspv2_expr_get_info(wo_lspv2_expr* expr)
         {
             auto& template_arg = template_args[i++];
 
-            template_arg.m_kind =
-                arg.m_constant.has_value()
-                ? WO_LSPV2_TEMPLATE_PARAM_CONSTANT
-                : WO_LSPV2_TEMPLATE_PARAM_TYPE
-                ;
+            if (arg.m_constant.has_value())
+            {
+                template_arg.m_kind = WO_LSPV2_TEMPLATE_PARAM_CONSTANT;
+                template_arg.m_constant_may_null = reinterpret_cast<wo_value>(&arg.m_constant.value());
+            }
+            else
+            {
+                template_arg.m_kind = WO_LSPV2_TEMPLATE_PARAM_TYPE;
+                template_arg.m_constant_may_null = nullptr;
+            }
 
+            template_arg.m_constant_may_null = reinterpret_cast<wo_value>(&arg.m_constant.value());
             template_arg.m_type =
                 reinterpret_cast<wo_lspv2_type*>(arg.m_type);
         }
@@ -678,12 +684,16 @@ wo_lspv2_type_info* wo_lspv2_type_get_info(
         {
             auto& template_arg = template_args[i++];
 
-            template_arg.m_kind =
-                arg.m_constant.has_value()
-                ? WO_LSPV2_TEMPLATE_PARAM_CONSTANT
-                : WO_LSPV2_TEMPLATE_PARAM_TYPE
-                ;
-
+            if (arg.m_constant.has_value())
+            {
+                template_arg.m_kind = WO_LSPV2_TEMPLATE_PARAM_CONSTANT;
+                template_arg.m_constant_may_null = reinterpret_cast<wo_value>(&arg.m_constant.value());
+            }
+            else
+            {
+                template_arg.m_kind = WO_LSPV2_TEMPLATE_PARAM_TYPE;
+                template_arg.m_constant_may_null = nullptr;
+            }
             template_arg.m_type =
                 reinterpret_cast<wo_lspv2_type*>(arg.m_type);
         }
