@@ -834,6 +834,8 @@ typedef struct _wo_lspv2_macro_info
     wo_lspv2_location m_location;
 } wo_lspv2_macro_info;
 
+WO_API wo_size_t wo_lspv2_sub_version(void);
+
 WO_API wo_lspv2_source_meta *wo_lspv2_compile_to_meta(
     wo_string_t virtual_src_path,
     wo_string_t src);

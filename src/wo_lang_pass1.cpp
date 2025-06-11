@@ -619,7 +619,7 @@ namespace wo
                                 {
                                     if (template_argument->is_type())
                                         template_args.emplace_back(
-                                                template_argument->get_type()->m_LANG_determined_type.value());
+                                            template_argument->get_type()->m_LANG_determined_type.value());
                                     else
                                         template_args.emplace_back(
                                             template_argument->get_constant());
@@ -1381,8 +1381,8 @@ namespace wo
         {
             for (auto& pair : node->m_LANG_constant_check_pairs)
                 WO_CONTINUE_PROCESS(pair.m_cloned_param_type);
-            
-            node->m_LANG_hold_state = 
+
+            node->m_LANG_hold_state =
                 AstTemplateConstantTypeCheckInPass1::HOLD_FOR_TYPE_UPDATE;
 
             return HOLD;
@@ -1418,7 +1418,7 @@ namespace wo
 
                 return HOLD;
             }
-            case AstTemplateConstantTypeCheckInPass1::HOLD_FOR_MAKING_TEMPALTE_INSTANCE:    
+            case AstTemplateConstantTypeCheckInPass1::HOLD_FOR_MAKING_TEMPALTE_INSTANCE:
                 break;
             default:
                 wo_error("unknown hold state");
@@ -1431,22 +1431,22 @@ namespace wo
     {
         auto judge_function_return_type =
             [&](lang_TypeInstance* ret_type)
+        {
+            std::list<lang_TypeInstance*> parameters;
+            for (auto& param : node->m_parameters)
+                parameters.push_back(param->m_type.value()->m_LANG_determined_type.value());
+
+            node->m_LANG_determined_type = m_origin_types.create_function_type(
+                node->m_is_variadic, parameters, ret_type);
+
+            wo_assert(node->m_LANG_determined_type.has_value());
+
+            if (node->m_LANG_value_instance_to_update)
             {
-                std::list<lang_TypeInstance*> parameters;
-                for (auto& param : node->m_parameters)
-                    parameters.push_back(param->m_type.value()->m_LANG_determined_type.value());
-
-                node->m_LANG_determined_type = m_origin_types.create_function_type(
-                    node->m_is_variadic, parameters, ret_type);
-
-                wo_assert(node->m_LANG_determined_type.has_value());
-
-                if (node->m_LANG_value_instance_to_update)
-                {
-                    node->m_LANG_value_instance_to_update.value()->m_determined_type =
-                        node->m_LANG_determined_type;
-                }
-            };
+                node->m_LANG_value_instance_to_update.value()->m_determined_type =
+                    node->m_LANG_determined_type;
+            }
+        };
 
         // Huston, we have a problem.
         if (state == UNPROCESSED)
@@ -1776,7 +1776,7 @@ namespace wo
     {
         wo_assert(state == UNPROCESSED);
 
-        node->m_LANG_determined_type = 
+        node->m_LANG_determined_type =
             m_origin_types.m_nothing.m_type_instance;
 
         node->decide_final_constant_value(wo::value{});
@@ -2388,9 +2388,12 @@ namespace wo
 
             for (auto& [param_name, arg_type_inst] : node->m_deduction_results)
             {
-                fast_create_one_template_type_alias_and_constant_in_current_scope(
-                    param_name,
-                    arg_type_inst);
+                bool success_defined =
+                    fast_create_one_template_type_alias_and_constant_in_current_scope(
+                        param_name, arg_type_inst);
+
+                (void)success_defined;
+                wo_assert(success_defined);
 
                 auto fnd = std::find_if(
                     node->m_undetermined_template_params.begin(),
@@ -5727,7 +5730,10 @@ namespace wo
         auto* function_instance = get_current_function().value();
 
         wo_native_func_t extern_function;
-        if (node->m_extern_from_library.has_value())
+
+        if (config::DISABLE_LOAD_EXTERN_FUNCTION)
+            extern_function = rslib_std_bad_function;
+        else if (node->m_extern_from_library.has_value())
         {
             extern_function =
                 rslib_extern_symbols::get_lib_symbol(
@@ -5747,17 +5753,12 @@ namespace wo
             node->m_IR_externed_function = extern_function;
         else
         {
-            if (config::ENABLE_IGNORE_NOT_FOUND_EXTERN_SYMBOL)
-                node->m_IR_externed_function = rslib_std_bad_function;
-            else
-            {
-                lex.record_lang_error(lexer::msglevel_t::error, node,
-                    WO_ERR_UNABLE_TO_FIND_EXTERN_FUNCTION,
-                    node->m_extern_from_library.value_or(WO_PSTR(woolang))->c_str(),
-                    node->m_extern_symbol->c_str());
+            lex.record_lang_error(lexer::msglevel_t::error, node,
+                WO_ERR_UNABLE_TO_FIND_EXTERN_FUNCTION,
+                node->m_extern_from_library.value_or(WO_PSTR(woolang))->c_str(),
+                node->m_extern_symbol->c_str());
 
-                return FAILED;
-            }
+            return FAILED;
         }
         function_instance->m_IR_extern_information = node;
 

@@ -2074,7 +2074,7 @@ namespace wo
         return origin_type;
     }
 
-    void LangContext::fast_create_one_template_type_alias_and_constant_in_current_scope(
+    bool LangContext::fast_create_one_template_type_alias_and_constant_in_current_scope(
         wo_pstring_t template_param,
         const ast::AstIdentifier::TemplateArgumentInstance& template_arg)
     {
@@ -2092,9 +2092,8 @@ namespace wo
                 lang_Symbol::kind::VARIABLE,
                 false);
 
-            wo_assert(symbol_defined);
-            (void)symbol_defined;
-            (void)symbol;
+            if (!symbol_defined)
+                return false;
 
             symbol->m_value_instance->set_const_value(
                 template_arg.m_constant.value());
@@ -2112,12 +2111,12 @@ namespace wo
                 lang_Symbol::kind::ALIAS,
                 false);
 
-            wo_assert(symbol_defined);
-            (void)symbol_defined;
-            (void)symbol;
+            if (!symbol_defined)
+                return false;
 
             symbol->m_alias_instance->m_determined_type = template_arg.m_type;
         }
+        return true;
     }
     bool LangContext::fast_check_and_create_template_type_alias_and_constant_in_current_scope(
         lexer& lex,
@@ -2174,9 +2173,16 @@ namespace wo
                     ;
             }
 
-            fast_create_one_template_type_alias_and_constant_in_current_scope(
+            if (!fast_create_one_template_type_alias_and_constant_in_current_scope(
                 param->m_param_name,
-                *args_iter);
+                *args_iter))
+            {
+                lex.record_lang_error(lexer::msglevel_t::error, param,
+                    WO_ERR_REDEFINED,
+                    param->m_param_name->c_str());
+
+                return false;
+            }
         }
 
         return true;

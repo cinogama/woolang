@@ -8,6 +8,13 @@
 
 #ifndef WO_DISABLE_COMPILER
 
+constexpr wo_size_t WO_LSPV2_SUB_VERSION = 1;
+
+wo_size_t wo_lspv2_sub_version(void)
+{
+    return WO_LSPV2_SUB_VERSION;
+}
+
 wo::compile_result _wo_compile_impl(
     wo_string_t virtual_src_path,
     const void* src,

@@ -1073,7 +1073,7 @@ namespace wo
         lang_TypeInstance* mutable_type(lang_TypeInstance* origin_type);
         lang_TypeInstance* immutable_type(lang_TypeInstance* origin_type);
 
-        void fast_create_one_template_type_alias_and_constant_in_current_scope(
+        bool fast_create_one_template_type_alias_and_constant_in_current_scope(
             wo_pstring_t template_param,
             const ast::AstIdentifier::TemplateArgumentInstance& template_arg);
         bool fast_check_and_create_template_type_alias_and_constant_in_current_scope(

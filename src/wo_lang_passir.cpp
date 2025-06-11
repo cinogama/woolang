@@ -793,7 +793,7 @@ namespace wo
                     if (template_instance->m_state == lang_TemplateAstEvalStateValue::state::FAILED)
                         continue; // Skip failed template instance.
 
-                    wo_assert(template_instance->m_state == lang_TemplateAstEvalStateValue::EVALUATED);
+                    wo_assert(template_instance->m_state == lang_TemplateAstEvalStateValue::state::EVALUATED);
 
                     lang_ValueInstance* template_value_instance = template_instance->m_value_instance.get();
                     if (!template_value_instance->IR_need_storage())
