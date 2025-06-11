@@ -89,9 +89,12 @@ namespace wo
 
                 TemplateArgumentInstance(lang_TypeInstance* type);
                 TemplateArgumentInstance(AstValueBase* value);
+                TemplateArgumentInstance(lang_TypeInstance* type, const value& constant);
 
                 TemplateArgumentInstance(const TemplateArgumentInstance&) = default;
                 TemplateArgumentInstance(TemplateArgumentInstance&&) = default;
+                TemplateArgumentInstance& operator = (const TemplateArgumentInstance&) = default;
+                TemplateArgumentInstance& operator = (TemplateArgumentInstance&&) = default;
 
                 bool operator < (const TemplateArgumentInstance& a) const;
             };
@@ -343,7 +346,7 @@ namespace wo
             std::list<ArgumentMatch>::iterator m_current_argument;
 
             std::unordered_map<wo_pstring_t, AstIdentifier::TemplateArgumentInstance> m_deduction_results;
-            std::list<wo_pstring_t> m_undetermined_template_params;
+            std::list<AstTemplateParam*> m_undetermined_template_params;
 
             AstValueFunctionCall_FakeAstArgumentDeductionContextA(lang_Scope* before, lang_Scope* scope);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;

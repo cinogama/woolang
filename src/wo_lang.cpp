@@ -3,6 +3,8 @@
 #include <unordered_set>
 #include <algorithm>
 
+std::string _rslib_std_string_enstring_impl(wo_string_t str, size_t len);
+
 namespace wo
 {
 #ifndef WO_DISABLE_COMPILER
@@ -428,10 +430,7 @@ namespace wo
         wo_assert(!m_mutable);
         if (init_val->m_evaled_const_value.has_value())
         {
-            wo::value new_constant;
-            new_constant.set_val_compile_time(&init_val->m_evaled_const_value.value());
-
-            m_determined_constant_or_function = new_constant;
+            set_const_value(init_val->m_evaled_const_value.value());
         }
         else if (init_val->node_type == ast::AstBase::AST_VALUE_VARIABLE)
         {
@@ -451,6 +450,13 @@ namespace wo
                 }
             }
         }
+    }
+    void lang_ValueInstance::set_const_value(const value& init_val)
+    {
+        wo::value new_constant;
+        new_constant.set_val_compile_time(&init_val);
+
+        m_determined_constant_or_function = new_constant;
     }
 
     bool lang_ValueInstance::IR_need_storage() const
@@ -1089,7 +1095,7 @@ namespace wo
                         break;
                     }
                 }
-}
+            }
 #endif
 
             if (top_state.m_state == HOLD || top_state.m_state == HOLD_BUT_CHILD_FAILED)
@@ -2076,7 +2082,23 @@ namespace wo
 
         if (template_arg.m_constant.has_value())
         {
-            wo_error("Not impl yet.");
+            bool symbol_defined = define_symbol_in_current_scope(
+                &symbol,
+                template_param,
+                std::nullopt,
+                std::nullopt,
+                std::nullopt,
+                get_current_scope(),
+                lang_Symbol::kind::VARIABLE,
+                false);
+
+            wo_assert(symbol_defined);
+            (void)symbol_defined;
+            (void)symbol;
+
+            symbol->m_value_instance->set_const_value(
+                template_arg.m_constant.value());
+            symbol->m_value_instance->m_determined_type = template_arg.m_type;
         }
         else
         {
@@ -2097,8 +2119,9 @@ namespace wo
             symbol->m_alias_instance->m_determined_type = template_arg.m_type;
         }
     }
-    void LangContext::fast_create_template_type_alias_and_constant_in_current_scope(
-        const std::list<wo_pstring_t>& template_params,
+    bool LangContext::fast_check_and_create_template_type_alias_and_constant_in_current_scope(
+        lexer& lex,
+        const std::list<ast::AstTemplateParam*>& template_params,
         const std::list<ast::AstIdentifier::TemplateArgumentInstance>& template_args)
     {
         wo_assert(template_params.size() == template_args.size());
@@ -2109,10 +2132,62 @@ namespace wo
 
         for (; params_iter != params_end; ++params_iter, ++args_iter)
         {
+            auto* param = *params_iter;
+            auto& argument = *args_iter;
+
+            if (param->m_marked_type.has_value())
+            {
+                if (argument.m_constant.has_value())
+                    // Delay the constant type check, param->m_marked_type not determined now.
+                    ;
+                //{
+                //    // Check type;
+                //    if (!is_type_accepted(
+                //        lex,
+                //        param,
+                //        param->m_marked_type.value()->m_LANG_determined_type.value(),
+                //        argument.m_type))
+                //    {
+                //        lex.record_lang_error(
+                //            lexer::msglevel_t::error,
+                //            param,
+                //            WO_ERR_CANNOT_ACCEPTABLE_TYPE_NAMED,
+                //            get_type_name_w(argument.m_type),
+                //            get_type_name_w(param->m_marked_type.value()->m_LANG_determined_type.value()));
+
+                //        return false;
+                //    }
+                //}
+                else
+                {
+                    lex.record_lang_error(
+                        lexer::msglevel_t::error,
+                        param,
+                        WO_ERR_THIS_TEMPLATE_ARG_SHOULD_BE_CONST);
+
+                    return false;
+                }
+            }
+            else
+            {
+                if (argument.m_constant.has_value())
+                {
+                    lex.record_lang_error(
+                        lexer::msglevel_t::error,
+                        param,
+                        WO_ERR_THIS_TEMPLATE_ARG_SHOULD_BE_TYPE);
+                }
+                else
+                    // No need to check.
+                    ;
+            }
+
             fast_create_one_template_type_alias_and_constant_in_current_scope(
-                *params_iter,
+                param->m_param_name,
                 *args_iter);
         }
+
+        return true;
     }
     std::wstring LangContext::_get_scope_name(lang_Scope* scope)
     {
@@ -2266,9 +2341,9 @@ namespace wo
                     result_type_name += L", ";
 
                 if (template_arg.m_constant.has_value())
-                    wo_error("Not impl yet");
-                else
-                    result_type_name += get_type_name_w(template_arg.m_type);
+                    result_type_name += get_constant_str_w(template_arg.m_constant.value()) + L": ";
+
+                result_type_name += get_type_name_w(template_arg.m_type);
 
                 first = false;
             }
@@ -2290,11 +2365,11 @@ namespace wo
             {
                 if (!first)
                     result_value_name += L", ";
-               
+
                 if (template_arg.m_constant.has_value())
-                    wo_error("Not impl yet");
-                else
-                    result_value_name += get_type_name_w(template_arg.m_type);
+                    result_value_name += get_constant_str_w(template_arg.m_constant.value()) + L": ";
+
+                result_value_name += get_type_name_w(template_arg.m_type);
 
                 first = false;
             }
@@ -2385,6 +2460,16 @@ namespace wo
             std::make_pair(val, std::make_pair(result, wstrn_to_str(result))))
             .first
             ->second.second.c_str();
+    }
+    std::string LangContext::get_constant_str(const value& val)
+    {
+        if (val.type == value::valuetype::string_type)
+            return _rslib_std_string_enstring_impl(val.string->data(), val.string->length());
+        return wo_cast_string(std::launder((wo_value)(&val)));
+    }
+    std::wstring LangContext::get_constant_str_w(const value& val)
+    {
+        return str_to_wstr(get_constant_str(val));
     }
     void LangContext::append_using_namespace_for_current_scope(
         const std::unordered_set<lang_Namespace*>& using_namespaces, wo_pstring_t source)
@@ -2833,7 +2918,7 @@ namespace wo
                 m_inused_temporary_registers.insert(std::make_pair(i, DebugBorrowRecord{ borrow_from , lineno }));
 #endif
                 return opnum_temporary(i);
-        }
+            }
         }
         wo_error("Temporary register exhausted.");
     }
@@ -2934,4 +3019,4 @@ namespace wo
         m_result = result;
     }
 #endif
-    }
+}

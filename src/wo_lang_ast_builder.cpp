@@ -1624,14 +1624,13 @@ namespace wo
             else
             {
                 wo_assert(input.size() == 3);
-                wo_error("Not impl yet");
+                return new AstTemplateArgument(WO_NEED_AST_VALUE(1));
             }
         }
         auto pass_create_template_param::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             if (input.size() == 1)
             {
-                
                 return new AstTemplateParam(
                     wstring_pool::get_pstr(WO_NEED_TOKEN(0).identifier),
                     std::nullopt);
@@ -1639,7 +1638,9 @@ namespace wo
             else
             {
                 wo_assert(input.size() == 3);
-                wo_error("Not impl yet");
+                return new AstTemplateParam(
+                    wstring_pool::get_pstr(WO_NEED_TOKEN(0).identifier),
+                    static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(2, AstBase::AST_TYPE_HOLDER)));
             }
         }
         auto pass_extern::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce

@@ -186,6 +186,12 @@ namespace wo
             , m_constant(value->m_evaled_const_value.value())
         {
         }
+        AstIdentifier::TemplateArgumentInstance::TemplateArgumentInstance(
+            lang_TypeInstance* type, const value& constant)
+            : m_type(type)
+            , m_constant(constant)
+        {
+        }
         bool AstIdentifier::TemplateArgumentInstance::operator < (const TemplateArgumentInstance& a) const
         {
             if (m_type != a.m_type)
@@ -2305,7 +2311,10 @@ namespace wo
                         auto* template_parameter = *template_parameter_iter;
 
                         if (template_parameter->m_marked_type.has_value())
-                            wo_error("Not impl yet");
+                        {
+                            auto* template_argumnet_nothing = new AstValueNothing();
+                            TODO;
+                        }
                         else
                         {
                             auto* template_argument_identifier = new AstIdentifier(WO_PSTR(nothing), std::nullopt, {}, true);

@@ -197,6 +197,7 @@ namespace wo
 
         void try_determine_function(ast::AstValueFunction* func);
         void try_determine_const_value(ast::AstValueBase* init_val);
+        void set_const_value(const value& init_val);
 
         bool IR_need_storage() const;
 
@@ -1074,8 +1075,9 @@ namespace wo
         void fast_create_one_template_type_alias_and_constant_in_current_scope(
             wo_pstring_t template_param,
             const ast::AstIdentifier::TemplateArgumentInstance& template_arg);
-        void fast_create_template_type_alias_and_constant_in_current_scope(
-            const std::list<wo_pstring_t>& template_params,
+        bool fast_check_and_create_template_type_alias_and_constant_in_current_scope(
+            lexer& lex,
+            const std::list<ast::AstTemplateParam*>& template_params,
             const std::list<ast::AstIdentifier::TemplateArgumentInstance>& template_args);
 
         std::optional<lang_TemplateAstEvalStateBase*> begin_eval_template_ast(
@@ -1137,11 +1139,21 @@ namespace wo
         const char* get_type_name(lang_TypeInstance* type);
         const wchar_t* get_value_name_w(lang_ValueInstance* val);
         const char* get_value_name(lang_ValueInstance* val);
+        
+        std::string get_constant_str(const value& val);
+        std::wstring get_constant_str_w(const value& val);
 
         bool template_arguments_deduction_extraction_with_type(
             lexer& lex,
             const ast::AstTypeHolder* accept_type_formal,
             lang_TypeInstance* applying_type_instance,
+            const std::list<ast::AstTemplateParam*>& pending_template_params,
+            std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance>* out_determined_template_arg_pair);
+        bool template_arguments_deduction_extraction_with_constant(
+            lexer& lex,
+            ast::AstValueBase* accept_constant_formal,
+            lang_TypeInstance* applying_type_instance,
+            const value& constant_instance,
             const std::list<ast::AstTemplateParam*>& pending_template_params,
             std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance>* out_determined_template_arg_pair);
 

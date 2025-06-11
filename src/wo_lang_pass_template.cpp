@@ -42,9 +42,9 @@ namespace wo
             failed_template_arg_list += L" = ";
 
             if (it_template_arg->m_constant.has_value())
-                wo_error("Not impl yet.");
-            else
-                failed_template_arg_list += get_type_name_w(it_template_arg->m_type);
+                failed_template_arg_list += get_constant_str_w(it_template_arg->m_constant.value()) + L": ";
+
+            failed_template_arg_list += get_type_name_w(it_template_arg->m_type);
         }
 
         lex.record_lang_error(lexer::msglevel_t::error, node,
@@ -209,8 +209,14 @@ namespace wo
 
             auto* current_scope = get_current_scope();
 
-            fast_create_template_type_alias_and_constant_in_current_scope(
-                *template_params, template_arguments);
+            if (!fast_check_and_create_template_type_alias_and_constant_in_current_scope(
+                lex, *template_params, template_arguments))
+            {
+                end_last_scope();
+                end_last_scope();
+
+                return std::nullopt;
+            }
 
             // ATTENTION: LIMIT TEMPLATE INSTANCE SYMBOL VISIBILITY!
             current_scope->m_visibility_from_edge_for_template_check =
@@ -326,7 +332,52 @@ namespace wo
 
         _collect_failed_template_instance(lex, node, template_eval_instance);
     }
+    bool LangContext::template_arguments_deduction_extraction_with_constant(
+        lexer& lex,
+        ast::AstValueBase* accept_constant_formal,
+        lang_TypeInstance* applying_type_instance,
+        const value& constant_instance,
+        const std::list<ast::AstTemplateParam*>& pending_template_params,
+        std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance>* out_determined_template_arg_pair)
+    {
+        switch (accept_constant_formal->node_type)
+        {
+        case ast::AstBase::AST_VALUE_VARIABLE:
+        {
+            ast::AstValueVariable* variable = static_cast<ast::AstValueVariable*>(accept_constant_formal);
+            if (variable->m_identifier->m_formal == ast::AstIdentifier::identifier_formal::FROM_CURRENT
+                && variable->m_identifier->m_scope.empty())
+            {
+                auto fnd = std::find_if(
+                    pending_template_params.begin(),
+                    pending_template_params.end(),
+                    [variable](ast::AstTemplateParam* p)
+                    {
+                        return p->m_param_name == variable->m_identifier->m_name
+                            && p->m_marked_type.has_value() /* Is not constant */;
+                    });
 
+                if (fnd != pending_template_params.end())
+                {
+                    // Got it!
+                    ast::AstTemplateParam* template_param = *fnd;
+
+                    out_determined_template_arg_pair->insert(
+                        std::make_pair(
+                            template_param->m_param_name, 
+                            ast::AstIdentifier::TemplateArgumentInstance::TemplateArgumentInstance(
+                                applying_type_instance,
+                                constant_instance)));
+                }
+            }
+            break;
+        }
+        default:
+            // Not support other formal now.
+            break;
+        }
+        return true;
+    }
     bool LangContext::template_arguments_deduction_extraction_with_type(
         lexer& lex,
         const ast::AstTypeHolder* accept_type_formal,
@@ -358,7 +409,7 @@ namespace wo
                         pending_template_params.end(),
                         [identifier](ast::AstTemplateParam* p)
                         {
-                            return p->m_param_name == identifier->m_name 
+                            return p->m_param_name == identifier->m_name
                                 && !p->m_marked_type.has_value() /* Is not constant */;
                         });
 
@@ -658,33 +709,31 @@ namespace wo
         if (accept_template_param_formal->is_type()
             != !applying_template_argument_instance.m_constant.has_value())
         {
-            if (accept_template_param_formal->is_type())
-                lex.record_lang_error(lexer::msglevel_t::error, 
-                    accept_template_param_formal,
-                    WO_ERR_THIS_TEMPLATE_ARG_SHOULD_BE_TYPE);
-            else
-                lex.record_lang_error(lexer::msglevel_t::error, 
-                    accept_template_param_formal,
-                    WO_ERR_THIS_TEMPLATE_ARG_SHOULD_BE_CONST);
-
-            return false;
-        }
-
-        if (accept_template_param_formal->is_type())
-        {
-            return template_arguments_deduction_extraction_with_type(
-                lex, 
-                accept_template_param_formal->get_type(),
-                applying_template_argument_instance.m_type,
-                pending_template_params,
-                out_determined_template_arg_pair);
+            // No need to report error.
+            return true;
         }
         else
         {
-            wo_error("Not impl yet");
+            if (accept_template_param_formal->is_type())
+            {
+                return template_arguments_deduction_extraction_with_type(
+                    lex,
+                    accept_template_param_formal->get_type(),
+                    applying_template_argument_instance.m_type,
+                    pending_template_params,
+                    out_determined_template_arg_pair);
+            }
+            else
+            {
+                return template_arguments_deduction_extraction_with_constant(
+                    lex,
+                    accept_template_param_formal->get_constant(),
+                    applying_template_argument_instance.m_type,
+                    applying_template_argument_instance.m_constant.value(),
+                    pending_template_params,
+                    out_determined_template_arg_pair);
+            }
         }
-
-        return true;
     }
 
     bool LangContext::check_type_may_dependence_template_parameters(
@@ -724,7 +773,7 @@ namespace wo
         const ast::AstTemplateArgument* accept_template_argument_formal,
         const std::list<ast::AstTemplateParam*>& pending_template_params)
     {
-        
+
         if (accept_template_argument_formal->is_type())
             return check_type_may_dependence_template_parameters(
                 accept_template_argument_formal->get_type(), pending_template_params);
