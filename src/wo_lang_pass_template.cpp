@@ -150,7 +150,12 @@ namespace wo
                 if (ctx->template_argument_deduction_from_constant(
                     lex, inout_template_arguments, template_params, pending_template_params, &deduce_result))
                 {
-                    // TODO;
+                    for (auto* pending_template_param : pending_template_params)
+                    {
+                        auto fnd = deduce_result.find(pending_template_param->m_param_name);
+                        if (fnd != deduce_result.end())
+                            inout_template_arguments.emplace_back(fnd->second);
+                    }
                 }
             }
 
@@ -177,6 +182,12 @@ namespace wo
         case lang_Symbol::kind::VARIABLE:
         {
             auto& template_variable_prefab = templating_symbol->m_template_value_instances;
+            check_and_do_final_deduce_for_constant_template_argument(
+                this, 
+                lex, 
+                templating_symbol, 
+                template_arguments, 
+                template_variable_prefab->m_template_params);
 
             auto* template_eval_state_instance =
                 template_variable_prefab->find_or_create_template_instance(
@@ -199,6 +210,12 @@ namespace wo
         case lang_Symbol::kind::ALIAS:
         {
             auto& template_alias_prefab = templating_symbol->m_template_alias_instances;
+            check_and_do_final_deduce_for_constant_template_argument(
+                this,
+                lex,
+                templating_symbol,
+                template_arguments,
+                template_alias_prefab->m_template_params);
 
             auto* template_eval_state_instance =
                 template_alias_prefab->find_or_create_template_instance(
@@ -211,6 +228,12 @@ namespace wo
         case lang_Symbol::kind::TYPE:
         {
             auto& template_type_prefab = templating_symbol->m_template_type_instances;
+            check_and_do_final_deduce_for_constant_template_argument(
+                this,
+                lex,
+                templating_symbol,
+                template_arguments,
+                template_type_prefab->m_template_params);
 
             auto* template_eval_state_instance =
                 template_type_prefab->find_or_create_template_instance(
