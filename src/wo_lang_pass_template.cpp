@@ -32,7 +32,7 @@ namespace wo
         auto it_template_param = template_params->begin();
         const auto it_template_param_end = template_params->end();
 
-        for (; it_template_arg != it_template_arg_end 
+        for (; it_template_arg != it_template_arg_end
             && it_template_param != it_template_param_end;
             ++it_template_param, ++it_template_arg)
         {
@@ -68,15 +68,40 @@ namespace wo
         lang_Symbol::TemplateArgumentListT& template_arguments,
         const std::list<ast::AstTemplateParam*>& template_params)
     {
-        if (template_arguments.size() != template_params.size())
+        if (template_arguments.size() == template_params.size())
+            return true;
+        
+        if (template_arguments.size() < template_params.size())
+        {
+            std::wstring pending_type_list;
+            bool first_param = true;
+
+            auto iter = template_params.begin();
+            const auto iter_end = template_params.end();
+
+            std::advance(iter, template_arguments.size());
+
+            for (; iter != iter_end; ++iter)
+            {
+                if (!first_param)
+                    pending_type_list += L", ";
+                else
+                    first_param = false;
+
+                pending_type_list += *(*iter)->m_param_name;
+            }
+
+            lex.record_lang_error(lexer::msglevel_t::error, node,
+                WO_ERR_NOT_ALL_TEMPLATE_ARGUMENT_DETERMINED,
+                pending_type_list.c_str());
+        }
+        else
         {
             lex.record_lang_error(lexer::msglevel_t::error, node,
                 WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
                 template_params.size());
-
-            return false;
         }
-        return true;
+        return false;
     }
 
     void entry_symbol_scope(LangContext* ctx, lang_Symbol* symbol)
@@ -102,7 +127,7 @@ namespace wo
 
     void check_and_do_final_deduce_for_constant_template_argument(
         LangContext* ctx,
-        lexer& lex, 
+        lexer& lex,
         lang_Symbol* symbol,
         lang_Symbol::TemplateArgumentListT& inout_template_arguments,
         const std::list<ast::AstTemplateParam*>& template_params)
@@ -113,6 +138,7 @@ namespace wo
             ctx->begin_new_scope(std::nullopt);
 
             bool success = true;
+            std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance> deduce_result;
 
             // Define filled template arguments.
             auto inout_template_arguments_iter = inout_template_arguments.begin();
@@ -125,19 +151,16 @@ namespace wo
                 auto& argument = *inout_template_arguments_iter;
                 auto* params = *template_params_iter;
 
-                if (argument.m_constant.has_value() != params->m_marked_type.has_value())
+                if (argument.m_constant.has_value() != params->m_marked_type.has_value()
+                    || !ctx->fast_create_one_template_type_alias_and_constant_in_current_scope(
+                        params->m_param_name, argument))
                 {
+                    // Mismatch or Duplicated template argument defined, stop.
                     success = false;
                     break;
                 }
 
-                if (!ctx->fast_create_one_template_type_alias_and_constant_in_current_scope(
-                    params->m_param_name, argument))
-                {
-                    // Duplicated template argument defined, stop.
-                    success = false;
-                    break;
-                }
+                deduce_result.insert(std::make_pair(params->m_param_name, argument));
             }
 
             if (success)
@@ -145,17 +168,18 @@ namespace wo
                 auto template_params_iter_end = template_params.end();
 
                 std::list<ast::AstTemplateParam*> pending_template_params;
-                std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance> deduce_result;
 
                 for (; template_params_iter != template_params_iter_end; ++template_params_iter)
                     pending_template_params.push_back(*template_params_iter);
 
                 if (ctx->template_argument_deduction_from_constant(
-                    lex, inout_template_arguments, template_params, pending_template_params, &deduce_result))
+                    lex, template_params, pending_template_params, &deduce_result))
                 {
-                    for (auto* pending_template_param : pending_template_params)
+                    inout_template_arguments.clear();
+
+                    for (auto* param : template_params)
                     {
-                        auto fnd = deduce_result.find(pending_template_param->m_param_name);
+                        auto fnd = deduce_result.find(param->m_param_name);
                         if (fnd != deduce_result.end())
                             inout_template_arguments.emplace_back(fnd->second);
                     }
@@ -188,10 +212,10 @@ namespace wo
         {
             auto& template_variable_prefab = templating_symbol->m_template_value_instances;
             check_and_do_final_deduce_for_constant_template_argument(
-                this, 
-                lex, 
-                templating_symbol, 
-                template_arguments, 
+                this,
+                lex,
+                templating_symbol,
+                template_arguments,
                 template_variable_prefab->m_template_params);
 
             auto* template_eval_state_instance =
@@ -474,34 +498,30 @@ namespace wo
         }
         return true;
     }
+
     bool LangContext::template_argument_deduction_from_constant(
         lexer& lex,
-        const std::list<ast::AstIdentifier::TemplateArgumentInstance>& filled_template_arguments,
         const std::list<ast::AstTemplateParam*>& template_params,
         const std::list<ast::AstTemplateParam*>& pending_template_params,
-        std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance>* out_determined_template_arg_pair)
+        std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance>* inout_determined_template_arg_pair)
     {
-        auto filled_template_iter = filled_template_arguments.begin();
-        const auto filled_template_iter_end = filled_template_arguments.end();
-        auto template_param_iter = template_params.begin();
-        const auto template_param_iter_end = template_params.end();
-
-        for (; filled_template_iter != filled_template_iter_end
-            && template_param_iter != template_param_iter_end
-            ; ++filled_template_iter, ++template_param_iter)
+        for (auto* param : template_params)
         {
-            auto& argument = *filled_template_iter;
-            auto* param = *template_param_iter;
-
-            if (argument.m_constant.has_value() && param->m_marked_type.has_value())
+            auto fnd = inout_determined_template_arg_pair->find(param->m_param_name);
+            if (fnd != inout_determined_template_arg_pair->end())
             {
-                if (!template_arguments_deduction_extraction_with_type(
-                    lex,
-                    param->m_marked_type.value(),
-                    argument.m_type,
-                    pending_template_params,
-                    out_determined_template_arg_pair))
-                    return false;
+                auto& argument = fnd->second;
+
+                if (argument.m_constant.has_value() && param->m_marked_type.has_value())
+                {
+                    if (!template_arguments_deduction_extraction_with_type(
+                        lex,
+                        param->m_marked_type.value(),
+                        argument.m_type,
+                        pending_template_params,
+                        inout_determined_template_arg_pair))
+                        return false;
+                }
             }
         }
         return true;

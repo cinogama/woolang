@@ -2406,6 +2406,12 @@ namespace wo
                     node->m_undetermined_template_params.erase(fnd);
             }
 
+            template_argument_deduction_from_constant(
+                lex, 
+                *node->m_template_params, 
+                node->m_undetermined_template_params,
+                &node->m_deduction_results);
+
             node->m_LANG_hold_state =
                 AstValueFunctionCall_FakeAstArgumentDeductionContextA::HOLD_FOR_PREPARE;
 
@@ -2978,6 +2984,7 @@ namespace wo
                     std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance> deduction_results;
 
                     std::list<ast::AstTemplateParam*> pending_template_params;
+                    std::list<ast::AstTemplateParam*>* template_params;
                     std::list<AstTypeHolder*> target_param_holders;
 
                     bool entry_function_located_scope = false;
@@ -2996,6 +3003,8 @@ namespace wo
 
                         wo_assert(function_symbol->m_is_template
                             && function_symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE);
+
+                        template_params = &function_symbol->m_template_value_instances->m_template_params;
 
                         auto it_template_param = function_symbol->m_template_value_instances->m_template_params.begin();
                         auto it_template_param_end = function_symbol->m_template_value_instances->m_template_params.end();
@@ -3042,7 +3051,8 @@ namespace wo
                         AstValueFunction* function = static_cast<AstValueFunction*>(node->m_function);
 
                         target_function_scope = current_scope;
-                        pending_template_params = function->m_pending_param_type_mark_template.value();
+                        template_params = &function->m_pending_param_type_mark_template.value();
+                        pending_template_params = *template_params;
 
                         for (auto* template_param_declare : function->m_parameters)
                             target_param_holders.push_back(template_param_declare->m_type.value());
@@ -3165,6 +3175,7 @@ namespace wo
 
                     // Prepare for template constant deduction.
                     branch_a_context->m_deduction_results = std::move(deduction_results);
+                    branch_a_context->m_template_params = template_params;
                     branch_a_context->m_undetermined_template_params = std::move(pending_template_params);
                     if (entry_function_located_scope)
                         end_last_scope();
@@ -3837,6 +3848,7 @@ namespace wo
                 std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance> deduction_results;
 
                 std::list<ast::AstTemplateParam*> pending_template_params;
+                std::list<ast::AstTemplateParam*>* template_params;
                 std::list<AstTypeHolder*> target_param_holders;
 
                 wo_assert(node->m_marked_struct_type.value()->m_formal == AstTypeHolder::IDENTIFIER);
@@ -3846,6 +3858,7 @@ namespace wo
                 lang_Symbol* symbol = struct_type_identifier->m_LANG_determined_symbol.value();
                 auto& struct_type_def_prefab = symbol->m_template_type_instances;
 
+                template_params = &symbol->m_template_type_instances->m_template_params;
                 auto it_template_param = symbol->m_template_type_instances->m_template_params.begin();
                 auto it_template_param_end = symbol->m_template_type_instances->m_template_params.end();
                 if (struct_type_identifier->m_template_arguments.has_value())
@@ -3933,6 +3946,7 @@ namespace wo
                 }
 
                 branch_a_context->m_deduction_results = std::move(deduction_results);
+                branch_a_context->m_template_params = template_params;
                 branch_a_context->m_undetermined_template_params = std::move(pending_template_params);
                 end_last_scope();
 
