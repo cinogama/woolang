@@ -32,7 +32,7 @@ namespace wo
         auto it_template_param = template_params->begin();
         const auto it_template_param_end = template_params->end();
 
-        for (; it_template_arg != it_template_arg_end 
+        for (; it_template_arg != it_template_arg_end
             && it_template_param != it_template_param_end;
             ++it_template_param, ++it_template_arg)
         {
@@ -65,25 +65,144 @@ namespace wo
     bool check_template_argument_count_and_type(
         lexer& lex,
         ast::AstBase* node,
-        const lang_Symbol::TemplateArgumentListT& template_arguments,
+        lang_Symbol::TemplateArgumentListT& template_arguments,
         const std::list<ast::AstTemplateParam*>& template_params)
     {
-        if (template_arguments.size() != template_params.size())
+        if (template_arguments.size() == template_params.size())
+            return true;
+
+        if (template_arguments.size() < template_params.size())
+        {
+            // WO_ERR_NOT_ALL_TEMPLATE_ARGUMENT_DETERMINED has been raised.
+            wo_assert(!lex.get_current_error_frame().empty());
+        }
+        else
         {
             lex.record_lang_error(lexer::msglevel_t::error, node,
                 WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
                 template_params.size());
-
-            return false;
         }
-        return true;
+        return false;
+    }
+
+    void entry_symbol_scope(LangContext* ctx, lang_Symbol* symbol)
+    {
+        bool has_enter_specify_scope = false;
+        if (symbol->m_symbol_kind == lang_Symbol::kind::TYPE)
+        {
+            if (symbol->m_belongs_to_scope->is_namespace_scope())
+            {
+                lang_Namespace* type_namespace = symbol->m_belongs_to_scope->m_belongs_to_namespace;
+                auto fnd = type_namespace->m_sub_namespaces.find(symbol->m_name);
+                if (fnd != type_namespace->m_sub_namespaces.end())
+                {
+                    has_enter_specify_scope = true;
+                    ctx->entry_spcify_scope(fnd->second->m_this_scope.get());
+                }
+            }
+        }
+
+        if (!has_enter_specify_scope)
+            ctx->entry_spcify_scope(symbol->m_belongs_to_scope);
+    }
+
+    void check_and_do_final_deduce_for_constant_template_argument(
+        LangContext* ctx,
+        lexer& lex,
+        ast::AstBase* node,
+        lang_Symbol* symbol,
+        lang_Symbol::TemplateArgumentListT& inout_template_arguments,
+        const std::list<ast::AstTemplateParam*>& template_params)
+    {
+        if (inout_template_arguments.size() < template_params.size())
+        {
+            entry_symbol_scope(ctx, symbol);
+            ctx->begin_new_scope(std::nullopt);
+
+            std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance> deduce_result;
+
+            // Define filled template arguments.
+            auto inout_template_arguments_iter = inout_template_arguments.begin();
+            const auto inout_template_arguments_iter_end = inout_template_arguments.end();
+            auto template_params_iter = template_params.begin();
+
+            for (; inout_template_arguments_iter != inout_template_arguments_iter_end;
+                ++inout_template_arguments_iter, ++template_params_iter)
+            {
+                auto& argument = *inout_template_arguments_iter;
+                auto* params = *template_params_iter;
+
+                if (argument.m_constant.has_value() != params->m_marked_type.has_value())
+                {
+                    if (params->m_marked_type.has_value())
+                        lex.record_lang_error(lexer::msglevel_t::error, params,
+                            WO_ERR_THIS_TEMPLATE_ARG_SHOULD_BE_CONST);
+                    else
+                        lex.record_lang_error(lexer::msglevel_t::error, params,
+                            WO_ERR_THIS_TEMPLATE_ARG_SHOULD_BE_TYPE);
+                }
+                
+                (void)ctx->fast_create_one_template_type_alias_and_constant_in_current_scope(
+                    params->m_param_name, argument);
+
+                deduce_result.insert(std::make_pair(params->m_param_name, argument));
+            }
+
+            auto template_params_iter_end = template_params.end();
+
+            std::list<ast::AstTemplateParam*> pending_template_params;
+
+            for (; template_params_iter != template_params_iter_end; ++template_params_iter)
+                pending_template_params.push_back(*template_params_iter);
+
+            if (ctx->template_argument_deduction_from_constant(
+                lex, template_params, pending_template_params, &deduce_result))
+            {
+                inout_template_arguments.clear();
+
+                for (auto* param : template_params)
+                {
+                    auto fnd = deduce_result.find(param->m_param_name);
+                    if (fnd != deduce_result.end())
+                        inout_template_arguments.emplace_back(fnd->second);
+                }
+            }
+            
+            if (inout_template_arguments.size() != template_params.size())
+            {
+                std::wstring pending_type_list;
+                bool first_param = true;
+
+                for (auto* param : template_params)
+                {
+                    auto fnd = deduce_result.find(param->m_param_name);
+                    if (fnd == deduce_result.end())
+                    {
+                        if (!first_param)
+                            pending_type_list += L", ";
+                        else
+                            first_param = false;
+
+                        pending_type_list += *param->m_param_name;
+                    }
+                }
+
+                lex.record_lang_error(lexer::msglevel_t::error, node,
+                    WO_ERR_NOT_ALL_TEMPLATE_ARGUMENT_DETERMINED,
+                    pending_type_list.c_str());
+            }
+            
+
+            ctx->end_last_scope();
+            ctx->end_last_scope();
+        }
     }
 
     std::optional<lang_TemplateAstEvalStateBase*> LangContext::begin_eval_template_ast(
         lexer& lex,
         ast::AstBase* node,
         lang_Symbol* templating_symbol,
-        const lang_Symbol::TemplateArgumentListT& template_arguments,
+        lang_Symbol::TemplateArgumentListT&& template_arguments,
         PassProcessStackT& out_stack,
         bool* out_continue_process_flag)
     {
@@ -92,11 +211,20 @@ namespace wo
         lang_TemplateAstEvalStateBase* result;
         const std::list<ast::AstTemplateParam*>* template_params;
 
+        lex.begin_trying_block();
+
         switch (templating_symbol->m_symbol_kind)
         {
         case lang_Symbol::kind::VARIABLE:
         {
             auto& template_variable_prefab = templating_symbol->m_template_value_instances;
+            check_and_do_final_deduce_for_constant_template_argument(
+                this,
+                lex,
+                node,
+                templating_symbol,
+                template_arguments,
+                template_variable_prefab->m_template_params);
 
             auto* template_eval_state_instance =
                 template_variable_prefab->find_or_create_template_instance(
@@ -119,6 +247,13 @@ namespace wo
         case lang_Symbol::kind::ALIAS:
         {
             auto& template_alias_prefab = templating_symbol->m_template_alias_instances;
+            check_and_do_final_deduce_for_constant_template_argument(
+                this,
+                lex,
+                node,
+                templating_symbol,
+                template_arguments,
+                template_alias_prefab->m_template_params);
 
             auto* template_eval_state_instance =
                 template_alias_prefab->find_or_create_template_instance(
@@ -131,6 +266,13 @@ namespace wo
         case lang_Symbol::kind::TYPE:
         {
             auto& template_type_prefab = templating_symbol->m_template_type_instances;
+            check_and_do_final_deduce_for_constant_template_argument(
+                this,
+                lex,
+                node,
+                templating_symbol,
+                template_arguments,
+                template_type_prefab->m_template_params);
 
             auto* template_eval_state_instance =
                 template_type_prefab->find_or_create_template_instance(
@@ -142,6 +284,7 @@ namespace wo
         }
         default:
             wo_error("Unexpected symbol kind");
+            lex.end_trying_block();
             return std::nullopt;
         }
 
@@ -151,14 +294,19 @@ namespace wo
         switch (result->m_state)
         {
         case lang_TemplateAstEvalStateValue::state::EVALUATED:
+            lex.end_trying_block();
             break;
         case lang_TemplateAstEvalStateValue::state::FAILED:
         {
+            lex.end_trying_block();
+
             _collect_failed_template_instance(lex, node, result);
             return std::nullopt;
         }
         case lang_TemplateAstEvalStateValue::state::EVALUATING:
         {
+            lex.end_trying_block();
+
             if (templating_symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE)
             {
                 // For function, recursive template instance is allowed.
@@ -184,33 +332,13 @@ namespace wo
             *out_continue_process_flag = true;
 
             // Entry the scope where template variable defined.
-
-            bool has_enter_specify_scope = false;
-            if (templating_symbol->m_symbol_kind == lang_Symbol::kind::TYPE)
-            {
-                if (templating_symbol->m_belongs_to_scope->is_namespace_scope())
-                {
-                    lang_Namespace* type_namespace = templating_symbol->m_belongs_to_scope->m_belongs_to_namespace;
-                    auto fnd = type_namespace->m_sub_namespaces.find(templating_symbol->m_name);
-                    if (fnd != type_namespace->m_sub_namespaces.end())
-                    {
-                        has_enter_specify_scope = true;
-                        entry_spcify_scope(fnd->second->m_this_scope.get());
-                    }
-                }
-            }
-
-            if (!has_enter_specify_scope)
-                entry_spcify_scope(templating_symbol->m_belongs_to_scope);
-
+            entry_symbol_scope(this, templating_symbol);
             begin_new_scope(std::nullopt); // Begin new scope for defining template type alias.
 
             // ATTENTION: LIMIT TEMPLATE INSTANCE SYMBOL VISIBILITY!
             auto* current_scope = get_current_scope();
             current_scope->m_visibility_from_edge_for_template_check =
                 templating_symbol->m_symbol_edge;
-
-            lex.begin_trying_block();
 
             ast::AstTemplateConstantTypeCheckInPass1* checker =
                 new ast::AstTemplateConstantTypeCheckInPass1(result->m_ast);
@@ -233,15 +361,15 @@ namespace wo
     void LangContext::finish_eval_template_ast(
         lexer& lex, lang_TemplateAstEvalStateBase* template_eval_instance)
     {
-        wo_assert(lex.get_current_error_frame().empty());
-        lex.end_trying_block();
-
         wo_assert(template_eval_instance->m_state == lang_TemplateAstEvalStateBase::state::EVALUATING);
         auto* templating_symbol = template_eval_instance->m_symbol;;
 
         // Continue template evaluating.
         end_last_scope(); // Leave temporary scope for template type alias.
         end_last_scope(); // Leave scope where template variable defined.
+
+        wo_assert(lex.get_current_error_frame().empty());
+        lex.end_trying_block();
 
         switch (templating_symbol->m_symbol_kind)
         {
@@ -314,6 +442,12 @@ namespace wo
     void LangContext::failed_eval_template_ast(
         lexer& lex, ast::AstBase* node, lang_TemplateAstEvalStateBase* template_eval_instance)
     {
+        // Child failed, we need pop the scope anyway.
+        end_last_scope(); // Leave temporary scope for template type alias.
+        end_last_scope(); // Leave scope where template variable defined.
+
+        template_eval_instance->m_state = lang_TemplateAstEvalStateBase::state::FAILED;
+
         wo_assert(!lex.get_current_error_frame().empty());
 
         template_eval_instance->m_failed_error_for_this_instance.emplace(
@@ -324,12 +458,6 @@ namespace wo
         const size_t current_error_frame_layer = lex.get_error_frame_layer();
         for (auto& error_message : template_eval_instance->m_failed_error_for_this_instance.value())
             error_message.m_layer -= current_error_frame_layer;
-
-        // Child failed, we need pop the scope anyway.
-        end_last_scope(); // Leave temporary scope for template type alias.
-        end_last_scope(); // Leave scope where template variable defined.
-
-        template_eval_instance->m_state = lang_TemplateAstEvalStateBase::state::FAILED;
 
         _collect_failed_template_instance(lex, node, template_eval_instance);
     }
@@ -377,6 +505,34 @@ namespace wo
         default:
             // Not support other formal now.
             break;
+        }
+        return true;
+    }
+
+    bool LangContext::template_argument_deduction_from_constant(
+        lexer& lex,
+        const std::list<ast::AstTemplateParam*>& template_params,
+        const std::list<ast::AstTemplateParam*>& pending_template_params,
+        std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance>* inout_determined_template_arg_pair)
+    {
+        for (auto* param : template_params)
+        {
+            auto fnd = inout_determined_template_arg_pair->find(param->m_param_name);
+            if (fnd != inout_determined_template_arg_pair->end())
+            {
+                auto& argument = fnd->second;
+
+                if (argument.m_constant.has_value() && param->m_marked_type.has_value())
+                {
+                    if (!template_arguments_deduction_extraction_with_type(
+                        lex,
+                        param->m_marked_type.value(),
+                        argument.m_type,
+                        pending_template_params,
+                        inout_determined_template_arg_pair))
+                        return false;
+                }
+            }
         }
         return true;
     }

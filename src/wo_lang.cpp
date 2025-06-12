@@ -2167,6 +2167,8 @@ namespace wo
                         lexer::msglevel_t::error,
                         param,
                         WO_ERR_THIS_TEMPLATE_ARG_SHOULD_BE_TYPE);
+
+                    return false;
                 }
                 else
                     // No need to check.
