@@ -637,7 +637,6 @@ wo_lspv2_expr_info* wo_lspv2_expr_get_info(wo_lspv2_expr* expr)
                 template_arg.m_constant_may_null = nullptr;
             }
 
-            template_arg.m_constant_may_null = reinterpret_cast<wo_value>(&arg.m_constant.value());
             template_arg.m_type =
                 reinterpret_cast<wo_lspv2_type*>(arg.m_type);
         }
