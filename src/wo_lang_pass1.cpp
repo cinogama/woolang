@@ -3286,6 +3286,27 @@ namespace wo
                         else
                             template_arguments.push_back(fnd->second);
                     }
+                    if (!pending_template_params.empty())
+                    {
+                        std::wstring pending_type_list;
+                        bool first_param = true;
+
+                        for (ast::AstTemplateParam* param : pending_template_params)
+                        {
+                            if (!first_param)
+                                pending_type_list += L", ";
+                            else
+                                first_param = false;
+
+                            pending_type_list += *param->m_param_name;
+                        }
+
+                        lex.record_lang_error(lexer::msglevel_t::error, function,
+                            WO_ERR_NOT_ALL_TEMPLATE_ARGUMENT_DETERMINED,
+                            pending_type_list.c_str());
+
+                        return FAILED;
+                    }
 
                     function->m_LANG_determined_template_arguments = template_arguments;
                     function->m_LANG_in_template_reification_context = true;
@@ -3330,6 +3351,35 @@ namespace wo
                             pending_template_params.push_back(param_name);
                         else
                             template_argument_list.push_back(fnd->second);
+                    }
+
+                    if (!pending_template_params.empty())
+                    {
+                        std::wstring pending_type_list;
+                        bool first_param = true;
+
+                        for (ast::AstTemplateParam* param : pending_template_params)
+                        {
+                            if (!first_param)
+                                pending_type_list += L", ";
+                            else
+                                first_param = false;
+
+                            pending_type_list += *param->m_param_name;
+                        }
+
+                        lex.record_lang_error(lexer::msglevel_t::error, function_variable,
+                            WO_ERR_NOT_ALL_TEMPLATE_ARGUMENT_DETERMINED,
+                            pending_type_list.c_str());
+
+                        if (symbol->m_symbol_declare_ast.has_value())
+                        {
+                            lex.record_lang_error(lexer::msglevel_t::infom, symbol->m_symbol_declare_ast.value(),
+                                WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
+                                get_symbol_name_w(symbol));
+                        }
+
+                        return FAILED;
                     }
 
                     function_variable->m_identifier->m_LANG_determined_and_appended_template_arguments
@@ -3941,6 +3991,38 @@ namespace wo
                     else
                         template_argument_list.push_back(fnd->second);
                 }
+
+                if (!pending_template_params.empty())
+                {
+                    std::wstring pending_type_list;
+                    bool first_param = true;
+
+                    for (ast::AstTemplateParam* param : pending_template_params)
+                    {
+                        if (!first_param)
+                            pending_type_list += L", ";
+                        else
+                            first_param = false;
+
+                        pending_type_list += *param->m_param_name;
+                    }
+
+                    lex.record_lang_error(lexer::msglevel_t::error, target_struct_typeholder,
+                        WO_ERR_NOT_ALL_TEMPLATE_ARGUMENT_DETERMINED,
+                        pending_type_list.c_str());
+
+                    if (symbol->m_symbol_declare_ast.has_value())
+                    {
+                        lex.record_lang_error(lexer::msglevel_t::infom, symbol->m_symbol_declare_ast.value(),
+                            WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
+                            get_symbol_name_w(symbol));
+                    }
+
+                    return FAILED;
+                }
+
+                target_struct_typeholder->m_typeform.m_identifier->m_LANG_determined_and_appended_template_arguments
+                    = template_argument_list;
 
                 target_struct_typeholder->m_typeform.m_identifier->
                     m_LANG_determined_and_appended_template_arguments = template_argument_list;

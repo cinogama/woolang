@@ -125,15 +125,18 @@ namespace wo
                 auto& argument = *inout_template_arguments_iter;
                 auto* params = *template_params_iter;
 
-                if (argument.m_constant.has_value() && params->m_marked_type.has_value())
+                if (argument.m_constant.has_value() != params->m_marked_type.has_value())
                 {
-                    if (!ctx->fast_create_one_template_type_alias_and_constant_in_current_scope(
-                        params->m_param_name, argument))
-                    {
-                        // Duplicated template argument defined, stop.
-                        success = false;
-                        break;
-                    }
+                    success = false;
+                    break;
+                }
+
+                if (!ctx->fast_create_one_template_type_alias_and_constant_in_current_scope(
+                    params->m_param_name, argument))
+                {
+                    // Duplicated template argument defined, stop.
+                    success = false;
+                    break;
                 }
             }
 
@@ -176,6 +179,8 @@ namespace wo
 
         lang_TemplateAstEvalStateBase* result;
         const std::list<ast::AstTemplateParam*>* template_params;
+
+        lex.begin_trying_block();
 
         switch (templating_symbol->m_symbol_kind)
         {
@@ -245,6 +250,7 @@ namespace wo
         }
         default:
             wo_error("Unexpected symbol kind");
+            lex.end_trying_block();
             return std::nullopt;
         }
 
@@ -254,14 +260,19 @@ namespace wo
         switch (result->m_state)
         {
         case lang_TemplateAstEvalStateValue::state::EVALUATED:
+            lex.end_trying_block();
             break;
         case lang_TemplateAstEvalStateValue::state::FAILED:
         {
+            lex.end_trying_block();
+
             _collect_failed_template_instance(lex, node, result);
             return std::nullopt;
         }
         case lang_TemplateAstEvalStateValue::state::EVALUATING:
         {
+            lex.end_trying_block();
+
             if (templating_symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE)
             {
                 // For function, recursive template instance is allowed.
@@ -295,8 +306,6 @@ namespace wo
             current_scope->m_visibility_from_edge_for_template_check =
                 templating_symbol->m_symbol_edge;
 
-            lex.begin_trying_block();
-
             ast::AstTemplateConstantTypeCheckInPass1* checker =
                 new ast::AstTemplateConstantTypeCheckInPass1(result->m_ast);
 
@@ -318,15 +327,15 @@ namespace wo
     void LangContext::finish_eval_template_ast(
         lexer& lex, lang_TemplateAstEvalStateBase* template_eval_instance)
     {
-        wo_assert(lex.get_current_error_frame().empty());
-        lex.end_trying_block();
-
         wo_assert(template_eval_instance->m_state == lang_TemplateAstEvalStateBase::state::EVALUATING);
         auto* templating_symbol = template_eval_instance->m_symbol;;
 
         // Continue template evaluating.
         end_last_scope(); // Leave temporary scope for template type alias.
         end_last_scope(); // Leave scope where template variable defined.
+
+        wo_assert(lex.get_current_error_frame().empty());
+        lex.end_trying_block();
 
         switch (templating_symbol->m_symbol_kind)
         {
@@ -399,6 +408,12 @@ namespace wo
     void LangContext::failed_eval_template_ast(
         lexer& lex, ast::AstBase* node, lang_TemplateAstEvalStateBase* template_eval_instance)
     {
+        // Child failed, we need pop the scope anyway.
+        end_last_scope(); // Leave temporary scope for template type alias.
+        end_last_scope(); // Leave scope where template variable defined.
+
+        template_eval_instance->m_state = lang_TemplateAstEvalStateBase::state::FAILED;
+
         wo_assert(!lex.get_current_error_frame().empty());
 
         template_eval_instance->m_failed_error_for_this_instance.emplace(
@@ -409,12 +424,6 @@ namespace wo
         const size_t current_error_frame_layer = lex.get_error_frame_layer();
         for (auto& error_message : template_eval_instance->m_failed_error_for_this_instance.value())
             error_message.m_layer -= current_error_frame_layer;
-
-        // Child failed, we need pop the scope anyway.
-        end_last_scope(); // Leave temporary scope for template type alias.
-        end_last_scope(); // Leave scope where template variable defined.
-
-        template_eval_instance->m_state = lang_TemplateAstEvalStateBase::state::FAILED;
 
         _collect_failed_template_instance(lex, node, template_eval_instance);
     }
