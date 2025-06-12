@@ -2734,7 +2734,8 @@ namespace wo
                 if (param_type_determined_base_type_instance->m_base_type != lang_TypeInstance::DeterminedType::FUNCTION)
                 {
                     lex.record_lang_error(lexer::msglevel_t::error, param_and_argument_pair.m_argument,
-                        WO_ERR_FAILED_TO_DEDUCE_TEMPLATE_TYPE);
+                        WO_ERR_FAILED_TO_DEDUCE_NOT_FUNC_PARAM_TYPE,
+                        get_type_name_w(param_type));
                     return FAILED;
                 }
 
