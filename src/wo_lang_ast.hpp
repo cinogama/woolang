@@ -346,6 +346,7 @@ namespace wo
             std::list<ArgumentMatch>::iterator m_current_argument;
 
             std::unordered_map<wo_pstring_t, AstIdentifier::TemplateArgumentInstance> m_deduction_results;
+            std::list<AstTemplateParam*>* m_template_params;
             std::list<AstTemplateParam*> m_undetermined_template_params;
 
             AstValueFunctionCall_FakeAstArgumentDeductionContextA(lang_Scope* before, lang_Scope* scope);
