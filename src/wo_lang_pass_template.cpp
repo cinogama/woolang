@@ -70,30 +70,11 @@ namespace wo
     {
         if (template_arguments.size() == template_params.size())
             return true;
-        
+
         if (template_arguments.size() < template_params.size())
         {
-            std::wstring pending_type_list;
-            bool first_param = true;
-
-            auto iter = template_params.begin();
-            const auto iter_end = template_params.end();
-
-            std::advance(iter, template_arguments.size());
-
-            for (; iter != iter_end; ++iter)
-            {
-                if (!first_param)
-                    pending_type_list += L", ";
-                else
-                    first_param = false;
-
-                pending_type_list += *(*iter)->m_param_name;
-            }
-
-            lex.record_lang_error(lexer::msglevel_t::error, node,
-                WO_ERR_NOT_ALL_TEMPLATE_ARGUMENT_DETERMINED,
-                pending_type_list.c_str());
+            // WO_ERR_NOT_ALL_TEMPLATE_ARGUMENT_DETERMINED has been raised.
+            wo_assert(!lex.get_current_error_frame().empty());
         }
         else
         {
@@ -128,6 +109,7 @@ namespace wo
     void check_and_do_final_deduce_for_constant_template_argument(
         LangContext* ctx,
         lexer& lex,
+        ast::AstBase* node,
         lang_Symbol* symbol,
         lang_Symbol::TemplateArgumentListT& inout_template_arguments,
         const std::list<ast::AstTemplateParam*>& template_params)
@@ -137,7 +119,6 @@ namespace wo
             entry_symbol_scope(ctx, symbol);
             ctx->begin_new_scope(std::nullopt);
 
-            bool success = true;
             std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance> deduce_result;
 
             // Define filled template arguments.
@@ -151,40 +132,66 @@ namespace wo
                 auto& argument = *inout_template_arguments_iter;
                 auto* params = *template_params_iter;
 
-                if (argument.m_constant.has_value() != params->m_marked_type.has_value()
-                    || !ctx->fast_create_one_template_type_alias_and_constant_in_current_scope(
-                        params->m_param_name, argument))
+                if (argument.m_constant.has_value() != params->m_marked_type.has_value())
                 {
-                    // Mismatch or Duplicated template argument defined, stop.
-                    success = false;
-                    break;
+                    if (params->m_marked_type.has_value())
+                        lex.record_lang_error(lexer::msglevel_t::error, params,
+                            WO_ERR_THIS_TEMPLATE_ARG_SHOULD_BE_CONST);
+                    else
+                        lex.record_lang_error(lexer::msglevel_t::error, params,
+                            WO_ERR_THIS_TEMPLATE_ARG_SHOULD_BE_TYPE);
                 }
+                
+                (void)ctx->fast_create_one_template_type_alias_and_constant_in_current_scope(
+                    params->m_param_name, argument);
 
                 deduce_result.insert(std::make_pair(params->m_param_name, argument));
             }
 
-            if (success)
+            auto template_params_iter_end = template_params.end();
+
+            std::list<ast::AstTemplateParam*> pending_template_params;
+
+            for (; template_params_iter != template_params_iter_end; ++template_params_iter)
+                pending_template_params.push_back(*template_params_iter);
+
+            if (ctx->template_argument_deduction_from_constant(
+                lex, template_params, pending_template_params, &deduce_result))
             {
-                auto template_params_iter_end = template_params.end();
+                inout_template_arguments.clear();
 
-                std::list<ast::AstTemplateParam*> pending_template_params;
-
-                for (; template_params_iter != template_params_iter_end; ++template_params_iter)
-                    pending_template_params.push_back(*template_params_iter);
-
-                if (ctx->template_argument_deduction_from_constant(
-                    lex, template_params, pending_template_params, &deduce_result))
+                for (auto* param : template_params)
                 {
-                    inout_template_arguments.clear();
-
-                    for (auto* param : template_params)
-                    {
-                        auto fnd = deduce_result.find(param->m_param_name);
-                        if (fnd != deduce_result.end())
-                            inout_template_arguments.emplace_back(fnd->second);
-                    }
+                    auto fnd = deduce_result.find(param->m_param_name);
+                    if (fnd != deduce_result.end())
+                        inout_template_arguments.emplace_back(fnd->second);
                 }
             }
+            
+            if (inout_template_arguments.size() != template_params.size())
+            {
+                std::wstring pending_type_list;
+                bool first_param = true;
+
+                for (auto* param : template_params)
+                {
+                    auto fnd = deduce_result.find(param->m_param_name);
+                    if (fnd == deduce_result.end())
+                    {
+                        if (!first_param)
+                            pending_type_list += L", ";
+                        else
+                            first_param = false;
+
+                        pending_type_list += *param->m_param_name;
+                    }
+                }
+
+                lex.record_lang_error(lexer::msglevel_t::error, node,
+                    WO_ERR_NOT_ALL_TEMPLATE_ARGUMENT_DETERMINED,
+                    pending_type_list.c_str());
+            }
+            
 
             ctx->end_last_scope();
             ctx->end_last_scope();
@@ -214,6 +221,7 @@ namespace wo
             check_and_do_final_deduce_for_constant_template_argument(
                 this,
                 lex,
+                node,
                 templating_symbol,
                 template_arguments,
                 template_variable_prefab->m_template_params);
@@ -242,6 +250,7 @@ namespace wo
             check_and_do_final_deduce_for_constant_template_argument(
                 this,
                 lex,
+                node,
                 templating_symbol,
                 template_arguments,
                 template_alias_prefab->m_template_params);
@@ -260,6 +269,7 @@ namespace wo
             check_and_do_final_deduce_for_constant_template_argument(
                 this,
                 lex,
+                node,
                 templating_symbol,
                 template_arguments,
                 template_type_prefab->m_template_params);

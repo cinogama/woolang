@@ -2407,8 +2407,8 @@ namespace wo
             }
 
             template_argument_deduction_from_constant(
-                lex, 
-                *node->m_template_params, 
+                lex,
+                *node->m_template_params,
                 node->m_undetermined_template_params,
                 &node->m_deduction_results);
 
@@ -3202,6 +3202,8 @@ namespace wo
                         }
                     }
 
+                    lex.begin_trying_block();
+
                     WO_CONTINUE_PROCESS(branch_a_context);
                     node->m_LANG_hold_state = AstValueFunctionCall::HOLD_BRANCH_A_TEMPLATE_ARGUMENT_DEDUCTION;
                 }
@@ -3276,6 +3278,18 @@ namespace wo
                 ///////////////////////////////////////////////////////////////////////////////
 
                 // Make instance!
+                auto current_error_frame = std::move(lex.get_current_error_frame());
+                lex.end_trying_block();
+
+                if (!current_error_frame.empty())
+                {
+                    lex.record_lang_error(lexer::msglevel_t::error, node,
+                        WO_ERR_FAILED_TO_DEDUCE_TEMPLATE_TYPE);
+
+                    for (auto& errinform : current_error_frame)
+                        lex.append_message(errinform).m_layer = errinform.m_layer;
+                }
+
                 auto* branch_a_context = std::get<AstValueFunctionCall_FakeAstArgumentDeductionContextA*>(
                     node->m_LANG_branch_argument_deduction_context.value());
 
@@ -3599,13 +3613,34 @@ namespace wo
         }
         else
         {
-            if (node->m_is_direct_call
-                && node->m_LANG_hold_state == AstValueFunctionCall::HOLD_FOR_FUNCTION_EVAL)
+            switch (node->m_LANG_hold_state)
             {
-                AstValueBase* first_argument = node->m_arguments.front();
-                lex.record_lang_error(lexer::msglevel_t::infom, first_argument,
-                    WO_INFO_TYPE_NAMED_BEFORE_DIRECT_SIGN,
-                    get_type_name_w(first_argument->m_LANG_determined_type.value()));
+            case AstValueFunctionCall::HOLD_FOR_FUNCTION_EVAL:
+                if (node->m_is_direct_call)
+                {
+                    AstValueBase* first_argument = node->m_arguments.front();
+                    lex.record_lang_error(lexer::msglevel_t::infom, first_argument,
+                        WO_INFO_TYPE_NAMED_BEFORE_DIRECT_SIGN,
+                        get_type_name_w(first_argument->m_LANG_determined_type.value()));
+                }
+                break;
+            case AstValueFunctionCall::HOLD_BRANCH_A_TEMPLATE_ARGUMENT_DEDUCTION:
+            {
+                auto current_error_frame = std::move(lex.get_current_error_frame());
+                lex.end_trying_block();
+
+                wo_assert(!current_error_frame.empty());
+
+                lex.record_lang_error(lexer::msglevel_t::error, node,
+                    WO_ERR_FAILED_TO_DEDUCE_TEMPLATE_TYPE);
+
+                for (auto& errinform : current_error_frame)
+                    lex.append_message(errinform).m_layer = errinform.m_layer;
+
+                break;
+            }
+            default:
+                break;
             }
         }
         return WO_EXCEPT_ERROR(state, OKAY);
@@ -3960,6 +3995,8 @@ namespace wo
                     return FAILED;
                 }
 
+                lex.begin_trying_block();
+
                 WO_CONTINUE_PROCESS(branch_a_context);
                 node->m_LANG_hold_state = AstValueStruct::HOLD_FOR_TEMPLATE_DEDUCTION;
 
@@ -3967,6 +4004,18 @@ namespace wo
             }
             case AstValueStruct::HOLD_FOR_TEMPLATE_DEDUCTION:
             {
+                auto current_error_frame = std::move(lex.get_current_error_frame());
+                lex.end_trying_block();
+
+                if (!current_error_frame.empty())
+                {
+                    lex.record_lang_error(lexer::msglevel_t::error, node,
+                        WO_ERR_FAILED_TO_DEDUCE_TEMPLATE_TYPE);
+
+                    for (auto& errinform : current_error_frame)
+                        lex.append_message(errinform).m_layer = errinform.m_layer;
+                }
+
                 AstValueFunctionCall_FakeAstArgumentDeductionContextA* branch_a_context =
                     std::get<AstValueFunctionCall_FakeAstArgumentDeductionContextA*>(
                         node->m_LANG_branch_argument_deduction_context.value());
@@ -4246,6 +4295,22 @@ namespace wo
             }
             default:
                 wo_error("Unknown hold state.");
+            }
+        }
+        else
+        {
+            if (node->m_LANG_hold_state == AstValueStruct::HOLD_FOR_TEMPLATE_DEDUCTION)
+            {
+                auto current_error_frame = std::move(lex.get_current_error_frame());
+                lex.end_trying_block();
+
+                wo_assert(!current_error_frame.empty());
+
+                lex.record_lang_error(lexer::msglevel_t::error, node,
+                    WO_ERR_FAILED_TO_DEDUCE_TEMPLATE_TYPE);
+
+                for (auto& errinform : current_error_frame)
+                    lex.append_message(errinform).m_layer = errinform.m_layer;
             }
         }
         return WO_EXCEPT_ERROR(state, OKAY);
