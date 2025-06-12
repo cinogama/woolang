@@ -2712,7 +2712,6 @@ namespace wo
 
                 lang_TypeInstance* param_type = param_and_argument_pair.m_param_type;
 
-
                 std::list<std::optional<lang_TypeInstance*>> param_argument_types;
                 std::optional<lang_TypeInstance*> param_return_type = std::nullopt;
 
@@ -3068,8 +3067,7 @@ namespace wo
 
                     bool deduction_error = false;
 
-                    // Prepare to 
-
+                    // Prepare for argument deduction. 
                     auto it_target_param = target_param_holders.begin();
                     const auto it_target_param_end = target_param_holders.end();
                     auto it_argument = node->m_arguments.begin();
@@ -3165,6 +3163,7 @@ namespace wo
                         }
                     }
 
+                    // Prepare for template constant deduction.
                     branch_a_context->m_deduction_results = std::move(deduction_results);
                     branch_a_context->m_undetermined_template_params = std::move(pending_template_params);
                     if (entry_function_located_scope)
