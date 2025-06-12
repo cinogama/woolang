@@ -1086,7 +1086,7 @@ namespace wo
             lexer& lex,
             ast::AstBase* node,
             lang_Symbol* templating_symbol,
-            const lang_Symbol::TemplateArgumentListT& template_arguments,
+            lang_Symbol::TemplateArgumentListT&& template_arguments,
             PassProcessStackT& out_stack,
             bool* out_continue_process_flag);
 
@@ -1145,6 +1145,12 @@ namespace wo
         std::string get_constant_str(const value& val);
         std::wstring get_constant_str_w(const value& val);
 
+        bool template_argument_deduction_from_constant(
+            lexer& lex,
+            const std::list<ast::AstIdentifier::TemplateArgumentInstance>& filled_template_arguments,
+            const std::list<ast::AstTemplateParam*>& all_template_params,
+            const std::list<ast::AstTemplateParam*>& pending_template_params,
+            std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance>* out_determined_template_arg_pair);
         bool template_arguments_deduction_extraction_with_type(
             lexer& lex,
             const ast::AstTypeHolder* accept_type_formal,
