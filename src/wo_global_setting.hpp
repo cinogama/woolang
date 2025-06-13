@@ -128,12 +128,12 @@ namespace wo
         * MEMORY_CHUNK_SIZE = 512MB/128MB
         * --------------------------------------------------------------------
         *   Maximum managed heap memory used by Woolang.
-        * 
+        *
         *     Managed heap memory is not equivalent to all used memory. This area
         *   is only used to store GC objects.
         * --------------------------------------------------------------------
         */
-        inline size_t MEMORY_CHUNK_SIZE = 
+        inline size_t MEMORY_CHUNK_SIZE =
 #ifdef WO_PLATFORM_64
             1024ull * 1024ull * 1024ull;
 #else
@@ -143,25 +143,25 @@ namespace wo
         /*
         * ENABLE_HALT_WHEN_PANIC = false
         * --------------------------------------------------------------------
-        *   Whether to allow the thread to be terminated directly instead of 
+        *   Whether to allow the thread to be terminated directly instead of
         *   blocking when PANIC occurs.
         * --------------------------------------------------------------------
         */
         inline bool ENABLE_HALT_WHEN_PANIC = false;
 
         /*
-        * DISABLE_LOAD_EXTERN_FUNCTION = false
+        * ENABLE_IGNORE_NOT_FOUND_EXTERN_SYMBOL = false
         * --------------------------------------------------------------------
-        *   When importing external functions using the extern syntax, Do not 
-        *   actually import external libraries and functions and replace them 
-        *   with the default panic function.
+        *   When importing external functions using the extern syntax, ignore
+        *   missing function symbols and replace them with the default panic
+        *   function.
         * --------------------------------------------------------------------
         * ATTENTION:
-        *   This configuration item is only meaningful when used for LSP or 
-        *   compiled into a binary, and should not be abused. Please properly 
+        *   This configuration item is only meaningful when used for LSP or
+        *   compiled into a binary, and should not be abused. Please properly
         *   handle the situation where symbols are indeed lost.
         */
-        inline bool DISABLE_LOAD_EXTERN_FUNCTION = false;
+        inline bool ENABLE_IGNORE_NOT_FOUND_EXTERN_SYMBOL = false;
 
         /*
         * ENABLE_RUNTIME_CHECKING_INTEGER_DIVISION = true
@@ -172,7 +172,7 @@ namespace wo
         * --------------------------------------------------------------------
         * ATTENTION:
         *   Enabled by default for safety, disable it for better performance.
-        * 
+        *
         *   Check for integer division only.
         */
         inline bool ENABLE_RUNTIME_CHECKING_INTEGER_DIVISION = true;
@@ -181,22 +181,22 @@ namespace wo
         * INTERRUPT_CHECK_TIME_LIMIT = 50
         * --------------------------------------------------------------------
         *   When the virtual machine is within the GC scope and does not respond
-        * to the specified interrupt request beyond this time limit, a warning 
+        * to the specified interrupt request beyond this time limit, a warning
         * will be given and the wait will end.
         * --------------------------------------------------------------------
         * ATTENTION:
         *   The unit is 10ms, if you set INTERRUPT_CHECK_TIME_LIMIT = 100, it means
         * 1s;
-        * 
+        *
         *   The GC check signal timeout is not an expected behavior. Once this warning
         * is triggered, you should rule out behaviors that may cause blocking.
-        * 
-        *   Do not set this value too large or too small, the recommended value is 
-        * 50 (500ms). Excessively large values will block the GC workflow 
-        * and affect recycling efficiency. A value that is too small will cause 
+        *
+        *   Do not set this value too large or too small, the recommended value is
+        * 50 (500ms). Excessively large values will block the GC workflow
+        * and affect recycling efficiency. A value that is too small will cause
         * warnings to be triggered frequently and may cause GC marking to change from
         * parallel to serial.
-        * 
+        *
         *   0 does not mean unlimited wait.
         */
         inline size_t INTERRUPT_CHECK_TIME_LIMIT = 25;
@@ -204,9 +204,9 @@ namespace wo
         /*
         * ENABLE_SKIP_UNSAFE_CAST_INVOKE = true
         * --------------------------------------------------------------------
-        *   When checking that `unsafe::cast` is ready to be called, simply 
+        *   When checking that `unsafe::cast` is ready to be called, simply
         * eliminate this function call.
-        * -------------------------------------------------------------------- 
+        * --------------------------------------------------------------------
         */
         inline bool ENABLE_SKIP_INVOKE_UNSAFE_CAST = true;
 
@@ -215,7 +215,7 @@ namespace wo
         * --------------------------------------------------------------------
         *   The number of threads used by the GC worker.
         * --------------------------------------------------------------------
-        *   
+        *
         */
         inline size_t GC_WORKER_THREAD_COUNT =
 #if WO_DISABLE_FUNCTION_FOR_WASM

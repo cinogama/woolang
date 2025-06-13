@@ -8,7 +8,7 @@
 
 #ifndef WO_DISABLE_COMPILER
 
-constexpr wo_size_t WO_LSPV2_SUB_VERSION = 1;
+constexpr wo_size_t WO_LSPV2_SUB_VERSION = 2;
 
 wo_size_t wo_lspv2_sub_version(void)
 {
