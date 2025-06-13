@@ -1431,22 +1431,22 @@ namespace wo
     {
         auto judge_function_return_type =
             [&](lang_TypeInstance* ret_type)
-        {
-            std::list<lang_TypeInstance*> parameters;
-            for (auto& param : node->m_parameters)
-                parameters.push_back(param->m_type.value()->m_LANG_determined_type.value());
-
-            node->m_LANG_determined_type = m_origin_types.create_function_type(
-                node->m_is_variadic, parameters, ret_type);
-
-            wo_assert(node->m_LANG_determined_type.has_value());
-
-            if (node->m_LANG_value_instance_to_update)
             {
-                node->m_LANG_value_instance_to_update.value()->m_determined_type =
-                    node->m_LANG_determined_type;
-            }
-        };
+                std::list<lang_TypeInstance*> parameters;
+                for (auto& param : node->m_parameters)
+                    parameters.push_back(param->m_type.value()->m_LANG_determined_type.value());
+
+                node->m_LANG_determined_type = m_origin_types.create_function_type(
+                    node->m_is_variadic, parameters, ret_type);
+
+                wo_assert(node->m_LANG_determined_type.has_value());
+
+                if (node->m_LANG_value_instance_to_update)
+                {
+                    node->m_LANG_value_instance_to_update.value()->m_determined_type =
+                        node->m_LANG_determined_type;
+                }
+            };
 
         // Huston, we have a problem.
         if (state == UNPROCESSED)
@@ -5815,14 +5815,15 @@ namespace wo
 
         if (node->m_extern_from_library.has_value())
         {
-            if (config::DISABLE_LOAD_EXTERN_FUNCTION)
+            extern_function = rslib_extern_symbols::get_lib_symbol(
+                wstr_to_str(*node->source_location.source_file).c_str(),
+                wstr_to_str(*node->m_extern_from_library.value()).c_str(),
+                wstr_to_str(*node->m_extern_symbol).c_str(),
+                m_ircontext.m_extern_libs);
+
+            if (extern_function == nullptr
+                && config::ENABLE_IGNORE_NOT_FOUND_EXTERN_SYMBOL)
                 extern_function = rslib_std_bad_function;
-            else
-                extern_function = rslib_extern_symbols::get_lib_symbol(
-                    wstr_to_str(*node->source_location.source_file).c_str(),
-                    wstr_to_str(*node->m_extern_from_library.value()).c_str(),
-                    wstr_to_str(*node->m_extern_symbol).c_str(),
-                    m_ircontext.m_extern_libs);
         }
         else
         {
