@@ -300,7 +300,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                 for (wchar_t wch : _operator)
                     _result.insert(wch);
             return _result;
-        }();
+            }();
         return operator_char_set.find((wchar_t)ch) != operator_char_set.end();
     }
     bool lexer::lex_isspace(int ch)
@@ -763,8 +763,9 @@ extern func macro_entry(lexer: std::lexer)=> string
             int peeked_char = peek_char();
             if (peeked_char == L'/')
             {
+            peeked_and_skip_this_line:
                 // Skip '/'
-                (void)read_char(); 
+                (void)read_char();
 
                 // Skip this line.
                 do
@@ -1071,6 +1072,12 @@ extern func macro_entry(lexer: std::lexer)=> string
         }
         case L'#':
         {
+            if (peek_char() == L'!')
+            {
+                // Is shebang, skip this line.
+                goto peeked_and_skip_this_line;
+            }
+
             // ATTENTION, SECURE:
             //  Disable pragma if source_file == nullptr, it's in deserialize.
             //  Processing pragma here may lead to arbitrary code execution.
