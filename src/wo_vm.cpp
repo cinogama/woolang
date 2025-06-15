@@ -862,7 +862,7 @@ namespace wo
                 result.push_back(
                     generate_callstack_info_with_ip(env->rt_codes + callstack.ret_ip, false));
 
-                if (next_trace_place <= base_callstackinfo_ptr || next_trace_place > stack_mem_begin)
+                if (next_trace_place < base_callstackinfo_ptr || next_trace_place > stack_mem_begin)
                     goto _label_bad_callstack;
 
                 base_callstackinfo_ptr = next_trace_place + 1;

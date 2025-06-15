@@ -388,6 +388,8 @@ namespace wo
         void import_ast_tree(ast::AstBase* astbase);
         ast::AstBase* merge_imported_ast_trees(ast::AstBase* node);
 
+        void skip_this_line();
+
         [[nodiscard]]
         int peek_char();
         [[nodiscard]]

@@ -300,7 +300,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                 for (wchar_t wch : _operator)
                     _result.insert(wch);
             return _result;
-        }();
+            }();
         return operator_char_set.find((wchar_t)ch) != operator_char_set.end();
     }
     bool lexer::lex_isspace(int ch)
@@ -657,7 +657,15 @@ extern func macro_entry(lexer: std::lexer)=> string
         _m_this_token_begin_row = _m_row_counter;
         _m_this_token_begin_col = _m_col_counter;
     }
-
+    void lexer::skip_this_line()
+    {
+        // Skip this line.
+        int skiped_char;
+        do
+        {
+            skiped_char = read_char();
+        } while (skiped_char != L'\n' && skiped_char != EOF);
+    }
     lexer::peeked_token_t* lexer::peek()
     {
         for (;;)
@@ -764,13 +772,9 @@ extern func macro_entry(lexer: std::lexer)=> string
             if (peeked_char == L'/')
             {
                 // Skip '/'
-                (void)read_char(); 
+                (void)read_char();
 
-                // Skip this line.
-                do
-                {
-                    peeked_char = read_char();
-                } while (peeked_char != L'\n' && peeked_char != EOF);
+                skip_this_line();
                 return;
             }
             else if (peeked_char == L'*')
@@ -1071,13 +1075,24 @@ extern func macro_entry(lexer: std::lexer)=> string
         }
         case L'#':
         {
+            if (peek_char() == L'!')
+            {
+                // Is shebang, skip this line.
+                // Skip '!'
+                (void)read_char();
+
+                skip_this_line();
+                return;
+            }
+
             // ATTENTION, SECURE:
             //  Disable pragma if source_file == nullptr, it's in deserialize.
             //  Processing pragma here may lead to arbitrary code execution.
             if (!m_source_path.has_value())
             {
                 append_result_char(readed_char);
-                return produce_token(lex_type::l_unknown_token, std::move(token_literal_result));
+                produce_token(lex_type::l_unknown_token, std::move(token_literal_result));
+                return;
             }
 
             // Read sharp
