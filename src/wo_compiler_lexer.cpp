@@ -768,10 +768,11 @@ extern func macro_entry(lexer: std::lexer)=> string
                 (void)read_char();
 
                 // Skip this line.
+                int skiped_char;
                 do
                 {
-                    peeked_char = read_char();
-                } while (peeked_char != L'\n' && peeked_char != EOF);
+                    skiped_char = read_char();
+                } while (skiped_char != L'\n' && skiped_char != EOF);
                 return;
             }
             else if (peeked_char == L'*')
