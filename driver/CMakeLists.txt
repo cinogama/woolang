@@ -4,7 +4,12 @@ cmake_minimum_required (VERSION 3.10)
 
 include_directories("../include")
 
-add_executable(woodriver wo_driver.cpp)
+set(WOOLANG_DRIVER_SOURCES wo_driver.cpp)
+if (MSVC)
+    list(APPEND WOOLANG_DRIVER_SOURCES resources.rc)
+endif()
+
+add_executable(woodriver ${WOOLANG_DRIVER_SOURCES})
 
 target_link_libraries(woodriver
     PRIVATE woolang_options
