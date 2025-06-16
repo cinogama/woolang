@@ -12,7 +12,7 @@ build_release_win32:
     - cd build
     - del CMakeCache.txt
     - cmake .. -DWO_MAKE_OUTPUT_IN_SAME_PATH=ON -DCMAKE_BUILD_TYPE=RELWITHDEBINFO -DBUILD_SHARED_LIBS=ON
-    - MSBuild driver/woolang.vcxproj -p:Configuration=Release -m
+    - MSBuild driver/woodriver.vcxproj -p:Configuration=Release -m
     - cd ..
   artifacts:
     name: win32-wo-build-release-$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA
