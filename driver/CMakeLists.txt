@@ -28,3 +28,5 @@ elseif(CMAKE_SIZEOF_VOID_P EQUAL 4)
 else()
     message(FATAL_ERROR "Unknown platform.")
 endif()
+
+set_target_properties(woodriver PROPERTIES OUTPUT_NAME woolang)
