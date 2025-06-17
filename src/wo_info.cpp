@@ -17,9 +17,9 @@
 #endif
 
 constexpr wo_integer_t version = 
-    WO_VERSION(1, 14, 7, 2);
+    WO_VERSION(1, 14, 7, 3);
 constexpr char version_str[] = 
-    WO_VERSION_STR(1, 14, 7, 2) WO_DEBUG_SFX;
+    WO_VERSION_STR(1, 14, 7, 3) WO_DEBUG_SFX;
 
 #undef WO_DEBUG_SFX
 #undef WO_VERSION_STR
@@ -32,7 +32,11 @@ wo_string_t  wo_compile_date(void)
 wo_string_t  wo_commit_sha(void)
 {
     return
-#include "wo_info.hpp"
+#if __has_include("wo_commit_sha.hpp")
+#   include "wo_commit_sha.hpp"
+#else
+        "untracked"
+#endif
         ;
 }
 wo_string_t  wo_version(void)

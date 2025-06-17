@@ -1672,40 +1672,20 @@ namespace wo
             }
         return nullptr;
     }
-
-    class vm : public vmbase
+    vmbase* vmbase::create_machine(vm_type type) const noexcept
     {
-    public:
-        vm(vm_type type) noexcept;
-        virtual ~vm() override = default;
-    public:
-        virtual vmbase* create_machine(vm_type type) const noexcept override;
-        virtual wo_result_t run() noexcept override;
-    public:
-        wo_result_t run_impl() noexcept;
-    };
-
-    vm::vm(vm_type type) noexcept
-        : vmbase(type)
-    {
-
+        return new vmbase(type);
     }
-
-    vmbase* vm::create_machine(vm_type type) const noexcept
-    {
-        return new vm(type);
-    }
-    wo_result_t vm::run() noexcept
+    wo_result_t vmbase::run() noexcept
     {
         if (ip >= env->rt_codes && ip < env->rt_codes + env->rt_code_len)
-            return run_impl();
+            return run_sim();
         else
             return ((wo_extern_native_func_t)ip)(
                 std::launder(reinterpret_cast<wo_vm>(this)),
                 std::launder(reinterpret_cast<wo_value>(sp + 2)));
     }
-
-    wo_result_t vm::run_impl() noexcept
+    wo_result_t vmbase::run_sim() noexcept
     {
         // Must not leave when run.
         wo_assert((this->vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
@@ -2938,7 +2918,6 @@ namespace wo
         WO_VM_RETURN(wo_result_t::WO_API_NORMAL);
     }
 
-
 #undef WO_VM_RETURN
 #undef WO_VM_FAIL
 #undef WO_ADDRESSING_N2
@@ -2974,5 +2953,5 @@ wo_vm wo_create_vm()
 {
     return std::launder(
         reinterpret_cast<wo_vm>(
-            new wo::vm(wo::vmbase::vm_type::NORMAL)));
+            new wo::vmbase(wo::vmbase::vm_type::NORMAL)));
 }

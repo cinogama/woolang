@@ -69,7 +69,7 @@ namespace wo
     class c_debuggee_bridge : public vm_debuggee_bridge_base
     {
         wo_debuggee_callback_func_t m_callback;
-        void*                       m_userdata;
+        void* m_userdata;
 
     public:
         c_debuggee_bridge(wo_debuggee_callback_func_t callback, void* userdata)
@@ -219,10 +219,14 @@ namespace wo
         inline static vm_debuggee_bridge_base* attaching_debuggee = nullptr;
 
     public:
-#if WO_ENABLE_RUNTIME_CHECK
-        // runtime information
-        std::thread::id attaching_thread_id;
-#endif 
+        // For performance, interrupt should be first elem.
+        union
+        {
+            std::atomic<uint32_t> vm_interrupt;
+            uint32_t fast_ro_vm_interrupt;
+        };
+        static_assert(sizeof(std::atomic<uint32_t>) == sizeof(uint32_t));
+        static_assert(std::atomic<uint32_t>::is_always_lock_free);
 
         // special regist
         value* cr;  // op result trace & function return;
@@ -253,21 +257,16 @@ namespace wo
         std::condition_variable _vm_hang_cv;
         std::atomic_int8_t _vm_hang_flag;
 
-        union
-        {
-            std::atomic<uint32_t> vm_interrupt;
-            uint32_t fast_ro_vm_interrupt;
-        };
-        static_assert(sizeof(std::atomic<uint32_t>) == sizeof(uint32_t));
-        static_assert(std::atomic<uint32_t>::is_always_lock_free);
-
         uint8_t jit_function_call_depth;
         const vm_type virtual_machine_type;
 
-    protected:
         uint8_t shrink_stack_advise;
         uint8_t shrink_stack_edge;
 
+#if WO_ENABLE_RUNTIME_CHECK
+        // runtime information
+        std::thread::id attaching_thread_id;
+#endif 
     private:
         vmbase(const vmbase&) = delete;
         vmbase(vmbase&&) = delete;
@@ -291,7 +290,7 @@ namespace wo
         void wakeup()noexcept;
 
         vmbase(vm_type type) noexcept;
-        virtual ~vmbase() noexcept;
+        ~vmbase() noexcept;
 
         vmbase* get_or_alloc_gcvm() const noexcept;
 
@@ -299,13 +298,14 @@ namespace wo
         void reset_shrink_stack_count() noexcept;
 
     public:
-        virtual vmbase* create_machine(vm_type type) const noexcept = 0;
-        virtual wo_result_t run() noexcept = 0;
-
-    public:
+        vmbase* create_machine(vm_type type) const noexcept;
+        wo_result_t run() noexcept;
+    private:
+        wo_result_t run_sim() noexcept;
         void _allocate_register_space(size_t regcount) noexcept;
         void _allocate_stack_space(size_t stacksz) noexcept;
         bool _reallocate_stack_space(size_t stacksz) noexcept;
+    public:
         void set_runtime(shared_pointer<runtime_env> runtime_environment) noexcept;
         vmbase* make_machine(vm_type type) const noexcept;
         void dump_program_bin(size_t begin = 0, size_t end = SIZE_MAX, std::ostream& os = std::cout) const noexcept;
@@ -337,6 +337,7 @@ namespace wo
         static value* unpackargs_impl(vmbase* vm, value* opnum1, int32_t unpack_argc, value* tc, const byte_t* rt_ip, value* rt_sp, value* rt_bp) noexcept;
         static const char* movcast_impl(value* opnum1, value* opnum2, value::valuetype aim_type) noexcept;
     };
+    static_assert(std::is_standard_layout_v<vmbase>);
 
     class _wo_vm_stack_guard
     {
