@@ -32,7 +32,11 @@ wo_string_t  wo_compile_date(void)
 wo_string_t  wo_commit_sha(void)
 {
     return
-#include "wo_info.hpp"
+#if __has_include("wo_commit_sha.hpp")
+#   include "wo_commit_sha.hpp"
+#else
+        "untracked"
+#endif
         ;
 }
 wo_string_t  wo_version(void)

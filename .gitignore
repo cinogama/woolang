@@ -356,3 +356,4 @@ _deps
 
 /out/
 /build/
+/src/wo_commit_sha.hpp
