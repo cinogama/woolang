@@ -6,7 +6,6 @@ build_release_win32:
   stage: build
   script:
     - echo "Build for ASan test -> %ENABLE_ASAN_TEST%"
-    - echo "%CI_COMMIT_SHA%" > src/wo_info.hpp
     - git submodule update --init --recursive --force
     - if not exist build ( mkdir build )
     - cd build
@@ -32,7 +31,6 @@ build_release_win32:
 build_release:
   stage: build
   script:
-    - echo "\"$CI_COMMIT_SHA\"" > src/wo_info.hpp
     - git submodule update --init --recursive --force
     - if [ ! -d build ]; then mkdir build; fi
     - cd build
@@ -58,7 +56,6 @@ build_release:
 build_release_arm64:
   stage: build
   script:
-    - echo "\"$CI_COMMIT_SHA\"" > src/wo_info.hpp
     - git submodule update --init --recursive --force
     - if [ ! -d build ]; then mkdir build; fi
     - cd build
@@ -89,7 +86,6 @@ test_coverage_debug:
   script:
     - sudo sysctl -p
     - ulimit -c unlimited
-    - echo "\"$CI_COMMIT_SHA\"" > src/wo_info.hpp
     - git submodule update --init --recursive --force
     - if [ ! -d build ]; then mkdir build; fi
     - cd build
@@ -132,7 +128,6 @@ test_debug_arm64:
   script:
     - sudo sysctl -p
     - ulimit -c unlimited
-    - echo "\"$CI_COMMIT_SHA\"" > src/wo_info.hpp
     - git submodule update --init --recursive --force
     - if [ ! -d build ]; then mkdir build; fi
     - cd build
