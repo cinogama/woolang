@@ -1773,6 +1773,8 @@ namespace std
         public func halt(msg: string) => nothing;
     extern("rslib_std_panic")
         public func panic(msg: string)=> nothing;
+    public using panic_value_t<Msg: string> = nothing;
+    public let panic_value<Msg: string> = panic(Msg): panic_value_t<{Msg}>;
     extern("rslib_std_bad_function")
         public func declval<T>()=> T;
     namespace type_traits
@@ -2837,8 +2839,10 @@ namespace gchandle
 }
 namespace tuple
 {
-    alias index_result_t<T, Idx: int> = 
-        typeof(std::declval:<T>()[Idx]);
+    public alias index_result_t<T, Idx: int> = 
+        typeof(std::type_traits::is_tuple:<T>
+            ? std::declval:<T>()[Idx]
+            | std::panic_value:<{"T is not a tuple"}>);
     let length_helper<T, Len: int> = 
         typeid:<index_result_t:<T, {Len}>> != 0 
             ? length_helper:<T, {Len + 1}>
@@ -2846,11 +2850,16 @@ namespace tuple
     public let length<T> =
         std::type_traits::is_tuple:<T>
             ? length_helper:<T, {0}>
-            | std::panic("T is not a tuple");
+            | std::panic_value:<{"T is not a tuple"}>;
     public func car<T>(t: T)
     where length:<T> > 0;
     {
         return t[0];
+    }
+    public func nth<Idx: int, T>(t: T)
+    where length:<T> > Idx;
+    {
+        return t[Idx];
     }
     public func nthcdr<Idx: int, T>(t: T)
     where length:<T> >= Idx;
