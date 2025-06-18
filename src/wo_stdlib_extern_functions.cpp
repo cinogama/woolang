@@ -2835,6 +2835,40 @@ namespace gchandle
     extern("rslib_std_gchandle_close", slow)
         public func close(handle: gchandle)=> bool;
 }
+namespace tuple
+{
+    alias index_result_t<T, Idx: int> = 
+        typeof(std::declval:<T>()[Idx]);
+    let length_helper<T, Len: int> = 
+        typeid:<index_result_t:<T, {Len}>> != 0 
+            ? length_helper:<T, {Len + 1}>
+            | Len;
+    public let length<T> =
+        std::type_traits::is_tuple:<T>
+            ? length_helper:<T, {0}>
+            | std::panic("T is not a tuple");
+    public func car<T>(t: T)
+    where length:<T> > 0;
+    {
+        return t[0];
+    }
+    public func nthcdr<Idx: int, T>(t: T)
+    where length:<T> >= Idx;
+    {
+        if (Idx < length:<T>)
+            return (t[Idx], nthcdr:<{Idx + 1}, T>(t)...);
+        else
+        {
+            do t;
+            return ();
+        }
+    }
+    public func cdr<T>(t: T)
+    where length:<T> > 0;
+    {
+        return nthcdr:<{1}, T>(t);
+    }
+}
 public func assert(val: bool)
 {
     if (!val)

@@ -138,7 +138,7 @@
 #define WO_INFO_MAYBE_NAMED_DEFINED_HERE L"可能是此处定义的 `%ls`"
 #define WO_INFO_MAYBE_NAMED_DEFINED_IN_COMPILER L"可能是编译器内置的 `%ls`"
 #define WO_INFO_SYMBOL_NAMED_DEFINED_HERE L"符号 `%ls` 在此定义"
-#define WO_INFO_TYPE_NAMED_BEFORE_DIRECT_SIGN L"第一个参数应为 `%ls` 类型"
+#define WO_INFO_TYPE_NAMED_BEFORE_DIRECT_SIGN L"第一个参数为 `%ls` 类型"
 #define WO_INFO_THIS_VALUE_IS_TYPE_NAMED L"当前表达式类型为 `%ls`"
 #define WO_INFO_CAPTURED_VARIABLE_USED_HERE L"引用了外部变量 `%ls`"
 #define WO_INFO_TRYING_REFILL_TEMPLATE_ARGUMENT L"正在为类型 `%ls`(通过别名 `%ls` 引用) 重新指定泛型参数"
