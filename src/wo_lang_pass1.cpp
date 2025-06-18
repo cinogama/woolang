@@ -1468,6 +1468,7 @@ namespace wo
 
                 if (!fast_check_and_create_template_type_alias_and_constant_in_current_scope(
                     lex,
+                    true,
                     node->m_pending_param_type_mark_template.value(),
                     node->m_LANG_determined_template_arguments.value(),
                     std::nullopt))
@@ -1973,7 +1974,9 @@ namespace wo
             case lang_TypeInstance::DeterminedType::VECTOR:
             {
                 if (indexer_determined_base_type_instance->m_base_type
-                    != lang_TypeInstance::DeterminedType::INTEGER)
+                    != lang_TypeInstance::DeterminedType::INTEGER &&
+                    indexer_determined_base_type_instance->m_base_type
+                    != lang_TypeInstance::DeterminedType::NOTHING)
                 {
                     lex.record_lang_error(lexer::msglevel_t::error, node->m_index,
                         WO_ERR_CANNOT_INDEX_TYPE_WITH_TYPE,
@@ -1992,7 +1995,9 @@ namespace wo
             {
                 if (container_determined_base_type_instance
                     ->m_external_type_description.m_dictionary_or_mapping
-                    ->m_key_type != indexer_type_instance)
+                    ->m_key_type != indexer_type_instance &&
+                    indexer_determined_base_type_instance->m_base_type
+                    != lang_TypeInstance::DeterminedType::NOTHING)
                 {
                     lex.record_lang_error(lexer::msglevel_t::error, node->m_index,
                         WO_ERR_CANNOT_INDEX_TYPE_WITH_TYPE,
@@ -2009,7 +2014,9 @@ namespace wo
             case lang_TypeInstance::DeterminedType::STRUCT:
             {
                 if (indexer_determined_base_type_instance->m_base_type
-                    != lang_TypeInstance::DeterminedType::STRING)
+                    != lang_TypeInstance::DeterminedType::STRING &&
+                    indexer_determined_base_type_instance->m_base_type
+                    != lang_TypeInstance::DeterminedType::NOTHING)
                 {
                     lex.record_lang_error(lexer::msglevel_t::error, node->m_index,
                         WO_ERR_CANNOT_INDEX_TYPE_WITH_TYPE,
@@ -2062,7 +2069,9 @@ namespace wo
             case lang_TypeInstance::DeterminedType::TUPLE:
             {
                 if (indexer_determined_base_type_instance->m_base_type
-                    != lang_TypeInstance::DeterminedType::INTEGER)
+                    != lang_TypeInstance::DeterminedType::INTEGER && 
+                    indexer_determined_base_type_instance->m_base_type
+                    != lang_TypeInstance::DeterminedType::NOTHING)
                 {
                     lex.record_lang_error(lexer::msglevel_t::error, node->m_index,
                         WO_ERR_CANNOT_INDEX_TYPE_WITH_TYPE,
@@ -2102,7 +2111,9 @@ namespace wo
             case lang_TypeInstance::DeterminedType::STRING:
             {
                 if (indexer_determined_base_type_instance->m_base_type
-                    != lang_TypeInstance::DeterminedType::INTEGER)
+                    != lang_TypeInstance::DeterminedType::INTEGER &&
+                    indexer_determined_base_type_instance->m_base_type
+                    != lang_TypeInstance::DeterminedType::NOTHING)
                 {
                     lex.record_lang_error(lexer::msglevel_t::error, node->m_index,
                         WO_ERR_CANNOT_INDEX_TYPE_WITH_TYPE,

@@ -131,17 +131,27 @@ namespace wo
             {
                 auto& argument = *inout_template_arguments_iter;
                 auto* params = *template_params_iter;
+                //WO_ERR_THIS_TEMPLATE_ARG_SHOULD_NOT_BE_NOTHING
 
-                if (argument.m_constant.has_value() != params->m_marked_type.has_value())
+                if (argument.m_constant.has_value())
+                {
+                    if (!params->m_marked_type.has_value())
+                        lex.record_lang_error(lexer::msglevel_t::error, params,
+                            WO_ERR_THIS_TEMPLATE_ARG_SHOULD_BE_TYPE);
+                    else if (symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE
+                        && argument.m_type->m_symbol == ctx->m_origin_types.m_nothing.m_symbol)
+                    {
+                        lex.record_lang_error(lexer::msglevel_t::error, params,
+                            WO_ERR_THIS_TEMPLATE_ARG_SHOULD_BE_TYPE);
+                    }
+                }
+                else
                 {
                     if (params->m_marked_type.has_value())
                         lex.record_lang_error(lexer::msglevel_t::error, params,
                             WO_ERR_THIS_TEMPLATE_ARG_SHOULD_BE_CONST);
-                    else
-                        lex.record_lang_error(lexer::msglevel_t::error, params,
-                            WO_ERR_THIS_TEMPLATE_ARG_SHOULD_BE_TYPE);
                 }
-                
+
                 (void)ctx->fast_create_one_template_type_alias_and_constant_in_current_scope(
                     params->m_param_name, argument);
 
@@ -345,7 +355,11 @@ namespace wo
 
             if (!check_template_argument_count_and_type(lex, node, template_arguments, *template_params)
                 || !fast_check_and_create_template_type_alias_and_constant_in_current_scope(
-                    lex, *template_params, template_arguments, checker))
+                    lex, 
+                    templating_symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE,
+                    *template_params, 
+                    template_arguments,
+                    checker))
             {
                 failed_eval_template_ast(lex, node, result);
                 return std::nullopt;
