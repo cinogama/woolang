@@ -1042,8 +1042,10 @@ extern func macro_entry(lexer: std::lexer)=> string
             following_ch = read_char();
             if (following_ch == L'\'')
                 return produce_token(lex_type::l_literal_char, std::move(token_literal_result));
+            else if(following_ch == EOF)
+                return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXCEPT_EOF);
             else
-                return produce_lexer_error(msglevel_t::error, WO_ERR_LEXER_ERR_UNKNOW_BEGIN_CH L" " WO_TERM_EXCEPTED L" '\''", following_ch);
+                return produce_lexer_error(msglevel_t::error, WO_ERR_TOO_MANY_CHAR_IN_CHAR);
         }
         case L'(':
         {
@@ -1270,13 +1272,13 @@ extern func macro_entry(lexer: std::lexer)=> string
                         {
                             append_result_char(read_char());
                             if (is_real)
-                                return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXCEPT_CH_AFTER_CH, following_chs, readed_char);
+                                return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXCEPT_CH_AFTER_CH, readed_char, following_chs);
                             is_real = true;
                         }
                         else if (lexer::lex_toupper(following_chs) == L'H')
                         {
                             if (is_real)
-                                return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXCEPT_CH_AFTER_CH, following_chs, readed_char);
+                                return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXCEPT_CH_AFTER_CH, readed_char, following_chs);
                             (void)read_char();
                             is_handle = true;
                             break;
@@ -1291,7 +1293,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                         if (lexer::lex_isxdigit(following_chs) || lexer::lex_toupper(following_chs) == L'X')
                             append_result_char(read_char());
                         else if (following_chs == L'.')
-                            return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXCEPT_CH_AFTER_CH, following_chs, readed_char);
+                            return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXCEPT_CH_AFTER_CH, readed_char, following_chs);
                         else if (lexer::lex_toupper(following_chs) == L'H')
                         {
                             (void)read_char();
@@ -1308,7 +1310,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                         if (lexer::lex_isodigit(following_chs))
                             append_result_char(read_char());
                         else if (following_chs == L'.')
-                            return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXCEPT_CH_AFTER_CH, following_chs, readed_char);
+                            return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXCEPT_CH_AFTER_CH, readed_char, following_chs);
                         else if (lexer::lex_toupper(following_chs) == L'H')
                         {
                             (void)read_char();
@@ -1325,7 +1327,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                         if (following_chs == L'1' || following_chs == L'0' || lexer::lex_toupper(following_chs) == L'B')
                             append_result_char(read_char());
                         else if (following_chs == L'.')
-                            return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXCEPT_CH_AFTER_CH, following_chs, readed_char);
+                            return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXCEPT_CH_AFTER_CH, readed_char, following_chs);
                         else if (lexer::lex_toupper(following_chs) == L'H')
                         {
                             (void)read_char();

@@ -114,7 +114,7 @@ namespace wo
             DeterminedType(DeterminedType&&);
             DeterminedType& operator=(DeterminedType&&);
         };
-        enum TypeCheckResult
+        enum class TypeCheckResult
         {
             REJECT,
             ACCEPT,
@@ -1078,6 +1078,7 @@ namespace wo
             const ast::AstIdentifier::TemplateArgumentInstance& template_arg);
         bool fast_check_and_create_template_type_alias_and_constant_in_current_scope(
             lexer& lex,
+            bool make_instance_for_variable,
             const std::list<ast::AstTemplateParam*>& template_params,
             const std::list<ast::AstIdentifier::TemplateArgumentInstance>& template_args,
             std::optional<ast::AstTemplateConstantTypeCheckInPass1*> template_checker);

@@ -117,6 +117,12 @@ namespace wo
         {
             return new AstToken(WO_NEED_TOKEN(0));
         }
+        auto pass_useless_token::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            return token{ 
+                lex.record_parser_error(
+                    lexer::msglevel_t::error, WO_ERR_UNEXCEPT_TOKEN_2, WO_NEED_TOKEN(0).identifier.c_str()) };
+        }
         auto pass_enum_item_create::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
             token name = WO_NEED_TOKEN(0);
@@ -1716,6 +1722,7 @@ namespace wo
             WO_AST_BUILDER(pass_using_namespace);
             WO_AST_BUILDER(pass_empty);
             WO_AST_BUILDER(pass_token);
+            WO_AST_BUILDER(pass_useless_token);
             WO_AST_BUILDER(pass_enum_item_create);
             WO_AST_BUILDER(pass_enum_finalize);
             WO_AST_BUILDER(pass_namespace);

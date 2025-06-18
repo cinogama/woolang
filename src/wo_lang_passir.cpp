@@ -3589,10 +3589,9 @@ namespace wo
 
             AstValueBase* eval_value = static_cast<AstValueBase*>(node_state.m_ast_node);
             lang_TypeInstance* type_instance = eval_value->m_LANG_determined_type.value();
-            auto* immutable_type_instance = immutable_type(type_instance);
 
-            if (immutable_type_instance != m_origin_types.m_void.m_type_instance
-                && immutable_type_instance != m_origin_types.m_nothing.m_type_instance)
+            if (type_instance->m_symbol != m_origin_types.m_void.m_symbol
+                && type_instance->m_symbol != m_origin_types.m_nothing.m_symbol)
             {
                 lex.record_lang_error(lexer::msglevel_t::error, eval_value,
                     WO_ERR_NON_VOID_TYPE_EXPR_AS_STMT,

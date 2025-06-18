@@ -2120,6 +2120,7 @@ namespace wo
     }
     bool LangContext::fast_check_and_create_template_type_alias_and_constant_in_current_scope(
         lexer& lex,
+        bool make_instance_for_variable,
         const std::list<ast::AstTemplateParam*>& template_params,
         const std::list<ast::AstIdentifier::TemplateArgumentInstance>& template_args,
         std::optional<ast::AstTemplateConstantTypeCheckInPass1*> template_checker)
@@ -2142,6 +2143,19 @@ namespace wo
                 if (argument.m_constant.has_value())
                 {
                     wo_assert(template_checker_p_may_null != nullptr);
+
+                    if (make_instance_for_variable
+                        && argument.m_type->m_symbol == m_origin_types.m_nothing.m_symbol)
+                    {
+                        // NOTE: To prevent instances of `nothing` from being extracted from 
+                        //  generic parameters by the type extractor technique; 
+                        //  thus rejecting all instances of Nothing as generic arguments for 
+                        //  reified variables;
+                        lex.record_lang_error(lexer::msglevel_t::error, param,
+                            WO_ERR_THIS_TEMPLATE_ARG_SHOULD_NOT_BE_NOTHING);
+
+                        return false;
+                    }
 
                     template_checker_p_may_null->m_LANG_constant_check_pairs.emplace_back(
                         ast::AstTemplateConstantTypeCheckInPass1::CheckingPair{
@@ -2747,7 +2761,7 @@ namespace wo
             //  You can invoke `eval_for_upper` directly, it has same check effect.
             wo_assert(m_eval_result_storage_target.size() == current_request_count + 1);
 #endif
-}
+        }
         else
             eval_ignore();
     }
@@ -3027,4 +3041,4 @@ namespace wo
         m_result = result;
     }
 #endif
-    }
+}

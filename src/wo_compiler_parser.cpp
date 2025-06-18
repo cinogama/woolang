@@ -940,9 +940,11 @@ namespace wo
                 }
                 else
                 {
+                    wo_assert(node.read_token().type == lex_type::l_empty);
+
                     (void)tkr.record_parser_error(
                         lexer::msglevel_t::error,
-                        WO_ERR_SHOULD_BE_AST_BASE);
+                        WO_ERR_SOURCE_CANNOT_BE_EMPTY);
                     return nullptr;
                 }
             }

@@ -211,6 +211,8 @@ namespace wo
                     {
                         switch (aconstant.type)
                         {
+                        case value::valuetype::invalid:
+                            return false; // Always equal.
                         case value::valuetype::bool_type:
                         case value::valuetype::integer_type:
                             return aconstant.integer < bconstant.integer;
