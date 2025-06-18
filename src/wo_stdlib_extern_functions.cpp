@@ -1783,6 +1783,8 @@ namespace std
         public let is_vec<AT> = typeid:<typeof(declval:<vec::item_t<AT>>())> != 0;
         public let is_dict<DT> = typeid:<typeof(declval:<dict::item_t<DT>>())> != 0;
         public let is_map<DT> = typeid:<typeof(declval:<map::item_t<DT>>())> != 0;
+        public let is_tuple<T> = typeid:<typeof((declval:<T>()...,))> != 0
+            ? is_same:<T, typeof((declval:<T>()...,))> | false;
         public let is_same<A, B> = typeid:<A> == typeid:<B> && typeid:<A> != 0;
         public let is_mutable<A> = is_same:<A, mut A>;
         public let is_invocable<F, ArgTs> = typeid:<typeof(declval:<F>()(declval:<ArgTs>()...))> != 0;

@@ -145,6 +145,7 @@ struct NAME : public astnode_builder                    \
         WO_AST_BUILDER(pass_using_namespace);
         WO_AST_BUILDER(pass_empty);
         WO_AST_BUILDER(pass_token);
+        WO_AST_BUILDER(pass_useless_token);
         WO_AST_BUILDER(pass_enum_item_create);
         WO_AST_BUILDER(pass_enum_finalize);
         WO_AST_BUILDER(pass_namespace);

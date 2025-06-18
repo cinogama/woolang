@@ -451,7 +451,7 @@ namespace wo
                 gm::nt(L"TEMPLATE_ARGUMENT_LIST") >> gm::symlist{gm::nt(L"TEMPLATE_ARGUMENT_ITEM")} >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
                 gm::nt(L"TEMPLATE_ARGUMENT_LIST") >> gm::symlist{gm::nt(L"TEMPLATE_ARGUMENT_LIST"), gm::te(gm::ttype::l_comma), gm::nt(L"TEMPLATE_ARGUMENT_ITEM")} >> WO_ASTBUILDER_INDEX(ast::pass_append_list<2, 0>),
                 gm::nt(L"TEMPLATE_ARGUMENT_ITEM") >> gm::symlist{gm::nt(L"TYPE")} >> WO_ASTBUILDER_INDEX(ast::pass_create_template_argument),
-                gm::nt(L"TEMPLATE_ARGUMENT_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_left_curly_braces), gm::nt(L"RIGHT"), gm::te(gm::ttype::l_right_curly_braces) } >> WO_ASTBUILDER_INDEX(ast::pass_create_template_argument),
+                gm::nt(L"TEMPLATE_ARGUMENT_ITEM") >> gm::symlist{gm::te(gm::ttype::l_left_curly_braces), gm::nt(L"RIGHT"), gm::te(gm::ttype::l_right_curly_braces)} >> WO_ASTBUILDER_INDEX(ast::pass_create_template_argument),
                 gm::nt(L"DEFINE_TEMPLATE_PARAM_ITEM_MAY_EMPTY") >> gm::symlist{gm::te(gm::ttype::l_empty)} >> WO_ASTBUILDER_INDEX(ast::pass_empty),
                 gm::nt(L"DEFINE_TEMPLATE_PARAM_ITEM_MAY_EMPTY") >> gm::symlist{gm::nt(L"DEFINE_TEMPLATE_PARAM_ITEM")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 gm::nt(L"DEFINE_TEMPLATE_PARAM_ITEM") >> gm::symlist{gm::te(gm::ttype::l_less), gm::nt(L"DEFINE_TEMPLATE_PARAM_LIST"), gm::te(gm::ttype::l_larg)} >> WO_ASTBUILDER_INDEX(ast::pass_direct<1>),
@@ -506,8 +506,8 @@ namespace wo
                 gm::nt(L"AST_TOKEN_IDENTIFER") >> gm::symlist{gm::nt(L"IDENTIFIER")} >> WO_ASTBUILDER_INDEX(ast::pass_token),
                 gm::nt(L"AST_TOKEN_NIL") >> gm::symlist{gm::te(gm::ttype::l_nil)} >> WO_ASTBUILDER_INDEX(ast::pass_token),
                 gm::nt(L"IDENTIFIER") >> gm::symlist{gm::te(gm::ttype::l_identifier)} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
-                gm::nt(L"USELESS_TOKEN") >> gm::symlist{gm::te(gm::ttype::l_double_index_point)} >> WO_ASTBUILDER_INDEX(ast::pass_token),
-                gm::nt(L"USELESS_TOKEN") >> gm::symlist{gm::te(gm::ttype::l_unknown_token)} >> WO_ASTBUILDER_INDEX(ast::pass_token),
+                gm::nt(L"USELESS_TOKEN") >> gm::symlist{gm::te(gm::ttype::l_double_index_point)} >> WO_ASTBUILDER_INDEX(ast::pass_useless_token),
+                gm::nt(L"USELESS_TOKEN") >> gm::symlist{gm::te(gm::ttype::l_unknown_token)} >> WO_ASTBUILDER_INDEX(ast::pass_useless_token),
                 gm::nt(L"USELESS_TOKEN") >> gm::symlist{gm::te(gm::ttype::l_macro)} >> WO_ASTBUILDER_INDEX(ast::pass_token),
             });
 
