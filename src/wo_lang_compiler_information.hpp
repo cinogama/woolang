@@ -63,7 +63,7 @@
 // PASS0_1 TYPE CHECK PARSE
 #define WO_ERR_UNFOUND_TYPE_NAMED L"未找到类型 `%ls`"
 #define WO_ERR_UNFOUND_VARIABLE_NAMED L"未找到变量、常量或函数 `%ls`"
-#define WO_ERR_UNEXPECTED_TEMPLATE_COUNT L"需要 %zu 个泛型参数, 但提供了不同数量"
+#define WO_ERR_UNEXPECTED_TEMPLATE_COUNT L"需要 %zu 个泛型参数, 但提供了 %zu 个"
 #define WO_ERR_EXPECTED_TEMPLATE_ARGUMENT L"`%ls` 需要指定泛型参数"
 #define WO_ERR_UNEXPECTED_TEMPLATE_ARGUMENT L"`%ls` 不是泛型目标, 不需要泛型参数"
 #define WO_ERR_UNEXPECTED_MATCH_TYPE_FOR_TUPLE L"匹配操作需要元组类型"
@@ -132,7 +132,7 @@
 #define WO_ERR_VALUE_SHOULD_BE_CONST_FOR_TEMPLATE_ARG L"泛型参数错误: 必须使用常量值作为参数"
 #define WO_ERR_THIS_TEMPLATE_ARG_SHOULD_BE_TYPE L"泛型参数错误: 此处需要一个类型参数"
 #define WO_ERR_THIS_TEMPLATE_ARG_SHOULD_BE_CONST L"泛型参数错误: 此处需要一个常量参数"
-#define WO_ERR_THIS_TEMPLATE_ARG_SHOULD_NOT_BE_NOTHING L"泛型参数错误: 不能使用 nothing 类型的常量作为值参数"
+#define WO_ERR_THIS_TEMPLATE_ARG_SHOULD_NOT_BE_NOTHING L"泛型参数错误: 不能使用 `nothing` 类型的常量作为值参数"
 
 // PASS0_1 TYPE CHECK PARSE(INFO)
 #define WO_INFO_MAYBE_NAMED_DEFINED_HERE L"可能是此处定义的 `%ls`"

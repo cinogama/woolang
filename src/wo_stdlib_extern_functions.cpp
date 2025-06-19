@@ -2838,21 +2838,18 @@ namespace gchandle
 }
 namespace tuple
 {
-    public alias index_result_t<T, Idx: int> = 
-        typeof(std::type_traits::is_tuple:<T>
-            ? std::declval:<T>()[Idx]
-            | std::panic_value:<{"T is not a tuple"}>);
-    let length_helper<T, Len: int> = 
-        typeid:<index_result_t:<T, {Len}>> != 0 
+    alias _nth_t<T, Idx: int> = typeof(std::declval:<T>()[Idx]);
+    let _length_counter<T, Len: int> = 
+        typeid:<_nth_t:<T, {Len}>> != 0 
             ? length_helper:<T, {Len + 1}>
             | Len;
     public let length<T> =
         std::type_traits::is_tuple:<T>
-            ? length_helper:<T, {0}>
+            ? _length_counter:<T, {0}>
             | std::panic_value:<{"T is not a tuple"}>;
     public alias nth_t<T, N: int> = typeof(
         length:<T> > N && N >= 0
-            ? std::declval:<T>()[N]
+            ? _nth_t:<T, {N}>
             | std::panic_value:<{F"tuple index: {N} out of bounds: {length:<T>}"}>()); 
     public alias car_t<T> = nth_t<T, {0}>;
     public alias nthcdr_t<T, N: int> = typeof(

@@ -2103,6 +2103,36 @@ func main()
             let a = {}: dict<int, mut void>;
             do dict::map(a, \k, v = (k, v););
         "@);
+        assure_compile_fail(@"
+            import woo::std;
+
+            using std;
+
+            using MyT<N: int> = void;
+
+            alias Aim = MyT<{128}>;
+
+            using ExMyT<T> = int;
+            let ConstHelper<C: ExMyT<MyT<{N}, int, string>>, N: T, T> = N;
+            let Const<T> = ConstHelper:<{0: ExMyT<T>}>;
+
+            do Const:<Aim>;
+        "@);
+        assure_compile_success(@"
+            import woo::std;
+
+            using std;
+
+            using MyT<N: int> = void;
+
+            alias Aim = MyT<{128}>;
+
+            using ExMyT<T> = int;
+            let ConstHelper<C: ExMyT<MyT<{N}>>, N: T, T> = N;
+            let Const<T> = ConstHelper:<{0: ExMyT<T>}>;
+
+            do Const:<Aim>;
+        "@);
     }
 
     func main()
