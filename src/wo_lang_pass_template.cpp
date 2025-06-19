@@ -80,7 +80,8 @@ namespace wo
         {
             lex.record_lang_error(lexer::msglevel_t::error, node,
                 WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
-                template_params.size());
+                template_params.size(),
+                template_arguments.size());
         }
         return false;
     }
@@ -687,14 +688,15 @@ namespace wo
                     auto& instance_template_arguments =
                         applying_type_instance->m_instance_template_arguments.value();
 
-                    wo_assert(identifier_template_arguments.size() == instance_template_arguments.size());
-
                     auto it_identifier = identifier_template_arguments.begin();
+                    const auto it_identifier_end = identifier_template_arguments.end();
+
                     auto it_instance = instance_template_arguments.begin();
-                    auto it_end = identifier_template_arguments.end();
+                    const auto it_instance_end = instance_template_arguments.end();
 
                     bool all_ok = true;
-                    for (; it_identifier != it_end; ++it_identifier, ++it_instance)
+                    for (; it_identifier != it_identifier_end && it_instance != it_instance_end;
+                        ++it_identifier, ++it_instance)
                     {
                         all_ok = template_arguments_deduction_extraction_with_formal(
                             lex,

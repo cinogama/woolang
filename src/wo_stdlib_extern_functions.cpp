@@ -1462,6 +1462,45 @@ WO_API wo_api rslib_std_gchandle_close(wo_vm vm, wo_value args)
     return wo_ret_bool(vm, wo_gchandle_close(args));
 }
 
+WO_API wo_api rslib_std_tuple_nthcdr(wo_vm vm, wo_value args)
+{
+    // func _nthcdr<T>(t: T, idx : int)=> nthcdr_t<T, {Idx}> ;
+    wo_value s = wo_reserve_stack(vm, 2, &args);
+    wo_size_t len = wo_struct_len(args + 0);
+    wo_size_t idx = (wo_size_t)wo_int(args + 1);
+
+    wo_assert(idx <= len);
+    wo_value result = s + 0;
+    wo_value elem = s + 1;
+
+    wo_set_struct(result, vm, (uint16_t)(len - idx));
+    for (size_t i = idx; i < len; ++i)
+    {
+        wo_struct_get(elem, args + 0, (uint16_t)i);
+        wo_struct_set(result, (uint16_t)(i - idx), elem);
+    }
+    return wo_ret_val(vm, result);
+}
+
+WO_API wo_api rslib_std_tuple_cdr(wo_vm vm, wo_value args)
+{
+    // func _cdr<T>(t: T)=> cdr_t<T>
+    wo_value s = wo_reserve_stack(vm, 2, &args);
+    wo_size_t len = wo_struct_len(args + 0);
+
+    wo_assert(1 <= len);
+    wo_value result = s + 0;
+    wo_value elem = s + 1;
+
+    wo_set_struct(result, vm, (uint16_t)(len - 1));
+    for (size_t i = 1; i < len; ++i)
+    {
+        wo_struct_get(elem, args + 0, (uint16_t)i);
+        wo_struct_set(result, (uint16_t)(i - 1), elem);
+    }
+    return wo_ret_val(vm, result);
+}
+
 WO_API wo_api rslib_std_int_to_hex(wo_vm vm, wo_value args)
 {
     char result[18];
@@ -1761,11 +1800,10 @@ namespace unsafe
 {
     extern("rslib_std_return_itself") 
         public func cast<T, FromT>(val: FromT)=> T;
-    
     extern("rslib_std_get_extern_symb")
-        public func extsymbol<T>(fullname: string)=> option<T>;
+        public func extern_symbol<T>(fullname: string)=> option<T>;
     extern("rslib_std_replace_tp")
-        public func replace_argc(argc: int)=> int;
+        public func swap_argc(argc: int)=> int;
 }
 namespace std
 {
@@ -2839,43 +2877,56 @@ namespace gchandle
 }
 namespace tuple
 {
-    public alias index_result_t<T, Idx: int> = 
-        typeof(std::type_traits::is_tuple:<T>
-            ? std::declval:<T>()[Idx]
-            | std::panic_value:<{"T is not a tuple"}>);
-    let length_helper<T, Len: int> = 
-        typeid:<index_result_t:<T, {Len}>> != 0 
-            ? length_helper:<T, {Len + 1}>
+    alias _nth_t<T, Idx: int> = typeof(std::declval:<T>()[Idx]);
+    let _length_counter<T, Len: int> = 
+        typeid:<_nth_t:<T, {Len}>> != 0 
+            ? _length_counter:<T, {Len + 1}>
             | Len;
     public let length<T> =
         std::type_traits::is_tuple:<T>
-            ? length_helper:<T, {0}>
-            | std::panic_value:<{"T is not a tuple"}>;
+            ? _length_counter:<T, {0}>
+            | std::panic_value:<{"T is not a tuple"}>();
+    public alias nth_t<T, N: int> = typeof(
+        length:<T> > N && N >= 0
+            ? std::declval:<_nth_t:<T, {N}>>()
+            | std::panic_value:<{F"tuple index: {N} out of bounds: {length:<T>}"}>()); 
+    public alias car_t<T> = nth_t<T, {0}>;
+    public alias nthcdr_t<T, N: int> = typeof(
+        length:<T> > N && N >= 0
+            ? (std::declval:<nth_t:<T, {N}>>(), std::declval:<nthcdr_t<T, {N + 1}>>()...)
+            | length:<T> == N
+                ? ()
+                | std::panic_value:<{F"tuple index: {N} out of bounds: {length:<T>}"}>());
+    public alias cdr_t<T> = nthcdr_t:<T, {1}>;
+    public let is_empty<T> = length:<T> == 0;
+    public let is_lat<T> = is_empty:<T> 
+        ? true
+        | std::type_traits::is_tuple:<car_t<T>>
+            ? false
+            | is_lat:<cdr_t<T>>;
     public func car<T>(t: T)
-    where length:<T> > 0;
+        where length:<T> > 0 && Idx >= 0;
     {
         return t[0];
     }
     public func nth<Idx: int, T>(t: T)
-    where length:<T> > Idx;
+        where length:<T> > Idx && Idx >= 0;
     {
         return t[Idx];
     }
     public func nthcdr<Idx: int, T>(t: T)
-    where length:<T> >= Idx;
+        where length:<T> >= Idx && Idx >= 0;
     {
-        if (Idx < length:<T>)
-            return (t[Idx], nthcdr:<{Idx + 1}, T>(t)...);
-        else
-        {
-            do t;
-            return ();
-        }
+        extern("rslib_std_tuple_nthcdr")
+            func _nthcdr<T>(t: T, idx: int)=> nthcdr_t<T, {Idx}>;
+        return _nthcdr(t, Idx);
     }
     public func cdr<T>(t: T)
-    where length:<T> > 0;
+        where length:<T> > 0;
     {
-        return nthcdr:<{1}, T>(t);
+        extern("rslib_std_tuple_cdr")
+            func _cdr<T>(t: T)=> cdr_t<T>;
+        return _cdr(t);
     }
 }
 public func assert(val: bool)
@@ -3529,6 +3580,8 @@ namespace wo
             {"rslib_std_take_token", (void*)&rslib_std_take_token},
             {"rslib_std_thread_sleep", (void*)&rslib_std_thread_sleep},
             {"rslib_std_time_sec", (void*)&rslib_std_time_sec},
+            {"rslib_std_tuple_nthcdr", (void*)&rslib_std_tuple_nthcdr},
+            {"rslib_std_tuple_cdr", (void*)&rslib_std_tuple_cdr},
             {"rslib_std_weakref_create", (void*)&rslib_std_weakref_create},
             {"rslib_std_weakref_trylock", (void*)&rslib_std_weakref_trylock},
             WO_EXTERN_LIB_FUNC_END

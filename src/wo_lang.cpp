@@ -932,7 +932,8 @@ namespace wo
                 {
                     lex.record_lang_error(lexer::msglevel_t::error, type_holder,
                         WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
-                        (size_t)2);
+                        (size_t)2,
+                        template_arguments.size());
 
                     return std::nullopt;
                 }
@@ -973,7 +974,8 @@ namespace wo
                 {
                     lex.record_lang_error(lexer::msglevel_t::error, type_holder,
                         WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
-                        (size_t)1);
+                        (size_t)1,
+                        template_arguments.size());
 
                     return std::nullopt;
                 }
