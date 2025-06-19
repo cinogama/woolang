@@ -1761,11 +1761,10 @@ namespace unsafe
 {
     extern("rslib_std_return_itself") 
         public func cast<T, FromT>(val: FromT)=> T;
-    
     extern("rslib_std_get_extern_symb")
-        public func extsymbol<T>(fullname: string)=> option<T>;
+        public func extern_symbol<T>(fullname: string)=> option<T>;
     extern("rslib_std_replace_tp")
-        public func replace_argc(argc: int)=> int;
+        public func swap_argc(argc: int)=> int;
 }
 namespace std
 {
@@ -2851,6 +2850,24 @@ namespace tuple
         std::type_traits::is_tuple:<T>
             ? length_helper:<T, {0}>
             | std::panic_value:<{"T is not a tuple"}>;
+    public alias nth_t<T, N: int> = typeof(
+        length:<T> > N && N >= 0
+            ? std::declval:<T>()[N]
+            | std::panic_value:<{F"tuple index: {N} out of bounds: {length:<T>}"}>()); 
+    public alias car_t<T> = nth_t<T, {0}>;
+    public alias nthcdr_t<T, N: int> = typeof(
+        length:<T> > N && N >= 0
+            ? (std::declval:<nth_t:<T, {N}>>(), std::declval:<nthcdr_t<T, {N + 1}>>()...)
+            | length:<T> == N
+                ? ()
+                | std::panic_value:<{F"tuple index: {N} out of bounds: {length:<T>}"}>());
+    public alias cdr_t<T> = nthcdr_t:<T, {1}>;
+    public let is_empty<T> = length:<T> == 0;
+    public let is_lat<T> = is_empty:<T> 
+        ? true
+        | std::type_traits::is_tuple:<car_t<T>>
+            ? false
+            | is_lat:<cdr_t<T>>;
     public func car<T>(t: T)
     where length:<T> > 0;
     {
