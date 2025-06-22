@@ -3478,7 +3478,7 @@ wo_bool_t wo_jit(wo_vm vm)
     if (wo::config::ENABLE_JUST_IN_TIME)
     {
         // NOTE: other operation for vm must happend after init(wo_run).
-        wo_assert(WO_VM(vm)->env->_jit_functions.empty());
+        wo_assert(WO_VM(vm)->env->_jit_code_holder.empty());
 
         analyze_jit(const_cast<wo::byte_t*>(WO_VM(vm)->env->rt_codes), WO_VM(vm)->env);
         return WO_TRUE;

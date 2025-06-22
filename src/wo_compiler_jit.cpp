@@ -407,7 +407,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
                     wo_assert(stat->m_finished);
 
                     wo_assert(nullptr != *stat->m_func);
-                    env->_jit_functions[(void*)*stat->m_func] = stat->m_func_offset;
                     env->_jit_code_holder[stat->m_func_offset] = stat->m_func;
                 }
                 else

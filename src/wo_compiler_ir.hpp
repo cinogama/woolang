@@ -470,7 +470,6 @@ namespace wo
         std::vector<size_t> _calln_opcode_offsets_for_jit;
         std::vector<size_t> _mkclos_opcode_offsets_for_jit;
 
-        std::unordered_map<void*, size_t> _jit_functions;
         std::unordered_map<size_t, wo_native_func_t*> _jit_code_holder;
 
         shared_pointer<program_debug_data_info> program_debug_info;
