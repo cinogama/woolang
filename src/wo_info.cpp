@@ -1,7 +1,9 @@
+#include "wo_afx.hpp"
+
 #define WO_IMPL
 #include "wo.h"
 
-#define WO_VERSION(DEV,MAIN,SUB,CORRECT) \
+#define WO_VERSION_INT(DEV,MAIN,SUB,CORRECT) \
     ((0x##DEV##ull)<<(3*16))|\
     ((0x##MAIN##ull)<<(2*16))|\
     ((0x##SUB##ull)<<(1*16))|\
@@ -16,14 +18,18 @@
 #   define WO_DEBUG_SFX "-debug"
 #endif
 
-constexpr wo_integer_t version = 
-    WO_VERSION(1, 14, 7, 6);
-constexpr char version_str[] = 
-    WO_VERSION_STR(1, 14, 7, 6) WO_DEBUG_SFX;
+#define WO_VER WO_VERSION_INT
+constexpr wo_integer_t version = WO_VERSION;
+#undef WO_VER
 
+#define WO_VER WO_VERSION_STR
+constexpr char version_str[] = WO_VERSION;
+#undef WO_VER
+
+#undef WO_VERSION
 #undef WO_DEBUG_SFX
 #undef WO_VERSION_STR
-#undef WO_VERSION
+#undef WO_VERSION_INT
 
 wo_string_t  wo_compile_date(void)
 {

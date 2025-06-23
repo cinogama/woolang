@@ -1,6 +1,7 @@
+#include "wo_afx.hpp"
+
 #include "wo_lang_ast_builder.hpp"
 #include "wo_lang_grammar_loader.hpp"
-#include <tuple>
 
 namespace wo
 {

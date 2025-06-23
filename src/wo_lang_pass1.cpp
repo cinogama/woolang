@@ -1,5 +1,4 @@
-#include "wo_lang.hpp"
-#include <cmath>
+#include "wo_afx.hpp"
 
 WO_API wo_api rslib_std_bad_function(wo_vm vm, wo_value args);
 

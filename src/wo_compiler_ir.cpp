@@ -1,7 +1,4 @@
-#include "wo_compiler_ir.hpp"
-#include "wo_lang_ast.hpp"
-#include "wo_global_setting.hpp"
-#include "wo_lang.hpp"
+#include "wo_afx.hpp"
 
 namespace wo
 {
@@ -406,7 +403,7 @@ namespace wo
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     runtime_env::runtime_env()
-        : constant_global(nullptr)
+        : constant_and_global_storage(nullptr)
         , constant_and_global_value_takeplace_count(0)
         , constant_value_count(0)
         , real_register_count(0)
@@ -431,20 +428,20 @@ namespace wo
         cancel_nogc.m_nogc = 0;
 
         for (size_t ci = 0; ci < constant_value_count; ++ci)
-            if (constant_global[ci].is_gcunit())
+            if (constant_and_global_storage[ci].is_gcunit())
             {
-                wo_assert(constant_global[ci].type == wo::value::valuetype::string_type);
+                wo_assert(constant_and_global_storage[ci].type == wo::value::valuetype::string_type);
 
                 gcbase::unit_attrib* attrib;
 
                 // NOTE: Constant gcunit is nogc-unit, its safe here to `get_gcunit_and_attrib_ref`.
-                auto* unit = constant_global[ci].get_gcunit_and_attrib_ref(&attrib);
+                auto* unit = constant_and_global_storage[ci].get_gcunit_and_attrib_ref(&attrib);
                 if (unit != nullptr)
                     attrib->m_attr = cancel_nogc.m_attr;
             }
 
-        if (constant_global)
-            free(constant_global);
+        if (constant_and_global_storage)
+            free(constant_and_global_storage);
 
         if (rt_codes)
             free((byte_t*)rt_codes);
@@ -529,7 +526,7 @@ namespace wo
             (uint64_t)this->constant_value_count, 8);
         for (size_t ci = 0; ci < this->constant_value_count; ++ci)
         {
-            auto& constant_value = this->constant_global[ci];
+            auto& constant_value = this->constant_and_global_storage[ci];
             wo_assert(constant_value.type == wo::value::valuetype::integer_type
                 || constant_value.type == wo::value::valuetype::real_type
                 || constant_value.type == wo::value::valuetype::handle_type
@@ -605,26 +602,26 @@ namespace wo
         }
 
         // 5.1 JIT Informations
-        write_binary_to_buffer((uint64_t)_functions_offsets_for_jit.size(), 8);
-        for (size_t function_offset : _functions_offsets_for_jit)
+        write_binary_to_buffer((uint64_t)meta_data_for_jit._functions_offsets_for_jit.size(), 8);
+        for (size_t function_offset : meta_data_for_jit._functions_offsets_for_jit)
         {
             write_binary_to_buffer((uint64_t)function_offset, 8);
         }
 
-        write_binary_to_buffer((uint64_t)_functions_def_constant_idx_for_jit.size(), 8);
-        for (size_t function_constant_offset : _functions_def_constant_idx_for_jit)
+        write_binary_to_buffer((uint64_t)meta_data_for_jit._functions_def_constant_idx_for_jit.size(), 8);
+        for (size_t function_constant_offset : meta_data_for_jit._functions_def_constant_idx_for_jit)
         {
             write_binary_to_buffer((uint64_t)function_constant_offset, 8);
         }
 
-        write_binary_to_buffer((uint64_t)_calln_opcode_offsets_for_jit.size(), 8);
-        for (size_t calln_offset : _calln_opcode_offsets_for_jit)
+        write_binary_to_buffer((uint64_t)meta_data_for_jit._calln_opcode_offsets_for_jit.size(), 8);
+        for (size_t calln_offset : meta_data_for_jit._calln_opcode_offsets_for_jit)
         {
             write_binary_to_buffer((uint64_t)calln_offset, 8);
         }
 
-        write_binary_to_buffer((uint64_t)_mkclos_opcode_offsets_for_jit.size(), 8);
-        for (size_t mkclos_offset : _mkclos_opcode_offsets_for_jit)
+        write_binary_to_buffer((uint64_t)meta_data_for_jit._mkclos_opcode_offsets_for_jit.size(), 8);
+        for (size_t mkclos_offset : meta_data_for_jit._mkclos_opcode_offsets_for_jit)
         {
             write_binary_to_buffer((uint64_t)mkclos_offset, 8);
         }
@@ -782,7 +779,7 @@ namespace wo
         value* preserved_memory = (value*)malloc(preserve_memory_size * sizeof(value));
         memset(preserved_memory, 0, preserve_memory_size * sizeof(value));
 
-        result->constant_global = preserved_memory;
+        result->constant_and_global_storage = preserved_memory;
 
         struct string_buffer_index
         {
@@ -936,7 +933,7 @@ namespace wo
             uint64_t offset = 0;
             if (!stream->read_elem(&offset))
                 WO_LOAD_BIN_FAILED("Failed to restore functions offset.");
-            result->_functions_offsets_for_jit.push_back((size_t)offset);
+            result->meta_data_for_jit._functions_offsets_for_jit.push_back((size_t)offset);
         }
 
         uint64_t _functions_constant_offsets_count = 0;
@@ -947,7 +944,7 @@ namespace wo
             uint64_t offset = 0;
             if (!stream->read_elem(&offset))
                 WO_LOAD_BIN_FAILED("Failed to restore functions offset.");
-            result->_functions_def_constant_idx_for_jit.push_back((size_t)offset);
+            result->meta_data_for_jit._functions_def_constant_idx_for_jit.push_back((size_t)offset);
         }
 
         uint64_t _calln_opcode_offsets_count = 0;
@@ -958,7 +955,7 @@ namespace wo
             uint64_t offset = 0;
             if (!stream->read_elem(&offset))
                 WO_LOAD_BIN_FAILED("Failed to restore calln offset.");
-            result->_calln_opcode_offsets_for_jit.push_back((size_t)offset);
+            result->meta_data_for_jit._calln_opcode_offsets_for_jit.push_back((size_t)offset);
         }
 
         uint64_t _mkclos_opcode_offsets_count = 0;
@@ -969,7 +966,7 @@ namespace wo
             uint64_t offset = 0;
             if (!stream->read_elem(&offset))
                 WO_LOAD_BIN_FAILED("Failed to restore mkclos offset.");
-            result->_mkclos_opcode_offsets_for_jit.push_back((size_t)offset);
+            result->meta_data_for_jit._mkclos_opcode_offsets_for_jit.push_back((size_t)offset);
         }
 
         // 6.1 Constant string buffer
@@ -1017,7 +1014,7 @@ namespace wo
             if (library_name == "")
                 func = rslib_extern_symbols::get_global_symbol(function_name.c_str());
             else
-                func = result->loaded_libs.try_load_func_from_in(script_path.c_str(), library_name.c_str(), function_name.c_str());
+                func = result->loaded_libraries.try_load_func_from_in(script_path.c_str(), library_name.c_str(), function_name.c_str());
 
             if (func == nullptr)
             {
@@ -1339,8 +1336,8 @@ namespace wo
     }
     bool runtime_env::try_find_jit_func(wo_integer_t out_script_func, wo_handle_t* out_jit_func)
     {
-        auto fnd = _jit_code_holder.find((size_t)out_script_func);
-        if (fnd != _jit_code_holder.end())
+        auto fnd = meta_data_for_jit._jit_code_holder.find((size_t)out_script_func);
+        if (fnd != meta_data_for_jit._jit_code_holder.end())
         {
             *out_jit_func = (wo_handle_t)reinterpret_cast<intptr_t>(*fnd->second);
             return true;
@@ -1899,7 +1896,7 @@ namespace wo
                 case instruct::opcode::calln:
                     if (WO_IR.op2)
                     {
-                        env->_calln_opcode_offsets_for_jit.push_back(generated_runtime_code_buf.size());
+                        env->meta_data_for_jit._calln_opcode_offsets_for_jit.push_back(generated_runtime_code_buf.size());
 
                         wo_assert(dynamic_cast<const opnum::tag*>(WO_IR.op2) != nullptr, "Operator num should be a tag.");
 
@@ -1945,7 +1942,7 @@ namespace wo
                     }
                     else
                     {
-                        env->_calln_opcode_offsets_for_jit.push_back(generated_runtime_code_buf.size());
+                        env->meta_data_for_jit._calln_opcode_offsets_for_jit.push_back(generated_runtime_code_buf.size());
 
                         generated_runtime_code_buf.push_back(WO_OPCODE(calln, 00));
 
@@ -2007,7 +2004,7 @@ namespace wo
                 }
                 case instruct::mkclos:
                 {
-                    env->_mkclos_opcode_offsets_for_jit.push_back(generated_runtime_code_buf.size());
+                    env->meta_data_for_jit._mkclos_opcode_offsets_for_jit.push_back(generated_runtime_code_buf.size());
 
                     generated_runtime_code_buf.push_back(WO_OPCODE(mkclos, 00));
 
@@ -2142,7 +2139,7 @@ namespace wo
                         {
                         case instruct::extern_opcode_page_3::funcbegin:
                             generated_runtime_code_buf.push_back(WO_OPCODE_EXT3(funcbegin));
-                            env->_functions_offsets_for_jit.push_back(generated_runtime_code_buf.size());
+                            env->meta_data_for_jit._functions_offsets_for_jit.push_back(generated_runtime_code_buf.size());
                             break;
                         case instruct::extern_opcode_page_3::funcend:
                             generated_runtime_code_buf.push_back(WO_OPCODE_EXT3(funcend));
@@ -2195,13 +2192,13 @@ namespace wo
             uint32_t offset_val = tag_offset_vector_table[tag];
             for (auto imm_value_offset : imm_value_offsets)
             {
-                env->_functions_def_constant_idx_for_jit.push_back(imm_value_offset);
+                env->meta_data_for_jit._functions_def_constant_idx_for_jit.push_back(imm_value_offset);
                 wo_assert(preserved_memory[imm_value_offset].type == value::valuetype::integer_type);
                 preserved_memory[imm_value_offset].integer = (wo_integer_t)offset_val;
             }
         }
 
-        env->constant_global = preserved_memory;
+        env->constant_and_global_storage = preserved_memory;
 
         env->constant_value_count = constant_value_count;
         env->constant_and_global_value_takeplace_count = preserve_memory_size;
@@ -2223,7 +2220,7 @@ namespace wo
         env->rt_codes = pdb_info->runtime_codes_base = code_buf;
 
         env->extern_native_functions = extern_native_functions;
-        env->loaded_libs = loaded_libs;
+        env->loaded_libraries = loaded_libraries;
 
         if (wo::config::ENABLE_PDB_INFORMATIONS)
             env->program_debug_info = pdb_info;

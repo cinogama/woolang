@@ -341,7 +341,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
             wo_stdout << "g[" << global_offset << "]: ";
             if (global_offset < vmm->env->constant_and_global_value_takeplace_count)
             {
-                auto* valueaddr = vmm->env->constant_global + vmm->env->constant_value_count + global_offset;
+                auto* valueaddr = vmm->env->constant_and_global_storage + vmm->env->constant_value_count + global_offset;
                 wo_stdout << valueaddr << " " << _safe_cast_value_to_string(valueaddr) << wo_endl;
             }
             else
@@ -496,7 +496,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                             }
 
                             printf("%-20s\n", _safe_cast_value_to_string(
-                                &target_vm->register_mem_begin[reg_idx]).c_str());
+                                &target_vm->register_storage[reg_idx]).c_str());
                         }
 
                     }
@@ -524,7 +524,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                             {
                                 current_frame++;
                                 current_frame_sp = tmp_sp;
-                                current_frame_bp = vmm->stack_mem_begin - tmp_sp->vmcallstack.bp;
+                                current_frame_bp = vmm->sb - tmp_sp->vmcallstack.bp;
                                 current_runtime_ip = vmm->env->rt_codes + tmp_sp->vmcallstack.ret_ip;
                             }
                             else
@@ -1006,7 +1006,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                                 {
                                     wo_stdout << ANSI_HIY "thread(vm) #" ANSI_HIG << vmcount << ANSI_RST " " << vms << " " << wo_endl;
 
-                                    auto usage = ((double)(vms->stack_mem_begin - vms->sp)) / (double)vms->stack_size;
+                                    auto usage = ((double)(vms->sb - vms->sp)) / (double)vms->stack_size;
                                     wo_stdout << "stack usage: " << usage * 100. << "%" << wo_endl;
 
                                     if (vms->env->rt_codes == vms->ip

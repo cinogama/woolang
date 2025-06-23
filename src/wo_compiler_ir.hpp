@@ -448,38 +448,30 @@ namespace wo
         size_t get_ip_by_runtime_ip(const  byte_t* rt_pos) const;
         size_t get_runtime_ip_by_ip(size_t ip) const;
         std::string get_current_func_signature_by_runtime_ip(const byte_t* rt_pos) const;
-
     };
 
     struct runtime_env
     {
-        value* constant_global = nullptr;
+        struct jit_meta
+        {
+            std::vector<size_t> _functions_offsets_for_jit;
+            std::vector<size_t> _functions_def_constant_idx_for_jit;
+            std::vector<size_t> _calln_opcode_offsets_for_jit;
+            std::vector<size_t> _mkclos_opcode_offsets_for_jit;
 
-        size_t constant_and_global_value_takeplace_count = 0;
-        size_t constant_value_count = 0;
-        size_t real_register_count = 0;
+            std::unordered_map<size_t, wo_native_func_t*> _jit_code_holder;
 
-        size_t rt_code_len = 0;
-        const byte_t* rt_codes = nullptr;
-
-        std::atomic_size_t _running_on_vm_count = 0;
-        std::atomic_size_t _created_destructable_instance_count = 0;
-
-        std::vector<size_t> _functions_offsets_for_jit;
-        std::vector<size_t> _functions_def_constant_idx_for_jit;
-        std::vector<size_t> _calln_opcode_offsets_for_jit;
-        std::vector<size_t> _mkclos_opcode_offsets_for_jit;
-
-        std::unordered_map<size_t, wo_native_func_t*> _jit_code_holder;
-
-        shared_pointer<program_debug_data_info> program_debug_info;
-        rslib_extern_symbols::extern_lib_set loaded_libs;
-
+            jit_meta() = default;
+            ~jit_meta() = default;
+            jit_meta(const jit_meta&) = delete;
+            jit_meta(jit_meta&&) = delete;
+            jit_meta& operator = (const jit_meta&) = delete;
+            jit_meta& operator = (jit_meta&&) = delete;
+        };
         struct extern_native_function_location
         {
             std::string script_name;
-            std::optional<std::string>
-                library_name;
+            std::optional<std::string> library_name;
             std::string function_name;
 
             // Will be fill in finalize of env.
@@ -487,13 +479,7 @@ namespace wo
 
             // Will be fill in saving binary of env.
             std::vector<size_t> constant_offset_in_binary;
-        };
-        using extern_native_functions_t = std::unordered_map<intptr_t, extern_native_function_location>;
-        extern_native_functions_t extern_native_functions;
-
-        using extern_function_map_t = std::unordered_map<std::string, size_t>;
-        extern_function_map_t extern_script_functions;
-
+        };   
         struct binary_source_stream
         {
             const char* stream;
@@ -505,9 +491,7 @@ namespace wo
                 , stream_size(streamsz)
                 , readed_size(0)
             {
-
             }
-
             bool read_buffer(void* dst, size_t count) noexcept
             {
                 if (readed_size + count <= stream_size)
@@ -519,19 +503,39 @@ namespace wo
                 }
                 return false;
             }
-
             template<typename T>
             bool read_elem(T* out_elem) noexcept
             {
                 return read_buffer(out_elem, sizeof(T));
             }
-
             size_t readed_offset() const noexcept
             {
                 return readed_size;
             }
-
         };
+
+        using extern_native_functions_t = 
+            std::unordered_map<intptr_t, extern_native_function_location>;
+        using extern_function_map_t = 
+            std::unordered_map<std::string, size_t>;
+
+        value* constant_and_global_storage = nullptr;
+        size_t constant_and_global_value_takeplace_count = 0;
+        size_t constant_value_count = 0;
+        
+        size_t real_register_count = 0;
+
+        const byte_t* rt_codes = nullptr;
+        size_t rt_code_len = 0;
+
+        std::atomic_size_t _running_on_vm_count = 0;
+        std::atomic_size_t _created_destructable_instance_count = 0;
+
+        jit_meta meta_data_for_jit;
+        shared_pointer<program_debug_data_info> program_debug_info;
+        rslib_extern_symbols::extern_lib_set loaded_libraries;
+        extern_native_functions_t extern_native_functions;
+        extern_function_map_t extern_script_functions;
 
         runtime_env();
         ~runtime_env();
@@ -641,7 +645,6 @@ namespace wo
                 , ext_page_id(_extpage)
                 , param(std::nullopt)
             {
-
             }
 
             ir_command(const ir_command&) = default;
@@ -713,7 +716,7 @@ namespace wo
             return _opnum;
         }
     public:
-        rslib_extern_symbols::extern_lib_set loaded_libs;
+        rslib_extern_symbols::extern_lib_set loaded_libraries;
         shared_pointer<program_debug_data_info> pdb_info = new program_debug_data_info();
         mutable unsigned int _unique_id = 0;
 

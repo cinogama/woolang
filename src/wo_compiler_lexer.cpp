@@ -1,5 +1,4 @@
-#include "wo_compiler_ir.hpp"
-#include "wo_vm.hpp"
+#include "wo_afx.hpp"
 
 std::string _rslib_std_string_enstring_impl(wo_string_t str, size_t len);
 wo_bool_t _wo_load_source(

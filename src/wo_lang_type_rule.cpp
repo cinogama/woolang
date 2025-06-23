@@ -1,4 +1,4 @@
-#include "wo_lang.hpp"
+#include "wo_afx.hpp"
 
 namespace wo
 {
@@ -9,8 +9,6 @@ namespace wo
         lang_TypeInstance* accepter,
         lang_TypeInstance* provider)
     {
-        // TODO CHECK LIST:
-        // 1. Make sure recursive-type will not cause infinite loop and have good habit.
         if (accepter == provider)
             return lang_TypeInstance::TypeCheckResult::ACCEPT;
 

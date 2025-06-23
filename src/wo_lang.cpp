@@ -1,7 +1,4 @@
-#include "wo_lang.hpp"
-
-#include <unordered_set>
-#include <algorithm>
+#include "wo_afx.hpp"
 
 std::string _rslib_std_string_enstring_impl(wo_string_t str, size_t len);
 
@@ -1696,7 +1693,7 @@ namespace wo
         m_ircontext.c().tag("#woolang_program_end");
         m_ircontext.c().end();
 
-        m_ircontext.c().loaded_libs = m_ircontext.m_extern_libs;
+        m_ircontext.c().loaded_libraries = m_ircontext.m_extern_libs;
 
         return donot_have_unused_local_variable ?
             compile_result::PROCESS_OK : compile_result::PROCESS_FAILED_BUT_PASS_1_OK;

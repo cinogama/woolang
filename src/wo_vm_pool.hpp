@@ -38,7 +38,7 @@ namespace wo
                     m_free_vm.pop_front();
 
                     wo_assert(vm->check_interrupt(vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
-                    wo_assert(vm->bp == vm->sp && vm->bp == vm->stack_mem_begin);
+                    wo_assert(vm->bp == vm->sp && vm->bp == vm->sb);
 
                     wo_assure(vm->clear_interrupt(vmbase::vm_interrupt_type::PENDING_INTERRUPT));
                     (void)vm->clear_interrupt(vmbase::vm_interrupt_type::ABORT_INTERRUPT);
@@ -59,12 +59,12 @@ namespace wo
                 wo_assure(wo_enter_gcguard(reinterpret_cast<wo_vm>(vm)));
 
                 // Clear stack & register to make sure gc will not mark the useless data of current vm;
-                vm->sp = vm->bp = vm->stack_mem_begin;
+                vm->sp = vm->bp = vm->sb;
 
                 const size_t register_count = vm->env->real_register_count;
                 for (size_t regi = 0; regi < register_count; ++regi)
                 {
-                    vm->register_mem_begin[regi].set_nil();
+                    vm->register_storage[regi].set_nil();
                 }
 
                 wo_assure(wo_leave_gcguard(reinterpret_cast<wo_vm>(vm)));

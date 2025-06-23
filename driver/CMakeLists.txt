@@ -9,7 +9,7 @@ if (MSVC)
     list(APPEND WOOLANG_DRIVER_SOURCES resources.rc)
 endif()
 
-add_executable(woodriver ${WOOLANG_DRIVER_SOURCES})
+add_executable(woodriver ${WOOLANG_DRIVER_SOURCES} ../include/wo.h)
 
 target_link_libraries(woodriver
     PRIVATE woolang_options

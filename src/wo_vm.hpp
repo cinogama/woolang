@@ -90,12 +90,6 @@ namespace wo
     class vmbase
     {
     public:
-        enum class jit_state : byte_t
-        {
-            NONE = 0,
-            PREPARING = 1,
-            READY = 2,
-        };
         enum class vm_type
         {
             INVALID,
@@ -195,6 +189,22 @@ namespace wo
             size_t      m_col;
             bool        m_is_extern;
         };
+        struct hangup_lock
+        {
+            std::mutex mx;
+            std::condition_variable cv;
+            std::atomic_int8_t flag;
+
+            hangup_lock();
+            ~hangup_lock() = default;
+            hangup_lock(const hangup_lock&) = delete;
+            hangup_lock(hangup_lock&&) = delete;
+            hangup_lock& operator = (const hangup_lock&) = delete;
+            hangup_lock& operator = (hangup_lock&&) = delete;
+
+            void hangup()noexcept;
+            void wakeup()noexcept;
+        };
     public:
         inline static constexpr size_t VM_DEFAULT_STACK_SIZE = 32;
         inline static constexpr size_t VM_MAX_STACK_SIZE = 128 * 1024 * 1024;
@@ -228,40 +238,39 @@ namespace wo
         static_assert(sizeof(std::atomic<uint32_t>) == sizeof(uint32_t));
         static_assert(std::atomic<uint32_t>::is_always_lock_free);
 
-        // special regist
+        // special register
         value* cr;  // op result trace & function return;
         value* tc;  // arugument count
         value* tp;  // stored argument count
 
-        // stack info
+        // stack state.
         value* sp;
         value* bp;
+        value* sb;
 
-        value* register_mem_begin;
-        value* const_global_begin;
-        value* stack_mem_begin;
-
-        value* _self_stack_mem_buf;
-        value* _self_register_mem_buf;
+        value* stack_storage;
         size_t stack_size;
 
-        vmbase* gc_vm;
+        uint8_t shrink_stack_advise;
+        uint8_t shrink_stack_edge;
+
+        // storage to addressing
+        value* register_storage;
+        value* constant_and_global_storage;
 
         // next ircode pointer
         const byte_t* ip;
-
-        std::optional<std::unique_ptr<lexer>> compile_info;
         shared_pointer<runtime_env> env;
 
-        std::mutex _vm_hang_mx;
-        std::condition_variable _vm_hang_cv;
-        std::atomic_int8_t _vm_hang_flag;
+        std::optional<std::unique_ptr<lexer>> 
+            compile_failed_state;
 
         uint8_t jit_function_call_depth;
         const vm_type virtual_machine_type;
 
-        uint8_t shrink_stack_advise;
-        uint8_t shrink_stack_edge;
+        hangup_lock hangup_state;
+
+        vmbase* gc_vm;
 
 #if WO_ENABLE_RUNTIME_CHECK
         // runtime information

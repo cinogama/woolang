@@ -49,9 +49,9 @@ if (WO_DISABLE_FUNCTION_FOR_WASM)
 endif()
 
 if (BUILD_SHARED_LIBS)
-    add_library (woolang SHARED ${woo_src_cpp} ${woo_src_hpp})
+    add_library (woolang SHARED ${woo_src_cpp} ${woo_src_hpp} ../include/wo.h)
 else()
-    add_library(woolang STATIC ${woo_src_cpp} ${woo_src_hpp})
+    add_library(woolang STATIC ${woo_src_cpp} ${woo_src_hpp} ../include/wo.h)
     if(NOT MSVC)
         target_compile_options(woolang_library_options INTERFACE -Wall -rdynamic)
     endif()
@@ -60,6 +60,8 @@ endif()
 if(WO_SUPPORT_ASMJIT)
     list(APPEND woo_system_libs asmjit)
 endif()
+
+target_precompile_headers(woolang PRIVATE wo_afx.hpp)
 
 target_link_libraries(woolang 
     PRIVATE woolang_options

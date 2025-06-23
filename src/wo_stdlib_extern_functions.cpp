@@ -1,7 +1,6 @@
+#include "wo_afx.hpp"
+
 #include "wo_lang_extern_symbol_loader.hpp"
-#include "wo_utf8.hpp"
-#include "wo_vm.hpp"
-#include "wo_io.hpp"
 
 #include <chrono>
 #include <random>

@@ -3,7 +3,6 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#include <new>
 
 void womem_init(size_t virtual_pre_alloc_size);
 void womem_shutdown(void);

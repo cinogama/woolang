@@ -1,7 +1,4 @@
-#include "wo_lang_ast.hpp"
-#include "wo_lang.hpp"
-
-#include <algorithm>
+#include "wo_afx.hpp"
 
 namespace wo
 {

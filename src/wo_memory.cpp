@@ -1,15 +1,11 @@
+#include "wo_afx.hpp"
+
 #define WOMEM_IMPL
 
 #include "wo_memory.hpp"
 #include "wo_gc.hpp"
 
 #include <cassert>
-#include <cstdio>
-#include <atomic>
-#include <list>
-#include <vector>
-#include <mutex>
-#include <algorithm>
 
 #if WO_BUILD_WITH_MINGW
 #   include <mingw.mutex.h>

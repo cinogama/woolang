@@ -1,7 +1,6 @@
+#include "wo_afx.hpp"
+
 #include "wo_compiler_jit.hpp"
-#include "wo_instruct.hpp"
-#include "wo_vm.hpp"
-#include "wo_compiler_ir.hpp"
 
 #undef FAILED
 
@@ -11,11 +10,6 @@
 #define ASMJIT_STATIC
 #endif
 #include "asmjit/asmjit.h"
-
-#include <unordered_map>
-#include <unordered_set>
-#include <list>
-#include <algorithm>
 
 namespace wo
 {
@@ -384,7 +378,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             m_codes = codebuf;
 
             // 1. for all function, trying to jit compile them:
-            for (size_t func_offset : env->_functions_offsets_for_jit)
+            for (size_t func_offset : env->meta_data_for_jit._functions_offsets_for_jit)
                 analyze_function(codebuf, func_offset, env);
 
             for (auto& [_, stat] : m_compiling_functions)
@@ -407,7 +401,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
                     wo_assert(stat->m_finished);
 
                     wo_assert(nullptr != *stat->m_func);
-                    env->_jit_code_holder[stat->m_func_offset] = stat->m_func;
+                    env->meta_data_for_jit._jit_code_holder[stat->m_func_offset] = stat->m_func;
                 }
                 else
                     delete stat->m_func;
@@ -416,18 +410,18 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             }
             _dependence_jit_function.clear();
 
-            for (size_t funtions_constant_offset : env->_functions_def_constant_idx_for_jit)
+            for (size_t funtions_constant_offset : env->meta_data_for_jit._functions_def_constant_idx_for_jit)
             {
-                auto* val = &env->constant_global[funtions_constant_offset];
+                auto* val = &env->constant_and_global_storage[funtions_constant_offset];
                 wo_assert(val->type == value::valuetype::integer_type);
 
-                auto holder = env->_jit_code_holder[(size_t)val->integer];
+                auto holder = env->meta_data_for_jit._jit_code_holder[(size_t)val->integer];
                 wo_assert(holder != nullptr && *holder != nullptr);
 
                 val->type = value::valuetype::handle_type;
                 val->handle = (wo_handle_t)(void*)*holder;
             }
-            for (size_t calln_offset : env->_calln_opcode_offsets_for_jit)
+            for (size_t calln_offset : env->meta_data_for_jit._calln_opcode_offsets_for_jit)
             {
                 wo::instruct::opcode* calln = (wo::instruct::opcode*)(codebuf + calln_offset);
                 wo_assert(((*calln) & 0b11111100) == wo::instruct::opcode::calln);
@@ -455,7 +449,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
                 else
                     wo_assert(func_state->m_state == function_jit_state::state::FAILED);
             }
-            for (size_t mkclos_offset : env->_mkclos_opcode_offsets_for_jit)
+            for (size_t mkclos_offset : env->meta_data_for_jit._mkclos_opcode_offsets_for_jit)
             {
                 wo::instruct::opcode* mkclos = (wo::instruct::opcode*)(codebuf + mkclos_offset);
                 wo_assert(((*mkclos) & 0b11111100) == wo::instruct::opcode::mkclos);
@@ -494,7 +488,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
 
         static void free_jit(runtime_env* env)
         {
-            for (auto& holder : env->_jit_code_holder)
+            for (auto& holder : env->meta_data_for_jit._jit_code_holder)
             {
                 wo_assure(!get_jit_runtime().release(*holder.second));
                 delete holder.second;
@@ -609,8 +603,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
         static wo_result_t native_do_calln_nativefunc(
             vmbase* vm, wo_extern_native_func_t call_aim_native_func, uint32_t retip, value* rt_sp, value* rt_bp)
         {
-            size_t sp_offset = vm->stack_mem_begin - rt_sp;
-            size_t bp_offset = vm->stack_mem_begin - rt_bp;
+            size_t sp_offset = vm->sb - rt_sp;
+            size_t bp_offset = vm->sb - rt_bp;
 
             rt_sp->type = value::valuetype::callstack;
             rt_sp->vmcallstack.ret_ip = retip;
@@ -626,8 +620,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
 
             if (func_call_result == WO_API_RESYNC)
             {
-                vm->sp = vm->stack_mem_begin - sp_offset;
-                vm->bp = vm->stack_mem_begin - bp_offset;
+                vm->sp = vm->sb - sp_offset;
+                vm->bp = vm->sb - bp_offset;
                 vm->ip = vm->env->rt_codes + retip;
 
                 return WO_API_SYNC;
@@ -637,8 +631,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
         static wo_result_t native_do_calln_vmfunc(
             vmbase* vm, wo_extern_native_func_t call_aim_native_func, uint32_t retip, value* rt_sp, value* rt_bp)
         {
-            size_t sp_offset = vm->stack_mem_begin - rt_sp;
-            size_t bp_offset = vm->stack_mem_begin - rt_bp;
+            size_t sp_offset = vm->sb - rt_sp;
+            size_t bp_offset = vm->sb - rt_bp;
 
             rt_sp->type = value::valuetype::callstack;
             rt_sp->vmcallstack.ret_ip = retip;
@@ -653,8 +647,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
                 reinterpret_cast<wo_vm>(vm), reinterpret_cast<wo_value>(rt_sp + 2));
             if (func_call_result == WO_API_RESYNC)
             {
-                vm->sp = vm->stack_mem_begin - sp_offset;
-                vm->bp = vm->stack_mem_begin - bp_offset;
+                vm->sp = vm->sb - sp_offset;
+                vm->bp = vm->sb - bp_offset;
                 vm->ip = vm->env->rt_codes + retip;
 
                 return WO_API_SYNC;
@@ -672,7 +666,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             switch (target_function->type)
             {
             case value::valuetype::handle_type:
-                if (rt_sp <= vm->_self_stack_mem_buf)
+                if (rt_sp <= vm->stack_storage)
                     break;
                 return native_do_calln_vmfunc(
                     vm, (wo_extern_native_func_t)(void*)target_function->handle, retip, rt_sp, rt_bp);
@@ -680,7 +674,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             {
                 wo_assert(target_function->closure->m_native_call);
 
-                if (rt_sp - target_function->closure->m_closure_args_count - 1 < vm->_self_stack_mem_buf)
+                if (rt_sp - target_function->closure->m_closure_args_count - 1 < vm->stack_storage)
                     break;
 
                 for (uint16_t idx = 0; idx < target_function->closure->m_closure_args_count; ++idx)
@@ -941,11 +935,11 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
                 if (is_constant())
                 {
                     auto offset = (size_t)
-                        (m_constant - ctx->env->constant_global);
+                        (m_constant - ctx->env->constant_and_global_storage);
                     if (std::find(
-                        ctx->env->_functions_def_constant_idx_for_jit.begin(),
-                        ctx->env->_functions_def_constant_idx_for_jit.end(),
-                        offset) == ctx->env->_functions_def_constant_idx_for_jit.end())
+                        ctx->env->meta_data_for_jit._functions_def_constant_idx_for_jit.begin(),
+                        ctx->env->meta_data_for_jit._functions_def_constant_idx_for_jit.end(),
+                        offset) == ctx->env->meta_data_for_jit._functions_def_constant_idx_for_jit.end())
                         return true;
                 };
                 return false;
@@ -1005,12 +999,12 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
                 if (const_global_index < env->constant_value_count)
                 {
                     //Is constant
-                    return may_constant_x86Gp{ &x86compiler, true, env->constant_global + const_global_index };
+                    return may_constant_x86Gp{ &x86compiler, true, env->constant_and_global_storage + const_global_index };
                 }
                 else
                 {
                     auto result = x86compiler.newUIntPtr();
-                    wo_assure(!x86compiler.mov(result, (size_t)(env->constant_global + const_global_index)));
+                    wo_assure(!x86compiler.mov(result, (size_t)(env->constant_and_global_storage + const_global_index)));
                     return may_constant_x86Gp{ &x86compiler,false,nullptr,result };
                 }
             }
@@ -1164,7 +1158,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
 
             x86_set_imm(x86compiler, rt_sp, callstack);
             auto bpoffset = x86compiler.newUInt64();
-            wo_assure(!x86compiler.mov(bpoffset, asmjit::x86::qword_ptr(vm, offsetof(vmbase, stack_mem_begin))));
+            wo_assure(!x86compiler.mov(bpoffset, asmjit::x86::qword_ptr(vm, offsetof(vmbase, sb))));
             wo_assure(!x86compiler.sub(bpoffset, rt_bp));
             wo_assure(!x86compiler.shr(bpoffset, asmjit::Imm(4)));
             wo_assure(!x86compiler.mov(
@@ -1252,8 +1246,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
 
             wo_assure(!ctx->c.sub(ctx->_vmsbp, 2 * sizeof(wo::value)));
             wo_assure(!ctx->c.mov(ctx->_vmssp, ctx->_vmsbp));                    // let sp = bp;
-            wo_assure(!ctx->c.mov(ctx->_vmshead, asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, _self_stack_mem_buf))));
-            wo_assure(!ctx->c.mov(ctx->_vmreg, asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, register_mem_begin))));
+            wo_assure(!ctx->c.mov(ctx->_vmshead, asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, stack_storage))));
+            wo_assure(!ctx->c.mov(ctx->_vmreg, asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, register_storage))));
             wo_assure(!ctx->c.mov(ctx->_vmcr, asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, cr))));
             wo_assure(!ctx->c.mov(ctx->_vmtc, asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, tc))));
             wo_assure(!ctx->c.mov(ctx->_vmtp, asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, tp))));

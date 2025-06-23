@@ -1,10 +1,4 @@
-#include "wo_lang.hpp"
-
-#include <memory>
-#include <optional>
-#include <forward_list>
-#include <map>
-#include <unordered_map>
+#include "wo_afx.hpp"
 
 #ifndef WO_DISABLE_COMPILER
 
