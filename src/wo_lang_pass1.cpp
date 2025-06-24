@@ -1955,12 +1955,9 @@ namespace wo
                 // This tuple can be constant.
                 wo::value value;
                 struct_t* compile_time_struct =
-                    new struct_t(
+                    value.set_struct_nogc(
                         static_cast<uint16_t>(
-                            element_constants.size()));
-
-                value.set_gcunit<value::valuetype::struct_type>(
-                    compile_time_struct);
+                            element_constants.size()))->structs;
 
                 uint16_t idx = 0;
                 for (auto& constant_value : element_constants)

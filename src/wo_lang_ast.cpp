@@ -525,7 +525,7 @@ namespace wo
                     }
                     case AstIdentifier::identifier_formal::FROM_CURRENT:
                     {
-                        if (variable->m_identifier->m_scope.empty() 
+                        if (variable->m_identifier->m_scope.empty()
                             && !variable->m_identifier->m_template_arguments.has_value())
                         {
                             size_t offset = 0;
@@ -781,14 +781,29 @@ namespace wo
         AstValueBase::~AstValueBase()
         {
             if (m_evaled_const_value && m_evaled_const_value.value().is_gcunit())
-                delete m_evaled_const_value.value().gcunit;
+            {
+                gcbase::unit_attrib cancel_nogc;
+                cancel_nogc.m_gc_age = 0;
+                cancel_nogc.m_marked = (uint8_t)gcbase::gcmarkcolor::full_mark;
+                cancel_nogc.m_alloc_mask = 0;
+                cancel_nogc.m_nogc = 0;
+
+                gcbase::unit_attrib* gcunit_attrib;
+                auto* unit = m_evaled_const_value.value().
+                    get_gcunit_and_attrib_ref(&gcunit_attrib);
+
+                wo_assert(unit != nullptr);
+                (void)unit;
+
+                gcunit_attrib->m_attr = cancel_nogc.m_attr;
+            }
         }
         void AstValueBase::decide_final_constant_value(const wo::value& val)
         {
             wo_assert(!m_evaled_const_value);
 
             m_evaled_const_value = wo::value();
-            m_evaled_const_value->set_val_compile_time(&val);
+            m_evaled_const_value->set_val_with_compile_time_check(&val);
         }
         void AstValueBase::decide_final_constant_value(const std::string& cstr)
         {
@@ -807,7 +822,7 @@ namespace wo
         }
 
         ////////////////////////////////////////////////////////
-        
+
         AstValueNothing::AstValueNothing()
             : AstValueBase(AST_VALUE_NOTHING)
         {
@@ -874,8 +889,9 @@ namespace wo
                 ;
             AstValueBase::make_dup(new_instance, out_continues);
             new_instance->m_evaled_const_value = wo::value();
-            new_instance->m_evaled_const_value.value().set_val_compile_time(
-                &m_evaled_const_value.value());
+            new_instance->m_evaled_const_value.value().
+                set_val_with_compile_time_check(
+                    &m_evaled_const_value.value());
             return new_instance;
         }
 
@@ -2303,7 +2319,7 @@ namespace wo
                 {
                     std::list<AstTemplateArgument*> template_arguments(template_parameters.value().size());
                     auto template_parameter_iter = template_parameters.value().begin();
-   
+
                     for (auto& template_argument : template_arguments)
                     {
                         auto* template_parameter = *template_parameter_iter;

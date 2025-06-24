@@ -133,11 +133,22 @@ namespace wo
         }
         inline value* set_string_nogc(const std::string& str)
         {
-            // You must 'delete' it manual
-            set_gcunit<wo::value::valuetype::string_type>(new string_t(str));
+            // You must reset the no-gc flag manually.
+            set_gcunit<wo::value::valuetype::string_type>(
+                string_t::gc_new<gcbase::gctype::no_gc>(str));
             return this;
         }
-        inline value* set_val_compile_time(const value* val);
+        inline value* set_struct_nogc(uint16_t sz);
+        inline value* set_val_with_compile_time_check(const value* val)
+        {
+            if (val->is_gcunit())
+            {
+                auto* attrib = val->fast_get_attrib_for_assert_check();
+                wo_assert(attrib != nullptr);
+                wo_assert(attrib->m_nogc != 0);
+            }
+            return set_val(val);
+        }
         inline value* set_integer(wo_integer_t val)
         {
             type = valuetype::integer_type;
@@ -460,26 +471,11 @@ namespace wo
             set_val(from);
         return this;
     }
-    inline value* value::set_val_compile_time(const value* val)
+    inline value* value::set_struct_nogc(uint16_t sz)
     {
-        if (val->type == valuetype::string_type)
-            return set_string_nogc(*val->string);
-        else if (val->type == valuetype::struct_type)
-        {
-            struct_t* compile_time_unit =
-                new struct_t(val->structs->m_count);
-
-            for (uint16_t idx = 0; idx < compile_time_unit->m_count; ++idx)
-            {
-                compile_time_unit->m_values[idx].set_val(
-                    &val->structs->m_values[idx]);
-            }
-
-            set_gcunit<wo::value::valuetype::struct_type>(compile_time_unit);
-            return this;
-        }
-
-        wo_assert(!val->is_gcunit());
-        return set_val(val);
+        // You must reset the no-gc flag manually.
+        set_gcunit<wo::value::valuetype::struct_type>(
+            struct_t::gc_new<gcbase::gctype::no_gc>(sz));
+        return this;
     }
 }

@@ -451,8 +451,7 @@ namespace wo
     void lang_ValueInstance::set_const_value(const value& init_val)
     {
         wo::value new_constant;
-        new_constant.set_val_compile_time(&init_val);
-
+        new_constant.set_val_with_compile_time_check(&init_val);
         m_determined_constant_or_function = new_constant;
     }
 
