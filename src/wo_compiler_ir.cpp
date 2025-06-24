@@ -137,7 +137,8 @@ namespace wo
                 auto* imm_opnum_stx_offset = dynamic_cast<const opnum::immbase*>(opnum2);
                 if (imm_opnum_stx_offset)
                 {
-                    auto stx_offset = imm_opnum_stx_offset->try_int();
+                    wo_assert(imm_opnum_stx_offset->type() == wo::value::valuetype::integer_type);
+                    auto stx_offset = imm_opnum_stx_offset->constant_value.integer;
                     if (stx_offset <= 0)
                     {
                         ir_command_buffer[i].op2 =
@@ -1387,7 +1388,8 @@ namespace wo
             wo_assert(constant_index < constant_value_count,
                 "Constant index out of range.");
 
-            constant_record->apply(&preserved_memory[constant_index]);
+            constant_record->apply_to_constant_instance(
+                &preserved_memory[constant_index]);
 
             if (auto* addr_tagimm_rsfunc = dynamic_cast<opnum::tagimm_rsfunc*>(constant_record))
             {

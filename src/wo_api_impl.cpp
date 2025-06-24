@@ -4577,27 +4577,27 @@ void wo_ir_bind_tag(wo_ir_compiler compiler, wo_string_t name)
 void wo_ir_int(wo_ir_compiler compiler, wo_integer_t val)
 {
     auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
-    c->ir_opnum(wo::opnum::imm(val));
+    c->ir_opnum(wo::opnum::imm_int(val));
 }
 void wo_ir_real(wo_ir_compiler compiler, wo_real_t val)
 {
     auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
-    c->ir_opnum(wo::opnum::imm(val));
+    c->ir_opnum(wo::opnum::imm_real(val));
 }
 void wo_ir_handle(wo_ir_compiler compiler, wo_handle_t val)
 {
     auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
-    c->ir_opnum(wo::opnum::imm_hdl(val));
+    c->ir_opnum(wo::opnum::imm_handle(val));
 }
 void wo_ir_string(wo_ir_compiler compiler, wo_string_t val)
 {
     auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
-    c->ir_opnum(wo::opnum::imm_str(val));
+    c->ir_opnum(wo::opnum::imm_string(val));
 }
 void wo_ir_bool(wo_ir_compiler compiler, wo_bool_t val)
 {
     auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
-    c->ir_opnum(wo::opnum::imm((bool)val));
+    c->ir_opnum(wo::opnum::imm_int((bool)val));
 }
 void wo_ir_glb(wo_ir_compiler compiler, int32_t offset)
 {

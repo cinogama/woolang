@@ -131,7 +131,7 @@ namespace wo
                 string_t::gc_new<gcbase::gctype::young>((const char*)buf, sz));
             return this;
         }
-        inline value* set_string_nogc(const std::string& str)
+        inline value* set_string_nogc(std::string_view str)
         {
             // You must reset the no-gc flag manually.
             set_gcunit<wo::value::valuetype::string_type>(

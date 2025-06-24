@@ -498,7 +498,22 @@ namespace wo
             if (determined_value != nullptr)
             {
                 if (determined_value->is_gcunit())
-                    delete determined_value->gcunit;
+                {
+                    gcbase::unit_attrib cancel_nogc;
+                    cancel_nogc.m_gc_age = 0;
+                    cancel_nogc.m_marked = (uint8_t)gcbase::gcmarkcolor::full_mark;
+                    cancel_nogc.m_alloc_mask = 0;
+                    cancel_nogc.m_nogc = 0;
+
+                    gcbase::unit_attrib* gcunit_attrib;
+                    auto* unit = determined_value->
+                        get_gcunit_and_attrib_ref(&gcunit_attrib);
+
+                    wo_assert(unit != nullptr);
+                    (void)unit;
+
+                    gcunit_attrib->m_attr = cancel_nogc.m_attr;
+                }
             }
         }
     }
@@ -1477,7 +1492,7 @@ namespace wo
             used_tmp_regs); // set reserved size
 
         // Generate default return 0 for global block.
-        m_ircontext.c().mov(opnum::reg(opnum::reg::spreg::cr), opnum::imm(0));  // mov cr, 0
+        m_ircontext.c().mov(opnum::reg(opnum::reg::spreg::cr), opnum::imm_int(0));  // mov cr, 0
         m_ircontext.c().jmp(opnum::tag("#woolang_program_end"));    // jmp #woolang_program_end
 
         // final.2 Finalize function codes.
@@ -1646,7 +1661,7 @@ namespace wo
                     != m_origin_types.m_void.m_type_instance)
                 {
                     m_ircontext.c().ext_panic(
-                        opnum::imm_str("The function should have returned `"
+                        opnum::imm_string("The function should have returned `"
                             + std::string(get_type_name(eval_function->m_LANG_determined_return_type.value()))
                             + "`, but ended without providing a return value"));
                 }
@@ -2797,7 +2812,7 @@ namespace wo
             return fnd->second.get();
 
         return m_opnum_cache_imm_int.insert(
-            std::make_pair(value, std::make_unique<opnum::imm<wo_integer_t>>(value)))
+            std::make_pair(value, std::make_unique<opnum::imm_int>(value)))
             .first->second.get();
     }
     opnum::immbase* BytecodeGenerateContext::opnum_imm_real(wo_real_t value) noexcept
@@ -2807,7 +2822,7 @@ namespace wo
             return fnd->second.get();
 
         return m_opnum_cache_imm_real.insert(
-            std::make_pair(value, std::make_unique<opnum::imm<wo_real_t>>(value)))
+            std::make_pair(value, std::make_unique<opnum::imm_real>(value)))
             .first->second.get();
     }
     opnum::immbase* BytecodeGenerateContext::opnum_imm_handle(wo_handle_t value) noexcept
@@ -2817,7 +2832,7 @@ namespace wo
             return fnd->second.get();
 
         return m_opnum_cache_imm_handle.insert(
-            std::make_pair(value, std::make_unique<opnum::imm_hdl>(value)))
+            std::make_pair(value, std::make_unique<opnum::imm_handle>(value)))
             .first->second.get();
     }
     opnum::immbase* BytecodeGenerateContext::opnum_imm_string(const std::string& value) noexcept
@@ -2827,7 +2842,7 @@ namespace wo
             return fnd->second.get();
 
         return m_opnum_cache_imm_string.insert(
-            std::make_pair(value, std::make_unique<opnum::imm_str>(value)))
+            std::make_pair(value, std::make_unique<opnum::imm_string>(value)))
             .first->second.get();
     }
     opnum::immbase* BytecodeGenerateContext::opnum_imm_bool(bool value) noexcept
@@ -2917,8 +2932,8 @@ namespace wo
     }
 
     BytecodeGenerateContext::BytecodeGenerateContext() noexcept
-        : m_opnum_cache_imm_true(std::make_unique<opnum::imm<bool>>(true))
-        , m_opnum_cache_imm_false(std::make_unique<opnum::imm<bool>>(false))
+        : m_opnum_cache_imm_true(std::make_unique<opnum::imm_bool>(true))
+        , m_opnum_cache_imm_false(std::make_unique<opnum::imm_bool>(false))
         , m_global_storage_allocating(0)
     {
     }

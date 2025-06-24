@@ -1950,7 +1950,7 @@ namespace wo
 
             node->m_LANG_determined_type = m_origin_types.create_tuple_type(element_types);
 
-            if (element_constants.size() == element_types.size())
+            if (false && element_constants.size() == element_types.size())
             {
                 // This tuple can be constant.
                 wo::value value;
@@ -2401,7 +2401,7 @@ namespace wo
                             : false);
                         break;
                     case lang_TypeInstance::DeterminedType::STRING:
-                        casted_value.set_string(
+                        casted_value.set_string_nogc(
                             wo_cast_string(std::launder(reinterpret_cast<wo_value>(&cast_from_const))));
                         break;
                     default:
