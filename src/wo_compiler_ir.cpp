@@ -413,16 +413,20 @@ namespace wo
         , _running_on_vm_count(0)
         , _created_destructable_instance_count(0)
     {
-
     }
-
     static void cancel_nogc_mark_for_value(const value& val)
     {
         switch (val.type)
         {
         case value::valuetype::struct_type:
-            for (uint16_t idx = 0; idx < val.structs->m_count; ++idx)
-                cancel_nogc_mark_for_value(val.structs->m_values[idx]);
+            if (val.structs != nullptr)
+            {
+                // Un-completed struct might be created when loading from binary.
+                // unit might be nullptr.
+
+                for (uint16_t idx = 0; idx < val.structs->m_count; ++idx)
+                    cancel_nogc_mark_for_value(val.structs->m_values[idx]);
+            }
             [[fallthrough]];
         case value::valuetype::string_type:
         {
@@ -436,12 +440,13 @@ namespace wo
 
             // NOTE: Constant gcunit is nogc-unit, its safe here to `get_gcunit_and_attrib_ref`.
             auto* unit = val.get_gcunit_and_attrib_ref(&attrib);
-
-            wo_assert(unit != nullptr);
-            wo_assert(attrib->m_nogc != 0);
-            (void)unit;
-
-            attrib->m_attr = cancel_nogc.m_attr;
+            if (unit != nullptr)
+            {
+                // Un-completed string might be created when loading from binary.
+                // unit might be nullptr.
+                wo_assert(attrib->m_nogc != 0);
+                attrib->m_attr = cancel_nogc.m_attr;
+            }
             break;
         }
         default:
@@ -516,11 +521,52 @@ namespace wo
         };
         _string_pool_t constant_string_pool;
 
+        std::function<void(const wo::value&)> write_value_to_buffer;
         auto write_constant_str_to_buffer =
             [&write_binary_to_buffer, &constant_string_pool](const char* str, size_t len)
         {
             write_binary_to_buffer((uint32_t)constant_string_pool.insert(str, len), 4);
             write_binary_to_buffer((uint32_t)len, 4);
+        };
+        auto write_constant_struct_to_buffer =
+            [&write_binary_to_buffer, &write_value_to_buffer](const struct_t* struct_instance)
+        {
+            write_binary_to_buffer((uint64_t)struct_instance->m_count, 8);
+            for (uint16_t idx = 0; idx < struct_instance->m_count; ++idx)
+            {
+                write_value_to_buffer(struct_instance->m_values[idx]);
+            }
+        };
+        write_value_to_buffer =
+            [this, 
+            &write_binary_to_buffer, 
+            &write_constant_str_to_buffer,
+            &write_constant_struct_to_buffer](const wo::value& val)
+        {
+            write_binary_to_buffer((uint64_t)val.type_space, 8);
+
+            switch (val.type)
+            {
+            case wo::value::valuetype::string_type:
+                // Record for string
+                write_constant_str_to_buffer(
+                    val.string->c_str(), val.string->size());
+                break;
+            case wo::value::valuetype::struct_type:
+                // Record for struct
+                write_constant_struct_to_buffer(
+                    val.structs);
+                break;
+            default:
+                // Record for value
+                wo_assert(val.type == wo::value::valuetype::integer_type
+                    || val.type == wo::value::valuetype::real_type
+                    || val.type == wo::value::valuetype::handle_type
+                    || val.type == wo::value::valuetype::bool_type
+                    || val.type == wo::value::valuetype::invalid);
+                write_binary_to_buffer((uint64_t)val.value_space, 8);
+                break;
+            }
         };
 
         // 1.1 (+0) Magic number(0x3001A26B look like WOOLANG B)
@@ -545,27 +591,12 @@ namespace wo
         for (size_t ci = 0; ci < this->constant_value_count; ++ci)
         {
             auto& constant_value = this->constant_and_global_storage[ci];
-            wo_assert(constant_value.type == wo::value::valuetype::integer_type
-                || constant_value.type == wo::value::valuetype::real_type
-                || constant_value.type == wo::value::valuetype::handle_type
-                || constant_value.type == wo::value::valuetype::bool_type
-                || constant_value.type == wo::value::valuetype::string_type
-                || constant_value.type == wo::value::valuetype::invalid);
 
-            write_binary_to_buffer((uint64_t)constant_value.type_space, 8);
-
-            if (constant_value.type == wo::value::valuetype::string_type)
-            {
-                // Record for string
-                write_constant_str_to_buffer(constant_value.string->c_str(), constant_value.string->size());
-            }
-            else
-                // Record for value
-                write_binary_to_buffer((uint64_t)constant_value.value_space, 8);
+            write_value_to_buffer(constant_value);
 
             if (constant_value.type == wo::value::valuetype::handle_type)
             {
-                // Check if constant_value is function address from native?
+                // Check if val is function address from native?
                 auto fnd = this->extern_native_functions.find((intptr_t)constant_value.handle);
                 if (fnd != this->extern_native_functions.end())
                 {
@@ -816,7 +847,8 @@ namespace wo
             if (preserved_memory[ci].type == wo::value::valuetype::string_type)
             {
                 uint32_t constant_string_pool_loc, constant_string_pool_size;
-                if (!stream->read_elem(&constant_string_pool_loc) || !stream->read_elem(&constant_string_pool_size))
+                if (!stream->read_elem(&constant_string_pool_loc) 
+                    || !stream->read_elem(&constant_string_pool_size))
                     WO_LOAD_BIN_FAILED("Failed to restore constant string.");
 
                 auto& loc = constant_string_index_for_update[ci];
