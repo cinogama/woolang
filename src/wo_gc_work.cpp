@@ -811,7 +811,8 @@ namespace wo
                             for (size_t unitidx = 0; unitidx < unit_count; ++unitidx)
                             {
                                 gcbase::unit_attrib* attr;
-                                void* unit = womem_get_unit_ptr_attribute(units + unitidx * unit_size,
+                                void* unit = womem_get_unit_ptr_attribute(
+                                    units + unitidx * unit_size,
                                     std::launder(reinterpret_cast<womem_attrib_t**>(&attr)));
                                 if (unit != nullptr)
                                 {

@@ -137,14 +137,7 @@ namespace wo
             set_gcunit<wo::value::valuetype::string_type>(new string_t(str));
             return this;
         }
-        inline value* set_val_compile_time(const value* val)
-        {
-            if (val->type == valuetype::string_type)
-                return set_string_nogc(*val->string);
-
-            wo_assert(!val->is_gcunit());
-            return set_val(val);
-        }
+        inline value* set_val_compile_time(const value* val);
         inline value* set_integer(wo_integer_t val)
         {
             type = valuetype::integer_type;
@@ -466,5 +459,27 @@ namespace wo
         else
             set_val(from);
         return this;
+    }
+    inline value* value::set_val_compile_time(const value* val)
+    {
+        if (val->type == valuetype::string_type)
+            return set_string_nogc(*val->string);
+        else if (val->type == valuetype::struct_type)
+        {
+            struct_t* compile_time_unit =
+                new struct_t(val->structs->m_count);
+
+            for (uint16_t idx = 0; idx < compile_time_unit->m_count; ++idx)
+            {
+                compile_time_unit->m_values[idx].set_val(
+                    &val->structs->m_values[idx]);
+            }
+
+            set_gcunit<wo::value::valuetype::struct_type>(compile_time_unit);
+            return this;
+        }
+
+        wo_assert(!val->is_gcunit());
+        return set_val(val);
     }
 }

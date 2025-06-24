@@ -157,7 +157,6 @@ namespace wo
             virtual int64_t try_int()const = 0;
             virtual int64_t try_set_int(int64_t _val) = 0;
         };
-
         struct tag :virtual opnumbase
         {
             std::string name;
@@ -254,7 +253,6 @@ namespace wo
                     return (bool)val;
             }
         };
-
         struct imm_str :virtual immbase
         {
             std::string val;
@@ -287,7 +285,6 @@ namespace wo
                 v->set_gcunit<wo::value::valuetype::string_type>(
                     string_t::gc_new<gcbase::gctype::no_gc>(val));
             }
-
             virtual int64_t try_int()const override
             {
                 wo_error("Immediate is not integer.");
@@ -304,7 +301,6 @@ namespace wo
                 return true;
             }
         };
-
         struct imm_hdl :virtual immbase
         {
             wo_handle_t val;
@@ -312,12 +308,10 @@ namespace wo
                 : val(v)
             {
             }
-
             value::valuetype type()const noexcept override
             {
                 return value::valuetype::handle_type;
             }
-
             bool operator < (const immbase& _another) const override
             {
                 if (dynamic_cast<const tag*>(&_another))
@@ -330,13 +324,11 @@ namespace wo
 
                 return t < t2;
             }
-
             void apply(value* v) const override
             {
                 v->type = type();
                 v->set_handle(val);
             }
-
             virtual int64_t try_int()const override
             {
                 return (int64_t)val;

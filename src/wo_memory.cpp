@@ -597,7 +597,7 @@ void* womem_enum_pages(size_t* page_count, size_t* page_size)
 
 void* womem_get_unit_buffer(void* page, size_t* unit_count, size_t* unit_size)
 {
-    auto* p = std::launder(reinterpret_cast<womem::Page*>(page));
+    auto* p = reinterpret_cast<womem::Page*>(page);
     if (p->m_normal_page.m_free_page == 0)
     {
         *unit_count = (size_t)p->m_normal_page.m_max_avliable_unit_count;
@@ -617,7 +617,7 @@ void* womem_get_unit_page(void* unit)
 
 void* womem_get_unit_ptr_attribute(void* unit, womem_attrib_t** attrib)
 {
-    auto* p = std::launder(reinterpret_cast<womem::PageUnitHead*>(unit));
+    auto* p = reinterpret_cast<womem::PageUnitHead*>(unit);
     if (p->m_in_used_flag)
     {
         *attrib = &p->m_attrib;

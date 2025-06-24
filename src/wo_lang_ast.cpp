@@ -789,7 +789,6 @@ namespace wo
 
             m_evaled_const_value = wo::value();
             m_evaled_const_value->set_val_compile_time(&val);
-
         }
         void AstValueBase::decide_final_constant_value(const std::string& cstr)
         {
