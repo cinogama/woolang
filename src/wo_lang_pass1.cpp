@@ -10,7 +10,7 @@ namespace wo
     bool LangContext::update_pattern_symbol_variable_type_pass1(
         lexer& lex,
         ast::AstPatternBase* pattern,
-        const std::optional<AstValueBase*>& init_value,
+        const std::optional<std::variant<AstValueBase*, const value*>>& init_value,
         const std::optional<lang_TypeInstance*>& init_value_type)
     {
         switch (pattern->node_type)
@@ -30,8 +30,15 @@ namespace wo
                 if (!lang_symbol->m_value_instance->m_mutable
                     && init_value.has_value())
                 {
-                    lang_symbol->m_value_instance->try_determine_const_value(
-                        init_value.value());
+                    std::visit(
+                        [lang_symbol](auto* p)
+                        {
+                            if constexpr (std::is_same_v<AstValueBase*, decltype(p)>)
+                                lang_symbol->m_value_instance->try_determine_const_value(p);
+                            else
+                                lang_symbol->m_value_instance->set_const_value(*p);
+
+                        }, init_value.value());
                 }
             }
             return true;
@@ -48,6 +55,27 @@ namespace wo
 
                 return false;
             }
+
+            std::optional<const value*> constant_tuple_value = std::nullopt;
+            if (init_value.has_value())
+            {
+                std::visit(
+                    [&constant_tuple_value](auto* p)
+                    {
+                        if constexpr (std::is_same_v<AstValueBase*, decltype(p)>)
+                        {
+                            if (p->m_evaled_const_value.has_value())
+                                constant_tuple_value = &p->m_evaled_const_value.value();
+                        }
+                        else
+                            constant_tuple_value = p;
+
+                    }, init_value.value());
+
+                wo_assert(!constant_tuple_value.has_value()
+                    || constant_tuple_value.value()->type == value::valuetype::struct_type);
+            }
+
             auto* determined_type = determined_type_may_nullopt.value();
 
             if (determined_type->m_base_type == lang_TypeInstance::DeterminedType::TUPLE)
@@ -61,9 +89,15 @@ namespace wo
 
                     bool success = true;
 
-                    for (; pattern_iter != pattern_end; ++pattern_iter, ++type_iter)
+                    for (uint16_t idx = 0; pattern_iter != pattern_end; ++pattern_iter, ++type_iter, ++idx)
+                    {
+                        std::optional<const value*> constant_elem_value = std::nullopt;
+                        if (constant_tuple_value.has_value())
+                            constant_elem_value = &constant_tuple_value.value()->structs->m_values[idx];
+
                         success = success && update_pattern_symbol_variable_type_pass1(
-                            lex, *pattern_iter, std::nullopt, *type_iter);
+                            lex, *pattern_iter, constant_elem_value, *type_iter);
+                    }
 
                     return success;
                 }
@@ -1950,7 +1984,7 @@ namespace wo
 
             node->m_LANG_determined_type = m_origin_types.create_tuple_type(element_types);
 
-            if (false && element_constants.size() == element_types.size())
+            if (element_constants.size() == element_types.size())
             {
                 // This tuple can be constant.
                 wo::value value;
@@ -2149,6 +2183,16 @@ namespace wo
                 index_raw_result = tuple_type->m_element_types[index];
                 node->m_LANG_fast_index_for_struct = index;
 
+                if (node->m_container->m_evaled_const_value.has_value())
+                {
+                    // Indexing const tuple.
+                    struct_t* constant_tuple =
+                        node->m_container->m_evaled_const_value.value().structs;
+
+                    wo_assert(index < static_cast<wo_integer_t>(constant_tuple->m_count));
+                    node->decide_final_constant_value(
+                        constant_tuple->m_values[index]);
+                }
                 break;
             }
             case lang_TypeInstance::DeterminedType::STRING:

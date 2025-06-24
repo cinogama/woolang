@@ -2869,8 +2869,8 @@ namespace wo
         case wo::value::valuetype::string_type:
             return opnum_imm_string(*val.string);
         default:
-            wo_error("Unexpected value type");
-            return nullptr;
+            return m_opnum_cache_imm_value.emplace_back(
+                std::make_unique<opnum::immbase>(val)).get();
         }
     }
     opnum::tagimm_rsfunc* BytecodeGenerateContext::opnum_imm_rsfunc(const std::string& value) noexcept

@@ -415,29 +415,48 @@ namespace wo
     {
 
     }
+
+    static void cancel_nogc_mark_for_value(const value& val)
+    {
+        switch (val.type)
+        {
+        case value::valuetype::struct_type:
+            for (uint16_t idx = 0; idx < val.structs->m_count; ++idx)
+                cancel_nogc_mark_for_value(val.structs->m_values[idx]);
+            [[fallthrough]];
+        case value::valuetype::string_type:
+        {
+            gcbase::unit_attrib cancel_nogc;
+            cancel_nogc.m_gc_age = 0;
+            cancel_nogc.m_marked = (uint8_t)gcbase::gcmarkcolor::full_mark;
+            cancel_nogc.m_alloc_mask = 0;
+            cancel_nogc.m_nogc = 0;
+
+            gcbase::unit_attrib* attrib;
+
+            // NOTE: Constant gcunit is nogc-unit, its safe here to `get_gcunit_and_attrib_ref`.
+            auto* unit = val.get_gcunit_and_attrib_ref(&attrib);
+
+            wo_assert(unit != nullptr);
+            wo_assert(attrib->m_nogc != 0);
+            (void)unit;
+
+            attrib->m_attr = cancel_nogc.m_attr;
+            break;
+        }
+        default:
+            wo_assert(!val.is_gcunit());
+            break;
+        }
+    }
+
     runtime_env::~runtime_env()
     {
         if (wo::config::ENABLE_JUST_IN_TIME)
             free_jit(this);
 
-        gcbase::unit_attrib cancel_nogc;
-        cancel_nogc.m_gc_age = 0;
-        cancel_nogc.m_marked = (uint8_t)gcbase::gcmarkcolor::full_mark;
-        cancel_nogc.m_alloc_mask = 0;
-        cancel_nogc.m_nogc = 0;
-
         for (size_t ci = 0; ci < constant_value_count; ++ci)
-            if (constant_and_global_storage[ci].is_gcunit())
-            {
-                wo_assert(constant_and_global_storage[ci].type == wo::value::valuetype::string_type);
-
-                gcbase::unit_attrib* attrib;
-
-                // NOTE: Constant gcunit is nogc-unit, its safe here to `get_gcunit_and_attrib_ref`.
-                auto* unit = constant_and_global_storage[ci].get_gcunit_and_attrib_ref(&attrib);
-                if (unit != nullptr)
-                    attrib->m_attr = cancel_nogc.m_attr;
-            }
+            cancel_nogc_mark_for_value(constant_and_global_storage[ci]);
 
         if (constant_and_global_storage)
             free(constant_and_global_storage);
@@ -2181,8 +2200,8 @@ namespace wo
             for (auto offset : offsets)
             {
                 memcpy(
-                    generated_runtime_code_buf.data() + offset, 
-                    &offset_val, 
+                    generated_runtime_code_buf.data() + offset,
+                    &offset_val,
                     sizeof(offset_val));
             }
         }

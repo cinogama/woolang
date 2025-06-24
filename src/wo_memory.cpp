@@ -137,8 +137,8 @@ namespace womem
         // Init current page
         void init_normal(uint8_t normal_group)
         {
-            assert(normal_group > 0);
-            assert(m_normal_page.m_page_unit_group == 0 || m_normal_page.m_page_unit_group == normal_group);
+            wo_assert(normal_group > 0);
+            wo_assert(m_normal_page.m_page_unit_group == 0 || m_normal_page.m_page_unit_group == normal_group);
 
             const size_t unit_size = (size_t)_WO_EVAL_ALLOC_GROUP_SZ(normal_group);
 
@@ -165,15 +165,15 @@ namespace womem
             m_normal_page.m_page_unit_group = normal_group;
             m_normal_page.m_free_page = 0;
 
-            assert(m_normal_page.m_alloc_count < m_normal_page.m_max_avliable_unit_count);
-            assert(m_normal_page.m_free_offset_idx < m_normal_page.m_max_avliable_unit_count);
+            wo_assert(m_normal_page.m_alloc_count < m_normal_page.m_max_avliable_unit_count);
+            wo_assert(m_normal_page.m_free_offset_idx < m_normal_page.m_max_avliable_unit_count);
         }
 
         // Alloc
         void* alloc_normal(womem_attrib_t attrib)
         {
-            assert(m_normal_page.m_alloc_count < m_normal_page.m_max_avliable_unit_count);
-            assert(m_normal_page.m_free_offset_idx < m_normal_page.m_max_avliable_unit_count);
+            wo_assert(m_normal_page.m_alloc_count < m_normal_page.m_max_avliable_unit_count);
+            wo_assert(m_normal_page.m_free_offset_idx < m_normal_page.m_max_avliable_unit_count);
 
             const size_t unit_size = (size_t)_WO_EVAL_ALLOC_GROUP_SZ(m_normal_page.m_page_unit_group);
 
@@ -186,7 +186,7 @@ namespace womem
 
             m_normal_page.m_free_offset_idx = head->m_last_free_idx;
 
-            assert(head->m_in_used_flag == 0);
+            wo_assert(head->m_in_used_flag == 0);
             head->m_attrib = attrib;
             head->m_in_used_flag = 1;
             return head + 1; // Return!
@@ -257,9 +257,9 @@ namespace womem
             const_cast<size_t&>(m_chunk_size) = reserving_chunk_size;
             const_cast<char*&>(m_virtual_memory) = reserved_chunk_buffer;
 
-            assert(m_chunk_size % WO_SYS_MEM_PAGE_SIZE == 0);
-            assert(m_max_page <= UINT32_MAX);
-            assert(m_virtual_memory != nullptr);
+            wo_assert(m_chunk_size % WO_SYS_MEM_PAGE_SIZE == 0);
+            wo_assert(m_max_page <= UINT32_MAX);
+            wo_assert(m_virtual_memory != nullptr);
         }
 
         ~Chunk()
@@ -559,7 +559,7 @@ void womem_free(void* memptr)
     auto* head = (womem::PageUnitHead*)memptr - 1;
     auto* page = womem::_global_chunk->find_page(head);
 
-    assert(page);
+    wo_assert(page);
 
     head->m_in_used_flag = 0;
     --page->m_normal_page.m_alloc_count;

@@ -181,31 +181,110 @@ namespace wo
             {
                 constant_value.set_val_with_compile_time_check(&val);
             }
+
+            enum class compare_result : uint8_t
+            {
+                LESS_THEN,
+                EQUAL,
+                GREATER_THEN,
+            };
+
+            static compare_result compare_value_less_than(const value& a, const value& b)
+            {
+                if (a.type != b.type)
+                {
+                    if (a.type < b.type)
+                        return compare_result::LESS_THEN;
+                    else if (a.type == b.type)
+                        return compare_result::EQUAL;
+                    return compare_result::GREATER_THEN;
+                }
+
+                switch (a.type)
+                {
+                case wo::value::valuetype::bool_type:
+                case wo::value::valuetype::integer_type:
+                    if (a.integer < b.integer)
+                        return compare_result::LESS_THEN;
+                    else if (a.integer == b.integer)
+                        return compare_result::EQUAL;
+                    return compare_result::GREATER_THEN;
+                case wo::value::valuetype::real_type:
+                    if (a.real < b.real)
+                        return compare_result::LESS_THEN;
+                    else if (a.real == b.real)
+                        return compare_result::EQUAL;
+                    return compare_result::GREATER_THEN;
+                case wo::value::valuetype::handle_type:
+                    if (a.handle < b.handle)
+                        return compare_result::LESS_THEN;
+                    else if (a.handle == b.handle)
+                        return compare_result::EQUAL;
+                    return compare_result::GREATER_THEN;
+                case wo::value::valuetype::string_type:
+                    if (*a.string < *b.string)
+                        return compare_result::LESS_THEN;
+                    else if (*a.string == *b.string)
+                        return compare_result::EQUAL;
+                    return compare_result::GREATER_THEN;
+                case wo::value::valuetype::struct_type:
+                {
+                    const uint16_t b_member_count = b.structs->m_count;
+                    uint16_t idx = 0;
+                    for (; idx < a.structs->m_count; ++idx)
+                    {
+                        if (idx >= b_member_count)
+                            return compare_result::GREATER_THEN;
+
+                        auto result = compare_value_less_than(
+                            a.structs->m_values[idx], b.structs->m_values[idx]);
+
+                        if (result != compare_result::EQUAL)
+                            return result;
+                    }
+                    if (idx == b_member_count)
+                        return compare_result::EQUAL; // Equal;
+                    return compare_result::LESS_THEN;
+                }
+                default:
+                    wo_error("Unsupported constant type.");
+                    return compare_result::EQUAL;
+                }
+            }
+            static void apply_value_to_constant_instance(const value& a, value* out_value)
+            {
+                if (a.is_gcunit())
+                {
+                    wo_assert(a.fast_get_attrib_for_assert_check()->m_nogc != 0);
+                    switch (a.type)
+                    {
+                    case wo::value::valuetype::string_type:
+                        out_value->set_string_nogc(*a.string);
+                        break;
+                    case wo::value::valuetype::struct_type:
+                        out_value->set_struct_nogc(a.structs->m_count);
+                        for (uint16_t idx = 0; idx < a.structs->m_count; ++idx)
+                        {
+                            apply_value_to_constant_instance(
+                                a.structs->m_values[idx],
+                                &out_value->structs->m_values[idx]);
+                        }
+                        break;
+                    default:
+                        wo_error("Unsupported constant type.");
+                    }
+                }
+                else
+                    out_value->set_val(&a);
+            }
+
             virtual bool operator < (const immbase& another) const
             {
                 if (dynamic_cast<const tag*>(&another))
                     return false;
 
-                if (constant_value.type != another.constant_value.type)
-                    return constant_value.type < another.constant_value.type;
-
-                switch (constant_value.type)
-                {
-                case wo::value::valuetype::bool_type:
-                case wo::value::valuetype::integer_type:
-                    return constant_value.integer < another.constant_value.integer;
-                case wo::value::valuetype::real_type:
-                    return constant_value.real < another.constant_value.real;
-                case wo::value::valuetype::handle_type:
-                    return constant_value.handle < another.constant_value.handle;
-                case wo::value::valuetype::string_type:
-                    return *constant_value.string < *another.constant_value.string;
-                case wo::value::valuetype::struct_type:
-                    // Holy...
-                default:
-                    wo_error("Unsupported constant type.");
-                }
-                return false;
+                return compare_result::LESS_THEN == 
+                    compare_value_less_than(constant_value, another.constant_value);
             }
             value::valuetype type()const
             {
@@ -213,21 +292,7 @@ namespace wo
             }
             void apply_to_constant_instance(value* out_value) const
             {
-                if (constant_value.is_gcunit())
-                {
-                    switch (constant_value.type)
-                    {
-                    case wo::value::valuetype::string_type:
-                        out_value->set_string_nogc(*constant_value.string);
-                        break;
-                    case wo::value::valuetype::struct_type:
-                        // Holy...
-                    default:
-                        wo_error("Unsupported constant type.");
-                    }
-                }
-                else
-                    out_value->set_val(&constant_value);
+                apply_value_to_constant_instance(constant_value, out_value);
             }
             size_t generate_opnum_to_buffer(cxx_vec_t<byte_t>& buffer) const override
             {
@@ -282,23 +347,40 @@ namespace wo
             {
                 constant_value.set_string_nogc(val);
             }
+            explicit imm_string(const imm_string& another)
+                : immbase(wo::value{})
+            {
+                constant_value.set_string_nogc(
+                    *another.constant_value.string);
+            }
+            explicit imm_string(imm_string&& another)
+                : immbase(std::move(another.constant_value))
+            {
+                another.constant_value.set_nil();
+            }
+            imm_string& operator = (const imm_string& another) = delete;
+            imm_string& operator = (imm_string&& another) = delete;
             ~imm_string()
             {
-                wo_assert(constant_value.type == value::string_type);
+                if (constant_value.type != value::valuetype::invalid)
+                {
+                    wo_assert(constant_value.type == value::string_type);
 
-                gcbase::unit_attrib cancel_nogc;
-                cancel_nogc.m_gc_age = 0;
-                cancel_nogc.m_marked = (uint8_t)gcbase::gcmarkcolor::full_mark;
-                cancel_nogc.m_alloc_mask = 0;
-                cancel_nogc.m_nogc = 0;
+                    gcbase::unit_attrib cancel_nogc;
+                    cancel_nogc.m_gc_age = 0;
+                    cancel_nogc.m_marked = (uint8_t)gcbase::gcmarkcolor::full_mark;
+                    cancel_nogc.m_alloc_mask = 0;
+                    cancel_nogc.m_nogc = 0;
 
-                gcbase::unit_attrib* gcunit_attrib;
-                auto* unit = constant_value.get_gcunit_and_attrib_ref(&gcunit_attrib);
+                    gcbase::unit_attrib* gcunit_attrib;
+                    auto* unit = constant_value.get_gcunit_and_attrib_ref(&gcunit_attrib);
 
-                wo_assert(unit != nullptr);
-                (void)unit;
+                    wo_assert(unit != nullptr);
+                    wo_assert(gcunit_attrib->m_nogc != 0);
+                    (void)unit;
 
-                gcunit_attrib->m_attr = cancel_nogc.m_attr;
+                    gcunit_attrib->m_attr = cancel_nogc.m_attr;
+                }
             }
         };
 
