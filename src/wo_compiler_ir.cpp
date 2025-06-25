@@ -1,7 +1,4 @@
-#include "wo_compiler_ir.hpp"
-#include "wo_lang_ast.hpp"
-#include "wo_global_setting.hpp"
-#include "wo_lang.hpp"
+#include "wo_afx.hpp"
 
 namespace wo
 {
@@ -140,7 +137,8 @@ namespace wo
                 auto* imm_opnum_stx_offset = dynamic_cast<const opnum::immbase*>(opnum2);
                 if (imm_opnum_stx_offset)
                 {
-                    auto stx_offset = imm_opnum_stx_offset->try_int();
+                    wo_assert(imm_opnum_stx_offset->type() == wo::value::valuetype::integer_type);
+                    auto stx_offset = imm_opnum_stx_offset->constant_value.integer;
                     if (stx_offset <= 0)
                     {
                         ir_command_buffer[i].op2 =
@@ -401,12 +399,12 @@ namespace wo
             sprintf(ptrr, "0x%p>", rt_pos);
             return ptrr;
 
-        }();
+            }();
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     runtime_env::runtime_env()
-        : constant_global(nullptr)
+        : constant_and_global_storage(nullptr)
         , constant_and_global_value_takeplace_count(0)
         , constant_value_count(0)
         , real_register_count(0)
@@ -415,36 +413,58 @@ namespace wo
         , _running_on_vm_count(0)
         , _created_destructable_instance_count(0)
     {
-
     }
+    static void cancel_nogc_mark_for_value(const value& val)
+    {
+        switch (val.type)
+        {
+        case value::valuetype::struct_type:
+            if (val.structs != nullptr)
+            {
+                // Un-completed struct might be created when loading from binary.
+                // unit might be nullptr.
+
+                for (uint16_t idx = 0; idx < val.structs->m_count; ++idx)
+                    cancel_nogc_mark_for_value(val.structs->m_values[idx]);
+            }
+            [[fallthrough]];
+        case value::valuetype::string_type:
+        {
+            gcbase::unit_attrib cancel_nogc;
+            cancel_nogc.m_gc_age = 0;
+            cancel_nogc.m_marked = (uint8_t)gcbase::gcmarkcolor::full_mark;
+            cancel_nogc.m_alloc_mask = 0;
+            cancel_nogc.m_nogc = 0;
+
+            gcbase::unit_attrib* attrib;
+
+            // NOTE: Constant gcunit is nogc-unit, its safe here to `get_gcunit_and_attrib_ref`.
+            auto* unit = val.get_gcunit_and_attrib_ref(&attrib);
+            if (unit != nullptr)
+            {
+                // Un-completed string might be created when loading from binary.
+                // unit might be nullptr.
+                wo_assert(attrib->m_nogc != 0);
+                attrib->m_attr = cancel_nogc.m_attr;
+            }
+            break;
+        }
+        default:
+            wo_assert(!val.is_gcunit());
+            break;
+        }
+    }
+
     runtime_env::~runtime_env()
     {
         if (wo::config::ENABLE_JUST_IN_TIME)
-        {
             free_jit(this);
-        }
-
-        gcbase::unit_attrib cancel_nogc;
-        cancel_nogc.m_gc_age = 0;
-        cancel_nogc.m_marked = (uint8_t)gcbase::gcmarkcolor::full_mark;
-        cancel_nogc.m_alloc_mask = 0;
-        cancel_nogc.m_nogc = 0;
 
         for (size_t ci = 0; ci < constant_value_count; ++ci)
-            if (constant_global[ci].is_gcunit())
-            {
-                wo_assert(constant_global[ci].type == wo::value::valuetype::string_type);
+            cancel_nogc_mark_for_value(constant_and_global_storage[ci]);
 
-                gcbase::unit_attrib* attrib;
-
-                // NOTE: Constant gcunit is nogc-unit, its safe here to `get_gcunit_and_attrib_ref`.
-                auto* unit = constant_global[ci].get_gcunit_and_attrib_ref(&attrib);
-                if (unit != nullptr)
-                    attrib->m_attr = cancel_nogc.m_attr;
-            }
-
-        if (constant_global)
-            free(constant_global);
+        if (constant_and_global_storage)
+            free(constant_and_global_storage);
 
         if (rt_codes)
             free((byte_t*)rt_codes);
@@ -455,27 +475,27 @@ namespace wo
         std::vector<wo::byte_t> binary_buffer;
         auto write_buffer_to_buffer =
             [&binary_buffer](const void* written_data, size_t written_length, size_t allign)
-        {
-            const size_t write_begin_place = binary_buffer.size();
+            {
+                const size_t write_begin_place = binary_buffer.size();
 
-            wo_assert(write_begin_place % allign == 0);
+                wo_assert(write_begin_place % allign == 0);
 
-            binary_buffer.resize(write_begin_place + written_length);
+                binary_buffer.resize(write_begin_place + written_length);
 
-            memcpy(binary_buffer.data() + write_begin_place, written_data, written_length);
-            return binary_buffer.size();
-        };
+                memcpy(binary_buffer.data() + write_begin_place, written_data, written_length);
+                return binary_buffer.size();
+            };
 
         auto write_binary_to_buffer =
             [&write_buffer_to_buffer](const auto& d, size_t size_for_assert)
-        {
-            const wo::byte_t* written_data = std::launder(reinterpret_cast<const wo::byte_t*>(&d));
-            const size_t written_length = sizeof(d);
+            {
+                const wo::byte_t* written_data = std::launder(reinterpret_cast<const wo::byte_t*>(&d));
+                const size_t written_length = sizeof(d);
 
-            wo_assert(written_length == size_for_assert);
+                wo_assert(written_length == size_for_assert);
 
-            return write_buffer_to_buffer(written_data, written_length, sizeof(d) > 8 ? 8 : sizeof(d));
-        };
+                return write_buffer_to_buffer(written_data, written_length, sizeof(d) > 8 ? 8 : sizeof(d));
+            };
 
         class _string_pool_t
         {
@@ -501,12 +521,53 @@ namespace wo
         };
         _string_pool_t constant_string_pool;
 
+        std::function<void(const wo::value&)> write_value_to_buffer;
         auto write_constant_str_to_buffer =
             [&write_binary_to_buffer, &constant_string_pool](const char* str, size_t len)
-        {
-            write_binary_to_buffer((uint32_t)constant_string_pool.insert(str, len), 4);
-            write_binary_to_buffer((uint32_t)len, 4);
-        };
+            {
+                write_binary_to_buffer((uint32_t)constant_string_pool.insert(str, len), 4);
+                write_binary_to_buffer((uint32_t)len, 4);
+            };
+        auto write_constant_struct_to_buffer =
+            [&write_binary_to_buffer, &write_value_to_buffer](const struct_t* struct_instance)
+            {
+                write_binary_to_buffer((uint64_t)struct_instance->m_count, 8);
+                for (uint16_t idx = 0; idx < struct_instance->m_count; ++idx)
+                {
+                    write_value_to_buffer(struct_instance->m_values[idx]);
+                }
+            };
+        write_value_to_buffer =
+            [this,
+            &write_binary_to_buffer,
+            &write_constant_str_to_buffer,
+            &write_constant_struct_to_buffer](const wo::value& val)
+            {
+                write_binary_to_buffer((uint64_t)val.type_space, 8);
+
+                switch (val.type)
+                {
+                case wo::value::valuetype::string_type:
+                    // Record for string
+                    write_constant_str_to_buffer(
+                        val.string->c_str(), val.string->size());
+                    break;
+                case wo::value::valuetype::struct_type:
+                    // Record for struct
+                    write_constant_struct_to_buffer(
+                        val.structs);
+                    break;
+                default:
+                    // Record for value
+                    wo_assert(val.type == wo::value::valuetype::integer_type
+                        || val.type == wo::value::valuetype::real_type
+                        || val.type == wo::value::valuetype::handle_type
+                        || val.type == wo::value::valuetype::bool_type
+                        || val.type == wo::value::valuetype::invalid);
+                    write_binary_to_buffer((uint64_t)val.value_space, 8);
+                    break;
+                }
+            };
 
         // 1.1 (+0) Magic number(0x3001A26B look like WOOLANG B)
         write_binary_to_buffer((uint32_t)0x3001A26B, 4);
@@ -529,28 +590,13 @@ namespace wo
             (uint64_t)this->constant_value_count, 8);
         for (size_t ci = 0; ci < this->constant_value_count; ++ci)
         {
-            auto& constant_value = this->constant_global[ci];
-            wo_assert(constant_value.type == wo::value::valuetype::integer_type
-                || constant_value.type == wo::value::valuetype::real_type
-                || constant_value.type == wo::value::valuetype::handle_type
-                || constant_value.type == wo::value::valuetype::bool_type
-                || constant_value.type == wo::value::valuetype::string_type
-                || constant_value.type == wo::value::valuetype::invalid);
+            auto& constant_value = this->constant_and_global_storage[ci];
 
-            write_binary_to_buffer((uint64_t)constant_value.type_space, 8);
-
-            if (constant_value.type == wo::value::valuetype::string_type)
-            {
-                // Record for string
-                write_constant_str_to_buffer(constant_value.string->c_str(), constant_value.string->size());
-            }
-            else
-                // Record for value
-                write_binary_to_buffer((uint64_t)constant_value.value_space, 8);
+            write_value_to_buffer(constant_value);
 
             if (constant_value.type == wo::value::valuetype::handle_type)
             {
-                // Check if constant_value is function address from native?
+                // Check if val is function address from native?
                 auto fnd = this->extern_native_functions.find((intptr_t)constant_value.handle);
                 if (fnd != this->extern_native_functions.end())
                 {
@@ -605,26 +651,26 @@ namespace wo
         }
 
         // 5.1 JIT Informations
-        write_binary_to_buffer((uint64_t)_functions_offsets_for_jit.size(), 8);
-        for (size_t function_offset : _functions_offsets_for_jit)
+        write_binary_to_buffer((uint64_t)meta_data_for_jit._functions_offsets_for_jit.size(), 8);
+        for (size_t function_offset : meta_data_for_jit._functions_offsets_for_jit)
         {
             write_binary_to_buffer((uint64_t)function_offset, 8);
         }
 
-        write_binary_to_buffer((uint64_t)_functions_def_constant_idx_for_jit.size(), 8);
-        for (size_t function_constant_offset : _functions_def_constant_idx_for_jit)
+        write_binary_to_buffer((uint64_t)meta_data_for_jit._functions_def_constant_idx_for_jit.size(), 8);
+        for (size_t function_constant_offset : meta_data_for_jit._functions_def_constant_idx_for_jit)
         {
             write_binary_to_buffer((uint64_t)function_constant_offset, 8);
         }
 
-        write_binary_to_buffer((uint64_t)_calln_opcode_offsets_for_jit.size(), 8);
-        for (size_t calln_offset : _calln_opcode_offsets_for_jit)
+        write_binary_to_buffer((uint64_t)meta_data_for_jit._calln_opcode_offsets_for_jit.size(), 8);
+        for (size_t calln_offset : meta_data_for_jit._calln_opcode_offsets_for_jit)
         {
             write_binary_to_buffer((uint64_t)calln_offset, 8);
         }
 
-        write_binary_to_buffer((uint64_t)_mkclos_opcode_offsets_for_jit.size(), 8);
-        for (size_t mkclos_offset : _mkclos_opcode_offsets_for_jit)
+        write_binary_to_buffer((uint64_t)meta_data_for_jit._mkclos_opcode_offsets_for_jit.size(), 8);
+        for (size_t mkclos_offset : meta_data_for_jit._mkclos_opcode_offsets_for_jit)
         {
             write_binary_to_buffer((uint64_t)mkclos_offset, 8);
         }
@@ -770,7 +816,6 @@ namespace wo
             WO_LOAD_BIN_FAILED("Failed to restore constant count.");
 
         shared_pointer<runtime_env> result = new runtime_env;
-
         result->real_register_count = (size_t)register_count;
         result->constant_and_global_value_takeplace_count =
             (size_t)(constant_value_count + 1 + global_value_count + 1);
@@ -782,38 +827,75 @@ namespace wo
         value* preserved_memory = (value*)malloc(preserve_memory_size * sizeof(value));
         memset(preserved_memory, 0, preserve_memory_size * sizeof(value));
 
-        result->constant_global = preserved_memory;
+        result->constant_and_global_storage = preserved_memory;
 
         struct string_buffer_index
         {
             uint32_t index;
             uint32_t size;
         };
-        std::map<uint64_t, string_buffer_index> constant_string_index_for_update;
+        std::map<value*, string_buffer_index> constant_string_index_for_update;
+
+        std::function<bool(value*)> read_value_from_buffer =
+            [
+                &stream,
+                out_reason,
+                &constant_string_index_for_update,
+                &read_value_from_buffer](value* out_val)
+            {
+                uint64_t constant_type_scope, constant_value_scope;
+                if (!stream->read_elem(&constant_type_scope))
+                    return false;
+
+                out_val->type_space = constant_type_scope;
+                switch (out_val->type)
+                {
+                case wo::value::valuetype::struct_type:
+                {
+                    uint64_t constant_struct_size;
+                    if (!stream->read_elem(&constant_struct_size))
+                        return false;
+
+                    out_val->set_struct_nogc(static_cast<uint16_t>(constant_struct_size));
+                    for (uint16_t idx = 0; idx < constant_struct_size; ++idx)
+                    {
+                        if (!read_value_from_buffer(&out_val->structs->m_values[idx]))
+                            return false;
+                    }
+                    break;
+                }
+                case wo::value::valuetype::string_type:
+                {
+                    uint32_t constant_string_pool_loc, constant_string_pool_size;
+                    if (!stream->read_elem(&constant_string_pool_loc)
+                        || !stream->read_elem(&constant_string_pool_size))
+                        return false;
+
+                    auto& loc = constant_string_index_for_update[out_val];
+                    loc.index = constant_string_pool_loc;
+                    loc.size = constant_string_pool_size;
+                    break;
+                }
+                case wo::value::valuetype::integer_type:
+                case wo::value::valuetype::real_type:
+                case wo::value::valuetype::handle_type:
+                case wo::value::valuetype::bool_type:
+                case wo::value::valuetype::invalid:
+                    if (!stream->read_elem(&constant_value_scope))
+                        return false;
+                    out_val->value_space = constant_value_scope;
+                    break;
+                default:
+                    return false;
+                }
+
+                return true;
+            };
 
         for (uint64_t ci = 0; ci < constant_value_count; ++ci)
         {
-            uint64_t constant_type_scope, constant_value_scope;
-            if (!stream->read_elem(&constant_type_scope))
-                WO_LOAD_BIN_FAILED("Failed to restore constant type.");
-
-            preserved_memory[ci].type_space = constant_type_scope;
-            if (preserved_memory[ci].type == wo::value::valuetype::string_type)
-            {
-                uint32_t constant_string_pool_loc, constant_string_pool_size;
-                if (!stream->read_elem(&constant_string_pool_loc) || !stream->read_elem(&constant_string_pool_size))
-                    WO_LOAD_BIN_FAILED("Failed to restore constant string.");
-
-                auto& loc = constant_string_index_for_update[ci];
-                loc.index = constant_string_pool_loc;
-                loc.size = constant_string_pool_size;
-            }
-            else
-            {
-                if (!stream->read_elem(&constant_value_scope))
-                    WO_LOAD_BIN_FAILED("Failed to restore constant value.");
-                preserved_memory[ci].value_space = constant_value_scope;
-            }
+            if (!read_value_from_buffer(&preserved_memory[ci]))
+                WO_LOAD_BIN_FAILED("Failed to restore constant value.");
         }
 
         // 3.1 Code data
@@ -936,7 +1018,7 @@ namespace wo
             uint64_t offset = 0;
             if (!stream->read_elem(&offset))
                 WO_LOAD_BIN_FAILED("Failed to restore functions offset.");
-            result->_functions_offsets_for_jit.push_back((size_t)offset);
+            result->meta_data_for_jit._functions_offsets_for_jit.push_back((size_t)offset);
         }
 
         uint64_t _functions_constant_offsets_count = 0;
@@ -947,7 +1029,7 @@ namespace wo
             uint64_t offset = 0;
             if (!stream->read_elem(&offset))
                 WO_LOAD_BIN_FAILED("Failed to restore functions offset.");
-            result->_functions_def_constant_idx_for_jit.push_back((size_t)offset);
+            result->meta_data_for_jit._functions_def_constant_idx_for_jit.push_back((size_t)offset);
         }
 
         uint64_t _calln_opcode_offsets_count = 0;
@@ -958,7 +1040,7 @@ namespace wo
             uint64_t offset = 0;
             if (!stream->read_elem(&offset))
                 WO_LOAD_BIN_FAILED("Failed to restore calln offset.");
-            result->_calln_opcode_offsets_for_jit.push_back((size_t)offset);
+            result->meta_data_for_jit._calln_opcode_offsets_for_jit.push_back((size_t)offset);
         }
 
         uint64_t _mkclos_opcode_offsets_count = 0;
@@ -969,7 +1051,7 @@ namespace wo
             uint64_t offset = 0;
             if (!stream->read_elem(&offset))
                 WO_LOAD_BIN_FAILED("Failed to restore mkclos offset.");
-            result->_mkclos_opcode_offsets_for_jit.push_back((size_t)offset);
+            result->meta_data_for_jit._mkclos_opcode_offsets_for_jit.push_back((size_t)offset);
         }
 
         // 6.1 Constant string buffer
@@ -983,22 +1065,22 @@ namespace wo
 
         auto restore_string_from_buffer =
             [&string_pool_buffer](const string_buffer_index& string_index, std::string* out_str)->bool
-        {
-            if (string_index.index + string_index.size > string_pool_buffer.size())
-                return false;
-            *out_str = std::string(string_pool_buffer.data() + string_index.index, string_index.size);
-            return true;
-        };
+            {
+                if (string_index.index + string_index.size > string_pool_buffer.size())
+                    return false;
+                *out_str = std::string(string_pool_buffer.data() + string_index.index, string_index.size);
+                return true;
+            };
 
         std::string constant_string;
-        for (auto& [constant_offset, string_index] : constant_string_index_for_update)
+        for (auto& [store_value, string_index] : constant_string_index_for_update)
         {
-            wo_assert(preserved_memory[constant_offset].type == wo::value::valuetype::string_type);
+            wo_assert(store_value->type == wo::value::valuetype::string_type);
 
             if (!restore_string_from_buffer(string_index, &constant_string))
                 WO_LOAD_BIN_FAILED("Failed to restore string from string buffer.");
 
-            preserved_memory[constant_offset].set_gcunit<wo::value::valuetype::string_type>(
+            store_value->set_gcunit<wo::value::valuetype::string_type>(
                 string_t::gc_new<gcbase::gctype::no_gc>(constant_string));
         }
 
@@ -1017,7 +1099,7 @@ namespace wo
             if (library_name == "")
                 func = rslib_extern_symbols::get_global_symbol(function_name.c_str());
             else
-                func = result->loaded_libs.try_load_func_from_in(script_path.c_str(), library_name.c_str(), function_name.c_str());
+                func = result->loaded_libraries.try_load_func_from_in(script_path.c_str(), library_name.c_str(), function_name.c_str());
 
             if (func == nullptr)
             {
@@ -1339,8 +1421,8 @@ namespace wo
     }
     bool runtime_env::try_find_jit_func(wo_integer_t out_script_func, wo_handle_t* out_jit_func)
     {
-        auto fnd = _jit_code_holder.find((size_t)out_script_func);
-        if (fnd != _jit_code_holder.end())
+        auto fnd = meta_data_for_jit._jit_code_holder.find((size_t)out_script_func);
+        if (fnd != meta_data_for_jit._jit_code_holder.end())
         {
             *out_jit_func = (wo_handle_t)reinterpret_cast<intptr_t>(*fnd->second);
             return true;
@@ -1392,7 +1474,8 @@ namespace wo
             wo_assert(constant_index < constant_value_count,
                 "Constant index out of range.");
 
-            constant_record->apply(&preserved_memory[constant_index]);
+            constant_record->apply_to_constant_instance(
+                &preserved_memory[constant_index]);
 
             if (auto* addr_tagimm_rsfunc = dynamic_cast<opnum::tagimm_rsfunc*>(constant_record))
             {
@@ -1899,7 +1982,7 @@ namespace wo
                 case instruct::opcode::calln:
                     if (WO_IR.op2)
                     {
-                        env->_calln_opcode_offsets_for_jit.push_back(generated_runtime_code_buf.size());
+                        env->meta_data_for_jit._calln_opcode_offsets_for_jit.push_back(generated_runtime_code_buf.size());
 
                         wo_assert(dynamic_cast<const opnum::tag*>(WO_IR.op2) != nullptr, "Operator num should be a tag.");
 
@@ -1945,7 +2028,7 @@ namespace wo
                     }
                     else
                     {
-                        env->_calln_opcode_offsets_for_jit.push_back(generated_runtime_code_buf.size());
+                        env->meta_data_for_jit._calln_opcode_offsets_for_jit.push_back(generated_runtime_code_buf.size());
 
                         generated_runtime_code_buf.push_back(WO_OPCODE(calln, 00));
 
@@ -2007,7 +2090,7 @@ namespace wo
                 }
                 case instruct::mkclos:
                 {
-                    env->_mkclos_opcode_offsets_for_jit.push_back(generated_runtime_code_buf.size());
+                    env->meta_data_for_jit._mkclos_opcode_offsets_for_jit.push_back(generated_runtime_code_buf.size());
 
                     generated_runtime_code_buf.push_back(WO_OPCODE(mkclos, 00));
 
@@ -2142,7 +2225,7 @@ namespace wo
                         {
                         case instruct::extern_opcode_page_3::funcbegin:
                             generated_runtime_code_buf.push_back(WO_OPCODE_EXT3(funcbegin));
-                            env->_functions_offsets_for_jit.push_back(generated_runtime_code_buf.size());
+                            env->meta_data_for_jit._functions_offsets_for_jit.push_back(generated_runtime_code_buf.size());
                             break;
                         case instruct::extern_opcode_page_3::funcend:
                             generated_runtime_code_buf.push_back(WO_OPCODE_EXT3(funcend));
@@ -2184,8 +2267,8 @@ namespace wo
             for (auto offset : offsets)
             {
                 memcpy(
-                    generated_runtime_code_buf.data() + offset, 
-                    &offset_val, 
+                    generated_runtime_code_buf.data() + offset,
+                    &offset_val,
                     sizeof(offset_val));
             }
         }
@@ -2195,13 +2278,13 @@ namespace wo
             uint32_t offset_val = tag_offset_vector_table[tag];
             for (auto imm_value_offset : imm_value_offsets)
             {
-                env->_functions_def_constant_idx_for_jit.push_back(imm_value_offset);
+                env->meta_data_for_jit._functions_def_constant_idx_for_jit.push_back(imm_value_offset);
                 wo_assert(preserved_memory[imm_value_offset].type == value::valuetype::integer_type);
                 preserved_memory[imm_value_offset].integer = (wo_integer_t)offset_val;
             }
         }
 
-        env->constant_global = preserved_memory;
+        env->constant_and_global_storage = preserved_memory;
 
         env->constant_value_count = constant_value_count;
         env->constant_and_global_value_takeplace_count = preserve_memory_size;
@@ -2223,7 +2306,7 @@ namespace wo
         env->rt_codes = pdb_info->runtime_codes_base = code_buf;
 
         env->extern_native_functions = extern_native_functions;
-        env->loaded_libs = loaded_libs;
+        env->loaded_libraries = loaded_libraries;
 
         if (wo::config::ENABLE_PDB_INFORMATIONS)
             env->program_debug_info = pdb_info;

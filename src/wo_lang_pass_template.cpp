@@ -1,4 +1,4 @@
-#include "wo_lang.hpp"
+#include "wo_afx.hpp"
 
 namespace wo
 {

@@ -2,7 +2,6 @@
 #include "wo_memory.hpp"
 #include "wo_assert.hpp"
 
-#include <shared_mutex>
 #include <atomic>
 
 namespace wo

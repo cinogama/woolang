@@ -1,3 +1,5 @@
+#include "wo_afx.hpp"
+
 #include "wo_crc_64.hpp"
 #include "wo_lang_ast_builder.hpp"
 

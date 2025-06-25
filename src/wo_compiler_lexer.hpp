@@ -4,9 +4,6 @@
 #include "wo_utf8.hpp"
 
 #include <string>
-#include <vector>
-#include <set>
-#include <stack>
 #include <list>
 #include <queue>
 #include <unordered_map>

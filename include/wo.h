@@ -1,8 +1,9 @@
 #pragma once
 // Woolang Header
 //
-// Here will have wo c api;
+// Here will have woolang c api;
 //
+#define WO_VERSION WO_VER(1, 14, 8, 0)
 
 #ifdef __cplusplus
 #include <cstdint>

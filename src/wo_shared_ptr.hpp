@@ -1,5 +1,7 @@
 #pragma once
+
 #include <atomic>
+
 namespace wo
 {
     template<typename T, typename CountT = std::atomic_size_t>

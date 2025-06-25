@@ -1,5 +1,4 @@
-#include "wo_lang.hpp"
-#include <cmath>
+#include "wo_afx.hpp"
 
 WO_API wo_api rslib_std_bad_function(wo_vm vm, wo_value args);
 
@@ -11,7 +10,7 @@ namespace wo
     bool LangContext::update_pattern_symbol_variable_type_pass1(
         lexer& lex,
         ast::AstPatternBase* pattern,
-        const std::optional<AstValueBase*>& init_value,
+        const std::optional<std::variant<AstValueBase*, const value*>>& init_value,
         const std::optional<lang_TypeInstance*>& init_value_type)
     {
         switch (pattern->node_type)
@@ -31,8 +30,15 @@ namespace wo
                 if (!lang_symbol->m_value_instance->m_mutable
                     && init_value.has_value())
                 {
-                    lang_symbol->m_value_instance->try_determine_const_value(
-                        init_value.value());
+                    std::visit(
+                        [lang_symbol](auto* p)
+                        {
+                            if constexpr (std::is_same_v<AstValueBase*, decltype(p)>)
+                                lang_symbol->m_value_instance->try_determine_const_value(p);
+                            else
+                                lang_symbol->m_value_instance->set_const_value(*p);
+
+                        }, init_value.value());
                 }
             }
             return true;
@@ -49,6 +55,27 @@ namespace wo
 
                 return false;
             }
+
+            std::optional<const value*> constant_tuple_value = std::nullopt;
+            if (init_value.has_value())
+            {
+                std::visit(
+                    [&constant_tuple_value](auto* p)
+                    {
+                        if constexpr (std::is_same_v<AstValueBase*, decltype(p)>)
+                        {
+                            if (p->m_evaled_const_value.has_value())
+                                constant_tuple_value = &p->m_evaled_const_value.value();
+                        }
+                        else
+                            constant_tuple_value = p;
+
+                    }, init_value.value());
+
+                wo_assert(!constant_tuple_value.has_value()
+                    || constant_tuple_value.value()->type == value::valuetype::struct_type);
+            }
+
             auto* determined_type = determined_type_may_nullopt.value();
 
             if (determined_type->m_base_type == lang_TypeInstance::DeterminedType::TUPLE)
@@ -62,9 +89,15 @@ namespace wo
 
                     bool success = true;
 
-                    for (; pattern_iter != pattern_end; ++pattern_iter, ++type_iter)
+                    for (uint16_t idx = 0; pattern_iter != pattern_end; ++pattern_iter, ++type_iter, ++idx)
+                    {
+                        std::optional<const value*> constant_elem_value = std::nullopt;
+                        if (constant_tuple_value.has_value())
+                            constant_elem_value = &constant_tuple_value.value()->structs->m_values[idx];
+
                         success = success && update_pattern_symbol_variable_type_pass1(
-                            lex, *pattern_iter, std::nullopt, *type_iter);
+                            lex, *pattern_iter, constant_elem_value, *type_iter);
+                    }
 
                     return success;
                 }
@@ -1898,6 +1931,8 @@ namespace wo
         else if (state == HOLD)
         {
             std::list<lang_TypeInstance*> element_types;
+            std::list<wo::value> element_constants;
+
             for (auto& element : node->m_elements)
             {
                 auto determined_type = element->m_LANG_determined_type.value();
@@ -1916,14 +1951,53 @@ namespace wo
                         return FAILED;
                     }
 
-                    for (auto& element_type : determined_base_type_instance->m_external_type_description.m_tuple->m_element_types)
+                    uint16_t idx = 0;
+                    for (auto& element_type :
+                        determined_base_type_instance->
+                        m_external_type_description.m_tuple->m_element_types)
+                    {
+                        auto& unpacking_constant_tuple =
+                            element->m_evaled_const_value.value();
+
+                        wo_assert(unpacking_constant_tuple.type == wo::value::struct_type);
+                        if (element_type->is_immutable())
+                            element_constants.emplace_back(
+                                unpacking_constant_tuple.structs->m_values[idx++]);
+
                         element_types.push_back(element_type);
+                    }
                 }
                 else
+                {
                     element_types.push_back(determined_type);
+                    if (determined_type->is_immutable()
+                        && element->m_evaled_const_value.has_value())
+                    {
+                        element_constants.emplace_back(
+                            element->m_evaled_const_value.value());
+                    }
+                }
             }
 
             node->m_LANG_determined_type = m_origin_types.create_tuple_type(element_types);
+
+            if (element_constants.size() == element_types.size())
+            {
+                // This tuple can be constant.
+                wo::value value;
+                struct_t* compile_time_struct =
+                    value.set_struct_nogc(
+                        static_cast<uint16_t>(
+                            element_constants.size()))->structs;
+
+                uint16_t idx = 0;
+                for (auto& constant_value : element_constants)
+                {
+                    compile_time_struct->m_values[idx++].set_val(
+                        &constant_value);
+                }
+                node->decide_final_constant_value(value);
+            }
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
@@ -2069,7 +2143,7 @@ namespace wo
             case lang_TypeInstance::DeterminedType::TUPLE:
             {
                 if (indexer_determined_base_type_instance->m_base_type
-                    != lang_TypeInstance::DeterminedType::INTEGER && 
+                    != lang_TypeInstance::DeterminedType::INTEGER &&
                     indexer_determined_base_type_instance->m_base_type
                     != lang_TypeInstance::DeterminedType::NOTHING)
                 {
@@ -2106,6 +2180,16 @@ namespace wo
                 index_raw_result = tuple_type->m_element_types[index];
                 node->m_LANG_fast_index_for_struct = index;
 
+                if (node->m_container->m_evaled_const_value.has_value())
+                {
+                    // Indexing const tuple.
+                    struct_t* constant_tuple =
+                        node->m_container->m_evaled_const_value.value().structs;
+
+                    wo_assert(index < static_cast<wo_integer_t>(constant_tuple->m_count));
+                    node->decide_final_constant_value(
+                        constant_tuple->m_values[index]);
+                }
                 break;
             }
             case lang_TypeInstance::DeterminedType::STRING:
@@ -2358,7 +2442,7 @@ namespace wo
                             : false);
                         break;
                     case lang_TypeInstance::DeterminedType::STRING:
-                        casted_value.set_string(
+                        casted_value.set_string_nogc(
                             wo_cast_string(std::launder(reinterpret_cast<wo_value>(&cast_from_const))));
                         break;
                     default:

@@ -1,8 +1,6 @@
-#include "wo_utf8.hpp"
+#include "wo_afx.hpp"
+
 #include <cwchar>
-#include <cstring>
-#include <climits>
-#include <string>
 
 namespace wo
 {

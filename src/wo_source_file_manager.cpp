@@ -1,7 +1,7 @@
+#include "wo_afx.hpp"
+
 #include "wo_source_file_manager.hpp"
 #include "wo_compiler_lexer.hpp"
-#include "wo_os_api.hpp"
-#include "wo_utf8.hpp"
 
 namespace wo
 {

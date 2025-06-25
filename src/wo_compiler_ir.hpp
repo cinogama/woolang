@@ -131,15 +131,169 @@ namespace wo
                 return 1;
             }
         };
+        struct tag :virtual opnumbase
+        {
+            std::string name;
 
+            tag(const std::string& _name)
+                : name(_name)
+            {
+
+            }
+        };
         struct immbase :virtual opnumbase
         {
-            std::optional<int32_t> constant_index = std::nullopt;
+        protected:
+            explicit immbase(const bool* val)
+                : constant_index(std::nullopt)
+            {
+                constant_value.set_bool(*val);
+            }
+            explicit immbase(const wo_integer_t* val)
+                : constant_index(std::nullopt)
+            {
+                constant_value.set_integer(*val);
+            }
+            explicit immbase(const wo_real_t* val)
+                : constant_index(std::nullopt)
+            {
+                constant_value.set_real(*val);
+            }
+            explicit immbase(const wo_handle_t* val)
+                : constant_index(std::nullopt)
+            {
+                constant_value.set_handle(*val);
+            }
+            explicit immbase(void* const* val)
+                : constant_index(std::nullopt)
+            {
+                constant_value.set_handle(
+                    static_cast<wo_handle_t>(
+                        reinterpret_cast<intptr_t>(
+                            *val)));
+            }
+        public:
+            wo::value constant_value;
+            std::optional<int32_t> constant_index;
 
-            virtual value::valuetype type()const = 0;
-            virtual bool operator < (const immbase&) const = 0;
-            virtual void apply(value*) const = 0;
+            explicit immbase(const wo::value& val)
+                : constant_index(std::nullopt)
+            {
+                constant_value.set_val_with_compile_time_check(&val);
+            }
 
+            enum class compare_result : uint8_t
+            {
+                LESS_THEN,
+                EQUAL,
+                GREATER_THEN,
+            };
+
+            static compare_result compare_value_less_than(const value& a, const value& b)
+            {
+                if (a.type != b.type)
+                {
+                    if (a.type < b.type)
+                        return compare_result::LESS_THEN;
+                    else if (a.type == b.type)
+                        return compare_result::EQUAL;
+                    return compare_result::GREATER_THEN;
+                }
+
+                switch (a.type)
+                {
+                case wo::value::valuetype::bool_type:
+                case wo::value::valuetype::integer_type:
+                    if (a.integer < b.integer)
+                        return compare_result::LESS_THEN;
+                    else if (a.integer == b.integer)
+                        return compare_result::EQUAL;
+                    return compare_result::GREATER_THEN;
+                case wo::value::valuetype::real_type:
+                    if (a.real < b.real)
+                        return compare_result::LESS_THEN;
+                    else if (a.real == b.real)
+                        return compare_result::EQUAL;
+                    return compare_result::GREATER_THEN;
+                case wo::value::valuetype::handle_type:
+                    if (a.handle < b.handle)
+                        return compare_result::LESS_THEN;
+                    else if (a.handle == b.handle)
+                        return compare_result::EQUAL;
+                    return compare_result::GREATER_THEN;
+                case wo::value::valuetype::string_type:
+                    if (*a.string < *b.string)
+                        return compare_result::LESS_THEN;
+                    else if (*a.string == *b.string)
+                        return compare_result::EQUAL;
+                    return compare_result::GREATER_THEN;
+                case wo::value::valuetype::struct_type:
+                {
+                    const uint16_t b_member_count = b.structs->m_count;
+                    uint16_t idx = 0;
+                    for (; idx < a.structs->m_count; ++idx)
+                    {
+                        if (idx >= b_member_count)
+                            return compare_result::GREATER_THEN;
+
+                        auto result = compare_value_less_than(
+                            a.structs->m_values[idx], b.structs->m_values[idx]);
+
+                        if (result != compare_result::EQUAL)
+                            return result;
+                    }
+                    if (idx == b_member_count)
+                        return compare_result::EQUAL; // Equal;
+                    return compare_result::LESS_THEN;
+                }
+                default:
+                    wo_error("Unsupported constant type.");
+                    return compare_result::EQUAL;
+                }
+            }
+            static void apply_value_to_constant_instance(const value& a, value* out_value)
+            {
+                if (a.is_gcunit())
+                {
+                    wo_assert(a.fast_get_attrib_for_assert_check()->m_nogc != 0);
+                    switch (a.type)
+                    {
+                    case wo::value::valuetype::string_type:
+                        out_value->set_string_nogc(*a.string);
+                        break;
+                    case wo::value::valuetype::struct_type:
+                        out_value->set_struct_nogc(a.structs->m_count);
+                        for (uint16_t idx = 0; idx < a.structs->m_count; ++idx)
+                        {
+                            apply_value_to_constant_instance(
+                                a.structs->m_values[idx],
+                                &out_value->structs->m_values[idx]);
+                        }
+                        break;
+                    default:
+                        wo_error("Unsupported constant type.");
+                    }
+                }
+                else
+                    out_value->set_val(&a);
+            }
+
+            virtual bool operator < (const immbase& another) const
+            {
+                if (dynamic_cast<const tag*>(&another))
+                    return false;
+
+                return compare_result::LESS_THEN == 
+                    compare_value_less_than(constant_value, another.constant_value);
+            }
+            value::valuetype type()const
+            {
+                return constant_value.type;
+            }
+            void apply_to_constant_instance(value* out_value) const
+            {
+                apply_value_to_constant_instance(constant_value, out_value);
+            }
             size_t generate_opnum_to_buffer(cxx_vec_t<byte_t>& buffer) const override
             {
                 int32_t constant_index_ = constant_index.value();
@@ -152,212 +306,91 @@ namespace wo
 
                 return 4;
             }
-
-            virtual bool is_true()const = 0;
-            virtual int64_t try_int()const = 0;
-            virtual int64_t try_set_int(int64_t _val) = 0;
         };
 
-        struct tag :virtual opnumbase
+        struct imm_bool : virtual immbase
         {
-            std::string name;
-
-            tag(const std::string& _name)
-                : name(_name)
+            explicit imm_bool(bool val)
+                : immbase(&val)
             {
-
             }
         };
-
-        template<typename T>
-        struct imm :virtual immbase
+        struct imm_int : virtual immbase
         {
-            T val;
-
-            imm(T _val) noexcept
-                :val(_val)
+            explicit imm_int(wo_integer_t val)
+                : immbase(&val)
             {
-                static_assert(meta::is_string<T>::value == false, "Please use 'imm_str' instead of imm when value is string.");
-                wo_assert(type() != value::valuetype::invalid, "Invalid immediate.");
             }
-
-            value::valuetype type()const noexcept override
+        };
+        struct imm_real : virtual immbase
+        {
+            explicit imm_real(wo_real_t val)
+                : immbase(&val)
             {
-                if constexpr (std::is_pointer<T>::value)
-                    return value::valuetype::handle_type;
-                else if constexpr (std::is_same<T, bool>::value)
-                    return value::valuetype::bool_type;
-                else if constexpr (std::is_integral<T>::value)
-                    return value::valuetype::integer_type;
-                else if constexpr (std::is_floating_point<T>::value)
-                    return value::valuetype::real_type;
-                else
-                    return value::valuetype::invalid;
-
-                // If changed this function, don't forget to modify 'apply'.
             }
-
-            bool operator < (const immbase& _another) const override
+        };
+        struct imm_handle : virtual immbase
+        {
+            explicit imm_handle(wo_handle_t val)
+                : immbase(&val)
             {
-                if (dynamic_cast<const tag*>(&_another))
-                    return false;
-
-                auto t = type();
-                auto t2 = _another.type();
-                if (t == t2)
+            }
+            explicit imm_handle(void* val)
+                : immbase(&val)
+            {
+            }
+        };
+        struct imm_string : virtual immbase
+        {
+            explicit imm_string(std::string_view val)
+                : immbase(wo::value{})
+            {
+                constant_value.set_string_nogc(val);
+            }
+            explicit imm_string(const imm_string& another)
+                : immbase(wo::value{})
+            {
+                constant_value.set_string_nogc(
+                    *another.constant_value.string);
+            }
+            explicit imm_string(imm_string&& another)
+                : immbase(std::move(another.constant_value))
+            {
+                another.constant_value.set_nil();
+            }
+            imm_string& operator = (const imm_string& another) = delete;
+            imm_string& operator = (imm_string&& another) = delete;
+            ~imm_string()
+            {
+                if (constant_value.type != value::valuetype::invalid)
                 {
-                    if (t == value::valuetype::integer_type)
-                        return try_int() < _another.try_int();
-                    else
-                        return val < (dynamic_cast<const imm&>(_another)).val;
+                    wo_assert(constant_value.type == value::string_type);
+
+                    gcbase::unit_attrib cancel_nogc;
+                    cancel_nogc.m_gc_age = 0;
+                    cancel_nogc.m_marked = (uint8_t)gcbase::gcmarkcolor::full_mark;
+                    cancel_nogc.m_alloc_mask = 0;
+                    cancel_nogc.m_nogc = 0;
+
+                    gcbase::unit_attrib* gcunit_attrib;
+                    auto* unit = constant_value.get_gcunit_and_attrib_ref(&gcunit_attrib);
+
+                    wo_assert(unit != nullptr);
+                    wo_assert(gcunit_attrib->m_nogc != 0);
+                    (void)unit;
+
+                    gcunit_attrib->m_attr = cancel_nogc.m_attr;
                 }
-                return t < t2;
-            }
-
-            void apply(value* v) const override
-            {
-                v->type = type();
-                if constexpr (std::is_pointer<T>::value)
-                    v->handle = (uint64_t)val;
-                else if constexpr (std::is_integral<T>::value)
-                    v->integer = val;
-                else if constexpr (std::is_floating_point<T>::value)
-                    v->real = val;
-                else
-                    wo_error("Invalid immediate.");
-            }
-
-            virtual int64_t try_int()const override
-            {
-                if constexpr (std::is_integral<T>::value)
-                    return val;
-
-                wo_error("Immediate is not integer.");
-                return 0;
-            }
-            virtual int64_t try_set_int(int64_t _val) override
-            {
-                if constexpr (std::is_integral<T>::value)
-                    return val = (T)_val;
-
-                wo_error("Immediate is not integer.");
-                return 0;
-            }
-            virtual bool is_true() const override
-            {
-                if constexpr (meta::is_string<T>::value)
-                {
-                    wo_error("Cannot eval string here.");
-                    return true;
-                }
-                else
-                    return (bool)val;
             }
         };
 
-        struct imm_str :virtual immbase
-        {
-            std::string val;
-            imm_str(const std::string& v)
-                : val(v)
-            {
-            }
-
-            value::valuetype type()const noexcept override
-            {
-                return value::valuetype::string_type;
-            }
-
-            bool operator < (const immbase& _another) const override
-            {
-                if (dynamic_cast<const tag*>(&_another))
-                    return false;
-
-                auto t = type();
-                auto t2 = _another.type();
-                if (t == t2)
-                    return val < (dynamic_cast<const imm_str&>(_another)).val;
-
-                return t < t2;
-            }
-
-            void apply(value* v) const override
-            {
-                v->type = type();
-                v->set_gcunit<wo::value::valuetype::string_type>(
-                    string_t::gc_new<gcbase::gctype::no_gc>(val));
-            }
-
-            virtual int64_t try_int()const override
-            {
-                wo_error("Immediate is not integer.");
-                return 0;
-            }
-            virtual int64_t try_set_int(int64_t _val) override
-            {
-                wo_error("Immediate is not integer.");
-                return 0;
-            }
-            virtual bool is_true() const override
-            {
-                wo_error("Cannot eval string here.");
-                return true;
-            }
-        };
-
-        struct imm_hdl :virtual immbase
-        {
-            wo_handle_t val;
-            imm_hdl(wo_handle_t v)
-                : val(v)
-            {
-            }
-
-            value::valuetype type()const noexcept override
-            {
-                return value::valuetype::handle_type;
-            }
-
-            bool operator < (const immbase& _another) const override
-            {
-                if (dynamic_cast<const tag*>(&_another))
-                    return false;
-
-                auto t = type();
-                auto t2 = _another.type();
-                if (t == t2)
-                    return try_int() < _another.try_int();
-
-                return t < t2;
-            }
-
-            void apply(value* v) const override
-            {
-                v->type = type();
-                v->set_handle(val);
-            }
-
-            virtual int64_t try_int()const override
-            {
-                return (int64_t)val;
-            }
-            virtual int64_t try_set_int(int64_t _val) override
-            {
-                return val = (wo_handle_t)val;
-            }
-            virtual bool is_true() const override
-            {
-                return (bool)val;
-            }
-        };
-
-        struct tagimm_rsfunc :virtual tag, virtual imm<int>
+        struct tagimm_rsfunc :virtual tag, virtual immbase
         {
             tagimm_rsfunc(const std::string& name)
                 : tag(name)
-                , imm<int>(-1)
+                , immbase(wo::value{})
             {
-
+                constant_value.set_integer(-1);
             }
             bool operator < (const immbase& _another) const override
             {
@@ -365,10 +398,10 @@ namespace wo
                     return name < another_tag->name;
                 return true;
             }
-
             size_t generate_opnum_to_buffer(cxx_vec_t<byte_t>& buffer) const override
             {
-                return imm<int>::generate_opnum_to_buffer(buffer);
+                // Avoid warning c4250.
+                return immbase::generate_opnum_to_buffer(buffer);
             }
         };
     } // namespace opnum;
@@ -448,39 +481,30 @@ namespace wo
         size_t get_ip_by_runtime_ip(const  byte_t* rt_pos) const;
         size_t get_runtime_ip_by_ip(size_t ip) const;
         std::string get_current_func_signature_by_runtime_ip(const byte_t* rt_pos) const;
-
     };
 
     struct runtime_env
     {
-        value* constant_global = nullptr;
+        struct jit_meta
+        {
+            std::vector<size_t> _functions_offsets_for_jit;
+            std::vector<size_t> _functions_def_constant_idx_for_jit;
+            std::vector<size_t> _calln_opcode_offsets_for_jit;
+            std::vector<size_t> _mkclos_opcode_offsets_for_jit;
 
-        size_t constant_and_global_value_takeplace_count = 0;
-        size_t constant_value_count = 0;
-        size_t real_register_count = 0;
+            std::unordered_map<size_t, wo_native_func_t*> _jit_code_holder;
 
-        size_t rt_code_len = 0;
-        const byte_t* rt_codes = nullptr;
-
-        std::atomic_size_t _running_on_vm_count = 0;
-        std::atomic_size_t _created_destructable_instance_count = 0;
-
-        std::vector<size_t> _functions_offsets_for_jit;
-        std::vector<size_t> _functions_def_constant_idx_for_jit;
-        std::vector<size_t> _calln_opcode_offsets_for_jit;
-        std::vector<size_t> _mkclos_opcode_offsets_for_jit;
-
-        std::unordered_map<void*, size_t> _jit_functions;
-        std::unordered_map<size_t, wo_native_func_t*> _jit_code_holder;
-
-        shared_pointer<program_debug_data_info> program_debug_info;
-        rslib_extern_symbols::extern_lib_set loaded_libs;
-
+            jit_meta() = default;
+            ~jit_meta() = default;
+            jit_meta(const jit_meta&) = delete;
+            jit_meta(jit_meta&&) = delete;
+            jit_meta& operator = (const jit_meta&) = delete;
+            jit_meta& operator = (jit_meta&&) = delete;
+        };
         struct extern_native_function_location
         {
             std::string script_name;
-            std::optional<std::string>
-                library_name;
+            std::optional<std::string> library_name;
             std::string function_name;
 
             // Will be fill in finalize of env.
@@ -489,12 +513,6 @@ namespace wo
             // Will be fill in saving binary of env.
             std::vector<size_t> constant_offset_in_binary;
         };
-        using extern_native_functions_t = std::unordered_map<intptr_t, extern_native_function_location>;
-        extern_native_functions_t extern_native_functions;
-
-        using extern_function_map_t = std::unordered_map<std::string, size_t>;
-        extern_function_map_t extern_script_functions;
-
         struct binary_source_stream
         {
             const char* stream;
@@ -506,9 +524,7 @@ namespace wo
                 , stream_size(streamsz)
                 , readed_size(0)
             {
-
             }
-
             bool read_buffer(void* dst, size_t count) noexcept
             {
                 if (readed_size + count <= stream_size)
@@ -520,19 +536,39 @@ namespace wo
                 }
                 return false;
             }
-
             template<typename T>
             bool read_elem(T* out_elem) noexcept
             {
                 return read_buffer(out_elem, sizeof(T));
             }
-
             size_t readed_offset() const noexcept
             {
                 return readed_size;
             }
-
         };
+
+        using extern_native_functions_t =
+            std::unordered_map<intptr_t, extern_native_function_location>;
+        using extern_function_map_t =
+            std::unordered_map<std::string, size_t>;
+
+        value* constant_and_global_storage = nullptr;
+        size_t constant_and_global_value_takeplace_count = 0;
+        size_t constant_value_count = 0;
+
+        size_t real_register_count = 0;
+
+        const byte_t* rt_codes = nullptr;
+        size_t rt_code_len = 0;
+
+        std::atomic_size_t _running_on_vm_count = 0;
+        std::atomic_size_t _created_destructable_instance_count = 0;
+
+        jit_meta meta_data_for_jit;
+        shared_pointer<program_debug_data_info> program_debug_info;
+        rslib_extern_symbols::extern_lib_set loaded_libraries;
+        extern_native_functions_t extern_native_functions;
+        extern_function_map_t extern_script_functions;
 
         runtime_env();
         ~runtime_env();
@@ -544,8 +580,8 @@ namespace wo
 
         std::tuple<void*, size_t> create_env_binary(bool savepdi) noexcept;
         static std::optional<shared_pointer<runtime_env>> _create_from_stream(
-            binary_source_stream* stream, 
-            wo_string_t* out_reason, 
+            binary_source_stream* stream,
+            wo_string_t* out_reason,
             bool* out_is_binary);
         static std::optional<shared_pointer<runtime_env>> load_create_env_from_binary(
             wo_string_t virtual_file,
@@ -642,7 +678,6 @@ namespace wo
                 , ext_page_id(_extpage)
                 , param(std::nullopt)
             {
-
             }
 
             ir_command(const ir_command&) = default;
@@ -693,7 +728,8 @@ namespace wo
             {
                 if (!_immbase->constant_index.has_value())
                 {
-                    if (auto fnd = constant_record_list.find(_immbase); fnd == constant_record_list.end())
+                    if (auto fnd = constant_record_list.find(_immbase);
+                        fnd == constant_record_list.end())
                     {
                         _immbase->constant_index = (int32_t)constant_record_list.size();
                         constant_record_list.insert(_immbase);
@@ -714,7 +750,7 @@ namespace wo
             return _opnum;
         }
     public:
-        rslib_extern_symbols::extern_lib_set loaded_libs;
+        rslib_extern_symbols::extern_lib_set loaded_libraries;
         shared_pointer<program_debug_data_info> pdb_info = new program_debug_data_info();
         mutable unsigned int _unique_id = 0;
 
@@ -1252,14 +1288,13 @@ namespace wo
                 {
                     if (immop->type() == value::valuetype::handle_type)
                     {
-                        int64_t h = immop->try_int();
+                        wo_handle_t h = immop->constant_value.handle;
                         WO_PUT_IR_TO_BUFFER(instruct::opcode::calln, reinterpret_cast<opnum::opnumbase*>((intptr_t)h));
                         return;
                     }
                     else if (immop->type() == value::valuetype::integer_type)
                     {
-                        int64_t a = immop->try_int();
-
+                        wo_integer_t a = immop->constant_value.integer;
                         wo_assert(0 <= a && a <= UINT32_MAX, "Immediate instruct address is to large to call.");
 
                         WO_PUT_IR_TO_BUFFER(instruct::opcode::calln, nullptr, nullptr, static_cast<int32_t>(a));

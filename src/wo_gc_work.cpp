@@ -1,4 +1,5 @@
-#include "wo_vm.hpp"
+#include "wo_afx.hpp"
+
 #include "wo_memory.hpp"
 
 #include <thread>
@@ -640,7 +641,7 @@ namespace wo
                             && env->_running_on_vm_count == 1)
                         {
                             // Assure vm's stack if empty
-                            wo_assert(vmimpl->sp == vmimpl->bp && vmimpl->bp == vmimpl->stack_mem_begin);
+                            wo_assert(vmimpl->sp == vmimpl->bp && vmimpl->bp == vmimpl->sb);
 
                             // If there is no instance of gc-handle which may use library loaded in env,
                             // then free the gc destructor vm.
@@ -751,7 +752,7 @@ namespace wo
                                 if (env->_running_on_vm_count > 1)
                                 {
                                     // Any code context only have one GC_DESTRUCTOR, here to mark global space.
-                                    auto* global_and_const_values = env->constant_global;
+                                    auto* global_and_const_values = env->constant_and_global_storage;
 
                                     // Skip all constant, all constant cannot contain gc-type value beside no-gc-string.
                                     for (size_t cgr_index = env->constant_value_count;
@@ -810,7 +811,8 @@ namespace wo
                             for (size_t unitidx = 0; unitidx < unit_count; ++unitidx)
                             {
                                 gcbase::unit_attrib* attr;
-                                void* unit = womem_get_unit_ptr_attribute(units + unitidx * unit_size,
+                                void* unit = womem_get_unit_ptr_attribute(
+                                    units + unitidx * unit_size,
                                     std::launder(reinterpret_cast<womem_attrib_t**>(&attr)));
                                 if (unit != nullptr)
                                 {
@@ -972,7 +974,7 @@ namespace wo
                 reg_index < env->real_register_count;
                 reg_index++)
             {
-                auto self_reg_walker = marking_vm->register_mem_begin + reg_index;
+                auto self_reg_walker = marking_vm->register_storage + reg_index;
 
                 gcbase::unit_attrib* attr;
                 gcbase* gcunit_address = self_reg_walker->get_gcunit_and_attrib_ref(&attr);
@@ -982,7 +984,7 @@ namespace wo
             }
 
             // walk thorgh stack.
-            for (auto* stack_walker = marking_vm->stack_mem_begin;
+            for (auto* stack_walker = marking_vm->sb;
                 stack_walker > marking_vm->sp;
                 stack_walker--)
             {
@@ -995,7 +997,7 @@ namespace wo
             }
 
             // Check if vm's stack-usage-rate is lower then 1/4:
-            const size_t current_vm_stack_usage = marking_vm->stack_mem_begin - marking_vm->sp;
+            const size_t current_vm_stack_usage = marking_vm->sb - marking_vm->sp;
             if (current_vm_stack_usage * 4 < marking_vm->stack_size
                 && marking_vm->stack_size >= 2 * vmbase::VM_DEFAULT_STACK_SIZE)
             {
@@ -1020,7 +1022,7 @@ namespace wo
                 // NOTE: We don't know the exactly state of current vm, so we need to 
                 //       make sure all unit in current vm's stack and register are marked.
                 current_vm_stack_top = current_vm_instance->sp;
-                current_vm_instance->sp = current_vm_instance->_self_stack_mem_buf;
+                current_vm_instance->sp = current_vm_instance->stack_storage;
 
                 need_re_entry_gc_guard = wo_leave_gcguard(std::launder(reinterpret_cast<wo_vm>(wo::vmbase::_this_thread_vm)));
             }

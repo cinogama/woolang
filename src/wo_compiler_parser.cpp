@@ -1,5 +1,6 @@
+#include "wo_afx.hpp"
+
 #include "wo_compiler_parser.hpp"
-#include <algorithm>
 
 namespace wo
 {

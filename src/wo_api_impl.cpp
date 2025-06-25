@@ -1,29 +1,47 @@
 // wo_api_impl.cpp
-#include "wo_vm.hpp"
+#include "wo_afx.hpp"
+
 #include "wo_source_file_manager.hpp"
 #include "wo_compiler_parser.hpp"
 #include "wo_stdlib.hpp"
 #include "wo_lang_grammar_loader.hpp"
-#include "wo_lang.hpp"
-#include "wo_utf8.hpp"
 #include "wo_runtime_debuggee.hpp"
-#include "wo_global_setting.hpp"
-#include "wo_io.hpp"
 #include "wo_crc_64.hpp"
 #include "wo_vm_pool.hpp"
 
-#include <csignal>
-#include <sstream>
-#include <new>
-#include <chrono>
-#include <cstdarg>
+[[noreturn]]
+void _wo_assert(
+    const char* file,
+    uint32_t line, 
+    const char* function, 
+    const char* judgement,
+    const char* reason)
+{
+    wo::wo_stderr << ANSI_HIR "Assert failed: " ANSI_RST << judgement << wo::wo_endl;
+    if (reason)
+        wo::wo_stderr << "\t" ANSI_HIY << reason << ANSI_RST << wo::wo_endl;
 
-#include <atomic>
-#include <iostream>
-#include <sstream>
-#include <cstdio>
-#include <cstdlib>
-#include <string>
+    wo::wo_stderr << "Function : " << function << wo::wo_endl;
+    wo::wo_stderr << "File : " << file << wo::wo_endl;
+    wo::wo_stderr << "Line : " << line << wo::wo_endl;
+    abort();
+}
+
+void _wo_warning(
+    const char* file, 
+    uint32_t line, 
+    const char* function, 
+    const char* judgement,
+    const char* reason)
+{
+    wo::wo_stderr << ANSI_HIY "Warning: " ANSI_RST << judgement << wo::wo_endl;
+    if (reason)
+        wo::wo_stderr << "\t" ANSI_HIY << reason << ANSI_RST << wo::wo_endl;
+
+    wo::wo_stderr << "Function : " << function << wo::wo_endl;
+    wo::wo_stderr << "File : " << file << wo::wo_endl;
+    wo::wo_stderr << "Line : " << line << wo::wo_endl;
+}
 
 struct _wo_enter_gc_guard
 {
@@ -631,35 +649,35 @@ struct _wo_reserved_stack_args_update_guard
         , m_rs(_rs)
         , m_args(_args)
     {
-        m_origin_stack_begin = m_vm->stack_mem_begin;
+        m_origin_stack_begin = m_vm->sb;
         if (m_rs != nullptr)
         {
-            wo_assert(WO_VAL(*m_rs) > m_vm->_self_stack_mem_buf
-                && WO_VAL(*m_rs) <= m_vm->stack_mem_begin);
+            wo_assert(WO_VAL(*m_rs) > m_vm->stack_storage
+                && WO_VAL(*m_rs) <= m_vm->sb);
 
             m_rs_offset = m_origin_stack_begin - WO_VAL(m_rs);
         }
 
         if (m_args != nullptr)
         {
-            wo_assert(WO_VAL(*m_args) > m_vm->_self_stack_mem_buf
-                && WO_VAL(*m_args) <= m_vm->stack_mem_begin);
+            wo_assert(WO_VAL(*m_args) > m_vm->stack_storage
+                && WO_VAL(*m_args) <= m_vm->sb);
 
             m_args_offset = m_origin_stack_begin - WO_VAL(m_args);
         }
     }
     ~_wo_reserved_stack_args_update_guard()
     {
-        if (m_origin_stack_begin != m_vm->stack_mem_begin)
+        if (m_origin_stack_begin != m_vm->sb)
         {
             // Need update.
             if (m_rs != nullptr)
-                *m_rs = CS_VAL(m_vm->stack_mem_begin - m_rs_offset);
+                *m_rs = CS_VAL(m_vm->sb - m_rs_offset);
 
             if (m_args != nullptr)
-                *m_args = CS_VAL(m_vm->stack_mem_begin - m_args_offset);
+                *m_args = CS_VAL(m_vm->sb - m_args_offset);
 
-            if (m_vm->bp != m_vm->stack_mem_begin)
+            if (m_vm->bp != m_vm->sb)
             {
                 auto* current_call_base = m_vm->bp + 1;
 
@@ -1846,12 +1864,12 @@ wo_result_t wo_ret_halt(wo_vm vm, wo_string_t reasonfmt, ...)
     wo::vmbase* vmbase = WO_VM(vm);
     {
         _wo_enter_gc_guard g(vm);
-        vmbase->register_mem_begin[wo::opnum::reg::er].set_string(buf.data());
+        vmbase->register_storage[wo::opnum::reg::er].set_string(buf.data());
     }
     vmbase->interrupt(wo::vmbase::vm_interrupt_type::ABORT_INTERRUPT);
     wo::wo_stderr 
         << ANSI_HIR "Halt happend: " ANSI_RST 
-        << wo_cast_string(CS_VAL(&vmbase->register_mem_begin[wo::opnum::reg::er])) 
+        << wo_cast_string(CS_VAL(&vmbase->register_storage[wo::opnum::reg::er])) 
         << wo::wo_endl;
 
     vmbase->dump_call_stack(32, true, std::cerr);
@@ -1871,9 +1889,9 @@ wo_result_t wo_ret_panic(wo_vm vm, wo_string_t reasonfmt, ...)
     wo::vmbase* vmbase = WO_VM(vm);
     {
         _wo_enter_gc_guard g(vm);
-        vmbase->register_mem_begin[wo::opnum::reg::er].set_string(buf.data());
+        vmbase->register_storage[wo::opnum::reg::er].set_string(buf.data());
     }
-    wo_fail(WO_FAIL_USER_PANIC, vmbase->register_mem_begin[wo::opnum::reg::er].string->c_str());
+    wo_fail(WO_FAIL_USER_PANIC, vmbase->register_storage[wo::opnum::reg::er].string->c_str());
     return wo_result_t::WO_API_RESYNC;
 }
 
@@ -2920,7 +2938,7 @@ wo_bool_t _wo_load_source(
     {
         wo_assert(_lexer_if_failed.has_value() && _lexer_if_failed.value()->has_error());
 
-        WO_VM(vm)->compile_info = std::move(_lexer_if_failed);
+        WO_VM(vm)->compile_failed_state = std::move(_lexer_if_failed);
         return WO_FALSE;
     }
 }
@@ -2959,7 +2977,7 @@ wo_bool_t wo_has_compile_error(wo_vm vm)
 {
     auto* vmm = WO_VM(vm);
 
-    if (vm && vmm->compile_info.has_value())
+    if (vm && vmm->compile_failed_state.has_value())
         return WO_TRUE;
 
     return WO_FALSE;
@@ -3201,17 +3219,17 @@ wo_string_t wo_get_compile_error(wo_vm vm, wo_inform_style_t style)
     thread_local std::string _vm_compile_errors;
     _vm_compile_errors = "";
 
-    if (vm && vmm->compile_info.has_value())
+    if (vm && vmm->compile_failed_state.has_value())
     {
         _vm_compile_errors += _wo_dump_lexer_context_error(
-            vmm->compile_info.value().get(), style);
+            vmm->compile_failed_state.value().get(), style);
     }
     return _vm_compile_errors.c_str();
 }
 
 wo_string_t wo_get_runtime_error(wo_vm vm)
 {
-    return wo_cast_string(CS_VAL(&WO_VM(vm)->register_mem_begin[wo::opnum::reg::er]));
+    return wo_cast_string(CS_VAL(&WO_VM(vm)->register_storage[wo::opnum::reg::er]));
 }
 
 wo_bool_t wo_abort_vm(wo_vm vm)
@@ -3228,7 +3246,7 @@ wo_bool_t wo_abort_vm(wo_vm vm)
 
 wo_value wo_register(wo_vm vm, wo_reg regid)
 {
-    return CS_VAL(WO_VM(vm)->register_mem_begin + regid);
+    return CS_VAL(WO_VM(vm)->register_storage + regid);
 }
 
 wo_value wo_reserve_stack(wo_vm vm, wo_size_t stack_sz, wo_value* inout_args_maynull)
@@ -3237,16 +3255,16 @@ wo_value wo_reserve_stack(wo_vm vm, wo_size_t stack_sz, wo_value* inout_args_may
     wo::vmbase* vmbase = WO_VM(vm);
 
     wo_assert(inout_args_maynull == nullptr
-        || (WO_VAL(*inout_args_maynull) > vmbase->_self_stack_mem_buf
-            && WO_VAL(*inout_args_maynull) <= vmbase->stack_mem_begin));
+        || (WO_VAL(*inout_args_maynull) > vmbase->stack_storage
+            && WO_VAL(*inout_args_maynull) <= vmbase->sb));
 
     const size_t args_offset =
-        inout_args_maynull ? vmbase->stack_mem_begin - WO_VAL(*inout_args_maynull) : 0;
+        inout_args_maynull ? vmbase->sb - WO_VAL(*inout_args_maynull) : 0;
 
     if (vmbase->assure_stack_size(stack_sz) && inout_args_maynull)
     {
-        *inout_args_maynull = CS_VAL(vmbase->stack_mem_begin - args_offset);
-        if (vmbase->bp != vmbase->stack_mem_begin)
+        *inout_args_maynull = CS_VAL(vmbase->sb - args_offset);
+        if (vmbase->bp != vmbase->sb)
         {
             auto* current_call_base = vmbase->bp + 1;
 
@@ -3280,7 +3298,7 @@ wo_stack_value wo_cast_stack_value(wo_vm vm, wo_value value_in_stack)
 {
     auto* vmbase = WO_VM(vm);
 
-    auto* stack_begin = vmbase->stack_mem_begin;
+    auto* stack_begin = vmbase->sb;
     auto* stack_value = WO_VAL(value_in_stack);
 
     if (stack_value > vmbase->sp && stack_value <= stack_begin)
@@ -3294,15 +3312,15 @@ void wo_stack_value_set(wo_stack_value sv, wo_vm vm, wo_value val)
 {
     auto* vmbase = WO_VM(vm);
 
-    wo_assert(sv < (size_t)(vmbase->stack_mem_begin - vmbase->sp));
-    wo_set_val(CS_VAL(vmbase->stack_mem_begin - sv), val);
+    wo_assert(sv < (size_t)(vmbase->sb - vmbase->sp));
+    wo_set_val(CS_VAL(vmbase->sb - sv), val);
 }
 void wo_stack_value_get(wo_value outval, wo_stack_value sv, wo_vm vm)
 {
     auto* vmbase = WO_VM(vm);
 
-    wo_assert(sv < (size_t)(vmbase->stack_mem_begin - vmbase->sp));
-    wo_set_val(outval, CS_VAL(vmbase->stack_mem_begin - sv));
+    wo_assert(sv < (size_t)(vmbase->sb - vmbase->sp));
+    wo_set_val(outval, CS_VAL(vmbase->sb - sv));
 }
 
 wo_value wo_invoke_rsfunc(
@@ -3440,8 +3458,8 @@ wo_value wo_dispatch(
         switch (dispatch_result)
         {
         case wo_result_t::WO_API_NORMAL:
-            vmm->sp = vmm->stack_mem_begin - origin_spbp.ret_ip;
-            vmm->bp = vmm->stack_mem_begin - origin_spbp.bp;
+            vmm->sp = vmm->sb - origin_spbp.ret_ip;
+            vmm->bp = vmm->sb - origin_spbp.bp;
             vmm->tc->set_integer(origin_tc);
 
             return CS_VAL(vmm->cr);
@@ -3478,7 +3496,7 @@ wo_bool_t wo_jit(wo_vm vm)
     if (wo::config::ENABLE_JUST_IN_TIME)
     {
         // NOTE: other operation for vm must happend after init(wo_run).
-        wo_assert(WO_VM(vm)->env->_jit_functions.empty());
+        wo_assert(WO_VM(vm)->env->meta_data_for_jit._jit_code_holder.empty());
 
         analyze_jit(const_cast<wo::byte_t*>(WO_VM(vm)->env->rt_codes), WO_VM(vm)->env);
         return WO_TRUE;
@@ -4344,10 +4362,10 @@ wo_string_t wo_debug_trace_callstack(wo_vm vm, wo_size_t layer)
     std::stringstream sstream;
     vmm->dump_call_stack(layer, true, sstream);
 
-    wo_set_string(CS_VAL(&vmm->register_mem_begin[wo::opnum::reg::er]), vm, sstream.str().c_str());
-    wo_assert(vmm->register_mem_begin[wo::opnum::reg::er].type == wo::value::valuetype::string_type);
+    wo_set_string(CS_VAL(&vmm->register_storage[wo::opnum::reg::er]), vm, sstream.str().c_str());
+    wo_assert(vmm->register_storage[wo::opnum::reg::er].type == wo::value::valuetype::string_type);
 
-    return vmm->register_mem_begin[wo::opnum::reg::er].string->c_str();
+    return vmm->register_storage[wo::opnum::reg::er].string->c_str();
 }
 
 wo_dylib_handle_t wo_fake_lib(
@@ -4559,27 +4577,27 @@ void wo_ir_bind_tag(wo_ir_compiler compiler, wo_string_t name)
 void wo_ir_int(wo_ir_compiler compiler, wo_integer_t val)
 {
     auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
-    c->ir_opnum(wo::opnum::imm(val));
+    c->ir_opnum(wo::opnum::imm_int(val));
 }
 void wo_ir_real(wo_ir_compiler compiler, wo_real_t val)
 {
     auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
-    c->ir_opnum(wo::opnum::imm(val));
+    c->ir_opnum(wo::opnum::imm_real(val));
 }
 void wo_ir_handle(wo_ir_compiler compiler, wo_handle_t val)
 {
     auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
-    c->ir_opnum(wo::opnum::imm_hdl(val));
+    c->ir_opnum(wo::opnum::imm_handle(val));
 }
 void wo_ir_string(wo_ir_compiler compiler, wo_string_t val)
 {
     auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
-    c->ir_opnum(wo::opnum::imm_str(val));
+    c->ir_opnum(wo::opnum::imm_string(val));
 }
 void wo_ir_bool(wo_ir_compiler compiler, wo_bool_t val)
 {
     auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
-    c->ir_opnum(wo::opnum::imm((bool)val));
+    c->ir_opnum(wo::opnum::imm_int((bool)val));
 }
 void wo_ir_glb(wo_ir_compiler compiler, int32_t offset)
 {

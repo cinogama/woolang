@@ -8,7 +8,6 @@
 #include "wo_shared_ptr.hpp"
 #include "wo_global_setting.hpp"
 
-#include <shared_mutex>
 #include <unordered_map>
 
 #ifdef _WIN32

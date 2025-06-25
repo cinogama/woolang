@@ -1,11 +1,6 @@
-#include "wo_os_api.hpp"
-#include "wo_assert.hpp"
-#include "wo_env_locale.hpp"
-#include "wo_utf8.hpp"
+#include "wo_afx.hpp"
 
-#include <string>
-#include <unordered_map>
-#include <shared_mutex>
+#include "wo_env_locale.hpp"
 
 #if WO_DISABLE_FUNCTION_FOR_WASM
 #else

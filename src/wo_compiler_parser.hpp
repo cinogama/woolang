@@ -14,12 +14,9 @@ RS will using 'hand-work' parser, there is not yacc/bison..
 
 #include <variant>
 #include <functional>
-#include <queue>
 #include <stack>
-#include <sstream>
 #include <forward_list>
 #include <unordered_map>
-#include <unordered_set>
 #include <map>
 #include <list>
 

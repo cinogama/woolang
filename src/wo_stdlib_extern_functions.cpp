@@ -1,7 +1,6 @@
+#include "wo_afx.hpp"
+
 #include "wo_lang_extern_symbol_loader.hpp"
-#include "wo_utf8.hpp"
-#include "wo_vm.hpp"
-#include "wo_io.hpp"
 
 #include <chrono>
 #include <random>
@@ -2226,7 +2225,6 @@ namespace std
         public func yield()=> void;
     extern("rslib_std_thread_sleep", slow)
         public func sleep(tm: real)=> void;
-   
     extern("rslib_std_get_args")
         public func args()=> array<string>;
     extern("rslib_std_get_exe_path")
@@ -2276,7 +2274,6 @@ namespace string
     public func take_int(datstr: string)=> option<(string, int)>;
     extern("rslib_std_take_real") 
     public func take_real(datstr: string)=> option<(string, real)>;
-    
     extern("rslib_std_create_wchars_from_str")
     public func chars(buf: string)=> array<char>;
     extern("rslib_std_create_chars_from_str")
@@ -2293,7 +2290,6 @@ namespace string
     public func sub_len(val: string, begin: int, length: int)=> string;
     extern("rslib_std_string_sub_range")
     public func sub_range(val: string, begin: int, end: int)=> string;
-    
     extern("rslib_std_string_toupper")
         public func upper(val: string)=> string;
     extern("rslib_std_string_tolower")
@@ -2462,7 +2458,6 @@ namespace array
         let mut result = self[0];
         for (let mut i = 1; i < self->len; i+=1)
             result = reducer(result, self[i]);
-            
         return option::value(result);
     }
     public func rreduce<T>(self: array<T>, reducer: (T, T)=> T)=> option<T>
@@ -2486,7 +2481,6 @@ namespace array
         public func connect<T>(self: array<T>, another: array<T>)=> array<T>;
     extern("rslib_std_array_sub", repeat)
     public func sub<T>(self: array<T>, begin: int)=> array<T>;
-    
     extern("rslib_std_array_subto", repeat)
     public func sub_len<T>(self: array<T>, begin: int, count: int)=> array<T>;
     extern("rslib_std_array_sub_range", repeat)
@@ -2552,7 +2546,6 @@ namespace vec
         public func connect<T>(self: vec<T>, another: vec<T>)=> vec<T>;
     extern("rslib_std_array_sub", repeat)
     public func sub<T>(self: vec<T>, begin: int)=> vec<T>;
-    
     extern("rslib_std_array_subto", repeat)
     public func sub_len<T>(self: vec<T>, begin: int, count: int)=> vec<T>;
     extern("rslib_std_array_sub_range", repeat)
@@ -2625,7 +2618,6 @@ namespace vec
     {
         if (self->empty)
             return option::none;
-        
         let len = self->len;
         let mut result = self[len-1];
         for (let mut i = len-2; i >= 0; i-=1)

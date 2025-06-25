@@ -1,9 +1,6 @@
-#include "wo_io.hpp"
-#include "wo_assert.hpp"
-#include "wo_utf8.hpp"
+#include "wo_afx.hpp"
 
 #include "wo_env_locale.hpp"
-#include "wo_os_api.hpp"
 
 #ifdef _WIN32
 #       include <Windows.h>
@@ -14,9 +11,6 @@
 #       include <sys/stat.h>
 #endif
 
-#include <iostream>
-#include <memory>
-#include <cstring>
 
 #define WO_MAX_EXE_OR_RPATH_LEN 16384
 

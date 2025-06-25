@@ -475,16 +475,16 @@ namespace wo
             std::unique_ptr<opnum::global>> m_opnum_cache_global;
         std::unordered_map<
             wo_integer_t,
-            std::unique_ptr<opnum::immbase>> m_opnum_cache_imm_int;
+            std::unique_ptr<opnum::imm_int>> m_opnum_cache_imm_int;
         std::unordered_map<
             wo_real_t,
-            std::unique_ptr<opnum::immbase>> m_opnum_cache_imm_real;
+            std::unique_ptr<opnum::imm_real>> m_opnum_cache_imm_real;
         std::unordered_map<
             wo_handle_t,
-            std::unique_ptr<opnum::immbase>> m_opnum_cache_imm_handle;
+            std::unique_ptr<opnum::imm_handle>> m_opnum_cache_imm_handle;
         std::unordered_map<
             std::string,
-            std::unique_ptr<opnum::immbase>> m_opnum_cache_imm_string;
+            std::unique_ptr<opnum::imm_string>> m_opnum_cache_imm_string;
         std::unordered_map<
             std::string,
             std::unique_ptr<opnum::tagimm_rsfunc>> m_opnum_cache_imm_rsfunc;
@@ -497,6 +497,8 @@ namespace wo
         std::unordered_map<
             int32_t,
             std::unique_ptr<opnum::temporary>> m_opnum_cache_temporarys;
+        std::list<
+            std::unique_ptr<opnum::immbase>> m_opnum_cache_imm_value;
 
 #ifdef NDEBUG
         std::set<int32_t> m_inused_temporary_registers;
@@ -1053,7 +1055,7 @@ namespace wo
         bool update_pattern_symbol_variable_type_pass1(
             lexer& lex,
             ast::AstPatternBase* pattern,
-            const std::optional<ast::AstValueBase*>& init_value,
+            const std::optional<std::variant<ast::AstValueBase*, const value*>>& init_value,
             // NOTE: If template pattern, init_value_type will not able to be determined.
             // So here is optional.
             const std::optional<lang_TypeInstance*>& init_value_type);
