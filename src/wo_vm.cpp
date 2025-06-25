@@ -256,7 +256,7 @@ namespace wo
     }
     void vmbase::_allocate_register_space(size_t regcount) noexcept
     {
-        register_storage = std::launder(reinterpret_cast<value*>(calloc(regcount, sizeof(value))));
+        register_storage = std::launder(reinterpret_cast<value*>(calloc(regcount, sizeof(wo::value))));
         cr = register_storage + opnum::reg::spreg::cr;
         tc = register_storage + opnum::reg::spreg::tc;
         tp = register_storage + opnum::reg::spreg::tp;
@@ -265,7 +265,7 @@ namespace wo
     {
         stack_size = stacksz;
 
-        stack_storage = std::launder(reinterpret_cast<value*>(calloc(stacksz, sizeof(value))));
+        stack_storage = std::launder(reinterpret_cast<value*>(calloc(stacksz, sizeof(wo::value))));
         sb = stack_storage + stacksz - 1;
         sp = bp = sb;
     }
@@ -284,7 +284,7 @@ namespace wo
             return false;
 
         value* new_stack_buf = reinterpret_cast<value*>(
-            calloc(stacksz, sizeof(value)));
+            calloc(stacksz, sizeof(wo::value)));
 
         if (new_stack_buf == nullptr)
             // Failed to allocate new stack space
@@ -294,7 +294,7 @@ namespace wo
         value* new_sp = new_stack_buf + stacksz - 1 - used_stack_size;
         const size_t bp_sp_offset = (size_t)(bp - sp);
 
-        memcpy(new_sp + 1, sp + 1, used_stack_size * sizeof(value));
+        memcpy(new_sp + 1, sp + 1, used_stack_size * sizeof(wo::value));
         free(stack_storage);
 
         stack_storage = new_stack_buf;

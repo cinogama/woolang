@@ -1008,7 +1008,7 @@ void wo_set_struct(wo_value value, wo_vm vm, uint16_t structsz)
         wo::struct_t::gc_new<wo::gcbase::gctype::young>(structsz);
 
     // To avoid uninitialised value, memset here.
-    memset(maked_struct->m_values, 0, static_cast<size_t>(structsz) * sizeof(value));
+    memset(maked_struct->m_values, 0, static_cast<size_t>(structsz) * sizeof(wo::value));
     _rsvalue->set_gcunit<wo::value::valuetype::struct_type>(
         maked_struct);
 }

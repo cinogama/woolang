@@ -824,8 +824,8 @@ namespace wo
         size_t preserve_memory_size =
             result->constant_and_global_value_takeplace_count;
 
-        value* preserved_memory = (value*)malloc(preserve_memory_size * sizeof(value));
-        memset(preserved_memory, 0, preserve_memory_size * sizeof(value));
+        value* preserved_memory = (value*)malloc(preserve_memory_size * sizeof(wo::value));
+        memset(preserved_memory, 0, preserve_memory_size * sizeof(wo::value));
 
         result->constant_and_global_storage = preserved_memory;
 
@@ -1456,7 +1456,7 @@ namespace wo
             + 1
             + global_value_count;
 
-        value* preserved_memory = (value*)malloc(preserve_memory_size * sizeof(value));
+        value* preserved_memory = (value*)malloc(preserve_memory_size * sizeof(wo::value));
 
         cxx_vec_t<byte_t> generated_runtime_code_buf; // It will be put to 16 byte allign mem place.
 
@@ -1466,7 +1466,7 @@ namespace wo
 
         wo_assert(preserved_memory, "Alloc memory fail.");
 
-        memset(preserved_memory, 0, preserve_memory_size * sizeof(value));
+        memset(preserved_memory, 0, preserve_memory_size * sizeof(wo::value));
         //  // Fill constant
         for (auto constant_record : constant_record_list)
         {
