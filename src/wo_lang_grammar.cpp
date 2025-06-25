@@ -19,16 +19,14 @@
 namespace wo
 {
 #ifndef WO_DISABLE_COMPILER
-    grammar *get_wo_grammar()
+    static std::unique_ptr<grammar> grammar_instance = nullptr;
+
+    void init_woolang_grammar()
     {
-        static grammar *wo_grammar = nullptr;
-
-        if (wo_grammar)
-            return wo_grammar;
-
+        wo_assert(grammar_instance == nullptr);
         ast::init_builder();
 
-        const char *GRAMMAR_SRC_FILE = WO_SRC_PATH "/src/wo_lang_grammar.cpp";
+        const char* GRAMMAR_SRC_FILE = WO_SRC_PATH "/src/wo_lang_grammar.cpp";
 
         uint64_t wo_lang_grammar_crc64 = 0;
         bool wo_check_grammar_need_update = wo::config::ENABLE_CHECK_GRAMMAR_AND_UPDATE;
@@ -59,12 +57,12 @@ namespace wo
 
         if (!wo_check_grammar_need_update)
         {
-            wo_grammar = new grammar;
+            grammar_instance = std::make_unique<grammar>();
 
-            wo_read_lr1_cache(*wo_grammar);
-            wo_read_lr1_to(wo_grammar->LR1_TABLE);
-            wo_read_follow_set_to(wo_grammar->FOLLOW_SET);
-            wo_read_origin_p_to(wo_grammar->ORGIN_P);
+            wo_read_lr1_cache(*grammar_instance);
+            wo_read_lr1_to(grammar_instance->LR1_TABLE);
+            wo_read_follow_set_to(grammar_instance->FOLLOW_SET);
+            wo_read_origin_p_to(grammar_instance->ORGIN_P);
 
             goto register_ast_builder_function;
         }
@@ -74,7 +72,7 @@ namespace wo
             wo_stdout << ANSI_HIY "WooGramma: " ANSI_RST "Syntax update detected, LR table cache is being regenerating..." << wo_endl;
 
             using gm = wo::grammar;
-            wo_grammar = new grammar({
+            grammar_instance = std::make_unique<grammar>(std::vector<grammar::rule>{
                 // nt >> list{nt/te ... } [>> ast_create_function]
                 gm::nt(L"PROGRAM_AUGMENTED") >> gm::symlist{gm::nt(L"PROGRAM")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 gm::nt(L"PROGRAM") >> gm::symlist{gm::te(gm::ttype::l_empty)} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
@@ -511,22 +509,22 @@ namespace wo
                 gm::nt(L"USELESS_TOKEN") >> gm::symlist{gm::te(gm::ttype::l_double_index_point)} >> WO_ASTBUILDER_INDEX(ast::pass_useless_token),
                 gm::nt(L"USELESS_TOKEN") >> gm::symlist{gm::te(gm::ttype::l_unknown_token)} >> WO_ASTBUILDER_INDEX(ast::pass_useless_token),
                 gm::nt(L"USELESS_TOKEN") >> gm::symlist{gm::te(gm::ttype::l_macro)} >> WO_ASTBUILDER_INDEX(ast::pass_token),
-            });
+                });
 
             wo_stdout << ANSI_HIY "WooGramma: " ANSI_RST "Checking LR(1) table..." << wo_endl;
 
-            if (wo_grammar->check_lr1())
+            if (grammar_instance->check_lr1())
             {
                 wo_stdout << ANSI_HIR "WooGramma: " ANSI_RST "LR(1) have some problem, abort." << wo_endl;
                 exit(-1);
             }
 
-            // wo_grammar->display();
+            // grammar_instance->display();
 
             if (!WO_GRAMMAR_SKIP_GEN_LR1_TABLE_CACHE)
             {
                 using namespace std;
-                const wchar_t *tab = L"    ";
+                const wchar_t* tab = L"    ";
 
                 wo_stdout << ANSI_HIY "WooGramma: " ANSI_RST "OK, now writting cache..." << wo_endl;
 
@@ -566,7 +564,7 @@ namespace wo
                 {
                     int nt_count = 0;
                     int te_count = 0;
-                    for (auto &[op_nt, sym_list] : wo_grammar->ORGIN_P)
+                    for (auto& [op_nt, sym_list] : grammar_instance->ORGIN_P)
                     {
                         if (sym_list.size() > max_length_producer)
                             max_length_producer = sym_list.size();
@@ -574,7 +572,7 @@ namespace wo
                         if (nonte_list.find(op_nt.nt_name) == nonte_list.end())
                             nonte_list[op_nt.nt_name] = ++nt_count;
 
-                        for (auto &sym : sym_list)
+                        for (auto& sym : sym_list)
                         {
                             if (std::holds_alternative<grammar::te>(sym))
                             {
@@ -587,13 +585,13 @@ namespace wo
                         te_list[lex_type::l_eof] = ++te_count;
 
                     std::map<int, std::wstring> _real_nonte_list;
-                    for (auto &[op_nt, nt_index] : nonte_list)
+                    for (auto& [op_nt, nt_index] : nonte_list)
                     {
                         wo_test(_real_nonte_list.find(nt_index) == _real_nonte_list.end());
                         _real_nonte_list[nt_index] = op_nt;
                     }
                     std::map<int, lex_type> _real_te_list;
-                    for (auto &[op_te, te_index] : te_list)
+                    for (auto& [op_te, te_index] : te_list)
                     {
                         wo_test(_real_te_list.find(te_index) == _real_te_list.end());
                         _real_te_list.insert_or_assign(te_index, op_te);
@@ -601,7 +599,7 @@ namespace wo
 
                     cachefile << L"const wchar_t* woolang_id_nonterm_list[" << nt_count << L"+ 1] = {" << endl;
                     cachefile << tab << L"nullptr," << endl;
-                    for (auto &[nt_index, op_nt] : _real_nonte_list)
+                    for (auto& [nt_index, op_nt] : _real_nonte_list)
                     {
                         cachefile << tab << L"L\"" << op_nt << L"\"," << endl;
                     }
@@ -609,7 +607,7 @@ namespace wo
 
                     cachefile << L"const lex_type woolang_id_term_list[" << te_count << L"+ 1] = {" << endl;
                     cachefile << tab << L"lex_type::l_error," << endl;
-                    for (auto &[te_index, op_te] : _real_te_list)
+                    for (auto& [te_index, op_te] : _real_te_list)
                     {
                         cachefile << tab << L"(lex_type)" << (lex_type_base_t)op_te << L"," << endl;
                     }
@@ -619,18 +617,18 @@ namespace wo
                 // Generate LR(1) action table;
 
                 std::vector<std::pair<int, int>> STATE_GOTO_R_S_INDEX_MAP(
-                    wo_grammar->LR1_TABLE.size(), std::pair<int, int>(-1, -1));
+                    grammar_instance->LR1_TABLE.size(), std::pair<int, int>(-1, -1));
 
                 // GOTO : only nt have goto,
                 cachefile << L"const int woolang_lr1_act_goto[][" << nonte_list.size() << L" + 1] = {" << endl;
                 cachefile << L"// {   STATE_ID,  NT_ID1, NT_ID2, ...  }" << endl;
                 size_t WO_LR1_ACT_GOTO_SIZE = 0;
                 size_t WO_GENERATE_INDEX = 0;
-                for (auto &[state_id, te_sym_list] : wo_grammar->LR1_TABLE)
+                for (auto& [state_id, te_sym_list] : grammar_instance->LR1_TABLE)
                 {
                     std::vector<int> nt_goto_state(nonte_list.size() + 1, -1);
                     bool has_action = false;
-                    for (auto &[sym, actions] : te_sym_list)
+                    for (auto& [sym, actions] : te_sym_list)
                     {
                         wo_test(actions.size() <= 1);
                         if (std::holds_alternative<grammar::nt>(sym))
@@ -672,11 +670,11 @@ namespace wo
                 int acc_state = 0, acc_term = 0;
                 size_t WO_LR1_ACT_STACK_SIZE = 0;
                 WO_GENERATE_INDEX = 0;
-                for (auto &[state_id, te_sym_list] : wo_grammar->LR1_TABLE)
+                for (auto& [state_id, te_sym_list] : grammar_instance->LR1_TABLE)
                 {
                     std::vector<int> te_stack_reduce_state(te_list.size() + 1, 0);
                     bool has_action = false;
-                    for (auto &[sym, actions] : te_sym_list)
+                    for (auto& [sym, actions] : te_sym_list)
                     {
                         wo_test(actions.size() <= 1);
                         if (std::holds_alternative<grammar::te>(sym))
@@ -684,8 +682,8 @@ namespace wo
                             if (actions.size())
                             {
                                 wo_test(actions.begin()->act == grammar::action::act_type::push_stack ||
-                                        actions.begin()->act == grammar::action::act_type::reduction ||
-                                        actions.begin()->act == grammar::action::act_type::accept);
+                                    actions.begin()->act == grammar::action::act_type::reduction ||
+                                    actions.begin()->act == grammar::action::act_type::accept);
 
                                 if (actions.begin()->act == grammar::action::act_type::push_stack)
                                 {
@@ -732,7 +730,7 @@ namespace wo
                 // Stack/Reduce
                 cachefile << L"const int woolang_lr1_goto_rs_map[][2] = {" << endl;
                 cachefile << L"// { GOTO_INDEX, RS_INDEX }" << endl;
-                for (auto &[gotoidx, rsidx] : STATE_GOTO_R_S_INDEX_MAP)
+                for (auto& [gotoidx, rsidx] : STATE_GOTO_R_S_INDEX_MAP)
                 {
                     cachefile << L"    { " << gotoidx << L", " << rsidx << L" }," << endl;
                 }
@@ -741,13 +739,13 @@ namespace wo
                 // Generate FOLLOW
                 cachefile << L"const int woolang_follow_sets[][" << te_list.size() << L" + 1] = {" << endl;
                 cachefile << L"// {   NONTERM_ID,  TE_ID1, TE_ID2, ...  }" << endl;
-                for (auto &[follow_item_sym, follow_items] : wo_grammar->FOLLOW_SET)
+                for (auto& [follow_item_sym, follow_items] : grammar_instance->FOLLOW_SET)
                 {
                     wo_test(std::holds_alternative<grammar::nt>(follow_item_sym));
 
                     std::vector<int> follow_set(te_list.size() + 1, 0);
                     cachefile << L"{ " << nonte_list[std::get<grammar::nt>(follow_item_sym).nt_name] << L",  ";
-                    for (auto &tes : follow_items)
+                    for (auto& tes : follow_items)
                     {
                         cachefile << te_list[tes.t_type] << L", ";
                     }
@@ -758,16 +756,16 @@ namespace wo
                 // Generate ORIGIN_P
                 cachefile << L"const int woolang_origin_p[][" << max_length_producer << L" + 3] = {" << endl;
                 cachefile << L"// {   NONTERM_ID, >> PFUNC_ID >> PNUM >>P01, P02, (te +, nt -)...  }" << endl;
-                for (auto &[aim, rule] : wo_grammar->ORGIN_P)
+                for (auto& [aim, rule] : grammar_instance->ORGIN_P)
                 {
                     if (aim.builder_index == 0)
                     {
-                        wo_wstdout << ANSI_HIY "WooGramma: " ANSI_RST "Producer: " ANSI_HIR << grammar::lr_item{grammar::rule{aim, rule}, size_t(-1), grammar::te(grammar::ttype::l_eof)}
-                                   << ANSI_RST " have no ast builder, using default builder.." << wo_endl;
+                        wo_wstdout << ANSI_HIY "WooGramma: " ANSI_RST "Producer: " ANSI_HIR << grammar::lr_item{ grammar::rule{aim, rule}, size_t(-1), grammar::te(grammar::ttype::l_eof) }
+                        << ANSI_RST " have no ast builder, using default builder.." << wo_endl;
                     }
 
                     cachefile << L"   { " << nonte_list[aim.nt_name] << L", " << aim.builder_index << L", " << rule.size() << ", ";
-                    for (auto &sym : rule)
+                    for (auto& sym : rule)
                     {
                         if (std::holds_alternative<grammar::te>(sym))
                             cachefile << te_list[std::get<grammar::te>(sym).t_type] << L",";
@@ -810,15 +808,26 @@ namespace wo
     register_ast_builder_function:
         // finally work
 
-        for (auto &[rule_nt, _tokens] : wo_grammar->ORGIN_P)
+        for (auto& [rule_nt, _tokens] : grammar_instance->ORGIN_P)
         {
             if (rule_nt.builder_index)
                 rule_nt.ast_create_func = ast::get_builder(rule_nt.builder_index);
         }
 
-        wo_grammar->finish_rt();
+        grammar_instance->finish_rt();
+    }
+    void shutdown_woolang_grammar()
+    {
+        wo_assert(grammar_instance != nullptr);
 
-        return wo_grammar;
+        grammar_instance.reset();
+        ast::shutdown_builder();
+    }
+    grammar* get_grammar_instance()
+    {
+        wo_assert(grammar_instance != nullptr);
+
+        return grammar_instance.get();
     }
 #endif
 }

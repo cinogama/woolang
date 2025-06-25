@@ -437,35 +437,39 @@ namespace wo
             auto* dup_arrray = from->array;
             wo_assert(dup_arrray != nullptr);
 
-            set_gcunit<valuetype::array_type>(
-                array_t::gc_new<gcbase::gctype::young>(dup_arrray->size()));
-
             gcbase::gc_read_guard g1(dup_arrray);
-            *array->elem() = *dup_arrray->elem();
 
+            set_gcunit<valuetype::array_type>(
+                array_t::gc_new<gcbase::gctype::young>(
+                    *dup_arrray));
         }
         else if (from->type == valuetype::dict_type)
         {
             auto* dup_mapping = from->dict;
             wo_assert(dup_mapping != nullptr);
 
-            set_gcunit<valuetype::dict_type>(
-                dict_t::gc_new<gcbase::gctype::young>());
-
             gcbase::gc_read_guard g1(dup_mapping);
-            *dict->elem() = *dup_mapping->elem();
+
+            set_gcunit<valuetype::dict_type>(
+                dict_t::gc_new<gcbase::gctype::young>(
+                    *dup_mapping));
         }
         else if (from->type == valuetype::struct_type)
         {
             auto* dup_struct = from->structs;
             wo_assert(dup_struct != nullptr);
 
-            set_gcunit<valuetype::struct_type>(
-                struct_t::gc_new<gcbase::gctype::young>(dup_struct->m_count));
+            auto* maked_struct =
+                struct_t::gc_new<gcbase::gctype::young>(
+                    dup_struct->m_count);
 
             gcbase::gc_read_guard g1(dup_struct);
-            for (uint16_t i = 0; i < dup_struct->m_count; ++i)
-                structs->m_values[i].set_val(&dup_struct->m_values[i]);
+            memcpy(
+                maked_struct->m_values,
+                dup_struct->m_values,
+                sizeof(value) * static_cast<size_t>(dup_struct->m_count));
+
+            set_gcunit<valuetype::struct_type>(maked_struct);
         }
         else
             set_val(from);

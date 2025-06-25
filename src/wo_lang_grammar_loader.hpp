@@ -5,6 +5,8 @@
 namespace wo
 {
 #ifndef WO_DISABLE_COMPILER
-    grammar* get_wo_grammar();
+    void init_woolang_grammar();
+    void shutdown_woolang_grammar();
+    grammar* get_grammar_instance();
 #endif
 }

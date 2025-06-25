@@ -8,7 +8,7 @@
 
 using wo_pstring_t = const std::wstring*;
 
-#define WO_GLOBAL_PSTR(str) inline wo_pstring_t _global_##str = new std::wstring(L ## #str);
+#define WO_GLOBAL_PSTR(str) inline wo_pstring_t _global_##str;
 
 #define WO_GLOBAL_PSTR_LIST \
 WO_GLOBAL_PSTR(woolang)\
@@ -45,28 +45,28 @@ WO_GLOBAL_PSTR(unsafe)\
 WO_GLOBAL_PSTR(_)\
 // end
 
-#define WO_PSTR(str) (wo::fixstr::_global_##str)
+#define WO_PSTR(str) wo::fixstr::_global_##str
 
 namespace wo::fixstr
 {
     WO_GLOBAL_PSTR_LIST;
-    inline wo_pstring_t _global_EMPTY = new std::wstring(L"");
-    inline wo_pstring_t _global__iter = new std::wstring(L"$_iter");
-    inline wo_pstring_t _global__val = new std::wstring(L"$_val");
-   
-    inline wo_pstring_t _global_operator_ADD = new std::wstring(L"operator +");
-    inline wo_pstring_t _global_operator_SUB = new std::wstring(L"operator -");
-    inline wo_pstring_t _global_operator_MUL = new std::wstring(L"operator *");
-    inline wo_pstring_t _global_operator_DIV = new std::wstring(L"operator /");
-    inline wo_pstring_t _global_operator_MOD = new std::wstring(L"operator %");
-    inline wo_pstring_t _global_operator_LAND = new std::wstring(L"operator &&");
-    inline wo_pstring_t _global_operator_LOR = new std::wstring(L"operator ||");
-    inline wo_pstring_t _global_operator_LESS = new std::wstring(L"operator <");
-    inline wo_pstring_t _global_operator_LESSEQ = new std::wstring(L"operator <=");
-    inline wo_pstring_t _global_operator_GREAT = new std::wstring(L"operator >");
-    inline wo_pstring_t _global_operator_GREATEQ = new std::wstring(L"operator >=");
-    inline wo_pstring_t _global_operator_EQ = new std::wstring(L"operator ==");
-    inline wo_pstring_t _global_operator_NEQ = new std::wstring(L"operator !=");
+    inline wo_pstring_t _global_EMPTY;
+    inline wo_pstring_t _global__iter;
+    inline wo_pstring_t _global__val;
+
+    inline wo_pstring_t _global_operator_ADD;
+    inline wo_pstring_t _global_operator_SUB;
+    inline wo_pstring_t _global_operator_MUL;
+    inline wo_pstring_t _global_operator_DIV;
+    inline wo_pstring_t _global_operator_MOD;
+    inline wo_pstring_t _global_operator_LAND;
+    inline wo_pstring_t _global_operator_LOR;
+    inline wo_pstring_t _global_operator_LESS;
+    inline wo_pstring_t _global_operator_LESSEQ;
+    inline wo_pstring_t _global_operator_GREAT;
+    inline wo_pstring_t _global_operator_GREATEQ;
+    inline wo_pstring_t _global_operator_EQ;
+    inline wo_pstring_t _global_operator_NEQ;
 }
 
 #undef WO_GLOBAL_PSTR
@@ -97,31 +97,64 @@ namespace wo
 
         static void init_global_str_pool()
         {
-            if (_m_global_string_pool == nullptr)
-            {
-                _m_global_string_pool = std::make_unique<wstring_pool>();
+            wo_assert(_m_global_string_pool == nullptr);
 
-#define WO_GLOBAL_PSTR(str) _m_global_string_pool->_m_string_pool.insert(WO_PSTR(str));
-                WO_GLOBAL_PSTR_LIST;
-                WO_GLOBAL_PSTR(EMPTY);
-                WO_GLOBAL_PSTR(_iter);
-                WO_GLOBAL_PSTR(_val);
-                WO_GLOBAL_PSTR(operator_ADD);
-                WO_GLOBAL_PSTR(operator_SUB);
-                WO_GLOBAL_PSTR(operator_MUL);
-                WO_GLOBAL_PSTR(operator_DIV);
-                WO_GLOBAL_PSTR(operator_MOD);
-                WO_GLOBAL_PSTR(operator_LAND);
-                WO_GLOBAL_PSTR(operator_LOR);
-                WO_GLOBAL_PSTR(operator_LESS);
-                WO_GLOBAL_PSTR(operator_LESSEQ);
-                WO_GLOBAL_PSTR(operator_GREAT);
-                WO_GLOBAL_PSTR(operator_GREATEQ);
-                WO_GLOBAL_PSTR(operator_EQ);
-                WO_GLOBAL_PSTR(operator_NEQ);
+            _m_global_string_pool = std::make_unique<wstring_pool>();
+
+#define WO_GLOBAL_PSTR(str)\
+    WO_PSTR(str) = new std::wstring(L ## #str);\
+    _m_global_string_pool->_m_string_pool.insert(WO_PSTR(str));
+#define WO_GLOBAL_PSTR_WITH_CONST(str, wlstr)\
+    WO_PSTR(str) = new std::wstring(wlstr);\
+    _m_global_string_pool->_m_string_pool.insert(WO_PSTR(str));
+
+            WO_GLOBAL_PSTR_LIST;
+            WO_GLOBAL_PSTR_WITH_CONST(EMPTY, L"");
+            WO_GLOBAL_PSTR_WITH_CONST(_iter, L"$_iter");
+            WO_GLOBAL_PSTR_WITH_CONST(_val, L"$_val");
+            WO_GLOBAL_PSTR_WITH_CONST(operator_ADD, L"operator +");
+            WO_GLOBAL_PSTR_WITH_CONST(operator_SUB, L"operator -");
+            WO_GLOBAL_PSTR_WITH_CONST(operator_MUL, L"operator *");
+            WO_GLOBAL_PSTR_WITH_CONST(operator_DIV, L"operator /");
+            WO_GLOBAL_PSTR_WITH_CONST(operator_MOD, L"operator %");
+            WO_GLOBAL_PSTR_WITH_CONST(operator_LAND, L"operator &&");
+            WO_GLOBAL_PSTR_WITH_CONST(operator_LOR, L"operator ||");
+            WO_GLOBAL_PSTR_WITH_CONST(operator_LESS, L"operator <");
+            WO_GLOBAL_PSTR_WITH_CONST(operator_LESSEQ, L"operator <=");
+            WO_GLOBAL_PSTR_WITH_CONST(operator_GREAT, L"operator >");
+            WO_GLOBAL_PSTR_WITH_CONST(operator_GREATEQ, L"operator >=");
+            WO_GLOBAL_PSTR_WITH_CONST(operator_EQ, L"operator ==");
+            WO_GLOBAL_PSTR_WITH_CONST(operator_NEQ, L"operator !=");
 #undef WO_GLOBAL_PSTR
-            }
+
         }
+        static void shutdown_global_str_pool()
+        {
+            wo_assert(_m_global_string_pool != nullptr);
+            _m_global_string_pool.reset();
+
+            // NOTE: No need to free/delete, it has been done in `pool.reset`.
+#define WO_GLOBAL_PSTR(str) WO_PSTR(str) = nullptr;
+            WO_GLOBAL_PSTR_LIST;
+            WO_GLOBAL_PSTR(EMPTY);
+            WO_GLOBAL_PSTR(_iter);
+            WO_GLOBAL_PSTR(_val);
+            WO_GLOBAL_PSTR(operator_ADD);
+            WO_GLOBAL_PSTR(operator_SUB);
+            WO_GLOBAL_PSTR(operator_MUL);
+            WO_GLOBAL_PSTR(operator_DIV);
+            WO_GLOBAL_PSTR(operator_MOD);
+            WO_GLOBAL_PSTR(operator_LAND);
+            WO_GLOBAL_PSTR(operator_LOR);
+            WO_GLOBAL_PSTR(operator_LESS);
+            WO_GLOBAL_PSTR(operator_LESSEQ);
+            WO_GLOBAL_PSTR(operator_GREAT);
+            WO_GLOBAL_PSTR(operator_GREATEQ);
+            WO_GLOBAL_PSTR(operator_EQ);
+            WO_GLOBAL_PSTR(operator_NEQ);
+#undef WO_GLOBAL_PSTR
+        }
+
 #undef WO_GLOBAL_PSTR_LIST
 
         wstring_pool* get_global_string_pool()

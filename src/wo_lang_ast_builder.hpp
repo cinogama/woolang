@@ -6,6 +6,7 @@ namespace wo
     namespace ast
     {
         void init_builder();
+        void shutdown_builder();
 
         struct astnode_builder
         {

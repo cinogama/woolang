@@ -28,7 +28,6 @@ namespace wo
     inline std::locale wo_global_locale = std::locale::classic();
     inline std::string wo_global_locale_name = "";
     inline std::optional<std::wstring> wo_binary_path = std::nullopt;
-
     inline std::vector<std::string> wo_args;
 
     const std::locale& get_locale()
@@ -46,7 +45,6 @@ namespace wo
         for (int i = 0; i < argc; ++i)
             wo_args.push_back(argv[i]);
     }
-
     void wo_init_locale(const char* local_type)
     {
         // SUPPORT ANSI_CONTROL
@@ -74,6 +72,11 @@ namespace wo
         if (wo::config::ENABLE_OUTPUT_ANSI_COLOR_CTRL)
             printf(ANSI_RST);
     }
+    void wo_shutdown_locale_and_args()
+    {
+        wo_binary_path.reset();
+        wo_args.clear();
+    }
 
     std::wstring get_file_loc(std::wstring path)
     {
@@ -85,7 +88,6 @@ namespace wo
 
         return L"";
     }
-
     std::wstring exe_path()
     {
         if (!wo_binary_path)
