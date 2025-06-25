@@ -2133,6 +2133,30 @@ func main()
 
             do Const:<Aim>;
         "@);
+        assure_compile_fail(@"
+            import woo::std;
+
+            let a = ("",);
+            do std::panic_value:<{a.1}>;
+        "@);
+        assure_compile_success(@"
+            import woo::std;
+
+            let a = ("",);
+            do std::panic_value:<{a.0}>;
+        "@);
+        assure_compile_fail(@"
+            import woo::std;
+
+            let a = (mut "",);
+            do std::panic_value:<{a.0}>;
+        "@);
+        assure_compile_fail(@"
+            import woo::std;
+
+            let a = ("": mut string,);
+            do std::panic_value:<{a.0}>;
+        "@);
     }
 
     func main()

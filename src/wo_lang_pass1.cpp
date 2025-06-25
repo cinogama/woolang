@@ -1464,22 +1464,22 @@ namespace wo
     {
         auto judge_function_return_type =
             [&](lang_TypeInstance* ret_type)
-        {
-            std::list<lang_TypeInstance*> parameters;
-            for (auto& param : node->m_parameters)
-                parameters.push_back(param->m_type.value()->m_LANG_determined_type.value());
-
-            node->m_LANG_determined_type = m_origin_types.create_function_type(
-                node->m_is_variadic, parameters, ret_type);
-
-            wo_assert(node->m_LANG_determined_type.has_value());
-
-            if (node->m_LANG_value_instance_to_update)
             {
-                node->m_LANG_value_instance_to_update.value()->m_determined_type =
-                    node->m_LANG_determined_type;
-            }
-        };
+                std::list<lang_TypeInstance*> parameters;
+                for (auto& param : node->m_parameters)
+                    parameters.push_back(param->m_type.value()->m_LANG_determined_type.value());
+
+                node->m_LANG_determined_type = m_origin_types.create_function_type(
+                    node->m_is_variadic, parameters, ret_type);
+
+                wo_assert(node->m_LANG_determined_type.has_value());
+
+                if (node->m_LANG_value_instance_to_update)
+                {
+                    node->m_LANG_value_instance_to_update.value()->m_determined_type =
+                        node->m_LANG_determined_type;
+                }
+            };
 
         // Huston, we have a problem.
         if (state == UNPROCESSED)
@@ -1951,30 +1951,27 @@ namespace wo
                         return FAILED;
                     }
 
+                    uint16_t idx = 0;
                     for (auto& element_type :
                         determined_base_type_instance->
                         m_external_type_description.m_tuple->m_element_types)
-                        element_types.push_back(element_type);
-
-                    if (element->m_evaled_const_value.has_value())
                     {
                         auto& unpacking_constant_tuple =
                             element->m_evaled_const_value.value();
 
                         wo_assert(unpacking_constant_tuple.type == wo::value::struct_type);
-                        for (uint16_t idx = 0;
-                            idx < unpacking_constant_tuple.structs->m_count;
-                            ++idx)
-                        {
+                        if (element_type->is_immutable())
                             element_constants.emplace_back(
-                                unpacking_constant_tuple.structs->m_values[idx]);
-                        }
+                                unpacking_constant_tuple.structs->m_values[idx++]);
+
+                        element_types.push_back(element_type);
                     }
                 }
                 else
                 {
                     element_types.push_back(determined_type);
-                    if (element->m_evaled_const_value.has_value())
+                    if (determined_type->is_immutable()
+                        && element->m_evaled_const_value.has_value())
                     {
                         element_constants.emplace_back(
                             element->m_evaled_const_value.value());
