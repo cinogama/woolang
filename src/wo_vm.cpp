@@ -1422,11 +1422,14 @@ namespace wo
     }
     value* vmbase::make_union_impl(value* opnum1, value* opnum2, uint16_t id) noexcept
     {
-        opnum1->set_gcunit<value::valuetype::struct_type>(
-            struct_t::gc_new<gcbase::gctype::young>(2));
+        auto* union_struct = 
+            struct_t::gc_new<gcbase::gctype::young>(2);
 
-        opnum1->structs->m_values[0].set_integer((wo_integer_t)id);
-        opnum1->structs->m_values[1].set_val(opnum2);
+        union_struct->m_values[0].set_integer((wo_integer_t)id);
+        union_struct->m_values[1].set_val(opnum2);
+
+        opnum1->set_gcunit<value::valuetype::struct_type>(
+            union_struct);
 
         return opnum1;
     }
@@ -1470,37 +1473,41 @@ namespace wo
     }
     value* vmbase::make_array_impl(value* opnum1, uint16_t size, value* rt_sp) noexcept
     {
-        opnum1->set_gcunit<value::valuetype::array_type>(
-            array_t::gc_new<gcbase::gctype::young>((size_t)size));
+        auto* maked_array =
+            array_t::gc_new<gcbase::gctype::young>((size_t)size);
 
         for (size_t i = 0; i < (size_t)size; i++)
         {
             auto* arr_val = ++rt_sp;
-            opnum1->array->at(size - i - 1).set_val(arr_val);
+            maked_array->at(size - i - 1).set_val(arr_val);
         }
+        opnum1->set_gcunit<value::valuetype::array_type>(maked_array);
         return rt_sp;
     }
     value* vmbase::make_map_impl(value* opnum1, uint16_t size, value* rt_sp) noexcept
     {
-        opnum1->set_gcunit<value::valuetype::dict_type>(
-            dict_t::gc_new<gcbase::gctype::young>());
+        auto* maked_dict =
+            dict_t::gc_new<gcbase::gctype::young>((size_t)size);
 
         for (size_t i = 0; i < (size_t)size; i++)
         {
             value* val = ++rt_sp;
             value* key = ++rt_sp;
-            (*opnum1->dict)[*key].set_val(val);
+            maked_dict->insert(std::make_pair(*key, *val));
         }
+        opnum1->set_gcunit<value::valuetype::dict_type>(maked_dict);
         return rt_sp;
     }
     value* vmbase::make_struct_impl(value* opnum1, uint16_t size, value* rt_sp) noexcept
     {
-        opnum1->set_gcunit<value::valuetype::struct_type>(
-            struct_t::gc_new<gcbase::gctype::young>(size));
+        auto* maked_struct = 
+            struct_t::gc_new<gcbase::gctype::young>(size);
 
         for (size_t i = 0; i < size; i++)
-            opnum1->structs->m_values[size - i - 1].set_val(++rt_sp);
+            maked_struct->m_values[size - i - 1].set_val(++rt_sp);
 
+        opnum1->set_gcunit<value::valuetype::struct_type>(
+            maked_struct);
         return rt_sp;
     }
     void vmbase::packargs_impl(
@@ -1919,7 +1926,8 @@ namespace wo
                     && opnum1->type == value::valuetype::string_type, "Operand should be string in 'adds'.");
 
                 opnum1->set_gcunit<wo::value::valuetype::string_type>(
-                    string_t::gc_new<gcbase::gctype::young>(*opnum1->string + *opnum2->string));
+                    string_t::gc_new<gcbase::gctype::young>(
+                        *opnum1->string + *opnum2->string));
                 break;
             }
             case instruct::opcode::mov:

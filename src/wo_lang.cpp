@@ -25,6 +25,8 @@ namespace wo
     {
         delete m_pass0_processers;
         delete m_pass1_processers;
+        delete m_passir_A_processers;
+        delete m_passir_B_processers;
     }
 
     //////////////////////////////////////

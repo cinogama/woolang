@@ -76,7 +76,7 @@ namespace wo
                         src_full_path_pstr,
                         std::move(srcfile_stream.value()));
 
-                    auto* imported_ast = wo::get_wo_grammar()->gen(new_lex);
+                    auto* imported_ast = wo::get_grammar_instance()->gen(new_lex);
                     if (imported_ast != nullptr)
                         lex.import_ast_tree((ast_basic*)imported_ast);
                     else
@@ -1819,6 +1819,10 @@ namespace wo
             WO_AST_BUILDER(pass_create_template_argument);
             WO_AST_BUILDER(pass_create_template_param);
 #undef WO_AST_BUILDER
+        }
+        void shutdown_builder()
+        {
+            _registed_builder_function_id_list.clear();
         }
     }
 

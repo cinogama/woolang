@@ -39,6 +39,11 @@ static_assert(
 
     inline std::map<std::wstring, vfile_information> vfile_list;
 
+    inline void shutdown_virtual_binary()
+    {
+        vfile_list.clear();
+    }
+
     inline bool create_virtual_binary(const std::wstring& filepath, const void* data, size_t length, bool enable_modify)
     {
         std::lock_guard g1(vfile_list_guard);
