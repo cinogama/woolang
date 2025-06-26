@@ -283,6 +283,7 @@ namespace wo
             bool m_mutable;
             std::list<ast::AstTemplateParam*> m_template_params;
             ast::AstValueBase* m_origin_value_ast;
+            std::list<lang_TemplateAstEvalStateValue*> m_finished_instance_list;
             std::map<TemplateArgumentListT, std::unique_ptr<lang_TemplateAstEvalStateValue>>
                 m_template_instances;
 
@@ -563,6 +564,7 @@ namespace wo
         void eval();
         void eval_action();
         void eval_for_upper();
+        void cleanup_for_eval_upper();
         void eval_keep();
         void eval_push();
         void eval_to(opnum::opnumbase* target);
@@ -581,10 +583,10 @@ namespace wo
         // NOTE: get_eval_result will invoke `return_opnum_temporary_register`
         //  to release temporary opnum if GET_RESULT_OPNUM_ONLY.
         opnum::opnumbase* get_eval_result();
-        bool ignore_eval_result() noexcept;
+        bool eval_result_ignored() noexcept;
 
         // Apply and assign the value into specify 
-        bool apply_eval_result(const std::function<bool(EvalResult&)>& bind_func) noexcept;
+        void apply_eval_result(const std::function<void(EvalResult&)>& bind_func) noexcept;
         void failed_eval_result() noexcept;
 
         opnum::global* opnum_global(int32_t offset) noexcept;

@@ -1131,16 +1131,18 @@ namespace wo
                 /* FALL THROUGH */
                 [[fallthrough]];
             case OKAY:
-                process_stack.pop();
 #ifndef NDEBUG
                 wo_assert(top_state.m_debug_entry_scope != nullptr);
                 wo_assert(top_state.m_debug_scope_layer_count == m_scope_stack.size());
                 wo_assert(top_state.m_lex_error_frame_count == lex.get_error_frame_count_for_debug());
                 wo_assert(top_state.m_debug_entry_scope == get_current_scope());
-                wo_assert(top_state.m_debug_ir_eval_content ==
+                wo_assert(
+                    process_state != OKAY
+                    || top_state.m_debug_ir_eval_content ==
                     m_ircontext.m_eval_result_storage_target.size()
                     + m_ircontext.m_evaled_result_storage.size());
 #endif
+                process_stack.pop();
                 break;
             default:
                 wo_error("Unexpected pass behavior.");
@@ -2667,49 +2669,45 @@ namespace wo
         }
         return variable_instance;
     }
-    bool BytecodeGenerateContext::ignore_eval_result() noexcept
+    bool BytecodeGenerateContext::eval_result_ignored() noexcept
     {
         auto& top_eval_state = m_eval_result_storage_target.top();
         return top_eval_state.m_request == EvalResult::Request::IGNORE_RESULT;
     }
-    bool BytecodeGenerateContext::apply_eval_result(
-        const std::function<bool(EvalResult&)>& bind_func) noexcept
+    void BytecodeGenerateContext::apply_eval_result(
+        const std::function<void(EvalResult&)>& bind_func) noexcept
     {
         auto& top_eval_state = m_eval_result_storage_target.top();
 
-        bool eval_result = true;
-        if (!ignore_eval_result())
+        if (!eval_result_ignored())
         {
-            eval_result = bind_func(top_eval_state);
-            if (eval_result)
+            bind_func(top_eval_state);
+            switch (top_eval_state.m_request)
             {
-                switch (top_eval_state.m_request)
-                {
-                case EvalResult::Request::EVAL_PURE_ACTION:
-                    // Pure action, do nothing.
-                    break;
-                case EvalResult::Request::PUSH_RESULT_AND_IGNORE_RESULT:
-                {
-                    opnum::opnumbase* result_opnum = top_eval_state.m_result.value();
+            case EvalResult::Request::EVAL_PURE_ACTION:
+                // Pure action, do nothing.
+                break;
+            case EvalResult::Request::PUSH_RESULT_AND_IGNORE_RESULT:
+            {
+                opnum::opnumbase* result_opnum = top_eval_state.m_result.value();
 
-                    try_return_opnum_temporary_register(result_opnum);
+                try_return_opnum_temporary_register(result_opnum);
 
-                    c().psh(*result_opnum);
-                    break;
-                }
-                default:
-                    m_evaled_result_storage.emplace(std::move(top_eval_state));
-                }
+                c().psh(*result_opnum);
+                break;
+            }
+            default:
+                m_evaled_result_storage.emplace(std::move(top_eval_state));
             }
         }
         m_eval_result_storage_target.pop();
-        return eval_result;
     }
 
     void BytecodeGenerateContext::failed_eval_result() noexcept
     {
         m_eval_result_storage_target.pop();
     }
+
     void BytecodeGenerateContext::eval_action()
     {
         m_eval_result_storage_target.push(EvalResult{
@@ -2720,6 +2718,13 @@ namespace wo
     void BytecodeGenerateContext::eval_for_upper()
     {
         wo_assert(!m_eval_result_storage_target.empty());
+
+        // Make a duplicated eval request (For FAILED recover).
+        m_eval_result_storage_target.push(m_eval_result_storage_target.top());
+    }
+    void BytecodeGenerateContext::cleanup_for_eval_upper()
+    {
+        m_eval_result_storage_target.pop();
     }
     void BytecodeGenerateContext::eval_keep()
     {
@@ -2758,14 +2763,14 @@ namespace wo
     }
     void BytecodeGenerateContext::eval_to_if_not_ignore(opnum::opnumbase* target)
     {
-        if (!ignore_eval_result())
+        if (!eval_result_ignored())
             eval_to(target);
         else
             eval_ignore();
     }
     void BytecodeGenerateContext::eval_sth_if_not_ignore(void(BytecodeGenerateContext::* method)())
     {
-        if (!ignore_eval_result())
+        if (!eval_result_ignored())
         {
 #ifndef NDEBUG
             size_t current_request_count = m_eval_result_storage_target.size();

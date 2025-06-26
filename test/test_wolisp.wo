@@ -1,0 +1,35 @@
+// wolisp.wo
+import woo::std;
+import test_tool;
+
+namespace wolisp
+{
+    public let length<List: T, T> = tuple::length:<T>;
+    public let is_null<List: T, T> = tuple::is_empty:<T>;
+    public let nth<List: T, N: int, T> =
+        N >= 0 && N < length:<{List}>
+            ? List[N]
+            | std::panic_value:<{"index out of bounds"}>();
+    public let car<List: T, T> = nth:<{List}, {0}>;
+    public let nthcdr<List: T, N: int, T> =
+        N >= 0 && N < length:<{List}>
+            ? (nth:<{List}, {N}>, nthcdr:<{List}, {N + 1}>...)
+            | N == length:<{List}>
+                ? ()
+                | std::panic_value:<{"index out of bounds"}>();
+    public let cdr<List: T, T> = nthcdr:<{List}, {1}>;
+}
+
+namespace test_wolisp
+{
+    func main()
+    {
+        using wolisp;
+        let a = (1,2,3,4,5);
+        let b = cdr:<{a}>;
+
+        test_assure_const:<{car:<{b}> == nth:<{a}, {1}>}>();
+        test_assure_const:<{car:<{cdr:<{b}>}> == nth:<{cdr:<{a}>}, {1}>}>();
+    }
+}
+test_function("test_wolisp.main", test_wolisp::main);

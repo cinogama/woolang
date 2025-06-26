@@ -84,3 +84,5 @@ public func test_assure(a: bool)
         print_traceback();
     }
 }
+
+public let test_assure_const<Expr: bool> = \ = test_assure(Expr);;
