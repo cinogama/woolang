@@ -979,14 +979,14 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
                 {
                     // from bp-offset
                     auto result = x86compiler.newUIntPtr();
-                    wo_assure(!x86compiler.lea(result, asmjit::x86::qword_ptr(stack_bp, WO_SIGNED_SHIFT(WO_IPVAL_MOVE_1) * sizeof(value))));
+                    wo_assure(!x86compiler.lea(result, asmjit::x86::qword_ptr(stack_bp, WO_SIGNED_SHIFT(WO_IPVAL_MOVE_1) * sizeof(wo::value))));
                     return may_constant_x86Gp{ &x86compiler,false,nullptr,result };
                 }
                 else
                 {
                     // from reg
                     auto result = x86compiler.newUIntPtr();
-                    wo_assure(!x86compiler.lea(result, asmjit::x86::qword_ptr(reg, WO_IPVAL_MOVE_1 * sizeof(value))));
+                    wo_assure(!x86compiler.lea(result, asmjit::x86::qword_ptr(reg, WO_IPVAL_MOVE_1 * sizeof(wo::value))));
                     return may_constant_x86Gp{ &x86compiler,false,nullptr,result };
                 }
             }
@@ -1168,7 +1168,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
                 bpoffset.r32()));
 
             auto callargptr = x86compiler.newUIntPtr();
-            wo_assure(!x86compiler.lea(callargptr, asmjit::x86::qword_ptr(rt_sp, 1 * (int32_t)sizeof(value))));
+            wo_assure(!x86compiler.lea(callargptr, asmjit::x86::qword_ptr(rt_sp, 1 * (int32_t)sizeof(wo::value))));
 
             auto result = x86compiler.newInt32();
 
@@ -1509,14 +1509,14 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
                     x86_set_imm(ctx->c, ctx->_vmssp, *opnum1.const_value());
                 else
                     x86_set_val(ctx->c, ctx->_vmssp, opnum1.gp_value());
-                wo_assure(!ctx->c.sub(ctx->_vmssp, sizeof(value)));
+                wo_assure(!ctx->c.sub(ctx->_vmssp, sizeof(wo::value)));
             }
             else
             {
                 uint16_t psh_repeat = WO_IPVAL_MOVE_2;
                 if (psh_repeat > 0)
                 {
-                    wo_assure(!ctx->c.sub(ctx->_vmssp, asmjit::Imm(psh_repeat * sizeof(value))));
+                    wo_assure(!ctx->c.sub(ctx->_vmssp, asmjit::Imm(psh_repeat * sizeof(wo::value))));
 
                     // NOTE: If there is just enough stack space here, the Stackoverflow interrupt 
                     // will still be triggered, which is planned (purely for performance reasons)
@@ -1525,7 +1525,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
                     wo_assure(!ctx->c.cmp(ctx->_vmssp, ctx->_vmshead));
                     wo_assure(!ctx->c.jae(stackenough_label));
 
-                    wo_assure(!ctx->c.add(ctx->_vmssp, asmjit::Imm(psh_repeat * sizeof(value))));
+                    wo_assure(!ctx->c.add(ctx->_vmssp, asmjit::Imm(psh_repeat * sizeof(wo::value))));
                     ir_make_interrupt(ctx, wo::vmbase::vm_interrupt_type::STACK_OVERFLOW_INTERRUPT);
                     ir_make_checkpoint_normalcheck(ctx, rollback_ip, std::nullopt);
 
@@ -1544,11 +1544,11 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
                 // opnum1->set_val((++rt_sp));
                 WO_JIT_ADDRESSING_N1;
 
-                wo_assure(!ctx->c.add(ctx->_vmssp, sizeof(value)));
+                wo_assure(!ctx->c.add(ctx->_vmssp, sizeof(wo::value)));
                 x86_set_val(ctx->c, opnum1.gp_value(), ctx->_vmssp);
             }
             else
-                wo_assure(!ctx->c.add(ctx->_vmssp, WO_IPVAL_MOVE_2 * sizeof(value)));
+                wo_assure(!ctx->c.add(ctx->_vmssp, WO_IPVAL_MOVE_2 * sizeof(wo::value)));
             return true;
         }
         virtual bool ir_sidarr(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -1606,7 +1606,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             auto bpoffset = ctx->c.newUIntPtr();
             if (opnum2.is_constant())
             {
-                wo_assure(!ctx->c.lea(bpoffset, asmjit::x86::qword_ptr(ctx->_vmsbp, (int32_t)(opnum2.const_value()->integer * sizeof(value)))));
+                wo_assure(!ctx->c.lea(bpoffset, asmjit::x86::qword_ptr(ctx->_vmsbp, (int32_t)(opnum2.const_value()->integer * sizeof(wo::value)))));
                 x86_set_val(ctx->c, opnum1.gp_value(), bpoffset);
             }
             else
@@ -1628,7 +1628,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             auto bpoffset = ctx->c.newUIntPtr();
             if (opnum2.is_constant())
             {
-                wo_assure(!ctx->c.lea(bpoffset, asmjit::x86::qword_ptr(ctx->_vmsbp, (int32_t)(opnum2.const_value()->integer * sizeof(value)))));
+                wo_assure(!ctx->c.lea(bpoffset, asmjit::x86::qword_ptr(ctx->_vmsbp, (int32_t)(opnum2.const_value()->integer * sizeof(wo::value)))));
                 x86_set_val(ctx->c, bpoffset, opnum1.gp_value());
             }
             else
