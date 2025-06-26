@@ -9,6 +9,7 @@ import test_helloworld;
 import test_string_u8;
 import test_basic;
 import test_monad;
+import test_wolisp;
 import test_container;
 import test_compile;
 import test_coroutine;
