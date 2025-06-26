@@ -178,7 +178,7 @@ namespace wo
                         inout_template_arguments.emplace_back(fnd->second);
                 }
             }
-            
+
             if (inout_template_arguments.size() != template_params.size())
             {
                 std::wstring pending_type_list;
@@ -202,7 +202,7 @@ namespace wo
                     WO_ERR_NOT_ALL_TEMPLATE_ARGUMENT_DETERMINED,
                     pending_type_list.c_str());
             }
-            
+
 
             ctx->end_last_scope();
             ctx->end_last_scope();
@@ -356,9 +356,9 @@ namespace wo
 
             if (!check_template_argument_count_and_type(lex, node, template_arguments, *template_params)
                 || !fast_check_and_create_template_type_alias_and_constant_in_current_scope(
-                    lex, 
+                    lex,
                     templating_symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE,
-                    *template_params, 
+                    *template_params,
                     template_arguments,
                     checker))
             {
@@ -408,6 +408,13 @@ namespace wo
             template_eval_instance_value->m_state =
                 lang_TemplateAstEvalStateValue::state::EVALUATED;
 
+            lang_Symbol* template_instance_variable_symbol = template_eval_instance_value->m_symbol;
+            wo_assert(
+                template_instance_variable_symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE
+                && template_instance_variable_symbol->m_is_template);
+
+            template_instance_variable_symbol->m_template_value_instances->
+                m_finished_instance_list.push_back(template_eval_instance_value);
             break;
         }
         case lang_Symbol::kind::ALIAS:

@@ -783,14 +783,9 @@ namespace wo
             if (pattern_symbol->m_is_template)
             {
                 // Is template, walk through all the template instance;
-                for (auto& [_useless, template_instance] :
-                    pattern_symbol->m_template_value_instances->m_template_instances)
+                for (auto* template_instance :
+                    pattern_symbol->m_template_value_instances->m_finished_instance_list)
                 {
-                    (void)_useless;
-
-                    if (template_instance->m_state == lang_TemplateAstEvalStateValue::state::FAILED)
-                        continue; // Skip failed template instance.
-
                     wo_assert(template_instance->m_state == lang_TemplateAstEvalStateValue::state::EVALUATED);
 
                     lang_ValueInstance* template_value_instance = template_instance->m_value_instance.get();
@@ -996,7 +991,7 @@ namespace wo
             // Simple normal function
             auto* function_opnum = IR_function_opnum(node);
 
-            if (!m_ircontext.apply_eval_result(
+            m_ircontext.apply_eval_result(
                 [&](BytecodeGenerateContext::EvalResult& result)
                 {
                     const auto& target_storage = result.get_assign_target();
@@ -1008,19 +1003,13 @@ namespace wo
                     }
                     else
                         result.set_result(m_ircontext, function_opnum);
-
-                    return true;
                 }
-            ))
-            {
-                // Eval failed.
-                return FAILED;
-            }
+            );
         }
         else
         {
             // Need capture.
-            if (!m_ircontext.apply_eval_result(
+            m_ircontext.apply_eval_result(
                 [&](BytecodeGenerateContext::EvalResult& result)
                 {
                     auto* borrowed_opnum = m_ircontext.borrow_opnum_temporary_register(WO_BORROW_TEMPORARY_FROM(node));
@@ -1067,13 +1056,8 @@ namespace wo
 
                         result.set_result(m_ircontext, borrowed_opnum);
                     }
-                    return true;
                 }
-            ))
-            {
-                // Eval failed.
-                return FAILED;
-            }
+            );
         }
         return OKAY;
     }
@@ -1105,7 +1089,7 @@ namespace wo
         else if (state == HOLD)
         {
             // Field has been pushed into stack.
-            if (!m_ircontext.apply_eval_result(
+            m_ircontext.apply_eval_result(
                 [&](BytecodeGenerateContext::EvalResult& result)
                 {
                     opnum::opnumbase* make_result_target = nullptr;
@@ -1138,13 +1122,7 @@ namespace wo
 
                     m_ircontext.c().mkstruct(
                         WO_OPNUM(make_result_target), elem_count);
-
-                    return true;
-                }))
-            {
-                // Eval failed.
-                return FAILED;
-            }
+                });
         }
 
         return WO_EXCEPT_ERROR(state, OKAY);
@@ -1175,7 +1153,7 @@ namespace wo
         else if (state == HOLD)
         {
             // Field has been pushed into stack.
-            if (!m_ircontext.apply_eval_result(
+            m_ircontext.apply_eval_result(
                 [&](BytecodeGenerateContext::EvalResult& result)
                 {
                     opnum::opnumbase* make_result_target = nullptr;
@@ -1191,13 +1169,7 @@ namespace wo
 
                     uint16_t elem_count = (uint16_t)node->m_elements.size();
                     m_ircontext.c().mkmap(WO_OPNUM(make_result_target), elem_count);
-
-                    return true;
-                }))
-            {
-                // Eval failed.
-                return FAILED;
-            }
+                });
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
@@ -1222,7 +1194,7 @@ namespace wo
         else if (state == HOLD)
         {
             // Field has been pushed into stack.
-            if (!m_ircontext.apply_eval_result(
+            m_ircontext.apply_eval_result(
                 [&](BytecodeGenerateContext::EvalResult& result)
                 {
                     opnum::opnumbase* make_result_target = nullptr;
@@ -1238,13 +1210,7 @@ namespace wo
 
                     uint16_t elem_count = (uint16_t)node->m_elements.size();
                     m_ircontext.c().mkarr(WO_OPNUM(make_result_target), elem_count);
-
-                    return true;
-                }))
-            {
-                // Eval failed.
-                return FAILED;
-            }
+                });
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
@@ -1283,7 +1249,7 @@ namespace wo
                     if (extern_information->m_IR_externed_function.has_value())
                     {
                         auto* externed_function = extern_information->m_IR_externed_function.value();
-                        if (config::ENABLE_SKIP_INVOKE_UNSAFE_CAST 
+                        if (config::ENABLE_SKIP_INVOKE_UNSAFE_CAST
                             && (void*)&rslib_std_return_itself == (void*)externed_function)
                         {
                             // Optimized for rslib_std_return_itself.
@@ -1334,6 +1300,7 @@ namespace wo
             switch (node->m_LANG_hold_state)
             {
             case AstValueFunctionCall::IR_HOLD_FOR_FAST_ITSELF:
+                m_ircontext.cleanup_for_eval_upper();
                 break;
             case AstValueFunctionCall::IR_HOLD_FOR_NORMAL_CALL:
             {
@@ -1371,7 +1338,7 @@ namespace wo
                         WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tc)));
 
                 // Ok, invoke finished.
-                if (!m_ircontext.apply_eval_result(
+                m_ircontext.apply_eval_result(
                     [&](BytecodeGenerateContext::EvalResult& result)
                     {
                         const auto& target_storage = result.get_assign_target();
@@ -1389,13 +1356,8 @@ namespace wo
                         else
                             result.set_result(
                                 m_ircontext, m_ircontext.opnum_spreg(opnum::reg::cr));
+                    });
 
-                        return true;
-                    }))
-                {
-                    // Eval failed.
-                    return FAILED;
-                }
                 break;
             }
             default:
@@ -1412,7 +1374,7 @@ namespace wo
         if (value_instance->m_IR_normal_function.has_value())
         {
             AstValueFunction* func = value_instance->m_IR_normal_function.value();
-            if (!m_ircontext.apply_eval_result(
+            m_ircontext.apply_eval_result(
                 [&](BytecodeGenerateContext::EvalResult& result)
                 {
                     const auto& target_storage = result.get_assign_target();
@@ -1425,13 +1387,7 @@ namespace wo
                     }
                     else
                         result.set_result(m_ircontext, function_opnum);
-
-                    return true;
-                }))
-            {
-                // Eval failed.
-                return FAILED;
-            }
+                });
             return OKAY;
         }
 
@@ -1460,7 +1416,7 @@ namespace wo
             auto* storage_opnum =
                 m_ircontext.get_storage_place(variable_storage);
 
-            if (!m_ircontext.apply_eval_result(
+            m_ircontext.apply_eval_result(
                 [&](BytecodeGenerateContext::EvalResult& result)
                 {
                     const auto& target_storage = result.get_assign_target();
@@ -1472,17 +1428,11 @@ namespace wo
                     }
                     else
                         result.set_result(m_ircontext, storage_opnum);
-
-                    return true;
-                }))
-            {
-                // Eval failed.
-                return FAILED;
-            }
+                });
         }
         else
         {
-            if (!m_ircontext.apply_eval_result(
+            m_ircontext.apply_eval_result(
                 [&](BytecodeGenerateContext::EvalResult& result)
                 {
                     const auto& target_storage = result.get_assign_target();
@@ -1500,13 +1450,7 @@ namespace wo
                             WO_OPNUM(m_ircontext.opnum_imm_int(variable_storage.m_index)));
                         result.set_result(m_ircontext, storage_opnum);
                     }
-
-                    return true;
-                }))
-            {
-                // Eval failed.
-                return FAILED;
-            }
+                });
         }
 
         return OKAY;
@@ -1519,6 +1463,10 @@ namespace wo
             WO_CONTINUE_PROCESS(node->m_marked_value);
             return HOLD;
         }
+        else if (state == HOLD)
+        {
+            m_ircontext.cleanup_for_eval_upper();
+        }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
     WO_PASS_PROCESSER(AstValueMarkAsImmutable)
@@ -1528,6 +1476,10 @@ namespace wo
             m_ircontext.eval_for_upper();
             WO_CONTINUE_PROCESS(node->m_marked_value);
             return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            m_ircontext.cleanup_for_eval_upper();
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
@@ -1547,7 +1499,7 @@ namespace wo
         {
             if (node->m_IR_dynamic_need_runtime_check)
             {
-                if (!m_ircontext.apply_eval_result(
+                m_ircontext.apply_eval_result(
                     [&](BytecodeGenerateContext::EvalResult& result)
                     {
                         auto* opnum_to_check = m_ircontext.get_eval_result();
@@ -1606,13 +1558,10 @@ namespace wo
                             m_ircontext.try_keep_opnum_temporary_register(opnum_to_check WO_BORROW_TEMPORARY_FROM_SP(node));
                             result.set_result(m_ircontext, opnum_to_check);
                         }
-                        return true;
-                    }))
-                {
-                    // Eval failed.
-                    return FAILED;
-                }
+                    });
             }
+            else
+                m_ircontext.cleanup_for_eval_upper();
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
@@ -1622,7 +1571,7 @@ namespace wo
         if (state == UNPROCESSED)
         {
             wo_assert(
-                m_origin_types.m_dynamic.m_type_instance == 
+                m_origin_types.m_dynamic.m_type_instance ==
                 immutable_type(node->m_check_value->m_LANG_determined_type.value()));
 
             m_ircontext.eval_sth_if_not_ignore(
@@ -1633,7 +1582,7 @@ namespace wo
         }
         else if (state == HOLD)
         {
-            if (!m_ircontext.apply_eval_result(
+            m_ircontext.apply_eval_result(
                 [&](BytecodeGenerateContext::EvalResult& result)
                 {
                     auto* opnum_to_check = m_ircontext.get_eval_result();
@@ -1698,12 +1647,7 @@ namespace wo
                         result.set_result(
                             m_ircontext, m_ircontext.opnum_spreg(opnum::reg::spreg::cr));
                     }
-                    return true;
-                }))
-            {
-                // Eval failed.
-                return FAILED;
-            }
+                });
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
@@ -1758,7 +1702,7 @@ namespace wo
         {
             if (node->m_IR_need_eval)
             {
-                if (!m_ircontext.apply_eval_result(
+                m_ircontext.apply_eval_result(
                     [&](BytecodeGenerateContext::EvalResult& result)
                     {
                         auto* target_type_instance =
@@ -1817,7 +1761,7 @@ namespace wo
                                 result.set_result(
                                     m_ircontext, m_ircontext.opnum_spreg(opnum::reg::spreg::ni));
                             }
-                            return true;
+                            return;
                         }
                         default:
                             wo_error("Unknown type.");
@@ -1846,14 +1790,10 @@ namespace wo
                                 cast_type);
                             result.set_result(m_ircontext, borrowed_reg);
                         }
-
-                        return true;
-                    }))
-                {
-                    // Eval failed.
-                    return FAILED;
-                }
+                    });
             }
+            else
+                m_ircontext.cleanup_for_eval_upper();
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
@@ -1869,7 +1809,7 @@ namespace wo
         }
         else if (state == HOLD)
         {
-            if (!m_ircontext.apply_eval_result(
+            m_ircontext.apply_eval_result(
                 [&](BytecodeGenerateContext::EvalResult& result)
                 {
                     const auto& target_storage = result.get_assign_target();
@@ -1885,13 +1825,7 @@ namespace wo
                         result.set_result(
                             m_ircontext, m_ircontext.opnum_spreg(opnum::reg::spreg::ni));
                     }
-
-                    return true;
-                }))
-            {
-                // Eval failed.
-                return FAILED;
-            }
+                });
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
@@ -1956,7 +1890,7 @@ namespace wo
         }
         else if (state == HOLD)
         {
-            if (!m_ircontext.apply_eval_result(
+            m_ircontext.apply_eval_result(
                 [&](BytecodeGenerateContext::EvalResult& result)
                 {
                     auto* unpacking_opnum = m_ircontext.get_eval_result();
@@ -2008,12 +1942,7 @@ namespace wo
                                     (int32_t)unpack_requirement.m_require_unpack_count);
                         }
                     }
-                    return true;
-                }))
-            {
-                // Eval failed.
-                return FAILED;
-            }
+                });
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
@@ -2069,7 +1998,7 @@ namespace wo
                     break;
                 }
 
-                if (!m_ircontext.ignore_eval_result())
+                if (!m_ircontext.eval_result_ignored())
                     m_ircontext.eval_to(m_ircontext.opnum_spreg(opnum::reg::cr));
                 else
                     m_ircontext.eval_ignore();
@@ -2083,7 +2012,7 @@ namespace wo
             {
                 m_ircontext.c().tag(_generate_label("#lshortcut_", node));
 
-                if (!m_ircontext.apply_eval_result(
+                m_ircontext.apply_eval_result(
                     [&](BytecodeGenerateContext::EvalResult& result)
                     {
                         (void)m_ircontext.get_eval_result();
@@ -2105,20 +2034,14 @@ namespace wo
                             result.set_result(
                                 m_ircontext, m_ircontext.opnum_spreg(opnum::reg::spreg::cr));
                         }
-
-                        return true;
                     }
-                ))
-                {
-                    // Eval failed.
-                    return FAILED;
-                }
+                );
                 break;
             }
             case AstValueBinaryOperator::IR_HOLD_FOR_NORMAL_LR_OR_OVERLOAD_EVAL:
                 if (!node->m_LANG_overload_call.has_value())
                 {
-                    if (!m_ircontext.apply_eval_result(
+                    m_ircontext.apply_eval_result(
                         [&](BytecodeGenerateContext::EvalResult& result)
                         {
                             auto* right_opnum = m_ircontext.get_eval_result();
@@ -2394,14 +2317,11 @@ namespace wo
                                         m_ircontext, m_ircontext.opnum_spreg(opnum::reg::cr));
                                 }
                             }
-                            return true;
-                        }
-                    ))
-                    {
-                        // Eval failed.
-                        return FAILED;
-                    }
+                        });
                 }
+                else
+                    m_ircontext.cleanup_for_eval_upper();
+
                 break;
             }
         }
@@ -2418,7 +2338,7 @@ namespace wo
         }
         else if (state == HOLD)
         {
-            if (!m_ircontext.apply_eval_result(
+            m_ircontext.apply_eval_result(
                 [&](BytecodeGenerateContext::EvalResult& result)
                 {
                     const auto& target_storage = result.get_assign_target();
@@ -2496,14 +2416,8 @@ namespace wo
                         wo_error("Unknown operator.");
                         break;
                     }
-
-                    return true;
                 }
-            ))
-            {
-                // Eval failed.
-                return FAILED;
-            }
+            );
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
@@ -2564,7 +2478,7 @@ namespace wo
             {
                 m_ircontext.c().tag(_generate_label("#cond_end_", node));
 
-                if (!m_ircontext.apply_eval_result(
+                m_ircontext.apply_eval_result(
                     [&](BytecodeGenerateContext::EvalResult& result)
                     {
                         // Ignore results.
@@ -2589,16 +2503,12 @@ namespace wo
                             result.set_result(
                                 m_ircontext, m_ircontext.opnum_spreg(opnum::reg::spreg::cr));
                         }
-                        return true;
                     }
-                ))
-                {
-                    // Eval failed.
-                    return FAILED;
-                }
+                );
                 break;
             }
             case AstValueTribleOperator::IR_HOLD_FOR_BRANCH_CONST_EVAL:
+                m_ircontext.cleanup_for_eval_upper();
                 break;
             default:
                 wo_error("Unknown hold state.");
@@ -2632,7 +2542,7 @@ namespace wo
         }
         else if (state == HOLD)
         {
-            if (!m_ircontext.apply_eval_result(
+            m_ircontext.apply_eval_result(
                 [&](BytecodeGenerateContext::EvalResult& result)
                 {
                     const auto& target_storage = result.get_assign_target();
@@ -2734,13 +2644,8 @@ namespace wo
                         wo_error("Unknown type.");
                         break;
                     }
-                    return true;
                 }
-            ))
-            {
-                // Eval failed.
-                return FAILED;
-            }
+            );
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
@@ -2778,7 +2683,7 @@ namespace wo
         }
         else if (state == HOLD)
         {
-            if (!m_ircontext.apply_eval_result(
+            m_ircontext.apply_eval_result(
                 [&](BytecodeGenerateContext::EvalResult& result)
                 {
                     const auto& target_storage = result.get_assign_target();
@@ -2797,13 +2702,8 @@ namespace wo
                             (uint16_t)node->m_fields.size());
                         result.set_result(m_ircontext, borrowed_reg);
                     }
-                    return true;
                 }
-            ))
-            {
-                // Eval failed.
-                return FAILED;
-            }
+            );
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
@@ -2824,7 +2724,7 @@ namespace wo
         {
             if (node->m_packed_value.has_value())
             {
-                if (!m_ircontext.apply_eval_result(
+                m_ircontext.apply_eval_result(
                     [&](BytecodeGenerateContext::EvalResult& result)
                     {
                         auto* packed_opnum = m_ircontext.get_eval_result();
@@ -2847,17 +2747,12 @@ namespace wo
                                 (uint16_t)node->m_index);
                             result.set_result(m_ircontext, borrowed_reg);
                         }
-                        return true;
                     }
-                ))
-                {
-                    // Eval failed.
-                    return FAILED;
-                }
+                );
             }
             else
             {
-                if (!m_ircontext.apply_eval_result(
+                m_ircontext.apply_eval_result(
                     [&](BytecodeGenerateContext::EvalResult& result)
                     {
                         const auto& target_storage = result.get_assign_target();
@@ -2878,13 +2773,8 @@ namespace wo
                                 (uint16_t)node->m_index);
                             result.set_result(m_ircontext, borrowed_reg);
                         }
-                        return true;
                     }
-                ))
-                {
-                    // Eval failed.
-                    return FAILED;
-                }
+                );
             }
         }
         return WO_EXCEPT_ERROR(state, OKAY);
@@ -2892,7 +2782,7 @@ namespace wo
     WO_PASS_PROCESSER(AstValueVariadicArgumentsPack)
     {
         wo_assert(state == UNPROCESSED);
-        if (!m_ircontext.apply_eval_result(
+        m_ircontext.apply_eval_result(
             [&](BytecodeGenerateContext::EvalResult& result)
             {
                 AstValueFunction* current_func = node->m_LANG_function_instance.value();
@@ -2915,19 +2805,14 @@ namespace wo
                         (uint16_t)current_func->m_LANG_captured_context.m_captured_variables.size());
                     result.set_result(m_ircontext, borrowed_opnum);
                 }
-                return true;
             }
-        ))
-        {
-            // Eval failed.
-            return FAILED;
-        }
+        );
         return OKAY;
     }
     WO_PASS_PROCESSER(AstValueIROpnum)
     {
         wo_assert(state == UNPROCESSED);
-        if (!m_ircontext.apply_eval_result(
+        m_ircontext.apply_eval_result(
             [&](BytecodeGenerateContext::EvalResult& result)
             {
                 const auto& target_storage = result.get_assign_target();
@@ -2941,13 +2826,8 @@ namespace wo
                 {
                     result.set_result(m_ircontext, node->m_opnum);
                 }
-                return true;
             }
-        ))
-        {
-            // Eval failed.
-            return FAILED;
-        }
+        );
         return OKAY;
     }
     WO_PASS_PROCESSER(AstValueAssign)
@@ -3524,7 +3404,7 @@ namespace wo
                     m_ircontext.try_return_opnum_temporary_register(container_opnum);
                 }
 
-                if (!m_ircontext.apply_eval_result(
+                m_ircontext.apply_eval_result(
                     [&](BytecodeGenerateContext::EvalResult& result)
                     {
                         const auto& target_storage = result.get_assign_target();
@@ -3552,13 +3432,8 @@ namespace wo
                                 result.set_result(
                                     m_ircontext, m_ircontext.opnum_spreg(opnum::reg::spreg::ni));
                         }
-                        return true;
                     }
-                ))
-                {
-                    // Eval failed.
-                    return FAILED;
-                }
+                );
                 break;
             }
             default:
@@ -3625,7 +3500,7 @@ namespace wo
         if (ast_value->m_evaled_const_value.has_value())
         {
             // This value has been evaluated as constant value.
-            if (!m_ircontext.apply_eval_result(
+            m_ircontext.apply_eval_result(
                 [&](BytecodeGenerateContext::EvalResult& result)
                 {
                     opnum::opnumbase* immediately_value =
@@ -3636,13 +3511,7 @@ namespace wo
                         m_ircontext.c().mov(WO_OPNUM(asigned_target.value()), WO_OPNUM(immediately_value));
                     else
                         result.set_result(m_ircontext, immediately_value);
-
-                    return true;
-                }))
-            {
-                // Eval failed?
-                return FAILED;
-            }
+                });
             return OKAY;
         }
 

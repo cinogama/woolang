@@ -1945,26 +1945,33 @@ namespace wo
 
                     if (determined_base_type_instance->m_base_type != lang_TypeInstance::DeterminedType::TUPLE)
                     {
-                        lex.record_lang_error(lexer::msglevel_t::error, element,
+                        lex.record_lang_error(lexer::msglevel_t::error, unpack,
                             WO_ERR_ONLY_EXPAND_TUPLE,
                             get_type_name_w(determined_type));
                         return FAILED;
                     }
 
-                    uint16_t idx = 0;
-                    for (auto& element_type :
-                        determined_base_type_instance->
-                        m_external_type_description.m_tuple->m_element_types)
+                    const auto& unpacking_tuple_element_types = 
+                        determined_base_type_instance->m_external_type_description.m_tuple->m_element_types;
+
+                    for (auto& element_type : unpacking_tuple_element_types)
+                    {
+                        element_types.push_back(element_type);
+                    }
+
+                    auto iter = unpacking_tuple_element_types.begin();
+                    if (unpack->m_unpack_value->m_evaled_const_value.has_value())
                     {
                         auto& unpacking_constant_tuple =
-                            element->m_evaled_const_value.value();
+                            unpack->m_unpack_value->m_evaled_const_value.value();
 
                         wo_assert(unpacking_constant_tuple.type == wo::value::struct_type);
-                        if (element_type->is_immutable())
-                            element_constants.emplace_back(
-                                unpacking_constant_tuple.structs->m_values[idx++]);
-
-                        element_types.push_back(element_type);
+                        for (uint16_t idx = 0; idx < unpacking_constant_tuple.structs->m_count; ++idx)
+                        {
+                            if ((*(iter++))->is_immutable())
+                                element_constants.emplace_back(
+                                    unpacking_constant_tuple.structs->m_values[idx]);
+                        }
                     }
                 }
                 else

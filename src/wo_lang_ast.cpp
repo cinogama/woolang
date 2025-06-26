@@ -204,28 +204,9 @@ namespace wo
                     auto& aconstant = m_constant.value();
                     auto& bconstant = a.m_constant.value();
 
-                    if (aconstant.type == bconstant.type)
-                    {
-                        switch (aconstant.type)
-                        {
-                        case value::valuetype::invalid:
-                            return false; // Always equal.
-                        case value::valuetype::bool_type:
-                        case value::valuetype::integer_type:
-                            return aconstant.integer < bconstant.integer;
-                        case value::valuetype::handle_type:
-                            return aconstant.handle < bconstant.handle;
-                        case value::valuetype::real_type:
-                            return aconstant.real < bconstant.real;
-                        case value::valuetype::string_type:
-                            return *aconstant.string < *bconstant.string;
-                        default:
-                            wo_error("Unsupport constant type.");
-                            return false;
-                        }
-                    }
-                    else
-                        return aconstant.type < bconstant.type;
+                    return wo::opnum::immbase::compare_result::LESS_THEN ==
+                        wo::opnum::immbase::compare_value_less_than(
+                            aconstant, bconstant);
                 }
                 else
                     return false; // Equal.

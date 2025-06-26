@@ -1634,7 +1634,7 @@ bool _wo_cast_string(
 wo_bool_t wo_serialize(wo_value value, wo_string_t* out_str)
 {
     thread_local std::string _buf;
-    _buf = "";
+    _buf.clear();
 
     std::map<wo::gcbase*, int> _tved_gcunit;
     if (_wo_cast_string(WO_VAL(value), &_buf, cast_string_mode::SERIALIZE, &_tved_gcunit, 0))
@@ -1668,7 +1668,7 @@ wo_bool_t wo_cast_bool(wo_value value)
 wo_string_t wo_cast_string(wo_value value)
 {
     thread_local std::string _buf;
-    _buf = "";
+    _buf.clear();
 
     auto _rsvalue = WO_VAL(value);
     switch (_rsvalue->type)
@@ -3156,7 +3156,7 @@ wo_string_t wo_get_compile_error(wo_vm vm, wo_inform_style_t style)
         style = wo::config::ENABLE_OUTPUT_ANSI_COLOR_CTRL ? WO_NEED_COLOR : WO_NOTHING;
 
     thread_local std::string _vm_compile_errors;
-    _vm_compile_errors = "";
+    _vm_compile_errors.clear();
 
     if (vm && vmm->compile_failed_state.has_value())
     {
