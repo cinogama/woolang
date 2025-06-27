@@ -302,8 +302,20 @@ namespace wo
             const wchar_t* format,
             FmtArgTs&& ... format_args)
         {
-            wchar_t describe[256] = {};
-            swprintf(describe, 255, format, format_args...);
+            std::wstring describe;
+            auto count = swprintf(nullptr, 0, format, format_args...);
+            if (count < 0)
+            {
+            _label_failed_generating:
+                // Generate format directly.
+                describe = format;
+            }
+            else
+            {
+                describe.resize(static_cast<size_t>(count));
+                if (swprintf(describe.data(), count + 1, format, format_args...) < 0)
+                    goto _label_failed_generating;
+            }
 
             (void)record_message(
                 compiler_message_t

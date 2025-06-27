@@ -2402,11 +2402,13 @@ namespace wo
                     result_value_name += L", ";
 
                 if (template_arg.m_constant.has_value())
+                {
                     result_value_name += L"{"
-                    + get_constant_str_w(template_arg.m_constant.value())
-                    + L": "
-                    + get_type_name_w(template_arg.m_type)
-                    + L"}";
+                        + get_constant_str_w(template_arg.m_constant.value())
+                        + L": "
+                        + get_type_name_w(template_arg.m_type)
+                        + L"}";
+                }
                 else
                     result_value_name += get_type_name_w(template_arg.m_type);
 
@@ -2502,9 +2504,28 @@ namespace wo
     }
     std::string LangContext::get_constant_str(const value& val)
     {
-        if (val.type == value::valuetype::string_type)
+        switch (val.type)
+        {
+        case value::valuetype::string_type:
             return _rslib_std_string_enstring_impl(val.string->data(), val.string->length());
-        return wo_cast_string(std::launder((wo_value)(&val)));
+        case value::valuetype::struct_type:
+        {
+            std::string result = "(";
+            for (uint16_t idx = 0; idx < val.structs->m_count; ++idx)
+            {
+                if (idx != 0)
+                    result += ", ";
+
+                result += get_constant_str(val.structs->m_values[idx]);
+            }
+            result += ")";
+            return result;
+        }
+        default:
+            return wo_cast_string(std::launder((wo_value)(&val)));
+        }
+            
+        
     }
     std::wstring LangContext::get_constant_str_w(const value& val)
     {
