@@ -1830,6 +1830,10 @@ namespace std
         public let is_iterator<T> = typeid:<typeof(declval:<iterator_result_t<T>>())> != 0;
         public let is_iterable<T> = 
             typeid:<typeof(declval:<T>()->iter)> != 0 ? is_iterator:<typeof(declval:<T>()->iter)> | false;
+        public let is_option<T> = typeid:<option::item_t<T>> != 0;
+        public let is_result<T> = typeid:<result::ok_t<T>> != 0;
+        public alias expected_t<T> = 
+            typeof(is_option:<T> ? declval:<option::item_t<T>>() | declval:<result::ok_t<T>>());
     }
     public func use<T, R>(val: T, f: (T)=> R)
         where typeid:<typeof(val->close)> != 0;
@@ -1888,6 +1892,10 @@ namespace option
 {
     public alias item_t<T> = 
         typeof(std::declval:<T>()->\<E>_: option<E> = std::declval:<E>(););
+    public func ret<T>(elem: T)=> option<T>
+    {
+        return option::value(elem);
+    }
     public func map<T, R>(self: option<T>, functor: (T)=> R)
         => option<R>
     {
@@ -2014,6 +2022,10 @@ namespace result
         typeof(std::declval:<T>()->\<O, E>_: result<O, E> = std::declval:<O>(););
     public alias err_t<T> = 
         typeof(std::declval:<T>()->\<O, E>_: result<O, E> = std::declval:<E>(););
+    public func ret<T>(elem: T)=> result<T, nothing>
+    {
+        return result::ok(elem);
+    }
     public func map<T, F, R>(self: result<T, F>, functor: (T)=> R)
         => result<R, F>
     {
