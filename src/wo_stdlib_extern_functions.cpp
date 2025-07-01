@@ -1810,8 +1810,8 @@ namespace std
         public func halt(msg: string) => nothing;
     extern("rslib_std_panic")
         public func panic(msg: string)=> nothing;
-    public using panic_value_t<Msg: string> = nothing;
-    public let panic_value<Msg: string> = panic(Msg): panic_value_t<{Msg}>;
+    public using bad_t<Msg: string> = nothing;
+    public let bad<Msg: string> = panic(Msg): bad_t<{Msg}>;
     extern("rslib_std_bad_function")
         public func declval<T>()=> T;
     namespace type_traits
@@ -1832,8 +1832,12 @@ namespace std
             typeid:<typeof(declval:<T>()->iter)> != 0 ? is_iterator:<typeof(declval:<T>()->iter)> | false;
         public let is_option<T> = typeid:<option::item_t<T>> != 0;
         public let is_result<T> = typeid:<result::ok_t<T>> != 0;
-        public alias expected_t<T> = 
-            typeof(is_option:<T> ? declval:<option::item_t<T>>() | declval:<result::ok_t<T>>());
+        public alias expected_t<T> = typeof(
+            is_option:<T> 
+                ? declval:<option::item_t<T>>() 
+                | is_result:<T> 
+                    ? declval:<result::ok_t<T>>()
+                    | bad:<{"T should be a option or result."}>());
     }
     public func use<T, R>(val: T, f: (T)=> R)
         where typeid:<typeof(val->close)> != 0;
@@ -2889,18 +2893,18 @@ namespace tuple
     public let length<T> =
         std::type_traits::is_tuple:<T>
             ? _length_counter:<T, {0}>
-            | std::panic_value:<{"T is not a tuple"}>();
+            | std::bad:<{"T is not a tuple"}>();
     public alias nth_t<T, N: int> = typeof(
         length:<T> > N && N >= 0
             ? std::declval:<_nth_t:<T, {N}>>()
-            | std::panic_value:<{F"tuple index: {N} out of bounds: {length:<T>}"}>()); 
+            | std::bad:<{F"tuple index: {N} out of bounds: {length:<T>}"}>()); 
     public alias car_t<T> = nth_t<T, {0}>;
     public alias nthcdr_t<T, N: int> = typeof(
         length:<T> > N && N >= 0
             ? (std::declval:<nth_t:<T, {N}>>(), std::declval:<nthcdr_t<T, {N + 1}>>()...)
             | length:<T> == N
                 ? ()
-                | std::panic_value:<{F"tuple index: {N} out of bounds: {length:<T>}"}>());
+                | std::bad:<{F"tuple index: {N} out of bounds: {length:<T>}"}>());
     public alias cdr_t<T> = nthcdr_t:<T, {1}>;
     public let is_empty<T> = length:<T> == 0;
     public let is_lat<T> = is_empty:<T> 
