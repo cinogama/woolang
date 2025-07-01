@@ -1830,6 +1830,19 @@ namespace std
         public let is_iterator<T> = typeid:<typeof(declval:<iterator_result_t<T>>())> != 0;
         public let is_iterable<T> = 
             typeid:<typeof(declval:<T>()->iter)> != 0 ? is_iterator:<typeof(declval:<T>()->iter)> | false;
+        public let is_option<T> = typeid:<option::item_t<T>> != 0;
+        public let is_result<T> = typeid:<result::ok_t<T>> != 0;
+        public alias expected_t<T> = 
+            typeof(is_option:<T> ? declval:<option::item_t<T>>() | declval:<result::ok_t<T>>());
+        public func cons_expected<T, VT>(val: VT)
+        where 
+            is_option:<T> || is_result:<T>;
+        {
+            if (is_option:<T>)
+                return option::value(val);
+            else
+                return result::ok(val);
+        }
     }
     public func use<T, R>(val: T, f: (T)=> R)
         where typeid:<typeof(val->close)> != 0;
