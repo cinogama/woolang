@@ -302,19 +302,19 @@ namespace wo
             const wchar_t* format,
             FmtArgTs&& ... format_args)
         {
-            std::wstring describe;
-            auto count = swprintf(nullptr, 0, format, format_args...);
-            if (count < 0)
+            std::vector<wchar_t> describe(256, L'\0');
+
+            constexpr size_t MAX_CONTENT_LEN = 16 * 1024;
+            bool failed_flag = false;
+            while (swprintf(describe.data(), describe.size(), format, format_args...) < 0)
             {
-            _label_failed_generating:
-                // Generate format directly.
-                describe = format;
-            }
-            else
-            {
-                describe.resize(static_cast<size_t>(count));
-                if (swprintf(describe.data(), count + 1, format, format_args...) < 0)
-                    goto _label_failed_generating;
+                const size_t new_describe_len = describe.size() * 2;
+                if (new_describe_len > MAX_CONTENT_LEN)
+                {
+                    failed_flag = true;
+                    break;
+                }
+                describe.resize(new_describe_len);
             }
 
             (void)record_message(
@@ -324,7 +324,7 @@ namespace wo
                     { range_begin_row, range_begin_col },
                     { range_end_row, range_end_col },
                     source,
-                    describe,
+                    failed_flag ? format : describe.data(),
                 });
         }
 
