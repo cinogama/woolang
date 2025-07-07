@@ -420,6 +420,7 @@ namespace wo
                 UNPROCESSED,
                 HOLD_FOR_OPNUM_EVAL,
                 HOLD_FOR_OVERLOAD_FUNCTION_CALL_EVAL,
+                HOLD_FOR_LAND_LOR_COND_COMPLE_LEFT,
 
                 IR_HOLD_FOR_INDEX_PATTERN_EVAL,
                 IR_HOLD_TO_INDEX_PATTERN_OVERLOAD,

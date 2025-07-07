@@ -4430,16 +4430,61 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
-            WO_CONTINUE_PROCESS(node->m_right);
-            WO_CONTINUE_PROCESS(node->m_left);
-
-            node->m_LANG_hold_state = AstValueBinaryOperator::HOLD_FOR_OPNUM_EVAL;
+            if (node->m_operator == AstValueBinaryOperator::LOGICAL_AND
+                || node->m_operator == AstValueBinaryOperator::LOGICAL_OR)
+            {
+                WO_CONTINUE_PROCESS(node->m_left);
+                node->m_LANG_hold_state = AstValueBinaryOperator::HOLD_FOR_LAND_LOR_COND_COMPLE_LEFT;
+            }
+            else
+            {
+                WO_CONTINUE_PROCESS(node->m_right);
+                WO_CONTINUE_PROCESS(node->m_left);
+                node->m_LANG_hold_state = AstValueBinaryOperator::HOLD_FOR_OPNUM_EVAL;
+            }
             return HOLD;
         }
         else if (state == HOLD)
         {
             switch (node->m_LANG_hold_state)
             {
+            case AstValueBinaryOperator::HOLD_FOR_LAND_LOR_COND_COMPLE_LEFT:
+            {
+                wo_assert(node->m_operator == AstValueBinaryOperator::LOGICAL_AND
+                    || node->m_operator == AstValueBinaryOperator::LOGICAL_OR);
+
+                if (node->m_left->m_evaled_const_value.has_value())
+                {
+                    auto& evaled_const_value = node->m_left->m_evaled_const_value.value();
+
+                    // Make sure left type is bool.
+                    lang_TypeInstance* left_type = node->m_left->m_LANG_determined_type.value();
+                    auto left_base_type = left_type->get_determined_type();
+                    if (left_base_type.has_value())
+                    {
+                        // Constant value has been evaled.
+                        auto left_base_type_val = left_base_type.value()->m_base_type;
+                        if (left_base_type_val == lang_TypeInstance::DeterminedType::base_type::BOOLEAN)
+                        {
+                            wo_assert(evaled_const_value.type == value::valuetype::bool_type);
+                            if ((node->m_operator == AstValueBinaryOperator::LOGICAL_OR && evaled_const_value.integer)
+                                || (node->m_operator == AstValueBinaryOperator::LOGICAL_AND && !evaled_const_value.integer))
+                            {
+                                node->decide_final_constant_value(evaled_const_value);
+                                node->m_LANG_determined_type = m_origin_types.m_bool.m_type_instance;
+
+                                // OK, finished to eval.
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // Unable to decide constant result, eval like normal.
+                WO_CONTINUE_PROCESS(node->m_right);
+                node->m_LANG_hold_state = AstValueBinaryOperator::HOLD_FOR_OPNUM_EVAL;
+                return HOLD;
+            }
             case AstValueBinaryOperator::HOLD_FOR_OPNUM_EVAL:
             {
                 // Get first operand type symbol.
