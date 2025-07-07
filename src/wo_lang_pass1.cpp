@@ -4448,7 +4448,7 @@ namespace wo
         {
             switch (node->m_LANG_hold_state)
             {
-            case AstValueBinaryOperator::HOLD_FOR_LAND_LOR_COND_COMPLE_LEFT:
+            case AstValueBinaryOperator::HOLD_FOR_LAND_LOR_COND_COMPILE_LEFT:
             {
                 wo_assert(node->m_operator == AstValueBinaryOperator::LOGICAL_AND
                     || node->m_operator == AstValueBinaryOperator::LOGICAL_OR);
