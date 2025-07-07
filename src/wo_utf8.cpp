@@ -96,11 +96,13 @@ namespace wo
         return (size_t)(u8strnidxstr(u8str, len, wclen) - u8str);
     }
 
-    uint8_t u8mbc2wc(const char* ch, size_t len, wo_char_t* out_wch) 
+    uint8_t u8mbc2wc(const char* ch, size_t len_not_zero, wo_char_t* out_wch) 
     {
         std::mbstate_t mb = {};
 
-        size_t mblen = std::mbrlen(ch, len, &mb);
+        wo_assert(len_not_zero != 0);
+
+        size_t mblen = std::mbrlen(ch, len_not_zero, &mb);
         if (mblen == (size_t)-2 || mblen == (size_t)-1 || mblen == 0)
         {
             // Bad chs or zero term, give origin char

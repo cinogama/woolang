@@ -1,6 +1,8 @@
 import woo::std;
 import test_tool;
 
+import pkg::iterator;
+
 namespace test_basic
 {
     namespace A
@@ -265,18 +267,30 @@ namespace test_basic
         test_assure("wo_test"->end_with("_test"));
         test_equal("Hello, world"->replace("world", "woolang"), "Hello, woolang");
         
-        let split_result = "a b  c d"->split("  ");
+        let split_result = "a b  c d"->split("  ") |> iterator::collect;
         test_equal(split_result->len(), 2);
         test_equal(split_result[0], "a b");
         test_equal(split_result[1], "c d");
 
-        let split_result2 = "abcde"->split("");
+        let split_result2 = "abcde"->split("") |> iterator::collect;
         test_equal(split_result2->len(), 5);
         test_equal(split_result2[0], "a");
         test_equal(split_result2[1], "b");
         test_equal(split_result2[2], "c");
         test_equal(split_result2[3], "d");
         test_equal(split_result2[4], "e");
+
+        let split_result3 = "abc你 好de"->split(" ") |> iterator::collect;
+        test_equal(split_result3->len(), 2);
+        test_equal(split_result3[0], "abc你");
+        test_equal(split_result3[1], "好de");
+        
+        let split_result4 = "你好世界"->split("") |> iterator::collect;
+        test_equal(split_result4->len(), 4);
+        test_equal(split_result4[0], "你");
+        test_equal(split_result4[1], "好");
+        test_equal(split_result4[2], "世");
+        test_equal(split_result4[3], "界");
 
         let m = {}mut: map<int, int>;
         m->set(0, 233);

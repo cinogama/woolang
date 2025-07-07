@@ -448,13 +448,15 @@ WO_API wo_api rslib_std_string_find(wo_vm vm, wo_value args)
 {
     size_t len = 0;
     wo_string_t str = wo_raw_string(args + 0, &len);
+    size_t match_len = 0;
+    wo_string_t match_str = wo_raw_string(args + 1, &match_len);
 
-    const std::string_view aim(str, len);
-    const auto match = _wo_raw_str_view(args + 1);
+    const std::wstring wstr = wo::strn_to_wstr(str, len);
+    const std::wstring wmatch = wo::strn_to_wstr(match_str, match_len);
 
-    size_t fnd_place = aim.find(match);
-    if (fnd_place >= 0 && fnd_place < aim.size())
-        return wo_ret_option_int(vm, (wo_integer_t)wo::clen2u8blen(str, fnd_place));
+    size_t fnd_place = wstr.find(wmatch);
+    if (fnd_place >= 0 && fnd_place < wstr.size())
+        return wo_ret_option_int(vm, (wo_integer_t)fnd_place);
 
     return wo_ret_option_none(vm);
 }
@@ -462,14 +464,17 @@ WO_API wo_api rslib_std_string_find_from(wo_vm vm, wo_value args)
 {
     size_t len = 0;
     wo_string_t str = wo_raw_string(args + 0, &len);
+    size_t match_len = 0;
+    wo_string_t match_str = wo_raw_string(args + 1, &match_len);
 
-    const std::string_view aim(str, len);
-    const auto match = _wo_raw_str_view(args + 1);
-    size_t from = wo::u8blen2clen(str, len, (size_t)wo_int(args + 2));
+    const std::wstring wstr = wo::strn_to_wstr(str, len);
+    const std::wstring wmatch = wo::strn_to_wstr(match_str, match_len);
 
-    size_t fnd_place = aim.find(match, from);
-    if (fnd_place >= from && fnd_place < aim.size())
-        return wo_ret_option_int(vm, (wo_integer_t)wo::clen2u8blen(str, fnd_place));
+    const size_t from = (size_t)wo_int(args + 2);
+
+    size_t fnd_place = wstr.find(wmatch, from);
+    if (fnd_place >= from && fnd_place < wstr.size())
+        return wo_ret_option_int(vm, (wo_integer_t)fnd_place);
 
     return wo_ret_option_none(vm);
 }
@@ -477,13 +482,15 @@ WO_API wo_api rslib_std_string_rfind(wo_vm vm, wo_value args)
 {
     size_t len = 0;
     wo_string_t str = wo_raw_string(args + 0, &len);
+    size_t match_len = 0;
+    wo_string_t match_str = wo_raw_string(args + 1, &match_len);
 
-    const std::string_view aim(str, len);
-    const auto match = _wo_raw_str_view(args + 1);
+    const std::wstring wstr = wo::strn_to_wstr(str, len);
+    const std::wstring wmatch = wo::strn_to_wstr(match_str, match_len);
 
-    size_t fnd_place = aim.rfind(match);
-    if (fnd_place >= 0 && fnd_place < aim.size())
-        return wo_ret_option_int(vm, (wo_integer_t)wo::clen2u8blen(str, fnd_place));
+    size_t fnd_place = wstr.rfind(wmatch);
+    if (fnd_place >= 0 && fnd_place < wstr.size())
+        return wo_ret_option_int(vm, (wo_integer_t)fnd_place);
 
     return wo_ret_option_none(vm);
 }
@@ -491,43 +498,56 @@ WO_API wo_api rslib_std_string_rfind_from(wo_vm vm, wo_value args)
 {
     size_t len = 0;
     wo_string_t str = wo_raw_string(args + 0, &len);
+    size_t match_len = 0;
+    wo_string_t match_str = wo_raw_string(args + 1, &match_len);
 
-    const std::string_view aim(str, len);
-    const auto match = _wo_raw_str_view(args + 1);
-    size_t from = wo::u8blen2clen(str, len, (size_t)wo_int(args + 2));
+    const std::wstring wstr = wo::strn_to_wstr(str, len);
+    const std::wstring wmatch = wo::strn_to_wstr(match_str, match_len);
 
-    size_t fnd_place = aim.rfind(match, from);
+    const size_t from = (size_t)wo_int(args + 2);
+
+    size_t fnd_place = wstr.rfind(wmatch, from);
     if (fnd_place >= 0 && fnd_place < from)
-        return wo_ret_option_int(vm, (wo_integer_t)wo::clen2u8blen(str, fnd_place));
+        return wo_ret_option_int(vm, (wo_integer_t)fnd_place);
 
     return wo_ret_option_none(vm);
 }
-
 WO_API wo_api rslib_std_string_trim(wo_vm vm, wo_value args)
 {
-    const std::string_view aim = _wo_raw_str_view(args + 0);
+    size_t len = 0;
+    wo_string_t str = wo_raw_string(args + 0, &len);
+
+    const std::wstring wstr = wo::strn_to_wstr(str, len);
+    const wchar_t* wstrp = wstr.data();
+    const size_t wstrlen = wstr.length();
 
     size_t ibeg = 0;
-    size_t iend = aim.size();
+    size_t iend = wstrlen;
     for (; ibeg != iend; ibeg++)
     {
-        auto uch = (unsigned char)aim[ibeg];
-        if (isspace(uch) || iscntrl(uch))
+        auto uch = (wchar_t)wstrp[ibeg];
+        if (iswspace(uch) || iswcntrl(uch))
             continue;
         break;
     }
 
     for (; iend != ibeg; iend--)
     {
-        auto uch = (unsigned char)aim[iend - 1];
-        if (isspace(uch) || iscntrl(uch))
+        auto uch = (wchar_t)wstrp[iend - 1];
+        if (iswspace(uch) || iswcntrl(uch))
             continue;
         break;
     }
-
-    auto view = aim.substr(ibeg, iend - ibeg);
+    auto view = wo::wstrn_to_str(wstrp + ibeg, iend - ibeg);
     return wo_ret_raw_string(vm, view.data(), view.size());
 }
+
+struct string_split_iter_t
+{
+    const std::string_view m_str;
+    const std::string m_sep;
+    size_t m_split_from;
+};
 
 WO_API wo_api rslib_std_string_split(wo_vm vm, wo_value args)
 {
@@ -536,50 +556,77 @@ WO_API wo_api rslib_std_string_split(wo_vm vm, wo_value args)
     size_t len = 0;
     wo_string_t str = wo_raw_string(args + 0, &len);
 
-    const std::string_view aim(str, len);
-    const std::string_view match = _wo_raw_str_view(args + 1);
+    return wo_ret_gchandle(
+        vm, 
+        new string_split_iter_t
+        { 
+            std::string_view(str, len),
+            wo_string(args + 1),
+            0,
+        },
+        args + 0, 
+        [](wo_ptr_t p)
+        { 
+            delete reinterpret_cast<string_split_iter_t*>(p);
+        });
+}
 
-    wo_value arr = s + 0;
-    wo_value elem = s + 1;
+WO_API wo_api rslib_std_string_split_iter(wo_vm vm, wo_value args)
+{
+    auto* iter = reinterpret_cast<string_split_iter_t*>(wo_pointer(args + 0));
 
-    wo_set_arr(arr, vm, 0);
+    if (iter->m_split_from > iter->m_str.length())
+        return wo_ret_option_none(vm);
 
-    if (match.size() == 0)
+    if (iter->m_sep.empty())
     {
-        std::wstring origin_str = wo::strn_to_wstr(str, len);
+        wo_char_t useless;
+        const auto* split_str_p =
+            iter->m_str.data() + iter->m_split_from;
+        const size_t split_str_len =
+            iter->m_str.length() - iter->m_split_from;
 
-        for (wchar_t wch : origin_str)
+        if (split_str_len == 0)
         {
-            std::string result = wo::wstrn_to_str(&wch, 1);
+            // Make index invalid;
+            ++iter->m_split_from;
+            wo_assert(iter->m_split_from > iter->m_str.length());
 
-            wo_set_raw_string(elem, vm, result.c_str(), result.size());
-            wo_arr_add(arr, elem);
+            return wo_ret_option_none(vm);
         }
+
+        const size_t chlen = wo::u8mbc2wc(
+            split_str_p,
+            split_str_len,
+            &useless);
+
+        (void)useless;
+
+        iter->m_split_from += chlen;
+        return wo_ret_option_raw_string(
+            vm, 
+            split_str_p,
+            chlen);
     }
     else
     {
-        size_t split_begin = 0;
-
-        while (true)
+        size_t fnd_place = iter->m_str.find(iter->m_sep, iter->m_split_from);
+        if (fnd_place < iter->m_split_from || fnd_place > iter->m_str.length())
         {
-            size_t fnd_place = aim.find(match, split_begin);
-            if (fnd_place < split_begin || fnd_place > aim.size())
-            {
-                auto view = aim.substr(split_begin);
+            // No sep found.
+            auto view = iter->m_str.substr(iter->m_split_from);
 
-                wo_set_raw_string(elem, vm, view.data(), view.size());
-                wo_arr_add(arr, elem);
-                break;
-            }
-            auto view = aim.substr(split_begin, fnd_place - split_begin);
+            // Make index invalid;
+            iter->m_split_from = iter->m_str.length() + 1;
 
-            wo_set_raw_string(elem, vm, view.data(), view.size());
-            wo_arr_add(arr, elem);
-
-            split_begin = fnd_place + match.size();
+            return wo_ret_option_raw_string(vm, view.data(), view.length());
         }
+        auto view = iter->m_str.substr(
+            iter->m_split_from, fnd_place - iter->m_split_from);
+
+        iter->m_split_from = fnd_place + iter->m_sep.size();
+        return wo_ret_option_raw_string(vm, view.data(), view.length());
     }
-    return wo_ret_val(vm, arr);
 }
 
 WO_API wo_api rslib_std_string_append_char(wo_vm vm, wo_value args)
@@ -1756,43 +1803,48 @@ namespace std
 #else
     "os_type::UNKNOWN;\n"
 #endif
-    //////////////////////////////////////////////////////////////////////
-    "        public let arch = "
-    #if defined(_X86_)||defined(__i386) || defined(_M_IX86)
-        "arch_type::X86;\n"
-    #elif defined(__x86_64) || defined(_M_AMD64)
-        "arch_type::AMD64;\n"
-    #elif defined(__arm) || defined(_M_ARM)
-        "arch_type::ARM32;\n"
-    #elif defined(__aarch64__) || defined(_M_ARM64)
-        "arch_type::ARM64;\n"
-    #else
-    #   if defined(WO_PLATFORM_32)
-        "arch_type::UNKNOWN32;\n"
-    #   elif defined(WO_PLATFORM_64)
-        "arch_type::UNKNOWN64;\n"
-    #   else
-    #       error "Unsupported cpu archtype."
-    #   endif
-    #endif
-    //////////////////////////////////////////////////////////////////////
-    "        public let bitwidth = "
-    #if defined(WO_PLATFORM_32)
-        "32;\n"
-    #elif defined(WO_PLATFORM_64)
-        "64;\n"
-    #else
-    #    error "Unsupported cpu archtype."
-    #endif
-    //////////////////////////////////////////////////////////////////////
-    "        public let runtime = "
-    #if defined(NDEBUG)
-        "runtime_type::RELEASE;\n"
-    #else
-        "runtime_type::DEBUG;\n"
-    #endif
-    //////////////////////////////////////////////////////////////////////
-    u8R"(
+//////////////////////////////////////////////////////////////////////
+"        public let arch = "
+#if defined(_X86_)||defined(__i386) || defined(_M_IX86)
+    "arch_type::X86;\n"
+#elif defined(__x86_64) || defined(_M_AMD64)
+    "arch_type::AMD64;\n"
+#elif defined(__arm) || defined(_M_ARM)
+    "arch_type::ARM32;\n"
+#elif defined(__aarch64__) || defined(_M_ARM64)
+    "arch_type::ARM64;\n"
+#else
+#   if defined(WO_PLATFORM_32)
+    "arch_type::UNKNOWN32;\n"
+#   elif defined(WO_PLATFORM_64)
+    "arch_type::UNKNOWN64;\n"
+#   else
+#       error "Unsupported cpu archtype."
+#   endif
+#endif
+//////////////////////////////////////////////////////////////////////
+"        public let bitwidth = "
+#if defined(WO_PLATFORM_32)
+    "32;\n"
+#elif defined(WO_PLATFORM_64)
+    "64;\n"
+#else
+#    error "Unsupported cpu archtype."
+#endif
+//////////////////////////////////////////////////////////////////////
+"        public let runtime = "
+#if defined(NDEBUG)
+    "runtime_type::RELEASE;\n"
+#else
+    "runtime_type::DEBUG;\n"
+#endif
+//////////////////////////////////////////////////////////////////////
+"        public let version = "
+#define WO_VER(a, b, c, d) "(" #a ", " #b ", " #c ", " #d ")"
+    WO_VERSION
+";\n"
+//////////////////////////////////////////////////////////////////////
+u8R"(
     }
 }
 namespace unsafe
@@ -2343,7 +2395,12 @@ namespace string
     extern("rslib_std_string_trim")
         public func trim(val: string)=> string;
     extern("rslib_std_string_split")
-        public func split(val: string, spliter: string)=> array<string>;
+        public func split(val: string, sep: string)=> spliter_t;
+    using spliter_t = gchandle
+    {
+        extern("rslib_std_string_split_iter")
+        public func next(self: spliter_t)=> option<string>;
+    }
     public func append<CharOrCCharT>(val: string, ch: CharOrCCharT)=> string
         where ch is char || ch is cchar;
     {
@@ -3576,6 +3633,7 @@ namespace wo
             {"rslib_std_string_rfind", (void*)&rslib_std_string_rfind},
             {"rslib_std_string_rfind_from", (void*)&rslib_std_string_rfind_from},
             {"rslib_std_string_split", (void*)&rslib_std_string_split},
+            {"rslib_std_string_split_iter", (void*)&rslib_std_string_split_iter},
             {"rslib_std_string_sub", (void*)&rslib_std_string_sub},
             {"rslib_std_string_sub_len", (void*)&rslib_std_string_sub_len},
             {"rslib_std_string_sub_range", (void*)&rslib_std_string_sub_range},

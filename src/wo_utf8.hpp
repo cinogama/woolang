@@ -19,7 +19,7 @@ namespace wo
     size_t clen2u8blen(wo_string_t u8str, size_t len);
     size_t u8blen2clen(wo_string_t u8str, size_t len, size_t wclen);
 
-    uint8_t u8mbc2wc(char* ch, size_t len, wo_char_t* out_wch);
+    uint8_t u8mbc2wc(const char* ch, size_t len_not_zero, wo_char_t* out_wch);
     uint8_t u8wc2mbc(wo_char_t ch, char* out_mbchs);
 
     wo_wstring_t u8mbstowcs_zero_term(wo_string_t u8str);
