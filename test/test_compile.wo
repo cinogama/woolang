@@ -638,10 +638,13 @@ func main()
         // Logic op only accept bool
         assure_compile_fail(@"let r = 1 || false;"@);
         assure_compile_fail(@"let r = 1 || 0;"@);
-        assure_compile_fail(@"let r = true || 0;"@);
+        // Woolang 1.14.8.6, Conditional compile has been supported for || and &&
+        assure_compile_success(@"let r = true || 0;"@);
         assure_compile_fail(@"let r = 1 && 0;"@);
         assure_compile_fail(@"let r = 1 && false;"@);
         assure_compile_fail(@"let r = true && 0;"@);
+        // Woolang 1.14.8.6, Conditional compile has been supported for || and &&
+        assure_compile_success(@"let r = false && 0;"@);
         assure_compile_fail(@"let r = !0;"@);
 
         // relationship op cannot work at dict/array/struct...
