@@ -2854,38 +2854,30 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
 
     void analyze_jit(byte_t* codebuf, runtime_env* env)
     {
-        if constexpr (platform_info::ARCH_TYPE == (platform_info::ArchType::X86 | platform_info::ArchType::BIT64))
+        switch (platform_info::ARCH_TYPE)
         {
-            asmjit_compiler_x64 compiler;
-            compiler.analyze_jit(codebuf, env);
-        }
-        else if constexpr (platform_info::ARCH_TYPE == (platform_info::ArchType::ARM | platform_info::ArchType::BIT64))
-        {
-            // TODO: Support jit for aarch64
-        }
-        else
-        {
-            wo_error("Unknown platform.");
+        case platform_info::ArchType::X86 | platform_info::ArchType::BIT64:
+            asmjit_compiler_x64().analyze_jit(codebuf, env);
+            break;
+        default:
+            // No JIT support do nothing.
+            break;
         }
     }
     void free_jit(runtime_env* env)
     {
-        if constexpr (platform_info::ARCH_TYPE == (platform_info::ArchType::X86 | platform_info::ArchType::BIT64))
+        switch (platform_info::ARCH_TYPE)
         {
+        case platform_info::ArchType::X86 | platform_info::ArchType::BIT64:
             asmjit_compiler_x64::free_jit(env);
-        }
-        else if constexpr (platform_info::ARCH_TYPE == (platform_info::ArchType::ARM | platform_info::ArchType::BIT64))
-        {
-            // TODO: Support jit for aarch64
-        }
-        else
-        {
-            wo_error("Unknown platform.");
+            break;
+        default:
+            // No JIT support do nothing.
+            break;
         }
     }
 }
 #else
-
 namespace wo
 {
     struct runtime_env;
