@@ -255,12 +255,20 @@ namespace wo
                 explicit ConstantValue(wo_real_t val);
                 explicit ConstantValue(wo_pstring_t val);
                 explicit ConstantValue(const std::wstring& val);
-                explicit ConstantValue(StructStorage&& val);
+                explicit ConstantValue(const std::list<ConstantValue*>& val);
                 explicit ConstantValue(AstValueFunction* val);
                 explicit ConstantValue(const ConstantValue& another);
                 explicit ConstantValue(ConstantValue&& another);
                 ConstantValue& operator = (const ConstantValue& another);
                 ConstantValue& operator = (ConstantValue&& another);
+
+                bool value_bool()const;
+                wo_integer_t value_integer()const;
+                wo_handle_t value_handle()const;
+                wo_real_t value_real()const;
+                wo_pstring_t value_pstring()const;
+                const StructStorage& value_struct() const;
+                AstValueFunction* value_function() const;
             };
 
             std::optional<lang_TypeInstance*> m_LANG_determined_type;
