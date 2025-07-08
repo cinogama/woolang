@@ -376,15 +376,18 @@ namespace wo
 
     lang_TemplateAstEvalStateValue::lang_TemplateAstEvalStateValue(
         lang_Symbol* symbol,
-        ast::AstValueBase* ast,
+        ast::AstValueBase* duplicated_ast,
         const std::list<ast::AstIdentifier::TemplateArgumentInstance>& template_arguments)
-        : lang_TemplateAstEvalStateBase(symbol, ast)
+        : lang_TemplateAstEvalStateBase(symbol, duplicated_ast)
     {
         m_value_instance = std::make_unique<lang_ValueInstance>(
             symbol->m_template_value_instances->m_mutable, symbol, template_arguments);
 
-        if (!symbol->m_template_value_instances->m_mutable && ast->node_type == ast::AstBase::AST_VALUE_FUNCTION)
-            m_value_instance->try_determine_function(static_cast<ast::AstValueFunction*>(ast));
+        if (!symbol->m_template_value_instances->m_mutable
+            && duplicated_ast->node_type == ast::AstBase::AST_VALUE_FUNCTION)
+            // For recursive function, let compiler know this function instance.
+            m_value_instance->try_determine_template_function_dup_instance(
+                static_cast<ast::AstValueFunction*>(duplicated_ast));
     }
 
     //////////////////////////////////////
@@ -400,7 +403,9 @@ namespace wo
     //////////////////////////////////////
 
     lang_TemplateAstEvalStateAlias::lang_TemplateAstEvalStateAlias(
-        lang_Symbol* symbol, ast::AstTypeHolder* ast, const std::list<ast::AstIdentifier::TemplateArgumentInstance>& template_arguments)
+        lang_Symbol* symbol,
+        ast::AstTypeHolder* ast,
+        const std::list<ast::AstIdentifier::TemplateArgumentInstance>& template_arguments)
         : lang_TemplateAstEvalStateBase(symbol, ast)
     {
         m_alias_instance = std::make_unique<lang_AliasInstance>(symbol, template_arguments);
@@ -418,43 +423,22 @@ namespace wo
     }
 
     //////////////////////////////////////
-
-    void lang_ValueInstance::try_determine_function(ast::AstValueFunction* func)
+    void lang_ValueInstance::try_determine_template_function_dup_instance(
+        ast::AstValueFunction* func)
     {
         wo_assert(!m_mutable);
-        m_determined_constant_or_function = func;
+        m_determined_constant_or_function.emplace(func);
     }
     void lang_ValueInstance::try_determine_const_value(ast::AstValueBase* init_val)
     {
         wo_assert(!m_mutable);
+
         if (init_val->m_evaled_const_value.has_value())
-        {
             set_const_value(init_val->m_evaled_const_value.value());
-        }
-        else if (init_val->node_type == ast::AstBase::AST_VALUE_VARIABLE)
-        {
-            ast::AstValueVariable* variable_value = static_cast<ast::AstValueVariable*>(init_val);
-            lang_ValueInstance* variable_instance = variable_value->m_LANG_variable_instance.value();
-
-            if (variable_instance->m_determined_constant_or_function.has_value())
-            {
-                ast::AstValueFunction** function_instance =
-                    std::get_if< ast::AstValueFunction*>(
-                        &variable_instance->m_determined_constant_or_function.value());
-
-                if (function_instance != nullptr)
-                {
-                    m_determined_constant_or_function = *function_instance;
-                    m_IR_normal_function = *function_instance;
-                }
-            }
-        }
     }
-    void lang_ValueInstance::set_const_value(const value& init_val)
+    void lang_ValueInstance::set_const_value(const ast::AstValueBase::ConstantValue& init_val)
     {
-        wo::value new_constant;
-        new_constant.set_val_with_compile_time_check(&init_val);
-        m_determined_constant_or_function = new_constant;
+        m_determined_constant_or_function.emplace(init_val);
     }
 
     bool lang_ValueInstance::IR_need_storage() const
@@ -463,15 +447,12 @@ namespace wo
         {
             wo_assert(!m_mutable);
 
-            auto& determined_constant_or_function =
-                m_determined_constant_or_function.value();
+            const auto function_instance =
+                m_determined_constant_or_function.value().value_try_function();
 
-            ast::AstValueFunction* const* function_instance =
-                std::get_if<ast::AstValueFunction*>(&determined_constant_or_function);
-
-            if (function_instance != nullptr)
+            if (function_instance.has_value())
             {
-                if (!(*function_instance)->m_LANG_captured_context.m_captured_variables.empty())
+                if (!function_instance.value()->m_LANG_captured_context.m_captured_variables.empty())
                     // Function with captured variables, need storage.
                     return true;
             }
@@ -492,32 +473,6 @@ namespace wo
     }
     lang_ValueInstance::~lang_ValueInstance()
     {
-        if (m_determined_constant_or_function.has_value())
-        {
-            wo::value* determined_value = std::get_if<wo::value>(
-                &m_determined_constant_or_function.value());
-
-            if (determined_value != nullptr)
-            {
-                if (determined_value->is_gcunit())
-                {
-                    gcbase::unit_attrib cancel_nogc;
-                    cancel_nogc.m_gc_age = 0;
-                    cancel_nogc.m_marked = (uint8_t)gcbase::gcmarkcolor::full_mark;
-                    cancel_nogc.m_alloc_mask = 0;
-                    cancel_nogc.m_nogc = 0;
-
-                    gcbase::unit_attrib* gcunit_attrib;
-                    auto* unit = determined_value->
-                        get_gcunit_and_attrib_ref(&gcunit_attrib);
-
-                    wo_assert(unit != nullptr);
-                    (void)unit;
-
-                    gcunit_attrib->m_attr = cancel_nogc.m_attr;
-                }
-            }
-        }
     }
 
     //////////////////////////////////////
@@ -1160,27 +1115,27 @@ namespace wo
             OriginTypeHolder::OriginNoTemplateSymbolAndInstance* out_sni,
             wo_pstring_t name,
             lang_TypeInstance::DeterminedType::base_type basic_type)
-        {
-            ast::AstDeclareAttribue* built_type_public_attrib = new ast::AstDeclareAttribue();
-            built_type_public_attrib->m_access = ast::AstDeclareAttribue::PUBLIC;
+            {
+                ast::AstDeclareAttribue* built_type_public_attrib = new ast::AstDeclareAttribue();
+                built_type_public_attrib->m_access = ast::AstDeclareAttribue::PUBLIC;
 
-            bool symbol_defined = define_symbol_in_current_scope(
-                &out_sni->m_symbol,
-                name,
-                built_type_public_attrib,
-                std::nullopt,
-                std::nullopt,
-                get_current_scope(),
-                lang_Symbol::kind::TYPE,
-                false);
+                bool symbol_defined = define_symbol_in_current_scope(
+                    &out_sni->m_symbol,
+                    name,
+                    built_type_public_attrib,
+                    std::nullopt,
+                    std::nullopt,
+                    get_current_scope(),
+                    lang_Symbol::kind::TYPE,
+                    false);
 
-            wo_assert(symbol_defined);
-            (void)symbol_defined;
+                wo_assert(symbol_defined);
+                (void)symbol_defined;
 
-            out_sni->m_type_instance = out_sni->m_symbol->m_type_instance;
-            out_sni->m_type_instance->determine_base_type_move(
-                std::move(lang_TypeInstance::DeterminedType(basic_type, {})));
-        };
+                out_sni->m_type_instance = out_sni->m_symbol->m_type_instance;
+                out_sni->m_type_instance->determine_base_type_move(
+                    std::move(lang_TypeInstance::DeterminedType(basic_type, {})));
+            };
         create_builtin_non_template_symbol_and_instance(
             &m_origin_types.m_void, WO_PSTR(void), lang_TypeInstance::DeterminedType::VOID);
         create_builtin_non_template_symbol_and_instance(
@@ -1208,25 +1163,25 @@ namespace wo
         auto create_builtin_complex_symbol_and_instance = [this](
             lang_Symbol** out_symbol,
             wo_pstring_t name)
-        {
-            ast::AstDeclareAttribue* built_type_public_attrib = new ast::AstDeclareAttribue();
-            built_type_public_attrib->m_access = ast::AstDeclareAttribue::PUBLIC;
+            {
+                ast::AstDeclareAttribue* built_type_public_attrib = new ast::AstDeclareAttribue();
+                built_type_public_attrib->m_access = ast::AstDeclareAttribue::PUBLIC;
 
-            bool symbol_defined = define_symbol_in_current_scope(
-                out_symbol,
-                name,
-                built_type_public_attrib,
-                std::nullopt,
-                std::nullopt,
-                get_current_scope(),
-                lang_Symbol::kind::TYPE,
-                false);
+                bool symbol_defined = define_symbol_in_current_scope(
+                    out_symbol,
+                    name,
+                    built_type_public_attrib,
+                    std::nullopt,
+                    std::nullopt,
+                    get_current_scope(),
+                    lang_Symbol::kind::TYPE,
+                    false);
 
-            wo_assert(symbol_defined);
-            (void)symbol_defined;
+                wo_assert(symbol_defined);
+                (void)symbol_defined;
 
-            (*out_symbol)->m_is_builtin = true;
-        };
+                (*out_symbol)->m_is_builtin = true;
+            };
 
         create_builtin_complex_symbol_and_instance(&m_origin_types.m_dictionary, WO_PSTR(dict));
         create_builtin_complex_symbol_and_instance(&m_origin_types.m_mapping, WO_PSTR(map));
@@ -2502,32 +2457,54 @@ namespace wo
             .first
             ->second.second.c_str();
     }
-    std::string LangContext::get_constant_str(const value& val)
+    std::string LangContext::get_constant_str(const ast::AstValueBase::ConstantValue& val)
     {
-        switch (val.type)
+        switch (val.m_type)
         {
-        case value::valuetype::string_type:
-            return _rslib_std_string_enstring_impl(val.string->data(), val.string->length());
-        case value::valuetype::struct_type:
+        case ast::AstValueBase::ConstantValue::Type::NIL:
+            return "nil";
+        case ast::AstValueBase::ConstantValue::Type::BOOL:
+            if (val.value_bool())
+                return "true";
+            return "false";
+        case ast::AstValueBase::ConstantValue::Type::INTEGER:
+            return std::to_string(val.value_integer());
+        case ast::AstValueBase::ConstantValue::Type::HANDLE:
+            return std::to_string(val.value_handle());
+        case ast::AstValueBase::ConstantValue::Type::REAL:
+            return std::to_string(val.value_real());
+        case ast::AstValueBase::ConstantValue::Type::PSTRING:
         {
+            wo_pstring_t pstring_constant = val.value_pstring();
+            auto string_constant = 
+                wo::wstrn_to_str(pstring_constant->data(), pstring_constant->length());
+
+            return _rslib_std_string_enstring_impl(
+                string_constant.data(), 
+                string_constant.length());
+        }
+        case ast::AstValueBase::ConstantValue::Type::STRUCT:
+        {
+            auto& struct_constant = val.value_struct();
             std::string result = "(";
-            for (uint16_t idx = 0; idx < val.structs->m_count; ++idx)
+            for (size_t idx = 0; idx < struct_constant.m_count; ++idx)
             {
                 if (idx != 0)
                     result += ", ";
 
-                result += get_constant_str(val.structs->m_values[idx]);
+                result += get_constant_str(struct_constant.m_elements[idx]);
             }
             result += ")";
             return result;
         }
+        case ast::AstValueBase::ConstantValue::Type::FUNCTION:
         default:
-            return wo_cast_string(std::launder((wo_value)(&val)));
+            return "<?>";
         }
-            
-        
+
+
     }
-    std::wstring LangContext::get_constant_str_w(const value& val)
+    std::wstring LangContext::get_constant_str_w(const ast::AstValueBase::ConstantValue& val)
     {
         return str_to_wstr(get_constant_str(val));
     }
@@ -2625,16 +2602,18 @@ namespace wo
 
             if (variable_instance->m_determined_constant_or_function.has_value())
             {
-                ast::AstValueFunction** captured_function =
-                    std::get_if<ast::AstValueFunction*>(&variable_instance->m_determined_constant_or_function.value());
+                auto captured_function =
+                    variable_instance->m_determined_constant_or_function.value().value_try_function();
 
                 need_capture = false;
-                if (captured_function != nullptr)
+                if (captured_function.has_value())
                 {
-                    if ((*captured_function)->m_LANG_captured_context.m_finished)
+                    auto* captured_function_ptr = captured_function.value();
+
+                    if (captured_function_ptr->m_LANG_captured_context.m_finished)
                     {
                         // Function is outside of the current function, check it's capture list.
-                        if (!(*captured_function)->m_LANG_captured_context.m_captured_variables.empty())
+                        if (!captured_function_ptr->m_LANG_captured_context.m_captured_variables.empty())
                             // Is a closure, need capture.
                             need_capture = true;
                     }
@@ -2863,14 +2842,19 @@ namespace wo
             std::make_pair(value, std::make_unique<opnum::imm_handle>(value)))
             .first->second.get();
     }
-    opnum::immbase* BytecodeGenerateContext::opnum_imm_string(const std::string& value) noexcept
+    opnum::immbase* BytecodeGenerateContext::opnum_imm_string(wo_pstring_t value) noexcept
     {
         auto fnd = m_opnum_cache_imm_string.find(value);
         if (fnd != m_opnum_cache_imm_string.end())
             return fnd->second.get();
 
         return m_opnum_cache_imm_string.insert(
-            std::make_pair(value, std::make_unique<opnum::imm_string>(value)))
+            std::make_pair(
+                value,
+                std::make_unique<opnum::imm_string>(
+                    wo::wstrn_to_str(
+                        value->data(),
+                        value->size()))))
             .first->second.get();
     }
     opnum::immbase* BytecodeGenerateContext::opnum_imm_bool(bool value) noexcept
@@ -2880,22 +2864,23 @@ namespace wo
         else
             return m_opnum_cache_imm_false.get();
     }
-    opnum::opnumbase* BytecodeGenerateContext::opnum_imm_value(const wo::value& val)
+    opnum::opnumbase* BytecodeGenerateContext::opnum_imm_value(
+        const ast::AstValueBase::ConstantValue& val)
     {
-        switch (val.type)
+        switch (val.m_type)
         {
-        case wo::value::valuetype::invalid:
+        case ast::AstValueBase::ConstantValue::Type::NIL:
             return opnum_spreg(opnum::reg::spreg::ni);
-        case wo::value::valuetype::integer_type:
-            return opnum_imm_int(val.integer);
-        case wo::value::valuetype::real_type:
-            return opnum_imm_real(val.real);
-        case wo::value::valuetype::handle_type:
-            return opnum_imm_handle(val.handle);
-        case wo::value::valuetype::bool_type:
-            return opnum_imm_bool(val.integer ? true : false);
-        case wo::value::valuetype::string_type:
-            return opnum_imm_string(*val.string);
+        case ast::AstValueBase::ConstantValue::Type::INTEGER:
+            return opnum_imm_int(val.value_integer());
+        case ast::AstValueBase::ConstantValue::Type::REAL:
+            return opnum_imm_real(val.value_real());
+        case ast::AstValueBase::ConstantValue::Type::HANDLE:
+            return opnum_imm_handle(val.value_handle());
+        case ast::AstValueBase::ConstantValue::Type::BOOL:
+            return opnum_imm_bool(val.value_bool());
+        case ast::AstValueBase::ConstantValue::Type::PSTRING:
+            return opnum_imm_string(val.value_pstring());
         default:
             return m_opnum_cache_imm_value.emplace_back(
                 std::make_unique<opnum::immbase>(val)).get();

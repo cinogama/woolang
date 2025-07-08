@@ -184,7 +184,7 @@ namespace wo
         {
         }
         AstIdentifier::TemplateArgumentInstance::TemplateArgumentInstance(
-            lang_TypeInstance* type, const value& constant)
+            lang_TypeInstance* type, const AstValueBase::ConstantValue& constant)
             : m_type(type)
             , m_constant(constant)
         {
@@ -200,14 +200,7 @@ namespace wo
             if (a_is_constant == b_is_constant)
             {
                 if (a_is_constant)
-                {
-                    auto& aconstant = m_constant.value();
-                    auto& bconstant = a.m_constant.value();
-
-                    return wo::opnum::immbase::compare_result::LESS_THEN ==
-                        wo::opnum::immbase::compare_value_less_than(
-                            aconstant, bconstant);
-                }
+                    return  m_constant.value() < a.m_constant.value();
                 else
                     return false; // Equal.
             }
@@ -750,6 +743,147 @@ namespace wo
 
             return new_instance;
         }
+        ////////////////////////////////////////////////////////
+
+        AstValueBase::ConstantValue::StructStorage::StructStorage(const std::list<ConstantValue*>& val)
+            : m_count(val.size())
+            , m_elements(reinterpret_cast<ConstantValue*>(malloc(val.size() * sizeof(ConstantValue))))
+        {
+            wo_assert(m_elements != nullptr);
+            size_t i = 0;
+            for (auto* elem : val)
+            {
+                new (&m_elements[i]) ConstantValue(*elem);
+                ++i;
+            }
+        }
+        AstValueBase::ConstantValue::StructStorage::~StructStorage()
+        {
+            if (m_elements != nullptr)
+            {
+                for (size_t i = 0; i < m_count; ++i)
+                {
+                    m_elements[i].~ConstantValue();
+                }
+                free(m_elements);
+            }
+        }
+        AstValueBase::ConstantValue::StructStorage::StructStorage(const StructStorage& another)
+            : m_count(another.m_count)
+            , m_elements(reinterpret_cast<ConstantValue*>(malloc(another.m_count * sizeof(ConstantValue))))
+        {
+            wo_assert(m_elements != nullptr);
+            for (size_t i = 0; i < m_count; ++i)
+            {
+                new (&m_elements[i]) ConstantValue(another.m_elements[i]);
+            }
+        }
+        AstValueBase::ConstantValue::StructStorage::StructStorage(StructStorage&& another)
+            : m_count(another.m_count)
+            , m_elements(another.m_elements)
+        {
+            another.m_elements = nullptr;
+        }
+        bool AstValueBase::ConstantValue::StructStorage::operator <(const StructStorage& another) const
+        {
+            if (m_count != another.m_count)
+                return m_count < another.m_count;
+
+            for (size_t i = 0; i < m_count; ++i)
+            {
+                if (m_elements[i] < another.m_elements[i])
+                    return true;
+                else if (another.m_elements[i] < m_elements[i])
+                    return false;
+            }
+            return false;
+        }
+        AstValueBase::ConstantValue::ConstantValue()
+            : m_type(Type::NIL)
+        {
+        }
+        AstValueBase::ConstantValue::ConstantValue(bool val)
+            : m_type(Type::BOOL), m_storage(val)
+        {
+        }
+        AstValueBase::ConstantValue::ConstantValue(wo_integer_t val)
+            : m_type(Type::INTEGER), m_storage(val)
+        {
+        }
+        AstValueBase::ConstantValue::ConstantValue(wo_handle_t val)
+            : m_type(Type::HANDLE), m_storage(val)
+        {
+        }
+        AstValueBase::ConstantValue::ConstantValue(wo_real_t val)
+            : m_type(Type::REAL), m_storage(val)
+        {
+        }
+        AstValueBase::ConstantValue::ConstantValue(wo_pstring_t val)
+            : m_type(Type::PSTRING), m_storage(val)
+        {
+        }
+        AstValueBase::ConstantValue::ConstantValue(const std::wstring& val)
+            : m_type(Type::PSTRING), m_storage(wo::wstring_pool::get_pstr(val))
+        {
+        }
+        AstValueBase::ConstantValue::ConstantValue(const std::list<ConstantValue*>& val)
+            : m_type(Type::STRUCT), m_storage(StructStorage(val))
+        {
+        }
+        AstValueBase::ConstantValue::ConstantValue(AstValueFunction* val)
+            : m_type(Type::FUNCTION), m_storage(val)
+        {
+        }
+        bool AstValueBase::ConstantValue::operator <(const ConstantValue& another) const
+        {
+            if (m_storage.index() != another.m_storage.index())
+                return m_storage.index() < another.m_storage.index();
+
+            return std::visit([&another](const auto& v) {
+                using T = std::decay_t<decltype(v)>;
+                if constexpr (std::is_same_v<T, AstValueFunction*>)
+                    return reinterpret_cast<intptr_t>(v) 
+                        < reinterpret_cast<intptr_t>(another.value_function());
+                else
+                    return v < std::get<T>(another.m_storage);
+                }, m_storage);
+        }
+
+        bool AstValueBase::ConstantValue::value_bool()const
+        {
+            return std::get<bool>(m_storage);
+        }
+        wo_integer_t AstValueBase::ConstantValue::value_integer()const
+        {
+            return std::get<wo_integer_t>(m_storage);
+        }
+        wo_handle_t AstValueBase::ConstantValue::value_handle()const
+        {
+            return std::get<wo_handle_t>(m_storage);
+        }
+        wo_real_t AstValueBase::ConstantValue::value_real()const
+        {
+            return std::get<wo_real_t>(m_storage);
+        }
+        wo_pstring_t AstValueBase::ConstantValue::value_pstring()const
+        {
+            return std::get<wo_pstring_t>(m_storage);
+        }
+        const AstValueBase::ConstantValue::StructStorage& AstValueBase::ConstantValue::value_struct() const
+        {
+            return std::get<StructStorage>(m_storage);
+        }
+        AstValueFunction* AstValueBase::ConstantValue::value_function() const
+        {
+            return std::get<AstValueFunction*>(m_storage);
+        }
+        std::optional<AstValueFunction*> AstValueBase::ConstantValue::value_try_function()const
+        {
+            if (m_type == Type::FUNCTION)
+                return value_function();
+
+            return std::nullopt;
+        }
 
         ////////////////////////////////////////////////////////
 
@@ -761,38 +895,8 @@ namespace wo
         }
         AstValueBase::~AstValueBase()
         {
-            if (m_evaled_const_value && m_evaled_const_value.value().is_gcunit())
-            {
-                gcbase::unit_attrib cancel_nogc;
-                cancel_nogc.m_gc_age = 0;
-                cancel_nogc.m_marked = (uint8_t)gcbase::gcmarkcolor::full_mark;
-                cancel_nogc.m_alloc_mask = 0;
-                cancel_nogc.m_nogc = 0;
-
-                gcbase::unit_attrib* gcunit_attrib;
-                auto* unit = m_evaled_const_value.value().
-                    get_gcunit_and_attrib_ref(&gcunit_attrib);
-
-                wo_assert(unit != nullptr);
-                (void)unit;
-
-                gcunit_attrib->m_attr = cancel_nogc.m_attr;
-            }
         }
-        void AstValueBase::decide_final_constant_value(const wo::value& val)
-        {
-            wo_assert(!m_evaled_const_value);
 
-            m_evaled_const_value = wo::value();
-            m_evaled_const_value->set_val_with_compile_time_check(&val);
-        }
-        void AstValueBase::decide_final_constant_value(const std::string& cstr)
-        {
-            wo_assert(!m_evaled_const_value);
-
-            m_evaled_const_value = wo::value();
-            m_evaled_const_value->set_string_nogc(cstr);
-        }
         AstBase* AstValueBase::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
         {
             // AstValueBase is abstract class, so it must be exist_instance.
@@ -869,10 +973,8 @@ namespace wo
                 : new AstValueLiteral()
                 ;
             AstValueBase::make_dup(new_instance, out_continues);
-            new_instance->m_evaled_const_value = wo::value();
-            new_instance->m_evaled_const_value.value().
-                set_val_with_compile_time_check(
-                    &m_evaled_const_value.value());
+
+            new_instance->decide_final_constant_value(m_evaled_const_value.value());
             return new_instance;
         }
 
@@ -2141,10 +2243,9 @@ namespace wo
                         auto* int_type_identifier = new AstIdentifier(WO_PSTR(int), std::nullopt, {}, true);
                         auto* int_type = new AstTypeHolder(int_type_identifier);
                         auto* cast_last_enum_item_value_into_int = new AstValueTypeCast(int_type, last_enum_item_value);
-                        wo::value one_literal_value;
-                        one_literal_value.set_integer(1);
                         auto* one_literal = new AstValueLiteral();
-                        one_literal->decide_final_constant_value(one_literal_value);
+                        one_literal->decide_final_constant_value(
+                            static_cast<wo_integer_t>(1));
                         created_this_item_value = new AstValueBinaryOperator(
                             AstValueBinaryOperator::operator_type::ADD, cast_last_enum_item_value_into_int, one_literal);
 
@@ -2158,10 +2259,9 @@ namespace wo
                     }
                     else
                     {
-                        wo::value last_enum_item_value_value;
-                        last_enum_item_value_value.set_integer(0);
                         created_this_item_value = new AstValueLiteral();
-                        created_this_item_value->decide_final_constant_value(last_enum_item_value_value);
+                        created_this_item_value->decide_final_constant_value(
+                            static_cast<wo_integer_t>(0));
                     }
 
                     item->m_value = created_this_item_value;

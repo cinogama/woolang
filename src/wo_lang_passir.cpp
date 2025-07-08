@@ -365,7 +365,7 @@ namespace wo
         {
             if (node->m_condition->m_evaled_const_value.has_value())
             {
-                if (node->m_condition->m_evaled_const_value.value().integer != 0)
+                if (node->m_condition->m_evaled_const_value.value().value_bool() != 0)
                     WO_CONTINUE_PROCESS(node->m_true_body);
                 else if (node->m_false_body.has_value())
                     WO_CONTINUE_PROCESS(node->m_false_body.value());
@@ -423,7 +423,7 @@ namespace wo
             bool dead_loop = false;
             if (node->m_condition->m_evaled_const_value.has_value())
             {
-                if (node->m_condition->m_evaled_const_value.value().integer == 0)
+                if (node->m_condition->m_evaled_const_value.value().value_bool() == 0)
                     return OKAY; // Skip body.
 
                 dead_loop = true;
@@ -501,7 +501,7 @@ namespace wo
                 {
                     if (node->m_condition.has_value()
                         && node->m_condition.value()->m_evaled_const_value.has_value()
-                        && node->m_condition.value()->m_evaled_const_value.value().integer == 0)
+                        && !node->m_condition.value()->m_evaled_const_value.value().value_bool())
                     {
                         // Skip body next and cond.
                         return OKAY;
@@ -546,7 +546,7 @@ namespace wo
                 {
                     // Must be dead loop here.
                     wo_assert(!node->m_condition.has_value()
-                        || node->m_condition.value()->m_evaled_const_value.value().integer != 0);
+                        || node->m_condition.value()->m_evaled_const_value.value().value_bool());
 
                     m_ircontext.c().jmp(opnum::tag(_generate_label("#for_begin_", node)));
                 }
@@ -643,9 +643,10 @@ namespace wo
         {
             m_ircontext.try_return_opnum_temporary_register(node->m_IR_matching_struct_opnum.value());
             m_ircontext.c().ext_panic(WO_OPNUM(m_ircontext.opnum_imm_string(
-                "Bad label for union: '"
-                + std::string(get_type_name(node->m_matched_value->m_LANG_determined_type.value()))
-                + "', may be bad value returned by the external function.")));
+                wstring_pool::get_pstr(
+                    L"Bad label for union: '"
+                    + std::wstring(get_type_name_w(node->m_matched_value->m_LANG_determined_type.value()))
+                    + L"', may be bad value returned by the external function."))));
 
             m_ircontext.c().tag(_generate_label("#match_end_", node));
         }
@@ -792,17 +793,17 @@ namespace wo
                     if (!template_value_instance->IR_need_storage())
                     {
                         // No need storage.
-                        auto** function = std::get_if<AstValueFunction*>(
-                            &template_value_instance->m_determined_constant_or_function.value());
+                        auto function = template_value_instance->m_determined_constant_or_function
+                            .value().value_try_function();
 
-                        if (function != nullptr)
+                        if (function.has_value())
                         {
-                            wo_assert((*function)->m_LANG_value_instance_to_update.value()
+                            wo_assert(function.value()->m_LANG_value_instance_to_update.value()
                                 == template_value_instance);
 
                             // We still eval the function to let compiler know the function.
                             m_ircontext.eval_ignore();
-                            if (!pass_final_value(lex, *function))
+                            if (!pass_final_value(lex, function.value()))
                                 // Failed 
                                 return FAILED;
                         }
@@ -835,13 +836,13 @@ namespace wo
             else if (!pattern_symbol->m_value_instance->IR_need_storage())
             {
                 // No need storage.
-                auto** function = std::get_if<AstValueFunction*>(
-                    &pattern_symbol->m_value_instance->m_determined_constant_or_function.value());
+                auto function = pattern_symbol->m_value_instance->m_determined_constant_or_function
+                    .value().value_try_function();
 
-                if (function != nullptr)
+                if (function.has_value())
                 {
                     m_ircontext.eval_ignore();
-                    if (!pass_final_value(lex, *function))
+                    if (!pass_final_value(lex, function.value()))
                         // Failed 
                         return FAILED;
                 }
@@ -1843,7 +1844,7 @@ namespace wo
 
         if (right->m_evaled_const_value.has_value())
         {
-            wo_integer_t right_value = right->m_evaled_const_value.value().integer;
+            wo_integer_t right_value = right->m_evaled_const_value.value().value_integer();
             wo_assert(right_value != 0);
             wo_assert(!left.has_value() || !left.value()->m_evaled_const_value.has_value());
 
@@ -1855,7 +1856,7 @@ namespace wo
         }
         else if (left.has_value() && left.value()->m_evaled_const_value.has_value())
         {
-            wo_integer_t left_value = left.value()->m_evaled_const_value.value().integer;
+            wo_integer_t left_value = left.value()->m_evaled_const_value.value().value_integer();
             if (left_value == INT64_MIN)
                 // Need check r
                 bgc.c().ext_cdivir(*right_opnum);
@@ -2429,7 +2430,7 @@ namespace wo
             {
                 m_ircontext.eval_for_upper();
 
-                if (node->m_condition->m_evaled_const_value.value().integer != 0)
+                if (node->m_condition->m_evaled_const_value.value().value_integer() != 0)
                     WO_CONTINUE_PROCESS(node->m_true_value);
                 else
                     WO_CONTINUE_PROCESS(node->m_false_value);

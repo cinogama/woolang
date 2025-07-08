@@ -2,7 +2,7 @@
 
 #ifndef WO_DISABLE_COMPILER
 
-constexpr wo_size_t WO_LSPV2_SUB_VERSION = 2;
+constexpr wo_size_t WO_LSPV2_SUB_VERSION = 3;
 
 wo_size_t wo_lspv2_sub_version(void)
 {
@@ -603,8 +603,9 @@ wo_lspv2_expr_info* wo_lspv2_expr_get_info(wo_lspv2_expr* expr)
 
         if (value->m_evaled_const_value.has_value())
         {
-            wo::value* value_addr = &value->m_evaled_const_value.value();
-            const_value = reinterpret_cast<wo_value>(value_addr);
+            // TODO;
+            /*wo::value* value_addr = &value->m_evaled_const_value.value();
+            const_value = reinterpret_cast<wo_value>(value_addr);*/
         }
     }
 

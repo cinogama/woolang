@@ -80,16 +80,103 @@ namespace wo
 
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
+        struct AstValueFunction;
+        struct AstValueBase : public AstBase
+        {
+            struct ConstantValue
+            {
+                struct StructStorage
+                {
+                    const size_t m_count;
+                    ConstantValue* m_elements;
+
+                    explicit StructStorage(const std::list<ConstantValue*>& val);
+                    ~StructStorage();
+                    StructStorage(const StructStorage& another);
+                    StructStorage(StructStorage&& another);
+                    StructStorage& operator = (const StructStorage& another) = delete;
+                    StructStorage& operator = (StructStorage&& another) = delete;
+
+                    bool operator <(const StructStorage& another) const;
+                };
+                using Storage = std::variant<
+                    std::monostate, // nil
+                    bool,
+                    wo_integer_t,
+                    wo_handle_t,
+                    wo_real_t,
+                    wo_pstring_t,
+                    StructStorage,
+                    AstValueFunction*>;
+
+                enum class Type
+                {
+                    NIL,
+                    BOOL,
+                    INTEGER,
+                    HANDLE,
+                    REAL,
+                    PSTRING,
+                    STRUCT,
+                    FUNCTION,
+                };
+
+                Type m_type;
+                const Storage m_storage;
+
+                explicit ConstantValue();
+                explicit ConstantValue(bool val);
+                explicit ConstantValue(wo_integer_t val);
+                explicit ConstantValue(wo_handle_t val);
+                explicit ConstantValue(wo_real_t val);
+                explicit ConstantValue(wo_pstring_t val);
+                explicit ConstantValue(const std::wstring& val);
+                explicit ConstantValue(const std::list<ConstantValue*>& val);
+                explicit ConstantValue(AstValueFunction* val);
+                ConstantValue(const ConstantValue& another) = default;
+                ConstantValue(ConstantValue&& another) = default;
+                ConstantValue& operator = (const ConstantValue& another) = default;
+                ConstantValue& operator = (ConstantValue&& another) = default;
+                bool operator <(const ConstantValue& another) const;
+
+                bool value_bool()const;
+                wo_integer_t value_integer()const;
+                wo_handle_t value_handle()const;
+                wo_real_t value_real()const;
+                wo_pstring_t value_pstring()const;
+                const StructStorage& value_struct() const;
+                AstValueFunction* value_function() const;
+                std::optional<AstValueFunction*> value_try_function()const;
+            };
+
+            std::optional<lang_TypeInstance*> m_LANG_determined_type;
+            std::optional<ConstantValue> m_evaled_const_value;
+
+            AstValueBase(AstBase::node_type_t nodetype);
+            ~AstValueBase();
+
+            void _check_if_template_exist_in(
+                const std::list<AstTemplateParam*>& template_params, std::vector<bool>& out_contain_flags) const;
+
+            template<typename T>
+            void decide_final_constant_value(const T& val)
+            {
+                wo_assert(!m_evaled_const_value.has_value());
+                m_evaled_const_value.emplace(val);
+            }
+
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+        };
         struct AstIdentifier : public AstBase
         {
             struct TemplateArgumentInstance
             {
                 lang_TypeInstance* m_type;
-                std::optional<value> m_constant;
+                std::optional<AstValueBase::ConstantValue> m_constant;
 
                 TemplateArgumentInstance(lang_TypeInstance* type);
                 TemplateArgumentInstance(AstValueBase* value);
-                TemplateArgumentInstance(lang_TypeInstance* type, const value& constant);
+                TemplateArgumentInstance(lang_TypeInstance* type, const AstValueBase::ConstantValue& constant);
 
                 TemplateArgumentInstance(const TemplateArgumentInstance&) = default;
                 TemplateArgumentInstance(TemplateArgumentInstance&&) = default;
@@ -220,70 +307,7 @@ namespace wo
             void _check_if_template_exist_in(const std::list<AstTemplateParam*>& template_params, std::vector<bool>& out_contain_flags) const;
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
-        struct AstValueFunction;
-        struct AstValueBase : public AstBase
-        {
-            struct ConstantValue
-            {
-                enum class Kind
-                {
-                    TRIVAL,     // bool, int, real, handle...
-                    STRING,
-                    STRUCT,
-                    FUNCTION,
-                };
-                struct StructStorage
-                {
-                    size_t m_count;
-                    ConstantValue* m_elements;
-  
-                    explicit StructStorage(size_t n);
-                    ~StructStorage();
-                    explicit StructStorage(const StructStorage& another);
-                    explicit StructStorage(StructStorage&& another);
-                    StructStorage& operator = (const StructStorage& another);
-                    StructStorage& operator = (StructStorage&& another);
-                };
-                using Storage = std::variant<wo::value, wo_pstring_t, StructStorage, AstValueFunction*>;
-
-                const Kind m_kind;
-                const Storage m_storage;
-
-                explicit ConstantValue(bool val);
-                explicit ConstantValue(wo_integer_t val);
-                explicit ConstantValue(wo_handle_t val);
-                explicit ConstantValue(wo_real_t val);
-                explicit ConstantValue(wo_pstring_t val);
-                explicit ConstantValue(const std::wstring& val);
-                explicit ConstantValue(const std::list<ConstantValue*>& val);
-                explicit ConstantValue(AstValueFunction* val);
-                explicit ConstantValue(const ConstantValue& another);
-                explicit ConstantValue(ConstantValue&& another);
-                ConstantValue& operator = (const ConstantValue& another);
-                ConstantValue& operator = (ConstantValue&& another);
-
-                bool value_bool()const;
-                wo_integer_t value_integer()const;
-                wo_handle_t value_handle()const;
-                wo_real_t value_real()const;
-                wo_pstring_t value_pstring()const;
-                const StructStorage& value_struct() const;
-                AstValueFunction* value_function() const;
-            };
-
-            std::optional<lang_TypeInstance*> m_LANG_determined_type;
-            std::optional<wo::value> m_evaled_const_value;
-
-            AstValueBase(AstBase::node_type_t nodetype);
-            ~AstValueBase();
-
-            void _check_if_template_exist_in(
-                const std::list<AstTemplateParam*>& template_params, std::vector<bool>& out_contain_flags) const;
-
-            void decide_final_constant_value(const wo::value& val);
-            void decide_final_constant_value(const std::string& cstr);
-            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
-        };
+       
         struct AstValueNothing : public AstValueBase
         {
             AstValueNothing();

@@ -488,7 +488,7 @@ namespace wo
         lexer& lex,
         ast::AstValueBase* accept_constant_formal,
         lang_TypeInstance* applying_type_instance,
-        const value& constant_instance,
+        const ast::AstValueBase::ConstantValue& constant_instance,
         const std::list<ast::AstTemplateParam*>& pending_template_params,
         std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance>* out_determined_template_arg_pair)
     {

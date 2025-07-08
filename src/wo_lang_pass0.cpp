@@ -63,7 +63,8 @@ namespace wo
                         if (init_value->node_type == AstBase::AST_VALUE_FUNCTION)
                         {
                             AstValueFunction* func = static_cast<AstValueFunction*>(init_value);
-                            defined_symbol->m_value_instance->try_determine_function(func);
+                            defined_symbol->m_value_instance
+                                ->try_determine_template_function_dup_instance(func);
                         }
                     }
 

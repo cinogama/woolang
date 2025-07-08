@@ -10,7 +10,7 @@ namespace wo
     bool LangContext::update_pattern_symbol_variable_type_pass1(
         lexer& lex,
         ast::AstPatternBase* pattern,
-        const std::optional<std::variant<AstValueBase*, const value*>>& init_value,
+        const std::optional<std::variant<AstValueBase*, const ast::AstValueBase::ConstantValue*>>& init_value,
         const std::optional<lang_TypeInstance*>& init_value_type)
     {
         switch (pattern->node_type)
@@ -56,7 +56,7 @@ namespace wo
                 return false;
             }
 
-            std::optional<const value*> constant_tuple_value = std::nullopt;
+            std::optional<const ast::AstValueBase::ConstantValue*> constant_tuple_value = std::nullopt;
             if (init_value.has_value())
             {
                 std::visit(
@@ -73,7 +73,8 @@ namespace wo
                     }, init_value.value());
 
                 wo_assert(!constant_tuple_value.has_value()
-                    || constant_tuple_value.value()->type == value::valuetype::struct_type);
+                    || constant_tuple_value.value()->m_type == 
+                        ast::AstValueBase::ConstantValue::Type::STRUCT);
             }
 
             auto* determined_type = determined_type_may_nullopt.value();
@@ -91,9 +92,11 @@ namespace wo
 
                     for (uint16_t idx = 0; pattern_iter != pattern_end; ++pattern_iter, ++type_iter, ++idx)
                     {
-                        std::optional<const value*> constant_elem_value = std::nullopt;
+                        std::optional<const ast::AstValueBase::ConstantValue*> constant_elem_value = 
+                            std::nullopt;
+
                         if (constant_tuple_value.has_value())
-                            constant_elem_value = &constant_tuple_value.value()->structs->m_values[idx];
+                            constant_elem_value = &constant_tuple_value.value()->value_struct().m_elements[idx];
 
                         success = success && update_pattern_symbol_variable_type_pass1(
                             lex, *pattern_iter, constant_elem_value, *type_iter);
@@ -881,24 +884,24 @@ namespace wo
         wo_assert(state == UNPROCESSED);
         wo_assert(node->m_evaled_const_value);
 
-        switch (node->m_evaled_const_value.value().type)
+        switch (node->m_evaled_const_value.value().m_type)
         {
-        case value::valuetype::invalid:
+        case ast::AstValueBase::ConstantValue::Type::NIL:
             node->m_LANG_determined_type = m_origin_types.m_nil.m_type_instance;
             break;
-        case value::valuetype::integer_type:
+        case ast::AstValueBase::ConstantValue::Type::INTEGER:
             node->m_LANG_determined_type = m_origin_types.m_int.m_type_instance;
             break;
-        case value::valuetype::real_type:
+        case ast::AstValueBase::ConstantValue::Type::REAL:
             node->m_LANG_determined_type = m_origin_types.m_real.m_type_instance;
             break;
-        case value::valuetype::handle_type:
+        case ast::AstValueBase::ConstantValue::Type::HANDLE:
             node->m_LANG_determined_type = m_origin_types.m_handle.m_type_instance;
             break;
-        case value::valuetype::bool_type:
+        case ast::AstValueBase::ConstantValue::Type::BOOL:
             node->m_LANG_determined_type = m_origin_types.m_bool.m_type_instance;
             break;
-        case value::valuetype::string_type:
+        case ast::AstValueBase::ConstantValue::Type::PSTRING:
             node->m_LANG_determined_type = m_origin_types.m_string.m_type_instance;
             break;
         default:
@@ -1072,13 +1075,8 @@ namespace wo
 
             if (determined_value_instance->m_determined_constant_or_function.has_value())
             {
-                wo::value* determined_value =
-                    std::get_if<wo::value>(
-                        &determined_value_instance->m_determined_constant_or_function.value());
-
-                if (determined_value != nullptr)
-                    // Constant has been determined.
-                    node->decide_final_constant_value(*determined_value);
+                node->decide_final_constant_value(
+                    determined_value_instance->m_determined_constant_or_function.value());
             }
 
             // Check symbol can be reach.
@@ -1360,7 +1358,7 @@ namespace wo
                     continue;
                 }
 
-                if (!constraint->m_evaled_const_value.value().integer)
+                if (!constraint->m_evaled_const_value.value().value_bool())
                 {
                     failed = true;
                     lex.record_lang_error(lexer::msglevel_t::error, constraint,
@@ -1464,22 +1462,22 @@ namespace wo
     {
         auto judge_function_return_type =
             [&](lang_TypeInstance* ret_type)
-        {
-            std::list<lang_TypeInstance*> parameters;
-            for (auto& param : node->m_parameters)
-                parameters.push_back(param->m_type.value()->m_LANG_determined_type.value());
-
-            node->m_LANG_determined_type = m_origin_types.create_function_type(
-                node->m_is_variadic, parameters, ret_type);
-
-            wo_assert(node->m_LANG_determined_type.has_value());
-
-            if (node->m_LANG_value_instance_to_update)
             {
-                node->m_LANG_value_instance_to_update.value()->m_determined_type =
-                    node->m_LANG_determined_type;
-            }
-        };
+                std::list<lang_TypeInstance*> parameters;
+                for (auto& param : node->m_parameters)
+                    parameters.push_back(param->m_type.value()->m_LANG_determined_type.value());
+
+                node->m_LANG_determined_type = m_origin_types.create_function_type(
+                    node->m_is_variadic, parameters, ret_type);
+
+                wo_assert(node->m_LANG_determined_type.has_value());
+
+                if (node->m_LANG_value_instance_to_update)
+                {
+                    node->m_LANG_value_instance_to_update.value()->m_determined_type =
+                        node->m_LANG_determined_type;
+                }
+            };
 
         // Huston, we have a problem.
         if (state == UNPROCESSED)
@@ -1931,7 +1929,7 @@ namespace wo
         else if (state == HOLD)
         {
             std::list<lang_TypeInstance*> element_types;
-            std::list<wo::value> element_constants;
+            std::list<ast::AstValueBase::ConstantValue*> element_constants;
 
             for (auto& element : node->m_elements)
             {
@@ -1965,12 +1963,12 @@ namespace wo
                         auto& unpacking_constant_tuple =
                             unpack->m_unpack_value->m_evaled_const_value.value();
 
-                        wo_assert(unpacking_constant_tuple.type == wo::value::struct_type);
-                        for (uint16_t idx = 0; idx < unpacking_constant_tuple.structs->m_count; ++idx)
+                        auto& struct_constant = unpacking_constant_tuple.value_struct();
+                        for (uint16_t idx = 0; idx < struct_constant.m_count; ++idx)
                         {
                             if ((*(iter++))->is_immutable())
                                 element_constants.emplace_back(
-                                    unpacking_constant_tuple.structs->m_values[idx]);
+                                    &struct_constant.m_elements[idx]);
                         }
                     }
                 }
@@ -1981,7 +1979,7 @@ namespace wo
                         && element->m_evaled_const_value.has_value())
                     {
                         element_constants.emplace_back(
-                            element->m_evaled_const_value.value());
+                            &element->m_evaled_const_value.value());
                     }
                 }
             }
@@ -1991,19 +1989,7 @@ namespace wo
             if (element_constants.size() == element_types.size())
             {
                 // This tuple can be constant.
-                wo::value value;
-                struct_t* compile_time_struct =
-                    value.set_struct_nogc(
-                        static_cast<uint16_t>(
-                            element_constants.size()))->structs;
-
-                uint16_t idx = 0;
-                for (auto& constant_value : element_constants)
-                {
-                    compile_time_struct->m_values[idx++].set_val(
-                        &constant_value);
-                }
-                node->decide_final_constant_value(value);
+                node->decide_final_constant_value(element_constants);
             }
         }
         return WO_EXCEPT_ERROR(state, OKAY);
@@ -2112,11 +2098,8 @@ namespace wo
                     return FAILED;
                 }
 
-                wo_assert(node->m_index->m_evaled_const_value.value().type
-                    == value::valuetype::string_type);
-
-                wo_pstring_t member_name = wo::wstring_pool::get_pstr(
-                    str_to_wstr(*node->m_index->m_evaled_const_value.value().string));
+                wo_pstring_t member_name = 
+                    node->m_index->m_evaled_const_value.value().value_pstring();
 
                 auto* struct_type = container_determined_base_type_instance
                     ->m_external_type_description.m_struct;
@@ -2167,10 +2150,7 @@ namespace wo
                     return FAILED;
                 }
 
-                wo_assert(node->m_index->m_evaled_const_value.value().type
-                    == value::valuetype::integer_type);
-
-                auto index = node->m_index->m_evaled_const_value.value().integer;
+                auto index = node->m_index->m_evaled_const_value.value().value_integer();
                 auto* tuple_type = container_determined_base_type_instance
                     ->m_external_type_description.m_tuple;
 
@@ -2190,12 +2170,11 @@ namespace wo
                 if (node->m_container->m_evaled_const_value.has_value())
                 {
                     // Indexing const tuple.
-                    struct_t* constant_tuple =
-                        node->m_container->m_evaled_const_value.value().structs;
+                    auto& struct_constant = 
+                        node->m_container->m_evaled_const_value.value().value_struct();
 
-                    wo_assert(index < static_cast<wo_integer_t>(constant_tuple->m_count));
-                    node->decide_final_constant_value(
-                        constant_tuple->m_values[index]);
+                    wo_assert(index < static_cast<wo_integer_t>(struct_constant.m_count));
+                    node->decide_final_constant_value(struct_constant.m_elements[index]);
                 }
                 break;
             }
@@ -2217,14 +2196,10 @@ namespace wo
                 if (node->m_container->m_evaled_const_value.has_value()
                     && node->m_index->m_evaled_const_value.has_value())
                 {
-                    auto* string_instance = node->m_container->m_evaled_const_value.value().string;
-                    auto index = node->m_index->m_evaled_const_value.value().integer;
+                    auto string_instance = node->m_container->m_evaled_const_value.value().value_pstring();
+                    auto index = static_cast<size_t>(node->m_index->m_evaled_const_value.value().value_integer());
 
-                    wo_char_t ch = wo::u8strnidx(
-                        string_instance->c_str(), string_instance->size(), (size_t)index);
-                    if (ch == 0
-                        && wo::u8strnlen(
-                            string_instance->c_str(), string_instance->size()) <= (size_t)index)
+                    if (index >= string_instance->length())
                     {
                         lex.record_lang_error(lexer::msglevel_t::error, node->m_index,
                             WO_ERR_STRING_INDEX_OUT_OF_RANGE);
@@ -2232,7 +2207,7 @@ namespace wo
                     }
 
                     wo::value const_result_value;
-                    const_result_value.set_integer(ch);
+                    const_result_value.set_integer(string_instance->at(index));
 
                     node->decide_final_constant_value(const_result_value);
                 }
@@ -3364,7 +3339,7 @@ namespace wo
                     // There may be other parameters that need to be deduced beyond the fixed-length 
                     // parameter part. The variable-length parameter part is regarded as a non-derived
                     // context and directly evaluated to cause them to report errors.
-                    for (;it_argument != it_argument_end; ++it_argument)
+                    for (; it_argument != it_argument_end; ++it_argument)
                     {
                         AstValueBase* argument_value = *it_argument;
 
@@ -4476,12 +4451,10 @@ namespace wo
                         auto left_base_type_val = left_base_type.value()->m_base_type;
                         if (left_base_type_val == lang_TypeInstance::DeterminedType::base_type::BOOLEAN
                             && ((node->m_operator == AstValueBinaryOperator::LOGICAL_OR
-                                && evaled_const_value.integer)
+                                && evaled_const_value.value_bool())
                                 || (node->m_operator == AstValueBinaryOperator::LOGICAL_AND
-                                    && !evaled_const_value.integer)))
+                                    && !evaled_const_value.value_bool())))
                         {
-                            wo_assert(evaled_const_value.type == value::valuetype::bool_type);
-
                             node->decide_final_constant_value(evaled_const_value);
                             node->m_LANG_determined_type = m_origin_types.m_bool.m_type_instance;
 
@@ -4722,7 +4695,7 @@ namespace wo
                         && base_type == lang_TypeInstance::DeterminedType::INTEGER
                         && node->m_right->m_evaled_const_value.has_value())
                     {
-                        wo_integer_t right_int_value = node->m_right->m_evaled_const_value.value().integer;
+                        wo_integer_t right_int_value = node->m_right->m_evaled_const_value.value().value_integer();
                         if (right_int_value == 0)
                         {
                             lex.record_lang_error(lexer::msglevel_t::error, node->m_right, WO_ERR_BAD_DIV_ZERO);
@@ -4730,7 +4703,7 @@ namespace wo
                         }
                         else if (right_int_value == -1
                             && node->m_left->m_evaled_const_value.has_value()
-                            && node->m_left->m_evaled_const_value.value().integer == INT64_MIN)
+                            && node->m_left->m_evaled_const_value.value().value_integer() == INT64_MIN)
                         {
                             lex.record_lang_error(lexer::msglevel_t::error, node, WO_ERR_BAD_DIV_OVERFLOW);
                             return FAILED;
@@ -4740,26 +4713,20 @@ namespace wo
                     bool constant_has_been_determined = false;
                     if (node->m_left->m_evaled_const_value.has_value())
                     {
-                        wo::value left_value = node->m_left->m_evaled_const_value.value();
+                        auto& left_value = node->m_left->m_evaled_const_value.value();
                         switch (node->m_operator)
                         {
                         case AstValueBinaryOperator::LOGICAL_AND:
-                            if (left_value.integer == 0)
+                            if (left_value.value_bool() == 0)
                             {
-                                node->decide_final_constant_value(wo::value{});
-
-                                wo::value& result_value = node->m_evaled_const_value.value();
-                                result_value.set_bool(false);
+                                node->decide_final_constant_value(false);
                                 constant_has_been_determined = true;
                             }
                             break;
                         case AstValueBinaryOperator::LOGICAL_OR:
-                            if (left_value.integer != 0)
+                            if (left_value.value_bool() != 0)
                             {
-                                node->decide_final_constant_value(wo::value{});
-
-                                wo::value& result_value = node->m_evaled_const_value.value();
-                                result_value.set_bool(true);
+                                node->decide_final_constant_value(true);
                                 constant_has_been_determined = true;
                             }
                             break;
@@ -4771,210 +4738,248 @@ namespace wo
                         && node->m_right->m_evaled_const_value.has_value())
                     {
                         // Decide constant value.
-                        node->decide_final_constant_value(wo::value{});
-
-                        wo::value& result_value = node->m_evaled_const_value.value();
-                        wo::value left_value = node->m_left->m_evaled_const_value.value();
-                        wo::value right_value = node->m_right->m_evaled_const_value.value();
-                        wo_assert(left_value.type == right_value.type);
+                        auto& left_value = node->m_left->m_evaled_const_value.value();
+                        auto& right_value = node->m_right->m_evaled_const_value.value();
+                        wo_assert(left_value.m_type == right_value.m_type);
 
                         switch (node->m_operator)
                         {
                         case AstValueBinaryOperator::ADD:
-                            switch (left_value.type)
+                            switch (left_value.m_type)
                             {
-                            case wo::value::valuetype::integer_type:
-                                result_value.set_integer(left_value.integer + right_value.integer);
+                            case ast::AstValueBase::ConstantValue::Type::INTEGER:
+                                node->decide_final_constant_value(
+                                    left_value.value_integer() + right_value.value_integer());
                                 break;
-                            case wo::value::valuetype::real_type:
-                                result_value.set_real(left_value.real + right_value.real);
+                            case ast::AstValueBase::ConstantValue::Type::REAL:
+                                node->decide_final_constant_value(
+                                    left_value.value_real() + right_value.value_real());
                                 break;
-                            case wo::value::valuetype::string_type:
-                                result_value.set_string_nogc(*left_value.string + *right_value.string);
+                            case ast::AstValueBase::ConstantValue::Type::PSTRING:
+                                node->decide_final_constant_value(
+                                    *left_value.value_pstring() + *right_value.value_pstring());
                                 break;
-                            case wo::value::valuetype::handle_type:
-                                result_value.set_handle(left_value.handle + right_value.handle);
+                            case ast::AstValueBase::ConstantValue::Type::HANDLE:
+                                node->decide_final_constant_value(
+                                    left_value.value_handle() + right_value.value_handle());
                                 break;
                             default:
                                 wo_error("Unknown type.");
                             }
                             break;
                         case AstValueBinaryOperator::SUBSTRACT:
-                            switch (left_value.type)
+                            switch (left_value.m_type)
                             {
-                            case wo::value::valuetype::integer_type:
-                                result_value.set_integer(left_value.integer - right_value.integer);
+                            case ast::AstValueBase::ConstantValue::Type::INTEGER:
+                                node->decide_final_constant_value(
+                                    left_value.value_integer() - right_value.value_integer());
                                 break;
-                            case wo::value::valuetype::real_type:
-                                result_value.set_real(left_value.real - right_value.real);
+                            case ast::AstValueBase::ConstantValue::Type::REAL:
+                                node->decide_final_constant_value(
+                                    left_value.value_real() - right_value.value_real());
                                 break;
-                            case wo::value::valuetype::handle_type:
-                                result_value.set_handle(left_value.handle - right_value.handle);
+                            case ast::AstValueBase::ConstantValue::Type::HANDLE:
+                                node->decide_final_constant_value(
+                                    left_value.value_handle() - right_value.value_handle());
                                 break;
                             default:
                                 wo_error("Unknown type.");
                             }
                             break;
                         case AstValueBinaryOperator::MULTIPLY:
-                            switch (left_value.type)
+                            switch (left_value.m_type)
                             {
-                            case wo::value::valuetype::integer_type:
-                                result_value.set_integer(left_value.integer * right_value.integer);
+                            case ast::AstValueBase::ConstantValue::Type::INTEGER:
+                                node->decide_final_constant_value(
+                                    left_value.value_integer() * right_value.value_integer());
                                 break;
-                            case wo::value::valuetype::real_type:
-                                result_value.set_real(left_value.real * right_value.real);
+                            case ast::AstValueBase::ConstantValue::Type::REAL:
+                                node->decide_final_constant_value(
+                                    left_value.value_real() * right_value.value_real());
                                 break;
                             default:
                                 wo_error("Unknown type.");
                             }
                             break;
                         case AstValueBinaryOperator::DIVIDE:
-                            switch (left_value.type)
+                            switch (left_value.m_type)
                             {
-                            case wo::value::valuetype::integer_type:
-                                result_value.set_integer(left_value.integer / right_value.integer);
+                            case ast::AstValueBase::ConstantValue::Type::INTEGER:
+                                node->decide_final_constant_value(
+                                    left_value.value_integer() / right_value.value_integer());
                                 break;
-                            case wo::value::valuetype::real_type:
-                                result_value.set_real(left_value.real / right_value.real);
+                            case ast::AstValueBase::ConstantValue::Type::REAL:
+                                node->decide_final_constant_value(
+                                    left_value.value_real() / right_value.value_real());
                                 break;
                             default:
                                 wo_error("Unknown type.");
                             }
                             break;
                         case AstValueBinaryOperator::MODULO:
-                            switch (left_value.type)
+                            switch (left_value.m_type)
                             {
-                            case wo::value::valuetype::integer_type:
-                                result_value.set_integer(left_value.integer % right_value.integer);
+                            case ast::AstValueBase::ConstantValue::Type::INTEGER:
+                                node->decide_final_constant_value(
+                                    left_value.value_integer() % right_value.value_integer());
                                 break;
-                            case wo::value::valuetype::real_type:
-                                result_value.set_real(fmod(left_value.real, right_value.real));
+                            case ast::AstValueBase::ConstantValue::Type::REAL:
+                                node->decide_final_constant_value(
+                                    fmod(left_value.value_real(), right_value.value_real()));
                                 break;
                             default:
                                 wo_error("Unknown type.");
                             }
                             break;
                         case AstValueBinaryOperator::LOGICAL_AND:
-                            result_value.set_bool((bool)left_value.integer && (bool)right_value.integer);
+                            node->decide_final_constant_value(
+                                (bool)left_value.value_bool() && (bool)right_value.value_bool());
                             break;
                         case AstValueBinaryOperator::LOGICAL_OR:
-                            result_value.set_bool((bool)left_value.integer || (bool)right_value.integer);
+                            node->decide_final_constant_value(
+                                (bool)left_value.value_bool() || (bool)right_value.value_bool());
                             break;
                         case AstValueBinaryOperator::GREATER:
-                            switch (left_value.type)
+                            switch (left_value.m_type)
                             {
-                            case wo::value::valuetype::integer_type:
-                                result_value.set_bool(left_value.integer > right_value.integer);
+                            case ast::AstValueBase::ConstantValue::Type::INTEGER:
+                                node->decide_final_constant_value(
+                                    left_value.value_integer() > right_value.value_integer());
                                 break;
-                            case wo::value::valuetype::real_type:
-                                result_value.set_bool(left_value.real > right_value.real);
+                            case ast::AstValueBase::ConstantValue::Type::REAL:
+                                node->decide_final_constant_value(
+                                    left_value.value_real() > right_value.value_real());
                                 break;
-                            case wo::value::valuetype::string_type:
-                                result_value.set_bool(*left_value.string > *right_value.string);
+                            case ast::AstValueBase::ConstantValue::Type::PSTRING:
+                                node->decide_final_constant_value(
+                                    *left_value.value_pstring() > *right_value.value_pstring());
                                 break;
-                            case wo::value::valuetype::handle_type:
-                                result_value.set_bool(left_value.handle > right_value.handle);
+                            case ast::AstValueBase::ConstantValue::Type::HANDLE:
+                                node->decide_final_constant_value(
+                                    left_value.value_handle() > right_value.value_handle());
                                 break;
                             default:
                                 wo_error("Unknown type.");
                             }
                             break;
                         case AstValueBinaryOperator::GREATER_EQUAL:
-                            switch (left_value.type)
+                            switch (left_value.m_type)
                             {
-                            case wo::value::valuetype::integer_type:
-                                result_value.set_bool(left_value.integer >= right_value.integer);
+                            case ast::AstValueBase::ConstantValue::Type::INTEGER:
+                                node->decide_final_constant_value(
+                                    left_value.value_integer() >= right_value.value_integer());
                                 break;
-                            case wo::value::valuetype::real_type:
-                                result_value.set_bool(left_value.real >= right_value.real);
+                            case ast::AstValueBase::ConstantValue::Type::REAL:
+                                node->decide_final_constant_value(
+                                    left_value.value_real() >= right_value.value_real());
                                 break;
-                            case wo::value::valuetype::string_type:
-                                result_value.set_bool(*left_value.string >= *right_value.string);
+                            case ast::AstValueBase::ConstantValue::Type::PSTRING:
+                                node->decide_final_constant_value(
+                                    *left_value.value_pstring() >= *right_value.value_pstring());
                                 break;
-                            case wo::value::valuetype::handle_type:
-                                result_value.set_bool(left_value.handle >= right_value.handle);
+                            case ast::AstValueBase::ConstantValue::Type::HANDLE:
+                                node->decide_final_constant_value(
+                                    left_value.value_handle() >= right_value.value_handle());
                                 break;
                             default:
                                 wo_error("Unknown type.");
                             }
                             break;
                         case AstValueBinaryOperator::LESS:
-                            switch (left_value.type)
+                            switch (left_value.m_type)
                             {
-                            case wo::value::valuetype::integer_type:
-                                result_value.set_bool(left_value.integer < right_value.integer);
+                            case ast::AstValueBase::ConstantValue::Type::INTEGER:
+                                node->decide_final_constant_value(
+                                    left_value.value_integer() < right_value.value_integer());
                                 break;
-                            case wo::value::valuetype::real_type:
-                                result_value.set_bool(left_value.real < right_value.real);
+                            case ast::AstValueBase::ConstantValue::Type::REAL:
+                                node->decide_final_constant_value(
+                                    left_value.value_real() < right_value.value_real());
                                 break;
-                            case wo::value::valuetype::string_type:
-                                result_value.set_bool(*left_value.string < *right_value.string);
+                            case ast::AstValueBase::ConstantValue::Type::PSTRING:
+                                node->decide_final_constant_value(
+                                    *left_value.value_pstring() < *right_value.value_pstring());
                                 break;
-                            case wo::value::valuetype::handle_type:
-                                result_value.set_bool(left_value.handle < right_value.handle);
+                            case ast::AstValueBase::ConstantValue::Type::HANDLE:
+                                node->decide_final_constant_value(
+                                    left_value.value_handle() < right_value.value_handle());
                                 break;
                             default:
                                 wo_error("Unknown type.");
                             }
                             break;
                         case AstValueBinaryOperator::LESS_EQUAL:
-                            switch (left_value.type)
+                            switch (left_value.m_type)
                             {
-                            case wo::value::valuetype::integer_type:
-                                result_value.set_bool(left_value.integer <= right_value.integer);
+                            case ast::AstValueBase::ConstantValue::Type::INTEGER:
+                                node->decide_final_constant_value(
+                                    left_value.value_integer() <= right_value.value_integer());
                                 break;
-                            case wo::value::valuetype::real_type:
-                                result_value.set_bool(left_value.real <= right_value.real);
+                            case ast::AstValueBase::ConstantValue::Type::REAL:
+                                node->decide_final_constant_value(
+                                    left_value.value_real() <= right_value.value_real());
                                 break;
-                            case wo::value::valuetype::string_type:
-                                result_value.set_bool(*left_value.string <= *right_value.string);
+                            case ast::AstValueBase::ConstantValue::Type::PSTRING:
+                                node->decide_final_constant_value(
+                                    *left_value.value_pstring() <= *right_value.value_pstring());
                                 break;
-                            case wo::value::valuetype::handle_type:
-                                result_value.set_bool(left_value.handle <= right_value.handle);
+                            case ast::AstValueBase::ConstantValue::Type::HANDLE:
+                                node->decide_final_constant_value(
+                                    left_value.value_handle() <= right_value.value_handle());
                                 break;
                             default:
                                 wo_error("Unknown type.");
                             }
                             break;
                         case AstValueBinaryOperator::EQUAL:
-                            switch (left_value.type)
+                            switch (left_value.m_type)
                             {
-                            case wo::value::valuetype::integer_type:
-                                result_value.set_bool(left_value.integer == right_value.integer);
+                            case ast::AstValueBase::ConstantValue::Type::INTEGER:
+                                node->decide_final_constant_value(
+                                    left_value.value_integer() == right_value.value_integer());
                                 break;
-                            case wo::value::valuetype::real_type:
-                                result_value.set_bool(left_value.real == right_value.real);
+                            case ast::AstValueBase::ConstantValue::Type::REAL:
+                                node->decide_final_constant_value(
+                                    left_value.value_real() == right_value.value_real());
                                 break;
-                            case wo::value::valuetype::string_type:
-                                result_value.set_bool(*left_value.string == *right_value.string);
+                            case ast::AstValueBase::ConstantValue::Type::PSTRING:
+                                node->decide_final_constant_value(
+                                    *left_value.value_pstring() == *right_value.value_pstring());
                                 break;
-                            case wo::value::valuetype::handle_type:
-                                result_value.set_bool(left_value.handle == right_value.handle);
+                            case ast::AstValueBase::ConstantValue::Type::HANDLE:
+                                node->decide_final_constant_value(
+                                    left_value.value_handle() == right_value.value_handle());
                                 break;
-                            case wo::value::valuetype::bool_type:
-                                result_value.set_bool(left_value.integer == right_value.integer);
+                            case ast::AstValueBase::ConstantValue::Type::BOOL:
+                                node->decide_final_constant_value(
+                                    left_value.value_bool() == right_value.value_bool());
                                 break;
                             default:
                                 wo_error("Unknown type.");
                             }
                             break;
                         case AstValueBinaryOperator::NOT_EQUAL:
-                            switch (left_value.type)
+                            switch (left_value.m_type)
                             {
-                            case wo::value::valuetype::integer_type:
-                                result_value.set_bool(left_value.integer != right_value.integer);
+                            case ast::AstValueBase::ConstantValue::Type::INTEGER:
+                                node->decide_final_constant_value(
+                                    left_value.value_integer() != right_value.value_integer());
                                 break;
-                            case wo::value::valuetype::real_type:
-                                result_value.set_bool(left_value.real != right_value.real);
+                            case ast::AstValueBase::ConstantValue::Type::REAL:
+                                node->decide_final_constant_value(
+                                    left_value.value_real() != right_value.value_real());
                                 break;
-                            case wo::value::valuetype::string_type:
-                                result_value.set_bool(*left_value.string != *right_value.string);
+                            case ast::AstValueBase::ConstantValue::Type::PSTRING:
+                                node->decide_final_constant_value(
+                                    *left_value.value_pstring() != *right_value.value_pstring());
                                 break;
-                            case wo::value::valuetype::handle_type:
-                                result_value.set_bool(left_value.handle != right_value.handle);
+                            case ast::AstValueBase::ConstantValue::Type::HANDLE:
+                                node->decide_final_constant_value(
+                                    left_value.value_handle() != right_value.value_handle());
                                 break;
-                            case wo::value::valuetype::bool_type:
-                                result_value.set_bool(left_value.integer != right_value.integer);
+                            case ast::AstValueBase::ConstantValue::Type::BOOL:
+                                node->decide_final_constant_value(
+                                    left_value.value_bool() != right_value.value_bool());
                                 break;
                             default:
                                 wo_error("Unknown type.");
@@ -5043,15 +5048,15 @@ namespace wo
                 if (node->m_operand->m_evaled_const_value.has_value())
                 {
                     wo::value result_value;
-                    wo::value operand_value = node->m_operand->m_evaled_const_value.value();
+                    auto& operand_value = node->m_operand->m_evaled_const_value.value();
 
-                    switch (operand_value.type)
+                    switch (operand_value.m_type)
                     {
-                    case wo::value::valuetype::integer_type:
-                        result_value.set_integer(-operand_value.integer);
+                    case ast::AstValueBase::ConstantValue::Type::INTEGER:
+                        result_value.set_integer(-operand_value.value_integer());
                         break;
-                    case wo::value::valuetype::real_type:
-                        result_value.set_real(-operand_value.real);
+                    case ast::AstValueBase::ConstantValue::Type::REAL:
+                        result_value.set_real(-operand_value.value_real());
                         break;
                     default:
                         wo_error("Unknown type.");
@@ -5088,9 +5093,9 @@ namespace wo
                 if (node->m_operand->m_evaled_const_value.has_value())
                 {
                     wo::value result_value;
-                    wo::value operand_value = node->m_operand->m_evaled_const_value.value();
+                    auto& operand_value = node->m_operand->m_evaled_const_value.value();
 
-                    result_value.set_bool(!operand_value.integer);
+                    result_value.set_bool(!operand_value.value_bool());
                     node->decide_final_constant_value(result_value);
                 }
                 break;
@@ -5131,7 +5136,7 @@ namespace wo
                 // Conditional compile.
                 if (node->m_condition->m_evaled_const_value.has_value())
                 {
-                    if (node->m_condition->m_evaled_const_value.value().integer)
+                    if (node->m_condition->m_evaled_const_value.value().value_bool())
                         // TRUE BRANCH.
                         WO_CONTINUE_PROCESS(node->m_true_value);
                     else
@@ -5152,7 +5157,7 @@ namespace wo
                 lang_TypeInstance* node_final_type;
                 if (node->m_condition->m_evaled_const_value.has_value())
                 {
-                    if (node->m_condition->m_evaled_const_value.value().integer)
+                    if (node->m_condition->m_evaled_const_value.value().value_bool())
                     {
                         // TRUE BRANCH.
                         node_final_type = node->m_true_value->m_LANG_determined_type.value();
@@ -5541,7 +5546,7 @@ namespace wo
 
                 if (node->m_condition->m_evaled_const_value.has_value())
                 {
-                    if (node->m_condition->m_evaled_const_value.value().integer)
+                    if (node->m_condition->m_evaled_const_value.value().value_bool())
                         WO_CONTINUE_PROCESS(node->m_true_body);
                     else if (node->m_false_body.has_value())
                         WO_CONTINUE_PROCESS(node->m_false_body.value());
@@ -5895,8 +5900,7 @@ namespace wo
                     && base_type == lang_TypeInstance::DeterminedType::INTEGER
                     && node->m_right->m_evaled_const_value.has_value())
                 {
-                    wo_integer_t right_int_value = node->m_right->m_evaled_const_value.value().integer;
-                    if (right_int_value == 0)
+                    if (node->m_right->m_evaled_const_value.value().value_integer() == 0)
                     {
                         lex.record_lang_error(lexer::msglevel_t::error, node->m_right, WO_ERR_BAD_DIV_ZERO);
                         return FAILED;

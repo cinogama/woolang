@@ -185,8 +185,9 @@ namespace wo
         lang_Symbol*    m_symbol;
         bool            m_mutable;
 
-        std::optional<std::list<ast::AstIdentifier::TemplateArgumentInstance>> m_instance_template_arguments;
-        std::optional<std::variant<wo::value, ast::AstValueFunction*>>
+        std::optional<std::list<ast::AstIdentifier::TemplateArgumentInstance>> 
+                        m_instance_template_arguments;
+        std::optional<ast::AstValueBase::ConstantValue>
                         m_determined_constant_or_function;
         std::optional<lang_TypeInstance*> m_determined_type;
 
@@ -195,9 +196,9 @@ namespace wo
         std::optional<ast::AstValueFunction*>
                                m_IR_normal_function;
 
-        void try_determine_function(ast::AstValueFunction* func);
+        void try_determine_template_function_dup_instance(ast::AstValueFunction* func);
         void try_determine_const_value(ast::AstValueBase* init_val);
-        void set_const_value(const value& init_val);
+        void set_const_value(const ast::AstValueBase::ConstantValue& init_val);
 
         bool IR_need_storage() const;
 
@@ -245,7 +246,7 @@ namespace wo
 
         lang_TemplateAstEvalStateValue(
             lang_Symbol* symbol,
-            ast::AstValueBase* ast,
+            ast::AstValueBase* duplicated_ast,
             const std::list<ast::AstIdentifier::TemplateArgumentInstance>& template_arguments);
     };
     struct lang_TemplateAstEvalStateType : public lang_TemplateAstEvalStateBase
@@ -484,7 +485,7 @@ namespace wo
             wo_handle_t,
             std::unique_ptr<opnum::imm_handle>> m_opnum_cache_imm_handle;
         std::unordered_map<
-            std::string,
+            wo_pstring_t,
             std::unique_ptr<opnum::imm_string>> m_opnum_cache_imm_string;
         std::unordered_map<
             std::string,
@@ -593,9 +594,9 @@ namespace wo
         opnum::immbase* opnum_imm_int(wo_integer_t value) noexcept;
         opnum::immbase* opnum_imm_real(wo_real_t value) noexcept;
         opnum::immbase* opnum_imm_handle(wo_handle_t value) noexcept;
-        opnum::immbase* opnum_imm_string(const std::string& value) noexcept;
+        opnum::immbase* opnum_imm_string(wo_pstring_t value) noexcept;
         opnum::immbase* opnum_imm_bool(bool value) noexcept;
-        opnum::opnumbase* opnum_imm_value(const wo::value& val);
+        opnum::opnumbase* opnum_imm_value(const ast::AstValueBase::ConstantValue& val);
         opnum::tagimm_rsfunc* opnum_imm_rsfunc(const std::string& value) noexcept;
         opnum::tag* opnum_tag(const std::string& value) noexcept;
         opnum::reg* opnum_spreg(opnum::reg::spreg value) noexcept;
@@ -1057,7 +1058,7 @@ namespace wo
         bool update_pattern_symbol_variable_type_pass1(
             lexer& lex,
             ast::AstPatternBase* pattern,
-            const std::optional<std::variant<ast::AstValueBase*, const value*>>& init_value,
+            const std::optional<std::variant<ast::AstValueBase*, const ast::AstValueBase::ConstantValue*>>& init_value,
             // NOTE: If template pattern, init_value_type will not able to be determined.
             // So here is optional.
             const std::optional<lang_TypeInstance*>& init_value_type);
@@ -1147,8 +1148,8 @@ namespace wo
         const wchar_t* get_value_name_w(lang_ValueInstance* val);
         const char* get_value_name(lang_ValueInstance* val);
         
-        std::string get_constant_str(const value& val);
-        std::wstring get_constant_str_w(const value& val);
+        std::string get_constant_str(const ast::AstValueBase::ConstantValue& val);
+        std::wstring get_constant_str_w(const ast::AstValueBase::ConstantValue& val);
 
         bool template_argument_deduction_from_constant(
             lexer& lex,
@@ -1166,7 +1167,7 @@ namespace wo
             lexer& lex,
             ast::AstValueBase* accept_constant_formal,
             lang_TypeInstance* applying_type_instance,
-            const value& constant_instance,
+            const ast::AstValueBase::ConstantValue& constant_instance,
             const std::list<ast::AstTemplateParam*>& pending_template_params,
             std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance>* out_determined_template_arg_pair);
 

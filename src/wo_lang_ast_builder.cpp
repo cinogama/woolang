@@ -120,7 +120,7 @@ namespace wo
         }
         auto pass_useless_token::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
-            return token{ 
+            return token{
                 lex.record_parser_error(
                     lexer::msglevel_t::error, WO_ERR_UNEXCEPT_TOKEN_2, WO_NEED_TOKEN(0).identifier.c_str()) };
         }
@@ -195,7 +195,7 @@ namespace wo
             if (!WO_IS_EMPTY(3))
                 template_params = static_cast<AstList*>(WO_NEED_AST_TYPE(3, AstBase::AST_LIST));
 
-            std::optional<std::list<AstTemplateParam*>> in_type_template_params = 
+            std::optional<std::list<AstTemplateParam*>> in_type_template_params =
                 _process_template_params(template_params);
 
             return new AstUsingTypeDeclare(attrib, type_name, in_type_template_params, base_type);
@@ -1003,32 +1003,30 @@ namespace wo
             token literal = WO_NEED_TOKEN(0);
             AstValueLiteral* literal_instance = new AstValueLiteral();
 
-            literal_instance->decide_final_constant_value(wo::value{});
-            wo::value& literal_value = literal_instance->m_evaled_const_value.value();
             switch (literal.type)
             {
             case lex_type::l_literal_integer:
-                literal_value.set_integer(
+                literal_instance->decide_final_constant_value(
                     (wo_integer_t)lexer::read_from_literal(literal.identifier.c_str()));
                 break;
             case lex_type::l_literal_handle:
-                literal_value.set_handle(
+                literal_instance->decide_final_constant_value(
                     (wo_handle_t)lexer::read_from_unsigned_literal(literal.identifier.c_str()));
                 break;
             case lex_type::l_literal_real:
-                literal_value.set_real((wo_real_t)std::stod(literal.identifier));
+                literal_instance->decide_final_constant_value((wo_real_t)std::stod(literal.identifier));
                 break;
             case lex_type::l_literal_string:
-                literal_value.set_string_nogc(wstrn_to_str(literal.identifier));
+                literal_instance->decide_final_constant_value(literal.identifier);
                 break;
             case lex_type::l_nil:
-                literal_value.set_nil();
+                literal_instance->decide_final_constant_value(ast::AstValueBase::ConstantValue());
                 break;
             case lex_type::l_true:
-                literal_value.set_bool(true);
+                literal_instance->decide_final_constant_value(true);
                 break;
             case lex_type::l_false:
-                literal_value.set_bool(false);
+                literal_instance->decide_final_constant_value(false);
                 break;
             default:
                 wo_error("Unknown literal type.");
@@ -1044,9 +1042,9 @@ namespace wo
             wo_assert(literal->m_token.type == lex_type::l_literal_char);
 
             AstValueLiteral* literal_instance = new AstValueLiteral();
-            wo::value literal_value;
-            literal_value.set_integer((wo_integer_t)(wo_handle_t)literal->m_token.identifier[0]);
-            literal_instance->decide_final_constant_value(literal_value);
+
+            literal_instance->decide_final_constant_value(
+                static_cast<wo_integer_t>(static_cast<wo_handle_t>(literal->m_token.identifier[0])));
 
             AstIdentifier* char_identifier = new AstIdentifier(WO_PSTR(char), std::nullopt, {}, true);
             AstTypeHolder* char_type = new AstTypeHolder(char_identifier);
@@ -1245,13 +1243,13 @@ namespace wo
             if (inverse_func->node_type == AstBase::AST_VALUE_FUNCTION_CALL)
             {
                 function_call = static_cast<AstValueFunctionCall*>(inverse_func);
-                
+
                 // Update source location
                 function_call->source_location.source_file = nullptr;
             }
             else
                 function_call = new AstValueFunctionCall(false, inverse_func, {});
-            
+
             AstValueBase* inverse_argument = WO_NEED_AST_VALUE(2);
 
             if (function_call->m_is_direct_call)
@@ -1300,7 +1298,7 @@ namespace wo
                 items.push_back(static_cast<AstUnionItem*>(item));
             }
 
-            std::optional<std::list<AstTemplateParam*>> template_params = 
+            std::optional<std::list<AstTemplateParam*>> template_params =
                 _process_template_params(union_template_params);
 
             return new AstUnionDeclare(attrib, union_name, template_params, items);
@@ -1387,8 +1385,8 @@ namespace wo
             // TODO: Give error message.
 
             return new AstPatternSingle(
-                true, 
-                wstring_pool::get_pstr(identifier.identifier), 
+                true,
+                wstring_pool::get_pstr(identifier.identifier),
                 _process_template_params(template_arguments).value());
         }
         auto pass_pattern_tuple::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
