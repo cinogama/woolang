@@ -1811,7 +1811,8 @@ namespace wo
         node->m_LANG_determined_type =
             m_origin_types.m_nothing.m_type_instance;
 
-        node->decide_final_constant_value(wo::value{});
+        node->decide_final_constant_value(
+            AstValueBase::ConstantValue());
 
         return OKAY;
     }
@@ -2205,11 +2206,8 @@ namespace wo
                             WO_ERR_STRING_INDEX_OUT_OF_RANGE);
                         return FAILED;
                     }
-
-                    wo::value const_result_value;
-                    const_result_value.set_integer(string_instance->at(index));
-
-                    node->decide_final_constant_value(const_result_value);
+                    node->decide_final_constant_value(
+                        static_cast<wo_integer_t>(static_cast<wo_handle_t>(string_instance->at(index))));
                 }
                 break;
             }
@@ -2403,38 +2401,35 @@ namespace wo
 
                 if (cast_from_determined_type->m_base_type != cast_target_determined_type->m_base_type)
                 {
-                    bool casted = true;
-                    wo::value casted_value;
                     switch (cast_target_determined_type->m_base_type)
                     {
                     case lang_TypeInstance::DeterminedType::INTEGER:
-                        casted_value.set_integer(wo_cast_int(std::launder(reinterpret_cast<wo_value>(&cast_from_const))));
+                        node->decide_final_constant_value(wo_cast_int(std::launder(reinterpret_cast<wo_value>(&cast_from_const))));
                         break;
                     case lang_TypeInstance::DeterminedType::REAL:
-                        casted_value.set_real(wo_cast_real(std::launder(reinterpret_cast<wo_value>(&cast_from_const))));
+                        node->decide_final_constant_value(wo_cast_real(std::launder(reinterpret_cast<wo_value>(&cast_from_const))));
                         break;
                     case lang_TypeInstance::DeterminedType::HANDLE:
-                        casted_value.set_handle(wo_cast_handle(std::launder(reinterpret_cast<wo_value>(&cast_from_const))));
+                        node->decide_final_constant_value(wo_cast_handle(std::launder(reinterpret_cast<wo_value>(&cast_from_const))));
                         break;
                     case lang_TypeInstance::DeterminedType::BOOLEAN:
-                        casted_value.set_bool(
+                        node->decide_final_constant_value(
                             wo_cast_bool(std::launder(reinterpret_cast<wo_value>(&cast_from_const)))
                             == WO_TRUE
                             ? true
                             : false);
                         break;
                     case lang_TypeInstance::DeterminedType::STRING:
-                        casted_value.set_string_nogc(
-                            wo_cast_string(std::launder(reinterpret_cast<wo_value>(&cast_from_const))));
+                        node->decide_final_constant_value(
+                            wo::str_to_wstr(
+                                wo_cast_string(
+                                    std::launder(
+                                        reinterpret_cast<wo_value>(&cast_from_const)))));
                         break;
                     default:
                         // Cannot cast to constant.
-                        casted = false;
                         break;
                     }
-
-                    if (casted)
-                        node->decide_final_constant_value(casted_value);
                 }
                 else
                     node->decide_final_constant_value(cast_from_const);
@@ -3769,11 +3764,7 @@ namespace wo
                 wo_assert(!lex.get_current_error_frame().empty());
 
             lex.end_trying_block();
-
-            wo::value cval;
-            cval.set_integer(hash);
-
-            node->decide_final_constant_value(cval);
+            node->decide_final_constant_value(hash);
             node->m_LANG_determined_type = m_origin_types.m_int.m_type_instance;
         }
         return OKAY;
@@ -3811,14 +3802,12 @@ namespace wo
             }
             else
             {
-                wo::value cval;
-                cval.set_bool(
+                node->decide_final_constant_value(
                     lang_TypeInstance::TypeCheckResult::ACCEPT == is_type_accepted(
                         lex,
                         node,
                         target_type,
                         value_type));
-                node->decide_final_constant_value(cval);
             }
             node->m_LANG_determined_type =
                 m_origin_types.m_bool.m_type_instance;
@@ -5047,21 +5036,19 @@ namespace wo
 
                 if (node->m_operand->m_evaled_const_value.has_value())
                 {
-                    wo::value result_value;
                     auto& operand_value = node->m_operand->m_evaled_const_value.value();
 
                     switch (operand_value.m_type)
                     {
                     case ast::AstValueBase::ConstantValue::Type::INTEGER:
-                        result_value.set_integer(-operand_value.value_integer());
+                        node->decide_final_constant_value(-operand_value.value_integer());
                         break;
                     case ast::AstValueBase::ConstantValue::Type::REAL:
-                        result_value.set_real(-operand_value.value_real());
+                        node->decide_final_constant_value(-operand_value.value_real());
                         break;
                     default:
                         wo_error("Unknown type.");
                     }
-                    node->decide_final_constant_value(result_value);
                 }
                 break;
             }
@@ -5092,11 +5079,8 @@ namespace wo
 
                 if (node->m_operand->m_evaled_const_value.has_value())
                 {
-                    wo::value result_value;
-                    auto& operand_value = node->m_operand->m_evaled_const_value.value();
-
-                    result_value.set_bool(!operand_value.value_bool());
-                    node->decide_final_constant_value(result_value);
+                    node->decide_final_constant_value(
+                        !node->m_operand->m_evaled_const_value.value().value_bool());
                 }
                 break;
             }

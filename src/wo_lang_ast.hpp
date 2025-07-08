@@ -124,7 +124,7 @@ namespace wo
                 Type m_type;
                 const Storage m_storage;
 
-                explicit ConstantValue();
+                ConstantValue();
                 explicit ConstantValue(bool val);
                 explicit ConstantValue(wo_integer_t val);
                 explicit ConstantValue(wo_handle_t val);
@@ -135,8 +135,8 @@ namespace wo
                 explicit ConstantValue(AstValueFunction* val);
                 ConstantValue(const ConstantValue& another) = default;
                 ConstantValue(ConstantValue&& another) = default;
-                ConstantValue& operator = (const ConstantValue& another) = default;
-                ConstantValue& operator = (ConstantValue&& another) = default;
+                ConstantValue& operator = (const ConstantValue& another) = delete;
+                ConstantValue& operator = (ConstantValue&& another) = delete;
                 bool operator <(const ConstantValue& another) const;
 
                 bool value_bool()const;
@@ -161,6 +161,18 @@ namespace wo
             template<typename T>
             void decide_final_constant_value(const T& val)
             {
+                static_assert(
+                    std::is_same_v<T, ConstantValue>
+                    || std::is_same_v<T, wo_integer_t>
+                    || std::is_same_v<T, wo_handle_t>
+                    || std::is_same_v<T, wo_real_t>
+                    || std::is_same_v<T, void*>
+                    || std::is_same_v<T, bool>
+                    || std::is_same_v<T, wo_pstring_t>
+                    || std::is_same_v<T, std::wstring>
+                    || std::is_same_v<T, std::list<ConstantValue*>>
+                    || std::is_same_v<T, AstValueFunction*>);
+
                 wo_assert(!m_evaled_const_value.has_value());
                 m_evaled_const_value.emplace(val);
             }
@@ -174,14 +186,14 @@ namespace wo
                 lang_TypeInstance* m_type;
                 std::optional<AstValueBase::ConstantValue> m_constant;
 
-                TemplateArgumentInstance(lang_TypeInstance* type);
-                TemplateArgumentInstance(AstValueBase* value);
-                TemplateArgumentInstance(lang_TypeInstance* type, const AstValueBase::ConstantValue& constant);
+                TemplateArgumentInstance(lang_TypeInstance* type) noexcept;
+                TemplateArgumentInstance(AstValueBase* value) noexcept;
+                TemplateArgumentInstance(lang_TypeInstance* type, const AstValueBase::ConstantValue& constant) noexcept;
 
-                TemplateArgumentInstance(const TemplateArgumentInstance&) = default;
-                TemplateArgumentInstance(TemplateArgumentInstance&&) = default;
-                TemplateArgumentInstance& operator = (const TemplateArgumentInstance&) = default;
-                TemplateArgumentInstance& operator = (TemplateArgumentInstance&&) = default;
+                TemplateArgumentInstance(const TemplateArgumentInstance& another) noexcept;
+                TemplateArgumentInstance(TemplateArgumentInstance&& another) noexcept;
+                TemplateArgumentInstance& operator = (const TemplateArgumentInstance& another) noexcept;
+                TemplateArgumentInstance& operator = (TemplateArgumentInstance&& another) noexcept;
 
                 bool operator < (const TemplateArgumentInstance& a) const;
             };
@@ -209,10 +221,21 @@ namespace wo
             std::optional<std::list<TemplateArgumentInstance>>
                 m_LANG_determined_and_appended_template_arguments;
 
-            AstIdentifier(wo_pstring_t identifier);
-            AstIdentifier(wo_pstring_t identifier, const std::optional<std::list<AstTemplateArgument*>>& template_arguments);
-            AstIdentifier(wo_pstring_t identifier, const std::optional<std::list<AstTemplateArgument*>>& template_arguments, const std::list<wo_pstring_t>& scopes, bool from_global);
-            AstIdentifier(wo_pstring_t identifier, const std::optional<std::list<AstTemplateArgument*>>& template_arguments, const std::list<wo_pstring_t>& scopes, AstTypeHolder* from_type);
+            AstIdentifier(
+                wo_pstring_t identifier);
+            AstIdentifier(
+                wo_pstring_t identifier, 
+                const std::optional<std::list<AstTemplateArgument*>>& template_arguments);
+            AstIdentifier(
+                wo_pstring_t identifier, 
+                const std::optional<std::list<AstTemplateArgument*>>& template_arguments,
+                const std::list<wo_pstring_t>& scopes, 
+                bool from_global);
+            AstIdentifier(
+                wo_pstring_t identifier, 
+                const std::optional<std::list<AstTemplateArgument*>>& template_arguments, 
+                const std::list<wo_pstring_t>& scopes, 
+                AstTypeHolder* from_type);
 
             AstIdentifier(const AstIdentifier& ident);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;

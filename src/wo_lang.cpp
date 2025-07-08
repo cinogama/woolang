@@ -1620,9 +1620,9 @@ namespace wo
                     != m_origin_types.m_void.m_type_instance)
                 {
                     m_ircontext.c().ext_panic(
-                        opnum::imm_string("The function should have returned `"
-                            + std::string(get_type_name(eval_function->m_LANG_determined_return_type.value()))
-                            + "`, but ended without providing a return value"));
+                        opnum::imm_string(L"The function should have returned `"
+                            + std::wstring(get_type_name_w(eval_function->m_LANG_determined_return_type.value()))
+                            + L"`, but ended without providing a return value"));
                 }
 
                 if (eval_function->m_is_variadic)
@@ -2851,10 +2851,7 @@ namespace wo
         return m_opnum_cache_imm_string.insert(
             std::make_pair(
                 value,
-                std::make_unique<opnum::imm_string>(
-                    wo::wstrn_to_str(
-                        value->data(),
-                        value->size()))))
+                std::make_unique<opnum::imm_string>(value)))
             .first->second.get();
     }
     opnum::immbase* BytecodeGenerateContext::opnum_imm_bool(bool value) noexcept
@@ -2886,7 +2883,8 @@ namespace wo
                 std::make_unique<opnum::immbase>(val)).get();
         }
     }
-    opnum::tagimm_rsfunc* BytecodeGenerateContext::opnum_imm_rsfunc(const std::string& value) noexcept
+    opnum::tagimm_rsfunc* BytecodeGenerateContext::opnum_imm_rsfunc(
+        ast::AstValueFunction* value) noexcept
     {
         auto fnd = m_opnum_cache_imm_rsfunc.find(value);
         if (fnd != m_opnum_cache_imm_rsfunc.end())

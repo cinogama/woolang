@@ -8,6 +8,7 @@
 #include "wo_env_locale.hpp"
 #include "wo_global_setting.hpp"
 #include "wo_lang_extern_symbol_loader.hpp"
+#include "wo_lang_ast.hpp"
 #include "wo_shared_ptr.hpp"
 #include "wo_memory.hpp"
 #include "wo_compiler_jit.hpp"
@@ -146,149 +147,103 @@ namespace wo
         protected:
             explicit immbase(const bool* val)
                 : constant_index(std::nullopt)
+                , constant_value(*val)
             {
-                constant_value.set_bool(*val);
             }
             explicit immbase(const wo_integer_t* val)
                 : constant_index(std::nullopt)
+                , constant_value(*val)
             {
-                constant_value.set_integer(*val);
             }
             explicit immbase(const wo_real_t* val)
                 : constant_index(std::nullopt)
+                , constant_value(*val)
             {
-                constant_value.set_real(*val);
             }
             explicit immbase(const wo_handle_t* val)
                 : constant_index(std::nullopt)
+                , constant_value(*val)
             {
-                constant_value.set_handle(*val);
             }
             explicit immbase(void* const* val)
                 : constant_index(std::nullopt)
+                , constant_value(static_cast<wo_handle_t>(
+                    reinterpret_cast<intptr_t>(
+                        *val)))
             {
-                constant_value.set_handle(
-                    static_cast<wo_handle_t>(
-                        reinterpret_cast<intptr_t>(
-                            *val)));
+            }
+            explicit immbase(ast::AstValueFunction* const* val)
+                : constant_index(std::nullopt)
+                , constant_value(*val)
+            {
+            }
+            explicit immbase(wo_pstring_t val)
+                : constant_index(std::nullopt)
+                , constant_value(val)
+            {
+            }
+            explicit immbase(const std::wstring& val)
+                : constant_index(std::nullopt)
+                , constant_value(val)
+            {
             }
         public:
-            wo::value constant_value;
             std::optional<int32_t> constant_index;
-
-            explicit immbase(const wo::value& val)
+            ast::AstValueBase::ConstantValue constant_value;
+            
+            explicit immbase(const ast::AstValueBase::ConstantValue& val)
                 : constant_index(std::nullopt)
+                , constant_value(val)
             {
-                constant_value.set_val_with_compile_time_check(&val);
             }
 
-            enum class compare_result : uint8_t
+            static void apply_value_to_constant_instance(
+                const ast::AstValueBase::ConstantValue& a, value* out_value)
             {
-                LESS_THEN,
-                EQUAL,
-                GREATER_THEN,
-            };
-
-            static compare_result compare_value_less_than(const value& a, const value& b)
-            {
-                if (a.type != b.type)
+                switch (a.m_type)
                 {
-                    if (a.type < b.type)
-                        return compare_result::LESS_THEN;
-                    else if (a.type == b.type)
-                        return compare_result::EQUAL;
-                    return compare_result::GREATER_THEN;
+                case ast::AstValueBase::ConstantValue::Type::NIL:
+                    out_value->set_nil();
+                    break;
+                case ast::AstValueBase::ConstantValue::Type::BOOL:
+                    out_value->set_bool(a.value_bool());
+                    break;
+                case ast::AstValueBase::ConstantValue::Type::INTEGER:
+                    out_value->set_integer(a.value_integer());
+                    break;
+                case ast::AstValueBase::ConstantValue::Type::HANDLE:
+                    out_value->set_handle(a.value_handle());
+                    break;
+                case ast::AstValueBase::ConstantValue::Type::REAL:
+                    out_value->set_real(a.value_real());
+                    break;
+                case ast::AstValueBase::ConstantValue::Type::PSTRING:
+                {
+                    wo_pstring_t pstring_constant = a.value_pstring();
+                    out_value->set_string_nogc(
+                        wo::wstrn_to_str(pstring_constant->data(), pstring_constant->size()));
+                    break;
                 }
-
-                switch (a.type)
+                case ast::AstValueBase::ConstantValue::Type::STRUCT:
                 {
-                case wo::value::valuetype::bool_type:
-                case wo::value::valuetype::integer_type:
-                    if (a.integer < b.integer)
-                        return compare_result::LESS_THEN;
-                    else if (a.integer == b.integer)
-                        return compare_result::EQUAL;
-                    return compare_result::GREATER_THEN;
-                case wo::value::valuetype::real_type:
-                    if (a.real < b.real)
-                        return compare_result::LESS_THEN;
-                    else if (a.real == b.real)
-                        return compare_result::EQUAL;
-                    return compare_result::GREATER_THEN;
-                case wo::value::valuetype::handle_type:
-                    if (a.handle < b.handle)
-                        return compare_result::LESS_THEN;
-                    else if (a.handle == b.handle)
-                        return compare_result::EQUAL;
-                    return compare_result::GREATER_THEN;
-                case wo::value::valuetype::string_type:
-                    if (*a.string < *b.string)
-                        return compare_result::LESS_THEN;
-                    else if (*a.string == *b.string)
-                        return compare_result::EQUAL;
-                    return compare_result::GREATER_THEN;
-                case wo::value::valuetype::struct_type:
-                {
-                    const uint16_t b_member_count = b.structs->m_count;
-                    uint16_t idx = 0;
-                    for (; idx < a.structs->m_count; ++idx)
-                    {
-                        if (idx >= b_member_count)
-                            return compare_result::GREATER_THEN;
-
-                        auto result = compare_value_less_than(
-                            a.structs->m_values[idx], b.structs->m_values[idx]);
-
-                        if (result != compare_result::EQUAL)
-                            return result;
-                    }
-                    if (idx == b_member_count)
-                        return compare_result::EQUAL; // Equal;
-                    return compare_result::LESS_THEN;
+                    wo_error("TODO;");
+                    break;
                 }
+                case ast::AstValueBase::ConstantValue::Type::FUNCTION:
+                    out_value->set_integer(-1);
+                    break;
                 default:
-                    wo_error("Unsupported constant type.");
-                    return compare_result::EQUAL;
+                    wo_error("Unknown constant value type.");
                 }
             }
-            static void apply_value_to_constant_instance(const value& a, value* out_value)
-            {
-                if (a.is_gcunit())
-                {
-                    wo_assert(a.fast_get_attrib_for_assert_check()->m_nogc != 0);
-                    switch (a.type)
-                    {
-                    case wo::value::valuetype::string_type:
-                        out_value->set_string_nogc(*a.string);
-                        break;
-                    case wo::value::valuetype::struct_type:
-                        out_value->set_struct_nogc(a.structs->m_count);
-                        for (uint16_t idx = 0; idx < a.structs->m_count; ++idx)
-                        {
-                            apply_value_to_constant_instance(
-                                a.structs->m_values[idx],
-                                &out_value->structs->m_values[idx]);
-                        }
-                        break;
-                    default:
-                        wo_error("Unsupported constant type.");
-                    }
-                }
-                else
-                    out_value->set_val(&a);
-            }
 
-            virtual bool operator < (const immbase& another) const
+            bool operator < (const immbase& another) const
             {
-                if (dynamic_cast<const tag*>(&another))
-                    return false;
-
-                return compare_result::LESS_THEN == 
-                    compare_value_less_than(constant_value, another.constant_value);
+                return constant_value < another.constant_value;
             }
-            value::valuetype type()const
+            ast::AstValueBase::ConstantValue::Type type()const
             {
-                return constant_value.type;
+                return constant_value.m_type;
             }
             void apply_to_constant_instance(value* out_value) const
             {
@@ -342,62 +297,19 @@ namespace wo
         };
         struct imm_string : virtual immbase
         {
-            explicit imm_string(std::string_view val)
-                : immbase(wo::value{})
+            explicit imm_string(wo_pstring_t val)
+                : immbase(val)
             {
-                constant_value.set_string_nogc(val);
             }
-            explicit imm_string(const imm_string& another)
-                : immbase(wo::value{})
+            explicit imm_string(const std::wstring& val)
+                : immbase(val)
             {
-                constant_value.set_string_nogc(
-                    *another.constant_value.string);
-            }
-            explicit imm_string(imm_string&& another)
-                : immbase(std::move(another.constant_value))
-            {
-                another.constant_value.set_nil();
-            }
-            imm_string& operator = (const imm_string& another) = delete;
-            imm_string& operator = (imm_string&& another) = delete;
-            ~imm_string()
-            {
-                if (constant_value.type != value::valuetype::invalid)
-                {
-                    wo_assert(constant_value.type == value::string_type);
-
-                    gcbase::unit_attrib cancel_nogc;
-                    cancel_nogc.m_gc_age = 0;
-                    cancel_nogc.m_marked = (uint8_t)gcbase::gcmarkcolor::full_mark;
-                    cancel_nogc.m_alloc_mask = 0;
-                    cancel_nogc.m_nogc = 0;
-
-                    gcbase::unit_attrib* gcunit_attrib;
-                    auto* unit = constant_value.get_gcunit_and_attrib_ref(&gcunit_attrib);
-
-                    wo_assert(unit != nullptr);
-                    wo_assert(gcunit_attrib->m_nogc != 0);
-                    (void)unit;
-
-                    gcunit_attrib->m_attr = cancel_nogc.m_attr;
-                }
             }
         };
 
         struct tagimm_rsfunc :virtual tag, virtual immbase
         {
-            tagimm_rsfunc(const std::string& name)
-                : tag(name)
-                , immbase(wo::value{})
-            {
-                constant_value.set_integer(-1);
-            }
-            bool operator < (const immbase& _another) const override
-            {
-                if (auto* another_tag = dynamic_cast<const tagimm_rsfunc*>(&_another))
-                    return name < another_tag->name;
-                return true;
-            }
+            tagimm_rsfunc(ast::AstValueFunction* func);
             size_t generate_opnum_to_buffer(cxx_vec_t<byte_t>& buffer) const override
             {
                 // Avoid warning c4250.
@@ -1286,24 +1198,28 @@ namespace wo
                 }
                 else if (auto* immop = dynamic_cast<const opnum::immbase*>(&op1))
                 {
-                    if (immop->type() == value::valuetype::handle_type)
+                    switch (immop->type())
                     {
-                        wo_handle_t h = immop->constant_value.handle;
+                    case ast::AstValueBase::ConstantValue::Type::HANDLE:
+                    {
+                        wo_handle_t h = immop->constant_value.value_handle();
                         WO_PUT_IR_TO_BUFFER(instruct::opcode::calln, reinterpret_cast<opnum::opnumbase*>((intptr_t)h));
                         return;
                     }
-                    else if (immop->type() == value::valuetype::integer_type)
+                    case ast::AstValueBase::ConstantValue::Type::INTEGER:
                     {
-                        wo_integer_t a = immop->constant_value.integer;
+                        wo_integer_t a = immop->constant_value.value_integer();
                         wo_assert(0 <= a && a <= UINT32_MAX, "Immediate instruct address is to large to call.");
 
                         WO_PUT_IR_TO_BUFFER(instruct::opcode::calln, nullptr, nullptr, static_cast<int32_t>(a));
                         return;
                     }
-
-                    // Treate it as normal call.
+                    default:
+                        // Treate it as normal call.
+                        // Do nothing.
+                        break;
+                    }
                 }
-
                 WO_PUT_IR_TO_BUFFER(instruct::opcode::call, WO_OPNUM(op1));
                 return;
             }

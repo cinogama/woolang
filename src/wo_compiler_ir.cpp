@@ -2,6 +2,14 @@
 
 namespace wo
 {
+    namespace opnum
+    {
+        tagimm_rsfunc::tagimm_rsfunc(ast::AstValueFunction* func)
+            : tag(LangContext::IR_function_label(func))
+            , immbase(&func)
+        {
+        }
+    }
 #ifndef WO_DISABLE_COMPILER
     void program_debug_data_info::generate_debug_info_at_astnode(ast::AstBase* ast_node, ir_compiler* compiler)
     {
@@ -137,8 +145,7 @@ namespace wo
                 auto* imm_opnum_stx_offset = dynamic_cast<const opnum::immbase*>(opnum2);
                 if (imm_opnum_stx_offset)
                 {
-                    wo_assert(imm_opnum_stx_offset->type() == wo::value::valuetype::integer_type);
-                    auto stx_offset = imm_opnum_stx_offset->constant_value.integer;
+                    auto stx_offset = imm_opnum_stx_offset->constant_value.value_integer();
                     if (stx_offset <= 0)
                     {
                         ir_command_buffer[i].op2 =

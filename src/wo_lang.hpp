@@ -488,7 +488,7 @@ namespace wo
             wo_pstring_t,
             std::unique_ptr<opnum::imm_string>> m_opnum_cache_imm_string;
         std::unordered_map<
-            std::string,
+            ast::AstValueFunction*,
             std::unique_ptr<opnum::tagimm_rsfunc>> m_opnum_cache_imm_rsfunc;
         std::unordered_map<
             std::string,
@@ -597,7 +597,7 @@ namespace wo
         opnum::immbase* opnum_imm_string(wo_pstring_t value) noexcept;
         opnum::immbase* opnum_imm_bool(bool value) noexcept;
         opnum::opnumbase* opnum_imm_value(const ast::AstValueBase::ConstantValue& val);
-        opnum::tagimm_rsfunc* opnum_imm_rsfunc(const std::string& value) noexcept;
+        opnum::tagimm_rsfunc* opnum_imm_rsfunc(ast::AstValueFunction* value) noexcept;
         opnum::tag* opnum_tag(const std::string& value) noexcept;
         opnum::reg* opnum_spreg(opnum::reg::spreg value) noexcept;
         opnum::reg* opnum_stack_offset(int8_t value) noexcept;
@@ -1229,7 +1229,7 @@ namespace wo
             wo_pstring_t field_name,
             wo_pstring_t path);
 
-        std::string IR_function_label(ast::AstValueFunction* func);
+        static std::string IR_function_label(ast::AstValueFunction* func);
         opnum::opnumbase* IR_function_opnum(ast::AstValueFunction* func);
     };
 #endif

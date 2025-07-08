@@ -4489,11 +4489,13 @@ void wo_gc_record_memory(wo_value val)
 
 wo_ir_compiler wo_create_ir_compiler(void)
 {
+    wo::wstring_pool::begin_new_pool();
     return reinterpret_cast<wo_ir_compiler>(new wo::ir_compiler);
 }
 void wo_close_ir_compiler(wo_ir_compiler ircompiler)
 {
     delete std::launder(reinterpret_cast<wo::ir_compiler*>(ircompiler));
+    wo::wstring_pool::end_pool();
 }
 
 void wo_ir_opcode(wo_ir_compiler compiler, uint8_t opcode, uint8_t drh, uint8_t drl)
@@ -4529,7 +4531,7 @@ void wo_ir_handle(wo_ir_compiler compiler, wo_handle_t val)
 void wo_ir_string(wo_ir_compiler compiler, wo_string_t val)
 {
     auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
-    c->ir_opnum(wo::opnum::imm_string(val));
+    c->ir_opnum(wo::opnum::imm_string(wo::str_to_wstr(val)));
 }
 void wo_ir_bool(wo_ir_compiler compiler, wo_bool_t val)
 {

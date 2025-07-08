@@ -1101,9 +1101,9 @@ namespace wo
             wo_assert(format_string_end->m_token.type == lex_type::l_format_string_end);
 
             AstValueLiteral* format_string_begin_literal = new AstValueLiteral();
-            format_string_begin_literal->decide_final_constant_value(wstrn_to_str(format_string_begin->m_token.identifier));
+            format_string_begin_literal->decide_final_constant_value(format_string_begin->m_token.identifier);
             AstValueLiteral* format_string_end_literal = new AstValueLiteral();
-            format_string_end_literal->decide_final_constant_value(wstrn_to_str(format_string_end->m_token.identifier));
+            format_string_end_literal->decide_final_constant_value(format_string_end->m_token.identifier);
 
             AstValueBinaryOperator* first_middle_add =
                 new AstValueBinaryOperator(AstValueBinaryOperator::ADD, format_string_begin_literal, middle_value);
@@ -1139,7 +1139,7 @@ namespace wo
             AstValueBase* last_value = WO_NEED_AST_VALUE(2);
 
             AstValueLiteral* middle_string = new AstValueLiteral();
-            middle_string->decide_final_constant_value(wstrn_to_str(middle_string_literal->m_token.identifier));
+            middle_string->decide_final_constant_value(middle_string_literal->m_token.identifier);
 
             AstIdentifier* string_identifier = new AstIdentifier(WO_PSTR(string), std::nullopt, {}, true);
             AstTypeHolder* string_type = new AstTypeHolder(string_identifier);
@@ -1587,19 +1587,13 @@ namespace wo
             switch (index->m_token.type)
             {
             case lex_type::l_identifier:
-            {
                 index_literal->decide_final_constant_value(
-                    wstrn_to_str(index->m_token.identifier));
+                    index->m_token.identifier);
                 break;
-            }
             case lex_type::l_literal_integer:
-            {
-                wo::value index_value;
-                index_value.set_integer(
+                index_literal->decide_final_constant_value(
                     (wo_integer_t)lexer::read_from_literal(index->m_token.identifier.c_str()));
-                index_literal->decide_final_constant_value(index_value);
                 break;
-            }
             default:
                 wo_error("Unknown index type.");
                 return token{ lex_type::l_error };

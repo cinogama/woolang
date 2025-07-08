@@ -173,21 +173,59 @@ namespace wo
 
         ////////////////////////////////////////////////////////
 
-        AstIdentifier::TemplateArgumentInstance::TemplateArgumentInstance(lang_TypeInstance* type)
+        AstIdentifier::TemplateArgumentInstance::TemplateArgumentInstance(lang_TypeInstance* type) noexcept
             : m_type(type)
             , m_constant(std::nullopt)
         {
         }
-        AstIdentifier::TemplateArgumentInstance::TemplateArgumentInstance(AstValueBase* value)
+        AstIdentifier::TemplateArgumentInstance::TemplateArgumentInstance(AstValueBase* value) noexcept
             : m_type(value->m_LANG_determined_type.value())
             , m_constant(value->m_evaled_const_value.value())
         {
         }
         AstIdentifier::TemplateArgumentInstance::TemplateArgumentInstance(
-            lang_TypeInstance* type, const AstValueBase::ConstantValue& constant)
+            lang_TypeInstance* type, const AstValueBase::ConstantValue& constant) noexcept
             : m_type(type)
             , m_constant(constant)
         {
+        }
+        AstIdentifier::TemplateArgumentInstance::TemplateArgumentInstance(
+            const TemplateArgumentInstance& another) noexcept
+            : m_type(another.m_type)
+            , m_constant(another.m_constant)
+        {
+        }
+        AstIdentifier::TemplateArgumentInstance::TemplateArgumentInstance(
+            TemplateArgumentInstance&& another) noexcept
+            : m_type(another.m_type)
+            , m_constant(std::move(another.m_constant))
+        {
+        }
+        AstIdentifier::TemplateArgumentInstance& AstIdentifier::TemplateArgumentInstance::operator =(
+            const TemplateArgumentInstance& another) noexcept
+        {
+            if (this != &another)
+            {
+                m_type = another.m_type;
+                if (another.m_constant.has_value())
+                    m_constant.emplace(another.m_constant.value());
+                else
+                    m_constant.reset();
+            }
+            return *this;
+        }
+        AstIdentifier::TemplateArgumentInstance& AstIdentifier::TemplateArgumentInstance::operator =(
+            TemplateArgumentInstance&& another) noexcept
+        {
+            if (this != &another)
+            {
+                m_type = another.m_type;
+                if (another.m_constant.has_value())
+                    m_constant.emplace(std::move(another.m_constant.value()));
+                else
+                    m_constant.reset();
+            }
+            return *this;
         }
         bool AstIdentifier::TemplateArgumentInstance::operator < (const TemplateArgumentInstance& a) const
         {
@@ -842,8 +880,8 @@ namespace wo
             return std::visit([&another](const auto& v) {
                 using T = std::decay_t<decltype(v)>;
                 if constexpr (std::is_same_v<T, AstValueFunction*>)
-                    return reinterpret_cast<intptr_t>(v) 
-                        < reinterpret_cast<intptr_t>(another.value_function());
+                    return reinterpret_cast<intptr_t>(v)
+                    < reinterpret_cast<intptr_t>(another.value_function());
                 else
                     return v < std::get<T>(another.m_storage);
                 }, m_storage);

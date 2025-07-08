@@ -43,8 +43,7 @@ namespace wo
             return m_ircontext.opnum_imm_handle(
                 (wo_handle_t)(intptr_t)(void*)extern_function_instance);
         }
-
-        return m_ircontext.opnum_imm_rsfunc(IR_function_label(func));
+        return m_ircontext.opnum_imm_rsfunc(func);
     }
 
     void BytecodeGenerateContext::begin_loop_while(ast::AstWhile* ast)
