@@ -220,8 +220,49 @@ namespace wo
             void _check_if_template_exist_in(const std::list<AstTemplateParam*>& template_params, std::vector<bool>& out_contain_flags) const;
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
+        struct AstValueFunction;
         struct AstValueBase : public AstBase
         {
+            struct ConstantValue
+            {
+                enum class Kind
+                {
+                    TRIVAL,     // bool, int, real, handle...
+                    STRING,
+                    STRUCT,
+                    FUNCTION,
+                };
+                struct StructStorage
+                {
+                    size_t m_count;
+                    ConstantValue* m_elements;
+  
+                    explicit StructStorage(size_t n);
+                    ~StructStorage();
+                    explicit StructStorage(const StructStorage& another);
+                    explicit StructStorage(StructStorage&& another);
+                    StructStorage& operator = (const StructStorage& another);
+                    StructStorage& operator = (StructStorage&& another);
+                };
+                using Storage = std::variant<wo::value, wo_pstring_t, StructStorage, AstValueFunction*>;
+
+                const Kind m_kind;
+                const Storage m_storage;
+
+                explicit ConstantValue(bool val);
+                explicit ConstantValue(wo_integer_t val);
+                explicit ConstantValue(wo_handle_t val);
+                explicit ConstantValue(wo_real_t val);
+                explicit ConstantValue(wo_pstring_t val);
+                explicit ConstantValue(const std::wstring& val);
+                explicit ConstantValue(StructStorage&& val);
+                explicit ConstantValue(AstValueFunction* val);
+                explicit ConstantValue(const ConstantValue& another);
+                explicit ConstantValue(ConstantValue&& another);
+                ConstantValue& operator = (const ConstantValue& another);
+                ConstantValue& operator = (ConstantValue&& another);
+            };
+
             std::optional<lang_TypeInstance*> m_LANG_determined_type;
             std::optional<wo::value> m_evaled_const_value;
 
@@ -375,7 +416,6 @@ namespace wo
             AstValueFunctionCall_FakeAstArgumentDeductionContextB();
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
         };
-        struct AstValueFunction;
         struct AstValueFunctionCall : public AstValueBase
         {
             enum LANG_hold_state
