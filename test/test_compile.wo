@@ -2160,6 +2160,24 @@ func main()
             let a = ("": mut string,);
             do std::bad:<{a.0}>;
         "@);
+        assure_compile_fail(@"
+        func foo(a, ...)
+        {
+        }
+        func bar(_)
+        {
+        }
+        foo(0, bar);
+        "@);
+        assure_compile_fail(@"
+        func foo(...)
+        {
+        }
+        func bar(_)
+        {
+        }
+        foo(bar);
+        "@);
     }
 
     func main()

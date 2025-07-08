@@ -1464,22 +1464,22 @@ namespace wo
     {
         auto judge_function_return_type =
             [&](lang_TypeInstance* ret_type)
+        {
+            std::list<lang_TypeInstance*> parameters;
+            for (auto& param : node->m_parameters)
+                parameters.push_back(param->m_type.value()->m_LANG_determined_type.value());
+
+            node->m_LANG_determined_type = m_origin_types.create_function_type(
+                node->m_is_variadic, parameters, ret_type);
+
+            wo_assert(node->m_LANG_determined_type.has_value());
+
+            if (node->m_LANG_value_instance_to_update)
             {
-                std::list<lang_TypeInstance*> parameters;
-                for (auto& param : node->m_parameters)
-                    parameters.push_back(param->m_type.value()->m_LANG_determined_type.value());
-
-                node->m_LANG_determined_type = m_origin_types.create_function_type(
-                    node->m_is_variadic, parameters, ret_type);
-
-                wo_assert(node->m_LANG_determined_type.has_value());
-
-                if (node->m_LANG_value_instance_to_update)
-                {
-                    node->m_LANG_value_instance_to_update.value()->m_determined_type =
-                        node->m_LANG_determined_type;
-                }
-            };
+                node->m_LANG_value_instance_to_update.value()->m_determined_type =
+                    node->m_LANG_determined_type;
+            }
+        };
 
         // Huston, we have a problem.
         if (state == UNPROCESSED)
@@ -1951,7 +1951,7 @@ namespace wo
                         return FAILED;
                     }
 
-                    const auto& unpacking_tuple_element_types = 
+                    const auto& unpacking_tuple_element_types =
                         determined_base_type_instance->m_external_type_description.m_tuple->m_element_types;
 
                     for (auto& element_type : unpacking_tuple_element_types)
@@ -3026,21 +3026,19 @@ namespace wo
                         AstValueVariable* function_variable = static_cast<AstValueVariable*>(node->m_function);
                         AstIdentifier* function_variable_identifier = function_variable->m_identifier;
 
-                        if (first_argument_type_symbol->m_belongs_to_scope->is_namespace_scope())
+                        if (first_argument_type_symbol->m_belongs_to_scope->is_namespace_scope()
+                            || function_variable_identifier->m_formal == AstIdentifier::identifier_formal::FROM_CURRENT)
                         {
-                            if (function_variable_identifier->m_formal == AstIdentifier::identifier_formal::FROM_CURRENT)
-                            {
-                                function_variable_identifier->m_formal = AstIdentifier::identifier_formal::FROM_TYPE;
-                                function_variable_identifier->m_from_type = first_argument_type_instance;
+                            function_variable_identifier->m_formal = AstIdentifier::identifier_formal::FROM_TYPE;
+                            function_variable_identifier->m_from_type = first_argument_type_instance;
 
-                                wo_assert(!function_variable_identifier->m_find_type_only);
-                                if (!find_symbol_in_current_scope(
-                                    lex, function_variable_identifier, std::nullopt))
-                                {
-                                    // Failed, restore.
-                                    function_variable_identifier->m_formal = AstIdentifier::identifier_formal::FROM_CURRENT;
-                                    function_variable_identifier->m_from_type = std::nullopt;
-                                }
+                            wo_assert(!function_variable_identifier->m_find_type_only);
+                            if (!find_symbol_in_current_scope(
+                                lex, function_variable_identifier, std::nullopt))
+                            {
+                                // Failed, restore.
+                                function_variable_identifier->m_formal = AstIdentifier::identifier_formal::FROM_CURRENT;
+                                function_variable_identifier->m_from_type = std::nullopt;
                             }
                         }
                     }
@@ -3361,6 +3359,18 @@ namespace wo
                         branch_b_context->m_arguments_tobe_deduct.push_back(
                             AstValueFunctionCall_FakeAstArgumentDeductionContextB::ArgumentMatch{
                                 argument_value, param_type_instance });
+                    }
+
+                    // There may be other parameters that need to be deduced beyond the fixed-length 
+                    // parameter part. The variable-length parameter part is regarded as a non-derived
+                    // context and directly evaluated to cause them to report errors.
+                    for (;it_argument != it_argument_end; ++it_argument)
+                    {
+                        AstValueBase* argument_value = *it_argument;
+
+                        if (!argument_value->m_LANG_determined_type.has_value())
+                            // Need deduce? non-derived cotext, eval it for compiling-error. 
+                            WO_CONTINUE_PROCESS(argument_value);
                     }
 
                     node->m_LANG_branch_argument_deduction_context = branch_b_context;
@@ -4465,9 +4475,9 @@ namespace wo
                         // Constant value has been evaled.
                         auto left_base_type_val = left_base_type.value()->m_base_type;
                         if (left_base_type_val == lang_TypeInstance::DeterminedType::base_type::BOOLEAN
-                            && ((node->m_operator == AstValueBinaryOperator::LOGICAL_OR 
+                            && ((node->m_operator == AstValueBinaryOperator::LOGICAL_OR
                                 && evaled_const_value.integer)
-                                || (node->m_operator == AstValueBinaryOperator::LOGICAL_AND 
+                                || (node->m_operator == AstValueBinaryOperator::LOGICAL_AND
                                     && !evaled_const_value.integer)))
                         {
                             wo_assert(evaled_const_value.type == value::valuetype::bool_type);
