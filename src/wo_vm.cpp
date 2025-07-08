@@ -2811,7 +2811,7 @@ namespace wo
                     }
                     break;
                 case 1:     // extern-opcode-page-1
-                    wo_error("Invalid instruct page(empty page 1).");
+                    wo_fail(WO_FAIL_BAD_LIB, "Invalid instruct page(empty page 1).");
                     break;
                 case 2:     // extern-opcode-page-2
                     wo_error("Invalid instruct page(empty page 2).");

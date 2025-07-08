@@ -386,7 +386,7 @@ namespace wo
         if (!symbol->m_template_value_instances->m_mutable
             && duplicated_ast->node_type == ast::AstBase::AST_VALUE_FUNCTION)
             // For recursive function, let compiler know this function instance.
-            m_value_instance->try_determine_template_function_dup_instance(
+            m_value_instance->try_determine_function_may_constant(
                 static_cast<ast::AstValueFunction*>(duplicated_ast));
     }
 
@@ -423,11 +423,30 @@ namespace wo
     }
 
     //////////////////////////////////////
-    void lang_ValueInstance::try_determine_template_function_dup_instance(
+    void lang_ValueInstance::try_determine_function_may_constant(
         ast::AstValueFunction* func)
     {
         wo_assert(!m_mutable);
-        m_determined_constant_or_function.emplace(func);
+
+        // ATTENTION: The func here might be unevaluated, under evaluation, or already evaluated.
+        // 
+        // 1) Unevaluated: This func is undergoing generic instantiation, freshly copied from the template.
+        //  At this stage, we can temporarily treat it as a constant, although this is quite a hacky trick.
+        //  After the generic instantiation completes, we can then check whether this func captures any 
+        //  parameters. If it doesn't, all is well. Even if it does, either this constant isn't referenced 
+        //  (non-recursive case), or it is referenced, but the compiler will report an error (recursive 
+        //  functions are not allowed to capture) before issues arise during IR generation. Either way, 
+        //  it's safe.
+        // 2) Under evaluation: This is a recursive function. Similar to case 1: if it captures variables, 
+        //  the compiler would have already reported an error during compilation. Treat it directly as a 
+        //  constant.
+        // 3) Already evaluated: Excellent! Simply check whether it captures any parameters.
+
+        if (func->m_LANG_hold_state == ast::AstValueFunction::LANG_hold_state::UNPROCESSED
+            || func->m_LANG_captured_context.m_captured_variables.empty())
+        {
+            m_determined_constant_or_function.emplace(func);
+        }       
     }
     void lang_ValueInstance::try_determine_const_value(ast::AstValueBase* init_val)
     {
@@ -440,24 +459,41 @@ namespace wo
     {
         m_determined_constant_or_function.emplace(init_val);
     }
+    void lang_ValueInstance::check_and_reset_const_if_func_captured()
+    {
+        if (m_determined_constant_or_function.has_value())
+        {
+            auto function_instance = 
+                m_determined_constant_or_function.value().value_try_function();
 
+            if (function_instance.has_value())
+            {
+                auto* func = function_instance.value();
+
+                wo_assert(func->m_LANG_captured_context.m_finished);
+                if (!func->m_LANG_captured_context.m_captured_variables.empty())
+                {
+                    // Has captured variable, cannot be constant.
+                    // See `lang_ValueInstance::try_determine_function_may_constant`, we can reset
+                    // constant here.
+                    m_determined_constant_or_function.reset();
+                }
+            }
+        }
+    }
     bool lang_ValueInstance::IR_need_storage() const
     {
         if (m_determined_constant_or_function.has_value())
         {
             wo_assert(!m_mutable);
 
+#if WO_ENABLE_RUNTIME_CHECK
             const auto function_instance =
                 m_determined_constant_or_function.value().value_try_function();
 
-            if (function_instance.has_value())
-            {
-                if (!function_instance.value()->m_LANG_captured_context.m_captured_variables.empty())
-                    // Function with captured variables, need storage.
-                    return true;
-            }
-
-            // Is constant or normal function, no need storage.
+            wo_assert(!function_instance.has_value() 
+                || function_instance.value()->m_LANG_captured_context.m_captured_variables.empty());
+#endif
             return false;
         }
 
@@ -468,7 +504,11 @@ namespace wo
         bool mutable_,
         lang_Symbol* symbol,
         const std::optional<std::list<ast::AstIdentifier::TemplateArgumentInstance>>& template_arguments)
-        : m_symbol(symbol), m_mutable(mutable_), m_determined_constant_or_function(std::nullopt), m_determined_type(std::nullopt), m_instance_template_arguments(template_arguments)
+        : m_symbol(symbol)
+        , m_mutable(mutable_)
+        , m_determined_constant_or_function(std::nullopt)
+        , m_determined_type(std::nullopt)
+        , m_instance_template_arguments(template_arguments)
     {
     }
     lang_ValueInstance::~lang_ValueInstance()
@@ -1555,7 +1595,12 @@ namespace wo
 
                 bool this_function_dont_have_unused_local_variable =
                     _assign_storage_for_local_variable_instance(
-                        lex, this, eval_fucntion_name, eval_function->m_LANG_function_scope.value(), 0, &local_storage_size);
+                        lex, 
+                        this, 
+                        eval_fucntion_name, 
+                        eval_function->m_LANG_function_scope.value(), 
+                        0, 
+                        &local_storage_size);
 
                 if (!this_function_dont_have_unused_local_variable)
                 {
@@ -2878,6 +2923,8 @@ namespace wo
             return opnum_imm_bool(val.value_bool());
         case ast::AstValueBase::ConstantValue::Type::PSTRING:
             return opnum_imm_string(val.value_pstring());
+        case ast::AstValueBase::ConstantValue::Type::FUNCTION:
+            return opnum_imm_rsfunc(val.value_function());
         default:
             return m_opnum_cache_imm_value.emplace_back(
                 std::make_unique<opnum::immbase>(val)).get();

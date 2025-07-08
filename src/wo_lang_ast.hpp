@@ -146,6 +146,13 @@ namespace wo
                 wo_pstring_t value_pstring()const;
                 const StructStorage& value_struct() const;
                 AstValueFunction* value_function() const;
+
+                bool cast_value_bool()const;
+                wo_integer_t cast_value_integer()const;
+                wo_handle_t cast_value_handle()const;
+                wo_real_t cast_value_real()const;
+                wo_pstring_t cast_value_pstring()const;
+
                 std::optional<AstValueFunction*> value_try_function()const;
             };
 

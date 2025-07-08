@@ -2429,7 +2429,7 @@ namespace wo
             {
                 m_ircontext.eval_for_upper();
 
-                if (node->m_condition->m_evaled_const_value.value().value_integer() != 0)
+                if (node->m_condition->m_evaled_const_value.value().value_bool() != 0)
                     WO_CONTINUE_PROCESS(node->m_true_value);
                 else
                     WO_CONTINUE_PROCESS(node->m_false_value);

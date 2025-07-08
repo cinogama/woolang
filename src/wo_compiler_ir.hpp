@@ -144,6 +144,9 @@ namespace wo
         };
         struct immbase :virtual opnumbase
         {
+            virtual ~immbase()
+            {
+            }
         protected:
             explicit immbase(const bool* val)
                 : constant_index(std::nullopt)
@@ -1191,9 +1194,9 @@ namespace wo
         {
             if constexpr (std::is_base_of<opnum::opnumbase, OP1T>::value)
             {
-                if (auto* tagop = dynamic_cast<const opnum::tag*>(&op1))
+                if (nullptr != dynamic_cast<const opnum::tag*>(&op1))
                 {
-                    WO_PUT_IR_TO_BUFFER(instruct::opcode::calln, nullptr, WO_OPNUM(*tagop));
+                    WO_PUT_IR_TO_BUFFER(instruct::opcode::calln, nullptr, WO_OPNUM(op1));
                     return;
                 }
                 else if (auto* immop = dynamic_cast<const opnum::immbase*>(&op1))
@@ -1214,12 +1217,17 @@ namespace wo
                         WO_PUT_IR_TO_BUFFER(instruct::opcode::calln, nullptr, nullptr, static_cast<int32_t>(a));
                         return;
                     }
+                    case ast::AstValueBase::ConstantValue::Type::FUNCTION:
+                    {
+                        wo_error("Bad constant generated.");
+                    }
                     default:
                         // Treate it as normal call.
                         // Do nothing.
                         break;
                     }
                 }
+
                 WO_PUT_IR_TO_BUFFER(instruct::opcode::call, WO_OPNUM(op1));
                 return;
             }

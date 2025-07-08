@@ -39,6 +39,8 @@ namespace wo
                                 lang_symbol->m_value_instance->set_const_value(*p);
 
                         }, init_value.value());
+
+                    lang_symbol->m_value_instance->check_and_reset_const_if_func_captured();
                 }
             }
             return true;
@@ -2404,27 +2406,19 @@ namespace wo
                     switch (cast_target_determined_type->m_base_type)
                     {
                     case lang_TypeInstance::DeterminedType::INTEGER:
-                        node->decide_final_constant_value(wo_cast_int(std::launder(reinterpret_cast<wo_value>(&cast_from_const))));
+                        node->decide_final_constant_value(cast_from_const.cast_value_integer());
                         break;
                     case lang_TypeInstance::DeterminedType::REAL:
-                        node->decide_final_constant_value(wo_cast_real(std::launder(reinterpret_cast<wo_value>(&cast_from_const))));
+                        node->decide_final_constant_value(cast_from_const.cast_value_real());
                         break;
                     case lang_TypeInstance::DeterminedType::HANDLE:
-                        node->decide_final_constant_value(wo_cast_handle(std::launder(reinterpret_cast<wo_value>(&cast_from_const))));
+                        node->decide_final_constant_value(cast_from_const.cast_value_handle());
                         break;
                     case lang_TypeInstance::DeterminedType::BOOLEAN:
-                        node->decide_final_constant_value(
-                            wo_cast_bool(std::launder(reinterpret_cast<wo_value>(&cast_from_const)))
-                            == WO_TRUE
-                            ? true
-                            : false);
+                        node->decide_final_constant_value(cast_from_const.cast_value_bool());
                         break;
                     case lang_TypeInstance::DeterminedType::STRING:
-                        node->decide_final_constant_value(
-                            wo::str_to_wstr(
-                                wo_cast_string(
-                                    std::launder(
-                                        reinterpret_cast<wo_value>(&cast_from_const)))));
+                        node->decide_final_constant_value(cast_from_const.cast_value_pstring());
                         break;
                     default:
                         // Cannot cast to constant.

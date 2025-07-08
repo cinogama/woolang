@@ -415,6 +415,8 @@ namespace wo
 
             template_instance_variable_symbol->m_template_value_instances->
                 m_finished_instance_list.push_back(template_eval_instance_value);
+
+            template_eval_instance_value->m_value_instance->check_and_reset_const_if_func_captured();
             break;
         }
         case lang_Symbol::kind::ALIAS:

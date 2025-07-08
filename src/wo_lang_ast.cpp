@@ -871,6 +871,8 @@ namespace wo
         AstValueBase::ConstantValue::ConstantValue(AstValueFunction* val)
             : m_type(Type::FUNCTION), m_storage(val)
         {
+            // Function with captured variable cannot be constant.
+            wo_assert(val->m_LANG_captured_context.m_captured_variables.empty());
         }
         bool AstValueBase::ConstantValue::operator <(const ConstantValue& another) const
         {
@@ -915,6 +917,97 @@ namespace wo
         {
             return std::get<AstValueFunction*>(m_storage);
         }
+        bool AstValueBase::ConstantValue::cast_value_bool()const
+        {
+            switch (m_type)
+            {
+            case Type::BOOL:
+                return value_bool();
+            case Type::INTEGER:
+                return value_integer() != 0;
+            case Type::HANDLE:
+                return value_handle() != 0;
+            case Type::REAL:
+                return value_real() != 0;
+            case Type::PSTRING:
+                return 0 == value_pstring()->compare(L"true");
+            default:
+                wo_error("Unexpected type.");
+            }
+        }
+        wo_integer_t AstValueBase::ConstantValue::cast_value_integer()const
+        {
+            switch (m_type)
+            {
+            case Type::BOOL:
+                return value_bool() ? 1 : 0;
+            case Type::INTEGER:
+                return value_integer();
+            case Type::HANDLE:
+                return static_cast<wo_integer_t>(value_handle());
+            case Type::REAL:
+                return static_cast<wo_integer_t>(value_real());
+            case Type::PSTRING:
+                return (wo_integer_t)wcstoll(value_pstring()->c_str(), nullptr, 0);
+            default:
+                wo_error("Unexpected type.");
+            }
+        }
+        wo_handle_t AstValueBase::ConstantValue::cast_value_handle()const
+        {
+            switch (m_type)
+            {
+            case Type::BOOL:
+                return value_bool() ? 1 : 0;
+            case Type::INTEGER:
+                return static_cast<wo_handle_t>(value_integer());
+            case Type::HANDLE:
+                return value_handle();
+            case Type::REAL:
+                return static_cast<wo_handle_t>(value_real());
+            case Type::PSTRING:
+                return (wo_handle_t)wcstoull(value_pstring()->c_str(), nullptr, 0);
+            default:
+                wo_error("Unexpected type.");
+            }
+        }
+        wo_real_t AstValueBase::ConstantValue::cast_value_real()const
+        {
+            switch (m_type)
+            {
+            case Type::BOOL:
+                return value_bool() ? 1.0 : 0.0;
+            case Type::INTEGER:
+                return static_cast<wo_real_t>(value_integer());
+            case Type::HANDLE:
+                return static_cast<wo_real_t>(value_handle());
+            case Type::REAL:
+                return value_real();
+            case Type::PSTRING:
+                return wcstod(value_pstring()->c_str(), nullptr);
+            default:
+                wo_error("Unexpected type.");
+            }
+        }
+        wo_pstring_t AstValueBase::ConstantValue::cast_value_pstring()const
+        {
+            switch (m_type)
+            {
+            case Type::BOOL:
+                return value_bool() ? wo::wstring_pool::get_pstr(L"true") : wo::wstring_pool::get_pstr(L"false");
+            case Type::INTEGER:
+                return wo::wstring_pool::get_pstr(std::to_wstring(value_integer()));
+            case Type::HANDLE:
+                return wo::wstring_pool::get_pstr(std::to_wstring(value_handle()));
+            case Type::REAL:
+                return wo::wstring_pool::get_pstr(std::to_wstring(value_real()));
+            case Type::PSTRING:
+                return value_pstring();
+            default:
+                wo_error("Unexpected type.");
+            }
+        }
+
         std::optional<AstValueFunction*> AstValueBase::ConstantValue::value_try_function()const
         {
             if (m_type == Type::FUNCTION)

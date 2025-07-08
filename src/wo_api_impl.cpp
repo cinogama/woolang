@@ -1063,7 +1063,7 @@ wo_integer_t wo_cast_int(wo_value value)
     case wo::value::valuetype::real_type:
         return (wo_integer_t)_rsvalue->real;
     case wo::value::valuetype::string_type:
-        return (wo_integer_t)atoll(_rsvalue->string->c_str());
+        return (wo_integer_t)strtoll(_rsvalue->string->c_str(), nullptr, 0);
     default:
         wo_fail(WO_FAIL_TYPE_FAIL, "This value can not cast to integer.");
         return 0;
@@ -1085,7 +1085,7 @@ wo_real_t wo_cast_real(wo_value value)
     case wo::value::valuetype::real_type:
         return _rsvalue->real;
     case wo::value::valuetype::string_type:
-        return atof(_rsvalue->string->c_str());
+        return (wo_real_t)strtod(_rsvalue->string->c_str(), nullptr);
     default:
         wo_fail(WO_FAIL_TYPE_FAIL, "This value can not cast to real.");
         return 0;
@@ -1115,7 +1115,7 @@ wo_handle_t wo_cast_handle(wo_value value)
     case wo::value::valuetype::real_type:
         return (wo_handle_t)_rsvalue->real;
     case wo::value::valuetype::string_type:
-        return (wo_handle_t)atoll(_rsvalue->string->c_str());
+        return (wo_handle_t)strtoull(_rsvalue->string->c_str(), nullptr, 0);
     default:
         wo_fail(WO_FAIL_TYPE_FAIL, "This value can not cast to handle.");
         return 0;

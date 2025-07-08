@@ -196,9 +196,11 @@ namespace wo
         std::optional<ast::AstValueFunction*>
                                m_IR_normal_function;
 
-        void try_determine_template_function_dup_instance(ast::AstValueFunction* func);
+        void try_determine_function_may_constant(ast::AstValueFunction* func);
         void try_determine_const_value(ast::AstValueBase* init_val);
         void set_const_value(const ast::AstValueBase::ConstantValue& init_val);
+
+        void check_and_reset_const_if_func_captured();
 
         bool IR_need_storage() const;
 
