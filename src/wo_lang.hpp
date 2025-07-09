@@ -245,6 +245,7 @@ namespace wo
     struct lang_TemplateAstEvalStateValue : public lang_TemplateAstEvalStateBase
     {
         std::unique_ptr<lang_ValueInstance> m_value_instance;
+        bool m_constant_template_argument_have_unfinished_function;
 
         lang_TemplateAstEvalStateValue(
             lang_Symbol* symbol,

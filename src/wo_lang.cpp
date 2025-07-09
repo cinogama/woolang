@@ -383,6 +383,20 @@ namespace wo
         m_value_instance = std::make_unique<lang_ValueInstance>(
             symbol->m_template_value_instances->m_mutable, symbol, template_arguments);
 
+        m_constant_template_argument_have_unfinished_function = false;
+        for (auto& argument : template_arguments)
+        {
+            if (!argument.m_constant.has_value())
+                continue;
+
+            auto constant = argument.m_constant.value().value_try_function();
+            if (constant.has_value() && !constant.value()->m_LANG_captured_context.m_finished)
+            {
+                m_constant_template_argument_have_unfinished_function = true;
+                break;
+            }
+        }
+
         if (!symbol->m_template_value_instances->m_mutable
             && duplicated_ast->node_type == ast::AstBase::AST_VALUE_FUNCTION)
             // For recursive function, let compiler know this function instance.

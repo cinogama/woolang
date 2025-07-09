@@ -789,6 +789,33 @@ namespace wo
                     wo_assert(template_instance->m_state == lang_TemplateAstEvalStateValue::state::EVALUATED);
 
                     lang_ValueInstance* template_value_instance = template_instance->m_value_instance.get();
+                    if (template_instance->m_constant_template_argument_have_unfinished_function)
+                    {
+                        bool bad_template_instance = false;
+
+                        // Template argument may have non-constant-function, recheck here.
+                        for (auto& argument : template_value_instance->m_instance_template_arguments.value())
+                        {
+                            if (!argument.m_constant.has_value())
+                                continue;
+
+                            auto constant = argument.m_constant.value().value_try_function();
+                            if (!constant.has_value())
+                                continue;
+
+                            auto& captured_context = constant.value()->m_LANG_captured_context;
+                            if (!captured_context.m_finished || !captured_context.m_captured_variables.empty())
+                            {
+                                bad_template_instance = true;
+                                break;
+                            }
+                        }
+
+                        if (bad_template_instance)
+                            // Skip bad instance.
+                            continue;
+                    }
+
                     if (!template_value_instance->IR_need_storage())
                     {
                         // No need storage.
