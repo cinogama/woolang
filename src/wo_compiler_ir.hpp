@@ -134,12 +134,11 @@ namespace wo
         };
         struct tag :virtual opnumbase
         {
-            std::string name;
+            wo_pstring_t name;
 
-            tag(const std::string& _name)
+            tag(wo_pstring_t _name)
                 : name(_name)
             {
-
             }
         };
         struct immbase :virtual opnumbase
@@ -570,28 +569,20 @@ namespace wo
         };
 
         // TODO: Use ir_param_buffer instead of ir_command_buffer
-        cxx_vec_t<ir_command>   ir_command_buffer;
+        cxx_vec_t<ir_command> ir_command_buffer;
 
-        std::map<size_t, cxx_vec_t<std::string>> tag_irbuffer_offset;
+        std::map<size_t, cxx_vec_t<wo_pstring_t>> tag_irbuffer_offset;
 
         runtime_env::extern_native_functions_t extern_native_functions;
         runtime_env::extern_function_map_t extern_script_functions;
 
-        struct immless
-        {
-            bool operator()(const opnum::immbase* lhs, const opnum::immbase* rhs) const
-            {
-                return (*lhs) < (*rhs);
-            }
-        };
-
         cxx_map_t<ast::AstValueBase::ConstantValue, uint32_t>
             constant_record_to_index_mapping;
-        std::list<const ast::AstValueBase::ConstantValue*> 
+        std::list<const ast::AstValueBase::ConstantValue*>
             ordered_constant_record_list;
-        cxx_vec_t<opnum::global*>                   
+        cxx_vec_t<opnum::global*>
             global_record_list;
-        cxx_vec_t<opnum::opnumbase*>                
+        cxx_vec_t<opnum::opnumbase*>
             created_opnum_buffer;
 
         template<typename T>
@@ -608,7 +599,7 @@ namespace wo
             std::list<std::pair<uint32_t, uint16_t>> m_offset_in_tuple;
         };
         using TagOffsetLocatedInConstantTableOffsetRecordT =
-            std::map<std::string, TagOffsetInConstantOffset>;
+            std::map<wo_pstring_t, TagOffsetInConstantOffset>;
 
         uint32_t _check_constant_and_give_storage_idx(
             const ast::AstValueBase::ConstantValue& constant) noexcept;
@@ -1292,7 +1283,7 @@ namespace wo
             WO_PUT_IR_TO_BUFFER(instruct::opcode::abrt, nullptr, nullptr, 1);
         }
 
-        void tag(const std::string& tagname)
+        void tag(wo_pstring_t tagname)
         {
             tag_irbuffer_offset[ir_command_buffer.size()].push_back(tagname);
         }

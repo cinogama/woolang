@@ -494,7 +494,7 @@ namespace wo
             ast::AstValueFunction*,
             std::unique_ptr<opnum::tagimm_rsfunc>> m_opnum_cache_imm_rsfunc;
         std::unordered_map<
-            std::string,
+            wo_pstring_t,
             std::unique_ptr<opnum::tag>>  m_opnum_cache_tag;
         std::unordered_map<
             uint8_t,
@@ -557,8 +557,8 @@ namespace wo
         struct LoopContent
         {
             std::optional<wo_pstring_t> m_label;
-            std::string m_break_label;
-            std::string m_continue_label;
+            wo_pstring_t m_break_label;
+            wo_pstring_t m_continue_label;
         };
         std::list<LoopContent> m_loop_content_stack;
         
@@ -601,7 +601,7 @@ namespace wo
         opnum::immbase* opnum_imm_bool(bool value) noexcept;
         opnum::opnumbase* opnum_imm_value(const ast::AstValueBase::ConstantValue& val);
         opnum::tagimm_rsfunc* opnum_imm_rsfunc(ast::AstValueFunction* value) noexcept;
-        opnum::tag* opnum_tag(const std::string& value) noexcept;
+        opnum::tag* opnum_tag(wo_pstring_t value) noexcept;
         opnum::reg* opnum_spreg(opnum::reg::spreg value) noexcept;
         opnum::reg* opnum_stack_offset(int8_t value) noexcept;
         opnum::temporary* opnum_temporary(uint32_t id) noexcept;
@@ -1232,7 +1232,8 @@ namespace wo
             wo_pstring_t field_name,
             wo_pstring_t path);
 
-        static std::string IR_function_label(ast::AstValueFunction* func);
+        static wo_pstring_t IR_function_label(ast::AstValueFunction* func);
+        static wo_pstring_t IR_function_label_ret(ast::AstValueFunction* func);
         opnum::opnumbase* IR_function_opnum(ast::AstValueFunction* func);
     };
 #endif

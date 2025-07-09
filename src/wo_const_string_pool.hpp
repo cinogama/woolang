@@ -67,6 +67,7 @@ namespace wo::fixstr
     inline wo_pstring_t _global_operator_GREATEQ;
     inline wo_pstring_t _global_operator_EQ;
     inline wo_pstring_t _global_operator_NEQ;
+    inline wo_pstring_t _global_label_woolang_program_end;
 }
 
 #undef WO_GLOBAL_PSTR
@@ -125,6 +126,7 @@ namespace wo
             WO_GLOBAL_PSTR_WITH_CONST(operator_GREATEQ, L"operator >=");
             WO_GLOBAL_PSTR_WITH_CONST(operator_EQ, L"operator ==");
             WO_GLOBAL_PSTR_WITH_CONST(operator_NEQ, L"operator !=");
+            WO_GLOBAL_PSTR_WITH_CONST(label_woolang_program_end, L"#woolang_program_end");
 #undef WO_GLOBAL_PSTR
 
         }

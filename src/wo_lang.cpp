@@ -1506,7 +1506,7 @@ namespace wo
 
         // Generate default return 0 for global block.
         m_ircontext.c().mov(opnum::reg(opnum::reg::spreg::cr), opnum::imm_int(0));  // mov cr, 0
-        m_ircontext.c().jmp(opnum::tag("#woolang_program_end"));    // jmp #woolang_program_end
+        m_ircontext.c().jmp(opnum::tag(WO_PSTR(label_woolang_program_end)));    // jmp #woolang_program_end
 
         // final.2 Finalize function codes.
         bool donot_have_unused_local_variable = true;
@@ -1686,7 +1686,7 @@ namespace wo
 
                 if (eval_function->m_is_variadic)
                 {
-                    m_ircontext.c().tag(IR_function_label(eval_function) + "_ret");
+                    m_ircontext.c().tag(IR_function_label_ret(eval_function));
                     m_ircontext.c().pop(
                         *(opnum::opnumbase*)m_ircontext.opnum_spreg(opnum::reg::spreg::tp));
                 }
@@ -1722,7 +1722,7 @@ namespace wo
                 break;
         }
 
-        m_ircontext.c().tag("#woolang_program_end");
+        m_ircontext.c().tag(WO_PSTR(label_woolang_program_end));
         m_ircontext.c().end();
 
         m_ircontext.c().loaded_libraries = m_ircontext.m_extern_libs;
@@ -2955,7 +2955,7 @@ namespace wo
             std::make_pair(value, std::make_unique<opnum::tagimm_rsfunc>(value)))
             .first->second.get();
     }
-    opnum::tag* BytecodeGenerateContext::opnum_tag(const std::string& value) noexcept
+    opnum::tag* BytecodeGenerateContext::opnum_tag(wo_pstring_t value) noexcept
     {
         auto fnd = m_opnum_cache_tag.find(value);
         if (fnd != m_opnum_cache_tag.end())

@@ -1572,7 +1572,7 @@ namespace wo
     shared_pointer<runtime_env> ir_compiler::finalize()
     {
         // 1. Generate constant & global & register & runtime_stack memory buffer
-        size_t constant_value_count = constant_record_to_index_mapping.size();
+        const size_t constant_value_count = constant_record_to_index_mapping.size();
 
         size_t global_value_count = 0;
 
@@ -1582,13 +1582,13 @@ namespace wo
                 < INT32_MAX && global_opnum->offset >= 0);
             global_opnum->real_offset_const_glb = (int32_t)(global_opnum->offset + constant_value_count + 1);
 
-            if (((size_t)global_opnum->offset + 1) > global_value_count)
-                global_value_count = (size_t)global_opnum->offset + 1;
+            // Update global value offset.
+            global_value_count = std::max(global_value_count, (size_t)global_opnum->offset + 1);
         }
 
-        size_t real_register_count = 64;     // t0-t15 r0-r15 (32) special reg (32)
+        const size_t real_register_count = 64;     // t0-t15 r0-r15 (32) special reg (32)
 
-        size_t preserve_memory_size =
+        const size_t preserve_memory_size =
             constant_value_count
             + 1
             + global_value_count;
@@ -1597,9 +1597,9 @@ namespace wo
 
         cxx_vec_t<byte_t> generated_runtime_code_buf; // It will be put to 16 byte allign mem place.
 
-        std::map<std::string, cxx_vec_t<size_t>> jmp_record_table;
+        std::map<wo_pstring_t, cxx_vec_t<size_t>> jmp_record_table;
         TagOffsetLocatedInConstantTableOffsetRecordT jmp_record_table_for_immtag;
-        std::map<std::string, uint32_t> tag_offset_vector_table;
+        std::map<wo_pstring_t, uint32_t> tag_offset_vector_table;
 
         wo_assert(preserved_memory, "Alloc memory fail.");
 

@@ -4510,7 +4510,7 @@ void wo_ir_opcode(wo_ir_compiler compiler, uint8_t opcode, uint8_t drh, uint8_t 
 void wo_ir_bind_tag(wo_ir_compiler compiler, wo_string_t name)
 {
     auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
-    c->tag(name);
+    c->tag(wo::wstring_pool::get_pstr(wo::str_to_wstr(name)));
 }
 
 void wo_ir_int(wo_ir_compiler compiler, wo_integer_t val)
@@ -4556,13 +4556,13 @@ void wo_ir_bp(wo_ir_compiler compiler, int8_t offset)
 void wo_ir_tag(wo_ir_compiler compiler, wo_string_t name)
 {
     auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
-    c->ir_opnum(wo::opnum::tag(name));
+    c->ir_opnum(wo::opnum::tag(wo::wstring_pool::get_pstr(wo::str_to_wstr(name))));
 }
 
 void wo_ir_immtag(wo_ir_compiler compiler, wo_string_t name)
 {
     auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
-    c->ir_imm_tag(wo::opnum::tag(name));
+    c->ir_imm_tag(wo::opnum::tag(wo::wstring_pool::get_pstr(wo::str_to_wstr(name))));
 }
 void wo_ir_immu8(wo_ir_compiler compiler, uint8_t val)
 {

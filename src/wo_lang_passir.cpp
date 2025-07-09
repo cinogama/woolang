@@ -8,14 +8,14 @@ namespace wo
     using namespace ast;
 
 #define WO_OPNUM(opnumptr) (*static_cast<opnum::opnumbase*>(opnumptr))
-    std::string _generate_label(const std::string& prefix, const void* p)
+    wo_pstring_t _generate_label(const std::wstring& prefix, const void* p)
     {
-        char result[128];
-        auto r = snprintf(result, 128, "%s_%p", prefix.c_str(), p);
+        wchar_t result[128];
+        auto r = swprintf(result, 128, L"%s_%p", prefix.c_str(), p);
         if (r < 0 || r >= 128)
             wo_error("Failed to generate label.");
 
-        return result;
+        return wstring_pool::get_pstr(result);
     }
     bool _is_storage_can_addressing(lang_ValueInstance::Storage& storage)
     {
@@ -23,15 +23,25 @@ namespace wo
             || (storage.m_index >= -64 && storage.m_index <= 63);
     }
 
-    std::string LangContext::IR_function_label(ast::AstValueFunction* func)
+    wo_pstring_t LangContext::IR_function_label(ast::AstValueFunction* func)
     {
-        char result[48];
-        auto n = snprintf(result, 48, "#func_%p", func);
+        wchar_t result[48];
+        auto n = swprintf(result, 48, L"#func_%p", func);
 
         if (n < 0 || n >= 48)
             wo_error("Failed to generate label.");
 
-        return result;
+        return wstring_pool::get_pstr(result);
+    }
+    wo_pstring_t LangContext::IR_function_label_ret(ast::AstValueFunction* func)
+    {
+        wchar_t result[48];
+        auto n = swprintf(result, 48, L"#func_%p_ret", func);
+
+        if (n < 0 || n >= 48)
+            wo_error("Failed to generate label.");
+
+        return wstring_pool::get_pstr(result);
     }
     opnum::opnumbase* LangContext::IR_function_opnum(AstValueFunction* func)
     {
@@ -52,8 +62,8 @@ namespace wo
             ast->m_IR_binded_label.has_value()
                 ? std::optional(ast->m_IR_binded_label.value()->m_label)
                 : std::nullopt,
-            _generate_label("#while_end_", ast),
-            _generate_label("#while_begin_", ast)
+            _generate_label(L"#while_end_", ast),
+            _generate_label(L"#while_begin_", ast)
             });
     }
     void BytecodeGenerateContext::begin_loop_for(ast::AstFor* ast)
@@ -62,8 +72,8 @@ namespace wo
             ast->m_IR_binded_label.has_value()
                 ? std::optional(ast->m_IR_binded_label.value()->m_label)
                 : std::nullopt,
-            _generate_label("#for_end_", ast),
-            _generate_label("#for_next_", ast)
+            _generate_label(L"#for_end_", ast),
+            _generate_label(L"#for_next_", ast)
             });
     }
 
@@ -379,7 +389,7 @@ namespace wo
 
                 (void)m_ircontext.get_eval_result();
 
-                m_ircontext.c().jf(opnum::tag(_generate_label("#if_else_", node)));
+                m_ircontext.c().jf(opnum::tag(_generate_label(L"#if_else_", node)));
                 WO_CONTINUE_PROCESS(node->m_true_body);
 
                 node->m_LANG_hold_state = AstIf::IR_HOLD_FOR_TRUE_BODY;
@@ -393,10 +403,10 @@ namespace wo
             case AstIf::IR_HOLD_FOR_TRUE_BODY:
                 if (node->m_false_body.has_value())
                 {
-                    m_ircontext.c().jmp(opnum::tag(_generate_label("#if_end_", node)));
+                    m_ircontext.c().jmp(opnum::tag(_generate_label(L"#if_end_", node)));
                     WO_CONTINUE_PROCESS(node->m_false_body.value());
                 }
-                m_ircontext.c().tag(_generate_label("#if_else_", node));
+                m_ircontext.c().tag(_generate_label(L"#if_else_", node));
                 node->m_LANG_hold_state = AstIf::IR_HOLD_FOR_FALSE_BODY;
 
                 return HOLD;
@@ -404,7 +414,7 @@ namespace wo
                 if (!node->m_condition->m_evaled_const_value.has_value()
                     && node->m_false_body.has_value())
                 {
-                    m_ircontext.c().tag(_generate_label("#if_end_", node));
+                    m_ircontext.c().tag(_generate_label(L"#if_end_", node));
                 }
 
                 break;
@@ -427,7 +437,7 @@ namespace wo
 
                 dead_loop = true;
             }
-            m_ircontext.c().tag(_generate_label("#while_begin_", node));
+            m_ircontext.c().tag(_generate_label(L"#while_begin_", node));
 
             if (!dead_loop)
             {
@@ -437,7 +447,7 @@ namespace wo
 
                 (void)m_ircontext.get_eval_result();
 
-                m_ircontext.c().jf(opnum::tag(_generate_label("#while_end_", node)));
+                m_ircontext.c().jf(opnum::tag(_generate_label(L"#while_end_", node)));
             }
 
             // Loop begin
@@ -449,8 +459,8 @@ namespace wo
         }
         else if (state == HOLD)
         {
-            m_ircontext.c().jmp(opnum::tag(_generate_label("#while_begin_", node)));
-            m_ircontext.c().tag(_generate_label("#while_end_", node));
+            m_ircontext.c().jmp(opnum::tag(_generate_label(L"#while_begin_", node)));
+            m_ircontext.c().tag(_generate_label(L"#while_end_", node));
 
             m_ircontext.end_loop();
         }
@@ -495,7 +505,7 @@ namespace wo
                 if (node->m_condition.has_value()
                     && !node->m_condition.value()->m_evaled_const_value.has_value())
                     // Need runtime cond.
-                    m_ircontext.c().jmp(opnum::tag(_generate_label("#for_cond_", node)));
+                    m_ircontext.c().jmp(opnum::tag(_generate_label(L"#for_cond_", node)));
                 else
                 {
                     if (node->m_condition.has_value()
@@ -507,7 +517,7 @@ namespace wo
                     }
                 }
 
-                m_ircontext.c().tag(_generate_label("#for_begin_", node));
+                m_ircontext.c().tag(_generate_label(L"#for_begin_", node));
 
                 // Loop begin
                 m_ircontext.begin_loop_for(node);
@@ -519,7 +529,7 @@ namespace wo
             case AstFor::IR_HOLD_FOR_BODY_EVAL:
                 m_ircontext.end_loop();
 
-                m_ircontext.c().tag(_generate_label("#for_next_", node));
+                m_ircontext.c().tag(_generate_label(L"#for_next_", node));
 
                 if (node->m_step.has_value())
                 {
@@ -531,7 +541,7 @@ namespace wo
                 if (node->m_condition.has_value()
                     && !node->m_condition.value()->m_evaled_const_value.has_value())
                 {
-                    m_ircontext.c().tag(_generate_label("#for_cond_", node));
+                    m_ircontext.c().tag(_generate_label(L"#for_cond_", node));
 
                     m_ircontext.eval_to(m_ircontext.opnum_spreg(opnum::reg::cr));
                     if (!pass_final_value(lex, node->m_condition.value()))
@@ -539,7 +549,7 @@ namespace wo
 
                     (void)m_ircontext.get_eval_result();
 
-                    m_ircontext.c().jt(opnum::tag(_generate_label("#for_begin_", node)));
+                    m_ircontext.c().jt(opnum::tag(_generate_label(L"#for_begin_", node)));
                 }
                 else
                 {
@@ -547,9 +557,9 @@ namespace wo
                     wo_assert(!node->m_condition.has_value()
                         || node->m_condition.value()->m_evaled_const_value.value().value_bool());
 
-                    m_ircontext.c().jmp(opnum::tag(_generate_label("#for_begin_", node)));
+                    m_ircontext.c().jmp(opnum::tag(_generate_label(L"#for_begin_", node)));
                 }
-                m_ircontext.c().tag(_generate_label("#for_end_", node));
+                m_ircontext.c().tag(_generate_label(L"#for_end_", node));
 
                 break;
             }
@@ -647,7 +657,7 @@ namespace wo
                     + std::wstring(get_type_name_w(node->m_matched_value->m_LANG_determined_type.value()))
                     + L"', may be bad value returned by the external function."))));
 
-            m_ircontext.c().tag(_generate_label("#match_end_", node));
+            m_ircontext.c().tag(_generate_label(L"#match_end_", node));
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
@@ -655,12 +665,10 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
-            std::string match_case_end_label = _generate_label("#match_case_end_", node);
-
             if (node->m_LANG_case_label_or_takeplace.has_value())
                 m_ircontext.c().jnequb(
                     WO_OPNUM(m_ircontext.opnum_imm_int(node->m_LANG_case_label_or_takeplace.value())),
-                    opnum::tag(match_case_end_label));
+                    opnum::tag(_generate_label(L"#match_case_end_", node)));
 
             if (node->m_pattern->node_type == AstBase::AST_PATTERN_UNION)
             {
@@ -686,8 +694,8 @@ namespace wo
         }
         else if (state == HOLD)
         {
-            m_ircontext.c().jmp(_generate_label("#match_end_", node->m_IR_match.value()));
-            m_ircontext.c().tag(_generate_label("#match_case_end_", node));
+            m_ircontext.c().jmp(_generate_label(L"#match_end_", node->m_IR_match.value()));
+            m_ircontext.c().tag(_generate_label(L"#match_case_end_", node));
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
@@ -744,7 +752,7 @@ namespace wo
                 m_ircontext.c().equb(
                     WO_OPNUM(m_ircontext.opnum_global(node->m_IR_static_init_flag_global_offset.value())),
                     WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::ni)));
-                m_ircontext.c().jf(opnum::tag(_generate_label("#static_end_", node)));
+                m_ircontext.c().jf(opnum::tag(_generate_label(L"#static_end_", node)));
                 m_ircontext.c().mov(
                     WO_OPNUM(m_ircontext.opnum_global(node->m_IR_static_init_flag_global_offset.value())),
                     WO_OPNUM(m_ircontext.opnum_imm_bool(true)));
@@ -756,7 +764,7 @@ namespace wo
         if (state == HOLD)
         {
             if (node->m_IR_static_init_flag_global_offset.has_value())
-                m_ircontext.c().tag(_generate_label("#static_end_", node));
+                m_ircontext.c().tag(_generate_label(L"#static_end_", node));
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
@@ -940,9 +948,7 @@ namespace wo
         {
             AstValueFunction* returned_func = node->m_LANG_belong_function_may_null_if_outside.value();
             if (returned_func->m_is_variadic)
-            {
-                m_ircontext.c().jmp(opnum::tag(IR_function_label(returned_func) + "_ret"));
-            }
+                m_ircontext.c().jmp(opnum::tag(IR_function_label_ret(returned_func)));
             else
             {
                 if (!returned_func->m_LANG_captured_context.m_captured_variables.empty())
@@ -960,7 +966,7 @@ namespace wo
                     WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::cr)),
                     WO_OPNUM(m_ircontext.opnum_imm_int(0)));
 
-            m_ircontext.c().jmp(opnum::tag("#woolang_program_end"));
+            m_ircontext.c().jmp(opnum::tag(WO_PSTR(label_woolang_program_end)));
         }
 
         return OKAY;
@@ -2011,10 +2017,10 @@ namespace wo
                 switch (node->m_operator)
                 {
                 case AstValueBinaryOperator::LOGICAL_AND:
-                    m_ircontext.c().jf(opnum::tag(_generate_label("#lshortcut_", node)));
+                    m_ircontext.c().jf(opnum::tag(_generate_label(L"#lshortcut_", node)));
                     break;
                 case AstValueBinaryOperator::LOGICAL_OR:
-                    m_ircontext.c().jt(opnum::tag(_generate_label("#lshortcut_", node)));
+                    m_ircontext.c().jt(opnum::tag(_generate_label(L"#lshortcut_", node)));
                     break;
                 default:
                     wo_error("Unknown operator.");
@@ -2033,7 +2039,7 @@ namespace wo
             }
             case  AstValueBinaryOperator::IR_HOLD_FOR_LAND_LOR_RIGHT:
             {
-                m_ircontext.c().tag(_generate_label("#lshortcut_", node));
+                m_ircontext.c().tag(_generate_label(L"#lshortcut_", node));
 
                 m_ircontext.apply_eval_result(
                     [&](BytecodeGenerateContext::EvalResult& result)
@@ -2474,7 +2480,7 @@ namespace wo
             {
             case AstValueTribleOperator::IR_HOLD_FOR_COND_EVAL:
             {
-                m_ircontext.c().jf(opnum::tag(_generate_label("#cond_false_", node)));
+                m_ircontext.c().jf(opnum::tag(_generate_label(L"#cond_false_", node)));
 
                 m_ircontext.eval_to_if_not_ignore(
                     m_ircontext.opnum_spreg(opnum::reg::spreg::cr));
@@ -2486,8 +2492,8 @@ namespace wo
             }
             case AstValueTribleOperator::IR_HOLD_FOR_BRANCH_A_EVAL:
             {
-                m_ircontext.c().jmp(opnum::tag(_generate_label("#cond_end_", node)));
-                m_ircontext.c().tag(_generate_label("#cond_false_", node));
+                m_ircontext.c().jmp(opnum::tag(_generate_label(L"#cond_end_", node)));
+                m_ircontext.c().tag(_generate_label(L"#cond_false_", node));
 
                 m_ircontext.eval_to_if_not_ignore(
                     m_ircontext.opnum_spreg(opnum::reg::spreg::cr));
@@ -2499,7 +2505,7 @@ namespace wo
             }
             case AstValueTribleOperator::IR_HOLD_FOR_BRANCH_B_EVAL:
             {
-                m_ircontext.c().tag(_generate_label("#cond_end_", node));
+                m_ircontext.c().tag(_generate_label(L"#cond_end_", node));
 
                 m_ircontext.apply_eval_result(
                     [&](BytecodeGenerateContext::EvalResult& result)
