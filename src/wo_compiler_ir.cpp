@@ -406,7 +406,7 @@ namespace wo
             sprintf(ptrr, "0x%p>", rt_pos);
             return ptrr;
 
-            }();
+        }();
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -482,27 +482,27 @@ namespace wo
         std::vector<wo::byte_t> binary_buffer;
         auto write_buffer_to_buffer =
             [&binary_buffer](const void* written_data, size_t written_length, size_t allign)
-            {
-                const size_t write_begin_place = binary_buffer.size();
+        {
+            const size_t write_begin_place = binary_buffer.size();
 
-                wo_assert(write_begin_place % allign == 0);
+            wo_assert(write_begin_place % allign == 0);
 
-                binary_buffer.resize(write_begin_place + written_length);
+            binary_buffer.resize(write_begin_place + written_length);
 
-                memcpy(binary_buffer.data() + write_begin_place, written_data, written_length);
-                return binary_buffer.size();
-            };
+            memcpy(binary_buffer.data() + write_begin_place, written_data, written_length);
+            return binary_buffer.size();
+        };
 
         auto write_binary_to_buffer =
             [&write_buffer_to_buffer](const auto& d, size_t size_for_assert)
-            {
-                const wo::byte_t* written_data = std::launder(reinterpret_cast<const wo::byte_t*>(&d));
-                const size_t written_length = sizeof(d);
+        {
+            const wo::byte_t* written_data = std::launder(reinterpret_cast<const wo::byte_t*>(&d));
+            const size_t written_length = sizeof(d);
 
-                wo_assert(written_length == size_for_assert);
+            wo_assert(written_length == size_for_assert);
 
-                return write_buffer_to_buffer(written_data, written_length, sizeof(d) > 8 ? 8 : sizeof(d));
-            };
+            return write_buffer_to_buffer(written_data, written_length, sizeof(d) > 8 ? 8 : sizeof(d));
+        };
 
         class _string_pool_t
         {
@@ -531,50 +531,50 @@ namespace wo
         std::function<void(const wo::value&)> write_value_to_buffer;
         auto write_constant_str_to_buffer =
             [&write_binary_to_buffer, &constant_string_pool](const char* str, size_t len)
-            {
-                write_binary_to_buffer((uint32_t)constant_string_pool.insert(str, len), 4);
-                write_binary_to_buffer((uint32_t)len, 4);
-            };
+        {
+            write_binary_to_buffer((uint32_t)constant_string_pool.insert(str, len), 4);
+            write_binary_to_buffer((uint32_t)len, 4);
+        };
         auto write_constant_struct_to_buffer =
             [&write_binary_to_buffer, &write_value_to_buffer](const struct_t* struct_instance)
+        {
+            write_binary_to_buffer((uint64_t)struct_instance->m_count, 8);
+            for (uint16_t idx = 0; idx < struct_instance->m_count; ++idx)
             {
-                write_binary_to_buffer((uint64_t)struct_instance->m_count, 8);
-                for (uint16_t idx = 0; idx < struct_instance->m_count; ++idx)
-                {
-                    write_value_to_buffer(struct_instance->m_values[idx]);
-                }
-            };
+                write_value_to_buffer(struct_instance->m_values[idx]);
+            }
+        };
         write_value_to_buffer =
             [this,
             &write_binary_to_buffer,
             &write_constant_str_to_buffer,
             &write_constant_struct_to_buffer](const wo::value& val)
-            {
-                write_binary_to_buffer((uint64_t)val.type_space, 8);
+        {
+            write_binary_to_buffer((uint64_t)val.type_space, 8);
 
-                switch (val.type)
-                {
-                case wo::value::valuetype::string_type:
-                    // Record for string
-                    write_constant_str_to_buffer(
-                        val.string->c_str(), val.string->size());
-                    break;
-                case wo::value::valuetype::struct_type:
-                    // Record for struct
-                    write_constant_struct_to_buffer(
-                        val.structs);
-                    break;
-                default:
-                    // Record for value
-                    wo_assert(val.type == wo::value::valuetype::integer_type
-                        || val.type == wo::value::valuetype::real_type
-                        || val.type == wo::value::valuetype::handle_type
-                        || val.type == wo::value::valuetype::bool_type
-                        || val.type == wo::value::valuetype::invalid);
-                    write_binary_to_buffer((uint64_t)val.value_space, 8);
-                    break;
-                }
-            };
+            switch (val.type)
+            {
+            case wo::value::valuetype::string_type:
+                // Record for string
+                write_constant_str_to_buffer(
+                    val.string->c_str(), val.string->size());
+                break;
+            case wo::value::valuetype::struct_type:
+                // Record for struct
+                write_constant_struct_to_buffer(
+                    val.structs);
+                break;
+            default:
+                // Record for value
+                wo_assert(val.type == wo::value::valuetype::integer_type
+                    || val.type == wo::value::valuetype::real_type
+                    || val.type == wo::value::valuetype::handle_type
+                    || val.type == wo::value::valuetype::bool_type
+                    || val.type == wo::value::valuetype::invalid);
+                write_binary_to_buffer((uint64_t)val.value_space, 8);
+                break;
+            }
+        };
 
         // 1.1 (+0) Magic number(0x3001A26B look like WOOLANG B)
         write_binary_to_buffer((uint32_t)0x3001A26B, 4);
@@ -849,55 +849,55 @@ namespace wo
                 out_reason,
                 &constant_string_index_for_update,
                 &read_value_from_buffer](value* out_val)
+        {
+            uint64_t constant_type_scope, constant_value_scope;
+            if (!stream->read_elem(&constant_type_scope))
+                return false;
+
+            out_val->type_space = constant_type_scope;
+            switch (out_val->type)
             {
-                uint64_t constant_type_scope, constant_value_scope;
-                if (!stream->read_elem(&constant_type_scope))
+            case wo::value::valuetype::struct_type:
+            {
+                uint64_t constant_struct_size;
+                if (!stream->read_elem(&constant_struct_size))
                     return false;
 
-                out_val->type_space = constant_type_scope;
-                switch (out_val->type)
+                out_val->set_struct_nogc(static_cast<uint16_t>(constant_struct_size));
+                for (uint16_t idx = 0; idx < constant_struct_size; ++idx)
                 {
-                case wo::value::valuetype::struct_type:
-                {
-                    uint64_t constant_struct_size;
-                    if (!stream->read_elem(&constant_struct_size))
+                    if (!read_value_from_buffer(&out_val->structs->m_values[idx]))
                         return false;
-
-                    out_val->set_struct_nogc(static_cast<uint16_t>(constant_struct_size));
-                    for (uint16_t idx = 0; idx < constant_struct_size; ++idx)
-                    {
-                        if (!read_value_from_buffer(&out_val->structs->m_values[idx]))
-                            return false;
-                    }
-                    break;
                 }
-                case wo::value::valuetype::string_type:
-                {
-                    uint32_t constant_string_pool_loc, constant_string_pool_size;
-                    if (!stream->read_elem(&constant_string_pool_loc)
-                        || !stream->read_elem(&constant_string_pool_size))
-                        return false;
-
-                    auto& loc = constant_string_index_for_update[out_val];
-                    loc.index = constant_string_pool_loc;
-                    loc.size = constant_string_pool_size;
-                    break;
-                }
-                case wo::value::valuetype::integer_type:
-                case wo::value::valuetype::real_type:
-                case wo::value::valuetype::handle_type:
-                case wo::value::valuetype::bool_type:
-                case wo::value::valuetype::invalid:
-                    if (!stream->read_elem(&constant_value_scope))
-                        return false;
-                    out_val->value_space = constant_value_scope;
-                    break;
-                default:
+                break;
+            }
+            case wo::value::valuetype::string_type:
+            {
+                uint32_t constant_string_pool_loc, constant_string_pool_size;
+                if (!stream->read_elem(&constant_string_pool_loc)
+                    || !stream->read_elem(&constant_string_pool_size))
                     return false;
-                }
 
-                return true;
-            };
+                auto& loc = constant_string_index_for_update[out_val];
+                loc.index = constant_string_pool_loc;
+                loc.size = constant_string_pool_size;
+                break;
+            }
+            case wo::value::valuetype::integer_type:
+            case wo::value::valuetype::real_type:
+            case wo::value::valuetype::handle_type:
+            case wo::value::valuetype::bool_type:
+            case wo::value::valuetype::invalid:
+                if (!stream->read_elem(&constant_value_scope))
+                    return false;
+                out_val->value_space = constant_value_scope;
+                break;
+            default:
+                return false;
+            }
+
+            return true;
+        };
 
         for (uint64_t ci = 0; ci < constant_value_count; ++ci)
         {
@@ -1072,12 +1072,12 @@ namespace wo
 
         auto restore_string_from_buffer =
             [&string_pool_buffer](const string_buffer_index& string_index, std::string* out_str)->bool
-            {
-                if (string_index.index + string_index.size > string_pool_buffer.size())
-                    return false;
-                *out_str = std::string(string_pool_buffer.data() + string_index.index, string_index.size);
-                return true;
-            };
+        {
+            if (string_index.index + string_index.size > string_pool_buffer.size())
+                return false;
+            *out_str = std::string(string_pool_buffer.data() + string_index.index, string_index.size);
+            return true;
+        };
 
         std::string constant_string;
         for (auto& [store_value, string_index] : constant_string_index_for_update)
@@ -1439,6 +1439,124 @@ namespace wo
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+    uint32_t ir_compiler::_check_constant_and_give_storage_idx(
+        const ast::AstValueBase::ConstantValue& constant)noexcept
+    {
+        auto fnd = constant_record_list.find(constant);
+        if (fnd != constant_record_list.end())
+            return fnd->second;
+
+        if (constant.m_type == ast::AstValueBase::ConstantValue::Type::STRUCT)
+        {
+            // Check and add constant record for tuple constant.
+            auto& struct_constant = constant.value_struct();
+
+            for (size_t idx = 0; idx < struct_constant.m_count; ++idx)
+                (void)_check_constant_and_give_storage_idx(
+                    struct_constant.m_elements[idx]);
+        }
+
+        auto result = constant_record_list.insert(
+            std::make_pair(
+                constant,
+                static_cast<uint32_t>(constant_record_list.size())));
+
+        wo_assert(result.second);
+        return result.first->second;
+    }
+
+    void ir_compiler::apply_value_to_constant_instance(
+        value* constant_value_pool,
+        const ast::AstValueBase::ConstantValue& constant_value,
+        uint32_t this_constant_index,
+        TagOffsetLocatedInConstantTableOffsetRecordT& out_record) noexcept
+    {
+        auto& out_value = constant_value_pool[this_constant_index];
+        switch (constant_value.m_type)
+        {
+        case ast::AstValueBase::ConstantValue::Type::NIL:
+            out_value.set_nil();
+            break;
+        case ast::AstValueBase::ConstantValue::Type::BOOL:
+            out_value.set_bool(constant_value.value_bool());
+            break;
+        case ast::AstValueBase::ConstantValue::Type::INTEGER:
+            out_value.set_integer(constant_value.value_integer());
+            break;
+        case ast::AstValueBase::ConstantValue::Type::HANDLE:
+            out_value.set_handle(constant_value.value_handle());
+            break;
+        case ast::AstValueBase::ConstantValue::Type::REAL:
+            out_value.set_real(constant_value.value_real());
+            break;
+        case ast::AstValueBase::ConstantValue::Type::PSTRING:
+        {
+            wo_pstring_t pstring_constant = constant_value.value_pstring();
+            out_value.set_string_nogc(
+                wo::wstrn_to_str(pstring_constant->data(), pstring_constant->size()));
+            break;
+        }
+        case ast::AstValueBase::ConstantValue::Type::STRUCT:
+        {
+            auto& struct_constant = constant_value.value_struct();
+            auto* struct_instance = out_value.set_struct_nogc(
+                static_cast<uint16_t>(struct_constant.m_count))->structs;
+
+            for (size_t i = 0; i < struct_constant.m_count; ++i)
+            {
+                auto& element_constant = struct_constant.m_elements[i];
+
+                auto element_const_index = constant_record_list.at(element_constant);
+                wo_assert(element_const_index < this_constant_index);
+
+                struct_instance->m_values[i].set_val_with_compile_time_check(
+                    &constant_value_pool[element_const_index]);
+
+                auto function = element_constant.value_try_function();
+                if (function.has_value())
+                {
+                    out_record.at(LangContext::IR_function_label(function.value()))
+                        .m_offset_in_tuple.emplace_back(
+                            std::make_pair(this_constant_index, static_cast<uint16_t>(i)));
+                }
+            }
+            break;
+        }
+        case ast::AstValueBase::ConstantValue::Type::FUNCTION:
+        {
+            auto result = out_record.insert(
+                std::make_pair(
+                    LangContext::IR_function_label(constant_value.value_function()),
+                    TagOffsetInConstantOffset{ this_constant_index }));
+
+            (void)result;
+            wo_assert(result.second);
+
+            out_value.set_integer(-1);
+            break;
+        }
+        default:
+            wo_error("Unknown constant value type.");
+        }
+    }
+
+    opnum::opnumbase* ir_compiler::_check_and_add_const(opnum::opnumbase* _opnum) noexcept
+    {
+        if (auto* _immbase = dynamic_cast<opnum::immbase*>(_opnum))
+        {
+            if (!_immbase->constant_index.has_value())
+                _immbase->constant_index.emplace(
+                    _check_constant_and_give_storage_idx(
+                        _immbase->constant_value));
+        }
+        else if (auto* _global = dynamic_cast<opnum::global*>(_opnum))
+        {
+            wo_assert(_global->offset >= 0);
+            global_record_list.push_back(_global);
+        }
+
+        return _opnum;
+    }
     shared_pointer<runtime_env> ir_compiler::finalize()
     {
         // 1. Generate constant & global & register & runtime_stack memory buffer
@@ -1468,27 +1586,24 @@ namespace wo
         cxx_vec_t<byte_t> generated_runtime_code_buf; // It will be put to 16 byte allign mem place.
 
         std::map<std::string, cxx_vec_t<size_t>> jmp_record_table;
-        std::map<std::string, cxx_vec_t<size_t>> jmp_record_table_for_immtag;
+        TagOffsetLocatedInConstantTableOffsetRecordT jmp_record_table_for_immtag;
         std::map<std::string, uint32_t> tag_offset_vector_table;
 
         wo_assert(preserved_memory, "Alloc memory fail.");
 
         memset(preserved_memory, 0, preserve_memory_size * sizeof(wo::value));
         //  // Fill constant
-        for (auto constant_record : constant_record_list)
+        for (auto& [constant_value, constant_index] : constant_record_list)
         {
-            size_t constant_index = (size_t)constant_record->constant_index.value();
             wo_assert(constant_index < constant_value_count,
                 "Constant index out of range.");
 
-            constant_record->apply_to_constant_instance(
-                &preserved_memory[constant_index]);
+            apply_value_to_constant_instance(
+                preserved_memory,
+                constant_value,
+                constant_index,
+                jmp_record_table_for_immtag);
 
-            if (auto* addr_tagimm_rsfunc = dynamic_cast<opnum::tagimm_rsfunc*>(constant_record))
-            {
-                jmp_record_table_for_immtag[addr_tagimm_rsfunc->name].push_back(
-                    constant_index);
-            }
         }
 
         // 2. Generate code
@@ -2282,12 +2397,24 @@ namespace wo
 
         for (auto& [tag, imm_value_offsets] : jmp_record_table_for_immtag)
         {
-            uint32_t offset_val = tag_offset_vector_table[tag];
-            for (auto imm_value_offset : imm_value_offsets)
+            uint32_t offset_val = tag_offset_vector_table.at(tag);
+
+            env->meta_data_for_jit._functions_def_constant_idx_for_jit.push_back(
+                imm_value_offsets.m_offset_in_constant);
+
+            wo_assert(preserved_memory[imm_value_offsets.m_offset_in_constant].type
+                == value::valuetype::integer_type);
+
+            preserved_memory[imm_value_offsets.m_offset_in_constant].integer =
+                (wo_integer_t)offset_val;
+
+            for (auto& [constant_offset, tuple_offset] : imm_value_offsets.m_offset_in_tuple)
             {
-                env->meta_data_for_jit._functions_def_constant_idx_for_jit.push_back(imm_value_offset);
-                wo_assert(preserved_memory[imm_value_offset].type == value::valuetype::integer_type);
-                preserved_memory[imm_value_offset].integer = (wo_integer_t)offset_val;
+                wo_assert(preserved_memory[constant_offset].type == value::valuetype::struct_type
+                    && preserved_memory[constant_offset].structs->m_values[tuple_offset].type == value::valuetype::integer_type);
+
+                preserved_memory[constant_offset].structs->m_values[tuple_offset].integer =
+                    (wo_integer_t)offset_val;
             }
         }
 

@@ -144,9 +144,6 @@ namespace wo
         };
         struct immbase :virtual opnumbase
         {
-            virtual ~immbase()
-            {
-            }
         protected:
             explicit immbase(const bool* val)
                 : constant_index(std::nullopt)
@@ -191,53 +188,13 @@ namespace wo
             {
             }
         public:
-            std::optional<int32_t> constant_index;
+            std::optional<uint32_t> constant_index;
             ast::AstValueBase::ConstantValue constant_value;
-            
+
             explicit immbase(const ast::AstValueBase::ConstantValue& val)
                 : constant_index(std::nullopt)
                 , constant_value(val)
             {
-            }
-
-            static void apply_value_to_constant_instance(
-                const ast::AstValueBase::ConstantValue& a, value* out_value)
-            {
-                switch (a.m_type)
-                {
-                case ast::AstValueBase::ConstantValue::Type::NIL:
-                    out_value->set_nil();
-                    break;
-                case ast::AstValueBase::ConstantValue::Type::BOOL:
-                    out_value->set_bool(a.value_bool());
-                    break;
-                case ast::AstValueBase::ConstantValue::Type::INTEGER:
-                    out_value->set_integer(a.value_integer());
-                    break;
-                case ast::AstValueBase::ConstantValue::Type::HANDLE:
-                    out_value->set_handle(a.value_handle());
-                    break;
-                case ast::AstValueBase::ConstantValue::Type::REAL:
-                    out_value->set_real(a.value_real());
-                    break;
-                case ast::AstValueBase::ConstantValue::Type::PSTRING:
-                {
-                    wo_pstring_t pstring_constant = a.value_pstring();
-                    out_value->set_string_nogc(
-                        wo::wstrn_to_str(pstring_constant->data(), pstring_constant->size()));
-                    break;
-                }
-                case ast::AstValueBase::ConstantValue::Type::STRUCT:
-                {
-                    wo_error("TODO;");
-                    break;
-                }
-                case ast::AstValueBase::ConstantValue::Type::FUNCTION:
-                    out_value->set_integer(-1);
-                    break;
-                default:
-                    wo_error("Unknown constant value type.");
-                }
             }
 
             bool operator < (const immbase& another) const
@@ -248,14 +205,11 @@ namespace wo
             {
                 return constant_value.m_type;
             }
-            void apply_to_constant_instance(value* out_value) const
-            {
-                apply_value_to_constant_instance(constant_value, out_value);
-            }
             size_t generate_opnum_to_buffer(cxx_vec_t<byte_t>& buffer) const override
             {
-                int32_t constant_index_ = constant_index.value();
-                byte_t* buf = (byte_t*)&constant_index_;
+                const byte_t* buf =
+                    reinterpret_cast<const byte_t*>(
+                        &constant_index.value());
 
                 buffer.push_back(buf[0]);
                 buffer.push_back(buf[1]);
@@ -625,45 +579,37 @@ namespace wo
             }
         };
 
-        cxx_set_t<opnum::immbase*, immless> constant_record_list;
-        cxx_vec_t<opnum::global*>           global_record_list;
-        cxx_vec_t<opnum::opnumbase*>        _created_opnum_buffer;
+        cxx_map_t<ast::AstValueBase::ConstantValue, uint32_t>
+            constant_record_list;
+        cxx_vec_t<opnum::global*>                   global_record_list;
+        cxx_vec_t<opnum::opnumbase*>                created_opnum_buffer;
 
         template<typename T>
         T* _created_opnum_item(const T& _opn) noexcept
         {
             auto result = new T(_opn);
-            _created_opnum_buffer.push_back(result);
+            created_opnum_buffer.push_back(result);
             return result;
         }
 
-        opnum::opnumbase* _check_and_add_const(opnum::opnumbase* _opnum) noexcept
+        struct TagOffsetInConstantOffset
         {
-            if (auto* _immbase = dynamic_cast<opnum::immbase*>(_opnum))
-            {
-                if (!_immbase->constant_index.has_value())
-                {
-                    if (auto fnd = constant_record_list.find(_immbase);
-                        fnd == constant_record_list.end())
-                    {
-                        _immbase->constant_index = (int32_t)constant_record_list.size();
-                        constant_record_list.insert(_immbase);
-                    }
-                    else
-                    {
-                        // already have record.
-                        _immbase->constant_index = (*fnd)->constant_index;
-                    }
-                }
-            }
-            else if (auto* _global = dynamic_cast<opnum::global*>(_opnum))
-            {
-                wo_assert(_global->offset >= 0);
-                global_record_list.push_back(_global);
-            }
+            uint32_t m_offset_in_constant;
+            std::list<std::pair<uint32_t, uint16_t>> m_offset_in_tuple;
+        };
+        using TagOffsetLocatedInConstantTableOffsetRecordT =
+            std::map<std::string, TagOffsetInConstantOffset>;
 
-            return _opnum;
-        }
+        uint32_t _check_constant_and_give_storage_idx(
+            const ast::AstValueBase::ConstantValue& constant) noexcept;
+
+        void apply_value_to_constant_instance(
+            value* constant_value_pool,
+            const ast::AstValueBase::ConstantValue& constant_value,
+            uint32_t this_constant_index,
+            TagOffsetLocatedInConstantTableOffsetRecordT& out_record) noexcept;
+
+        opnum::opnumbase* _check_and_add_const(opnum::opnumbase* _opnum) noexcept;
     public:
         rslib_extern_symbols::extern_lib_set loaded_libraries;
         shared_pointer<program_debug_data_info> pdb_info = new program_debug_data_info();
@@ -671,7 +617,7 @@ namespace wo
 
         ~ir_compiler()
         {
-            for (auto* created_opnum : _created_opnum_buffer)
+            for (auto* created_opnum : created_opnum_buffer)
                 delete created_opnum;
         }
 
@@ -687,7 +633,11 @@ namespace wo
         {
             ir_command_buffer.resize(ip);
         }
-        void record_extern_native_function(intptr_t function, const std::wstring& script_path, const std::optional<std::wstring>& library_name, const std::wstring& function_name)
+        void record_extern_native_function(
+            intptr_t function,
+            const std::wstring& script_path,
+            const std::optional<std::wstring>& library_name,
+            const std::wstring& function_name)
         {
             if (extern_native_functions.find(function) == extern_native_functions.end())
             {
