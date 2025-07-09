@@ -804,7 +804,8 @@ namespace wo
                                 continue;
 
                             auto& captured_context = constant.value()->m_LANG_captured_context;
-                            if (!captured_context.m_finished || !captured_context.m_captured_variables.empty())
+                            if (!captured_context.m_finished 
+                                || !captured_context.m_captured_variables.empty())
                             {
                                 bad_template_instance = true;
                                 break;
@@ -815,7 +816,6 @@ namespace wo
                             // Skip bad instance.
                             continue;
                     }
-
                     if (!template_value_instance->IR_need_storage())
                     {
                         // No need storage.
@@ -824,9 +824,6 @@ namespace wo
 
                         if (function.has_value())
                         {
-                            wo_assert(function.value()->m_LANG_value_instance_to_update.value()
-                                == template_value_instance);
-
                             // We still eval the function to let compiler know the function.
                             m_ircontext.eval_ignore();
                             if (!pass_final_value(lex, function.value()))
@@ -876,7 +873,6 @@ namespace wo
             else
             {
                 // Not template, but need storage.
-
                 bool fast_eval = pattern_symbol->m_value_instance->m_IR_storage.has_value()
                     && _is_storage_can_addressing(pattern_symbol->m_value_instance->m_IR_storage.value());
 
