@@ -160,7 +160,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
 #define WO_ASMJIT_IR_ITERFACE_DECL(IRNAME) virtual bool ir_##IRNAME(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
         IRS
 
-        virtual bool ir_ext_panic(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
+            virtual bool ir_ext_panic(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
         virtual bool ir_ext_packargs(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
         virtual bool ir_ext_cdivilr(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
         virtual bool ir_ext_cdivil(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
@@ -410,18 +410,46 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             }
             _dependence_jit_function.clear();
 
-            for (size_t funtions_constant_offset : env->meta_data_for_jit._functions_def_constant_idx_for_jit)
+            for (auto funtions_constant_offset : env->meta_data_for_jit._functions_constant_idx_for_jit)
             {
                 auto* val = &env->constant_and_global_storage[funtions_constant_offset];
                 wo_assert(val->type == value::valuetype::integer_type);
 
-                auto holder = env->meta_data_for_jit._jit_code_holder[(size_t)val->integer];
-                wo_assert(holder != nullptr && *holder != nullptr);
+                auto& func_state = m_compiling_functions.at(codebuf + val->integer);
+                if (func_state->m_state == function_jit_state::state::FINISHED)
+                {
+                    wo_assert(func_state->m_func != nullptr
+                        && *func_state->m_func != nullptr);
 
-                val->type = value::valuetype::handle_type;
-                val->handle = (wo_handle_t)(void*)*holder;
+                    val->type = value::valuetype::handle_type;
+                    val->handle = (wo_handle_t)reinterpret_cast<intptr_t>(*func_state->m_func);
+                }
+                else
+                    wo_assert(func_state->m_state == function_jit_state::state::FAILED);
             }
-            for (size_t calln_offset : env->meta_data_for_jit._calln_opcode_offsets_for_jit)
+            for (auto& [tuple_constant_offset, function_index] :
+                env->meta_data_for_jit._functions_constant_in_tuple_idx_for_jit)
+            {
+                auto* val = &env->constant_and_global_storage[tuple_constant_offset];
+                wo_assert(val->type == value::valuetype::struct_type
+                    && function_index < val->structs->m_count);
+
+                auto& func_val = val->structs->m_values[function_index];
+                wo_assert(func_val.type == value::valuetype::integer_type);
+
+                auto& func_state = m_compiling_functions.at(codebuf + func_val.integer);
+                if (func_state->m_state == function_jit_state::state::FINISHED)
+                {
+                    wo_assert(func_state->m_func != nullptr
+                        && *func_state->m_func != nullptr);
+
+                    func_val.type = value::valuetype::handle_type;
+                    func_val.handle = (wo_handle_t)reinterpret_cast<intptr_t>(*func_state->m_func);
+                }
+                else
+                    wo_assert(func_state->m_state == function_jit_state::state::FAILED);
+            }
+            for (auto calln_offset : env->meta_data_for_jit._calln_opcode_offsets_for_jit)
             {
                 wo::instruct::opcode* calln = (wo::instruct::opcode*)(codebuf + calln_offset);
                 wo_assert(((*calln) & 0b11111100) == wo::instruct::opcode::calln);
@@ -449,7 +477,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
                 else
                     wo_assert(func_state->m_state == function_jit_state::state::FAILED);
             }
-            for (size_t mkclos_offset : env->meta_data_for_jit._mkclos_opcode_offsets_for_jit)
+            for (auto mkclos_offset : env->meta_data_for_jit._mkclos_opcode_offsets_for_jit)
             {
                 wo::instruct::opcode* mkclos = (wo::instruct::opcode*)(codebuf + mkclos_offset);
                 wo_assert(((*mkclos) & 0b11111100) == wo::instruct::opcode::mkclos);
@@ -937,9 +965,9 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
                     auto offset = (size_t)
                         (m_constant - ctx->env->constant_and_global_storage);
                     if (std::find(
-                        ctx->env->meta_data_for_jit._functions_def_constant_idx_for_jit.begin(),
-                        ctx->env->meta_data_for_jit._functions_def_constant_idx_for_jit.end(),
-                        offset) == ctx->env->meta_data_for_jit._functions_def_constant_idx_for_jit.end())
+                        ctx->env->meta_data_for_jit._functions_constant_idx_for_jit.begin(),
+                        ctx->env->meta_data_for_jit._functions_constant_idx_for_jit.end(),
+                        offset) == ctx->env->meta_data_for_jit._functions_constant_idx_for_jit.end())
                         return true;
                 };
                 return false;
@@ -1011,8 +1039,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
         }
         virtual void ir_make_checkpoint_normalcheck(X64CompileContext* ctx, const byte_t*& rt_ip, const std::optional<asmjit::Label>& label) override
         {
-            auto no_interrupt_label = 
-                label.has_value()? label.value() : ctx->c.newLabel();
+            auto no_interrupt_label =
+                label.has_value() ? label.value() : ctx->c.newLabel();
 
             auto result = ctx->c.newInt32();
 
@@ -2888,5 +2916,5 @@ namespace wo
     void free_jit(runtime_env* env)
     {
     }
-}
+        }
 #endif

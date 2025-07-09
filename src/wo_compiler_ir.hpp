@@ -356,10 +356,16 @@ namespace wo
     {
         struct jit_meta
         {
-            std::vector<size_t> _functions_offsets_for_jit;
-            std::vector<size_t> _functions_def_constant_idx_for_jit;
-            std::vector<size_t> _calln_opcode_offsets_for_jit;
-            std::vector<size_t> _mkclos_opcode_offsets_for_jit;
+            std::vector<uint32_t /* rtcode offset */>
+                _functions_offsets_for_jit;
+            std::vector<uint32_t /* constant offset */>
+                _functions_constant_idx_for_jit;
+            std::vector<std::pair<uint32_t /* constant offset */, uint16_t /* tuple offset */>>
+                _functions_constant_in_tuple_idx_for_jit;
+            std::vector<uint32_t /* rtcode offset */>
+                _calln_opcode_offsets_for_jit;
+            std::vector<uint32_t /* rtcode offset */>
+                _mkclos_opcode_offsets_for_jit;
 
             std::unordered_map<size_t, wo_native_func_t*> _jit_code_holder;
 
@@ -580,9 +586,13 @@ namespace wo
         };
 
         cxx_map_t<ast::AstValueBase::ConstantValue, uint32_t>
-            constant_record_list;
-        cxx_vec_t<opnum::global*>                   global_record_list;
-        cxx_vec_t<opnum::opnumbase*>                created_opnum_buffer;
+            constant_record_to_index_mapping;
+        std::list<const ast::AstValueBase::ConstantValue*> 
+            ordered_constant_record_list;
+        cxx_vec_t<opnum::global*>                   
+            global_record_list;
+        cxx_vec_t<opnum::opnumbase*>                
+            created_opnum_buffer;
 
         template<typename T>
         T* _created_opnum_item(const T& _opn) noexcept

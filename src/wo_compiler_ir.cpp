@@ -544,6 +544,7 @@ namespace wo
                 write_value_to_buffer(struct_instance->m_values[idx]);
             }
         };
+
         write_value_to_buffer =
             [this,
             &write_binary_to_buffer,
@@ -659,28 +660,24 @@ namespace wo
 
         // 5.1 JIT Informations
         write_binary_to_buffer((uint64_t)meta_data_for_jit._functions_offsets_for_jit.size(), 8);
-        for (size_t function_offset : meta_data_for_jit._functions_offsets_for_jit)
-        {
-            write_binary_to_buffer((uint64_t)function_offset, 8);
-        }
-
-        write_binary_to_buffer((uint64_t)meta_data_for_jit._functions_def_constant_idx_for_jit.size(), 8);
-        for (size_t function_constant_offset : meta_data_for_jit._functions_def_constant_idx_for_jit)
-        {
-            write_binary_to_buffer((uint64_t)function_constant_offset, 8);
-        }
-
+        write_binary_to_buffer((uint64_t)meta_data_for_jit._functions_constant_idx_for_jit.size(), 8);
+        write_binary_to_buffer((uint64_t)meta_data_for_jit._functions_constant_in_tuple_idx_for_jit.size(), 8);
         write_binary_to_buffer((uint64_t)meta_data_for_jit._calln_opcode_offsets_for_jit.size(), 8);
-        for (size_t calln_offset : meta_data_for_jit._calln_opcode_offsets_for_jit)
-        {
-            write_binary_to_buffer((uint64_t)calln_offset, 8);
-        }
-
         write_binary_to_buffer((uint64_t)meta_data_for_jit._mkclos_opcode_offsets_for_jit.size(), 8);
-        for (size_t mkclos_offset : meta_data_for_jit._mkclos_opcode_offsets_for_jit)
+
+        for (uint32_t function_offset : meta_data_for_jit._functions_offsets_for_jit)
+            write_binary_to_buffer((uint32_t)function_offset, 4);
+        for (uint32_t function_constant_offset : meta_data_for_jit._functions_constant_idx_for_jit)
+            write_binary_to_buffer((uint32_t)function_constant_offset, 4);
+        for (auto& [constant_offset, tuple_offset] : meta_data_for_jit._functions_constant_in_tuple_idx_for_jit)
         {
-            write_binary_to_buffer((uint64_t)mkclos_offset, 8);
+            write_binary_to_buffer((uint32_t)constant_offset, 4);
+            write_binary_to_buffer((uint32_t)tuple_offset, 4);
         }
+        for (uint32_t calln_offset : meta_data_for_jit._calln_opcode_offsets_for_jit)
+            write_binary_to_buffer((uint32_t)calln_offset, 4);
+        for (uint32_t mkclos_offset : meta_data_for_jit._mkclos_opcode_offsets_for_jit)
+            write_binary_to_buffer((uint32_t)mkclos_offset, 4);
 
         // 6.1 Constant string buffer
         auto& constant_string_buffer = constant_string_pool.get_pool();
@@ -1018,47 +1015,60 @@ namespace wo
 
         // 5.1 JIT Informations
         uint64_t _functions_offsets_count = 0;
+        uint64_t _functions_constant_offsets_count = 0;
+        uint64_t _functions_constant_in_tuple_offsets_count = 0;
+        uint64_t _calln_opcode_offsets_count = 0;
+        uint64_t _mkclos_opcode_offsets_count = 0;
+
         if (!stream->read_elem(&_functions_offsets_count))
             WO_LOAD_BIN_FAILED("Failed to restore functions offset count.");
-        for (uint64_t i = 0; i < _functions_offsets_count; ++i)
-        {
-            uint64_t offset = 0;
-            if (!stream->read_elem(&offset))
-                WO_LOAD_BIN_FAILED("Failed to restore functions offset.");
-            result->meta_data_for_jit._functions_offsets_for_jit.push_back((size_t)offset);
-        }
-
-        uint64_t _functions_constant_offsets_count = 0;
         if (!stream->read_elem(&_functions_constant_offsets_count))
             WO_LOAD_BIN_FAILED("Failed to restore functions constant offset count.");
-        for (uint64_t i = 0; i < _functions_constant_offsets_count; ++i)
-        {
-            uint64_t offset = 0;
-            if (!stream->read_elem(&offset))
-                WO_LOAD_BIN_FAILED("Failed to restore functions offset.");
-            result->meta_data_for_jit._functions_def_constant_idx_for_jit.push_back((size_t)offset);
-        }
-
-        uint64_t _calln_opcode_offsets_count = 0;
+        if (!stream->read_elem(&_functions_constant_in_tuple_offsets_count))
+            WO_LOAD_BIN_FAILED("Failed to restore functions constant in tuple offset count.");
         if (!stream->read_elem(&_calln_opcode_offsets_count))
             WO_LOAD_BIN_FAILED("Failed to restore calln offset count.");
-        for (uint64_t i = 0; i < _calln_opcode_offsets_count; ++i)
-        {
-            uint64_t offset = 0;
-            if (!stream->read_elem(&offset))
-                WO_LOAD_BIN_FAILED("Failed to restore calln offset.");
-            result->meta_data_for_jit._calln_opcode_offsets_for_jit.push_back((size_t)offset);
-        }
-
-        uint64_t _mkclos_opcode_offsets_count = 0;
         if (!stream->read_elem(&_mkclos_opcode_offsets_count))
             WO_LOAD_BIN_FAILED("Failed to restore mkclos offset count.");
+
+        for (uint64_t i = 0; i < _functions_offsets_count; ++i)
+        {
+            uint32_t offset = 0;
+            if (!stream->read_elem(&offset))
+                WO_LOAD_BIN_FAILED("Failed to restore functions offset.");
+            result->meta_data_for_jit._functions_offsets_for_jit.push_back(offset);
+        }
+        for (uint64_t i = 0; i < _functions_constant_offsets_count; ++i)
+        {
+            uint32_t offset = 0;
+            if (!stream->read_elem(&offset))
+                WO_LOAD_BIN_FAILED("Failed to restore functions offset.");
+            result->meta_data_for_jit._functions_constant_idx_for_jit.push_back(offset);
+        }
+        for (uint64_t i = 0; i < _functions_constant_in_tuple_offsets_count; ++i)
+        {
+            uint32_t offset = 0;
+            uint32_t index = 0;
+            if (!stream->read_elem(&offset))
+                WO_LOAD_BIN_FAILED("Failed to restore functions in tuple offset.");
+            if (!stream->read_elem(&index))
+                WO_LOAD_BIN_FAILED("Failed to restore functions in tuple index.");
+            result->meta_data_for_jit._functions_constant_in_tuple_idx_for_jit.emplace_back(
+                std::make_pair(offset, (uint16_t)index));
+        }
+        for (uint64_t i = 0; i < _calln_opcode_offsets_count; ++i)
+        {
+            uint32_t offset = 0;
+            if (!stream->read_elem(&offset))
+                WO_LOAD_BIN_FAILED("Failed to restore calln offset.");
+            result->meta_data_for_jit._calln_opcode_offsets_for_jit.push_back(offset);
+        }
         for (uint64_t i = 0; i < _mkclos_opcode_offsets_count; ++i)
         {
-            uint64_t offset = 0;
+            uint32_t offset = 0;
             if (!stream->read_elem(&offset))
                 WO_LOAD_BIN_FAILED("Failed to restore mkclos offset.");
-            result->meta_data_for_jit._mkclos_opcode_offsets_for_jit.push_back((size_t)offset);
+            result->meta_data_for_jit._mkclos_opcode_offsets_for_jit.push_back(offset);
         }
 
         // 6.1 Constant string buffer
@@ -1442,8 +1452,8 @@ namespace wo
     uint32_t ir_compiler::_check_constant_and_give_storage_idx(
         const ast::AstValueBase::ConstantValue& constant)noexcept
     {
-        auto fnd = constant_record_list.find(constant);
-        if (fnd != constant_record_list.end())
+        auto fnd = constant_record_to_index_mapping.find(constant);
+        if (fnd != constant_record_to_index_mapping.end())
             return fnd->second;
 
         if (constant.m_type == ast::AstValueBase::ConstantValue::Type::STRUCT)
@@ -1456,10 +1466,12 @@ namespace wo
                     struct_constant.m_elements[idx]);
         }
 
-        auto result = constant_record_list.insert(
+        auto result = constant_record_to_index_mapping.insert(
             std::make_pair(
                 constant,
-                static_cast<uint32_t>(constant_record_list.size())));
+                static_cast<uint32_t>(ordered_constant_record_list.size())));
+
+        ordered_constant_record_list.push_back(&result.first->first);
 
         wo_assert(result.second);
         return result.first->second;
@@ -1506,7 +1518,7 @@ namespace wo
             {
                 auto& element_constant = struct_constant.m_elements[i];
 
-                auto element_const_index = constant_record_list.at(element_constant);
+                auto element_const_index = constant_record_to_index_mapping.at(element_constant);
                 wo_assert(element_const_index < this_constant_index);
 
                 struct_instance->m_values[i].set_val_with_compile_time_check(
@@ -1560,7 +1572,7 @@ namespace wo
     shared_pointer<runtime_env> ir_compiler::finalize()
     {
         // 1. Generate constant & global & register & runtime_stack memory buffer
-        size_t constant_value_count = constant_record_list.size();
+        size_t constant_value_count = constant_record_to_index_mapping.size();
 
         size_t global_value_count = 0;
 
@@ -1593,17 +1605,19 @@ namespace wo
 
         memset(preserved_memory, 0, preserve_memory_size * sizeof(wo::value));
         //  // Fill constant
-        for (auto& [constant_value, constant_index] : constant_record_list)
+        uint32_t constant_index = 0;
+        for (auto* constant_value : ordered_constant_record_list)
         {
             wo_assert(constant_index < constant_value_count,
                 "Constant index out of range.");
 
             apply_value_to_constant_instance(
                 preserved_memory,
-                constant_value,
+                *constant_value,
                 constant_index,
                 jmp_record_table_for_immtag);
 
+            ++constant_index;
         }
 
         // 2. Generate code
@@ -2104,7 +2118,8 @@ namespace wo
                 case instruct::opcode::calln:
                     if (WO_IR.op2)
                     {
-                        env->meta_data_for_jit._calln_opcode_offsets_for_jit.push_back(generated_runtime_code_buf.size());
+                        env->meta_data_for_jit._calln_opcode_offsets_for_jit.push_back(
+                            (uint32_t)generated_runtime_code_buf.size());
 
                         wo_assert(dynamic_cast<const opnum::tag*>(WO_IR.op2) != nullptr, "Operator num should be a tag.");
 
@@ -2150,7 +2165,8 @@ namespace wo
                     }
                     else
                     {
-                        env->meta_data_for_jit._calln_opcode_offsets_for_jit.push_back(generated_runtime_code_buf.size());
+                        env->meta_data_for_jit._calln_opcode_offsets_for_jit.push_back(
+                            (uint32_t)generated_runtime_code_buf.size());
 
                         generated_runtime_code_buf.push_back(WO_OPCODE(calln, 00));
 
@@ -2212,7 +2228,8 @@ namespace wo
                 }
                 case instruct::mkclos:
                 {
-                    env->meta_data_for_jit._mkclos_opcode_offsets_for_jit.push_back(generated_runtime_code_buf.size());
+                    env->meta_data_for_jit._mkclos_opcode_offsets_for_jit.push_back(
+                        (uint32_t)generated_runtime_code_buf.size());
 
                     generated_runtime_code_buf.push_back(WO_OPCODE(mkclos, 00));
 
@@ -2347,7 +2364,8 @@ namespace wo
                         {
                         case instruct::extern_opcode_page_3::funcbegin:
                             generated_runtime_code_buf.push_back(WO_OPCODE_EXT3(funcbegin));
-                            env->meta_data_for_jit._functions_offsets_for_jit.push_back(generated_runtime_code_buf.size());
+                            env->meta_data_for_jit._functions_offsets_for_jit.push_back(
+                                (uint32_t)generated_runtime_code_buf.size());
                             break;
                         case instruct::extern_opcode_page_3::funcend:
                             generated_runtime_code_buf.push_back(WO_OPCODE_EXT3(funcend));
@@ -2399,20 +2417,22 @@ namespace wo
         {
             uint32_t offset_val = tag_offset_vector_table.at(tag);
 
-            env->meta_data_for_jit._functions_def_constant_idx_for_jit.push_back(
-                imm_value_offsets.m_offset_in_constant);
-
             wo_assert(preserved_memory[imm_value_offsets.m_offset_in_constant].type
                 == value::valuetype::integer_type);
 
+            env->meta_data_for_jit._functions_constant_idx_for_jit.push_back(
+                imm_value_offsets.m_offset_in_constant);
             preserved_memory[imm_value_offsets.m_offset_in_constant].integer =
                 (wo_integer_t)offset_val;
 
             for (auto& [constant_offset, tuple_offset] : imm_value_offsets.m_offset_in_tuple)
             {
                 wo_assert(preserved_memory[constant_offset].type == value::valuetype::struct_type
-                    && preserved_memory[constant_offset].structs->m_values[tuple_offset].type == value::valuetype::integer_type);
+                    && preserved_memory[constant_offset].structs->m_values[tuple_offset].type
+                    == value::valuetype::integer_type);
 
+                env->meta_data_for_jit._functions_constant_in_tuple_idx_for_jit.emplace_back(
+                    std::make_pair(constant_offset, tuple_offset));
                 preserved_memory[constant_offset].structs->m_values[tuple_offset].integer =
                     (wo_integer_t)offset_val;
             }

@@ -2970,7 +2970,7 @@ namespace tuple
             ? false
             | is_lat:<cdr_t<T>>;
     public func car<T>(t: T)
-        where length:<T> > 0 && Idx >= 0;
+        where length:<T> > 0;
     {
         return t[0];
     }
