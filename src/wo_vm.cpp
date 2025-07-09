@@ -1726,6 +1726,7 @@ namespace wo
         for (;;)
         {
             opcode_dr = *(rt_ip++);
+
             opcode = (instruct::opcode)(opcode_dr & 0b11111100u);
             dr = opcode_dr & 0b00000011u;
 
