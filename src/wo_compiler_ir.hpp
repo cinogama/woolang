@@ -262,7 +262,10 @@ namespace wo
             {
             }
         };
-
+        struct imm_extfunc : virtual immbase
+        {
+            imm_extfunc(ast::AstValueFunction* func);
+        };
         struct tagimm_rsfunc :virtual tag, virtual immbase
         {
             tagimm_rsfunc(ast::AstValueFunction* func);

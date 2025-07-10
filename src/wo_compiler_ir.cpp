@@ -4,10 +4,17 @@ namespace wo
 {
     namespace opnum
     {
+        imm_extfunc::imm_extfunc(ast::AstValueFunction* func)
+            : immbase(&func)
+        {
+            wo_assert(func->m_IR_extern_information.has_value());
+        }
+
         tagimm_rsfunc::tagimm_rsfunc(ast::AstValueFunction* func)
             : tag(LangContext::IR_function_label(func))
             , immbase(&func)
         {
+            wo_assert(!func->m_IR_extern_information.has_value());
         }
     }
 #ifndef WO_DISABLE_COMPILER
