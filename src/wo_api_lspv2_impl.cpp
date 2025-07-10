@@ -810,4 +810,22 @@ void wo_lspv2_macro_info_free(wo_lspv2_macro_info* info)
     delete info;
 }
 
+wo_lspv2_constant_info* wo_lspv2_constant_get_info(
+    wo_lspv2_constant* constant, wo_lspv2_source_meta* meta)
+{
+    const wo::ast::ConstantValue* cvalue =
+        reinterpret_cast<const wo::ast::ConstantValue*>(constant);
+
+    return new wo_lspv2_constant_info{
+        _wo_strdup(
+            meta->m_langcontext_if_passed_grammar.value()->get_constant_str(
+                *cvalue).c_str())
+    };
+}
+
+void wo_lspv2_constant_info_free(wo_lspv2_constant_info* info)
+{
+    free(const_cast<char*>(info->m_expr));
+    delete info;
+}
 #endif

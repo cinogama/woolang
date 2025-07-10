@@ -751,6 +751,12 @@ typedef enum _wo_lspv2_symbol_kind
 typedef struct _wo_lspv2_type wo_lspv2_type;
 typedef struct _wo_lspv2_constant wo_lspv2_constant;
 
+typedef struct _wo_lspv2_constant_info
+{
+    const char* m_expr;
+
+} wo_lspv2_constant_info;
+
 typedef enum _wo_lspv2_template_param_kind
 {
     WO_LSPV2_TEMPLATE_PARAM_TYPE,
@@ -897,6 +903,11 @@ WO_API void wo_lspv2_type_info_free(wo_lspv2_type_info* info);
 WO_API wo_lspv2_type_struct_info* /* null if not struct */ wo_lspv2_type_get_struct_info(
     wo_lspv2_type* type, wo_lspv2_source_meta* meta);
 WO_API void wo_lspv2_type_struct_info_free(wo_lspv2_type_struct_info* info);
+
+// Constant API
+WO_API wo_lspv2_constant_info* wo_lspv2_constant_get_info(
+    wo_lspv2_constant* constant, wo_lspv2_source_meta* meta);
+WO_API void wo_lspv2_constant_info_free(wo_lspv2_constant_info* info);
 #endif
 
 #if defined(WO_NEED_ERROR_CODES)

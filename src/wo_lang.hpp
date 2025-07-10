@@ -815,6 +815,8 @@ namespace wo
             m_type_name_cache;
         std::unordered_map<lang_ValueInstance*, std::pair<std::wstring, std::string>>
             m_value_name_cache;
+        std::unordered_map<ast::AstValueFunction*, std::pair<std::wstring, std::string>>
+            m_function_name_cache;
 
         // Used for bytecode generation
         BytecodeGenerateContext m_ircontext;
@@ -1148,6 +1150,7 @@ namespace wo
         std::wstring _get_symbol_name(lang_Symbol* scope);
         std::wstring _get_type_name(lang_TypeInstance* scope);
         std::wstring _get_value_name(lang_ValueInstance* scope);
+        std::wstring _get_function_name(ast::AstValueFunction* func);
 
         const wchar_t* get_symbol_name_w(lang_Symbol* symbol);
         const char* get_symbol_name(lang_Symbol* symbol);
@@ -1155,6 +1158,8 @@ namespace wo
         const char* get_type_name(lang_TypeInstance* type);
         const wchar_t* get_value_name_w(lang_ValueInstance* val);
         const char* get_value_name(lang_ValueInstance* val);
+        const wchar_t* get_function_name_w(ast::AstValueFunction* func);
+        const char* get_function_name(ast::AstValueFunction* func);
         
         std::string get_constant_str(const ast::ConstantValue& val);
         std::wstring get_constant_str_w(const ast::ConstantValue& val);

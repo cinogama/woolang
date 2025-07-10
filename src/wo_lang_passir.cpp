@@ -12,8 +12,7 @@ namespace wo
     {
         wchar_t result[128];
         auto r = swprintf(result, 128, L"%ls_%p", prefix.c_str(), p);
-        if (r < 0 || r >= 128)
-            wo_error("Failed to generate label.");
+        wo_test(r >= 0 && r < 128, "Failed to generate label.");
 
         return wstring_pool::get_pstr(result);
     }

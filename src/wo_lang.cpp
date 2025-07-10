@@ -1422,50 +1422,6 @@ namespace wo
         return donot_have_unused_variable;
     }
 
-    std::string get_anonymous_function_name(LangContext* lctx, ast::AstValueFunction* anonymous_func)
-    {
-        if (anonymous_func->m_LANG_value_instance_to_update.has_value())
-        {
-            lang_ValueInstance* value_instance = anonymous_func->m_LANG_value_instance_to_update.value();
-            std::string name = lctx->get_value_name(value_instance);
-
-            lang_Scope* function_located_scope =
-                anonymous_func->m_LANG_function_scope.value()->m_parent_scope.value();
-
-            if (!function_located_scope->is_namespace_scope())
-            {
-                char local_name[32];
-                sprintf(local_name, "[local_%p]", function_located_scope);
-
-                auto function = lctx->get_scope_located_function(function_located_scope);
-                if (function.has_value())
-                    name =
-                    get_anonymous_function_name(lctx, function.value())
-                    + "::"
-                    + local_name
-                    + "::"
-                    + name;
-            }
-
-            return name;
-        }
-
-        std::string result;
-
-        lang_Scope* function_located_scope =
-            anonymous_func->m_LANG_function_scope.value()->m_parent_scope.value();
-
-        auto function = lctx->get_scope_located_function(function_located_scope);
-        if (function.has_value())
-            result += get_anonymous_function_name(lctx, function.value()) + "::";
-
-        char anonymous_name[32];
-        sprintf(anonymous_name, "[anonymous_%p]", anonymous_func);
-        result += anonymous_name;
-
-        return result;
-    }
-
     compile_result LangContext::process(lexer& lex, ast::AstBase* root)
     {
         for (auto& [_useless, macro_msg] : lex.get_declared_macro_list_for_debug())
@@ -1550,7 +1506,7 @@ namespace wo
                 m_ircontext.c().tag(IR_function_label(eval_function));
 
                 // Trying to register extern symbol.
-                std::string eval_fucntion_name = get_anonymous_function_name(this, eval_function);
+                std::string eval_fucntion_name = get_function_name(eval_function);
                 m_ircontext.c().pdb_info->generate_func_begin(
                     eval_fucntion_name,
                     eval_function,
@@ -2451,7 +2407,51 @@ namespace wo
 
         return result_value_name;
     }
+    std::wstring LangContext::_get_function_name(ast::AstValueFunction* func)
+    {
+        if (func->m_LANG_value_instance_to_update.has_value())
+        {
+            lang_ValueInstance* value_instance = func->m_LANG_value_instance_to_update.value();
+            std::wstring name = get_value_name_w(value_instance);
 
+            lang_Scope* function_located_scope =
+                func->m_LANG_function_scope.value()->m_parent_scope.value();
+
+            if (!function_located_scope->is_namespace_scope())
+            {
+                wchar_t local_name[48];
+                auto r = swprintf(local_name, 48, L"[local_%p]", function_located_scope);
+                wo_test(r >= 0 && r < 48, "Failed to generate function name.");
+
+                auto function = get_scope_located_function(function_located_scope);
+                if (function.has_value())
+                    name = get_function_name_w(function.value()) + (L"::" + (local_name + (L"::" + name)));
+            }
+            return name;
+        }
+
+        std::wstring result;
+
+        lang_Scope* function_located_scope =
+            func->m_LANG_function_scope.value()->m_parent_scope.value();
+
+        auto function = get_scope_located_function(function_located_scope);
+        if (function.has_value())
+            result += std::wstring(get_function_name_w(function.value())) + L"::";
+
+        wchar_t anonymous_name[48];
+        auto r = swprintf(anonymous_name, 48, L"[anonymous_%p@", func);
+        wo_test(r >= 0 && r < 48, "Failed to generate function name.");
+       
+        wo_assert(func->source_location.source_file != nullptr);
+        result += anonymous_name 
+            + *func->source_location.source_file 
+            + L":" 
+            + std::to_wstring(func->source_location.begin_at.row + 1)
+            + L"]";
+
+        return result;
+    }
     const wchar_t* LangContext::get_symbol_name_w(lang_Symbol* symbol)
     {
         auto fnd = m_symbol_name_cache.find(symbol);
@@ -2534,6 +2534,30 @@ namespace wo
             .first
             ->second.second.c_str();
     }
+    const wchar_t* LangContext::get_function_name_w(ast::AstValueFunction* func)
+    {
+        auto fnd = m_function_name_cache.find(func);
+        if (fnd != m_function_name_cache.end())
+            return fnd->second.first.c_str();
+
+        std::wstring result = _get_function_name(func);
+        return m_function_name_cache.insert(
+            std::make_pair(func, std::make_pair(result, wstrn_to_str(result))))
+            .first
+            ->second.first.c_str();
+    }
+    const char* LangContext::get_function_name(ast::AstValueFunction* func)
+    {
+        auto fnd = m_function_name_cache.find(func);
+        if (fnd != m_function_name_cache.end())
+            return fnd->second.second.c_str();
+
+        std::wstring result = _get_function_name(func);
+        return m_function_name_cache.insert(
+            std::make_pair(func, std::make_pair(result, wstrn_to_str(result))))
+            .first
+            ->second.second.c_str();
+    }
     std::string LangContext::get_constant_str(const ast::ConstantValue& val)
     {
         switch (val.m_type)
@@ -2575,11 +2599,10 @@ namespace wo
             return result;
         }
         case ast::ConstantValue::Type::FUNCTION:
+            return get_function_name(val.value_function());
         default:
             return "<?>";
         }
-
-
     }
     std::wstring LangContext::get_constant_str_w(const ast::ConstantValue& val)
     {
