@@ -43,18 +43,6 @@ namespace wo
 
         return wstring_pool::get_pstr(result);
     }
-    opnum::opnumbase* LangContext::IR_function_opnum(AstValueFunction* func)
-    {
-        if (func->m_IR_extern_information.has_value())
-        {
-            auto* extern_function_instance =
-                func->m_IR_extern_information.value()->m_IR_externed_function.value();
-
-            return m_ircontext.opnum_imm_handle(
-                (wo_handle_t)(intptr_t)(void*)extern_function_instance);
-        }
-        return m_ircontext.opnum_imm_rsfunc(func);
-    }
 
     void BytecodeGenerateContext::begin_loop_while(ast::AstWhile* ast)
     {
@@ -1018,7 +1006,7 @@ namespace wo
         if (node->m_LANG_captured_context.m_captured_variables.empty())
         {
             // Simple normal function
-            auto* function_opnum = IR_function_opnum(node);
+            auto* function_opnum = m_ircontext.opnum_func(node);
 
             m_ircontext.apply_eval_result(
                 [&](BytecodeGenerateContext::EvalResult& result)
@@ -1345,7 +1333,7 @@ namespace wo
                             (void*)invoking_function->m_IR_extern_information.value()->m_IR_externed_function.value());
                     }
                     else
-                        m_ircontext.c().call(WO_OPNUM(IR_function_opnum(invoking_function)));
+                        m_ircontext.c().call(WO_OPNUM(m_ircontext.opnum_func(invoking_function)));
                 }
                 else
                 {
@@ -1407,7 +1395,7 @@ namespace wo
                 [&](BytecodeGenerateContext::EvalResult& result)
                 {
                     const auto& target_storage = result.get_assign_target();
-                    auto* function_opnum = IR_function_opnum(func);
+                    auto* function_opnum = m_ircontext.opnum_func(func);
                     if (target_storage.has_value())
                     {
                         m_ircontext.c().mov(

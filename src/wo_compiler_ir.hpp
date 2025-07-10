@@ -385,10 +385,10 @@ namespace wo
             std::string function_name;
 
             // Will be fill in finalize of env.
-            std::vector<size_t> caller_offset_in_ir;
-
-            // Will be fill in saving binary of env.
-            std::vector<size_t> constant_offset_in_binary;
+            std::vector<uint32_t> caller_offset_in_ir;
+            std::vector<uint32_t> offset_in_constant;
+            std::vector<std::pair<uint32_t, uint16_t>> 
+                offset_and_tuple_index_in_constant;
         };
         struct binary_source_stream
         {
@@ -1160,7 +1160,9 @@ namespace wo
                     case ast::AstValueBase::ConstantValue::Type::HANDLE:
                     {
                         wo_handle_t h = immop->constant_value.value_handle();
-                        WO_PUT_IR_TO_BUFFER(instruct::opcode::calln, reinterpret_cast<opnum::opnumbase*>((intptr_t)h));
+                        WO_PUT_IR_TO_BUFFER(
+                            instruct::opcode::calln, 
+                            reinterpret_cast<opnum::opnumbase*>(static_cast<intptr_t>(h)));
                         return;
                     }
                     case ast::AstValueBase::ConstantValue::Type::INTEGER:
@@ -1168,12 +1170,23 @@ namespace wo
                         wo_integer_t a = immop->constant_value.value_integer();
                         wo_assert(0 <= a && a <= UINT32_MAX, "Immediate instruct address is to large to call.");
 
-                        WO_PUT_IR_TO_BUFFER(instruct::opcode::calln, nullptr, nullptr, static_cast<int32_t>(a));
+                        WO_PUT_IR_TO_BUFFER(
+                            instruct::opcode::calln, 
+                            nullptr, 
+                            nullptr, 
+                            static_cast<int32_t>(a));
                         return;
                     }
                     case ast::AstValueBase::ConstantValue::Type::FUNCTION:
                     {
-                        wo_error("Bad constant generated.");
+                        auto* function = immop->constant_value.value_function();
+                        auto* extern_function = 
+                            function->m_IR_extern_information.value()->m_IR_externed_function.value();
+
+                        WO_PUT_IR_TO_BUFFER(
+                            instruct::opcode::calln, 
+                            reinterpret_cast<opnum::opnumbase*>(extern_function));
+                        return;
                     }
                     default:
                         // Treate it as normal call.

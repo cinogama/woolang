@@ -41,7 +41,9 @@ namespace wo
                 break;
             }
 
-            auto& location_list_of_file = _general_src_data_buf_a[*ast_node->source_location.source_file];
+            auto& location_list_of_file =
+                _general_src_data_buf_a[
+                    *ast_node->source_location.source_file];
 
             location loc = {
                 compiler->get_now_ip(),
@@ -60,20 +62,24 @@ namespace wo
     void program_debug_data_info::finalize_generate_debug_info()
     {
     }
-    void program_debug_data_info::generate_func_begin(const std::string& function_name, ast::AstBase* ast_node, ir_compiler* compiler)
+    void program_debug_data_info::generate_func_begin(
+        const std::string& function_name, ast::AstBase* ast_node, ir_compiler* compiler)
     {
         _function_ip_data_buf[function_name].ir_begin = compiler->get_now_ip();
         generate_debug_info_at_astnode(ast_node, compiler);
     }
-    void program_debug_data_info::generate_func_end(const std::string& function_name, size_t tmpreg_count, ir_compiler* compiler)
+    void program_debug_data_info::generate_func_end(
+        const std::string& function_name, size_t tmpreg_count, ir_compiler* compiler)
     {
         _function_ip_data_buf[function_name].ir_end = compiler->get_now_ip();
     }
-    void program_debug_data_info::add_func_variable(const std::string& function_name, const std::wstring& varname, size_t rowno, wo_integer_t loc)
+    void program_debug_data_info::add_func_variable(
+        const std::string& function_name, const std::wstring& varname, size_t rowno, wo_integer_t loc)
     {
         _function_ip_data_buf[function_name].add_variable_define(varname, rowno, loc);
     }
-    void program_debug_data_info::update_func_variable(const std::string& function_name, wo_integer_t offset)
+    void program_debug_data_info::update_func_variable(
+        const std::string& function_name, wo_integer_t offset)
     {
         for (auto& [_useless, infors] : _function_ip_data_buf[function_name].variables)
         {
@@ -84,8 +90,6 @@ namespace wo
             }
         }
     }
-
-
     int32_t ir_compiler::update_all_temp_regist_to_stack(
         BytecodeGenerateContext* ctx, size_t begin) noexcept
     {
@@ -413,7 +417,7 @@ namespace wo
             sprintf(ptrr, "0x%p>", rt_pos);
             return ptrr;
 
-            }();
+        }();
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -489,27 +493,27 @@ namespace wo
         std::vector<wo::byte_t> binary_buffer;
         auto write_buffer_to_buffer =
             [&binary_buffer](const void* written_data, size_t written_length, size_t allign)
-            {
-                const size_t write_begin_place = binary_buffer.size();
+        {
+            const size_t write_begin_place = binary_buffer.size();
 
-                wo_assert(write_begin_place % allign == 0);
+            wo_assert(write_begin_place % allign == 0);
 
-                binary_buffer.resize(write_begin_place + written_length);
+            binary_buffer.resize(write_begin_place + written_length);
 
-                memcpy(binary_buffer.data() + write_begin_place, written_data, written_length);
-                return binary_buffer.size();
-            };
+            memcpy(binary_buffer.data() + write_begin_place, written_data, written_length);
+            return binary_buffer.size();
+        };
 
         auto write_binary_to_buffer =
             [&write_buffer_to_buffer](const auto& d, size_t size_for_assert)
-            {
-                const wo::byte_t* written_data = std::launder(reinterpret_cast<const wo::byte_t*>(&d));
-                const size_t written_length = sizeof(d);
+        {
+            const wo::byte_t* written_data = std::launder(reinterpret_cast<const wo::byte_t*>(&d));
+            const size_t written_length = sizeof(d);
 
-                wo_assert(written_length == size_for_assert);
+            wo_assert(written_length == size_for_assert);
 
-                return write_buffer_to_buffer(written_data, written_length, sizeof(d) > 8 ? 8 : sizeof(d));
-            };
+            return write_buffer_to_buffer(written_data, written_length, sizeof(d) > 8 ? 8 : sizeof(d));
+        };
 
         class _string_pool_t
         {
@@ -537,10 +541,10 @@ namespace wo
 
         auto write_constant_str_to_buffer =
             [&write_binary_to_buffer, &constant_string_pool](const char* str, size_t len)
-            {
-                write_binary_to_buffer((uint32_t)constant_string_pool.insert(str, len), 4);
-                write_binary_to_buffer((uint32_t)len, 4);
-            };
+        {
+            write_binary_to_buffer((uint32_t)constant_string_pool.insert(str, len), 4);
+            write_binary_to_buffer((uint32_t)len, 4);
+        };
 
         // 1.1 (+0) Magic number(0x3001A26B look like WOOLANG B)
         write_binary_to_buffer((uint32_t)0x3001A26B, 4);
@@ -623,16 +627,6 @@ namespace wo
                 break;
             }
             case wo::value::valuetype::handle_type:
-            {
-                // Check if val is function address from native?
-                auto fnd = this->extern_native_functions.find((intptr_t)constant_value.handle);
-                if (fnd != this->extern_native_functions.end())
-                {
-                    wo_assert(!fnd->second.function_name.empty());
-                    fnd->second.constant_offset_in_binary.push_back(ci);
-                }
-            }
-            [[fallthrough]];
             case wo::value::valuetype::integer_type:
             case wo::value::valuetype::real_type:
             case wo::value::valuetype::bool_type:
@@ -669,15 +663,29 @@ namespace wo
             // 4.1.1.3 extern function name
             write_constant_str_to_buffer(extfuncloc.function_name.c_str(), extfuncloc.function_name.size());
 
-            // 4.1.1.4 used function in constant index
-            write_binary_to_buffer((uint64_t)extfuncloc.constant_offset_in_binary.size(), 8);
-            for (auto constant_index : extfuncloc.constant_offset_in_binary)
-                write_binary_to_buffer((uint64_t)constant_index, 8);
-
-            // 4.1.1.5 used function in ir binary code
+            write_binary_to_buffer((uint64_t)extfuncloc.offset_in_constant.size(), 8);
+            write_binary_to_buffer((uint64_t)extfuncloc.offset_and_tuple_index_in_constant.size(), 8);
             write_binary_to_buffer((uint64_t)extfuncloc.caller_offset_in_ir.size(), 8);
+
+            // 4.1.1.4 used function in constant index
+            for (auto constant_index : extfuncloc.offset_in_constant)
+                write_binary_to_buffer((uint32_t)constant_index, 4);
+
+            // 4.1.1.5 used function in constant tuple
+            for (auto& [constant_index, tuple_index] : extfuncloc.offset_and_tuple_index_in_constant)
+            {
+                write_binary_to_buffer((uint32_t)constant_index, 4);
+                write_binary_to_buffer((uint32_t)tuple_index, 4);
+            }
+
+            // 4.1.1.6 used function in ir binary code
             for (auto constant_index : extfuncloc.caller_offset_in_ir)
-                write_binary_to_buffer((uint64_t)constant_index, 8);
+                write_binary_to_buffer((uint32_t)constant_index, 4);
+
+            wo_assert(binary_buffer.size() % 4 == 0);
+            if (binary_buffer.size() % 8 != 0)
+                // Make sure align.
+                write_buffer_to_buffer("_pad", 4, 1);
         }
 
         // 4.2 Extern woolang function define & offset
@@ -897,7 +905,7 @@ namespace wo
 
                 auto result = constant_string_index_for_update.insert(
                     std::make_pair(
-                        &this_constant_value, 
+                        &this_constant_value,
                         string_buffer_index
                         {
                             constant_string_pool_loc,
@@ -918,7 +926,7 @@ namespace wo
                 this_constant_value.set_struct_nogc(static_cast<uint16_t>(constant_struct_size));
 
                 // Clear all field.
-                memset(this_constant_value.structs->m_values, 0, sizeof(wo::value)* constant_struct_size);
+                memset(this_constant_value.structs->m_values, 0, sizeof(wo::value) * constant_struct_size);
 
                 for (uint16_t idx = 0; idx < constant_struct_size; ++idx)
                 {
@@ -941,7 +949,7 @@ namespace wo
 
                         const auto& constant_string_loc =
                             constant_string_index_for_update.at(&preserved_memory[unit_ref_index]);
-                        
+
                         auto result = constant_string_index_for_update.insert(
                             std::make_pair(
                                 &tuple_constant_elem,
@@ -1023,8 +1031,9 @@ namespace wo
             string_buffer_index library_name_idx;
             string_buffer_index function_name_idx;
 
-            std::vector<size_t> constant_offsets;
-            std::vector<size_t> ir_command_offsets;
+            std::vector<uint32_t> constant_offsets;
+            std::vector<std::pair<uint32_t, uint16_t>> constant_tuple_index_offsets;
+            std::vector<uint32_t> ir_command_offsets;
         };
         std::vector<extern_native_function> extern_native_functions;
 
@@ -1053,34 +1062,63 @@ namespace wo
                 || !stream->read_elem(&loading_function.function_name_idx.size))
                 WO_LOAD_BIN_FAILED("Failed to restore extern native function symbol name.");
 
-            // 4.1.1.4 used function in constant index
             uint64_t used_constant_offset_count;
+            uint64_t used_constant_in_tuple_offset_count;
+            uint64_t used_ir_offset_count;
             if (!stream->read_elem(&used_constant_offset_count))
                 WO_LOAD_BIN_FAILED("Failed to restore extern native function constant count.");
-
-            for (uint64_t i = 0; i < used_constant_offset_count; ++i)
-            {
-                uint64_t constant_index;
-                if (!stream->read_elem(&constant_index))
-                    WO_LOAD_BIN_FAILED("Failed to restore extern native function constant index.");
-
-                loading_function.constant_offsets.push_back((size_t)constant_index);
-            }
-
-            // 4.1.1.5 used function in ir binary code
-            uint64_t used_ir_offset_count;
+            if (!stream->read_elem(&used_constant_in_tuple_offset_count))
+                WO_LOAD_BIN_FAILED("Failed to restore extern native function constant in tuple count.");
             if (!stream->read_elem(&used_ir_offset_count))
                 WO_LOAD_BIN_FAILED("Failed to restore extern native function ir-offset count.");
 
+            // 4.1.1.4 used function in constant index
+            for (uint64_t i = 0; i < used_constant_offset_count; ++i)
+            {
+                uint32_t constant_index;
+                if (!stream->read_elem(&constant_index))
+                    WO_LOAD_BIN_FAILED("Failed to restore extern native function constant index.");
+
+                loading_function.constant_offsets.push_back(constant_index);
+            }
+
+            // 4.1.1.5 used function in constant tuple index
+            for (uint64_t i = 0; i < used_constant_in_tuple_offset_count; ++i)
+            {
+                uint32_t constant_index, elem_index;
+
+                if (!stream->read_elem(&constant_index))
+                    WO_LOAD_BIN_FAILED("Failed to restore extern native function constant tuple index.");
+                if (!stream->read_elem(&elem_index))
+                    WO_LOAD_BIN_FAILED("Failed to restore extern native function constant tuple elem index.");
+
+                loading_function.constant_tuple_index_offsets.emplace_back(
+                    std::make_pair(constant_index, static_cast<uint16_t>(elem_index)));
+            }
+
+            // 4.1.1.6 used function in ir binary code
             for (uint64_t i = 0; i < used_ir_offset_count; ++i)
             {
-                uint64_t ir_code_offset;
+                uint32_t ir_code_offset;
                 if (!stream->read_elem(&ir_code_offset))
                     WO_LOAD_BIN_FAILED("Failed to restore extern native function ir-offset.");
 
-                loading_function.ir_command_offsets.push_back((size_t)ir_code_offset);
+                loading_function.ir_command_offsets.push_back(ir_code_offset);
             }
+
             extern_native_functions.emplace_back(std::move(loading_function));
+
+            // Skip the gap.
+            if ((used_constant_offset_count
+                // + 2 * used_constant_in_tuple_offset_count
+                + used_ir_offset_count) % 2 != 0)
+            {
+                uint32_t padding;
+                if (!stream->read_elem(&padding))
+                    WO_LOAD_BIN_FAILED("Failed to read padding space.");
+
+                (void)padding;
+            }
         }
 
         // 4.2 Extern woolang function define & offset
@@ -1171,9 +1209,10 @@ namespace wo
             result->meta_data_for_jit._mkclos_opcode_offsets_for_jit.push_back(offset);
         }
 
+        // Skip the gap.
         if ((_functions_offsets_count
             + _functions_constant_offsets_count
-            + 2 * _functions_constant_in_tuple_offsets_count
+            // + 2 * _functions_constant_in_tuple_offsets_count
             + _calln_opcode_offsets_count
             + _mkclos_opcode_offsets_count) % 2 != 0)
         {
@@ -1195,12 +1234,12 @@ namespace wo
 
         auto restore_string_from_buffer =
             [&string_pool_buffer](const string_buffer_index& string_index, std::string* out_str)->bool
-            {
-                if (string_index.index + string_index.size > string_pool_buffer.size())
-                    return false;
-                *out_str = std::string(string_pool_buffer.data() + string_index.index, string_index.size);
-                return true;
-            };
+        {
+            if (string_index.index + string_index.size > string_pool_buffer.size())
+                return false;
+            *out_str = std::string(string_pool_buffer.data() + string_index.index, string_index.size);
+            return true;
+        };
 
         std::string constant_string;
         for (auto& [store_value, string_index] : constant_string_index_for_update)
@@ -1245,13 +1284,22 @@ namespace wo
                 extern_native_function_info.library_name = std::nullopt;
 
             extern_native_function_info.script_name = script_path;
-            extern_native_function_info.constant_offset_in_binary = extern_native_function.constant_offsets;
+            extern_native_function_info.offset_in_constant = extern_native_function.constant_offsets;
+            extern_native_function_info.offset_and_tuple_index_in_constant = extern_native_function.constant_tuple_index_offsets;
             extern_native_function_info.caller_offset_in_ir = extern_native_function.ir_command_offsets;
 
             for (auto constant_offset : extern_native_function.constant_offsets)
             {
                 wo_assert(preserved_memory[constant_offset].type == wo::value::valuetype::handle_type);
                 preserved_memory[constant_offset].set_handle((wo_handle_t)func);
+            }
+            for (auto& [constant_offset, tuple_index] : extern_native_function.constant_tuple_index_offsets)
+            {
+                wo_assert(preserved_memory[constant_offset].type == wo::value::valuetype::struct_type
+                    && tuple_index < preserved_memory[constant_offset].structs->m_count
+                    && preserved_memory[constant_offset].structs->m_values[tuple_index].type == wo::value::valuetype::handle_type);
+
+                preserved_memory[constant_offset].structs->m_values[tuple_index].set_handle((wo_handle_t)func);
             }
             for (auto ir_code_offset : extern_native_function.ir_command_offsets)
             {
@@ -1640,24 +1688,64 @@ namespace wo
                 auto function = element_constant.value_try_function();
                 if (function.has_value())
                 {
-                    out_record.at(LangContext::IR_function_label(function.value()))
-                        .m_offset_in_tuple.emplace_back(
-                            std::make_pair(this_constant_index, static_cast<uint16_t>(i)));
+                    auto* function_instance = function.value();
+
+                    if (function_instance->m_IR_extern_information.has_value())
+                    {
+                        auto& extern_info = function_instance->m_IR_extern_information.value();
+                        intptr_t extern_function_addr =
+                            reinterpret_cast<intptr_t>(
+                                extern_info->m_IR_externed_function.value());
+
+                        out_value.set_handle(
+                            static_cast<wo_handle_t>(extern_function_addr));
+
+                        extern_native_functions.at(
+                            extern_function_addr).offset_and_tuple_index_in_constant.emplace_back(
+                                std::make_pair(this_constant_index, static_cast<uint16_t>(i)));
+                    }
+                    else
+                    {
+                        out_record.at(LangContext::IR_function_label(function.value()))
+                            .m_offset_in_tuple.emplace_back(
+                                std::make_pair(this_constant_index, static_cast<uint16_t>(i)));
+                    }
                 }
             }
             break;
         }
-        case ast::AstValueBase::ConstantValue::Type::FUNCTION:
+        case
+        ast::AstValueBase::ConstantValue::Type::FUNCTION:
         {
-            auto result = out_record.insert(
-                std::make_pair(
-                    LangContext::IR_function_label(constant_value.value_function()),
-                    TagOffsetInConstantOffset{ this_constant_index }));
+            auto* function_instance = constant_value.value_function();
 
-            (void)result;
-            wo_assert(result.second);
+            if (function_instance->m_IR_extern_information.has_value())
+            {
+                auto& extern_info = function_instance->m_IR_extern_information.value();
+                intptr_t extern_function_addr =
+                    reinterpret_cast<intptr_t>(
+                        extern_info->m_IR_externed_function.value());
 
-            out_value.set_integer(-1);
+                out_value.set_handle(
+                    static_cast<wo_handle_t>(extern_function_addr));
+
+                extern_native_functions.at(
+                    extern_function_addr).offset_in_constant.push_back(
+                        this_constant_index);
+            }
+            else
+            {
+                auto result = out_record.insert(
+                    std::make_pair(
+                        LangContext::IR_function_label(constant_value.value_function()),
+                        TagOffsetInConstantOffset{ this_constant_index }));
+
+                (void)result;
+                wo_assert(result.second);
+
+                out_value.set_integer(-1);
+            }
+
             break;
         }
         default:
@@ -2256,9 +2344,10 @@ namespace wo
                     {
                         uint64_t addr = (uint64_t)(intptr_t)(WO_IR.op1);
 
-                        wo_assert(!extern_native_functions[(intptr_t)addr].function_name.empty());
-                        extern_native_functions[(intptr_t)addr].caller_offset_in_ir
-                            .push_back(generated_runtime_code_buf.size());
+                        wo_assert(!extern_native_functions.at((intptr_t)addr).function_name.empty());
+                        extern_native_functions.at(
+                            (intptr_t)addr).caller_offset_in_ir.push_back(
+                                static_cast<uint32_t>(generated_runtime_code_buf.size()));
 
                         if (WO_IR.opinteger1)
                             generated_runtime_code_buf.push_back(WO_OPCODE(calln, 11));
@@ -2274,7 +2363,6 @@ namespace wo
                         generated_runtime_code_buf.push_back(readptr[5]);
                         generated_runtime_code_buf.push_back(readptr[6]);
                         generated_runtime_code_buf.push_back(readptr[7]);
-
                     }
                     else
                     {

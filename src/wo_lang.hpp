@@ -494,6 +494,9 @@ namespace wo
             ast::AstValueFunction*,
             std::unique_ptr<opnum::tagimm_rsfunc>> m_opnum_cache_imm_rsfunc;
         std::unordered_map<
+            ast::AstValueFunction*,
+            std::unique_ptr<opnum::imm_extfunc>> m_opnum_cache_imm_extfunc;
+        std::unordered_map<
             wo_pstring_t,
             std::unique_ptr<opnum::tag>>  m_opnum_cache_tag;
         std::unordered_map<
@@ -601,6 +604,8 @@ namespace wo
         opnum::immbase* opnum_imm_bool(bool value) noexcept;
         opnum::opnumbase* opnum_imm_value(const ast::AstValueBase::ConstantValue& val);
         opnum::tagimm_rsfunc* opnum_imm_rsfunc(ast::AstValueFunction* value) noexcept;
+        opnum::imm_extfunc* opnum_imm_extfunc(ast::AstValueFunction* value) noexcept;
+        opnum::opnumbase* opnum_func(ast::AstValueFunction* func) noexcept;
         opnum::tag* opnum_tag(wo_pstring_t value) noexcept;
         opnum::reg* opnum_spreg(opnum::reg::spreg value) noexcept;
         opnum::reg* opnum_stack_offset(int8_t value) noexcept;
@@ -1234,7 +1239,6 @@ namespace wo
 
         static wo_pstring_t IR_function_label(ast::AstValueFunction* func);
         static wo_pstring_t IR_function_label_ret(ast::AstValueFunction* func);
-        opnum::opnumbase* IR_function_opnum(ast::AstValueFunction* func);
     };
 #endif
 }

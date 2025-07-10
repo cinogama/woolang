@@ -2938,7 +2938,7 @@ namespace wo
         case ast::AstValueBase::ConstantValue::Type::PSTRING:
             return opnum_imm_string(val.value_pstring());
         case ast::AstValueBase::ConstantValue::Type::FUNCTION:
-            return opnum_imm_rsfunc(val.value_function());
+            return opnum_func(val.value_function());
         default:
             return m_opnum_cache_imm_value.emplace_back(
                 std::make_unique<opnum::immbase>(val)).get();
@@ -2954,6 +2954,25 @@ namespace wo
         return m_opnum_cache_imm_rsfunc.insert(
             std::make_pair(value, std::make_unique<opnum::tagimm_rsfunc>(value)))
             .first->second.get();
+    }
+    opnum::imm_extfunc* BytecodeGenerateContext::opnum_imm_extfunc(
+        ast::AstValueFunction* value) noexcept
+    {
+        auto fnd = m_opnum_cache_imm_extfunc.find(value);
+        if (fnd != m_opnum_cache_imm_extfunc.end())
+            return fnd->second.get();
+
+        return m_opnum_cache_imm_extfunc.insert(
+            std::make_pair(value, std::make_unique<opnum::imm_extfunc>(value)))
+            .first->second.get();
+    }
+    opnum::opnumbase* BytecodeGenerateContext::opnum_func(
+        ast::AstValueFunction* func) noexcept
+    {
+        if (func->m_IR_extern_information.has_value())
+            return opnum_imm_extfunc(func);
+
+        return opnum_imm_rsfunc(func);
     }
     opnum::tag* BytecodeGenerateContext::opnum_tag(wo_pstring_t value) noexcept
     {

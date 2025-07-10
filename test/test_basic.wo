@@ -164,6 +164,10 @@ namespace test_basic
         let constant_tuple2 = (constant_tuple, 0);
         let constant_tuple3 = (constant_tuple2, 1);
         test_equal(constant_tuple3->car->car->cdr.2(), 233666);
+        let constant_extfunc_tuple = (1, 2, 3, tuple::car:<(int, int)>);
+        let constant_extfunc_tuple2 = (constant_extfunc_tuple, 0);
+        let constant_extfunc_tuple3 = (constant_extfunc_tuple2, 1);
+        test_equal(constant_tuple3->car->car->cdr.2(), 233666);
 
         test_equal(A::B::get_foo(), "A::B::foo");
         test_assure(std::type_traits::is_same:<A::B::T, typeof(A::B::get_t())>);
