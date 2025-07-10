@@ -1158,7 +1158,7 @@ namespace wo
                 {
                     switch (immop->type())
                     {
-                    case ConstantValue::Type::HANDLE:
+                    case ast::ConstantValue::Type::HANDLE:
                     {
                         wo_handle_t h = immop->constant_value.value_handle();
                         WO_PUT_IR_TO_BUFFER(
@@ -1166,7 +1166,7 @@ namespace wo
                             reinterpret_cast<opnum::opnumbase*>(static_cast<intptr_t>(h)));
                         return;
                     }
-                    case ConstantValue::Type::INTEGER:
+                    case ast::ConstantValue::Type::INTEGER:
                     {
                         wo_integer_t a = immop->constant_value.value_integer();
                         wo_assert(0 <= a && a <= UINT32_MAX, "Immediate instruct address is to large to call.");
@@ -1178,7 +1178,7 @@ namespace wo
                             static_cast<int32_t>(a));
                         return;
                     }
-                    case ConstantValue::Type::FUNCTION:
+                    case ast::ConstantValue::Type::FUNCTION:
                     {
 #ifndef WO_DISABLE_COMPILER
                         auto* function = immop->constant_value.value_function();
