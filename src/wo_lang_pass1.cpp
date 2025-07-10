@@ -75,8 +75,8 @@ namespace wo
                     }, init_value.value());
 
                 wo_assert(!constant_tuple_value.has_value()
-                    || constant_tuple_value.value()->m_type == 
-                        ConstantValue::Type::STRUCT);
+                    || constant_tuple_value.value()->m_type ==
+                    ConstantValue::Type::STRUCT);
             }
 
             auto* determined_type = determined_type_may_nullopt.value();
@@ -94,7 +94,7 @@ namespace wo
 
                     for (uint16_t idx = 0; pattern_iter != pattern_end; ++pattern_iter, ++type_iter, ++idx)
                     {
-                        std::optional<const ConstantValue*> constant_elem_value = 
+                        std::optional<const ConstantValue*> constant_elem_value =
                             std::nullopt;
 
                         if (constant_tuple_value.has_value())
@@ -1464,22 +1464,22 @@ namespace wo
     {
         auto judge_function_return_type =
             [&](lang_TypeInstance* ret_type)
+        {
+            std::list<lang_TypeInstance*> parameters;
+            for (auto& param : node->m_parameters)
+                parameters.push_back(param->m_type.value()->m_LANG_determined_type.value());
+
+            node->m_LANG_determined_type = m_origin_types.create_function_type(
+                node->m_is_variadic, parameters, ret_type);
+
+            wo_assert(node->m_LANG_determined_type.has_value());
+
+            if (node->m_LANG_value_instance_to_update)
             {
-                std::list<lang_TypeInstance*> parameters;
-                for (auto& param : node->m_parameters)
-                    parameters.push_back(param->m_type.value()->m_LANG_determined_type.value());
-
-                node->m_LANG_determined_type = m_origin_types.create_function_type(
-                    node->m_is_variadic, parameters, ret_type);
-
-                wo_assert(node->m_LANG_determined_type.has_value());
-
-                if (node->m_LANG_value_instance_to_update)
-                {
-                    node->m_LANG_value_instance_to_update.value()->m_determined_type =
-                        node->m_LANG_determined_type;
-                }
-            };
+                node->m_LANG_value_instance_to_update.value()->m_determined_type =
+                    node->m_LANG_determined_type;
+            }
+        };
 
         // Huston, we have a problem.
         if (state == UNPROCESSED)
@@ -1619,10 +1619,13 @@ namespace wo
                         return FAILED;
                     }
                 }
-                else if (node->m_LANG_value_instance_to_update.has_value())
+                else
                 {
-                    // This function no need capture variables in runtime.
-                    node->m_LANG_value_instance_to_update.value()->m_IR_normal_function = node;
+                    if (node->m_LANG_value_instance_to_update.has_value())
+                        // This function no need capture variables in runtime.
+                        node->m_LANG_value_instance_to_update.value()->m_IR_normal_function = node;
+
+                    node->decide_final_constant_value(node);
                 }
                 break;
             }
@@ -2101,7 +2104,7 @@ namespace wo
                     return FAILED;
                 }
 
-                wo_pstring_t member_name = 
+                wo_pstring_t member_name =
                     node->m_index->m_evaled_const_value.value().value_pstring();
 
                 auto* struct_type = container_determined_base_type_instance
@@ -2173,7 +2176,7 @@ namespace wo
                 if (node->m_container->m_evaled_const_value.has_value())
                 {
                     // Indexing const tuple.
-                    auto& struct_constant = 
+                    auto& struct_constant =
                         node->m_container->m_evaled_const_value.value().value_struct();
 
                     wo_assert(index < static_cast<wo_integer_t>(struct_constant.m_count));

@@ -154,6 +154,11 @@ namespace test_basic
         return func(...){return ...[a];};
     }
 
+    func test_constant_template_arg_foo<TF: (string)=> string>()
+    {
+        return TF("Helloworld");
+    }
+
     func main()
     {
         func foo_in_constant_tuple()
@@ -168,6 +173,10 @@ namespace test_basic
         let constant_extfunc_tuple2 = (constant_extfunc_tuple, 0);
         let constant_extfunc_tuple3 = (constant_extfunc_tuple2, 1);
         test_equal(constant_extfunc_tuple3->car->car->cdr.2((233666, 655)), 233666);
+
+        test_equal(
+            test_constant_template_arg_foo:<{\v: string = v + "toConstantFunction";}>(), 
+            "HelloworldtoConstantFunction");
 
         test_assure(std::is_same(constant_tuple, constant_tuple2.0));
         test_assure(std::is_same(constant_tuple, constant_tuple3.0[0]));

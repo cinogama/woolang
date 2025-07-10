@@ -2,7 +2,7 @@
 
 #ifndef WO_DISABLE_COMPILER
 
-constexpr wo_size_t WO_LSPV2_SUB_VERSION = 3;
+constexpr wo_size_t WO_LSPV2_SUB_VERSION = 4;
 
 wo_size_t wo_lspv2_sub_version(void)
 {
@@ -547,7 +547,7 @@ wo_lspv2_expr_info* wo_lspv2_expr_get_info(wo_lspv2_expr* expr)
     wo::lang_TypeInstance* type_instance = nullptr;
     wo::lang_Symbol* variable_or_type_symbol = nullptr;
     wo_bool_t is_value = WO_TRUE;
-    wo_value const_value = nullptr;
+    wo_lspv2_constant* const_value = nullptr;
 
     std::list<wo::ast::AstIdentifier::TemplateArgumentInstance>* template_instance_argument_list
         = nullptr;
@@ -603,9 +603,8 @@ wo_lspv2_expr_info* wo_lspv2_expr_get_info(wo_lspv2_expr* expr)
 
         if (value->m_evaled_const_value.has_value())
         {
-            // TODO;
-            /*wo::value* value_addr = &value->m_evaled_const_value.value();
-            const_value = reinterpret_cast<wo_value>(value_addr);*/
+            const_value = reinterpret_cast<wo_lspv2_constant*>(
+                &value->m_evaled_const_value.value());
         }
     }
 
@@ -624,7 +623,7 @@ wo_lspv2_expr_info* wo_lspv2_expr_get_info(wo_lspv2_expr* expr)
             if (arg.m_constant.has_value())
             {
                 template_arg.m_kind = WO_LSPV2_TEMPLATE_PARAM_CONSTANT;
-                template_arg.m_constant_may_null = reinterpret_cast<wo_value>(&arg.m_constant.value());
+                template_arg.m_constant_may_null = reinterpret_cast<wo_lspv2_constant*>(&arg.m_constant.value());
             }
             else
             {
@@ -681,7 +680,7 @@ wo_lspv2_type_info* wo_lspv2_type_get_info(
             if (arg.m_constant.has_value())
             {
                 template_arg.m_kind = WO_LSPV2_TEMPLATE_PARAM_CONSTANT;
-                template_arg.m_constant_may_null = reinterpret_cast<wo_value>(&arg.m_constant.value());
+                template_arg.m_constant_may_null = reinterpret_cast<wo_lspv2_constant*>(&arg.m_constant.value());
             }
             else
             {

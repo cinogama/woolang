@@ -50,9 +50,9 @@ WO_FORCE_CAPI
 
 typedef int64_t wo_integer_t, wo_int_t;
 typedef uint64_t wo_handle_t;
-typedef void *wo_ptr_t;
-typedef const char *wo_string_t;
-typedef const wchar_t *wo_wstring_t;
+typedef void* wo_ptr_t;
+typedef const char* wo_string_t;
+typedef const wchar_t* wo_wstring_t;
 typedef wchar_t wo_char_t;
 typedef double wo_real_t;
 typedef size_t wo_size_t;
@@ -63,13 +63,13 @@ typedef struct _wo_vm
 { /* reserved, and prevent from type casting. */
     WO_STRUCT_TAKE_PLACE(1);
 }
-    *wo_vm;
+*wo_vm;
 typedef struct _wo_value
 { /* reserved, and prevent from type casting. */
     WO_DECLARE_ALIGNAS(8)
-    WO_STRUCT_TAKE_PLACE(16);
+        WO_STRUCT_TAKE_PLACE(16);
 }
-    *wo_value;
+*wo_value;
 
 typedef wo_size_t wo_stack_value;
 
@@ -191,9 +191,9 @@ typedef enum _wo_api
     WO_API_SYNC = 4,
 
 } wo_api,
-    wo_result_t;
+wo_result_t;
 
-typedef wo_result_t (*wo_native_func_t)(wo_vm, wo_value);
+typedef wo_result_t(*wo_native_func_t)(wo_vm, wo_value);
 
 typedef void (*wo_fail_handler_t)(
     wo_vm vm,
@@ -203,7 +203,7 @@ typedef void (*wo_fail_handler_t)(
     uint32_t rterrcode,
     wo_string_t reason);
 
-typedef void *wo_dylib_handle_t;
+typedef void* wo_dylib_handle_t;
 
 typedef enum _wo_dylib_unload_method_t
 {
@@ -234,17 +234,17 @@ typedef enum _wo_inform_style_t
 typedef void (*wo_dylib_entry_func_t)(wo_dylib_handle_t);
 typedef void (*wo_dylib_exit_func_t)(void);
 
-typedef struct _wo_gc_work_context_t *wo_gc_work_context_t;
+typedef struct _wo_gc_work_context_t* wo_gc_work_context_t;
 
 typedef void (*wo_gchandle_close_func_t)(wo_ptr_t);
 typedef void (*wo_gcstruct_mark_func_t)(wo_gc_work_context_t, wo_ptr_t);
 
-typedef void (*wo_debuggee_callback_func_t)(wo_vm, void *);
+typedef void (*wo_debuggee_callback_func_t)(wo_vm, void*);
 
 typedef struct _wo_extern_lib_func_pair
 {
     wo_string_t m_name;
-    void *m_func_addr;
+    void* m_func_addr;
 } wo_extern_lib_func_t;
 
 #define WO_EXTERN_LIB_FUNC_END \
@@ -261,23 +261,23 @@ WO_API wo_string_t wo_compile_date(void);
 WO_API wo_string_t wo_version(void);
 WO_API wo_integer_t wo_version_int(void);
 
-WO_API void wo_init(int argc, char **argv);
+WO_API void wo_init(int argc, char** argv);
 #define wo_init(argc, argv)                    \
     do                                         \
     {                                          \
         wo_init(argc, argv);                   \
         setlocale(LC_CTYPE, wo_locale_name()); \
     } while (0)
-WO_API void wo_finish(void (*do_after_shutdown)(void *), void *custom_data);
+WO_API void wo_finish(void (*do_after_shutdown)(void*), void* custom_data);
 
 WO_API void wo_gc_pause(void);
 WO_API void wo_gc_resume(void);
 WO_API void wo_gc_wait_sync(void);
 WO_API void wo_gc_immediately(wo_bool_t fullgc);
 
-WO_API wo_dylib_handle_t wo_fake_lib(const char *libname, const wo_extern_lib_func_t *funcs, wo_dylib_handle_t dependence_dylib_may_null);
-WO_API wo_dylib_handle_t wo_load_lib(const char *libname, const char *path, const char *script_path, wo_bool_t panic_when_fail);
-WO_API wo_dylib_handle_t wo_load_func(void *lib, const char *funcname);
+WO_API wo_dylib_handle_t wo_fake_lib(const char* libname, const wo_extern_lib_func_t* funcs, wo_dylib_handle_t dependence_dylib_may_null);
+WO_API wo_dylib_handle_t wo_load_lib(const char* libname, const char* path, const char* script_path, wo_bool_t panic_when_fail);
+WO_API wo_dylib_handle_t wo_load_func(void* lib, const char* funcname);
 WO_API void wo_unload_lib(wo_dylib_handle_t lib, wo_dylib_unload_method_t method_mask);
 
 WO_API wo_type_t wo_valuetype(const wo_value value);
@@ -299,7 +299,7 @@ WO_API wo_ptr_t wo_pointer(wo_value value);
 WO_API wo_string_t wo_string(wo_value value);
 WO_API wo_bool_t wo_bool(wo_value value);
 WO_API float wo_float(wo_value value);
-WO_API const void *wo_buffer(wo_value value, wo_size_t *bytelen);
+WO_API const void* wo_buffer(wo_value value, wo_size_t* bytelen);
 #define wo_raw_string(value, bytelen) ((wo_string_t)wo_buffer(value, bytelen))
 
 WO_API void wo_set_nil(wo_value value);
@@ -316,7 +316,7 @@ WO_API void wo_set_dup(wo_value value, wo_vm vm, wo_value val);
 
 WO_API void wo_set_string(wo_value value, wo_vm vm, wo_string_t val);
 WO_API void wo_set_string_fmt(wo_value value, wo_vm vm, wo_string_t fmt, ...);
-WO_API void wo_set_buffer(wo_value value, wo_vm vm, const void *val, wo_size_t len);
+WO_API void wo_set_buffer(wo_value value, wo_vm vm, const void* val, wo_size_t len);
 #define wo_set_raw_string wo_set_buffer
 WO_API void wo_set_gchandle(wo_value value, wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val_may_null, wo_gchandle_close_func_t destruct_func);
 WO_API void wo_set_gcstruct(wo_value value, wo_vm vm, wo_ptr_t resource_ptr, wo_gcstruct_mark_func_t mark_func, wo_gchandle_close_func_t destruct_func);
@@ -333,7 +333,7 @@ WO_API wo_bool_t wo_cast_bool(wo_value value);
 WO_API float wo_cast_float(wo_value value);
 WO_API wo_string_t wo_cast_string(wo_value value);
 
-WO_API wo_bool_t wo_serialize(wo_value value, wo_string_t *out_str);
+WO_API wo_bool_t wo_serialize(wo_value value, wo_string_t* out_str);
 WO_API wo_bool_t wo_deserialize(wo_vm vm, wo_value value, wo_string_t str, wo_type_t except_type);
 
 WO_API wo_string_t wo_type_name(wo_type_t value);
@@ -350,7 +350,7 @@ WO_API wo_result_t wo_ret_val(wo_vm vm, wo_value result);
 
 WO_API wo_result_t wo_ret_string(wo_vm vm, wo_string_t result);
 WO_API wo_result_t wo_ret_string_fmt(wo_vm vm, wo_string_t fmt, ...);
-WO_API wo_result_t wo_ret_buffer(wo_vm vm, const void *result, wo_size_t len);
+WO_API wo_result_t wo_ret_buffer(wo_vm vm, const void* result, wo_size_t len);
 #define wo_ret_raw_string wo_ret_buffer
 WO_API wo_result_t wo_ret_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val_may_null, wo_gchandle_close_func_t destruct_func);
 WO_API wo_result_t wo_ret_gcstruct(wo_vm vm, wo_ptr_t resource_ptr, wo_gcstruct_mark_func_t mark_func, wo_gchandle_close_func_t destruct_func);
@@ -369,7 +369,7 @@ WO_API void wo_set_option_float(wo_value val, wo_vm vm, float result);
 WO_API void wo_set_option_handle(wo_value val, wo_vm vm, wo_handle_t result);
 WO_API void wo_set_option_string(wo_value val, wo_vm vm, wo_string_t result);
 WO_API void wo_set_option_string_fmt(wo_value val, wo_vm vm, wo_string_t fmt, ...);
-WO_API void wo_set_option_buffer(wo_value val, wo_vm vm, const void *result, wo_size_t len);
+WO_API void wo_set_option_buffer(wo_value val, wo_vm vm, const void* result, wo_size_t len);
 #define wo_set_option_raw_string wo_set_option_buffer
 WO_API void wo_set_option_ptr_may_null(wo_value val, wo_vm vm, wo_ptr_t result);
 WO_API void wo_set_option_pointer(wo_value val, wo_vm vm, wo_ptr_t result);
@@ -403,7 +403,7 @@ WO_API void wo_set_err_float(wo_value val, wo_vm vm, float result);
 WO_API void wo_set_err_handle(wo_value val, wo_vm vm, wo_handle_t result);
 WO_API void wo_set_err_string(wo_value val, wo_vm vm, wo_string_t result);
 WO_API void wo_set_err_string_fmt(wo_value val, wo_vm vm, wo_string_t fmt, ...);
-WO_API void wo_set_err_buffer(wo_value val, wo_vm vm, const void *result, wo_size_t len);
+WO_API void wo_set_err_buffer(wo_value val, wo_vm vm, const void* result, wo_size_t len);
 #define wo_set_err_raw_string wo_set_option_buffer
 WO_API void wo_set_err_pointer(wo_value val, wo_vm vm, wo_ptr_t result);
 WO_API void wo_set_err_val(wo_value val, wo_vm vm, wo_value result);
@@ -419,7 +419,7 @@ WO_API wo_result_t wo_ret_option_float(wo_vm vm, float result);
 WO_API wo_result_t wo_ret_option_handle(wo_vm vm, wo_handle_t result);
 WO_API wo_result_t wo_ret_option_string(wo_vm vm, wo_string_t result);
 WO_API wo_result_t wo_ret_option_string_fmt(wo_vm vm, wo_string_t fmt, ...);
-WO_API wo_result_t wo_ret_option_buffer(wo_vm vm, const void *result, wo_size_t len);
+WO_API wo_result_t wo_ret_option_buffer(wo_vm vm, const void* result, wo_size_t len);
 #define wo_ret_option_raw_string wo_ret_option_buffer
 WO_API wo_result_t wo_ret_option_ptr_may_null(wo_vm vm, wo_ptr_t result);
 WO_API wo_result_t wo_ret_option_pointer(wo_vm vm, wo_ptr_t result);
@@ -453,7 +453,7 @@ WO_API wo_result_t wo_ret_err_float(wo_vm vm, float result);
 WO_API wo_result_t wo_ret_err_handle(wo_vm vm, wo_handle_t result);
 WO_API wo_result_t wo_ret_err_string(wo_vm vm, wo_string_t result);
 WO_API wo_result_t wo_ret_err_string_fmt(wo_vm vm, wo_string_t fmt, ...);
-WO_API wo_result_t wo_ret_err_buffer(wo_vm vm, const void *result, wo_size_t len);
+WO_API wo_result_t wo_ret_err_buffer(wo_vm vm, const void* result, wo_size_t len);
 #define wo_ret_err_raw_string wo_ret_err_buffer
 WO_API wo_result_t wo_ret_err_pointer(wo_vm vm, wo_ptr_t result);
 WO_API wo_result_t wo_ret_err_val(wo_vm vm, wo_value result);
@@ -462,7 +462,7 @@ WO_API wo_result_t wo_ret_err_gcstruct(wo_vm vm, wo_ptr_t resource_ptr, wo_gcstr
 
 WO_API wo_result_t wo_ret_yield(wo_vm vm);
 
-WO_API wo_bool_t wo_extern_symb(wo_vm vm, wo_string_t fullname, wo_integer_t *out_wo_func, wo_handle_t *out_jit_func);
+WO_API wo_bool_t wo_extern_symb(wo_vm vm, wo_string_t fullname, wo_integer_t* out_wo_func, wo_handle_t* out_jit_func);
 
 WO_API void wo_abort_all_vm_to_exit(void);
 
@@ -476,17 +476,17 @@ WO_API wo_bool_t wo_set_work_path(wo_string_t path);
 WO_API wo_vm wo_set_this_thread_vm(wo_vm vm_may_null);
 
 WO_API void wo_enable_jit(wo_bool_t option);
-WO_API wo_bool_t wo_virtual_binary(wo_string_t filepath, const void *data, wo_size_t len, wo_bool_t enable_modify);
+WO_API wo_bool_t wo_virtual_binary(wo_string_t filepath, const void* data, wo_size_t len, wo_bool_t enable_modify);
 WO_API wo_bool_t wo_virtual_source(wo_string_t filepath, wo_string_t data, wo_bool_t enable_modify);
 
-typedef struct _wo_virtual_file *wo_virtual_file_t;
+typedef struct _wo_virtual_file* wo_virtual_file_t;
 
 WO_API wo_virtual_file_t wo_open_virtual_file(wo_string_t filepath);
 WO_API wo_string_t wo_virtual_file_path(wo_virtual_file_t file);
-WO_API const void *wo_virtual_file_data(wo_virtual_file_t file, size_t *len);
+WO_API const void* wo_virtual_file_data(wo_virtual_file_t file, size_t* len);
 WO_API void wo_close_virtual_file(wo_virtual_file_t file);
 
-typedef struct _wo_virtual_file_iter *wo_virtual_file_iter_t;
+typedef struct _wo_virtual_file_iter* wo_virtual_file_iter_t;
 WO_API wo_virtual_file_iter_t wo_open_virtual_file_iter(void);
 WO_API wo_string_t wo_next_virtual_file_iter(wo_virtual_file_iter_t iter);
 WO_API void wo_close_virtual_file_iter(wo_virtual_file_iter_t iter);
@@ -505,16 +505,16 @@ WO_API void wo_release_vm(wo_vm vm);
 
 WO_API wo_bool_t wo_load_source(wo_vm vm, wo_string_t virtual_src_path, wo_string_t src);
 WO_API wo_bool_t wo_load_file(wo_vm vm, wo_string_t virtual_src_path);
-WO_API wo_bool_t wo_load_binary(wo_vm vm, wo_string_t virtual_src_path, const void *buffer, wo_size_t length);
+WO_API wo_bool_t wo_load_binary(wo_vm vm, wo_string_t virtual_src_path, const void* buffer, wo_size_t length);
 
 // NOTE: wo_dump_binary must invoke before wo_run.
-WO_API void *wo_dump_binary(wo_vm vm, wo_bool_t saving_pdi, wo_size_t *out_length);
-WO_API void wo_free_binary(void *buffer);
+WO_API void* wo_dump_binary(wo_vm vm, wo_bool_t saving_pdi, wo_size_t* out_length);
+WO_API void wo_free_binary(void* buffer);
 
 WO_API wo_bool_t wo_jit(wo_vm vm);
 
-typedef void (*wo_execute_callback_ft)(wo_value, void *);
-WO_API wo_bool_t wo_execute(wo_string_t src, wo_execute_callback_ft callback, void *data);
+typedef void (*wo_execute_callback_ft)(wo_value, void*);
+WO_API wo_bool_t wo_execute(wo_string_t src, wo_execute_callback_ft callback, void* data);
 
 // wo_run is used for init a vm.
 WO_API wo_value wo_run(wo_vm vm);
@@ -539,7 +539,7 @@ WO_API wo_value wo_register(wo_vm vm, wo_reg regid);
 //          ...
 // 2) Donot invoke `wo_reserve_stack` multiple times in one external function.
 // 3) When reserving for another vm (not current vm), inout_args can use nullptr;
-WO_API wo_value wo_reserve_stack(wo_vm vm, wo_size_t sz, wo_value *inout_args_maynull);
+WO_API wo_value wo_reserve_stack(wo_vm vm, wo_size_t sz, wo_value* inout_args_maynull);
 WO_API void wo_pop_stack(wo_vm vm, wo_size_t sz);
 
 WO_API wo_stack_value wo_cast_stack_value(wo_vm vm, wo_value value_in_stack);
@@ -555,24 +555,24 @@ WO_API void wo_stack_value_get(wo_value outval, wo_stack_value sv, wo_vm vm);
 // 1) Use data from updated args & reserved stack, avoid using old pointers.
 // 2) Donot use inout_args_maynull & inout_s_maynull if invoke another vm (not current vm).
 WO_API wo_value wo_invoke_rsfunc(
-    wo_vm vm, wo_int_t rsfunc, wo_int_t argc, wo_value *inout_args_maynull, wo_value *inout_s_maynull);
+    wo_vm vm, wo_int_t rsfunc, wo_int_t argc, wo_value* inout_args_maynull, wo_value* inout_s_maynull);
 WO_API wo_value wo_invoke_exfunc(
-    wo_vm vm, wo_handle_t exfunc, wo_int_t argc, wo_value *inout_args_maynull, wo_value *inout_s_maynull);
+    wo_vm vm, wo_handle_t exfunc, wo_int_t argc, wo_value* inout_args_maynull, wo_value* inout_s_maynull);
 WO_API wo_value wo_invoke_value(
-    wo_vm vm, wo_value vmfunc, wo_int_t argc, wo_value *inout_args_maynull, wo_value *inout_s_maynull);
+    wo_vm vm, wo_value vmfunc, wo_int_t argc, wo_value* inout_args_maynull, wo_value* inout_s_maynull);
 
 WO_API void wo_dispatch_rsfunc(
-    wo_vm vm, wo_int_t rsfunc, wo_int_t argc, wo_value *inout_args_maynull, wo_value *inout_s_maynull);
+    wo_vm vm, wo_int_t rsfunc, wo_int_t argc, wo_value* inout_args_maynull, wo_value* inout_s_maynull);
 WO_API void wo_dispatch_exfunc(
-    wo_vm vm, wo_handle_t exfunc, wo_int_t argc, wo_value *inout_args_maynull, wo_value *inout_s_maynull);
+    wo_vm vm, wo_handle_t exfunc, wo_int_t argc, wo_value* inout_args_maynull, wo_value* inout_s_maynull);
 WO_API void wo_dispatch_value(
-    wo_vm vm, wo_value vmfunc, wo_int_t argc, wo_value *inout_args_maynull, wo_value *inout_s_maynull);
+    wo_vm vm, wo_value vmfunc, wo_int_t argc, wo_value* inout_args_maynull, wo_value* inout_s_maynull);
 
 #define WO_ABORTED ((wo_value)NULL)
 #define WO_CONTINUE ((wo_value)(void *)-1)
 
 WO_API wo_value wo_dispatch(
-    wo_vm vm, wo_value *inout_args_maynull, wo_value *inout_s_maynull);
+    wo_vm vm, wo_value* inout_args_maynull, wo_value* inout_s_maynull);
 
 // User gc struct API.
 
@@ -630,7 +630,7 @@ WO_API wo_bool_t wo_arr_front(wo_value out_val, wo_value arr);
 WO_API wo_bool_t wo_arr_back(wo_value out_val, wo_value arr);
 WO_API void wo_arr_front_val(wo_value out_val, wo_value arr);
 WO_API void wo_arr_back_val(wo_value out_val, wo_value arr);
-WO_API wo_bool_t wo_arr_find(wo_value arr, wo_value elem, wo_size_t *out_index);
+WO_API wo_bool_t wo_arr_find(wo_value arr, wo_value elem, wo_size_t* out_index);
 WO_API wo_bool_t wo_arr_is_empty(wo_value arr);
 
 WO_API wo_size_t wo_map_len(wo_value map);
@@ -660,7 +660,7 @@ WO_API void wo_map_reserve(wo_value map, wo_size_t sz);
 WO_API void wo_map_set(wo_value map, wo_value index, wo_value val);
 WO_API wo_bool_t wo_map_get_or_set(wo_value out_val, wo_value map, wo_value index, wo_value default_value);
 WO_API wo_result_t wo_ret_map_get_or_set_do(
-    wo_vm vm, wo_value map, wo_value index, wo_value value_function, wo_value *inout_args_maynull, wo_value *inout_s_maynull);
+    wo_vm vm, wo_value map, wo_value index, wo_value value_function, wo_value* inout_args_maynull, wo_value* inout_s_maynull);
 WO_API wo_bool_t wo_map_remove(wo_value map, wo_value index);
 WO_API void wo_map_clear(wo_value map);
 
@@ -671,11 +671,11 @@ typedef struct _wo_debuggee_handle
 { /* reserved, and prevent from type casting. */
     WO_STRUCT_TAKE_PLACE(1);
 }
-    *wo_debuggee;
-typedef void (*wo_debuggee_handler_func)(wo_debuggee, wo_vm, void *);
+*wo_debuggee;
+typedef void (*wo_debuggee_handler_func)(wo_debuggee, wo_vm, void*);
 
 WO_API void wo_attach_default_debuggee(void);
-WO_API void wo_attach_user_debuggee(wo_debuggee_callback_func_t callback, void *userdata);
+WO_API void wo_attach_user_debuggee(wo_debuggee_callback_func_t callback, void* userdata);
 WO_API wo_bool_t wo_has_attached_debuggee(void);
 WO_API void wo_detach_debuggee(void);
 WO_API void wo_break_immediately(void);
@@ -688,7 +688,7 @@ WO_API wo_integer_t wo_crc64_str(wo_string_t text);
 WO_API wo_integer_t wo_crc64_file(wo_string_t filepath);
 
 // GC Reference Pin
-typedef struct _wo_pin_value *wo_pin_value;
+typedef struct _wo_pin_value* wo_pin_value;
 
 WO_API wo_pin_value wo_create_pin_value(void);
 WO_API void wo_close_pin_value(wo_pin_value pin_value);
@@ -697,7 +697,7 @@ WO_API void wo_pin_value_set_dup(wo_pin_value pin_value, wo_value val);
 WO_API void wo_pin_value_get(wo_value out_value, wo_pin_value pin_value);
 
 // Weak Reference
-typedef struct _wo_weak_ref *wo_weak_ref;
+typedef struct _wo_weak_ref* wo_weak_ref;
 WO_API wo_weak_ref wo_create_weak_ref(wo_value val);
 WO_API void wo_close_weak_ref(wo_weak_ref ref);
 WO_API wo_bool_t wo_lock_weak_ref(wo_value out_val, wo_weak_ref ref);
@@ -722,7 +722,7 @@ typedef enum _wo_lsp_error_level
 // LSPv2 API
 typedef struct _wo_lspv2_location
 {
-    const char *m_file_name;
+    const char* m_file_name;
     wo_size_t m_begin_location[2]; // An array stores row & col
     wo_size_t m_end_location[2];   // An array stores row & col
 } wo_lspv2_location;
@@ -735,7 +735,7 @@ typedef struct _wo_lspv2_symbol_iter wo_lspv2_symbol_iter;
 
 typedef struct _wo_lspv2_scope_info
 {
-    const char *m_name; // null if not namespace
+    const char* m_name; // null if not namespace
     wo_bool_t m_has_location;
     wo_lspv2_location m_location;
 } wo_lspv2_scope_info;
@@ -749,6 +749,7 @@ typedef enum _wo_lspv2_symbol_kind
 } wo_lspv2_symbol_kind;
 
 typedef struct _wo_lspv2_type wo_lspv2_type;
+typedef struct _wo_lspv2_constant wo_lspv2_constant;
 
 typedef enum _wo_lspv2_template_param_kind
 {
@@ -768,14 +769,14 @@ typedef struct _wo_lspv2_template_argument
 {
     wo_lspv2_template_param_kind m_kind;
     wo_lspv2_type* m_type;
-    wo_value m_constant_may_null;
+    wo_lspv2_constant* m_constant_may_null;
 
 }wo_lspv2_template_argument;
 
 typedef struct _wo_lspv2_symbol_info
 {
     wo_lspv2_symbol_kind m_type;
-    const char *m_name;
+    const char* m_name;
     wo_size_t m_template_params_count;
     const _wo_lspv2_template_param* m_template_params;
     wo_bool_t m_has_location;
@@ -787,7 +788,7 @@ typedef struct _wo_lspv2_error_info
 {
     wo_lsp_error_level m_level;
     wo_size_t m_depth;
-    const char *m_describe;
+    const char* m_describe;
     wo_lspv2_location m_location;
 
 } wo_lspv2_error_info;
@@ -796,13 +797,13 @@ typedef struct _wo_lspv2_expr_collection_iter wo_lspv2_expr_collection_iter;
 typedef struct _wo_lspv2_expr_collection wo_lspv2_expr_collection;
 typedef struct _wo_lspv2_expr_collection_info
 {
-    const char *m_file_name;
+    const char* m_file_name;
 } wo_lspv2_expr_collection_info;
 
 typedef struct _wo_lspv2_type_info
 {
-    const char *m_name;
-    wo_lspv2_symbol *m_type_symbol;
+    const char* m_name;
+    wo_lspv2_symbol* m_type_symbol;
     size_t m_template_arguments_count;
     const wo_lspv2_template_argument* m_template_arguments;
 } wo_lspv2_type_info;
@@ -811,11 +812,11 @@ typedef struct _wo_lspv2_expr_iter wo_lspv2_expr_iter;
 typedef struct _wo_lspv2_expr wo_lspv2_expr;
 typedef struct _wo_lspv2_expr_info
 {
-    wo_lspv2_type *m_type;
+    wo_lspv2_type* m_type;
     wo_lspv2_location m_location;
-    wo_lspv2_symbol *m_symbol_may_null;
+    wo_lspv2_symbol* m_symbol_may_null;
     wo_bool_t m_is_value_expr;       // false if type.
-    wo_value m_const_value_may_null; // null if not const or is type.
+    wo_lspv2_constant* m_const_value_may_null; // null if not const or is type.
     size_t m_template_arguments_count;
     const wo_lspv2_template_argument* m_template_arguments; // null if not template instance.
 } wo_lspv2_expr_info;
@@ -823,8 +824,8 @@ typedef struct _wo_lspv2_expr_info
 typedef struct _wo_lspv2_type_struct_info
 {
     wo_size_t m_member_count;
-    const char **m_member_names;
-    wo_lspv2_type **m_member_types;
+    const char** m_member_names;
+    wo_lspv2_type** m_member_types;
 
 } wo_lspv2_type_struct_info;
 
@@ -832,70 +833,70 @@ typedef struct _wo_lspv2_macro wo_lspv2_macro;
 typedef struct _wo_lspv2_macro_iter wo_lspv2_macro_iter;
 typedef struct _wo_lspv2_macro_info
 {
-    const char *m_name;
+    const char* m_name;
     wo_lspv2_location m_location;
 } wo_lspv2_macro_info;
 
 WO_API wo_size_t wo_lspv2_sub_version(void);
 
-WO_API wo_lspv2_source_meta *wo_lspv2_compile_to_meta(
+WO_API wo_lspv2_source_meta* wo_lspv2_compile_to_meta(
     wo_string_t virtual_src_path,
     wo_string_t src);
-WO_API void wo_lspv2_meta_free(wo_lspv2_source_meta *meta);
+WO_API void wo_lspv2_meta_free(wo_lspv2_source_meta* meta);
 
-WO_API wo_lspv2_error_iter * /* null if not exist */
-wo_lspv2_compile_err_iter(wo_lspv2_source_meta *meta);
-WO_API wo_lspv2_error_info * /* null if end */
-wo_lspv2_compile_err_next(wo_lspv2_error_iter *iter);
-WO_API void wo_lspv2_err_info_free(wo_lspv2_error_info *info);
+WO_API wo_lspv2_error_iter* /* null if not exist */
+wo_lspv2_compile_err_iter(wo_lspv2_source_meta* meta);
+WO_API wo_lspv2_error_info* /* null if end */
+wo_lspv2_compile_err_next(wo_lspv2_error_iter* iter);
+WO_API void wo_lspv2_err_info_free(wo_lspv2_error_info* info);
 
 // Macro API
-WO_API wo_lspv2_macro_iter * /* null if grammar failed */
-wo_lspv2_meta_macro_iter(wo_lspv2_source_meta *meta);
-WO_API wo_lspv2_macro * /* null if end */ wo_lspv2_macro_next(wo_lspv2_macro_iter *iter);
-WO_API wo_lspv2_macro_info *wo_lspv2_macro_get_info(wo_lspv2_macro *macro);
-WO_API void wo_lspv2_macro_info_free(wo_lspv2_macro_info *info);
+WO_API wo_lspv2_macro_iter* /* null if grammar failed */
+wo_lspv2_meta_macro_iter(wo_lspv2_source_meta* meta);
+WO_API wo_lspv2_macro* /* null if end */ wo_lspv2_macro_next(wo_lspv2_macro_iter* iter);
+WO_API wo_lspv2_macro_info* wo_lspv2_macro_get_info(wo_lspv2_macro* macro);
+WO_API void wo_lspv2_macro_info_free(wo_lspv2_macro_info* info);
 
 // Scope API
-WO_API wo_lspv2_scope * /* null if grammar failed */
-wo_lspv2_meta_get_global_scope(wo_lspv2_source_meta *meta);
-WO_API wo_lspv2_scope_iter *wo_lspv2_scope_sub_scope_iter(wo_lspv2_scope *scope);
-WO_API wo_lspv2_scope * /* null if end */ wo_lspv2_scope_sub_scope_next(wo_lspv2_scope_iter *iter);
-WO_API wo_lspv2_scope_info *wo_lspv2_scope_get_info(wo_lspv2_scope *scope);
-WO_API void wo_lspv2_scope_info_free(wo_lspv2_scope_info *info);
+WO_API wo_lspv2_scope* /* null if grammar failed */
+wo_lspv2_meta_get_global_scope(wo_lspv2_source_meta* meta);
+WO_API wo_lspv2_scope_iter* wo_lspv2_scope_sub_scope_iter(wo_lspv2_scope* scope);
+WO_API wo_lspv2_scope* /* null if end */ wo_lspv2_scope_sub_scope_next(wo_lspv2_scope_iter* iter);
+WO_API wo_lspv2_scope_info* wo_lspv2_scope_get_info(wo_lspv2_scope* scope);
+WO_API void wo_lspv2_scope_info_free(wo_lspv2_scope_info* info);
 
 // Symbol API
-WO_API wo_lspv2_symbol_iter *wo_lspv2_scope_symbol_iter(wo_lspv2_scope *scope);
-WO_API wo_lspv2_symbol * /* null if end */ wo_lspv2_scope_symbol_next(wo_lspv2_symbol_iter *iter);
-WO_API wo_lspv2_symbol_info *wo_lspv2_symbol_get_info(wo_lspv2_symbol *symbol);
-WO_API void wo_lspv2_symbol_info_free(wo_lspv2_symbol_info *info);
+WO_API wo_lspv2_symbol_iter* wo_lspv2_scope_symbol_iter(wo_lspv2_scope* scope);
+WO_API wo_lspv2_symbol* /* null if end */ wo_lspv2_scope_symbol_next(wo_lspv2_symbol_iter* iter);
+WO_API wo_lspv2_symbol_info* wo_lspv2_symbol_get_info(wo_lspv2_symbol* symbol);
+WO_API void wo_lspv2_symbol_info_free(wo_lspv2_symbol_info* info);
 
 // Expr API
-WO_API wo_lspv2_expr_collection_iter *wo_lspv2_meta_expr_collection_iter(
-    wo_lspv2_source_meta *meta);
-WO_API wo_lspv2_expr_collection * /* null if end */ wo_lspv2_expr_collection_next(
-    wo_lspv2_expr_collection_iter *iter);
-WO_API void wo_lspv2_expr_collection_free(wo_lspv2_expr_collection *collection);
-WO_API wo_lspv2_expr_collection_info *wo_lspv2_expr_collection_get_info(
-    wo_lspv2_expr_collection *collection);
-WO_API void wo_lspv2_expr_collection_info_free(wo_lspv2_expr_collection_info *collection);
-WO_API wo_lspv2_expr_iter * /* null if not found */ wo_lspv2_expr_collection_get_by_range(
-    wo_lspv2_expr_collection *collection,
+WO_API wo_lspv2_expr_collection_iter* wo_lspv2_meta_expr_collection_iter(
+    wo_lspv2_source_meta* meta);
+WO_API wo_lspv2_expr_collection* /* null if end */ wo_lspv2_expr_collection_next(
+    wo_lspv2_expr_collection_iter* iter);
+WO_API void wo_lspv2_expr_collection_free(wo_lspv2_expr_collection* collection);
+WO_API wo_lspv2_expr_collection_info* wo_lspv2_expr_collection_get_info(
+    wo_lspv2_expr_collection* collection);
+WO_API void wo_lspv2_expr_collection_info_free(wo_lspv2_expr_collection_info* collection);
+WO_API wo_lspv2_expr_iter* /* null if not found */ wo_lspv2_expr_collection_get_by_range(
+    wo_lspv2_expr_collection* collection,
     wo_size_t begin_row,
     wo_size_t begin_col,
     wo_size_t end_row,
     wo_size_t end_col);
-WO_API wo_lspv2_expr * /* null if end */ wo_lspv2_expr_next(wo_lspv2_expr_iter *iter);
-WO_API wo_lspv2_expr_info *wo_lspv2_expr_get_info(wo_lspv2_expr *expr);
-WO_API void wo_lspv2_expr_info_free(wo_lspv2_expr_info *);
+WO_API wo_lspv2_expr* /* null if end */ wo_lspv2_expr_next(wo_lspv2_expr_iter* iter);
+WO_API wo_lspv2_expr_info* wo_lspv2_expr_get_info(wo_lspv2_expr* expr);
+WO_API void wo_lspv2_expr_info_free(wo_lspv2_expr_info*);
 
 // Type API
-WO_API wo_lspv2_type_info *wo_lspv2_type_get_info(
-    wo_lspv2_type *type, wo_lspv2_source_meta *meta);
-WO_API void wo_lspv2_type_info_free(wo_lspv2_type_info *info);
-WO_API wo_lspv2_type_struct_info * /* null if not struct */ wo_lspv2_type_get_struct_info(
-    wo_lspv2_type *type, wo_lspv2_source_meta *meta);
-WO_API void wo_lspv2_type_struct_info_free(wo_lspv2_type_struct_info *info);
+WO_API wo_lspv2_type_info* wo_lspv2_type_get_info(
+    wo_lspv2_type* type, wo_lspv2_source_meta* meta);
+WO_API void wo_lspv2_type_info_free(wo_lspv2_type_info* info);
+WO_API wo_lspv2_type_struct_info* /* null if not struct */ wo_lspv2_type_get_struct_info(
+    wo_lspv2_type* type, wo_lspv2_source_meta* meta);
+WO_API void wo_lspv2_type_struct_info_free(wo_lspv2_type_struct_info* info);
 #endif
 
 #if defined(WO_NEED_ERROR_CODES)
@@ -1393,7 +1394,7 @@ enum _wo_opcode_ext3
     //                                      Cannot execute, or it will cause a panic.
 };
 
-typedef struct _wo_ir_compiler *wo_ir_compiler;
+typedef struct _wo_ir_compiler* wo_ir_compiler;
 
 WO_API wo_ir_compiler wo_create_ir_compiler(void);
 WO_API void wo_close_ir_compiler(wo_ir_compiler ircompiler);

@@ -460,7 +460,7 @@ namespace wo
             || func->m_LANG_captured_context.m_captured_variables.empty())
         {
             m_determined_constant_or_function.emplace(func);
-        }       
+        }
     }
     void lang_ValueInstance::try_determine_const_value(ast::AstValueBase* init_val)
     {
@@ -477,7 +477,7 @@ namespace wo
     {
         if (m_determined_constant_or_function.has_value())
         {
-            auto function_instance = 
+            auto function_instance =
                 m_determined_constant_or_function.value().value_try_function();
 
             if (function_instance.has_value())
@@ -505,7 +505,7 @@ namespace wo
             const auto function_instance =
                 m_determined_constant_or_function.value().value_try_function();
 
-            wo_assert(!function_instance.has_value() 
+            wo_assert(!function_instance.has_value()
                 || function_instance.value()->m_LANG_captured_context.m_captured_variables.empty());
 #endif
             return false;
@@ -1169,27 +1169,27 @@ namespace wo
             OriginTypeHolder::OriginNoTemplateSymbolAndInstance* out_sni,
             wo_pstring_t name,
             lang_TypeInstance::DeterminedType::base_type basic_type)
-            {
-                ast::AstDeclareAttribue* built_type_public_attrib = new ast::AstDeclareAttribue();
-                built_type_public_attrib->m_access = ast::AstDeclareAttribue::PUBLIC;
+        {
+            ast::AstDeclareAttribue* built_type_public_attrib = new ast::AstDeclareAttribue();
+            built_type_public_attrib->m_access = ast::AstDeclareAttribue::PUBLIC;
 
-                bool symbol_defined = define_symbol_in_current_scope(
-                    &out_sni->m_symbol,
-                    name,
-                    built_type_public_attrib,
-                    std::nullopt,
-                    std::nullopt,
-                    get_current_scope(),
-                    lang_Symbol::kind::TYPE,
-                    false);
+            bool symbol_defined = define_symbol_in_current_scope(
+                &out_sni->m_symbol,
+                name,
+                built_type_public_attrib,
+                std::nullopt,
+                std::nullopt,
+                get_current_scope(),
+                lang_Symbol::kind::TYPE,
+                false);
 
-                wo_assert(symbol_defined);
-                (void)symbol_defined;
+            wo_assert(symbol_defined);
+            (void)symbol_defined;
 
-                out_sni->m_type_instance = out_sni->m_symbol->m_type_instance;
-                out_sni->m_type_instance->determine_base_type_move(
-                    std::move(lang_TypeInstance::DeterminedType(basic_type, {})));
-            };
+            out_sni->m_type_instance = out_sni->m_symbol->m_type_instance;
+            out_sni->m_type_instance->determine_base_type_move(
+                std::move(lang_TypeInstance::DeterminedType(basic_type, {})));
+        };
         create_builtin_non_template_symbol_and_instance(
             &m_origin_types.m_void, WO_PSTR(void), lang_TypeInstance::DeterminedType::VOID);
         create_builtin_non_template_symbol_and_instance(
@@ -1217,25 +1217,25 @@ namespace wo
         auto create_builtin_complex_symbol_and_instance = [this](
             lang_Symbol** out_symbol,
             wo_pstring_t name)
-            {
-                ast::AstDeclareAttribue* built_type_public_attrib = new ast::AstDeclareAttribue();
-                built_type_public_attrib->m_access = ast::AstDeclareAttribue::PUBLIC;
+        {
+            ast::AstDeclareAttribue* built_type_public_attrib = new ast::AstDeclareAttribue();
+            built_type_public_attrib->m_access = ast::AstDeclareAttribue::PUBLIC;
 
-                bool symbol_defined = define_symbol_in_current_scope(
-                    out_symbol,
-                    name,
-                    built_type_public_attrib,
-                    std::nullopt,
-                    std::nullopt,
-                    get_current_scope(),
-                    lang_Symbol::kind::TYPE,
-                    false);
+            bool symbol_defined = define_symbol_in_current_scope(
+                out_symbol,
+                name,
+                built_type_public_attrib,
+                std::nullopt,
+                std::nullopt,
+                get_current_scope(),
+                lang_Symbol::kind::TYPE,
+                false);
 
-                wo_assert(symbol_defined);
-                (void)symbol_defined;
+            wo_assert(symbol_defined);
+            (void)symbol_defined;
 
-                (*out_symbol)->m_is_builtin = true;
-            };
+            (*out_symbol)->m_is_builtin = true;
+        };
 
         create_builtin_complex_symbol_and_instance(&m_origin_types.m_dictionary, WO_PSTR(dict));
         create_builtin_complex_symbol_and_instance(&m_origin_types.m_mapping, WO_PSTR(map));
@@ -1519,10 +1519,28 @@ namespace wo
             bool has_function_to_be_eval = false;
             for (ast::AstValueFunction* eval_function : functions_to_finalize)
             {
-                if (!m_ircontext.m_processed_function_instance.insert(
-                    eval_function).second)
+                if (!m_ircontext.m_processed_function_instance.insert(eval_function).second)
                     // Already processed.
                     continue;
+
+                if (eval_function->m_IR_extern_information.has_value())
+                {
+                    wo_assert(eval_function->m_LANG_captured_context.m_captured_variables.empty());
+
+                    ast::AstExternInformation* extern_info = eval_function->m_IR_extern_information.value();
+                    wo_assert(extern_info == static_cast<ast::AstExternInformation*>(eval_function->m_body));
+
+                    m_ircontext.c().record_extern_native_function(
+                        (intptr_t)(void*)extern_info->m_IR_externed_function.value(),
+                        *eval_function->source_location.source_file,
+                        extern_info->m_extern_from_library.has_value()
+                        ? std::optional(*extern_info->m_extern_from_library.value())
+                        : std::nullopt,
+                        *extern_info->m_extern_symbol);
+
+                    // Donot generate code for extern function.
+                    continue;
+                }
 
                 has_function_to_be_eval = true;
 
@@ -1609,11 +1627,11 @@ namespace wo
 
                 bool this_function_dont_have_unused_local_variable =
                     _assign_storage_for_local_variable_instance(
-                        lex, 
-                        this, 
-                        eval_fucntion_name, 
-                        eval_function->m_LANG_function_scope.value(), 
-                        0, 
+                        lex,
+                        this,
+                        eval_fucntion_name,
+                        eval_function->m_LANG_function_scope.value(),
+                        0,
                         &local_storage_size);
 
                 if (!this_function_dont_have_unused_local_variable)
@@ -2535,11 +2553,11 @@ namespace wo
         case ast::ConstantValue::Type::PSTRING:
         {
             wo_pstring_t pstring_constant = val.value_pstring();
-            auto string_constant = 
+            auto string_constant =
                 wo::wstrn_to_str(pstring_constant->data(), pstring_constant->length());
 
             return _rslib_std_string_enstring_impl(
-                string_constant.data(), 
+                string_constant.data(),
                 string_constant.length());
         }
         case ast::ConstantValue::Type::STRUCT:

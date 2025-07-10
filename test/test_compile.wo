@@ -2178,6 +2178,141 @@ func main()
         }
         foo(bar);
         "@);
+        assure_compile_success(@"
+        let f<F: ()=>void> = nil;
+        do f:<{\ = do nil;}>;
+        "@);
+        assure_compile_success(@"
+        let f<F: (string)=>int> = nil;
+        do f:<{\v: string = v: int;}>;
+        "@);
+        assure_compile_fail(@"
+        let f<F: (string)=>int> = nil;
+        do f:<{\v: string = v: real;}>;
+        "@);
+        assure_compile_success(@"
+        let f<F: ()=>void> = nil;
+        func foo()
+        {
+            let mut a = nil;
+            func bar()=> void
+            {
+                do f:<{bar}>;
+            }
+            do a;
+        }
+        "@);
+        assure_compile_fail(@"
+        let f<F: ()=>void> = nil;
+        func foo()
+        {
+            let mut a = nil;
+            func bar()=> void
+            {
+                do f:<{bar}>;
+                do a;
+            }
+            do a;
+        }
+        "@);
+        assure_compile_success(@"
+        let f<F: ()=>void> = nil;
+        func foo()
+        {
+            let mut a = nil;
+            func bar<T>()=> void
+            {
+                do f:<{bar:<T>}>;
+            }
+            do a;
+            do bar:<int>;
+        }
+        "@);
+        assure_compile_fail(@"
+        let f<F: ()=>void> = nil;
+        func foo()
+        {
+            let mut a = nil;
+            func bar<T>()=> void
+            {
+                do f:<{bar:<T>}>;
+                do a;
+            }
+            do a;
+            do bar:<int>;
+        }
+        "@);
+        assure_compile_fail(@"
+        import woo::std;
+
+        let f<F: ()=>void> = nil;
+        func foo()
+        {
+            let mut a = nil;
+            func bar<T>()=> void
+            {
+                do f:<{bar:<T>}>;
+                if (std::type_traits::is_same:<T, int>)
+                    do a;
+            }
+            do a;
+            do bar:<int>;
+        }
+        "@);
+        assure_compile_success(@"
+        import woo::std;
+
+        let f<F: ()=>void> = nil;
+        func foo()
+        {
+            let mut a = nil;
+            func bar<T>()=> void
+            {
+                do f:<{bar:<T>}>;
+                if (std::type_traits::is_same:<T, int>)
+                    do a;
+            }
+            do a;
+            do typeid:<typeof(bar:<int>)>;
+        }
+        "@);
+        assure_compile_success(@"
+        import woo::std;
+
+        let f<F: ()=>void> = nil;
+        func foo()
+        {
+            let mut a = nil;
+            func bar<T>()=> void
+            {
+                do f:<{bar:<T>}>;
+                if (std::type_traits::is_same:<T, int>)
+                    do a;
+            }
+            do a;
+            do typeid:<typeof(bar:<int>)>;
+            do bar:<real>;
+        }
+        "@);
+        assure_compile_fail(@"
+        import woo::std;
+
+        let f<F: ()=>void> = nil;
+        func foo()
+        {
+            let mut a = nil;
+            func bar<T>()=> void
+            {
+                do f:<{bar:<T>}>;
+                if (std::type_traits::is_same:<T, int>)
+                    do a;
+            }
+            do a;
+            do typeid:<typeof(bar:<int>)>;
+            do bar:<real>;
+            do bar:<int>;
+        }
+        "@);
     }
 
     func main()

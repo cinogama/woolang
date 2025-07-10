@@ -800,7 +800,7 @@ namespace wo
                                 continue;
 
                             auto& captured_context = constant.value()->m_LANG_captured_context;
-                            if (!captured_context.m_finished 
+                            if (!captured_context.m_finished
                                 || !captured_context.m_captured_variables.empty())
                             {
                                 bad_template_instance = true;
@@ -982,26 +982,8 @@ namespace wo
     WO_PASS_PROCESSER(AstValueFunction)
     {
         wo_assert(state == UNPROCESSED);
-        if (node->m_IR_extern_information.has_value())
-        {
-            wo_assert(node->m_LANG_captured_context.m_captured_variables.empty());
 
-            AstExternInformation* extern_info = node->m_IR_extern_information.value();
-            wo_assert(extern_info == static_cast<AstExternInformation*>(node->m_body));
-
-            m_ircontext.c().record_extern_native_function(
-                (intptr_t)(void*)extern_info->m_IR_externed_function.value(),
-                *node->source_location.source_file,
-                extern_info->m_extern_from_library.has_value()
-                ? std::optional(*extern_info->m_extern_from_library.value())
-                : std::nullopt,
-                *extern_info->m_extern_symbol);
-        }
-        else
-        {
-            // Record it!
-            m_ircontext.m_being_used_function_instance.insert(node);
-        }
+        m_ircontext.m_being_used_function_instance.insert(node);
 
         if (node->m_LANG_captured_context.m_captured_variables.empty())
         {
@@ -3472,7 +3454,8 @@ namespace wo
     LangContext::pass_behavior LangContext::pass_final_A_process_bytecode_generation(
         lexer& lex, const AstNodeWithState& node_state, PassProcessStackT& out_stack)
     {
-        if (node_state.m_ast_node->node_type >= AstBase::AST_VALUE_begin && node_state.m_ast_node->node_type < AstBase::AST_VALUE_end)
+        if (node_state.m_ast_node->node_type >= AstBase::AST_VALUE_begin
+            && node_state.m_ast_node->node_type < AstBase::AST_VALUE_end)
         {
             // Is value, goto final pass B.
             wo_assert(node_state.m_state == UNPROCESSED);
@@ -3516,12 +3499,21 @@ namespace wo
         AstValueBase* ast_value = static_cast<AstValueBase*>(node_state.m_ast_node);
         if (ast_value->m_evaled_const_value.has_value())
         {
+            auto& constant_value = ast_value->m_evaled_const_value.value();
+
+            auto function_constant = constant_value.value_try_function();
+            if (function_constant.has_value())
+            {
+                // NOTE: We need to let compiler know this constant function.
+                m_ircontext.m_being_used_function_instance.insert(function_constant.value());
+            }
+
             // This value has been evaluated as constant value.
             m_ircontext.apply_eval_result(
                 [&](BytecodeGenerateContext::EvalResult& result)
                 {
                     opnum::opnumbase* immediately_value =
-                        m_ircontext.opnum_imm_value(ast_value->m_evaled_const_value.value());
+                        m_ircontext.opnum_imm_value(constant_value);
 
                     const auto& asigned_target = result.get_assign_target();
                     if (asigned_target.has_value())
@@ -3532,7 +3524,9 @@ namespace wo
             return OKAY;
         }
 
-        m_ircontext.c().pdb_info->generate_debug_info_at_astnode(node_state.m_ast_node, &m_ircontext.c());
+        m_ircontext.c().pdb_info->generate_debug_info_at_astnode(
+            node_state.m_ast_node, &m_ircontext.c());
+
         auto compile_result =
             m_passir_B_processers->process_node(this, lex, node_state, out_stack);
 
