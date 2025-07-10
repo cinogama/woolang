@@ -10,7 +10,7 @@ namespace wo
     bool LangContext::update_pattern_symbol_variable_type_pass1(
         lexer& lex,
         ast::AstPatternBase* pattern,
-        const std::optional<std::variant<AstValueBase*, const ast::AstValueBase::ConstantValue*>>& init_value,
+        const std::optional<std::variant<AstValueBase*, const ConstantValue*>>& init_value,
         const std::optional<lang_TypeInstance*>& init_value_type)
     {
         switch (pattern->node_type)
@@ -58,7 +58,7 @@ namespace wo
                 return false;
             }
 
-            std::optional<const ast::AstValueBase::ConstantValue*> constant_tuple_value = std::nullopt;
+            std::optional<const ConstantValue*> constant_tuple_value = std::nullopt;
             if (init_value.has_value())
             {
                 std::visit(
@@ -76,7 +76,7 @@ namespace wo
 
                 wo_assert(!constant_tuple_value.has_value()
                     || constant_tuple_value.value()->m_type == 
-                        ast::AstValueBase::ConstantValue::Type::STRUCT);
+                        ConstantValue::Type::STRUCT);
             }
 
             auto* determined_type = determined_type_may_nullopt.value();
@@ -94,7 +94,7 @@ namespace wo
 
                     for (uint16_t idx = 0; pattern_iter != pattern_end; ++pattern_iter, ++type_iter, ++idx)
                     {
-                        std::optional<const ast::AstValueBase::ConstantValue*> constant_elem_value = 
+                        std::optional<const ConstantValue*> constant_elem_value = 
                             std::nullopt;
 
                         if (constant_tuple_value.has_value())
@@ -888,22 +888,22 @@ namespace wo
 
         switch (node->m_evaled_const_value.value().m_type)
         {
-        case ast::AstValueBase::ConstantValue::Type::NIL:
+        case ConstantValue::Type::NIL:
             node->m_LANG_determined_type = m_origin_types.m_nil.m_type_instance;
             break;
-        case ast::AstValueBase::ConstantValue::Type::INTEGER:
+        case ConstantValue::Type::INTEGER:
             node->m_LANG_determined_type = m_origin_types.m_int.m_type_instance;
             break;
-        case ast::AstValueBase::ConstantValue::Type::REAL:
+        case ConstantValue::Type::REAL:
             node->m_LANG_determined_type = m_origin_types.m_real.m_type_instance;
             break;
-        case ast::AstValueBase::ConstantValue::Type::HANDLE:
+        case ConstantValue::Type::HANDLE:
             node->m_LANG_determined_type = m_origin_types.m_handle.m_type_instance;
             break;
-        case ast::AstValueBase::ConstantValue::Type::BOOL:
+        case ConstantValue::Type::BOOL:
             node->m_LANG_determined_type = m_origin_types.m_bool.m_type_instance;
             break;
-        case ast::AstValueBase::ConstantValue::Type::PSTRING:
+        case ConstantValue::Type::PSTRING:
             node->m_LANG_determined_type = m_origin_types.m_string.m_type_instance;
             break;
         default:
@@ -1814,7 +1814,7 @@ namespace wo
             m_origin_types.m_nothing.m_type_instance;
 
         node->decide_final_constant_value(
-            AstValueBase::ConstantValue());
+            ConstantValue());
 
         return OKAY;
     }
@@ -1932,7 +1932,7 @@ namespace wo
         else if (state == HOLD)
         {
             std::list<lang_TypeInstance*> element_types;
-            std::list<ast::AstValueBase::ConstantValue*> element_constants;
+            std::list<ConstantValue*> element_constants;
 
             for (auto& element : node->m_elements)
             {
@@ -4730,19 +4730,19 @@ namespace wo
                         case AstValueBinaryOperator::ADD:
                             switch (left_value.m_type)
                             {
-                            case ast::AstValueBase::ConstantValue::Type::INTEGER:
+                            case ConstantValue::Type::INTEGER:
                                 node->decide_final_constant_value(
                                     left_value.value_integer() + right_value.value_integer());
                                 break;
-                            case ast::AstValueBase::ConstantValue::Type::REAL:
+                            case ConstantValue::Type::REAL:
                                 node->decide_final_constant_value(
                                     left_value.value_real() + right_value.value_real());
                                 break;
-                            case ast::AstValueBase::ConstantValue::Type::PSTRING:
+                            case ConstantValue::Type::PSTRING:
                                 node->decide_final_constant_value(
                                     *left_value.value_pstring() + *right_value.value_pstring());
                                 break;
-                            case ast::AstValueBase::ConstantValue::Type::HANDLE:
+                            case ConstantValue::Type::HANDLE:
                                 node->decide_final_constant_value(
                                     left_value.value_handle() + right_value.value_handle());
                                 break;
@@ -4753,15 +4753,15 @@ namespace wo
                         case AstValueBinaryOperator::SUBSTRACT:
                             switch (left_value.m_type)
                             {
-                            case ast::AstValueBase::ConstantValue::Type::INTEGER:
+                            case ConstantValue::Type::INTEGER:
                                 node->decide_final_constant_value(
                                     left_value.value_integer() - right_value.value_integer());
                                 break;
-                            case ast::AstValueBase::ConstantValue::Type::REAL:
+                            case ConstantValue::Type::REAL:
                                 node->decide_final_constant_value(
                                     left_value.value_real() - right_value.value_real());
                                 break;
-                            case ast::AstValueBase::ConstantValue::Type::HANDLE:
+                            case ConstantValue::Type::HANDLE:
                                 node->decide_final_constant_value(
                                     left_value.value_handle() - right_value.value_handle());
                                 break;
@@ -4772,11 +4772,11 @@ namespace wo
                         case AstValueBinaryOperator::MULTIPLY:
                             switch (left_value.m_type)
                             {
-                            case ast::AstValueBase::ConstantValue::Type::INTEGER:
+                            case ConstantValue::Type::INTEGER:
                                 node->decide_final_constant_value(
                                     left_value.value_integer() * right_value.value_integer());
                                 break;
-                            case ast::AstValueBase::ConstantValue::Type::REAL:
+                            case ConstantValue::Type::REAL:
                                 node->decide_final_constant_value(
                                     left_value.value_real() * right_value.value_real());
                                 break;
@@ -4787,11 +4787,11 @@ namespace wo
                         case AstValueBinaryOperator::DIVIDE:
                             switch (left_value.m_type)
                             {
-                            case ast::AstValueBase::ConstantValue::Type::INTEGER:
+                            case ConstantValue::Type::INTEGER:
                                 node->decide_final_constant_value(
                                     left_value.value_integer() / right_value.value_integer());
                                 break;
-                            case ast::AstValueBase::ConstantValue::Type::REAL:
+                            case ConstantValue::Type::REAL:
                                 node->decide_final_constant_value(
                                     left_value.value_real() / right_value.value_real());
                                 break;
@@ -4802,11 +4802,11 @@ namespace wo
                         case AstValueBinaryOperator::MODULO:
                             switch (left_value.m_type)
                             {
-                            case ast::AstValueBase::ConstantValue::Type::INTEGER:
+                            case ConstantValue::Type::INTEGER:
                                 node->decide_final_constant_value(
                                     left_value.value_integer() % right_value.value_integer());
                                 break;
-                            case ast::AstValueBase::ConstantValue::Type::REAL:
+                            case ConstantValue::Type::REAL:
                                 node->decide_final_constant_value(
                                     fmod(left_value.value_real(), right_value.value_real()));
                                 break;
@@ -4825,19 +4825,19 @@ namespace wo
                         case AstValueBinaryOperator::GREATER:
                             switch (left_value.m_type)
                             {
-                            case ast::AstValueBase::ConstantValue::Type::INTEGER:
+                            case ConstantValue::Type::INTEGER:
                                 node->decide_final_constant_value(
                                     left_value.value_integer() > right_value.value_integer());
                                 break;
-                            case ast::AstValueBase::ConstantValue::Type::REAL:
+                            case ConstantValue::Type::REAL:
                                 node->decide_final_constant_value(
                                     left_value.value_real() > right_value.value_real());
                                 break;
-                            case ast::AstValueBase::ConstantValue::Type::PSTRING:
+                            case ConstantValue::Type::PSTRING:
                                 node->decide_final_constant_value(
                                     *left_value.value_pstring() > *right_value.value_pstring());
                                 break;
-                            case ast::AstValueBase::ConstantValue::Type::HANDLE:
+                            case ConstantValue::Type::HANDLE:
                                 node->decide_final_constant_value(
                                     left_value.value_handle() > right_value.value_handle());
                                 break;
@@ -4848,19 +4848,19 @@ namespace wo
                         case AstValueBinaryOperator::GREATER_EQUAL:
                             switch (left_value.m_type)
                             {
-                            case ast::AstValueBase::ConstantValue::Type::INTEGER:
+                            case ConstantValue::Type::INTEGER:
                                 node->decide_final_constant_value(
                                     left_value.value_integer() >= right_value.value_integer());
                                 break;
-                            case ast::AstValueBase::ConstantValue::Type::REAL:
+                            case ConstantValue::Type::REAL:
                                 node->decide_final_constant_value(
                                     left_value.value_real() >= right_value.value_real());
                                 break;
-                            case ast::AstValueBase::ConstantValue::Type::PSTRING:
+                            case ConstantValue::Type::PSTRING:
                                 node->decide_final_constant_value(
                                     *left_value.value_pstring() >= *right_value.value_pstring());
                                 break;
-                            case ast::AstValueBase::ConstantValue::Type::HANDLE:
+                            case ConstantValue::Type::HANDLE:
                                 node->decide_final_constant_value(
                                     left_value.value_handle() >= right_value.value_handle());
                                 break;
@@ -4871,19 +4871,19 @@ namespace wo
                         case AstValueBinaryOperator::LESS:
                             switch (left_value.m_type)
                             {
-                            case ast::AstValueBase::ConstantValue::Type::INTEGER:
+                            case ConstantValue::Type::INTEGER:
                                 node->decide_final_constant_value(
                                     left_value.value_integer() < right_value.value_integer());
                                 break;
-                            case ast::AstValueBase::ConstantValue::Type::REAL:
+                            case ConstantValue::Type::REAL:
                                 node->decide_final_constant_value(
                                     left_value.value_real() < right_value.value_real());
                                 break;
-                            case ast::AstValueBase::ConstantValue::Type::PSTRING:
+                            case ConstantValue::Type::PSTRING:
                                 node->decide_final_constant_value(
                                     *left_value.value_pstring() < *right_value.value_pstring());
                                 break;
-                            case ast::AstValueBase::ConstantValue::Type::HANDLE:
+                            case ConstantValue::Type::HANDLE:
                                 node->decide_final_constant_value(
                                     left_value.value_handle() < right_value.value_handle());
                                 break;
@@ -4894,19 +4894,19 @@ namespace wo
                         case AstValueBinaryOperator::LESS_EQUAL:
                             switch (left_value.m_type)
                             {
-                            case ast::AstValueBase::ConstantValue::Type::INTEGER:
+                            case ConstantValue::Type::INTEGER:
                                 node->decide_final_constant_value(
                                     left_value.value_integer() <= right_value.value_integer());
                                 break;
-                            case ast::AstValueBase::ConstantValue::Type::REAL:
+                            case ConstantValue::Type::REAL:
                                 node->decide_final_constant_value(
                                     left_value.value_real() <= right_value.value_real());
                                 break;
-                            case ast::AstValueBase::ConstantValue::Type::PSTRING:
+                            case ConstantValue::Type::PSTRING:
                                 node->decide_final_constant_value(
                                     *left_value.value_pstring() <= *right_value.value_pstring());
                                 break;
-                            case ast::AstValueBase::ConstantValue::Type::HANDLE:
+                            case ConstantValue::Type::HANDLE:
                                 node->decide_final_constant_value(
                                     left_value.value_handle() <= right_value.value_handle());
                                 break;
@@ -4917,23 +4917,23 @@ namespace wo
                         case AstValueBinaryOperator::EQUAL:
                             switch (left_value.m_type)
                             {
-                            case ast::AstValueBase::ConstantValue::Type::INTEGER:
+                            case ConstantValue::Type::INTEGER:
                                 node->decide_final_constant_value(
                                     left_value.value_integer() == right_value.value_integer());
                                 break;
-                            case ast::AstValueBase::ConstantValue::Type::REAL:
+                            case ConstantValue::Type::REAL:
                                 node->decide_final_constant_value(
                                     left_value.value_real() == right_value.value_real());
                                 break;
-                            case ast::AstValueBase::ConstantValue::Type::PSTRING:
+                            case ConstantValue::Type::PSTRING:
                                 node->decide_final_constant_value(
                                     *left_value.value_pstring() == *right_value.value_pstring());
                                 break;
-                            case ast::AstValueBase::ConstantValue::Type::HANDLE:
+                            case ConstantValue::Type::HANDLE:
                                 node->decide_final_constant_value(
                                     left_value.value_handle() == right_value.value_handle());
                                 break;
-                            case ast::AstValueBase::ConstantValue::Type::BOOL:
+                            case ConstantValue::Type::BOOL:
                                 node->decide_final_constant_value(
                                     left_value.value_bool() == right_value.value_bool());
                                 break;
@@ -4944,23 +4944,23 @@ namespace wo
                         case AstValueBinaryOperator::NOT_EQUAL:
                             switch (left_value.m_type)
                             {
-                            case ast::AstValueBase::ConstantValue::Type::INTEGER:
+                            case ConstantValue::Type::INTEGER:
                                 node->decide_final_constant_value(
                                     left_value.value_integer() != right_value.value_integer());
                                 break;
-                            case ast::AstValueBase::ConstantValue::Type::REAL:
+                            case ConstantValue::Type::REAL:
                                 node->decide_final_constant_value(
                                     left_value.value_real() != right_value.value_real());
                                 break;
-                            case ast::AstValueBase::ConstantValue::Type::PSTRING:
+                            case ConstantValue::Type::PSTRING:
                                 node->decide_final_constant_value(
                                     *left_value.value_pstring() != *right_value.value_pstring());
                                 break;
-                            case ast::AstValueBase::ConstantValue::Type::HANDLE:
+                            case ConstantValue::Type::HANDLE:
                                 node->decide_final_constant_value(
                                     left_value.value_handle() != right_value.value_handle());
                                 break;
-                            case ast::AstValueBase::ConstantValue::Type::BOOL:
+                            case ConstantValue::Type::BOOL:
                                 node->decide_final_constant_value(
                                     left_value.value_bool() != right_value.value_bool());
                                 break;
@@ -5034,10 +5034,10 @@ namespace wo
 
                     switch (operand_value.m_type)
                     {
-                    case ast::AstValueBase::ConstantValue::Type::INTEGER:
+                    case ConstantValue::Type::INTEGER:
                         node->decide_final_constant_value(-operand_value.value_integer());
                         break;
-                    case ast::AstValueBase::ConstantValue::Type::REAL:
+                    case ConstantValue::Type::REAL:
                         node->decide_final_constant_value(-operand_value.value_real());
                         break;
                     default:

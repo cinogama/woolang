@@ -187,7 +187,7 @@ namespace wo
 
         std::optional<std::list<ast::AstIdentifier::TemplateArgumentInstance>> 
                         m_instance_template_arguments;
-        std::optional<ast::AstValueBase::ConstantValue>
+        std::optional<ast::ConstantValue>
                         m_determined_constant_or_function;
         std::optional<lang_TypeInstance*> m_determined_type;
 
@@ -198,7 +198,7 @@ namespace wo
 
         void try_determine_function_may_constant(ast::AstValueFunction* func);
         void try_determine_const_value(ast::AstValueBase* init_val);
-        void set_const_value(const ast::AstValueBase::ConstantValue& init_val);
+        void set_const_value(const ast::ConstantValue& init_val);
 
         void check_and_reset_const_if_func_captured();
 
@@ -602,7 +602,7 @@ namespace wo
         opnum::immbase* opnum_imm_handle(wo_handle_t value) noexcept;
         opnum::immbase* opnum_imm_string(wo_pstring_t value) noexcept;
         opnum::immbase* opnum_imm_bool(bool value) noexcept;
-        opnum::opnumbase* opnum_imm_value(const ast::AstValueBase::ConstantValue& val);
+        opnum::opnumbase* opnum_imm_value(const ast::ConstantValue& val);
         opnum::tagimm_rsfunc* opnum_imm_rsfunc(ast::AstValueFunction* value) noexcept;
         opnum::imm_extfunc* opnum_imm_extfunc(ast::AstValueFunction* value) noexcept;
         opnum::opnumbase* opnum_func(ast::AstValueFunction* func) noexcept;
@@ -1066,7 +1066,7 @@ namespace wo
         bool update_pattern_symbol_variable_type_pass1(
             lexer& lex,
             ast::AstPatternBase* pattern,
-            const std::optional<std::variant<ast::AstValueBase*, const ast::AstValueBase::ConstantValue*>>& init_value,
+            const std::optional<std::variant<ast::AstValueBase*, const ast::ConstantValue*>>& init_value,
             // NOTE: If template pattern, init_value_type will not able to be determined.
             // So here is optional.
             const std::optional<lang_TypeInstance*>& init_value_type);
@@ -1156,8 +1156,8 @@ namespace wo
         const wchar_t* get_value_name_w(lang_ValueInstance* val);
         const char* get_value_name(lang_ValueInstance* val);
         
-        std::string get_constant_str(const ast::AstValueBase::ConstantValue& val);
-        std::wstring get_constant_str_w(const ast::AstValueBase::ConstantValue& val);
+        std::string get_constant_str(const ast::ConstantValue& val);
+        std::wstring get_constant_str_w(const ast::ConstantValue& val);
 
         bool template_argument_deduction_from_constant(
             lexer& lex,
@@ -1175,7 +1175,7 @@ namespace wo
             lexer& lex,
             ast::AstValueBase* accept_constant_formal,
             lang_TypeInstance* applying_type_instance,
-            const ast::AstValueBase::ConstantValue& constant_instance,
+            const ast::ConstantValue& constant_instance,
             const std::list<ast::AstTemplateParam*>& pending_template_params,
             std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance>* out_determined_template_arg_pair);
 

@@ -469,7 +469,7 @@ namespace wo
         if (init_val->m_evaled_const_value.has_value())
             set_const_value(init_val->m_evaled_const_value.value());
     }
-    void lang_ValueInstance::set_const_value(const ast::AstValueBase::ConstantValue& init_val)
+    void lang_ValueInstance::set_const_value(const ast::ConstantValue& init_val)
     {
         m_determined_constant_or_function.emplace(init_val);
     }
@@ -2516,23 +2516,23 @@ namespace wo
             .first
             ->second.second.c_str();
     }
-    std::string LangContext::get_constant_str(const ast::AstValueBase::ConstantValue& val)
+    std::string LangContext::get_constant_str(const ast::ConstantValue& val)
     {
         switch (val.m_type)
         {
-        case ast::AstValueBase::ConstantValue::Type::NIL:
+        case ast::ConstantValue::Type::NIL:
             return "nil";
-        case ast::AstValueBase::ConstantValue::Type::BOOL:
+        case ast::ConstantValue::Type::BOOL:
             if (val.value_bool())
                 return "true";
             return "false";
-        case ast::AstValueBase::ConstantValue::Type::INTEGER:
+        case ast::ConstantValue::Type::INTEGER:
             return std::to_string(val.value_integer());
-        case ast::AstValueBase::ConstantValue::Type::HANDLE:
+        case ast::ConstantValue::Type::HANDLE:
             return std::to_string(val.value_handle());
-        case ast::AstValueBase::ConstantValue::Type::REAL:
+        case ast::ConstantValue::Type::REAL:
             return std::to_string(val.value_real());
-        case ast::AstValueBase::ConstantValue::Type::PSTRING:
+        case ast::ConstantValue::Type::PSTRING:
         {
             wo_pstring_t pstring_constant = val.value_pstring();
             auto string_constant = 
@@ -2542,7 +2542,7 @@ namespace wo
                 string_constant.data(), 
                 string_constant.length());
         }
-        case ast::AstValueBase::ConstantValue::Type::STRUCT:
+        case ast::ConstantValue::Type::STRUCT:
         {
             auto& struct_constant = val.value_struct();
             std::string result = "(";
@@ -2556,14 +2556,14 @@ namespace wo
             result += ")";
             return result;
         }
-        case ast::AstValueBase::ConstantValue::Type::FUNCTION:
+        case ast::ConstantValue::Type::FUNCTION:
         default:
             return "<?>";
         }
 
 
     }
-    std::wstring LangContext::get_constant_str_w(const ast::AstValueBase::ConstantValue& val)
+    std::wstring LangContext::get_constant_str_w(const ast::ConstantValue& val)
     {
         return str_to_wstr(get_constant_str(val));
     }
@@ -2921,23 +2921,23 @@ namespace wo
             return m_opnum_cache_imm_false.get();
     }
     opnum::opnumbase* BytecodeGenerateContext::opnum_imm_value(
-        const ast::AstValueBase::ConstantValue& val)
+        const ast::ConstantValue& val)
     {
         switch (val.m_type)
         {
-        case ast::AstValueBase::ConstantValue::Type::NIL:
+        case ast::ConstantValue::Type::NIL:
             return opnum_spreg(opnum::reg::spreg::ni);
-        case ast::AstValueBase::ConstantValue::Type::INTEGER:
+        case ast::ConstantValue::Type::INTEGER:
             return opnum_imm_int(val.value_integer());
-        case ast::AstValueBase::ConstantValue::Type::REAL:
+        case ast::ConstantValue::Type::REAL:
             return opnum_imm_real(val.value_real());
-        case ast::AstValueBase::ConstantValue::Type::HANDLE:
+        case ast::ConstantValue::Type::HANDLE:
             return opnum_imm_handle(val.value_handle());
-        case ast::AstValueBase::ConstantValue::Type::BOOL:
+        case ast::ConstantValue::Type::BOOL:
             return opnum_imm_bool(val.value_bool());
-        case ast::AstValueBase::ConstantValue::Type::PSTRING:
+        case ast::ConstantValue::Type::PSTRING:
             return opnum_imm_string(val.value_pstring());
-        case ast::AstValueBase::ConstantValue::Type::FUNCTION:
+        case ast::ConstantValue::Type::FUNCTION:
             return opnum_func(val.value_function());
         default:
             return m_opnum_cache_imm_value.emplace_back(

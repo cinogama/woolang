@@ -7,6 +7,85 @@
 
 namespace wo
 {
+    namespace ast
+    {
+        struct AstValueFunction;
+        struct ConstantValue
+        {
+            struct StructStorage
+            {
+                const size_t m_count;
+                ConstantValue* m_elements;
+
+                explicit StructStorage(const std::list<ConstantValue*>& val);
+                ~StructStorage();
+                StructStorage(const StructStorage& another);
+                StructStorage(StructStorage&& another);
+                StructStorage& operator = (const StructStorage& another) = delete;
+                StructStorage& operator = (StructStorage&& another) = delete;
+
+                bool operator <(const StructStorage& another) const;
+            };
+            using Storage = std::variant<
+                std::monostate, // nil
+                bool,
+                wo_integer_t,
+                wo_handle_t,
+                wo_real_t,
+                wo_pstring_t,
+                StructStorage,
+                ast::AstValueFunction*>;
+
+            enum class Type
+            {
+                NIL,
+                BOOL,
+                INTEGER,
+                HANDLE,
+                REAL,
+                PSTRING,
+                STRUCT,
+                FUNCTION,
+            };
+
+            Type m_type;
+            const Storage m_storage;
+
+            ConstantValue();
+            explicit ConstantValue(bool val);
+            explicit ConstantValue(wo_integer_t val);
+            explicit ConstantValue(wo_handle_t val);
+            explicit ConstantValue(wo_real_t val);
+            explicit ConstantValue(wo_pstring_t val);
+            explicit ConstantValue(const std::wstring& val);
+            explicit ConstantValue(const std::list<ConstantValue*>& val);
+#ifndef WO_DISABLE_COMPILER
+            explicit ConstantValue(ast::AstValueFunction* val);
+#endif
+            ConstantValue(const ConstantValue& another) = default;
+            ConstantValue(ConstantValue&& another) = default;
+            ConstantValue& operator = (const ConstantValue& another) = delete;
+            ConstantValue& operator = (ConstantValue&& another) = delete;
+            bool operator <(const ConstantValue& another) const;
+
+            bool value_bool()const;
+            wo_integer_t value_integer()const;
+            wo_handle_t value_handle()const;
+            wo_real_t value_real()const;
+            wo_pstring_t value_pstring()const;
+            const StructStorage& value_struct() const;
+            ast::AstValueFunction* value_function() const;
+
+            bool cast_value_bool()const;
+            wo_integer_t cast_value_integer()const;
+            wo_handle_t cast_value_handle()const;
+            wo_real_t cast_value_real()const;
+            wo_pstring_t cast_value_pstring()const;
+
+            std::optional<ast::AstValueFunction*> value_try_function()const;
+        };
+    }
+
 #ifndef WO_DISABLE_COMPILER
     struct lang_TypeInstance;
     struct lang_AliasInstance;
@@ -83,79 +162,6 @@ namespace wo
         struct AstValueFunction;
         struct AstValueBase : public AstBase
         {
-            struct ConstantValue
-            {
-                struct StructStorage
-                {
-                    const size_t m_count;
-                    ConstantValue* m_elements;
-
-                    explicit StructStorage(const std::list<ConstantValue*>& val);
-                    ~StructStorage();
-                    StructStorage(const StructStorage& another);
-                    StructStorage(StructStorage&& another);
-                    StructStorage& operator = (const StructStorage& another) = delete;
-                    StructStorage& operator = (StructStorage&& another) = delete;
-
-                    bool operator <(const StructStorage& another) const;
-                };
-                using Storage = std::variant<
-                    std::monostate, // nil
-                    bool,
-                    wo_integer_t,
-                    wo_handle_t,
-                    wo_real_t,
-                    wo_pstring_t,
-                    StructStorage,
-                    AstValueFunction*>;
-
-                enum class Type
-                {
-                    NIL,
-                    BOOL,
-                    INTEGER,
-                    HANDLE,
-                    REAL,
-                    PSTRING,
-                    STRUCT,
-                    FUNCTION,
-                };
-
-                Type m_type;
-                const Storage m_storage;
-
-                ConstantValue();
-                explicit ConstantValue(bool val);
-                explicit ConstantValue(wo_integer_t val);
-                explicit ConstantValue(wo_handle_t val);
-                explicit ConstantValue(wo_real_t val);
-                explicit ConstantValue(wo_pstring_t val);
-                explicit ConstantValue(const std::wstring& val);
-                explicit ConstantValue(const std::list<ConstantValue*>& val);
-                explicit ConstantValue(AstValueFunction* val);
-                ConstantValue(const ConstantValue& another) = default;
-                ConstantValue(ConstantValue&& another) = default;
-                ConstantValue& operator = (const ConstantValue& another) = delete;
-                ConstantValue& operator = (ConstantValue&& another) = delete;
-                bool operator <(const ConstantValue& another) const;
-
-                bool value_bool()const;
-                wo_integer_t value_integer()const;
-                wo_handle_t value_handle()const;
-                wo_real_t value_real()const;
-                wo_pstring_t value_pstring()const;
-                const StructStorage& value_struct() const;
-                AstValueFunction* value_function() const;
-
-                bool cast_value_bool()const;
-                wo_integer_t cast_value_integer()const;
-                wo_handle_t cast_value_handle()const;
-                wo_real_t cast_value_real()const;
-                wo_pstring_t cast_value_pstring()const;
-
-                std::optional<AstValueFunction*> value_try_function()const;
-            };
-
             std::optional<lang_TypeInstance*> m_LANG_determined_type;
             std::optional<ConstantValue> m_evaled_const_value;
 
@@ -191,11 +197,11 @@ namespace wo
             struct TemplateArgumentInstance
             {
                 lang_TypeInstance* m_type;
-                std::optional<AstValueBase::ConstantValue> m_constant;
+                std::optional<ConstantValue> m_constant;
 
                 TemplateArgumentInstance(lang_TypeInstance* type) noexcept;
                 TemplateArgumentInstance(AstValueBase* value) noexcept;
-                TemplateArgumentInstance(lang_TypeInstance* type, const AstValueBase::ConstantValue& constant) noexcept;
+                TemplateArgumentInstance(lang_TypeInstance* type, const ConstantValue& constant) noexcept;
 
                 TemplateArgumentInstance(const TemplateArgumentInstance& another) noexcept;
                 TemplateArgumentInstance(TemplateArgumentInstance&& another) noexcept;

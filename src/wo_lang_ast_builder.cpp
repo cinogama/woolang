@@ -1020,7 +1020,7 @@ namespace wo
                 literal_instance->decide_final_constant_value(literal.identifier);
                 break;
             case lex_type::l_nil:
-                literal_instance->decide_final_constant_value(ast::AstValueBase::ConstantValue());
+                literal_instance->decide_final_constant_value(ConstantValue());
                 break;
             case lex_type::l_true:
                 literal_instance->decide_final_constant_value(true);

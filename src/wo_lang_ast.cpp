@@ -2,9 +2,246 @@
 
 namespace wo
 {
-#ifndef WO_DISABLE_COMPILER
     namespace ast
     {
+        ConstantValue::StructStorage::StructStorage(const std::list<ConstantValue*>& val)
+            : m_count(val.size())
+            , m_elements(reinterpret_cast<ConstantValue*>(malloc(val.size() * sizeof(ConstantValue))))
+        {
+            wo_assert(m_elements != nullptr);
+            size_t i = 0;
+            for (auto* elem : val)
+            {
+                new (&m_elements[i]) ConstantValue(*elem);
+                ++i;
+            }
+        }
+        ConstantValue::StructStorage::~StructStorage()
+        {
+            if (m_elements != nullptr)
+            {
+                for (size_t i = 0; i < m_count; ++i)
+                {
+                    m_elements[i].~ConstantValue();
+                }
+                free(m_elements);
+            }
+        }
+        ConstantValue::StructStorage::StructStorage(const StructStorage& another)
+            : m_count(another.m_count)
+            , m_elements(reinterpret_cast<ConstantValue*>(malloc(another.m_count * sizeof(ConstantValue))))
+        {
+            wo_assert(m_elements != nullptr);
+            for (size_t i = 0; i < m_count; ++i)
+            {
+                new (&m_elements[i]) ConstantValue(another.m_elements[i]);
+            }
+        }
+        ConstantValue::StructStorage::StructStorage(StructStorage&& another)
+            : m_count(another.m_count)
+            , m_elements(another.m_elements)
+        {
+            another.m_elements = nullptr;
+        }
+        bool ConstantValue::StructStorage::operator <(const StructStorage& another) const
+        {
+            if (m_count != another.m_count)
+                return m_count < another.m_count;
+
+            for (size_t i = 0; i < m_count; ++i)
+            {
+                if (m_elements[i] < another.m_elements[i])
+                    return true;
+                else if (another.m_elements[i] < m_elements[i])
+                    return false;
+            }
+            return false;
+        }
+        ConstantValue::ConstantValue()
+            : m_type(Type::NIL)
+        {
+        }
+        ConstantValue::ConstantValue(bool val)
+            : m_type(Type::BOOL), m_storage(val)
+        {
+        }
+        ConstantValue::ConstantValue(wo_integer_t val)
+            : m_type(Type::INTEGER), m_storage(val)
+        {
+        }
+        ConstantValue::ConstantValue(wo_handle_t val)
+            : m_type(Type::HANDLE), m_storage(val)
+        {
+        }
+        ConstantValue::ConstantValue(wo_real_t val)
+            : m_type(Type::REAL), m_storage(val)
+        {
+        }
+        ConstantValue::ConstantValue(wo_pstring_t val)
+            : m_type(Type::PSTRING), m_storage(val)
+        {
+        }
+        ConstantValue::ConstantValue(const std::wstring& val)
+            : m_type(Type::PSTRING), m_storage(wo::wstring_pool::get_pstr(val))
+        {
+        }
+        ConstantValue::ConstantValue(const std::list<ConstantValue*>& val)
+            : m_type(Type::STRUCT), m_storage(StructStorage(val))
+        {
+        }
+#ifndef WO_DISABLE_COMPILER
+        ConstantValue::ConstantValue(ast::AstValueFunction* val)
+            : m_type(Type::FUNCTION), m_storage(val)
+        {
+            // Function with captured variable cannot be constant.
+            wo_assert(val->m_LANG_captured_context.m_captured_variables.empty());
+        }
+#endif
+        bool ConstantValue::operator <(const ConstantValue& another) const
+        {
+            if (m_storage.index() != another.m_storage.index())
+                return m_storage.index() < another.m_storage.index();
+
+            return std::visit([&another](const auto& v) {
+                using T = std::decay_t<decltype(v)>;
+                if constexpr (std::is_same_v<T, ast::AstValueFunction*>)
+                    return reinterpret_cast<intptr_t>(v)
+                    < reinterpret_cast<intptr_t>(another.value_function());
+                else
+                    return v < std::get<T>(another.m_storage);
+                }, m_storage);
+        }
+
+        bool ConstantValue::value_bool()const
+        {
+            return std::get<bool>(m_storage);
+        }
+        wo_integer_t ConstantValue::value_integer()const
+        {
+            return std::get<wo_integer_t>(m_storage);
+        }
+        wo_handle_t ConstantValue::value_handle()const
+        {
+            return std::get<wo_handle_t>(m_storage);
+        }
+        wo_real_t ConstantValue::value_real()const
+        {
+            return std::get<wo_real_t>(m_storage);
+        }
+        wo_pstring_t ConstantValue::value_pstring()const
+        {
+            return std::get<wo_pstring_t>(m_storage);
+        }
+        const ConstantValue::StructStorage& ConstantValue::value_struct() const
+        {
+            return std::get<StructStorage>(m_storage);
+        }
+        ast::AstValueFunction* ConstantValue::value_function() const
+        {
+            return std::get<ast::AstValueFunction*>(m_storage);
+        }
+        bool ConstantValue::cast_value_bool()const
+        {
+            switch (m_type)
+            {
+            case Type::BOOL:
+                return value_bool();
+            case Type::INTEGER:
+                return value_integer() != 0;
+            case Type::HANDLE:
+                return value_handle() != 0;
+            case Type::REAL:
+                return value_real() != 0;
+            case Type::PSTRING:
+                return 0 == value_pstring()->compare(L"true");
+            default:
+                wo_error("Unexpected type.");
+            }
+        }
+        wo_integer_t ConstantValue::cast_value_integer()const
+        {
+            switch (m_type)
+            {
+            case Type::BOOL:
+                return value_bool() ? 1 : 0;
+            case Type::INTEGER:
+                return value_integer();
+            case Type::HANDLE:
+                return static_cast<wo_integer_t>(value_handle());
+            case Type::REAL:
+                return static_cast<wo_integer_t>(value_real());
+            case Type::PSTRING:
+                return (wo_integer_t)wcstoll(value_pstring()->c_str(), nullptr, 0);
+            default:
+                wo_error("Unexpected type.");
+            }
+        }
+        wo_handle_t ConstantValue::cast_value_handle()const
+        {
+            switch (m_type)
+            {
+            case Type::BOOL:
+                return value_bool() ? 1 : 0;
+            case Type::INTEGER:
+                return static_cast<wo_handle_t>(value_integer());
+            case Type::HANDLE:
+                return value_handle();
+            case Type::REAL:
+                return static_cast<wo_handle_t>(value_real());
+            case Type::PSTRING:
+                return (wo_handle_t)wcstoull(value_pstring()->c_str(), nullptr, 0);
+            default:
+                wo_error("Unexpected type.");
+            }
+        }
+        wo_real_t ConstantValue::cast_value_real()const
+        {
+            switch (m_type)
+            {
+            case Type::BOOL:
+                return value_bool() ? 1.0 : 0.0;
+            case Type::INTEGER:
+                return static_cast<wo_real_t>(value_integer());
+            case Type::HANDLE:
+                return static_cast<wo_real_t>(value_handle());
+            case Type::REAL:
+                return value_real();
+            case Type::PSTRING:
+                return wcstod(value_pstring()->c_str(), nullptr);
+            default:
+                wo_error("Unexpected type.");
+            }
+        }
+        wo_pstring_t ConstantValue::cast_value_pstring()const
+        {
+            switch (m_type)
+            {
+            case Type::BOOL:
+                return value_bool() ? wo::wstring_pool::get_pstr(L"true") : wo::wstring_pool::get_pstr(L"false");
+            case Type::INTEGER:
+                return wo::wstring_pool::get_pstr(std::to_wstring(value_integer()));
+            case Type::HANDLE:
+                return wo::wstring_pool::get_pstr(std::to_wstring(value_handle()));
+            case Type::REAL:
+                return wo::wstring_pool::get_pstr(std::to_wstring(value_real()));
+            case Type::PSTRING:
+                return value_pstring();
+            default:
+                wo_error("Unexpected type.");
+            }
+        }
+
+        std::optional<ast::AstValueFunction*> ConstantValue::value_try_function()const
+        {
+            if (m_type == Type::FUNCTION)
+                return value_function();
+
+            return std::nullopt;
+        }
+
+        ////////////////////////////////////////////////////////
+#ifndef WO_DISABLE_COMPILER
+
         AstDeclareAttribue::AstDeclareAttribue()
             : AstBase(AST_DECLARE_ATTRIBUTE)
             , m_lifecycle(std::nullopt)
@@ -184,7 +421,7 @@ namespace wo
         {
         }
         AstIdentifier::TemplateArgumentInstance::TemplateArgumentInstance(
-            lang_TypeInstance* type, const AstValueBase::ConstantValue& constant) noexcept
+            lang_TypeInstance* type, const ConstantValue& constant) noexcept
             : m_type(type)
             , m_constant(constant)
         {
@@ -781,241 +1018,6 @@ namespace wo
 
             return new_instance;
         }
-        ////////////////////////////////////////////////////////
-
-        AstValueBase::ConstantValue::StructStorage::StructStorage(const std::list<ConstantValue*>& val)
-            : m_count(val.size())
-            , m_elements(reinterpret_cast<ConstantValue*>(malloc(val.size() * sizeof(ConstantValue))))
-        {
-            wo_assert(m_elements != nullptr);
-            size_t i = 0;
-            for (auto* elem : val)
-            {
-                new (&m_elements[i]) ConstantValue(*elem);
-                ++i;
-            }
-        }
-        AstValueBase::ConstantValue::StructStorage::~StructStorage()
-        {
-            if (m_elements != nullptr)
-            {
-                for (size_t i = 0; i < m_count; ++i)
-                {
-                    m_elements[i].~ConstantValue();
-                }
-                free(m_elements);
-            }
-        }
-        AstValueBase::ConstantValue::StructStorage::StructStorage(const StructStorage& another)
-            : m_count(another.m_count)
-            , m_elements(reinterpret_cast<ConstantValue*>(malloc(another.m_count * sizeof(ConstantValue))))
-        {
-            wo_assert(m_elements != nullptr);
-            for (size_t i = 0; i < m_count; ++i)
-            {
-                new (&m_elements[i]) ConstantValue(another.m_elements[i]);
-            }
-        }
-        AstValueBase::ConstantValue::StructStorage::StructStorage(StructStorage&& another)
-            : m_count(another.m_count)
-            , m_elements(another.m_elements)
-        {
-            another.m_elements = nullptr;
-        }
-        bool AstValueBase::ConstantValue::StructStorage::operator <(const StructStorage& another) const
-        {
-            if (m_count != another.m_count)
-                return m_count < another.m_count;
-
-            for (size_t i = 0; i < m_count; ++i)
-            {
-                if (m_elements[i] < another.m_elements[i])
-                    return true;
-                else if (another.m_elements[i] < m_elements[i])
-                    return false;
-            }
-            return false;
-        }
-        AstValueBase::ConstantValue::ConstantValue()
-            : m_type(Type::NIL)
-        {
-        }
-        AstValueBase::ConstantValue::ConstantValue(bool val)
-            : m_type(Type::BOOL), m_storage(val)
-        {
-        }
-        AstValueBase::ConstantValue::ConstantValue(wo_integer_t val)
-            : m_type(Type::INTEGER), m_storage(val)
-        {
-        }
-        AstValueBase::ConstantValue::ConstantValue(wo_handle_t val)
-            : m_type(Type::HANDLE), m_storage(val)
-        {
-        }
-        AstValueBase::ConstantValue::ConstantValue(wo_real_t val)
-            : m_type(Type::REAL), m_storage(val)
-        {
-        }
-        AstValueBase::ConstantValue::ConstantValue(wo_pstring_t val)
-            : m_type(Type::PSTRING), m_storage(val)
-        {
-        }
-        AstValueBase::ConstantValue::ConstantValue(const std::wstring& val)
-            : m_type(Type::PSTRING), m_storage(wo::wstring_pool::get_pstr(val))
-        {
-        }
-        AstValueBase::ConstantValue::ConstantValue(const std::list<ConstantValue*>& val)
-            : m_type(Type::STRUCT), m_storage(StructStorage(val))
-        {
-        }
-        AstValueBase::ConstantValue::ConstantValue(AstValueFunction* val)
-            : m_type(Type::FUNCTION), m_storage(val)
-        {
-            // Function with captured variable cannot be constant.
-            wo_assert(val->m_LANG_captured_context.m_captured_variables.empty());
-        }
-        bool AstValueBase::ConstantValue::operator <(const ConstantValue& another) const
-        {
-            if (m_storage.index() != another.m_storage.index())
-                return m_storage.index() < another.m_storage.index();
-
-            return std::visit([&another](const auto& v) {
-                using T = std::decay_t<decltype(v)>;
-                if constexpr (std::is_same_v<T, AstValueFunction*>)
-                    return reinterpret_cast<intptr_t>(v)
-                    < reinterpret_cast<intptr_t>(another.value_function());
-                else
-                    return v < std::get<T>(another.m_storage);
-                }, m_storage);
-        }
-
-        bool AstValueBase::ConstantValue::value_bool()const
-        {
-            return std::get<bool>(m_storage);
-        }
-        wo_integer_t AstValueBase::ConstantValue::value_integer()const
-        {
-            return std::get<wo_integer_t>(m_storage);
-        }
-        wo_handle_t AstValueBase::ConstantValue::value_handle()const
-        {
-            return std::get<wo_handle_t>(m_storage);
-        }
-        wo_real_t AstValueBase::ConstantValue::value_real()const
-        {
-            return std::get<wo_real_t>(m_storage);
-        }
-        wo_pstring_t AstValueBase::ConstantValue::value_pstring()const
-        {
-            return std::get<wo_pstring_t>(m_storage);
-        }
-        const AstValueBase::ConstantValue::StructStorage& AstValueBase::ConstantValue::value_struct() const
-        {
-            return std::get<StructStorage>(m_storage);
-        }
-        AstValueFunction* AstValueBase::ConstantValue::value_function() const
-        {
-            return std::get<AstValueFunction*>(m_storage);
-        }
-        bool AstValueBase::ConstantValue::cast_value_bool()const
-        {
-            switch (m_type)
-            {
-            case Type::BOOL:
-                return value_bool();
-            case Type::INTEGER:
-                return value_integer() != 0;
-            case Type::HANDLE:
-                return value_handle() != 0;
-            case Type::REAL:
-                return value_real() != 0;
-            case Type::PSTRING:
-                return 0 == value_pstring()->compare(L"true");
-            default:
-                wo_error("Unexpected type.");
-            }
-        }
-        wo_integer_t AstValueBase::ConstantValue::cast_value_integer()const
-        {
-            switch (m_type)
-            {
-            case Type::BOOL:
-                return value_bool() ? 1 : 0;
-            case Type::INTEGER:
-                return value_integer();
-            case Type::HANDLE:
-                return static_cast<wo_integer_t>(value_handle());
-            case Type::REAL:
-                return static_cast<wo_integer_t>(value_real());
-            case Type::PSTRING:
-                return (wo_integer_t)wcstoll(value_pstring()->c_str(), nullptr, 0);
-            default:
-                wo_error("Unexpected type.");
-            }
-        }
-        wo_handle_t AstValueBase::ConstantValue::cast_value_handle()const
-        {
-            switch (m_type)
-            {
-            case Type::BOOL:
-                return value_bool() ? 1 : 0;
-            case Type::INTEGER:
-                return static_cast<wo_handle_t>(value_integer());
-            case Type::HANDLE:
-                return value_handle();
-            case Type::REAL:
-                return static_cast<wo_handle_t>(value_real());
-            case Type::PSTRING:
-                return (wo_handle_t)wcstoull(value_pstring()->c_str(), nullptr, 0);
-            default:
-                wo_error("Unexpected type.");
-            }
-        }
-        wo_real_t AstValueBase::ConstantValue::cast_value_real()const
-        {
-            switch (m_type)
-            {
-            case Type::BOOL:
-                return value_bool() ? 1.0 : 0.0;
-            case Type::INTEGER:
-                return static_cast<wo_real_t>(value_integer());
-            case Type::HANDLE:
-                return static_cast<wo_real_t>(value_handle());
-            case Type::REAL:
-                return value_real();
-            case Type::PSTRING:
-                return wcstod(value_pstring()->c_str(), nullptr);
-            default:
-                wo_error("Unexpected type.");
-            }
-        }
-        wo_pstring_t AstValueBase::ConstantValue::cast_value_pstring()const
-        {
-            switch (m_type)
-            {
-            case Type::BOOL:
-                return value_bool() ? wo::wstring_pool::get_pstr(L"true") : wo::wstring_pool::get_pstr(L"false");
-            case Type::INTEGER:
-                return wo::wstring_pool::get_pstr(std::to_wstring(value_integer()));
-            case Type::HANDLE:
-                return wo::wstring_pool::get_pstr(std::to_wstring(value_handle()));
-            case Type::REAL:
-                return wo::wstring_pool::get_pstr(std::to_wstring(value_real()));
-            case Type::PSTRING:
-                return value_pstring();
-            default:
-                wo_error("Unexpected type.");
-            }
-        }
-
-        std::optional<AstValueFunction*> AstValueBase::ConstantValue::value_try_function()const
-        {
-            if (m_type == Type::FUNCTION)
-                return value_function();
-
-            return std::nullopt;
-        }
-
         ////////////////////////////////////////////////////////
 
         AstValueBase::AstValueBase(AstBase::node_type_t nodetype)
@@ -2810,6 +2812,6 @@ namespace wo
         {
             wo_error("This node should never be duplicated.");
         }
-    }
 #endif
+    }
 }

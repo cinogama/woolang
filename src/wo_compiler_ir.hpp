@@ -188,9 +188,9 @@ namespace wo
             }
         public:
             std::optional<uint32_t> constant_index;
-            ast::AstValueBase::ConstantValue constant_value;
+            ast::ConstantValue constant_value;
 
-            explicit immbase(const ast::AstValueBase::ConstantValue& val)
+            explicit immbase(const ast::ConstantValue& val)
                 : constant_index(std::nullopt)
                 , constant_value(val)
             {
@@ -200,7 +200,7 @@ namespace wo
             {
                 return constant_value < another.constant_value;
             }
-            ast::AstValueBase::ConstantValue::Type type()const
+            ast::ConstantValue::Type type()const
             {
                 return constant_value.m_type;
             }
@@ -262,6 +262,7 @@ namespace wo
             {
             }
         };
+#ifndef WO_DISABLE_COMPILER
         struct imm_extfunc : virtual immbase
         {
             imm_extfunc(ast::AstValueFunction* func);
@@ -275,6 +276,7 @@ namespace wo
                 return immbase::generate_opnum_to_buffer(buffer);
             }
         };
+#endif
     } // namespace opnum;
 
     class vmbase;
@@ -500,7 +502,6 @@ namespace wo
                     uint8_t m_dr;
                 };
                 opnum::opnumbase* m_opnum;
-                opnum::tagimm_rsfunc* m_immtag;
                 uint8_t m_immu8;
                 uint16_t m_immu16;
                 uint32_t m_immu32;
@@ -579,9 +580,9 @@ namespace wo
         runtime_env::extern_native_functions_t extern_native_functions;
         runtime_env::extern_function_map_t extern_script_functions;
 
-        cxx_map_t<ast::AstValueBase::ConstantValue, uint32_t>
+        cxx_map_t<ast::ConstantValue, uint32_t>
             constant_record_to_index_mapping;
-        std::list<const ast::AstValueBase::ConstantValue*>
+        std::list<const ast::ConstantValue*>
             ordered_constant_record_list;
         cxx_vec_t<opnum::global*>
             global_record_list;
@@ -605,11 +606,11 @@ namespace wo
             std::map<wo_pstring_t, TagOffsetInConstantOffset>;
 
         uint32_t _check_constant_and_give_storage_idx(
-            const ast::AstValueBase::ConstantValue& constant) noexcept;
+            const ast::ConstantValue& constant) noexcept;
 
         void apply_value_to_constant_instance(
             value* constant_value_pool,
-            const ast::AstValueBase::ConstantValue& constant_value,
+            const ast::ConstantValue& constant_value,
             uint32_t this_constant_index,
             TagOffsetLocatedInConstantTableOffsetRecordT& out_record) noexcept;
 
@@ -1157,7 +1158,7 @@ namespace wo
                 {
                     switch (immop->type())
                     {
-                    case ast::AstValueBase::ConstantValue::Type::HANDLE:
+                    case ConstantValue::Type::HANDLE:
                     {
                         wo_handle_t h = immop->constant_value.value_handle();
                         WO_PUT_IR_TO_BUFFER(
@@ -1165,7 +1166,7 @@ namespace wo
                             reinterpret_cast<opnum::opnumbase*>(static_cast<intptr_t>(h)));
                         return;
                     }
-                    case ast::AstValueBase::ConstantValue::Type::INTEGER:
+                    case ConstantValue::Type::INTEGER:
                     {
                         wo_integer_t a = immop->constant_value.value_integer();
                         wo_assert(0 <= a && a <= UINT32_MAX, "Immediate instruct address is to large to call.");
@@ -1177,8 +1178,9 @@ namespace wo
                             static_cast<int32_t>(a));
                         return;
                     }
-                    case ast::AstValueBase::ConstantValue::Type::FUNCTION:
+                    case ConstantValue::Type::FUNCTION:
                     {
+#ifndef WO_DISABLE_COMPILER
                         auto* function = immop->constant_value.value_function();
                         auto* extern_function = 
                             function->m_IR_extern_information.value()->m_IR_externed_function.value();
@@ -1186,6 +1188,9 @@ namespace wo
                         WO_PUT_IR_TO_BUFFER(
                             instruct::opcode::calln, 
                             reinterpret_cast<opnum::opnumbase*>(extern_function));
+#else
+                        wo_error("Should never be function if compiler disabled.");
+#endif
                         return;
                     }
                     default:

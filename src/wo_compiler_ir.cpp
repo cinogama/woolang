@@ -2,6 +2,7 @@
 
 namespace wo
 {
+#ifndef WO_DISABLE_COMPILER
     namespace opnum
     {
         imm_extfunc::imm_extfunc(ast::AstValueFunction* func)
@@ -17,7 +18,7 @@ namespace wo
             wo_assert(!func->m_IR_extern_information.has_value());
         }
     }
-#ifndef WO_DISABLE_COMPILER
+
     void program_debug_data_info::generate_debug_info_at_astnode(ast::AstBase* ast_node, ir_compiler* compiler)
     {
         // funcdef should not genrate val..
@@ -882,6 +883,11 @@ namespace wo
         {
             uint32_t index;
             uint32_t size;
+
+            bool operator < (const string_buffer_index& another) const
+            {
+                return index != another.index ? index < another.index : size < another.size;
+            }
         };
         std::unordered_map<value*, string_buffer_index> constant_string_index_for_update;
 
@@ -1242,15 +1248,29 @@ namespace wo
         };
 
         std::string constant_string;
+        std::map<string_buffer_index, wo::string_t*> created_string_instances;
         for (auto& [store_value, string_index] : constant_string_index_for_update)
         {
             wo_assert(store_value->type == wo::value::valuetype::string_type);
 
-            if (!restore_string_from_buffer(string_index, &constant_string))
-                WO_LOAD_BIN_FAILED("Failed to restore string from string buffer.");
+            wo::string_t* string_instance;
+            if (auto fnd = created_string_instances.find(string_index);
+                fnd != created_string_instances.end())
+            {
+                string_instance = fnd->second;
+            }
+            else
+            {
+                if (!restore_string_from_buffer(string_index, &constant_string))
+                    WO_LOAD_BIN_FAILED("Failed to restore string from string buffer.");
+
+                string_instance = string_t::gc_new<gcbase::gctype::no_gc>(constant_string);
+                (void)created_string_instances.insert(std::make_pair(string_index, string_instance));
+            }
+            wo_assert(string_instance != nullptr);
 
             store_value->set_gcunit<wo::value::valuetype::string_type>(
-                string_t::gc_new<gcbase::gctype::no_gc>(constant_string));
+                string_instance);
         }
 
         for (auto& extern_native_function : extern_native_functions)
@@ -1268,7 +1288,8 @@ namespace wo
             if (library_name == "")
                 func = rslib_extern_symbols::get_global_symbol(function_name.c_str());
             else
-                func = result->loaded_libraries.try_load_func_from_in(script_path.c_str(), library_name.c_str(), function_name.c_str());
+                func = result->loaded_libraries.try_load_func_from_in(
+                    script_path.c_str(), library_name.c_str(), function_name.c_str());
 
             if (func == nullptr)
             {
@@ -1279,9 +1300,9 @@ namespace wo
             extern_native_function_info.function_name = function_name;
 
             if (library_name == "")
-                extern_native_function_info.library_name = std::optional(library_name);
-            else
                 extern_native_function_info.library_name = std::nullopt;
+            else
+                extern_native_function_info.library_name = std::optional(library_name);
 
             extern_native_function_info.script_name = script_path;
             extern_native_function_info.offset_in_constant = extern_native_function.constant_offsets;
@@ -1611,13 +1632,13 @@ namespace wo
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     uint32_t ir_compiler::_check_constant_and_give_storage_idx(
-        const ast::AstValueBase::ConstantValue& constant)noexcept
+        const ast::ConstantValue& constant)noexcept
     {
         auto fnd = constant_record_to_index_mapping.find(constant);
         if (fnd != constant_record_to_index_mapping.end())
             return fnd->second;
 
-        if (constant.m_type == ast::AstValueBase::ConstantValue::Type::STRUCT)
+        if (constant.m_type == ast::ConstantValue::Type::STRUCT)
         {
             // Check and add constant record for tuple constant.
             auto& struct_constant = constant.value_struct();
@@ -1640,36 +1661,36 @@ namespace wo
 
     void ir_compiler::apply_value_to_constant_instance(
         value* constant_value_pool,
-        const ast::AstValueBase::ConstantValue& constant_value,
+        const ast::ConstantValue& constant_value,
         uint32_t this_constant_index,
         TagOffsetLocatedInConstantTableOffsetRecordT& out_record) noexcept
     {
         auto& out_value = constant_value_pool[this_constant_index];
         switch (constant_value.m_type)
         {
-        case ast::AstValueBase::ConstantValue::Type::NIL:
+        case ast::ConstantValue::Type::NIL:
             out_value.set_nil();
             break;
-        case ast::AstValueBase::ConstantValue::Type::BOOL:
+        case ast::ConstantValue::Type::BOOL:
             out_value.set_bool(constant_value.value_bool());
             break;
-        case ast::AstValueBase::ConstantValue::Type::INTEGER:
+        case ast::ConstantValue::Type::INTEGER:
             out_value.set_integer(constant_value.value_integer());
             break;
-        case ast::AstValueBase::ConstantValue::Type::HANDLE:
+        case ast::ConstantValue::Type::HANDLE:
             out_value.set_handle(constant_value.value_handle());
             break;
-        case ast::AstValueBase::ConstantValue::Type::REAL:
+        case ast::ConstantValue::Type::REAL:
             out_value.set_real(constant_value.value_real());
             break;
-        case ast::AstValueBase::ConstantValue::Type::PSTRING:
+        case ast::ConstantValue::Type::PSTRING:
         {
             wo_pstring_t pstring_constant = constant_value.value_pstring();
             out_value.set_string_nogc(
                 wo::wstrn_to_str(pstring_constant->data(), pstring_constant->size()));
             break;
         }
-        case ast::AstValueBase::ConstantValue::Type::STRUCT:
+        case ast::ConstantValue::Type::STRUCT:
         {
             auto& struct_constant = constant_value.value_struct();
             auto* struct_instance = out_value.set_struct_nogc(
@@ -1688,6 +1709,7 @@ namespace wo
                 auto function = element_constant.value_try_function();
                 if (function.has_value())
                 {
+#ifndef WO_DISABLE_COMPILER
                     auto* function_instance = function.value();
 
                     if (function_instance->m_IR_extern_information.has_value())
@@ -1710,13 +1732,17 @@ namespace wo
                             .m_offset_in_tuple.emplace_back(
                                 std::make_pair(this_constant_index, static_cast<uint16_t>(i)));
                     }
+#else
+                    wo_error("Should never be function if compiler disabled.");
+#endif
                 }
             }
             break;
         }
         case
-        ast::AstValueBase::ConstantValue::Type::FUNCTION:
+        ast::ConstantValue::Type::FUNCTION:
         {
+#ifndef WO_DISABLE_COMPILER
             auto* function_instance = constant_value.value_function();
 
             if (function_instance->m_IR_extern_information.has_value())
@@ -1745,7 +1771,9 @@ namespace wo
 
                 out_value.set_integer(-1);
             }
-
+#else
+            wo_error("Should never be function if compiler disabled.");
+#endif
             break;
         }
         default:
