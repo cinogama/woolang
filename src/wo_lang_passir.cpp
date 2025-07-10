@@ -11,7 +11,7 @@ namespace wo
     wo_pstring_t _generate_label(const std::wstring& prefix, const void* p)
     {
         wchar_t result[128];
-        auto r = swprintf(result, 128, L"%s_%p", prefix.c_str(), p);
+        auto r = swprintf(result, 128, L"%ls_%p", prefix.c_str(), p);
         if (r < 0 || r >= 128)
             wo_error("Failed to generate label.");
 

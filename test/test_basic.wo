@@ -169,6 +169,13 @@ namespace test_basic
         let constant_extfunc_tuple3 = (constant_extfunc_tuple2, 1);
         test_equal(constant_extfunc_tuple3->car->car->cdr.2((233666, 655)), 233666);
 
+        test_assure(std::is_same(constant_tuple, constant_tuple2.0));
+        test_assure(std::is_same(constant_tuple, constant_tuple3.0[0]));
+        test_assure(std::is_same(constant_tuple2, constant_tuple3.0));
+        test_assure(std::is_same(constant_tuple, constant_tuple2->car));
+        test_assure(std::is_same(constant_tuple, constant_tuple3->car->car));
+        test_assure(std::is_same(constant_tuple2, constant_tuple3->car));
+        
         test_equal(A::B::get_foo(), "A::B::foo");
         test_assure(std::type_traits::is_same:<A::B::T, typeof(A::B::get_t())>);
         test_assure(!std::type_traits::is_same:<A::T, typeof(A::B::get_t())>);

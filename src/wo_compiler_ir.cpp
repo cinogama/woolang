@@ -1854,10 +1854,13 @@ namespace wo
             {
                 for (auto& tag_name : fnd->second)
                 {
-                    wo_assert(tag_offset_vector_table.find(tag_name) == tag_offset_vector_table.end()
-                        , "The tag point to different place.");
+                    auto result = tag_offset_vector_table.insert(
+                        std::make_pair(
+                            tag_name,
+                            (uint32_t)generated_runtime_code_buf.size()));
 
-                    tag_offset_vector_table[tag_name] = (uint32_t)generated_runtime_code_buf.size();
+                    wo_assert(result.second, "The tag point to different place.");
+                    (void)result;
                 }
             }
 
