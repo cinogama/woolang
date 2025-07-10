@@ -2440,7 +2440,7 @@ namespace wo
             result += std::wstring(get_function_name_w(function.value())) + L"::";
 
         wchar_t anonymous_name[48];
-        auto r = swprintf(anonymous_name, 48, L"[anonymous:%p]", func);
+        auto r = swprintf(anonymous_name, 48, L"<func %p>", func);
         wo_test(r >= 0 && r < 48, "Failed to generate function name.");
        
         wo_assert(func->source_location.source_file != nullptr);
