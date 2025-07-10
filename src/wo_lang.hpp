@@ -839,6 +839,8 @@ namespace wo
             lexer& lex, const AstNodeWithState& node_state, PassProcessStackT& out_stack);
         bool pass_final_value(lexer& lex, ast::AstValueBase* val);
 
+        void walk_through_constant_to_record_function_ast(const ast::ConstantValue& const_value);
+
         void pass_0_5_register_builtin_types();
 
         compile_result process(lexer& lex, ast::AstBase* root);

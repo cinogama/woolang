@@ -3500,12 +3500,8 @@ namespace wo
         {
             auto& constant_value = ast_value->m_evaled_const_value.value();
 
-            auto function_constant = constant_value.value_try_function();
-            if (function_constant.has_value())
-            {
-                // NOTE: We need to let compiler know this constant function.
-                m_ircontext.m_being_used_function_instance.insert(function_constant.value());
-            }
+            // NOTE: We need to let compiler know this constant function.
+            walk_through_constant_to_record_function_ast(constant_value);
 
             // This value has been evaluated as constant value.
             m_ircontext.apply_eval_result(
@@ -3534,6 +3530,24 @@ namespace wo
 
         return compile_result;
     }
-
+    void LangContext::walk_through_constant_to_record_function_ast(
+        const ast::ConstantValue& const_value)
+    {
+        switch (const_value.m_type)
+        {
+        case ast::ConstantValue::Type::FUNCTION:
+            m_ircontext.m_being_used_function_instance.insert(const_value.value_function());
+            break;
+        case ast::ConstantValue::Type::STRUCT:
+        {
+            auto& struct_constant = const_value.value_struct();
+            for (size_t idx = 0; idx < struct_constant.m_count; ++idx)
+                walk_through_constant_to_record_function_ast(struct_constant.m_elements[idx]);
+            break;
+        }
+        default:
+            break;
+        }
+    }
 #endif
 }
