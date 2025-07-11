@@ -121,11 +121,7 @@ namespace womem
             std::atomic_uint16_t m_alloc_count;
         };
 
-        union
-        {
-            NormalPage m_normal_page;
-        };
-
+        NormalPage m_normal_page;
         union
         {
             Page* last;
@@ -153,9 +149,9 @@ namespace womem
             {
                 auto* head = (PageUnitHead*)(buf + (size_t)i * (unit_size + sizeof(PageUnitHead)));
 
-                if (!head->m_in_used_flag || m_normal_page.m_page_unit_group == 0)
+                if (!head->m_in_used_flag.load() || m_normal_page.m_page_unit_group == 0)
                 {
-                    head->m_in_used_flag = 0;
+                    head->m_in_used_flag.store(0);
                     *p_last_free_idx = i;
                     head->m_last_free_idx = *p_last_free_idx;
                     p_last_free_idx = &head->m_last_free_idx;
@@ -163,8 +159,17 @@ namespace womem
             }
             *p_last_free_idx = m_normal_page.m_max_avliable_unit_count;
             m_normal_page.m_page_unit_group = normal_group;
-            m_normal_page.m_free_page = 0;
 
+            if (m_normal_page.m_alloc_count.load() == 0)
+            {
+                wo_assert(m_normal_page.m_free_page.load() == 1);
+                m_normal_page.m_free_page.store(0);
+            }
+            else
+            {
+                // Check for free page sign.
+                wo_assert(m_normal_page.m_free_page.load() == 0);
+            }
             wo_assert(m_normal_page.m_alloc_count < m_normal_page.m_max_avliable_unit_count);
             wo_assert(m_normal_page.m_free_offset_idx < m_normal_page.m_max_avliable_unit_count);
         }
@@ -186,9 +191,9 @@ namespace womem
 
             m_normal_page.m_free_offset_idx = head->m_last_free_idx;
 
-            wo_assert(head->m_in_used_flag == 0);
+            wo_assert(head->m_in_used_flag.load() == 0);
             head->m_attrib = attrib;
-            head->m_in_used_flag = 1;
+            head->m_in_used_flag.store(1);
             return head + 1; // Return!
         }
 
@@ -212,7 +217,7 @@ namespace womem
         const size_t m_max_page;
         const uint8_t m_chunk_id;
 
-        wo::atomic_list<Page> m_released_page;
+        wo::atomic_list<Page> m_ran_out_pages;
 
         mutable std::mutex m_free_pages_mx;
     public:
@@ -282,7 +287,7 @@ namespace womem
                             + (size_t)i * ((size_t)_WO_EVAL_ALLOC_GROUP_SZ(page->m_normal_page.m_page_unit_group)
                                 + sizeof(PageUnitHead)));
 
-                        if (head->m_in_used_flag)
+                        if (head->m_in_used_flag.load())
                             fprintf(stderr, "  %d: %p in used, attrib: %x.\n", (int)i, head + 1, (int)head->m_attrib);
                     }
                 }
@@ -295,7 +300,7 @@ namespace womem
                 }
             };
 
-            auto* pages = m_released_page.pick_all();
+            auto* pages = m_ran_out_pages.pick_all();
             while (pages)
             {
                 auto* cur_page = pages;
@@ -336,7 +341,11 @@ namespace womem
                 auto* p = m_free_pages[0];
                 m_free_pages[0] = p->last;
                 p->m_normal_page.m_page_unit_group = 0;
-                p->m_normal_page.m_alloc_count = 0;
+                
+                // Page in free page must be free. (?)
+                assert(p->m_normal_page.m_alloc_count.load() == 0
+                    && p->m_normal_page.m_free_page.load() == 1);
+
                 p->init_normal(group);
                 return p;
             }
@@ -353,8 +362,8 @@ namespace womem
                 abort();
             }
             new_p->m_normal_page.m_page_unit_group = 0;
-            new_p->m_normal_page.m_alloc_count = 0;
-            new_p->m_normal_page.m_free_page = 1;
+            new_p->m_normal_page.m_alloc_count.store(0);
+            new_p->m_normal_page.m_free_page.store(1);
             new_p->init_normal(group);
             return new_p;
         }
@@ -377,26 +386,28 @@ namespace womem
             return last;
         }
 
-        void release_page(Page* page)
+        void ran_out_page(Page* page)
         {
-            m_released_page.add_one(page);
+            m_ran_out_pages.add_one(page);
         }
         void tidy_pages(bool full)
         {
             std::lock_guard g1(m_free_pages_mx);
 
             // Move released pages to free pages
-            auto* pages = m_released_page.pick_all();
+            auto* pages = m_ran_out_pages.pick_all();
             while (pages)
             {
                 auto* cur_page = pages;
                 pages = pages->last;
 
-                if (cur_page->m_normal_page.m_alloc_count < cur_page->m_normal_page.m_max_avliable_unit_count)
+                auto current_page_alloc_count = cur_page->m_normal_page.m_alloc_count.load();
+                if (current_page_alloc_count < cur_page->m_normal_page.m_max_avliable_unit_count)
                 {
-                    if (cur_page->m_normal_page.m_alloc_count == 0)
+                    if (current_page_alloc_count == 0)
                     {
-                        cur_page->m_normal_page.m_free_page = 1;
+                        // Make this page free.
+                        cur_page->m_normal_page.m_free_page.store(1);
                         cur_page->last = m_free_pages[0];
                         m_free_pages[0] = cur_page;
                     }
@@ -411,9 +422,8 @@ namespace womem
                     }
                 }
                 else
-                {
-                    m_released_page.add_one(cur_page);
-                }
+                    // Page is still full.
+                    m_ran_out_pages.add_one(cur_page);
             }
 
             if (full)
@@ -429,8 +439,11 @@ namespace womem
                         auto* cur_page = pages;
                         pages = pages->last;
 
-                        if (cur_page->m_normal_page.m_alloc_count == 0)
+                        if (cur_page->m_normal_page.m_alloc_count.load() == 0)
                         {
+                            // Make this page free.
+                            cur_page->m_normal_page.m_free_page.store(1);
+
                             // Current page should move to free pages.
                             cur_page->last = m_free_pages[0];
                             m_free_pages[0] = cur_page;
@@ -497,7 +510,7 @@ namespace womem
                     auto* cur_page = pages;
                     pages = pages->last;
 
-                    _global_chunk->release_page(cur_page);
+                    _global_chunk->ran_out_page(cur_page);
                 }
             }
         }
@@ -528,7 +541,8 @@ namespace womem
                 // Page ran out
                 auto* abondon_page = *pages;
                 *pages = abondon_page->last;
-                _global_chunk->release_page(abondon_page);
+
+                _global_chunk->ran_out_page(abondon_page);
             }
 
             return ptr;
@@ -561,7 +575,7 @@ void womem_free(void* memptr)
 
     wo_assert(page);
 
-    head->m_in_used_flag = 0;
+    head->m_in_used_flag.store(0);
     --page->m_normal_page.m_alloc_count;
 }
 void womem_tidy_pages(bool full)
@@ -584,7 +598,7 @@ void* womem_verify(void* memptr, womem_attrib_t** attrib)
             auto* head = (womem::PageUnitHead*)(
                 (char*)page->m_chunkdata + idx * unit_head_add_group_sz);
 
-            if (head->m_in_used_flag && memptr == head + 1)
+            if (head->m_in_used_flag.load() && memptr == head + 1)
             {
                 *attrib = &head->m_attrib;
                 return head + 1;
@@ -602,13 +616,13 @@ void* womem_enum_pages(size_t* page_count, size_t* page_size)
 void* womem_get_unit_buffer(void* page, size_t* unit_count, size_t* unit_size)
 {
     auto* p = reinterpret_cast<womem::Page*>(page);
-    if (p->m_normal_page.m_free_page == 0)
+    if (p->m_normal_page.m_free_page.load() == 0)
     {
         *unit_count = (size_t)p->m_normal_page.m_max_avliable_unit_count;
         *unit_size = sizeof(womem::PageUnitHead) + (size_t)_WO_EVAL_ALLOC_GROUP_SZ((size_t)p->m_normal_page.m_page_unit_group);
 
         // Recheck
-        if (p->m_normal_page.m_free_page == 0)
+        if (p->m_normal_page.m_free_page.load() == 0)
             return p->m_chunkdata;
     }
     return nullptr;
@@ -622,7 +636,7 @@ void* womem_get_unit_page(void* unit)
 void* womem_get_unit_ptr_attribute(void* unit, womem_attrib_t** attrib)
 {
     auto* p = reinterpret_cast<womem::PageUnitHead*>(unit);
-    if (p->m_in_used_flag)
+    if (p->m_in_used_flag.load())
     {
         *attrib = &p->m_attrib;
         return p + 1;

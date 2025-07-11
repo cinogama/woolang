@@ -192,7 +192,7 @@ namespace wo
         using _wo_gc_memory_pages_t = std::vector<char*>;
         using _wo_vm_gray_unit_list_map_t = std::unordered_map <vmbase*, _wo_gray_unit_list_t>;
 
-        _wo_memory_atomic_list_t    m_memo_mark_gray_list;
+        _wo_memory_atomic_list_t m_memo_mark_gray_list;
 
         _wo_gray_unit_list_t* _gc_gray_unit_lists;
         _wo_gc_memory_pages_t* _gc_memory_pages;
@@ -1104,10 +1104,8 @@ namespace wo
                     std::launder(
                         reinterpret_cast<gcbase*>(
                             womem_verify(gcbase_addr,
-                                std::launder(reinterpret_cast<womem_attrib_t**>(&guard_val_attr)
-                                )
-                            ))
-                    ))
+                                std::launder(
+                                    reinterpret_cast<womem_attrib_t**>(&guard_val_attr))))))
                 {
                     gc::gc_mark_unit_as_gray(
                         std::launder(reinterpret_cast<gc::_wo_gray_unit_list_t*>(context)),
