@@ -765,7 +765,7 @@ wo_integer_t wo_int(wo_value value)
     }
     return _rsvalue->integer;
 }
-wo_char_t wo_char(wo_value value)
+wo_wchar_t wo_char(wo_value value)
 {
     return (wchar_t)wo_int(value);
 }
@@ -861,7 +861,7 @@ void wo_set_int(wo_value value, wo_integer_t val)
     auto* _rsvalue = WO_VAL(value);
     _rsvalue->set_integer(val);
 }
-void wo_set_char(wo_value value, wo_char_t val)
+void wo_set_char(wo_value value, wo_wchar_t val)
 {
     wo_set_int(value, (wo_integer_t)val);
 }
@@ -1609,7 +1609,7 @@ wo_result_t wo_ret_int(wo_vm vm, wo_integer_t result)
     WO_VM(vm)->cr->set_integer(result);
     return WO_API_STATE_OF_VM(vmbase);
 }
-wo_result_t wo_ret_char(wo_vm vm, wo_char_t result)
+wo_result_t wo_ret_char(wo_vm vm, wo_wchar_t result)
 {
     return wo_ret_int(vm, (wo_integer_t)result);
 }
@@ -1779,7 +1779,7 @@ void wo_set_option_bool(wo_value val, wo_vm vm, wo_bool_t result)
     target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
 
 }
-void wo_set_option_char(wo_value val, wo_vm vm, wo_char_t result)
+void wo_set_option_char(wo_value val, wo_vm vm, wo_wchar_t result)
 {
     return wo_set_option_int(val, vm, (wo_integer_t)result);
 }
@@ -1965,7 +1965,7 @@ void wo_set_err_void(wo_value val, wo_vm vm)
 
     target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
 }
-void wo_set_err_char(wo_value val, wo_vm vm, wo_char_t result)
+void wo_set_err_char(wo_value val, wo_vm vm, wo_wchar_t result)
 {
     return wo_set_err_int(val, vm, (wo_integer_t)result);
 }
@@ -2139,7 +2139,7 @@ wo_result_t  wo_ret_option_bool(wo_vm vm, wo_bool_t result)
     wo_set_option_bool(CS_VAL(vmbase->cr), vm, result);
     return WO_API_STATE_OF_VM(vmbase);
 }
-wo_result_t wo_ret_option_char(wo_vm vm, wo_char_t result)
+wo_result_t wo_ret_option_char(wo_vm vm, wo_wchar_t result)
 {
     wo::vmbase* vmbase = WO_VM(vm);
     wo_set_option_char(CS_VAL(vmbase->cr), vm, result);
@@ -2233,7 +2233,7 @@ wo_result_t wo_ret_err_void(wo_vm vm)
     wo_set_err_void(CS_VAL(vmbase->cr), vm);
     return WO_API_STATE_OF_VM(vmbase);
 }
-wo_result_t wo_ret_err_char(wo_vm vm, wo_char_t result)
+wo_result_t wo_ret_err_char(wo_vm vm, wo_wchar_t result)
 {
     wo::vmbase* vmbase = WO_VM(vm);
     wo_set_err_char(CS_VAL(vmbase->cr), vm, result);
@@ -2370,11 +2370,11 @@ wo_size_t wo_str_byte_len(wo_value value)
     return 0;
 }
 
-wo_char_t wo_str_get_char(wo_string_t str, wo_size_t index)
+wo_wchar_t wo_str_get_char(wo_string_t str, wo_size_t index)
 {
     size_t len = strlen(str);
 
-    wo_char_t ch = wo::u8strnidx(str, len, (size_t)index);
+    wo_wchar_t ch = wo::u8strnidx(str, len, (size_t)index);
     if (ch == 0 && wo::u8strnlen(str, len) <= (size_t)index)
         wo_fail(WO_FAIL_INDEX_FAIL, "Index out of range.");
     return ch;
@@ -2396,9 +2396,9 @@ wo_string_t  wo_wstr_to_str(wo_wstring_t str)
     return str_buf.c_str();
 }
 
-wo_char_t wo_strn_get_char(wo_string_t str, wo_size_t size, wo_size_t index)
+wo_wchar_t wo_strn_get_char(wo_string_t str, wo_size_t size, wo_size_t index)
 {
-    wo_char_t ch = wo::u8strnidx(str, size, (size_t)index);
+    wo_wchar_t ch = wo::u8strnidx(str, size, (size_t)index);
     if (ch == 0 && wo::u8strnlen(str, size) <= (size_t)index)
         wo_fail(WO_FAIL_INDEX_FAIL, "Index out of range.");
     return ch;

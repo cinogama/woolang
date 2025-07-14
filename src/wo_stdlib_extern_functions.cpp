@@ -178,7 +178,7 @@ WO_API wo_api rslib_std_string_isoct(wo_vm vm, wo_value args)
 
 WO_API wo_api rslib_std_char_tostring(wo_vm vm, wo_value args)
 {
-    wo_char_t wc = wo_char(args + 0);
+    wo_wchar_t wc = wo_char(args + 0);
 
     std::string result = wo::wstrn_to_str(&wc, 1);
 
@@ -465,7 +465,7 @@ WO_API wo_api rslib_std_string_split_iter(wo_vm vm, wo_value args)
 
     if (iter->m_sep.empty())
     {
-        wo_char_t useless;
+        wo_wchar_t useless;
         const auto* split_str_p =
             iter->m_str.data() + iter->m_split_from;
         const size_t split_str_len =

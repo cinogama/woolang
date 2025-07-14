@@ -53,7 +53,7 @@ typedef uint64_t wo_handle_t;
 typedef void* wo_ptr_t;
 typedef const char* wo_string_t;
 typedef const wchar_t* wo_wstring_t;
-typedef wchar_t wo_char_t;
+typedef wchar_t wo_wchar_t;
 typedef double wo_real_t;
 typedef size_t wo_size_t;
 
@@ -291,7 +291,7 @@ WO_API wo_bool_t wo_equal_byte(wo_value a, wo_value b);
 //      avoid counting contamination.
 WO_API wo_integer_t wo_argc(wo_vm vm);
 
-WO_API wo_char_t wo_char(wo_value value);
+WO_API wo_wchar_t wo_char(wo_value value);
 WO_API wo_integer_t wo_int(wo_value value);
 WO_API wo_real_t wo_real(wo_value value);
 WO_API wo_handle_t wo_handle(wo_value value);
@@ -303,7 +303,7 @@ WO_API const void* wo_buffer(wo_value value, wo_size_t* bytelen);
 #define wo_raw_string(value, bytelen) ((wo_string_t)wo_buffer(value, bytelen))
 
 WO_API void wo_set_nil(wo_value value);
-WO_API void wo_set_char(wo_value value, wo_char_t val);
+WO_API void wo_set_char(wo_value value, wo_wchar_t val);
 WO_API void wo_set_int(wo_value value, wo_integer_t val);
 WO_API void wo_set_real(wo_value value, wo_real_t val);
 WO_API void wo_set_float(wo_value value, float val);
@@ -339,7 +339,7 @@ WO_API wo_bool_t wo_deserialize(wo_vm vm, wo_value value, wo_string_t str, wo_ty
 WO_API wo_string_t wo_type_name(wo_type_t value);
 
 WO_API wo_result_t wo_ret_void(wo_vm vm);
-WO_API wo_result_t wo_ret_char(wo_vm vm, wo_char_t result);
+WO_API wo_result_t wo_ret_char(wo_vm vm, wo_wchar_t result);
 WO_API wo_result_t wo_ret_int(wo_vm vm, wo_integer_t result);
 WO_API wo_result_t wo_ret_real(wo_vm vm, wo_real_t result);
 WO_API wo_result_t wo_ret_float(wo_vm vm, float result);
@@ -361,7 +361,7 @@ WO_API wo_result_t wo_ret_panic(wo_vm vm, wo_string_t reasonfmt, ...);
 WO_API wo_result_t wo_ret_union(wo_vm vm, wo_integer_t id, wo_value value_may_null);
 
 WO_API void wo_set_option_void(wo_value val, wo_vm vm);
-WO_API void wo_set_option_char(wo_value val, wo_vm vm, wo_char_t result);
+WO_API void wo_set_option_char(wo_value val, wo_vm vm, wo_wchar_t result);
 WO_API void wo_set_option_bool(wo_value val, wo_vm vm, wo_bool_t result);
 WO_API void wo_set_option_int(wo_value val, wo_vm vm, wo_integer_t result);
 WO_API void wo_set_option_real(wo_value val, wo_vm vm, wo_real_t result);
@@ -395,7 +395,7 @@ WO_API void wo_set_option_none(wo_value val, wo_vm vm);
 #define wo_set_ok_gcstruct wo_set_option_gcstruct
 
 WO_API void wo_set_err_void(wo_value val, wo_vm vm);
-WO_API void wo_set_err_char(wo_value val, wo_vm vm, wo_char_t result);
+WO_API void wo_set_err_char(wo_value val, wo_vm vm, wo_wchar_t result);
 WO_API void wo_set_err_bool(wo_value val, wo_vm vm, wo_bool_t result);
 WO_API void wo_set_err_int(wo_value val, wo_vm vm, wo_integer_t result);
 WO_API void wo_set_err_real(wo_value val, wo_vm vm, wo_real_t result);
@@ -411,7 +411,7 @@ WO_API void wo_set_err_gchandle(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, w
 WO_API void wo_set_err_gcstruct(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, wo_gcstruct_mark_func_t mark_func, wo_gchandle_close_func_t destruct_func);
 
 WO_API wo_result_t wo_ret_option_void(wo_vm vm);
-WO_API wo_result_t wo_ret_option_char(wo_vm vm, wo_char_t result);
+WO_API wo_result_t wo_ret_option_char(wo_vm vm, wo_wchar_t result);
 WO_API wo_result_t wo_ret_option_bool(wo_vm vm, wo_bool_t result);
 WO_API wo_result_t wo_ret_option_int(wo_vm vm, wo_integer_t result);
 WO_API wo_result_t wo_ret_option_real(wo_vm vm, wo_real_t result);
@@ -445,7 +445,7 @@ WO_API wo_result_t wo_ret_option_none(wo_vm vm);
 #define wo_ret_ok_gcstruct wo_ret_option_gcstruct
 
 WO_API wo_result_t wo_ret_err_void(wo_vm vm);
-WO_API wo_result_t wo_ret_err_char(wo_vm vm, wo_char_t result);
+WO_API wo_result_t wo_ret_err_char(wo_vm vm, wo_wchar_t result);
 WO_API wo_result_t wo_ret_err_bool(wo_vm vm, wo_bool_t result);
 WO_API wo_result_t wo_ret_err_int(wo_vm vm, wo_integer_t result);
 WO_API wo_result_t wo_ret_err_real(wo_vm vm, wo_real_t result);
@@ -604,11 +604,11 @@ WO_API wo_bool_t wo_enter_gcguard(wo_vm vm);
 WO_API wo_size_t wo_str_char_len(wo_value value);
 WO_API wo_size_t wo_str_byte_len(wo_value value);
 
-WO_API wo_char_t wo_str_get_char(wo_string_t str, wo_size_t index);
+WO_API wo_wchar_t wo_str_get_char(wo_string_t str, wo_size_t index);
 WO_API wo_wstring_t wo_str_to_wstr(wo_string_t str);
 WO_API wo_string_t wo_wstr_to_str(wo_wstring_t str);
 
-WO_API wo_char_t wo_strn_get_char(wo_string_t str, wo_size_t size, wo_size_t index);
+WO_API wo_wchar_t wo_strn_get_char(wo_string_t str, wo_size_t size, wo_size_t index);
 WO_API wo_wstring_t wo_strn_to_wstr(wo_string_t str, wo_size_t size);
 WO_API wo_string_t wo_wstrn_to_str(wo_wstring_t str, wo_size_t size);
 
