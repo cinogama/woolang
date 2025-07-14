@@ -1,7 +1,5 @@
 #include "wo_afx.hpp"
 
-std::string _rslib_std_string_enstring_impl(wo_string_t str, size_t len);
-
 namespace wo
 {
 #ifndef WO_DISABLE_COMPILER
@@ -2576,9 +2574,10 @@ namespace wo
             auto string_constant =
                 wo::wstrn_to_str(pstring_constant->data(), pstring_constant->length());
 
-            return _rslib_std_string_enstring_impl(
+            return wo::enstring(
                 string_constant.data(),
-                string_constant.length());
+                string_constant.length(),
+                false);
         }
         case ast::ConstantValue::Type::STRUCT:
         {

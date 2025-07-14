@@ -969,6 +969,9 @@ WO_API wo_lspv2_error_info* /* null if end */
 wo_lspv2_compile_err_next(wo_lspv2_error_iter* iter);
 WO_API void wo_lspv2_err_info_free(wo_lspv2_error_info* info);
 
+WO_API const char* /* Thread local */ wo_lspv2_token_info_enstring(
+    const void* p, size_t len);
+
 // Macro API
 WO_API wo_lspv2_macro_iter* /* null if grammar failed */
 wo_lspv2_meta_macro_iter(wo_lspv2_source_meta* meta);
@@ -1028,7 +1031,6 @@ WO_API void wo_lspv2_lexer_free(wo_lspv2_lexer* lexer);
 WO_API wo_lspv2_token_info* wo_lspv2_lexer_peek(wo_lspv2_lexer* lexer);
 WO_API void wo_lspv2_lexer_consume(wo_lspv2_lexer* lexer);
 WO_API void wo_lspv2_token_info_free(wo_lspv2_token_info* info);
-
 #endif
 
 #if defined(WO_NEED_ERROR_CODES)

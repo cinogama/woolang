@@ -1,6 +1,5 @@
 #include "wo_afx.hpp"
 
-std::string _rslib_std_string_enstring_impl(wo_string_t str, size_t len);
 wo_bool_t _wo_load_source(
     wo_vm vm,
     wo_string_t virtual_src_path,
@@ -133,7 +132,7 @@ namespace wo
 
             auto source_path = wstr_to_str(*lex.m_source_path.value());
             std::string line_mark = "#line "
-                + _rslib_std_string_enstring_impl(source_path.data(), source_path.size())
+                + wo::enstring(source_path.data(), source_path.size(), false)
                 + " "
                 + std::to_string(lex._m_row_counter + 1)
                 + " "

@@ -871,4 +871,12 @@ void wo_lspv2_token_info_free(wo_lspv2_token_info* info)
     delete info;
 }
 
+const char* wo_lspv2_token_info_enstring(
+    const void* p, size_t len)
+{
+    thread_local std::string str;
+    str = wo::enstring(reinterpret_cast<const char*>(p), len, false);
+    return str.c_str();
+}
+
 #endif

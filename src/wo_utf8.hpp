@@ -39,4 +39,9 @@ namespace wo
 
     std::wstring strn_to_wstr(wo_string_t str, size_t len);
     std::wstring strn_to_wstr(const std::string& str);
+
+    std::wstring enwstring(wo_wstring_t str, size_t len, bool force_unicode);
+    std::wstring dewstring(wo_wstring_t str);
+    std::string enstring(wo_string_t str, size_t len, bool force_unicode);
+    std::string destring(wo_string_t str);
 }

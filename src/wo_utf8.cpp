@@ -47,7 +47,7 @@ namespace wo
         {
             --chidx;
             size_t wchlen = u8chsize(u8str, len);
-            
+
             len -= wchlen;
             u8str += wchlen;
         }
@@ -75,7 +75,7 @@ namespace wo
         *out_sub_len = u8strnidxstr(u8str, len, from + length) - substr;
         return substr;
     }
-    
+
     size_t clen2u8blen(wo_string_t u8str, size_t len)
     {
         size_t wclen = 0;
@@ -96,7 +96,7 @@ namespace wo
         return (size_t)(u8strnidxstr(u8str, len, wclen) - u8str);
     }
 
-    uint8_t u8mbc2wc(const char* ch, size_t len_not_zero, wo_char_t* out_wch) 
+    uint8_t u8mbc2wc(const char* ch, size_t len_not_zero, wo_char_t* out_wch)
     {
         std::mbstate_t mb = {};
 
@@ -129,7 +129,7 @@ namespace wo
 
         return (uint8_t)len;
     }
-    
+
     wo_wstring_t u8mbstowcs_zero_term(wo_string_t u8str)
     {
         std::mbstate_t mb = {};
@@ -173,7 +173,7 @@ namespace wo
             u8str += chlen;
             len -= chlen;
         }
-        
+
         auto* chs = new wo_char_t[result.size() + 1];
         std::copy(result.begin(), result.end(), chs);
         chs[result.size()] = 0;
@@ -260,5 +260,273 @@ namespace wo
     std::wstring strn_to_wstr(const std::string& str)
     {
         return strn_to_wstr(str.c_str(), str.size());
+    }
+
+    bool is_high_surrogate(char16_t ch)
+    {
+        return (ch >= 0xD800 && ch <= 0xDBFF);
+    }
+    bool is_low_surrogate(char16_t ch)
+    {
+        return (ch >= 0xDC00 && ch <= 0xDFFF);
+    }
+    bool surrogate_utf32_to_2_utf16(char32_t codepoint, char16_t* out_hight, char16_t* out_low)
+    {
+        if (codepoint >= static_cast<char32_t>(0x10000)
+            && codepoint <= static_cast<char32_t>(0x10FFFF))
+        {
+            codepoint -= 0x10000;
+            *out_hight = static_cast<char16_t>(
+                (codepoint >> static_cast<char32_t>(10)) + static_cast<char32_t>(0xD800));
+            *out_low = static_cast<char16_t>(
+                (codepoint & static_cast<char32_t>(0x3FF)) + static_cast<char32_t>(0xDC00));
+            return true;
+        }
+        return false;
+    }
+    char32_t merge_high_surrogate_to_utf32(char16_t high, char16_t low)
+    {
+        wo_assert(is_high_surrogate(high) && is_low_surrogate(low));
+        return static_cast<char32_t>((high - static_cast<char16_t>(0xD800)) << static_cast<char16_t>(10))
+            + static_cast<char32_t>(low - static_cast<char16_t>(0xDC00))
+            + static_cast<char32_t>(0x10000);
+    }
+
+    std::wstring enwstring(
+        wo_wstring_t str,
+        size_t len,
+        bool force_unicode)
+    {
+        std::wstring result;
+        for (size_t i = 0; i < len; ++i)
+        {
+            const wchar_t ch = str[i];
+            if (iswprint(ch))
+            {
+                switch (ch)
+                {
+                case '"':
+                    result += L"\\\""; break;
+                case '\\':
+                    result += L"\\\\"; break;
+                default:
+                    result += ch; break;
+                }
+            }
+            else
+            {
+                const char32_t uch = static_cast<char32_t>(ch);
+
+                wchar_t enstring_sequence[13];
+                char16_t high, low;
+
+                switch (sizeof(wchar_t))
+                {
+                case 4:
+                    // Consider using \uXXXX\uXXXX
+                    if (surrogate_utf32_to_2_utf16(uch, &high, &low))
+                    {
+                        int result = swprintf(
+                            enstring_sequence,
+                            13,
+                            L"\\u%04X\\u%04X",
+                            static_cast<uint32_t>(high),
+                            static_cast<uint32_t>(low));
+
+                        (void)result;
+                        wo_assert(result == 12);
+
+                        break;
+                    }
+                    [[fallthrough]];
+                case 2:
+                    // Consider using \uXXXX
+                    if (0 != (uch & static_cast<char32_t>(0xFF00)) || force_unicode)
+                    {
+                        int result = swprintf(
+                            enstring_sequence,
+                            7,
+                            L"\\u%04X",
+                            static_cast<uint32_t>(static_cast<char16_t>(uch)));
+
+                        (void)result;
+                        wo_assert(result == 6);
+
+                        break;
+                    }
+                    // Consider using \xXX
+                    do
+                    {
+                        int result = swprintf(
+                            enstring_sequence,
+                            3,
+                            L"\\x%02X",
+                            static_cast<uint32_t>(static_cast<uint8_t>(uch)));
+
+                        (void)result;
+                        wo_assert(result == 6);
+
+                        break;
+                    } while (0);
+                    break;
+                default:
+                    wo_error("Unknown wchar_t size.");
+                }
+
+                result += enstring_sequence;
+            }
+        }
+        return L"\"" + result + L"\"";
+    }
+    std::wstring dewstring(wo_wstring_t str)
+    {
+        std::wstring result;
+
+        if (*str == L'\"')
+            ++str;
+
+        while (wchar_t uch = *str)
+        {
+            if (uch == L'\\')
+            {
+                // Escape character 
+                wchar_t escape_ch = *++str;
+                switch (escape_ch)
+                {
+                case L'a':
+                    result += '\a'; break;
+                case L'b':
+                    result += '\b'; break;
+                case L'f':
+                    result += '\f'; break;
+                case L'n':
+                    result += '\n'; break;
+                case L'r':
+                    result += '\r'; break;
+                case L't':
+                    result += L'\t'; break;
+                case L'v':
+                    result += '\v'; break;
+                case L'0': case L'1': case L'2': case L'3': case L'4':
+                case L'5': case L'6': case L'7': case L'8': case L'9':
+                {
+                    // oct 1byte 
+                    unsigned char oct_ascii = escape_ch - L'0';
+                    for (int i = 0; i < 2; i++)
+                    {
+                        unsigned char nextch = (unsigned char)*++str;
+                        if (wo::lexer::lex_isodigit(nextch))
+                        {
+                            oct_ascii *= 8;
+                            oct_ascii += wo::lexer::lex_hextonum(nextch);
+                        }
+                        else
+                            break;
+                    }
+                    result += oct_ascii;
+                    break;
+                }
+                case L'X':
+                case L'x':
+                {
+                    // hex 1byte 
+                    unsigned char hex_ascii = 0;
+                    for (int i = 0; i < 2; i++)
+                    {
+                        wchar_t nextch = *++str;
+                        if (wo::lexer::lex_isxdigit(nextch))
+                        {
+                            hex_ascii *= 16;
+                            hex_ascii += wo::lexer::lex_hextonum(nextch);
+                        }
+                        else
+                            break;
+                    }
+                    result += static_cast<wchar_t>(hex_ascii);
+                    break;
+                }
+                case L'u':
+                {
+                    // unicode 2byte
+                    char16_t hex_ascii = 0;
+                    for (int i = 0; i < 4; i++)
+                    {
+                        wchar_t nextch = *++str;
+                        if (wo::lexer::lex_isxdigit(nextch))
+                        {
+                            hex_ascii *= 16;
+                            hex_ascii += wo::lexer::lex_hextonum(nextch);
+                        }
+                        else
+                            break;
+                    }
+
+                    if (is_high_surrogate(hex_ascii)
+                        && *str == L'\\' 
+                        && *(str + 1) == L'u')
+                    {
+                        str += 2;
+
+                        if constexpr(sizeof(wchar_t) == sizeof(char16_t))
+                            result += static_cast<wchar_t>(hex_ascii);
+
+                        char16_t low_hex_ascii = 0;
+                        for (int i = 0; i < 4; i++)
+                        {
+                            wchar_t nextch = *++str;
+                            if (wo::lexer::lex_isxdigit(nextch))
+                            {
+                                low_hex_ascii *= 16;
+                                low_hex_ascii += wo::lexer::lex_hextonum(nextch);
+                            }
+                            else
+                                break;
+                        }
+
+                        if constexpr (sizeof(wchar_t) == sizeof(char16_t))
+                            result += static_cast<wchar_t>(low_hex_ascii);
+                        else
+                        {
+                            if (is_low_surrogate(low_hex_ascii))
+                                result += static_cast<wchar_t>(
+                                    merge_high_surrogate_to_utf32(hex_ascii, low_hex_ascii));
+                            else
+                                result += static_cast<wchar_t>(low_hex_ascii);
+                        }
+                    }
+                    else
+                        result += static_cast<wchar_t>(hex_ascii);
+                    
+                    break;
+                }
+                case L'\'':
+                case L'"':
+                case L'?':
+                case L'\\':
+                default:
+                    result += escape_ch;
+                    break;
+                }
+            }
+            else if (uch == L'"')
+                break;
+            else
+                result += uch;
+        }
+
+        return result;
+    }
+    std::string enstring(
+        wo_string_t str,
+        size_t len,
+        bool force_unicode)
+    {
+        const auto wstr = strn_to_wstr(str, len);
+        return wo::wstr_to_str(enwstring(wstr.data(), wstr.size(), force_unicode));
+    }
+    std::string destring(wo_string_t str)
+    {
+        const auto wstr = dewstring(str_to_wstr(str).c_str());
+        return wo::wstrn_to_str(wstr.data(), wstr.size());
     }
 }
