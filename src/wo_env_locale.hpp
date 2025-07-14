@@ -13,7 +13,7 @@ namespace wo
     const std::vector<std::string>& get_args();
 
     void wo_init_args(int argc, char** argv);
-    void wo_init_locale(const char* local_type);
+    void wo_init_locale();
     void wo_shutdown_locale_and_args();
    
     std::wstring get_file_loc(std::wstring path);

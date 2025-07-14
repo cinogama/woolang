@@ -549,7 +549,6 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
 
 void wo_init(int argc, char** argv)
 {
-    const char* basic_env_local = wo::DEFAULT_LOCALE_NAME;
     bool enable_std_package = true;
     bool enable_ctrl_c_to_debug = true;
     bool enable_vm_pool = true;
@@ -564,9 +563,7 @@ void wo_init(int argc, char** argv)
         if (current_arg.size() >= 2 && current_arg[0] == '-' && current_arg[1] == '-')
         {
             current_arg = current_arg.substr(2);
-            if ("local" == current_arg)
-                basic_env_local = argv[++command_idx];
-            else if ("enable-std" == current_arg)
+            if ("enable-std" == current_arg)
                 enable_std_package = atoi(argv[++command_idx]);
             else if ("enable-shell" == current_arg)
                 wo::config::ENABLE_SHELL_PACKAGE = atoi(argv[++command_idx]);
@@ -600,7 +597,7 @@ void wo_init(int argc, char** argv)
 
     womem_init(wo::config::MEMORY_CHUNK_SIZE);
 
-    wo::wo_init_locale(basic_env_local);
+    wo::wo_init_locale();
     wo::wstring_pool::init_global_str_pool();
 
     if (enable_vm_pool)

@@ -45,10 +45,11 @@ namespace wo
         for (int i = 0; i < argc; ++i)
             wo_args.push_back(argv[i]);
     }
-    void wo_init_locale(const char* local_type)
+    void wo_init_locale()
     {
         // SUPPORT ANSI_CONTROL
-#if !WO_BUILD_WITH_MINGW && defined(WO_NEED_ANSI_CONTROL) && defined(_WIN32)
+#ifdef _WIN32
+#if !WO_BUILD_WITH_MINGW && defined(WO_NEED_ANSI_CONTROL)
         auto this_console_handle = GetStdHandle(STD_OUTPUT_HANDLE);
         if (this_console_handle != INVALID_HANDLE_VALUE)
         {
@@ -59,14 +60,16 @@ namespace wo
             }
         }
 #endif
-        if (nullptr == std::setlocale(LC_CTYPE, local_type))
+        // TODO: Set console input for UTF8.
+#endif
+        if (nullptr == std::setlocale(LC_CTYPE, DEFAULT_LOCALE_NAME))
         {
             wo_warning("Unable to initialize locale character set environment: bad local type.");
         }
         else
         {
-            wo_global_locale = std::locale(local_type);
-            wo_global_locale_name = local_type;
+            wo_global_locale = std::locale(DEFAULT_LOCALE_NAME);
+            wo_global_locale_name = DEFAULT_LOCALE_NAME;
         }
 
         if (wo::config::ENABLE_OUTPUT_ANSI_COLOR_CTRL)
