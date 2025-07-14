@@ -939,7 +939,7 @@ namespace wo
             {
                 lex.record_lang_error(lexer::msglevel_t::error, type_holder,
                     WO_ERR_EXPECTED_TEMPLATE_ARGUMENT,
-                    ctx->get_symbol_name_w(symbol));
+                    ctx->get_symbol_name(symbol));
 
                 return std::nullopt;
             }
@@ -1021,7 +1021,7 @@ namespace wo
             {
                 lex.record_lang_error(lexer::msglevel_t::error, type_holder,
                     WO_ERR_CANNOT_USE_BUILTIN_TYPENAME_HERE,
-                    ctx->get_symbol_name_w(symbol));
+                    ctx->get_symbol_name(symbol));
 
                 return std::nullopt;
             }
@@ -1275,7 +1275,7 @@ namespace wo
 
             lctx->m_ircontext.c().pdb_info->add_func_variable(
                 funcname,
-                lctx->get_value_name_w(value_instance),
+                lctx->get_value_name(value_instance),
                 value_instance->m_symbol->m_symbol_declare_ast.value()->source_location.begin_at.row,
                 value_instance->m_IR_storage.value().m_index);
         }
@@ -1394,7 +1394,7 @@ namespace wo
                 lex.record_lang_error(lexer::msglevel_t::error,
                     symbol->m_symbol_declare_ast.value(),
                     WO_ERR_UNSED_VARIABLE,
-                    lctx->get_symbol_name_w(symbol));
+                    lctx->get_symbol_name(symbol));
 
                 donot_have_unused_variable = false;
             }
@@ -1545,7 +1545,7 @@ namespace wo
 
                     m_ircontext.c().pdb_info->add_func_variable(
                         eval_fucntion_name,
-                        get_value_name_w(captured_variable_instance.m_instance.get()),
+                        get_value_name(captured_variable_instance.m_instance.get()),
                         eval_function->source_location.begin_at.row,
                         argument_place);
 
@@ -1592,7 +1592,7 @@ namespace wo
                 {
                     lex.record_lang_error(lexer::msglevel_t::infom, eval_function,
                         WO_INFO_IN_FUNCTION_NAMED,
-                        str_to_wstr(eval_fucntion_name).c_str());
+                        eval_fucntion_name.c_str());
                 }
 
                 donot_have_unused_local_variable =
@@ -1651,9 +1651,9 @@ namespace wo
                     != m_origin_types.m_void.m_type_instance)
                 {
                     m_ircontext.c().ext_panic(
-                        opnum::imm_string(L"The function should have returned `"
-                            + std::wstring(get_type_name_w(eval_function->m_LANG_determined_return_type.value()))
-                            + L"`, but ended without providing a return value"));
+                        opnum::imm_string("The function should have returned `"
+                            + std::string(get_type_name(eval_function->m_LANG_determined_return_type.value()))
+                            + "`, but ended without providing a return value"));
                 }
 
                 if (eval_function->m_is_variadic)
@@ -1940,7 +1940,7 @@ namespace wo
             lex.record_lang_error(lexer::msglevel_t::error, ident,
                 WO_ERR_AMBIGUOUS_TARGET_NAMED,
                 ident->m_name->c_str(),
-                get_symbol_name_w(result));
+                get_symbol_name(result));
 
             for (auto* symbol : found_symbol)
             {
@@ -1948,12 +1948,12 @@ namespace wo
                     lex.record_lang_error(lexer::msglevel_t::infom,
                         symbol->m_symbol_declare_ast.value(),
                         WO_INFO_MAYBE_NAMED_DEFINED_HERE,
-                        get_symbol_name_w(symbol));
+                        get_symbol_name(symbol));
                 else
                     lex.record_lang_error(lexer::msglevel_t::infom,
                         ident,
                         WO_INFO_MAYBE_NAMED_DEFINED_IN_COMPILER,
-                        get_symbol_name_w(symbol));
+                        get_symbol_name(symbol));
             }
             *out_ambig.value() = true;
         }
@@ -2206,9 +2206,9 @@ namespace wo
 
         return true;
     }
-    std::wstring LangContext::_get_scope_name(lang_Scope* scope)
+    std::string LangContext::_get_scope_name(lang_Scope* scope)
     {
-        std::wstring result = {};
+        std::string result;
         auto* belong_namesapce = scope->m_belongs_to_namespace;
 
         if (belong_namesapce->m_this_scope.get() == scope)
@@ -2222,21 +2222,21 @@ namespace wo
                 else
                     break;
 
-                result = *space_name + L"::" + result;
+                result = *space_name + "::" + result;
             }
         }
         return result;
     }
-    std::wstring LangContext::_get_symbol_name(lang_Symbol* symbol)
+    std::string LangContext::_get_symbol_name(lang_Symbol* symbol)
     {
         return _get_scope_name(symbol->m_belongs_to_scope) + *symbol->m_name;
     }
-    std::wstring LangContext::_get_type_name(lang_TypeInstance* type)
+    std::string LangContext::_get_type_name(lang_TypeInstance* type)
     {
-        std::wstring result_type_name;
+        std::string result_type_name;
 
         if (type->is_mutable())
-            result_type_name += L"mut ";
+            result_type_name += "mut ";
 
         auto* immutable_type_instance = immutable_type(type);
 
@@ -2246,95 +2246,95 @@ namespace wo
             switch (base_determined_type->m_base_type)
             {
             case lang_TypeInstance::DeterminedType::ARRAY:
-                result_type_name += L"array";
+                result_type_name += "array";
                 break;
             case lang_TypeInstance::DeterminedType::VECTOR:
-                result_type_name += L"vec";
+                result_type_name += "vec";
                 break;
             case lang_TypeInstance::DeterminedType::DICTIONARY:
-                result_type_name += L"dict";
+                result_type_name += "dict";
                 break;
             case lang_TypeInstance::DeterminedType::MAPPING:
-                result_type_name += L"map";
+                result_type_name += "map";
                 break;
             case lang_TypeInstance::DeterminedType::TUPLE:
             {
-                result_type_name += L"(";
+                result_type_name += "(";
                 auto& element_types = base_determined_type->m_external_type_description.m_tuple->m_element_types;
                 bool first = true;
                 for (auto* element_type : element_types)
                 {
                     if (!first)
-                        result_type_name += L", ";
+                        result_type_name += ", ";
 
-                    result_type_name += get_type_name_w(element_type);
+                    result_type_name += get_type_name(element_type);
                     first = false;
                 }
-                result_type_name += L")";
+                result_type_name += ")";
                 break;
             }
             case lang_TypeInstance::DeterminedType::FUNCTION:
             {
-                result_type_name += L"(";
+                result_type_name += "(";
                 auto& param_types = base_determined_type->m_external_type_description.m_function->m_param_types;
                 bool first = true;
                 for (auto* param_type : param_types)
                 {
                     if (!first)
-                        result_type_name += L", ";
+                        result_type_name += ", ";
 
-                    result_type_name += get_type_name_w(param_type);
+                    result_type_name += get_type_name(param_type);
                     first = false;
                 }
                 if (base_determined_type->m_external_type_description.m_function->m_is_variadic)
                 {
                     if (!first)
-                        result_type_name += L", ";
-                    result_type_name += L"...";
+                        result_type_name += ", ";
+                    result_type_name += "...";
                 }
-                result_type_name += L")=> ";
-                result_type_name += get_type_name_w(
+                result_type_name += ")=> ";
+                result_type_name += get_type_name(
                     base_determined_type->m_external_type_description.m_function->m_return_type);
                 break;
             }
             case lang_TypeInstance::DeterminedType::STRUCT:
             {
-                result_type_name += L"struct{";
+                result_type_name += "struct{";
                 auto& member_types = base_determined_type->m_external_type_description.m_struct->m_member_types;
                 bool first = true;
                 for (auto& [name, field] : member_types)
                 {
                     if (!first)
-                        result_type_name += L", ";
+                        result_type_name += ", ";
 
                     result_type_name += *name;
-                    result_type_name += L": ";
-                    result_type_name += get_type_name_w(field.m_member_type);
+                    result_type_name += ": ";
+                    result_type_name += get_type_name(field.m_member_type);
                     first = false;
                 }
-                result_type_name += L"}";
+                result_type_name += "}";
                 break;
             }
             case lang_TypeInstance::DeterminedType::UNION:
             {
-                result_type_name += L"union{";
+                result_type_name += "union{";
                 auto& member_types = base_determined_type->m_external_type_description.m_union->m_union_label;
                 bool first = true;
                 for (auto& [name, field] : member_types)
                 {
                     if (!first)
-                        result_type_name += L", ";
+                        result_type_name += ", ";
 
                     result_type_name += *name;
                     if (field.m_item_type)
                     {
-                        result_type_name += L"(";
-                        result_type_name += get_type_name_w(field.m_item_type.value());
-                        result_type_name += L")";
+                        result_type_name += "(";
+                        result_type_name += get_type_name(field.m_item_type.value());
+                        result_type_name += ")";
                     }
                     first = false;
                 }
-                result_type_name += L"}";
+                result_type_name += "}";
                 break;
             }
             default:
@@ -2344,101 +2344,101 @@ namespace wo
         else
         {
             // Get symbol name directly.
-            result_type_name += get_symbol_name_w(immutable_type_instance->m_symbol);
+            result_type_name += get_symbol_name(immutable_type_instance->m_symbol);
         }
 
         if (immutable_type_instance->m_instance_template_arguments)
         {
-            result_type_name += L"<";
+            result_type_name += "<";
             auto& template_args = immutable_type_instance->m_instance_template_arguments.value();
             bool first = true;
             for (auto& template_arg : template_args)
             {
                 if (!first)
-                    result_type_name += L", ";
+                    result_type_name += ", ";
 
                 if (template_arg.m_constant.has_value())
-                    result_type_name += L"{"
-                    + get_constant_str_w(template_arg.m_constant.value())
-                    + L": "
-                    + get_type_name_w(template_arg.m_type)
-                    + L"}";
+                    result_type_name += "{"
+                    + get_constant_str(template_arg.m_constant.value())
+                    + ": "
+                    + get_type_name(template_arg.m_type)
+                    + "}";
                 else
-                    result_type_name += get_type_name_w(template_arg.m_type);
+                    result_type_name += get_type_name(template_arg.m_type);
 
                 first = false;
             }
-            result_type_name += L">";
+            result_type_name += ">";
         }
 
         return result_type_name;
     }
-    std::wstring LangContext::_get_value_name(lang_ValueInstance* scope)
+    std::string LangContext::_get_value_name(lang_ValueInstance* scope)
     {
-        std::wstring result_value_name = get_symbol_name_w(scope->m_symbol);
+        std::string result_value_name = get_symbol_name(scope->m_symbol);
 
         if (scope->m_instance_template_arguments)
         {
-            result_value_name += L"<";
+            result_value_name += "<";
             auto& template_args = scope->m_instance_template_arguments.value();
             bool first = true;
             for (auto& template_arg : template_args)
             {
                 if (!first)
-                    result_value_name += L", ";
+                    result_value_name += ", ";
 
                 if (template_arg.m_constant.has_value())
                 {
-                    result_value_name += L"{"
-                        + get_constant_str_w(template_arg.m_constant.value())
-                        + L": "
-                        + get_type_name_w(template_arg.m_type)
-                        + L"}";
+                    result_value_name += "{"
+                        + get_constant_str(template_arg.m_constant.value())
+                        + ": "
+                        + get_type_name(template_arg.m_type)
+                        + "}";
                 }
                 else
-                    result_value_name += get_type_name_w(template_arg.m_type);
+                    result_value_name += get_type_name(template_arg.m_type);
 
                 first = false;
             }
-            result_value_name += L">";
+            result_value_name += ">";
         }
 
         return result_value_name;
     }
-    std::wstring LangContext::_get_function_name(ast::AstValueFunction* func)
+    std::string LangContext::_get_function_name(ast::AstValueFunction* func)
     {
         if (func->m_LANG_value_instance_to_update.has_value())
         {
             lang_ValueInstance* value_instance = func->m_LANG_value_instance_to_update.value();
-            std::wstring name = get_value_name_w(value_instance);
+            std::string name = get_value_name(value_instance);
 
             lang_Scope* function_located_scope =
                 func->m_LANG_function_scope.value()->m_parent_scope.value();
 
             if (!function_located_scope->is_namespace_scope())
             {
-                wchar_t local_name[48];
-                auto r = swprintf(local_name, 48, L"[local_%p]", function_located_scope);
+                char local_name[48];
+                auto r = snprintf(local_name, 48, "[local_%p]", function_located_scope);
                 wo_test(r >= 0 && r < 48, "Failed to generate function name.");
 
                 auto function = get_scope_located_function(function_located_scope);
                 if (function.has_value())
-                    name = get_function_name_w(function.value()) + (L"::" + (local_name + (L"::" + name)));
+                    name = get_function_name(function.value()) + ("::" + (local_name + ("::" + name)));
             }
             return name;
         }
 
-        std::wstring result;
+        std::string result;
 
         lang_Scope* function_located_scope =
             func->m_LANG_function_scope.value()->m_parent_scope.value();
 
         auto function = get_scope_located_function(function_located_scope);
         if (function.has_value())
-            result += std::wstring(get_function_name_w(function.value())) + L"::";
+            result += std::string(get_function_name(function.value())) + "::";
 
-        wchar_t anonymous_name[48];
-        auto r = swprintf(anonymous_name, 48, L"<func %p>", func);
+        char anonymous_name[48];
+        auto r = snprintf(anonymous_name, 48, "<func %p>", func);
         wo_test(r >= 0 && r < 48, "Failed to generate function name.");
        
         wo_assert(func->source_location.source_file != nullptr);
@@ -2446,111 +2446,50 @@ namespace wo
 
         return result;
     }
-    const wchar_t* LangContext::get_symbol_name_w(lang_Symbol* symbol)
-    {
-        auto fnd = m_symbol_name_cache.find(symbol);
-        if (fnd != m_symbol_name_cache.end())
-            return fnd->second.first.c_str();
-
-        std::wstring result = _get_symbol_name(symbol);
-        return m_symbol_name_cache.insert(
-            std::make_pair(symbol, std::make_pair(result, wstrn_to_str(result))))
-            .first
-            ->second.first.c_str();
-    }
     const char* LangContext::get_symbol_name(lang_Symbol* symbol)
     {
         auto fnd = m_symbol_name_cache.find(symbol);
         if (fnd != m_symbol_name_cache.end())
-            return fnd->second.second.c_str();
+            return fnd->second.c_str();
 
-        std::wstring result = _get_symbol_name(symbol);
         return m_symbol_name_cache.insert(
-            std::make_pair(symbol, std::make_pair(result, wstrn_to_str(result))))
-            .first
-            ->second.second.c_str();
-    }
-    const wchar_t* LangContext::get_type_name_w(lang_TypeInstance* type)
-    {
-        auto fnd = m_type_name_cache.find(type);
-        if (fnd != m_type_name_cache.end())
-            return fnd->second.first.c_str();
-
-        m_type_name_cache[type] = std::make_pair(
-            *type->m_symbol->m_name + L"...", "...");
-
-        std::wstring result = _get_type_name(type);
-
-        m_type_name_cache.erase(type);
-        return m_type_name_cache.insert(
-            std::make_pair(type, std::make_pair(result, wstrn_to_str(result))))
-            .first
-            ->second.first.c_str();
+            std::make_pair(symbol, _get_symbol_name(symbol)))
+            .first->second.c_str();
     }
     const char* LangContext::get_type_name(lang_TypeInstance* type)
     {
         auto fnd = m_type_name_cache.find(type);
         if (fnd != m_type_name_cache.end())
-            return fnd->second.second.c_str();
+            return fnd->second.c_str();
 
-        m_type_name_cache[type] = std::make_pair(
-            *type->m_symbol->m_name + L"...", "...");
-
-        std::wstring result = _get_type_name(type);
+        (void)m_type_name_cache.insert(
+            std::make_pair(type, *type->m_symbol->m_name + "..."));
 
         m_type_name_cache.erase(type);
         return m_type_name_cache.insert(
-            std::make_pair(type, std::make_pair(result, wstrn_to_str(result))))
-            .first
-            ->second.second.c_str();
+            std::make_pair(type, _get_type_name(type)))
+            .first->second.c_str();
     }
-    const wchar_t* LangContext::get_value_name_w(lang_ValueInstance* val)
-    {
-        auto fnd = m_value_name_cache.find(val);
-        if (fnd != m_value_name_cache.end())
-            return fnd->second.first.c_str();
-
-        std::wstring result = _get_value_name(val);
-        return m_value_name_cache.insert(
-            std::make_pair(val, std::make_pair(result, wstrn_to_str(result))))
-            .first
-            ->second.first.c_str();
-    }
+    
     const char* LangContext::get_value_name(lang_ValueInstance* val)
     {
         auto fnd = m_value_name_cache.find(val);
         if (fnd != m_value_name_cache.end())
-            return fnd->second.second.c_str();
+            return fnd->second.c_str();
 
-        std::wstring result = _get_value_name(val);
         return m_value_name_cache.insert(
-            std::make_pair(val, std::make_pair(result, wstrn_to_str(result))))
-            .first
-            ->second.second.c_str();
-    }
-    const wchar_t* LangContext::get_function_name_w(ast::AstValueFunction* func)
-    {
-        auto fnd = m_function_name_cache.find(func);
-        if (fnd != m_function_name_cache.end())
-            return fnd->second.first.c_str();
-
-        std::wstring result = _get_function_name(func);
-        return m_function_name_cache.insert(
-            std::make_pair(func, std::make_pair(result, wstrn_to_str(result))))
-            .first
-            ->second.first.c_str();
+            std::make_pair(val, _get_value_name(val)))
+            .first->second.c_str();
     }
     const char* LangContext::get_function_name(ast::AstValueFunction* func)
     {
         auto fnd = m_function_name_cache.find(func);
         if (fnd != m_function_name_cache.end())
-            return fnd->second.second.c_str();
+            return fnd->second.c_str();
 
-        std::wstring result = _get_function_name(func);
         return m_function_name_cache.insert(
-            std::make_pair(func, std::make_pair(result, wstrn_to_str(result))))
-            .first
-            ->second.second.c_str();
+            std::make_pair(func, _get_function_name(func)))
+            .first->second.c_str();
     }
     std::string LangContext::get_constant_str(const ast::ConstantValue& val)
     {
@@ -2571,12 +2510,10 @@ namespace wo
         case ast::ConstantValue::Type::PSTRING:
         {
             wo_pstring_t pstring_constant = val.value_pstring();
-            auto string_constant =
-                wo::wstrn_to_str(pstring_constant->data(), pstring_constant->length());
 
-            return wo::enstring(
-                string_constant.data(),
-                string_constant.length(),
+            return wo::u8enstring(
+                pstring_constant->data(),
+                pstring_constant->size(),
                 false);
         }
         case ast::ConstantValue::Type::STRUCT:
@@ -2598,10 +2535,6 @@ namespace wo
         default:
             return "<?>";
         }
-    }
-    std::wstring LangContext::get_constant_str_w(const ast::ConstantValue& val)
-    {
-        return str_to_wstr(get_constant_str(val));
     }
     void LangContext::append_using_namespace_for_current_scope(
         const std::unordered_set<lang_Namespace*>& using_namespaces, wo_pstring_t source)

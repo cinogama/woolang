@@ -75,7 +75,7 @@ namespace wo
         _function_ip_data_buf[function_name].ir_end = compiler->get_now_ip();
     }
     void program_debug_data_info::add_func_variable(
-        const std::string& function_name, const std::wstring& varname, size_t rowno, wo_integer_t loc)
+        const std::string& function_name, const std::string& varname, size_t rowno, wo_integer_t loc)
     {
         _function_ip_data_buf[function_name].add_variable_define(varname, rowno, loc);
     }
@@ -344,7 +344,8 @@ namespace wo
 
         return _general_src_data_buf_b.at(result);
     }
-    std::vector<size_t> program_debug_data_info::get_ip_by_src_location(const std::wstring& src_name, size_t rowno, bool strict, bool ignore_unbreakable)const
+    std::vector<size_t> program_debug_data_info::get_ip_by_src_location(
+        const std::string& src_name, size_t rowno, bool strict, bool ignore_unbreakable)const
     {
         auto fnd = _general_src_data_buf_a.find(src_name);
         if (fnd == _general_src_data_buf_a.end())
@@ -418,7 +419,7 @@ namespace wo
             sprintf(ptrr, "0x%p>", rt_pos);
             return ptrr;
 
-        }();
+            }();
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -494,27 +495,27 @@ namespace wo
         std::vector<wo::byte_t> binary_buffer;
         auto write_buffer_to_buffer =
             [&binary_buffer](const void* written_data, size_t written_length, size_t allign)
-        {
-            const size_t write_begin_place = binary_buffer.size();
+            {
+                const size_t write_begin_place = binary_buffer.size();
 
-            wo_assert(write_begin_place % allign == 0);
+                wo_assert(write_begin_place % allign == 0);
 
-            binary_buffer.resize(write_begin_place + written_length);
+                binary_buffer.resize(write_begin_place + written_length);
 
-            memcpy(binary_buffer.data() + write_begin_place, written_data, written_length);
-            return binary_buffer.size();
-        };
+                memcpy(binary_buffer.data() + write_begin_place, written_data, written_length);
+                return binary_buffer.size();
+            };
 
         auto write_binary_to_buffer =
             [&write_buffer_to_buffer](const auto& d, size_t size_for_assert)
-        {
-            const wo::byte_t* written_data = std::launder(reinterpret_cast<const wo::byte_t*>(&d));
-            const size_t written_length = sizeof(d);
+            {
+                const wo::byte_t* written_data = std::launder(reinterpret_cast<const wo::byte_t*>(&d));
+                const size_t written_length = sizeof(d);
 
-            wo_assert(written_length == size_for_assert);
+                wo_assert(written_length == size_for_assert);
 
-            return write_buffer_to_buffer(written_data, written_length, sizeof(d) > 8 ? 8 : sizeof(d));
-        };
+                return write_buffer_to_buffer(written_data, written_length, sizeof(d) > 8 ? 8 : sizeof(d));
+            };
 
         class _string_pool_t
         {
@@ -542,10 +543,10 @@ namespace wo
 
         auto write_constant_str_to_buffer =
             [&write_binary_to_buffer, &constant_string_pool](const char* str, size_t len)
-        {
-            write_binary_to_buffer((uint32_t)constant_string_pool.insert(str, len), 4);
-            write_binary_to_buffer((uint32_t)len, 4);
-        };
+            {
+                write_binary_to_buffer((uint32_t)constant_string_pool.insert(str, len), 4);
+                write_binary_to_buffer((uint32_t)len, 4);
+            };
 
         // 1.1 (+0) Magic number(0x3001A26B look like WOOLANG B)
         write_binary_to_buffer((uint32_t)0x3001A26B, 4);
@@ -745,10 +746,9 @@ namespace wo
             write_binary_to_buffer((uint32_t)this->program_debug_info->_general_src_data_buf_a.size(), 4);
             for (auto& [src_file_path, locations] : this->program_debug_info->_general_src_data_buf_a)
             {
-                auto&& src_file = wstr_to_str(src_file_path);
-                write_binary_to_buffer((uint32_t)src_file.size(), 4);
-                write_buffer_to_buffer(src_file.c_str(), src_file.size(), 1);
-                write_buffer_to_buffer("_pad", (4ull - (src_file.size() % 4ull)) % 4ull, 1);
+                write_binary_to_buffer((uint32_t)src_file_path.size(), 4);
+                write_buffer_to_buffer(src_file_path.c_str(), src_file_path.size(), 1);
+                write_buffer_to_buffer("_pad", (4ull - (src_file_path.size() % 4ull)) % 4ull, 1);
 
                 write_binary_to_buffer((uint32_t)locations.size(), 4);
                 for (auto& loc : locations)
@@ -770,10 +770,9 @@ namespace wo
             {
                 write_binary_to_buffer((uint32_t)ip, 4);
 
-                auto&& src_file = wstr_to_str(loc.source_file);
-                write_binary_to_buffer((uint32_t)src_file.size(), 4);
-                write_buffer_to_buffer(src_file.c_str(), src_file.size(), 1);
-                write_buffer_to_buffer("_pad", (4ull - (src_file.size() % 4ull)) % 4ull, 1);
+                write_binary_to_buffer((uint32_t)loc.source_file.size(), 4);
+                write_buffer_to_buffer(loc.source_file.c_str(), loc.source_file.size(), 1);
+                write_buffer_to_buffer("_pad", (4ull - (loc.source_file.size() % 4ull)) % 4ull, 1);
 
                 write_binary_to_buffer((uint32_t)loc.ip, 4);
                 write_binary_to_buffer((uint32_t)loc.begin_row_no, 4);
@@ -1240,12 +1239,12 @@ namespace wo
 
         auto restore_string_from_buffer =
             [&string_pool_buffer](const string_buffer_index& string_index, std::string* out_str)->bool
-        {
-            if (string_index.index + string_index.size > string_pool_buffer.size())
-                return false;
-            *out_str = std::string(string_pool_buffer.data() + string_index.index, string_index.size);
-            return true;
-        };
+            {
+                if (string_index.index + string_index.size > string_pool_buffer.size())
+                    return false;
+                *out_str = std::string(string_pool_buffer.data() + string_index.index, string_index.size);
+                return true;
+            };
 
         std::string constant_string;
         std::map<string_buffer_index, wo::string_t*> created_string_instances;
@@ -1385,7 +1384,7 @@ namespace wo
                 if (!stream->read_buffer(_useless_pad, padding_len))
                     WO_LOAD_BIN_FAILED("Failed to restore program debug informations record A's filename padding.");
 
-                std::wstring filename = str_to_wstr(_filename_string.data());
+                std::string filename = _filename_string.data();
                 auto& locations = pdb->_general_src_data_buf_a[filename];
                 uint32_t _locations_count;
                 if (!stream->read_elem(&_locations_count))
@@ -1452,7 +1451,7 @@ namespace wo
                 if (!stream->read_buffer(_useless_pad, padding_len))
                     WO_LOAD_BIN_FAILED("Failed to restore program debug informations record B's location filename padding.");
 
-                loc.source_file = str_to_wstr(_filename_string.data());
+                loc.source_file = _filename_string.data();
 
                 uint32_t data;
 
@@ -1594,12 +1593,14 @@ namespace wo
         std::string buffer_to_store_data_from_file_or_mem;
         if (bytestream == nullptr)
         {
-            std::wstring real_read_file;
-            wo::check_and_read_virtual_source<false>(
-                &buffer_to_store_data_from_file_or_mem,
+            std::string real_read_file;
+            wo::check_and_read_virtual_source(
+                virtual_file,
+                std::nullopt,
                 &real_read_file,
-                wo::str_to_wstr(virtual_file),
-                std::nullopt);
+                &buffer_to_store_data_from_file_or_mem);
+
+            (void)real_read_file;
         }
         else
             buffer_to_store_data_from_file_or_mem = std::string((const char*)bytestream, streamsz);
@@ -1686,8 +1687,7 @@ namespace wo
         case ast::ConstantValue::Type::PSTRING:
         {
             wo_pstring_t pstring_constant = constant_value.value_pstring();
-            out_value.set_string_nogc(
-                wo::wstrn_to_str(pstring_constant->data(), pstring_constant->size()));
+            out_value.set_string_nogc(*pstring_constant);
             break;
         }
         case ast::ConstantValue::Type::STRUCT:

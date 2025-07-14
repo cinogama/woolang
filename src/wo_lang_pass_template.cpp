@@ -25,7 +25,7 @@ namespace wo
             break;
         }
 
-        std::wstring failed_template_arg_list;
+        std::string failed_template_arg_list;
 
         auto it_template_arg = inst->m_template_arguments.begin();
         const auto it_template_arg_end = inst->m_template_arguments.end();
@@ -37,25 +37,25 @@ namespace wo
             ++it_template_param, ++it_template_arg)
         {
             if (!failed_template_arg_list.empty())
-                failed_template_arg_list += L", ";
+                failed_template_arg_list += ", ";
 
             failed_template_arg_list += *(*it_template_param)->m_param_name;
-            failed_template_arg_list += L" = ";
+            failed_template_arg_list += " = ";
 
             if (it_template_arg->m_constant.has_value())
-                failed_template_arg_list += L"{"
-                + get_constant_str_w(it_template_arg->m_constant.value())
-                + L": "
-                + get_type_name_w(it_template_arg->m_type)
-                + L"}";
+                failed_template_arg_list += "{"
+                + get_constant_str(it_template_arg->m_constant.value())
+                + ": "
+                + get_type_name(it_template_arg->m_type)
+                + "}";
             else
-                failed_template_arg_list += get_type_name_w(it_template_arg->m_type);
+                failed_template_arg_list += get_type_name(it_template_arg->m_type);
         }
 
         lex.record_lang_error(lexer::msglevel_t::error, node,
             WO_ERR_FAILED_REIFICATION_CAUSED_BY,
             failed_template_arg_list.c_str(),
-            get_symbol_name_w(inst->m_symbol));
+            get_symbol_name(inst->m_symbol));
 
         for (const auto& error_message : inst->m_failed_error_for_this_instance.value())
             // TODO: Describe the error support.
@@ -181,7 +181,7 @@ namespace wo
 
             if (inout_template_arguments.size() != template_params.size())
             {
-                std::wstring pending_type_list;
+                std::string pending_type_list;
                 bool first_param = true;
 
                 for (auto* param : template_params)
@@ -190,7 +190,7 @@ namespace wo
                     if (fnd == deduce_result.end())
                     {
                         if (!first_param)
-                            pending_type_list += L", ";
+                            pending_type_list += ", ";
                         else
                             first_param = false;
 
@@ -619,7 +619,7 @@ namespace wo
                                 // immut T <X= mut Tinstance: Bad
                                 lex.record_lang_error(lexer::msglevel_t::error, accept_type_formal,
                                     WO_ERR_UNACCEPTABLE_MUTABLE,
-                                    get_type_name_w(applying_type_instance));
+                                    get_type_name(applying_type_instance));
 
                                 return false;
                             }

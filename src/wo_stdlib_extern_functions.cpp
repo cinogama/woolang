@@ -58,12 +58,16 @@ WO_API wo_api rslib_std_string_toupper(wo_vm vm, wo_value args)
 {
     size_t len = 0;
     wo_string_t rawstr = wo_raw_string(args + 0, &len);
-    std::wstring str = wo::strn_to_wstr(rawstr, len);
 
-    for (auto& ch : str)
-        ch = wo::lexer::lex_toupper(ch);
+    auto wstr = wo::u8strtou32(rawstr, len);
 
-    auto&& result = wo::wstrn_to_str(str.c_str(), str.size());
+    for (auto& ch : wstr)
+        ch = wo::u32isu16(ch) 
+            ? static_cast<wo_wchar_t>(towupper(static_cast<wchar_t>(ch))) 
+            : ch;
+
+    auto result = wo::u32strtou8(wstr.c_str(), wstr.size());
+
     return wo_ret_raw_string(vm, result.c_str(), result.size());
 }
 
@@ -71,12 +75,15 @@ WO_API wo_api rslib_std_string_tolower(wo_vm vm, wo_value args)
 {
     size_t len = 0;
     wo_string_t rawstr = wo_raw_string(args + 0, &len);
-    std::wstring str = wo::strn_to_wstr(rawstr, len);
 
-    for (auto& ch : str)
-        ch = wo::lexer::lex_tolower(ch);
+    auto wstr = wo::u8strtou32(rawstr, len);
 
-    auto&& result = wo::wstrn_to_str(str.c_str(), str.size());
+    for (auto& ch : wstr)
+        ch = wo::u32isu16(ch) 
+            ? static_cast<wo_wchar_t>(towlower(static_cast<wchar_t>(ch))) 
+            : ch;
+
+    auto result = wo::u32strtou8(wstr.c_str(), wstr.size());
     return wo_ret_raw_string(vm, result.c_str(), result.size());
 }
 
@@ -84,12 +91,13 @@ WO_API wo_api rslib_std_string_isspace(wo_vm vm, wo_value args)
 {
     size_t len = 0;
     wo_string_t rawstr = wo_raw_string(args + 0, &len);
-    std::wstring str = wo::strn_to_wstr(rawstr, len);
 
-    if (!str.empty())
+    auto wstr = wo::u8strtou32(rawstr, len);
+
+    if (!wstr.empty())
     {
-        for (auto& ch : str)
-            if (!wo::lexer::lex_isspace(ch))
+        for (auto ch : wstr)
+            if (!wo::u32isu16(ch) || !iswspace(static_cast<wchar_t>(ch)))
                 return wo_ret_bool(vm, WO_FALSE);
         return wo_ret_bool(vm, WO_TRUE);
     }
@@ -100,12 +108,13 @@ WO_API wo_api rslib_std_string_isalpha(wo_vm vm, wo_value args)
 {
     size_t len = 0;
     wo_string_t rawstr = wo_raw_string(args + 0, &len);
-    std::wstring str = wo::strn_to_wstr(rawstr, len);
 
-    if (!str.empty())
+    auto wstr = wo::u8strtou32(rawstr, len);
+
+    if (!wstr.empty())
     {
-        for (auto& ch : str)
-            if (!wo::lexer::lex_isalpha(ch))
+        for (auto ch : wstr)
+            if (wo::u32isu16(ch) && !iswalpha(static_cast<wchar_t>(ch)))
                 return wo_ret_bool(vm, WO_FALSE);
         return wo_ret_bool(vm, WO_TRUE);
     }
@@ -116,12 +125,13 @@ WO_API wo_api rslib_std_string_isalnum(wo_vm vm, wo_value args)
 {
     size_t len = 0;
     wo_string_t rawstr = wo_raw_string(args + 0, &len);
-    std::wstring str = wo::strn_to_wstr(rawstr, len);
 
-    if (!str.empty())
+    auto wstr = wo::u8strtou32(rawstr, len);
+
+    if (!wstr.empty())
     {
-        for (auto& ch : str)
-            if (!wo::lexer::lex_isalnum(ch))
+        for (auto ch : wstr)
+            if (wo::u32isu16(ch) && !iswalnum(static_cast<wchar_t>(ch)))
                 return wo_ret_bool(vm, WO_FALSE);
         return wo_ret_bool(vm, WO_TRUE);
     }
@@ -132,12 +142,13 @@ WO_API wo_api rslib_std_string_isnumber(wo_vm vm, wo_value args)
 {
     size_t len = 0;
     wo_string_t rawstr = wo_raw_string(args + 0, &len);
-    std::wstring str = wo::strn_to_wstr(rawstr, len);
 
-    if (!str.empty())
+    auto wstr = wo::u8strtou32(rawstr, len);
+
+    if (!wstr.empty())
     {
-        for (auto& ch : str)
-            if (!wo::lexer::lex_isdigit(ch))
+        for (auto ch : wstr)
+            if (!wo::u32isu16(ch) || !iswdigit(static_cast<wchar_t>(ch)))
                 return wo_ret_bool(vm, WO_FALSE);
         return wo_ret_bool(vm, WO_TRUE);
     }
@@ -148,12 +159,13 @@ WO_API wo_api rslib_std_string_ishex(wo_vm vm, wo_value args)
 {
     size_t len = 0;
     wo_string_t rawstr = wo_raw_string(args + 0, &len);
-    std::wstring str = wo::strn_to_wstr(rawstr, len);
 
-    if (!str.empty())
+    auto wstr = wo::u8strtou32(rawstr, len);
+
+    if (!wstr.empty())
     {
-        for (auto& ch : str)
-            if (!wo::lexer::lex_isxdigit(ch))
+        for (auto ch : wstr)
+            if (!wo::u32isu16(ch) || !iswxdigit(static_cast<wchar_t>(ch)))
                 return wo_ret_bool(vm, WO_FALSE);
         return wo_ret_bool(vm, WO_TRUE);
     }
@@ -164,12 +176,13 @@ WO_API wo_api rslib_std_string_isoct(wo_vm vm, wo_value args)
 {
     size_t len = 0;
     wo_string_t rawstr = wo_raw_string(args + 0, &len);
-    std::wstring str = wo::strn_to_wstr(rawstr, len);
 
-    if (!str.empty())
+    auto wstr = wo::u8strtou32(rawstr, len);
+
+    if (!wstr.empty())
     {
-        for (auto& ch : str)
-            if (!wo::lexer::lex_isodigit(ch))
+        for (auto& ch : wstr)
+            if (ch < static_cast<wo_wchar_t>('0') || ch > static_cast<wo_wchar_t>('7'))
                 return wo_ret_bool(vm, WO_FALSE);
         return wo_ret_bool(vm, WO_TRUE);
     }
@@ -178,66 +191,80 @@ WO_API wo_api rslib_std_string_isoct(wo_vm vm, wo_value args)
 
 WO_API wo_api rslib_std_char_tostring(wo_vm vm, wo_value args)
 {
-    wo_wchar_t wc = wo_char(args + 0);
+    const wo_wchar_t wc = wo_char(args + 0);
+    
+    size_t len;
+    char result[wo::UTF8MAXLEN];
 
-    std::string result = wo::wstrn_to_str(&wc, 1);
+    wo::u32exractu8(wc, result, &len);
 
-    return wo_ret_raw_string(vm, result.c_str(), result.size());
+    return wo_ret_raw_string(vm, result, len);
 }
 
 WO_API wo_api rslib_std_char_toupper(wo_vm vm, wo_value args)
 {
-    return wo_ret_char(vm, wo::lexer::lex_toupper(wo_char(args + 0)));
+    const wo_wchar_t wc = wo_char(args + 0);
+
+    return wo_ret_char(
+        vm, wo::u32isu16(wc) ? static_cast<wo_wchar_t>(towupper(static_cast<wchar_t>(wc))) : wc);
 }
 
 WO_API wo_api rslib_std_char_tolower(wo_vm vm, wo_value args)
 {
-    return wo_ret_char(vm, wo::lexer::lex_tolower(wo_char(args + 0)));
+    const wo_wchar_t wc = wo_char(args + 0);
+    return wo_ret_char(vm, wo::u32isu16(wc) ? tolower(wc) : wc);
 }
 
 WO_API wo_api rslib_std_char_isspace(wo_vm vm, wo_value args)
 {
-    return wo_ret_bool(vm, WO_CBOOL(wo::lexer::lex_isspace(wo_char(args + 0))));
+    const wo_wchar_t wc = wo_char(args + 0);
+    return wo_ret_bool(
+        vm, WO_CBOOL(wo::u32isu16(wc) && iswspace(static_cast<wchar_t>(wc))));
 }
 
 WO_API wo_api rslib_std_char_isalpha(wo_vm vm, wo_value args)
 {
-    return wo_ret_bool(vm, WO_CBOOL(wo::lexer::lex_isalpha(wo_char(args + 0))));
+    const wo_wchar_t wc = wo_char(args + 0);
+    return wo_ret_bool(vm, WO_CBOOL(!wo::u32isu16(wc) || iswalpha(static_cast<wchar_t>(wc))));
 }
 
 WO_API wo_api rslib_std_char_isalnum(wo_vm vm, wo_value args)
 {
-    return wo_ret_bool(vm, WO_CBOOL(wo::lexer::lex_isalnum(wo_char(args + 0))));
+    const wo_wchar_t wc = wo_char(args + 0);
+    return wo_ret_bool(vm, WO_CBOOL(!wo::u32isu16(wc) || iswalnum(static_cast<wchar_t>(wc))));
 }
 
 WO_API wo_api rslib_std_char_isnumber(wo_vm vm, wo_value args)
 {
-    return wo_ret_bool(vm, WO_CBOOL(wo::lexer::lex_isdigit(wo_char(args + 0))));
+    const wo_wchar_t wc = wo_char(args + 0);
+    return wo_ret_bool(vm, WO_CBOOL(wo::u32isu16(wc) && iswdigit(static_cast<wchar_t>(wc))));
 }
 
 WO_API wo_api rslib_std_char_ishex(wo_vm vm, wo_value args)
 {
-    return wo_ret_bool(vm, WO_CBOOL(wo::lexer::lex_isxdigit(wo_char(args + 0))));
+    const wo_wchar_t wc = wo_char(args + 0);
+    return wo_ret_bool(vm, WO_CBOOL(wo::u32isu16(wc) && iswxdigit(static_cast<wchar_t>(wc))));
 }
 
 WO_API wo_api rslib_std_char_isoct(wo_vm vm, wo_value args)
 {
-    return wo_ret_bool(vm, WO_CBOOL(wo::lexer::lex_isodigit(wo_char(args + 0))));
+    const wo_wchar_t wc = wo_char(args + 0);
+    return wo_ret_bool(vm, WO_CBOOL(wc >= static_cast<wo_wchar_t>('0') && wc <= static_cast<wo_wchar_t>('7')));
 }
 
 WO_API wo_api rslib_std_char_hexnum(wo_vm vm, wo_value args)
 {
-    auto ch = wo_char(args + 0);
-    if (!wo::lexer::lex_isxdigit(ch))
+    const wo_wchar_t wc = wo_char(args + 0);
+    if (!wo::u32isu16(wc) || !iswxdigit(static_cast<wchar_t>(wc)))
         return wo_ret_panic(vm, "Non-hexadecimal character.");
 
-    return wo_ret_int(vm, wo::lexer::lex_hextonum(ch));
+    return wo_ret_int(vm, wo::lexer::lex_hextonum(static_cast<wchar_t>(wc)));
 }
 
 WO_API wo_api rslib_std_char_octnum(wo_vm vm, wo_value args)
 {
     auto ch = wo_char(args + 0);
-    if (!wo::lexer::lex_isodigit(ch))
+    if (ch < static_cast<wo_wchar_t>('0') || ch > static_cast<wo_wchar_t>('7'))
         return wo_ret_panic(vm, "Non-octal character.");
 
     return wo_ret_int(vm, wo::lexer::lex_octtonum(ch));
@@ -250,13 +277,13 @@ WO_API wo_api rslib_std_string_enstring(wo_vm vm, wo_value args)
     wo_string_t str = wo_raw_string(args + 0, &len);
 
     return wo_ret_string(
-        vm, 
-        wo::enstring(str, len, false).c_str());
+        vm,
+        wo::u8enstring(str, len, false).c_str());
 }
 
 WO_API wo_api rslib_std_string_destring(wo_vm vm, wo_value args)
 {
-    std::string result = wo::destring(wo_string(args + 0));
+    std::string result = wo::u8destring(wo_string(args + 0));
     return wo_ret_raw_string(vm, result.data(), result.size());
 }
 
@@ -336,8 +363,8 @@ WO_API wo_api rslib_std_string_find(wo_vm vm, wo_value args)
     size_t match_len = 0;
     wo_string_t match_str = wo_raw_string(args + 1, &match_len);
 
-    const std::wstring wstr = wo::strn_to_wstr(str, len);
-    const std::wstring wmatch = wo::strn_to_wstr(match_str, match_len);
+    const auto wstr = wo::u8strtou32(str, len);
+    const auto wmatch = wo::u8strtou32(match_str, match_len);
 
     size_t fnd_place = wstr.find(wmatch);
     if (fnd_place >= 0 && fnd_place < wstr.size())
@@ -352,8 +379,8 @@ WO_API wo_api rslib_std_string_find_from(wo_vm vm, wo_value args)
     size_t match_len = 0;
     wo_string_t match_str = wo_raw_string(args + 1, &match_len);
 
-    const std::wstring wstr = wo::strn_to_wstr(str, len);
-    const std::wstring wmatch = wo::strn_to_wstr(match_str, match_len);
+    const auto wstr = wo::u8strtou32(str, len);
+    const auto wmatch = wo::u8strtou32(match_str, match_len);
 
     const size_t from = (size_t)wo_int(args + 2);
 
@@ -370,8 +397,8 @@ WO_API wo_api rslib_std_string_rfind(wo_vm vm, wo_value args)
     size_t match_len = 0;
     wo_string_t match_str = wo_raw_string(args + 1, &match_len);
 
-    const std::wstring wstr = wo::strn_to_wstr(str, len);
-    const std::wstring wmatch = wo::strn_to_wstr(match_str, match_len);
+    const auto wstr = wo::u8strtou32(str, len);
+    const auto wmatch = wo::u8strtou32(match_str, match_len);
 
     size_t fnd_place = wstr.rfind(wmatch);
     if (fnd_place >= 0 && fnd_place < wstr.size())
@@ -386,8 +413,8 @@ WO_API wo_api rslib_std_string_rfind_from(wo_vm vm, wo_value args)
     size_t match_len = 0;
     wo_string_t match_str = wo_raw_string(args + 1, &match_len);
 
-    const std::wstring wstr = wo::strn_to_wstr(str, len);
-    const std::wstring wmatch = wo::strn_to_wstr(match_str, match_len);
+    const auto wstr = wo::u8strtou32(str, len);
+    const auto wmatch = wo::u8strtou32(match_str, match_len);
 
     const size_t from = (size_t)wo_int(args + 2);
 
@@ -402,28 +429,28 @@ WO_API wo_api rslib_std_string_trim(wo_vm vm, wo_value args)
     size_t len = 0;
     wo_string_t str = wo_raw_string(args + 0, &len);
 
-    const std::wstring wstr = wo::strn_to_wstr(str, len);
-    const wchar_t* wstrp = wstr.data();
+    const auto wstr = wo::u8strtou32(str, len);
+    const wo_wchar_t* wstrp = wstr.data();
     const size_t wstrlen = wstr.length();
 
     size_t ibeg = 0;
     size_t iend = wstrlen;
     for (; ibeg != iend; ibeg++)
     {
-        auto uch = (wchar_t)wstrp[ibeg];
-        if (iswspace(uch) || iswcntrl(uch))
+        auto uch = wstrp[ibeg];
+        if (wo::u32isu16(uch) && (iswspace(static_cast<wchar_t>(uch)) || iswcntrl(static_cast<wchar_t>(uch))))
             continue;
         break;
     }
 
     for (; iend != ibeg; iend--)
     {
-        auto uch = (wchar_t)wstrp[iend - 1];
-        if (iswspace(uch) || iswcntrl(uch))
+        auto uch = wstrp[iend - 1];
+        if (wo::u32isu16(uch) && (iswspace(static_cast<wchar_t>(uch)) || iswcntrl(static_cast<wchar_t>(uch))))
             continue;
         break;
     }
-    auto view = wo::wstrn_to_str(wstrp + ibeg, iend - ibeg);
+    auto view = wo::u32strtou8(wstrp + ibeg, iend - ibeg);
     return wo_ret_raw_string(vm, view.data(), view.size());
 }
 
@@ -442,16 +469,16 @@ WO_API wo_api rslib_std_string_split(wo_vm vm, wo_value args)
     wo_string_t str = wo_raw_string(args + 0, &len);
 
     return wo_ret_gchandle(
-        vm, 
+        vm,
         new string_split_iter_t
-        { 
+        {
             std::string_view(str, len),
             wo_string(args + 1),
             0,
         },
-        args + 0, 
+        args + 0,
         [](wo_ptr_t p)
-        { 
+        {
             delete reinterpret_cast<string_split_iter_t*>(p);
         });
 }
@@ -480,16 +507,15 @@ WO_API wo_api rslib_std_string_split_iter(wo_vm vm, wo_value args)
             return wo_ret_option_none(vm);
         }
 
-        const size_t chlen = wo::u8mbc2wc(
+        const size_t chlen = wo::u8charnlen(
             split_str_p,
-            split_str_len,
-            &useless);
+            split_str_len);
 
         (void)useless;
 
         iter->m_split_from += chlen;
         return wo_ret_option_raw_string(
-            vm, 
+            vm,
             split_str_p,
             chlen);
     }
@@ -519,7 +545,12 @@ WO_API wo_api rslib_std_string_append_char(wo_vm vm, wo_value args)
     std::string str(_wo_raw_str_view(args + 0));
     wchar_t wc = (wchar_t)(wo_handle_t)wo_int(args + 1);
 
-    str += wo::wstrn_to_str(&wc, 1);
+    size_t u8len;
+    char u8str[wo::UTF8MAXLEN];
+
+    wo::u32exractu8(wc, u8str, &u8len);
+
+    str.append(u8str, u8len);
 
     return wo_ret_raw_string(vm, str.c_str(), str.size());
 }
@@ -1242,7 +1273,7 @@ WO_API wo_api rslib_std_create_wchars_from_str(wo_vm vm, wo_value args)
     size_t len = 0;
     wo_string_t str = wo_raw_string(args + 0, &len);
 
-    std::wstring buf = wo::strn_to_wstr(str, len);
+    const auto buf = wo::u8strtou32(str, len);
 
     wo_value result_array = s + 0;
     wo_value elem = s + 1;
@@ -1306,33 +1337,31 @@ WO_API wo_api rslib_std_array_create(wo_vm vm, wo_value args)
 
 WO_API wo_api rslib_std_create_str_by_wchar(wo_vm vm, wo_value args)
 {
-    std::wstring buf;
-
     wo::value* arr = std::launder(reinterpret_cast<wo::value*>(args + 0));
     wo::gcbase::gc_read_guard rg1(arr->array);
 
-    size_t size = arr->array->size();
+    std::vector<wo_wchar_t> buf;
+    buf.reserve(arr->array->size());
 
-    for (size_t i = 0; i < size; ++i)
-        buf += (wchar_t)(wo_handle_t)wo_int(std::launder(reinterpret_cast<wo_value>(&arr->array->at(i))));
+    for (auto& value: *arr->array)
+        buf.push_back(wo_char(std::launder(reinterpret_cast<wo_value>(&value))));
 
-    std::string result = wo::wstrn_to_str(buf);
+    std::string result = wo::u32strtou8(buf.data(), buf.size());
     return wo_ret_raw_string(vm, result.c_str(), result.size());
 }
 
 WO_API wo_api rslib_std_create_str_by_ascii(wo_vm vm, wo_value args)
 {
-    std::string buf;
-
     wo::value* arr = std::launder(reinterpret_cast<wo::value*>(args + 0));
     wo::gcbase::gc_read_guard rg1(arr->array);
 
-    size_t size = arr->array->size();
+    std::vector<char> buf;
+    buf.reserve(arr->array->size());
 
-    for (size_t i = 0; i < size; ++i)
-        buf += (char)(unsigned char)(wo_handle_t)wo_int(std::launder(reinterpret_cast<wo_value>(&arr->array->at(i))));
+    for (auto& value : *arr->array)
+        buf.push_back(static_cast<char>(wo_int(std::launder(reinterpret_cast<wo_value>(&value)))));
 
-    return wo_ret_raw_string(vm, buf.c_str(), buf.size());
+    return wo_ret_raw_string(vm, buf.data(), buf.size());
 }
 
 
@@ -1357,7 +1386,7 @@ WO_API wo_api rslib_std_string_sub(wo_vm vm, wo_value args)
     wo_string_t str = wo_raw_string(args + 0, &len);
 
     size_t sub_str_len = 0;
-    auto* substring = wo::u8substrn(str, len, (size_t)wo_int(args + 1), wo::u8str_npos, &sub_str_len);
+    auto* substring = wo::u8substr(str, len, (size_t)wo_int(args + 1), &sub_str_len);
     return wo_ret_raw_string(vm, substring, sub_str_len);
 }
 
@@ -1454,56 +1483,6 @@ WO_API wo_api rslib_std_int_to_oct(wo_vm vm, wo_value args)
     return wo_ret_string(vm, result);
 }
 
-WO_API wo_api rslib_std_hex_to_int(wo_vm vm, wo_value args)
-{
-    wo_string_t str = wo_string(args + 0);
-    wo_integer_t result = 0;
-
-    bool is_negative = false;
-
-    const char* p = str;
-    while (*p)
-    {
-        if (!wo::lexer::lex_isxdigit(*p))
-        {
-            if (*p == '-' && !is_negative)
-                is_negative = true;
-            else
-                return wo_ret_panic(vm, "Non-hexadecimal character at offset %zu.", (size_t)(p - str));
-        }
-        else
-            result = result * 16 + wo::lexer::lex_hextonum(*p);
-
-        ++p;
-    }
-    return wo_ret_int(vm, is_negative ? -result : result);
-}
-
-WO_API wo_api rslib_std_oct_to_int(wo_vm vm, wo_value args)
-{
-    wo_string_t str = wo_string(args + 0);
-    wo_integer_t result = 0;
-
-    bool is_negative = false;
-
-    const char* p = str;
-    while (*p)
-    {
-        if (!wo::lexer::lex_isodigit(*p))
-        {
-            if (*p == '-' && !is_negative)
-                is_negative = true;
-            else
-                return wo_ret_panic(vm, "Non-octal character at offset %zu.", (size_t)(p - str));
-        }
-        else
-            result = result * 8 + wo::lexer::lex_octtonum(*p);
-
-        ++p;
-    }
-    return wo_ret_int(vm, is_negative ? -result : result);
-}
-
 WO_API wo_api rslib_std_get_args(wo_vm vm, wo_value args)
 {
     wo_value s = wo_reserve_stack(vm, 2, &args);
@@ -1527,7 +1506,7 @@ WO_API wo_api rslib_std_get_args(wo_vm vm, wo_value args)
 
 WO_API wo_api rslib_std_get_exe_path(wo_vm vm, wo_value args)
 {
-    return wo_ret_string(vm, wo::wstr_to_str(wo::exe_path()).c_str());
+    return wo_ret_string(vm, wo::exe_path().c_str());
 }
 
 WO_API wo_api rslib_std_get_extern_symb(wo_vm vm, wo_value args)
@@ -1688,48 +1667,48 @@ namespace std
 #else
     "os_type::UNKNOWN;\n"
 #endif
-//////////////////////////////////////////////////////////////////////
-"        public let arch = "
-#if defined(_X86_)||defined(__i386) || defined(_M_IX86)
-    "arch_type::X86;\n"
-#elif defined(__x86_64) || defined(_M_AMD64)
-    "arch_type::AMD64;\n"
-#elif defined(__arm) || defined(_M_ARM)
-    "arch_type::ARM32;\n"
-#elif defined(__aarch64__) || defined(_M_ARM64)
-    "arch_type::ARM64;\n"
-#else
-#   if defined(WO_PLATFORM_32)
-    "arch_type::UNKNOWN32;\n"
-#   elif defined(WO_PLATFORM_64)
-    "arch_type::UNKNOWN64;\n"
-#   else
-#       error "Unsupported cpu archtype."
-#   endif
-#endif
-//////////////////////////////////////////////////////////////////////
-"        public let bitwidth = "
-#if defined(WO_PLATFORM_32)
-    "32;\n"
-#elif defined(WO_PLATFORM_64)
-    "64;\n"
-#else
-#    error "Unsupported cpu archtype."
-#endif
-//////////////////////////////////////////////////////////////////////
-"        public let runtime = "
-#if defined(NDEBUG)
-    "runtime_type::RELEASE;\n"
-#else
-    "runtime_type::DEBUG;\n"
-#endif
-//////////////////////////////////////////////////////////////////////
-"        public let version = "
-#define WO_VER(a, b, c, d) "(" #a ", " #b ", " #c ", " #d ")"
-    WO_VERSION
-";\n"
-//////////////////////////////////////////////////////////////////////
-u8R"(
+    //////////////////////////////////////////////////////////////////////
+    "        public let arch = "
+    #if defined(_X86_)||defined(__i386) || defined(_M_IX86)
+        "arch_type::X86;\n"
+    #elif defined(__x86_64) || defined(_M_AMD64)
+        "arch_type::AMD64;\n"
+    #elif defined(__arm) || defined(_M_ARM)
+        "arch_type::ARM32;\n"
+    #elif defined(__aarch64__) || defined(_M_ARM64)
+        "arch_type::ARM64;\n"
+    #else
+    #   if defined(WO_PLATFORM_32)
+        "arch_type::UNKNOWN32;\n"
+    #   elif defined(WO_PLATFORM_64)
+        "arch_type::UNKNOWN64;\n"
+    #   else
+    #       error "Unsupported cpu archtype."
+    #   endif
+    #endif
+    //////////////////////////////////////////////////////////////////////
+    "        public let bitwidth = "
+    #if defined(WO_PLATFORM_32)
+        "32;\n"
+    #elif defined(WO_PLATFORM_64)
+        "64;\n"
+    #else
+    #    error "Unsupported cpu archtype."
+    #endif
+    //////////////////////////////////////////////////////////////////////
+    "        public let runtime = "
+    #if defined(NDEBUG)
+        "runtime_type::RELEASE;\n"
+    #else
+        "runtime_type::DEBUG;\n"
+    #endif
+    //////////////////////////////////////////////////////////////////////
+    "        public let version = "
+    #define WO_VER(a, b, c, d) "(" #a ", " #b ", " #c ", " #d ")"
+        WO_VERSION
+    ";\n"
+    //////////////////////////////////////////////////////////////////////
+    u8R"(
     }
 }
 namespace unsafe
@@ -2215,10 +2194,6 @@ namespace char
 }
 namespace string
 {
-    extern("rslib_std_hex_to_int")
-        public func hex_int(val: string)=> int;
-    extern("rslib_std_oct_to_int")
-        public func oct_int(val: string)=> int;
     extern("rslib_std_take_token") 
     public func take_token(datstr: string, expect_str: string)=> option<string>;
     extern("rslib_std_take_string") 
@@ -3023,7 +2998,7 @@ WO_API wo_api rslib_std_macro_lexer_error(wo_vm vm, wo_value args)
     wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
 
     (void)lex->record_parser_error(
-        wo::lexer::msglevel_t::error, wo::str_to_wstr(wo_string(args + 1)).c_str());
+        wo::lexer::msglevel_t::error, "%s", wo_string(args + 1));
     return wo_ret_void(vm);
 }
 
@@ -3044,7 +3019,7 @@ WO_API wo_api rslib_std_macro_lexer_peek(wo_vm vm, wo_value args)
     wo_set_struct(result, vm, 2);
     wo_set_int(elem, (wo_integer_t)token_instance->m_lex_type);
     wo_struct_set(result, 0, elem);
-    wo_set_string(elem, vm, wo::wstr_to_str(token_instance->m_token_text).c_str());
+    wo_set_string(elem, vm, token_instance->m_token_text.c_str());
     wo_struct_set(result, 1, elem);
 
     if (has_enter_gcguard != WO_FALSE)
@@ -3070,7 +3045,7 @@ WO_API wo_api rslib_std_macro_lexer_next(wo_vm vm, wo_value args)
     wo_set_struct(result, vm, 2);
     wo_set_int(elem, (wo_integer_t)token_instance->m_lex_type);
     wo_struct_set(result, 0, elem);
-    wo_set_string(elem, vm, wo::wstr_to_str(token_instance->m_token_text).c_str());
+    wo_set_string(elem, vm, token_instance->m_token_text.c_str());
     wo_struct_set(result, 1, elem);
 
     // Use consume_forward to avoid recursive macro handler invoke.
@@ -3091,10 +3066,9 @@ WO_API wo_api rslib_std_macro_lexer_nextch(wo_vm vm, wo_value args)
     int readch = lex->read_char();
 
     if (readch == EOF)
-        return wo_ret_string(vm, "");
+        return wo_ret_option_none(vm);
 
-    ch[0] = (wchar_t)readch;
-    return wo_ret_string(vm, wo::wstr_to_str(ch).c_str());
+    return wo_ret_option_int(vm, readch);
 }
 
 WO_API wo_api rslib_std_macro_lexer_peekch(wo_vm vm, wo_value args)
@@ -3106,16 +3080,15 @@ WO_API wo_api rslib_std_macro_lexer_peekch(wo_vm vm, wo_value args)
     int readch = lex->peek_char();
 
     if (readch == EOF)
-        return wo_ret_string(vm, "");
+        return wo_ret_option_none(vm);
 
-    ch[0] = (wchar_t)readch;
-    return wo_ret_string(vm, wo::wstr_to_str(ch).c_str());
+    return wo_ret_option_int(vm, readch);
 }
 
 WO_API wo_api rslib_std_macro_lexer_current_path(wo_vm vm, wo_value args)
 {
     wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
-    return wo_ret_string(vm, wo::wstr_to_str(*lex->get_source_path()).c_str());
+    return wo_ret_string(vm, lex->get_source_path()->c_str());
 }
 
 WO_API wo_api rslib_std_macro_lexer_current_location(wo_vm vm, wo_value args)
@@ -3299,10 +3272,10 @@ namespace std
         }
 
         extern("rslib_std_macro_lexer_nextch")
-            public func next_char(lex: lexer) => string;
+            public func next_char(lex: lexer) => option<cchar>;
 
         extern("rslib_std_macro_lexer_peekch")
-            public func peek_char(lex: lexer) => string;
+            public func peek_char(lex: lexer) => option<cchar>;
 
         extern("rslib_std_macro_lexer_current_path")
             public func path(lex: lexer) => string;
@@ -3455,7 +3428,6 @@ namespace wo
             {"rslib_std_get_exe_path", (void*)&rslib_std_get_exe_path},
             {"rslib_std_get_extern_symb", (void*)&rslib_std_get_extern_symb},
             {"rslib_std_halt", (void*)&rslib_std_halt},
-            {"rslib_std_hex_to_int", (void*)&rslib_std_hex_to_int},
             {"rslib_std_input_readint", (void*)&rslib_std_input_readint},
             {"rslib_std_input_readline", (void*)&rslib_std_input_readline},
             {"rslib_std_input_readreal", (void*)&rslib_std_input_readreal},
@@ -3488,7 +3460,6 @@ namespace wo
             {"rslib_std_map_set", (void*)&rslib_std_map_set},
             {"rslib_std_map_swap", (void*)&rslib_std_map_swap},
             {"rslib_std_map_vals", (void*)&rslib_std_map_vals},
-            {"rslib_std_oct_to_int", (void*)&rslib_std_oct_to_int},
             {"rslib_std_panic", (void*)&rslib_std_panic},
             {"rslib_std_parse_array_from_string", (void*)&rslib_std_parse_array_from_string},
             {"rslib_std_parse_map_from_string", (void*)&rslib_std_parse_map_from_string},

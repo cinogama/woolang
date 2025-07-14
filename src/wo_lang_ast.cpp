@@ -81,7 +81,7 @@ namespace wo
             : m_type(Type::PSTRING), m_storage(val)
         {
         }
-        ConstantValue::ConstantValue(const std::wstring& val)
+        ConstantValue::ConstantValue(const std::string& val)
             : m_type(Type::PSTRING), m_storage(wo::wstring_pool::get_pstr(val))
         {
         }
@@ -153,7 +153,7 @@ namespace wo
             case Type::REAL:
                 return value_real() != 0;
             case Type::PSTRING:
-                return 0 == value_pstring()->compare(L"true");
+                return 0 == value_pstring()->compare("true");
             default:
                 wo_error("Unexpected type.");
             }
@@ -171,7 +171,7 @@ namespace wo
             case Type::REAL:
                 return static_cast<wo_integer_t>(value_real());
             case Type::PSTRING:
-                return (wo_integer_t)wcstoll(value_pstring()->c_str(), nullptr, 0);
+                return (wo_integer_t)strtoll(value_pstring()->c_str(), nullptr, 0);
             default:
                 wo_error("Unexpected type.");
             }
@@ -189,7 +189,7 @@ namespace wo
             case Type::REAL:
                 return static_cast<wo_handle_t>(value_real());
             case Type::PSTRING:
-                return (wo_handle_t)wcstoull(value_pstring()->c_str(), nullptr, 0);
+                return (wo_handle_t)strtoull(value_pstring()->c_str(), nullptr, 0);
             default:
                 wo_error("Unexpected type.");
             }
@@ -207,7 +207,7 @@ namespace wo
             case Type::REAL:
                 return value_real();
             case Type::PSTRING:
-                return wcstod(value_pstring()->c_str(), nullptr);
+                return strtod(value_pstring()->c_str(), nullptr);
             default:
                 wo_error("Unexpected type.");
             }
@@ -217,13 +217,13 @@ namespace wo
             switch (m_type)
             {
             case Type::BOOL:
-                return value_bool() ? wo::wstring_pool::get_pstr(L"true") : wo::wstring_pool::get_pstr(L"false");
+                return value_bool() ? WO_PSTR(true) : WO_PSTR(false);
             case Type::INTEGER:
-                return wo::wstring_pool::get_pstr(std::to_wstring(value_integer()));
+                return wo::wstring_pool::get_pstr(std::to_string(value_integer()));
             case Type::HANDLE:
-                return wo::wstring_pool::get_pstr(std::to_wstring(value_handle()));
+                return wo::wstring_pool::get_pstr(std::to_string(value_handle()));
             case Type::REAL:
-                return wo::wstring_pool::get_pstr(std::to_wstring(value_real()));
+                return wo::wstring_pool::get_pstr(std::to_string(value_real()));
             case Type::PSTRING:
                 return value_pstring();
             default:
@@ -1747,7 +1747,7 @@ namespace wo
                         m_pending_param_type_mark_template.value();
 
                     wo_pstring_t pending_template_name =
-                        wstring_pool::get_pstr(L"*T" + std::to_wstring(pending_param_type_mark_template.size()));
+                        wstring_pool::get_pstr("*T" + std::to_string(pending_param_type_mark_template.size()));
 
                     AstTemplateParam* pending_template_param = new AstTemplateParam(
                         pending_template_name,

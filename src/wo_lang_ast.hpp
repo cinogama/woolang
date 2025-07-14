@@ -57,7 +57,7 @@ namespace wo
             explicit ConstantValue(wo_handle_t val);
             explicit ConstantValue(wo_real_t val);
             explicit ConstantValue(wo_pstring_t val);
-            explicit ConstantValue(const std::wstring& val);
+            explicit ConstantValue(const std::string& val);
             explicit ConstantValue(const std::list<ConstantValue*>& val);
 #ifndef WO_DISABLE_COMPILER
             explicit ConstantValue(ast::AstValueFunction* val);
@@ -182,7 +182,7 @@ namespace wo
                     || std::is_same_v<T, void*>
                     || std::is_same_v<T, bool>
                     || std::is_same_v<T, wo_pstring_t>
-                    || std::is_same_v<T, std::wstring>
+                    || std::is_same_v<T, std::string>
                     || std::is_same_v<T, std::list<ConstantValue*>>
                     || std::is_same_v<T, AstValueFunction*>);
 

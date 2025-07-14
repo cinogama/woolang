@@ -6,9 +6,9 @@
 namespace wo
 {
     bool check_virtual_file_path_impl(
-        std::wstring* out_real_read_path,
-        const std::wstring& filepath,
-        const std::optional<const lexer*>& lex)
+        const std::string& filepath,
+        const std::optional<const lexer*>& lex,
+        std::string * out_real_read_path)
     {
         if (is_virtual_uri(filepath))
         {
@@ -17,9 +17,9 @@ namespace wo
         }
 
         auto is_file_exist_and_readable =
-            [](const std::wstring& path)
+            [](const std::string& path)
         {
-            auto cpath = wstr_to_str(path);
+            auto cpath = path;
 #if WO_BUILD_WITH_MINGW
             FILE* f = fopen(cpath.c_str(), "r");
             if (f == nullptr)
@@ -46,7 +46,7 @@ namespace wo
             auto* lex_instance = finding_lex.value();
 
             *out_real_read_path =
-                wo::get_file_loc(*lex_instance->get_source_path()) + L"/" + filepath;
+                wo::get_file_loc(*lex_instance->get_source_path()) + "/" + filepath;
 
             if (is_virtual_uri(*out_real_read_path))
             {
@@ -71,7 +71,7 @@ namespace wo
         // 2) Read file from rpath
         do
         {
-            *out_real_read_path = wo::work_path() + L"/" + filepath;
+            *out_real_read_path = wo::work_path() + "/" + filepath;
             if (is_file_exist_and_readable(*out_real_read_path))
                 return true;
         } while (0);
@@ -79,7 +79,7 @@ namespace wo
         // 3) Read file from exepath
         do
         {
-            *out_real_read_path = wo::exe_path() + L"/" + filepath;
+            *out_real_read_path = wo::exe_path() + "/" + filepath;
             if (is_file_exist_and_readable(*out_real_read_path))
                 return true;
         } while (0);
@@ -95,7 +95,7 @@ namespace wo
         // 5) Read file from virtual file
         do
         {
-            *out_real_read_path = VIRTUAL_FILE_SCHEME_W + filepath;
+            *out_real_read_path = VIRTUAL_FILE_SCHEME_M + filepath;
 
             std::shared_lock g1(vfile_list_guard);
 
@@ -109,11 +109,11 @@ namespace wo
     }
 
     bool check_virtual_file_path(
-        std::wstring* out_real_read_path,
-        const std::wstring& filepath,
-        const std::optional<const lexer*>& lex)
+        const std::string& filepath,
+        const std::optional<const lexer*>& lex,
+        std::string* out_real_read_path)
     {
-        if (check_virtual_file_path_impl(out_real_read_path, filepath, lex))
+        if (check_virtual_file_path_impl(filepath, lex, out_real_read_path))
         {
             normalize_path(out_real_read_path);
             return true;

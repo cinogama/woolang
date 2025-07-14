@@ -740,12 +740,12 @@ namespace wo
                         }
                         else
                         {
-                            std::wstring err_info;
+                            std::string err_info;
 
                             if (peeked_token_instance->m_lex_type == lex_type::l_eof)
                                 err_info = WO_ERR_UNEXCEPT_EOF;
                             else
-                                err_info = WO_ERR_UNEXCEPT_TOKEN + (L"'" + peeked_token_instance->m_token_text + L"'");
+                                err_info = WO_ERR_UNEXCEPT_TOKEN + ("'" + peeked_token_instance->m_token_text + "'");
                             (void)tkr.record_parser_error(lexer::msglevel_t::error, err_info.c_str());
                         }
 

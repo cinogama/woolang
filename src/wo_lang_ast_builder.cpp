@@ -34,8 +34,8 @@ namespace wo
         auto pass_import_files::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
             wo_test(input.size() == 2 || input.size() == 3);
-            std::wstring path;
-            std::wstring filename;
+            std::string path;
+            std::string filename;
 
             bool is_export_import = input.size() == 3;
             AstList* import_scopes = static_cast<AstList*>(
@@ -51,17 +51,17 @@ namespace wo
                 if (first)
                     first = false;
                 else
-                    path += L"/";
+                    path += "/";
 
                 path += filename;
             }
 
-            // path += L".wo";
-            std::wstring src_full_path;
-            if (!wo::check_virtual_file_path(&src_full_path, path + L".wo", std::optional(&lex)))
+            // path += ".wo";
+            std::string src_full_path;
+            if (!wo::check_virtual_file_path(path + ".wo", std::optional(&lex), &src_full_path))
             {
                 // import a::b; cannot open a/b.wo, trying a/b/b.wo
-                if (!wo::check_virtual_file_path(&src_full_path, path + L"/" + filename + L".wo", std::optional(&lex)))
+                if (!wo::check_virtual_file_path(path + "/" + filename + ".wo", std::optional(&lex), &src_full_path))
                     return token{ lex.record_parser_error(lexer::msglevel_t::error, WO_ERR_CANNOT_OPEN_FILE, path.c_str()) };
             }
 
@@ -339,7 +339,7 @@ namespace wo
             AstBase* body = WO_NEED_AST(10);
 
             wo_pstring_t func_name = wstring_pool::get_pstr(
-                L"operator " + overloading_operator->m_token.identifier);
+                "operator " + overloading_operator->m_token.identifier);
 
             if (!WO_IS_EMPTY(0))
                 attrib = static_cast<AstDeclareAttribue*>(WO_NEED_AST_TYPE(0, AstBase::AST_DECLARE_ATTRIBUTE));
@@ -424,7 +424,7 @@ namespace wo
             std::optional<AstWhereConstraints*> where_constraints = std::nullopt;
 
             wo_pstring_t func_name = wstring_pool::get_pstr(
-                L"operator " + overloading_operator->m_token.identifier);
+                "operator " + overloading_operator->m_token.identifier);
 
             if (!WO_IS_EMPTY(1))
                 attrib = static_cast<AstDeclareAttribue*>(WO_NEED_AST_TYPE(1, AstBase::AST_DECLARE_ATTRIBUTE));
@@ -1043,8 +1043,11 @@ namespace wo
 
             AstValueLiteral* literal_instance = new AstValueLiteral();
 
+            char32_t char_literal;
+            wo::u8combineu32(literal->m_token.identifier.data(), literal->m_token.identifier.size(), &char_literal);
+
             literal_instance->decide_final_constant_value(
-                static_cast<wo_integer_t>(static_cast<wo_handle_t>(literal->m_token.identifier[0])));
+                static_cast<wo_integer_t>(char_literal));
 
             AstIdentifier* char_identifier = new AstIdentifier(WO_PSTR(char), std::nullopt, {}, true);
             AstTypeHolder* char_type = new AstTypeHolder(char_identifier);
@@ -1673,9 +1676,9 @@ namespace wo
 
                     wo_assert(attribute_token->m_token.type == lex_type::l_identifier);
 
-                    if (attribute_token->m_token.identifier == L"slow")
+                    if (attribute_token->m_token.identifier == "slow")
                         attribute_mask |= AstExternInformation::SLOW;
-                    else if (attribute_token->m_token.identifier == L"repeat")
+                    else if (attribute_token->m_token.identifier == "repeat")
                         attribute_mask |= AstExternInformation::REPEATABLE;
                     else
                         return token{ lex.record_lang_error(lexer::msglevel_t::error, attribute, WO_ERR_UNKNOWN_EXTERN_ATTRIB) };

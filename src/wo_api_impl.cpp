@@ -167,8 +167,8 @@ struct loaded_lib_info
 
     static dylib_table_instance* load_lib(
         const char* libname,
-        const wchar_t* path,
-        const wchar_t* script_path,
+        const char* path,
+        const char* script_path,
         wo_bool_t panic_when_fail)
     {
         std::lock_guard g1(loaded_named_libs_mx);
@@ -713,23 +713,23 @@ wo_string_t wo_locale_name(void)
 wo_string_t wo_exe_path()
 {
     thread_local static std::string buf;
-    buf = wo::wstr_to_str(wo::exe_path());
+    buf = wo::exe_path();
     return buf.c_str();
 }
 void wo_set_exe_path(wo_string_t path)
 {
-    wo::set_exe_path(wo::str_to_wstr(path));
+    wo::set_exe_path(path);
 }
 wo_string_t wo_work_path()
 {
     thread_local static std::string buf;
-    buf = wo::wstr_to_str(wo::work_path());
+    buf = wo::work_path();
     return buf.c_str();
 }
 
 wo_bool_t wo_set_work_path(wo_string_t path)
 {
-    return WO_CBOOL(wo::set_work_path(wo::str_to_wstr(path)));
+    return WO_CBOOL(wo::set_work_path(path));
 }
 
 wo_bool_t wo_equal_byte(wo_value a, wo_value b)
@@ -767,7 +767,7 @@ wo_integer_t wo_int(wo_value value)
 }
 wo_wchar_t wo_char(wo_value value)
 {
-    return (wchar_t)wo_int(value);
+    return static_cast<wo_wchar_t>(wo_int(value));
 }
 wo_real_t wo_real(wo_value value)
 {
@@ -1216,7 +1216,7 @@ wo_bool_t _wo_cast_value(wo_vm vm, wo::value* value, wo::lexer* lex, wo::value::
     }
     else if (token->m_lex_type == wo::lex_type::l_literal_string) // is string   
     {
-        value->set_string(wo::wstr_to_str(token->m_token_text));
+        value->set_string(token->m_token_text);
         lex->move_forward();
     }
     else if (token->m_lex_type == wo::lex_type::l_add
@@ -1242,12 +1242,12 @@ wo_bool_t _wo_cast_value(wo_vm vm, wo::value* value, wo::lexer* lex, wo::value::
 
         if (token->m_lex_type == wo::lex_type::l_literal_integer) // is real
             value->set_integer(positive
-                ? std::stoll(wo::wstr_to_str(token->m_token_text).c_str())
-                : -std::stoll(wo::wstr_to_str(token->m_token_text).c_str()));
+                ? std::strtoll(token->m_token_text.c_str(), nullptr, 0)
+                : -std::strtoll(token->m_token_text.c_str(), nullptr, 0));
         else if (token->m_lex_type == wo::lex_type::l_literal_real) // is real
             value->set_real(positive
-                ? std::stod(wo::wstr_to_str(token->m_token_text).c_str())
-                : -std::stod(wo::wstr_to_str(token->m_token_text).c_str()));
+                ? std::strtod(token->m_token_text.c_str(), nullptr)
+                : -std::strtod(token->m_token_text.c_str(), nullptr));
 
         lex->move_forward();
     }
@@ -1256,17 +1256,17 @@ wo_bool_t _wo_cast_value(wo_vm vm, wo::value* value, wo::lexer* lex, wo::value::
         value->set_nil();
         lex->move_forward();
     }
-    else if (token->m_token_text == L"true")
+    else if (token->m_token_text == "true")
     {
         value->set_bool(true);// true
         lex->move_forward();
     }
-    else if (token->m_token_text == L"false")
+    else if (token->m_token_text == "false")
     {
         value->set_bool(false);// false
         lex->move_forward();
     }
-    else if (token->m_token_text == L"null")
+    else if (token->m_token_text == "null")
     {
         value->set_nil();// null
         lex->move_forward();
@@ -1285,10 +1285,8 @@ wo_bool_t wo_deserialize(wo_vm vm, wo_value value, wo_string_t str, wo_type_t ex
 {
     _wo_enter_gc_guard g(vm);
 
-    std::wstring strbuffer = wo::str_to_wstr(str);
-
     // NOTE: File name must be nullptr here to make sure macro not work.
-    wo::lexer lex(std::nullopt, std::nullopt, std::make_unique<std::wistringstream>(strbuffer));
+    wo::lexer lex(std::nullopt, std::nullopt, std::make_unique<std::istringstream>(str));
     return _wo_cast_value(vm, WO_VAL(value), &lex, (wo::value::valuetype)except_type);
 }
 
@@ -1324,7 +1322,7 @@ bool _wo_cast_string(
         *out_str += std::to_string((wo_handle_t)wo_safety_pointer(value->gchandle));
         return true;
     case wo::value::valuetype::string_type:
-        *out_str += wo::enstring(value->string->data(), value->string->length(), true);
+        *out_str += wo::u8enstring(value->string->data(), value->string->length(), true);
         return true;
     case wo::value::valuetype::dict_type:
     {
@@ -2372,48 +2370,48 @@ wo_size_t wo_str_byte_len(wo_value value)
 
 wo_wchar_t wo_str_get_char(wo_string_t str, wo_size_t index)
 {
-    size_t len = strlen(str);
-
-    wo_wchar_t ch = wo::u8strnidx(str, len, (size_t)index);
-    if (ch == 0 && wo::u8strnlen(str, len) <= (size_t)index)
-        wo_fail(WO_FAIL_INDEX_FAIL, "Index out of range.");
-    return ch;
+    return wo_strn_get_char(str, strlen(str), index);
 }
 
 wo_wstring_t wo_str_to_wstr(wo_string_t str)
 {
-    static thread_local std::wstring wstr_buf;
-    wstr_buf = wo::str_to_wstr(str);
-
-    return wstr_buf.c_str();
+    return wo_strn_to_wstr(str, strlen(str));
 }
 
-wo_string_t  wo_wstr_to_str(wo_wstring_t str)
+wo_string_t wo_wstr_to_str(wo_wstring_t str)
 {
-    static thread_local std::string str_buf;
-    str_buf = wo::wstr_to_str(str);
-
-    return str_buf.c_str();
+    return wo_wstrn_to_str(str, wo::u32strcount(str));
 }
 
 wo_wchar_t wo_strn_get_char(wo_string_t str, wo_size_t size, wo_size_t index)
 {
-    wo_wchar_t ch = wo::u8strnidx(str, size, (size_t)index);
-    if (ch == 0 && wo::u8strnlen(str, size) <= (size_t)index)
+    size_t result_byte_len;
+    const char* u8idx = wo::u8substr(
+        str,
+        size,
+        static_cast<size_t>(index),
+        &result_byte_len);
+
+    wo_wchar_t ch;
+    if (result_byte_len == 0
+        || 0 == wo::u8combineu32(u8idx, result_byte_len, &ch))
+    {
         wo_fail(WO_FAIL_INDEX_FAIL, "Index out of range.");
+        return 0;
+    }
     return ch;
 }
 wo_wstring_t wo_strn_to_wstr(wo_string_t str, wo_size_t size)
 {
-    static thread_local std::wstring wstr_buf;
-    wstr_buf = wo::strn_to_wstr(str, size);
+    static thread_local std::u32string wstr_buf;
+    wstr_buf = wo::u8strtou32(str, size);
 
     return wstr_buf.c_str();
 }
 wo_string_t  wo_wstrn_to_str(wo_wstring_t str, wo_size_t size)
 {
     static thread_local std::string str_buf;
-    str_buf = wo::wstrn_to_str(str, size);
+    str_buf = wo::u32strtou8(str, size);
 
     return str_buf.c_str();
 }
@@ -2425,7 +2423,7 @@ void wo_enable_jit(wo_bool_t option)
 
 wo_bool_t wo_virtual_binary(wo_string_t filepath, const void* data, wo_size_t len, wo_bool_t enable_modify)
 {
-    return WO_CBOOL(wo::create_virtual_binary(wo::str_to_wstr(filepath), data, len, enable_modify != WO_FALSE));
+    return WO_CBOOL(wo::create_virtual_binary(filepath, data, len, enable_modify != WO_FALSE));
 }
 wo_bool_t wo_virtual_source(wo_string_t filepath, wo_string_t data, wo_bool_t enable_modify)
 {
@@ -2435,7 +2433,7 @@ wo_bool_t wo_virtual_source(wo_string_t filepath, wo_string_t data, wo_bool_t en
 struct _wo_virtual_file
 {
     std::string m_path;
-    wo::stream_types<false>::buffer m_buffer;
+    std::string m_buffer;
 
     _wo_virtual_file(const _wo_virtual_file&) = delete;
     _wo_virtual_file(_wo_virtual_file&&) = delete;
@@ -2450,15 +2448,12 @@ wo_virtual_file_t wo_open_virtual_file(wo_string_t filepath)
 {
     _wo_virtual_file* vfinstance = new _wo_virtual_file;
 
-    std::wstring real_path;
-
-    if (wo::check_and_read_virtual_source<false>(
-        &vfinstance->m_buffer,
-        &real_path,
-        wo::str_to_wstr(filepath),
-        std::nullopt))
+    if (wo::check_and_read_virtual_source(
+        filepath,
+        std::nullopt,
+        &vfinstance->m_path,
+        &vfinstance->m_buffer))
     {
-        vfinstance->m_path = wo::wstr_to_str(real_path);
         return vfinstance;
     }
 
@@ -2481,7 +2476,7 @@ void wo_close_virtual_file(wo_virtual_file_t file)
 
 wo_bool_t wo_remove_virtual_file(wo_string_t filepath)
 {
-    return WO_CBOOL(wo::remove_virtual_binary(wo::str_to_wstr(filepath)));
+    return WO_CBOOL(wo::remove_virtual_binary(filepath));
 }
 
 struct _wo_virtual_file_iter
@@ -2497,7 +2492,7 @@ wo_virtual_file_iter_t wo_open_virtual_file_iter(void)
     auto paths = wo::get_all_virtual_file_path();
     for (auto& p : paths)
     {
-        result->m_paths.push_back(wo::wstrn_to_str(p));
+        result->m_paths.push_back(p);
     }
     return result;
 }
@@ -2571,7 +2566,7 @@ wo::compile_result _wo_compile_impl(
 
     if (!compile_env_result.has_value())
     {
-        std::wstring wvspath = wo::str_to_wstr(virtual_src_path);
+        std::string wvspath = virtual_src_path;
         if (is_valid_binary)
         {
             // Is Woolang format binary, but failed to load.
@@ -2581,11 +2576,11 @@ wo::compile_result _wo_compile_impl(
             compile_lexer = std::make_unique<wo::lexer>(
                 parent_lexer,
                 wo::wstring_pool::get_pstr(wvspath),
-                std::make_unique<std::wistringstream>(std::wstring()));
+                std::make_unique<std::istringstream>(std::string()));
 
             (void)compile_lexer->record_parser_error(
                 wo::lexer::msglevel_t::error,
-                wo::str_to_wstr(load_binary_failed_reason).c_str());
+                load_binary_failed_reason);
         }
         else
         {
@@ -2595,27 +2590,26 @@ wo::compile_result _wo_compile_impl(
                 // Load from virtual source.
                 wo::normalize_path(&wvspath);
 
-                std::wstring strbuffer = wo::str_to_wstr(std::string((const char*)src, len).c_str());
                 compile_lexer = std::make_unique<wo::lexer>(
                     parent_lexer,
                     wo::wstring_pool::get_pstr(wvspath),
-                    std::make_unique<std::wistringstream>(strbuffer));
+                    std::make_unique<std::istringstream>(std::string((const char*)src, len)));
             }
             else
             {
                 // Load from real file.
-                std::wstring real_file_path;
+                std::string real_file_path;
 
-                std::optional<std::unique_ptr<std::wistream>> content_stream =
+                std::optional<std::unique_ptr<std::istream>> content_stream =
                     std::nullopt;
 
                 if (wo::check_virtual_file_path(
-                    &real_file_path,
                     wvspath,
-                    std::nullopt))
+                    std::nullopt,
+                    &real_file_path))
                 {
                     content_stream =
-                        wo::open_virtual_file_stream<true>(real_file_path);
+                        wo::open_virtual_file_stream(real_file_path);
                 }
 
                 compile_lexer = std::make_unique<wo::lexer>(
@@ -2741,9 +2735,8 @@ wo_bool_t wo_load_binary(wo_vm vm, wo_string_t virtual_src_path, const void* buf
         vpath = "/woolang/__runtime_script_" + std::to_string(++vcount) + "__";
     else
     {
-        std::wstring wvpath = wo::str_to_wstr(virtual_src_path);
-        wo::normalize_path(&wvpath);
-        vpath = wo::wstr_to_str(wvpath);
+        vpath = virtual_src_path;
+        wo::normalize_path(&vpath);
     }
 
     if (!wo_virtual_binary(vpath.c_str(), buffer, length, WO_TRUE))
@@ -2773,8 +2766,8 @@ wo_bool_t wo_has_compile_error(wo_vm vm)
     return WO_FALSE;
 }
 
-std::wstring _dump_src_info(
-    const std::wstring& path,
+std::string _dump_src_info(
+    const std::string& path,
     const wo::lexer::compiler_message_t& errmsg,
     size_t depth,
     size_t beginaimrow,
@@ -2783,11 +2776,11 @@ std::wstring _dump_src_info(
     size_t pointplace,
     wo_inform_style_t style)
 {
-    std::wstring src_full_path, result;
+    std::string src_full_path, result;
 
-    if (wo::check_virtual_file_path(&src_full_path, path, std::nullopt))
+    if (wo::check_virtual_file_path(path, std::nullopt, &src_full_path))
     {
-        auto content_stream = wo::open_virtual_file_stream<true>(src_full_path);
+        auto content_stream = wo::open_virtual_file_stream(src_full_path);
         if (content_stream)
         {
             auto& content_stream_ptr = content_stream.value();
@@ -2804,32 +2797,32 @@ std::wstring _dump_src_info(
             auto print_src_file_print_lineno =
                 [&current_row_no, &result, &first_line, depth]()
                 {
-                    wchar_t buf[20] = {};
+                    char buf[20] = {};
                     if (first_line)
                         first_line = false;
                     else
-                        result += L"\n";
+                        result += "\n";
 
-                    swprintf(buf, 19, L"%-5zu | ", current_row_no + 1);
-                    result += std::wstring(depth == 0 ? 0 : depth + 1, L' ') + buf;
+                    snprintf(buf, 20, "%-5zu | ", current_row_no + 1);
+                    result += std::string(depth == 0 ? 0 : depth + 1, ' ') + buf;
                 };
             auto print_notify_line =
                 [&result, &first_line, &current_row_no, &errmsg, beginpointplace, pointplace, style, beginaimrow, aimrow, depth](
                     size_t line_end_place)
                 {
-                    wchar_t buf[20] = {};
+                    char buf[20] = {};
                     if (first_line)
                         first_line = false;
                     else
-                        result += L"\n";
+                        result += "\n";
 
-                    swprintf(buf, 19, L"      | ");
-                    std::wstring append_result = buf;
+                    snprintf(buf, 20, "      | ");
+                    std::string append_result = buf;
 
                     if (style == WO_NEED_COLOR)
                         append_result += errmsg.m_level == wo::lexer::msglevel_t::error
-                        ? wo::str_to_wstr(ANSI_HIR)
-                        : wo::str_to_wstr(ANSI_HIC);
+                        ? ANSI_HIR
+                        : ANSI_HIC;
 
                     if (current_row_no == aimrow)
                     {
@@ -2837,22 +2830,23 @@ std::wstring _dump_src_info(
                         {
                             size_t i = 1;
                             for (; i <= beginpointplace; i++)
-                                append_result += L" ";
+                                append_result += " ";
                             for (; i < pointplace; i++)
-                                append_result += L"~";
+                                append_result += "~";
                         }
                         else
                             for (size_t i = 1; i < pointplace; i++)
-                                append_result += L"~";
+                                append_result += "~";
 
-                        append_result += L"~\\"
-                            + wo::str_to_wstr(ANSI_UNDERLNE)
-                            + L" " WO_HERE
-                            + wo::str_to_wstr(ANSI_NUNDERLNE)
-                            + L"_";
+                        append_result += 
+                            std::string("~\\")
+                            + ANSI_UNDERLNE
+                            + " " WO_HERE
+                            + ANSI_NUNDERLNE
+                            + "_";
 
                         if (depth != 0)
-                            append_result += L": " + errmsg.m_describe;
+                            append_result += ": " + errmsg.m_describe;
                     }
                     else
                     {
@@ -2860,10 +2854,10 @@ std::wstring _dump_src_info(
                         {
                             size_t i = 1;
                             for (; i <= beginpointplace; i++)
-                                append_result += L" ";
+                                append_result += " ";
                             if (i < line_end_place)
                                 for (; i < line_end_place; i++)
-                                    append_result += L"~";
+                                    append_result += "~";
                             else
                                 return;
                         }
@@ -2872,16 +2866,16 @@ std::wstring _dump_src_info(
                             size_t i = 1;
                             if (i < line_end_place)
                                 for (; i < line_end_place; i++)
-                                    append_result += L"~";
+                                    append_result += "~";
                             else
                                 return;
                         }
                     }
 
                     if (style == WO_NEED_COLOR)
-                        append_result += wo::str_to_wstr(ANSI_RST);
+                        append_result += ANSI_RST;
 
-                    result += std::wstring(depth == 0 ? 0 : depth + 1, L' ') + append_result;
+                    result += std::string(depth == 0 ? 0 : depth + 1, ' ') + append_result;
                 };
 
             if (from <= current_row_no && current_row_no <= to)
@@ -2889,13 +2883,13 @@ std::wstring _dump_src_info(
 
             for (;;)
             {
-                wchar_t ch;
+                char ch;
                 content_stream_ptr->read(&ch, 1);
 
                 if (content_stream_ptr->eof() || !*content_stream_ptr)
                     break;
 
-                if (ch == L'\n')
+                if (ch == '\n')
                 {
                     if (current_row_no >= beginaimrow && current_row_no <= aimrow)
                         print_notify_line(current_col_no);
@@ -2905,7 +2899,7 @@ std::wstring _dump_src_info(
                         print_src_file_print_lineno();
                     continue;
                 }
-                else if (ch == L'\r')
+                else if (ch == '\r')
                 {
                     if (current_row_no >= beginaimrow && current_row_no <= aimrow)
                         print_notify_line(current_col_no);
@@ -2931,7 +2925,7 @@ std::wstring _dump_src_info(
             if (current_row_no >= beginaimrow && current_row_no <= aimrow)
                 print_notify_line(current_col_no);
 
-            result += L"\n";
+            result += "\n";
         }
     }
     return result;
@@ -2939,7 +2933,7 @@ std::wstring _dump_src_info(
 
 std::string _wo_dump_lexer_context_error(wo::lexer* lex, wo_inform_style_t style)
 {
-    std::wstring src_file_path;
+    std::string src_file_path;
     std::string _vm_compile_errors;
 
     size_t last_depth = 0;
@@ -2948,7 +2942,7 @@ std::string _wo_dump_lexer_context_error(wo::lexer* lex, wo_inform_style_t style
     {
         if (err_info.m_layer != 0)
         {
-            auto see_also = wo::wstr_to_str(last_depth >= err_info.m_layer ? WO_SEE_ALSO : WO_SEE_HERE);
+            auto see_also = last_depth >= err_info.m_layer ? WO_SEE_ALSO : WO_SEE_HERE;
             if (style == WO_NEED_COLOR)
                 _vm_compile_errors
                 += std::string(err_info.m_layer, ' ')
@@ -2968,20 +2962,20 @@ std::string _wo_dump_lexer_context_error(wo::lexer* lex, wo_inform_style_t style
             if (style == WO_NEED_COLOR)
                 _vm_compile_errors +=
                 ANSI_HIR "In file: '" ANSI_RST
-                + wo::wstrn_to_str(src_file_path = err_info.m_filename)
+                + (src_file_path = err_info.m_filename)
                 + ANSI_HIR "'" ANSI_RST "\n";
             else
                 _vm_compile_errors +=
                 "In file: '"
-                + wo::wstrn_to_str(src_file_path = err_info.m_filename)
+                + (src_file_path = err_info.m_filename)
                 + "'\n";
         }
 
         if (err_info.m_layer == 0)
-            _vm_compile_errors += wo::wstr_to_str(err_info.to_wstring(style & WO_NEED_COLOR)) + "\n";
+            _vm_compile_errors += err_info.to_string(style & WO_NEED_COLOR) + "\n";
 
         // Print source informations..
-        _vm_compile_errors += wo::wstr_to_str(
+        _vm_compile_errors += 
             _dump_src_info(
                 src_file_path,
                 err_info,
@@ -2990,11 +2984,11 @@ std::string _wo_dump_lexer_context_error(wo::lexer* lex, wo_inform_style_t style
                 err_info.m_range_begin[1],
                 err_info.m_range_end[0],
                 err_info.m_range_end[1],
-                style));
+                style);
     }
 
     if (lex->get_current_error_frame().size() >= WO_MAX_ERROR_COUNT)
-        _vm_compile_errors += wo::wstr_to_str(WO_TOO_MANY_ERROR(WO_MAX_ERROR_COUNT) + L"\n");
+        _vm_compile_errors += WO_TOO_MANY_ERROR(WO_MAX_ERROR_COUNT) + "\n";
 
     return _vm_compile_errors;
 }
@@ -4170,8 +4164,8 @@ wo_dylib_handle_t wo_load_lib(
 {
     return loaded_lib_info::load_lib(
         libname,
-        wo::str_to_wstr(path).c_str(),
-        script_path != nullptr ? wo::str_to_wstr(script_path).c_str() : nullptr,
+        path,
+        script_path != nullptr ? script_path : nullptr,
         panic_when_fail);
 }
 wo_dylib_handle_t wo_load_func(void* lib, const char* funcname)
@@ -4363,7 +4357,7 @@ void wo_ir_opcode(wo_ir_compiler compiler, uint8_t opcode, uint8_t drh, uint8_t 
 void wo_ir_bind_tag(wo_ir_compiler compiler, wo_string_t name)
 {
     auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
-    c->tag(wo::wstring_pool::get_pstr(wo::str_to_wstr(name)));
+    c->tag(wo::wstring_pool::get_pstr(name));
 }
 
 void wo_ir_int(wo_ir_compiler compiler, wo_integer_t val)
@@ -4384,7 +4378,7 @@ void wo_ir_handle(wo_ir_compiler compiler, wo_handle_t val)
 void wo_ir_string(wo_ir_compiler compiler, wo_string_t val)
 {
     auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
-    c->ir_opnum(wo::opnum::imm_string(wo::str_to_wstr(val)));
+    c->ir_opnum(wo::opnum::imm_string(val));
 }
 void wo_ir_bool(wo_ir_compiler compiler, wo_bool_t val)
 {
@@ -4409,13 +4403,13 @@ void wo_ir_bp(wo_ir_compiler compiler, int8_t offset)
 void wo_ir_tag(wo_ir_compiler compiler, wo_string_t name)
 {
     auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
-    c->ir_opnum(wo::opnum::tag(wo::wstring_pool::get_pstr(wo::str_to_wstr(name))));
+    c->ir_opnum(wo::opnum::tag(wo::wstring_pool::get_pstr(name)));
 }
 
 void wo_ir_immtag(wo_ir_compiler compiler, wo_string_t name)
 {
     auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
-    c->ir_imm_tag(wo::opnum::tag(wo::wstring_pool::get_pstr(wo::str_to_wstr(name))));
+    c->ir_imm_tag(wo::opnum::tag(wo::wstring_pool::get_pstr(name)));
 }
 void wo_ir_immu8(wo_ir_compiler compiler, uint8_t val)
 {
@@ -4446,9 +4440,9 @@ void wo_ir_register_extern_function(
 {
     auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
     c->record_extern_native_function((intptr_t)extern_func,
-        wo::str_to_wstr(script_path),
-        library_name_may_null == nullptr ? std::nullopt : std::optional(wo::str_to_wstr(library_name_may_null)),
-        wo::str_to_wstr(function_name));
+        script_path,
+        library_name_may_null == nullptr ? std::nullopt : std::optional(library_name_may_null),
+        function_name);
 }
 
 void wo_load_ir_compiler(wo_vm vm, wo_ir_compiler compiler)

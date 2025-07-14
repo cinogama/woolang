@@ -14,11 +14,11 @@
 #   endif
 
 #   ifdef _WIN32
-#       define WO_DYNAMIC_LIB_EXT L".dll"
+#       define WO_DYNAMIC_LIB_EXT ".dll"
 #   elif defined(__linux__)
-#       define WO_DYNAMIC_LIB_EXT L".so"
+#       define WO_DYNAMIC_LIB_EXT ".so"
 #   elif defined(__APPLE__)
-#      define WO_DYNAMIC_LIB_EXT L".dylib"
+#      define WO_DYNAMIC_LIB_EXT ".dylib"
 #   endif
 #endif
 
@@ -34,8 +34,10 @@ namespace wo
             if (nullptr == dllpath)
                 return GetModuleHandleA(NULL);
 
+            static_assert(sizeof(char16_t) == sizeof(wchar_t));
+
             return LoadLibraryExW(
-                wo::str_to_wstr(dllpath).c_str(),
+                reinterpret_cast<const wchar_t*>(wo::u8strtou16(dllpath, strlen(dllpath)).c_str()),
                 NULL,
                 LOAD_WITH_ALTERED_SEARCH_PATH);
         }
@@ -92,7 +94,7 @@ namespace wo
 #endif
             return std::nullopt;
         }
-        void* loadlib(const wchar_t* dllpath, const wchar_t* scriptpath_may_null)
+        void* loadlib(const char* dllpath, const char* scriptpath_may_null)
         {
 #if WO_DISABLE_FUNCTION_FOR_WASM
             // Do nothing.
@@ -101,29 +103,29 @@ namespace wo
             if (dllpath == nullptr)
                 return _loadlib(nullptr);
 
-            const std::wstring filename = L"/" + std::wstring(dllpath) + WO_DYNAMIC_LIB_EXT;
+            const std::string filename = std::string("/") + dllpath + WO_DYNAMIC_LIB_EXT;
 
             // 1) Try get dll from script_path
             if (scriptpath_may_null != nullptr)
-                if (auto result = try_open_lib(wstr_to_str(get_file_loc(scriptpath_may_null) + filename).c_str()))
+                if (auto result = try_open_lib((get_file_loc(scriptpath_may_null) + filename).c_str()))
                     return result.value();
 
             // 2) Try get dll from work_path
-            if (auto result = try_open_lib(wstr_to_str(work_path() + filename).c_str()))
+            if (auto result = try_open_lib((work_path() + filename).c_str()))
                 return result.value();
 
             // 3) Try get dll from exe_path
-            if (auto result = try_open_lib(wstr_to_str(exe_path() + filename).c_str()))
+            if (auto result = try_open_lib((exe_path() + filename).c_str()))
                 return result.value();
 
             // 4) Try load full path
-            if (auto result = try_open_lib(wstr_to_str(dllpath).c_str()))
+            if (auto result = try_open_lib(dllpath))
                 return result.value();
 
             // 5) Load from system path
             // NOTE: Use _loadlib because system path might not exist.
             if (scriptpath_may_null == nullptr)
-                return _loadlib(wstr_to_str(dllpath).c_str());
+                return _loadlib(dllpath);
             else
                 return nullptr;
 #endif
@@ -146,18 +148,19 @@ namespace wo
         }
     }
 
-    void normalize_path(std::wstring* inout_path)
+    void normalize_path(std::string* inout_path)
     {
 #ifdef _WIN32
-        for (wchar_t& ch : *inout_path)
+        for (char& ch : *inout_path)
         {
-            if (ch == L'\\')
-                ch = L'/';
+            if (ch == '\\')
+                ch = '/';
         }
         if (inout_path->length() >= 2 && inout_path->at(1) == L':')
         {
-            wchar_t& p = inout_path->at(0);
-            p = towupper(p);
+            char& p = inout_path->at(0);
+            if (p >= 'a' && p <= 'z')
+                p = toupper(p);
         }
 #endif
     }

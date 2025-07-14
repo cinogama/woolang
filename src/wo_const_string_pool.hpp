@@ -6,7 +6,7 @@
 #include <string>
 #include <unordered_set>
 
-using wo_pstring_t = const std::wstring*;
+using wo_pstring_t = const std::string*;
 
 #define WO_GLOBAL_PSTR(str) inline wo_pstring_t _global_##str;
 
@@ -25,6 +25,8 @@ WO_GLOBAL_PSTR(nil)\
 WO_GLOBAL_PSTR(union)\
 WO_GLOBAL_PSTR(struct)\
 WO_GLOBAL_PSTR(tuple)\
+WO_GLOBAL_PSTR(true)\
+WO_GLOBAL_PSTR(false)\
 WO_GLOBAL_PSTR(void)\
 WO_GLOBAL_PSTR(nothing)\
 WO_GLOBAL_PSTR(pending)\
@@ -82,7 +84,7 @@ namespace wo
         {
             size_t operator ()(const wo_pstring_t& str) const noexcept
             {
-                static std::hash<std::wstring> hasher;
+                static std::hash<std::string> hasher;
                 return hasher(*str);
             }
         };
@@ -103,30 +105,30 @@ namespace wo
             _m_global_string_pool = std::make_unique<wstring_pool>();
 
 #define WO_GLOBAL_PSTR(str)\
-    WO_PSTR(str) = new std::wstring(L ## #str);\
+    WO_PSTR(str) = new std::string(#str);\
     _m_global_string_pool->_m_string_pool.insert(WO_PSTR(str));
 #define WO_GLOBAL_PSTR_WITH_CONST(str, wlstr)\
-    WO_PSTR(str) = new std::wstring(wlstr);\
+    WO_PSTR(str) = new std::string(wlstr);\
     _m_global_string_pool->_m_string_pool.insert(WO_PSTR(str));
 
             WO_GLOBAL_PSTR_LIST;
-            WO_GLOBAL_PSTR_WITH_CONST(EMPTY, L"");
-            WO_GLOBAL_PSTR_WITH_CONST(_iter, L"$_iter");
-            WO_GLOBAL_PSTR_WITH_CONST(_val, L"$_val");
-            WO_GLOBAL_PSTR_WITH_CONST(operator_ADD, L"operator +");
-            WO_GLOBAL_PSTR_WITH_CONST(operator_SUB, L"operator -");
-            WO_GLOBAL_PSTR_WITH_CONST(operator_MUL, L"operator *");
-            WO_GLOBAL_PSTR_WITH_CONST(operator_DIV, L"operator /");
-            WO_GLOBAL_PSTR_WITH_CONST(operator_MOD, L"operator %");
-            WO_GLOBAL_PSTR_WITH_CONST(operator_LAND, L"operator &&");
-            WO_GLOBAL_PSTR_WITH_CONST(operator_LOR, L"operator ||");
-            WO_GLOBAL_PSTR_WITH_CONST(operator_LESS, L"operator <");
-            WO_GLOBAL_PSTR_WITH_CONST(operator_LESSEQ, L"operator <=");
-            WO_GLOBAL_PSTR_WITH_CONST(operator_GREAT, L"operator >");
-            WO_GLOBAL_PSTR_WITH_CONST(operator_GREATEQ, L"operator >=");
-            WO_GLOBAL_PSTR_WITH_CONST(operator_EQ, L"operator ==");
-            WO_GLOBAL_PSTR_WITH_CONST(operator_NEQ, L"operator !=");
-            WO_GLOBAL_PSTR_WITH_CONST(label_woolang_program_end, L"#woolang_program_end");
+            WO_GLOBAL_PSTR_WITH_CONST(EMPTY, "");
+            WO_GLOBAL_PSTR_WITH_CONST(_iter, "$_iter");
+            WO_GLOBAL_PSTR_WITH_CONST(_val, "$_val");
+            WO_GLOBAL_PSTR_WITH_CONST(operator_ADD, "operator +");
+            WO_GLOBAL_PSTR_WITH_CONST(operator_SUB, "operator -");
+            WO_GLOBAL_PSTR_WITH_CONST(operator_MUL, "operator *");
+            WO_GLOBAL_PSTR_WITH_CONST(operator_DIV, "operator /");
+            WO_GLOBAL_PSTR_WITH_CONST(operator_MOD, "operator %");
+            WO_GLOBAL_PSTR_WITH_CONST(operator_LAND, "operator &&");
+            WO_GLOBAL_PSTR_WITH_CONST(operator_LOR, "operator ||");
+            WO_GLOBAL_PSTR_WITH_CONST(operator_LESS, "operator <");
+            WO_GLOBAL_PSTR_WITH_CONST(operator_LESSEQ, "operator <=");
+            WO_GLOBAL_PSTR_WITH_CONST(operator_GREAT, "operator >");
+            WO_GLOBAL_PSTR_WITH_CONST(operator_GREATEQ, "operator >=");
+            WO_GLOBAL_PSTR_WITH_CONST(operator_EQ, "operator ==");
+            WO_GLOBAL_PSTR_WITH_CONST(operator_NEQ, "operator !=");
+            WO_GLOBAL_PSTR_WITH_CONST(label_woolang_program_end, "#woolang_program_end");
 #undef WO_GLOBAL_PSTR
 
         }
@@ -167,7 +169,7 @@ namespace wo
 
         // All function is lock free, because global_pool is readonly and rwpool only
         // used in 'one' thread.
-        wo_pstring_t find(const std::wstring& str) const
+        wo_pstring_t find(const std::string& str) const
         {
             auto fnd = _m_string_pool.find(&str);
             if (fnd == _m_string_pool.end())
@@ -175,7 +177,7 @@ namespace wo
             return *fnd;
         }
 
-        wo_pstring_t find_or_add(const std::wstring& str)
+        wo_pstring_t find_or_add(const std::string& str)
         {
             wo_pstring_t fnd;
             if ((fnd = get_global_string_pool()->find(str)))
@@ -183,7 +185,7 @@ namespace wo
             if ((fnd = find(str)))
                 return fnd;
 
-            wo_pstring_t new_str = new std::wstring(str);
+            wo_pstring_t new_str = new std::string(str);
             _m_string_pool.insert(new_str);
 
             return new_str;
@@ -227,7 +229,7 @@ namespace wo
             }
         }
 
-        static wo_pstring_t get_pstr(const std::wstring& str)
+        static wo_pstring_t get_pstr(const std::string& str)
         {
             wo_assert(_m_this_thread_pool);
             return _m_this_thread_pool->find_or_add(str);

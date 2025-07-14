@@ -17,8 +17,8 @@ namespace wo
         {
             struct breakpoint_info
             {
-                std::wstring    m_filepath;
-                size_t          m_row_no;
+                std::string         m_filepath;
+                size_t              m_row_no;
                 std::vector<size_t> m_break_ips;
             };
             std::vector<breakpoint_info> break_point_traps;
@@ -45,14 +45,14 @@ namespace wo
     public:
         default_cli_debuggee_bridge() = default;
 
-        void set_breakpoint_with_ips(wo::vmbase* vmm, const std::wstring& src_file, size_t rowno, std::vector<size_t> ips)
+        void set_breakpoint_with_ips(wo::vmbase* vmm, const std::string& src_file, size_t rowno, std::vector<size_t> ips)
         {
             auto& context = env_context[vmm->env];
             for (size_t bip : ips)
                 context.break_ips.insert(bip);
             context.break_point_traps.emplace_back(_env_context::breakpoint_info{ src_file, rowno, ips });
         }
-        bool set_breakpoint(wo::vmbase* vmm, const std::wstring& src_file, size_t rowno)
+        bool set_breakpoint(wo::vmbase* vmm, const std::string& src_file, size_t rowno)
         {
             auto breakip = vmm->env->program_debug_info->get_ip_by_src_location(src_file, rowno, true, false);
 
@@ -250,7 +250,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
         size_t breakdown_temp_for_step_row_end = 0;
         size_t breakdown_temp_for_step_col_begin = 0;
         size_t breakdown_temp_for_step_col_end = 0;
-        std::wstring breakdown_temp_for_step_srcfile = L"";
+        std::string breakdown_temp_for_step_srcfile = "";
         std::string last_command = "";
 
         const wo::byte_t* current_runtime_ip;
@@ -677,7 +677,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                                                 auto& src_end = vmm->env->program_debug_info->get_src_location_by_runtime_ip(
                                                     vmm->env->rt_codes + func_info.rt_ip_end);
 
-                                                print_src_file(vmm, wstr_to_str(src_begin.source_file), 0, 0, 0, 0,
+                                                print_src_file(vmm, src_begin.source_file, 0, 0, 0, 0,
                                                     src_begin.begin_row_no, src_end.end_row_no, &record);
                                             }
                                         }
@@ -708,12 +708,12 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                             bool result = false;
 
                             if (need_possiable_input(inputbuf, lineno))
-                                result = set_breakpoint(vmm, str_to_wstr(filename_or_funcname), lineno);
+                                result = set_breakpoint(vmm, filename_or_funcname, lineno);
                             else
                             {
                                 for (auto ch : filename_or_funcname)
                                 {
-                                    if (!lexer::lex_isdigit(ch))
+                                    if (ch < '0' || ch > '9')
                                     {
                                         auto&& fndresult = search_function_begin_rtip_scope_with_name(vmm, filename_or_funcname, false);
                                         wo_stdout << "Set breakpoint at " << fndresult.size() << " symbol(s):" << wo_endl;
@@ -911,9 +911,9 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                         {
                             for (auto ch : filename)
                             {
-                                if (!lexer::lex_isdigit(ch))
+                                if (ch < '0' || ch > '9')
                                 {
-                                    if (str_to_wstr(filename) == loc.source_file)
+                                    if (filename == loc.source_file)
                                         print_src_file(vmm, filename, loc.begin_row_no, loc.end_row_no, loc.begin_col_no, loc.end_col_no);
                                     else
                                         print_src_file(vmm, filename, 0, 0, 0, 0);
@@ -923,7 +923,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                             display_range = (size_t)std::stoull(filename);
                         }
 
-                        print_src_file(vmm, wstr_to_str(loc.source_file), loc.begin_row_no, loc.end_row_no, loc.begin_col_no, loc.end_col_no,
+                        print_src_file(vmm, loc.source_file, loc.begin_row_no, loc.end_row_no, loc.begin_col_no, loc.end_col_no,
                             (loc.begin_row_no < display_range / 2 ? 0 : loc.begin_row_no - display_range / 2), loc.end_row_no + display_range / 2);
 
                     }
@@ -971,7 +971,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                                 size_t id = 0;
                                 for (auto& break_info : context.break_point_traps)
                                 {
-                                    wo_stdout << (id++) << " :\t" << wstr_to_str(break_info.m_filepath) << " (" << break_info.m_row_no << ")" << wo_endl;;
+                                    wo_stdout << (id++) << " :\t" << break_info.m_filepath << " (" << break_info.m_row_no << ")" << wo_endl;;
                                 }
                             }
                         }
@@ -1078,10 +1078,9 @@ whereis                         <ipoffset>    Find the function that the ipoffse
 
             size_t breakpoint_found_id = SIZE_MAX;
             size_t finding_id = 0;
-            auto wfile_path = str_to_wstr(filepath);
             for (auto& breakinfo : context.break_point_traps)
             {
-                if (breakinfo.m_row_no == current_row_no && breakinfo.m_filepath == wfile_path)
+                if (breakinfo.m_row_no == current_row_no && breakinfo.m_filepath == filepath)
                 {
                     breakpoint_found_id = finding_id;
                     break;
@@ -1106,7 +1105,9 @@ whereis                         <ipoffset>    Find the function that the ipoffse
 
             return breakpoint_found_id;
         }
-        void print_src_file(wo::vmbase* vmm, const std::string& filepath,
+        void print_src_file(
+            wo::vmbase* vmm,
+            const std::string& filepath,
             size_t hightlight_range_begin_row,
             size_t hightlight_range_end_row,
             size_t hightlight_range_begin_col,
@@ -1115,8 +1116,8 @@ whereis                         <ipoffset>    Find the function that the ipoffse
             size_t to = SIZE_MAX,
             cpu_profiler_record_infornmation* info = nullptr)
         {
-            std::wstring srcfile, src_full_path;
-            if (!wo::check_and_read_virtual_source(&srcfile, &src_full_path, wo::str_to_wstr(filepath), std::nullopt))
+            std::string srcfile, src_full_path;
+            if (!wo::check_and_read_virtual_source(filepath, std::nullopt, &src_full_path, &srcfile))
                 printf(ANSI_HIR "Cannot open source: '%s'.\n" ANSI_RST, filepath.c_str());
             else
             {
@@ -1148,7 +1149,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                         ++current_row_no;
 
                         // If next line in range, display the line number & breakpoint state & profiler result.
-                        if (from <= current_row_no  && current_row_no <= to)
+                        if (from <= current_row_no && current_row_no <= to)
                         {
                             if (last_line_is_breakline != SIZE_MAX)
                                 printf("    " ANSI_HIR "# Breakpoint %zu" ANSI_RST, last_line_is_breakline);
@@ -1322,10 +1323,12 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                         "in virtual-machine: " ANSI_HIG " %p\n" ANSI_RST,
 
                         (int)next_execute_ip_diff,
-                        wstr_to_str(loc->source_file).c_str(), loc->begin_row_no + 1, loc->begin_col_no + 1,
-                        vmm->env->program_debug_info == nullptr ?
-                        "__unknown_func_without_pdb_" :
-                        vmm->env->program_debug_info->get_current_func_signature_by_runtime_ip(next_execute_ip).c_str(),
+                        loc->source_file.c_str(),
+                        loc->begin_row_no + 1,
+                        loc->begin_col_no + 1,
+                        vmm->env->program_debug_info == nullptr
+                        ? "__unknown_func_without_pdb_"
+                        : vmm->env->program_debug_info->get_current_func_signature_by_runtime_ip(next_execute_ip).c_str(),
                         vmm
                     );
                     if (vmm->env->program_debug_info != nullptr)
@@ -1334,7 +1337,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                         auto& loc = vmm->env->program_debug_info->get_src_location_by_runtime_ip(current_runtime_ip);
                         print_src_file(
                             vmm,
-                            wstr_to_str(loc.source_file),
+                            loc.source_file,
                             loc.begin_row_no,
                             loc.end_row_no,
                             loc.begin_col_no,

@@ -139,7 +139,7 @@ namespace wo
     class macro
     {
     public:
-        std::wstring macro_name;
+        std::string macro_name;
         wo_vm _macro_action_vm;
 
         size_t   begin_row;
@@ -179,14 +179,14 @@ namespace wo
 
             size_t      m_range_begin[2];
             size_t      m_range_end[2];
-            std::wstring m_filename;
+            std::string m_filename;
 
-            std::wstring m_describe;
+            std::string m_describe;
 
             // Auto assigned in `record_message`
             size_t      m_layer;
 
-            std::wstring to_wstring(bool need_ansi_describe);
+            std::string to_string(bool need_ansi_describe);
         };
         using compiler_message_list_t =
             std::list<compiler_message_t>;
@@ -194,13 +194,13 @@ namespace wo
         struct peeked_token_t
         {
             lex_type        m_lex_type;
-            std::wstring    m_token_text;
+            std::string     m_token_text;
             size_t          m_token_begin[4];
             size_t          m_token_end[2];
         };
     private:
         using declared_macro_map_t =
-            std::unordered_map<std::wstring, std::unique_ptr<macro>>;
+            std::unordered_map<std::string, std::unique_ptr<macro>>;
         using imported_source_path_set_t =
             std::unordered_set<wo_pstring_t>;
         using who_import_me_map_t =
@@ -208,14 +208,14 @@ namespace wo
         using export_import_map_t = who_import_me_map_t;
 
     private:
-        const static std::unordered_map<std::wstring, lex_type> _lex_operator_list;
-        const static std::unordered_map<std::wstring, lex_type> _key_word_list;
+        const static std::unordered_map<std::string, lex_type> _lex_operator_list;
+        const static std::unordered_map<std::string, lex_type> _key_word_list;
 
-    public:
-        static const wchar_t* lex_is_operate_type(lex_type tt);
-        static const wchar_t* lex_is_keyword_type(lex_type tt);
-        static lex_type lex_is_valid_operator(const std::wstring& op);
-        static lex_type lex_is_keyword(const std::wstring& op);
+    private:
+        static const char* lex_is_operate_type(lex_type tt);
+        static const char* lex_is_keyword_type(lex_type tt);
+        static lex_type lex_is_valid_operator(const std::string& op);
+        static lex_type lex_is_keyword(const std::string& op);
         static bool lex_isoperatorch(int ch);
         static bool lex_isspace(int ch);
         static bool lex_isalpha(int ch);
@@ -225,13 +225,12 @@ namespace wo
         static bool lex_isdigit(int ch);
         static bool lex_isxdigit(int ch);
         static bool lex_isodigit(int ch);
-        static int lex_toupper(int ch);
-        static int lex_tolower(int ch);
+
+    public:
         static int lex_hextonum(int ch);
         static int lex_octtonum(int ch);
-
-        static uint64_t read_from_unsigned_literal(const wchar_t* text);
-        static int64_t read_from_literal(const wchar_t* text);
+        static uint64_t read_from_unsigned_literal(const char* text);
+        static int64_t read_from_literal(const char* text);
 
     private:
         struct SharedContext
@@ -258,7 +257,7 @@ namespace wo
 
         std::optional<lexer*> m_who_import_me;
         std::optional<wo_pstring_t> m_source_path;
-        std::unique_ptr<std::wistream> m_source_stream;
+        std::unique_ptr<std::istream> m_source_stream;
         std::shared_ptr<SharedContext> m_shared_context;
 
         std::list<ast::AstBase*> m_imported_ast_tree_list;
@@ -279,9 +278,9 @@ namespace wo
         lexer(
             std::optional<lexer*> who_import_me,
             const std::optional<wo_pstring_t>& source_path,
-            std::optional<std::unique_ptr<std::wistream>>&& source_stream);
+            std::optional<std::unique_ptr<std::istream>>&& source_stream);
     private:
-        void    produce_token(lex_type type, std::wstring&& moved_token_text);
+        void    produce_token(lex_type type, std::string&& moved_token_text);
         void    token_pre_begin_here();
         void    token_begin_here();
 
@@ -302,25 +301,20 @@ namespace wo
             size_t range_begin_col,
             size_t range_end_row,
             size_t range_end_col,
-            const std::wstring& source,
-            const wchar_t* format,
+            const std::string& source,
+            const char* format,
             FmtArgTs&& ... format_args)
         {
-            std::vector<wchar_t> describe(256, L'\0');
-
-            constexpr size_t MAX_CONTENT_LEN = 16 * 1024;
             bool failed_flag = false;
-            while (swprintf(describe.data(), describe.size(), format, format_args...) < 0)
-            {
-                const size_t new_describe_len = describe.size() * 2;
-                if (new_describe_len > MAX_CONTENT_LEN)
-                {
-                    failed_flag = true;
-                    break;
-                }
-                describe.resize(new_describe_len);
-            }
+            int count = snprintf(nullptr, 0, format, format_args...);
+            
+            if (count < 0)
+                failed_flag = true;
 
+            std::vector<char> describe(failed_flag ? 0 : count + 1);
+            if (snprintf(describe.data(), describe.size(), format, format_args...) < 0)
+                failed_flag = true;
+           
             (void)record_message(
                 compiler_message_t
                 {
@@ -335,7 +329,7 @@ namespace wo
         template<typename ... FmtArgTs>
         void produce_lexer_error(
             msglevel_t level,
-            const wchar_t* format,
+            const char* format,
             FmtArgTs&& ... format_args)
         {
             if (m_source_path.has_value())
@@ -349,14 +343,14 @@ namespace wo
                     format,
                     format_args...);
 
-            produce_token(lex_type::l_error, L"");
+            produce_token(lex_type::l_error, "");
         }
 
         template<typename ... FmtArgTs>
         [[nodiscard]]
         lex_type record_parser_error(
             msglevel_t level,
-            const wchar_t* format,
+            const char* format,
             FmtArgTs&& ... format_args)
         {
             record_format(
@@ -376,7 +370,7 @@ namespace wo
         lex_type record_lang_error(
             msglevel_t level,
             AstT* ast_node,
-            const wchar_t* format,
+            const char* format,
             FmtArgTs&& ... format_args)
         {
             record_format(
@@ -412,7 +406,7 @@ namespace wo
         void move_forward();
         void consume_forward();
         [[nodiscard]]
-        bool try_handle_macro(const std::wstring& macro_name);
+        bool try_handle_macro(const std::string& macro_name);
         [[nodiscard]]
         bool has_error() const;
         [[nodiscard]]

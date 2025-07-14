@@ -39,7 +39,11 @@ namespace wo
         size_t result = 0;
         while (bytelen)
         {
-            bytelen -= u8charnlen(u8str, bytelen);
+            const size_t charlen = u8charnlen(u8str, bytelen);
+
+            bytelen -= charlen;
+            u8str += charlen;
+
             ++result;
         }
         return result;
@@ -79,40 +83,48 @@ namespace wo
         return u8substrn(u8str, bytelen, from, tail >= from ? (tail - from) + 1 : 0, out_len);
     }
 
-    size_t u8combineu16(const char* u8charp, size_t bytelen, char16_t out_c16[UTF16MAXLEN], size_t* out_u16len)
+    bool u16hisurrogate(char16_t ch)
+    {
+        return ch >= static_cast<char16_t>(0xD800u)
+            && ch <= static_cast<char16_t>(0xDBFFu);
+    }
+    bool u16losurrogate(char16_t ch)
+    {
+        return ch >= static_cast<char16_t>(0xDC00u)
+            && ch <= static_cast<char16_t>(0xDFFFu);
+    }
+    size_t u8combineu32(const char* u8charp, size_t bytelen, char32_t* out_c32)
     {
         const uint8_t* u8ptr = reinterpret_cast<const uint8_t*>(u8charp);
         const size_t charlen = u8charnlen(u8charp, bytelen);
-        uint32_t codepoint = 0;
 
         // Decode UTF-8 character
         switch (charlen)
         {
         case 0:
             // No character, return 0
-            out_c16[0] = 0;
-            *out_u16len = 0;
+            *out_c32 = 0;
             return 0;
         case 1:
             // Single-byte character (ASCII)
-            codepoint = *u8ptr;
+            *out_c32 = *u8ptr;
             break;
         case 2:
             // Two-byte character
-            codepoint = ((u8ptr[0] & 0x1F) << 6) | (u8ptr[1] & 0x3F);
+            *out_c32 = ((u8ptr[0] & 0x1F) << 6) | (u8ptr[1] & 0x3F);
             break;
         case 3:
             // Three-byte character
-            codepoint = ((u8ptr[0] & 0x0F) << 12) | ((u8ptr[1] & 0x3F) << 6) | (u8ptr[2] & 0x3F);
+            *out_c32 = ((u8ptr[0] & 0x0F) << 12) | ((u8ptr[1] & 0x3F) << 6) | (u8ptr[2] & 0x3F);
             break;
         case 4:
             // Four-byte character
-            codepoint = ((u8ptr[0] & 0x07) << 18) | ((u8ptr[1] & 0x3F) << 12) |
+            *out_c32 = ((u8ptr[0] & 0x07) << 18) | ((u8ptr[1] & 0x3F) << 12) |
                 ((u8ptr[2] & 0x3F) << 6) | (u8ptr[3] & 0x3F);
             break;
             //case 5:
             //    // Five-byte character
-            //    codepoint = ((u8ptr[0] & 0x03) << 24) | ((u8ptr[1] & 0x3F) << 18) |
+            //    *out_c32 = ((u8ptr[0] & 0x03) << 24) | ((u8ptr[1] & 0x3F) << 18) |
             //        ((u8ptr[2] & 0x3F) << 12) | ((u8ptr[3] & 0x3F) << 6) | (u8ptr[4] & 0x3F);
             //    break;
             //case 6:
@@ -123,6 +135,62 @@ namespace wo
             //    break;
         default:
             wo_error("Invalid UTF-8 character length.");
+        }
+
+        return charlen;
+    }
+    void u32exractu8(char32_t ch32, char out_c8[UTF8MAXLEN], size_t* out_u8len)
+    {
+        // Encode as UTF-8
+        if (ch32 <= 0x7F)
+        {
+            // Single-byte character (ASCII)
+            out_c8[0] = static_cast<char>(ch32);
+            *out_u8len = 1;
+        }
+        else if (ch32 <= 0x7FF)
+        {
+            // Two-byte character
+            out_c8[0] = static_cast<char>(0xC0 | (ch32 >> 6));
+            out_c8[1] = static_cast<char>(0x80 | (ch32 & 0x3F));
+            *out_u8len = 2;
+        }
+        else if (ch32 <= 0xFFFF)
+        {
+            // Three-byte character
+            out_c8[0] = static_cast<char>(0xE0 | (ch32 >> 12));
+            out_c8[1] = static_cast<char>(0x80 | ((ch32 >> 6) & 0x3F));
+            out_c8[2] = static_cast<char>(0x80 | (ch32 & 0x3F));
+            *out_u8len = 3;
+        }
+        else if (ch32 <= 0x10FFFF)
+        {
+            // Four-byte character
+            out_c8[0] = static_cast<char>(0xF0 | (ch32 >> 18));
+            out_c8[1] = static_cast<char>(0x80 | ((ch32 >> 12) & 0x3F));
+            out_c8[2] = static_cast<char>(0x80 | ((ch32 >> 6) & 0x3F));
+            out_c8[3] = static_cast<char>(0x80 | (ch32 & 0x3F));
+            *out_u8len = 4;
+        }
+        else
+        {
+            // Invalid codepoint, use replacement character
+            out_c8[0] = static_cast<char>(0xEF);
+            out_c8[1] = static_cast<char>(0xBF);
+            out_c8[2] = static_cast<char>(0xBD); // Unicode replacement character
+            *out_u8len = 3;
+        }
+    }
+    size_t u8combineu16(const char* u8charp, size_t bytelen, char16_t out_c16[UTF16MAXLEN], size_t* out_u16len)
+    {
+        char32_t codepoint;
+        const size_t charlen = u8combineu32(u8charp, bytelen, &codepoint);
+        if (charlen == 0)
+        {
+            // No character, return 0
+            out_c16[0] = 0;
+            *out_u16len = 0;
+            return 0;
         }
 
         // Encode as UTF-16
@@ -159,10 +227,8 @@ namespace wo
 
         char32_t codepoint;
         if (charcount >= 2
-            && u16charp[0] >= static_cast<char16_t>(0xD800u)
-            && u16charp[0] <= static_cast<char16_t>(0xDBFFu)
-            && u16charp[1] >= static_cast<char16_t>(0xDC00u)
-            && u16charp[1] <= static_cast<char16_t>(0xDFFFu))
+            && u16hisurrogate(u16charp[0])
+            && u16losurrogate(u16charp[1]))
         {
             // Is surrogate
             codepoint =
@@ -176,46 +242,11 @@ namespace wo
             codepoint = static_cast<char32_t>(u16charp[0]);
         }
 
-        // Encode as UTF-8
-        if (codepoint <= 0x7F)
-        {
-            // Single-byte character (ASCII)
-            out_c8[0] = static_cast<char>(codepoint);
-            return 1;
-        }
-        else if (codepoint <= 0x7FF)
-        {
-            // Two-byte character
-            out_c8[0] = static_cast<char>(0xC0 | (codepoint >> 6));
-            out_c8[1] = static_cast<char>(0x80 | (codepoint & 0x3F));
-            *out_u8len = 2;
-        }
-        else if (codepoint <= 0xFFFF)
-        {
-            // Three-byte character
-            out_c8[0] = static_cast<char>(0xE0 | (codepoint >> 12));
-            out_c8[1] = static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
-            out_c8[2] = static_cast<char>(0x80 | (codepoint & 0x3F));
-            *out_u8len = 3;
-        }
-        else if (codepoint <= 0x10FFFF)
-        {
-            // Four-byte character
-            out_c8[0] = static_cast<char>(0xF0 | (codepoint >> 18));
-            out_c8[1] = static_cast<char>(0x80 | ((codepoint >> 12) & 0x3F));
-            out_c8[2] = static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
-            out_c8[3] = static_cast<char>(0x80 | (codepoint & 0x3F));
-            *out_u8len = 4;
+        u32exractu8(codepoint, out_c8, out_u8len);
+        if (*out_u8len >= 4)
+            // More than 3 bytes, must be a surrogate pair.
             return 2;
-        }
-        else
-        {
-            // Invalid codepoint, use replacement character
-            out_c8[0] = 0xEF;
-            out_c8[1] = 0xBF;
-            out_c8[2] = 0xBD; // Unicode replacement character
-            *out_u8len = 3;
-        }
+
         return 1;
     }
 
@@ -398,8 +429,7 @@ namespace wo
 
                     const char* second_p = p + 1;
 
-                    if (hex_u16[0] >= static_cast<char16_t>(0xD800u)
-                        && hex_u16[0] <= static_cast<char16_t>(0xDBFFu)
+                    if (u16hisurrogate(hex_u16[0])
                         && *second_p == '\\'
                         && *(++second_p) == 'u')
                     {
@@ -453,5 +483,94 @@ namespace wo
         }
 
         return result;
+    }
+
+    std::u32string u8strtou32(wo_string_t u8str, size_t bytelen)
+    {
+        std::u32string result;
+        while (bytelen != 0)
+        {
+            char32_t u32char;
+            const size_t u8forward = u8combineu32(u8str, bytelen, &u32char);
+
+            result.push_back(u32char);
+
+            u8str += u8forward;
+            bytelen -= u8forward;
+        }
+        return result;
+    }
+    std::string u32strtou8(const char32_t* u32charp, size_t u32len)
+    {
+        std::string result;
+        while (u32len != 0)
+        {
+            size_t u8len;
+            char u8buf[UTF8MAXLEN];
+         
+            u32exractu8(*u32charp, u8buf, &u8len);
+
+            result.append(u8buf, u8len);
+            ++u32charp;
+            --u32len;
+        }
+        return result;
+    }
+    std::u16string u8strtou16(wo_string_t u8str, size_t bytelen)
+    {
+        std::u16string result;
+        while (bytelen != 0)
+        {
+            char16_t u16buf[UTF16MAXLEN];
+            size_t u16len = 0;
+            const size_t u8forward = u8combineu16(u8str, bytelen, u16buf, &u16len);
+
+            wo_assert(u16len == 1 || u16len == 2);
+            result.append(u16buf, u16len);
+
+            u8str += u8forward;
+            bytelen -= u8forward;
+        }
+        return result;
+    }
+    std::string u16strtou8(const char16_t* u16charp, size_t u16len)
+    {
+        std::string result;
+        while (u16len != 0)
+        {
+            char u8buf[UTF8MAXLEN];
+            size_t u8len;
+
+            const size_t u16forward = u16exractu8(u16charp, u16len, u8buf, &u8len);
+
+            result.append(u8buf, u8len);
+
+            u16charp += u16forward;
+            u16len -= u16forward;
+        }
+        return result;
+    }
+
+    size_t u16strcount(const char16_t* u16str)
+    {
+        size_t count = 0;
+
+        while (*(u16str++))
+            ++count;
+
+        return count;
+    }
+    size_t u32strcount(const char32_t* u32str)
+    {
+        size_t count = 0;
+
+        while (*(u32str++))
+            ++count;
+
+        return count;
+    }
+    bool u32isu16(char32_t ch32)
+    {
+        return ch32 <= static_cast<char32_t>(0xFFFFu);
     }
 }

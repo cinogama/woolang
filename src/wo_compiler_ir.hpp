@@ -181,7 +181,7 @@ namespace wo
                 , constant_value(val)
             {
             }
-            explicit immbase(const std::wstring& val)
+            explicit immbase(const std::string& val)
                 : constant_index(std::nullopt)
                 , constant_value(val)
             {
@@ -257,7 +257,7 @@ namespace wo
                 : immbase(val)
             {
             }
-            explicit imm_string(const std::wstring& val)
+            explicit imm_string(const std::string& val)
                 : immbase(val)
             {
             }
@@ -292,7 +292,7 @@ namespace wo
             size_t      begin_col_no;
             size_t      end_row_no;
             size_t      end_col_no;
-            std::wstring source_file = L"not_found";
+            std::string source_file = "not_found";
 
             bool        unbreakable; // Can set breakpoint?
         };
@@ -309,12 +309,12 @@ namespace wo
 
             std::unordered_map<std::string, std::vector<variable_symbol_infor>> variables;
 
-            void add_variable_define(const std::wstring varname, size_t rowno, wo_integer_t locat)
+            void add_variable_define(const std::string varname, size_t rowno, wo_integer_t locat)
             {
-                variables[wstr_to_str(varname)].push_back(
+                variables[varname].push_back(
                     variable_symbol_infor
                     {
-                        wstr_to_str(varname),
+                        varname,
                         rowno,
                         locat,
                     }
@@ -324,7 +324,7 @@ namespace wo
 
         // Attention: Do not use unordered_map for _general_src_data_buf_b & pdd_rt_code_byte_offset_to_ir
         //            They should keep order.
-        using filename_rowno_colno_ip_info_t = std::unordered_map<std::wstring, std::vector<location>>;
+        using filename_rowno_colno_ip_info_t = std::unordered_map<std::string, std::vector<location>>;
         using ip_src_location_info_t = std::map<size_t, location>;
         using runtime_ip_compile_ip_info_t = std::map<size_t, size_t>;
         using function_signature_ip_info_t = std::unordered_map<std::string, function_symbol_infor>;
@@ -346,11 +346,11 @@ namespace wo
 
         void generate_func_begin(const std::string& function_name, ast::AstBase* ast_node, ir_compiler* compiler);
         void generate_func_end(const std::string& function_name, size_t tmpreg_count, ir_compiler* compiler);
-        void add_func_variable(const std::string& function_name, const std::wstring& varname, size_t rowno, wo_integer_t loc);
+        void add_func_variable(const std::string& function_name, const std::string& varname, size_t rowno, wo_integer_t loc);
         void update_func_variable(const std::string& function_name, wo_integer_t offset);
 #endif
         const location& get_src_location_by_runtime_ip(const  byte_t* rt_pos) const;
-        std::vector<size_t> get_ip_by_src_location(const std::wstring& src_name, size_t rowno, bool strict, bool ignore_unbreakable)const;
+        std::vector<size_t> get_ip_by_src_location(const std::string& src_name, size_t rowno, bool strict, bool ignore_unbreakable)const;
         size_t get_ip_by_runtime_ip(const  byte_t* rt_pos) const;
         size_t get_runtime_ip_by_ip(size_t ip) const;
         std::string get_current_func_signature_by_runtime_ip(const byte_t* rt_pos) const;
@@ -640,19 +640,19 @@ namespace wo
         }
         void record_extern_native_function(
             intptr_t function,
-            const std::wstring& script_path,
-            const std::optional<std::wstring>& library_name,
-            const std::wstring& function_name)
+            const std::string& script_path,
+            const std::optional<std::string>& library_name,
+            const std::string& function_name)
         {
             if (extern_native_functions.find(function) == extern_native_functions.end())
             {
                 auto& native_info = extern_native_functions[function];
-                native_info.script_name = wo::wstr_to_str(script_path);
+                native_info.script_name = script_path;
                 native_info.library_name = std::nullopt;
 
                 if (library_name.has_value())
-                    native_info.library_name = std::optional(wo::wstr_to_str(library_name.value()));
-                native_info.function_name = wo::wstr_to_str(function_name);
+                    native_info.library_name = library_name.value();
+                native_info.function_name = function_name;
             }
         }
         void record_extern_script_function(const std::string& function_name)

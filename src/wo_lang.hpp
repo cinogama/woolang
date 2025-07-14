@@ -809,13 +809,13 @@ namespace wo
         size_t                          m_created_symbol_edge;
 
         // Used for print symbol & type names.
-        std::unordered_map<lang_Symbol*, std::pair<std::wstring, std::string>>
+        std::unordered_map<lang_Symbol*, std::string>
             m_symbol_name_cache;
-        std::unordered_map<lang_TypeInstance*, std::pair<std::wstring, std::string>>
+        std::unordered_map<lang_TypeInstance*, std::string>
             m_type_name_cache;
-        std::unordered_map<lang_ValueInstance*, std::pair<std::wstring, std::string>>
+        std::unordered_map<lang_ValueInstance*, std::string>
             m_value_name_cache;
-        std::unordered_map<ast::AstValueFunction*, std::pair<std::wstring, std::string>>
+        std::unordered_map<ast::AstValueFunction*, std::string>
             m_function_name_cache;
 
         // Used for bytecode generation
@@ -1148,23 +1148,17 @@ namespace wo
             lang_TypeInstance* btype,
             PassProcessStackT& out_stack);
 
-        std::wstring _get_scope_name(lang_Scope* scope);
-        std::wstring _get_symbol_name(lang_Symbol* scope);
-        std::wstring _get_type_name(lang_TypeInstance* scope);
-        std::wstring _get_value_name(lang_ValueInstance* scope);
-        std::wstring _get_function_name(ast::AstValueFunction* func);
+        std::string _get_scope_name(lang_Scope* scope);
+        std::string _get_symbol_name(lang_Symbol* scope);
+        std::string _get_type_name(lang_TypeInstance* scope);
+        std::string _get_value_name(lang_ValueInstance* scope);
+        std::string _get_function_name(ast::AstValueFunction* func);
 
-        const wchar_t* get_symbol_name_w(lang_Symbol* symbol);
         const char* get_symbol_name(lang_Symbol* symbol);
-        const wchar_t* get_type_name_w(lang_TypeInstance* type);
         const char* get_type_name(lang_TypeInstance* type);
-        const wchar_t* get_value_name_w(lang_ValueInstance* val);
         const char* get_value_name(lang_ValueInstance* val);
-        const wchar_t* get_function_name_w(ast::AstValueFunction* func);
         const char* get_function_name(ast::AstValueFunction* func);
-        
         std::string get_constant_str(const ast::ConstantValue& val);
-        std::wstring get_constant_str_w(const ast::ConstantValue& val);
 
         bool template_argument_deduction_from_constant(
             lexer& lex,

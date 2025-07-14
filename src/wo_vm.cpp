@@ -46,7 +46,7 @@ namespace wo
 #endif
             env->_created_destructable_instance_count.fetch_add(1, std::memory_order::memory_order_relaxed);
         wo_assert(old_count >= 0);
-}
+    }
     void vmbase::dec_destructable_instance_count() noexcept
     {
         wo_assert(env != nullptr);
@@ -379,7 +379,7 @@ namespace wo
                 }
                 for (int i = 0; i < MAX_BYTE_COUNT - displayed_count; i++)
                     printf("   ");
-            };
+                };
 #define WO_SIGNED_SHIFT(VAL) (((signed char)((unsigned char)(((unsigned char)(VAL))<<1)))>>1)
             auto print_reg_bpoffset = [&]() {
                 byte_t data_1b = *(this_command_ptr++);
@@ -418,7 +418,7 @@ namespace wo
                         tmpos << "reg(" << (uint32_t)data_1b << ")";
 
                 }
-            };
+                };
             auto print_opnum1 = [&]() {
                 if (main_command & (byte_t)0b00000010)
                 {
@@ -435,7 +435,7 @@ namespace wo
                     else
                         tmpos << "g[" << data_4b - env->constant_value_count << "]";
                 }
-            };
+                };
             auto print_opnum2 = [&]() {
                 if (main_command & (byte_t)0b00000001)
                 {
@@ -452,7 +452,7 @@ namespace wo
                     else
                         tmpos << "g[" << data_4b - env->constant_value_count << "]";
                 }
-            };
+                };
 
 #undef WO_SIGNED_SHIFT
             switch (main_command & (byte_t)0b11111100)
@@ -795,61 +795,61 @@ namespace wo
 
         std::vector<callstack_info> result;
         auto generate_callstack_info_with_ip = [this, need_offset](const wo::byte_t* rip, bool is_extern_func)
-        {
-            const program_debug_data_info::location* src_location_info = nullptr;
-            std::string function_signature;
-            std::string file_path;
-            size_t row_number = 0;
-            size_t col_number = 0;
-
-            if (is_extern_func)
             {
-                auto fnd = env->extern_native_functions.find((intptr_t)rip);
+                const program_debug_data_info::location* src_location_info = nullptr;
+                std::string function_signature;
+                std::string file_path;
+                size_t row_number = 0;
+                size_t col_number = 0;
 
-                if (fnd != env->extern_native_functions.end())
+                if (is_extern_func)
                 {
-                    function_signature = fnd->second.function_name;
-                    file_path = fnd->second.library_name.value_or("<builtin>");
+                    auto fnd = env->extern_native_functions.find((intptr_t)rip);
+
+                    if (fnd != env->extern_native_functions.end())
+                    {
+                        function_signature = fnd->second.function_name;
+                        file_path = fnd->second.library_name.value_or("<builtin>");
+                    }
+                    else
+                    {
+                        char rip_str[sizeof(rip) * 2 + 4];
+                        sprintf(rip_str, "0x%p>", rip);
+
+                        function_signature = std::string("<unknown extern function ") + rip_str;
+                        file_path = "<unknown library>";
+                    }
                 }
                 else
                 {
-                    char rip_str[sizeof(rip) * 2 + 4];
-                    sprintf(rip_str, "0x%p>", rip);
+                    if (env->program_debug_info != nullptr)
+                    {
+                        src_location_info = &env->program_debug_info
+                            ->get_src_location_by_runtime_ip(rip - (need_offset ? 1 : 0));
+                        function_signature = env->program_debug_info
+                            ->get_current_func_signature_by_runtime_ip(rip - (need_offset ? 1 : 0));
 
-                    function_signature = std::string("<unknown extern function ") + rip_str;
-                    file_path = "<unknown library>";
-                }
-            }
-            else
-            {
-                if (env->program_debug_info != nullptr)
-                {
-                    src_location_info = &env->program_debug_info
-                        ->get_src_location_by_runtime_ip(rip - (need_offset ? 1 : 0));
-                    function_signature = env->program_debug_info
-                        ->get_current_func_signature_by_runtime_ip(rip - (need_offset ? 1 : 0));
+                        file_path = src_location_info->source_file;
+                        row_number = src_location_info->begin_row_no;
+                        col_number = src_location_info->begin_col_no;
+                    }
+                    else
+                    {
+                        char rip_str[sizeof(rip) * 2 + 4];
+                        sprintf(rip_str, "0x%p>", rip);
 
-                    file_path = wo::wstrn_to_str(src_location_info->source_file);
-                    row_number = src_location_info->begin_row_no;
-                    col_number = src_location_info->begin_col_no;
+                        function_signature = std::string("<unknown function ") + rip_str;
+                        file_path = "<unknown file>";
+                    }
                 }
-                else
-                {
-                    char rip_str[sizeof(rip) * 2 + 4];
-                    sprintf(rip_str, "0x%p>", rip);
-
-                    function_signature = std::string("<unknown function ") + rip_str;
-                    file_path = "<unknown file>";
-                }
-            }
-            return callstack_info{
-                function_signature,
-                file_path,
-                row_number,
-                col_number,
-                is_extern_func,
+                return callstack_info{
+                    function_signature,
+                    file_path,
+                    row_number,
+                    col_number,
+                    is_extern_func,
+                };
             };
-        };
 
         result.push_back(generate_callstack_info_with_ip(ip, ip < env->rt_codes || ip >= env->rt_codes + env->rt_code_len));
         value* base_callstackinfo_ptr = (bp + 1);
@@ -1422,7 +1422,7 @@ namespace wo
     }
     value* vmbase::make_union_impl(value* opnum1, value* opnum2, uint16_t id) noexcept
     {
-        auto* union_struct = 
+        auto* union_struct =
             struct_t::gc_new<gcbase::gctype::young>(2);
 
         union_struct->m_values[0].set_integer((wo_integer_t)id);
@@ -1500,7 +1500,7 @@ namespace wo
     }
     value* vmbase::make_struct_impl(value* opnum1, uint16_t size, value* rt_sp) noexcept
     {
-        auto* maked_struct = 
+        auto* maked_struct =
             struct_t::gc_new<gcbase::gctype::young>(size);
 
         for (size_t i = 0; i < size; i++)
@@ -2665,12 +2665,13 @@ namespace wo
 
                 WO_VM_ASSERT(opnum2->type == value::valuetype::integer_type,
                     "Unable to index string by non-integer value in 'idstr'.");
-                wchar_t out_str = wo_strn_get_char(
-                    opnum1->string->c_str(),
-                    opnum1->string->size(),
-                    (size_t)opnum2->integer);
 
-                rt_cr->set_integer((wo_integer_t)(wo_handle_t)out_str);
+                rt_cr->set_integer(
+                    static_cast<wo_integer_t>(
+                        wo_strn_get_char(
+                            opnum1->string->c_str(),
+                            opnum1->string->size(),
+                            static_cast<size_t>(opnum2->integer))));
                 break;
             }
             case instruct::opcode::mkunion:

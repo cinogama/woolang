@@ -51,9 +51,9 @@ WO_FORCE_CAPI
 typedef int64_t wo_integer_t, wo_int_t;
 typedef uint64_t wo_handle_t;
 typedef void* wo_ptr_t;
+typedef char32_t wo_wchar_t;
 typedef const char* wo_string_t;
-typedef const wchar_t* wo_wstring_t;
-typedef wchar_t wo_wchar_t;
+typedef const wo_wchar_t* wo_wstring_t;
 typedef double wo_real_t;
 typedef size_t wo_size_t;
 

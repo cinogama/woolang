@@ -882,11 +882,11 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
             wo_assert(opnum2->type == value::valuetype::string_type);
             wo_assert(opnum3->type == value::valuetype::integer_type);
 
-            wchar_t out_str = wo_strn_get_char(
+            wo_wchar_t out_str = wo_strn_get_char(
                 opnum2->string->c_str(),
                 opnum2->string->size(),
                 (size_t)opnum3->integer);
-            opnum1->set_integer((wo_integer_t)(wo_handle_t)out_str);
+            opnum1->set_integer((wo_integer_t)out_str);
         }
         static void _vmjitcall_abrt(const char* msg)
         {

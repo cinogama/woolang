@@ -83,7 +83,7 @@ namespace wo
                         lex.record_lang_error(lexer::msglevel_t::infom,
                             defined_symbol->m_symbol_declare_ast.value(),
                             WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
-                            get_symbol_name_w(defined_symbol));
+                            get_symbol_name(defined_symbol));
 
                     return false;
                 }
@@ -277,7 +277,7 @@ namespace wo
                 lex.record_lang_error(lexer::msglevel_t::infom,
                     defined_symbol->m_symbol_declare_ast.value(),
                     WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
-                    get_symbol_name_w(defined_symbol));
+                    get_symbol_name(defined_symbol));
 
             return FAILED;
         }
@@ -327,7 +327,7 @@ namespace wo
                 lex.record_lang_error(lexer::msglevel_t::infom,
                     defined_symbol->m_symbol_declare_ast.value(),
                     WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
-                    get_symbol_name_w(defined_symbol));
+                    get_symbol_name(defined_symbol));
 
             return FAILED;
         }

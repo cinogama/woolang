@@ -46,6 +46,13 @@ const char* _wo_strdup(const char* str)
     new_str[len] = '\0';
     return new_str;
 }
+const char* _wo_strdupn(const char* str, size_t len)
+{
+    char* new_str = (char*)malloc(len + 1);
+    memcpy(new_str, str, len);
+    new_str[len] = '\0';
+    return new_str;
+}
 
 wo_lspv2_source_meta* wo_lspv2_compile_to_meta(
     wo_string_t virtual_src_path,
@@ -171,9 +178,9 @@ wo_lspv2_error_info* wo_lspv2_compile_err_next(wo_lspv2_error_iter* iter)
             error.m_level == wo::lexer::msglevel_t::error ? (
                 WO_LSP_ERROR) : WO_LSP_INFORMATION,
             error.m_layer,
-            _wo_strdup(wo::wstr_to_str(error.m_describe).c_str()),
+            _wo_strdup(error.m_describe.c_str()),
             wo_lspv2_location{
-                _wo_strdup(wo::wstr_to_str(error.m_filename).c_str()),
+                _wo_strdup(error.m_filename.c_str()),
                 { error.m_range_begin[0], error.m_range_begin[1] },
                 { error.m_range_end[0], error.m_range_end[1] },
             },
@@ -252,8 +259,8 @@ wo_lspv2_scope_info* wo_lspv2_scope_get_info(wo_lspv2_scope* scope)
 {
     wo::lang_Scope* lang_scope = std::launder(reinterpret_cast<wo::lang_Scope*>(scope));
     auto* result = new wo_lspv2_scope_info{
-       lang_scope->is_namespace_scope() ? _wo_strdup(
-            wo::wstr_to_str(*lang_scope->m_belongs_to_namespace->m_name).c_str())
+        lang_scope->is_namespace_scope()
+            ? _wo_strdup(lang_scope->m_belongs_to_namespace->m_name->c_str())
             : nullptr,
         lang_scope->m_scope_location.has_value() ? WO_TRUE : WO_FALSE,
         {},
@@ -262,7 +269,7 @@ wo_lspv2_scope_info* wo_lspv2_scope_get_info(wo_lspv2_scope* scope)
     if (result->m_has_location)
     {
         auto& loc = lang_scope->m_scope_location.value();
-        result->m_location.m_file_name = _wo_strdup(wo::wstr_to_str(*loc.source_file).c_str());
+        result->m_location.m_file_name = _wo_strdup(loc.source_file->c_str());
         result->m_location.m_begin_location[0] = loc.begin_at.row;
         result->m_location.m_begin_location[1] = loc.begin_at.column;
         result->m_location.m_end_location[0] = loc.end_at.row;
@@ -335,7 +342,7 @@ wo_lspv2_symbol_info* wo_lspv2_symbol_get_info(wo_lspv2_symbol* symbol)
                     : WO_LSPV2_TEMPLATE_PARAM_TYPE
                     ;
 
-                template_param.m_name = _wo_strdup(wo::wstr_to_str(*param->m_param_name).c_str());
+                template_param.m_name = _wo_strdup(param->m_param_name->c_str());
             }
         }
         break;
@@ -356,7 +363,7 @@ wo_lspv2_symbol_info* wo_lspv2_symbol_get_info(wo_lspv2_symbol* symbol)
                     : WO_LSPV2_TEMPLATE_PARAM_TYPE
                     ;
 
-                template_param.m_name = _wo_strdup(wo::wstr_to_str(*param->m_param_name).c_str());
+                template_param.m_name = _wo_strdup(param->m_param_name->c_str());
             }
         }
         break;
@@ -377,7 +384,7 @@ wo_lspv2_symbol_info* wo_lspv2_symbol_get_info(wo_lspv2_symbol* symbol)
                     : WO_LSPV2_TEMPLATE_PARAM_TYPE
                     ;
 
-                template_param.m_name = _wo_strdup(wo::wstr_to_str(*param->m_param_name).c_str());
+                template_param.m_name = _wo_strdup(param->m_param_name->c_str());
             }
         }
         break;
@@ -387,7 +394,7 @@ wo_lspv2_symbol_info* wo_lspv2_symbol_get_info(wo_lspv2_symbol* symbol)
 
     auto* result = new wo_lspv2_symbol_info{
         symbol_kind,
-        _wo_strdup(wo::wstr_to_str(*lang_symbol->m_name).c_str()),
+        _wo_strdup(lang_symbol->m_name->c_str()),
         template_param_count,
         template_params,
         lang_symbol->m_symbol_declare_location.has_value() ? WO_TRUE : WO_FALSE,
@@ -396,7 +403,7 @@ wo_lspv2_symbol_info* wo_lspv2_symbol_get_info(wo_lspv2_symbol* symbol)
     if (result->m_has_location)
     {
         auto& loc = lang_symbol->m_symbol_declare_location.value();
-        result->m_location.m_file_name = _wo_strdup(wo::wstr_to_str(*loc.source_file).c_str());
+        result->m_location.m_file_name = _wo_strdup(loc.source_file->c_str());
         result->m_location.m_begin_location[0] = loc.begin_at.row;
         result->m_location.m_begin_location[1] = loc.begin_at.column;
         result->m_location.m_end_location[0] = loc.end_at.row;
@@ -477,7 +484,7 @@ wo_lspv2_expr_collection_info* wo_lspv2_expr_collection_get_info(
     wo_lspv2_expr_collection* collection)
 {
     return new wo_lspv2_expr_collection_info{
-        _wo_strdup(wo::wstr_to_str(*collection->m_file_name).c_str()),
+        _wo_strdup(collection->m_file_name->c_str()),
     };
 }
 void wo_lspv2_expr_collection_info_free(wo_lspv2_expr_collection_info* collection)
@@ -639,7 +646,7 @@ wo_lspv2_expr_info* wo_lspv2_expr_get_info(wo_lspv2_expr* expr)
     return new wo_lspv2_expr_info{
         reinterpret_cast<wo_lspv2_type*>(type_instance),
         wo_lspv2_location {
-            _wo_strdup(wo::wstr_to_str(*ast_base->source_location.source_file).c_str()),
+            _wo_strdup(ast_base->source_location.source_file->c_str()),
             { ast_base->source_location.begin_at.row, ast_base->source_location.begin_at.column },
             { ast_base->source_location.end_at.row, ast_base->source_location.end_at.column },},
         variable_or_type_symbol == nullptr ? nullptr : reinterpret_cast<wo_lspv2_symbol*>(variable_or_type_symbol),
@@ -735,7 +742,7 @@ wo_lspv2_type_struct_info* wo_lspv2_type_get_struct_info(
             for (auto& [member, member_detail] : struct_type_detail->m_member_types)
             {
                 result->m_member_names[member_detail.m_offset] =
-                    _wo_strdup(wo::wstr_to_str(*member).c_str());
+                    _wo_strdup(member->c_str());
                 result->m_member_types[member_detail.m_offset] =
                     reinterpret_cast<wo_lspv2_type*>(
                         member_detail.m_member_type);
@@ -794,9 +801,9 @@ wo_lspv2_macro_info* wo_lspv2_macro_get_info(wo_lspv2_macro* macro)
 {
     wo::lang_Macro* lang_macro = std::launder(reinterpret_cast<wo::lang_Macro*>(macro));
     return new wo_lspv2_macro_info{
-        _wo_strdup(wo::wstr_to_str(*lang_macro->m_name).c_str()),
+        _wo_strdup(lang_macro->m_name->c_str()),
         wo_lspv2_location{
-            _wo_strdup(wo::wstr_to_str(*lang_macro->m_location.source_file).c_str()),
+            _wo_strdup(lang_macro->m_location.source_file->c_str()),
             { lang_macro->m_location.begin_at.row, lang_macro->m_location.begin_at.column },
             { lang_macro->m_location.end_at.row, lang_macro->m_location.end_at.column },
         },
@@ -835,7 +842,7 @@ wo_lspv2_lexer* wo_lspv2_lexer_create(const char* src)
         new wo::lexer(
             std::nullopt,
             std::nullopt,
-            std::make_unique<std::wistringstream>(wo::str_to_wstr(src))));
+            std::make_unique<std::istringstream>(src)));
 }
 void wo_lspv2_lexer_free(wo_lspv2_lexer* lexer)
 {
@@ -847,16 +854,10 @@ wo_lspv2_token_info* wo_lspv2_lexer_peek(
     wo::lexer* lex = reinterpret_cast<wo::lexer*>(lexer);
     auto* token = lex->peek();
 
-    size_t token_serial_length;
-    auto* token_serial = wo::u8wcstombs(
-        token->m_token_text.data(),
-        token->m_token_text.size(),
-        &token_serial_length);
-
     return new wo_lspv2_token_info{
         (wo_lspv2_lexer_token)token->m_lex_type,
-        token_serial,
-        token_serial_length,
+        _wo_strdupn(token->m_token_text.data(), token->m_token_text.size()),
+        token->m_token_text.size(),
     };
 }
 void wo_lspv2_lexer_consume(wo_lspv2_lexer* lexer)
@@ -875,7 +876,7 @@ const char* wo_lspv2_token_info_enstring(
     const void* p, size_t len)
 {
     thread_local std::string str;
-    str = wo::enstring(reinterpret_cast<const char*>(p), len, false);
+    str = wo::u8enstring(reinterpret_cast<const char*>(p), len, false);
     return str.c_str();
 }
 

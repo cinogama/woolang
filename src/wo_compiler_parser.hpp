@@ -302,14 +302,21 @@ namespace wo
     struct token
     {
         lex_type type;
-        std::wstring identifier;
+        std::string identifier;
     };
 
-    inline std::wostream& operator << (std::wostream& os, const token& tk)
+    inline std::ostream& operator << (std::ostream& os, const token& tk)
     {
-        os << "{ token: " << (lex_type_base_t)tk.type << "    , \"" << (tk.identifier) << "\"";
+        os 
+            << "{ token: " 
+            << (lex_type_base_t)tk.type 
+            << "    , \"" 
+            << tk.identifier
+            << "\"";
+
         if (tk.type == lex_type::l_error)
             os << "(error)";
+
         os << " }";
         return os;
     }

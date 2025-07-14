@@ -9,97 +9,97 @@ wo_bool_t _wo_load_source(
 
 namespace wo
 {
-    const std::unordered_map<std::wstring, lex_type> lexer::_lex_operator_list =
+    const std::unordered_map<std::string, lex_type> lexer::_lex_operator_list =
     {
-        {L"+",      {lex_type::l_add}},
-        {L"-",      {lex_type::l_sub}},
-        {L"*",      {lex_type::l_mul}},
-        {L"/",      {lex_type::l_div}},
-        {L"%",      {lex_type::l_mod}},
-        {L"=",      {lex_type::l_assign}},
-        {L"+=",     {lex_type::l_add_assign}},
-        {L"-=",     {lex_type::l_sub_assign}},
-        {L"*=",     {lex_type::l_mul_assign}},
-        {L"/=",     {lex_type::l_div_assign}},
-        {L"%=",     {lex_type::l_mod_assign}},
-        {L":=",     {lex_type::l_value_assign}},
-        {L"+:=",    {lex_type::l_value_add_assign}},
-        {L"-:=",    {lex_type::l_value_sub_assign}},
-        {L"*:=",    {lex_type::l_value_mul_assign}},
-        {L"/:=",    {lex_type::l_value_div_assign}},
-        {L"%:=",    {lex_type::l_value_mod_assign}},
-        {L"+:",     {lex_type::l_value_add_assign}},
-        {L"-:",     {lex_type::l_value_sub_assign}},
-        {L"*:",     {lex_type::l_value_mul_assign}},
-        {L"/:",     {lex_type::l_value_div_assign}},
-        {L"%:",     {lex_type::l_value_mod_assign}},
-        {L"==",     {lex_type::l_equal}},                // ==
-        {L"!=",     {lex_type::l_not_equal}},            // !=
-        {L">=",     {lex_type::l_larg_or_equal}},        // >=
-        {L"<=",     {lex_type::l_less_or_equal}},        // <=
-        {L"<",      {lex_type::l_less}},                 // <
-        {L">",      {lex_type::l_larg}},                 // >
-        {L"&&",     {lex_type::l_land}},                 // &&
-        {L"||",     {lex_type::l_lor}},                  // ||
-        {L"|",      {lex_type::l_or}},                  // ||
-        {L"!",      {lex_type::l_lnot}},                  // !=
-        {L"::",     {lex_type::l_scopeing}},
-        {L":<",     {lex_type::l_template_using_begin}},
-        {L",",      {lex_type::l_comma}},
-        {L":",      {lex_type::l_typecast}},
-        {L".",      {lex_type::l_index_point}},
-        {L"..",     {lex_type::l_double_index_point}},
-        {L"...",    {lex_type::l_variadic_sign}},
-        {L"[",      {lex_type::l_index_begin}},
-        {L"]",      {lex_type::l_index_end}},
-        {L"->",     {lex_type::l_direct }},
-        {L"|>",     {lex_type::l_direct }},
-        {L"<|",     {lex_type::l_inv_direct}},
-        {L"=>",     {lex_type::l_function_result }},
-        {L"=>>",    {lex_type::l_bind_monad }},
-        {L"->>",    {lex_type::l_map_monad }},
-        {L"@",      {lex_type::l_at }},
-        {L"?",      {lex_type::l_question }},
-        {L"\\",     {lex_type::l_lambda}},
-        {L"λ",      {lex_type::l_lambda}},
+        {"+",      {lex_type::l_add}},
+        {"-",      {lex_type::l_sub}},
+        {"*",      {lex_type::l_mul}},
+        {"/",      {lex_type::l_div}},
+        {"%",      {lex_type::l_mod}},
+        {"=",      {lex_type::l_assign}},
+        {"+=",     {lex_type::l_add_assign}},
+        {"-=",     {lex_type::l_sub_assign}},
+        {"*=",     {lex_type::l_mul_assign}},
+        {"/=",     {lex_type::l_div_assign}},
+        {"%=",     {lex_type::l_mod_assign}},
+        {":=",     {lex_type::l_value_assign}},
+        {"+:=",    {lex_type::l_value_add_assign}},
+        {"-:=",    {lex_type::l_value_sub_assign}},
+        {"*:=",    {lex_type::l_value_mul_assign}},
+        {"/:=",    {lex_type::l_value_div_assign}},
+        {"%:=",    {lex_type::l_value_mod_assign}},
+        {"+:",     {lex_type::l_value_add_assign}},
+        {"-:",     {lex_type::l_value_sub_assign}},
+        {"*:",     {lex_type::l_value_mul_assign}},
+        {"/:",     {lex_type::l_value_div_assign}},
+        {"%:",     {lex_type::l_value_mod_assign}},
+        {"==",     {lex_type::l_equal}},                // ==
+        {"!=",     {lex_type::l_not_equal}},            // !=
+        {">=",     {lex_type::l_larg_or_equal}},        // >=
+        {"<=",     {lex_type::l_less_or_equal}},        // <=
+        {"<",      {lex_type::l_less}},                 // <
+        {">",      {lex_type::l_larg}},                 // >
+        {"&&",     {lex_type::l_land}},                 // &&
+        {"||",     {lex_type::l_lor}},                  // ||
+        {"|",      {lex_type::l_or}},                  // ||
+        {"!",      {lex_type::l_lnot}},                  // !=
+        {"::",     {lex_type::l_scopeing}},
+        {":<",     {lex_type::l_template_using_begin}},
+        {",",      {lex_type::l_comma}},
+        {":",      {lex_type::l_typecast}},
+        {".",      {lex_type::l_index_point}},
+        {"..",     {lex_type::l_double_index_point}},
+        {"...",    {lex_type::l_variadic_sign}},
+        {"[",      {lex_type::l_index_begin}},
+        {"]",      {lex_type::l_index_end}},
+        {"->",     {lex_type::l_direct }},
+        {"|>",     {lex_type::l_direct }},
+        {"<|",     {lex_type::l_inv_direct}},
+        {"=>",     {lex_type::l_function_result }},
+        {"=>>",    {lex_type::l_bind_monad }},
+        {"->>",    {lex_type::l_map_monad }},
+        {"@",      {lex_type::l_at }},
+        {"?",      {lex_type::l_question }},
+        {"\\",     {lex_type::l_lambda}},
+        {"λ",      {lex_type::l_lambda}},
     };
-    const std::unordered_map<std::wstring, lex_type> lexer::_key_word_list =
+    const std::unordered_map<std::string, lex_type> lexer::_key_word_list =
     {
-        {L"alias", {lex_type::l_alias} },
-        {L"as", {lex_type::l_as}},
-        {L"break", {lex_type::l_break}},
-        {L"continue", {lex_type::l_continue}},
-        {L"do", {lex_type::l_do}},
-        {L"else", {lex_type::l_else}},
-        {L"enum", {lex_type::l_enum}},
-        {L"export", {lex_type::l_export}},
-        {L"extern", {lex_type::l_extern}},
-        {L"false", {lex_type::l_false}},
-        {L"for", {lex_type::l_for}},
-        {L"func", {lex_type::l_func}},
-        {L"if", {lex_type::l_if}},
-        {L"immut", {lex_type::l_immut}},
-        {L"import", {lex_type::l_import}},
-        {L"is", {lex_type::l_is}},
-        {L"let", {lex_type::l_let }},
-        {L"match", {lex_type::l_match}},
-        {L"mut", {lex_type::l_mut}},
-        {L"namespace", {lex_type::l_namespace}},
-        {L"nil", {lex_type::l_nil}},
-        {L"operator", {lex_type::l_operator}},
-        {L"private", {lex_type::l_private}},
-        {L"protected", {lex_type::l_protected}},
-        {L"public", {lex_type::l_public}},
-        {L"return", {lex_type::l_return}},
-        {L"static", {lex_type::l_static}},
-        {L"struct", {lex_type::l_struct}},
-        {L"true", {lex_type::l_true}},
-        {L"typeid", {lex_type::l_typeid}},
-        {L"typeof", {lex_type::l_typeof}},
-        {L"union", {lex_type::l_union}},
-        {L"using", {lex_type::l_using} },
-        {L"where", {lex_type::l_where}},
-        {L"while", {lex_type::l_while}},
+        {"alias", {lex_type::l_alias} },
+        {"as", {lex_type::l_as}},
+        {"break", {lex_type::l_break}},
+        {"continue", {lex_type::l_continue}},
+        {"do", {lex_type::l_do}},
+        {"else", {lex_type::l_else}},
+        {"enum", {lex_type::l_enum}},
+        {"export", {lex_type::l_export}},
+        {"extern", {lex_type::l_extern}},
+        {"false", {lex_type::l_false}},
+        {"for", {lex_type::l_for}},
+        {"func", {lex_type::l_func}},
+        {"if", {lex_type::l_if}},
+        {"immut", {lex_type::l_immut}},
+        {"import", {lex_type::l_import}},
+        {"is", {lex_type::l_is}},
+        {"let", {lex_type::l_let }},
+        {"match", {lex_type::l_match}},
+        {"mut", {lex_type::l_mut}},
+        {"namespace", {lex_type::l_namespace}},
+        {"nil", {lex_type::l_nil}},
+        {"operator", {lex_type::l_operator}},
+        {"private", {lex_type::l_private}},
+        {"protected", {lex_type::l_protected}},
+        {"public", {lex_type::l_public}},
+        {"return", {lex_type::l_return}},
+        {"static", {lex_type::l_static}},
+        {"struct", {lex_type::l_struct}},
+        {"true", {lex_type::l_true}},
+        {"typeid", {lex_type::l_typeid}},
+        {"typeof", {lex_type::l_typeof}},
+        {"union", {lex_type::l_union}},
+        {"using", {lex_type::l_using} },
+        {"where", {lex_type::l_where}},
+        {"while", {lex_type::l_while}},
     };
 
     macro::macro(lexer& lex)
@@ -130,9 +130,9 @@ namespace wo
 
             lex.consume_forward();
 
-            auto source_path = wstr_to_str(*lex.m_source_path.value());
+            auto source_path = *lex.m_source_path.value();
             std::string line_mark = "#line "
-                + wo::enstring(source_path.data(), source_path.size(), false)
+                + wo::u8enstring(source_path.data(), source_path.size(), false)
                 + " "
                 + std::to_string(lex._m_row_counter + 1)
                 + " "
@@ -171,21 +171,21 @@ extern func macro_entry(lexer: std::lexer)=> string
                 std::streampos macro_end_place = lex.m_source_stream->tellg();
                 lex.m_source_stream->seekg(macro_begin_place);
 
-                std::vector<wchar_t> macro_content;
+                std::vector<char> macro_content;
 
                 while (lex.m_source_stream->eof() == false
                     && lex.m_source_stream
                     && lex.m_source_stream->tellg() < macro_end_place)
                 {
-                    wchar_t ch;
+                    char ch;
                     lex.m_source_stream->read(&ch, 1);
                     macro_content.push_back(ch);
                 }
-                macro_content.push_back(L'\0');
+                macro_content.push_back('\0');
 
                 _macro_action_vm = wo_create_vm();
                 auto macro_virtual_file_src = lex.m_shared_context->register_temp_virtual_file(
-                    (macro_anylzing_src + wstr_to_str(macro_content.data()) + "\nreturn \"\";}").c_str());
+                    (macro_anylzing_src + macro_content.data() + "\nreturn \"\";}").c_str());
 
                 lexer::imported_source_path_set_t origin_linked_sources;
                 lexer::who_import_me_map_t origin_import_relationships;
@@ -220,7 +220,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                     {
                         lex.produce_lexer_error(lexer::msglevel_t::error, WO_ERR_FAILED_TO_RUN_MACRO_CONTROLOR,
                             macro_name.c_str(),
-                            wo::str_to_wstr(wo_get_runtime_error(_macro_action_vm)).c_str());
+                            wo_get_runtime_error(_macro_action_vm));
                     }
                 }
 
@@ -231,34 +231,34 @@ extern func macro_entry(lexer: std::lexer)=> string
             }
         }
         else
-            lex.produce_lexer_error(lexer::msglevel_t::error, WO_ERR_HERE_SHOULD_HAVE, L"{");
+            lex.produce_lexer_error(lexer::msglevel_t::error, WO_ERR_HERE_SHOULD_HAVE, "{");
     }
 
-    std::wstring lexer::compiler_message_t::to_wstring(bool need_ansi_describe)
+    std::string lexer::compiler_message_t::to_string(bool need_ansi_describe)
     {
         using namespace std;
 
         if (need_ansi_describe)
             return (
                 m_level == msglevel_t::error
-                ? (ANSI_HIR L"error" ANSI_RST)
-                : (ANSI_HIC L"infom" ANSI_RST)
+                ? (ANSI_HIR "error" ANSI_RST)
+                : (ANSI_HIC "infom" ANSI_RST)
                 )
-            + (L" (" + std::to_wstring(m_range_end[0] + 1) + L"," + std::to_wstring(m_range_end[1]))
-            + (L") " + m_describe);
+            + (" (" + std::to_string(m_range_end[0] + 1) + "," + std::to_string(m_range_end[1]))
+            + (") " + m_describe);
         else
             return (
                 m_level == msglevel_t::error
-                ? (L"error")
-                : (L"infom")
+                ? ("error")
+                : ("infom")
                 )
-            + (L" (" + std::to_wstring(m_range_end[0] + 1) + L"," + std::to_wstring(m_range_end[1]))
-            + (L") " + m_describe);
+            + (" (" + std::to_string(m_range_end[0] + 1) + "," + std::to_string(m_range_end[1]))
+            + (") " + m_describe);
     }
 
     ///////////////////////////////////////////////////
 
-    const wchar_t* lexer::lex_is_operate_type(lex_type tt)
+    const char* lexer::lex_is_operate_type(lex_type tt)
     {
         for (auto& [op_str, op_type] : _lex_operator_list)
         {
@@ -267,7 +267,7 @@ extern func macro_entry(lexer: std::lexer)=> string
         }
         return nullptr;
     }
-    const wchar_t* lexer::lex_is_keyword_type(lex_type tt)
+    const char* lexer::lex_is_keyword_type(lex_type tt)
     {
         for (auto& [op_str, op_type] : _key_word_list)
         {
@@ -276,14 +276,14 @@ extern func macro_entry(lexer: std::lexer)=> string
         }
         return nullptr;
     }
-    lex_type lexer::lex_is_valid_operator(const std::wstring& op)
+    lex_type lexer::lex_is_valid_operator(const std::string& op)
     {
         if (auto fnd = _lex_operator_list.find(op); fnd != _lex_operator_list.end())
             return fnd->second;
 
         return lex_type::l_error;
     }
-    lex_type lexer::lex_is_keyword(const std::wstring& op)
+    lex_type lexer::lex_is_keyword(const std::string& op)
     {
         if (auto fnd = _key_word_list.find(op); fnd != _key_word_list.end())
             return fnd->second;
@@ -292,21 +292,24 @@ extern func macro_entry(lexer: std::lexer)=> string
     }
     bool lexer::lex_isoperatorch(int ch)
     {
-        const static std::unordered_set<wchar_t> operator_char_set = []() {
-            std::unordered_set<wchar_t> _result;
+        const static std::unordered_set<char> operator_char_set = []() {
+            std::unordered_set<char> _result;
             for (auto& [_operator, operator_info] : _lex_operator_list)
-                for (wchar_t wch : _operator)
+                for (char wch : _operator)
                     _result.insert(wch);
             return _result;
             }();
-        return operator_char_set.find((wchar_t)ch) != operator_char_set.end();
+        return operator_char_set.find(ch) != operator_char_set.end();
     }
     bool lexer::lex_isspace(int ch)
     {
         if (ch == EOF)
             return false;
 
-        return ch == 0 || iswspace((wchar_t)ch);
+        if (ch > 0x7F)
+            return false;
+
+        return ch == 0 || isspace(ch);
     }
     bool lexer::lex_isalpha(int ch)
     {
@@ -314,9 +317,11 @@ extern func macro_entry(lexer: std::lexer)=> string
         if (ch == EOF)
             return false;
 
-        // according to ISO-30112, Chinese character is belonging alpha-set,
-        // so we can use 'iswalpha' directly.
-        return iswalpha((wchar_t)ch);
+        if (ch > 0x7F)
+            // Treate all non ascii characters as alpha
+            return true;
+
+        return isalpha(ch);
     }
     bool lexer::lex_isidentbeg(int ch)
     {
@@ -324,9 +329,11 @@ extern func macro_entry(lexer: std::lexer)=> string
         if (ch == EOF)
             return false;
 
-        // according to ISO-30112, Chinese character is belonging alpha-set,
-        // so we can use 'iswalpha' directly.
-        return iswalpha((wchar_t)ch) || (wchar_t)ch == L'_';
+        if (ch > 0x7F)
+            // Treate all non ascii characters as alpha
+            return true;
+
+        return isalpha(ch) || ch == '_';
     }
     bool lexer::lex_isident(int ch)
     {
@@ -334,9 +341,11 @@ extern func macro_entry(lexer: std::lexer)=> string
         if (ch == EOF)
             return false;
 
-        // according to ISO-30112, Chinese character is belonging alpha-set,
-        // so we can use 'iswalpha' directly.
-        return iswalnum((wchar_t)ch) || (wchar_t)ch == L'_';
+        if (ch > 0x7F)
+            // Treate all non ascii characters as alpha
+            return true;
+
+        return isalnum(ch) || ch == '_';
     }
     bool lexer::lex_isalnum(int ch)
     {
@@ -344,78 +353,85 @@ extern func macro_entry(lexer: std::lexer)=> string
         if (ch == EOF)
             return false;
 
-        // according to ISO-30112, Chinese character is belonging alpha-set,
-        // so we can use 'iswalpha' directly.
-        return iswalnum((wchar_t)ch);
+        if (ch > 0x7F)
+            // Treate all non ascii characters as alpha
+            return true;
+
+        return isalnum(ch);
     }
     bool lexer::lex_isdigit(int ch)
     {
         if (ch == EOF)
             return false;
 
-        return iswdigit((wchar_t)ch);
+        if (ch > 0x7F)
+            // Treate all non ascii characters as alpha
+            return false;
+
+        return isdigit((wchar_t)ch);
     }
     bool lexer::lex_isxdigit(int ch)
     {
         if (ch == EOF)
             return false;
 
-        return iswxdigit((wchar_t)ch);
+        if (ch > 0x7F)
+            // Treate all non ascii characters as alpha
+            return false;
+
+        return isxdigit((wchar_t)ch);
     }
     bool lexer::lex_isodigit(int ch)
     {
         if (ch == EOF)
             return false;
 
-        return (wchar_t)ch >= L'0' && (wchar_t)ch <= L'7';
-    }
-    int lexer::lex_toupper(int ch)
-    {
-        if (ch == EOF)
-            return EOF;
-
-        return towupper((wchar_t)ch);
-    }
-    int lexer::lex_tolower(int ch)
-    {
-        if (ch == EOF)
-            return EOF;
-
-        return towlower((wchar_t)ch);
+        return ch >= '0' && ch <= '7';
     }
     int lexer::lex_hextonum(int ch)
     {
         wo_assert(lex_isxdigit(ch));
 
-        if (iswdigit((wchar_t)ch))
+        if (ch >= '0' && ch <= '9')
         {
-            return (wchar_t)ch - L'0';
+            return ch - '0';
         }
-        return towupper((wchar_t)ch) - L'A' + 10;
+        else if (ch >= 'A' && ch <= 'F')
+        {
+            return ch - 'A' + 10;
+        }
+        else if (ch >= 'a' && ch <= 'f')
+        {
+            return ch - 'a' + 10;
+        }
+
+        return -1;
     }
     int lexer::lex_octtonum(int ch)
     {
         wo_assert(lex_isodigit(ch));
 
-        return (wchar_t)ch - L'0';
+        return ch - '0';
     }
-    uint64_t lexer::read_from_unsigned_literal(const wchar_t* text)
+    uint64_t lexer::read_from_unsigned_literal(const char* text)
     {
         uint64_t base = 10;
         uint64_t result = 0;
 
-        if (text[0] == L'0')
+        if (text[0] == '0')
         {
             if (text[1] == 0)
                 return 0;
 
-            switch (lexer::lex_toupper(text[1]))
+            switch (text[1])
             {
-            case L'X':
+            case 'X':
+            case 'x':
                 base = 16;
                 text = text + 2;
                 break;
-            case L'B':
+            case 'B':
+            case 'b':
                 base = 2;
                 text = text + 2;
                 break;
@@ -427,16 +443,16 @@ extern func macro_entry(lexer: std::lexer)=> string
         }
         while (*text)
         {
-            if (*text == L'H' || *text == L'h')
+            if (*text == 'H' || *text == 'h')
                 break;
             result = base * result + lexer::lex_hextonum(*text);
             ++text;
         }
         return result;
     }
-    int64_t lexer::read_from_literal(const wchar_t* text)
+    int64_t lexer::read_from_literal(const char* text)
     {
-        if (text[0] == L'-')
+        if (text[0] == '-')
             return -(int64_t)read_from_unsigned_literal(text + 1);
         return (int64_t)read_from_unsigned_literal(text);
     }
@@ -468,7 +484,7 @@ extern func macro_entry(lexer: std::lexer)=> string
     lexer::lexer(
         std::optional<lexer*> who_import_me,
         const std::optional<wo_pstring_t>& source_path,
-        std::optional<std::unique_ptr<std::wistream>>&& source_stream)
+        std::optional<std::unique_ptr<std::istream>>&& source_stream)
         : m_who_import_me(who_import_me)
         , m_source_path(source_path)
         , m_source_stream{}
@@ -563,7 +579,7 @@ extern func macro_entry(lexer: std::lexer)=> string
     }
     int lexer::peek_char()
     {
-        wchar_t ch = m_source_stream->peek();
+        uint8_t ch = static_cast<uint8_t>(m_source_stream->peek());
 
         if (m_source_stream->eof() || !*m_source_stream)
         {
@@ -573,14 +589,14 @@ extern func macro_entry(lexer: std::lexer)=> string
             return EOF;
         }
 
-        if (ch == L'\r')
-            return L'\n';
+        if (ch == '\r')
+            return '\n';
 
         return static_cast<int>(ch);
     }
     int lexer::read_char()
     {
-        wchar_t ch = m_source_stream->get();
+        uint8_t ch = static_cast<uint8_t>(m_source_stream->get());
         if (m_source_stream->eof() || !*m_source_stream)
         {
             m_source_stream->clear(
@@ -589,16 +605,16 @@ extern func macro_entry(lexer: std::lexer)=> string
             return EOF;
         }
 
-        if (ch == L'\r')
+        if (ch == '\r')
         {
-            if (peek_char() == L'\n')
+            if (peek_char() == '\n')
                 // Eat \r\n as \n
                 (void)m_source_stream->get();
 
-            ch = L'\n';
+            ch = '\n';
         }
 
-        if (ch == L'\n')
+        if (ch == '\n')
         {
             _m_col_counter = 0;
             ++_m_row_counter;
@@ -629,7 +645,7 @@ extern func macro_entry(lexer: std::lexer)=> string
         return emplaced_message;
     }
 
-    void lexer::produce_token(lex_type type, std::wstring&& moved_token_text)
+    void lexer::produce_token(lex_type type, std::string&& moved_token_text)
     {
         _m_peeked_tokens.emplace(
             peeked_token_t
@@ -662,7 +678,7 @@ extern func macro_entry(lexer: std::lexer)=> string
         do
         {
             skiped_char = read_char();
-        } while (skiped_char != L'\n' && skiped_char != EOF);
+        } while (skiped_char != '\n' && skiped_char != EOF);
     }
     lexer::peeked_token_t* lexer::peek()
     {
@@ -676,7 +692,7 @@ extern func macro_entry(lexer: std::lexer)=> string
             if (peeked_token->m_lex_type == lex_type::l_macro)
             {
                 // We need to expand this macro here.
-                std::wstring macro_name = peeked_token->m_token_text;
+                std::string macro_name = peeked_token->m_token_text;
                 _m_peeked_tokens.pop();
 
                 if (!try_handle_macro(macro_name))
@@ -756,18 +772,20 @@ extern func macro_entry(lexer: std::lexer)=> string
 
         // Check if comment?
 
-        std::wstring token_literal_result;
+        std::string token_literal_result;
         auto append_result_char =
-            [&token_literal_result](auto ch) {token_literal_result.push_back(static_cast<wchar_t>(ch)); };
+            [&token_literal_result](char ch) {token_literal_result.push_back(ch); };
+        auto append_result_char_serial =
+            [&token_literal_result](const char* serial, size_t len) {token_literal_result.append(serial, len); };
 
         // Format string.
         bool is_format_string_begin = false, is_format_string_middle = false;
         switch (readed_char)
         {
-        case L'/':
+        case '/':
         {
             int peeked_char = peek_char();
-            if (peeked_char == L'/')
+            if (peeked_char == '/')
             {
                 // Skip '/'
                 (void)read_char();
@@ -775,7 +793,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                 skip_this_line();
                 return;
             }
-            else if (peeked_char == L'*')
+            else if (peeked_char == '*')
             {
                 // Skip '/'
                 (void)read_char();
@@ -786,10 +804,10 @@ extern func macro_entry(lexer: std::lexer)=> string
                     peeked_char = read_char();
                     if (peeked_char == EOF)
                         break;
-                    else if (peeked_char == L'*')
+                    else if (peeked_char == '*')
                     {
                         peeked_char = read_char();
-                        if (peeked_char == EOF || peeked_char == L'/')
+                        if (peeked_char == EOF || peeked_char == '/')
                             break;
                     }
                 } while (true);
@@ -798,15 +816,16 @@ extern func macro_entry(lexer: std::lexer)=> string
             else
                 goto checking_valid_operator;
         }
-        case L';':
+        case
+        ';':
         {
             append_result_char(readed_char);
             return produce_token(lex_type::l_semicolon, std::move(token_literal_result));
         }
-        case L'@':
+        case '@':
         {
             // @"(Example string "without" '\' it will be very happy!)"
-            if (int tmp_ch = peek_char(); tmp_ch == L'"')
+            if (int tmp_ch = peek_char(); tmp_ch == '"')
             {
                 (void)read_char();
 
@@ -814,7 +833,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                 while (true)
                 {
                     following_ch = read_char();
-                    if (following_ch == L'"' && peek_char() == L'@')
+                    if (following_ch == '"' && peek_char() == '@')
                     {
                         (void)read_char();
                         return produce_token(lex_type::l_literal_string, std::move(token_literal_result));
@@ -829,46 +848,61 @@ extern func macro_entry(lexer: std::lexer)=> string
             else
                 goto checking_valid_operator;
         }
-        case L'"':
+        case '\'':
+        case '"':
         {
             int following_ch;
             while (true)
             {
                 following_ch = read_char();
-                if (following_ch == L'"')
+                if (following_ch == '"' && readed_char == '"')
                     return produce_token(lex_type::l_literal_string, std::move(token_literal_result));
+                else if (following_ch == '\'' && readed_char == '\'')
+                {
+                    switch (wo::u8strnlen(token_literal_result.data(), token_literal_result.size()))
+                    {
+                    case 0:
+                        return produce_lexer_error(msglevel_t::error, WO_ERR_NO_CHAR_IN_CHAR);
+                    case 1:
+                        return produce_token(lex_type::l_literal_char, std::move(token_literal_result));
+                    default:
+                        return produce_lexer_error(msglevel_t::error, WO_ERR_TOO_MANY_CHAR_IN_CHAR);
+                    }
+                    wo_error("Cannot be here.");
+                }
+
                 if (following_ch != EOF && following_ch != '\n')
                 {
-                    if (following_ch == L'\\')
+                    if (following_ch == '\\')
                     {
                         // Escape character 
                         int escape_ch = read_char();
                         switch (escape_ch)
                         {
-                        case L'\'':
-                        case L'"':
-                        case L'?':
-                        case L'\\':
+                        case '\'':
+                        case '"':
+                        case '?':
+                        case '\\':
                             append_result_char(escape_ch); break;
-                        case L'a':
-                            append_result_char(L'\a'); break;
-                        case L'b':
-                            append_result_char(L'\b'); break;
-                        case L'f':
-                            append_result_char(L'\f'); break;
-                        case L'n':
-                            append_result_char(L'\n'); break;
-                        case L'r':
-                            append_result_char(L'\r'); break;
-                        case L't':
-                            append_result_char(L'\t'); break;
-                        case L'v':
-                            append_result_char(L'\v'); break;
-                        case L'0': case L'1': case L'2': case L'3': case L'4':
-                        case L'5': case L'6': case L'7': case L'8': case L'9':
+                        case 'a':
+                            append_result_char('\a'); break;
+                        case 'b':
+                            append_result_char('\b'); break;
+                        case 'f':
+                            append_result_char('\f'); break;
+                        case 'n':
+                            append_result_char('\n'); break;
+                        case 'r':
+                            append_result_char('\r'); break;
+                        case 't':
+                            append_result_char('\t'); break;
+                        case 'v':
+                            append_result_char('\v'); break;
+                        case '0': case '1': case '2': case '3':
+                        case '4': case '5': case '6': case '7':
                         {
                             // oct 1byte 
-                            int oct_ascii = escape_ch - L'0';
+                            int oct_ascii = escape_ch - '0';
                             for (int i = 0; i < 2; i++)
                             {
                                 if (lexer::lex_isodigit(peek_char()))
@@ -882,11 +916,10 @@ extern func macro_entry(lexer: std::lexer)=> string
                             append_result_char(oct_ascii);
                             break;
                         }
-                        case L'X':
-                        case L'x':
+                        case 'x':
                         {
                             // hex 1byte 
-                            int hex_ascii = 0;
+                            uint8_t hex_ascii = 0;
                             for (int i = 0; i < 2; i++)
                             {
                                 if (lexer::lex_isxdigit(peek_char()))
@@ -899,27 +932,56 @@ extern func macro_entry(lexer: std::lexer)=> string
                                 else
                                     break;
                             }
-                            append_result_char(hex_ascii);
+                            append_result_char(static_cast<char>(hex_ascii));
                             break;
                         }
-                        case L'U':
-                        case L'u':
+                        case 'u':
                         {
                             // hex 1byte 
-                            int hex_ascii = 0;
+                            char16_t hex_ascii[UTF16MAXLEN] = {};
                             for (int i = 0; i < 4; i++)
                             {
                                 if (lexer::lex_isxdigit(peek_char()))
                                 {
-                                    hex_ascii *= 16;
-                                    hex_ascii += lexer::lex_hextonum(read_char());
+                                    hex_ascii[0] *= 16;
+                                    hex_ascii[0] += lexer::lex_hextonum(read_char());
                                 }
                                 else if (i == 0)
                                     goto str_escape_sequences_fail;
                                 else
                                     break;
                             }
-                            append_result_char(hex_ascii);
+
+                            size_t u16_count = 1;
+                            if (wo::u16hisurrogate(hex_ascii[0]))
+                            {
+                                if (read_char() != '\\'
+                                    || read_char() != 'u')
+                                    // Should be a surrogate pair.
+                                    goto str_escape_sequences_fail;
+
+                                for (int i = 0; i < 4; i++)
+                                {
+                                    if (lexer::lex_isxdigit(peek_char()))
+                                    {
+                                        hex_ascii[1] *= 16;
+                                        hex_ascii[1] += lexer::lex_hextonum(read_char());
+                                    }
+                                    else if (i == 0)
+                                        goto str_escape_sequences_fail;
+                                    else
+                                        break;
+                                }
+                                u16_count = 2;
+                            }
+
+                            char u8buf[UTF8MAXLEN] = {};
+                            size_t u8len;
+
+                            if (u16_count != wo::u16exractu8(hex_ascii, u16_count, u8buf, &u8len))
+                                goto str_escape_sequences_fail;
+
+                            append_result_char_serial(u8buf, u8len);
                             break;
                         }
                         default:
@@ -934,135 +996,24 @@ extern func macro_entry(lexer: std::lexer)=> string
                     return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXCEPTED_EOL_IN_STRING);
             }
         }
-        case L'\'':
-        {
-            int following_ch;
-
-            following_ch = read_char();
-            if (following_ch == L'\'')
-                return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXCEPT_CH_AFTER_CH, L'\'', L'\'');
-            else if (following_ch != EOF && following_ch != '\n')
-            {
-                if (following_ch == L'\\')
-                {
-                    // Escape character 
-                    int escape_ch = read_char();
-                    switch (escape_ch)
-                    {
-                    case L'\'':
-                    case L'"':
-                    case L'?':
-                    case L'\\':
-                        append_result_char(escape_ch); break;
-                    case L'a':
-                        append_result_char(L'\a'); break;
-                    case L'b':
-                        append_result_char(L'\b'); break;
-                    case L'f':
-                        append_result_char(L'\f'); break;
-                    case L'n':
-                        append_result_char(L'\n'); break;
-                    case L'r':
-                        append_result_char(L'\r'); break;
-                    case L't':
-                        append_result_char(L'\t'); break;
-                    case L'v':
-                        append_result_char(L'\v'); break;
-                    case L'0': case L'1': case L'2': case L'3': case L'4':
-                    case L'5': case L'6': case L'7': case L'8': case L'9':
-                    {
-                        // oct 1byte 
-                        int oct_ascii = escape_ch - L'0';
-                        for (int i = 0; i < 2; i++)
-                        {
-                            if (lexer::lex_isodigit(peek_char()))
-                            {
-                                oct_ascii *= 8;
-                                oct_ascii += lexer::lex_hextonum(read_char());
-                            }
-                            else
-                                break;
-                        }
-                        append_result_char(oct_ascii);
-                        break;
-                    }
-                    case L'X':
-                    case L'x':
-                    {
-                        // hex 1byte 
-                        int hex_ascii = 0;
-                        for (int i = 0; i < 2; i++)
-                        {
-                            if (lexer::lex_isxdigit(peek_char()))
-                            {
-                                hex_ascii *= 16;
-                                hex_ascii += lexer::lex_hextonum(read_char());
-                            }
-                            else if (i == 0)
-                                goto char_escape_sequences_fail;
-                            else
-                                break;
-                        }
-                        append_result_char(hex_ascii);
-                        break;
-                    }
-                    case L'U':
-                    case L'u':
-                    {
-                        // hex 1byte 
-                        int hex_ascii = 0;
-                        for (int i = 0; i < 4; i++)
-                        {
-                            if (lexer::lex_isxdigit(peek_char()))
-                            {
-                                hex_ascii *= 16;
-                                hex_ascii += lexer::lex_hextonum(read_char());
-                            }
-                            else if (i == 0)
-                                goto char_escape_sequences_fail;
-                            else
-                                break;
-                        }
-                        append_result_char(hex_ascii);
-                        break;
-                    }
-                    default:
-                    char_escape_sequences_fail:
-                        return produce_lexer_error(msglevel_t::error, WO_ERR_UNKNOW_ESCSEQ_BEGIN_WITH_CH, escape_ch);
-                    }
-                }
-                else
-                    append_result_char(following_ch);
-            }
-            else
-                return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXCEPTED_EOL_IN_CHAR);
-
-            following_ch = read_char();
-            if (following_ch == L'\'')
-                return produce_token(lex_type::l_literal_char, std::move(token_literal_result));
-            else if(following_ch == EOF)
-                return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXCEPT_EOF);
-            else
-                return produce_lexer_error(msglevel_t::error, WO_ERR_TOO_MANY_CHAR_IN_CHAR);
-        }
-        case L'(':
+        case '(':
         {
             append_result_char(readed_char);
             return produce_token(lex_type::l_left_brackets, std::move(token_literal_result));
         }
-        case L')':
+        case ')':
         {
             append_result_char(readed_char);
 
             return produce_token(lex_type::l_right_brackets, std::move(token_literal_result));
         }
-        case L'{':
+        case '{':
         {
             append_result_char(readed_char);
             ++_m_curry_count_in_format_string;
             return produce_token(lex_type::l_left_curly_braces, std::move(token_literal_result));
         }
-        case L'}':
+        case '}':
         {
             if (_m_in_format_string && _m_curry_count_in_format_string == 0)
             {
@@ -1073,9 +1024,9 @@ extern func macro_entry(lexer: std::lexer)=> string
             --_m_curry_count_in_format_string;
             return produce_token(lex_type::l_right_curly_braces, std::move(token_literal_result));
         }
-        case L'#':
+        case '#':
         {
-            if (peek_char() == L'!')
+            if (peek_char() == '!')
             {
                 // Is shebang, skip this line.
                 // Skip '!'
@@ -1097,15 +1048,15 @@ extern func macro_entry(lexer: std::lexer)=> string
 
             // Read sharp
             // #macro
-            std::wstring pragma_name;
+            std::string pragma_name;
             if (lexer::lex_isidentbeg(peek_char()))
             {
-                pragma_name += (wchar_t)read_char();
+                pragma_name += read_char();
                 while (lexer::lex_isident(peek_char()))
-                    pragma_name += (wchar_t)read_char();
+                    pragma_name += read_char();
             }
 
-            if (pragma_name == L"macro")
+            if (pragma_name == "macro")
             {
                 // OK FINISH PRAGMA, CONTINUE
                 auto macro_instance = std::make_unique<macro>(*this);
@@ -1123,8 +1074,8 @@ extern func macro_entry(lexer: std::lexer)=> string
                     produce_lexer_error(
                         msglevel_t::error, WO_ERR_UNKNOWN_REPEAT_MACRO_DEFINE, macro_name.c_str());
 
-                    wchar_t describe[256] = {};
-                    swprintf(describe, 256, WO_INFO_SYMBOL_NAMED_DEFINED_HERE, macro_name.c_str());
+                    char describe[256] = {};
+                    snprintf(describe, 256, WO_INFO_SYMBOL_NAMED_DEFINED_HERE, macro_name.c_str());
                     (void)record_message(
                         compiler_message_t{
                             msglevel_t::infom,
@@ -1136,7 +1087,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                 }
                 return;
             }
-            else if (pragma_name == L"line")
+            else if (pragma_name == "line")
             {
                 auto* file_name = peek();
                 if (file_name->m_lex_type != lex_type::l_literal_string)
@@ -1176,7 +1127,7 @@ extern func macro_entry(lexer: std::lexer)=> string
             }
             return;
         }
-        case L'λ':
+        case 'λ':
             goto checking_valid_operator;
         case EOF:
         {
@@ -1214,7 +1165,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                 // ATTENTION, SECURE:
                 //  Disable macro handler if source_file == nullptr, it's in deserialize.
                 //  Processing macros here may lead to arbitrary code execution.
-                if (peek_char() == L'!' && m_source_path.has_value())
+                if (peek_char() == '!' && m_source_path.has_value())
                 {
                     (void)read_char(); // Eat `!`
                     return produce_token(lex_type::l_macro, std::move(token_literal_result));
@@ -1235,18 +1186,26 @@ extern func macro_entry(lexer: std::lexer)=> string
                 bool is_handle = false;
 
                 // is digit, return l_literal_integer/l_literal_handle/l_literal_real
-                if (readed_char == L'0')
+                if (readed_char == '0')
                 {
                     // it may be OCT DEC HEX
-                    int sec_ch = peek_char();
-                    if (lexer::lex_toupper(sec_ch) == 'X')
+                    switch (char sec_ch = peek_char())
+                    {
+                    case 'x':
+                    case 'X':
                         base = 16;                      // is hex
-                    else if (lexer::lex_toupper(sec_ch) == 'B')
+                        break;
+                    case 'b':
+                    case 'B':
                         base = 2;                      // is bin
-                    else if (lexer::lex_isodigit(sec_ch))
-                        base = 8;                       // is oct
-                    else
-                        base = 10;                      // is dec
+                        break;
+                    default:
+                        if (lexer::lex_isodigit(sec_ch))
+                            base = 8;                   // is oct
+                        else
+                            base = 10;                  // is dec
+                        break;
+                    }
                 }
 
                 int following_chs;
@@ -1266,14 +1225,14 @@ extern func macro_entry(lexer: std::lexer)=> string
                     {
                         if (lexer::lex_isdigit(following_chs))
                             append_result_char(read_char());
-                        else if (following_chs == L'.')
+                        else if (following_chs == '.')
                         {
                             append_result_char(read_char());
                             if (is_real)
                                 return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXCEPT_CH_AFTER_CH, readed_char, following_chs);
                             is_real = true;
                         }
-                        else if (lexer::lex_toupper(following_chs) == L'H')
+                        else if (following_chs == 'H' || following_chs == 'h')
                         {
                             if (is_real)
                                 return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXCEPT_CH_AFTER_CH, readed_char, following_chs);
@@ -1288,11 +1247,11 @@ extern func macro_entry(lexer: std::lexer)=> string
                     }
                     else if (base == 16)
                     {
-                        if (lexer::lex_isxdigit(following_chs) || lexer::lex_toupper(following_chs) == L'X')
+                        if (lexer::lex_isxdigit(following_chs) || following_chs == 'X' || following_chs == 'x')
                             append_result_char(read_char());
-                        else if (following_chs == L'.')
+                        else if (following_chs == '.')
                             return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXCEPT_CH_AFTER_CH, readed_char, following_chs);
-                        else if (lexer::lex_toupper(following_chs) == L'H')
+                        else if (following_chs == 'H' || following_chs == 'h')
                         {
                             (void)read_char();
                             is_handle = true;
@@ -1307,9 +1266,9 @@ extern func macro_entry(lexer: std::lexer)=> string
                     {
                         if (lexer::lex_isodigit(following_chs))
                             append_result_char(read_char());
-                        else if (following_chs == L'.')
+                        else if (following_chs == '.')
                             return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXCEPT_CH_AFTER_CH, readed_char, following_chs);
-                        else if (lexer::lex_toupper(following_chs) == L'H')
+                        else if (following_chs == 'H' || following_chs == 'h')
                         {
                             (void)read_char();
                             is_handle = true;
@@ -1322,11 +1281,11 @@ extern func macro_entry(lexer: std::lexer)=> string
                     }
                     else if (base == 2)
                     {
-                        if (following_chs == L'1' || following_chs == L'0' || lexer::lex_toupper(following_chs) == L'B')
+                        if (following_chs == '1' || following_chs == '0' || following_chs == 'B' || following_chs == 'b')
                             append_result_char(read_char());
-                        else if (following_chs == L'.')
+                        else if (following_chs == '.')
                             return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXCEPT_CH_AFTER_CH, readed_char, following_chs);
-                        else if (lexer::lex_toupper(following_chs) == L'H')
+                        else if (following_chs == 'H' || following_chs == 'b')
                         {
                             (void)read_char();
                             is_handle = true;
@@ -1366,7 +1325,9 @@ extern func macro_entry(lexer: std::lexer)=> string
                     if (!lexer::lex_isoperatorch(following_ch))
                         break;
 
-                    lex_type tmp_op_type = lexer::lex_is_valid_operator(token_literal_result + (wchar_t)following_ch);
+                    lex_type tmp_op_type = lexer::lex_is_valid_operator(
+                        token_literal_result + (char)following_ch);
+
                     if (tmp_op_type != lex_type::l_error)
                     {
                         // maxim eat!
@@ -1400,7 +1361,7 @@ extern func macro_entry(lexer: std::lexer)=> string
         while (true)
         {
             following_ch = read_char();
-            if (following_ch == L'"')
+            if (following_ch == '"')
             {
                 if (is_format_string_begin)
                     return produce_token(lex_type::l_literal_string, std::move(token_literal_result));
@@ -1410,7 +1371,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                     return produce_token(lex_type::l_format_string_end, std::move(token_literal_result));
                 }
             }
-            if (following_ch == L'{')
+            if (following_ch == '{')
             {
                 _m_curry_count_in_format_string = 0;
                 _m_in_format_string = true;
@@ -1422,38 +1383,38 @@ extern func macro_entry(lexer: std::lexer)=> string
             }
             if (following_ch != EOF && following_ch != '\n')
             {
-                if (following_ch == L'\\')
+                if (following_ch == '\\')
                 {
                     // Escape character 
                     int escape_ch = read_char();
                     switch (escape_ch)
                     {
-                    case L'\'':
-                    case L'"':
-                    case L'?':
-                    case L'\\':
-                    case L'{':
-                    case L'}':
+                    case '\'':
+                    case '"':
+                    case '?':
+                    case '\\':
+                    case '{':
+                    case '}':
                         append_result_char(escape_ch); break;
-                    case L'a':
-                        append_result_char(L'\a'); break;
-                    case L'b':
-                        append_result_char(L'\b'); break;
-                    case L'f':
-                        append_result_char(L'\f'); break;
-                    case L'n':
-                        append_result_char(L'\n'); break;
-                    case L'r':
-                        append_result_char(L'\r'); break;
-                    case L't':
-                        append_result_char(L'\t'); break;
-                    case L'v':
-                        append_result_char(L'\v'); break;
-                    case L'0': case L'1': case L'2': case L'3': case L'4':
-                    case L'5': case L'6': case L'7': case L'8': case L'9':
+                    case 'a':
+                        append_result_char('\a'); break;
+                    case 'b':
+                        append_result_char('\b'); break;
+                    case 'f':
+                        append_result_char('\f'); break;
+                    case 'n':
+                        append_result_char('\n'); break;
+                    case 'r':
+                        append_result_char('\r'); break;
+                    case 't':
+                        append_result_char('\t'); break;
+                    case 'v':
+                        append_result_char('\v'); break;
+                    case '0': case '1': case '2': case '3': case '4':
+                    case '5': case '6': case '7': case '8': case '9':
                     {
                         // oct 1byte 
-                        int oct_ascii = escape_ch - L'0';
+                        int oct_ascii = escape_ch - '0';
                         for (int i = 0; i < 2; i++)
                         {
                             if (lexer::lex_isodigit(peek_char()))
@@ -1467,8 +1428,8 @@ extern func macro_entry(lexer: std::lexer)=> string
                         append_result_char(oct_ascii);
                         break;
                     }
-                    case L'X':
-                    case L'x':
+                    case 'X':
+                    case 'x':
                     {
                         // hex 1byte 
                         int hex_ascii = 0;
@@ -1487,8 +1448,8 @@ extern func macro_entry(lexer: std::lexer)=> string
                         append_result_char(hex_ascii);
                         break;
                     }
-                    case L'U':
-                    case L'u':
+                    case 'U':
+                    case 'u':
                     {
                         // hex 1byte 
                         int hex_ascii = 0;
@@ -1524,7 +1485,7 @@ extern func macro_entry(lexer: std::lexer)=> string
         // Cannot be here.
         wo_error("Cannot be here.");
     }
-    bool lexer::try_handle_macro(const std::wstring& macro_name)
+    bool lexer::try_handle_macro(const std::string& macro_name)
     {
         size_t macro_pre_begin_row = _m_this_token_pre_begin_row;
         size_t macro_pre_begin_col = _m_this_token_pre_begin_col;
@@ -1562,7 +1523,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                 produce_lexer_error(msglevel_t::error,
                     WO_ERR_FAILED_TO_RUN_MACRO_CONTROLOR,
                     fnd->second->macro_name.c_str(),
-                    wo::str_to_wstr(wo_get_runtime_error(fnd->second->_macro_action_vm)).c_str());
+                    wo_get_runtime_error(fnd->second->_macro_action_vm));
 
                 return false;
             }
@@ -1572,15 +1533,15 @@ extern func macro_entry(lexer: std::lexer)=> string
                 // We can use it directly.
                 wo_pstring_t result_content_vfile =
                     wstring_pool::get_pstr(
-                        VIRTUAL_FILE_SCHEME_W + wo::str_to_wstr(
-                            m_shared_context->register_temp_virtual_file(
-                                wo_string(result))));
+                        std::string(VIRTUAL_FILE_SCHEME_M) +
+                        m_shared_context->register_temp_virtual_file(
+                            wo_string(result)));
 
                 wo::lexer tmp_lex(
                     this, // We can generate macro define by macro result.
                     result_content_vfile,
-                    std::make_unique<std::wistringstream>(
-                        wo::str_to_wstr(wo_string(result))));
+                    std::make_unique<std::istringstream>(
+                        wo_string(result)));
 
                 tmp_lex.begin_trying_block();
 
@@ -1653,7 +1614,7 @@ extern func macro_entry(lexer: std::lexer)=> string
         else
         {
             // Unfound macro.
-            produce_token(lex_type::l_macro, std::wstring(macro_name));
+            produce_token(lex_type::l_macro, std::string(macro_name));
             return false;
         }
     }
