@@ -3,7 +3,7 @@
 //
 // Here will have woolang c api;
 //
-#define WO_VERSION WO_VER(1, 14, 9, 1)
+#define WO_VERSION WO_VER(1, 14, 9, 2)
 
 #ifdef __cplusplus
 #include <cstdint>
@@ -843,6 +843,119 @@ typedef struct _wo_lspv2_macro_info
     wo_lspv2_location m_location;
 } wo_lspv2_macro_info;
 
+typedef enum _wo_lspv2_lexer_token
+{
+    WO_LSPV2_TOKEN_EOF = -1,
+    WO_LSPV2_TOKEN_ERROR = 0,
+    WO_LSPV2_TOKEN_EMPTY,                // [empty]
+    WO_LSPV2_TOKEN_IDENTIFIER,           // identifier.
+    WO_LSPV2_TOKEN_LITERAL_INTEGER,      // 1 233 0x123456 0b1101001 032
+    WO_LSPV2_TOKEN_LITERAL_HANDLE,       // 0L 256L 0xFFL
+    WO_LSPV2_TOKEN_LITERAL_REAL,         // 0.2  0.
+    WO_LSPV2_TOKEN_LITERAL_STRING,       // "helloworld"
+    WO_LSPV2_TOKEN_LITERAL_CHAR,         // 'x'
+    WO_LSPV2_TOKEN_FORMAT_STRING_BEGIN,  // F"..{
+    WO_LSPV2_TOKEN_FORMAT_STRING,        // }..{ 
+    WO_LSPV2_TOKEN_FORMAT_STRING_END,    // }.."
+    WO_LSPV2_TOKEN_SEMICOLON,            // ;
+    WO_LSPV2_TOKEN_COMMA,                // ,
+    WO_LSPV2_TOKEN_ADD,                  // +
+    WO_LSPV2_TOKEN_SUB,                  // - 
+    WO_LSPV2_TOKEN_MUL,                  // * 
+    WO_LSPV2_TOKEN_DIV,                  // / 
+    WO_LSPV2_TOKEN_MOD,                  // % 
+    WO_LSPV2_TOKEN_ASSIGN,               // =
+    WO_LSPV2_TOKEN_ADD_ASSIGN,           // +=
+    WO_LSPV2_TOKEN_SUB_ASSIGN,           // -= 
+    WO_LSPV2_TOKEN_MUL_ASSIGN,           // *=
+    WO_LSPV2_TOKEN_DIV_ASSIGN,           // /= 
+    WO_LSPV2_TOKEN_MOD_ASSIGN,           // %= 
+    WO_LSPV2_TOKEN_VALUE_ASSIGN,         // :=
+    WO_LSPV2_TOKEN_VALUE_ADD_ASSIGN,     // +:=
+    WO_LSPV2_TOKEN_VALUE_SUB_ASSIGN,     // -:= 
+    WO_LSPV2_TOKEN_VALUE_MUL_ASSIGN,     // *:=
+    WO_LSPV2_TOKEN_VALUE_DIV_ASSIGN,     // /:= 
+    WO_LSPV2_TOKEN_VALUE_MOD_ASSIGN,     // %:= 
+    WO_LSPV2_TOKEN_EQUAL,                // ==
+    WO_LSPV2_TOKEN_NOT_EQUAL,            // !=
+    WO_LSPV2_TOKEN_LARG_OR_EQUAL,        // >=
+    WO_LSPV2_TOKEN_LESS_OR_EQUAL,        // <=
+    WO_LSPV2_TOKEN_LESS,                 // <
+    WO_LSPV2_TOKEN_LARG,                 // >
+    WO_LSPV2_TOKEN_LAND,                 // &&
+    WO_LSPV2_TOKEN_LOR,                  // ||
+    WO_LSPV2_TOKEN_OR,                   // |
+    WO_LSPV2_TOKEN_LNOT,                 // !
+    WO_LSPV2_TOKEN_SCOPEING,             // ::
+    WO_LSPV2_TOKEN_TEMPLATE_USING_BEGIN, // :<
+    WO_LSPV2_TOKEN_TYPECAST,             // :
+    WO_LSPV2_TOKEN_INDEX_POINT,          // .
+    WO_LSPV2_TOKEN_DOUBLE_INDEX_POINT,   // .. [Reserved]
+    WO_LSPV2_TOKEN_VARIADIC_SIGN,        // ...
+    WO_LSPV2_TOKEN_INDEX_BEGIN,          // '['
+    WO_LSPV2_TOKEN_INDEX_END,            // ']'
+    WO_LSPV2_TOKEN_DIRECT,               // '->'
+    WO_LSPV2_TOKEN_INV_DIRECT,           // '<|'
+    WO_LSPV2_TOKEN_FUNCTION_RESULT,      // '=>'
+    WO_LSPV2_TOKEN_BIND_MONAD,           // '=>>'
+    WO_LSPV2_TOKEN_MAP_MONAD,            // '->>'
+    WO_LSPV2_TOKEN_LEFT_BRACKETS,        // (
+    WO_LSPV2_TOKEN_RIGHT_BRACKETS,       // )
+    WO_LSPV2_TOKEN_LEFT_CURLY_BRACES,    // {
+    WO_LSPV2_TOKEN_RIGHT_CURLY_BRACES,   // }
+    WO_LSPV2_TOKEN_QUESTION,             // ?
+    WO_LSPV2_TOKEN_IMPORT,
+    WO_LSPV2_TOKEN_EXPORT,
+    WO_LSPV2_TOKEN_NIL,
+    WO_LSPV2_TOKEN_TRUE,
+    WO_LSPV2_TOKEN_FALSE,
+    WO_LSPV2_TOKEN_WHILE,
+    WO_LSPV2_TOKEN_IF,
+    WO_LSPV2_TOKEN_ELSE,
+    WO_LSPV2_TOKEN_NAMESPACE,
+    WO_LSPV2_TOKEN_FOR,
+    WO_LSPV2_TOKEN_EXTERN,
+    WO_LSPV2_TOKEN_LET,
+    WO_LSPV2_TOKEN_MUT,
+    WO_LSPV2_TOKEN_FUNC,
+    WO_LSPV2_TOKEN_RETURN,
+    WO_LSPV2_TOKEN_USING,
+    WO_LSPV2_TOKEN_ALIAS,
+    WO_LSPV2_TOKEN_ENUM,
+    WO_LSPV2_TOKEN_AS,
+    WO_LSPV2_TOKEN_IS,
+    WO_LSPV2_TOKEN_TYPEOF,
+    WO_LSPV2_TOKEN_PRIVATE,
+    WO_LSPV2_TOKEN_PUBLIC,
+    WO_LSPV2_TOKEN_PROTECTED,
+    WO_LSPV2_TOKEN_STATIC,
+    WO_LSPV2_TOKEN_BREAK,
+    WO_LSPV2_TOKEN_CONTINUE,
+    WO_LSPV2_TOKEN_LAMBDA,
+    WO_LSPV2_TOKEN_AT,
+    WO_LSPV2_TOKEN_DO,
+    WO_LSPV2_TOKEN_WHERE,
+    WO_LSPV2_TOKEN_OPERATOR,
+    WO_LSPV2_TOKEN_UNION,
+    WO_LSPV2_TOKEN_MATCH,
+    WO_LSPV2_TOKEN_STRUCT,
+    WO_LSPV2_TOKEN_IMMUT,
+    WO_LSPV2_TOKEN_TYPEID,
+    WO_LSPV2_TOKEN_MACRO,
+    WO_LSPV2_TOKEN_UNKNOWN_TOKEN,
+
+}wo_lspv2_lexer_token;
+
+typedef struct _wo_lspv2_lexer wo_lspv2_lexer;
+typedef struct _wo_lspv2_token_info
+{
+    wo_lspv2_lexer_token m_token;
+
+    const void* m_token_serial;
+    size_t m_token_length;
+
+} wo_lspv2_token_info;
+
 WO_API wo_size_t wo_lspv2_sub_version(void);
 
 WO_API wo_lspv2_source_meta* wo_lspv2_compile_to_meta(
@@ -908,6 +1021,14 @@ WO_API void wo_lspv2_type_struct_info_free(wo_lspv2_type_struct_info* info);
 WO_API wo_lspv2_constant_info* wo_lspv2_constant_get_info(
     wo_lspv2_constant* constant, wo_lspv2_source_meta* meta);
 WO_API void wo_lspv2_constant_info_free(wo_lspv2_constant_info* info);
+
+// Lexer API
+WO_API wo_lspv2_lexer* wo_lspv2_lexer_create(const char* src);
+WO_API void wo_lspv2_lexer_free(wo_lspv2_lexer* lexer);
+WO_API wo_lspv2_token_info* wo_lspv2_lexer_peek(wo_lspv2_lexer* lexer);
+WO_API void wo_lspv2_lexer_consume(wo_lspv2_lexer* lexer);
+WO_API void wo_lspv2_token_info_free(wo_lspv2_token_info* info);
+
 #endif
 
 #if defined(WO_NEED_ERROR_CODES)

@@ -2,6 +2,8 @@
 
 #ifndef WO_DISABLE_COMPILER
 
+static_assert(WO_NEED_LSP_API);
+
 constexpr wo_size_t WO_LSPV2_SUB_VERSION = 4;
 
 wo_size_t wo_lspv2_sub_version(void)
@@ -17,8 +19,6 @@ wo::compile_result _wo_compile_impl(
     std::optional<wo::shared_pointer<wo::runtime_env>>* out_env_if_success,
     std::optional<std::unique_ptr<wo::lexer>>* out_lexer_if_failed,
     std::optional<std::unique_ptr<wo::LangContext>>* out_langcontext_if_pass_grammar);
-
-static_assert(WO_NEED_LSP_API);
 
 struct _wo_lspv2_source_meta
 {
@@ -828,4 +828,47 @@ void wo_lspv2_constant_info_free(wo_lspv2_constant_info* info)
     free(const_cast<char*>(info->m_expr));
     delete info;
 }
+
+wo_lspv2_lexer* wo_lspv2_lexer_create(const char* src)
+{
+    return reinterpret_cast<wo_lspv2_lexer*>(
+        new wo::lexer(
+            std::nullopt,
+            std::nullopt,
+            std::make_unique<std::wistringstream>(wo::str_to_wstr(src))));
+}
+void wo_lspv2_lexer_free(wo_lspv2_lexer* lexer)
+{
+    delete reinterpret_cast<wo::lexer*>(lexer);
+}
+wo_lspv2_token_info* wo_lspv2_lexer_peek(
+    wo_lspv2_lexer* lexer)
+{
+    wo::lexer* lex = reinterpret_cast<wo::lexer*>(lexer);
+    auto* token = lex->peek();
+
+    size_t token_serial_length;
+    auto* token_serial = wo::u8wcstombs(
+        token->m_token_text.data(),
+        token->m_token_text.size(),
+        &token_serial_length);
+
+    return new wo_lspv2_token_info{
+        (wo_lspv2_lexer_token)token->m_lex_type,
+        token_serial,
+        token_serial_length,
+    };
+}
+void wo_lspv2_lexer_consume(wo_lspv2_lexer* lexer)
+{
+    wo::lexer* lex = reinterpret_cast<wo::lexer*>(lexer);
+
+    lex->consume_forward();
+}
+void wo_lspv2_token_info_free(wo_lspv2_token_info* info)
+{
+    delete[] info->m_token_serial;
+    delete info;
+}
+
 #endif
