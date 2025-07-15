@@ -1407,8 +1407,8 @@ extern func macro_entry(lexer: std::lexer)=> string
                         append_result_char('\t'); break;
                     case 'v':
                         append_result_char('\v'); break;
-                    case '0': case '1': case '2': case '3': case '4':
-                    case '5': case '6': case '7': case '8': case '9':
+                    case '0': case '1': case '2': case '3':
+                    case '4': case '5': case '6': case '7':
                     {
                         // oct 1byte 
                         int oct_ascii = escape_ch - '0';
@@ -1425,7 +1425,6 @@ extern func macro_entry(lexer: std::lexer)=> string
                         append_result_char(oct_ascii);
                         break;
                     }
-                    case 'X':
                     case 'x':
                     {
                         // hex 1byte 
@@ -1445,24 +1444,53 @@ extern func macro_entry(lexer: std::lexer)=> string
                         append_result_char(hex_ascii);
                         break;
                     }
-                    case 'U':
                     case 'u':
                     {
                         // hex 1byte 
-                        int hex_ascii = 0;
+                        char16_t hex_ascii[UTF16MAXLEN] = {};
                         for (int i = 0; i < 4; i++)
                         {
                             if (lexer::lex_isxdigit(peek_char()))
                             {
-                                hex_ascii *= 16;
-                                hex_ascii += lexer::lex_hextonum(read_char());
+                                hex_ascii[0] *= 16;
+                                hex_ascii[0] += lexer::lex_hextonum(read_char());
                             }
                             else if (i == 0)
-                                goto str_escape_sequences_fail_in_format_begin;
+                                goto str_escape_sequences_fail;
                             else
                                 break;
                         }
-                        append_result_char(hex_ascii);
+
+                        size_t u16_count = 1;
+                        if (wo::u16hisurrogate(hex_ascii[0]))
+                        {
+                            if (read_char() != '\\'
+                                || read_char() != 'u')
+                                // Should be a surrogate pair.
+                                goto str_escape_sequences_fail;
+
+                            for (int i = 0; i < 4; i++)
+                            {
+                                if (lexer::lex_isxdigit(peek_char()))
+                                {
+                                    hex_ascii[1] *= 16;
+                                    hex_ascii[1] += lexer::lex_hextonum(read_char());
+                                }
+                                else if (i == 0)
+                                    goto str_escape_sequences_fail;
+                                else
+                                    break;
+                            }
+                            u16_count = 2;
+                        }
+
+                        char u8buf[UTF8MAXLEN] = {};
+                        size_t u8len;
+
+                        if (u16_count != wo::u16exractu8(hex_ascii, u16_count, u8buf, &u8len))
+                            goto str_escape_sequences_fail;
+
+                        append_result_char_serial(u8buf, u8len);
                         break;
                     }
                     default:

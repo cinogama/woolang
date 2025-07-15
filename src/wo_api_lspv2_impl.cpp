@@ -38,14 +38,6 @@ struct _wo_lspv2_source_meta
     source_expr_collection_t m_source_expr_collection;
 };
 
-const char* _wo_strdup(const char* str)
-{
-    size_t len = strlen(str);
-    char* new_str = (char*)malloc(len + 1);
-    memcpy(new_str, str, len);
-    new_str[len] = '\0';
-    return new_str;
-}
 const char* _wo_strdupn(const char* str, size_t len)
 {
     char* new_str = (char*)malloc(len + 1);
@@ -53,6 +45,11 @@ const char* _wo_strdupn(const char* str, size_t len)
     new_str[len] = '\0';
     return new_str;
 }
+const char* _wo_strdup(const char* str)
+{
+    return _wo_strdupn(str, strlen(str));
+}
+
 
 wo_lspv2_source_meta* wo_lspv2_compile_to_meta(
     wo_string_t virtual_src_path,
@@ -868,7 +865,7 @@ void wo_lspv2_lexer_consume(wo_lspv2_lexer* lexer)
 }
 void wo_lspv2_token_info_free(wo_lspv2_token_info* info)
 {
-    delete[] info->m_token_serial;
+    free(const_cast<void*>(info->m_token_serial));
     delete info;
 }
 
