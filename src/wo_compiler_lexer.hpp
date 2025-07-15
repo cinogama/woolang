@@ -128,6 +128,9 @@ namespace wo
         l_immut,
         l_typeid,
         l_macro,
+        l_line_comment,
+        l_block_comment,
+        L_shebang_comment,
         l_unknown_token,
     };
 
@@ -396,14 +399,12 @@ namespace wo
         void import_ast_tree(ast::AstBase* astbase);
         ast::AstBase* merge_imported_ast_trees(ast::AstBase* node);
 
-        void skip_this_line();
-
         [[nodiscard]]
         int peek_char();
         [[nodiscard]]
         int read_char();
         [[nodiscard]]
-        peeked_token_t* peek();
+        peeked_token_t* peek(bool ignore_comment);
         void move_forward();
         void consume_forward();
         [[nodiscard]]

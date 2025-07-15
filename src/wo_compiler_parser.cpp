@@ -690,7 +690,7 @@ namespace wo
 
         do
         {
-            const lexer::peeked_token_t *peeked_token_instance = tkr.peek();
+            const lexer::peeked_token_t *peeked_token_instance = tkr.peek(true);
             if (lex_type::l_error == peeked_token_instance->m_lex_type)
             {
                 // Move forward;
@@ -784,7 +784,7 @@ namespace wo
                         {
                             wo::lex_type out_lex = lex_type::l_empty;
                             std::string out_str;
-                            while ((out_lex = tkr.peek()->m_lex_type) != lex_type::l_eof)
+                            while ((out_lex = tkr.peek(true)->m_lex_type) != lex_type::l_eof)
                             {
                                 for (te_nt_index_t fr : reduceables)
                                 {

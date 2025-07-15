@@ -1136,7 +1136,7 @@ wo_bool_t _wo_cast_array(wo_vm vm, wo::value* value, wo::lexer* lex)
 
     while (true)
     {
-        if (lex->peek()->m_lex_type == wo::lex_type::l_index_end)
+        if (lex->peek(true)->m_lex_type == wo::lex_type::l_index_end)
         {
             lex->move_forward();
             break;
@@ -1145,7 +1145,7 @@ wo_bool_t _wo_cast_array(wo_vm vm, wo::value* value, wo::lexer* lex)
         if (!_wo_cast_value(vm, &rsarr->emplace_back(), lex, wo::value::valuetype::invalid)) // val!
             return WO_FALSE;
 
-        if (lex->peek()->m_lex_type == wo::lex_type::l_comma)
+        if (lex->peek(true)->m_lex_type == wo::lex_type::l_comma)
             lex->move_forward();
     }
     return WO_TRUE;
@@ -1163,7 +1163,7 @@ wo_bool_t _wo_cast_map(wo_vm vm, wo::value* value, wo::lexer* lex)
 
     while (true)
     {
-        if (lex->peek()->m_lex_type == wo::lex_type::l_right_curly_braces)
+        if (lex->peek(true)->m_lex_type == wo::lex_type::l_right_curly_braces)
         {
             // end
             lex->move_forward();
@@ -1180,7 +1180,7 @@ wo_bool_t _wo_cast_map(wo_vm vm, wo::value* value, wo::lexer* lex)
 
         auto& val_place = (*rsmap)[*tempory_key_value_storage];
 
-        auto lex_type = lex->peek()->m_lex_type;
+        auto lex_type = lex->peek(true)->m_lex_type;
         lex->move_forward();
 
         if (lex_type != wo::lex_type::l_typecast)
@@ -1189,7 +1189,7 @@ wo_bool_t _wo_cast_map(wo_vm vm, wo::value* value, wo::lexer* lex)
         if (!_wo_cast_value(vm, &val_place, lex, wo::value::valuetype::invalid)) // value!
             return WO_FALSE;
 
-        if (lex->peek()->m_lex_type == wo::lex_type::l_comma)
+        if (lex->peek(true)->m_lex_type == wo::lex_type::l_comma)
             lex->move_forward();
     }
 
@@ -1200,7 +1200,7 @@ wo_bool_t _wo_cast_map(wo_vm vm, wo::value* value, wo::lexer* lex)
 }
 wo_bool_t _wo_cast_value(wo_vm vm, wo::value* value, wo::lexer* lex, wo::value::valuetype except_type)
 {
-    auto* token = lex->peek();
+    auto* token = lex->peek(true);
 
     if (token->m_lex_type == wo::lex_type::l_left_curly_braces) // is map
     {
@@ -1233,7 +1233,7 @@ wo_bool_t _wo_cast_value(wo_vm vm, wo::value* value, wo::lexer* lex, wo::value::
 
             lex->move_forward();
 
-            token = lex->peek();
+            token = lex->peek(true);
             if (token->m_lex_type != wo::lex_type::l_literal_integer
                 && token->m_lex_type != wo::lex_type::l_literal_real)
                 // wo_fail(WO_FAIL_TYPE_FAIL, "Unknown token while parsing.");

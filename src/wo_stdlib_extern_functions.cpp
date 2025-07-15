@@ -3011,7 +3011,7 @@ WO_API wo_api rslib_std_macro_lexer_peek(wo_vm vm, wo_value args)
     // ATTENTION: args might invalid after peek (
     //      if stack extension happend in recursive macro handling), 
     //  we cannot use args after peek.
-    auto* token_instance = lex->peek();
+    auto* token_instance = lex->peek(true);
 
     auto has_enter_gcguard = wo_enter_gcguard(vm);
 
@@ -3037,7 +3037,7 @@ WO_API wo_api rslib_std_macro_lexer_next(wo_vm vm, wo_value args)
     // ATTENTION: args might invalid after peek (
     //      if stack extension happend in recursive macro handling), 
     //  we cannot use args after peek.
-    auto* token_instance = lex->peek();
+    auto* token_instance = lex->peek(true);
 
     auto has_enter_gcguard = wo_enter_gcguard(vm);
 
@@ -3072,7 +3072,7 @@ WO_API wo_api rslib_std_macro_lexer_current_location(wo_vm vm, wo_value args)
     // ATTENTION: args might invalid after peek (
     //      if stack extension happend in recursive macro handling), 
     //  we cannot use args after peek.
-    auto* peek_token = lex->peek();
+    auto* peek_token = lex->peek(true);
 
     wo_value result = wo_register(vm, WO_REG_T0);
     wo_value elem = wo_register(vm, WO_REG_T1);
@@ -3193,6 +3193,9 @@ namespace std
         l_immut,
         l_typeid,
         l_macro,
+        l_line_comment,
+        l_block_comment,
+        l_block_comment_end,
         l_unknown_token,
     }
 

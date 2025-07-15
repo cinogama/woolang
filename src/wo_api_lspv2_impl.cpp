@@ -849,7 +849,7 @@ wo_lspv2_token_info* wo_lspv2_lexer_peek(
     wo_lspv2_lexer* lexer)
 {
     wo::lexer* lex = reinterpret_cast<wo::lexer*>(lexer);
-    auto* token = lex->peek();
+    auto* token = lex->peek(false);
 
     return new wo_lspv2_token_info{
         (wo_lspv2_lexer_token)token->m_lex_type,

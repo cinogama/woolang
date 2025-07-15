@@ -113,7 +113,7 @@ namespace wo
 
         PRINT_HELLOWORLD!;
         */
-        auto* macro_name_info = lex.peek();
+        auto* macro_name_info = lex.peek(true);
         macro_name = macro_name_info->m_token_text;
         begin_row = macro_name_info->m_token_begin[0];
         begin_col = macro_name_info->m_token_begin[1];
@@ -123,7 +123,7 @@ namespace wo
         lex.move_forward();
 
         size_t scope_count = 1;
-        if (lex.peek()->m_lex_type == lex_type::l_left_curly_braces)
+        if (lex.peek(true)->m_lex_type == lex_type::l_left_curly_braces)
         {
             std::streampos macro_begin_place = lex.m_source_stream->tellg();
 
@@ -148,7 +148,7 @@ extern func macro_entry(lexer: std::lexer)=> string
             bool meet_eof = false;
             do
             {
-                auto* readed_token = lex.peek();
+                auto* readed_token = lex.peek(true);
 
                 if (readed_token->m_lex_type == lex_type::l_right_curly_braces)
                     scope_count--;
@@ -670,16 +670,7 @@ extern func macro_entry(lexer: std::lexer)=> string
         _m_this_token_begin_row = _m_row_counter;
         _m_this_token_begin_col = _m_col_counter;
     }
-    void lexer::skip_this_line()
-    {
-        // Skip this line.
-        int skiped_char;
-        do
-        {
-            skiped_char = read_char();
-        } while (skiped_char != '\n' && skiped_char != EOF);
-    }
-    lexer::peeked_token_t* lexer::peek()
+    lexer::peeked_token_t* lexer::peek(bool ignore_comment)
     {
         for (;;)
         {
@@ -688,10 +679,13 @@ extern func macro_entry(lexer: std::lexer)=> string
 
             wo_assert(!_m_peeked_tokens.empty());
             lexer::peeked_token_t* peeked_token = &_m_peeked_tokens.front();
-            if (peeked_token->m_lex_type == lex_type::l_macro)
+
+            switch (peeked_token->m_lex_type)
+            {
+            case lex_type::l_macro:
             {
                 // We need to expand this macro here.
-                std::string macro_name = peeked_token->m_token_text;
+                std::string macro_name = std::move(peeked_token->m_token_text);
                 _m_peeked_tokens.pop();
 
                 if (!try_handle_macro(macro_name))
@@ -700,6 +694,18 @@ extern func macro_entry(lexer: std::lexer)=> string
                     return &_m_peeked_tokens.front();
                 }
                 continue;
+            }
+            case lex_type::l_line_comment:
+            case lex_type::l_block_comment:
+            case lex_type::L_shebang_comment:
+                if (ignore_comment)
+                {
+                    _m_peeked_tokens.pop();
+                    continue;
+                }
+                break;
+            default:
+                break;
             }
             return peeked_token;
         }
@@ -789,8 +795,16 @@ extern func macro_entry(lexer: std::lexer)=> string
                 // Skip '/'
                 (void)read_char();
 
-                skip_this_line();
-                return;
+                for (;;)
+                {
+                    peeked_char = read_char();
+
+                    if (peeked_char == '\n' || peeked_char == EOF)
+                        break;
+
+                    append_result_char(peeked_char);
+                }
+                return produce_token(lex_type::l_line_comment, std::move(token_literal_result));
             }
             else if (peeked_char == '*')
             {
@@ -798,9 +812,10 @@ extern func macro_entry(lexer: std::lexer)=> string
                 (void)read_char();
 
                 // Skip to next '*/'
-                do
+                for (;;)
                 {
                     peeked_char = read_char();
+
                     if (peeked_char == EOF)
                         break;
                     else if (peeked_char == '*')
@@ -809,8 +824,10 @@ extern func macro_entry(lexer: std::lexer)=> string
                         if (peeked_char == EOF || peeked_char == '/')
                             break;
                     }
-                } while (true);
-                return;
+
+                    append_result_char(peeked_char);
+                }
+                return produce_token(lex_type::l_block_comment, std::move(token_literal_result));
             }
             else
                 goto checking_valid_operator;
@@ -846,6 +863,8 @@ extern func macro_entry(lexer: std::lexer)=> string
             }
             else
                 goto checking_valid_operator;
+
+            wo_error("Cannot be here.");
         }
         case '\'':
         case '"':
@@ -994,6 +1013,8 @@ extern func macro_entry(lexer: std::lexer)=> string
                 else
                     return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXCEPTED_EOL_IN_STRING);
             }
+
+            wo_error("Cannot be here.");
         }
         case '(':
         {
@@ -1031,7 +1052,17 @@ extern func macro_entry(lexer: std::lexer)=> string
                 // Skip '!'
                 (void)read_char();
 
-                skip_this_line();
+                int peeked_char;
+                for (;;)
+                {
+                    peeked_char = read_char();
+
+                    if (peeked_char == '\n' || peeked_char == EOF)
+                        break;
+
+                    append_result_char(peeked_char);
+                }
+                return produce_token(lex_type::L_shebang_comment, std::move(token_literal_result));
                 return;
             }
 
@@ -1088,7 +1119,7 @@ extern func macro_entry(lexer: std::lexer)=> string
             }
             else if (pragma_name == "line")
             {
-                auto* file_name = peek();
+                auto* file_name = peek(true);
                 if (file_name->m_lex_type != lex_type::l_literal_string)
                 {
                     return produce_lexer_error(
@@ -1097,7 +1128,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                 auto new_shown_file_path = wo::wstring_pool::get_pstr(file_name->m_token_text);
                 move_forward();
 
-                auto* row_no = peek();
+                auto* row_no = peek(true);
                 if (row_no->m_lex_type != lex_type::l_literal_integer)
                 {
                     return produce_lexer_error(
@@ -1106,7 +1137,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                 auto new_row_counter = read_from_unsigned_literal(row_no->m_token_text.c_str());
                 move_forward();
 
-                auto* col_no = peek();
+                auto* col_no = peek(true);
                 if (col_no->m_lex_type != lex_type::l_literal_integer)
                 {
                     return produce_lexer_error(
@@ -1584,7 +1615,7 @@ extern func macro_entry(lexer: std::lexer)=> string
 
                 for (;;)
                 {
-                    auto* token_instance = tmp_lex.peek();
+                    auto* token_instance = tmp_lex.peek(true);
 
                     if (token_instance->m_lex_type == wo::lex_type::l_error
                         || token_instance->m_lex_type == wo::lex_type::l_eof)
