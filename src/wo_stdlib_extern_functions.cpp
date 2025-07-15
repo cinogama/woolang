@@ -3216,22 +3216,33 @@ namespace std
             else if (type == token_type::l_format_string_begin)
             {
                 let enstr = str->enstring;
-                return "F" + enstr->sub_len(0, enstr->len-1) + "{";
+                return "F" 
+                    + enstr->sub_len(0, enstr->len - 1)
+                        ->replace("{", "\\{") 
+                        ->replace("}", "\\}") 
+                    + "{";
             }
             else if (type == token_type::l_format_string)
             {
                 let enstr = str->enstring;
-                return "}" + enstr->sub_len(1, enstr->len-2) + "{";
+                return "}" 
+                    + enstr->sub_len(1, enstr->len - 2) 
+                        ->replace("{", "\\{") 
+                        ->replace("}", "\\}") 
+                    + "{";
             }
             else if (type == token_type::l_format_string_end)
             {
                 let enstr = str->enstring;
-                return "}" + enstr->sub_len(1, enstr->len-1);
+                return "}" 
+                    + enstr->sub_len(1, enstr->len - 1)
+                        ->replace("{", "\\{") 
+                        ->replace("}", "\\}") ;
             }
             else if (type == token_type::l_literal_char)
             {
                 let enstr = str->enstring;
-                return F"'{enstr->sub_len(1, enstr->len-2)}'";
+                return F"'{enstr->sub_len(1, enstr->len - 2)}'";
             }
             else if (type == token_type::l_macro)
                 return str + "!";

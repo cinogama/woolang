@@ -3,7 +3,7 @@
 //
 // Here will have woolang c api;
 //
-#define WO_VERSION WO_VER(1, 14, 9, 2)
+#define WO_VERSION WO_VER(1, 14, 9, 3)
 
 #ifdef __cplusplus
 #include <cstdint>
@@ -964,10 +964,10 @@ WO_API wo_lspv2_source_meta* wo_lspv2_compile_to_meta(
     wo_string_t src);
 WO_API void wo_lspv2_meta_free(wo_lspv2_source_meta* meta);
 
-WO_API wo_lspv2_error_iter* /* null if not exist */
-wo_lspv2_compile_err_iter(wo_lspv2_source_meta* meta);
-WO_API wo_lspv2_error_info* /* null if end */
-wo_lspv2_compile_err_next(wo_lspv2_error_iter* iter);
+WO_API wo_lspv2_error_iter* /* null if not exist */wo_lspv2_compile_err_iter(
+    wo_lspv2_source_meta* meta);
+WO_API wo_lspv2_error_info* /* null if end */wo_lspv2_compile_err_next(
+    wo_lspv2_error_iter* iter);
 WO_API void wo_lspv2_err_info_free(wo_lspv2_error_info* info);
 
 WO_API const char* /* Thread local */ wo_lspv2_token_info_enstring(
