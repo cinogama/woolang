@@ -34,15 +34,13 @@ namespace wo
         wo_ostream& operator <<(const T& oitem)
         {
             if (config::ENABLE_OUTPUT_ANSI_COLOR_CTRL)
-            {
                 os << oitem;
-            }
             else
             {
-                if constexpr (wo::meta::is_string<T>::value || wo::meta::is_wstring<T>::value)
+                if constexpr (wo::meta::is_string<T>::value)
                 {
                     bool skipping_ansi_code = false;
-                    if constexpr (std::is_same<T, std::string>::value || std::is_same<T, std::wstring>::value)
+                    if constexpr (std::is_same<T, std::string>::value)
                     {
                         for (auto chbeg = oitem.begin(); chbeg != oitem.end(); chbeg++)
                         {
@@ -83,7 +81,4 @@ namespace wo
 
     inline static wo_ostream wo_stdout(std::cout);
     inline static wo_ostream wo_stderr(std::cerr);
-    inline static wo_ostream<std::wostream> wo_wstdout(std::wcout);
-    inline static wo_ostream<std::wostream> wo_wstderr(std::wcerr);
-
 }

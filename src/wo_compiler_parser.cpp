@@ -528,12 +528,12 @@ namespace wo
         }
     }
 
-    bool grammar::check_lr1(std::wostream &ostrm)
+    bool grammar::check_lr1(std::ostream &ostrm)
     {
         bool result = false;
         for (size_t i = 0; i < ORGIN_P.size(); i++)
         {
-            ostrm << i << L"\t" << lr_item{ORGIN_P[i], size_t(-1), te(ttype::l_eof)} << std::endl;
+            ostrm << i << "\t" << lr_item{ORGIN_P[i], size_t(-1), te(ttype::l_eof)} << std::endl;
             ;
         }
 
@@ -544,8 +544,8 @@ namespace wo
                 if (LR.second.size() >= 2)
                 {
                     if (!result)
-                        ostrm << L"LR1 has a grammatical conflict:" << std::endl;
-                    ostrm << L"In state: " << LR1.first << L" Symbol: ";
+                        ostrm << "LR1 has a grammatical conflict:" << std::endl;
+                    ostrm << "In state: " << LR1.first << " Symbol: ";
                     if (std::holds_alternative<te>(LR.first))
                         ostrm << std::get<te>(LR.first) << std::endl;
                     else
@@ -783,7 +783,7 @@ namespace wo
                         if (!reduceables.empty())
                         {
                             wo::lex_type out_lex = lex_type::l_empty;
-                            std::wstring out_str;
+                            std::string out_str;
                             while ((out_lex = tkr.peek()->m_lex_type) != lex_type::l_eof)
                             {
                                 for (te_nt_index_t fr : reduceables)
@@ -964,62 +964,53 @@ namespace wo
 
         return nullptr;
     }
-    std::wostream &operator<<(std::wostream &ost, const grammar::lr_item &lri)
+    std::ostream &operator<<(std::ostream &ost, const grammar::lr_item &lri)
     {
         ost << (lri.item_rule.first.nt_name) << "->";
         size_t index = 0;
         for (auto &s : lri.item_rule.second)
         {
             if (index == lri.next_sign)
-            {
-                ost << L" * ";
-            }
+                ost << " * ";
+
             if (std::holds_alternative<grammar::te>(s))
             {
                 const grammar::te &v = std::get<grammar::te>(s);
-                if (v.t_name == L"")
-                {
-                    ost << L" token: " << v.t_type << L" ";
-                }
+                if (v.t_name == "")
+                    ost << " token: " << v.t_type << " ";
                 else
-                {
                     ost << v.t_name;
-                }
             }
             else
-            {
-                const grammar::nt &v = std::get<grammar::nt>(s);
-                ost << (v.nt_name);
-            }
+                ost << (std::get<grammar::nt>(s).nt_name);
             index++;
         }
         if (index == lri.next_sign)
-        {
-            ost << L" * ";
-        }
+            ost << " * ";
+
         ost << "," << lri.prospect;
         return ost;
     }
-    std::wostream &operator<<(std::wostream &ost, const grammar::terminal &ter)
+    std::ostream &operator<<(std::ostream &ost, const grammar::terminal &ter)
     {
-        if (ter.t_name == L"")
+        if (ter.t_name == "")
         {
             if (ter.t_type == lex_type::l_eof)
-                ost << L"$";
+                ost << "$";
             else if (ter.t_type == lex_type::l_semicolon)
-                ost << L";";
+                ost << ";";
             else if (ter.t_type == lex_type::l_comma)
-                ost << L",";
+                ost << ",";
             else
                 ost << "token: " << (lex_type_base_t)ter.t_type;
         }
         else
-            ost << (ter.t_name);
+            ost << ter.t_name;
         return ost;
     }
-    std::wostream &operator<<(std::wostream &ost, const grammar::nonterminal &noter)
+    std::ostream &operator<<(std::ostream &ost, const grammar::nonterminal &noter)
     {
-        ost << (noter.nt_name);
+        ost << noter.nt_name;
         return ost;
     }
 

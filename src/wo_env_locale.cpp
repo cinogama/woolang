@@ -21,6 +21,91 @@ namespace wo
 
 #ifdef _WIN32
     const char* DEFAULT_LOCALE_NAME = ".UTF-8";
+
+    class cin_win32_u16_to_u8 : public std::streambuf
+    {
+        static constexpr size_t BUFFER_LIMIT = 16384;
+     
+        bool m_eof_flag;
+
+        size_t m_u16exract_place;
+        size_t m_u16readable_length;
+
+        char m_u8buffer[BUFFER_LIMIT];
+        wchar_t m_u16buffer[BUFFER_LIMIT];
+
+    public:
+        cin_win32_u16_to_u8()
+            : m_eof_flag(false)
+            , m_u16exract_place(BUFFER_LIMIT)
+            , m_u16readable_length(0)
+        {
+        }
+
+        virtual int_type underflow() override
+        {
+            if (m_eof_flag)
+                return traits_type::eof();
+
+            if (gptr() < egptr())
+                return traits_type::to_int_type(*gptr());
+
+            if (m_u16exract_place == BUFFER_LIMIT)
+            {
+                DWORD readed_u16count;
+                if (FALSE == ReadConsoleW(
+                    GetStdHandle(STD_INPUT_HANDLE),
+                    m_u16buffer,
+                    BUFFER_LIMIT,
+                    &readed_u16count,
+                    NULL) || readed_u16count == 0)
+                {
+                    // Unable to read?
+                    m_eof_flag = true;
+                    return traits_type::eof();
+                }
+                
+                m_u16exract_place = 0;
+                m_u16readable_length = static_cast<size_t>(readed_u16count);
+            }
+
+            // Convert u16 serial to u8 serial;
+            size_t u8_buffer_next_place = 0;
+            while (m_u16exract_place < m_u16readable_length)
+            {
+                size_t u8len;
+                char u8buf[UTF8MAXLEN];
+
+                static_assert(sizeof(wchar_t) == sizeof(char16_t));
+                const size_t u16forward = u16exractu8(
+                    reinterpret_cast<const char16_t*>(m_u16buffer + m_u16exract_place),
+                    m_u16readable_length - m_u16exract_place,
+                    u8buf,
+                    &u8len);
+
+                if (u8_buffer_next_place + u8len > BUFFER_LIMIT)
+                {
+                    wo_assert(u8_buffer_next_place != 0);
+
+                    // Not enough to store the u8 char, keep u16 state.
+                    setg(m_u8buffer, m_u8buffer, m_u8buffer + u8_buffer_next_place);
+                    return traits_type::to_int_type(*this->gptr());
+                }      
+                memcpy(m_u8buffer + u8_buffer_next_place, u8buf, u8len);
+                u8_buffer_next_place += u8len;
+                m_u16exract_place += u16forward;
+            }
+
+            // Read finished.
+            m_u16readable_length = 0;
+            m_u16exract_place = BUFFER_LIMIT;
+
+            setg(m_u8buffer, m_u8buffer, m_u8buffer + u8_buffer_next_place);
+            return traits_type::to_int_type(*this->gptr());
+        }
+    };
+
+    std::streambuf* _win32_origin_cin_buf;
 #else
     const char* DEFAULT_LOCALE_NAME = "C.UTF-8";
 #endif
@@ -47,16 +132,6 @@ namespace wo
     }
     void wo_init_locale()
     {
-        if (nullptr == std::setlocale(LC_CTYPE, DEFAULT_LOCALE_NAME))
-        {
-            wo_warning("Unable to initialize locale character set environment: bad local type.");
-        }
-        else
-        {
-            wo_global_locale = std::locale(DEFAULT_LOCALE_NAME);
-            wo_global_locale_name = DEFAULT_LOCALE_NAME;
-        }
-
 #ifdef _WIN32
         // SUPPORT ANSI_CONTROL
 #if !WO_BUILD_WITH_MINGW && defined(WO_NEED_ANSI_CONTROL)
@@ -70,10 +145,19 @@ namespace wo
             }
         }
 #endif
-        // Set console input & output and using UTF8.
-        SetConsoleCP(CP_UTF8);
-        SetConsoleOutputCP(CP_UTF8);
+        wo_assert(_win32_origin_cin_buf == nullptr);
+        _win32_origin_cin_buf = std::cin.rdbuf(new cin_win32_u16_to_u8());
 #endif
+
+        if (nullptr == std::setlocale(LC_CTYPE, DEFAULT_LOCALE_NAME))
+        {
+            wo_warning("Unable to initialize locale character set environment: bad local type.");
+        }
+        else
+        {
+            wo_global_locale = std::locale(DEFAULT_LOCALE_NAME);
+            wo_global_locale_name = DEFAULT_LOCALE_NAME;
+        }
 
         if (wo::config::ENABLE_OUTPUT_ANSI_COLOR_CTRL)
             printf(ANSI_RST);
@@ -82,6 +166,11 @@ namespace wo
     {
         wo_binary_path.reset();
         wo_args.clear();
+
+#ifdef _WIN32
+        delete std::cin.rdbuf(_win32_origin_cin_buf);
+        _win32_origin_cin_buf = nullptr;
+#endif
     }
 
     std::string get_file_loc(std::string path)

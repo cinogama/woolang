@@ -367,7 +367,7 @@ extern func macro_entry(lexer: std::lexer)=> string
             // Treate all non ascii characters as alpha
             return false;
 
-        return isdigit((wchar_t)ch);
+        return isdigit(ch);
     }
     bool lexer::lex_isxdigit(int ch)
     {
@@ -378,7 +378,7 @@ extern func macro_entry(lexer: std::lexer)=> string
             // Treate all non ascii characters as alpha
             return false;
 
-        return isxdigit((wchar_t)ch);
+        return isxdigit(ch);
     }
     bool lexer::lex_isodigit(int ch)
     {
@@ -1584,7 +1584,6 @@ extern func macro_entry(lexer: std::lexer)=> string
 
                 for (;;)
                 {
-                    std::wstring result;
                     auto* token_instance = tmp_lex.peek();
 
                     if (token_instance->m_lex_type == wo::lex_type::l_error

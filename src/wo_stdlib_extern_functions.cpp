@@ -543,7 +543,7 @@ WO_API wo_api rslib_std_string_split_iter(wo_vm vm, wo_value args)
 WO_API wo_api rslib_std_string_append_char(wo_vm vm, wo_value args)
 {
     std::string str(_wo_raw_str_view(args + 0));
-    wchar_t wc = (wchar_t)(wo_handle_t)wo_int(args + 1);
+    auto wc = static_cast<char32_t>(wo_int(args + 1));
 
     size_t u8len;
     char u8str[wo::UTF8MAXLEN];

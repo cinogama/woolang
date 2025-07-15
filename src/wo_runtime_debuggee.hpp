@@ -1185,7 +1185,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                         else
                             printf(ANSI_RST);
 
-                        wo_wstdout << ch;
+                        wo_stdout << ch;
                     }
                     ++current_col_no;
                 }

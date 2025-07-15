@@ -327,9 +327,9 @@ namespace wo
         struct terminal
         {
             lex_type t_type;
-            std::wstring t_name;
+            std::string t_name;
 
-            terminal(lex_type type, const std::wstring& name = L"") :
+            terminal(lex_type type, const std::string& name = "") :
                 t_type(type),
                 t_name(name)
             {
@@ -338,7 +338,7 @@ namespace wo
 
             bool operator <(const terminal& n)const
             {
-                if (t_name == L"" || n.t_name == L"")
+                if (t_name == "" || n.t_name == "")
                     return t_type < n.t_type;
                 if (t_type != n.t_type)
                     return t_type < n.t_type;
@@ -346,7 +346,7 @@ namespace wo
             }
             bool operator ==(const terminal& n)const
             {
-                if (t_name == L"" || n.t_name == L"")
+                if (t_name == "" || n.t_name == "")
                     return t_type == n.t_type;
                 return t_type == n.t_type && t_name == n.t_name;
             }
@@ -371,7 +371,7 @@ namespace wo
                 }
                 else
                 {
-                    const static auto wstrhasher = std::hash<std::wstring>();
+                    const static auto wstrhasher = std::hash<std::string>();
                     return wstrhasher(std::get<nt>(smb).nt_name) * 2 + 1;
                 }
             }
@@ -476,12 +476,12 @@ namespace wo
 
         struct nonterminal
         {
-            std::wstring nt_name;
+            std::string nt_name;
 
             size_t builder_index = 0;
             std::function<produce(lexer&, std::vector<produce>&)> ast_create_func;
 
-            nonterminal(const std::wstring& name = L"", size_t _builder_index = 0)
+            nonterminal(const std::string& name = "", size_t _builder_index = 0)
                 : nt_name(name)
                 , builder_index(_builder_index)
             {
@@ -632,7 +632,7 @@ namespace wo
         std::set<te> P_TERMINAL_SET;
         std::set<nt> P_NOTERMINAL_SET;
 
-        std::unordered_map<std::wstring, te_nt_index_t> NONTERM_MAP;
+        std::unordered_map<std::string, te_nt_index_t> NONTERM_MAP;
         std::unordered_map<lex_type, te_nt_index_t> TERM_MAP;
 
         struct action/*_lr1*/
@@ -685,7 +685,7 @@ namespace wo
         {
             te_nt_index_t production_aim;
             size_t rule_right_count;
-            std::wstring rule_left_name;
+            std::string rule_left_name;
             std::function<produce(lexer&, std::vector<produce>&)> ast_create_func;
         };
 #if 0
@@ -710,7 +710,7 @@ namespace wo
         te_nt_index_t LR1_ACCEPT_TERM = 0;
 
         const lex_type* LR1_TERM_LIST = nullptr;
-        const wchar_t** LR1_NONTERM_LIST = nullptr;
+        const char** LR1_NONTERM_LIST = nullptr;
 
         bool lr1_fast_cache_enabled() const noexcept;
 #endif
@@ -719,12 +719,12 @@ namespace wo
         grammar();
         grammar(const std::vector<rule>& p);
 
-        bool check_lr1(std::wostream& ostrm = std::wcout);
+        bool check_lr1(std::ostream& ostrm = std::cout);
         void finish_rt();
         ast::AstBase* gen(lexer& tkr) const;
     };
-    std::wostream& operator<<(std::wostream& ost, const  grammar::lr_item& lri);
-    std::wostream& operator<<(std::wostream& ost, const  grammar::terminal& ter);
-    std::wostream& operator<<(std::wostream& ost, const  grammar::nonterminal& noter);
+    std::ostream& operator<<(std::ostream& ost, const  grammar::lr_item& lri);
+    std::ostream& operator<<(std::ostream& ost, const  grammar::terminal& ter);
+    std::ostream& operator<<(std::ostream& ost, const  grammar::nonterminal& noter);
 #endif
 }

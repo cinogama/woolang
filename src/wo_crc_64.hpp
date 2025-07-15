@@ -156,17 +156,6 @@ namespace wo
 
         return crc;
     }
-    inline uint64_t crc_64(const wchar_t* str, uint64_t crc)
-    {
-        while (*str)
-        {
-            for (size_t i = 0; i < sizeof(wchar_t) / sizeof(char); ++i)
-                crc = _crc_64(((char*)str)[i], crc);
-            str++;
-        }
-
-        return crc;
-    }
     inline uint64_t crc_64(std::istream& fle, uint64_t crc)
     {
         if (fle.eof() || !fle)
@@ -183,31 +172,6 @@ namespace wo
             crc = _crc_64((uint8_t)ch, crc);
         } while (true);
 
-        fle.clear(state);
-        fle.seekg(index);
-
-        return crc;
-    }
-    inline uint64_t crc_64(std::wistream& fle, uint64_t crc)
-    {
-        if (fle.eof() || !fle)
-            return crc;
-
-        auto state = fle.rdstate();
-        auto index = fle.tellg();
-
-        wchar_t ch = EOF;
-        do
-        {
-            ch = (wchar_t)fle.get();
-            if (fle.eof() || !fle)
-                break;
-
-            for (size_t i = 0; i < sizeof(wchar_t) / sizeof(char); ++i)
-                crc = _crc_64(((char*)&ch)[i], crc);
-
-        } while (true);
-        
         fle.clear(state);
         fle.seekg(index);
 
