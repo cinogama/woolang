@@ -1375,9 +1375,11 @@ WO_API wo_api rslib_std_get_ascii_val_from_str(wo_vm vm, wo_value args)
     wo_size_t len = 0;
     wo_string_t str = wo_raw_string(args + 0, &len);
 
-    return wo_ret_int(vm,
-        (wo_int_t)wo_strn_get_char(
-            str, len, (wo_size_t)wo_int(args + 1)));
+    wo_size_t idx = (wo_size_t)wo_int(args + 1);
+    if (idx >= len)
+        return wo_ret_panic(vm, "Index out of range.");
+
+    return wo_ret_int(vm, (wo_int_t)str[idx]);
 }
 
 WO_API wo_api rslib_std_string_sub(wo_vm vm, wo_value args)
@@ -2207,7 +2209,7 @@ namespace string
     extern("rslib_std_create_chars_from_str")
     public func cchars(buf: string)=> array<cchar>;
     extern("rslib_std_get_ascii_val_from_str") 
-    public func getch(val: string, index: int)=> char;
+    public func get_cchar(val: string, index: int)=> cchar;
     extern("rslib_std_str_char_len") 
     public func len(val: string)=> int;
     extern("rslib_std_str_byte_len") 
