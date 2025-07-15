@@ -3057,34 +3057,6 @@ WO_API wo_api rslib_std_macro_lexer_next(wo_vm vm, wo_value args)
     return wo_ret_val(vm, result);
 }
 
-WO_API wo_api rslib_std_macro_lexer_nextch(wo_vm vm, wo_value args)
-{
-    wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
-
-    wchar_t ch[2] = {};
-
-    int readch = lex->read_char();
-
-    if (readch == EOF)
-        return wo_ret_option_none(vm);
-
-    return wo_ret_option_int(vm, readch);
-}
-
-WO_API wo_api rslib_std_macro_lexer_peekch(wo_vm vm, wo_value args)
-{
-    wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
-
-    wchar_t ch[2] = {};
-
-    int readch = lex->peek_char();
-
-    if (readch == EOF)
-        return wo_ret_option_none(vm);
-
-    return wo_ret_option_int(vm, readch);
-}
-
 WO_API wo_api rslib_std_macro_lexer_current_path(wo_vm vm, wo_value args)
 {
     wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
@@ -3271,12 +3243,6 @@ namespace std
             return wrap_token(lex->next_token...);
         }
 
-        extern("rslib_std_macro_lexer_nextch")
-            public func next_char(lex: lexer) => option<cchar>;
-
-        extern("rslib_std_macro_lexer_peekch")
-            public func peek_char(lex: lexer) => option<cchar>;
-
         extern("rslib_std_macro_lexer_current_path")
             public func path(lex: lexer) => string;
 
@@ -3438,9 +3404,7 @@ namespace wo
             {"rslib_std_macro_lexer_current_path", (void*)&rslib_std_macro_lexer_current_path},
             {"rslib_std_macro_lexer_error", (void*)&rslib_std_macro_lexer_error},
             {"rslib_std_macro_lexer_next", (void*)&rslib_std_macro_lexer_next},
-            {"rslib_std_macro_lexer_nextch", (void*)&rslib_std_macro_lexer_nextch},
             {"rslib_std_macro_lexer_peek", (void*)&rslib_std_macro_lexer_peek},
-            {"rslib_std_macro_lexer_peekch", (void*)&rslib_std_macro_lexer_peekch},
             {"rslib_std_make_dup", (void*)&rslib_std_make_dup},
             {"rslib_std_map_clear", (void*)&rslib_std_map_clear},
             {"rslib_std_map_copy", (void*)&rslib_std_map_copy},

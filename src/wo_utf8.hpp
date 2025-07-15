@@ -4,6 +4,8 @@
 #include "wo.h"
 
 #include <cstdint>
+#include <cwchar>
+#include <climits>
 #include <string>
 
 namespace wo

@@ -1,7 +1,5 @@
 #include "wo_afx.hpp"
 
-#include <cwchar>
-
 namespace wo
 {
     size_t u8charnlen(const char* u8charp, size_t bytelen)
