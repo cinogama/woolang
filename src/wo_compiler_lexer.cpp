@@ -835,7 +835,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                     if (following_ch == '"' && peek_char() == '@')
                     {
                         (void)read_char();
-                        return produce_token(lex_type::l_literal_string, std::move(token_literal_result));
+                        return produce_token(lex_type::l_literal_raw_string, std::move(token_literal_result));
                     }
 
                     if (following_ch != EOF)

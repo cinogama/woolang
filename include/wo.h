@@ -853,6 +853,7 @@ typedef enum _wo_lspv2_lexer_token
     WO_LSPV2_TOKEN_LITERAL_HANDLE,       // 0L 256L 0xFFL
     WO_LSPV2_TOKEN_LITERAL_REAL,         // 0.2  0.
     WO_LSPV2_TOKEN_LITERAL_STRING,       // "helloworld"
+    WO_LSPV2_TOKEN_LITERAL_RAW_STRING,   // @ raw_string @
     WO_LSPV2_TOKEN_LITERAL_CHAR,         // 'x'
     WO_LSPV2_TOKEN_FORMAT_STRING_BEGIN,  // F"..{
     WO_LSPV2_TOKEN_FORMAT_STRING,        // }..{ 

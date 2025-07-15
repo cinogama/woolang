@@ -38,6 +38,7 @@ namespace wo
         l_literal_handle,       // 0L 256L 0xFFL
         l_literal_real,         // 0.2  0.
         l_literal_string,       // "helloworld"
+        l_literal_raw_string,   // @ raw_string @
         l_literal_char,         // 'x'
         l_format_string_begin,  // F"..{
         l_format_string,        // }..{ 

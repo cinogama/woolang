@@ -1017,6 +1017,7 @@ namespace wo
                 literal_instance->decide_final_constant_value((wo_real_t)std::stod(literal.identifier));
                 break;
             case lex_type::l_literal_string:
+            case lex_type::l_literal_raw_string:
                 literal_instance->decide_final_constant_value(literal.identifier);
                 break;
             case lex_type::l_nil:

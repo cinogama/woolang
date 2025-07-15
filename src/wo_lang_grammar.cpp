@@ -344,6 +344,7 @@ namespace wo
                 gm::nt("UNIT") >> gm::symlist{gm::te(gm::ttype::l_literal_integer)} >> WO_ASTBUILDER_INDEX(ast::pass_literal),
                 gm::nt("UNIT") >> gm::symlist{gm::te(gm::ttype::l_literal_real)} >> WO_ASTBUILDER_INDEX(ast::pass_literal),
                 gm::nt("UNIT") >> gm::symlist{gm::te(gm::ttype::l_literal_string)} >> WO_ASTBUILDER_INDEX(ast::pass_literal),
+                gm::nt("UNIT") >> gm::symlist{gm::te(gm::ttype::l_literal_raw_string)} >> WO_ASTBUILDER_INDEX(ast::pass_literal),
                 gm::nt("UNIT") >> gm::symlist{gm::nt("LITERAL_CHAR")} >> WO_ASTBUILDER_INDEX(ast::pass_literal_char),
                 gm::nt("UNIT") >> gm::symlist{gm::te(gm::ttype::l_literal_handle)} >> WO_ASTBUILDER_INDEX(ast::pass_literal),
                 gm::nt("UNIT") >> gm::symlist{gm::te(gm::ttype::l_nil)} >> WO_ASTBUILDER_INDEX(ast::pass_literal),
