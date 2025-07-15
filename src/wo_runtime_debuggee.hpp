@@ -172,13 +172,14 @@ whereis                         <ipoffset>    Find the function that the ipoffse
             for (auto fnd = inputstr.begin(); fnd != inputstr.end(); fnd++)
             {
                 auto readed_ch = *fnd;
-                if (!(readed_ch & 0x80 || isspace(readed_ch & 0x7f)))
+
+                if ((readed_ch & 0x80) || !isspace(readed_ch & 0x7f))
                 {
                     std::string read_word;
 
                     while (fnd != inputstr.end())
                     {
-                        if (!(readed_ch & 0x80 || isspace(readed_ch & 0x7f)))
+                        if ((readed_ch & 0x80) || !isspace(readed_ch & 0x7f))
                         {
                             readed_ch = *fnd;
                             read_word += readed_ch;
@@ -349,15 +350,19 @@ whereis                         <ipoffset>    Find the function that the ipoffse
         }
         bool debug_command(vmbase* vmm)
         {
+            // Clear stdout
             printf(ANSI_HIG "> " ANSI_HIY); fflush(stdout);
+
+            // Clear stdin
+            std::cin.clear();
             char _useless_for_clear = 0;
-            auto&& inputbuf = get_and_split_line();
+            while (std::cin.readsome(&_useless_for_clear, 1));
+            (void)_useless_for_clear;
+
+            // Receive command from stdin.
+            auto inputbuf = get_and_split_line();
 
             std::string main_command;
-
-            std::cin.clear();
-            while (std::cin.readsome(&_useless_for_clear, 1));
-
             if (need_possiable_input(inputbuf, main_command))
                 last_command = main_command;
             else
