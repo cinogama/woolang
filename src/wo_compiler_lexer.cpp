@@ -834,8 +834,7 @@ extern func macro_entry(lexer: std::lexer)=> string
             else
                 goto checking_valid_operator;
         }
-        case
-        ';':
+        case ';':
         {
             append_result_char(readed_char);
             return produce_token(lex_type::l_semicolon, std::move(token_literal_result));
