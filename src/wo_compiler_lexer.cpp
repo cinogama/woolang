@@ -823,6 +823,8 @@ extern func macro_entry(lexer: std::lexer)=> string
                         peeked_char = read_char();
                         if (peeked_char == EOF || peeked_char == '/')
                             break;
+
+                        append_result_char('*');
                     }
 
                     append_result_char(peeked_char);
