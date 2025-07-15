@@ -1456,7 +1456,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                                 hex_ascii[0] += lexer::lex_hextonum(read_char());
                             }
                             else if (i == 0)
-                                goto str_escape_sequences_fail;
+                                goto str_escape_sequences_fail_in_format_begin;
                             else
                                 break;
                         }
@@ -1467,7 +1467,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                             if (read_char() != '\\'
                                 || read_char() != 'u')
                                 // Should be a surrogate pair.
-                                goto str_escape_sequences_fail;
+                                goto str_escape_sequences_fail_in_format_begin;
 
                             for (int i = 0; i < 4; i++)
                             {
@@ -1477,7 +1477,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                                     hex_ascii[1] += lexer::lex_hextonum(read_char());
                                 }
                                 else if (i == 0)
-                                    goto str_escape_sequences_fail;
+                                    goto str_escape_sequences_fail_in_format_begin;
                                 else
                                     break;
                             }
@@ -1488,7 +1488,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                         size_t u8len;
 
                         if (u16_count != wo::u16exractu8(hex_ascii, u16_count, u8buf, &u8len))
-                            goto str_escape_sequences_fail;
+                            goto str_escape_sequences_fail_in_format_begin;
 
                         append_result_char_serial(u8buf, u8len);
                         break;
