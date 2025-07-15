@@ -61,7 +61,6 @@ namespace wo
         {"@",      {lex_type::l_at }},
         {"?",      {lex_type::l_question }},
         {"\\",     {lex_type::l_lambda}},
-        {"λ",      {lex_type::l_lambda}},
     };
     const std::unordered_map<std::string, lex_type> lexer::_key_word_list =
     {
@@ -1127,8 +1126,6 @@ extern func macro_entry(lexer: std::lexer)=> string
             }
             return;
         }
-        case 'λ':
-            goto checking_valid_operator;
         case EOF:
         {
             return produce_token(lex_type::l_eof, std::move(token_literal_result));
