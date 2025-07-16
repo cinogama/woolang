@@ -936,8 +936,12 @@ void wo_set_gchandle(
     wo_assert(resource_ptr != nullptr && destruct_func != nullptr);
 
     _wo_enter_gc_guard g(vm);
+
     wo::gchandle_t* handle_ptr = wo::gchandle_t::gc_new<wo::gcbase::gctype::young>();
-    handle_ptr->m_gc_vm = wo_gc_vm(vm);
+    
+    // NOTE: This function may defined in other libraries,
+    //      so we need store gc vm for decrease.
+    handle_ptr->m_hold_counter = WO_VM(vm)->inc_destructable_instance_count();
     handle_ptr->m_holding_handle = resource_ptr;
     handle_ptr->m_destructor = destruct_func;
 
@@ -951,9 +955,6 @@ void wo_set_gchandle(
     }
     handle_ptr->set_custom_mark_unit(holding_gcbase);
 
-    // NOTE: This function may defined in other libraries,
-    //      so we need store gc vm for decrease.
-    WO_VM(vm)->inc_destructable_instance_count();
     WO_VAL(value)->set_gcunit<wo::value::valuetype::gchandle_type>(handle_ptr);
 }
 
@@ -966,19 +967,17 @@ void wo_set_gcstruct(
 {
     wo_assert(resource_ptr != nullptr && destruct_func != nullptr);
 
-    wo::gchandle_t* handle_ptr;
-
     _wo_enter_gc_guard g(vm);
-    handle_ptr = wo::gchandle_t::gc_new<wo::gcbase::gctype::young>();
 
-    handle_ptr->m_gc_vm = wo_gc_vm(vm);
+    wo::gchandle_t* handle_ptr = wo::gchandle_t::gc_new<wo::gcbase::gctype::young>();
+
+    // NOTE: This function may defined in other libraries,
+    //      so we need store gc vm for decrease.
+    handle_ptr->m_hold_counter = WO_VM(vm)->inc_destructable_instance_count();
     handle_ptr->m_holding_handle = resource_ptr;
     handle_ptr->m_destructor = destruct_func;
     handle_ptr->set_custom_mark_callback(mark_func);
 
-    // NOTE: This function may defined in other libraries,
-    //      so we need store gc vm for decrease.
-    WO_VM(vm)->inc_destructable_instance_count();
     WO_VAL(value)->set_gcunit<wo::value::valuetype::gchandle_type>(handle_ptr);
 }
 
@@ -2577,11 +2576,6 @@ void wo_close_virtual_file_iter(wo_virtual_file_iter_t iter)
 wo_vm wo_sub_vm(wo_vm vm)
 {
     return CS_VM(WO_VM(vm)->make_machine(wo::vmbase::vm_type::NORMAL));
-}
-
-wo_vm wo_gc_vm(wo_vm vm)
-{
-    return CS_VM(WO_VM(vm)->get_or_alloc_gcvm());
 }
 
 void wo_close_vm(wo_vm vm)

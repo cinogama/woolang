@@ -270,8 +270,6 @@ namespace wo
 
         hangup_lock hangup_state;
 
-        vmbase* gc_vm;
-
 #if WO_ENABLE_RUNTIME_CHECK
         // runtime information
         std::thread::id attaching_thread_id;
@@ -283,9 +281,7 @@ namespace wo
         vmbase& operator=(vmbase&&) = delete;
 
     public:
-        void inc_destructable_instance_count() noexcept;
-        void dec_destructable_instance_count() noexcept;
-
+        std::atomic_size_t* inc_destructable_instance_count() noexcept;
         static vm_debuggee_bridge_base* attach_debuggee(vm_debuggee_bridge_base* dbg) noexcept;
         static vm_debuggee_bridge_base* current_debuggee() noexcept;
         bool is_aborted() const noexcept;
@@ -301,8 +297,6 @@ namespace wo
         vmbase(vm_type type) noexcept;
         ~vmbase() noexcept;
 
-        vmbase* get_or_alloc_gcvm() const noexcept;
-
         bool advise_shrink_stack() noexcept;
         void reset_shrink_stack_count() noexcept;
 
@@ -315,6 +309,7 @@ namespace wo
         void _allocate_stack_space(size_t stacksz) noexcept;
         bool _reallocate_stack_space(size_t stacksz) noexcept;
     public:
+        void init_main_vm(shared_pointer<runtime_env> runtime_environment) noexcept;
         void set_runtime(shared_pointer<runtime_env> runtime_environment) noexcept;
         vmbase* make_machine(vm_type type) const noexcept;
         void dump_program_bin(size_t begin = 0, size_t end = SIZE_MAX, std::ostream& os = std::cout) const noexcept;

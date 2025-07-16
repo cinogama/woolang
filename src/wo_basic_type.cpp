@@ -276,4 +276,14 @@ namespace wo
     {
         do_close();
     }
+
+    void gc_handle_base_t::dec_destructable_instance_count()
+    {
+        wo_assert(m_hold_counter != nullptr);
+#if WO_ENABLE_RUNTIME_CHECK
+        size_t old_count =
+#endif
+            m_hold_counter->fetch_sub(1, std::memory_order::memory_order_relaxed);
+        wo_assert(old_count > 0);
+    }
 }

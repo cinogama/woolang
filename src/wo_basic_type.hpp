@@ -233,7 +233,7 @@ namespace wo
         };
 
         // ATTENTION: Only used for decrease destructable count in env of vm;
-        wo_vm                   m_gc_vm;
+        std::atomic_size_t*     m_hold_counter;
         custom_marker           m_custom_marker;
 
         void set_custom_mark_callback(gcmark_func_t callback);
@@ -241,6 +241,7 @@ namespace wo
 
         bool do_close();
         void do_custom_mark(wo_gc_work_context_t ctx);
+        void dec_destructable_instance_count();
 
         ~gc_handle_base_t();
     };

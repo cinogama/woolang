@@ -494,7 +494,6 @@ WO_API void wo_close_virtual_file_iter(wo_virtual_file_iter_t iter);
 WO_API wo_bool_t wo_remove_virtual_file(wo_string_t filepath);
 WO_API wo_vm wo_create_vm(void);
 WO_API wo_vm wo_sub_vm(wo_vm vm);
-WO_API wo_vm wo_gc_vm(wo_vm vm);
 WO_API wo_bool_t wo_abort_vm(wo_vm vm);
 WO_API void wo_close_vm(wo_vm vm);
 

@@ -38,23 +38,18 @@ namespace wo
         debug_interrupt(_vm);
     }
 
-    void vmbase::inc_destructable_instance_count() noexcept
+    std::atomic_size_t* vmbase::inc_destructable_instance_count() noexcept
     {
         wo_assert(env != nullptr);
+        auto* dec_destructable_instance_countp = &env->_created_destructable_instance_count;
+
 #if WO_ENABLE_RUNTIME_CHECK
         size_t old_count =
 #endif
-            env->_created_destructable_instance_count.fetch_add(1, std::memory_order::memory_order_relaxed);
+            dec_destructable_instance_countp->fetch_add(1, std::memory_order::memory_order_relaxed);
         wo_assert(old_count >= 0);
-    }
-    void vmbase::dec_destructable_instance_count() noexcept
-    {
-        wo_assert(env != nullptr);
-#if WO_ENABLE_RUNTIME_CHECK
-        size_t old_count =
-#endif
-            env->_created_destructable_instance_count.fetch_sub(1, std::memory_order::memory_order_relaxed);
-        wo_assert(old_count > 0);
+
+        return dec_destructable_instance_countp;
     }
 
     vm_debuggee_bridge_base* vmbase::attach_debuggee(vm_debuggee_bridge_base* dbg) noexcept
@@ -193,7 +188,6 @@ namespace wo
         , compile_failed_state(std::nullopt)
         , jit_function_call_depth(0)
         , virtual_machine_type(type)
-        , gc_vm(nullptr)
 #if WO_ENABLE_RUNTIME_CHECK
         // runtime information
         , attaching_thread_id(std::thread::id{})
@@ -241,11 +235,6 @@ namespace wo
         --_alive_vm_count_for_gc_vm_destruct;
     }
 
-    vmbase* vmbase::get_or_alloc_gcvm() const noexcept
-    {
-        // TODO: GC will mark globle space when current vm is gc vm, we cannot do it now!
-        return gc_vm;
-    }
     bool vmbase::advise_shrink_stack() noexcept
     {
         return ++shrink_stack_advise >= shrink_stack_edge;
@@ -304,16 +293,24 @@ namespace wo
 
         return true;
     }
+    void vmbase::init_main_vm(shared_pointer<runtime_env> runtime_environment) noexcept
+    {
+        set_runtime(runtime_environment);
+
+        // Create a new VM using for GC destruct
+        (void)make_machine(vm_type::GC_DESTRUCTOR);
+    }
     void vmbase::set_runtime(shared_pointer<runtime_env> runtime_environment)noexcept
     {
-        wo_assure(wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
-
+        // NOTE: There is no need to wo_enter_gcguard here, because when `set_runtime`
+        //  is called, there is no value need to be marked in the vm, the vm has not 
+        //  been run yet.
         env = runtime_environment;
         ++env->_running_on_vm_count;
 
         constant_and_global_storage = env->constant_and_global_storage;
-        ip = env->rt_codes;
 
+        ip = env->rt_codes;
         _allocate_stack_space(VM_DEFAULT_STACK_SIZE);
         _allocate_register_space(env->real_register_count);
 
@@ -322,38 +319,15 @@ namespace wo
             std::lock_guard g1(_alive_vm_list_mx);
             _gc_ready_vm_list.insert(this);
         } while (false);
-
-        wo_assure(wo_leave_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
-
-        // Create a new VM using for GC destruct
-        auto* created_subvm_for_gc = make_machine(vm_type::GC_DESTRUCTOR);
-
-        gc_vm = created_subvm_for_gc->gc_vm = created_subvm_for_gc;
     }
     vmbase* vmbase::make_machine(vm_type type) const noexcept
     {
         wo_assert(env != nullptr);
 
         vmbase* new_vm = create_machine(type);
-        new_vm->gc_vm = get_or_alloc_gcvm();
 
-        new_vm->env = env;  // env setted, gc will scan this vm..
-        ++env->_running_on_vm_count;
+        new_vm->set_runtime(env);
 
-        wo_assure(wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(new_vm))));
-        new_vm->constant_and_global_storage = constant_and_global_storage;
-
-        new_vm->ip = env->rt_codes;
-        new_vm->_allocate_stack_space(VM_DEFAULT_STACK_SIZE);
-        new_vm->_allocate_register_space(env->real_register_count);
-
-        do
-        {
-            std::lock_guard g1(_alive_vm_list_mx);
-            _gc_ready_vm_list.insert(new_vm);
-        } while (false);
-
-        wo_assure(wo_leave_gcguard(std::launder(reinterpret_cast<wo_vm>(new_vm))));
         return new_vm;
     }
     void vmbase::dump_program_bin(size_t begin, size_t end, std::ostream& os) const noexcept

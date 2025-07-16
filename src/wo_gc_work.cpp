@@ -1059,8 +1059,7 @@ namespace wo
             wo_assert(m_destructor != nullptr && m_gc_vm != nullptr);
 
             m_destructor(m_holding_handle);
-            std::launder(reinterpret_cast<wo::vmbase*>(m_gc_vm))
-                ->dec_destructable_instance_count();
+            dec_destructable_instance_count();
 
             m_holding_handle = nullptr;
 
