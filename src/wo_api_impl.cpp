@@ -64,6 +64,7 @@ struct _wo_enter_gc_guard
 struct _wo_in_thread_vm_guard
 {
     wo_vm last_vm;
+    bool leaved;
 
     _wo_in_thread_vm_guard() = delete;
     _wo_in_thread_vm_guard(const _wo_in_thread_vm_guard&) = delete;
@@ -73,12 +74,14 @@ struct _wo_in_thread_vm_guard
 
     _wo_in_thread_vm_guard(wo_vm target_vm)
         : last_vm(wo_set_this_thread_vm(target_vm))
+        , leaved(last_vm != nullptr && wo_leave_gcguard(last_vm))
     {
-
     }
     ~_wo_in_thread_vm_guard()
     {
         wo_set_this_thread_vm(last_vm);
+        if (leaved)
+            wo_enter_gcguard(last_vm);
     }
 };
 
@@ -472,7 +475,6 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
         do
         {
             std::lock_guard g1(wo::vmbase::_alive_vm_list_mx);
-
             std::stringstream not_closed_vm_call_stacks;
 
             size_t not_close_vm_count = 0;
