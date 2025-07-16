@@ -2372,17 +2372,22 @@ wo_wchar_t wo_str_get_char(wo_string_t str, wo_size_t index)
 {
     return wo_strn_get_char(str, strlen(str), index);
 }
-
-wo_wstring_t wo_str_to_wstr(wo_string_t str)
+const char16_t* wo_str_to_u16str(wo_string_t str)
 {
-    return wo_strn_to_wstr(str, strlen(str));
+    return wo_strn_to_u16str(str, strlen(str));
 }
-
-wo_string_t wo_wstr_to_str(wo_wstring_t str)
+wo_string_t wo_u16str_to_str(const char16_t* str)
 {
-    return wo_wstrn_to_str(str, wo::u32strcount(str));
+    return wo_u16strn_to_str(str, wo::u16strcount(str));
 }
-
+wo_wstring_t wo_str_to_u32str(wo_string_t str)
+{
+    return wo_strn_to_u32str(str, strlen(str));
+}
+wo_string_t wo_u32str_to_str(wo_wstring_t str)
+{
+    return wo_u32strn_to_str(str, wo::u32strcount(str));
+}
 wo_wchar_t wo_strn_get_char(wo_string_t str, wo_size_t size, wo_size_t index)
 {
     size_t result_byte_len;
@@ -2401,19 +2406,78 @@ wo_wchar_t wo_strn_get_char(wo_string_t str, wo_size_t size, wo_size_t index)
     }
     return ch;
 }
-wo_wstring_t wo_strn_to_wstr(wo_string_t str, wo_size_t size)
+const char16_t* wo_strn_to_u16str(wo_string_t str, wo_size_t size)
+{
+    static thread_local std::u16string wstr_buf;
+    wstr_buf = wo::u8strtou16(str, size);
+
+    return wstr_buf.c_str();
+}
+wo_string_t wo_u16strn_to_str(const char16_t* str, wo_size_t size)
+{
+    static thread_local std::string str_buf;
+    str_buf = wo::u16strtou8(str, size);
+
+    return str_buf.c_str();
+}
+wo_wstring_t wo_strn_to_u32str(wo_string_t str, wo_size_t size)
 {
     static thread_local std::u32string wstr_buf;
     wstr_buf = wo::u8strtou32(str, size);
 
     return wstr_buf.c_str();
 }
-wo_string_t  wo_wstrn_to_str(wo_wstring_t str, wo_size_t size)
+wo_string_t  wo_u32strn_to_str(wo_wstring_t str, wo_size_t size)
 {
     static thread_local std::string str_buf;
     str_buf = wo::u32strtou8(str, size);
 
     return str_buf.c_str();
+}
+
+const wchar_t* wo_str_to_wstr(wo_string_t str)
+{
+    static_assert(
+        sizeof(wchar_t) == sizeof(char16_t) 
+        || sizeof(wchar_t) == sizeof(char32_t));
+
+    if constexpr (sizeof(wchar_t) == sizeof(char16_t))
+        return reinterpret_cast<const wchar_t*>(wo_str_to_u16str(str));
+    else
+        return reinterpret_cast<const wchar_t*>(wo_str_to_u32str(str));
+}
+const wchar_t* wo_strn_to_wstr(wo_string_t str, wo_size_t size)
+{
+    static_assert(
+        sizeof(wchar_t) == sizeof(char16_t) 
+        || sizeof(wchar_t) == sizeof(char32_t));
+
+    if constexpr (sizeof(wchar_t) == sizeof(char16_t))
+        return reinterpret_cast<const wchar_t*>(wo_strn_to_u16str(str, size));
+    else
+        return reinterpret_cast<const wchar_t*>(wo_strn_to_u32str(str, size));
+}
+wo_string_t wo_wstr_to_str(const wchar_t* str)
+{
+    static_assert(
+        sizeof(wchar_t) == sizeof(char16_t)
+        || sizeof(wchar_t) == sizeof(char32_t));
+
+    if constexpr (sizeof(wchar_t) == sizeof(char16_t))
+        return wo_u16str_to_str(reinterpret_cast<const char16_t*>(str));
+    else
+        return wo_u32str_to_str(reinterpret_cast<const char32_t*>(str));
+}
+wo_string_t wo_wstrn_to_str(const wchar_t* str, wo_size_t size)
+{
+    static_assert(
+        sizeof(wchar_t) == sizeof(char16_t)
+        || sizeof(wchar_t) == sizeof(char32_t));
+
+    if constexpr (sizeof(wchar_t) == sizeof(char16_t))
+        return wo_u16strn_to_str(reinterpret_cast<const char16_t*>(str), size);
+    else
+        return wo_u32strn_to_str(reinterpret_cast<const char32_t*>(str), size);
 }
 
 void wo_enable_jit(wo_bool_t option)

@@ -605,12 +605,22 @@ WO_API wo_size_t wo_str_char_len(wo_value value);
 WO_API wo_size_t wo_str_byte_len(wo_value value);
 
 WO_API wo_wchar_t wo_str_get_char(wo_string_t str, wo_size_t index);
-WO_API wo_wstring_t wo_str_to_wstr(wo_string_t str);
-WO_API wo_string_t wo_wstr_to_str(wo_wstring_t str);
-
 WO_API wo_wchar_t wo_strn_get_char(wo_string_t str, wo_size_t size, wo_size_t index);
-WO_API wo_wstring_t wo_strn_to_wstr(wo_string_t str, wo_size_t size);
-WO_API wo_string_t wo_wstrn_to_str(wo_wstring_t str, wo_size_t size);
+
+WO_API const wchar_t* wo_str_to_wstr(wo_string_t str);
+WO_API const wchar_t* wo_strn_to_wstr(wo_string_t str, wo_size_t size);
+WO_API wo_string_t wo_wstr_to_str(const wchar_t* str);
+WO_API wo_string_t wo_wstrn_to_str(const wchar_t* str, wo_size_t size);
+
+WO_API const char16_t* wo_str_to_u16str(wo_string_t str);
+WO_API const char16_t* wo_strn_to_u16str(wo_string_t str, wo_size_t size);
+WO_API wo_string_t wo_u16str_to_str(const char16_t* str);
+WO_API wo_string_t wo_u16strn_to_str(const char16_t* str, wo_size_t size);
+
+WO_API wo_wstring_t wo_str_to_u32str(wo_string_t str);
+WO_API wo_wstring_t wo_strn_to_u32str(wo_string_t str, wo_size_t size);
+WO_API wo_string_t wo_u32str_to_str(wo_wstring_t str);
+WO_API wo_string_t wo_u32strn_to_str(wo_wstring_t str, wo_size_t size);
 
 WO_API wo_size_t wo_struct_len(wo_value value);
 WO_API wo_bool_t wo_struct_try_get(wo_value out_val, wo_value value, uint16_t offset);
