@@ -65,7 +65,6 @@ namespace wo
             _abandon_debuggees.clear();
         }
     };
-
     class c_debuggee_bridge : public vm_debuggee_bridge_base
     {
         wo_debuggee_callback_func_t m_callback;
@@ -85,6 +84,58 @@ namespace wo
         {
             m_callback(std::launder(reinterpret_cast<wo_vm>(vm)), m_userdata);
         }
+    };
+
+    class assure_leave_this_thread_vm_shared_mutex: private std::shared_mutex
+    {
+        // ATTENTION: GC Thread will check if vm is received GC_INTERRUPT while locking
+        //  this mutex, so, all vm in this thread must be LEAVED before lock this mutex.
+    public:
+        struct leave_context
+        {
+            bool m_leaved;
+            wo::vmbase* m_vm;
+        };
+    private:
+        void leave(leave_context* out_context) noexcept;
+        void enter(const leave_context& in_context) noexcept;
+    public:
+        assure_leave_this_thread_vm_shared_mutex() = default;
+        assure_leave_this_thread_vm_shared_mutex(const assure_leave_this_thread_vm_shared_mutex&) = delete;
+        assure_leave_this_thread_vm_shared_mutex(assure_leave_this_thread_vm_shared_mutex&&) = delete;
+        assure_leave_this_thread_vm_shared_mutex& operator = (const assure_leave_this_thread_vm_shared_mutex&) = delete;
+        assure_leave_this_thread_vm_shared_mutex& operator = (assure_leave_this_thread_vm_shared_mutex&&) = delete;
+
+        void lock(leave_context* out_context) noexcept;
+        void unlock(const leave_context& in_context) noexcept;
+        void lock_shared(leave_context* out_context) noexcept;
+        void unlock_shared(const leave_context& in_context) noexcept;
+        bool try_lock(leave_context* out_context) noexcept;
+        bool try_lock_shared(leave_context* out_context) noexcept;
+    };
+    class assure_leave_this_thread_vm_lock_guard
+    {
+        assure_leave_this_thread_vm_shared_mutex* m_mx;
+        assure_leave_this_thread_vm_shared_mutex::leave_context m_context;
+    public:
+        assure_leave_this_thread_vm_lock_guard(assure_leave_this_thread_vm_shared_mutex& mx);
+        ~assure_leave_this_thread_vm_lock_guard();
+        assure_leave_this_thread_vm_lock_guard(const assure_leave_this_thread_vm_lock_guard&) = delete;
+        assure_leave_this_thread_vm_lock_guard(assure_leave_this_thread_vm_lock_guard&&) = delete;
+        assure_leave_this_thread_vm_lock_guard& operator = (const assure_leave_this_thread_vm_lock_guard&) = delete;
+        assure_leave_this_thread_vm_lock_guard& operator = (assure_leave_this_thread_vm_lock_guard&&) = delete;
+    };
+    class assure_leave_this_thread_vm_shared_lock
+    {
+        assure_leave_this_thread_vm_shared_mutex* m_mx;
+        assure_leave_this_thread_vm_shared_mutex::leave_context m_context;
+    public:
+        assure_leave_this_thread_vm_shared_lock(assure_leave_this_thread_vm_shared_mutex& mx);
+        ~assure_leave_this_thread_vm_shared_lock();
+        assure_leave_this_thread_vm_shared_lock(const assure_leave_this_thread_vm_shared_lock&) = delete;
+        assure_leave_this_thread_vm_shared_lock(assure_leave_this_thread_vm_shared_lock&&) = delete;
+        assure_leave_this_thread_vm_shared_lock& operator = (const assure_leave_this_thread_vm_shared_lock&) = delete;
+        assure_leave_this_thread_vm_shared_lock& operator = (assure_leave_this_thread_vm_shared_lock&&) = delete;
     };
 
     class vmbase
@@ -218,7 +269,7 @@ namespace wo
         static_assert((VM_MAX_STACK_SIZE& (VM_MAX_STACK_SIZE - 1)) == 0);
 
     public:
-        inline static std::shared_mutex _alive_vm_list_mx;
+        inline static assure_leave_this_thread_vm_shared_mutex _alive_vm_list_mx;
         inline static cxx_set_t<vmbase*> _alive_vm_list;
         inline static cxx_set_t<vmbase*> _gc_ready_vm_list;
 
@@ -355,7 +406,6 @@ namespace wo
         _wo_vm_stack_guard(const vmbase* _reading_vm)
         {
             vmbase* reading_vm = const_cast<vmbase*>(_reading_vm);
-
             if (reading_vm != vmbase::_this_thread_vm)
             {
                 while (!reading_vm->interrupt(

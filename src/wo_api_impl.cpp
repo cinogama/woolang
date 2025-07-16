@@ -474,7 +474,7 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
     {
         do
         {
-            std::lock_guard g1(wo::vmbase::_alive_vm_list_mx);
+            wo::assure_leave_this_thread_vm_lock_guard g1(wo::vmbase::_alive_vm_list_mx);
             std::stringstream not_closed_vm_call_stacks;
 
             size_t not_close_vm_count = 0;
@@ -940,7 +940,7 @@ void wo_set_gchandle(
     _wo_enter_gc_guard g(vm);
 
     wo::gchandle_t* handle_ptr = wo::gchandle_t::gc_new<wo::gcbase::gctype::young>();
-    
+
     // NOTE: This function may defined in other libraries,
     //      so we need store gc vm for decrease.
     handle_ptr->m_hold_counter = WO_VM(vm)->inc_destructable_instance_count();
@@ -2412,7 +2412,7 @@ wo_string_t  wo_u32strn_to_str(wo_wstring_t str, wo_size_t size)
 const wchar_t* wo_str_to_wstr(wo_string_t str)
 {
     static_assert(
-        sizeof(wchar_t) == sizeof(char16_t) 
+        sizeof(wchar_t) == sizeof(char16_t)
         || sizeof(wchar_t) == sizeof(char32_t));
 
     if constexpr (sizeof(wchar_t) == sizeof(char16_t))
@@ -2423,7 +2423,7 @@ const wchar_t* wo_str_to_wstr(wo_string_t str)
 const wchar_t* wo_strn_to_wstr(wo_string_t str, wo_size_t size)
 {
     static_assert(
-        sizeof(wchar_t) == sizeof(char16_t) 
+        sizeof(wchar_t) == sizeof(char16_t)
         || sizeof(wchar_t) == sizeof(char32_t));
 
     if constexpr (sizeof(wchar_t) == sizeof(char16_t))
@@ -2878,7 +2878,7 @@ std::string _dump_src_info(
                             for (size_t i = 1; i < pointplace; i++)
                                 append_result += "~";
 
-                        append_result += 
+                        append_result +=
                             std::string("~\\")
                             + ANSI_UNDERLNE
                             + " " WO_HERE
@@ -3015,7 +3015,7 @@ std::string _wo_dump_lexer_context_error(wo::lexer* lex, wo_inform_style_t style
             _vm_compile_errors += err_info.to_string(style & WO_NEED_COLOR) + "\n";
 
         // Print source informations..
-        _vm_compile_errors += 
+        _vm_compile_errors +=
             _dump_src_info(
                 src_file_path,
                 err_info,
@@ -3343,6 +3343,27 @@ wo_value wo_run(wo_vm vm)
         }
     }
     return nullptr;
+}
+
+wo_bool_t wo_abort_vm(wo_vm vm)
+{
+    auto* vmm = WO_VM(vm);
+
+    wo::assure_leave_this_thread_vm_shared_lock gs(wo::vmbase::_alive_vm_list_mx);
+
+    if (wo::vmbase::_alive_vm_list.find(vmm) != wo::vmbase::_alive_vm_list.end())
+    {
+        return WO_CBOOL(vmm->interrupt(wo::vmbase::vm_interrupt_type::ABORT_INTERRUPT));
+    }
+    return WO_FALSE;
+}
+
+void wo_abort_all_vm()
+{
+    wo::assure_leave_this_thread_vm_shared_lock g1(wo::vmbase::_alive_vm_list_mx);
+
+    for (auto& vm : wo::vmbase::_alive_vm_list)
+        vm->interrupt(wo::vmbase::ABORT_INTERRUPT);
 }
 
 wo_size_t wo_struct_len(wo_value value)

@@ -352,7 +352,7 @@ namespace wo
                 reset_alive_unit_count();
                 do
                 {
-                    std::shared_lock sg1(vmbase::_alive_vm_list_mx); // Lock alive vm list, block new vm create.
+                    wo::assure_leave_this_thread_vm_shared_lock sg1(vmbase::_alive_vm_list_mx); // Lock alive vm list, block new vm create.
                     _gc_round_count++;
 
                     // Ignore old memo, they are useless.
@@ -630,7 +630,7 @@ namespace wo
                 std::forward_list<vmbase*> need_destruct_gc_destructor_list;
                 do
                 {
-                    std::shared_lock sg1(vmbase::_alive_vm_list_mx);
+                    wo::assure_leave_this_thread_vm_shared_lock sg1(vmbase::_alive_vm_list_mx);
 
                     for (auto* vmimpl : vmbase::_gc_ready_vm_list)
                     {

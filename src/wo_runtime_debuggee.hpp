@@ -386,7 +386,8 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                     bool continue_run = false;
                     if (need_possiable_input(inputbuf, vmid))
                     {
-                        if (wo::vmbase::_alive_vm_list_mx.try_lock_shared())
+                        wo::assure_leave_this_thread_vm_shared_mutex::leave_context ctx;
+                        if (wo::vmbase::_alive_vm_list_mx.try_lock_shared(&ctx))
                         {
                             if (vmid < wo::vmbase::_alive_vm_list.size())
                             {
@@ -403,7 +404,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                             else
                                 printf(ANSI_HIR "You must input valid vm id.\n" ANSI_RST);
 
-                            wo::vmbase::_alive_vm_list_mx.unlock_shared();
+                            wo::vmbase::_alive_vm_list_mx.unlock_shared(ctx);
                         }
                     }
                     else
@@ -416,7 +417,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                 }
                 else if (main_command == "st" || main_command == "state")
                 {
-                    std::shared_lock sg1(wo::vmbase::_alive_vm_list_mx);
+                    wo::assure_leave_this_thread_vm_shared_lock sg1(wo::vmbase::_alive_vm_list_mx);
 
                     wo::vmbase* target_vm = nullptr;
 
@@ -753,7 +754,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                 }
                 else if (main_command == "halt")
                 {
-                    std::shared_lock sg1(wo::vmbase::_alive_vm_list_mx);
+                    wo::assure_leave_this_thread_vm_shared_lock sg1(wo::vmbase::_alive_vm_list_mx);
 
                     wo::vmbase* target_vm = nullptr;
 
@@ -1004,7 +1005,8 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                         }
                         else if (list_what == "vm" || list_what == "thread")
                         {
-                            if (wo::vmbase::_alive_vm_list_mx.try_lock_shared())
+                            wo::assure_leave_this_thread_vm_shared_mutex::leave_context ctx;
+                            if (wo::vmbase::_alive_vm_list_mx.try_lock_shared(&ctx))
                             {
                                 size_t vmcount = 0;
                                 for (auto vms : wo::vmbase::_alive_vm_list)
@@ -1033,7 +1035,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                                     vmcount++;
                                 }
 
-                                wo::vmbase::_alive_vm_list_mx.unlock_shared();
+                                wo::vmbase::_alive_vm_list_mx.unlock_shared(ctx);
                             }
                             else
                                 printf(ANSI_HIR "Failed to get thread(virtual machine) list, may busy.\n" ANSI_RST);
