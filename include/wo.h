@@ -957,6 +957,7 @@ typedef struct _wo_lspv2_token_info
 
     const void* m_token_serial;
     size_t m_token_length;
+    wo_lspv2_location m_location;
 
 } wo_lspv2_token_info;
 
