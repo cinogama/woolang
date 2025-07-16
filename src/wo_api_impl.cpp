@@ -2317,33 +2317,6 @@ wo_result_t wo_ret_yield(wo_vm vm)
     WO_VM(vm)->interrupt(wo::vmbase::BR_YIELD_INTERRUPT);
     return wo_result_t::WO_API_RESYNC;
 }
-void _wo_check_atexit()
-{
-    std::shared_lock g1(wo::vmbase::_alive_vm_list_mx);
-
-    do
-    {
-    waitting_vm_leave:
-        for (auto& vm : wo::vmbase::_alive_vm_list)
-            if (!(vm->vm_interrupt & wo::vmbase::LEAVE_INTERRUPT))
-                goto waitting_vm_leave;
-    } while (0);
-
-    // STOP GC
-}
-
-void wo_abort_all_vm_to_exit()
-{
-    // wo_stop used for stop all vm and exit..
-
-    // 1. ABORT ALL VM
-    std::shared_lock g1(wo::vmbase::_alive_vm_list_mx);
-
-    for (auto& vm : wo::vmbase::_alive_vm_list)
-        vm->interrupt(wo::vmbase::ABORT_INTERRUPT);
-
-    std::atexit(_wo_check_atexit);
-}
 
 wo_size_t wo_str_char_len(wo_value value)
 {
@@ -2573,6 +2546,13 @@ void wo_close_virtual_file_iter(wo_virtual_file_iter_t iter)
     delete iter;
 }
 
+wo_vm wo_create_vm()
+{
+    return std::launder(
+        reinterpret_cast<wo_vm>(
+            new wo::vmbase(wo::vmbase::vm_type::NORMAL)));
+}
+
 wo_vm wo_sub_vm(wo_vm vm)
 {
     return CS_VM(WO_VM(vm)->make_machine(wo::vmbase::vm_type::NORMAL));
@@ -2773,7 +2753,7 @@ wo_bool_t _wo_load_source(
 
     if (compile_result == wo::compile_result::PROCESS_OK)
     {
-        WO_VM(vm)->set_runtime(_env_if_success.value());
+        WO_VM(vm)->init_main_vm(_env_if_success.value());
         return WO_TRUE;
     }
     else
@@ -3072,18 +3052,6 @@ wo_string_t wo_get_compile_error(wo_vm vm, wo_inform_style_t style)
 wo_string_t wo_get_runtime_error(wo_vm vm)
 {
     return wo_cast_string(CS_VAL(&WO_VM(vm)->register_storage[wo::opnum::reg::er]));
-}
-
-wo_bool_t wo_abort_vm(wo_vm vm)
-{
-    auto* vmm = WO_VM(vm);
-    std::shared_lock gs(wo::vmbase::_alive_vm_list_mx);
-
-    if (wo::vmbase::_alive_vm_list.find(vmm) != wo::vmbase::_alive_vm_list.end())
-    {
-        return WO_CBOOL(vmm->interrupt(wo::vmbase::vm_interrupt_type::ABORT_INTERRUPT));
-    }
-    return WO_FALSE;
 }
 
 wo_value wo_register(wo_vm vm, wo_reg regid)
@@ -4508,5 +4476,5 @@ void wo_load_ir_compiler(wo_vm vm, wo_ir_compiler compiler)
     auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
     c->end();
 
-    WO_VM(vm)->set_runtime(c->finalize());
+    WO_VM(vm)->init_main_vm(c->finalize());
 }

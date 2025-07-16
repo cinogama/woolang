@@ -464,7 +464,7 @@ WO_API wo_result_t wo_ret_yield(wo_vm vm);
 
 WO_API wo_bool_t wo_extern_symb(wo_vm vm, wo_string_t fullname, wo_integer_t* out_wo_func, wo_handle_t* out_jit_func);
 
-WO_API void wo_abort_all_vm_to_exit(void);
+WO_API void wo_abort_all_vm(void);
 
 WO_API wo_string_t wo_locale_name(void);
 WO_API wo_string_t wo_exe_path(void);

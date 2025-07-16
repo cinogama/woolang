@@ -308,9 +308,9 @@ namespace wo
         void _allocate_register_space(size_t regcount) noexcept;
         void _allocate_stack_space(size_t stacksz) noexcept;
         bool _reallocate_stack_space(size_t stacksz) noexcept;
+        void set_runtime(shared_pointer<runtime_env> runtime_environment) noexcept;
     public:
         void init_main_vm(shared_pointer<runtime_env> runtime_environment) noexcept;
-        void set_runtime(shared_pointer<runtime_env> runtime_environment) noexcept;
         vmbase* make_machine(vm_type type) const noexcept;
         void dump_program_bin(size_t begin = 0, size_t end = SIZE_MAX, std::ostream& os = std::cout) const noexcept;
         void dump_call_stack(size_t max_count = 32, bool need_offset = true, std::ostream& os = std::cout)const noexcept;

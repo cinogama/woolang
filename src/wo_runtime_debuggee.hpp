@@ -1372,7 +1372,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
 
             if (stop_attach_debuggee_for_exit_flag)
             {
-                wo_abort_all_vm_to_exit();
+                wo_abort_all_vm();
                 return;
             }
         }

@@ -1056,7 +1056,7 @@ namespace wo
     {
         if (m_holding_handle != nullptr)
         {
-            wo_assert(m_destructor != nullptr && m_gc_vm != nullptr);
+            wo_assert(m_destructor != nullptr);
 
             m_destructor(m_holding_handle);
             dec_destructable_instance_count();

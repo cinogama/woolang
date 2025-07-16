@@ -4,6 +4,35 @@ namespace wo
 {
     const value value::TAKEPLACE = *value().set_takeplace();
 
+    class leave_this_thread_vm_guard
+    {
+        bool leaved;
+#ifndef NDEBUG
+        wo::vmbase* vm;
+#endif // !NDEBUG
+
+    public:
+        leave_this_thread_vm_guard()
+            : leaved(vmbase::_this_thread_vm != nullptr
+                && wo_leave_gcguard(reinterpret_cast<wo_vm>(vmbase::_this_thread_vm)))
+#ifndef NDEBUG
+            , vm(vmbase::_this_thread_vm)
+#endif // !NDEBUG
+        {
+        }
+        ~leave_this_thread_vm_guard()
+        {
+            wo_assert(vm == vmbase::_this_thread_vm);
+            if (leaved)
+                wo_assure(wo_enter_gcguard(reinterpret_cast<wo_vm>(vmbase::_this_thread_vm)));
+        }
+
+        leave_this_thread_vm_guard(const leave_this_thread_vm_guard&) = delete;
+        leave_this_thread_vm_guard(leave_this_thread_vm_guard&&) = delete;
+        leave_this_thread_vm_guard& operator=(const leave_this_thread_vm_guard&) = delete;
+        leave_this_thread_vm_guard& operator=(leave_this_thread_vm_guard&&) = delete;
+    };
+
     vmbase::hangup_lock::hangup_lock() :flag(0)
     {
     }
@@ -54,6 +83,8 @@ namespace wo
 
     vm_debuggee_bridge_base* vmbase::attach_debuggee(vm_debuggee_bridge_base* dbg) noexcept
     {
+        leave_this_thread_vm_guard g;
+
         std::shared_lock g1(_alive_vm_list_mx);
 
         // Remove old debuggee
@@ -64,7 +95,7 @@ namespace wo
             if (vm_instance->virtual_machine_type != vmbase::vm_type::GC_DESTRUCTOR)
                 vm_instance->wait_interrupt(vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT, false);
 
-        auto* old_debuggee = attaching_debuggee;
+        wo::vm_debuggee_bridge_base* old_debuggee = attaching_debuggee;
         attaching_debuggee = dbg;
 
         for (auto* vm_instance : _alive_vm_list)
@@ -84,6 +115,7 @@ namespace wo
             else
                 vm_instance->interrupt(vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT);
         }
+
         return old_debuggee;
     }
     vm_debuggee_bridge_base* vmbase::current_debuggee()noexcept
@@ -198,6 +230,7 @@ namespace wo
         vm_interrupt = vm_interrupt_type::NOTHING;
         wo_assure(wo_leave_gcguard(reinterpret_cast<wo_vm>(this)));
 
+        leave_this_thread_vm_guard g;
         std::lock_guard g1(_alive_vm_list_mx);
 
         wo_assert(_alive_vm_list.find(this) == _alive_vm_list.end(),
@@ -212,6 +245,7 @@ namespace wo
     {
         do
         {
+            leave_this_thread_vm_guard g;
             std::lock_guard g1(_alive_vm_list_mx);
 
             wo_assert(_alive_vm_list.find(this) != _alive_vm_list.end(),
@@ -316,7 +350,9 @@ namespace wo
 
         do
         {
+            leave_this_thread_vm_guard g;
             std::lock_guard g1(_alive_vm_list_mx);
+
             _gc_ready_vm_list.insert(this);
         } while (false);
     }
@@ -2942,11 +2978,27 @@ namespace wo
 #undef WO_FAST_READ_MOVE_8
 }
 
-////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////
 
-wo_vm wo_create_vm()
+wo_bool_t wo_abort_vm(wo_vm vm)
 {
-    return std::launder(
-        reinterpret_cast<wo_vm>(
-            new wo::vmbase(wo::vmbase::vm_type::NORMAL)));
+    auto* vmm = reinterpret_cast<wo::vmbase*>(vm);
+
+    wo::leave_this_thread_vm_guard g;
+    std::shared_lock gs(wo::vmbase::_alive_vm_list_mx);
+
+    if (wo::vmbase::_alive_vm_list.find(vmm) != wo::vmbase::_alive_vm_list.end())
+    {
+        return WO_CBOOL(vmm->interrupt(wo::vmbase::vm_interrupt_type::ABORT_INTERRUPT));
+    }
+    return WO_FALSE;
+}
+
+void wo_abort_all_vm()
+{
+    wo::leave_this_thread_vm_guard g;
+    std::shared_lock g1(wo::vmbase::_alive_vm_list_mx);
+
+    for (auto& vm : wo::vmbase::_alive_vm_list)
+        vm->interrupt(wo::vmbase::ABORT_INTERRUPT);
 }
