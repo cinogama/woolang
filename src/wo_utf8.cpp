@@ -265,9 +265,22 @@ namespace wo
             switch (u16len)
             {
             case 1:
-                if (iswprint(static_cast<wchar_t>(u16buf[0])))
-                    for (size_t i = 0; i < this_char_u8_length; ++i)
-                        result.push_back(static_cast<char>(p[i]));
+            {
+                const wchar_t this_char = static_cast<wchar_t>(u16buf[0]);
+                if (iswprint(this_char))
+                {
+                    switch (this_char)
+                    {
+                    case L'\\':
+                    case L'"':
+                        result.push_back('\\');
+                        [[fallthrough]];
+                    default:
+                        for (size_t i = 0; i < this_char_u8_length; ++i)
+                            result.push_back(static_cast<char>(p[i]));
+                        break;
+                    }
+                }
                 else
                 {
                     // Encode.
@@ -289,7 +302,9 @@ namespace wo
                     }
                     result += escape_serial;
                 }
+
                 break;
+            }
             case 2:
             {
                 int r = snprintf(
@@ -505,7 +520,7 @@ namespace wo
         {
             size_t u8len;
             char u8buf[UTF8MAXLEN];
-         
+
             u32exractu8(*u32charp, u8buf, &u8len);
 
             result.append(u8buf, u8len);

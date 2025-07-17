@@ -30,19 +30,19 @@ namespace test_basic
         }
     }
     using testvec3 = (real, real, real);
-
+    
     func testvec3_expand(_: string, a: real, b: real, c: real)
     {
         return a: int + b: int + c: int;
     }
-
+    
     using Aaa = struct{
         b: Bbb
-    }
+        }
     {
         using Bbb = string;
     }
-
+    
     func abs<T>(v:T)
     {
         if (v < 0:T) return -v;
@@ -59,9 +59,9 @@ namespace test_basic
             test_equal(f(), i);
         }
     }
-
+    
     using SidBugSt = struct{x: map<int, mut int>};
-
+    
     func div(a, b)
     {
         return a / b;
@@ -70,53 +70,53 @@ namespace test_basic
     {
         return a % b;
     }
-
+    
     func test_bug_sidx()
     {
         let b = SidBugSt{x={}mut};
-
+        
         let mut i = 66;
         b.x[1723] = i;
-
+        
         test_equal(b.x[1723], 66);
     }
     func test_oversized()
     {
         let b = SidBugSt{x={}mut};
         let mut a00 = 0, mut a10 = 0, a20 = 0, mut a30 = 0, a40 = 0, mut a50 = 0, a60 = 0, mut a70 = 0, a80 = 0, mut a90 = 0,
-            mut a01 = 0, mut a11 = 0, a21 = 0, mut a31 = 0, a41 = 0, mut a51 = 0, a61 = 0, mut a71 = 0, a81 = 0, mut a91 = 0,
-            mut a02 = 0, mut a12 = 0, a22 = 0, mut a32 = 0, a42 = 0, mut a52 = 0, a62 = 0, mut a72 = 0, a82 = 0, mut a92 = 0,
-            mut a03 = 0, mut a13 = 0, a23 = 0, mut a33 = 0, a43 = 0, mut a53 = 0, a63 = 0, mut a73 = 0, a83 = 0, mut a93 = 0,
-            mut a04 = 0, mut a14 = 0, a24 = 0, mut a34 = 0, a44 = 0, mut a54 = 0, a64 = 0, mut a74 = 0, a84 = 0, mut a94 = 0,
-            mut a05 = 0, mut a15 = 0, a25 = 0, mut a35 = 0, a45 = 0, mut a55 = 0, a65 = 0, mut a75 = 0, a85 = 0, mut a95 = 0,
-            mut a06 = 0, mut a16 = 10, a26 = 20, mut a36 = 30, a46 = 40, mut a56 = 50, a66 = 60, mut a76 = 0, a86 = 0, mut a96 = 0,
-            mut a07 = 0, mut a17 = 0, a27 = 0, mut a37 = 0, a47 = 0, mut a57 = 0, a67 = 0, mut a77 = 0, a87 = 0, mut a97 = 0;
+        mut a01 = 0, mut a11 = 0, a21 = 0, mut a31 = 0, a41 = 0, mut a51 = 0, a61 = 0, mut a71 = 0, a81 = 0, mut a91 = 0,
+        mut a02 = 0, mut a12 = 0, a22 = 0, mut a32 = 0, a42 = 0, mut a52 = 0, a62 = 0, mut a72 = 0, a82 = 0, mut a92 = 0,
+        mut a03 = 0, mut a13 = 0, a23 = 0, mut a33 = 0, a43 = 0, mut a53 = 0, a63 = 0, mut a73 = 0, a83 = 0, mut a93 = 0,
+        mut a04 = 0, mut a14 = 0, a24 = 0, mut a34 = 0, a44 = 0, mut a54 = 0, a64 = 0, mut a74 = 0, a84 = 0, mut a94 = 0,
+        mut a05 = 0, mut a15 = 0, a25 = 0, mut a35 = 0, a45 = 0, mut a55 = 0, a65 = 0, mut a75 = 0, a85 = 0, mut a95 = 0,
+        mut a06 = 0, mut a16 = 10, a26 = 20, mut a36 = 30, a46 = 40, mut a56 = 50, a66 = 60, mut a76 = 0, a86 = 0, mut a96 = 0,
+        mut a07 = 0, mut a17 = 0, a27 = 0, mut a37 = 0, a47 = 0, mut a57 = 0, a67 = 0, mut a77 = 0, a87 = 0, mut a97 = 0;
         let c = SidBugSt{x={}mut};
         a00 = a97 := 233;
-
+        
         b.x[a01] = a46;
         b.x[a66] = a00;
         b.x[a16] = a97;
         c.x[a00] = a66;
         c.x[a66] = a00;
-
+        
         test_equal(b.x[0], 40);
         test_equal(b.x[60], 233);
         test_equal(b.x[10], 233);
         test_equal(c.x[233], 60);
         test_equal(c.x[60], 233);
-
+        
         test_equal(a00, 233);
         test_equal(a97, 233);
         test_equal(a10, 0);
-
+        
         test_equal(a16, 10);
         test_equal(a26, 20);
         test_equal(a36, 30);
         test_equal(a46, 40);
         test_equal(a56, 50);
         test_equal(a66, 60);
-
+        
         do a00;do a10;do a20; do a30;do a40;do a50;do a60;do a70; do a80; do a90;
         do a01;do a11;do a21; do a31;do a41;do a51;do a61;do a71; do a81; do a91;
         do a02;do a12;do a22; do a32;do a42;do a52;do a62;do a72; do a82; do a92;
@@ -125,9 +125,9 @@ namespace test_basic
         do a05;do a15;do a25; do a35;do a45;do a55;do a65;do a75; do a85; do a95;
         do a06;do a16;do a26; do a36;do a46;do a56;do a66;do a76; do a86; do a96;
         do a07;do a17;do a27; do a37;do a47;do a57;do a67;do a77; do a87; do a97;
-
+        
     }
-
+    
     func test_oversized2(
         a0: int, a1: int, a2: int, a3: int, a4: int, a5: int, a6: int, a7: int, a8: int, a9: int,
         a10: int, a11: int, a12: int, a13: int, a14: int, a15: int, a16: int, a17: int, a18: int, a19: int,
@@ -136,29 +136,29 @@ namespace test_basic
         a40: int, a41: int, a42: int, a43: int, a44: int, a45: int, a46: int, a47: int, a48: int, a49: int,
         a50: int, a51: int, a52: int, a53: int, a54: int, a55: int, a56: int, a57: int, a58: int, a59: int,
         a60: int, a61: int, a62: int, a63: int, a64: int, a65: int, a66: int, a67: int, a68: int, a69: int
-        )
+            )
     {
         return a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 + a9 +
             a10 + a11 + a12 + a13 + a14 + a15 + a16 + a17 + a18 + a19 +
-            a20 + a21 + a22 + a23 + a24 + a25 + a26 + a27 + a28 + a29 +
-            a30 + a31 + a32 + a33 + a34 + a35 + a36 + a37 + a38 + a39 +
-            a40 + a41 + a42 + a43 + a44 + a45 + a46 + a47 + a48 + a49 +
-            a50 + a51 + a52 + a53 + a54 + a55 + a56 + a57 + a58 + a59 +
-            a60 + a61 + a62 + a63 + a64 + a65 + a66 + a67 + a68 + a69;
+                a20 + a21 + a22 + a23 + a24 + a25 + a26 + a27 + a28 + a29 +
+                    a30 + a31 + a32 + a33 + a34 + a35 + a36 + a37 + a38 + a39 +
+                        a40 + a41 + a42 + a43 + a44 + a45 + a46 + a47 + a48 + a49 +
+                            a50 + a51 + a52 + a53 + a54 + a55 + a56 + a57 + a58 + a59 +
+                                a60 + a61 + a62 + a63 + a64 + a65 + a66 + a67 + a68 + a69;
     }
-
+    
     using empty_st = struct{};
-
+    
     func foo(a: int)
     {
         return func(...){return ...[a];};
     }
-
+    
     func test_constant_template_arg_foo<TF: (string)=> string>()
     {
         return TF("Helloworld");
     }
-
+    
     func main()
     {
         func foo_in_constant_tuple()
@@ -173,11 +173,11 @@ namespace test_basic
         let constant_extfunc_tuple2 = (constant_extfunc_tuple, 0);
         let constant_extfunc_tuple3 = (constant_extfunc_tuple2, 1);
         test_equal(constant_extfunc_tuple3->car->car->cdr.2((233666, 655)), 233666);
-
+        
         test_equal(
-            test_constant_template_arg_foo:<{\v: string = v + "toConstantFunction";}>(), 
+            test_constant_template_arg_foo:<{\v: string = v + "toConstantFunction";}>(),
             "HelloworldtoConstantFunction");
-
+            
         test_assure(std::is_same(constant_tuple, constant_tuple2.0));
         test_assure(std::is_same(constant_tuple, constant_tuple3.0[0]));
         test_assure(std::is_same(constant_tuple2, constant_tuple3.0));
@@ -188,29 +188,29 @@ namespace test_basic
         test_equal(A::B::get_foo(), "A::B::foo");
         test_assure(std::type_traits::is_same:<A::B::T, typeof(A::B::get_t())>);
         test_assure(!std::type_traits::is_same:<A::T, typeof(A::B::get_t())>);
-
+        
         test_equal(foo(2)(1,2,3,4,5,6) as int, 3);
-
+        
         test_equal(typeid:<typeof(noexist_foo())>, 0);
         test_equal(typeid:<typeof(A::B::get_foo())> == 0, false);
-
+        
         test_equal(Aaa{b="Helloworld": Aaa::Bbb}.b: string, "Helloworld");
-
+        
         let a_empty_st = empty_st{};
         let b_empty_st = struct{};
-
+        
         std::println(a_empty_st, b_empty_st, ());
-
+        
         test_bug_sidx();
         test_oversized();
-
+        
         let v = []mut: vec<int>;
         for (let mut i = 0; i < 70; i += 1)
         {
             v->add(i);
         }
         test_equal(test_oversized2(v...), v->reduce(\l, r = l + r;)->unwrap);
-
+        
         let mut a = 15;
         test_equal(a/3, 5);
         test_equal(a/4, 3);
@@ -218,32 +218,32 @@ namespace test_basic
         test_equal(a/6, 2);
         test_equal(a/7, 2);
         test_equal(a/8, 1);
-
+        
         test_equal(a%3, 0);
         test_equal(a%4, 3);
         test_equal(a%5, 0);
         test_equal(a%6, 3);
         test_equal(a%7, 1);
         test_equal(a%8, 7);
-
+        
         a += 1.75: int;
         test_equal(a, 16);
         a -= 0.75: int;
         test_equal(a, 16);
         a -= 1;
         test_equal(a, 15);
-
+        
         test_assure(abs(1.2 * 5.0 - 6.0) < 0.0000000001);
         test_assure(abs(1.2 / 0.6 - 2.0) < 0.0000000001);
         test_assure(abs(1.2 % 0.6) < 0.0000000001);
-
+        
         let mut x = 1.2;
         test_assure(abs(x * 5.0 - 6.0) < 0.0000000001);
         test_assure(abs(x / 0.6 - 2.0) < 0.0000000001);
         test_assure(abs(x % 0.6) < 0.0000000001);
         x += 1: real;
         test_assure(abs(x - 2.2) < 0.0000000001);
-
+        
         let b = 15:dynamic;
         let h1 = 1230H :dynamic;
         let h2 = 7890H :dynamic;
@@ -251,22 +251,22 @@ namespace test_basic
         test_equal(h1: handle + h2: handle, 9120H);
         test_equal(h1: handle + 1.0: handle, 1231H);
         test_equal(h1: handle + 5: handle, 1235H);
-
+        
         test_equal(h2: handle - h1: handle, 6660H);
         test_equal(h1: handle - 1.0: handle, 1229H);
         test_equal(h1: handle - 5: handle, 1225H);
-
+        
         test_assure(abs(a:real * 0.2 - 3.) < 0.0000000001);
         test_assure(abs(a:real / 0.2 - 75.) < 0.0000000001);
-    
+        
         let mut p = 1;
         let mut q = 1.0;
-
+        
         q = 75: real;
         q += 0.62;
         p = q: int;
         test_equal(p, 75);
-
+        
         test_equal(q>1.0, true);
         test_equal(q>=1.0, true);
         test_equal(q<1.0, false);
@@ -276,17 +276,17 @@ namespace test_basic
         test_equal(h1:real >= q, true);
         test_equal((h1:real) < q, false);
         test_equal(h1:real <= q, false);
-
+        
         test_equal(p:handle, 75H);
         test_equal(q:handle, 75H);
-
+        
         q += 1: real;
         p += q: int;
         test_equal(q:int, 76);
-
+        
         p -= 151.0: int;
         test_equal(p, 0);
-
+        
         test_assure(" "->is_space());
         test_assure(!"a"->is_space());
         test_assure("1"->is_number());
@@ -300,7 +300,7 @@ namespace test_basic
         test_equal(split_result->len(), 2);
         test_equal(split_result[0], "a b");
         test_equal(split_result[1], "c d");
-
+        
         let split_result2 = "abcde"->split("") |> iterator::collect;
         test_equal(split_result2->len(), 5);
         test_equal(split_result2[0], "a");
@@ -308,7 +308,7 @@ namespace test_basic
         test_equal(split_result2[2], "c");
         test_equal(split_result2[3], "d");
         test_equal(split_result2[4], "e");
-
+        
         let split_result3 = "abc你 好de"->split(" ") |> iterator::collect;
         test_equal(split_result3->len(), 2);
         test_equal(split_result3[0], "abc你");
@@ -320,7 +320,7 @@ namespace test_basic
         test_equal(split_result4[1], "好");
         test_equal(split_result4[2], "世");
         test_equal(split_result4[3], "界");
-
+        
         let m = {}mut: map<int, int>;
         m->set(0, 233);
         m->set(1, 666);
@@ -328,116 +328,123 @@ namespace test_basic
         test_equal(m[0], 233);
         test_equal(m[1], 666);
         test_equal(m[2], 777);
-
+        
         let mut dyx = nil: dynamic;
         let mut val = 1.6;
-
+        
         dyx = (1 > 6): dynamic;
         test_assure(dyx is bool);
-
+        
         dyx = (val > 10.5): dynamic;
         test_assure(dyx is bool);
-
+        
         dyx = (val < 10.5): dynamic;
         test_assure(dyx is bool);
-
+        
         test_assure(dyx: string == "true");
         test_assure("true": bool == true);
         test_assure("false": bool == false);
-
+        
         let mut aav = 12;
-
+        
         test_equal(aav +:= 16, 28);
         test_equal(aav, 28);
-
+        
         test_equal(aav /: 2, 14);
         test_equal(aav, 14);
-
+        
         test_equal(aav +: 2, 16);
         test_equal(aav, 16);
-
+        
         test_equal(std::type_traits::is_same:<int, int>, true);
         test_equal(std::type_traits::is_same:<int, real>, false);
         test_equal(std::type_traits::is_same:<mut int, int>, false);
-       
+        
         test_equal(std::type_traits::is_mutable:<mut int>, true);
         test_equal(std::type_traits::is_mutable:<int>, false);
-
+        
         test_assure(() is ());
         test_assure(!((1, 2, 3) is ()));
         test_assure((1, 2, 3) is (int, int, int));
         test_assure(!((mut 1, 2, 3) is (int, int, int)));
         test_assure(!((1, 2, 3) is (int, mut int, int)));
         test_assure((mut 1, 2, 3) is (mut int, int, int));
-
+        
         let mut test_break_label = true;
-
+        
         outside_label@
-        for (let _ : [1])
-        {
             for (let _ : [1])
-                break outside_label;
-
-            test_break_label = false;
-        }
+            {
+                for (let _ : [1])
+                    break outside_label;
+                    
+                test_break_label = false;
+            }
         test_equal(test_break_label, true);
-
+        
         outside_label2@
-        for (let _ : [1])
-        {
             for (let _ : [1])
-                continue outside_label2;
-
-            test_break_label = false;
-        }
+            {
+                for (let _ : [1])
+                    continue outside_label2;
+                    
+                test_break_label = false;
+            }
         test_equal(test_break_label, true);
-   
+        
         for (let _ : [1])
         {
             inside_label@
-            for (let _ : [1])
-                continue inside_label;
-
+                for (let _ : [1])
+                    continue inside_label;
+                    
             test_break_label = false;
         }
         test_equal(test_break_label, false);
-
+        
         for (let _ : [1])
         {
             inside_label@
-            for (let v : [1, 2])
-            {
-                if (v == 1)
-                    continue inside_label;
-                test_break_label = true;
-            }
+                for (let v : [1, 2])
+                {
+                    if (v == 1)
+                        continue inside_label;
+                    test_break_label = true;
+                }
         }
         test_equal(test_break_label, true);
-
+        
         for (let _ : [1])
         {
             inside_label@
-            for (let v : [1, 2])
-            {
-                if (v == 1)
-                    break inside_label;
-                test_break_label = false;
-            }
+                for (let v : [1, 2])
+                {
+                    if (v == 1)
+                        break inside_label;
+                    test_break_label = false;
+                }
         }
         test_equal(test_break_label, true);
-
+        
         test_equal(div(9, 6), 1);
         test_equal(mod(9, 6), 3);
         test_equal(div(9.0, 6.0), 9.0 / 6.0);
         test_equal(mod(9.0, 6.0), 3.0);
-
+        
         let nega = 1.0;
         let negb = 1;
         test_equal(-nega, -negb: real);
         test_equal(-nega, (-negb): real);
         test_equal(-nega, -(negb: real));
-
+        
         test_equal(testvec3_expand("", (1.2, 3.14, 5.26): testvec3...), 9);
+        
+        test_equal(
+            {["\"key\""] = "\"val\""}
+                -> serialize
+                -> unwrap
+                -> dict::deserialize
+                -> unwrap["\"key\"": dynamic] as string, "\"val\"");
     }
 }
 
