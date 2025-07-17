@@ -2313,6 +2313,11 @@ func main()
             do bar:<int>;
         }
         "@);
+
+        // Do you forget to regenerate the grammar-cache?
+        assure_compile_fail(@""@);
+        assure_compile_fail(@"^"@);
+        assure_compile_fail(@"$"@);
     }
 
     func main()
