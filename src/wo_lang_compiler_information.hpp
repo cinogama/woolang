@@ -16,7 +16,7 @@
 #define WO_SEE_ALSO u8"另见"
 #define WO_TERM_EXCEPTED u8"应当是"
 
-#define WO_TOO_MANY_ERROR(count) u8"错误数量过多(已达上限), 仅显示前 u8" + std::to_string(count) +  u8" 条错误, 编译终止"
+#define WO_TOO_MANY_ERROR(count) u8"错误数量过多(已达上限), 仅显示前 " + std::to_string(count) +  u8" 条错误, 编译终止"
 
 // PASS LEXER
 #define WO_ERR_MISMATCH_ANNO_SYM u8"注释符号不匹配"
