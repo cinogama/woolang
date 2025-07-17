@@ -2615,7 +2615,7 @@ namespace dict
     extern("rslib_std_map_only_get", repeat) 
         public func get<KT, VT>(self: dict<KT, VT>, index: KT)=> option<VT>;
     extern("rslib_std_map_find", repeat) 
-        public func contain<KT, VT>(self: dict<KT, VT>, index: KT)=> bool;
+        public func contains<KT, VT>(self: dict<KT, VT>, index: KT)=> bool;
     extern("rslib_std_map_get_or_default", repeat) 
         public func get_or<KT, VT>(self: dict<KT, VT>, index: KT, default_val: VT)=> VT;
     public func get_or_do<KT, VT>(self: dict<KT, VT>, index: KT, f: ()=> VT)=> VT
@@ -2711,7 +2711,7 @@ namespace map
         return option::none;            
     }
     extern("rslib_std_map_find", repeat) 
-        public func contain<KT, VT>(self: map<KT, VT>, index: KT)=> bool;
+        public func contains<KT, VT>(self: map<KT, VT>, index: KT)=> bool;
     extern("rslib_std_map_only_get", repeat) 
         public func get<KT, VT>(self: map<KT, VT>, index: KT)=> option<VT>;
     extern("rslib_std_map_get_or_default", repeat) 
