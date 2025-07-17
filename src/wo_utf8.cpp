@@ -286,30 +286,35 @@ namespace wo
                     // Encode.
                     if (u16buf[0] > static_cast<char16_t>(0x00FFu) || force_unicode)
                     {
-                        int r = snprintf(
-                            escape_serial, 7, "\\u%04X", static_cast<uint16_t>(u16buf[0]));
+                        const int r = snprintf(
+                            escape_serial, 
+                            sizeof(escape_serial),
+                            "\\u%04X", 
+                            static_cast<uint16_t>(u16buf[0]));
 
                         wo_assert(r == 6);
                         (void)r;
                     }
                     else
                     {
-                        int r = snprintf(
-                            escape_serial, 5, "\\x%02X", static_cast<uint8_t>(u16buf[0]));
+                        const int r = snprintf(
+                            escape_serial, 
+                            sizeof(escape_serial),
+                            "\\x%02X", 
+                            static_cast<uint8_t>(u16buf[0]));
 
                         wo_assert(r == 4);
                         (void)r;
                     }
                     result += escape_serial;
                 }
-
                 break;
             }
             case 2:
             {
-                int r = snprintf(
+                const int r = snprintf(
                     escape_serial,
-                    13,
+                    sizeof(escape_serial),
                     "\\u%04X\\u%04X",
                     static_cast<uint16_t>(u16buf[0]),
                     static_cast<uint16_t>(u16buf[1]));
