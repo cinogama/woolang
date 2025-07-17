@@ -563,6 +563,7 @@ namespace wo
                 size_t max_length_producer = 0;
                 std::map<std::string, int> nonte_list;
                 std::map<lex_type, int> te_list;
+                do
                 {
                     int nt_count = 0;
                     int te_count = 0;
@@ -610,11 +611,18 @@ namespace wo
                     cachefile << "const lex_type woolang_id_term_list[" << te_count << "+ 1] = {" << endl;
                     cachefile << tab << "lex_type::l_error," << endl;
 
-                    for (auto &[te_index, op_te] : _real_te_list)
-                        cachefile << tab << "(lex_type)" << static_cast<int>(static_cast<lex_type_base_t>(op_te)) << "," << endl;
+                    for (auto& [te_index, op_te] : _real_te_list)
+                    {
+                        cachefile
+                            << tab 
+                            << "(lex_type)"
+                            << static_cast<int>(static_cast<lex_type_base_t>(op_te)) 
+                            << "," 
+                            << endl;
+                    }
 
                     cachefile << "};" << endl;
-                }
+                } while (0);
                 ///////////////////////////////////////////////////////////////////////
                 // Generate LR(1) action table;
 

@@ -3,7 +3,7 @@
 //
 // Here will have woolang c api;
 //
-#define WO_VERSION WO_VER(1, 14, 10, 0)
+#define WO_VERSION WO_VER(1, 14, 10, 1)
 
 #ifdef __cplusplus
 #include <cstdint>

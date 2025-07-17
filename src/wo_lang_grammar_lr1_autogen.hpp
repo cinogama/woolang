@@ -4,7 +4,7 @@
 #include "wo_compiler_parser.hpp"
 
 #define WO_LANG_GRAMMAR_LR1_AUTO_GENED
-#define WO_LANG_GRAMMAR_CRC64 0x49a9f9373ee40b46ull
+#define WO_LANG_GRAMMAR_CRC64 0x962fca13425a22e3ull
 
 
 namespace wo
@@ -262,7 +262,7 @@ const lex_type woolang_id_term_list[98+ 1] = {
     (lex_type)91,
     (lex_type)92,
     (lex_type)45,
-    (lex_type)97,
+    (lex_type)100,
     (lex_type)96,
     (lex_type)-1,
 };
