@@ -282,7 +282,7 @@ namespace wo
                     else
                     {
                         int r = snprintf(
-                            escape_serial, 5, "\\x%02X", static_cast<uint16_t>(u16buf[0]));
+                            escape_serial, 5, "\\x%02X", static_cast<uint8_t>(u16buf[0]));
 
                         wo_assert(r == 4);
                         (void)r;
