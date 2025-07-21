@@ -1682,7 +1682,12 @@ namespace wo
                     else if (attribute_token->m_token.identifier == "repeat")
                         attribute_mask |= AstExternInformation::REPEATABLE;
                     else
-                        return token{ lex.record_lang_error(lexer::msglevel_t::error, attribute, WO_ERR_UNKNOWN_EXTERN_ATTRIB) };
+                        return token{ 
+                        lex.record_lang_error(
+                            lexer::msglevel_t::error,
+                            attribute, 
+                            WO_ERR_UNKNOWN_EXTERN_ATTRIB,
+                            attribute_token->m_token.identifier.c_str()) };
                 }
             }
 

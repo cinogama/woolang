@@ -25,7 +25,7 @@ namespace wo
     class cin_win32_u16_to_u8 : public std::streambuf
     {
         static constexpr size_t BUFFER_LIMIT = 16384;
-     
+
         bool m_eof_flag;
 
         size_t m_u16exract_place;
@@ -60,14 +60,23 @@ namespace wo
                     &readed_u16count,
                     NULL) || readed_u16count == 0)
                 {
-                    // Unable to read?
-                    m_eof_flag = true;
-                    return traits_type::eof();
+                    // Ctrl+C pressed?
+                    auto err = GetLastError();
+                    switch (err)
+                    {
+                    case ERROR_OPERATION_ABORTED:
+                        // Ctrl+C pressed, skip this round.
+                        readed_u16count = 0;
+                        break;
+                    default:
+                        m_eof_flag = true;
+                        return traits_type::eof();
+                    }
                 }
                 m_u16exract_place = 0;
                 m_u16readable_length = static_cast<size_t>(readed_u16count);
             }
-            
+
             // Convert u16 serial to u8 serial;
             size_t u8_buffer_next_place = 0;
             while (m_u16exract_place < m_u16readable_length)

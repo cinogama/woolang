@@ -2313,6 +2313,22 @@ func main()
             do bar:<int>;
         }
         "@);
+        assure_compile_success(@"
+        extern("rslib_std_bad_function")
+        func foo()=> void;
+        "@);
+        assure_compile_success(@"
+        extern("rslib_std_bad_function", slow)
+        func foo()=> void;
+        "@);
+        assure_compile_success(@"
+        extern("rslib_std_bad_function", repeat)
+        func foo()=> void;
+        "@);
+        assure_compile_fail(@"
+        extern("rslib_std_bad_function", non_exist_attrib)
+        func foo()=> void;
+        "@);
 
         // Do you forget to regenerate the grammar-cache?
         assure_compile_fail(@""@);
