@@ -3,7 +3,7 @@
 //
 // Here will have woolang c api;
 //
-#define WO_VERSION WO_VER(1, 14, 10, 1)
+#define WO_VERSION WO_VER(1, 14, 10, 2)
 
 #ifdef __cplusplus
 #include <cstdint>
@@ -59,17 +59,13 @@ typedef size_t wo_size_t;
 
 #define WO_STRUCT_TAKE_PLACE(BYTECOUNT) uint8_t _take_palce_[BYTECOUNT]
 
-typedef struct _wo_vm
-{ /* reserved, and prevent from type casting. */
-    WO_STRUCT_TAKE_PLACE(1);
-}
-*wo_vm;
+typedef struct _wo_vm* wo_vm;
 typedef struct _wo_value
 { /* reserved, and prevent from type casting. */
     WO_DECLARE_ALIGNAS(8)
         WO_STRUCT_TAKE_PLACE(16);
 }
-*wo_value;
+wo_unref_value, * wo_value;
 
 typedef wo_size_t wo_stack_value;
 
@@ -249,12 +245,25 @@ typedef struct _wo_extern_lib_func_pair
 
 #define WO_EXTERN_LIB_FUNC_END \
     wo_extern_lib_func_t { nullptr, nullptr }
-#define wo_fail(ERRID, ...) ((void)wo_cause_fail(__FILE__, __LINE__, __func__, ERRID, __VA_ARGS__))
-#define wo_execute_fail(VM, ERRID, REASON) ((void)wo_execute_fail_handler(VM, __FILE__, __LINE__, __func__, ERRID, REASON))
+#define wo_fail(ERRID, ...)\
+    ((void)wo_cause_fail(__FILE__, __LINE__, __func__, ERRID, __VA_ARGS__))
+#define wo_execute_fail(VM, ERRID, REASON)\
+    ((void)wo_execute_fail_handler(VM, __FILE__, __LINE__, __func__, ERRID, REASON))
 
 WO_API wo_fail_handler_t wo_register_fail_handler(wo_fail_handler_t new_handler);
-WO_API void wo_cause_fail(wo_string_t src_file, uint32_t lineno, wo_string_t functionname, uint32_t rterrcode, wo_string_t reasonfmt, ...);
-WO_API void wo_execute_fail_handler(wo_vm vm, wo_string_t src_file, uint32_t lineno, wo_string_t functionname, uint32_t rterrcode, wo_string_t reason);
+WO_API void wo_cause_fail(
+    wo_string_t src_file,
+    uint32_t lineno,
+    wo_string_t functionname,
+    uint32_t rterrcode,
+    wo_string_t reasonfmt, ...);
+WO_API void wo_execute_fail_handler(
+    wo_vm vm,
+    wo_string_t src_file,
+    uint32_t lineno,
+    wo_string_t functionname,
+    uint32_t rterrcode,
+    wo_string_t reason);
 
 WO_API wo_string_t wo_commit_sha(void);
 WO_API wo_string_t wo_compile_date(void);
@@ -275,8 +284,15 @@ WO_API void wo_gc_resume(void);
 WO_API void wo_gc_wait_sync(void);
 WO_API void wo_gc_immediately(wo_bool_t fullgc);
 
-WO_API wo_dylib_handle_t wo_fake_lib(const char* libname, const wo_extern_lib_func_t* funcs, wo_dylib_handle_t dependence_dylib_may_null);
-WO_API wo_dylib_handle_t wo_load_lib(const char* libname, const char* path, const char* script_path, wo_bool_t panic_when_fail);
+WO_API wo_dylib_handle_t wo_fake_lib(
+    const char* libname,
+    const wo_extern_lib_func_t* funcs,
+    wo_dylib_handle_t dependence_dylib_may_null);
+WO_API wo_dylib_handle_t wo_load_lib(
+    const char* libname,
+    const char* path,
+    const char* script_path,
+    wo_bool_t panic_when_fail);
 WO_API wo_dylib_handle_t wo_load_func(void* lib, const char* funcname);
 WO_API void wo_unload_lib(wo_dylib_handle_t lib, wo_dylib_unload_method_t method_mask);
 
@@ -318,8 +334,18 @@ WO_API void wo_set_string(wo_value value, wo_vm vm, wo_string_t val);
 WO_API void wo_set_string_fmt(wo_value value, wo_vm vm, wo_string_t fmt, ...);
 WO_API void wo_set_buffer(wo_value value, wo_vm vm, const void* val, wo_size_t len);
 #define wo_set_raw_string wo_set_buffer
-WO_API void wo_set_gchandle(wo_value value, wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val_may_null, wo_gchandle_close_func_t destruct_func);
-WO_API void wo_set_gcstruct(wo_value value, wo_vm vm, wo_ptr_t resource_ptr, wo_gcstruct_mark_func_t mark_func, wo_gchandle_close_func_t destruct_func);
+WO_API void wo_set_gchandle(
+    wo_value value,
+    wo_vm vm,
+    wo_ptr_t resource_ptr,
+    wo_value holding_val_may_null,
+    wo_gchandle_close_func_t destruct_func);
+WO_API void wo_set_gcstruct(
+    wo_value value,
+    wo_vm vm,
+    wo_ptr_t resource_ptr,
+    wo_gcstruct_mark_func_t mark_func,
+    wo_gchandle_close_func_t destruct_func);
 WO_API void wo_set_struct(wo_value value, wo_vm vm, uint16_t structsz);
 WO_API void wo_set_arr(wo_value value, wo_vm vm, wo_int_t count);
 WO_API void wo_set_map(wo_value value, wo_vm vm, wo_size_t reserved);
@@ -352,8 +378,16 @@ WO_API wo_result_t wo_ret_string(wo_vm vm, wo_string_t result);
 WO_API wo_result_t wo_ret_string_fmt(wo_vm vm, wo_string_t fmt, ...);
 WO_API wo_result_t wo_ret_buffer(wo_vm vm, const void* result, wo_size_t len);
 #define wo_ret_raw_string wo_ret_buffer
-WO_API wo_result_t wo_ret_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val_may_null, wo_gchandle_close_func_t destruct_func);
-WO_API wo_result_t wo_ret_gcstruct(wo_vm vm, wo_ptr_t resource_ptr, wo_gcstruct_mark_func_t mark_func, wo_gchandle_close_func_t destruct_func);
+WO_API wo_result_t wo_ret_gchandle(
+    wo_vm vm,
+    wo_ptr_t resource_ptr,
+    wo_value holding_val_may_null,
+    wo_gchandle_close_func_t destruct_func);
+WO_API wo_result_t wo_ret_gcstruct(
+    wo_vm vm,
+    wo_ptr_t resource_ptr,
+    wo_gcstruct_mark_func_t mark_func,
+    wo_gchandle_close_func_t destruct_func);
 WO_API wo_result_t wo_ret_dup(wo_vm vm, wo_value result);
 
 WO_API wo_result_t wo_ret_halt(wo_vm vm, wo_string_t reasonfmt, ...);
@@ -374,8 +408,18 @@ WO_API void wo_set_option_buffer(wo_value val, wo_vm vm, const void* result, wo_
 WO_API void wo_set_option_ptr_may_null(wo_value val, wo_vm vm, wo_ptr_t result);
 WO_API void wo_set_option_pointer(wo_value val, wo_vm vm, wo_ptr_t result);
 WO_API void wo_set_option_val(wo_value val, wo_vm vm, wo_value result);
-WO_API void wo_set_option_gchandle(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val_may_null, wo_gchandle_close_func_t destruct_func);
-WO_API void wo_set_option_gcstruct(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, wo_gcstruct_mark_func_t mark_func, wo_gchandle_close_func_t destruct_func);
+WO_API void wo_set_option_gchandle(
+    wo_value val,
+    wo_vm vm,
+    wo_ptr_t resource_ptr,
+    wo_value holding_val_may_null,
+    wo_gchandle_close_func_t destruct_func);
+WO_API void wo_set_option_gcstruct(
+    wo_value val,
+    wo_vm vm,
+    wo_ptr_t resource_ptr,
+    wo_gcstruct_mark_func_t mark_func,
+    wo_gchandle_close_func_t destruct_func);
 WO_API void wo_set_option_none(wo_value val, wo_vm vm);
 
 #define wo_set_ok_void wo_set_option_void
@@ -407,8 +451,18 @@ WO_API void wo_set_err_buffer(wo_value val, wo_vm vm, const void* result, wo_siz
 #define wo_set_err_raw_string wo_set_option_buffer
 WO_API void wo_set_err_pointer(wo_value val, wo_vm vm, wo_ptr_t result);
 WO_API void wo_set_err_val(wo_value val, wo_vm vm, wo_value result);
-WO_API void wo_set_err_gchandle(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val_may_null, wo_gchandle_close_func_t destruct_func);
-WO_API void wo_set_err_gcstruct(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, wo_gcstruct_mark_func_t mark_func, wo_gchandle_close_func_t destruct_func);
+WO_API void wo_set_err_gchandle(
+    wo_value val,
+    wo_vm vm,
+    wo_ptr_t resource_ptr,
+    wo_value holding_val_may_null,
+    wo_gchandle_close_func_t destruct_func);
+WO_API void wo_set_err_gcstruct(
+    wo_value val,
+    wo_vm vm,
+    wo_ptr_t resource_ptr,
+    wo_gcstruct_mark_func_t mark_func,
+    wo_gchandle_close_func_t destruct_func);
 
 WO_API wo_result_t wo_ret_option_void(wo_vm vm);
 WO_API wo_result_t wo_ret_option_char(wo_vm vm, wo_wchar_t result);
@@ -424,8 +478,16 @@ WO_API wo_result_t wo_ret_option_buffer(wo_vm vm, const void* result, wo_size_t 
 WO_API wo_result_t wo_ret_option_ptr_may_null(wo_vm vm, wo_ptr_t result);
 WO_API wo_result_t wo_ret_option_pointer(wo_vm vm, wo_ptr_t result);
 WO_API wo_result_t wo_ret_option_val(wo_vm vm, wo_value result);
-WO_API wo_result_t wo_ret_option_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val_may_null, wo_gchandle_close_func_t destruct_func);
-WO_API wo_result_t wo_ret_option_gcstruct(wo_vm vm, wo_ptr_t resource_ptr, wo_gcstruct_mark_func_t mark_func, wo_gchandle_close_func_t destruct_func);
+WO_API wo_result_t wo_ret_option_gchandle(
+    wo_vm vm,
+    wo_ptr_t resource_ptr,
+    wo_value holding_val_may_null,
+    wo_gchandle_close_func_t destruct_func);
+WO_API wo_result_t wo_ret_option_gcstruct(
+    wo_vm vm,
+    wo_ptr_t resource_ptr,
+    wo_gcstruct_mark_func_t mark_func,
+    wo_gchandle_close_func_t destruct_func);
 WO_API wo_result_t wo_ret_option_none(wo_vm vm);
 
 #define wo_ret_ok_void wo_ret_option_void
@@ -457,12 +519,24 @@ WO_API wo_result_t wo_ret_err_buffer(wo_vm vm, const void* result, wo_size_t len
 #define wo_ret_err_raw_string wo_ret_err_buffer
 WO_API wo_result_t wo_ret_err_pointer(wo_vm vm, wo_ptr_t result);
 WO_API wo_result_t wo_ret_err_val(wo_vm vm, wo_value result);
-WO_API wo_result_t wo_ret_err_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val_may_null, wo_gchandle_close_func_t destruct_func);
-WO_API wo_result_t wo_ret_err_gcstruct(wo_vm vm, wo_ptr_t resource_ptr, wo_gcstruct_mark_func_t mark_func, wo_gchandle_close_func_t destruct_func);
+WO_API wo_result_t wo_ret_err_gchandle(
+    wo_vm vm,
+    wo_ptr_t resource_ptr,
+    wo_value holding_val_may_null,
+    wo_gchandle_close_func_t destruct_func);
+WO_API wo_result_t wo_ret_err_gcstruct(
+    wo_vm vm,
+    wo_ptr_t resource_ptr,
+    wo_gcstruct_mark_func_t mark_func,
+    wo_gchandle_close_func_t destruct_func);
 
 WO_API wo_result_t wo_ret_yield(wo_vm vm);
 
-WO_API wo_bool_t wo_extern_symb(wo_vm vm, wo_string_t fullname, wo_integer_t* out_wo_func, wo_handle_t* out_jit_func);
+WO_API wo_bool_t wo_extern_symb(
+    wo_vm vm,
+    wo_string_t fullname,
+    wo_integer_t* out_wo_func,
+    wo_handle_t* out_jit_func);
 
 WO_API void wo_abort_all_vm(void);
 
@@ -476,8 +550,15 @@ WO_API wo_bool_t wo_set_work_path(wo_string_t path);
 WO_API wo_vm wo_set_this_thread_vm(wo_vm vm_may_null);
 
 WO_API void wo_enable_jit(wo_bool_t option);
-WO_API wo_bool_t wo_virtual_binary(wo_string_t filepath, const void* data, wo_size_t len, wo_bool_t enable_modify);
-WO_API wo_bool_t wo_virtual_source(wo_string_t filepath, wo_string_t data, wo_bool_t enable_modify);
+WO_API wo_bool_t wo_virtual_binary(
+    wo_string_t filepath,
+    const void* data,
+    wo_size_t len,
+    wo_bool_t enable_modify);
+WO_API wo_bool_t wo_virtual_source(
+    wo_string_t filepath,
+    wo_string_t data,
+    wo_bool_t enable_modify);
 
 typedef struct _wo_virtual_file* wo_virtual_file_t;
 
@@ -506,11 +587,11 @@ WO_API wo_bool_t wo_load_source(wo_vm vm, wo_string_t virtual_src_path, wo_strin
 WO_API wo_bool_t wo_load_file(wo_vm vm, wo_string_t virtual_src_path);
 WO_API wo_bool_t wo_load_binary(wo_vm vm, wo_string_t virtual_src_path, const void* buffer, wo_size_t length);
 
+WO_API wo_bool_t wo_jit(wo_vm vm);
+
 // NOTE: wo_dump_binary must invoke before wo_run.
 WO_API void* wo_dump_binary(wo_vm vm, wo_bool_t saving_pdi, wo_size_t* out_length);
 WO_API void wo_free_binary(void* buffer);
-
-WO_API wo_bool_t wo_jit(wo_vm vm);
 
 typedef void (*wo_execute_callback_ft)(wo_value, void*);
 WO_API wo_bool_t wo_execute(wo_string_t src, wo_execute_callback_ft callback, void* data);
@@ -667,20 +748,25 @@ WO_API void wo_arr_clear(wo_value arr);
 
 WO_API void wo_map_reserve(wo_value map, wo_size_t sz);
 WO_API void wo_map_set(wo_value map, wo_value index, wo_value val);
-WO_API wo_bool_t wo_map_get_or_set(wo_value out_val, wo_value map, wo_value index, wo_value default_value);
+WO_API wo_bool_t wo_map_get_or_set(
+    wo_value out_val,
+    wo_value map,
+    wo_value index,
+    wo_value default_value);
 WO_API wo_result_t wo_ret_map_get_or_set_do(
-    wo_vm vm, wo_value map, wo_value index, wo_value value_function, wo_value* inout_args_maynull, wo_value* inout_s_maynull);
+    wo_vm vm,
+    wo_value map,
+    wo_value index,
+    wo_value value_function,
+    wo_value* inout_args_maynull,
+    wo_value* inout_s_maynull);
 WO_API wo_bool_t wo_map_remove(wo_value map, wo_value index);
 WO_API void wo_map_clear(wo_value map);
 
 WO_API wo_bool_t wo_gchandle_close(wo_value gchandle);
 
 // Here to define RSRuntime debug tools API
-typedef struct _wo_debuggee_handle
-{ /* reserved, and prevent from type casting. */
-    WO_STRUCT_TAKE_PLACE(1);
-}
-*wo_debuggee;
+typedef struct _wo_debuggee_handle* wo_debuggee;
 typedef void (*wo_debuggee_handler_func)(wo_debuggee, wo_vm, void*);
 
 WO_API void wo_attach_default_debuggee(void);

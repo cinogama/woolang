@@ -64,11 +64,10 @@ namespace wo
                     m_eof_flag = true;
                     return traits_type::eof();
                 }
-                
                 m_u16exract_place = 0;
                 m_u16readable_length = static_cast<size_t>(readed_u16count);
             }
-
+            
             // Convert u16 serial to u8 serial;
             size_t u8_buffer_next_place = 0;
             while (m_u16exract_place < m_u16readable_length)
@@ -90,9 +89,14 @@ namespace wo
                     // Not enough to store the u8 char, keep u16 state.
                     setg(m_u8buffer, m_u8buffer, m_u8buffer + u8_buffer_next_place);
                     return traits_type::to_int_type(*this->gptr());
-                }      
-                memcpy(m_u8buffer + u8_buffer_next_place, u8buf, u8len);
-                u8_buffer_next_place += u8len;
+                }
+
+                // Ignore `\r` from `\r\n`
+                if (u8len != 1 || u8buf[0] != '\r')
+                {
+                    memcpy(m_u8buffer + u8_buffer_next_place, u8buf, u8len);
+                    u8_buffer_next_place += u8len;
+                }
                 m_u16exract_place += u16forward;
             }
 
