@@ -2484,9 +2484,9 @@ namespace wo
                     generated_runtime_code_buf.push_back(0x00);
                     break;
                 }
-                case instruct::unpackargs:
+                case instruct::unpack:
                 {
-                    generated_runtime_code_buf.push_back(WO_OPCODE(unpackargs));
+                    generated_runtime_code_buf.push_back(WO_OPCODE(unpack));
                     WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
 
                     byte_t* readptr = (byte_t*)&WO_IR.opinteger1;

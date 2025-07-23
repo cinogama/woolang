@@ -155,7 +155,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(nequs)\
 WO_ASMJIT_IR_ITERFACE_DECL(siddict)\
 WO_ASMJIT_IR_ITERFACE_DECL(jnequb)\
 WO_ASMJIT_IR_ITERFACE_DECL(idstruct)\
-WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
+WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 
 #define WO_ASMJIT_IR_ITERFACE_DECL(IRNAME) virtual bool ir_##IRNAME(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
         IRS
@@ -2832,7 +2832,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpackargs)
 
             return true;
         }
-        virtual bool ir_unpackargs(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip) override
+        virtual bool ir_unpack(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip) override
         {
             const byte_t* rollback_ip = rt_ip - 1;
 

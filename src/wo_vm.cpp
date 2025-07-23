@@ -8,7 +8,7 @@ namespace wo
     {
         out_context->m_vm = vmbase::_this_thread_vm;
         out_context->m_leaved =
-            out_context->m_vm != nullptr 
+            out_context->m_vm != nullptr
             && wo_leave_gcguard(reinterpret_cast<wo_vm>(out_context->m_vm));
     }
     void assure_leave_this_thread_vm_shared_mutex::enter(const leave_context& in_context) noexcept
@@ -73,7 +73,7 @@ namespace wo
     {
         m_mx->unlock_shared(m_context);
     }
-    vmbase::hangup_lock::hangup_lock() 
+    vmbase::hangup_lock::hangup_lock()
         :flag(0)
     {
 
@@ -710,9 +710,9 @@ namespace wo
                 tmpos << "equs\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
             case instruct::nequs:
                 tmpos << "nequs\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break; \
-            case instruct::unpackargs:
+            case instruct::unpack:
                 {
-                    tmpos << "unpackargs\t"; print_opnum1();
+                    tmpos << "unpack\t"; print_opnum1();
                     int32_t unpack_argc = *(int32_t*)((this_command_ptr += 4) - 4);
                     if (unpack_argc >= 0)
                         tmpos << "\tcount = " << unpack_argc;
@@ -1356,34 +1356,21 @@ namespace wo
 #define WO_VM_RETURN(V) do{ ip = rt_ip; return (V); }while(0)
 #define WO_SIGNED_SHIFT(VAL) (((signed char)((unsigned char)(((unsigned char)(VAL))<<1)))>>1)
 
-#define WO_ADDRESSING_N1 opnum1 = ((dr >> 1) ?\
-                        (\
-                            (WO_IPVAL & (1 << 7)) ?\
-                            (bp + WO_SIGNED_SHIFT(WO_IPVAL_MOVE_1))\
-                            :\
-                            (WO_IPVAL_MOVE_1 + reg_begin)\
-                            )\
-                        :\
-                        (\
-                            WO_IPVAL_MOVE_4 + global_begin\
-                        ))
+#define WO_ADDRESSING_RS \
+    ((WO_IPVAL & (1 << 7)) ? (bp + WO_SIGNED_SHIFT(WO_IPVAL_MOVE_1)) : (WO_IPVAL_MOVE_1 + reg_begin))
+#define WO_ADDRESSING_G \
+    (WO_IPVAL_MOVE_4 + global_begin)
 
-#define WO_ADDRESSING_N2 opnum2 = ((dr & 0b01) ?\
-                        (\
-                            (WO_IPVAL & (1 << 7)) ?\
-                            (bp + WO_SIGNED_SHIFT(WO_IPVAL_MOVE_1))\
-                            :\
-                            (WO_IPVAL_MOVE_1 + reg_begin)\
-                            )\
-                        :\
-                        (\
-                            WO_IPVAL_MOVE_4 + global_begin\
-                        ))
+#define WO_ADDRESSING_N1 \
+        opnum1 = ((dr >> 1) ? WO_ADDRESSING_RS : WO_ADDRESSING_G)
+#define WO_ADDRESSING_N2 \
+        opnum2 = ((dr & 0b01) ? WO_ADDRESSING_RS : WO_ADDRESSING_G)
+
 #define WO_ADDRESSING_N3_REG_BPOFF opnum3 = \
-                            (WO_IPVAL & (1 << 7)) ?\
-                            (bp + WO_SIGNED_SHIFT(WO_IPVAL_MOVE_1))\
-                            :\
-                            (WO_IPVAL_MOVE_1 + reg_begin)
+        (WO_IPVAL & (1 << 7)) ?\
+        (bp + WO_SIGNED_SHIFT(WO_IPVAL_MOVE_1))\
+        :\
+        (WO_IPVAL_MOVE_1 + reg_begin)
 
 #define WO_VM_FAIL(ERRNO,ERRINFO) \
     do{ip = rt_ip; wo_fail(ERRNO,ERRINFO); continue;}while(0)
@@ -1766,15 +1753,14 @@ namespace wo
 
         const byte_t* rt_ip = ip;
 
-        byte_t opcode_dr = (byte_t)(instruct::abrt << (uint8_t)2);
-        instruct::opcode opcode = (instruct::opcode)(opcode_dr & 0b11111100u);
-        unsigned dr = opcode_dr & 0b00000011u;
+        byte_t opcode_dr;
+        instruct::opcode opcode;
+        unsigned dr;
 
         for (;;)
         {
             opcode_dr = *(rt_ip++);
-
-            opcode = (instruct::opcode)(opcode_dr & 0b11111100u);
+            opcode = static_cast<instruct::opcode>(opcode_dr & 0b11111100u);
             dr = opcode_dr & 0b00000011u;
 
             auto rtopcode = fast_ro_vm_interrupt | opcode;
@@ -2746,7 +2732,7 @@ namespace wo
 
                 break;
             }
-            case instruct::unpackargs:
+            case instruct::unpack:
             {
                 auto* rollback_rt_ip = rt_ip - 1;
 

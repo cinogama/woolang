@@ -1553,7 +1553,7 @@ enum _wo_opcode
     //                                          SP-> [Captured N-1, Captured N-2, ..., Captured 0] -> BP
     //                                      Captured 0 will be [bp - 1] when this closure is invoked.
 
-    WO_UNPACKARGS = 57,
+    WO_UNPACK = 57,
     // DRH: Opnum1 desc, DRL: 0
     // OPNUM1: RS/GLB  OPNUM2: IMM_U32      Expand array/struct into stack, at least expand abs(OPNUM2).
     //                                      * If reintp_cast<IMM_32>(OPNUM2) <= 0, expand count will be

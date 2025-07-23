@@ -1464,13 +1464,13 @@ namespace wo
         }
 
         template<typename OP1T>
-        void unpackargs(const OP1T& op1, int32_t unpack_count)
+        void unpack(const OP1T& op1, int32_t unpack_count)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value,
                 "Argument(s) should be opnum.");
 
             WO_PUT_IR_TO_BUFFER(
-                instruct::opcode::unpackargs, WO_OPNUM(op1), nullptr, unpack_count);
+                instruct::opcode::unpack, WO_OPNUM(op1), nullptr, unpack_count);
         }
 
         template<typename OP1T, typename OP2T>

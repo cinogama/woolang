@@ -1927,7 +1927,7 @@ namespace wo
 
                         if (unpack_requirement.m_unpack_all)
                         {
-                            m_ircontext.c().unpackargs(
+                            m_ircontext.c().unpack(
                                 WO_OPNUM(unpacking_opnum),
                                 -(int32_t)unpack_requirement.m_require_unpack_count);
                         }
@@ -1935,7 +1935,7 @@ namespace wo
                         {
                             // If require to unpack 0 argument, just skip & ignore.
                             if (unpack_requirement.m_require_unpack_count != 0)
-                                m_ircontext.c().unpackargs(
+                                m_ircontext.c().unpack(
                                     WO_OPNUM(unpacking_opnum),
                                     (int32_t)unpack_requirement.m_require_unpack_count);
                         }

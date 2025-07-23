@@ -3559,9 +3559,9 @@ namespace wo
                         // ATTENTION: It is technically feasible to continue passing after parameter
                         //  expansion; However, during the instruction generation phase, if the packargs
                         //  instruction appears in the parameters, the instruction will depend on the tc
-                        //  register; And the unpackargs instruction working in full unpacking mode will 
+                        //  register; And the unpack instruction working in full unpacking mode will 
                         //  modify the value of the tc register; Therefore, if the calling behavior has
-                        //  unpackargs, the value of tc can only be set before this instruction occurs
+                        //  unpack, the value of tc can only be set before this instruction occurs
 
                         lex.record_lang_error(lexer::msglevel_t::error, argument_value,
                             WO_ERR_ARG_DEFINE_AFTER_EXPAND_VECARR);
