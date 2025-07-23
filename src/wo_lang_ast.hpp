@@ -1160,7 +1160,7 @@ namespace wo
         public:
             AstEnumDeclare(
                 const std::optional<AstDeclareAttribue*>& attrib,
-                wo_pstring_t enum_name,
+                AstToken* enum_name,
                 const std::list<AstEnumItem*>& enum_items);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };

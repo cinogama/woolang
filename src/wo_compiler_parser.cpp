@@ -694,7 +694,7 @@ namespace wo
             if (lex_type::l_error == peeked_token_instance->m_lex_type)
             {
                 // Move forward;
-                tkr.move_forward();
+                tkr.move_forward(true);
                 continue;
             }
 
@@ -800,7 +800,7 @@ namespace wo
                                     if (place != follow_set.end())
                                         goto error_progress_end;
                                 }
-                                tkr.move_forward();
+                                tkr.move_forward(true);
                             }
                             goto error_handle_fail;
                         }
@@ -862,7 +862,7 @@ namespace wo
                             peeked_token_instance->m_token_text.c_str());
                     }
                     sym_stack.push(TERM_MAP.at(peeked_token_instance->m_lex_type));
-                    tkr.move_forward();
+                    tkr.move_forward(true);
                 }
             }
             else if (actions.act == grammar::action::act_type::reduction)

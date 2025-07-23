@@ -2338,7 +2338,7 @@ namespace wo
         }
         AstEnumDeclare::AstEnumDeclare(
             const std::optional<AstDeclareAttribue*>& attrib,
-            wo_pstring_t enum_name,
+            AstToken* enum_name,
             const std::list<AstEnumItem*>& enum_items)
             : AstBase(AST_ENUM_DECLARE)
             , m_enum_type_declare(nullptr)
@@ -2347,9 +2347,11 @@ namespace wo
         {
             wo_assert(!enum_items.empty());
 
+            auto* enum_name_str = wstring_pool::get_pstr(enum_name->m_token.identifier);
+
             auto* enum_base_type_identifier = new AstIdentifier(WO_PSTR(int), std::nullopt, {}, true);
             auto* enum_base_type = new AstTypeHolder(enum_base_type_identifier);
-            auto* enum_type_declare = new AstUsingTypeDeclare(attrib, enum_name, std::nullopt, enum_base_type);
+            auto* enum_type_declare = new AstUsingTypeDeclare(attrib, enum_name_str, std::nullopt, enum_base_type);
 
             std::optional<AstDeclareAttribue*> enum_item_attrib = std::nullopt;
             if (attrib)
@@ -2403,7 +2405,7 @@ namespace wo
                     created_this_item_value->source_location = item->source_location;
                 }
 
-                auto* enum_type_identifier = new AstIdentifier(enum_name);
+                auto* enum_type_identifier = new AstIdentifier(enum_name_str);
                 auto* enum_type = new AstTypeHolder(enum_type_identifier);
                 auto* enum_item_value_cast = new AstValueTypeCast(enum_type, item->m_value.value());
                 auto* enum_item_pattern = new AstPatternSingle(false, item->m_name, std::nullopt);
@@ -2420,13 +2422,13 @@ namespace wo
                 last_enum_item_name = item->m_name;
             }
 
-            auto* enum_namespace = new AstNamespace(enum_name, enum_item_definations);
+            auto* enum_namespace = new AstNamespace(enum_name_str, enum_item_definations);
 
             m_enum_type_declare = enum_type_declare;
             m_enum_body = enum_namespace;
 
             // Update source msg;
-            enum_base_type_identifier->source_location = enum_items.front()->source_location;
+            enum_base_type_identifier->source_location = enum_name->source_location;
             enum_base_type->source_location = enum_base_type_identifier->source_location;
             enum_type_declare->source_location = enum_base_type_identifier->source_location;
             enum_item_definations->source_location = enum_base_type_identifier->source_location;

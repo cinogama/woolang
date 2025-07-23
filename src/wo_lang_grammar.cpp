@@ -102,7 +102,7 @@ namespace wo
                 nt("SENTENCE") >> symlist{nt("DECL_ATTRIBUTE"), te(token::l_alias), nt("IDENTIFIER"), nt("DEFINE_TEMPLATE_PARAM_ITEM_MAY_EMPTY"), te(token::l_assign), nt("TYPE"), te(token::l_semicolon)} >> WO_ASTBUILDER_INDEX(ast::pass_alias_type_as),
                 //////////////////////////////////////////////////////////////////////////////////////
                 nt("SENTENCE") >> symlist{nt("DECL_ENUM")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
-                nt("DECL_ENUM") >> symlist{nt("DECL_ATTRIBUTE"), te(token::l_enum), nt("IDENTIFIER"), te(token::l_left_curly_braces), nt("ENUM_ITEMS"), te(token::l_right_curly_braces)} >> WO_ASTBUILDER_INDEX(ast::pass_enum_finalize),
+                nt("DECL_ENUM") >> symlist{nt("DECL_ATTRIBUTE"), te(token::l_enum), nt("AST_TOKEN_IDENTIFER"), te(token::l_left_curly_braces), nt("ENUM_ITEMS"), te(token::l_right_curly_braces)} >> WO_ASTBUILDER_INDEX(ast::pass_enum_finalize),
                 nt("ENUM_ITEMS") >> symlist{nt("ENUM_ITEM_LIST"), nt("COMMA_MAY_EMPTY")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 nt("ENUM_ITEM_LIST") >> symlist{nt("ENUM_ITEM")} >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
                 nt("ENUM_ITEM_LIST") >> symlist{nt("ENUM_ITEM_LIST"), te(token::l_comma), nt("ENUM_ITEM")} >> WO_ASTBUILDER_INDEX(ast::pass_append_list<2, 0>),

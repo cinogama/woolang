@@ -120,7 +120,7 @@ namespace wo
         end_col = macro_name_info->m_token_end[1];
         end_row = macro_name_info->m_token_end[0];
 
-        lex.move_forward();
+        lex.move_forward(true);
 
         size_t scope_count = 1;
         if (lex.peek(true)->m_lex_type == lex_type::l_left_curly_braces)
@@ -297,7 +297,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                 for (char wch : _operator)
                     _result.insert(wch);
             return _result;
-            }();
+        }();
         return operator_char_set.find(ch) != operator_char_set.end();
     }
     bool lexer::lex_isspace(int ch)
@@ -675,7 +675,7 @@ extern func macro_entry(lexer: std::lexer)=> string
         for (;;)
         {
             while (_m_peeked_tokens.empty())
-                move_forward();
+                move_forward(ignore_comment);
 
             wo_assert(!_m_peeked_tokens.empty());
             lexer::peeked_token_t* peeked_token = &_m_peeked_tokens.front();
@@ -748,7 +748,7 @@ extern func macro_entry(lexer: std::lexer)=> string
         if (!_m_peeked_tokens.empty())
             _m_peeked_tokens.pop();
     }
-    void lexer::move_forward()
+    void lexer::move_forward(bool ignore_comment)
     {
         if (size_t count = _m_peeked_tokens.size(); count > 0)
         {
@@ -759,6 +759,8 @@ extern func macro_entry(lexer: std::lexer)=> string
 
         int readed_char;
         token_pre_begin_here();
+
+    label_comment_skipped_and_re_continue_here:
 
         do
         {
@@ -797,14 +799,20 @@ extern func macro_entry(lexer: std::lexer)=> string
 
                 for (;;)
                 {
-                    peeked_char = read_char();
+                    peeked_char = peek_char();
 
                     if (peeked_char == '\n' || peeked_char == EOF)
                         break;
 
-                    append_result_char(peeked_char);
+                    (void)read_char();
+
+                    if (!ignore_comment)
+                        append_result_char(peeked_char);
                 }
-                return produce_token(lex_type::l_line_comment, std::move(token_literal_result));
+                if (ignore_comment)
+                    goto label_comment_skipped_and_re_continue_here;
+                else
+                    return produce_token(lex_type::l_line_comment, std::move(token_literal_result));
             }
             else if (peeked_char == '*')
             {
@@ -824,12 +832,17 @@ extern func macro_entry(lexer: std::lexer)=> string
                         if (peeked_char == EOF || peeked_char == '/')
                             break;
 
-                        append_result_char('*');
+                        if (!ignore_comment)
+                            append_result_char('*');
                     }
 
-                    append_result_char(peeked_char);
+                    if (!ignore_comment)
+                        append_result_char(peeked_char);
                 }
-                return produce_token(lex_type::l_block_comment, std::move(token_literal_result));
+                if (ignore_comment)
+                    goto label_comment_skipped_and_re_continue_here;
+                else
+                    return produce_token(lex_type::l_block_comment, std::move(token_literal_result));
             }
             else
                 goto checking_valid_operator;
@@ -1056,15 +1069,21 @@ extern func macro_entry(lexer: std::lexer)=> string
                 int peeked_char;
                 for (;;)
                 {
-                    peeked_char = read_char();
+                    peeked_char = peek_char();
 
                     if (peeked_char == '\n' || peeked_char == EOF)
                         break;
 
-                    append_result_char(peeked_char);
+                    (void)read_char();
+
+                    if (!ignore_comment)
+                        append_result_char(peeked_char);
                 }
-                return produce_token(lex_type::L_shebang_comment, std::move(token_literal_result));
-                return;
+                
+                if (ignore_comment)
+                    goto label_comment_skipped_and_re_continue_here;
+                else
+                    return produce_token(lex_type::L_shebang_comment, std::move(token_literal_result));
             }
 
             // ATTENTION, SECURE:
@@ -1127,7 +1146,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                         msglevel_t::error, WO_ERR_LINE_NEED_STRING_AS_PATH);
                 }
                 auto new_shown_file_path = wo::wstring_pool::get_pstr(file_name->m_token_text);
-                move_forward();
+                move_forward(true);
 
                 auto* row_no = peek(true);
                 if (row_no->m_lex_type != lex_type::l_literal_integer)
@@ -1136,7 +1155,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                         msglevel_t::error, WO_ERR_LINE_NEED_INTEGER_AS_ROW);
                 }
                 auto new_row_counter = read_from_unsigned_literal(row_no->m_token_text.c_str());
-                move_forward();
+                move_forward(true);
 
                 auto* col_no = peek(true);
                 if (col_no->m_lex_type != lex_type::l_literal_integer)
@@ -1634,7 +1653,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                     macro_pre_begin_row = macro_end_row;
                     macro_pre_begin_col = macro_end_col;
 
-                    tmp_lex.move_forward();
+                    tmp_lex.move_forward(true);
                 }
 
                 while (!origin_peeked_queue.empty())

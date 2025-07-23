@@ -139,7 +139,7 @@ namespace wo
         auto pass_enum_finalize::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
             std::optional<AstDeclareAttribue*> attrib = std::nullopt;
-            token enum_name = WO_NEED_TOKEN(2);
+            AstToken* enum_name = static_cast<AstToken*>(WO_NEED_AST_TYPE(2, AstBase::AST_TOKEN));
             AstList* enum_items = static_cast<AstList*>(WO_NEED_AST_TYPE(4, AstBase::AST_LIST));
 
             if (!WO_IS_EMPTY(0))
@@ -152,7 +152,7 @@ namespace wo
                 items.push_back(static_cast<AstEnumItem*>(item));
             }
 
-            return new AstEnumDeclare(attrib, wstring_pool::get_pstr(enum_name.identifier), items);
+            return new AstEnumDeclare(attrib, enum_name, items);
         }
         auto pass_namespace::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {

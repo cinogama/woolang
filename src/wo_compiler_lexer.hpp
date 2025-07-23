@@ -405,7 +405,7 @@ namespace wo
         int read_char();
         [[nodiscard]]
         peeked_token_t* peek(bool ignore_comment);
-        void move_forward();
+        void move_forward(bool ignore_comment);
         void consume_forward();
         [[nodiscard]]
         bool try_handle_macro(const std::string& macro_name);

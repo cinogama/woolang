@@ -1139,7 +1139,7 @@ wo_bool_t _wo_cast_array(wo_vm vm, wo::value* value, wo::lexer* lex)
     {
         if (lex->peek(true)->m_lex_type == wo::lex_type::l_index_end)
         {
-            lex->move_forward();
+            lex->move_forward(true);
             break;
         }
 
@@ -1147,7 +1147,7 @@ wo_bool_t _wo_cast_array(wo_vm vm, wo::value* value, wo::lexer* lex)
             return WO_FALSE;
 
         if (lex->peek(true)->m_lex_type == wo::lex_type::l_comma)
-            lex->move_forward();
+            lex->move_forward(true);
     }
     return WO_TRUE;
 }
@@ -1167,7 +1167,7 @@ wo_bool_t _wo_cast_map(wo_vm vm, wo::value* value, wo::lexer* lex)
         if (lex->peek(true)->m_lex_type == wo::lex_type::l_right_curly_braces)
         {
             // end
-            lex->move_forward();
+            lex->move_forward(true);
             break;
         }
 
@@ -1182,7 +1182,7 @@ wo_bool_t _wo_cast_map(wo_vm vm, wo::value* value, wo::lexer* lex)
         auto& val_place = (*rsmap)[*tempory_key_value_storage];
 
         auto lex_type = lex->peek(true)->m_lex_type;
-        lex->move_forward();
+        lex->move_forward(true);
 
         if (lex_type != wo::lex_type::l_typecast)
             return WO_FALSE;
@@ -1191,7 +1191,7 @@ wo_bool_t _wo_cast_map(wo_vm vm, wo::value* value, wo::lexer* lex)
             return WO_FALSE;
 
         if (lex->peek(true)->m_lex_type == wo::lex_type::l_comma)
-            lex->move_forward();
+            lex->move_forward(true);
     }
 
     if (tempory_key_value_storage != nullptr)
@@ -1205,20 +1205,20 @@ wo_bool_t _wo_cast_value(wo_vm vm, wo::value* value, wo::lexer* lex, wo::value::
 
     if (token->m_lex_type == wo::lex_type::l_left_curly_braces) // is map
     {
-        lex->move_forward();
+        lex->move_forward(true);
         if (!_wo_cast_map(vm, value, lex))
             return WO_FALSE;
     }
     else if (token->m_lex_type == wo::lex_type::l_index_begin) // is array
     {
-        lex->move_forward();
+        lex->move_forward(true);
         if (!_wo_cast_array(vm, value, lex))
             return WO_FALSE;
     }
     else if (token->m_lex_type == wo::lex_type::l_literal_string) // is string   
     {
         value->set_string(token->m_token_text);
-        lex->move_forward();
+        lex->move_forward(true);
     }
     else if (token->m_lex_type == wo::lex_type::l_add
         || token->m_lex_type == wo::lex_type::l_sub
@@ -1232,7 +1232,7 @@ wo_bool_t _wo_cast_value(wo_vm vm, wo::value* value, wo::lexer* lex, wo::value::
             if (token->m_lex_type == wo::lex_type::l_sub)
                 positive = false;
 
-            lex->move_forward();
+            lex->move_forward(true);
 
             token = lex->peek(true);
             if (token->m_lex_type != wo::lex_type::l_literal_integer
@@ -1250,27 +1250,27 @@ wo_bool_t _wo_cast_value(wo_vm vm, wo::value* value, wo::lexer* lex, wo::value::
                 ? std::strtod(token->m_token_text.c_str(), nullptr)
                 : -std::strtod(token->m_token_text.c_str(), nullptr));
 
-        lex->move_forward();
+        lex->move_forward(true);
     }
     else if (token->m_lex_type == wo::lex_type::l_nil) // is nil
     {
         value->set_nil();
-        lex->move_forward();
+        lex->move_forward(true);
     }
     else if (token->m_token_text == "true")
     {
         value->set_bool(true);// true
-        lex->move_forward();
+        lex->move_forward(true);
     }
     else if (token->m_token_text == "false")
     {
         value->set_bool(false);// false
-        lex->move_forward();
+        lex->move_forward(true);
     }
     else if (token->m_token_text == "null")
     {
         value->set_nil();// null
-        lex->move_forward();
+        lex->move_forward(true);
     }
     else
         //wo_fail(WO_FAIL_TYPE_FAIL, "Unknown token while parsing.");
