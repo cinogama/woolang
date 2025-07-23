@@ -1266,6 +1266,134 @@ WO_API void wo_lspv2_token_info_free(wo_lspv2_token_info* info);
 
 #if defined(WO_NEED_OPCODE_API)
 
+#define WO_OPCODE_3SG_LIST(OPCODENAME)\
+    OPCODENAME##SSS,\
+    OPCODENAME##SGS,\
+    OPCODENAME##GGS,\
+    OPCODENAME##GSS,\
+    OPCODENAME##SSG,\
+    OPCODENAME##SGG,\
+    OPCODENAME##GGG,\
+    OPCODENAME##GSG
+#define WO_OPCODE_2SG_LIST(OPCODENAME)\
+    OPCODENAME##SS,\
+    OPCODENAME##SG,\
+    OPCODENAME##GG,\
+    OPCODENAME##GS
+#define WO_OPCODE_1SG_LIST(OPCODENAME)\
+    OPCODENAME##S,\
+    OPCODENAME##G
+#define WO_OPCODE_V2_LIST \
+    WO_NOP,\
+    WO_EXT0 /* EXTERN CODE PAGE FOR FLAG */,\
+    WO_RESERVED_C2 /* WO_EXT1 */,\
+    WO_RESERVED_C3 /* WO_EXT2 */,\
+    /* ---------------------------------- */\
+    WO_OPCODE_2SG_LIST(WO_MOV),\
+    /* ---------------------------------- */\
+    WO_PSHN16,\
+    WO_POPN16,\
+    WO_OPCODE_1SG_LIST(WO_PSH),\
+    /* ---------------------------------- */\
+    WO_OPCODE_1SG_LIST(WO_POP),\
+    WO_OPCODE_1SG_LIST(WO_POPN),\
+    /* ---------------------------------- */\
+    WO_OPCODE_2SG_LIST(WO_ADDI),\
+    WO_OPCODE_2SG_LIST(WO_SUBI),\
+    WO_OPCODE_2SG_LIST(WO_MULI),\
+    WO_OPCODE_2SG_LIST(WO_DIVI),\
+    WO_OPCODE_2SG_LIST(WO_MODI),\
+    WO_OPCODE_2SG_LIST(WO_ADDR),\
+    WO_OPCODE_2SG_LIST(WO_SUBR),\
+    WO_OPCODE_2SG_LIST(WO_MULR),\
+    WO_OPCODE_2SG_LIST(WO_DIVR),\
+    WO_OPCODE_2SG_LIST(WO_MODR),\
+    WO_OPCODE_2SG_LIST(WO_ADDH),\
+    WO_OPCODE_2SG_LIST(WO_SUBH),\
+    WO_OPCODE_2SG_LIST(WO_ADDS),\
+    WO_OPCODE_2SG_LIST(WO_IDARR),\
+    WO_OPCODE_3SG_LIST(WO_SIDARR),\
+    WO_OPCODE_2SG_LIST(WO_IDDICT),\
+    WO_OPCODE_3SG_LIST(WO_SIDDICT),\
+    WO_OPCODE_3SG_LIST(WO_SIDMAP),\
+    WO_OPCODE_2SG_LIST(WO_IDSTRUCT),\
+    WO_OPCODE_2SG_LIST(WO_SIDSTRUCT),\
+    WO_OPCODE_2SG_LIST(WO_IDSTR),\
+    WO_OPCODE_2SG_LIST(WO_LTI),\
+    WO_OPCODE_2SG_LIST(WO_GTI),\
+    WO_OPCODE_2SG_LIST(WO_ELTI),\
+    WO_OPCODE_2SG_LIST(WO_EGTI),\
+    WO_OPCODE_2SG_LIST(WO_LTR),\
+    WO_OPCODE_2SG_LIST(WO_GTR),\
+    WO_OPCODE_2SG_LIST(WO_ELTR),\
+    WO_OPCODE_2SG_LIST(WO_EGTR),\
+    WO_OPCODE_2SG_LIST(WO_EQUR),\
+    WO_OPCODE_2SG_LIST(WO_NEQUR),\
+    WO_OPCODE_2SG_LIST(WO_LAND),\
+    WO_OPCODE_2SG_LIST(WO_LOR),\
+    WO_OPCODE_2SG_LIST(WO_LTX),\
+    WO_OPCODE_2SG_LIST(WO_GTX),\
+    WO_OPCODE_2SG_LIST(WO_ELTX),\
+    WO_OPCODE_2SG_LIST(WO_EGTX),\
+    WO_OPCODE_2SG_LIST(WO_EQUS),\
+    WO_OPCODE_2SG_LIST(WO_NEQUS),\
+    WO_OPCODE_2SG_LIST(WO_EQUB),\
+    WO_OPCODE_2SG_LIST(WO_NEQUB),\
+    /* ---------------------------------- */\
+    WO_OPCODE_1SG_LIST(WO_JNEQUB),\
+    WO_OPCODE_1SG_LIST(WO_CALL),\
+    /* ---------------------------------- */\
+    WO_CALLNWO,\
+    WO_CALLNFP,\
+    WO_CALLNFPL,\
+    WO_END,\
+    /* ---------------------------------- */\
+    WO_OPCODE_1SG_LIST(WO_PANIC),\
+    WO_RET,\
+    WO_RETN,\
+    /* ---------------------------------- */\
+    WO_ABRT,\
+    WO_JT,\
+    WO_JF,\
+    WO_JMP,\
+    /* ---------------------------------- */\
+    WO_OPCODE_1SG_LIST(WO_MKARR),\
+    WO_OPCODE_1SG_LIST(WO_MKMAP),\
+    /* ---------------------------------- */\
+    WO_MKCLOSWO,\
+    WO_MKCLOSFP,\
+    WO_OPCODE_1SG_LIST(WO_MKSTRUCT),\
+    /* ---------------------------------- */\
+    WO_OPCODE_2SG_LIST(WO_MKUNION),\
+    WO_OPCODE_2SG_LIST(WO_CAST),\
+    /* ---------------------------------- */\
+    WO_OPCODE_1SG_LIST(WO_PACK),\
+    WO_OPCODE_1SG_LIST(WO_UNPACK),\
+    /* ---------------------------------- */\
+    WO_OPCODE_1SG_LIST(WO_TYPEIS),\
+    WO_OPCODE_1SG_LIST(WO_TYPEAS),\
+    /* ---------------------------------- */\
+    WO_OPCODE_2SG_LIST(WO_LDS),\
+    WO_OPCODE_2SG_LIST(WO_STS),\
+    /* ---------------------------------- */\
+    WO_OPCODE_2SG_LIST(WO_CDIVILR),\
+    /* ---------------------------------- */\
+    WO_OPCODE_1SG_LIST(WO_CDIVIL),\
+    WO_OPCODE_1SG_LIST(WO_CDIVIR),\
+    /* ---------------------------------- */\
+    WO_OPCODE_1SG_LIST(WO_CDIVIRZ),\
+    WO_RESERVED_C250,\
+    WO_RESERVED_C251,\
+    /* ---------------------------------- */\
+    WO_RESERVED_C252,\
+    WO_RESERVED_C253,\
+    WO_RESERVED_C254,\
+    WO_RESERVED_C255
+
+enum _wo_opcode_v2
+{
+    WO_OPCODE_V2_LIST
+};
 enum _wo_opcode
 {
     /*
