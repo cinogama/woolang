@@ -1587,7 +1587,7 @@ enum _wo_opcode_ext0
     WO_PANIC = 0,
     // DRH: Panic type, DRL: 0
     // OPNUM1: RS/GLB                       Trigger a panic with message `OPNUM1`.
-    WO_PACKARGS = 1,
+    WO_PACK = 1,
     // DRH: Opnum1 desc, DRL: 0
     // OPNUM1: RS/GLB  OPNUM2: IMM_U16      Collect arguments from [bp + 2 + OPNUM2 + OPNUM3] to
     // OPNUM3: IMM_U16                      [bp + 2 + tc + OPNUM3 - 1], and store them into an array,

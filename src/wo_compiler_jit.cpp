@@ -247,7 +247,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                         case 0:     // extern-opcode-page-0
                             switch ((instruct::extern_opcode_page_0)(opcode))
                             {
-                            case instruct::extern_opcode_page_0::packargs:
+                            case instruct::extern_opcode_page_0::pack:
                                 if (ir_ext_packargs(ctx, dr, rt_ip))
                                     break;
                                 else

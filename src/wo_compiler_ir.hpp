@@ -1460,7 +1460,7 @@ namespace wo
                 WO_OPNUM(op1), nullptr, (int32_t)thisfuncargc, (int32_t)skipclosure);
 
             codeb.ext_page_id = 0;
-            codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::packargs;
+            codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::pack;
         }
 
         template<typename OP1T>

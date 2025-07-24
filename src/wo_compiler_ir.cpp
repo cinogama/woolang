@@ -2506,9 +2506,9 @@ namespace wo
                         generated_runtime_code_buf.push_back(WO_OPCODE(ext, 00));
                         switch (WO_IR.ext_opcode_p0)
                         {
-                        case instruct::extern_opcode_page_0::packargs:
+                        case instruct::extern_opcode_page_0::pack:
                         {
-                            generated_runtime_code_buf.push_back(WO_OPCODE_EXT0(packargs));
+                            generated_runtime_code_buf.push_back(WO_OPCODE_EXT0(pack));
 
                             WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
 

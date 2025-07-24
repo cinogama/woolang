@@ -3557,7 +3557,7 @@ namespace wo
                     if (expaned_array_or_vec)
                     {
                         // ATTENTION: It is technically feasible to continue passing after parameter
-                        //  expansion; However, during the instruction generation phase, if the packargs
+                        //  expansion; However, during the instruction generation phase, if the pack
                         //  instruction appears in the parameters, the instruction will depend on the tc
                         //  register; And the unpack instruction working in full unpacking mode will 
                         //  modify the value of the tc register; Therefore, if the calling behavior has
