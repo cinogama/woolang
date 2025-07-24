@@ -1370,11 +1370,6 @@ namespace wo
 #define WO_ADDRESSING_G2 \
         opnum2 = WO_ADDRESSING_G
 
-#define WO_ADDRESSING_N1 \
-        opnum1 = ((dr >> 1) ? WO_ADDRESSING_RS : WO_ADDRESSING_G)
-#define WO_ADDRESSING_N2 \
-        opnum2 = ((dr & 0b01) ? WO_ADDRESSING_RS : WO_ADDRESSING_G)
-
 #define WO_ADDRESSING_N3_REG_BPOFF opnum3 = \
         (WO_IPVAL & (1 << 7)) ?\
         (bp + WO_SIGNED_SHIFT(WO_IPVAL_MOVE_1))\
@@ -1476,18 +1471,13 @@ namespace wo
 
         return opnum1;
     }
-    value* vmbase::make_closure_fast_impl(value* opnum1, const byte_t* rt_ip, value* rt_sp) noexcept
+    value* vmbase::make_closure_wo_impl(
+        value* opnum1, uint16_t argc, uint32_t addr, value* rt_sp)noexcept
     {
-        const bool make_native_closure = !!(0b0011 & *(rt_ip - 1));
-        const uint16_t closure_arg_count = WO_FAST_READ_MOVE_2;
+        auto* created_closure = closure_t::gc_new<gcbase::gctype::young>(
+                (wo_integer_t)addr, argc);
 
-        auto* created_closure = make_native_closure
-            ? closure_t::gc_new<gcbase::gctype::young>(
-                (wo_native_func_t)WO_FAST_READ_MOVE_8, closure_arg_count)
-            : closure_t::gc_new<gcbase::gctype::young>(
-                (wo_integer_t)WO_FAST_READ_MOVE_4, closure_arg_count);
-
-        for (size_t i = 0; i < (size_t)closure_arg_count; i++)
+        for (uint16_t i = 0; i < argc; i++)
         {
             auto* arg_val = ++rt_sp;
             created_closure->m_closure_args[i].set_val(arg_val);
@@ -1495,18 +1485,13 @@ namespace wo
         opnum1->set_gcunit<wo::value::valuetype::closure_type>(created_closure);
         return rt_sp;
     }
-    value* vmbase::make_closure_safe_impl(value* opnum1, const byte_t* rt_ip, value* rt_sp) noexcept
+    value* vmbase::make_closure_fp_impl(
+        value* opnum1, uint16_t argc, uint64_t addr, value* rt_sp)noexcept
     {
-        const bool make_native_closure = !!(0b0011 & *(rt_ip - 1));
-        const uint16_t closure_arg_count = WO_FAST_READ_MOVE_2;
+        auto* created_closure = closure_t::gc_new<gcbase::gctype::young>(
+            reinterpret_cast<wo_native_func_t>(addr), argc);
 
-        auto* created_closure = make_native_closure
-            ? closure_t::gc_new<gcbase::gctype::young>(
-                (wo_native_func_t)WO_SAFE_READ_MOVE_8, closure_arg_count)
-            : closure_t::gc_new<gcbase::gctype::young>(
-                (wo_integer_t)WO_SAFE_READ_MOVE_4, closure_arg_count);
-
-        for (size_t i = 0; i < (size_t)closure_arg_count; i++)
+        for (uint16_t i = 0; i < argc; i++)
         {
             auto* arg_val = ++rt_sp;
             created_closure->m_closure_args[i].set_val(arg_val);
@@ -1514,6 +1499,7 @@ namespace wo
         opnum1->set_gcunit<wo::value::valuetype::closure_type>(created_closure);
         return rt_sp;
     }
+
     value* vmbase::make_array_impl(value* opnum1, uint16_t size, value* rt_sp) noexcept
     {
         auto* maked_array =
@@ -2683,7 +2669,6 @@ namespace wo
             _label_call_impl:
                 WO_VM_ASSERT(0 != opnum1->handle && nullptr != opnum1->closure,
                     "Cannot invoke null function in 'call'.");
-
                 do
                 {
                     if (opnum1->type == value::valuetype::closure_type)
@@ -3259,19 +3244,26 @@ namespace wo
                 make_union_impl(opnum1, opnum2, WO_IPVAL_MOVE_2);
                 break;
             case instruct::opcode::mkcloswo:
-            case instruct::opcode::mkclosfp:
-                WO_VM_ASSERT((dr & 0b01) == 0,
-                    "Found broken ir-code in 'mkclos'.");
+            {
+                const uint16_t closure_arg_count = WO_IPVAL_MOVE_2;
+                const uint32_t function_offset = WO_IPVAL_MOVE_4;
+                rt_ip += 4; // Shift 4 byte gap.
 
-#ifdef WO_VM_SUPPORT_FAST_NO_ALIGN
-                sp = make_closure_fast_impl(rt_cr, rt_ip, sp);
-#else
-                sp = make_closure_safe_impl(rt_cr, rt_ip, sp);
-#endif
-
-                rt_ip += (2 + 8);
+                sp = make_closure_wo_impl(
+                    rt_cr, closure_arg_count, function_offset, sp);
 
                 break;
+            }
+            case instruct::opcode::mkclosfp:
+            {
+                const uint16_t closure_arg_count = WO_IPVAL_MOVE_2;
+                const uint64_t function_pointer = WO_IPVAL_MOVE_8;
+
+                sp = make_closure_fp_impl(
+                    rt_cr, closure_arg_count, function_pointer, sp);
+
+                break;
+            }
             case instruct::unpackg:
                 ip_for_rollback = rt_ip - 1;
                 WO_ADDRESSING_G1;

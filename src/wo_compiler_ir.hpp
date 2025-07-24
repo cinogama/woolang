@@ -371,7 +371,7 @@ namespace wo
             std::vector<uint32_t /* rtcode offset */>
                 _mkclos_opcode_offsets_for_jit;
 
-            std::unordered_map<size_t, wo_native_func_t*> _jit_code_holder;
+            std::unordered_map<size_t, wo_native_func_t> _jit_code_holder;
 
             jit_meta() = default;
             ~jit_meta() = default;

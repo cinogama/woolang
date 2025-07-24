@@ -383,8 +383,10 @@ namespace wo
         static void gtx_impl(value* result, value* opnum1, value* opnum2) noexcept;
         static void egtx_impl(value* result, value* opnum1, value* opnum2) noexcept;
         static value* make_union_impl(value* opnum1, value* opnum2, uint16_t id) noexcept;
-        static value* make_closure_fast_impl(value* opnum1, const byte_t* rt_ip, value* rt_sp) noexcept;
-        static value* make_closure_safe_impl(value* opnum1, const byte_t* rt_ip, value* rt_sp) noexcept;
+        //static value* make_closure_fast_impl(value* opnum1, const byte_t* rt_ip, value* rt_sp) noexcept;
+        //static value* make_closure_safe_impl(value* opnum1, const byte_t* rt_ip, value* rt_sp) noexcept;
+        static value* make_closure_wo_impl(value* opnum1, uint16_t argc, uint32_t addr, value* rt_sp)noexcept;
+        static value* make_closure_fp_impl(value* opnum1, uint16_t argc, uint64_t addr, value* rt_sp)noexcept;
         static value* make_array_impl(value* opnum1, uint16_t size, value* rt_sp) noexcept;
         static value* make_map_impl(value* opnum1, uint16_t size, value* rt_sp) noexcept;
         static value* make_struct_impl(value* opnum1, uint16_t size, value* rt_sp) noexcept;

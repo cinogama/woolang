@@ -21,14 +21,14 @@ namespace wo
 #define WO_SAFE_READ_OFFSET_PER_BYTE(OFFSET, TYPE) (((TYPE)(*(rt_ip-OFFSET)))<<((sizeof(TYPE)-OFFSET)*8))
 #define WO_IS_ODD_IRPTR(ALLIGN) 1 // NOTE: Always odd for safe reading.
 
-#define WO_SAFE_READ_MOVE_2 (rt_ip+=2,WO_IS_ODD_IRPTR(2)?\
+#define WO_SAFE_READ_MOVE_2 ((rt_ip+=2),WO_IS_ODD_IRPTR(2)?\
                                     (WO_SAFE_READ_OFFSET_PER_BYTE(2,uint16_t)|WO_SAFE_READ_OFFSET_PER_BYTE(1,uint16_t)):\
                                     WO_SAFE_READ_OFFSET_GET_WORD)
-#define WO_SAFE_READ_MOVE_4 (rt_ip+=4,WO_IS_ODD_IRPTR(4)?\
+#define WO_SAFE_READ_MOVE_4 ((rt_ip+=4),WO_IS_ODD_IRPTR(4)?\
                                     (WO_SAFE_READ_OFFSET_PER_BYTE(4,uint32_t)|WO_SAFE_READ_OFFSET_PER_BYTE(3,uint32_t)\
                                     |WO_SAFE_READ_OFFSET_PER_BYTE(2,uint32_t)|WO_SAFE_READ_OFFSET_PER_BYTE(1,uint32_t)):\
                                     WO_SAFE_READ_OFFSET_GET_DWORD)
-#define WO_SAFE_READ_MOVE_8 (rt_ip+=8,WO_IS_ODD_IRPTR(8)?\
+#define WO_SAFE_READ_MOVE_8 ((rt_ip+=8),WO_IS_ODD_IRPTR(8)?\
                                     (WO_SAFE_READ_OFFSET_PER_BYTE(8,uint64_t)|WO_SAFE_READ_OFFSET_PER_BYTE(7,uint64_t)|\
                                     WO_SAFE_READ_OFFSET_PER_BYTE(6,uint64_t)|WO_SAFE_READ_OFFSET_PER_BYTE(5,uint64_t)|\
                                     WO_SAFE_READ_OFFSET_PER_BYTE(4,uint64_t)|WO_SAFE_READ_OFFSET_PER_BYTE(3,uint64_t)|\
@@ -59,8 +59,8 @@ namespace wo
             };
             size_t              m_func_offset = 0;
             state               m_state = state::BEGIN;
-            jit_packed_func_t* m_func = nullptr;
-            asmjit::FuncNode* m_jitfunc = nullptr;
+            jit_packed_func_t   m_func = nullptr;
+            asmjit::FuncNode*   m_jitfunc = nullptr;
             bool                m_finished = false;
             asmjit::CodeHolder  m_code_buffer;
             CompileContextT* _m_ctx = nullptr;
@@ -176,13 +176,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 #undef WO_ASMJIT_IR_ITERFACE_DECL
 
         std::map<uint32_t, asmjit::Label> label_table;
-        std::unordered_map<function_jit_state*, std::unordered_set<function_jit_state*>> _dependence_jit_function;
-        function_jit_state* current_jit_state = nullptr;
 
-        void register_dependence_function(function_jit_state* depend)
-        {
-            _dependence_jit_function[depend].insert(current_jit_state);
-        }
+        function_jit_state* current_jit_state = nullptr;
 
         virtual void bind_ip(CompileContextT* ctx, asmjit::BaseCompiler* compiler, uint32_t ipoffset)
         {
@@ -347,8 +342,10 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             function_jit_state*& state = m_compiling_functions[rt_ip];
             state = new function_jit_state;
 
-            state->m_func = new jit_packed_func_t{};
-            *state->m_func = (jit_packed_func_t)(void*)(intptr_t)0x12345678;
+            state->m_func = reinterpret_cast<jit_packed_func_t>(
+                static_cast<intptr_t>(
+                    0x1234567812345678));
+
             current_jit_state = state;
 
             state->m_state = function_jit_state::state::COMPILING;
@@ -383,32 +380,14 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 
             for (auto& [_, stat] : m_compiling_functions)
             {
-                if (stat->m_state != function_jit_state::FINISHED)
-                {
-                    wo_assert(stat->m_state == function_jit_state::FAILED);
-                    for (auto& dependence : _dependence_jit_function[stat])
-                    {
-                        dependence->m_state = function_jit_state::FAILED;
-                    }
-                }
-            }
-            for (auto& [_, stat] : m_compiling_functions)
-            {
+                wo_assert(stat->m_state == function_jit_state::FINISHED);
                 wo_assert(nullptr != stat->m_func);
 
-                if (stat->m_state == function_jit_state::FINISHED)
-                {
-                    wo_assert(stat->m_finished);
-
-                    wo_assert(nullptr != *stat->m_func);
-                    env->meta_data_for_jit._jit_code_holder[stat->m_func_offset] = stat->m_func;
-                }
-                else
-                    delete stat->m_func;
+                wo_assert(stat->m_finished);
+                env->meta_data_for_jit._jit_code_holder[stat->m_func_offset] = stat->m_func;
 
                 this->free_compiler(stat->_m_ctx);
             }
-            _dependence_jit_function.clear();
 
             for (auto funtions_constant_offset : env->meta_data_for_jit._functions_constant_idx_for_jit)
             {
@@ -440,11 +419,10 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                 auto& func_state = m_compiling_functions.at(codebuf + func_val.integer);
                 if (func_state->m_state == function_jit_state::state::FINISHED)
                 {
-                    wo_assert(func_state->m_func != nullptr
-                        && *func_state->m_func != nullptr);
+                    wo_assert(func_state->m_func != nullptr);
 
                     func_val.type = value::valuetype::handle_type;
-                    func_val.handle = (wo_handle_t)reinterpret_cast<intptr_t>(*func_state->m_func);
+                    func_val.handle = (wo_handle_t)reinterpret_cast<intptr_t>(func_state->m_func);
                 }
                 else
                     wo_assert(func_state->m_state == function_jit_state::state::FAILED);
@@ -464,11 +442,10 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                 auto& func_state = m_compiling_functions.at(codebuf + offset);
                 if (func_state->m_state == function_jit_state::state::FINISHED)
                 {
-                    wo_assert(func_state->m_func != nullptr
-                        && *func_state->m_func != nullptr);
+                    wo_assert(func_state->m_func != nullptr);
 
                     *calln = (wo::instruct::opcode)(wo::instruct::opcode::calln | 0b11);
-                    byte_t* jitfunc = (byte_t*)func_state->m_func;
+                    const byte_t* jitfunc = reinterpret_cast<const byte_t*>(&func_state->m_func);
                     byte_t* ipbuf = codebuf + calln_offset + 1;
 
                     for (size_t i = 0; i < 8; ++i)
@@ -495,11 +472,10 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                 auto& func_state = m_compiling_functions.at(codebuf + offset);
                 if (func_state->m_state == function_jit_state::state::FINISHED)
                 {
-                    wo_assert(func_state->m_func != nullptr
-                        && *func_state->m_func != nullptr);
+                    wo_assert(func_state->m_func != nullptr);
 
                     *mkclos = (wo::instruct::opcode)(wo::instruct::opcode::mkclos | 0b10);
-                    byte_t* jitfunc = (byte_t*)func_state->m_func;
+                    const byte_t* jitfunc = reinterpret_cast<const byte_t*>(&func_state->m_func);
                     byte_t* ipbuf = codebuf + mkclos_offset + 1 + 2;
 
                     for (size_t i = 0; i < 8; ++i)
@@ -516,11 +492,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 
         static void free_jit(runtime_env* env)
         {
-            for (auto& holder : env->meta_data_for_jit._jit_code_holder)
-            {
-                wo_assure(!get_jit_runtime().release(*holder.second));
-                delete holder.second;
-            }
+            for (const auto& [_, holder_jitfp] : env->meta_data_for_jit._jit_code_holder)
+                wo_assure(!get_jit_runtime().release(holder_jitfp));
         }
         static void _invoke_vm_interrupt(wo::vmbase* vmm, wo::vmbase::vm_interrupt_type type)
         {
@@ -1172,7 +1145,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
         static void x86_do_calln_vm_func(
             asmjit::x86::Compiler& x86compiler,
             asmjit::x86::Gp vm,
-            function_jit_state* vm_func,
+            const void* vm_func,
             const byte_t* codes,
             const byte_t* rt_ip,
             asmjit::x86::Gp rt_sp,
@@ -1200,29 +1173,16 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 
             auto result = x86compiler.newInt32();
 
+            auto funcaddr = x86compiler.newIntPtr();
+            x86compiler.mov(
+                funcaddr,
+                asmjit::x86::qword_ptr_abs(reinterpret_cast<intptr_t>(vm_func)));
+
             asmjit::InvokeNode* invoke_node;
 
-            if (vm_func->m_finished)
-            {
-                wo_assert(vm_func->m_func != nullptr
-                    && *vm_func->m_func != nullptr);
+            wo_assure(!x86compiler.invoke(&invoke_node, funcaddr,
+                asmjit::FuncSignatureT<wo_result_t, vmbase*, value*>()));
 
-                wo_assure(!x86compiler.invoke(&invoke_node, *vm_func->m_func,
-                    asmjit::FuncSignatureT<wo_result_t, vmbase*, value*>()));
-            }
-            else
-            {
-                wo_assert(vm_func->m_state == function_jit_state::state::COMPILING
-                    || vm_func->m_state == function_jit_state::state::FINISHED);
-                wo_assert(vm_func->m_jitfunc);
-
-
-                auto funcaddr = x86compiler.newIntPtr();
-                x86compiler.mov(funcaddr, asmjit::x86::qword_ptr((intptr_t)vm_func->m_func));
-
-                wo_assure(!x86compiler.invoke(&invoke_node, funcaddr,
-                    asmjit::FuncSignatureT<wo_result_t, vmbase*, value*>()));
-            }
             invoke_node->setArg(0, vm);
             invoke_node->setArg(1, callargptr);
 
@@ -2221,27 +2181,32 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                 jit_packed_func_t call_aim_native_func = (jit_packed_func_t)(WO_IPVAL_MOVE_8);
 
                 if (dr & 0b10)
-                    x86_do_calln_native_func_fast(ctx->c, ctx->_vmbase, call_aim_native_func, ctx->env->rt_codes, rt_ip, ctx->_vmssp, ctx->_vmsbp);
+                    x86_do_calln_native_func_fast(
+                        ctx->c,
+                        ctx->_vmbase,
+                        call_aim_native_func,
+                        ctx->env->rt_codes,
+                        rt_ip,
+                        ctx->_vmssp,
+                        ctx->_vmsbp);
                 else
-                    x86_do_calln_native_func(ctx->c, ctx->_vmbase, call_aim_native_func, ctx->env->rt_codes, rt_ip, ctx->_vmssp, ctx->_vmsbp);
+                    x86_do_calln_native_func(
+                        ctx->c,
+                        ctx->_vmbase,
+                        call_aim_native_func,
+                        ctx->env->rt_codes,
+                        rt_ip,
+                        ctx->_vmssp,
+                        ctx->_vmsbp);
             }
             else
             {
-                uint32_t call_aim_vm_func = WO_IPVAL_MOVE_4;
-                rt_ip += 4; // skip empty space;
-
-                // Try compile this func
-                auto* compiled_funcstat = analyze_function(ctx->env->rt_codes, call_aim_vm_func, ctx->env);
-                if (compiled_funcstat->m_state == function_jit_state::state::FAILED)
-                {
-                    WO_JIT_NOT_SUPPORT;
-                }
-
-                register_dependence_function(compiled_funcstat);
+                const auto* ip_stores_function_offset_unalligned = rt_ip;
+                rt_ip += 8; // skip empty space;
 
                 x86_do_calln_vm_func(
                     ctx->c, ctx->_vmbase,
-                    compiled_funcstat,
+                    ip_stores_function_offset_unalligned,
                     ctx->env->rt_codes,
                     rt_ip, ctx->_vmssp, ctx->_vmsbp);
             }
@@ -2345,18 +2310,56 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
         }
         virtual bool ir_mkclos(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
-            asmjit::InvokeNode* invoke_node;
+            const uint16_t closure_arg_count = WO_IPVAL_MOVE_2;
 
-            // NOTE: in x64, use make_closure_fast_impl.
-            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vmbase::make_closure_fast_impl,
-                asmjit::FuncSignatureT<value*, value*, const byte_t*, value*>()));
+            // ATTENTION: Always make_closure_fp_impl in jit.
 
-            invoke_node->setArg(0, ctx->_vmcr);
-            invoke_node->setArg(1, asmjit::Imm((intptr_t)rt_ip));
-            invoke_node->setArg(2, ctx->_vmssp);
 
-            invoke_node->setRet(0, ctx->_vmssp);
-            rt_ip += (2 + 8);
+            if (dr != 0)
+            {
+                // is mkclosfp
+                const uint64_t function_pointer = WO_IPVAL_MOVE_8;
+
+                asmjit::InvokeNode* invoke_node;
+
+                // NOTE: in x64, use make_closure_fast_impl.
+                wo_assure(!ctx->c.invoke(
+                    &invoke_node,
+                    (intptr_t)&vmbase::make_closure_fp_impl,
+                    asmjit::FuncSignatureT<value*, value*, uint16_t, uint64_t, value*>()));
+
+                invoke_node->setArg(0, ctx->_vmcr);
+                invoke_node->setArg(1, asmjit::Imm(closure_arg_count));
+                invoke_node->setArg(2, asmjit::Imm(function_pointer));
+                invoke_node->setArg(3, ctx->_vmssp);
+
+                invoke_node->setRet(0, ctx->_vmssp);
+            }
+            else
+            {
+                // is mkclosfp
+                const auto* ip_stores_function_offset_unalligned = rt_ip;
+                rt_ip += 8;
+
+                auto absfptr = ctx->c.newIntPtr();
+                ctx->c.mov(absfptr, asmjit::x86::qword_ptr_abs(
+                    reinterpret_cast<intptr_t>(ip_stores_function_offset_unalligned)));
+
+                asmjit::InvokeNode* invoke_node;
+
+                // NOTE: in x64, use make_closure_fast_impl.
+                wo_assure(!ctx->c.invoke(
+                    &invoke_node,
+                    reinterpret_cast<intptr_t>(&vmbase::make_closure_fp_impl),
+                    asmjit::FuncSignatureT<value*, value*, uint16_t, uint64_t, value*>()));
+
+                invoke_node->setArg(0, ctx->_vmcr);
+                invoke_node->setArg(1, asmjit::Imm(closure_arg_count));
+                invoke_node->setArg(2, absfptr);
+                invoke_node->setArg(3, ctx->_vmssp);
+
+                invoke_node->setRet(0, ctx->_vmssp);
+            }
             return true;
         }
         virtual bool ir_typeas(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -2916,5 +2919,5 @@ namespace wo
     void free_jit(runtime_env* env)
     {
     }
-        }
+}
 #endif
