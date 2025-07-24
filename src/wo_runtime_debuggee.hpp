@@ -54,7 +54,8 @@ namespace wo
         }
         bool set_breakpoint(wo::vmbase* vmm, const std::string& src_file, size_t rowno)
         {
-            auto breakip = vmm->env->program_debug_info->get_ip_by_src_location(src_file, rowno, true, false);
+            auto breakip = vmm->env->program_debug_info->get_ip_by_src_location(
+                src_file, rowno, true, false);
 
             if (!breakip.empty())
             {
@@ -714,7 +715,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                             bool result = false;
 
                             if (need_possiable_input(inputbuf, lineno))
-                                result = set_breakpoint(vmm, filename_or_funcname, lineno);
+                                result = set_breakpoint(vmm, filename_or_funcname, lineno -1);
                             else
                             {
                                 for (auto ch : filename_or_funcname)
@@ -739,7 +740,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                                 ;
                                 result = set_breakpoint(vmm,
                                     vmm->env->program_debug_info->get_src_location_by_runtime_ip(current_runtime_ip).source_file
-                                    , (size_t)std::stoull(filename_or_funcname));
+                                    , (size_t)std::stoull(filename_or_funcname) - 1);
 
                             }
 
@@ -1075,7 +1076,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
 
             return false;
         }
-        size_t print_src_file_print_lineno(
+        std::optional<size_t> print_src_file_print_lineno(
             wo::vmbase* vmm,
             const std::string& filepath,
             size_t current_row_no,
@@ -1083,7 +1084,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
         {
             auto& context = env_context[vmm->env];
 
-            size_t breakpoint_found_id = SIZE_MAX;
+            std::optional<size_t> breakpoint_found_id = std::nullopt;
             size_t finding_id = 0;
             for (auto& breakinfo : context.break_point_traps)
             {
@@ -1095,10 +1096,10 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                 ++finding_id;
             }
 
-            if (breakpoint_found_id == SIZE_MAX)
-                printf(ANSI_HIM "%-5zu " ANSI_RST "| ", current_row_no + 1);
-            else
+            if (breakpoint_found_id.has_value())
                 printf(ANSI_BHIR ANSI_WHI "%-5zu " ANSI_RST "| ", current_row_no + 1);
+            else
+                printf(ANSI_HIM "%-5zu " ANSI_RST "| ", current_row_no + 1);
 
             if (info != nullptr)
             {
@@ -1140,7 +1141,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                 // here is a easy lexer..
                 size_t current_row_no = 0;
                 size_t current_col_no = 0;
-                size_t last_line_is_breakline = SIZE_MAX;
+                std::optional<size_t> last_line_is_breakline = std::nullopt;
 
                 if (from <= current_row_no && current_row_no <= to)
                 {
@@ -1149,8 +1150,10 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                 }
                 for (size_t index = 0; index < srcfile.size(); index++)
                 {
-                    const auto ch = srcfile[index];
-                    if (ch == L'\n' || ch == L'\r')
+                    const char* chs = srcfile.c_str() + index;
+                    const size_t len = u8charnlen(chs, srcfile.length() - index);
+
+                    if (len == 1 && (*chs == '\n' || *chs == '\r'))
                     {
                         current_col_no = 0;
                         ++current_row_no;
@@ -1158,15 +1161,18 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                         // If next line in range, display the line number & breakpoint state & profiler result.
                         if (from <= current_row_no && current_row_no <= to)
                         {
-                            if (last_line_is_breakline != SIZE_MAX)
-                                printf("    " ANSI_HIR "# Breakpoint %zu" ANSI_RST, last_line_is_breakline);
+                            if (last_line_is_breakline.has_value())
+                                printf("    " ANSI_HIR "# Breakpoint %zu" ANSI_RST, 
+                                    last_line_is_breakline.value());
 
                             wo_stdout << ANSI_RST << wo_endl;
                             last_line_is_breakline = print_src_file_print_lineno(
                                 vmm, filepath, current_row_no, info);
                         }
 
-                        if (ch == L'\r' && index + 1 < srcfile.size() && srcfile[index + 1] == L'\n')
+                        if (*chs == '\r' 
+                            && index + 1 < srcfile.size() 
+                            && srcfile[index + 1] == '\n')
                             index++;
 
                         continue;
@@ -1192,7 +1198,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                         else
                             printf(ANSI_RST);
 
-                        wo_stdout << ch;
+                        wo_stdout << std::string_view(chs, len);
                     }
                     ++current_col_no;
                 }

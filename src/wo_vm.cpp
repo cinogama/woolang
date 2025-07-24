@@ -466,39 +466,42 @@ namespace wo
 
                 }
             };
-            auto print_opnum1 = [&]() {
-                if (main_command & (byte_t)0b00000010)
+            auto print_global_static = [&]() {
+                //const global 4byte
+                uint32_t data_4b = *(uint32_t*)((this_command_ptr += 4) - 4);
+                if (data_4b < env->constant_value_count)
                 {
-                    //is dr 1byte 
-                    print_reg_bpoffset();
+                    auto& constant_value = env->constant_and_global_storage[data_4b];
+                    switch (constant_value.type)
+                    {
+                    case value::valuetype::string_type:
+                        tmpos << u8enstring(
+                            constant_value.string->data(),
+                            constant_value.string->size(),
+                            false);
+                        break;
+                    default:
+                        tmpos << wo_cast_string(reinterpret_cast<wo_value>(&constant_value));
+                        break;
+                    }
+                    tmpos 
+                        << ": "
+                        << wo_type_name((wo_type_t)constant_value.type);
                 }
                 else
-                {
-                    //const global 4byte
-                    uint32_t data_4b = *(uint32_t*)((this_command_ptr += 4) - 4);
-                    if (data_4b < env->constant_value_count)
-                        tmpos << wo_cast_string((wo_value)&env->constant_and_global_storage[data_4b])
-                        << " : " << wo_type_name((wo_type_t)env->constant_and_global_storage[data_4b].type);
-                    else
-                        tmpos << "g[" << data_4b - env->constant_value_count << "]";
-                }
+                    tmpos << "g[" << data_4b - env->constant_value_count << "]";
+            };
+            auto print_opnum1 = [&]() {
+                if (main_command & (byte_t)0b00000010)
+                    print_reg_bpoffset();
+                else
+                    print_global_static();
             };
             auto print_opnum2 = [&]() {
                 if (main_command & (byte_t)0b00000001)
-                {
-                    //is dr 1byte 
                     print_reg_bpoffset();
-                }
                 else
-                {
-                    //const global 4byte
-                    uint32_t data_4b = *(uint32_t*)((this_command_ptr += 4) - 4);
-                    if (data_4b < env->constant_value_count)
-                        tmpos << wo_cast_string((wo_value)&env->constant_and_global_storage[data_4b])
-                        << " : " << wo_type_name((wo_type_t)env->constant_and_global_storage[data_4b].type);
-                    else
-                        tmpos << "g[" << data_4b - env->constant_value_count << "]";
-                }
+                    print_global_static();
             };
 
 #undef WO_SIGNED_SHIFT
@@ -1369,12 +1372,8 @@ namespace wo
         opnum2 = WO_ADDRESSING_RS
 #define WO_ADDRESSING_G2 \
         opnum2 = WO_ADDRESSING_G
-
-#define WO_ADDRESSING_N3_REG_BPOFF opnum3 = \
-        (WO_IPVAL & (1 << 7)) ?\
-        (bp + WO_SIGNED_SHIFT(WO_IPVAL_MOVE_1))\
-        :\
-        (WO_IPVAL_MOVE_1 + reg_begin)
+#define WO_ADDRESSING_RS3 \
+        opnum3 = WO_ADDRESSING_RS
 
 #define WO_VM_FAIL(ERRNO,ERRINFO) \
     do{ip = rt_ip; wo_fail(ERRNO,ERRINFO); continue;}while(0)
@@ -1475,7 +1474,7 @@ namespace wo
         value* opnum1, uint16_t argc, uint32_t addr, value* rt_sp)noexcept
     {
         auto* created_closure = closure_t::gc_new<gcbase::gctype::young>(
-                (wo_integer_t)addr, argc);
+            (wo_integer_t)addr, argc);
 
         for (uint16_t i = 0; i < argc; i++)
         {
@@ -1749,6 +1748,24 @@ namespace wo
         const byte_t* rt_ip = ip;
         const byte_t* ip_for_rollback;
 
+#define WO_RSG_ADDRESSING_CASE(CODE)\
+        instruct::opcode::CODE##gg:\
+            WO_ADDRESSING_G1;\
+            WO_ADDRESSING_G2;\
+        goto _label_##CODE##_impl;\
+        case instruct::opcode::CODE##gs:\
+            WO_ADDRESSING_G1;\
+            WO_ADDRESSING_RS2;\
+            goto _label_##CODE##_impl;\
+        case instruct::opcode::CODE##sg:\
+            WO_ADDRESSING_RS1;\
+            WO_ADDRESSING_G2;\
+            goto _label_##CODE##_impl;\
+        case instruct::opcode::CODE##ss:\
+            WO_ADDRESSING_RS1;\
+            WO_ADDRESSING_RS2;\
+        _label_##CODE##_impl
+
         for (;;)
         {
             uint32_t rtopcode = fast_ro_vm_interrupt | *(rt_ip++);
@@ -1798,88 +1815,28 @@ namespace wo
             _label_pop_impl:
                 opnum1->set_val((++sp));
                 break;
-            case instruct::opcode::addigg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_addi_impl;
-            case instruct::opcode::addigs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_addi_impl;
-            case instruct::opcode::addisg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_addi_impl;
-            case instruct::opcode::addiss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_addi_impl:
+            case WO_RSG_ADDRESSING_CASE(addi):
                 WO_VM_ASSERT(opnum1->type == opnum2->type
                     && opnum1->type == value::valuetype::integer_type,
                     "Operand should be integer in 'addi'.");
 
                 opnum1->integer += opnum2->integer;
                 break;
-            case instruct::opcode::subigg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_subi_impl;
-            case instruct::opcode::subigs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_subi_impl;
-            case instruct::opcode::subisg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_subi_impl;
-            case instruct::opcode::subiss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_subi_impl:
+            case WO_RSG_ADDRESSING_CASE(subi):
                 WO_VM_ASSERT(opnum1->type == opnum2->type
                     && opnum1->type == value::valuetype::integer_type,
                     "Operand should be integer in 'subi'.");
 
                 opnum1->integer -= opnum2->integer;
                 break;
-            case instruct::opcode::muligg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_muli_impl;
-            case instruct::opcode::muligs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_muli_impl;
-            case instruct::opcode::mulisg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_muli_impl;
-            case instruct::opcode::muliss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_muli_impl:
+            case WO_RSG_ADDRESSING_CASE(muli):
                 WO_VM_ASSERT(opnum1->type == opnum2->type
                     && opnum1->type == value::valuetype::integer_type,
                     "Operand should be integer in 'muli'.");
 
                 opnum1->integer *= opnum2->integer;
                 break;
-            case instruct::opcode::divigg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_divi_impl;
-            case instruct::opcode::divigs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_divi_impl;
-            case instruct::opcode::divisg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_divi_impl;
-            case instruct::opcode::diviss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_divi_impl:
+            case WO_RSG_ADDRESSING_CASE(divi):
                 WO_VM_ASSERT(opnum1->type == opnum2->type
                     && opnum1->type == value::valuetype::integer_type,
                     "Operand should be integer in 'divi'.");
@@ -1891,22 +1848,7 @@ namespace wo
 
                 opnum1->integer /= opnum2->integer;
                 break;
-            case instruct::opcode::modigg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_modi_impl;
-            case instruct::opcode::modigs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_modi_impl;
-            case instruct::opcode::modisg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_modi_impl;
-            case instruct::opcode::modiss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_modi_impl:
+            case WO_RSG_ADDRESSING_CASE(modi):
                 WO_VM_ASSERT(opnum1->type == opnum2->type
                     && opnum1->type == value::valuetype::integer_type,
                     "Operand should be integer in 'modi'.");
@@ -1918,176 +1860,56 @@ namespace wo
 
                 opnum1->integer %= opnum2->integer;
                 break;
-            case instruct::opcode::addrgg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_addr_impl;
-            case instruct::opcode::addrgs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_addr_impl;
-            case instruct::opcode::addrsg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_addr_impl;
-            case instruct::opcode::addrss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_addr_impl:
+            case WO_RSG_ADDRESSING_CASE(addr):
                 WO_VM_ASSERT(opnum1->type == opnum2->type
                     && opnum1->type == value::valuetype::real_type,
                     "Operand should be real in 'addr'.");
 
                 opnum1->real += opnum2->real;
                 break;
-            case instruct::opcode::subrgg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_subr_impl;
-            case instruct::opcode::subrgs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_subr_impl;
-            case instruct::opcode::subrsg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_subr_impl;
-            case instruct::opcode::subrss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_subr_impl:
+            case WO_RSG_ADDRESSING_CASE(subr):
                 WO_VM_ASSERT(opnum1->type == opnum2->type
                     && opnum1->type == value::valuetype::real_type,
                     "Operand should be real in 'subr'.");
 
                 opnum1->real -= opnum2->real;
                 break;
-            case instruct::opcode::mulrgg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_mulr_impl;
-            case instruct::opcode::mulrgs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_mulr_impl;
-            case instruct::opcode::mulrsg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_mulr_impl;
-            case instruct::opcode::mulrss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_mulr_impl:
+            case WO_RSG_ADDRESSING_CASE(mulr):
                 WO_VM_ASSERT(opnum1->type == opnum2->type
                     && opnum1->type == value::valuetype::real_type,
                     "Operand should be real in 'mulr'.");
 
                 opnum1->real *= opnum2->real;
                 break;
-            case instruct::opcode::divrgg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_divr_impl;
-            case instruct::opcode::divrgs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_divr_impl;
-            case instruct::opcode::divrsg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_divr_impl;
-            case instruct::opcode::divrss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_divr_impl:
+            case WO_RSG_ADDRESSING_CASE(divr):
                 WO_VM_ASSERT(opnum1->type == opnum2->type
                     && opnum1->type == value::valuetype::real_type,
                     "Operand should be real in 'divr'.");
 
                 opnum1->real /= opnum2->real;
                 break;
-            case instruct::opcode::modrgg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_modr_impl;
-            case instruct::opcode::modrgs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_modr_impl;
-            case instruct::opcode::modrsg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_modr_impl;
-            case instruct::opcode::modrss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_modr_impl:
+            case WO_RSG_ADDRESSING_CASE(modr):
                 WO_VM_ASSERT(opnum1->type == opnum2->type
                     && opnum1->type == value::valuetype::real_type,
                     "Operand should be real in 'modr'.");
 
                 opnum1->real = fmod(opnum1->real, opnum2->real);
                 break;
-            case instruct::opcode::addhgg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_addh_impl;
-            case instruct::opcode::addhgs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_addh_impl;
-            case instruct::opcode::addhsg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_addh_impl;
-            case instruct::opcode::addhss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_addh_impl:
+            case WO_RSG_ADDRESSING_CASE(addh):
                 WO_VM_ASSERT(opnum1->type == opnum2->type
                     && opnum1->type == value::valuetype::handle_type,
                     "Operand should be handle in 'addh'.");
 
                 opnum1->handle += opnum2->handle;
                 break;
-            case instruct::opcode::subhgg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_subh_impl;
-            case instruct::opcode::subhgs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_subh_impl;
-            case instruct::opcode::subhsg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_subh_impl;
-            case instruct::opcode::subhss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_subh_impl:
+            case WO_RSG_ADDRESSING_CASE(subh):
                 WO_VM_ASSERT(opnum1->type == opnum2->type
                     && opnum1->type == value::valuetype::handle_type,
                     "Operand should be handle in 'subh'.");
 
                 opnum1->handle -= opnum2->handle;
                 break;
-            case instruct::opcode::addsgg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_adds_impl;
-            case instruct::opcode::addsgs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_adds_impl;
-            case instruct::opcode::addssg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_adds_impl;
-            case instruct::opcode::addsss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_adds_impl:
+            case WO_RSG_ADDRESSING_CASE(adds):
                 WO_VM_ASSERT(opnum1->type == opnum2->type
                     && opnum1->type == value::valuetype::string_type,
                     "Operand should be string in 'adds'.");
@@ -2096,47 +1918,15 @@ namespace wo
                     string_t::gc_new<gcbase::gctype::young>(
                         *opnum1->string + *opnum2->string));
                 break;
-            case instruct::opcode::movgg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_mov_impl;
-            case instruct::opcode::movgs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_mov_impl;
-            case instruct::opcode::movsg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_mov_impl;
-            case instruct::opcode::movss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_mov_impl:
+            case WO_RSG_ADDRESSING_CASE(mov):
                 opnum1->set_val(opnum2);
                 break;
-            case instruct::opcode::movcastgg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_movcast_impl;
-            case instruct::opcode::movcastgs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_movcast_impl;
-            case instruct::opcode::movcastsg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_movcast_impl;
-            case instruct::opcode::movcastss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_movcast_impl:
-                {
-                    value::valuetype aim_type =
-                        static_cast<value::valuetype>(WO_IPVAL_MOVE_1);
-
-                    if (auto* err = movcast_impl(opnum1, opnum2, aim_type))
-                        WO_VM_FAIL(WO_FAIL_TYPE_FAIL, err);
-                }
+            case WO_RSG_ADDRESSING_CASE(movcast):
+                if (auto* err = movcast_impl(
+                    opnum1,
+                    opnum2,
+                    static_cast<value::valuetype>(WO_IPVAL_MOVE_1)))
+                    WO_VM_FAIL(WO_FAIL_TYPE_FAIL, err);
                 break;
             case instruct::opcode::typeasg:
                 WO_ADDRESSING_G1;
@@ -2158,138 +1948,33 @@ namespace wo
                     opnum1->type == static_cast<value::valuetype>(
                         WO_IPVAL_MOVE_1));
                 break;
-            case instruct::opcode::ldsgg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_lds_impl;
-            case instruct::opcode::ldsgs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_lds_impl;
-            case instruct::opcode::ldssg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_lds_impl;
-            case instruct::opcode::ldsss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_lds_impl:
+            case WO_RSG_ADDRESSING_CASE(lds):
                 WO_VM_ASSERT(opnum2->type == value::valuetype::integer_type,
                     "Operand 2 should be integer in 'lds'.");
                 opnum1->set_val(bp + opnum2->integer);
                 break;
-            case instruct::opcode::stsgg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_sts_impl;
-            case instruct::opcode::stsgs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_sts_impl;
-            case instruct::opcode::stssg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_sts_impl;
-            case instruct::opcode::stsss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_sts_impl:
+            case WO_RSG_ADDRESSING_CASE(sts):
                 WO_VM_ASSERT(opnum2->type == value::valuetype::integer_type,
                     "Operand 2 should be integer in 'sts'.");
                 (bp + opnum2->integer)->set_val(opnum1);
                 break;
-            case instruct::opcode::equbgg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_equb_impl;
-            case instruct::opcode::equbgs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_equb_impl;
-            case instruct::opcode::equbsg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_equb_impl;
-            case instruct::opcode::equbss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_equb_impl:
+            case WO_RSG_ADDRESSING_CASE(equb):
                 rt_cr->set_bool(opnum1->integer == opnum2->integer);
                 break;
-            case instruct::opcode::nequbgg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_nequb_impl;
-            case instruct::opcode::nequbgs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_nequb_impl;
-            case instruct::opcode::nequbsg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_nequb_impl;
-            case instruct::opcode::nequbss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_nequb_impl:
+            case WO_RSG_ADDRESSING_CASE(nequb):
                 rt_cr->set_bool(opnum1->integer != opnum2->integer);
                 break;
-            case instruct::opcode::equrgg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_equr_impl;
-            case instruct::opcode::equrgs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_equr_impl;
-            case instruct::opcode::eqursg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_equr_impl;
-            case instruct::opcode::equrss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_equr_impl:
+            case WO_RSG_ADDRESSING_CASE(equr):
                 WO_VM_ASSERT(opnum1->type == opnum2->type && opnum1->type == value::valuetype::real_type,
                     "Operand should be real in 'equr'.");
                 rt_cr->set_bool(opnum1->real == opnum2->real);
                 break;
-            case instruct::opcode::nequrgg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_nequr_impl;
-            case instruct::opcode::nequrgs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_nequr_impl;
-            case instruct::opcode::neqursg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_nequr_impl;
-            case instruct::opcode::nequrss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_nequr_impl:
+            case WO_RSG_ADDRESSING_CASE(nequr):
                 WO_VM_ASSERT(opnum1->type == opnum2->type && opnum1->type == value::valuetype::real_type,
                     "Operand should be real in 'nequr'.");
                 rt_cr->set_bool(opnum1->real != opnum2->real);
                 break;
-            case instruct::opcode::equsgg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_equs_impl;
-            case instruct::opcode::equsgs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_equs_impl;
-            case instruct::opcode::equssg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_equs_impl;
-            case instruct::opcode::equsss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_equs_impl:
+            case WO_RSG_ADDRESSING_CASE(equs):
                 WO_VM_ASSERT(opnum1->type == opnum2->type
                     && opnum1->type == value::valuetype::string_type,
                     "Operand should be string in 'equs'.");
@@ -2298,22 +1983,7 @@ namespace wo
                 else
                     rt_cr->set_bool(*opnum1->string == *opnum2->string);
                 break;
-            case instruct::opcode::nequsgg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_nequs_impl;
-            case instruct::opcode::nequsgs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_nequs_impl;
-            case instruct::opcode::nequssg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_nequs_impl;
-            case instruct::opcode::nequsss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_nequs_impl:
+            case WO_RSG_ADDRESSING_CASE(nequs):
                 WO_VM_ASSERT(opnum1->type == opnum2->type
                     && opnum1->type == value::valuetype::string_type,
                     "Operand should be string in 'nequs'.");
@@ -2322,297 +1992,87 @@ namespace wo
                 else
                     rt_cr->set_bool(*opnum1->string != *opnum2->string);
                 break;
-            case instruct::opcode::landgg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_land_impl;
-            case instruct::opcode::landgs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_land_impl;
-            case instruct::opcode::landsg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_land_impl;
-            case instruct::opcode::landss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_land_impl:
+            case WO_RSG_ADDRESSING_CASE(land):
                 rt_cr->set_bool(opnum1->integer && opnum2->integer);
                 break;
-            case instruct::opcode::lorgg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_lor_impl;
-            case instruct::opcode::lorgs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_lor_impl;
-            case instruct::opcode::lorsg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_lor_impl;
-            case instruct::opcode::lorss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_lor_impl:
+            case WO_RSG_ADDRESSING_CASE(lor):
                 rt_cr->set_bool(opnum1->integer || opnum2->integer);
                 break;
-            case instruct::opcode::ltigg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_lti_impl;
-            case instruct::opcode::ltigs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_lti_impl;
-            case instruct::opcode::ltisg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_lti_impl;
-            case instruct::opcode::ltiss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_lti_impl:
+            case WO_RSG_ADDRESSING_CASE(lti):
                 WO_VM_ASSERT(opnum1->type == opnum2->type
                     && opnum1->type == value::valuetype::integer_type,
                     "Operand should be integer in 'lti'.");
 
                 rt_cr->set_bool(opnum1->integer < opnum2->integer);
                 break;
-            case instruct::opcode::gtigg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_gti_impl;
-            case instruct::opcode::gtigs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_gti_impl;
-            case instruct::opcode::gtisg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_gti_impl;
-            case instruct::opcode::gtiss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_gti_impl:
+            case WO_RSG_ADDRESSING_CASE(gti):
                 WO_VM_ASSERT(opnum1->type == opnum2->type
                     && opnum1->type == value::valuetype::integer_type,
                     "Operand should be integer in 'gti'.");
 
                 rt_cr->set_bool(opnum1->integer > opnum2->integer);
                 break;
-            case instruct::opcode::eltigg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_elti_impl;
-            case instruct::opcode::eltigs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_elti_impl;
-            case instruct::opcode::eltisg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_elti_impl;
-            case instruct::opcode::eltiss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_elti_impl:
+            case WO_RSG_ADDRESSING_CASE(elti):
                 WO_VM_ASSERT(opnum1->type == opnum2->type
                     && opnum1->type == value::valuetype::integer_type,
                     "Operand should be integer in 'elti'.");
 
                 rt_cr->set_bool(opnum1->integer <= opnum2->integer);
                 break;
-            case instruct::opcode::egtigg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_egti_impl;
-            case instruct::opcode::egtigs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_egti_impl;
-            case instruct::opcode::egtisg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_egti_impl;
-            case instruct::opcode::egtiss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_egti_impl:
+            case WO_RSG_ADDRESSING_CASE(egti):
                 WO_VM_ASSERT(opnum1->type == opnum2->type
                     && opnum1->type == value::valuetype::integer_type,
                     "Operand should be integer in 'egti'.");
 
                 rt_cr->set_bool(opnum1->integer >= opnum2->integer);
                 break;
-            case instruct::opcode::ltrgg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_ltr_impl;
-            case instruct::opcode::ltrgs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_ltr_impl;
-            case instruct::opcode::ltrsg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_ltr_impl;
-            case instruct::opcode::ltrss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_ltr_impl:
+            case WO_RSG_ADDRESSING_CASE(ltr):
                 WO_VM_ASSERT(opnum1->type == opnum2->type
                     && opnum1->type == value::valuetype::real_type,
                     "Operand should be real in 'ltr'.");
 
                 rt_cr->set_bool(opnum1->real < opnum2->real);
                 break;
-            case instruct::opcode::gtrgg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_gtr_impl;
-            case instruct::opcode::gtrgs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_gtr_impl;
-            case instruct::opcode::gtrsg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_gtr_impl;
-            case instruct::opcode::gtrss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_gtr_impl:
+            case WO_RSG_ADDRESSING_CASE(gtr):
                 WO_VM_ASSERT(opnum1->type == opnum2->type
                     && opnum1->type == value::valuetype::real_type,
                     "Operand should be real in 'gtr'.");
 
                 rt_cr->set_bool(opnum1->real > opnum2->real);
                 break;
-            case instruct::opcode::eltrgg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_eltr_impl;
-            case instruct::opcode::eltrgs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_eltr_impl;
-            case instruct::opcode::eltrsg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_eltr_impl;
-            case instruct::opcode::eltrss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_eltr_impl:
+            case WO_RSG_ADDRESSING_CASE(eltr):
                 WO_VM_ASSERT(opnum1->type == opnum2->type
                     && opnum1->type == value::valuetype::real_type,
                     "Operand should be real in 'eltr'.");
 
                 rt_cr->set_bool(opnum1->real <= opnum2->real);
                 break;
-            case instruct::opcode::egtrgg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_egtr_impl;
-            case instruct::opcode::egtrgs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_egtr_impl;
-            case instruct::opcode::egtrsg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_egtr_impl;
-            case instruct::opcode::egtrss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_egtr_impl:
+            case WO_RSG_ADDRESSING_CASE(egtr):
                 WO_VM_ASSERT(opnum1->type == opnum2->type
                     && opnum1->type == value::valuetype::real_type,
                     "Operand should be real in 'egtr'.");
 
                 rt_cr->set_bool(opnum1->real >= opnum2->real);
                 break;
-            case instruct::opcode::ltxgg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_ltx_impl;
-            case instruct::opcode::ltxgs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_ltx_impl;
-            case instruct::opcode::ltxsg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_ltx_impl;
-            case instruct::opcode::ltxss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_ltx_impl:
+            case WO_RSG_ADDRESSING_CASE(ltx):
                 WO_VM_ASSERT(opnum1->type == opnum2->type,
                     "Operand type should be same in 'ltx'.");
 
                 ltx_impl(rt_cr, opnum1, opnum2);
                 break;
-            case instruct::opcode::gtxgg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_gtx_impl;
-            case instruct::opcode::gtxgs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_gtx_impl;
-            case instruct::opcode::gtxsg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_gtx_impl;
-            case instruct::opcode::gtxss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_gtx_impl:
+            case WO_RSG_ADDRESSING_CASE(gtx):
                 WO_VM_ASSERT(opnum1->type == opnum2->type,
                     "Operand type should be same in 'gtx'.");
 
                 gtx_impl(rt_cr, opnum1, opnum2);
                 break;
-            case instruct::opcode::eltxgg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_eltx_impl;
-            case instruct::opcode::eltxgs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_eltx_impl;
-            case instruct::opcode::eltxsg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_eltx_impl;
-            case instruct::opcode::eltxss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_eltx_impl:
+            case WO_RSG_ADDRESSING_CASE(eltx):
                 WO_VM_ASSERT(opnum1->type == opnum2->type,
                     "Operand type should be same in 'eltx'.");
 
                 eltx_impl(rt_cr, opnum1, opnum2);
                 break;
-            case instruct::opcode::egtxgg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_egtx_impl;
-            case instruct::opcode::egtxgs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_egtx_impl;
-            case instruct::opcode::egtxsg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_egtx_impl;
-            case instruct::opcode::egtxss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_egtx_impl:
+            case WO_RSG_ADDRESSING_CASE(egtx):
                 WO_VM_ASSERT(opnum1->type == opnum2->type,
                     "Operand type should be same in 'egtx'.");
 
@@ -2887,14 +2347,14 @@ namespace wo
             }
             case instruct::opcode::jt:
             {
-                uint32_t aimplace = WO_IPVAL_MOVE_4;
+                const uint32_t aimplace = WO_IPVAL_MOVE_4;
                 if (rt_cr->integer)
                     rt_ip = rt_codes + aimplace;
                 break;
             }
             case instruct::opcode::jf:
             {
-                uint32_t aimplace = WO_IPVAL_MOVE_4;
+                const uint32_t aimplace = WO_IPVAL_MOVE_4;
                 if (!rt_cr->integer)
                     rt_ip = rt_codes + aimplace;
                 break;
@@ -2907,37 +2367,22 @@ namespace wo
             _label_mkstruct_impl:
                 sp = make_struct_impl(opnum1, WO_IPVAL_MOVE_2, sp);
                 break;
-            case instruct::opcode::idstructgg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_idstruct_impl;
-            case instruct::opcode::idstructgs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_idstruct_impl;
-            case instruct::opcode::idstructsg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_idstruct_impl;
-            case instruct::opcode::idstructss:
-                WO_ADDRESSING_RS1; // Aim
-                WO_ADDRESSING_RS2; // Struct
-            _label_idstruct_impl:
-                {
-                    const uint16_t offset = WO_IPVAL_MOVE_2;
+            case WO_RSG_ADDRESSING_CASE(idstruct):
+            {
+                const uint16_t offset = WO_IPVAL_MOVE_2;
 
-                    WO_VM_ASSERT(opnum2->type == value::valuetype::struct_type,
-                        "Cannot index non-struct value in 'idstruct'.");
-                    WO_VM_ASSERT(opnum2->structs != nullptr,
-                        "Unable to index null in 'idstruct'.");
-                    WO_VM_ASSERT(offset < opnum2->structs->m_count,
-                        "Index out of range in 'idstruct'.");
+                WO_VM_ASSERT(opnum2->type == value::valuetype::struct_type,
+                    "Cannot index non-struct value in 'idstruct'.");
+                WO_VM_ASSERT(opnum2->structs != nullptr,
+                    "Unable to index null in 'idstruct'.");
+                WO_VM_ASSERT(offset < opnum2->structs->m_count,
+                    "Index out of range in 'idstruct'.");
 
-                    gcbase::gc_read_guard gwg1(opnum2->structs);
-                    opnum1->set_val(&opnum2->structs->m_values[offset]);
+                gcbase::gc_read_guard gwg1(opnum2->structs);
+                opnum1->set_val(&opnum2->structs->m_values[offset]);
 
-                    break;
-                }
+                break;
+            }
             case instruct::opcode::jnequbg:
                 WO_ADDRESSING_G1;
                 goto _label_jnequb_impl;
@@ -2977,95 +2422,50 @@ namespace wo
                     sp = make_map_impl(opnum1, size, sp);
                     break;
                 }
-            case instruct::opcode::idarrgg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_idarr_impl;
-            case instruct::opcode::idarrgs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_idarr_impl;
-            case instruct::opcode::idarrsg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_idarr_impl;
-            case instruct::opcode::idarrss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_idarr_impl:
+            case WO_RSG_ADDRESSING_CASE(idarr):
+            {
+                WO_VM_ASSERT(nullptr != opnum1->gcunit,
+                    "Unable to index null in 'idarr'.");
+                WO_VM_ASSERT(opnum1->type == value::valuetype::array_type,
+                    "Cannot index non-array value in 'idarr'.");
+                WO_VM_ASSERT(opnum2->type == value::valuetype::integer_type,
+                    "Cannot index array by non-integer value in 'idarr'.");
+                gcbase::gc_read_guard gwg1(opnum1->gcunit);
+
+                // ATTENTION: `_vmjitcall_idarr` HAS SAME LOGIC, NEED UPDATE SAME TIME.
+                const size_t index = static_cast<size_t>(opnum2->integer);
+
+                if (index >= opnum1->array->size())
                 {
-                    WO_VM_ASSERT(nullptr != opnum1->gcunit,
-                        "Unable to index null in 'idarr'.");
-                    WO_VM_ASSERT(opnum1->type == value::valuetype::array_type,
-                        "Cannot index non-array value in 'idarr'.");
-                    WO_VM_ASSERT(opnum2->type == value::valuetype::integer_type,
-                        "Cannot index array by non-integer value in 'idarr'.");
-                    gcbase::gc_read_guard gwg1(opnum1->gcunit);
-
-                    // ATTENTION: `_vmjitcall_idarr` HAS SAME LOGIC, NEED UPDATE SAME TIME.
-                    const size_t index = static_cast<size_t>(opnum2->integer);
-
-                    if (index >= opnum1->array->size())
-                    {
-                        rt_cr->set_nil();
-                        WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Index out of range.");
-                    }
-                    else
-                    {
-                        rt_cr->set_val(&opnum1->array->at(index));
-                    }
-                    break;
+                    rt_cr->set_nil();
+                    WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Index out of range.");
                 }
-            case instruct::opcode::iddictgg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_iddict_impl;
-            case instruct::opcode::iddictgs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_iddict_impl;
-            case instruct::opcode::iddictsg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_iddict_impl;
-            case instruct::opcode::iddictss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_iddict_impl:
+                else
                 {
-                    WO_VM_ASSERT(nullptr != opnum1->gcunit,
-                        "Unable to index null in 'iddict'.");
-                    WO_VM_ASSERT(opnum1->type == value::valuetype::dict_type,
-                        "Unable to index non-dict value in 'iddict'.");
-
-                    gcbase::gc_read_guard gwg1(opnum1->gcunit);
-
-                    auto fnd = opnum1->dict->find(*opnum2);
-                    if (fnd != opnum1->dict->end())
-                        rt_cr->set_val(&fnd->second);
-                    else
-                        WO_VM_FAIL(WO_FAIL_INDEX_FAIL,
-                            "No such key in current dict.");
-
-                    break;
+                    rt_cr->set_val(&opnum1->array->at(index));
                 }
-            case instruct::opcode::sidmapgg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_sidmap_impl;
-            case instruct::opcode::sidmapgs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_sidmap_impl;
-            case instruct::opcode::sidmapsg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_sidmap_impl;
-            case instruct::opcode::sidmapss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_sidmap_impl:
-                WO_ADDRESSING_N3_REG_BPOFF;
+                break;
+            }
+            case WO_RSG_ADDRESSING_CASE(iddict):
+            {
+                WO_VM_ASSERT(nullptr != opnum1->gcunit,
+                    "Unable to index null in 'iddict'.");
+                WO_VM_ASSERT(opnum1->type == value::valuetype::dict_type,
+                    "Unable to index non-dict value in 'iddict'.");
+
+                gcbase::gc_read_guard gwg1(opnum1->gcunit);
+
+                auto fnd = opnum1->dict->find(*opnum2);
+                if (fnd != opnum1->dict->end())
+                    rt_cr->set_val(&fnd->second);
+                else
+                    WO_VM_FAIL(WO_FAIL_INDEX_FAIL,
+                        "No such key in current dict.");
+
+                break;
+            }
+            case WO_RSG_ADDRESSING_CASE(sidmap):
+                WO_ADDRESSING_RS3;
                 {
                     WO_VM_ASSERT(nullptr != opnum1->gcunit,
                         "Unable to index null in 'sidmap'.");
@@ -3081,23 +2481,8 @@ namespace wo
 
                     break;
                 }
-            case instruct::opcode::siddictgg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_siddict_impl;
-            case instruct::opcode::siddictgs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_siddict_impl;
-            case instruct::opcode::siddictsg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_siddict_impl;
-            case instruct::opcode::siddictss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_siddict_impl:
-                WO_ADDRESSING_N3_REG_BPOFF;
+            case WO_RSG_ADDRESSING_CASE(siddict):
+                WO_ADDRESSING_RS3;
                 {
                     WO_VM_ASSERT(nullptr != opnum1->gcunit,
                         "Unable to index null in 'siddict'.");
@@ -3120,23 +2505,8 @@ namespace wo
 
                     break;
                 }
-            case instruct::opcode::sidarrgg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_sidarr_impl;
-            case instruct::opcode::sidarrgs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_sidarr_impl;
-            case instruct::opcode::sidarrsg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_sidarr_impl;
-            case instruct::opcode::sidarrss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_sidarr_impl:
-                WO_ADDRESSING_N3_REG_BPOFF;
+            case WO_RSG_ADDRESSING_CASE(sidarr):
+                WO_ADDRESSING_RS3;
                 {
                     WO_VM_ASSERT(nullptr != opnum1->gcunit,
                         "Unable to index null in 'sidarr'.");
@@ -3161,57 +2531,27 @@ namespace wo
                     }
                     break;
                 }
-            case instruct::opcode::sidstructgg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_sidstruct_impl;
-            case instruct::opcode::sidstructgs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_sidstruct_impl;
-            case instruct::opcode::sidstructsg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_sidstruct_impl;
-            case instruct::opcode::sidstructss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_sidstruct_impl:
-                {
-                    const uint16_t offset = WO_IPVAL_MOVE_2;
+            case WO_RSG_ADDRESSING_CASE(sidstruct):
+            {
+                const uint16_t offset = WO_IPVAL_MOVE_2;
 
-                    WO_VM_ASSERT(nullptr != opnum1->structs,
-                        "Unable to index null in 'sidstruct'.");
-                    WO_VM_ASSERT(opnum1->type == value::valuetype::struct_type,
-                        "Unable to index non-struct value in 'sidstruct'.");
-                    WO_VM_ASSERT(offset < opnum1->structs->m_count,
-                        "Index out of range in 'sidstruct'.");
+                WO_VM_ASSERT(nullptr != opnum1->structs,
+                    "Unable to index null in 'sidstruct'.");
+                WO_VM_ASSERT(opnum1->type == value::valuetype::struct_type,
+                    "Unable to index non-struct value in 'sidstruct'.");
+                WO_VM_ASSERT(offset < opnum1->structs->m_count,
+                    "Index out of range in 'sidstruct'.");
 
-                    gcbase::gc_write_guard gwg1(opnum1->gcunit);
+                gcbase::gc_write_guard gwg1(opnum1->gcunit);
 
-                    auto* result = &opnum1->structs->m_values[offset];
-                    if (wo::gc::gc_is_marking())
-                        wo::gcbase::write_barrier(result);
-                    result->set_val(opnum2);
+                auto* result = &opnum1->structs->m_values[offset];
+                if (wo::gc::gc_is_marking())
+                    wo::gcbase::write_barrier(result);
+                result->set_val(opnum2);
 
-                    break;
-                }
-            case instruct::opcode::idstrgg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_idstr_impl;
-            case instruct::opcode::idstrgs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_idstr_impl;
-            case instruct::opcode::idstrsg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_idstr_impl;
-            case instruct::opcode::idstrss:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_RS2;
-            _label_idstr_impl:
+                break;
+            }
+            case WO_RSG_ADDRESSING_CASE(idstr):
                 WO_VM_ASSERT(nullptr != opnum1->gcunit,
                     "Unable to index null in 'idstr'.");
 
@@ -3225,22 +2565,7 @@ namespace wo
                             opnum1->string->size(),
                             static_cast<size_t>(opnum2->integer))));
                 break;
-            case instruct::opcode::mkuniongg:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_G2;
-                goto _label_mkunion_impl;
-            case instruct::opcode::mkuniongs:
-                WO_ADDRESSING_G1;
-                WO_ADDRESSING_RS2;
-                goto _label_mkunion_impl;
-            case instruct::opcode::mkunionsg:
-                WO_ADDRESSING_RS1;
-                WO_ADDRESSING_G2;
-                goto _label_mkunion_impl;
-            case instruct::opcode::mkunionss:
-                WO_ADDRESSING_RS1; // aim
-                WO_ADDRESSING_RS2; // opnum
-            _label_mkunion_impl:
+            case WO_RSG_ADDRESSING_CASE(mkunion):
                 make_union_impl(opnum1, opnum2, WO_IPVAL_MOVE_2);
                 break;
             case instruct::opcode::mkcloswo:
@@ -3411,6 +2736,10 @@ namespace wo
             {
                 --rt_ip;    // Move back one command.
 
+                static_assert(std::is_same_v<decltype(rtopcode), uint32_t>);
+                if ((0xFFFFFF00u & rtopcode) == 0)
+                    wo_error("Unknown instruct.");
+
                 auto interrupt_state = vm_interrupt.load();
 
                 if (interrupt_state & vm_interrupt_type::GC_INTERRUPT)
@@ -3481,6 +2810,7 @@ namespace wo
                 // ATTENTION: it should be last interrupt..
                 else if (interrupt_state & vm_interrupt_type::DEBUG_INTERRUPT)
                 {
+                    static_assert(sizeof(instruct::opcode) == 1);
                     rtopcode = rtopcode & 0xFFu;
 
                     ip = rt_ip;
@@ -3504,6 +2834,8 @@ namespace wo
         }// vm loop end.
 
         WO_VM_RETURN(wo_result_t::WO_API_NORMAL);
+
+#undef WO_RSG_ADDRESSING_CASE
     }
 
 #undef WO_VM_RETURN

@@ -147,14 +147,17 @@ namespace wo
     {
 #ifdef _WIN32
         // SUPPORT ANSI_CONTROL
-#if !WO_BUILD_WITH_MINGW && defined(WO_NEED_ANSI_CONTROL)
+#if defined(WO_NEED_ANSI_CONTROL) && defined(ENABLE_VIRTUAL_TERMINAL_PROCESSING)
         auto this_console_handle = GetStdHandle(STD_OUTPUT_HANDLE);
         if (this_console_handle != INVALID_HANDLE_VALUE)
         {
             DWORD console_mode = 0;
-            if (GetConsoleMode(this_console_handle, &console_mode))
+            if (GetConsoleMode(
+                this_console_handle, &console_mode))
             {
-                SetConsoleMode(this_console_handle, console_mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
+                SetConsoleMode(
+                    this_console_handle, 
+                    console_mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
             }
         }
 #endif
@@ -163,9 +166,7 @@ namespace wo
 #endif
 
         if (nullptr == std::setlocale(LC_CTYPE, DEFAULT_LOCALE_NAME))
-        {
             wo_warning("Unable to initialize locale character set environment: bad local type.");
-        }
         else
         {
             wo_global_locale = std::locale(DEFAULT_LOCALE_NAME);

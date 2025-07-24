@@ -295,7 +295,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 
                                 wo_assert(state->_m_ctx == ctx);
                                 this->finish_compiler(ctx);
-                                auto err = get_jit_runtime().add(state->m_func, &state->m_code_buffer);
+
+                                auto err = get_jit_runtime().add(&state->m_func, &state->m_code_buffer);
                                 if (err != 0)
                                 {
                                     static_assert(std::is_same<decltype(err), uint32_t>::value);
