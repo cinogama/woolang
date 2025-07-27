@@ -117,7 +117,7 @@ namespace wo
 #if WO_ENABLE_RUNTIME_CHECK
         size_t old_count =
 #endif
-            dec_destructable_instance_countp->fetch_add(1, std::memory_order::relaxed);
+            dec_destructable_instance_countp->fetch_add(1, std::memory_order::memory_order_relaxed);
         wo_assert(old_count >= 0);
 
         return dec_destructable_instance_countp;
@@ -164,20 +164,20 @@ namespace wo
     }
     bool vmbase::is_aborted() const noexcept
     {
-        return vm_interrupt.load(std::memory_order::acquire) & vm_interrupt_type::ABORT_INTERRUPT;
+        return vm_interrupt.load(std::memory_order::memory_order_acquire) & vm_interrupt_type::ABORT_INTERRUPT;
     }
     bool vmbase::interrupt(vm_interrupt_type type)noexcept
     {
-        return !(type & vm_interrupt.fetch_or(type, std::memory_order::acq_rel));
+        return !(type & vm_interrupt.fetch_or(type, std::memory_order::memory_order_acq_rel));
     }
     bool vmbase::clear_interrupt(vm_interrupt_type type)noexcept
     {
-        return type & vm_interrupt.fetch_and(~type, std::memory_order::acq_rel);
+        return type & vm_interrupt.fetch_and(~type, std::memory_order::memory_order_acq_rel);
     }
 
     bool vmbase::check_interrupt(vm_interrupt_type type)noexcept
     {
-        return 0 != (vm_interrupt.load(std::memory_order::acquire) & type);
+        return 0 != (vm_interrupt.load(std::memory_order::memory_order_acquire) & type);
     }
     vmbase::interrupt_wait_result vmbase::wait_interrupt(vm_interrupt_type type, bool force_wait)noexcept
     {
@@ -190,7 +190,7 @@ namespace wo
         int i = 0;
         do
         {
-            uint32_t vm_interrupt_mask = vm_interrupt.load(std::memory_order::acquire);
+            uint32_t vm_interrupt_mask = vm_interrupt.load(std::memory_order::memory_order_acquire);
 
             if (0 == (vm_interrupt_mask & type))
                 break;
@@ -229,7 +229,7 @@ namespace wo
     {
         using namespace std;
 
-        while (vm_interrupt.load(std::memory_order::acquire) & type)
+        while (vm_interrupt.load(std::memory_order::memory_order_acquire) & type)
             std::this_thread::sleep_for(10ms);
     }
 
@@ -426,7 +426,7 @@ namespace wo
                 }
                 for (int i = 0; i < MAX_BYTE_COUNT - displayed_count; i++)
                     printf("   ");
-                };
+            };
 #define WO_SIGNED_SHIFT(VAL) (((signed char)((unsigned char)(((unsigned char)(VAL))<<1)))>>1)
             auto print_reg_bpoffset = [&]() {
                 byte_t data_1b = *(this_command_ptr++);
@@ -465,7 +465,7 @@ namespace wo
                         tmpos << "reg(" << (uint32_t)data_1b << ")";
 
                 }
-                };
+            };
             auto print_global_static = [&]() {
                 //const global 4byte
                 uint32_t data_4b = *(uint32_t*)((this_command_ptr += 4) - 4);
@@ -484,25 +484,25 @@ namespace wo
                         tmpos << wo_cast_string(reinterpret_cast<wo_value>(&constant_value));
                         break;
                     }
-                    tmpos
+                    tmpos 
                         << ": "
                         << wo_type_name((wo_type_t)constant_value.type);
                 }
                 else
                     tmpos << "g[" << data_4b - env->constant_value_count << "]";
-                };
+            };
             auto print_opnum1 = [&]() {
                 if (main_command & (byte_t)0b00000010)
                     print_reg_bpoffset();
                 else
                     print_global_static();
-                };
+            };
             auto print_opnum2 = [&]() {
                 if (main_command & (byte_t)0b00000001)
                     print_reg_bpoffset();
                 else
                     print_global_static();
-                };
+            };
 
 #undef WO_SIGNED_SHIFT
             switch (main_command & (byte_t)0b11111100)
@@ -845,61 +845,61 @@ namespace wo
 
         std::vector<callstack_info> result;
         auto generate_callstack_info_with_ip = [this, need_offset](const wo::byte_t* rip, bool is_extern_func)
+        {
+            const program_debug_data_info::location* src_location_info = nullptr;
+            std::string function_signature;
+            std::string file_path;
+            size_t row_number = 0;
+            size_t col_number = 0;
+
+            if (is_extern_func)
             {
-                const program_debug_data_info::location* src_location_info = nullptr;
-                std::string function_signature;
-                std::string file_path;
-                size_t row_number = 0;
-                size_t col_number = 0;
+                auto fnd = env->extern_native_functions.find((intptr_t)rip);
 
-                if (is_extern_func)
+                if (fnd != env->extern_native_functions.end())
                 {
-                    auto fnd = env->extern_native_functions.find((intptr_t)rip);
-
-                    if (fnd != env->extern_native_functions.end())
-                    {
-                        function_signature = fnd->second.function_name;
-                        file_path = fnd->second.library_name.value_or("<builtin>");
-                    }
-                    else
-                    {
-                        char rip_str[sizeof(rip) * 2 + 4];
-                        sprintf(rip_str, "0x%p>", rip);
-
-                        function_signature = std::string("<unknown extern function ") + rip_str;
-                        file_path = "<unknown library>";
-                    }
+                    function_signature = fnd->second.function_name;
+                    file_path = fnd->second.library_name.value_or("<builtin>");
                 }
                 else
                 {
-                    if (env->program_debug_info != nullptr)
-                    {
-                        src_location_info = &env->program_debug_info
-                            ->get_src_location_by_runtime_ip(rip - (need_offset ? 1 : 0));
-                        function_signature = env->program_debug_info
-                            ->get_current_func_signature_by_runtime_ip(rip - (need_offset ? 1 : 0));
+                    char rip_str[sizeof(rip) * 2 + 4];
+                    sprintf(rip_str, "0x%p>", rip);
 
-                        file_path = src_location_info->source_file;
-                        row_number = src_location_info->begin_row_no;
-                        col_number = src_location_info->begin_col_no;
-                    }
-                    else
-                    {
-                        char rip_str[sizeof(rip) * 2 + 4];
-                        sprintf(rip_str, "0x%p>", rip);
-
-                        function_signature = std::string("<unknown function ") + rip_str;
-                        file_path = "<unknown file>";
-                    }
+                    function_signature = std::string("<unknown extern function ") + rip_str;
+                    file_path = "<unknown library>";
                 }
-                return callstack_info{
-                    function_signature,
-                    file_path,
-                    row_number,
-                    col_number,
-                    is_extern_func,
-                };
+            }
+            else
+            {
+                if (env->program_debug_info != nullptr)
+                {
+                    src_location_info = &env->program_debug_info
+                        ->get_src_location_by_runtime_ip(rip - (need_offset ? 1 : 0));
+                    function_signature = env->program_debug_info
+                        ->get_current_func_signature_by_runtime_ip(rip - (need_offset ? 1 : 0));
+
+                    file_path = src_location_info->source_file;
+                    row_number = src_location_info->begin_row_no;
+                    col_number = src_location_info->begin_col_no;
+                }
+                else
+                {
+                    char rip_str[sizeof(rip) * 2 + 4];
+                    sprintf(rip_str, "0x%p>", rip);
+
+                    function_signature = std::string("<unknown function ") + rip_str;
+                    file_path = "<unknown file>";
+                }
+            }
+            return callstack_info{
+                function_signature,
+                file_path,
+                row_number,
+                col_number,
+                is_extern_func,
             };
+        };
 
         result.push_back(generate_callstack_info_with_ip(ip, ip < env->rt_codes || ip >= env->rt_codes + env->rt_code_len));
         value* base_callstackinfo_ptr = (bp + 1);
@@ -1775,7 +1775,7 @@ namespace wo
             case instruct::opcode::pshr:
             {
                 uint16_t psh_repeat = WO_IPVAL_MOVE_2;
-                if (sp - psh_repeat < stack_storage) [[unlikely]]
+                if (sp - psh_repeat < stack_storage)
                 {
                     rt_ip -= 3;
                     wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
@@ -1785,7 +1785,7 @@ namespace wo
                 break;
             }
             case instruct::opcode::pshg:
-                if (sp <= stack_storage) [[unlikely]]
+                if (sp <= stack_storage)
                 {
                     --rt_ip;
                     wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
@@ -1794,7 +1794,7 @@ namespace wo
                 WO_ADDRESSING_G1;
                 goto _label_psh_impl;
             case instruct::opcode::pshs:
-                if (sp <= stack_storage) [[unlikely]]
+                if (sp <= stack_storage)
                 {
                     --rt_ip;
                     wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
@@ -1925,7 +1925,7 @@ namespace wo
                 if (auto* err = movcast_impl(
                     opnum1,
                     opnum2,
-                    static_cast<value::valuetype>(WO_IPVAL_MOVE_1))) [[unlikely]]
+                    static_cast<value::valuetype>(WO_IPVAL_MOVE_1)))
                     WO_VM_FAIL(WO_FAIL_TYPE_FAIL, err);
                 break;
             case instruct::opcode::typeasg:
@@ -1934,7 +1934,7 @@ namespace wo
             case instruct::opcode::typeass:
                 WO_ADDRESSING_RS1;
             _label_typeas_impl:
-                if (opnum1->type != static_cast<value::valuetype>(WO_IPVAL_MOVE_1)) [[unlikely]]
+                if (opnum1->type != static_cast<value::valuetype>(WO_IPVAL_MOVE_1))
                     WO_VM_FAIL(WO_FAIL_TYPE_FAIL,
                         "The given value is not the same as the requested type.");
                 break;
@@ -2137,7 +2137,7 @@ namespace wo
                         // 
                         // NOTE: Closure arguments should be poped by closure function it self.
                         //       Can use ret(n) to pop arguments when call.
-                        if (sp - opnum1->closure->m_closure_args_count < stack_storage) [[unlikely]]
+                        if (sp - opnum1->closure->m_closure_args_count < stack_storage)
                         {
                             rt_ip = ip_for_rollback;
                             wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
@@ -2149,7 +2149,7 @@ namespace wo
                     }
                     else
                     {
-                        if (sp <= stack_storage) [[unlikely]]
+                        if (sp <= stack_storage)
                         {
                             rt_ip = ip_for_rollback;
                             wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
@@ -2174,7 +2174,7 @@ namespace wo
                             std::launder(reinterpret_cast<wo_value>(sp + 2))))
                         {
                         case wo_result_t::WO_API_RESYNC:
-                        [[likely]] case wo_result_t::WO_API_NORMAL:
+                        case wo_result_t::WO_API_NORMAL:
                         {
                             bp = sb - rt_bp;
 
@@ -2210,7 +2210,7 @@ namespace wo
                                 std::launder((reinterpret_cast<wo_value>(sp + 2)))))
                             {
                             case wo_result_t::WO_API_RESYNC:
-                            [[likely]] case wo_result_t::WO_API_NORMAL:
+                            case wo_result_t::WO_API_NORMAL:
                             {
                                 bp = sb - rt_bp;
 
@@ -2236,7 +2236,7 @@ namespace wo
                 } while (0);
                 break;
             case instruct::opcode::callnwo:
-                if (sp <= stack_storage) [[unlikely]]
+                if (sp <= stack_storage)
                 {
                     --rt_ip;
                     wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
@@ -2254,7 +2254,7 @@ namespace wo
                 }
                 break;
             case instruct::opcode::callnfp:
-                if (sp <= stack_storage) [[unlikely]]
+                if (sp <= stack_storage)
                 {
                     --rt_ip;
                     wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
@@ -2277,7 +2277,7 @@ namespace wo
                         std::launder(reinterpret_cast<wo_value>(sp + 2))))
                     {
                     case wo_result_t::WO_API_RESYNC:
-                    [[likely]] case wo_result_t::WO_API_NORMAL:
+                    case wo_result_t::WO_API_NORMAL:
                     {
                         bp = sb - rt_bp;
 
@@ -2295,7 +2295,7 @@ namespace wo
                 }
                 break;
             case instruct::opcode::callnfpslow:
-                if (sp <= stack_storage) [[unlikely]]
+                if (sp <= stack_storage)
                 {
                     --rt_ip;
                     wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
@@ -2322,7 +2322,7 @@ namespace wo
                     switch (api)
                     {
                     case wo_result_t::WO_API_RESYNC:
-                    [[likely]] case wo_result_t::WO_API_NORMAL:
+                    case wo_result_t::WO_API_NORMAL:
                     {
                         bp = sb - rt_bp;
 
@@ -2435,14 +2435,15 @@ namespace wo
                 // ATTENTION: `_vmjitcall_idarr` HAS SAME LOGIC, NEED UPDATE SAME TIME.
                 const size_t index = static_cast<size_t>(opnum2->integer);
 
-                if (index < opnum1->array->size()) [[likely]]
-                    rt_cr->set_val(&opnum1->array->at(index));
-                else
+                if (index >= opnum1->array->size())
                 {
                     rt_cr->set_nil();
                     WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Index out of range.");
                 }
-
+                else
+                {
+                    rt_cr->set_val(&opnum1->array->at(index));
+                }
                 break;
             }
             case WO_RSG_ADDRESSING_CASE(iddict):
@@ -2455,7 +2456,7 @@ namespace wo
                 gcbase::gc_read_guard gwg1(opnum1->gcunit);
 
                 auto fnd = opnum1->dict->find(*opnum2);
-                if (fnd != opnum1->dict->end()) [[likely]]
+                if (fnd != opnum1->dict->end())
                     rt_cr->set_val(&fnd->second);
                 else
                     WO_VM_FAIL(WO_FAIL_INDEX_FAIL,
@@ -2474,7 +2475,7 @@ namespace wo
                     gcbase::gc_modify_write_guard gwg1(opnum1->gcunit);
 
                     auto* result = &(*opnum1->dict)[*opnum2];
-                    if (wo::gc::gc_is_marking()) [[unlikely]]
+                    if (wo::gc::gc_is_marking())
                         wo::gcbase::write_barrier(result);
                     result->set_val(opnum3);
 
@@ -2491,10 +2492,10 @@ namespace wo
                     gcbase::gc_write_guard gwg1(opnum1->gcunit);
 
                     auto fnd = opnum1->dict->find(*opnum2);
-                    if (fnd != opnum1->dict->end()) [[likely]]
+                    if (fnd != opnum1->dict->end())
                     {
                         auto* result = &fnd->second;
-                        if (wo::gc::gc_is_marking()) [[unlikely]]
+                        if (wo::gc::gc_is_marking())
                             wo::gcbase::write_barrier(result);
                         result->set_val(opnum3);
                         break;
@@ -2516,17 +2517,18 @@ namespace wo
 
                     gcbase::gc_write_guard gwg1(opnum1->gcunit);
 
-                    const size_t index = static_cast<size_t>(opnum2->integer);
-                    if (index < opnum1->array->size()) [[likely]]
+                    size_t index = (size_t)opnum2->integer;
+                    if (index >= opnum1->array->size())
+                    {
+                        WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Index out of range.");
+                    }
+                    else
                     {
                         auto* result = &opnum1->array->at(index);
-                        if (wo::gc::gc_is_marking()) [[unlikely]]
+                        if (wo::gc::gc_is_marking())
                             wo::gcbase::write_barrier(result);
                         result->set_val(opnum3);
                     }
-                    else
-                        WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Index out of range.");
-
                     break;
                 }
             case WO_RSG_ADDRESSING_CASE(sidstruct):
@@ -2543,7 +2545,7 @@ namespace wo
                 gcbase::gc_write_guard gwg1(opnum1->gcunit);
 
                 auto* result = &opnum1->structs->m_values[offset];
-                if (wo::gc::gc_is_marking()) [[unlikely]]
+                if (wo::gc::gc_is_marking())
                     wo::gcbase::write_barrier(result);
                 result->set_val(opnum2);
 
@@ -2658,9 +2660,9 @@ namespace wo
                     WO_ADDRESSING_RS1;
                     WO_ADDRESSING_RS2;
                 _label_cdivilr_impl:
-                    if (opnum2->integer == 0) [[unlikely]]
+                    if (opnum2->integer == 0)
                         WO_VM_FAIL(WO_FAIL_UNEXPECTED, "The divisor cannot be 0.");
-                    else if (opnum2->integer == -1 && opnum1->integer == INT64_MIN) [[unlikely]]
+                    else if (opnum2->integer == -1 && opnum1->integer == INT64_MIN)
                         WO_VM_FAIL(WO_FAIL_UNEXPECTED, "Division overflow.");
                     break;
                 case instruct::extern_opcode_page_0::cdivilg:
@@ -2669,7 +2671,7 @@ namespace wo
                 case instruct::extern_opcode_page_0::cdivils:
                     WO_ADDRESSING_RS1;
                 _label_ext0_cdivil_impl:
-                    if (opnum1->integer == INT64_MIN) [[unlikely]]
+                    if (opnum1->integer == INT64_MIN)
                         WO_VM_FAIL(WO_FAIL_UNEXPECTED, "Division overflow.");
                     break;
                 case instruct::extern_opcode_page_0::cdivirzg:
@@ -2678,7 +2680,7 @@ namespace wo
                 case instruct::extern_opcode_page_0::cdivirzs:
                     WO_ADDRESSING_RS1;
                 _label_ext0_cdivirz_impl:
-                    if (opnum1->integer == 0) [[unlikely]]
+                    if (opnum1->integer == 0)
                         WO_VM_FAIL(WO_FAIL_UNEXPECTED, "The divisor cannot be 0.");
                     break;
                 case instruct::extern_opcode_page_0::cdivirg:
@@ -2687,9 +2689,9 @@ namespace wo
                 case instruct::extern_opcode_page_0::cdivirs:
                     WO_ADDRESSING_RS1;
                 _label_ext0_cdivir_impl:
-                    if (opnum1->integer == 0) [[unlikely]]
+                    if (opnum1->integer == 0)
                         WO_VM_FAIL(WO_FAIL_UNEXPECTED, "The divisor cannot be 0.");
-                    else if (opnum1->integer == -1) [[unlikely]]
+                    else if (opnum1->integer == -1)
                         WO_VM_FAIL(WO_FAIL_UNEXPECTED, "Division overflow.");
                     break;
                 case instruct::extern_opcode_page_0::popng:
@@ -2730,12 +2732,12 @@ namespace wo
             case instruct::opcode::abrt:
                 wo_error("executed 'abrt'.");
                 break;
-            [[unlikely]]default:
+            default:
             {
                 --rt_ip;    // Move back one command.
 
                 static_assert(std::is_same_v<decltype(rtopcode), uint32_t>);
-                if ((0xFFFFFF00u & rtopcode) == 0) [[unlikely]]
+                if ((0xFFFFFF00u & rtopcode) == 0)
                     wo_error("Unknown instruct.");
 
                 auto interrupt_state = vm_interrupt.load();
