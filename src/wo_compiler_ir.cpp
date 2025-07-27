@@ -1621,6 +1621,9 @@ namespace wo
     }
     bool runtime_env::try_find_jit_func(wo_integer_t out_script_func, wo_handle_t* out_jit_func)
     {
+        if (!meta_data_for_jit._jit_code_holder.has_value())
+            return false;
+
         auto& jit_code_holders = meta_data_for_jit._jit_code_holder.value();
         auto fnd = jit_code_holders.find((size_t)out_script_func);
         if (fnd != jit_code_holders.end())
