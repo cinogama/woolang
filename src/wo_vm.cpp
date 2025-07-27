@@ -117,7 +117,7 @@ namespace wo
 #if WO_ENABLE_RUNTIME_CHECK
         size_t old_count =
 #endif
-            dec_destructable_instance_countp->fetch_add(1, std::memory_order::memory_order_relaxed);
+            dec_destructable_instance_countp->fetch_add(1, std::memory_order::relaxed);
         wo_assert(old_count >= 0);
 
         return dec_destructable_instance_countp;
@@ -164,20 +164,20 @@ namespace wo
     }
     bool vmbase::is_aborted() const noexcept
     {
-        return vm_interrupt.load(std::memory_order::memory_order_acquire) & vm_interrupt_type::ABORT_INTERRUPT;
+        return vm_interrupt.load(std::memory_order::acquire) & vm_interrupt_type::ABORT_INTERRUPT;
     }
     bool vmbase::interrupt(vm_interrupt_type type)noexcept
     {
-        return !(type & vm_interrupt.fetch_or(type, std::memory_order::memory_order_acq_rel));
+        return !(type & vm_interrupt.fetch_or(type, std::memory_order::acq_rel));
     }
     bool vmbase::clear_interrupt(vm_interrupt_type type)noexcept
     {
-        return type & vm_interrupt.fetch_and(~type, std::memory_order::memory_order_acq_rel);
+        return type & vm_interrupt.fetch_and(~type, std::memory_order::acq_rel);
     }
 
     bool vmbase::check_interrupt(vm_interrupt_type type)noexcept
     {
-        return 0 != (vm_interrupt.load(std::memory_order::memory_order_acquire) & type);
+        return 0 != (vm_interrupt.load(std::memory_order::acquire) & type);
     }
     vmbase::interrupt_wait_result vmbase::wait_interrupt(vm_interrupt_type type, bool force_wait)noexcept
     {
@@ -190,7 +190,7 @@ namespace wo
         int i = 0;
         do
         {
-            uint32_t vm_interrupt_mask = vm_interrupt.load(std::memory_order::memory_order_acquire);
+            uint32_t vm_interrupt_mask = vm_interrupt.load(std::memory_order::acquire);
 
             if (0 == (vm_interrupt_mask & type))
                 break;
@@ -229,7 +229,7 @@ namespace wo
     {
         using namespace std;
 
-        while (vm_interrupt.load(std::memory_order::memory_order_acquire) & type)
+        while (vm_interrupt.load(std::memory_order::acquire) & type)
             std::this_thread::sleep_for(10ms);
     }
 
