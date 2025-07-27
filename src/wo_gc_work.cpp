@@ -42,7 +42,7 @@ namespace wo
         {
             auto* v = std::launder(reinterpret_cast<value*>(pin_value));
 
-            if (gc::gc_is_marking())
+            if (gc::gc_is_marking()) [[unlikely]]
                 gcbase::write_barrier(v);
 
             do
@@ -56,7 +56,7 @@ namespace wo
         {
             auto* v = std::launder(reinterpret_cast<value*>(pin_value));
 
-            if (gc::gc_is_marking())
+            if (gc::gc_is_marking()) [[unlikely]]
                 gcbase::write_barrier(v);
 
             do
@@ -134,10 +134,10 @@ namespace wo
             if (wref->m_alive == false)
                 return false;
 
-            if (gc::gc_is_marking())
+            if (gc::gc_is_marking()) [[unlikely]]
                 gcbase::write_barrier(&wref->m_weak_value_record);
 
-            if (gc::gc_is_collecting_memo())
+            if (gc::gc_is_collecting_memo()) [[unlikely]]
             {
                 gcbase::write_barrier(&wref->m_weak_value_record);
 

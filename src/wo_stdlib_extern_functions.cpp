@@ -698,7 +698,7 @@ WO_API wo_api rslib_std_array_swap(wo_vm vm, wo_value args)
 
     std::scoped_lock ssg1(arr1->array->gc_read_write_mx, arr2->array->gc_read_write_mx);
 
-    if (wo::gc::gc_is_marking())
+    if (wo::gc::gc_is_marking()) [[unlikely]]
     {
         for (auto& elem : *arr1->array)
             wo::gcbase::write_barrier(&elem);
@@ -1062,7 +1062,7 @@ WO_API wo_api rslib_std_map_swap(wo_vm vm, wo_value args)
 
     std::scoped_lock ssg1(map1->dict->gc_read_write_mx, map2->dict->gc_read_write_mx);
 
-    if (wo::gc::gc_is_marking())
+    if (wo::gc::gc_is_marking()) [[unlikely]]
     {
         for (auto& [key, elem] : *map1->dict)
         {
@@ -1619,9 +1619,9 @@ WO_API wo_api rslib_std_weakref_trylock(wo_vm vm, wo_value args)
 #   include <TargetConditionals.h>
 #endif
 
-const char* wo_stdlib_src_path = u8"woo/std.wo";
+const char* wo_stdlib_src_path = reinterpret_cast<const char*>(u8"woo/std.wo");
 const char* wo_stdlib_src_data = {
-u8R"(// Woolang standard library.
+reinterpret_cast<const char*>(u8R"(// Woolang standard library.
 namespace std
 {
     namespace platform
@@ -2866,7 +2866,7 @@ public func assert_message(val: bool, msg: string)
     if (!val)
         std::panic(F"Assert failed: {msg}");
 }
-)" };
+)" )};
 
 WO_API wo_api rslib_std_debug_attach_default_debuggee(wo_vm vm, wo_value args)
 {
@@ -2949,9 +2949,9 @@ WO_API wo_api rslib_std_debug_empty_func(wo_vm vm, wo_value args)
     return wo_ret_void(vm);
 }
 
-const char* wo_stdlib_debug_src_path = u8"woo/debug.wo";
+const char* wo_stdlib_debug_src_path = reinterpret_cast<const char*>(u8"woo/debug.wo");
 const char* wo_stdlib_debug_src_data = {
-u8R"(
+reinterpret_cast<const char*>(u8R"(
 namespace std
 {
     namespace debug
@@ -2993,7 +2993,7 @@ namespace std
                 where typeid:<typeof(f(......))> != 0;
     }
 }
-)" };
+)") };
 
 WO_API wo_api rslib_std_macro_lexer_error(wo_vm vm, wo_value args)
 {
@@ -3086,9 +3086,9 @@ WO_API wo_api rslib_std_macro_lexer_current_location(wo_vm vm, wo_value args)
     return wo_ret_val(vm, result);
 }
 
-const char* wo_stdlib_macro_src_path = u8"woo/macro.wo";
+const char* wo_stdlib_macro_src_path = reinterpret_cast<const char*>(u8"woo/macro.wo");
 const char* wo_stdlib_macro_src_data = {
-u8R"(
+reinterpret_cast<const char*>(u8R"(
 import woo::std;
 
 namespace std
@@ -3300,7 +3300,7 @@ namespace std
         }
     }
 }
-)" };
+)") };
 
 WO_API wo_api rslib_std_call_shell(wo_vm vm, wo_value args)
 {
@@ -3325,9 +3325,9 @@ WO_API wo_api rslib_std_get_env(wo_vm vm, wo_value args)
             "trying to restart without '--enable-shell 1'.");
 }
 
-const char* wo_stdlib_shell_src_path = u8"woo/shell.wo";
+const char* wo_stdlib_shell_src_path = reinterpret_cast<const char*>(u8"woo/shell.wo");
 const char* wo_stdlib_shell_src_data = {
-u8R"(
+reinterpret_cast<const char*>(u8R"(
 import woo::std;
 namespace std
 {
@@ -3337,7 +3337,7 @@ namespace std
     extern("rslib_std_get_env")
         public func env(name: string)=> option<string>;
 }
-)" };
+)") };
 
 
 namespace wo

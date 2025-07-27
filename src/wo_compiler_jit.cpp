@@ -723,16 +723,12 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 
             gcbase::gc_read_guard gwg1(opnum1->gcunit);
 
-            size_t index = (size_t)opnum2->integer;
-            if (index >= opnum1->array->size())
-            {
-                return "Index out of range.";
-            }
+            const size_t index = static_cast<size_t>(opnum2->integer);
+            if (index < opnum1->array->size()) [[likely]]
+                cr->set_val(opnum1->array->data() + index);
             else
-            {
-                auto* result = &opnum1->array->at(index);
-                cr->set_val(result);
-            }
+                return "Index out of range.";
+
             return nullptr;
         }
         static const char* _vmjitcall_iddict(wo::value* cr, wo::value* opnum1, wo::value* opnum2)
@@ -742,7 +738,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             gcbase::gc_read_guard gwg1(opnum1->gcunit);
 
             auto fnd = opnum1->dict->find(*opnum2);
-            if (fnd != opnum1->dict->end())
+            if (fnd != opnum1->dict->end()) [[likely]]
             {
                 auto* result = &fnd->second;
                 cr->set_val(result);
@@ -772,10 +768,10 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             gcbase::gc_write_guard gwg1(opnum1->gcunit);
 
             auto fnd = opnum1->dict->find(*opnum2);
-            if (fnd != opnum1->dict->end())
+            if (fnd != opnum1->dict->end()) [[likely]]
             {
                 auto* result = &fnd->second;
-                if (wo::gc::gc_is_marking())
+                if (wo::gc::gc_is_marking()) [[unlikely]]
                     wo::gcbase::write_barrier(result);
                 result->set_val(opnum3);
             }
@@ -790,7 +786,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             gcbase::gc_modify_write_guard gwg1(opnum1->gcunit);
 
             auto* result = &(*opnum1->dict)[*opnum2];
-            if (wo::gc::gc_is_marking())
+            if (wo::gc::gc_is_marking()) [[unlikely]]
                 wo::gcbase::write_barrier(result);
             result->set_val(opnum3);
         }
@@ -801,18 +797,17 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 
             gcbase::gc_write_guard gwg1(opnum1->gcunit);
 
-            size_t index = (size_t)opnum2->integer;
-            if (index >= opnum1->array->size())
+            const size_t index = static_cast<size_t>(opnum2->integer);
+            if (index < opnum1->array->size()) [[likely]]
             {
-                return "Index out of range.";
-            }
-            else
-            {
-                auto* result = &opnum1->array->at(index);
-                if (wo::gc::gc_is_marking())
+                auto* result = opnum1->array->data() + index;
+                if (wo::gc::gc_is_marking()) [[unlikely]]
                     wo::gcbase::write_barrier(result);
                 result->set_val(opnum3);
             }
+            else
+                return "Index out of range.";
+            
             return nullptr;
         }
         static void _vmjitcall_sidstruct(wo::value* opnum1, wo::value* opnum2, uint16_t offset)
@@ -827,7 +822,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             gcbase::gc_write_guard gwg1(opnum1->gcunit);
 
             auto* result = &opnum1->structs->m_values[offset];
-            if (wo::gc::gc_is_marking())
+            if (wo::gc::gc_is_marking()) [[unlikely]]
                 wo::gcbase::write_barrier(result);
             result->set_val(opnum2);
         }
