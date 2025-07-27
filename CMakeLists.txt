@@ -50,7 +50,7 @@ if (WO_SUPPORT_ASMJIT)
 endif()
 
 add_library(woolang_options INTERFACE)
-target_compile_features(woolang_options INTERFACE cxx_std_17)
+target_compile_features(woolang_options INTERFACE cxx_std_20)
 
 if (MSVC)
     target_compile_options(woolang_options INTERFACE "/source-charset:utf-8")

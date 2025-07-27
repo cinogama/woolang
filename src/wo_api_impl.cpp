@@ -206,7 +206,7 @@ struct loaded_lib_info
             }
         }
 
-        if (loaded_lib_res_ptr == nullptr && panic_when_fail)
+        if (loaded_lib_res_ptr == nullptr && panic_when_fail) [[unlikely]]
             wo_fail(WO_FAIL_BAD_LIB, "Failed to load specify library.");
 
         return loaded_lib_res_ptr;
@@ -744,7 +744,7 @@ wo_ptr_t wo_safety_pointer(wo::gchandle_t* gchandle)
 {
     wo::gcbase::gc_read_guard g1(gchandle);
     auto* pointer = gchandle->m_holding_handle;
-    if (pointer == nullptr)
+    if (pointer == nullptr) [[unlikely]]
     {
         wo_fail(WO_FAIL_ACCESS_NIL, "Reading a closed gchandle.");
     }
@@ -760,7 +760,7 @@ wo_type_t wo_valuetype(wo_value value)
 wo_integer_t wo_int(wo_value value)
 {
     auto* _rsvalue = WO_VAL(value);
-    if (_rsvalue->type != wo::value::valuetype::integer_type)
+    if (_rsvalue->type != wo::value::valuetype::integer_type) [[unlikely]]
     {
         wo_fail(WO_FAIL_TYPE_FAIL, "This value is not an integer.");
         return wo_cast_int(value);
@@ -774,7 +774,7 @@ wo_wchar_t wo_char(wo_value value)
 wo_real_t wo_real(wo_value value)
 {
     auto _rsvalue = WO_VAL(value);
-    if (_rsvalue->type != wo::value::valuetype::real_type)
+    if (_rsvalue->type != wo::value::valuetype::real_type) [[unlikely]]
     {
         wo_fail(WO_FAIL_TYPE_FAIL, "This value is not an real.");
         return wo_cast_real(value);
@@ -784,7 +784,7 @@ wo_real_t wo_real(wo_value value)
 float wo_float(wo_value value)
 {
     auto _rsvalue = WO_VAL(value);
-    if (_rsvalue->type != wo::value::valuetype::real_type)
+    if (_rsvalue->type != wo::value::valuetype::real_type) [[unlikely]]
     {
         wo_fail(WO_FAIL_TYPE_FAIL, "This value is not an real.");
         return wo_cast_float(value);
@@ -795,7 +795,7 @@ wo_handle_t wo_handle(wo_value value)
 {
     auto* _rsvalue = WO_VAL(value);
     if (_rsvalue->type != wo::value::valuetype::handle_type
-        && _rsvalue->type != wo::value::valuetype::gchandle_type)
+        && _rsvalue->type != wo::value::valuetype::gchandle_type) [[unlikely]]
     {
         wo_fail(WO_FAIL_TYPE_FAIL, "This value is not a handle.");
         return wo_cast_handle(value);
@@ -809,7 +809,7 @@ wo_ptr_t wo_pointer(wo_value value)
 {
     auto* _rsvalue = WO_VAL(value);
     if (_rsvalue->type != wo::value::valuetype::handle_type
-        && _rsvalue->type != wo::value::valuetype::gchandle_type)
+        && _rsvalue->type != wo::value::valuetype::gchandle_type) [[unlikely]]
     {
         wo_fail(WO_FAIL_TYPE_FAIL, "This value is not a handle.");
         return wo_cast_pointer(value);
@@ -822,7 +822,7 @@ wo_ptr_t wo_pointer(wo_value value)
 wo_string_t wo_string(wo_value value)
 {
     auto* _rsvalue = WO_VAL(value);
-    if (_rsvalue->type != wo::value::valuetype::string_type)
+    if (_rsvalue->type != wo::value::valuetype::string_type) [[unlikely]]
     {
         wo_fail(WO_FAIL_TYPE_FAIL, "This value is not a string.");
         return "<not string value>";
@@ -833,7 +833,7 @@ wo_string_t wo_string(wo_value value)
 const void* wo_buffer(wo_value value, wo_size_t* bytelen)
 {
     auto* _rsvalue = WO_VAL(value);
-    if (_rsvalue->type != wo::value::valuetype::string_type)
+    if (_rsvalue->type != wo::value::valuetype::string_type) [[unlikely]]
     {
         wo_fail(WO_FAIL_TYPE_FAIL, "This value is not a string.");
         *bytelen = 0;
@@ -846,7 +846,7 @@ const void* wo_buffer(wo_value value, wo_size_t* bytelen)
 wo_bool_t wo_bool(wo_value value)
 {
     auto _rsvalue = WO_VAL(value);
-    if (_rsvalue->type != wo::value::valuetype::bool_type)
+    if (_rsvalue->type != wo::value::valuetype::bool_type) [[unlikely]]
     {
         wo_fail(WO_FAIL_TYPE_FAIL, "This value is not a boolean.");
         return wo_cast_bool(value);
@@ -884,7 +884,7 @@ void wo_set_handle(wo_value value, wo_handle_t val)
 }
 void wo_set_pointer(wo_value value, wo_ptr_t val)
 {
-    if (val)
+    if (val) [[likely]]
         WO_VAL(value)->set_handle((wo_handle_t)val);
     else
         wo_fail(WO_FAIL_ACCESS_NIL, "Cannot set a nullptr");
@@ -1885,7 +1885,7 @@ void wo_set_option_pointer(wo_value val, wo_vm vm, wo_ptr_t result)
     structptr->m_values[1].set_handle((wo_handle_t)result);
     target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
 
-    if (nullptr == result)
+    if (nullptr == result) [[unlikely]]
         wo_fail(WO_FAIL_ACCESS_NIL, "Cannot return nullptr");
 }
 void wo_set_option_ptr_may_null(wo_value val, wo_vm vm, wo_ptr_t result)
@@ -2080,7 +2080,7 @@ void wo_set_err_pointer(wo_value val, wo_vm vm, wo_ptr_t result)
     structptr->m_values[1].set_handle((wo_handle_t)result);
 
     target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
-    if (nullptr == result)
+    if (nullptr == result) [[unlikely]]
         wo_fail(WO_FAIL_ACCESS_NIL, "Cannot return nullptr");
 }
 void wo_set_err_val(wo_value val, wo_vm vm, wo_value result)
@@ -2373,7 +2373,7 @@ wo_wchar_t wo_strn_get_char(wo_string_t str, wo_size_t size, wo_size_t index)
 
     wo_wchar_t ch;
     if (result_byte_len == 0
-        || 0 == wo::u8combineu32(u8idx, result_byte_len, &ch))
+        || 0 == wo::u8combineu32(u8idx, result_byte_len, &ch)) [[unlikely]]
     {
         wo_fail(WO_FAIL_INDEX_FAIL, "Index out of range.");
         return 0;
@@ -2881,7 +2881,8 @@ std::string _dump_src_info(
                         append_result +=
                             std::string("~\\")
                             + ANSI_UNDERLNE
-                            + " " WO_HERE
+                            + " " 
+                            + WO_HERE
                             + ANSI_NUNDERLNE
                             + "_";
 
@@ -3113,7 +3114,7 @@ wo_stack_value wo_cast_stack_value(wo_vm vm, wo_value value_in_stack)
     auto* stack_begin = vmbase->sb;
     auto* stack_value = WO_VAL(value_in_stack);
 
-    if (stack_value > vmbase->sp && stack_value <= stack_begin)
+    if (stack_value > vmbase->sp && stack_value <= stack_begin) [[likely]]
         return stack_begin - stack_value;
 
     wo_fail(WO_FAIL_INDEX_FAIL, "Invalid stack value.");
@@ -3366,7 +3367,7 @@ wo_size_t wo_struct_len(wo_value value)
 {
     auto _struct = WO_VAL(value);
 
-    if (_struct->type == wo::value::valuetype::struct_type)
+    if (_struct->type == wo::value::valuetype::struct_type) [[likely]]
     {
         // no need lock for struct's count
         return (wo_size_t)_struct->structure->m_count;
@@ -3380,7 +3381,7 @@ wo_bool_t wo_struct_try_get(wo_value out_val, wo_value value, uint16_t offset)
 {
     auto _struct = WO_VAL(value);
 
-    if (_struct->type == wo::value::valuetype::struct_type)
+    if (_struct->type == wo::value::valuetype::struct_type) [[likely]]
     {
         wo::structure_t* struct_impl = _struct->structure;
         wo::gcbase::gc_read_guard gwg1(struct_impl);
@@ -3398,14 +3399,14 @@ wo_bool_t wo_struct_try_set(wo_value value, uint16_t offset, wo_value val)
 {
     auto _struct = WO_VAL(value);
 
-    if (_struct->type == wo::value::valuetype::struct_type)
+    if (_struct->type == wo::value::valuetype::struct_type) [[likely]]
     {
         wo::structure_t* struct_impl = _struct->structure;
         wo::gcbase::gc_read_guard gwg1(struct_impl);
-        if (offset < struct_impl->m_count)
+        if (offset < struct_impl->m_count) [[likely]]
         {
             auto* result = &struct_impl->m_values[offset];
-            if (wo::gc::gc_is_marking())
+            if (wo::gc::gc_is_marking()) [[unlikely]]
                 wo::gcbase::write_barrier(result);
 
             result->set_val(WO_VAL(val));
@@ -3419,12 +3420,12 @@ wo_bool_t wo_struct_try_set(wo_value value, uint16_t offset, wo_value val)
 
 void wo_struct_get(wo_value out_val, wo_value value, uint16_t offset)
 {
-    if (!wo_struct_try_get(out_val, value, offset))
+    if (!wo_struct_try_get(out_val, value, offset)) [[unlikely]]
         wo_fail(WO_FAIL_INDEX_FAIL, "Failed to index: out of range.");
 }
 void wo_struct_set(wo_value value, uint16_t offset, wo_value val)
 {
-    if (!wo_struct_try_set(value, offset, val))
+    if (!wo_struct_try_set(value, offset, val)) [[unlikely]]
         wo_fail(WO_FAIL_INDEX_FAIL, "Failed to index: out of range.");
 }
 
@@ -3434,7 +3435,7 @@ wo_integer_t wo_union_get(wo_value out_val, wo_value unionval)
     if (val->type != wo::value::valuetype::struct_type
         || val->structure->m_count != 2
         || val->structure->m_values[0].type
-        != wo::value::valuetype::integer_type)
+        != wo::value::valuetype::integer_type) [[unlikely]]
         wo_fail(WO_FAIL_TYPE_FAIL, "Unexpected value type.");
     else
     {
@@ -3454,11 +3455,11 @@ void wo_arr_resize(wo_value arr, wo_size_t newsz, wo_value init_val)
 {
     auto _arr = WO_VAL(arr);
 
-    if (_arr->type == wo::value::valuetype::array_type)
+    if (_arr->type == wo::value::valuetype::array_type) [[likely]]
     {
         wo::gcbase::gc_modify_write_guard g1(_arr->array);
         size_t arrsz = _arr->array->size();
-        if ((size_t)newsz < arrsz && wo::gc::gc_is_marking())
+        if ((size_t)newsz < arrsz && wo::gc::gc_is_marking()) [[unlikely]]
         {
             for (size_t i = (size_t)newsz; i < arrsz; ++i)
                 wo::gcbase::write_barrier(&(*_arr->array)[i]);
@@ -3476,7 +3477,7 @@ wo_bool_t wo_arr_insert(wo_value arr, wo_size_t place, wo_value val)
 {
     auto _arr = WO_VAL(arr);
 
-    if (_arr->type == wo::value::valuetype::array_type)
+    if (_arr->type == wo::value::valuetype::array_type) [[likely]]
     {
         wo::gcbase::gc_modify_write_guard g1(_arr->array);
 
@@ -3496,7 +3497,7 @@ wo_bool_t wo_arr_insert(wo_value arr, wo_size_t place, wo_value val)
 wo_bool_t wo_arr_try_set(wo_value arr, wo_size_t index, wo_value val)
 {
     auto _arr = WO_VAL(arr);
-    if (_arr->type == wo::value::valuetype::array_type)
+    if (_arr->type == wo::value::valuetype::array_type) [[likely]]
     {
         wo::gcbase::gc_write_guard g1(_arr->array);
 
@@ -3522,7 +3523,7 @@ void wo_arr_add(wo_value arr, wo_value elem)
 {
     auto _arr = WO_VAL(arr);
 
-    if (_arr->type == wo::value::valuetype::array_type)
+    if (_arr->type == wo::value::valuetype::array_type) [[likely]]
     {
         wo::gcbase::gc_modify_write_guard g1(_arr->array);
 
@@ -3538,7 +3539,7 @@ void wo_arr_add(wo_value arr, wo_value elem)
 wo_size_t wo_arr_len(wo_value arr)
 {
     auto _arr = WO_VAL(arr);
-    if (_arr->type == wo::value::valuetype::array_type)
+    if (_arr->type == wo::value::valuetype::array_type) [[likely]]
     {
         wo::gcbase::gc_read_guard g1(_arr->array);
         return (wo_size_t)_arr->array->size();
@@ -3551,7 +3552,7 @@ wo_size_t wo_arr_len(wo_value arr)
 wo_bool_t wo_arr_try_get(wo_value out_val, wo_value arr, wo_size_t index)
 {
     auto _arr = WO_VAL(arr);
-    if (_arr->type == wo::value::valuetype::array_type)
+    if (_arr->type == wo::value::valuetype::array_type) [[likely]]
     {
         wo::gcbase::gc_read_guard g1(_arr->array);
 
@@ -3568,20 +3569,20 @@ wo_bool_t wo_arr_try_get(wo_value out_val, wo_value arr, wo_size_t index)
 }
 void wo_arr_get(wo_value out_val, wo_value arr, wo_size_t index)
 {
-    if (!wo_arr_try_get(out_val, arr, index))
+    if (!wo_arr_try_get(out_val, arr, index)) [[unlikely]]
         wo_fail(WO_FAIL_INDEX_FAIL, "Failed to index: out of range.");
 }
 
 void wo_map_get(wo_value out_val, wo_value map, wo_value index)
 {
-    if (!wo_map_try_get(out_val, map, index))
+    if (!wo_map_try_get(out_val, map, index)) [[unlikely]]
         wo_fail(WO_FAIL_INDEX_FAIL, "Failed to index: out of range.");
 }
 
 wo_bool_t wo_arr_front(wo_value out_val, wo_value arr)
 {
     auto _arr = WO_VAL(arr);
-    if (_arr->type == wo::value::valuetype::array_type)
+    if (_arr->type == wo::value::valuetype::array_type) [[likely]]
     {
         wo::gcbase::gc_read_guard g1(_arr->array);
         if (!_arr->array->empty())
@@ -3598,7 +3599,7 @@ wo_bool_t wo_arr_front(wo_value out_val, wo_value arr)
 wo_bool_t wo_arr_back(wo_value out_val, wo_value arr)
 {
     auto _arr = WO_VAL(arr);
-    if (_arr->type == wo::value::valuetype::array_type)
+    if (_arr->type == wo::value::valuetype::array_type) [[likely]]
     {
         wo::gcbase::gc_read_guard g1(_arr->array);
         if (!_arr->array->empty())
@@ -3614,14 +3615,14 @@ wo_bool_t wo_arr_back(wo_value out_val, wo_value arr)
 }
 void wo_arr_front_val(wo_value out_val, wo_value arr)
 {
-    if (!wo_arr_front(out_val, arr))
+    if (!wo_arr_front(out_val, arr)) [[unlikely]]
     {
         wo_fail(WO_FAIL_INDEX_FAIL, "Failed to get front.");
     }
 }
 void wo_arr_back_val(wo_value out_val, wo_value arr)
 {
-    if (!wo_arr_back(out_val, arr))
+    if (!wo_arr_back(out_val, arr)) [[unlikely]]
     {
         wo_fail(WO_FAIL_INDEX_FAIL, "Failed to get back.");
     }
@@ -3630,15 +3631,15 @@ void wo_arr_back_val(wo_value out_val, wo_value arr)
 wo_bool_t wo_arr_pop_front(wo_value out_val, wo_value arr)
 {
     auto _arr = WO_VAL(arr);
-    if (_arr->type == wo::value::valuetype::array_type)
+    if (_arr->type == wo::value::valuetype::array_type) [[likely]]
     {
         wo::gcbase::gc_modify_write_guard g1(_arr->array);
 
-        if (!_arr->array->empty())
+        if (!_arr->array->empty()) [[likely]]
         {
             auto* value_to_pop = &_arr->array->front();
 
-            if (wo::gc::gc_is_marking())
+            if (wo::gc::gc_is_marking()) [[unlikely]]
                 wo::gcbase::write_barrier(value_to_pop);
 
             WO_VAL(out_val)->set_val(value_to_pop);
@@ -3654,7 +3655,7 @@ wo_bool_t wo_arr_pop_front(wo_value out_val, wo_value arr)
 wo_bool_t wo_arr_pop_back(wo_value out_val, wo_value arr)
 {
     auto _arr = WO_VAL(arr);
-    if (_arr->type == wo::value::valuetype::array_type)
+    if (_arr->type == wo::value::valuetype::array_type) [[likely]]
     {
         wo::gcbase::gc_modify_write_guard g1(_arr->array);
 
@@ -3662,7 +3663,7 @@ wo_bool_t wo_arr_pop_back(wo_value out_val, wo_value arr)
         {
             auto* value_to_pop = &_arr->array->back();
 
-            if (wo::gc::gc_is_marking())
+            if (wo::gc::gc_is_marking()) [[unlikely]]
                 wo::gcbase::write_barrier(value_to_pop);
 
             WO_VAL(out_val)->set_val(value_to_pop);
@@ -3696,7 +3697,7 @@ wo_bool_t wo_arr_find(wo_value arr, wo_value elem, wo_size_t* out_index)
 {
     auto _arr = WO_VAL(arr);
     auto _aim = WO_VAL(elem);
-    if (_arr->type == wo::value::valuetype::array_type)
+    if (_arr->type == wo::value::valuetype::array_type) [[likely]]
     {
         wo::gcbase::gc_read_guard g1(_arr->array);
 
@@ -3725,15 +3726,15 @@ wo_bool_t wo_arr_find(wo_value arr, wo_value elem, wo_size_t* out_index)
 wo_bool_t wo_arr_remove(wo_value arr, wo_size_t index)
 {
     auto _arr = WO_VAL(arr);
-    if (_arr->type == wo::value::valuetype::array_type)
+    if (_arr->type == wo::value::valuetype::array_type) [[likely]]
     {
         wo::gcbase::gc_modify_write_guard g1(_arr->array);
 
         if (index >= 0)
         {
             if ((size_t)index < _arr->array->size())
-            {
-                if (wo::gc::gc_is_marking())
+            { 
+                if (wo::gc::gc_is_marking()) [[unlikely]]
                     wo::gcbase::write_barrier(&(*_arr->array)[(size_t)index]);
                 _arr->array->erase(_arr->array->begin() + (size_t)index);
 
@@ -3749,10 +3750,10 @@ wo_bool_t wo_arr_remove(wo_value arr, wo_size_t index)
 void wo_arr_clear(wo_value arr)
 {
     auto _arr = WO_VAL(arr);
-    if (_arr->type == wo::value::valuetype::array_type)
+    if (_arr->type == wo::value::valuetype::array_type) [[likely]]
     {
         wo::gcbase::gc_modify_write_guard g1(_arr->array);
-        if (wo::gc::gc_is_marking())
+        if (wo::gc::gc_is_marking()) [[unlikely]]
             for (auto& val : *_arr->array)
                 wo::gcbase::write_barrier(&val);
         _arr->array->clear();
@@ -3764,7 +3765,7 @@ void wo_arr_clear(wo_value arr)
 wo_bool_t wo_arr_is_empty(wo_value arr)
 {
     auto _arr = WO_VAL(arr);
-    if (_arr->type == wo::value::valuetype::array_type)
+    if (_arr->type == wo::value::valuetype::array_type) [[likely]]
     {
         wo::gcbase::gc_read_guard g1(_arr->array);
         return WO_CBOOL(_arr->array->empty());
@@ -3777,7 +3778,7 @@ wo_bool_t wo_arr_is_empty(wo_value arr)
 wo_size_t wo_map_len(wo_value map)
 {
     auto _map = WO_VAL(map);
-    if (_map->type == wo::value::valuetype::dict_type)
+    if (_map->type == wo::value::valuetype::dict_type) [[likely]]
     {
         wo::gcbase::gc_read_guard g1(_map->directory);
         return (wo_size_t)_map->directory->size();
@@ -3789,7 +3790,7 @@ wo_size_t wo_map_len(wo_value map)
 wo_bool_t wo_map_find(wo_value map, wo_value index)
 {
     auto _map = WO_VAL(map);
-    if (_map->type == wo::value::valuetype::dict_type)
+    if (_map->type == wo::value::valuetype::dict_type) [[likely]]
     {
         wo::gcbase::gc_read_guard g1(_map->directory);
         if (index)
@@ -3805,7 +3806,7 @@ wo_bool_t wo_map_find(wo_value map, wo_value index)
 wo_bool_t wo_map_get_or_set(wo_value out_val, wo_value map, wo_value index, wo_value default_value)
 {
     auto _map = WO_VAL(map);
-    if (_map->type == wo::value::valuetype::dict_type)
+    if (_map->type == wo::value::valuetype::dict_type) [[likely]]
     {
         wo::value* store_val = nullptr;
         wo::gcbase::gc_modify_write_guard g1(_map->directory);
@@ -3842,7 +3843,7 @@ wo_result_t wo_ret_map_get_or_set_do(
 
     // function call might modify stack, we should pay attention to it.
     auto _map = WO_VAL(map);
-    if (_map->type == wo::value::valuetype::dict_type)
+    if (_map->type == wo::value::valuetype::dict_type) [[likely]]
     {
         wo::value* result = nullptr;
         wo::gcbase::gc_read_guard g1(_map->directory);
@@ -3887,7 +3888,7 @@ wo_result_t wo_ret_map_get_or_set_do(
 wo_bool_t wo_map_get_or_default(wo_value out_val, wo_value map, wo_value index, wo_value default_value)
 {
     auto _map = WO_VAL(map);
-    if (_map->type == wo::value::valuetype::dict_type)
+    if (_map->type == wo::value::valuetype::dict_type) [[likely]]
     {
         wo::value* result = nullptr;
         wo::gcbase::gc_read_guard g1(_map->directory);
@@ -3915,7 +3916,7 @@ wo_bool_t wo_map_get_or_default(wo_value out_val, wo_value map, wo_value index, 
 wo_bool_t wo_map_try_get(wo_value out_val, wo_value map, wo_value index)
 {
     auto _map = WO_VAL(map);
-    if (_map->type == wo::value::valuetype::dict_type)
+    if (_map->type == wo::value::valuetype::dict_type) [[likely]]
     {
         wo::gcbase::gc_read_guard g1(_map->directory);
         auto fnd = _map->directory->find(*WO_VAL(index));
@@ -3934,7 +3935,7 @@ wo_bool_t wo_map_try_get(wo_value out_val, wo_value map, wo_value index)
 void wo_map_reserve(wo_value map, wo_size_t sz)
 {
     auto _map = WO_VAL(map);
-    if (_map->type == wo::value::valuetype::dict_type)
+    if (_map->type == wo::value::valuetype::dict_type) [[likely]]
     {
         wo::gcbase::gc_modify_write_guard g1(_map->directory);
         _map->directory->reserve(sz);
@@ -3946,7 +3947,7 @@ void wo_map_reserve(wo_value map, wo_size_t sz)
 void wo_map_set(wo_value map, wo_value index, wo_value val)
 {
     auto _map = WO_VAL(map);
-    if (_map->type == wo::value::valuetype::dict_type)
+    if (_map->type == wo::value::valuetype::dict_type) [[likely]]
     {
         wo::gcbase::gc_modify_write_guard g1(_map->directory);
         auto* store_val = &(*_map->directory)[*WO_VAL(index)];
@@ -3960,10 +3961,10 @@ void wo_map_set(wo_value map, wo_value index, wo_value val)
 wo_bool_t wo_map_remove(wo_value map, wo_value index)
 {
     auto _map = WO_VAL(map);
-    if (_map->type == wo::value::valuetype::dict_type)
+    if (_map->type == wo::value::valuetype::dict_type) [[likely]]
     {
         wo::gcbase::gc_modify_write_guard g1(_map->directory);
-        if (wo::gc::gc_is_marking())
+        if (wo::gc::gc_is_marking()) [[unlikely]]
         {
             auto fnd = _map->directory->find(*WO_VAL(index));
             if (fnd != _map->directory->end())
@@ -3982,10 +3983,10 @@ wo_bool_t wo_map_remove(wo_value map, wo_value index)
 void wo_map_clear(wo_value map)
 {
     auto _map = WO_VAL(map);
-    if (_map->type == wo::value::valuetype::dict_type)
+    if (_map->type == wo::value::valuetype::dict_type) [[likely]]
     {
         wo::gcbase::gc_modify_write_guard g1(_map->directory);
-        if (wo::gc::gc_is_marking())
+        if (wo::gc::gc_is_marking()) [[unlikely]]
         {
             for (auto& kvpair : *_map->directory)
             {
@@ -4002,7 +4003,7 @@ void wo_map_clear(wo_value map)
 wo_bool_t wo_map_is_empty(wo_value map)
 {
     auto _map = WO_VAL(map);
-    if (_map->type == wo::value::valuetype::dict_type)
+    if (_map->type == wo::value::valuetype::dict_type) [[likely]]
     {
         wo::gcbase::gc_read_guard g1(_map->directory);
         return WO_CBOOL(_map->directory->empty());
@@ -4017,7 +4018,7 @@ void wo_map_keys(wo_value out_val, wo_vm vm, wo_value map)
     _wo_enter_gc_guard g(vm);
 
     auto _map = WO_VAL(map);
-    if (_map->type == wo::value::valuetype::dict_type)
+    if (_map->type == wo::value::valuetype::dict_type) [[likely]]
     {
         wo::gcbase::gc_read_guard g1(_map->directory);
         auto* keys = wo::array_t::gc_new<wo::gcbase::gctype::young>(_map->directory->size());
@@ -4037,7 +4038,7 @@ void wo_map_vals(wo_value out_val, wo_vm vm, wo_value map)
     _wo_enter_gc_guard g(vm);
 
     auto _map = WO_VAL(map);
-    if (_map->type == wo::value::valuetype::dict_type)
+    if (_map->type == wo::value::valuetype::dict_type) [[likely]]
     {
         wo::gcbase::gc_read_guard g1(_map->directory);
         auto* vals = wo::array_t::gc_new<wo::gcbase::gctype::young>(_map->directory->size());
@@ -4063,7 +4064,7 @@ wo_bool_t wo_gchandle_close(wo_value gchandle)
 void wo_gcunit_lock(wo_value gc_reference_object)
 {
     auto* value = WO_VAL(gc_reference_object);
-    if (value->is_gcunit())
+    if (value->is_gcunit()) [[likely]]
     {
         auto* gcunit = WO_VAL(gc_reference_object)->gcunit;
         gcunit->write();
@@ -4076,7 +4077,7 @@ void wo_gcunit_lock(wo_value gc_reference_object)
 void wo_gcunit_unlock(wo_value gc_reference_object)
 {
     auto* value = WO_VAL(gc_reference_object);
-    if (value->is_gcunit())
+    if (value->is_gcunit()) [[likely]]
     {
         auto* gcunit = WO_VAL(gc_reference_object)->gcunit;
         gcunit->write_end();
@@ -4089,7 +4090,7 @@ void wo_gcunit_unlock(wo_value gc_reference_object)
 void wo_gcunit_lock_shared_force(wo_value gc_reference_object)
 {
     auto* value = WO_VAL(gc_reference_object);
-    if (value->is_gcunit())
+    if (value->is_gcunit()) [[likely]]
     {
         auto* gcunit = WO_VAL(gc_reference_object)->gcunit;
         gcunit->read();
@@ -4102,7 +4103,7 @@ void wo_gcunit_lock_shared_force(wo_value gc_reference_object)
 void wo_gcunit_unlock_shared_force(wo_value gc_reference_object)
 {
     auto* value = WO_VAL(gc_reference_object);
-    if (value->is_gcunit())
+    if (value->is_gcunit()) [[likely]]
     {
         auto* gcunit = WO_VAL(gc_reference_object)->gcunit;
         gcunit->read_end();
@@ -4264,7 +4265,7 @@ void wo_gc_checkpoint(wo_vm vm)
     // If in GC, hang up here to make sure safe.
     if ((vmm->vm_interrupt.load() & (
         wo::vmbase::vm_interrupt_type::GC_INTERRUPT
-        | wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT)) != 0)
+        | wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT)) != 0) [[unlikely]]
     {
         if (!vmm->gc_checkpoint())
         {
@@ -4375,7 +4376,7 @@ void wo_close_pin_value(wo_pin_value pin_value)
 }
 void wo_gc_record_memory(wo_value val)
 {
-    if (wo::gc::gc_is_marking())
+    if (wo::gc::gc_is_marking()) [[unlikely]]
         wo::gcbase::write_barrier(WO_VAL(val));
 }
 

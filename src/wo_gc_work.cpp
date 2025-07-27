@@ -42,7 +42,7 @@ namespace wo
         {
             auto* v = std::launder(reinterpret_cast<value*>(pin_value));
 
-            if (gc::gc_is_marking())
+            if (gc::gc_is_marking()) [[unlikely]]
                 gcbase::write_barrier(v);
 
             do
@@ -56,7 +56,7 @@ namespace wo
         {
             auto* v = std::launder(reinterpret_cast<value*>(pin_value));
 
-            if (gc::gc_is_marking())
+            if (gc::gc_is_marking()) [[unlikely]]
                 gcbase::write_barrier(v);
 
             do
@@ -134,10 +134,10 @@ namespace wo
             if (wref->m_alive == false)
                 return false;
 
-            if (gc::gc_is_marking())
+            if (gc::gc_is_marking()) [[unlikely]]
                 gcbase::write_barrier(&wref->m_weak_value_record);
 
-            if (gc::gc_is_collecting_memo())
+            if (gc::gc_is_collecting_memo()) [[unlikely]]
             {
                 gcbase::write_barrier(&wref->m_weak_value_record);
 
@@ -645,8 +645,7 @@ namespace wo
 
                             // If there is no instance of gc-handle which may use library loaded in env,
                             // then free the gc destructor vm.
-                            if (0 == env->_created_destructable_instance_count.load(
-                                std::memory_order::memory_order_relaxed))
+                            if (0 == env->_created_destructable_instance_count.load(std::memory_order::relaxed))
                             {
                                 need_destruct_gc_destructor_list.push_front(vmimpl);
                             }
