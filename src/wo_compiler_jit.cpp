@@ -69,7 +69,7 @@ namespace wo
         std::unordered_map<const byte_t*, function_jit_state*>
             m_compiling_functions;
 
-        const byte_t* m_codes;
+        byte_t* m_codes;
 
         struct WooJitErrorHandler :public asmjit::ErrorHandler
         {
@@ -371,21 +371,22 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             return result;
         }
 
-        void analyze_jit(byte_t* codebuf, runtime_env* env) noexcept
+        void analyze_jit(runtime_env* env) noexcept
         {
-            m_codes = codebuf;
+            m_codes = const_cast<byte_t*>(env->rt_codes);
 
             // 1. for all function, trying to jit compile them:
             for (size_t func_offset : env->meta_data_for_jit._functions_offsets_for_jit)
-                analyze_function(codebuf, func_offset, env);
+                analyze_function(m_codes, func_offset, env);
 
+            auto& jit_code_holders = env->meta_data_for_jit._jit_code_holder.value();
             for (auto& [_, stat] : m_compiling_functions)
             {
                 wo_assert(stat->m_state == function_jit_state::FINISHED);
                 wo_assert(nullptr != stat->m_func);
 
                 wo_assert(stat->m_finished);
-                env->meta_data_for_jit._jit_code_holder[stat->m_func_offset] = stat->m_func;
+                jit_code_holders[stat->m_func_offset] = stat->m_func;
 
                 this->free_compiler(stat->_m_ctx);
             }
@@ -395,7 +396,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                 auto* val = &env->constant_and_global_storage[funtions_constant_offset];
                 wo_assert(val->type == value::valuetype::integer_type);
 
-                auto& func_state = m_compiling_functions.at(codebuf + val->integer);
+                auto& func_state = m_compiling_functions.at(m_codes + val->integer);
                 if (func_state->m_state == function_jit_state::state::FINISHED)
                 {
                     wo_assert(func_state->m_func != nullptr
@@ -417,7 +418,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                 auto& func_val = val->structs->m_values[function_index];
                 wo_assert(func_val.type == value::valuetype::integer_type);
 
-                auto& func_state = m_compiling_functions.at(codebuf + func_val.integer);
+                auto& func_state = m_compiling_functions.at(m_codes + func_val.integer);
                 if (func_state->m_state == function_jit_state::state::FINISHED)
                 {
                     wo_assert(func_state->m_func != nullptr);
@@ -430,24 +431,24 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             }
             for (auto calln_offset : env->meta_data_for_jit._calln_opcode_offsets_for_jit)
             {
-                wo::instruct::opcode* calln = (wo::instruct::opcode*)(codebuf + calln_offset);
+                wo::instruct::opcode* calln = (wo::instruct::opcode*)(m_codes + calln_offset);
                 wo_assert(((*calln) & 0b11111100) == wo::instruct::opcode::calln);
                 wo_assert(((*calln) & 0b00000011) == 0b00);
 
-                byte_t* rt_ip = codebuf + calln_offset + 1;
+                byte_t* rt_ip = m_codes + calln_offset + 1;
 
                 // READ NEXT 4 BYTE
                 size_t offset = (size_t)WO_SAFE_READ_MOVE_4;
 
                 // m_compiling_functions must have this ip
-                auto& func_state = m_compiling_functions.at(codebuf + offset);
+                auto& func_state = m_compiling_functions.at(m_codes + offset);
                 if (func_state->m_state == function_jit_state::state::FINISHED)
                 {
                     wo_assert(func_state->m_func != nullptr);
 
                     *calln = (wo::instruct::opcode)(wo::instruct::opcode::calln | 0b11);
                     const byte_t* jitfunc = reinterpret_cast<const byte_t*>(&func_state->m_func);
-                    byte_t* ipbuf = codebuf + calln_offset + 1;
+                    byte_t* ipbuf = m_codes + calln_offset + 1;
 
                     for (size_t i = 0; i < 8; ++i)
                         *(ipbuf + i) = *(jitfunc + i);
@@ -457,11 +458,11 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             }
             for (auto mkclos_offset : env->meta_data_for_jit._mkclos_opcode_offsets_for_jit)
             {
-                wo::instruct::opcode* mkclos = (wo::instruct::opcode*)(codebuf + mkclos_offset);
+                wo::instruct::opcode* mkclos = (wo::instruct::opcode*)(m_codes + mkclos_offset);
                 wo_assert(((*mkclos) & 0b11111100) == wo::instruct::opcode::mkclos);
                 wo_assert(((*mkclos) & 0b00000011) == 0b00);
 
-                byte_t* rt_ip = codebuf + mkclos_offset + 1;
+                byte_t* rt_ip = m_codes + mkclos_offset + 1;
 
                 // SKIP 2 BYTE
                 WO_SAFE_READ_MOVE_2;
@@ -470,14 +471,14 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                 size_t offset = (size_t)WO_SAFE_READ_MOVE_4;
 
                 // m_compiling_functions must have this ip
-                auto& func_state = m_compiling_functions.at(codebuf + offset);
+                auto& func_state = m_compiling_functions.at(m_codes + offset);
                 if (func_state->m_state == function_jit_state::state::FINISHED)
                 {
                     wo_assert(func_state->m_func != nullptr);
 
                     *mkclos = (wo::instruct::opcode)(wo::instruct::opcode::mkclos | 0b10);
                     const byte_t* jitfunc = reinterpret_cast<const byte_t*>(&func_state->m_func);
-                    byte_t* ipbuf = codebuf + mkclos_offset + 1 + 2;
+                    byte_t* ipbuf = m_codes + mkclos_offset + 1 + 2;
 
                     for (size_t i = 0; i < 8; ++i)
                         *(ipbuf + i) = *(jitfunc + i);
@@ -493,7 +494,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 
         static void free_jit(runtime_env* env)
         {
-            for (const auto& [_, holder_jitfp] : env->meta_data_for_jit._jit_code_holder)
+            for (const auto& [_, holder_jitfp] : env->meta_data_for_jit._jit_code_holder.value())
                 wo_assure(!get_jit_runtime().release(holder_jitfp));
         }
         static void _invoke_vm_interrupt(wo::vmbase* vmm, wo::vmbase::vm_interrupt_type type)
@@ -2884,20 +2885,30 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 #undef WO_JIT_NOT_SUPPORT
     };
 
-    void analyze_jit(byte_t* codebuf, runtime_env* env)
+    void update_env_jit(runtime_env* env)
     {
+        if (env->meta_data_for_jit._jit_code_holder.has_value())
+            // This env has been jit compiled.
+            return;
+
+        env->meta_data_for_jit._jit_code_holder.emplace();
+
         switch (platform_info::ARCH_TYPE)
         {
         case platform_info::ArchType::X86 | platform_info::ArchType::BIT64:
-            asmjit_compiler_x64().analyze_jit(codebuf, env);
+            asmjit_compiler_x64().analyze_jit(env);
             break;
         default:
             // No JIT support do nothing.
             break;
         }
     }
-    void free_jit(runtime_env* env)
+    void cleanup_env_jit(runtime_env* env)
     {
+        if (!env->meta_data_for_jit._jit_code_holder.has_value())
+            // This env has not been jit compiled.
+            return;
+
         switch (platform_info::ARCH_TYPE)
         {
         case platform_info::ArchType::X86 | platform_info::ArchType::BIT64:

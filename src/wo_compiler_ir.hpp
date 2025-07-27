@@ -318,7 +318,7 @@ namespace wo
                         rowno,
                         locat,
                     }
-                );
+                    );
             }
         };
 
@@ -371,7 +371,8 @@ namespace wo
             std::vector<uint32_t /* rtcode offset */>
                 _mkclos_opcode_offsets_for_jit;
 
-            std::unordered_map<size_t, wo_native_func_t> _jit_code_holder;
+            std::optional<std::unordered_map<size_t, wo_native_func_t>>
+                _jit_code_holder;
 
             jit_meta() = default;
             ~jit_meta() = default;
@@ -389,7 +390,7 @@ namespace wo
             // Will be fill in finalize of env.
             std::vector<uint32_t> caller_offset_in_ir;
             std::vector<uint32_t> offset_in_constant;
-            std::vector<std::pair<uint32_t, uint16_t>> 
+            std::vector<std::pair<uint32_t, uint16_t>>
                 offset_and_tuple_index_in_constant;
         };
         struct binary_source_stream
@@ -444,6 +445,7 @@ namespace wo
         std::atomic_size_t _created_destructable_instance_count = 0;
 
         jit_meta meta_data_for_jit;
+
         shared_pointer<program_debug_data_info> program_debug_info;
         rslib_extern_symbols::extern_lib_set loaded_libraries;
         extern_native_functions_t extern_native_functions;
@@ -1162,7 +1164,7 @@ namespace wo
                     {
                         wo_handle_t h = immop->constant_value.value_handle();
                         WO_PUT_IR_TO_BUFFER(
-                            instruct::opcode::calln, 
+                            instruct::opcode::calln,
                             reinterpret_cast<opnum::opnumbase*>(static_cast<intptr_t>(h)));
                         return;
                     }
@@ -1172,9 +1174,9 @@ namespace wo
                         wo_assert(0 <= a && a <= UINT32_MAX, "Immediate instruct address is to large to call.");
 
                         WO_PUT_IR_TO_BUFFER(
-                            instruct::opcode::calln, 
-                            nullptr, 
-                            nullptr, 
+                            instruct::opcode::calln,
+                            nullptr,
+                            nullptr,
                             static_cast<int32_t>(a));
                         return;
                     }
@@ -1182,11 +1184,11 @@ namespace wo
                     {
 #ifndef WO_DISABLE_COMPILER
                         auto* function = immop->constant_value.value_function();
-                        auto* extern_function = 
+                        auto* extern_function =
                             function->m_IR_extern_information.value()->m_IR_externed_function.value();
 
                         WO_PUT_IR_TO_BUFFER(
-                            instruct::opcode::calln, 
+                            instruct::opcode::calln,
                             reinterpret_cast<opnum::opnumbase*>(extern_function));
 #else
                         wo_error("Should never be function if compiler disabled.");

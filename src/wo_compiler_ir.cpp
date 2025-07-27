@@ -478,7 +478,7 @@ namespace wo
     runtime_env::~runtime_env()
     {
         if (wo::config::ENABLE_JUST_IN_TIME)
-            free_jit(this);
+            cleanup_env_jit(this);
 
         for (size_t ci = 0; ci < constant_value_count; ++ci)
             cancel_nogc_mark_for_value(constant_and_global_storage[ci]);
@@ -1621,8 +1621,9 @@ namespace wo
     }
     bool runtime_env::try_find_jit_func(wo_integer_t out_script_func, wo_handle_t* out_jit_func)
     {
-        auto fnd = meta_data_for_jit._jit_code_holder.find((size_t)out_script_func);
-        if (fnd != meta_data_for_jit._jit_code_holder.end())
+        auto& jit_code_holders = meta_data_for_jit._jit_code_holder.value();
+        auto fnd = jit_code_holders.find((size_t)out_script_func);
+        if (fnd != jit_code_holders.end())
         {
             *out_jit_func = (wo_handle_t)reinterpret_cast<intptr_t>(*fnd->second);
             return true;

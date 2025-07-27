@@ -3305,15 +3305,11 @@ wo_bool_t wo_jit(wo_vm vm)
 {
     _wo_enter_gc_guard g2(vm);
 
-    if (wo::config::ENABLE_JUST_IN_TIME)
-    {
-        // NOTE: other operation for vm must happend after init(wo_run).
-        wo_assert(WO_VM(vm)->env->meta_data_for_jit._jit_code_holder.empty());
+    if (!wo::config::ENABLE_JUST_IN_TIME)
+        return WO_FALSE;
 
-        analyze_jit(const_cast<wo::byte_t*>(WO_VM(vm)->env->rt_codes), WO_VM(vm)->env);
-        return WO_TRUE;
-    }
-    return WO_FALSE;
+    update_env_jit(WO_VM(vm)->env);
+    return WO_TRUE;
 }
 
 wo_value wo_run(wo_vm vm)
