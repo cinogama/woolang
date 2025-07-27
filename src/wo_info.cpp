@@ -1,6 +1,4 @@
 #include "wo_afx.hpp"
-
-#define WO_IMPL
 #include "wo.h"
 
 #define WO_VERSION_INT(DEV,MAIN,SUB,CORRECT) \

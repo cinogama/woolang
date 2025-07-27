@@ -22,6 +22,8 @@ file(WRITE ${CMAKE_CURRENT_SOURCE_DIR}/wo_commit_sha.hpp
 
 file(GLOB_RECURSE woo_src_cpp *.cpp)
 file(GLOB_RECURSE woo_src_hpp *.hpp)
+file(GLOB_RECURSE woo_src_c *.c)
+file(GLOB_RECURSE woo_src_h *.h)
 
 if (WIN32)
     list(APPEND woo_system_libs "")
@@ -33,28 +35,42 @@ else()
 endif()
 
 add_library(woolang_library_options INTERFACE)
-target_compile_definitions(woolang_library_options INTERFACE -DWO_SRC_PATH="${PROJECT_SOURCE_DIR}")
+target_compile_definitions(
+    woolang_library_options INTERFACE 
+    -DWO_SRC_PATH="${PROJECT_SOURCE_DIR}"
+    -DWO_IMPL=1)
 
 if (WO_SUPPORT_ASMJIT)
-    target_compile_definitions(woolang_library_options INTERFACE -DWO_JIT_SUPPORT_ASMJIT=1) 
+    target_compile_definitions(
+        woolang_library_options INTERFACE 
+        -DWO_JIT_SUPPORT_ASMJIT=1) 
 endif()
 if (WO_DISABLE_COMPILER)
-    target_compile_definitions(woolang_library_options INTERFACE -DWO_DISABLE_COMPILER=1)
+    target_compile_definitions(
+        woolang_library_options INTERFACE 
+        -DWO_DISABLE_COMPILER=1)
 endif()
 if (WO_FORCE_GC_OBJ_THREAD_SAFETY)
-    target_compile_definitions(woolang_library_options INTERFACE -DWO_FORCE_GC_OBJ_THREAD_SAFETY=1) 
+    target_compile_definitions(
+        woolang_library_options INTERFACE 
+        -DWO_FORCE_GC_OBJ_THREAD_SAFETY=1) 
 endif()
 if (WO_DISABLE_FUNCTION_FOR_WASM)
-    target_compile_definitions(woolang_library_options INTERFACE -DWO_DISABLE_FUNCTION_FOR_WASM=1)
+    target_compile_definitions(
+        woolang_library_options INTERFACE 
+        -DWO_DISABLE_FUNCTION_FOR_WASM=1)
 endif()
 
-if (BUILD_SHARED_LIBS)
-    add_library (woolang SHARED ${woo_src_cpp} ${woo_src_hpp} ../include/wo.h)
-else()
-    add_library(woolang STATIC ${woo_src_cpp} ${woo_src_hpp} ../include/wo.h)
-    if(NOT MSVC)
-        target_compile_options(woolang_library_options INTERFACE -Wall -rdynamic)
-    endif()
+
+ add_library (woolang 
+     ${woo_src_cpp} 
+     ${woo_src_hpp} 
+     ${woo_src_c} 
+     ${woo_src_h} 
+     ../include/wo.h)
+
+if(NOT MSVC AND NOT BUILD_SHARED_LIBS)
+    target_compile_options(woolang_library_options INTERFACE -Wall -rdynamic)
 endif()
 
 if(WO_SUPPORT_ASMJIT)

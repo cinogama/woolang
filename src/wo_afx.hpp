@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "wo_gc_type.h"
+
 #include "wo_assert.hpp"
 #include "wo_instruct.hpp"
 #include "wo_vm.hpp"

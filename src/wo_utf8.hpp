@@ -1,6 +1,5 @@
 #pragma once
 
-#define WO_IMPL
 #include "wo.h"
 
 #include <cstdint>

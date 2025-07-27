@@ -1,8 +1,6 @@
 #pragma once
-#ifndef WO_IMPL
-#       define WO_IMPL
-#       include "wo.h"
-#endif
+
+#include "wo.h"
 
 #include <sys/stat.h>
 #include <string>
