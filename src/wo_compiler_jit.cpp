@@ -60,7 +60,7 @@ namespace wo
             size_t              m_func_offset = 0;
             state               m_state = state::BEGIN;
             jit_packed_func_t   m_func = nullptr;
-            asmjit::FuncNode*   m_jitfunc = nullptr;
+            asmjit::FuncNode* m_jitfunc = nullptr;
             bool                m_finished = false;
             asmjit::CodeHolder  m_code_buffer;
             CompileContextT* _m_ctx = nullptr;
@@ -413,9 +413,9 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             {
                 auto* val = &env->constant_and_global_storage[tuple_constant_offset];
                 wo_assert(val->type == value::valuetype::struct_type
-                    && function_index < val->structs->m_count);
+                    && function_index < val->structure->m_count);
 
-                auto& func_val = val->structs->m_values[function_index];
+                auto& func_val = val->structure->m_values[function_index];
                 wo_assert(func_val.type == value::valuetype::integer_type);
 
                 auto& func_state = m_compiling_functions.at(m_codes + func_val.integer);
@@ -730,50 +730,47 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                 return "Index out of range.";
             }
             else
-            {
-                auto* result = &opnum1->array->at(index);
-                cr->set_val(result);
-            }
+                cr->set_val(opnum1->array->data() + index);
+
             return nullptr;
         }
         static const char* _vmjitcall_iddict(wo::value* cr, wo::value* opnum1, wo::value* opnum2)
         {
-            wo_assert(opnum1->type == value::valuetype::dict_type && opnum1->dict != nullptr);
+            wo_assert(opnum1->type == value::valuetype::dict_type && opnum1->directory != nullptr);
 
             gcbase::gc_read_guard gwg1(opnum1->gcunit);
 
-            auto fnd = opnum1->dict->find(*opnum2);
-            if (fnd != opnum1->dict->end())
+            auto fnd = opnum1->directory->find(*opnum2);
+            if (fnd != opnum1->directory->end())
             {
                 auto* result = &fnd->second;
                 cr->set_val(result);
             }
             else
-                return "No such key in current dict.";
+                return "No such key in current directory.";
             return nullptr;
         }
         static void _vmjitcall_idstruct(wo::value* opnum1, wo::value* opnum2, uint16_t offset)
         {
             wo_assert(opnum2->type == value::valuetype::struct_type,
                 "Cannot index non-struct value in 'idstruct'.");
-            wo_assert(opnum2->structs != nullptr,
+            wo_assert(opnum2->structure != nullptr,
                 "Unable to index null in 'idstruct'.");
-            wo_assert(offset < opnum2->structs->m_count,
+            wo_assert(offset < opnum2->structure->m_count,
                 "Index out of range in 'idstruct'.");
 
-            gcbase::gc_read_guard gwg1(opnum2->structs);
+            gcbase::gc_read_guard gwg1(opnum2->structure);
 
-            auto* result = &opnum2->structs->m_values[offset];
-            opnum1->set_val(result);
+            opnum1->set_val(opnum2->structure->m_values + offset);
         }
         static const char* _vmjitcall_siddict(wo::value* opnum1, wo::value* opnum2, wo::value* opnum3)
         {
-            wo_assert(opnum1->type == value::valuetype::dict_type && opnum1->dict != nullptr);
+            wo_assert(opnum1->type == value::valuetype::dict_type && opnum1->directory != nullptr);
 
             gcbase::gc_write_guard gwg1(opnum1->gcunit);
 
-            auto fnd = opnum1->dict->find(*opnum2);
-            if (fnd != opnum1->dict->end())
+            auto fnd = opnum1->directory->find(*opnum2);
+            if (fnd != opnum1->directory->end())
             {
                 auto* result = &fnd->second;
                 if (wo::gc::gc_is_marking())
@@ -781,16 +778,16 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                 result->set_val(opnum3);
             }
             else
-                return "No such key in current dict.";
+                return "No such key in current directory.";
             return nullptr;
         }
         static void _vmjitcall_sidmap(wo::value* opnum1, wo::value* opnum2, wo::value* opnum3)
         {
-            wo_assert(opnum1->type == value::valuetype::dict_type && opnum1->dict != nullptr);
+            wo_assert(opnum1->type == value::valuetype::dict_type && opnum1->directory != nullptr);
 
             gcbase::gc_modify_write_guard gwg1(opnum1->gcunit);
 
-            auto* result = &(*opnum1->dict)[*opnum2];
+            auto* result = &(*opnum1->directory)[*opnum2];
             if (wo::gc::gc_is_marking())
                 wo::gcbase::write_barrier(result);
             result->set_val(opnum3);
@@ -809,7 +806,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             }
             else
             {
-                auto* result = &opnum1->array->at(index);
+                auto* result = opnum1->array->data() + index;
                 if (wo::gc::gc_is_marking())
                     wo::gcbase::write_barrier(result);
                 result->set_val(opnum3);
@@ -818,16 +815,16 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
         }
         static void _vmjitcall_sidstruct(wo::value* opnum1, wo::value* opnum2, uint16_t offset)
         {
-            wo_assert(nullptr != opnum1->structs,
+            wo_assert(nullptr != opnum1->structure,
                 "Unable to index null in 'sidstruct'.");
             wo_assert(opnum1->type == value::valuetype::struct_type,
                 "Unable to index non-struct value in 'sidstruct'.");
-            wo_assert(offset < opnum1->structs->m_count,
+            wo_assert(offset < opnum1->structure->m_count,
                 "Index out of range in 'sidstruct'.");
 
             gcbase::gc_write_guard gwg1(opnum1->gcunit);
 
-            auto* result = &opnum1->structs->m_values[offset];
+            auto* result = opnum1->structure->m_values + offset;
             if (wo::gc::gc_is_marking())
                 wo::gcbase::write_barrier(result);
             result->set_val(opnum2);
@@ -2924,11 +2921,11 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 namespace wo
 {
     struct runtime_env;
-    void analyze_jit(byte_t* codebuf, runtime_env* env)
+    void update_env_jit(runtime_env* env)
     {
     }
 
-    void free_jit(runtime_env* env)
+    void cleanup_env_jit(runtime_env* env)
     {
     }
 }

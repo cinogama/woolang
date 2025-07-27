@@ -1460,7 +1460,7 @@ namespace wo
     value* vmbase::make_union_impl(value* opnum1, value* opnum2, uint16_t id) noexcept
     {
         auto* union_struct =
-            struct_t::gc_new<gcbase::gctype::young>(2);
+            structure_t::gc_new<gcbase::gctype::young>(2);
 
         union_struct->m_values[0].set_integer((wo_integer_t)id);
         union_struct->m_values[1].set_val(opnum2);
@@ -1507,7 +1507,7 @@ namespace wo
         for (size_t i = 0; i < (size_t)size; i++)
         {
             auto* arr_val = ++rt_sp;
-            maked_array->at(size - i - 1).set_val(arr_val);
+            maked_array->data()[size - i - 1].set_val(arr_val);
         }
         opnum1->set_gcunit<value::valuetype::array_type>(maked_array);
         return rt_sp;
@@ -1515,7 +1515,7 @@ namespace wo
     value* vmbase::make_map_impl(value* opnum1, uint16_t size, value* rt_sp) noexcept
     {
         auto* maked_dict =
-            dict_t::gc_new<gcbase::gctype::young>((size_t)size);
+            directory_t::gc_new<gcbase::gctype::young>((size_t)size);
 
         for (size_t i = 0; i < (size_t)size; i++)
         {
@@ -1529,7 +1529,7 @@ namespace wo
     value* vmbase::make_struct_impl(value* opnum1, uint16_t size, value* rt_sp) noexcept
     {
         auto* maked_struct =
-            struct_t::gc_new<gcbase::gctype::young>(size);
+            structure_t::gc_new<gcbase::gctype::young>(size);
 
         for (size_t i = 0; i < size; i++)
             maked_struct->m_values[size - i - 1].set_val(++rt_sp);
@@ -1566,7 +1566,7 @@ namespace wo
     {
         if (opnum1->type == value::valuetype::struct_type)
         {
-            auto* arg_tuple = opnum1->structs;
+            auto* arg_tuple = opnum1->structure;
             gcbase::gc_read_guard gwg1(arg_tuple);
             if (unpack_argc > 0)
             {
@@ -2373,13 +2373,13 @@ namespace wo
 
                 WO_VM_ASSERT(opnum2->type == value::valuetype::struct_type,
                     "Cannot index non-struct value in 'idstruct'.");
-                WO_VM_ASSERT(opnum2->structs != nullptr,
+                WO_VM_ASSERT(opnum2->structure != nullptr,
                     "Unable to index null in 'idstruct'.");
-                WO_VM_ASSERT(offset < opnum2->structs->m_count,
+                WO_VM_ASSERT(offset < opnum2->structure->m_count,
                     "Index out of range in 'idstruct'.");
 
-                gcbase::gc_read_guard gwg1(opnum2->structs);
-                opnum1->set_val(&opnum2->structs->m_values[offset]);
+                gcbase::gc_read_guard gwg1(opnum2->structure);
+                opnum1->set_val(opnum2->structure->m_values + offset);
 
                 break;
             }
@@ -2441,7 +2441,7 @@ namespace wo
                     WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Index out of range.");
                 }
                 else
-                    rt_cr->set_val(&opnum1->array->at(index));
+                    rt_cr->set_val(opnum1->array->data() + index);
 
                 break;
             }
@@ -2450,14 +2450,14 @@ namespace wo
                 WO_VM_ASSERT(nullptr != opnum1->gcunit,
                     "Unable to index null in 'iddict'.");
                 WO_VM_ASSERT(opnum1->type == value::valuetype::dict_type,
-                    "Unable to index non-dict value in 'iddict'.");
+                    "Unable to index non-directory value in 'iddict'.");
 
                 gcbase::gc_read_guard gwg1(opnum1->gcunit);
 
-                auto fnd = opnum1->dict->find(*opnum2);
-                if (fnd == opnum1->dict->end())
+                auto fnd = opnum1->directory->find(*opnum2);
+                if (fnd == opnum1->directory->end())
                     WO_VM_FAIL(WO_FAIL_INDEX_FAIL,
-                        "No such key in current dict.");
+                        "No such key in current directory.");
                 else
                     rt_cr->set_val(&fnd->second);                  
 
@@ -2473,7 +2473,7 @@ namespace wo
 
                     gcbase::gc_modify_write_guard gwg1(opnum1->gcunit);
 
-                    auto* result = &(*opnum1->dict)[*opnum2];
+                    auto* result = &(*opnum1->directory)[*opnum2];
                     if (wo::gc::gc_is_marking())
                         wo::gcbase::write_barrier(result);
                     result->set_val(opnum3);
@@ -2486,12 +2486,12 @@ namespace wo
                     WO_VM_ASSERT(nullptr != opnum1->gcunit,
                         "Unable to index null in 'siddict'.");
                     WO_VM_ASSERT(opnum1->type == value::valuetype::dict_type,
-                        "Unable to index non-dict value in 'siddict'.");
+                        "Unable to index non-directory value in 'siddict'.");
 
                     gcbase::gc_write_guard gwg1(opnum1->gcunit);
 
-                    auto fnd = opnum1->dict->find(*opnum2);
-                    if (fnd == opnum1->dict->end())
+                    auto fnd = opnum1->directory->find(*opnum2);
+                    if (fnd == opnum1->directory->end())
                         WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "No such key in current dict.");
                     else
                     {
@@ -2521,7 +2521,7 @@ namespace wo
                         WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Index out of range.");
                     else
                     {
-                        auto* result = &opnum1->array->at(index);
+                        auto* result = opnum1->array->data() + index;
                         if (wo::gc::gc_is_marking())
                             wo::gcbase::write_barrier(result);
                         result->set_val(opnum3);
@@ -2533,16 +2533,16 @@ namespace wo
             {
                 const uint16_t offset = WO_IPVAL_MOVE_2;
 
-                WO_VM_ASSERT(nullptr != opnum1->structs,
+                WO_VM_ASSERT(nullptr != opnum1->structure,
                     "Unable to index null in 'sidstruct'.");
                 WO_VM_ASSERT(opnum1->type == value::valuetype::struct_type,
                     "Unable to index non-struct value in 'sidstruct'.");
-                WO_VM_ASSERT(offset < opnum1->structs->m_count,
+                WO_VM_ASSERT(offset < opnum1->structure->m_count,
                     "Index out of range in 'sidstruct'.");
 
                 gcbase::gc_write_guard gwg1(opnum1->gcunit);
 
-                auto* result = &opnum1->structs->m_values[offset];
+                auto* result = opnum1->structure->m_values + offset;
                 if (wo::gc::gc_is_marking())
                     wo::gcbase::write_barrier(result);
                 result->set_val(opnum2);

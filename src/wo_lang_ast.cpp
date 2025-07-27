@@ -862,8 +862,7 @@ namespace wo
                 }
                 case AST_VALUE_DICT_OR_MAP:
                 {
-                    auto* dict = static_cast<const AstValueDictOrMap*>(value);
-                    for (auto* elem : dict->m_elements)
+                    for (auto* elem : static_cast<const AstValueDictOrMap*>(value)->m_elements)
                     {
                         elem->m_key->_check_if_template_exist_in(template_params, out_contain_flags);
                         elem->m_value->_check_if_template_exist_in(template_params, out_contain_flags);
