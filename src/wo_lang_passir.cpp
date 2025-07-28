@@ -8,10 +8,10 @@ namespace wo
     using namespace ast;
 
 #define WO_OPNUM(opnumptr) (*static_cast<opnum::opnumbase*>(opnumptr))
-    wo_pstring_t _generate_label(const std::string& prefix, const void* p)
+    wo_pstring_t _generate_label(const char* prefix, const void* p)
     {
         char result[128];
-        auto r = snprintf(result, 128, "%s_%p", prefix.c_str(), p);
+        auto r = snprintf(result, 128, "%s_%p", prefix, p);
         wo_test(r >= 0 && r < 128, "Failed to generate label.");
 
         return wstring_pool::get_pstr(result);

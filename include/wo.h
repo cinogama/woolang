@@ -1271,6 +1271,7 @@ enum _wo_opcode
     /*
       CODE VAL     DR-OPNUM-FORMAT                      DESCRIPTION
     */
+    WO_RESERVED_0 = 0,
     WO_MOV = 1, // DRH: Opnum1 desc, DRL: Opnum2 desc
     // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Move value from `OPNUM2` to `OPNUM1`.
     WO_PSH = 2, // DRH: Opnum1 desc, DRL: Mode

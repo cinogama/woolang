@@ -2738,11 +2738,11 @@ namespace wo
             case instruct::opcode::RESERVED_14:
             case instruct::opcode::RESERVED_15:
             case instruct::opcode::RESERVED_16:
+            case instruct::opcode::RESERVED_17:
             case instruct::opcode::RESERVED_18:
             case instruct::opcode::RESERVED_19:
             case instruct::opcode::RESERVED_20:
             case instruct::opcode::RESERVED_21:
-            case instruct::opcode::RESERVED_22:
                 wo_error("Unknown instruct.");
                 break;
             default:
