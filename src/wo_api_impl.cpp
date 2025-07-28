@@ -3516,7 +3516,7 @@ wo_bool_t wo_arr_try_set(wo_value arr, wo_size_t index, wo_value val)
 }
 void wo_arr_set(wo_value arr, wo_size_t index, wo_value val)
 {
-    if (!wo_arr_try_set(arr, index, val))
+    if (!wo_arr_try_set(arr, index, val)) [[unlikely]]
         wo_fail(WO_FAIL_INDEX_FAIL, "Failed to index: out of range.");
 }
 void wo_arr_add(wo_value arr, wo_value elem)

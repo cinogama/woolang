@@ -2527,7 +2527,6 @@ namespace wo
                             wo::gcbase::write_barrier(result);
                         result->set_val(opnum3);
                     }
-
                     break;
                 }
             case WO_RSG_ADDRESSING_CASE(sidstruct):

@@ -40,7 +40,12 @@ powershell -ExecutionPolicy ByPass -c "irm https://install.woolang.net/install.p
 准备工作：
   * CMake 3.8+
   * 适合的构建工具，至少能被 cmake 愉快地识别到，使用 `Visual Studio Toolchain` 或者 `Make` 等都可以
-  * 适合的编译器，Woolang 使用了部分 C++17 的特性，至少确保这些特性得到支持
+  * 适合的编译器，Woolang 使用了部分 C++20 的特性，至少确保这些特性得到支持，以下列举出常用的编译器及其所需的最小版本：
+    | 编译器 | 所需的最小版本 |
+    | --- | --- |
+    | GCC/G++ | 10 |
+    | Clang | 12 |
+    | MSVC | 19.26 (Visual Studio 2019 16.6) |
 
 拉取源代码，获取依赖的子模块。使用 `CMake` 构建配置：
 
