@@ -439,13 +439,13 @@ namespace wo
         switch (val.type)
         {
         case value::valuetype::struct_type:
-            if (val.structure != nullptr)
+            if (val.structs != nullptr)
             {
                 // Un-completed struct might be created when loading from binary.
                 // unit might be nullptr.
 
-                for (uint16_t idx = 0; idx < val.structure->m_count; ++idx)
-                    cancel_nogc_mark_for_value(val.structure->m_values[idx]);
+                for (uint16_t idx = 0; idx < val.structs->m_count; ++idx)
+                    cancel_nogc_mark_for_value(val.structs->m_values[idx]);
             }
             [[fallthrough]];
         case value::valuetype::string_type:
@@ -478,7 +478,7 @@ namespace wo
     runtime_env::~runtime_env()
     {
         if (wo::config::ENABLE_JUST_IN_TIME)
-            cleanup_env_jit(this);
+            free_jit(this);
 
         for (size_t ci = 0; ci < constant_value_count; ++ci)
             cancel_nogc_mark_for_value(constant_and_global_storage[ci]);
@@ -593,16 +593,16 @@ namespace wo
             case wo::value::valuetype::struct_type:
             {
                 auto result = gcunit_in_constant_indexs_cache.insert(
-                    std::make_pair(constant_value.structure, ci));
+                    std::make_pair(constant_value.structs, ci));
 
                 wo_assert(result.second);
                 (void)result;
 
                 // Record for struct
-                write_binary_to_buffer((uint64_t)constant_value.structure->m_count, 8);
-                for (uint16_t idx = 0; idx < constant_value.structure->m_count; ++idx)
+                write_binary_to_buffer((uint64_t)constant_value.structs->m_count, 8);
+                for (uint16_t idx = 0; idx < constant_value.structs->m_count; ++idx)
                 {
-                    auto& struct_constant_elem = constant_value.structure->m_values[idx];
+                    auto& struct_constant_elem = constant_value.structs->m_values[idx];
 
                     write_binary_to_buffer((uint64_t)struct_constant_elem.type_space, 8);
                     switch (struct_constant_elem.type)
@@ -931,11 +931,11 @@ namespace wo
                 this_constant_value.set_struct_nogc(static_cast<uint16_t>(constant_struct_size));
 
                 // Clear all field.
-                memset(this_constant_value.structure->m_values, 0, sizeof(wo::value) * constant_struct_size);
+                memset(this_constant_value.structs->m_values, 0, sizeof(wo::value) * constant_struct_size);
 
                 for (uint16_t idx = 0; idx < constant_struct_size; ++idx)
                 {
-                    auto& tuple_constant_elem = this_constant_value.structure->m_values[idx];
+                    auto& tuple_constant_elem = this_constant_value.structs->m_values[idx];
 
                     uint64_t constant_type_scope;
                     if (!stream->read_elem(&constant_type_scope))
@@ -976,8 +976,8 @@ namespace wo
                             || preserved_memory[unit_ref_index].type != value::valuetype::struct_type)
                             WO_LOAD_BIN_FAILED("Failed to restore constant value.");
 
-                        tuple_constant_elem.structure =
-                            preserved_memory[unit_ref_index].structure;
+                        tuple_constant_elem.structs =
+                            preserved_memory[unit_ref_index].structs;
                         break;
                     }
                     case wo::value::valuetype::integer_type:
@@ -1316,10 +1316,10 @@ namespace wo
             for (auto& [constant_offset, tuple_index] : extern_native_function.constant_tuple_index_offsets)
             {
                 wo_assert(preserved_memory[constant_offset].type == wo::value::valuetype::struct_type
-                    && tuple_index < preserved_memory[constant_offset].structure->m_count
-                    && preserved_memory[constant_offset].structure->m_values[tuple_index].type == wo::value::valuetype::handle_type);
+                    && tuple_index < preserved_memory[constant_offset].structs->m_count
+                    && preserved_memory[constant_offset].structs->m_values[tuple_index].type == wo::value::valuetype::handle_type);
 
-                preserved_memory[constant_offset].structure->m_values[tuple_index].set_handle((wo_handle_t)func);
+                preserved_memory[constant_offset].structs->m_values[tuple_index].set_handle((wo_handle_t)func);
             }
             for (auto ir_code_offset : extern_native_function.ir_command_offsets)
             {
@@ -1621,12 +1621,8 @@ namespace wo
     }
     bool runtime_env::try_find_jit_func(wo_integer_t out_script_func, wo_handle_t* out_jit_func)
     {
-        if (!meta_data_for_jit._jit_code_holder.has_value())
-            return false;
-
-        auto& jit_code_holders = meta_data_for_jit._jit_code_holder.value();
-        auto fnd = jit_code_holders.find((size_t)out_script_func);
-        if (fnd != jit_code_holders.end())
+        auto fnd = meta_data_for_jit._jit_code_holder.find((size_t)out_script_func);
+        if (fnd != meta_data_for_jit._jit_code_holder.end())
         {
             *out_jit_func = (wo_handle_t)reinterpret_cast<intptr_t>(*fnd->second);
             return true;
@@ -1697,10 +1693,8 @@ namespace wo
         case ast::ConstantValue::Type::STRUCT:
         {
             auto& struct_constant = constant_value.value_struct();
-            out_value.set_struct_nogc(
-                static_cast<uint16_t>(struct_constant.m_count));
-
-            auto* struct_instance = out_value.structure;
+            auto* struct_instance = out_value.set_struct_nogc(
+                static_cast<uint16_t>(struct_constant.m_count))->structs;
 
             for (size_t i = 0; i < struct_constant.m_count; ++i)
             {
@@ -2666,12 +2660,12 @@ namespace wo
             for (auto& [constant_offset, tuple_offset] : imm_value_offsets.m_offset_in_tuple)
             {
                 wo_assert(preserved_memory[constant_offset].type == value::valuetype::struct_type
-                    && preserved_memory[constant_offset].structure->m_values[tuple_offset].type
+                    && preserved_memory[constant_offset].structs->m_values[tuple_offset].type
                     == value::valuetype::integer_type);
 
                 env->meta_data_for_jit._functions_constant_in_tuple_idx_for_jit.emplace_back(
                     std::make_pair(constant_offset, tuple_offset));
-                preserved_memory[constant_offset].structure->m_values[tuple_offset].integer =
+                preserved_memory[constant_offset].structs->m_values[tuple_offset].integer =
                     (wo_integer_t)offset_val;
             }
         }

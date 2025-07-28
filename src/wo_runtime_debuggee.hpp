@@ -281,7 +281,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                         type_match = true;
                     break;
                 case wo::value::valuetype::dict_type:
-                    if (dynamic_cast<wo::directory_t*>(gc_unit_base_addr) != nullptr)
+                    if (dynamic_cast<wo::dict_t*>(gc_unit_base_addr) != nullptr)
                         type_match = true;
                     break;
                 case wo::value::valuetype::array_type:
@@ -297,7 +297,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                         type_match = true;
                     break;
                 case wo::value::valuetype::struct_type:
-                    if (dynamic_cast<wo::structure_t*>(gc_unit_base_addr) != nullptr)
+                    if (dynamic_cast<wo::struct_t*>(gc_unit_base_addr) != nullptr)
                         type_match = true;
                     break;
                 default:

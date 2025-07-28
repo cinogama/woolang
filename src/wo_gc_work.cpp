@@ -257,7 +257,7 @@ namespace wo
                         gc_mark_unit_as_gray(worklist, gcunit_addr, attr);
                 }
             }
-            else if (directory_t* wo_map = dynamic_cast<directory_t*>(unit))
+            else if (dict_t* wo_map = dynamic_cast<dict_t*>(unit))
             {
                 for (auto& [key, val] : *wo_map)
                 {
@@ -278,7 +278,7 @@ namespace wo
                     if (gcbase* gcunit_addr = wo_closure->m_closure_args[i].get_gcunit_and_attrib_ref(&attr))
                         gc_mark_unit_as_gray(worklist, gcunit_addr, attr);
             }
-            else if (structure_t* wo_struct = dynamic_cast<structure_t*>(unit))
+            else if (struct_t* wo_struct = dynamic_cast<struct_t*>(unit))
             {
                 for (uint16_t i = 0; i < wo_struct->m_count; ++i)
                     if (gcbase* gcunit_addr = wo_struct->m_values[i].get_gcunit_and_attrib_ref(&attr))
@@ -1052,7 +1052,7 @@ namespace wo
         }
     }
 
-    bool gchandle_base_t::do_close()
+    bool gc_handle_base_t::do_close()
     {
         if (m_holding_handle != nullptr)
         {
@@ -1067,7 +1067,7 @@ namespace wo
         }
         return false;
     }
-    void gchandle_base_t::do_custom_mark(wo_gc_work_context_t context)
+    void gc_handle_base_t::do_custom_mark(wo_gc_work_context_t context)
     {
         if (m_holding_handle == nullptr)
             // Handle has been closed.

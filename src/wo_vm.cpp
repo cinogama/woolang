@@ -426,7 +426,7 @@ namespace wo
                 }
                 for (int i = 0; i < MAX_BYTE_COUNT - displayed_count; i++)
                     printf("   ");
-                };
+            };
 #define WO_SIGNED_SHIFT(VAL) (((signed char)((unsigned char)(((unsigned char)(VAL))<<1)))>>1)
             auto print_reg_bpoffset = [&]() {
                 byte_t data_1b = *(this_command_ptr++);
@@ -465,7 +465,7 @@ namespace wo
                         tmpos << "reg(" << (uint32_t)data_1b << ")";
 
                 }
-                };
+            };
             auto print_global_static = [&]() {
                 //const global 4byte
                 uint32_t data_4b = *(uint32_t*)((this_command_ptr += 4) - 4);
@@ -484,25 +484,25 @@ namespace wo
                         tmpos << wo_cast_string(reinterpret_cast<wo_value>(&constant_value));
                         break;
                     }
-                    tmpos
+                    tmpos 
                         << ": "
                         << wo_type_name((wo_type_t)constant_value.type);
                 }
                 else
                     tmpos << "g[" << data_4b - env->constant_value_count << "]";
-                };
+            };
             auto print_opnum1 = [&]() {
                 if (main_command & (byte_t)0b00000010)
                     print_reg_bpoffset();
                 else
                     print_global_static();
-                };
+            };
             auto print_opnum2 = [&]() {
                 if (main_command & (byte_t)0b00000001)
                     print_reg_bpoffset();
                 else
                     print_global_static();
-                };
+            };
 
 #undef WO_SIGNED_SHIFT
             switch (main_command & (byte_t)0b11111100)
@@ -845,61 +845,61 @@ namespace wo
 
         std::vector<callstack_info> result;
         auto generate_callstack_info_with_ip = [this, need_offset](const wo::byte_t* rip, bool is_extern_func)
+        {
+            const program_debug_data_info::location* src_location_info = nullptr;
+            std::string function_signature;
+            std::string file_path;
+            size_t row_number = 0;
+            size_t col_number = 0;
+
+            if (is_extern_func)
             {
-                const program_debug_data_info::location* src_location_info = nullptr;
-                std::string function_signature;
-                std::string file_path;
-                size_t row_number = 0;
-                size_t col_number = 0;
+                auto fnd = env->extern_native_functions.find((intptr_t)rip);
 
-                if (is_extern_func)
+                if (fnd != env->extern_native_functions.end())
                 {
-                    auto fnd = env->extern_native_functions.find((intptr_t)rip);
-
-                    if (fnd != env->extern_native_functions.end())
-                    {
-                        function_signature = fnd->second.function_name;
-                        file_path = fnd->second.library_name.value_or("<builtin>");
-                    }
-                    else
-                    {
-                        char rip_str[sizeof(rip) * 2 + 4];
-                        sprintf(rip_str, "0x%p>", rip);
-
-                        function_signature = std::string("<unknown extern function ") + rip_str;
-                        file_path = "<unknown library>";
-                    }
+                    function_signature = fnd->second.function_name;
+                    file_path = fnd->second.library_name.value_or("<builtin>");
                 }
                 else
                 {
-                    if (env->program_debug_info != nullptr)
-                    {
-                        src_location_info = &env->program_debug_info
-                            ->get_src_location_by_runtime_ip(rip - (need_offset ? 1 : 0));
-                        function_signature = env->program_debug_info
-                            ->get_current_func_signature_by_runtime_ip(rip - (need_offset ? 1 : 0));
+                    char rip_str[sizeof(rip) * 2 + 4];
+                    sprintf(rip_str, "0x%p>", rip);
 
-                        file_path = src_location_info->source_file;
-                        row_number = src_location_info->begin_row_no;
-                        col_number = src_location_info->begin_col_no;
-                    }
-                    else
-                    {
-                        char rip_str[sizeof(rip) * 2 + 4];
-                        sprintf(rip_str, "0x%p>", rip);
-
-                        function_signature = std::string("<unknown function ") + rip_str;
-                        file_path = "<unknown file>";
-                    }
+                    function_signature = std::string("<unknown extern function ") + rip_str;
+                    file_path = "<unknown library>";
                 }
-                return callstack_info{
-                    function_signature,
-                    file_path,
-                    row_number,
-                    col_number,
-                    is_extern_func,
-                };
+            }
+            else
+            {
+                if (env->program_debug_info != nullptr)
+                {
+                    src_location_info = &env->program_debug_info
+                        ->get_src_location_by_runtime_ip(rip - (need_offset ? 1 : 0));
+                    function_signature = env->program_debug_info
+                        ->get_current_func_signature_by_runtime_ip(rip - (need_offset ? 1 : 0));
+
+                    file_path = src_location_info->source_file;
+                    row_number = src_location_info->begin_row_no;
+                    col_number = src_location_info->begin_col_no;
+                }
+                else
+                {
+                    char rip_str[sizeof(rip) * 2 + 4];
+                    sprintf(rip_str, "0x%p>", rip);
+
+                    function_signature = std::string("<unknown function ") + rip_str;
+                    file_path = "<unknown file>";
+                }
+            }
+            return callstack_info{
+                function_signature,
+                file_path,
+                row_number,
+                col_number,
+                is_extern_func,
             };
+        };
 
         result.push_back(generate_callstack_info_with_ip(ip, ip < env->rt_codes || ip >= env->rt_codes + env->rt_code_len));
         value* base_callstackinfo_ptr = (bp + 1);
@@ -1460,7 +1460,7 @@ namespace wo
     value* vmbase::make_union_impl(value* opnum1, value* opnum2, uint16_t id) noexcept
     {
         auto* union_struct =
-            structure_t::gc_new<gcbase::gctype::young>(2);
+            struct_t::gc_new<gcbase::gctype::young>(2);
 
         union_struct->m_values[0].set_integer((wo_integer_t)id);
         union_struct->m_values[1].set_val(opnum2);
@@ -1507,7 +1507,7 @@ namespace wo
         for (size_t i = 0; i < (size_t)size; i++)
         {
             auto* arr_val = ++rt_sp;
-            maked_array->data()[size - i - 1].set_val(arr_val);
+            maked_array->at(size - i - 1).set_val(arr_val);
         }
         opnum1->set_gcunit<value::valuetype::array_type>(maked_array);
         return rt_sp;
@@ -1515,7 +1515,7 @@ namespace wo
     value* vmbase::make_map_impl(value* opnum1, uint16_t size, value* rt_sp) noexcept
     {
         auto* maked_dict =
-            directory_t::gc_new<gcbase::gctype::young>((size_t)size);
+            dict_t::gc_new<gcbase::gctype::young>((size_t)size);
 
         for (size_t i = 0; i < (size_t)size; i++)
         {
@@ -1529,7 +1529,7 @@ namespace wo
     value* vmbase::make_struct_impl(value* opnum1, uint16_t size, value* rt_sp) noexcept
     {
         auto* maked_struct =
-            structure_t::gc_new<gcbase::gctype::young>(size);
+            struct_t::gc_new<gcbase::gctype::young>(size);
 
         for (size_t i = 0; i < size; i++)
             maked_struct->m_values[size - i - 1].set_val(++rt_sp);
@@ -1566,7 +1566,7 @@ namespace wo
     {
         if (opnum1->type == value::valuetype::struct_type)
         {
-            auto* arg_tuple = opnum1->structure;
+            auto* arg_tuple = opnum1->structs;
             gcbase::gc_read_guard gwg1(arg_tuple);
             if (unpack_argc > 0)
             {
@@ -2373,13 +2373,13 @@ namespace wo
 
                 WO_VM_ASSERT(opnum2->type == value::valuetype::struct_type,
                     "Cannot index non-struct value in 'idstruct'.");
-                WO_VM_ASSERT(opnum2->structure != nullptr,
+                WO_VM_ASSERT(opnum2->structs != nullptr,
                     "Unable to index null in 'idstruct'.");
-                WO_VM_ASSERT(offset < opnum2->structure->m_count,
+                WO_VM_ASSERT(offset < opnum2->structs->m_count,
                     "Index out of range in 'idstruct'.");
 
-                gcbase::gc_read_guard gwg1(opnum2->structure);
-                opnum1->set_val(opnum2->structure->m_values + offset);
+                gcbase::gc_read_guard gwg1(opnum2->structs);
+                opnum1->set_val(&opnum2->structs->m_values[offset]);
 
                 break;
             }
@@ -2441,8 +2441,9 @@ namespace wo
                     WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Index out of range.");
                 }
                 else
-                    rt_cr->set_val(opnum1->array->data() + index);
-
+                {
+                    rt_cr->set_val(&opnum1->array->at(index));
+                }
                 break;
             }
             case WO_RSG_ADDRESSING_CASE(iddict):
@@ -2450,16 +2451,16 @@ namespace wo
                 WO_VM_ASSERT(nullptr != opnum1->gcunit,
                     "Unable to index null in 'iddict'.");
                 WO_VM_ASSERT(opnum1->type == value::valuetype::dict_type,
-                    "Unable to index non-directory value in 'iddict'.");
+                    "Unable to index non-dict value in 'iddict'.");
 
                 gcbase::gc_read_guard gwg1(opnum1->gcunit);
 
-                auto fnd = opnum1->directory->find(*opnum2);
-                if (fnd == opnum1->directory->end())
-                    WO_VM_FAIL(WO_FAIL_INDEX_FAIL,
-                        "No such key in current directory.");
+                auto fnd = opnum1->dict->find(*opnum2);
+                if (fnd != opnum1->dict->end())
+                    rt_cr->set_val(&fnd->second);
                 else
-                    rt_cr->set_val(&fnd->second);                  
+                    WO_VM_FAIL(WO_FAIL_INDEX_FAIL,
+                        "No such key in current dict.");
 
                 break;
             }
@@ -2473,7 +2474,7 @@ namespace wo
 
                     gcbase::gc_modify_write_guard gwg1(opnum1->gcunit);
 
-                    auto* result = &(*opnum1->directory)[*opnum2];
+                    auto* result = &(*opnum1->dict)[*opnum2];
                     if (wo::gc::gc_is_marking())
                         wo::gcbase::write_barrier(result);
                     result->set_val(opnum3);
@@ -2486,14 +2487,12 @@ namespace wo
                     WO_VM_ASSERT(nullptr != opnum1->gcunit,
                         "Unable to index null in 'siddict'.");
                     WO_VM_ASSERT(opnum1->type == value::valuetype::dict_type,
-                        "Unable to index non-directory value in 'siddict'.");
+                        "Unable to index non-dict value in 'siddict'.");
 
                     gcbase::gc_write_guard gwg1(opnum1->gcunit);
 
-                    auto fnd = opnum1->directory->find(*opnum2);
-                    if (fnd == opnum1->directory->end())
-                        WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "No such key in current dict.");
-                    else
+                    auto fnd = opnum1->dict->find(*opnum2);
+                    if (fnd != opnum1->dict->end())
                     {
                         auto* result = &fnd->second;
                         if (wo::gc::gc_is_marking())
@@ -2501,6 +2500,8 @@ namespace wo
                         result->set_val(opnum3);
                         break;
                     }
+                    else
+                        WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "No such key in current dict.");
 
                     break;
                 }
@@ -2518,31 +2519,32 @@ namespace wo
 
                     size_t index = (size_t)opnum2->integer;
                     if (index >= opnum1->array->size())
+                    {
                         WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Index out of range.");
+                    }
                     else
                     {
-                        auto* result = opnum1->array->data() + index;
+                        auto* result = &opnum1->array->at(index);
                         if (wo::gc::gc_is_marking())
                             wo::gcbase::write_barrier(result);
                         result->set_val(opnum3);
                     }
-
                     break;
                 }
             case WO_RSG_ADDRESSING_CASE(sidstruct):
             {
                 const uint16_t offset = WO_IPVAL_MOVE_2;
 
-                WO_VM_ASSERT(nullptr != opnum1->structure,
+                WO_VM_ASSERT(nullptr != opnum1->structs,
                     "Unable to index null in 'sidstruct'.");
                 WO_VM_ASSERT(opnum1->type == value::valuetype::struct_type,
                     "Unable to index non-struct value in 'sidstruct'.");
-                WO_VM_ASSERT(offset < opnum1->structure->m_count,
+                WO_VM_ASSERT(offset < opnum1->structs->m_count,
                     "Index out of range in 'sidstruct'.");
 
                 gcbase::gc_write_guard gwg1(opnum1->gcunit);
 
-                auto* result = opnum1->structure->m_values + offset;
+                auto* result = &opnum1->structs->m_values[offset];
                 if (wo::gc::gc_is_marking())
                     wo::gcbase::write_barrier(result);
                 result->set_val(opnum2);
@@ -2618,7 +2620,7 @@ namespace wo
                     WO_ADDRESSING_G1;
                     goto _label_ext0_panic_impl;
                 case instruct::extern_opcode_page_0::panics:
-                    WO_ADDRESSING_RS1;
+                    WO_ADDRESSING_RS1; // data
                 _label_ext0_panic_impl:
                     ip = rt_ip;
                     wo_fail(WO_FAIL_UNEXPECTED,

@@ -1,5 +1,8 @@
 #pragma once
-#include "wo.h"
+#ifndef WO_IMPL
+#       define WO_IMPL
+#       include "wo.h"
+#endif
 #include "wo_assert.hpp"
 #include "wo_os_api.hpp"
 #include "wo_shared_ptr.hpp"

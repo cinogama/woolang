@@ -1,5 +1,6 @@
 #pragma once
 
+#define WO_IMPL
 #include "wo.h"
 
 #include "wo_gc.hpp"
@@ -33,6 +34,10 @@ namespace wo
     using byte_t = uint8_t;
     using hash_t = uint64_t;
 
+    using string_t = gcunit<std::string>;
+    using dict_t = gcunit<std::unordered_map<value, value, value_hasher, value_equal>>;
+    using array_t = gcunit<std::vector<value>>;
+
     template<typename ... TS>
     using cxx_vec_t = std::vector<TS...>;
     template<typename ... TS>
@@ -40,22 +45,20 @@ namespace wo
     template<typename ... TS>
     using cxx_map_t = std::map<TS...>;
 
-    using string_base_t = std::string;
-    using directory_base_t = std::unordered_map<value, value, value_hasher, value_equal>;
-    using array_base_t = std::vector<value>;
-    struct gchandle_base_t;
-    struct closure_base_t;
-    struct structure_base_t;
+    struct gc_handle_base_t;
+    struct closure_function;
+    struct struct_values;
 
-    using string_t = gcunit<string_base_t>;
-    using directory_t = gcunit<directory_base_t>;
-    using array_t = gcunit<array_base_t>;
-    using gchandle_t = gcunit<gchandle_base_t>;
-    using closure_t = gcunit<closure_base_t>;
-    using structure_t = gcunit<structure_base_t>;
+    using gchandle_t = gcunit<gc_handle_base_t>;
+    using closure_t = gcunit<closure_function>;
+    using struct_t = gcunit<struct_values>;
 
     struct value
     {
+        //  value
+        /*
+        *
+        */
         enum valuetype : uint8_t
         {
             invalid = WO_INVALID_TYPE,
@@ -94,10 +97,10 @@ namespace wo
             gcbase* gcunit;
             string_t* string;     // ADD-ABLE TYPE
             array_t* array;
-            directory_t* directory;
+            dict_t* dict;
             gchandle_t* gchandle;
             closure_t* closure;
-            structure_t* structure;
+            struct_t* structs;
 
             callstack_t vmcallstack;
             const byte_t* native_function_addr;
@@ -112,21 +115,20 @@ namespace wo
         };
 
         value* set_takeplace();
-
-        void set_string(const std::string& str);
-        void set_buffer(const void* buf, size_t sz);
-        void set_string_nogc(std::string_view str);
-        void set_struct_nogc(uint16_t sz);
-        void set_val_with_compile_time_check(const value* val);
-        void set_integer(wo_integer_t val);
-        void set_real(wo_real_t val);
-        void set_handle(wo_handle_t val);
-        void set_nil();
-        void set_bool(bool val);
-        void set_native_callstack(const wo::byte_t* ipplace);
-        void set_callstack(uint32_t ip, uint32_t bp);
+        value* set_string(const std::string& str);
+        value* set_buffer(const void* buf, size_t sz);
+        value* set_string_nogc(std::string_view str);
+        value* set_struct_nogc(uint16_t sz);
+        value* set_val_with_compile_time_check(const value* val);
+        value* set_integer(wo_integer_t val);
+        value* set_real(wo_real_t val);
+        value* set_handle(wo_handle_t val);
+        value* set_nil();
+        value* set_bool(bool val);
+        value* set_native_callstack(const wo::byte_t* ipplace);
+        value* set_callstack(uint32_t ip, uint32_t bp);
         template<valuetype ty, typename T>
-        void set_gcunit(T* unit)
+        value* set_gcunit(T* unit)
         {
             static_assert(ty & valuetype::need_gc_flag);
 
@@ -139,13 +141,15 @@ namespace wo
             else if constexpr (ty == valuetype::array_type)
                 array = unit;
             else if constexpr (ty == valuetype::dict_type)
-                directory = unit;
+                dict = unit;
             else if constexpr (ty == valuetype::gchandle_type)
                 gchandle = unit;
             else if constexpr (ty == valuetype::closure_type)
                 closure = unit;
             else if constexpr (ty == valuetype::struct_type)
-                structure = unit;
+                structs = unit;
+
+            return this;
         }
 
         // ATTENTION: Only work for gc-work-thread & no_gc unit. gc-unit might be freed
@@ -156,9 +160,9 @@ namespace wo
         //          after get_gcunit_and_attrib_ref.
         gcbase::unit_attrib* fast_get_attrib_for_assert_check() const;
         bool is_gcunit() const;
-        void set_val(const value* _val);
+        value* set_val(const value* _val);
         std::string get_type_name() const;
-        void set_dup(value* from);
+        value* set_dup(value* from);
 
         // Used for storing key-value when deserilizing a map.
         static const value TAKEPLACE;
@@ -171,24 +175,23 @@ namespace wo
     static_assert(sizeof(std::atomic<byte_t>) == sizeof(byte_t));
     static_assert(std::atomic<byte_t>::is_always_lock_free);
     static_assert(std::is_standard_layout_v<value>);
-    static_assert(value::valuetype::invalid == 0);
 
     using wo_extern_native_func_t = wo_native_func_t;
 
-    struct structure_base_t
+    struct struct_values
     {
         value* m_values;
         const uint16_t m_count;
 
-        structure_base_t(const structure_base_t&) = delete;
-        structure_base_t(structure_base_t&&) = delete;
-        structure_base_t& operator=(const structure_base_t&) = delete;
-        structure_base_t& operator=(structure_base_t&&) = delete;
+        struct_values(const struct_values&) = delete;
+        struct_values(struct_values&&) = delete;
+        struct_values& operator=(const struct_values&) = delete;
+        struct_values& operator=(struct_values&&) = delete;
 
-        structure_base_t(uint16_t sz) noexcept;
-        ~structure_base_t();
+        struct_values(uint16_t sz) noexcept;
+        ~struct_values();
     };
-    struct closure_base_t
+    struct closure_function
     {
         bool m_native_call;
         const uint16_t m_closure_args_count;
@@ -199,16 +202,16 @@ namespace wo
         };
         value* m_closure_args;
 
-        closure_base_t(const closure_base_t&) = delete;
-        closure_base_t(closure_base_t&&) = delete;
-        closure_base_t& operator=(const closure_base_t&) = delete;
-        closure_base_t& operator=(closure_base_t&&) = delete;
+        closure_function(const closure_function&) = delete;
+        closure_function(closure_function&&) = delete;
+        closure_function& operator=(const closure_function&) = delete;
+        closure_function& operator=(closure_function&&) = delete;
 
-        closure_base_t(wo_integer_t vmfunc, uint16_t argc) noexcept;
-        closure_base_t(wo_native_func_t nfunc, uint16_t argc) noexcept;
-        ~closure_base_t();
+        closure_function(wo_integer_t vmfunc, uint16_t argc) noexcept;
+        closure_function(wo_native_func_t nfunc, uint16_t argc) noexcept;
+        ~closure_function();
     };
-    struct gchandle_base_t
+    struct gc_handle_base_t
     {
         using destructor_func_t = wo_gchandle_close_func_t;
         using gcmark_func_t = wo_gcstruct_mark_func_t;
@@ -240,6 +243,6 @@ namespace wo
         void do_custom_mark(wo_gc_work_context_t ctx);
         void dec_destructable_instance_count();
 
-        ~gchandle_base_t();
+        ~gc_handle_base_t();
     };
 }

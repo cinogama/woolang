@@ -1060,23 +1060,23 @@ WO_API wo_api rslib_std_map_swap(wo_vm vm, wo_value args)
     wo::value* map1 = std::launder(reinterpret_cast<wo::value*>(args + 0));
     wo::value* map2 = std::launder(reinterpret_cast<wo::value*>(args + 1));
 
-    std::scoped_lock ssg1(map1->directory->gc_read_write_mx, map2->directory->gc_read_write_mx);
+    std::scoped_lock ssg1(map1->dict->gc_read_write_mx, map2->dict->gc_read_write_mx);
 
     if (wo::gc::gc_is_marking())
     {
-        for (auto& [key, elem] : *map1->directory)
+        for (auto& [key, elem] : *map1->dict)
         {
             wo::gcbase::write_barrier(&key);
             wo::gcbase::write_barrier(&elem);
         }
-        for (auto& [key, elem] : *map2->directory)
+        for (auto& [key, elem] : *map2->dict)
         {
             wo::gcbase::write_barrier(&key);
             wo::gcbase::write_barrier(&elem);
         }
     }
 
-    map1->directory->swap(*map2->directory);
+    map1->dict->swap(*map2->dict);
 
     return wo_ret_void(vm);
 }
@@ -1086,8 +1086,8 @@ WO_API wo_api rslib_std_map_copy(wo_vm vm, wo_value args)
     wo::value* map1 = std::launder(reinterpret_cast<wo::value*>(args + 0));
     wo::value* map2 = std::launder(reinterpret_cast<wo::value*>(args + 1));
 
-    std::scoped_lock ssg1(map1->directory->gc_read_write_mx, map2->directory->gc_read_write_mx);
-    *map1->directory->elem() = *map2->directory->elem();
+    std::scoped_lock ssg1(map1->dict->gc_read_write_mx, map2->dict->gc_read_write_mx);
+    *map1->dict->elem() = *map2->dict->elem();
 
     return wo_ret_void(vm);
 }
@@ -1111,7 +1111,7 @@ WO_API wo_api rslib_std_map_clear(wo_vm vm, wo_value args)
 
 struct map_iter
 {
-    using mapping_iter_t = decltype(std::declval<wo::directory_t>().begin());
+    using mapping_iter_t = decltype(std::declval<wo::dict_t>().begin());
 
     mapping_iter_t iter;
     mapping_iter_t end_place;
@@ -1122,7 +1122,7 @@ WO_API wo_api rslib_std_map_iter(wo_vm vm, wo_value args)
     wo::value* mapp = std::launder(reinterpret_cast<wo::value*>(args));
 
     return wo_ret_gchandle(vm,
-        new map_iter{ mapp->directory->begin(), mapp->directory->end() },
+        new map_iter{ mapp->dict->begin(), mapp->dict->end() },
         args + 0,
         [](void* array_iter_t_ptr)
         {
