@@ -507,15 +507,8 @@ namespace wo
 #undef WO_SIGNED_SHIFT
             switch (main_command & (byte_t)0b11111100)
             {
-            case instruct::nop:
-                tmpos << "nop\t";
-
-                this_command_ptr += main_command & (byte_t)0b00000011;
-
-                break;
             case instruct::mov:
                 tmpos << "mov\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-
             case instruct::addi:
                 tmpos << "addi\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
             case instruct::subi:
@@ -526,7 +519,6 @@ namespace wo
                 tmpos << "divi\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
             case instruct::modi:
                 tmpos << "modi\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-
             case instruct::addr:
                 tmpos << "addr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
             case instruct::subr:
@@ -537,12 +529,10 @@ namespace wo
                 tmpos << "divr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
             case instruct::modr:
                 tmpos << "modr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-
             case instruct::addh:
                 tmpos << "addh\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
             case instruct::subh:
                 tmpos << "subh\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-
             case instruct::adds:
                 tmpos << "adds\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
 
@@ -668,10 +658,21 @@ namespace wo
 
                 break;
             case instruct::abrt:
-                if (main_command & 0b10)
-                    tmpos << "end\t";
-                else
+                switch (main_command & 0b11)
+                {
+                case 0b00:
                     tmpos << "abrt\t";
+                    break;
+                case 0b01:
+                    tmpos << "nop\t";
+                    break;
+                case 0b10:
+                    tmpos << "end\t";
+                    break;
+                default:
+                    tmpos << "??\t";
+                    break;
+                }
                 break;
             case instruct::equb:
                 tmpos << "equb\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
@@ -2713,16 +2714,7 @@ namespace wo
             case instruct::opcode::ext3:
                 wo_error("Invalid extern instruct page.");
                 break;
-            case instruct::opcode::nop3:
-                ++rt_ip;
-                [[fallthrough]];
-            case instruct::opcode::nop2:
-                ++rt_ip;
-                [[fallthrough]];
-            case instruct::opcode::nop1:
-                ++rt_ip;
-                [[fallthrough]];
-            case instruct::opcode::nop0:
+            case instruct::opcode::nop:
                 break;
             case instruct::opcode::end:
                 // END.
@@ -2730,16 +2722,35 @@ namespace wo
             case instruct::opcode::abrt:
                 wo_error("executed 'abrt'.");
                 break;
+            case instruct::opcode::RESERVED_0:
+            case instruct::opcode::RESERVED_1:
+            case instruct::opcode::RESERVED_2:
+            case instruct::opcode::RESERVED_3:
+            case instruct::opcode::RESERVED_4:
+            case instruct::opcode::RESERVED_5:
+            case instruct::opcode::RESERVED_6:
+            case instruct::opcode::RESERVED_7:
+            case instruct::opcode::RESERVED_8:
+            case instruct::opcode::RESERVED_9:
+            case instruct::opcode::RESERVED_10:
+            case instruct::opcode::RESERVED_11:
+            case instruct::opcode::RESERVED_12:
+            case instruct::opcode::RESERVED_13:
+            case instruct::opcode::RESERVED_14:
+            case instruct::opcode::RESERVED_15:
+            case instruct::opcode::RESERVED_16:
+            case instruct::opcode::RESERVED_18:
+            case instruct::opcode::RESERVED_19:
+            case instruct::opcode::RESERVED_20:
+            case instruct::opcode::RESERVED_21:
+            case instruct::opcode::RESERVED_22:
+                wo_error("Unknown instruct.");
+                break;
             default:
             {
                 --rt_ip;    // Move back one command.
 
-                static_assert(std::is_same_v<decltype(rtopcode), uint32_t>);
-                if ((0xFFFFFF00u & rtopcode) == 0)
-                    wo_error("Unknown instruct.");
-
                 auto interrupt_state = vm_interrupt.load();
-
                 if (interrupt_state & vm_interrupt_type::GC_INTERRUPT)
                 {
                     gc_checkpoint();

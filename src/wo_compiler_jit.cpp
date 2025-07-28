@@ -93,7 +93,6 @@ namespace wo
         virtual void finish_compiler(CompileContextT* context) = 0;
         virtual void free_compiler(CompileContextT* context) = 0;
 #define IRS \
-WO_ASMJIT_IR_ITERFACE_DECL(nop)\
 WO_ASMJIT_IR_ITERFACE_DECL(mov)\
 WO_ASMJIT_IR_ITERFACE_DECL(addi)\
 WO_ASMJIT_IR_ITERFACE_DECL(subi)\
@@ -1257,10 +1256,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 #define WO_JIT_ADDRESSING_N3_REG_BPOFF auto opnum3 = get_opnum_ptr(ctx->c, rt_ip, true, ctx->_vmsbp, ctx->_vmreg, ctx->env)
 #define WO_JIT_NOT_SUPPORT do{ return false; }while(0)
 
-        virtual bool ir_nop(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
-        {
-            return true;
-        }
         virtual bool ir_mov(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
             WO_JIT_ADDRESSING_N1;
@@ -2419,15 +2414,26 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
         }
         virtual bool ir_abrt(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
-            if (dr & 0b10)
-                WO_JIT_NOT_SUPPORT;
-            else
+            switch (dr)
+            {
+            case 0b00:
             {
                 asmjit::InvokeNode* invoke_node;
                 wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_abrt,
                     asmjit::FuncSignatureT< void, const char*>()));
                 invoke_node->setArg(0, (intptr_t)"executed 'abrt'.");
+
+                break;
             }
+            case 0b01:
+                // NOP: Do nothing;
+                break;
+            case 0b10:
+            case 0b11:
+            default:
+                WO_JIT_NOT_SUPPORT;
+            }
+
             return true;
         }
         virtual bool ir_idarr(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override

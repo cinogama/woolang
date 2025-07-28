@@ -1291,21 +1291,19 @@ namespace wo
             WO_PUT_IR_TO_BUFFER(instruct::opcode::jnequb, WO_OPNUM(op1), WO_OPNUM(op2));
         }
 
-        void nop()
-        {
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::nop);
-        }
-
         void abrt()
         {
             WO_PUT_IR_TO_BUFFER(instruct::opcode::abrt);
         }
-
+        void nop()
+        {
+            WO_PUT_IR_TO_BUFFER(instruct::opcode::abrt, nullptr, nullptr, 0b01);
+        }
         void end()
         {
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::abrt, nullptr, nullptr, 1);
+            WO_PUT_IR_TO_BUFFER(instruct::opcode::abrt, nullptr, nullptr, 0b10);
         }
-
+        
         void tag(wo_pstring_t tagname)
         {
             tag_irbuffer_offset[ir_command_buffer.size()].push_back(tagname);

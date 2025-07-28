@@ -1961,9 +1961,6 @@ namespace wo
             {
                 switch (WO_IR.opcode)
                 {
-                case instruct::opcode::nop:
-                    generated_runtime_code_buf.push_back(WO_OPCODE(nop));
-                    break;
                 case instruct::opcode::mov:
                     generated_runtime_code_buf.push_back(WO_OPCODE(mov));
                     WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
@@ -2621,10 +2618,21 @@ namespace wo
 
                     break;
                 case instruct::opcode::abrt:
-                    if (WO_IR.opinteger1)
-                        generated_runtime_code_buf.push_back(WO_OPCODE(abrt, 10));
-                    else
+                    switch (WO_IR.opinteger1)
+                    {
+                    case 0b00:
                         generated_runtime_code_buf.push_back(WO_OPCODE(abrt, 00));
+                        break;
+                    case 0b01:
+                        generated_runtime_code_buf.push_back(WO_OPCODE(abrt, 01));
+                        break;
+                    case 0b10:
+                        generated_runtime_code_buf.push_back(WO_OPCODE(abrt, 10));
+                        break;
+                    default:
+                        wo_error("Unknown abrt dr.");
+                        break;
+                    }
                     break;
 
                 default:

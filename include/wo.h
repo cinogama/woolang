@@ -1271,8 +1271,6 @@ enum _wo_opcode
     /*
       CODE VAL     DR-OPNUM-FORMAT                      DESCRIPTION
     */
-    WO_NOP = 0, // DR: Byte count
-    // -- No OPNUM --                       Donothing, and skip next `DR`(0~3) byte codes.
     WO_MOV = 1, // DRH: Opnum1 desc, DRL: Opnum2 desc
     // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Move value from `OPNUM2` to `OPNUM1`.
     WO_PSH = 2, // DRH: Opnum1 desc, DRL: Mode
@@ -1520,11 +1518,12 @@ enum _wo_opcode
     // OPNUM1: IMM_U32                      Jump to the instruction at the address `OPNUM1` if register(cr)
     //                                      is false.
     WO_ABRT = 51,
-    // DRH: Mode flag, DRL: 0
+    // DR: Mode
     // -- No OPNUM --                       Abort the virtual machine.
-    //                                      * If DRH = 1, vm will return from runing.
-    //                                      * If DRH = 0, debug command, an wo_error will be raise and
+    //                                      * If DR = 0, debug command, an wo_error will be raise and
     //                                          the process will be aborted.
+    //                                      * If DR = 1, vm will return from runing.
+    //                                      * If DR = 2, Do nothing.
     WO_MKARR = 52,
     // DRH: Opnum1 desc, DRL: 0
     // OPNUM1: RS/GLB  OPNUM2: IMM_U16      Pop `OPNUM2` values from stack, Build an array.
