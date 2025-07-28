@@ -117,7 +117,7 @@ namespace wo
 #if WO_ENABLE_RUNTIME_CHECK
         size_t old_count =
 #endif
-            dec_destructable_instance_countp->fetch_add(1, std::memory_order::relaxed);
+            dec_destructable_instance_countp->fetch_add(1, std::memory_order::memory_order_relaxed);
         wo_assert(old_count >= 0);
 
         return dec_destructable_instance_countp;
@@ -164,20 +164,20 @@ namespace wo
     }
     bool vmbase::is_aborted() const noexcept
     {
-        return vm_interrupt.load(std::memory_order::acquire) & vm_interrupt_type::ABORT_INTERRUPT;
+        return vm_interrupt.load(std::memory_order::memory_order_acquire) & vm_interrupt_type::ABORT_INTERRUPT;
     }
     bool vmbase::interrupt(vm_interrupt_type type)noexcept
     {
-        return !(type & vm_interrupt.fetch_or(type, std::memory_order::acq_rel));
+        return !(type & vm_interrupt.fetch_or(type, std::memory_order::memory_order_acq_rel));
     }
     bool vmbase::clear_interrupt(vm_interrupt_type type)noexcept
     {
-        return type & vm_interrupt.fetch_and(~type, std::memory_order::acq_rel);
+        return type & vm_interrupt.fetch_and(~type, std::memory_order::memory_order_acq_rel);
     }
 
     bool vmbase::check_interrupt(vm_interrupt_type type)noexcept
     {
-        return 0 != (vm_interrupt.load(std::memory_order::acquire) & type);
+        return 0 != (vm_interrupt.load(std::memory_order::memory_order_acquire) & type);
     }
     vmbase::interrupt_wait_result vmbase::wait_interrupt(vm_interrupt_type type, bool force_wait)noexcept
     {
@@ -190,7 +190,7 @@ namespace wo
         int i = 0;
         do
         {
-            uint32_t vm_interrupt_mask = vm_interrupt.load(std::memory_order::acquire);
+            uint32_t vm_interrupt_mask = vm_interrupt.load(std::memory_order::memory_order_acquire);
 
             if (0 == (vm_interrupt_mask & type))
                 break;
@@ -229,7 +229,7 @@ namespace wo
     {
         using namespace std;
 
-        while (vm_interrupt.load(std::memory_order::acquire) & type)
+        while (vm_interrupt.load(std::memory_order::memory_order_acquire) & type)
             std::this_thread::sleep_for(10ms);
     }
 
@@ -1925,7 +1925,7 @@ namespace wo
                 if (auto* err = movcast_impl(
                     opnum1,
                     opnum2,
-                    static_cast<value::valuetype>(WO_IPVAL_MOVE_1))) [[unlikely]]
+                    static_cast<value::valuetype>(WO_IPVAL_MOVE_1)))
                     WO_VM_FAIL(WO_FAIL_TYPE_FAIL, err);
                 break;
             case instruct::opcode::typeasg:
@@ -1934,7 +1934,7 @@ namespace wo
             case instruct::opcode::typeass:
                 WO_ADDRESSING_RS1;
             _label_typeas_impl:
-                if (opnum1->type != static_cast<value::valuetype>(WO_IPVAL_MOVE_1)) [[unlikely]]
+                if (opnum1->type != static_cast<value::valuetype>(WO_IPVAL_MOVE_1))
                     WO_VM_FAIL(WO_FAIL_TYPE_FAIL,
                         "The given value is not the same as the requested type.");
                 break;
@@ -2435,7 +2435,7 @@ namespace wo
                 // ATTENTION: `_vmjitcall_idarr` HAS SAME LOGIC, NEED UPDATE SAME TIME.
                 const size_t index = static_cast<size_t>(opnum2->integer);
 
-                if (index >= opnum1->array->size()) [[unlikely]]
+                if (index >= opnum1->array->size())
                 {
                     rt_cr->set_nil();
                     WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Index out of range.");
@@ -2455,11 +2455,11 @@ namespace wo
                 gcbase::gc_read_guard gwg1(opnum1->gcunit);
 
                 auto fnd = opnum1->directory->find(*opnum2);
-                if (fnd == opnum1->directory->end()) [[unlikely]]
+                if (fnd == opnum1->directory->end())
                     WO_VM_FAIL(WO_FAIL_INDEX_FAIL,
                         "No such key in current directory.");
                 else
-                    rt_cr->set_val(&fnd->second);
+                    rt_cr->set_val(&fnd->second);                  
 
                 break;
             }
@@ -2491,7 +2491,7 @@ namespace wo
                     gcbase::gc_write_guard gwg1(opnum1->gcunit);
 
                     auto fnd = opnum1->directory->find(*opnum2);
-                    if (fnd == opnum1->directory->end()) [[unlikely]]
+                    if (fnd == opnum1->directory->end())
                         WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "No such key in current dict.");
                     else
                     {
@@ -2517,7 +2517,7 @@ namespace wo
                     gcbase::gc_write_guard gwg1(opnum1->gcunit);
 
                     size_t index = (size_t)opnum2->integer;
-                    if (index >= opnum1->array->size()) [[unlikely]]
+                    if (index >= opnum1->array->size())
                         WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Index out of range.");
                     else
                     {
@@ -2658,9 +2658,9 @@ namespace wo
                     WO_ADDRESSING_RS1;
                     WO_ADDRESSING_RS2;
                 _label_cdivilr_impl:
-                    if (opnum2->integer == 0) [[unlikely]]
+                    if (opnum2->integer == 0)
                         WO_VM_FAIL(WO_FAIL_UNEXPECTED, "The divisor cannot be 0.");
-                    else if (opnum2->integer == -1 && opnum1->integer == INT64_MIN) [[unlikely]]
+                    else if (opnum2->integer == -1 && opnum1->integer == INT64_MIN)
                         WO_VM_FAIL(WO_FAIL_UNEXPECTED, "Division overflow.");
                     break;
                 case instruct::extern_opcode_page_0::cdivilg:
@@ -2669,7 +2669,7 @@ namespace wo
                 case instruct::extern_opcode_page_0::cdivils:
                     WO_ADDRESSING_RS1;
                 _label_ext0_cdivil_impl:
-                    if (opnum1->integer == INT64_MIN) [[unlikely]]
+                    if (opnum1->integer == INT64_MIN)
                         WO_VM_FAIL(WO_FAIL_UNEXPECTED, "Division overflow.");
                     break;
                 case instruct::extern_opcode_page_0::cdivirzg:
@@ -2678,7 +2678,7 @@ namespace wo
                 case instruct::extern_opcode_page_0::cdivirzs:
                     WO_ADDRESSING_RS1;
                 _label_ext0_cdivirz_impl:
-                    if (opnum1->integer == 0) [[unlikely]]
+                    if (opnum1->integer == 0)
                         WO_VM_FAIL(WO_FAIL_UNEXPECTED, "The divisor cannot be 0.");
                     break;
                 case instruct::extern_opcode_page_0::cdivirg:
@@ -2687,9 +2687,9 @@ namespace wo
                 case instruct::extern_opcode_page_0::cdivirs:
                     WO_ADDRESSING_RS1;
                 _label_ext0_cdivir_impl:
-                    if (opnum1->integer == 0) [[unlikely]]
+                    if (opnum1->integer == 0)
                         WO_VM_FAIL(WO_FAIL_UNEXPECTED, "The divisor cannot be 0.");
-                    else if (opnum1->integer == -1) [[unlikely]]
+                    else if (opnum1->integer == -1)
                         WO_VM_FAIL(WO_FAIL_UNEXPECTED, "Division overflow.");
                     break;
                 case instruct::extern_opcode_page_0::popng:

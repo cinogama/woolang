@@ -258,7 +258,8 @@ namespace wo
         template<gcbase::gctype AllocType, typename ... ArgTs >
         static gcunit<T>* gc_new(ArgTs && ... args)
         {
-            (void)gc_new_releax_count.fetch_add(1, std::memory_order::relaxed);
+            (void)gc_new_releax_count.fetch_add(
+                1, std::memory_order::memory_order_relaxed);
 
             // TODO: Optimize this.
             gcbase::unit_attrib a;
