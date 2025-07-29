@@ -5,8 +5,8 @@ namespace wo
 {
     value* value::set_takeplace()
     {
-        type = valuetype::stack_externed_flag;
-        handle = 0;
+        m_type = valuetype::stack_externed_flag;
+        m_handle = 0;
         return this;
     }
     value* value::set_string(const std::string& str)
@@ -40,45 +40,45 @@ namespace wo
     }
     value* value::set_integer(wo_integer_t val)
     {
-        type = valuetype::integer_type;
-        integer = val;
+        m_type = valuetype::integer_type;
+        m_integer = val;
         return this;
     }
     value* value::set_real(wo_real_t val)
     {
-        type = valuetype::real_type;
-        real = val;
+        m_type = valuetype::real_type;
+        m_real = val;
         return this;
     }
     value* value::set_handle(wo_handle_t val)
     {
-        type = valuetype::handle_type;
-        handle = val;
+        m_type = valuetype::handle_type;
+        m_handle = val;
         return this;
     }
     value* value::set_nil()
     {
-        type = valuetype::invalid;
-        handle = 0;
+        m_type = valuetype::invalid;
+        m_handle = 0;
         return this;
     }
     value* value::set_bool(bool val)
     {
-        type = valuetype::bool_type;
-        integer = val ? 1 : 0;
+        m_type = valuetype::bool_type;
+        m_integer = val ? 1 : 0;
         return this;
     }
     value* value::set_native_callstack(const wo::byte_t* ipplace)
     {
-        type = valuetype::nativecallstack;
-        native_function_addr = ipplace;
+        m_type = valuetype::nativecallstack;
+        m_native_function_addr = ipplace;
         return this;
     }
     value* value::set_callstack(uint32_t ip, uint32_t bp)
     {
-        type = valuetype::callstack;
-        vmcallstack.ret_ip = ip;
-        vmcallstack.bp = bp;
+        m_type = valuetype::callstack;
+        m_vmcallstack.ret_ip = ip;
+        m_vmcallstack.bp = bp;
         return this;
     }
 
@@ -86,9 +86,9 @@ namespace wo
     //          after get_gcunit_and_attrib_ref.
     gcbase* value::get_gcunit_and_attrib_ref(gcbase::unit_attrib** attrib) const
     {
-        if (type & valuetype::need_gc_flag)
+        if (m_type & valuetype::need_gc_flag)
             return std::launder(reinterpret_cast<gcbase*>(
-                womem_verify(gcunit, std::launder(reinterpret_cast<womem_attrib_t**>(attrib)))));
+                womem_verify(m_gcunit, std::launder(reinterpret_cast<womem_attrib_t**>(attrib)))));
         return nullptr;
     }
 
@@ -103,18 +103,18 @@ namespace wo
     }
     bool value::is_gcunit() const
     {
-        return type & valuetype::need_gc_flag;
+        return m_type & valuetype::need_gc_flag;
     }
     value* value::set_val(const value* _val)
     {
-        type = _val->type;
-        handle = _val->handle;
+        m_type = _val->m_type;
+        m_value_field = _val->m_value_field;
         return this;
     }
 
     std::string value::get_type_name() const
     {
-        switch (type)
+        switch (m_type)
         {
         case valuetype::integer_type:
             return "int";
@@ -138,9 +138,9 @@ namespace wo
 
     value* value::set_dup(value* from)
     {
-        if (from->type == valuetype::array_type)
+        if (from->m_type == valuetype::array_type)
         {
-            auto* dup_arrray = from->array;
+            auto* dup_arrray = from->m_array;
             wo_assert(dup_arrray != nullptr);
 
             gcbase::gc_read_guard g1(dup_arrray);
@@ -149,24 +149,24 @@ namespace wo
                 array_t::gc_new<gcbase::gctype::young>(
                     *dup_arrray));
         }
-        else if (from->type == valuetype::dict_type)
+        else if (from->m_type == valuetype::dict_type)
         {
-            auto* dup_mapping = from->dict;
+            auto* dup_mapping = from->m_dictionary;
             wo_assert(dup_mapping != nullptr);
 
             gcbase::gc_read_guard g1(dup_mapping);
 
             set_gcunit<valuetype::dict_type>(
-                dict_t::gc_new<gcbase::gctype::young>(
+                dictionary_t::gc_new<gcbase::gctype::young>(
                     *dup_mapping));
         }
-        else if (from->type == valuetype::struct_type)
+        else if (from->m_type == valuetype::struct_type)
         {
-            auto* dup_struct = from->structs;
+            auto* dup_struct = from->m_structure;
             wo_assert(dup_struct != nullptr);
 
             auto* maked_struct =
-                struct_t::gc_new<gcbase::gctype::young>(
+                structure_t::gc_new<gcbase::gctype::young>(
                     dup_struct->m_count);
 
             gcbase::gc_read_guard g1(dup_struct);
@@ -185,72 +185,72 @@ namespace wo
     {
         // You must reset the no-gc flag manually.
         set_gcunit<wo::value::valuetype::struct_type>(
-            struct_t::gc_new<gcbase::gctype::no_gc>(sz));
+            structure_t::gc_new<gcbase::gctype::no_gc>(sz));
         return this;
     }
 
     bool value_ptr_compare::operator()(const value* lhs, const value* rhs) const
     {
-        if (lhs->type == rhs->type)
+        if (lhs->m_type == rhs->m_type)
         {
-            if (lhs->type == value::valuetype::string_type)
-                return *lhs->string < *rhs->string;
+            if (lhs->m_type == value::valuetype::string_type)
+                return *lhs->m_string < *rhs->m_string;
 
-            return lhs->handle < rhs->handle;
+            return lhs->m_handle < rhs->m_handle;
         }
-        return lhs->type < rhs->type;
+        return lhs->m_type < rhs->m_type;
     }
     bool value_equal::operator()(const value& lhs, const value& rhs) const
     {
-        if (lhs.type == rhs.type)
+        if (lhs.m_type == rhs.m_type)
         {
-            if (lhs.type == value::valuetype::string_type)
-                return *lhs.string == *rhs.string;
+            if (lhs.m_type == value::valuetype::string_type)
+                return *lhs.m_string == *rhs.m_string;
 
-            return lhs.handle == rhs.handle;
+            return lhs.m_handle == rhs.m_handle;
         }
-        return lhs.type == rhs.type && lhs.handle == rhs.handle;
+        return lhs.m_type == rhs.m_type && lhs.m_handle == rhs.m_handle;
     }
     size_t value_hasher::operator()(const value& val) const
     {
-        if (val.type == value::valuetype::string_type)
-            return std::hash<std::string>()(*val.string);
+        if (val.m_type == value::valuetype::string_type)
+            return std::hash<std::string>()(*val.m_string);
 
-        return (size_t)val.handle;
+        return (size_t)val.m_handle;
     }
 
-    struct_values::struct_values(uint16_t sz) noexcept
+    structure_base_t::structure_base_t(uint16_t sz) noexcept
         : m_count(sz)
     {
         m_values = (value*)malloc(sz * sizeof(value));
     }
-    struct_values::~struct_values()
+    structure_base_t::~structure_base_t()
     {
         wo_assert(m_values);
         free(m_values);
     }
 
-    closure_function::closure_function(wo_integer_t vmfunc, uint16_t argc) noexcept
+    closure_bast_t::closure_bast_t(wo_integer_t vmfunc, uint16_t argc) noexcept
         : m_native_call(false)
         , m_vm_func(vmfunc)
         , m_closure_args_count(argc)
     {
         m_closure_args = (value*)malloc(argc * sizeof(value));
     }
-    closure_function::closure_function(wo_native_func_t nfunc, uint16_t argc) noexcept
+    closure_bast_t::closure_bast_t(wo_native_func_t nfunc, uint16_t argc) noexcept
         : m_native_call(true)
         , m_native_func(nfunc)
         , m_closure_args_count(argc)
     {
         m_closure_args = (value*)malloc(argc * sizeof(value));
     }
-    closure_function::~closure_function()
+    closure_bast_t::~closure_bast_t()
     {
         wo_assert(m_closure_args);
         free(m_closure_args);
     }
 
-    void gc_handle_base_t::set_custom_mark_callback(gcmark_func_t callback)
+    void gchandle_base_t::set_custom_mark_callback(gcmark_func_t callback)
     {
         static_assert(sizeof(intptr_t) >= sizeof(gcmark_func_t));
 
@@ -261,7 +261,7 @@ namespace wo
         m_custom_marker.m_marker31 = reinterpret_cast<intptr_t>(callback);
 #endif
     }
-    void gc_handle_base_t::set_custom_mark_unit(gcbase* unit_may_null)
+    void gchandle_base_t::set_custom_mark_unit(gcbase* unit_may_null)
     {
         static_assert(sizeof(intptr_t) >= sizeof(gcbase*));
 
@@ -272,12 +272,12 @@ namespace wo
         m_custom_marker.m_marker31 = reinterpret_cast<intptr_t>(unit_may_null);
 #endif
 }
-    gc_handle_base_t::~gc_handle_base_t()
+    gchandle_base_t::~gchandle_base_t()
     {
         do_close();
     }
 
-    void gc_handle_base_t::dec_destructable_instance_count()
+    void gchandle_base_t::dec_destructable_instance_count()
     {
         wo_assert(m_hold_counter != nullptr);
 #if WO_ENABLE_RUNTIME_CHECK

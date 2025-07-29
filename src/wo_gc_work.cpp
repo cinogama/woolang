@@ -105,7 +105,7 @@ namespace wo
             weak_ref->m_spin.clear();
             weak_ref->m_alive = true;
 
-            if (val->type >= wo::value::valuetype::need_gc_flag)
+            if (val->m_type >= wo::value::valuetype::need_gc_flag)
             {
                 std::lock_guard g1(_weak_ref_list_mx);
                 _weak_ref_record_list.insert(weak_ref);
@@ -116,7 +116,7 @@ namespace wo
         {
             auto* wref = std::launder(reinterpret_cast<_wo_weak_ref*>(weak_ref));
 
-            if (wref->m_weak_value_record.type >= wo::value::valuetype::need_gc_flag)
+            if (wref->m_weak_value_record.m_type >= wo::value::valuetype::need_gc_flag)
             {
                 std::lock_guard g1(_weak_ref_list_mx);
                 _weak_ref_record_list.erase(wref);
@@ -257,7 +257,7 @@ namespace wo
                         gc_mark_unit_as_gray(worklist, gcunit_addr, attr);
                 }
             }
-            else if (dict_t* wo_map = dynamic_cast<dict_t*>(unit))
+            else if (dictionary_t* wo_map = dynamic_cast<dictionary_t*>(unit))
             {
                 for (auto& [key, val] : *wo_map)
                 {
@@ -278,7 +278,7 @@ namespace wo
                     if (gcbase* gcunit_addr = wo_closure->m_closure_args[i].get_gcunit_and_attrib_ref(&attr))
                         gc_mark_unit_as_gray(worklist, gcunit_addr, attr);
             }
-            else if (struct_t* wo_struct = dynamic_cast<struct_t*>(unit))
+            else if (structure_t* wo_struct = dynamic_cast<structure_t*>(unit))
             {
                 for (uint16_t i = 0; i < wo_struct->m_count; ++i)
                     if (gcbase* gcunit_addr = wo_struct->m_values[i].get_gcunit_and_attrib_ref(&attr))
@@ -1052,7 +1052,7 @@ namespace wo
         }
     }
 
-    bool gc_handle_base_t::do_close()
+    bool gchandle_base_t::do_close()
     {
         if (m_holding_handle != nullptr)
         {
@@ -1067,7 +1067,7 @@ namespace wo
         }
         return false;
     }
-    void gc_handle_base_t::do_custom_mark(wo_gc_work_context_t context)
+    void gchandle_base_t::do_custom_mark(wo_gc_work_context_t context)
     {
         if (m_holding_handle == nullptr)
             // Handle has been closed.

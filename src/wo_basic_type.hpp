@@ -34,10 +34,6 @@ namespace wo
     using byte_t = uint8_t;
     using hash_t = uint64_t;
 
-    using string_t = gcunit<std::string>;
-    using dict_t = gcunit<std::unordered_map<value, value, value_hasher, value_equal>>;
-    using array_t = gcunit<std::vector<value>>;
-
     template<typename ... TS>
     using cxx_vec_t = std::vector<TS...>;
     template<typename ... TS>
@@ -45,13 +41,16 @@ namespace wo
     template<typename ... TS>
     using cxx_map_t = std::map<TS...>;
 
-    struct gc_handle_base_t;
-    struct closure_function;
-    struct struct_values;
+    struct gchandle_base_t;
+    struct closure_bast_t;
+    struct structure_base_t;
 
-    using gchandle_t = gcunit<gc_handle_base_t>;
-    using closure_t = gcunit<closure_function>;
-    using struct_t = gcunit<struct_values>;
+    using string_t = gcunit<std::string>;
+    using dictionary_t = gcunit<std::unordered_map<value, value, value_hasher, value_equal>>;
+    using array_t = gcunit<std::vector<value>>;
+    using gchandle_t = gcunit<gchandle_base_t>;
+    using closure_t = gcunit<closure_bast_t>;
+    using structure_t = gcunit<structure_base_t>;
 
     struct value
     {
@@ -90,28 +89,26 @@ namespace wo
 
         union
         {
-            wo_real_t      real;
-            wo_integer_t   integer;
-            wo_handle_t    handle;
+            wo_real_t      m_real;
+            wo_integer_t   m_integer;
+            wo_handle_t    m_handle;
 
-            gcbase* gcunit;
-            string_t* string;     // ADD-ABLE TYPE
-            array_t* array;
-            dict_t* dict;
-            gchandle_t* gchandle;
-            closure_t* closure;
-            struct_t* structs;
+            gcbase* m_gcunit;
+            string_t* m_string;     // ADD-ABLE TYPE
+            array_t* m_array;
+            dictionary_t* m_dictionary;
+            gchandle_t* m_gchandle;
+            closure_t* m_closure;
+            structure_t* m_structure;
 
-            callstack_t vmcallstack;
-            const byte_t* native_function_addr;
+            callstack_t m_vmcallstack;
+            const byte_t* m_native_function_addr;
 
-            // std::atomic<gcbase*> atomic_gcunit_ptr;
-            uint64_t value_space;
+            uint64_t m_value_field;
         };
         union
         {
-            valuetype type;
-            uint64_t type_space;
+            valuetype m_type;
         };
 
         value* set_takeplace();
@@ -132,22 +129,22 @@ namespace wo
         {
             static_assert(ty & valuetype::need_gc_flag);
 
-            type = ty;
+            m_type = ty;
             if constexpr (sizeof(gcbase*) < sizeof(wo_handle_t))
-                handle = 0;
+                m_value_field = 0;
 
             if constexpr (ty == valuetype::string_type)
-                string = unit;
+                m_string = unit;
             else if constexpr (ty == valuetype::array_type)
-                array = unit;
+                m_array = unit;
             else if constexpr (ty == valuetype::dict_type)
-                dict = unit;
+                m_dictionary = unit;
             else if constexpr (ty == valuetype::gchandle_type)
-                gchandle = unit;
+                m_gchandle = unit;
             else if constexpr (ty == valuetype::closure_type)
-                closure = unit;
+                m_closure = unit;
             else if constexpr (ty == valuetype::struct_type)
-                structs = unit;
+                m_structure = unit;
 
             return this;
         }
@@ -178,20 +175,20 @@ namespace wo
 
     using wo_extern_native_func_t = wo_native_func_t;
 
-    struct struct_values
+    struct structure_base_t
     {
         value* m_values;
         const uint16_t m_count;
 
-        struct_values(const struct_values&) = delete;
-        struct_values(struct_values&&) = delete;
-        struct_values& operator=(const struct_values&) = delete;
-        struct_values& operator=(struct_values&&) = delete;
+        structure_base_t(const structure_base_t&) = delete;
+        structure_base_t(structure_base_t&&) = delete;
+        structure_base_t& operator=(const structure_base_t&) = delete;
+        structure_base_t& operator=(structure_base_t&&) = delete;
 
-        struct_values(uint16_t sz) noexcept;
-        ~struct_values();
+        structure_base_t(uint16_t sz) noexcept;
+        ~structure_base_t();
     };
-    struct closure_function
+    struct closure_bast_t
     {
         bool m_native_call;
         const uint16_t m_closure_args_count;
@@ -202,16 +199,16 @@ namespace wo
         };
         value* m_closure_args;
 
-        closure_function(const closure_function&) = delete;
-        closure_function(closure_function&&) = delete;
-        closure_function& operator=(const closure_function&) = delete;
-        closure_function& operator=(closure_function&&) = delete;
+        closure_bast_t(const closure_bast_t&) = delete;
+        closure_bast_t(closure_bast_t&&) = delete;
+        closure_bast_t& operator=(const closure_bast_t&) = delete;
+        closure_bast_t& operator=(closure_bast_t&&) = delete;
 
-        closure_function(wo_integer_t vmfunc, uint16_t argc) noexcept;
-        closure_function(wo_native_func_t nfunc, uint16_t argc) noexcept;
-        ~closure_function();
+        closure_bast_t(wo_integer_t vmfunc, uint16_t argc) noexcept;
+        closure_bast_t(wo_native_func_t nfunc, uint16_t argc) noexcept;
+        ~closure_bast_t();
     };
-    struct gc_handle_base_t
+    struct gchandle_base_t
     {
         using destructor_func_t = wo_gchandle_close_func_t;
         using gcmark_func_t = wo_gcstruct_mark_func_t;
@@ -243,6 +240,6 @@ namespace wo
         void do_custom_mark(wo_gc_work_context_t ctx);
         void dec_destructable_instance_count();
 
-        ~gc_handle_base_t();
+        ~gchandle_base_t();
     };
 }

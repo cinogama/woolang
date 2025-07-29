@@ -263,7 +263,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
 
         static std::string _safe_cast_value_to_string(wo::value* val)
         {
-            if (val->type >= wo::value::valuetype::need_gc_flag)
+            if (val->m_type >= wo::value::valuetype::need_gc_flag)
             {
                 [[maybe_unused]] gcbase::unit_attrib* _attr;
                 // NOTE: It's safe to get gcunit, all val here is read from vm, 
@@ -274,14 +274,14 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                     return "<released>";
 
                 bool type_match = false;
-                switch (val->type)
+                switch (val->m_type)
                 {
                 case wo::value::valuetype::string_type:
                     if (dynamic_cast<wo::string_t*>(gc_unit_base_addr) != nullptr)
                         type_match = true;
                     break;
                 case wo::value::valuetype::dict_type:
-                    if (dynamic_cast<wo::dict_t*>(gc_unit_base_addr) != nullptr)
+                    if (dynamic_cast<wo::dictionary_t*>(gc_unit_base_addr) != nullptr)
                         type_match = true;
                     break;
                 case wo::value::valuetype::array_type:
@@ -297,7 +297,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                         type_match = true;
                     break;
                 case wo::value::valuetype::struct_type:
-                    if (dynamic_cast<wo::struct_t*>(gc_unit_base_addr) != nullptr)
+                    if (dynamic_cast<wo::structure_t*>(gc_unit_base_addr) != nullptr)
                         type_match = true;
                     break;
                 default:
@@ -308,16 +308,16 @@ whereis                         <ipoffset>    Find the function that the ipoffse
             }
             else
             {
-                if (val->type != wo::value::valuetype::invalid
-                    && val->type != wo::value::valuetype::integer_type
-                    && val->type != wo::value::valuetype::real_type
-                    && val->type != wo::value::valuetype::handle_type
-                    && val->type != wo::value::valuetype::bool_type)
+                if (val->m_type != wo::value::valuetype::invalid
+                    && val->m_type != wo::value::valuetype::integer_type
+                    && val->m_type != wo::value::valuetype::real_type
+                    && val->m_type != wo::value::valuetype::handle_type
+                    && val->m_type != wo::value::valuetype::bool_type)
                     return "<unexpected type>";
             }
 
             auto result = std::string("<")
-                + wo_type_name((wo_type_t)val->type) + "> "
+                + wo_type_name((wo_type_t)val->m_type) + "> "
                 + wo_cast_string(std::launder(reinterpret_cast<wo_value>(val)));
 
             return result;
@@ -527,12 +527,12 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                         while (framelayer--)
                         {
                             auto tmp_sp = current_frame_bp + 1;
-                            if ((tmp_sp->type & (~1)) == value::valuetype::callstack)
+                            if ((tmp_sp->m_type & (~1)) == value::valuetype::callstack)
                             {
                                 current_frame++;
                                 current_frame_sp = tmp_sp;
-                                current_frame_bp = vmm->sb - tmp_sp->vmcallstack.bp;
-                                current_runtime_ip = vmm->env->rt_codes + tmp_sp->vmcallstack.ret_ip;
+                                current_frame_bp = vmm->sb - tmp_sp->m_vmcallstack.bp;
+                                current_runtime_ip = vmm->env->rt_codes + tmp_sp->m_vmcallstack.ret_ip;
                             }
                             else
                                 break;
