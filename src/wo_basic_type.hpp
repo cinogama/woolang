@@ -34,13 +34,6 @@ namespace wo
     using byte_t = uint8_t;
     using hash_t = uint64_t;
 
-    template<typename ... TS>
-    using cxx_vec_t = std::vector<TS...>;
-    template<typename ... TS>
-    using cxx_set_t = std::set<TS...>;
-    template<typename ... TS>
-    using cxx_map_t = std::map<TS...>;
-
     struct gchandle_base_t;
     struct closure_bast_t;
     struct structure_base_t;
@@ -56,8 +49,8 @@ namespace wo
     {
         //  value
         /*
-        *
-        */
+         *
+         */
         enum valuetype : uint8_t
         {
             invalid = WO_INVALID_TYPE,
@@ -89,12 +82,12 @@ namespace wo
 
         union
         {
-            wo_real_t      m_real;
-            wo_integer_t   m_integer;
-            wo_handle_t    m_handle;
+            wo_real_t m_real;
+            wo_integer_t m_integer;
+            wo_handle_t m_handle;
 
             gcbase* m_gcunit;
-            string_t* m_string;     // ADD-ABLE TYPE
+            string_t* m_string; // ADD-ABLE TYPE
             array_t* m_array;
             dictionary_t* m_dictionary;
             gchandle_t* m_gchandle;
@@ -112,20 +105,20 @@ namespace wo
         };
 
         value* set_takeplace();
-        value* set_string(const std::string& str);
+        value* set_string(const std::string & str);
         value* set_buffer(const void* buf, size_t sz);
         value* set_string_nogc(std::string_view str);
         value* set_struct_nogc(uint16_t sz);
-        value* set_val_with_compile_time_check(const value* val);
+        value* set_val_with_compile_time_check(const value * val);
         value* set_integer(wo_integer_t val);
         value* set_real(wo_real_t val);
         value* set_handle(wo_handle_t val);
         value* set_nil();
         value* set_bool(bool val);
-        value* set_native_callstack(const wo::byte_t* ipplace);
+        value* set_native_callstack(const wo::byte_t * ipplace);
         value* set_callstack(uint32_t ip, uint32_t bp);
-        template<valuetype ty, typename T>
-        value* set_gcunit(T* unit)
+        template <valuetype ty, typename T>
+        value* set_gcunit(T * unit)
         {
             static_assert(ty & valuetype::need_gc_flag);
 
@@ -151,15 +144,15 @@ namespace wo
 
         // ATTENTION: Only work for gc-work-thread & no_gc unit. gc-unit might be freed
         //          after get_gcunit_and_attrib_ref.
-        gcbase* get_gcunit_and_attrib_ref(gcbase::unit_attrib** attrib) const;
+        gcbase* get_gcunit_and_attrib_ref(gcbase::unit_attrib * *attrib) const;
 
         // ATTENTION: Only work for gc-work-thread & no_gc unit. gc-unit might be freed
         //          after get_gcunit_and_attrib_ref.
         gcbase::unit_attrib* fast_get_attrib_for_assert_check() const;
         bool is_gcunit() const;
-        value* set_val(const value* _val);
+        value* set_val(const value * _val);
         std::string get_type_name() const;
-        value* set_dup(value* from);
+        value* set_dup(value * from);
 
         // Used for storing key-value when deserilizing a map.
         static const value TAKEPLACE;
@@ -214,24 +207,24 @@ namespace wo
         using gcmark_func_t = wo_gcstruct_mark_func_t;
 
         void* m_holding_handle;
-        destructor_func_t       m_destructor;
+        destructor_func_t m_destructor;
 
         struct custom_marker
         {
-            intptr_t            m_is_callback : 1;
+            intptr_t m_is_callback : 1;
 
 #ifdef WO_PLATFORM_64
             static_assert(sizeof(intptr_t) == sizeof(int64_t));
-            intptr_t            m_marker63 : 63;
+            intptr_t m_marker63 : 63;
 #else
             static_assert(sizeof(intptr_t) == sizeof(int32_t));
-            intptr_t            m_marker31 : 31;
+            intptr_t m_marker31 : 31;
 #endif
         };
 
         // ATTENTION: Only used for decrease destructable count in env of vm;
-        std::atomic_size_t*     m_hold_counter;
-        custom_marker           m_custom_marker;
+        std::atomic_size_t* m_hold_counter;
+        custom_marker m_custom_marker;
 
         void set_custom_mark_callback(gcmark_func_t callback);
         void set_custom_mark_unit(gcbase* unit_may_null);

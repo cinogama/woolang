@@ -17,6 +17,8 @@
 #include <cstring>
 #include <string>
 #include <optional>
+#include <vector>
+#include <map>
 
 namespace wo
 {
@@ -25,7 +27,7 @@ namespace wo
         struct opnumbase
         {
             virtual ~opnumbase() = default;
-            virtual size_t generate_opnum_to_buffer(cxx_vec_t<byte_t>&) const
+            virtual size_t generate_opnum_to_buffer(std::vector<byte_t>&) const
             {
                 wo_error("This type can not generate opnum.");
                 return 0;
@@ -44,7 +46,7 @@ namespace wo
 
             }
 
-            size_t generate_opnum_to_buffer(cxx_vec_t<byte_t>& buffer) const override
+            size_t generate_opnum_to_buffer(std::vector<byte_t>& buffer) const override
             {
                 byte_t* buf = (byte_t*)&real_offset_const_glb;
 
@@ -126,7 +128,7 @@ namespace wo
                 return WO_SIGNED_SHIFT(id);
 #undef WO_SIGNED_SHIFT
             }
-            size_t generate_opnum_to_buffer(cxx_vec_t<byte_t>& buffer) const override
+            size_t generate_opnum_to_buffer(std::vector<byte_t>& buffer) const override
             {
                 buffer.push_back(id);
                 return 1;
@@ -204,7 +206,7 @@ namespace wo
             {
                 return constant_value.m_type;
             }
-            size_t generate_opnum_to_buffer(cxx_vec_t<byte_t>& buffer) const override
+            size_t generate_opnum_to_buffer(std::vector<byte_t>& buffer) const override
             {
                 const byte_t* buf =
                     reinterpret_cast<const byte_t*>(
@@ -270,7 +272,7 @@ namespace wo
         struct tagimm_rsfunc :virtual tag, virtual immbase
         {
             tagimm_rsfunc(ast::AstValueFunction* func);
-            size_t generate_opnum_to_buffer(cxx_vec_t<byte_t>& buffer) const override
+            size_t generate_opnum_to_buffer(std::vector<byte_t>& buffer) const override
             {
                 // Avoid warning c4250.
                 return immbase::generate_opnum_to_buffer(buffer);
@@ -573,20 +575,20 @@ namespace wo
         };
 
         // TODO: Use ir_param_buffer instead of ir_command_buffer
-        cxx_vec_t<ir_command> ir_command_buffer;
+        std::vector<ir_command> ir_command_buffer;
 
-        std::map<size_t, cxx_vec_t<wo_pstring_t>> tag_irbuffer_offset;
+        std::map<size_t, std::vector<wo_pstring_t>> tag_irbuffer_offset;
 
         runtime_env::extern_native_functions_t extern_native_functions;
         runtime_env::extern_function_map_t extern_script_functions;
 
-        cxx_map_t<ast::ConstantValue, uint32_t>
+        std::map<ast::ConstantValue, uint32_t>
             constant_record_to_index_mapping;
         std::list<const ast::ConstantValue*>
             ordered_constant_record_list;
-        cxx_vec_t<opnum::global*>
+        std::vector<opnum::global*>
             global_record_list;
-        cxx_vec_t<opnum::opnumbase*>
+        std::vector<opnum::opnumbase*>
             created_opnum_buffer;
 
         template<typename T>

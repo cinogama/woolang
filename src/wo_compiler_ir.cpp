@@ -1824,9 +1824,9 @@ namespace wo
 
         value* preserved_memory = (value*)malloc(preserve_memory_size * sizeof(wo::value));
 
-        cxx_vec_t<byte_t> generated_runtime_code_buf; // It will be put to 16 byte allign mem place.
+        std::vector<byte_t> generated_runtime_code_buf; // It will be put to 16 byte allign mem place.
 
-        std::map<wo_pstring_t, cxx_vec_t<size_t>> jmp_record_table;
+        std::map<wo_pstring_t, std::vector<size_t>> jmp_record_table;
         TagOffsetLocatedInConstantTableOffsetRecordT jmp_record_table_for_immtag;
         std::map<wo_pstring_t, uint32_t> tag_offset_vector_table;
 

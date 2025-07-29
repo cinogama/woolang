@@ -60,7 +60,7 @@ namespace wo
             size_t              m_func_offset = 0;
             state               m_state = state::BEGIN;
             jit_packed_func_t   m_func = nullptr;
-            asmjit::FuncNode*   m_jitfunc = nullptr;
+            asmjit::FuncNode* m_jitfunc = nullptr;
             bool                m_finished = false;
             asmjit::CodeHolder  m_code_buffer;
             CompileContextT* _m_ctx = nullptr;
@@ -693,7 +693,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             vm->interrupt(wo::vmbase::vm_interrupt_type::STACK_OVERFLOW_INTERRUPT);
             return wo_result_t::WO_API_SYNC;
         }
-        static void _vmjitcall_panic(vmbase* vm, wo::value* opnum1, const byte_t* rt_ip, value* rt_sp, value* rt_bp)
+        static void _vmjitcall_panic(
+            vmbase* vm, wo::value* opnum1, const byte_t* rt_ip, value* rt_sp, value* rt_bp)
         {
             vm->ip = rt_ip;
             vm->sp = rt_sp;
@@ -701,48 +702,29 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 
             wo_fail(WO_FAIL_UNEXPECTED, "%s", wo_cast_string(reinterpret_cast<wo_value>(opnum1)));
         }
-        static void _vmjitcall_adds(wo::value* opnum1, wo::value* opnum2)
+        static void _vmjitcall_adds(wo::value* opnum1, wo::string_t* opnum2)
         {
-            wo_assert(opnum1->m_type == opnum2->m_type
-                && opnum1->m_type == value::valuetype::string_type);
-
             opnum1->set_gcunit<wo::value::valuetype::string_type>(
-                string_t::gc_new<gcbase::gctype::young>(*opnum1->m_string + *opnum2->m_string));
+                string_t::gc_new<gcbase::gctype::young>(*opnum1->m_string + *opnum2));
         }
-        static void _vmjitcall_modr(wo::value* opnum1, wo::value* opnum2)
+        static const char* _vmjitcall_idarr(wo::value* cr, wo::array_t* opnum1, wo_integer_t opnum2)
         {
-            wo_assert(opnum1->m_type == opnum2->m_type
-                && opnum1->m_type == value::valuetype::real_type);
+            gcbase::gc_read_guard gwg1(opnum1);
 
-            opnum1->m_real = fmod(opnum1->m_real, opnum2->m_real);
-        }
-        static const char* _vmjitcall_idarr(wo::value* cr, wo::value* opnum1, wo::value* opnum2)
-        {
-            wo_assert(opnum1->m_type == value::valuetype::array_type && opnum1->m_array != nullptr);
-            wo_assert(opnum2->m_type == value::valuetype::integer_type);
-
-            gcbase::gc_read_guard gwg1(opnum1->m_gcunit);
-
-            size_t index = (size_t)opnum2->m_integer;
-            if (index >= opnum1->m_array->size())
-            {
+            const size_t index = (size_t)opnum2;
+            if (index >= opnum1->size())
                 return "Index out of range.";
-            }
             else
-            {
-                auto* result = &opnum1->m_array->at(index);
-                cr->set_val(result);
-            }
+                cr->set_val(&opnum1->at(index));
+
             return nullptr;
         }
-        static const char* _vmjitcall_iddict(wo::value* cr, wo::value* opnum1, wo::value* opnum2)
+        static const char* _vmjitcall_iddict(wo::value* cr, wo::dictionary_t* opnum1, wo::value* opnum2)
         {
-            wo_assert(opnum1->m_type == value::valuetype::dict_type && opnum1->m_dictionary != nullptr);
+            gcbase::gc_read_guard gwg1(opnum1);
 
-            gcbase::gc_read_guard gwg1(opnum1->m_gcunit);
-
-            auto fnd = opnum1->m_dictionary->find(*opnum2);
-            if (fnd != opnum1->m_dictionary->end())
+            auto fnd = opnum1->find(*opnum2);
+            if (fnd != opnum1->end())
             {
                 auto* result = &fnd->second;
                 cr->set_val(result);
@@ -751,28 +733,17 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                 return "No such key in current dict.";
             return nullptr;
         }
-        static void _vmjitcall_idstruct(wo::value* opnum1, wo::value* opnum2, uint16_t offset)
+        static void _vmjitcall_idstruct(wo::value* opnum1, wo::structure_t* opnum2, uint16_t offset)
         {
-            wo_assert(opnum2->m_type == value::valuetype::struct_type,
-                "Cannot index non-struct value in 'idstruct'.");
-            wo_assert(opnum2->m_structure != nullptr,
-                "Unable to index null in 'idstruct'.");
-            wo_assert(offset < opnum2->m_structure->m_count,
-                "Index out of range in 'idstruct'.");
-
-            gcbase::gc_read_guard gwg1(opnum2->m_structure);
-
-            auto* result = &opnum2->m_structure->m_values[offset];
-            opnum1->set_val(result);
+            gcbase::gc_read_guard gwg1(opnum2);
+            opnum1->set_val(opnum2->m_values + offset);
         }
-        static const char* _vmjitcall_siddict(wo::value* opnum1, wo::value* opnum2, wo::value* opnum3)
+        static const char* _vmjitcall_siddict(wo::dictionary_t* opnum1, wo::value* opnum2, wo::value* opnum3)
         {
-            wo_assert(opnum1->m_type == value::valuetype::dict_type && opnum1->m_dictionary != nullptr);
+            gcbase::gc_write_guard gwg1(opnum1);
 
-            gcbase::gc_write_guard gwg1(opnum1->m_gcunit);
-
-            auto fnd = opnum1->m_dictionary->find(*opnum2);
-            if (fnd != opnum1->m_dictionary->end())
+            auto fnd = opnum1->find(*opnum2);
+            if (fnd != opnum1->end())
             {
                 auto* result = &fnd->second;
                 if (wo::gc::gc_is_marking())
@@ -783,90 +754,73 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                 return "No such key in current dict.";
             return nullptr;
         }
-        static void _vmjitcall_sidmap(wo::value* opnum1, wo::value* opnum2, wo::value* opnum3)
+        static void _vmjitcall_sidmap(wo::dictionary_t* opnum1, wo::value* opnum2, wo::value* opnum3)
         {
-            wo_assert(opnum1->m_type == value::valuetype::dict_type && opnum1->m_dictionary != nullptr);
+            gcbase::gc_modify_write_guard gwg1(opnum1);
 
-            gcbase::gc_modify_write_guard gwg1(opnum1->m_gcunit);
-
-            auto* result = &(*opnum1->m_dictionary)[*opnum2];
+            auto* result = &(*opnum1)[*opnum2];
             if (wo::gc::gc_is_marking())
                 wo::gcbase::write_barrier(result);
             result->set_val(opnum3);
         }
-        static const char* _vmjitcall_sidarr(wo::value* opnum1, wo::value* opnum2, wo::value* opnum3)
+        static const char* _vmjitcall_sidarr(wo::array_t* opnum1, wo_integer_t opnum2, wo::value* opnum3)
         {
-            wo_assert(opnum1->m_type == value::valuetype::array_type && opnum1->m_array != nullptr);
-            wo_assert(opnum2->m_type == value::valuetype::integer_type);
+            gcbase::gc_write_guard gwg1(opnum1);
 
-            gcbase::gc_write_guard gwg1(opnum1->m_gcunit);
-
-            size_t index = (size_t)opnum2->m_integer;
-            if (index >= opnum1->m_array->size())
-            {
+            size_t index = (size_t)opnum2;
+            if (index >= opnum1->size())
                 return "Index out of range.";
-            }
             else
             {
-                auto* result = &opnum1->m_array->at(index);
+                auto* result = &opnum1->at(index);
                 if (wo::gc::gc_is_marking())
                     wo::gcbase::write_barrier(result);
                 result->set_val(opnum3);
             }
             return nullptr;
         }
-        static void _vmjitcall_sidstruct(wo::value* opnum1, wo::value* opnum2, uint16_t offset)
+        static void _vmjitcall_sidstruct(wo::structure_t* opnum1, wo::value* opnum2, uint16_t offset)
         {
-            wo_assert(nullptr != opnum1->m_structure,
-                "Unable to index null in 'sidstruct'.");
-            wo_assert(opnum1->m_type == value::valuetype::struct_type,
-                "Unable to index non-struct value in 'sidstruct'.");
-            wo_assert(offset < opnum1->m_structure->m_count,
-                "Index out of range in 'sidstruct'.");
+            gcbase::gc_write_guard gwg1(opnum1);
 
-            gcbase::gc_write_guard gwg1(opnum1->m_gcunit);
-
-            auto* result = &opnum1->m_structure->m_values[offset];
+            auto* result = opnum1->m_values + offset;
             if (wo::gc::gc_is_marking())
                 wo::gcbase::write_barrier(result);
             result->set_val(opnum2);
         }
-        static void _vmjitcall_equs(wo::value* opnum1, wo::value* opnum2, wo::value* opnum3)
+        static void _vmjitcall_equs(wo::value* opnum1, wo::string_t* opnum2, wo::string_t* opnum3)
         {
-            wo_assert(opnum2->m_type == value::valuetype::string_type);
-            wo_assert(opnum3->m_type == value::valuetype::string_type);
-
             opnum1->set_bool(
-                opnum2->m_string == opnum3->m_string
-                || *opnum2->m_string == *opnum3->m_string
+                opnum2 == opnum3
+                || *opnum2 == *opnum3
             );
         }
-        static void _vmjitcall_nequs(wo::value* opnum1, wo::value* opnum2, wo::value* opnum3)
+        static void _vmjitcall_nequs(wo::value* opnum1, wo::string_t* opnum2, wo::string_t* opnum3)
         {
-            wo_assert(opnum2->m_type == value::valuetype::string_type);
-            wo_assert(opnum3->m_type == value::valuetype::string_type);
-
             opnum1->set_bool(
-                opnum2->m_string != opnum3->m_string
-                && *opnum2->m_string != *opnum3->m_string
+                opnum2 != opnum3
+                && *opnum2 != *opnum3
             );
         }
-        static void _vmjitcall_idstr(wo::value* opnum1, wo::value* opnum2, wo::value* opnum3)
+        static void _vmjitcall_idstr(wo::value* opnum1, wo::string_t* opnum2, wo_integer_t opnum3)
         {
-            wo_assert(opnum2->m_type == value::valuetype::string_type);
-            wo_assert(opnum3->m_type == value::valuetype::integer_type);
-
             wo_wchar_t out_str = wo_strn_get_char(
-                opnum2->m_string->c_str(),
-                opnum2->m_string->size(),
-                (size_t)opnum3->m_integer);
+                opnum2->c_str(),
+                opnum2->size(),
+                (size_t)opnum3);
             opnum1->set_integer((wo_integer_t)out_str);
         }
         static void _vmjitcall_abrt(const char* msg)
         {
             wo_error(msg);
         }
-        static void _vmjitcall_fail(wo::vmbase* vmm, uint32_t id, const char* msg, const byte_t* rt_ip, wo::value* rt_sp, wo::value* rt_bp)
+        static void _vmjitcall_fail(
+            wo::vmbase* vmm,
+            uint32_t id,
+            const char* msg,
+            const byte_t* rt_ip,
+            wo::value* rt_sp,
+            wo::value* rt_bp)
         {
             vmm->ip = rt_ip;
             vmm->sp = rt_sp;
@@ -1419,12 +1373,22 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             auto op1 = opnum1.gp_value();
             auto op2 = opnum2.gp_value();
 
-            asmjit::InvokeNode* invoke_node;
-            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_modr,
-                asmjit::FuncSignatureT<void, wo::value*, wo::value*>()));
+            auto real_result = ctx->c.newXmm();
+            auto real_of_op1 = ctx->c.newXmm();
+            auto real_of_op2 = ctx->c.newXmm();
 
-            invoke_node->setArg(0, op1);
-            invoke_node->setArg(1, op2);
+            wo_assure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(op1, offsetof(value, m_real))));
+            wo_assure(!ctx->c.movsd(real_of_op2, asmjit::x86::ptr(op2, offsetof(value, m_real))));
+
+            asmjit::InvokeNode* invoke_node;
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)(double(*)(double, double)) & fmod,
+                asmjit::FuncSignatureT<double, double, double>()));
+
+            invoke_node->setArg(0, real_of_op1);
+            invoke_node->setArg(1, real_of_op2);
+            invoke_node->setRet(0, real_result);
+
+            wo_assure(!ctx->c.movsd(asmjit::x86::ptr(op1, offsetof(value, m_real)), real_result));
             return true;
         }
         virtual bool ir_addh(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -1463,14 +1427,23 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             WO_JIT_ADDRESSING_N2;
 
             auto op1 = opnum1.gp_value();
-            auto op2 = opnum2.gp_value();
+            auto str = ctx->c.newIntPtr();
+
+            if (!opnum2.is_constant())
+                wo_assure(!ctx->c.mov(
+                    str, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_string))));
 
             asmjit::InvokeNode* invoke_node;
             wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_adds,
-                asmjit::FuncSignatureT<void, wo::value*, wo::value*>()));
+                asmjit::FuncSignatureT<void, wo::value*, wo::string_t*>()));
 
             invoke_node->setArg(0, op1);
-            invoke_node->setArg(1, op2);
+
+            if (opnum2.is_constant())
+                invoke_node->setArg(1, asmjit::Imm(opnum2.const_value()->m_string));
+            else
+                invoke_node->setArg(1, str);
+
             return true;
         }
         virtual bool ir_psh(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -1546,17 +1519,30 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             WO_JIT_ADDRESSING_N2;
             WO_JIT_ADDRESSING_N3_REG_BPOFF;
 
-            auto op1 = opnum1.gp_value();
-            auto op2 = opnum2.gp_value();
+            auto arr = ctx->c.newIntPtr();
+            auto idx = ctx->c.newInt64();
+
+            wo_assure(!ctx->c.mov(
+                arr, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_array))));
+
+            if (!opnum2.is_constant())
+                wo_assure(!ctx->c.mov(
+                    idx, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_integer))));
+
             auto op3 = opnum3.gp_value();
             auto err = ctx->c.newIntPtr();
 
             asmjit::InvokeNode* invoke_node;
             wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_sidarr,
-                asmjit::FuncSignatureT<const char*, wo::value*, wo::value*, wo::value*>()));
+                asmjit::FuncSignatureT<const char*, wo::array_t*, wo_integer_t, wo::value*>()));
 
-            invoke_node->setArg(0, op1);
-            invoke_node->setArg(1, op2);
+            invoke_node->setArg(0, arr);
+
+            if (opnum2.is_constant())
+                invoke_node->setArg(1, opnum2.const_value()->m_integer);
+            else
+                invoke_node->setArg(1, idx);
+
             invoke_node->setArg(2, op3);
             invoke_node->setRet(0, err);
 
@@ -1575,14 +1561,17 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             WO_JIT_ADDRESSING_N2;
             uint16_t offset = WO_IPVAL_MOVE_2;
 
-            auto op1 = opnum1.gp_value();
+            auto stc = ctx->c.newIntPtr();
             auto op2 = opnum2.gp_value();
+
+            wo_assure(!ctx->c.mov(
+                stc, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_structure))));
 
             asmjit::InvokeNode* invoke_node;
             wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_sidstruct,
-                asmjit::FuncSignatureT<void, wo::value*, wo::value*, uint16_t>()));
+                asmjit::FuncSignatureT<void, wo::structure_t*, wo::value*, uint16_t>()));
 
-            invoke_node->setArg(0, op1);
+            invoke_node->setArg(0, stc);
             invoke_node->setArg(1, op2);
             invoke_node->setArg(2, asmjit::Imm(offset));
             return true;
@@ -1938,15 +1927,20 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             WO_JIT_ADDRESSING_N2;
             WO_JIT_ADDRESSING_N3_REG_BPOFF;
 
-            auto op1 = opnum1.gp_value();
             auto op2 = opnum2.gp_value();
             auto op3 = opnum3.gp_value();
 
+            auto dict = ctx->c.newIntPtr();
+            auto err = ctx->c.newIntPtr();
+
+            wo_assure(!ctx->c.mov(
+                dict, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_dictionary))));
+
             asmjit::InvokeNode* invoke_node;
             wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_sidmap,
-                asmjit::FuncSignatureT< void, wo::value*, wo::value*, wo::value*>()));
+                asmjit::FuncSignatureT< void, wo::dictionary_t*, wo::value*, wo::value*>()));
 
-            invoke_node->setArg(0, op1);
+            invoke_node->setArg(0, dict);
             invoke_node->setArg(1, op2);
             invoke_node->setArg(2, op3);
 
@@ -2437,17 +2431,28 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
-            auto op1 = opnum1.gp_value();
-            auto op2 = opnum2.gp_value();
+            auto arr = ctx->c.newIntPtr();
+            auto idx = ctx->c.newInt64();
             auto err = ctx->c.newIntPtr();
+
+            wo_assure(!ctx->c.mov(
+                arr, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_array))));
+
+            if (!opnum2.is_constant())
+                wo_assure(!ctx->c.mov(
+                    idx, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_integer))));
 
             asmjit::InvokeNode* invoke_node;
             wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_idarr,
-                asmjit::FuncSignatureT<const char*, wo::value*, wo::value*, wo::value*>()));
+                asmjit::FuncSignatureT<const char*, wo::value*, wo::array_t*, wo_integer_t>()));
 
             invoke_node->setArg(0, ctx->_vmcr);
-            invoke_node->setArg(1, op1);
-            invoke_node->setArg(2, op2);
+            invoke_node->setArg(1, arr);
+            if (opnum2.is_constant())
+                invoke_node->setArg(2, asmjit::Imm(opnum2.const_value()->m_integer));
+            else
+                invoke_node->setArg(2, idx);
+
             invoke_node->setRet(0, err);
 
             auto noerror_label = ctx->c.newLabel();
@@ -2464,16 +2469,19 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
-            auto op1 = opnum1.gp_value();
+            auto dict = ctx->c.newIntPtr();
             auto op2 = opnum2.gp_value();
             auto err = ctx->c.newIntPtr();
+
+            wo_assure(!ctx->c.mov(
+                dict, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_dictionary))));
 
             asmjit::InvokeNode* invoke_node;
             wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_iddict,
                 asmjit::FuncSignatureT<const char*, wo::value*, wo::value*, wo::value*>()));
 
             invoke_node->setArg(0, ctx->_vmcr);
-            invoke_node->setArg(1, op1);
+            invoke_node->setArg(1, dict);
             invoke_node->setArg(2, op2);
             invoke_node->setRet(0, err);
 
@@ -2525,16 +2533,32 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
-            auto op1 = opnum1.gp_value();
-            auto op2 = opnum2.gp_value();
+            auto str = ctx->c.newIntPtr();
+            auto idx = ctx->c.newInt64();
+
+            if (!opnum1.is_constant())
+                wo_assure(!ctx->c.mov(
+                    str, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_string))));
+
+            if (!opnum2.is_constant())
+                wo_assure(!ctx->c.mov(
+                    idx, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_integer))));
 
             asmjit::InvokeNode* invoke_node;
             wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_idstr,
-                asmjit::FuncSignatureT< void, wo::value*, wo::value*, wo::value*>()));
+                asmjit::FuncSignatureT< void, wo::value*, wo::string_t*, wo_integer_t>()));
 
             invoke_node->setArg(0, ctx->_vmcr);
-            invoke_node->setArg(1, op1);
-            invoke_node->setArg(2, op2);
+
+            if (opnum1.is_constant())
+                invoke_node->setArg(1, opnum1.const_value()->m_string);
+            else
+                invoke_node->setArg(1, str);
+
+            if (opnum2.is_constant())
+                invoke_node->setArg(2, opnum2.const_value()->m_string);
+            else
+                invoke_node->setArg(2, idx);
             return true;
         }
         virtual bool ir_equr(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -2596,16 +2620,30 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
-            auto op1 = opnum1.gp_value();
-            auto op2 = opnum2.gp_value();
+            auto str1 = ctx->c.newIntPtr();// opnum1.gp_value();
+            auto str2 = ctx->c.newIntPtr();// opnum2.gp_value();
+
+            if (!opnum1.is_constant())
+                wo_assure(!ctx->c.mov(str1, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_string))));
+            if (!opnum2.is_constant())
+                wo_assure(!ctx->c.mov(str2, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_string))));
 
             asmjit::InvokeNode* invoke_node;
             wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_equs,
-                asmjit::FuncSignatureT<void, wo::value*, wo::value*, wo::value*>()));
+                asmjit::FuncSignatureT<void, wo::value*, wo::string_t*, wo::string_t*>()));
 
             invoke_node->setArg(0, ctx->_vmcr);
-            invoke_node->setArg(1, op1);
-            invoke_node->setArg(2, op2);
+
+            if (opnum1.is_constant())
+                invoke_node->setArg(1, asmjit::Imm(opnum1.const_value()->m_string));
+            else
+                invoke_node->setArg(1, str1);
+
+            if (opnum2.is_constant())
+                invoke_node->setArg(2, asmjit::Imm(opnum2.const_value()->m_string));
+            else
+                invoke_node->setArg(2, str2);
+
             return true;
         }
         virtual bool ir_nequs(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -2613,16 +2651,30 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
-            auto op1 = opnum1.gp_value();
-            auto op2 = opnum2.gp_value();
+            auto str1 = ctx->c.newIntPtr();// opnum1.gp_value();
+            auto str2 = ctx->c.newIntPtr();// opnum2.gp_value();
+
+            if (!opnum1.is_constant())
+                wo_assure(!ctx->c.mov(str1, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_string))));
+            if (!opnum2.is_constant())
+                wo_assure(!ctx->c.mov(str2, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_string))));
 
             asmjit::InvokeNode* invoke_node;
             wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_nequs,
-                asmjit::FuncSignatureT<void, wo::value*, wo::value*, wo::value*>()));
+                asmjit::FuncSignatureT<void, wo::value*, wo::string_t*, wo::string_t*>()));
 
             invoke_node->setArg(0, ctx->_vmcr);
-            invoke_node->setArg(1, op1);
-            invoke_node->setArg(2, op2);
+
+            if (opnum1.is_constant())
+                invoke_node->setArg(1, asmjit::Imm(opnum1.const_value()->m_string));
+            else
+                invoke_node->setArg(1, str1);
+
+            if (opnum2.is_constant())
+                invoke_node->setArg(2, asmjit::Imm(opnum2.const_value()->m_string));
+            else
+                invoke_node->setArg(2, str2);
+
             return true;
         }
         virtual bool ir_siddict(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -2631,16 +2683,20 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             WO_JIT_ADDRESSING_N2;
             WO_JIT_ADDRESSING_N3_REG_BPOFF;
 
-            auto op1 = opnum1.gp_value();
             auto op2 = opnum2.gp_value();
             auto op3 = opnum3.gp_value();
+
+            auto dict = ctx->c.newIntPtr();
             auto err = ctx->c.newIntPtr();
+
+            wo_assure(!ctx->c.mov(
+                dict, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_dictionary))));
 
             asmjit::InvokeNode* invoke_node;
             wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_siddict,
-                asmjit::FuncSignatureT<const char*, wo::value*, wo::value*, wo::value*>()));
+                asmjit::FuncSignatureT<const char*, wo::dictionary_t*, wo::value*, wo::value*>()));
 
-            invoke_node->setArg(0, op1);
+            invoke_node->setArg(0, dict);
             invoke_node->setArg(1, op2);
             invoke_node->setArg(2, op3);
             invoke_node->setRet(0, err);
@@ -2665,7 +2721,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                 ir_make_checkpoint_fastcheck(ctx, check_point_ipaddr);
 
             if (opnum1.is_constant_i32())
-                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer)), opnum1.const_value()->m_integer));
+                wo_assure(!ctx->c.cmp(
+                    asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer)), opnum1.const_value()->m_integer));
             else
             {
                 auto bvalue = ctx->c.newInt64();
@@ -2683,14 +2740,17 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             uint16_t offset = WO_IPVAL_MOVE_2;
 
             auto op1 = opnum1.gp_value();
-            auto op2 = opnum2.gp_value();
+            auto stc = ctx->c.newIntPtr();
+
+            wo_assure(!ctx->c.mov(
+                stc, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_structure))));
 
             asmjit::InvokeNode* invoke_node;
             wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_idstruct,
-                asmjit::FuncSignatureT< void, wo::value*, wo::value*, uint16_t>()));
+                asmjit::FuncSignatureT< void, wo::value*, wo::structure_t*, uint16_t>()));
 
             invoke_node->setArg(0, op1);
-            invoke_node->setArg(1, op2);
+            invoke_node->setArg(1, stc);
             invoke_node->setArg(2, asmjit::Imm(offset));
             return true;
         }
@@ -2920,5 +2980,5 @@ namespace wo
     void free_jit(runtime_env* env)
     {
     }
-}
+        }
 #endif

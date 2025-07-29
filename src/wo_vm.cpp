@@ -484,7 +484,7 @@ namespace wo
                         tmpos << wo_cast_string(reinterpret_cast<wo_value>(&constant_value));
                         break;
                     }
-                    tmpos 
+                    tmpos
                         << ": "
                         << wo_type_name((wo_type_t)constant_value.m_type);
                 }
@@ -1634,11 +1634,12 @@ namespace wo
                     if (rt_sp - unpack_argc < vm->stack_storage)
                         goto _wo_unpackargs_stack_overflow;
 
-                    for (
-                        auto arg_idx = arg_array->rbegin() + (size_t)(
-                            (wo_integer_t)arg_array->size() - unpack_argc);
-                        arg_idx != arg_array->rend();
-                        arg_idx++)
+                    const auto args_rend = arg_array->rend();
+                    auto arg_idx = arg_array->rbegin();
+
+                    std::advance(arg_idx, (wo_integer_t)arg_array->size() - unpack_argc);
+
+                    for (; arg_idx != args_rend; arg_idx++)
                         (rt_sp--)->set_val(&*arg_idx);
                 }
             }
@@ -1663,7 +1664,8 @@ namespace wo
                     if (rt_sp - arg_array_len < vm->stack_storage)
                         goto _wo_unpackargs_stack_overflow;
 
-                    for (auto arg_idx = arg_array->rbegin(); arg_idx != arg_array->rend(); arg_idx++)
+                    const auto args_rend = arg_array->rend();
+                    for (auto arg_idx = arg_array->rbegin(); arg_idx != args_rend; arg_idx++)
                         (rt_sp--)->set_val(&*arg_idx);
 
                     tc->m_integer += arg_array_len;
@@ -1978,19 +1980,21 @@ namespace wo
                 WO_VM_ASSERT(opnum1->m_type == opnum2->m_type
                     && opnum1->m_type == value::valuetype::string_type,
                     "Operand should be string in 'equs'.");
-                if (opnum1->m_string == opnum2->m_string)
-                    rt_cr->set_bool(true);
-                else
-                    rt_cr->set_bool(*opnum1->m_string == *opnum2->m_string);
+
+                rt_cr->set_bool(
+                    opnum1->m_string == opnum2->m_string
+                    || *opnum1->m_string == *opnum2->m_string);
+
                 break;
             case WO_RSG_ADDRESSING_CASE(nequs):
                 WO_VM_ASSERT(opnum1->m_type == opnum2->m_type
                     && opnum1->m_type == value::valuetype::string_type,
                     "Operand should be string in 'nequs'.");
-                if (opnum1->m_string == opnum2->m_string)
-                    rt_cr->set_bool(false);
-                else
-                    rt_cr->set_bool(*opnum1->m_string != *opnum2->m_string);
+
+                rt_cr->set_bool(
+                    opnum1->m_string != opnum2->m_string
+                    && *opnum1->m_string != *opnum2->m_string);
+
                 break;
             case WO_RSG_ADDRESSING_CASE(land):
                 rt_cr->set_bool(opnum1->m_integer && opnum2->m_integer);
@@ -2436,14 +2440,10 @@ namespace wo
                 const size_t index = static_cast<size_t>(opnum2->m_integer);
 
                 if (index >= opnum1->m_array->size())
-                {
-                    rt_cr->set_nil();
                     WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Index out of range.");
-                }
                 else
-                {
                     rt_cr->set_val(&opnum1->m_array->at(index));
-                }
+
                 break;
             }
             case WO_RSG_ADDRESSING_CASE(iddict):

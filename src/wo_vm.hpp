@@ -18,6 +18,7 @@
 #include <chrono>
 #include <memory>
 #include <optional>
+#include <set>
 
 #if WO_BUILD_WITH_MINGW
 #   include <mingw.thread.h>
@@ -270,8 +271,8 @@ namespace wo
 
     public:
         inline static assure_leave_this_thread_vm_shared_mutex _alive_vm_list_mx;
-        inline static cxx_set_t<vmbase*> _alive_vm_list;
-        inline static cxx_set_t<vmbase*> _gc_ready_vm_list;
+        inline static std::set<vmbase*> _alive_vm_list;
+        inline static std::set<vmbase*> _gc_ready_vm_list;
 
         inline thread_local static vmbase* _this_thread_vm = nullptr;
         inline static std::atomic_uint32_t _alive_vm_count_for_gc_vm_destruct;
