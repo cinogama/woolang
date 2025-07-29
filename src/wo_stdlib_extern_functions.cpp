@@ -3315,6 +3315,9 @@ WO_API wo_api rslib_std_get_env(wo_vm vm, wo_value args)
 {
     if (wo::config::ENABLE_SHELL_PACKAGE)
     {
+        static std::mutex env_lock;
+        std::lock_guard g(env_lock);
+
         const char* env = getenv(wo_string(args + 0));
         if (env)
             return wo_ret_option_string(vm, env);
