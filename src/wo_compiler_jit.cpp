@@ -1078,8 +1078,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             wo_assure(!x86compiler.mov(asmjit::x86::byte_ptr(val, offsetof(value, m_type)), (uint8_t)instance.m_type));
 
             auto data_of_val = x86compiler.newUInt64();
-            wo_assure(!x86compiler.mov(data_of_val, instance.m_handle));
-            wo_assure(!x86compiler.mov(asmjit::x86::dword_ptr(val, offsetof(value, m_handle)), data_of_val));
+            wo_assure(!x86compiler.mov(data_of_val, instance.m_value_field));
+            wo_assure(!x86compiler.mov(asmjit::x86::dword_ptr(val, offsetof(value, m_value_field)), data_of_val));
 
             return val;
         }
@@ -1090,8 +1090,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             wo_assure(!x86compiler.mov(asmjit::x86::byte_ptr(val, offsetof(value, m_type)), type_of_val2));
 
             auto data_of_val2 = x86compiler.newUInt64();
-            wo_assure(!x86compiler.mov(data_of_val2, asmjit::x86::qword_ptr(val2, offsetof(value, m_handle))));
-            wo_assure(!x86compiler.mov(asmjit::x86::qword_ptr(val, offsetof(value, m_handle)), data_of_val2));
+            wo_assure(!x86compiler.mov(data_of_val2, asmjit::x86::qword_ptr(val2, offsetof(value, m_value_field))));
+            wo_assure(!x86compiler.mov(asmjit::x86::qword_ptr(val, offsetof(value, m_value_field)), data_of_val2));
 
             return val;
         }
@@ -2233,7 +2233,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             if (jmp_place < (uint32_t)(rt_ip - ctx->env->rt_codes))
                 ir_make_checkpoint_fastcheck(ctx, check_point_ipaddr);
 
-            wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_handle)), 0));
+            wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_value_field)), 0));
             wo_assure(!ctx->c.jne(jump_ip(&ctx->c, jmp_place)));
             return true;
         }
@@ -2245,7 +2245,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             if (jmp_place < (uint32_t)(rt_ip - ctx->env->rt_codes))
                 ir_make_checkpoint_fastcheck(ctx, check_point_ipaddr);
 
-            wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_handle)), 0));
+            wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_value_field)), 0));
             wo_assure(!ctx->c.je(jump_ip(&ctx->c, jmp_place)));
             return true;
         }

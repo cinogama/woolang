@@ -52,7 +52,7 @@ namespace wo
     using closure_t = gcunit<closure_bast_t>;
     using structure_t = gcunit<structure_base_t>;
 
-    struct value
+    struct WO_DECLARE_ALIGNAS(8) value
     {
         //  value
         /*

@@ -2348,14 +2348,14 @@ namespace wo
             case instruct::opcode::jt:
             {
                 const uint32_t aimplace = WO_IPVAL_MOVE_4;
-                if (rt_cr->m_integer)
+                if (rt_cr->m_value_field)
                     rt_ip = rt_codes + aimplace;
                 break;
             }
             case instruct::opcode::jf:
             {
                 const uint32_t aimplace = WO_IPVAL_MOVE_4;
-                if (!rt_cr->m_integer)
+                if (!rt_cr->m_value_field)
                     rt_ip = rt_codes + aimplace;
                 break;
             }

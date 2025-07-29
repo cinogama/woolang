@@ -6,7 +6,7 @@ namespace wo
     value* value::set_takeplace()
     {
         m_type = valuetype::stack_externed_flag;
-        m_handle = 0;
+        m_value_field = 0;
         return this;
     }
     value* value::set_string(const std::string& str)
@@ -59,7 +59,7 @@ namespace wo
     value* value::set_nil()
     {
         m_type = valuetype::invalid;
-        m_handle = 0;
+        m_value_field = 0;
         return this;
     }
     value* value::set_bool(bool val)
