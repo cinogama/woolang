@@ -733,11 +733,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                 return "No such key in current dict.";
             return nullptr;
         }
-        static void _vmjitcall_idstruct(wo::value* opnum1, wo::structure_t* opnum2, uint16_t offset)
-        {
-            gcbase::gc_read_guard gwg1(opnum2);
-            opnum1->set_val(opnum2->m_values + offset);
-        }
+
         static const char* _vmjitcall_siddict(wo::dictionary_t* opnum1, wo::value* opnum2, wo::value* opnum3)
         {
             gcbase::gc_write_guard gwg1(opnum1);
@@ -779,15 +775,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             }
             return nullptr;
         }
-        static void _vmjitcall_sidstruct(wo::structure_t* opnum1, wo::value* opnum2, uint16_t offset)
-        {
-            gcbase::gc_write_guard gwg1(opnum1);
 
-            auto* result = opnum1->m_values + offset;
-            if (wo::gc::gc_is_marking())
-                wo::value::write_barrier(result);
-            result->set_val(opnum2);
-        }
         static void _vmjitcall_equs(wo::value* opnum1, wo::string_t* opnum2, wo::string_t* opnum3)
         {
             opnum1->set_bool(
@@ -1618,13 +1606,12 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             wo_assure(!ctx->c.mov(
                 stc, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_structure))));
 
-            asmjit::InvokeNode* invoke_node;
-            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_sidstruct,
-                asmjit::FuncSignatureT<void, wo::structure_t*, wo::value*, uint16_t>()));
+            // Direct JIT implementation instead of function call
+            auto struct_values_ptr = ctx->c.newIntPtr();
+            wo_assure(!ctx->c.mov(struct_values_ptr, asmjit::x86::qword_ptr(stc, offsetof(structure_t, m_values))));
+            wo_assure(!ctx->c.lea(struct_values_ptr, asmjit::x86::qword_ptr(struct_values_ptr, offset * sizeof(wo::value))));
+            x86_set_val(ctx->c, struct_values_ptr, op2);
 
-            invoke_node->setArg(0, stc);
-            invoke_node->setArg(1, op2);
-            invoke_node->setArg(2, asmjit::Imm(offset));
             return true;
         }
         virtual bool ir_lds(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -2797,12 +2784,12 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                 stc, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_structure))));
 
             asmjit::InvokeNode* invoke_node;
-            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_idstruct,
-                asmjit::FuncSignatureT< void, wo::value*, wo::structure_t*, uint16_t>()));
+            // Direct JIT implementation instead of function call
+            auto struct_values_ptr = ctx->c.newIntPtr();
+            wo_assure(!ctx->c.mov(struct_values_ptr, asmjit::x86::qword_ptr(stc, offsetof(structure_t, m_values))));
+            wo_assure(!ctx->c.lea(struct_values_ptr, asmjit::x86::qword_ptr(struct_values_ptr, offset * sizeof(wo::value))));
+            x86_set_val(ctx->c, op1, struct_values_ptr);
 
-            invoke_node->setArg(0, op1);
-            invoke_node->setArg(1, stc);
-            invoke_node->setArg(2, asmjit::Imm(offset));
             return true;
         }
         virtual bool ir_ext_panic(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
