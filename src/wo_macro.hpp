@@ -57,5 +57,5 @@
 #       define WO_FORCE_INLINE inline
 #   endif
 #else
-#   define WO_FORCE_INLINE 
+#   define WO_FORCE_INLINE inline
 #endif

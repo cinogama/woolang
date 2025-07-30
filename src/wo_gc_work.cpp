@@ -1120,7 +1120,7 @@ namespace wo
 #if WO_ENABLE_RUNTIME_CHECK
         wo_assert(gc_destructed == false);
 
-        unit_attrib* attrib = nullptr;
+        gc::unit_attrib* attrib = nullptr;
 
         void* unit_ptr = reinterpret_cast<void*>((intptr_t)this - 8);
 
