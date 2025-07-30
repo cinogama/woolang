@@ -917,6 +917,10 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             {
                 return m_is_constant && m_constant->m_handle <= INT32_MAX;
             }
+            bool is_constant_real() const
+            {
+                return m_is_constant;
+            }
             bool is_constant_and_not_tag(X64CompileContext* ctx) const
             {
                 if (is_constant())
@@ -1135,17 +1139,17 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 
             auto result = x86compiler.newInt32();
 
-            asmjit::InvokeNode* leave_gc_node, * enter_gc_node;
+            asmjit::InvokeNode* swap_gc_node;
 
             if (slow)
             {
                 /* ================================================ */
                 wo_assure(!x86compiler.invoke(
-                    &leave_gc_node,
+                    &swap_gc_node,
                     &wo_leave_gcguard,
                     asmjit::FuncSignatureT<wo_bool_t, vmbase*>()));
 
-                leave_gc_node->setArg(0, vm);
+                swap_gc_node->setArg(0, vm);
                 /* ================================================ */
             }
             asmjit::InvokeNode* invoke_node;
@@ -1163,11 +1167,11 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             {
                 /* ================================================ */
                 wo_assure(!x86compiler.invoke(
-                    &leave_gc_node,
+                    &swap_gc_node,
                     &wo_enter_gcguard,
                     asmjit::FuncSignatureT<wo_bool_t, vmbase*>()));
 
-                leave_gc_node->setArg(0, vm);
+                swap_gc_node->setArg(0, vm);
                 /* ================================================ */
             }
 
@@ -1505,6 +1509,16 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
+            // 优化：处理浮点数加法的特殊情况
+            if (opnum2.is_constant_real())
+            {
+                const double real_op2 = opnum2.const_value()->m_real;
+                
+                // 加0.0优化 - 跳过操作
+                if (real_op2 == 0.0)
+                    return true;
+            }
+
             auto real_of_op1 = ctx->c.newXmm();
             wo_assure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, m_real))));
             wo_assure(!ctx->c.addsd(real_of_op1, asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, m_real))));
@@ -1517,6 +1531,16 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
+            // 优化：处理浮点数减法的特殊情况
+            if (opnum2.is_constant_real())
+            {
+                const double real_op2 = opnum2.const_value()->m_real;
+                
+                // 减0.0优化 - 跳过操作
+                if (real_op2 == 0.0)
+                    return true;
+            }
+
             auto real_of_op1 = ctx->c.newXmm();
             wo_assure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, m_real))));
             wo_assure(!ctx->c.subsd(real_of_op1, asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, m_real))));
@@ -1528,6 +1552,33 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
+            // 优化：处理浮点数乘法的特殊情况
+            if (opnum2.is_constant_real())
+            {
+                const double real_op2 = opnum2.const_value()->m_real;
+                
+                // 乘0.0优化 - 直接设置为0.0
+                if (real_op2 == 0.0)
+                {
+                    auto zero = ctx->c.newXmm();
+                    wo_assure(!ctx->c.mulsd(zero, asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, m_real))));
+                    wo_assure(!ctx->c.movsd(asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, m_real)), zero));
+                    return true;
+                }
+                // 乘1.0优化 - 跳过操作
+                else if (real_op2 == 1.0)
+                    return true;
+                // 乘2.0优化 - 通过加法实现（addsd比mulsd更快）
+                else if (real_op2 == 2.0)
+                {
+                    auto real_of_op1 = ctx->c.newXmm();
+                    wo_assure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, m_real))));
+                    wo_assure(!ctx->c.addsd(real_of_op1, real_of_op1));
+                    wo_assure(!ctx->c.movsd(asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, m_real)), real_of_op1));
+                    return true;
+                }
+            }
+
             auto real_of_op1 = ctx->c.newXmm();
             wo_assure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, m_real))));
             wo_assure(!ctx->c.mulsd(real_of_op1, asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, m_real))));
@@ -1538,6 +1589,16 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
         {
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
+
+            // 优化：处理浮点数除法的特殊情况
+            if (opnum2.is_constant_real())
+            {
+                const double real_op2 = opnum2.const_value()->m_real;
+                
+                // 除1.0优化 - 跳过操作
+                if (real_op2 == 1.0)
+                    return true;
+            }
 
             auto real_of_op1 = ctx->c.newXmm();
             wo_assure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, m_real))));
@@ -2175,23 +2236,17 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
-            // <
-
-            auto x86_cmp_fail = ctx->c.newLabel();
-            auto x86_cmp_end = ctx->c.newLabel();
-
+            // 优化：使用setb指令避免分支跳转，提高性能
+            auto temp_result = ctx->c.newUInt8();
+            auto result_reg = ctx->c.newInt64();
             auto real_of_op1 = ctx->c.newXmm();
+            
             wo_assure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, m_real))));
             wo_assure(!ctx->c.comisd(real_of_op1, asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, m_real))));
-
-            wo_assure(!ctx->c.jae(x86_cmp_fail));
-
-            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer)), 1));
-            wo_assure(!ctx->c.jmp(x86_cmp_end));
-            wo_assure(!ctx->c.bind(x86_cmp_fail));
-            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer)), 0));
-            wo_assure(!ctx->c.bind(x86_cmp_end));
-            ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, m_type)), (uint8_t)value::valuetype::bool_type);
+            wo_assure(!ctx->c.setb(temp_result)); // 设置如果小于
+            wo_assure(!ctx->c.movzx(result_reg.r32(), temp_result));
+            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer)), result_reg));
+            wo_assure(!ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, m_type)), (uint8_t)value::valuetype::bool_type));
 
             return true;
         }
@@ -2200,24 +2255,17 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
-            // >
-
-            auto x86_cmp_fail = ctx->c.newLabel();
-            auto x86_cmp_end = ctx->c.newLabel();
-
+            // 优化：使用seta指令避免分支跳转，提高性能
+            auto temp_result = ctx->c.newUInt8();
+            auto result_reg = ctx->c.newInt64();
             auto real_of_op1 = ctx->c.newXmm();
+            
             wo_assure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, m_real))));
             wo_assure(!ctx->c.comisd(real_of_op1, asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, m_real))));
-
-            wo_assure(!ctx->c.jbe(x86_cmp_fail));
-
-            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer)), 1));
-            wo_assure(!ctx->c.jmp(x86_cmp_end));
-            wo_assure(!ctx->c.bind(x86_cmp_fail));
-
-            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer)), 0));
-            wo_assure(!ctx->c.bind(x86_cmp_end));
-            ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, m_type)), (uint8_t)value::valuetype::bool_type);
+            wo_assure(!ctx->c.seta(temp_result)); // 设置如果大于
+            wo_assure(!ctx->c.movzx(result_reg.r32(), temp_result));
+            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer)), result_reg));
+            wo_assure(!ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, m_type)), (uint8_t)value::valuetype::bool_type));
 
             return true;
         }
@@ -2226,23 +2274,17 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
-            // <=
-
-            auto x86_cmp_fail = ctx->c.newLabel();
-            auto x86_cmp_end = ctx->c.newLabel();
-
+            // 优化：使用setbe指令避免分支跳转，提高性能
+            auto temp_result = ctx->c.newUInt8();
+            auto result_reg = ctx->c.newInt64();
             auto real_of_op1 = ctx->c.newXmm();
+            
             wo_assure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, m_real))));
             wo_assure(!ctx->c.comisd(real_of_op1, asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, m_real))));
-
-            wo_assure(!ctx->c.ja(x86_cmp_fail));
-
-            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer)), 1));
-            wo_assure(!ctx->c.jmp(x86_cmp_end));
-            wo_assure(!ctx->c.bind(x86_cmp_fail));
-            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer)), 0));
-            wo_assure(!ctx->c.bind(x86_cmp_end));
-            ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, m_type)), (uint8_t)value::valuetype::bool_type);
+            wo_assure(!ctx->c.setbe(temp_result)); // 设置如果小于等于
+            wo_assure(!ctx->c.movzx(result_reg.r32(), temp_result));
+            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer)), result_reg));
+            wo_assure(!ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, m_type)), (uint8_t)value::valuetype::bool_type));
 
             return true;
         }
@@ -2251,23 +2293,17 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
-            // <=
-
-            auto x86_cmp_fail = ctx->c.newLabel();
-            auto x86_cmp_end = ctx->c.newLabel();
-
+            // 优化：使用setae指令避免分支跳转，提高性能
+            auto temp_result = ctx->c.newUInt8();
+            auto result_reg = ctx->c.newInt64();
             auto real_of_op1 = ctx->c.newXmm();
+            
             wo_assure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, m_real))));
             wo_assure(!ctx->c.comisd(real_of_op1, asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, m_real))));
-
-            wo_assure(!ctx->c.jb(x86_cmp_fail));
-
-            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer)), 1));
-            wo_assure(!ctx->c.jmp(x86_cmp_end));
-            wo_assure(!ctx->c.bind(x86_cmp_fail));
-            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer)), 0));
-            wo_assure(!ctx->c.bind(x86_cmp_end));
-            ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, m_type)), (uint8_t)value::valuetype::bool_type);
+            wo_assure(!ctx->c.setae(temp_result)); // 设置如果大于等于
+            wo_assure(!ctx->c.movzx(result_reg.r32(), temp_result));
+            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer)), result_reg));
+            wo_assure(!ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, m_type)), (uint8_t)value::valuetype::bool_type));
 
             return true;
         }
