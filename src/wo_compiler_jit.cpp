@@ -1312,7 +1312,12 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             WO_JIT_ADDRESSING_N2;
 
             if (opnum2.is_constant_i32())
+            {
+                // 优化：零加法跳过
+                if (opnum2.const_value()->m_integer == 0)
+                    return true;
                 wo_assure(!ctx->c.add(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer)), opnum2.const_value()->m_integer));
+            }
             else
             {
                 auto int_of_op2 = ctx->c.newInt64();
@@ -1328,6 +1333,9 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 
             if (opnum2.is_constant_i32())
             {
+                // 优化：减零跳过
+                if (opnum2.const_value()->m_integer == 0)
+                    return true;
                 wo_assure(!ctx->c.sub(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer)), opnum2.const_value()->m_integer));
             }
             else
@@ -1342,6 +1350,38 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
         {
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
+
+            if (opnum2.is_constant_i32())
+            {
+                // 优化：乘法的特殊情况
+                auto mul_value = opnum2.const_value()->m_integer;
+                if (mul_value == 0)
+                {
+                    // 乘0直接设置为0
+                    wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer)), 0));
+                    return true;
+                }
+                else if (mul_value == 1)
+                {
+                    // 乘1无效果
+                    return true;
+                }
+                else if (mul_value == -1)
+                {
+                    // 乘-1等于求负
+                    wo_assure(!ctx->c.neg(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer))));
+                    return true;
+                }
+                else if ((mul_value & (mul_value - 1)) == 0 && mul_value > 0)
+                {
+                    // 乘以2的幂次，使用左移优化
+                    int shift_count = 0;
+                    auto temp = mul_value;
+                    while (temp > 1) { temp >>= 1; shift_count++; }
+                    wo_assure(!ctx->c.shl(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer)), shift_count));
+                    return true;
+                }
+            }
 
             auto int_of_op2 = ctx->c.newInt64();
             if (opnum2.is_constant_i32())
@@ -1533,7 +1573,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             {
                 // WO_ADDRESSING_N1_REF;
                 // (rt_sp--)->set_val(opnum1);
-
                 wo_assure(!ctx->c.cmp(ctx->_vmssp, ctx->_vmshead));
                 wo_assure(!ctx->c.ja(stackenough_label));
 
@@ -1702,23 +1741,14 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
-            // ==
-
-            auto x86_equ_jmp_label = ctx->c.newLabel();
-            auto x86_nequ_jmp_label = ctx->c.newLabel();
-
-
+            // 优化：使用SETE指令避免分支跳转，提高性能
+            auto temp_result = ctx->c.newUInt8();
             auto int_of_op1 = ctx->c.newInt64();
             wo_assure(!ctx->c.mov(int_of_op1, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer))));
             wo_assure(!ctx->c.cmp(int_of_op1, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_integer))));
-            wo_assure(!ctx->c.jne(x86_nequ_jmp_label));
-
-            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer)), 1));
-            wo_assure(!ctx->c.jmp(x86_equ_jmp_label));
-            wo_assure(!ctx->c.bind(x86_nequ_jmp_label));
-            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer)), 0));
-            wo_assure(!ctx->c.bind(x86_equ_jmp_label));
-
+            wo_assure(!ctx->c.sete(temp_result));
+            wo_assure(!ctx->c.movzx(int_of_op1.r32(), temp_result));
+            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer)), int_of_op1));
             wo_assure(!ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, m_type)), (uint8_t)value::valuetype::bool_type));
 
             return true;
@@ -1728,22 +1758,14 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
-            // !=
-
-            auto x86_equ_jmp_label = ctx->c.newLabel();
-            auto x86_nequ_jmp_label = ctx->c.newLabel();
-
+            // 优化：使用SETNE指令避免分支跳转
+            auto temp_result = ctx->c.newUInt8();
             auto int_of_op1 = ctx->c.newInt64();
             wo_assure(!ctx->c.mov(int_of_op1, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer))));
             wo_assure(!ctx->c.cmp(int_of_op1, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_integer))));
-            wo_assure(!ctx->c.jne(x86_nequ_jmp_label));
-
-            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer)), 0));
-            wo_assure(!ctx->c.jmp(x86_equ_jmp_label));
-            wo_assure(!ctx->c.bind(x86_nequ_jmp_label));
-            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer)), 1));
-            wo_assure(!ctx->c.bind(x86_equ_jmp_label));
-
+            wo_assure(!ctx->c.setne(temp_result));
+            wo_assure(!ctx->c.movzx(int_of_op1.r32(), temp_result));
+            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer)), int_of_op1));
             wo_assure(!ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, m_type)), (uint8_t)value::valuetype::bool_type));
 
             return true;
@@ -1753,35 +1775,30 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
-            // <
-
-            auto x86_cmp_fail = ctx->c.newLabel();
-            auto x86_cmp_end = ctx->c.newLabel();
+            // 优化：使用SETL指令避免分支跳转，并优化常量比较
+            auto temp_result = ctx->c.newUInt8();
+            auto result_reg = ctx->c.newInt64();
 
             if (opnum1.is_constant_i32())
             {
                 wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_integer)), opnum1.const_value()->m_integer));
-                wo_assure(!ctx->c.jl(x86_cmp_fail));
+                wo_assure(!ctx->c.setg(temp_result)); // op2 > const => const < op2
             }
             else if (opnum2.is_constant_i32())
             {
                 wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer)), opnum2.const_value()->m_integer));
-                wo_assure(!ctx->c.jge(x86_cmp_fail));
+                wo_assure(!ctx->c.setl(temp_result));
             }
             else
             {
-                auto int_of_op1 = ctx->c.newInt64();
-                wo_assure(!ctx->c.mov(int_of_op1, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer))));
-                wo_assure(!ctx->c.cmp(int_of_op1, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_integer))));
-                wo_assure(!ctx->c.jge(x86_cmp_fail));
+                wo_assure(!ctx->c.mov(result_reg, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer))));
+                wo_assure(!ctx->c.cmp(result_reg, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_integer))));
+                wo_assure(!ctx->c.setl(temp_result));
             }
 
-            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer)), 1));
-            wo_assure(!ctx->c.jmp(x86_cmp_end));
-            wo_assure(!ctx->c.bind(x86_cmp_fail));
-            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer)), 0));
-            wo_assure(!ctx->c.bind(x86_cmp_end));
-            ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, m_type)), (uint8_t)value::valuetype::bool_type);
+            wo_assure(!ctx->c.movzx(result_reg.r32(), temp_result));
+            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer)), result_reg));
+            wo_assure(!ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, m_type)), (uint8_t)value::valuetype::bool_type));
             return true;
         }
         virtual bool ir_gti(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -1789,35 +1806,30 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
-            // >
-
-            auto x86_cmp_fail = ctx->c.newLabel();
-            auto x86_cmp_end = ctx->c.newLabel();
+            // 优化：使用SETG指令避免分支跳转
+            auto temp_result = ctx->c.newUInt8();
+            auto result_reg = ctx->c.newInt64();
 
             if (opnum1.is_constant_i32())
             {
                 wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_integer)), opnum1.const_value()->m_integer));
-                ctx->c.jg(x86_cmp_fail);
+                wo_assure(!ctx->c.setl(temp_result)); // op2 < const => const > op2
             }
             else if (opnum2.is_constant_i32())
             {
                 wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer)), opnum2.const_value()->m_integer));
-                ctx->c.jle(x86_cmp_fail);
+                wo_assure(!ctx->c.setg(temp_result));
             }
             else
             {
-                auto int_of_op1 = ctx->c.newInt64();
-                wo_assure(!ctx->c.mov(int_of_op1, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer))));
-                wo_assure(!ctx->c.cmp(int_of_op1, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_integer))));
-                ctx->c.jle(x86_cmp_fail);
+                wo_assure(!ctx->c.mov(result_reg, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer))));
+                wo_assure(!ctx->c.cmp(result_reg, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_integer))));
+                wo_assure(!ctx->c.setg(temp_result));
             }
 
-            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer)), 1));
-            ctx->c.jmp(x86_cmp_end);
-            ctx->c.bind(x86_cmp_fail);
-            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer)), 0));
-            ctx->c.bind(x86_cmp_end);
-            ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, m_type)), (uint8_t)value::valuetype::bool_type);
+            wo_assure(!ctx->c.movzx(result_reg.r32(), temp_result));
+            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer)), result_reg));
+            wo_assure(!ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, m_type)), (uint8_t)value::valuetype::bool_type));
 
             return true;
         }
@@ -2218,7 +2230,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 
             asmjit::InvokeNode* invoke_node;
             wo_assure(!ctx->c.invoke(
-                &invoke_node, 
+                &invoke_node,
                 (intptr_t)&native_do_call_vmfunc_with_stack_overflow_check,
                 asmjit::FuncSignatureT<wo_result_t, vmbase*, value*, const wo::byte_t*, uint32_t, value*, value*>()));
 
