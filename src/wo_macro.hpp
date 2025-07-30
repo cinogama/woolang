@@ -46,3 +46,16 @@
 #define wo_macro_invoke(FUNC_NAME,...) _wo_macro_invoke(FUNC_NAME, (__VA_ARGS__))
 
 #define wo_macro_overload(FUNC_NAME,...) wo_macro_invoke(wo_macro_concat(wo_macro_concat(FUNC_NAME,_),wo_macro_va_num(__VA_ARGS__)),__VA_ARGS__)
+
+// Source attribute.
+#ifdef NDEBUG
+#   if defined(_MSC_VER)
+#       define WO_FORCE_INLINE __forceinline
+#   elif defined(__GNUC__) || defined(__clang__)
+#       define WO_FORCE_INLINE inline __attribute__((always_inline))
+#   else
+#       define WO_FORCE_INLINE inline
+#   endif
+#else
+#   define WO_FORCE_INLINE 
+#endif

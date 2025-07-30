@@ -104,21 +104,72 @@ namespace wo
             valuetype m_type;
         };
 
-        value* set_takeplace();
-        value* set_string(const std::string & str);
-        value* set_buffer(const void* buf, size_t sz);
+        WO_FORCE_INLINE value* set_takeplace()
+        {
+            m_type = valuetype::stack_externed_flag;
+            m_value_field = 0;
+            return this;
+        }
+        WO_FORCE_INLINE value* set_string(const std::string & str)
+        {
+            set_gcunit<wo::value::valuetype::string_type>(
+                string_t::gc_new<gcbase::gctype::young>(str));
+            return this;
+        }
+        WO_FORCE_INLINE value* set_buffer(const void* buf, size_t sz)
+        {
+            set_gcunit<wo::value::valuetype::string_type>(
+                string_t::gc_new<gcbase::gctype::young>((const char*)buf, sz));
+            return this;
+        }
         value* set_string_nogc(std::string_view str);
         value* set_struct_nogc(uint16_t sz);
         value* set_val_with_compile_time_check(const value * val);
-        value* set_integer(wo_integer_t val);
-        value* set_real(wo_real_t val);
-        value* set_handle(wo_handle_t val);
-        value* set_nil();
-        value* set_bool(bool val);
-        value* set_native_callstack(const wo::byte_t * ipplace);
-        value* set_callstack(uint32_t ip, uint32_t bp);
+        WO_FORCE_INLINE value* set_integer(wo_integer_t val)
+        {
+            m_type = valuetype::integer_type;
+            m_integer = val;
+            return this;
+        }
+        WO_FORCE_INLINE value* set_real(wo_real_t val)
+        {
+            m_type = valuetype::real_type;
+            m_real = val;
+            return this;
+        }
+        WO_FORCE_INLINE value* set_handle(wo_handle_t val)
+        {
+            m_type = valuetype::handle_type;
+            m_handle = val;
+            return this;
+        }
+        WO_FORCE_INLINE value* set_nil()
+        {
+            m_type = valuetype::invalid;
+            m_value_field = 0;
+            return this;
+        }
+        WO_FORCE_INLINE value* set_bool(bool val)
+        {
+            m_type = valuetype::bool_type;
+            m_integer = val ? 1 : 0;
+            return this;
+        }
+        WO_FORCE_INLINE value* set_native_callstack(const wo::byte_t * ipplace)
+        {
+            m_type = valuetype::nativecallstack;
+            m_native_function_addr = ipplace;
+            return this;
+        }
+        WO_FORCE_INLINE value* set_callstack(uint32_t ip, uint32_t bp)
+        {
+            m_type = valuetype::callstack;
+            m_vmcallstack.ret_ip = ip;
+            m_vmcallstack.bp = bp;
+            return this;
+        }
         template <valuetype ty, typename T>
-        value* set_gcunit(T * unit)
+        WO_FORCE_INLINE value* set_gcunit(T * unit)
         {
             static_assert(ty & valuetype::need_gc_flag);
 
@@ -144,15 +195,35 @@ namespace wo
 
         // ATTENTION: Only work for gc-work-thread & no_gc unit. gc-unit might be freed
         //          after get_gcunit_and_attrib_ref.
-        gcbase* get_gcunit_and_attrib_ref(gcbase::unit_attrib * *attrib) const;
+        gcbase* get_gcunit_and_attrib_ref(gc::unit_attrib * *attrib) const;
 
         // ATTENTION: Only work for gc-work-thread & no_gc unit. gc-unit might be freed
         //          after get_gcunit_and_attrib_ref.
-        gcbase::unit_attrib* fast_get_attrib_for_assert_check() const;
-        bool is_gcunit() const;
-        value* set_val(const value * _val);
+        gc::unit_attrib* fast_get_attrib_for_assert_check() const;
+        WO_FORCE_INLINE bool is_gcunit() const
+        {
+            return m_type & valuetype::need_gc_flag;
+        }
+        WO_FORCE_INLINE value* set_val(const value * _val)
+        {
+            m_type = _val->m_type;
+            m_value_field = _val->m_value_field;
+            return this;
+        }
         std::string get_type_name() const;
         value* set_dup(value * from);
+        WO_FORCE_INLINE static void write_barrier(const value* val)
+        {
+            gc::unit_attrib* attr;
+            if (auto* mem = val->get_gcunit_and_attrib_ref(&attr))
+            {
+                if (attr->m_marked == (uint8_t)gcbase::gcmarkcolor::no_mark)
+                {
+                    gc::m_memo_mark_gray_list.add_one(
+                        new gc::memo_unit{ mem, attr });
+                }
+            }
+        }
 
         // Used for storing key-value when deserilizing a map.
         static const value TAKEPLACE;

@@ -2476,7 +2476,7 @@ namespace wo
 
                     auto* result = &(*opnum1->m_dictionary)[*opnum2];
                     if (wo::gc::gc_is_marking())
-                        wo::gcbase::write_barrier(result);
+                        wo::value::write_barrier(result);
                     result->set_val(opnum3);
 
                     break;
@@ -2496,7 +2496,7 @@ namespace wo
                     {
                         auto* result = &fnd->second;
                         if (wo::gc::gc_is_marking())
-                            wo::gcbase::write_barrier(result);
+                            wo::value::write_barrier(result);
                         result->set_val(opnum3);
                         break;
                     }
@@ -2526,7 +2526,7 @@ namespace wo
                     {
                         auto* result = &opnum1->m_array->at(index);
                         if (wo::gc::gc_is_marking())
-                            wo::gcbase::write_barrier(result);
+                            wo::value::write_barrier(result);
                         result->set_val(opnum3);
                     }
                     break;
@@ -2546,7 +2546,7 @@ namespace wo
 
                 auto* result = &opnum1->m_structure->m_values[offset];
                 if (wo::gc::gc_is_marking())
-                    wo::gcbase::write_barrier(result);
+                    wo::value::write_barrier(result);
                 result->set_val(opnum2);
 
                 break;

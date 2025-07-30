@@ -701,9 +701,9 @@ WO_API wo_api rslib_std_array_swap(wo_vm vm, wo_value args)
     if (wo::gc::gc_is_marking())
     {
         for (auto& elem : *arr1->m_array)
-            wo::gcbase::write_barrier(&elem);
+            wo::value::write_barrier(&elem);
         for (auto& elem : *arr2->m_array)
-            wo::gcbase::write_barrier(&elem);
+            wo::value::write_barrier(&elem);
     }
 
     arr1->m_array->swap(*arr2->m_array);
@@ -1066,13 +1066,13 @@ WO_API wo_api rslib_std_map_swap(wo_vm vm, wo_value args)
     {
         for (auto& [key, elem] : *map1->m_dictionary)
         {
-            wo::gcbase::write_barrier(&key);
-            wo::gcbase::write_barrier(&elem);
+            wo::value::write_barrier(&key);
+            wo::value::write_barrier(&elem);
         }
         for (auto& [key, elem] : *map2->m_dictionary)
         {
-            wo::gcbase::write_barrier(&key);
-            wo::gcbase::write_barrier(&elem);
+            wo::value::write_barrier(&key);
+            wo::value::write_barrier(&elem);
         }
     }
 

@@ -265,7 +265,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
         {
             if (val->m_type >= wo::value::valuetype::need_gc_flag)
             {
-                [[maybe_unused]] gcbase::unit_attrib* _attr;
+                [[maybe_unused]] gc::unit_attrib* _attr;
                 // NOTE: It's safe to get gcunit, all val here is read from vm, 
                 //      it would not be free after fetch.
                 wo::gcbase* gc_unit_base_addr = val->get_gcunit_and_attrib_ref(&_attr);

@@ -93,74 +93,74 @@ namespace wo
         virtual void finish_compiler(CompileContextT* context) = 0;
         virtual void free_compiler(CompileContextT* context) = 0;
 #define IRS \
-WO_ASMJIT_IR_ITERFACE_DECL(nop)\
-WO_ASMJIT_IR_ITERFACE_DECL(mov)\
-WO_ASMJIT_IR_ITERFACE_DECL(addi)\
-WO_ASMJIT_IR_ITERFACE_DECL(subi)\
-WO_ASMJIT_IR_ITERFACE_DECL(muli)\
-WO_ASMJIT_IR_ITERFACE_DECL(divi)\
-WO_ASMJIT_IR_ITERFACE_DECL(modi)\
-WO_ASMJIT_IR_ITERFACE_DECL(addr)\
-WO_ASMJIT_IR_ITERFACE_DECL(subr)\
-WO_ASMJIT_IR_ITERFACE_DECL(mulr)\
-WO_ASMJIT_IR_ITERFACE_DECL(divr)\
-WO_ASMJIT_IR_ITERFACE_DECL(modr)\
-WO_ASMJIT_IR_ITERFACE_DECL(addh)\
-WO_ASMJIT_IR_ITERFACE_DECL(subh)\
-WO_ASMJIT_IR_ITERFACE_DECL(adds)\
-WO_ASMJIT_IR_ITERFACE_DECL(psh)\
-WO_ASMJIT_IR_ITERFACE_DECL(pop)\
-WO_ASMJIT_IR_ITERFACE_DECL(sidarr)\
-WO_ASMJIT_IR_ITERFACE_DECL(sidstruct)\
-WO_ASMJIT_IR_ITERFACE_DECL(lds)\
-WO_ASMJIT_IR_ITERFACE_DECL(sts)\
-WO_ASMJIT_IR_ITERFACE_DECL(equb)\
-WO_ASMJIT_IR_ITERFACE_DECL(nequb)\
-WO_ASMJIT_IR_ITERFACE_DECL(lti)\
-WO_ASMJIT_IR_ITERFACE_DECL(gti)\
-WO_ASMJIT_IR_ITERFACE_DECL(elti)\
-WO_ASMJIT_IR_ITERFACE_DECL(egti)\
-WO_ASMJIT_IR_ITERFACE_DECL(land)\
-WO_ASMJIT_IR_ITERFACE_DECL(lor)\
-WO_ASMJIT_IR_ITERFACE_DECL(sidmap)\
-WO_ASMJIT_IR_ITERFACE_DECL(ltx)\
-WO_ASMJIT_IR_ITERFACE_DECL(gtx)\
-WO_ASMJIT_IR_ITERFACE_DECL(eltx)\
-WO_ASMJIT_IR_ITERFACE_DECL(egtx)\
-WO_ASMJIT_IR_ITERFACE_DECL(ltr)\
-WO_ASMJIT_IR_ITERFACE_DECL(gtr)\
-WO_ASMJIT_IR_ITERFACE_DECL(eltr)\
-WO_ASMJIT_IR_ITERFACE_DECL(egtr)\
-WO_ASMJIT_IR_ITERFACE_DECL(call)\
-WO_ASMJIT_IR_ITERFACE_DECL(calln)\
-WO_ASMJIT_IR_ITERFACE_DECL(ret)\
-WO_ASMJIT_IR_ITERFACE_DECL(jt)\
-WO_ASMJIT_IR_ITERFACE_DECL(jf)\
-WO_ASMJIT_IR_ITERFACE_DECL(jmp)\
-WO_ASMJIT_IR_ITERFACE_DECL(mkunion)\
-WO_ASMJIT_IR_ITERFACE_DECL(movcast)\
-WO_ASMJIT_IR_ITERFACE_DECL(mkclos)\
-WO_ASMJIT_IR_ITERFACE_DECL(typeas)\
-WO_ASMJIT_IR_ITERFACE_DECL(mkstruct)\
-WO_ASMJIT_IR_ITERFACE_DECL(abrt)\
-WO_ASMJIT_IR_ITERFACE_DECL(idarr)\
-WO_ASMJIT_IR_ITERFACE_DECL(iddict)\
-WO_ASMJIT_IR_ITERFACE_DECL(mkarr)\
-WO_ASMJIT_IR_ITERFACE_DECL(mkmap)\
-WO_ASMJIT_IR_ITERFACE_DECL(idstr)\
-WO_ASMJIT_IR_ITERFACE_DECL(equr)\
-WO_ASMJIT_IR_ITERFACE_DECL(nequr)\
-WO_ASMJIT_IR_ITERFACE_DECL(equs)\
-WO_ASMJIT_IR_ITERFACE_DECL(nequs)\
-WO_ASMJIT_IR_ITERFACE_DECL(siddict)\
-WO_ASMJIT_IR_ITERFACE_DECL(jnequb)\
-WO_ASMJIT_IR_ITERFACE_DECL(idstruct)\
+WO_ASMJIT_IR_ITERFACE_DECL(nop);\
+WO_ASMJIT_IR_ITERFACE_DECL(mov);\
+WO_ASMJIT_IR_ITERFACE_DECL(addi);\
+WO_ASMJIT_IR_ITERFACE_DECL(subi);\
+WO_ASMJIT_IR_ITERFACE_DECL(muli);\
+WO_ASMJIT_IR_ITERFACE_DECL(divi);\
+WO_ASMJIT_IR_ITERFACE_DECL(modi);\
+WO_ASMJIT_IR_ITERFACE_DECL(addr);\
+WO_ASMJIT_IR_ITERFACE_DECL(subr);\
+WO_ASMJIT_IR_ITERFACE_DECL(mulr);\
+WO_ASMJIT_IR_ITERFACE_DECL(divr);\
+WO_ASMJIT_IR_ITERFACE_DECL(modr);\
+WO_ASMJIT_IR_ITERFACE_DECL(addh);\
+WO_ASMJIT_IR_ITERFACE_DECL(subh);\
+WO_ASMJIT_IR_ITERFACE_DECL(adds);\
+WO_ASMJIT_IR_ITERFACE_DECL(psh);\
+WO_ASMJIT_IR_ITERFACE_DECL(pop);\
+WO_ASMJIT_IR_ITERFACE_DECL(sidarr);\
+WO_ASMJIT_IR_ITERFACE_DECL(sidstruct);\
+WO_ASMJIT_IR_ITERFACE_DECL(lds);\
+WO_ASMJIT_IR_ITERFACE_DECL(sts);\
+WO_ASMJIT_IR_ITERFACE_DECL(equb);\
+WO_ASMJIT_IR_ITERFACE_DECL(nequb);\
+WO_ASMJIT_IR_ITERFACE_DECL(lti);\
+WO_ASMJIT_IR_ITERFACE_DECL(gti);\
+WO_ASMJIT_IR_ITERFACE_DECL(elti);\
+WO_ASMJIT_IR_ITERFACE_DECL(egti);\
+WO_ASMJIT_IR_ITERFACE_DECL(land);\
+WO_ASMJIT_IR_ITERFACE_DECL(lor);\
+WO_ASMJIT_IR_ITERFACE_DECL(sidmap);\
+WO_ASMJIT_IR_ITERFACE_DECL(ltx);\
+WO_ASMJIT_IR_ITERFACE_DECL(gtx);\
+WO_ASMJIT_IR_ITERFACE_DECL(eltx);\
+WO_ASMJIT_IR_ITERFACE_DECL(egtx);\
+WO_ASMJIT_IR_ITERFACE_DECL(ltr);\
+WO_ASMJIT_IR_ITERFACE_DECL(gtr);\
+WO_ASMJIT_IR_ITERFACE_DECL(eltr);\
+WO_ASMJIT_IR_ITERFACE_DECL(egtr);\
+WO_ASMJIT_IR_ITERFACE_DECL(call);\
+WO_ASMJIT_IR_ITERFACE_DECL(calln);\
+WO_ASMJIT_IR_ITERFACE_DECL(ret);\
+WO_ASMJIT_IR_ITERFACE_DECL(jt);\
+WO_ASMJIT_IR_ITERFACE_DECL(jf);\
+WO_ASMJIT_IR_ITERFACE_DECL(jmp);\
+WO_ASMJIT_IR_ITERFACE_DECL(mkunion);\
+WO_ASMJIT_IR_ITERFACE_DECL(movcast);\
+WO_ASMJIT_IR_ITERFACE_DECL(mkclos);\
+WO_ASMJIT_IR_ITERFACE_DECL(typeas);\
+WO_ASMJIT_IR_ITERFACE_DECL(mkstruct);\
+WO_ASMJIT_IR_ITERFACE_DECL(abrt);\
+WO_ASMJIT_IR_ITERFACE_DECL(idarr);\
+WO_ASMJIT_IR_ITERFACE_DECL(iddict);\
+WO_ASMJIT_IR_ITERFACE_DECL(mkarr);\
+WO_ASMJIT_IR_ITERFACE_DECL(mkmap);\
+WO_ASMJIT_IR_ITERFACE_DECL(idstr);\
+WO_ASMJIT_IR_ITERFACE_DECL(equr);\
+WO_ASMJIT_IR_ITERFACE_DECL(nequr);\
+WO_ASMJIT_IR_ITERFACE_DECL(equs);\
+WO_ASMJIT_IR_ITERFACE_DECL(nequs);\
+WO_ASMJIT_IR_ITERFACE_DECL(siddict);\
+WO_ASMJIT_IR_ITERFACE_DECL(jnequb);\
+WO_ASMJIT_IR_ITERFACE_DECL(idstruct);\
 WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 
-#define WO_ASMJIT_IR_ITERFACE_DECL(IRNAME) virtual bool ir_##IRNAME(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
-        IRS
+#define WO_ASMJIT_IR_ITERFACE_DECL(IRNAME) virtual bool ir_##IRNAME(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0
+        IRS;
 
-            virtual bool ir_ext_panic(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
+        virtual bool ir_ext_panic(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
         virtual bool ir_ext_packargs(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
         virtual bool ir_ext_cdivilr(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
         virtual bool ir_ext_cdivil(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
@@ -747,7 +747,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             {
                 auto* result = &fnd->second;
                 if (wo::gc::gc_is_marking())
-                    wo::gcbase::write_barrier(result);
+                    wo::value::write_barrier(result);
                 result->set_val(opnum3);
             }
             else
@@ -760,7 +760,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 
             auto* result = &(*opnum1)[*opnum2];
             if (wo::gc::gc_is_marking())
-                wo::gcbase::write_barrier(result);
+                wo::value::write_barrier(result);
             result->set_val(opnum3);
         }
         static const char* _vmjitcall_sidarr(wo::array_t* opnum1, wo_integer_t opnum2, wo::value* opnum3)
@@ -774,7 +774,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             {
                 auto* result = &opnum1->at(index);
                 if (wo::gc::gc_is_marking())
-                    wo::gcbase::write_barrier(result);
+                    wo::value::write_barrier(result);
                 result->set_val(opnum3);
             }
             return nullptr;
@@ -785,7 +785,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 
             auto* result = opnum1->m_values + offset;
             if (wo::gc::gc_is_marking())
-                wo::gcbase::write_barrier(result);
+                wo::value::write_barrier(result);
             result->set_val(opnum2);
         }
         static void _vmjitcall_equs(wo::value* opnum1, wo::string_t* opnum2, wo::string_t* opnum3)
@@ -1134,7 +1134,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             auto result = x86compiler.newInt32();
             asmjit::InvokeNode* invoke_node;
             wo_assure(!x86compiler.invoke(
-                &invoke_node, 
+                &invoke_node,
                 reinterpret_cast<intptr_t>(&native_do_calln_vmfunc),
                 asmjit::FuncSignatureT<wo_result_t, vmbase*, wo_extern_native_func_t, uint32_t, value*, value*>()));
 
@@ -1172,7 +1172,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                 asmjit::x86::dword_ptr(
                     rt_sp,
                     offsetof(value, m_vmcallstack) + offsetof(value::callstack_t, bp)),
-                    bpoffset.r32()));
+                bpoffset.r32()));
 
             auto callargptr = x86compiler.newUIntPtr();
             wo_assure(!x86compiler.lea(callargptr, asmjit::x86::qword_ptr(rt_sp, 1 * (int32_t)sizeof(wo::value))));
@@ -3031,5 +3031,5 @@ namespace wo
     void free_jit(runtime_env* env)
     {
     }
-        }
+}
 #endif

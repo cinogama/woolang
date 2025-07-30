@@ -3410,7 +3410,7 @@ wo_bool_t wo_struct_try_set(wo_value value, uint16_t offset, wo_value val)
         {
             auto* result = &struct_impl->m_values[offset];
             if (wo::gc::gc_is_marking())
-                wo::gcbase::write_barrier(result);
+                wo::value::write_barrier(result);
 
             result->set_val(WO_VAL(val));
             return WO_TRUE;
@@ -3465,7 +3465,7 @@ void wo_arr_resize(wo_value arr, wo_size_t newsz, wo_value init_val)
         if ((size_t)newsz < arrsz && wo::gc::gc_is_marking())
         {
             for (size_t i = (size_t)newsz; i < arrsz; ++i)
-                wo::gcbase::write_barrier(&(*_arr->m_array)[i]);
+                wo::value::write_barrier(&(*_arr->m_array)[i]);
         }
 
         if (init_val != nullptr)
@@ -3507,7 +3507,7 @@ wo_bool_t wo_arr_try_set(wo_value arr, wo_size_t index, wo_value val)
         if ((size_t)index < _arr->m_array->size())
         {
             auto* store_val = &_arr->m_array->at((size_t)index);
-            wo::gcbase::write_barrier(store_val);
+            wo::value::write_barrier(store_val);
             store_val->set_val(WO_VAL(val));
             return WO_TRUE;
         }
@@ -3643,7 +3643,7 @@ wo_bool_t wo_arr_pop_front(wo_value out_val, wo_value arr)
             auto* value_to_pop = &_arr->m_array->front();
 
             if (wo::gc::gc_is_marking())
-                wo::gcbase::write_barrier(value_to_pop);
+                wo::value::write_barrier(value_to_pop);
 
             WO_VAL(out_val)->set_val(value_to_pop);
             _arr->m_array->erase(_arr->m_array->begin());
@@ -3667,7 +3667,7 @@ wo_bool_t wo_arr_pop_back(wo_value out_val, wo_value arr)
             auto* value_to_pop = &_arr->m_array->back();
 
             if (wo::gc::gc_is_marking())
-                wo::gcbase::write_barrier(value_to_pop);
+                wo::value::write_barrier(value_to_pop);
 
             WO_VAL(out_val)->set_val(value_to_pop);
             _arr->m_array->pop_back();
@@ -3738,7 +3738,7 @@ wo_bool_t wo_arr_remove(wo_value arr, wo_size_t index)
             if ((size_t)index < _arr->m_array->size())
             {
                 if (wo::gc::gc_is_marking())
-                    wo::gcbase::write_barrier(&(*_arr->m_array)[(size_t)index]);
+                    wo::value::write_barrier(&(*_arr->m_array)[(size_t)index]);
                 _arr->m_array->erase(_arr->m_array->begin() + (size_t)index);
 
                 return WO_TRUE;
@@ -3758,7 +3758,7 @@ void wo_arr_clear(wo_value arr)
         wo::gcbase::gc_modify_write_guard g1(_arr->m_array);
         if (wo::gc::gc_is_marking())
             for (auto& val : *_arr->m_array)
-                wo::gcbase::write_barrier(&val);
+                wo::value::write_barrier(&val);
         _arr->m_array->clear();
     }
     else
@@ -3954,7 +3954,7 @@ void wo_map_set(wo_value map, wo_value index, wo_value val)
     {
         wo::gcbase::gc_modify_write_guard g1(_map->m_dictionary);
         auto* store_val = &(*_map->m_dictionary)[*WO_VAL(index)];
-        wo::gcbase::write_barrier(store_val);
+        wo::value::write_barrier(store_val);
         store_val->set_val(WO_VAL(val));
     }
     else
@@ -3972,8 +3972,8 @@ wo_bool_t wo_map_remove(wo_value map, wo_value index)
             auto fnd = _map->m_dictionary->find(*WO_VAL(index));
             if (fnd != _map->m_dictionary->end())
             {
-                wo::gcbase::write_barrier(&fnd->first);
-                wo::gcbase::write_barrier(&fnd->second);
+                wo::value::write_barrier(&fnd->first);
+                wo::value::write_barrier(&fnd->second);
             }
         }
         return WO_CBOOL(0 != _map->m_dictionary->erase(*WO_VAL(index)));
@@ -3993,8 +3993,8 @@ void wo_map_clear(wo_value map)
         {
             for (auto& kvpair : *_map->m_dictionary)
             {
-                wo::gcbase::write_barrier(&kvpair.first);
-                wo::gcbase::write_barrier(&kvpair.second);
+                wo::value::write_barrier(&kvpair.first);
+                wo::value::write_barrier(&kvpair.second);
             }
         }
         _map->m_dictionary->clear();
@@ -4380,7 +4380,7 @@ void wo_close_pin_value(wo_pin_value pin_value)
 void wo_gc_record_memory(wo_value val)
 {
     if (wo::gc::gc_is_marking())
-        wo::gcbase::write_barrier(WO_VAL(val));
+        wo::value::write_barrier(WO_VAL(val));
 }
 
 wo_ir_compiler wo_create_ir_compiler(void)

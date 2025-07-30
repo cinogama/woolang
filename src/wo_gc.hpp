@@ -1,4 +1,5 @@
 #pragma once
+#include "wo_macro.hpp"
 #include "wo_memory.hpp"
 #include "wo_assert.hpp"
 
@@ -8,31 +9,7 @@ namespace wo
 {
     class vmbase;
     struct value;
-
-    namespace gc
-    {
-        void gc_start();
-        void gc_stop();
-        bool gc_is_marking();
-        bool gc_is_collecting_memo();
-        bool gc_is_recycling();
-        void mark_vm(vmbase* marking_vm, size_t worker_id);
-    }
-
-    namespace pin
-    {
-        wo_pin_value create_pin_value();
-        void set_pin_value(wo_pin_value pin_value, value* val);
-        void set_dup_pin_value(wo_pin_value pin_value, value* val);
-        void close_pin_value(wo_pin_value pin_value);
-        void read_pin_value(value* out_value, wo_pin_value pin_value);
-    }
-    namespace weakref
-    {
-        wo_weak_ref create_weak_ref(value* val);
-        void close_weak_ref(wo_weak_ref weak_ref);
-        bool lock_weak_ref(value* out_value, wo_weak_ref weak_ref);
-    }
+    struct gcbase;
 
     template<typename NodeT>
     struct atomic_list
@@ -56,6 +33,67 @@ namespace wo
             return last_node.load();
         }
     };
+
+    namespace gc
+    {
+        union unit_attrib
+        {
+            struct
+            {
+                uint8_t m_gc_age : 4;
+                uint8_t m_nogc : 1;
+                uint8_t m_marked : 2;
+                uint8_t m_alloc_mask : 1;
+            };
+            womem_attrib_t m_attr;
+        };
+        static_assert(sizeof(unit_attrib) == 1);
+
+        struct memo_unit
+        {
+            gcbase* gcunit;
+            unit_attrib* gcunit_attr;
+            memo_unit* last;
+        };
+        using _wo_memory_atomic_list_t = atomic_list<memo_unit>;
+
+        inline _wo_memory_atomic_list_t m_memo_mark_gray_list;
+        inline std::atomic_bool _gc_is_marking = false;
+        inline std::atomic_bool _gc_is_collecting_memo = false;
+        inline std::atomic_bool _gc_is_recycling = false;
+
+        void gc_start();
+        void gc_stop();
+        void mark_vm(vmbase* marking_vm, size_t worker_id);
+
+        WO_FORCE_INLINE bool gc_is_marking()
+        {
+            return _gc_is_marking.load();
+        }
+        WO_FORCE_INLINE bool gc_is_collecting_memo()
+        {
+            return _gc_is_collecting_memo.load();
+        }
+        WO_FORCE_INLINE bool gc_is_recycling()
+        {
+            return _gc_is_recycling.load();
+        }
+    }
+
+    namespace pin
+    {
+        wo_pin_value create_pin_value();
+        void set_pin_value(wo_pin_value pin_value, value* val);
+        void set_dup_pin_value(wo_pin_value pin_value, value* val);
+        void close_pin_value(wo_pin_value pin_value);
+        void read_pin_value(value* out_value, wo_pin_value pin_value);
+    }
+    namespace weakref
+    {
+        wo_weak_ref create_weak_ref(value* val);
+        void close_weak_ref(wo_weak_ref weak_ref);
+        bool lock_weak_ref(value* out_value, wo_weak_ref weak_ref);
+    }
 
     struct value;
 
@@ -200,27 +238,6 @@ namespace wo
         };
 
         using rw_lock = _shared_spin;
-
-        union unit_attrib
-        {
-            struct
-            {
-                uint8_t m_gc_age : 4;
-                uint8_t m_nogc : 1;
-                uint8_t m_marked : 2;
-                uint8_t m_alloc_mask : 1;
-            };
-            womem_attrib_t m_attr;
-        };
-        static_assert(sizeof(unit_attrib) == 1);
-
-        struct memo_unit
-        {
-            gcbase* gcunit;
-            unit_attrib* gcunit_attr;
-            memo_unit* last;
-        };
-
         rw_lock gc_read_write_mx;
 
 #if WO_ENABLE_RUNTIME_CHECK
@@ -245,8 +262,6 @@ namespace wo
             gc_read_write_mx.unlock_shared();
         }
 
-        static void write_barrier(const value* val);
-
         virtual ~gcbase();
 
         inline static std::atomic_uint32_t gc_new_releax_count = 0;
@@ -262,13 +277,13 @@ namespace wo
                 1, std::memory_order::memory_order_relaxed);
 
             // TODO: Optimize this.
-            gcbase::unit_attrib a;
+            gc::unit_attrib a;
             a.m_gc_age = AllocType == gcbase::gctype::young ? (uint8_t)0x0F : (uint8_t)0;
             a.m_nogc = AllocType == gcbase::gctype::no_gc ? (uint8_t)0x01 : (uint8_t)0;
             a.m_marked = 0;
             a.m_alloc_mask = 0;
 
-            auto* created_gcnuit = 
+            auto* created_gcnuit =
                 new (alloc64(sizeof(gcunit<T>), a.m_attr))gcunit<T>(args...);
 
 #if WO_ENABLE_RUNTIME_CHECK

@@ -450,13 +450,13 @@ namespace wo
             [[fallthrough]];
         case value::valuetype::string_type:
         {
-            gcbase::unit_attrib cancel_nogc;
+            gc::unit_attrib cancel_nogc;
             cancel_nogc.m_gc_age = 0;
             cancel_nogc.m_marked = (uint8_t)gcbase::gcmarkcolor::full_mark;
             cancel_nogc.m_alloc_mask = 0;
             cancel_nogc.m_nogc = 0;
 
-            gcbase::unit_attrib* attrib;
+            gc::unit_attrib* attrib;
 
             // NOTE: Constant gcunit is nogc-unit, its safe here to `get_gcunit_and_attrib_ref`.
             auto* unit = val.get_gcunit_and_attrib_ref(&attrib);
