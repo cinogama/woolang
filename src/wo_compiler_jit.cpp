@@ -1314,9 +1314,16 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             if (opnum2.is_constant_i32())
             {
                 // 优化：零加法跳过
-                if (opnum2.const_value()->m_integer == 0)
+                const auto integer_op2 = opnum2.const_value()->m_integer;
+
+                if (integer_op2 == 0)
                     return true;
-                wo_assure(!ctx->c.add(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer)), opnum2.const_value()->m_integer));
+                else if (integer_op2 == 1)
+                    wo_assure(!ctx->c.inc(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer))));
+                else if (integer_op2 == -1)
+                    wo_assure(!ctx->c.dec(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer))));
+                else
+                    wo_assure(!ctx->c.add(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer)), integer_op2));
             }
             else
             {
@@ -1334,9 +1341,16 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             if (opnum2.is_constant_i32())
             {
                 // 优化：减零跳过
-                if (opnum2.const_value()->m_integer == 0)
+                const auto integer_op2 = opnum2.const_value()->m_integer;
+
+                if (integer_op2 == 0)
                     return true;
-                wo_assure(!ctx->c.sub(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer)), opnum2.const_value()->m_integer));
+                else if (integer_op2 == 1)
+                    wo_assure(!ctx->c.dec(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer))));
+                else if (integer_op2 == -1)
+                    wo_assure(!ctx->c.inc(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer))));
+                else
+                    wo_assure(!ctx->c.sub(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer)), integer_op2));
             }
             else
             {
@@ -1398,6 +1412,54 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
+            // 优化：处理除法的特殊情况
+            if (opnum2.is_constant_i32())
+            {
+                auto divisor = opnum2.const_value()->m_integer;
+
+                if (divisor == 1)
+                {
+                    // 除以1无效果
+                    return true;
+                }
+                else if (divisor == -1)
+                {
+                    // 除以-1等于求负（溢出已在其他地方检查）
+                    wo_assure(!ctx->c.neg(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer))));
+                    return true;
+                }
+                else if ((divisor & (divisor - 1)) == 0 && divisor > 0)
+                {
+                    // 除以2的幂次，使用算术右移优化
+                    int shift_count = 0;
+                    auto temp = divisor;
+                    while (temp > 1) { temp >>= 1; shift_count++; }
+
+                    // 对于有符号除法，需要特殊处理负数
+                    auto non_negative = ctx->c.newLabel();
+                    auto end_label = ctx->c.newLabel();
+                    auto dividend = ctx->c.newInt64();
+
+                    wo_assure(!ctx->c.mov(dividend, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer))));
+                    wo_assure(!ctx->c.test(dividend, dividend));
+                    wo_assure(!ctx->c.jns(non_negative));
+
+                    // 负数情况：添加偏移以正确舍入
+                    wo_assure(!ctx->c.add(dividend, asmjit::Imm(divisor - 1)));
+                    wo_assure(!ctx->c.sar(dividend, asmjit::Imm(shift_count)));
+                    wo_assure(!ctx->c.jmp(end_label));
+
+                    // 非负数情况：直接右移
+                    wo_assure(!ctx->c.bind(non_negative));
+                    wo_assure(!ctx->c.sar(dividend, asmjit::Imm(shift_count)));
+
+                    wo_assure(!ctx->c.bind(end_label));
+                    wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer)), dividend));
+                    return true;
+                }
+            }
+
+            // 通用除法实现
             auto int_of_op1 = ctx->c.newInt64();
             auto int_of_op2 = ctx->c.newInt64();
             auto div_op_num = ctx->c.newInt64();
