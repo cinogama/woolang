@@ -1082,9 +1082,60 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             asmjit::x86::Gp rt_sp,
             asmjit::x86::Gp rt_bp)
         {
+            //wo::value callstack;
+            //callstack.m_type = wo::value::valuetype::callstack;
+            //callstack.m_vmcallstack.bp = 0;
+            //callstack.m_vmcallstack.ret_ip = (uint32_t)(rt_ip - codes);
+
+            //x86_set_imm(x86compiler, rt_sp, callstack);
+            //auto bpoffset = x86compiler.newUInt64();
+            //wo_assure(!x86compiler.mov(bpoffset, asmjit::x86::qword_ptr(vm, offsetof(vmbase, sb))));
+            //wo_assure(!x86compiler.sub(bpoffset, rt_bp));
+            //wo_assure(!x86compiler.shr(bpoffset, asmjit::Imm(4)));
+            //wo_assure(!x86compiler.mov(
+            //    asmjit::x86::dword_ptr(
+            //        rt_sp,
+            //        offsetof(value, m_vmcallstack) + offsetof(value::callstack_t, bp)),
+            //    bpoffset.r32()));
+
+            //auto callargptr = x86compiler.newUIntPtr();
+            //wo_assure(!x86compiler.lea(callargptr, asmjit::x86::qword_ptr(rt_sp, 1 * (int32_t)sizeof(wo::value))));
+
+            //// Sync vm's sp/bp
+            //// vm->bp = vm->sp = --rt_sp;
+            //// vm->ip = reinterpret_cast<byte_t*>(call_aim_native_func);
+            //auto new_sp_bp = x86compiler.newUIntPtr();
+            //wo_assure(!x86compiler.lea(
+            //    new_sp_bp, asmjit::x86::qword_ptr(rt_sp, -1 * (int32_t)sizeof(wo::value))));
+            //wo_assure(!x86compiler.mov(
+            //    asmjit::x86::qword_ptr(vm, offsetof(vmbase, sp)), new_sp_bp));
+            //wo_assure(!x86compiler.mov(
+            //    asmjit::x86::qword_ptr(vm, offsetof(vmbase, bp)), new_sp_bp));
+            //wo_assure(!x86compiler.mov(
+            //    asmjit::x86::qword_ptr(vm, offsetof(vmbase, ip)), asmjit::Imm(call_aim_native_func)));
+
+            //auto result = x86compiler.newInt32();
+
+            //asmjit::InvokeNode* invoke_node;
+
+            //wo_assure(!x86compiler.invoke(
+            //    &invoke_node, 
+            //    reinterpret_cast<intptr_t>(call_aim_native_func),
+            //    asmjit::FuncSignatureT<wo_result_t, vmbase*, value*>()));
+
+            //invoke_node->setArg(0, vm);
+            //invoke_node->setArg(1, callargptr);
+
+            //invoke_node->setRet(0, result);
+
+            // TODO: check_result_is_normal(x86compiler, vm, result, rt_ip, rt_sp, rt_bp);
+
+            /////////////////////////////////////////////////
             auto result = x86compiler.newInt32();
             asmjit::InvokeNode* invoke_node;
-            wo_assure(!x86compiler.invoke(&invoke_node, (intptr_t)&native_do_calln_vmfunc,
+            wo_assure(!x86compiler.invoke(
+                &invoke_node, 
+                reinterpret_cast<intptr_t>(&native_do_calln_vmfunc),
                 asmjit::FuncSignatureT<wo_result_t, vmbase*, wo_extern_native_func_t, uint32_t, value*, value*>()));
 
             invoke_node->setArg(0, vm);
@@ -1121,7 +1172,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                 asmjit::x86::dword_ptr(
                     rt_sp,
                     offsetof(value, m_vmcallstack) + offsetof(value::callstack_t, bp)),
-                bpoffset.r32()));
+                    bpoffset.r32()));
 
             auto callargptr = x86compiler.newUIntPtr();
             wo_assure(!x86compiler.lea(callargptr, asmjit::x86::qword_ptr(rt_sp, 1 * (int32_t)sizeof(wo::value))));
