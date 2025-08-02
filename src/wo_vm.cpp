@@ -1782,13 +1782,14 @@ namespace wo
             case instruct::opcode::pshr:
             {
                 uint16_t psh_repeat = WO_IPVAL_MOVE_2;
-                if (sp - psh_repeat < stack_storage)
+                value* new_sp = sp - psh_repeat;
+                if (new_sp < stack_storage)
                 {
                     rt_ip -= 3;
                     wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
                 }
                 else
-                    sp -= psh_repeat;
+                    sp = new_sp;
                 break;
             }
             case instruct::opcode::pshg:
