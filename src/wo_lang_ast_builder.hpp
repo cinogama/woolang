@@ -237,6 +237,7 @@ struct NAME : public astnode_builder                    \
         WO_AST_BUILDER(pass_expand_arguments);
         WO_AST_BUILDER(pass_variadic_arguments_pack);
         WO_AST_BUILDER(pass_extern);
+        WO_AST_BUILDER(pass_defer);
         WO_AST_BUILDER(pass_func_def_extn);
         WO_AST_BUILDER(pass_func_def_extn_oper);
         WO_AST_BUILDER(pass_create_template_argument);

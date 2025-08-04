@@ -311,6 +311,7 @@ namespace wo
     void LangContext::init_pass1()
     {
         WO_LANG_REGISTER_PROCESSER(AstList, AstBase::AST_LIST, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstDefer, AstBase::AST_DEFER, pass1);
         WO_LANG_REGISTER_PROCESSER(AstIdentifier, AstBase::AST_IDENTIFIER, pass1);
         WO_LANG_REGISTER_PROCESSER(AstTemplateArgument, AstBase::AST_TEMPLATE_ARGUMENT, pass1);
         WO_LANG_REGISTER_PROCESSER(AstTemplateParam, AstBase::AST_TEMPLATE_PARAM, pass1);
@@ -382,6 +383,16 @@ namespace wo
         if (state == UNPROCESSED)
         {
             WO_CONTINUE_PROCESS_LIST(node->m_list);
+
+            return HOLD;
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstDefer)
+    {
+        if (state == UNPROCESSED)
+        {
+            WO_CONTINUE_PROCESS(node->m_body);
 
             return HOLD;
         }

@@ -84,10 +84,8 @@ namespace wo
                 nt("SENTENCE_LIST") >> symlist{nt("SENTENCE")} >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
                 // NOTE: macro might defined after import sentence. to make sure macro can be handle correctly.
                 //      we make sure import happend before macro been peek and check.
-                nt("SENTENCE") >> symlist{
-                                      nt("IMPORT_SENTENCE"),
-                                      te(token::l_semicolon)} >>
-                    WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                nt("SENTENCE") >> symlist{ te(token::l_defer), nt("BLOCKED_SENTENCE") } >> WO_ASTBUILDER_INDEX(ast::pass_defer),
+                nt("SENTENCE") >> symlist{nt("IMPORT_SENTENCE"), te(token::l_semicolon)} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 nt("IMPORT_SENTENCE") >> symlist{te(token::l_import), nt("SCOPED_LIST_NORMAL")} >> WO_ASTBUILDER_INDEX(ast::pass_import_files),
                 nt("IMPORT_SENTENCE") >> symlist{te(token::l_export), te(token::l_import), nt("SCOPED_LIST_NORMAL")} >> WO_ASTBUILDER_INDEX(ast::pass_import_files),
                 nt("SENTENCE") >> symlist{nt("DECL_ATTRIBUTE"), // useless

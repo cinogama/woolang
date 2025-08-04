@@ -2740,6 +2740,23 @@ namespace wo
 
         ////////////////////////////////////////////////////////
 
+        AstDefer::AstDefer(AstBase* defer_body)
+            : AstBase(AST_DEFER)
+            , m_body(defer_body)
+        {
+        }
+        AstBase* AstDefer::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        {
+            AstDefer* new_instance = exist_instance
+                ? static_cast<AstDefer*>(exist_instance.value())
+                : new AstDefer(m_body)
+                ;
+            out_continues.push_back(AstBase::make_holder(&new_instance->m_body));
+            return new_instance;
+        }
+
+        ////////////////////////////////////////////////////////
+
         AstToken::AstToken(const token& token)
             : AstBase(AST_TOKEN)
             , m_token(token)

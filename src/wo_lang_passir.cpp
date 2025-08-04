@@ -241,6 +241,7 @@ namespace wo
         // WO_LANG_REGISTER_PROCESSER(AstExternInformation, AstBase::AST_EXTERN_INFORMATION, passir_A);
 
         WO_LANG_REGISTER_PROCESSER(AstList, AstBase::AST_LIST, passir_A);
+        WO_LANG_REGISTER_PROCESSER(AstDefer, AstBase::AST_DEFER, passir_A);
         WO_LANG_REGISTER_PROCESSER(AstVariableDefineItem, AstBase::AST_VARIABLE_DEFINE_ITEM, passir_A);
         WO_LANG_REGISTER_PROCESSER(AstVariableDefines, AstBase::AST_VARIABLE_DEFINES, passir_A);
         WO_LANG_REGISTER_PROCESSER(AstNamespace, AstBase::AST_NAMESPACE, passir_A);
@@ -298,6 +299,12 @@ namespace wo
             return HOLD;
         }
         return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstDefer)
+    {
+        // NOTE: Donot generate code for AstDefer, 
+        // code will be generated in AstReturn & AstScope.
+        return OKAY;
     }
     WO_PASS_PROCESSER(AstScope)
     {

@@ -68,6 +68,7 @@ namespace wo
         {"as", {lex_type::l_as}},
         {"break", {lex_type::l_break}},
         {"continue", {lex_type::l_continue}},
+        {"defer", {lex_type::l_defer}},
         {"do", {lex_type::l_do}},
         {"else", {lex_type::l_else}},
         {"enum", {lex_type::l_enum}},

@@ -905,6 +905,7 @@ namespace wo
 
 #define WO_ALL_AST_LIST_A\
     WO_AST_MACRO(AstList);\
+    WO_AST_MACRO(AstDefer);\
     WO_AST_MACRO(AstValueFunctionCall_FakeAstArgumentDeductionContextA);\
     WO_AST_MACRO(AstValueFunctionCall_FakeAstArgumentDeductionContextB);\
     WO_AST_MACRO(AstTemplateConstantTypeCheckInPass1);\

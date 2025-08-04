@@ -1608,6 +1608,11 @@ namespace wo
 
             return new AstValueIndex(value, index_literal);
         }
+        auto pass_defer::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstBase* body = WO_NEED_AST(1);
+            return new AstDefer(body);
+        }
         auto pass_expand_arguments::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstValueBase* value = WO_NEED_AST_VALUE(0);
@@ -1812,6 +1817,7 @@ namespace wo
             WO_AST_BUILDER(pass_dict_field_init_pair);
             WO_AST_BUILDER(pass_index_operation_regular);
             WO_AST_BUILDER(pass_index_operation_member);
+            WO_AST_BUILDER(pass_defer);
             WO_AST_BUILDER(pass_expand_arguments);
             WO_AST_BUILDER(pass_variadic_arguments_pack);
             WO_AST_BUILDER(pass_extern);

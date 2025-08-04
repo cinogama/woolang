@@ -111,6 +111,7 @@ namespace wo
                 AST_WHILE,
                 AST_FOR,
                 AST_FOREACH,
+                AST_DEFER,
 
                 AST_BREAK,
                 AST_CONTINUE,

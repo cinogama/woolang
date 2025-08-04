@@ -127,6 +127,7 @@ namespace wo
         l_struct,
         l_immut,
         l_typeid,
+        l_defer,
         l_macro,
         l_line_comment,
         l_block_comment,

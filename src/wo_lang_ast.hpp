@@ -1209,6 +1209,13 @@ namespace wo
             AstUsingNamespace(const std::list<wo_pstring_t>& using_namespace);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
+        struct AstDefer : public AstBase
+        {
+            AstBase* m_body;
+
+            AstDefer(AstBase* defer_body);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+        };
         struct AstToken : public AstBase
         {
             token m_token;
