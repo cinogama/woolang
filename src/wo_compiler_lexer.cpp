@@ -1693,4 +1693,8 @@ extern func macro_entry(lexer: std::lexer)=> string
             return false;
         }
     }
+    void lexer::drop_source_stream_for_lspv2()
+    {
+        m_source_stream.reset();
+    }
 }

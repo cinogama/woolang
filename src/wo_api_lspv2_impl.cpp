@@ -117,6 +117,10 @@ wo_lspv2_source_meta* wo_lspv2_compile_to_meta(
             }
         }
     }
+
+    if (meta->m_lexer_if_failed.has_value())
+        meta->m_lexer_if_failed.value()->drop_source_stream_for_lspv2();
+
     return meta;
 }
 void wo_lspv2_meta_free(wo_lspv2_source_meta* meta)

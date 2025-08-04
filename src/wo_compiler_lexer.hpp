@@ -425,6 +425,7 @@ namespace wo
         const std::optional<lexer*>& get_who_import_me() const;
 
         void get_now_location(size_t* out_row, size_t* out_col) const;
+        void drop_source_stream_for_lspv2();
     };
 }
 
