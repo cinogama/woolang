@@ -80,10 +80,8 @@ namespace wo
                 nt("PROGRAM") >> symlist{nt("USELESS_TOKEN")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 nt("PROGRAM") >> symlist{nt("PARAGRAPH")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 nt("PARAGRAPH") >> symlist{nt("SENTENCE_LIST")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
-                nt("SENTENCE_LIST") >> symlist{nt("SENTENCE_LIST"), nt("LABELED_SENTENCE")} >> WO_ASTBUILDER_INDEX(ast::pass_append_list<1, 0>),
-                nt("SENTENCE_LIST") >> symlist{nt("LABELED_SENTENCE")} >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
-                nt("LABELED_SENTENCE") >> symlist{nt("IDENTIFIER"), te(token::l_at), nt("SENTENCE")} >> WO_ASTBUILDER_INDEX(ast::pass_mark_label),
-                nt("LABELED_SENTENCE") >> symlist{nt("SENTENCE")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                nt("SENTENCE_LIST") >> symlist{nt("SENTENCE_LIST"), nt("SENTENCE")} >> WO_ASTBUILDER_INDEX(ast::pass_append_list<1, 0>),
+                nt("SENTENCE_LIST") >> symlist{nt("SENTENCE")} >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
                 // NOTE: macro might defined after import sentence. to make sure macro can be handle correctly.
                 //      we make sure import happend before macro been peek and check.
                 nt("SENTENCE") >> symlist{
@@ -113,7 +111,7 @@ namespace wo
                 nt("SPACE_NAME_LIST") >> symlist{nt("SPACE_NAME")} >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
                 nt("SPACE_NAME_LIST") >> symlist{nt("SPACE_NAME_LIST"), te(token::l_scopeing), nt("SPACE_NAME")} >> WO_ASTBUILDER_INDEX(ast::pass_append_list<2, 0>),
                 nt("SPACE_NAME") >> symlist{nt("IDENTIFIER")} >> WO_ASTBUILDER_INDEX(ast::pass_token),
-                nt("BLOCKED_SENTENCE") >> symlist{nt("LABELED_SENTENCE")} >> WO_ASTBUILDER_INDEX(ast::pass_sentence_block<0>),
+                nt("BLOCKED_SENTENCE") >> symlist{nt("SENTENCE")} >> WO_ASTBUILDER_INDEX(ast::pass_sentence_block<0>),
                 nt("SENTENCE") >> symlist{nt("SENTENCE_BLOCK")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 nt("SENTENCE_BLOCK") >> symlist{te(token::l_left_curly_braces), nt("PARAGRAPH"), te(token::l_right_curly_braces)} >> WO_ASTBUILDER_INDEX(ast::pass_sentence_block<1>),
                 // Because of CONSTANT MAP => ,,, => { l_empty } Following production will cause R-R Conflict
@@ -168,15 +166,16 @@ namespace wo
                 nt("EXTERN_ATTRIBUTES") >> symlist{te(token::l_comma), nt("EXTERN_ATTRIBUTE_LIST")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<1>),
                 nt("EXTERN_ATTRIBUTE_LIST") >> symlist{nt("EXTERN_ATTRIBUTE")} >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
                 nt("EXTERN_ATTRIBUTE_LIST") >> symlist{nt("EXTERN_ATTRIBUTE_LIST"), te(token::l_comma), nt("EXTERN_ATTRIBUTE")} >> WO_ASTBUILDER_INDEX(ast::pass_append_list<2, 0>),
-                nt("EXTERN_ATTRIBUTE") >> symlist{
-                                              te(token::l_identifier),
-                                          } >>
-                    WO_ASTBUILDER_INDEX(ast::pass_token),
+                nt("EXTERN_ATTRIBUTE") >> symlist{te(token::l_identifier)} >>  WO_ASTBUILDER_INDEX(ast::pass_token),
                 nt("FUNC_DEFINE_WITH_NAME") >> symlist{nt("EXTERN_FROM"), nt("DECL_ATTRIBUTE"), te(token::l_func), nt("AST_TOKEN_IDENTIFER"), nt("DEFINE_TEMPLATE_PARAM_ITEM_MAY_EMPTY"), te(token::l_left_brackets), nt("ARGDEFINE"), te(token::l_right_brackets), nt("RETURN_TYPE_DECLEAR"), nt("WHERE_CONSTRAINT_MAY_EMPTY"), te(token::l_semicolon)} >> WO_ASTBUILDER_INDEX(ast::pass_func_def_extn),
                 nt("FUNC_DEFINE_WITH_NAME") >> symlist{nt("EXTERN_FROM"), nt("DECL_ATTRIBUTE"), te(token::l_func), te(token::l_operator), nt("OVERLOADINGABLE_OPERATOR"), nt("DEFINE_TEMPLATE_PARAM_ITEM_MAY_EMPTY"), te(token::l_left_brackets), nt("ARGDEFINE"), te(token::l_right_brackets), nt("RETURN_TYPE_DECLEAR"), nt("WHERE_CONSTRAINT_MAY_EMPTY"), te(token::l_semicolon)} >> WO_ASTBUILDER_INDEX(ast::pass_func_def_extn_oper),
-                nt("SENTENCE") >> symlist{nt("WHILE")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                nt("SENTENCE") >> symlist{nt("MAY_LABELED_LOOP")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                nt("MAY_LABELED_LOOP") >> symlist{ nt("IDENTIFIER"), te(token::l_at), nt("LOOP") } >> WO_ASTBUILDER_INDEX(ast::pass_mark_label),
+                nt("MAY_LABELED_LOOP") >> symlist{ nt("LOOP") } >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                nt("LOOP") >> symlist{ nt("WHILE") } >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                nt("LOOP") >> symlist{ nt("FORLOOP") } >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                nt("LOOP") >> symlist{ nt("FOREACH") } >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 nt("WHILE") >> symlist{te(token::l_while), te(token::l_left_brackets), nt("EXPRESSION"), te(token::l_right_brackets), nt("BLOCKED_SENTENCE")} >> WO_ASTBUILDER_INDEX(ast::pass_while),
-                nt("SENTENCE") >> symlist{nt("FORLOOP")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 nt("VAR_DEFINE_WITH_SEMICOLON") >> symlist{nt("VAR_DEFINE_LET_SENTENCE"), te(token::l_semicolon)} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 nt("FORLOOP") >> symlist{te(token::l_for), te(token::l_left_brackets), nt("VAR_DEFINE_WITH_SEMICOLON"), nt("MAY_EMPTY_EXPRESSION"), te(token::l_semicolon), nt("MAY_EMPTY_EXPRESSION"), te(token::l_right_brackets), nt("BLOCKED_SENTENCE")} >> WO_ASTBUILDER_INDEX(ast::pass_for_defined),
                 nt("FORLOOP") >> symlist{te(token::l_for), te(token::l_left_brackets), nt("MAY_EMPTY_EXPRESSION"), te(token::l_semicolon), nt("MAY_EMPTY_EXPRESSION"), te(token::l_semicolon), nt("MAY_EMPTY_EXPRESSION"), te(token::l_right_brackets), nt("BLOCKED_SENTENCE")} >> WO_ASTBUILDER_INDEX(ast::pass_for_expr),
@@ -186,7 +185,6 @@ namespace wo
                 nt("SENTENCE") >> symlist{te(token::l_continue), nt("IDENTIFIER"), te(token::l_semicolon)} >> WO_ASTBUILDER_INDEX(ast::pass_continue_label),
                 nt("MAY_EMPTY_EXPRESSION") >> symlist{nt("EXPRESSION")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 nt("MAY_EMPTY_EXPRESSION") >> symlist{te(token::l_empty)} >> WO_ASTBUILDER_INDEX(ast::pass_empty),
-                nt("SENTENCE") >> symlist{nt("FOREACH")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 nt("FOREACH") >> symlist{te(token::l_for), te(token::l_left_brackets), nt("DECL_ATTRIBUTE"), te(token::l_let), nt("DEFINE_PATTERN"), te(token::l_typecast), nt("EXPRESSION"), te(token::l_right_brackets), nt("BLOCKED_SENTENCE")} >> WO_ASTBUILDER_INDEX(ast::pass_foreach),
                 nt("SENTENCE") >> symlist{nt("IF")} >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 nt("IF") >> symlist{te(token::l_if), te(token::l_left_brackets), nt("EXPRESSION"), te(token::l_right_brackets), nt("BLOCKED_SENTENCE"), nt("ELSE")} >> WO_ASTBUILDER_INDEX(ast::pass_if),
