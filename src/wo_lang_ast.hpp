@@ -916,11 +916,13 @@ namespace wo
             AstNamespace(wo_pstring_t name, AstBase* body);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
+        struct AstDefer;
         struct AstScope : public AstBase
         {
             AstBase* m_body;
 
             std::optional<lang_Scope*> m_LANG_determined_scope;
+            std::list<AstDefer*> m_LANG_defers;
 
             AstScope(AstBase* body);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;

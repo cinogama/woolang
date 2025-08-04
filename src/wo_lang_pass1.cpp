@@ -392,6 +392,16 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
+            auto* scope = get_current_scope();
+            if (!scope->m_scope_instance.has_value())
+            {
+                lex.record_lang_error(
+                    lexer::msglevel_t::error, node, WO_ERR_DEFER_CANNOT_BE_HERE);
+                return FAILED;
+            }
+            // Insert at the front of the defer list.
+            scope->m_scope_instance.value()->m_LANG_defers.push_front(node);
+
             WO_CONTINUE_PROCESS(node->m_body);
 
             return HOLD;
@@ -407,7 +417,10 @@ namespace wo
             else
             {
                 begin_new_scope(node->source_location);
-                node->m_LANG_determined_scope = get_current_scope();
+                auto* scope = get_current_scope();
+
+                scope->m_scope_instance = node;
+                node->m_LANG_determined_scope = scope;
             }
 
             WO_CONTINUE_PROCESS(node->m_body);

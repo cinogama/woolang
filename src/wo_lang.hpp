@@ -423,6 +423,7 @@ namespace wo
 
         std::optional<lang_Scope*> m_parent_scope;
         std::optional<ast::AstValueFunction*> m_function_instance;
+        std::optional<ast::AstScope*> m_scope_instance;
         std::optional<ast::AstBase::source_location_t> m_scope_location;
 
         lang_Namespace* m_belongs_to_namespace;

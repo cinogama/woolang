@@ -134,6 +134,7 @@
 #define WO_ERR_THIS_TEMPLATE_ARG_SHOULD_BE_TYPE u8"泛型参数错误: 此处需要一个类型参数"
 #define WO_ERR_THIS_TEMPLATE_ARG_SHOULD_BE_CONST u8"泛型参数错误: 此处需要一个常量参数"
 #define WO_ERR_THIS_TEMPLATE_ARG_SHOULD_NOT_BE_NOTHING u8"泛型参数错误: 不能使用 `nothing` 类型的常量作为值参数"
+#define WO_ERR_DEFER_CANNOT_BE_HERE u8"`defer` 语句不能位于此处"
 
 // PASS0_1 TYPE CHECK PARSE(INFO)
 #define WO_INFO_MAYBE_NAMED_DEFINED_HERE u8"可能是此处定义的 `%s`"

@@ -175,7 +175,10 @@ namespace wo
             wo_assert(!node->m_LANG_determined_scope);
 
             begin_new_scope(node->source_location);
-            node->m_LANG_determined_scope = get_current_scope();
+            auto* scope = get_current_scope();
+
+            scope->m_scope_instance = node;
+            node->m_LANG_determined_scope = scope;
 
             WO_CONTINUE_PROCESS(node->m_body);
 
