@@ -42,6 +42,7 @@ namespace wo
 #define WO_IPVAL_MOVE_8 WO_SAFE_READ_MOVE_8
 
 #define WO_SIGNED_SHIFT(VAL) (((signed char)((unsigned char)(((unsigned char)(VAL))<<1)))>>1)
+#define WO_OFFSETOF(T, M) ((size_t)&reinterpret_cast<char const volatile&>((((T*)0)->M)))
 
     template<typename CompileContextT>
     class asmjit_backend
@@ -1809,7 +1810,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 
             // Direct JIT implementation instead of function call
             auto struct_values_ptr = ctx->c.newIntPtr();
-            wo_assure(!ctx->c.mov(struct_values_ptr, asmjit::x86::qword_ptr(stc, offsetof(structure_t, m_values))));
+            wo_assure(!ctx->c.mov(struct_values_ptr, asmjit::x86::qword_ptr(stc, WO_OFFSETOF(structure_t, m_values))));
             wo_assure(!ctx->c.lea(struct_values_ptr, asmjit::x86::qword_ptr(struct_values_ptr, offset * sizeof(wo::value))));
             x86_set_val(ctx->c, struct_values_ptr, op2);
 
@@ -2927,7 +2928,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 
             // Direct JIT implementation instead of function call
             auto struct_values_ptr = ctx->c.newIntPtr();
-            wo_assure(!ctx->c.mov(struct_values_ptr, asmjit::x86::qword_ptr(stc, offsetof(structure_t, m_values))));
+            wo_assure(!ctx->c.mov(struct_values_ptr, asmjit::x86::qword_ptr(stc, WO_OFFSETOF(structure_t, m_values))));
             wo_assure(!ctx->c.lea(struct_values_ptr, asmjit::x86::qword_ptr(struct_values_ptr, offset * sizeof(wo::value))));
             x86_set_val(ctx->c, op1, struct_values_ptr);
 
