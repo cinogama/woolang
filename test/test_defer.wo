@@ -1,0 +1,191 @@
+import woo::std;
+import test_tool;
+
+namespace test_defer
+{
+    func basic_1()
+    {
+        let mut i = 5;
+        defer i = 6;
+        
+        return i;
+    }
+    func basic_2()
+    {
+        let mut i = 6;
+        {
+            defer i = 7;
+        }
+        return i;
+    }
+    func loop_1()
+    {
+        let r = []mut: vec<int>;
+        for (let mut i = 0; i < 5; i += 1)
+        {
+            defer r->add(i);
+        }
+        return r;
+    }
+    func loop_2()
+    {
+        let r = []mut: vec<int>;
+        for (let mut i = 0; i < 5; i += 1)
+        {
+            continue;
+            
+            defer r->add(i);
+        }
+        return r;
+    }
+    func loop_3()
+    {
+        let r = []mut: vec<int>;
+        for (let mut i = 0; i < 5; i += 1)
+        {
+            defer r->add(i);
+            break;
+        }
+        return r;
+    }
+    func complex_1()
+    {
+        let r = []mut: vec<int>;
+        {
+            defer r->add(1);
+            {
+                defer r->add(2);
+                {
+                    defer r->add(3);
+                    {
+                        defer r->add(4);
+                        {
+                            defer r->add(5);
+                        }
+                    }
+                }
+            }
+        }
+        return r;
+    }
+    func complex_2()
+    {
+        let r = []mut: vec<int>;
+        {
+            defer r->add(1);
+            {
+                defer r->add(2);
+                {
+                    defer r->add(3);
+                    {
+                        return r;
+                        defer r->add(4);
+                        {
+                            defer r->add(5);
+                        }
+                    }
+                }
+            }
+        }
+        return r;
+    }
+    func complex_3()
+    {
+        let r = []mut: vec<int>;
+        for (let mut i = 0; i < 5; i += 1)
+        {
+            defer r->add(i);
+            for (let mut j = 0; j < 5; j += 1)
+            {
+                defer r->add(j);
+                if (i == 2 && j == 2)
+                {
+                    return r;
+                }
+            }
+        }
+        return r;
+    }
+    func complex_4()
+    {
+        let r = []mut: vec<int>;
+        defer
+        {
+            defer r->add(1);
+            r->add(2);
+            {
+                defer r->add(3);
+                r->add(4);
+                {
+                    defer r->add(5);
+                    r->add(6);
+                }
+            }
+        }
+        return r;
+    }
+    
+    func main()
+    {
+        test_equal(basic_1(), 5);
+        test_equal(basic_2(), 7);
+        
+        let mut r = loop_1();
+        test_equal(r->len, 5);
+        test_equal(r[0], 0);
+        test_equal(r[1], 1);
+        test_equal(r[2], 2);
+        test_equal(r[3], 3);
+        test_equal(r[4], 4);
+        
+        test_equal(loop_2()->len, 0);
+        
+        r = loop_3();
+        test_equal(r->len, 1);
+        test_equal(r[0], 0);
+        
+        r = complex_1();
+        test_equal(r->len, 5);
+        test_equal(r[0], 5);
+        test_equal(r[1], 4);
+        test_equal(r[2], 3);
+        test_equal(r[3], 2);
+        test_equal(r[4], 1);
+        
+        r = complex_2();
+        test_equal(r->len, 3);
+        test_equal(r[0], 3);
+        test_equal(r[1], 2);
+        test_equal(r[2], 1);
+        
+        r = complex_3();
+        test_equal(r->len, 16);
+        test_equal(r[0], 0);
+        test_equal(r[1], 1);
+        test_equal(r[2], 2);
+        test_equal(r[3], 3);
+        test_equal(r[4], 4);
+        test_equal(r[5], 0);
+        test_equal(r[6], 0);
+        test_equal(r[7], 1);
+        test_equal(r[8], 2);
+        test_equal(r[9], 3);
+        test_equal(r[10], 4);
+        test_equal(r[11], 1);
+        test_equal(r[12], 0);
+        test_equal(r[13], 1);
+        test_equal(r[14], 2);
+        test_equal(r[15], 2);
+
+        r = complex_4();
+        test_equal(r->len, 6);
+        test_equal(r[0], 2);
+        test_equal(r[1], 4);
+        test_equal(r[2], 6);
+        test_equal(r[3], 5);
+        test_equal(r[4], 3);
+        test_equal(r[5], 1);
+    }
+}
+
+test_function("test_defer.main", test_defer::main);

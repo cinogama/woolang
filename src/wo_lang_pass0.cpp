@@ -78,7 +78,7 @@ namespace wo
                     lex.record_lang_error(lexer::msglevel_t::error, single_pattern,
                         WO_ERR_REDEFINED,
                         single_pattern->m_name->c_str());
-                    
+
                     if (defined_symbol->m_symbol_declare_ast.has_value())
                         lex.record_lang_error(lexer::msglevel_t::infom,
                             defined_symbol->m_symbol_declare_ast.value(),
@@ -174,9 +174,9 @@ namespace wo
         {
             wo_assert(!node->m_LANG_determined_scope);
 
-            begin_new_scope(node->source_location);
-            auto* scope = get_current_scope();
-
+            auto* scope = begin_new_scope(node->source_location);
+            if (node->m_is_defer_scope)
+                scope->m_scope_type = lang_Scope::ScopeType::DEFER;
             scope->m_scope_instance = node;
             node->m_LANG_determined_scope = scope;
 

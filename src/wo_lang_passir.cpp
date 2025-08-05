@@ -46,8 +46,8 @@ namespace wo
     void BytecodeGenerateContext::begin_loop_while(ast::AstWhile* ast)
     {
         m_loop_content_stack.push_back(LoopContent{
-            ast->m_IR_binded_label.has_value()
-                ? std::optional(ast->m_IR_binded_label.value()->m_label)
+            ast->m_LANG_binded_label.has_value()
+                ? std::optional(ast->m_LANG_binded_label.value()->m_label)
                 : std::nullopt,
             _generate_label("#while_end_", ast),
             _generate_label("#while_begin_", ast)
@@ -56,8 +56,8 @@ namespace wo
     void BytecodeGenerateContext::begin_loop_for(ast::AstFor* ast)
     {
         m_loop_content_stack.push_back(LoopContent{
-            ast->m_IR_binded_label.has_value()
-                ? std::optional(ast->m_IR_binded_label.value()->m_label)
+            ast->m_LANG_binded_label.has_value()
+                ? std::optional(ast->m_LANG_binded_label.value()->m_label)
                 : std::nullopt,
             _generate_label("#for_end_", ast),
             _generate_label("#for_next_", ast)
@@ -310,8 +310,28 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
+            node->m_LANG_hold_state = AstScope::IR_HOLD_FOR_BODY_EVAL;
             WO_CONTINUE_PROCESS(node->m_body);
             return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            switch (node->m_LANG_hold_state)
+            {
+            case AstScope::IR_HOLD_FOR_BODY_EVAL:
+                if (!node->m_LANG_defer_instances.empty())
+                {
+                    node->m_LANG_hold_state = AstScope::IR_HOLD_FOR_DEFER_EVAL;
+                    WO_CONTINUE_PROCESS_LIST(node->m_LANG_defer_instances);
+                    return HOLD;
+                }
+                /* FALL-THROUGH */
+                [[fallthrough]];
+            case AstScope::IR_HOLD_FOR_DEFER_EVAL:
+                break;
+            default:
+                break;
+            }
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
@@ -577,45 +597,33 @@ namespace wo
     }
     WO_PASS_PROCESSER(AstBreak)
     {
-        wo_assert(state == UNPROCESSED);
-
-        auto loop = m_ircontext.find_nearest_loop_content_label(node->m_label);
-        if (!loop.has_value())
+        if (state == UNPROCESSED)
         {
-            lex.record_lang_error(lexer::msglevel_t::error, node,
-                WO_ERR_BAD_BREAK);
-
-            if (node->m_label.has_value())
-                lex.record_lang_error(lexer::msglevel_t::infom, node,
-                    WO_INFO_BAD_LABEL_NAMED,
-                    node->m_label.value());
-
-            return FAILED;
+            WO_CONTINUE_PROCESS_LIST(node->m_LANG_defer_instances);
+            return HOLD;
         }
-
-        m_ircontext.c().jmp(loop.value()->m_break_label);
-        return OKAY;
+        else if (state == HOLD)
+        {
+            auto loop = m_ircontext.find_nearest_loop_content_label(node->m_label);
+            // Loop has been checked in pass1.
+            m_ircontext.c().jmp(loop.value()->m_break_label);
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
     }
     WO_PASS_PROCESSER(AstContinue)
     {
-        wo_assert(state == UNPROCESSED);
-
-        auto loop = m_ircontext.find_nearest_loop_content_label(node->m_label);
-        if (!loop.has_value())
+        if (state == UNPROCESSED)
         {
-            lex.record_lang_error(lexer::msglevel_t::error, node,
-                WO_ERR_BAD_CONTINUE);
-
-            if (node->m_label.has_value())
-                lex.record_lang_error(lexer::msglevel_t::infom, node,
-                    WO_INFO_BAD_LABEL_NAMED,
-                    node->m_label.value());
-
-            return FAILED;
+            WO_CONTINUE_PROCESS_LIST(node->m_LANG_defer_instances);
+            return HOLD;
         }
-
-        m_ircontext.c().jmp(loop.value()->m_continue_label);
-        return OKAY;
+        else if (state == HOLD)
+        {
+            auto loop = m_ircontext.find_nearest_loop_content_label(node->m_label);
+            // Loop has been checked in pass1.
+            m_ircontext.c().jmp(loop.value()->m_continue_label);
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
     }
     WO_PASS_PROCESSER(AstMatch)
     {
@@ -697,31 +705,6 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
-            switch (node->m_body->node_type)
-            {
-            case AstBase::AST_WHILE:
-            {
-                AstWhile* while_node = static_cast<AstWhile*>(node->m_body);
-                while_node->m_IR_binded_label = node;
-                break;
-            }
-            case AstBase::AST_FOR:
-            {
-                AstFor* for_node = static_cast<AstFor*>(node->m_body);
-                for_node->m_IR_binded_label = node;
-                break;
-            }
-            case AstBase::AST_FOREACH:
-            {
-                AstForeach* foreach_node = static_cast<AstForeach*>(node->m_body);
-                foreach_node->m_forloop_body->m_IR_binded_label = node;
-                break;
-            }
-            default:
-                // Not a loop, skip
-                break;
-            }
-
             WO_CONTINUE_PROCESS(node->m_body);
             return HOLD;
         }
@@ -929,41 +912,56 @@ namespace wo
     }
     WO_PASS_PROCESSER(AstReturn)
     {
-        if (node->m_value.has_value())
+        if (state == UNPROCESSED)
         {
-            m_ircontext.eval_to(m_ircontext.opnum_spreg(opnum::reg::cr));
-            if (!pass_final_value(lex, node->m_value.value()))
-                return FAILED;
+            if (node->m_value.has_value())
+            {
+                if (node->m_LANG_defer_instances.empty())
+                    m_ircontext.eval_to(m_ircontext.opnum_spreg(opnum::reg::cr));
+                else
+                    m_ircontext.eval_push();
 
-            (void)m_ircontext.get_eval_result();
+                if (!pass_final_value(lex, node->m_value.value()))
+                    return FAILED;
+
+                if (node->m_LANG_defer_instances.empty())
+                    (void)m_ircontext.get_eval_result();
+            }
+
+            WO_CONTINUE_PROCESS_LIST(node->m_LANG_defer_instances);
+            return HOLD;
         }
-
-        if (node->m_LANG_belong_function_may_null_if_outside.has_value())
+        else if (state == HOLD)
         {
-            AstValueFunction* returned_func = node->m_LANG_belong_function_may_null_if_outside.value();
-            if (returned_func->m_is_variadic)
-                m_ircontext.c().jmp(opnum::tag(IR_function_label_ret(returned_func)));
+            if (node->m_value.has_value() && !node->m_LANG_defer_instances.empty())
+                m_ircontext.c().pop(opnum::reg(opnum::reg::cr));
+
+            if (node->m_LANG_belong_function_may_null_if_outside.has_value())
+            {
+                AstValueFunction* returned_func = node->m_LANG_belong_function_may_null_if_outside.value();
+                if (returned_func->m_is_variadic)
+                    m_ircontext.c().jmp(opnum::tag(IR_function_label_ret(returned_func)));
+                else
+                {
+                    if (!returned_func->m_LANG_captured_context.m_captured_variables.empty())
+                        m_ircontext.c().ret(
+                            (uint16_t)returned_func->m_LANG_captured_context.m_captured_variables.size());
+                    else
+                        m_ircontext.c().ret();
+                }
+            }
             else
             {
-                if (!returned_func->m_LANG_captured_context.m_captured_variables.empty())
-                    m_ircontext.c().ret(
-                        (uint16_t)returned_func->m_LANG_captured_context.m_captured_variables.size());
-                else
-                    m_ircontext.c().ret();
+                if (!node->m_value.has_value())
+                    // If return void outside function, treat as return 0;
+                    m_ircontext.c().mov(
+                        WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::cr)),
+                        WO_OPNUM(m_ircontext.opnum_imm_int(0)));
+
+                m_ircontext.c().jmp(opnum::tag(WO_PSTR(label_woolang_program_end)));
             }
         }
-        else
-        {
-            if (!node->m_value.has_value())
-                // If return void outside function, treat as return 0;
-                m_ircontext.c().mov(
-                    WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::cr)),
-                    WO_OPNUM(m_ircontext.opnum_imm_int(0)));
-
-            m_ircontext.c().jmp(opnum::tag(WO_PSTR(label_woolang_program_end)));
-        }
-
-        return OKAY;
+        return WO_EXCEPT_ERROR(state, OKAY);
     }
     WO_PASS_PROCESSER(AstNop)
     {

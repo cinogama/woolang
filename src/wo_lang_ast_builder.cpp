@@ -1610,7 +1610,8 @@ namespace wo
         }
         auto pass_defer::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
-            AstBase* body = WO_NEED_AST(1);
+            AstScope* body = static_cast<AstScope*>(WO_NEED_AST_TYPE(1, AstBase::AST_SCOPE));
+            body->m_is_defer_scope = true;
             return new AstDefer(body);
         }
         auto pass_expand_arguments::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce

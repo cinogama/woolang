@@ -135,6 +135,10 @@
 #define WO_ERR_THIS_TEMPLATE_ARG_SHOULD_BE_CONST u8"泛型参数错误: 此处需要一个常量参数"
 #define WO_ERR_THIS_TEMPLATE_ARG_SHOULD_NOT_BE_NOTHING u8"泛型参数错误: 不能使用 `nothing` 类型的常量作为值参数"
 #define WO_ERR_DEFER_CANNOT_BE_HERE u8"`defer` 语句不能位于此处"
+#define WO_ERR_BAD_BREAK u8"`break` 语句只能在循环中使用"
+#define WO_ERR_BAD_CONTINUE u8"`continue` 语句只能在循环中使用"
+#define WO_ERR_BAD_LABEL_NAMED u8"找不到标签为 `%s` 的循环"
+#define WO_ERR_BAD_FLOW_CTRL_IN_DEFER u8"不能在 `defer` 语句中执行 `%s`"
 
 // PASS0_1 TYPE CHECK PARSE(INFO)
 #define WO_INFO_MAYBE_NAMED_DEFINED_HERE u8"可能是此处定义的 `%s`"
@@ -151,10 +155,7 @@
 #define WO_ERR_VARIBALE_STORAGE_NOT_DETERMINED u8"引用了未完成初始化的变量 `%s`"
 #define WO_ERR_UNABLE_TO_FIND_EXTERN_FUNCTION u8"在库 `%s` 中找不到外部函数 `%s`"
 #define WO_ERR_CANNOT_UNPACK_HERE u8"参数包展开只能在函数参数列表或元组元素列表中使用"
-#define WO_ERR_BAD_BREAK u8"break 语句只能在循环或 switch 中使用"
-#define WO_ERR_BAD_CONTINUE u8"continue 语句只能在循环中使用"
 #define WO_ERR_UNSED_VARIABLE u8"局部变量 `%s` 已声明但未使用"
 
 // PASSIR BYTECODE GENERATOR(INFO)
-#define WO_INFO_BAD_LABEL_NAMED u8"找不到标签为 `%s` 的循环"
 #define WO_INFO_IN_FUNCTION_NAMED u8"位于函数 `%s` 中"

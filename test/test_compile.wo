@@ -2330,6 +2330,56 @@ func main()
         func foo()=> void;
         "@);
 
+        assure_compile_success(@"
+        func foo()
+        {
+            defer do nil;
+        }
+        "@);
+        assure_compile_fail(@"
+        defer do nil;
+        "@);
+        assure_compile_fail(@"
+        func foo()
+        {
+            defer return;
+        }
+        "@);
+        assure_compile_fail(@"
+        func foo()
+        {
+            defer return 0;
+        }
+        "@);
+        assure_compile_success(@"
+        func foo()
+        {
+            for(;;)
+                continue;
+        }
+        "@);
+        assure_compile_success(@"
+        func foo()
+        {
+            for (;;)
+                break;
+        }
+        "@);
+        assure_compile_fail(@"
+        func foo()
+        {
+            for(;;)
+                defer continue;
+        }
+        "@);
+        assure_compile_fail(@"
+        func foo()
+        {
+            for (;;)
+                defer break;
+        }
+        "@);
+
         // Do you forget to regenerate the grammar-cache?
         assure_compile_fail(@""@);
         assure_compile_fail(@"^"@);

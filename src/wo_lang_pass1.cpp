@@ -308,6 +308,33 @@ namespace wo
         return false;
     }
 
+    bool LangContext::collect_defers_from_current_scope_to(
+        std::optional<lang_Scope*> to_scope,
+        std::list<ast::AstBase*>* out_collect_result)
+    {
+        lang_Scope* current_scope = get_current_scope();
+        do
+        {
+            if (current_scope->m_scope_type == lang_Scope::ScopeType::DEFER)
+                return false;
+
+            if (current_scope->m_scope_instance.has_value())
+            {
+                auto* scope = current_scope->m_scope_instance.value();
+                for (auto defer : scope->m_LANG_defers)
+                    out_collect_result->push_back(defer->m_body->clone());
+            }
+
+            if (!current_scope->m_parent_scope.has_value())
+                break;
+
+            current_scope = current_scope->m_parent_scope.value();
+
+        } while (!to_scope.has_value() || current_scope != to_scope.value());
+
+        return true;
+    }
+
     void LangContext::init_pass1()
     {
         WO_LANG_REGISTER_PROCESSER(AstList, AstBase::AST_LIST, pass1);
@@ -390,23 +417,19 @@ namespace wo
     }
     WO_PASS_PROCESSER(AstDefer)
     {
-        if (state == UNPROCESSED)
+        wo_assert(state == UNPROCESSED);
+
+        auto* scope = get_current_scope();
+        if (!scope->m_scope_instance.has_value())
         {
-            auto* scope = get_current_scope();
-            if (!scope->m_scope_instance.has_value())
-            {
-                lex.record_lang_error(
-                    lexer::msglevel_t::error, node, WO_ERR_DEFER_CANNOT_BE_HERE);
-                return FAILED;
-            }
-            // Insert at the front of the defer list.
-            scope->m_scope_instance.value()->m_LANG_defers.push_front(node);
-
-            WO_CONTINUE_PROCESS(node->m_body);
-
-            return HOLD;
+            lex.record_lang_error(
+                lexer::msglevel_t::error, node, WO_ERR_DEFER_CANNOT_BE_HERE);
+            return FAILED;
         }
-        return WO_EXCEPT_ERROR(state, OKAY);
+        // Insert at the front of the defer list.
+        scope->m_scope_instance.value()->m_LANG_defers.push_front(node);
+
+        return OKAY;
     }
     WO_PASS_PROCESSER(AstScope)
     {
@@ -416,18 +439,48 @@ namespace wo
                 entry_spcify_scope(node->m_LANG_determined_scope.value());
             else
             {
-                begin_new_scope(node->source_location);
-                auto* scope = get_current_scope();
-
+                auto* scope = begin_new_scope(node->source_location);
+                if (node->m_is_defer_scope)
+                    scope->m_scope_type = lang_Scope::ScopeType::DEFER;
                 scope->m_scope_instance = node;
                 node->m_LANG_determined_scope = scope;
             }
 
+            node->m_LANG_hold_state = AstScope::HOLD_FOR_BODY_EVAL;
             WO_CONTINUE_PROCESS(node->m_body);
 
             return HOLD;
         }
-        end_last_scope();
+        else if (state == HOLD)
+        {
+            switch (node->m_LANG_hold_state)
+            {
+            case AstScope::HOLD_FOR_BODY_EVAL:
+            {
+                // Leave scope, generate defer code.
+                if (!node->m_LANG_defers.empty())
+                {
+                    for (auto* defers : node->m_LANG_defers)
+                        node->m_LANG_defer_instances.push_back(defers->m_body->clone());
+
+                    node->m_LANG_hold_state = AstScope::HOLD_FOR_DEFER_EVAL;
+                    WO_CONTINUE_PROCESS_LIST(node->m_LANG_defer_instances);
+                    return HOLD;
+                }
+                /* FALL-THROUGH */
+            }
+            [[fallthrough]];
+            case AstScope::HOLD_FOR_DEFER_EVAL:
+                end_last_scope();
+                break;
+            default:
+                wo_error("unknown hold state");
+                break;
+            }
+        }
+        else
+            // Failed, we still need to end scope.
+            end_last_scope();
         return WO_EXCEPT_ERROR(state, OKAY);
     }
     WO_PASS_PROCESSER(AstNamespace)
@@ -1518,7 +1571,7 @@ namespace wo
 
             if (node->m_LANG_determined_template_arguments.has_value())
             {
-                begin_new_scope(std::nullopt);
+                (void)begin_new_scope(std::nullopt);
 
                 wo_assert(node->m_LANG_determined_template_arguments.value().size()
                     == node->m_pending_param_type_mark_template.value().size());
@@ -1671,6 +1724,23 @@ namespace wo
         if (state == UNPROCESSED)
         {
             node->m_LANG_belong_function_may_null_if_outside = get_current_function();
+
+            std::optional<lang_Scope*> function_scope = std::nullopt;
+
+            if (node->m_LANG_belong_function_may_null_if_outside.has_value())
+                function_scope = node->m_LANG_belong_function_may_null_if_outside.value()->m_LANG_function_scope;
+
+            if (!collect_defers_from_current_scope_to(
+                function_scope,
+                &node->m_LANG_defer_instances))
+            {
+                lex.record_lang_error(lexer::msglevel_t::error, node,
+                    WO_ERR_BAD_FLOW_CTRL_IN_DEFER,
+                    "return");
+                return FAILED;
+            }
+
+            WO_CONTINUE_PROCESS_LIST(node->m_LANG_defer_instances);
 
             if (node->m_value.has_value())
                 WO_CONTINUE_PROCESS(node->m_value.value());
@@ -3163,7 +3233,7 @@ namespace wo
                     }
 
                     entry_spcify_scope(target_function_scope);
-                    begin_new_scope(std::nullopt);
+                    (void)begin_new_scope(std::nullopt);
 
                     AstValueFunctionCall_FakeAstArgumentDeductionContextA* branch_a_context =
                         new AstValueFunctionCall_FakeAstArgumentDeductionContextA(
@@ -3901,6 +3971,31 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
+            switch (node->m_body->node_type)
+            {
+            case AstBase::AST_WHILE:
+            {
+                AstWhile* while_node = static_cast<AstWhile*>(node->m_body);
+                while_node->m_LANG_binded_label = node;
+                break;
+            }
+            case AstBase::AST_FOR:
+            {
+                AstFor* for_node = static_cast<AstFor*>(node->m_body);
+                for_node->m_LANG_binded_label = node;
+                break;
+            }
+            case AstBase::AST_FOREACH:
+            {
+                AstForeach* foreach_node = static_cast<AstForeach*>(node->m_body);
+                foreach_node->m_forloop_body->m_LANG_binded_label = node;
+                break;
+            }
+            default:
+                wo_assert("Unsupported labeled node type.");
+                break;
+            }
+
             WO_CONTINUE_PROCESS(node->m_body);
             return HOLD;
         }
@@ -4035,7 +4130,7 @@ namespace wo
                 entry_spcify_scope(symbol->m_belongs_to_scope);
 
                 // Begin new scope for template deduction.
-                begin_new_scope(std::nullopt);
+                (void)begin_new_scope(std::nullopt);
 
                 AstValueFunctionCall_FakeAstArgumentDeductionContextA* branch_a_context =
                     new AstValueFunctionCall_FakeAstArgumentDeductionContextA(
@@ -5314,7 +5409,7 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
-            begin_new_scope(node->source_location);
+            (void)begin_new_scope(node->source_location);
 
             WO_CONTINUE_PROCESS(node->m_matched_value);
 
@@ -5475,7 +5570,7 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
-            begin_new_scope(node->source_location);
+            (void)begin_new_scope(node->source_location);
 
             // Decalare pattern if contained.
             switch (node->m_pattern->node_type)
@@ -5586,6 +5681,10 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
+            auto* scope = begin_new_scope(node->source_location);
+            scope->m_scope_type = lang_Scope::ScopeType::LOOP;
+            scope->m_labeled_instance = node->m_LANG_binded_label;
+
             WO_CONTINUE_PROCESS(node->m_condition);
 
             node->m_LANG_hold_state = AstWhile::HOLD_FOR_CONDITION_EVAL;
@@ -5605,6 +5704,8 @@ namespace wo
                     lex.record_lang_error(lexer::msglevel_t::error, node->m_condition,
                         WO_ERR_UNACCEPTABLE_TYPE_IN_COND,
                         get_type_name(condition_typeinstance));
+
+                    end_last_scope();
                     return FAILED;
                 }
 
@@ -5614,6 +5715,7 @@ namespace wo
                 return HOLD;
             }
             case AstWhile::HOLD_FOR_BODY_EVAL:
+                end_last_scope();
                 break;
             default:
                 wo_error("Unknown hold state.");
@@ -5625,7 +5727,9 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
-            begin_new_scope(node->source_location);
+            auto* scope = begin_new_scope(node->source_location);
+            scope->m_scope_type = lang_Scope::ScopeType::LOOP;
+            scope->m_labeled_instance = node->m_LANG_binded_label;
 
             if (node->m_initial.has_value())
                 WO_CONTINUE_PROCESS(node->m_initial.value());
@@ -5707,15 +5811,71 @@ namespace wo
     }
     WO_PASS_PROCESSER(AstBreak)
     {
-        wo_assert(state == UNPROCESSED);
-        // Nothing todo.
-        return OKAY;
+        if (state == UNPROCESSED)
+        {
+            auto break_loop_block = get_loop_scope_by_label_may_nullopt(node->m_label);
+            if (!break_loop_block.has_value())
+            {
+                if (node->m_label.has_value())
+                    lex.record_lang_error(lexer::msglevel_t::error, node,
+                        WO_ERR_BAD_LABEL_NAMED,
+                        node->m_label.value()->c_str());
+                else
+                    lex.record_lang_error(lexer::msglevel_t::error, node,
+                        WO_ERR_BAD_BREAK);
+
+                return FAILED;
+            }
+
+            if (!collect_defers_from_current_scope_to(
+                break_loop_block.value(),
+                &node->m_LANG_defer_instances))
+            {
+                lex.record_lang_error(lexer::msglevel_t::error, node,
+                    WO_ERR_BAD_FLOW_CTRL_IN_DEFER,
+                    "break"); 
+                return FAILED;
+            }
+
+            WO_CONTINUE_PROCESS_LIST(node->m_LANG_defer_instances);
+
+            return HOLD;
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
     }
     WO_PASS_PROCESSER(AstContinue)
     {
-        wo_assert(state == UNPROCESSED);
-        // Nothing todo.
-        return OKAY;
+        if (state == UNPROCESSED)
+        {
+            auto break_loop_block = get_loop_scope_by_label_may_nullopt(node->m_label);
+            if (!break_loop_block.has_value())
+            {
+                if (node->m_label.has_value())
+                    lex.record_lang_error(lexer::msglevel_t::error, node,
+                        WO_ERR_BAD_LABEL_NAMED,
+                        node->m_label.value()->c_str());
+                else
+                    lex.record_lang_error(lexer::msglevel_t::error, node,
+                        WO_ERR_BAD_CONTINUE);
+
+                return FAILED;
+            }
+
+            if (!collect_defers_from_current_scope_to(
+                break_loop_block.value(),
+                &node->m_LANG_defer_instances))
+            {
+                lex.record_lang_error(lexer::msglevel_t::error, node,
+                    WO_ERR_BAD_FLOW_CTRL_IN_DEFER,
+                    "continue");
+                return FAILED;
+            }
+
+            WO_CONTINUE_PROCESS_LIST(node->m_LANG_defer_instances);
+
+            return HOLD;
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
     }
     WO_PASS_PROCESSER(AstValueAssign)
     {

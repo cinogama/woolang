@@ -578,11 +578,16 @@ namespace wo
     lang_Scope::lang_Scope(const std::optional<lang_Scope*>& parent_scope, lang_Namespace* belongs)
         : m_defined_symbols{}
         , m_sub_scopes{}
+        , m_declare_used_namespaces{}
         , m_parent_scope(parent_scope)
-        , m_function_instance(std::nullopt)
         , m_scope_location(std::nullopt)
         , m_belongs_to_namespace(belongs)
         , m_visibility_from_edge_for_template_check(0)
+        //
+        , m_function_instance(std::nullopt)
+        , m_scope_instance(std::nullopt)
+        , m_labeled_instance(std::nullopt)
+        , m_scope_type(ScopeType::NORMAL)
     {
     }
 
@@ -1705,17 +1710,42 @@ namespace wo
 
     ////////////////////////
 
+    std::optional<lang_Scope*> LangContext::get_loop_scope_by_label_may_nullopt(
+        const std::optional<wo_pstring_t>& label)
+    {
+        auto* scope = get_current_scope();
+        for (;;)
+        {
+            if (scope->m_function_instance.has_value())
+                break;
+
+            if (scope->m_scope_type == lang_Scope::ScopeType::LOOP)
+            {
+                if (!label.has_value() 
+                    || (scope->m_labeled_instance.has_value() 
+                        && scope->m_labeled_instance.value()->m_label == label))
+                    return scope;
+            }
+
+            if (!scope->m_parent_scope.has_value())
+                break;
+
+            scope = scope->m_parent_scope.value();
+        }
+        return std::nullopt;
+    }
     void LangContext::begin_new_function(ast::AstValueFunction* func_instance)
     {
-        begin_new_scope(func_instance->m_body->source_location);
-        get_current_scope()->m_function_instance = func_instance;
+        auto* scope = begin_new_scope(func_instance->m_body->source_location);
+        scope->m_function_instance = func_instance;
     }
     void LangContext::end_last_function()
     {
         wo_assert(get_current_scope()->m_function_instance);
         end_last_scope();
     }
-    void LangContext::begin_new_scope(const std::optional<ast::AstBase::source_location_t>& locations)
+    lang_Scope* LangContext::begin_new_scope(
+        const std::optional<ast::AstBase::source_location_t>& locations)
     {
         lang_Scope* current_scope = get_current_scope();
         auto new_scope = std::make_unique<lang_Scope>(
@@ -1727,7 +1757,8 @@ namespace wo
 
         entry_spcify_scope(new_scope.get());
 
-        current_scope->m_sub_scopes.emplace_back(std::move(new_scope));
+        return current_scope->m_sub_scopes.emplace_back(
+            std::move(new_scope)).get();
     }
     void LangContext::entry_spcify_scope(lang_Scope* scope)
     {

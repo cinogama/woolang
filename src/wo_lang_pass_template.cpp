@@ -118,7 +118,7 @@ namespace wo
         if (inout_template_arguments.size() < template_params.size())
         {
             entry_symbol_scope(ctx, symbol);
-            ctx->begin_new_scope(std::nullopt);
+            (void)ctx->begin_new_scope(std::nullopt);
 
             std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance> deduce_result;
 
@@ -344,7 +344,7 @@ namespace wo
 
             // Entry the scope where template variable defined.
             entry_symbol_scope(this, templating_symbol);
-            begin_new_scope(std::nullopt); // Begin new scope for defining template type alias.
+            (void)begin_new_scope(std::nullopt); // Begin new scope for defining template type alias.
 
             // ATTENTION: LIMIT TEMPLATE INSTANCE SYMBOL VISIBILITY!
             auto* current_scope = get_current_scope();

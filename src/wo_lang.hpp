@@ -422,12 +422,23 @@ namespace wo
             m_declare_used_namespaces;
 
         std::optional<lang_Scope*> m_parent_scope;
-        std::optional<ast::AstValueFunction*> m_function_instance;
-        std::optional<ast::AstScope*> m_scope_instance;
         std::optional<ast::AstBase::source_location_t> m_scope_location;
 
         lang_Namespace* m_belongs_to_namespace;
         size_t m_visibility_from_edge_for_template_check;
+
+        // Update by pass0/pass1.
+        enum class ScopeType
+        {
+            NORMAL,
+            LOOP,
+            DEFER,
+        };
+
+        std::optional<ast::AstValueFunction*> m_function_instance;
+        std::optional<ast::AstScope*> m_scope_instance;
+        std::optional<ast::AstLabeled*> m_labeled_instance;
+        ScopeType m_scope_type;
 
         lang_Scope(const std::optional<lang_Scope*>& parent_scope, lang_Namespace* belongs);
 
@@ -1003,7 +1014,8 @@ namespace wo
                 out_stack.push(AstNodeWithState(*it));
         }
 
-        void begin_new_scope(const std::optional<ast::AstBase::source_location_t>& location);
+        lang_Scope* begin_new_scope(
+            const std::optional<ast::AstBase::source_location_t>& location);
         void entry_spcify_scope(lang_Scope* scope);
         void end_last_scope();
 
@@ -1239,6 +1251,13 @@ namespace wo
             ast::AstDeclareAttribue::accessc_attrib attrib,
             wo_pstring_t field_name,
             wo_pstring_t path);
+
+        bool /* is invalid */ collect_defers_from_current_scope_to(
+            std::optional<lang_Scope*> to_scope,
+            std::list<ast::AstBase*>* out_collect_result);
+
+        std::optional<lang_Scope*> get_loop_scope_by_label_may_nullopt(
+            const std::optional<wo_pstring_t>& label);
 
         static wo_pstring_t IR_function_label(ast::AstValueFunction* func);
         static wo_pstring_t IR_function_label_ret(ast::AstValueFunction* func);

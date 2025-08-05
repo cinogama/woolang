@@ -919,10 +919,25 @@ namespace wo
         struct AstDefer;
         struct AstScope : public AstBase
         {
+            enum LANG_hold_state
+            {
+                UNPROCESSED,
+                HOLD_FOR_BODY_EVAL,
+                HOLD_FOR_DEFER_EVAL,
+
+                IR_HOLD_FOR_BODY_EVAL,
+                IR_HOLD_FOR_DEFER_EVAL,
+            };
+
             AstBase* m_body;
 
+            // Will be set as true in build of AstDefer.
+            bool m_is_defer_scope;
+
+            LANG_hold_state m_LANG_hold_state;
             std::optional<lang_Scope*> m_LANG_determined_scope;
             std::list<AstDefer*> m_LANG_defers;
+            std::list<AstBase*> m_LANG_defer_instances;
 
             AstScope(AstBase* body);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
@@ -999,7 +1014,7 @@ namespace wo
 
             LANG_hold_state m_LANG_hold_state;
 
-            std::optional<AstLabeled*> m_IR_binded_label;
+            std::optional<AstLabeled*> m_LANG_binded_label;
 
             AstWhile(AstValueBase* condition, AstBase* body);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
@@ -1027,7 +1042,7 @@ namespace wo
 
             LANG_hold_state m_LANG_hold_state;
 
-            std::optional<AstLabeled*> m_IR_binded_label;
+            std::optional<AstLabeled*> m_LANG_binded_label;
 
             AstFor(
                 std::optional<AstBase*> initial,
@@ -1063,12 +1078,16 @@ namespace wo
         {
             std::optional<wo_pstring_t> m_label;
 
+            std::list<AstBase*> m_LANG_defer_instances;
+
             AstBreak(std::optional<wo_pstring_t> label);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
         struct AstContinue : public AstBase
         {
             std::optional<wo_pstring_t> m_label;
+
+            std::list<AstBase*> m_LANG_defer_instances;
 
             AstContinue(std::optional<wo_pstring_t> label);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
@@ -1077,6 +1096,7 @@ namespace wo
         {
             std::optional<AstValueBase*> m_value;
 
+            std::list<AstBase*> m_LANG_defer_instances;
             std::optional<AstValueFunction*> m_LANG_belong_function_may_null_if_outside;
             std::optional<std::pair<lang_TemplateAstEvalStateType*, bool>>
                 m_LANG_template_evalating_state_is_mutable;
@@ -1213,9 +1233,9 @@ namespace wo
         };
         struct AstDefer : public AstBase
         {
-            AstBase* m_body;
+            AstScope* m_body;
 
-            AstDefer(AstBase* defer_body);
+            AstDefer(AstScope* defer_body);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
         struct AstToken : public AstBase

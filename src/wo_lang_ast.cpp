@@ -1954,7 +1954,11 @@ namespace wo
         AstScope::AstScope(AstBase* body)
             : AstBase(AST_SCOPE)
             , m_body(body)
+            , m_is_defer_scope(false)
+            , m_LANG_hold_state(UNPROCESSED)
             , m_LANG_determined_scope(std::nullopt)
+            , m_LANG_defers{}
+            , m_LANG_defer_instances{}
         {
         }
         AstBase* AstScope::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
@@ -1963,6 +1967,7 @@ namespace wo
                 ? static_cast<AstScope*>(exist_instance.value())
                 : new AstScope(m_body)
                 ;
+            new_instance->m_is_defer_scope = m_is_defer_scope;
             out_continues.push_back(AstBase::make_holder(&new_instance->m_body));
             return new_instance;
         }
@@ -2041,7 +2046,7 @@ namespace wo
             , m_condition(condition)
             , m_body(body)
             , m_LANG_hold_state(UNPROCESSED)
-            , m_IR_binded_label(std::nullopt)
+            , m_LANG_binded_label(std::nullopt)
         {
         }
         AstBase* AstWhile::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
@@ -2068,7 +2073,7 @@ namespace wo
             , m_step(step)
             , m_body(body)
             , m_LANG_hold_state(UNPROCESSED)
-            , m_IR_binded_label(std::nullopt)
+            , m_LANG_binded_label(std::nullopt)
         {
         }
         AstBase* AstFor::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
@@ -2167,6 +2172,7 @@ namespace wo
         AstBreak::AstBreak(std::optional<wo_pstring_t> label)
             : AstBase(AST_BREAK)
             , m_label(label)
+            , m_LANG_defer_instances{}
         {
         }
         AstBase* AstBreak::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
@@ -2183,6 +2189,7 @@ namespace wo
         AstContinue::AstContinue(std::optional<wo_pstring_t> label)
             : AstBase(AST_CONTINUE)
             , m_label(label)
+            , m_LANG_defer_instances{}
         {
         }
         AstBase* AstContinue::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
@@ -2199,6 +2206,7 @@ namespace wo
         AstReturn::AstReturn(const std::optional<AstValueBase*>& value)
             : AstBase(AST_RETURN)
             , m_value(value)
+            , m_LANG_defer_instances{}
             , m_LANG_belong_function_may_null_if_outside(std::nullopt)
             , m_LANG_template_evalating_state_is_mutable(std::nullopt)
         {
@@ -2740,7 +2748,7 @@ namespace wo
 
         ////////////////////////////////////////////////////////
 
-        AstDefer::AstDefer(AstBase* defer_body)
+        AstDefer::AstDefer(AstScope* defer_body)
             : AstBase(AST_DEFER)
             , m_body(defer_body)
         {
