@@ -139,6 +139,7 @@
 #define WO_ERR_BAD_CONTINUE u8"`continue` 语句只能在循环中使用"
 #define WO_ERR_BAD_LABEL_NAMED u8"找不到标签为 `%s` 的循环"
 #define WO_ERR_BAD_FLOW_CTRL_IN_DEFER u8"不能在 `defer` 语句中执行 `%s`"
+#define WO_ERR_FUNCTION_MAY_NO_RETURN_VALUE u8"函数存在未返回的分支"
 
 // PASS0_1 TYPE CHECK PARSE(INFO)
 #define WO_INFO_MAYBE_NAMED_DEFINED_HERE u8"可能是此处定义的 `%s`"

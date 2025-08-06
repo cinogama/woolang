@@ -588,6 +588,7 @@ namespace wo
         , m_scope_instance(std::nullopt)
         , m_labeled_instance(std::nullopt)
         , m_scope_type(ScopeType::NORMAL)
+        , m_been_break(false)
     {
     }
 
@@ -1652,14 +1653,17 @@ namespace wo
 
                 /////////////////////////////////
 
-                if (immutable_type(eval_function->m_LANG_determined_return_type.value())
-                    != m_origin_types.m_void.m_type_instance)
-                {
-                    m_ircontext.c().ext_panic(
-                        opnum::imm_string("The function should have returned `"
-                            + std::string(get_type_name(eval_function->m_LANG_determined_return_type.value()))
-                            + "`, but ended without providing a return value"));
-                }
+                //if (check_node_type_and_get_end_state(eval_function->m_body) 
+                //    != ast::AstScope::LANG_end_state::END_WITH_RETURN
+                //    &&                    
+                //    immutable_type(eval_function->m_LANG_determined_return_type.value())
+                //    != m_origin_types.m_void.m_type_instance)
+                //{
+                //    m_ircontext.c().ext_panic(
+                //        opnum::imm_string("The function should have returned `"
+                //            + std::string(get_type_name(eval_function->m_LANG_determined_return_type.value()))
+                //            + "`, but ended without providing a return value"));
+                //}
 
                 if (eval_function->m_is_variadic)
                 {
@@ -1709,7 +1713,33 @@ namespace wo
     }
 
     ////////////////////////
-
+    ast::AstScope::LANG_end_state LangContext::check_node_type_and_get_end_state(ast::AstBase* node)
+    {
+        switch (node->node_type)
+        {
+        case ast::AstBase::AST_BREAK:
+            return ast::AstScope::LANG_end_state::END_WITH_BREAK;
+        case ast::AstBase::AST_CONTINUE:
+            return ast::AstScope::LANG_end_state::END_WITH_CONTINUE;
+        case ast::AstBase::AST_RETURN:
+            return ast::AstScope::LANG_end_state::END_WITH_RETURN;
+        case ast::AstBase::AST_SCOPE:
+            return static_cast<ast::AstScope*>(node)->m_LANG_end_state;
+        case ast::AstBase::AST_IF:
+            return static_cast<ast::AstIf*>(node)->m_LANG_end_state;
+        case ast::AstBase::AST_MATCH:
+            return static_cast<ast::AstMatch*>(node)->m_LANG_end_state;
+        case ast::AstBase::AST_WHILE:
+            return static_cast<ast::AstWhile*>(node)->m_LANG_end_state;
+        case ast::AstBase::AST_FOR:
+            return static_cast<ast::AstFor*>(node)->m_LANG_end_state;
+        // Foreach always end with NORMAL.
+        // case ast::AstBase::AST_FOREACH:
+        //     return static_cast<ast::AstForeach*>(node)->m_forloop_body->m_LANG_end_state;
+        default:
+            return ast::AstScope::LANG_end_state::NORMAL;
+        }
+    }
     std::optional<lang_Scope*> LangContext::get_loop_scope_by_label_may_nullopt(
         const std::optional<wo_pstring_t>& label)
     {
@@ -1721,8 +1751,8 @@ namespace wo
 
             if (scope->m_scope_type == lang_Scope::ScopeType::LOOP)
             {
-                if (!label.has_value() 
-                    || (scope->m_labeled_instance.has_value() 
+                if (!label.has_value()
+                    || (scope->m_labeled_instance.has_value()
                         && scope->m_labeled_instance.value()->m_label == label))
                     return scope;
             }
@@ -2471,7 +2501,7 @@ namespace wo
         char anonymous_name[48];
         auto r = snprintf(anonymous_name, 48, "<func %p>", func);
         wo_test(r >= 0 && r < 48, "Failed to generate function name.");
-       
+
         wo_assert(func->source_location.source_file != nullptr);
         result += anonymous_name;
 
@@ -2501,7 +2531,7 @@ namespace wo
             std::make_pair(type, _get_type_name(type)))
             .first->second.c_str();
     }
-    
+
     const char* LangContext::get_value_name(lang_ValueInstance* val)
     {
         auto fnd = m_value_name_cache.find(val);
@@ -3045,9 +3075,9 @@ namespace wo
 #endif
                 return opnum_temporary(i);
             }
-        }
-        wo_error("Temporary register exhausted.");
     }
+        wo_error("Temporary register exhausted.");
+}
     void BytecodeGenerateContext::keep_opnum_temporary_register(
         opnum::temporary* reg
 #ifndef NDEBUG
@@ -3144,5 +3174,6 @@ namespace wo
         }
         m_result = result;
     }
+
 #endif
 }

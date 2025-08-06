@@ -457,22 +457,6 @@ namespace wo
             {
             case AstScope::HOLD_FOR_BODY_EVAL:
             {
-                auto check_node_type_and_get_end_state =
-                    [](ast::AstBase* node)
-                    {
-                        switch (node->node_type)
-                        {
-                        case ast::AstBase::AST_BREAK:
-                            return ast::AstScope::LANG_end_state::END_WITH_BREAK;
-                        case ast::AstBase::AST_CONTINUE:
-                            return ast::AstScope::LANG_end_state::END_WITH_CONTINUE;
-                        case ast::AstBase::AST_RETURN:
-                            return ast::AstScope::LANG_end_state::END_WITH_RETURN;
-                        default:
-                            return ast::AstScope::LANG_end_state::NORMAL;
-                        }
-                    };
-
                 if (node->m_body->node_type == AstBase::node_type_t::AST_LIST)
                 {
                     for (auto* subnode : static_cast<AstList*>(node->m_body)->m_list)
@@ -486,9 +470,10 @@ namespace wo
                     }
                 }
                 else
+                {
                     node->m_LANG_end_state =
-                    check_node_type_and_get_end_state(node->m_body);
-
+                        check_node_type_and_get_end_state(node->m_body);
+                }
 
                 // Leave scope, generate defer code.
                 if (node->m_LANG_end_state == AstScope::LANG_end_state::NORMAL
@@ -1577,22 +1562,22 @@ namespace wo
     {
         auto judge_function_return_type =
             [&](lang_TypeInstance* ret_type)
+        {
+            std::list<lang_TypeInstance*> parameters;
+            for (auto& param : node->m_parameters)
+                parameters.push_back(param->m_type.value()->m_LANG_determined_type.value());
+
+            node->m_LANG_determined_type = m_origin_types.create_function_type(
+                node->m_is_variadic, parameters, ret_type);
+
+            wo_assert(node->m_LANG_determined_type.has_value());
+
+            if (node->m_LANG_value_instance_to_update)
             {
-                std::list<lang_TypeInstance*> parameters;
-                for (auto& param : node->m_parameters)
-                    parameters.push_back(param->m_type.value()->m_LANG_determined_type.value());
-
-                node->m_LANG_determined_type = m_origin_types.create_function_type(
-                    node->m_is_variadic, parameters, ret_type);
-
-                wo_assert(node->m_LANG_determined_type.has_value());
-
-                if (node->m_LANG_value_instance_to_update)
-                {
-                    node->m_LANG_value_instance_to_update.value()->m_determined_type =
-                        node->m_LANG_determined_type;
-                }
-            };
+                node->m_LANG_value_instance_to_update.value()->m_determined_type =
+                    node->m_LANG_determined_type;
+            }
+        };
 
         // Huston, we have a problem.
         if (state == UNPROCESSED)
@@ -1739,6 +1724,20 @@ namespace wo
                         node->m_LANG_value_instance_to_update.value()->m_IR_normal_function = node;
 
                     node->decide_final_constant_value(node);
+                }
+
+                if (!node->m_IR_extern_information.has_value()
+                    &&
+                    check_node_type_and_get_end_state(node->m_body)
+                    != ast::AstScope::LANG_end_state::END_WITH_RETURN
+                    &&
+                    immutable_type(node->m_LANG_determined_return_type.value())
+                    != m_origin_types.m_void.m_type_instance)
+                {
+                    lex.record_lang_error(lexer::msglevel_t::error, node,
+                        WO_ERR_FUNCTION_MAY_NO_RETURN_VALUE);
+
+                    return FAILED;
                 }
                 break;
             }
@@ -5589,9 +5588,34 @@ namespace wo
                 return HOLD;
             }
             case AstMatch::HOLD_FOR_EVAL_CASES:
+            {
                 // Cases has been evaled.
+                std::optional<AstScope::LANG_end_state> case_end_state;
+                for (AstMatchCase* match_case : node->m_cases)
+                {
+                    if (case_end_state.has_value())
+                    {
+                        auto other_branch_state = case_end_state.value();
+                        if (other_branch_state != AstScope::LANG_end_state::NORMAL
+                            && match_case->m_LANG_end_state != AstScope::LANG_end_state::NORMAL)
+                        {
+                            if (other_branch_state != match_case->m_LANG_end_state)
+                                case_end_state = AstScope::LANG_end_state::END_WITH_DIFFERENT_STATE;
+                        }
+                        else
+                        {
+                            case_end_state = AstScope::LANG_end_state::NORMAL;
+                            break;
+                        }
+                    }
+                    else
+                        case_end_state = match_case->m_LANG_end_state;
+                }
+                node->m_LANG_end_state = case_end_state.value();
+
                 end_last_scope();
                 break;
+            }
             default:
                 wo_error("Unknown hold state.");
             }
@@ -5653,6 +5677,9 @@ namespace wo
         }
         else if (state == HOLD)
         {
+            node->m_LANG_end_state =
+                check_node_type_and_get_end_state(node->m_body);
+
             end_last_scope();
         }
         else
@@ -5706,7 +5733,35 @@ namespace wo
                 return HOLD;
             }
             case AstIf::HOLD_FOR_BODY_EVAL:
+            {
+                if (node->m_condition->m_evaled_const_value.has_value())
+                {
+                    if (node->m_condition->m_evaled_const_value.value().value_bool())
+                        // True branch
+                        node->m_LANG_end_state = check_node_type_and_get_end_state(node->m_true_body);
+                    else if (node->m_false_body.has_value())
+                        // False branch
+                        node->m_LANG_end_state = check_node_type_and_get_end_state(node->m_false_body.value());
+                }
+                else
+                {
+                    auto true_end_state = check_node_type_and_get_end_state(node->m_true_body);
+                    auto false_end_state =
+                        node->m_false_body.has_value()
+                        ? check_node_type_and_get_end_state(node->m_false_body.value())
+                        : AstScope::LANG_end_state::NORMAL;
+
+                    if (true_end_state != AstScope::LANG_end_state::NORMAL
+                        && false_end_state != AstScope::LANG_end_state::NORMAL)
+                    {
+                        if (true_end_state == false_end_state)
+                            node->m_LANG_end_state = true_end_state;
+                        else
+                            node->m_LANG_end_state = AstScope::LANG_end_state::END_WITH_DIFFERENT_STATE;
+                    }
+                }
                 break;
+            }
             default:
                 wo_error("Unknown hold state.");
             }
@@ -5720,6 +5775,8 @@ namespace wo
             auto* scope = begin_new_scope(node->source_location);
             scope->m_scope_type = lang_Scope::ScopeType::LOOP;
             scope->m_labeled_instance = node->m_LANG_binded_label;
+
+            node->m_LANG_loop_scope = scope;
 
             WO_CONTINUE_PROCESS(node->m_condition);
 
@@ -5751,6 +5808,15 @@ namespace wo
                 return HOLD;
             }
             case AstWhile::HOLD_FOR_BODY_EVAL:
+                if (!node->m_LANG_loop_scope.value()->m_been_break
+                    && node->m_condition->m_evaled_const_value.has_value()
+                    && node->m_condition->m_evaled_const_value.value().value_bool())
+                {
+                    // Not break dead loop, the only way to leave the loop is return.
+                    // Dead loop can trate as return `NOTHING`.
+
+                    node->m_LANG_end_state = AstScope::LANG_end_state::END_WITH_RETURN;
+                }
                 end_last_scope();
                 break;
             default:
@@ -5766,6 +5832,8 @@ namespace wo
             auto* scope = begin_new_scope(node->source_location);
             scope->m_scope_type = lang_Scope::ScopeType::LOOP;
             scope->m_labeled_instance = node->m_LANG_binded_label;
+
+            node->m_LANG_loop_scope = scope;
 
             if (node->m_initial.has_value())
                 WO_CONTINUE_PROCESS(node->m_initial.value());
@@ -5824,6 +5892,15 @@ namespace wo
                 return HOLD;
             }
             case AstFor::HOLD_FOR_BODY_EVAL:
+                if (!node->m_LANG_loop_scope.value()->m_been_break
+                    && (!node->m_condition.has_value()
+                        || (node->m_condition.value()->m_evaled_const_value.has_value()
+                            && node->m_condition.value()->m_evaled_const_value.value().value_bool())))
+                {
+                    // Not break dead loop, the only way to leave the loop is return.
+                    // Dead loop can trate as return `NOTHING`.
+                    node->m_LANG_end_state = AstScope::LANG_end_state::END_WITH_RETURN;
+                }
                 end_last_scope();
                 break;
             default:
@@ -5863,8 +5940,11 @@ namespace wo
                 return FAILED;
             }
 
+            auto* break_scope = break_loop_block.value();
+            break_scope->m_been_break = true;
+
             if (!collect_defers_from_current_scope_to(
-                break_loop_block.value(),
+                break_scope,
                 &node->m_LANG_defer_instances))
             {
                 lex.record_lang_error(lexer::msglevel_t::error, node,

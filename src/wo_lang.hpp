@@ -439,6 +439,7 @@ namespace wo
         std::optional<ast::AstScope*> m_scope_instance;
         std::optional<ast::AstLabeled*> m_labeled_instance;
         ScopeType m_scope_type;
+        bool m_been_break;
 
         lang_Scope(const std::optional<lang_Scope*>& parent_scope, lang_Namespace* belongs);
 
@@ -1258,6 +1259,8 @@ namespace wo
 
         std::optional<lang_Scope*> get_loop_scope_by_label_may_nullopt(
             const std::optional<wo_pstring_t>& label);
+
+        static ast::AstScope::LANG_end_state check_node_type_and_get_end_state(ast::AstBase* node);
 
         static wo_pstring_t IR_function_label(ast::AstValueFunction* func);
         static wo_pstring_t IR_function_label_ret(ast::AstValueFunction* func);

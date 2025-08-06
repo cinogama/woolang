@@ -1736,6 +1736,11 @@ namespace wo
             , m_LANG_function_scope(std::nullopt)
             , m_IR_extern_information(std::nullopt)
         {
+            wo_assert(body->node_type == AstBase::node_type_t::AST_EMPTY
+                || body->node_type == AstBase::node_type_t::AST_SCOPE
+                || body->node_type == AstBase::node_type_t::AST_RETURN
+                || body->node_type == AstBase::node_type_t::AST_EXTERN_INFORMATION);
+
             for (auto* param_define : parameters)
             {
                 if (!param_define->m_type)
@@ -1979,9 +1984,11 @@ namespace wo
             : AstBase(AST_MATCH_CASE)
             , m_pattern(pattern)
             , m_body(body)
+            , m_LANG_end_state(AstScope::LANG_end_state::NORMAL)
             , m_LANG_pattern_value_apply_type(std::nullopt)
             , m_LANG_case_label_or_takeplace(std::nullopt)
             , m_IR_matching_struct_opnum(std::nullopt)
+            , m_IR_match(std::nullopt)
         {
         }
         AstBase* AstMatchCase::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
@@ -2002,6 +2009,7 @@ namespace wo
             , m_matched_value(match_value)
             , m_cases(cases)
             , m_LANG_hold_state(UNPROCESSED)
+            , m_LANG_end_state(AstScope::LANG_end_state::NORMAL)
             , m_IR_matching_struct_opnum(std::nullopt)
         {
         }
@@ -2025,6 +2033,7 @@ namespace wo
             , m_true_body(true_body)
             , m_false_body(false_body)
             , m_LANG_hold_state(UNPROCESSED)
+            , m_LANG_end_state(AstScope::LANG_end_state::NORMAL)
         {
         }
         AstBase* AstIf::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
@@ -2047,6 +2056,8 @@ namespace wo
             , m_condition(condition)
             , m_body(body)
             , m_LANG_hold_state(UNPROCESSED)
+            , m_LANG_end_state(AstScope::LANG_end_state::NORMAL)
+            , m_LANG_loop_scope(std::nullopt)
             , m_LANG_binded_label(std::nullopt)
         {
         }
@@ -2074,6 +2085,8 @@ namespace wo
             , m_step(step)
             , m_body(body)
             , m_LANG_hold_state(UNPROCESSED)
+            , m_LANG_end_state(AstScope::LANG_end_state::NORMAL)
+            , m_LANG_loop_scope(std::nullopt)
             , m_LANG_binded_label(std::nullopt)
         {
         }

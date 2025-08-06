@@ -935,6 +935,9 @@ namespace wo
                 END_WITH_BREAK,
                 END_WITH_CONTINUE,
                 END_WITH_RETURN,
+
+                // In if
+                END_WITH_DIFFERENT_STATE,
             };
 
             AstBase* m_body;
@@ -957,6 +960,7 @@ namespace wo
             AstPatternBase* m_pattern; // AstPatternTakeplace / AstPatternUnion
             AstBase* m_body;
 
+            AstScope::LANG_end_state m_LANG_end_state;
             std::optional<lang_TypeInstance*> m_LANG_pattern_value_apply_type;
             std::optional<wo_integer_t> m_LANG_case_label_or_takeplace;
 
@@ -979,7 +983,7 @@ namespace wo
             std::list<AstMatchCase*> m_cases;
 
             LANG_hold_state m_LANG_hold_state;
-
+            AstScope::LANG_end_state m_LANG_end_state;
             std::optional<opnum::opnumbase*> m_IR_matching_struct_opnum;
 
             AstMatch(AstValueBase* match_value, const std::list<AstMatchCase*>& cases);
@@ -1000,10 +1004,10 @@ namespace wo
 
             AstValueBase* m_condition;
             AstBase* m_true_body;
-            std::optional<AstBase*>
-                m_false_body;
+            std::optional<AstBase*> m_false_body;
 
             LANG_hold_state m_LANG_hold_state;
+            AstScope::LANG_end_state m_LANG_end_state;
 
             AstIf(AstValueBase* condition, AstBase* true_body, const std::optional<AstBase*>& false_body);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
@@ -1022,7 +1026,8 @@ namespace wo
             AstBase* m_body;
 
             LANG_hold_state m_LANG_hold_state;
-
+            AstScope::LANG_end_state m_LANG_end_state;
+            std::optional<lang_Scope*> m_LANG_loop_scope;
             std::optional<AstLabeled*> m_LANG_binded_label;
 
             AstWhile(AstValueBase* condition, AstBase* body);
@@ -1050,7 +1055,8 @@ namespace wo
             AstBase* m_body;
 
             LANG_hold_state m_LANG_hold_state;
-
+            AstScope::LANG_end_state m_LANG_end_state;
+            std::optional<lang_Scope*> m_LANG_loop_scope;
             std::optional<AstLabeled*> m_LANG_binded_label;
 
             AstFor(
