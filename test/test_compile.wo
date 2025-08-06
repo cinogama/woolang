@@ -16,13 +16,13 @@ namespace test_compile
         let result = compile_program(src);
         match (result)
         {
-        err(msg)?
+            err(msg)?
             {
                 std::println(msg);
                 test_assure(false);
             }
-        ok(vmm)?
-            do vmm->close();
+            ok(vmm)?
+                do vmm->close();
         }
     }
     func assure_compile_fail(src: string)
@@ -30,17 +30,17 @@ namespace test_compile
         let result = compile_program(src);
         match (result)
         {
-        err(_)?;
-        ok(vmm)?
-            do vmm->close();
+            err(_)?;
+            ok(vmm)?
+                do vmm->close();
         }
-
+        
         test_assure(result->is_ok == false);
     }
-
+    
     func test_compile_success_or_fail()
     {
-          // Bad constant
+        // Bad constant
         assure_compile_fail(@"
         let a = '';
         "@);
@@ -56,25 +56,25 @@ namespace test_compile
         assure_compile_success(@"
         let a = 'y';
         "@);
-
+                
         // Empty source will failed.
         assure_compile_fail(@""@);
-
+        
         // Cannot cast nil
         assure_compile_fail(@"let a = nil: gchandle;"@);
-
+        
         assure_compile_success(@"
             let a = 5;
             let b = a: string;
             let c = b: void;
         "@);
-
+            
         assure_compile_fail(@"
             let a = 5;
             let b = a: string;
             let c = b: nothing;
         "@);
-
+            
         assure_compile_success(@"
             let a = nil: dynamic;
             let b = a: string;
@@ -111,7 +111,7 @@ namespace test_compile
             let a = nil: dynamic;
             let b = a is real;
         "@);
-
+                
         assure_compile_fail(@"
             let a = nil: dynamic;
             let b = a: nothing;
@@ -156,7 +156,7 @@ namespace test_compile
             let a = do nil;
             let b = a as void: dynamic;
         "@);
-
+                
         assure_compile_fail(@"
 import woo::std;
 let valof<T> = std::declval:<T>();
@@ -214,12 +214,12 @@ func main()
     do px;
 }
         "@);
-
+                
         // Cannot add different types
         assure_compile_fail(@"let b = "" + 2;"@);
         assure_compile_fail(@"let b = 1 + 2.0;"@);
         assure_compile_fail(@"let b = 0x00H + 128;"@);
-
+        
         // match must walk through all cases
         assure_compile_fail(@"
         union MyUnion
@@ -234,7 +234,7 @@ func main()
             C?;
         }
         "@);
-
+            
         // Invalid match
         assure_compile_fail(@"let m = 1;match(m){ option::value(i)?; }"@);
         assure_compile_fail(@"let m = nil;match(m){ option::none(i)?; }"@);
@@ -242,13 +242,13 @@ func main()
         assure_compile_fail(@"import woo::std; let m = option::value(1); match(m){ option::value(i)?; option::value(x)?; }"@);
         assure_compile_fail(@"import woo::std; let m = option::value(1); match(m){ option::none(i)?; option::value(x)?; }"@);
         assure_compile_fail(@"import woo::std; let m = option::value(1); match(m){ option::none?; option::value?; }"@);
-
+        
         // Construct struct must complete.
         assure_compile_fail(@"
             using st = struct{a: int, b: real};
             do st{a = 15};
         "@);
-
+            
         assure_compile_success(@"
             using st = struct{m: array<mut int>};
             do st{m = []};
@@ -257,7 +257,7 @@ func main()
             using st = struct{m: array<int>};
             do st{m = []};
         "@);
-
+                
         assure_compile_success(@"
             func foo(a){do a;}
 
@@ -277,7 +277,7 @@ func main()
             foo2(foo);
             foo2(foo);
         "@);
-
+                
         assure_compile_success(@"
             func foo(a) where a is int; {}
             using St = struct{m: (int)=>void};
@@ -288,7 +288,7 @@ func main()
             func foo2(f: (int)=>void){do f;}    
             foo2(foo);
         "@);
-
+                
         assure_compile_fail(@"
             func foo(a) where a is real; {do a;}
             using St = struct{m: (int)=>void};
@@ -299,13 +299,13 @@ func main()
             func foo2(f: (int)=>void){do f;}    
             foo2(foo);
         "@);
-
+                
         assure_compile_fail(@"let t = int{a = ""};"@);
         assure_compile_fail(@"let t = y{a = ""};"@);
         assure_compile_fail(@"alias List<T> = (T, List<T>); do 0: List<int>;"@); // Not crash!
         assure_compile_fail(@"import woo::std; alias List<T> = option<(T, List<T>)>; 
                               let m = option::none: List<string>;"@); // Not crash!
-
+            
         assure_compile_fail(@"let mut a = \_: int = 0;; a = \n = n;;"@);
         assure_compile_fail(@"let mut a = \_: int = 0;; a = \n: real = n;;"@);
         assure_compile_fail(@"let mut a = \_: int = 0;; a = \n: void = n;;"@);
@@ -313,33 +313,33 @@ func main()
         assure_compile_success(@"let mut a = []: array<mut (int)=>int>; a[0] = \n: int = n;;"@);
         assure_compile_success(@"let mut a = []: array<mut (int)=>int>; func foo<T>(x: T){return x;} a[0] = foo:<int>;"@);
         assure_compile_fail(@"let mut a = []: array<mut (int)=>int>; func foo<T>(x: T){do x;} a[0] = foo:<int>;"@);
-
+        
         assure_compile_success(@"using autojudge = struct{f:(int)=>string}; do autojudge{f = \i = i: string;};"@);
         assure_compile_fail(@"using autojudge = struct{f:(int)=>string}; do autojudge{f = \i, x = i: string;};"@);
         assure_compile_fail(@"using autojudge = struct{f:(int)=>string}; do autojudge{f = \i = i: real;};"@);
         assure_compile_fail(@"using autojudge = struct{f:(int)=>string}; do autojudge{f = \ = "";};"@);
-
+        
         assure_compile_success(@"using autojudget<T, R> = struct{f:(T)=>R}; do autojudget{f = \_: int = "";};"@);
         assure_compile_success(@"using autojudget<T, R> = struct{f:(T)=>R, n: T}; do autojudget{f = \_ = "";, n = 1};"@);
         assure_compile_success(@"using autojudget<T, R> = struct{f:(T)=>R, n: T}; do autojudget{f = \_: int = "";, n = 1};"@);
         assure_compile_fail(@"using autojudget<T, R> = struct{f:(T)=>R, n: T}; do autojudget{f = \_: int = "";, n = 1.25};"@);
         assure_compile_fail(@"using autojudget<T, R> = struct{f:(T)=>R}; do autojudget{f = \_ = "";};"@);
-
+        
         assure_compile_success(@"using autojudget<T, R> = struct{f:(T)=>R}; do autojudget:<int, string>{f = \_ = "";};"@);
         assure_compile_fail(@"using autojudget<T, R> = struct{f:(T)=>R}; do autojudget:<int>{f = \n = "";};"@);
-
+        
         assure_compile_success(@"using autojudget<T> = struct{m: T}; do autojudget{m = 2};"@);
         assure_compile_fail(@"using autojudget<T> = struct{m: T}; do autojudget{m = 2}.m = 5;"@);
-
+        
         assure_compile_success(@"using autojudget<T> = struct{m: T}; do autojudget{m = mut 2};"@);
         assure_compile_success(@"using autojudget<T> = struct{m: T}; do autojudget{m = mut 2}.m = 5;"@);
-
+        
         assure_compile_success(@"using autojudget<T> = struct{m: mut T, i: T}; do autojudget{m = mut 2, i = 6}.m = 5;"@);
         assure_compile_fail(@"using autojudget<T> = struct{m: mut T, i: T}; do autojudget{m = mut 2, i = 6}.i = 7;"@);
-
+        
         assure_compile_success(@"using autojudget<T> = struct{m: mut T, i: T}; do autojudget{m = mut 2, i = 6} as autojudget<int>;"@);
         assure_compile_fail(@"using autojudget<T> = struct{m: mut T, i: T}; do autojudget{m = mut 2, i = 6} as autojudget<mut int>;"@);
-
+        
         // Template args must match
         assure_compile_fail(@"func foo<T,U>(){} foo:<int>();"@);
         assure_compile_fail(@"func foo<T,U>(){} foo:<int, string, real>();"@);
@@ -348,36 +348,36 @@ func main()
         assure_compile_success(@"let p<T> = 0; do p:<int>;"@);
         assure_compile_fail(@"func p<T>(){} do p;"@);
         assure_compile_success(@"func p<T>(){} do p:<int>;"@);
-
+        
         assure_compile_fail(@"func foo(){let fv = \=kv;; let kv = 0; do fv; do kv;};"@);
         assure_compile_fail(@"func foo(){let kv = 0; let fv = \=kv;;};"@);
         assure_compile_success(@"func foo(){let kv = 0; let fv = \=kv;;do fv;};"@);
         assure_compile_fail(@"func foo(){let fv = \=kv;; let mut kv = 0;do fv; do kv;};"@);
         assure_compile_success(@"func foo(){let mut kv = 0; let fv = \=kv;;do fv;};"@);
-
-        // extern symbol must be found 
+        
+        // extern symbol must be found
         assure_compile_fail(@"extern("not_exist_func")func foo() => void;"@);
         assure_compile_fail(@"extern("not_exist_lib","not_exist_func")func foo() => void;"@);
-
+        
         // return can in func or in global
         assure_compile_success(@"namespace example {return 0;}"@);
         assure_compile_success(@"return 0;"@);
-
+        
         // func cannot return different type if func is not dynamic
         assure_compile_fail(@"func xx(){return 1; return 1.0;}"@);
-
+        
         // Capture lambda itself is invalid.
         assure_compile_fail(@"func main(){let f = func(){f();};}"@);
         assure_compile_fail(@"func foo<T>(a: T){}func main(){let f = \x: int = foo(f);;}"@);
-
+        
         // Can capture template variable now.
         assure_compile_success(@"func main(){let t<T> = 0;return func(){return t:<int>;};}"@);
-
+        
         // func cannot return different type from marked type
         assure_compile_fail(@"func xx()=> string{return;}"@);
         assure_compile_fail(@"func xx()=> int{return 1.;}"@);
         assure_compile_fail(@"func xx()=> real{return 1;}"@);
-
+        
         assure_compile_fail(@"func xx()
             {
                 return 1;
@@ -398,7 +398,7 @@ func main()
                 return 1;
                 return 1;
             }"@);
-        // 1.14.6: Type of Variable & Function invoke will keep mutability.
+                // 1.14.6: Type of Variable & Function invoke will keep mutability.
         assure_compile_success(@"func xx()
             {
                 return mut 1;
@@ -419,7 +419,7 @@ func main()
             let a = [1,2,3]->>\n=mut n;;
             a[0] = 6;
             "@);
-        // 1.14.6: Type of Variable & Function invoke will keep mutability.
+                // 1.14.6: Type of Variable & Function invoke will keep mutability.
         assure_compile_success(@"
             import woo::std;
 
@@ -432,12 +432,12 @@ func main()
             let a = [1,2,3]->>\n=n;;
             a[0] = 6;
             "@);
-
+                
         // unknown type/identifier is invalid
         assure_compile_fail(@"let x = 1: noexist; let y = x;"@);
         assure_compile_fail(@"let x = 0; y = x;"@);
         assure_compile_fail(@"noexist(1,2,3);"@);
-
+        
         // Only index struct by const str
         assure_compile_fail(@"
             using st = struct{a: int}; 
@@ -445,14 +445,14 @@ func main()
             let mut i = "a"; 
             let b = s[i];
         "@);
-
+            
         assure_compile_success(@"
             using st = struct{a: int}; 
             let s = st{a = 1}; 
             let i = "a"; 
             let b = s[i];
         "@);
-
+            
         assure_compile_success(@"
             import woo::std;
             using List<T> = struct{
@@ -461,7 +461,7 @@ func main()
             };
             let a = List:<string>{e = "Hello", next = option::none};
         "@);
-
+            
         assure_compile_success(@"
             import woo::std;
             using List<T> = struct{
@@ -470,7 +470,7 @@ func main()
             };
             let a = List{e = "Hello", next = option::none};
         "@);
-        
+            
         // immutable member cannot be assign
         assure_compile_fail(@"
             using st = struct{a: int}; 
@@ -487,7 +487,7 @@ func main()
             let s = st{a = mut 1}; 
             s.a = 25;
         "@);
-
+                
         assure_compile_success(@"
             let mut dd = 0;
 
@@ -505,7 +505,7 @@ func main()
 
             opt = \_: void = result::ok(3.14); as (void)=>result<real, string>;
         "@);
-
+            
         // Cannot index unindexable type or invalid index
         assure_compile_fail(@"let a = 5; let b = a[7];"@);
         assure_compile_fail(@"let a = [1]; let b = a["index"];"@);
@@ -519,7 +519,7 @@ func main()
             let s = st{a = 15};
             let b = s[0];
         "@);
-
+                
         // Call fail
         assure_compile_fail(@"func foo(a:int, b: string){} foo(1);"@);
         assure_compile_fail(@"func foo(a:int, b: string){} foo(1., "");"@);
@@ -553,7 +553,7 @@ func main()
             func foo<Ft, ArgTs>(f: Ft, args: ArgTs) where f(args...) is void;{}
             foo(func(x: int){}, (1, 2, 3));
         "@);
-        assure_compile_fail(@"let p<T> = \x: T = x;;p("Helloworld");"@);
+                assure_compile_fail(@"let p<T> = \x: T = x;;p("Helloworld");"@);
         assure_compile_success(@"
             func foo<Ft, ArgTs>(f: Ft, args: ArgTs) where f(args...) is void;{}
             foo(func(){}, ());
@@ -634,7 +634,7 @@ func main()
             let a = option::value(option::value(option::value(2)));
             do a=>>\elem = elem;=>>\elem = elem; as option<option<int>>;
         "@);
-
+                
         // Logic op only accept bool
         assure_compile_fail(@"let r = 1 || false;"@);
         assure_compile_fail(@"let r = 1 || 0;"@);
@@ -646,7 +646,7 @@ func main()
         // Woolang 1.14.8.6, Conditional compile has been supported for || and &&
         assure_compile_success(@"let r = false && 0;"@);
         assure_compile_fail(@"let r = !0;"@);
-
+        
         // relationship op cannot work at dict/array/struct...
         assure_compile_fail(@"let r = [] < [];"@);
         assure_compile_fail(@"let r = {} >= {};"@);
@@ -659,35 +659,35 @@ func main()
         assure_compile_fail(@"do [3,2,1] as array<nothing>;"@);
         test_assure([1,2,3] is array<void> == false);
         test_assure(!([1,2,3] is array<nothing>));
-
+        
         // if/while/for only accept bool
         assure_compile_fail(@"if (0){}"@);
         assure_compile_fail(@"while (0){}"@);
         assure_compile_fail(@"for (;0;){}"@);
-
+        
         // invalid export
         assure_compile_fail(@"extern func foo(){} extern func foo(a:int){}"@);
-
+        
         // using namespace
         do vm::create_virtual_script("test/usingnamespace.wo", @"using std;"@, false);
         assure_compile_fail(@"import woo::std; import test::usingnamespace; println("This should not been displayed!");"@);
         assure_compile_success(@"import woo::std; import test::usingnamespace; using std; println("Helloworld!");"@);
-
+        
         // redefine
         assure_compile_fail(@"let a = 0; let a = 1;"@);
         assure_compile_fail(@"func a(){} let a = 1;"@);
         assure_compile_fail(@"using a = int; let a = 1;"@);
         assure_compile_fail(@"let a = 1; using a = int;"@);
         assure_compile_fail(@"using a = int; using a = real;"@);
-
+        
         // invalid index of tuple
         assure_compile_fail(@"let a = (1,2); a[5] = 6;"@);
         assure_compile_fail(@"let a = (1,2); a[-1] = 6;"@);
-
+        
         // invalid type of tuple
         assure_compile_fail(@"let a = (1, 3, ["Hello"]); a[2] = [1];"@);
         assure_compile_fail(@"let a = (1, 3, ["Hello"]); a[1] = 1.2;"@);
-
+        
         // invalid match for tuple
         assure_compile_fail(@"let (a, b) = (1,);"@);
         assure_compile_fail(@"let (a, ref b) = (1, 2);"@);
@@ -704,7 +704,7 @@ func main()
                     std::println(n); 
             }
         "@);
-
+            
         assure_compile_success(@"
             union Test
             {
@@ -719,7 +719,7 @@ func main()
                 _?; 
             }
         "@);
-
+            
         assure_compile_success(@"
             union Test<T>
             {
@@ -734,7 +734,7 @@ func main()
                 _?; 
             }
         "@);
-
+            
         assure_compile_success(@"
             union Test
             {
@@ -748,7 +748,7 @@ func main()
                 _?; 
             }
         "@);
-
+            
         assure_compile_success(@"
             union Test<T>
             {
@@ -762,7 +762,7 @@ func main()
                 _?; 
             }
         "@);
-
+            
         assure_compile_success(@"
             union Test
             {
@@ -778,7 +778,7 @@ func main()
                 _?; 
             }
         "@);
-
+            
         assure_compile_success(@"
             union Test
             {
@@ -795,7 +795,7 @@ func main()
                 _?; 
             }
         "@);
-
+            
         assure_compile_fail(@"
             union Test
             {
@@ -811,7 +811,7 @@ func main()
                 A(n)?; 
             }
         "@);
-
+            
         assure_compile_fail(@"
             union Test
             {
@@ -826,7 +826,7 @@ func main()
                 C(n)?; 
             }
         "@);
-
+            
         assure_compile_fail(@"
             union Test<T>
             {
@@ -841,7 +841,7 @@ func main()
                 C(n)?; 
             }
         "@);
-        
+            
         // Issue N221109: ref has been removed.
         assure_compile_success(@"let (a, b) = (1, mut 2);"@);
         assure_compile_fail(@"let (a, b) = (1, mut 2); a = 2;"@);
@@ -849,11 +849,11 @@ func main()
         assure_compile_success(@"import woo::std; match(option::value(1)){value(a)?;none?;}"@);
         assure_compile_fail(@"match(option::value(1)){option::value((a,))?;option::none?;}"@);
         assure_compile_fail(@"match(1){value((a,))?;none?;}"@);
-    
+        
         assure_compile_fail(@"import woo::std; let a = []: array<int>; a->add(0);"@);
         assure_compile_fail(@"let i = 0; i += 5;"@);
         assure_compile_fail(@"func foo(x:vec<int>){} let v = []:array<int>; foo(v);"@);
-
+        
         // constexpr if
         assure_compile_fail(@"let mut a = 2; do func(){if(a == 1)return "";else return 1;};"@);
         assure_compile_fail(@"let mut a = 1; do func(){if(a == 1)return "";else return 1;};"@);
@@ -861,7 +861,7 @@ func main()
         assure_compile_success(@"let a = 2; do func(){if(a == 1)return "";else return 1;};"@);
         assure_compile_success(@"let a = 1; let b = a == 1 ? "" | 1; do b as string;"@);
         assure_compile_success(@"let a = 2; let b = a == 1 ? "" | 1; do b as int;"@);
-
+        
         // Type judge
         assure_compile_success(@"
             func foo(){}
@@ -949,7 +949,7 @@ func main()
             assert_type:<typeof(a ? std::declval:<void>() | std::declval:<nothing>()), void>();
             assert_type:<typeof(a ? std::declval:<()=>array<real>>() | std::declval:<()=>array<nothing>>()), ()=>array<real>>();
             "@);
-
+                
         // array/dict is not modifiable
         assure_compile_fail(@"
             let a = [1,2,3];
@@ -959,7 +959,7 @@ func main()
             let a = {[0] = 1};
             a[0] = 6;
         "@);
-        // vec/map can be modified;
+                // vec/map can be modified;
         assure_compile_success(@"
             let a = [mut 1, mut 2,mut 3];
             let b = {[0] = mut 1};
@@ -967,7 +967,7 @@ func main()
             a[0] = 6;
             b[0] = 6;
         "@);
-        
+            
         assure_compile_fail(@"
             namespace prot
             {
@@ -975,25 +975,25 @@ func main()
             }
             foo();
         "@);
-
+            
         assure_compile_success(@"
             import woo::std;
             for (let b : [mut "Hello"])
                 std::println(F"{b}");
         "@);
-
+            
         assure_compile_success(@"
             import woo::std;
             let t = (mut 1, mut "Hello");
             let (a, b) = t;
             std::println(F"{b}");
         "@);
-
+            
         assure_compile_success(@"
             import woo::std;
             do [mut "Hello"]->>\s=F"{s}";;
         "@);
-
+            
         assure_compile_success(@"
             import woo::std;
             let o = option::value(mut "Hello");
@@ -1005,7 +1005,7 @@ func main()
             }
            
         "@);
-
+            
         assure_compile_success(@"
             using st<T> = struct{a: T}; 
             using st2<F> = struct{b: st:<F>, c: st<F>}; // Both :< & < in type is valid.
@@ -1013,8 +1013,8 @@ func main()
             let x = st:<string>{a = "abc" };
             let y = st2:<string>{b = x, c = x};
         "@);
-
-        // 
+            
+        //
         assure_compile_fail(@"
             import woo::std;
 
@@ -1045,8 +1045,8 @@ func main()
                 func f(){func f(){};};
             }
             "@);
-
-        // 
+                
+        //
         assure_compile_fail(@"
             import woo::std;
 
@@ -1055,7 +1055,7 @@ func main()
             }
             main("Helloworld");
             "@);
-
+            
         assure_compile_success(@"
             import woo::std;
 
@@ -1064,7 +1064,7 @@ func main()
             }
             main(25);
             "@);
-        
+            
         assure_compile_success(@"
             import woo::std;
 
@@ -1073,7 +1073,7 @@ func main()
             }
             main(25, 6.25);
             "@);
-
+            
         assure_compile_success(@"
             import woo::std;
 
@@ -1089,34 +1089,34 @@ func main()
 
             let (a, b)<T> = (5, 6);
             "@);
-        
-        //  
+                
+        //
         assure_compile_success(@"
             func foo(mut _: int){}
             func foo2(mut _: int){}
             let mut a = foo;
             a = foo2;
             "@);
-        
+            
         assure_compile_fail(@"
             func foo(_: mut int){}
             func foo2(mut _: int){}
             let mut a = foo;
             a = foo2;
             "@);
-
+            
         assure_compile_success(@"
             func foo(_: mut int){}
             func foo2(_: mut int){}
             let mut a = foo;
             a = foo2;
             "@);
-
+            
         assure_compile_success(@"
             using E = struct{a : mut string};
             do E{a = mut 1: string};
             "@);
-
+            
         //
         assure_compile_fail(@"
             func main(a : mut int)
@@ -1186,7 +1186,7 @@ func main()
             }
             let a = 0: aaa::example_t;
             "@);
-
+                
         assure_compile_success(@"
             namespace aaa
             {
@@ -1231,7 +1231,7 @@ func main()
             }
             let a = struct{_ = do nil}: aaa::example_t;
             "@);
-
+                
         assure_compile_success(@"
             import woo::std;
             using RecursiveT = (RecursiveT, void);
@@ -1247,7 +1247,7 @@ func main()
             using RecursiveT = (RecursiveT, RecursiveT);
             do option::none: option<RecursiveT>;
             "@);
-
+                
         assure_compile_success(@"
             let v = [];
             "@);
@@ -1275,7 +1275,7 @@ func main()
         assure_compile_fail(@"
             let v = []: dict;
             "@);
-
+                
         assure_compile_success(@"
             alias A<T> = struct{a: T<int>};
             let a = []: array<A<array<nothing>>>;
@@ -1284,7 +1284,7 @@ func main()
             alias A<T> = struct{a: T<int>};
             let a = []: array<A<int>>;
             "@);
-
+                
         assure_compile_fail(@"
             import woo::std;
             let a = option::value(nil: dynamic)
@@ -1324,7 +1324,7 @@ func main()
             }
             foo:<int>();
             "@);
-
+                
          assure_compile_success(@"
             namespace Aaa
             {
@@ -1349,7 +1349,7 @@ func main()
             do Aaa::Ati{a = \=0: Aaa::Aba<int>;};
             do Aaa::Atfi{a = \_=do nil;};
             "@);
-
+            
         assure_compile_success(@"
             using a = struct {a: mut (int)=>nil};
             do a{a = mut \_=nil;};
@@ -1366,7 +1366,7 @@ func main()
             func foo(_: mut (int)=>void){}
             foo(mut \_, _=do nil;);
             "@);
-        
+                
         assure_compile_fail(@"
             func foo()=> mut int{return 0;}
             "@);
@@ -1379,7 +1379,7 @@ func main()
         assure_compile_success(@"
             func foo()=> int{return 0;}
             "@);
-
+                
         assure_compile_fail(@"
             #macro AAA{return "";}
             AAA;
@@ -1391,7 +1391,7 @@ func main()
         assure_compile_fail(@"
             #macro AAA{return "";
             "@);
-
+                
         assure_compile_fail(@"
             let a = [];
             do a.aaa;
@@ -1400,29 +1400,29 @@ func main()
             let a = (0, 1);
             do a.1;
             "@);
-
+                
         assure_compile_fail(@"
             let a = (0, 1);
             do a.2;
             "@);
-
+            
         assure_compile_success(@"
             let a = (0, 1);
             do a.0;
             "@);
-
+            
         assure_compile_fail(@"
             let a = (0, 1);
             do a.0.0;
             "@);
-
+            
         assure_compile_success(@"
             import woo::std;
             using option;
             using result;
             do option::value(do nil)->> \p = p;;
             "@);
-
+            
         assure_compile_fail(@"
             namespace function
             {
@@ -1531,7 +1531,7 @@ func main()
 
             do a.__m;
         "@);
-
+                
         assure_compile_success(@"
             using AA = struct{protected __m: int}
             {
@@ -1662,7 +1662,7 @@ func main()
                 do a.__m;
             }
         "@);
-
+                
         assure_compile_success(@"
         namespace Example
         {
@@ -1677,7 +1677,7 @@ func main()
         }
         do Example::x.__m;
         "@);
-
+                
         assure_compile_success(@"
         func foo()
         {
@@ -1695,14 +1695,14 @@ func main()
         }
         do foo().__m;
         "@);
-
+                
         assure_compile_success(@"
         extern func foo(){}
         "@);
         assure_compile_success(@"
         extern func foo(_){}
         "@);
-
+                
         assure_compile_success(@"
         import woo::std;
 
@@ -1721,7 +1721,7 @@ func main()
 
         let a = nil: aa::test<xxx::aa<string>>;
         "@);
-
+            
         assure_compile_success(@"
         using aa = void
         {
@@ -1740,7 +1740,7 @@ func main()
 
         let a = nil: aa::test<xxx::aa<string>>;
         "@);
-
+            
         assure_compile_fail(@"
         using aa = void
         {
@@ -1759,7 +1759,7 @@ func main()
 
         let a = nil: aa::test<xxx::aa<string>>;
         "@);
-
+            
         assure_compile_success(@"
         using aa = void
         {
@@ -1779,7 +1779,7 @@ func main()
 
         let a = nil: aa::test<xxx::aa<string>>;
         "@);
-
+            
         assure_compile_success(@"
         using aa = void
         {
@@ -1798,7 +1798,7 @@ func main()
 
         let a = nil: aa::test<xxx::aa<string>>;
         "@);
-
+            
         assure_compile_fail(@"
             union example{val(int)}
             let a = [][0]: example;
@@ -1809,7 +1809,7 @@ func main()
             let a = [][0]: example;
             do a.val;
         "@);
-
+                
         assure_compile_success(@"
         import woo::std;
 
@@ -1820,7 +1820,7 @@ func main()
 
         do func(_: (int)=>option<int>){}(foo);
         "@);
-
+            
         assure_compile_success(@"
         import woo::std;
 
@@ -1833,7 +1833,7 @@ func main()
         }
         do func(_: (int)=>option<int>){}(fxx::foo);
         "@);
-
+            
         assure_compile_fail(@"
         import woo::std;
 
@@ -1848,7 +1848,7 @@ func main()
         }
         do func(_: (int)=>option<int>){}(fxx::foo);
         "@);
-
+            
         assure_compile_success(@"
         import woo::std;
 
@@ -1867,7 +1867,7 @@ func main()
         }
         do proxy:<int>;
         "@);
-
+            
         assure_compile_fail(@"
         import woo::std;
 
@@ -1882,7 +1882,7 @@ func main()
         };
         do proxy:<int>;
         "@);
-        
+            
         assure_compile_success(@"
         enum Demo
         {
@@ -1911,7 +1911,7 @@ func main()
         }
         do Demo::A * Demo::B;
         "@);
-
+                
         assure_compile_fail(@"
         enum Demo
         {
@@ -1940,7 +1940,7 @@ func main()
         let mut a = Demo::A;
         a * Demo::B;
         "@);
-
+                
         assure_compile_fail(@"
         do typeid:<typeof(foo)>;
         func foo()
@@ -1948,56 +1948,56 @@ func main()
             do abc;
         }
         "@);
-
+            
         assure_compile_fail(@"
         do typeid:<typeof(foo)>;
         let foo = abc;
         "@);
-
+            
         assure_compile_fail(@"
         func foo()
         {
             f->read(b, 256) <| cc;
         }
         "@);
-
+            
         assure_compile_fail(@"
         import woo::std;
 
         using mx = struct{a: int, a: int};
         "@);
-
+            
         assure_compile_fail(@"
         let mx = struct{a = 0, a = 0};
         "@);
-
+            
         assure_compile_fail(@"
         using mx = struct{a: int, b: int};
         let m = mx{a = 0, a = 0};
         "@);
-
+            
         assure_compile_fail(@"
         let v<T> = 1 + T{};
         do v:<int>;
         "@);
-
+            
         assure_compile_success(@"
         let v<T> = 1 + T{};
         do typeid:<typeof(v:<int>)>;
         "@);
-
+            
         assure_compile_fail(@"
         let a = do nil;
         let mut b = 5;
         b += a;
         "@);
-
+            
         assure_compile_success(@"
         let a = 0;
         let mut b = 5;
         b += a;
         "@);
-
+            
         assure_compile_success(@"
         func foo()=> void
             where foo() is void;
@@ -2016,7 +2016,7 @@ func main()
         {
         }
         "@);
-
+                
         assure_compile_success(@"
         namespace foo
         {
@@ -2056,10 +2056,10 @@ func main()
 
         foo(0, \x= x;);
         "@);
-        // ISSUE: 1.13: anything has been removed from woolang.
+                // ISSUE: 1.13: anything has been removed from woolang.
         // assure_compile_success(@"
         //     import woo::std;
-
+        
         //     func foo()
         //     {
         //         if ([]->get(0) is option<anything>)
@@ -2069,17 +2069,17 @@ func main()
         //             return 0;
         //         }
         //     }
-
+        
         //     foo() as void;
         // "@);
-
+        
         assure_compile_fail(@"
             func foo<ET>(_: ET, _: unexist)
             {
             }
             foo(0, 1);
         "@);
-
+            
         assure_compile_fail("let a = a + 1;");
         
         assure_compile_fail(@"
@@ -2329,7 +2329,7 @@ func main()
         extern("rslib_std_bad_function", non_exist_attrib)
         func foo()=> void;
         "@);
-
+                
         assure_compile_success(@"
         func foo()
         {
@@ -2379,29 +2379,68 @@ func main()
                 defer break;
         }
         "@);
-
+        assure_compile_success(@"
+        func foo()
+        {
+            for (;;)
+            {
+                return true;
+            }
+        }
+        "@);
+        assure_compile_fail(@"
+        func foo()
+        {
+            let mut i = 0;
+            for (; i >= 0;)
+            {
+                return true;
+            }
+        }
+        "@);
+        assure_compile_success(@"
+        func foo()
+        {
+            let i = 0;
+            for (; i >= 0;)
+            {
+                return true;
+            }
+        }
+        "@);
+        assure_compile_fail(@"
+        func foo()
+        {
+            let i = 0;
+            for (; false;)
+            {
+                return true;
+            }
+        }
+        "@);
+                
         // Do you forget to regenerate the grammar-cache?
         assure_compile_fail(@""@);
         assure_compile_fail(@"^"@);
         assure_compile_fail(@"$"@);
     }
-
+    
     func main()
     {
         let test_threads = []mut: vec<thread>;
         for (let mut i = 0 ; i < 4; i += 1)
             test_threads->add(thread::create(test_compile_success_or_fail));
-
+            
         test_compile_success_or_fail();
-
+        
         for (let t : test_threads)
             do t->wait();
-        
+            
         ////////////////////////////////////////////////////////////////
-
+        
         let begin_tm = std::time();
         std::println("Compile 1000 vm!");
-
+        
         for (let mut i=0; i<1000; i += 1)
         {
             assure_compile_success(@"
@@ -2418,8 +2457,8 @@ func main()
                     do demo(0x0000H);
                 }
             "@);
-        }
-        let end_time = std::time();
+                }
+            let end_time = std::time();
         std::println("Compile 1000 src cost:", end_time - begin_tm);
     }
 }

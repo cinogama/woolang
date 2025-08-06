@@ -1653,18 +1653,6 @@ namespace wo
 
                 /////////////////////////////////
 
-                //if (check_node_type_and_get_end_state(eval_function->m_body) 
-                //    != ast::AstScope::LANG_end_state::END_WITH_RETURN
-                //    &&                    
-                //    immutable_type(eval_function->m_LANG_determined_return_type.value())
-                //    != m_origin_types.m_void.m_type_instance)
-                //{
-                //    m_ircontext.c().ext_panic(
-                //        opnum::imm_string("The function should have returned `"
-                //            + std::string(get_type_name(eval_function->m_LANG_determined_return_type.value()))
-                //            + "`, but ended without providing a return value"));
-                //}
-
                 if (eval_function->m_is_variadic)
                 {
                     m_ircontext.c().tag(IR_function_label_ret(eval_function));
