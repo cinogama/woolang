@@ -1956,6 +1956,7 @@ namespace wo
             , m_body(body)
             , m_is_defer_scope(false)
             , m_LANG_hold_state(UNPROCESSED)
+            , m_LANG_end_state(LANG_end_state::NORMAL)
             , m_LANG_determined_scope(std::nullopt)
             , m_LANG_defers{}
             , m_LANG_defer_instances{}

@@ -457,8 +457,42 @@ namespace wo
             {
             case AstScope::HOLD_FOR_BODY_EVAL:
             {
+                auto check_node_type_and_get_end_state =
+                    [](ast::AstBase* node)
+                    {
+                        switch (node->node_type)
+                        {
+                        case ast::AstBase::AST_BREAK:
+                            return ast::AstScope::LANG_end_state::END_WITH_BREAK;
+                        case ast::AstBase::AST_CONTINUE:
+                            return ast::AstScope::LANG_end_state::END_WITH_CONTINUE;
+                        case ast::AstBase::AST_RETURN:
+                            return ast::AstScope::LANG_end_state::END_WITH_RETURN;
+                        default:
+                            return ast::AstScope::LANG_end_state::NORMAL;
+                        }
+                    };
+
+                if (node->m_body->node_type == AstBase::node_type_t::AST_LIST)
+                {
+                    for (auto* subnode : static_cast<AstList*>(node->m_body)->m_list)
+                    {
+                        auto end_state = check_node_type_and_get_end_state(subnode);
+                        if (end_state != AstScope::LANG_end_state::NORMAL)
+                        {
+                            node->m_LANG_end_state = end_state;
+                            break;
+                        }
+                    }
+                }
+                else
+                    node->m_LANG_end_state =
+                    check_node_type_and_get_end_state(node->m_body);
+
+
                 // Leave scope, generate defer code.
-                if (!node->m_LANG_defers.empty())
+                if (node->m_LANG_end_state == AstScope::LANG_end_state::NORMAL
+                    && !node->m_LANG_defers.empty())
                 {
                     for (auto* defers : node->m_LANG_defers)
                         node->m_LANG_defer_instances.push_back(defers->m_body->clone());
@@ -471,8 +505,10 @@ namespace wo
             }
             [[fallthrough]];
             case AstScope::HOLD_FOR_DEFER_EVAL:
+            {
                 end_last_scope();
                 break;
+            }
             default:
                 wo_error("unknown hold state");
                 break;
@@ -1541,22 +1577,22 @@ namespace wo
     {
         auto judge_function_return_type =
             [&](lang_TypeInstance* ret_type)
-        {
-            std::list<lang_TypeInstance*> parameters;
-            for (auto& param : node->m_parameters)
-                parameters.push_back(param->m_type.value()->m_LANG_determined_type.value());
-
-            node->m_LANG_determined_type = m_origin_types.create_function_type(
-                node->m_is_variadic, parameters, ret_type);
-
-            wo_assert(node->m_LANG_determined_type.has_value());
-
-            if (node->m_LANG_value_instance_to_update)
             {
-                node->m_LANG_value_instance_to_update.value()->m_determined_type =
-                    node->m_LANG_determined_type;
-            }
-        };
+                std::list<lang_TypeInstance*> parameters;
+                for (auto& param : node->m_parameters)
+                    parameters.push_back(param->m_type.value()->m_LANG_determined_type.value());
+
+                node->m_LANG_determined_type = m_origin_types.create_function_type(
+                    node->m_is_variadic, parameters, ret_type);
+
+                wo_assert(node->m_LANG_determined_type.has_value());
+
+                if (node->m_LANG_value_instance_to_update)
+                {
+                    node->m_LANG_value_instance_to_update.value()->m_determined_type =
+                        node->m_LANG_determined_type;
+                }
+            };
 
         // Huston, we have a problem.
         if (state == UNPROCESSED)
@@ -5833,7 +5869,7 @@ namespace wo
             {
                 lex.record_lang_error(lexer::msglevel_t::error, node,
                     WO_ERR_BAD_FLOW_CTRL_IN_DEFER,
-                    "break"); 
+                    "break");
                 return FAILED;
             }
 

@@ -928,6 +928,14 @@ namespace wo
                 IR_HOLD_FOR_BODY_EVAL,
                 IR_HOLD_FOR_DEFER_EVAL,
             };
+            enum class LANG_end_state
+            {
+                NORMAL,
+
+                END_WITH_BREAK,
+                END_WITH_CONTINUE,
+                END_WITH_RETURN,
+            };
 
             AstBase* m_body;
 
@@ -935,6 +943,7 @@ namespace wo
             bool m_is_defer_scope;
 
             LANG_hold_state m_LANG_hold_state;
+            LANG_end_state m_LANG_end_state;
             std::optional<lang_Scope*> m_LANG_determined_scope;
             std::list<AstDefer*> m_LANG_defers;
             std::list<AstBase*> m_LANG_defer_instances;
