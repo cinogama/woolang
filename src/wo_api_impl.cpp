@@ -1484,10 +1484,12 @@ bool _wo_cast_string(
         }
         return true;
     }
+    case wo::value::valuetype::script_func_type:
+    case wo::value::valuetype::native_func_type:
     case wo::value::valuetype::closure_type:
         if (mode == cast_string_mode::SERIALIZE)
             return false;
-        *out_str += "<closure function>";
+        *out_str += "<function>";
         return true;
     case wo::value::valuetype::invalid:
         *out_str += "nil";
@@ -3181,9 +3183,9 @@ wo_value wo_invoke_value(
     wo_value result = nullptr;
     if (!vmfunc)
         wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
-    else if (valfunc->m_type == wo::value::valuetype::integer_type)
+    else if (valfunc->m_type == wo::value::valuetype::script_func_type)
         result = CS_VAL(WO_VM(vm)->invoke(valfunc->m_integer, argc));
-    else if (valfunc->m_type == wo::value::valuetype::handle_type)
+    else if (valfunc->m_type == wo::value::valuetype::native_func_type)
         result = CS_VAL(WO_VM(vm)->invoke(valfunc->m_handle, argc));
     else if (valfunc->m_type == wo::value::valuetype::closure_type)
         result = CS_VAL(WO_VM(vm)->invoke(valfunc->m_closure, argc));
@@ -3229,11 +3231,11 @@ void wo_dispatch_value(
         vmm->co_pre_invoke(WO_VAL(vmfunc)->m_closure, argc);
         break;
     }
-    case wo::value::valuetype::integer_type:
+    case wo::value::valuetype::script_func_type:
         wo_dispatch_rsfunc(
             vm, WO_VAL(vmfunc)->m_integer, argc, inout_args_maynull, inout_s_maynull);
         break;
-    case wo::value::valuetype::handle_type:
+    case wo::value::valuetype::native_func_type:
         wo_dispatch_exfunc(
             vm, WO_VAL(vmfunc)->m_handle, argc, inout_args_maynull, inout_s_maynull);
         break;

@@ -2173,7 +2173,7 @@ namespace wo
                     bp = --sp;
                     auto rt_bp = sb - bp;
 
-                    if (opnum1->m_type == value::valuetype::handle_type)
+                    if (opnum1->m_type == value::valuetype::native_func_type)
                     {
                         // Call native
                         wo_extern_native_func_t call_aim_native_func = (wo_extern_native_func_t)(opnum1->m_handle);
@@ -2202,7 +2202,7 @@ namespace wo
                         }
                         }
                     }
-                    else if (opnum1->m_type == value::valuetype::integer_type)
+                    else if (opnum1->m_type == value::valuetype::script_func_type)
                     {
                         rt_ip = rt_codes + opnum1->m_integer;
                     }

@@ -63,6 +63,9 @@ namespace wo
             handle_type = WO_HANDLE_TYPE,
             bool_type = WO_BOOL_TYPE,
 
+            script_func_type = WO_SCRIPT_FUNC_TYPE,
+            native_func_type = WO_NATIVE_FUNC_TYPE,
+
             callstack = WO_CALLSTACK_TYPE,
             nativecallstack = WO_NATIVE_CALLSTACK_TYPE,
 
@@ -125,6 +128,18 @@ namespace wo
         value* set_string_nogc(std::string_view str);
         value* set_struct_nogc(uint16_t sz);
         value* set_val_with_compile_time_check(const value * val);
+        WO_FORCE_INLINE value* set_script_func(wo_integer_t val)
+        {
+            m_type = valuetype::script_func_type;
+            m_integer = val;
+            return this;
+        }
+        WO_FORCE_INLINE value* set_native_func(wo_handle_t val)
+        {
+            m_type = valuetype::native_func_type;
+            m_handle = val;
+            return this;
+        }
         WO_FORCE_INLINE value* set_integer(wo_integer_t val)
         {
             m_type = valuetype::integer_type;

@@ -394,16 +394,14 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             for (auto funtions_constant_offset : env->meta_data_for_jit._functions_constant_idx_for_jit)
             {
                 auto* val = &env->constant_and_global_storage[funtions_constant_offset];
-                wo_assert(val->m_type == value::valuetype::integer_type);
+                wo_assert(val->m_type == value::valuetype::script_func_type);
 
                 auto& func_state = m_compiling_functions.at(codebuf + val->m_integer);
                 if (func_state->m_state == function_jit_state::state::FINISHED)
                 {
                     wo_assert(func_state->m_func != nullptr
                         && *func_state->m_func != nullptr);
-
-                    val->m_type = value::valuetype::handle_type;
-                    val->m_handle = (wo_handle_t)reinterpret_cast<intptr_t>(*func_state->m_func);
+                    val->set_native_func((wo_handle_t)reinterpret_cast<intptr_t>(*func_state->m_func));
                 }
                 else
                     wo_assert(func_state->m_state == function_jit_state::state::FAILED);
@@ -416,15 +414,13 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                     && function_index < val->m_structure->m_count);
 
                 auto& func_val = val->m_structure->m_values[function_index];
-                wo_assert(func_val.m_type == value::valuetype::integer_type);
+                wo_assert(func_val.m_type == value::valuetype::script_func_type);
 
                 auto& func_state = m_compiling_functions.at(codebuf + func_val.m_integer);
                 if (func_state->m_state == function_jit_state::state::FINISHED)
                 {
                     wo_assert(func_state->m_func != nullptr);
-
-                    func_val.m_type = value::valuetype::handle_type;
-                    func_val.m_handle = (wo_handle_t)reinterpret_cast<intptr_t>(func_state->m_func);
+                    func_val.set_native_func((wo_handle_t)reinterpret_cast<intptr_t>(func_state->m_func));
                 }
                 else
                     wo_assert(func_state->m_state == function_jit_state::state::FAILED);
@@ -711,7 +707,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
         {
             switch (target_function->m_type)
             {
-            case value::valuetype::handle_type:
+            case value::valuetype::native_func_type:
                 if (rt_sp <= vm->stack_storage)
                     break;
                 return native_do_calln_vmfunc(
