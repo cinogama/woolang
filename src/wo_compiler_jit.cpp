@@ -434,8 +434,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                 byte_t* rt_ip = codebuf + calln_offset + 1;
 
                 // READ NEXT 8 BYTE
-                const byte_t* abs_function_place = reinterpret_cast<const byte_t*>(
-                    static_cast<intptr_t>(WO_SAFE_READ_MOVE_8));
+                const byte_t* abs_function_place = codebuf + WO_SAFE_READ_MOVE_4;
 
                 // m_compiling_functions must have this ip
                 auto& func_state = m_compiling_functions.at(abs_function_place);
@@ -465,8 +464,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                 WO_SAFE_READ_MOVE_2;
 
                 // READ NEXT 8 BYTE
-                const byte_t* abs_function_place = reinterpret_cast<const byte_t*>(
-                    static_cast<intptr_t>(WO_SAFE_READ_MOVE_8));
+                const byte_t* abs_function_place = codebuf + WO_SAFE_READ_MOVE_4;
 
                 // m_compiling_functions must have this ip
                 auto& func_state = m_compiling_functions.at(abs_function_place);

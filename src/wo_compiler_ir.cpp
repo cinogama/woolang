@@ -1868,7 +1868,6 @@ namespace wo
         std::vector<byte_t> generated_runtime_code_buf; // It will be put to 16 byte allign mem place.
 
         std::unordered_map<wo_pstring_t, std::vector<size_t>> jmp_record_table;
-        std::unordered_map<wo_pstring_t, std::vector<size_t>> call_record_table;
         TagOffsetLocatedInConstantTableOffsetRecordT jmp_record_table_for_immtag;
         std::unordered_map<wo_pstring_t, uint32_t> tag_offset_vector_table;
 
@@ -2399,15 +2398,13 @@ namespace wo
 
                         generated_runtime_code_buf.push_back(WO_OPCODE(calln, 00));
 
-                        call_record_table[dynamic_cast<const opnum::tag*>(WO_IR.op2)->name]
+                        jmp_record_table[dynamic_cast<const opnum::tag*>(WO_IR.op2)->name]
                             .push_back(generated_runtime_code_buf.size());
 
                         generated_runtime_code_buf.push_back(0x00);
                         generated_runtime_code_buf.push_back(0x00);
                         generated_runtime_code_buf.push_back(0x00);
                         generated_runtime_code_buf.push_back(0x00);
-
-                        // reserve...
                         generated_runtime_code_buf.push_back(0x00);
                         generated_runtime_code_buf.push_back(0x00);
                         generated_runtime_code_buf.push_back(0x00);
@@ -2495,7 +2492,7 @@ namespace wo
                     generated_runtime_code_buf.push_back(readptr[0]);
                     generated_runtime_code_buf.push_back(readptr[1]);
 
-                    call_record_table[dynamic_cast<const opnum::tag*>(WO_IR.op1)->name]
+                    jmp_record_table[dynamic_cast<const opnum::tag*>(WO_IR.op1)->name]
                         .push_back(generated_runtime_code_buf.size());
                     generated_runtime_code_buf.push_back(0x00);
                     generated_runtime_code_buf.push_back(0x00);
@@ -2678,20 +2675,6 @@ namespace wo
                     code_buf + offset,
                     &offset_val,
                     sizeof(offset_val));
-            }
-        }
-        for (auto& [tag, offsets] : call_record_table)
-        {
-            const uint32_t offset_val = tag_offset_vector_table[tag];
-            const uint64_t abs_rt_code_address = 
-                static_cast<uint64_t>(reinterpret_cast<intptr_t>(code_buf + offset_val));
-
-            for (auto offset : offsets)
-            {
-                memcpy(
-                    code_buf + offset,
-                    &abs_rt_code_address,
-                    sizeof(abs_rt_code_address));
             }
         }
         for (auto& [tag, imm_value_offsets] : jmp_record_table_for_immtag)
