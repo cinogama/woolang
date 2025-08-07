@@ -2142,12 +2142,6 @@ namespace wo
                     // last stack is native_func, just do return;
                     // stack balance should be keeped by invoker.
                     WO_VM_RETURN(wo_result_t::WO_API_NORMAL);
-                case value::valuetype::far_callstack:
-                    wo_assure(interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
-                    near_rtcode_begin = (bp++)->m_farcallstack;
-                    wo_assert((bp->m_type & (~1)) == value::valuetype::callstack);
-                    /* FALL THROUGH */
-                    [[fallthrough]];
                 case value::valuetype::callstack:
                 {
                     value* stored_bp = sb - bp->m_vmcallstack.bp;
@@ -2158,6 +2152,18 @@ namespace wo
                     bp = stored_bp;
                     break;
                 }
+                case value::valuetype::far_callstack:
+                    rt_ip = bp->m_farcallstack;
+                    sp = bp;
+
+                    for (; bp < sb; ++bp)
+                    {
+                        const auto type = 
+                        if (bp + 1))
+                    }
+
+                    wo_assure(interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
+                    break;
                 }
                 break;
             }
@@ -2179,7 +2185,7 @@ namespace wo
                         // 
                         // NOTE: Closure arguments should be poped by closure function it self.
                         //       Can use ret(n) to pop arguments when call.
-                        if (sp - opnum1->m_closure->m_closure_args_count - 1 /* Reserve 1 value for far call. */ < stack_storage)
+                        if (sp - opnum1->m_closure->m_closure_args_count < stack_storage)
                         {
                             rt_ip = ip_for_rollback;
                             wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
@@ -2191,7 +2197,7 @@ namespace wo
                     }
                     else
                     {
-                        if (sp - 1 /* Reserve 1 value for far call. */ <= stack_storage)
+                        if (sp <= stack_storage)
                         {
                             rt_ip = ip_for_rollback;
                             wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
@@ -2234,14 +2240,15 @@ namespace wo
                     }
                     else if (opnum1->m_type == value::valuetype::script_func_type)
                     {
-                        rt_ip = opnum1->m_script_func;
-                        if (rt_ip < near_rtcode_begin || rt_ip >= near_rtcode_end)
+                        const auto* aim_function_addr = opnum1->m_script_func;
+                        if (aim_function_addr < near_rtcode_begin || aim_function_addr >= near_rtcode_end)
                         {
                             sp->m_type = value::valuetype::far_callstack;
-                            sp->m_farcallstack = near_rtcode_begin;
+                            sp->m_farcallstack = rt_ip;
                             bp = --sp;
                             wo_assure(interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
                         }
+                        rt_ip = aim_function_addr;
                     }
                     else
                     {
@@ -2279,14 +2286,15 @@ namespace wo
                         }
                         else
                         {
-                            rt_ip = closure->m_vm_func;
-                            if (rt_ip < near_rtcode_begin || rt_ip >= near_rtcode_end)
+                            const auto* aim_function_addr = closure->m_vm_func;
+                            if (aim_function_addr < near_rtcode_begin || aim_function_addr >= near_rtcode_end)
                             {
                                 sp->m_type = value::valuetype::far_callstack;
-                                sp->m_farcallstack = near_rtcode_begin;
+                                sp->m_farcallstack = rt_ip;
                                 bp = --sp;
                                 wo_assure(interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
                             }
+                            rt_ip = aim_function_addr;
                         }
                     }
                 } while (0);
