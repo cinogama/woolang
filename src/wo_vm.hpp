@@ -370,11 +370,11 @@ namespace wo
         size_t callstack_layer() const noexcept;
         bool gc_checkpoint() noexcept;
         bool assure_stack_size(wo_size_t assure_stack_size) noexcept;
-        void co_pre_invoke(wo_int_t wo_func_addr, wo_int_t argc) noexcept;
-        void co_pre_invoke(wo_handle_t ex_func_addr, wo_int_t argc) noexcept;
+        void co_pre_invoke(const byte_t* wo_func_addr, wo_int_t argc) noexcept;
+        void co_pre_invoke(wo_native_func_t ex_func_addr, wo_int_t argc) noexcept;
         void co_pre_invoke(closure_t* wo_func_addr, wo_int_t argc) noexcept;
-        value* invoke(wo_int_t wo_func_addr, wo_int_t argc) noexcept;
-        value* invoke(wo_handle_t wo_func_addr, wo_int_t argc) noexcept;
+        value* invoke(const byte_t* wo_func_addr, wo_int_t argc) noexcept;
+        value* invoke(wo_native_func_t wo_func_addr, wo_int_t argc) noexcept;
         value* invoke(closure_t* wo_func_closure, wo_int_t argc) noexcept;
 
     public:
@@ -386,7 +386,7 @@ namespace wo
         static value* make_union_impl(value* opnum1, value* opnum2, uint16_t id) noexcept;
         //static value* make_closure_fast_impl(value* opnum1, const byte_t* rt_ip, value* rt_sp) noexcept;
         //static value* make_closure_safe_impl(value* opnum1, const byte_t* rt_ip, value* rt_sp) noexcept;
-        static value* make_closure_wo_impl(value* opnum1, uint16_t argc, uint32_t addr, value* rt_sp)noexcept;
+        static value* make_closure_wo_impl(value* opnum1, uint16_t argc, uint64_t addr, value* rt_sp)noexcept;
         static value* make_closure_fp_impl(value* opnum1, uint16_t argc, uint64_t addr, value* rt_sp)noexcept;
         static value* make_array_impl(value* opnum1, uint16_t size, value* rt_sp) noexcept;
         static value* make_map_impl(value* opnum1, uint16_t size, value* rt_sp) noexcept;

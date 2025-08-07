@@ -540,10 +540,9 @@ WO_API wo_result_t wo_ret_err_gcstruct(
 WO_API wo_result_t wo_ret_yield(wo_vm vm);
 
 WO_API wo_bool_t wo_extern_symb(
+    wo_value out_val,
     wo_vm vm,
-    wo_string_t fullname,
-    wo_integer_t* out_wo_func,
-    wo_handle_t* out_jit_func);
+    wo_string_t fullname);
 
 WO_API void wo_abort_all_vm(void);
 
@@ -641,17 +640,8 @@ WO_API void wo_stack_value_get(wo_value outval, wo_stack_value sv, wo_vm vm);
 // Best practices:
 // 1) Use data from updated args & reserved stack, avoid using old pointers.
 // 2) Donot use inout_args_maynull & inout_s_maynull if invoke another vm (not current vm).
-WO_API wo_value wo_invoke_rsfunc(
-    wo_vm vm, wo_int_t rsfunc, wo_int_t argc, wo_value* inout_args_maynull, wo_value* inout_s_maynull);
-WO_API wo_value wo_invoke_exfunc(
-    wo_vm vm, wo_handle_t exfunc, wo_int_t argc, wo_value* inout_args_maynull, wo_value* inout_s_maynull);
 WO_API wo_value wo_invoke_value(
     wo_vm vm, wo_value vmfunc, wo_int_t argc, wo_value* inout_args_maynull, wo_value* inout_s_maynull);
-
-WO_API void wo_dispatch_rsfunc(
-    wo_vm vm, wo_int_t rsfunc, wo_int_t argc, wo_value* inout_args_maynull, wo_value* inout_s_maynull);
-WO_API void wo_dispatch_exfunc(
-    wo_vm vm, wo_handle_t exfunc, wo_int_t argc, wo_value* inout_args_maynull, wo_value* inout_s_maynull);
 WO_API void wo_dispatch_value(
     wo_vm vm, wo_value vmfunc, wo_int_t argc, wo_value* inout_args_maynull, wo_value* inout_s_maynull);
 

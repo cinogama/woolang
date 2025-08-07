@@ -159,7 +159,7 @@ namespace wo
         free(m_values);
     }
 
-    closure_bast_t::closure_bast_t(wo_integer_t vmfunc, uint16_t argc) noexcept
+    closure_bast_t::closure_bast_t(const byte_t* vmfunc, uint16_t argc) noexcept
         : m_native_call(false)
         , m_vm_func(vmfunc)
         , m_closure_args_count(argc)

@@ -1513,14 +1513,11 @@ WO_API wo_api rslib_std_get_exe_path(wo_vm vm, wo_value args)
 
 WO_API wo_api rslib_std_get_extern_symb(wo_vm vm, wo_value args)
 {
-    wo_integer_t script_func;
-    wo_handle_t jit_func;
-    if (WO_TRUE == wo_extern_symb(vm, wo_string(args + 0), &script_func, &jit_func))
-    {
-        if (jit_func != 0)
-            return wo_ret_option_handle(vm, jit_func);
-        return wo_ret_option_int(vm, script_func);
-    }
+    wo_unref_value extern_func;
+
+    if (WO_TRUE == wo_extern_symb(&extern_func, vm, wo_string(args + 0)))
+        return wo_ret_option_val(vm, &extern_func);
+
     return wo_ret_option_none(vm);
 }
 

@@ -88,18 +88,17 @@ namespace wo
             wo_real_t m_real;
             wo_integer_t m_integer;
             wo_handle_t m_handle;
-
+            const byte_t* m_script_func;
+            wo_native_func_t m_native_func;
             gcbase* m_gcunit;
-            string_t* m_string; // ADD-ABLE TYPE
+            string_t* m_string;
             array_t* m_array;
             dictionary_t* m_dictionary;
             gchandle_t* m_gchandle;
             closure_t* m_closure;
             structure_t* m_structure;
-
             callstack_t m_vmcallstack;
-            const byte_t* m_native_function_addr;
-
+            const byte_t* m_nativecallstack;
             uint64_t m_value_field;
         };
         union
@@ -128,16 +127,16 @@ namespace wo
         value* set_string_nogc(std::string_view str);
         value* set_struct_nogc(uint16_t sz);
         value* set_val_with_compile_time_check(const value * val);
-        WO_FORCE_INLINE value* set_script_func(wo_integer_t val)
+        WO_FORCE_INLINE value* set_script_func(const byte_t* val)
         {
             m_type = valuetype::script_func_type;
-            m_integer = val;
+            m_script_func = val;
             return this;
         }
-        WO_FORCE_INLINE value* set_native_func(wo_handle_t val)
+        WO_FORCE_INLINE value* set_native_func(wo_native_func_t val)
         {
             m_type = valuetype::native_func_type;
-            m_handle = val;
+            m_native_func = val;
             return this;
         }
         WO_FORCE_INLINE value* set_integer(wo_integer_t val)
@@ -173,7 +172,7 @@ namespace wo
         WO_FORCE_INLINE value* set_native_callstack(const wo::byte_t * ipplace)
         {
             m_type = valuetype::nativecallstack;
-            m_native_function_addr = ipplace;
+            m_nativecallstack = ipplace;
             return this;
         }
         WO_FORCE_INLINE value* set_callstack(uint32_t ip, uint32_t bp)
@@ -273,7 +272,7 @@ namespace wo
         const uint16_t m_closure_args_count;
         union
         {
-            wo_integer_t m_vm_func;
+            const byte_t* m_vm_func;
             wo_native_func_t m_native_func;
         };
         value* m_closure_args;
@@ -283,7 +282,7 @@ namespace wo
         closure_bast_t& operator=(const closure_bast_t&) = delete;
         closure_bast_t& operator=(closure_bast_t&&) = delete;
 
-        closure_bast_t(wo_integer_t vmfunc, uint16_t argc) noexcept;
+        closure_bast_t(const byte_t* vmfunc, uint16_t argc) noexcept;
         closure_bast_t(wo_native_func_t nfunc, uint16_t argc) noexcept;
         ~closure_bast_t();
     };

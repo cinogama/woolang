@@ -396,12 +396,12 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                 auto* val = &env->constant_and_global_storage[funtions_constant_offset];
                 wo_assert(val->m_type == value::valuetype::script_func_type);
 
-                auto& func_state = m_compiling_functions.at(codebuf + val->m_integer);
+                auto& func_state = m_compiling_functions.at(val->m_script_func);
                 if (func_state->m_state == function_jit_state::state::FINISHED)
                 {
                     wo_assert(func_state->m_func != nullptr
                         && *func_state->m_func != nullptr);
-                    val->set_native_func((wo_handle_t)reinterpret_cast<intptr_t>(*func_state->m_func));
+                    val->set_native_func(func_state->m_func);
                 }
                 else
                     wo_assert(func_state->m_state == function_jit_state::state::FAILED);
@@ -416,11 +416,11 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                 auto& func_val = val->m_structure->m_values[function_index];
                 wo_assert(func_val.m_type == value::valuetype::script_func_type);
 
-                auto& func_state = m_compiling_functions.at(codebuf + func_val.m_integer);
+                auto& func_state = m_compiling_functions.at(func_val.m_script_func);
                 if (func_state->m_state == function_jit_state::state::FINISHED)
                 {
                     wo_assert(func_state->m_func != nullptr);
-                    func_val.set_native_func((wo_handle_t)reinterpret_cast<intptr_t>(func_state->m_func));
+                    func_val.set_native_func(func_state->m_func);
                 }
                 else
                     wo_assert(func_state->m_state == function_jit_state::state::FAILED);
@@ -433,11 +433,12 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 
                 byte_t* rt_ip = codebuf + calln_offset + 1;
 
-                // READ NEXT 4 BYTE
-                size_t offset = (size_t)WO_SAFE_READ_MOVE_4;
+                // READ NEXT 8 BYTE
+                const byte_t* abs_function_place = reinterpret_cast<const byte_t*>(
+                    static_cast<intptr_t>(WO_SAFE_READ_MOVE_8));
 
                 // m_compiling_functions must have this ip
-                auto& func_state = m_compiling_functions.at(codebuf + offset);
+                auto& func_state = m_compiling_functions.at(abs_function_place);
                 if (func_state->m_state == function_jit_state::state::FINISHED)
                 {
                     wo_assert(func_state->m_func != nullptr);
@@ -463,11 +464,12 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                 // SKIP 2 BYTE
                 WO_SAFE_READ_MOVE_2;
 
-                // READ NEXT 4 BYTE
-                size_t offset = (size_t)WO_SAFE_READ_MOVE_4;
+                // READ NEXT 8 BYTE
+                const byte_t* abs_function_place = reinterpret_cast<const byte_t*>(
+                    static_cast<intptr_t>(WO_SAFE_READ_MOVE_8));
 
                 // m_compiling_functions must have this ip
-                auto& func_state = m_compiling_functions.at(codebuf + offset);
+                auto& func_state = m_compiling_functions.at(abs_function_place);
                 if (func_state->m_state == function_jit_state::state::FINISHED)
                 {
                     wo_assert(func_state->m_func != nullptr);

@@ -1572,17 +1572,15 @@ extern func macro_entry(lexer: std::lexer)=> string
         auto fnd = m_shared_context->m_declared_macro_list.find(macro_name);
         if (fnd != m_shared_context->m_declared_macro_list.end() && fnd->second->_macro_action_vm)
         {
-            wo_integer_t script_func;
-            [[maybe_unused]] wo_handle_t jit_func;
+            wo_unref_value macro_entry_function;
 
 #if WO_ENABLE_RUNTIME_CHECK
             auto found =
 #endif
                 wo_extern_symb(
+                    &macro_entry_function,
                     fnd->second->_macro_action_vm,
-                    "macro_entry",
-                    &script_func,
-                    &jit_func);
+                    "macro_entry");
 
 
 #if WO_ENABLE_RUNTIME_CHECK
@@ -1590,8 +1588,8 @@ extern func macro_entry(lexer: std::lexer)=> string
 #endif
             wo_value s = wo_reserve_stack(fnd->second->_macro_action_vm, 1, nullptr);
             wo_set_pointer(s, this);
-            wo_value result = wo_invoke_rsfunc(
-                fnd->second->_macro_action_vm, script_func, 1, nullptr, &s);
+            wo_value result = wo_invoke_value(
+                fnd->second->_macro_action_vm, &macro_entry_function, 1, nullptr, &s);
 
             wo_pop_stack(fnd->second->_macro_action_vm, 1);
 

@@ -471,8 +471,8 @@ namespace wo
             wo_string_t* out_reason,
             bool* out_is_binary);
 
-        bool try_find_script_func(const std::string& name, wo_integer_t* out_script_func);
-        bool try_find_jit_func(wo_integer_t out_script_func, wo_handle_t* out_jit_func);
+        bool try_find_script_func(const std::string& name, const byte_t** out_script_func);
+        bool try_find_jit_func(const byte_t* script_func, wo_native_func_t* out_jit_func);
     };
 
     struct BytecodeGenerateContext;
@@ -1160,26 +1160,6 @@ namespace wo
                 {
                     switch (immop->type())
                     {
-                    case ast::ConstantValue::Type::HANDLE:
-                    {
-                        wo_handle_t h = immop->constant_value.value_handle();
-                        WO_PUT_IR_TO_BUFFER(
-                            instruct::opcode::calln, 
-                            reinterpret_cast<opnum::opnumbase*>(static_cast<intptr_t>(h)));
-                        return;
-                    }
-                    case ast::ConstantValue::Type::INTEGER:
-                    {
-                        wo_integer_t a = immop->constant_value.value_integer();
-                        wo_assert(0 <= a && a <= UINT32_MAX, "Immediate instruct address is to large to call.");
-
-                        WO_PUT_IR_TO_BUFFER(
-                            instruct::opcode::calln, 
-                            nullptr, 
-                            nullptr, 
-                            static_cast<int32_t>(a));
-                        return;
-                    }
                     case ast::ConstantValue::Type::FUNCTION:
                     {
 #ifndef WO_DISABLE_COMPILER
@@ -1205,15 +1185,6 @@ namespace wo
                 WO_PUT_IR_TO_BUFFER(instruct::opcode::call, WO_OPNUM(op1));
                 return;
             }
-            else if constexpr (std::is_pointer<OP1T>::value)
-            {
-                WO_PUT_IR_TO_BUFFER(instruct::opcode::calln, reinterpret_cast<opnum::opnumbase*>(op1));
-            }
-            else if constexpr (std::is_integral<OP1T>::value)
-            {
-                wo_assert(0 <= op1 && op1 <= UINT32_MAX, "Immediate instruct address is to large to call.");
-                WO_PUT_IR_TO_BUFFER(instruct::opcode::calln, nullptr, nullptr, static_cast<int32_t>(op1));
-            }
             else
             {
                 static_assert(
@@ -1221,7 +1192,7 @@ namespace wo
                     && !std::is_base_of<opnum::opnumbase, OP1T>::value
                     && !std::is_pointer<OP1T>::value
                     && !std::is_integral<OP1T>::value
-                    , "Argument(s) should be opnum or integer.");
+                    , "Argument(s) should be opnum.");
             }
         }
 

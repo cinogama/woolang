@@ -931,7 +931,7 @@ namespace wo
             else if ((base_callstackinfo_ptr->m_type & (~1)) == value::valuetype::nativecallstack)
             {
                 result.push_back(
-                    generate_callstack_info_with_ip(base_callstackinfo_ptr->m_native_function_addr, true));
+                    generate_callstack_info_with_ip(base_callstackinfo_ptr->m_nativecallstack, true));
 
                 goto _label_refind_next_callstack;
             }
@@ -1035,7 +1035,7 @@ namespace wo
         return false;
     }
 
-    void vmbase::co_pre_invoke(wo_int_t wo_func_addr, wo_int_t argc) noexcept
+    void vmbase::co_pre_invoke(const byte_t* wo_func_addr, wo_int_t argc) noexcept
     {
         wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
 
@@ -1048,7 +1048,7 @@ namespace wo
             auto return_tc = tc->m_integer;
 
             (sp--)->set_native_callstack(ip);
-            ip = env->rt_codes + wo_func_addr;
+            ip = wo_func_addr;
             tc->set_integer(argc);
 
             bp = sp;
@@ -1061,7 +1061,7 @@ namespace wo
             (sp--)->set_integer(return_tc);
         }
     }
-    void vmbase::co_pre_invoke(wo_handle_t ex_func_addr, wo_int_t argc)noexcept
+    void vmbase::co_pre_invoke(wo_native_func_t ex_func_addr, wo_int_t argc)noexcept
     {
         wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
 
@@ -1074,7 +1074,7 @@ namespace wo
             auto return_tc = tc->m_integer;
 
             (sp--)->set_native_callstack(ip);
-            ip = (const byte_t*)ex_func_addr;
+            ip = reinterpret_cast<const byte_t*>(ex_func_addr);
             tc->set_integer(argc);
 
             bp = sp;
@@ -1107,7 +1107,7 @@ namespace wo
             (sp--)->set_native_callstack(ip);
             ip = wo_func_addr->m_native_call
                 ? (const byte_t*)wo_func_addr->m_native_func
-                : env->rt_codes + wo_func_addr->m_vm_func;
+                : wo_func_addr->m_vm_func;
             tc->set_integer(argc);
 
             bp = sp;
@@ -1120,7 +1120,7 @@ namespace wo
             (sp--)->set_integer(return_tc);
         }
     }
-    value* vmbase::invoke(wo_int_t wo_func_addr, wo_int_t argc)noexcept
+    value* vmbase::invoke(const byte_t* wo_func_addr, wo_int_t argc)noexcept
     {
         wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
 
@@ -1136,7 +1136,7 @@ namespace wo
 
             (sp--)->set_native_callstack(ip);
             tc->set_integer(argc);
-            ip = env->rt_codes + wo_func_addr;
+            ip = wo_func_addr;
             bp = sp;
 
             auto vm_exec_result = run();
@@ -1162,7 +1162,7 @@ namespace wo
         }
         return nullptr;
     }
-    value* vmbase::invoke(wo_handle_t wo_func_addr, wo_int_t argc)noexcept
+    value* vmbase::invoke(wo_native_func_t wo_func_addr, wo_int_t argc)noexcept
     {
         wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
 
@@ -1181,7 +1181,7 @@ namespace wo
 
             (sp--)->set_native_callstack(ip);
             tc->set_integer(argc);
-            ip = env->rt_codes + wo_func_addr;
+            ip = reinterpret_cast<const wo::byte_t*>(wo_func_addr);
             bp = sp;
 
             auto vm_exec_result = ((wo_native_func_t)wo_func_addr)(
@@ -1288,7 +1288,7 @@ namespace wo
                 }
                 else
                 {
-                    ip = env->rt_codes + wo_func_closure->m_vm_func;
+                    ip = wo_func_closure->m_vm_func;
                     vm_exec_result = run();
                 }
 
@@ -1471,10 +1471,10 @@ namespace wo
         return opnum1;
     }
     value* vmbase::make_closure_wo_impl(
-        value* opnum1, uint16_t argc, uint32_t addr, value* rt_sp)noexcept
+        value* opnum1, uint16_t argc, uint64_t addr, value* rt_sp)noexcept
     {
         auto* created_closure = closure_t::gc_new<gcbase::gctype::young>(
-            (wo_integer_t)addr, argc);
+            reinterpret_cast<const byte_t*>(static_cast<intptr_t>(addr)), argc);
 
         for (uint16_t i = 0; i < argc; i++)
         {
@@ -1488,7 +1488,7 @@ namespace wo
         value* opnum1, uint16_t argc, uint64_t addr, value* rt_sp)noexcept
     {
         auto* created_closure = closure_t::gc_new<gcbase::gctype::young>(
-            reinterpret_cast<wo_native_func_t>(addr), argc);
+            reinterpret_cast<wo_native_func_t>(static_cast<intptr_t>(addr)), argc);
 
         for (uint16_t i = 0; i < argc; i++)
         {
@@ -2073,7 +2073,10 @@ namespace wo
             case WO_RSG_ADDRESSING_CASE(gtx):
                 WO_VM_ASSERT(opnum1->m_type == opnum2->m_type,
                     "Operand type should be same in 'gtx'.");
-
+                if (0)
+                {
+                    wo_fail(0xd000, "Example");
+                }
                 gtx_impl(rt_cr, opnum1, opnum2);
                 break;
             case WO_RSG_ADDRESSING_CASE(eltx):
@@ -2176,7 +2179,7 @@ namespace wo
                     if (opnum1->m_type == value::valuetype::native_func_type)
                     {
                         // Call native
-                        wo_extern_native_func_t call_aim_native_func = (wo_extern_native_func_t)(opnum1->m_handle);
+                        const wo_extern_native_func_t call_aim_native_func = opnum1->m_native_func;
                         ip = std::launder(reinterpret_cast<byte_t*>(call_aim_native_func));
 
                         switch (call_aim_native_func(
@@ -2196,16 +2199,12 @@ namespace wo
                             break;
                         }
                         case wo_result_t::WO_API_SYNC:
-                        {
                             rt_ip = this->ip;
                             break;
                         }
-                        }
                     }
                     else if (opnum1->m_type == value::valuetype::script_func_type)
-                    {
-                        rt_ip = rt_codes + opnum1->m_integer;
-                    }
+                        rt_ip = opnum1->m_script_func;
                     else
                     {
                         WO_VM_ASSERT(opnum1->m_type == value::valuetype::closure_type,
@@ -2241,7 +2240,7 @@ namespace wo
                             }
                         }
                         else
-                            rt_ip = rt_codes + closure->m_vm_func;
+                            rt_ip = closure->m_vm_func;
                     }
                 } while (0);
                 break;
@@ -2253,10 +2252,11 @@ namespace wo
                 }
                 else
                 {
-                    const byte_t* aimplace = rt_codes + WO_IPVAL_MOVE_4;
+                    const byte_t* aimplace = 
+                        reinterpret_cast<const byte_t*>(static_cast<intptr_t>(WO_IPVAL_MOVE_8));
 
                     sp->m_type = value::valuetype::callstack;
-                    sp->m_vmcallstack.ret_ip = static_cast<uint32_t>(rt_ip - rt_codes) + 4 /* shift 4 byte */;
+                    sp->m_vmcallstack.ret_ip = static_cast<uint32_t>(rt_ip - rt_codes);
                     sp->m_vmcallstack.bp = static_cast<uint32_t>(sb - bp);
                     bp = --sp;
 
@@ -2577,8 +2577,7 @@ namespace wo
             case instruct::opcode::mkcloswo:
             {
                 const uint16_t closure_arg_count = WO_IPVAL_MOVE_2;
-                const uint32_t function_offset = WO_IPVAL_MOVE_4;
-                rt_ip += 4; // Shift 4 byte gap.
+                const uint64_t function_offset = WO_IPVAL_MOVE_8;
 
                 sp = make_closure_wo_impl(
                     rt_cr, closure_arg_count, function_offset, sp);

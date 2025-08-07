@@ -3154,24 +3154,6 @@ void wo_stack_value_get(wo_value outval, wo_stack_value sv, wo_vm vm)
     wo_set_val(outval, CS_VAL(vmbase->sb - sv));
 }
 
-wo_value wo_invoke_rsfunc(
-    wo_vm vm, wo_int_t vmfunc, wo_int_t argc, wo_value* inout_args_maynull, wo_value* inout_s_maynull)
-{
-    _wo_in_thread_vm_guard g(vm);
-    _wo_enter_gc_guard g2(vm);
-    _wo_reserved_stack_args_update_guard g3(vm, inout_args_maynull, inout_s_maynull);
-    wo_value result = CS_VAL(WO_VM(vm)->invoke(vmfunc, argc));
-    return result;
-}
-wo_value wo_invoke_exfunc(
-    wo_vm vm, wo_handle_t exfunc, wo_int_t argc, wo_value* inout_args_maynull, wo_value* inout_s_maynull)
-{
-    _wo_in_thread_vm_guard g(vm);
-    _wo_enter_gc_guard g2(vm);
-    _wo_reserved_stack_args_update_guard g3(vm, inout_args_maynull, inout_s_maynull);
-    wo_value result = CS_VAL(WO_VM(vm)->invoke(exfunc, argc));
-    return result;
-}
 wo_value wo_invoke_value(
     wo_vm vm, wo_value vmfunc, wo_int_t argc, wo_value* inout_args_maynull, wo_value* inout_s_maynull)
 {
@@ -3184,9 +3166,9 @@ wo_value wo_invoke_value(
     if (!vmfunc)
         wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
     else if (valfunc->m_type == wo::value::valuetype::script_func_type)
-        result = CS_VAL(WO_VM(vm)->invoke(valfunc->m_integer, argc));
+        result = CS_VAL(WO_VM(vm)->invoke(valfunc->m_script_func, argc));
     else if (valfunc->m_type == wo::value::valuetype::native_func_type)
-        result = CS_VAL(WO_VM(vm)->invoke(valfunc->m_handle, argc));
+        result = CS_VAL(WO_VM(vm)->invoke(valfunc->m_native_func, argc));
     else if (valfunc->m_type == wo::value::valuetype::closure_type)
         result = CS_VAL(WO_VM(vm)->invoke(valfunc->m_closure, argc));
     else
@@ -3194,50 +3176,23 @@ wo_value wo_invoke_value(
     return result;
 }
 
-void wo_dispatch_rsfunc(wo_vm vm, wo_int_t vmfunc, wo_int_t argc, wo_value* inout_args_maynull, wo_value* inout_s_maynull)
-{
-    _wo_in_thread_vm_guard g(vm);
-    _wo_enter_gc_guard g2(vm);
-    _wo_reserved_stack_args_update_guard g3(vm, inout_args_maynull, inout_s_maynull);
-
-    auto* vmm = WO_VM(vm);
-
-    vmm->co_pre_invoke(vmfunc, argc);
-}
-void wo_dispatch_exfunc(
-    wo_vm vm, wo_handle_t exfunc, wo_int_t argc, wo_value* inout_args_maynull, wo_value* inout_s_maynull)
-{
-    _wo_in_thread_vm_guard g(vm);
-    _wo_enter_gc_guard g2(vm);
-    _wo_reserved_stack_args_update_guard g3(vm, inout_args_maynull, inout_s_maynull);
-
-    auto* vmm = WO_VM(vm);
-
-    vmm->co_pre_invoke(exfunc, argc);
-}
 void wo_dispatch_value(
     wo_vm vm, wo_value vmfunc, wo_int_t argc, wo_value* inout_args_maynull, wo_value* inout_s_maynull)
 {
+    _wo_in_thread_vm_guard g(vm);
+    _wo_enter_gc_guard g2(vm);
+    _wo_reserved_stack_args_update_guard g3(vm, inout_args_maynull, inout_s_maynull);
+
     switch (WO_VAL(vmfunc)->m_type)
     {
     case wo::value::valuetype::closure_type:
-    {
-        _wo_in_thread_vm_guard g(vm);
-        _wo_enter_gc_guard g2(vm);
-        _wo_reserved_stack_args_update_guard g3(vm, inout_args_maynull, inout_s_maynull);
-
-        auto* vmm = WO_VM(vm);
-
-        vmm->co_pre_invoke(WO_VAL(vmfunc)->m_closure, argc);
+        WO_VM(vm)->co_pre_invoke(WO_VAL(vmfunc)->m_closure, argc);
         break;
-    }
     case wo::value::valuetype::script_func_type:
-        wo_dispatch_rsfunc(
-            vm, WO_VAL(vmfunc)->m_integer, argc, inout_args_maynull, inout_s_maynull);
+        WO_VM(vm)->co_pre_invoke(WO_VAL(vmfunc)->m_script_func, argc);
         break;
     case wo::value::valuetype::native_func_type:
-        wo_dispatch_exfunc(
-            vm, WO_VAL(vmfunc)->m_handle, argc, inout_args_maynull, inout_s_maynull);
+        WO_VM(vm)->co_pre_invoke(WO_VAL(vmfunc)->m_native_func, argc);
         break;
     default:
         wo_fail(WO_FAIL_TYPE_FAIL, "Cannot dispatch non-function value by 'wo_dispatch_closure'.");
@@ -4194,13 +4149,19 @@ void wo_break_specify_immediately(wo_vm vmm)
         wo_fail(WO_FAIL_DEBUGGEE_FAIL, "'wo_break_specify_immediately' can only break the vm attached default debuggee.");
 }
 
-wo_bool_t wo_extern_symb(wo_vm vm, wo_string_t fullname, wo_integer_t* out_wo_func, wo_handle_t* out_jit_func)
+wo_bool_t wo_extern_symb(wo_value out_val, wo_vm vm, wo_string_t fullname)
 {
     auto env = WO_VM(vm)->env;
-    if (env->try_find_script_func(fullname, out_wo_func))
+
+    const wo::byte_t* script_func;
+    if (env->try_find_script_func(fullname, &script_func))
     {
-        if (!env->try_find_jit_func(*out_wo_func, out_jit_func))
-            *out_jit_func = 0;
+        wo_native_func_t jit_func;
+
+        if (env->try_find_jit_func(script_func, &jit_func))
+            WO_VAL(out_val)->set_native_func(jit_func);
+        else
+            WO_VAL(out_val)->set_script_func(script_func);
 
         return WO_TRUE;
     }

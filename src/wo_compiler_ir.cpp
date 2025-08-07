@@ -564,7 +564,17 @@ namespace wo
         write_binary_to_buffer(
             (uint64_t)this->real_register_count, 8);
 
-        // 2.3 Constant data
+        // 3.1 Code data
+        //  3.1.1 Code data length
+        size_t padding_length_for_rt_coding = (8ull - (this->rt_code_len % 8ull)) % 8ull;
+        write_binary_to_buffer((uint64_t)(this->rt_code_len + padding_length_for_rt_coding), 8);
+
+        //  3.1.2 Code body
+        write_buffer_to_buffer(this->rt_codes, this->rt_code_len, 1);
+        write_buffer_to_buffer("\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC", padding_length_for_rt_coding, 1);
+        static_assert((0xCC >> 2) == WO_ABRT);
+
+        // 3.2 Constant data
         write_binary_to_buffer(
             (uint64_t)this->constant_value_count, 8);
 
@@ -614,6 +624,12 @@ namespace wo
                                 struct_constant_elem.m_gcunit), 8);
                         break;
                     case wo::value::valuetype::script_func_type:
+                    {
+                        // Save offset instead script func address.
+                        const ptrdiff_t diff = struct_constant_elem.m_script_func - rt_codes;
+                        write_binary_to_buffer(static_cast<uint64_t>(diff), 8);
+                        break;
+                    }
                     case wo::value::valuetype::native_func_type:
                     case wo::value::valuetype::handle_type:
                     case wo::value::valuetype::integer_type:
@@ -630,6 +646,12 @@ namespace wo
                 break;
             }
             case wo::value::valuetype::script_func_type:
+            {
+                // Save offset instead script func address.
+                const ptrdiff_t diff = constant_value.m_script_func - rt_codes;
+                write_binary_to_buffer(static_cast<uint64_t>(diff), 8);
+                break;
+            }
             case wo::value::valuetype::native_func_type:
             case wo::value::valuetype::handle_type:
             case wo::value::valuetype::integer_type:
@@ -644,14 +666,6 @@ namespace wo
                 break;
             }
         }
-
-        // 3.1 Code data
-        //  3.1.1 Code data length
-        size_t padding_length_for_rt_coding = (8ull - (this->rt_code_len % 8ull)) % 8ull;
-        write_binary_to_buffer((uint64_t)(this->rt_code_len + padding_length_for_rt_coding), 8);
-        write_buffer_to_buffer(this->rt_codes, this->rt_code_len, 1);
-        write_buffer_to_buffer("\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC", padding_length_for_rt_coding, 1);
-        static_assert((0xCC >> 2) == WO_ABRT);
 
         // 4.1 Extern native function information
         //  4.1.1 Extern function libname & symbname & used constant offset / code offset
@@ -862,12 +876,27 @@ namespace wo
         if (!stream->read_elem(&register_count))
             WO_LOAD_BIN_FAILED("Failed to restore register count.");
 
-        // 2.3 Constant data
+        // 3.1 Code data
+        //  3.1.1 Code data length
+        uint64_t rt_code_with_padding_length;
+        if (!stream->read_elem(&rt_code_with_padding_length))
+            WO_LOAD_BIN_FAILED("Failed to restore code length.");
+
+        //  3.1.2 Code body
+        byte_t* code_buf = (byte_t*)malloc((size_t)rt_code_with_padding_length * sizeof(byte_t));
+        wo_assert(code_buf != nullptr);
+        if (!stream->read_buffer(code_buf, (size_t)rt_code_with_padding_length * sizeof(byte_t)))
+            WO_LOAD_BIN_FAILED("Failed to restore code.");
+
+        // 3.2 Constant data
         uint64_t constant_value_count;
         if (!stream->read_elem(&constant_value_count))
             WO_LOAD_BIN_FAILED("Failed to restore constant count.");
 
         shared_pointer<runtime_env> result = new runtime_env;
+
+        result->rt_codes = code_buf;
+        result->rt_code_len = (size_t)rt_code_with_padding_length * sizeof(byte_t);
         result->real_register_count = (size_t)register_count;
         result->constant_and_global_value_takeplace_count =
             (size_t)(constant_value_count + 1 + global_value_count + 1);
@@ -984,6 +1013,15 @@ namespace wo
                         break;
                     }
                     case wo::value::valuetype::script_func_type:
+                    {
+                        // Restore abs function address.
+                        uint64_t diff;
+                        if (!stream->read_elem(&diff))
+                            WO_LOAD_BIN_FAILED("Failed to restore constant value.");
+
+                        tuple_constant_elem.m_script_func = code_buf + diff;
+                        break;
+                    }
                     case wo::value::valuetype::native_func_type:
                     case wo::value::valuetype::integer_type:
                     case wo::value::valuetype::real_type:
@@ -1004,6 +1042,15 @@ namespace wo
                 break;
             }
             case wo::value::valuetype::script_func_type:
+            {
+                // Restore abs function address.
+                uint64_t diff;
+                if (!stream->read_elem(&diff))
+                    WO_LOAD_BIN_FAILED("Failed to restore constant value.");
+
+                this_constant_value.m_script_func = code_buf + diff;
+                break;
+            }
             case wo::value::valuetype::native_func_type:
             case wo::value::valuetype::integer_type:
             case wo::value::valuetype::real_type:
@@ -1021,21 +1068,6 @@ namespace wo
                 WO_LOAD_BIN_FAILED("Failed to restore constant value.");
             }
         }
-
-        // 3.1 Code data
-        //  3.1.1 Code data length
-        uint64_t rt_code_with_padding_length;
-        if (!stream->read_elem(&rt_code_with_padding_length))
-            WO_LOAD_BIN_FAILED("Failed to restore code length.");
-
-        byte_t* code_buf = (byte_t*)malloc((size_t)rt_code_with_padding_length * sizeof(byte_t));
-        result->rt_codes = code_buf;
-        result->rt_code_len = (size_t)rt_code_with_padding_length * sizeof(byte_t);
-
-        wo_assert(code_buf != nullptr);
-
-        if (!stream->read_buffer(code_buf, (size_t)rt_code_with_padding_length * sizeof(byte_t)))
-            WO_LOAD_BIN_FAILED("Failed to restore code.");
 
         struct extern_native_function
         {
@@ -1616,23 +1648,27 @@ namespace wo
         return _create_from_stream(&buf, out_reason, out_is_binary);
     }
 
-    bool runtime_env::try_find_script_func(const std::string& name, wo_integer_t* out_script_func)
+    bool runtime_env::try_find_script_func(const std::string& name, const byte_t** out_script_func)
     {
         auto fnd = extern_script_functions.find(name);
         if (fnd != extern_script_functions.end())
         {
-            *out_script_func = fnd->second;
+            *out_script_func = rt_codes + fnd->second;
             return true;
         }
         return false;
     }
-    bool runtime_env::try_find_jit_func(wo_integer_t out_script_func, wo_handle_t* out_jit_func)
+    bool runtime_env::try_find_jit_func(const byte_t* script_func, wo_native_func_t* out_jit_func)
     {
-        auto fnd = meta_data_for_jit._jit_code_holder.find((size_t)out_script_func);
-        if (fnd != meta_data_for_jit._jit_code_holder.end())
+        const ptrdiff_t diff = script_func - rt_codes;
+        if (diff > 0)
         {
-            *out_jit_func = (wo_handle_t)reinterpret_cast<intptr_t>(*fnd->second);
-            return true;
+            auto fnd = meta_data_for_jit._jit_code_holder.find(static_cast<size_t>(diff));
+            if (fnd != meta_data_for_jit._jit_code_holder.end())
+            {
+                *out_jit_func = fnd->second;
+                return true;
+            }
         }
         return false;
     }
@@ -1755,15 +1791,13 @@ namespace wo
             if (function_instance->m_IR_extern_information.has_value())
             {
                 auto& extern_info = function_instance->m_IR_extern_information.value();
-                intptr_t extern_function_addr =
-                    reinterpret_cast<intptr_t>(
-                        extern_info->m_IR_externed_function.value());
+                auto extern_function_addr = extern_info->m_IR_externed_function.value();
 
-                out_value.set_native_func(
-                    static_cast<wo_handle_t>(extern_function_addr));
+                out_value.set_native_func(extern_function_addr);
 
                 extern_native_functions.at(
-                    extern_function_addr).offset_in_constant.push_back(
+                    reinterpret_cast<intptr_t>(
+                        extern_function_addr)).offset_in_constant.push_back(
                         this_constant_index);
             }
             else
@@ -1776,7 +1810,7 @@ namespace wo
                 (void)result;
                 wo_assert(result.second);
 
-                out_value.set_script_func(-1);
+                out_value.set_script_func(nullptr);
             }
 #else
             wo_error("Should never be function if compiler disabled.");
@@ -1833,9 +1867,10 @@ namespace wo
 
         std::vector<byte_t> generated_runtime_code_buf; // It will be put to 16 byte allign mem place.
 
-        std::map<wo_pstring_t, std::vector<size_t>> jmp_record_table;
+        std::unordered_map<wo_pstring_t, std::vector<size_t>> jmp_record_table;
+        std::unordered_map<wo_pstring_t, std::vector<size_t>> call_record_table;
         TagOffsetLocatedInConstantTableOffsetRecordT jmp_record_table_for_immtag;
-        std::map<wo_pstring_t, uint32_t> tag_offset_vector_table;
+        std::unordered_map<wo_pstring_t, uint32_t> tag_offset_vector_table;
 
         wo_assert(preserved_memory, "Alloc memory fail.");
 
@@ -2364,7 +2399,7 @@ namespace wo
 
                         generated_runtime_code_buf.push_back(WO_OPCODE(calln, 00));
 
-                        jmp_record_table[dynamic_cast<const opnum::tag*>(WO_IR.op2)->name]
+                        call_record_table[dynamic_cast<const opnum::tag*>(WO_IR.op2)->name]
                             .push_back(generated_runtime_code_buf.size());
 
                         generated_runtime_code_buf.push_back(0x00);
@@ -2378,13 +2413,14 @@ namespace wo
                         generated_runtime_code_buf.push_back(0x00);
                         generated_runtime_code_buf.push_back(0x00);
                     }
-                    else if (WO_IR.op1)
+                    else 
                     {
-                        uint64_t addr = (uint64_t)(intptr_t)(WO_IR.op1);
+                        wo_assert(WO_IR.op1 != nullptr);
+                        const intptr_t addr = reinterpret_cast<intptr_t>(WO_IR.op1);
 
-                        wo_assert(!extern_native_functions.at((intptr_t)addr).function_name.empty());
+                        wo_assert(!extern_native_functions.at(addr).function_name.empty());
                         extern_native_functions.at(
-                            (intptr_t)addr).caller_offset_in_ir.push_back(
+                            addr).caller_offset_in_ir.push_back(
                                 static_cast<uint32_t>(generated_runtime_code_buf.size()));
 
                         if (WO_IR.opinteger1)
@@ -2392,7 +2428,7 @@ namespace wo
                         else
                             generated_runtime_code_buf.push_back(WO_OPCODE(calln, 01));
 
-                        byte_t* readptr = (byte_t*)&addr;
+                        const byte_t* readptr = reinterpret_cast<const byte_t*>(&addr);
                         generated_runtime_code_buf.push_back(readptr[0]);
                         generated_runtime_code_buf.push_back(readptr[1]);
                         generated_runtime_code_buf.push_back(readptr[2]);
@@ -2402,25 +2438,7 @@ namespace wo
                         generated_runtime_code_buf.push_back(readptr[6]);
                         generated_runtime_code_buf.push_back(readptr[7]);
                     }
-                    else
-                    {
-                        env->meta_data_for_jit._calln_opcode_offsets_for_jit.push_back(
-                            (uint32_t)generated_runtime_code_buf.size());
-
-                        generated_runtime_code_buf.push_back(WO_OPCODE(calln, 00));
-
-                        byte_t* readptr = (byte_t*)&WO_IR.opinteger1;
-                        generated_runtime_code_buf.push_back(readptr[0]);
-                        generated_runtime_code_buf.push_back(readptr[1]);
-                        generated_runtime_code_buf.push_back(readptr[2]);
-                        generated_runtime_code_buf.push_back(readptr[3]);
-
-                        // reserve...
-                        generated_runtime_code_buf.push_back(0x00);
-                        generated_runtime_code_buf.push_back(0x00);
-                        generated_runtime_code_buf.push_back(0x00);
-                        generated_runtime_code_buf.push_back(0x00);
-                    }
+                   
                     break;
                 case instruct::opcode::ret:
                     if (WO_IR.opinteger1)
@@ -2477,14 +2495,12 @@ namespace wo
                     generated_runtime_code_buf.push_back(readptr[0]);
                     generated_runtime_code_buf.push_back(readptr[1]);
 
-                    jmp_record_table[dynamic_cast<const opnum::tag*>(WO_IR.op1)->name]
+                    call_record_table[dynamic_cast<const opnum::tag*>(WO_IR.op1)->name]
                         .push_back(generated_runtime_code_buf.size());
                     generated_runtime_code_buf.push_back(0x00);
                     generated_runtime_code_buf.push_back(0x00);
                     generated_runtime_code_buf.push_back(0x00);
                     generated_runtime_code_buf.push_back(0x00);
-
-                    // reserve...
                     generated_runtime_code_buf.push_back(0x00);
                     generated_runtime_code_buf.push_back(0x00);
                     generated_runtime_code_buf.push_back(0x00);
@@ -2638,45 +2654,6 @@ namespace wo
 #undef WO_OPCODE_1
 #undef WO_OPCODE
 #undef WO_IR
-        // 3. Generate tag
-
-        for (auto& [tag, offsets] : jmp_record_table)
-        {
-            uint32_t offset_val = tag_offset_vector_table[tag];
-            for (auto offset : offsets)
-            {
-                memcpy(
-                    generated_runtime_code_buf.data() + offset,
-                    &offset_val,
-                    sizeof(offset_val));
-            }
-        }
-
-        for (auto& [tag, imm_value_offsets] : jmp_record_table_for_immtag)
-        {
-            uint32_t offset_val = tag_offset_vector_table.at(tag);
-
-            wo_assert(preserved_memory[imm_value_offsets.m_offset_in_constant].m_type
-                == value::valuetype::script_func_type);
-
-            env->meta_data_for_jit._functions_constant_idx_for_jit.push_back(
-                imm_value_offsets.m_offset_in_constant);
-            preserved_memory[imm_value_offsets.m_offset_in_constant].set_script_func(
-                (wo_integer_t)offset_val);
-
-            for (auto& [constant_offset, tuple_offset] : imm_value_offsets.m_offset_in_tuple)
-            {
-                wo_assert(preserved_memory[constant_offset].m_type == value::valuetype::struct_type
-                    && preserved_memory[constant_offset].m_structure->m_values[tuple_offset].m_type
-                    == value::valuetype::script_func_type);
-
-                env->meta_data_for_jit._functions_constant_in_tuple_idx_for_jit.emplace_back(
-                    std::make_pair(constant_offset, tuple_offset));
-                preserved_memory[constant_offset].m_structure->m_values[tuple_offset].set_script_func(
-                    (wo_integer_t)offset_val);
-            }
-        }
-
         env->constant_and_global_storage = preserved_memory;
 
         env->constant_value_count = constant_value_count;
@@ -2690,6 +2667,57 @@ namespace wo
 
         wo_assert(code_buf, "Alloc memory fail.");
         memcpy(code_buf, generated_runtime_code_buf.data(), env->rt_code_len * sizeof(byte_t));
+
+        // Update tag & offset into codes.
+        for (auto& [tag, offsets] : jmp_record_table)
+        {
+            const uint32_t offset_val = tag_offset_vector_table[tag];
+            for (auto offset : offsets)
+            {
+                memcpy(
+                    code_buf + offset,
+                    &offset_val,
+                    sizeof(offset_val));
+            }
+        }
+        for (auto& [tag, offsets] : call_record_table)
+        {
+            const uint32_t offset_val = tag_offset_vector_table[tag];
+            const uint64_t abs_rt_code_address = 
+                static_cast<uint64_t>(reinterpret_cast<intptr_t>(code_buf + offset_val));
+
+            for (auto offset : offsets)
+            {
+                memcpy(
+                    code_buf + offset,
+                    &abs_rt_code_address,
+                    sizeof(abs_rt_code_address));
+            }
+        }
+        for (auto& [tag, imm_value_offsets] : jmp_record_table_for_immtag)
+        {
+            uint32_t offset_val = tag_offset_vector_table.at(tag);
+
+            wo_assert(preserved_memory[imm_value_offsets.m_offset_in_constant].m_type
+                == value::valuetype::script_func_type);
+
+            env->meta_data_for_jit._functions_constant_idx_for_jit.push_back(
+                imm_value_offsets.m_offset_in_constant);
+            preserved_memory[imm_value_offsets.m_offset_in_constant].set_script_func(
+                code_buf + offset_val);
+
+            for (auto& [constant_offset, tuple_offset] : imm_value_offsets.m_offset_in_tuple)
+            {
+                wo_assert(preserved_memory[constant_offset].m_type == value::valuetype::struct_type
+                    && preserved_memory[constant_offset].m_structure->m_values[tuple_offset].m_type
+                    == value::valuetype::script_func_type);
+
+                env->meta_data_for_jit._functions_constant_in_tuple_idx_for_jit.emplace_back(
+                    std::make_pair(constant_offset, tuple_offset));
+                preserved_memory[constant_offset].m_structure->m_values[tuple_offset].set_script_func(
+                    code_buf + offset_val);
+            }
+        }
 
         for (auto& [extern_func_name, extern_func_offset] : extern_script_functions)
         {
