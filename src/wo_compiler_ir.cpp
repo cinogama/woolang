@@ -613,8 +613,9 @@ namespace wo
                             (uint64_t)gcunit_in_constant_indexs_cache.at(
                                 struct_constant_elem.m_gcunit), 8);
                         break;
+                    case wo::value::valuetype::script_func_type:
+                    case wo::value::valuetype::native_func_type:
                     case wo::value::valuetype::handle_type:
-                        // TODO: Store extern function here?
                     case wo::value::valuetype::integer_type:
                     case wo::value::valuetype::real_type:
                     case wo::value::valuetype::bool_type:
@@ -628,6 +629,8 @@ namespace wo
                 }
                 break;
             }
+            case wo::value::valuetype::script_func_type:
+            case wo::value::valuetype::native_func_type:
             case wo::value::valuetype::handle_type:
             case wo::value::valuetype::integer_type:
             case wo::value::valuetype::real_type:
@@ -980,6 +983,8 @@ namespace wo
                             preserved_memory[unit_ref_index].m_structure;
                         break;
                     }
+                    case wo::value::valuetype::script_func_type:
+                    case wo::value::valuetype::native_func_type:
                     case wo::value::valuetype::integer_type:
                     case wo::value::valuetype::real_type:
                     case wo::value::valuetype::handle_type:
@@ -998,6 +1003,8 @@ namespace wo
                 }
                 break;
             }
+            case wo::value::valuetype::script_func_type:
+            case wo::value::valuetype::native_func_type:
             case wo::value::valuetype::integer_type:
             case wo::value::valuetype::real_type:
             case wo::value::valuetype::handle_type:
