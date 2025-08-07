@@ -67,7 +67,7 @@ namespace wo
             native_func_type = WO_NATIVE_FUNC_TYPE,
 
             callstack = WO_CALLSTACK_TYPE, 
-            callstack_with_sync_env = WO_CALLSTACK_WITH_SYNC_ENV_TYPE,
+            far_callstack = WO_FAR_CALLSTACK_TYPE,
             nativecallstack = WO_NATIVE_CALLSTACK_TYPE,
 
             string_type = WO_STRING_TYPE,
@@ -99,6 +99,7 @@ namespace wo
             closure_t* m_closure;
             structure_t* m_structure;
             callstack_t m_vmcallstack;
+            const byte_t* m_farcallstack;
             const byte_t* m_nativecallstack;
             uint64_t m_value_field;
         };

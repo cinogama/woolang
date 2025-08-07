@@ -89,7 +89,7 @@ typedef enum _wo_value_type_t
     WO_NATIVE_FUNC_TYPE = 6 << 1,
 
     WO_CALLSTACK_TYPE = 7 << 1,
-    WO_CALLSTACK_WITH_SYNC_ENV_TYPE = 8 << 1,
+    WO_FAR_CALLSTACK_TYPE = 8 << 1,
     WO_NATIVE_CALLSTACK_TYPE = 9 << 1,
 
     WO_STRING_TYPE = WO_NEED_GC_FLAG | (1 << 1),

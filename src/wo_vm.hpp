@@ -227,6 +227,8 @@ namespace wo
             // While reading/externing/shrinking stack, this interrupt will be set to make sure
             // not read bad stack data in other thread.
 
+            CALL_FAR_RESYNC_VM_STATE_INTERRUPT = 1 << 18,
+
             DEBUG_INTERRUPT = 1 << 30,
             // If virtual machine interrupt with DEBUG_INTERRUPT, it will stop at all opcode
             // to check something about debug, such as breakpoint.
@@ -310,7 +312,8 @@ namespace wo
         value* register_storage;
 
         // Runtime min-env.
-        const byte_t* runtime_codes;
+        const byte_t* runtime_codes_begin;
+        const byte_t* runtime_codes_end;
         value* runtime_static_storage;
 
         // next ircode pointer

@@ -643,38 +643,3 @@ void* womem_get_unit_ptr_attribute(void* unit, womem_attrib_t** attrib)
     }
     return nullptr;
 }
-
-void* womem_alloc_code_pages(
-    size_t size, size_t* out_page_idx, size_t* page_count)
-{
-    *page_count = size / womem::WO_SYS_MEM_PAGE_SIZE;
-
-    if (size % womem::WO_SYS_MEM_PAGE_SIZE != 0)
-        ++*page_count;
-
-    const size_t fact_code_page_total_size =
-        *page_count * womem::WO_SYS_MEM_PAGE_SIZE;
-
-    void* reserved_pages = 
-        _womem_reserve_mem(fact_code_page_total_size);
-
-    if (reserved_pages != nullptr)
-    {
-        wo_assure(_womem_commit_mem(reserved_pages, fact_code_page_total_size));
-        *out_page_idx = reinterpret_cast<intptr_t>(reserved_pages) / womem::WO_SYS_MEM_PAGE_SIZE;
-    }
-    else
-        *out_page_idx = 0;
-
-    return reserved_pages;
-}
-bool womem_get_code_page_idx(void* addr, size_t* out_page_idx)
-{
-    wo_assert(addr != nullptr);
-    return reinterpret_cast<intptr_t>(addr) / womem::WO_SYS_MEM_PAGE_SIZE;
-}
-void womem_free_code_pages(void* page)
-{
-    wo_assure(_womem_decommit_mem(page, womem::WO_SYS_MEM_PAGE_SIZE));
-    wo_assure(_womem_release_mem(page, womem::WO_SYS_MEM_PAGE_SIZE));
-}

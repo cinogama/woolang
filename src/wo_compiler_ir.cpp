@@ -2,6 +2,56 @@
 
 namespace wo
 {
+    runtime_env::paged_env_mapping runtime_env::_paged_env_mapping_context;
+
+    void runtime_env::register_envs(const runtime_env* env) noexcept
+    {
+        std::lock_guard g1(_paged_env_mapping_context.m_paged_envs_mx);
+
+        auto result = _paged_env_mapping_context.m_paged_envs.insert(
+            std::make_pair(
+                reinterpret_cast<intptr_t>(env->rt_codes),
+                paged_env_mapping::paged_env_min_context
+                {
+                    env->rt_codes,
+                    env->rt_codes + env->rt_code_len,
+                    env->constant_and_global_storage,
+                }
+            ));
+        (void)result;
+        wo_assert(result.second);
+    }
+    bool runtime_env::resync_far_state(
+        const byte_t* ip,
+        const byte_t** out_runtime_code_begin,
+        const byte_t** out_runtime_code_end,
+        value** out_static_storage_edge) noexcept
+    {
+        std::shared_lock g1(_paged_env_mapping_context.m_paged_envs_mx);
+        auto fnd = _paged_env_mapping_context.m_paged_envs.upper_bound(reinterpret_cast<intptr_t>(ip));
+        if (fnd == _paged_env_mapping_context.m_paged_envs.begin())
+            return false;
+        
+        auto& far_context = (--fnd)->second;
+
+        if (ip >= far_context.m_runtime_code_end)
+            return false;
+
+        *out_runtime_code_begin = far_context.m_runtime_code_begin;
+        *out_runtime_code_end = far_context.m_runtime_code_end;
+        *out_static_storage_edge = far_context.m_static_storage_edge;
+
+        return true;
+
+    }
+    void runtime_env::unregister_envs(const runtime_env* env) noexcept
+    {
+        std::lock_guard g1(_paged_env_mapping_context.m_paged_envs_mx);
+
+        _paged_env_mapping_context.m_paged_envs.erase(
+            reinterpret_cast<intptr_t>(env->rt_codes));
+    }
+
 #ifndef WO_DISABLE_COMPILER
     namespace opnum
     {
@@ -477,6 +527,8 @@ namespace wo
 
     runtime_env::~runtime_env()
     {
+        unregister_envs(this);
+
         if (wo::config::ENABLE_JUST_IN_TIME)
             free_jit(this);
 
@@ -487,7 +539,7 @@ namespace wo
             free(constant_and_global_storage);
 
         if (rt_codes)
-            womem_free_code_pages((byte_t*)rt_codes);
+            free((byte_t*)rt_codes);
     }
 
     std::tuple<void*, size_t> runtime_env::create_env_binary(bool savepdi) noexcept
@@ -883,11 +935,9 @@ namespace wo
             WO_LOAD_BIN_FAILED("Failed to restore code length.");
 
         //  3.1.2 Code body
-        size_t _todo_a, _todo_b;
-        byte_t* code_buf = (byte_t*)womem_alloc_code_pages(
-            (size_t)rt_code_with_padding_length * sizeof(byte_t),
-            &_todo_a,
-            &_todo_b);
+        byte_t* code_buf = (byte_t*)malloc(
+            (size_t)rt_code_with_padding_length * sizeof(byte_t));
+
         wo_assert(code_buf != nullptr);
         if (!stream->read_buffer(code_buf, (size_t)rt_code_with_padding_length * sizeof(byte_t)))
             WO_LOAD_BIN_FAILED("Failed to restore code.");
@@ -1622,6 +1672,7 @@ namespace wo
         else if (memcmp(magic_head_of_pdi, "nopdisup", 8) != 0)
             WO_LOAD_BIN_FAILED("Bad head of program debug informations.");
 
+        runtime_env::register_envs(result.get());
         return result;
 #undef WO_LOAD_BIN_FAILED
     }
@@ -2656,18 +2707,14 @@ namespace wo
 #undef WO_OPCODE
 #undef WO_IR
         env->constant_and_global_storage = preserved_memory;
-
         env->constant_value_count = constant_value_count;
         env->constant_and_global_value_takeplace_count = preserve_memory_size;
 
         env->real_register_count = real_register_count;
         env->rt_code_len = generated_runtime_code_buf.size();
 
-        size_t _todo_a, _todo_b;
-        byte_t* code_buf = (byte_t*)womem_alloc_code_pages(
-            env->rt_code_len * sizeof(byte_t),
-            &_todo_a,
-            &_todo_b);
+        byte_t* code_buf = (byte_t*)malloc(
+            env->rt_code_len * sizeof(byte_t));
 
         pdb_info->runtime_codes_length = env->rt_code_len;
 
@@ -2724,6 +2771,7 @@ namespace wo
         if (wo::config::ENABLE_PDB_INFORMATIONS)
             env->program_debug_info = pdb_info;
 
+        runtime_env::register_envs(env.get());
         return env;
     }
 }

@@ -254,7 +254,8 @@ namespace wo
         , shrink_stack_advise(0)
         , shrink_stack_edge(VM_SHRINK_STACK_COUNT)
         , register_storage(nullptr)
-        , runtime_codes(nullptr)
+        , runtime_codes_begin(nullptr)
+        , runtime_codes_end(nullptr)
         , runtime_static_storage(nullptr)
         , ip(nullptr)
         , env(nullptr)
@@ -381,7 +382,8 @@ namespace wo
         env = runtime_environment;
         ++env->_running_on_vm_count;
 
-        runtime_codes = ip = env->rt_codes;
+        runtime_codes_begin = ip = env->rt_codes;
+        runtime_codes_end = runtime_codes_begin + env->rt_code_len;
         runtime_static_storage = env->constant_and_global_storage;
 
         _allocate_stack_space(VM_DEFAULT_STACK_SIZE);
@@ -427,7 +429,7 @@ namespace wo
                 }
                 for (int i = 0; i < MAX_BYTE_COUNT - displayed_count; i++)
                     printf("   ");
-            };
+                };
 #define WO_SIGNED_SHIFT(VAL) (((signed char)((unsigned char)(((unsigned char)(VAL))<<1)))>>1)
             auto print_reg_bpoffset = [&]() {
                 byte_t data_1b = *(this_command_ptr++);
@@ -466,7 +468,7 @@ namespace wo
                         tmpos << "reg(" << (uint32_t)data_1b << ")";
 
                 }
-            };
+                };
             auto print_global_static = [&]() {
                 //const global 4byte
                 uint32_t data_4b = *(uint32_t*)((this_command_ptr += 4) - 4);
@@ -491,19 +493,19 @@ namespace wo
                 }
                 else
                     tmpos << "g[" << data_4b - env->constant_value_count << "]";
-            };
+                };
             auto print_opnum1 = [&]() {
                 if (main_command & (byte_t)0b00000010)
                     print_reg_bpoffset();
                 else
                     print_global_static();
-            };
+                };
             auto print_opnum2 = [&]() {
                 if (main_command & (byte_t)0b00000001)
                     print_reg_bpoffset();
                 else
                     print_global_static();
-            };
+                };
 
 #undef WO_SIGNED_SHIFT
             switch (main_command & (byte_t)0b11111100)
@@ -846,65 +848,65 @@ namespace wo
 
         std::vector<callstack_info> result;
         auto generate_callstack_info_with_ip = [this, need_offset](const wo::byte_t* rip, bool is_extern_func)
-        {
-            const program_debug_data_info::location* src_location_info = nullptr;
-            std::string function_signature;
-            std::string file_path;
-            size_t row_number = 0;
-            size_t col_number = 0;
-
-            if (is_extern_func)
             {
-                auto fnd = env->extern_native_functions.find((intptr_t)rip);
+                const program_debug_data_info::location* src_location_info = nullptr;
+                std::string function_signature;
+                std::string file_path;
+                size_t row_number = 0;
+                size_t col_number = 0;
 
-                if (fnd != env->extern_native_functions.end())
+                if (is_extern_func)
                 {
-                    function_signature = fnd->second.function_name;
-                    file_path = fnd->second.library_name.value_or("<builtin>");
+                    auto fnd = env->extern_native_functions.find((intptr_t)rip);
+
+                    if (fnd != env->extern_native_functions.end())
+                    {
+                        function_signature = fnd->second.function_name;
+                        file_path = fnd->second.library_name.value_or("<builtin>");
+                    }
+                    else
+                    {
+                        char rip_str[sizeof(rip) * 2 + 4];
+                        sprintf(rip_str, "0x%p>", rip);
+
+                        function_signature = std::string("<unknown extern function ") + rip_str;
+                        file_path = "<unknown library>";
+                    }
                 }
                 else
                 {
-                    char rip_str[sizeof(rip) * 2 + 4];
-                    sprintf(rip_str, "0x%p>", rip);
+                    if (env->program_debug_info != nullptr)
+                    {
+                        src_location_info = &env->program_debug_info
+                            ->get_src_location_by_runtime_ip(rip - (need_offset ? 1 : 0));
+                        function_signature = env->program_debug_info
+                            ->get_current_func_signature_by_runtime_ip(rip - (need_offset ? 1 : 0));
 
-                    function_signature = std::string("<unknown extern function ") + rip_str;
-                    file_path = "<unknown library>";
-                }
-            }
-            else
-            {
-                if (env->program_debug_info != nullptr)
-                {
-                    src_location_info = &env->program_debug_info
-                        ->get_src_location_by_runtime_ip(rip - (need_offset ? 1 : 0));
-                    function_signature = env->program_debug_info
-                        ->get_current_func_signature_by_runtime_ip(rip - (need_offset ? 1 : 0));
+                        file_path = src_location_info->source_file;
+                        row_number = src_location_info->begin_row_no;
+                        col_number = src_location_info->begin_col_no;
+                    }
+                    else
+                    {
+                        char rip_str[sizeof(rip) * 2 + 4];
+                        sprintf(rip_str, "0x%p>", rip);
 
-                    file_path = src_location_info->source_file;
-                    row_number = src_location_info->begin_row_no;
-                    col_number = src_location_info->begin_col_no;
+                        function_signature = std::string("<unknown function ") + rip_str;
+                        file_path = "<unknown file>";
+                    }
                 }
-                else
-                {
-                    char rip_str[sizeof(rip) * 2 + 4];
-                    sprintf(rip_str, "0x%p>", rip);
-
-                    function_signature = std::string("<unknown function ") + rip_str;
-                    file_path = "<unknown file>";
-                }
-            }
-            return callstack_info{
-                function_signature,
-                file_path,
-                row_number,
-                col_number,
-                is_extern_func,
+                return callstack_info{
+                    function_signature,
+                    file_path,
+                    row_number,
+                    col_number,
+                    is_extern_func,
+                };
             };
-        };
 
         result.push_back(
             generate_callstack_info_with_ip(
-                ip, ip < runtime_codes || ip >= runtime_codes + env->rt_code_len));
+                ip, ip < runtime_codes_begin || ip >= runtime_codes_end));
 
         value* base_callstackinfo_ptr = (bp + 1);
         while (base_callstackinfo_ptr <= this->sb)
@@ -925,7 +927,7 @@ namespace wo
                 auto* next_trace_place = this->sb - callstack.bp;
 
                 result.push_back(
-                    generate_callstack_info_with_ip(runtime_codes + callstack.ret_ip, false));
+                    generate_callstack_info_with_ip(runtime_codes_begin + callstack.ret_ip, false));
 
                 if (next_trace_place < base_callstackinfo_ptr || next_trace_place > sb)
                     goto _label_bad_callstack;
@@ -1366,7 +1368,7 @@ namespace wo
 #define WO_ADDRESSING_RS \
     ((WO_IPVAL & (1 << 7)) ? (bp + WO_SIGNED_SHIFT(WO_IPVAL_MOVE_1)) : (WO_IPVAL_MOVE_1 + reg_begin))
 #define WO_ADDRESSING_G \
-    (WO_IPVAL_MOVE_4 + global_begin)
+    (WO_IPVAL_MOVE_4 + near_static_global)
 
 #define WO_ADDRESSING_RS1 \
         opnum1 = WO_ADDRESSING_RS
@@ -1730,7 +1732,7 @@ namespace wo
     }
     wo_result_t vmbase::run() noexcept
     {
-        if (ip >= runtime_codes && ip < runtime_codes + env->rt_code_len)
+        if (ip >= runtime_codes_begin && ip < runtime_codes_end + env->rt_code_len)
             return run_sim();
         else
             return ((wo_extern_native_func_t)ip)(
@@ -1743,10 +1745,11 @@ namespace wo
         wo_assert((this->vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
         wo_assert(_this_thread_vm == this);
 
-        const byte_t* const rt_codes = runtime_codes;
+        const byte_t* near_rtcode_begin = runtime_codes_begin;
+        const byte_t* near_rtcode_end = runtime_codes_end;
+        value* near_static_global = runtime_static_storage;
 
         value* const rt_cr = cr;
-        value* const global_begin = runtime_static_storage;
         value* const reg_begin = register_storage;
 
         value* opnum1, * opnum2, * opnum3;
@@ -2098,23 +2101,36 @@ namespace wo
             case instruct::opcode::retn:
             {
                 const uint16_t pop_count = WO_IPVAL_MOVE_2;
-                if (((++bp)->m_type & (~1)) == value::valuetype::nativecallstack)
+
+                switch (((++bp)->m_type & (~1)))
                 {
+                case value::valuetype::nativecallstack:
+                    if (((++bp)->m_type & (~1)) == value::valuetype::nativecallstack)
+                    {
+                        sp = bp;
+                        sp += pop_count;
+                        // last stack is native_func, just do return;
+                        // stack balance should be keeped by invoker.
+                        WO_VM_RETURN(wo_result_t::WO_API_NORMAL);
+                    }
+                case value::valuetype::far_callstack:
+                    wo_assure(interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
+                    near_rtcode_begin = (bp++)->m_farcallstack;
+                    wo_assert((bp->m_type & (~1)) == value::valuetype::callstack);
+                    /* FALL THROUGH */
+                    [[fallthrough]];
+                case value::valuetype::callstack:
+                    value* stored_bp = sb - bp->m_vmcallstack.bp;
+                    wo_assert(stored_bp <= sb && stored_bp > stack_storage);
+
+                    rt_ip = near_rtcode_begin + bp->m_vmcallstack.ret_ip;
                     sp = bp;
+                    bp = stored_bp;
+
                     sp += pop_count;
-                    // last stack is native_func, just do return;
-                    // stack balance should be keeped by invoker.
-                    WO_VM_RETURN(wo_result_t::WO_API_NORMAL);
+                    break;
                 }
 
-                value* stored_bp = sb - bp->m_vmcallstack.bp;
-                wo_assert(stored_bp <= sb && stored_bp > stack_storage);
-
-                rt_ip = rt_codes + bp->m_vmcallstack.ret_ip;
-                sp = bp;
-                bp = stored_bp;
-
-                sp += pop_count;
                 break;
             }
             case instruct::opcode::ret:
@@ -2123,18 +2139,25 @@ namespace wo
                 {
                 case value::valuetype::nativecallstack:
                     sp = bp;
-
                     // last stack is native_func, just do return;
                     // stack balance should be keeped by invoker.
                     WO_VM_RETURN(wo_result_t::WO_API_NORMAL);
+                case value::valuetype::far_callstack:
+                    wo_assure(interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
+                    near_rtcode_begin = (bp++)->m_farcallstack;
+                    wo_assert((bp->m_type & (~1)) == value::valuetype::callstack);
+                    /* FALL THROUGH */
+                    [[fallthrough]];
                 case value::valuetype::callstack:
+                {
                     value* stored_bp = sb - bp->m_vmcallstack.bp;
                     wo_assert(stored_bp <= sb && stored_bp > stack_storage);
 
-                    rt_ip = rt_codes + bp->m_vmcallstack.ret_ip;
+                    rt_ip = near_rtcode_begin + bp->m_vmcallstack.ret_ip;
                     sp = bp;
                     bp = stored_bp;
                     break;
+                }
                 }
                 break;
             }
@@ -2156,7 +2179,7 @@ namespace wo
                         // 
                         // NOTE: Closure arguments should be poped by closure function it self.
                         //       Can use ret(n) to pop arguments when call.
-                        if (sp - opnum1->m_closure->m_closure_args_count < stack_storage)
+                        if (sp - opnum1->m_closure->m_closure_args_count - 1 /* Reserve 1 value for far call. */ < stack_storage)
                         {
                             rt_ip = ip_for_rollback;
                             wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
@@ -2168,7 +2191,7 @@ namespace wo
                     }
                     else
                     {
-                        if (sp <= stack_storage)
+                        if (sp - 1 /* Reserve 1 value for far call. */ <= stack_storage)
                         {
                             rt_ip = ip_for_rollback;
                             wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
@@ -2177,7 +2200,7 @@ namespace wo
                     }
 
                     sp->m_type = value::valuetype::callstack;
-                    sp->m_vmcallstack.ret_ip = (uint32_t)(rt_ip - rt_codes);
+                    sp->m_vmcallstack.ret_ip = (uint32_t)(rt_ip - near_rtcode_begin);
                     sp->m_vmcallstack.bp = (uint32_t)(sb - bp);
                     bp = --sp;
                     auto rt_bp = sb - bp;
@@ -2210,7 +2233,16 @@ namespace wo
                         }
                     }
                     else if (opnum1->m_type == value::valuetype::script_func_type)
+                    {
                         rt_ip = opnum1->m_script_func;
+                        if (rt_ip < near_rtcode_begin || rt_ip >= near_rtcode_end)
+                        {
+                            sp->m_type = value::valuetype::far_callstack;
+                            sp->m_farcallstack = near_rtcode_begin;
+                            bp = --sp;
+                            wo_assure(interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
+                        }
+                    }
                     else
                     {
                         WO_VM_ASSERT(opnum1->m_type == value::valuetype::closure_type,
@@ -2246,7 +2278,16 @@ namespace wo
                             }
                         }
                         else
+                        {
                             rt_ip = closure->m_vm_func;
+                            if (rt_ip < near_rtcode_begin || rt_ip >= near_rtcode_end)
+                            {
+                                sp->m_type = value::valuetype::far_callstack;
+                                sp->m_farcallstack = near_rtcode_begin;
+                                bp = --sp;
+                                wo_assure(interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
+                            }
+                        }
                     }
                 } while (0);
                 break;
@@ -2258,10 +2299,10 @@ namespace wo
                 }
                 else
                 {
-                    const byte_t* aimplace = rt_codes + WO_IPVAL_MOVE_4;
+                    const byte_t* aimplace = near_rtcode_begin + WO_IPVAL_MOVE_4;
 
                     sp->m_type = value::valuetype::callstack;
-                    sp->m_vmcallstack.ret_ip = static_cast<uint32_t>(rt_ip - rt_codes) + 4 /* skip 4 byte gap. */;
+                    sp->m_vmcallstack.ret_ip = static_cast<uint32_t>(rt_ip - near_rtcode_begin) + 4 /* skip 4 byte gap. */;
                     sp->m_vmcallstack.bp = static_cast<uint32_t>(sb - bp);
                     bp = --sp;
 
@@ -2280,7 +2321,7 @@ namespace wo
                         reinterpret_cast<wo_extern_native_func_t>(WO_IPVAL_MOVE_8);
 
                     sp->m_type = value::valuetype::callstack;
-                    sp->m_vmcallstack.ret_ip = (uint32_t)(rt_ip - rt_codes);
+                    sp->m_vmcallstack.ret_ip = (uint32_t)(rt_ip - near_rtcode_begin);
                     sp->m_vmcallstack.bp = (uint32_t)(sb - bp);
                     bp = --sp;
 
@@ -2321,7 +2362,7 @@ namespace wo
                         reinterpret_cast<wo_extern_native_func_t>(WO_IPVAL_MOVE_8);
 
                     sp->m_type = value::valuetype::callstack;
-                    sp->m_vmcallstack.ret_ip = (uint32_t)(rt_ip - rt_codes);
+                    sp->m_vmcallstack.ret_ip = (uint32_t)(rt_ip - near_rtcode_begin);
                     sp->m_vmcallstack.bp = (uint32_t)(sb - bp);
                     bp = --sp;
 
@@ -2356,7 +2397,7 @@ namespace wo
                 break;
             case instruct::opcode::jmp:
             {
-                auto* restore_ip = rt_codes + WO_IPVAL_MOVE_4;
+                auto* restore_ip = near_rtcode_begin + WO_IPVAL_MOVE_4;
                 rt_ip = restore_ip;
                 break;
             }
@@ -2364,14 +2405,14 @@ namespace wo
             {
                 const uint32_t aimplace = WO_IPVAL_MOVE_4;
                 if (rt_cr->m_value_field)
-                    rt_ip = rt_codes + aimplace;
+                    rt_ip = near_rtcode_begin + aimplace;
                 break;
             }
             case instruct::opcode::jf:
             {
                 const uint32_t aimplace = WO_IPVAL_MOVE_4;
                 if (!rt_cr->m_value_field)
-                    rt_ip = rt_codes + aimplace;
+                    rt_ip = near_rtcode_begin + aimplace;
                 break;
             }
             case instruct::opcode::mkstructg:
@@ -2408,7 +2449,7 @@ namespace wo
                     const uint32_t offset = WO_IPVAL_MOVE_4;
                     if (opnum1->m_integer != rt_cr->m_integer)
                     {
-                        auto* restore_ip = rt_codes + offset;
+                        auto* restore_ip = near_rtcode_begin + offset;
                         rt_ip = restore_ip;
                     }
                     break;
@@ -2582,7 +2623,7 @@ namespace wo
             case instruct::opcode::mkcloswo:
             {
                 const uint16_t closure_arg_count = WO_IPVAL_MOVE_2;
-                const byte_t* script_function = rt_codes + WO_IPVAL_MOVE_4;
+                const byte_t* script_function = near_rtcode_begin + WO_IPVAL_MOVE_4;
                 rt_ip += 4; /* skip 4 byte gap */
 
                 sp = make_closure_wo_impl(
@@ -2819,6 +2860,17 @@ namespace wo
                         vm_interrupt_type::STACK_MODIFING_INTERRUPT
                         | vm_interrupt_type::SHRINK_STACK_INTERRUPT)));
 
+                }
+                else if (interrupt_state & vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT)
+                {
+                    if (!runtime_env::resync_far_state(
+                        rt_ip,
+                        &near_rtcode_begin,
+                        &near_rtcode_end,
+                        &near_static_global))
+                        wo_fail(WO_FAIL_CALL_FAIL, "Unkown function.");
+
+                    wo_assure(clear_interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
                 }
                 // ATTENTION: it should be last interrupt..
                 else if (interrupt_state & vm_interrupt_type::DEBUG_INTERRUPT)

@@ -473,6 +473,28 @@ namespace wo
 
         bool try_find_script_func(const std::string& name, const byte_t** out_script_func);
         bool try_find_jit_func(const byte_t* script_func, wo_native_func_t* out_jit_func);
+
+        struct paged_env_mapping
+        {
+            struct paged_env_min_context
+            {
+                const byte_t* m_runtime_code_begin;
+                const byte_t* m_runtime_code_end;
+                value* m_static_storage_edge;
+            };
+
+            std::shared_mutex m_paged_envs_mx;
+            std::map<intptr_t, paged_env_min_context> m_paged_envs;
+        };
+        static paged_env_mapping _paged_env_mapping_context;
+
+        static void register_envs(const runtime_env* env) noexcept;
+        static bool resync_far_state(
+            const byte_t* ip,
+            const byte_t** out_runtime_code_begin,
+            const byte_t** out_runtime_code_end,
+            value** out_static_storage_edge) noexcept;
+        static void unregister_envs(const runtime_env* env) noexcept;
     };
 
     struct BytecodeGenerateContext;
