@@ -66,7 +66,8 @@ namespace wo
             script_func_type = WO_SCRIPT_FUNC_TYPE,
             native_func_type = WO_NATIVE_FUNC_TYPE,
 
-            callstack = WO_CALLSTACK_TYPE,
+            callstack = WO_CALLSTACK_TYPE, 
+            callstack_with_sync_env = WO_CALLSTACK_WITH_SYNC_ENV_TYPE,
             nativecallstack = WO_NATIVE_CALLSTACK_TYPE,
 
             string_type = WO_STRING_TYPE,

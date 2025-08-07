@@ -20,6 +20,11 @@ void* womem_get_unit_buffer(void* page, size_t* unit_count, size_t* unit_size);
 void* womem_get_unit_page(void* unit);
 void* womem_get_unit_ptr_attribute(void* unit, womem_attrib_t** attrib);
 
+void* womem_alloc_code_pages(
+    size_t size, size_t* out_page_idx, size_t* page_count);
+size_t womem_get_code_page_idx(void* addr);
+void womem_free_code_pages(void* page);
+
 namespace wo
 {
     void* alloc64(size_t memsz, womem_attrib_t attrib);

@@ -2119,21 +2119,23 @@ namespace wo
             }
             case instruct::opcode::ret:
             {
-                if (((++bp)->m_type & (~1)) == value::valuetype::nativecallstack)
+                switch (((++bp)->m_type & (~1)))
                 {
+                case value::valuetype::nativecallstack:
                     sp = bp;
 
                     // last stack is native_func, just do return;
                     // stack balance should be keeped by invoker.
                     WO_VM_RETURN(wo_result_t::WO_API_NORMAL);
+                case value::valuetype::callstack:
+                    value* stored_bp = sb - bp->m_vmcallstack.bp;
+                    wo_assert(stored_bp <= sb && stored_bp > stack_storage);
+
+                    rt_ip = rt_codes + bp->m_vmcallstack.ret_ip;
+                    sp = bp;
+                    bp = stored_bp;
+                    break;
                 }
-
-                value* stored_bp = sb - bp->m_vmcallstack.bp;
-                wo_assert(stored_bp <= sb && stored_bp > stack_storage);
-
-                rt_ip = rt_codes + bp->m_vmcallstack.ret_ip;
-                sp = bp;
-                bp = stored_bp;
                 break;
             }
             case instruct::opcode::callg:

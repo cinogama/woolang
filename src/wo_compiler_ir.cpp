@@ -487,7 +487,7 @@ namespace wo
             free(constant_and_global_storage);
 
         if (rt_codes)
-            free((byte_t*)rt_codes);
+            womem_free_code_pages((byte_t*)rt_codes);
     }
 
     std::tuple<void*, size_t> runtime_env::create_env_binary(bool savepdi) noexcept
@@ -883,7 +883,11 @@ namespace wo
             WO_LOAD_BIN_FAILED("Failed to restore code length.");
 
         //  3.1.2 Code body
-        byte_t* code_buf = (byte_t*)malloc((size_t)rt_code_with_padding_length * sizeof(byte_t));
+        size_t _todo_a, _todo_b;
+        byte_t* code_buf = (byte_t*)womem_alloc_code_pages(
+            (size_t)rt_code_with_padding_length * sizeof(byte_t),
+            &_todo_a,
+            &_todo_b);
         wo_assert(code_buf != nullptr);
         if (!stream->read_buffer(code_buf, (size_t)rt_code_with_padding_length * sizeof(byte_t)))
             WO_LOAD_BIN_FAILED("Failed to restore code.");
@@ -2658,7 +2662,12 @@ namespace wo
 
         env->real_register_count = real_register_count;
         env->rt_code_len = generated_runtime_code_buf.size();
-        byte_t* code_buf = (byte_t*)malloc(env->rt_code_len * sizeof(byte_t));
+
+        size_t _todo_a, _todo_b;
+        byte_t* code_buf = (byte_t*)womem_alloc_code_pages(
+            env->rt_code_len * sizeof(byte_t),
+            &_todo_a,
+            &_todo_b);
 
         pdb_info->runtime_codes_length = env->rt_code_len;
 

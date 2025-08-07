@@ -1620,7 +1620,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 
             asmjit::InvokeNode* invoke_node;
             wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)(double(*)(double, double)) & fmod,
-                asmjit::FuncSignatureT<double, double, double>()));
+                asmjit::FuncSignatureT<double, double, double>())); 
 
             invoke_node->setArg(0, real_of_op1);
             invoke_node->setArg(1, real_of_op2);
