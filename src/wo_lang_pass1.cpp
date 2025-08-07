@@ -2557,7 +2557,7 @@ namespace wo
                         node->decide_final_constant_value(cast_from_const.cast_value_bool());
                         break;
                     case lang_TypeInstance::DeterminedType::STRING:
-                        node->decide_final_constant_value(cast_from_const.cast_value_pstring());
+                        node->decide_final_constant_value(cast_from_const.cast_value_pstring(0));
                         break;
                     default:
                         // Cannot cast to constant.

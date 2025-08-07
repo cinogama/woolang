@@ -184,6 +184,9 @@ namespace test_basic
         test_assure(std::is_same(constant_tuple, constant_tuple2->car));
         test_assure(std::is_same(constant_tuple, constant_tuple3->car->car));
         test_assure(std::is_same(constant_tuple2, constant_tuple3->car));
+
+        let mut mut_tuple3 = constant_tuple3;
+        test_equal(constant_tuple3: string, mut_tuple3: string);
         
         test_equal(A::B::get_foo(), "A::B::foo");
         test_assure(std::type_traits::is_same:<A::B::T, typeof(A::B::get_t())>);

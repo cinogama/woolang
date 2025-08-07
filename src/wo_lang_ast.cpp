@@ -212,10 +212,12 @@ namespace wo
                 wo_error("Unexpected type.");
             }
         }
-        wo_pstring_t ConstantValue::cast_value_pstring()const
+        wo_pstring_t ConstantValue::cast_value_pstring(size_t depth)const
         {
             switch (m_type)
             {
+            case Type::NIL:
+                return WO_PSTR(nil);
             case Type::BOOL:
                 return value_bool() ? WO_PSTR(true) : WO_PSTR(false);
             case Type::INTEGER:
@@ -226,6 +228,31 @@ namespace wo
                 return wo::wstring_pool::get_pstr(std::to_string(value_real()));
             case Type::PSTRING:
                 return value_pstring();
+            case Type::FUNCTION:
+                return wo::wstring_pool::get_pstr("<function>");
+            case Type::STRUCT:
+            {
+                const auto& constant_struct = value_struct();
+
+                if (constant_struct.m_count == 0)
+                    return wo::wstring_pool::get_pstr("()");
+
+                std::string result = "(\n";
+                for (size_t fidx = 0; fidx < constant_struct.m_count; ++fidx)
+                {
+                    if (fidx != 0)
+                        result += ",\n";
+                    for (size_t d = 0; d <= depth; ++d)
+                        result += "    ";
+                    result += *constant_struct.m_elements[fidx].cast_value_pstring(depth + 1);
+                }
+                result += "\n";
+                for (size_t d = 0; d < depth; ++d)
+                    result += "    ";
+                result += ")";
+
+                return wo::wstring_pool::get_pstr(result);
+            }
             default:
                 wo_error("Unexpected type.");
             }

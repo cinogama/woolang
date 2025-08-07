@@ -1330,96 +1330,108 @@ bool _wo_cast_string(
         wo::dictionary_t* map = value->m_dictionary;
         wo::gcbase::gc_read_guard rg1(map);
 
-        if ((*traveled_gcunit)[map] >= 1)
+        if (map->empty())
+            *out_str += "{}";
+        else
         {
-            if (mode == cast_string_mode::SERIALIZE)
-                return false;
-
-            mode = cast_string_mode::FIT;
-            if ((*traveled_gcunit)[map] >= 2)
+            if ((*traveled_gcunit)[map] >= 1)
             {
-                *out_str += "{...}";
-                return true;
+                if (mode == cast_string_mode::SERIALIZE)
+                    return false;
+
+                mode = cast_string_mode::FIT;
+                if ((*traveled_gcunit)[map] >= 2)
+                {
+                    *out_str += "{...}";
+                    return true;
+                }
             }
-        }
-        (*traveled_gcunit)[map]++;
+            (*traveled_gcunit)[map]++;
 
-        bool _fit_layout = (mode != cast_string_mode::FORMAT);
+            const bool _fit_layout =
+                (mode != cast_string_mode::FORMAT);
 
-        *out_str += _fit_layout ? "{" : "{\n";
-        bool first_kv_pair = true;
+            *out_str += _fit_layout ? "{" : "{\n";
+            bool first_kv_pair = true;
 
-        std::set<const wo::value*, wo::value_ptr_compare>
-            _sorted_keys;
+            std::set<const wo::value*, wo::value_ptr_compare>
+                _sorted_keys;
 
-        for (auto& [key, _] : *map)
-            wo_assure(_sorted_keys.insert(&key).second);
+            for (auto& [key, _] : *map)
+                wo_assure(_sorted_keys.insert(&key).second);
 
-        for (auto* sorted_key : _sorted_keys)
-        {
-            if (!first_kv_pair)
-                *out_str += _fit_layout ? "," : ",\n";
-            first_kv_pair = false;
+            for (auto* sorted_key : _sorted_keys)
+            {
+                if (!first_kv_pair)
+                    *out_str += _fit_layout ? "," : ",\n";
+                first_kv_pair = false;
 
-            for (int i = 0; !_fit_layout && i <= depth; i++)
+                for (int i = 0; !_fit_layout && i <= depth; i++)
+                    *out_str += "    ";
+                if (!_wo_cast_string(sorted_key, out_str, mode, traveled_gcunit, depth + 1))
+                    return false;
+                *out_str += _fit_layout ? ":" : " : ";
+                if (!_wo_cast_string(&map->at(*sorted_key), out_str, mode, traveled_gcunit, depth + 1))
+                    return false;
+            }
+
+            if (!_fit_layout)
+                *out_str += "\n";
+            for (int i = 0; !_fit_layout && i < depth; i++)
                 *out_str += "    ";
-            if (!_wo_cast_string(sorted_key, out_str, mode, traveled_gcunit, depth + 1))
-                return false;
-            *out_str += _fit_layout ? ":" : " : ";
-            if (!_wo_cast_string(&map->at(*sorted_key), out_str, mode, traveled_gcunit, depth + 1))
-                return false;
+            *out_str += "}";
+
+            (*traveled_gcunit)[map]--;
         }
-
-        if (!_fit_layout)
-            *out_str += "\n";
-        for (int i = 0; !_fit_layout && i < depth; i++)
-            *out_str += "    ";
-        *out_str += "}";
-
-        (*traveled_gcunit)[map]--;
-
         return true;
     }
     case wo::value::valuetype::array_type:
     {
         wo::array_t* arr = value->m_array;
         wo::gcbase::gc_read_guard rg1(value->m_array);
-        if ((*traveled_gcunit)[arr] >= 1)
-        {
-            if (mode == cast_string_mode::SERIALIZE)
-                return false;
 
-            mode = cast_string_mode::FIT;
-            if ((*traveled_gcunit)[arr] >= 2)
+        if (arr->empty())
+            *out_str += "[]";
+        else
+        {
+            if ((*traveled_gcunit)[arr] >= 1)
             {
-                *out_str += "[...]";
-                return true;
+                if (mode == cast_string_mode::SERIALIZE)
+                    return false;
+
+                mode = cast_string_mode::FIT;
+                if ((*traveled_gcunit)[arr] >= 2)
+                {
+                    *out_str += "[...]";
+                    return true;
+                }
             }
-        }
-        (*traveled_gcunit)[arr]++;
+            (*traveled_gcunit)[arr]++;
 
-        bool _fit_layout = (mode != cast_string_mode::FORMAT);
+            const bool _fit_layout =
+                (mode != cast_string_mode::FORMAT);
 
-        *out_str += _fit_layout ? "[" : "[\n";
-        bool first_value = true;
-        for (auto& v_val : *arr)
-        {
-            if (!first_value)
-                *out_str += _fit_layout ? "," : ",\n";
-            first_value = false;
+            *out_str += _fit_layout ? "[" : "[\n";
+            bool first_value = true;
+            for (auto& v_val : *arr)
+            {
+                if (!first_value)
+                    *out_str += _fit_layout ? "," : ",\n";
+                first_value = false;
 
-            for (int i = 0; !_fit_layout && i <= depth; i++)
+                for (int i = 0; !_fit_layout && i <= depth; i++)
+                    *out_str += "    ";
+                if (!_wo_cast_string(&v_val, out_str, mode, traveled_gcunit, depth + 1))
+                    return false;
+            }
+            if (!_fit_layout)
+                *out_str += "\n";
+            for (int i = 0; !_fit_layout && i < depth; i++)
                 *out_str += "    ";
-            if (!_wo_cast_string(&v_val, out_str, mode, traveled_gcunit, depth + 1))
-                return false;
-        }
-        if (!_fit_layout)
-            *out_str += "\n";
-        for (int i = 0; !_fit_layout && i < depth; i++)
-            *out_str += "    ";
-        *out_str += "]";
+            *out_str += "]";
 
-        (*traveled_gcunit)[arr]--;
+            (*traveled_gcunit)[arr]--;
+        }
         return true;
     }
     case wo::value::valuetype::struct_type:
@@ -1430,41 +1442,46 @@ bool _wo_cast_string(
         wo::structure_t* struc = value->m_structure;
         wo::gcbase::gc_read_guard rg1(struc);
 
-        if ((*traveled_gcunit)[struc] >= 1)
+        if (struc->m_count == 0)
+            *out_str += "()";
+        else
         {
-            mode = cast_string_mode::FIT;
-            if ((*traveled_gcunit)[struc] >= 2)
+            if ((*traveled_gcunit)[struc] >= 1)
             {
-                *out_str += "struct{...}";
-                return true;
+                mode = cast_string_mode::FIT;
+                if ((*traveled_gcunit)[struc] >= 2)
+                {
+                    *out_str += "(...)";
+                    return true;
+                }
             }
-        }
-        (*traveled_gcunit)[struc]++;
+            (*traveled_gcunit)[struc]++;
 
-        bool _fit_layout = (mode != cast_string_mode::FORMAT);
+            const bool _fit_layout =
+                (mode != cast_string_mode::FORMAT);
 
-        *out_str += _fit_layout ? "struct{" : "struct {\n";
-        bool first_value = true;
-        for (uint16_t i = 0; i < value->m_structure->m_count; ++i)
-        {
-            if (!first_value)
-                *out_str += _fit_layout ? "," : ",\n";
-            first_value = false;
+            *out_str += _fit_layout ? "(" : "(\n";
+            bool first_value = true;
+            for (uint16_t i = 0; i < value->m_structure->m_count; ++i)
+            {
+                if (!first_value)
+                    *out_str += _fit_layout ? "," : ",\n";
+                first_value = false;
 
-            for (int i = 0; !_fit_layout && i <= depth; i++)
+                for (int i = 0; !_fit_layout && i <= depth; i++)
+                    *out_str += "    ";
+
+                if (!_wo_cast_string(&value->m_structure->m_values[i], out_str, mode, traveled_gcunit, depth + 1))
+                    return false;
+            }
+            if (!_fit_layout)
+                *out_str += "\n";
+            for (int i = 0; !_fit_layout && i < depth; i++)
                 *out_str += "    ";
+            *out_str += ")";
 
-            *out_str += "+" + std::to_string(i) + (_fit_layout ? "=" : " = ");
-            if (!_wo_cast_string(&value->m_structure->m_values[i], out_str, mode, traveled_gcunit, depth + 1))
-                return false;
+            (*traveled_gcunit)[struc]--;
         }
-        if (!_fit_layout)
-            *out_str += "\n";
-        for (int i = 0; !_fit_layout && i < depth; i++)
-            *out_str += "    ";
-        *out_str += "}";
-
-        (*traveled_gcunit)[struc]--;
         return true;
     }
     case wo::value::valuetype::closure_type:
@@ -2677,18 +2694,18 @@ wo::compile_result _wo_compile_impl(
                         // Finish!, finalize the compiler.
                         compile_env_result = std::move(
                             lang_context->m_ircontext.c().finalize());
-                    }
+                }
 
                     if (out_langcontext_if_pass_grammar != nullptr)
                         *out_langcontext_if_pass_grammar = std::move(lang_context);
-                }
             }
+        }
 #else
             (void)compile_lexer->record_parser_error(
                 wo::lexer::msglevel_t::error, WO_ERR_COMPILER_DISABLED);
 #endif
-        }
     }
+}
     else
         // Load binary success. 
         compile_result = wo::compile_result::PROCESS_OK;
@@ -2836,87 +2853,87 @@ std::string _dump_src_info(
 
             auto print_src_file_print_lineno =
                 [&current_row_no, &result, &first_line, depth]()
-                {
-                    char buf[20] = {};
-                    if (first_line)
-                        first_line = false;
-                    else
-                        result += "\n";
+            {
+                char buf[20] = {};
+                if (first_line)
+                    first_line = false;
+                else
+                    result += "\n";
 
-                    snprintf(buf, 20, "%-5zu | ", current_row_no + 1);
-                    result += std::string(depth == 0 ? 0 : depth + 1, ' ') + buf;
-                };
+                snprintf(buf, 20, "%-5zu | ", current_row_no + 1);
+                result += std::string(depth == 0 ? 0 : depth + 1, ' ') + buf;
+            };
             auto print_notify_line =
                 [&result, &first_line, &current_row_no, &errmsg, beginpointplace, pointplace, style, beginaimrow, aimrow, depth](
                     size_t line_end_place)
+            {
+                char buf[20] = {};
+                if (first_line)
+                    first_line = false;
+                else
+                    result += "\n";
+
+                snprintf(buf, 20, "      | ");
+                std::string append_result = buf;
+
+                if (style == WO_NEED_COLOR)
+                    append_result += errmsg.m_level == wo::lexer::msglevel_t::error
+                    ? ANSI_HIR
+                    : ANSI_HIC;
+
+                if (current_row_no == aimrow)
                 {
-                    char buf[20] = {};
-                    if (first_line)
-                        first_line = false;
-                    else
-                        result += "\n";
-
-                    snprintf(buf, 20, "      | ");
-                    std::string append_result = buf;
-
-                    if (style == WO_NEED_COLOR)
-                        append_result += errmsg.m_level == wo::lexer::msglevel_t::error
-                        ? ANSI_HIR
-                        : ANSI_HIC;
-
-                    if (current_row_no == aimrow)
+                    if (current_row_no == beginaimrow)
                     {
-                        if (current_row_no == beginaimrow)
-                        {
-                            size_t i = 1;
-                            for (; i <= beginpointplace; i++)
-                                append_result += " ";
-                            for (; i < pointplace; i++)
+                        size_t i = 1;
+                        for (; i <= beginpointplace; i++)
+                            append_result += " ";
+                        for (; i < pointplace; i++)
+                            append_result += "~";
+                    }
+                    else
+                        for (size_t i = 1; i < pointplace; i++)
+                            append_result += "~";
+
+                    append_result +=
+                        std::string("~\\")
+                        + ANSI_UNDERLNE
+                        + " " WO_HERE
+                        + ANSI_NUNDERLNE
+                        + "_";
+
+                    if (depth != 0)
+                        append_result += ": " + errmsg.m_describe;
+                }
+                else
+                {
+                    if (current_row_no == beginaimrow)
+                    {
+                        size_t i = 1;
+                        for (; i <= beginpointplace; i++)
+                            append_result += " ";
+                        if (i < line_end_place)
+                            for (; i < line_end_place; i++)
                                 append_result += "~";
-                        }
                         else
-                            for (size_t i = 1; i < pointplace; i++)
-                                append_result += "~";
-
-                        append_result +=
-                            std::string("~\\")
-                            + ANSI_UNDERLNE
-                            + " " WO_HERE
-                            + ANSI_NUNDERLNE
-                            + "_";
-
-                        if (depth != 0)
-                            append_result += ": " + errmsg.m_describe;
+                            return;
                     }
                     else
                     {
-                        if (current_row_no == beginaimrow)
-                        {
-                            size_t i = 1;
-                            for (; i <= beginpointplace; i++)
-                                append_result += " ";
-                            if (i < line_end_place)
-                                for (; i < line_end_place; i++)
-                                    append_result += "~";
-                            else
-                                return;
-                        }
+                        size_t i = 1;
+                        if (i < line_end_place)
+                            for (; i < line_end_place; i++)
+                                append_result += "~";
                         else
-                        {
-                            size_t i = 1;
-                            if (i < line_end_place)
-                                for (; i < line_end_place; i++)
-                                    append_result += "~";
-                            else
-                                return;
-                        }
+                            return;
                     }
+                }
 
-                    if (style == WO_NEED_COLOR)
-                        append_result += ANSI_RST;
+                if (style == WO_NEED_COLOR)
+                    append_result += ANSI_RST;
 
-                    result += std::string(depth == 0 ? 0 : depth + 1, ' ') + append_result;
-                };
+                result += std::string(depth == 0 ? 0 : depth + 1, ' ') + append_result;
+            };
 
             if (from <= current_row_no && current_row_no <= to)
                 print_src_file_print_lineno();

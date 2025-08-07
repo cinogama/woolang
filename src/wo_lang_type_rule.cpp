@@ -359,7 +359,8 @@ namespace wo
             [&]()-> lang_TypeInstance::TypeCheckResult
             {
                 // 0. If aimtype accept srctype, Ok
-                if (lang_TypeInstance::TypeCheckResult::ACCEPT == is_type_accepted(lex, node, aimtype, immutable_srctype))
+                if (lang_TypeInstance::TypeCheckResult::ACCEPT == 
+                    is_type_accepted(lex, node, aimtype, immutable_srctype))
                     return lang_TypeInstance::TypeCheckResult::ACCEPT;
 
                 // 2. If aimtype is void, Ok

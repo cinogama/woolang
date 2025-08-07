@@ -80,7 +80,7 @@ namespace wo
             wo_integer_t cast_value_integer()const;
             wo_handle_t cast_value_handle()const;
             wo_real_t cast_value_real()const;
-            wo_pstring_t cast_value_pstring()const;
+            wo_pstring_t cast_value_pstring(size_t depth)const;
 
             std::optional<ast::AstValueFunction*> value_try_function()const;
         };
