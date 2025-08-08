@@ -697,11 +697,38 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             }
             return func_call_result;
         }
+        WO_FORCE_INLINE static wo_result_t native_do_calln_vmfunc_may_far(
+            vmbase* vm, wo_extern_native_func_t call_aim_native_func, const byte_t* retip, value* rt_sp, value* rt_bp)
+        {
+            size_t sp_offset = vm->sb - rt_sp;
+            size_t bp_offset = vm->sb - rt_bp;
+
+            rt_sp->m_type = value::valuetype::far_callstack;
+            rt_sp->m_farcallstack = retip;
+            rt_sp->m_ext_farcallstack_bp = (uint32_t)bp_offset;
+            rt_bp = --rt_sp;
+
+            vm->bp = vm->sp = rt_sp;
+
+            vm->ip = reinterpret_cast<byte_t*>(call_aim_native_func);
+
+            const wo_result_t func_call_result = call_aim_native_func(
+                reinterpret_cast<wo_vm>(vm), reinterpret_cast<wo_value>(rt_sp + 2));
+            if (func_call_result == WO_API_RESYNC)
+            {
+                vm->sp = vm->sb - sp_offset;
+                vm->bp = vm->sb - bp_offset;
+                vm->ip = retip;
+
+                return WO_API_SYNC;
+            }
+            return func_call_result;
+        }
         static wo_result_t native_do_call_vmfunc_with_stack_overflow_check(
             vmbase* vm,
             value* target_function,
             const wo::byte_t* rollback_ip,
-            uint32_t retip,
+            const wo::byte_t* retip,
             value* rt_sp,
             value* rt_bp)
         {
@@ -709,28 +736,37 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             {
             case value::valuetype::native_func_type:
                 if (rt_sp <= vm->stack_storage)
+                {
+                    vm->interrupt(wo::vmbase::vm_interrupt_type::STACK_OVERFLOW_INTERRUPT);
                     break;
-                return native_do_calln_vmfunc(
+                }
+                return native_do_calln_vmfunc_may_far(
                     vm, (wo_extern_native_func_t)(void*)target_function->m_handle, retip, rt_sp, rt_bp);
             case value::valuetype::closure_type:
-            {
-                wo_assert(target_function->m_closure->m_native_call);
+                if (target_function->m_closure->m_native_call)
+                {
+                    if (rt_sp - target_function->m_closure->m_closure_args_count - 1 < vm->stack_storage)
+                    {
+                        vm->interrupt(wo::vmbase::vm_interrupt_type::STACK_OVERFLOW_INTERRUPT);
+                        break;
+                    }
 
-                if (rt_sp - target_function->m_closure->m_closure_args_count - 1 < vm->stack_storage)
-                    break;
+                    for (uint16_t idx = 0; idx < target_function->m_closure->m_closure_args_count; ++idx)
+                        (rt_sp--)->set_val(&target_function->m_closure->m_closure_args[idx]);
 
-                for (uint16_t idx = 0; idx < target_function->m_closure->m_closure_args_count; ++idx)
-                    (rt_sp--)->set_val(&target_function->m_closure->m_closure_args[idx]);
-                return native_do_calln_vmfunc(vm, target_function->m_closure->m_native_func, retip, rt_sp, rt_bp);
-            }
+                    return native_do_calln_vmfunc_may_far(
+                        vm, target_function->m_closure->m_native_func, retip, rt_sp, rt_bp);
+                }
+                /* fallthrough */
+                [[fallthrough]];
             default:
-                wo_fail(WO_FAIL_CALL_FAIL, "Unexpected function type when invoked in jit.");
+                // Try to invoke a script function address, it cannot be handled in jit,
+                // Give a WO_API_SYNC request and roll back to vm.
+                ;
             }
-
             vm->ip = rollback_ip;
             vm->sp = rt_sp;
             vm->bp = rt_bp;
-            vm->interrupt(wo::vmbase::vm_interrupt_type::STACK_OVERFLOW_INTERRUPT);
             return wo_result_t::WO_API_SYNC;
         }
         static void _vmjitcall_panic(
@@ -1510,7 +1546,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             if (opnum2.is_constant_real())
             {
                 const double real_op2 = opnum2.const_value()->m_real;
-                
+
                 // 加0.0优化 - 跳过操作
                 if (real_op2 == 0.0)
                     return true;
@@ -1532,7 +1568,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             if (opnum2.is_constant_real())
             {
                 const double real_op2 = opnum2.const_value()->m_real;
-                
+
                 // 减0.0优化 - 跳过操作
                 if (real_op2 == 0.0)
                     return true;
@@ -1553,7 +1589,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             if (opnum2.is_constant_real())
             {
                 const double real_op2 = opnum2.const_value()->m_real;
-                
+
                 // 乘0.0优化 - 直接设置为0.0
                 if (real_op2 == 0.0)
                 {
@@ -1591,7 +1627,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             if (opnum2.is_constant_real())
             {
                 const double real_op2 = opnum2.const_value()->m_real;
-                
+
                 // 除1.0优化 - 跳过操作
                 if (real_op2 == 1.0)
                     return true;
@@ -1620,7 +1656,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 
             asmjit::InvokeNode* invoke_node;
             wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)(double(*)(double, double)) & fmod,
-                asmjit::FuncSignatureT<double, double, double>())); 
+                asmjit::FuncSignatureT<double, double, double>()));
 
             invoke_node->setArg(0, real_of_op1);
             invoke_node->setArg(1, real_of_op2);
@@ -2237,7 +2273,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             auto temp_result = ctx->c.newUInt8();
             auto result_reg = ctx->c.newInt64();
             auto real_of_op1 = ctx->c.newXmm();
-            
+
             wo_assure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, m_real))));
             wo_assure(!ctx->c.comisd(real_of_op1, asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, m_real))));
             wo_assure(!ctx->c.setb(temp_result)); // 设置如果小于
@@ -2256,7 +2292,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             auto temp_result = ctx->c.newUInt8();
             auto result_reg = ctx->c.newInt64();
             auto real_of_op1 = ctx->c.newXmm();
-            
+
             wo_assure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, m_real))));
             wo_assure(!ctx->c.comisd(real_of_op1, asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, m_real))));
             wo_assure(!ctx->c.seta(temp_result)); // 设置如果大于
@@ -2275,7 +2311,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             auto temp_result = ctx->c.newUInt8();
             auto result_reg = ctx->c.newInt64();
             auto real_of_op1 = ctx->c.newXmm();
-            
+
             wo_assure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, m_real))));
             wo_assure(!ctx->c.comisd(real_of_op1, asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, m_real))));
             wo_assure(!ctx->c.setbe(temp_result)); // 设置如果小于等于
@@ -2294,7 +2330,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             auto temp_result = ctx->c.newUInt8();
             auto result_reg = ctx->c.newInt64();
             auto real_of_op1 = ctx->c.newXmm();
-            
+
             wo_assure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, m_real))));
             wo_assure(!ctx->c.comisd(real_of_op1, asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, m_real))));
             wo_assure(!ctx->c.setae(temp_result)); // 设置如果大于等于
@@ -2327,12 +2363,12 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             wo_assure(!ctx->c.invoke(
                 &invoke_node,
                 (intptr_t)&native_do_call_vmfunc_with_stack_overflow_check,
-                asmjit::FuncSignatureT<wo_result_t, vmbase*, value*, const wo::byte_t*, uint32_t, value*, value*>()));
+                asmjit::FuncSignatureT<wo_result_t, vmbase*, value*, const wo::byte_t*, const wo::byte_t*, value*, value*>()));
 
             invoke_node->setArg(0, ctx->_vmbase);
             invoke_node->setArg(1, op1);
-            invoke_node->setArg(2, asmjit::Imm((intptr_t)rollback_ip));
-            invoke_node->setArg(3, asmjit::Imm((uint32_t)(rt_ip - ctx->env->rt_codes)));
+            invoke_node->setArg(2, asmjit::Imm(reinterpret_cast<intptr_t>(rollback_ip)));
+            invoke_node->setArg(3, asmjit::Imm(reinterpret_cast<intptr_t>(rt_ip)));
             invoke_node->setArg(4, ctx->_vmssp);
             invoke_node->setArg(5, ctx->_vmsbp);
             invoke_node->setRet(0, result);
@@ -3156,5 +3192,5 @@ namespace wo
     void free_jit(runtime_env* env)
     {
     }
-}
+        }
 #endif

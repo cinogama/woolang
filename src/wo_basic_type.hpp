@@ -56,7 +56,6 @@ namespace wo
             invalid = WO_INVALID_TYPE,
 
             need_gc_flag = WO_NEED_GC_FLAG,
-            stack_externed_flag = WO_STACK_EXTERNED_FLAG,
 
             integer_type = WO_INTEGER_TYPE,
             real_type = WO_REAL_TYPE,
@@ -113,7 +112,7 @@ namespace wo
 
         WO_FORCE_INLINE value* set_takeplace()
         {
-            m_type = valuetype::stack_externed_flag;
+            m_type = valuetype::need_gc_flag;
             m_value_field = 0;
             return this;
         }

@@ -527,7 +527,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                         while (framelayer--)
                         {
                             auto tmp_sp = current_frame_bp + 1;
-                            if ((tmp_sp->m_type & (~1)) == value::valuetype::callstack)
+                            if (tmp_sp->m_type == value::valuetype::callstack)
                             {
                                 current_frame++;
                                 current_frame_sp = tmp_sp;

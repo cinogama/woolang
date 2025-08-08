@@ -302,6 +302,8 @@ namespace wo
         value* bp;
         value* sb;
 
+        bool stack_need_tobe_update;
+
         value* stack_storage;
         size_t stack_size;
 

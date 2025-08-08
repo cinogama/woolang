@@ -489,6 +489,7 @@ namespace wo
         static paged_env_mapping _paged_env_mapping_context;
 
         static void register_envs(const runtime_env* env) noexcept;
+        static bool fetch_is_far_addr(const byte_t* ip) noexcept;
         static bool resync_far_state(
             const byte_t* ip,
             const byte_t** out_runtime_code_begin,

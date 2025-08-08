@@ -633,9 +633,7 @@ void wo_init(int argc, char** argv)
 #define CS_VAL(v) (reinterpret_cast<wo_value>(v))
 #define CS_VM(v) (reinterpret_cast<wo_vm>(v))
 #define WO_API_STATE_OF_VM(v) (\
-    wo_assert(((v->bp + 1)->m_type & (~1)) == wo::value::valuetype::callstack \
-        || ((v->bp + 1)->m_type & (~1)) == wo::value::valuetype::nativecallstack), \
-    ((v->bp + 1)->m_type & wo::value::valuetype::stack_externed_flag) == 0 ? WO_API_NORMAL : WO_API_RESYNC)
+    v->stack_need_tobe_update ? (v->stack_need_tobe_update = false, WO_API_RESYNC):WO_API_NORMAL)
 
 struct _wo_reserved_stack_args_update_guard
 {
@@ -666,7 +664,7 @@ struct _wo_reserved_stack_args_update_guard
             wo_assert(WO_VAL(*m_rs) > m_vm->stack_storage
                 && WO_VAL(*m_rs) <= m_vm->sb);
 
-            m_rs_offset = m_origin_stack_begin - WO_VAL(m_rs);
+            m_rs_offset = m_origin_stack_begin - WO_VAL(*m_rs);
         }
 
         if (m_args != nullptr)
@@ -674,7 +672,7 @@ struct _wo_reserved_stack_args_update_guard
             wo_assert(WO_VAL(*m_args) > m_vm->stack_storage
                 && WO_VAL(*m_args) <= m_vm->sb);
 
-            m_args_offset = m_origin_stack_begin - WO_VAL(m_args);
+            m_args_offset = m_origin_stack_begin - WO_VAL(*m_args);
         }
     }
     ~_wo_reserved_stack_args_update_guard()
@@ -691,16 +689,7 @@ struct _wo_reserved_stack_args_update_guard
             if (m_vm->bp != m_vm->sb)
             {
                 auto* current_call_base = m_vm->bp + 1;
-
-                // NOTE: If bp + 1 is not callstack:
-                //  1) It has been marked `stack_externed_flag`
-                //  2) The VM has already returned from last function call.
-                if (current_call_base->m_type == wo::value::valuetype::callstack
-                    || current_call_base->m_type == wo::value::valuetype::nativecallstack)
-                {
-                    current_call_base->m_type = (wo::value::valuetype)(
-                        current_call_base->m_type | wo::value::valuetype::stack_externed_flag);
-                }
+                m_vm->stack_need_tobe_update = true;
             }
         }
     }
@@ -2696,18 +2685,18 @@ wo::compile_result _wo_compile_impl(
                         // Finish!, finalize the compiler.
                         compile_env_result = std::move(
                             lang_context->m_ircontext.c().finalize());
-                }
+                    }
 
                     if (out_langcontext_if_pass_grammar != nullptr)
                         *out_langcontext_if_pass_grammar = std::move(lang_context);
+                }
             }
-        }
 #else
             (void)compile_lexer->record_parser_error(
                 wo::lexer::msglevel_t::error, WO_ERR_COMPILER_DISABLED);
 #endif
+        }
     }
-}
     else
         // Load binary success. 
         compile_result = wo::compile_result::PROCESS_OK;
@@ -3105,8 +3094,7 @@ wo_value wo_reserve_stack(wo_vm vm, wo_size_t stack_sz, wo_value* inout_args_may
             if (current_call_base->m_type == wo::value::valuetype::callstack
                 || current_call_base->m_type == wo::value::valuetype::nativecallstack)
             {
-                current_call_base->m_type = (wo::value::valuetype)(
-                    current_call_base->m_type | wo::value::valuetype::stack_externed_flag);
+                vmbase->stack_need_tobe_update = true;
             }
         }
     }

@@ -249,6 +249,7 @@ namespace wo
         , sp(nullptr)
         , bp(nullptr)
         , sb(nullptr)
+        , stack_need_tobe_update(false)
         , stack_storage(nullptr)
         , stack_size(0)
         , shrink_stack_advise(0)
@@ -429,7 +430,7 @@ namespace wo
                 }
                 for (int i = 0; i < MAX_BYTE_COUNT - displayed_count; i++)
                     printf("   ");
-                };
+            };
 #define WO_SIGNED_SHIFT(VAL) (((signed char)((unsigned char)(((unsigned char)(VAL))<<1)))>>1)
             auto print_reg_bpoffset = [&]() {
                 byte_t data_1b = *(this_command_ptr++);
@@ -468,7 +469,7 @@ namespace wo
                         tmpos << "reg(" << (uint32_t)data_1b << ")";
 
                 }
-                };
+            };
             auto print_global_static = [&]() {
                 //const global 4byte
                 uint32_t data_4b = *(uint32_t*)((this_command_ptr += 4) - 4);
@@ -493,19 +494,19 @@ namespace wo
                 }
                 else
                     tmpos << "g[" << data_4b - env->constant_value_count << "]";
-                };
+            };
             auto print_opnum1 = [&]() {
                 if (main_command & (byte_t)0b00000010)
                     print_reg_bpoffset();
                 else
                     print_global_static();
-                };
+            };
             auto print_opnum2 = [&]() {
                 if (main_command & (byte_t)0b00000001)
                     print_reg_bpoffset();
                 else
                     print_global_static();
-                };
+            };
 
 #undef WO_SIGNED_SHIFT
             switch (main_command & (byte_t)0b11111100)
@@ -848,61 +849,61 @@ namespace wo
 
         std::vector<callstack_info> result;
         auto generate_callstack_info_with_ip = [this, need_offset](const wo::byte_t* rip, bool is_extern_func)
+        {
+            const program_debug_data_info::location* src_location_info = nullptr;
+            std::string function_signature;
+            std::string file_path;
+            size_t row_number = 0;
+            size_t col_number = 0;
+
+            if (is_extern_func)
             {
-                const program_debug_data_info::location* src_location_info = nullptr;
-                std::string function_signature;
-                std::string file_path;
-                size_t row_number = 0;
-                size_t col_number = 0;
+                auto fnd = env->extern_native_functions.find((intptr_t)rip);
 
-                if (is_extern_func)
+                if (fnd != env->extern_native_functions.end())
                 {
-                    auto fnd = env->extern_native_functions.find((intptr_t)rip);
-
-                    if (fnd != env->extern_native_functions.end())
-                    {
-                        function_signature = fnd->second.function_name;
-                        file_path = fnd->second.library_name.value_or("<builtin>");
-                    }
-                    else
-                    {
-                        char rip_str[sizeof(rip) * 2 + 4];
-                        sprintf(rip_str, "0x%p>", rip);
-
-                        function_signature = std::string("<unknown extern function ") + rip_str;
-                        file_path = "<unknown library>";
-                    }
+                    function_signature = fnd->second.function_name;
+                    file_path = fnd->second.library_name.value_or("<builtin>");
                 }
                 else
                 {
-                    if (env->program_debug_info != nullptr)
-                    {
-                        src_location_info = &env->program_debug_info
-                            ->get_src_location_by_runtime_ip(rip - (need_offset ? 1 : 0));
-                        function_signature = env->program_debug_info
-                            ->get_current_func_signature_by_runtime_ip(rip - (need_offset ? 1 : 0));
+                    char rip_str[sizeof(rip) * 2 + 4];
+                    sprintf(rip_str, "0x%p>", rip);
 
-                        file_path = src_location_info->source_file;
-                        row_number = src_location_info->begin_row_no;
-                        col_number = src_location_info->begin_col_no;
-                    }
-                    else
-                    {
-                        char rip_str[sizeof(rip) * 2 + 4];
-                        sprintf(rip_str, "0x%p>", rip);
-
-                        function_signature = std::string("<unknown function ") + rip_str;
-                        file_path = "<unknown file>";
-                    }
+                    function_signature = std::string("<unknown extern function ") + rip_str;
+                    file_path = "<unknown library>";
                 }
-                return callstack_info{
-                    function_signature,
-                    file_path,
-                    row_number,
-                    col_number,
-                    is_extern_func,
-                };
+            }
+            else
+            {
+                if (env->program_debug_info != nullptr)
+                {
+                    src_location_info = &env->program_debug_info
+                        ->get_src_location_by_runtime_ip(rip - (need_offset ? 1 : 0));
+                    function_signature = env->program_debug_info
+                        ->get_current_func_signature_by_runtime_ip(rip - (need_offset ? 1 : 0));
+
+                    file_path = src_location_info->source_file;
+                    row_number = src_location_info->begin_row_no;
+                    col_number = src_location_info->begin_col_no;
+                }
+                else
+                {
+                    char rip_str[sizeof(rip) * 2 + 4];
+                    sprintf(rip_str, "0x%p>", rip);
+
+                    function_signature = std::string("<unknown function ") + rip_str;
+                    file_path = "<unknown file>";
+                }
+            }
+            return callstack_info{
+                function_signature,
+                file_path,
+                row_number,
+                col_number,
+                is_extern_func,
             };
+        };
 
         result.push_back(
             generate_callstack_info_with_ip(
@@ -919,7 +920,7 @@ namespace wo
                 break;
             }
 
-            if ((base_callstackinfo_ptr->m_type & (~1)) == value::valuetype::callstack)
+            if (base_callstackinfo_ptr->m_type == value::valuetype::callstack)
             {
                 // NOTE: Tracing call stack might changed in other thread.
                 //  Check it to make sure donot reach bad place.
@@ -934,7 +935,7 @@ namespace wo
 
                 base_callstackinfo_ptr = next_trace_place + 1;
             }
-            else if ((base_callstackinfo_ptr->m_type & (~1)) == value::valuetype::nativecallstack)
+            else if (base_callstackinfo_ptr->m_type == value::valuetype::nativecallstack)
             {
                 result.push_back(
                     generate_callstack_info_with_ip(base_callstackinfo_ptr->m_nativecallstack, true));
@@ -958,10 +959,10 @@ namespace wo
                     ++base_callstackinfo_ptr;
                     if (base_callstackinfo_ptr <= sb)
                     {
-                        auto ptr_value_type = base_callstackinfo_ptr->m_type & (~1);
+                        auto ptr_value_type = base_callstackinfo_ptr->m_type;
 
-                        if ((ptr_value_type & (~1)) == value::valuetype::nativecallstack
-                            || (ptr_value_type & (~1)) == value::valuetype::callstack)
+                        if (ptr_value_type == value::valuetype::nativecallstack
+                            || ptr_value_type == value::valuetype::callstack)
                             break;
                     }
                     else
@@ -987,7 +988,7 @@ namespace wo
         while (base_callstackinfo_ptr <= this->sb)
         {
             ++call_trace_count;
-            if ((base_callstackinfo_ptr->m_type & (~1)) == value::valuetype::callstack)
+            if (base_callstackinfo_ptr->m_type == value::valuetype::callstack)
             {
                 base_callstackinfo_ptr = this->sb - base_callstackinfo_ptr->m_vmcallstack.bp;
                 base_callstackinfo_ptr++;
@@ -1734,10 +1735,17 @@ namespace wo
     {
         if (ip >= runtime_codes_begin && ip < runtime_codes_end + env->rt_code_len)
             return run_sim();
+        else if (runtime_env::fetch_is_far_addr(ip))
+        {
+            interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT);
+            return run_sim();
+        }
         else
+        {
             return ((wo_extern_native_func_t)ip)(
                 std::launder(reinterpret_cast<wo_vm>(this)),
                 std::launder(reinterpret_cast<wo_value>(sp + 2)));
+        }
     }
     wo_result_t vmbase::run_sim() noexcept
     {
@@ -2102,7 +2110,7 @@ namespace wo
             {
                 const uint16_t pop_count = WO_IPVAL_MOVE_2;
 
-                switch (((++bp)->m_type & (~1)))
+                switch ((++bp)->m_type)
                 {
                 case value::valuetype::nativecallstack:
                     sp = bp;
@@ -2139,7 +2147,7 @@ namespace wo
             }
             case instruct::opcode::ret:
             {
-                switch (((++bp)->m_type & (~1)))
+                switch ((++bp)->m_type)
                 {
                 case value::valuetype::nativecallstack:
                     sp = bp;
@@ -2207,14 +2215,15 @@ namespace wo
                         }
                     }
 
-                    sp->m_type = value::valuetype::callstack;
-                    sp->m_vmcallstack.ret_ip = (uint32_t)(rt_ip - near_rtcode_begin);
-                    sp->m_vmcallstack.bp = (uint32_t)(sb - bp);
-                    bp = --sp;
-                    auto rt_bp = sb - bp;
-
                     if (opnum1->m_type == value::valuetype::native_func_type)
                     {
+                        /* Might be far call jit code. */
+                        sp->m_type = value::valuetype::far_callstack;
+                        sp->m_farcallstack = rt_ip;
+                        sp->m_ext_farcallstack_bp = (uint32_t)(sb - bp);
+                        bp = --sp;
+                        auto rt_bp = sb - bp;
+
                         // Call native
                         const wo_extern_native_func_t call_aim_native_func = opnum1->m_native_func;
                         ip = std::launder(reinterpret_cast<byte_t*>(call_aim_native_func));
@@ -2228,15 +2237,19 @@ namespace wo
                         {
                             bp = sb - rt_bp;
 
-                            WO_VM_ASSERT(((bp + 1)->m_type & (~1)) == value::valuetype::callstack,
+                            WO_VM_ASSERT((bp + 1)->m_type == value::valuetype::far_callstack,
                                 "Found broken stack in 'call'.");
-                            value* stored_bp = sb - (++bp)->m_vmcallstack.bp;
+                            value* stored_bp = sb - (++bp)->m_ext_farcallstack_bp;
                             sp = bp;
                             bp = stored_bp;
                             break;
                         }
                         case wo_result_t::WO_API_SYNC:
                             rt_ip = this->ip;
+
+                            if (rt_ip < near_rtcode_begin || rt_ip >= near_rtcode_end)
+                                wo_assure(interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
+
                             break;
                         }
                     }
@@ -2245,12 +2258,18 @@ namespace wo
                         const auto* aim_function_addr = opnum1->m_script_func;
                         if (aim_function_addr < near_rtcode_begin || aim_function_addr >= near_rtcode_end)
                         {
-                            auto* callstack = sp + 1;
-                            callstack->m_type = value::valuetype::far_callstack;
-                            callstack->m_ext_farcallstack_bp = callstack->m_vmcallstack.bp;
-                            callstack->m_farcallstack = rt_ip;
-
+                            sp->m_type = value::valuetype::far_callstack;
+                            sp->m_farcallstack = rt_ip;
+                            sp->m_ext_farcallstack_bp = (uint32_t)(sb - bp);
+                            bp = --sp;
                             wo_assure(interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
+                        }
+                        else
+                        {
+                            sp->m_type = value::valuetype::callstack;
+                            sp->m_vmcallstack.ret_ip = (uint32_t)(rt_ip - near_rtcode_begin);
+                            sp->m_vmcallstack.bp = (uint32_t)(sb - bp);
+                            bp = --sp;
                         }
                         rt_ip = aim_function_addr;
                     }
@@ -2263,6 +2282,12 @@ namespace wo
 
                         if (closure->m_native_call)
                         {
+                            sp->m_type = value::valuetype::far_callstack;
+                            sp->m_farcallstack = rt_ip;
+                            sp->m_ext_farcallstack_bp = (uint32_t)(sb - bp);
+                            bp = --sp;
+                            auto rt_bp = sb - bp;
+
                             switch (closure->m_native_func(
                                 std::launder(reinterpret_cast<wo_vm>(this)),
                                 std::launder((reinterpret_cast<wo_value>(sp + 2)))))
@@ -2272,9 +2297,9 @@ namespace wo
                             {
                                 bp = sb - rt_bp;
 
-                                WO_VM_ASSERT(((bp + 1)->m_type & (~1)) == value::valuetype::callstack,
+                                WO_VM_ASSERT((bp + 1)->m_type == value::valuetype::far_callstack,
                                     "Found broken stack in 'call'.");
-                                value* stored_bp = sb - (++bp)->m_vmcallstack.bp;
+                                value* stored_bp = sb - (++bp)->m_ext_farcallstack_bp;
                                 // Here to invoke jit closure, jit function cannot pop captured arguments,
                                 // So we pop them here.
                                 sp = bp + closure->m_closure_args_count;
@@ -2284,6 +2309,10 @@ namespace wo
                             case wo_result_t::WO_API_SYNC:
                             {
                                 rt_ip = this->ip;
+
+                                if (rt_ip < near_rtcode_begin || rt_ip >= near_rtcode_end)
+                                    wo_assure(interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
+
                                 break;
                             }
                             }
@@ -2293,12 +2322,18 @@ namespace wo
                             const auto* aim_function_addr = closure->m_vm_func;
                             if (aim_function_addr < near_rtcode_begin || aim_function_addr >= near_rtcode_end)
                             {
-                                auto* callstack = sp + 1;
-                                callstack->m_type = value::valuetype::far_callstack;
-                                callstack->m_ext_farcallstack_bp = callstack->m_vmcallstack.bp;
-                                callstack->m_farcallstack = rt_ip;
-
+                                sp->m_type = value::valuetype::far_callstack;
+                                sp->m_farcallstack = rt_ip;
+                                sp->m_ext_farcallstack_bp = (uint32_t)(sb - bp);
+                                bp = --sp;
                                 wo_assure(interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
+                            }
+                            else
+                            {
+                                sp->m_type = value::valuetype::callstack;
+                                sp->m_vmcallstack.ret_ip = (uint32_t)(rt_ip - near_rtcode_begin);
+                                sp->m_vmcallstack.bp = (uint32_t)(sb - bp);
+                                bp = --sp;
                             }
                             rt_ip = aim_function_addr;
                         }
@@ -2351,7 +2386,7 @@ namespace wo
                     {
                         bp = sb - rt_bp;
 
-                        WO_VM_ASSERT(((bp + 1)->m_type & (~1)) == value::valuetype::callstack,
+                        WO_VM_ASSERT((bp + 1)->m_type == value::valuetype::callstack,
                             "Found broken stack in 'calln'.");
                         value* stored_bp = sb - (++bp)->m_vmcallstack.bp;
                         sp = bp;
@@ -2396,7 +2431,7 @@ namespace wo
                     {
                         bp = sb - rt_bp;
 
-                        WO_VM_ASSERT(((bp + 1)->m_type & (~1)) == value::valuetype::callstack,
+                        WO_VM_ASSERT((bp + 1)->m_type == value::valuetype::callstack,
                             "Found broken stack in 'calln'.");
                         value* stored_bp = sb - (++bp)->m_vmcallstack.bp;
                         sp = bp;
