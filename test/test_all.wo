@@ -12,7 +12,7 @@ import test_defer;
 import test_monad;
 import test_wolisp;
 import test_container;
-// import test_compile;
+import test_compile;
 import test_coroutine;
 import test_hkt;
 import test_exception;
@@ -31,7 +31,7 @@ import test_debug_invoke;
 import test_dup;
 import test_static;
 import test_enum;
-// import test_vm;
+import test_vm;
 import test_thread;
 /*                                       */
 ///////////////////////////////////////////

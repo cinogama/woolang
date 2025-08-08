@@ -3,6 +3,7 @@ import test_tool;
 
 import pkg::vm;
 import pkg::buffer;
+import pkg::thread;
 
 namespace test_vm
 {
@@ -11,10 +12,56 @@ namespace test_vm
         let vmm = vm::create("test_vm/test_tmp_script.wo", src: buffer)->unwrap;
         return vmm;
     }
+    
+    func farcall_wrap_test(jit: bool)
+    {
+        let vmm = load_and_create_vmm(
+            @"
+            import woo::std; 
+            let mut s2 = "Helloworld2"; 
+            func super_depth_foo(f: ()=> string, s: string, n: int)=> void
+            {
+                if (n <= 0)
+                    std::println(s, s2, f());
+                else
+                    super_depth_foo(f, s, n - 1);
+            }
+            
+            func main()
+            {
+                let mut s = "Helloworld"; 
+                return std::farcall::wrap(\f: ()=> string = super_depth_foo(f, s, 10000000););
+            }
+            return main();
+            "@
+            );
+        defer do vmm->close();
 
+        if (jit)
+            do vmm->jit();
+        return vmm->run()->unwrap->unsafe::cast:<(()=>string)=>void>();
+    }
+    
     func main()
     {
-       let vmm = load_and_create_vmm(
+        let wraped_func_a = farcall_wrap_test(true);
+        let wraped_func_b = farcall_wrap_test(false);
+        let th = thread::create(
+            func()
+            {
+                let mut x = "This is";
+                wraped_func_a(\=x;);
+                wraped_func_b(\=x;);
+                x += " a test";
+                std::sleep(40.);
+                x += " for farcall::wrap";
+                wraped_func_a(\=x;);
+                wraped_func_b(\=x;);
+            }
+        );
+        defer do th->wait;
+        
+        let vmm = load_and_create_vmm(
             @"
             import woo::std;
             func main()
@@ -23,11 +70,11 @@ namespace test_vm
             }
             main();
             "@
-        );
-
+            );
+            
         do vmm->run();
         do vmm->close();
-
+        
         // Test memmory leak
         let mut i = 0;
         while (i < 1000)
@@ -50,8 +97,8 @@ namespace test_vm
                 }
                 main();
                 "@
-            );
-
+                );
+                
             do vmm->run();
             do vmm->close();
         }
