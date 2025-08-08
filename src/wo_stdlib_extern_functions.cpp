@@ -62,9 +62,9 @@ WO_API wo_api rslib_std_string_toupper(wo_vm vm, wo_value args)
     auto wstr = wo::u8strtou32(rawstr, len);
 
     for (auto& ch : wstr)
-        ch = wo::u32isu16(ch) 
-            ? static_cast<wo_wchar_t>(towupper(static_cast<wchar_t>(ch))) 
-            : ch;
+        ch = wo::u32isu16(ch)
+        ? static_cast<wo_wchar_t>(towupper(static_cast<wchar_t>(ch)))
+        : ch;
 
     auto result = wo::u32strtou8(wstr.c_str(), wstr.size());
 
@@ -79,9 +79,9 @@ WO_API wo_api rslib_std_string_tolower(wo_vm vm, wo_value args)
     auto wstr = wo::u8strtou32(rawstr, len);
 
     for (auto& ch : wstr)
-        ch = wo::u32isu16(ch) 
-            ? static_cast<wo_wchar_t>(towlower(static_cast<wchar_t>(ch))) 
-            : ch;
+        ch = wo::u32isu16(ch)
+        ? static_cast<wo_wchar_t>(towlower(static_cast<wchar_t>(ch)))
+        : ch;
 
     auto result = wo::u32strtou8(wstr.c_str(), wstr.size());
     return wo_ret_raw_string(vm, result.c_str(), result.size());
@@ -192,7 +192,7 @@ WO_API wo_api rslib_std_string_isoct(wo_vm vm, wo_value args)
 WO_API wo_api rslib_std_char_tostring(wo_vm vm, wo_value args)
 {
     const wo_wchar_t wc = wo_char(args + 0);
-    
+
     size_t len;
     char result[wo::UTF8MAXLEN];
 
@@ -1343,7 +1343,7 @@ WO_API wo_api rslib_std_create_str_by_wchar(wo_vm vm, wo_value args)
     std::vector<wo_wchar_t> buf;
     buf.reserve(arr->m_array->size());
 
-    for (auto& value: *arr->m_array)
+    for (auto& value : *arr->m_array)
         buf.push_back(wo_char(std::launder(reinterpret_cast<wo_value>(&value))));
 
     std::string result = wo::u32strtou8(buf.data(), buf.size());
@@ -1612,6 +1612,64 @@ WO_API wo_api rslib_std_weakref_trylock(wo_vm vm, wo_value args)
     return wo_ret_option_none(vm);
 }
 
+struct far_function_guard
+{
+    wo::value m_func;
+};
+
+WO_API wo_api rslib_std_far_function_create(wo_vm vm, wo_value args)
+{
+    wo::value* func = reinterpret_cast<wo::value*>(args + 0);
+    return wo_ret_gcstruct(
+        vm,
+        new far_function_guard{ *func },
+        [](wo_gc_work_context_t ctx, wo_ptr_t p)
+        {
+            far_function_guard* g = reinterpret_cast<far_function_guard*>(p);
+
+            void* min_env;
+            switch (g->m_func.m_type)
+            {
+            case wo::value::valuetype::native_func_type:
+                min_env = wo::runtime_env::gc_fetch_min_env_runtime_by_native_func(
+                    g->m_func.m_native_func);
+                break;
+            case wo::value::valuetype::script_func_type:
+                min_env = wo::runtime_env::gc_fetch_min_env_runtime_by_script_func(
+                    g->m_func.m_script_func);
+                break;
+            case wo::value::valuetype::closure_type:
+                wo_gc_mark(ctx, reinterpret_cast<wo_value>(&g->m_func));
+                if (g->m_func.m_closure->m_native_call)
+                    min_env = wo::runtime_env::gc_fetch_min_env_runtime_by_native_func(
+                        g->m_func.m_closure->m_native_func);
+                else
+                    min_env = wo::runtime_env::gc_fetch_min_env_runtime_by_script_func(
+                        g->m_func.m_closure->m_vm_func);
+                break;
+            default:
+                min_env = nullptr;
+                break;
+            }
+
+            if (min_env != nullptr)
+                wo_gc_mark_unit(ctx, min_env);
+        },
+        [](wo_ptr_t p)
+        {
+            delete reinterpret_cast<far_function_guard*>(p);
+        });
+}
+WO_API wo_api rslib_std_far_function_get(wo_vm vm, wo_value args)
+{
+    wo_gcunit_lock_shared(args + 0);
+
+    far_function_guard* g = 
+        reinterpret_cast<far_function_guard*>(wo_pointer(args + 0));
+
+    return wo_ret_val(vm, reinterpret_cast<wo_value>(&g->m_func));
+}
+
 #if defined(__APPLE__) && defined(__MACH__)
 #   include <TargetConditionals.h>
 #endif
@@ -1742,6 +1800,7 @@ namespace std
         public let is_same<A, B> = typeid:<A> == typeid:<B> && typeid:<A> != 0;
         public let is_mutable<A> = is_same:<A, mut A>;
         public let is_invocable<F, ArgTs> = typeid:<typeof(declval:<F>()(declval:<ArgTs>()...))> != 0;
+        public let is_function<F> = is_invocable:<F, array<nothing>>;
         public let is_iterator<T> = typeid:<typeof(declval:<iterator_result_t<T>>())> != 0;
         public let is_iterable<T> = 
             typeid:<typeof(declval:<T>()->iter)> != 0 && is_iterator:<typeof(declval:<T>()->iter)>;
@@ -1772,12 +1831,50 @@ namespace std
     public using weakref<T> = gchandle
     {
         extern("rslib_std_weakref_create")
-        public func create<T>(val: T)=> weakref<T>;
+            public func create<T>(val: T)=> weakref<T>;
         extern("rslib_std_weakref_trylock")
-        public func get<T>(self: weakref<T>)=> option<T>;
+            public func get<T>(self: weakref<T>)=> option<T>;
         public func close<T>(self: weakref<T>)=> bool
         {
             return self: gchandle->close;
+        }
+    }
+    public using farcall<FT> = gchandle
+    {
+        extern("rslib_std_far_function_create")
+            public func create<FT>(val: FT)=> farcall<FT>
+                where type_traits::is_function:<FT>;
+        extern("rslib_std_far_function_get")
+            public func get<FT>(self: farcall<FT>)=> FT;
+        public func close<FT>(self: farcall<FT>)=> bool
+        {
+            return self: gchandle->close;
+        }
+
+        let decltuple<N: int> = 
+            N <= 0 
+                ? std::declval:<()>
+                | std::declval:<typeof((std::declval:<nothing>(), decltuple:<{N - 1}>()...))>
+                ;
+        let _declargc<FT, N: int> = 
+            typeid:<typeof(std::declval:<FT>()(decltuple:<{N}>()...))> != 0
+                ? N
+                | _declargc:<FT, {N + 1}>
+                ;
+        let declargc<FT> = _declargc:<FT, {0}>;
+        let declisvariadic<FT> = 
+            typeid:<typeof(std::declval:<FT>()(decltuple:<{declargc:<FT> + 1}>()...))> != 0;
+        public func wrap<FT>(val: FT)=> FT
+            where type_traits::is_function:<FT>;
+        {
+            let f = create(val);
+            return 
+                func(...)
+                {
+                    if (!declisvariadic:<FT>)
+                        do unsafe::swap_argc(declargc:<FT>);
+                    return f->get()(......);
+                }->unsafe::cast:<FT>;
         }
     }
     public using mutable<T> = struct {
@@ -3406,6 +3503,8 @@ namespace wo
             {"rslib_std_debug_disattach_default_debuggee", (void*)&rslib_std_debug_disattach_default_debuggee},
             {"rslib_std_debug_invoke",(void*)&rslib_std_debug_invoke},
             {"rslib_std_equal_byte", (void*)&rslib_std_equal_byte},
+            {"rslib_std_far_function_create", (void*)&rslib_std_far_function_create},
+            {"rslib_std_far_function_get", (void*)&rslib_std_far_function_get},
             {"rslib_std_gchandle_close", (void*)&rslib_std_gchandle_close},
             {"rslib_std_get_args", (void*)&rslib_std_get_args},
             {"rslib_std_get_ascii_val_from_str", (void*)&rslib_std_get_ascii_val_from_str},

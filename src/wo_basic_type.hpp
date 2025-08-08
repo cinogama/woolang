@@ -231,7 +231,7 @@ namespace wo
 
         value* set_dup(value * from);
 
-        static void write_barrier(const value * val)
+        WO_FORCE_INLINE static void write_barrier(const value * val)
         {
             gc::unit_attrib* attr;
             if (auto* unit = val->get_gcunit_and_attrib_ref(&attr))

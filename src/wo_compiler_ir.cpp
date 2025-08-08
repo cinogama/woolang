@@ -76,6 +76,7 @@ namespace wo
         env->m_min_runtime_env->m_runtime_code_begin = env->rt_codes;
         env->m_min_runtime_env->m_runtime_code_end = env->rt_codes + env->rt_code_len;
         env->m_min_runtime_env->m_static_storage_edge = env->constant_and_global_storage;
+        env->m_min_runtime_env->m_constant_count = env->constant_value_count;
         env->m_min_runtime_env->m_native_holder->m_ext_code_holder = env->loaded_libraries;
 
         for (auto& [addr, _] : env->extern_native_functions)

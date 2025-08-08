@@ -671,6 +671,7 @@ WO_API void wo_gcunit_unlock_shared(wo_value gc_reference_object);
 // If overwriting a wo_value_storage in gcstruct, wo_gc_record_memory
 //  must be executed before the operation.
 WO_API void wo_gc_mark(wo_gc_work_context_t context, wo_value value_to_mark);
+WO_API void wo_gc_mark_unit(wo_gc_work_context_t context, void* unitaddr);
 
 WO_API void wo_gc_checkpoint(wo_vm vm);
 WO_API void wo_gc_record_memory(wo_value val);
