@@ -183,12 +183,7 @@ namespace wo
 
         std::atomic_bool _gc_pause = false;
 
-        struct _wo_gray_unit_list_t
-        {
-            std::forward_list<std::pair<gcbase*, gc::unit_attrib*>> m_unit_list;
-            std::unordered_set<wo_native_func_t> m_native_function_list;
-            std::unordered_set<const byte_t*> m_script_function_list;
-        };
+        using _wo_gray_unit_list_t = std::forward_list<std::pair<gcbase*, gc::unit_attrib*>>;
         using _wo_gc_memory_pages_t = std::vector<char*>;
         using _wo_vm_gray_unit_list_map_t = std::unordered_map <vmbase*, _wo_gray_unit_list_t>;
 
@@ -216,25 +211,14 @@ namespace wo
             if (attr->m_marked == (uint8_t)gcbase::gcmarkcolor::no_mark)
             {
                 attr->m_marked = (uint8_t)gcbase::gcmarkcolor::self_mark;
-                worklist->m_unit_list.push_front(std::make_pair(gcunit_addr, attr));
+                worklist->push_front(std::make_pair(gcunit_addr, attr));
             }
         }
-        void gc_mark_value_as_gray(_wo_gray_unit_list_t* worklist, const value* val)
+        WO_FORCE_INLINE void gc_mark_value_as_gray(_wo_gray_unit_list_t* worklist, const value* val)
         {
-            switch (val->m_type)
-            {
-            case wo::value::valuetype::script_func_type:
-                worklist->m_script_function_list.insert(val->m_script_func);
-                break;
-            case wo::value::valuetype::native_func_type:
-                worklist->m_native_function_list.insert(val->m_native_func);
-                break;
-            default:
-                gc::unit_attrib* attr;
-                if (gcbase* gcunit_addr = val->get_gcunit_and_attrib_ref(&attr))
-                    _gc_mark_unit_as_gray(worklist, gcunit_addr, attr);
-                break;
-            }
+            gc::unit_attrib* attr;
+            if (gcbase* gcunit_addr = val->get_gcunit_and_attrib_ref(&attr))
+                _gc_mark_unit_as_gray(worklist, gcunit_addr, attr);
         }
         void gc_mark_unit_as_black(_wo_gray_unit_list_t* worklist, gcbase* unit, gc::unit_attrib* unitattr)
         {
@@ -272,11 +256,6 @@ namespace wo
             {
                 for (uint16_t i = 0; i < wo_closure->m_closure_args_count; ++i)
                     gc_mark_value_as_gray(worklist, &wo_closure->m_closure_args[i]);
-
-                if (wo_closure->m_native_call)
-                    worklist->m_native_function_list.insert(wo_closure->m_native_func);
-                else
-                    worklist->m_script_function_list.insert(wo_closure->m_vm_func);
             }
             else if (structure_t* wo_struct = dynamic_cast<structure_t*>(unit))
             {
@@ -287,46 +266,14 @@ namespace wo
         void gc_mark_all_gray_unit(_wo_gray_unit_list_t* worklist)
         {
             std::forward_list<std::pair<gcbase*, gc::unit_attrib*>> graylist;
-            gc::unit_attrib* min_env_attrib;
-
-            while (!worklist->m_unit_list.empty()
-                || !worklist->m_script_function_list.empty()
-                || !worklist->m_native_function_list.empty())
+            while (!worklist->empty())
             {
                 graylist.clear();
-                graylist.swap(worklist->m_unit_list);
+                graylist.swap(*worklist);
                 for (auto [markingunit, attrib] : graylist)
                 {
                     gc_mark_unit_as_black(worklist, markingunit, attrib);
                 }
-                for (auto script_func : worklist->m_script_function_list)
-                {
-                    auto* min_env = runtime_env::gc_fetch_min_env_runtime_by_script_func(script_func);
-                    if (gcbase* min_env_gcunit_base =
-                        std::launder(
-                            reinterpret_cast<gcbase*>(
-                                womem_verify(min_env,
-                                    std::launder(
-                                        reinterpret_cast<womem_attrib_t**>(&min_env_attrib))))))
-                    {
-                        _gc_mark_unit_as_gray(worklist, min_env_gcunit_base, min_env_attrib);
-                    }
-                }
-                worklist->m_script_function_list.clear();
-                for (auto native_func : worklist->m_native_function_list)
-                {
-                    auto* min_env = runtime_env::gc_fetch_min_env_runtime_by_native_func(native_func);
-                    if (gcbase* min_env_gcunit_base =
-                        std::launder(
-                            reinterpret_cast<gcbase*>(
-                                womem_verify(min_env,
-                                    std::launder(
-                                        reinterpret_cast<womem_attrib_t**>(&min_env_attrib))))))
-                    {
-                        _gc_mark_unit_as_gray(worklist, min_env_gcunit_base, min_env_attrib);
-                    }
-                }
-                worklist->m_native_function_list.clear();
             }
         }
 
@@ -563,10 +510,7 @@ namespace wo
                             auto& worker_gray_list = _gc_gray_unit_lists[worker_id_counter++ % _gc_work_thread_count];
 
                             // Merge!
-                            worker_gray_list.m_unit_list.splice_after(
-                                worker_gray_list.m_unit_list.cbefore_begin(), gray_list.m_unit_list);
-                            worker_gray_list.m_native_function_list.merge(gray_list.m_native_function_list);
-                            worker_gray_list.m_script_function_list.merge(gray_list.m_script_function_list);
+                            worker_gray_list.splice_after(worker_gray_list.cbefore_begin(), gray_list);
                         }
                     }
 
@@ -598,26 +542,8 @@ namespace wo
                     if (memo_units == nullptr)
                         break;
 
-                    while (memo_units)
-                    {
-                        auto* cur_unit = memo_units;
-                        memo_units = memo_units->last;
-
-                        switch (cur_unit->type)
-                        {
-                        case wo::gc::memo_unit::memo_type::SCRIPT_FUNC:
-                            mem_gray_list.m_script_function_list.insert(cur_unit->script_func);
-                            break;
-                        case wo::gc::memo_unit::memo_type::NATIVE_FUNC:
-                            mem_gray_list.m_native_function_list.insert(cur_unit->native_func);
-                            break;
-                        default:
-                            wo_assert(cur_unit->type == wo::gc::memo_unit::memo_type::GCUNIT);
-                            _gc_mark_unit_as_gray(&mem_gray_list, cur_unit->gcunit, cur_unit->gcunit_attr);
-                            break;
-                        }
-                        delete cur_unit;
-                    }
+                    _gc_mark_unit_as_gray(
+                        &mem_gray_list, memo_units->gcunit, memo_units->gcunit_attr);
                 }
                 gc_mark_all_gray_unit(&mem_gray_list);
 

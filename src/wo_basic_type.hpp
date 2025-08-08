@@ -233,34 +233,12 @@ namespace wo
 
         static void write_barrier(const value * val)
         {
-            gc::memo_unit* memo = nullptr;
-
-            switch (val->m_type)
+            gc::unit_attrib* attr;
+            if (auto* unit = val->get_gcunit_and_attrib_ref(&attr))
             {
-            case wo::value::valuetype::script_func_type:
-                memo = new gc::memo_unit();
-                memo->type = gc::memo_unit::memo_type::SCRIPT_FUNC;
-                memo->script_func = val->m_script_func;
-                break;
-            case wo::value::valuetype::native_func_type:
-                memo = new gc::memo_unit();
-                memo->type = gc::memo_unit::memo_type::NATIVE_FUNC;
-                memo->native_func = val->m_native_func;
-                break;
-            default:
-                gc::unit_attrib* attr;
-                if (auto* unit = val->get_gcunit_and_attrib_ref(&attr))
-                {
-                    if (attr->m_marked == (uint8_t)gcbase::gcmarkcolor::no_mark)
-                    {
-                        memo = new gc::memo_unit();
-                        memo->gcunit = unit;
-                        memo->gcunit_attr = attr;
-                    }
-                }
+                if (attr->m_marked == (uint8_t)gcbase::gcmarkcolor::no_mark)
+                    gc::m_memo_mark_gray_list.add_one(new gc::memo_unit{ unit, attr });
             }
-            if (memo != nullptr)
-                gc::m_memo_mark_gray_list.add_one(memo);
         }
 
         // Used for storing key-value when deserilizing a map.

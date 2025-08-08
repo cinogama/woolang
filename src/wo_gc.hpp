@@ -53,23 +53,9 @@ namespace wo
 
         struct memo_unit
         {
-            enum class memo_type : uint8_t
-            {
-                GCUNIT,
-                SCRIPT_FUNC,
-                NATIVE_FUNC,
-            };
-            memo_type type;
-            union
-            {
-                struct
-                {
-                    gcbase* gcunit;
-                    unit_attrib* gcunit_attr;
-                };
-                const byte_t* script_func;
-                wo_native_func_t native_func;
-            };
+            gcbase* gcunit;
+            unit_attrib* gcunit_attr;
+
             memo_unit* last;
         };
         using _wo_memory_atomic_list_t = atomic_list<memo_unit>;
