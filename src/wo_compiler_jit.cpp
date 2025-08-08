@@ -376,6 +376,12 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
         {
             m_codes = codebuf;
 
+            auto& update_jit_code_holder = 
+                env->m_min_runtime_env->m_native_holder->m_jit_code_holder;
+
+            // This function should not been jit compiled.
+            wo_assert(update_jit_code_holder.empty());
+
             // 1. for all function, trying to jit compile them:
             for (size_t func_offset : env->meta_data_for_jit._functions_offsets_for_jit)
                 analyze_function(codebuf, func_offset, env);
@@ -386,7 +392,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                 wo_assert(nullptr != stat->m_func);
 
                 wo_assert(stat->m_finished);
-                env->meta_data_for_jit._jit_code_holder[stat->m_func_offset] = stat->m_func;
+                update_jit_code_holder.insert(std::make_pair(stat->m_func_offset, stat->m_func));
 
                 this->free_compiler(stat->_m_ctx);
             }
@@ -486,11 +492,13 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             for (auto& [_, stat] : m_compiling_functions)
                 delete stat;
             m_compiling_functions.clear();
+
+            runtime_env::apply_jit_holder(env);
         }
 
-        static void free_jit(runtime_env* env)
+        static void free_jit(paged_env_min_context* env)
         {
-            for (const auto& [_, holder_jitfp] : env->meta_data_for_jit._jit_code_holder)
+            for (const auto& [_, holder_jitfp] : env->m_native_holder->m_jit_code_holder)
                 wo_assure(!get_jit_runtime().release(holder_jitfp));
         }
         static void _invoke_vm_interrupt(wo::vmbase* vmm, wo::vmbase::vm_interrupt_type type)
@@ -3169,12 +3177,12 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             break;
         }
     }
-    void free_jit(runtime_env* env)
+    void free_jit(paged_env_min_context* min_env)
     {
         switch (platform_info::ARCH_TYPE)
         {
         case platform_info::ArchType::X86 | platform_info::ArchType::BIT64:
-            asmjit_compiler_x64::free_jit(env);
+            asmjit_compiler_x64::free_jit(min_env);
             break;
         default:
             // No JIT support do nothing.
@@ -3190,7 +3198,7 @@ namespace wo
     {
     }
 
-    void free_jit(runtime_env* env)
+    void free_jit(paged_env_min_context* min_env)
     {
     }
         }

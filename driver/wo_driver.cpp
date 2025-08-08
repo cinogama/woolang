@@ -64,7 +64,7 @@ extern func main(f: (()=> string)=> void)
         wo_invoke_value(vm2, &vm2main, 1, nullptr, &s);
 
     wo_pop_stack(vm2, 1);
-    wo_close_vm(vm1);
+    //wo_close_vm(vm1);
     wo_close_vm(vm2);
 #else
     if (argc >= 2)

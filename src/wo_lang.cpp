@@ -1491,7 +1491,7 @@ namespace wo
                     wo_assert(extern_info == static_cast<ast::AstExternInformation*>(eval_function->m_body));
 
                     m_ircontext.c().record_extern_native_function(
-                        (intptr_t)(void*)extern_info->m_IR_externed_function.value(),
+                        extern_info->m_IR_externed_function.value(),
                         *eval_function->source_location.source_file,
                         extern_info->m_extern_from_library.has_value()
                         ? std::optional(*extern_info->m_extern_from_library.value())

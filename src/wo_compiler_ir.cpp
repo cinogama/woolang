@@ -2,21 +2,92 @@
 
 namespace wo
 {
-    runtime_env::paged_env_mapping runtime_env::_paged_env_mapping_context;
+    void cancel_nogc_mark_for_value(const value& val)
+    {
+        switch (val.m_type)
+        {
+        case value::valuetype::struct_type:
+            if (val.m_structure != nullptr)
+            {
+                // Un-completed struct might be created when loading from binary.
+                // unit might be nullptr.
 
-    void runtime_env::register_envs(const runtime_env* env) noexcept
+                for (uint16_t idx = 0; idx < val.m_structure->m_count; ++idx)
+                    cancel_nogc_mark_for_value(val.m_structure->m_values[idx]);
+            }
+            [[fallthrough]];
+        case value::valuetype::string_type:
+        {
+            gc::unit_attrib cancel_nogc;
+            cancel_nogc.m_gc_age = 0;
+            cancel_nogc.m_marked = (uint8_t)gcbase::gcmarkcolor::full_mark;
+            cancel_nogc.m_alloc_mask = 0;
+            cancel_nogc.m_nogc = 0;
+
+            gc::unit_attrib* attrib;
+
+            // NOTE: Constant gcunit is nogc-unit, its safe here to `get_gcunit_and_attrib_ref`.
+            auto* unit = val.get_gcunit_and_attrib_ref(&attrib);
+            if (unit != nullptr)
+            {
+                // Un-completed string might be created when loading from binary.
+                // unit might be nullptr.
+                if (attrib->m_nogc != 0)
+                    attrib->m_attr = cancel_nogc.m_attr;
+            }
+            break;
+        }
+        default:
+            wo_assert(!val.is_gcunit());
+            break;
+        }
+    }
+
+    paged_env_mapping runtime_env::_paged_env_mapping_context;
+    paged_env_min_context::paged_env_min_context()
+        : m_native_holder(new extern_info_holder_t())
+    {
+    }
+    paged_env_min_context::~paged_env_min_context()
+    {
+        runtime_env::_remove_env_from_list(this);
+
+        if (wo::config::ENABLE_JUST_IN_TIME)
+            free_jit(this);
+
+        for (size_t ci = 0; ci < m_constant_count; ++ci)
+            cancel_nogc_mark_for_value(m_static_storage_edge[ci]);
+
+        if (m_static_storage_edge)
+            free(m_static_storage_edge);
+
+        if (m_runtime_code_begin)
+            free(const_cast<byte_t*>(m_runtime_code_begin));
+
+        delete m_native_holder;
+    }
+    void runtime_env::register_envs(runtime_env* env) noexcept
     {
         std::lock_guard g1(_paged_env_mapping_context.m_paged_envs_mx);
+
+        env->m_min_runtime_env =
+            paged_env_mapping::min_env_runtime::gc_new<gcbase::gctype::no_gc>();
+
+        env->m_min_runtime_env->m_runtime_code_begin = env->rt_codes;
+        env->m_min_runtime_env->m_runtime_code_end = env->rt_codes + env->rt_code_len;
+        env->m_min_runtime_env->m_static_storage_edge = env->constant_and_global_storage;
+        env->m_min_runtime_env->m_native_holder->m_ext_code_holder = env->loaded_libraries;
+
+        for (auto& [addr, _] : env->extern_native_functions)
+        {
+            _paged_env_mapping_context.m_gc_quick_native_lookup.insert(
+                std::make_pair(addr, env->m_min_runtime_env));
+        }
 
         auto result = _paged_env_mapping_context.m_paged_envs.insert(
             std::make_pair(
                 reinterpret_cast<intptr_t>(env->rt_codes),
-                paged_env_mapping::paged_env_min_context
-                {
-                    env->rt_codes,
-                    env->rt_codes + env->rt_code_len,
-                    env->constant_and_global_storage,
-                }
+                env->m_min_runtime_env
             ));
         (void)result;
         wo_assert(result.second);
@@ -30,10 +101,37 @@ namespace wo
 
         auto& far_context = (--fnd)->second;
 
-        if (ip >= far_context.m_runtime_code_end)
+        if (ip >= far_context->m_runtime_code_end)
             return false;
 
         return true;
+    }
+    paged_env_mapping::min_env_runtime* runtime_env::gc_fetch_min_env_runtime_by_script_func(
+        const wo::byte_t* func) noexcept
+    {
+        std::shared_lock g1(_paged_env_mapping_context.m_paged_envs_mx);
+        auto fnd = _paged_env_mapping_context.m_paged_envs.upper_bound(reinterpret_cast<intptr_t>(func));
+        if (fnd != _paged_env_mapping_context.m_paged_envs.begin())
+        {
+            return false;
+
+            auto& far_context = (--fnd)->second;
+
+            if (func < far_context->m_runtime_code_end)
+                return far_context;
+        }
+        return nullptr;
+    }
+    paged_env_mapping::min_env_runtime* runtime_env::gc_fetch_min_env_runtime_by_native_func(
+        wo_native_func_t func) noexcept
+    {
+        std::shared_lock g1(_paged_env_mapping_context.m_paged_envs_mx);
+        auto fnd = _paged_env_mapping_context.m_gc_quick_native_lookup.find(func);
+
+        if (fnd != _paged_env_mapping_context.m_gc_quick_native_lookup.end())
+            return fnd->second;
+
+        return nullptr;
     }
     bool runtime_env::resync_far_state(
         const byte_t* ip,
@@ -45,25 +143,74 @@ namespace wo
         auto fnd = _paged_env_mapping_context.m_paged_envs.upper_bound(reinterpret_cast<intptr_t>(ip));
         if (fnd == _paged_env_mapping_context.m_paged_envs.begin())
             return false;
-        
+
         auto& far_context = (--fnd)->second;
 
-        if (ip >= far_context.m_runtime_code_end)
+        if (ip >= far_context->m_runtime_code_end)
             return false;
 
-        *out_runtime_code_begin = far_context.m_runtime_code_begin;
-        *out_runtime_code_end = far_context.m_runtime_code_end;
-        *out_static_storage_edge = far_context.m_static_storage_edge;
+        *out_runtime_code_begin = far_context->m_runtime_code_begin;
+        *out_runtime_code_end = far_context->m_runtime_code_end;
+        *out_static_storage_edge = far_context->m_static_storage_edge;
 
         return true;
 
     }
-    void runtime_env::unregister_envs(const runtime_env* env) noexcept
+    void runtime_env::_remove_env_from_list(
+        paged_env_min_context* min_env) noexcept
     {
         std::lock_guard g1(_paged_env_mapping_context.m_paged_envs_mx);
 
         _paged_env_mapping_context.m_paged_envs.erase(
-            reinterpret_cast<intptr_t>(env->rt_codes));
+            reinterpret_cast<intptr_t>(min_env->m_runtime_code_begin));
+
+        auto iter = _paged_env_mapping_context.m_gc_quick_native_lookup.begin();
+        const auto end = _paged_env_mapping_context.m_gc_quick_native_lookup.end();
+        while (iter != end)
+        {
+            if (static_cast<paged_env_min_context*>(iter->second) == min_env)
+                _paged_env_mapping_context.m_gc_quick_native_lookup.erase(iter++);
+            else
+                ++iter;
+        }
+    }
+    void runtime_env::apply_jit_holder(const runtime_env* env) noexcept
+    {
+        for (auto& [_, addr] : env->m_min_runtime_env->m_native_holder->m_jit_code_holder)
+        {
+            _paged_env_mapping_context.m_gc_quick_native_lookup.insert(
+                std::make_pair(addr, env->m_min_runtime_env));
+        }
+    }
+    void runtime_env::unregister_envs(const runtime_env* env) noexcept
+    {
+        paged_env_mapping::min_env_runtime* min_env;
+
+        do
+        {
+            std::lock_guard g1(_paged_env_mapping_context.m_paged_envs_mx);
+
+            min_env = _paged_env_mapping_context.m_paged_envs.at(
+                reinterpret_cast<intptr_t>(env->rt_codes));
+        } while (0);
+
+        gc::unit_attrib cancel_nogc;
+        cancel_nogc.m_gc_age = 0;
+        cancel_nogc.m_marked = (uint8_t)gcbase::gcmarkcolor::full_mark;
+        cancel_nogc.m_alloc_mask = 0;
+        cancel_nogc.m_nogc = 0;
+
+        gc::unit_attrib* attrib;
+        wo_assure(
+            womem_verify(
+                min_env,
+                std::launder(
+                    reinterpret_cast<womem_attrib_t**>(
+                        &attrib))));
+
+        // Apply.
+        wo_assert(attrib->m_nogc);
+        attrib->m_attr = cancel_nogc.m_attr;
     }
 
 #ifndef WO_DISABLE_COMPILER
@@ -498,62 +645,9 @@ namespace wo
         , _created_destructable_instance_count(0)
     {
     }
-    static void cancel_nogc_mark_for_value(const value& val)
-    {
-        switch (val.m_type)
-        {
-        case value::valuetype::struct_type:
-            if (val.m_structure != nullptr)
-            {
-                // Un-completed struct might be created when loading from binary.
-                // unit might be nullptr.
-
-                for (uint16_t idx = 0; idx < val.m_structure->m_count; ++idx)
-                    cancel_nogc_mark_for_value(val.m_structure->m_values[idx]);
-            }
-            [[fallthrough]];
-        case value::valuetype::string_type:
-        {
-            gc::unit_attrib cancel_nogc;
-            cancel_nogc.m_gc_age = 0;
-            cancel_nogc.m_marked = (uint8_t)gcbase::gcmarkcolor::full_mark;
-            cancel_nogc.m_alloc_mask = 0;
-            cancel_nogc.m_nogc = 0;
-
-            gc::unit_attrib* attrib;
-
-            // NOTE: Constant gcunit is nogc-unit, its safe here to `get_gcunit_and_attrib_ref`.
-            auto* unit = val.get_gcunit_and_attrib_ref(&attrib);
-            if (unit != nullptr)
-            {
-                // Un-completed string might be created when loading from binary.
-                // unit might be nullptr.
-                if (attrib->m_nogc != 0)
-                    attrib->m_attr = cancel_nogc.m_attr;
-            }
-            break;
-        }
-        default:
-            wo_assert(!val.is_gcunit());
-            break;
-        }
-    }
-
     runtime_env::~runtime_env()
     {
         unregister_envs(this);
-
-        if (wo::config::ENABLE_JUST_IN_TIME)
-            free_jit(this);
-
-        for (size_t ci = 0; ci < constant_value_count; ++ci)
-            cancel_nogc_mark_for_value(constant_and_global_storage[ci]);
-
-        if (constant_and_global_storage)
-            free(constant_and_global_storage);
-
-        if (rt_codes)
-            free((byte_t*)rt_codes);
     }
 
     std::tuple<void*, size_t> runtime_env::create_env_binary(bool savepdi) noexcept
@@ -1402,7 +1496,7 @@ namespace wo
                 WO_LOAD_BIN_FAILED("Failed to restore native function, might be changed?");
             }
 
-            auto& extern_native_function_info = result->extern_native_functions[(intptr_t)func];
+            auto& extern_native_function_info = result->extern_native_functions[func];
             extern_native_function_info.function_name = function_name;
 
             if (library_name == "")
@@ -1732,8 +1826,10 @@ namespace wo
         const ptrdiff_t diff = script_func - rt_codes;
         if (diff > 0)
         {
-            auto fnd = meta_data_for_jit._jit_code_holder.find(static_cast<size_t>(diff));
-            if (fnd != meta_data_for_jit._jit_code_holder.end())
+            auto& jit_holder = m_min_runtime_env->m_native_holder->m_jit_code_holder;
+
+            auto fnd = jit_holder.find(static_cast<size_t>(diff));
+            if (fnd != jit_holder.end())
             {
                 *out_jit_func = fnd->second;
                 return true;
@@ -1827,12 +1923,9 @@ namespace wo
                     if (function_instance->m_IR_extern_information.has_value())
                     {
                         auto& extern_info = function_instance->m_IR_extern_information.value();
-                        intptr_t extern_function_addr =
-                            reinterpret_cast<intptr_t>(
-                                extern_info->m_IR_externed_function.value());
+                        auto extern_function_addr = extern_info->m_IR_externed_function.value();
 
-                        out_value.set_handle(
-                            static_cast<wo_handle_t>(extern_function_addr));
+                        out_value.set_native_func(extern_function_addr);
 
                         extern_native_functions.at(
                             extern_function_addr).offset_and_tuple_index_in_constant.emplace_back(
@@ -1864,10 +1957,8 @@ namespace wo
 
                 out_value.set_native_func(extern_function_addr);
 
-                extern_native_functions.at(
-                    reinterpret_cast<intptr_t>(
-                        extern_function_addr)).offset_in_constant.push_back(
-                        this_constant_index);
+                extern_native_functions.at(extern_function_addr).offset_in_constant.push_back(
+                    this_constant_index);
             }
             else
             {
@@ -2479,10 +2570,10 @@ namespace wo
                         generated_runtime_code_buf.push_back(0x00);
                         generated_runtime_code_buf.push_back(0x00);
                     }
-                    else 
+                    else
                     {
                         wo_assert(WO_IR.op1 != nullptr);
-                        const intptr_t addr = reinterpret_cast<intptr_t>(WO_IR.op1);
+                        wo_native_func_t addr = reinterpret_cast<wo_native_func_t>(WO_IR.op1);
 
                         wo_assert(!extern_native_functions.at(addr).function_name.empty());
                         extern_native_functions.at(
@@ -2504,7 +2595,7 @@ namespace wo
                         generated_runtime_code_buf.push_back(readptr[6]);
                         generated_runtime_code_buf.push_back(readptr[7]);
                     }
-                   
+
                     break;
                 case instruct::opcode::ret:
                     if (WO_IR.opinteger1)

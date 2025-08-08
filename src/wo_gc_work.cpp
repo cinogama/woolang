@@ -183,7 +183,12 @@ namespace wo
 
         std::atomic_bool _gc_pause = false;
 
-        using _wo_gray_unit_list_t = std::forward_list<std::pair<gcbase*, gc::unit_attrib*>>;
+        struct _wo_gray_unit_list_t
+        {
+            std::forward_list<std::pair<gcbase*, gc::unit_attrib*>> m_unit_list;
+            std::unordered_set<wo_native_func_t> m_native_function_list;
+            std::unordered_set<const byte_t*> m_script_function_list;
+        };
         using _wo_gc_memory_pages_t = std::vector<char*>;
         using _wo_vm_gray_unit_list_map_t = std::unordered_map <vmbase*, _wo_gray_unit_list_t>;
 
@@ -192,7 +197,7 @@ namespace wo
         _wo_vm_gray_unit_list_map_t _gc_vm_gray_unit_lists;
 
         bool _gc_stopping_world_gc = WO_GC_FORCE_STOP_WORLD;
-        bool _gc_advise_to_full_gc = WO_GC_FORCE_FULL_GC;     
+        bool _gc_advise_to_full_gc = WO_GC_FORCE_FULL_GC;
 
         vmbase* _get_next_mark_vm(vmbase::vm_type* out_vm_type)
         {
@@ -205,12 +210,30 @@ namespace wo
 
             return nullptr;
         }
-        void gc_mark_unit_as_gray(_wo_gray_unit_list_t* worklist, gcbase* unitvalue, gc::unit_attrib* attr)
+        WO_FORCE_INLINE void _gc_mark_unit_as_gray(
+            _wo_gray_unit_list_t* worklist, gcbase* gcunit_addr, gc::unit_attrib* attr)
         {
             if (attr->m_marked == (uint8_t)gcbase::gcmarkcolor::no_mark)
             {
                 attr->m_marked = (uint8_t)gcbase::gcmarkcolor::self_mark;
-                worklist->push_front(std::make_pair(unitvalue, attr));
+                worklist->m_unit_list.push_front(std::make_pair(gcunit_addr, attr));
+            }
+        }
+        void gc_mark_value_as_gray(_wo_gray_unit_list_t* worklist, const value* val)
+        {
+            switch (val->m_type)
+            {
+            case wo::value::valuetype::script_func_type:
+                worklist->m_script_function_list.insert(val->m_script_func);
+                break;
+            case wo::value::valuetype::native_func_type:
+                worklist->m_native_function_list.insert(val->m_native_func);
+                break;
+            default:
+                gc::unit_attrib* attr;
+                if (gcbase* gcunit_addr = val->get_gcunit_and_attrib_ref(&attr))
+                    _gc_mark_unit_as_gray(worklist, gcunit_addr, attr);
+                break;
             }
         }
         void gc_mark_unit_as_black(_wo_gray_unit_list_t* worklist, gcbase* unit, gc::unit_attrib* unitattr)
@@ -226,25 +249,18 @@ namespace wo
 
             unitattr->m_marked = (uint8_t)gcbase::gcmarkcolor::full_mark;
 
-            gc::unit_attrib* attr;
-
             wo::gcbase::gc_mark_read_guard g1(unit);
             if (array_t* wo_arr = dynamic_cast<array_t*>(unit))
             {
                 for (auto& val : *wo_arr)
-                {
-                    if (gcbase* gcunit_addr = val.get_gcunit_and_attrib_ref(&attr))
-                        gc_mark_unit_as_gray(worklist, gcunit_addr, attr);
-                }
+                    gc_mark_value_as_gray(worklist, &val);
             }
             else if (dictionary_t* wo_map = dynamic_cast<dictionary_t*>(unit))
             {
                 for (auto& [key, val] : *wo_map)
                 {
-                    if (gcbase* gcunit_addr = key.get_gcunit_and_attrib_ref(&attr))
-                        gc_mark_unit_as_gray(worklist, gcunit_addr, attr);
-                    if (gcbase* gcunit_addr = val.get_gcunit_and_attrib_ref(&attr))
-                        gc_mark_unit_as_gray(worklist, gcunit_addr, attr);
+                    gc_mark_value_as_gray(worklist, &key);
+                    gc_mark_value_as_gray(worklist, &val);
                 }
             }
             else if (gchandle_t* wo_gchandle = dynamic_cast<gchandle_t*>(unit))
@@ -255,27 +271,62 @@ namespace wo
             else if (closure_t* wo_closure = dynamic_cast<closure_t*>(unit))
             {
                 for (uint16_t i = 0; i < wo_closure->m_closure_args_count; ++i)
-                    if (gcbase* gcunit_addr = wo_closure->m_closure_args[i].get_gcunit_and_attrib_ref(&attr))
-                        gc_mark_unit_as_gray(worklist, gcunit_addr, attr);
+                    gc_mark_value_as_gray(worklist, &wo_closure->m_closure_args[i]);
+
+                if (wo_closure->m_native_call)
+                    worklist->m_native_function_list.insert(wo_closure->m_native_func);
+                else
+                    worklist->m_script_function_list.insert(wo_closure->m_vm_func);
             }
             else if (structure_t* wo_struct = dynamic_cast<structure_t*>(unit))
             {
                 for (uint16_t i = 0; i < wo_struct->m_count; ++i)
-                    if (gcbase* gcunit_addr = wo_struct->m_values[i].get_gcunit_and_attrib_ref(&attr))
-                        gc_mark_unit_as_gray(worklist, gcunit_addr, attr);
+                    gc_mark_value_as_gray(worklist, &wo_struct->m_values[i]);
             }
         }
         void gc_mark_all_gray_unit(_wo_gray_unit_list_t* worklist)
         {
-            _wo_gray_unit_list_t graylist;
-            while (!worklist->empty())
+            std::forward_list<std::pair<gcbase*, gc::unit_attrib*>> graylist;
+            gc::unit_attrib* min_env_attrib;
+
+            while (!worklist->m_unit_list.empty()
+                || !worklist->m_script_function_list.empty()
+                || !worklist->m_native_function_list.empty())
             {
                 graylist.clear();
-                graylist.swap(*worklist);
+                graylist.swap(worklist->m_unit_list);
                 for (auto [markingunit, attrib] : graylist)
                 {
                     gc_mark_unit_as_black(worklist, markingunit, attrib);
                 }
+                for (auto script_func : worklist->m_script_function_list)
+                {
+                    auto* min_env = runtime_env::gc_fetch_min_env_runtime_by_script_func(script_func);
+                    if (gcbase* min_env_gcunit_base =
+                        std::launder(
+                            reinterpret_cast<gcbase*>(
+                                womem_verify(min_env,
+                                    std::launder(
+                                        reinterpret_cast<womem_attrib_t**>(&min_env_attrib))))))
+                    {
+                        _gc_mark_unit_as_gray(worklist, min_env_gcunit_base, min_env_attrib);
+                    }
+                }
+                worklist->m_script_function_list.clear();
+                for (auto native_func : worklist->m_native_function_list)
+                {
+                    auto* min_env = runtime_env::gc_fetch_min_env_runtime_by_native_func(native_func);
+                    if (gcbase* min_env_gcunit_base =
+                        std::launder(
+                            reinterpret_cast<gcbase*>(
+                                womem_verify(min_env,
+                                    std::launder(
+                                        reinterpret_cast<womem_attrib_t**>(&min_env_attrib))))))
+                    {
+                        _gc_mark_unit_as_gray(worklist, min_env_gcunit_base, min_env_attrib);
+                    }
+                }
+                worklist->m_native_function_list.clear();
             }
         }
 
@@ -333,7 +384,7 @@ namespace wo
                 do
                 {
                     // Lock alive vm list, block new vm create.
-                    wo::assure_leave_this_thread_vm_shared_lock sg1(vmbase::_alive_vm_list_mx); 
+                    wo::assure_leave_this_thread_vm_shared_lock sg1(vmbase::_alive_vm_list_mx);
                     _gc_round_count++;
 
                     // Ignore old memo, they are useless.
@@ -439,11 +490,7 @@ namespace wo
                         std::lock_guard g1(pin::_pin_value_list_mx);
 
                         for (auto* pin_value : pin::_pin_value_list)
-                        {
-                            gc::unit_attrib* attr;
-                            if (gcbase* gcunit_address = pin_value->get_gcunit_and_attrib_ref(&attr))
-                                gc_mark_unit_as_gray(&mem_gray_list, gcunit_address, attr);
-                        }
+                            gc_mark_value_as_gray(&mem_gray_list, pin_value);
 
                     } while (false);
 
@@ -516,7 +563,10 @@ namespace wo
                             auto& worker_gray_list = _gc_gray_unit_lists[worker_id_counter++ % _gc_work_thread_count];
 
                             // Merge!
-                            worker_gray_list.splice_after(worker_gray_list.cbefore_begin(), gray_list);
+                            worker_gray_list.m_unit_list.splice_after(
+                                worker_gray_list.m_unit_list.cbefore_begin(), gray_list.m_unit_list);
+                            worker_gray_list.m_native_function_list.merge(gray_list.m_native_function_list);
+                            worker_gray_list.m_script_function_list.merge(gray_list.m_script_function_list);
                         }
                     }
 
@@ -553,7 +603,19 @@ namespace wo
                         auto* cur_unit = memo_units;
                         memo_units = memo_units->last;
 
-                        gc_mark_unit_as_gray(&mem_gray_list, cur_unit->gcunit, cur_unit->gcunit_attr);
+                        switch (cur_unit->type)
+                        {
+                        case wo::gc::memo_unit::memo_type::SCRIPT_FUNC:
+                            mem_gray_list.m_script_function_list.insert(cur_unit->script_func);
+                            break;
+                        case wo::gc::memo_unit::memo_type::NATIVE_FUNC:
+                            mem_gray_list.m_native_function_list.insert(cur_unit->native_func);
+                            break;
+                        default:
+                            wo_assert(cur_unit->type == wo::gc::memo_unit::memo_type::GCUNIT);
+                            _gc_mark_unit_as_gray(&mem_gray_list, cur_unit->gcunit, cur_unit->gcunit_attr);
+                            break;
+                        }
                         delete cur_unit;
                     }
                 }
@@ -741,11 +803,7 @@ namespace wo
                                         cgr_index++)
                                     {
                                         auto* global_val = global_and_const_values + cgr_index;
-
-                                        gc::unit_attrib* attr;
-                                        gcbase* gcunit_address = global_val->get_gcunit_and_attrib_ref(&attr);
-                                        if (gcunit_address)
-                                            gc_mark_unit_as_gray(&_gc_gray_unit_lists[worker_id], gcunit_address, attr);
+                                        gc_mark_value_as_gray(&_gc_gray_unit_lists[worker_id], global_val);
                                     }
                                 }
                             }
@@ -798,7 +856,7 @@ namespace wo
                                 if (unit != nullptr)
                                 {
                                     if (attr->m_marked == (uint8_t)gcbase::gcmarkcolor::no_mark
-                                        && attr->m_gc_age != 0
+                                        // && attr->m_gc_age != 0
                                         && (attr->m_attr & alloc_dur_current_gc_attrib_mask.m_attr) != alloc_dur_current_gc_attrib.m_attr
                                         && attr->m_nogc == 0)
                                     {
@@ -812,7 +870,7 @@ namespace wo
                                         wo_assert(attr->m_marked != (uint8_t)gcbase::gcmarkcolor::self_mark);
                                         attr->m_marked = (uint8_t)gcbase::gcmarkcolor::no_mark;
 
-                                        if (attr->m_gc_age >= 0)
+                                        if (attr->m_gc_age > 0)
                                             --attr->m_gc_age;
                                     }
                                 }
@@ -956,12 +1014,7 @@ namespace wo
                 reg_index++)
             {
                 auto self_reg_walker = marking_vm->register_storage + reg_index;
-
-                gc::unit_attrib* attr;
-                gcbase* gcunit_address = self_reg_walker->get_gcunit_and_attrib_ref(&attr);
-                if (gcunit_address)
-                    gc_mark_unit_as_gray(worklist, gcunit_address, attr);
-
+                gc_mark_value_as_gray(worklist, self_reg_walker);
             }
 
             // walk thorgh stack.
@@ -970,11 +1023,7 @@ namespace wo
                 stack_walker--)
             {
                 auto stack_val = stack_walker;
-
-                gc::unit_attrib* attr;
-                gcbase* gcunit_address = stack_val->get_gcunit_and_attrib_ref(&attr);
-                if (gcunit_address)
-                    gc_mark_unit_as_gray(worklist, gcunit_address, attr);
+                gc_mark_value_as_gray(worklist, stack_val);
             }
 
             // Check if vm's stack-usage-rate is lower then 1/4:
@@ -1074,7 +1123,9 @@ namespace wo
                                 std::launder(
                                     reinterpret_cast<womem_attrib_t**>(&guard_val_attr))))))
                 {
-                    gc::gc_mark_unit_as_gray(
+                    // If a GCHandle holds a native/script function, there will actually be no impact 
+                    // even if it's not marked, because the function cannot be retrieved from the GCHandle.
+                    gc::_gc_mark_unit_as_gray(
                         std::launder(reinterpret_cast<gc::_wo_gray_unit_list_t*>(context)),
                         guard_gcunit_addr,
                         guard_val_attr);
@@ -1163,10 +1214,8 @@ void wo_gc_immediately(wo_bool_t fullgc)
 }
 void wo_gc_mark(wo_gc_work_context_t context, wo_value gc_reference_object)
 {
-    wo::value* val = std::launder(reinterpret_cast<wo::value*>(gc_reference_object));
     auto* worklist = std::launder(reinterpret_cast<wo::gc::_wo_gray_unit_list_t*>(context));
+    wo::value* val = std::launder(reinterpret_cast<wo::value*>(gc_reference_object));
 
-    wo::gc::unit_attrib* attr;
-    if (wo::gcbase* gcunit_addr = val->get_gcunit_and_attrib_ref(&attr))
-        wo::gc::gc_mark_unit_as_gray(worklist, gcunit_addr, attr);
+    wo::gc::gc_mark_value_as_gray(worklist, val);
 }

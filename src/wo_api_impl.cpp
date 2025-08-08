@@ -3270,8 +3270,6 @@ wo_bool_t wo_jit(wo_vm vm)
     if (wo::config::ENABLE_JUST_IN_TIME)
     {
         // NOTE: other operation for vm must happend after init(wo_run).
-        wo_assert(WO_VM(vm)->env->meta_data_for_jit._jit_code_holder.empty());
-
         analyze_jit(const_cast<wo::byte_t*>(WO_VM(vm)->env->rt_codes), WO_VM(vm)->env);
         return WO_TRUE;
     }
@@ -4450,13 +4448,14 @@ void wo_ir_immu64(wo_ir_compiler compiler, uint64_t val)
 }
 
 void wo_ir_register_extern_function(
-    wo_ir_compiler compiler, wo_native_func_t extern_func,
+    wo_ir_compiler compiler, 
+    wo_native_func_t extern_func,
     wo_string_t script_path,
     wo_string_t library_name_may_null,
     wo_string_t function_name)
 {
     auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
-    c->record_extern_native_function((intptr_t)extern_func,
+    c->record_extern_native_function(extern_func,
         script_path,
         library_name_may_null == nullptr ? std::nullopt : std::optional(library_name_may_null),
         function_name);

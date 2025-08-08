@@ -31,7 +31,6 @@ namespace wo
         bool operator()(const value* lhs, const value* rhs) const;
     };
 
-    using byte_t = uint8_t;
     using hash_t = uint64_t;
 
     struct gchandle_base_t;
@@ -65,7 +64,7 @@ namespace wo
             script_func_type = WO_SCRIPT_FUNC_TYPE,
             native_func_type = WO_NATIVE_FUNC_TYPE,
 
-            callstack = WO_CALLSTACK_TYPE, 
+            callstack = WO_CALLSTACK_TYPE,
             far_callstack = WO_FAR_CALLSTACK_TYPE,
             nativecallstack = WO_NATIVE_CALLSTACK_TYPE,
 
@@ -131,7 +130,7 @@ namespace wo
         value* set_string_nogc(std::string_view str);
         value* set_struct_nogc(uint16_t sz);
         value* set_val_with_compile_time_check(const value * val);
-        WO_FORCE_INLINE value* set_script_func(const byte_t* val)
+        WO_FORCE_INLINE value* set_script_func(const byte_t * val)
         {
             m_type = valuetype::script_func_type;
             m_script_func = val;
@@ -229,18 +228,39 @@ namespace wo
             return this;
         }
         std::string get_type_name() const;
+
         value* set_dup(value * from);
-        WO_FORCE_INLINE static void write_barrier(const value* val)
+
+        static void write_barrier(const value * val)
         {
-            gc::unit_attrib* attr;
-            if (auto* mem = val->get_gcunit_and_attrib_ref(&attr))
+            gc::memo_unit* memo = nullptr;
+
+            switch (val->m_type)
             {
-                if (attr->m_marked == (uint8_t)gcbase::gcmarkcolor::no_mark)
+            case wo::value::valuetype::script_func_type:
+                memo = new gc::memo_unit();
+                memo->type = gc::memo_unit::memo_type::SCRIPT_FUNC;
+                memo->script_func = val->m_script_func;
+                break;
+            case wo::value::valuetype::native_func_type:
+                memo = new gc::memo_unit();
+                memo->type = gc::memo_unit::memo_type::NATIVE_FUNC;
+                memo->native_func = val->m_native_func;
+                break;
+            default:
+                gc::unit_attrib* attr;
+                if (auto* unit = val->get_gcunit_and_attrib_ref(&attr))
                 {
-                    gc::m_memo_mark_gray_list.add_one(
-                        new gc::memo_unit{ mem, attr });
+                    if (attr->m_marked == (uint8_t)gcbase::gcmarkcolor::no_mark)
+                    {
+                        memo = new gc::memo_unit();
+                        memo->gcunit = unit;
+                        memo->gcunit_attr = attr;
+                    }
                 }
             }
+            if (memo != nullptr)
+                gc::m_memo_mark_gray_list.add_one(memo);
         }
 
         // Used for storing key-value when deserilizing a map.
