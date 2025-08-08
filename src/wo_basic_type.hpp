@@ -103,9 +103,12 @@ namespace wo
             const byte_t* m_nativecallstack;
             uint64_t m_value_field;
         };
-        union
+        struct
         {
             valuetype m_type;
+
+            // Value field is not engough for storing bp.
+            uint32_t m_ext_farcallstack_bp;
         };
 
         WO_FORCE_INLINE value* set_takeplace()

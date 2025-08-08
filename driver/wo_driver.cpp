@@ -17,7 +17,7 @@ int main(int argc, char** argv)
     wo_value f = wo_run(vm1);
 
     wo_vm vm2 = wo_create_vm();
-    wo_load_source(vm2, "/vm2.wo", R"(import woo::std; extern func main(f: ()=> void){f(); std::println("wtf");})");
+    wo_load_source(vm2, "/vm2.wo", R"(import woo::std; extern func main(f: ()=> void){let mut x = 128; f(); std::println("wtf", x);})");
     // wo_jit(vm2);
     wo_run(vm2);
 
