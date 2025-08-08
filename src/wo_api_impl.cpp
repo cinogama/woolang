@@ -633,7 +633,7 @@ void wo_init(int argc, char** argv)
 #define CS_VAL(v) (reinterpret_cast<wo_value>(v))
 #define CS_VM(v) (reinterpret_cast<wo_vm>(v))
 #define WO_API_STATE_OF_VM(v) (\
-    v->stack_need_tobe_update ? (v->stack_need_tobe_update = false, WO_API_RESYNC):WO_API_NORMAL)
+    v->extern_state_stack_update ? (v->extern_state_stack_update = false, WO_API_RESYNC):WO_API_NORMAL)
 
 struct _wo_reserved_stack_args_update_guard
 {
@@ -689,7 +689,7 @@ struct _wo_reserved_stack_args_update_guard
             if (m_vm->bp != m_vm->sb)
             {
                 auto* current_call_base = m_vm->bp + 1;
-                m_vm->stack_need_tobe_update = true;
+                m_vm->extern_state_stack_update = true;
             }
         }
     }
@@ -3094,7 +3094,7 @@ wo_value wo_reserve_stack(wo_vm vm, wo_size_t stack_sz, wo_value* inout_args_may
             if (current_call_base->m_type == wo::value::valuetype::callstack
                 || current_call_base->m_type == wo::value::valuetype::nativecallstack)
             {
-                vmbase->stack_need_tobe_update = true;
+                vmbase->extern_state_stack_update = true;
             }
         }
     }

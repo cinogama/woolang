@@ -87,7 +87,7 @@ namespace wo
         }
     };
 
-    class assure_leave_this_thread_vm_shared_mutex: private std::shared_mutex
+    class assure_leave_this_thread_vm_shared_mutex : private std::shared_mutex
     {
         // ATTENTION: GC Thread will check if vm is received GC_INTERRUPT while locking
         //  this mutex, so, all vm in this thread must be LEAVED before lock this mutex.
@@ -302,8 +302,6 @@ namespace wo
         value* bp;
         value* sb;
 
-        bool stack_need_tobe_update;
-
         value* stack_storage;
         size_t stack_size;
 
@@ -321,14 +319,25 @@ namespace wo
         // next ircode pointer
         const byte_t* ip;
         shared_pointer<runtime_env> env;
-
-        std::optional<std::unique_ptr<lexer>> 
-            compile_failed_state;
-
-        uint8_t jit_function_call_depth;
-        const vm_type virtual_machine_type;
+        std::optional<std::unique_ptr<lexer>> compile_failed_state;
 
         hangup_lock hangup_state;
+
+        // Flag used to check and reset when returning from an external function.
+        // If the flag is true, it indicates that during the external function call, 
+        // the stack's starting position and space have changed.
+        // Therefore, the caller of the external function - if it's the JIT runtime - 
+        // needs to propagate a synchronization request upward to the VM runtime for handling.
+        bool extern_state_stack_update;
+
+        // JIT call depth counter
+        // In most cases, the native stack will be exhausted before the virtual machine stack.
+        // Under JIT runtime, nested calls consume native stack space.
+        // To minimize waste of native stack space, this counter is used to track JIT call nesting depth.
+        // When the depth reaches a certain threshold, all execution falls back to the VM runtime.
+        uint8_t extern_state_jit_call_depth;
+
+        const vm_type virtual_machine_type;
 
 #if WO_ENABLE_RUNTIME_CHECK
         // runtime information

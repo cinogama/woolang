@@ -249,7 +249,6 @@ namespace wo
         , sp(nullptr)
         , bp(nullptr)
         , sb(nullptr)
-        , stack_need_tobe_update(false)
         , stack_storage(nullptr)
         , stack_size(0)
         , shrink_stack_advise(0)
@@ -261,7 +260,8 @@ namespace wo
         , ip(nullptr)
         , env(nullptr)
         , compile_failed_state(std::nullopt)
-        , jit_function_call_depth(0)
+        , extern_state_stack_update(false)
+        , extern_state_jit_call_depth(0)
         , virtual_machine_type(type)
 #if WO_ENABLE_RUNTIME_CHECK
         // runtime information

@@ -591,7 +591,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             wo_assure(!x86compiler.int3());
             wo_assure(!x86compiler.bind(not_resync));
 #endif
-            wo_assure(!x86compiler.dec(asmjit::x86::byte_ptr(vm, offsetof(vmbase, jit_function_call_depth))));
+            wo_assure(!x86compiler.dec(asmjit::x86::byte_ptr(vm, offsetof(vmbase, extern_state_jit_call_depth))));
             wo_assure(!x86compiler.ret(result)); // break this execute!!!
 
             wo_assure(!x86compiler.bind(normal));
@@ -632,12 +632,12 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             wo_assure(!x86compiler.mov(vm_ip, asmjit::Imm(rt_ip)));
             wo_assure(!x86compiler.mov(asmjit::x86::qword_ptr(vm, offsetof(vmbase, ip)), vm_ip));
 
-            wo_assure(!x86compiler.dec(asmjit::x86::byte_ptr(vm, offsetof(vmbase, jit_function_call_depth))));
+            wo_assure(!x86compiler.dec(asmjit::x86::byte_ptr(vm, offsetof(vmbase, extern_state_jit_call_depth))));
             wo_assure(!x86compiler.mov(result, asmjit::Imm(wo_result_t::WO_API_SYNC)));
 
             wo_assure(!x86compiler.bind(not_resync));
 
-            wo_assure(!x86compiler.dec(asmjit::x86::byte_ptr(vm, offsetof(vmbase, jit_function_call_depth))));
+            wo_assure(!x86compiler.dec(asmjit::x86::byte_ptr(vm, offsetof(vmbase, extern_state_jit_call_depth))));
             wo_assure(!x86compiler.ret(result)); // break this execute!!!
 
             wo_assure(!x86compiler.bind(normal));
@@ -1052,7 +1052,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 
             wo_assure(!ctx->c.cmp(result, asmjit::Imm(wo_result_t::WO_API_NORMAL)));
             wo_assure(!ctx->c.je(no_interrupt_label));
-            wo_assure(!ctx->c.dec(asmjit::x86::byte_ptr(ctx->_vmbase, offsetof(vmbase, jit_function_call_depth))));
+            wo_assure(!ctx->c.dec(asmjit::x86::byte_ptr(ctx->_vmbase, offsetof(vmbase, extern_state_jit_call_depth))));
             wo_assure(!ctx->c.ret(result)); // break this execute!!!
             wo_assure(!ctx->c.bind(no_interrupt_label));
         }
@@ -1077,7 +1077,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
         {
             auto check_ok_label = ctx->c.newLabel();
             auto depth_count = ctx->c.newUInt8();
-            wo_assure(!ctx->c.mov(depth_count, asmjit::x86::byte_ptr(ctx->_vmbase, offsetof(vmbase, jit_function_call_depth))));
+            wo_assure(!ctx->c.mov(depth_count, asmjit::x86::byte_ptr(ctx->_vmbase, offsetof(vmbase, extern_state_jit_call_depth))));
             wo_assure(!ctx->c.cmp(depth_count, asmjit::Imm(wo::vmbase::VM_MAX_JIT_FUNCTION_DEPTH)));
             wo_assure(!ctx->c.jb(check_ok_label));
 
@@ -1087,13 +1087,14 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, sp)), ctx->_vmssp));
             wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, bp)), ctx->_vmsbp));
             wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, bp)), ctx->_vmsbp));
-            wo_assure(!ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmbase, offsetof(vmbase, jit_function_call_depth)), asmjit::Imm(0)));
+            wo_assure(!ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmbase, offsetof(vmbase, extern_state_jit_call_depth)), asmjit::Imm(0)));
 
             wo_assure(!ctx->c.mov(rollback_ip_addr, asmjit::Imm(wo_result_t::WO_API_SYNC)));
             wo_assure(!ctx->c.ret(rollback_ip_addr));
 
             wo_assure(!ctx->c.bind(check_ok_label));
-            wo_assure(!ctx->c.inc(asmjit::x86::byte_ptr(ctx->_vmbase, offsetof(vmbase, jit_function_call_depth))));
+            wo_assure(!ctx->c.inc(depth_count));
+            wo_assure(!ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmbase, offsetof(vmbase, extern_state_jit_call_depth)), depth_count));
         }
         static asmjit::x86::Gp x86_set_imm(asmjit::x86::Compiler& x86compiler, asmjit::x86::Gp val, const wo::value& instance)
         {
@@ -2427,7 +2428,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 
             auto stat = ctx->c.newInt32();
             static_assert(sizeof(wo_result_t) == sizeof(int32_t));
-            wo_assure(!ctx->c.dec(asmjit::x86::byte_ptr(ctx->_vmbase, offsetof(vmbase, jit_function_call_depth))));
+            wo_assure(!ctx->c.dec(asmjit::x86::byte_ptr(ctx->_vmbase, offsetof(vmbase, extern_state_jit_call_depth))));
             wo_assure(!ctx->c.mov(stat, asmjit::Imm(wo_result_t::WO_API_NORMAL)));
             wo_assure(!ctx->c.ret(stat));
             return true;
