@@ -114,8 +114,6 @@ namespace wo
         auto fnd = _paged_env_mapping_context.m_paged_envs.upper_bound(reinterpret_cast<intptr_t>(func));
         if (fnd != _paged_env_mapping_context.m_paged_envs.begin())
         {
-            return false;
-
             auto& far_context = (--fnd)->second;
 
             if (func < far_context->m_runtime_code_end)
