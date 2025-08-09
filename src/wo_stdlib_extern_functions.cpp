@@ -1614,47 +1614,20 @@ WO_API wo_api rslib_std_weakref_trylock(wo_vm vm, wo_value args)
 
 struct far_function_guard
 {
-    wo::value m_func;
+    wo::shared_pointer<wo::runtime_env> m_env;
+    wo_unref_value m_func;
 };
 
 WO_API wo_api rslib_std_far_function_create(wo_vm vm, wo_value args)
 {
-    wo::value* func = reinterpret_cast<wo::value*>(args + 0);
-    return wo_ret_gcstruct(
+    far_function_guard* guard =
+        new far_function_guard{ reinterpret_cast<wo::vmbase*>(vm)->env };
+
+    wo_set_val(&guard->m_func, args + 0);
+    return wo_ret_gchandle(
         vm,
-        new far_function_guard{ *func },
-        [](wo_gc_work_context_t ctx, wo_ptr_t p)
-        {
-            far_function_guard* g = reinterpret_cast<far_function_guard*>(p);
-
-            void* min_env;
-            switch (g->m_func.m_type)
-            {
-            case wo::value::valuetype::native_func_type:
-                min_env = wo::runtime_env::gc_fetch_min_env_runtime_by_native_func(
-                    g->m_func.m_native_func);
-                break;
-            case wo::value::valuetype::script_func_type:
-                min_env = wo::runtime_env::gc_fetch_min_env_runtime_by_script_func(
-                    g->m_func.m_script_func);
-                break;
-            case wo::value::valuetype::closure_type:
-                wo_gc_mark(ctx, reinterpret_cast<wo_value>(&g->m_func));
-                if (g->m_func.m_closure->m_native_call)
-                    min_env = wo::runtime_env::gc_fetch_min_env_runtime_by_native_func(
-                        g->m_func.m_closure->m_native_func);
-                else
-                    min_env = wo::runtime_env::gc_fetch_min_env_runtime_by_script_func(
-                        g->m_func.m_closure->m_vm_func);
-                break;
-            default:
-                min_env = nullptr;
-                break;
-            }
-
-            if (min_env != nullptr)
-                wo_gc_mark_unit(ctx, min_env);
-        },
+        guard,
+        args + 0,
         [](wo_ptr_t p)
         {
             delete reinterpret_cast<far_function_guard*>(p);
@@ -1664,10 +1637,10 @@ WO_API wo_api rslib_std_far_function_get(wo_vm vm, wo_value args)
 {
     wo_gcunit_lock_shared(args + 0);
 
-    far_function_guard* g = 
+    far_function_guard* g =
         reinterpret_cast<far_function_guard*>(wo_pointer(args + 0));
 
-    return wo_ret_val(vm, reinterpret_cast<wo_value>(&g->m_func));
+    return wo_ret_val(vm, &g->m_func);
 }
 
 #if defined(__APPLE__) && defined(__MACH__)
@@ -1839,15 +1812,15 @@ namespace std
             return self: gchandle->close;
         }
     }
-    using farcall<FT> = FT
+    using far<FT> = FT
     {
-        using farcall_pin<FT> = gchandle
+        using far_function_pin<FT> = gchandle
         {   
             extern("rslib_std_far_function_create")
-                func create<FT>(val: FT)=> farcall_pin<FT>
+                func create<FT>(val: FT)=> far_function_pin<FT>
                     where type_traits::is_function:<FT>;
             extern("rslib_std_far_function_get")
-                func get<FT>(self: farcall_pin<FT>)=> FT;
+                func get<FT>(self: far_function_pin<FT>)=> FT;
         }
         let decltuple<N: int> = 
             N <= 0 
@@ -1862,17 +1835,17 @@ namespace std
         let declargc<FT> = declargc_counter:<FT, {0}>;
         let declisvariadic<FT> = 
             typeid:<typeof(std::declval:<FT>()(decltuple:<{declargc:<FT> + 1}>()...))> != 0;
-        public func wrap<FT>(val: FT)=> farcall<FT>
+        public func wrap<FT>(val: FT)=> far<FT>
             where type_traits::is_function:<FT>;
         {
-            let f = farcall_pin::create(val);
+            let f = far_function_pin::create(val);
             return 
                 func(...)
                 {
                     if (!declisvariadic:<FT>)
                         do unsafe::swap_argc(declargc:<FT>);
                     return f->get()(......);
-                }->unsafe::cast:<FT>: farcall<FT>;
+                }->unsafe::cast:<FT>: far<FT>;
         }
     }
     public using mutable<T> = struct {

@@ -320,7 +320,7 @@ namespace wo
                         rowno,
                         locat,
                     }
-                );
+                    );
             }
         };
 
@@ -363,33 +363,12 @@ namespace wo
         const byte_t* m_runtime_code_begin;
         const byte_t* m_runtime_code_end;
         value* m_static_storage_edge;
-        size_t m_constant_count;
 
-        struct extern_info_holder_t
-        {
-            rslib_extern_symbols::extern_lib_set
-                m_ext_code_holder;
-            std::unordered_map<size_t, wo_native_func_t>
-                m_jit_code_holder;
-        };
-        extern_info_holder_t* m_native_holder;
-
-        paged_env_min_context();
-        virtual ~paged_env_min_context();
-
-        paged_env_min_context(const paged_env_min_context&) = delete;
-        paged_env_min_context(paged_env_min_context&&) = delete;
-        paged_env_min_context& operator = (const paged_env_min_context&) = delete;
-        paged_env_min_context& operator = (paged_env_min_context&&) = delete;
     };
     struct paged_env_mapping
     {
-        using min_env_runtime = gcunit<paged_env_min_context>;
-
         std::shared_mutex m_paged_envs_mx;
-        std::map<intptr_t, min_env_runtime*> m_paged_envs;
-        std::unordered_map<wo_native_func_t, min_env_runtime*>
-            m_gc_quick_native_lookup;
+        std::map<intptr_t, paged_env_min_context> m_paged_envs;
     };
 
     struct runtime_env
@@ -464,6 +443,8 @@ namespace wo
             std::unordered_map<wo_native_func_t, extern_native_function_location>;
         using extern_function_map_t =
             std::unordered_map<std::string, size_t>;
+        using jit_code_holder_map_t =
+            std::unordered_map<size_t, wo_native_func_t>;
 
         runtime_env();
         ~runtime_env();
@@ -491,19 +472,14 @@ namespace wo
         static paged_env_mapping _paged_env_mapping_context;
 
         static void register_envs(runtime_env* env) noexcept;
+        static void unregister_envs(const runtime_env* env) noexcept;
+
         static bool fetch_is_far_addr(const byte_t* ip) noexcept;
-        static paged_env_mapping::min_env_runtime* gc_fetch_min_env_runtime_by_script_func(
-            const wo::byte_t* func) noexcept;
-        static paged_env_mapping::min_env_runtime* gc_fetch_min_env_runtime_by_native_func(
-            wo_native_func_t func) noexcept;
         static bool resync_far_state(
             const byte_t* ip,
             const byte_t** out_runtime_code_begin,
             const byte_t** out_runtime_code_end,
             value** out_static_storage_edge) noexcept;
-        static void _remove_env_from_list(paged_env_min_context* min_env) noexcept;
-        static bool unregister_envs(const runtime_env* env) noexcept;
-        static void apply_jit_holder(const runtime_env* env) noexcept;
 
         value* constant_and_global_storage = nullptr;
         size_t constant_and_global_value_takeplace_count = 0;
@@ -517,12 +493,11 @@ namespace wo
         std::atomic_size_t _created_destructable_instance_count = 0;
 
         jit_meta meta_data_for_jit;
+        std::optional<jit_code_holder_map_t> jit_code_holder;
         shared_pointer<program_debug_data_info> program_debug_info;
         rslib_extern_symbols::extern_lib_set loaded_libraries;
         extern_native_functions_t extern_native_functions;
         extern_function_map_t extern_script_functions;
-
-        paged_env_mapping::min_env_runtime* m_min_runtime_env = nullptr;
     };
     struct BytecodeGenerateContext;
 

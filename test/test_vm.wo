@@ -30,7 +30,7 @@ namespace test_vm
             func main()
             {
                 let mut s = "Helloworld"; 
-                return std::farcall::wrap(\f: ()=> string = super_depth_foo(f, s, 10000000););
+                return std::far::wrap(\f: ()=> string = super_depth_foo(f, s, 10000000););
             }
             return main();
             "@
@@ -39,7 +39,7 @@ namespace test_vm
 
         if (jit)
             do vmm->jit();
-        return vmm->run()->unwrap->unsafe::cast:<(()=>string)=>void>();
+        return vmm->run()->unwrap->unsafe::cast:<std::far<(()=>string)=>void>>();
     }
     
     func main()

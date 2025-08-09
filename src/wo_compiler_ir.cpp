@@ -44,52 +44,21 @@ namespace wo
     }
 
     paged_env_mapping runtime_env::_paged_env_mapping_context;
-    paged_env_min_context::paged_env_min_context()
-        : m_native_holder(new extern_info_holder_t())
-    {
-    }
-    paged_env_min_context::~paged_env_min_context()
-    {
-        runtime_env::_remove_env_from_list(this);
 
-        if (wo::config::ENABLE_JUST_IN_TIME)
-            free_jit(this);
-
-        for (size_t ci = 0; ci < m_constant_count; ++ci)
-            cancel_nogc_mark_for_value(m_static_storage_edge[ci]);
-
-        if (m_static_storage_edge)
-            free(m_static_storage_edge);
-
-        if (m_runtime_code_begin)
-            free(const_cast<byte_t*>(m_runtime_code_begin));
-
-        delete m_native_holder;
-    }
     void runtime_env::register_envs(runtime_env* env) noexcept
     {
         std::lock_guard g1(_paged_env_mapping_context.m_paged_envs_mx);
 
-        env->m_min_runtime_env =
-            paged_env_mapping::min_env_runtime::gc_new<gcbase::gctype::no_gc>();
-
-        env->m_min_runtime_env->m_runtime_code_begin = env->rt_codes;
-        env->m_min_runtime_env->m_runtime_code_end = env->rt_codes + env->rt_code_len;
-        env->m_min_runtime_env->m_static_storage_edge = env->constant_and_global_storage;
-        env->m_min_runtime_env->m_constant_count = env->constant_value_count;
-        env->m_min_runtime_env->m_native_holder->m_ext_code_holder = env->loaded_libraries;
-
-        for (auto& [addr, _] : env->extern_native_functions)
-        {
-            _paged_env_mapping_context.m_gc_quick_native_lookup.insert(
-                std::make_pair(addr, env->m_min_runtime_env));
-        }
-
         auto result = _paged_env_mapping_context.m_paged_envs.insert(
             std::make_pair(
                 reinterpret_cast<intptr_t>(env->rt_codes),
-                env->m_min_runtime_env
-            ));
+                paged_env_min_context
+                {
+                    env->rt_codes,
+                    env->rt_codes + env->rt_code_len,
+                    env->constant_and_global_storage,
+                }
+                ));
         (void)result;
         wo_assert(result.second);
     }
@@ -102,35 +71,10 @@ namespace wo
 
         auto& far_context = (--fnd)->second;
 
-        if (ip >= far_context->m_runtime_code_end)
+        if (ip >= far_context.m_runtime_code_end)
             return false;
 
         return true;
-    }
-    paged_env_mapping::min_env_runtime* runtime_env::gc_fetch_min_env_runtime_by_script_func(
-        const wo::byte_t* func) noexcept
-    {
-        std::shared_lock g1(_paged_env_mapping_context.m_paged_envs_mx);
-        auto fnd = _paged_env_mapping_context.m_paged_envs.upper_bound(reinterpret_cast<intptr_t>(func));
-        if (fnd != _paged_env_mapping_context.m_paged_envs.begin())
-        {
-            auto& far_context = (--fnd)->second;
-
-            if (func < far_context->m_runtime_code_end)
-                return far_context;
-        }
-        return nullptr;
-    }
-    paged_env_mapping::min_env_runtime* runtime_env::gc_fetch_min_env_runtime_by_native_func(
-        wo_native_func_t func) noexcept
-    {
-        std::shared_lock g1(_paged_env_mapping_context.m_paged_envs_mx);
-        auto fnd = _paged_env_mapping_context.m_gc_quick_native_lookup.find(func);
-
-        if (fnd != _paged_env_mapping_context.m_gc_quick_native_lookup.end())
-            return fnd->second;
-
-        return nullptr;
     }
     bool runtime_env::resync_far_state(
         const byte_t* ip,
@@ -145,75 +89,22 @@ namespace wo
 
         auto& far_context = (--fnd)->second;
 
-        if (ip >= far_context->m_runtime_code_end)
+        if (ip >= far_context.m_runtime_code_end)
             return false;
 
-        *out_runtime_code_begin = far_context->m_runtime_code_begin;
-        *out_runtime_code_end = far_context->m_runtime_code_end;
-        *out_static_storage_edge = far_context->m_static_storage_edge;
+        *out_runtime_code_begin = far_context.m_runtime_code_begin;
+        *out_runtime_code_end = far_context.m_runtime_code_end;
+        *out_static_storage_edge = far_context.m_static_storage_edge;
 
         return true;
 
     }
-    void runtime_env::_remove_env_from_list(
-        paged_env_min_context* min_env) noexcept
+    void runtime_env::unregister_envs(const runtime_env* env) noexcept
     {
         std::lock_guard g1(_paged_env_mapping_context.m_paged_envs_mx);
 
         _paged_env_mapping_context.m_paged_envs.erase(
-            reinterpret_cast<intptr_t>(min_env->m_runtime_code_begin));
-
-        auto iter = _paged_env_mapping_context.m_gc_quick_native_lookup.begin();
-        const auto end = _paged_env_mapping_context.m_gc_quick_native_lookup.end();
-        while (iter != end)
-        {
-            if (static_cast<paged_env_min_context*>(iter->second) == min_env)
-                _paged_env_mapping_context.m_gc_quick_native_lookup.erase(iter++);
-            else
-                ++iter;
-        }
-    }
-    void runtime_env::apply_jit_holder(const runtime_env* env) noexcept
-    {
-        for (auto& [_, addr] : env->m_min_runtime_env->m_native_holder->m_jit_code_holder)
-        {
-            _paged_env_mapping_context.m_gc_quick_native_lookup.insert(
-                std::make_pair(addr, env->m_min_runtime_env));
-        }
-    }
-    bool runtime_env::unregister_envs(const runtime_env* env) noexcept
-    {
-        paged_env_mapping::min_env_runtime* min_env;
-
-        do
-        {
-            std::lock_guard g1(_paged_env_mapping_context.m_paged_envs_mx);
-
-            min_env = _paged_env_mapping_context.m_paged_envs.at(
-                reinterpret_cast<intptr_t>(env->rt_codes));
-        } while (0);
-
-        gc::unit_attrib cancel_nogc;
-        cancel_nogc.m_gc_age = 0;
-        cancel_nogc.m_marked = (uint8_t)gcbase::gcmarkcolor::full_mark;
-        cancel_nogc.m_alloc_mask = 0;
-        cancel_nogc.m_nogc = 0;
-
-        gc::unit_attrib* attrib;
-        if (nullptr == womem_verify(
-                min_env,
-                std::launder(
-                    reinterpret_cast<womem_attrib_t**>(
-                        &attrib))))
-        {
-            return false;
-        }
-
-        // Apply.
-        wo_assert(attrib->m_nogc);
-        attrib->m_attr = cancel_nogc.m_attr;
-
-        return true;
+            reinterpret_cast<intptr_t>(env->rt_codes));
     }
 
 #ifndef WO_DISABLE_COMPILER
@@ -633,7 +524,7 @@ namespace wo
             sprintf(ptrr, "0x%p>", rt_pos);
             return ptrr;
 
-        }();
+            }();
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -650,22 +541,19 @@ namespace wo
     }
     runtime_env::~runtime_env()
     {
-        if (!unregister_envs(this))
-        {
-            // Always happend in loading binary failed.
-            // In this case, we should free resources manually.
+        unregister_envs(this);
 
-            wo_assert(m_min_runtime_env == nullptr);
+        if (wo::config::ENABLE_JUST_IN_TIME)
+            free_jit(this);
 
-            for (size_t ci = 0; ci < constant_value_count; ++ci)
-                cancel_nogc_mark_for_value(constant_and_global_storage[ci]);
+        for (size_t ci = 0; ci < constant_value_count; ++ci)
+            cancel_nogc_mark_for_value(constant_and_global_storage[ci]);
 
-            if (constant_and_global_storage)
-                free(constant_and_global_storage);
+        if (constant_and_global_storage)
+            free(constant_and_global_storage);
 
-            if (rt_codes)
-                free(const_cast<byte_t*>(rt_codes));
-        }
+        if (rt_codes)
+            free(const_cast<byte_t*>(rt_codes));
     }
 
     std::tuple<void*, size_t> runtime_env::create_env_binary(bool savepdi) noexcept
@@ -673,27 +561,27 @@ namespace wo
         std::vector<wo::byte_t> binary_buffer;
         auto write_buffer_to_buffer =
             [&binary_buffer](const void* written_data, size_t written_length, size_t allign)
-        {
-            const size_t write_begin_place = binary_buffer.size();
+            {
+                const size_t write_begin_place = binary_buffer.size();
 
-            wo_assert(write_begin_place % allign == 0);
+                wo_assert(write_begin_place % allign == 0);
 
-            binary_buffer.resize(write_begin_place + written_length);
+                binary_buffer.resize(write_begin_place + written_length);
 
-            memcpy(binary_buffer.data() + write_begin_place, written_data, written_length);
-            return binary_buffer.size();
-        };
+                memcpy(binary_buffer.data() + write_begin_place, written_data, written_length);
+                return binary_buffer.size();
+            };
 
         auto write_binary_to_buffer =
             [&write_buffer_to_buffer](const auto& d, size_t size_for_assert)
-        {
-            const wo::byte_t* written_data = std::launder(reinterpret_cast<const wo::byte_t*>(&d));
-            const size_t written_length = sizeof(d);
+            {
+                const wo::byte_t* written_data = std::launder(reinterpret_cast<const wo::byte_t*>(&d));
+                const size_t written_length = sizeof(d);
 
-            wo_assert(written_length == size_for_assert);
+                wo_assert(written_length == size_for_assert);
 
-            return write_buffer_to_buffer(written_data, written_length, sizeof(d) > 8 ? 8 : sizeof(d));
-        };
+                return write_buffer_to_buffer(written_data, written_length, sizeof(d) > 8 ? 8 : sizeof(d));
+            };
 
         class _string_pool_t
         {
@@ -721,10 +609,10 @@ namespace wo
 
         auto write_constant_str_to_buffer =
             [&write_binary_to_buffer, &constant_string_pool](const char* str, size_t len)
-        {
-            write_binary_to_buffer((uint32_t)constant_string_pool.insert(str, len), 4);
-            write_binary_to_buffer((uint32_t)len, 4);
-        };
+            {
+                write_binary_to_buffer((uint32_t)constant_string_pool.insert(str, len), 4);
+                write_binary_to_buffer((uint32_t)len, 4);
+            };
 
         // 1.1 (+0) Magic number(0x3001A26B look like WOOLANG B)
         write_binary_to_buffer((uint32_t)0x3001A26B, 4);
@@ -1458,12 +1346,12 @@ namespace wo
 
         auto restore_string_from_buffer =
             [&string_pool_buffer](const string_buffer_index& string_index, std::string* out_str)->bool
-        {
-            if (string_index.index + string_index.size > string_pool_buffer.size())
-                return false;
-            *out_str = std::string(string_pool_buffer.data() + string_index.index, string_index.size);
-            return true;
-        };
+            {
+                if (string_index.index + string_index.size > string_pool_buffer.size())
+                    return false;
+                *out_str = std::string(string_pool_buffer.data() + string_index.index, string_index.size);
+                return true;
+            };
 
         std::string constant_string;
         std::map<string_buffer_index, wo::string_t*> created_string_instances;
@@ -1842,9 +1730,9 @@ namespace wo
     bool runtime_env::try_find_jit_func(const byte_t* script_func, wo_native_func_t* out_jit_func)
     {
         const ptrdiff_t diff = script_func - rt_codes;
-        if (diff > 0)
+        if (diff > 0 && jit_code_holder.has_value())
         {
-            auto& jit_holder = m_min_runtime_env->m_native_holder->m_jit_code_holder;
+            auto& jit_holder = jit_code_holder.value();
 
             auto fnd = jit_holder.find(static_cast<size_t>(diff));
             if (fnd != jit_holder.end())
