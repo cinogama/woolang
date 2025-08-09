@@ -3221,6 +3221,8 @@ wo_value wo_dispatch(
             dispatch_result = wo_result_t::WO_API_NORMAL;
             [[fallthrough]];
         case wo_result_t::WO_API_NORMAL:
+        case wo_result_t::WO_API_SIM_ABORT:
+        case wo_result_t::WO_API_SIM_YIELD:
             break;
         case wo_result_t::WO_API_SYNC:
             dispatch_result = vmm->run();
