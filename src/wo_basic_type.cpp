@@ -15,8 +15,7 @@ namespace wo
         if (val->is_gcunit())
         {
             auto* attrib = val->fast_get_attrib_for_assert_check();
-            wo_assert(attrib != nullptr);
-            wo_assert(attrib->m_nogc != 0);
+            wo_test(attrib != nullptr && attrib->m_nogc != 0);
         }
         return set_val(val);
     }
@@ -161,15 +160,15 @@ namespace wo
 
     closure_bast_t::closure_bast_t(const byte_t* vmfunc, uint16_t argc) noexcept
         : m_native_call(false)
-        , m_vm_func(vmfunc)
         , m_closure_args_count(argc)
+        , m_vm_func(vmfunc)        
     {
         m_closure_args = (value*)malloc(argc * sizeof(value));
     }
     closure_bast_t::closure_bast_t(wo_native_func_t nfunc, uint16_t argc) noexcept
         : m_native_call(true)
-        , m_native_func(nfunc)
         , m_closure_args_count(argc)
+        , m_native_func(nfunc)
     {
         m_closure_args = (value*)malloc(argc * sizeof(value));
     }

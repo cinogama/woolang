@@ -859,7 +859,8 @@ namespace wo
                 if (is_extern_func)
                 {
                     auto fnd = env->extern_native_functions.find(
-                        reinterpret_cast<wo_native_func_t>(rip));
+                        reinterpret_cast<wo_native_func_t>(
+                            reinterpret_cast<intptr_t>(rip)));
 
                     if (fnd != env->extern_native_functions.end())
                     {
@@ -1238,6 +1239,11 @@ namespace wo
             case wo_result_t::WO_API_SYNC:
                 vm_exec_result = run();
                 break;
+            default:
+#if WO_ENABLE_RUNTIME_CHECK
+                wo_fail(WO_FAIL_CALL_FAIL, "Unexpected execution status: %d.", (int)vm_exec_result);
+#endif
+                break;
             }
 
             ip = return_ip;
@@ -1316,6 +1322,11 @@ namespace wo
                         break;
                     case wo_result_t::WO_API_SYNC:
                         vm_exec_result = run();
+                        break;
+                    default:
+#if WO_ENABLE_RUNTIME_CHECK
+                        wo_fail(WO_FAIL_CALL_FAIL, "Unexpected execution status: %d.", (int)vm_exec_result);
+#endif
                         break;
                     }
                 }
@@ -2167,6 +2178,11 @@ namespace wo
                     wo_assure(interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
                     break;
                 }
+                default:
+#if WO_ENABLE_RUNTIME_CHECK
+                    wo_fail(WO_FAIL_TYPE_FAIL, "Broken stack in 'retn'.");
+#endif
+                    break;
                 }
                 sp += pop_count;
                 break;
@@ -2191,6 +2207,7 @@ namespace wo
                     break;
                 }
                 case value::valuetype::far_callstack:
+                {
                     value* stored_bp = sb - bp->m_ext_farcallstack_bp;
                     wo_assert(stored_bp <= sb && stored_bp > stack_storage);
 
@@ -2199,6 +2216,12 @@ namespace wo
                     bp = stored_bp;
 
                     wo_assure(interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
+                    break;
+                }
+                default:
+#if WO_ENABLE_RUNTIME_CHECK
+                    wo_fail(WO_FAIL_TYPE_FAIL, "Broken stack in 'retn'.");
+#endif
                     break;
                 }
                 break;
@@ -2277,6 +2300,11 @@ namespace wo
                                 wo_assure(interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
 
                             break;
+                        default:
+#if WO_ENABLE_RUNTIME_CHECK
+                            wo_fail(WO_FAIL_TYPE_FAIL, "Bad native function sync state.");
+#endif
+                            break;
                         }
                     }
                     else if (opnum1->m_type == value::valuetype::script_func_type)
@@ -2341,6 +2369,11 @@ namespace wo
 
                                 break;
                             }
+                            default:
+#if WO_ENABLE_RUNTIME_CHECK
+                                wo_fail(WO_FAIL_TYPE_FAIL, "Bad native function sync state.");
+#endif
+                                break;
                             }
                         }
                         else
@@ -2421,6 +2454,11 @@ namespace wo
                     }
                     case wo_result_t::WO_API_SYNC:
                         rt_ip = this->ip;
+                        break;
+                    default:
+#if WO_ENABLE_RUNTIME_CHECK
+                        wo_fail(WO_FAIL_TYPE_FAIL, "Bad native function sync state.");
+#endif
                         break;
                     }
                 }

@@ -1405,6 +1405,8 @@ extern func macro_entry(lexer: std::lexer)=> string
         }
 
         wo_assert(is_format_string_begin || is_format_string_middle);
+        (void)is_format_string_middle;
+
         // Is f"..."
         int following_ch;
         while (true)

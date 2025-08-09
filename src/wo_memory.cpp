@@ -235,6 +235,9 @@ namespace womem
             , m_max_page(0)
             , m_chunk_id(cid)
         {
+            // NOTE: m_chunk_id only used for debug purpose.
+            (void)m_chunk_id;
+
             size_t reserving_chunk_size = chunk_size;
             char* reserved_chunk_buffer = nullptr;
             for (;;)

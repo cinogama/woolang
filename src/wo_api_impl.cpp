@@ -687,10 +687,7 @@ struct _wo_reserved_stack_args_update_guard
                 *m_args = CS_VAL(m_vm->sb - m_args_offset);
 
             if (m_vm->bp != m_vm->sb)
-            {
-                auto* current_call_base = m_vm->bp + 1;
                 m_vm->extern_state_stack_update = true;
-            }
         }
     }
 };
@@ -3227,6 +3224,9 @@ wo_value wo_dispatch(
             break;
         case wo_result_t::WO_API_SYNC:
             dispatch_result = vmm->run();
+            break;
+        default:
+            wo_fail(WO_FAIL_CALL_FAIL, "Unexpected execution status: %d.", (int)dispatch_result);
             break;
         }
 
