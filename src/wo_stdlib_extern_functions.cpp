@@ -463,8 +463,6 @@ struct string_split_iter_t
 
 WO_API wo_api rslib_std_string_split(wo_vm vm, wo_value args)
 {
-    wo_value s = wo_reserve_stack(vm, 2, &args);
-
     size_t len = 0;
     wo_string_t str = wo_raw_string(args + 0, &len);
 
