@@ -3092,6 +3092,7 @@ wo_value wo_reserve_stack(wo_vm vm, wo_size_t stack_sz, wo_value* inout_args_may
             //  1) It has been marked `stack_externed_flag`
             //  2) The VM has already returned from last function call.
             if (current_call_base->m_type == wo::value::valuetype::callstack
+                || current_call_base->m_type == wo::value::valuetype::far_callstack
                 || current_call_base->m_type == wo::value::valuetype::nativecallstack)
             {
                 vmbase->extern_state_stack_update = true;

@@ -527,18 +527,30 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                         while (framelayer--)
                         {
                             auto tmp_sp = current_frame_bp + 1;
-                            if (tmp_sp->m_type == value::valuetype::callstack)
+                            switch (tmp_sp->m_type)
+                            {
+                            case value::valuetype::callstack:
                             {
                                 current_frame++;
                                 current_frame_sp = tmp_sp;
                                 current_frame_bp = vmm->sb - tmp_sp->m_vmcallstack.bp;
                                 current_runtime_ip = vmm->env->rt_codes + tmp_sp->m_vmcallstack.ret_ip;
-                            }
-                            else
                                 break;
+                            }
+                            case value::valuetype::far_callstack:
+                            {
+                                current_frame++;
+                                current_frame_sp = tmp_sp;
+                                current_frame_bp = vmm->sb - tmp_sp->m_ext_farcallstack_bp;
+                                current_runtime_ip = tmp_sp->m_farcallstack;
+                                break;
+                            }
+                            default:
+                                goto _label_break_trace_frame;
+                            }
                         }
+                    _label_break_trace_frame:
                         printf("Now at: frame " ANSI_HIY "%zu\n" ANSI_RST, current_frame);
-
                     }
                     else
                         printf(ANSI_HIR "You must input frame number.\n" ANSI_RST);
@@ -715,7 +727,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                             bool result = false;
 
                             if (need_possiable_input(inputbuf, lineno))
-                                result = set_breakpoint(vmm, filename_or_funcname, lineno -1);
+                                result = set_breakpoint(vmm, filename_or_funcname, lineno - 1);
                             else
                             {
                                 for (auto ch : filename_or_funcname)
@@ -1162,7 +1174,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                         if (from <= current_row_no && current_row_no <= to)
                         {
                             if (last_line_is_breakline.has_value())
-                                printf("    " ANSI_HIR "# Breakpoint %zu" ANSI_RST, 
+                                printf("    " ANSI_HIR "# Breakpoint %zu" ANSI_RST,
                                     last_line_is_breakline.value());
 
                             wo_stdout << ANSI_RST << wo_endl;
@@ -1170,8 +1182,8 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                                 vmm, filepath, current_row_no, info);
                         }
 
-                        if (*chs == '\r' 
-                            && index + 1 < srcfile.size() 
+                        if (*chs == '\r'
+                            && index + 1 < srcfile.size()
                             && srcfile[index + 1] == '\n')
                             index++;
 

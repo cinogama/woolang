@@ -1529,8 +1529,8 @@ namespace wo
 
             for (auto constant_offset : extern_native_function.constant_offsets)
             {
-                wo_assert(preserved_memory[constant_offset].m_type == wo::value::valuetype::handle_type);
-                preserved_memory[constant_offset].set_handle((wo_handle_t)func);
+                wo_assert(preserved_memory[constant_offset].m_type == wo::value::valuetype::native_func_type);
+                preserved_memory[constant_offset].set_native_func(func);
             }
             for (auto& [constant_offset, tuple_index] : extern_native_function.constant_tuple_index_offsets)
             {
@@ -1538,7 +1538,7 @@ namespace wo
                     && tuple_index < preserved_memory[constant_offset].m_structure->m_count
                     && preserved_memory[constant_offset].m_structure->m_values[tuple_index].m_type == wo::value::valuetype::handle_type);
 
-                preserved_memory[constant_offset].m_structure->m_values[tuple_index].set_handle((wo_handle_t)func);
+                preserved_memory[constant_offset].m_structure->m_values[tuple_index].set_native_func(func);
             }
             for (auto ir_code_offset : extern_native_function.ir_command_offsets)
             {
