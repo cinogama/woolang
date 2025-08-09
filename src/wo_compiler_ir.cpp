@@ -181,7 +181,7 @@ namespace wo
                 std::make_pair(addr, env->m_min_runtime_env));
         }
     }
-    void runtime_env::unregister_envs(const runtime_env* env) noexcept
+    bool runtime_env::unregister_envs(const runtime_env* env) noexcept
     {
         paged_env_mapping::min_env_runtime* min_env;
 
@@ -200,16 +200,20 @@ namespace wo
         cancel_nogc.m_nogc = 0;
 
         gc::unit_attrib* attrib;
-        wo_assure(
-            womem_verify(
+        if (nullptr == womem_verify(
                 min_env,
                 std::launder(
                     reinterpret_cast<womem_attrib_t**>(
-                        &attrib))));
+                        &attrib))))
+        {
+            return false;
+        }
 
         // Apply.
         wo_assert(attrib->m_nogc);
         attrib->m_attr = cancel_nogc.m_attr;
+
+        return true;
     }
 
 #ifndef WO_DISABLE_COMPILER
@@ -646,7 +650,22 @@ namespace wo
     }
     runtime_env::~runtime_env()
     {
-        unregister_envs(this);
+        if (!unregister_envs(this))
+        {
+            // Always happend in loading binary failed.
+            // In this case, we should free resources manually.
+
+            wo_assert(m_min_runtime_env == nullptr);
+
+            for (size_t ci = 0; ci < constant_value_count; ++ci)
+                cancel_nogc_mark_for_value(constant_and_global_storage[ci]);
+
+            if (constant_and_global_storage)
+                free(constant_and_global_storage);
+
+            if (rt_codes)
+                free(const_cast<byte_t*>(rt_codes));
+        }
     }
 
     std::tuple<void*, size_t> runtime_env::create_env_binary(bool savepdi) noexcept

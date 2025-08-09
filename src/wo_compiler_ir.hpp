@@ -502,7 +502,7 @@ namespace wo
             const byte_t** out_runtime_code_end,
             value** out_static_storage_edge) noexcept;
         static void _remove_env_from_list(paged_env_min_context* min_env) noexcept;
-        static void unregister_envs(const runtime_env* env) noexcept;
+        static bool unregister_envs(const runtime_env* env) noexcept;
         static void apply_jit_holder(const runtime_env* env) noexcept;
 
         value* constant_and_global_storage = nullptr;
