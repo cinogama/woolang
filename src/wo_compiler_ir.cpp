@@ -533,8 +533,8 @@ namespace wo
         , constant_and_global_value_takeplace_count(0)
         , constant_value_count(0)
         , real_register_count(0)
-        , rt_code_len(0)
         , rt_codes(nullptr)
+        , rt_code_len(0)
         , _running_on_vm_count(0)
         , _created_destructable_instance_count(0)
     {
@@ -2479,7 +2479,9 @@ namespace wo
                     else
                     {
                         wo_assert(WO_IR.op1 != nullptr);
-                        wo_native_func_t addr = reinterpret_cast<wo_native_func_t>(WO_IR.op1);
+                        wo_native_func_t addr = 
+                            reinterpret_cast<wo_native_func_t>(
+                                reinterpret_cast<intptr_t>(WO_IR.op1));
 
                         wo_assert(!extern_native_functions.at(addr).function_name.empty());
                         extern_native_functions.at(

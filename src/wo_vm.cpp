@@ -858,7 +858,8 @@ namespace wo
 
                 if (is_extern_func)
                 {
-                    auto fnd = env->extern_native_functions.find(reinterpret_cast<wo_native_func_t>(rip));
+                    auto fnd = env->extern_native_functions.find(
+                        reinterpret_cast<wo_native_func_t>(rip));
 
                     if (fnd != env->extern_native_functions.end())
                     {
