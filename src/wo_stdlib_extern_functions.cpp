@@ -1839,42 +1839,40 @@ namespace std
             return self: gchandle->close;
         }
     }
-    public using farcall<FT> = gchandle
+    using farcall<FT> = FT
     {
-        extern("rslib_std_far_function_create")
-            public func create<FT>(val: FT)=> farcall<FT>
-                where type_traits::is_function:<FT>;
-        extern("rslib_std_far_function_get")
-            public func get<FT>(self: farcall<FT>)=> FT;
-        public func close<FT>(self: farcall<FT>)=> bool
-        {
-            return self: gchandle->close;
+        using farcall_pin<FT> = gchandle
+        {   
+            extern("rslib_std_far_function_create")
+                func create<FT>(val: FT)=> farcall_pin<FT>
+                    where type_traits::is_function:<FT>;
+            extern("rslib_std_far_function_get")
+                func get<FT>(self: farcall_pin<FT>)=> FT;
         }
-
         let decltuple<N: int> = 
             N <= 0 
                 ? std::declval:<()>
                 | std::declval:<typeof((std::declval:<nothing>(), decltuple:<{N - 1}>()...))>
                 ;
-        let _declargc<FT, N: int> = 
+        let declargc_counter<FT, N: int> = 
             typeid:<typeof(std::declval:<FT>()(decltuple:<{N}>()...))> != 0
                 ? N
-                | _declargc:<FT, {N + 1}>
+                | declargc_counter:<FT, {N + 1}>
                 ;
-        let declargc<FT> = _declargc:<FT, {0}>;
+        let declargc<FT> = declargc_counter:<FT, {0}>;
         let declisvariadic<FT> = 
             typeid:<typeof(std::declval:<FT>()(decltuple:<{declargc:<FT> + 1}>()...))> != 0;
-        public func wrap<FT>(val: FT)=> FT
+        public func wrap<FT>(val: FT)=> farcall<FT>
             where type_traits::is_function:<FT>;
         {
-            let f = create(val);
+            let f = farcall_pin::create(val);
             return 
                 func(...)
                 {
                     if (!declisvariadic:<FT>)
                         do unsafe::swap_argc(declargc:<FT>);
                     return f->get()(......);
-                }->unsafe::cast:<FT>;
+                }->unsafe::cast:<FT>: farcall<FT>;
         }
     }
     public using mutable<T> = struct {
