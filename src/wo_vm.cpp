@@ -2505,6 +2505,11 @@ namespace wo
                     case wo_result_t::WO_API_SYNC:
                         rt_ip = this->ip;
                         break;
+                    default:
+#if WO_ENABLE_RUNTIME_CHECK
+                        wo_fail(WO_FAIL_TYPE_FAIL, "Bad native function sync state.");
+#endif
+                        break;
                     }
                 }
                 break;
