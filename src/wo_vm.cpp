@@ -2175,7 +2175,8 @@ namespace wo
                     sp = bp;
                     bp = stored_bp;
 
-                    wo_assure(interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
+                    if (rt_ip < near_rtcode_begin || rt_ip >= near_rtcode_end)
+                        wo_assure(interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
                     break;
                 }
                 default:
@@ -2215,7 +2216,8 @@ namespace wo
                     sp = bp;
                     bp = stored_bp;
 
-                    wo_assure(interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
+                    if (rt_ip < near_rtcode_begin || rt_ip >= near_rtcode_end)
+                        wo_assure(interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
                     break;
                 }
                 default:
@@ -2295,10 +2297,8 @@ namespace wo
                         }
                         case wo_result_t::WO_API_SYNC:
                             rt_ip = this->ip;
-
                             if (rt_ip < near_rtcode_begin || rt_ip >= near_rtcode_end)
                                 wo_assure(interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
-
                             break;
                         default:
 #if WO_ENABLE_RUNTIME_CHECK
@@ -2363,10 +2363,8 @@ namespace wo
                             case wo_result_t::WO_API_SYNC:
                             {
                                 rt_ip = this->ip;
-
                                 if (rt_ip < near_rtcode_begin || rt_ip >= near_rtcode_end)
                                     wo_assure(interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
-
                                 break;
                             }
                             default:

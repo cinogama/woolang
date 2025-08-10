@@ -228,6 +228,15 @@ namespace wo
             // not read bad stack data in other thread.
 
             CALL_FAR_RESYNC_VM_STATE_INTERRUPT = 1 << 18,
+            // [Only interrupt in VM] When a virtual machine attempts to call a function outside
+            // its near code area, this is referred to as a "far call" (call far).  
+            // Since different code areas use different static constant tables, to ensure the virtual
+            // machine can correctly handle various relative quantities  
+            // (static/constant access, relative address jumps, and immediate calls) after a far call
+            // occurs, the virtual machine will request this interrupt to update the near code area 
+            // and static constant table either after a far call or when returning from one.  
+            //  * This interrupt carries relatively high overhead, so avoid using far calls unnecessarily
+            // unless absolutely required.  
 
             DEBUG_INTERRUPT = 1 << 30,
             // If virtual machine interrupt with DEBUG_INTERRUPT, it will stop at all opcode

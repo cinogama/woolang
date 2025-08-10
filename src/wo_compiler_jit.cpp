@@ -1362,7 +1362,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 
             if (opnum2.is_constant_i32())
             {
-                // 优化：零加法跳过
                 const auto integer_op2 = opnum2.const_value()->m_integer;
 
                 if (integer_op2 == 0)
@@ -1389,7 +1388,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 
             if (opnum2.is_constant_i32())
             {
-                // 优化：减零跳过
                 const auto integer_op2 = opnum2.const_value()->m_integer;
 
                 if (integer_op2 == 0)
@@ -1416,28 +1414,23 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 
             if (opnum2.is_constant_i32())
             {
-                // 优化：乘法的特殊情况
                 auto mul_value = opnum2.const_value()->m_integer;
                 if (mul_value == 0)
                 {
-                    // 乘0直接设置为0
                     wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer)), 0));
                     return true;
                 }
                 else if (mul_value == 1)
                 {
-                    // 乘1无效果
                     return true;
                 }
                 else if (mul_value == -1)
                 {
-                    // 乘-1等于求负
                     wo_assure(!ctx->c.neg(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer))));
                     return true;
                 }
                 else if ((mul_value & (mul_value - 1)) == 0 && mul_value > 0)
                 {
-                    // 乘以2的幂次，使用左移优化
                     int shift_count = 0;
                     auto temp = mul_value;
                     while (temp > 1) { temp >>= 1; shift_count++; }
@@ -1461,30 +1454,25 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
-            // 优化：处理除法的特殊情况
             if (opnum2.is_constant_i32())
             {
                 auto divisor = opnum2.const_value()->m_integer;
 
                 if (divisor == 1)
                 {
-                    // 除以1无效果
                     return true;
                 }
                 else if (divisor == -1)
                 {
-                    // 除以-1等于求负（溢出已在其他地方检查）
                     wo_assure(!ctx->c.neg(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer))));
                     return true;
                 }
                 else if ((divisor & (divisor - 1)) == 0 && divisor > 0)
                 {
-                    // 除以2的幂次，使用算术右移优化
                     int shift_count = 0;
                     auto temp = divisor;
                     while (temp > 1) { temp >>= 1; shift_count++; }
 
-                    // 对于有符号除法，需要特殊处理负数
                     auto non_negative = ctx->c.newLabel();
                     auto end_label = ctx->c.newLabel();
                     auto dividend = ctx->c.newInt64();
@@ -1493,12 +1481,10 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                     wo_assure(!ctx->c.test(dividend, dividend));
                     wo_assure(!ctx->c.jns(non_negative));
 
-                    // 负数情况：添加偏移以正确舍入
                     wo_assure(!ctx->c.add(dividend, asmjit::Imm(divisor - 1)));
                     wo_assure(!ctx->c.sar(dividend, asmjit::Imm(shift_count)));
                     wo_assure(!ctx->c.jmp(end_label));
 
-                    // 非负数情况：直接右移
                     wo_assure(!ctx->c.bind(non_negative));
                     wo_assure(!ctx->c.sar(dividend, asmjit::Imm(shift_count)));
 
@@ -1508,7 +1494,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                 }
             }
 
-            // 通用除法实现
             auto int_of_op1 = ctx->c.newInt64();
             auto int_of_op2 = ctx->c.newInt64();
             auto div_op_num = ctx->c.newInt64();
@@ -1554,12 +1539,10 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
-            // 优化：处理浮点数加法的特殊情况
             if (opnum2.is_constant_real())
             {
                 const double real_op2 = opnum2.const_value()->m_real;
 
-                // 加0.0优化 - 跳过操作
                 if (real_op2 == 0.0)
                     return true;
             }
@@ -1576,12 +1559,10 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
-            // 优化：处理浮点数减法的特殊情况
             if (opnum2.is_constant_real())
             {
                 const double real_op2 = opnum2.const_value()->m_real;
 
-                // 减0.0优化 - 跳过操作
                 if (real_op2 == 0.0)
                     return true;
             }
@@ -1597,12 +1578,10 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
-            // 优化：处理浮点数乘法的特殊情况
             if (opnum2.is_constant_real())
             {
                 const double real_op2 = opnum2.const_value()->m_real;
 
-                // 乘0.0优化 - 直接设置为0.0
                 if (real_op2 == 0.0)
                 {
                     auto zero = ctx->c.newXmm();
@@ -1610,10 +1589,10 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                     wo_assure(!ctx->c.movsd(asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, m_real)), zero));
                     return true;
                 }
-                // 乘1.0优化 - 跳过操作
+
                 else if (real_op2 == 1.0)
                     return true;
-                // 乘2.0优化 - 通过加法实现（addsd比mulsd更快）
+
                 else if (real_op2 == 2.0)
                 {
                     auto real_of_op1 = ctx->c.newXmm();
@@ -1635,12 +1614,10 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
-            // 优化：处理浮点数除法的特殊情况
             if (opnum2.is_constant_real())
             {
                 const double real_op2 = opnum2.const_value()->m_real;
 
-                // 除1.0优化 - 跳过操作
                 if (real_op2 == 1.0)
                     return true;
             }
@@ -1909,7 +1886,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
-            // 优化：使用SETE指令避免分支跳转，提高性能
             auto temp_result = ctx->c.newUInt8();
             auto int_of_op1 = ctx->c.newInt64();
             wo_assure(!ctx->c.mov(int_of_op1, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer))));
@@ -1926,7 +1902,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
-            // 优化：使用SETNE指令避免分支跳转
             auto temp_result = ctx->c.newUInt8();
             auto int_of_op1 = ctx->c.newInt64();
             wo_assure(!ctx->c.mov(int_of_op1, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer))));
@@ -1943,7 +1918,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
-            // 优化：使用SETL指令避免分支跳转，并优化常量比较
             auto temp_result = ctx->c.newUInt8();
             auto result_reg = ctx->c.newInt64();
 
@@ -1974,7 +1948,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
-            // 优化：使用SETG指令避免分支跳转
             auto temp_result = ctx->c.newUInt8();
             auto result_reg = ctx->c.newInt64();
 
@@ -2281,14 +2254,13 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
-            // 优化：使用setb指令避免分支跳转，提高性能
             auto temp_result = ctx->c.newUInt8();
             auto result_reg = ctx->c.newInt64();
             auto real_of_op1 = ctx->c.newXmm();
 
             wo_assure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, m_real))));
             wo_assure(!ctx->c.comisd(real_of_op1, asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, m_real))));
-            wo_assure(!ctx->c.setb(temp_result)); // 设置如果小于
+            wo_assure(!ctx->c.setb(temp_result));
             wo_assure(!ctx->c.movzx(result_reg.r32(), temp_result));
             wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer)), result_reg));
             wo_assure(!ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, m_type)), (uint8_t)value::valuetype::bool_type));
@@ -2300,14 +2272,13 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
-            // 优化：使用seta指令避免分支跳转，提高性能
             auto temp_result = ctx->c.newUInt8();
             auto result_reg = ctx->c.newInt64();
             auto real_of_op1 = ctx->c.newXmm();
 
             wo_assure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, m_real))));
             wo_assure(!ctx->c.comisd(real_of_op1, asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, m_real))));
-            wo_assure(!ctx->c.seta(temp_result)); // 设置如果大于
+            wo_assure(!ctx->c.seta(temp_result));
             wo_assure(!ctx->c.movzx(result_reg.r32(), temp_result));
             wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer)), result_reg));
             wo_assure(!ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, m_type)), (uint8_t)value::valuetype::bool_type));
@@ -2319,14 +2290,13 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
-            // 优化：使用setbe指令避免分支跳转，提高性能
             auto temp_result = ctx->c.newUInt8();
             auto result_reg = ctx->c.newInt64();
             auto real_of_op1 = ctx->c.newXmm();
 
             wo_assure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, m_real))));
             wo_assure(!ctx->c.comisd(real_of_op1, asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, m_real))));
-            wo_assure(!ctx->c.setbe(temp_result)); // 设置如果小于等于
+            wo_assure(!ctx->c.setbe(temp_result));
             wo_assure(!ctx->c.movzx(result_reg.r32(), temp_result));
             wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer)), result_reg));
             wo_assure(!ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, m_type)), (uint8_t)value::valuetype::bool_type));
@@ -2338,14 +2308,13 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
-            // 优化：使用setae指令避免分支跳转，提高性能
             auto temp_result = ctx->c.newUInt8();
             auto result_reg = ctx->c.newInt64();
             auto real_of_op1 = ctx->c.newXmm();
 
             wo_assure(!ctx->c.movsd(real_of_op1, asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, m_real))));
             wo_assure(!ctx->c.comisd(real_of_op1, asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, m_real))));
-            wo_assure(!ctx->c.setae(temp_result)); // 设置如果大于等于
+            wo_assure(!ctx->c.setae(temp_result));
             wo_assure(!ctx->c.movzx(result_reg.r32(), temp_result));
             wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer)), result_reg));
             wo_assure(!ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, m_type)), (uint8_t)value::valuetype::bool_type));
@@ -2533,8 +2502,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             const uint16_t closure_arg_count = WO_IPVAL_MOVE_2;
 
             // ATTENTION: Always make_closure_fp_impl in jit.
-
-
             if (dr != 0)
             {
                 // is mkclosfp
