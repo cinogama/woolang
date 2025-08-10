@@ -172,6 +172,9 @@ namespace wo
                 && pattern_symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE);
 
             lang_ValueInstance* pattern_value_instance = pattern_symbol->m_value_instance;
+            if (!pattern_value_instance->IR_need_storage())
+                // Skip, constant.
+                return true;
 
             return update_instance_storage_and_code_gen_passir(
                 lex, pattern_value_instance, opnumval, tuple_member_offset);
@@ -745,20 +748,58 @@ namespace wo
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
+
+    bool _check_pattern_all_no_need_storage(AstPatternTuple* ptuple)
+    {
+        for (auto* subtuple : ptuple->m_fields)
+        {
+            switch (subtuple->node_type)
+            {
+            case AstBase::AST_PATTERN_TAKEPLACE:
+                break;
+            case AstBase::AST_PATTERN_SINGLE:
+            {
+                AstPatternSingle* pattern_single =
+                    static_cast<AstPatternSingle*>(subtuple);
+                lang_Symbol* pattern_symbol = pattern_single->m_LANG_declared_symbol.value();
+
+                wo_assert(pattern_symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE
+                    && !pattern_symbol->m_is_template);
+
+                if (pattern_symbol->m_value_instance->IR_need_storage())
+                    return false; // Need storage.
+                break;
+            }
+            case AstBase::AST_PATTERN_TUPLE:
+            {
+                AstPatternTuple* subtuple_pattern =
+                    static_cast<AstPatternTuple*>(subtuple);
+                if (!_check_pattern_all_no_need_storage(subtuple_pattern))
+                    return false; // Need storage.
+                break;
+            }
+            default:
+                wo_error("Unknown pattern type.");
+                return false; // Unknown pattern type.
+            }
+        }
+        return true; // No need storage.
+    }
+
     WO_PASS_PROCESSER(AstVariableDefineItem)
     {
         wo_assert(state == UNPROCESSED);
 
-        if (node->m_pattern->node_type == AstBase::AST_PATTERN_TAKEPLACE)
+        switch (node->m_pattern->node_type)
         {
+        case AstBase::AST_PATTERN_TAKEPLACE:
             m_ircontext.eval_ignore();
             if (!pass_final_value(lex, node->m_init_value))
                 // Failed 
                 return FAILED;
 
             return OKAY;
-        }
-        else if (node->m_pattern->node_type == AstBase::AST_PATTERN_SINGLE)
+        case AstBase::AST_PATTERN_SINGLE:
         {
             // Might be constant, template.
             AstPatternSingle* pattern_single = static_cast<AstPatternSingle*>(node->m_pattern);
@@ -882,33 +923,39 @@ namespace wo
             }
             return OKAY;
         }
-        else if (node->m_pattern->node_type == AstBase::AST_PATTERN_TAKEPLACE)
+        case AstBase::AST_PATTERN_TUPLE:
         {
-            m_ircontext.eval_ignore();
-            if (!pass_final_value(lex, node->m_init_value))
-                // Failed 
-                return FAILED;
+            AstPatternTuple* pattern_tuple = static_cast<AstPatternTuple*>(node->m_pattern);
+            if (_check_pattern_all_no_need_storage(pattern_tuple))
+            {
+                m_ircontext.eval_ignore();
+                if (!pass_final_value(lex, node->m_init_value))
+                    // Failed 
+                    return FAILED;
+            }
+            else
+            {
+                m_ircontext.eval_keep();
+                if (!pass_final_value(lex, node->m_init_value))
+                    // Failed 
+                    return FAILED;
 
+                auto* result_opnum = m_ircontext.get_eval_result();
+
+                bool update_result = update_pattern_storage_and_code_gen_passir(
+                    lex, node->m_pattern, result_opnum, std::nullopt);
+
+                m_ircontext.try_return_opnum_temporary_register(result_opnum);
+
+                if (!update_result)
+                    return FAILED;
+            }
             return OKAY;
         }
-
-        // Other pattern type.
-        m_ircontext.eval_keep();
-        if (!pass_final_value(lex, node->m_init_value))
-            // Failed 
-            return FAILED;
-
-        auto* result_opnum = m_ircontext.get_eval_result();
-
-        bool update_result = update_pattern_storage_and_code_gen_passir(
-            lex, node->m_pattern, result_opnum, std::nullopt);
-
-        m_ircontext.try_return_opnum_temporary_register(result_opnum);
-
-        if (!update_result)
-            return FAILED;
-
-        return OKAY;
+        default:
+            wo_error("Unknown pattern type.");
+            return FAILED; // Unknown pattern type.
+        }
     }
     WO_PASS_PROCESSER(AstReturn)
     {

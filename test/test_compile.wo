@@ -2418,6 +2418,24 @@ func main()
             }
         }
         "@);
+        assure_compile_success(@"
+        import woo::std;
+        func foo(a: mut int)
+        {
+            do a;
+        }
+        let f = std::far::wrap(foo);
+        f(mut 0);
+        "@);
+        assure_compile_fail(@"
+        import woo::std;
+        func foo(a: mut int)
+        {
+            do a;
+        }
+        let f = std::far::wrap(foo);
+        f(0);
+        "@);
                 
         // Do you forget to regenerate the grammar-cache?
         assure_compile_fail(@""@);
