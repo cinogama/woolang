@@ -298,14 +298,14 @@ namespace wo
 
         struct custom_marker
         {
-            intptr_t m_is_callback : 1;
-
 #ifdef WO_PLATFORM_64
             static_assert(sizeof(intptr_t) == sizeof(int64_t));
+            intptr_t m_is_callback : 1;
             intptr_t m_marker63 : 63;
 #else
             static_assert(sizeof(intptr_t) == sizeof(int32_t));
-            intptr_t m_marker31 : 31;
+            intptr_t m_is_callback;
+            intptr_t m_marker32;
 #endif
         };
 

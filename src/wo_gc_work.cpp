@@ -1049,7 +1049,7 @@ namespace wo
                 m_custom_marker.m_marker63);
 #else
             marker = reinterpret_cast<gcmark_func_t>(
-                m_custom_marker.m_marker31);
+                m_custom_marker.m_marker32);
 #endif
             marker(context, m_holding_handle);
         }
@@ -1061,7 +1061,7 @@ namespace wo
                 m_custom_marker.m_marker63));
 #else
             gcbase_addr = std::launder(reinterpret_cast<gcbase*>(
-                m_custom_marker.m_marker31));
+                m_custom_marker.m_marker32));
 #endif
 
             if (gcbase_addr != nullptr)
