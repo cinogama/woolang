@@ -4,7 +4,7 @@
 
 #undef FAILED
 
-#if WO_JIT_SUPPORT_ASMJIT
+#if WO_JIT_SUPPORT_ASMJIT && 0
 
 #ifndef ASMJIT_STATIC
 #define ASMJIT_STATIC
