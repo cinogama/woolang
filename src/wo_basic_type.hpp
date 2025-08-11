@@ -25,10 +25,23 @@ namespace wo
     struct closure_bast_t;
     struct structure_base_t;
     struct dynamic_base_t;
+    struct dynamic_base_equal
+    {
+        bool operator()(const dynamic_base_t& lhs, const dynamic_base_t& rhs) const;
+    };
+    struct dynamic_base_hasher
+    {
+        size_t operator()(const dynamic_base_t& val) const;
+    };
+    using dictionary_base_t =
+        std::unordered_map<
+        dynamic_base_t,
+        value,
+        dynamic_base_hasher,
+        dynamic_base_equal>;
 
     using string_t = gcunit<std::string>;
-    // TODO..
-    using dictionary_t = gcunit<std::unordered_map<value, value, value_hasher, value_equal>>;
+    using dictionary_t = gcunit<dictionary_base_t>;
     using array_t = gcunit<std::vector<value>>;
     using gchandle_t = gcunit<gchandle_base_t>;
     using closure_t = gcunit<closure_bast_t>;
@@ -98,7 +111,7 @@ namespace wo
 
         uint64_t m_value_field;
 
-        WO_FORCE_INLINE value* set_gcunit(gcbase* unit)
+        WO_FORCE_INLINE value* set_gcunit(gcbase * unit)
         {
             if constexpr (sizeof(gcbase*) < sizeof(wo_handle_t))
                 m_value_field = 0;

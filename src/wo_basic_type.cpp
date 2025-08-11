@@ -41,37 +41,25 @@ namespace wo
         set_gcunit(structure_t::gc_new<gcbase::gctype::no_gc>(sz));
         return this;
     }
-
-    bool value_ptr_compare::operator()(const value* lhs, const value* rhs) const
-    {
-        if (lhs->m_type == rhs->m_type)
-        {
-            if (lhs->m_type == value::valuetype::string_type)
-                return *lhs->m_string < *rhs->m_string;
-
-            return lhs->m_handle < rhs->m_handle;
-        }
-        return lhs->m_type < rhs->m_type;
-    }
-    bool value_equal::operator()(const value& lhs, const value& rhs) const
+    bool dynamic_base_equal::operator()(
+        const dynamic_base_t& lhs, const dynamic_base_t& rhs) const
     {
         if (lhs.m_type == rhs.m_type)
         {
-            if (lhs.m_type == value::valuetype::string_type)
-                return *lhs.m_string == *rhs.m_string;
+            if (lhs.m_type == WO_STRING_TYPE)
+                return *lhs.m_value.m_string == *rhs.m_value.m_string;
 
-            return lhs.m_handle == rhs.m_handle;
+            return lhs.m_value.m_value_field == rhs.m_value.m_value_field;
         }
-        return lhs.m_type == rhs.m_type && lhs.m_handle == rhs.m_handle;
+        return false;
     }
-    size_t value_hasher::operator()(const value& val) const
+    size_t dynamic_base_hasher::operator()(const dynamic_base_t& val) const
     {
-        if (val.m_type == value::valuetype::string_type)
-            return std::hash<std::string>()(*val.m_string);
+        if (val.m_type == WO_STRING_TYPE)
+            return std::hash<std::string>()(*val.m_value.m_string);
 
-        return (size_t)val.m_handle;
+        return static_cast<size_t>(val.m_value.m_handle);
     }
-
     structure_base_t::structure_base_t(uint16_t sz) noexcept
         : m_count(sz)
     {
