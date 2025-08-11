@@ -10,7 +10,7 @@ namespace wo
     using byte_t = uint8_t;
 
     class vmbase;
-    struct value;
+    union value;
     struct gcbase;
 
     template<typename NodeT>
@@ -97,8 +97,6 @@ namespace wo
         void close_weak_ref(wo_weak_ref weak_ref);
         bool lock_weak_ref(value* out_value, wo_weak_ref weak_ref);
     }
-
-    struct value;
 
     struct gcbase
     {

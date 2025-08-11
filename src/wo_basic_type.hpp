@@ -17,114 +17,102 @@
 
 namespace wo
 {
-    struct value;
-    struct value_equal
-    {
-        bool operator()(const value& lhs, const value& rhs) const;
-    };
-    struct value_hasher
-    {
-        size_t operator()(const value& val) const;
-    };
-    struct value_ptr_compare
-    {
-        bool operator()(const value* lhs, const value* rhs) const;
-    };
+    union value;
 
     using hash_t = uint64_t;
 
     struct gchandle_base_t;
     struct closure_bast_t;
     struct structure_base_t;
+    struct dynamic_base_t;
 
     using string_t = gcunit<std::string>;
+    // TODO..
     using dictionary_t = gcunit<std::unordered_map<value, value, value_hasher, value_equal>>;
     using array_t = gcunit<std::vector<value>>;
     using gchandle_t = gcunit<gchandle_base_t>;
     using closure_t = gcunit<closure_bast_t>;
     using structure_t = gcunit<structure_base_t>;
+    using dynamic_t = gcunit<dynamic_base_t>;
 
-    struct WO_DECLARE_ALIGNAS(8) value
+    enum callway : uintptr_t
     {
-        //  value
-        /*
-         *
-         */
-        enum valuetype : uint8_t
+        CLOSURE = 0, // Only used in function type.
+                     // ATTENTION: CLOSURE must be 0 to make GC can scan the value easier.
+                     NEAR,
+                     SCRIPT = NEAR,
+                     FAR,         // Only used in callstack type.
+                     NATIVE,
+    };
+
+    union WO_DECLARE_ALIGNAS(8) value
+    {
+        struct invoke_target_t
         {
-            invalid = WO_INVALID_TYPE,
-
-            need_gc_flag = WO_NEED_GC_FLAG,
-
-            integer_type = WO_INTEGER_TYPE,
-            real_type = WO_REAL_TYPE,
-            handle_type = WO_HANDLE_TYPE,
-            bool_type = WO_BOOL_TYPE,
-
-            script_func_type = WO_SCRIPT_FUNC_TYPE,
-            native_func_type = WO_NATIVE_FUNC_TYPE,
-
-            callstack = WO_CALLSTACK_TYPE,
-            far_callstack = WO_FAR_CALLSTACK_TYPE,
-            nativecallstack = WO_NATIVE_CALLSTACK_TYPE,
-
-            string_type = WO_STRING_TYPE,
-            dict_type = WO_MAPPING_TYPE,
-            array_type = WO_ARRAY_TYPE,
-            gchandle_type = WO_GCHANDLE_TYPE,
-            closure_type = WO_CLOSURE_TYPE,
-            struct_type = WO_STRUCT_TYPE,
+#ifdef WO_PLATFORM_64
+            static_assert(sizeof(uintptr_t) == sizeof(uint64_t));
+            uintptr_t m_masked_invoke_target64;
+#define WO_VALUE_INVOKE_TARGET(VAL)\
+    static_cast<uintptr_t>(\
+        VAL.m_function.m_masked_invoke_target64 & static_cast<uintptr_t>(0x3fffffffffffffff))
+#define WO_VALUE_INVOKE_KIND(VAL)\
+    static_cast<wo::callway>(\
+        VAL.m_function.m_masked_invoke_target64 >> static_cast<uintptr_t>(62))
+#define WO_VALUE_MAKE_MASK_TARGET64(WAY, PTR)\
+    static_cast<uintptr_t>(\
+        reinterpret_cast<uintptr_t>(PTR) | (\
+            static_cast<uintptr_t>(WAY) << static_cast<uintptr_t>(62)))
+#else
+            static_assert(sizeof(uintptr_t) == sizeof(uint32_t));
+            uintptr_t m_invoke_target32;
+            callway m_invoke_way32;
+#define WO_VALUE_INVOKE_TARGET(VAL) (VAL.m_function.m_invoke_target32)
+#define WO_VALUE_INVOKE_KIND(VAL) (VAL.m_function.m_invoke_way32)
+#endif
+        };
+        struct callstack_from_ip_t
+        {
+#ifdef WO_PLATFORM_64
+            static_assert(sizeof(uintptr_t) == sizeof(uint64_t));
+            callway m_invoke_way : 2;
+            uintptr_t m_ret_abs_ip : 62;
+#else
+            static_assert(sizeof(uintptr_t) == sizeof(uint32_t));
+            callway m_invoke_way;
+            uintptr_t m_ret_abs_ip;
+#endif
         };
 
-        struct callstack_t
-        {
-            uint32_t bp;
-            uint32_t ret_ip;
-        };
+        wo_real_t m_real;
+        wo_integer_t m_integer;
+        wo_handle_t m_handle;
+        gcbase* m_gcunit;
+        string_t* m_string;
+        array_t* m_array;
+        dictionary_t* m_dictionary;
+        gchandle_t* m_gchandle;
+        structure_t* m_structure;
+        dynamic_t* m_dynamic;
+        invoke_target_t m_function;
+        callstack_from_ip_t m_callstack;
 
-        union
-        {
-            wo_real_t m_real;
-            wo_integer_t m_integer;
-            wo_handle_t m_handle;
-            const byte_t* m_script_func;
-            wo_native_func_t m_native_func;
-            gcbase* m_gcunit;
-            string_t* m_string;
-            array_t* m_array;
-            dictionary_t* m_dictionary;
-            gchandle_t* m_gchandle;
-            closure_t* m_closure;
-            structure_t* m_structure;
-            callstack_t m_vmcallstack;
-            const byte_t* m_farcallstack;
-            const byte_t* m_nativecallstack;
-            uint64_t m_value_field;
-        };
-        struct
-        {
-            valuetype m_type;
+        uint64_t m_value_field;
 
-            // Value field is not engough for storing bp.
-            uint32_t m_ext_farcallstack_bp;
-        };
-
-        WO_FORCE_INLINE value* set_takeplace()
+        WO_FORCE_INLINE value* set_gcunit(gcbase* unit)
         {
-            m_type = valuetype::need_gc_flag;
-            m_value_field = 0;
+            if constexpr (sizeof(gcbase*) < sizeof(wo_handle_t))
+                m_value_field = 0;
+
+            m_gcunit = unit;
             return this;
         }
-        WO_FORCE_INLINE value* set_string(const std::string & str)
+        WO_FORCE_INLINE value* set_string(std::string_view str)
         {
-            set_gcunit<wo::value::valuetype::string_type>(
-                string_t::gc_new<gcbase::gctype::young>(str));
-            return this;
+            set_gcunit(string_t::gc_new<gcbase::gctype::young>(str));
         }
         WO_FORCE_INLINE value* set_buffer(const void* buf, size_t sz)
         {
-            set_gcunit<wo::value::valuetype::string_type>(
-                string_t::gc_new<gcbase::gctype::young>((const char*)buf, sz));
+            set_gcunit(string_t::gc_new<gcbase::gctype::young>((const char*)buf, sz));
             return this;
         }
         value* set_string_nogc(std::string_view str);
@@ -132,81 +120,49 @@ namespace wo
         value* set_val_with_compile_time_check(const value * val);
         WO_FORCE_INLINE value* set_script_func(const byte_t * val)
         {
-            m_type = valuetype::script_func_type;
-            m_script_func = val;
+#ifdef WO_PLATFORM_64
+            m_function.m_masked_invoke_target64 =
+                WO_VALUE_MAKE_MASK_TARGET64(callway::SCRIPT, val);
+#else
+            m_function.m_invoke_target32 = reinterpret_cast<uintptr_t>(val);
+            m_function.m_invoke_way32 = callway::SCRIPT;
+#endif
             return this;
         }
         WO_FORCE_INLINE value* set_native_func(wo_native_func_t val)
         {
-            m_type = valuetype::native_func_type;
-            m_native_func = val;
+#ifdef WO_PLATFORM_64
+            m_function.m_masked_invoke_target64 =
+                WO_VALUE_MAKE_MASK_TARGET64(callway::NATIVE, val);
+#else
+            m_function.m_invoke_target32 = reinterpret_cast<uintptr_t>(val);
+            m_function.m_invoke_way32 = callway::NATIVE;
+#endif
             return this;
         }
         WO_FORCE_INLINE value* set_integer(wo_integer_t val)
         {
-            m_type = valuetype::integer_type;
             m_integer = val;
             return this;
         }
         WO_FORCE_INLINE value* set_real(wo_real_t val)
         {
-            m_type = valuetype::real_type;
             m_real = val;
             return this;
         }
         WO_FORCE_INLINE value* set_handle(wo_handle_t val)
         {
-            m_type = valuetype::handle_type;
             m_handle = val;
             return this;
         }
         WO_FORCE_INLINE value* set_nil()
         {
-            m_type = valuetype::invalid;
             m_value_field = 0;
             return this;
         }
         WO_FORCE_INLINE value* set_bool(bool val)
         {
-            m_type = valuetype::bool_type;
             m_integer = val ? 1 : 0;
-            return this;
-        }
-        WO_FORCE_INLINE value* set_native_callstack(const wo::byte_t * ipplace)
-        {
-            m_type = valuetype::nativecallstack;
-            m_nativecallstack = ipplace;
-            return this;
-        }
-        WO_FORCE_INLINE value* set_callstack(uint32_t ip, uint32_t bp)
-        {
-            m_type = valuetype::callstack;
-            m_vmcallstack.ret_ip = ip;
-            m_vmcallstack.bp = bp;
-            return this;
-        }
-        template <valuetype ty, typename T>
-        WO_FORCE_INLINE value* set_gcunit(T * unit)
-        {
-            static_assert(ty & valuetype::need_gc_flag);
-
-            m_type = ty;
-            if constexpr (sizeof(gcbase*) < sizeof(wo_handle_t))
-                m_value_field = 0;
-
-            if constexpr (ty == valuetype::string_type)
-                m_string = unit;
-            else if constexpr (ty == valuetype::array_type)
-                m_array = unit;
-            else if constexpr (ty == valuetype::dict_type)
-                m_dictionary = unit;
-            else if constexpr (ty == valuetype::gchandle_type)
-                m_gchandle = unit;
-            else if constexpr (ty == valuetype::closure_type)
-                m_closure = unit;
-            else if constexpr (ty == valuetype::struct_type)
-                m_structure = unit;
-
             return this;
         }
 
@@ -217,20 +173,11 @@ namespace wo
         // ATTENTION: Only work for gc-work-thread & no_gc unit. gc-unit might be freed
         //          after get_gcunit_and_attrib_ref.
         gc::unit_attrib* fast_get_attrib_for_assert_check() const;
-        WO_FORCE_INLINE bool is_gcunit() const
-        {
-            return m_type & valuetype::need_gc_flag;
-        }
         WO_FORCE_INLINE value* set_val(const value * _val)
         {
-            m_type = _val->m_type;
             m_value_field = _val->m_value_field;
             return this;
         }
-        std::string get_type_name() const;
-
-        value* set_dup(value * from);
-
         WO_FORCE_INLINE static void write_barrier(const value * val)
         {
             gc::unit_attrib* attr;
@@ -244,9 +191,18 @@ namespace wo
         // Used for storing key-value when deserilizing a map.
         static const value TAKEPLACE;
     };
-    static_assert(sizeof(value) == 16);
+    static_assert(sizeof(value) == 8);
     static_assert(alignof(value) == 8);
+    static_assert(sizeof(value) == sizeof(_wo_value));
     static_assert(alignof(value) == alignof(_wo_value));
+    static_assert(offsetof(value, m_gcunit) == 0);
+    static_assert(offsetof(value, m_function) == 0);
+#ifdef WO_PLATFORM_64
+    // Make sure GC can scan correct place.
+    static_assert(callway::CLOSURE == 0);
+#else
+    static_assert(offsetof(invoke_target_t, m_invoke_target32) == 0);
+#endif
     static_assert(sizeof(std::atomic<gcbase*>) == sizeof(gcbase*));
     static_assert(std::atomic<gcbase*>::is_always_lock_free);
     static_assert(sizeof(std::atomic<byte_t>) == sizeof(byte_t));
@@ -321,5 +277,21 @@ namespace wo
         void dec_destructable_instance_count();
 
         ~gchandle_base_t();
+    };
+    struct dynamic_base_t
+    {
+        wo_type_t m_type;
+        value m_value;
+
+        dynamic_base_t(wo_type_t type, value val)
+            : m_type(type)
+            , m_value(val)
+        {
+        }
+
+        dynamic_base_t(const dynamic_base_t&) = delete;
+        dynamic_base_t(dynamic_base_t&&) = delete;
+        dynamic_base_t& operator=(const dynamic_base_t&) = delete;
+        dynamic_base_t& operator=(dynamic_base_t&&) = delete;
     };
 }

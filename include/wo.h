@@ -67,7 +67,7 @@ typedef struct _wo_vm
 typedef struct _wo_value
 { /* reserved, and prevent from type casting. */
     WO_DECLARE_ALIGNAS(8)
-        WO_STRUCT_TAKE_PLACE(16);
+        WO_STRUCT_TAKE_PLACE(8);
 }
 wo_unref_value, * wo_value;
 

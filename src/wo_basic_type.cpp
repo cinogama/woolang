@@ -6,17 +6,14 @@ namespace wo
     value* value::set_string_nogc(std::string_view str)
     {
         // You must reset the no-gc flag manually.
-        set_gcunit<wo::value::valuetype::string_type>(
-            string_t::gc_new<gcbase::gctype::no_gc>(str));
+        set_gcunit(string_t::gc_new<gcbase::gctype::no_gc>(str));
         return this;
     }
     value* value::set_val_with_compile_time_check(const value* val)
     {
-        if (val->is_gcunit())
-        {
-            auto* attrib = val->fast_get_attrib_for_assert_check();
-            wo_test(attrib != nullptr && attrib->m_nogc != 0);
-        }
+        auto* attrib = val->fast_get_attrib_for_assert_check();
+        wo_test(attrib != nullptr && attrib->m_nogc != 0);
+
         return set_val(val);
     }
 
@@ -24,10 +21,8 @@ namespace wo
     //          after get_gcunit_and_attrib_ref.
     gcbase* value::get_gcunit_and_attrib_ref(gc::unit_attrib** attrib) const
     {
-        if (m_type & valuetype::need_gc_flag)
-            return std::launder(reinterpret_cast<gcbase*>(
-                womem_verify(m_gcunit, std::launder(reinterpret_cast<womem_attrib_t**>(attrib)))));
-        return nullptr;
+        return std::launder(reinterpret_cast<gcbase*>(
+            womem_verify(m_gcunit, std::launder(reinterpret_cast<womem_attrib_t**>(attrib)))));
     }
 
     // ATTENTION: Only work for gc-work-thread & no_gc unit. gc-unit might be freed
@@ -40,80 +35,10 @@ namespace wo
         return nullptr;
     }
 
-    std::string value::get_type_name() const
-    {
-        switch (m_type)
-        {
-        case valuetype::integer_type:
-            return "int";
-        case valuetype::real_type:
-            return "real";
-        case valuetype::handle_type:
-            return "handle";
-        case valuetype::string_type:
-            return "string";
-        case valuetype::array_type:
-            return "array";
-        case valuetype::dict_type:
-            return "dict";
-        case valuetype::invalid:
-            return "nil";
-        default:
-            wo_fail(WO_FAIL_TYPE_FAIL, "Unknown type name.");
-            return "unknown";
-        }
-    }
-
-    value* value::set_dup(value* from)
-    {
-        if (from->m_type == valuetype::array_type)
-        {
-            auto* dup_arrray = from->m_array;
-            wo_assert(dup_arrray != nullptr);
-
-            gcbase::gc_read_guard g1(dup_arrray);
-
-            set_gcunit<valuetype::array_type>(
-                array_t::gc_new<gcbase::gctype::young>(
-                    *dup_arrray));
-        }
-        else if (from->m_type == valuetype::dict_type)
-        {
-            auto* dup_mapping = from->m_dictionary;
-            wo_assert(dup_mapping != nullptr);
-
-            gcbase::gc_read_guard g1(dup_mapping);
-
-            set_gcunit<valuetype::dict_type>(
-                dictionary_t::gc_new<gcbase::gctype::young>(
-                    *dup_mapping));
-        }
-        else if (from->m_type == valuetype::struct_type)
-        {
-            auto* dup_struct = from->m_structure;
-            wo_assert(dup_struct != nullptr);
-
-            auto* maked_struct =
-                structure_t::gc_new<gcbase::gctype::young>(
-                    dup_struct->m_count);
-
-            gcbase::gc_read_guard g1(dup_struct);
-            memcpy(
-                maked_struct->m_values,
-                dup_struct->m_values,
-                sizeof(value) * static_cast<size_t>(dup_struct->m_count));
-
-            set_gcunit<valuetype::struct_type>(maked_struct);
-        }
-        else
-            set_val(from);
-        return this;
-    }
     value* value::set_struct_nogc(uint16_t sz)
     {
         // You must reset the no-gc flag manually.
-        set_gcunit<wo::value::valuetype::struct_type>(
-            structure_t::gc_new<gcbase::gctype::no_gc>(sz));
+        set_gcunit(structure_t::gc_new<gcbase::gctype::no_gc>(sz));
         return this;
     }
 
@@ -161,7 +86,7 @@ namespace wo
     closure_bast_t::closure_bast_t(const byte_t* vmfunc, uint16_t argc) noexcept
         : m_native_call(false)
         , m_closure_args_count(argc)
-        , m_vm_func(vmfunc)        
+        , m_vm_func(vmfunc)
     {
         m_closure_args = (value*)malloc(argc * sizeof(value));
     }
@@ -199,7 +124,7 @@ namespace wo
 #else
         m_custom_marker.m_marker32 = reinterpret_cast<intptr_t>(unit_may_null);
 #endif
-}
+    }
     gchandle_base_t::~gchandle_base_t()
     {
         do_close();
@@ -214,4 +139,4 @@ namespace wo
             m_hold_counter->fetch_sub(1, std::memory_order::memory_order_relaxed);
         wo_assert(old_count > 0);
     }
-}
+    }
