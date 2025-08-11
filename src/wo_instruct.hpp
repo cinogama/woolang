@@ -36,16 +36,20 @@ namespace wo
             nop1 = nop | 0b01,
             nop2 = nop | 0b10,
             nop3 = nop | 0b11,
+            ///////////////////////////////////
             mov = WO_OPCODE_SPACE(MOV),
             WO_OPCODE_DR2SG(mov),
+            ///////////////////////////////////
             psh = WO_OPCODE_SPACE(PSH),
             pshr = psh | 0b00,
             pshg = psh | 0b01,
             pshs = psh | 0b11,
+            ///////////////////////////////////
             pop = WO_OPCODE_SPACE(POP),
             popr = pop | 0b00,
             popg = pop | 0b01,
             pops = pop | 0b11,
+            ///////////////////////////////////
             addi = WO_OPCODE_SPACE(ADDI),
             WO_OPCODE_DR2SG(addi),
             subi = WO_OPCODE_SPACE(SUBI),
@@ -128,52 +132,66 @@ namespace wo
             WO_OPCODE_DR2SG(equb),
             nequb = WO_OPCODE_SPACE(NEQUB),
             WO_OPCODE_DR2SG(nequb),
+            ///////////////////////////////////
             jnequb = WO_OPCODE_SPACE(JNEQUB),
             jnequbg = jnequb | 0b00,
             jnequbs = jnequb | 0b10,
+            ///////////////////////////////////
             call = WO_OPCODE_SPACE(CALL),
             callg = call | 0b00,
             calls = call | 0b10,
+            ///////////////////////////////////
             calln = WO_OPCODE_SPACE(CALLN),
             callnwo = calln | 0b00,
             callnfpslow = calln | 0b01,
             callnfp = calln | 0b11,
+            ///////////////////////////////////
             setip = WO_OPCODE_SPACE(SETIP),
             jmp = setip | 0b00,
             jmpf = setip | 0b10,
             jmpt = setip | 0b11,
+            ///////////////////////////////////
             mkcontain = WO_OPCODE_SPACE(MKCONTAIN),
             mkarrg = mkcontain | 0b00,
             mkarrs = mkcontain | 0b10,
             mkmapg = mkcontain | 0b01,
             mkmaps = mkcontain | 0b11,
+            ///////////////////////////////////
             mkstruct = WO_OPCODE_SPACE(MKSTRUCT),
             mkstructg = mkstruct | 0b00,
             mkstructs = mkstruct | 0b10,
+            ///////////////////////////////////
             mkunion = WO_OPCODE_SPACE(MKUNION),
             WO_OPCODE_DR2SG(mkunion),
+            ///////////////////////////////////
             mkclos = WO_OPCODE_SPACE(MKCLOS),
             mkcloswo = mkclos | 0b00,
             mkclosfp = mkclos | 0b10,
+            ///////////////////////////////////
             unpack = WO_OPCODE_SPACE(UNPACK),
             unpackg = unpack | 0b00,
             unpacks = unpack | 0b10,
+            ///////////////////////////////////
             movcast = WO_OPCODE_SPACE(MOVCAST),
             WO_OPCODE_DR2SG(movcast),
+            ///////////////////////////////////
             typeas = WO_OPCODE_SPACE(TYPEAS),
             typeasg = typeas | 0b00,
             typeass = typeas | 0b10,
             typeisg = typeas | 0b01,
             typeiss = typeas | 0b11,
+            ///////////////////////////////////
             endproc = WO_OPCODE_SPACE(ENDPROC),
             abrt = endproc | 0b00,
             end = endproc | 0b10,
             ret = endproc | 0b01,
             retn = endproc | 0b11,
+            ///////////////////////////////////
             lds = WO_OPCODE_SPACE(LDS),
             WO_OPCODE_DR2SG(lds),
             sts = WO_OPCODE_SPACE(STS),
             WO_OPCODE_DR2SG(sts),
+            ///////////////////////////////////
             ext = WO_OPCODE_SPACE(EXT),
             ext0 = ext | 0b00,
             ext1 = ext | 0b01,
