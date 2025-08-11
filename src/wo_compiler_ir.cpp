@@ -638,8 +638,8 @@ namespace wo
         //  3.1.2 Code body
         write_buffer_to_buffer(this->rt_codes, this->rt_code_len, 1);
         write_buffer_to_buffer("\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC", padding_length_for_rt_coding, 1);
-        static_assert((0xCC >> 2) == WO_ABRT);
-
+        static_assert((0xCC >> 2) == WO_ENDPROC);
+        static_assert((instruct::abrt >> 2) == WO_ENDPROC);
         // 3.2 Constant data
         write_binary_to_buffer(
             (uint64_t)this->constant_value_count, 8);
@@ -2675,21 +2675,21 @@ namespace wo
                     }
 
                     break;
-                case instruct::opcode::abrt:
+                case instruct::opcode::endproc:
                     switch (WO_IR.opinteger1)
                     {
                     case 0:
-                        generated_runtime_code_buf.push_back(WO_OPCODE(abrt, 00));
+                        generated_runtime_code_buf.push_back(instruct::abrt);
                         break;
                     case 1:
-                        generated_runtime_code_buf.push_back(WO_OPCODE(abrt, 10));
+                        generated_runtime_code_buf.push_back(instruct::end);
                         break;
                     case 2:
-                        generated_runtime_code_buf.push_back(WO_OPCODE(abrt, 01));
+                        generated_runtime_code_buf.push_back(instruct::ret);
                         break;
                     case 3:
                     {
-                        generated_runtime_code_buf.push_back(WO_OPCODE(abrt, 11));
+                        generated_runtime_code_buf.push_back(instruct::retn);
 
                         uint16_t pop_count = (uint16_t)WO_IR.opinteger2;
                         byte_t* readptr = (byte_t*)&pop_count;

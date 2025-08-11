@@ -621,7 +621,7 @@ namespace wo
                     this_command_ptr += 4;
                 }
                 break;
-            case instruct::jmp:
+            case instruct::setip:
                 switch (main_command & 0b11)
                 {
                 case 0b00: tmpos << "jmp\t"; break;
@@ -663,7 +663,7 @@ namespace wo
                 tmpos << wo_type_name((wo_type_t) * (this_command_ptr++));
 
                 break;
-            case instruct::abrt:
+            case instruct::endproc:
                 switch (main_command & 0b11)
                 {
                 case 0b00:

@@ -134,13 +134,13 @@ WO_ASMJIT_IR_ITERFACE_DECL(eltr);\
 WO_ASMJIT_IR_ITERFACE_DECL(egtr);\
 WO_ASMJIT_IR_ITERFACE_DECL(call);\
 WO_ASMJIT_IR_ITERFACE_DECL(calln);\
-WO_ASMJIT_IR_ITERFACE_DECL(jmp);\
+WO_ASMJIT_IR_ITERFACE_DECL(setip);\
 WO_ASMJIT_IR_ITERFACE_DECL(mkunion);\
 WO_ASMJIT_IR_ITERFACE_DECL(movcast);\
 WO_ASMJIT_IR_ITERFACE_DECL(mkclos);\
 WO_ASMJIT_IR_ITERFACE_DECL(typeas);\
 WO_ASMJIT_IR_ITERFACE_DECL(mkstruct);\
-WO_ASMJIT_IR_ITERFACE_DECL(abrt);\
+WO_ASMJIT_IR_ITERFACE_DECL(endproc);\
 WO_ASMJIT_IR_ITERFACE_DECL(idarr);\
 WO_ASMJIT_IR_ITERFACE_DECL(iddict);\
 WO_ASMJIT_IR_ITERFACE_DECL(mkcontain);\
@@ -205,8 +205,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             CompileContextT* ctx,
             asmjit::BaseCompiler* compiler) noexcept
         {
-            byte_t              opcode_dr = (byte_t)(instruct::abrt << 2);
-            instruct::opcode    opcode = (instruct::opcode)(opcode_dr & 0b11111100u);
+            byte_t              opcode_dr = static_cast<byte_t>(instruct::abrt);
+            instruct::opcode    opcode = static_cast<instruct::opcode>(opcode_dr & 0b11111100u);
             unsigned int        dr = opcode_dr & 0b00000011u;
 
             for (;;)
@@ -2397,7 +2397,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             }
             return true;
         }
-        virtual bool ir_jmp(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
+        virtual bool ir_setip(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
             auto check_point_ipaddr = rt_ip - 1;
             uint32_t jmp_place = WO_IPVAL_MOVE_4;
@@ -2411,33 +2411,33 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                 wo_assure(!ctx->c.jmp(jump_ip(&ctx->c, jmp_place)));
                 break;
             case 0b10:
-            {
-                auto label_cond_not_match = ctx->c.newLabel();
-
                 wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_value_field)), 0));
-                wo_assure(!ctx->c.jne(label_cond_not_match));
-
                 if (jmp_place < (uint32_t)(rt_ip - ctx->env->rt_codes))
-                    ir_make_checkpoint_fastcheck(ctx, check_point_ipaddr);
+                {
+                    auto label_cond_not_match = ctx->c.newLabel();
 
-                wo_assure(!ctx->c.jmp(jump_ip(&ctx->c, jmp_place)));
-                wo_assure(!ctx->c.bind(label_cond_not_match));
+                    wo_assure(!ctx->c.jne(label_cond_not_match));
+                    ir_make_checkpoint_fastcheck(ctx, check_point_ipaddr);
+                    wo_assure(!ctx->c.jmp(jump_ip(&ctx->c, jmp_place)));
+                    wo_assure(!ctx->c.bind(label_cond_not_match));
+                }
+                else
+                    wo_assure(!ctx->c.je(jump_ip(&ctx->c, jmp_place)));
                 break;
-            }
             case 0b11:
-            {
-                auto label_cond_not_match = ctx->c.newLabel();
-
                 wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_value_field)), 0));
-                wo_assure(!ctx->c.je(label_cond_not_match));
-
                 if (jmp_place < (uint32_t)(rt_ip - ctx->env->rt_codes))
-                    ir_make_checkpoint_fastcheck(ctx, check_point_ipaddr);
+                {
+                    auto label_cond_not_match = ctx->c.newLabel();
 
-                wo_assure(!ctx->c.jmp(jump_ip(&ctx->c, jmp_place)));
-                wo_assure(!ctx->c.bind(label_cond_not_match));
+                    wo_assure(!ctx->c.je(label_cond_not_match));
+                    ir_make_checkpoint_fastcheck(ctx, check_point_ipaddr);
+                    wo_assure(!ctx->c.jmp(jump_ip(&ctx->c, jmp_place)));
+                    wo_assure(!ctx->c.bind(label_cond_not_match));
+                }
+                else
+                    wo_assure(!ctx->c.jne(jump_ip(&ctx->c, jmp_place)));
                 break;
-            }
             default:
                 wo_error("Unknown jmp kind.");
             }
@@ -2601,7 +2601,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             invoke_node->setRet(0, ctx->_vmssp);
             return true;
         }
-        virtual bool ir_abrt(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
+        virtual bool ir_endproc(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
             switch (dr)
             {
@@ -2915,9 +2915,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             WO_JIT_ADDRESSING_N1;
             uint32_t jmp_place = WO_IPVAL_MOVE_4;
 
-            if (jmp_place < (uint32_t)(rt_ip - ctx->env->rt_codes))
-                ir_make_checkpoint_fastcheck(ctx, check_point_ipaddr);
-
             if (opnum1.is_constant_i32())
                 wo_assure(!ctx->c.cmp(
                     asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer)), opnum1.const_value()->m_integer));
@@ -2928,7 +2925,18 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                 wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer)), bvalue));
             }
 
-            wo_assure(!ctx->c.jne(jump_ip(&ctx->c, jmp_place)));
+            if (jmp_place < (uint32_t)(rt_ip - ctx->env->rt_codes))
+            {
+                auto label_cond_not_match = ctx->c.newLabel();
+
+                wo_assure(!ctx->c.je(label_cond_not_match));
+                ir_make_checkpoint_fastcheck(ctx, check_point_ipaddr);
+                wo_assure(!ctx->c.jmp(jump_ip(&ctx->c, jmp_place)));
+                wo_assure(!ctx->c.bind(label_cond_not_match));
+            }
+            else
+                wo_assure(!ctx->c.jne(jump_ip(&ctx->c, jmp_place)));
+
             return true;
         }
         virtual bool ir_idstruct(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override

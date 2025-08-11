@@ -1228,15 +1228,15 @@ namespace wo
 
         void jmp(const opnum::tag& op1)
         {
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::jmp, WO_OPNUM(op1), nullptr, 0);
+            WO_PUT_IR_TO_BUFFER(instruct::opcode::setip, WO_OPNUM(op1), nullptr, 0);
         }
         void jf(const opnum::tag& op1)
         {
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::jmp, WO_OPNUM(op1), nullptr, 1);
+            WO_PUT_IR_TO_BUFFER(instruct::opcode::setip, WO_OPNUM(op1), nullptr, 1);
         }
         void jt(const opnum::tag& op1)
         {
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::jmp, WO_OPNUM(op1), nullptr, 2);
+            WO_PUT_IR_TO_BUFFER(instruct::opcode::setip, WO_OPNUM(op1), nullptr, 2);
         }
 
         void mkclos(uint16_t capture_count, const opnum::tag& wrapped_func)
@@ -1283,22 +1283,22 @@ namespace wo
         void abrt()
         {
             WO_PUT_IR_TO_BUFFER(
-                instruct::opcode::abrt, nullptr, nullptr, 0);
+                instruct::opcode::endproc, nullptr, nullptr, 0);
         }
         void end()
         {
             WO_PUT_IR_TO_BUFFER(
-                instruct::opcode::abrt, nullptr, nullptr, 1);
+                instruct::opcode::endproc, nullptr, nullptr, 1);
         }
         void ret()
         {
             WO_PUT_IR_TO_BUFFER(
-                instruct::opcode::abrt, nullptr, nullptr, 2);
+                instruct::opcode::endproc, nullptr, nullptr, 2);
         }
         void ret(uint16_t popcount)
         {
             WO_PUT_IR_TO_BUFFER(
-                instruct::opcode::abrt, nullptr, nullptr, 3, (int32_t)popcount);
+                instruct::opcode::endproc, nullptr, nullptr, 3, (int32_t)popcount);
         }
         void tag(wo_pstring_t tagname)
         {

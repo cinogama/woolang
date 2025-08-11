@@ -1506,13 +1506,12 @@ enum _wo_opcode
     //                                      invoked without gc-guard.
     //                                      If DRL = 0, DRH must be 0, and invoke just like integer case in
     //                                      WO_CALL.
-    WO_RESERVED_0 = 48,
-    WO_RESERVED_1 = 49,
-    WO_RESERVED_2 = 50,
-    WO_ABRT = 51,
+    // _RESERVED_ = 48,
+    // _RESERVED_ = 49,
+    // _RESERVED_ = 50,
+    WO_ENDPROC = 51,
     // DR: Mode flag
-    // -- No OPNUM --                       Abort the virtual machine.
-    //                                      * If DR = 0b00, debug command, an wo_error will be raise and
+    // -- No OPNUM --                       * If DR = 0b00, debug command, an wo_error will be raise and
     //                                          the process will be aborted.
     //                                      * If DR = 0b10, vm will return from runing.
     //                                      * If DR = 0b01, Pop current bp & ip from stack, restore bp 
@@ -1526,7 +1525,7 @@ enum _wo_opcode
     //                                      [Build a map]: Pop `OPNUM2` * 2 values from stack.
     //                                          The value in the stack should be:
     //                                              SP-> [Value N-1, Key N-1, ..., Value 0, Key 0] -> BP
-    WO_RESERVED_3 = 53,
+    // _RESERVED_ = 53,
     WO_MKSTRUCT = 54,
     // DRH: Opnum1 desc, DRL: 0
     // OPNUM1: RS/GLB  OPNUM2: IMM_U16      Pop `OPNUM2` values from stack, Build a struct.
@@ -1560,7 +1559,7 @@ enum _wo_opcode
     //                                      * If DRL = 1, store true in register(cr) if equal, otherwise
     //                                          store false.
     //                                      * If DRL = 0, a panic will be triggered if not equal.
-    WO_JMP = 60,
+    WO_SETIP = 60,
     // DRH: JCOND_FLAG, DRL: JCOND_FLAG ? (0: JMPF, 1: JMPT) : 0
     // OPNUM1: IMM_U32                      Jump to the instruction at the address `OPNUM1`.
     WO_LDS = 61,
