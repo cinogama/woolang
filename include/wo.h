@@ -1483,7 +1483,7 @@ enum _wo_opcode
     //                                      ignore type.
 
     WO_JNEQUB = 45,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
+    // DRH: Opnum1 desc, DRL: 0
     // OPNUM1: RS/GLB  OPNUM2: IMM_U16      If `OPNUM1` not equal to register(cr), jump to the instruction
     //                                      at the address `OPNUM2`. the compare method just like WO_EQUB.
 
@@ -1506,34 +1506,27 @@ enum _wo_opcode
     //                                      invoked without gc-guard.
     //                                      If DRL = 0, DRH must be 0, and invoke just like integer case in
     //                                      WO_CALL.
-    WO_RET = 48,
-    // DRH: Pop flag, DRL: 0
-    // DRH = 1 ? OPNUM1: IMM_U16            Pop current bp & ip from stack, restore bp then jump to the address
-    //                                      of ip. If DRH = 1, pop `OPNUM1` values from stack.
-    WO_JT = 49,
-    // DRH: 0, DRL: 0
-    // OPNUM1: IMM_U32                      Jump to the instruction at the address `OPNUM1` if register(cr)
-    //                                      is true.
-    WO_JF = 50,
-    // DRH: 0, DRL: 0
-    // OPNUM1: IMM_U32                      Jump to the instruction at the address `OPNUM1` if register(cr)
-    //                                      is false.
+    WO_RESERVED_0 = 48,
+    WO_RESERVED_1 = 49,
+    WO_RESERVED_2 = 50,
     WO_ABRT = 51,
-    // DRH: Mode flag, DRL: 0
+    // DR: Mode flag
     // -- No OPNUM --                       Abort the virtual machine.
-    //                                      * If DRH = 1, vm will return from runing.
-    //                                      * If DRH = 0, debug command, an wo_error will be raise and
+    //                                      * If DR = 0b00, debug command, an wo_error will be raise and
     //                                          the process will be aborted.
-    WO_MKARR = 52,
-    // DRH: Opnum1 desc, DRL: 0
-    // OPNUM1: RS/GLB  OPNUM2: IMM_U16      Pop `OPNUM2` values from stack, Build an array.
-    //                                      The value in the stack should be:
-    //                                          SP-> [Elem N-1, Elem N-2, ..., Elem 0] -> BP
-    WO_MKMAP = 53,
-    // DRH: Opnum1 desc, DRL: 0
-    // OPNUM1: RS/GLB  OPNUM2: IMM_U16      Pop `OPNUM2` * 2 values from stack, Build a map.
-    //                                      The value in the stack should be:
-    //                                          SP-> [Value N-1, Key N-1, ..., Value 0, Key 0] -> BP
+    //                                      * If DR = 0b10, vm will return from runing.
+    //                                      * If DR = 0b01, Pop current bp & ip from stack, restore bp 
+    //                                          then jump to the address of ip
+    //                                      * If DR = 0b11, like 0b00, but pop `OPNUM1` values from stack.
+    WO_MKCONTAIN = 52,
+    // DRH: Opnum1 desc, DRL == 0 ? MakeArray : MakeMap
+    // OPNUM1: RS/GLB  OPNUM2: IMM_U16     [Build an array]: Pop `OPNUM2` values from stack.
+    //                                          The value in the stack should be:
+    //                                              SP-> [Elem N-1, Elem N-2, ..., Elem 0] -> BP
+    //                                      [Build a map]: Pop `OPNUM2` * 2 values from stack.
+    //                                          The value in the stack should be:
+    //                                              SP-> [Value N-1, Key N-1, ..., Value 0, Key 0] -> BP
+    WO_RESERVED_3 = 53,
     WO_MKSTRUCT = 54,
     // DRH: Opnum1 desc, DRL: 0
     // OPNUM1: RS/GLB  OPNUM2: IMM_U16      Pop `OPNUM2` values from stack, Build a struct.
@@ -1568,7 +1561,7 @@ enum _wo_opcode
     //                                          store false.
     //                                      * If DRL = 0, a panic will be triggered if not equal.
     WO_JMP = 60,
-    // DRH: 0, DRL: 0
+    // DRH: JCOND_FLAG, DRL: JCOND_FLAG ? (0: JMPF, 1: JMPT) : 0
     // OPNUM1: IMM_U32                      Jump to the instruction at the address `OPNUM1`.
     WO_LDS = 61,
     // DRH: Opnum1 desc, DRL: Opnum2 desc

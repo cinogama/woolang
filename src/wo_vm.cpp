@@ -430,7 +430,7 @@ namespace wo
                 }
                 for (int i = 0; i < MAX_BYTE_COUNT - displayed_count; i++)
                     printf("   ");
-                };
+            };
 #define WO_SIGNED_SHIFT(VAL) (((signed char)((unsigned char)(((unsigned char)(VAL))<<1)))>>1)
             auto print_reg_bpoffset = [&]() {
                 byte_t data_1b = *(this_command_ptr++);
@@ -469,7 +469,7 @@ namespace wo
                         tmpos << "reg(" << (uint32_t)data_1b << ")";
 
                 }
-                };
+            };
             auto print_global_static = [&]() {
                 //const global 4byte
                 uint32_t data_4b = *(uint32_t*)((this_command_ptr += 4) - 4);
@@ -494,19 +494,19 @@ namespace wo
                 }
                 else
                     tmpos << "g[" << data_4b - env->constant_value_count << "]";
-                };
+            };
             auto print_opnum1 = [&]() {
                 if (main_command & (byte_t)0b00000010)
                     print_reg_bpoffset();
                 else
                     print_global_static();
-                };
+            };
             auto print_opnum2 = [&]() {
                 if (main_command & (byte_t)0b00000001)
                     print_reg_bpoffset();
                 else
                     print_global_static();
-                };
+            };
 
 #undef WO_SIGNED_SHIFT
             switch (main_command & (byte_t)0b11111100)
@@ -621,22 +621,14 @@ namespace wo
                     this_command_ptr += 4;
                 }
                 break;
-            case instruct::ret:
-                tmpos << "ret\t";
-                if (main_command & 0b10)
-                    tmpos << "pop " << *(uint16_t*)((this_command_ptr += 2) - 2);
-                break;
-
-            case instruct::jt:
-                tmpos << "jt\t";
-                tmpos << "+" << *(uint32_t*)((this_command_ptr += 4) - 4);
-                break;
-            case instruct::jf:
-                tmpos << "jf\t";
-                tmpos << "+" << *(uint32_t*)((this_command_ptr += 4) - 4);
-                break;
             case instruct::jmp:
-                tmpos << "jmp\t";
+                switch (main_command & 0b11)
+                {
+                case 0b00: tmpos << "jmp\t"; break;
+                case 0b10: tmpos << "jmpf\t"; break;
+                case 0b11: tmpos << "jmpt\t"; break;
+                default: tmpos << "??\t"; break;
+                }
                 tmpos << "+" << *(uint32_t*)((this_command_ptr += 4) - 4);
                 break;
             case instruct::movcast:
@@ -672,10 +664,20 @@ namespace wo
 
                 break;
             case instruct::abrt:
-                if (main_command & 0b10)
-                    tmpos << "end\t";
-                else
-                    tmpos << "abrt\t";
+                switch (main_command & 0b11)
+                {
+                case 0b00:
+                    tmpos << "abrt\t"; break;
+                case 0b10:
+                    tmpos << "end\t"; break;
+                case 0b01:
+                    tmpos << "ret\t"; break;
+                case 0b11:
+                    tmpos << "ret pop\t" << *(uint16_t*)((this_command_ptr += 2) - 2);
+                    break;
+                default:
+                    tmpos << "??"; break;
+                }
                 break;
             case instruct::equb:
                 tmpos << "equb\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
@@ -691,10 +693,15 @@ namespace wo
                 tmpos << "\t+" << *(uint32_t*)((this_command_ptr += 4) - 4);
                 break;
             }
-            case instruct::mkarr:
-                tmpos << "mkarr\t"; print_opnum1(); tmpos << ",\t size=" << *(uint16_t*)((this_command_ptr += 2) - 2);  break;
-            case instruct::mkmap:
-                tmpos << "mkmap\t"; print_opnum1();  tmpos << ",\t size=" << *(uint16_t*)((this_command_ptr += 2) - 2);  break;
+            case instruct::mkcontain:
+            {
+                if ((main_command & 0b01) == 0)
+                    tmpos << "mkarr\t";
+                else
+                    tmpos << "mkmap\t";
+                print_opnum1(); tmpos << ",\t size=" << *(uint16_t*)((this_command_ptr += 2) - 2);
+                break;
+            }
             case instruct::idarr:
                 tmpos << "idarr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
             case instruct::iddict:
@@ -849,63 +856,63 @@ namespace wo
 
         std::vector<callstack_info> result;
         auto generate_callstack_info_with_ip = [this, need_offset](const wo::byte_t* rip, bool is_extern_func)
+        {
+            const program_debug_data_info::location* src_location_info = nullptr;
+            std::string function_signature;
+            std::string file_path;
+            size_t row_number = 0;
+            size_t col_number = 0;
+
+            if (is_extern_func)
             {
-                const program_debug_data_info::location* src_location_info = nullptr;
-                std::string function_signature;
-                std::string file_path;
-                size_t row_number = 0;
-                size_t col_number = 0;
+                auto fnd = env->extern_native_functions.find(
+                    reinterpret_cast<wo_native_func_t>(
+                        reinterpret_cast<intptr_t>(rip)));
 
-                if (is_extern_func)
+                if (fnd != env->extern_native_functions.end())
                 {
-                    auto fnd = env->extern_native_functions.find(
-                        reinterpret_cast<wo_native_func_t>(
-                            reinterpret_cast<intptr_t>(rip)));
-
-                    if (fnd != env->extern_native_functions.end())
-                    {
-                        function_signature = fnd->second.function_name;
-                        file_path = fnd->second.library_name.value_or("<builtin>");
-                    }
-                    else
-                    {
-                        char rip_str[sizeof(rip) * 2 + 4];
-                        sprintf(rip_str, "0x%p>", rip);
-
-                        function_signature = std::string("<unknown extern function ") + rip_str;
-                        file_path = "<unknown library>";
-                    }
+                    function_signature = fnd->second.function_name;
+                    file_path = fnd->second.library_name.value_or("<builtin>");
                 }
                 else
                 {
-                    if (env->program_debug_info != nullptr)
-                    {
-                        src_location_info = &env->program_debug_info
-                            ->get_src_location_by_runtime_ip(rip - (need_offset ? 1 : 0));
-                        function_signature = env->program_debug_info
-                            ->get_current_func_signature_by_runtime_ip(rip - (need_offset ? 1 : 0));
+                    char rip_str[sizeof(rip) * 2 + 4];
+                    sprintf(rip_str, "0x%p>", rip);
 
-                        file_path = src_location_info->source_file;
-                        row_number = src_location_info->begin_row_no;
-                        col_number = src_location_info->begin_col_no;
-                    }
-                    else
-                    {
-                        char rip_str[sizeof(rip) * 2 + 4];
-                        sprintf(rip_str, "0x%p>", rip);
-
-                        function_signature = std::string("<unknown function ") + rip_str;
-                        file_path = "<unknown file>";
-                    }
+                    function_signature = std::string("<unknown extern function ") + rip_str;
+                    file_path = "<unknown library>";
                 }
-                return callstack_info{
-                    function_signature,
-                    file_path,
-                    row_number,
-                    col_number,
-                    is_extern_func,
-                };
+            }
+            else
+            {
+                if (env->program_debug_info != nullptr)
+                {
+                    src_location_info = &env->program_debug_info
+                        ->get_src_location_by_runtime_ip(rip - (need_offset ? 1 : 0));
+                    function_signature = env->program_debug_info
+                        ->get_current_func_signature_by_runtime_ip(rip - (need_offset ? 1 : 0));
+
+                    file_path = src_location_info->source_file;
+                    row_number = src_location_info->begin_row_no;
+                    col_number = src_location_info->begin_col_no;
+                }
+                else
+                {
+                    char rip_str[sizeof(rip) * 2 + 4];
+                    sprintf(rip_str, "0x%p>", rip);
+
+                    function_signature = std::string("<unknown function ") + rip_str;
+                    file_path = "<unknown file>";
+                }
+            }
+            return callstack_info{
+                function_signature,
+                file_path,
+                row_number,
+                col_number,
+                is_extern_func,
             };
+        };
 
         result.push_back(
             generate_callstack_info_with_ip(
@@ -2513,18 +2520,17 @@ namespace wo
                 break;
             case instruct::opcode::jmp:
             {
-                auto* restore_ip = near_rtcode_begin + WO_IPVAL_MOVE_4;
-                rt_ip = restore_ip;
+                rt_ip = near_rtcode_begin + WO_IPVAL_MOVE_4;
                 break;
             }
-            case instruct::opcode::jt:
+            case instruct::opcode::jmpt:
             {
                 const uint32_t aimplace = WO_IPVAL_MOVE_4;
                 if (rt_cr->m_value_field)
                     rt_ip = near_rtcode_begin + aimplace;
                 break;
             }
-            case instruct::opcode::jf:
+            case instruct::opcode::jmpf:
             {
                 const uint32_t aimplace = WO_IPVAL_MOVE_4;
                 if (!rt_cr->m_value_field)

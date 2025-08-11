@@ -697,7 +697,8 @@ namespace wo
         ? const_cast<meta::origin_type<decltype(OPNUM)>*>(&OPNUM)\
         : _created_opnum_item<meta::origin_type<decltype(OPNUM)>>(OPNUM)))
 
-#define WO_PUT_IR_TO_BUFFER(OPCODE, ...) ir_command_buffer.emplace_back(ir_command{OPCODE, __VA_ARGS__})
+#define WO_PUT_IR_TO_BUFFER(OPCODE, ...)\
+    ir_command_buffer.emplace_back(ir_command{OPCODE, __VA_ARGS__})
 
         template<typename OP1T, typename OP2T>
         void mov(const OP1T& op1, const OP2T& op2)
@@ -1225,29 +1226,17 @@ namespace wo
             WO_PUT_IR_TO_BUFFER(instruct::opcode::calln, reinterpret_cast<opnum::opnumbase*>(op1), nullptr, 1);
         }
 
-        void jt(const opnum::tag& op1)
-        {
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::jt, WO_OPNUM(op1));
-        }
-
-        void jf(const opnum::tag& op1)
-        {
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::jf, WO_OPNUM(op1));
-        }
-
         void jmp(const opnum::tag& op1)
         {
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::jmp, WO_OPNUM(op1));
+            WO_PUT_IR_TO_BUFFER(instruct::opcode::jmp, WO_OPNUM(op1), nullptr, 0);
         }
-
-        void ret()
+        void jf(const opnum::tag& op1)
         {
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::ret);
+            WO_PUT_IR_TO_BUFFER(instruct::opcode::jmp, WO_OPNUM(op1), nullptr, 1);
         }
-
-        void ret(uint16_t popcount)
+        void jt(const opnum::tag& op1)
         {
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::ret, nullptr, nullptr, popcount);
+            WO_PUT_IR_TO_BUFFER(instruct::opcode::jmp, WO_OPNUM(op1), nullptr, 2);
         }
 
         void mkclos(uint16_t capture_count, const opnum::tag& wrapped_func)
@@ -1293,14 +1282,24 @@ namespace wo
 
         void abrt()
         {
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::abrt);
+            WO_PUT_IR_TO_BUFFER(
+                instruct::opcode::abrt, nullptr, nullptr, 0);
         }
-
         void end()
         {
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::abrt, nullptr, nullptr, 1);
+            WO_PUT_IR_TO_BUFFER(
+                instruct::opcode::abrt, nullptr, nullptr, 1);
         }
-
+        void ret()
+        {
+            WO_PUT_IR_TO_BUFFER(
+                instruct::opcode::abrt, nullptr, nullptr, 2);
+        }
+        void ret(uint16_t popcount)
+        {
+            WO_PUT_IR_TO_BUFFER(
+                instruct::opcode::abrt, nullptr, nullptr, 3, (int32_t)popcount);
+        }
         void tag(wo_pstring_t tagname)
         {
             tag_irbuffer_offset[ir_command_buffer.size()].push_back(tagname);
@@ -1335,7 +1334,12 @@ namespace wo
             static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
                 "Can not set value to immediate.");
 
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::mkarr, WO_OPNUM(op1), nullptr, (int32_t)size);
+            WO_PUT_IR_TO_BUFFER(
+                instruct::opcode::mkcontain, 
+                WO_OPNUM(op1), 
+                nullptr, 
+                (int32_t)size,
+                (int32_t)0);
         }
         template<typename OP1T>
         void mkmap(const OP1T& op1, uint16_t size)
@@ -1346,7 +1350,12 @@ namespace wo
             static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
                 "Can not set value to immediate.");
 
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::mkmap, WO_OPNUM(op1), nullptr, (int32_t)size);
+            WO_PUT_IR_TO_BUFFER(
+                instruct::opcode::mkcontain, 
+                WO_OPNUM(op1), 
+                nullptr, 
+                (int32_t)size,
+                (int32_t)1);
         }
         template<typename OP1T, typename OP2T>
         void idarr(const OP1T& op1, const OP2T& op2)

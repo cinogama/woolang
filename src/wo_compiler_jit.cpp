@@ -134,9 +134,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(eltr);\
 WO_ASMJIT_IR_ITERFACE_DECL(egtr);\
 WO_ASMJIT_IR_ITERFACE_DECL(call);\
 WO_ASMJIT_IR_ITERFACE_DECL(calln);\
-WO_ASMJIT_IR_ITERFACE_DECL(ret);\
-WO_ASMJIT_IR_ITERFACE_DECL(jt);\
-WO_ASMJIT_IR_ITERFACE_DECL(jf);\
 WO_ASMJIT_IR_ITERFACE_DECL(jmp);\
 WO_ASMJIT_IR_ITERFACE_DECL(mkunion);\
 WO_ASMJIT_IR_ITERFACE_DECL(movcast);\
@@ -146,8 +143,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(mkstruct);\
 WO_ASMJIT_IR_ITERFACE_DECL(abrt);\
 WO_ASMJIT_IR_ITERFACE_DECL(idarr);\
 WO_ASMJIT_IR_ITERFACE_DECL(iddict);\
-WO_ASMJIT_IR_ITERFACE_DECL(mkarr);\
-WO_ASMJIT_IR_ITERFACE_DECL(mkmap);\
+WO_ASMJIT_IR_ITERFACE_DECL(mkcontain);\
 WO_ASMJIT_IR_ITERFACE_DECL(idstr);\
 WO_ASMJIT_IR_ITERFACE_DECL(equr);\
 WO_ASMJIT_IR_ITERFACE_DECL(nequr);\
@@ -2401,51 +2397,51 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             }
             return true;
         }
-        virtual bool ir_ret(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
-        {
-            if (dr != 0)
-                (void)WO_IPVAL_MOVE_2;
-
-            auto stat = ctx->c.newInt32();
-            static_assert(sizeof(wo_result_t) == sizeof(int32_t));
-            wo_assure(!ctx->c.dec(asmjit::x86::byte_ptr(ctx->_vmbase, offsetof(vmbase, extern_state_jit_call_depth))));
-            wo_assure(!ctx->c.mov(stat, asmjit::Imm(wo_result_t::WO_API_NORMAL)));
-            wo_assure(!ctx->c.ret(stat));
-            return true;
-        }
-        virtual bool ir_jt(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
-        {
-            auto check_point_ipaddr = rt_ip - 1;
-            uint32_t jmp_place = WO_IPVAL_MOVE_4;
-
-            if (jmp_place < (uint32_t)(rt_ip - ctx->env->rt_codes))
-                ir_make_checkpoint_fastcheck(ctx, check_point_ipaddr);
-
-            wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_value_field)), 0));
-            wo_assure(!ctx->c.jne(jump_ip(&ctx->c, jmp_place)));
-            return true;
-        }
-        virtual bool ir_jf(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
-        {
-            auto check_point_ipaddr = rt_ip - 1;
-            uint32_t jmp_place = WO_IPVAL_MOVE_4;
-
-            if (jmp_place < (uint32_t)(rt_ip - ctx->env->rt_codes))
-                ir_make_checkpoint_fastcheck(ctx, check_point_ipaddr);
-
-            wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_value_field)), 0));
-            wo_assure(!ctx->c.je(jump_ip(&ctx->c, jmp_place)));
-            return true;
-        }
         virtual bool ir_jmp(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
             auto check_point_ipaddr = rt_ip - 1;
             uint32_t jmp_place = WO_IPVAL_MOVE_4;
 
-            if (jmp_place < (uint32_t)(rt_ip - ctx->env->rt_codes))
-                ir_make_checkpoint_fastcheck(ctx, check_point_ipaddr);
+            switch (dr)
+            {
+            case 0b00:
+                if (jmp_place < (uint32_t)(rt_ip - ctx->env->rt_codes))
+                    ir_make_checkpoint_fastcheck(ctx, check_point_ipaddr);
 
-            wo_assure(!ctx->c.jmp(jump_ip(&ctx->c, jmp_place)));
+                wo_assure(!ctx->c.jmp(jump_ip(&ctx->c, jmp_place)));
+                break;
+            case 0b10:
+            {
+                auto label_cond_not_match = ctx->c.newLabel();
+
+                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_value_field)), 0));
+                wo_assure(!ctx->c.jne(label_cond_not_match));
+
+                if (jmp_place < (uint32_t)(rt_ip - ctx->env->rt_codes))
+                    ir_make_checkpoint_fastcheck(ctx, check_point_ipaddr);
+
+                wo_assure(!ctx->c.jmp(jump_ip(&ctx->c, jmp_place)));
+                wo_assure(!ctx->c.bind(label_cond_not_match));
+                break;
+            }
+            case 0b11:
+            {
+                auto label_cond_not_match = ctx->c.newLabel();
+
+                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_value_field)), 0));
+                wo_assure(!ctx->c.je(label_cond_not_match));
+
+                if (jmp_place < (uint32_t)(rt_ip - ctx->env->rt_codes))
+                    ir_make_checkpoint_fastcheck(ctx, check_point_ipaddr);
+
+                wo_assure(!ctx->c.jmp(jump_ip(&ctx->c, jmp_place)));
+                wo_assure(!ctx->c.bind(label_cond_not_match));
+                break;
+            }
+            default:
+                wo_error("Unknown jmp kind.");
+            }
+
             return true;
         }
         virtual bool ir_mkunion(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -2607,14 +2603,34 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
         }
         virtual bool ir_abrt(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
-            if (dr & 0b10)
-                WO_JIT_NOT_SUPPORT;
-            else
+            switch (dr)
+            {
+            case 0b00:
             {
                 asmjit::InvokeNode* invoke_node;
                 wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_abrt,
                     asmjit::FuncSignatureT< void, const char*>()));
                 invoke_node->setArg(0, (intptr_t)"executed 'abrt'.");
+                break;
+            }
+            case 0b10:
+                WO_JIT_NOT_SUPPORT;
+                break;
+            case 0b11:
+                (void)WO_IPVAL_MOVE_2;
+                /* fall through */
+                [[fallthrough]];
+            case 0b01:
+            {
+                auto stat = ctx->c.newInt32();
+                static_assert(sizeof(wo_result_t) == sizeof(int32_t));
+                wo_assure(!ctx->c.dec(asmjit::x86::byte_ptr(ctx->_vmbase, offsetof(vmbase, extern_state_jit_call_depth))));
+                wo_assure(!ctx->c.mov(stat, asmjit::Imm(wo_result_t::WO_API_NORMAL)));
+                wo_assure(!ctx->c.ret(stat));
+                break;
+            }
+            default:
+                wo_error("Unknown abrt kind.");
             }
             return true;
         }
@@ -2686,7 +2702,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             wo_assure(!ctx->c.bind(noerror_label));
             return true;
         }
-        virtual bool ir_mkarr(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
+        virtual bool ir_mkcontain(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
             WO_JIT_ADDRESSING_N1;
             uint16_t size = WO_IPVAL_MOVE_2;
@@ -2694,25 +2710,15 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             auto op1 = opnum1.gp_value();
 
             asmjit::InvokeNode* invoke_node;
-            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vmbase::make_array_impl,
-                asmjit::FuncSignatureT< wo::value*, wo::value*, uint16_t, wo::value*>()));
 
-            invoke_node->setArg(0, op1);
-            invoke_node->setArg(1, asmjit::Imm(size));
-            invoke_node->setArg(2, ctx->_vmssp);
-            invoke_node->setRet(0, ctx->_vmssp);
-            return true;
-        }
-        virtual bool ir_mkmap(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
-        {
-            WO_JIT_ADDRESSING_N1;
-            uint16_t size = WO_IPVAL_MOVE_2;
-
-            auto op1 = opnum1.gp_value();
-
-            asmjit::InvokeNode* invoke_node;
-            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vmbase::make_map_impl,
-                asmjit::FuncSignatureT< wo::value*, wo::value*, uint16_t, wo::value*>()));
+            if ((dr & 0b01) == 0)
+                // Make array.
+                wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vmbase::make_array_impl,
+                    asmjit::FuncSignatureT< wo::value*, wo::value*, uint16_t, wo::value*>()));
+            else
+                // Make dict.
+                wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vmbase::make_map_impl,
+                    asmjit::FuncSignatureT< wo::value*, wo::value*, uint16_t, wo::value*>()));
 
             invoke_node->setArg(0, op1);
             invoke_node->setArg(1, asmjit::Imm(size));
@@ -3171,5 +3177,5 @@ namespace wo
     void free_jit(runtime_env* min_env)
     {
     }
-}
+        }
 #endif

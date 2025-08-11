@@ -58,7 +58,7 @@ namespace wo
                     env->rt_codes + env->rt_code_len,
                     env->constant_and_global_storage,
                 }
-                ));
+        ));
         (void)result;
         wo_assert(result.second);
     }
@@ -524,7 +524,7 @@ namespace wo
             sprintf(ptrr, "0x%p>", rt_pos);
             return ptrr;
 
-            }();
+        }();
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -561,27 +561,27 @@ namespace wo
         std::vector<wo::byte_t> binary_buffer;
         auto write_buffer_to_buffer =
             [&binary_buffer](const void* written_data, size_t written_length, size_t allign)
-            {
-                const size_t write_begin_place = binary_buffer.size();
+        {
+            const size_t write_begin_place = binary_buffer.size();
 
-                wo_assert(write_begin_place % allign == 0);
+            wo_assert(write_begin_place % allign == 0);
 
-                binary_buffer.resize(write_begin_place + written_length);
+            binary_buffer.resize(write_begin_place + written_length);
 
-                memcpy(binary_buffer.data() + write_begin_place, written_data, written_length);
-                return binary_buffer.size();
-            };
+            memcpy(binary_buffer.data() + write_begin_place, written_data, written_length);
+            return binary_buffer.size();
+        };
 
         auto write_binary_to_buffer =
             [&write_buffer_to_buffer](const auto& d, size_t size_for_assert)
-            {
-                const wo::byte_t* written_data = std::launder(reinterpret_cast<const wo::byte_t*>(&d));
-                const size_t written_length = sizeof(d);
+        {
+            const wo::byte_t* written_data = std::launder(reinterpret_cast<const wo::byte_t*>(&d));
+            const size_t written_length = sizeof(d);
 
-                wo_assert(written_length == size_for_assert);
+            wo_assert(written_length == size_for_assert);
 
-                return write_buffer_to_buffer(written_data, written_length, sizeof(d) > 8 ? 8 : sizeof(d));
-            };
+            return write_buffer_to_buffer(written_data, written_length, sizeof(d) > 8 ? 8 : sizeof(d));
+        };
 
         class _string_pool_t
         {
@@ -609,10 +609,10 @@ namespace wo
 
         auto write_constant_str_to_buffer =
             [&write_binary_to_buffer, &constant_string_pool](const char* str, size_t len)
-            {
-                write_binary_to_buffer((uint32_t)constant_string_pool.insert(str, len), 4);
-                write_binary_to_buffer((uint32_t)len, 4);
-            };
+        {
+            write_binary_to_buffer((uint32_t)constant_string_pool.insert(str, len), 4);
+            write_binary_to_buffer((uint32_t)len, 4);
+        };
 
         // 1.1 (+0) Magic number(0x3001A26B look like WOOLANG B)
         write_binary_to_buffer((uint32_t)0x3001A26B, 4);
@@ -1346,12 +1346,12 @@ namespace wo
 
         auto restore_string_from_buffer =
             [&string_pool_buffer](const string_buffer_index& string_index, std::string* out_str)->bool
-            {
-                if (string_index.index + string_index.size > string_pool_buffer.size())
-                    return false;
-                *out_str = std::string(string_pool_buffer.data() + string_index.index, string_index.size);
-                return true;
-            };
+        {
+            if (string_index.index + string_index.size > string_pool_buffer.size())
+                return false;
+            *out_str = std::string(string_pool_buffer.data() + string_index.index, string_index.size);
+            return true;
+        };
 
         std::string constant_string;
         std::map<string_buffer_index, wo::string_t*> created_string_instances;
@@ -2341,20 +2341,22 @@ namespace wo
                     generated_runtime_code_buf.push_back(readptr[1]);
                     break;
                 }
-                case instruct::opcode::mkarr:
+                case instruct::opcode::mkcontain:
                 {
-                    generated_runtime_code_buf.push_back(WO_OPCODE(mkarr));
-                    WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                    switch (WO_IR.opinteger2)
+                    {
+                    case 0:
+                        // Make array.
+                        generated_runtime_code_buf.push_back(WO_OPCODE(mkcontain));
+                        break;
+                    case 1:
+                        // Make map.
+                        generated_runtime_code_buf.push_back(WO_OPCODE(mkcontain) | static_cast<uint8_t>(0b01));
+                        break;
+                    default:
+                        wo_error("Unknown contain kind.");
+                    }
 
-                    uint16_t size = (uint16_t)(WO_IR.opinteger1);
-                    byte_t* readptr = (byte_t*)&size;
-                    generated_runtime_code_buf.push_back(readptr[0]);
-                    generated_runtime_code_buf.push_back(readptr[1]);
-                    break;
-                }
-                case instruct::opcode::mkmap:
-                {
-                    generated_runtime_code_buf.push_back(WO_OPCODE(mkmap));
                     WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
 
                     uint16_t size = (uint16_t)(WO_IR.opinteger1);
@@ -2408,36 +2410,21 @@ namespace wo
                     generated_runtime_code_buf.push_back(readptr[1]);
                     break;
                 }
-                case instruct::opcode::jt:
-                    generated_runtime_code_buf.push_back(WO_OPCODE(jt));
-
-                    wo_assert(dynamic_cast<const opnum::tag*>(WO_IR.op1) != nullptr, "Operator num should be a tag.");
-
-                    jmp_record_table[dynamic_cast<const opnum::tag*>(WO_IR.op1)->name]
-                        .push_back(generated_runtime_code_buf.size());
-
-                    generated_runtime_code_buf.push_back(0x00);
-                    generated_runtime_code_buf.push_back(0x00);
-                    generated_runtime_code_buf.push_back(0x00);
-                    generated_runtime_code_buf.push_back(0x00);
-
-                    break;
-                case instruct::opcode::jf:
-                    generated_runtime_code_buf.push_back(WO_OPCODE(jf));
-
-                    wo_assert(dynamic_cast<const opnum::tag*>(WO_IR.op1) != nullptr, "Operator num should be a tag.");
-
-                    jmp_record_table[dynamic_cast<const opnum::tag*>(WO_IR.op1)->name]
-                        .push_back(generated_runtime_code_buf.size());
-
-                    generated_runtime_code_buf.push_back(0x00);
-                    generated_runtime_code_buf.push_back(0x00);
-                    generated_runtime_code_buf.push_back(0x00);
-                    generated_runtime_code_buf.push_back(0x00);
-                    break;
-
                 case instruct::opcode::jmp:
-                    generated_runtime_code_buf.push_back(WO_OPCODE(jmp, 00));
+                    switch (WO_IR.opinteger1)
+                    {
+                    case 0:
+                        generated_runtime_code_buf.push_back(instruct::jmp);
+                        break;
+                    case 1:
+                        generated_runtime_code_buf.push_back(instruct::jmpf);
+                        break;
+                    case 2:
+                        generated_runtime_code_buf.push_back(instruct::jmpt);
+                        break;
+                    default:
+                        wo_error("Unknown jmp kind.");
+                    }
 
                     wo_assert(dynamic_cast<const opnum::tag*>(WO_IR.op1) != nullptr, "Operator num should be a tag.");
 
@@ -2479,7 +2466,7 @@ namespace wo
                     else
                     {
                         wo_assert(WO_IR.op1 != nullptr);
-                        wo_native_func_t addr = 
+                        wo_native_func_t addr =
                             reinterpret_cast<wo_native_func_t>(
                                 reinterpret_cast<intptr_t>(WO_IR.op1));
 
@@ -2504,20 +2491,6 @@ namespace wo
                         generated_runtime_code_buf.push_back(readptr[7]);
                     }
 
-                    break;
-                case instruct::opcode::ret:
-                    if (WO_IR.opinteger1)
-                    {
-                        // ret pop n
-                        generated_runtime_code_buf.push_back(WO_OPCODE(ret, 10));
-
-                        uint16_t pop_count = (uint16_t)WO_IR.opinteger1;
-                        byte_t* readptr = (byte_t*)&pop_count;
-                        generated_runtime_code_buf.push_back(readptr[0]);
-                        generated_runtime_code_buf.push_back(readptr[1]);
-                    }
-                    else
-                        generated_runtime_code_buf.push_back(WO_OPCODE(ret, 00));
                     break;
                 case instruct::opcode::jnequb:
                 {
@@ -2703,12 +2676,32 @@ namespace wo
 
                     break;
                 case instruct::opcode::abrt:
-                    if (WO_IR.opinteger1)
-                        generated_runtime_code_buf.push_back(WO_OPCODE(abrt, 10));
-                    else
+                    switch (WO_IR.opinteger1)
+                    {
+                    case 0:
                         generated_runtime_code_buf.push_back(WO_OPCODE(abrt, 00));
-                    break;
+                        break;
+                    case 1:
+                        generated_runtime_code_buf.push_back(WO_OPCODE(abrt, 10));
+                        break;
+                    case 2:
+                        generated_runtime_code_buf.push_back(WO_OPCODE(abrt, 01));
+                        break;
+                    case 3:
+                    {
+                        generated_runtime_code_buf.push_back(WO_OPCODE(abrt, 11));
 
+                        uint16_t pop_count = (uint16_t)WO_IR.opinteger2;
+                        byte_t* readptr = (byte_t*)&pop_count;
+                        generated_runtime_code_buf.push_back(readptr[0]);
+                        generated_runtime_code_buf.push_back(readptr[1]);
+
+                        break;
+                    }
+                    default:
+                        wo_error("Unknown abort kind.");
+                    }
+                    break;
                 default:
                     wo_error("Unknown instruct.");
                 }
