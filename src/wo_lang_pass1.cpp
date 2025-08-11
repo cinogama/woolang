@@ -3710,10 +3710,22 @@ namespace wo
                         case lang_TypeInstance::DeterminedType::VECTOR:
                         {
                             expaned_array_or_vec = true;
+
+                            auto* array_or_vec_determined_type =
+                                unpacked_value_determined_value->m_external_type_description.m_array_or_vector;
+
                             const size_t elem_count_to_be_expand =
                                 target_function_param_types.size() >= argument_types.size()
                                 ? target_function_param_types.size() - argument_types.size()
                                 : 0;
+
+                            for (size_t i = 0; i < elem_count_to_be_expand; ++i)
+                            {
+                                argument_types.push_back(
+                                    std::make_pair(
+                                        array_or_vec_determined_type->m_element_type, 
+                                        unpack->m_unpack_value));
+                            }
 
                             unpack->m_IR_need_to_be_unpack_count =
                                 AstFakeValueUnpack::IR_unpack_requirement{
@@ -3766,8 +3778,7 @@ namespace wo
                 }
 
                 bool failed = false;
-                if (argument_types.size() < target_function_param_types.size()
-                    && !expaned_array_or_vec)
+                if (argument_types.size() < target_function_param_types.size())
                 {
                     lex.record_lang_error(lexer::msglevel_t::error, node,
                         WO_ERR_ARGUMENT_TOO_LESS);

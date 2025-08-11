@@ -1610,35 +1610,17 @@ WO_API wo_api rslib_std_weakref_trylock(wo_vm vm, wo_value args)
     return wo_ret_option_none(vm);
 }
 
-struct far_function_guard
+WO_API wo_api rslib_std_env_pin_create(wo_vm vm, wo_value args)
 {
-    wo::shared_pointer<wo::runtime_env> m_env;
-    wo_unref_value m_func;
-};
-
-WO_API wo_api rslib_std_far_function_create(wo_vm vm, wo_value args)
-{
-    far_function_guard* guard =
-        new far_function_guard{ reinterpret_cast<wo::vmbase*>(vm)->env };
-
-    wo_set_val(&guard->m_func, args + 0);
     return wo_ret_gchandle(
         vm,
-        guard,
-        args + 0,
+        new wo::shared_pointer<wo::runtime_env>(
+            reinterpret_cast<wo::vmbase*>(vm)->env),
+        nullptr,
         [](wo_ptr_t p)
         {
-            delete reinterpret_cast<far_function_guard*>(p);
+            delete reinterpret_cast<wo::shared_pointer<wo::runtime_env>*>(p);
         });
-}
-WO_API wo_api rslib_std_far_function_get(wo_vm vm, wo_value args)
-{
-    wo_gcunit_lock_shared(args + 0);
-
-    far_function_guard* g =
-        reinterpret_cast<far_function_guard*>(wo_pointer(args + 0));
-
-    return wo_ret_val(vm, &g->m_func);
 }
 
 #if defined(__APPLE__) && defined(__MACH__)
@@ -1812,13 +1794,10 @@ namespace std
     }
     using far<FT> = FT
     {
-        using far_function_pin<FT> = gchandle
+        using env_pin = gchandle
         {   
-            extern("rslib_std_far_function_create")
-                func create<FT>(val: FT)=> far_function_pin<FT>
-                    where type_traits::is_function:<FT>;
-            extern("rslib_std_far_function_get")
-                func get<FT>(self: far_function_pin<FT>)=> FT;
+            extern("rslib_std_env_pin_create")
+                func create()=> env_pin;
         }
         let decltuple<N: int> = 
             N <= 0 
@@ -1833,16 +1812,17 @@ namespace std
         let declargc<FT> = declargc_counter:<FT, {0}>;
         let declisvariadic<FT> = 
             typeid:<typeof(std::declval:<FT>()(decltuple:<{declargc:<FT> + 1}>()...))> != 0;
-        public func wrap<FT>(val: FT)=> far<FT>
+        public func wrap<FT>(f: FT)=> far<FT>
             where type_traits::is_function:<FT>;
         {
-            let f = far_function_pin::create(val);
+            let p = env_pin::create();
             return 
                 func(...)
                 {
+                    do p; // Capture the env pin.
                     if (!declisvariadic:<FT>)
                         do unsafe::swap_argc(declargc:<FT>);
-                    return f->get()(......);
+                    return f(...->unsafe::cast:<array<nothing>>...);
                 }->unsafe::cast:<FT>: far<FT>;
         }
     }
@@ -3471,9 +3451,8 @@ namespace wo
             {"rslib_std_debug_callstack_trace", (void*)&rslib_std_debug_callstack_trace},
             {"rslib_std_debug_disattach_default_debuggee", (void*)&rslib_std_debug_disattach_default_debuggee},
             {"rslib_std_debug_invoke",(void*)&rslib_std_debug_invoke},
+            {"rslib_std_env_pin_create", (void*)&rslib_std_env_pin_create},
             {"rslib_std_equal_byte", (void*)&rslib_std_equal_byte},
-            {"rslib_std_far_function_create", (void*)&rslib_std_far_function_create},
-            {"rslib_std_far_function_get", (void*)&rslib_std_far_function_get},
             {"rslib_std_gchandle_close", (void*)&rslib_std_gchandle_close},
             {"rslib_std_get_args", (void*)&rslib_std_get_args},
             {"rslib_std_get_ascii_val_from_str", (void*)&rslib_std_get_ascii_val_from_str},
