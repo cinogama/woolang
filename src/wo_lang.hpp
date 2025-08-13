@@ -1255,7 +1255,7 @@ namespace wo
 
         bool /* is invalid */ collect_defers_from_current_scope_to(
             std::optional<lang_Scope*> to_scope,
-            std::list<ast::AstBase*>* out_collect_result);
+            std::list<ast::AstBase*>* out_collect_result_may_null);
 
         std::optional<lang_Scope*> get_loop_scope_by_label_may_nullopt(
             const std::optional<wo_pstring_t>& label);

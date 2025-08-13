@@ -2336,6 +2336,26 @@ func main()
             defer do nil;
         }
         "@);
+        assure_compile_success(@"
+        func foo()
+        {
+            defer
+            {
+                let mut x = 0;
+                do x;
+            }
+        }
+        "@);
+        assure_compile_fail(@"
+        func foo()
+        {
+            defer
+            {
+                static let mut x = 0;
+                do x;
+            }
+        }
+        "@);
         assure_compile_fail(@"
         defer do nil;
         "@);

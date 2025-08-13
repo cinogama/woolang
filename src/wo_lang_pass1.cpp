@@ -310,7 +310,7 @@ namespace wo
 
     bool LangContext::collect_defers_from_current_scope_to(
         std::optional<lang_Scope*> to_scope,
-        std::list<ast::AstBase*>* out_collect_result)
+        std::list<ast::AstBase*>* out_collect_result_may_null)
     {
         lang_Scope* current_scope = get_current_scope();
         do
@@ -318,11 +318,14 @@ namespace wo
             if (current_scope->m_scope_type == lang_Scope::ScopeType::DEFER)
                 return false;
 
-            if (current_scope->m_scope_instance.has_value())
+            if (out_collect_result_may_null != nullptr)
             {
-                auto* scope = current_scope->m_scope_instance.value();
-                for (auto defer : scope->m_LANG_defers)
-                    out_collect_result->push_back(defer->m_body->clone());
+                if (current_scope->m_scope_instance.has_value())
+                {
+                    auto* scope = current_scope->m_scope_instance.value();
+                    for (auto defer : scope->m_LANG_defers)
+                        out_collect_result_may_null->push_back(defer->m_body->clone());
+                }
             }
 
             if (!current_scope->m_parent_scope.has_value())
@@ -1223,6 +1226,32 @@ namespace wo
 
             WO_CONTINUE_PROCESS_LIST(node->m_definitions);
             return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            // NOTE: Define static variable in defer sentence is not allowed.
+            if (node->m_attribute.has_value()
+                && node->m_attribute.value()->m_lifecycle.has_value()
+                && node->m_attribute.value()->m_lifecycle.value() == AstDeclareAttribue::lifecycle_attrib::STATIC)
+            {
+                std::optional<lang_Scope*> located_function_scope_may_null = std::nullopt;
+
+                auto located_function_may_not_exist = get_current_function();
+                if (located_function_may_not_exist.has_value())
+                {
+                    located_function_scope_may_null = located_function_may_not_exist.value()->m_LANG_function_scope;
+                    wo_assert(located_function_scope_may_null.has_value());
+                }
+
+                if (!collect_defers_from_current_scope_to(
+                    located_function_scope_may_null,
+                    nullptr))
+                {
+                    lex.record_lang_error(lexer::msglevel_t::error, node,
+                        WO_ERR_CANNOT_DEFINE_STATIC_VAR_IN_DEFER);
+                    return FAILED;
+                }
+            }
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
