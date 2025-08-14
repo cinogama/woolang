@@ -54,4 +54,4 @@ END
 
 #undef WO_VERSION_WRAP
 
-#undef WO_MSVC_RC_INCLUDEs
+#undef WO_MSVC_RC_INCLUDE
