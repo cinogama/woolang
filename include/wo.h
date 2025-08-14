@@ -5,6 +5,8 @@
 //
 #define WO_VERSION WO_VER(1, 14, 11, 5)
 
+#ifndef WO_MSVC_RC_INCLUDE
+
 #ifdef __cplusplus
 #include <cstdint>
 #include <cstddef>
@@ -1663,3 +1665,6 @@ WO_FORCE_CAPI_END
 #define WO_API WO_EXPORT
 #endif
 #endif
+
+#endif // End of WO_MSVC_RC_INCLUDE
+// NOTE: must contain a empty line following this line, .rc file will need it.

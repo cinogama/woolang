@@ -264,7 +264,6 @@ struct loaded_lib_info
     }
 };
 
-wo::vmpool* global_vm_pool = nullptr;
 
 void _default_fail_handler(
     wo_vm vm,
@@ -462,11 +461,7 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
     // 
     // Free all vm in pool, because vm in pool is PENDING, we can free them directly.
     // ATTENTION: If somebody using global_vm_pool when finish, here may crash or dead loop.
-    if (global_vm_pool != nullptr)
-    {
-        delete global_vm_pool;
-        global_vm_pool = nullptr;
-    }
+    wo::vmpool::global_vmpool_instance.reset();
 
     time_t non_close_vm_last_warning_time = 0;
     size_t non_close_vm_last_warning_vm_count = 0;
@@ -603,7 +598,7 @@ void wo_init(int argc, char** argv)
     wo::wstring_pool::init_global_str_pool();
 
     if (enable_vm_pool)
-        global_vm_pool = new wo::vmpool;
+        wo::vmpool::global_vmpool_instance = std::make_unique<wo::vmpool>();
 
     if (wo::config::GC_WORKER_THREAD_COUNT == 0)
         wo::config::GC_WORKER_THREAD_COUNT = 1; // 1 GC-thread at least.
@@ -632,8 +627,10 @@ void wo_init(int argc, char** argv)
 #define WO_VM(v) (std::launder(reinterpret_cast<wo::vmbase*>(v)))
 #define CS_VAL(v) (reinterpret_cast<wo_value>(v))
 #define CS_VM(v) (reinterpret_cast<wo_vm>(v))
-#define WO_API_STATE_OF_VM(v) (\
-    v->extern_state_stack_update ? (v->extern_state_stack_update = false, WO_API_RESYNC):WO_API_NORMAL)
+#define WO_API_STATE_OF_VM(v) (                                 \
+    v->extern_state_stack_update                                \
+        ? (v->extern_state_stack_update = false, WO_API_RESYNC) \
+        : WO_API_NORMAL)
 
 struct _wo_reserved_stack_args_update_guard
 {
@@ -2572,14 +2569,17 @@ void wo_close_vm(wo_vm vm)
 
 wo_vm wo_borrow_vm(wo_vm vm)
 {
-    if (global_vm_pool != nullptr)
-        return CS_VM(global_vm_pool->borrow_vm_from_exists_vm(WO_VM(vm)));
+    if (wo::vmpool::global_vmpool_instance.has_value())
+        return CS_VM(
+            wo::vmpool::global_vmpool_instance.value()->borrow_vm_from_exists_vm(
+                WO_VM(vm)));
+
     return wo_sub_vm(vm);
 }
 void wo_release_vm(wo_vm vm)
 {
-    if (global_vm_pool != nullptr)
-        global_vm_pool->release_vm(WO_VM(vm));
+    if (wo::vmpool::global_vmpool_instance.has_value())
+        wo::vmpool::global_vmpool_instance.value()->release_vm(WO_VM(vm));
     else
         wo_close_vm(vm);
 }
@@ -2692,8 +2692,8 @@ wo::compile_result _wo_compile_impl(
             (void)compile_lexer->record_parser_error(
                 wo::lexer::msglevel_t::error, WO_ERR_COMPILER_DISABLED);
 #endif
+            }
         }
-    }
     else
         // Load binary success. 
         compile_result = wo::compile_result::PROCESS_OK;
@@ -2717,7 +2717,7 @@ wo::compile_result _wo_compile_impl(
             *out_lexer_if_failed = std::move(compile_lexer);
     }
     return compile_result;
-}
+    }
 
 wo_bool_t _wo_load_source(
     wo_vm vm,
@@ -4451,7 +4451,7 @@ void wo_ir_immu64(wo_ir_compiler compiler, uint64_t val)
 }
 
 void wo_ir_register_extern_function(
-    wo_ir_compiler compiler, 
+    wo_ir_compiler compiler,
     wo_native_func_t extern_func,
     wo_string_t script_path,
     wo_string_t library_name_may_null,

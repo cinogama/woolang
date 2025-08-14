@@ -1,6 +1,7 @@
 #include "wo_afx.hpp"
 
 #include "wo_memory.hpp"
+#include "wo_vm_pool.hpp"
 
 #include <thread>
 #include <chrono>
@@ -608,6 +609,10 @@ namespace wo
                 launch_round_of_mark();
 
                 // 12. Remove orpho vm
+                if (fullgc && vmpool::global_vmpool_instance.has_value())
+                    // Release unrefed vmpool.
+                    vmpool::global_vmpool_instance.value()->gc_check_and_release_norefed_vm();
+
                 std::forward_list<vmbase*> need_destruct_gc_destructor_list;
                 do
                 {
@@ -1183,5 +1188,5 @@ void wo_gc_mark_unit(wo_gc_work_context_t context, void* unitaddr)
     {
         wo::gc::gc_mark_unit_as_gray(
             worklist, gcunit_addr, attr);
-    }       
+    }
 }

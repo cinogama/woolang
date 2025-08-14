@@ -75,10 +75,15 @@ int main(int argc, char** argv)
     }
     else
     {
-        std::cout << "Woolang (C) Cinogama project. 2021." << std::endl;
+        std::cout << "Woolang (c) 2021 Cinogama project." << std::endl;
+        std::cout << std::endl;
         std::cout << "Version: " << wo_version() << std::endl;
         std::cout << "Commit: " << wo_commit_sha() << std::endl;
         std::cout << "Date: " << wo_compile_date() << std::endl;
+        std::cout << std::endl;
+        std::cout << "Usage: " << std::endl;
+        std::cout << "    woolang <path> [options...]" << std::endl;
+
     }
 
     wo_finish(nullptr, nullptr);

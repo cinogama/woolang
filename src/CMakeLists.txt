@@ -23,6 +23,10 @@ file(WRITE ${CMAKE_CURRENT_SOURCE_DIR}/wo_commit_sha.hpp
 file(GLOB_RECURSE woo_src_cpp *.cpp)
 file(GLOB_RECURSE woo_src_hpp *.hpp)
 
+if (MSVC)
+    list(APPEND woo_src_cpp resources.rc)
+endif()
+
 if (WIN32)
     list(APPEND woo_system_libs "")
 else()

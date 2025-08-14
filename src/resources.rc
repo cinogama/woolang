@@ -5,8 +5,6 @@
 #include "wo.h"
 #include <windows.h>
 
-IDI_ICON ICON DISCARDABLE "../image/woolang_logo.ico"
-
 #define WO_VER(A, B, C, D) A,B,C,D
 
 1 VERSIONINFO
@@ -15,7 +13,7 @@ PRODUCTVERSION WO_VERSION
 FILEFLAGSMASK 0x3fL
 FILEFLAGS 0x0L
 FILEOS 0x40004L
-FILETYPE 0x1L
+FILETYPE 0x2L
 FILESUBTYPE 0x0L
 
 #undef WO_VER
@@ -27,7 +25,7 @@ BEGIN
         BLOCK "080404b0"
         BEGIN
             VALUE "CompanyName", ""
-            VALUE "FileDescription", "Woolang 可执行文件"
+            VALUE "FileDescription", "Woolang 库文件"
             VALUE "FileVersion", WO_VERSION
             VALUE "LegalCopyright", "根据 Apache 许可证 2.0 版本授权"
             VALUE "InternalName", ""
@@ -38,7 +36,7 @@ BEGIN
         BLOCK "040904b0"
         BEGIN
             VALUE "CompanyName", ""
-            VALUE "FileDescription", "Woolang executable file."
+            VALUE "FileDescription", "Woolang library file."
             VALUE "FileVersion", WO_VERSION
             VALUE "LegalCopyright", "Licensed under the Apache License, Version 2.0"
             VALUE "InternalName", ""
@@ -55,4 +53,4 @@ END
 
 #undef WO_VER
 
-#undef WO_MSVC_RC_INCLUDEs
+#undef WO_MSVC_RC_INCLUDE
