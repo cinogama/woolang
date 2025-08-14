@@ -18,13 +18,13 @@
 #   define WO_DEBUG_SFX "-debug"
 #endif
 
-#define WO_VER WO_VERSION_INT
+#define WO_VERSION_WRAP WO_VERSION_INT
 constexpr wo_integer_t version = WO_VERSION;
-#undef WO_VER
+#undef WO_VERSION_WRAP
 
-#define WO_VER WO_VERSION_STR
+#define WO_VERSION_WRAP WO_VERSION_STR
 constexpr char version_str[] = WO_VERSION;
-#undef WO_VER
+#undef WO_VERSION_WRAP
 
 #undef WO_VERSION
 #undef WO_DEBUG_SFX

@@ -3,11 +3,10 @@
 #define WO_MSVC_RC_INCLUDE
 
 #include "wo.h"
-#include <windows.h>
 
 IDI_ICON ICON DISCARDABLE "../image/woolang_logo.ico"
 
-#define WO_VER(A, B, C, D) A,B,C,D
+#define WO_VERSION_WRAP(A, B, C, D) A,B,C,D
 
 1 VERSIONINFO
 FILEVERSION WO_VERSION
@@ -18,8 +17,8 @@ FILEOS 0x40004L
 FILETYPE 0x1L
 FILESUBTYPE 0x0L
 
-#undef WO_VER
-#define WO_VER(A, B, C, D) #A "." #B "." #C "." #D
+#undef WO_VERSION_WRAP
+#define WO_VERSION_WRAP(A, B, C, D) #A "." #B "." #C "." #D
 
 BEGIN
     BLOCK "StringFileInfo"
@@ -53,6 +52,6 @@ BEGIN
     END
 END
 
-#undef WO_VER
+#undef WO_VERSION_WRAP
 
 #undef WO_MSVC_RC_INCLUDEs
