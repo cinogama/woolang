@@ -360,10 +360,11 @@ namespace wo
 
     struct paged_env_min_context
     {
+        runtime_env* m_runtime_env;
+
         const byte_t* m_runtime_code_begin;
         const byte_t* m_runtime_code_end;
         value* m_static_storage_edge;
-
     };
     struct paged_env_mapping
     {
@@ -475,6 +476,9 @@ namespace wo
         static void unregister_envs(const runtime_env* env) noexcept;
 
         static bool fetch_is_far_addr(const byte_t* ip) noexcept;
+        static bool fetch_far_runtime_env(
+            const byte_t* ip,
+            runtime_env** out_env) noexcept;
         static bool resync_far_state(
             const byte_t* ip,
             const byte_t** out_runtime_code_begin,

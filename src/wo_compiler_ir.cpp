@@ -54,6 +54,7 @@ namespace wo
                 reinterpret_cast<intptr_t>(env->rt_codes),
                 paged_env_min_context
                 {
+                    env,
                     env->rt_codes,
                     env->rt_codes + env->rt_code_len,
                     env->constant_and_global_storage,
@@ -73,6 +74,24 @@ namespace wo
 
         if (ip >= far_context.m_runtime_code_end)
             return false;
+
+        return true;
+    }
+    bool runtime_env::fetch_far_runtime_env(
+        const byte_t* ip,
+        runtime_env** out_env) noexcept
+    {
+        std::shared_lock g1(_paged_env_mapping_context.m_paged_envs_mx);
+        auto fnd = _paged_env_mapping_context.m_paged_envs.upper_bound(reinterpret_cast<intptr_t>(ip));
+        if (fnd == _paged_env_mapping_context.m_paged_envs.begin())
+            return false;
+
+        auto& far_context = (--fnd)->second;
+
+        if (ip >= far_context.m_runtime_code_end)
+            return false;
+
+        *out_env = far_context.m_runtime_env;
 
         return true;
     }

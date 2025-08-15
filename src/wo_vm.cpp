@@ -830,8 +830,17 @@ namespace wo
             os << (idx - callstacks.cbegin()) << ": " << idx->m_func_name << std::endl;
 
             os << "\t\t-- at " << idx->m_file_path;
-            if (!idx->m_is_extern)
+            switch (idx->m_call_way)
+            {
+            case call_way::NEAR:
                 os << " (" << idx->m_row + 1 << ", " << idx->m_col + 1 << ")";
+                break;
+            case call_way::FAR:
+                os << " <far> (" << idx->m_row + 1 << ", " << idx->m_col + 1 << ")";
+                break;
+            default:
+                break;
+            }
             os << std::endl;
         }
         if (!trace_finished)
@@ -854,81 +863,50 @@ namespace wo
         if (env == nullptr)
             return {};
 
-        std::vector<callstack_info> result;
-        auto generate_callstack_info_with_ip = [this, need_offset](const wo::byte_t* rip, bool is_extern_func)
+        runtime_env* const near_env_pointer = env.get();
+
+        struct callstack_ip_state
         {
-            const program_debug_data_info::location* src_location_info = nullptr;
-            std::string function_signature;
-            std::string file_path;
-            size_t row_number = 0;
-            size_t col_number = 0;
-
-            if (is_extern_func)
+            enum class ipaddr_kind
             {
-                auto fnd = env->extern_native_functions.find(
-                    reinterpret_cast<wo_native_func_t>(
-                        reinterpret_cast<intptr_t>(rip)));
-
-                if (fnd != env->extern_native_functions.end())
-                {
-                    function_signature = fnd->second.function_name;
-                    file_path = fnd->second.library_name.value_or("<builtin>");
-                }
-                else
-                {
-                    char rip_str[sizeof(rip) * 2 + 4];
-                    sprintf(rip_str, "0x%p>", rip);
-
-                    function_signature = std::string("<unknown extern function ") + rip_str;
-                    file_path = "<unknown library>";
-                }
-            }
-            else
-            {
-                if (env->program_debug_info != nullptr)
-                {
-                    src_location_info = &env->program_debug_info
-                        ->get_src_location_by_runtime_ip(rip - (need_offset ? 1 : 0));
-                    function_signature = env->program_debug_info
-                        ->get_current_func_signature_by_runtime_ip(rip - (need_offset ? 1 : 0));
-
-                    file_path = src_location_info->source_file;
-                    row_number = src_location_info->begin_row_no;
-                    col_number = src_location_info->begin_col_no;
-                }
-                else
-                {
-                    char rip_str[sizeof(rip) * 2 + 4];
-                    sprintf(rip_str, "0x%p>", rip);
-
-                    function_signature = std::string("<unknown function ") + rip_str;
-                    file_path = "<unknown file>";
-                }
-            }
-            return callstack_info{
-                function_signature,
-                file_path,
-                row_number,
-                col_number,
-                is_extern_func,
+                ABS,
+                OFFSET,
+                BAD,
             };
-        };
+            ipaddr_kind m_type;
+            union
+            {
+                const byte_t* m_abs_addr;
+                uint32_t m_diff_offset;
+            };
 
-        result.push_back(
-            generate_callstack_info_with_ip(
-                ip, ip < runtime_codes_begin || ip >= runtime_codes_end));
+            callstack_ip_state()
+                : m_type(ipaddr_kind::BAD)
+            {
+            }
+            callstack_ip_state(const byte_t* abs)
+                : m_type(ipaddr_kind::ABS)
+                , m_abs_addr(abs)
+            {
+            }
+            callstack_ip_state(uint32_t diff)
+                : m_type(ipaddr_kind::OFFSET)
+                , m_diff_offset(diff)
+            {
+            }
+            callstack_ip_state(const callstack_ip_state&) = default;
+            callstack_ip_state(callstack_ip_state&&) = default;
+            callstack_ip_state& operator = (const callstack_ip_state&) = default;
+            callstack_ip_state& operator = (callstack_ip_state&&) = default;
+        };
+        std::forward_list<callstack_ip_state> callstack_ips;
+
+        size_t callstack_layer_count = 1;
+        callstack_ips.push_front(callstack_ip_state(ip));
 
         value* base_callstackinfo_ptr = (bp + 1);
         while (base_callstackinfo_ptr <= this->sb)
         {
-            if (result.size() >= max_count)
-            {
-                if (out_finished != nullptr)
-                    *out_finished = false;
-
-                break;
-            }
-
             switch (base_callstackinfo_ptr->m_type)
             {
             case value::valuetype::callstack:
@@ -938,8 +916,8 @@ namespace wo
                 auto callstack = base_callstackinfo_ptr->m_vmcallstack;
                 auto* next_trace_place = this->sb - callstack.bp;
 
-                result.push_back(
-                    generate_callstack_info_with_ip(runtime_codes_begin + callstack.ret_ip, false));
+                ++callstack_layer_count;
+                callstack_ips.push_front(callstack_ip_state(callstack.ret_ip));
 
                 if (next_trace_place < base_callstackinfo_ptr || next_trace_place > sb)
                     goto _label_bad_callstack;
@@ -953,8 +931,8 @@ namespace wo
                 //  Check it to make sure donot reach bad place.
                 auto* next_trace_place = this->sb - base_callstackinfo_ptr->m_ext_farcallstack_bp;
 
-                result.push_back(
-                    generate_callstack_info_with_ip(base_callstackinfo_ptr->m_farcallstack, false));
+                ++callstack_layer_count;
+                callstack_ips.push_front(callstack_ip_state(base_callstackinfo_ptr->m_farcallstack));
 
                 if (next_trace_place < base_callstackinfo_ptr || next_trace_place > sb)
                     goto _label_bad_callstack;
@@ -964,21 +942,16 @@ namespace wo
             }
             case value::valuetype::nativecallstack:
             {
-                result.push_back(
-                    generate_callstack_info_with_ip(base_callstackinfo_ptr->m_nativecallstack, true));
+                ++callstack_layer_count;
+                callstack_ips.push_front(callstack_ip_state(base_callstackinfo_ptr->m_nativecallstack));
 
                 goto _label_refind_next_callstack;
             }
             default:
             {
             _label_bad_callstack:
-                result.push_back(callstack_info{
-                        "??",
-                        "<bad callstack>",
-                        0,
-                        0,
-                        false,
-                    });
+                ++callstack_layer_count;
+                callstack_ips.push_front(callstack_ip_state());
 
             _label_refind_next_callstack:
                 for (;;)
@@ -998,6 +971,137 @@ namespace wo
                 }
                 break;
             }
+            }
+        }
+
+        std::vector<callstack_info> result(std::min(callstack_layer_count, max_count));
+        auto generate_callstack_info_with_ip =
+            [this, near_env_pointer, need_offset](const wo::byte_t* rip, runtime_env** out_env)
+        {
+            const program_debug_data_info::location* src_location_info = nullptr;
+            std::string function_signature;
+            std::string file_path;
+            size_t row_number = 0;
+            size_t col_number = 0;
+
+            runtime_env* callenv = near_env_pointer;
+            call_way callway;
+
+            if (rip >= this->runtime_codes_begin && rip < this->runtime_codes_end)
+                callway = call_way::NEAR;
+            else
+            {
+                if (runtime_env::fetch_far_runtime_env(rip, &callenv))
+                    callway = call_way::FAR;
+                else
+                    callway = call_way::NATIVE;
+            }
+
+            switch (callway)
+            {
+            case call_way::NEAR:
+            case call_way::FAR:
+            {
+                // Update call env for near & far call.
+                *out_env = callenv;
+
+                if (callenv->program_debug_info != nullptr)
+                {
+                    src_location_info = &callenv->program_debug_info
+                        ->get_src_location_by_runtime_ip(rip - (need_offset ? 1 : 0));
+                    function_signature = callenv->program_debug_info
+                        ->get_current_func_signature_by_runtime_ip(rip - (need_offset ? 1 : 0));
+
+                    file_path = src_location_info->source_file;
+                    row_number = src_location_info->begin_row_no;
+                    col_number = src_location_info->begin_col_no;
+                }
+                else
+                {
+                    char rip_str[sizeof(rip) * 2 + 4];
+                    sprintf(rip_str, "0x%p>", rip);
+
+                    function_signature = std::string("<unknown function ") + rip_str;
+                    file_path = "<unknown file>";
+                }
+                break;
+            }
+            case call_way::NATIVE:
+            {
+                // Is extern native function address.
+                auto fnd = env->extern_native_functions.find(
+                    reinterpret_cast<wo_native_func_t>(
+                        reinterpret_cast<intptr_t>(rip)));
+
+                if (fnd != env->extern_native_functions.end())
+                {
+                    function_signature = fnd->second.function_name;
+                    file_path = fnd->second.library_name.value_or("<builtin>");
+                }
+                else
+                {
+                    char rip_str[sizeof(rip) * 2 + 4];
+                    sprintf(rip_str, "0x%p>", rip);
+
+                    function_signature = std::string("<unknown extern function ") + rip_str;
+                    file_path = "<unknown library>";
+                }
+                break;
+            }
+            default:
+                wo_error("Cannot be here.");
+            }
+
+            return callstack_info{
+                function_signature,
+                file_path,
+                row_number,
+                col_number,
+                callway,
+            };
+        };
+
+        runtime_env* current_env_pointer = near_env_pointer;
+        for (auto& callstack_state : callstack_ips)
+        {
+            bool bad = false;
+            const byte_t* ip;
+            switch (callstack_state.m_type)
+            {
+            case callstack_ip_state::ipaddr_kind::BAD:
+                bad = true;
+                break;
+            case callstack_ip_state::ipaddr_kind::ABS:
+                ip = callstack_state.m_abs_addr;
+                break;
+            case callstack_ip_state::ipaddr_kind::OFFSET:
+                ip = current_env_pointer->rt_codes + callstack_state.m_diff_offset;
+                break;
+            default:
+                wo_error("Cannot be here.");
+            }
+
+            if (callstack_layer_count > max_count)
+            {
+                if (!bad)
+                    generate_callstack_info_with_ip(
+                        ip, &current_env_pointer);
+            }
+            else
+            {
+                auto& this_callstack_info = result.at(--callstack_layer_count);
+
+                if (bad)
+                    this_callstack_info =
+                    callstack_info{
+                       "??",
+                       "<bad callstack>",
+                       0,
+                       0,
+                       call_way::BAD, };
+                else
+                    this_callstack_info = generate_callstack_info_with_ip(
+                        ip, &current_env_pointer);
             }
         }
         return result;
@@ -1453,7 +1557,7 @@ namespace wo
             wo_fail(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
             break;
         }
-    }
+}
     void vmbase::eltx_impl(value* result, value* opnum1, value* opnum2) noexcept
     {
         switch (opnum1->m_type)

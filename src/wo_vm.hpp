@@ -243,14 +243,20 @@ namespace wo
             // to check something about debug, such as breakpoint.
             // * DEBUG_INTERRUPT will cause huge performance loss
         };
-
+        enum class call_way
+        {
+            BAD,
+            NEAR,
+            FAR,
+            NATIVE,
+        };
         struct callstack_info
         {
             std::string m_func_name;
             std::string m_file_path;
             size_t      m_row;
             size_t      m_col;
-            bool        m_is_extern;
+            call_way    m_call_way;
         };
         struct hangup_lock
         {

@@ -2941,7 +2941,7 @@ WO_API wo_api rslib_std_debug_callstack_trace(wo_vm vm, wo_value args)
             public file        : string,
             public row         : int,
             public column      : int,
-            public external    : bool,
+            public callway     : callway,
         };
         */
         wo_set_struct(s + 1, vm, 5);
@@ -2953,7 +2953,7 @@ WO_API wo_api rslib_std_debug_callstack_trace(wo_vm vm, wo_value args)
         wo_struct_set(s + 1, 2, s + 2);
         wo_set_int(s + 2, trace.m_col);
         wo_struct_set(s + 1, 3, s + 2);
-        wo_set_bool(s + 2, trace.m_is_extern ? WO_TRUE : WO_FALSE);
+        wo_set_int(s + 2, static_cast<wo_integer_t>(trace.m_call_way));
         wo_struct_set(s + 1, 4, s + 2);
 
         wo_arr_set(s + 0, index++, s + 1);
@@ -3012,25 +3012,30 @@ namespace std
             attach_debuggee();
             breakpoint();
         }
-
+        public enum callway
+        {
+            BAD,
+            NEAR,
+            FAR,
+            NATIVE,
+        }
         public using callstack = struct{
             public function    : string,
             public file        : string,
             public row         : int,
             public column      : int,
-            public external    : bool,
+            public callway     : callway,
         }
         {
             public func to_string(self: callstack)
             {
                 return F"{self.function}\n\t\t-- at {self.file}"
-                    + (self.external ? "" | F" ({self.row + 1}, {self.column + 1}\x29");
+                    + (self.callway == callway::FAR ? " <far>" | "")
+                    + (self.callway != callway::NATIVE ? "" | F" ({self.row + 1}, {self.column + 1}\x29");
             }
         }
-
         extern("rslib_std_debug_callstack_trace")
             public func traceback(layer: int)=> (bool, array<callstack>);
-
         extern("rslib_std_debug_invoke")
             public func invoke<Ft>(f: Ft, ...) => dynamic
                 where typeid:<typeof(f(......))> != 0;
