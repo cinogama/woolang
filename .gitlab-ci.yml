@@ -78,6 +78,31 @@ build_release_arm64:
   tags:
     - ubuntu22_arm64
 
+build_release_arm64_mac:
+  stage: build
+  script:
+    - git submodule update --init --recursive --force
+    - if [ ! -d build ]; then mkdir build; fi
+    - cd build
+    - rm -f CMakeCache.txt
+    - cmake .. -DWO_MAKE_OUTPUT_IN_SAME_PATH=ON -DCMAKE_BUILD_TYPE=RELWITHDEBINFO -DBUILD_SHARED_LIBS=ON
+    - make -j 4
+    - cd ..
+  artifacts:
+    name: mac-arm64-wo-build-release-$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA
+    paths:
+      - build/woolang
+      - build/libwoo.dylib
+    expire_in: 1 week
+  # depending on your build setup it's most likely a good idea to cache outputs to reduce the build time
+  cache:
+    when: on_success
+    key: wo-mac-arm64-build-release-$CI_COMMIT_REF_SLUG
+    paths:
+        - "build/*"
+  tags:
+    - mac-arm64
+
 test_coverage_debug:
   stage: test
   coverage: '/^TOTAL.*\s+(\d+\%)$/'
@@ -217,14 +242,34 @@ test_release_arm64:
       - core
     when: on_failure
     expire_in: 1 week
-  # cache:
-  #   key: wo-build-debug-$CI_COMMIT_REF_SLUG
-  #   policy: pull
-  #   paths:
-  #       - "build/*"
   dependencies:
     - build_release_arm64
-    
+
+test_release_arm64_mac:
+  stage: test
+  script:
+    - cd test
+    - sudo baozi install
+    - sudo chmod -R 777 ./pkg
+    - sudo chmod -R 777 .
+    - ../build/woolang ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 1 -o test_nojit.woo --enable-halt-when-panic 1 --mem-chunk-size 536870912
+    - ../build/woolang ./test_nojit.woo --enable-ctrlc-debug 0 --enable-jit 0 --enable-halt-when-panic 1 --mem-chunk-size 536870912
+    - ../build/woolang ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 0 -o test_nojit.woo --enable-halt-when-panic 1 --mem-chunk-size 536870912
+    - ../build/woolang ./test_nojit.woo --enable-ctrlc-debug 0 --enable-jit 1 --enable-halt-when-panic 1 --mem-chunk-size 536870912
+    - ../build/woolang ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 0 --enable-halt-when-panic 1 --mem-chunk-size 536870912
+    - ../build/woolang ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 1 --enable-halt-when-panic 1 --mem-chunk-size 536870912
+    - cd ..
+  tags:
+    - mac-arm64
+  artifacts:
+    name: "test-report-mac-$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA"
+    paths:
+      - core
+    when: on_failure
+    expire_in: 1 week
+  dependencies:
+    - build_release_arm64_mac
+
 test_memory_debug:
   stage: test
   only: 
