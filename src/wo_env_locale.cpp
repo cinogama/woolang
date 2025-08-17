@@ -169,7 +169,6 @@ namespace wo
         wo_assert(_win32_origin_cin_buf == nullptr);
         _win32_origin_cin_buf = std::cin.rdbuf(new cin_win32_u16_to_u8());
 #endif
-
         if (nullptr == std::setlocale(LC_CTYPE, DEFAULT_LOCALE_NAME))
             wo_warning("Unable to initialize locale character set environment: bad local type.");
         else
@@ -180,6 +179,43 @@ namespace wo
 
         if (wo::config::ENABLE_OUTPUT_ANSI_COLOR_CTRL)
             printf(ANSI_RST);
+
+        std::string result;
+#if WO_DISABLE_FUNCTION_FOR_WASM
+#else
+#   ifdef _WIN32
+        wchar_t _w_exe_path[WO_MAX_EXE_OR_RPATH_LEN] = {};
+        const size_t len = (size_t)GetModuleFileNameW(NULL, _w_exe_path, WO_MAX_EXE_OR_RPATH_LEN);
+        wo_test(len < WO_MAX_EXE_OR_RPATH_LEN);
+
+        static_assert(sizeof(wchar_t) == sizeof(char16_t));
+        result = wo::u16strtou8(
+            reinterpret_cast<const char16_t*>(_w_exe_path),
+            len);
+#   elif defined(__APPLE__)
+        char _exe_path[WO_MAX_EXE_OR_RPATH_LEN] = {};
+        uint32_t size = WO_MAX_EXE_OR_RPATH_LEN;
+        if (_NSGetExecutablePath(_exe_path, &size) == 0)
+        {
+            char resolved_path[WO_MAX_EXE_OR_RPATH_LEN] = {};
+            if (realpath(_exe_path, resolved_path) != nullptr)
+                result = resolved_path;
+            else
+                result = _exe_path;
+        }
+        wo_test(!result.empty());
+#   else
+        char _exe_path[WO_MAX_EXE_OR_RPATH_LEN] = {};
+        const size_t len = (size_t)readlink("/proc/self/exe", _exe_path, WO_MAX_EXE_OR_RPATH_LEN);
+        wo_test(len < WO_MAX_EXE_OR_RPATH_LEN);
+
+        result = _exe_path;
+#   endif
+#endif
+        normalize_path(&result);
+
+        // Fetch & set host path.
+        wo_binary_path = get_file_loc(result);
     }
     void wo_shutdown_locale_and_args()
     {
@@ -190,6 +226,8 @@ namespace wo
         delete std::cin.rdbuf(_win32_origin_cin_buf);
         _win32_origin_cin_buf = nullptr;
 #endif
+        // Reset host path.
+        wo_binary_path.reset();
     }
 
     std::string get_file_loc(std::string path)
@@ -204,44 +242,6 @@ namespace wo
     }
     std::string exe_path()
     {
-        if (!wo_binary_path)
-        {
-            std::string result;
-#if WO_DISABLE_FUNCTION_FOR_WASM
-#else
-#   ifdef _WIN32
-            wchar_t _w_exe_path[WO_MAX_EXE_OR_RPATH_LEN] = {};
-            const size_t len = (size_t)GetModuleFileNameW(NULL, _w_exe_path, WO_MAX_EXE_OR_RPATH_LEN);
-            wo_test(len < WO_MAX_EXE_OR_RPATH_LEN);
-
-            static_assert(sizeof(wchar_t) == sizeof(char16_t));
-            result = wo::u16strtou8(
-                reinterpret_cast<const char16_t*>(_w_exe_path),
-                len);
-#   elif defined(__APPLE__)
-            char _exe_path[WO_MAX_EXE_OR_RPATH_LEN] = {};
-            uint32_t size = WO_MAX_EXE_OR_RPATH_LEN;
-            if (_NSGetExecutablePath(_exe_path, &size) == 0)
-            {
-                char resolved_path[WO_MAX_EXE_OR_RPATH_LEN] = {};
-                if (realpath(_exe_path, resolved_path) != nullptr)
-                    result = resolved_path;
-                else
-                    result = _exe_path;
-            }
-            wo_test(!result.empty());
-#   else
-            char _exe_path[WO_MAX_EXE_OR_RPATH_LEN] = {};
-            const size_t len = (size_t)readlink("/proc/self/exe", _exe_path, WO_MAX_EXE_OR_RPATH_LEN);
-            wo_test(len < WO_MAX_EXE_OR_RPATH_LEN);
-
-            result = _exe_path;
-#   endif
-#endif
-            normalize_path(&result);
-
-            wo_binary_path = get_file_loc(result);
-        }
         return wo_binary_path.value();
     }
     void set_exe_path(const std::optional<std::string> path)
