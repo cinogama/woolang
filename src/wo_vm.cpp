@@ -1936,7 +1936,49 @@ namespace wo
             WO_ADDRESSING_RS1;\
             WO_ADDRESSING_RS2;\
         _label_##CODE##_impl
+/*
+// ISSUE: 25-08-16:
+The global storage area functions like a container, and as such, elements within
+it may escape, just like in a container. Therefore, write barrier checks are 
+required for all potential write operations to the global storage area. Below 
+is a list of instructions that may trigger such write barriers:
 
+pop,
+adds,
+mov,
+movcast,
+lds,
+mkstruct,
+idstruct,
+mkcontain,
+mkunion,
+ext0 pack,
+
+Note that instructions like addi and addr do not require write barrier checks 
+because they explicitly specify that the operand's type is a primitive type.
+*/
+#define WO_WRITE_CHECK_FOR_GLOBAL(VAL)\
+        if (wo::gc::gc_is_marking())\
+            wo::value::write_barrier(VAL)
+#define WO_RSG_ADDRESSING_WRITE_OP1_CASE(CODE)\
+        instruct::opcode::CODE##gg:\
+            WO_ADDRESSING_G1;\
+            WO_WRITE_CHECK_FOR_GLOBAL(opnum1);\
+            WO_ADDRESSING_G2;\
+        goto _label_##CODE##_impl;\
+        case instruct::opcode::CODE##gs:\
+            WO_ADDRESSING_G1;\
+            WO_WRITE_CHECK_FOR_GLOBAL(opnum1);\
+            WO_ADDRESSING_RS2;\
+            goto _label_##CODE##_impl;\
+        case instruct::opcode::CODE##sg:\
+            WO_ADDRESSING_RS1;\
+            WO_ADDRESSING_G2;\
+            goto _label_##CODE##_impl;\
+        case instruct::opcode::CODE##ss:\
+            WO_ADDRESSING_RS1;\
+            WO_ADDRESSING_RS2;\
+        _label_##CODE##_impl
         for (;;)
         {
             uint32_t rtopcode = *(rt_ip++);
@@ -1986,6 +2028,7 @@ namespace wo
                 break;
             case instruct::opcode::popg:
                 WO_ADDRESSING_G1;
+                WO_WRITE_CHECK_FOR_GLOBAL(opnum1);
                 goto _label_pop_impl;
             case instruct::opcode::pops:
                 WO_ADDRESSING_RS1;
@@ -2086,7 +2129,7 @@ namespace wo
 
                 opnum1->m_handle -= opnum2->m_handle;
                 break;
-            case WO_RSG_ADDRESSING_CASE(adds):
+            case WO_RSG_ADDRESSING_WRITE_OP1_CASE(adds):
                 WO_VM_ASSERT(opnum1->m_type == opnum2->m_type
                     && opnum1->m_type == value::valuetype::string_type,
                     "Operand should be string in 'adds'.");
@@ -2095,10 +2138,10 @@ namespace wo
                     string_t::gc_new<gcbase::gctype::young>(
                         *opnum1->m_string + *opnum2->m_string));
                 break;
-            case WO_RSG_ADDRESSING_CASE(mov):
+            case WO_RSG_ADDRESSING_WRITE_OP1_CASE(mov):
                 opnum1->set_val(opnum2);
                 break;
-            case WO_RSG_ADDRESSING_CASE(movcast):
+            case WO_RSG_ADDRESSING_WRITE_OP1_CASE(movcast):
                 if (auto* err = movcast_impl(
                     opnum1,
                     opnum2,
@@ -2125,7 +2168,7 @@ namespace wo
                     opnum1->m_type == static_cast<value::valuetype>(
                         WO_IPVAL_MOVE_1));
                 break;
-            case WO_RSG_ADDRESSING_CASE(lds):
+            case WO_RSG_ADDRESSING_WRITE_OP1_CASE(lds):
                 WO_VM_ASSERT(opnum2->m_type == value::valuetype::integer_type,
                     "Operand 2 should be integer in 'lds'.");
                 opnum1->set_val(bp + opnum2->m_integer);
@@ -2649,13 +2692,14 @@ namespace wo
             }
             case instruct::opcode::mkstructg:
                 WO_ADDRESSING_G1;
+                WO_WRITE_CHECK_FOR_GLOBAL(opnum1);
                 goto _label_mkstruct_impl;
             case instruct::opcode::mkstructs:
                 WO_ADDRESSING_RS1; // Aim
             _label_mkstruct_impl:
                 sp = make_struct_impl(opnum1, WO_IPVAL_MOVE_2, sp);
                 break;
-            case WO_RSG_ADDRESSING_CASE(idstruct):
+            case WO_RSG_ADDRESSING_WRITE_OP1_CASE(idstruct):
             {
                 const uint16_t offset = WO_IPVAL_MOVE_2;
 
@@ -2688,6 +2732,7 @@ namespace wo
                 }
             case instruct::opcode::mkarrg:
                 WO_ADDRESSING_G1;
+                WO_WRITE_CHECK_FOR_GLOBAL(opnum1);
                 goto _label_mkarr_impl;
             case instruct::opcode::mkarrs:
                 WO_ADDRESSING_RS1;
@@ -2700,6 +2745,7 @@ namespace wo
                 }
             case instruct::opcode::mkmapg:
                 WO_ADDRESSING_G1;
+                WO_WRITE_CHECK_FOR_GLOBAL(opnum1);
                 goto _label_mkmap_impl;
             case instruct::opcode::mkmaps:
                 WO_ADDRESSING_RS1;
@@ -2849,7 +2895,7 @@ namespace wo
                             opnum1->m_string->size(),
                             static_cast<size_t>(opnum2->m_integer))));
                 break;
-            case WO_RSG_ADDRESSING_CASE(mkunion):
+            case WO_RSG_ADDRESSING_WRITE_OP1_CASE(mkunion):
                 make_union_impl(opnum1, opnum2, WO_IPVAL_MOVE_2);
                 break;
             case instruct::opcode::mkcloswo:
@@ -2914,6 +2960,7 @@ namespace wo
                     break;
                 case instruct::extern_opcode_page_0::packg:
                     WO_ADDRESSING_G1;
+                    WO_WRITE_CHECK_FOR_GLOBAL(opnum1);
                     goto _label_ext0_pack_impl;
                 case instruct::extern_opcode_page_0::packs:
                     WO_ADDRESSING_RS1;

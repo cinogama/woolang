@@ -176,7 +176,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 
         function_jit_state* current_jit_state = nullptr;
 
-        virtual void bind_ip(CompileContextT* ctx, asmjit::BaseCompiler* compiler, uint32_t ipoffset)
+        void bind_ip(CompileContextT* ctx, asmjit::BaseCompiler* compiler, uint32_t ipoffset)
         {
             if (auto fnd = label_table.find(ipoffset);
                 fnd != label_table.end())
@@ -367,7 +367,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             current_jit_state = backup;
             return result;
         }
-
         void analyze_jit(byte_t* codebuf, runtime_env* env) noexcept
         {
             if (env->jit_code_holder.has_value())
@@ -790,6 +789,11 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             opnum1->set_gcunit<wo::value::valuetype::string_type>(
                 string_t::gc_new<gcbase::gctype::young>(*opnum1->m_string + *opnum2));
         }
+        static void _vmjitcall_write_barrier(wo::value* opnum1)
+        {
+            if (wo::gc::gc_is_marking())
+                wo::value::write_barrier(opnum1);
+        }
         static const char* _vmjitcall_idarr(wo::value* cr, wo::array_t* opnum1, wo_integer_t opnum2)
         {
             gcbase::gc_read_guard gwg1(opnum1);
@@ -816,7 +820,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                 return "No such key in current dict.";
             return nullptr;
         }
-
         static const char* _vmjitcall_siddict(wo::dictionary_t* opnum1, wo::value* opnum2, wo::value* opnum3)
         {
             gcbase::gc_write_guard gwg1(opnum1);
@@ -1111,6 +1114,24 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             wo_assure(!ctx->c.inc(depth_count));
             wo_assure(!ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmbase, offsetof(vmbase, extern_state_jit_call_depth)), depth_count));
         }
+
+        // See ISSUE: 25-08-16 in wo_vm.cpp
+        static void write_barrier_for_opnum1_if_write_global(
+            X64CompileContext* ctx, may_constant_x86Gp& opnum1, unsigned int dr)
+        {
+            if ((dr & 0b10) == 0)
+            {
+                // Is global.
+                auto op1 = opnum1.gp_value();
+
+                asmjit::InvokeNode* invoke_node;
+                wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_write_barrier,
+                    asmjit::FuncSignatureT<void, wo::value*>()));
+
+                invoke_node->setArg(0, op1);
+            }
+        }
+
         static asmjit::x86::Gp x86_set_imm(asmjit::x86::Compiler& x86compiler, asmjit::x86::Gp val, const wo::value& instance)
         {
             wo_assure(!x86compiler.mov(asmjit::x86::byte_ptr(val, offsetof(value, m_type)), (uint8_t)instance.m_type));
@@ -1352,6 +1373,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
         {
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
+
+            write_barrier_for_opnum1_if_write_global(ctx, opnum1, dr);
 
             if (opnum2.is_constant_and_not_tag(ctx))
                 x86_set_imm(ctx->c, opnum1.gp_value(), *opnum2.const_value());
@@ -1693,6 +1716,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
+            write_barrier_for_opnum1_if_write_global(ctx, opnum1, dr);
+
             auto op1 = opnum1.gp_value();
             auto str = ctx->c.newIntPtr();
 
@@ -1772,6 +1797,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                 // opnum1->set_val((++rt_sp));
                 WO_JIT_ADDRESSING_N1;
 
+                write_barrier_for_opnum1_if_write_global(ctx, opnum1, dr);
+
                 wo_assure(!ctx->c.add(ctx->_vmssp, sizeof(wo::value)));
                 x86_set_val(ctx->c, opnum1.gp_value(), ctx->_vmssp);
             }
@@ -1847,6 +1874,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
         {
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
+
+            write_barrier_for_opnum1_if_write_global(ctx, opnum1, dr);
 
             auto bpoffset = ctx->c.newUIntPtr();
             if (opnum2.is_constant())
@@ -2460,6 +2489,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             WO_JIT_ADDRESSING_N2;
             uint16_t id = WO_IPVAL_MOVE_2;
 
+            write_barrier_for_opnum1_if_write_global(ctx, opnum1, dr);
+
             auto op1 = opnum1.gp_value();
             auto op2 = opnum2.gp_value();
 
@@ -2478,6 +2509,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
             value::valuetype aim_type = static_cast<value::valuetype>(WO_IPVAL_MOVE_1);
+
+            write_barrier_for_opnum1_if_write_global(ctx, opnum1, dr);
 
             auto op1 = opnum1.gp_value();
             auto op2 = opnum2.gp_value();
@@ -2599,6 +2632,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             WO_JIT_ADDRESSING_N1;
             uint16_t size = WO_IPVAL_MOVE_2;
 
+            write_barrier_for_opnum1_if_write_global(ctx, opnum1, dr);
+
             auto op1 = opnum1.gp_value();
 
             asmjit::InvokeNode* invoke_node;
@@ -2716,6 +2751,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
         {
             WO_JIT_ADDRESSING_N1;
             uint16_t size = WO_IPVAL_MOVE_2;
+
+            write_barrier_for_opnum1_if_write_global(ctx, opnum1, dr);
 
             auto op1 = opnum1.gp_value();
 
@@ -2955,6 +2992,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             WO_JIT_ADDRESSING_N2;
             uint16_t offset = WO_IPVAL_MOVE_2;
 
+            write_barrier_for_opnum1_if_write_global(ctx, opnum1, dr);
+
             auto op1 = opnum1.gp_value();
             auto stc = ctx->c.newIntPtr();
 
@@ -2994,6 +3033,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             WO_JIT_ADDRESSING_N1;
             uint16_t this_function_arg_count = WO_IPVAL_MOVE_2;
             uint16_t skip_closure_arg_count = WO_IPVAL_MOVE_2;
+
+            write_barrier_for_opnum1_if_write_global(ctx, opnum1, dr);
 
             auto op1 = opnum1.gp_value();
 
