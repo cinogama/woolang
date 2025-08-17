@@ -86,6 +86,7 @@ build_release_arm64_mac:
     - cd build
     - rm -f CMakeCache.txt
     - cmake .. -DWO_MAKE_OUTPUT_IN_SAME_PATH=ON -DCMAKE_BUILD_TYPE=RELWITHDEBINFO -DBUILD_SHARED_LIBS=ON
+    - make -j 4
     - cd ..
   artifacts:
     name: mac-arm64-wo-build-release-$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA
