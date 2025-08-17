@@ -186,6 +186,7 @@ test_debug_arm64_mac:
   stage: test
   coverage: '/^TOTAL.*\s+(\d+\%)$/'
   script:
+    - ulimit -c unlimited
     - git submodule update --init --recursive --force
     - if [ ! -d build ]; then mkdir build; fi
     - cd build
@@ -281,6 +282,7 @@ test_release_arm64:
 test_release_arm64_mac:
   stage: test
   script:
+    - ulimit -c unlimited
     - cd test
     - sudo baozi install
     - sudo chmod -R 777 ./pkg
