@@ -20,6 +20,8 @@ set(WO_SPECIFY_PLATFORM_TYPE "" CACHE STRING
 
 ####################################################################################################
 
+add_compile_options(-g2)
+
 # Check WO_SPECIFY_PLATFORM_TYPE is valid
 if (NOT WO_SPECIFY_PLATFORM_TYPE STREQUAL ""
     AND NOT WO_SPECIFY_PLATFORM_TYPE STREQUAL "WO_PLATFORM_32"
