@@ -3,12 +3,15 @@
 #include "wo_env_locale.hpp"
 
 #ifdef _WIN32
-#       include <Windows.h>
-#       undef max      // fucking windows.
-#       undef min      // fucking windows.
+#   include <Windows.h>
+#   undef max      // fucking windows.
+#   undef min      // fucking windows.
 #else
-#       include <unistd.h>
-#       include <sys/stat.h>
+#   include <unistd.h>
+#   include <sys/stat.h>
+#   ifdef __APPLE__
+#       include <mach-o/dyld.h>
+#   endif
 #endif
 
 
@@ -119,6 +122,8 @@ namespace wo
     };
 
     std::streambuf* _win32_origin_cin_buf;
+#elif defined(__APPLE__)
+    const char* DEFAULT_LOCALE_NAME = "en_US.UTF-8";
 #else
     const char* DEFAULT_LOCALE_NAME = "C.UTF-8";
 #endif
@@ -213,6 +218,18 @@ namespace wo
             result = wo::u16strtou8(
                 reinterpret_cast<const char16_t*>(_w_exe_path),
                 len);
+#   elif defined(__APPLE__)
+            char _exe_path[WO_MAX_EXE_OR_RPATH_LEN] = {};
+            uint32_t size = WO_MAX_EXE_OR_RPATH_LEN;
+            if (_NSGetExecutablePath(_exe_path, &size) == 0)
+            {
+                char resolved_path[WO_MAX_EXE_OR_RPATH_LEN] = {};
+                if (realpath(_exe_path, resolved_path) != nullptr)
+                    result = resolved_path;
+                else
+                    result = _exe_path;
+            }
+            wo_test(!result.empty());
 #   else
             char _exe_path[WO_MAX_EXE_OR_RPATH_LEN] = {};
             const size_t len = (size_t)readlink("/proc/self/exe", _exe_path, WO_MAX_EXE_OR_RPATH_LEN);
