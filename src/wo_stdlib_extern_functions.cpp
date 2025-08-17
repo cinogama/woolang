@@ -1622,11 +1622,23 @@ WO_API wo_api rslib_std_weakref_trylock(wo_vm vm, wo_value args)
 
 WO_API wo_api rslib_std_env_pin_create(wo_vm vm, wo_value args)
 {
-    return wo_ret_gchandle(
+    return wo_ret_gcstruct(
         vm,
         new wo::shared_pointer<wo::runtime_env>(
             reinterpret_cast<wo::vmbase*>(vm)->env),
-        nullptr,
+        [](wo_gc_work_context_t ctx, wo_ptr_t p)
+        {
+            auto* env_p = reinterpret_cast<wo::shared_pointer<wo::runtime_env>*>(p)->get();
+            auto* global_and_const_values = env_p->constant_and_global_storage;
+
+            for (size_t cgr_index = env_p->constant_value_count;
+                cgr_index < env_p->constant_and_global_value_takeplace_count;
+                cgr_index++)
+            {
+                auto* global_val = global_and_const_values + cgr_index;
+                wo_gc_mark(ctx, reinterpret_cast<wo_value>(global_val));
+            }
+        },
         [](wo_ptr_t p)
         {
             delete reinterpret_cast<wo::shared_pointer<wo::runtime_env>*>(p);
