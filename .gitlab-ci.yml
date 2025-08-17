@@ -186,8 +186,6 @@ test_debug_arm64_mac:
   stage: test
   coverage: '/^TOTAL.*\s+(\d+\%)$/'
   script:
-    - /usr/libexec/PlistBuddy -c "Add :com.apple.security.get-task-allow bool true" test.entitlements
-    - codesign -s - -f --entitlements test.entitlements ../build/woolang_debug
     - ulimit -c unlimited
     - git submodule update --init --recursive --force
     - if [ ! -d build ]; then mkdir build; fi
@@ -198,6 +196,8 @@ test_debug_arm64_mac:
     - cd ..
     # Begin coverage test
     - cd test
+    - /usr/libexec/PlistBuddy -c "Add :com.apple.security.get-task-allow bool true" test.entitlements
+    - codesign -s - -f --entitlements test.entitlements ../build/woolang_debug
     - sudo baozi install -profile debug
     - sudo chmod -R 777 ./pkg
     - sudo chmod -R 777 .
@@ -284,10 +284,10 @@ test_release_arm64:
 test_release_arm64_mac:
   stage: test
   script:
-    - /usr/libexec/PlistBuddy -c "Add :com.apple.security.get-task-allow bool true" test.entitlements
-    - codesign -s - -f --entitlements test.entitlements ../build/woolang
     - ulimit -c unlimited
     - cd test
+    - /usr/libexec/PlistBuddy -c "Add :com.apple.security.get-task-allow bool true" test.entitlements
+    - codesign -s - -f --entitlements test.entitlements ../build/woolang
     - sudo baozi install
     - sudo chmod -R 777 ./pkg
     - sudo chmod -R 777 .
