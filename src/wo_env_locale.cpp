@@ -23,7 +23,7 @@ namespace wo
     // Woolang will work in UTF-8 mode as default 
 
 #ifdef _WIN32
-    const char* DEFAULT_LOCALE_NAME = ".UTF-8";
+    static const char* DEFAULT_LOCALE_NAME = ".UTF-8";
 
     class cin_win32_u16_to_u8 : public std::streambuf
     {
@@ -123,15 +123,15 @@ namespace wo
 
     std::streambuf* _win32_origin_cin_buf;
 #elif defined(__APPLE__)
-    const char* DEFAULT_LOCALE_NAME = "en_US.UTF-8";
+    static const char* DEFAULT_LOCALE_NAME = "en_US.UTF-8";
 #else
-    const char* DEFAULT_LOCALE_NAME = "C.UTF-8";
+    static const char* DEFAULT_LOCALE_NAME = "C.UTF-8";
 #endif
 
-    inline std::locale wo_global_locale = std::locale::classic();
-    inline std::string wo_global_locale_name = "";
-    inline std::optional<std::string> wo_binary_path = std::nullopt;
-    inline std::vector<std::string> wo_args;
+    static std::locale wo_global_locale = std::locale::classic();
+    static std::string wo_global_locale_name = "";
+    static std::optional<std::string> wo_binary_path = std::nullopt;
+    static std::vector<std::string> wo_args;
 
     const std::locale& get_locale()
     {
