@@ -312,6 +312,9 @@ namespace wo
 
                     break;
                 }
+                default:
+                    // Donot need external check for simple type.
+                    break;
                 }
 
                 // TODO: If sub match PENDING, return PENDING here.

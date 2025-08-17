@@ -540,7 +540,10 @@ namespace wo
             [rt_pos]()->std::string {
 
             char ptrr[sizeof(rt_pos) * 2 + 4] = {};
-            sprintf(ptrr, "0x%p>", rt_pos);
+            int result = snprintf(ptrr, sizeof(ptrr), "0x%p>", rt_pos);
+
+            (void)result;
+            wo_assert(result > 0 && result < sizeof(ptrr));
             return ptrr;
 
         }();

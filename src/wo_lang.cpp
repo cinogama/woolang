@@ -570,6 +570,9 @@ namespace wo
         case base_type::UNION:
             delete m_external_type_description.m_union;
             break;
+        default:
+            // No need to free for other types.
+            break;
         }
     }
 

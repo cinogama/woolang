@@ -130,6 +130,8 @@ namespace wo
         case AstBase::AST_PATTERN_TAKEPLACE:
             // Do nothing.
             return true;
+        default:
+            wo_error("Cannot be here.");
         }
         return false;
     }
@@ -1591,22 +1593,22 @@ namespace wo
     {
         auto judge_function_return_type =
             [&](lang_TypeInstance* ret_type)
-        {
-            std::list<lang_TypeInstance*> parameters;
-            for (auto& param : node->m_parameters)
-                parameters.push_back(param->m_type.value()->m_LANG_determined_type.value());
-
-            node->m_LANG_determined_type = m_origin_types.create_function_type(
-                node->m_is_variadic, parameters, ret_type);
-
-            wo_assert(node->m_LANG_determined_type.has_value());
-
-            if (node->m_LANG_value_instance_to_update)
             {
-                node->m_LANG_value_instance_to_update.value()->m_determined_type =
-                    node->m_LANG_determined_type;
-            }
-        };
+                std::list<lang_TypeInstance*> parameters;
+                for (auto& param : node->m_parameters)
+                    parameters.push_back(param->m_type.value()->m_LANG_determined_type.value());
+
+                node->m_LANG_determined_type = m_origin_types.create_function_type(
+                    node->m_is_variadic, parameters, ret_type);
+
+                wo_assert(node->m_LANG_determined_type.has_value());
+
+                if (node->m_LANG_value_instance_to_update)
+                {
+                    node->m_LANG_value_instance_to_update.value()->m_determined_type =
+                        node->m_LANG_determined_type;
+                }
+            };
 
         // Huston, we have a problem.
         if (state == UNPROCESSED)
@@ -2917,6 +2919,9 @@ namespace wo
 
                 return HOLD;
             }
+            default:
+                wo_error("unknown hold state");
+                break;
             }
         }
         else
@@ -3752,7 +3757,7 @@ namespace wo
                             {
                                 argument_types.push_back(
                                     std::make_pair(
-                                        array_or_vec_determined_type->m_element_type, 
+                                        array_or_vec_determined_type->m_element_type,
                                         unpack->m_unpack_value));
                             }
 
@@ -4917,6 +4922,10 @@ namespace wo
                                 constant_has_been_determined = true;
                             }
                             break;
+                        default:
+                            // Decide short cut conditional compile.
+                            // Donot handle other operator.
+                            break;
                         }
                     }
 
@@ -5710,6 +5719,8 @@ namespace wo
             }
             case AstBase::AST_PATTERN_TAKEPLACE:
                 break;
+            default:
+                wo_error("Cannot be here.");
             }
 
             WO_CONTINUE_PROCESS(node->m_body);

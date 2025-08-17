@@ -1465,10 +1465,15 @@ WO_API wo_api rslib_std_int_to_hex(wo_vm vm, wo_value args)
 {
     char result[18];
     wo_integer_t val = wo_int(args + 0);
+
+    int written;
     if (val >= 0)
-        sprintf(result, "%llX", (unsigned long long)val);
+        written = snprintf(result, sizeof(result), "%llX", (unsigned long long)val);
     else
-        sprintf(result, "-%llX", (unsigned long long) - val);
+        written = snprintf(result, sizeof(result), "-%llX", (unsigned long long) - val);
+
+    (void)written;
+    wo_assert(written > 0 && written < (int)sizeof(result));
     return wo_ret_string(vm, result);
 }
 
@@ -1476,10 +1481,15 @@ WO_API wo_api rslib_std_int_to_oct(wo_vm vm, wo_value args)
 {
     char result[24];
     wo_integer_t val = wo_int(args + 0);
+
+    int written;
     if (val >= 0)
-        sprintf(result, "%llo", (unsigned long long)val);
+        written = snprintf(result, sizeof(result), "%llo", (unsigned long long)val);
     else
-        sprintf(result, "-%llo", (unsigned long long) - val);
+        written = snprintf(result, sizeof(result), "-%llo", (unsigned long long) - val);
+
+    (void)written;
+    wo_assert(written > 0 && written < (int)sizeof(result));
     return wo_ret_string(vm, result);
 }
 

@@ -738,6 +738,9 @@ namespace wo
                 static_cast<const AstPatternIndex*>(this)->m_index->_check_if_template_exist_in(
                     template_params, out_contain_flags);
                 return;
+            default:
+                wo_error("Cannot be here.");
+                return;
             }
             static_assert(AST_PATTERN_end == AST_PATTERN_INDEX + 1);
         }
@@ -927,11 +930,13 @@ namespace wo
 
                     continue;
                 }
+                case AST_VALUE_NOTHING:
                 case AST_VALUE_VARIADIC_ARGUMENTS_PACK:
                 case AST_FAKE_VALUE_UNPACK:
                     return;
                 case AST_VALUE_MAKE_UNION:
                 case AST_VALUE_IR_OPNUM:
+                default:
                     wo_error("Cannot be here.");
                     return;
                 }

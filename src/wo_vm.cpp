@@ -1019,7 +1019,10 @@ namespace wo
                 else
                 {
                     char rip_str[sizeof(rip) * 2 + 4];
-                    sprintf(rip_str, "0x%p>", rip);
+                    int result = snprintf(rip_str, sizeof(rip_str), "0x%p>", rip);
+
+                    (void)result;
+                    wo_assert(result > 0 && result < sizeof(rip_str), "snprintf failed or buffer too small");
 
                     function_signature = std::string("<unknown function ") + rip_str;
                     file_path = "<unknown file>";
@@ -1041,7 +1044,10 @@ namespace wo
                 else
                 {
                     char rip_str[sizeof(rip) * 2 + 4];
-                    sprintf(rip_str, "0x%p>", rip);
+                    int result = snprintf(rip_str, sizeof(rip_str), "0x%p>", rip);
+
+                    (void)result;
+                    wo_assert(result > 0 && result < sizeof(rip_str), "snprintf failed or buffer too small");
 
                     function_signature = std::string("<unknown extern function ") + rip_str;
                     file_path = "<unknown library>";

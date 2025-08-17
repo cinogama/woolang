@@ -579,6 +579,9 @@ namespace wo
                 m_ircontext.c().tag(_generate_label("#for_end_", node));
 
                 break;
+            default:
+                wo_error("Unknown hold state.");
+                break;
             }
         }
         else
@@ -2372,6 +2375,9 @@ namespace wo
                 else
                     m_ircontext.cleanup_for_eval_upper();
 
+                break;
+            default:
+                wo_error("Unknown hold state.");
                 break;
             }
         }
