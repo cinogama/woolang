@@ -182,6 +182,39 @@ test_debug_arm64:
   tags:
     - ubuntu22_arm64
 
+test_debug_arm64_mac:
+  stage: test
+  coverage: '/^TOTAL.*\s+(\d+\%)$/'
+  script:
+    - git submodule update --init --recursive --force
+    - if [ ! -d build ]; then mkdir build; fi
+    - cd build
+    - rm -f CMakeCache.txt
+    - cmake .. -DWO_MAKE_OUTPUT_IN_SAME_PATH=ON -DCMAKE_BUILD_TYPE=DEBUG -DBUILD_SHARED_LIBS=ON
+    - make -j 4
+    - cd ..
+    # Begin coverage test
+    - cd test
+    - sudo baozi install -profile debug
+    - sudo chmod -R 777 ./pkg
+    - sudo chmod -R 777 .
+    - ../build/woolang_debug ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 1 --enable-halt-when-panic 1 --mem-chunk-size 536870912
+    - cd ../../../../../
+  artifacts:
+    name: mac-wo-$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA
+    paths:
+      - build/woolang_debug
+      - build/libwoo_debug.so
+    expire_in: 1 week
+  # depending on your build setup it's most likely a good idea to cache outputs to reduce the build time
+  cache:
+    when: on_success
+    key: wo-mac-arm64-build-debug-$CI_COMMIT_REF_SLUG
+    paths:
+        - "build/*"
+  tags:
+    - mac-arm64
+
 # run tests using the binary built before
 
 test_release:
