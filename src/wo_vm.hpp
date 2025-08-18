@@ -402,6 +402,7 @@ namespace wo
         size_t callstack_layer() const noexcept;
         bool gc_checkpoint() noexcept;
         bool assure_stack_size(wo_size_t assure_stack_size) noexcept;
+        void scan_stack_for_write_barrier(wo_int_t argc)noexcept;
         void co_pre_invoke(const byte_t* wo_func_addr, wo_int_t argc) noexcept;
         void co_pre_invoke(wo_native_func_t ex_func_addr, wo_int_t argc) noexcept;
         void co_pre_invoke(closure_t* wo_func_addr, wo_int_t argc) noexcept;

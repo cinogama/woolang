@@ -3086,11 +3086,10 @@ wo_value wo_reserve_stack(wo_vm vm, wo_size_t stack_sz, wo_value* inout_args_may
             auto* current_call_base = vmbase->bp + 1;
 
             // NOTE: If bp + 1 is not callstack:
-            //  1) It has been marked `stack_externed_flag`
-            //  2) The VM has already returned from last function call.
+            //  1) The VM has already returned from last function call.
             if (current_call_base->m_type == wo::value::valuetype::callstack
                 || current_call_base->m_type == wo::value::valuetype::far_callstack
-                || current_call_base->m_type == wo::value::valuetype::nativecallstack)
+                || current_call_base->m_type == wo::value::valuetype::native_callstack)
             {
                 vmbase->extern_state_stack_update = true;
             }
@@ -3102,42 +3101,12 @@ wo_value wo_reserve_stack(wo_vm vm, wo_size_t stack_sz, wo_value* inout_args_may
 
     // Clean reserved space.
     memset(result, 0, sizeof(wo::value) * stack_sz);
-
     return CS_VAL(result);
 }
 
 void wo_pop_stack(wo_vm vm, wo_size_t stack_sz)
 {
     WO_VM(vm)->sp += stack_sz;
-}
-
-wo_stack_value wo_cast_stack_value(wo_vm vm, wo_value value_in_stack)
-{
-    auto* vmbase = WO_VM(vm);
-
-    auto* stack_begin = vmbase->sb;
-    auto* stack_value = WO_VAL(value_in_stack);
-
-    if (stack_value > vmbase->sp && stack_value <= stack_begin)
-        return stack_begin - stack_value;
-
-    wo_fail(WO_FAIL_INDEX_FAIL, "Invalid stack value.");
-    return SIZE_MAX;
-}
-
-void wo_stack_value_set(wo_stack_value sv, wo_vm vm, wo_value val)
-{
-    auto* vmbase = WO_VM(vm);
-
-    wo_assert(sv < (size_t)(vmbase->sb - vmbase->sp));
-    wo_set_val(CS_VAL(vmbase->sb - sv), val);
-}
-void wo_stack_value_get(wo_value outval, wo_stack_value sv, wo_vm vm)
-{
-    auto* vmbase = WO_VM(vm);
-
-    wo_assert(sv < (size_t)(vmbase->sb - vmbase->sp));
-    wo_set_val(outval, CS_VAL(vmbase->sb - sv));
 }
 
 wo_value wo_invoke_value(
@@ -3199,7 +3168,10 @@ wo_value wo_dispatch(
         wo_assert(vmm->tc->m_type == wo::value::valuetype::integer_type);
 
         auto origin_tc = (++(vmm->sp))->m_integer;
-        auto origin_spbp = (++(vmm->sp))->m_vmcallstack;
+        wo_assert(vmm->sp->m_type == wo::value::valuetype::integer_type);
+
+        auto origin_spbp = (++(vmm->sp))->m_yield_checkpoint;
+        wo_assert(vmm->sp->m_type == wo::value::valuetype::yield_checkpoint);
 
         auto dispatch_result = vmm->run();
 
@@ -3235,7 +3207,7 @@ wo_value wo_dispatch(
         switch (dispatch_result)
         {
         case wo_result_t::WO_API_NORMAL:
-            vmm->sp = vmm->sb - origin_spbp.ret_ip;
+            vmm->sp = vmm->sb - origin_spbp.sp;
             vmm->bp = vmm->sb - origin_spbp.bp;
             vmm->tc->set_integer(origin_tc);
 
@@ -3244,7 +3216,10 @@ wo_value wo_dispatch(
             // Aborted, donot restore states.
             return nullptr;
         case wo_result_t::WO_API_SIM_YIELD:
-            (vmm->sp--)->set_callstack(origin_spbp.ret_ip, origin_spbp.bp);
+            vmm->sp->m_type = wo::value::valuetype::yield_checkpoint;
+            vmm->sp->m_yield_checkpoint = origin_spbp;
+            --vmm->sp;
+
             (vmm->sp--)->set_integer(origin_tc);
 
             return WO_CONTINUE;

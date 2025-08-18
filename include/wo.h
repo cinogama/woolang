@@ -3,7 +3,7 @@
 //
 // Here will have woolang c api;
 //
-#define WO_VERSION WO_VERSION_WRAP(1, 14, 11, 7)
+#define WO_VERSION WO_VERSION_WRAP(1, 14, 11, 8)
 
 #ifndef WO_MSVC_RC_INCLUDE
 
@@ -73,8 +73,6 @@ typedef struct _wo_value
 }
 wo_unref_value, * wo_value;
 
-typedef wo_size_t wo_stack_value;
-
 typedef enum _wo_value_type_t
 {
     WO_INVALID_TYPE = 0,
@@ -92,6 +90,7 @@ typedef enum _wo_value_type_t
     WO_CALLSTACK_TYPE = 7,
     WO_FAR_CALLSTACK_TYPE = 8,
     WO_NATIVE_CALLSTACK_TYPE = 9,
+    WO_YIELD_CHECK_POINT_TYPE = 10,
 
     WO_STRING_TYPE = WO_NEED_GC_FLAG | 1,
     WO_MAPPING_TYPE = WO_NEED_GC_FLAG | 2,
@@ -308,12 +307,11 @@ WO_API void wo_unload_lib(wo_dylib_handle_t lib, wo_dylib_unload_method_t method
 WO_API wo_type_t wo_valuetype(const wo_value value);
 WO_API wo_bool_t wo_equal_byte(wo_value a, wo_value b);
 
-// Woolang 1.13 NOTE: According to the Woolang calling convention,
-//      this method is only applicable for use within
-//      external interface functions declared as va-arg
-//      functions; And please make sure to call this
-//      function at the beginning of the interface to
-//      avoid counting contamination.
+// Woolang 1.13 NOTE: 
+//      According to the Woolang calling convention, this method is only 
+//      applicable for use within external interface functions declared 
+//      as va-arg functions; And please make sure to call this function 
+//      at the beginning of the interface to avoid counting contamination.
 WO_API wo_integer_t wo_argc(wo_vm vm);
 
 WO_API wo_wchar_t wo_char(wo_value value);
@@ -629,10 +627,6 @@ WO_API wo_value wo_register(wo_vm vm, wo_reg regid);
 // 3) When reserving for another vm (not current vm), inout_args can use nullptr;
 WO_API wo_value wo_reserve_stack(wo_vm vm, wo_size_t sz, wo_value* inout_args_maynull);
 WO_API void wo_pop_stack(wo_vm vm, wo_size_t sz);
-
-WO_API wo_stack_value wo_cast_stack_value(wo_vm vm, wo_value value_in_stack);
-WO_API void wo_stack_value_set(wo_stack_value sv, wo_vm vm, wo_value val);
-WO_API void wo_stack_value_get(wo_value outval, wo_stack_value sv, wo_vm vm);
 
 // Woolang 1.14: All invoke & dispatch function will not clean stack.
 // NOTE: vm's stack size might changed during `wo_invoke_...`, because of this,

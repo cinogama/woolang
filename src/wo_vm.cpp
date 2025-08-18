@@ -940,7 +940,7 @@ namespace wo
                 base_callstackinfo_ptr = next_trace_place + 1;
                 break;
             }
-            case value::valuetype::nativecallstack:
+            case value::valuetype::native_callstack:
             {
                 ++callstack_layer_count;
                 callstack_ips.push_front(callstack_ip_state(base_callstackinfo_ptr->m_nativecallstack));
@@ -961,7 +961,7 @@ namespace wo
                     {
                         auto ptr_value_type = base_callstackinfo_ptr->m_type;
 
-                        if (ptr_value_type == value::valuetype::nativecallstack
+                        if (ptr_value_type == value::valuetype::native_callstack
                             || ptr_value_type == value::valuetype::callstack
                             || ptr_value_type == value::valuetype::far_callstack)
                             break;
@@ -1186,10 +1186,36 @@ namespace wo
         return false;
     }
 
+    /*
+    ISSUE: 25-08-16
+    Arguments in stack may moved(assigned and returned) from another vm, in this case:
+        * VM-0 created a value in stack.
+        * GC-WORKED
+        * VM-0 invoke a native function with leave state.
+        * GC-START and scans VM-1(in pool)
+        * VM-O push the value into VM-1
+        * VM-0 returned and the value is no longer locates in stack.
+        * VM-O been scanned.
+        * VM-1 been dispatched.
+    In this case, value will missing-mark. so to prevent this cases, when values been
+    push into another vm's stack, and the value will be used later(such as dispatch),
+    we need to scan all the arguments by this function. See `co_pre_invoke`, NO need 
+    to scan in `invoke`, because invoke is safe, value always live in gc-reachable place
+    during whole `invoke` process, and if invoker returned, the arguments are discarded
+    safely.
+    */
+    void vmbase::scan_stack_for_write_barrier(wo_int_t argc)noexcept
+    {
+        if (gc::gc_is_marking())
+        {
+            for (wo_int_t sidx = 1; sidx <= argc; ++sidx)
+                value::write_barrier(sp + sidx);
+        }
+    }
     void vmbase::co_pre_invoke(const byte_t* wo_func_addr, wo_int_t argc) noexcept
     {
         wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
-
+        scan_stack_for_write_barrier(argc);
         if (!wo_func_addr)
             wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
         else
@@ -1198,16 +1224,21 @@ namespace wo
             auto* return_sp = sp;
             auto return_tc = tc->m_integer;
 
-            (sp--)->set_native_callstack(ip);
+            sp->m_type = value::valuetype::native_callstack;
+            sp->m_nativecallstack = ip;
+            --sp;
+
             ip = wo_func_addr;
             tc->set_integer(argc);
 
             bp = sp;
 
             // Push return place.
-            (sp--)->set_callstack(
-                (uint32_t)(sb - return_sp),
-                (uint32_t)(sb - bp));
+            sp->m_type = value::valuetype::yield_checkpoint;
+            sp->m_yield_checkpoint.sp = static_cast<uint32_t>(sb - return_sp);
+            sp->m_yield_checkpoint.sp = static_cast<uint32_t>(sb - bp);
+            --sp;
+
             // Push origin tc.
             (sp--)->set_integer(return_tc);
         }
@@ -1215,7 +1246,7 @@ namespace wo
     void vmbase::co_pre_invoke(wo_native_func_t ex_func_addr, wo_int_t argc)noexcept
     {
         wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
-
+        scan_stack_for_write_barrier(argc);
         if (!ex_func_addr)
             wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
         else
@@ -1224,16 +1255,21 @@ namespace wo
             auto* return_sp = sp;
             auto return_tc = tc->m_integer;
 
-            (sp--)->set_native_callstack(ip);
+            sp->m_type = value::valuetype::native_callstack;
+            sp->m_nativecallstack = ip;
+            --sp;
+
             ip = reinterpret_cast<const byte_t*>(ex_func_addr);
             tc->set_integer(argc);
 
             bp = sp;
 
             // Push return place.
-            (sp--)->set_callstack(
-                (uint32_t)(sb - return_sp),
-                (uint32_t)(sb - bp));
+            sp->m_type = value::valuetype::yield_checkpoint;
+            sp->m_yield_checkpoint.sp = static_cast<uint32_t>(sb - return_sp);
+            sp->m_yield_checkpoint.sp = static_cast<uint32_t>(sb - bp);
+            --sp;
+
             // Push origin tc.
             (sp--)->set_integer(return_tc);
         }
@@ -1241,7 +1277,7 @@ namespace wo
     void vmbase::co_pre_invoke(closure_t* wo_func_addr, wo_int_t argc)noexcept
     {
         wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
-
+        scan_stack_for_write_barrier(argc);
         if (!wo_func_addr)
             wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
         else
@@ -1255,7 +1291,10 @@ namespace wo
             for (uint16_t idx = 0; idx < wo_func_addr->m_closure_args_count; ++idx)
                 (sp--)->set_val(&wo_func_addr->m_closure_args[idx]);
 
-            (sp--)->set_native_callstack(ip);
+            sp->m_type = value::valuetype::native_callstack;
+            sp->m_nativecallstack = ip;
+            --sp;
+
             ip = wo_func_addr->m_native_call
                 ? (const byte_t*)wo_func_addr->m_native_func
                 : wo_func_addr->m_vm_func;
@@ -1264,9 +1303,11 @@ namespace wo
             bp = sp;
 
             // Push return place.
-            (sp--)->set_callstack(
-                (uint32_t)(sb - return_sp),
-                (uint32_t)(sb - bp));
+            sp->m_type = value::valuetype::yield_checkpoint;
+            sp->m_yield_checkpoint.sp = static_cast<uint32_t>(sb - return_sp);
+            sp->m_yield_checkpoint.sp = static_cast<uint32_t>(sb - bp);
+            --sp;
+
             // Push origin tc.
             (sp--)->set_integer(return_tc);
         }
@@ -1274,7 +1315,6 @@ namespace wo
     value* vmbase::invoke(const byte_t* wo_func_addr, wo_int_t argc)noexcept
     {
         wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
-
         if (!wo_func_addr)
             wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
         else
@@ -1285,7 +1325,10 @@ namespace wo
             auto return_bp_place = sb - bp;
             auto return_tc = tc->m_integer;
 
-            (sp--)->set_native_callstack(ip);
+            sp->m_type = value::valuetype::native_callstack;
+            sp->m_nativecallstack = ip;
+            --sp;
+
             tc->set_integer(argc);
             ip = wo_func_addr;
             bp = sp;
@@ -1316,7 +1359,6 @@ namespace wo
     value* vmbase::invoke(wo_native_func_t wo_func_addr, wo_int_t argc)noexcept
     {
         wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
-
         if (!wo_func_addr)
             wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
         else
@@ -1330,7 +1372,10 @@ namespace wo
             auto return_bp_place = sb - bp;
             auto return_tc = tc->m_integer;
 
-            (sp--)->set_native_callstack(ip);
+            sp->m_type = value::valuetype::native_callstack;
+            sp->m_nativecallstack = ip;
+            --sp;
+
             tc->set_integer(argc);
             ip = reinterpret_cast<const wo::byte_t*>(wo_func_addr);
             bp = sp;
@@ -1387,7 +1432,6 @@ namespace wo
     value* vmbase::invoke(closure_t* wo_func_closure, wo_int_t argc)noexcept
     {
         wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
-
         if (!wo_func_closure)
             wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
         else
@@ -1411,7 +1455,10 @@ namespace wo
                 for (uint16_t idx = 0; idx < wo_func_closure->m_closure_args_count; ++idx)
                     (sp--)->set_val(&wo_func_closure->m_closure_args[idx]);
 
-                (sp--)->set_native_callstack(ip);
+                sp->m_type = value::valuetype::native_callstack;
+                sp->m_nativecallstack = ip;
+                --sp;
+
                 tc->set_integer(argc);
                 bp = sp;
 
@@ -2309,7 +2356,7 @@ because they explicitly specify that the operand's type is a primitive type.
 
                 switch ((++bp)->m_type)
                 {
-                case value::valuetype::nativecallstack:
+                case value::valuetype::native_callstack:
                     sp = bp;
                     sp += pop_count;
                     // last stack is native_func, just do return;
@@ -2352,7 +2399,7 @@ because they explicitly specify that the operand's type is a primitive type.
             {
                 switch ((++bp)->m_type)
                 {
-                case value::valuetype::nativecallstack:
+                case value::valuetype::native_callstack:
                     sp = bp;
                     // last stack is native_func, just do return;
                     // stack balance should be keeped by invoker.

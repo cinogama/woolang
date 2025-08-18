@@ -66,7 +66,8 @@ namespace wo
 
             callstack = WO_CALLSTACK_TYPE,
             far_callstack = WO_FAR_CALLSTACK_TYPE,
-            nativecallstack = WO_NATIVE_CALLSTACK_TYPE,
+            native_callstack = WO_NATIVE_CALLSTACK_TYPE,
+            yield_checkpoint = WO_YIELD_CHECK_POINT_TYPE,
 
             string_type = WO_STRING_TYPE,
             dict_type = WO_MAPPING_TYPE,
@@ -80,6 +81,12 @@ namespace wo
         {
             uint32_t bp;
             uint32_t ret_ip;
+        };
+
+        struct yieldcheckpt_t
+        {
+            uint32_t sp;
+            uint32_t bp;
         };
 
         union
@@ -99,6 +106,7 @@ namespace wo
             callstack_t m_vmcallstack;
             const byte_t* m_farcallstack;
             const byte_t* m_nativecallstack;
+            yieldcheckpt_t m_yield_checkpoint;
             uint64_t m_value_field;
         };
         struct
@@ -170,12 +178,6 @@ namespace wo
         {
             m_type = valuetype::bool_type;
             m_integer = val ? 1 : 0;
-            return this;
-        }
-        WO_FORCE_INLINE value* set_native_callstack(const wo::byte_t * ipplace)
-        {
-            m_type = valuetype::nativecallstack;
-            m_nativecallstack = ipplace;
             return this;
         }
         WO_FORCE_INLINE value* set_callstack(uint32_t ip, uint32_t bp)
