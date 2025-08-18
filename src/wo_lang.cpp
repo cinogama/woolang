@@ -1124,6 +1124,8 @@ namespace wo
                     case BytecodeGenerateContext::EvalResult::IGNORE_RESULT:
                         --top_state.m_debug_ir_eval_content;
                         break;
+                    default:
+                        break;
                     }
                 }
             }
