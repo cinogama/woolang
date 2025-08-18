@@ -359,12 +359,21 @@ namespace wo
         const size_t bp_sp_offset = (size_t)(bp - sp);
 
         memcpy(new_sp + 1, sp + 1, used_stack_size * sizeof(wo::value));
-        free(stack_storage);
 
-        stack_storage = new_stack_buf;
-        sb = new_stack_mem_begin;
-        sp = new_sp;
-        bp = sp + bp_sp_offset;
+        // NOTE: stack reallocate must happend in gc-guard range.
+        wo_assert(!check_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
+        do
+        {
+            _wo_vm_stack_occupying_lock_guard g(this);
+
+            free(stack_storage);
+
+            stack_storage = new_stack_buf;
+            sb = new_stack_mem_begin;
+            sp = new_sp;
+            bp = sp + bp_sp_offset;
+
+        } while (0);
 
         return true;
     }
@@ -849,7 +858,7 @@ namespace wo
     std::vector<vmbase::callstack_info> vmbase::dump_call_stack_func_info(
         size_t max_count, bool need_offset, bool* out_finished)const noexcept
     {
-        _wo_vm_stack_guard vsg(this);
+        _wo_vm_stack_occupying_lock_guard vsg(this);
 
         // NOTE: When vm running, rt_ip may point to:
         // [ -- COMMAND 6bit --] [ - DR 2bit -] [ ----- OPNUM1 ------] [ ----- OPNUM2 ------]
@@ -1114,7 +1123,7 @@ namespace wo
     }
     size_t vmbase::callstack_layer() const noexcept
     {
-        _wo_vm_stack_guard vsg(this);
+        _wo_vm_stack_occupying_lock_guard vsg(this);
 
         // NOTE: When vm running, rt_ip may point to:
         // [ -- COMMAND 6bit --] [ - DR 2bit -] [ ----- OPNUM1 ------] [ ----- OPNUM2 ------]
@@ -1166,20 +1175,18 @@ namespace wo
 
     bool vmbase::assure_stack_size(wo_size_t assure_stack_size) noexcept
     {
+        wo_assert(!check_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
+
         if (sp - assure_stack_size < stack_storage)
         {
             size_t current_stack_size = stack_size;
-            if (current_stack_size <= assure_stack_size)
+
+            while (current_stack_size <= assure_stack_size)
                 current_stack_size <<= 1;
 
-            bool r;
-            do
-            {
-                _wo_vm_stack_guard g(this);
-                r = _reallocate_stack_space(current_stack_size << 1);
-            } while (0);
+            bool need_leave = false;
 
-            if (!r)
+            if (!_reallocate_stack_space(current_stack_size << 1))
                 wo_fail(WO_FAIL_STACKOVERFLOW, "Stack overflow.");
             return true;
         }
@@ -1199,7 +1206,7 @@ namespace wo
         * VM-1 been dispatched.
     In this case, value will missing-mark. so to prevent this cases, when values been
     push into another vm's stack, and the value will be used later(such as dispatch),
-    we need to scan all the arguments by this function. See `co_pre_invoke`, NO need 
+    we need to scan all the arguments by this function. See `co_pre_invoke`, NO need
     to scan in `invoke`, because invoke is safe, value always live in gc-reachable place
     during whole `invoke` process, and if invoker returned, the arguments are discarded
     safely.
@@ -1214,7 +1221,6 @@ namespace wo
     }
     void vmbase::co_pre_invoke(const byte_t* wo_func_addr, wo_int_t argc) noexcept
     {
-        wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
         scan_stack_for_write_barrier(argc);
         if (!wo_func_addr)
             wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
@@ -1245,7 +1251,6 @@ namespace wo
     }
     void vmbase::co_pre_invoke(wo_native_func_t ex_func_addr, wo_int_t argc)noexcept
     {
-        wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
         scan_stack_for_write_barrier(argc);
         if (!ex_func_addr)
             wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
@@ -1276,7 +1281,6 @@ namespace wo
     }
     void vmbase::co_pre_invoke(closure_t* wo_func_addr, wo_int_t argc)noexcept
     {
-        wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
         scan_stack_for_write_barrier(argc);
         if (!wo_func_addr)
             wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
@@ -1314,7 +1318,6 @@ namespace wo
     }
     value* vmbase::invoke(const byte_t* wo_func_addr, wo_int_t argc)noexcept
     {
-        wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
         scan_stack_for_write_barrier(argc);
         if (!wo_func_addr)
             wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
@@ -1359,7 +1362,6 @@ namespace wo
     }
     value* vmbase::invoke(wo_native_func_t wo_func_addr, wo_int_t argc)noexcept
     {
-        wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
         scan_stack_for_write_barrier(argc);
         if (!wo_func_addr)
             wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
@@ -1433,20 +1435,20 @@ namespace wo
     }
     value* vmbase::invoke(closure_t* wo_func_closure, wo_int_t argc)noexcept
     {
-        wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
         scan_stack_for_write_barrier(argc);
         if (!wo_func_closure)
             wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
         else
         {
-            if (is_aborted())
-                return nullptr;
 
             wo::gcbase::gc_read_guard rg1(wo_func_closure);
             if (!wo_func_closure->m_vm_func)
                 wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
             else
             {
+                if (is_aborted())
+                    return nullptr;
+
                 assure_stack_size((size_t)wo_func_closure->m_closure_args_count + 1);
                 auto* return_ip = ip;
 
@@ -1501,7 +1503,7 @@ namespace wo
                 {
                     ip = wo_func_closure->m_vm_func;
                     vm_exec_result = run();
-                }
+            }
 
                 ip = return_ip;
                 sp = sb - return_sp_place;
@@ -1521,10 +1523,10 @@ namespace wo
                     wo_fail(WO_FAIL_CALL_FAIL, "Unexpected execution status: %d.", (int)vm_exec_result);
                     break;
                 }
-            }
         }
-        return nullptr;
     }
+        return nullptr;
+}
 
 #define WO_SAFE_READ_OFFSET_GET_QWORD (*(uint64_t*)(rt_ip-8))
 #define WO_SAFE_READ_OFFSET_GET_DWORD (*(uint32_t*)(rt_ip-4))
@@ -1986,27 +1988,27 @@ namespace wo
             WO_ADDRESSING_RS1;\
             WO_ADDRESSING_RS2;\
         _label_##CODE##_impl
-/*
-// ISSUE: 25-08-16:
-The global storage area functions like a container, and as such, elements within
-it may escape, just like in a container. Therefore, write barrier checks are 
-required for all potential write operations to the global storage area. Below 
-is a list of instructions that may trigger such write barriers:
+        /*
+        // ISSUE: 25-08-16:
+        The global storage area functions like a container, and as such, elements within
+        it may escape, just like in a container. Therefore, write barrier checks are
+        required for all potential write operations to the global storage area. Below
+        is a list of instructions that may trigger such write barriers:
 
-pop,
-adds,
-mov,
-movcast,
-lds,
-mkstruct,
-idstruct,
-mkcontain,
-mkunion,
-ext0 pack,
+        pop,
+        adds,
+        mov,
+        movcast,
+        lds,
+        mkstruct,
+        idstruct,
+        mkcontain,
+        mkunion,
+        ext0 pack,
 
-Note that instructions like addi and addr do not require write barrier checks 
-because they explicitly specify that the operand's type is a primitive type.
-*/
+        Note that instructions like addi and addr do not require write barrier checks
+        because they explicitly specify that the operand's type is a primitive type.
+        */
 #define WO_WRITE_CHECK_FOR_GLOBAL(VAL)\
         if (wo::gc::gc_is_marking())\
             wo::value::write_barrier(VAL)
@@ -2536,7 +2538,7 @@ because they explicitly specify that the operand's type is a primitive type.
                             bp = --sp;
                         }
                         rt_ip = aim_function_addr;
-                    }
+                }
                     else
                     {
                         WO_VM_ASSERT(opnum1->m_type == value::valuetype::closure_type,
@@ -2603,10 +2605,10 @@ because they explicitly specify that the operand's type is a primitive type.
                                 bp = --sp;
                             }
                             rt_ip = aim_function_addr;
-                        }
                     }
-                } while (0);
-                break;
+            }
+            } while (0);
+            break;
             case instruct::opcode::callnwo:
                 if (sp <= stack_storage)
                 {
@@ -2690,11 +2692,11 @@ because they explicitly specify that the operand's type is a primitive type.
                     auto rt_bp = sb - bp;
                     ip = std::launder(reinterpret_cast<byte_t*>(call_aim_native_func));
 
-                    wo_assure(wo_leave_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
+                    wo_assure(wo_leave_gcguard(reinterpret_cast<wo_vm>(this)));
                     auto api = call_aim_native_func(
                         std::launder(reinterpret_cast<wo_vm>(this)),
                         std::launder(reinterpret_cast<wo_value>(sp + 2)));
-                    wo_assure(wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
+                    wo_assure(wo_enter_gcguard(reinterpret_cast<wo_vm>(this)));
 
                     switch (api)
                     {
@@ -3156,6 +3158,10 @@ because they explicitly specify that the operand's type is a primitive type.
                     // That should not be happend...
                     wo_error("Virtual machine handled a PENDING_INTERRUPT.");
                 }
+                else if (interrupt_state & vm_interrupt_type::STACK_OCCUPYING_INTERRUPT)
+                {
+                    wo_error("Virtual machine handled a STACK_OCCUPYING_INTERRUPT.");
+                }
                 else if (interrupt_state & vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT)
                 {
                     if (clear_interrupt(vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT))
@@ -3163,32 +3169,21 @@ because they explicitly specify that the operand's type is a primitive type.
                 }
                 else if (interrupt_state & vm_interrupt_type::STACK_OVERFLOW_INTERRUPT)
                 {
-                    while (!interrupt(vm_interrupt_type::STACK_MODIFING_INTERRUPT))
-                        gcbase::rw_lock::spin_loop_hint();
-
                     shrink_stack_edge = std::min(VM_SHRINK_STACK_MAX_EDGE, (uint8_t)(shrink_stack_edge + 1));
                     // Force realloc stack buffer.
                     bool r = _reallocate_stack_space(stack_size << 1);
 
-                    wo_assure(clear_interrupt((vm_interrupt_type)(
-                        vm_interrupt_type::STACK_MODIFING_INTERRUPT
-                        | vm_interrupt_type::STACK_OVERFLOW_INTERRUPT)));
+                    wo_assure(clear_interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
 
                     if (!r)
                         wo_fail(WO_FAIL_STACKOVERFLOW, "Stack overflow.");
                 }
                 else if (interrupt_state & vm_interrupt_type::SHRINK_STACK_INTERRUPT)
                 {
-                    while (!interrupt(vm_interrupt_type::STACK_MODIFING_INTERRUPT))
-                        gcbase::rw_lock::spin_loop_hint();
-
                     if (_reallocate_stack_space(stack_size >> 1))
                         shrink_stack_edge = VM_SHRINK_STACK_COUNT;
 
-                    wo_assure(clear_interrupt((vm_interrupt_type)(
-                        vm_interrupt_type::STACK_MODIFING_INTERRUPT
-                        | vm_interrupt_type::SHRINK_STACK_INTERRUPT)));
-
+                    wo_assure(clear_interrupt(vm_interrupt_type::SHRINK_STACK_INTERRUPT));
                 }
                 else if (interrupt_state & vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT)
                 {
@@ -3211,9 +3206,9 @@ because they explicitly specify that the operand's type is a primitive type.
                     if (attaching_debuggee)
                     {
                         // check debuggee here
-                        wo_assure(wo_leave_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
+                        wo_assure(wo_leave_gcguard(reinterpret_cast<wo_vm>(this)));
                         attaching_debuggee->_vm_invoke_debuggee(this);
-                        wo_assure(wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
+                        wo_assure(wo_enter_gcguard(reinterpret_cast<wo_vm>(this)));
                     }
                     ++rt_ip;
                     goto re_entry_for_interrupt;

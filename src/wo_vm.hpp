@@ -184,11 +184,11 @@ namespace wo
             // If LEAVE_INTERRUPT was setted, 'wait_interrupt' will try to wait in
             // a limitted time.
             // VM will set LEAVE_INTERRUPT when:
-            // 1) calling native function
+            // 1) calling slow native function
             // 2) leaving vm run()
             // 3) vm was created.
             // VM will clean LEAVE_INTERRUPT when:
-            // 1) the native function calling was end.
+            // 1) the slow native function calling was end.
             // 2) enter vm run()
             // 3) vm destructed.
             // ATTENTION: Each operate of setting or cleaning LEAVE_INTERRUPT must be
@@ -223,9 +223,18 @@ namespace wo
             SHRINK_STACK_INTERRUPT = 1 << 16,
             // Advise vm to shrink it's stack usage, raised by GC-Job.
 
-            STACK_MODIFING_INTERRUPT = 1 << 17,
-            // While reading/externing/shrinking stack, this interrupt will be set to make sure
-            // not read bad stack data in other thread.
+            STACK_OCCUPYING_INTERRUPT = 1 << 17,
+            // When reallocating (expanding or shrinking) stack space, stack read operations other 
+            // than runtime operations (since reallocation only occurs during runtime or when the VM
+            // is inactive) include:
+            //  1. Stack unwinding.
+            //  2. Direct stack value access.
+            // Therefore, this interrupt is triggered both during stack reallocation and when the above 
+            // situations occur, functioning as a spinlock-like mechanism;
+            // Upon receiving this interrupt, the VM should halt.
+            // 
+            // NOTE: GC-in-gc-thread will scan the stack in other thread, too, but we use gc_guard to make
+            //  sure stack-reallocate never happend during GC scan.
 
             CALL_FAR_RESYNC_VM_STATE_INTERRUPT = 1 << 18,
             // [Only interrupt in VM] When a virtual machine attempts to call a function outside
@@ -430,22 +439,22 @@ namespace wo
     };
     static_assert(std::is_standard_layout_v<vmbase>);
 
-    class _wo_vm_stack_guard
+    class _wo_vm_stack_occupying_lock_guard
     {
         vmbase* m_reading_vm;
-        _wo_vm_stack_guard(const _wo_vm_stack_guard&) = delete;
-        _wo_vm_stack_guard(_wo_vm_stack_guard&&) = delete;
-        _wo_vm_stack_guard& operator = (const _wo_vm_stack_guard&) = delete;
-        _wo_vm_stack_guard& operator = (_wo_vm_stack_guard&&) = delete;
+        _wo_vm_stack_occupying_lock_guard(const _wo_vm_stack_occupying_lock_guard&) = delete;
+        _wo_vm_stack_occupying_lock_guard(_wo_vm_stack_occupying_lock_guard&&) = delete;
+        _wo_vm_stack_occupying_lock_guard& operator = (const _wo_vm_stack_occupying_lock_guard&) = delete;
+        _wo_vm_stack_occupying_lock_guard& operator = (_wo_vm_stack_occupying_lock_guard&&) = delete;
 
     public:
-        _wo_vm_stack_guard(const vmbase* _reading_vm)
+        _wo_vm_stack_occupying_lock_guard(const vmbase* _reading_vm)
         {
             vmbase* reading_vm = const_cast<vmbase*>(_reading_vm);
             if (reading_vm != vmbase::_this_thread_vm)
             {
                 while (!reading_vm->interrupt(
-                    vmbase::vm_interrupt_type::STACK_MODIFING_INTERRUPT))
+                    vmbase::vm_interrupt_type::STACK_OCCUPYING_INTERRUPT))
                     gcbase::rw_lock::spin_loop_hint();
 
                 m_reading_vm = reading_vm;
@@ -453,11 +462,11 @@ namespace wo
             else
                 m_reading_vm = nullptr;
         }
-        ~_wo_vm_stack_guard()
+        ~_wo_vm_stack_occupying_lock_guard()
         {
             if (m_reading_vm != nullptr)
                 wo_assure(m_reading_vm->clear_interrupt(
-                    vmbase::vm_interrupt_type::STACK_MODIFING_INTERRUPT));
+                    vmbase::vm_interrupt_type::STACK_OCCUPYING_INTERRUPT));
         }
     };
 

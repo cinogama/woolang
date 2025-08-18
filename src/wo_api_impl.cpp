@@ -2691,8 +2691,8 @@ wo::compile_result _wo_compile_impl(
             (void)compile_lexer->record_parser_error(
                 wo::lexer::msglevel_t::error, WO_ERR_COMPILER_DISABLED);
 #endif
-            }
         }
+    }
     else
         // Load binary success. 
         compile_result = wo::compile_result::PROCESS_OK;
@@ -2716,7 +2716,7 @@ wo::compile_result _wo_compile_impl(
             *out_lexer_if_failed = std::move(compile_lexer);
     }
     return compile_result;
-    }
+}
 
 wo_bool_t _wo_load_source(
     wo_vm vm,
@@ -3067,8 +3067,6 @@ wo_value wo_register(wo_vm vm, wo_reg regid)
 
 wo_value wo_reserve_stack(wo_vm vm, wo_size_t stack_sz, wo_value* inout_args_maynull)
 {
-    _wo_enter_gc_guard g(vm);
-
     // Check stack size.
     wo::vmbase* vmbase = WO_VM(vm);
 
@@ -3076,23 +3074,31 @@ wo_value wo_reserve_stack(wo_vm vm, wo_size_t stack_sz, wo_value* inout_args_may
         || (WO_VAL(*inout_args_maynull) > vmbase->stack_storage
             && WO_VAL(*inout_args_maynull) <= vmbase->sb));
 
-    const size_t args_offset =
-        inout_args_maynull ? vmbase->sb - WO_VAL(*inout_args_maynull) : 0;
 
-    if (vmbase->assure_stack_size(stack_sz) && inout_args_maynull)
+    if (vmbase->sp - stack_sz < vmbase->stack_storage)
     {
-        *inout_args_maynull = CS_VAL(vmbase->sb - args_offset);
-        if (vmbase->bp != vmbase->sb)
-        {
-            auto* current_call_base = vmbase->bp + 1;
+        const size_t args_offset =
+            inout_args_maynull ? vmbase->sb - WO_VAL(*inout_args_maynull) : 0;
 
-            // NOTE: If bp + 1 is not callstack:
-            //  1) The VM has already returned from last function call.
-            if (current_call_base->m_type == wo::value::valuetype::callstack
-                || current_call_base->m_type == wo::value::valuetype::far_callstack
-                || current_call_base->m_type == wo::value::valuetype::native_callstack)
+        // Stack is not engough to use.
+        _wo_in_thread_vm_guard g(vm);
+        _wo_enter_gc_guard g2(vm);
+
+        if (vmbase->assure_stack_size(stack_sz) && inout_args_maynull)
+        {
+            *inout_args_maynull = CS_VAL(vmbase->sb - args_offset);
+            if (vmbase->bp != vmbase->sb)
             {
-                vmbase->extern_state_stack_update = true;
+                auto* current_call_base = vmbase->bp + 1;
+
+                // NOTE: If bp + 1 is not callstack:
+                //  1) The VM has already returned from last function call.
+                if (current_call_base->m_type == wo::value::valuetype::callstack
+                    || current_call_base->m_type == wo::value::valuetype::far_callstack
+                    || current_call_base->m_type == wo::value::valuetype::native_callstack)
+                {
+                    vmbase->extern_state_stack_update = true;
+                }
             }
         }
     }
@@ -3135,7 +3141,7 @@ void wo_stack_value_set(wo_stack_value sv, wo_vm vm, wo_value val)
 
     if (wo::gc::gc_is_marking())
         wo::value::write_barrier(write_target);
-    
+
     wo_set_val(CS_VAL(write_target), val);
 }
 void wo_stack_value_get(wo_value outval, wo_stack_value sv, wo_vm vm)

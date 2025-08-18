@@ -547,6 +547,11 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                 // That should not be happend...
                 wo_error("Virtual machine handled a PENDING_INTERRUPT.");
             }
+            else if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::STACK_OCCUPYING_INTERRUPT)
+            {
+                // That should not be happend...
+                wo_error("Virtual machine handled a STACK_OCCUPYING_INTERRUPT.");
+            }
             else if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT)
             {
                 if (vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT))
