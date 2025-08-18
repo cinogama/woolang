@@ -333,7 +333,7 @@ namespace wo
                 std::vector<vmbase*> gc_marking_vmlist, self_marking_vmlist, time_out_vmlist;
                 _wo_gray_unit_list_t mem_gray_list;
 
-                // 0. get current vm list, set stop world flag to TRUE:
+                // 0. Mark all root value.
                 reset_alive_unit_count();
                 do
                 {
@@ -353,7 +353,7 @@ namespace wo
 
                     _gc_is_marking = true;
 
-                    // 0. Prepare vm gray unit list
+                    // 0.1. Prepare vm gray unit list
                     if (!stopworld)
                     {
                         _gc_vm_gray_unit_lists.clear();
@@ -431,30 +431,16 @@ namespace wo
                         }
                     }
 
-                    // 2. Mark all unit in vm's stack, register, global(only once)
+                    // 0.2. Mark all unit in vm's stack, register, global(only once)
                     _gc_scan_vm_count = gc_marking_vmlist.size();
 
                     _gc_vm_list.store(gc_marking_vmlist.data());
                     _gc_scan_vm_index.store(0);
 
-                    // 3. Start GC Worker for first marking
+                    // 0.3. Start GC Worker for first marking
                     launch_round_of_mark();
 
-                    // 4. Mark all pin-value
-                    do
-                    {
-                        std::lock_guard g1(pin::_pin_value_list_mx);
-
-                        for (auto* pin_value : pin::_pin_value_list)
-                        {
-                            gc::unit_attrib* attr;
-                            if (gcbase* gcunit_address = pin_value->get_gcunit_and_attrib_ref(&attr))
-                                gc_mark_unit_as_gray(&mem_gray_list, gcunit_address, attr);
-                        }
-
-                    } while (false);
-
-                    // 5. Wake up all hanged vm.
+                    // 0.4. Wake up all hanged vm.
                     if (!stopworld)
                     {
                         // 6. Wait until all self-marking vm work finished
@@ -527,11 +513,23 @@ namespace wo
                         }
                     }
 
+                    // 0.5. Mark all pin-value after all vm marked.
+                    do
+                    {
+                        std::lock_guard g1(pin::_pin_value_list_mx);
+
+                        for (auto* pin_value : pin::_pin_value_list)
+                        {
+                            gc::unit_attrib* attr;
+                            if (gcbase* gcunit_address = pin_value->get_gcunit_and_attrib_ref(&attr))
+                                gc_mark_unit_as_gray(&mem_gray_list, gcunit_address, attr);
+                        }
+
+                    } while (false);
                 } while (0);
 
-                // 8. OK, Continue mark gray to black
+                // 1. OK, Continue mark gray to black
                 launch_round_of_mark();
-
 
                 // Marking finished.
                 // NOTE: It is safe to do this here, because if the mark has ended, 
@@ -548,7 +546,7 @@ namespace wo
                 _gc_is_collecting_memo = true;
                 _gc_is_marking = false;
 
-                // 9. Collect gray units in memo set.
+                // 2. Collect gray units in memo set.
                 for (;;)
                 {
                     auto* memo_units = m_memo_mark_gray_list.pick_all();
@@ -566,7 +564,7 @@ namespace wo
                 }
                 gc_mark_all_gray_unit(&mem_gray_list);
 
-                // 10. OK, All unit has been marked. recheck weakref, remove it from list if ref has been lost
+                // 3. OK, All unit has been marked. recheck weakref, remove it from list if ref has been lost
                 do
                 {
                     std::lock_guard g1(weakref::_weak_ref_list_mx);
@@ -597,7 +595,7 @@ namespace wo
                 _gc_is_recycling = true;
                 _gc_is_collecting_memo = false;
 
-                // 11. OK, All unit has been marked. reduce gcunits
+                // 4. OK, All unit has been marked. reduce gcunits
                 size_t page_count, page_size;
                 char* pages = (char*)womem_enum_pages(&page_count, &page_size);
 
@@ -614,7 +612,7 @@ namespace wo
 
                 launch_round_of_mark();
 
-                // 12. Remove orpho vm
+                // 5. Remove orpho vm
                 if (fullgc && vmpool::global_vmpool_instance.has_value())
                     // Release unrefed vmpool.
                     vmpool::global_vmpool_instance.value()->gc_check_and_release_norefed_vm();
