@@ -1266,8 +1266,10 @@ WO_API void wo_lspv2_token_info_free(wo_lspv2_token_info* info);
   4. When assigning a value from current vm state to another vm state, you must do one
     of the following before return from current extern functon:
     
-    4.1. Do `wo_gc_write_barrier` for this value.
-    4.2. Do `wo_gc_checkpoint`
+    4.1. When using the value as argument, do `wo_invoke_value` at target vm.
+    4.2. When using the value as argument, do `wo_dispatch_value` at target vm.
+    4.3. Do `wo_gc_write_barrier` for this value.
+    4.4. Do `wo_gc_checkpoint`
 
                                                             Cinogama project.
                                                                 2024.3.15.
