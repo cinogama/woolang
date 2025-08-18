@@ -505,18 +505,20 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
         }
         static wo_result_t _invoke_vm_checkpoint(wo::vmbase* vmm, wo::value* rt_sp, wo::value* rt_bp, const byte_t* rt_ip)
         {
-            if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::GC_INTERRUPT)
+            const auto interrupt_state = vmm->vm_interrupt.load(std::memory_order_acquire);
+
+            if (interrupt_state & wo::vmbase::vm_interrupt_type::GC_INTERRUPT)
             {
                 vmm->sp = rt_sp;
                 vmm->gc_checkpoint();
             }
-            if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT)
+            if (interrupt_state & wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT)
             {
                 vmm->sp = rt_sp;
                 if (vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT))
                     vmm->hangup();
             }
-            else if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::ABORT_INTERRUPT)
+            else if (interrupt_state & wo::vmbase::vm_interrupt_type::ABORT_INTERRUPT)
             {
                 // ABORTED VM WILL NOT ABLE TO RUN AGAIN, SO DO NOT
                 // CLEAR ABORT_INTERRUPT
@@ -527,7 +529,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 
                 return wo_result_t::WO_API_SYNC;
             }
-            else if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::BR_YIELD_INTERRUPT)
+            else if (interrupt_state & wo::vmbase::vm_interrupt_type::BR_YIELD_INTERRUPT)
             {
                 // NOTE: DONOT CLEAR BR_YIELD_INTERRUPT, IT SHOULD BE CLEAR IN VM-RUN
                 // store current context, then break out of jit function
@@ -537,34 +539,34 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 
                 return wo_result_t::WO_API_SYNC; // return 
             }
-            else if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT)
+            else if (interrupt_state & wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT)
             {
                 // That should not be happend...
                 wo_error("Virtual machine handled a LEAVE_INTERRUPT.");
             }
-            else if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::PENDING_INTERRUPT)
+            else if (interrupt_state & wo::vmbase::vm_interrupt_type::PENDING_INTERRUPT)
             {
                 // That should not be happend...
                 wo_error("Virtual machine handled a PENDING_INTERRUPT.");
             }
-            else if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::STACK_OCCUPYING_INTERRUPT)
+            else if (interrupt_state & wo::vmbase::vm_interrupt_type::STACK_OCCUPYING_INTERRUPT)
             {
                 // That should not be happend...
                 wo_error("Virtual machine handled a STACK_OCCUPYING_INTERRUPT.");
             }
-            else if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT)
+            else if (interrupt_state & wo::vmbase::vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT)
             {
                 if (vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT))
                     vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::DEBUG_INTERRUPT);
             }
-            else if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::STACK_OVERFLOW_INTERRUPT)
+            else if (interrupt_state & wo::vmbase::vm_interrupt_type::STACK_OVERFLOW_INTERRUPT)
             {
                 vmm->ip = rt_ip;
                 vmm->sp = rt_sp;
                 vmm->bp = rt_bp;
                 return wo_result_t::WO_API_SYNC;
             }
-            else if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::SHRINK_STACK_INTERRUPT)
+            else if (interrupt_state & wo::vmbase::vm_interrupt_type::SHRINK_STACK_INTERRUPT)
             {
                 vmm->ip = rt_ip;
                 vmm->sp = rt_sp;
@@ -572,7 +574,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                 return wo_result_t::WO_API_SYNC;
             }
             // ATTENTION: it should be last interrupt..
-            else if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::DEBUG_INTERRUPT)
+            else if (interrupt_state & wo::vmbase::vm_interrupt_type::DEBUG_INTERRUPT)
             {
                 vmm->ip = rt_ip;
                 vmm->sp = rt_sp;
@@ -1082,8 +1084,10 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
         virtual void ir_make_checkpoint_fastcheck(X64CompileContext* ctx, const byte_t*& rt_ip) override
         {
             auto no_interrupt_label = ctx->c.newLabel();
-            static_assert(sizeof(wo::vmbase::fast_ro_vm_interrupt) == 4);
-            wo_assure(!ctx->c.cmp(asmjit::x86::dword_ptr(ctx->_vmbase, offsetof(wo::vmbase, fast_ro_vm_interrupt)), 0));
+            static_assert(sizeof(wo::vmbase::vm_interrupt) == 4);
+            static_assert(sizeof(wo::vmbase::vm_interrupt) == sizeof(std::atomic<uint32_t>));
+
+            wo_assure(!ctx->c.cmp(asmjit::x86::dword_ptr(ctx->_vmbase, offsetof(wo::vmbase, vm_interrupt)), 0));
             wo_assure(!ctx->c.je(no_interrupt_label));
 
             ir_make_checkpoint_normalcheck(ctx, rt_ip, no_interrupt_label);

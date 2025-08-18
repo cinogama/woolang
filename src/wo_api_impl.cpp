@@ -3116,42 +3116,6 @@ void wo_pop_stack(wo_vm vm, wo_size_t stack_sz)
     WO_VM(vm)->sp += stack_sz;
 }
 
-wo_stack_value wo_cast_stack_value(wo_vm vm, wo_value value_in_stack)
-{
-    auto* vmbase = WO_VM(vm);
-
-    // Only allow get stack index from current vm or not running vm.
-    auto* stack_begin = vmbase->sb;
-    auto* stack_value = WO_VAL(value_in_stack);
-
-    if (stack_value > vmbase->sp && stack_value <= stack_begin)
-        return stack_begin - stack_value;
-
-    wo_fail(WO_FAIL_INDEX_FAIL, "Invalid stack value.");
-    return SIZE_MAX;
-}
-
-void wo_stack_value_set(wo_stack_value sv, wo_vm vm, wo_value val)
-{
-    auto* vmbase = WO_VM(vm);
-
-    wo_assert(sv < (size_t)(vmbase->sb - vmbase->sp));
-
-    wo::value* write_target = vmbase->sb - sv;
-
-    if (wo::gc::gc_is_marking())
-        wo::value::write_barrier(write_target);
-
-    wo_set_val(CS_VAL(write_target), val);
-}
-void wo_stack_value_get(wo_value outval, wo_stack_value sv, wo_vm vm)
-{
-    auto* vmbase = WO_VM(vm);
-
-    wo_assert(sv < (size_t)(vmbase->sb - vmbase->sp));
-    wo_set_val(outval, CS_VAL(vmbase->sb - sv));
-}
-
 wo_value wo_invoke_value(
     wo_vm vm, wo_value vmfunc, wo_int_t argc, wo_value* inout_args_maynull, wo_value* inout_s_maynull)
 {
@@ -4253,7 +4217,7 @@ void wo_gc_checkpoint(wo_vm vm)
     auto* vmm = WO_VM(vm);
 
     // If in GC, hang up here to make sure safe.
-    if ((vmm->vm_interrupt.load() & (
+    if ((vmm->vm_interrupt.load(std::memory_order_acquire) & (
         wo::vmbase::vm_interrupt_type::GC_INTERRUPT
         | wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT)) != 0)
     {

@@ -1031,7 +1031,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
 
                                     if (vms->env->rt_codes == vms->ip
                                         || vms->ip == vms->env->rt_codes + vms->env->rt_code_len
-                                        || vms->vm_interrupt & vmbase::PENDING_INTERRUPT)
+                                        || vms->vm_interrupt.load(std::memory_order_relaxed) & vmbase::PENDING_INTERRUPT)
                                         wo_stdout << "(pending)" << wo_endl;
                                     else if (vms->ip < vms->env->rt_codes
                                         || vms->ip > vms->env->rt_codes + vms->env->rt_code_len)

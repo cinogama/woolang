@@ -308,13 +308,7 @@ namespace wo
 
     public:
         // For performance, interrupt should be first elem.
-        union
-        {
-            std::atomic<uint32_t> vm_interrupt;
-            uint32_t fast_ro_vm_interrupt;
-        };
-        static_assert(sizeof(std::atomic<uint32_t>) == sizeof(uint32_t));
-        static_assert(std::atomic<uint32_t>::is_always_lock_free);
+        std::atomic<uint32_t> vm_interrupt;
 
         // special register
         value* cr;  // op result trace & function return;
@@ -451,22 +445,18 @@ namespace wo
         _wo_vm_stack_occupying_lock_guard(const vmbase* _reading_vm)
         {
             vmbase* reading_vm = const_cast<vmbase*>(_reading_vm);
-            if (reading_vm != vmbase::_this_thread_vm)
-            {
-                while (!reading_vm->interrupt(
-                    vmbase::vm_interrupt_type::STACK_OCCUPYING_INTERRUPT))
-                    gcbase::rw_lock::spin_loop_hint();
 
-                m_reading_vm = reading_vm;
-            }
-            else
-                m_reading_vm = nullptr;
+            while (!reading_vm->interrupt(
+                vmbase::vm_interrupt_type::STACK_OCCUPYING_INTERRUPT))
+                gcbase::rw_lock::spin_loop_hint();
+
+            m_reading_vm = reading_vm;
+
         }
         ~_wo_vm_stack_occupying_lock_guard()
         {
-            if (m_reading_vm != nullptr)
-                wo_assure(m_reading_vm->clear_interrupt(
-                    vmbase::vm_interrupt_type::STACK_OCCUPYING_INTERRUPT));
+            wo_assure(m_reading_vm->clear_interrupt(
+                vmbase::vm_interrupt_type::STACK_OCCUPYING_INTERRUPT));
         }
     };
 

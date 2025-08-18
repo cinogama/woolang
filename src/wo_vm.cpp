@@ -177,7 +177,7 @@ namespace wo
 
     bool vmbase::check_interrupt(vm_interrupt_type type)noexcept
     {
-        return 0 != (vm_interrupt.load(std::memory_order::memory_order_acquire) & type);
+        return 0 != (vm_interrupt.load(std::memory_order_acquire) & type);
     }
     vmbase::interrupt_wait_result vmbase::wait_interrupt(vm_interrupt_type type, bool force_wait)noexcept
     {
@@ -190,7 +190,7 @@ namespace wo
         int i = 0;
         do
         {
-            uint32_t vm_interrupt_mask = vm_interrupt.load(std::memory_order::memory_order_acquire);
+            uint32_t vm_interrupt_mask = vm_interrupt.load(std::memory_order_relaxed);
 
             if (0 == (vm_interrupt_mask & type))
                 break;
@@ -270,7 +270,7 @@ namespace wo
     {
         ++_alive_vm_count_for_gc_vm_destruct;
 
-        vm_interrupt = vm_interrupt_type::NOTHING;
+        vm_interrupt.store(vm_interrupt_type::NOTHING, std::memory_order_release);
         wo_assure(wo_leave_gcguard(reinterpret_cast<wo_vm>(this)));
 
         wo::assure_leave_this_thread_vm_lock_guard g1(_alive_vm_list_mx);
@@ -336,7 +336,6 @@ namespace wo
     bool vmbase::_reallocate_stack_space(size_t stacksz) noexcept
     {
         wo_assert(stacksz != 0);
-        stack_size = stacksz;
 
         const size_t used_stack_size = sb - sp;
         if (used_stack_size * 2 > stacksz)
@@ -368,6 +367,7 @@ namespace wo
 
             free(stack_storage);
 
+            stack_size = stacksz;
             stack_storage = new_stack_buf;
             sb = new_stack_mem_begin;
             sp = new_sp;
@@ -1956,7 +1956,7 @@ namespace wo
     wo_result_t vmbase::run_sim() noexcept
     {
         // Must not leave when run.
-        wo_assert((this->vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
+        wo_assert(!check_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
         wo_assert(_this_thread_vm == this);
 
         const byte_t* near_rtcode_begin = runtime_codes_begin;
@@ -2031,11 +2031,16 @@ namespace wo
             WO_ADDRESSING_RS1;\
             WO_ADDRESSING_RS2;\
         _label_##CODE##_impl
+
+        uint32_t fast_iterrupt_state = 0;
+
         for (;;)
         {
             uint32_t rtopcode = *(rt_ip++);
 
-            const auto fast_interrupt_state = fast_ro_vm_interrupt;
+            const auto fast_interrupt_state =
+                vm_interrupt.load(std::memory_order_relaxed);
+
             if (fast_interrupt_state)
                 rtopcode |= fast_interrupt_state;
 
@@ -3125,7 +3130,7 @@ namespace wo
                 if ((0xFFFFFF00u & rtopcode) == 0)
                     wo_error("Unknown instruct.");
 
-                auto interrupt_state = vm_interrupt.load();
+                const auto interrupt_state = vm_interrupt.load(std::memory_order_acquire);
 
                 if (interrupt_state & vm_interrupt_type::GC_INTERRUPT)
                 {

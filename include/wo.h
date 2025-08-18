@@ -73,8 +73,6 @@ typedef struct _wo_value
 }
 wo_unref_value, * wo_value;
 
-typedef wo_size_t wo_stack_value;
-
 typedef enum _wo_value_type_t
 {
     WO_INVALID_TYPE = 0,
@@ -629,10 +627,6 @@ WO_API wo_value wo_register(wo_vm vm, wo_reg regid);
 // 3) When reserving for another vm (not current vm), inout_args can use nullptr;
 WO_API wo_value wo_reserve_stack(wo_vm vm, wo_size_t sz, wo_value* inout_args_maynull);
 WO_API void wo_pop_stack(wo_vm vm, wo_size_t sz);
-
-WO_API wo_stack_value wo_cast_stack_value(wo_vm vm, wo_value value_in_stack);
-WO_API void wo_stack_value_set(wo_stack_value sv, wo_vm vm, wo_value val);
-WO_API void wo_stack_value_get(wo_value outval, wo_stack_value sv, wo_vm vm);
 
 // Woolang 1.14: All invoke & dispatch function will not clean stack.
 // NOTE: vm's stack size might changed during `wo_invoke_...`, because of this,
