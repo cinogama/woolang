@@ -585,7 +585,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             {
                 // a vm_interrupt is invalid now, just roll back one byte and continue~
                 // so here do nothing
-                wo_assert(interrupt_state == 0);
+                wo_assert(interrupt_state == 0
+                    || interrupt_state == vm_interrupt_type::GC_INTERRUPT);
             }
             return wo_result_t::WO_API_NORMAL;
         }
