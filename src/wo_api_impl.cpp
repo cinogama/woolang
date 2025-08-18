@@ -2840,87 +2840,87 @@ std::string _dump_src_info(
 
             auto print_src_file_print_lineno =
                 [&current_row_no, &result, &first_line, depth]()
-            {
-                char buf[20] = {};
-                if (first_line)
-                    first_line = false;
-                else
-                    result += "\n";
+                {
+                    char buf[20] = {};
+                    if (first_line)
+                        first_line = false;
+                    else
+                        result += "\n";
 
-                snprintf(buf, 20, "%-5zu | ", current_row_no + 1);
-                result += std::string(depth == 0 ? 0 : depth + 1, ' ') + buf;
-            };
+                    snprintf(buf, 20, "%-5zu | ", current_row_no + 1);
+                    result += std::string(depth == 0 ? 0 : depth + 1, ' ') + buf;
+                };
             auto print_notify_line =
                 [&result, &first_line, &current_row_no, &errmsg, beginpointplace, pointplace, style, beginaimrow, aimrow, depth](
                     size_t line_end_place)
-            {
-                char buf[20] = {};
-                if (first_line)
-                    first_line = false;
-                else
-                    result += "\n";
-
-                snprintf(buf, 20, "      | ");
-                std::string append_result = buf;
-
-                if (style == WO_NEED_COLOR)
-                    append_result += errmsg.m_level == wo::lexer::msglevel_t::error
-                    ? ANSI_HIR
-                    : ANSI_HIC;
-
-                if (current_row_no == aimrow)
                 {
-                    if (current_row_no == beginaimrow)
-                    {
-                        size_t i = 1;
-                        for (; i <= beginpointplace; i++)
-                            append_result += " ";
-                        for (; i < pointplace; i++)
-                            append_result += "~";
-                    }
+                    char buf[20] = {};
+                    if (first_line)
+                        first_line = false;
                     else
-                        for (size_t i = 1; i < pointplace; i++)
-                            append_result += "~";
+                        result += "\n";
 
-                    append_result +=
-                        std::string("~\\")
-                        + ANSI_UNDERLNE
-                        + " " WO_HERE
-                        + ANSI_NUNDERLNE
-                        + "_";
+                    snprintf(buf, 20, "      | ");
+                    std::string append_result = buf;
 
-                    if (depth != 0)
-                        append_result += ": " + errmsg.m_describe;
-                }
-                else
-                {
-                    if (current_row_no == beginaimrow)
+                    if (style == WO_NEED_COLOR)
+                        append_result += errmsg.m_level == wo::lexer::msglevel_t::error
+                        ? ANSI_HIR
+                        : ANSI_HIC;
+
+                    if (current_row_no == aimrow)
                     {
-                        size_t i = 1;
-                        for (; i <= beginpointplace; i++)
-                            append_result += " ";
-                        if (i < line_end_place)
-                            for (; i < line_end_place; i++)
+                        if (current_row_no == beginaimrow)
+                        {
+                            size_t i = 1;
+                            for (; i <= beginpointplace; i++)
+                                append_result += " ";
+                            for (; i < pointplace; i++)
                                 append_result += "~";
+                        }
                         else
-                            return;
+                            for (size_t i = 1; i < pointplace; i++)
+                                append_result += "~";
+
+                        append_result +=
+                            std::string("~\\")
+                            + ANSI_UNDERLNE
+                            + " " WO_HERE
+                            + ANSI_NUNDERLNE
+                            + "_";
+
+                        if (depth != 0)
+                            append_result += ": " + errmsg.m_describe;
                     }
                     else
                     {
-                        size_t i = 1;
-                        if (i < line_end_place)
-                            for (; i < line_end_place; i++)
-                                append_result += "~";
+                        if (current_row_no == beginaimrow)
+                        {
+                            size_t i = 1;
+                            for (; i <= beginpointplace; i++)
+                                append_result += " ";
+                            if (i < line_end_place)
+                                for (; i < line_end_place; i++)
+                                    append_result += "~";
+                            else
+                                return;
+                        }
                         else
-                            return;
+                        {
+                            size_t i = 1;
+                            if (i < line_end_place)
+                                for (; i < line_end_place; i++)
+                                    append_result += "~";
+                            else
+                                return;
+                        }
                     }
-                }
 
-                if (style == WO_NEED_COLOR)
-                    append_result += ANSI_RST;
+                    if (style == WO_NEED_COLOR)
+                        append_result += ANSI_RST;
 
-                result += std::string(depth == 0 ? 0 : depth + 1, ' ') + append_result;
-            };
+                    result += std::string(depth == 0 ? 0 : depth + 1, ' ') + append_result;
+                };
 
             if (from <= current_row_no && current_row_no <= to)
                 print_src_file_print_lineno();
@@ -3180,7 +3180,9 @@ wo_value wo_dispatch(
         auto origin_spbp = (++(vmm->sp))->m_yield_checkpoint;
         wo_assert(vmm->sp->m_type == wo::value::valuetype::yield_checkpoint);
 
-        auto dispatch_result = vmm->run();
+        auto dispatch_result = vmm->is_aborted()
+            ? wo_result_t::WO_API_SIM_ABORT
+            : vmm->run();
 
         switch (dispatch_result)
         {
@@ -4217,9 +4219,10 @@ void wo_gc_checkpoint(wo_vm vm)
     auto* vmm = WO_VM(vm);
 
     // If in GC, hang up here to make sure safe.
-    if ((vmm->vm_interrupt.load(std::memory_order_acquire) & (
-        wo::vmbase::vm_interrupt_type::GC_INTERRUPT
-        | wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT)) != 0)
+    if (vmm->check_interrupt(
+        (wo::vmbase::vm_interrupt_type)(
+            wo::vmbase::vm_interrupt_type::GC_INTERRUPT
+            | wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT)))
     {
         if (!vmm->gc_checkpoint())
         {

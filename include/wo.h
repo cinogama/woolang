@@ -3,7 +3,7 @@
 //
 // Here will have woolang c api;
 //
-#define WO_VERSION WO_VERSION_WRAP(1, 14, 11, 8)
+#define WO_VERSION WO_VERSION_WRAP(1, 14, 11, 9)
 
 #ifndef WO_MSVC_RC_INCLUDE
 
@@ -673,9 +673,9 @@ WO_API void wo_gc_checkpoint(wo_vm vm);
 //  1) When about to write and overwrite a GC-managed wo_value within a gc-struct,
 //      where this value may hold instances requiring GC management (performed on 
 //      the value being overwritten).
-//  2) When a value is about to be read and written to a non-current VM stack or 
-//      register, where the value may hold instances requiring GC management 
-//      (performed on the value being read).
+//  2) When a value assigned from A vm state to B vm state, and it not used as 
+//      arguments for `wo_invoke_value` or `wo_dispatch_value`.(performed both on 
+//      the value being read and overwritten)
 WO_API void wo_gc_write_barrier(wo_value val);
 
 WO_API wo_bool_t wo_leave_gcguard(wo_vm vm);
@@ -1258,11 +1258,21 @@ WO_API void wo_lspv2_token_info_free(wo_lspv2_token_info* info);
 
     2.1. Temporarily enter gc guard by calling `wo_enter_gcguard`, and if the function
         returns true, call `wo_leave_gcguard` after operation.
-    2.2. Invoke `wo_gc_checkpoint` or `wo_gc_record_memory` before the operation.
+    2.2. Invoke `wo_gc_checkpoint` or `wo_gc_write_barrier` before the operation.
     2.3. This gc-unit not be referenced elsewhere and discarded completely.
+
+  3. Donot read any value from another vm state, besides the return value of invoke
+    or dispatch.
+  4. When assigning a value from current vm state to another vm state, you must do one
+    of the following before return from current extern functon:
+    
+    4.1. Do `wo_gc_write_barrier` for this value.
+    4.2. Do `wo_gc_checkpoint`
 
                                                             Cinogama project.
                                                                 2024.3.15.
+
+                                                           Fix 1: 2025.8.19.
 */
 
 #if defined(WO_NEED_OPCODE_API)

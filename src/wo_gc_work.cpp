@@ -355,7 +355,7 @@ namespace wo
                         delete cur_unit;
                     }
 
-                    _gc_is_marking = true;
+                    _gc_is_marking.store(true, std::memory_order_release);
 
                     // 0.1. Prepare vm gray unit list
                     if (!stopworld)
@@ -563,8 +563,8 @@ namespace wo
                 //          it means that this unit is either generated during the gc process like case 1,
                 //          or it is detached from other objects and is not marked: for this case, 
                 //          this unit should have entered the memory set, it's safe to skip.
-                _gc_is_collecting_memo = true;
-                _gc_is_marking = false;
+                _gc_is_collecting_memo.store(true, std::memory_order_release);
+                _gc_is_marking.store(false, std::memory_order_release);
 
                 // 2. Collect gray units in memo set.
                 for (;;)
@@ -612,8 +612,8 @@ namespace wo
                     }
                 } while (0);
 
-                _gc_is_recycling = true;
-                _gc_is_collecting_memo = false;
+                _gc_is_recycling.store(true, std::memory_order_release);
+                _gc_is_collecting_memo.store(false, std::memory_order_release);
 
                 // 4. OK, All unit has been marked. reduce gcunits
                 size_t page_count, page_size;
@@ -683,7 +683,7 @@ namespace wo
 
                 womem_tidy_pages(fullgc);
 
-                _gc_is_recycling = false;
+                _gc_is_recycling.store(false, std::memory_order_release);
 
                 // All jobs done.
                 return get_alive_unit_count() != 0;

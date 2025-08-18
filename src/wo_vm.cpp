@@ -438,7 +438,7 @@ namespace wo
                 }
                 for (int i = 0; i < MAX_BYTE_COUNT - displayed_count; i++)
                     printf("   ");
-            };
+                };
 #define WO_SIGNED_SHIFT(VAL) (((signed char)((unsigned char)(((unsigned char)(VAL))<<1)))>>1)
             auto print_reg_bpoffset = [&]() {
                 byte_t data_1b = *(this_command_ptr++);
@@ -477,7 +477,7 @@ namespace wo
                         tmpos << "reg(" << (uint32_t)data_1b << ")";
 
                 }
-            };
+                };
             auto print_global_static = [&]() {
                 //const global 4byte
                 uint32_t data_4b = *(uint32_t*)((this_command_ptr += 4) - 4);
@@ -502,19 +502,19 @@ namespace wo
                 }
                 else
                     tmpos << "g[" << data_4b - env->constant_value_count << "]";
-            };
+                };
             auto print_opnum1 = [&]() {
                 if (main_command & (byte_t)0b00000010)
                     print_reg_bpoffset();
                 else
                     print_global_static();
-            };
+                };
             auto print_opnum2 = [&]() {
                 if (main_command & (byte_t)0b00000001)
                     print_reg_bpoffset();
                 else
                     print_global_static();
-            };
+                };
 
 #undef WO_SIGNED_SHIFT
             switch (main_command & (byte_t)0b11111100)
@@ -985,95 +985,95 @@ namespace wo
         std::vector<callstack_info> result(std::min(callstack_layer_count, max_count));
         auto generate_callstack_info_with_ip =
             [this, near_env_pointer, need_offset](const wo::byte_t* rip, runtime_env** out_env)
-        {
-            const program_debug_data_info::location* src_location_info = nullptr;
-            std::string function_signature;
-            std::string file_path;
-            size_t row_number = 0;
-            size_t col_number = 0;
-
-            runtime_env* callenv = near_env_pointer;
-            call_way callway;
-
-            if (rip >= this->runtime_codes_begin && rip < this->runtime_codes_end)
-                callway = call_way::NEAR;
-            else
             {
-                if (runtime_env::fetch_far_runtime_env(rip, &callenv))
-                    callway = call_way::FAR;
-                else
-                    callway = call_way::NATIVE;
-            }
+                const program_debug_data_info::location* src_location_info = nullptr;
+                std::string function_signature;
+                std::string file_path;
+                size_t row_number = 0;
+                size_t col_number = 0;
 
-            switch (callway)
-            {
-            case call_way::NEAR:
-            case call_way::FAR:
-            {
-                // Update call env for near & far call.
-                *out_env = callenv;
+                runtime_env* callenv = near_env_pointer;
+                call_way callway;
 
-                if (callenv->program_debug_info != nullptr)
-                {
-                    src_location_info = &callenv->program_debug_info
-                        ->get_src_location_by_runtime_ip(rip - (need_offset ? 1 : 0));
-                    function_signature = callenv->program_debug_info
-                        ->get_current_func_signature_by_runtime_ip(rip - (need_offset ? 1 : 0));
-
-                    file_path = src_location_info->source_file;
-                    row_number = src_location_info->begin_row_no;
-                    col_number = src_location_info->begin_col_no;
-                }
+                if (rip >= this->runtime_codes_begin && rip < this->runtime_codes_end)
+                    callway = call_way::NEAR;
                 else
                 {
-                    char rip_str[sizeof(rip) * 2 + 4];
-                    int result = snprintf(rip_str, sizeof(rip_str), "0x%p>", rip);
-
-                    (void)result;
-                    wo_assert(result > 0 && result < sizeof(rip_str), "snprintf failed or buffer too small");
-
-                    function_signature = std::string("<unknown function ") + rip_str;
-                    file_path = "<unknown file>";
+                    if (runtime_env::fetch_far_runtime_env(rip, &callenv))
+                        callway = call_way::FAR;
+                    else
+                        callway = call_way::NATIVE;
                 }
-                break;
-            }
-            case call_way::NATIVE:
-            {
-                // Is extern native function address.
-                auto fnd = env->extern_native_functions.find(
-                    reinterpret_cast<wo_native_func_t>(
-                        reinterpret_cast<intptr_t>(rip)));
 
-                if (fnd != env->extern_native_functions.end())
+                switch (callway)
                 {
-                    function_signature = fnd->second.function_name;
-                    file_path = fnd->second.library_name.value_or("<builtin>");
-                }
-                else
+                case call_way::NEAR:
+                case call_way::FAR:
                 {
-                    char rip_str[sizeof(rip) * 2 + 4];
-                    int result = snprintf(rip_str, sizeof(rip_str), "0x%p>", rip);
+                    // Update call env for near & far call.
+                    *out_env = callenv;
 
-                    (void)result;
-                    wo_assert(result > 0 && result < sizeof(rip_str), "snprintf failed or buffer too small");
+                    if (callenv->program_debug_info != nullptr)
+                    {
+                        src_location_info = &callenv->program_debug_info
+                            ->get_src_location_by_runtime_ip(rip - (need_offset ? 1 : 0));
+                        function_signature = callenv->program_debug_info
+                            ->get_current_func_signature_by_runtime_ip(rip - (need_offset ? 1 : 0));
 
-                    function_signature = std::string("<unknown extern function ") + rip_str;
-                    file_path = "<unknown library>";
+                        file_path = src_location_info->source_file;
+                        row_number = src_location_info->begin_row_no;
+                        col_number = src_location_info->begin_col_no;
+                    }
+                    else
+                    {
+                        char rip_str[sizeof(rip) * 2 + 4];
+                        int result = snprintf(rip_str, sizeof(rip_str), "0x%p>", rip);
+
+                        (void)result;
+                        wo_assert(result > 0 && result < sizeof(rip_str), "snprintf failed or buffer too small");
+
+                        function_signature = std::string("<unknown function ") + rip_str;
+                        file_path = "<unknown file>";
+                    }
+                    break;
                 }
-                break;
-            }
-            default:
-                wo_error("Cannot be here.");
-            }
+                case call_way::NATIVE:
+                {
+                    // Is extern native function address.
+                    auto fnd = env->extern_native_functions.find(
+                        reinterpret_cast<wo_native_func_t>(
+                            reinterpret_cast<intptr_t>(rip)));
 
-            return callstack_info{
-                function_signature,
-                file_path,
-                row_number,
-                col_number,
-                callway,
+                    if (fnd != env->extern_native_functions.end())
+                    {
+                        function_signature = fnd->second.function_name;
+                        file_path = fnd->second.library_name.value_or("<builtin>");
+                    }
+                    else
+                    {
+                        char rip_str[sizeof(rip) * 2 + 4];
+                        int result = snprintf(rip_str, sizeof(rip_str), "0x%p>", rip);
+
+                        (void)result;
+                        wo_assert(result > 0 && result < sizeof(rip_str), "snprintf failed or buffer too small");
+
+                        function_signature = std::string("<unknown extern function ") + rip_str;
+                        file_path = "<unknown library>";
+                    }
+                    break;
+                }
+                default:
+                    wo_error("Cannot be here.");
+                }
+
+                return callstack_info{
+                    function_signature,
+                    file_path,
+                    row_number,
+                    col_number,
+                    callway,
+                };
             };
-        };
 
         runtime_env* current_env_pointer = near_env_pointer;
         for (auto& callstack_state : callstack_ips)
@@ -1220,11 +1220,12 @@ namespace wo
     }
     void vmbase::co_pre_invoke(const byte_t* wo_func_addr, wo_int_t argc) noexcept
     {
-        scan_stack_for_write_barrier(argc);
         if (!wo_func_addr)
             wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
         else
         {
+            scan_stack_for_write_barrier(argc);
+
             assure_stack_size(1);
             auto* return_sp = sp;
             auto return_tc = tc->m_integer;
@@ -1250,11 +1251,12 @@ namespace wo
     }
     void vmbase::co_pre_invoke(wo_native_func_t ex_func_addr, wo_int_t argc)noexcept
     {
-        scan_stack_for_write_barrier(argc);
         if (!ex_func_addr)
             wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
         else
         {
+            scan_stack_for_write_barrier(argc);
+
             assure_stack_size(1);
             auto* return_sp = sp;
             auto return_tc = tc->m_integer;
@@ -1280,11 +1282,13 @@ namespace wo
     }
     void vmbase::co_pre_invoke(closure_t* wo_func_addr, wo_int_t argc)noexcept
     {
-        scan_stack_for_write_barrier(argc);
         if (!wo_func_addr)
             wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
         else
         {
+            scan_stack_for_write_barrier(
+                argc + static_cast<wo_int_t>(wo_func_addr->m_closure_args_count));
+
             wo::gcbase::gc_read_guard rg1(wo_func_addr);
             assure_stack_size((size_t)wo_func_addr->m_closure_args_count + 1);
 
@@ -1317,11 +1321,12 @@ namespace wo
     }
     value* vmbase::invoke(const byte_t* wo_func_addr, wo_int_t argc)noexcept
     {
-        scan_stack_for_write_barrier(argc);
         if (!wo_func_addr)
             wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
         else
         {
+            scan_stack_for_write_barrier(argc);
+
             assure_stack_size(1);
             auto* return_ip = ip;
             auto return_sp_place = sb - sp;
@@ -1361,13 +1366,14 @@ namespace wo
     }
     value* vmbase::invoke(wo_native_func_t wo_func_addr, wo_int_t argc)noexcept
     {
-        scan_stack_for_write_barrier(argc);
         if (!wo_func_addr)
             wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
         else
         {
             if (is_aborted())
                 return nullptr;
+
+            scan_stack_for_write_barrier(argc);
 
             assure_stack_size(1);
             auto* return_ip = ip;
@@ -1434,19 +1440,20 @@ namespace wo
     }
     value* vmbase::invoke(closure_t* wo_func_closure, wo_int_t argc)noexcept
     {
-        scan_stack_for_write_barrier(argc);
         if (!wo_func_closure)
             wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
         else
         {
-
             wo::gcbase::gc_read_guard rg1(wo_func_closure);
             if (!wo_func_closure->m_vm_func)
                 wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
             else
             {
-                if (is_aborted())
+                if (wo_func_closure->m_native_call && is_aborted())
                     return nullptr;
+
+                scan_stack_for_write_barrier(
+                    argc + static_cast<wo_int_t>(wo_func_closure->m_closure_args_count));
 
                 assure_stack_size((size_t)wo_func_closure->m_closure_args_count + 1);
                 auto* return_ip = ip;
@@ -1502,7 +1509,7 @@ namespace wo
                 {
                     ip = wo_func_closure->m_vm_func;
                     vm_exec_result = run();
-            }
+                }
 
                 ip = return_ip;
                 sp = sb - return_sp_place;
@@ -1522,10 +1529,10 @@ namespace wo
                     wo_fail(WO_FAIL_CALL_FAIL, "Unexpected execution status: %d.", (int)vm_exec_result);
                     break;
                 }
+            }
         }
-    }
         return nullptr;
-}
+    }
 
 #define WO_SAFE_READ_OFFSET_GET_QWORD (*(uint64_t*)(rt_ip-8))
 #define WO_SAFE_READ_OFFSET_GET_DWORD (*(uint32_t*)(rt_ip-4))
@@ -1614,7 +1621,7 @@ namespace wo
             wo_fail(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
             break;
         }
-}
+    }
     void vmbase::eltx_impl(value* result, value* opnum1, value* opnum2) noexcept
     {
         switch (opnum1->m_type)
@@ -2542,7 +2549,7 @@ namespace wo
                             bp = --sp;
                         }
                         rt_ip = aim_function_addr;
-                }
+                    }
                     else
                     {
                         WO_VM_ASSERT(opnum1->m_type == value::valuetype::closure_type,
@@ -2609,10 +2616,10 @@ namespace wo
                                 bp = --sp;
                             }
                             rt_ip = aim_function_addr;
+                        }
                     }
-            }
-            } while (0);
-            break;
+                } while (0);
+                break;
             case instruct::opcode::callnwo:
                 if (sp <= stack_storage)
                 {
@@ -3222,6 +3229,7 @@ namespace wo
                 {
                     // a vm_interrupt is invalid now, just roll back one byte and continue~
                     // so here do nothing
+                    wo_assert(interrupt_state == 0);
                 }
             }
             }

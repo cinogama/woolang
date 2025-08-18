@@ -71,15 +71,15 @@ namespace wo
 
         WO_FORCE_INLINE bool gc_is_marking()
         {
-            return _gc_is_marking.load();
+            return _gc_is_marking.load(std::memory_order_acquire);
         }
         WO_FORCE_INLINE bool gc_is_collecting_memo()
         {
-            return _gc_is_collecting_memo.load();
+            return _gc_is_collecting_memo.load(std::memory_order_acquire);
         }
         WO_FORCE_INLINE bool gc_is_recycling()
         {
-            return _gc_is_recycling.load();
+            return _gc_is_recycling.load(std::memory_order_acquire);
         }
     }
 
