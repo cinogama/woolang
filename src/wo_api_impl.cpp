@@ -968,8 +968,7 @@ void wo_set_gcstruct(
 
 void wo_set_val(wo_value value, wo_value val)
 {
-    auto* _rsvalue = WO_VAL(value);
-    _rsvalue->set_val(WO_VAL(val));
+    WO_VAL(value)->set_val(WO_VAL(val));
 }
 
 void wo_set_dup(wo_value value, wo_vm vm, wo_value val)
@@ -3068,6 +3067,8 @@ wo_value wo_register(wo_vm vm, wo_reg regid)
 
 wo_value wo_reserve_stack(wo_vm vm, wo_size_t stack_sz, wo_value* inout_args_maynull)
 {
+    _wo_enter_gc_guard g(vm);
+
     // Check stack size.
     wo::vmbase* vmbase = WO_VM(vm);
 
@@ -3107,6 +3108,42 @@ wo_value wo_reserve_stack(wo_vm vm, wo_size_t stack_sz, wo_value* inout_args_may
 void wo_pop_stack(wo_vm vm, wo_size_t stack_sz)
 {
     WO_VM(vm)->sp += stack_sz;
+}
+
+wo_stack_value wo_cast_stack_value(wo_vm vm, wo_value value_in_stack)
+{
+    auto* vmbase = WO_VM(vm);
+
+    // Only allow get stack index from current vm or not running vm.
+    auto* stack_begin = vmbase->sb;
+    auto* stack_value = WO_VAL(value_in_stack);
+
+    if (stack_value > vmbase->sp && stack_value <= stack_begin)
+        return stack_begin - stack_value;
+
+    wo_fail(WO_FAIL_INDEX_FAIL, "Invalid stack value.");
+    return SIZE_MAX;
+}
+
+void wo_stack_value_set(wo_stack_value sv, wo_vm vm, wo_value val)
+{
+    auto* vmbase = WO_VM(vm);
+
+    wo_assert(sv < (size_t)(vmbase->sb - vmbase->sp));
+
+    wo::value* write_target = vmbase->sb - sv;
+
+    if (wo::gc::gc_is_marking())
+        wo::value::write_barrier(write_target);
+    
+    wo_set_val(CS_VAL(write_target), val);
+}
+void wo_stack_value_get(wo_value outval, wo_stack_value sv, wo_vm vm)
+{
+    auto* vmbase = WO_VM(vm);
+
+    wo_assert(sv < (size_t)(vmbase->sb - vmbase->sp));
+    wo_set_val(outval, CS_VAL(vmbase->sb - sv));
 }
 
 wo_value wo_invoke_value(
@@ -4321,7 +4358,7 @@ void wo_close_pin_value(wo_pin_value pin_value)
 {
     wo::pin::close_pin_value(pin_value);
 }
-void wo_gc_record_memory(wo_value val)
+void wo_gc_write_barrier(wo_value val)
 {
     if (wo::gc::gc_is_marking())
         wo::value::write_barrier(WO_VAL(val));

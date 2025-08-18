@@ -22,7 +22,7 @@ namespace wo
 {
     namespace pin
     {
-        std::shared_mutex _pin_value_list_mx;
+        wo::gcbase::_shared_spin _pin_value_list_mx;
         std::unordered_set<value*> _pin_value_list;
 
         wo_pin_value create_pin_value()
@@ -39,6 +39,11 @@ namespace wo
 
             return reinterpret_cast<wo_pin_value>(v);
         }
+        /*
+        NOTE: We dont need to check val and do write barrier because we can
+            make sure pin-value always marked after vm, all value writed to 
+            pin-value has already marked by vm-mark.
+        */
         void set_pin_value(wo_pin_value pin_value, value* val)
         {
             auto* v = std::launder(reinterpret_cast<value*>(pin_value));
@@ -70,7 +75,6 @@ namespace wo
         void close_pin_value(wo_pin_value pin_value)
         {
             auto* v = std::launder(reinterpret_cast<value*>(pin_value));
-
             do
             {
                 std::lock_guard g1(_pin_value_list_mx);

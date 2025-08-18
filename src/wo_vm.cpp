@@ -1315,6 +1315,7 @@ namespace wo
     value* vmbase::invoke(const byte_t* wo_func_addr, wo_int_t argc)noexcept
     {
         wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
+        scan_stack_for_write_barrier(argc);
         if (!wo_func_addr)
             wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
         else
@@ -1359,6 +1360,7 @@ namespace wo
     value* vmbase::invoke(wo_native_func_t wo_func_addr, wo_int_t argc)noexcept
     {
         wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
+        scan_stack_for_write_barrier(argc);
         if (!wo_func_addr)
             wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
         else
@@ -1432,6 +1434,7 @@ namespace wo
     value* vmbase::invoke(closure_t* wo_func_closure, wo_int_t argc)noexcept
     {
         wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
+        scan_stack_for_write_barrier(argc);
         if (!wo_func_closure)
             wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
         else
