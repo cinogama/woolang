@@ -174,7 +174,6 @@ namespace wo
     {
         return type & vm_interrupt.fetch_and(~type, std::memory_order::memory_order_acq_rel);
     }
-
     bool vmbase::check_interrupt(vm_interrupt_type type)noexcept
     {
         return 0 != (vm_interrupt.load(std::memory_order_acquire) & type);
@@ -3165,7 +3164,8 @@ namespace wo
                 }
                 else if (interrupt_state & vm_interrupt_type::STACK_OCCUPYING_INTERRUPT)
                 {
-                    wo_error("Virtual machine handled a STACK_OCCUPYING_INTERRUPT.");
+                    while (check_interrupt(vm_interrupt_type::STACK_OCCUPYING_INTERRUPT))
+                        wo::gcbase::_shared_spin::spin_loop_hint();
                 }
                 else if (interrupt_state & vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT)
                 {

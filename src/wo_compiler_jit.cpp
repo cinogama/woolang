@@ -551,8 +551,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             }
             else if (interrupt_state & wo::vmbase::vm_interrupt_type::STACK_OCCUPYING_INTERRUPT)
             {
-                // That should not be happend...
-                wo_error("Virtual machine handled a STACK_OCCUPYING_INTERRUPT.");
+                while (vmm->check_interrupt(vmbase::vm_interrupt_type::STACK_OCCUPYING_INTERRUPT))
+                    wo::gcbase::_shared_spin::spin_loop_hint();
             }
             else if (interrupt_state & wo::vmbase::vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT)
             {
