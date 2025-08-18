@@ -41,7 +41,7 @@ namespace wo
         }
         /*
         NOTE: We dont need to check val and do write barrier because we can
-            make sure pin-value always marked after vm, all value writed to 
+            make sure pin-value always marked after vm, all value writed to
             pin-value has already marked by vm-mark.
         */
         void set_pin_value(wo_pin_value pin_value, value* val)
@@ -330,7 +330,11 @@ namespace wo
             {
                 // Pick all gcunit before 1st mark begin.
                 // It means all unit alloced when marking will be skiped to free.
-                std::vector<vmbase*> gc_marking_vmlist, self_marking_vmlist, time_out_vmlist;
+                std::vector<vmbase*>
+                    gc_marking_vmlist,
+                    self_marking_vmlist,
+                    gc_destructor_vmlist;
+
                 _wo_gray_unit_list_t mem_gray_list;
 
                 // 0. Mark all root value.
@@ -400,10 +404,13 @@ namespace wo
                                     self_marking_vmlist.push_back(vmimpl);
                                     continue;
                                 }
+                                // Current vm will be mark by gc-work-thread.
+                                gc_marking_vmlist.push_back(vmimpl);
                             }
-
-                            // Current vm will be mark by gc-work-thread.
-                            gc_marking_vmlist.push_back(vmimpl);
+                            else
+                                // Current vm will be marked by gc-work-thread, 
+                                // and mark it's static-space only.
+                                gc_destructor_vmlist.push_back(vmimpl);
                         }
                     }
                     else
@@ -423,27 +430,32 @@ namespace wo
                         for (auto* vmimpl : vmbase::_gc_ready_vm_list)
                         {
                             if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
+                            {
                                 // Must make sure HANGUP successfully.
                                 (void)vmimpl->wait_interrupt(vmbase::GC_HANGUP_INTERRUPT, true);
 
-                            // Current vm will be mark by gc-work-thread.
-                            gc_marking_vmlist.push_back(vmimpl);
+                                // Current vm will be mark by gc-work-thread.
+                                gc_marking_vmlist.push_back(vmimpl);
+                            }
+                            else
+                                // Current vm will be marked by gc-work-thread, 
+                                // and mark it's static-space only.
+                                gc_destructor_vmlist.push_back(vmimpl);
                         }
                     }
 
-                    // 0.2. Mark all unit in vm's stack, register, global(only once)
+                    // 0.2. Mark all unit in vm's stack, register.
                     _gc_scan_vm_count = gc_marking_vmlist.size();
-
-                    _gc_vm_list.store(gc_marking_vmlist.data());
                     _gc_scan_vm_index.store(0);
 
-                    // 0.3. Start GC Worker for first marking
+                    _gc_vm_list.store(gc_marking_vmlist.data());
+
                     launch_round_of_mark();
 
-                    // 0.4. Wake up all hanged vm.
+                    // 0.3. Wake up all hanged vm.
                     if (!stopworld)
                     {
-                        // 6. Wait until all self-marking vm work finished
+                        // 0.3.1. Wait until all self-marking vm work finished
                         for (auto* vmimpl : self_marking_vmlist)
                         {
                             auto self_mark_gc_state = vmimpl->wait_interrupt(vmbase::GC_INTERRUPT, true);
@@ -502,7 +514,7 @@ namespace wo
                             }
                         }
 
-                        // 7. Merge gray lists.
+                        // 0.3.2. Merge gray lists.
                         size_t worker_id_counter = 0;
                         for (auto& [_vm, gray_list] : _gc_vm_gray_unit_lists)
                         {
@@ -512,6 +524,14 @@ namespace wo
                             worker_gray_list.splice_after(worker_gray_list.cbefore_begin(), gray_list);
                         }
                     }
+
+                    // 0.4. Mark all static space in gc-destructor vm.
+                    _gc_scan_vm_count = gc_destructor_vmlist.size();
+                    _gc_scan_vm_index.store(0);
+
+                    _gc_vm_list.store(gc_destructor_vmlist.data());
+
+                    launch_round_of_mark();
 
                     // 0.5. Mark all pin-value after all vm marked.
                     do
@@ -733,43 +753,54 @@ namespace wo
                         vmbase::vm_type vm_type;
                         while ((marking_vm = _get_next_mark_vm(&vm_type)))
                         {
-                            if (vm_type == vmbase::vm_type::GC_DESTRUCTOR)
-                            {
-                                auto* env = marking_vm->env.get();
-                                wo_assert(env != nullptr);
+                            wo_assert(vm_type != vmbase::vm_type::GC_DESTRUCTOR);
 
-                                // If current gc-vm is orphan, skip marking global value.
-                                if (env->_running_on_vm_count > 1)
+                            mark_vm(marking_vm, worker_id);
+
+                            if (_gc_stopping_world_gc == false)
+                                if (!marking_vm->clear_interrupt(vmbase::GC_HANGUP_INTERRUPT))
+                                    marking_vm->wakeup();
+                        }
+                    }
+                    else break;
+                    _notify_this_stage_finished(worker_id);
+
+                    // Stage 2, mark globals.
+                    if (_wait_for_next_stage_signal(worker_id))
+                    {
+                        vmbase* marking_vm = nullptr;
+                        vmbase::vm_type vm_type;
+                        while ((marking_vm = _get_next_mark_vm(&vm_type)))
+                        {
+                            wo_assert(vm_type == vmbase::vm_type::GC_DESTRUCTOR);
+
+                            auto* env = marking_vm->env.get();
+                            wo_assert(env != nullptr);
+
+                            // If current gc-vm is orphan, skip marking global value.
+                            if (env->_running_on_vm_count > 1)
+                            {
+                                // Any code context only have one GC_DESTRUCTOR, here to mark global space.
+                                auto* global_and_const_values = env->constant_and_global_storage;
+
+                                // Skip all constant, all constant cannot contain gc-type value beside no-gc-string.
+                                for (size_t cgr_index = env->constant_value_count;
+                                    cgr_index < env->constant_and_global_value_takeplace_count;
+                                    cgr_index++)
                                 {
-                                    // Any code context only have one GC_DESTRUCTOR, here to mark global space.
-                                    auto* global_and_const_values = env->constant_and_global_storage;
+                                    auto* global_val = global_and_const_values + cgr_index;
 
-                                    // Skip all constant, all constant cannot contain gc-type value beside no-gc-string.
-                                    for (size_t cgr_index = env->constant_value_count;
-                                        cgr_index < env->constant_and_global_value_takeplace_count;
-                                        cgr_index++)
-                                    {
-                                        auto* global_val = global_and_const_values + cgr_index;
-
-                                        gc::unit_attrib* attr;
-                                        gcbase* gcunit_address = global_val->get_gcunit_and_attrib_ref(&attr);
-                                        if (gcunit_address)
-                                            gc_mark_unit_as_gray(&_gc_gray_unit_lists[worker_id], gcunit_address, attr);
-                                    }
+                                    gc::unit_attrib* attr;
+                                    gcbase* gcunit_address = global_val->get_gcunit_and_attrib_ref(&attr);
+                                    if (gcunit_address)
+                                        gc_mark_unit_as_gray(&_gc_gray_unit_lists[worker_id], gcunit_address, attr);
                                 }
-                            }
-                            else
-                            {
-                                mark_vm(marking_vm, worker_id);
-
-                                if (_gc_stopping_world_gc == false)
-                                    if (!marking_vm->clear_interrupt(vmbase::GC_HANGUP_INTERRUPT))
-                                        marking_vm->wakeup();
                             }
                         }
                     }
                     else break;
                     _notify_this_stage_finished(worker_id);
+
 
                     // Stage 2, full mark units.
                     if (_wait_for_next_stage_signal(worker_id))
