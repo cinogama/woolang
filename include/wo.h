@@ -1261,15 +1261,13 @@ WO_API void wo_lspv2_token_info_free(wo_lspv2_token_info* info);
     2.2. Invoke `wo_gc_checkpoint` or `wo_gc_write_barrier` before the operation.
     2.3. This gc-unit not be referenced elsewhere and discarded completely.
 
-  3. Donot read any value from another vm state, besides the return value of invoke
-    or dispatch.
-  4. When assigning a value from current vm state to another vm state, you must do one
+  3. When assigning a value from CURRENT vm state to another vm state, you must do one
     of the following before return from current extern functon:
     
-    4.1. When using the value as argument, do `wo_invoke_value` at target vm.
-    4.2. When using the value as argument, do `wo_dispatch_value` at target vm.
-    4.3. Do `wo_gc_write_barrier` for this value.
-    4.4. Do `wo_gc_checkpoint`
+    3.1. When using the value as argument, do `wo_invoke_value` at target vm.
+    3.2. When using the value as argument, do `wo_dispatch_value` at target vm.
+    3.3. Do `wo_gc_write_barrier` for this value.
+    3.4. Do `wo_gc_checkpoint`
 
                                                             Cinogama project.
                                                                 2024.3.15.
