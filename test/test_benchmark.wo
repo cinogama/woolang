@@ -193,6 +193,7 @@ namespace test_benchmark
         bench("bench_1m_prime4 cost:", bench_1m_prime4);
         bench("fannkuch(9) cost:", \=do fannkuch(9););
         bench("fannkuch(10) cost:", \=do fannkuch(10););
+        bench("fannkuch(11) cost:", \=do fannkuch(11););
         bench("insert_1e7() cost:", insert_1e7);
         bench("set_1e7() cost:", set_1e7);
         bench("prealloc_insert_1e7() cost:", prealloc_insert_1e7);

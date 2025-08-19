@@ -4335,7 +4335,7 @@ void wo_gc_write_barrier(wo_value value, wo_vm vm)
 {
     auto enter = wo_enter_gcguard(vm);
 
-    if (enter == WO_FALSE && wo::gc::gc_is_marking())
+    if (wo::gc::gc_is_marking())
         wo::value::write_barrier(WO_VAL(value));
 
     if (enter != WO_FALSE)
@@ -4345,7 +4345,7 @@ void wo_set_val_with_write_barrier(wo_value value, wo_vm write_vm, wo_value val)
 {
     auto enter = wo_enter_gcguard(write_vm);
 
-    if (enter == WO_FALSE && wo::gc::gc_is_marking())
+    if (wo::gc::gc_is_marking())
         wo::value::write_barrier(WO_VAL(value));
 
     wo_set_val(value, val);
@@ -4357,7 +4357,7 @@ void wo_set_val_with_read_barrier(wo_value value, wo_vm write_vm, wo_value val)
 {
     auto enter = wo_enter_gcguard(write_vm);
 
-    if (enter == WO_FALSE && wo::gc::gc_is_marking())
+    if (wo::gc::gc_is_marking())
         wo::value::write_barrier(WO_VAL(val));
 
     wo_set_val(value, val);
