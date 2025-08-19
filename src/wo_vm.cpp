@@ -834,6 +834,7 @@ namespace wo
     {
         bool trace_finished;
         auto callstacks = dump_call_stack_func_info(max_count, need_offset, &trace_finished);
+
         for (auto idx = callstacks.cbegin(); idx != callstacks.cend(); ++idx)
         {
             os << (idx - callstacks.cbegin()) << ": " << idx->m_func_name << std::endl;
@@ -1096,7 +1097,8 @@ namespace wo
                 wo_error("Cannot be here.");
             }
 
-            if (callstack_layer_count > max_count)
+            --callstack_layer_count;
+            if (callstack_layer_count >= max_count)
             {
                 if (!bad)
                     generate_callstack_info_with_ip(
@@ -1104,8 +1106,7 @@ namespace wo
             }
             else
             {
-                auto& this_callstack_info = result.at(--callstack_layer_count);
-
+                auto& this_callstack_info = result.at(callstack_layer_count);
                 if (bad)
                     this_callstack_info =
                     callstack_info{
