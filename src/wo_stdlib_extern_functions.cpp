@@ -3053,7 +3053,7 @@ namespace std
             {
                 return F"{self.function}\n\t\t-- at {self.file}"
                     + (self.callway == callway::FAR ? " <far>" | "")
-                    + (self.callway != callway::NATIVE ? "" | F" ({self.row + 1}, {self.column + 1}\x29");
+                    + (self.callway == callway::NATIVE ? "" | F" ({self.row + 1}, {self.column + 1}\x29");
             }
         }
         extern("rslib_std_debug_callstack_trace")
