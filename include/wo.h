@@ -676,6 +676,7 @@ WO_API void wo_gc_checkpoint(wo_vm vm);
 //  2) When a value assigned from A vm state to B vm state, and it not used as 
 //      arguments for `wo_invoke_value` or `wo_dispatch_value`.(performed both on 
 //      the value being read and overwritten)
+WO_API void wo_gc_write_barrier(wo_value value, wo_vm vm);
 WO_API void wo_set_val_with_write_barrier(wo_value value, wo_vm write_vm, wo_value val);
 WO_API void wo_set_val_with_read_barrier(wo_value value, wo_vm write_vm, wo_value val);
 

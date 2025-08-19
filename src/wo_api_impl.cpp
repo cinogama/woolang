@@ -4331,6 +4331,16 @@ void wo_close_pin_value(wo_pin_value pin_value)
 {
     wo::pin::close_pin_value(pin_value);
 }
+void wo_gc_write_barrier(wo_value value, wo_vm vm)
+{
+    auto enter = wo_enter_gcguard(vm);
+
+    if (enter == WO_FALSE && wo::gc::gc_is_marking())
+        wo::value::write_barrier(WO_VAL(value));
+
+    if (enter != WO_FALSE)
+        wo_leave_gcguard(vm);
+}
 void wo_set_val_with_write_barrier(wo_value value, wo_vm write_vm, wo_value val)
 {
     auto enter = wo_enter_gcguard(write_vm);
