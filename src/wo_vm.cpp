@@ -438,7 +438,7 @@ namespace wo
                 }
                 for (int i = 0; i < MAX_BYTE_COUNT - displayed_count; i++)
                     printf("   ");
-            };
+                };
 #define WO_SIGNED_SHIFT(VAL) (((signed char)((unsigned char)(((unsigned char)(VAL))<<1)))>>1)
             auto print_reg_bpoffset = [&]() {
                 byte_t data_1b = *(this_command_ptr++);
@@ -477,7 +477,7 @@ namespace wo
                         tmpos << "reg(" << (uint32_t)data_1b << ")";
 
                 }
-            };
+                };
             auto print_global_static = [&]() {
                 //const global 4byte
                 uint32_t data_4b = *(uint32_t*)((this_command_ptr += 4) - 4);
@@ -502,19 +502,19 @@ namespace wo
                 }
                 else
                     tmpos << "g[" << data_4b - env->constant_value_count << "]";
-            };
+                };
             auto print_opnum1 = [&]() {
                 if (main_command & (byte_t)0b00000010)
                     print_reg_bpoffset();
                 else
                     print_global_static();
-            };
+                };
             auto print_opnum2 = [&]() {
                 if (main_command & (byte_t)0b00000001)
                     print_reg_bpoffset();
                 else
                     print_global_static();
-            };
+                };
 
 #undef WO_SIGNED_SHIFT
             switch (main_command & (byte_t)0b11111100)
@@ -630,6 +630,7 @@ namespace wo
                 }
                 break;
             case instruct::setip:
+            case instruct::setipgc:
                 switch (main_command & 0b11)
                 {
                 case 0b00: tmpos << "jmp\t"; break;
@@ -985,95 +986,95 @@ namespace wo
         std::vector<callstack_info> result(std::min(callstack_layer_count, max_count));
         auto generate_callstack_info_with_ip =
             [this, near_env_pointer, need_offset](const wo::byte_t* rip, runtime_env** out_env)
-        {
-            const program_debug_data_info::location* src_location_info = nullptr;
-            std::string function_signature;
-            std::string file_path;
-            size_t row_number = 0;
-            size_t col_number = 0;
-
-            runtime_env* callenv = near_env_pointer;
-            call_way callway;
-
-            if (rip >= this->runtime_codes_begin && rip < this->runtime_codes_end)
-                callway = call_way::NEAR;
-            else
             {
-                if (runtime_env::fetch_far_runtime_env(rip, &callenv))
-                    callway = call_way::FAR;
-                else
-                    callway = call_way::NATIVE;
-            }
+                const program_debug_data_info::location* src_location_info = nullptr;
+                std::string function_signature;
+                std::string file_path;
+                size_t row_number = 0;
+                size_t col_number = 0;
 
-            switch (callway)
-            {
-            case call_way::NEAR:
-            case call_way::FAR:
-            {
-                // Update call env for near & far call.
-                *out_env = callenv;
+                runtime_env* callenv = near_env_pointer;
+                call_way callway;
 
-                if (callenv->program_debug_info != nullptr)
-                {
-                    src_location_info = &callenv->program_debug_info
-                        ->get_src_location_by_runtime_ip(rip - (need_offset ? 1 : 0));
-                    function_signature = callenv->program_debug_info
-                        ->get_current_func_signature_by_runtime_ip(rip - (need_offset ? 1 : 0));
-
-                    file_path = src_location_info->source_file;
-                    row_number = src_location_info->begin_row_no;
-                    col_number = src_location_info->begin_col_no;
-                }
+                if (rip >= this->runtime_codes_begin && rip < this->runtime_codes_end)
+                    callway = call_way::NEAR;
                 else
                 {
-                    char rip_str[sizeof(rip) * 2 + 4];
-                    int result = snprintf(rip_str, sizeof(rip_str), "0x%p>", rip);
-
-                    (void)result;
-                    wo_assert(result > 0 && result < sizeof(rip_str), "snprintf failed or buffer too small");
-
-                    function_signature = std::string("<unknown function ") + rip_str;
-                    file_path = "<unknown file>";
+                    if (runtime_env::fetch_far_runtime_env(rip, &callenv))
+                        callway = call_way::FAR;
+                    else
+                        callway = call_way::NATIVE;
                 }
-                break;
-            }
-            case call_way::NATIVE:
-            {
-                // Is extern native function address.
-                auto fnd = env->extern_native_functions.find(
-                    reinterpret_cast<wo_native_func_t>(
-                        reinterpret_cast<intptr_t>(rip)));
 
-                if (fnd != env->extern_native_functions.end())
+                switch (callway)
                 {
-                    function_signature = fnd->second.function_name;
-                    file_path = fnd->second.library_name.value_or("<builtin>");
-                }
-                else
+                case call_way::NEAR:
+                case call_way::FAR:
                 {
-                    char rip_str[sizeof(rip) * 2 + 4];
-                    int result = snprintf(rip_str, sizeof(rip_str), "0x%p>", rip);
+                    // Update call env for near & far call.
+                    *out_env = callenv;
 
-                    (void)result;
-                    wo_assert(result > 0 && result < sizeof(rip_str), "snprintf failed or buffer too small");
+                    if (callenv->program_debug_info != nullptr)
+                    {
+                        src_location_info = &callenv->program_debug_info
+                            ->get_src_location_by_runtime_ip(rip - (need_offset ? 1 : 0));
+                        function_signature = callenv->program_debug_info
+                            ->get_current_func_signature_by_runtime_ip(rip - (need_offset ? 1 : 0));
 
-                    function_signature = std::string("<unknown extern function ") + rip_str;
-                    file_path = "<unknown library>";
+                        file_path = src_location_info->source_file;
+                        row_number = src_location_info->begin_row_no;
+                        col_number = src_location_info->begin_col_no;
+                    }
+                    else
+                    {
+                        char rip_str[sizeof(rip) * 2 + 4];
+                        int result = snprintf(rip_str, sizeof(rip_str), "0x%p>", rip);
+
+                        (void)result;
+                        wo_assert(result > 0 && result < sizeof(rip_str), "snprintf failed or buffer too small");
+
+                        function_signature = std::string("<unknown function ") + rip_str;
+                        file_path = "<unknown file>";
+                    }
+                    break;
                 }
-                break;
-            }
-            default:
-                wo_error("Cannot be here.");
-            }
+                case call_way::NATIVE:
+                {
+                    // Is extern native function address.
+                    auto fnd = env->extern_native_functions.find(
+                        reinterpret_cast<wo_native_func_t>(
+                            reinterpret_cast<intptr_t>(rip)));
 
-            return callstack_info{
-                function_signature,
-                file_path,
-                row_number,
-                col_number,
-                callway,
+                    if (fnd != env->extern_native_functions.end())
+                    {
+                        function_signature = fnd->second.function_name;
+                        file_path = fnd->second.library_name.value_or("<builtin>");
+                    }
+                    else
+                    {
+                        char rip_str[sizeof(rip) * 2 + 4];
+                        int result = snprintf(rip_str, sizeof(rip_str), "0x%p>", rip);
+
+                        (void)result;
+                        wo_assert(result > 0 && result < sizeof(rip_str), "snprintf failed or buffer too small");
+
+                        function_signature = std::string("<unknown extern function ") + rip_str;
+                        file_path = "<unknown library>";
+                    }
+                    break;
+                }
+                default:
+                    wo_error("Cannot be here.");
+                }
+
+                return callstack_info{
+                    function_signature,
+                    file_path,
+                    row_number,
+                    col_number,
+                    callway,
+                };
             };
-        };
 
         runtime_env* current_env_pointer = near_env_pointer;
         for (auto& callstack_state : callstack_ips)
@@ -1997,11 +1998,11 @@ namespace wo
             WO_ADDRESSING_RS2;\
         _label_##CODE##_impl
 
-        uint32_t fast_interrupt_state =
-            vm_interrupt.load(std::memory_order_acquire);
-
 #define WO_VM_INTERRUPT_CHECKPOINT \
-        fast_interrupt_state = vm_interrupt.load(std::memory_order_acquire)
+        fast_interrupt_state = \
+            vm_interrupt.load(std::memory_order_acquire)
+
+        uint32_t WO_VM_INTERRUPT_CHECKPOINT;
 
         for (;;)
         {
@@ -2577,7 +2578,7 @@ namespace wo
 #endif
                                 break;
                             }
-                            }
+                        }
                         else
                         {
                             const auto* aim_function_addr = closure->m_vm_func;
@@ -2599,9 +2600,9 @@ namespace wo
                             rt_ip = aim_function_addr;
                             WO_VM_INTERRUPT_CHECKPOINT;
                         }
-                        }
-                    } while (0);
-                    break;
+                    }
+                } while (0);
+                break;
             case instruct::opcode::callnwo:
                 if (sp <= stack_storage)
                 {
@@ -2671,7 +2672,7 @@ namespace wo
 #endif
                         break;
                     }
-                    }
+                }
                 break;
             case instruct::opcode::callnfpslow:
                 if (sp <= stack_storage)
@@ -2726,40 +2727,48 @@ namespace wo
 #endif
                         break;
                     }
-                    }
+                }
                 break;
             case instruct::opcode::jmp:
-            {
-                auto* new_ip = near_rtcode_begin + WO_IPVAL_MOVE_4;
-                if (new_ip < rt_ip)
-                    WO_VM_INTERRUPT_CHECKPOINT;
-
-                rt_ip = new_ip;
+                rt_ip = near_rtcode_begin + WO_IPVAL_MOVE_4;
                 break;
-            }
             case instruct::opcode::jmpt:
             {
                 const uint32_t aimplace = WO_IPVAL_MOVE_4;
                 if (rt_cr->m_value_field)
-                {
-                    auto* new_ip = near_rtcode_begin + aimplace;
-                    if (new_ip < rt_ip)
-                        WO_VM_INTERRUPT_CHECKPOINT;
+                    rt_ip = near_rtcode_begin + aimplace;
 
-                    rt_ip = new_ip;
-                }
                 break;
             }
             case instruct::opcode::jmpf:
             {
                 const uint32_t aimplace = WO_IPVAL_MOVE_4;
                 if (!rt_cr->m_value_field)
-                {
-                    auto* new_ip = near_rtcode_begin + aimplace;
-                    if (new_ip < rt_ip)
-                        WO_VM_INTERRUPT_CHECKPOINT;
+                    rt_ip = near_rtcode_begin + aimplace;
 
-                    rt_ip = new_ip;
+                break;
+            }
+            case instruct::opcode::jmpgc:
+                rt_ip = near_rtcode_begin + WO_IPVAL_MOVE_4;
+                WO_VM_INTERRUPT_CHECKPOINT;
+                break;
+            case instruct::opcode::jmpgct:
+            {
+                const uint32_t aimplace = WO_IPVAL_MOVE_4;
+                if (rt_cr->m_value_field)
+                {
+                    rt_ip = near_rtcode_begin + aimplace;
+                    WO_VM_INTERRUPT_CHECKPOINT;
+                }
+                break;
+            }
+            case instruct::opcode::jmpgcf:
+            {
+                const uint32_t aimplace = WO_IPVAL_MOVE_4;
+                if (!rt_cr->m_value_field)
+                {
+                    rt_ip = near_rtcode_begin + aimplace;
+                    WO_VM_INTERRUPT_CHECKPOINT;
                 }
                 break;
             }
@@ -2797,12 +2806,21 @@ namespace wo
                 {
                     const uint32_t offset = WO_IPVAL_MOVE_4;
                     if (opnum1->m_integer != rt_cr->m_integer)
+                        rt_ip = near_rtcode_begin + offset;
+                    break;
+                }
+            case instruct::opcode::jnequbgcg:
+                WO_ADDRESSING_G1;
+                goto _label_jnequbgc_impl;
+            case instruct::opcode::jnequbgcs:
+                WO_ADDRESSING_RS1;
+            _label_jnequbgc_impl:
+                {
+                    const uint32_t offset = WO_IPVAL_MOVE_4;
+                    if (opnum1->m_integer != rt_cr->m_integer)
                     {
-                        auto* new_ip = near_rtcode_begin + offset;
-                        if (new_ip < rt_ip)
-                            WO_VM_INTERRUPT_CHECKPOINT;
-
-                        rt_ip = new_ip;
+                        rt_ip = near_rtcode_begin + offset;
+                        WO_VM_INTERRUPT_CHECKPOINT;
                     }
                     break;
                 }
@@ -3251,15 +3269,15 @@ namespace wo
 
                 WO_VM_INTERRUPT_CHECKPOINT;
             }
-                }
-                }// vm loop end.
+            }
+        }// vm loop end.
 
         WO_VM_RETURN(wo_result_t::WO_API_NORMAL);
 #undef WO_VM_INTERRUPT_CHECKPOINT
 #undef WO_RSG_ADDRESSING_WRITE_OP1_CASE
 #undef WO_WRITE_CHECK_FOR_GLOBAL
 #undef WO_RSG_ADDRESSING_CASE
-                }
+    }
 
 #undef WO_VM_RETURN
 #undef WO_VM_FAIL
@@ -3288,4 +3306,4 @@ namespace wo
 #undef WO_FAST_READ_MOVE_2
 #undef WO_FAST_READ_MOVE_4
 #undef WO_FAST_READ_MOVE_8
-            }
+}

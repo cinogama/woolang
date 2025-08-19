@@ -1527,7 +1527,9 @@ enum _wo_opcode
     //                                      WO_CALL.
     // _RESERVED_ = 48,
     // _RESERVED_ = 49,
-    // _RESERVED_ = 50,
+    WO_SETIPGC = 50,
+    // DRH: JCOND_FLAG, DRL: JCOND_FLAG ? (0: JMPF, 1: JMPT) : 0
+    // OPNUM1: IMM_U32                      Just like WO_SETIP, but do a gc-checkpoint.
     WO_ENDPROC = 51,
     // DR: Mode flag
     // -- No OPNUM --                       * If DR = 0b00, debug command, an wo_error will be raise and

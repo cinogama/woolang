@@ -136,6 +136,8 @@ namespace wo
             jnequb = WO_OPCODE_SPACE(JNEQUB),
             jnequbg = jnequb | 0b00,
             jnequbs = jnequb | 0b10,
+            jnequbgcg = jnequb | 0b01,
+            jnequbgcs = jnequb | 0b11,
             ///////////////////////////////////
             call = WO_OPCODE_SPACE(CALL),
             callg = call | 0b00,
@@ -156,6 +158,11 @@ namespace wo
             mkarrs = mkcontain | 0b10,
             mkmapg = mkcontain | 0b01,
             mkmaps = mkcontain | 0b11,
+            ///////////////////////////////////
+            setipgc = WO_OPCODE_SPACE(SETIPGC),
+            jmpgc = setipgc | 0b00,
+            jmpgcf = setipgc | 0b10,
+            jmpgct = setipgc | 0b11,
             ///////////////////////////////////
             mkstruct = WO_OPCODE_SPACE(MKSTRUCT),
             mkstructg = mkstruct | 0b00,
