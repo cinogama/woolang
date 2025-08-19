@@ -222,6 +222,9 @@ namespace test_basic
         test_equal(a/7, 2);
         test_equal(a/8, 1);
         
+        []mut: vec<()=> void>->add(func(){for(;;){}});
+        []mut: vec<()=> nothing>->add(func(){for(;;){}});
+
         test_equal(a%3, 0);
         test_equal(a%4, 3);
         test_equal(a%5, 0);
