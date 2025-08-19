@@ -3,7 +3,7 @@
 //
 // Here will have woolang c api;
 //
-#define WO_VERSION WO_VERSION_WRAP(1, 14, 11, 9)
+#define WO_VERSION WO_VERSION_WRAP(1, 14, 11, 10)
 
 #ifndef WO_MSVC_RC_INCLUDE
 
@@ -669,14 +669,15 @@ WO_API void wo_gc_mark_unit(wo_gc_work_context_t context, void* unitaddr);
 
 WO_API void wo_gc_checkpoint(wo_vm vm);
 
-// The wo_gc_write_barrier should be executed in the following scenarios:
+// The set_val_with_barrier should be executed in the following scenarios:
 //  1) When about to write and overwrite a GC-managed wo_value within a gc-struct,
 //      where this value may hold instances requiring GC management (performed on 
 //      the value being overwritten).
 //  2) When a value assigned from A vm state to B vm state, and it not used as 
 //      arguments for `wo_invoke_value` or `wo_dispatch_value`.(performed both on 
 //      the value being read and overwritten)
-WO_API void wo_gc_write_barrier(wo_value val);
+WO_API void wo_set_val_with_write_barrier(wo_value value, wo_vm write_vm, wo_value val);
+WO_API void wo_set_val_with_read_barrier(wo_value value, wo_value val, wo_vm read_vm);
 
 WO_API wo_bool_t wo_leave_gcguard(wo_vm vm);
 WO_API wo_bool_t wo_enter_gcguard(wo_vm vm);
@@ -1258,7 +1259,8 @@ WO_API void wo_lspv2_token_info_free(wo_lspv2_token_info* info);
 
     2.1. Temporarily enter gc guard by calling `wo_enter_gcguard`, and if the 
         function returns true, call `wo_leave_gcguard` after operation.
-    2.2. Invoke `wo_gc_checkpoint` or `wo_gc_write_barrier` before the operation.
+    2.2. Invoke `wo_gc_checkpoint` or `wo_set_val_with_write_barrier` before the 
+        operation.
     2.3. This gc-unit not be referenced elsewhere and discarded completely.
 
   3. When assigning a value from CURRENT vm state to another vm state, you must do
@@ -1266,7 +1268,7 @@ WO_API void wo_lspv2_token_info_free(wo_lspv2_token_info* info);
     
     3.1. When using the value as argument, do `wo_invoke_value` at target vm.
     3.2. When using the value as argument, do `wo_dispatch_value` at target vm.
-    3.3. Do `wo_gc_write_barrier` for this value.
+    3.3. Use `wo_set_val_with_read_barrier` for this value.
     3.4. Do `wo_gc_checkpoint`
 
   4. Do NOT read/write data from other running vm state except the current vm.

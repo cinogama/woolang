@@ -343,7 +343,9 @@ namespace wo
                 {
                     // Lock alive vm list, block new vm create.
                     wo::assure_leave_this_thread_vm_shared_lock sg1(vmbase::_alive_vm_list_mx);
-                    _gc_round_count++;
+
+                    // Its ok to use `memory_order_release`, _gc_round_count only update here.
+                    _gc_round_count.fetch_add(1, std::memory_order_release);
 
                     // Ignore old memo, they are useless.
                     auto* old_mem_units = m_memo_mark_gray_list.pick_all();
@@ -692,7 +694,7 @@ namespace wo
             {
                 do
                 {
-                    if (_gc_round_count == 0)
+                    if (_gc_round_count.load(std::memory_order_acquire) == 0)
                         _gc_advise_to_full_gc = true;
 
                     if (_gc_pause.load() == false)
@@ -819,7 +821,8 @@ namespace wo
                         alloc_dur_current_gc_attrib_mask.m_gc_age = (uint8_t)0x0F;
                         alloc_dur_current_gc_attrib_mask.m_alloc_mask = (uint8_t)0x01;
                         alloc_dur_current_gc_attrib.m_gc_age = (uint8_t)0x0F;
-                        alloc_dur_current_gc_attrib.m_alloc_mask = (uint8_t)_gc_round_count & (uint8_t)0x01;
+                        alloc_dur_current_gc_attrib.m_alloc_mask = 
+                            (uint8_t)_gc_round_count.load(std::memory_order_acquire) & (uint8_t)0x01;
 
                         for (auto* page_head : page_list)
                         {
@@ -1129,7 +1132,7 @@ namespace wo
         for (;;)
         {
             gc::unit_attrib attr = {};
-            attr.m_alloc_mask = (uint8_t)gc::_gc_round_count & (uint8_t)0b01;
+            attr.m_alloc_mask = (uint8_t)gc::_gc_round_count.load(std::memory_order_acquire) & (uint8_t)0b01;
             if (auto* p = womem_alloc(memsz, attrib | attr.m_attr))
                 return p;
 
@@ -1170,8 +1173,9 @@ namespace wo
                 unit_ptr, std::launder(reinterpret_cast<womem_attrib_t**>(&attrib)));
 
             wo_assert(unit == this);
-            wo_assert((attrib->m_alloc_mask & 0b01) != (gc::_gc_round_count & 0b01) ||
-                attrib->m_gc_age != 15);
+            wo_assert(
+                (attrib->m_alloc_mask & 0b01) != (gc::_gc_round_count.load(std::memory_order_acquire) & 0b01) 
+                || attrib->m_gc_age != 15);
         }
 
         gc_destructed = true;

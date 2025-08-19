@@ -1191,41 +1191,12 @@ namespace wo
         }
         return false;
     }
-
-    /*
-    ISSUE: 25-08-16
-    Arguments in stack may moved(assigned and returned) from another vm, in this case:
-        * VM-0 created a value in stack.
-        * GC-WORKED
-        * VM-0 invoke a native function with leave state.
-        * GC-START and scans VM-1(in pool)
-        * VM-O push the value into VM-1
-        * VM-0 returned and the value is no longer locates in stack.
-        * VM-O been scanned.
-        * VM-1 been dispatched.
-    In this case, value will missing-mark. so to prevent this cases, when values been
-    push into another vm's stack, and the value will be used later(such as dispatch),
-    we need to scan all the arguments by this function. See `co_pre_invoke`, NO need
-    to scan in `invoke`, because invoke is safe, value always live in gc-reachable place
-    during whole `invoke` process, and if invoker returned, the arguments are discarded
-    safely.
-    */
-    void vmbase::scan_stack_for_write_barrier(wo_int_t argc)noexcept
-    {
-        if (gc::gc_is_marking())
-        {
-            for (wo_int_t sidx = 1; sidx <= argc; ++sidx)
-                value::write_barrier(sp + sidx);
-        }
-    }
     void vmbase::co_pre_invoke(const byte_t* wo_func_addr, wo_int_t argc) noexcept
     {
         if (!wo_func_addr)
             wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
         else
         {
-            scan_stack_for_write_barrier(argc);
-
             assure_stack_size(1);
             auto* return_sp = sp;
             auto return_tc = tc->m_integer;
@@ -1255,8 +1226,6 @@ namespace wo
             wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
         else
         {
-            scan_stack_for_write_barrier(argc);
-
             assure_stack_size(1);
             auto* return_sp = sp;
             auto return_tc = tc->m_integer;
@@ -1286,9 +1255,6 @@ namespace wo
             wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
         else
         {
-            scan_stack_for_write_barrier(
-                argc + static_cast<wo_int_t>(wo_func_addr->m_closure_args_count));
-
             wo::gcbase::gc_read_guard rg1(wo_func_addr);
             assure_stack_size((size_t)wo_func_addr->m_closure_args_count + 1);
 
@@ -1325,8 +1291,6 @@ namespace wo
             wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
         else
         {
-            scan_stack_for_write_barrier(argc);
-
             assure_stack_size(1);
             auto* return_ip = ip;
             auto return_sp_place = sb - sp;
@@ -1372,8 +1336,6 @@ namespace wo
         {
             if (is_aborted())
                 return nullptr;
-
-            scan_stack_for_write_barrier(argc);
 
             assure_stack_size(1);
             auto* return_ip = ip;
@@ -1451,9 +1413,6 @@ namespace wo
             {
                 if (wo_func_closure->m_native_call && is_aborted())
                     return nullptr;
-
-                scan_stack_for_write_barrier(
-                    argc + static_cast<wo_int_t>(wo_func_closure->m_closure_args_count));
 
                 assure_stack_size((size_t)wo_func_closure->m_closure_args_count + 1);
                 auto* return_ip = ip;

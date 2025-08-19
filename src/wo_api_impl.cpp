@@ -4331,12 +4331,30 @@ void wo_close_pin_value(wo_pin_value pin_value)
 {
     wo::pin::close_pin_value(pin_value);
 }
-void wo_gc_write_barrier(wo_value val)
+void wo_set_val_with_write_barrier(wo_value value, wo_vm write_vm, wo_value val)
 {
+    auto enter = wo_enter_gcguard(write_vm);
+
+    if (wo::gc::gc_is_marking())
+        wo::value::write_barrier(WO_VAL(value));
+
+    wo_set_val(value, val);
+
+    if (enter != WO_FALSE)
+        wo_leave_gcguard(write_vm);
+}
+void wo_set_val_with_read_barrier(wo_value value, wo_value val, wo_vm read_vm)
+{
+    auto enter = wo_enter_gcguard(read_vm);
+
     if (wo::gc::gc_is_marking())
         wo::value::write_barrier(WO_VAL(val));
-}
 
+    wo_set_val(value, val);
+
+    if (enter != WO_FALSE)
+        wo_leave_gcguard(read_vm);
+}
 wo_ir_compiler wo_create_ir_compiler(void)
 {
     wo::wstring_pool::begin_new_pool();
