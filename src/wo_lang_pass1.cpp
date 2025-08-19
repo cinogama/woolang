@@ -2340,7 +2340,7 @@ namespace wo
                     return FAILED;
                 }
 
-                index_raw_result = tuple_type->m_element_types[index];
+                index_raw_result = tuple_type->m_element_types[static_cast<size_t>(index)];
                 node->m_LANG_fast_index_for_struct = index;
 
                 if (node->m_container->m_evaled_const_value.has_value())

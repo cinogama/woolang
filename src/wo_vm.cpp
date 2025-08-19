@@ -1817,7 +1817,10 @@ namespace wo
                     const auto args_rend = arg_array->rend();
                     auto arg_idx = arg_array->rbegin();
 
-                    std::advance(arg_idx, (wo_integer_t)arg_array->size() - unpack_argc);
+                    std::advance(
+                        arg_idx, 
+                        static_cast<ptrdiff_t>(
+                            (wo_integer_t)arg_array->size() - unpack_argc));
 
                     for (; arg_idx != args_rend; arg_idx++)
                         (rt_sp--)->set_val(&*arg_idx);

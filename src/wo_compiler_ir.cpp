@@ -1053,7 +1053,10 @@ namespace wo
                 this_constant_value.set_struct_nogc(static_cast<uint16_t>(constant_struct_size));
 
                 // Clear all field.
-                memset(this_constant_value.m_structure->m_values, 0, sizeof(wo::value) * constant_struct_size);
+                memset(
+                    this_constant_value.m_structure->m_values,
+                    0,
+                    sizeof(wo::value) * static_cast<size_t>(constant_struct_size));
 
                 for (uint16_t idx = 0; idx < constant_struct_size; ++idx)
                 {
