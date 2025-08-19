@@ -1256,18 +1256,22 @@ WO_API void wo_lspv2_token_info_free(wo_lspv2_token_info* info);
   2. When writing `slow` extern-function, donot overwrite, pop or remove a gc-unit
     from any value unless following one of the following rules:
 
-    2.1. Temporarily enter gc guard by calling `wo_enter_gcguard`, and if the function
-        returns true, call `wo_leave_gcguard` after operation.
+    2.1. Temporarily enter gc guard by calling `wo_enter_gcguard`, and if the 
+        function returns true, call `wo_leave_gcguard` after operation.
     2.2. Invoke `wo_gc_checkpoint` or `wo_gc_write_barrier` before the operation.
     2.3. This gc-unit not be referenced elsewhere and discarded completely.
 
-  3. When assigning a value from CURRENT vm state to another vm state, you must do one
-    of the following before return from current extern functon:
+  3. When assigning a value from CURRENT vm state to another vm state, you must do
+     one of the following before return from current extern functon:
     
     3.1. When using the value as argument, do `wo_invoke_value` at target vm.
     3.2. When using the value as argument, do `wo_dispatch_value` at target vm.
     3.3. Do `wo_gc_write_barrier` for this value.
     3.4. Do `wo_gc_checkpoint`
+
+  4. Do NOT read/write data from other running vm state except the current vm.
+  5. Do NOT override any data in other vm state unless explicitly deprecated values
+    are being overridden.
 
                                                             Cinogama project.
                                                                 2024.3.15.
