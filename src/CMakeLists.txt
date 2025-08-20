@@ -57,7 +57,7 @@ if (BUILD_SHARED_LIBS)
 else()
     add_library(woolang STATIC ${woo_src_cpp} ${woo_src_hpp} ../include/wo.h)
     if(NOT MSVC)
-        target_compile_options(woolang_library_options INTERFACE -Wall -rdynamic)
+        target_compile_options(woolang_library_options INTERFACE -Wall)
     endif()
 endif()
 
