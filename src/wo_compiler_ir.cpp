@@ -59,7 +59,7 @@ namespace wo
                     env->rt_codes + env->rt_code_len,
                     env->constant_and_global_storage,
                 }
-        ));
+                ));
         (void)result;
         wo_assert(result.second);
     }
@@ -546,7 +546,7 @@ namespace wo
             wo_assert(result > 0 && result < sizeof(ptrr));
             return ptrr;
 
-        }();
+            }();
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -583,27 +583,27 @@ namespace wo
         std::vector<wo::byte_t> binary_buffer;
         auto write_buffer_to_buffer =
             [&binary_buffer](const void* written_data, size_t written_length, size_t allign)
-        {
-            const size_t write_begin_place = binary_buffer.size();
+            {
+                const size_t write_begin_place = binary_buffer.size();
 
-            wo_assert(write_begin_place % allign == 0);
+                wo_assert(write_begin_place % allign == 0);
 
-            binary_buffer.resize(write_begin_place + written_length);
+                binary_buffer.resize(write_begin_place + written_length);
 
-            memcpy(binary_buffer.data() + write_begin_place, written_data, written_length);
-            return binary_buffer.size();
-        };
+                memcpy(binary_buffer.data() + write_begin_place, written_data, written_length);
+                return binary_buffer.size();
+            };
 
         auto write_binary_to_buffer =
             [&write_buffer_to_buffer](const auto& d, size_t size_for_assert)
-        {
-            const wo::byte_t* written_data = std::launder(reinterpret_cast<const wo::byte_t*>(&d));
-            const size_t written_length = sizeof(d);
+            {
+                const wo::byte_t* written_data = std::launder(reinterpret_cast<const wo::byte_t*>(&d));
+                const size_t written_length = sizeof(d);
 
-            wo_assert(written_length == size_for_assert);
+                wo_assert(written_length == size_for_assert);
 
-            return write_buffer_to_buffer(written_data, written_length, sizeof(d) > 8 ? 8 : sizeof(d));
-        };
+                return write_buffer_to_buffer(written_data, written_length, sizeof(d) > 8 ? 8 : sizeof(d));
+            };
 
         class _string_pool_t
         {
@@ -631,10 +631,10 @@ namespace wo
 
         auto write_constant_str_to_buffer =
             [&write_binary_to_buffer, &constant_string_pool](const char* str, size_t len)
-        {
-            write_binary_to_buffer((uint32_t)constant_string_pool.insert(str, len), 4);
-            write_binary_to_buffer((uint32_t)len, 4);
-        };
+            {
+                write_binary_to_buffer((uint32_t)constant_string_pool.insert(str, len), 4);
+                write_binary_to_buffer((uint32_t)len, 4);
+            };
 
         // 1.1 (+0) Magic number(0x3001A26B look like WOOLANG B)
         write_binary_to_buffer((uint32_t)0x3001A26B, 4);
@@ -1053,7 +1053,10 @@ namespace wo
                 this_constant_value.set_struct_nogc(static_cast<uint16_t>(constant_struct_size));
 
                 // Clear all field.
-                memset(this_constant_value.m_structure->m_values, 0, sizeof(wo::value) * constant_struct_size);
+                memset(
+                    this_constant_value.m_structure->m_values,
+                    0,
+                    sizeof(wo::value) * static_cast<size_t>(constant_struct_size));
 
                 for (uint16_t idx = 0; idx < constant_struct_size; ++idx)
                 {
@@ -1368,12 +1371,12 @@ namespace wo
 
         auto restore_string_from_buffer =
             [&string_pool_buffer](const string_buffer_index& string_index, std::string* out_str)->bool
-        {
-            if (string_index.index + string_index.size > string_pool_buffer.size())
-                return false;
-            *out_str = std::string(string_pool_buffer.data() + string_index.index, string_index.size);
-            return true;
-        };
+            {
+                if (string_index.index + string_index.size > string_pool_buffer.size())
+                    return false;
+                *out_str = std::string(string_pool_buffer.data() + string_index.index, string_index.size);
+                return true;
+            };
 
         std::string constant_string;
         std::map<string_buffer_index, wo::string_t*> created_string_instances;
@@ -2432,25 +2435,30 @@ namespace wo
                     generated_runtime_code_buf.push_back(readptr[1]);
                     break;
                 }
-                case instruct::opcode::jmp:
+                case instruct::opcode::setip:
+                {
+                    auto* target_label = dynamic_cast<const opnum::tag*>(WO_IR.op1);
+                    wo_assert(target_label != nullptr, "Operator num should be a tag.");
+
+                    const bool jump_back =
+                        tag_offset_vector_table.end() != tag_offset_vector_table.find(target_label->name);
+
                     switch (WO_IR.opinteger1)
                     {
                     case 0:
-                        generated_runtime_code_buf.push_back(instruct::jmp);
+                        generated_runtime_code_buf.push_back(jump_back ? instruct::jmpgc : instruct::jmp);
                         break;
                     case 1:
-                        generated_runtime_code_buf.push_back(instruct::jmpf);
+                        generated_runtime_code_buf.push_back(jump_back ? instruct::jmpgcf : instruct::jmpf);
                         break;
                     case 2:
-                        generated_runtime_code_buf.push_back(instruct::jmpt);
+                        generated_runtime_code_buf.push_back(jump_back ? instruct::jmpgct : instruct::jmpt);
                         break;
                     default:
                         wo_error("Unknown jmp kind.");
                     }
 
-                    wo_assert(dynamic_cast<const opnum::tag*>(WO_IR.op1) != nullptr, "Operator num should be a tag.");
-
-                    jmp_record_table[dynamic_cast<const opnum::tag*>(WO_IR.op1)->name]
+                    jmp_record_table[target_label->name]
                         .push_back(generated_runtime_code_buf.size());
 
                     generated_runtime_code_buf.push_back(0x00);
@@ -2458,7 +2466,7 @@ namespace wo
                     generated_runtime_code_buf.push_back(0x00);
                     generated_runtime_code_buf.push_back(0x00);
                     break;
-
+                }
                 case instruct::opcode::call:
                     generated_runtime_code_buf.push_back(WO_OPCODE(call));
                     WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
@@ -2516,13 +2524,17 @@ namespace wo
                     break;
                 case instruct::opcode::jnequb:
                 {
-                    wo_assert(dynamic_cast<const opnum::tag*>(WO_IR.op2) != nullptr, "Operator num should be a tag.");
+                    auto* target_label = dynamic_cast<const opnum::tag*>(WO_IR.op2);
+                    wo_assert(target_label != nullptr, "Operator num should be a tag.");
 
-                    generated_runtime_code_buf.push_back(WO_OPCODE(jnequb));
+                    const bool jump_back =
+                        tag_offset_vector_table.end() != tag_offset_vector_table.find(target_label->name);
+
+                    generated_runtime_code_buf.push_back(WO_OPCODE(jnequb) | (jump_back ? 1 : 0));
                     WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
 
                     // Write jmp
-                    jmp_record_table[dynamic_cast<const opnum::tag*>(WO_IR.op2)->name]
+                    jmp_record_table[target_label->name]
                         .push_back(generated_runtime_code_buf.size());
                     generated_runtime_code_buf.push_back(0x00);
                     generated_runtime_code_buf.push_back(0x00);

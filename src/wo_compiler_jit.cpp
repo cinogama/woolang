@@ -135,6 +135,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(egtr);\
 WO_ASMJIT_IR_ITERFACE_DECL(call);\
 WO_ASMJIT_IR_ITERFACE_DECL(calln);\
 WO_ASMJIT_IR_ITERFACE_DECL(setip);\
+WO_ASMJIT_IR_ITERFACE_DECL(setipgc);\
 WO_ASMJIT_IR_ITERFACE_DECL(mkunion);\
 WO_ASMJIT_IR_ITERFACE_DECL(movcast);\
 WO_ASMJIT_IR_ITERFACE_DECL(mkclos);\
@@ -2455,39 +2456,56 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             switch (dr)
             {
             case 0b00:
-                if (jmp_place < (uint32_t)(rt_ip - ctx->env->rt_codes))
-                    ir_make_checkpoint_fastcheck(ctx, check_point_ipaddr);
-
                 wo_assure(!ctx->c.jmp(jump_ip(&ctx->c, jmp_place)));
                 break;
             case 0b10:
                 wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_value_field)), 0));
-                if (jmp_place < (uint32_t)(rt_ip - ctx->env->rt_codes))
-                {
-                    auto label_cond_not_match = ctx->c.newLabel();
-
-                    wo_assure(!ctx->c.jne(label_cond_not_match));
-                    ir_make_checkpoint_fastcheck(ctx, check_point_ipaddr);
-                    wo_assure(!ctx->c.jmp(jump_ip(&ctx->c, jmp_place)));
-                    wo_assure(!ctx->c.bind(label_cond_not_match));
-                }
-                else
-                    wo_assure(!ctx->c.je(jump_ip(&ctx->c, jmp_place)));
+                wo_assure(!ctx->c.je(jump_ip(&ctx->c, jmp_place)));
                 break;
             case 0b11:
                 wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_value_field)), 0));
-                if (jmp_place < (uint32_t)(rt_ip - ctx->env->rt_codes))
-                {
-                    auto label_cond_not_match = ctx->c.newLabel();
-
-                    wo_assure(!ctx->c.je(label_cond_not_match));
-                    ir_make_checkpoint_fastcheck(ctx, check_point_ipaddr);
-                    wo_assure(!ctx->c.jmp(jump_ip(&ctx->c, jmp_place)));
-                    wo_assure(!ctx->c.bind(label_cond_not_match));
-                }
-                else
-                    wo_assure(!ctx->c.jne(jump_ip(&ctx->c, jmp_place)));
+                wo_assure(!ctx->c.jne(jump_ip(&ctx->c, jmp_place)));
                 break;
+            default:
+                wo_error("Unknown jmp kind.");
+            }
+
+            return true;
+        }
+        virtual bool ir_setipgc(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
+        {
+            auto check_point_ipaddr = rt_ip - 1;
+            uint32_t jmp_place = WO_IPVAL_MOVE_4;
+
+            switch (dr)
+            {
+            case 0b00:
+                ir_make_checkpoint_fastcheck(ctx, check_point_ipaddr);
+                wo_assure(!ctx->c.jmp(jump_ip(&ctx->c, jmp_place)));
+                break;
+            case 0b10:
+            {
+                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_value_field)), 0));
+                auto label_cond_not_match = ctx->c.newLabel();
+
+                wo_assure(!ctx->c.jne(label_cond_not_match));
+                ir_make_checkpoint_fastcheck(ctx, check_point_ipaddr);
+                wo_assure(!ctx->c.jmp(jump_ip(&ctx->c, jmp_place)));
+                wo_assure(!ctx->c.bind(label_cond_not_match));
+                break;
+            }
+            case 0b11:
+            {
+                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_value_field)), 0));
+                auto label_cond_not_match = ctx->c.newLabel();
+
+                wo_assure(!ctx->c.je(label_cond_not_match));
+                ir_make_checkpoint_fastcheck(ctx, check_point_ipaddr);
+                wo_assure(!ctx->c.jmp(jump_ip(&ctx->c, jmp_place)));
+                wo_assure(!ctx->c.bind(label_cond_not_match));
+
+                break;
+            }
             default:
                 wo_error("Unknown jmp kind.");
             }
@@ -2983,7 +3001,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                 wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer)), bvalue));
             }
 
-            if (jmp_place < (uint32_t)(rt_ip - ctx->env->rt_codes))
+            if (dr & 0b01)
             {
                 auto label_cond_not_match = ctx->c.newLabel();
 
@@ -3247,5 +3265,5 @@ namespace wo
     void free_jit(runtime_env* min_env)
     {
     }
-        }
+}
 #endif

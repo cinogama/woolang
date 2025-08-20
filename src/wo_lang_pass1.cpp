@@ -1591,7 +1591,7 @@ namespace wo
     }
     WO_PASS_PROCESSER(AstValueFunction)
     {
-        auto judge_function_return_type =
+        auto decided_function_return_type =
             [&](lang_TypeInstance* ret_type)
             {
                 std::list<lang_TypeInstance*> parameters;
@@ -1671,7 +1671,7 @@ namespace wo
                 if (node->m_marked_return_type)
                 {
                     auto* return_type_instance = node->m_marked_return_type.value()->m_LANG_determined_type.value();
-                    judge_function_return_type(return_type_instance);
+                    decided_function_return_type(return_type_instance);
                 }
 
                 if (node->m_where_constraints.has_value())
@@ -1695,13 +1695,35 @@ namespace wo
                 if (node->m_LANG_determined_template_arguments.has_value())
                     end_last_scope();
 
-                if (!node->m_LANG_determined_return_type)
-                    node->m_LANG_determined_return_type = m_origin_types.m_void.m_type_instance;
+                const bool is_not_extern_func_and_NOT_all_paths_return_explicitly =
+                    !node->m_IR_extern_information.has_value()
+                    && check_node_type_and_get_end_state(node->m_body) != ast::AstScope::LANG_end_state::END_WITH_RETURN;
+
+                if (node->m_LANG_determined_return_type.has_value() == false)
+                {
+                    // Donot have return sentence? mark function return type as void / nothing.
+                    if (is_not_extern_func_and_NOT_all_paths_return_explicitly)
+                        node->m_LANG_determined_return_type = m_origin_types.m_void.m_type_instance;
+                    else
+                        // Function have no `return`, but end with return check passed, it means function
+                        // end with dead loop, treat return type as nothing.
+                        node->m_LANG_determined_return_type = m_origin_types.m_nothing.m_type_instance;
+                }
+                else if (node->m_LANG_determined_return_type.value() != m_origin_types.m_void.m_type_instance)
+                {
+                    // Have return sentence, and function not return explicitly, error!
+                    if (is_not_extern_func_and_NOT_all_paths_return_explicitly)
+                    {
+                        lex.record_lang_error(lexer::msglevel_t::error, node,
+                            WO_ERR_FUNCTION_MAY_NO_RETURN_VALUE);
+
+                        return FAILED;
+                    }
+                }
 
                 if (node->m_marked_return_type)
                 {
-                    // Function type has been determined.
-
+                    // Function's return  type has been marked, we need to check if marked-return-type accept return-type.
                     auto* marked_return_type = node->m_marked_return_type.value();
 
                     auto* return_type_instance = marked_return_type->m_LANG_determined_type.value();
@@ -1722,12 +1744,13 @@ namespace wo
                 }
                 else
                 {
-                    judge_function_return_type(
+                    // Function's return type has not marked. We need decided it now.
+                    // * If marked, function type has been decided in `HOLD_FOR_RETURN_TYPE_EVAL` stage.
+                    decided_function_return_type(
                         node->m_LANG_determined_return_type.value());
                 }
 
                 node->m_LANG_captured_context.m_finished = true;
-
                 if (!node->m_LANG_captured_context.m_captured_variables.empty())
                 {
                     if (node->m_LANG_captured_context.m_self_referenced)
@@ -1757,19 +1780,6 @@ namespace wo
                     node->decide_final_constant_value(node);
                 }
 
-                if (!node->m_IR_extern_information.has_value()
-                    &&
-                    check_node_type_and_get_end_state(node->m_body)
-                    != ast::AstScope::LANG_end_state::END_WITH_RETURN
-                    &&
-                    immutable_type(node->m_LANG_determined_return_type.value())
-                    != m_origin_types.m_void.m_type_instance)
-                {
-                    lex.record_lang_error(lexer::msglevel_t::error, node,
-                        WO_ERR_FUNCTION_MAY_NO_RETURN_VALUE);
-
-                    return FAILED;
-                }
                 break;
             }
             default:
@@ -2330,7 +2340,7 @@ namespace wo
                     return FAILED;
                 }
 
-                index_raw_result = tuple_type->m_element_types[index];
+                index_raw_result = tuple_type->m_element_types[static_cast<size_t>(index)];
                 node->m_LANG_fast_index_for_struct = index;
 
                 if (node->m_container->m_evaled_const_value.has_value())

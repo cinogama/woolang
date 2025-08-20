@@ -1168,8 +1168,8 @@ extern func macro_entry(lexer: std::lexer)=> string
                 consume_forward();
 
                 m_source_path = new_shown_file_path;
-                _m_row_counter = new_row_counter - 1;
-                _m_col_counter = new_col_counter;
+                _m_row_counter = static_cast<size_t>(new_row_counter) - 1;
+                _m_col_counter = static_cast<size_t>(new_col_counter);
             }
             else
             {
