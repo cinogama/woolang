@@ -540,10 +540,12 @@ namespace wo
                 IR_HOLD_FOR_LAND_LOR_RIGHT,
             };
 
+            bool m_consider_overload;
+
             std::optional<AstValueFunctionCall*> m_LANG_overload_call;
             LANG_hold_state m_LANG_hold_state;
 
-            AstValueMayConsiderOperatorOverload(AstBase::node_type_t nodetype);
+            AstValueMayConsiderOperatorOverload(AstBase::node_type_t nodetype, bool consider_overload);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
         struct AstValueBinaryOperator : public AstValueMayConsiderOperatorOverload
@@ -569,7 +571,7 @@ namespace wo
             AstValueBase* m_left;
             AstValueBase* m_right;
 
-            AstValueBinaryOperator(operator_type op, AstValueBase* left, AstValueBase* right);
+            AstValueBinaryOperator(operator_type op, AstValueBase* left, AstValueBase* right, bool consider_overload);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
         };
         struct AstValueUnaryOperator : public AstValueBase

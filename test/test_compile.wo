@@ -2478,6 +2478,24 @@ func main()
             }
         }
         "@);
+        assure_compile_success(@"
+        func foo()
+        {
+            for (;;);
+        }
+        do foo as ()=> nothing;
+        "@);
+        assure_compile_success(@"
+        import woo::std;
+
+        namespace int
+        {
+            func operator + (a: int, b: int)
+            {
+                return a - b;
+            }
+        }
+        "@);
         // Do you forget to regenerate the grammar-cache?
         assure_compile_fail(@""@);
         assure_compile_fail(@"^"@);

@@ -968,31 +968,31 @@ namespace wo
             switch (operation.type)
             {
             case lex_type::l_add:
-                return new AstValueBinaryOperator(AstValueBinaryOperator::ADD, lvalue, rvalue);
+                return new AstValueBinaryOperator(AstValueBinaryOperator::ADD, lvalue, rvalue, true);
             case lex_type::l_sub:
-                return new AstValueBinaryOperator(AstValueBinaryOperator::SUBSTRACT, lvalue, rvalue);
+                return new AstValueBinaryOperator(AstValueBinaryOperator::SUBSTRACT, lvalue, rvalue, true);
             case lex_type::l_mul:
-                return new AstValueBinaryOperator(AstValueBinaryOperator::MULTIPLY, lvalue, rvalue);
+                return new AstValueBinaryOperator(AstValueBinaryOperator::MULTIPLY, lvalue, rvalue, true);
             case lex_type::l_div:
-                return new AstValueBinaryOperator(AstValueBinaryOperator::DIVIDE, lvalue, rvalue);
+                return new AstValueBinaryOperator(AstValueBinaryOperator::DIVIDE, lvalue, rvalue, true);
             case lex_type::l_mod:
-                return new AstValueBinaryOperator(AstValueBinaryOperator::MODULO, lvalue, rvalue);
+                return new AstValueBinaryOperator(AstValueBinaryOperator::MODULO, lvalue, rvalue, true);
             case lex_type::l_land:
-                return new AstValueBinaryOperator(AstValueBinaryOperator::LOGICAL_AND, lvalue, rvalue);
+                return new AstValueBinaryOperator(AstValueBinaryOperator::LOGICAL_AND, lvalue, rvalue, true);
             case lex_type::l_lor:
-                return new AstValueBinaryOperator(AstValueBinaryOperator::LOGICAL_OR, lvalue, rvalue);
+                return new AstValueBinaryOperator(AstValueBinaryOperator::LOGICAL_OR, lvalue, rvalue, true);
             case lex_type::l_equal:
-                return new AstValueBinaryOperator(AstValueBinaryOperator::EQUAL, lvalue, rvalue);
+                return new AstValueBinaryOperator(AstValueBinaryOperator::EQUAL, lvalue, rvalue, true);
             case lex_type::l_not_equal:
-                return new AstValueBinaryOperator(AstValueBinaryOperator::NOT_EQUAL, lvalue, rvalue);
+                return new AstValueBinaryOperator(AstValueBinaryOperator::NOT_EQUAL, lvalue, rvalue, true);
             case lex_type::l_less:
-                return new AstValueBinaryOperator(AstValueBinaryOperator::LESS, lvalue, rvalue);
+                return new AstValueBinaryOperator(AstValueBinaryOperator::LESS, lvalue, rvalue, true);
             case lex_type::l_less_or_equal:
-                return new AstValueBinaryOperator(AstValueBinaryOperator::LESS_EQUAL, lvalue, rvalue);
+                return new AstValueBinaryOperator(AstValueBinaryOperator::LESS_EQUAL, lvalue, rvalue, true);
             case lex_type::l_larg:
-                return new AstValueBinaryOperator(AstValueBinaryOperator::GREATER, lvalue, rvalue);
+                return new AstValueBinaryOperator(AstValueBinaryOperator::GREATER, lvalue, rvalue, true);
             case lex_type::l_larg_or_equal:
-                return new AstValueBinaryOperator(AstValueBinaryOperator::GREATER_EQUAL, lvalue, rvalue);
+                return new AstValueBinaryOperator(AstValueBinaryOperator::GREATER_EQUAL, lvalue, rvalue, true);
             default:
                 wo_error("Unknown binary operation.");
                 return token{ lex_type::l_error };
@@ -1110,9 +1110,9 @@ namespace wo
             format_string_end_literal->decide_final_constant_value(format_string_end->m_token.identifier);
 
             AstValueBinaryOperator* first_middle_add =
-                new AstValueBinaryOperator(AstValueBinaryOperator::ADD, format_string_begin_literal, middle_value);
+                new AstValueBinaryOperator(AstValueBinaryOperator::ADD, format_string_begin_literal, middle_value, false);
             AstValueBinaryOperator* first_middle_end_add =
-                new AstValueBinaryOperator(AstValueBinaryOperator::ADD, first_middle_add, format_string_end_literal);
+                new AstValueBinaryOperator(AstValueBinaryOperator::ADD, first_middle_add, format_string_end_literal, false);
 
             // Update source location
             format_string_begin_literal->source_location = format_string_begin->source_location;
@@ -1150,10 +1150,10 @@ namespace wo
             AstValueTypeCast* cast = new AstValueTypeCast(string_type, last_value);
 
             AstValueBinaryOperator* first_middle_add =
-                new AstValueBinaryOperator(AstValueBinaryOperator::ADD, first_string, middle_string);
+                new AstValueBinaryOperator(AstValueBinaryOperator::ADD, first_string, middle_string, false);
 
             AstValueBinaryOperator* first_middle_last_add =
-                new AstValueBinaryOperator(AstValueBinaryOperator::ADD, first_middle_add, cast);
+                new AstValueBinaryOperator(AstValueBinaryOperator::ADD, first_middle_add, cast, false);
 
             // Update source location
             string_identifier->source_location = first_string->source_location;

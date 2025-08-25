@@ -1347,8 +1347,10 @@ namespace wo
         }
         ////////////////////////////////////////////////////////
 
-        AstValueMayConsiderOperatorOverload::AstValueMayConsiderOperatorOverload(AstBase::node_type_t nodetype)
+        AstValueMayConsiderOperatorOverload::AstValueMayConsiderOperatorOverload(
+            AstBase::node_type_t nodetype, bool consider_overload)
             : AstValueBase(nodetype)
+            , m_consider_overload(consider_overload)
             , m_LANG_overload_call(std::nullopt)
             , m_LANG_hold_state(UNPROCESSED)
         {
@@ -1357,8 +1359,9 @@ namespace wo
         {
             AstValueMayConsiderOperatorOverload* new_instance = exist_instance
                 ? static_cast<AstValueMayConsiderOperatorOverload*>(exist_instance.value())
-                : new AstValueMayConsiderOperatorOverload(node_type)
+                : new AstValueMayConsiderOperatorOverload(node_type, m_consider_overload)
                 ;
+
             AstValueBase::make_dup(new_instance, out_continues);
             return new_instance;
         }
@@ -1366,8 +1369,8 @@ namespace wo
         ////////////////////////////////////////////////////////
 
         AstValueBinaryOperator::AstValueBinaryOperator(
-            operator_type op, AstValueBase* left, AstValueBase* right)
-            : AstValueMayConsiderOperatorOverload(AST_VALUE_BINARY_OPERATOR)
+            operator_type op, AstValueBase* left, AstValueBase* right, bool consider_overload)
+            : AstValueMayConsiderOperatorOverload(AST_VALUE_BINARY_OPERATOR, consider_overload)
             , m_operator(op)
             , m_left(left)
             , m_right(right)
@@ -1377,7 +1380,7 @@ namespace wo
         {
             AstValueBinaryOperator* new_instance = exist_instance
                 ? static_cast<AstValueBinaryOperator*>(exist_instance.value())
-                : new AstValueBinaryOperator(m_operator, m_left, m_right)
+                : new AstValueBinaryOperator(m_operator, m_left, m_right, m_consider_overload)
                 ;
             AstValueMayConsiderOperatorOverload::make_dup(new_instance, out_continues);
             out_continues.push_back(AstBase::make_holder(&new_instance->m_left));
@@ -1948,7 +1951,7 @@ namespace wo
             assign_type type,
             AstPatternBase* assign_place,
             AstValueBase* right)
-            : AstValueMayConsiderOperatorOverload(AST_VALUE_ASSIGN)
+            : AstValueMayConsiderOperatorOverload(AST_VALUE_ASSIGN, true)
             , m_valued_assign(valued_assign)
             , m_assign_type(type)
             , m_assign_place(assign_place)
@@ -2436,7 +2439,7 @@ namespace wo
                         one_literal->decide_final_constant_value(
                             static_cast<wo_integer_t>(1));
                         created_this_item_value = new AstValueBinaryOperator(
-                            AstValueBinaryOperator::operator_type::ADD, cast_last_enum_item_value_into_int, one_literal);
+                            AstValueBinaryOperator::operator_type::ADD, cast_last_enum_item_value_into_int, one_literal, false);
 
                         // Update source msg;
                         last_enum_identifier_instance->source_location = item->source_location;
