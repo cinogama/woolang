@@ -1716,6 +1716,9 @@ namespace wo
             return ast::AstScope::LANG_end_state::END_WITH_CONTINUE;
         case ast::AstBase::AST_RETURN:
             return ast::AstScope::LANG_end_state::END_WITH_RETURN;
+        case ast::AstBase::AST_LABELED:
+            return check_node_type_and_get_end_state(
+                static_cast<ast::AstLabeled*>(node)->m_body);
         case ast::AstBase::AST_SCOPE:
             return static_cast<ast::AstScope*>(node)->m_LANG_end_state;
         case ast::AstBase::AST_IF:
