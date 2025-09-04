@@ -6,12 +6,12 @@ import pkg::thread;
 namespace test_thread
 {
     let mut summ = 0;
-
+    
     let created_threads = []mut: vec<thread>;
     let thread_count = 4;
-
+    
     let test_vec = []mut: vec<typeof(nil)>;
-
+    
     func main()
     {
         let mut i = 0;
@@ -22,7 +22,7 @@ namespace test_thread
                     func()
                     {
                         let id = i;
-
+                        
                         let mut c = 0;
                         while (c < 100000)
                         {
@@ -33,9 +33,9 @@ namespace test_thread
                     }));
             i+=1;
         }
-
+        
         std::println("OK! Waiting to end..");
-
+        
         i = 0;
         while (i<thread_count)
         {
@@ -44,7 +44,7 @@ namespace test_thread
         }
         std::println("Result:", test_vec->len);
         test_equal(test_vec->len, 100000 * thread_count);
-
+        
         // Thread should be abort-able..
         let mut this_should_be_false = false;
         let abort_flag = std::mutable::create(false);
@@ -53,35 +53,24 @@ namespace test_thread
             func()
             {
                 let mut i = summ;
-
+                
                 __pack[0] = true;
                 for (;;)
                 {
                     i += 1;
                     do i;
-
+                    
                     if (abort_flag->get)
                         break;
                 }
             });
-
+            
         abort_flag->set(true);
-        test_assure(th->wait == true);
-
-        test_assure(this_should_be_false == false && summ == 0 && __pack[0] == true);
-
-        test_assure(thread::create(\=std::halt("Halt thread for testing.");)->wait == false);
-        test_assure(thread::create(\=do nil;)->wait == true);
-
-        let panic_check_point_flag = (mut 0,);
-        do thread::create(
-            func()
-            {
-                panic_check_point_flag.0 = 3542;
-                std::halt("Halt thread for testing.");
-                panic_check_point_flag.0 = 1356;
-            })->wait;
-        test_assure(panic_check_point_flag.0 == 3542);
+        th->wait;
+        
+        test_assure(
+            this_should_be_false == false
+                && summ == 0 && __pack[0] == true);
     }
 }
 

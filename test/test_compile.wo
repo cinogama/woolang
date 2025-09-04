@@ -2496,6 +2496,23 @@ func main()
             }
         }
         "@);
+        assure_compile_fail(@"
+        func foo()=> int
+        {
+            aa@
+            for(;;)
+                break aa;
+        }
+        "@);
+        assure_compile_success(@"
+        func foo()=> int
+        {
+            aa@
+            for(;;)
+                continue aa;
+        }
+        "@);
+
         // Do you forget to regenerate the grammar-cache?
         assure_compile_fail(@""@);
         assure_compile_fail(@"^"@);
