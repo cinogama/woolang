@@ -1359,8 +1359,8 @@ namespace wo
 
             switch (vm_exec_result)
             {
-            case wo_result_t::WO_API_RESYNC:
-                // NOTE: WO_API_RESYNC returned by `wo_func_addr`(and it's a extern function)
+            case wo_result_t::WO_API_RESYNC_JIT_STATE_TO_VM_STATE:
+                // NOTE: WO_API_RESYNC_JIT_STATE_TO_VM_STATE returned by `wo_func_addr`(and it's a extern function)
                 //  Only following cases happend:
                 //  1) Stack reallocated.
                 //  2) Aborted
@@ -1371,7 +1371,7 @@ namespace wo
                 [[fallthrough]];
             case wo_result_t::WO_API_NORMAL:
                 break;
-            case wo_result_t::WO_API_SYNC:
+            case wo_result_t::WO_API_SYNC_CHANGED_VM_STATE:
                 vm_exec_result = run();
                 break;
             default:
@@ -1444,8 +1444,8 @@ namespace wo
 
                     switch (vm_exec_result)
                     {
-                    case wo_result_t::WO_API_RESYNC:
-                        // NOTE: WO_API_RESYNC returned by `wo_func_addr`(and it's a extern function)
+                    case wo_result_t::WO_API_RESYNC_JIT_STATE_TO_VM_STATE:
+                        // NOTE: WO_API_RESYNC_JIT_STATE_TO_VM_STATE returned by `wo_func_addr`(and it's a extern function)
                         //  Only following cases happend:
                         //  1) Stack reallocated.
                         //  2) Aborted
@@ -1456,7 +1456,7 @@ namespace wo
                         [[fallthrough]];
                     case wo_result_t::WO_API_NORMAL:
                         break;
-                    case wo_result_t::WO_API_SYNC:
+                    case wo_result_t::WO_API_SYNC_CHANGED_VM_STATE:
                         vm_exec_result = run();
                         break;
                     default:
@@ -2482,7 +2482,7 @@ namespace wo
                             std::launder(reinterpret_cast<wo_vm>(this)),
                             std::launder(reinterpret_cast<wo_value>(sp + 2))))
                         {
-                        case wo_result_t::WO_API_RESYNC:
+                        case wo_result_t::WO_API_RESYNC_JIT_STATE_TO_VM_STATE:
                             WO_VM_INTERRUPT_CHECKPOINT;
                             /* FALLTHROUGH */
                             [[fallthrough]];
@@ -2497,7 +2497,7 @@ namespace wo
                             bp = stored_bp;
                             break;
                         }
-                        case wo_result_t::WO_API_SYNC:
+                        case wo_result_t::WO_API_SYNC_CHANGED_VM_STATE:
                             rt_ip = this->ip;
                             if (rt_ip < near_rtcode_begin || rt_ip >= near_rtcode_end)
                                 wo_assure(interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
@@ -2551,7 +2551,7 @@ namespace wo
                                 std::launder(reinterpret_cast<wo_vm>(this)),
                                 std::launder((reinterpret_cast<wo_value>(sp + 2)))))
                             {
-                            case wo_result_t::WO_API_RESYNC:
+                            case wo_result_t::WO_API_RESYNC_JIT_STATE_TO_VM_STATE:
                                 WO_VM_INTERRUPT_CHECKPOINT;
                                 /* FALLTHROUGH */
                                 [[fallthrough]];
@@ -2568,7 +2568,7 @@ namespace wo
                                 bp = stored_bp;
                                 break;
                             }
-                            case wo_result_t::WO_API_SYNC:
+                            case wo_result_t::WO_API_SYNC_CHANGED_VM_STATE:
                             {
                                 rt_ip = this->ip;
                                 if (rt_ip < near_rtcode_begin || rt_ip >= near_rtcode_end)
@@ -2651,7 +2651,7 @@ namespace wo
                         std::launder(reinterpret_cast<wo_vm>(this)),
                         std::launder(reinterpret_cast<wo_value>(sp + 2))))
                     {
-                    case wo_result_t::WO_API_RESYNC:
+                    case wo_result_t::WO_API_RESYNC_JIT_STATE_TO_VM_STATE:
                         WO_VM_INTERRUPT_CHECKPOINT;
                         /* FALLTHROUGH */
                         [[fallthrough]];
@@ -2666,7 +2666,7 @@ namespace wo
                         bp = stored_bp;
                         break;
                     }
-                    case wo_result_t::WO_API_SYNC:
+                    case wo_result_t::WO_API_SYNC_CHANGED_VM_STATE:
                         rt_ip = this->ip;
                         WO_VM_INTERRUPT_CHECKPOINT;
                         break;
@@ -2706,7 +2706,7 @@ namespace wo
 
                     switch (api)
                     {
-                    case wo_result_t::WO_API_RESYNC:
+                    case wo_result_t::WO_API_RESYNC_JIT_STATE_TO_VM_STATE:
                         WO_VM_INTERRUPT_CHECKPOINT;
                         /* FALLTHROUGH */
                         [[fallthrough]];
@@ -2721,7 +2721,7 @@ namespace wo
                         bp = stored_bp;
                         break;
                     }
-                    case wo_result_t::WO_API_SYNC:
+                    case wo_result_t::WO_API_SYNC_CHANGED_VM_STATE:
                         rt_ip = this->ip;
                         WO_VM_INTERRUPT_CHECKPOINT;
                         break;

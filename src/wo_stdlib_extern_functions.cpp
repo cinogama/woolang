@@ -35,10 +35,6 @@ WO_API wo_api rslib_std_panic(wo_vm vm, wo_value args)
 {
     return wo_ret_panic(vm, wo_string(args + 0));
 }
-WO_API wo_api rslib_std_halt(wo_vm vm, wo_value args)
-{
-    return wo_ret_halt(vm, wo_string(args + 0));
-}
 
 WO_API wo_api rslib_std_str_char_len(wo_vm vm, wo_value args)
 {
@@ -1754,8 +1750,6 @@ namespace unsafe
 }
 namespace std
 {
-    extern("rslib_std_halt")
-        public func halt(msg: string) => nothing;
     extern("rslib_std_panic")
         public func panic(msg: string)=> nothing;
     public using bad_t<Msg: string> = nothing;
@@ -2994,7 +2988,7 @@ WO_API wo_api rslib_std_debug_breakpoint(wo_vm vm, wo_value args)
     wo_break_specify_immediately(vm);
     (void)wo_ret_void(vm);
 
-    return WO_API_RESYNC;
+    return WO_API_RESYNC_JIT_STATE_TO_VM_STATE;
 }
 
 WO_API wo_api rslib_std_debug_invoke(wo_vm vm, wo_value args)
@@ -3486,7 +3480,6 @@ namespace wo
             {"rslib_std_get_env", (void*)&rslib_std_get_env},
             {"rslib_std_get_exe_path", (void*)&rslib_std_get_exe_path},
             {"rslib_std_get_extern_symb", (void*)&rslib_std_get_extern_symb},
-            {"rslib_std_halt", (void*)&rslib_std_halt},
             {"rslib_std_input_readint", (void*)&rslib_std_input_readint},
             {"rslib_std_input_readline", (void*)&rslib_std_input_readline},
             {"rslib_std_input_readreal", (void*)&rslib_std_input_readreal},

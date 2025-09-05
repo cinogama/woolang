@@ -528,7 +528,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                 vmm->sp = rt_sp;
                 vmm->bp = rt_bp;
 
-                return wo_result_t::WO_API_SYNC;
+                return wo_result_t::WO_API_SYNC_CHANGED_VM_STATE;
             }
             else if (interrupt_state & wo::vmbase::vm_interrupt_type::BR_YIELD_INTERRUPT)
             {
@@ -538,7 +538,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                 vmm->sp = rt_sp;
                 vmm->bp = rt_bp;
 
-                return wo_result_t::WO_API_SYNC; // return 
+                return wo_result_t::WO_API_SYNC_CHANGED_VM_STATE; // return 
             }
             else if (interrupt_state & wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT)
             {
@@ -565,14 +565,14 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                 vmm->ip = rt_ip;
                 vmm->sp = rt_sp;
                 vmm->bp = rt_bp;
-                return wo_result_t::WO_API_SYNC;
+                return wo_result_t::WO_API_SYNC_CHANGED_VM_STATE;
             }
             else if (interrupt_state & wo::vmbase::vm_interrupt_type::SHRINK_STACK_INTERRUPT)
             {
                 vmm->ip = rt_ip;
                 vmm->sp = rt_sp;
                 vmm->bp = rt_bp;
-                return wo_result_t::WO_API_SYNC;
+                return wo_result_t::WO_API_SYNC_CHANGED_VM_STATE;
             }
             // ATTENTION: it should be last interrupt..
             else if (interrupt_state & wo::vmbase::vm_interrupt_type::DEBUG_INTERRUPT)
@@ -580,7 +580,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                 vmm->ip = rt_ip;
                 vmm->sp = rt_sp;
                 vmm->bp = rt_bp;
-                return wo_result_t::WO_API_SYNC; // return 
+                return wo_result_t::WO_API_SYNC_CHANGED_VM_STATE; // return 
             }
             else
             {
@@ -600,9 +600,9 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             wo_assure(!x86compiler.cmp(result, asmjit::Imm(wo_result_t::WO_API_NORMAL)));
             wo_assure(!x86compiler.je(normal));
 #ifndef NDEBUG
-            // Assert for WO_API_RESYNC
+            // Assert for WO_API_RESYNC_JIT_STATE_TO_VM_STATE
             auto not_resync = x86compiler.newLabel();
-            wo_assure(!x86compiler.cmp(result, asmjit::Imm(wo_result_t::WO_API_RESYNC)));
+            wo_assure(!x86compiler.cmp(result, asmjit::Imm(wo_result_t::WO_API_RESYNC_JIT_STATE_TO_VM_STATE)));
             wo_assure(!x86compiler.jne(not_resync));
             wo_assure(!x86compiler.int3());
             wo_assure(!x86compiler.bind(not_resync));
@@ -625,7 +625,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             wo_assure(!x86compiler.je(normal));
 
             auto not_resync = x86compiler.newLabel();
-            wo_assure(!x86compiler.cmp(result, asmjit::Imm(wo_result_t::WO_API_RESYNC)));
+            wo_assure(!x86compiler.cmp(result, asmjit::Imm(wo_result_t::WO_API_RESYNC_JIT_STATE_TO_VM_STATE)));
             wo_assure(!x86compiler.jne(not_resync));
 
             /*
@@ -649,7 +649,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             wo_assure(!x86compiler.mov(asmjit::x86::qword_ptr(vm, offsetof(vmbase, ip)), vm_ip));
 
             wo_assure(!x86compiler.dec(asmjit::x86::byte_ptr(vm, offsetof(vmbase, extern_state_jit_call_depth))));
-            wo_assure(!x86compiler.mov(result, asmjit::Imm(wo_result_t::WO_API_SYNC)));
+            wo_assure(!x86compiler.mov(result, asmjit::Imm(wo_result_t::WO_API_SYNC_CHANGED_VM_STATE)));
 
             wo_assure(!x86compiler.bind(not_resync));
 
@@ -676,13 +676,13 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             wo_result_t func_call_result = call_aim_native_func(reinterpret_cast<wo_vm>(vm), reinterpret_cast<wo_value>(rt_sp + 2));
             wo_assure(wo_enter_gcguard(reinterpret_cast<wo_vm>(vm)));
 
-            if (func_call_result == WO_API_RESYNC)
+            if (func_call_result == WO_API_RESYNC_JIT_STATE_TO_VM_STATE)
             {
                 vm->sp = vm->sb - sp_offset;
                 vm->bp = vm->sb - bp_offset;
                 vm->ip = vm->env->rt_codes + retip;
 
-                return WO_API_SYNC;
+                return WO_API_SYNC_CHANGED_VM_STATE;
             }
             return func_call_result;
         }
@@ -703,13 +703,13 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 
             const wo_result_t func_call_result = call_aim_native_func(
                 reinterpret_cast<wo_vm>(vm), reinterpret_cast<wo_value>(rt_sp + 2));
-            if (func_call_result == WO_API_RESYNC)
+            if (func_call_result == WO_API_RESYNC_JIT_STATE_TO_VM_STATE)
             {
                 vm->sp = vm->sb - sp_offset;
                 vm->bp = vm->sb - bp_offset;
                 vm->ip = vm->env->rt_codes + retip;
 
-                return WO_API_SYNC;
+                return WO_API_SYNC_CHANGED_VM_STATE;
             }
             return func_call_result;
         }
@@ -730,13 +730,13 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 
             const wo_result_t func_call_result = call_aim_native_func(
                 reinterpret_cast<wo_vm>(vm), reinterpret_cast<wo_value>(rt_sp + 2));
-            if (func_call_result == WO_API_RESYNC)
+            if (func_call_result == WO_API_RESYNC_JIT_STATE_TO_VM_STATE)
             {
                 vm->sp = vm->sb - sp_offset;
                 vm->bp = vm->sb - bp_offset;
                 vm->ip = retip;
 
-                return WO_API_SYNC;
+                return WO_API_SYNC_CHANGED_VM_STATE;
             }
             return func_call_result;
         }
@@ -777,13 +777,13 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                 [[fallthrough]];
             default:
                 // Try to invoke a script function address, it cannot be handled in jit,
-                // Give a WO_API_SYNC request and roll back to vm.
+                // Give a WO_API_SYNC_CHANGED_VM_STATE request and roll back to vm.
                 ;
             }
             vm->ip = rollback_ip;
             vm->sp = rt_sp;
             vm->bp = rt_bp;
-            return wo_result_t::WO_API_SYNC;
+            return wo_result_t::WO_API_SYNC_CHANGED_VM_STATE;
         }
         static void _vmjitcall_panic(
             vmbase* vm, wo::value* opnum1, const byte_t* rt_ip, value* rt_sp, value* rt_bp)
@@ -1119,7 +1119,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, bp)), ctx->_vmsbp));
             wo_assure(!ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmbase, offsetof(vmbase, extern_state_jit_call_depth)), asmjit::Imm(0)));
 
-            wo_assure(!ctx->c.mov(rollback_ip_addr, asmjit::Imm(wo_result_t::WO_API_SYNC)));
+            wo_assure(!ctx->c.mov(rollback_ip_addr, asmjit::Imm(wo_result_t::WO_API_SYNC_CHANGED_VM_STATE)));
             wo_assure(!ctx->c.ret(rollback_ip_addr));
 
             wo_assure(!ctx->c.bind(check_ok_label));
@@ -1329,7 +1329,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             invoke_node->setArg(5, ctx->_vmsbp);
 
             auto sync = ctx->c.newInt32();
-            wo_assure(!ctx->c.mov(sync, asmjit::Imm(wo_result_t::WO_API_SYNC)));
+            wo_assure(!ctx->c.mov(sync, asmjit::Imm(wo_result_t::WO_API_SYNC_CHANGED_VM_STATE)));
             wo_assure(!ctx->c.ret(sync));
         }
 
@@ -3053,7 +3053,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             invoke_node->setArg(4, ctx->_vmsbp);
 
             auto sync = ctx->c.newInt32();
-            wo_assure(!ctx->c.mov(sync, asmjit::Imm(wo_result_t::WO_API_SYNC)));
+            wo_assure(!ctx->c.mov(sync, asmjit::Imm(wo_result_t::WO_API_SYNC_CHANGED_VM_STATE)));
             wo_assure(!ctx->c.ret(sync));
             return true;
         }
