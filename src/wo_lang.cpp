@@ -1708,32 +1708,36 @@ namespace wo
     ////////////////////////
     ast::AstScope::LANG_end_state LangContext::check_node_type_and_get_end_state(ast::AstBase* node)
     {
-        switch (node->node_type)
+        ast::AstBase* current_node = node;
+        for (;;)
         {
-        case ast::AstBase::AST_BREAK:
-            return ast::AstScope::LANG_end_state::END_WITH_BREAK;
-        case ast::AstBase::AST_CONTINUE:
-            return ast::AstScope::LANG_end_state::END_WITH_CONTINUE;
-        case ast::AstBase::AST_RETURN:
-            return ast::AstScope::LANG_end_state::END_WITH_RETURN;
-        case ast::AstBase::AST_LABELED:
-            return check_node_type_and_get_end_state(
-                static_cast<ast::AstLabeled*>(node)->m_body);
-        case ast::AstBase::AST_SCOPE:
-            return static_cast<ast::AstScope*>(node)->m_LANG_end_state;
-        case ast::AstBase::AST_IF:
-            return static_cast<ast::AstIf*>(node)->m_LANG_end_state;
-        case ast::AstBase::AST_MATCH:
-            return static_cast<ast::AstMatch*>(node)->m_LANG_end_state;
-        case ast::AstBase::AST_WHILE:
-            return static_cast<ast::AstWhile*>(node)->m_LANG_end_state;
-        case ast::AstBase::AST_FOR:
-            return static_cast<ast::AstFor*>(node)->m_LANG_end_state;
-        // Foreach always end with NORMAL.
-        // case ast::AstBase::AST_FOREACH:
-        //     return static_cast<ast::AstForeach*>(node)->m_forloop_body->m_LANG_end_state;
-        default:
-            return ast::AstScope::LANG_end_state::NORMAL;
+            switch (current_node->node_type)
+            {
+            case ast::AstBase::AST_BREAK:
+                return ast::AstScope::LANG_end_state::END_WITH_BREAK;
+            case ast::AstBase::AST_CONTINUE:
+                return ast::AstScope::LANG_end_state::END_WITH_CONTINUE;
+            case ast::AstBase::AST_RETURN:
+                return ast::AstScope::LANG_end_state::END_WITH_RETURN;
+            case ast::AstBase::AST_LABELED:
+                current_node = static_cast<ast::AstLabeled*>(current_node)->m_body;
+                continue;
+            case ast::AstBase::AST_SCOPE:
+                return static_cast<ast::AstScope*>(current_node)->m_LANG_end_state;
+            case ast::AstBase::AST_IF:
+                return static_cast<ast::AstIf*>(current_node)->m_LANG_end_state;
+            case ast::AstBase::AST_MATCH:
+                return static_cast<ast::AstMatch*>(current_node)->m_LANG_end_state;
+            case ast::AstBase::AST_WHILE:
+                return static_cast<ast::AstWhile*>(current_node)->m_LANG_end_state;
+            case ast::AstBase::AST_FOR:
+                return static_cast<ast::AstFor*>(current_node)->m_LANG_end_state;
+                // Foreach always end with NORMAL.
+                // case ast::AstBase::AST_FOREACH:
+                //     return static_cast<ast::AstForeach*>(current_node)->m_forloop_body->m_LANG_end_state;
+            default:
+                return ast::AstScope::LANG_end_state::NORMAL;
+            }
         }
     }
     std::optional<lang_Scope*> LangContext::get_loop_scope_by_label_may_nullopt(
