@@ -103,6 +103,87 @@ namespace wo
     };
     int lexer::char_attribs_lookup_table[128] = {};
 
+    bool lexer::CachedIStream::CachedIStream::Location::operator < (const Location& rhs) const
+    {
+        if (m_page_index != rhs.m_page_index)
+            return m_page_index < rhs.m_page_index;
+        return m_offset_in_page < rhs.m_offset_in_page;
+    }
+    lexer::CachedIStream::CachedIStream(std::unique_ptr<std::istream>&& source_stream)
+        : m_stream(std::move(source_stream))
+        , m_page_counter(m_stream->tellg())
+        , m_cached_size(0)
+        , m_readed_size(0)
+        , m_eof_flag(false)
+    {
+    }
+
+    bool lexer::CachedIStream::fill()
+    {
+        if (m_readed_size < m_cached_size)
+            return true;
+
+        if (m_eof_flag)
+            return false;
+
+        if (m_stream->eof()
+            || m_stream->fail()
+            || m_stream->bad())
+        {
+            m_eof_flag = true;
+            return false;
+        }
+
+        // Fetch current page index.
+        m_page_counter = m_stream->tellg();
+
+        m_stream->read(m_cache_buffer, CACHE_PAGE_SIZE);
+        m_cached_size = static_cast<size_t>(m_stream->gcount());
+        m_readed_size = 0;
+
+        if (m_cached_size < CACHE_PAGE_SIZE)
+            m_eof_flag = true;
+
+        return m_cached_size > 0;
+    }
+
+    lexer::CachedIStream::Location lexer::CachedIStream::tellg()
+    {
+        Location loc;
+        loc.m_page_index = m_page_counter;
+        loc.m_offset_in_page = m_readed_size;
+
+        return loc;
+    }
+    void lexer::CachedIStream::seekg(const Location& loc)
+    {
+        if (m_page_counter != loc.m_page_index)
+        {
+            m_stream->clear(); // Clear eof and fail bits.
+            m_stream->seekg(loc.m_page_index);
+
+            m_cached_size = 0;
+            m_readed_size = 0;
+            m_eof_flag = false;
+
+            fill();
+        }
+        m_readed_size = loc.m_offset_in_page;
+    }
+
+    int lexer::CachedIStream::read_char()
+    {
+        if (!fill())
+            return EOF;
+        return static_cast<int>(m_cache_buffer[m_readed_size++]);
+    }
+    int lexer::CachedIStream::peek_char()
+    {
+        if (!fill())
+            return EOF;
+        return static_cast<int>(m_cache_buffer[m_readed_size]);
+    }
+
     macro::macro(lexer& lex)
         : _macro_action_vm(nullptr)
         , filename(lex.m_source_path.value())
@@ -127,7 +208,7 @@ namespace wo
         size_t scope_count = 1;
         if (lex.peek(true)->m_lex_type == lex_type::l_left_curly_braces)
         {
-            std::streampos macro_begin_place = lex.m_source_stream->tellg();
+            auto macro_begin_place = lex.m_source_stream->tellg();
 
             lex.consume_forward();
 
@@ -169,18 +250,17 @@ extern func macro_entry(lexer: std::lexer)=> string
                 lex.produce_lexer_error(lexer::msglevel_t::error, WO_ERR_UNEXCEPT_EOF);
             else
             {
-                std::streampos macro_end_place = lex.m_source_stream->tellg();
+                auto macro_end_place = lex.m_source_stream->tellg();
                 lex.m_source_stream->seekg(macro_begin_place);
 
                 std::vector<char> macro_content;
 
-                while (lex.m_source_stream->eof() == false
-                    && lex.m_source_stream
-                    && lex.m_source_stream->tellg() < macro_end_place)
+                while (lex.m_source_stream->tellg() < macro_end_place)
                 {
-                    char ch;
-                    lex.m_source_stream->read(&ch, 1);
-                    macro_content.push_back(ch);
+                    int ch = lex.m_source_stream->read_char();
+                    if (ch == EOF)
+                        break;
+                    macro_content.push_back(static_cast<char>(ch));
                 }
                 macro_content.push_back('\0');
 
@@ -327,7 +407,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                 for (char wch : _operator)
                     _result.insert(wch);
             return _result;
-        }();
+            }();
         return operator_char_set.find(ch) != operator_char_set.end();
     }
     bool lexer::_lex_isspace(int ch)
@@ -610,7 +690,9 @@ extern func macro_entry(lexer: std::lexer)=> string
     {
         if (source_stream)
         {
-            m_source_stream = std::move(source_stream.value());
+            m_source_stream =
+                std::make_unique<CachedIStream>(
+                    std::move(source_stream.value()));
         }
         else
         {
@@ -681,15 +763,7 @@ extern func macro_entry(lexer: std::lexer)=> string
     }
     int lexer::peek_char()
     {
-        uint8_t ch = static_cast<uint8_t>(m_source_stream->peek());
-
-        if (m_source_stream->eof() || !*m_source_stream)
-        {
-            m_source_stream->clear(
-                m_source_stream->rdstate() &
-                ~(std::ios_base::failbit | std::ios_base::eofbit));
-            return EOF;
-        }
+        int ch = m_source_stream->peek_char();
 
         if (ch == '\r')
             return '\n';
@@ -698,33 +772,24 @@ extern func macro_entry(lexer: std::lexer)=> string
     }
     int lexer::read_char()
     {
-        uint8_t ch = static_cast<uint8_t>(m_source_stream->get());
-        if (m_source_stream->eof() || !*m_source_stream)
+        int ch = m_source_stream->read_char();
+     
+        switch (ch)
         {
-            m_source_stream->clear(
-                m_source_stream->rdstate() &
-                ~(std::ios_base::failbit | std::ios_base::eofbit));
-            return EOF;
-        }
-
-        if (ch == '\r')
-        {
+        case '\r':
             if (peek_char() == '\n')
                 // Eat \r\n as \n
-                (void)m_source_stream->get();
-
-            ch = '\n';
-        }
-
-        if (ch == '\n')
-        {
+                (void)m_source_stream->read_char();
+            [[fallthrough]];
+        case '\n':
             _m_col_counter = 0;
             ++_m_row_counter;
-        }
-        else
-            ++_m_col_counter;
 
-        return static_cast<int>(ch);
+            return '\n';
+        default:
+            ++_m_col_counter;
+            return ch;
+        }
     }
 
     lexer::compiler_message_t& lexer::record_message(compiler_message_t&& message)
@@ -1182,7 +1247,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                     if (!ignore_comment)
                         append_result_char(peeked_char);
                 }
-                
+
                 if (ignore_comment)
                     goto label_comment_skipped_and_re_continue_here;
                 else

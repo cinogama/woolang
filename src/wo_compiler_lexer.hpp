@@ -225,15 +225,15 @@ namespace wo
         enum char_attribs
         {
             NONE = 0,
-            OPERATOR    = 1 << 0,
-            SPACE       = 1 << 1,
-            ALPHA       = 1 << 2,
+            OPERATOR = 1 << 0,
+            SPACE = 1 << 1,
+            ALPHA = 1 << 2,
             IDENT_BEGIN = 1 << 3,
-            IDENT       = 1 << 4,
-            ALNUM       = 1 << 5,
-            DIGIT       = 1 << 6,
-            XDIGIT      = 1 << 7,
-            ODIGIT      = 1 << 8,
+            IDENT = 1 << 4,
+            ALNUM = 1 << 5,
+            DIGIT = 1 << 6,
+            XDIGIT = 1 << 7,
+            ODIGIT = 1 << 8,
         };
         static int char_attribs_lookup_table[128];
 
@@ -288,9 +288,45 @@ namespace wo
             const char* register_temp_virtual_file(wo_string_t context);
         };
 
+        class CachedIStream
+        {
+            static constexpr size_t CACHE_PAGE_SIZE = 4096;
+
+            std::unique_ptr<std::istream> m_stream;
+            std::streampos m_page_counter;
+            size_t m_cached_size;
+            size_t m_readed_size;
+            bool m_eof_flag;
+
+            char m_cache_buffer[CACHE_PAGE_SIZE];
+        public:
+            struct Location
+            {
+                std::streampos m_page_index;
+                size_t m_offset_in_page;
+
+                bool operator < (const Location& rhs) const;
+            };
+            CachedIStream(std::unique_ptr<std::istream>&& source_stream);
+            ~CachedIStream() = default;
+
+            CachedIStream(const CachedIStream&) = delete;
+            CachedIStream(CachedIStream&&) = delete;
+            CachedIStream& operator = (const CachedIStream&) = delete;
+            CachedIStream& operator = (CachedIStream&&) = delete;
+
+            bool fill();
+
+            Location tellg();
+            void seekg(const Location& loc);
+
+            int read_char();
+            int peek_char();
+        };
+
         std::optional<lexer*> m_who_import_me;
         std::optional<wo_pstring_t> m_source_path;
-        std::unique_ptr<std::istream> m_source_stream;
+        std::unique_ptr<CachedIStream> m_source_stream;
         std::shared_ptr<SharedContext> m_shared_context;
 
         std::list<ast::AstBase*> m_imported_ast_tree_list;
@@ -340,14 +376,14 @@ namespace wo
         {
             bool failed_flag = false;
             int count = snprintf(nullptr, 0, format, format_args...);
-            
+
             if (count < 0)
                 failed_flag = true;
 
             std::vector<char> describe(failed_flag ? 0 : count + 1);
             if (snprintf(describe.data(), describe.size(), format, format_args...) < 0)
                 failed_flag = true;
-           
+
             (void)record_message(
                 compiler_message_t
                 {

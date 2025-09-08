@@ -5,24 +5,24 @@
 namespace wo
 {
 #ifndef WO_DISABLE_COMPILER
-    std::set<grammar::te> &grammar::FIRST(const sym &_sym)
+    std::set<grammar::te>& grammar::FIRST(const sym& _sym)
     {
         if (std::holds_alternative<te>(_sym)) //_sym is te
         {
             if (FIRST_SET.find(_sym) == FIRST_SET.end())
             {
                 // first time for getting te, record it
-                FIRST_SET[_sym] = {std::get<te>(_sym)};
+                FIRST_SET[_sym] = { std::get<te>(_sym) };
             }
             return FIRST_SET[_sym];
         }
         return FIRST_SET[_sym];
     }
-    std::set<grammar::te> &grammar::FOLLOW(const nt &noterim)
+    std::set<grammar::te>& grammar::FOLLOW(const nt& noterim)
     {
         return FOLLOW_SET[noterim];
     }
-    const std::set<grammar::te> &grammar::FOLLOW_READ(const nt &noterim) const
+    const std::set<grammar::te>& grammar::FOLLOW_READ(const nt& noterim) const
     {
         static std::set<te> empty_set;
 
@@ -30,9 +30,9 @@ namespace wo
             return empty_set;
         return FOLLOW_SET.at(noterim);
     }
-    const std::set<grammar::te> &grammar::FOLLOW_READ(te_nt_index_t ntidx) const
+    const std::set<grammar::te>& grammar::FOLLOW_READ(te_nt_index_t ntidx) const
     {
-        for (auto &[ntname, idx] : NONTERM_MAP)
+        for (auto& [ntname, idx] : NONTERM_MAP)
         {
             if (idx == ntidx)
                 return FOLLOW_READ(nt(ntname));
@@ -41,7 +41,7 @@ namespace wo
         abort();
     }
 
-    std::set<grammar::lr_item> &grammar::CLOSURE(const std::set<lr_item> &i)
+    std::set<grammar::lr_item>& grammar::CLOSURE(const std::set<lr_item>& i)
     {
         auto find_result = CLOSURE_SET.find(i);
         if (find_result != CLOSURE_SET.end())
@@ -56,17 +56,17 @@ namespace wo
             last_size = j_size;
 
             std::set<lr_item> add_ietm;
-            for (auto &item : j)
+            for (auto& item : j)
             {
                 if (item.next_sign < item.item_rule.second.size())
                 {
                     if (std::holds_alternative<nt>(item.item_rule.second[item.next_sign]))
                     {
                         // only for non-te
-                        auto &ntv = std::get<nt>(item.item_rule.second[item.next_sign]);
-                        auto &prules = P[ntv];
+                        auto& ntv = std::get<nt>(item.item_rule.second[item.next_sign]);
+                        auto& prules = P[ntv];
 
-                        for (auto &prule : prules)
+                        for (auto& prule : prules)
                         {
                             auto current_next_sign = item.next_sign;
                             bool has_e_prod = false;
@@ -76,22 +76,22 @@ namespace wo
                                 ++current_next_sign;
                                 if (current_next_sign < item.item_rule.second.size())
                                 {
-                                    auto &beta_set = FIRST(item.item_rule.second[current_next_sign]);
-                                    auto &beta_follow = FOLLOW_READ(ntv);
+                                    auto& beta_set = FIRST(item.item_rule.second[current_next_sign]);
+                                    auto& beta_follow = FOLLOW_READ(ntv);
 
-                                    for (auto &beta : beta_set)
+                                    for (auto& beta : beta_set)
                                     {
                                         if (beta.t_type == ttype::l_empty)
                                             has_e_prod = true;
                                         else
                                         {
                                             wo_assert(beta_follow.find(beta) != beta_follow.end());
-                                            add_ietm.insert(lr_item{rule{ntv, prule}, 0, beta});
+                                            add_ietm.insert(lr_item{ rule{ntv, prule}, 0, beta });
                                         }
                                     }
                                 }
                                 else
-                                    add_ietm.insert(lr_item{rule{ntv, prule}, 0, item.prospect});
+                                    add_ietm.insert(lr_item{ rule{ntv, prule}, 0, item.prospect });
                             } while (has_e_prod);
                         }
                     }
@@ -104,15 +104,15 @@ namespace wo
 
         return CLOSURE_SET[i] = j;
     }
-    std::set<grammar::lr_item> &grammar::GOTO(const std::set<lr_item> &i, const sym &X)
+    std::set<grammar::lr_item>& grammar::GOTO(const std::set<lr_item>& i, const sym& X)
     {
         std::set<lr_item> j;
-        for (auto &item : i)
+        for (auto& item : i)
         {
             if (item.next_sign < item.item_rule.second.size() &&
                 item.item_rule.second[item.next_sign] == X)
             {
-                j.insert(lr_item{item.item_rule, item.next_sign + 1, item.prospect});
+                j.insert(lr_item{ item.item_rule, item.next_sign + 1, item.prospect });
             }
         }
 
@@ -134,14 +134,14 @@ namespace wo
         return false;
     }
 
-    void grammar::LR1_TABLE_READ(size_t a, te_nt_index_t b, no_prospect_action *write_act) const noexcept
+    void grammar::LR1_TABLE_READ(size_t a, te_nt_index_t b, no_prospect_action* write_act) const noexcept
     {
 #if WOOLANG_LR1_OPTIMIZE_LR1_TABLE
         if (lr1_fast_cache_enabled())
         {
             // Cache the goto/rs map state for this state
             const auto* const lr1_goto_rs_map_state = LR1_GOTO_RS_MAP[a];
-            
+
             // Handle terminal symbols (b >= 0)
             if (b >= 0)
             {
@@ -165,7 +165,7 @@ namespace wo
                 // Calculate cache index once
                 const size_t cache_index = static_cast<size_t>(rs_index) * LR1_R_S_CACHE_SZ + static_cast<size_t>(b);
                 const int state = LR1_R_S_CACHE[cache_index];
-                
+
                 if (state == 0)
                 {
                     // No action for this state & terminal
@@ -202,7 +202,7 @@ namespace wo
                 // Calculate cache index once
                 const size_t cache_index = static_cast<size_t>(goto_index) * LR1_GOTO_CACHE_SZ + static_cast<size_t>(-b);
                 const int state = LR1_GOTO_CACHE[cache_index];
-                
+
                 if (state == -1)
                 {
                     // No goto action for this state & non-terminal
@@ -218,7 +218,7 @@ namespace wo
         }
 #endif
         // Fallback to regular table lookup
-        const auto &lr1_item = RT_LR1_TABLE.at(a).at(b);
+        const auto& lr1_item = RT_LR1_TABLE.at(a).at(b);
         write_act->act = lr1_item.act;
         write_act->state = lr1_item.state;
     }
@@ -227,17 +227,17 @@ namespace wo
     {
         // DONOTHING FOR READING FROM AUTO GENN
     }
-    grammar::grammar(const std::vector<rule> &p)
+    grammar::grammar(const std::vector<rule>& p)
     {
         ORGIN_P = p;
         if (p.size())
         {
             S = p[0].first;
-            for (auto &pl : p)
+            for (auto& pl : p)
             {
                 P[pl.first].emplace_back(pl.second);
 
-                for (auto &symb : pl.second)
+                for (auto& symb : pl.second)
                 {
                     if (std::holds_alternative<te>(symb))
                         P_TERMINAL_SET.insert(std::get<te>(symb));
@@ -250,31 +250,31 @@ namespace wo
         // FIRST SET
 
         auto CALC_FIRST_SET_COUNT = [this]
-        {
-            size_t SUM = 0;
-            for (auto &fpair : FIRST_SET)
             {
-                SUM += fpair.second.size();
-            }
-            return SUM;
-        };
+                size_t SUM = 0;
+                for (auto& fpair : FIRST_SET)
+                {
+                    SUM += fpair.second.size();
+                }
+                return SUM;
+            };
         size_t LAST_FIRST_SIZE = 0;
         size_t FIRST_SIZE = 0;
         do
         {
             LAST_FIRST_SIZE = FIRST_SIZE;
 
-            for (auto &single_rule : p)
+            for (auto& single_rule : p)
             {
 
                 for (size_t pindex = 0; pindex < single_rule.second.size(); pindex++)
                 {
-                    auto &cFIRST = FIRST(single_rule.second[pindex]);
+                    auto& cFIRST = FIRST(single_rule.second[pindex]);
                     /*FIRST[single_rule.first].insert(cFIRST.begin(), cFIRST.end());*/ // HAS E-PRODUCER DONOT ADD IT TO SETS
 
                     bool e_prd = false;
 
-                    for (auto &sy : cFIRST)
+                    for (auto& sy : cFIRST)
                     {
                         if (sy.t_type != ttype::l_empty)
                             FIRST_SET[single_rule.first].insert(sy); // NON-E-PRODUCER, ADD IT
@@ -301,14 +301,14 @@ namespace wo
         // GET FOLLOW-SET
         FOLLOW_SET[S].insert(te(ttype::l_eof)); // ADD EOF TO FINAL-AIM
         auto CALC_FOLLOW_SET_COUNT = [this]
-        {
-            size_t SUM = 0;
-            for (auto &fpair : FOLLOW_SET)
             {
-                SUM += fpair.second.size();
-            }
-            return SUM;
-        };
+                size_t SUM = 0;
+                for (auto& fpair : FOLLOW_SET)
+                {
+                    SUM += fpair.second.size();
+                }
+                return SUM;
+            };
         size_t LAST_FOLLOW_SIZE = 0;
         size_t FOLLOW_SIZE = 0;
 
@@ -316,7 +316,7 @@ namespace wo
         {
             LAST_FOLLOW_SIZE = FOLLOW_SIZE;
 
-            for (auto &single_rule : p)
+            for (auto& single_rule : p)
             {
                 for (size_t pindex = 0; pindex < single_rule.second.size(); pindex++)
                 {
@@ -326,16 +326,16 @@ namespace wo
 
                         if (pindex == single_rule.second.size() - 1)
                         {
-                            auto &follow_set = FOLLOW_SET[single_rule.first];
+                            auto& follow_set = FOLLOW_SET[single_rule.first];
                             FOLLOW_SET[single_rule.second[pindex]].insert(follow_set.begin(), follow_set.end());
                         }
                         else
                         {
                             // NON-TE CAN HAVE FOLLOW SET
-                            auto &first_set = FIRST(single_rule.second[pindex + 1]);
+                            auto& first_set = FIRST(single_rule.second[pindex + 1]);
 
                             bool have_e_prud = false;
-                            for (auto &token_in_first : first_set)
+                            for (auto& token_in_first : first_set)
                             {
                                 if (token_in_first.t_type != ttype::l_empty)
                                     FOLLOW_SET[single_rule.second[pindex]].insert(token_in_first);
@@ -346,12 +346,12 @@ namespace wo
                             {
                                 if (pindex == single_rule.second.size() - 2)
                                 {
-                                    auto &follow_set = FOLLOW_SET[single_rule.first];
+                                    auto& follow_set = FOLLOW_SET[single_rule.first];
                                     FOLLOW_SET[single_rule.second[pindex]].insert(follow_set.begin(), follow_set.end());
                                 }
                                 else
                                 {
-                                    auto &next_symb_follow_set = FIRST(single_rule.second[pindex + 2]);
+                                    auto& next_symb_follow_set = FIRST(single_rule.second[pindex + 2]);
                                     FOLLOW_SET[single_rule.second[pindex]].insert(next_symb_follow_set.begin(), next_symb_follow_set.end());
                                 }
                             }
@@ -366,26 +366,26 @@ namespace wo
 
         // LR0
         // 1. BUILD LR-ITEM-COLLECTION
-        auto LR_ITEM_SET_EQULE = [](const std::set<lr_item> &A, const std::set<lr_item> &B)
-        {
-            if (A.size() == B.size())
+        auto LR_ITEM_SET_EQULE = [](const std::set<lr_item>& A, const std::set<lr_item>& B)
             {
-                for (auto aim_ind = A.begin(), iset_ind = B.begin();
-                     aim_ind != A.end();
-                     aim_ind++, iset_ind++)
+                if (A.size() == B.size())
                 {
-                    if ((*aim_ind) != (*iset_ind))
+                    for (auto aim_ind = A.begin(), iset_ind = B.begin();
+                        aim_ind != A.end();
+                        aim_ind++, iset_ind++)
                     {
-                        return false;
+                        if ((*aim_ind) != (*iset_ind))
+                        {
+                            return false;
+                        }
                     }
+
+                    return true;
                 }
+                return false;
+            };
 
-                return true;
-            }
-            return false;
-        };
-
-        std::vector<std::set<lr_item>> C = {CLOSURE({lr_item{p[0], 0, {ttype::l_eof}}})};
+        std::vector<std::set<lr_item>> C = { CLOSURE({lr_item{p[0], 0, {ttype::l_eof}}}) };
         size_t LAST_C_SIZE = C.size();
         do
         {
@@ -393,7 +393,7 @@ namespace wo
 
             for (size_t C_INDEX = 0; C_INDEX < C.size(); C_INDEX++)
             {
-                auto &I = C[C_INDEX];
+                auto& I = C[C_INDEX];
                 std::vector<std::set<lr_item>> NewAddToC;
                 std::set<sym> NEXT_SYM;
                 for (auto item : I)
@@ -403,12 +403,12 @@ namespace wo
                         NEXT_SYM.insert(item.item_rule.second[item.next_sign]);
                     }
                 }
-                for (auto &X : NEXT_SYM)
+                for (auto& X : NEXT_SYM)
                 {
-                    auto &iset = GOTO(I, X);
+                    auto& iset = GOTO(I, X);
 
-                    if (iset.size() && std::find_if(C.begin(), C.end(), [&](std::set<lr_item> &aim)
-                                                    { return LR_ITEM_SET_EQULE(aim, iset); }) == C.end())
+                    if (iset.size() && std::find_if(C.begin(), C.end(), [&](std::set<lr_item>& aim)
+                        { return LR_ITEM_SET_EQULE(aim, iset); }) == C.end())
                     {
                         NewAddToC.push_back(iset);
                     }
@@ -477,12 +477,12 @@ namespace wo
 #endif
 
         // 3. BUILD LR1
-        lr1table_t &lr1_table = LR1_TABLE;
+        lr1table_t& lr1_table = LR1_TABLE;
         for (size_t statei = 0; statei < C.size(); statei++)
         {
             std::set<sym> next_set;
 
-            for (auto &CSTATE_I : C[statei]) // STATEi
+            for (auto& CSTATE_I : C[statei]) // STATEi
             {
                 if (CSTATE_I.next_sign >= CSTATE_I.item_rule.second.size())
                 {
@@ -490,16 +490,16 @@ namespace wo
                     if (CSTATE_I.item_rule.first == p[0].first)
                     {
                         // DONE~
-                        lr1_table[statei][te(ttype::l_eof)].insert(action{action::act_type::accept, CSTATE_I.prospect});
+                        lr1_table[statei][te(ttype::l_eof)].insert(action{ action::act_type::accept, CSTATE_I.prospect });
                     }
                     else
                     {
                         // REDUCE
                         size_t orgin_index = (size_t)(std::find(ORGIN_P.begin(), ORGIN_P.end(), CSTATE_I.item_rule) - ORGIN_P.begin());
-                        for (auto &p_te : P_TERMINAL_SET)
+                        for (auto& p_te : P_TERMINAL_SET)
                         {
                             if (p_te == CSTATE_I.prospect)
-                                lr1_table[statei][p_te].insert(action{action::act_type::reduction, CSTATE_I.prospect, orgin_index});
+                                lr1_table[statei][p_te].insert(action{ action::act_type::reduction, CSTATE_I.prospect, orgin_index });
                         }
                     }
                 }
@@ -507,19 +507,19 @@ namespace wo
                     next_set.insert(CSTATE_I.item_rule.second[CSTATE_I.next_sign]); // GOTO/STACK
             }
 
-            for (auto &next_symb : next_set)
+            for (auto& next_symb : next_set)
             {
-                auto &next_state = GOTO(C[statei], next_symb);
+                auto& next_state = GOTO(C[statei], next_symb);
                 if (std::holds_alternative<nt>(next_symb))
                 {
                     // GOTO SET
                     for (size_t j = 0; j < C.size(); j++)
                     {
-                        auto &IJ = C[j];
+                        auto& IJ = C[j];
                         if (LR_ITEM_SET_EQULE(IJ, next_state))
                         {
                             // for (auto secprod : prod_pair.second)
-                            lr1_table[statei][next_symb].insert(action{action::act_type::state_goto, te(ttype::l_empty), j});
+                            lr1_table[statei][next_symb].insert(action{ action::act_type::state_goto, te(ttype::l_empty), j });
                         }
                     }
                 }
@@ -528,11 +528,11 @@ namespace wo
                     // STACK SET
                     for (size_t j = 0; j < C.size(); j++)
                     {
-                        auto &IJ = C[j];
+                        auto& IJ = C[j];
                         if (LR_ITEM_SET_EQULE(IJ, next_state))
                         {
                             // for (auto secprod : prod_pair.second)
-                            lr1_table[statei][next_symb].insert(action{action::act_type::push_stack, te(ttype::l_empty), j});
+                            lr1_table[statei][next_symb].insert(action{ action::act_type::push_stack, te(ttype::l_empty), j });
                         }
                     }
                 }
@@ -540,18 +540,18 @@ namespace wo
         }
     }
 
-    bool grammar::check_lr1(std::ostream &ostrm)
+    bool grammar::check_lr1(std::ostream& ostrm)
     {
         bool result = false;
         for (size_t i = 0; i < ORGIN_P.size(); i++)
         {
-            ostrm << i << "\t" << lr_item{ORGIN_P[i], size_t(-1), te(ttype::l_eof)} << std::endl;
+            ostrm << i << "\t" << lr_item{ ORGIN_P[i], size_t(-1), te(ttype::l_eof) } << std::endl;
             ;
         }
 
-        for (auto &LR1 : LR1_TABLE)
+        for (auto& LR1 : LR1_TABLE)
         {
-            for (auto &LR : LR1.second)
+            for (auto& LR : LR1.second)
             {
                 if (LR.second.size() >= 2)
                 {
@@ -565,21 +565,21 @@ namespace wo
 
                     ostrm << "========================" << std::endl;
 
-                    for (auto &lr1_ : C_SET[LR1.first])
+                    for (auto& lr1_ : C_SET[LR1.first])
                         ostrm << lr1_ << std::endl;
 
                     ostrm << "========================" << std::endl;
 
-                    for (auto &act : LR.second)
+                    for (auto& act : LR.second)
                     {
                         if (act.act == action::act_type::reduction)
-                            ostrm << "R" << act.state << ": " << lr_item{ORGIN_P[act.state], size_t(-1), te{ttype::l_eof}} << std::endl;
+                            ostrm << "R" << act.state << ": " << lr_item{ ORGIN_P[act.state], size_t(-1), te{ttype::l_eof} } << std::endl;
                         else if (act.act == action::act_type::push_stack)
                             ostrm << "S" << act.state << std::endl;
                     }
 
                     ostrm << std::endl
-                          << std::endl;
+                        << std::endl;
 
                     result = true;
                 }
@@ -600,9 +600,9 @@ namespace wo
             lex_type leof = lex_type::l_eof;
             TERM_MAP[leof] = ++nt_te_index;
 
-            for (auto &[_state, act_list] : LR1_TABLE)
+            for (auto& [_state, act_list] : LR1_TABLE)
             {
-                for (auto &[symb, _action] : act_list)
+                for (auto& [symb, _action] : act_list)
                 {
                     if (std::holds_alternative<te>(symb))
                     {
@@ -625,13 +625,13 @@ namespace wo
             }
 
             RT_LR1_TABLE.resize(maxim_state_count + 1);
-            for (auto &[_state, act_list] : LR1_TABLE)
+            for (auto& [_state, act_list] : LR1_TABLE)
             {
-                auto &rt_lr1_item = RT_LR1_TABLE[_state];
+                auto& rt_lr1_item = RT_LR1_TABLE[_state];
 
                 rt_lr1_item.resize(nt_te_index + 1);
 
-                for (auto &[symb, _action] : act_list)
+                for (auto& [symb, _action] : act_list)
                 {
                     if (!_action.empty())
                     {
@@ -664,7 +664,7 @@ namespace wo
 
         // OK!
     }
-    ast::AstBase *grammar::gen(lexer &tkr) const
+    ast::AstBase* grammar::gen(lexer& tkr) const
     {
         size_t last_error_rowno = 0;
         size_t last_error_colno = 0;
@@ -690,19 +690,19 @@ namespace wo
         state_stack.push(0);
         sym_stack.push(te_leof_index);
 
-        auto NOW_STACK_STATE = [&]() -> size_t &
-        { return state_stack.top(); };
-        auto NOW_STACK_SYMBO = [&]() -> te_nt_index_t &
-        { return sym_stack.top(); };
+        auto NOW_STACK_STATE = [&]() -> size_t&
+            { return state_stack.top(); };
+        auto NOW_STACK_SYMBO = [&]() -> te_nt_index_t&
+            { return sym_stack.top(); };
 
-        const lexer::peeked_token_t *peeked_token_instance = nullptr;
+        const lexer::peeked_token_t* peeked_token_instance = nullptr;
 
         std::vector<source_info> srcinfo_bnodes;
         std::vector<produce> te_or_nt_bnodes;
 
         do
         {
-            const lexer::peeked_token_t *peeked_token_instance = tkr.peek(true);
+            const lexer::peeked_token_t* peeked_token_instance = tkr.peek(true);
             if (lex_type::l_error == peeked_token_instance->m_lex_type)
             {
                 // Move forward;
@@ -712,8 +712,8 @@ namespace wo
 
             auto top_symbo =
                 (state_stack.size() == sym_stack.size()
-                     ? TERM_MAP.at(peeked_token_instance->m_lex_type)
-                     : NOW_STACK_SYMBO());
+                    ? TERM_MAP.at(peeked_token_instance->m_lex_type)
+                    : NOW_STACK_SYMBO());
 
             no_prospect_action actions;
 
@@ -801,14 +801,15 @@ namespace wo
                                 for (te_nt_index_t fr : reduceables)
                                 {
                                     // FIND NON-TE AND IT'S FOLLOW
-                                    auto &follow_set = FOLLOW_READ(fr);
+                                    auto& follow_set = FOLLOW_READ(fr);
 
-                                    auto place = std::find_if(follow_set.begin(), follow_set.end(), [&](const te &t)
-                                                              {
-                                                                  return t.t_name.empty()
-                                                                             ? t.t_type == out_lex
-                                                                             : t.t_name == out_str && t.t_type == out_lex;
-                                                              });
+                                    auto place = std::find_if(
+                                        follow_set.begin(), follow_set.end(), [&](const te& t)
+                                        {
+                                            return t.t_name.empty()
+                                                ? t.t_type == out_lex
+                                                : t.t_name == out_str && t.t_type == out_lex;
+                                        });
                                     if (place != follow_set.end())
                                         goto error_progress_end;
                                 }
@@ -848,8 +849,8 @@ namespace wo
                         std::make_pair(
                             source_info{
                                 peeked_token_instance->m_token_begin[0],
-                                peeked_token_instance->m_token_begin[1]},
-                            token{grammar::ttype::l_empty}));
+                                peeked_token_instance->m_token_begin[1] },
+                                token{ grammar::ttype::l_empty }));
                     sym_stack.push(te_lempty_index);
                 }
                 else
@@ -858,8 +859,8 @@ namespace wo
                         std::make_pair(
                             source_info{
                                 peeked_token_instance->m_token_begin[0],
-                                peeked_token_instance->m_token_begin[1]},
-                            token{peeked_token_instance->m_lex_type, peeked_token_instance->m_token_text}));
+                                peeked_token_instance->m_token_begin[1] },
+                                token{ peeked_token_instance->m_lex_type, peeked_token_instance->m_token_text }));
 
                     if (peeked_token_instance->m_lex_type == lex_type::l_macro)
                     {
@@ -879,7 +880,7 @@ namespace wo
             }
             else if (actions.act == grammar::action::act_type::reduction)
             {
-                auto &red_rule = RT_PRODUCTION[actions.state];
+                auto& red_rule = RT_PRODUCTION[actions.state];
 
                 srcinfo_bnodes.resize(red_rule.rule_right_count);
                 te_or_nt_bnodes.resize(red_rule.rule_right_count);
@@ -894,8 +895,8 @@ namespace wo
                 }
                 sym_stack.push(red_rule.production_aim);
 
-                if (std::any_of(te_or_nt_bnodes.begin(), te_or_nt_bnodes.end(), [](const produce &astn)
-                                { return astn.is_token() && astn.read_token().type == lex_type::l_error; }))
+                if (std::any_of(te_or_nt_bnodes.begin(), te_or_nt_bnodes.end(), [](const produce& astn)
+                    { return astn.is_token() && astn.read_token().type == lex_type::l_error; }))
                 {
                     node_stack.push(
                         std::make_pair(
@@ -903,7 +904,7 @@ namespace wo
                                 peeked_token_instance->m_token_end[0],
                                 peeked_token_instance->m_token_end[1],
                             },
-                            token{lex_type::l_error}));
+                            token{ lex_type::l_error }));
                 }
                 else
                 {
@@ -911,7 +912,7 @@ namespace wo
 
                     if (astnode.is_ast())
                     {
-                        auto *ast_node_ = astnode.read_ast();
+                        auto* ast_node_ = astnode.read_ast();
                         wo_assert(!te_or_nt_bnodes.empty());
 
                         if (ast_node_->source_location.source_file == nullptr)
@@ -928,11 +929,11 @@ namespace wo
                             ast_node_->source_location.begin_at =
                                 ast::AstBase::location_t{
                                     srcinfo_bnodes.front().row_no,
-                                    srcinfo_bnodes.front().col_no};
+                                    srcinfo_bnodes.front().col_no };
                             ast_node_->source_location.end_at =
                                 ast::AstBase::location_t{
                                     peeked_token_instance->m_token_begin[2],
-                                    peeked_token_instance->m_token_begin[3]};
+                                    peeked_token_instance->m_token_begin[3] };
 
                             ast_node_->source_location.source_file = tkr.get_source_path();
                         }
@@ -945,7 +946,7 @@ namespace wo
                 if (tkr.has_error())
                     return nullptr;
 
-                auto &node = node_stack.top().second;
+                auto& node = node_stack.top().second;
                 if (node.is_ast())
                 {
                     // Append imported ast node front of specify ast-node;
@@ -976,18 +977,18 @@ namespace wo
 
         return nullptr;
     }
-    std::ostream &operator<<(std::ostream &ost, const grammar::lr_item &lri)
+    std::ostream& operator<<(std::ostream& ost, const grammar::lr_item& lri)
     {
         ost << (lri.item_rule.first.nt_name) << "->";
         size_t index = 0;
-        for (auto &s : lri.item_rule.second)
+        for (auto& s : lri.item_rule.second)
         {
             if (index == lri.next_sign)
                 ost << " * ";
 
             if (std::holds_alternative<grammar::te>(s))
             {
-                const grammar::te &v = std::get<grammar::te>(s);
+                const grammar::te& v = std::get<grammar::te>(s);
                 if (v.t_name == "")
                     ost << " token: " << v.t_type << " ";
                 else
@@ -1003,7 +1004,7 @@ namespace wo
         ost << "," << lri.prospect;
         return ost;
     }
-    std::ostream &operator<<(std::ostream &ost, const grammar::terminal &ter)
+    std::ostream& operator<<(std::ostream& ost, const grammar::terminal& ter)
     {
         if (ter.t_name == "")
         {
@@ -1020,21 +1021,21 @@ namespace wo
             ost << ter.t_name;
         return ost;
     }
-    std::ostream &operator<<(std::ostream &ost, const grammar::nonterminal &noter)
+    std::ostream& operator<<(std::ostream& ost, const grammar::nonterminal& noter)
     {
         ost << noter.nt_name;
         return ost;
     }
 
-    ast::AstBase *lexer::merge_imported_ast_trees(ast::AstBase *node)
+    ast::AstBase* lexer::merge_imported_ast_trees(ast::AstBase* node)
     {
         wo_assert(node != nullptr);
 
         if (!m_imported_ast_tree_list.empty())
         {
-            auto *merged_list = new ast::AstList();
+            auto* merged_list = new ast::AstList();
 
-            for (auto *imported_ast : m_imported_ast_tree_list)
+            for (auto* imported_ast : m_imported_ast_tree_list)
             {
                 merged_list->m_list.push_back(imported_ast);
 
