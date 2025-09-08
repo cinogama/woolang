@@ -101,6 +101,7 @@ namespace wo
         {"where", {lex_type::l_where}},
         {"while", {lex_type::l_while}},
     };
+    int lexer::char_attribs_lookup_table[128] = {};
 
     macro::macro(lexer& lex)
         : _macro_action_vm(nullptr)
@@ -290,7 +291,35 @@ extern func macro_entry(lexer: std::lexer)=> string
 
         return lex_type::l_error;
     }
-    bool lexer::lex_isoperatorch(int ch)
+
+    void lexer::init_char_lookup_table()
+    {
+        for (int i = 0; i < 128; ++i)
+        {
+            int attribs = lexer::char_attribs::NONE;
+            if (lexer::_lex_isoperatorch(i))
+                attribs |= lexer::char_attribs::OPERATOR;
+            if (lexer::_lex_isspace(i))
+                attribs |= lexer::char_attribs::SPACE;
+            if (lexer::_lex_isalpha(i))
+                attribs |= lexer::char_attribs::ALPHA;
+            if (lexer::_lex_isidentbeg(i))
+                attribs |= lexer::char_attribs::IDENT_BEGIN;
+            if (lexer::_lex_isident(i))
+                attribs |= lexer::char_attribs::IDENT;
+            if (lexer::_lex_isalnum(i))
+                attribs |= lexer::char_attribs::ALNUM;
+            if (lexer::_lex_isdigit(i))
+                attribs |= lexer::char_attribs::DIGIT;
+            if (lexer::_lex_isxdigit(i))
+                attribs |= lexer::char_attribs::XDIGIT;
+            if (lexer::_lex_isodigit(i))
+                attribs |= lexer::char_attribs::ODIGIT;
+            lexer::char_attribs_lookup_table[i] = attribs;
+        }
+    }
+
+    bool lexer::_lex_isoperatorch(int ch)
     {
         const static std::unordered_set<char> operator_char_set = []() {
             std::unordered_set<char> _result;
@@ -301,7 +330,7 @@ extern func macro_entry(lexer: std::lexer)=> string
         }();
         return operator_char_set.find(ch) != operator_char_set.end();
     }
-    bool lexer::lex_isspace(int ch)
+    bool lexer::_lex_isspace(int ch)
     {
         if (ch == EOF)
             return false;
@@ -311,7 +340,7 @@ extern func macro_entry(lexer: std::lexer)=> string
 
         return ch == 0 || isspace(ch);
     }
-    bool lexer::lex_isalpha(int ch)
+    bool lexer::_lex_isalpha(int ch)
     {
         // if ch can used as begin of identifier, return true
         if (ch == EOF)
@@ -323,7 +352,7 @@ extern func macro_entry(lexer: std::lexer)=> string
 
         return isalpha(ch);
     }
-    bool lexer::lex_isidentbeg(int ch)
+    bool lexer::_lex_isidentbeg(int ch)
     {
         // if ch can used as begin of identifier, return true
         if (ch == EOF)
@@ -335,7 +364,7 @@ extern func macro_entry(lexer: std::lexer)=> string
 
         return isalpha(ch) || ch == '_';
     }
-    bool lexer::lex_isident(int ch)
+    bool lexer::_lex_isident(int ch)
     {
         // if ch can used as begin of identifier, return true
         if (ch == EOF)
@@ -347,7 +376,7 @@ extern func macro_entry(lexer: std::lexer)=> string
 
         return isalnum(ch) || ch == '_';
     }
-    bool lexer::lex_isalnum(int ch)
+    bool lexer::_lex_isalnum(int ch)
     {
         // if ch can used in identifier (not first character), return true
         if (ch == EOF)
@@ -359,7 +388,7 @@ extern func macro_entry(lexer: std::lexer)=> string
 
         return isalnum(ch);
     }
-    bool lexer::lex_isdigit(int ch)
+    bool lexer::_lex_isdigit(int ch)
     {
         if (ch == EOF)
             return false;
@@ -370,7 +399,7 @@ extern func macro_entry(lexer: std::lexer)=> string
 
         return isdigit(ch);
     }
-    bool lexer::lex_isxdigit(int ch)
+    bool lexer::_lex_isxdigit(int ch)
     {
         if (ch == EOF)
             return false;
@@ -381,13 +410,85 @@ extern func macro_entry(lexer: std::lexer)=> string
 
         return isxdigit(ch);
     }
-    bool lexer::lex_isodigit(int ch)
+    bool lexer::_lex_isodigit(int ch)
     {
         if (ch == EOF)
             return false;
 
         return ch >= '0' && ch <= '7';
     }
+
+    bool lexer::lex_isoperatorch(int ch)
+    {
+        if (ch > 0x7F)
+            return false;
+
+        return (lexer::char_attribs_lookup_table[ch] & lexer::char_attribs::OPERATOR) != 0;
+    }
+    bool lexer::lex_isspace(int ch)
+    {
+        if (ch > 0x7F)
+            return false;
+
+        return (lexer::char_attribs_lookup_table[ch] & lexer::char_attribs::SPACE) != 0;
+    }
+    bool lexer::lex_isalpha(int ch)
+    {
+        if (ch > 0x7F)
+            // Treate all non ascii characters as alpha
+            return true;
+
+        return (lexer::char_attribs_lookup_table[ch] & lexer::char_attribs::ALPHA) != 0;
+    }
+    bool lexer::lex_isidentbeg(int ch)
+    {
+        if (ch > 0x7F)
+            // Treate all non ascii characters as alpha
+            return true;
+
+        return (lexer::char_attribs_lookup_table[ch] & lexer::char_attribs::IDENT_BEGIN) != 0;
+    }
+    bool lexer::lex_isident(int ch)
+    {
+        if (ch > 0x7F)
+            // Treate all non ascii characters as alpha
+            return true;
+
+        return (lexer::char_attribs_lookup_table[ch] & lexer::char_attribs::IDENT) != 0;
+    }
+    bool lexer::lex_isalnum(int ch)
+    {
+        if (ch > 0x7F)
+            // Treate all non ascii characters as alpha
+            return true;
+
+        return (lexer::char_attribs_lookup_table[ch] & lexer::char_attribs::ALNUM) != 0;
+    }
+    bool lexer::lex_isdigit(int ch)
+    {
+        if (ch > 0x7F)
+            // Treate all non ascii characters as alpha
+            return false;
+
+        return (lexer::char_attribs_lookup_table[ch] & lexer::char_attribs::DIGIT) != 0;
+    }
+    bool lexer::lex_isxdigit(int ch)
+    {
+        if (ch > 0x7F)
+            // Treate all non ascii characters as alpha
+            return false;
+
+        return (lexer::char_attribs_lookup_table[ch] & lexer::char_attribs::XDIGIT) != 0;
+    }
+    bool lexer::lex_isodigit(int ch)
+    {
+        if (ch > 0x7F)
+            // Treate all non ascii characters as alpha
+            return false;
+
+        return (lexer::char_attribs_lookup_table[ch] & lexer::char_attribs::ODIGIT) != 0;
+    }
+
     int lexer::lex_hextonum(int ch)
     {
         wo_assert(lex_isxdigit(ch));
@@ -413,6 +514,7 @@ extern func macro_entry(lexer: std::lexer)=> string
 
         return ch - '0';
     }
+
     uint64_t lexer::read_from_unsigned_literal(const char* text)
     {
         uint64_t base = 10;

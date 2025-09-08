@@ -15,7 +15,7 @@ RS will using 'hand-work' parser, there is not yacc/bison..
 #include <variant>
 #include <functional>
 #include <stack>
-#include <forward_list>
+#include <vector>
 #include <unordered_map>
 #include <map>
 #include <list>
@@ -130,7 +130,7 @@ namespace wo
                 AST_TEMPLATE_CONSTANT_TYPE_CHECK_IN_PASS1,
             };
         private:
-            inline thread_local static std::forward_list<AstBase*>* list = nullptr;
+            inline thread_local static std::vector<AstBase*>* list = nullptr;
         public:
             static void clean_this_thread_ast()
             {
@@ -143,13 +143,13 @@ namespace wo
                 delete list;
                 list = nullptr;
             }
-            static bool exchange_this_thread_ast(std::forward_list<AstBase*>& out_list)
+            static bool exchange_this_thread_ast(std::vector<AstBase*>& out_list)
             {
                 wo_assert(out_list.empty() || nullptr == list || list->empty());
 
                 bool need_swap_back = true;
                 if (!list)
-                    list = new std::forward_list<AstBase*>;
+                    list = new std::vector<AstBase*>;
 
                 out_list.swap(*list);
                 return !out_list.empty();
@@ -190,9 +190,9 @@ namespace wo
                 , source_location{}
             {
                 if (!list)
-                    list = new std::forward_list<AstBase*>;
+                    list = new std::vector<AstBase*>();
 
-                list->push_front(this);
+                list->push_back(this);
             }
             AstBase(const AstBase&) = delete;
             AstBase(AstBase&&) = delete;

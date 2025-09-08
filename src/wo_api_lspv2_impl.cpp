@@ -24,7 +24,7 @@ struct _wo_lspv2_source_meta
 {
     wo::compile_result m_step;
 
-    std::forward_list<wo::ast::AstBase*> m_origin_astbase_list;
+    std::vector<wo::ast::AstBase*> m_origin_astbase_list;
 
     std::optional<wo::shared_pointer<wo::runtime_env>> m_env_if_success;
     std::optional<std::unique_ptr<wo::LangContext>> m_langcontext_if_passed_grammar;
@@ -59,7 +59,7 @@ wo_lspv2_source_meta* wo_lspv2_compile_to_meta(
 
     wo_lspv2_source_meta* meta = new wo_lspv2_source_meta();
 
-    std::forward_list<wo::ast::AstBase*> old_ast_list;
+    std::vector<wo::ast::AstBase*> old_ast_list;
     bool need_exchange_back =
         wo::ast::AstBase::exchange_this_thread_ast(
             old_ast_list);
@@ -128,7 +128,7 @@ void wo_lspv2_meta_free(wo_lspv2_source_meta* meta)
     if (!meta->m_origin_astbase_list.empty())
     {
         // free ast
-        std::forward_list<wo::ast::AstBase*> old_ast_list;
+        std::vector<wo::ast::AstBase*> old_ast_list;
         bool need_exchange_back =
             wo::ast::AstBase::exchange_this_thread_ast(
                 old_ast_list);

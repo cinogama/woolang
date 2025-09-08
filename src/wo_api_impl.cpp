@@ -600,6 +600,8 @@ void wo_init(int argc, char** argv)
     if (enable_ctrl_c_to_debug)
         wo_handle_ctrl_c(_wo_ctrl_c_signal_handler);
 
+    wo::lexer::init_char_lookup_table();
+
 #ifndef WO_DISABLE_COMPILER
     wo::init_woolang_grammar(); // Create grammar when init.
     wo::LangContext::init_lang_processers();
@@ -2724,7 +2726,7 @@ wo_bool_t _wo_load_source(
     std::optional<std::unique_ptr<wo::lexer>> _lexer_if_failed;
 
 #ifndef WO_DISABLE_COMPILER
-    std::forward_list<wo::ast::AstBase*> m_last_context;
+    std::vector<wo::ast::AstBase*> m_last_context;
     bool need_exchange_back =
         wo::ast::AstBase::exchange_this_thread_ast(m_last_context);
 #endif

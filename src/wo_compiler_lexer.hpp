@@ -221,6 +221,32 @@ namespace wo
         static const char* lex_is_keyword_type(lex_type tt);
         static lex_type lex_is_valid_operator(const std::string& op);
         static lex_type lex_is_keyword(const std::string& op);
+
+        enum char_attribs
+        {
+            NONE = 0,
+            OPERATOR    = 1 << 0,
+            SPACE       = 1 << 1,
+            ALPHA       = 1 << 2,
+            IDENT_BEGIN = 1 << 3,
+            IDENT       = 1 << 4,
+            ALNUM       = 1 << 5,
+            DIGIT       = 1 << 6,
+            XDIGIT      = 1 << 7,
+            ODIGIT      = 1 << 8,
+        };
+        static int char_attribs_lookup_table[128];
+
+        static bool _lex_isoperatorch(int ch);
+        static bool _lex_isspace(int ch);
+        static bool _lex_isalpha(int ch);
+        static bool _lex_isidentbeg(int ch);
+        static bool _lex_isident(int ch);
+        static bool _lex_isalnum(int ch);
+        static bool _lex_isdigit(int ch);
+        static bool _lex_isxdigit(int ch);
+        static bool _lex_isodigit(int ch);
+
         static bool lex_isoperatorch(int ch);
         static bool lex_isspace(int ch);
         static bool lex_isalpha(int ch);
@@ -232,6 +258,8 @@ namespace wo
         static bool lex_isodigit(int ch);
 
     public:
+        static void init_char_lookup_table();
+
         static int lex_hextonum(int ch);
         static int lex_octtonum(int ch);
         static uint64_t read_from_unsigned_literal(const char* text);

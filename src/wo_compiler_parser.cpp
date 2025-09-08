@@ -139,76 +139,88 @@ namespace wo
 #if WOOLANG_LR1_OPTIMIZE_LR1_TABLE
         if (lr1_fast_cache_enabled())
         {
-            auto &lr1_goto_rs_map_state = LR1_GOTO_RS_MAP[a];
+            // Cache the goto/rs map state for this state
+            const auto* const lr1_goto_rs_map_state = LR1_GOTO_RS_MAP[a];
+            
+            // Handle terminal symbols (b >= 0)
             if (b >= 0)
             {
-                // Is Terminate, b didn't need to add 1, l_error is 0 and not able to exist in cache.
+                // Fast path: check for accept state first (common case)
                 if (a == LR1_ACCEPT_STATE && b == LR1_ACCEPT_TERM)
                 {
                     write_act->act = action::act_type::accept;
                     write_act->state = 0;
                     return;
                 }
-                if (lr1_goto_rs_map_state[1] == -1)
+
+                // Check if there's a valid reduce/shift cache entry for this state
+                const int rs_index = lr1_goto_rs_map_state[1];
+                if (rs_index == -1)
                 {
                     write_act->act = action::act_type::error;
                     write_act->state = -1;
                     return;
                 }
 
-                auto state = LR1_R_S_CACHE[lr1_goto_rs_map_state[1] * LR1_R_S_CACHE_SZ + b];
+                // Calculate cache index once
+                const size_t cache_index = static_cast<size_t>(rs_index) * LR1_R_S_CACHE_SZ + static_cast<size_t>(b);
+                const int state = LR1_R_S_CACHE[cache_index];
+                
                 if (state == 0)
                 {
-                    // No action for this state&te, return error.
+                    // No action for this state & terminal
                     write_act->act = action::act_type::error;
                     write_act->state = SIZE_MAX;
                     return;
                 }
                 else if (state > 0)
                 {
-                    // Push!
+                    // Shift action
                     write_act->act = action::act_type::push_stack;
-                    write_act->state = (size_t)state - 1;
+                    write_act->state = static_cast<size_t>(state) - 1;
                     return;
                 }
                 else
                 {
-                    // Reduce!
+                    // Reduce action
                     write_act->act = action::act_type::reduction;
-                    write_act->state = (size_t)(-state) - 1;
+                    write_act->state = static_cast<size_t>(-state) - 1;
                     return;
                 }
             }
             else
             {
-                // Is NonTerminate
-                if (lr1_goto_rs_map_state[0] == -1)
+                // Handle non-terminal symbols (b < 0)
+                const int goto_index = lr1_goto_rs_map_state[0];
+                if (goto_index == -1)
                 {
                     write_act->act = action::act_type::error;
                     write_act->state = SIZE_MAX;
                     return;
                 }
 
-                auto state = LR1_GOTO_CACHE[lr1_goto_rs_map_state[0] * LR1_GOTO_CACHE_SZ + (-b)];
+                // Calculate cache index once
+                const size_t cache_index = static_cast<size_t>(goto_index) * LR1_GOTO_CACHE_SZ + static_cast<size_t>(-b);
+                const int state = LR1_GOTO_CACHE[cache_index];
+                
                 if (state == -1)
                 {
-                    // No action for this state&nt, return error.
+                    // No goto action for this state & non-terminal
                     write_act->act = action::act_type::error;
                     write_act->state = SIZE_MAX;
                     return;
                 }
 
                 write_act->act = action::act_type::state_goto;
-                write_act->state = state;
+                write_act->state = static_cast<size_t>(state);
                 return;
             }
         }
 #endif
+        // Fallback to regular table lookup
         const auto &lr1_item = RT_LR1_TABLE.at(a).at(b);
-
         write_act->act = lr1_item.act;
         write_act->state = lr1_item.state;
-        return;
     }
 
     grammar::grammar()
