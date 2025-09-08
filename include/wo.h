@@ -190,19 +190,25 @@ typedef enum _wo_api
     // call stacks.
     // 
     // If VM received this: 
-    //  Nothing todo.
+    //  Fetch interrupt state, handle it later, then continue running.
     WO_API_RESYNC_JIT_STATE_TO_VM_STATE = 3,
 
     // [Returned by JIT function]
-    //  When the JIT function encounters an unhandled interrupt, or 
-    // the state has changed from WO_API_RESYNC_JIT_STATE_TO_VM_STATE, 
-    // it is passed upward via WO_API_SYNC_CHANGED_VM_STATE
+    //  When the JIT function encounters an interrupt request that it
+    // cannot handle, and the JIT call reaches the maximum call depth,
+    // the JIT can no longer manage the virtual machine state. Therefore,
+    // the JIT will ensure the virtual machine's operational state and 
+    // then return WO_API_SYNC_CHANGED_VM_STATE layer by layer until it 
+    // falls back to interpretation. All virtual machine states will be 
+    // properly handled during interpretation, and execution will continue 
+    // in the interpreter.
     //
     // If JIT received this: 
     //  Return WO_API_SYNC_CHANGED_VM_STATE immediately.
     // 
     // If VM received this: 
-    //  Refetch ip from vm state, then continue running.
+    //  Refetch ip from vm state, Fetch interrupt state, handle it later, 
+    // then continue running.
     WO_API_SYNC_CHANGED_VM_STATE = 4,
 
 } wo_api,
@@ -261,6 +267,18 @@ typedef struct _wo_extern_lib_func_pair
     wo_string_t m_name;
     void* m_func_addr;
 } wo_extern_lib_func_t;
+
+typedef struct _wo_virtual_file* wo_virtual_file_t;
+typedef struct _wo_virtual_file_iter* wo_virtual_file_iter_t;
+
+typedef void (*wo_execute_callback_ft)(wo_value, void*);
+
+typedef struct _wo_debuggee_handle* wo_debuggee;
+typedef void (*wo_debuggee_handler_func)(wo_debuggee, wo_vm, void*);
+
+typedef struct _wo_pin_value* wo_pin_value;
+
+typedef struct _wo_weak_ref* wo_weak_ref;
 
 #define WO_EXTERN_LIB_FUNC_END \
     wo_extern_lib_func_t { nullptr, nullptr }
@@ -554,8 +572,6 @@ WO_API wo_bool_t wo_extern_symb(
     wo_vm vm,
     wo_string_t fullname);
 
-WO_API void wo_abort_all_vm(void);
-
 WO_API wo_string_t wo_locale_name(void);
 WO_API wo_string_t wo_exe_path(void);
 WO_API wo_string_t wo_work_path(void);
@@ -576,14 +592,11 @@ WO_API wo_bool_t wo_virtual_source(
     wo_string_t data,
     wo_bool_t enable_modify);
 
-typedef struct _wo_virtual_file* wo_virtual_file_t;
-
 WO_API wo_virtual_file_t wo_open_virtual_file(wo_string_t filepath);
 WO_API wo_string_t wo_virtual_file_path(wo_virtual_file_t file);
 WO_API const void* wo_virtual_file_data(wo_virtual_file_t file, size_t* len);
 WO_API void wo_close_virtual_file(wo_virtual_file_t file);
 
-typedef struct _wo_virtual_file_iter* wo_virtual_file_iter_t;
 WO_API wo_virtual_file_iter_t wo_open_virtual_file_iter(void);
 WO_API wo_string_t wo_next_virtual_file_iter(wo_virtual_file_iter_t iter);
 WO_API void wo_close_virtual_file_iter(wo_virtual_file_iter_t iter);
@@ -591,7 +604,6 @@ WO_API void wo_close_virtual_file_iter(wo_virtual_file_iter_t iter);
 WO_API wo_bool_t wo_remove_virtual_file(wo_string_t filepath);
 WO_API wo_vm wo_create_vm(void);
 WO_API wo_vm wo_sub_vm(wo_vm vm);
-WO_API wo_bool_t wo_abort_vm(wo_vm vm);
 WO_API void wo_close_vm(wo_vm vm);
 
 // The function wo_borrow_vm/wo_release_vm just likes wo_sub_vm/wo_close_vm
@@ -609,7 +621,6 @@ WO_API wo_bool_t wo_jit(wo_vm vm);
 WO_API void* wo_dump_binary(wo_vm vm, wo_bool_t saving_pdi, wo_size_t* out_length);
 WO_API void wo_free_binary(void* buffer);
 
-typedef void (*wo_execute_callback_ft)(wo_value, void*);
 WO_API wo_bool_t wo_execute(wo_string_t src, wo_execute_callback_ft callback, void* data);
 
 // wo_run is used for init a vm.
@@ -777,10 +788,6 @@ WO_API void wo_map_clear(wo_value map);
 
 WO_API wo_bool_t wo_gchandle_close(wo_value gchandle);
 
-// Here to define RSRuntime debug tools API
-typedef struct _wo_debuggee_handle* wo_debuggee;
-typedef void (*wo_debuggee_handler_func)(wo_debuggee, wo_vm, void*);
-
 WO_API void wo_attach_default_debuggee(void);
 WO_API void wo_attach_user_debuggee(wo_debuggee_callback_func_t callback, void* userdata);
 WO_API wo_bool_t wo_has_attached_debuggee(void);
@@ -794,9 +801,7 @@ WO_API wo_integer_t wo_crc64_u8(uint8_t byte, wo_integer_t crc);
 WO_API wo_integer_t wo_crc64_str(wo_string_t text);
 WO_API wo_integer_t wo_crc64_file(wo_string_t filepath);
 
-// GC Reference Pin
-typedef struct _wo_pin_value* wo_pin_value;
-
+// GC-Pin
 WO_API wo_pin_value wo_create_pin_value(void);
 WO_API void wo_close_pin_value(wo_pin_value pin_value);
 WO_API void wo_pin_value_set(wo_pin_value pin_value, wo_value val);
@@ -804,7 +809,6 @@ WO_API void wo_pin_value_set_dup(wo_pin_value pin_value, wo_value val);
 WO_API void wo_pin_value_get(wo_value out_value, wo_pin_value pin_value);
 
 // Weak Reference
-typedef struct _wo_weak_ref* wo_weak_ref;
 WO_API wo_weak_ref wo_create_weak_ref(wo_value val);
 WO_API void wo_close_weak_ref(wo_weak_ref ref);
 WO_API wo_bool_t wo_lock_weak_ref(wo_value out_val, wo_weak_ref ref);

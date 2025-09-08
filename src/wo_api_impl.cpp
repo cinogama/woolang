@@ -299,7 +299,7 @@ void _default_fail_handler(
     {
         // Halt directly, donot wait for input.
         if (cur_thread_vm != nullptr)
-            wo_abort_vm(reinterpret_cast<wo_vm>(cur_thread_vm));
+            cur_thread_vm->interrupt(wo::vmbase::vm_interrupt_type::ABORT_INTERRUPT);
     }
     else
     {
@@ -335,7 +335,7 @@ void _default_fail_handler(
                 if (cur_thread_vm != nullptr)
                 {
                     wo::wo_stderr << ANSI_HIR "Current virtual machine will be aborted." ANSI_RST << wo::wo_endl;
-                    wo_abort_vm(reinterpret_cast<wo_vm>(cur_thread_vm));
+                    cur_thread_vm->interrupt(wo::vmbase::vm_interrupt_type::ABORT_INTERRUPT);
                     breakout = true;
                 }
                 else
@@ -3300,27 +3300,6 @@ wo_value wo_run(wo_vm vm)
     return nullptr;
 }
 
-wo_bool_t wo_abort_vm(wo_vm vm)
-{
-    auto* vmm = WO_VM(vm);
-
-    wo::assure_leave_this_thread_vm_shared_lock gs(wo::vmbase::_alive_vm_list_mx);
-
-    if (wo::vmbase::_alive_vm_list.find(vmm) != wo::vmbase::_alive_vm_list.end())
-    {
-        return WO_CBOOL(vmm->interrupt(wo::vmbase::vm_interrupt_type::ABORT_INTERRUPT));
-    }
-    return WO_FALSE;
-}
-
-void wo_abort_all_vm()
-{
-    wo::assure_leave_this_thread_vm_shared_lock g1(wo::vmbase::_alive_vm_list_mx);
-
-    for (auto& vm : wo::vmbase::_alive_vm_list)
-        vm->interrupt(wo::vmbase::ABORT_INTERRUPT);
-}
-
 wo_size_t wo_struct_len(wo_value value)
 {
     auto _struct = WO_VAL(value);
@@ -4070,7 +4049,7 @@ void wo_gcunit_unlock_shared_force(wo_value gc_reference_object)
     {
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not lockable.");
     }
-    }
+}
 void wo_gcunit_lock_shared(wo_value gc_reference_object)
 {
 #if WO_FORCE_GC_OBJ_THREAD_SAFETY
@@ -4169,20 +4148,20 @@ wo_string_t wo_debug_trace_callstack(wo_vm vm, wo_size_t layer)
 }
 
 wo_dylib_handle_t wo_fake_lib(
-    const char* libname, 
+    const char* libname,
     const wo_extern_lib_func_t* funcs,
     wo_dylib_handle_t dependence_dylib_may_null)
 {
     return (void*)loaded_lib_info::create_fake_lib(
-        libname, 
+        libname,
         funcs,
         std::launder(reinterpret_cast<dylib_table_instance*>(dependence_dylib_may_null)));
 }
 
 wo_dylib_handle_t wo_load_lib(
     const char* libname,
-    const char* path, 
-    const char* script_path, 
+    const char* path,
+    const char* script_path,
     wo_bool_t panic_when_fail)
 {
     return loaded_lib_info::load_lib(

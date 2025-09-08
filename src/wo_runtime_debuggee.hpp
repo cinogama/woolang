@@ -1392,7 +1392,11 @@ whereis                         <ipoffset>    Find the function that the ipoffse
 
             if (stop_attach_debuggee_for_exit_flag)
             {
-                wo_abort_all_vm();
+                wo::assure_leave_this_thread_vm_shared_lock g1(wo::vmbase::_alive_vm_list_mx);
+
+                for (auto& vm : wo::vmbase::_alive_vm_list)
+                    vm->interrupt(wo::vmbase::ABORT_INTERRUPT);
+
                 return;
             }
         }
