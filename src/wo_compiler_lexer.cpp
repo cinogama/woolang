@@ -175,13 +175,17 @@ namespace wo
     {
         if (!fill())
             return EOF;
-        return static_cast<int>(m_cache_buffer[m_readed_size++]);
+        return static_cast<int>(
+            static_cast<uint8_t>(
+                m_cache_buffer[m_readed_size++]));
     }
     int lexer::CachedIStream::peek_char()
     {
         if (!fill())
             return EOF;
-        return static_cast<int>(m_cache_buffer[m_readed_size]);
+        return static_cast<int>(
+            static_cast<uint8_t>(
+                m_cache_buffer[m_readed_size]));
     }
 
     macro::macro(lexer& lex)
