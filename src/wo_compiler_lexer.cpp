@@ -500,6 +500,9 @@ extern func macro_entry(lexer: std::lexer)=> string
 
     bool lexer::lex_isoperatorch(int ch)
     {
+        if (ch == EOF)
+            return false;
+
         if (ch > 0x7F)
             return false;
 
@@ -507,6 +510,9 @@ extern func macro_entry(lexer: std::lexer)=> string
     }
     bool lexer::lex_isspace(int ch)
     {
+        if (ch == EOF)
+            return false;
+
         if (ch > 0x7F)
             return false;
 
@@ -514,6 +520,9 @@ extern func macro_entry(lexer: std::lexer)=> string
     }
     bool lexer::lex_isalpha(int ch)
     {
+        if (ch == EOF)
+            return false;
+
         if (ch > 0x7F)
             // Treate all non ascii characters as alpha
             return true;
@@ -522,6 +531,9 @@ extern func macro_entry(lexer: std::lexer)=> string
     }
     bool lexer::lex_isidentbeg(int ch)
     {
+        if (ch == EOF)
+            return false;
+
         if (ch > 0x7F)
             // Treate all non ascii characters as alpha
             return true;
@@ -530,6 +542,9 @@ extern func macro_entry(lexer: std::lexer)=> string
     }
     bool lexer::lex_isident(int ch)
     {
+        if (ch == EOF)
+            return false;
+
         if (ch > 0x7F)
             // Treate all non ascii characters as alpha
             return true;
@@ -538,6 +553,9 @@ extern func macro_entry(lexer: std::lexer)=> string
     }
     bool lexer::lex_isalnum(int ch)
     {
+        if (ch == EOF)
+            return false;
+
         if (ch > 0x7F)
             // Treate all non ascii characters as alpha
             return true;
@@ -546,6 +564,9 @@ extern func macro_entry(lexer: std::lexer)=> string
     }
     bool lexer::lex_isdigit(int ch)
     {
+        if (ch == EOF)
+            return false;
+
         if (ch > 0x7F)
             // Treate all non ascii characters as alpha
             return false;
@@ -554,6 +575,9 @@ extern func macro_entry(lexer: std::lexer)=> string
     }
     bool lexer::lex_isxdigit(int ch)
     {
+        if (ch == EOF)
+            return false;
+
         if (ch > 0x7F)
             // Treate all non ascii characters as alpha
             return false;
@@ -562,6 +586,9 @@ extern func macro_entry(lexer: std::lexer)=> string
     }
     bool lexer::lex_isodigit(int ch)
     {
+        if (ch == EOF)
+            return false;
+
         if (ch > 0x7F)
             // Treate all non ascii characters as alpha
             return false;
