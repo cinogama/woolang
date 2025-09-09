@@ -312,7 +312,7 @@ namespace wo
 
     bool LangContext::collect_defers_from_current_scope_to(
         std::optional<lang_Scope*> to_scope,
-        std::list<ast::AstBase*>* out_collect_result_may_null)
+        std::vector<ast::AstBase*>* out_collect_result_may_null)
     {
         lang_Scope* current_scope = get_current_scope();
         do
@@ -1594,7 +1594,7 @@ namespace wo
         auto decided_function_return_type =
             [&](lang_TypeInstance* ret_type)
             {
-                std::list<lang_TypeInstance*> parameters;
+                std::vector<lang_TypeInstance*> parameters;
                 for (auto& param : node->m_parameters)
                     parameters.push_back(param->m_type.value()->m_LANG_determined_type.value());
 
@@ -2104,8 +2104,8 @@ namespace wo
         }
         else if (state == HOLD)
         {
-            std::list<lang_TypeInstance*> element_types;
-            std::list<ConstantValue*> element_constants;
+            std::vector<lang_TypeInstance*> element_types;
+            std::vector<ConstantValue*> element_constants;
 
             for (auto& element : node->m_elements)
             {
@@ -2701,7 +2701,7 @@ namespace wo
                         return HOLD;
                     }
 
-                    std::list<AstTypeHolder*> type_to_eval;
+                    std::vector<AstTypeHolder*> type_to_eval;
 
                     auto& function_formal = current_argument.m_duped_param_type->m_typeform.m_function;
                     for (auto* param : function_formal.m_parameters)
@@ -2725,7 +2725,7 @@ namespace wo
                 AstValueFunctionCall_FakeAstArgumentDeductionContextA::ArgumentMatch& current_argument =
                     *node->m_current_argument;
 
-                std::list<std::optional<lang_TypeInstance*>> param_argument_types;
+                std::vector<std::optional<lang_TypeInstance*>> param_argument_types;
                 std::optional<lang_TypeInstance*> param_return_type = std::nullopt;
 
                 if (current_argument.m_duped_param_type->m_formal == AstTypeHolder::FUNCTION)
@@ -2785,7 +2785,7 @@ namespace wo
                         auto& template_instance_prefab = symbol->m_template_value_instances;
 
                         std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance> deduction_results;
-                        std::list<ast::AstTemplateParam*> pending_template_params;
+                        std::vector<ast::AstTemplateParam*> pending_template_params;
                         auto it_template_param = symbol->m_template_value_instances->m_template_params.begin();
                         auto it_template_param_end = symbol->m_template_value_instances->m_template_params.end();
                         if (argument_variable->m_identifier->m_template_arguments.has_value())
@@ -2814,7 +2814,7 @@ namespace wo
                         if (deduction_results.size() == pending_template_params.size())
                         {
                             // We can decided this argument now.
-                            std::list<ast::AstIdentifier::TemplateArgumentInstance> template_arguments;
+                            std::vector<ast::AstIdentifier::TemplateArgumentInstance> template_arguments;
                             for (ast::AstTemplateParam* param : pending_template_params)
                             {
                                 template_arguments.push_back(deduction_results.at(param->m_param_name));
@@ -2853,7 +2853,7 @@ namespace wo
                         if (deduction_results.size() == pending_template_arguments.size())
                         {
                             // We can decided this argument now.
-                            std::list<ast::AstIdentifier::TemplateArgumentInstance> template_arguments;
+                            std::vector<ast::AstIdentifier::TemplateArgumentInstance> template_arguments;
                             for (ast::AstTemplateParam* param : pending_template_arguments)
                             {
                                 template_arguments.push_back(deduction_results.at(param->m_param_name));
@@ -2967,7 +2967,7 @@ namespace wo
 
                 lang_TypeInstance* param_type = param_and_argument_pair.m_param_type;
 
-                std::list<std::optional<lang_TypeInstance*>> param_argument_types;
+                std::vector<std::optional<lang_TypeInstance*>> param_argument_types;
                 std::optional<lang_TypeInstance*> param_return_type = std::nullopt;
 
                 auto param_type_determined_base_type = param_type->get_determined_type();
@@ -3016,7 +3016,7 @@ namespace wo
                     if (deduction_results.size() == pending_template_arguments.size())
                     {
                         // We can decided this argument now.
-                        std::list<ast::AstIdentifier::TemplateArgumentInstance> template_arguments;
+                        std::vector<ast::AstIdentifier::TemplateArgumentInstance> template_arguments;
                         for (ast::AstTemplateParam* param : pending_template_arguments)
                         {
                             template_arguments.push_back(deduction_results.at(param->m_param_name));
@@ -3046,7 +3046,7 @@ namespace wo
                     auto& template_instance_prefab = symbol->m_template_value_instances;
 
                     std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance> deduction_results;
-                    std::list<ast::AstTemplateParam*> pending_template_params;
+                    std::vector<ast::AstTemplateParam*> pending_template_params;
                     auto it_template_param = symbol->m_template_value_instances->m_template_params.begin();
                     auto it_template_param_end = symbol->m_template_value_instances->m_template_params.end();
                     if (argument_variable->m_identifier->m_template_arguments.has_value())
@@ -3075,7 +3075,7 @@ namespace wo
                     if (deduction_results.size() == pending_template_params.size())
                     {
                         // We can decided this argument now.
-                        std::list<ast::AstIdentifier::TemplateArgumentInstance> template_arguments;
+                        std::vector<ast::AstIdentifier::TemplateArgumentInstance> template_arguments;
                         for (ast::AstTemplateParam* param : pending_template_params)
                         {
                             template_arguments.push_back(deduction_results.at(param->m_param_name));
@@ -3207,7 +3207,7 @@ namespace wo
             {
                 // Eval all arguments beside AstValueFunction or AstValueVariable which refer to
                // uncomplete template function.
-                std::list<AstValueBase*> arguments;
+                std::vector<AstValueBase*> arguments;
                 for (auto* argument_value : node->m_arguments)
                 {
                     if (check_need_template_deduct_function(lex, argument_value, out_stack))
@@ -3231,9 +3231,9 @@ namespace wo
                 {
                     std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance> deduction_results;
 
-                    std::list<ast::AstTemplateParam*> pending_template_params;
-                    std::list<ast::AstTemplateParam*>* template_params;
-                    std::list<AstTypeHolder*> target_param_holders;
+                    std::vector<ast::AstTemplateParam*> pending_template_params;
+                    std::vector<ast::AstTemplateParam*>* template_params;
+                    std::vector<AstTypeHolder*> target_param_holders;
 
                     bool entry_function_located_scope = false;
 
@@ -3560,9 +3560,9 @@ namespace wo
                     AstValueFunction* function = static_cast<AstValueFunction*>(node->m_function);
                     auto& pending_template_arguments = function->m_pending_param_type_mark_template.value();
 
-                    std::list<ast::AstIdentifier::TemplateArgumentInstance> template_arguments;
+                    std::vector<ast::AstIdentifier::TemplateArgumentInstance> template_arguments;
 
-                    std::list<ast::AstTemplateParam*> pending_template_params;
+                    std::vector<ast::AstTemplateParam*> pending_template_params;
                     for (ast::AstTemplateParam* param : pending_template_arguments)
                     {
                         auto fnd = branch_a_context->m_deduction_results.find(param->m_param_name);
@@ -3625,9 +3625,9 @@ namespace wo
                             ++it_template_param;
                         }
                     }
-                    std::list<ast::AstIdentifier::TemplateArgumentInstance> template_argument_list;
+                    std::vector<ast::AstIdentifier::TemplateArgumentInstance> template_argument_list;
 
-                    std::list<ast::AstTemplateParam*> pending_template_params;
+                    std::vector<ast::AstTemplateParam*> pending_template_params;
                     for (; it_template_param != it_template_param_end; ++it_template_param)
                     {
                         ast::AstTemplateParam* param_name = *it_template_param;
@@ -3719,7 +3719,7 @@ namespace wo
                 node->m_LANG_invoking_variadic_function =
                     target_function_type_instance_determined_base_type_function->m_is_variadic;
 
-                std::list<std::pair<lang_TypeInstance*, AstValueBase*>> argument_types;
+                std::vector<std::pair<lang_TypeInstance*, AstValueBase*>> argument_types;
                 bool expaned_array_or_vec = false;
 
                 wo_assert(node->m_LANG_certenly_function_argument_count == 0
@@ -4139,7 +4139,7 @@ namespace wo
             {
             case AstValueStruct::HOLD_FOR_MEMBER_TYPE_EVAL:
             {
-                std::list<AstValueBase*> member_init_values;
+                std::vector<AstValueBase*> member_init_values;
 
                 for (auto* member_pair : node->m_fields)
                 {
@@ -4172,9 +4172,9 @@ namespace wo
 
                 std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance> deduction_results;
 
-                std::list<ast::AstTemplateParam*> pending_template_params;
-                std::list<ast::AstTemplateParam*>* template_params;
-                std::list<AstTypeHolder*> target_param_holders;
+                std::vector<ast::AstTemplateParam*> pending_template_params;
+                std::vector<ast::AstTemplateParam*>* template_params;
+                std::vector<AstTypeHolder*> target_param_holders;
 
                 wo_assert(node->m_marked_struct_type.value()->m_formal == AstTypeHolder::IDENTIFIER);
                 AstTypeHolder* struct_type = node->m_marked_struct_type.value();
@@ -4332,8 +4332,8 @@ namespace wo
                         ++it_template_param;
                     }
                 }
-                std::list<ast::AstIdentifier::TemplateArgumentInstance> template_argument_list;
-                std::list<ast::AstTemplateParam*> pending_template_params;
+                std::vector<ast::AstIdentifier::TemplateArgumentInstance> template_argument_list;
+                std::vector<ast::AstTemplateParam*> pending_template_params;
 
                 for (; it_template_param != it_template_param_end; ++it_template_param)
                 {
@@ -4484,7 +4484,7 @@ namespace wo
                     struct_type_instanc = node->m_marked_struct_type.value()->m_LANG_determined_type.value();
                 else
                 {
-                    std::list<std::tuple<ast::AstDeclareAttribue::accessc_attrib, wo_pstring_t, lang_TypeInstance*>>
+                    std::vector<std::tuple<ast::AstDeclareAttribue::accessc_attrib, wo_pstring_t, lang_TypeInstance*>>
                         struct_field_info_list;
 
                     for (auto* field : node->m_fields)

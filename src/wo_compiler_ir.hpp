@@ -612,7 +612,7 @@ namespace wo
 
         std::map<ast::ConstantValue, uint32_t>
             constant_record_to_index_mapping;
-        std::list<const ast::ConstantValue*>
+        std::vector<const ast::ConstantValue*>
             ordered_constant_record_list;
         std::vector<opnum::global*>
             global_record_list;
@@ -630,7 +630,7 @@ namespace wo
         struct TagOffsetInConstantOffset
         {
             uint32_t m_offset_in_constant;
-            std::list<std::pair<uint32_t, uint16_t>> m_offset_in_tuple;
+            std::vector<std::pair<uint32_t, uint16_t>> m_offset_in_tuple;
         };
         using TagOffsetLocatedInConstantTableOffsetRecordT =
             std::map<wo_pstring_t, TagOffsetInConstantOffset>;

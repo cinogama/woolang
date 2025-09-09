@@ -753,7 +753,7 @@ namespace wo
             }
             case lang_TypeInstance::DeterminedType::TUPLE:
             {
-                std::list<lang_TypeInstance*> mixed_elem_types;
+                std::vector<lang_TypeInstance*> mixed_elem_types;
 
                 auto* a_tuple = a_determined_type->m_external_type_description.m_tuple;
                 auto* b_tuple = b_determined_type->m_external_type_description.m_tuple;
@@ -789,7 +789,7 @@ namespace wo
                     || a_function->m_param_types.size() != b_function->m_param_types.size())
                     return TypeMixtureResult{ TypeMixtureResult::REJECT };
 
-                std::list<lang_TypeInstance*> mixed_param_types;
+                std::vector<lang_TypeInstance*> mixed_param_types;
                 auto it_a = a_function->m_param_types.begin();
                 auto it_b = b_function->m_param_types.begin();
                 auto it_end = a_function->m_param_types.end();
@@ -842,7 +842,7 @@ namespace wo
             auto& a_template_arguments = immutable_atype->m_instance_template_arguments.value();
             auto& b_template_arguments = immutable_btype->m_instance_template_arguments.value();
 
-            std::list<ast::AstIdentifier::TemplateArgumentInstance> mixed_template_args;
+            std::vector<ast::AstIdentifier::TemplateArgumentInstance> mixed_template_args;
 
             auto it_a = a_template_arguments.begin();
             auto it_b = b_template_arguments.begin();

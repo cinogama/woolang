@@ -4,7 +4,7 @@ namespace wo
 {
     namespace ast
     {
-        ConstantValue::StructStorage::StructStorage(const std::list<ConstantValue*>& val)
+        ConstantValue::StructStorage::StructStorage(const std::vector<ConstantValue*>& val)
             : m_count(val.size())
             , m_elements(reinterpret_cast<ConstantValue*>(malloc(val.size() * sizeof(ConstantValue))))
         {
@@ -85,7 +85,7 @@ namespace wo
             : m_type(Type::PSTRING), m_storage(wo::wstring_pool::get_pstr(val))
         {
         }
-        ConstantValue::ConstantValue(const std::list<ConstantValue*>& val)
+        ConstantValue::ConstantValue(const std::vector<ConstantValue*>& val)
             : m_type(Type::STRUCT), m_storage(StructStorage(val))
         {
         }
@@ -354,7 +354,7 @@ namespace wo
         }
         AstIdentifier::AstIdentifier(
             wo_pstring_t identifier,
-            const std::optional<std::list<AstTemplateArgument*>>& template_arguments)
+            const std::optional<std::vector<AstTemplateArgument*>>& template_arguments)
             : AstBase(AST_IDENTIFIER)
             , m_formal(identifier_formal::FROM_CURRENT)
             , m_find_type_only(true)
@@ -369,8 +369,8 @@ namespace wo
         }
         AstIdentifier::AstIdentifier(
             wo_pstring_t identifier,
-            const std::optional<std::list<AstTemplateArgument*>>& template_arguments,
-            const std::list<wo_pstring_t>& scopes,
+            const std::optional<std::vector<AstTemplateArgument*>>& template_arguments,
+            const std::vector<wo_pstring_t>& scopes,
             bool from_global)
             : AstBase(AST_IDENTIFIER)
             , m_formal(from_global ? identifier_formal::FROM_GLOBAL : identifier_formal::FROM_CURRENT)
@@ -386,8 +386,8 @@ namespace wo
         }
         AstIdentifier::AstIdentifier(
             wo_pstring_t identifier,
-            const std::optional<std::list<AstTemplateArgument*>>& template_arguments,
-            const std::list<wo_pstring_t>& scopes,
+            const std::optional<std::vector<AstTemplateArgument*>>& template_arguments,
+            const std::vector<wo_pstring_t>& scopes,
             AstTypeHolder* from_type)
             : AstBase(AST_IDENTIFIER)
             , m_formal(identifier_formal::FROM_TYPE)
@@ -710,7 +710,7 @@ namespace wo
             }
         }
         void AstPatternBase::_check_if_template_exist_in(
-            const std::list<AstTemplateParam*>& template_params, std::vector<bool>& out_contain_flags) const
+            const std::vector<AstTemplateParam*>& template_params, std::vector<bool>& out_contain_flags) const
         {
             switch (this->node_type)
             {
@@ -745,7 +745,7 @@ namespace wo
             static_assert(AST_PATTERN_end == AST_PATTERN_INDEX + 1);
         }
         void AstValueBase::_check_if_template_exist_in(
-            const std::list<AstTemplateParam*>& template_params, std::vector<bool>& out_contain_flags) const
+            const std::vector<AstTemplateParam*>& template_params, std::vector<bool>& out_contain_flags) const
         {
             const AstValueBase* value = this;
             for (;;)
@@ -946,7 +946,7 @@ namespace wo
         }
 
         void AstTypeHolder::_check_if_template_exist_in(
-            const std::list<AstTemplateParam*>& template_params, std::vector<bool>& out_contain_flags) const
+            const std::vector<AstTemplateParam*>& template_params, std::vector<bool>& out_contain_flags) const
         {
             switch (m_formal)
             {
@@ -1269,7 +1269,7 @@ namespace wo
 
         ////////////////////////////////////////////////////////
 
-        AstWhereConstraints::AstWhereConstraints(const std::list<AstValueBase*>& constraints)
+        AstWhereConstraints::AstWhereConstraints(const std::vector<AstValueBase*>& constraints)
             : AstBase(AST_WHERE_CONSTRAINTS)
             , m_constraints(constraints)
         {
@@ -1318,7 +1318,7 @@ namespace wo
 
         ////////////////////////////////////////////////////////
 
-        AstValueFunctionCall::AstValueFunctionCall(bool direct, AstValueBase* function, const std::list<AstValueBase*>& arguments)
+        AstValueFunctionCall::AstValueFunctionCall(bool direct, AstValueBase* function, const std::vector<AstValueBase*>& arguments)
             : AstValueBase(AST_VALUE_FUNCTION_CALL)
             , m_is_direct_call(direct)
             , m_function(function)
@@ -1504,7 +1504,7 @@ namespace wo
         AstPatternSingle::AstPatternSingle(
             bool is_mutable,
             wo_pstring_t name,
-            const std::optional<std::list<AstTemplateParam*>>& template_parameters)
+            const std::optional<std::vector<AstTemplateParam*>>& template_parameters)
             : AstPatternBase(AST_PATTERN_SINGLE)
             , m_is_mutable(is_mutable)
             , m_name(name)
@@ -1525,7 +1525,7 @@ namespace wo
         ////////////////////////////////////////////////////////
 
         AstPatternTuple::AstPatternTuple(
-            const std::list<AstPatternBase*>& fields)
+            const std::vector<AstPatternBase*>& fields)
             : AstPatternBase(AST_PATTERN_TUPLE)
             , m_fields(fields)
         {
@@ -1645,7 +1645,7 @@ namespace wo
                 if (func_value->m_pending_param_type_mark_template && !single_pattern->m_is_mutable)
                 {
                     if (!single_pattern->m_template_parameters)
-                        single_pattern->m_template_parameters = std::list<AstTemplateParam*>{};
+                        single_pattern->m_template_parameters = std::vector<AstTemplateParam*>{};
 
                     for (auto*& p : func_value->m_pending_param_type_mark_template.value())
                         single_pattern->m_template_parameters.value().push_back(p);
@@ -1750,9 +1750,9 @@ namespace wo
         ////////////////////////////////////////////////////////
 
         AstValueFunction::AstValueFunction(
-            const std::list<AstFunctionParameterDeclare*>& parameters,
+            const std::vector<AstFunctionParameterDeclare*>& parameters,
             bool is_variadic,
-            const std::optional<std::list<AstTemplateParam*>>& defined_function_template_only_for_lambda,
+            const std::optional<std::vector<AstTemplateParam*>>& defined_function_template_only_for_lambda,
             const std::optional<AstTypeHolder*>& marked_return_type,
             const std::optional<AstWhereConstraints*>& where_constraints,
             AstBase* body)
@@ -1781,7 +1781,7 @@ namespace wo
                 if (!param_define->m_type)
                 {
                     if (!m_pending_param_type_mark_template)
-                        m_pending_param_type_mark_template = std::list<AstTemplateParam*>{};
+                        m_pending_param_type_mark_template = std::vector<AstTemplateParam*>{};
 
                     auto& pending_param_type_mark_template =
                         m_pending_param_type_mark_template.value();
@@ -1823,7 +1823,7 @@ namespace wo
 
         ////////////////////////////////////////////////////////
 
-        AstValueArrayOrVec::AstValueArrayOrVec(const std::list<AstValueBase*>& elements, bool making_vec)
+        AstValueArrayOrVec::AstValueArrayOrVec(const std::vector<AstValueBase*>& elements, bool making_vec)
             : AstValueBase(AST_VALUE_ARRAY_OR_VEC)
             , m_making_vec(making_vec)
             , m_elements(elements)
@@ -1862,7 +1862,7 @@ namespace wo
 
         ////////////////////////////////////////////////////////
 
-        AstValueDictOrMap::AstValueDictOrMap(const std::list<AstKeyValuePair*>& elements, bool making_map)
+        AstValueDictOrMap::AstValueDictOrMap(const std::vector<AstKeyValuePair*>& elements, bool making_map)
             : AstValueBase(AST_VALUE_DICT_OR_MAP)
             , m_making_map(making_map)
             , m_elements(elements)
@@ -1883,7 +1883,7 @@ namespace wo
 
         ////////////////////////////////////////////////////////
 
-        AstValueTuple::AstValueTuple(const std::list<AstValueBase*>& elements)
+        AstValueTuple::AstValueTuple(const std::vector<AstValueBase*>& elements)
             : AstValueBase(AST_VALUE_TUPLE)
             , m_elements(elements)
         {
@@ -1922,7 +1922,7 @@ namespace wo
 
         AstValueStruct::AstValueStruct(
             const std::optional<AstTypeHolder*>& marked_struct_type,
-            const std::list<AstStructFieldValuePair*>& fields)
+            const std::vector<AstStructFieldValuePair*>& fields)
             : AstValueBase(AST_VALUE_STRUCT)
             , m_marked_struct_type(marked_struct_type)
             , m_fields(fields)
@@ -2039,7 +2039,7 @@ namespace wo
 
         ////////////////////////////////////////////////////////
 
-        AstMatch::AstMatch(AstValueBase* match_value, const std::list<AstMatchCase*>& cases)
+        AstMatch::AstMatch(AstValueBase* match_value, const std::vector<AstMatchCase*>& cases)
             : AstBase(AST_MATCH)
             , m_matched_value(match_value)
             , m_cases(cases)
@@ -2304,7 +2304,7 @@ namespace wo
         AstUsingTypeDeclare::AstUsingTypeDeclare(
             const std::optional<AstDeclareAttribue*>& attrib,
             wo_pstring_t typename_,
-            const std::optional<std::list<AstTemplateParam*>>& template_parameters,
+            const std::optional<std::vector<AstTemplateParam*>>& template_parameters,
             AstTypeHolder* type)
             : AstBase(AST_USING_TYPE_DECLARE)
             , m_typename(typename_)
@@ -2342,7 +2342,7 @@ namespace wo
         AstAliasTypeDeclare::AstAliasTypeDeclare(
             const std::optional<AstDeclareAttribue*>& attrib,
             wo_pstring_t typename_,
-            const std::optional<std::list<AstTemplateParam*>>& template_parameters,
+            const std::optional<std::vector<AstTemplateParam*>>& template_parameters,
             AstTypeHolder* type)
             : AstBase(AST_ALIAS_TYPE_DECLARE)
             , m_typename(typename_)
@@ -2396,7 +2396,7 @@ namespace wo
         AstEnumDeclare::AstEnumDeclare(
             const std::optional<AstDeclareAttribue*>& attrib,
             AstToken* enum_name,
-            const std::list<AstEnumItem*>& enum_items)
+            const std::vector<AstEnumItem*>& enum_items)
             : AstBase(AST_ENUM_DECLARE)
             , m_enum_type_declare(nullptr)
             , m_enum_body(nullptr)
@@ -2559,8 +2559,8 @@ namespace wo
         AstUnionDeclare::AstUnionDeclare(
             const std::optional<AstDeclareAttribue*>& attrib,
             AstToken* union_type_name,
-            const std::optional<std::list<AstTemplateParam*>>& template_parameters,
-            const std::list<AstUnionItem*>& union_items)
+            const std::optional<std::vector<AstTemplateParam*>>& template_parameters,
+            const std::vector<AstUnionItem*>& union_items)
             : AstBase(AST_UNION_DECLARE)
             //, m_union_type_name(union_type_name)
             //, m_template_parameters(template_parameters)
@@ -2590,7 +2590,7 @@ namespace wo
 
                 if (template_parameters)
                 {
-                    std::list<AstTemplateArgument*> template_arguments(template_parameters.value().size());
+                    std::vector<AstTemplateArgument*> template_arguments(template_parameters.value().size());
                     auto template_parameter_iter = template_parameters.value().begin();
 
                     for (auto& template_argument : template_arguments)
@@ -2646,7 +2646,7 @@ namespace wo
 
                     // Declare a function to construct the union item.
                     // 1) Count used template parameters.
-                    std::list<AstTemplateParam*> used_template_parameters;
+                    std::vector<AstTemplateParam*> used_template_parameters;
 
                     if (template_parameters)
                     {
@@ -2781,7 +2781,7 @@ namespace wo
 
         ////////////////////////////////////////////////////////
 
-        AstUsingNamespace::AstUsingNamespace(const std::list<wo_pstring_t>& using_namespace)
+        AstUsingNamespace::AstUsingNamespace(const std::vector<wo_pstring_t>& using_namespace)
             : AstBase(AST_USING_NAMESPACE)
             , m_using_namespace(using_namespace)
         {

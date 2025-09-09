@@ -109,7 +109,7 @@ namespace wo
                 if (!WO_IS_EMPTY(from))
                 {
                     if (from < to_list)
-                        list->m_list.push_front(WO_NEED_AST(from));
+                        list->m_list.insert(list->m_list.begin(), WO_NEED_AST(from));
                     else
                         list->m_list.push_back(WO_NEED_AST(from));
                 }

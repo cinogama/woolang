@@ -9,11 +9,11 @@ namespace wo
     namespace ast
     {
         static auto _process_template_params(const std::optional<AstList*>& template_params)
-            -> std::optional<std::list<AstTemplateParam*>>
+            -> std::optional<std::vector<AstTemplateParam*>>
         {
             if (template_params)
             {
-                std::list<AstTemplateParam*> template_param_list;
+                std::vector<AstTemplateParam*> template_param_list;
                 for (auto& param : template_params.value()->m_list)
                 {
                     wo_assert(param->node_type == AstBase::AST_TEMPLATE_PARAM);
@@ -95,7 +95,7 @@ namespace wo
         {
             AstList* using_namespace_list = static_cast<AstList*>(WO_NEED_AST_TYPE(2, AstBase::AST_LIST));
 
-            std::list<wo_pstring_t> used_namespaces;
+            std::vector<wo_pstring_t> used_namespaces;
             for (auto& ns : using_namespace_list->m_list)
             {
                 wo_assert(ns->node_type == AstBase::AST_TOKEN);
@@ -145,7 +145,7 @@ namespace wo
             if (!WO_IS_EMPTY(0))
                 attrib = static_cast<AstDeclareAttribue*>(WO_NEED_AST_TYPE(0, AstBase::AST_DECLARE_ATTRIBUTE));
 
-            std::list<AstEnumItem*> items;
+            std::vector<AstEnumItem*> items;
             for (auto& item : enum_items->m_list)
             {
                 wo_assert(item->node_type == AstBase::AST_ENUM_ITEM);
@@ -195,7 +195,7 @@ namespace wo
             if (!WO_IS_EMPTY(3))
                 template_params = static_cast<AstList*>(WO_NEED_AST_TYPE(3, AstBase::AST_LIST));
 
-            std::optional<std::list<AstTemplateParam*>> in_type_template_params =
+            std::optional<std::vector<AstTemplateParam*>> in_type_template_params =
                 _process_template_params(template_params);
 
             return new AstUsingTypeDeclare(attrib, type_name, in_type_template_params, base_type);
@@ -246,7 +246,7 @@ namespace wo
             if (!WO_IS_EMPTY(3))
                 template_params = static_cast<AstList*>(WO_NEED_AST_TYPE(3, AstBase::AST_LIST));
 
-            std::optional<std::list<AstTemplateParam*>> in_type_template_params =
+            std::optional<std::vector<AstTemplateParam*>> in_type_template_params =
                 _process_template_params(template_params);
 
             return new AstAliasTypeDeclare(attrib, type_name, in_type_template_params, base_type);
@@ -255,7 +255,7 @@ namespace wo
         {
             AstList* expr_list = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
 
-            std::list<AstValueBase*> constraints;
+            std::vector<AstValueBase*> constraints;
             for (auto* cons : expr_list->m_list)
             {
                 wo_assert(cons->node_type >= AstBase::AST_VALUE_begin && cons->node_type < AstBase::AST_VALUE_end);
@@ -266,10 +266,10 @@ namespace wo
         }
 
         static auto _process_function_params(lexer& lex, AstList* paraments)
-            -> std::tuple<bool, std::list<AstFunctionParameterDeclare*>>
+            -> std::tuple<bool, std::vector<AstFunctionParameterDeclare*>>
         {
             bool is_variadic_function = false;
-            std::list<AstFunctionParameterDeclare*> in_params;
+            std::vector<AstFunctionParameterDeclare*> in_params;
             for (auto& param : paraments->m_list)
             {
                 if (is_variadic_function)
@@ -308,7 +308,7 @@ namespace wo
             if (!WO_IS_EMPTY(8))
                 where_constraints = static_cast<AstWhereConstraints*>(WO_NEED_AST_TYPE(8, AstBase::AST_WHERE_CONSTRAINTS));
 
-            std::optional<std::list<AstTemplateParam*>> in_template_params =
+            std::optional<std::vector<AstTemplateParam*>> in_template_params =
                 _process_template_params(template_params);
 
             auto [is_variadic_function, in_params] = _process_function_params(lex, paraments);
@@ -350,7 +350,7 @@ namespace wo
             if (!WO_IS_EMPTY(9))
                 where_constraints = static_cast<AstWhereConstraints*>(WO_NEED_AST_TYPE(9, AstBase::AST_WHERE_CONSTRAINTS));
 
-            std::optional<std::list<AstTemplateParam*>> in_template_params =
+            std::optional<std::vector<AstTemplateParam*>> in_template_params =
                 _process_template_params(template_params);
 
             auto [is_variadic_function, in_params] = _process_function_params(lex, paraments);
@@ -392,7 +392,7 @@ namespace wo
             if (!WO_IS_EMPTY(9))
                 where_constraints = static_cast<AstWhereConstraints*>(WO_NEED_AST_TYPE(9, AstBase::AST_WHERE_CONSTRAINTS));
 
-            std::optional<std::list<AstTemplateParam*>> in_template_params =
+            std::optional<std::vector<AstTemplateParam*>> in_template_params =
                 _process_template_params(template_params);
 
             auto [is_variadic_function, in_params] = _process_function_params(lex, paraments);
@@ -435,7 +435,7 @@ namespace wo
             if (!WO_IS_EMPTY(10))
                 where_constraints = static_cast<AstWhereConstraints*>(WO_NEED_AST_TYPE(10, AstBase::AST_WHERE_CONSTRAINTS));
 
-            std::optional<std::list<AstTemplateParam*>> in_template_params =
+            std::optional<std::vector<AstTemplateParam*>> in_template_params =
                 _process_template_params(template_params);
 
             auto [is_variadic_function, in_params] = _process_function_params(lex, paraments);
@@ -502,7 +502,7 @@ namespace wo
             if (!WO_IS_EMPTY(7))
                 where_constraints = static_cast<AstWhereConstraints*>(WO_NEED_AST_TYPE(7, AstBase::AST_WHERE_CONSTRAINTS));
 
-            std::optional<std::list<AstTemplateParam*>> in_template_params =
+            std::optional<std::vector<AstTemplateParam*>> in_template_params =
                 _process_template_params(template_params);
 
             auto [is_variadic_function, in_params] = _process_function_params(lex, paraments);
@@ -528,7 +528,7 @@ namespace wo
             if (!WO_IS_EMPTY(5))
                 body_1 = static_cast<AstVariableDefines*>(WO_NEED_AST_TYPE(5, AstBase::AST_VARIABLE_DEFINES));
 
-            std::optional<std::list<AstTemplateParam*>> in_template_params =
+            std::optional<std::vector<AstTemplateParam*>> in_template_params =
                 _process_template_params(template_params);
 
             auto [is_variadic_function, in_params] = _process_function_params(lex, paraments);
@@ -634,10 +634,10 @@ namespace wo
             if (!WO_IS_EMPTY(1))
                 template_arguments = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
 
-            std::optional<std::list<AstTemplateArgument*>> template_args = std::nullopt;
+            std::optional<std::vector<AstTemplateArgument*>> template_args = std::nullopt;
             if (template_arguments)
             {
-                std::list<AstTemplateArgument*> args;
+                std::vector<AstTemplateArgument*> args;
                 for (auto& arg : template_arguments.value()->m_list)
                 {
                     wo_assert(arg->node_type == AstBase::AST_TEMPLATE_ARGUMENT);
@@ -646,7 +646,7 @@ namespace wo
                 template_args = std::move(args);
             }
 
-            std::list<wo_pstring_t> scope_identifiers_and_name;
+            std::vector<wo_pstring_t> scope_identifiers_and_name;
             auto token_iter = scope_identifier->m_list.begin();
             auto token_end = scope_identifier->m_list.end();
 
@@ -677,10 +677,10 @@ namespace wo
             if (!WO_IS_EMPTY(1))
                 template_arguments = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
 
-            std::optional<std::list<AstTemplateArgument*>> template_args = std::nullopt;
+            std::optional<std::vector<AstTemplateArgument*>> template_args = std::nullopt;
             if (template_arguments)
             {
-                std::list<AstTemplateArgument*> args;
+                std::vector<AstTemplateArgument*> args;
                 for (auto& arg : template_arguments.value()->m_list)
                 {
                     wo_assert(arg->node_type == AstBase::AST_TEMPLATE_ARGUMENT);
@@ -689,7 +689,7 @@ namespace wo
                 template_args = std::move(args);
             }
 
-            std::list<wo_pstring_t> scope_identifiers_and_name;
+            std::vector<wo_pstring_t> scope_identifiers_and_name;
             for (auto* asttoken : scope_identifier->m_list)
             {
                 wo_assert(asttoken->node_type == AstBase::AST_TOKEN);
@@ -711,10 +711,10 @@ namespace wo
             if (!WO_IS_EMPTY(1))
                 template_arguments = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
 
-            std::optional<std::list<AstTemplateArgument*>> template_args = std::nullopt;
+            std::optional<std::vector<AstTemplateArgument*>> template_args = std::nullopt;
             if (template_arguments)
             {
-                std::list<AstTemplateArgument*> args;
+                std::vector<AstTemplateArgument*> args;
                 for (auto& arg : template_arguments.value()->m_list)
                 {
                     wo_assert(arg->node_type == AstBase::AST_TEMPLATE_ARGUMENT);
@@ -723,7 +723,7 @@ namespace wo
                 template_args = std::move(args);
             }
 
-            std::list<wo_pstring_t> scope_identifiers_and_name;
+            std::vector<wo_pstring_t> scope_identifiers_and_name;
             for (auto* asttoken : scope_identifier->m_list)
             {
                 wo_assert(asttoken->node_type == AstBase::AST_TOKEN);
@@ -753,7 +753,7 @@ namespace wo
             AstTypeHolder* return_type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(2, AstBase::AST_TYPE_HOLDER));
 
             bool is_variadic_function = false;
-            std::list<AstTypeHolder*> paraments;
+            std::vector<AstTypeHolder*> paraments;
             for (auto& param : parament_types->m_list)
             {
                 if (is_variadic_function)
@@ -804,7 +804,7 @@ namespace wo
         {
             AstList* members = static_cast<AstList*>(WO_NEED_AST_TYPE(2, AstBase::AST_LIST));
 
-            std::list<AstStructFieldDefine*> fields;
+            std::vector<AstStructFieldDefine*> fields;
             std::unordered_set<wo_pstring_t> exist_field_name;
             for (auto& field : members->m_list)
             {
@@ -825,7 +825,7 @@ namespace wo
         {
             AstList* tuple_types = static_cast<AstList*>(WO_NEED_AST_TYPE(0, AstBase::AST_LIST));
 
-            std::list<AstTypeHolder*> fields;
+            std::vector<AstTypeHolder*> fields;
             for (auto& field : tuple_types->m_list)
             {
                 if (field->node_type != AstBase::AST_TYPE_HOLDER)
@@ -876,7 +876,7 @@ namespace wo
         auto pass_reverse_vardef::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstList* vardefs = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
-            vardefs->m_list.reverse();
+            std::reverse(vardefs->m_list.begin(), vardefs->m_list.end());
 
             AstVariableDefines* vardefines = new AstVariableDefines(std::nullopt);
             for (auto* defitem : vardefs->m_list)
@@ -1199,7 +1199,9 @@ namespace wo
             AstValueBase* call_func = WO_NEED_AST_VALUE(0);
             AstList* call_arguments = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
 
-            std::list<AstValueBase*> arguments;
+            std::vector<AstValueBase*> arguments;
+            arguments.reserve(call_arguments->m_list.size());
+
             for (auto& argument : call_arguments->m_list)
             {
                 wo_assert(argument->node_type >= AstBase::AST_VALUE_begin && argument->node_type < AstBase::AST_VALUE_end);
@@ -1265,7 +1267,7 @@ namespace wo
             else
             {
                 function_call->m_is_direct_call = true;
-                function_call->m_arguments.push_front(inverse_argument);
+                function_call->m_arguments.insert(function_call->m_arguments.begin(), inverse_argument);
             }
 
             return function_call;
@@ -1295,14 +1297,14 @@ namespace wo
             if (!WO_IS_EMPTY(3))
                 union_template_params = static_cast<AstList*>(WO_NEED_AST_TYPE(3, AstBase::AST_LIST));
 
-            std::list<AstUnionItem*> items;
+            std::vector<AstUnionItem*> items;
             for (auto& item : union_items->m_list)
             {
                 wo_assert(item->node_type == AstBase::AST_UNION_ITEM);
                 items.push_back(static_cast<AstUnionItem*>(item));
             }
 
-            std::optional<std::list<AstTemplateParam*>> template_params =
+            std::optional<std::vector<AstTemplateParam*>> template_params =
                 _process_template_params(union_template_params);
 
             return new AstUnionDeclare(attrib, union_name, template_params, items);
@@ -1336,7 +1338,7 @@ namespace wo
             AstValueBase* match_value = WO_NEED_AST_VALUE(2);
             AstList* match_cases = static_cast<AstList*>(WO_NEED_AST_TYPE(5, AstBase::AST_LIST));
 
-            std::list<AstMatchCase*> cases;
+            std::vector<AstMatchCase*> cases;
             for (auto& match_case : match_cases->m_list)
             {
                 wo_assert(match_case->node_type == AstBase::AST_MATCH_CASE);
@@ -1400,7 +1402,7 @@ namespace wo
             if (!WO_IS_EMPTY(1))
                 pattern_list = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
 
-            std::list<AstPatternBase*> patterns;
+            std::vector<AstPatternBase*> patterns;
             if (pattern_list)
             {
                 for (auto& pattern : pattern_list.value()->m_list)
@@ -1426,7 +1428,7 @@ namespace wo
             if (!WO_IS_EMPTY(0))
                 attrib = static_cast<AstDeclareAttribue*>(WO_NEED_AST_TYPE(0, AstBase::AST_DECLARE_ATTRIBUTE));
 
-            std::list<AstVariableDefineItem*> defines;
+            std::vector<AstVariableDefineItem*> defines;
             for (auto& item : items->m_list)
             {
                 wo_assert(item->node_type == AstBase::AST_VARIABLE_DEFINE_ITEM);
@@ -1481,7 +1483,7 @@ namespace wo
             if (!WO_IS_EMPTY(0))
                 type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(0, AstBase::AST_TYPE_HOLDER));
 
-            std::list<AstStructFieldValuePair*> fields;
+            std::vector<AstStructFieldValuePair*> fields;
             std::unordered_set<wo_pstring_t> exist_field_name;
             for (auto& field : members->m_list)
             {
@@ -1502,7 +1504,7 @@ namespace wo
         {
             AstList* elements = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
 
-            std::list<AstValueBase*> values;
+            std::vector<AstValueBase*> values;
             for (auto& element : elements->m_list)
             {
                 wo_assert(element->node_type >= AstBase::AST_VALUE_begin && element->node_type < AstBase::AST_VALUE_end);
@@ -1515,7 +1517,7 @@ namespace wo
         {
             AstList* elements = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
 
-            std::list<AstValueBase*> values;
+            std::vector<AstValueBase*> values;
             for (auto& element : elements->m_list)
             {
                 wo_assert(element->node_type >= AstBase::AST_VALUE_begin && element->node_type < AstBase::AST_VALUE_end);
@@ -1540,7 +1542,7 @@ namespace wo
         {
             AstList* elements = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
 
-            std::list<AstKeyValuePair*> pairs;
+            std::vector<AstKeyValuePair*> pairs;
             for (auto& element : elements->m_list)
             {
                 wo_assert(element->node_type == AstBase::AST_KEY_VALUE_PAIR);
@@ -1553,7 +1555,7 @@ namespace wo
         {
             AstList* elements = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
 
-            std::list<AstKeyValuePair*> pairs;
+            std::vector<AstKeyValuePair*> pairs;
             for (auto& element : elements->m_list)
             {
                 wo_assert(element->node_type == AstBase::AST_KEY_VALUE_PAIR);
@@ -1566,7 +1568,7 @@ namespace wo
         {
             AstList* elements = static_cast<AstList*>(WO_NEED_AST_TYPE(0, AstBase::AST_LIST));
 
-            std::list<AstValueBase*> values;
+            std::vector<AstValueBase*> values;
             for (auto& element : elements->m_list)
             {
                 wo_assert(element->node_type >= AstBase::AST_VALUE_begin && element->node_type < AstBase::AST_VALUE_end);

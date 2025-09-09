@@ -79,7 +79,7 @@ namespace wo
             struct Function
             {
                 bool                            m_is_variadic;
-                std::list<lang_TypeInstance*>   m_param_types;
+                std::vector<lang_TypeInstance*>   m_param_types;
                 lang_TypeInstance* m_return_type;
             };
             struct Union
@@ -129,14 +129,14 @@ namespace wo
         // NOTE: DeterminedType means immutable type, lang_TypeInstance* means mutable types.
         DeterminedOrMutableType m_determined_base_type_or_mutable;
 
-        std::optional<std::list<ast::AstIdentifier::TemplateArgumentInstance>> m_instance_template_arguments;
+        std::optional<std::vector<ast::AstIdentifier::TemplateArgumentInstance>> m_instance_template_arguments;
         std::unordered_map<lang_TypeInstance*, TypeCheckResult> m_LANG_accepted_types;
         std::unordered_map<lang_TypeInstance*, TypeCheckResult> m_LANG_castfrom_types;
         std::unordered_set<lang_TypeInstance*> m_LANG_pending_depend_this;
 
         lang_TypeInstance(
             lang_Symbol* symbol,
-            const std::optional<std::list<ast::AstIdentifier::TemplateArgumentInstance>>& template_arguments);
+            const std::optional<std::vector<ast::AstIdentifier::TemplateArgumentInstance>>& template_arguments);
 
         lang_TypeInstance(const lang_TypeInstance&) = delete;
         lang_TypeInstance(lang_TypeInstance&&) = delete;
@@ -156,12 +156,12 @@ namespace wo
     {
         lang_Symbol* m_symbol;
 
-        std::optional<std::list<ast::AstIdentifier::TemplateArgumentInstance>> m_instance_template_arguments;
+        std::optional<std::vector<ast::AstIdentifier::TemplateArgumentInstance>> m_instance_template_arguments;
         std::optional<lang_TypeInstance*> m_determined_type;
 
         lang_AliasInstance(
             lang_Symbol* symbol, 
-            const std::optional<std::list<ast::AstIdentifier::TemplateArgumentInstance>>& template_arguments);
+            const std::optional<std::vector<ast::AstIdentifier::TemplateArgumentInstance>>& template_arguments);
         lang_AliasInstance(const lang_AliasInstance&) = delete;
         lang_AliasInstance(lang_AliasInstance&&) = delete;
         lang_AliasInstance& operator=(const lang_AliasInstance&) = delete;
@@ -185,7 +185,7 @@ namespace wo
         lang_Symbol*    m_symbol;
         bool            m_mutable;
 
-        std::optional<std::list<ast::AstIdentifier::TemplateArgumentInstance>> 
+        std::optional<std::vector<ast::AstIdentifier::TemplateArgumentInstance>> 
                         m_instance_template_arguments;
         std::optional<ast::ConstantValue>
                         m_determined_constant_or_function;
@@ -207,7 +207,7 @@ namespace wo
         lang_ValueInstance(
             bool mutable_,
             lang_Symbol* symbol,
-            const std::optional<std::list<ast::AstIdentifier::TemplateArgumentInstance>>& template_arguments);
+            const std::optional<std::vector<ast::AstIdentifier::TemplateArgumentInstance>>& template_arguments);
 
         ~lang_ValueInstance();
 
@@ -229,10 +229,10 @@ namespace wo
         state               m_state;
         ast::AstBase*       m_ast;
         lang_Symbol*        m_symbol;
-        std::list<ast::AstIdentifier::TemplateArgumentInstance>
+        std::vector<ast::AstIdentifier::TemplateArgumentInstance>
                             m_template_arguments;
 
-        std::optional<std::list<lexer::compiler_message_t>>
+        std::optional<std::vector<lexer::compiler_message_t>>
                             m_failed_error_for_this_instance;
 
         lang_TemplateAstEvalStateBase(lang_Symbol* symbol, ast::AstBase* ast);
@@ -250,7 +250,7 @@ namespace wo
         lang_TemplateAstEvalStateValue(
             lang_Symbol* symbol,
             ast::AstValueBase* duplicated_ast,
-            const std::list<ast::AstIdentifier::TemplateArgumentInstance>& template_arguments);
+            const std::vector<ast::AstIdentifier::TemplateArgumentInstance>& template_arguments);
     };
     struct lang_TemplateAstEvalStateType : public lang_TemplateAstEvalStateBase
     {
@@ -259,14 +259,14 @@ namespace wo
         lang_TemplateAstEvalStateType(
             lang_Symbol* symbol,
             ast::AstTypeHolder* ast,
-            const std::list<ast::AstIdentifier::TemplateArgumentInstance>& template_arguments);
+            const std::vector<ast::AstIdentifier::TemplateArgumentInstance>& template_arguments);
     };
     struct lang_TemplateAstEvalStateAlias : public lang_TemplateAstEvalStateBase
     {
         std::unique_ptr<lang_AliasInstance> m_alias_instance;
 
         lang_TemplateAstEvalStateAlias(
-            lang_Symbol* symbol, ast::AstTypeHolder* ast, const std::list<ast::AstIdentifier::TemplateArgumentInstance>& template_arguments);
+            lang_Symbol* symbol, ast::AstTypeHolder* ast, const std::vector<ast::AstIdentifier::TemplateArgumentInstance>& template_arguments);
     };
 
     struct lang_Symbol
@@ -278,16 +278,16 @@ namespace wo
             ALIAS,
         };
 
-        using TemplateArgumentListT = std::list<
+        using TemplateArgumentListT = std::vector<
             ast::AstIdentifier::TemplateArgumentInstance>;
 
         struct TemplateValuePrefab
         {
             lang_Symbol* m_symbol;
             bool m_mutable;
-            std::list<ast::AstTemplateParam*> m_template_params;
+            std::vector<ast::AstTemplateParam*> m_template_params;
             ast::AstValueBase* m_origin_value_ast;
-            std::list<lang_TemplateAstEvalStateValue*> m_finished_instance_list;
+            std::vector<lang_TemplateAstEvalStateValue*> m_finished_instance_list;
             std::map<TemplateArgumentListT, std::unique_ptr<lang_TemplateAstEvalStateValue>>
                 m_template_instances;
 
@@ -295,7 +295,7 @@ namespace wo
                 lang_Symbol* symbol,
                 bool mutable_,
                 ast::AstValueBase* ast,
-                const std::list<ast::AstTemplateParam*>& template_params);
+                const std::vector<ast::AstTemplateParam*>& template_params);
 
             lang_TemplateAstEvalStateValue* find_or_create_template_instance(
                 const TemplateArgumentListT& template_args);
@@ -312,7 +312,7 @@ namespace wo
         struct TemplateTypePrefab
         {
             lang_Symbol* m_symbol;
-            std::list<ast::AstTemplateParam*> m_template_params;
+            std::vector<ast::AstTemplateParam*> m_template_params;
             ast::AstTypeHolder* m_origin_value_ast;
             std::map<TemplateArgumentListT, std::unique_ptr<lang_TemplateAstEvalStateType>>
                 m_template_instances;
@@ -320,7 +320,7 @@ namespace wo
             TemplateTypePrefab(
                 lang_Symbol* symbol,
                 ast::AstTypeHolder* ast,
-                const std::list<ast::AstTemplateParam*>& template_params);
+                const std::vector<ast::AstTemplateParam*>& template_params);
 
             lang_TemplateAstEvalStateType* find_or_create_template_instance(
                 const TemplateArgumentListT& template_args);
@@ -333,7 +333,7 @@ namespace wo
         struct TemplateAliasPrefab
         {
             lang_Symbol* m_symbol;
-            std::list<ast::AstTemplateParam*> m_template_params;
+            std::vector<ast::AstTemplateParam*> m_template_params;
             ast::AstTypeHolder* m_origin_value_ast;
             std::map<TemplateArgumentListT, std::unique_ptr<lang_TemplateAstEvalStateAlias>>
                 m_template_instances;
@@ -341,7 +341,7 @@ namespace wo
             TemplateAliasPrefab(
                 lang_Symbol* symbol,
                 ast::AstTypeHolder* ast,
-                const std::list<ast::AstTemplateParam*>& template_params);
+                const std::vector<ast::AstTemplateParam*>& template_params);
 
             lang_TemplateAstEvalStateAlias* find_or_create_template_instance(
                 const TemplateArgumentListT& template_args);
@@ -399,7 +399,7 @@ namespace wo
             const std::optional<ast::AstBase::source_location_t>& location,
             lang_Scope* scope,
             ast::AstValueBase* template_value_base,
-            const std::list<ast::AstTemplateParam*>& template_params,
+            const std::vector<ast::AstTemplateParam*>& template_params,
             bool mutable_variable);
         lang_Symbol(
             wo_pstring_t name,
@@ -408,7 +408,7 @@ namespace wo
             const std::optional<ast::AstBase::source_location_t>& location,
             lang_Scope* scope,
             ast::AstTypeHolder* template_type_base,
-            const std::list<ast::AstTemplateParam*>& template_params,
+            const std::vector<ast::AstTemplateParam*>& template_params,
             bool is_alias);
     };
 
@@ -416,7 +416,7 @@ namespace wo
     {
         std::unordered_map<wo_pstring_t, std::unique_ptr<lang_Symbol>>
             m_defined_symbols;
-        std::list<std::unique_ptr<lang_Scope>>
+        std::vector<std::unique_ptr<lang_Scope>>
             m_sub_scopes;
         std::unordered_set<lang_Namespace*>
             m_declare_used_namespaces;
@@ -518,7 +518,7 @@ namespace wo
         std::unordered_map<
             int32_t,
             std::unique_ptr<opnum::temporary>> m_opnum_cache_temporarys;
-        std::list<
+        std::vector<
             std::unique_ptr<opnum::immbase>> m_opnum_cache_imm_value;
 
 #ifdef NDEBUG
@@ -576,7 +576,7 @@ namespace wo
             wo_pstring_t m_break_label;
             wo_pstring_t m_continue_label;
         };
-        std::list<LoopContent> m_loop_content_stack;
+        std::vector<LoopContent> m_loop_content_stack;
         
         int32_t m_global_storage_allocating;
 
@@ -727,7 +727,7 @@ namespace wo
                 TypeIndexChain                    m_chain;
                 std::optional<lang_TypeInstance*> m_type_instance;
 
-                OriginTypeChain* path(const std::list<lang_TypeInstance*>& type_path);
+                OriginTypeChain* path(const std::vector<lang_TypeInstance*>& type_path);
                 ~OriginTypeChain();
             };
             struct UnionStructTypeIndexChain
@@ -740,7 +740,7 @@ namespace wo
                 std::optional<lang_TypeInstance*> m_type_instance;
 
                 UnionStructTypeIndexChain* path(
-                    const std::list<std::tuple<ast::AstDeclareAttribue::accessc_attrib, wo_pstring_t, lang_TypeInstance*>>& type_path);
+                    const std::vector<std::tuple<ast::AstDeclareAttribue::accessc_attrib, wo_pstring_t, lang_TypeInstance*>>& type_path);
                 ~UnionStructTypeIndexChain();
             };
 
@@ -797,10 +797,10 @@ namespace wo
             lang_TypeInstance* create_mapping_type(lang_TypeInstance* key_type, lang_TypeInstance* value_type);
             lang_TypeInstance* create_array_type(lang_TypeInstance* element_type);
             lang_TypeInstance* create_vector_type(lang_TypeInstance* element_type);
-            lang_TypeInstance* create_tuple_type(const std::list<lang_TypeInstance*>& element_types);
-            lang_TypeInstance* create_function_type(bool is_variadic, const std::list<lang_TypeInstance*>& param_types, lang_TypeInstance* return_type);
-            lang_TypeInstance* create_struct_type(const std::list<std::tuple<ast::AstDeclareAttribue::accessc_attrib, wo_pstring_t, lang_TypeInstance*>>& member_types);
-            lang_TypeInstance* create_union_type(const std::list<std::pair<wo_pstring_t, std::optional<lang_TypeInstance*>>>& member_types);
+            lang_TypeInstance* create_tuple_type(const std::vector<lang_TypeInstance*>& element_types);
+            lang_TypeInstance* create_function_type(bool is_variadic, const std::vector<lang_TypeInstance*>& param_types, lang_TypeInstance* return_type);
+            lang_TypeInstance* create_struct_type(const std::vector<std::tuple<ast::AstDeclareAttribue::accessc_attrib, wo_pstring_t, lang_TypeInstance*>>& member_types);
+            lang_TypeInstance* create_union_type(const std::vector<std::pair<wo_pstring_t, std::optional<lang_TypeInstance*>>>& member_types);
 
             OriginTypeHolder() = default;
 
@@ -815,7 +815,7 @@ namespace wo
         std::unordered_map<lang_TypeInstance*, std::unique_ptr<lang_TypeInstance>>
                                         m_mutable_type_instance_cache;
         // NOTE: For LSPv2 only.
-        std::list<std::unique_ptr< lang_Macro>>
+        std::vector<std::unique_ptr< lang_Macro>>
                                         m_macros;   
 
         // Used for make sure template instance will never see the symbol declared after them.
@@ -1006,10 +1006,10 @@ namespace wo
 
         //////////////////////////////////////
 
-        template<typename T>
-        void continue_process_childs(const std::list<T*>& ast_list, PassProcessStackT& out_stack)
+        template<typename C>
+        void continue_process_childs(const C& ast_list, PassProcessStackT& out_stack)
         {
-            static_assert(std::is_base_of<ast::AstBase, T>::value);
+            // static_assert(std::is_base_of<ast::AstBase, T>::value);
             auto r_end = ast_list.rend();
             for (auto it = ast_list.rbegin(); it != r_end; ++it)
                 out_stack.push(AstNodeWithState(*it));
@@ -1111,8 +1111,8 @@ namespace wo
         bool fast_check_and_create_template_type_alias_and_constant_in_current_scope(
             lexer& lex,
             bool make_instance_for_variable,
-            const std::list<ast::AstTemplateParam*>& template_params,
-            const std::list<ast::AstIdentifier::TemplateArgumentInstance>& template_args,
+            const std::vector<ast::AstTemplateParam*>& template_params,
+            const std::vector<ast::AstIdentifier::TemplateArgumentInstance>& template_args,
             std::optional<ast::AstTemplateConstantTypeCheckInPass1*> template_checker);
 
         std::optional<lang_TemplateAstEvalStateBase*> begin_eval_template_ast(
@@ -1177,49 +1177,49 @@ namespace wo
 
         bool template_argument_deduction_from_constant(
             lexer& lex,
-            const std::list<ast::AstTemplateParam*>& template_params,
-            const std::list<ast::AstTemplateParam*>& pending_template_params,
+            const std::vector<ast::AstTemplateParam*>& template_params,
+            const std::vector<ast::AstTemplateParam*>& pending_template_params,
             std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance>* inout_determined_template_arg_pair);
 
         bool template_arguments_deduction_extraction_with_type(
             lexer& lex,
             const ast::AstTypeHolder* accept_type_formal,
             lang_TypeInstance* applying_type_instance,
-            const std::list<ast::AstTemplateParam*>& pending_template_params,
+            const std::vector<ast::AstTemplateParam*>& pending_template_params,
             std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance>* out_determined_template_arg_pair);
         bool template_arguments_deduction_extraction_with_constant(
             lexer& lex,
             ast::AstValueBase* accept_constant_formal,
             lang_TypeInstance* applying_type_instance,
             const ast::ConstantValue& constant_instance,
-            const std::list<ast::AstTemplateParam*>& pending_template_params,
+            const std::vector<ast::AstTemplateParam*>& pending_template_params,
             std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance>* out_determined_template_arg_pair);
 
         bool template_arguments_deduction_extraction_with_formal(
             lexer& lex,
             const ast::AstTemplateArgument* accept_template_param_formal,
             const ast::AstIdentifier::TemplateArgumentInstance& applying_template_argument_instance,
-            const std::list<ast::AstTemplateParam*>& pending_template_params,
+            const std::vector<ast::AstTemplateParam*>& pending_template_params,
             std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance>* out_determined_template_arg_pair);
 
         void template_function_deduction_extraction_with_complete_type(
             lexer& lex,
             ast::AstValueFunction* function_define,
-            const std::list<std::optional<lang_TypeInstance*>>& argument_types,
+            const std::vector<std::optional<lang_TypeInstance*>>& argument_types,
             const std::optional<lang_TypeInstance*>& return_type,
-            const std::list<ast::AstTemplateParam*>& pending_template_params,
+            const std::vector<ast::AstTemplateParam*>& pending_template_params,
             std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance>* out_determined_template_arg_pair
         );
 
         bool check_type_may_dependence_template_parameters(
             const ast::AstTypeHolder* accept_template_argument_formal,
-            const std::list<ast::AstTemplateParam*>& pending_template_params);
+            const std::vector<ast::AstTemplateParam*>& pending_template_params);
         bool check_constant_may_dependence_template_parameters(
             const ast::AstValueBase* accept_template_argument_formal,
-            const std::list<ast::AstTemplateParam*>& pending_template_params);
+            const std::vector<ast::AstTemplateParam*>& pending_template_params);
         bool check_formal_may_dependence_template_parameters(
             const ast::AstTemplateArgument* accept_template_argument_formal,
-            const std::list<ast::AstTemplateParam*>& pending_template_params);
+            const std::vector<ast::AstTemplateParam*>& pending_template_params);
 
         ast::AstValueBase* get_marked_origin_value_node(ast::AstValueBase* node);
         bool check_need_template_deduct_function(lexer& lex, ast::AstValueBase* target, PassProcessStackT& out_stack);
@@ -1255,7 +1255,7 @@ namespace wo
 
         bool /* is invalid */ collect_defers_from_current_scope_to(
             std::optional<lang_Scope*> to_scope,
-            std::list<ast::AstBase*>* out_collect_result_may_null);
+            std::vector<ast::AstBase*>* out_collect_result_may_null);
 
         std::optional<lang_Scope*> get_loop_scope_by_label_may_nullopt(
             const std::optional<wo_pstring_t>& label);

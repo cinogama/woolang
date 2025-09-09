@@ -96,7 +96,7 @@ namespace wo
         const  std::optional<ast::AstBase::source_location_t>& location,
         lang_Scope* scope,
         ast::AstValueBase* template_value_base,
-        const std::list<ast::AstTemplateParam*>& template_params,
+        const std::vector<ast::AstTemplateParam*>& template_params,
         bool mutable_variable)
         : m_symbol_kind(VARIABLE)
         , m_is_template(true)
@@ -120,7 +120,7 @@ namespace wo
         const std::optional<ast::AstBase::source_location_t>& location,
         lang_Scope* scope,
         ast::AstTypeHolder* template_type_base,
-        const std::list<ast::AstTemplateParam*>& template_params,
+        const std::vector<ast::AstTemplateParam*>& template_params,
         bool is_alias)
         : m_is_template(true)
         , m_is_global(false)
@@ -153,7 +153,7 @@ namespace wo
         lang_Symbol* symbol,
         bool mutable_,
         ast::AstValueBase* ast,
-        const std::list<ast::AstTemplateParam*>& template_params)
+        const std::vector<ast::AstTemplateParam*>& template_params)
         : m_symbol(symbol), m_mutable(mutable_), m_origin_value_ast(ast), m_template_params(template_params)
     {
     }
@@ -183,7 +183,7 @@ namespace wo
     lang_Symbol::TemplateTypePrefab::TemplateTypePrefab(
         lang_Symbol* symbol,
         ast::AstTypeHolder* ast,
-        const std::list<ast::AstTemplateParam*>& template_params)
+        const std::vector<ast::AstTemplateParam*>& template_params)
         : m_symbol(symbol), m_origin_value_ast(ast), m_template_params(template_params)
     {
     }
@@ -212,7 +212,7 @@ namespace wo
     lang_Symbol::TemplateAliasPrefab::TemplateAliasPrefab(
         lang_Symbol* symbol,
         ast::AstTypeHolder* ast,
-        const std::list<ast::AstTemplateParam*>& template_params)
+        const std::vector<ast::AstTemplateParam*>& template_params)
         : m_symbol(symbol), m_origin_value_ast(ast), m_template_params(template_params)
     {
     }
@@ -240,7 +240,7 @@ namespace wo
 
     lang_TypeInstance::lang_TypeInstance(
         lang_Symbol* symbol,
-        const std::optional<std::list<ast::AstIdentifier::TemplateArgumentInstance>>& template_arguments)
+        const std::optional<std::vector<ast::AstIdentifier::TemplateArgumentInstance>>& template_arguments)
         : m_symbol(symbol)
         , m_determined_base_type_or_mutable(std::nullopt)
         , m_instance_template_arguments(template_arguments)
@@ -375,7 +375,7 @@ namespace wo
     lang_TemplateAstEvalStateValue::lang_TemplateAstEvalStateValue(
         lang_Symbol* symbol,
         ast::AstValueBase* duplicated_ast,
-        const std::list<ast::AstIdentifier::TemplateArgumentInstance>& template_arguments)
+        const std::vector<ast::AstIdentifier::TemplateArgumentInstance>& template_arguments)
         : lang_TemplateAstEvalStateBase(symbol, duplicated_ast)
     {
         m_value_instance = std::make_unique<lang_ValueInstance>(
@@ -405,7 +405,7 @@ namespace wo
     //////////////////////////////////////
 
     lang_TemplateAstEvalStateType::lang_TemplateAstEvalStateType(
-        lang_Symbol* symbol, ast::AstTypeHolder* ast, const std::list<ast::AstIdentifier::TemplateArgumentInstance>& template_arguments)
+        lang_Symbol* symbol, ast::AstTypeHolder* ast, const std::vector<ast::AstIdentifier::TemplateArgumentInstance>& template_arguments)
         : lang_TemplateAstEvalStateBase(symbol, ast)
     {
         m_type_instance = std::make_unique<lang_TypeInstance>(
@@ -417,7 +417,7 @@ namespace wo
     lang_TemplateAstEvalStateAlias::lang_TemplateAstEvalStateAlias(
         lang_Symbol* symbol,
         ast::AstTypeHolder* ast,
-        const std::list<ast::AstIdentifier::TemplateArgumentInstance>& template_arguments)
+        const std::vector<ast::AstIdentifier::TemplateArgumentInstance>& template_arguments)
         : lang_TemplateAstEvalStateBase(symbol, ast)
     {
         m_alias_instance = std::make_unique<lang_AliasInstance>(symbol, template_arguments);
@@ -427,7 +427,7 @@ namespace wo
 
     lang_AliasInstance::lang_AliasInstance(
         lang_Symbol* symbol,
-        const std::optional<std::list<ast::AstIdentifier::TemplateArgumentInstance>>& template_arguments)
+        const std::optional<std::vector<ast::AstIdentifier::TemplateArgumentInstance>>& template_arguments)
         : m_symbol(symbol)
         , m_instance_template_arguments(template_arguments)
         , m_determined_type(std::nullopt)
@@ -515,7 +515,7 @@ namespace wo
     lang_ValueInstance::lang_ValueInstance(
         bool mutable_,
         lang_Symbol* symbol,
-        const std::optional<std::list<ast::AstIdentifier::TemplateArgumentInstance>>& template_arguments)
+        const std::optional<std::vector<ast::AstIdentifier::TemplateArgumentInstance>>& template_arguments)
         : m_symbol(symbol)
         , m_mutable(mutable_)
         , m_determined_constant_or_function(std::nullopt)
@@ -663,7 +663,7 @@ namespace wo
     //////////////////////////////////////
 
     LangContext::OriginTypeHolder::OriginTypeChain*
-        LangContext::OriginTypeHolder::OriginTypeChain::path(const std::list<lang_TypeInstance*>& type_path)
+        LangContext::OriginTypeHolder::OriginTypeChain::path(const std::vector<lang_TypeInstance*>& type_path)
     {
         OriginTypeChain* current_chain = this;
         for (auto* type : type_path)
@@ -693,7 +693,7 @@ namespace wo
 
     LangContext::OriginTypeHolder::UnionStructTypeIndexChain*
         LangContext::OriginTypeHolder::UnionStructTypeIndexChain::path(
-            const std::list<std::tuple<ast::AstDeclareAttribue::accessc_attrib, wo_pstring_t, lang_TypeInstance*>>& type_path)
+            const std::vector<std::tuple<ast::AstDeclareAttribue::accessc_attrib, wo_pstring_t, lang_TypeInstance*>>& type_path)
     {
         UnionStructTypeIndexChain* current_chain = this;
         for (auto& [attrib, field, type_may_null] : type_path)
@@ -739,7 +739,7 @@ namespace wo
 
             lang_TypeInstance* new_type_instance = new lang_TypeInstance(
                 m_dictionary,
-                std::list{
+                std::vector{
                     ast::AstIdentifier::TemplateArgumentInstance(key_type),
                     ast::AstIdentifier::TemplateArgumentInstance(value_type) });
             new_type_instance->determine_base_type_move(std::move(determined_type_detail));
@@ -765,7 +765,7 @@ namespace wo
 
             lang_TypeInstance* new_type_instance = new lang_TypeInstance(
                 m_mapping,
-                std::list{
+                std::vector{
                     ast::AstIdentifier::TemplateArgumentInstance(key_type),
                     ast::AstIdentifier::TemplateArgumentInstance(value_type) });
             new_type_instance->determine_base_type_move(std::move(determined_type_detail));
@@ -790,7 +790,7 @@ namespace wo
 
             lang_TypeInstance* new_type_instance = new lang_TypeInstance(
                 m_array,
-                std::list{ ast::AstIdentifier::TemplateArgumentInstance(element_type) });
+                std::vector{ ast::AstIdentifier::TemplateArgumentInstance(element_type) });
             new_type_instance->determine_base_type_move(std::move(determined_type_detail));
 
             chain_node->m_type_instance = new_type_instance;
@@ -812,14 +812,14 @@ namespace wo
                 lang_TypeInstance::DeterminedType::base_type::VECTOR, desc);
 
             lang_TypeInstance* new_type_instance = new lang_TypeInstance(
-                m_vector, std::list{ ast::AstIdentifier::TemplateArgumentInstance(element_type) });
+                m_vector, std::vector{ ast::AstIdentifier::TemplateArgumentInstance(element_type) });
             new_type_instance->determine_base_type_move(std::move(determined_type_detail));
 
             chain_node->m_type_instance = new_type_instance;
         }
         return chain_node->m_type_instance.value();
     }
-    lang_TypeInstance* LangContext::OriginTypeHolder::create_tuple_type(const std::list<lang_TypeInstance*>& element_types)
+    lang_TypeInstance* LangContext::OriginTypeHolder::create_tuple_type(const std::vector<lang_TypeInstance*>& element_types)
     {
         OriginTypeChain* chain_node = m_tuple_chain.path(element_types);
         if (!chain_node->m_type_instance)
@@ -840,7 +840,7 @@ namespace wo
         }
         return chain_node->m_type_instance.value();
     }
-    lang_TypeInstance* LangContext::OriginTypeHolder::create_function_type(bool is_variadic, const std::list<lang_TypeInstance*>& param_types, lang_TypeInstance* return_type)
+    lang_TypeInstance* LangContext::OriginTypeHolder::create_function_type(bool is_variadic, const std::vector<lang_TypeInstance*>& param_types, lang_TypeInstance* return_type)
     {
         OriginTypeChain* chain_node = m_function_chain[is_variadic ? 1 : 0].path(param_types)->path({ return_type });
         if (!chain_node->m_type_instance)
@@ -863,7 +863,7 @@ namespace wo
         return chain_node->m_type_instance.value();
     }
     lang_TypeInstance* LangContext::OriginTypeHolder::create_struct_type(
-        const std::list<std::tuple<ast::AstDeclareAttribue::accessc_attrib, wo_pstring_t, lang_TypeInstance*>>& member_types)
+        const std::vector<std::tuple<ast::AstDeclareAttribue::accessc_attrib, wo_pstring_t, lang_TypeInstance*>>& member_types)
     {
         UnionStructTypeIndexChain* chain_node = m_struct_chain.path(member_types);
         if (!chain_node->m_type_instance)
@@ -892,9 +892,9 @@ namespace wo
         return chain_node->m_type_instance.value();
     }
     lang_TypeInstance* LangContext::OriginTypeHolder::create_union_type(
-        const std::list<std::pair<wo_pstring_t, std::optional<lang_TypeInstance*>>>& member_types)
+        const std::vector<std::pair<wo_pstring_t, std::optional<lang_TypeInstance*>>>& member_types)
     {
-        std::list<std::tuple<ast::AstDeclareAttribue::accessc_attrib, wo_pstring_t, lang_TypeInstance*>>
+        std::vector<std::tuple<ast::AstDeclareAttribue::accessc_attrib, wo_pstring_t, lang_TypeInstance*>>
             member_types_no_optional;
         for (auto& [field, type] : member_types)
             member_types_no_optional.push_back(
@@ -1037,7 +1037,7 @@ namespace wo
         }
         case ast::AstTypeHolder::FUNCTION:
         {
-            std::list<lang_TypeInstance*> param_types;
+            std::vector<lang_TypeInstance*> param_types;
             for (auto* type_holder : type_holder->m_typeform.m_function.m_parameters)
                 param_types.push_back(type_holder->m_LANG_determined_type.value());
 
@@ -1048,7 +1048,7 @@ namespace wo
         }
         case ast::AstTypeHolder::STRUCTURE:
         {
-            std::list<std::tuple<ast::AstDeclareAttribue::accessc_attrib, wo_pstring_t, lang_TypeInstance*>> param_types;
+            std::vector<std::tuple<ast::AstDeclareAttribue::accessc_attrib, wo_pstring_t, lang_TypeInstance*>> param_types;
             for (auto* field : type_holder->m_typeform.m_structure.m_fields)
                 param_types.push_back(std::make_tuple(
                     field->m_attribute.value_or(ast::AstDeclareAttribue::accessc_attrib::PRIVATE),
@@ -1059,7 +1059,7 @@ namespace wo
         }
         case ast::AstTypeHolder::UNION:
         {
-            std::list<std::pair<wo_pstring_t, std::optional<lang_TypeInstance*>>> member_types;
+            std::vector<std::pair<wo_pstring_t, std::optional<lang_TypeInstance*>>> member_types;
             for (auto& field : type_holder->m_typeform.m_union.m_fields)
             {
                 member_types.push_back(std::make_pair(
@@ -1072,7 +1072,7 @@ namespace wo
         }
         case ast::AstTypeHolder::TUPLE:
         {
-            std::list<lang_TypeInstance*> element_types;
+            std::vector<lang_TypeInstance*> element_types;
             for (auto* type_holder : type_holder->m_typeform.m_tuple.m_fields)
                 element_types.push_back(type_holder->m_LANG_determined_type.value());
 
@@ -2185,8 +2185,8 @@ namespace wo
     bool LangContext::fast_check_and_create_template_type_alias_and_constant_in_current_scope(
         lexer& lex,
         bool make_instance_for_variable,
-        const std::list<ast::AstTemplateParam*>& template_params,
-        const std::list<ast::AstIdentifier::TemplateArgumentInstance>& template_args,
+        const std::vector<ast::AstTemplateParam*>& template_params,
+        const std::vector<ast::AstIdentifier::TemplateArgumentInstance>& template_args,
         std::optional<ast::AstTemplateConstantTypeCheckInPass1*> template_checker)
     {
         wo_assert(template_params.size() == template_args.size());

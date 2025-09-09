@@ -283,7 +283,7 @@ namespace wo
                 return std::make_unique<SafeHolder<T>>(location);
             }
 
-            using ContinuesList = std::list<std::unique_ptr<_AstSafeHolderBase>>;
+            using ContinuesList = std::vector<std::unique_ptr<_AstSafeHolderBase>>;
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const = 0;
 
             AstBase* clone() const
@@ -296,8 +296,8 @@ namespace wo
 
                 while (!continues.empty())
                 {
-                    auto holder = std::move(continues.front());
-                    continues.pop_front();
+                    auto holder = std::move(continues.back());
+                    continues.pop_back();
 
                     auto* origin_holder_ast = holder->get();
                     auto* duped_holder_ast = origin_holder_ast->make_dup(std::nullopt, continues);
@@ -312,7 +312,7 @@ namespace wo
         class AstList : public AstBase
         {
         public:
-            std::list<AstBase*> m_list;
+            std::vector<AstBase*> m_list;
             AstList() : AstBase(AST_LIST)
             {
             }

@@ -557,7 +557,7 @@ wo_lspv2_expr_info* wo_lspv2_expr_get_info(wo_lspv2_expr* expr)
     wo_bool_t is_value = WO_TRUE;
     wo_lspv2_constant* const_value = nullptr;
 
-    std::list<wo::ast::AstIdentifier::TemplateArgumentInstance>* template_instance_argument_list
+    std::vector<wo::ast::AstIdentifier::TemplateArgumentInstance>* template_instance_argument_list
         = nullptr;
 
     if (ast_base->node_type == wo::ast::AstBase::node_type_t::AST_TYPE_HOLDER)

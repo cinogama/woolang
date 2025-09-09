@@ -196,7 +196,7 @@ namespace wo
             std::string to_string(bool need_ansi_describe);
         };
         using compiler_message_list_t =
-            std::list<compiler_message_t>;
+            std::vector<compiler_message_t>;
 
         struct peeked_token_t
         {
@@ -270,7 +270,7 @@ namespace wo
     private:
         struct SharedContext
         {
-            std::list<compiler_message_list_t> m_error_frame;
+            std::vector<compiler_message_list_t> m_error_frame;
             declared_macro_map_t m_declared_macro_list;
 
             // NOTE: Following wo_pstring_t only used in pass1.
@@ -278,7 +278,7 @@ namespace wo
             who_import_me_map_t m_who_import_me_map_tree;
             export_import_map_t m_export_import_map;
 
-            std::list<std::string> m_temp_virtual_file_path;
+            std::vector<std::string> m_temp_virtual_file_path;
 
             SharedContext(const std::optional<wo_pstring_t>& source_path);
             ~SharedContext();
@@ -331,7 +331,7 @@ namespace wo
         std::unique_ptr<CachedIStream> m_source_stream;
         std::shared_ptr<SharedContext> m_shared_context;
 
-        std::list<ast::AstBase*> m_imported_ast_tree_list;
+        std::vector<ast::AstBase*> m_imported_ast_tree_list;
 
         std::queue<peeked_token_t> _m_peeked_tokens;
         size_t _m_row_counter;

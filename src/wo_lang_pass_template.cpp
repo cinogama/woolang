@@ -7,7 +7,7 @@ namespace wo
     void LangContext::_collect_failed_template_instance(
         lexer& lex, ast::AstBase* node, lang_TemplateAstEvalStateBase* inst)
     {
-        std::list<ast::AstTemplateParam*>* template_params = nullptr;
+        std::vector<ast::AstTemplateParam*>* template_params = nullptr;
         switch (inst->m_symbol->m_symbol_kind)
         {
         case lang_Symbol::kind::VARIABLE:
@@ -66,7 +66,7 @@ namespace wo
         lexer& lex,
         ast::AstBase* node,
         lang_Symbol::TemplateArgumentListT& template_arguments,
-        const std::list<ast::AstTemplateParam*>& template_params)
+        const std::vector<ast::AstTemplateParam*>& template_params)
     {
         if (template_arguments.size() == template_params.size())
             return true;
@@ -113,7 +113,7 @@ namespace wo
         ast::AstBase* node,
         lang_Symbol* symbol,
         lang_Symbol::TemplateArgumentListT& inout_template_arguments,
-        const std::list<ast::AstTemplateParam*>& template_params)
+        const std::vector<ast::AstTemplateParam*>& template_params)
     {
         if (inout_template_arguments.size() < template_params.size())
         {
@@ -161,7 +161,7 @@ namespace wo
 
             auto template_params_iter_end = template_params.end();
 
-            std::list<ast::AstTemplateParam*> pending_template_params;
+            std::vector<ast::AstTemplateParam*> pending_template_params;
 
             for (; template_params_iter != template_params_iter_end; ++template_params_iter)
                 pending_template_params.push_back(*template_params_iter);
@@ -220,7 +220,7 @@ namespace wo
         wo_assert(templating_symbol->m_is_template);
 
         lang_TemplateAstEvalStateBase* result;
-        const std::list<ast::AstTemplateParam*>* template_params;
+        const std::vector<ast::AstTemplateParam*>* template_params;
 
         lex.begin_trying_block();
 
@@ -491,7 +491,7 @@ namespace wo
         ast::AstValueBase* accept_constant_formal,
         lang_TypeInstance* applying_type_instance,
         const ast::ConstantValue& constant_instance,
-        const std::list<ast::AstTemplateParam*>& pending_template_params,
+        const std::vector<ast::AstTemplateParam*>& pending_template_params,
         std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance>* out_determined_template_arg_pair)
     {
         switch (accept_constant_formal->node_type)
@@ -535,8 +535,8 @@ namespace wo
 
     bool LangContext::template_argument_deduction_from_constant(
         lexer& lex,
-        const std::list<ast::AstTemplateParam*>& template_params,
-        const std::list<ast::AstTemplateParam*>& pending_template_params,
+        const std::vector<ast::AstTemplateParam*>& template_params,
+        const std::vector<ast::AstTemplateParam*>& pending_template_params,
         std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance>* inout_determined_template_arg_pair)
     {
         for (auto* param : template_params)
@@ -564,7 +564,7 @@ namespace wo
         lexer& lex,
         const ast::AstTypeHolder* accept_type_formal,
         lang_TypeInstance* applying_type_instance,
-        const std::list<ast::AstTemplateParam*>& pending_template_params,
+        const std::vector<ast::AstTemplateParam*>& pending_template_params,
         std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance>* out_determined_template_arg_pair)
     {
         switch (accept_type_formal->m_formal)
@@ -798,7 +798,7 @@ namespace wo
                 // Not match.
                 return true;
 
-            std::list<std::pair<ast::AstTypeHolder*, lang_TypeInstance*>>
+            std::vector<std::pair<ast::AstTypeHolder*, lang_TypeInstance*>>
                 member_type_instance_pairs;
 
             wo_integer_t member_index = 0;
@@ -886,7 +886,7 @@ namespace wo
         lexer& lex,
         const ast::AstTemplateArgument* accept_template_param_formal,
         const ast::AstIdentifier::TemplateArgumentInstance& applying_template_argument_instance,
-        const std::list<ast::AstTemplateParam*>& pending_template_params,
+        const std::vector<ast::AstTemplateParam*>& pending_template_params,
         std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance>* out_determined_template_arg_pair)
     {
         if (accept_template_param_formal->is_type()
@@ -921,7 +921,7 @@ namespace wo
 
     bool LangContext::check_type_may_dependence_template_parameters(
         const ast::AstTypeHolder* accept_template_argument_formal,
-        const std::list<ast::AstTemplateParam*>& pending_template_params)
+        const std::vector<ast::AstTemplateParam*>& pending_template_params)
     {
         std::vector<bool> template_mask(pending_template_params.size(), false);
 
@@ -937,7 +937,7 @@ namespace wo
     }
     bool LangContext::check_constant_may_dependence_template_parameters(
         const ast::AstValueBase* accept_template_argument_formal,
-        const std::list<ast::AstTemplateParam*>& pending_template_params)
+        const std::vector<ast::AstTemplateParam*>& pending_template_params)
     {
         std::vector<bool> template_mask(pending_template_params.size(), false);
 
@@ -954,7 +954,7 @@ namespace wo
 
     bool LangContext::check_formal_may_dependence_template_parameters(
         const ast::AstTemplateArgument* accept_template_argument_formal,
-        const std::list<ast::AstTemplateParam*>& pending_template_params)
+        const std::vector<ast::AstTemplateParam*>& pending_template_params)
     {
 
         if (accept_template_argument_formal->is_type())
@@ -968,9 +968,9 @@ namespace wo
     void LangContext::template_function_deduction_extraction_with_complete_type(
         lexer& lex,
         ast::AstValueFunction* function_define,
-        const std::list<std::optional<lang_TypeInstance*>>& argument_types,
+        const std::vector<std::optional<lang_TypeInstance*>>& argument_types,
         const std::optional<lang_TypeInstance*>& return_type,
-        const std::list<ast::AstTemplateParam*>& pending_template_params,
+        const std::vector<ast::AstTemplateParam*>& pending_template_params,
         std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance>* out_determined_template_arg_pair
     )
     {
