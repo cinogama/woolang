@@ -527,15 +527,16 @@ namespace wo
             {
                 UNPROCESSED,
 
-                HOLD_FOR_LAND_LOR_COND_COMPILE_LEFT,
-                HOLD_FOR_OPNUM_EVAL,
+                HOLD_FOR_LEFT_OPNUM_EVAL,
+                HOLD_FOR_RIGHT_OPNUM_EVAL,
                 HOLD_FOR_OVERLOAD_FUNCTION_CALL_EVAL,
 
                 IR_HOLD_FOR_INDEX_PATTERN_EVAL,
                 IR_HOLD_TO_INDEX_PATTERN_OVERLOAD,
                 IR_HOLD_TO_APPLY_ASSIGN,
 
-                IR_HOLD_FOR_NORMAL_LR_OR_OVERLOAD_EVAL,
+                IR_HOLD_FOR_NORMAL_LR_EVAL,
+                IR_HOLD_FOR_OVERLOAD_CALL_EVAL,
                 IR_HOLD_FOR_LAND_LOR_LEFT_SHORT_CUT,
                 IR_HOLD_FOR_LAND_LOR_RIGHT,
             };
@@ -642,7 +643,7 @@ namespace wo
             AstValueVariadicArgumentsPack();
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
         };
-        struct AstValueIndex : public AstValueBase
+        struct AstValueIndex : public AstValueMayConsiderOperatorOverload
         {
             AstValueBase* m_container;
             AstValueBase* m_index;

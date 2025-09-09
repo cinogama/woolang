@@ -977,7 +977,7 @@ namespace wo
                 auto& red_rule = RT_PRODUCTION_P[actions.state];
 
                 // No need to resize `srcinfo_bnodes`, only `te_or_nt_bnodes`.
-                //   rcinfo_bnodes.resize(red_rule.rule_right_count);
+                srcinfo_bnodes.resize(red_rule.rule_right_count);
                 te_or_nt_bnodes.resize(red_rule.rule_right_count);
 
                 for (size_t i = red_rule.rule_right_count; i > 0; i--)

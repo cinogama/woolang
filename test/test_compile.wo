@@ -2512,6 +2512,19 @@ func main()
                 continue aa;
         }
         "@);
+        assure_compile_fail(@"
+        namespace bool
+        {
+            func operator && (a: bool, b: bool)
+            {
+                return;
+            }
+        }
+        do false && bad;
+        "@);
+        assure_compile_success(@"
+        do false && bad;
+        "@);
 
         // Do you forget to regenerate the grammar-cache?
         assure_compile_fail(@""@);

@@ -1565,7 +1565,7 @@ namespace wo
         ////////////////////////////////////////////////////////
 
         AstValueIndex::AstValueIndex(AstValueBase* container, AstValueBase* index)
-            : AstValueBase(AST_VALUE_INDEX)
+            : AstValueMayConsiderOperatorOverload(AST_VALUE_INDEX, true)
             , m_container(container)
             , m_index(index)
             , m_LANG_result_is_mutable(false)
@@ -1578,7 +1578,7 @@ namespace wo
                 ? static_cast<AstValueIndex*>(exist_instance.value())
                 : new AstValueIndex(m_container, m_index)
                 ;
-            AstValueBase::make_dup(new_instance, out_continues);
+            AstValueMayConsiderOperatorOverload::make_dup(new_instance, out_continues);
             out_continues.push_back(AstBase::make_holder(&new_instance->m_container));
             out_continues.push_back(AstBase::make_holder(&new_instance->m_index));
             return new_instance;

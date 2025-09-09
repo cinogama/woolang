@@ -1593,22 +1593,22 @@ namespace wo
     {
         auto decided_function_return_type =
             [&](lang_TypeInstance* ret_type)
+        {
+            std::vector<lang_TypeInstance*> parameters;
+            for (auto& param : node->m_parameters)
+                parameters.push_back(param->m_type.value()->m_LANG_determined_type.value());
+
+            node->m_LANG_determined_type = m_origin_types.create_function_type(
+                node->m_is_variadic, parameters, ret_type);
+
+            wo_assert(node->m_LANG_determined_type.has_value());
+
+            if (node->m_LANG_value_instance_to_update)
             {
-                std::vector<lang_TypeInstance*> parameters;
-                for (auto& param : node->m_parameters)
-                    parameters.push_back(param->m_type.value()->m_LANG_determined_type.value());
-
-                node->m_LANG_determined_type = m_origin_types.create_function_type(
-                    node->m_is_variadic, parameters, ret_type);
-
-                wo_assert(node->m_LANG_determined_type.has_value());
-
-                if (node->m_LANG_value_instance_to_update)
-                {
-                    node->m_LANG_value_instance_to_update.value()->m_determined_type =
-                        node->m_LANG_determined_type;
-                }
-            };
+                node->m_LANG_value_instance_to_update.value()->m_determined_type =
+                    node->m_LANG_determined_type;
+            }
+        };
 
         // Huston, we have a problem.
         if (state == UNPROCESSED)
@@ -2176,233 +2176,300 @@ namespace wo
         {
             WO_CONTINUE_PROCESS(node->m_container);
             WO_CONTINUE_PROCESS(node->m_index);
+
+            node->m_LANG_hold_state = AstValueIndex::HOLD_FOR_RIGHT_OPNUM_EVAL;
             return HOLD;
         }
         else if (state == HOLD)
         {
-            // Check is index able?
-            auto* container_type_instance = node->m_container->m_LANG_determined_type.value();
-            auto container_determined_base_type =
-                container_type_instance->get_determined_type();
-            auto* indexer_type_instance = node->m_index->m_LANG_determined_type.value();
-            auto indexer_determined_base_type =
-                indexer_type_instance->get_determined_type();
-
-            if (!container_determined_base_type)
+            switch (node->m_LANG_hold_state)
             {
-                lex.record_lang_error(lexer::msglevel_t::error, node->m_container,
-                    WO_ERR_TYPE_NAMED_DETERMINED_FAILED,
-                    get_type_name(container_type_instance));
-
-                return FAILED;
-            }
-            if (!indexer_determined_base_type)
+            case AstValueIndex::HOLD_FOR_RIGHT_OPNUM_EVAL:
             {
-                lex.record_lang_error(lexer::msglevel_t::error, node->m_index,
-                    WO_ERR_TYPE_NAMED_DETERMINED_FAILED,
-                    get_type_name(indexer_type_instance));
+                if (node->m_consider_overload)
+                {
+                    lang_TypeInstance* left_type = node->m_container->m_LANG_determined_type.value();
+                    lang_Symbol* left_type_symbol = left_type->m_symbol;
 
-                return FAILED;
-            }
+                    wo_pstring_t operator_name = WO_PSTR(operator_INDEX);
 
-            auto* container_determined_base_type_instance =
-                container_determined_base_type.value();
-            auto* indexer_determined_base_type_instance =
-                indexer_determined_base_type.value();
+                    AstIdentifier* operator_identifier = new AstIdentifier(operator_name);
+                    operator_identifier->m_formal = AstIdentifier::identifier_formal::FROM_TYPE;
+                    operator_identifier->m_from_type = left_type;
+                    operator_identifier->m_find_type_only = false;
+                    operator_identifier->duplicated_node = node->duplicated_node;
 
-            lang_TypeInstance* index_raw_result;
-            switch (container_determined_base_type_instance->m_base_type)
-            {
-            case lang_TypeInstance::DeterminedType::ARRAY:
-            case lang_TypeInstance::DeterminedType::VECTOR:
-            {
-                if (indexer_determined_base_type_instance->m_base_type
-                    != lang_TypeInstance::DeterminedType::INTEGER &&
-                    indexer_determined_base_type_instance->m_base_type
-                    != lang_TypeInstance::DeterminedType::NOTHING)
+                    // Update source location.
+                    operator_identifier->source_location = node->source_location;
+
+                    bool ambiguous = false;
+                    if (find_symbol_in_current_scope(lex, operator_identifier, &ambiguous))
+                    {
+                        // Has overload function.
+                        AstValueVariable* overload_function = new AstValueVariable(operator_identifier);
+                        overload_function->duplicated_node = node->duplicated_node;
+
+                        AstValueFunctionCall* overload_function_call = new AstValueFunctionCall(
+                            false /* symbol has ben determined */, overload_function, { node->m_container, node->m_index });
+
+                        // Update source location.
+                        overload_function->source_location = node->source_location;
+                        overload_function_call->source_location = node->source_location;
+
+                        node->m_LANG_overload_call = overload_function_call;
+
+                        WO_CONTINUE_PROCESS(overload_function_call);
+                        node->m_LANG_hold_state = AstValueBinaryOperator::HOLD_FOR_OVERLOAD_FUNCTION_CALL_EVAL;
+                        return HOLD;
+                    }
+                    else if (ambiguous)
+                        return FAILED;
+                    else
+                        ; // No function overload, continue;
+                }
+
+                // No function overload, normal index.
+                // Check is index able?
+
+                auto* container_type_instance = node->m_container->m_LANG_determined_type.value();
+                auto container_determined_base_type =
+                    container_type_instance->get_determined_type();
+                auto* indexer_type_instance = node->m_index->m_LANG_determined_type.value();
+                auto indexer_determined_base_type =
+                    indexer_type_instance->get_determined_type();
+
+                if (!container_determined_base_type)
+                {
+                    lex.record_lang_error(lexer::msglevel_t::error, node->m_container,
+                        WO_ERR_TYPE_NAMED_DETERMINED_FAILED,
+                        get_type_name(container_type_instance));
+
+                    return FAILED;
+                }
+                if (!indexer_determined_base_type)
                 {
                     lex.record_lang_error(lexer::msglevel_t::error, node->m_index,
-                        WO_ERR_CANNOT_INDEX_TYPE_WITH_TYPE,
-                        get_type_name(container_type_instance),
+                        WO_ERR_TYPE_NAMED_DETERMINED_FAILED,
                         get_type_name(indexer_type_instance));
-                    return FAILED;
-                }
-                index_raw_result =
-                    container_determined_base_type_instance
-                    ->m_external_type_description.m_array_or_vector
-                    ->m_element_type;
-                break;
-            }
-            case lang_TypeInstance::DeterminedType::DICTIONARY:
-            case lang_TypeInstance::DeterminedType::MAPPING:
-            {
-                if (container_determined_base_type_instance
-                    ->m_external_type_description.m_dictionary_or_mapping
-                    ->m_key_type != indexer_type_instance &&
-                    indexer_determined_base_type_instance->m_base_type
-                    != lang_TypeInstance::DeterminedType::NOTHING)
-                {
-                    lex.record_lang_error(lexer::msglevel_t::error, node->m_index,
-                        WO_ERR_CANNOT_INDEX_TYPE_WITH_TYPE,
-                        get_type_name(container_type_instance),
-                        get_type_name(indexer_type_instance));
-                    return FAILED;
-                }
-                index_raw_result =
-                    container_determined_base_type_instance
-                    ->m_external_type_description.m_dictionary_or_mapping
-                    ->m_value_type;
-                break;
-            }
-            case lang_TypeInstance::DeterminedType::STRUCT:
-            {
-                if (indexer_determined_base_type_instance->m_base_type
-                    != lang_TypeInstance::DeterminedType::STRING &&
-                    indexer_determined_base_type_instance->m_base_type
-                    != lang_TypeInstance::DeterminedType::NOTHING)
-                {
-                    lex.record_lang_error(lexer::msglevel_t::error, node->m_index,
-                        WO_ERR_CANNOT_INDEX_TYPE_WITH_TYPE,
-                        get_type_name(container_type_instance),
-                        get_type_name(indexer_type_instance));
-                    return FAILED;
-                }
-                if (!node->m_index->m_evaled_const_value.has_value())
-                {
-                    lex.record_lang_error(lexer::msglevel_t::error, node->m_index,
-                        WO_ERR_CANNOT_INDEX_STRUCT_WITH_NON_CONST);
+
                     return FAILED;
                 }
 
-                wo_pstring_t member_name =
-                    node->m_index->m_evaled_const_value.value().value_pstring();
+                auto* container_determined_base_type_instance =
+                    container_determined_base_type.value();
+                auto* indexer_determined_base_type_instance =
+                    indexer_determined_base_type.value();
 
-                auto* struct_type = container_determined_base_type_instance
-                    ->m_external_type_description.m_struct;
-
-                auto fnd = struct_type->m_member_types.find(member_name);
-                if (fnd == struct_type->m_member_types.end())
+                lang_TypeInstance* index_raw_result;
+                switch (container_determined_base_type_instance->m_base_type)
                 {
-                    lex.record_lang_error(lexer::msglevel_t::error, node->m_index,
-                        WO_ERR_STRUCT_DONOT_HAVE_MAMBER_NAMED,
-                        get_type_name(container_type_instance),
-                        member_name->c_str());
-                    return FAILED;
-                }
-
-                if (!check_struct_field_is_reachable_in_current_scope(
-                    lex,
-                    node,
-                    container_type_instance->m_symbol,
-                    fnd->second.m_attrib,
-                    fnd->first,
-                    node->source_location.source_file))
+                case lang_TypeInstance::DeterminedType::ARRAY:
+                case lang_TypeInstance::DeterminedType::VECTOR:
                 {
-                    return FAILED;
-                }
-
-                index_raw_result = fnd->second.m_member_type;
-                node->m_LANG_fast_index_for_struct = fnd->second.m_offset;
-
-                break;
-            }
-            case lang_TypeInstance::DeterminedType::TUPLE:
-            {
-                if (indexer_determined_base_type_instance->m_base_type
-                    != lang_TypeInstance::DeterminedType::INTEGER &&
-                    indexer_determined_base_type_instance->m_base_type
-                    != lang_TypeInstance::DeterminedType::NOTHING)
-                {
-                    lex.record_lang_error(lexer::msglevel_t::error, node->m_index,
-                        WO_ERR_CANNOT_INDEX_TYPE_WITH_TYPE,
-                        get_type_name(container_type_instance),
-                        get_type_name(indexer_type_instance));
-                    return FAILED;
-                }
-                if (!node->m_index->m_evaled_const_value.has_value())
-                {
-                    lex.record_lang_error(lexer::msglevel_t::error, node->m_index,
-                        WO_ERR_CANNOT_INDEX_TUPLE_WITH_NON_CONST);
-                    return FAILED;
-                }
-
-                auto index = node->m_index->m_evaled_const_value.value().value_integer();
-                auto* tuple_type = container_determined_base_type_instance
-                    ->m_external_type_description.m_tuple;
-
-                if (index < 0 || (size_t)index >= tuple_type->m_element_types.size())
-                {
-                    lex.record_lang_error(lexer::msglevel_t::error, node->m_index,
-                        WO_ERR_TUPLE_INDEX_OUT_OF_RANGE,
-                        get_type_name(container_type_instance),
-                        tuple_type->m_element_types.size(),
-                        index);
-                    return FAILED;
-                }
-
-                index_raw_result = tuple_type->m_element_types[static_cast<size_t>(index)];
-                node->m_LANG_fast_index_for_struct = index;
-
-                if (node->m_container->m_evaled_const_value.has_value())
-                {
-                    // Indexing const tuple.
-                    auto& struct_constant =
-                        node->m_container->m_evaled_const_value.value().value_struct();
-
-                    wo_assert(index < static_cast<wo_integer_t>(struct_constant.m_count));
-                    node->decide_final_constant_value(struct_constant.m_elements[index]);
-                }
-                break;
-            }
-            case lang_TypeInstance::DeterminedType::STRING:
-            {
-                if (indexer_determined_base_type_instance->m_base_type
-                    != lang_TypeInstance::DeterminedType::INTEGER &&
-                    indexer_determined_base_type_instance->m_base_type
-                    != lang_TypeInstance::DeterminedType::NOTHING)
-                {
-                    lex.record_lang_error(lexer::msglevel_t::error, node->m_index,
-                        WO_ERR_CANNOT_INDEX_TYPE_WITH_TYPE,
-                        get_type_name(container_type_instance),
-                        get_type_name(indexer_type_instance));
-                    return FAILED;
-                }
-                index_raw_result = m_origin_types.m_char.m_type_instance;
-
-                if (node->m_container->m_evaled_const_value.has_value()
-                    && node->m_index->m_evaled_const_value.has_value())
-                {
-                    auto string_instance = node->m_container->m_evaled_const_value.value().value_pstring();
-                    auto index = static_cast<size_t>(node->m_index->m_evaled_const_value.value().value_integer());
-
-                    size_t len;
-                    auto* p = wo::u8substr(string_instance->data(), string_instance->size(), index, &len);
-
-                    if (len == 0)
+                    if (indexer_determined_base_type_instance->m_base_type
+                        != lang_TypeInstance::DeterminedType::INTEGER &&
+                        indexer_determined_base_type_instance->m_base_type
+                        != lang_TypeInstance::DeterminedType::NOTHING)
                     {
                         lex.record_lang_error(lexer::msglevel_t::error, node->m_index,
-                            WO_ERR_STRING_INDEX_OUT_OF_RANGE);
+                            WO_ERR_CANNOT_INDEX_TYPE_WITH_TYPE,
+                            get_type_name(container_type_instance),
+                            get_type_name(indexer_type_instance));
+                        return FAILED;
+                    }
+                    index_raw_result =
+                        container_determined_base_type_instance
+                        ->m_external_type_description.m_array_or_vector
+                        ->m_element_type;
+                    break;
+                }
+                case lang_TypeInstance::DeterminedType::DICTIONARY:
+                case lang_TypeInstance::DeterminedType::MAPPING:
+                {
+                    if (container_determined_base_type_instance
+                        ->m_external_type_description.m_dictionary_or_mapping
+                        ->m_key_type != indexer_type_instance &&
+                        indexer_determined_base_type_instance->m_base_type
+                        != lang_TypeInstance::DeterminedType::NOTHING)
+                    {
+                        lex.record_lang_error(lexer::msglevel_t::error, node->m_index,
+                            WO_ERR_CANNOT_INDEX_TYPE_WITH_TYPE,
+                            get_type_name(container_type_instance),
+                            get_type_name(indexer_type_instance));
+                        return FAILED;
+                    }
+                    index_raw_result =
+                        container_determined_base_type_instance
+                        ->m_external_type_description.m_dictionary_or_mapping
+                        ->m_value_type;
+                    break;
+                }
+                case lang_TypeInstance::DeterminedType::STRUCT:
+                {
+                    if (indexer_determined_base_type_instance->m_base_type
+                        != lang_TypeInstance::DeterminedType::STRING &&
+                        indexer_determined_base_type_instance->m_base_type
+                        != lang_TypeInstance::DeterminedType::NOTHING)
+                    {
+                        lex.record_lang_error(lexer::msglevel_t::error, node->m_index,
+                            WO_ERR_CANNOT_INDEX_TYPE_WITH_TYPE,
+                            get_type_name(container_type_instance),
+                            get_type_name(indexer_type_instance));
+                        return FAILED;
+                    }
+                    if (!node->m_index->m_evaled_const_value.has_value())
+                    {
+                        lex.record_lang_error(lexer::msglevel_t::error, node->m_index,
+                            WO_ERR_CANNOT_INDEX_STRUCT_WITH_NON_CONST);
                         return FAILED;
                     }
 
-                    char32_t index_result;
-                    wo::u8combineu32(p, len, &index_result);
+                    wo_pstring_t member_name =
+                        node->m_index->m_evaled_const_value.value().value_pstring();
 
-                    node->decide_final_constant_value(
-                        static_cast<wo_integer_t>(index_result));
+                    auto* struct_type = container_determined_base_type_instance
+                        ->m_external_type_description.m_struct;
+
+                    auto fnd = struct_type->m_member_types.find(member_name);
+                    if (fnd == struct_type->m_member_types.end())
+                    {
+                        lex.record_lang_error(lexer::msglevel_t::error, node->m_index,
+                            WO_ERR_STRUCT_DONOT_HAVE_MAMBER_NAMED,
+                            get_type_name(container_type_instance),
+                            member_name->c_str());
+                        return FAILED;
+                    }
+
+                    if (!check_struct_field_is_reachable_in_current_scope(
+                        lex,
+                        node,
+                        container_type_instance->m_symbol,
+                        fnd->second.m_attrib,
+                        fnd->first,
+                        node->source_location.source_file))
+                    {
+                        return FAILED;
+                    }
+
+                    index_raw_result = fnd->second.m_member_type;
+                    node->m_LANG_fast_index_for_struct = fnd->second.m_offset;
+
+                    break;
                 }
+                case lang_TypeInstance::DeterminedType::TUPLE:
+                {
+                    if (indexer_determined_base_type_instance->m_base_type
+                        != lang_TypeInstance::DeterminedType::INTEGER &&
+                        indexer_determined_base_type_instance->m_base_type
+                        != lang_TypeInstance::DeterminedType::NOTHING)
+                    {
+                        lex.record_lang_error(lexer::msglevel_t::error, node->m_index,
+                            WO_ERR_CANNOT_INDEX_TYPE_WITH_TYPE,
+                            get_type_name(container_type_instance),
+                            get_type_name(indexer_type_instance));
+                        return FAILED;
+                    }
+                    if (!node->m_index->m_evaled_const_value.has_value())
+                    {
+                        lex.record_lang_error(lexer::msglevel_t::error, node->m_index,
+                            WO_ERR_CANNOT_INDEX_TUPLE_WITH_NON_CONST);
+                        return FAILED;
+                    }
+
+                    auto index = node->m_index->m_evaled_const_value.value().value_integer();
+                    auto* tuple_type = container_determined_base_type_instance
+                        ->m_external_type_description.m_tuple;
+
+                    if (index < 0 || (size_t)index >= tuple_type->m_element_types.size())
+                    {
+                        lex.record_lang_error(lexer::msglevel_t::error, node->m_index,
+                            WO_ERR_TUPLE_INDEX_OUT_OF_RANGE,
+                            get_type_name(container_type_instance),
+                            tuple_type->m_element_types.size(),
+                            index);
+                        return FAILED;
+                    }
+
+                    index_raw_result = tuple_type->m_element_types[static_cast<size_t>(index)];
+                    node->m_LANG_fast_index_for_struct = index;
+
+                    if (node->m_container->m_evaled_const_value.has_value())
+                    {
+                        // Indexing const tuple.
+                        auto& struct_constant =
+                            node->m_container->m_evaled_const_value.value().value_struct();
+
+                        wo_assert(index < static_cast<wo_integer_t>(struct_constant.m_count));
+                        node->decide_final_constant_value(struct_constant.m_elements[index]);
+                    }
+                    break;
+                }
+                case lang_TypeInstance::DeterminedType::STRING:
+                {
+                    if (indexer_determined_base_type_instance->m_base_type
+                        != lang_TypeInstance::DeterminedType::INTEGER &&
+                        indexer_determined_base_type_instance->m_base_type
+                        != lang_TypeInstance::DeterminedType::NOTHING)
+                    {
+                        lex.record_lang_error(lexer::msglevel_t::error, node->m_index,
+                            WO_ERR_CANNOT_INDEX_TYPE_WITH_TYPE,
+                            get_type_name(container_type_instance),
+                            get_type_name(indexer_type_instance));
+                        return FAILED;
+                    }
+                    index_raw_result = m_origin_types.m_char.m_type_instance;
+
+                    if (node->m_container->m_evaled_const_value.has_value()
+                        && node->m_index->m_evaled_const_value.has_value())
+                    {
+                        auto string_instance = node->m_container->m_evaled_const_value.value().value_pstring();
+                        auto index = static_cast<size_t>(node->m_index->m_evaled_const_value.value().value_integer());
+
+                        size_t len;
+                        auto* p = wo::u8substr(string_instance->data(), string_instance->size(), index, &len);
+
+                        if (len == 0)
+                        {
+                            lex.record_lang_error(lexer::msglevel_t::error, node->m_index,
+                                WO_ERR_STRING_INDEX_OUT_OF_RANGE);
+                            return FAILED;
+                        }
+
+                        char32_t index_result;
+                        wo::u8combineu32(p, len, &index_result);
+
+                        node->decide_final_constant_value(
+                            static_cast<wo_integer_t>(index_result));
+                    }
+                    break;
+                }
+                default:
+                    lex.record_lang_error(lexer::msglevel_t::error, node->m_container,
+                        WO_ERR_UNINDEXABLE_TYPE_NAMED,
+                        get_type_name(container_type_instance));
+
+                    return FAILED;
+                }
+
+                node->m_LANG_result_is_mutable = index_raw_result->is_mutable();
+                node->m_LANG_determined_type = immutable_type(index_raw_result);
+                break;
+            }
+            case AstValueBinaryOperator::HOLD_FOR_OVERLOAD_FUNCTION_CALL_EVAL:
+            {
+                AstValueFunctionCall* overload_function_call =
+                    node->m_LANG_overload_call.value();
+
+                // Always not assign-able.
+                node->m_LANG_result_is_mutable = false;
+                node->m_LANG_determined_type =
+                    overload_function_call->m_LANG_determined_type;
                 break;
             }
             default:
-                lex.record_lang_error(lexer::msglevel_t::error, node->m_container,
-                    WO_ERR_UNINDEXABLE_TYPE_NAMED,
-                    get_type_name(container_type_instance));
-
-                return FAILED;
+                wo_error("Unknown hold state.");
             }
 
-            node->m_LANG_result_is_mutable = index_raw_result->is_mutable();
-            node->m_LANG_determined_type = immutable_type(index_raw_result);
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
@@ -4617,62 +4684,16 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
-            if (node->m_operator == AstValueBinaryOperator::LOGICAL_AND
-                || node->m_operator == AstValueBinaryOperator::LOGICAL_OR)
-            {
-                WO_CONTINUE_PROCESS(node->m_left);
-                node->m_LANG_hold_state = AstValueBinaryOperator::HOLD_FOR_LAND_LOR_COND_COMPILE_LEFT;
-            }
-            else
-            {
-                WO_CONTINUE_PROCESS(node->m_right);
-                WO_CONTINUE_PROCESS(node->m_left);
-                node->m_LANG_hold_state = AstValueBinaryOperator::HOLD_FOR_OPNUM_EVAL;
-            }
+            WO_CONTINUE_PROCESS(node->m_left);
+            node->m_LANG_hold_state = AstValueBinaryOperator::HOLD_FOR_LEFT_OPNUM_EVAL;
             return HOLD;
         }
         else if (state == HOLD)
         {
             switch (node->m_LANG_hold_state)
             {
-            case AstValueBinaryOperator::HOLD_FOR_LAND_LOR_COND_COMPILE_LEFT:
+            case AstValueBinaryOperator::HOLD_FOR_LEFT_OPNUM_EVAL:
             {
-                wo_assert(node->m_operator == AstValueBinaryOperator::LOGICAL_AND
-                    || node->m_operator == AstValueBinaryOperator::LOGICAL_OR);
-
-                if (node->m_left->m_evaled_const_value.has_value())
-                {
-                    auto& evaled_const_value = node->m_left->m_evaled_const_value.value();
-
-                    // Make sure left type is bool.
-                    lang_TypeInstance* left_type = node->m_left->m_LANG_determined_type.value();
-                    auto left_base_type = left_type->get_determined_type();
-                    if (left_base_type.has_value())
-                    {
-                        // Constant value has been evaled.
-                        auto left_base_type_val = left_base_type.value()->m_base_type;
-                        if (left_base_type_val == lang_TypeInstance::DeterminedType::base_type::BOOLEAN
-                            && ((node->m_operator == AstValueBinaryOperator::LOGICAL_OR
-                                && evaled_const_value.value_bool())
-                                || (node->m_operator == AstValueBinaryOperator::LOGICAL_AND
-                                    && !evaled_const_value.value_bool())))
-                        {
-                            node->decide_final_constant_value(evaled_const_value);
-                            node->m_LANG_determined_type = m_origin_types.m_bool.m_type_instance;
-
-                            // OK, type and constant has been evaled.
-                            break;
-                        }
-                    }
-                }
-                // Unable to decide constant result, eval like normal.
-                WO_CONTINUE_PROCESS(node->m_right);
-                node->m_LANG_hold_state = AstValueBinaryOperator::HOLD_FOR_OPNUM_EVAL;
-                return HOLD;
-            }
-            case AstValueBinaryOperator::HOLD_FOR_OPNUM_EVAL:
-            {
-                // Get first operand type symbol.
                 if (node->m_consider_overload)
                 {
                     lang_TypeInstance* left_type = node->m_left->m_LANG_determined_type.value();
@@ -4749,9 +4770,8 @@ namespace wo
 
                         node->m_LANG_overload_call = overload_function_call;
 
-                        WO_CONTINUE_PROCESS(overload_function_call);
-
-                        node->m_LANG_hold_state = AstValueBinaryOperator::HOLD_FOR_OVERLOAD_FUNCTION_CALL_EVAL;
+                        WO_CONTINUE_PROCESS(node->m_right);
+                        node->m_LANG_hold_state = AstValueBinaryOperator::HOLD_FOR_RIGHT_OPNUM_EVAL;
                         return HOLD;
                     }
                     else if (ambiguous)
@@ -4760,7 +4780,51 @@ namespace wo
                         ; // No function overload, continue;
                 }
 
-                // No function overload, type check.
+                // No function overload, check LAND/LOR short cut cond compile.
+                if (node->m_left->m_evaled_const_value.has_value()
+                    && (node->m_operator == AstValueBinaryOperator::LOGICAL_AND
+                        || node->m_operator == AstValueBinaryOperator::LOGICAL_OR))
+                {
+                    auto& evaled_const_value = node->m_left->m_evaled_const_value.value();
+
+                    // Make sure left type is bool.
+                    lang_TypeInstance* left_type = node->m_left->m_LANG_determined_type.value();
+                    auto left_base_type = left_type->get_determined_type();
+                    if (left_base_type.has_value())
+                    {
+                        // Constant value has been evaled.
+                        auto left_base_type_val = left_base_type.value()->m_base_type;
+                        if (left_base_type_val == lang_TypeInstance::DeterminedType::base_type::BOOLEAN
+                            && ((node->m_operator == AstValueBinaryOperator::LOGICAL_OR
+                                && evaled_const_value.value_bool())
+                                || (node->m_operator == AstValueBinaryOperator::LOGICAL_AND
+                                    && !evaled_const_value.value_bool())))
+                        {
+                            node->decide_final_constant_value(evaled_const_value);
+                            node->m_LANG_determined_type = m_origin_types.m_bool.m_type_instance;
+
+                            // OK, type and constant has been evaled.
+                            break;
+                        }
+                    }
+                }
+
+                // No cond compile, not overload call, normal eval.
+                WO_CONTINUE_PROCESS(node->m_right);
+                node->m_LANG_hold_state = AstValueBinaryOperator::HOLD_FOR_RIGHT_OPNUM_EVAL;
+                return HOLD;
+            }
+            case AstValueBinaryOperator::HOLD_FOR_RIGHT_OPNUM_EVAL:
+            {
+                if (node->m_LANG_overload_call.has_value())
+                {
+                    // Is overload call.
+                    WO_CONTINUE_PROCESS(node->m_LANG_overload_call.value());
+                    node->m_LANG_hold_state = AstValueBinaryOperator::HOLD_FOR_OVERLOAD_FUNCTION_CALL_EVAL;
+                    return HOLD;
+                }
+
+                // Normal eval.
                 // 1) Base typecheck.
                 lang_TypeInstance* left_type = node->m_left->m_LANG_determined_type.value();
                 lang_TypeInstance* right_type = node->m_right->m_LANG_determined_type.value();
@@ -5199,9 +5263,7 @@ namespace wo
                         wo_error("Unknown operator.");
                     }
                 }
-
                 break;
-
             }
             case AstValueBinaryOperator::HOLD_FOR_OVERLOAD_FUNCTION_CALL_EVAL:
             {
@@ -6065,14 +6127,14 @@ namespace wo
             WO_CONTINUE_PROCESS(node->m_right);
             WO_CONTINUE_PROCESS(node->m_assign_place);
 
-            node->m_LANG_hold_state = AstValueAssign::HOLD_FOR_OPNUM_EVAL;
+            node->m_LANG_hold_state = AstValueAssign::HOLD_FOR_RIGHT_OPNUM_EVAL;
             return HOLD;
         }
         else if (state == HOLD)
         {
             switch (node->m_LANG_hold_state)
             {
-            case AstValueAssign::HOLD_FOR_OPNUM_EVAL:
+            case AstValueAssign::HOLD_FOR_RIGHT_OPNUM_EVAL:
             {
                 AstValueBase* left_value;
                 switch (node->m_assign_place->node_type)

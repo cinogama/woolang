@@ -287,6 +287,44 @@ namespace wo
             return std::make_tuple(is_variadic_function, in_params);
         }
 
+        static wo_pstring_t get_operator_overload_function_name_by_token(
+            lex_type type)
+        {
+            switch (type)
+            {
+            case lex_type::l_add:
+                return WO_PSTR(operator_ADD);
+            case lex_type::l_sub:
+                return WO_PSTR(operator_SUB);
+            case lex_type::l_mul:
+                return WO_PSTR(operator_MUL);
+            case lex_type::l_div:
+                return WO_PSTR(operator_DIV);
+            case lex_type::l_mod:
+                return WO_PSTR(operator_MOD);
+            case lex_type::l_less:
+                return WO_PSTR(operator_LESS);
+            case lex_type::l_larg:
+                return WO_PSTR(operator_GREAT);
+            case lex_type::l_less_or_equal:
+                return WO_PSTR(operator_LESSEQ);
+            case lex_type::l_larg_or_equal:
+                return WO_PSTR(operator_GREATEQ);
+            case lex_type::l_equal:
+                return WO_PSTR(operator_EQ);
+            case lex_type::l_not_equal:
+                return WO_PSTR(operator_NEQ);
+            case lex_type::l_land:
+                return WO_PSTR(operator_LAND);
+            case lex_type::l_lor:
+                return WO_PSTR(operator_LOR);
+            case lex_type::l_index_begin:
+                return WO_PSTR(operator_INDEX);
+            default:
+                wo_error("Unsupport operator");
+            }
+        }
+
         auto pass_func_def_named::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             std::optional<AstDeclareAttribue*> attrib = std::nullopt;
@@ -338,8 +376,9 @@ namespace wo
             std::optional<AstWhereConstraints*> where_constraints = std::nullopt;
             AstBase* body = WO_NEED_AST(10);
 
-            wo_pstring_t func_name = wstring_pool::get_pstr(
-                "operator " + overloading_operator->m_token.identifier);
+            wo_pstring_t func_name =
+                get_operator_overload_function_name_by_token(
+                    overloading_operator->m_token.type);
 
             if (!WO_IS_EMPTY(0))
                 attrib = static_cast<AstDeclareAttribue*>(WO_NEED_AST_TYPE(0, AstBase::AST_DECLARE_ATTRIBUTE));
@@ -423,8 +462,9 @@ namespace wo
             AstTypeHolder* marked_return_type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(9, AstBase::AST_TYPE_HOLDER));
             std::optional<AstWhereConstraints*> where_constraints = std::nullopt;
 
-            wo_pstring_t func_name = wstring_pool::get_pstr(
-                "operator " + overloading_operator->m_token.identifier);
+            wo_pstring_t func_name = 
+                get_operator_overload_function_name_by_token(
+                    overloading_operator->m_token.type);
 
             if (!WO_IS_EMPTY(1))
                 attrib = static_cast<AstDeclareAttribue*>(WO_NEED_AST_TYPE(1, AstBase::AST_DECLARE_ATTRIBUTE));
@@ -701,7 +741,7 @@ namespace wo
                 if (identifier_name != nullptr)
                     scope_identifiers_and_name.push_back(identifier_name);
 
-                identifier_name = 
+                identifier_name =
                     wstring_pool::get_pstr(
                         static_cast<AstToken*>(asttoken)->m_token.identifier);
             }
@@ -1697,10 +1737,10 @@ namespace wo
                     else if (attribute_token->m_token.identifier == "repeat")
                         attribute_mask |= AstExternInformation::REPEATABLE;
                     else
-                        return token{ 
+                        return token{
                         lex.record_lang_error(
                             lexer::msglevel_t::error,
-                            attribute, 
+                            attribute,
                             WO_ERR_UNKNOWN_EXTERN_ATTRIB,
                             attribute_token->m_token.identifier.c_str()) };
                 }
