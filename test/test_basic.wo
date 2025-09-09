@@ -61,7 +61,14 @@ namespace test_basic
     }
     
     using SidBugSt = struct{x: map<int, mut int>};
-    
+    using IndexOverload = nil
+    {
+        func operator [](_: IndexOverload, idx: int)=> int
+        {
+            return idx * 2;
+        }
+    }
+
     func div(a, b)
     {
         return a / b;
@@ -468,6 +475,9 @@ namespace test_basic
                 -> unwrap
                 -> dict::deserialize
                 -> unwrap["\"key\"": dynamic] as string, "\"val\"");
+
+        test_equal(nil: IndexOverload[123], 246);
+        test_equal(nil: IndexOverload.123, 246);
     }
 }
 
