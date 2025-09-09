@@ -27,6 +27,30 @@ namespace wo
 #ifndef WO_DISABLE_COMPILER
     namespace ast
     {
+        class AstAllocator
+        {
+            static constexpr size_t PAGE_SIZE = 1024 * 1024;
+
+            std::vector<char*> m_allocated_pages;
+            std::vector<AstBase*> m_created_ast_nodes;
+            size_t m_allocated_offset_in_page;
+
+            AstAllocator(const AstAllocator&) = delete;
+            AstAllocator(AstAllocator&&) = delete;
+            AstAllocator& operator = (const AstAllocator&) = delete;
+            AstAllocator& operator = (AstAllocator&&) = delete;
+
+        public:
+            AstAllocator();
+            ~AstAllocator();
+            void* allocate_space_for_ast_node(size_t sz);
+            void* allocate_space_with_aligh_for_ast_node(size_t sz, std::align_val_t al);
+            void swap(AstAllocator& another);
+            const std::vector<AstBase*>& get_allocated_nodes_for_lspv2() const;
+            bool empty() const;
+        private:
+            void allocate_new_page();
+        };
         class AstBase
         {
         public:
@@ -130,29 +154,29 @@ namespace wo
                 AST_TEMPLATE_CONSTANT_TYPE_CHECK_IN_PASS1,
             };
         private:
-            inline thread_local static std::vector<AstBase*>* list = nullptr;
+            inline thread_local static AstAllocator* node_allocator = nullptr;
         public:
             static void clean_this_thread_ast()
             {
-                if (nullptr == list)
+                if (nullptr == node_allocator)
                     return;
 
-                for (auto astnode : *list)
-                    delete astnode;
-
-                delete list;
-                list = nullptr;
+                delete node_allocator;
+                node_allocator = nullptr;
             }
-            static bool exchange_this_thread_ast(std::vector<AstBase*>& out_list)
+            static bool exchange_this_thread_ast(AstAllocator& in_out_swap_allocator)
             {
-                wo_assert(out_list.empty() || nullptr == list || list->empty());
+                wo_assert(
+                    in_out_swap_allocator.empty() 
+                    || nullptr == node_allocator 
+                    || node_allocator->empty());
 
                 bool need_swap_back = true;
-                if (!list)
-                    list = new std::vector<AstBase*>;
+                if (!node_allocator)
+                    node_allocator = new AstAllocator();
 
-                out_list.swap(*list);
-                return !out_list.empty();
+                in_out_swap_allocator.swap(*node_allocator);
+                return !in_out_swap_allocator.empty();
             }
 
         public:
@@ -189,10 +213,6 @@ namespace wo
                 , duplicated_node(false)
                 , source_location{}
             {
-                if (!list)
-                    list = new std::vector<AstBase*>();
-
-                list->push_back(this);
             }
             AstBase(const AstBase&) = delete;
             AstBase(AstBase&&) = delete;
@@ -201,6 +221,32 @@ namespace wo
 
             virtual ~AstBase() = default;
 
+            void* operator new(size_t sz)
+            {
+                if (!node_allocator)
+                    node_allocator = new AstAllocator();
+
+                return node_allocator->allocate_space_for_ast_node(sz);
+            }
+            void* operator new[](size_t sz) = delete;
+            void* operator new(size_t sz, std::align_val_t al)
+            {
+                if (!node_allocator)
+                    node_allocator = new AstAllocator();
+
+                return node_allocator->allocate_space_for_ast_node(sz);
+            }
+            void* operator new[](size_t sz, std::align_val_t al) = delete;
+            void operator delete(void* ptr) noexcept
+            {
+                // Do nothing.
+            }
+            void operator delete[](void* ptr) = delete;
+            void operator delete(void* ptr, std::align_val_t al) noexcept
+            {
+                // Do nothing.
+            }
+            void operator delete[](void* ptr, std::align_val_t al) = delete;
         public:
             class _AstSafeHolderBase
             {
@@ -635,6 +681,9 @@ namespace wo
 
         std::unordered_map<std::string, te_nt_index_t> NONTERM_MAP;
         std::unordered_map<lex_type, te_nt_index_t> TERM_MAP;
+
+        te_nt_index_t TERM_MAP_FAST_LOOKUP[
+            static_cast<lex_type_base_t>(lex_type::lex_type_COUNT) + 1];
 
         struct action/*_lr1*/
         {

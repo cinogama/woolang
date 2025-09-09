@@ -5,6 +5,63 @@
 namespace wo
 {
 #ifndef WO_DISABLE_COMPILER
+    ast::AstAllocator::AstAllocator()
+        // Make sure new page create when first time alloc node.
+        : m_allocated_offset_in_page(PAGE_SIZE)
+    {
+
+    }
+    ast::AstAllocator::~AstAllocator()
+    {
+        for (auto astnode : m_created_ast_nodes)
+            // Call dtor explicitely
+            astnode->~AstBase();
+
+        for (auto page : m_allocated_pages)
+            free(page);
+    }
+    void* ast::AstAllocator::allocate_space_for_ast_node(size_t sz)
+    {
+        return allocate_space_with_aligh_for_ast_node(
+            sz, std::align_val_t{ alignof(std::max_align_t) });
+    }
+    void* ast::AstAllocator::allocate_space_with_aligh_for_ast_node(size_t sz, std::align_val_t al)
+    {
+        size_t al_sz = static_cast<size_t>(al);
+        wo_assert((al_sz & (al_sz - 1)) == 0); // al_sz is power of 2
+
+        size_t alligned_next_offset = (m_allocated_offset_in_page + (al_sz - 1)) & (~(al_sz - 1));
+        if (alligned_next_offset + sz > PAGE_SIZE)
+        {
+            char* new_page = reinterpret_cast<char*>(malloc(PAGE_SIZE));
+            wo_assert(new_page != nullptr);
+
+            m_allocated_pages.push_back(new_page);
+            m_allocated_offset_in_page = 0;
+            alligned_next_offset = 0;
+        }
+        void* result = m_allocated_pages.back() + alligned_next_offset;
+        m_allocated_offset_in_page = alligned_next_offset + sz;
+        m_created_ast_nodes.push_back(reinterpret_cast<AstBase*>(result));
+        return result;
+    }
+    void ast::AstAllocator::swap(AstAllocator& another)
+    {
+        m_allocated_pages.swap(another.m_allocated_pages);
+        m_created_ast_nodes.swap(another.m_created_ast_nodes);
+        std::swap(
+            m_allocated_offset_in_page,
+            another.m_allocated_offset_in_page);
+    }
+    const std::vector<ast::AstBase*>& ast::AstAllocator::get_allocated_nodes_for_lspv2() const
+    {
+        return m_created_ast_nodes;
+    }
+    bool ast::AstAllocator::empty() const
+    {
+        return m_allocated_pages.empty() && m_created_ast_nodes.empty();
+    }
+
     std::set<grammar::te>& grammar::FIRST(const sym& _sym)
     {
         if (std::holds_alternative<te>(_sym)) //_sym is te
@@ -158,34 +215,37 @@ namespace wo
                 if (rs_index == -1)
                 {
                     write_act->act = action::act_type::error;
-                    write_act->state = -1;
+                    write_act->state = SIZE_MAX;
                     return;
                 }
 
                 // Calculate cache index once
-                const size_t cache_index = static_cast<size_t>(rs_index) * LR1_R_S_CACHE_SZ + static_cast<size_t>(b);
-                const int state = LR1_R_S_CACHE[cache_index];
+                const size_t cache_index =
+                    static_cast<size_t>(rs_index) * LR1_R_S_CACHE_SZ + static_cast<size_t>(b);
 
-                if (state == 0)
+                const int state = LR1_R_S_CACHE[cache_index];
+                switch (state)
                 {
+                case 0:
                     // No action for this state & terminal
                     write_act->act = action::act_type::error;
                     write_act->state = SIZE_MAX;
                     return;
-                }
-                else if (state > 0)
-                {
-                    // Shift action
-                    write_act->act = action::act_type::push_stack;
-                    write_act->state = static_cast<size_t>(state) - 1;
-                    return;
-                }
-                else
-                {
-                    // Reduce action
-                    write_act->act = action::act_type::reduction;
-                    write_act->state = static_cast<size_t>(-state) - 1;
-                    return;
+                default:
+                    if (state > 0)
+                    {
+                        // Shift action
+                        write_act->act = action::act_type::push_stack;
+                        write_act->state = static_cast<size_t>(state) - 1;
+                        return;
+                    }
+                    else
+                    {
+                        // Reduce action
+                        write_act->act = action::act_type::reduction;
+                        write_act->state = static_cast<size_t>(-state) - 1;
+                        return;
+                    }
                 }
             }
             else
@@ -200,7 +260,8 @@ namespace wo
                 }
 
                 // Calculate cache index once
-                const size_t cache_index = static_cast<size_t>(goto_index) * LR1_GOTO_CACHE_SZ + static_cast<size_t>(-b);
+                const size_t cache_index =
+                    static_cast<size_t>(goto_index) * LR1_GOTO_CACHE_SZ + static_cast<size_t>(-b);
                 const int state = LR1_GOTO_CACHE[cache_index];
 
                 if (state == -1)
@@ -662,6 +723,13 @@ namespace wo
             wo_assert(rt_pi->rule_right_count != 0);
         }
 
+        // Update TERM_MAP_FAST_LOOKUP
+        for (const auto& [lexer_type, idex] : TERM_MAP)
+        {
+            TERM_MAP_FAST_LOOKUP[
+                static_cast<lex_type_base_t>(lexer_type) + 1] = idex;
+        }
+
         // OK!
     }
     ast::AstBase* grammar::gen(lexer& tkr) const
@@ -676,43 +744,56 @@ namespace wo
             size_t col_no;
         };
 
-        using state_stack_t = std::stack<size_t, std::vector<size_t>>;
-        using symbol_stack_t = std::stack<te_nt_index_t, std::vector<te_nt_index_t>>;
-        using node_stack_t = std::stack<std::pair<source_info, produce>, std::vector<std::pair<source_info, produce>>>;
+        using state_stack_t = std::vector<size_t>;
+        using symbol_stack_t = std::vector<te_nt_index_t>;
+        using node_stack_t = std::vector<std::pair<source_info, produce>>;
 
         state_stack_t state_stack;
         symbol_stack_t sym_stack;
         node_stack_t node_stack;
 
-        const te_nt_index_t te_leof_index = TERM_MAP.at(lex_type::l_eof);
-        const te_nt_index_t te_lempty_index = TERM_MAP.at(lex_type::l_empty);
+        state_stack.reserve(16);
+        sym_stack.reserve(16);
+        node_stack.reserve(16);
 
-        state_stack.push(0);
-        sym_stack.push(te_leof_index);
+        const auto* const RT_PRODUCTION_P = RT_PRODUCTION.data();
+
+        const te_nt_index_t te_leof_index =
+            TERM_MAP_FAST_LOOKUP[static_cast<lex_type_base_t>(lex_type::l_eof) + 1];
+        const te_nt_index_t te_lempty_index =
+            TERM_MAP_FAST_LOOKUP[static_cast<lex_type_base_t>(lex_type::l_empty) + 1];
+
+        state_stack.push_back(0);
+        sym_stack.push_back(te_leof_index);
 
         auto NOW_STACK_STATE = [&]() -> size_t&
-            { return state_stack.top(); };
+            { return state_stack.back(); };
         auto NOW_STACK_SYMBO = [&]() -> te_nt_index_t&
-            { return sym_stack.top(); };
-
-        const lexer::peeked_token_t* peeked_token_instance = nullptr;
+            { return sym_stack.back(); };
 
         std::vector<source_info> srcinfo_bnodes;
         std::vector<produce> te_or_nt_bnodes;
 
+        srcinfo_bnodes.reserve(16);
+        te_or_nt_bnodes.reserve(16);
+
+        bool has_error_node = false;
+
+        const lexer::peeked_token_t* peeked_token_instance = tkr.peek(true);
         do
         {
-            const lexer::peeked_token_t* peeked_token_instance = tkr.peek(true);
             if (lex_type::l_error == peeked_token_instance->m_lex_type)
             {
                 // Move forward;
                 tkr.move_forward(true);
+                peeked_token_instance = tkr.peek(true);
                 continue;
             }
 
             auto top_symbo =
                 (state_stack.size() == sym_stack.size()
-                    ? TERM_MAP.at(peeked_token_instance->m_lex_type)
+                    ? TERM_MAP_FAST_LOOKUP[
+                        static_cast<lex_type_base_t>(peeked_token_instance->m_lex_type) + 1]
                     : NOW_STACK_SYMBO());
 
             no_prospect_action actions;
@@ -770,7 +851,7 @@ namespace wo
                     //  FIND USABLE STATE A TO REDUCE.
                     while (!state_stack.empty())
                     {
-                        size_t stateid = state_stack.top();
+                        size_t stateid = state_stack.back();
 
                         std::unordered_set<te_nt_index_t> reduceables;
 #if WOOLANG_LR1_OPTIMIZE_LR1_TABLE
@@ -780,7 +861,7 @@ namespace wo
                             {
                                 int state = LR1_R_S_CACHE[LR1_GOTO_RS_MAP[stateid][1] * LR1_R_S_CACHE_SZ + i];
                                 if (state < 0)
-                                    reduceables.insert(RT_PRODUCTION[(-state) - 1].production_aim);
+                                    reduceables.insert(RT_PRODUCTION_P[(-state) - 1].production_aim);
                             }
                         }
                         else
@@ -789,7 +870,7 @@ namespace wo
                             if (LR1_TABLE.find(stateid) != LR1_TABLE.end())
                                 for (auto act : LR1_TABLE.at(stateid))
                                     if (act.second.size() && act.second.begin()->act == action::act_type::reduction)
-                                        reduceables.insert(RT_PRODUCTION[act.second.begin()->state].production_aim);
+                                        reduceables.insert(RT_PRODUCTION_P[act.second.begin()->state].production_aim);
                         }
 
                         if (!reduceables.empty())
@@ -814,15 +895,16 @@ namespace wo
                                         goto error_progress_end;
                                 }
                                 tkr.move_forward(true);
+                                peeked_token_instance = tkr.peek(true);
                             }
                             goto error_handle_fail;
                         }
 
                         if (node_stack.size())
                         {
-                            state_stack.pop();
-                            sym_stack.pop();
-                            node_stack.pop();
+                            state_stack.pop_back();
+                            sym_stack.pop_back();
+                            node_stack.pop_back();
                         }
                         else
                         {
@@ -842,27 +924,28 @@ namespace wo
 
             if (actions.act == grammar::action::act_type::push_stack)
             {
-                state_stack.push(actions.state);
+                state_stack.push_back(actions.state);
                 if (e_rule)
                 {
-                    node_stack.push(
+                    node_stack.push_back(
                         std::make_pair(
                             source_info{
                                 peeked_token_instance->m_token_begin[0],
                                 peeked_token_instance->m_token_begin[1] },
                                 token{ grammar::ttype::l_empty }));
-                    sym_stack.push(te_lempty_index);
+                    sym_stack.push_back(te_lempty_index);
                 }
                 else
                 {
-                    node_stack.push(
+                    node_stack.push_back(
                         std::make_pair(
                             source_info{
                                 peeked_token_instance->m_token_begin[0],
                                 peeked_token_instance->m_token_begin[1] },
                                 token{ peeked_token_instance->m_lex_type, peeked_token_instance->m_token_text }));
-
-                    if (peeked_token_instance->m_lex_type == lex_type::l_macro)
+                    switch (peeked_token_instance->m_lex_type)
+                    {
+                    case lex_type::l_macro:
                     {
                         tkr.record_format(
                             lexer::msglevel_t::error,
@@ -873,32 +956,40 @@ namespace wo
                             *tkr.get_source_path(),
                             WO_ERR_UNKNOWN_MACRO_NAMED,
                             peeked_token_instance->m_token_text.c_str());
+                        break;
                     }
-                    sym_stack.push(TERM_MAP.at(peeked_token_instance->m_lex_type));
+                    case lex_type::l_error:
+                        has_error_node = true;
+                        break;
+                    }
+                    sym_stack.push_back(
+                        TERM_MAP_FAST_LOOKUP[
+                            static_cast<lex_type_base_t>(peeked_token_instance->m_lex_type) + 1]);
                     tkr.move_forward(true);
+                    peeked_token_instance = tkr.peek(true);
                 }
             }
             else if (actions.act == grammar::action::act_type::reduction)
             {
-                auto& red_rule = RT_PRODUCTION[actions.state];
+                auto& red_rule = RT_PRODUCTION_P[actions.state];
 
-                srcinfo_bnodes.resize(red_rule.rule_right_count);
+                // No need to resize `srcinfo_bnodes`, only `te_or_nt_bnodes`.
+                //   rcinfo_bnodes.resize(red_rule.rule_right_count);
                 te_or_nt_bnodes.resize(red_rule.rule_right_count);
 
                 for (size_t i = red_rule.rule_right_count; i > 0; i--)
                 {
-                    state_stack.pop();
-                    sym_stack.pop();
-                    srcinfo_bnodes[i - 1] = std::move(node_stack.top().first);
-                    te_or_nt_bnodes[i - 1] = std::move(node_stack.top().second);
-                    node_stack.pop();
+                    state_stack.pop_back();
+                    sym_stack.pop_back();
+                    srcinfo_bnodes[i - 1] = std::move(node_stack.back().first);
+                    te_or_nt_bnodes[i - 1] = std::move(node_stack.back().second);
+                    node_stack.pop_back();
                 }
-                sym_stack.push(red_rule.production_aim);
+                sym_stack.push_back(red_rule.production_aim);
 
-                if (std::any_of(te_or_nt_bnodes.begin(), te_or_nt_bnodes.end(), [](const produce& astn)
-                    { return astn.is_token() && astn.read_token().type == lex_type::l_error; }))
+                if (has_error_node)
                 {
-                    node_stack.push(
+                    node_stack.push_back(
                         std::make_pair(
                             source_info{
                                 peeked_token_instance->m_token_end[0],
@@ -909,7 +1000,6 @@ namespace wo
                 else
                 {
                     auto astnode = red_rule.ast_create_func(tkr, te_or_nt_bnodes);
-
                     if (astnode.is_ast())
                     {
                         auto* ast_node_ = astnode.read_ast();
@@ -938,7 +1028,10 @@ namespace wo
                             ast_node_->source_location.source_file = tkr.get_source_path();
                         }
                     }
-                    node_stack.push(std::make_pair(srcinfo_bnodes.front(), astnode));
+                    else if (astnode.read_token().type == lex_type::l_error)
+                        has_error_node = true;
+
+                    node_stack.push_back(std::make_pair(srcinfo_bnodes.front(), astnode));
                 }
             }
             else if (actions.act == grammar::action::act_type::accept)
@@ -946,7 +1039,7 @@ namespace wo
                 if (tkr.has_error())
                     return nullptr;
 
-                auto& node = node_stack.top().second;
+                auto& node = node_stack.back().second;
                 if (node.is_ast())
                 {
                     // Append imported ast node front of specify ast-node;
@@ -964,7 +1057,7 @@ namespace wo
             }
             else if (actions.act == grammar::action::act_type::state_goto)
             {
-                state_stack.push(actions.state);
+                state_stack.push_back(actions.state);
             }
             else
             {

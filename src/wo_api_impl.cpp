@@ -2726,7 +2726,7 @@ wo_bool_t _wo_load_source(
     std::optional<std::unique_ptr<wo::lexer>> _lexer_if_failed;
 
 #ifndef WO_DISABLE_COMPILER
-    std::vector<wo::ast::AstBase*> m_last_context;
+    wo::ast::AstAllocator m_last_context;
     bool need_exchange_back =
         wo::ast::AstBase::exchange_this_thread_ast(m_last_context);
 #endif

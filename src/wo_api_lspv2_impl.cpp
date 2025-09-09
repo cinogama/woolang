@@ -24,7 +24,7 @@ struct _wo_lspv2_source_meta
 {
     wo::compile_result m_step;
 
-    std::vector<wo::ast::AstBase*> m_origin_astbase_list;
+    wo::ast::AstAllocator m_origin_astbase_list;
 
     std::optional<wo::shared_pointer<wo::runtime_env>> m_env_if_success;
     std::optional<std::unique_ptr<wo::LangContext>> m_langcontext_if_passed_grammar;
@@ -59,7 +59,7 @@ wo_lspv2_source_meta* wo_lspv2_compile_to_meta(
 
     wo_lspv2_source_meta* meta = new wo_lspv2_source_meta();
 
-    std::vector<wo::ast::AstBase*> old_ast_list;
+    wo::ast::AstAllocator old_ast_list;
     bool need_exchange_back =
         wo::ast::AstBase::exchange_this_thread_ast(
             old_ast_list);
@@ -81,7 +81,7 @@ wo_lspv2_source_meta* wo_lspv2_compile_to_meta(
     // Grammar passed, get more type information as possiable.
     if (meta->m_langcontext_if_passed_grammar.has_value())
     {
-        for (auto* ast_base_instance : meta->m_origin_astbase_list)
+        for (auto* ast_base_instance : meta->m_origin_astbase_list.get_allocated_nodes_for_lspv2())
         {
             if (((ast_base_instance->node_type < wo::ast::AstBase::node_type_t::AST_VALUE_begin
                 || ast_base_instance->node_type >= wo::ast::AstBase::node_type_t::AST_VALUE_end)
@@ -128,7 +128,7 @@ void wo_lspv2_meta_free(wo_lspv2_source_meta* meta)
     if (!meta->m_origin_astbase_list.empty())
     {
         // free ast
-        std::vector<wo::ast::AstBase*> old_ast_list;
+        wo::ast::AstAllocator old_ast_list;
         bool need_exchange_back =
             wo::ast::AstBase::exchange_this_thread_ast(
                 old_ast_list);

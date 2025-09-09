@@ -133,6 +133,8 @@ namespace wo
         l_block_comment,
         L_shebang_comment,
         l_unknown_token,
+
+        lex_type_COUNT,
     };
 
     // Make sure token enum defined in wo.h and here are same.
