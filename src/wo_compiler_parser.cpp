@@ -9,13 +9,11 @@ namespace wo
         // Make sure new page create when first time alloc node.
         : m_allocated_offset_in_page(PAGE_SIZE)
     {
-
     }
     ast::AstAllocator::~AstAllocator()
     {
         for (auto astnode : m_created_ast_nodes)
-            // Call dtor explicitely
-            astnode->~AstBase();
+            delete astnode;
 
         for (auto page : m_allocated_pages)
             free(page);
@@ -839,6 +837,7 @@ namespace wo
                                 err_info = WO_ERR_UNEXCEPT_EOF;
                             else
                                 err_info = WO_ERR_UNEXCEPT_TOKEN + ("'" + peeked_token_instance->m_token_text + "'");
+
                             (void)tkr.record_parser_error(lexer::msglevel_t::error, err_info.c_str());
                         }
 
@@ -907,9 +906,7 @@ namespace wo
                             node_stack.pop_back();
                         }
                         else
-                        {
                             goto error_handle_fail;
-                        }
                     }
                 error_handle_fail:
                     (void)tkr.record_parser_error(lexer::msglevel_t::error, WO_ERR_UNABLE_RECOVER_FROM_ERR);
@@ -942,7 +939,10 @@ namespace wo
                             source_info{
                                 peeked_token_instance->m_token_begin[0],
                                 peeked_token_instance->m_token_begin[1] },
-                                token{ peeked_token_instance->m_lex_type, peeked_token_instance->m_token_text }));
+                                token{ 
+                                    peeked_token_instance->m_lex_type, 
+                                    peeked_token_instance->m_token_text }));
+
                     switch (peeked_token_instance->m_lex_type)
                     {
                     case lex_type::l_macro:
@@ -961,7 +961,10 @@ namespace wo
                     case lex_type::l_error:
                         has_error_node = true;
                         break;
+                    default:
+                        break;
                     }
+
                     sym_stack.push_back(
                         TERM_MAP_FAST_LOOKUP[
                             static_cast<lex_type_base_t>(peeked_token_instance->m_lex_type) + 1]);
@@ -1056,13 +1059,9 @@ namespace wo
                 }
             }
             else if (actions.act == grammar::action::act_type::state_goto)
-            {
                 state_stack.push_back(actions.state);
-            }
             else
-            {
                 goto error_handle;
-            }
 
         } while (true);
 

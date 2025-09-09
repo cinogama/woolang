@@ -964,10 +964,8 @@ extern func macro_entry(lexer: std::lexer)=> string
         do
         {
             readed_char = read_char();
-
             if (!lexer::lex_isspace(readed_char))
                 break;
-
         } while (true);
 
         // Mark token begin place.
@@ -1399,27 +1397,24 @@ extern func macro_entry(lexer: std::lexer)=> string
                 // l_identifier or key world..
                 append_result_char(readed_char);
 
-                int following_ch;
-                while (true)
+                int following_ch = peek_char();
+                while (lexer::lex_isident(following_ch))
                 {
+                    append_result_char(read_char());
                     following_ch = peek_char();
-                    if (lexer::lex_isident(following_ch))
-                        append_result_char(read_char());
-                    else
-                        break;
                 }
 
                 // ATTENTION, SECURE:
                 //  Disable macro handler if source_file == nullptr, it's in deserialize.
                 //  Processing macros here may lead to arbitrary code execution.
-                if (peek_char() == '!' && m_source_path.has_value())
+                if (following_ch == '!' && m_source_path.has_value())
                 {
                     (void)read_char(); // Eat `!`
                     return produce_token(lex_type::l_macro, std::move(token_literal_result));
                 }
-
-                if (lex_type keyword_type = lexer::lex_is_keyword(token_literal_result);
-                    lex_type::l_error != keyword_type)
+                
+                lex_type keyword_type = lexer::lex_is_keyword(token_literal_result);
+                if (lex_type::l_error != keyword_type)
                     return produce_token(keyword_type, std::move(token_literal_result));
 
                 return produce_token(lex_type::l_identifier, std::move(token_literal_result));

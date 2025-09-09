@@ -54,7 +54,7 @@ namespace wo
         class AstBase
         {
         public:
-            enum node_type_t: uint8_t
+            enum node_type_t : uint8_t
             {
                 AST_BASE,
                 AST_LIST,
@@ -167,8 +167,8 @@ namespace wo
             static bool exchange_this_thread_ast(AstAllocator& in_out_swap_allocator)
             {
                 wo_assert(
-                    in_out_swap_allocator.empty() 
-                    || nullptr == node_allocator 
+                    in_out_swap_allocator.empty()
+                    || nullptr == node_allocator
                     || node_allocator->empty());
 
                 bool need_swap_back = true;
@@ -313,13 +313,14 @@ namespace wo
         {
         public:
             std::vector<AstBase*> m_list;
-            AstList() : AstBase(AST_LIST)
+            AstList()
+                : AstBase(AST_LIST)
             {
             }
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override
             {
                 auto* new_instance = exist_instance ? static_cast<AstList*>(exist_instance.value()) : new AstList();
-                
+
                 new_instance->m_list = m_list;
 
                 for (auto*& dup_child : new_instance->m_list)
@@ -354,10 +355,10 @@ namespace wo
 
     inline std::ostream& operator << (std::ostream& os, const token& tk)
     {
-        os 
-            << "{ token: " 
-            << (lex_type_base_t)tk.type 
-            << "    , \"" 
+        os
+            << "{ token: "
+            << (lex_type_base_t)tk.type
+            << "    , \""
             << tk.identifier
             << "\"";
 
@@ -452,13 +453,13 @@ namespace wo
             }
             const token& read_token() const
             {
-                if (! is_token())
+                if (!is_token())
                     wo_error("read_token() called on an ast node.");
                 return std::get<token>(m_token_or_ast);
             }
             ast::AstBase* read_ast() const
             {
-                if (! is_ast())
+                if (!is_ast())
                     wo_error("read_ast() called on a token.");
 
                 return std::get<ast::AstBase*>(m_token_or_ast);
@@ -476,7 +477,7 @@ namespace wo
                 auto* ast_node = read_ast();
                 if (ast_node->node_type < ast::AstBase::AST_VALUE_begin || ast_node->node_type >= ast::AstBase::AST_VALUE_end)
                     wo_error("read_ast_value() called on a wrong type of ast node.");
-                
+
                 return ast_node;
             }
             ast::AstBase* read_ast_pattern() const

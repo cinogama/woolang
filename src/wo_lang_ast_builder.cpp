@@ -681,6 +681,7 @@ namespace wo
             if (template_arguments)
             {
                 std::vector<AstTemplateArgument*> args;
+                args.reserve(template_arguments.value()->m_list.size());
                 for (auto& arg : template_arguments.value()->m_list)
                 {
                     wo_assert(arg->node_type == AstBase::AST_TEMPLATE_ARGUMENT);
@@ -690,16 +691,22 @@ namespace wo
             }
 
             std::vector<wo_pstring_t> scope_identifiers_and_name;
+            wo_pstring_t identifier_name = nullptr;
+
+            wo_assert(!scope_identifier->m_list.empty());
+            scope_identifiers_and_name.reserve(scope_identifier->m_list.size() - 1);
             for (auto* asttoken : scope_identifier->m_list)
             {
                 wo_assert(asttoken->node_type == AstBase::AST_TOKEN);
-                scope_identifiers_and_name.push_back(
-                    wstring_pool::get_pstr(static_cast<AstToken*>(asttoken)->m_token.identifier));
-            }
-            wo_pstring_t identifier_name = scope_identifiers_and_name.back();
-            scope_identifiers_and_name.pop_back();
+                if (identifier_name != nullptr)
+                    scope_identifiers_and_name.push_back(identifier_name);
 
-            return new AstIdentifier(identifier_name, template_args, scope_identifiers_and_name, false);
+                identifier_name = 
+                    wstring_pool::get_pstr(
+                        static_cast<AstToken*>(asttoken)->m_token.identifier);
+            }
+            return new AstIdentifier(
+                identifier_name, template_args, scope_identifiers_and_name, false);
         }
         auto pass_build_identifier_global::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {

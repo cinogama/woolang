@@ -1009,8 +1009,7 @@ namespace wo
         template<typename C>
         void continue_process_childs(const C& ast_list, PassProcessStackT& out_stack)
         {
-            // static_assert(std::is_base_of<ast::AstBase, T>::value);
-            auto r_end = ast_list.rend();
+            const auto r_end = ast_list.rend();
             for (auto it = ast_list.rbegin(); it != r_end; ++it)
                 out_stack.push(AstNodeWithState(*it));
         }
