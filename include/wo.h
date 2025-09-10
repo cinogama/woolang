@@ -216,8 +216,9 @@ wo_result_t;
 
 typedef wo_result_t(*wo_native_func_t)(wo_vm, wo_value);
 
-typedef void (*wo_fail_handler_t)(
-    wo_vm vm,
+// Return WO_FALSE to abort vm.
+typedef wo_bool_t (*wo_fail_handler_t)(
+    wo_vm vm_may_null,
     wo_string_t src_file,
     uint32_t lineno,
     wo_string_t functionname,
@@ -287,7 +288,8 @@ typedef struct _wo_weak_ref* wo_weak_ref;
 #define wo_execute_fail(VM, ERRID, REASON)\
     ((void)wo_execute_fail_handler(VM, __FILE__, __LINE__, __func__, ERRID, REASON))
 
-WO_API wo_fail_handler_t wo_register_fail_handler(wo_fail_handler_t new_handler);
+WO_API wo_fail_handler_t wo_register_fail_handler(
+    wo_fail_handler_t new_handler);
 WO_API void wo_cause_fail(
     wo_string_t src_file,
     uint32_t lineno,
@@ -295,7 +297,7 @@ WO_API void wo_cause_fail(
     uint32_t rterrcode,
     wo_string_t reasonfmt, ...);
 WO_API void wo_execute_fail_handler(
-    wo_vm vm,
+    wo_vm vm_may_null,
     wo_string_t src_file,
     uint32_t lineno,
     wo_string_t functionname,

@@ -265,17 +265,17 @@ struct loaded_lib_info
 };
 
 
-void _default_fail_handler(
-    wo_vm vm,
+wo_bool_t _default_fail_handler(
+    wo_vm vm_may_null,
     wo_string_t src_file,
     uint32_t lineno,
     wo_string_t functionname,
     uint32_t rterrcode,
     wo_string_t reason)
 {
-    auto* cur_thread_vm = std::launder(reinterpret_cast<wo::vmbase*>(vm));
-    bool leaved_flag = cur_thread_vm != nullptr
-        ? wo_leave_gcguard(reinterpret_cast<wo_vm>(cur_thread_vm))
+    // Leave gc guard if vm is not nullptr.
+    bool leaved_flag = vm_may_null != nullptr
+        ? wo_leave_gcguard(vm_may_null)
         : false;
 
     wo::wo_stderr << ANSI_HIR "Woolang runtime happend a failure: "
@@ -287,82 +287,90 @@ void _default_fail_handler(
 
     wo::wo_stderr << ANSI_HIR "callstack: " ANSI_RST << wo::wo_endl;
 
-    if (cur_thread_vm != nullptr)
-        cur_thread_vm->dump_call_stack(32, true, std::cerr);
+    if (vm_may_null != nullptr)
+    {
+        std::launder(reinterpret_cast<wo::vmbase*>(vm_may_null))
+            ->dump_call_stack(32, true, std::cerr);
+    }
     else
         wo::wo_stderr << ANSI_HIM "No woolang vm found on this thread." ANSI_RST << wo::wo_endl;
 
     wo::wo_stderr << wo::wo_endl;
 
     wo::wo_stderr << ANSI_HIY "This failure may cause a crash." ANSI_RST << wo::wo_endl;
+
+    bool abort_this_vm = false;
+
     if (wo::config::ENABLE_HALT_WHEN_PANIC)
     {
         // Halt directly, donot wait for input.
-        if (cur_thread_vm != nullptr)
-            cur_thread_vm->interrupt(wo::vmbase::vm_interrupt_type::ABORT_INTERRUPT);
+        abort_this_vm = true;
     }
     else
     {
         wo::wo_stderr << "1) Abort program (You can attatch debuggee.)." << wo::wo_endl;
         wo::wo_stderr << "2) Continue (May cause unknown errors.)." << wo::wo_endl;
-        wo::wo_stderr << "3) Abort this vm (Not exactly safe, this vm will be abort.)." << wo::wo_endl;
-        wo::wo_stderr << "4) Attach debuggee and break." << wo::wo_endl;
+        if (vm_may_null != nullptr)
+        {
+            wo::wo_stderr << "3) Abort this vm (Not exactly safe, this vm will be abort.)." << wo::wo_endl;
+            wo::wo_stderr << "4) Attach debuggee and break." << wo::wo_endl;
+        }
 
         bool breakout = false;
-        while (true)
+        do
         {
             char _useless_for_clear = 0;
             std::cin.clear();
             while (std::cin.readsome(&_useless_for_clear, 1));
 
-            if (breakout)
-                break;
-
             int choice;
             wo::wo_stderr << "Please input your choice: " ANSI_HIY;
             std::cin >> choice;
             wo::wo_stderr << ANSI_RST;
+
             switch (choice)
             {
             case 1:
                 wo_error(reason);
+                abort_this_vm = true;
                 breakout = true;
                 break;
             case 2:
                 breakout = true;
                 break;
             case 3:
-                if (cur_thread_vm != nullptr)
+                if (vm_may_null != nullptr)
                 {
                     wo::wo_stderr << ANSI_HIR "Current virtual machine will be aborted." ANSI_RST << wo::wo_endl;
-                    cur_thread_vm->interrupt(wo::vmbase::vm_interrupt_type::ABORT_INTERRUPT);
+                    abort_this_vm = true;
                     breakout = true;
                 }
-                else
-                    wo::wo_stderr << ANSI_HIR "No virtual machine running on this thread." ANSI_RST << wo::wo_endl;
-                break;
+                // FALL THROUGH!
+                [[fallthrough]];
             case 4:
-                if (cur_thread_vm != nullptr)
+                if (vm_may_null != nullptr)
                 {
                     if (!wo_has_attached_debuggee())
                         wo_attach_default_debuggee();
-                    wo_break_specify_immediately(vm);
+                    wo_break_specify_immediately(vm_may_null);
                     breakout = true;
                 }
-                else
-                    wo::wo_stderr << ANSI_HIR "No virtual machine running on this thread." ANSI_RST << wo::wo_endl;
-                break;
+                // FALL THROUGH!
+                [[fallthrough]];
             default:
                 wo::wo_stderr << ANSI_HIR "Invalid choice" ANSI_RST << wo::wo_endl;
             }
-        }
+
+        } while (breakout);
     }
 
     if (leaved_flag)
     {
-        wo_assert(cur_thread_vm != nullptr);
-        wo_enter_gcguard(reinterpret_cast<wo_vm>(cur_thread_vm));
+        wo_assert(vm_may_null != nullptr);
+        wo_enter_gcguard(vm_may_null);
     }
+
+    return abort_this_vm ? WO_FALSE : WO_TRUE;
 }
 static std::atomic<wo_fail_handler_t> _wo_fail_handler_function = &_default_fail_handler;
 
@@ -370,10 +378,29 @@ wo_fail_handler_t wo_register_fail_handler(wo_fail_handler_t new_handler)
 {
     return _wo_fail_handler_function.exchange(new_handler);
 }
-void wo_execute_fail_handler(wo_vm vm, wo_string_t src_file, uint32_t lineno, wo_string_t functionname, uint32_t rterrcode, wo_string_t reason)
+void wo_execute_fail_handler(
+    wo_vm vm_may_null,
+    wo_string_t src_file,
+    uint32_t lineno,
+    wo_string_t functionname,
+    uint32_t rterrcode,
+    wo_string_t reason)
 {
-    _wo_fail_handler_function.load()(
-        vm, src_file, lineno, functionname, rterrcode, reason);
+    if (WO_FALSE == _wo_fail_handler_function.load()(
+        vm_may_null,
+        src_file,
+        lineno,
+        functionname,
+        rterrcode,
+        reason))
+    {
+        if (vm_may_null != nullptr)
+        {
+            // Abort if handler not handle this error.
+            std::launder(reinterpret_cast<wo::vmbase*>(vm_may_null))->interrupt(
+                wo::vmbase::ABORT_INTERRUPT);
+        }
+    }
 }
 void wo_cause_fail(wo_string_t src_file, uint32_t lineno, wo_string_t functionname, uint32_t rterrcode, wo_string_t reasonfmt, ...)
 {
@@ -2686,8 +2713,8 @@ wo::compile_result _wo_compile_impl(
             (void)compile_lexer->record_parser_error(
                 wo::lexer::msglevel_t::error, WO_ERR_COMPILER_DISABLED);
 #endif
-        }
-    }
+                }
+            }
     else
         // Load binary success. 
         compile_result = wo::compile_result::PROCESS_OK;
@@ -2711,7 +2738,7 @@ wo::compile_result _wo_compile_impl(
             *out_lexer_if_failed = std::move(compile_lexer);
     }
     return compile_result;
-}
+        }
 
 wo_bool_t _wo_load_source(
     wo_vm vm,
