@@ -51,6 +51,8 @@ namespace wo
             else
                 delete m_alias_instance;
             break;
+        default:
+            wo_error("Unexpected symbol kind.");
         }
     }
     lang_Symbol::lang_Symbol(

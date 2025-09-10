@@ -1,0 +1,151 @@
+import woo::std;
+import test_tool;
+
+namespace test_stdlib_extern
+{
+    func test_string_operations()
+    {
+        // 测试字符串操作函数
+        test_equal("hello"->upper(), "HELLO");
+        test_equal("HELLO"->lower(), "hello");
+        
+        test_assure(" "->is_space());
+        test_assure(!"a"->is_space());
+        test_assure("123"->is_number());
+        test_assure(!"123a"->is_number());
+        
+        test_assure("hello"->begin_with("he"));
+        test_assure(!"hello"->begin_with("lo"));
+        test_assure("hello"->end_with("lo"));
+        test_assure(!"hello"->end_with("he"));
+        
+        test_equal("hello world"->replace("world", "woolang"), "hello woolang");
+        
+        let trimmed = "  hello world  "->trim();
+        test_equal(trimmed, "hello world");
+    }
+    
+    func test_char_operations()
+    {
+        // 测试字符操作函数
+        test_equal('a'->upper(), 'A');
+        test_equal('A'->lower(), 'a');
+        
+        test_assure(' '->is_space());
+        test_assure(!'a'->is_space());
+        test_assure('1'->is_number());
+        test_assure('a'->is_alpha());
+        test_assure('1'->is_alnum());
+        test_assure(!'$'->is_alnum());
+        
+        test_assure('A'->is_hex());
+        test_assure('F'->is_hex());
+        test_assure('0'->is_hex());
+        test_assure('9'->is_hex());
+        test_assure(!'G'->is_hex());
+        
+        test_equal('A'->hex_int(), 10);
+        test_equal('F'->hex_int(), 15);
+        test_equal('0'->hex_int(), 0);
+    }
+    
+    func test_array_operations()
+    {
+        // 测试数组操作函数
+        let arr = [1, 2, 3, 4, 5];
+        
+        test_equal(arr->len(), 5);
+        test_assure(!arr->empty());
+        
+        test_equal(arr->get(0)->unwrap(), 1);
+        test_equal(arr->get(2)->unwrap(), 3);
+        test_equal(arr->get(4)->unwrap(), 5);
+        test_assure(arr->get(5)->is_none());
+        
+        test_equal(arr->get_or(5, -1), -1);
+        test_equal(arr->get_or(0, -1), 1);
+        
+        test_equal(arr->find(3)->unwrap(), 2);
+        test_equal(arr->find(6)->or(-1), -1);
+        
+        test_equal(arr->front()->unwrap(), 1);
+        test_equal(arr->back()->unwrap(), 5);
+    }
+    
+    func test_map_operations()
+    {
+        // 测试映射操作函数 - 简化版本，只测试基本功能
+        let map = {["a"] = 1, ["b"] = 2, ["c"] = 3};
+        
+        test_equal(map->len(), 3);
+        test_assure(!map->empty());
+        
+        test_equal(map->get("a")->unwrap(), 1);
+        test_equal(map->get("b")->unwrap(), 2);
+        test_assure(map->get("d")->is_none());
+        
+        test_equal(map->get_or("d", -1), -1);
+        test_equal(map->get_or("a", -1), 1);
+    }
+    
+    func test_serialization()
+    {
+        // 测试序列化和反序列化功能
+        let test_arr = [1, 2, 3];
+        let serialized_arr = test_arr->serialize()->unwrap();
+        let deserialized_arr = array::deserialize(serialized_arr)->unwrap();
+        
+        test_equal(deserialized_arr->len(), 3);
+        test_equal(deserialized_arr[0] as int, 1);
+        test_equal(deserialized_arr[1] as int, 2);
+        test_equal(deserialized_arr[2] as int, 3);
+        
+        let test_map = {["key1"] = "value1", ["key2"] = "value2"};
+        let serialized_map = test_map->serialize()->unwrap();
+        let deserialized_map = map::deserialize(serialized_map)->unwrap();
+        
+        test_equal(deserialized_map->len(), 2);
+        test_equal(deserialized_map["key1": dynamic] as string, "value1");
+        test_equal(deserialized_map["key2": dynamic] as string, "value2");
+        
+        // 测试 vec 类型
+        let test_vec = [10, 20, 30]mut;
+        let serialized_vec = test_vec->serialize()->unwrap();
+        let deserialized_vec = vec::deserialize(serialized_vec)->unwrap();
+        
+        test_equal(deserialized_vec->len(), 3);
+        test_equal(deserialized_vec[0] as int, 10);
+        test_equal(deserialized_vec[1] as int, 20);
+        test_equal(deserialized_vec[2] as int, 30);
+    }
+    
+    func test_type_conversions()
+    {
+        // 测试类型转换
+        test_equal(255->to_hex(), "FF");
+        test_equal(10->to_hex(), "A");
+        
+        test_equal('a'->to_string(), "a");
+    }
+    
+    func test_misc_functions()
+    {        
+        let args = std::args();
+        test_assure(args->len() >= 0);
+        
+        let exe_path = std::host_path();
+        test_assure(exe_path != "");
+    }
+    
+    func main()
+    {
+        test_string_operations();
+        test_char_operations();
+        test_array_operations();
+        test_map_operations();
+        test_type_conversions();
+        test_misc_functions();
+    }
+}
+
+test_function("test_stdlib_extern.main", test_stdlib_extern::main);

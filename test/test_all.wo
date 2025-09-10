@@ -8,6 +8,7 @@ import test_benchmark;
 import test_helloworld;
 import test_string_u8;
 import test_basic;
+import test_stdlib_extern;
 import test_defer;
 import test_monad;
 import test_wolisp;
