@@ -123,7 +123,7 @@ test_coverage_debug:
     - sudo baozi install -profile debug
     - sudo chmod -R 777 ./pkg
     - sudo chmod -R 777 .
-    - ../build/woolang_debug ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 1 --enable-halt-when-panic 1 --mem-chunk-size 536870912
+    - ../build/woolang_debug ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 1 --enable-halt-when-panic 1 --mem-chunk-size 268435456
     - cd ../build/src/CMakeFiles/woolang.dir
     - sudo gcov -b -l -p -c *.gcno
     - cd ../../../../
@@ -231,12 +231,12 @@ test_release:
     - sudo baozi install
     - sudo chmod -R 777 ./pkg
     - sudo chmod -R 777 .
-    - ../build/woolang ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 1 -o test_nojit.woo --enable-halt-when-panic 1 --mem-chunk-size 536870912
-    - ../build/woolang ./test_nojit.woo --enable-ctrlc-debug 0 --enable-jit 0 --enable-halt-when-panic 1 --mem-chunk-size 536870912
-    - ../build/woolang ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 0 -o test_nojit.woo --enable-halt-when-panic 1 --mem-chunk-size 536870912
-    - ../build/woolang ./test_nojit.woo --enable-ctrlc-debug 0 --enable-jit 1 --enable-halt-when-panic 1 --mem-chunk-size 536870912
-    - ../build/woolang ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 0 --enable-halt-when-panic 1 --mem-chunk-size 536870912
-    - ../build/woolang ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 1 --enable-halt-when-panic 1 --mem-chunk-size 536870912
+    - ../build/woolang ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 1 -o test_nojit.woo --enable-halt-when-panic 1 --mem-chunk-size 268435456
+    - ../build/woolang ./test_nojit.woo --enable-ctrlc-debug 0 --enable-jit 0 --enable-halt-when-panic 1 --mem-chunk-size 268435456
+    - ../build/woolang ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 0 -o test_nojit.woo --enable-halt-when-panic 1 --mem-chunk-size 268435456
+    - ../build/woolang ./test_nojit.woo --enable-ctrlc-debug 0 --enable-jit 1 --enable-halt-when-panic 1 --mem-chunk-size 268435456
+    - ../build/woolang ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 0 --enable-halt-when-panic 1 --mem-chunk-size 268435456
+    - ../build/woolang ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 1 --enable-halt-when-panic 1 --mem-chunk-size 268435456
     - cd ..
   tags:
     - ubuntu20
@@ -328,7 +328,7 @@ test_memory_debug:
     - sudo baozi install -profile debug
     - sudo chmod -R 777 ./pkg
     - sudo chmod -R 777 .
-    - valgrind --tool=memcheck --leak-check=yes --show-reachable=yes ../build/woolang_debug ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 1 --enable-halt-when-panic 1 --mem-chunk-size 536870912
+    - valgrind --tool=memcheck --leak-check=yes --show-reachable=yes ../build/woolang_debug ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 1 --enable-halt-when-panic 1 --mem-chunk-size 268435456
     - cd ..
   artifacts:
     name: ubuntu-wo-coverage-$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA
@@ -358,8 +358,8 @@ test_memory_release:
     - sudo baozi install
     - sudo chmod -R 777 ./pkg
     - sudo chmod -R 777 .
-    - valgrind --tool=memcheck --leak-check=yes --show-reachable=yes ../build/woolang ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 0 --enable-halt-when-panic 1 --mem-chunk-size 536870912
-    - valgrind --tool=memcheck --leak-check=yes --show-reachable=yes ../build/woolang ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 1 --enable-halt-when-panic 1 --mem-chunk-size 536870912
+    - valgrind --tool=memcheck --leak-check=yes --show-reachable=yes ../build/woolang ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 0 --enable-halt-when-panic 1 --mem-chunk-size 268435456
+    - valgrind --tool=memcheck --leak-check=yes --show-reachable=yes ../build/woolang ./test_all.wo --enable-ctrlc-debug 0 --enable-jit 1 --enable-halt-when-panic 1 --mem-chunk-size 268435456
     - cd ..
   tags:
     - ubuntu20
