@@ -287,6 +287,7 @@ namespace wo
             bool m_mutable;
             std::vector<ast::AstTemplateParam*> m_template_params;
             ast::AstValueBase* m_origin_value_ast;
+
             std::vector<lang_TemplateAstEvalStateValue*> m_finished_instance_list;
             std::map<TemplateArgumentListT, std::unique_ptr<lang_TemplateAstEvalStateValue>>
                 m_template_instances;
@@ -314,6 +315,7 @@ namespace wo
             lang_Symbol* m_symbol;
             std::vector<ast::AstTemplateParam*> m_template_params;
             ast::AstTypeHolder* m_origin_value_ast;
+
             std::map<TemplateArgumentListT, std::unique_ptr<lang_TemplateAstEvalStateType>>
                 m_template_instances;
 

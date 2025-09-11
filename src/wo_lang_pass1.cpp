@@ -2189,7 +2189,6 @@ namespace wo
                 if (node->m_consider_overload)
                 {
                     lang_TypeInstance* left_type = node->m_container->m_LANG_determined_type.value();
-                    lang_Symbol* left_type_symbol = left_type->m_symbol;
 
                     wo_pstring_t operator_name = WO_PSTR(operator_INDEX);
 
@@ -2591,7 +2590,6 @@ namespace wo
         }
         else if (state == HOLD)
         {
-            lang_TypeInstance* index_result_type = node->m_index->m_LANG_determined_type.value();
             if (!node->m_index->m_LANG_result_is_mutable)
             {
                 lex.record_lang_error(lexer::msglevel_t::error, node->m_index,
@@ -2845,16 +2843,16 @@ namespace wo
                         AstValueVariable* argument_variable = static_cast<AstValueVariable*>(argument);
                         lang_Symbol* symbol = argument_variable->m_identifier->m_LANG_determined_symbol.value();
 
+                        auto& template_instance = symbol->m_template_value_instances;
+
                         wo_assert(symbol->m_is_template
                             && symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE
-                            && !symbol->m_template_value_instances->m_mutable);
-
-                        auto& template_instance_prefab = symbol->m_template_value_instances;
+                            && !template_instance->m_mutable);
 
                         std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance> deduction_results;
                         std::vector<ast::AstTemplateParam*> pending_template_params;
-                        auto it_template_param = symbol->m_template_value_instances->m_template_params.begin();
-                        auto it_template_param_end = symbol->m_template_value_instances->m_template_params.end();
+                        auto it_template_param = template_instance->m_template_params.begin();
+                        auto it_template_param_end = template_instance->m_template_params.end();
                         if (argument_variable->m_identifier->m_template_arguments.has_value())
                         {
                             for (auto& _useless : argument_variable->m_identifier->m_template_arguments.value())
@@ -2870,7 +2868,7 @@ namespace wo
 
                         template_function_deduction_extraction_with_complete_type(
                             lex,
-                            static_cast<AstValueFunction*>(symbol->m_template_value_instances->m_origin_value_ast),
+                            static_cast<AstValueFunction*>(template_instance->m_origin_value_ast),
                             param_argument_types,
                             param_return_type,
                             pending_template_params,
@@ -3106,16 +3104,16 @@ namespace wo
                     AstValueVariable* argument_variable = static_cast<AstValueVariable*>(argument);
                     lang_Symbol* symbol = argument_variable->m_identifier->m_LANG_determined_symbol.value();
 
+                    auto& template_instance = symbol->m_template_value_instances;
+
                     wo_assert(symbol->m_is_template
                         && symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE
-                        && !symbol->m_template_value_instances->m_mutable);
-
-                    auto& template_instance_prefab = symbol->m_template_value_instances;
+                        && !template_instance->m_mutable);
 
                     std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance> deduction_results;
                     std::vector<ast::AstTemplateParam*> pending_template_params;
-                    auto it_template_param = symbol->m_template_value_instances->m_template_params.begin();
-                    auto it_template_param_end = symbol->m_template_value_instances->m_template_params.end();
+                    auto it_template_param = template_instance->m_template_params.begin();
+                    auto it_template_param_end = template_instance->m_template_params.end();
                     if (argument_variable->m_identifier->m_template_arguments.has_value())
                     {
                         for (auto& _useless : argument_variable->m_identifier->m_template_arguments.value())
@@ -3131,7 +3129,7 @@ namespace wo
 
                     template_function_deduction_extraction_with_complete_type(
                         lex,
-                        static_cast<AstValueFunction*>(symbol->m_template_value_instances->m_origin_value_ast),
+                        static_cast<AstValueFunction*>(template_instance->m_origin_value_ast),
                         param_argument_types,
                         param_return_type,
                         pending_template_params,
@@ -3671,15 +3669,15 @@ namespace wo
                     AstValueVariable* function_variable = static_cast<AstValueVariable*>(node->m_function);
                     lang_Symbol* symbol = function_variable->m_identifier->m_LANG_determined_symbol.value();
 
+                    auto& template_instance = symbol->m_template_value_instances;
+
                     wo_assert(symbol->m_is_template
                         && symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE
-                        && !symbol->m_template_value_instances->m_mutable);
-
-                    auto& template_instance_prefab = symbol->m_template_value_instances;
+                        && !template_instance->m_mutable);
 
                     std::unordered_map<wo_pstring_t, lang_TypeInstance*> deduction_results;
-                    auto it_template_param = template_instance_prefab->m_template_params.begin();
-                    auto it_template_param_end = template_instance_prefab->m_template_params.end();
+                    auto it_template_param = template_instance->m_template_params.begin();
+                    auto it_template_param_end = template_instance->m_template_params.end();
                     if (function_variable->m_identifier->m_template_arguments.has_value())
                     {
                         for (auto& _useless : function_variable->m_identifier->m_template_arguments.value())
@@ -4248,11 +4246,11 @@ namespace wo
                 AstIdentifier* struct_type_identifier = struct_type->m_typeform.m_identifier;
 
                 lang_Symbol* symbol = struct_type_identifier->m_LANG_determined_symbol.value();
-                auto& struct_type_def_prefab = symbol->m_template_type_instances;
+                auto& template_instance = symbol->m_template_type_instances;
 
-                template_params = &symbol->m_template_type_instances->m_template_params;
-                auto it_template_param = symbol->m_template_type_instances->m_template_params.begin();
-                auto it_template_param_end = symbol->m_template_type_instances->m_template_params.end();
+                template_params = &template_instance->m_template_params;
+                auto it_template_param = template_instance->m_template_params.begin();
+                auto it_template_param_end = template_instance->m_template_params.end();
                 if (struct_type_identifier->m_template_arguments.has_value())
                 {
                     for (auto& exist_template_argument : struct_type_identifier->m_template_arguments.value())
@@ -4275,7 +4273,7 @@ namespace wo
                 for (; it_template_param != it_template_param_end; ++it_template_param)
                     pending_template_params.push_back(*it_template_param);
 
-                AstTypeHolder* struct_def_type_holder = struct_type_def_prefab->m_origin_value_ast;
+                AstTypeHolder* struct_def_type_holder = template_instance->m_origin_value_ast;
                 std::unordered_map<wo_pstring_t, AstTypeHolder*> struct_template_deduction_target;
 
                 for (auto& field_type : struct_def_type_holder->m_typeform.m_structure.m_fields)
@@ -4387,10 +4385,10 @@ namespace wo
                 wo_assert(symbol->m_is_template
                     && symbol->m_symbol_kind == lang_Symbol::kind::TYPE);
 
-                auto& template_instance_prefab = symbol->m_template_type_instances;
+                auto& template_instance = symbol->m_template_type_instances;
 
-                auto it_template_param = symbol->m_template_type_instances->m_template_params.begin();
-                auto it_template_param_end = symbol->m_template_type_instances->m_template_params.end();
+                auto it_template_param = template_instance->m_template_params.begin();
+                auto it_template_param_end = template_instance->m_template_params.end();
                 if (target_struct_typeholder->m_typeform.m_identifier->m_template_arguments.has_value())
                 {
                     for (auto& _useless : target_struct_typeholder->m_typeform.m_identifier->m_template_arguments.value())
@@ -4697,7 +4695,6 @@ namespace wo
                 if (node->m_consider_overload)
                 {
                     lang_TypeInstance* left_type = node->m_left->m_LANG_determined_type.value();
-                    lang_Symbol* left_type_symbol = left_type->m_symbol;
 
                     wo_pstring_t operator_name;
                     switch (node->m_operator)

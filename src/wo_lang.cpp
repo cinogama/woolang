@@ -156,7 +156,10 @@ namespace wo
         bool mutable_,
         ast::AstValueBase* ast,
         const std::vector<ast::AstTemplateParam*>& template_params)
-        : m_symbol(symbol), m_mutable(mutable_), m_origin_value_ast(ast), m_template_params(template_params)
+        : m_symbol(symbol)
+        , m_mutable(mutable_)
+        , m_template_params(template_params)
+        , m_origin_value_ast(ast)
     {
     }
 
@@ -186,7 +189,9 @@ namespace wo
         lang_Symbol* symbol,
         ast::AstTypeHolder* ast,
         const std::vector<ast::AstTemplateParam*>& template_params)
-        : m_symbol(symbol), m_origin_value_ast(ast), m_template_params(template_params)
+        : m_symbol(symbol)
+        , m_template_params(template_params)
+        , m_origin_value_ast(ast)
     {
     }
     lang_TemplateAstEvalStateType* lang_Symbol::TemplateTypePrefab::find_or_create_template_instance(
@@ -215,7 +220,9 @@ namespace wo
         lang_Symbol* symbol,
         ast::AstTypeHolder* ast,
         const std::vector<ast::AstTemplateParam*>& template_params)
-        : m_symbol(symbol), m_origin_value_ast(ast), m_template_params(template_params)
+        : m_symbol(symbol)
+        , m_template_params(template_params)
+        , m_origin_value_ast(ast)
     {
     }
     lang_TemplateAstEvalStateAlias* lang_Symbol::TemplateAliasPrefab::find_or_create_template_instance(
@@ -351,8 +358,8 @@ namespace wo
 
         _update_type_instance_depend_this(copy_type);
 
-        m_determined_base_type_or_mutable =
-            std::move(DeterminedType(copy_type.m_base_type, extern_desc));
+        m_determined_base_type_or_mutable = 
+            DeterminedType(copy_type.m_base_type, extern_desc);
     }
     void lang_TypeInstance::determine_base_type_move(DeterminedType&& move_type)
     {
@@ -520,9 +527,9 @@ namespace wo
         const std::optional<std::vector<ast::AstIdentifier::TemplateArgumentInstance>>& template_arguments)
         : m_symbol(symbol)
         , m_mutable(mutable_)
+        , m_instance_template_arguments(template_arguments)
         , m_determined_constant_or_function(std::nullopt)
         , m_determined_type(std::nullopt)
-        , m_instance_template_arguments(template_arguments)
     {
     }
     lang_ValueInstance::~lang_ValueInstance()
@@ -1199,7 +1206,7 @@ namespace wo
 
             out_sni->m_type_instance = out_sni->m_symbol->m_type_instance;
             out_sni->m_type_instance->determine_base_type_move(
-                std::move(lang_TypeInstance::DeterminedType(basic_type, {})));
+                lang_TypeInstance::DeterminedType(basic_type, {}));
         };
         create_builtin_non_template_symbol_and_instance(
             &m_origin_types.m_void, WO_PSTR(void), lang_TypeInstance::DeterminedType::VOID);
@@ -1597,7 +1604,7 @@ namespace wo
                         lex,
                         this,
                         eval_fucntion_name,
-                        eval_function->m_LANG_function_scope.value(),
+                        function_scope,
                         0,
                         &local_storage_size);
 
@@ -2057,11 +2064,11 @@ namespace wo
                 type_instance = std::get<lang_TypeInstance*>(ident->m_from_type.value());
 
             lang_Scope* search_from_scope = type_instance->m_symbol->m_belongs_to_scope;
-            if (!type_instance->m_symbol->m_belongs_to_scope->is_namespace_scope())
+            if (!search_from_scope->is_namespace_scope())
                 return std::nullopt;
 
             search_begin_namespace =
-                type_instance->m_symbol->m_belongs_to_scope->m_belongs_to_namespace;
+                search_from_scope->m_belongs_to_namespace;
 
             auto fnd = search_begin_namespace->m_sub_namespaces.find(type_instance->m_symbol->m_name);
             if (fnd == search_begin_namespace->m_sub_namespaces.end())

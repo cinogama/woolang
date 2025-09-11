@@ -2701,8 +2701,8 @@ wo::compile_result _wo_compile_impl(
                     if (wo::compile_result::PROCESS_OK == compile_result)
                     {
                         // Finish!, finalize the compiler.
-                        compile_env_result = std::move(
-                            lang_context->m_ircontext.c().finalize());
+                        compile_env_result = 
+                            lang_context->m_ircontext.c().finalize();
                     }
 
                     if (out_langcontext_if_pass_grammar != nullptr)

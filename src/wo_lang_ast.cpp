@@ -1741,7 +1741,7 @@ namespace wo
 
                 instance.m_referenced_variables.push_back(variable);
                 return m_captured_variables.insert(
-                    std::move(std::make_pair(from_value, std::move(instance)))
+                    std::make_pair(from_value, std::move(instance))
                 ).first->second.m_instance.get();
             }
             return fnd->second.m_instance.get();

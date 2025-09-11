@@ -329,7 +329,7 @@ namespace wo
             else if (templating_symbol->m_symbol_kind == lang_Symbol::kind::TYPE)
             {
                 // For type, it's type instance has been determined, no need to evaluate again.
-                auto* template_eval_state_instance = static_cast<lang_TemplateAstEvalStateType*>(result);
+                // auto* template_eval_state_instance = static_cast<lang_TemplateAstEvalStateType*>(result);
                 return result;
             }
             // NOTE: Donot modify eval state here.
@@ -572,7 +572,6 @@ namespace wo
         case ast::AstTypeHolder::IDENTIFIER:
         {
             auto* identifier = accept_type_formal->m_typeform.m_identifier;
-            bool try_eval_symbol_of_identifier = true;
 
             switch (identifier->m_formal)
             {
@@ -597,8 +596,6 @@ namespace wo
 
                     if (fnd != pending_template_params.end())
                     {
-                        try_eval_symbol_of_identifier = false;
-
                         // Got it!
                         ast::AstTemplateParam* template_param = *fnd;
 

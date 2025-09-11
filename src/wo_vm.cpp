@@ -1185,8 +1185,6 @@ namespace wo
             while (current_stack_size <= assure_stack_size)
                 current_stack_size <<= 1;
 
-            bool need_leave = false;
-
             if (!_reallocate_stack_space(current_stack_size << 1))
                 wo_fail(WO_FAIL_STACKOVERFLOW, "Stack overflow.");
             return true;

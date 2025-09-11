@@ -93,7 +93,6 @@ namespace wo
         if (instance->m_IR_storage.has_value())
             return;
 
-        lang_Symbol* symbol = instance->m_symbol;
         wo_assert(
             !get_scope_located_function(symbol->m_belongs_to_scope).has_value()
             || symbol->m_is_global
@@ -1316,7 +1315,6 @@ namespace wo
                 }
             }
 
-            bool argument_count_is_sured = true;
             for (auto* arguments : node->m_arguments)
             {
                 // Functions arguments will be pushed into stack inversely.
@@ -1762,11 +1760,6 @@ namespace wo
                             node->m_cast_type->m_LANG_determined_type.value();
                         auto* target_determined_type_instance =
                             target_type_instance->get_determined_type().value();
-
-                        auto* src_type_instance =
-                            node->m_cast_value->m_LANG_determined_type.value();
-                        auto* src_determined_type_instance =
-                            src_type_instance->get_determined_type().value();
 
                         const auto& target_storage = result.get_assign_target();
 

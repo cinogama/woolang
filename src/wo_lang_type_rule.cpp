@@ -838,7 +838,6 @@ namespace wo
                 && immutable_atype->m_instance_template_arguments.has_value()
                 && immutable_btype->m_instance_template_arguments.has_value());
 
-            auto* template_prefab = immutable_atype->m_symbol->m_template_type_instances;
             auto& a_template_arguments = immutable_atype->m_instance_template_arguments.value();
             auto& b_template_arguments = immutable_btype->m_instance_template_arguments.value();
 
