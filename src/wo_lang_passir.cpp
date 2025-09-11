@@ -94,11 +94,12 @@ namespace wo
             return;
 
         wo_assert(
-            !get_scope_located_function(symbol->m_belongs_to_scope).has_value()
-            || symbol->m_is_global
-            || (symbol->m_declare_attribute.has_value()
-                && symbol->m_declare_attribute.value()->m_lifecycle.has_value()
-                && symbol->m_declare_attribute.value()->m_lifecycle.value() == AstDeclareAttribue::lifecycle_attrib::STATIC));
+            !get_scope_located_function(instance->m_symbol->m_belongs_to_scope).has_value()
+            || instance->m_symbol->m_is_global
+            || (instance->m_symbol->m_declare_attribute.has_value()
+                && instance->m_symbol->m_declare_attribute.value()->m_lifecycle.has_value()
+                && instance->m_symbol->m_declare_attribute.value()->m_lifecycle.value()
+                == AstDeclareAttribue::lifecycle_attrib::STATIC));
 
         // Global or staitc, allocate global storage.
         instance->m_IR_storage = lang_ValueInstance::Storage{
@@ -2602,7 +2603,7 @@ namespace wo
 
                 node->m_LANG_hold_state = AstValueIndex::IR_HOLD_FOR_NORMAL_LR_EVAL;
             }
-            
+
             return HOLD;
         }
         else if (state == HOLD)
@@ -2723,7 +2724,7 @@ namespace wo
             default:
                 wo_error("Unknown type.");
             }
-          
+
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
