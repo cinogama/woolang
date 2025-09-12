@@ -438,7 +438,7 @@ namespace wo
                 }
                 for (int i = 0; i < MAX_BYTE_COUNT - displayed_count; i++)
                     printf("   ");
-                };
+            };
 #define WO_SIGNED_SHIFT(VAL) (((signed char)((unsigned char)(((unsigned char)(VAL))<<1)))>>1)
             auto print_reg_bpoffset = [&]() {
                 byte_t data_1b = *(this_command_ptr++);
@@ -477,7 +477,7 @@ namespace wo
                         tmpos << "reg(" << (uint32_t)data_1b << ")";
 
                 }
-                };
+            };
             auto print_global_static = [&]() {
                 //const global 4byte
                 uint32_t data_4b = *(uint32_t*)((this_command_ptr += 4) - 4);
@@ -502,19 +502,19 @@ namespace wo
                 }
                 else
                     tmpos << "g[" << data_4b - env->constant_value_count << "]";
-                };
+            };
             auto print_opnum1 = [&]() {
                 if (main_command & (byte_t)0b00000010)
                     print_reg_bpoffset();
                 else
                     print_global_static();
-                };
+            };
             auto print_opnum2 = [&]() {
                 if (main_command & (byte_t)0b00000001)
                     print_reg_bpoffset();
                 else
                     print_global_static();
-                };
+            };
 
 #undef WO_SIGNED_SHIFT
             switch (main_command & (byte_t)0b11111100)
@@ -987,95 +987,95 @@ namespace wo
         std::vector<callstack_info> result(std::min(callstack_layer_count, max_count));
         auto generate_callstack_info_with_ip =
             [this, near_env_pointer, need_offset](const wo::byte_t* rip, runtime_env** out_env)
+        {
+            const program_debug_data_info::location* src_location_info = nullptr;
+            std::string function_signature;
+            std::string file_path;
+            size_t row_number = 0;
+            size_t col_number = 0;
+
+            runtime_env* callenv = near_env_pointer;
+            call_way callway;
+
+            if (rip >= this->runtime_codes_begin && rip < this->runtime_codes_end)
+                callway = call_way::NEAR;
+            else
             {
-                const program_debug_data_info::location* src_location_info = nullptr;
-                std::string function_signature;
-                std::string file_path;
-                size_t row_number = 0;
-                size_t col_number = 0;
+                if (runtime_env::fetch_far_runtime_env(rip, &callenv))
+                    callway = call_way::FAR;
+                else
+                    callway = call_way::NATIVE;
+            }
 
-                runtime_env* callenv = near_env_pointer;
-                call_way callway;
+            switch (callway)
+            {
+            case call_way::NEAR:
+            case call_way::FAR:
+            {
+                // Update call env for near & far call.
+                *out_env = callenv;
 
-                if (rip >= this->runtime_codes_begin && rip < this->runtime_codes_end)
-                    callway = call_way::NEAR;
+                if (callenv->program_debug_info != nullptr)
+                {
+                    src_location_info = &callenv->program_debug_info
+                        ->get_src_location_by_runtime_ip(rip - (need_offset ? 1 : 0));
+                    function_signature = callenv->program_debug_info
+                        ->get_current_func_signature_by_runtime_ip(rip - (need_offset ? 1 : 0));
+
+                    file_path = src_location_info->source_file;
+                    row_number = src_location_info->begin_row_no;
+                    col_number = src_location_info->begin_col_no;
+                }
                 else
                 {
-                    if (runtime_env::fetch_far_runtime_env(rip, &callenv))
-                        callway = call_way::FAR;
-                    else
-                        callway = call_way::NATIVE;
-                }
+                    char rip_str[sizeof(rip) * 2 + 4];
+                    int result = snprintf(rip_str, sizeof(rip_str), "0x%p>", rip);
 
-                switch (callway)
+                    (void)result;
+                    wo_assert(result > 0 && result < sizeof(rip_str), "snprintf failed or buffer too small");
+
+                    function_signature = std::string("<unknown function ") + rip_str;
+                    file_path = "<unknown file>";
+                }
+                break;
+            }
+            case call_way::NATIVE:
+            {
+                // Is extern native function address.
+                auto fnd = env->extern_native_functions.find(
+                    reinterpret_cast<wo_native_func_t>(
+                        reinterpret_cast<intptr_t>(rip)));
+
+                if (fnd != env->extern_native_functions.end())
                 {
-                case call_way::NEAR:
-                case call_way::FAR:
+                    function_signature = fnd->second.function_name;
+                    file_path = fnd->second.library_name.value_or("<builtin>");
+                }
+                else
                 {
-                    // Update call env for near & far call.
-                    *out_env = callenv;
+                    char rip_str[sizeof(rip) * 2 + 4];
+                    int result = snprintf(rip_str, sizeof(rip_str), "0x%p>", rip);
 
-                    if (callenv->program_debug_info != nullptr)
-                    {
-                        src_location_info = &callenv->program_debug_info
-                            ->get_src_location_by_runtime_ip(rip - (need_offset ? 1 : 0));
-                        function_signature = callenv->program_debug_info
-                            ->get_current_func_signature_by_runtime_ip(rip - (need_offset ? 1 : 0));
+                    (void)result;
+                    wo_assert(result > 0 && result < sizeof(rip_str), "snprintf failed or buffer too small");
 
-                        file_path = src_location_info->source_file;
-                        row_number = src_location_info->begin_row_no;
-                        col_number = src_location_info->begin_col_no;
-                    }
-                    else
-                    {
-                        char rip_str[sizeof(rip) * 2 + 4];
-                        int result = snprintf(rip_str, sizeof(rip_str), "0x%p>", rip);
-
-                        (void)result;
-                        wo_assert(result > 0 && result < sizeof(rip_str), "snprintf failed or buffer too small");
-
-                        function_signature = std::string("<unknown function ") + rip_str;
-                        file_path = "<unknown file>";
-                    }
-                    break;
+                    function_signature = std::string("<unknown extern function ") + rip_str;
+                    file_path = "<unknown library>";
                 }
-                case call_way::NATIVE:
-                {
-                    // Is extern native function address.
-                    auto fnd = env->extern_native_functions.find(
-                        reinterpret_cast<wo_native_func_t>(
-                            reinterpret_cast<intptr_t>(rip)));
+                break;
+            }
+            default:
+                wo_error("Cannot be here.");
+            }
 
-                    if (fnd != env->extern_native_functions.end())
-                    {
-                        function_signature = fnd->second.function_name;
-                        file_path = fnd->second.library_name.value_or("<builtin>");
-                    }
-                    else
-                    {
-                        char rip_str[sizeof(rip) * 2 + 4];
-                        int result = snprintf(rip_str, sizeof(rip_str), "0x%p>", rip);
-
-                        (void)result;
-                        wo_assert(result > 0 && result < sizeof(rip_str), "snprintf failed or buffer too small");
-
-                        function_signature = std::string("<unknown extern function ") + rip_str;
-                        file_path = "<unknown library>";
-                    }
-                    break;
-                }
-                default:
-                    wo_error("Cannot be here.");
-                }
-
-                return callstack_info{
-                    function_signature,
-                    file_path,
-                    row_number,
-                    col_number,
-                    callway,
-                };
+            return callstack_info{
+                function_signature,
+                file_path,
+                row_number,
+                col_number,
+                callway,
             };
+        };
 
         runtime_env* current_env_pointer = near_env_pointer;
         for (auto& callstack_state : callstack_ips)
@@ -1553,16 +1553,6 @@ namespace wo
 #define WO_ADDRESSING_RS3 \
         opnum3 = WO_ADDRESSING_RS
 
-#define WO_VM_FAIL(ERRNO,ERRINFO) \
-    do{ip = rt_ip; wo_fail(ERRNO,ERRINFO); continue;}while(0)
-#if WO_ENABLE_RUNTIME_CHECK == 0
-#   define WO_VM_ASSERT(EXPR, REASON) wo_assert(EXPR, REASON)
-#else
-#   define WO_VM_ASSERT(EXPR, REASON) do {\
-        if(!(EXPR)){ip = rt_ip; wo_fail(WO_FAIL_UNEXPECTED, REASON); continue;}} while(0)
-#endif
-
-
     void vmbase::ltx_impl(value* result, value* opnum1, value* opnum2) noexcept
     {
         switch (opnum1->m_type)
@@ -1816,7 +1806,7 @@ namespace wo
                     auto arg_idx = arg_array->rbegin();
 
                     std::advance(
-                        arg_idx, 
+                        arg_idx,
                         static_cast<ptrdiff_t>(
                             (wo_integer_t)arg_array->size() - unpack_argc));
 
@@ -1939,22 +1929,22 @@ namespace wo
         const byte_t* rt_ip = ip;
         const byte_t* ip_for_rollback;
 
-#define WO_RSG_ADDRESSING_CASE(CODE)\
-        instruct::opcode::CODE##gg:\
-            WO_ADDRESSING_G1;\
-            WO_ADDRESSING_G2;\
-        goto _label_##CODE##_impl;\
-        case instruct::opcode::CODE##gs:\
-            WO_ADDRESSING_G1;\
-            WO_ADDRESSING_RS2;\
-            goto _label_##CODE##_impl;\
-        case instruct::opcode::CODE##sg:\
-            WO_ADDRESSING_RS1;\
-            WO_ADDRESSING_G2;\
-            goto _label_##CODE##_impl;\
-        case instruct::opcode::CODE##ss:\
-            WO_ADDRESSING_RS1;\
-            WO_ADDRESSING_RS2;\
+#define WO_RSG_ADDRESSING_CASE(CODE)        \
+        instruct::opcode::CODE##gg:         \
+            WO_ADDRESSING_G1;               \
+            WO_ADDRESSING_G2;               \
+        goto _label_##CODE##_impl;          \
+        case instruct::opcode::CODE##gs:    \
+            WO_ADDRESSING_G1;               \
+            WO_ADDRESSING_RS2;              \
+            goto _label_##CODE##_impl;      \
+        case instruct::opcode::CODE##sg:    \
+            WO_ADDRESSING_RS1;              \
+            WO_ADDRESSING_G2;               \
+            goto _label_##CODE##_impl;      \
+        case instruct::opcode::CODE##ss:    \
+            WO_ADDRESSING_RS1;              \
+            WO_ADDRESSING_RS2;              \
         _label_##CODE##_impl
         /*
         // ISSUE: 25-08-16:
@@ -1977,37 +1967,55 @@ namespace wo
         Note that instructions like addi and addr do not require write barrier checks
         because they explicitly specify that the operand's type is a primitive type.
         */
-#define WO_WRITE_CHECK_FOR_GLOBAL(VAL)\
-        if (wo::gc::gc_is_marking())\
+#define WO_WRITE_CHECK_FOR_GLOBAL(VAL)          \
+        if (wo::gc::gc_is_marking())            \
             wo::value::write_barrier(VAL)
-#define WO_RSG_ADDRESSING_WRITE_OP1_CASE(CODE)\
-        instruct::opcode::CODE##gg:\
-            WO_ADDRESSING_G1;\
-            WO_WRITE_CHECK_FOR_GLOBAL(opnum1);\
-            WO_ADDRESSING_G2;\
-        goto _label_##CODE##_impl;\
-        case instruct::opcode::CODE##gs:\
-            WO_ADDRESSING_G1;\
-            WO_WRITE_CHECK_FOR_GLOBAL(opnum1);\
-            WO_ADDRESSING_RS2;\
-            goto _label_##CODE##_impl;\
-        case instruct::opcode::CODE##sg:\
-            WO_ADDRESSING_RS1;\
-            WO_ADDRESSING_G2;\
-            goto _label_##CODE##_impl;\
-        case instruct::opcode::CODE##ss:\
-            WO_ADDRESSING_RS1;\
-            WO_ADDRESSING_RS2;\
+#define WO_RSG_ADDRESSING_WRITE_OP1_CASE(CODE)  \
+        instruct::opcode::CODE##gg:             \
+            WO_ADDRESSING_G1;                   \
+            WO_WRITE_CHECK_FOR_GLOBAL(opnum1);  \
+            WO_ADDRESSING_G2;                   \
+        goto _label_##CODE##_impl;              \
+        case instruct::opcode::CODE##gs:        \
+            WO_ADDRESSING_G1;                   \
+            WO_WRITE_CHECK_FOR_GLOBAL(opnum1);  \
+            WO_ADDRESSING_RS2;                  \
+            goto _label_##CODE##_impl;          \
+        case instruct::opcode::CODE##sg:        \
+            WO_ADDRESSING_RS1;                  \
+            WO_ADDRESSING_G2;                   \
+            goto _label_##CODE##_impl;          \
+        case instruct::opcode::CODE##ss:        \
+            WO_ADDRESSING_RS1;                  \
+            WO_ADDRESSING_RS2;                  \
         _label_##CODE##_impl
 
-#define WO_VM_INTERRUPT_CHECKPOINT \
-        fast_interrupt_state = \
+#define WO_VM_INTERRUPT_CHECKPOINT          \
+        fast_interrupt_state =              \
             vm_interrupt.load(std::memory_order_acquire)
 
-        uint32_t WO_VM_INTERRUPT_CHECKPOINT;
+#define WO_VM_FAIL(ERRNO,ERRINFO)           \
+    do {                                    \
+        ip = rt_ip;                         \
+        wo_fail(ERRNO,ERRINFO);             \
+        WO_VM_INTERRUPT_CHECKPOINT;         \
+        goto re_entry_for_failed_command;   \
+    } while(0)
 
+#if WO_ENABLE_RUNTIME_CHECK == 0
+#   define WO_VM_ASSERT(EXPR, REASON) wo_assert(EXPR, REASON)
+#else
+#   define WO_VM_ASSERT(EXPR, REASON)                   \
+        do {                                            \
+            if(!(EXPR))                                 \
+                WO_VM_FAIL(WO_FAIL_UNEXPECTED, REASON); \
+        } while(0)
+#endif
+
+        uint32_t WO_VM_INTERRUPT_CHECKPOINT;
         for (;;)
         {
+        re_entry_for_failed_command:
             uint32_t rtopcode = *(rt_ip++);
 
             if (fast_interrupt_state)
@@ -2308,16 +2316,11 @@ namespace wo
             case WO_RSG_ADDRESSING_CASE(ltx):
                 WO_VM_ASSERT(opnum1->m_type == opnum2->m_type,
                     "Operand type should be same in 'ltx'.");
-
                 ltx_impl(rt_cr, opnum1, opnum2);
                 break;
             case WO_RSG_ADDRESSING_CASE(gtx):
                 WO_VM_ASSERT(opnum1->m_type == opnum2->m_type,
                     "Operand type should be same in 'gtx'.");
-                if (0)
-                {
-                    wo_fail(0xd000, "Example");
-                }
                 gtx_impl(rt_cr, opnum1, opnum2);
                 break;
             case WO_RSG_ADDRESSING_CASE(eltx):
@@ -2373,7 +2376,7 @@ namespace wo
                 }
                 default:
 #if WO_ENABLE_RUNTIME_CHECK
-                    wo_fail(WO_FAIL_TYPE_FAIL, "Broken stack in 'retn'.");
+                    WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Broken stack in 'retn'.");
 #endif
                     break;
                 }
@@ -2417,7 +2420,7 @@ namespace wo
                 }
                 default:
 #if WO_ENABLE_RUNTIME_CHECK
-                    wo_fail(WO_FAIL_TYPE_FAIL, "Broken stack in 'retn'.");
+                    WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Broken stack in 'retn'.");
 #endif
                     break;
                 }
@@ -2503,7 +2506,7 @@ namespace wo
                             break;
                         default:
 #if WO_ENABLE_RUNTIME_CHECK
-                            wo_fail(WO_FAIL_TYPE_FAIL, "Bad native function sync state.");
+                            WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Bad native function sync state.");
 #endif
                             break;
                         }
@@ -2576,7 +2579,7 @@ namespace wo
                             }
                             default:
 #if WO_ENABLE_RUNTIME_CHECK
-                                wo_fail(WO_FAIL_TYPE_FAIL, "Bad native function sync state.");
+                                WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Bad native function sync state.");
 #endif
                                 break;
                             }
@@ -2670,7 +2673,7 @@ namespace wo
                         break;
                     default:
 #if WO_ENABLE_RUNTIME_CHECK
-                        wo_fail(WO_FAIL_TYPE_FAIL, "Bad native function sync state.");
+                        WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Bad native function sync state.");
 #endif
                         break;
                     }
@@ -2725,7 +2728,7 @@ namespace wo
                         break;
                     default:
 #if WO_ENABLE_RUNTIME_CHECK
-                        wo_fail(WO_FAIL_TYPE_FAIL, "Bad native function sync state.");
+                        WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Bad native function sync state.");
 #endif
                         break;
                     }
@@ -3054,7 +3057,7 @@ namespace wo
                     WO_ADDRESSING_RS1; // data
                 _label_ext0_panic_impl:
                     ip = rt_ip;
-                    wo_fail(WO_FAIL_UNEXPECTED,
+                    WO_VM_FAIL(WO_FAIL_UNEXPECTED,
                         "%s", wo_cast_string(std::launder(reinterpret_cast<wo_value>(opnum1))));
                     break;
                 case instruct::extern_opcode_page_0::packg:
@@ -3224,7 +3227,7 @@ namespace wo
                     wo_assure(clear_interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
 
                     if (!r)
-                        wo_fail(WO_FAIL_STACKOVERFLOW, "Stack overflow.");
+                        WO_VM_FAIL(WO_FAIL_STACKOVERFLOW, "Stack overflow.");
                 }
                 else if (interrupt_state & vm_interrupt_type::SHRINK_STACK_INTERRUPT)
                 {
@@ -3240,7 +3243,7 @@ namespace wo
                         &near_rtcode_begin,
                         &near_rtcode_end,
                         &near_static_global))
-                        wo_fail(WO_FAIL_CALL_FAIL, "Unkown function.");
+                        WO_VM_FAIL(WO_FAIL_CALL_FAIL, "Unkown function.");
 
                     wo_assure(clear_interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
                 }
@@ -3275,6 +3278,9 @@ namespace wo
         }// vm loop end.
 
         WO_VM_RETURN(wo_result_t::WO_API_NORMAL);
+
+#undef WO_VM_FAIL
+#undef WO_VM_ASSERT
 #undef WO_VM_INTERRUPT_CHECKPOINT
 #undef WO_RSG_ADDRESSING_WRITE_OP1_CASE
 #undef WO_WRITE_CHECK_FOR_GLOBAL

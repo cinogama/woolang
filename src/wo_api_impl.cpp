@@ -264,7 +264,6 @@ struct loaded_lib_info
     }
 };
 
-
 wo_bool_t _default_fail_handler(
     wo_vm vm_may_null,
     wo_string_t src_file,
@@ -296,7 +295,6 @@ wo_bool_t _default_fail_handler(
         wo::wo_stderr << ANSI_HIM "No woolang vm found on this thread." ANSI_RST << wo::wo_endl;
 
     wo::wo_stderr << wo::wo_endl;
-
     wo::wo_stderr << ANSI_HIY "This failure may cause a crash." ANSI_RST << wo::wo_endl;
 
     bool abort_this_vm = false;
@@ -344,6 +342,8 @@ wo_bool_t _default_fail_handler(
                     wo::wo_stderr << ANSI_HIR "Current virtual machine will be aborted." ANSI_RST << wo::wo_endl;
                     abort_this_vm = true;
                     breakout = true;
+
+                    break;
                 }
                 // FALL THROUGH!
                 [[fallthrough]];
@@ -354,6 +354,8 @@ wo_bool_t _default_fail_handler(
                         wo_attach_default_debuggee();
                     wo_break_specify_immediately(vm_may_null);
                     breakout = true;
+
+                    break;
                 }
                 // FALL THROUGH!
                 [[fallthrough]];
@@ -361,7 +363,7 @@ wo_bool_t _default_fail_handler(
                 wo::wo_stderr << ANSI_HIR "Invalid choice" ANSI_RST << wo::wo_endl;
             }
 
-        } while (breakout);
+        } while (!breakout);
     }
 
     if (leaved_flag)
@@ -369,7 +371,6 @@ wo_bool_t _default_fail_handler(
         wo_assert(vm_may_null != nullptr);
         wo_enter_gcguard(vm_may_null);
     }
-
     return abort_this_vm ? WO_FALSE : WO_TRUE;
 }
 static std::atomic<wo_fail_handler_t> _wo_fail_handler_function = &_default_fail_handler;
