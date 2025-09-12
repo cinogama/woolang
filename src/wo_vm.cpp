@@ -1994,10 +1994,10 @@ namespace wo
         fast_interrupt_state =              \
             vm_interrupt.load(std::memory_order_acquire)
 
-#define WO_VM_FAIL(ERRNO,ERRINFO)           \
+#define WO_VM_FAIL(ERRNO, ...)           \
     do {                                    \
         ip = rt_ip;                         \
-        wo_fail(ERRNO,ERRINFO);             \
+        wo_fail(ERRNO, __VA_ARGS__);             \
         WO_VM_INTERRUPT_CHECKPOINT;         \
         goto re_entry_for_failed_command;   \
     } while(0)
@@ -2005,10 +2005,10 @@ namespace wo
 #if WO_ENABLE_RUNTIME_CHECK == 0
 #   define WO_VM_ASSERT(EXPR, REASON) wo_assert(EXPR, REASON)
 #else
-#   define WO_VM_ASSERT(EXPR, REASON)                   \
+#   define WO_VM_ASSERT(EXPR, ...)                   \
         do {                                            \
             if(!(EXPR))                                 \
-                WO_VM_FAIL(WO_FAIL_UNEXPECTED, REASON); \
+                WO_VM_FAIL(WO_FAIL_UNEXPECTED, __VA_ARGS__); \
         } while(0)
 #endif
 
