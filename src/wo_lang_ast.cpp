@@ -328,7 +328,7 @@ namespace wo
             }
             return true;
         }
-        AstBase* AstDeclareAttribue::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        AstBase* AstDeclareAttribue::make_dup(std::optional<AstBase*> exist_instance, ContinuesList&) const
         {
             AstDeclareAttribue* new_instance = exist_instance
                 ? static_cast<AstDeclareAttribue*>(exist_instance.value())
@@ -1062,7 +1062,7 @@ namespace wo
         {
         }
 
-        AstBase* AstValueBase::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        AstBase* AstValueBase::make_dup(std::optional<AstBase*> exist_instance, ContinuesList&) const
         {
             // AstValueBase is abstract class, so it must be exist_instance.
             AstValueBase* new_instance = static_cast<AstValueBase*>(exist_instance.value());
@@ -1077,7 +1077,7 @@ namespace wo
             : AstValueBase(AST_VALUE_NOTHING)
         {
         }
-        AstBase* AstValueNothing::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        AstBase* AstValueNothing::make_dup(std::optional<AstBase*> exist_instance, ContinuesList&) const
         {
             AstValueNothing* new_instance = exist_instance
                 ? static_cast<AstValueNothing*>(exist_instance.value())
@@ -1297,7 +1297,7 @@ namespace wo
 
         }
         AstBase* AstValueFunctionCall_FakeAstArgumentDeductionContextA::make_dup(
-            std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+            std::optional<AstBase*>, ContinuesList&) const
         {
             wo_error("This node should never be duplicated.");
         }
@@ -1311,7 +1311,7 @@ namespace wo
         {
         }
         AstBase* AstValueFunctionCall_FakeAstArgumentDeductionContextB::make_dup(
-            std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+            std::optional<AstBase*>, ContinuesList&) const
         {
             wo_error("This node should never be duplicated.");
         }
@@ -1474,7 +1474,7 @@ namespace wo
             : AstBase(nodetype)
         {
         }
-        AstBase* AstPatternBase::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        AstBase* AstPatternBase::make_dup(std::optional<AstBase*> exist_instance, ContinuesList&) const
         {
             AstPatternBase* new_instance = exist_instance
                 ? static_cast<AstPatternBase*>(exist_instance.value())
@@ -2224,7 +2224,7 @@ namespace wo
             , m_LANG_defer_instances{}
         {
         }
-        AstBase* AstBreak::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        AstBase* AstBreak::make_dup(std::optional<AstBase*> exist_instance, ContinuesList&) const
         {
             AstBreak* new_instance = exist_instance
                 ? static_cast<AstBreak*>(exist_instance.value())
@@ -2241,7 +2241,7 @@ namespace wo
             , m_LANG_defer_instances{}
         {
         }
-        AstBase* AstContinue::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        AstBase* AstContinue::make_dup(std::optional<AstBase*> exist_instance, ContinuesList&) const
         {
             AstContinue* new_instance = exist_instance
                 ? static_cast<AstContinue*>(exist_instance.value())
@@ -2786,7 +2786,7 @@ namespace wo
             , m_using_namespace(using_namespace)
         {
         }
-        AstBase* AstUsingNamespace::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        AstBase* AstUsingNamespace::make_dup(std::optional<AstBase*> exist_instance, ContinuesList&) const
         {
             AstUsingNamespace* new_instance = exist_instance
                 ? static_cast<AstUsingNamespace*>(exist_instance.value())
@@ -2819,7 +2819,7 @@ namespace wo
             , m_token(token)
         {
         }
-        AstBase* AstToken::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        AstBase* AstToken::make_dup(std::optional<AstBase*> exist_instance, ContinuesList&) const
         {
             AstToken* new_instance = exist_instance
                 ? static_cast<AstToken*>(exist_instance.value())
@@ -2849,7 +2849,7 @@ namespace wo
             , m_IR_externed_function(std::nullopt)
         {
         }
-        AstBase* AstExternInformation::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        AstBase* AstExternInformation::make_dup(std::optional<AstBase*> exist_instance, ContinuesList&) const
         {
             AstExternInformation* new_instance = exist_instance
                 ? static_cast<AstExternInformation*>(exist_instance.value())
@@ -2865,7 +2865,7 @@ namespace wo
             , m_opnum(spec_opnum)
         {
         }
-        AstBase* AstValueIROpnum::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        AstBase* AstValueIROpnum::make_dup(std::optional<AstBase*> exist_instance, ContinuesList&) const
         {
             AstValueIROpnum* new_instance = exist_instance
                 ? static_cast<AstValueIROpnum*>(exist_instance.value())
@@ -2884,7 +2884,7 @@ namespace wo
         {
         }
         AstBase* AstTemplateConstantTypeCheckInPass1::make_dup(
-            std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+            std::optional<AstBase*>, ContinuesList&) const
         {
             wo_error("This node should never be duplicated.");
         }

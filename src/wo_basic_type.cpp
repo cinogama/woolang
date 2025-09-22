@@ -184,9 +184,9 @@ namespace wo
 
         m_custom_marker.m_is_callback = true;
 #ifdef WO_PLATFORM_64
-        m_custom_marker.m_marker63 = reinterpret_cast<intptr_t>(callback);
+        m_custom_marker.m_marker63 = reinterpret_cast<uintptr_t>(callback);
 #else
-        m_custom_marker.m_marker32 = reinterpret_cast<intptr_t>(callback);
+        m_custom_marker.m_marker32 = reinterpret_cast<uintptr_t>(callback);
 #endif
     }
     void gchandle_base_t::set_custom_mark_unit(gcbase* unit_may_null)
@@ -195,9 +195,9 @@ namespace wo
 
         m_custom_marker.m_is_callback = false;
 #ifdef WO_PLATFORM_64
-        m_custom_marker.m_marker63 = reinterpret_cast<intptr_t>(unit_may_null);
+        m_custom_marker.m_marker63 = reinterpret_cast<uintptr_t>(unit_may_null);
 #else
-        m_custom_marker.m_marker32 = reinterpret_cast<intptr_t>(unit_may_null);
+        m_custom_marker.m_marker32 = reinterpret_cast<uintptr_t>(unit_may_null);
 #endif
 }
     gchandle_base_t::~gchandle_base_t()

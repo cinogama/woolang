@@ -358,7 +358,7 @@ namespace wo
 
         _update_type_instance_depend_this(copy_type);
 
-        m_determined_base_type_or_mutable = 
+        m_determined_base_type_or_mutable =
             DeterminedType(copy_type.m_base_type, extern_desc);
     }
     void lang_TypeInstance::determine_base_type_move(DeterminedType&& move_type)
@@ -1047,8 +1047,8 @@ namespace wo
         case ast::AstTypeHolder::FUNCTION:
         {
             std::vector<lang_TypeInstance*> param_types;
-            for (auto* type_holder : type_holder->m_typeform.m_function.m_parameters)
-                param_types.push_back(type_holder->m_LANG_determined_type.value());
+            for (auto* parameter_type_holder : type_holder->m_typeform.m_function.m_parameters)
+                param_types.push_back(parameter_type_holder->m_LANG_determined_type.value());
 
             return create_function_type(
                 type_holder->m_typeform.m_function.m_is_variadic,
@@ -1082,8 +1082,8 @@ namespace wo
         case ast::AstTypeHolder::TUPLE:
         {
             std::vector<lang_TypeInstance*> element_types;
-            for (auto* type_holder : type_holder->m_typeform.m_tuple.m_fields)
-                element_types.push_back(type_holder->m_LANG_determined_type.value());
+            for (auto* field_type_holder : type_holder->m_typeform.m_tuple.m_fields)
+                element_types.push_back(field_type_holder->m_LANG_determined_type.value());
 
             return create_tuple_type(element_types);
         }
@@ -1472,11 +1472,32 @@ namespace wo
         wo_assert(m_ircontext.m_eval_result_storage_target.empty());
         wo_assert(m_ircontext.m_loop_content_stack.empty());
 
-        auto used_tmp_regs = m_ircontext.c().update_all_temp_regist_to_stack(
-            &m_ircontext, global_block_begin_place);
-        m_ircontext.c().reserved_stackvalue(
-            global_reserving_ip,
-            used_tmp_regs); // set reserved size
+        auto used_tmp_regs =
+            m_ircontext.c().update_all_temp_regist_to_stack(
+                &m_ircontext, global_block_begin_place);
+
+        do
+        {
+            size_t i = static_cast<size_t>(used_tmp_regs) / static_cast<size_t>(UINT16_MAX);
+            if (i >= 0)
+            {
+                for (; i > 0; --i)
+                {
+                    m_ircontext.c().reserved_stackvalue(
+                        global_reserving_ip,
+                        UINT16_MAX); // set reserved size
+                }
+                m_ircontext.c().reserved_stackvalue(
+                    global_reserving_ip,
+                    static_cast<uint16_t>(
+                        static_cast<size_t>(used_tmp_regs)
+                        % static_cast<size_t>(UINT16_MAX))); // set reserved size
+            }
+            else
+                m_ircontext.c().reserved_stackvalue(
+                    global_reserving_ip,
+                    static_cast<uint16_t>(used_tmp_regs)); // set reserved size
+        } while (0);
 
         // Generate default return 0 for global block.
         m_ircontext.c().mov(opnum::reg(opnum::reg::spreg::cr), opnum::imm_int(0));  // mov cr, 0
@@ -1629,7 +1650,8 @@ namespace wo
                         // Need assign value.
                         opnum::opnumbase* argument_opnum;
                         if (argument_place <= 63)
-                            argument_opnum = m_ircontext.opnum_stack_offset(argument_place);
+                            argument_opnum = m_ircontext.opnum_stack_offset(
+                                static_cast<int8_t>(argument_place));
                         else
                         {
                             argument_opnum = m_ircontext.borrow_opnum_temporary_register(
@@ -1683,12 +1705,35 @@ namespace wo
                 auto this_function_used_tmp_regs =
                     m_ircontext.c().update_all_temp_regist_to_stack(
                         &m_ircontext, this_function_block_begin_place);
-                m_ircontext.c().reserved_stackvalue(
-                    this_function_reserving_ip,
-                    this_function_used_tmp_regs + local_storage_size); // set reserved size
+
+                const auto total_used_function_stack_size =
+                    this_function_used_tmp_regs + local_storage_size;
+
+                do
+                {
+                    size_t i = static_cast<size_t>(total_used_function_stack_size) / static_cast<size_t>(UINT16_MAX);
+                    if (i >= 0)
+                    {
+                        for (; i > 0; --i)
+                        {
+                            m_ircontext.c().reserved_stackvalue(
+                                this_function_reserving_ip,
+                                UINT16_MAX); // set reserved size
+                        }
+                        m_ircontext.c().reserved_stackvalue(
+                            this_function_reserving_ip,
+                            static_cast<uint16_t>(
+                                static_cast<size_t>(total_used_function_stack_size)
+                                % static_cast<size_t>(UINT16_MAX))); // set reserved size
+                    }
+                    else
+                        m_ircontext.c().reserved_stackvalue(
+                            this_function_reserving_ip,
+                            static_cast<uint16_t>(total_used_function_stack_size)); // set reserved size
+                } while (0);
 
                 m_ircontext.c().pdb_info->generate_func_end(
-                    eval_fucntion_name, this_function_used_tmp_regs, &m_ircontext.c());
+                    eval_fucntion_name, &m_ircontext.c());
 
                 m_ircontext.c().pdb_info->update_func_variable(
                     eval_fucntion_name, -(wo_integer_t)this_function_used_tmp_regs);
@@ -2084,6 +2129,8 @@ namespace wo
                 ident->m_LANG_determined_symbol = found_symbol.value();
             return found_symbol;
         }
+        default:
+            wo_error("Unexpected identifier_formal.");
         }
 
         for (auto* scope : ident->m_scope)
@@ -3084,9 +3131,9 @@ namespace wo
 #endif
                 return opnum_temporary(i);
             }
-    }
+        }
         wo_error("Temporary register exhausted.");
-}
+    }
     void BytecodeGenerateContext::keep_opnum_temporary_register(
         opnum::temporary* reg
 #ifndef NDEBUG
@@ -3142,7 +3189,7 @@ namespace wo
             return opnum_global(storage.m_index);
         case lang_ValueInstance::Storage::STACKOFFSET:
             wo_assert(storage.m_index >= -64 && storage.m_index <= 63);
-            return opnum_stack_offset(storage.m_index);
+            return opnum_stack_offset(static_cast<int8_t>(storage.m_index));
         default:
             wo_error("Unexpected storage kind");
             return nullptr;

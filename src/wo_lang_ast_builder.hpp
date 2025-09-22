@@ -15,7 +15,7 @@ namespace wo
             using builder_func_t = std::function<grammar::produce(lexer&, const inputs_t&)>;
 
             virtual ~astnode_builder() = default;
-            static grammar::produce build(lexer& lex, const inputs_t& input)
+            static grammar::produce build(lexer&, const inputs_t&)
             {
                 wo_assert(false, "");
                 return nullptr;
@@ -62,7 +62,7 @@ namespace wo
         template <size_t pass_idx>
         struct pass_direct : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const inputs_t& input)
+            static grammar::produce build(lexer&, const inputs_t& input)
             {
                 auto& token_or_ast = input[pass_idx];
                 if (input.size() > 1 && token_or_ast.is_ast())
@@ -77,7 +77,7 @@ namespace wo
         template <size_t pass_idx>
         struct pass_direct_keep_source_location : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const inputs_t& input)
+            static grammar::produce build(lexer&, const inputs_t& input)
             {
                 return input[pass_idx];
             }
@@ -86,7 +86,7 @@ namespace wo
         template <size_t first_node>
         struct pass_create_list : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const inputs_t& input)
+            static grammar::produce build(lexer&, const inputs_t& input)
             {
                 AstList* result = new AstList();
                 if (!WO_IS_EMPTY(first_node))
@@ -103,12 +103,12 @@ namespace wo
         {
             static_assert(from != to_list, "from and to_list should not be the same");
 
-            static grammar::produce build(lexer& lex, const inputs_t& input)
+            static grammar::produce build(lexer&, const inputs_t& input)
             {
                 AstList* list = static_cast<AstList*>(WO_NEED_AST_TYPE(to_list, AstBase::AST_LIST));
                 if (!WO_IS_EMPTY(from))
                 {
-                    if (from < to_list)
+                    if constexpr (from < to_list)
                         list->m_list.insert(list->m_list.begin(), WO_NEED_AST(from));
                     else
                         list->m_list.push_back(WO_NEED_AST(from));
@@ -123,7 +123,7 @@ namespace wo
         template <size_t idx>
         struct pass_sentence_block : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const inputs_t& input)
+            static grammar::produce build(lexer&, const inputs_t& input)
             {
                 auto* node = WO_NEED_AST(idx);
                 if (node->node_type == AstBase::AST_SCOPE)

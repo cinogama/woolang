@@ -184,9 +184,11 @@ namespace wo
         wo_pstring_t find_or_add(const std::string& str)
         {
             wo_pstring_t fnd;
-            if ((fnd = get_global_string_pool()->find(str)))
-                return fnd;
-            if ((fnd = find(str)))
+            fnd = get_global_string_pool()->find(str);
+            if (fnd == nullptr)
+                fnd = find(str);
+
+            if (fnd != nullptr)
                 return fnd;
 
             wo_pstring_t new_str = new std::string(str);

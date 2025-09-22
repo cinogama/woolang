@@ -1081,17 +1081,18 @@ namespace wo
         for (auto& callstack_state : callstack_ips)
         {
             bool bad = false;
-            const byte_t* ip;
+            const byte_t* callstack_ip;
             switch (callstack_state.m_type)
             {
             case callstack_ip_state::ipaddr_kind::BAD:
                 bad = true;
+                callstack_ip = nullptr;
                 break;
             case callstack_ip_state::ipaddr_kind::ABS:
-                ip = callstack_state.m_abs_addr;
+                callstack_ip = callstack_state.m_abs_addr;
                 break;
             case callstack_ip_state::ipaddr_kind::OFFSET:
-                ip = current_env_pointer->rt_codes + callstack_state.m_diff_offset;
+                callstack_ip = current_env_pointer->rt_codes + callstack_state.m_diff_offset;
                 break;
             default:
                 wo_error("Cannot be here.");
@@ -1102,7 +1103,7 @@ namespace wo
             {
                 if (!bad)
                     generate_callstack_info_with_ip(
-                        ip, &current_env_pointer);
+                        callstack_ip, &current_env_pointer);
             }
             else
             {
@@ -1117,7 +1118,7 @@ namespace wo
                        call_way::BAD, };
                 else
                     this_callstack_info = generate_callstack_info_with_ip(
-                        ip, &current_env_pointer);
+                        callstack_ip, &current_env_pointer);
             }
         }
         return result;
@@ -1628,7 +1629,8 @@ namespace wo
     value* vmbase::make_union_impl(value* opnum1, value* opnum2, uint16_t id) noexcept
     {
         auto* union_struct =
-            structure_t::gc_new<gcbase::gctype::young>(2);
+            structure_t::gc_new<gcbase::gctype::young>(
+                static_cast<uint16_t>(2));
 
         union_struct->m_values[0].set_integer((wo_integer_t)id);
         union_struct->m_values[1].set_val(opnum2);

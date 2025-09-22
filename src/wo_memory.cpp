@@ -69,7 +69,7 @@ bool _womem_decommit_mem(void* mem, size_t sz)
 bool _womem_release_mem(void* mem, size_t sz)
 {
 #ifdef _WIN32
-    return 0 != VirtualFree(mem, 0, MEM_RELEASE);
+    return 0 != VirtualFree(mem, sz, MEM_RELEASE);
 #elif WO_DISABLE_FUNCTION_FOR_WASM
     return 0 == munmap(mem, sz);
 #else
@@ -313,13 +313,13 @@ namespace womem
             }
             for (size_t i = 0; i < m_max_group_count; ++i)
             {
-                auto*& pages = m_free_pages[i];
-                while (pages)
+                auto*& free_pages = m_free_pages[i];
+                while (free_pages)
                 {
-                    auto* cur_page = pages;
-                    pages = pages->last;
+                    auto* cur_free_page = free_pages;
+                    free_pages = free_pages->last;
 
-                    check_and_decommit_page(cur_page);
+                    check_and_decommit_page(cur_free_page);
                 }
             }
 
@@ -331,7 +331,7 @@ namespace womem
             }
         }
 
-        Page* _alloc_normal_page(size_t elem_sz, uint8_t group)
+        Page* _alloc_normal_page(uint8_t group)
         {
             if (nullptr != m_free_pages[group])
             {
@@ -371,14 +371,14 @@ namespace womem
             return new_p;
         }
 
-        Page* alloc_normal_pages(size_t elem_sz, uint8_t group, size_t alloc_page_count)
+        Page* alloc_normal_pages(uint8_t group, size_t alloc_page_count)
         {
             std::lock_guard g1(m_free_pages_mx);
 
             Page* last = nullptr;
             for (size_t i = 0; i < alloc_page_count; ++i)
             {
-                if (auto* page = _alloc_normal_page(elem_sz, group))
+                if (auto* page = _alloc_normal_page(group))
                 {
                     page->last = last;
                     last = page;
@@ -434,28 +434,28 @@ namespace womem
                 // Move pages from higher groups to free pages
                 for (size_t i = 1; i < m_max_group_count; ++i)
                 {
-                    auto* pages = m_free_pages[i];
+                    auto* free_pages = m_free_pages[i];
                     m_free_pages[i] = nullptr;
 
-                    while (pages)
+                    while (free_pages)
                     {
-                        auto* cur_page = pages;
-                        pages = pages->last;
+                        auto* cur_free_page = free_pages;
+                        free_pages = free_pages->last;
 
-                        if (cur_page->m_normal_page.m_alloc_count.load() == 0)
+                        if (cur_free_page->m_normal_page.m_alloc_count.load() == 0)
                         {
                             // Make this page free.
-                            cur_page->m_normal_page.m_free_page.store(1);
+                            cur_free_page->m_normal_page.m_free_page.store(1);
 
                             // Current page should move to free pages.
-                            cur_page->last = m_free_pages[0];
-                            m_free_pages[0] = cur_page;
+                            cur_free_page->last = m_free_pages[0];
+                            m_free_pages[0] = cur_free_page;
                         }
                         else
                         {
                             // Add it back
-                            cur_page->last = m_free_pages[i];
-                            m_free_pages[i] = cur_page;
+                            cur_free_page->last = m_free_pages[i];
+                            m_free_pages[i] = cur_free_page;
                         }
                     }
                 }
@@ -529,7 +529,7 @@ namespace womem
                 preserve = std::min((size_t)512, preserve * 2);
 
                 *pages = _global_chunk->alloc_normal_pages(
-                    (uint8_t)sz, (uint8_t)group, preserve);
+                    (uint8_t)group, preserve);
             }
 
             if (*pages == nullptr)

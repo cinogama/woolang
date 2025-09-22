@@ -194,7 +194,7 @@ namespace wo
         generate_debug_info_at_astnode(ast_node, compiler);
     }
     void program_debug_data_info::generate_func_end(
-        const std::string& function_name, size_t tmpreg_count, ir_compiler* compiler)
+        const std::string& function_name, ir_compiler* compiler)
     {
         _function_ip_data_buf[function_name].ir_end = compiler->get_now_ip();
     }
@@ -296,21 +296,21 @@ namespace wo
             if (ir_command_buffer[i].opcode != instruct::calln)
             {
                 std::optional<int32_t> stack_offset = std::nullopt;
-                if (auto* op1 = dynamic_cast<const opnum::temporary*>(opnum1))
+                if (auto* op1tmp = dynamic_cast<const opnum::temporary*>(opnum1))
                 {
-                    stack_offset = -(int32_t)tr_regist_mapping[op1->m_id];
+                    stack_offset = -(int32_t)tr_regist_mapping[op1tmp->m_id];
                 }
-                else if (auto* op1 = dynamic_cast<const opnum::reg*>(opnum1);
-                    op1 != nullptr && op1->is_bp_offset() && op1->get_bp_offset() <= 0)
+                else if (auto* op1reg = dynamic_cast<const opnum::reg*>(opnum1);
+                    op1reg != nullptr && op1reg->is_bp_offset() && op1reg->get_bp_offset() <= 0)
                 {
-                    stack_offset = (int32_t)op1->get_bp_offset() - (int32_t)maxim_offset;
+                    stack_offset = (int32_t)op1reg->get_bp_offset() - (int32_t)maxim_offset;
                 }
 
                 if (stack_offset.has_value())
                 {
                     auto stack_offset_val = stack_offset.value();
                     if (stack_offset_val >= -64)
-                        opnum1 = ctx->opnum_stack_offset(stack_offset_val);
+                        opnum1 = ctx->opnum_stack_offset(static_cast<int8_t>(stack_offset_val));
                     else
                     {
                         auto* reg_r0 = ctx->opnum_spreg(opnum::reg::r0);
@@ -338,21 +338,21 @@ namespace wo
             {
                 std::optional<int32_t> stack_offset = std::nullopt;
 
-                if (auto* op2 = dynamic_cast<const opnum::temporary*>(opnum2))
+                if (auto* op2tmp = dynamic_cast<const opnum::temporary*>(opnum2))
                 {
-                    stack_offset = -(int32_t)tr_regist_mapping[op2->m_id];
+                    stack_offset = -(int32_t)tr_regist_mapping[op2tmp->m_id];
                 }
-                else if (auto* op2 = dynamic_cast<const opnum::reg*>(opnum2);
-                    op2 != nullptr && op2->is_bp_offset() && op2->get_bp_offset() <= 0)
+                else if (auto* op2reg = dynamic_cast<const opnum::reg*>(opnum2);
+                    op2reg != nullptr && op2reg->is_bp_offset() && op2reg->get_bp_offset() <= 0)
                 {
-                    stack_offset = (int32_t)op2->get_bp_offset() - (int32_t)maxim_offset;
+                    stack_offset = (int32_t)op2reg->get_bp_offset() - (int32_t)maxim_offset;
                 }
 
                 if (stack_offset.has_value())
                 {
                     auto stack_offset_val = stack_offset.value();
                     if (stack_offset_val >= -64)
-                        opnum2 = ctx->opnum_stack_offset(stack_offset_val);
+                        opnum2 = ctx->opnum_stack_offset(static_cast<int8_t>(stack_offset_val));
                     else
                     {
                         wo_assert(ir_command_buffer[i].opcode != instruct::call);
@@ -397,7 +397,7 @@ namespace wo
                     auto stack_offset_val = stack_offset.value();
                     if (stack_offset_val >= -64)
                     {
-                        opnum::reg op3(opnum::reg::bp_offset(stack_offset_val));
+                        opnum::reg op3(opnum::reg::bp_offset(static_cast<int8_t>(stack_offset_val)));
                         ir_command_buffer[i].opinteger1 = (int32_t)op3.id;
                     }
                     else
@@ -498,7 +498,6 @@ namespace wo
     size_t program_debug_data_info::get_ip_by_runtime_ip(const byte_t* rt_pos) const
     {
         const size_t FAIL_INDEX = SIZE_MAX;
-        static location     FAIL_LOC;
 
         size_t result = FAIL_INDEX;
         auto byte_offset = (rt_pos - runtime_codes_base) + 1;
@@ -983,22 +982,22 @@ namespace wo
         if (!stream->read_elem(&constant_value_count))
             WO_LOAD_BIN_FAILED("Failed to restore constant count.");
 
-        shared_pointer<runtime_env> result = new runtime_env;
+        shared_pointer<runtime_env> created_env = new runtime_env;
 
-        result->rt_codes = code_buf;
-        result->rt_code_len = (size_t)rt_code_with_padding_length * sizeof(byte_t);
-        result->real_register_count = (size_t)register_count;
-        result->constant_and_global_value_takeplace_count =
+        created_env->rt_codes = code_buf;
+        created_env->rt_code_len = (size_t)rt_code_with_padding_length * sizeof(byte_t);
+        created_env->real_register_count = (size_t)register_count;
+        created_env->constant_and_global_value_takeplace_count =
             (size_t)(constant_value_count + 1 + global_value_count + 1);
-        result->constant_value_count = (size_t)constant_value_count;
+        created_env->constant_value_count = (size_t)constant_value_count;
 
         size_t preserve_memory_size =
-            result->constant_and_global_value_takeplace_count;
+            created_env->constant_and_global_value_takeplace_count;
 
         value* preserved_memory = (value*)calloc(preserve_memory_size, sizeof(wo::value));
         memset(preserved_memory, 0, preserve_memory_size * sizeof(wo::value));
 
-        result->constant_and_global_storage = preserved_memory;
+        created_env->constant_and_global_storage = preserved_memory;
 
         struct string_buffer_index
         {
@@ -1062,11 +1061,11 @@ namespace wo
                 {
                     auto& tuple_constant_elem = this_constant_value.m_structure->m_values[idx];
 
-                    uint64_t constant_type_scope;
-                    if (!stream->read_elem(&constant_type_scope))
+                    uint64_t constant_type_scope_in_struct;
+                    if (!stream->read_elem(&constant_type_scope_in_struct))
                         WO_LOAD_BIN_FAILED("Failed to restore constant value.");
 
-                    tuple_constant_elem.m_type = static_cast<value::valuetype>(constant_type_scope);
+                    tuple_constant_elem.m_type = static_cast<value::valuetype>(constant_type_scope_in_struct);
                     switch (tuple_constant_elem.m_type)
                     {
                     case wo::value::valuetype::string_type:
@@ -1210,7 +1209,7 @@ namespace wo
                 WO_LOAD_BIN_FAILED("Failed to restore extern native function ir-offset count.");
 
             // 4.1.1.4 used function in constant index
-            for (uint64_t i = 0; i < used_constant_offset_count; ++i)
+            for (uint64_t ii = 0; ii < used_constant_offset_count; ++ii)
             {
                 uint32_t constant_index;
                 if (!stream->read_elem(&constant_index))
@@ -1220,7 +1219,7 @@ namespace wo
             }
 
             // 4.1.1.5 used function in constant tuple index
-            for (uint64_t i = 0; i < used_constant_in_tuple_offset_count; ++i)
+            for (uint64_t ii = 0; ii < used_constant_in_tuple_offset_count; ++ii)
             {
                 uint32_t constant_index, elem_index;
 
@@ -1234,7 +1233,7 @@ namespace wo
             }
 
             // 4.1.1.6 used function in ir binary code
-            for (uint64_t i = 0; i < used_ir_offset_count; ++i)
+            for (uint64_t ii = 0; ii < used_ir_offset_count; ++ii)
             {
                 uint32_t ir_code_offset;
                 if (!stream->read_elem(&ir_code_offset))
@@ -1311,14 +1310,14 @@ namespace wo
             uint32_t offset = 0;
             if (!stream->read_elem(&offset))
                 WO_LOAD_BIN_FAILED("Failed to restore functions offset.");
-            result->meta_data_for_jit._functions_offsets_for_jit.push_back(offset);
+            created_env->meta_data_for_jit._functions_offsets_for_jit.push_back(offset);
         }
         for (uint64_t i = 0; i < _functions_constant_offsets_count; ++i)
         {
             uint32_t offset = 0;
             if (!stream->read_elem(&offset))
                 WO_LOAD_BIN_FAILED("Failed to restore functions offset.");
-            result->meta_data_for_jit._functions_constant_idx_for_jit.push_back(offset);
+            created_env->meta_data_for_jit._functions_constant_idx_for_jit.push_back(offset);
         }
         for (uint64_t i = 0; i < _functions_constant_in_tuple_offsets_count; ++i)
         {
@@ -1328,7 +1327,7 @@ namespace wo
                 WO_LOAD_BIN_FAILED("Failed to restore functions in tuple offset.");
             if (!stream->read_elem(&index))
                 WO_LOAD_BIN_FAILED("Failed to restore functions in tuple index.");
-            result->meta_data_for_jit._functions_constant_in_tuple_idx_for_jit.emplace_back(
+            created_env->meta_data_for_jit._functions_constant_in_tuple_idx_for_jit.emplace_back(
                 std::make_pair(offset, (uint16_t)index));
         }
         for (uint64_t i = 0; i < _calln_opcode_offsets_count; ++i)
@@ -1336,14 +1335,14 @@ namespace wo
             uint32_t offset = 0;
             if (!stream->read_elem(&offset))
                 WO_LOAD_BIN_FAILED("Failed to restore calln offset.");
-            result->meta_data_for_jit._calln_opcode_offsets_for_jit.push_back(offset);
+            created_env->meta_data_for_jit._calln_opcode_offsets_for_jit.push_back(offset);
         }
         for (uint64_t i = 0; i < _mkclos_opcode_offsets_count; ++i)
         {
             uint32_t offset = 0;
             if (!stream->read_elem(&offset))
                 WO_LOAD_BIN_FAILED("Failed to restore mkclos offset.");
-            result->meta_data_for_jit._mkclos_opcode_offsets_for_jit.push_back(offset);
+            created_env->meta_data_for_jit._mkclos_opcode_offsets_for_jit.push_back(offset);
         }
 
         // Skip the gap.
@@ -1419,7 +1418,7 @@ namespace wo
             if (library_name == "")
                 func = rslib_extern_symbols::get_global_symbol(function_name.c_str());
             else
-                func = result->loaded_libraries.try_load_func_from_in(
+                func = created_env->loaded_libraries.try_load_func_from_in(
                     script_path.c_str(), library_name.c_str(), function_name.c_str());
 
             if (func == nullptr)
@@ -1427,7 +1426,7 @@ namespace wo
                 WO_LOAD_BIN_FAILED("Failed to restore native function, might be changed?");
             }
 
-            auto& extern_native_function_info = result->extern_native_functions[func];
+            auto& extern_native_function_info = created_env->extern_native_functions[func];
             extern_native_function_info.function_name = function_name;
 
             if (library_name == "")
@@ -1476,8 +1475,8 @@ namespace wo
             if (!restore_string_from_buffer(extern_script_function.function_name, &function_name))
                 WO_LOAD_BIN_FAILED("Failed to restore string from string buffer.");
 
-            wo_assert(result->extern_script_functions.find(function_name) == result->extern_script_functions.end());
-            result->extern_script_functions[function_name] = extern_script_function.ir_offset;
+            wo_assert(created_env->extern_script_functions.find(function_name) == created_env->extern_script_functions.end());
+            created_env->extern_script_functions[function_name] = extern_script_function.ir_offset;
         }
         char magic_head_of_pdi[8] = {};
 
@@ -1660,9 +1659,9 @@ namespace wo
                     if (!stream->read_buffer(_varname_string.data(), _varname_length))
                         WO_LOAD_BIN_FAILED("Failed to restore program debug informations record C's variable name.");
 
-                    auto padding_len = ((_varname_length + (4 - 1)) / 4) * 4 - _varname_length;
+                    auto padding_len_var_name = ((_varname_length + (4 - 1)) / 4) * 4 - _varname_length;
 
-                    if (!stream->read_buffer(_useless_pad, padding_len))
+                    if (!stream->read_buffer(_useless_pad, padding_len_var_name))
                         WO_LOAD_BIN_FAILED("Failed to restore program debug informations record C's variable name padding.");
 
                     auto& variable_info = function_inform.variables[_varname_string.data()];
@@ -1703,16 +1702,16 @@ namespace wo
 
                 pdb->pdd_rt_code_byte_offset_to_ir[rtir] = ir;
             }
-            pdb->runtime_codes_base = result->rt_codes;
-            pdb->runtime_codes_length = result->rt_code_len;
+            pdb->runtime_codes_base = created_env->rt_codes;
+            pdb->runtime_codes_length = created_env->rt_code_len;
 
-            result->program_debug_info = pdb;
+            created_env->program_debug_info = pdb;
         }
         else if (memcmp(magic_head_of_pdi, "nopdisup", 8) != 0)
             WO_LOAD_BIN_FAILED("Bad head of program debug informations.");
 
-        runtime_env::register_envs(result.get());
-        return result;
+        runtime_env::register_envs(created_env.get());
+        return created_env;
 #undef WO_LOAD_BIN_FAILED
     }
 

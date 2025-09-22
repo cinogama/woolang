@@ -47,6 +47,7 @@ namespace wo
     }
     void wo_read_lr1_to(wo::grammar::lr1table_t& out_lr1table)
     {
+        (void)out_lr1table;
 #if !WOOLANG_LR1_OPTIMIZE_LR1_TABLE
         // READ GOTO
         for (auto& goto_act : woolang_lr1_act_goto)

@@ -59,3 +59,14 @@
 #else
 #   define WO_FORCE_INLINE inline
 #endif
+
+#if __cplusplus >= 202302L
+#   include <utility>
+#   define WO_UNREACHABLE() std::unreachable()
+#elif defined(__GNUC__) || defined(__clang__)
+#   define WO_UNREACHABLE() __builtin_unreachable()
+#elif defined(_MSC_VER)
+#   define WO_UNREACHABLE() __assume(false)
+#else
+#   define WO_UNREACHABLE() throw std::logic_error("Unreachable code reached")
+#endif

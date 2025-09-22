@@ -874,8 +874,11 @@ namespace wo
 #define WO_LANG_PROCESSER_NAME(AST, PASSNAME)\
         _##PASSNAME##_processer_##AST
 #define WO_PASS_PROCESSER_IMPL(AST, PASSNAME)\
-    LangContext::pass_behavior LangContext::WO_LANG_PROCESSER_NAME(AST, PASSNAME)(\
-        lexer& lex, ast::AST* node, pass_behavior state, PassProcessStackT& out_stack)
+    LangContext::pass_behavior LangContext::WO_LANG_PROCESSER_NAME(AST, PASSNAME)(  \
+        [[maybe_unused]]lexer& lex,                                                 \
+        [[maybe_unused]]ast::AST* node,                                             \
+        [[maybe_unused]]pass_behavior state,                                        \
+        [[maybe_unused]]PassProcessStackT& out_stack)
 #define WO_LANG_REGISTER_PROCESSER(AST, NODE_TYPE, PASSNAME)\
     m_##PASSNAME##_processers->register_processer<ast::AST>(\
         NODE_TYPE, &LangContext::WO_LANG_PROCESSER_NAME(AST, PASSNAME))
@@ -1093,7 +1096,6 @@ namespace wo
         void update_allocate_global_instance_storage_passir(
             lang_ValueInstance* instance);
         bool update_instance_storage_and_code_gen_passir(
-            lexer& lex,
             lang_ValueInstance* instance,
             opnum::opnumbase* opnumval,
             const std::optional<uint16_t>& tuple_member_offset);
@@ -1189,7 +1191,6 @@ namespace wo
             const std::vector<ast::AstTemplateParam*>& pending_template_params,
             std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance>* out_determined_template_arg_pair);
         bool template_arguments_deduction_extraction_with_constant(
-            lexer& lex,
             ast::AstValueBase* accept_constant_formal,
             lang_TypeInstance* applying_type_instance,
             const ast::ConstantValue& constant_instance,

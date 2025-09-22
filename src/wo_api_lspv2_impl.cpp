@@ -719,6 +719,8 @@ void wo_lspv2_type_info_free(wo_lspv2_type_info* info)
 wo_lspv2_type_struct_info* wo_lspv2_type_get_struct_info(
     wo_lspv2_type* type, wo_lspv2_source_meta* meta)
 {
+    (void)meta;
+
     wo::lang_TypeInstance* type_instance =
         std::launder(reinterpret_cast<wo::lang_TypeInstance*>(type));
 

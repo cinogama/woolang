@@ -95,7 +95,6 @@ struct dylib_table_instance
     size_t          m_use_count;
 
     explicit dylib_table_instance(
-        const std::string& name,
         const wo_extern_lib_func_t* funcs,
         dylib_table_instance* dependenced_lib_may_null)
         : m_native_dylib_handle(nullptr)
@@ -222,8 +221,7 @@ struct loaded_lib_info
         if (loaded_named_libs.find(libname) != loaded_named_libs.end())
             return nullptr;
 
-        auto* instance = new dylib_table_instance(
-            libname, funcs, dependenced_lib_may_null);
+        auto* instance = new dylib_table_instance(funcs, dependenced_lib_may_null);
 
         auto instance_info = std::make_unique<loaded_lib_info>();
         instance_info->m_lib_instance = instance;
@@ -329,9 +327,11 @@ wo_bool_t _default_fail_handler(
             switch (choice)
             {
             case 1:
-                wo_error(reason);
                 abort_this_vm = true;
                 breakout = true;
+
+                // Abort here, not return.
+                wo_error(reason);
                 break;
             case 2:
                 breakout = true;
@@ -885,7 +885,7 @@ void wo_set_pointer(wo_value value, wo_ptr_t val)
     else
         wo_fail(WO_FAIL_ACCESS_NIL, "Cannot set a nullptr");
 }
-void _wo_set_string(wo_value value, wo_vm vm, wo_string_t val)
+void _wo_set_string(wo_value value, wo_string_t val)
 {
     auto* _rsvalue = WO_VAL(value);
     _rsvalue->set_string(val);
@@ -893,22 +893,24 @@ void _wo_set_string(wo_value value, wo_vm vm, wo_string_t val)
 void wo_set_string(wo_value value, wo_vm vm, wo_string_t val)
 {
     _wo_enter_gc_guard g(vm);
-    _wo_set_string(value, vm, val);
+    _wo_set_string(value, val);
 }
-void _wo_set_string_vfmt(wo_value value, wo_vm vm, wo_string_t fmt, va_list v1)
+void _wo_set_string_vfmt(wo_value value, wo_string_t fmt, va_list v1)
 {
     va_list v2;
     va_copy(v2, v1);
     std::vector<char> buf(1 + vsnprintf(nullptr, 0, fmt, v1));
     va_end(v1);
     std::vsnprintf(buf.data(), buf.size(), fmt, v2);
-    _wo_set_string(value, vm, buf.data());
+    _wo_set_string(value, buf.data());
 }
 void wo_set_string_fmt(wo_value value, wo_vm vm, wo_string_t fmt, ...)
 {
+    _wo_enter_gc_guard g(vm);
+
     va_list v1;
     va_start(v1, fmt);
-    _wo_set_string_vfmt(value, vm, fmt, v1);
+    _wo_set_string_vfmt(value, fmt, v1);
     va_end(v1);
 }
 void wo_set_buffer(wo_value value, wo_vm vm, const void* val, wo_size_t len)
@@ -1029,7 +1031,8 @@ void wo_set_union(wo_value value, wo_vm vm, wo_integer_t id, wo_value value_may_
     auto* target_val = WO_VAL(value);
 
     _wo_enter_gc_guard g(vm);
-    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(2);
+    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
+        static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(id);
 
     if (value_may_null != nullptr)
@@ -1463,7 +1466,7 @@ bool _wo_cast_string(
                     *out_str += _fit_layout ? "," : ",\n";
                 first_value = false;
 
-                for (int i = 0; !_fit_layout && i <= depth; i++)
+                for (int ii = 0; !_fit_layout && ii <= depth; ii++)
                     *out_str += "    ";
 
                 if (!_wo_cast_string(&value->m_structure->m_values[i], out_str, mode, traveled_gcunit, depth + 1))
@@ -1749,7 +1752,8 @@ void wo_set_option_void(wo_value val, wo_vm vm)
     auto* target_val = WO_VAL(val);
 
     _wo_enter_gc_guard g(vm);
-    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(2);
+    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
+        static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(0);
     structptr->m_values[1].set_nil();
 
@@ -1760,7 +1764,8 @@ void wo_set_option_bool(wo_value val, wo_vm vm, wo_bool_t result)
     auto* target_val = WO_VAL(val);
 
     _wo_enter_gc_guard g(vm);
-    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(2);
+    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
+        static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(0);
     structptr->m_values[1].set_bool(result != WO_FALSE);
 
@@ -1776,7 +1781,8 @@ void wo_set_option_int(wo_value val, wo_vm vm, wo_integer_t result)
     auto* target_val = WO_VAL(val);
 
     _wo_enter_gc_guard g(vm);
-    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(2);
+    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
+        static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(0);
     structptr->m_values[1].set_integer(result);
 
@@ -1787,7 +1793,8 @@ void wo_set_option_real(wo_value val, wo_vm vm, wo_real_t result)
     auto* target_val = WO_VAL(val);
 
     _wo_enter_gc_guard g(vm);
-    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(2);
+    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
+        static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(0);
     structptr->m_values[1].set_real(result);
 
@@ -1799,7 +1806,8 @@ void wo_set_option_float(wo_value val, wo_vm vm, float result)
 
     wo::structure_t* structptr;
     _wo_enter_gc_guard g(vm);
-    structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(2);
+    structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
+        static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(0);
     structptr->m_values[1].set_real((wo_real_t)result);
 
@@ -1812,7 +1820,8 @@ void wo_set_option_handle(wo_value val, wo_vm vm, wo_handle_t result)
     wo::structure_t* structptr;
 
     _wo_enter_gc_guard g(vm);
-    structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(2);
+    structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
+        static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(0);
     structptr->m_values[1].set_handle(result);
     target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
@@ -1822,7 +1831,8 @@ void wo_set_option_string(wo_value val, wo_vm vm, wo_string_t result)
     auto* target_val = WO_VAL(val);
 
     _wo_enter_gc_guard g(vm);
-    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(2);
+    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
+        static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(0);
     structptr->m_values[1].set_nil(); // Avoid uninitialised memory.
 
@@ -1836,13 +1846,14 @@ void _wo_set_option_string_vfmt(wo_value val, wo_vm vm, wo_string_t fmt, va_list
     auto* target_val = WO_VAL(val);
 
     _wo_enter_gc_guard g(vm);
-    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(2);
+    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
+        static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(0);
     structptr->m_values[1].set_nil(); // Avoid uninitialised memory.
 
     //  Store array into instance to make sure it can be marked if GC launched by `out of memory`.
     target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
-    _wo_set_string_vfmt(CS_VAL(&structptr->m_values[1]), vm, fmt, v1);
+    _wo_set_string_vfmt(CS_VAL(&structptr->m_values[1]), fmt, v1);
 }
 void wo_set_option_string_fmt(wo_value val, wo_vm vm, wo_string_t fmt, ...)
 {
@@ -1856,7 +1867,8 @@ void wo_set_option_buffer(wo_value val, wo_vm vm, const void* result, wo_size_t 
     auto* target_val = WO_VAL(val);
 
     _wo_enter_gc_guard g(vm);
-    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(2);
+    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
+        static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(0);
     structptr->m_values[1].set_nil(); // Avoid uninitialised memory.
 
@@ -1869,7 +1881,8 @@ void wo_set_option_pointer(wo_value val, wo_vm vm, wo_ptr_t result)
     auto* target_val = WO_VAL(val);
 
     _wo_enter_gc_guard g(vm);
-    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(2);
+    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
+        static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(0);
     structptr->m_values[1].set_handle((wo_handle_t)result);
     target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
@@ -1884,7 +1897,8 @@ void wo_set_option_ptr_may_null(wo_value val, wo_vm vm, wo_ptr_t result)
         auto* target_val = WO_VAL(val);
 
         _wo_enter_gc_guard g(vm);
-        wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(2);
+        wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
+            static_cast<uint16_t>(2));
         structptr->m_values[0].set_integer(0);
         structptr->m_values[1].set_handle((wo_handle_t)result);
 
@@ -1898,7 +1912,8 @@ void wo_set_option_val(wo_value val, wo_vm vm, wo_value result)
     auto* target_val = WO_VAL(val);
 
     _wo_enter_gc_guard g(vm);
-    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(2);
+    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
+        static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(0);
     structptr->m_values[1].set_val(WO_VAL(result));
 
@@ -1914,7 +1929,8 @@ void wo_set_option_gchandle(
     auto* target_val = WO_VAL(val);
 
     _wo_enter_gc_guard g(vm);
-    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(2);
+    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
+        static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(0);
     structptr->m_values[1].set_nil();// Avoid uninitialised memory.
 
@@ -1932,7 +1948,8 @@ void wo_set_option_gcstruct(
     auto* target_val = WO_VAL(val);
 
     _wo_enter_gc_guard g(vm);
-    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(2);
+    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
+        static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(0);
     structptr->m_values[1].set_nil();// Avoid uninitialised memory.
 
@@ -1945,7 +1962,8 @@ void wo_set_option_none(wo_value val, wo_vm vm)
     auto* target_val = WO_VAL(val);
 
     _wo_enter_gc_guard g(vm);
-    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(2);
+    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
+        static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(1);
     structptr->m_values[1].set_nil();
 
@@ -1957,7 +1975,8 @@ void wo_set_err_void(wo_value val, wo_vm vm)
     auto* target_val = WO_VAL(val);
 
     _wo_enter_gc_guard g(vm);
-    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(2);
+    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
+        static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(1);
     structptr->m_values[1].set_nil();
 
@@ -1972,7 +1991,8 @@ void wo_set_err_bool(wo_value val, wo_vm vm, wo_bool_t result)
     auto* target_val = WO_VAL(val);
 
     _wo_enter_gc_guard g(vm);
-    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(2);
+    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
+        static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(1);
     structptr->m_values[1].set_bool(result != WO_FALSE);
 
@@ -1983,7 +2003,8 @@ void wo_set_err_int(wo_value val, wo_vm vm, wo_integer_t result)
     auto* target_val = WO_VAL(val);
 
     _wo_enter_gc_guard g(vm);
-    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(2);
+    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
+        static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(1);
     structptr->m_values[1].set_integer(result);
 
@@ -1994,7 +2015,8 @@ void wo_set_err_real(wo_value val, wo_vm vm, wo_real_t result)
     auto* target_val = WO_VAL(val);
 
     _wo_enter_gc_guard g(vm);
-    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(2);
+    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
+        static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(1);
     structptr->m_values[1].set_real(result);
 
@@ -2005,7 +2027,8 @@ void wo_set_err_float(wo_value val, wo_vm vm, float result)
     auto* target_val = WO_VAL(val);
 
     _wo_enter_gc_guard g(vm);
-    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(2);
+    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
+        static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(1);
     structptr->m_values[1].set_real((wo_real_t)result);
 
@@ -2016,7 +2039,8 @@ void wo_set_err_handle(wo_value val, wo_vm vm, wo_handle_t result)
     auto* target_val = WO_VAL(val);
 
     _wo_enter_gc_guard g(vm);
-    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(2);
+    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
+        static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(1);
     structptr->m_values[1].set_handle(result);
 
@@ -2027,7 +2051,8 @@ void wo_set_err_string(wo_value val, wo_vm vm, wo_string_t result)
     auto* target_val = WO_VAL(val);
 
     _wo_enter_gc_guard g(vm);
-    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(2);
+    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
+        static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(1);
     structptr->m_values[1].set_nil();// Avoid uninitialised memory.
 
@@ -2040,13 +2065,14 @@ void _wo_set_err_string_vfmt(wo_value val, wo_vm vm, wo_string_t fmt, va_list v1
     auto* target_val = WO_VAL(val);
 
     _wo_enter_gc_guard g(vm);
-    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(2);
+    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
+        static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(1);
     structptr->m_values[1].set_nil();// Avoid uninitialised memory.
 
     //  Store array into instance to make sure it can be marked if GC launched by `out of memory`.
     target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
-    _wo_set_string_vfmt(CS_VAL(&structptr->m_values[1]), vm, fmt, v1);
+    _wo_set_string_vfmt(CS_VAL(&structptr->m_values[1]), fmt, v1);
 }
 void wo_set_err_string_fmt(wo_value val, wo_vm vm, wo_string_t fmt, ...)
 {
@@ -2060,7 +2086,8 @@ void wo_set_err_buffer(wo_value val, wo_vm vm, const void* result, wo_size_t len
     auto* target_val = WO_VAL(val);
 
     _wo_enter_gc_guard g(vm);
-    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(2);
+    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
+        static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(1);
     structptr->m_values[1].set_nil();// Avoid uninitialised memory.
 
@@ -2074,7 +2101,8 @@ void wo_set_err_pointer(wo_value val, wo_vm vm, wo_ptr_t result)
     auto* target_val = WO_VAL(val);
 
     _wo_enter_gc_guard g(vm);
-    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(2);
+    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
+        static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(1);
     structptr->m_values[1].set_handle((wo_handle_t)result);
 
@@ -2087,7 +2115,8 @@ void wo_set_err_val(wo_value val, wo_vm vm, wo_value result)
     auto* target_val = WO_VAL(val);
 
     _wo_enter_gc_guard g(vm);
-    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(2);
+    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
+        static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(1);
     structptr->m_values[1].set_val(WO_VAL(result));
 
@@ -2098,7 +2127,8 @@ void wo_set_err_gchandle(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, wo_value
     auto* target_val = WO_VAL(val);
 
     _wo_enter_gc_guard g(vm);
-    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(2);
+    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
+        static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(1);
     structptr->m_values[1].set_nil();// Avoid uninitialised memory.
 
@@ -2116,7 +2146,8 @@ void wo_set_err_gcstruct(
     auto* target_val = WO_VAL(val);
 
     _wo_enter_gc_guard g(vm);
-    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(2);
+    wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
+        static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(1);
     structptr->m_values[1].set_nil();// Avoid uninitialised memory.
 
@@ -2702,20 +2733,20 @@ wo::compile_result _wo_compile_impl(
                     if (wo::compile_result::PROCESS_OK == compile_result)
                     {
                         // Finish!, finalize the compiler.
-                        compile_env_result = 
+                        compile_env_result =
                             lang_context->m_ircontext.c().finalize();
                     }
 
                     if (out_langcontext_if_pass_grammar != nullptr)
                         *out_langcontext_if_pass_grammar = std::move(lang_context);
                 }
-            }
+        }
 #else
             (void)compile_lexer->record_parser_error(
                 wo::lexer::msglevel_t::error, WO_ERR_COMPILER_DISABLED);
 #endif
-                }
-            }
+    }
+}
     else
         // Load binary success. 
         compile_result = wo::compile_result::PROCESS_OK;
@@ -3828,18 +3859,18 @@ wo_result_t wo_ret_map_get_or_set_do(
 
             raw_index.set_val(WO_VAL(index));
 
-            wo_value result = wo_invoke_value(
+            wo_value invoke_result = wo_invoke_value(
                 vm, value_function, 0, inout_args_maynull, inout_s_maynull);
 
             ////////////////////////////////////////////////////////////////////
            // DONOT USE map, index, value_function after this line
            ////////////////////////////////////////////////////////////////////
 
-            if (nullptr == result)
+            if (nullptr == invoke_result)
                 // Aborted.
                 return WO_API_RESYNC_JIT_STATE_TO_VM_STATE;
 
-            (*dict)[raw_index] = *WO_VAL(result);
+            (*dict)[raw_index] = *WO_VAL(invoke_result);
             return WO_API_STATE_OF_VM(vmbase);
         }
         else
@@ -4061,12 +4092,12 @@ void wo_gcunit_lock_shared_force(wo_value gc_reference_object)
     {
         auto* gcunit = WO_VAL(gc_reference_object)->m_gcunit;
         gcunit->read();
-    }
+}
     else
     {
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not lockable.");
     }
-}
+    }
 void wo_gcunit_unlock_shared_force(wo_value gc_reference_object)
 {
     auto* value = WO_VAL(gc_reference_object);

@@ -317,7 +317,7 @@ namespace wo
 
                 return true;
             }
-            void _notify_this_stage_finished(size_t worker_id)
+            void _notify_this_stage_finished()
             {
                 if (_gc_work_thread_count == ++_m_gc_mark_end_count)
                 {
@@ -765,7 +765,7 @@ namespace wo
                         }
                     }
                     else break;
-                    _notify_this_stage_finished(worker_id);
+                    _notify_this_stage_finished();
 
                     // Stage 2, mark globals.
                     if (_wait_for_next_stage_signal(worker_id))
@@ -801,7 +801,7 @@ namespace wo
                         }
                     }
                     else break;
-                    _notify_this_stage_finished(worker_id);
+                    _notify_this_stage_finished();
 
 
                     // Stage 2, full mark units.
@@ -810,7 +810,7 @@ namespace wo
                         gc_mark_all_gray_unit(&_gc_gray_unit_lists[worker_id]);
                     }
                     else break;
-                    _notify_this_stage_finished(worker_id);
+                    _notify_this_stage_finished();
 
                     // Stage 3, free units
                     if (_wait_for_next_stage_signal(worker_id))
@@ -863,7 +863,7 @@ namespace wo
                         }
                     }
                     else break;
-                    _notify_this_stage_finished(worker_id);
+                    _notify_this_stage_finished();
 
                 } while (true);
             }

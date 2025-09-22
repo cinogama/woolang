@@ -171,7 +171,6 @@ namespace wo
                     || nullptr == node_allocator
                     || node_allocator->empty());
 
-                bool need_swap_back = true;
                 if (!node_allocator)
                     node_allocator = new AstAllocator();
 
@@ -228,25 +227,25 @@ namespace wo
 
                 return node_allocator->allocate_space_for_ast_node(sz);
             }
-            void* operator new[](size_t sz) = delete;
+            void* operator new[](size_t) = delete;
             void* operator new(size_t sz, std::align_val_t al)
             {
                 if (!node_allocator)
                     node_allocator = new AstAllocator();
 
-                return node_allocator->allocate_space_for_ast_node(sz);
+                return node_allocator->allocate_space_with_aligh_for_ast_node(sz, al);
             }
-            void* operator new[](size_t sz, std::align_val_t al) = delete;
-            void operator delete(void* ptr) noexcept
+            void* operator new[](size_t, std::align_val_t) = delete;
+            void operator delete(void*) noexcept
             {
                 // Do nothing.
             }
-            void operator delete[](void* ptr) = delete;
-            void operator delete(void* ptr, std::align_val_t al) noexcept
+            void operator delete[](void*) = delete;
+            void operator delete(void*, std::align_val_t) noexcept
             {
                 // Do nothing.
             }
-            void operator delete[](void* ptr, std::align_val_t al) = delete;
+            void operator delete[](void*, std::align_val_t) = delete;
         public:
             class _AstSafeHolderBase
             {
@@ -338,6 +337,8 @@ namespace wo
             }
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override
             {
+                (void)out_continues;
+
                 auto* new_instance = exist_instance
                     ? static_cast<AstNop*>(exist_instance.value())
                     : new AstNop();
@@ -517,6 +518,9 @@ namespace wo
 
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final
             {
+                (void)exist_instance;
+                (void)out_continues;
+
                 // Immutable and no state to be modified.
                 return const_cast<AstEmpty*>(this);
             }

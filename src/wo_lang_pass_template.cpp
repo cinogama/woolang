@@ -487,7 +487,6 @@ namespace wo
     }
 
     bool LangContext::template_arguments_deduction_extraction_with_constant(
-        lexer& lex,
         ast::AstValueBase* accept_constant_formal,
         lang_TypeInstance* applying_type_instance,
         const ast::ConstantValue& constant_instance,
@@ -906,7 +905,6 @@ namespace wo
             else
             {
                 return template_arguments_deduction_extraction_with_constant(
-                    lex,
                     accept_template_param_formal->get_constant(),
                     applying_template_argument_instance.m_type,
                     applying_template_argument_instance.m_constant.value(),

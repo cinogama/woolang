@@ -74,9 +74,9 @@ namespace wo
 
         struct WooJitErrorHandler :public asmjit::ErrorHandler
         {
-            void handleError(asmjit::Error err, const char* message, asmjit::BaseEmitter* origin) override
+            void handleError(asmjit::Error err, const char* message, asmjit::BaseEmitter*) override
             {
-                fprintf(stderr, "AsmJit error: %s\n", message);
+                fprintf(stderr, "AsmJit error: %s(%d)\n", message,(int)err);
             }
         };
 
@@ -177,7 +177,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 
         function_jit_state* current_jit_state = nullptr;
 
-        void bind_ip(CompileContextT* ctx, asmjit::BaseCompiler* compiler, uint32_t ipoffset)
+        void bind_ip(asmjit::BaseCompiler* compiler, uint32_t ipoffset)
         {
             if (auto fnd = label_table.find(ipoffset);
                 fnd != label_table.end())
@@ -201,7 +201,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 
         function_jit_state* _analyze_function(
             const byte_t* rt_ip,
-            runtime_env* env,
             function_jit_state* state,
             CompileContextT* ctx,
             asmjit::BaseCompiler* compiler) noexcept
@@ -214,7 +213,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             {
                 uint32_t current_ip_byteoffset = (uint32_t)(rt_ip - m_codes);
 
-                bind_ip(ctx, compiler, current_ip_byteoffset);
+                bind_ip(compiler, current_ip_byteoffset);
 
                 opcode_dr = *(rt_ip++);
                 opcode = (instruct::opcode)(opcode_dr & 0b11111100u);
@@ -324,7 +323,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                 }
             }
             // Should not be here!
-            abort();
+            WO_UNREACHABLE();
         }
 
         function_jit_state* analyze_function(const byte_t* code, size_t offset, runtime_env* env) noexcept
@@ -363,7 +362,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             ir_check_jit_invoke_depth(state->_m_ctx, rt_ip);
             ir_make_checkpoint_fastcheck(state->_m_ctx, rt_ip);
 
-            auto* result = _analyze_function(rt_ip, env, state, state->_m_ctx, compiler);
+            auto* result = _analyze_function(rt_ip, state, state->_m_ctx, compiler);
 
             current_jit_state = backup;
             return result;
@@ -1379,6 +1378,10 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 
         virtual bool ir_nop(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
+            (void)ctx;
+            (void)dr;
+            (void)rt_ip;
+
             return true;
         }
         virtual bool ir_mov(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -2450,7 +2453,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
         }
         virtual bool ir_setip(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
-            auto check_point_ipaddr = rt_ip - 1;
             uint32_t jmp_place = WO_IPVAL_MOVE_4;
 
             switch (dr)

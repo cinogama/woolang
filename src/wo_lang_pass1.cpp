@@ -910,17 +910,17 @@ namespace wo
                     }
                     else
                     {
-                        auto* state = static_cast<lang_TemplateAstEvalStateBase*>(
+                        auto* eval_state = static_cast<lang_TemplateAstEvalStateBase*>(
                             node->m_LANG_template_evalating_state.value());
 
-                        finish_eval_template_ast(lex, state);
+                        finish_eval_template_ast(lex, eval_state);
 
                         if (type_symbol->m_symbol_kind == lang_Symbol::ALIAS)
                             alias_instance = static_cast<lang_TemplateAstEvalStateAlias*>(
-                                state)->m_alias_instance.get();
+                                eval_state)->m_alias_instance.get();
                         else
                             type_instance = static_cast<lang_TemplateAstEvalStateType*>(
-                                state)->m_type_instance.get();
+                                eval_state)->m_type_instance.get();
                     }
 
                     if (type_symbol->m_symbol_kind == lang_Symbol::ALIAS)
@@ -977,9 +977,9 @@ namespace wo
         {
             if (node->m_LANG_template_evalating_state)
             {
-                auto* state = node->m_LANG_template_evalating_state.value();
+                auto* eval_state = node->m_LANG_template_evalating_state.value();
 
-                failed_eval_template_ast(lex, node, state);
+                failed_eval_template_ast(lex, node, eval_state);
             }
         }
         return WO_EXCEPT_ERROR(state, OKAY);
@@ -1213,8 +1213,8 @@ namespace wo
             // Failed to evaluate template.
             if (node->m_LANG_template_evalating_state)
             {
-                auto* state = node->m_LANG_template_evalating_state.value();
-                failed_eval_template_ast(lex, node, state);
+                auto* eval_state = node->m_LANG_template_evalating_state.value();
+                failed_eval_template_ast(lex, node, eval_state);
             }
         }
         return WO_EXCEPT_ERROR(state, OKAY);
@@ -3056,8 +3056,9 @@ namespace wo
                 auto* param_type_determined_function_base_type =
                     param_type_determined_base_type_instance->m_external_type_description.m_function;
 
-                for (auto& param_type : param_type_determined_function_base_type->m_param_types)
-                    param_argument_types.push_back(param_type);
+                for (auto& param_argument_type : param_type_determined_function_base_type->m_param_types)
+                    param_argument_types.push_back(param_argument_type);
+
                 param_return_type = param_type_determined_function_base_type->m_return_type;
 
                 AstValueBase* argument = get_marked_origin_value_node(param_and_argument_pair.m_argument);
@@ -3405,12 +3406,12 @@ namespace wo
 
                         if (!argument_value->m_LANG_determined_type.has_value())
                         {
-                            AstTypeHolder* param_type_holder =
+                            AstTypeHolder* cloned_param_type_holder =
                                 static_cast<AstTypeHolder*>((*it_target_param)->clone());
 
                             branch_a_context->m_arguments_tobe_deduct.push_back(
                                 AstValueFunctionCall_FakeAstArgumentDeductionContextA::ArgumentMatch{
-                                    argument_value, param_type_holder });
+                                    argument_value, cloned_param_type_holder });
                         }
                         else
                         {

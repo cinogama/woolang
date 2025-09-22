@@ -411,8 +411,15 @@ extern func macro_entry(lexer: std::lexer)=> string
                 for (char wch : _operator)
                     _result.insert(wch);
             return _result;
-            }();
-        return operator_char_set.find(ch) != operator_char_set.end();
+        }();
+
+        if (ch == EOF)
+            return false;
+
+        if (ch > 0x7F)
+            return false;
+
+        return operator_char_set.find(static_cast<char>(ch)) != operator_char_set.end();
     }
     bool lexer::_lex_isspace(int ch)
     {
@@ -804,7 +811,7 @@ extern func macro_entry(lexer: std::lexer)=> string
     int lexer::read_char()
     {
         int ch = m_source_stream->read_char();
-     
+
         switch (ch)
         {
         case '\r':
@@ -978,7 +985,7 @@ extern func macro_entry(lexer: std::lexer)=> string
 
         std::string token_literal_result;
         auto append_result_char =
-            [&token_literal_result](char ch) {token_literal_result.push_back(ch); };
+            [&token_literal_result](int ch) {token_literal_result.push_back(static_cast<char>(ch)); };
         auto append_result_char_serial =
             [&token_literal_result](const char* serial, size_t len) {token_literal_result.append(serial, len); };
 
@@ -1154,7 +1161,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                                 if (lexer::lex_isxdigit(peek_char()))
                                 {
                                     hex_ascii *= 16;
-                                    hex_ascii += lexer::lex_hextonum(read_char());
+                                    hex_ascii += static_cast<uint8_t>(lexer::lex_hextonum(read_char()));
                                 }
                                 else if (i == 0)
                                     goto str_escape_sequences_fail;
@@ -1173,7 +1180,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                                 if (lexer::lex_isxdigit(peek_char()))
                                 {
                                     hex_ascii[0] *= 16;
-                                    hex_ascii[0] += lexer::lex_hextonum(read_char());
+                                    hex_ascii[0] += static_cast<char16_t>(lexer::lex_hextonum(read_char()));
                                 }
                                 else if (i == 0)
                                     goto str_escape_sequences_fail;
@@ -1194,7 +1201,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                                     if (lexer::lex_isxdigit(peek_char()))
                                     {
                                         hex_ascii[1] *= 16;
-                                        hex_ascii[1] += lexer::lex_hextonum(read_char());
+                                        hex_ascii[1] += static_cast<char16_t>(lexer::lex_hextonum(read_char()));
                                     }
                                     else if (i == 0)
                                         goto str_escape_sequences_fail;
@@ -1298,9 +1305,9 @@ extern func macro_entry(lexer: std::lexer)=> string
             std::string pragma_name;
             if (lexer::lex_isidentbeg(peek_char()))
             {
-                pragma_name += read_char();
+                pragma_name += static_cast<char>(read_char());
                 while (lexer::lex_isident(peek_char()))
-                    pragma_name += read_char();
+                    pragma_name += static_cast<char>(read_char());
             }
 
             if (pragma_name == "macro")
@@ -1412,7 +1419,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                     (void)read_char(); // Eat `!`
                     return produce_token(lex_type::l_macro, std::move(token_literal_result));
                 }
-                
+
                 lex_type keyword_type = lexer::lex_is_keyword(token_literal_result);
                 if (lex_type::l_error != keyword_type)
                     return produce_token(keyword_type, std::move(token_literal_result));
@@ -1431,7 +1438,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                 if (readed_char == '0')
                 {
                     // it may be OCT DEC HEX
-                    switch (char sec_ch = peek_char())
+                    switch (int sec_ch = peek_char())
                     {
                     case 'x':
                     case 'X':
@@ -1700,7 +1707,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                             if (lexer::lex_isxdigit(peek_char()))
                             {
                                 hex_ascii[0] *= 16;
-                                hex_ascii[0] += lexer::lex_hextonum(read_char());
+                                hex_ascii[0] += static_cast<char16_t>(lexer::lex_hextonum(read_char()));
                             }
                             else if (i == 0)
                                 goto str_escape_sequences_fail_in_format_begin;
@@ -1721,7 +1728,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                                 if (lexer::lex_isxdigit(peek_char()))
                                 {
                                     hex_ascii[1] *= 16;
-                                    hex_ascii[1] += lexer::lex_hextonum(read_char());
+                                    hex_ascii[1] += static_cast<char16_t>(lexer::lex_hextonum(read_char()));
                                 }
                                 else if (i == 0)
                                     goto str_escape_sequences_fail_in_format_begin;

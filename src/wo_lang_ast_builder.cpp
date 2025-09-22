@@ -24,7 +24,7 @@ namespace wo
             return std::nullopt;
         }
 
-        auto pass_mark_label::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        auto pass_mark_label::build(lexer&, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
             token label = WO_NEED_TOKEN(0);
             auto* node = WO_NEED_AST(2);
@@ -110,11 +110,11 @@ namespace wo
 
             return new AstUsingNamespace(used_namespaces);
         }
-        auto pass_empty::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        auto pass_empty::build(lexer&, const ast::astnode_builder::inputs_t&)-> grammar::produce
         {
             return new AstEmpty();
         }
-        auto pass_token::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        auto pass_token::build(lexer&, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
             return new AstToken(WO_NEED_TOKEN(0));
         }
@@ -124,7 +124,7 @@ namespace wo
                 lex.record_parser_error(
                     lexer::msglevel_t::error, WO_ERR_UNEXCEPT_TOKEN_2, WO_NEED_TOKEN(0).identifier.c_str()) };
         }
-        auto pass_enum_item_create::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        auto pass_enum_item_create::build(lexer&, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
             token name = WO_NEED_TOKEN(0);
 
@@ -136,7 +136,7 @@ namespace wo
             }
             return new AstEnumItem(wstring_pool::get_pstr(name.identifier), std::nullopt);
         }
-        auto pass_enum_finalize::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        auto pass_enum_finalize::build(lexer&, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
             std::optional<AstDeclareAttribue*> attrib = std::nullopt;
             AstToken* enum_name = static_cast<AstToken*>(WO_NEED_AST_TYPE(2, AstBase::AST_TOKEN));
@@ -154,7 +154,7 @@ namespace wo
 
             return new AstEnumDeclare(attrib, enum_name, items);
         }
-        auto pass_namespace::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        auto pass_namespace::build(lexer&, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
             AstList* space_names = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
             auto* body_of_space = WO_NEED_AST(2);
@@ -181,7 +181,7 @@ namespace wo
 
             return content;
         }
-        auto pass_using_type_as::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_using_type_as::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             std::optional<AstDeclareAttribue*> attrib = std::nullopt;
             token new_type_name = WO_NEED_TOKEN(2);
@@ -200,7 +200,7 @@ namespace wo
 
             return new AstUsingTypeDeclare(attrib, type_name, in_type_template_params, base_type);
         }
-        auto pass_using_typename_space::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        auto pass_using_typename_space::build(lexer&, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
             AstUsingTypeDeclare* using_type_declare =
                 static_cast<AstUsingTypeDeclare*>(WO_NEED_AST_TYPE(0, AstBase::AST_USING_TYPE_DECLARE));
@@ -232,7 +232,7 @@ namespace wo
 
             return result_list;
         }
-        auto pass_alias_type_as::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        auto pass_alias_type_as::build(lexer&, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
             std::optional<AstDeclareAttribue*> attrib = std::nullopt;
             token new_type_name = WO_NEED_TOKEN(2);
@@ -251,7 +251,7 @@ namespace wo
 
             return new AstAliasTypeDeclare(attrib, type_name, in_type_template_params, base_type);
         }
-        auto pass_build_where_constraint::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        auto pass_build_where_constraint::build(lexer&, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
             AstList* expr_list = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
 
@@ -495,33 +495,33 @@ namespace wo
 
             return function_define;
         }
-        auto pass_break::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        auto pass_break::build(lexer&, const ast::astnode_builder::inputs_t&)-> grammar::produce
         {
             return new AstBreak(std::nullopt);
         }
-        auto pass_break_label::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        auto pass_break_label::build(lexer&, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
             token label = WO_NEED_TOKEN(1);
             return new AstBreak(wstring_pool::get_pstr(label.identifier));
         }
-        auto pass_continue::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        auto pass_continue::build(lexer&, const ast::astnode_builder::inputs_t&)-> grammar::produce
         {
             return new AstContinue(std::nullopt);
         }
-        auto pass_continue_label::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        auto pass_continue_label::build(lexer&, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
             token label = WO_NEED_TOKEN(1);
             return new AstContinue(wstring_pool::get_pstr(label.identifier));
         }
-        auto pass_return::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        auto pass_return::build(lexer&, const ast::astnode_builder::inputs_t&)-> grammar::produce
         {
             return new AstReturn(std::nullopt);
         }
-        auto pass_return_value::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        auto pass_return_value::build(lexer&, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
             return new AstReturn(WO_NEED_AST_VALUE(1));
         }
-        auto pass_return_lambda::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        auto pass_return_lambda::build(lexer&, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
             return new AstReturn(WO_NEED_AST_VALUE(0));
         }
@@ -594,7 +594,7 @@ namespace wo
                 std::nullopt,
                 function_scope);
         }
-        auto pass_if::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        auto pass_if::build(lexer&, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
             auto* condition = WO_NEED_AST_VALUE(2);
             auto* body = WO_NEED_AST(4);
@@ -605,14 +605,14 @@ namespace wo
 
             return new AstIf(condition, body, else_body);
         }
-        auto pass_while::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        auto pass_while::build(lexer&, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
             auto* condition = WO_NEED_AST_VALUE(2);
             auto* body = WO_NEED_AST(4);
 
             return new AstWhile(condition, body);
         }
-        auto pass_for_defined::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        auto pass_for_defined::build(lexer&, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
             std::optional<AstVariableDefines*> init = std::nullopt;
             std::optional<AstValueBase*> condition = std::nullopt;
@@ -628,7 +628,7 @@ namespace wo
 
             return new AstFor(init, condition, step, body);
         }
-        auto pass_for_expr::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        auto pass_for_expr::build(lexer&, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
             std::optional<AstBase*> init = std::nullopt;
             std::optional<AstValueBase*> condition = std::nullopt;
@@ -644,27 +644,27 @@ namespace wo
 
             return new AstFor(init, condition, step, body);
         }
-        auto pass_foreach::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        auto pass_foreach::build(lexer&, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
             AstPatternBase* pattern = static_cast<AstPatternBase*>(WO_NEED_AST_PATTERN(4));
             AstValueBase* iterating_value = WO_NEED_AST_VALUE(6);
             AstBase* body = WO_NEED_AST(8);
             return new AstForeach(pattern, iterating_value, body);
         }
-        auto pass_mark_mut::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        auto pass_mark_mut::build(lexer&, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
             return new AstValueMarkAsMutable(WO_NEED_AST_VALUE(1));
         }
-        auto pass_mark_immut::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        auto pass_mark_immut::build(lexer&, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
             return new AstValueMarkAsImmutable(WO_NEED_AST_VALUE(1));
         }
-        auto pass_typeof::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        auto pass_typeof::build(lexer&, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
             AstValueBase* value = WO_NEED_AST_VALUE(2);
             return new AstTypeHolder(value);
         }
-        auto pass_build_identifier_typeof::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        auto pass_build_identifier_typeof::build(lexer&, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
             AstList* scope_identifier = static_cast<AstList*>(WO_NEED_AST_TYPE(0, AstBase::AST_LIST));
             std::optional<AstList*> template_arguments = std::nullopt;
@@ -707,7 +707,7 @@ namespace wo
 
             return new AstIdentifier(identifier_name, template_args, scope_identifiers_and_name, typeof_holder);
         }
-        auto pass_build_identifier_normal::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_build_identifier_normal::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstList* scope_identifier = static_cast<AstList*>(WO_NEED_AST_TYPE(0, AstBase::AST_LIST));
             std::optional<AstList*> template_arguments = std::nullopt;
@@ -748,7 +748,7 @@ namespace wo
             return new AstIdentifier(
                 identifier_name, template_args, scope_identifiers_and_name, false);
         }
-        auto pass_build_identifier_global::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_build_identifier_global::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstList* scope_identifier = static_cast<AstList*>(WO_NEED_AST_TYPE(0, AstBase::AST_LIST));
             std::optional<AstList*> template_arguments = std::nullopt;
@@ -782,7 +782,7 @@ namespace wo
 
             return new AstIdentifier(identifier_name, template_args, scope_identifiers_and_name, true);
         }
-        auto pass_type_nil::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        auto pass_type_nil::build(lexer&, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
             AstToken* nil_token = static_cast<AstToken*>(WO_NEED_AST_TYPE(0, AstBase::AST_TOKEN));
             wo_assert(nil_token->m_token.type == lex_type::l_nil);
@@ -820,7 +820,7 @@ namespace wo
             return new AstTypeHolder(AstTypeHolder::FunctionType{
                 is_variadic_function, paraments, return_type });
         }
-        auto pass_type_struct_field::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        auto pass_type_struct_field::build(lexer&, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
             std::optional<AstDeclareAttribue::accessc_attrib> attrib = std::nullopt;
             token field_name = WO_NEED_TOKEN(1);
@@ -905,7 +905,7 @@ namespace wo
             attrib->source_location.source_file = nullptr;
             return attrib;
         }
-        auto pass_pattern_for_assign::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_pattern_for_assign::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstValueBase* been_assigned_lvalue = WO_NEED_AST_VALUE(0);
 
@@ -920,7 +920,7 @@ namespace wo
                 return token{ lex_type::l_error };
             }
         }
-        auto pass_reverse_vardef::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_reverse_vardef::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstList* vardefs = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
             std::reverse(vardefs->m_list.begin(), vardefs->m_list.end());
@@ -934,7 +934,7 @@ namespace wo
 
             return vardefines;
         }
-        auto pass_type_mutable::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_type_mutable::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstTypeHolder* type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(1, AstBase::AST_TYPE_HOLDER));
             type->m_mutable_mark = AstTypeHolder::mutable_mark::MARK_AS_MUTABLE;
@@ -944,7 +944,7 @@ namespace wo
 
             return type;
         }
-        auto pass_type_immutable::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_type_immutable::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstTypeHolder* type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(1, AstBase::AST_TYPE_HOLDER));
             type->m_mutable_mark = AstTypeHolder::mutable_mark::MARK_AS_IMMUTABLE;
@@ -954,7 +954,7 @@ namespace wo
 
             return type;
         }
-        auto pass_func_argument::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_func_argument::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstPatternBase* pattern = static_cast<AstPatternBase*>(WO_NEED_AST_PATTERN(0));
             std::optional<AstTypeHolder*> type = std::nullopt;
@@ -964,12 +964,12 @@ namespace wo
 
             return new AstFunctionParameterDeclare(pattern, type);
         }
-        auto pass_do_void_cast::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_do_void_cast::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstValueBase* value = WO_NEED_AST_VALUE(1);
             return new AstValueDoAsVoid(value);
         }
-        auto pass_assign_operation::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_assign_operation::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstPatternBase* lpattern = WO_NEED_AST_PATTERN(0);
             token operation = WO_NEED_TOKEN(1);
@@ -1006,7 +1006,7 @@ namespace wo
                 return token{ lex_type::l_error };
             }
         }
-        auto pass_binary_operation::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_binary_operation::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstValueBase* lvalue = WO_NEED_AST_VALUE(0);
             token operation = WO_NEED_TOKEN(1);
@@ -1045,7 +1045,7 @@ namespace wo
                 return token{ lex_type::l_error };
             }
         }
-        auto pass_literal::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_literal::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             token literal = WO_NEED_TOKEN(0);
             AstValueLiteral* literal_instance = new AstValueLiteral();
@@ -1083,7 +1083,7 @@ namespace wo
 
             return literal_instance;
         }
-        auto pass_literal_char::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_literal_char::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstToken* literal = static_cast<AstToken*>(WO_NEED_AST_TYPE(0, AstBase::AST_TOKEN));
 
@@ -1109,12 +1109,12 @@ namespace wo
 
             return cast;
         }
-        auto pass_typeid::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_typeid::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstTypeHolder* type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(2, AstBase::AST_TYPE_HOLDER));
             return new AstValueTypeid(type);
         }
-        auto pass_unary_operation::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_unary_operation::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             token operation = WO_NEED_TOKEN(0);
             AstValueBase* value = WO_NEED_AST_VALUE(1);
@@ -1130,19 +1130,19 @@ namespace wo
                 return token{ lex_type::l_error };
             }
         }
-        auto pass_variable::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_variable::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstIdentifier* identifier = static_cast<AstIdentifier*>(WO_NEED_AST_TYPE(0, AstBase::AST_IDENTIFIER));
             return new AstValueVariable(identifier);
         }
-        auto pass_cast_type::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_cast_type::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstValueBase* value = WO_NEED_AST_VALUE(0);
             AstTypeHolder* type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(1, AstBase::AST_TYPE_HOLDER));
 
             return new AstValueTypeCast(type, value);
         }
-        auto pass_format_finish::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_format_finish::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstToken* format_string_begin = static_cast<AstToken*>(WO_NEED_AST_TYPE(0, AstBase::AST_TOKEN));
             AstValueBase* middle_value = WO_NEED_AST_VALUE(1);
@@ -1168,7 +1168,7 @@ namespace wo
 
             return first_middle_end_add;
         }
-        auto pass_format_cast_string::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_format_cast_string::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstValueBase* value = WO_NEED_AST_VALUE(0);
 
@@ -1183,7 +1183,7 @@ namespace wo
 
             return cast;
         }
-        auto pass_format_connect::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_format_connect::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstValueBase* first_string = WO_NEED_AST_VALUE(0);
             AstToken* middle_string_literal = static_cast<AstToken*>(WO_NEED_AST_TYPE(1, AstBase::AST_TOKEN));
@@ -1211,7 +1211,7 @@ namespace wo
 
             return first_middle_last_add;
         }
-        auto pass_build_bind_monad::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_build_bind_monad::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstValueBase* bind_value = WO_NEED_AST_VALUE(0);
             AstValueBase* bind_func = WO_NEED_AST_VALUE(2);
@@ -1226,7 +1226,7 @@ namespace wo
 
             return bind_call;
         }
-        auto pass_build_map_monad::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_build_map_monad::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstValueBase* map_value = WO_NEED_AST_VALUE(0);
             AstValueBase* map_func = WO_NEED_AST_VALUE(2);
@@ -1241,7 +1241,7 @@ namespace wo
 
             return map_call;
         }
-        auto pass_normal_function_call::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_normal_function_call::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstValueBase* call_func = WO_NEED_AST_VALUE(0);
             AstList* call_arguments = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
@@ -1257,14 +1257,14 @@ namespace wo
 
             return new AstValueFunctionCall(false, call_func, arguments);
         }
-        auto pass_directly_function_call::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_directly_function_call::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstValueBase* first_argument = WO_NEED_AST_VALUE(0);
             AstValueBase* call_func = WO_NEED_AST_VALUE(2);
 
             return new AstValueFunctionCall(true, call_func, { first_argument });
         }
-        auto pass_directly_function_call_append_arguments::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_directly_function_call_append_arguments::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstValueFunctionCall* direct_call =
                 static_cast<AstValueFunctionCall*>(WO_NEED_AST_TYPE(0, AstBase::AST_VALUE_FUNCTION_CALL));
@@ -1289,7 +1289,7 @@ namespace wo
 
             return direct_call;
         }
-        auto pass_inverse_function_call::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_inverse_function_call::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstValueBase* inverse_func = WO_NEED_AST_VALUE(0);
             AstValueFunctionCall* function_call;
@@ -1319,20 +1319,20 @@ namespace wo
 
             return function_call;
         }
-        auto pass_union_item::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_union_item::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             token union_item = WO_NEED_TOKEN(0);
 
             return new AstUnionItem(wstring_pool::get_pstr(union_item.identifier), std::nullopt);
         }
-        auto pass_union_item_constructor::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_union_item_constructor::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             token union_item = WO_NEED_TOKEN(0);
             AstTypeHolder* constructor_type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(2, AstBase::AST_TYPE_HOLDER));
 
             return new AstUnionItem(wstring_pool::get_pstr(union_item.identifier), constructor_type);
         }
-        auto pass_union_declare::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_union_declare::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             std::optional<AstDeclareAttribue*> attrib = std::nullopt;
             AstToken* union_name = static_cast<AstToken*>(WO_NEED_AST_TYPE(2, AstBase::AST_TOKEN));
@@ -1356,7 +1356,7 @@ namespace wo
 
             return new AstUnionDeclare(attrib, union_name, template_params, items);
         }
-        auto pass_union_pattern_identifier_or_takeplace::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_union_pattern_identifier_or_takeplace::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             token identifier = WO_NEED_TOKEN(0);
 
@@ -1366,21 +1366,21 @@ namespace wo
             else
                 return new AstPatternUnion(identifier_name, std::nullopt);
         }
-        auto pass_union_pattern_contain_element::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_union_pattern_contain_element::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             token identifier = WO_NEED_TOKEN(0);
             AstPatternBase* element = static_cast<AstPatternBase*>(WO_NEED_AST_PATTERN(2));
 
             return new AstPatternUnion(wstring_pool::get_pstr(identifier.identifier), element);
         }
-        auto pass_match_union_case::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_match_union_case::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstPatternBase* pattern = static_cast<AstPatternBase*>(WO_NEED_AST_PATTERN(0));
             AstBase* body = WO_NEED_AST(2);
 
             return new AstMatchCase(pattern, body);
         }
-        auto pass_match::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_match::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstValueBase* match_value = WO_NEED_AST_VALUE(2);
             AstList* match_cases = static_cast<AstList*>(WO_NEED_AST_TYPE(5, AstBase::AST_LIST));
@@ -1394,7 +1394,7 @@ namespace wo
 
             return new AstMatch(match_value, cases);
         }
-        auto pass_pattern_identifier_or_takepace::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_pattern_identifier_or_takepace::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             token identifier = WO_NEED_TOKEN(0);
 
@@ -1404,7 +1404,7 @@ namespace wo
             else
                 return new AstPatternSingle(false, identifier_name, std::nullopt);
         }
-        auto pass_pattern_mut_identifier_or_takepace::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_pattern_mut_identifier_or_takepace::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             token identifier = WO_NEED_TOKEN(1);
 
@@ -1414,7 +1414,7 @@ namespace wo
             else
                 return new AstPatternSingle(true, identifier_name, std::nullopt);
         }
-        auto pass_pattern_identifier_or_takepace_with_template::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_pattern_identifier_or_takepace_with_template::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             token identifier = WO_NEED_TOKEN(0);
             AstList* template_arguments = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
@@ -1428,7 +1428,7 @@ namespace wo
                 wstring_pool::get_pstr(identifier.identifier),
                 _process_template_params(template_arguments).value());
         }
-        auto pass_pattern_mut_identifier_or_takepace_with_template::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_pattern_mut_identifier_or_takepace_with_template::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             token identifier = WO_NEED_TOKEN(1);
             AstList* template_arguments = static_cast<AstList*>(WO_NEED_AST_TYPE(2, AstBase::AST_LIST));
@@ -1442,7 +1442,7 @@ namespace wo
                 wstring_pool::get_pstr(identifier.identifier),
                 _process_template_params(template_arguments).value());
         }
-        auto pass_pattern_tuple::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_pattern_tuple::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             std::optional<AstList*> pattern_list = std::nullopt;
 
@@ -1460,14 +1460,14 @@ namespace wo
             }
             return new AstPatternTuple(patterns);
         }
-        auto pass_variable_define_item::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_variable_define_item::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstPatternBase* define_pattern = static_cast<AstPatternBase*>(WO_NEED_AST_PATTERN(0));
             AstValueBase* define_value = WO_NEED_AST_VALUE(2);
 
             return new AstVariableDefineItem(define_pattern, define_value);
         }
-        auto pass_variable_defines::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_variable_defines::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             std::optional<AstDeclareAttribue*> attrib = std::nullopt;
             AstList* items = static_cast<AstList*>(WO_NEED_AST_TYPE(2, AstBase::AST_LIST));
@@ -1487,7 +1487,7 @@ namespace wo
 
             return variable_defines;
         }
-        auto pass_conditional_expression::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_conditional_expression::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstValueBase* condition = WO_NEED_AST_VALUE(0);
             AstValueBase* true_branch = WO_NEED_AST_VALUE(2);
@@ -1495,26 +1495,26 @@ namespace wo
 
             return new AstValueTribleOperator(condition, true_branch, false_branch);
         }
-        auto pass_type_from_identifier::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_type_from_identifier::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstIdentifier* identifier = static_cast<AstIdentifier*>(WO_NEED_AST_TYPE(0, AstBase::AST_IDENTIFIER));
             return new AstTypeHolder(identifier);
         }
-        auto pass_check_type_as::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_check_type_as::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstValueBase* value = WO_NEED_AST_VALUE(0);
             AstTypeHolder* type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(1, AstBase::AST_TYPE_HOLDER));
 
             return new AstValueTypeCheckAs(type, value);
         }
-        auto pass_check_type_is::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_check_type_is::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstValueBase* value = WO_NEED_AST_VALUE(0);
             AstTypeHolder* type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(1, AstBase::AST_TYPE_HOLDER));
 
             return new AstValueTypeCheckIs(type, value);
         }
-        auto pass_struct_member_init_pair::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_struct_member_init_pair::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             token member_name = WO_NEED_TOKEN(0);
             AstValueBase* member_value = WO_NEED_AST_VALUE(2);
@@ -1547,7 +1547,7 @@ namespace wo
 
             return new AstValueStruct(type, fields);
         }
-        auto pass_array_instance::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_array_instance::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstList* elements = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
 
@@ -1560,7 +1560,7 @@ namespace wo
 
             return new AstValueArrayOrVec(values, false);
         }
-        auto pass_vec_instance::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_vec_instance::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstList* elements = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
 
@@ -1585,7 +1585,7 @@ namespace wo
 
             return new AstKeyValuePair(key->m_elements.front(), value);
         }
-        auto pass_dict_instance::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_dict_instance::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstList* elements = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
 
@@ -1598,7 +1598,7 @@ namespace wo
 
             return new AstValueDictOrMap(pairs, false);
         }
-        auto pass_map_instance::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_map_instance::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstList* elements = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
 
@@ -1611,7 +1611,7 @@ namespace wo
 
             return new AstValueDictOrMap(pairs, true);
         }
-        auto pass_tuple_instance::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_tuple_instance::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstList* elements = static_cast<AstList*>(WO_NEED_AST_TYPE(0, AstBase::AST_LIST));
 
@@ -1624,14 +1624,14 @@ namespace wo
 
             return new AstValueTuple(values);
         }
-        auto pass_index_operation_regular::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_index_operation_regular::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstValueBase* value = WO_NEED_AST_VALUE(0);
             AstValueBase* index = WO_NEED_AST_VALUE(2);
 
             return new AstValueIndex(value, index);
         }
-        auto pass_index_operation_member::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_index_operation_member::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstValueBase* value = WO_NEED_AST_VALUE(0);
             AstToken* index = static_cast<AstToken*>(WO_NEED_AST_TYPE(2, AstBase::AST_TOKEN));
@@ -1657,22 +1657,22 @@ namespace wo
 
             return new AstValueIndex(value, index_literal);
         }
-        auto pass_defer::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_defer::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstScope* body = static_cast<AstScope*>(WO_NEED_AST_TYPE(1, AstBase::AST_SCOPE));
             body->m_is_defer_scope = true;
             return new AstDefer(body);
         }
-        auto pass_expand_arguments::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_expand_arguments::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstValueBase* value = WO_NEED_AST_VALUE(0);
             return new AstFakeValueUnpack(value);
         }
-        auto pass_variadic_arguments_pack::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_variadic_arguments_pack::build(lexer&, const ast::astnode_builder::inputs_t&)->grammar::produce
         {
             return new AstValueVariadicArgumentsPack();
         }
-        auto pass_create_template_argument::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_create_template_argument::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             if (input.size() == 1)
             {
@@ -1685,7 +1685,7 @@ namespace wo
                 return new AstTemplateArgument(WO_NEED_AST_VALUE(1));
             }
         }
-        auto pass_create_template_param::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_create_template_param::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             if (input.size() == 1)
             {

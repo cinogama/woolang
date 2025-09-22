@@ -216,7 +216,7 @@ namespace wo
 #else
         struct gc_non_lock_guard
         {
-            inline gc_non_lock_guard(gcbase* _)
+            inline gc_non_lock_guard(gcbase*)
             {
             }
             inline ~gc_non_lock_guard()

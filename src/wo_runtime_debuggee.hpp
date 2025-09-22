@@ -325,6 +325,8 @@ whereis                         <ipoffset>    Find the function that the ipoffse
 
         void display_variable(wo::vmbase* vmm, wo::program_debug_data_info::function_symbol_infor::variable_symbol_infor& varinfo)
         {
+            (void)vmm;
+
             // auto real_offset = -varinfo.bp_offset;
             auto value_in_stack = current_frame_bp + varinfo.bp_offset;
             wo_stdout << varinfo.name << " define at line: " << varinfo.define_place << wo_endl;
@@ -1359,16 +1361,16 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                     if (vmm->env->program_debug_info != nullptr)
                     {
                         printf("-------------------------------------------\n");
-                        auto& loc = vmm->env->program_debug_info->get_src_location_by_runtime_ip(current_runtime_ip);
+                        auto& current_loc = vmm->env->program_debug_info->get_src_location_by_runtime_ip(current_runtime_ip);
                         print_src_file(
                             vmm,
-                            loc.source_file,
-                            loc.begin_row_no,
-                            loc.end_row_no,
-                            loc.begin_col_no,
-                            loc.end_col_no,
-                            std::max((size_t)2, loc.begin_row_no) - 2,
-                            loc.end_row_no + 2);
+                            current_loc.source_file,
+                            current_loc.begin_row_no,
+                            current_loc.end_row_no,
+                            current_loc.begin_col_no,
+                            current_loc.end_col_no,
+                            std::max((size_t)2, current_loc.begin_row_no) - 2,
+                            current_loc.end_row_no + 2);
                     }
                     printf("===========================================\n");
 

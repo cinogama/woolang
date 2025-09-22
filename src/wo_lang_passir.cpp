@@ -109,7 +109,6 @@ namespace wo
     }
 
     bool LangContext::update_instance_storage_and_code_gen_passir(
-        lexer& lex,
         lang_ValueInstance* instance,
         opnum::opnumbase* opnumval,
         const std::optional<uint16_t>& tuple_member_offset)
@@ -177,7 +176,7 @@ namespace wo
                 return true;
 
             return update_instance_storage_and_code_gen_passir(
-                lex, pattern_value_instance, opnumval, tuple_member_offset);
+                pattern_value_instance, opnumval, tuple_member_offset);
         }
         case AstBase::AST_PATTERN_TUPLE:
         {
@@ -880,7 +879,7 @@ namespace wo
                         if (fast_eval)
                             (void)result_opnum;
                         else if (!update_instance_storage_and_code_gen_passir(
-                            lex, template_value_instance, result_opnum, std::nullopt))
+                            template_value_instance, result_opnum, std::nullopt))
                             return FAILED;
                     }
                 }
@@ -921,7 +920,7 @@ namespace wo
                 if (fast_eval)
                     (void)result_opnum;
                 else if (!update_instance_storage_and_code_gen_passir(
-                    lex, pattern_symbol->m_value_instance, result_opnum, std::nullopt))
+                    pattern_symbol->m_value_instance, result_opnum, std::nullopt))
                     return FAILED;
             }
             return OKAY;
@@ -1462,16 +1461,16 @@ namespace wo
 
         auto& variable_storage = value_instance->m_IR_storage.value();
 
-        if (_is_storage_can_addressing(variable_storage))
-        {
-            // In global or stack range, we can use direct access.
-            auto* storage_opnum =
-                m_ircontext.get_storage_place(variable_storage);
-
-            m_ircontext.apply_eval_result(
-                [&](BytecodeGenerateContext::EvalResult& result)
+        m_ircontext.apply_eval_result(
+            [&](BytecodeGenerateContext::EvalResult& result)
+            {
+                const auto& target_storage = result.get_assign_target();
+                if (_is_storage_can_addressing(variable_storage))
                 {
-                    const auto& target_storage = result.get_assign_target();
+                    // In global or stack range, we can use direct access.
+                    auto* storage_opnum =
+                        m_ircontext.get_storage_place(variable_storage);
+
                     if (target_storage.has_value())
                     {
                         m_ircontext.c().mov(
@@ -1480,14 +1479,9 @@ namespace wo
                     }
                     else
                         result.set_result(m_ircontext, storage_opnum);
-                });
-        }
-        else
-        {
-            m_ircontext.apply_eval_result(
-                [&](BytecodeGenerateContext::EvalResult& result)
+                }
+                else
                 {
-                    const auto& target_storage = result.get_assign_target();
                     if (target_storage.has_value())
                     {
                         m_ircontext.c().lds(
@@ -1502,8 +1496,8 @@ namespace wo
                             WO_OPNUM(m_ircontext.opnum_imm_int(variable_storage.m_index)));
                         result.set_result(m_ircontext, storage_opnum);
                     }
-                });
-        }
+                }
+            });
 
         return OKAY;
     }
@@ -1938,7 +1932,7 @@ namespace wo
         else if (state == HOLD)
         {
             m_ircontext.apply_eval_result(
-                [&](BytecodeGenerateContext::EvalResult& result)
+                [&](BytecodeGenerateContext::EvalResult&)
                 {
                     auto* unpacking_opnum = m_ircontext.get_eval_result();
 
@@ -3413,6 +3407,10 @@ namespace wo
 
                         bool is_register = dynamic_cast<opnum::reg*>(assigned_right_value) != nullptr;
 
+                        // NOTE: index_opnum must be valid, check m_LANG_fast_index_for_struct to make sure it.
+                        //  if m_LANG_fast_index_for_struct should be nullopt here.
+                        wo_assert(!pattern_index->m_index->m_LANG_fast_index_for_struct.has_value());
+
                         if (!is_register
                             && dynamic_cast<opnum::temporary*>(assigned_right_value) == nullptr)
                         {
@@ -3480,6 +3478,7 @@ namespace wo
 
                     if (!pattern_index->m_index->m_LANG_fast_index_for_struct.has_value())
                         m_ircontext.try_return_opnum_temporary_register(index_opnum);
+
                     m_ircontext.try_return_opnum_temporary_register(container_opnum);
                 }
 
