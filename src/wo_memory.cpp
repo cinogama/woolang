@@ -69,7 +69,8 @@ bool _womem_decommit_mem(void* mem, size_t sz)
 bool _womem_release_mem(void* mem, size_t sz)
 {
 #ifdef _WIN32
-    return 0 != VirtualFree(mem, sz, MEM_RELEASE);
+    (void)sz;
+    return 0 != VirtualFree(mem, 0, MEM_RELEASE);
 #elif WO_DISABLE_FUNCTION_FOR_WASM
     return 0 == munmap(mem, sz);
 #else
