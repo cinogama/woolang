@@ -2,7 +2,7 @@ import woo::std;
 import woo::shell;
 
 std::println("Guess The Number!");
-let ans = std::randint(1000, 9999);
+let ans = std::rand(1000, 9999);
 
 while (true)
 {
@@ -19,4 +19,4 @@ while (true)
     }
 }
 
-std::shell("pause"); // Works in windows.
+do std::shell("pause"); // Works in windows.

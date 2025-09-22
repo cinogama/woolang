@@ -2,7 +2,7 @@ import woo::std;
 
 using std;
 
-let block = [mut" ", " ", " ", " ", " ", " ", " ", " ", " "];
+let block = array::create(9, mut " ");
 
 func check_win(){
     for(let mut i=0; i<3; i+=1){
@@ -41,7 +41,7 @@ func check_win(){
             return 1;
         }
     }
-
+    
     if((block[2]==block[4])&&(block[2]==block[6])&&(block[2]!=" "))
     {
         if(block[2]=="O"){
@@ -60,11 +60,11 @@ func main()
     println("欢迎来到井字棋游戏！\n");
     
     for(let mut round=1;;round+=1){
-
+    
         print("   1 | 2 | 3 \n  ---|---|---\n1 ",block[0],"|",block[1],"|",block[2],
-        " \n  ---|---|---",
-        "\n2 ",block[3],"|",block[4],"|",block[5],
-        " \n  ---|---|---\n3 ",block[6],"|",block[7],"|",block[8],"\n");        
+            " \n  ---|---|---",
+            "\n2 ",block[3],"|",block[4],"|",block[5],
+            " \n  ---|---|---\n3 ",block[6],"|",block[7],"|",block[8],"\n");
         let winner = check_win();
         if(winner==1){
             println("\n\n游戏结束，玩家A获胜！\n");
@@ -75,11 +75,11 @@ func main()
                 break;
             }
         }
-
+        
         if(check_win()!=0){
             break;
         }
-
+        
         if(round%2==0){
             println("现在轮到 玩家B 行动了");
             println("请先输入您落子的行：");
@@ -107,10 +107,10 @@ func main()
                 round-=1;
                 continue;
             }
-
+            
         }
     }
-
+    
 }
 
 
