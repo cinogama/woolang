@@ -3399,7 +3399,7 @@ namespace wo
 
                     for (; it_target_param != it_target_param_end
                         && it_argument != it_argument_end;
-                        ++it_target_param, ++it_argument)
+                        ++it_argument)
                     {
                         AstTypeHolder* param_type_holder = *it_target_param;
                         AstValueBase* argument_value = *it_argument;
@@ -3412,6 +3412,8 @@ namespace wo
                             branch_a_context->m_arguments_tobe_deduct.push_back(
                                 AstValueFunctionCall_FakeAstArgumentDeductionContextA::ArgumentMatch{
                                     argument_value, cloned_param_type_holder });
+
+                            ++it_target_param;
                         }
                         else
                         {
@@ -3457,7 +3459,7 @@ namespace wo
 
                                         if (++it_target_param == it_target_param_end)
                                         {
-                                            --it_target_param;
+                                            // --it_target_param;
                                             break;
                                         }
                                     }
@@ -3465,7 +3467,7 @@ namespace wo
                                 else
                                 {
                                     it_target_param = it_target_param_end;
-                                    --it_target_param;
+                                    // --it_target_param;
                                 }
                             }
                             else
@@ -3479,6 +3481,8 @@ namespace wo
                                     argument_type_instance,
                                     pending_template_params,
                                     &deduction_results);
+
+                                ++it_target_param;
                             }
 
                             // If deduction error, break.
@@ -3560,18 +3564,58 @@ namespace wo
 
                     for (; it_param_type != it_param_type_end
                         && it_argument != it_argument_end;
-                        ++it_param_type, ++it_argument)
+                        ++it_argument)
                     {
                         lang_TypeInstance* param_type_instance = *it_param_type;
                         AstValueBase* argument_value = *it_argument;
 
                         if (argument_value->m_LANG_determined_type.has_value())
-                            // has been determined, skip;
-                            continue;
+                        {
+                            if (argument_value->node_type == AstBase::AST_FAKE_VALUE_UNPACK)
+                            {
+                                // Get unpacking type.
+                                AstFakeValueUnpack* unpack_value = static_cast<AstFakeValueUnpack*>(argument_value);
+                                lang_TypeInstance* unpack_value_type_instance =
+                                    unpack_value->m_LANG_determined_type.value();
 
-                        branch_b_context->m_arguments_tobe_deduct.push_back(
-                            AstValueFunctionCall_FakeAstArgumentDeductionContextB::ArgumentMatch{
-                                argument_value, param_type_instance });
+                                // NOTE: It's okay, fake value has been determined.
+                                auto* unpack_value_determined_base_type =
+                                    unpack_value_type_instance->get_determined_type().value();
+
+                                if (unpack_value_determined_base_type->m_base_type ==
+                                    lang_TypeInstance::DeterminedType::TUPLE)
+                                {
+                                    auto* tuple_type_dat =
+                                        unpack_value_determined_base_type->m_external_type_description.m_tuple;
+                                    const auto unpacking_count = tuple_type_dat->m_element_types.size();
+
+                                    for (size_t i = 0; i < unpacking_count; ++i)
+                                    {
+                                        if (++it_param_type == it_param_type_end)
+                                        {
+                                            // --it_param_type;
+                                            break;
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    it_param_type = it_param_type_end;
+                                    // --it_param_type;
+                                }
+                            }
+                            else
+                                // has been determined, skip;
+                                ++it_param_type;
+                        }
+                        else
+                        {
+                            branch_b_context->m_arguments_tobe_deduct.push_back(
+                                AstValueFunctionCall_FakeAstArgumentDeductionContextB::ArgumentMatch{
+                                    argument_value, param_type_instance });
+
+                            ++it_param_type;
+                        }
                     }
 
                     // There may be other parameters that need to be deduced beyond the fixed-length 

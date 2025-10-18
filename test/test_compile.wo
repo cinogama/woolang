@@ -2526,6 +2526,42 @@ func main()
         do false && bad;
         "@);
 
+        assure_compile_success(@"
+        func foo(_, _: real, _:real, _: (real)=>void)
+        {
+        }
+
+        foo((1.,1.,1.)..., func(v){do v;});
+        "@);
+        assure_compile_success(@"
+        func foo(_, _: real, _:real, _: (real)=>void)
+        {
+        }
+
+        foo(()..., (1.,1.,1.)..., ()..., func(v){do v;});
+        "@);
+        assure_compile_success(@"
+        func foo(_: real, _: real, _:real, _: (real)=>void)
+        {
+        }
+
+        foo(()..., (1.,1.,1.)..., func(v){do v;});
+        "@);
+        assure_compile_success(@"
+        func foo(_: real, _: real, _:real, _: (real)=>void)
+        {
+        }
+
+        foo((1.,1.,1.)..., ()..., func(v){do v;});
+        "@);
+        assure_compile_success(@"
+        func foo(_: real, _: real, _:real, _: (real)=>void)
+        {
+        }
+
+        foo((1.,1.,1.)..., func(v){do v;});
+        "@);
+
         // Do you forget to regenerate the grammar-cache?
         assure_compile_fail(@""@);
         assure_compile_fail(@"^"@);
