@@ -5,11 +5,11 @@ variables:
 build_release_win32:
   stage: build
   script:
-    - echo "Build for ASan test -> %ENABLE_ASAN_TEST%"
+    - echo "Build for ASan test -> $env:ENABLE_ASAN_TEST"
     - git submodule update --init --recursive --force
-    - if not exist build ( mkdir build )
+    - if (!(Test-Path "build")) { mkdir build }
     - cd build
-    - del CMakeCache.txt
+    - Remove-Item CMakeCache.txt -ErrorAction SilentlyContinue
     - cmake .. -A x64 -DWO_MAKE_OUTPUT_IN_SAME_PATH=ON -DCMAKE_BUILD_TYPE=RELWITHDEBINFO -DBUILD_SHARED_LIBS=ON
     - cmake --build . --config Release --parallel
     - cd ..
@@ -31,11 +31,11 @@ build_release_win32:
 build_release_win32_arm64:
   stage: build
   script:
-    - echo "Build for ASan test -> %ENABLE_ASAN_TEST%"
+    - echo "Build for ASan test -> $env:ENABLE_ASAN_TEST"
     - git submodule update --init --recursive --force
-    - if not exist build ( mkdir build )
+    - if (!(Test-Path "build")) { mkdir build }
     - cd build
-    - del CMakeCache.txt
+    - Remove-Item CMakeCache.txt -ErrorAction SilentlyContinue
     - cmake .. -A ARM64 -DWO_MAKE_OUTPUT_IN_SAME_PATH=ON -DCMAKE_BUILD_TYPE=RELWITHDEBINFO -DBUILD_SHARED_LIBS=ON
     - cmake --build . --config Release --parallel
     - cd ..
