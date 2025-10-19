@@ -4,6 +4,11 @@
 #include "wo_assert.hpp"
 
 #include <atomic>
+#include <thread>
+
+#ifdef _MSC_VER
+#   include <immintrin.h>
+#endif
 
 namespace wo
 {
@@ -111,15 +116,21 @@ namespace wo
             {
                 // If in msvc
 #if defined(_MSC_VER) && _MSC_VER >= 1900
+#   if defined(_M_ARM64) || defined(__aarch64__)
+                __yield();
+#   elif defined(_M_X64) || defined(__x86_64__)
                 _mm_pause();
-#elif defined(__GNUC__) || defined(__clang__)
-#if defined(__aarch64__) || defined(_M_ARM64)
-                __asm__ __volatile__("yield");
-#elif defined(__x86_64__) || defined(_M_X64)
-                __asm__ __volatile__("pause");
-#else
+#   else
                 std::this_thread::yield();
-#endif
+#   endif
+#elif defined(__GNUC__) || defined(__clang__)
+#   if defined(__aarch64__) || defined(_M_ARM64)
+                __asm__ __volatile__("yield");
+#   elif defined(__x86_64__) || defined(_M_X64)
+                __asm__ __volatile__("pause");
+#   else
+                std::this_thread::yield();
+#   endif
 #else
                 // No specific pause instruction available, use a generic hint
                 std::this_thread::yield();
