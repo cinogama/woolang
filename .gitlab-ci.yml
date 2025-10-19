@@ -10,8 +10,8 @@ build_release_win32:
     - if not exist build ( mkdir build )
     - cd build
     - del CMakeCache.txt
-    - cmake .. -DWO_MAKE_OUTPUT_IN_SAME_PATH=ON -DCMAKE_BUILD_TYPE=RELWITHDEBINFO -DBUILD_SHARED_LIBS=ON
-    - MSBuild driver/woodriver.vcxproj -p:Configuration=Release -m
+    - cmake .. -A x64 -DWO_MAKE_OUTPUT_IN_SAME_PATH=ON -DCMAKE_BUILD_TYPE=RELWITHDEBINFO -DBUILD_SHARED_LIBS=ON
+    - cmake --build . --config Release --parallel
     - cd ..
   artifacts:
     name: win32-wo-build-release-$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA
@@ -27,6 +27,32 @@ build_release_win32:
         - "build/*"
   tags:
     - winserver22
+
+build_release_win32_arm64:
+  stage: build
+  script:
+    - echo "Build for ASan test -> %ENABLE_ASAN_TEST%"
+    - git submodule update --init --recursive --force
+    - if not exist build ( mkdir build )
+    - cd build
+    - del CMakeCache.txt
+    - cmake .. -A ARM64 -DWO_MAKE_OUTPUT_IN_SAME_PATH=ON -DCMAKE_BUILD_TYPE=RELWITHDEBINFO -DBUILD_SHARED_LIBS=ON
+    - cmake --build . --config Release --parallel
+    - cd ..
+  artifacts:
+    name: win32-arm64-wo-build-release-$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA
+    paths:
+      - build/Release/woolang.exe
+      - build/Release/libwoo.dll
+    expire_in: 1 week
+  # depending on your build setup it's most likely a good idea to cache outputs to reduce the build time
+  cache:
+    when: on_success
+    key: wo-build-release-win32-arm64-$CI_COMMIT_REF_SLUG
+    paths:
+        - "build/*"
+  tags:
+    - windows11-arm64
 
 build_release:
   stage: build
