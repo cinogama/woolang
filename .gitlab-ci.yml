@@ -9,7 +9,6 @@ build_release_win32:
     - git submodule update --init --recursive --force
     - if (!(Test-Path "build")) { mkdir build }
     - cd build
-    - Remove-Item CMakeCache.txt -ErrorAction SilentlyContinue
     - cmake .. -A x64 -DWO_MAKE_OUTPUT_IN_SAME_PATH=ON -DCMAKE_BUILD_TYPE=RELWITHDEBINFO -DBUILD_SHARED_LIBS=ON
     - cmake --build . --config Release --parallel
     - cd ..
@@ -35,7 +34,6 @@ build_release_win32_arm64:
     - git submodule update --init --recursive --force
     - if (!(Test-Path "build")) { mkdir build }
     - cd build
-    - Remove-Item CMakeCache.txt -ErrorAction SilentlyContinue
     - cmake .. -A ARM64 -DWO_MAKE_OUTPUT_IN_SAME_PATH=ON -DCMAKE_BUILD_TYPE=RELWITHDEBINFO -DBUILD_SHARED_LIBS=ON
     - cmake --build . --config Release --parallel
     - cd ..
