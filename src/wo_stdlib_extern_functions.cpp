@@ -1748,6 +1748,8 @@ namespace std
     ";\n"
     //////////////////////////////////////////////////////////////////////
     u8R"(
+        extern("rslib_std_get_env", slow)
+            public func env(name: string)=> option<string>;
     }
 }
 namespace unsafe
@@ -1767,8 +1769,6 @@ namespace std
     public let bad<Msg: string> = panic(Msg): bad_t<{Msg}>;
     extern("rslib_std_bad_function")
         public func declval<T>()=> T;
-    extern("rslib_std_get_env", slow)
-        public func env(name: string)=> option<string>;
     namespace type_traits
     {
         public alias invoke_result_t<F, ArgTs> = typeof(declval:<F>()(declval:<ArgTs>()...));
