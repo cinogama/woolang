@@ -1549,6 +1549,17 @@ WO_API wo_api rslib_std_bad_function(wo_vm vm, wo_value args)
     return wo_ret_panic(vm, "This function cannot be called at runtime.");
 }
 
+WO_API wo_api rslib_std_get_env(wo_vm vm, wo_value args)
+{
+    static std::mutex env_lock;
+    std::lock_guard g(env_lock);
+
+    const char* env = getenv(wo_string(args + 0));
+    if (env)
+        return wo_ret_option_string(vm, env);
+    return wo_ret_option_none(vm);
+}
+
 WO_API wo_api rslib_std_bit_or(wo_vm vm, wo_value args)
 {
     auto result = wo_int(args + 0) | wo_int(args + 1);
@@ -1756,6 +1767,8 @@ namespace std
     public let bad<Msg: string> = panic(Msg): bad_t<{Msg}>;
     extern("rslib_std_bad_function")
         public func declval<T>()=> T;
+    extern("rslib_std_get_env", slow)
+        public func env(name: string)=> option<string>;
     namespace type_traits
     {
         public alias invoke_result_t<F, ArgTs> = typeof(declval:<F>()(declval:<ArgTs>()...));
@@ -3366,27 +3379,10 @@ namespace std
 }
 )" };
 
-WO_API wo_api rslib_std_call_shell(wo_vm vm, wo_value args)
+WO_API wo_api rslib_std_shell(wo_vm vm, wo_value args)
 {
     if (wo::config::ENABLE_SHELL_PACKAGE)
         return wo_ret_int(vm, system(wo_string(args + 0)));
-    else
-        return wo_ret_panic(vm, "Function defined in 'std/shell.wo' has been forbidden, "
-            "trying to restart without '--enable-shell 1'.");
-}
-
-WO_API wo_api rslib_std_get_env(wo_vm vm, wo_value args)
-{
-    if (wo::config::ENABLE_SHELL_PACKAGE)
-    {
-        static std::mutex env_lock;
-        std::lock_guard g(env_lock);
-
-        const char* env = getenv(wo_string(args + 0));
-        if (env)
-            return wo_ret_option_string(vm, env);
-        return wo_ret_option_none(vm);
-    }
     else
         return wo_ret_panic(vm, "Function defined in 'std/shell.wo' has been forbidden, "
             "trying to restart without '--enable-shell 1'.");
@@ -3398,11 +3394,8 @@ u8R"(
 import woo::std;
 namespace std
 {
-    extern("rslib_std_call_shell", slow)
+    extern("rslib_std_shell", slow)
         public func shell(cmd: string)=> int;
-
-    extern("rslib_std_get_env")
-        public func env(name: string)=> option<string>;
 }
 )" };
 
@@ -3451,7 +3444,6 @@ namespace wo
             {"rslib_std_bit_shr", (void*)&rslib_std_bit_shr},
             {"rslib_std_bit_xor", (void*)&rslib_std_bit_xor},
             {"rslib_std_break_yield", (void*)&rslib_std_break_yield},
-            {"rslib_std_call_shell", (void*)&rslib_std_call_shell},
             {"rslib_std_char_hexnum", (void*)&rslib_std_char_hexnum},
             {"rslib_std_char_isalnum", (void*)&rslib_std_char_isalnum},
             {"rslib_std_char_isalpha", (void*)&rslib_std_char_isalpha},
@@ -3519,6 +3511,7 @@ namespace wo
             {"rslib_std_replace_tp", (void*)rslib_std_replace_tp},
             {"rslib_std_return_itself", (void*)&rslib_std_return_itself},
             {"rslib_std_serialize", (void*)&rslib_std_serialize},
+            {"rslib_std_shell", (void*)&rslib_std_shell},
             {"rslib_std_str_byte_len", (void*)&rslib_std_str_byte_len},
             {"rslib_std_str_char_len", (void*)&rslib_std_str_char_len},
             {"rslib_std_string_append_cchar", (void*)&rslib_std_string_append_cchar},
