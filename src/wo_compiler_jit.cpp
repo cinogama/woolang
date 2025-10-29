@@ -76,7 +76,7 @@ namespace wo
         {
             void handleError(asmjit::Error err, const char* message, asmjit::BaseEmitter*) override
             {
-                fprintf(stderr, "AsmJit error: %s(%d)\n", message,(int)err);
+                fprintf(stderr, "AsmJit error: %s(%d)\n", message, (int)err);
             }
         };
 
@@ -132,6 +132,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(ltr);\
 WO_ASMJIT_IR_ITERFACE_DECL(gtr);\
 WO_ASMJIT_IR_ITERFACE_DECL(eltr);\
 WO_ASMJIT_IR_ITERFACE_DECL(egtr);\
+WO_ASMJIT_IR_ITERFACE_DECL(movicas);\
 WO_ASMJIT_IR_ITERFACE_DECL(call);\
 WO_ASMJIT_IR_ITERFACE_DECL(calln);\
 WO_ASMJIT_IR_ITERFACE_DECL(setip);\
@@ -2371,6 +2372,57 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 
             return true;
         }
+
+        virtual bool ir_movicas(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
+        {
+            WO_JIT_ADDRESSING_N1;
+            WO_JIT_ADDRESSING_N2;
+            WO_JIT_ADDRESSING_N3_REG_BPOFF;
+
+            auto expected = ctx->c.newInt64();
+            auto desired = ctx->c.newInt64();
+            auto op1_ptr = opnum1.gp_value();
+            auto op2_val = opnum2.gp_value();
+            auto op3_val = opnum3.gp_value();
+
+            // Load expected value (opnum3)
+            wo_assure(!ctx->c.mov(expected, asmjit::x86::qword_ptr(op3_val, offsetof(value, m_value_field))));
+
+            // Load desired value (opnum2)
+            if (opnum2.is_constant())
+                wo_assure(!ctx->c.mov(desired, opnum2.const_value()->m_value_field));
+            else
+                wo_assure(!ctx->c.mov(desired, asmjit::x86::qword_ptr(op2_val, offsetof(value, m_value_field))));
+
+            // Perform atomic compare and exchange
+            auto result = ctx->c.newInt64();
+            wo_assure(!ctx->c.mov(result, expected));
+            wo_assure(!ctx->c.lock().cmpxchg(
+                asmjit::x86::qword_ptr(op1_ptr, offsetof(value, m_value_field)),
+                desired,
+                result));
+
+            // Check if exchange was successful
+            auto success_label = ctx->c.newLabel();
+            wo_assure(!ctx->c.cmp(result, expected));
+            wo_assure(!ctx->c.je(success_label));
+
+            // Exchange failed - update opnum3 with current value
+            wo_assure(!ctx->c.mov(
+                asmjit::x86::qword_ptr(op3_val, offsetof(value, m_value_field)), result));
+
+            wo_assure(!ctx->c.bind(success_label));
+
+            // Set CR to indicate success (1) or failure (0)
+            auto cr_val = ctx->c.newInt64();
+            wo_assure(!ctx->c.sete(cr_val.r8()));
+            wo_assure(!ctx->c.movzx(cr_val, cr_val.r8()));
+            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer)), cr_val));
+            wo_assure(!ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, m_type)), (uint8_t)value::valuetype::bool_type));
+
+            return true;
+        }
+
         /*
         native_do_call_vmfunc_with_stack_overflow_check
             native_do_calln_vmfunc

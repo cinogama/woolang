@@ -9,7 +9,6 @@ namespace wo
 {
     struct instruct
     {
-
         /*
         *  OPCODE(DR) [OPARGS...]
         *
@@ -28,6 +27,18 @@ namespace wo
     OPCODE##gs = OPCODE | 0b01, \
     OPCODE##sg = OPCODE | 0b10, \
     OPCODE##ss = OPCODE | 0b11
+
+        /*
+        Checklist when adding instructions:
+        1. Add instruction prototype in wo.h
+        2. Add instruction here and provide DR parsing forms
+        3. Add IR generation instruction interface in wo_compiler_ir.hpp
+        4. Implement bytecode generation from instructions in wo_compiler_ir.cpp
+        5. Add bytecode to readable form display in dump_program_bin in wo_vm.cpp
+        6. Implement interpretation execution in wo_vm.cpp
+        7. Add instruction mapping for IRS in wo_compiler_jit.cpp
+        8. Implement JIT generation of instructions in wo_compiler_jit.cpp
+        */
 
         enum opcode : uint8_t
         {
@@ -147,6 +158,9 @@ namespace wo
             callnwo = calln | 0b00,
             callnfpslow = calln | 0b01,
             callnfp = calln | 0b11,
+            ///////////////////////////////////
+            movicas = WO_OPCODE_SPACE(MOVICAS),
+            WO_OPCODE_DR2SG(movicas),
             ///////////////////////////////////
             setip = WO_OPCODE_SPACE(SETIP),
             jmp = setip | 0b00,

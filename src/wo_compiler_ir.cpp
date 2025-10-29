@@ -2466,6 +2466,12 @@ namespace wo
                     generated_runtime_code_buf.push_back(0x00);
                     break;
                 }
+                case instruct::opcode::movicas:
+                    generated_runtime_code_buf.push_back(WO_OPCODE(movicas));
+                    WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                    WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
+                    opnum::reg((uint8_t)WO_IR.opinteger1).generate_opnum_to_buffer(generated_runtime_code_buf);
+                    break;
                 case instruct::opcode::call:
                     generated_runtime_code_buf.push_back(WO_OPCODE(call));
                     WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);

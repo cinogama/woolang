@@ -1173,7 +1173,22 @@ namespace wo
 
             WO_PUT_IR_TO_BUFFER(instruct::opcode::typeas, WO_OPNUM(op1), nullptr, (int)vtt, 1);
         }
+        template<typename OP1T, typename OP2T, typename OP3T>
+        void movicas(const OP1T& op1, const OP2T& op2, const OP3T& r)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
+                && std::is_base_of<opnum::opnumbase, OP2T>::value,
+                "Argument(s) should be opnum.");
 
+            static_assert(std::is_same<OP3T, opnum::reg>::value
+                || std::is_same<OP3T, opnum::temporary>::value,
+                "Argument r should be reg or temporary.");
+
+            if constexpr (std::is_same<OP3T, opnum::reg>::value)
+                WO_PUT_IR_TO_BUFFER(instruct::opcode::movicas, WO_OPNUM(op1), WO_OPNUM(op2), (int32_t)r.id);
+            else
+                WO_PUT_IR_TO_BUFFER(instruct::opcode::movicas, WO_OPNUM(op1), WO_OPNUM(op2), -(int32_t)(r.m_id + 1));
+        }
         template<typename OP1T>
         void call(const OP1T& op1)
         {

@@ -1271,7 +1271,6 @@ enum _wo_opcode
     // OPNUM1: DRL = 1 ? RS/GLB : IMM_U16   If DRL == 1, Pop value fron stack and store it
     //                                      into `OPNUM1` . or move the stack pointer by
     //                                      `OPNUM1` length, just like pop same times.
-
     WO_ADDI = 4, // DRH: Opnum1 desc, DRL: Opnum2 desc
     // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Add `OPNUM2` to `OPNUM1` and store the result
     //                                      in `OPNUM1`. Operands should be integers
@@ -1294,7 +1293,6 @@ enum _wo_opcode
     //                                      ATTENTION:
     //                                          There is no check for division by zero and
     //                                          division overflow in MODI.
-
     WO_ADDR = 9, // DRH: Opnum1 desc, DRL: Opnum2 desc
     // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Add `OPNUM2` to `OPNUM1` and store the result
     //                                      in `OPNUM1`. Operands should be reals.
@@ -1315,7 +1313,6 @@ enum _wo_opcode
     // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Get the remainder of `OPNUM1` divided by `OPNUM2`
     //                                      and store the result in `OPNUM1`. Operands should
     //                                      be reals.
-
     WO_ADDH = 14,
     // DRH: Opnum1 desc, DRL: Opnum2 desc
     // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Add `OPNUM2` to `OPNUM1` and store the result
@@ -1324,12 +1321,10 @@ enum _wo_opcode
     // DRH: Opnum1 desc, DRL: Opnum2 desc
     // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Subtract `OPNUM1` from `OPNUM2` and store the
     //                                      result in `OPNUM1`. Operands should be handles.
-
     WO_ADDS = 16,
     // DRH: Opnum1 desc, DRL: Opnum2 desc
     // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Concatenate `OPNUM2` to `OPNUM1` and store the
     //                                      result in `OPNUM1`. Operands should be strings.
-
     WO_IDARR = 17,
     // DRH: Opnum1 desc, DRL: Opnum2 desc
     // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Get the element of `OPNUM1` by index `OPNUM2`
@@ -1338,7 +1333,6 @@ enum _wo_opcode
     // DRH: Opnum1 desc, DRL: Opnum2 desc
     // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Set the element of `OPNUM1` by index `OPNUM2`
     // OPNUM3: RS                           with the value of `OPNUM3`.
-
     WO_IDDICT = 19,
     // DRH: Opnum1 desc, DRL: Opnum2 desc
     // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Get the value of `OPNUM2` by key `OPNUM2`
@@ -1360,12 +1354,10 @@ enum _wo_opcode
     // DRH: Opnum1 desc, DRL: Opnum2 desc
     // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Set the field of `OPNUM1` by index `OPNUM3`
     // OPNUM3: IMM_U16                      with the value of `OPNUM2`.
-
     WO_IDSTR = 24,
     // DRH: Opnum1 desc, DRL: Opnum2 desc
     // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Get the character of `OPNUM1` by index `OPNUM2`
     //                                      and store the result in register(cr).
-
     WO_LTI = 25,
     // DRH: Opnum1 desc, DRL: Opnum2 desc
     // OPNUM1: RS/GLB  OPNUM2: IMM_U16      If `OPNUM1` less than `OPNUM2`, store true in
@@ -1386,7 +1378,6 @@ enum _wo_opcode
     // OPNUM1: RS/GLB  OPNUM2: IMM_U16      If `OPNUM1` greater than or equal to `OPNUM2`, store
     //                                      true in register(cr), otherwise store false. Type of
     //                                      `OPNUM1` & `OPNUM2` should be integer.
-
     WO_LAND = 29,
     // DRH: Opnum1 desc, DRL: Opnum2 desc
     // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` and `OPNUM2` are true, store true in
@@ -1395,7 +1386,6 @@ enum _wo_opcode
     // DRH: Opnum1 desc, DRL: Opnum2 desc
     // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` or `OPNUM2` are true, store true in
     //                                      register(cr), otherwise store false.
-
     WO_LTX = 31,
     // DRH: Opnum1 desc, DRL: Opnum2 desc
     // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` less than `OPNUM2`, store true in
@@ -1411,13 +1401,11 @@ enum _wo_opcode
     // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` less than or equal to `OPNUM2`, store
     //                                      true in register(cr), otherwise store false. The type of
     //                                      `OPNUM1` and `OPNUM2` should be the same.
-
     WO_EGTX = 34,
     // DRH: Opnum1 desc, DRL: Opnum2 desc
     // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` greater than or equal to `OPNUM2`, store
     //                                      true in register(cr), otherwise store false. The type of
     //                                      `OPNUM1` and `OPNUM2` should be the same.
-
     WO_LTR = 35,
     // DRH: Opnum1 desc, DRL: Opnum2 desc
     // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` less than `OPNUM2`, store true in
@@ -1438,13 +1426,11 @@ enum _wo_opcode
     // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` greater than or equal to `OPNUM2`, store
     //                                      true in register(cr), otherwise store false. Type of
     //                                      `OPNUM1` & `OPNUM2` should be real.
-
     WO_EQUR = 39,
     // DRH: Opnum1 desc, DRL: Opnum2 desc
     // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` equal to `OPNUM2`, store true in register(cr),
     //                                      otherwise store false. The type of `OPNUM1` and `OPNUM2`
     //                                      should be real.
-
     WO_NEQUR = 40,
     // DRH: Opnum1 desc, DRL: Opnum2 desc
     // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` not equal to `OPNUM2`, store true in register(cr),
@@ -1470,7 +1456,6 @@ enum _wo_opcode
     // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` not equal to `OPNUM2`, store true in register(cr),
     //                                      otherwise store false. Only compare data field of value and
     //                                      ignore type.
-
     WO_JNEQUB = 45,
     // DRH: Opnum1 desc, DRL: 0
     // OPNUM1: RS/GLB  OPNUM2: IMM_U16      If `OPNUM1` not equal to register(cr), jump to the instruction
@@ -1485,7 +1470,6 @@ enum _wo_opcode
     //                                     * if `OPNUM1` is closure, the captured variable will be expand
     //                                          to stack, and the captured function will work following the
     //                                          above rules
-
     WO_CALLN = 47,
     // DRH: Leaving invoke flag, DRL: Woolang Native API Function flag.
     // OPNUM1: If DRL = 1 ? IMM_U64 : [IMM_U32 with 32bits padding]
@@ -1495,7 +1479,21 @@ enum _wo_opcode
     //                                      invoked without gc-guard.
     //                                      If DRL = 0, DRH must be 0, and invoke just like integer case in
     //                                      WO_CALL.
-    // _RESERVED_ = 48,
+    WO_MOVICAS = 48,
+    // DRH: Opnum1 desc, DRL: Opnum2 desc
+    // OPNUM1: RS/GLB  OPNUM2: RS/GLB  OPNUM3: RS
+    //                                      Compare-and-swap: Compare the value of `OPNUM1` with `OPNUM3`,
+    //                                      if they are equal, set `OPNUM1` to `OPNUM2`. The operation is
+    //                                      atomic. If the platform does not support lock-free atomic
+    //                                      operations, it will fall back to a locked implementation.
+    //
+    //                                      Operand types are ignored and treated as wo_integer_t.
+    //
+    //                                      If the swap is successful, CR will be set to true, otherwise false;
+    //                                      If the swap fails, the old value of OPNUM1 will be written to OPNUM3.
+    //
+    //                                      NOTE: Operands are assumed to be integers, so no write barrier is 
+    //                                          guaranteed.
     // _RESERVED_ = 49,
     WO_SETIPGC = 50,
     // DRH: JCOND_FLAG, DRL: JCOND_FLAG ? (0: JMPF, 1: JMPT) : 0
@@ -1534,7 +1532,6 @@ enum _wo_opcode
     //                                      The value in the stack should be:
     //                                          SP-> [Captured N-1, Captured N-2, ..., Captured 0] -> BP
     //                                      Captured 0 will be [bp - 1] when this closure is invoked.
-
     WO_UNPACK = 57,
     // DRH: Opnum1 desc, DRL: 0
     // OPNUM1: RS/GLB  OPNUM2: IMM_U32      Expand array/struct into stack, at least expand abs(OPNUM2).

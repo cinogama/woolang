@@ -733,11 +733,52 @@ namespace wo
             {
                 m_ircontext.c().equb(
                     WO_OPNUM(m_ircontext.opnum_global(node->m_IR_static_init_flag_global_offset.value())),
-                    WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::ni)));
-                m_ircontext.c().jf(opnum::tag(_generate_label("#static_end_", node)));
+                    WO_OPNUM(m_ircontext.opnum_imm_int(2)));
+                m_ircontext.c().jt(opnum::tag(_generate_label("#static_end_", node)));
+
+                /*
+                    mov tp, 0;
+                    movicas Flag, 1, tp;
+                    jt static_job_
+                static_wait_:
+                    movicas Flag, tp, tp;
+                    equb tp 2
+                    jt static_end_
+                    jmp static_wait_
+                static_job_:
+                    ...
+                    movicas Flag, 2, tp
+                    jt static_end_
+                    ext0 panic xxx
+                static_end_:
+                */
+
                 m_ircontext.c().mov(
+                    WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tp)),
+                    WO_OPNUM(m_ircontext.opnum_imm_int(0)));
+
+                m_ircontext.c().movicas(
                     WO_OPNUM(m_ircontext.opnum_global(node->m_IR_static_init_flag_global_offset.value())),
-                    WO_OPNUM(m_ircontext.opnum_imm_bool(true)));
+                    WO_OPNUM(m_ircontext.opnum_imm_int(1)),
+                    opnum::reg(opnum::reg::tp));
+
+                m_ircontext.c().jt(opnum::tag(_generate_label("#static_job_", node)));
+                m_ircontext.c().tag(_generate_label("#static_wait_", node));
+
+                m_ircontext.c().movicas(
+                    WO_OPNUM(m_ircontext.opnum_global(node->m_IR_static_init_flag_global_offset.value())),
+                    WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tp)),
+                    opnum::reg(opnum::reg::tp));
+
+                m_ircontext.c().equb(
+                    WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tp)),
+                    WO_OPNUM(m_ircontext.opnum_imm_int(2)));
+
+                m_ircontext.c().jt(opnum::tag(_generate_label("#static_end_", node)));
+                m_ircontext.c().jmp(opnum::tag(_generate_label("#static_wait_", node)));
+
+                m_ircontext.c().tag(_generate_label("#static_job_", node));
+                // Static job body will be continued.
             }
 
             WO_CONTINUE_PROCESS_LIST(node->m_definitions);
@@ -746,7 +787,23 @@ namespace wo
         if (state == HOLD)
         {
             if (node->m_IR_static_init_flag_global_offset.has_value())
+            {
+                m_ircontext.c().mov(
+                    WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tp)),
+                    WO_OPNUM(m_ircontext.opnum_imm_int(1)));
+                m_ircontext.c().movicas(
+                    WO_OPNUM(m_ircontext.opnum_global(node->m_IR_static_init_flag_global_offset.value())),
+                    WO_OPNUM(m_ircontext.opnum_imm_int(2)),
+                    opnum::reg(opnum::reg::tp));
+
+#ifndef NDEBUG  
+                m_ircontext.c().jt(opnum::tag(_generate_label("#static_end_", node)));
+                m_ircontext.c().ext_panic(WO_OPNUM(m_ircontext.opnum_imm_string(
+                    wstring_pool::get_pstr(
+                        "Atomic operation spurious failure."))));
+#endif
                 m_ircontext.c().tag(_generate_label("#static_end_", node));
+            }
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }

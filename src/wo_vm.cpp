@@ -601,7 +601,6 @@ namespace wo
                 tmpos << "eltx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
             case instruct::egtx:
                 tmpos << "egtx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-
             case instruct::ltr:
                 tmpos << "ltr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
             case instruct::gtr:
@@ -610,10 +609,18 @@ namespace wo
                 tmpos << "eltr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
             case instruct::egtr:
                 tmpos << "egtr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-
+            case instruct::movicas:
+                tmpos << "movicas\t";
+                print_opnum1();
+                tmpos << ",\t";
+                print_opnum2();
+                tmpos << ",\t";
+                print_reg_bpoffset();
+                break;
             case instruct::call:
-                tmpos << "call\t"; print_opnum1(); break;
-
+                tmpos << "call\t";
+                print_opnum1();
+                break;
             case instruct::calln:
                 if (main_command & 0b10)
                     tmpos << "callnfast\t";
@@ -3019,6 +3026,42 @@ namespace wo
 
                 sp = make_closure_fp_impl(
                     rt_cr, closure_arg_count, native_function, sp);
+
+                break;
+            }
+            case WO_RSG_ADDRESSING_CASE(movicas):
+            {
+                WO_ADDRESSING_RS3;
+
+                if constexpr (std::atomic<wo_integer_t>::is_always_lock_free
+                    && sizeof(std::atomic<wo_integer_t>) == sizeof(wo_integer_t))
+                {
+                    std::atomic<wo_integer_t>* target_atomic =
+                        std::launder(
+                            reinterpret_cast<std::atomic<wo_integer_t>*>(
+                                &opnum1->m_integer));
+
+                    cr->set_bool(
+                        target_atomic->compare_exchange_strong(
+                            opnum3->m_integer,
+                            opnum2->m_integer));
+                }
+                else
+                {
+                    static gcbase::_shared_spin _movicas_lock; 
+                    
+                    std::lock_guard g(_movicas_lock);
+                    if (opnum1->m_integer == opnum3->m_integer)
+                    {
+                        opnum1->m_integer = opnum2->m_integer;
+                        cr->set_bool(true);
+                    }
+                    else
+                    {
+                        opnum3->m_integer = opnum1->m_integer;
+                        cr->set_bool(false);
+                    }
+                }
 
                 break;
             }
