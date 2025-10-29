@@ -2386,19 +2386,19 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             auto op3_val = opnum3.gp_value();
 
             // Load expected value (opnum3)
-            wo_assure(!ctx->c.mov(expected, asmjit::x86::qword_ptr(op3_val, offsetof(value, m_value_field))));
+            wo_assure(!ctx->c.mov(expected, asmjit::x86::qword_ptr(op3_val, offsetof(value, m_integer))));
 
             // Load desired value (opnum2)
             if (opnum2.is_constant())
-                wo_assure(!ctx->c.mov(desired, opnum2.const_value()->m_value_field));
+                wo_assure(!ctx->c.mov(desired, opnum2.const_value()->m_integer));
             else
-                wo_assure(!ctx->c.mov(desired, asmjit::x86::qword_ptr(op2_val, offsetof(value, m_value_field))));
+                wo_assure(!ctx->c.mov(desired, asmjit::x86::qword_ptr(op2_val, offsetof(value, m_integer))));
 
             // Perform atomic compare and exchange
             auto result = ctx->c.newInt64();
             wo_assure(!ctx->c.mov(result, expected));
             wo_assure(!ctx->c.lock().cmpxchg(
-                asmjit::x86::qword_ptr(op1_ptr, offsetof(value, m_value_field)),
+                asmjit::x86::qword_ptr(op1_ptr, offsetof(value, m_integer)),
                 desired,
                 result));
 
@@ -2409,7 +2409,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 
             // Exchange failed - update opnum3 with current value
             wo_assure(!ctx->c.mov(
-                asmjit::x86::qword_ptr(op3_val, offsetof(value, m_value_field)), result));
+                asmjit::x86::qword_ptr(op3_val, offsetof(value, m_integer)), result));
 
             wo_assure(!ctx->c.bind(success_label));
 
