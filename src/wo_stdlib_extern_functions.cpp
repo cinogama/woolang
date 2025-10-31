@@ -1896,9 +1896,9 @@ namespace option
         match(self)
         {
         value(x)?
-            return value(functor(x));
+            return option::value(functor(x));
         none?
-            return none;
+            return option::none;
         }
     }
     public func map_or<T, R>(self: option<T>, functor: (T)=> R, default: R)
@@ -1929,7 +1929,7 @@ namespace option
         match(self)
         {
         value(u)? return functor(u);
-        none? return none;
+        none? return option::none;
         }
     }
     
@@ -1965,7 +1965,7 @@ namespace option
         match(self)
         {
         value(x)? return x;
-        none? return std::panic("Expect 'value' here, but get 'none'.");
+        none? return std::panic("`unwrap` called on a `option::none`.");
         }
     }
     public func is_value<T>(self: option<T>)=> bool
@@ -2025,8 +2025,8 @@ namespace result
     {
         match(self)
         {
-        ok(v)? return ok(functor(v));
-        err(e)? return err(e);
+        ok(v)? return result::ok(functor(v));
+        err(e)? return result::err(e);
         }
     }
     public func map_or<T, F, R>(self: result<T, F>, functor: (T)=> R, default: R)
@@ -2047,22 +2047,22 @@ namespace result
         err(_)? return default();
         }
     }
-    public func map_err<T, F, RF>(self: result<T, F>, functor: (F)=> RF)
-        => result<T, RF>
-    {
-        match(self)
-        {
-        ok(v)? return ok(v);
-        err(e)? return err(functor(e));
-        }
-    }
     public func bind<T, F, R>(self: result<T, F>, functor: (T)=> result<R, F>)
         => result<R, F>
     {
         match(self)
         {
         ok(v)? return functor(v);
-        err(e)? return err(e);
+        err(e)? return result::err(e);
+        }
+    }
+    public func or_map<T, F, RF>(self: result<T, F>, functor: (F)=> result<T, RF>)
+        => result<T, RF>
+    {
+        match(self)
+        {
+        ok(v)? return result::ok(v);
+        err(e)? return result::err(functor(e));
         }
     }
     public func or_bind<T, F, RF>(self: result<T, F>, functor: (F)=> result<T, RF>)
@@ -2070,7 +2070,7 @@ namespace result
     {
         match(self)
         {
-        ok(v)? return ok(v);
+        ok(v)? return result::ok(v);
         err(e)? return functor(e);
         }
     }
@@ -2099,10 +2099,10 @@ namespace result
         {
         ok(v)? return v;
         err(e)? 
-            if (typeid:<typeof(e: string)> != 0)
-                return std::panic(F"An error was found in 'unwrap': {e}");
-            else
-                return std::panic("An error was found in 'unwrap'.");
+            return std::panic(
+                typeid:<typeof(e: string)> != 0
+                    ? F"`unwrap` called on an `result::err`: {e}"
+                    | "`unwrap` called on an `result::err`.");
         }
     }
     public func unwrap_err<T, F>(self: result<T, F>)
@@ -2110,7 +2110,10 @@ namespace result
     {
         match(self)
         {
-        ok(_)? return std::panic("Expected result::err in 'unwrap_err'.");
+        ok(v)? return std::panic(
+            typeid:<typeof(v: string)> != 0
+                ? F"`unwrap_err` called on an `result::ok`: {v}"
+                | "`unwrap_err` called on an `result::ok`.");
         err(e)? return e;
         }
     }
@@ -3269,11 +3272,14 @@ namespace std
         l_struct,
         l_immut,
         l_typeid,
+        l_defer,
         l_macro,
         l_line_comment,
         l_block_comment,
-        l_block_comment_end,
+        L_shebang_comment,
         l_unknown_token,
+
+        lex_type_COUNT,
     }
 
     public using lexer = handle
