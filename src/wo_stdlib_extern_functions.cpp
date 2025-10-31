@@ -1932,7 +1932,22 @@ namespace option
         none? return option::none;
         }
     }
-    
+    public func bind_or<T, R>(self: option<T>, functor: (T)=> option<R>, default: R)
+    {
+        match(self)
+        {
+        value(u)? return functor(u)->or(default);
+        none? return default;
+        }
+    }
+    public func bind_or_do<T, R>(self: option<T>, functor: (T)=> option<R>, default: ()=> R)
+    {
+        match(self)
+        {
+        value(u)? return functor(u)->or_do(default);
+        none? return default();
+        }
+    }
     public func or<T>(self: option<T>, default: T)
         => T
     {
@@ -2056,7 +2071,25 @@ namespace result
         err(e)? return result::err(e);
         }
     }
-    public func or_map<T, F, RF>(self: result<T, F>, functor: (F)=> result<T, RF>)
+    public func bind_or<T, F, R>(self: result<T, F>, functor: (T)=> result<R, F>, default: R)
+        => result<R, F>
+    {
+        match(self)
+        {
+        ok(v)? return functor(v)->or(default);
+        err(e)? return default;
+        }
+    }
+    public func bind_or_do<T, F, R>(self: result<T, F>, functor: (T)=> result<R, F>, default: ()=> R)
+        => result<R, F>
+    {
+        match(self)
+        {
+        ok(v)? return functor(v)->or_do(default);
+        err(e)? return default();
+        }
+    }
+    public func or_map<T, F, RF>(self: result<T, F>, functor: (F)=> RF)
         => result<T, RF>
     {
         match(self)
