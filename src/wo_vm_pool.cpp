@@ -49,7 +49,7 @@ namespace wo
         } while (0);
 
         wo_assert(fetched_vm->check_interrupt(vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
-        wo_assert(fetched_vm->bp == vm->sp && vm->bp == vm->sb);
+        wo_assert(fetched_vm->bp == fetched_vm->sp && fetched_vm->bp == fetched_vm->sb);
 
         wo_assure(fetched_vm->clear_interrupt(
             (vmbase::vm_interrupt_type)(
