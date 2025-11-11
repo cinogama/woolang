@@ -34,14 +34,17 @@ namespace wo
         std::lock_guard g1(m_guard);
         if (!m_free_vm.empty())
         {
-            auto vm = m_free_vm.front();
-            m_free_vm.pop_front();
+            auto vm = m_free_vm.back();
+            m_free_vm.pop_back();
 
             wo_assert(vm->check_interrupt(vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
             wo_assert(vm->bp == vm->sp && vm->bp == vm->sb);
 
-            wo_assure(vm->clear_interrupt(vmbase::vm_interrupt_type::PENDING_INTERRUPT));
-            (void)vm->clear_interrupt(vmbase::vm_interrupt_type::ABORT_INTERRUPT);
+            wo_assure(vm->clear_interrupt(
+                (vmbase::vm_interrupt_type)(
+                    vmbase::vm_interrupt_type::PENDING_INTERRUPT
+                    | vmbase::vm_interrupt_type::ABORT_INTERRUPT)));
+
             vm->ip = nullptr; // IP Should be set by other function like invoke/dispatch.
 
             return vm;
@@ -133,6 +136,11 @@ namespace wo
 
             pool->release_vm(vm);
         }
+    }
+    void vmpool::drop_all_vm_in_shutdown() noexcept
+    {
+        std::lock_guard g1(m_pool_guard);
+        m_pool.clear();
     }
     void vmpool::gc_check_and_release_norefed_vm() noexcept
     {

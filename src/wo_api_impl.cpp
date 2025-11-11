@@ -466,16 +466,16 @@ void wo_handle_ctrl_c(void(*handler)(int))
 
 void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
 {
-    // Ready to shutdown all vm & coroutine.
-    // 
-    // Free all vm in pool, because vm in pool is PENDING, we can free them directly.
-    // ATTENTION: If somebody using global_vm_pool when finish, here may crash or dead loop.
-    wo::vmpool::global_vmpool_instance.reset();
+    // Ready to shutdown.
 
     time_t non_close_vm_last_warning_time = 0;
     size_t non_close_vm_last_warning_vm_count = 0;
     do
     {
+        // Free all vm in pool, because vm in pool is PENDING, we can free them directly.
+        if (wo::vmpool::global_vmpool_instance.has_value())
+            wo::vmpool::global_vmpool_instance.value()->drop_all_vm_in_shutdown();
+
         do
         {
             wo::assure_leave_this_thread_vm_lock_guard g1(wo::vmbase::_alive_vm_list_mx);
@@ -486,11 +486,24 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
             {
                 if (alive_vms->virtual_machine_type == wo::vmbase::vm_type::NORMAL)
                 {
-                    if (0 == not_close_vm_count++)
+                    if (0 == not_close_vm_count)
                         not_closed_vm_call_stacks << "Unclosed VM list:";
 
-                    not_closed_vm_call_stacks << std::endl << "<unclosed " << (void*)alive_vms << ">" << std::endl;
-                    alive_vms->dump_call_stack(32, true, not_closed_vm_call_stacks);
+                    if (not_close_vm_count < 32)
+                    {
+                        not_closed_vm_call_stacks << std::endl << "<unclosed " << (void*)alive_vms << ">" << std::endl;
+                        alive_vms->dump_call_stack(32, true, not_closed_vm_call_stacks);
+                    }
+                    else if (not_close_vm_count == 32)
+                    {
+                        not_closed_vm_call_stacks 
+                            << std::endl 
+                            << "... " 
+                            << (wo::vmbase::_alive_vm_list.size() - not_close_vm_count)
+                            << " more VMs not closed ..."
+                            << std::endl;
+                    }
+                    ++not_close_vm_count;
                 }
                 alive_vms->interrupt(wo::vmbase::ABORT_INTERRUPT);
             }
@@ -553,6 +566,9 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
             wo_warning(not_unload_lib_warn.c_str());
         }
     } while (0);
+
+    // Reset vmpool instance.
+    wo::vmpool::global_vmpool_instance.reset();
 }
 
 void wo_init(int argc, char** argv)
@@ -2740,13 +2756,13 @@ wo::compile_result _wo_compile_impl(
                     if (out_langcontext_if_pass_grammar != nullptr)
                         *out_langcontext_if_pass_grammar = std::move(lang_context);
                 }
-        }
+            }
 #else
             (void)compile_lexer->record_parser_error(
                 wo::lexer::msglevel_t::error, WO_ERR_COMPILER_DISABLED);
 #endif
+        }
     }
-}
     else
         // Load binary success. 
         compile_result = wo::compile_result::PROCESS_OK;
@@ -2770,7 +2786,7 @@ wo::compile_result _wo_compile_impl(
             *out_lexer_if_failed = std::move(compile_lexer);
     }
     return compile_result;
-        }
+}
 
 wo_bool_t _wo_load_source(
     wo_vm vm,
@@ -4092,12 +4108,12 @@ void wo_gcunit_lock_shared_force(wo_value gc_reference_object)
     {
         auto* gcunit = WO_VAL(gc_reference_object)->m_gcunit;
         gcunit->read();
-}
+    }
     else
     {
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not lockable.");
     }
-    }
+}
 void wo_gcunit_unlock_shared_force(wo_value gc_reference_object)
 {
     auto* value = WO_VAL(gc_reference_object);

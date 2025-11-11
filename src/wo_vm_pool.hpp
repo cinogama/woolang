@@ -3,10 +3,11 @@
 #include "wo_vm.hpp"
 #include "wo_gc.hpp"
 
-#include <list>
+#include <forward_list>
 #include <unordered_map>
 #include <optional>
 #include <memory>
+#include <shared_mutex>
 
 namespace wo
 {
@@ -15,10 +16,10 @@ namespace wo
         class vmpool_for_spec_env
         {
         private:
-            mutable gcbase::rw_lock m_guard;
+            mutable std::shared_mutex m_guard;
 
             runtime_env* m_env;
-            std::list<vmbase*>  m_free_vm;
+            std::vector<vmbase*>  m_free_vm;
         public:
             vmpool_for_spec_env(runtime_env* env);
             ~vmpool_for_spec_env();
@@ -44,6 +45,7 @@ namespace wo
 
         vmbase* borrow_vm_from_exists_vm(vmbase* vm) noexcept;
         void release_vm(vmbase* vm) noexcept;
+        void drop_all_vm_in_shutdown() noexcept;
         void gc_check_and_release_norefed_vm() noexcept;
 
         static std::optional<std::unique_ptr<vmpool>>
