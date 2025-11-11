@@ -30,7 +30,7 @@ namespace wo
     bool vmpool::vmpool_for_spec_env::is_empty() const noexcept
     {
         std::shared_lock sg1(m_guard);
-        return m_free_vm.empty();
+        return m_free_vm_count.load() == 0;
     }
     vmbase* vmpool::vmpool_for_spec_env::try_borrow_vm() noexcept
     {
@@ -78,15 +78,18 @@ namespace wo
 
         wo_assure(wo_leave_gcguard(reinterpret_cast<wo_vm>(vm)));
 
-        std::lock_guard g1(m_guard);
-        auto free_vm_storage_place = m_free_vm_count++;
-        if (m_free_vm.size() <= free_vm_storage_place)
+        do
         {
-            m_free_vm.push_back(vm);
-            wo_assert(m_free_vm.size() == 1 + free_vm_storage_place);
-        }
-        else
-            m_free_vm.at(free_vm_storage_place) = vm;
+            std::lock_guard g1(m_guard);
+            const auto free_vm_storage_place = m_free_vm_count++;
+            if (m_free_vm.size() <= free_vm_storage_place)
+            {
+                m_free_vm.push_back(vm);
+                wo_assert(m_free_vm.size() == 1 + free_vm_storage_place);
+            }
+            else
+                m_free_vm.at(free_vm_storage_place) = vm;
+        } while (0);
     }
 
     bool vmpool::try_get_pool_by_env(
