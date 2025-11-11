@@ -19,7 +19,9 @@ namespace wo
             mutable std::shared_mutex m_guard;
 
             runtime_env* m_env;
-            std::vector<vmbase*>  m_free_vm;
+
+            std::atomic_uint32_t m_free_vm_count;
+            std::vector<vmbase*> m_free_vm;
         public:
             vmpool_for_spec_env(runtime_env* env);
             ~vmpool_for_spec_env();

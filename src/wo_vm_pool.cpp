@@ -13,16 +13,19 @@ namespace wo
     }
     vmpool::vmpool_for_spec_env::~vmpool_for_spec_env()
     {
-        for (auto* free_vm : m_free_vm)
+        auto free_vm_count = m_free_vm_count.load();
+        auto* free_vm_storage = m_free_vm.data();
+
+        for (size_t i = 0; i < free_vm_count; ++i)
         {
             // Close all vm of current pool
-            wo_close_vm((wo_vm)free_vm);
+            wo_close_vm(reinterpret_cast<wo_vm>(free_vm_storage[i]));
         }
     }
     bool vmpool::vmpool_for_spec_env::is_norefed() const noexcept
     {
         std::shared_lock sg1(m_guard);
-        return m_free_vm.size() + 1 /* GC-VM */ == m_env->_running_on_vm_count;
+        return m_free_vm_count.load() + 1 /* GC-VM */ == m_env->_running_on_vm_count;
     }
     bool vmpool::vmpool_for_spec_env::is_empty() const noexcept
     {
@@ -31,30 +34,33 @@ namespace wo
     }
     vmbase* vmpool::vmpool_for_spec_env::try_borrow_vm() noexcept
     {
-        std::lock_guard g1(m_guard);
-        if (!m_free_vm.empty())
+        vmbase* fetched_vm;
+        do
         {
-            auto vm = m_free_vm.back();
-            m_free_vm.pop_back();
+            std::shared_lock sg1(m_guard);
+            auto expected_value = m_free_vm_count.load();
+            do
+            {
+                if (expected_value == 0)
+                    return nullptr;
+            } while (!m_free_vm_count.compare_exchange_weak(expected_value, expected_value - 1));
 
-            wo_assert(vm->check_interrupt(vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
-            wo_assert(vm->bp == vm->sp && vm->bp == vm->sb);
+            fetched_vm = m_free_vm.at(expected_value - 1);
+        } while (0);
 
-            wo_assure(vm->clear_interrupt(
-                (vmbase::vm_interrupt_type)(
-                    vmbase::vm_interrupt_type::PENDING_INTERRUPT
-                    | vmbase::vm_interrupt_type::ABORT_INTERRUPT)));
+        wo_assert(fetched_vm->check_interrupt(vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
+        wo_assert(fetched_vm->bp == vm->sp && vm->bp == vm->sb);
 
-            vm->ip = nullptr; // IP Should be set by other function like invoke/dispatch.
+        wo_assure(fetched_vm->clear_interrupt(
+            (vmbase::vm_interrupt_type)(
+                vmbase::vm_interrupt_type::PENDING_INTERRUPT
+                | vmbase::vm_interrupt_type::ABORT_INTERRUPT)));
 
-            return vm;
-        }
-        return nullptr;
+        fetched_vm->ip = nullptr; // IP Should be set by other function like invoke/dispatch.
+        return fetched_vm;
     }
     void vmpool::vmpool_for_spec_env::release_vm(vmbase* vm) noexcept
     {
-        std::lock_guard g1(m_guard);
-
         wo_assert(vm->check_interrupt(vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
         wo_assure(vm->interrupt(vmbase::vm_interrupt_type::PENDING_INTERRUPT));
 
@@ -71,7 +77,16 @@ namespace wo
         }
 
         wo_assure(wo_leave_gcguard(reinterpret_cast<wo_vm>(vm)));
-        m_free_vm.push_back(vm);
+
+        std::lock_guard g1(m_guard);
+        auto free_vm_storage_place = m_free_vm_count++;
+        if (m_free_vm.size() <= free_vm_storage_place)
+        {
+            m_free_vm.push_back(vm);
+            wo_assert(m_free_vm.size() == 1 + free_vm_storage_place);
+        }
+        else
+            m_free_vm.at(free_vm_storage_place) = vm;
     }
 
     bool vmpool::try_get_pool_by_env(
