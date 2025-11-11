@@ -8,6 +8,7 @@ namespace wo
 
     vmpool::vmpool_for_spec_env::vmpool_for_spec_env(runtime_env* env)
         : m_env(env)
+        , m_free_vm_count{0}
     {
 
     }
