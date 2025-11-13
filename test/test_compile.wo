@@ -2562,6 +2562,28 @@ func main()
         foo((1.,1.,1.)..., func(v){do v;});
         "@);
 
+        assure_compile_success(@"
+        func foo<A, B, C>(_: A<B, C>)
+        {
+        }
+
+        foo({});
+        "@);
+        assure_compile_fail(@"
+        func foo<A, B, C>(_: A<B, C>)
+        {
+        }
+
+        foo([]);
+        "@);
+        assure_compile_fail(@"
+        func foo<A, B, C>(_: A<B, C>)
+        {
+        }
+
+        foo(0);
+        "@);
+
         // Do you forget to regenerate the grammar-cache?
         assure_compile_fail(@""@);
         assure_compile_fail(@"^"@);

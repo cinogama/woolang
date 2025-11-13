@@ -683,11 +683,10 @@ namespace wo
 
             _label_fake_hkt_trying_template:
                 // Walk through template arguments.
-                if (identifier->m_template_arguments.has_value())
+                if (identifier->m_template_arguments.has_value()
+                    && applying_type_instance->m_instance_template_arguments.has_value())
                 {
                     // Has template, check if applying_type_instance match.
-                    wo_assert(applying_type_instance->m_instance_template_arguments.has_value());
-
                     auto& identifier_template_arguments =
                         identifier->m_template_arguments.value();
                     auto& instance_template_arguments =

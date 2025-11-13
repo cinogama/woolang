@@ -3,7 +3,7 @@
 //
 // Here will have woolang c api;
 //
-#define WO_VERSION WO_VERSION_WRAP(1, 14, 12, 5)
+#define WO_VERSION WO_VERSION_WRAP(1, 14, 12, 6)
 
 #ifndef WO_MSVC_RC_INCLUDE
 
