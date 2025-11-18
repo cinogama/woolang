@@ -1222,32 +1222,34 @@ WO_API void wo_lspv2_token_info_free(wo_lspv2_token_info* info);
 #endif
 
 /*
-## GC-Friendly External Function Development Rules
+        GC-Friendly External Function Development Rules
 
 For external functions involving GC elements, follow these rules:
 
-Definition: An assignment operation involves a **source (src)**, an **old destination value (old-dst)**,
-and a **new destination value (new-dst)**. After assignment, the old value of the destination
+Definition: An assignment operation involves a `source (src)`, an `old destination value (old-dst)`,
+and a `new destination value (new-dst)`. After assignment, the old value of the destination
 (dst) is overwritten by the new value.
 
 Assignment rules:
 
-1.  If **src** and **dst** both belong to the **current VM**:
+1.  If `src` and `dst` both belong to the `current VM`:
     1.1 Function declared as `fast` (default) - no additional action needed.
     1.2 Function declared as `slow` - must meet one of:
         1.2.1 Use `wo_enter_gcguard` during assignment, then `wo_leave_gcguard` after completion.
         1.2.2 Use `wo_set_val_with_write_barrier` for the assignment.
 
-2.  If **src** is from another VM but **dst** belongs to current VM:
-    2.1 Safe if **src** guaranteed from **Pin value**.
-    2.2 If **src** might be from another VM:
+2.  If `src` is from another VM but `dst` belongs to current VM:
+    2.1 Safe if `src` guaranteed from `Pin value`.
+    2.2 If `src` might be from another VM:
         2.2.1 Use `wo_set_val_migratory`.
 
-3.  If **src** belongs to current VM but **dst** is from another VM:
-    3.1 Safe if **dst** guaranteed to be **Pin value**.
-    3.2 If **dst** might belong to another VM:
-        3.2.1 Safe if **dst** immediately used as argument in `wo_invoke_value` or `wo_dispatch_value`.
+3.  If `src` belongs to current VM but `dst` is from another VM:
+    3.1 Safe if `dst` guaranteed to be `Pin value`.
+    3.2 If `dst` might belong to another VM:
+        3.2.1 Safe if `dst` immediately used as argument in `wo_invoke_value` or `wo_dispatch_value`.
         3.2.2 Otherwise use `wo_set_val_migratory`.
+
+                                                                            2025.11.18.
 */
 
 #if defined(WO_NEED_OPCODE_API)

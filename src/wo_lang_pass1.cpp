@@ -5992,6 +5992,10 @@ namespace wo
                 wo_error("Unknown hold state.");
             }
         }
+        else
+        {
+            end_last_scope();
+        }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
     WO_PASS_PROCESSER(AstFor)
