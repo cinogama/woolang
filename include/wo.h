@@ -3,7 +3,7 @@
 //
 // Here will have woolang c api;
 //
-#define WO_VERSION WO_VERSION_WRAP(1, 14, 12, 6)
+#define WO_VERSION WO_VERSION_WRAP(1, 14, 12, 7)
 
 #ifndef WO_MSVC_RC_INCLUDE
 
@@ -699,9 +699,9 @@ WO_API void wo_gc_checkpoint(wo_vm vm);
 //  2) When a value assigned from A vm state to B vm state, and it not used as 
 //      arguments for `wo_invoke_value` or `wo_dispatch_value`.(performed both on 
 //      the value being read and overwritten)
-WO_API void wo_gc_write_barrier(wo_value value, wo_vm vm);
-WO_API void wo_set_val_with_write_barrier(wo_value value, wo_vm write_vm, wo_value val);
-WO_API void wo_set_val_with_read_barrier(wo_value value, wo_vm write_vm, wo_value val);
+WO_API void wo_gc_write_barrier(wo_value value);
+WO_API void wo_set_val_with_write_barrier(wo_value value, wo_value val);
+WO_API void wo_set_val_with_full_barrier(wo_value value, wo_value val);
 
 WO_API wo_bool_t wo_leave_gcguard(wo_vm vm);
 WO_API wo_bool_t wo_enter_gcguard(wo_vm vm);
@@ -1219,37 +1219,46 @@ WO_API void wo_lspv2_token_info_free(wo_lspv2_token_info* info);
 #endif
 
 /*
-                GC-friendly extern function development rules
+## GC-Friendly External Function Development Rules
 
-    Please adhere to the following rules to ensure that the external functions
-  you write behave safely!
+In external functions involving GC elements, please follow this checklist and adhere to the relevant rules:
 
-  1. Use `fast` extern-function, it's safe.
-  2. When writing `slow` extern-function, donot overwrite, pop or remove a gc-unit
-    from any value unless following one of the following rules:
+Definition: For an assignment operation, it involves a **source (src)**, an **old destination value (old-dst)**, 
+and a **new destination value (new-dst)**. After a complete assignment operation, the old value of the destination 
+(dst) will be overwritten and become the new destination value.
 
-    2.1. Temporarily enter gc guard by calling `wo_enter_gcguard`, and if the 
-        function returns true, call `wo_leave_gcguard` after operation.
-    2.2. Invoke `wo_gc_checkpoint` or `wo_set_val_with_write_barrier` before the 
-        operation.
-    2.3. This gc-unit not be referenced elsewhere and discarded completely.
+During this assignment process, **any one** of the following items must be satisfied:
 
-  3. When assigning a value from CURRENT vm state to another vm state, you must do
-     one of the following before return from current extern functon:
-    
-    3.1. When using the value as argument, do `wo_invoke_value` at target vm.
-    3.2. When using the value as argument, do `wo_dispatch_value` at target vm.
-    3.3. Use `wo_set_val_with_read_barrier` for this value.
-    3.4. Do `wo_gc_checkpoint`
+1.  If both the **src** and **dst** involved in an assignment operation belong to the **current VM**, one of the 
+  following two conditions must be met:
 
-  4. Do NOT read/write data from other running vm state except the current vm.
-  5. Do NOT override any data in other vm state unless explicitly deprecated values
-    are being overridden.
+    1.1 The external function should be declared as `fast` (i.e., the default external function declaration).
+    1.2 If the external function is declared as `slow`, one of the following two conditions must be met:
+        1.2.1 For the entire duration of the assignment operation, use `wo_enter_gcguard` to temporarily enter the 
+          GC scope, and use `wo_leave_gcguard` to leave the GC scope after the assignment is complete.
+        1.2.2 Use `wo_set_val_with_write_barrier` to perform the assignment operation.
 
-                                                            Cinogama project.
-                                                                2024.3.15.
+2.  If the **src** involved in an assignment operation does **not** belong to the current VM, but the **dst** does 
+  belong to the current VM, then:
 
-                                                           Fix 1: 2025.8.19.
+    2.1 If the **src** can be guaranteed to come from a **Pin value**, it is safe.
+    2.2 If the **src** *might* come from another VM, one of the following conditions must be met:
+
+        2.2.1 For the entire duration of the assignment operation, use `wo_enter_gcguard` to temporarily enter the 
+          GC scope of the VM to which the src belongs, and use `wo_leave_gcguard` to leave the GC scope after the 
+          assignment is complete.
+        2.2.2 Use `wo_set_val_with_full_barrier` to perform the assignment operation.
+
+3.  If the **src** involved in an assignment operation belongs to the current VM, but the **dst** does **not** 
+  belong to the current VM, then:
+
+    3.1 If the **dst** can be guaranteed to be a **Pin value**, it is safe.
+    3.2 If the **dst** *might* belong to another VM, one of the following conditions must be met:
+
+        3.2.1 For the entire duration of the assignment operation, use `wo_enter_gcguard` to temporarily enter the 
+          GC scope of the VM to which the src belongs, and use `wo_leave_gcguard` to leave the GC scope after the 
+          assignment is complete.
+        3.2.2 Use `wo_set_val_with_full_barrier` to perform the assignment operation.
 */
 
 #if defined(WO_NEED_OPCODE_API)

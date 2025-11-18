@@ -366,7 +366,7 @@ namespace wo
                         for (auto* vmimpl : vmbase::_gc_ready_vm_list)
                         {
                             if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
-                                _gc_vm_gray_unit_lists[vmimpl].clear();
+                                _gc_vm_gray_unit_lists.insert(std::make_pair(vmimpl, _wo_gray_unit_list_t{}));
                         }
 
                         // 1. Interrupt all vm as GC_INTERRUPT, let all vm hang-up
