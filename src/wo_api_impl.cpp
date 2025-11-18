@@ -4420,8 +4420,10 @@ void wo_set_val_with_write_barrier(wo_value value, wo_value val)
 
     wo_set_val(value, val);
 }
-void wo_set_val_with_full_barrier(wo_value value, wo_value val)
+void wo_set_val_migratory(wo_value value, wo_vm vm, wo_value val)
 {
+    auto entry = wo_enter_gcguard(vm);
+
     if (wo::gc::gc_is_marking())
     {
         wo::value::write_barrier(WO_VAL(val));
@@ -4429,6 +4431,9 @@ void wo_set_val_with_full_barrier(wo_value value, wo_value val)
     }
 
     wo_set_val(value, val);
+
+    if (entry)
+        wo_leave_gcguard(vm);
 }
 wo_ir_compiler wo_create_ir_compiler(void)
 {
