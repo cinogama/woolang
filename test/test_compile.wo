@@ -2317,7 +2317,7 @@ func main()
         extern("rslib_std_bad_function")
         func foo()=> void;
         "@);
-        assure_compile_success(@"
+        assure_compile_fail(@"
         extern("rslib_std_bad_function", slow)
         func foo()=> void;
         "@);

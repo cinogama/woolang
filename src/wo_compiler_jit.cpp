@@ -446,7 +446,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                 {
                     wo_assert(func_state->m_func != nullptr);
 
-                    *calln = (wo::instruct::opcode)(wo::instruct::opcode::calln | 0b11);
+                    *calln = wo::instruct::opcode::callnfp;
                     const byte_t* jitfunc = reinterpret_cast<const byte_t*>(&func_state->m_func);
                     byte_t* ipbuf = codebuf + calln_offset + 1;
 
@@ -508,7 +508,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
         {
             const auto interrupt_state = vmm->vm_interrupt.load(std::memory_order_acquire);
 
-            if (interrupt_state & wo::vmbase::vm_interrupt_type::GC_INTERRUPT)
+            if (interrupt_state & wo::vmbase::vm_interrupt_type::GC_SYNC_BEGIN_INTERRUPT)
             {
                 vmm->gc_checkpoint_sync_begin();
             }
@@ -591,6 +591,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                 // a vm_interrupt is invalid now, just roll back one byte and continue~
                 // so here do nothing
                 wo_assert(interrupt_state == 0
+                    || interrupt_state == wo::vmbase::vm_interrupt_type::GC_SYNC_BEGIN_INTERRUPT
                     || interrupt_state == wo::vmbase::vm_interrupt_type::GC_INTERRUPT);
             }
             return wo_result_t::WO_API_NORMAL;

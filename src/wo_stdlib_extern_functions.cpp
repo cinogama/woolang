@@ -1682,6 +1682,14 @@ WO_API wo_api rslib_std_env_pin_create(wo_vm vm, wo_value args)
         });
 }
 
+WO_API wo_api rslib_std_dynamic_deserialize(wo_vm vm, wo_value args)
+{
+    wo_value result = wo_reserve_stack(vm, 1, &args);
+    if (wo_deserialize(result, wo_string(args + 0), WO_INVALID_TYPE))
+        return wo_ret_option_val(vm, result);
+    return wo_ret_option_none(vm);
+}
+
 #if defined(__APPLE__) && defined(__MACH__)
 #   include <TargetConditionals.h>
 #endif
@@ -2305,6 +2313,13 @@ namespace std
         public func is_same<LT, RT>(a: LT, b: RT)=> bool;
     extern("rslib_std_make_dup", repeat)
         public func dup<T>(dupval: T)=> T;
+}
+namespace dynamic
+{
+    extern("rslib_std_serialize", repeat)
+        public func serialize(self: dynamic)=> option<string>;
+    extern("rslib_std_dynamic_deserialize")
+        public func deserialize(datstr: string)=> option<dynamic>;
 }
 public using cchar = char;
 namespace char
@@ -3549,7 +3564,8 @@ namespace wo
             {"rslib_std_debug_breakpoint", (void*)&rslib_std_debug_breakpoint},
             {"rslib_std_debug_callstack_trace", (void*)&rslib_std_debug_callstack_trace},
             {"rslib_std_debug_disattach_default_debuggee", (void*)&rslib_std_debug_disattach_default_debuggee},
-            {"rslib_std_debug_invoke",(void*)&rslib_std_debug_invoke},
+            {"rslib_std_debug_invoke", (void*)&rslib_std_debug_invoke},
+            {"rslib_std_dynamic_deserialize", (void*)&rslib_std_dynamic_deserialize},
             {"rslib_std_env_pin_create", (void*)&rslib_std_env_pin_create},
             {"rslib_std_equal_byte", (void*)&rslib_std_equal_byte},
             {"rslib_std_gchandle_close", (void*)&rslib_std_gchandle_close},

@@ -379,7 +379,7 @@ namespace wo
                         {
                             if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
                             {
-                                switch (vmimpl->wait_interrupt(vmbase::GC_SYNC_BEGIN_INTERRUPT, false))
+                                switch (vmimpl->wait_interrupt(vmbase::GC_SYNC_BEGIN_INTERRUPT))
                                 {
                                 case vmbase::interrupt_wait_result::LEAVED:
                                     if (vmimpl->interrupt(vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT))
@@ -402,7 +402,6 @@ namespace wo
                                     }
                                     /* fallthrough */
                                     [[fallthrough]];
-                                case vmbase::interrupt_wait_result::TIMEOUT:
                                 case vmbase::interrupt_wait_result::ACCEPT:
                                     // Current vm is self marking...
                                     self_marking_vmlist.push_back(vmimpl);
@@ -445,7 +444,7 @@ namespace wo
                             if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
                             {
                                 // Must make sure HANGUP successfully.
-                                (void)vmimpl->wait_interrupt(vmbase::GC_HANGUP_INTERRUPT, true);
+                                (void)vmimpl->wait_interrupt(vmbase::GC_HANGUP_INTERRUPT);
 
                                 // Current vm will be mark by gc-work-thread.
                                 gc_marking_vmlist.push_back(vmimpl);
@@ -472,14 +471,8 @@ namespace wo
                         for (auto* vmimpl : self_marking_vmlist)
                         {
                             wo_assert(vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL);
-                            vmbase::interrupt_wait_result self_mark_gc_state;
-                            do
-                            {
-                                // Wait until the vm self-marking end forcely.
-                                self_mark_gc_state = vmimpl->wait_interrupt(vmbase::GC_INTERRUPT, true);
-
-                            } while (self_mark_gc_state == vmbase::interrupt_wait_result::TIMEOUT);
-                            wo_assert(self_mark_gc_state != vmbase::interrupt_wait_result::TIMEOUT);
+                            vmbase::interrupt_wait_result self_mark_gc_state
+                                = vmimpl->wait_interrupt(vmbase::GC_INTERRUPT);
 
                             // vmimpl may be in leave state here, in which case: 
                             // 1. the vm self-marked successfully ended and has returned to executing

@@ -131,9 +131,6 @@ namespace wo
         for (auto* vm_instance : _alive_vm_list)
             if (vm_instance->virtual_machine_type != vmbase::vm_type::GC_DESTRUCTOR)
                 vm_instance->interrupt(vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT);
-        for (auto* vm_instance : _alive_vm_list)
-            if (vm_instance->virtual_machine_type != vmbase::vm_type::GC_DESTRUCTOR)
-                vm_instance->wait_interrupt(vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT, false);
 
         wo::vm_debuggee_bridge_base* old_debuggee = attaching_debuggee;
         attaching_debuggee = dbg;
@@ -178,7 +175,7 @@ namespace wo
     {
         return 0 != (vm_interrupt.load(std::memory_order_acquire) & type);
     }
-    vmbase::interrupt_wait_result vmbase::wait_interrupt(vm_interrupt_type type, bool force_wait)noexcept
+    vmbase::interrupt_wait_result vmbase::wait_interrupt(vm_interrupt_type type)noexcept
     {
         using namespace std;
         size_t retry_count = 0;
@@ -202,24 +199,20 @@ namespace wo
             else
                 i = 0;
 
-            if (force_wait)
+            std::this_thread::sleep_for(10ms);
+            if (!warning_raised && ++retry_count == config::INTERRUPT_CHECK_TIME_LIMIT)
             {
-                std::this_thread::sleep_for(10ms);
-                if (!warning_raised && ++retry_count == config::INTERRUPT_CHECK_TIME_LIMIT)
-                {
-                    // Wait for too much time.
-                    std::string warning_info = "Wait for too much time for waiting interrupt.\n";
-                    std::stringstream dump_callstack_info;
+                // Wait for too much time.
+                std::string warning_info = "Wait for too much time for waiting interrupt.\n";
+                std::stringstream dump_callstack_info;
 
-                    dump_call_stack(32, false, dump_callstack_info);
-                    warning_info += dump_callstack_info.str();
-                    wo_warning(warning_info.c_str());
+                dump_call_stack(32, false, dump_callstack_info);
+                warning_info += dump_callstack_info.str();
+                wo_warning(warning_info.c_str());
 
-                    warning_raised = true;
-                }
+                warning_raised = true;
             }
-            else
-                return interrupt_wait_result::TIMEOUT;
+
         } while (true);
 
         return interrupt_wait_result::ACCEPT;
@@ -3270,6 +3263,7 @@ namespace wo
                     // a vm_interrupt is invalid now, just roll back one byte and continue~
                     // so here do nothing
                     wo_assert(interrupt_state == 0
+                        || interrupt_state == vm_interrupt_type::GC_SYNC_BEGIN_INTERRUPT
                         || interrupt_state == vm_interrupt_type::GC_INTERRUPT);
                 }
 

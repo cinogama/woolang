@@ -153,7 +153,6 @@ namespace wo
         enum class interrupt_wait_result : uint8_t
         {
             ACCEPT,
-            TIMEOUT,
             LEAVED,
         };
         enum vm_interrupt_type
@@ -373,7 +372,7 @@ namespace wo
         bool interrupt(vm_interrupt_type type) noexcept;
         bool clear_interrupt(vm_interrupt_type type)noexcept;
         bool check_interrupt(vm_interrupt_type type)noexcept;
-        interrupt_wait_result wait_interrupt(vm_interrupt_type type, bool force_wait)noexcept;
+        interrupt_wait_result wait_interrupt(vm_interrupt_type type)noexcept;
         void block_interrupt(vm_interrupt_type type)noexcept;
 
         void hangup()noexcept;
