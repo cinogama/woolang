@@ -156,8 +156,7 @@ namespace wo
             ///////////////////////////////////
             calln = WO_OPCODE_SPACE(CALLN),
             callnwo = calln | 0b00,
-            callnfpslow = calln | 0b01,
-            callnfp = calln | 0b11,
+            callnfp = calln | 0b01,
             ///////////////////////////////////
             movicas = WO_OPCODE_SPACE(MOVICAS),
             WO_OPCODE_DR2SG(movicas),

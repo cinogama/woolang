@@ -872,8 +872,7 @@ void wo_set_nil(wo_value value)
 }
 void wo_set_int(wo_value value, wo_integer_t val)
 {
-    auto* _rsvalue = WO_VAL(value);
-    _rsvalue->set_integer(val);
+    WO_VAL(value)->set_integer(val);
 }
 void wo_set_char(wo_value value, wo_wchar_t val)
 {
@@ -881,8 +880,7 @@ void wo_set_char(wo_value value, wo_wchar_t val)
 }
 void wo_set_real(wo_value value, wo_real_t val)
 {
-    auto* _rsvalue = WO_VAL(value);
-    _rsvalue->set_real(val);
+    WO_VAL(value)->set_real(val);
 }
 void wo_set_float(wo_value value, float val)
 {
@@ -891,8 +889,7 @@ void wo_set_float(wo_value value, float val)
 }
 void wo_set_handle(wo_value value, wo_handle_t val)
 {
-    auto* _rsvalue = WO_VAL(value);
-    _rsvalue->set_handle(val);
+    WO_VAL(value)->set_handle(val);
 }
 void wo_set_pointer(wo_value value, wo_ptr_t val)
 {
@@ -901,46 +898,44 @@ void wo_set_pointer(wo_value value, wo_ptr_t val)
     else
         wo_fail(WO_FAIL_ACCESS_NIL, "Cannot set a nullptr");
 }
-void _wo_set_string(wo_value value, wo_string_t val)
+void wo_set_string(wo_value value, wo_string_t val)
 {
-    auto* _rsvalue = WO_VAL(value);
-    _rsvalue->set_string(val);
+    WO_VAL(value)->set_string(val);
 }
-void wo_set_string(wo_value value, wo_vm vm, wo_string_t val)
-{
-    _wo_enter_gc_guard g(vm);
-    _wo_set_string(value, val);
-}
-void _wo_set_string_vfmt(wo_value value, wo_string_t fmt, va_list v1)
+
+void wo_set_string_fmtv(wo_value value, wo_string_t fmt, va_list v)
 {
     va_list v2;
-    va_copy(v2, v1);
-    std::vector<char> buf(1 + vsnprintf(nullptr, 0, fmt, v1));
-    va_end(v1);
-    std::vsnprintf(buf.data(), buf.size(), fmt, v2);
-    _wo_set_string(value, buf.data());
-}
-void wo_set_string_fmt(wo_value value, wo_vm vm, wo_string_t fmt, ...)
-{
-    _wo_enter_gc_guard g(vm);
+    va_copy(v2, v);
+    auto len = vsnprintf(nullptr, 0, fmt, v);
+    std::vector<char> buf(1 + std::max(len, 0));
+    if (len < 0
+        || 0 > std::vsnprintf(buf.data(), buf.size(), fmt, v2))
+    {
+        wo_fail(WO_FAIL_BAD_FORMAT, "Bad format.");
+        buf[0] = '\0';
+    }
 
-    va_list v1;
-    va_start(v1, fmt);
-    _wo_set_string_vfmt(value, fmt, v1);
-    va_end(v1);
+    va_end(v2);
+    wo_set_string(value, buf.data());    
 }
-void wo_set_buffer(wo_value value, wo_vm vm, const void* val, wo_size_t len)
-{
-    auto* _rsvalue = WO_VAL(value);
 
-    _wo_enter_gc_guard g(vm);
-    _rsvalue->set_buffer(val, len);
+void wo_set_string_fmt(wo_value value, wo_string_t fmt, ...)
+{
+    va_list v;
+    va_start(v, fmt);
+    wo_set_string_fmtv(value, fmt, v);
+    va_end(v);
+}
+
+void wo_set_buffer(wo_value value, const void* val, wo_size_t len)
+{
+    WO_VAL(value)->set_buffer(val, len);
 }
 
 void wo_set_bool(wo_value value, wo_bool_t val)
 {
-    auto* _rsvalue = WO_VAL(value);
-    _rsvalue->set_bool(val != WO_FALSE);
+    WO_VAL(value)->set_bool(val != WO_FALSE);
 }
 void wo_set_gchandle(
     wo_value value,
@@ -950,8 +945,6 @@ void wo_set_gchandle(
     wo_gchandle_close_func_t destruct_func)
 {
     wo_assert(resource_ptr != nullptr && destruct_func != nullptr);
-
-    _wo_enter_gc_guard g(vm);
 
     wo::gchandle_t* handle_ptr = wo::gchandle_t::gc_new<wo::gcbase::gctype::young>();
 
@@ -983,8 +976,6 @@ void wo_set_gcstruct(
 {
     wo_assert(resource_ptr != nullptr && destruct_func != nullptr);
 
-    _wo_enter_gc_guard g(vm);
-
     wo::gchandle_t* handle_ptr = wo::gchandle_t::gc_new<wo::gcbase::gctype::young>();
 
     // NOTE: This function may defined in other libraries,
@@ -1002,19 +993,15 @@ void wo_set_val(wo_value value, wo_value val)
     WO_VAL(value)->set_val(WO_VAL(val));
 }
 
-void wo_set_dup(wo_value value, wo_vm vm, wo_value val)
+void wo_set_dup(wo_value value, wo_value val)
 {
-    auto* _rsvalue = WO_VAL(value);
-
-    _wo_enter_gc_guard g(vm);
-    _rsvalue->set_dup(WO_VAL(val));
+    WO_VAL(value)->set_dup(WO_VAL(val));
 }
 
-void wo_set_struct(wo_value value, wo_vm vm, uint16_t structsz)
+void wo_set_struct(wo_value value, uint16_t structsz)
 {
     auto* _rsvalue = WO_VAL(value);
 
-    _wo_enter_gc_guard g(vm);
     auto* maked_struct =
         wo::structure_t::gc_new<wo::gcbase::gctype::young>(structsz);
 
@@ -1024,29 +1011,26 @@ void wo_set_struct(wo_value value, wo_vm vm, uint16_t structsz)
         maked_struct);
 }
 
-void wo_set_arr(wo_value value, wo_vm vm, wo_int_t count)
+void wo_set_arr(wo_value value, wo_int_t count)
 {
     auto* _rsvalue = WO_VAL(value);
 
-    _wo_enter_gc_guard g(vm);
     _rsvalue->set_gcunit<wo::value::valuetype::array_type>(
         wo::array_t::gc_new<wo::gcbase::gctype::young>((size_t)count, wo::value{}));
 }
 
-void wo_set_map(wo_value value, wo_vm vm, wo_size_t reserved)
+void wo_set_map(wo_value value, wo_size_t reserved)
 {
     auto _rsvalue = WO_VAL(value);
 
-    _wo_enter_gc_guard g(vm);
     _rsvalue->set_gcunit<wo::value::valuetype::dict_type>(
         wo::dictionary_t::gc_new<wo::gcbase::gctype::young>(reserved));
 }
 
-void wo_set_union(wo_value value, wo_vm vm, wo_integer_t id, wo_value value_may_null)
+void wo_set_union(wo_value value, wo_integer_t id, wo_value value_may_null)
 {
     auto* target_val = WO_VAL(value);
 
-    _wo_enter_gc_guard g(vm);
     wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
         static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(id);
@@ -1139,8 +1123,8 @@ wo_ptr_t wo_cast_pointer(wo_value value)
     return (wo_ptr_t)wo_cast_handle(value);
 }
 
-wo_bool_t _wo_cast_value(wo_vm vm, wo::value* value, wo::lexer* lex, wo::value::valuetype except_type);
-wo_bool_t _wo_cast_array(wo_vm vm, wo::value* value, wo::lexer* lex)
+wo_bool_t _wo_cast_value(wo::value* value, wo::lexer* lex, wo::value::valuetype except_type);
+wo_bool_t _wo_cast_array(wo::value* value, wo::lexer* lex)
 {
     // NOTE: _wo_cast_array is in GC-GUARD.
     wo::array_t* rsarr = wo::array_t::gc_new<wo::gcbase::gctype::young>(0);;
@@ -1157,7 +1141,7 @@ wo_bool_t _wo_cast_array(wo_vm vm, wo::value* value, wo::lexer* lex)
             break;
         }
 
-        if (!_wo_cast_value(vm, &rsarr->emplace_back(), lex, wo::value::valuetype::invalid)) // val!
+        if (!_wo_cast_value(&rsarr->emplace_back(), lex, wo::value::valuetype::invalid)) // val!
             return WO_FALSE;
 
         if (lex->peek(true)->m_lex_type == wo::lex_type::l_comma)
@@ -1165,7 +1149,7 @@ wo_bool_t _wo_cast_array(wo_vm vm, wo::value* value, wo::lexer* lex)
     }
     return WO_TRUE;
 }
-wo_bool_t _wo_cast_map(wo_vm vm, wo::value* value, wo::lexer* lex)
+wo_bool_t _wo_cast_map(wo::value* value, wo::lexer* lex)
 {
     // NOTE: _wo_cast_map is in GC-GUARD.
     wo::dictionary_t* rsmap = wo::dictionary_t::gc_new<wo::gcbase::gctype::young>(0);
@@ -1190,7 +1174,7 @@ wo_bool_t _wo_cast_map(wo_vm vm, wo::value* value, wo::lexer* lex)
         if (tempory_key_value_storage == nullptr)
             tempory_key_value_storage = &(*rsmap)[wo::value::TAKEPLACE];
 
-        if (!_wo_cast_value(vm, tempory_key_value_storage, lex, wo::value::valuetype::invalid)) // key!
+        if (!_wo_cast_value(tempory_key_value_storage, lex, wo::value::valuetype::invalid)) // key!
             return WO_FALSE;
 
         auto& val_place = (*rsmap)[*tempory_key_value_storage];
@@ -1201,7 +1185,7 @@ wo_bool_t _wo_cast_map(wo_vm vm, wo::value* value, wo::lexer* lex)
         if (lex_type != wo::lex_type::l_typecast)
             return WO_FALSE;
 
-        if (!_wo_cast_value(vm, &val_place, lex, wo::value::valuetype::invalid)) // value!
+        if (!_wo_cast_value(&val_place, lex, wo::value::valuetype::invalid)) // value!
             return WO_FALSE;
 
         if (lex->peek(true)->m_lex_type == wo::lex_type::l_comma)
@@ -1213,20 +1197,20 @@ wo_bool_t _wo_cast_map(wo_vm vm, wo::value* value, wo::lexer* lex)
 
     return WO_TRUE;
 }
-wo_bool_t _wo_cast_value(wo_vm vm, wo::value* value, wo::lexer* lex, wo::value::valuetype except_type)
+wo_bool_t _wo_cast_value(wo::value* value, wo::lexer* lex, wo::value::valuetype except_type)
 {
     auto* token = lex->peek(true);
 
     if (token->m_lex_type == wo::lex_type::l_left_curly_braces) // is map
     {
         lex->move_forward(true);
-        if (!_wo_cast_map(vm, value, lex))
+        if (!_wo_cast_map(value, lex))
             return WO_FALSE;
     }
     else if (token->m_lex_type == wo::lex_type::l_index_begin) // is array
     {
         lex->move_forward(true);
-        if (!_wo_cast_array(vm, value, lex))
+        if (!_wo_cast_array(value, lex))
             return WO_FALSE;
     }
     else if (token->m_lex_type == wo::lex_type::l_literal_string) // is string   
@@ -1296,13 +1280,11 @@ wo_bool_t _wo_cast_value(wo_vm vm, wo::value* value, wo::lexer* lex, wo::value::
     return WO_TRUE;
 
 }
-wo_bool_t wo_deserialize(wo_vm vm, wo_value value, wo_string_t str, wo_type_t except_type)
+wo_bool_t wo_deserialize(wo_value value, wo_string_t str, wo_type_t except_type)
 {
-    _wo_enter_gc_guard g(vm);
-
     // NOTE: File name must be nullptr here to make sure macro not work.
     wo::lexer lex(std::nullopt, std::nullopt, std::make_unique<std::istringstream>(str));
-    return _wo_cast_value(vm, WO_VAL(value), &lex, (wo::value::valuetype)except_type);
+    return _wo_cast_value(WO_VAL(value), &lex, (wo::value::valuetype)except_type);
 }
 
 enum cast_string_mode
@@ -1676,7 +1658,6 @@ wo_result_t wo_ret_pointer(wo_vm vm, wo_ptr_t result)
 }
 wo_result_t wo_ret_string(wo_vm vm, wo_string_t result)
 {
-    _wo_enter_gc_guard g(vm);
     wo::vmbase* vmbase = WO_VM(vm);
 
     WO_VM(vm)->cr->set_string(result);
@@ -1697,7 +1678,6 @@ wo_result_t wo_ret_string_fmt(wo_vm vm, wo_string_t fmt, ...)
 
 wo_result_t wo_ret_buffer(wo_vm vm, const void* result, wo_size_t len)
 {
-    _wo_enter_gc_guard g(vm);
     wo::vmbase* vmbase = WO_VM(vm);
 
     WO_VM(vm)->cr->set_buffer(result, len);
@@ -1738,7 +1718,6 @@ wo_result_t wo_ret_dup(wo_vm vm, wo_value result)
 
     auto* val = WO_VAL(result);
 
-    _wo_enter_gc_guard g(vm);
     WO_VM(vm)->cr->set_dup(val);
 
     return WO_API_STATE_OF_VM(vmbase);
@@ -1756,18 +1735,16 @@ wo_result_t wo_ret_panic(wo_vm vm, wo_string_t reasonfmt, ...)
 
     wo::vmbase* vmbase = WO_VM(vm);
     {
-        _wo_enter_gc_guard g(vm);
         vmbase->register_storage[wo::opnum::reg::er].set_string(buf.data());
     }
     wo_fail(WO_FAIL_USER_PANIC, vmbase->register_storage[wo::opnum::reg::er].m_string->c_str());
     return wo_result_t::WO_API_RESYNC_JIT_STATE_TO_VM_STATE;
 }
 
-void wo_set_option_void(wo_value val, wo_vm vm)
+void wo_set_option_void(wo_value val)
 {
     auto* target_val = WO_VAL(val);
 
-    _wo_enter_gc_guard g(vm);
     wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
         static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(0);
@@ -1775,11 +1752,10 @@ void wo_set_option_void(wo_value val, wo_vm vm)
 
     target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
 }
-void wo_set_option_bool(wo_value val, wo_vm vm, wo_bool_t result)
+void wo_set_option_bool(wo_value val, wo_bool_t result)
 {
     auto* target_val = WO_VAL(val);
 
-    _wo_enter_gc_guard g(vm);
     wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
         static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(0);
@@ -1788,15 +1764,14 @@ void wo_set_option_bool(wo_value val, wo_vm vm, wo_bool_t result)
     target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
 
 }
-void wo_set_option_char(wo_value val, wo_vm vm, wo_wchar_t result)
+void wo_set_option_char(wo_value val, wo_wchar_t result)
 {
-    return wo_set_option_int(val, vm, (wo_integer_t)result);
+    return wo_set_option_int(val, (wo_integer_t)result);
 }
-void wo_set_option_int(wo_value val, wo_vm vm, wo_integer_t result)
+void wo_set_option_int(wo_value val, wo_integer_t result)
 {
     auto* target_val = WO_VAL(val);
 
-    _wo_enter_gc_guard g(vm);
     wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
         static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(0);
@@ -1804,11 +1779,10 @@ void wo_set_option_int(wo_value val, wo_vm vm, wo_integer_t result)
 
     target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
 }
-void wo_set_option_real(wo_value val, wo_vm vm, wo_real_t result)
+void wo_set_option_real(wo_value val, wo_real_t result)
 {
     auto* target_val = WO_VAL(val);
 
-    _wo_enter_gc_guard g(vm);
     wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
         static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(0);
@@ -1816,12 +1790,11 @@ void wo_set_option_real(wo_value val, wo_vm vm, wo_real_t result)
 
     target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
 }
-void wo_set_option_float(wo_value val, wo_vm vm, float result)
+void wo_set_option_float(wo_value val, float result)
 {
     auto* target_val = WO_VAL(val);
 
     wo::structure_t* structptr;
-    _wo_enter_gc_guard g(vm);
     structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
         static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(0);
@@ -1829,24 +1802,22 @@ void wo_set_option_float(wo_value val, wo_vm vm, float result)
 
     target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
 }
-void wo_set_option_handle(wo_value val, wo_vm vm, wo_handle_t result)
+void wo_set_option_handle(wo_value val, wo_handle_t result)
 {
     auto* target_val = WO_VAL(val);
 
     wo::structure_t* structptr;
 
-    _wo_enter_gc_guard g(vm);
     structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
         static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(0);
     structptr->m_values[1].set_handle(result);
     target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
 }
-void wo_set_option_string(wo_value val, wo_vm vm, wo_string_t result)
+void wo_set_option_string(wo_value val, wo_string_t result)
 {
     auto* target_val = WO_VAL(val);
 
-    _wo_enter_gc_guard g(vm);
     wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
         static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(0);
@@ -1857,11 +1828,10 @@ void wo_set_option_string(wo_value val, wo_vm vm, wo_string_t result)
     structptr->m_values[1].set_string(result);
 
 }
-void _wo_set_option_string_vfmt(wo_value val, wo_vm vm, wo_string_t fmt, va_list v1)
+void wo_set_option_string_fmtv(wo_value val, wo_string_t fmt, va_list v)
 {
     auto* target_val = WO_VAL(val);
 
-    _wo_enter_gc_guard g(vm);
     wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
         static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(0);
@@ -1869,20 +1839,19 @@ void _wo_set_option_string_vfmt(wo_value val, wo_vm vm, wo_string_t fmt, va_list
 
     //  Store array into instance to make sure it can be marked if GC launched by `out of memory`.
     target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
-    _wo_set_string_vfmt(CS_VAL(&structptr->m_values[1]), fmt, v1);
+    wo_set_string_fmtv(CS_VAL(&structptr->m_values[1]), fmt, v);
 }
-void wo_set_option_string_fmt(wo_value val, wo_vm vm, wo_string_t fmt, ...)
+void wo_set_option_string_fmt(wo_value val, wo_string_t fmt, ...)
 {
     va_list v1;
     va_start(v1, fmt);
-    _wo_set_option_string_vfmt(val, vm, fmt, v1);
+    wo_set_option_string_fmtv(val, fmt, v1);
     va_end(v1);
 }
-void wo_set_option_buffer(wo_value val, wo_vm vm, const void* result, wo_size_t len)
+void wo_set_option_buffer(wo_value val, const void* result, wo_size_t len)
 {
     auto* target_val = WO_VAL(val);
 
-    _wo_enter_gc_guard g(vm);
     wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
         static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(0);
@@ -1892,11 +1861,10 @@ void wo_set_option_buffer(wo_value val, wo_vm vm, const void* result, wo_size_t 
     target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     structptr->m_values[1].set_buffer(result, len);
 }
-void wo_set_option_pointer(wo_value val, wo_vm vm, wo_ptr_t result)
+void wo_set_option_pointer(wo_value val, wo_ptr_t result)
 {
     auto* target_val = WO_VAL(val);
 
-    _wo_enter_gc_guard g(vm);
     wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
         static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(0);
@@ -1906,13 +1874,12 @@ void wo_set_option_pointer(wo_value val, wo_vm vm, wo_ptr_t result)
     if (nullptr == result)
         wo_fail(WO_FAIL_ACCESS_NIL, "Cannot return nullptr");
 }
-void wo_set_option_ptr_may_null(wo_value val, wo_vm vm, wo_ptr_t result)
+void wo_set_option_ptr_may_null(wo_value val, wo_ptr_t result)
 {
     if (result != nullptr)
     {
         auto* target_val = WO_VAL(val);
 
-        _wo_enter_gc_guard g(vm);
         wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
             static_cast<uint16_t>(2));
         structptr->m_values[0].set_integer(0);
@@ -1921,13 +1888,12 @@ void wo_set_option_ptr_may_null(wo_value val, wo_vm vm, wo_ptr_t result)
         target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     }
     else
-        wo_set_option_none(val, vm);
+        wo_set_option_none(val);
 }
-void wo_set_option_val(wo_value val, wo_vm vm, wo_value result)
+void wo_set_option_val(wo_value val, wo_value result)
 {
     auto* target_val = WO_VAL(val);
 
-    _wo_enter_gc_guard g(vm);
     wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
         static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(0);
@@ -1944,7 +1910,6 @@ void wo_set_option_gchandle(
 {
     auto* target_val = WO_VAL(val);
 
-    _wo_enter_gc_guard g(vm);
     wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
         static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(0);
@@ -1963,7 +1928,6 @@ void wo_set_option_gcstruct(
 {
     auto* target_val = WO_VAL(val);
 
-    _wo_enter_gc_guard g(vm);
     wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
         static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(0);
@@ -1973,11 +1937,10 @@ void wo_set_option_gcstruct(
     target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     wo_set_gcstruct(CS_VAL(&structptr->m_values[1]), vm, resource_ptr, mark_func, destruct_func);
 }
-void wo_set_option_none(wo_value val, wo_vm vm)
+void wo_set_option_none(wo_value val)
 {
     auto* target_val = WO_VAL(val);
 
-    _wo_enter_gc_guard g(vm);
     wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
         static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(1);
@@ -1986,11 +1949,10 @@ void wo_set_option_none(wo_value val, wo_vm vm)
     target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
 }
 
-void wo_set_err_void(wo_value val, wo_vm vm)
+void wo_set_err_void(wo_value val)
 {
     auto* target_val = WO_VAL(val);
 
-    _wo_enter_gc_guard g(vm);
     wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
         static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(1);
@@ -1998,15 +1960,14 @@ void wo_set_err_void(wo_value val, wo_vm vm)
 
     target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
 }
-void wo_set_err_char(wo_value val, wo_vm vm, wo_wchar_t result)
+void wo_set_err_char(wo_value val, wo_wchar_t result)
 {
-    return wo_set_err_int(val, vm, (wo_integer_t)result);
+    return wo_set_err_int(val, (wo_integer_t)result);
 }
-void wo_set_err_bool(wo_value val, wo_vm vm, wo_bool_t result)
+void wo_set_err_bool(wo_value val, wo_bool_t result)
 {
     auto* target_val = WO_VAL(val);
 
-    _wo_enter_gc_guard g(vm);
     wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
         static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(1);
@@ -2014,11 +1975,10 @@ void wo_set_err_bool(wo_value val, wo_vm vm, wo_bool_t result)
 
     target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
 }
-void wo_set_err_int(wo_value val, wo_vm vm, wo_integer_t result)
+void wo_set_err_int(wo_value val, wo_integer_t result)
 {
     auto* target_val = WO_VAL(val);
 
-    _wo_enter_gc_guard g(vm);
     wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
         static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(1);
@@ -2026,11 +1986,10 @@ void wo_set_err_int(wo_value val, wo_vm vm, wo_integer_t result)
 
     target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
 }
-void wo_set_err_real(wo_value val, wo_vm vm, wo_real_t result)
+void wo_set_err_real(wo_value val, wo_real_t result)
 {
     auto* target_val = WO_VAL(val);
 
-    _wo_enter_gc_guard g(vm);
     wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
         static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(1);
@@ -2038,11 +1997,10 @@ void wo_set_err_real(wo_value val, wo_vm vm, wo_real_t result)
 
     target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
 }
-void wo_set_err_float(wo_value val, wo_vm vm, float result)
+void wo_set_err_float(wo_value val, float result)
 {
     auto* target_val = WO_VAL(val);
 
-    _wo_enter_gc_guard g(vm);
     wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
         static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(1);
@@ -2050,11 +2008,10 @@ void wo_set_err_float(wo_value val, wo_vm vm, float result)
 
     target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
 }
-void wo_set_err_handle(wo_value val, wo_vm vm, wo_handle_t result)
+void wo_set_err_handle(wo_value val, wo_handle_t result)
 {
     auto* target_val = WO_VAL(val);
 
-    _wo_enter_gc_guard g(vm);
     wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
         static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(1);
@@ -2062,11 +2019,10 @@ void wo_set_err_handle(wo_value val, wo_vm vm, wo_handle_t result)
 
     target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
 }
-void wo_set_err_string(wo_value val, wo_vm vm, wo_string_t result)
+void wo_set_err_string(wo_value val, wo_string_t result)
 {
     auto* target_val = WO_VAL(val);
 
-    _wo_enter_gc_guard g(vm);
     wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
         static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(1);
@@ -2076,11 +2032,10 @@ void wo_set_err_string(wo_value val, wo_vm vm, wo_string_t result)
     target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
     structptr->m_values[1].set_string(result);
 }
-void _wo_set_err_string_vfmt(wo_value val, wo_vm vm, wo_string_t fmt, va_list v1)
+void wo_set_err_string_fmtv(wo_value val, wo_string_t fmt, va_list v)
 {
     auto* target_val = WO_VAL(val);
 
-    _wo_enter_gc_guard g(vm);
     wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
         static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(1);
@@ -2088,20 +2043,19 @@ void _wo_set_err_string_vfmt(wo_value val, wo_vm vm, wo_string_t fmt, va_list v1
 
     //  Store array into instance to make sure it can be marked if GC launched by `out of memory`.
     target_val->set_gcunit<wo::value::valuetype::struct_type>(structptr);
-    _wo_set_string_vfmt(CS_VAL(&structptr->m_values[1]), fmt, v1);
+    wo_set_string_fmtv(CS_VAL(&structptr->m_values[1]), fmt, v);
 }
-void wo_set_err_string_fmt(wo_value val, wo_vm vm, wo_string_t fmt, ...)
+void wo_set_err_string_fmt(wo_value val, wo_string_t fmt, ...)
 {
     va_list v1;
     va_start(v1, fmt);
-    _wo_set_err_string_vfmt(val, vm, fmt, v1);
+    wo_set_err_string_fmtv(val, fmt, v1);
     va_end(v1);
 }
-void wo_set_err_buffer(wo_value val, wo_vm vm, const void* result, wo_size_t len)
+void wo_set_err_buffer(wo_value val, const void* result, wo_size_t len)
 {
     auto* target_val = WO_VAL(val);
 
-    _wo_enter_gc_guard g(vm);
     wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
         static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(1);
@@ -2112,11 +2066,10 @@ void wo_set_err_buffer(wo_value val, wo_vm vm, const void* result, wo_size_t len
     structptr->m_values[1].set_buffer(result, len);
 
 }
-void wo_set_err_pointer(wo_value val, wo_vm vm, wo_ptr_t result)
+void wo_set_err_pointer(wo_value val, wo_ptr_t result)
 {
     auto* target_val = WO_VAL(val);
 
-    _wo_enter_gc_guard g(vm);
     wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
         static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(1);
@@ -2126,11 +2079,10 @@ void wo_set_err_pointer(wo_value val, wo_vm vm, wo_ptr_t result)
     if (nullptr == result)
         wo_fail(WO_FAIL_ACCESS_NIL, "Cannot return nullptr");
 }
-void wo_set_err_val(wo_value val, wo_vm vm, wo_value result)
+void wo_set_err_val(wo_value val, wo_value result)
 {
     auto* target_val = WO_VAL(val);
 
-    _wo_enter_gc_guard g(vm);
     wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
         static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(1);
@@ -2142,7 +2094,6 @@ void wo_set_err_gchandle(wo_value val, wo_vm vm, wo_ptr_t resource_ptr, wo_value
 {
     auto* target_val = WO_VAL(val);
 
-    _wo_enter_gc_guard g(vm);
     wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
         static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(1);
@@ -2161,7 +2112,6 @@ void wo_set_err_gcstruct(
 {
     auto* target_val = WO_VAL(val);
 
-    _wo_enter_gc_guard g(vm);
     wo::structure_t* structptr = wo::structure_t::gc_new<wo::gcbase::gctype::young>(
         static_cast<uint16_t>(2));
     structptr->m_values[0].set_integer(1);
@@ -2174,55 +2124,55 @@ void wo_set_err_gcstruct(
 wo_result_t wo_ret_union(wo_vm vm, wo_integer_t id, wo_value value_may_null)
 {
     wo::vmbase* vmbase = WO_VM(vm);
-    wo_set_union(CS_VAL(vmbase->cr), vm, id, value_may_null);
+    wo_set_union(CS_VAL(vmbase->cr), id, value_may_null);
     return WO_API_STATE_OF_VM(vmbase);
 }
 wo_result_t wo_ret_option_void(wo_vm vm)
 {
     wo::vmbase* vmbase = WO_VM(vm);
-    wo_set_option_void(CS_VAL(vmbase->cr), vm);
+    wo_set_option_void(CS_VAL(vmbase->cr));
     return WO_API_STATE_OF_VM(vmbase);
 }
 wo_result_t  wo_ret_option_bool(wo_vm vm, wo_bool_t result)
 {
     wo::vmbase* vmbase = WO_VM(vm);
-    wo_set_option_bool(CS_VAL(vmbase->cr), vm, result);
+    wo_set_option_bool(CS_VAL(vmbase->cr), result);
     return WO_API_STATE_OF_VM(vmbase);
 }
 wo_result_t wo_ret_option_char(wo_vm vm, wo_wchar_t result)
 {
     wo::vmbase* vmbase = WO_VM(vm);
-    wo_set_option_char(CS_VAL(vmbase->cr), vm, result);
+    wo_set_option_char(CS_VAL(vmbase->cr), result);
     return WO_API_STATE_OF_VM(vmbase);
 }
 wo_result_t wo_ret_option_int(wo_vm vm, wo_integer_t result)
 {
     wo::vmbase* vmbase = WO_VM(vm);
-    wo_set_option_int(CS_VAL(vmbase->cr), vm, result);
+    wo_set_option_int(CS_VAL(vmbase->cr), result);
     return WO_API_STATE_OF_VM(vmbase);
 }
 wo_result_t wo_ret_option_real(wo_vm vm, wo_real_t result)
 {
     wo::vmbase* vmbase = WO_VM(vm);
-    wo_set_option_real(CS_VAL(vmbase->cr), vm, result);
+    wo_set_option_real(CS_VAL(vmbase->cr), result);
     return WO_API_STATE_OF_VM(vmbase);
 }
 wo_result_t wo_ret_option_float(wo_vm vm, float result)
 {
     wo::vmbase* vmbase = WO_VM(vm);
-    wo_set_option_float(CS_VAL(vmbase->cr), vm, result);
+    wo_set_option_float(CS_VAL(vmbase->cr), result);
     return WO_API_STATE_OF_VM(vmbase);
 }
 wo_result_t  wo_ret_option_handle(wo_vm vm, wo_handle_t result)
 {
     wo::vmbase* vmbase = WO_VM(vm);
-    wo_set_option_handle(CS_VAL(vmbase->cr), vm, result);
+    wo_set_option_handle(CS_VAL(vmbase->cr), result);
     return WO_API_STATE_OF_VM(vmbase);
 }
 wo_result_t  wo_ret_option_string(wo_vm vm, wo_string_t result)
 {
     wo::vmbase* vmbase = WO_VM(vm);
-    wo_set_option_string(CS_VAL(vmbase->cr), vm, result);
+    wo_set_option_string(CS_VAL(vmbase->cr), result);
     return WO_API_STATE_OF_VM(vmbase);
 }
 wo_result_t  wo_ret_option_string_fmt(wo_vm vm, wo_string_t fmt, ...)
@@ -2230,32 +2180,32 @@ wo_result_t  wo_ret_option_string_fmt(wo_vm vm, wo_string_t fmt, ...)
     wo::vmbase* vmbase = WO_VM(vm);
     va_list v1;
     va_start(v1, fmt);
-    _wo_set_option_string_vfmt(CS_VAL(vmbase->cr), vm, fmt, v1);
+    wo_set_option_string_fmtv(CS_VAL(vmbase->cr), fmt, v1);
     va_end(v1);
     return WO_API_STATE_OF_VM(vmbase);
 }
 wo_result_t  wo_ret_option_buffer(wo_vm vm, const void* result, wo_size_t len)
 {
     wo::vmbase* vmbase = WO_VM(vm);
-    wo_set_option_buffer(CS_VAL(vmbase->cr), vm, result, len);
+    wo_set_option_buffer(CS_VAL(vmbase->cr), result, len);
     return WO_API_STATE_OF_VM(vmbase);
 }
 wo_result_t wo_ret_option_pointer(wo_vm vm, wo_ptr_t result)
 {
     wo::vmbase* vmbase = WO_VM(vm);
-    wo_set_option_pointer(CS_VAL(vmbase->cr), vm, result);
+    wo_set_option_pointer(CS_VAL(vmbase->cr), result);
     return WO_API_STATE_OF_VM(vmbase);
 }
 wo_result_t wo_ret_option_ptr_may_null(wo_vm vm, wo_ptr_t result)
 {
     wo::vmbase* vmbase = WO_VM(vm);
-    wo_set_option_ptr_may_null(CS_VAL(vmbase->cr), vm, result);
+    wo_set_option_ptr_may_null(CS_VAL(vmbase->cr), result);
     return WO_API_STATE_OF_VM(vmbase);
 }
 wo_result_t wo_ret_option_val(wo_vm vm, wo_value result)
 {
     wo::vmbase* vmbase = WO_VM(vm);
-    wo_set_option_val(CS_VAL(vmbase->cr), vm, result);
+    wo_set_option_val(CS_VAL(vmbase->cr), result);
     return WO_API_STATE_OF_VM(vmbase);
 }
 wo_result_t wo_ret_option_gchandle(
@@ -2281,56 +2231,56 @@ wo_result_t wo_ret_option_gcstruct(
 wo_result_t wo_ret_option_none(wo_vm vm)
 {
     wo::vmbase* vmbase = WO_VM(vm);
-    wo_set_option_none(CS_VAL(vmbase->cr), vm);
+    wo_set_option_none(CS_VAL(vmbase->cr));
     return WO_API_STATE_OF_VM(vmbase);
 }
 
 wo_result_t wo_ret_err_void(wo_vm vm)
 {
     wo::vmbase* vmbase = WO_VM(vm);
-    wo_set_err_void(CS_VAL(vmbase->cr), vm);
+    wo_set_err_void(CS_VAL(vmbase->cr));
     return WO_API_STATE_OF_VM(vmbase);
 }
 wo_result_t wo_ret_err_char(wo_vm vm, wo_wchar_t result)
 {
     wo::vmbase* vmbase = WO_VM(vm);
-    wo_set_err_char(CS_VAL(vmbase->cr), vm, result);
+    wo_set_err_char(CS_VAL(vmbase->cr), result);
     return WO_API_STATE_OF_VM(vmbase);
 }
 wo_result_t wo_ret_err_bool(wo_vm vm, wo_bool_t result)
 {
     wo::vmbase* vmbase = WO_VM(vm);
-    wo_set_err_bool(CS_VAL(vmbase->cr), vm, result);
+    wo_set_err_bool(CS_VAL(vmbase->cr), result);
     return WO_API_STATE_OF_VM(vmbase);
 }
 wo_result_t wo_ret_err_int(wo_vm vm, wo_integer_t result)
 {
     wo::vmbase* vmbase = WO_VM(vm);
-    wo_set_err_int(CS_VAL(vmbase->cr), vm, result);
+    wo_set_err_int(CS_VAL(vmbase->cr), result);
     return WO_API_STATE_OF_VM(vmbase);
 }
 wo_result_t wo_ret_err_real(wo_vm vm, wo_real_t result)
 {
     wo::vmbase* vmbase = WO_VM(vm);
-    wo_set_err_real(CS_VAL(vmbase->cr), vm, result);
+    wo_set_err_real(CS_VAL(vmbase->cr), result);
     return WO_API_STATE_OF_VM(vmbase);
 }
 wo_result_t wo_ret_err_float(wo_vm vm, float result)
 {
     wo::vmbase* vmbase = WO_VM(vm);
-    wo_set_err_float(CS_VAL(vmbase->cr), vm, result);
+    wo_set_err_float(CS_VAL(vmbase->cr), result);
     return WO_API_STATE_OF_VM(vmbase);
 }
 wo_result_t wo_ret_err_handle(wo_vm vm, wo_handle_t result)
 {
     wo::vmbase* vmbase = WO_VM(vm);
-    wo_set_err_handle(CS_VAL(vmbase->cr), vm, result);
+    wo_set_err_handle(CS_VAL(vmbase->cr), result);
     return WO_API_STATE_OF_VM(vmbase);
 }
 wo_result_t wo_ret_err_string(wo_vm vm, wo_string_t result)
 {
     wo::vmbase* vmbase = WO_VM(vm);
-    wo_set_err_string(CS_VAL(vmbase->cr), vm, result);
+    wo_set_err_string(CS_VAL(vmbase->cr), result);
     return WO_API_STATE_OF_VM(vmbase);
 }
 wo_result_t wo_ret_err_string_fmt(wo_vm vm, wo_string_t fmt, ...)
@@ -2338,7 +2288,7 @@ wo_result_t wo_ret_err_string_fmt(wo_vm vm, wo_string_t fmt, ...)
     wo::vmbase* vmbase = WO_VM(vm);
     va_list v1;
     va_start(v1, fmt);
-    _wo_set_err_string_vfmt(CS_VAL(vmbase->cr), vm, fmt, v1);
+    wo_set_err_string_fmtv(CS_VAL(vmbase->cr), fmt, v1);
     va_end(v1);
     return WO_API_STATE_OF_VM(vmbase);
 }
@@ -2346,19 +2296,19 @@ wo_result_t wo_ret_err_string_fmt(wo_vm vm, wo_string_t fmt, ...)
 wo_result_t wo_ret_err_buffer(wo_vm vm, const void* result, wo_size_t len)
 {
     wo::vmbase* vmbase = WO_VM(vm);
-    wo_set_err_buffer(CS_VAL(vmbase->cr), vm, result, len);
+    wo_set_err_buffer(CS_VAL(vmbase->cr), result, len);
     return WO_API_STATE_OF_VM(vmbase);
 }
 wo_result_t wo_ret_err_pointer(wo_vm vm, wo_ptr_t result)
 {
     wo::vmbase* vmbase = WO_VM(vm);
-    wo_set_err_pointer(CS_VAL(vmbase->cr), vm, result);
+    wo_set_err_pointer(CS_VAL(vmbase->cr), result);
     return WO_API_STATE_OF_VM(vmbase);
 }
 wo_result_t wo_ret_err_val(wo_vm vm, wo_value result)
 {
     wo::vmbase* vmbase = WO_VM(vm);
-    wo_set_err_val(CS_VAL(vmbase->cr), vm, result);
+    wo_set_err_val(CS_VAL(vmbase->cr), result);
     return WO_API_STATE_OF_VM(vmbase);
 }
 wo_result_t wo_ret_err_gchandle(
@@ -4029,8 +3979,6 @@ wo_bool_t wo_map_is_empty(wo_value map)
 
 void wo_map_keys(wo_value out_val, wo_vm vm, wo_value map)
 {
-    _wo_enter_gc_guard g(vm);
-
     auto _map = WO_VAL(map);
     if (_map->m_type == wo::value::valuetype::dict_type)
     {
@@ -4049,8 +3997,6 @@ void wo_map_keys(wo_value out_val, wo_vm vm, wo_value map)
 }
 void wo_map_vals(wo_value out_val, wo_vm vm, wo_value map)
 {
-    _wo_enter_gc_guard g(vm);
-
     auto _map = WO_VAL(map);
     if (_map->m_type == wo::value::valuetype::dict_type)
     {
@@ -4218,7 +4164,7 @@ wo_string_t wo_debug_trace_callstack(wo_vm vm, wo_size_t layer)
     std::stringstream sstream;
     vmm->dump_call_stack(layer, true, sstream);
 
-    wo_set_string(CS_VAL(&vmm->register_storage[wo::opnum::reg::er]), vm, sstream.str().c_str());
+    wo_set_string(CS_VAL(&vmm->register_storage[wo::opnum::reg::er]), sstream.str().c_str());
     wo_assert(vmm->register_storage[wo::opnum::reg::er].m_type == wo::value::valuetype::string_type);
 
     return vmm->register_storage[wo::opnum::reg::er].m_string->c_str();
@@ -4296,16 +4242,16 @@ void wo_gc_checkpoint(wo_vm vm)
     auto* vmm = WO_VM(vm);
 
     // If in GC, hang up here to make sure safe.
-    if (vmm->check_interrupt(
-        (wo::vmbase::vm_interrupt_type)(
-            wo::vmbase::vm_interrupt_type::GC_INTERRUPT
-            | wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT)))
+    auto interrupt_state = vmm->vm_interrupt.load(std::memory_order_acquire);
+
+    if (interrupt_state & wo::vmbase::vm_interrupt_type::GC_SYNC_BEGIN_INTERRUPT)
+        vmm->gc_checkpoint_sync_begin();
+    if (interrupt_state & wo::vmbase::vm_interrupt_type::GC_INTERRUPT)
+        vmm->gc_checkpoint_self_mark();
+    if (interrupt_state & wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT)
     {
-        if (!vmm->gc_checkpoint())
-        {
-            if (vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT))
-                vmm->hangup();
-        }
+        if (vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT))
+            vmm->hangup();
     }
 }
 
@@ -4315,8 +4261,6 @@ wo_bool_t wo_leave_gcguard(wo_vm vm)
 
     if (!vmm->check_interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT))
     {
-        wo_gc_checkpoint(vm);
-
         wo_assure(vmm->interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
         return WO_TRUE;
     }
@@ -4420,10 +4364,8 @@ void wo_set_val_with_write_barrier(wo_value value, wo_value val)
 
     wo_set_val(value, val);
 }
-void wo_set_val_migratory(wo_value value, wo_vm vm, wo_value val)
+void wo_set_val_migratory(wo_value value, wo_value val)
 {
-    auto entry = wo_enter_gcguard(vm);
-
     if (wo::gc::gc_is_marking())
     {
         wo::value::write_barrier(WO_VAL(val));
@@ -4431,9 +4373,6 @@ void wo_set_val_migratory(wo_value value, wo_vm vm, wo_value val)
     }
 
     wo_set_val(value, val);
-
-    if (entry)
-        wo_leave_gcguard(vm);
 }
 wo_ir_compiler wo_create_ir_compiler(void)
 {

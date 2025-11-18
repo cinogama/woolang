@@ -1273,8 +1273,7 @@ namespace wo
 
             enum extern_attribute : uint32_t
             {
-                SLOW = 1 << 0,
-                REPEATABLE = 1 << 1,
+                REPEATABLE = 1 << 0,
             };
 
         private:

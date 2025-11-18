@@ -1732,9 +1732,7 @@ namespace wo
 
                     wo_assert(attribute_token->m_token.type == lex_type::l_identifier);
 
-                    if (attribute_token->m_token.identifier == "slow")
-                        attribute_mask |= AstExternInformation::SLOW;
-                    else if (attribute_token->m_token.identifier == "repeat")
+                    if (attribute_token->m_token.identifier == "repeat")
                         attribute_mask |= AstExternInformation::REPEATABLE;
                     else
                         return token{

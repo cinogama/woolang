@@ -1163,7 +1163,17 @@ namespace wo
     _label_break_trace:
         return call_trace_count;
     }
-    bool vmbase::gc_checkpoint() noexcept
+    void vmbase::gc_checkpoint_sync_begin() noexcept
+    {
+        if (interrupt(vm_interrupt_type::GC_HANGUP_INTERRUPT))
+        {
+            wo_assure(clear_interrupt(
+                (vm_interrupt_type)(
+                    vm_interrupt_type::GC_SYNC_BEGIN_INTERRUPT 
+                    | vm_interrupt_type::GC_HANGUP_INTERRUPT)));
+        }
+    }
+    void vmbase::gc_checkpoint_self_mark() noexcept
     {
         if (interrupt(vm_interrupt_type::GC_HANGUP_INTERRUPT))
         {
@@ -1177,9 +1187,7 @@ namespace wo
                 gc::mark_vm(this, SIZE_MAX);
 
             wo_assure(clear_interrupt(vm_interrupt_type::GC_HANGUP_INTERRUPT));
-            return true;
         }
-        return false;
     }
 
     bool vmbase::assure_stack_size(wo_size_t assure_stack_size) noexcept
@@ -2688,61 +2696,6 @@ namespace wo
                     }
                 }
                 break;
-            case instruct::opcode::callnfpslow:
-                if (sp <= stack_storage)
-                {
-                    --rt_ip;
-                    wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
-                    WO_VM_INTERRUPT_CHECKPOINT;
-                }
-                else
-                {
-                    wo_extern_native_func_t call_aim_native_func =
-                        reinterpret_cast<wo_extern_native_func_t>(WO_IPVAL_MOVE_8);
-
-                    sp->m_type = value::valuetype::callstack;
-                    sp->m_vmcallstack.ret_ip = (uint32_t)(rt_ip - near_rtcode_begin);
-                    sp->m_vmcallstack.bp = (uint32_t)(sb - bp);
-                    bp = --sp;
-
-                    auto rt_bp = sb - bp;
-                    ip = std::launder(reinterpret_cast<byte_t*>(call_aim_native_func));
-
-                    wo_assure(wo_leave_gcguard(reinterpret_cast<wo_vm>(this)));
-                    auto api = call_aim_native_func(
-                        std::launder(reinterpret_cast<wo_vm>(this)),
-                        std::launder(reinterpret_cast<wo_value>(sp + 2)));
-                    wo_assure(wo_enter_gcguard(reinterpret_cast<wo_vm>(this)));
-
-                    switch (api)
-                    {
-                    case wo_result_t::WO_API_RESYNC_JIT_STATE_TO_VM_STATE:
-                        WO_VM_INTERRUPT_CHECKPOINT;
-                        /* FALLTHROUGH */
-                        [[fallthrough]];
-                    case wo_result_t::WO_API_NORMAL:
-                    {
-                        bp = sb - rt_bp;
-
-                        WO_VM_ASSERT((bp + 1)->m_type == value::valuetype::callstack,
-                            "Found broken stack in 'calln'.");
-                        value* stored_bp = sb - (++bp)->m_vmcallstack.bp;
-                        sp = bp;
-                        bp = stored_bp;
-                        break;
-                    }
-                    case wo_result_t::WO_API_SYNC_CHANGED_VM_STATE:
-                        rt_ip = this->ip;
-                        WO_VM_INTERRUPT_CHECKPOINT;
-                        break;
-                    default:
-#if WO_ENABLE_RUNTIME_CHECK
-                        WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Bad native function sync state.");
-#endif
-                        break;
-                    }
-                }
-                break;
             case instruct::opcode::jmp:
                 rt_ip = near_rtcode_begin + WO_IPVAL_MOVE_4;
                 break;
@@ -3062,7 +3015,6 @@ namespace wo
                         cr->set_bool(false);
                     }
                 }
-
                 break;
             }
             case instruct::unpackg:
@@ -3222,9 +3174,13 @@ namespace wo
 
                 const auto interrupt_state = vm_interrupt.load(std::memory_order_acquire);
 
+                if (interrupt_state & vm_interrupt_type::GC_SYNC_BEGIN_INTERRUPT)
+                {
+                    gc_checkpoint_sync_begin();
+                }
                 if (interrupt_state & vm_interrupt_type::GC_INTERRUPT)
                 {
-                    gc_checkpoint();
+                    gc_checkpoint_self_mark();
                 }
                 ///////////////////////////////////////////////////////////////////////
                 if (interrupt_state & vm_interrupt_type::GC_HANGUP_INTERRUPT)

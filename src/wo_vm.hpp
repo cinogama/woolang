@@ -161,69 +161,67 @@ namespace wo
             NOTHING = 0,
             // There is no interrupt
 
-            GC_INTERRUPT = 1 << 8,
-            // GC work will cause this interrupt
-            // GC main thread will notify GC_INTERRUPT to all vm, if a vm receive it,
-            // it will be able to mark it self.
-            // Before self marking begin, vm will set GC_HANGUP_INTERRUPT for itself
-            // GC_HANGUP_INTERRUPT is a flag here to signing that the vm still in 
-            // self marking.
-            // after self marking, GC_HANGUP_INTERRUPT will be clear.
-            // * If vm leaved and do not received GC_INTERRUPT, gc-work will mark it by 
-            // gc-worker-threads, and the GC_HANGUP_INTERRUPT will be setted by gc-work
-            // * If vm stucked in vm or jit and donot reach checkpoint to receive GC_INTERRUPT
-            // gc-work will wait until timeout(1s), and treat it as self-mark vm. if
-            // vm still stuck while gc-work next checking, GC_HANGUP_INTERRUPT will be set
-            // and GC_INTERRUPT will clear by gc-work, gc-work will mark the vm. after this
-            // mark, GC_HANGUP_INTERRUPT will be clear.
+            GC_SYNC_BEGIN_INTERRUPT = 1 << 8,
+            // When a Non-STW-GC starts a round of work, it first sends the GC_SYNC_BEGIN_INTERRUPT 
+            // signal to all virtual machines;
+            // Virtual machines that receive this signal only need to clear this signal. For 
+            // virtual machines that are out of the GC scope, the GC thread is responsible for 
+            // cleaning up and setting GC_HANGUP_INTERRUPT to ensure that this virtual machine 
+            // remains in a suspended state during the subsequent GC work.
+            // 
+            // The purpose of establishing this interrupt is to ensure that all virtual machines 
+            // are either explicitly completely suspended, or guaranteed to receive the `gc_is_marking` 
+            // state. Only after confirming that all virtual machines have responded to this
+            // interrupt will the GC thread initiate the formal `GC_INTERRUPT` request.
+            //
+            // This interrupt will not be notified in STW-GC.
 
+            GC_HANGUP_INTERRUPT = 1 << 9,
+            // TODO;
 
-            LEAVE_INTERRUPT = 1 << 9,
-            // When GC work trying GC_INTERRUPT, it will wait for vm cleaning 
-            // GC_INTERRUPT flag(and hangs), and the wait will be endless, besides:
-            // If LEAVE_INTERRUPT was setted, 'wait_interrupt' will try to wait in
-            // a limitted time.
+            GC_INTERRUPT = 1 << 10,
+            // TODO;
+
+            LEAVE_INTERRUPT = 1 << 11,
+            // When GC work trying GC_SYNC_BEGIN_INTERRUPT, it will wait for vm cleaning 
+            // GC_SYNC_BEGIN_INTERRUPT flag(and hangs), and the wait will be endless, besides:
+            // If LEAVE_INTERRUPT was setted, 'wait_interrupt' will try to wait in unlimitted 
+            // time.
+            // 
             // VM will set LEAVE_INTERRUPT when:
             // 1) calling slow native function
             // 2) leaving vm run()
             // 3) vm was created.
+            // 
             // VM will clean LEAVE_INTERRUPT when:
             // 1) the slow native function calling was end.
             // 2) enter vm run()
             // 3) vm destructed.
+            // 
             // ATTENTION: Each operate of setting or cleaning LEAVE_INTERRUPT must be
             //            successful. (We use 'wo_assure' here)' (Except in case of exception restore)
 
-            ABORT_INTERRUPT = 1 << 10,
+            ABORT_INTERRUPT = 1 << 12,
             // If virtual machine interrupt with ABORT_INTERRUPT, vm will stop immediately.
 
-            GC_HANGUP_INTERRUPT = 1 << 11,
-            // GC_HANGUP_INTERRUPT will be mark in 2 cases:
-            // 1. VM received GC_INTERRUPT and start to do self-mark. after self-mark. 
-            //      GC_HANGUP_INTERRUPT will be clear after self-mark.
-            // 2. VM is leaved or STW-GC, in this case, vm will receive GC_HANGUP_INTERRUPT
-            //      to hangup. vm will be mark by gc-worker, and be wake up after mark.
-            // 3. Some one trying to read this vm in other thread, to make sure stack shrink
-            //      or extern not happend in same time.
-
-            PENDING_INTERRUPT = 1 << 12,
+            PENDING_INTERRUPT = 1 << 13,
             // VM will be pending finish using and returned to pooled-vm, PENDING_INTERRUPT
             // only setted when vm is not running.
 
-            BR_YIELD_INTERRUPT = 1 << 13,
+            BR_YIELD_INTERRUPT = 1 << 14,
             // VM will yield & return from running-state while received BR_YIELD_INTERRUPT
 
-            DETACH_DEBUGGEE_INTERRUPT = 1 << 14,
+            DETACH_DEBUGGEE_INTERRUPT = 1 << 15,
             // VM will handle DETACH_DEBUGGEE_INTERRUPT before DEBUG_INTERRUPT, if vm handled
             // this interrupt, DEBUG_INTERRUPT will be cleared.
 
-            STACK_OVERFLOW_INTERRUPT = 1 << 15,
+            STACK_OVERFLOW_INTERRUPT = 1 << 16,
             // If stack size is not enough for PSH or PUSHN, STACK_OVERFLOW_INTERRUPT will be setted.
 
-            SHRINK_STACK_INTERRUPT = 1 << 16,
+            SHRINK_STACK_INTERRUPT = 1 << 17,
             // Advise vm to shrink it's stack usage, raised by GC-Job.
 
-            STACK_OCCUPYING_INTERRUPT = 1 << 17,
+            STACK_OCCUPYING_INTERRUPT = 1 << 18,
             // When reallocating (expanding or shrinking) stack space, stack read operations other 
             // than runtime operations (since reallocation only occurs during runtime or when the VM
             // is inactive) include:
@@ -236,7 +234,7 @@ namespace wo
             // NOTE: GC-in-gc-thread will scan the stack in other thread, too, but we use gc_guard to make
             //  sure stack-reallocate never happend during GC scan.
 
-            CALL_FAR_RESYNC_VM_STATE_INTERRUPT = 1 << 18,
+            CALL_FAR_RESYNC_VM_STATE_INTERRUPT = 1 << 19,
             // [Only interrupt in VM] When a virtual machine attempts to call a function outside
             // its near code area, this is referred to as a "far call" (call far).  
             // Since different code areas use different static constant tables, to ensure the virtual
@@ -403,7 +401,8 @@ namespace wo
         void dump_call_stack(size_t max_count = 32, bool need_offset = true, std::ostream& os = std::cout)const noexcept;
         std::vector<callstack_info> dump_call_stack_func_info(size_t max_count, bool need_offset, bool* out_finished)const noexcept;
         size_t callstack_layer() const noexcept;
-        bool gc_checkpoint() noexcept;
+        void gc_checkpoint_sync_begin() noexcept;
+        void gc_checkpoint_self_mark() noexcept;
         bool assure_stack_size(wo_size_t assure_stack_size) noexcept;
         void co_pre_invoke(const byte_t* wo_func_addr, wo_int_t argc) noexcept;
         void co_pre_invoke(wo_native_func_t ex_func_addr, wo_int_t argc) noexcept;

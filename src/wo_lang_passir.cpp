@@ -1417,14 +1417,7 @@ namespace wo
                     AstValueFunction* invoking_function = node->m_IR_invoking_function_near.value();
                     wo_assert(invoking_function->m_LANG_captured_context.m_captured_variables.empty());
 
-                    if (invoking_function->m_IR_extern_information.has_value()
-                        && 0 == (invoking_function->m_IR_extern_information.value()->m_attribute_flags & AstExternInformation::SLOW))
-                    {
-                        m_ircontext.c().callfast(
-                            (void*)invoking_function->m_IR_extern_information.value()->m_IR_externed_function.value());
-                    }
-                    else
-                        m_ircontext.c().call(WO_OPNUM(m_ircontext.opnum_func(invoking_function)));
+                    m_ircontext.c().call(WO_OPNUM(m_ircontext.opnum_func(invoking_function)));
                 }
                 else
                 {

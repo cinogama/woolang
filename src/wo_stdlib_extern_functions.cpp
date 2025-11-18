@@ -22,13 +22,19 @@ WO_API wo_api rslib_std_print(wo_vm vm, wo_value args)
 {
     size_t argc = (size_t)wo_argc(vm);
 
-    for (size_t i = 0; i < argc; i++)
+    auto leaved = wo_leave_gcguard(vm);
     {
-        wo::wo_stdout << wo_cast_string(args + i);
+        for (size_t i = 0; i < argc; i++)
+        {
+            wo::wo_stdout << wo_cast_string(args + i);
 
-        if (i + 1 < argc)
-            wo::wo_stdout << " ";
+            if (i + 1 < argc)
+                wo::wo_stdout << " ";
+        }
     }
+    if (leaved)
+        wo_enter_gcguard(vm);
+
     return wo_ret_void(vm);
 }
 WO_API wo_api rslib_std_panic(wo_vm vm, wo_value args)
@@ -576,12 +582,18 @@ WO_API wo_api rslib_std_input_readint(wo_vm vm, wo_value args)
     // Read int value from keyboard, always return valid input result;
     wo_int_t result;
 
-    while (!(std::cin >> result))
+    auto leaved = wo_leave_gcguard(vm);
     {
-        char _useless_for_clear = 0;
-        std::cin.clear();
-        while (std::cin.readsome(&_useless_for_clear, 1));
+        while (!(std::cin >> result))
+        {
+            char _useless_for_clear = 0;
+            std::cin.clear();
+            while (std::cin.readsome(&_useless_for_clear, 1));
+        }
     }
+    if (leaved)
+        wo_enter_gcguard(vm);
+
     return wo_ret_int(vm, result);
 }
 
@@ -589,13 +601,17 @@ WO_API wo_api rslib_std_input_readreal(wo_vm vm, wo_value args)
 {
     // Read real value from keyboard, always return valid input result;
     wo_real_t result;
-
-    while (!(std::cin >> result))
+    auto leaved = wo_leave_gcguard(vm);
     {
-        char _useless_for_clear = 0;
-        std::cin.clear();
-        while (std::cin.readsome(&_useless_for_clear, 1));
+        while (!(std::cin >> result))
+        {
+            char _useless_for_clear = 0;
+            std::cin.clear();
+            while (std::cin.readsome(&_useless_for_clear, 1));
+        }
     }
+    if (leaved)
+        wo_enter_gcguard(vm);
     return wo_ret_real(vm, result);
 }
 
@@ -603,13 +619,17 @@ WO_API wo_api rslib_std_input_readstring(wo_vm vm, wo_value args)
 {
     // Read real value from keyboard, always return valid input result;
     std::string result;
-
-    while (!(std::cin >> result))
+    auto leaved = wo_leave_gcguard(vm);
     {
-        char _useless_for_clear = 0;
-        std::cin.clear();
-        while (std::cin.readsome(&_useless_for_clear, 1));
+        while (!(std::cin >> result))
+        {
+            char _useless_for_clear = 0;
+            std::cin.clear();
+            while (std::cin.readsome(&_useless_for_clear, 1));
+        }
     }
+    if (leaved)
+        wo_enter_gcguard(vm);
     return wo_ret_string(vm, result.c_str());
 }
 
@@ -617,13 +637,17 @@ WO_API wo_api rslib_std_input_readline(wo_vm vm, wo_value args)
 {
     // Read real value from keyboard, always return valid input result;
     std::string result;
-
-    while (!(std::getline(std::cin, result)))
+    auto leaved = wo_leave_gcguard(vm);
     {
-        char _useless_for_clear = 0;
-        std::cin.clear();
-        while (std::cin.readsome(&_useless_for_clear, 1));
+        while (!(std::getline(std::cin, result)))
+        {
+            char _useless_for_clear = 0;
+            std::cin.clear();
+            while (std::cin.readsome(&_useless_for_clear, 1));
+        }
     }
+    if (leaved)
+        wo_enter_gcguard(vm);
     return wo_ret_string(vm, result.c_str());
 }
 
@@ -765,7 +789,7 @@ WO_API wo_api rslib_std_array_connect(wo_vm vm, wo_value args)
     wo_value s = wo_reserve_stack(vm, 1, &args);
 
     wo_value result = s + 0;
-    wo_set_arr(result, vm, 0);
+    wo_set_arr(result, 0);
 
     wo::value* arr_result = std::launder(reinterpret_cast<wo::value*>(result));
     wo::value* arr1 = std::launder(reinterpret_cast<wo::value*>(args + 0));
@@ -789,7 +813,7 @@ WO_API wo_api rslib_std_array_sub(wo_vm vm, wo_value args)
 {
     wo_value s = wo_reserve_stack(vm, 1, &args);
     wo_value result = s + 0;
-    wo_set_arr(result, vm, 0);
+    wo_set_arr(result, 0);
 
     wo::value* arr_result = std::launder(reinterpret_cast<wo::value*>(result));
     wo::value* arr1 = std::launder(reinterpret_cast<wo::value*>(args + 0));
@@ -811,7 +835,7 @@ WO_API wo_api rslib_std_array_subto(wo_vm vm, wo_value args)
     wo_value s = wo_reserve_stack(vm, 1, &args);
 
     wo_value result = s + 0;
-    wo_set_arr(result, vm, 0);
+    wo_set_arr(result, 0);
 
     wo::value* arr_result = std::launder(reinterpret_cast<wo::value*>(result));
     wo::value* arr1 = std::launder(reinterpret_cast<wo::value*>(args + 0));
@@ -841,7 +865,7 @@ WO_API wo_api rslib_std_array_sub_range(wo_vm vm, wo_value args)
     wo_value s = wo_reserve_stack(vm, 1, &args);
 
     wo_value result = s + 0;
-    wo_set_arr(result, vm, 0);
+    wo_set_arr(result, 0);
 
     wo::value* arr_result = std::launder(reinterpret_cast<wo::value*>(result));
     wo::value* arr1 = std::launder(reinterpret_cast<wo::value*>(args + 0));
@@ -1000,7 +1024,7 @@ WO_API wo_api rslib_std_map_find(wo_vm vm, wo_value args)
 WO_API wo_api rslib_std_map_create(wo_vm vm, wo_value args)
 {
     wo_value result = wo_reserve_stack(vm, 1, &args);
-    wo_set_map(result, vm, (wo_size_t)wo_int(args + 0));
+    wo_set_map(result, (wo_size_t)wo_int(args + 0));
     return wo_ret_val(vm, result);
 }
 
@@ -1136,7 +1160,7 @@ WO_API wo_api rslib_std_map_iter_next(wo_vm vm, wo_value args)
 
     wo_value result_tuple = s + 0;
     wo_value elem = s + 1;
-    wo_set_struct(result_tuple, vm, 2);
+    wo_set_struct(result_tuple, 2);
 
     wo_set_val(elem, reinterpret_cast<wo_value>(const_cast<wo::value*>(&iter.iter->first))); // key
     wo_struct_set(result_tuple, 0, elem);
@@ -1182,11 +1206,11 @@ WO_API wo_api rslib_std_take_string(wo_vm vm, wo_value args)
         wo_value result = s + 0;
         wo_value elem = s + 1;
 
-        wo_set_struct(result, vm, 2);
+        wo_set_struct(result, 2);
 
-        wo_set_string(elem, vm, input + token_length);
+        wo_set_string(elem, input + token_length);
         wo_struct_set(result, 0, elem);
-        wo_set_string(elem, vm, string_buf);
+        wo_set_string(elem, string_buf);
         wo_struct_set(result, 1, elem);
         return wo_ret_option_val(vm, result);
     }
@@ -1207,9 +1231,9 @@ WO_API wo_api rslib_std_take_int(wo_vm vm, wo_value args)
         wo_value result = s + 0;
         wo_value elem = s + 1;
 
-        wo_set_struct(result, vm, 2);
+        wo_set_struct(result, 2);
 
-        wo_set_string(elem, vm, input + token_length);
+        wo_set_string(elem, input + token_length);
         wo_struct_set(result, 0, elem);
         wo_set_int(elem, (wo_integer_t)integer);
         wo_struct_set(result, 1, elem);
@@ -1232,9 +1256,9 @@ WO_API wo_api rslib_std_take_real(wo_vm vm, wo_value args)
         wo_value result = s + 0;
         wo_value elem = s + 1;
 
-        wo_set_struct(result, vm, 2);
+        wo_set_struct(result, 2);
 
-        wo_set_string(elem, vm, input + token_length);
+        wo_set_string(elem, input + token_length);
         wo_struct_set(result, 0, elem);
         wo_set_real(elem, real);
         wo_struct_set(result, 1, elem);
@@ -1247,7 +1271,7 @@ WO_API wo_api rslib_std_take_real(wo_vm vm, wo_value args)
 WO_API wo_api rslib_std_parse_map_from_string(wo_vm vm, wo_value args)
 {
     wo_value result_dict = wo_reserve_stack(vm, 1, &args);
-    if (wo_deserialize(vm, result_dict, wo_string(args + 0), WO_MAPPING_TYPE))
+    if (wo_deserialize(result_dict, wo_string(args + 0), WO_MAPPING_TYPE))
         return wo_ret_option_val(vm, result_dict);
     return wo_ret_option_none(vm);
 }
@@ -1255,7 +1279,7 @@ WO_API wo_api rslib_std_parse_map_from_string(wo_vm vm, wo_value args)
 WO_API wo_api rslib_std_parse_array_from_string(wo_vm vm, wo_value args)
 {
     wo_value result_arr = wo_reserve_stack(vm, 1, &args);
-    if (wo_deserialize(vm, result_arr, wo_string(args + 0), WO_ARRAY_TYPE))
+    if (wo_deserialize(result_arr, wo_string(args + 0), WO_ARRAY_TYPE))
         return wo_ret_option_val(vm, result_arr);
     return wo_ret_option_none(vm);
 }
@@ -1272,7 +1296,7 @@ WO_API wo_api rslib_std_create_wchars_from_str(wo_vm vm, wo_value args)
     wo_value result_array = s + 0;
     wo_value elem = s + 1;
 
-    wo_set_arr(result_array, vm, buf.size());
+    wo_set_arr(result_array, buf.size());
 
     for (size_t i = 0; i < buf.size(); ++i)
     {
@@ -1293,7 +1317,7 @@ WO_API wo_api rslib_std_create_chars_from_str(wo_vm vm, wo_value args)
     wo_value result_array = s + 0;
     wo_value elem = s + 1;
 
-    wo_set_arr(result_array, vm, len);
+    wo_set_arr(result_array, len);
 
     for (size_t i = 0; i < len; ++i)
     {
@@ -1321,7 +1345,7 @@ WO_API wo_api rslib_std_array_create(wo_vm vm, wo_value args)
     wo_size_t arrsz = (wo_size_t)wo_int(args + 0);
 
     wo_value newarr = s + 0;
-    wo_set_arr(newarr, vm, arrsz);
+    wo_set_arr(newarr, arrsz);
 
     for (wo_size_t i = 0; i < arrsz; ++i)
         wo_arr_set(newarr, i, args + 1);
@@ -1409,7 +1433,13 @@ WO_API wo_api rslib_std_string_sub_range(wo_vm vm, wo_value args)
 WO_API wo_api rslib_std_thread_sleep(wo_vm vm, wo_value args)
 {
     using namespace std;
-    std::this_thread::sleep_for(wo_real(args) * 1s);
+
+    auto leaved = wo_leave_gcguard(vm);
+    {
+        std::this_thread::sleep_for(wo_real(args) * 1s);
+    }
+    if (leaved)
+        wo_enter_gcguard(vm);
     return wo_ret_void(vm);
 }
 
@@ -1429,7 +1459,7 @@ WO_API wo_api rslib_std_tuple_nthcdr(wo_vm vm, wo_value args)
     wo_value result = s + 0;
     wo_value elem = s + 1;
 
-    wo_set_struct(result, vm, (uint16_t)(len - idx));
+    wo_set_struct(result, (uint16_t)(len - idx));
     for (size_t i = idx; i < len; ++i)
     {
         wo_struct_get(elem, args + 0, (uint16_t)i);
@@ -1448,7 +1478,7 @@ WO_API wo_api rslib_std_tuple_cdr(wo_vm vm, wo_value args)
     wo_value result = s + 0;
     wo_value elem = s + 1;
 
-    wo_set_struct(result, vm, (uint16_t)(len - 1));
+    wo_set_struct(result, (uint16_t)(len - 1));
     for (size_t i = 1; i < len; ++i)
     {
         wo_struct_get(elem, args + 0, (uint16_t)i);
@@ -1499,11 +1529,11 @@ WO_API wo_api rslib_std_get_args(wo_vm vm, wo_value args)
     wo_value argsarr = s + 0;
     wo_value elem = s + 1;
 
-    wo_set_arr(argsarr, vm, argcarr);
+    wo_set_arr(argsarr, argcarr);
 
     for (wo_size_t i = 0; i < argcarr; ++i)
     {
-        wo_set_string(elem, vm, wo_arg_list[i].c_str());
+        wo_set_string(elem, wo_arg_list[i].c_str());
         wo_arr_set(argsarr, i, elem);
     }
 
@@ -1748,7 +1778,7 @@ namespace std
     ";\n"
     //////////////////////////////////////////////////////////////////////
     u8R"(
-        extern("rslib_std_get_env", slow)
+        extern("rslib_std_get_env")
             public func env(name: string)=> option<string>;
     }
 }
@@ -2189,7 +2219,7 @@ namespace result
 }
 namespace std
 {
-    extern("rslib_std_print", slow) 
+    extern("rslib_std_print") 
         public func print(...)=> void;
     extern("rslib_std_time_sec") 
         public func time()=> real;
@@ -2207,7 +2237,7 @@ namespace std
         {
             if (declval:<T>() is int)
             {
-                extern("rslib_std_input_readint", slow) 
+                extern("rslib_std_input_readint") 
                     func input_int()=> int;
                 let result = input_int();
                 if (validator(result))
@@ -2215,7 +2245,7 @@ namespace std
             }
             else if (declval:<T>() is real)
             {
-                extern("rslib_std_input_readreal", slow) 
+                extern("rslib_std_input_readreal") 
                     func input_real()=> real;
                 let result = input_real();
                 if (validator(result))
@@ -2223,7 +2253,7 @@ namespace std
             }
             else
             {
-                extern("rslib_std_input_readstring", slow) 
+                extern("rslib_std_input_readstring") 
                     func input_string()=> string;
                 let result = input_string();
                 if (validator(result))
@@ -2236,7 +2266,7 @@ namespace std
     {
         while (true)
         {
-            extern("rslib_std_input_readline", slow) 
+            extern("rslib_std_input_readline") 
             public func _input_line()=> string;
             match (parser(_input_line()))
             {
@@ -2265,7 +2295,7 @@ namespace std
     }
     extern("rslib_std_break_yield") 
         public func yield()=> void;
-    extern("rslib_std_thread_sleep", slow)
+    extern("rslib_std_thread_sleep")
         public func sleep(tm: real)=> void;
     extern("rslib_std_get_args")
         public func args()=> array<string>;
@@ -2907,7 +2937,7 @@ namespace int
 }
 namespace gchandle
 {
-    extern("rslib_std_gchandle_close", slow)
+    extern("rslib_std_gchandle_close")
         public func close(handle: gchandle)=> bool;
 }
 namespace tuple
@@ -2978,13 +3008,23 @@ public func assert_message(val: bool, msg: string)
 
 WO_API wo_api rslib_std_debug_attach_default_debuggee(wo_vm vm, wo_value args)
 {
-    wo_attach_default_debuggee();
+    auto leaved = wo_leave_gcguard(vm);
+    {
+        wo_attach_default_debuggee();
+    }
+    if (leaved != WO_FALSE)
+        wo_enter_gcguard(vm);
     return wo_ret_void(vm);
 }
 
 WO_API wo_api rslib_std_debug_disattach_default_debuggee(wo_vm vm, wo_value args)
 {
-    wo_detach_debuggee();
+    auto leaved = wo_leave_gcguard(vm);
+    {
+        wo_detach_debuggee();
+    }
+    if (leaved != WO_FALSE)
+        wo_enter_gcguard(vm);
     return wo_ret_void(vm);
 }
 
@@ -2996,7 +3036,7 @@ WO_API wo_api rslib_std_debug_callstack_trace(wo_vm vm, wo_value args)
     bool finished;
     auto traces = vmbase->dump_call_stack_func_info((size_t)wo_int(args + 0), true, &finished);
 
-    wo_set_arr(s + 0, vm, traces.size());
+    wo_set_arr(s + 0, traces.size());
     size_t index = 0;
     for (auto& trace : traces)
     {
@@ -3009,10 +3049,10 @@ WO_API wo_api rslib_std_debug_callstack_trace(wo_vm vm, wo_value args)
             public callway     : callway,
         };
         */
-        wo_set_struct(s + 1, vm, 5);
-        wo_set_string(s + 2, vm, trace.m_func_name.c_str());
+        wo_set_struct(s + 1, 5);
+        wo_set_string(s + 2, trace.m_func_name.c_str());
         wo_struct_set(s + 1, 0, s + 2);
-        wo_set_string(s + 2, vm, trace.m_file_path.c_str());
+        wo_set_string(s + 2, trace.m_file_path.c_str());
         wo_struct_set(s + 1, 1, s + 2);
         wo_set_int(s + 2, trace.m_row);
         wo_struct_set(s + 1, 2, s + 2);
@@ -3024,7 +3064,7 @@ WO_API wo_api rslib_std_debug_callstack_trace(wo_vm vm, wo_value args)
         wo_arr_set(s + 0, index++, s + 1);
     }
 
-    wo_set_struct(s + 1, vm, 2);
+    wo_set_struct(s + 1, 2);
     wo_set_bool(s + 2, finished ? WO_TRUE : WO_FALSE);
     wo_struct_set(s + 1, 0, s + 2);
     wo_struct_set(s + 1, 1, s + 0);
@@ -3034,9 +3074,14 @@ WO_API wo_api rslib_std_debug_callstack_trace(wo_vm vm, wo_value args)
 
 WO_API wo_api rslib_std_debug_breakpoint(wo_vm vm, wo_value args)
 {
-    wo_break_specify_immediately(vm);
-    (void)wo_ret_void(vm);
+    auto leaved = wo_leave_gcguard(vm);
+    {
+        wo_break_specify_immediately(vm);
+    }
+    if (leaved != WO_FALSE)
+        wo_enter_gcguard(vm);
 
+    (void)wo_ret_void(vm);
     return WO_API_RESYNC_JIT_STATE_TO_VM_STATE;
 }
 
@@ -3064,12 +3109,12 @@ namespace std
 {
     namespace debug
     {
-        extern("rslib_std_debug_breakpoint", slow)
+        extern("rslib_std_debug_breakpoint")
             public func breakpoint()=> void;
 
-        extern("rslib_std_debug_attach_default_debuggee", slow)
+        extern("rslib_std_debug_attach_default_debuggee")
             public func attach_debuggee()=> void;
-        extern("rslib_std_debug_disattach_default_debuggee", slow)
+        extern("rslib_std_debug_disattach_default_debuggee")
             public func disattach_debuggee()=> void;
 
         public func breakdown()
@@ -3124,21 +3169,19 @@ WO_API wo_api rslib_std_macro_lexer_peek(wo_vm vm, wo_value args)
     // ATTENTION: args might invalid after peek (
     //      if stack extension happend in recursive macro handling), 
     //  we cannot use args after peek.
+    auto leaved = wo_leave_gcguard(vm);
     auto* token_instance = lex->peek(true);
-
-    auto has_enter_gcguard = wo_enter_gcguard(vm);
+    if (leaved != WO_FALSE)
+        wo_enter_gcguard(vm);
 
     wo_value result = wo_register(vm, WO_REG_T0);
     wo_value elem = wo_register(vm, WO_REG_T1);
 
-    wo_set_struct(result, vm, 2);
+    wo_set_struct(result, 2);
     wo_set_int(elem, (wo_integer_t)token_instance->m_lex_type);
     wo_struct_set(result, 0, elem);
-    wo_set_string(elem, vm, token_instance->m_token_text.c_str());
+    wo_set_string(elem, token_instance->m_token_text.c_str());
     wo_struct_set(result, 1, elem);
-
-    if (has_enter_gcguard != WO_FALSE)
-        wo_leave_gcguard(vm);
 
     return wo_ret_val(vm, result);
 }
@@ -3150,24 +3193,22 @@ WO_API wo_api rslib_std_macro_lexer_next(wo_vm vm, wo_value args)
     // ATTENTION: args might invalid after peek (
     //      if stack extension happend in recursive macro handling), 
     //  we cannot use args after peek.
+    auto leaved = wo_leave_gcguard(vm);
     auto* token_instance = lex->peek(true);
-
-    auto has_enter_gcguard = wo_enter_gcguard(vm);
+    if (leaved != WO_FALSE)
+        wo_enter_gcguard(vm);
 
     wo_value result = wo_register(vm, WO_REG_T0);
     wo_value elem = wo_register(vm, WO_REG_T1);
 
-    wo_set_struct(result, vm, 2);
+    wo_set_struct(result, 2);
     wo_set_int(elem, (wo_integer_t)token_instance->m_lex_type);
     wo_struct_set(result, 0, elem);
-    wo_set_string(elem, vm, token_instance->m_token_text.c_str());
+    wo_set_string(elem, token_instance->m_token_text.c_str());
     wo_struct_set(result, 1, elem);
 
     // Use consume_forward to avoid recursive macro handler invoke.
     lex->consume_forward();
-
-    if (has_enter_gcguard != WO_FALSE)
-        wo_leave_gcguard(vm);
 
     return wo_ret_val(vm, result);
 }
@@ -3190,7 +3231,7 @@ WO_API wo_api rslib_std_macro_lexer_current_location(wo_vm vm, wo_value args)
     wo_value result = wo_register(vm, WO_REG_T0);
     wo_value elem = wo_register(vm, WO_REG_T1);
 
-    wo_set_struct(result, vm, 2);
+    wo_set_struct(result, 2);
     wo_set_int(elem, (wo_integer_t)peek_token->m_token_begin[2]);
     wo_struct_set(result, 0, elem);
     wo_set_int(elem, (wo_integer_t)peek_token->m_token_begin[3]);
@@ -3320,10 +3361,10 @@ namespace std
         extern("rslib_std_macro_lexer_error")
             public func error(lex: lexer, msg: string)=> void;
 
-        extern("rslib_std_macro_lexer_peek", slow)
+        extern("rslib_std_macro_lexer_peek")
             public func peek_token(lex: lexer)=> (token_type, string);
 
-        extern("rslib_std_macro_lexer_next", slow)
+        extern("rslib_std_macro_lexer_next")
             public func next_token(lex: lexer)=> (token_type, string);
         
         private func wrap_token(type: token_type, str: string)
@@ -3421,7 +3462,13 @@ namespace std
 WO_API wo_api rslib_std_shell(wo_vm vm, wo_value args)
 {
     if (wo::config::ENABLE_SHELL_PACKAGE)
-        return wo_ret_int(vm, system(wo_string(args + 0)));
+    {
+        auto leaved = wo_leave_gcguard(vm);
+        int system_result = system(wo_string(args + 0));
+        if (leaved != WO_FALSE)
+            wo_enter_gcguard(vm);
+        return wo_ret_int(vm, (wo_int_t)system_result);
+    }
     else
         return wo_ret_panic(vm, "Function defined in 'std/shell.wo' has been forbidden, "
             "trying to restart without '--enable-shell 1'.");
@@ -3433,7 +3480,7 @@ u8R"(
 import woo::std;
 namespace std
 {
-    extern("rslib_std_shell", slow)
+    extern("rslib_std_shell")
         public func shell(cmd: string)=> int;
 }
 )" };

@@ -366,11 +366,12 @@ WO_API void wo_set_pointer(wo_value value, wo_ptr_t val);
 WO_API void wo_set_bool(wo_value value, wo_bool_t val);
 WO_API void wo_set_val(wo_value value, wo_value val);
 
-WO_API void wo_set_dup(wo_value value, wo_vm vm, wo_value val);
+WO_API void wo_set_dup(wo_value value, wo_value val);
 
-WO_API void wo_set_string(wo_value value, wo_vm vm, wo_string_t val);
-WO_API void wo_set_string_fmt(wo_value value, wo_vm vm, wo_string_t fmt, ...);
-WO_API void wo_set_buffer(wo_value value, wo_vm vm, const void* val, wo_size_t len);
+WO_API void wo_set_string(wo_value value, wo_string_t val);
+WO_API void wo_set_string_fmtv(wo_value value, wo_string_t fmt, va_list v);
+WO_API void wo_set_string_fmt(wo_value value, wo_string_t fmt, ...);
+WO_API void wo_set_buffer(wo_value value, const void* val, wo_size_t len);
 #define wo_set_raw_string wo_set_buffer
 WO_API void wo_set_gchandle(
     wo_value value,
@@ -384,10 +385,10 @@ WO_API void wo_set_gcstruct(
     wo_ptr_t resource_ptr,
     wo_gcstruct_mark_func_t mark_func,
     wo_gchandle_close_func_t destruct_func);
-WO_API void wo_set_struct(wo_value value, wo_vm vm, uint16_t structsz);
-WO_API void wo_set_arr(wo_value value, wo_vm vm, wo_int_t count);
-WO_API void wo_set_map(wo_value value, wo_vm vm, wo_size_t reserved);
-WO_API void wo_set_union(wo_value value, wo_vm vm, wo_integer_t id, wo_value value_may_null);
+WO_API void wo_set_struct(wo_value value, uint16_t structsz);
+WO_API void wo_set_arr(wo_value value, wo_int_t count);
+WO_API void wo_set_map(wo_value value, wo_size_t reserved);
+WO_API void wo_set_union(wo_value value, wo_integer_t id, wo_value value_may_null);
 
 WO_API wo_integer_t wo_cast_int(wo_value value);
 WO_API wo_real_t wo_cast_real(wo_value value);
@@ -398,7 +399,7 @@ WO_API float wo_cast_float(wo_value value);
 WO_API wo_string_t wo_cast_string(wo_value value);
 
 WO_API wo_bool_t wo_serialize(wo_value value, wo_string_t* out_str);
-WO_API wo_bool_t wo_deserialize(wo_vm vm, wo_value value, wo_string_t str, wo_type_t except_type);
+WO_API wo_bool_t wo_deserialize(wo_value value, wo_string_t str, wo_type_t except_type);
 
 WO_API wo_string_t wo_type_name(wo_type_t value);
 
@@ -431,20 +432,21 @@ WO_API wo_result_t wo_ret_dup(wo_vm vm, wo_value result);
 WO_API wo_result_t wo_ret_panic(wo_vm vm, wo_string_t reasonfmt, ...);
 WO_API wo_result_t wo_ret_union(wo_vm vm, wo_integer_t id, wo_value value_may_null);
 
-WO_API void wo_set_option_void(wo_value val, wo_vm vm);
-WO_API void wo_set_option_char(wo_value val, wo_vm vm, wo_wchar_t result);
-WO_API void wo_set_option_bool(wo_value val, wo_vm vm, wo_bool_t result);
-WO_API void wo_set_option_int(wo_value val, wo_vm vm, wo_integer_t result);
-WO_API void wo_set_option_real(wo_value val, wo_vm vm, wo_real_t result);
-WO_API void wo_set_option_float(wo_value val, wo_vm vm, float result);
-WO_API void wo_set_option_handle(wo_value val, wo_vm vm, wo_handle_t result);
-WO_API void wo_set_option_string(wo_value val, wo_vm vm, wo_string_t result);
-WO_API void wo_set_option_string_fmt(wo_value val, wo_vm vm, wo_string_t fmt, ...);
-WO_API void wo_set_option_buffer(wo_value val, wo_vm vm, const void* result, wo_size_t len);
+WO_API void wo_set_option_void(wo_value val);
+WO_API void wo_set_option_char(wo_value val, wo_wchar_t result);
+WO_API void wo_set_option_bool(wo_value val, wo_bool_t result);
+WO_API void wo_set_option_int(wo_value val, wo_integer_t result);
+WO_API void wo_set_option_real(wo_value val, wo_real_t result);
+WO_API void wo_set_option_float(wo_value val, float result);
+WO_API void wo_set_option_handle(wo_value val, wo_handle_t result);
+WO_API void wo_set_option_string(wo_value val, wo_string_t result);
+WO_API void wo_set_option_string_fmtv(wo_value val, wo_string_t fmt, va_list v);
+WO_API void wo_set_option_string_fmt(wo_value val, wo_string_t fmt, ...);
+WO_API void wo_set_option_buffer(wo_value val, const void* result, wo_size_t len);
 #define wo_set_option_raw_string wo_set_option_buffer
-WO_API void wo_set_option_ptr_may_null(wo_value val, wo_vm vm, wo_ptr_t result);
-WO_API void wo_set_option_pointer(wo_value val, wo_vm vm, wo_ptr_t result);
-WO_API void wo_set_option_val(wo_value val, wo_vm vm, wo_value result);
+WO_API void wo_set_option_ptr_may_null(wo_value val, wo_ptr_t result);
+WO_API void wo_set_option_pointer(wo_value val, wo_ptr_t result);
+WO_API void wo_set_option_val(wo_value val, wo_value result);
 WO_API void wo_set_option_gchandle(
     wo_value val,
     wo_vm vm,
@@ -457,7 +459,7 @@ WO_API void wo_set_option_gcstruct(
     wo_ptr_t resource_ptr,
     wo_gcstruct_mark_func_t mark_func,
     wo_gchandle_close_func_t destruct_func);
-WO_API void wo_set_option_none(wo_value val, wo_vm vm);
+WO_API void wo_set_option_none(wo_value val);
 
 #define wo_set_ok_void wo_set_option_void
 #define wo_set_ok_char wo_set_option_char
@@ -468,6 +470,7 @@ WO_API void wo_set_option_none(wo_value val, wo_vm vm);
 #define wo_set_ok_handle wo_set_option_handle
 #define wo_set_ok_string wo_set_option_string
 #define wo_set_ok_string_fmt wo_set_option_string_fmt
+#define wo_set_ok_string_fmtv wo_set_option_string_fmtv
 #define wo_set_ok_buffer wo_set_option_buffer
 #define wo_set_ok_raw_string wo_set_option_buffer
 #define wo_set_ok_pointer wo_set_option_pointer
@@ -475,19 +478,20 @@ WO_API void wo_set_option_none(wo_value val, wo_vm vm);
 #define wo_set_ok_gchandle wo_set_option_gchandle
 #define wo_set_ok_gcstruct wo_set_option_gcstruct
 
-WO_API void wo_set_err_void(wo_value val, wo_vm vm);
-WO_API void wo_set_err_char(wo_value val, wo_vm vm, wo_wchar_t result);
-WO_API void wo_set_err_bool(wo_value val, wo_vm vm, wo_bool_t result);
-WO_API void wo_set_err_int(wo_value val, wo_vm vm, wo_integer_t result);
-WO_API void wo_set_err_real(wo_value val, wo_vm vm, wo_real_t result);
-WO_API void wo_set_err_float(wo_value val, wo_vm vm, float result);
-WO_API void wo_set_err_handle(wo_value val, wo_vm vm, wo_handle_t result);
-WO_API void wo_set_err_string(wo_value val, wo_vm vm, wo_string_t result);
-WO_API void wo_set_err_string_fmt(wo_value val, wo_vm vm, wo_string_t fmt, ...);
-WO_API void wo_set_err_buffer(wo_value val, wo_vm vm, const void* result, wo_size_t len);
+WO_API void wo_set_err_void(wo_value val);
+WO_API void wo_set_err_char(wo_value val, wo_wchar_t result);
+WO_API void wo_set_err_bool(wo_value val, wo_bool_t result);
+WO_API void wo_set_err_int(wo_value val, wo_integer_t result);
+WO_API void wo_set_err_real(wo_value val, wo_real_t result);
+WO_API void wo_set_err_float(wo_value val, float result);
+WO_API void wo_set_err_handle(wo_value val, wo_handle_t result);
+WO_API void wo_set_err_string(wo_value val, wo_string_t result);
+WO_API void wo_set_err_string_fmtv(wo_value val, wo_string_t fmt, va_list v);
+WO_API void wo_set_err_string_fmt(wo_value val, wo_string_t fmt, ...);
+WO_API void wo_set_err_buffer(wo_value val, const void* result, wo_size_t len);
 #define wo_set_err_raw_string wo_set_option_buffer
-WO_API void wo_set_err_pointer(wo_value val, wo_vm vm, wo_ptr_t result);
-WO_API void wo_set_err_val(wo_value val, wo_vm vm, wo_value result);
+WO_API void wo_set_err_pointer(wo_value val, wo_ptr_t result);
+WO_API void wo_set_err_val(wo_value val, wo_value result);
 WO_API void wo_set_err_gchandle(
     wo_value val,
     wo_vm vm,
@@ -704,7 +708,7 @@ WO_API void wo_set_val_with_write_barrier(wo_value value, wo_value val);
 
 // NOTE: If you need to assign a value from one VM to another, or let a value 
 // cross different GC scopes, you should use wo_set_val_migratory for this operation.
-WO_API void wo_set_val_migratory(wo_value value, wo_vm vm, wo_value val);
+WO_API void wo_set_val_migratory(wo_value value, wo_value val);
 
 WO_API wo_bool_t wo_leave_gcguard(wo_vm vm);
 WO_API wo_bool_t wo_enter_gcguard(wo_vm vm);
@@ -1168,6 +1172,7 @@ WO_API void wo_lspv2_token_info_free(wo_lspv2_token_info* info);
 #   define WO_FAIL_STACKOVERFLOW 0xD009
 #   define WO_FAIL_DEBUGGEE_FAIL 0xD00A
 #   define WO_FAIL_EXECUTE_FAIL 0xD00B
+#   define WO_FAIL_BAD_FORMAT 0xD00C
 
 #endif
 
@@ -1475,8 +1480,7 @@ enum _wo_opcode
     // OPNUM1: If DRL = 1 ? IMM_U64 : [IMM_U32 with 32bits padding]
     //                                      Absolute address call, the `OPNUM1` is the address of the function
     //                                      to be called. If DRL = 1, the function is a Woolang Native API
-    //                                      Function. and in this case, if DRH = 1, the function will be
-    //                                      invoked without gc-guard.
+    //                                      Function.
     //                                      If DRL = 0, DRH must be 0, and invoke just like integer case in
     //                                      WO_CALL.
     WO_MOVICAS = 48,

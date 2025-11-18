@@ -1239,11 +1239,6 @@ namespace wo
             }
         }
 
-        void callfast(void* op1)
-        {
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::calln, reinterpret_cast<opnum::opnumbase*>(op1), nullptr, 1);
-        }
-
         void jmp(const opnum::tag& op1)
         {
             WO_PUT_IR_TO_BUFFER(instruct::opcode::setip, WO_OPNUM(op1), nullptr, 0);

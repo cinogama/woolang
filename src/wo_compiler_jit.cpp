@@ -510,8 +510,12 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 
             if (interrupt_state & wo::vmbase::vm_interrupt_type::GC_INTERRUPT)
             {
+                vmm->gc_checkpoint_sync_begin();
+            }
+            if (interrupt_state & wo::vmbase::vm_interrupt_type::GC_INTERRUPT)
+            {
                 vmm->sp = rt_sp;
-                vmm->gc_checkpoint();
+                vmm->gc_checkpoint_self_mark();
             }
             if (interrupt_state & wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT)
             {
@@ -1173,8 +1177,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             const byte_t* codes,
             const byte_t* rt_ip,
             asmjit::x86::Gp rt_sp,
-            asmjit::x86::Gp rt_bp,
-            bool slow)
+            asmjit::x86::Gp rt_bp)
         {
             auto sp_offset = x86compiler.newInt64();
             auto bp_offset = x86compiler.newInt64();
@@ -1221,19 +1224,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 
             auto result = x86compiler.newInt32();
 
-            asmjit::InvokeNode* swap_gc_node;
-
-            if (slow)
-            {
-                /* ================================================ */
-                wo_assure(!x86compiler.invoke(
-                    &swap_gc_node,
-                    &wo_leave_gcguard,
-                    asmjit::FuncSignatureT<wo_bool_t, vmbase*>()));
-
-                swap_gc_node->setArg(0, vm);
-                /* ================================================ */
-            }
             asmjit::InvokeNode* invoke_node;
 
             wo_assure(!x86compiler.invoke(
@@ -1244,18 +1234,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             invoke_node->setArg(1, callargptr);
 
             invoke_node->setRet(0, result);
-
-            if (slow)
-            {
-                /* ================================================ */
-                wo_assure(!x86compiler.invoke(
-                    &swap_gc_node,
-                    &wo_enter_gcguard,
-                    asmjit::FuncSignatureT<wo_bool_t, vmbase*>()));
-
-                swap_gc_node->setArg(0, vm);
-                /* ================================================ */
-            }
 
             check_result_is_normal_for_nativefunc(
                 x86compiler, vm, result, rt_ip, sp_offset, bp_offset);
@@ -2472,7 +2450,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             ir_make_checkpoint_normalcheck(ctx, rollback_ip, std::nullopt);
 
             wo_assure(!ctx->c.int3()); // Cannot be here.
-
             wo_assure(!ctx->c.bind(stackenough_label));
 
             if (dr)
@@ -2487,8 +2464,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                     ctx->env->rt_codes,
                     rt_ip,
                     ctx->_vmssp,
-                    ctx->_vmsbp,
-                    dr & 0b10 ? false : true);
+                    ctx->_vmsbp);
             }
             else
             {
