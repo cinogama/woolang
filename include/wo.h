@@ -5,6 +5,33 @@
 //
 #define WO_VERSION WO_VERSION_WRAP(1, 14, 13, 0)
 
+/*
+            GC-Friendly External Function Development Rules
+
+    When writing external functions and interacting with Woolang using the C-API,
+    follow these rules:
+
+    1. Within the GC scope, long-term blocking without executing `wo_gc_checkpoint`
+        is not allowed. If an operation indeed requires long-term blocking, you
+        should use `wo_leave_gcguard` to leave the GC scope; after the blocking
+        operation is completed, use `wo_enter_gcguard` to re-enter the GC scope.
+        During the period of leaving the GC scope, constructing, assigning, or
+        moving any GC reference type objects is not allowed (read-only operations
+        are permitted).
+
+    2. If attempting to write values to other VMs, you must ensure to use
+        `wo_set_val_migratory` for assignment operations, or use `wo_enter_gcguard`
+        and `wo_leave_gcguard` to ensure the write operation is completed within
+        the target virtual machine's GC scope.
+
+    3. When writing data to custom GC-Structs, you need to use
+        `wo_set_val_with_write_barrier` for assignment operations to ensure the
+        write barrier.
+
+                                                        Rewritten for 1.14.13 on:
+                                                                2025.11.19.
+*/
+
 #ifndef WO_MSVC_RC_INCLUDE
 
 #ifdef __cplusplus
@@ -369,7 +396,6 @@ WO_API void wo_set_val(wo_value value, wo_value val);
 WO_API void wo_set_dup(wo_value value, wo_value val);
 
 WO_API void wo_set_string(wo_value value, wo_string_t val);
-WO_API void wo_set_string_fmtv(wo_value value, wo_string_t fmt, va_list v);
 WO_API void wo_set_string_fmt(wo_value value, wo_string_t fmt, ...);
 WO_API void wo_set_buffer(wo_value value, const void* val, wo_size_t len);
 #define wo_set_raw_string wo_set_buffer
@@ -440,7 +466,6 @@ WO_API void wo_set_option_real(wo_value val, wo_real_t result);
 WO_API void wo_set_option_float(wo_value val, float result);
 WO_API void wo_set_option_handle(wo_value val, wo_handle_t result);
 WO_API void wo_set_option_string(wo_value val, wo_string_t result);
-WO_API void wo_set_option_string_fmtv(wo_value val, wo_string_t fmt, va_list v);
 WO_API void wo_set_option_string_fmt(wo_value val, wo_string_t fmt, ...);
 WO_API void wo_set_option_buffer(wo_value val, const void* result, wo_size_t len);
 #define wo_set_option_raw_string wo_set_option_buffer
@@ -486,7 +511,6 @@ WO_API void wo_set_err_real(wo_value val, wo_real_t result);
 WO_API void wo_set_err_float(wo_value val, float result);
 WO_API void wo_set_err_handle(wo_value val, wo_handle_t result);
 WO_API void wo_set_err_string(wo_value val, wo_string_t result);
-WO_API void wo_set_err_string_fmtv(wo_value val, wo_string_t fmt, va_list v);
 WO_API void wo_set_err_string_fmt(wo_value val, wo_string_t fmt, ...);
 WO_API void wo_set_err_buffer(wo_value val, const void* result, wo_size_t len);
 #define wo_set_err_raw_string wo_set_option_buffer
@@ -584,7 +608,13 @@ WO_API wo_string_t wo_work_path(void);
 WO_API void wo_set_exe_path(wo_string_t path);
 WO_API wo_bool_t wo_set_work_path(wo_string_t path);
 
-// NOTE: Only used for 
+// NOTE: Only used for special cases, such as in coroutine libraries,
+//       when it is necessary to switch out of a virtual machine in the 
+//       middle of execution to reassign the current thread's virtual 
+//       machine.
+// 
+//       In most cases, Woolang automatically handles these settings, so 
+//       manual invocation is not required.
 WO_API wo_vm wo_set_this_thread_vm(wo_vm vm_may_null);
 
 WO_API void wo_enable_jit(wo_bool_t option);
@@ -619,18 +649,20 @@ WO_API void wo_release_vm(wo_vm vm);
 
 WO_API wo_bool_t wo_load_source(wo_vm vm, wo_string_t virtual_src_path, wo_string_t src);
 WO_API wo_bool_t wo_load_file(wo_vm vm, wo_string_t virtual_src_path);
-WO_API wo_bool_t wo_load_binary(wo_vm vm, wo_string_t virtual_src_path, const void* buffer, wo_size_t length);
+WO_API wo_bool_t wo_load_binary(
+    wo_vm vm, wo_string_t virtual_src_path, const void* buffer, wo_size_t length);
 
-WO_API wo_bool_t wo_jit(wo_vm vm);
-
-// NOTE: wo_dump_binary must invoke before wo_run.
+// NOTE: wo_dump_binary must invoke before `wo_jit` & `wo_run`.
 WO_API void* wo_dump_binary(wo_vm vm, wo_bool_t saving_pdi, wo_size_t* out_length);
 WO_API void wo_free_binary(void* buffer);
 
-WO_API wo_bool_t wo_execute(wo_string_t src, wo_execute_callback_ft callback, void* data);
+// NOTE: wo_jit must invoke before `wo_run`.
+WO_API wo_bool_t wo_jit(wo_vm vm);
 
 // wo_run is used for init a vm.
 WO_API wo_value wo_run(wo_vm vm);
+
+WO_API wo_bool_t wo_execute(wo_string_t src, wo_execute_callback_ft callback, void* data);
 
 WO_API wo_bool_t wo_has_compile_error(wo_vm vm);
 WO_API wo_string_t wo_get_compile_error(wo_vm vm, wo_inform_style_t style);
@@ -757,7 +789,8 @@ WO_API wo_bool_t wo_arr_is_empty(wo_value arr);
 
 WO_API wo_size_t wo_map_len(wo_value map);
 WO_API wo_bool_t wo_map_find(wo_value map, wo_value index);
-WO_API wo_bool_t wo_map_get_or_default(wo_value out_val, wo_value map, wo_value index, wo_value default_value);
+WO_API wo_bool_t wo_map_get_or_default(
+    wo_value out_val, wo_value map, wo_value index, wo_value default_value);
 WO_API wo_bool_t wo_map_try_get(wo_value out_val, wo_value map, wo_value index);
 WO_API void wo_map_get(wo_value out_val, wo_value map, wo_value index);
 WO_API wo_bool_t wo_map_is_empty(wo_value arr);
@@ -1225,37 +1258,6 @@ WO_API void wo_lspv2_token_info_free(wo_lspv2_token_info* info);
 #   define ANSI_BWHI ANSI_ESC "47m"
 #   define ANSI_BHIW ANSI_ESC "1;47m"
 #endif
-
-/*
-        GC-Friendly External Function Development Rules
-
-For external functions involving GC elements, follow these rules:
-
-Definition: An assignment operation involves a `source (src)`, an `old destination value (old-dst)`,
-and a `new destination value (new-dst)`. After assignment, the old value of the destination
-(dst) is overwritten by the new value.
-
-Assignment rules:
-
-1.  If `src` and `dst` both belong to the `current VM`:
-    1.1 Function declared as `fast` (default) - no additional action needed.
-    1.2 Function declared as `slow` - must meet one of:
-        1.2.1 Use `wo_enter_gcguard` during assignment, then `wo_leave_gcguard` after completion.
-        1.2.2 Use `wo_set_val_with_write_barrier` for the assignment.
-
-2.  If `src` is from another VM but `dst` belongs to current VM:
-    2.1 Safe if `src` guaranteed from `Pin value`.
-    2.2 If `src` might be from another VM:
-        2.2.1 Use `wo_set_val_migratory`.
-
-3.  If `src` belongs to current VM but `dst` is from another VM:
-    3.1 Safe if `dst` guaranteed to be `Pin value`.
-    3.2 If `dst` might belong to another VM:
-        3.2.1 Safe if `dst` immediately used as argument in `wo_invoke_value` or `wo_dispatch_value`.
-        3.2.2 Otherwise use `wo_set_val_migratory`.
-
-                                                                            2025.11.18.
-*/
 
 #if defined(WO_NEED_OPCODE_API)
 

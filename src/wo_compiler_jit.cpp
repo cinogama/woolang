@@ -504,7 +504,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
         {
             (void)vmm->interrupt(type);
         }
-        static wo_result_t _invoke_vm_checkpoint(wo::vmbase* vmm, wo::value* rt_sp, wo::value* rt_bp, const byte_t* rt_ip)
+        static wo_result_t _invoke_vm_checkpoint(
+            wo::vmbase* vmm, wo::value* rt_sp, wo::value* rt_bp, const byte_t* rt_ip)
         {
             const auto interrupt_state = vmm->vm_interrupt.load(std::memory_order_acquire);
 
@@ -512,11 +513,12 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             {
                 vmm->gc_checkpoint_sync_begin();
             }
-            if (interrupt_state & wo::vmbase::vm_interrupt_type::GC_INTERRUPT)
+            else if (interrupt_state & wo::vmbase::vm_interrupt_type::GC_INTERRUPT)
             {
                 vmm->sp = rt_sp;
                 vmm->gc_checkpoint_self_mark();
             }
+            ///////////////////////////////////////////////////////////////////////
             if (interrupt_state & wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT)
             {
                 vmm->sp = rt_sp;
@@ -1875,7 +1877,11 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             auto bpoffset = ctx->c.newUIntPtr();
             if (opnum2.is_constant())
             {
-                wo_assure(!ctx->c.lea(bpoffset, asmjit::x86::qword_ptr(ctx->_vmsbp, (int32_t)(opnum2.const_value()->m_integer * sizeof(wo::value)))));
+                wo_assure(!ctx->c.lea(
+                    bpoffset, 
+                    asmjit::x86::qword_ptr(
+                        ctx->_vmsbp, 
+                        (int32_t)(opnum2.const_value()->m_integer * sizeof(wo::value)))));
                 x86_set_val(ctx->c, opnum1.gp_value(), bpoffset);
             }
             else
@@ -1897,14 +1903,18 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
             auto bpoffset = ctx->c.newUIntPtr();
             if (opnum2.is_constant())
             {
-                wo_assure(!ctx->c.lea(bpoffset, asmjit::x86::qword_ptr(ctx->_vmsbp, (int32_t)(opnum2.const_value()->m_integer * sizeof(wo::value)))));
+                wo_assure(!ctx->c.lea(bpoffset, asmjit::x86::qword_ptr(
+                    ctx->_vmsbp, 
+                    (int32_t)(opnum2.const_value()->m_integer * sizeof(wo::value)))));
                 x86_set_val(ctx->c, bpoffset, opnum1.gp_value());
             }
             else
             {
                 static_assert(sizeof(wo::value) == 16);
 
-                wo_assure(!ctx->c.mov(bpoffset, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_integer))));
+                wo_assure(!ctx->c.mov(
+                    bpoffset, 
+                    asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_integer))));
                 wo_assure(!ctx->c.shl(bpoffset, asmjit::Imm(4)));
                 wo_assure(!ctx->c.lea(bpoffset, asmjit::x86::qword_ptr(ctx->_vmsbp, bpoffset)));
                 x86_set_val(ctx->c, bpoffset, opnum1.gp_value());
@@ -1953,12 +1963,14 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 
             if (opnum1.is_constant_i32())
             {
-                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_integer)), opnum1.const_value()->m_integer));
+                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(
+                    opnum2.gp_value(), offsetof(value, m_integer)), opnum1.const_value()->m_integer));
                 wo_assure(!ctx->c.setg(temp_result)); // op2 > const => const < op2
             }
             else if (opnum2.is_constant_i32())
             {
-                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer)), opnum2.const_value()->m_integer));
+                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(
+                    opnum1.gp_value(), offsetof(value, m_integer)), opnum2.const_value()->m_integer));
                 wo_assure(!ctx->c.setl(temp_result));
             }
             else

@@ -161,7 +161,8 @@ namespace wo
     }
     bool vmbase::is_aborted() const noexcept
     {
-        return vm_interrupt.load(std::memory_order::memory_order_acquire) & vm_interrupt_type::ABORT_INTERRUPT;
+        return vm_interrupt.load(std::memory_order::memory_order_acquire) 
+            & vm_interrupt_type::ABORT_INTERRUPT;
     }
     bool vmbase::interrupt(vm_interrupt_type type)noexcept
     {
@@ -169,7 +170,8 @@ namespace wo
     }
     bool vmbase::clear_interrupt(vm_interrupt_type type)noexcept
     {
-        return type & vm_interrupt.fetch_and(~type, std::memory_order::memory_order_acq_rel);
+        return type & vm_interrupt.fetch_and(
+            ~type, std::memory_order::memory_order_acq_rel);
     }
     bool vmbase::check_interrupt(vm_interrupt_type type)noexcept
     {
@@ -3171,7 +3173,7 @@ namespace wo
                 {
                     gc_checkpoint_sync_begin();
                 }
-                if (interrupt_state & vm_interrupt_type::GC_INTERRUPT)
+                else if (interrupt_state & vm_interrupt_type::GC_INTERRUPT)
                 {
                     gc_checkpoint_self_mark();
                 }

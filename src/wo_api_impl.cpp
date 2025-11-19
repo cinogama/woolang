@@ -403,19 +403,40 @@ void wo_execute_fail_handler(
         }
     }
 }
-void wo_cause_fail(wo_string_t src_file, uint32_t lineno, wo_string_t functionname, uint32_t rterrcode, wo_string_t reasonfmt, ...)
+
+std::vector<char> _wo_vformat(const char* fmt, va_list v)
 {
-    va_list v1, v2;
-    va_start(v1, reasonfmt);
-    va_copy(v2, v1);
-    std::vector<char> buf(1 + vsnprintf(nullptr, 0, reasonfmt, v1));
-    va_end(v1);
-    std::vsnprintf(buf.data(), buf.size(), reasonfmt, v2);
+    va_list v2;
+    va_copy(v2, v);
+    auto len = vsnprintf(nullptr, 0, fmt, v);
+    std::vector<char> buf(1 + static_cast<size_t>(std::max(len, 0)));
+    if (len < 0
+        || 0 > std::vsnprintf(buf.data(), buf.size(), fmt, v2))
+    {
+        wo_fail(WO_FAIL_BAD_FORMAT, "Bad format: %s.", fmt);
+        buf[0] = '\0';
+    }
+
     va_end(v2);
+    return buf;
+}
+
+void wo_cause_fail(
+    wo_string_t src_file, 
+    uint32_t lineno, 
+    wo_string_t functionname, 
+    uint32_t rterrcode, 
+    wo_string_t reasonfmt,
+    ...)
+{
+    va_list v1;
+    va_start(v1, reasonfmt);
 
     wo_execute_fail_handler(
         reinterpret_cast<wo_vm>(wo::vmbase::_this_thread_vm),
-        src_file, lineno, functionname, rterrcode, buf.data());
+        src_file, lineno, functionname, rterrcode, _wo_vformat(reasonfmt, v1).data());
+
+    va_end(v1);
 }
 
 wo_real_t _wo_last_ctrl_c_time = -1.f;
@@ -905,19 +926,7 @@ void wo_set_string(wo_value value, wo_string_t val)
 
 void wo_set_string_fmtv(wo_value value, wo_string_t fmt, va_list v)
 {
-    va_list v2;
-    va_copy(v2, v);
-    auto len = vsnprintf(nullptr, 0, fmt, v);
-    std::vector<char> buf(1 + std::max(len, 0));
-    if (len < 0
-        || 0 > std::vsnprintf(buf.data(), buf.size(), fmt, v2))
-    {
-        wo_fail(WO_FAIL_BAD_FORMAT, "Bad format.");
-        buf[0] = '\0';
-    }
-
-    va_end(v2);
-    wo_set_string(value, buf.data());    
+    wo_set_string(value, _wo_vformat(fmt, v).data());    
 }
 
 void wo_set_string_fmt(wo_value value, wo_string_t fmt, ...)
@@ -1666,14 +1675,13 @@ wo_result_t wo_ret_string(wo_vm vm, wo_string_t result)
 
 wo_result_t wo_ret_string_fmt(wo_vm vm, wo_string_t fmt, ...)
 {
-    va_list v1, v2;
-    va_start(v1, fmt);
-    va_copy(v2, v1);
-    std::vector<char> buf(1 + vsnprintf(nullptr, 0, fmt, v1));
-    va_end(v1);
-    std::vsnprintf(buf.data(), buf.size(), fmt, v2);
-    va_end(v2);
-    return wo_ret_string(vm, buf.data());
+    va_list v;
+    va_start(v, fmt);
+    auto ret = wo_ret_string(vm, _wo_vformat(fmt, v).data());
+
+    va_end(v);
+
+    return ret;
 }
 
 wo_result_t wo_ret_buffer(wo_vm vm, const void* result, wo_size_t len)
@@ -1725,19 +1733,18 @@ wo_result_t wo_ret_dup(wo_vm vm, wo_value result)
 
 wo_result_t wo_ret_panic(wo_vm vm, wo_string_t reasonfmt, ...)
 {
-    va_list v1, v2;
-    va_start(v1, reasonfmt);
-    va_copy(v2, v1);
-    std::vector<char> buf(1 + vsnprintf(nullptr, 0, reasonfmt, v1));
-    va_end(v1);
-    std::vsnprintf(buf.data(), buf.size(), reasonfmt, v2);
-    va_end(v2);
+    va_list v;
+    va_start(v, reasonfmt);
 
     wo::vmbase* vmbase = WO_VM(vm);
-    {
-        vmbase->register_storage[wo::opnum::reg::er].set_string(buf.data());
-    }
-    wo_fail(WO_FAIL_USER_PANIC, vmbase->register_storage[wo::opnum::reg::er].m_string->c_str());
+    auto& er_reg = vmbase->register_storage[wo::opnum::reg::er];
+
+    er_reg.set_string(
+            _wo_vformat(reasonfmt, v).data());
+
+    va_end(v);
+
+    wo_fail(WO_FAIL_USER_PANIC, er_reg.m_string->c_str());
     return wo_result_t::WO_API_RESYNC_JIT_STATE_TO_VM_STATE;
 }
 

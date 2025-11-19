@@ -21,10 +21,10 @@
 #include <set>
 
 #if WO_BUILD_WITH_MINGW
-#   include <mingw.thread.h>
-#   include <mingw.mutex.h>
-#   include <mingw.shared_mutex.h>
-#   include <mingw.condition_variable.h>
+#include <mingw.thread.h>
+#include <mingw.mutex.h>
+#include <mingw.shared_mutex.h>
+#include <mingw.condition_variable.h>
 #endif
 
 namespace wo
@@ -34,22 +34,24 @@ namespace wo
     class vm_debuggee_bridge_base
     {
         inline static std::mutex _abandon_debuggees_mx;
-        inline static std::vector<vm_debuggee_bridge_base*> _abandon_debuggees;
+        inline static std::vector<vm_debuggee_bridge_base *> _abandon_debuggees;
 
         std::mutex _debug_entry_guard_block_mx;
+
     public:
         vm_debuggee_bridge_base() = default;
-        virtual~vm_debuggee_bridge_base() = default;
+        virtual ~vm_debuggee_bridge_base() = default;
 
-        vm_debuggee_bridge_base(const vm_debuggee_bridge_base&) = delete;
-        vm_debuggee_bridge_base(vm_debuggee_bridge_base&&) = delete;
-        vm_debuggee_bridge_base& operator = (const vm_debuggee_bridge_base&) = delete;
-        vm_debuggee_bridge_base& operator = (vm_debuggee_bridge_base&&) = delete;
+        vm_debuggee_bridge_base(const vm_debuggee_bridge_base &) = delete;
+        vm_debuggee_bridge_base(vm_debuggee_bridge_base &&) = delete;
+        vm_debuggee_bridge_base &operator=(const vm_debuggee_bridge_base &) = delete;
+        vm_debuggee_bridge_base &operator=(vm_debuggee_bridge_base &&) = delete;
 
-        virtual void debug_interrupt(vmbase*) = 0;
+        virtual void debug_interrupt(vmbase *) = 0;
 
     public:
-        void _vm_invoke_debuggee(vmbase* _vm);
+        void _vm_invoke_debuggee(vmbase *_vm);
+
     public:
         void _abandon()
         {
@@ -59,7 +61,7 @@ namespace wo
         static void _free_abandons_in_shutdown()
         {
             std::lock_guard _(_abandon_debuggees_mx);
-            for (auto* debuggee : _abandon_debuggees)
+            for (auto *debuggee : _abandon_debuggees)
             {
                 delete debuggee;
             }
@@ -69,19 +71,18 @@ namespace wo
     class c_debuggee_bridge : public vm_debuggee_bridge_base
     {
         wo_debuggee_callback_func_t m_callback;
-        void* m_userdata;
+        void *m_userdata;
 
     public:
-        c_debuggee_bridge(wo_debuggee_callback_func_t callback, void* userdata)
-            : m_callback(callback)
-            , m_userdata(userdata)
+        c_debuggee_bridge(wo_debuggee_callback_func_t callback, void *userdata)
+            : m_callback(callback), m_userdata(userdata)
         {
         }
         ~c_debuggee_bridge()
         {
             m_callback(nullptr, m_userdata);
         }
-        virtual void debug_interrupt(vmbase* vm) override
+        virtual void debug_interrupt(vmbase *vm) override
         {
             m_callback(std::launder(reinterpret_cast<wo_vm>(vm)), m_userdata);
         }
@@ -95,48 +96,52 @@ namespace wo
         struct leave_context
         {
             bool m_leaved;
-            wo::vmbase* m_vm;
+            wo::vmbase *m_vm;
         };
+
     private:
-        void leave(leave_context* out_context) noexcept;
-        void enter(const leave_context& in_context) noexcept;
+        void leave(leave_context *out_context) noexcept;
+        void enter(const leave_context &in_context) noexcept;
+
     public:
         assure_leave_this_thread_vm_shared_mutex() = default;
-        assure_leave_this_thread_vm_shared_mutex(const assure_leave_this_thread_vm_shared_mutex&) = delete;
-        assure_leave_this_thread_vm_shared_mutex(assure_leave_this_thread_vm_shared_mutex&&) = delete;
-        assure_leave_this_thread_vm_shared_mutex& operator = (const assure_leave_this_thread_vm_shared_mutex&) = delete;
-        assure_leave_this_thread_vm_shared_mutex& operator = (assure_leave_this_thread_vm_shared_mutex&&) = delete;
+        assure_leave_this_thread_vm_shared_mutex(const assure_leave_this_thread_vm_shared_mutex &) = delete;
+        assure_leave_this_thread_vm_shared_mutex(assure_leave_this_thread_vm_shared_mutex &&) = delete;
+        assure_leave_this_thread_vm_shared_mutex &operator=(const assure_leave_this_thread_vm_shared_mutex &) = delete;
+        assure_leave_this_thread_vm_shared_mutex &operator=(assure_leave_this_thread_vm_shared_mutex &&) = delete;
 
-        void lock(leave_context* out_context) noexcept;
-        void unlock(const leave_context& in_context) noexcept;
-        void lock_shared(leave_context* out_context) noexcept;
-        void unlock_shared(const leave_context& in_context) noexcept;
-        bool try_lock(leave_context* out_context) noexcept;
-        bool try_lock_shared(leave_context* out_context) noexcept;
+        void lock(leave_context *out_context) noexcept;
+        void unlock(const leave_context &in_context) noexcept;
+        void lock_shared(leave_context *out_context) noexcept;
+        void unlock_shared(const leave_context &in_context) noexcept;
+        bool try_lock(leave_context *out_context) noexcept;
+        bool try_lock_shared(leave_context *out_context) noexcept;
     };
     class assure_leave_this_thread_vm_lock_guard
     {
-        assure_leave_this_thread_vm_shared_mutex* m_mx;
+        assure_leave_this_thread_vm_shared_mutex *m_mx;
         assure_leave_this_thread_vm_shared_mutex::leave_context m_context;
+
     public:
-        assure_leave_this_thread_vm_lock_guard(assure_leave_this_thread_vm_shared_mutex& mx);
+        assure_leave_this_thread_vm_lock_guard(assure_leave_this_thread_vm_shared_mutex &mx);
         ~assure_leave_this_thread_vm_lock_guard();
-        assure_leave_this_thread_vm_lock_guard(const assure_leave_this_thread_vm_lock_guard&) = delete;
-        assure_leave_this_thread_vm_lock_guard(assure_leave_this_thread_vm_lock_guard&&) = delete;
-        assure_leave_this_thread_vm_lock_guard& operator = (const assure_leave_this_thread_vm_lock_guard&) = delete;
-        assure_leave_this_thread_vm_lock_guard& operator = (assure_leave_this_thread_vm_lock_guard&&) = delete;
+        assure_leave_this_thread_vm_lock_guard(const assure_leave_this_thread_vm_lock_guard &) = delete;
+        assure_leave_this_thread_vm_lock_guard(assure_leave_this_thread_vm_lock_guard &&) = delete;
+        assure_leave_this_thread_vm_lock_guard &operator=(const assure_leave_this_thread_vm_lock_guard &) = delete;
+        assure_leave_this_thread_vm_lock_guard &operator=(assure_leave_this_thread_vm_lock_guard &&) = delete;
     };
     class assure_leave_this_thread_vm_shared_lock
     {
-        assure_leave_this_thread_vm_shared_mutex* m_mx;
+        assure_leave_this_thread_vm_shared_mutex *m_mx;
         assure_leave_this_thread_vm_shared_mutex::leave_context m_context;
+
     public:
-        assure_leave_this_thread_vm_shared_lock(assure_leave_this_thread_vm_shared_mutex& mx);
+        assure_leave_this_thread_vm_shared_lock(assure_leave_this_thread_vm_shared_mutex &mx);
         ~assure_leave_this_thread_vm_shared_lock();
-        assure_leave_this_thread_vm_shared_lock(const assure_leave_this_thread_vm_shared_lock&) = delete;
-        assure_leave_this_thread_vm_shared_lock(assure_leave_this_thread_vm_shared_lock&&) = delete;
-        assure_leave_this_thread_vm_shared_lock& operator = (const assure_leave_this_thread_vm_shared_lock&) = delete;
-        assure_leave_this_thread_vm_shared_lock& operator = (assure_leave_this_thread_vm_shared_lock&&) = delete;
+        assure_leave_this_thread_vm_shared_lock(const assure_leave_this_thread_vm_shared_lock &) = delete;
+        assure_leave_this_thread_vm_shared_lock(assure_leave_this_thread_vm_shared_lock &&) = delete;
+        assure_leave_this_thread_vm_shared_lock &operator=(const assure_leave_this_thread_vm_shared_lock &) = delete;
+        assure_leave_this_thread_vm_shared_lock &operator=(assure_leave_this_thread_vm_shared_lock &&) = delete;
     };
 
     class vmbase
@@ -161,42 +166,62 @@ namespace wo
             // There is no interrupt
 
             GC_SYNC_BEGIN_INTERRUPT = 1 << 8,
-            // When a Non-STW-GC starts a round of work, it first sends the GC_SYNC_BEGIN_INTERRUPT 
+            // When a Non-STW-GC starts a round of work, it first sends the GC_SYNC_BEGIN_INTERRUPT
             // signal to all virtual machines;
-            // Virtual machines that receive this signal only need to clear this signal. For 
-            // virtual machines that are out of the GC scope, the GC thread is responsible for 
-            // cleaning up and setting GC_HANGUP_INTERRUPT to ensure that this virtual machine 
+            // Virtual machines that receive this signal only need to clear this signal. For
+            // virtual machines that are out of the GC scope, the GC thread is responsible for
+            // cleaning up and setting GC_HANGUP_INTERRUPT to ensure that this virtual machine
             // remains in a suspended state during the subsequent GC work.
-            // 
-            // The purpose of establishing this interrupt is to ensure that all virtual machines 
-            // are either explicitly completely suspended, or guaranteed to receive the `gc_is_marking` 
+            //
+            // The purpose of establishing this interrupt is to ensure that all virtual machines
+            // are either explicitly completely suspended, or guaranteed to receive the `gc_is_marking`
             // state. Only after confirming that all virtual machines have responded to this
             // interrupt will the GC thread initiate the formal `GC_INTERRUPT` request.
             //
             // This interrupt will not be notified in STW-GC.
 
             GC_HANGUP_INTERRUPT = 1 << 9,
-            // TODO;
+            // When the virtual machine confirms receipt of the GC_HANGUP_INTERRUPT signal, it should
+            // immediately suspend until notified by the GC worker thread to resume; GC_HANGUP_INTERRUPT
+            // is a coordination signal between the GC worker thread and the virtual machine, used to
+            // ensure that during GC work, the virtual machine does not arbitrarily execute operations
+            // that could corrupt the VM state under specific circumstances.
+            //
+            // The following situations require the virtual machine to suspend:
+            // 1) The GC worker thread initiated GC_SYNC_BEGIN_INTERRUPT, but the current virtual machine
+            //      has left the GC scope.
+            // 2) Before an STW-GC begins, the GC worker thread uses this signal to ensure all virtual
+            //      machines are suspended until the STW-GC ends.
+            //
+            // In addition to being used for suspension, GC_HANGUP_INTERRUPT also has a special purpose:
+            // 1) When the virtual machine receives GC_SYNC_BEGIN_INTERRUPT or GC_INTERRUPT, it sets
+            //      GC_HANGUP_INTERRUPT to notify the GC worker thread that the current virtual machine
+            //      has received the interrupt request.
 
             GC_INTERRUPT = 1 << 10,
-            // TODO;
+            // For all virtual machines that have confirmed receipt of GC_SYNC_BEGIN_INTERRUPT, the GC
+            // thread will send GC_INTERRUPT to these virtual machines after all virtual machines complete
+            // the initial synchronization.
+            //
+            // Virtual machines that receive GC_INTERRUPT will immediately call `gc_checkpoint_self_mark`
+            // to begin self-marking.
 
             LEAVE_INTERRUPT = 1 << 11,
-            // When GC work trying GC_SYNC_BEGIN_INTERRUPT, it will wait for vm cleaning 
+            // When GC work trying GC_SYNC_BEGIN_INTERRUPT, it will wait for vm cleaning
             // GC_SYNC_BEGIN_INTERRUPT flag(and hangs), and the wait will be endless, besides:
-            // If LEAVE_INTERRUPT was setted, 'wait_interrupt' will try to wait in unlimitted 
+            // If LEAVE_INTERRUPT was setted, 'wait_interrupt' will try to wait in unlimitted
             // time.
-            // 
+            //
             // VM will set LEAVE_INTERRUPT when:
             // 1) calling slow native function
             // 2) leaving vm run()
             // 3) vm was created.
-            // 
+            //
             // VM will clean LEAVE_INTERRUPT when:
             // 1) the slow native function calling was end.
             // 2) enter vm run()
             // 3) vm destructed.
-            // 
+            //
             // ATTENTION: Each operate of setting or cleaning LEAVE_INTERRUPT must be
             //            successful. (We use 'wo_assure' here)' (Except in case of exception restore)
 
@@ -221,28 +246,28 @@ namespace wo
             // Advise vm to shrink it's stack usage, raised by GC-Job.
 
             STACK_OCCUPYING_INTERRUPT = 1 << 18,
-            // When reallocating (expanding or shrinking) stack space, stack read operations other 
+            // When reallocating (expanding or shrinking) stack space, stack read operations other
             // than runtime operations (since reallocation only occurs during runtime or when the VM
             // is inactive) include:
             //  1. Stack unwinding.
             //  2. Direct stack value access.
-            // Therefore, this interrupt is triggered both during stack reallocation and when the above 
+            // Therefore, this interrupt is triggered both during stack reallocation and when the above
             // situations occur, functioning as a spinlock-like mechanism;
             // Upon receiving this interrupt, the VM should halt.
-            // 
+            //
             // NOTE: GC-in-gc-thread will scan the stack in other thread, too, but we use gc_guard to make
             //  sure stack-reallocate never happend during GC scan.
 
             CALL_FAR_RESYNC_VM_STATE_INTERRUPT = 1 << 19,
             // [Only interrupt in VM] When a virtual machine attempts to call a function outside
-            // its near code area, this is referred to as a "far call" (call far).  
+            // its near code area, this is referred to as a "far call" (call far).
             // Since different code areas use different static constant tables, to ensure the virtual
-            // machine can correctly handle various relative quantities  
+            // machine can correctly handle various relative quantities
             // (static/constant access, relative address jumps, and immediate calls) after a far call
-            // occurs, the virtual machine will request this interrupt to update the near code area 
-            // and static constant table either after a far call or when returning from one.  
+            // occurs, the virtual machine will request this interrupt to update the near code area
+            // and static constant table either after a far call or when returning from one.
             //  * This interrupt carries relatively high overhead, so avoid using far calls unnecessarily
-            // unless absolutely required.  
+            // unless absolutely required.
 
             DEBUG_INTERRUPT = 1 << 30,
             // If virtual machine interrupt with DEBUG_INTERRUPT, it will stop at all opcode
@@ -260,9 +285,9 @@ namespace wo
         {
             std::string m_func_name;
             std::string m_file_path;
-            size_t      m_row;
-            size_t      m_col;
-            call_way    m_call_way;
+            size_t m_row;
+            size_t m_col;
+            call_way m_call_way;
         };
         struct hangup_lock
         {
@@ -272,14 +297,15 @@ namespace wo
 
             hangup_lock();
             ~hangup_lock() = default;
-            hangup_lock(const hangup_lock&) = delete;
-            hangup_lock(hangup_lock&&) = delete;
-            hangup_lock& operator = (const hangup_lock&) = delete;
-            hangup_lock& operator = (hangup_lock&&) = delete;
+            hangup_lock(const hangup_lock &) = delete;
+            hangup_lock(hangup_lock &&) = delete;
+            hangup_lock &operator=(const hangup_lock &) = delete;
+            hangup_lock &operator=(hangup_lock &&) = delete;
 
-            void hangup()noexcept;
-            void wakeup()noexcept;
+            void hangup() noexcept;
+            void wakeup() noexcept;
         };
+
     public:
         inline static constexpr size_t VM_DEFAULT_STACK_SIZE = 32;
         inline static constexpr size_t VM_MAX_STACK_SIZE = 128 * 1024 * 1024;
@@ -289,59 +315,59 @@ namespace wo
 
         static_assert(VM_SHRINK_STACK_COUNT < VM_SHRINK_STACK_MAX_EDGE);
         static_assert(VM_MAX_STACK_SIZE >= VM_DEFAULT_STACK_SIZE);
-        static_assert((VM_DEFAULT_STACK_SIZE& (VM_DEFAULT_STACK_SIZE - 1)) == 0);
-        static_assert((VM_MAX_STACK_SIZE& (VM_MAX_STACK_SIZE - 1)) == 0);
+        static_assert((VM_DEFAULT_STACK_SIZE & (VM_DEFAULT_STACK_SIZE - 1)) == 0);
+        static_assert((VM_MAX_STACK_SIZE & (VM_MAX_STACK_SIZE - 1)) == 0);
 
     public:
         inline static assure_leave_this_thread_vm_shared_mutex _alive_vm_list_mx;
-        inline static std::set<vmbase*> _alive_vm_list;
-        inline static std::set<vmbase*> _gc_ready_vm_list;
+        inline static std::set<vmbase *> _alive_vm_list;
+        inline static std::set<vmbase *> _gc_ready_vm_list;
 
-        inline thread_local static vmbase* _this_thread_vm = nullptr;
+        inline thread_local static vmbase *_this_thread_vm = nullptr;
         inline static std::atomic_uint32_t _alive_vm_count_for_gc_vm_destruct;
 
     protected:
-        inline static vm_debuggee_bridge_base* attaching_debuggee = nullptr;
+        inline static vm_debuggee_bridge_base *attaching_debuggee = nullptr;
 
     public:
         // For performance, interrupt should be first elem.
         std::atomic<uint32_t> vm_interrupt;
 
         // special register
-        value* cr;  // op result trace & function return;
-        value* tc;  // arugument count
-        value* tp;  // stored argument count
+        value *cr; // op result trace & function return;
+        value *tc; // arugument count
+        value *tp; // stored argument count
 
         // stack state.
-        value* sp;
-        value* bp;
-        value* sb;
+        value *sp;
+        value *bp;
+        value *sb;
 
-        value* stack_storage;
+        value *stack_storage;
         size_t stack_size;
 
         uint8_t shrink_stack_advise;
         uint8_t shrink_stack_edge;
 
         // storage to addressing
-        value* register_storage;
+        value *register_storage;
 
         // Runtime min-env.
-        const byte_t* runtime_codes_begin;
-        const byte_t* runtime_codes_end;
-        value* runtime_static_storage;
+        const byte_t *runtime_codes_begin;
+        const byte_t *runtime_codes_end;
+        value *runtime_static_storage;
 
         // next ircode pointer
-        const byte_t* ip;
+        const byte_t *ip;
         shared_pointer<runtime_env> env;
         std::optional<std::unique_ptr<lexer>> compile_failed_state;
 
         hangup_lock hangup_state;
 
         // Flag used to check and reset when returning from an external function.
-        // If the flag is true, it indicates that during the external function call, 
+        // If the flag is true, it indicates that during the external function call,
         // the stack's starting position and space have changed.
-        // Therefore, the caller of the external function - if it's the JIT runtime - 
+        // Therefore, the caller of the external function - if it's the JIT runtime -
         // needs to propagate a synchronization request upward to the VM runtime for handling.
         bool extern_state_stack_update;
 
@@ -357,26 +383,26 @@ namespace wo
 #if WO_ENABLE_RUNTIME_CHECK
         // runtime information
         std::thread::id attaching_thread_id;
-#endif 
+#endif
     private:
-        vmbase(const vmbase&) = delete;
-        vmbase(vmbase&&) = delete;
-        vmbase& operator=(const vmbase&) = delete;
-        vmbase& operator=(vmbase&&) = delete;
+        vmbase(const vmbase &) = delete;
+        vmbase(vmbase &&) = delete;
+        vmbase &operator=(const vmbase &) = delete;
+        vmbase &operator=(vmbase &&) = delete;
 
     public:
-        std::atomic_size_t* inc_destructable_instance_count() noexcept;
-        static vm_debuggee_bridge_base* attach_debuggee(vm_debuggee_bridge_base* dbg) noexcept;
-        static vm_debuggee_bridge_base* current_debuggee() noexcept;
+        std::atomic_size_t *inc_destructable_instance_count() noexcept;
+        static vm_debuggee_bridge_base *attach_debuggee(vm_debuggee_bridge_base *dbg) noexcept;
+        static vm_debuggee_bridge_base *current_debuggee() noexcept;
         bool is_aborted() const noexcept;
         bool interrupt(vm_interrupt_type type) noexcept;
-        bool clear_interrupt(vm_interrupt_type type)noexcept;
-        bool check_interrupt(vm_interrupt_type type)noexcept;
-        interrupt_wait_result wait_interrupt(vm_interrupt_type type)noexcept;
-        void block_interrupt(vm_interrupt_type type)noexcept;
+        bool clear_interrupt(vm_interrupt_type type) noexcept;
+        bool check_interrupt(vm_interrupt_type type) noexcept;
+        interrupt_wait_result wait_interrupt(vm_interrupt_type type) noexcept;
+        void block_interrupt(vm_interrupt_type type) noexcept;
 
-        void hangup()noexcept;
-        void wakeup()noexcept;
+        void hangup() noexcept;
+        void wakeup() noexcept;
 
         vmbase(vm_type type) noexcept;
         ~vmbase() noexcept;
@@ -385,70 +411,71 @@ namespace wo
         void reset_shrink_stack_count() noexcept;
 
     public:
-        vmbase* create_machine(vm_type type) const noexcept;
+        vmbase *create_machine(vm_type type) const noexcept;
         wo_result_t run() noexcept;
+
     private:
         wo_result_t run_sim() noexcept;
         void _allocate_register_space(size_t regcount) noexcept;
         void _allocate_stack_space(size_t stacksz) noexcept;
         bool _reallocate_stack_space(size_t stacksz) noexcept;
         void set_runtime(shared_pointer<runtime_env> runtime_environment) noexcept;
+
     public:
         void init_main_vm(shared_pointer<runtime_env> runtime_environment) noexcept;
-        vmbase* make_machine(vm_type type) const noexcept;
-        void dump_program_bin(size_t begin = 0, size_t end = SIZE_MAX, std::ostream& os = std::cout) const noexcept;
-        void dump_call_stack(size_t max_count = 32, bool need_offset = true, std::ostream& os = std::cout)const noexcept;
-        std::vector<callstack_info> dump_call_stack_func_info(size_t max_count, bool need_offset, bool* out_finished)const noexcept;
+        vmbase *make_machine(vm_type type) const noexcept;
+        void dump_program_bin(size_t begin = 0, size_t end = SIZE_MAX, std::ostream &os = std::cout) const noexcept;
+        void dump_call_stack(size_t max_count = 32, bool need_offset = true, std::ostream &os = std::cout) const noexcept;
+        std::vector<callstack_info> dump_call_stack_func_info(size_t max_count, bool need_offset, bool *out_finished) const noexcept;
         size_t callstack_layer() const noexcept;
         void gc_checkpoint_sync_begin() noexcept;
         void gc_checkpoint_self_mark() noexcept;
         bool assure_stack_size(wo_size_t assure_stack_size) noexcept;
-        void co_pre_invoke(const byte_t* wo_func_addr, wo_int_t argc) noexcept;
+        void co_pre_invoke(const byte_t *wo_func_addr, wo_int_t argc) noexcept;
         void co_pre_invoke(wo_native_func_t ex_func_addr, wo_int_t argc) noexcept;
-        void co_pre_invoke(closure_t* wo_func_addr, wo_int_t argc) noexcept;
-        value* invoke(const byte_t* wo_func_addr, wo_int_t argc) noexcept;
-        value* invoke(wo_native_func_t wo_func_addr, wo_int_t argc) noexcept;
-        value* invoke(closure_t* wo_func_closure, wo_int_t argc) noexcept;
+        void co_pre_invoke(closure_t *wo_func_addr, wo_int_t argc) noexcept;
+        value *invoke(const byte_t *wo_func_addr, wo_int_t argc) noexcept;
+        value *invoke(wo_native_func_t wo_func_addr, wo_int_t argc) noexcept;
+        value *invoke(closure_t *wo_func_closure, wo_int_t argc) noexcept;
 
     public:
         // Operate support:
-        static void ltx_impl(value* result, value* opnum1, value* opnum2) noexcept;
-        static void eltx_impl(value* result, value* opnum1, value* opnum2) noexcept;
-        static void gtx_impl(value* result, value* opnum1, value* opnum2) noexcept;
-        static void egtx_impl(value* result, value* opnum1, value* opnum2) noexcept;
-        static value* make_union_impl(value* opnum1, value* opnum2, uint16_t id) noexcept;
-        //static value* make_closure_fast_impl(value* opnum1, const byte_t* rt_ip, value* rt_sp) noexcept;
-        //static value* make_closure_safe_impl(value* opnum1, const byte_t* rt_ip, value* rt_sp) noexcept;
-        static value* make_closure_wo_impl(value* opnum1, uint16_t argc, const wo::byte_t* addr, value* rt_sp)noexcept;
-        static value* make_closure_fp_impl(value* opnum1, uint16_t argc, wo_native_func_t addr, value* rt_sp)noexcept;
-        static value* make_array_impl(value* opnum1, uint16_t size, value* rt_sp) noexcept;
-        static value* make_map_impl(value* opnum1, uint16_t size, value* rt_sp) noexcept;
-        static value* make_struct_impl(value* opnum1, uint16_t size, value* rt_sp) noexcept;
-        static void packargs_impl(value* opnum1, uint16_t argcount, const value* tp, value* rt_bp, uint16_t skip_closure_arg_count) noexcept;
-        static value* unpackargs_impl(vmbase* vm, value* opnum1, int32_t unpack_argc, value* tc, const byte_t* rt_ip, value* rt_sp, value* rt_bp) noexcept;
-        static const char* movcast_impl(value* opnum1, value* opnum2, value::valuetype aim_type) noexcept;
+        static void ltx_impl(value *result, value *opnum1, value *opnum2) noexcept;
+        static void eltx_impl(value *result, value *opnum1, value *opnum2) noexcept;
+        static void gtx_impl(value *result, value *opnum1, value *opnum2) noexcept;
+        static void egtx_impl(value *result, value *opnum1, value *opnum2) noexcept;
+        static value *make_union_impl(value *opnum1, value *opnum2, uint16_t id) noexcept;
+        // static value* make_closure_fast_impl(value* opnum1, const byte_t* rt_ip, value* rt_sp) noexcept;
+        // static value* make_closure_safe_impl(value* opnum1, const byte_t* rt_ip, value* rt_sp) noexcept;
+        static value *make_closure_wo_impl(value *opnum1, uint16_t argc, const wo::byte_t *addr, value *rt_sp) noexcept;
+        static value *make_closure_fp_impl(value *opnum1, uint16_t argc, wo_native_func_t addr, value *rt_sp) noexcept;
+        static value *make_array_impl(value *opnum1, uint16_t size, value *rt_sp) noexcept;
+        static value *make_map_impl(value *opnum1, uint16_t size, value *rt_sp) noexcept;
+        static value *make_struct_impl(value *opnum1, uint16_t size, value *rt_sp) noexcept;
+        static void packargs_impl(value *opnum1, uint16_t argcount, const value *tp, value *rt_bp, uint16_t skip_closure_arg_count) noexcept;
+        static value *unpackargs_impl(vmbase *vm, value *opnum1, int32_t unpack_argc, value *tc, const byte_t *rt_ip, value *rt_sp, value *rt_bp) noexcept;
+        static const char *movcast_impl(value *opnum1, value *opnum2, value::valuetype aim_type) noexcept;
     };
     static_assert(std::is_standard_layout_v<vmbase>);
 
     class _wo_vm_stack_occupying_lock_guard
     {
-        vmbase* m_reading_vm;
-        _wo_vm_stack_occupying_lock_guard(const _wo_vm_stack_occupying_lock_guard&) = delete;
-        _wo_vm_stack_occupying_lock_guard(_wo_vm_stack_occupying_lock_guard&&) = delete;
-        _wo_vm_stack_occupying_lock_guard& operator = (const _wo_vm_stack_occupying_lock_guard&) = delete;
-        _wo_vm_stack_occupying_lock_guard& operator = (_wo_vm_stack_occupying_lock_guard&&) = delete;
+        vmbase *m_reading_vm;
+        _wo_vm_stack_occupying_lock_guard(const _wo_vm_stack_occupying_lock_guard &) = delete;
+        _wo_vm_stack_occupying_lock_guard(_wo_vm_stack_occupying_lock_guard &&) = delete;
+        _wo_vm_stack_occupying_lock_guard &operator=(const _wo_vm_stack_occupying_lock_guard &) = delete;
+        _wo_vm_stack_occupying_lock_guard &operator=(_wo_vm_stack_occupying_lock_guard &&) = delete;
 
     public:
-        _wo_vm_stack_occupying_lock_guard(const vmbase* _reading_vm)
+        _wo_vm_stack_occupying_lock_guard(const vmbase *_reading_vm)
         {
-            vmbase* reading_vm = const_cast<vmbase*>(_reading_vm);
+            vmbase *reading_vm = const_cast<vmbase *>(_reading_vm);
 
             while (!reading_vm->interrupt(
                 vmbase::vm_interrupt_type::STACK_OCCUPYING_INTERRUPT))
                 gcbase::rw_lock::spin_loop_hint();
 
             m_reading_vm = reading_vm;
-
         }
         ~_wo_vm_stack_occupying_lock_guard()
         {

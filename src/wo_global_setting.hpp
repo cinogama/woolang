@@ -199,7 +199,7 @@ namespace wo
         *
         *   0 does not mean unlimited wait.
         */
-        inline size_t INTERRUPT_CHECK_TIME_LIMIT = 25;
+        inline size_t INTERRUPT_CHECK_TIME_LIMIT = 50;
 
         /*
         * ENABLE_SKIP_UNSAFE_CAST_INVOKE = true
