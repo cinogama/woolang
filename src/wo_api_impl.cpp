@@ -4318,7 +4318,7 @@ wo_bool_t wo_enter_gcguard(wo_vm vm)
     return WO_FALSE;
 }
 
-void wo_switch_to_gcguard(wo_vm dst_vm, wo_vm src_vm)
+void wo_switch_gcguard(wo_vm dst_vm, wo_vm src_vm)
 {
     if (src_vm == dst_vm)
         return;
