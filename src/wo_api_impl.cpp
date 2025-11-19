@@ -64,7 +64,6 @@ struct _wo_enter_gc_guard
 struct _wo_in_thread_vm_guard
 {
     wo_vm last_vm;
-    bool leaved;
 
     _wo_in_thread_vm_guard() = delete;
     _wo_in_thread_vm_guard(const _wo_in_thread_vm_guard&) = delete;
@@ -74,14 +73,11 @@ struct _wo_in_thread_vm_guard
 
     _wo_in_thread_vm_guard(wo_vm target_vm)
         : last_vm(wo_set_this_thread_vm(target_vm))
-        , leaved(last_vm != nullptr && wo_leave_gcguard(last_vm))
     {
     }
     ~_wo_in_thread_vm_guard()
     {
         wo_set_this_thread_vm(last_vm);
-        if (leaved)
-            wo_enter_gcguard(last_vm);
     }
 };
 
@@ -270,11 +266,6 @@ wo_bool_t _default_fail_handler(
     uint32_t rterrcode,
     wo_string_t reason)
 {
-    // Leave gc guard if vm is not nullptr.
-    bool leaved_flag = vm_may_null != nullptr
-        ? wo_leave_gcguard(vm_may_null)
-        : false;
-
     wo::wo_stderr << ANSI_HIR "Woolang runtime happend a failure: "
         << ANSI_HIY << reason << " (Code: " << std::hex << rterrcode << std::dec << ")" << ANSI_RST << wo::wo_endl;
     wo::wo_stderr << "\tAt source: \t" << src_file << wo::wo_endl;
@@ -365,20 +356,18 @@ wo_bool_t _default_fail_handler(
 
         } while (!breakout);
     }
-
-    if (leaved_flag)
-    {
-        wo_assert(vm_may_null != nullptr);
-        wo_enter_gcguard(vm_may_null);
-    }
     return abort_this_vm ? WO_FALSE : WO_TRUE;
 }
-static std::atomic<wo_fail_handler_t> _wo_fail_handler_function = &_default_fail_handler;
+static std::atomic<wo_fail_handler_t> _wo_fail_handler_function =
+{
+    &_default_fail_handler
+};
 
 wo_fail_handler_t wo_register_fail_handler(wo_fail_handler_t new_handler)
 {
     return _wo_fail_handler_function.exchange(new_handler);
 }
+
 void wo_execute_fail_handler(
     wo_vm vm_may_null,
     wo_string_t src_file,
@@ -387,13 +376,23 @@ void wo_execute_fail_handler(
     uint32_t rterrcode,
     wo_string_t reason)
 {
-    if (WO_FALSE == _wo_fail_handler_function.load()(
+    // Leave gc guard if vm is not nullptr.
+    bool leaved =
+        vm_may_null != nullptr
+        && wo_leave_gcguard(vm_may_null);
+
+    auto handled = _wo_fail_handler_function.load()(
         vm_may_null,
         src_file,
         lineno,
         functionname,
         rterrcode,
-        reason))
+        reason);
+
+    if (leaved)
+        wo_enter_gcguard(vm_may_null);
+
+    if (WO_FALSE == handled)
     {
         if (vm_may_null != nullptr)
         {
@@ -422,10 +421,10 @@ std::vector<char> _wo_vformat(const char* fmt, va_list v)
 }
 
 void wo_cause_fail(
-    wo_string_t src_file, 
-    uint32_t lineno, 
-    wo_string_t functionname, 
-    uint32_t rterrcode, 
+    wo_string_t src_file,
+    uint32_t lineno,
+    wo_string_t functionname,
+    uint32_t rterrcode,
     wo_string_t reasonfmt,
     ...)
 {
@@ -517,9 +516,9 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
                     }
                     else if (not_close_vm_count == 32)
                     {
-                        not_closed_vm_call_stacks 
-                            << std::endl 
-                            << "... " 
+                        not_closed_vm_call_stacks
+                            << std::endl
+                            << "... "
                             << (wo::vmbase::_alive_vm_list.size() - not_close_vm_count)
                             << " more VMs not closed ..."
                             << std::endl;
@@ -926,7 +925,7 @@ void wo_set_string(wo_value value, wo_string_t val)
 
 void wo_set_string_fmtv(wo_value value, wo_string_t fmt, va_list v)
 {
-    wo_set_string(value, _wo_vformat(fmt, v).data());    
+    wo_set_string(value, _wo_vformat(fmt, v).data());
 }
 
 void wo_set_string_fmt(wo_value value, wo_string_t fmt, ...)
@@ -1602,6 +1601,10 @@ wo_string_t wo_type_name(wo_type_t type)
         return "gchandle";
     case wo::value::valuetype::closure_type:
         return "closure";
+    case wo::value::valuetype::script_func_type:
+        return "function";
+    case wo::value::valuetype::native_func_type:
+        return "function";
     case wo::value::valuetype::struct_type:
         return "struct";
     case wo::value::valuetype::invalid:
@@ -1740,7 +1743,7 @@ wo_result_t wo_ret_panic(wo_vm vm, wo_string_t reasonfmt, ...)
     auto& er_reg = vmbase->register_storage[wo::opnum::reg::er];
 
     er_reg.set_string(
-            _wo_vformat(reasonfmt, v).data());
+        _wo_vformat(reasonfmt, v).data());
 
     va_end(v);
 
@@ -2718,8 +2721,8 @@ wo::compile_result _wo_compile_impl(
             (void)compile_lexer->record_parser_error(
                 wo::lexer::msglevel_t::error, WO_ERR_COMPILER_DISABLED);
 #endif
+            }
         }
-    }
     else
         // Load binary success. 
         compile_result = wo::compile_result::PROCESS_OK;
@@ -2743,7 +2746,7 @@ wo::compile_result _wo_compile_impl(
             *out_lexer_if_failed = std::move(compile_lexer);
     }
     return compile_result;
-}
+    }
 
 wo_bool_t _wo_load_source(
     wo_vm vm,
@@ -3111,15 +3114,17 @@ wo_value wo_reserve_stack(wo_vm vm, wo_size_t stack_sz, wo_value* inout_args_may
         || (WO_VAL(*inout_args_maynull) > vmbase->stack_storage
             && WO_VAL(*inout_args_maynull) <= vmbase->sb));
 
+    _wo_enter_gc_guard g(vm);
 
     if (vmbase->sp - stack_sz < vmbase->stack_storage)
     {
+        // Stack is not engough to use.
+        // NOTE: Make sure this_thread_vm is vm, if stack allocate failed, we 
+        //      can report the correct vm.
+        _wo_in_thread_vm_guard g2(vm);
+
         const size_t args_offset =
             inout_args_maynull ? vmbase->sb - WO_VAL(*inout_args_maynull) : 0;
-
-        // Stack is not engough to use.
-        _wo_in_thread_vm_guard g(vm);
-        _wo_enter_gc_guard g2(vm);
 
         if (vmbase->assure_stack_size(stack_sz) && inout_args_maynull)
         {
@@ -3156,8 +3161,8 @@ void wo_pop_stack(wo_vm vm, wo_size_t stack_sz)
 wo_value wo_invoke_value(
     wo_vm vm, wo_value vmfunc, wo_int_t argc, wo_value* inout_args_maynull, wo_value* inout_s_maynull)
 {
-    _wo_in_thread_vm_guard g(vm);
-    _wo_enter_gc_guard g2(vm);
+    _wo_enter_gc_guard g(vm);
+    _wo_in_thread_vm_guard g2(vm);
     _wo_reserved_stack_args_update_guard g3(vm, inout_args_maynull, inout_s_maynull);
 
     wo::value* valfunc = WO_VAL(vmfunc);
@@ -3178,8 +3183,8 @@ wo_value wo_invoke_value(
 void wo_dispatch_value(
     wo_vm vm, wo_value vmfunc, wo_int_t argc, wo_value* inout_args_maynull, wo_value* inout_s_maynull)
 {
-    _wo_in_thread_vm_guard g(vm);
-    _wo_enter_gc_guard g2(vm);
+    _wo_enter_gc_guard g(vm);
+    _wo_in_thread_vm_guard g2(vm);
     _wo_reserved_stack_args_update_guard g3(vm, inout_args_maynull, inout_s_maynull);
 
     switch (WO_VAL(vmfunc)->m_type)
@@ -3201,8 +3206,8 @@ void wo_dispatch_value(
 wo_value wo_dispatch(
     wo_vm vm, wo_value* inout_args_maynull, wo_value* inout_s_maynull)
 {
-    _wo_in_thread_vm_guard g(vm);
-    _wo_enter_gc_guard g2(vm);
+    _wo_enter_gc_guard g(vm);
+    _wo_in_thread_vm_guard g2(vm);
     _wo_reserved_stack_args_update_guard g3(vm, inout_args_maynull, inout_s_maynull);
 
     auto* vmm = WO_VM(vm);
@@ -3289,7 +3294,7 @@ wo_bool_t wo_load_file(wo_vm vm, wo_string_t virtual_src_path)
 
 wo_bool_t wo_jit(wo_vm vm)
 {
-    _wo_enter_gc_guard g2(vm);
+    _wo_enter_gc_guard g(vm);
 
     if (wo::config::ENABLE_JUST_IN_TIME)
     {
@@ -3302,8 +3307,8 @@ wo_bool_t wo_jit(wo_vm vm)
 
 wo_value wo_run(wo_vm vm)
 {
-    _wo_in_thread_vm_guard g(vm);
-    _wo_enter_gc_guard g2(vm);
+    _wo_enter_gc_guard g(vm);
+    _wo_in_thread_vm_guard g2(vm);
 
     auto* vmm = WO_VM(vm);
 
@@ -4262,6 +4267,8 @@ void wo_gc_checkpoint(wo_vm vm)
     }
 }
 
+thread_local static wo_vm _this_thread_gc_guarded_vm = nullptr;
+
 wo_bool_t wo_leave_gcguard(wo_vm vm)
 {
     auto* vmm = WO_VM(vm);
@@ -4269,6 +4276,20 @@ wo_bool_t wo_leave_gcguard(wo_vm vm)
     if (!vmm->check_interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT))
     {
         wo_assure(vmm->interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
+
+        if (vm != _this_thread_gc_guarded_vm)
+        {
+            if (_this_thread_gc_guarded_vm != nullptr)
+                wo_fail(WO_FAIL_CONFLICT_GC_GUARD,
+                    "GC scope conflict, need to leave GC scope of VM `%p` first",
+                    _this_thread_gc_guarded_vm);
+
+            // Or else, if _this_thread_gc_guarded_vm is nullptr, an error has 
+            // been raised, nothing need to be done.
+        }
+
+        _this_thread_gc_guarded_vm = nullptr;
+
         return WO_TRUE;
     }
     return WO_FALSE;
@@ -4282,6 +4303,16 @@ wo_bool_t wo_enter_gcguard(wo_vm vm)
         wo_gc_checkpoint(vm);
 
         wo_assure(vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
+
+        if (nullptr != _this_thread_gc_guarded_vm)
+        {
+            wo_fail(WO_FAIL_CONFLICT_GC_GUARD,
+                "GC scope conflict, need to leave GC scope of VM `%p` first",
+                _this_thread_gc_guarded_vm);
+        }
+
+        _this_thread_gc_guarded_vm = vm;
+
         return WO_TRUE;
     }
     return WO_FALSE;

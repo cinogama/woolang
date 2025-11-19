@@ -264,9 +264,7 @@ namespace wo
     {
         ++_alive_vm_count_for_gc_vm_destruct;
 
-        vm_interrupt.store(vm_interrupt_type::NOTHING, std::memory_order_release);
-        wo_assure(wo_leave_gcguard(reinterpret_cast<wo_vm>(this)));
-
+        vm_interrupt.store(vm_interrupt_type::LEAVE_INTERRUPT, std::memory_order_release);
         wo::assure_leave_this_thread_vm_lock_guard g1(_alive_vm_list_mx);
 
         wo_assert(_alive_vm_list.find(this) == _alive_vm_list.end(),

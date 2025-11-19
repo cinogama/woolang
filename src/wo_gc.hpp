@@ -66,9 +66,8 @@ namespace wo
         using _wo_memory_atomic_list_t = atomic_list<memo_unit>;
 
         inline _wo_memory_atomic_list_t m_memo_mark_gray_list;
-        inline std::atomic_bool _gc_is_marking = false;
+        inline uint8_t _gc_is_marking = false;
         inline std::atomic_bool _gc_is_collecting_memo = false;
-        inline std::atomic_bool _gc_is_recycling = false;
 
         void gc_start();
         void gc_stop();
@@ -76,15 +75,11 @@ namespace wo
 
         WO_FORCE_INLINE bool gc_is_marking()
         {
-            return _gc_is_marking.load(std::memory_order_acquire);
+            return _gc_is_marking;
         }
         WO_FORCE_INLINE bool gc_is_collecting_memo()
         {
             return _gc_is_collecting_memo.load(std::memory_order_acquire);
-        }
-        WO_FORCE_INLINE bool gc_is_recycling()
-        {
-            return _gc_is_recycling.load(std::memory_order_acquire);
         }
     }
 

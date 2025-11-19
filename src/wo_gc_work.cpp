@@ -144,8 +144,6 @@ namespace wo
 
             if (gc::gc_is_collecting_memo())
             {
-                value::write_barrier(&wref->m_weak_value_record);
-
                 // Unlock the weakref, let memo continue.
                 wref->m_spin.clear(std::memory_order_release);
 
@@ -170,7 +168,7 @@ namespace wo
     // A very simply GC system, just stop the vm, then collect inform
     namespace gc
     {
-        std::atomic_uint8_t         _gc_round_count = 0;
+        uint8_t                     _gc_round_count = 0;
         uint16_t                    _gc_work_thread_count = 0;
 
         std::atomic_bool            _gc_stop_flag = false;
@@ -182,30 +180,33 @@ namespace wo
         uint32_t                    _gc_immediately_edge = 500000;
         uint32_t                    _gc_stop_the_world_edge = _gc_immediately_edge * 200;
 
-        std::atomic_size_t _gc_scan_vm_index;
-        size_t _gc_scan_vm_count;
-        std::atomic<vmbase**> _gc_vm_list;
+        std::atomic_size_t          _gc_scan_vm_index;
+        size_t                      _gc_scan_vm_count;
+        vmbase**                    _gc_vm_list;
 
-        std::atomic_bool _gc_pause = false;
+        std::atomic_bool            _gc_pause = false;
 
         using _wo_gray_unit_list_t = std::forward_list<std::pair<gcbase*, gc::unit_attrib*>>;
         using _wo_gc_memory_pages_t = std::vector<char*>;
         using _wo_vm_gray_unit_list_map_t = std::unordered_map <vmbase*, _wo_gray_unit_list_t>;
 
-        _wo_gray_unit_list_t* _gc_gray_unit_lists;
-        _wo_gc_memory_pages_t* _gc_memory_pages;
+        _wo_gray_unit_list_t*       _gc_gray_unit_lists;
+        _wo_gc_memory_pages_t*      _gc_memory_pages;
         _wo_vm_gray_unit_list_map_t _gc_vm_gray_unit_lists;
 
-        bool _gc_stopping_world_gc = WO_GC_FORCE_STOP_WORLD;
-        bool _gc_advise_to_full_gc = WO_GC_FORCE_FULL_GC;
+        bool                        _gc_stopping_world_gc = WO_GC_FORCE_STOP_WORLD;
+        bool                        _gc_advise_to_full_gc = WO_GC_FORCE_FULL_GC;
 
         vmbase* _get_next_mark_vm(vmbase::vm_type* out_vm_type)
         {
-            size_t id = _gc_scan_vm_index++;
+            // NOTE: _gc_scan_vm_index MUST read before `_gc_scan_vm_count` & `_gc_vm_list`
+            //      to make sure memory barrier work.
+            const size_t id = _gc_scan_vm_index++;
+
             if (id < _gc_scan_vm_count)
             {
-                *out_vm_type = _gc_vm_list.load()[id]->virtual_machine_type;
-                return _gc_vm_list.load()[id];
+                *out_vm_type = _gc_vm_list[id]->virtual_machine_type;
+                return _gc_vm_list[id];
             }
 
             return nullptr;
@@ -344,9 +345,6 @@ namespace wo
                     // Lock alive vm list, block new vm create.
                     wo::assure_leave_this_thread_vm_shared_lock sg1(vmbase::_alive_vm_list_mx);
 
-                    // Its ok to use `memory_order_release`, _gc_round_count only update here.
-                    _gc_round_count.fetch_add(1, std::memory_order_release);
-
                     // Ignore old memo, they are useless.
                     auto* old_mem_units = m_memo_mark_gray_list.pick_all();
                     while (old_mem_units)
@@ -357,7 +355,9 @@ namespace wo
                         delete cur_unit;
                     }
 
-                    _gc_is_marking.store(true, std::memory_order_release);
+                    // New round of marking begin.
+                    ++_gc_round_count;
+                    _gc_is_marking = true;
 
                     // 0.1. Prepare vm gray unit list
                     if (!stopworld)
@@ -458,9 +458,8 @@ namespace wo
 
                     // 0.2. Mark all unit in vm's stack, register.
                     _gc_scan_vm_count = gc_marking_vmlist.size();
-                    _gc_scan_vm_index.store(0);
-
-                    _gc_vm_list.store(gc_marking_vmlist.data());
+                    _gc_vm_list = gc_marking_vmlist.data();
+                    _gc_scan_vm_index.store(0, std::memory_order_release);
 
                     launch_round_of_mark();
 
@@ -538,9 +537,8 @@ namespace wo
 
                     // 0.4. Mark all static space in gc-destructor vm.
                     _gc_scan_vm_count = gc_destructor_vmlist.size();
-                    _gc_scan_vm_index.store(0);
-
-                    _gc_vm_list.store(gc_destructor_vmlist.data());
+                    _gc_vm_list = gc_destructor_vmlist.data();
+                    _gc_scan_vm_index.store(0, std::memory_order_release);
 
                     launch_round_of_mark();
 
@@ -575,7 +573,6 @@ namespace wo
                 //          or it is detached from other objects and is not marked: for this case, 
                 //          this unit should have entered the memory set, it's safe to skip.
                 _gc_is_collecting_memo.store(true, std::memory_order_release);
-                _gc_is_marking.store(false, std::memory_order_release);
 
                 // 2. Collect gray units in memo set.
                 for (;;)
@@ -594,6 +591,8 @@ namespace wo
                     }
                 }
                 gc_mark_all_gray_unit(&mem_gray_list);
+
+                _gc_is_marking = false;
 
                 // 3. OK, All unit has been marked. recheck weakref, remove it from list if ref has been lost
                 do
@@ -623,7 +622,6 @@ namespace wo
                     }
                 } while (0);
 
-                _gc_is_recycling.store(true, std::memory_order_release);
                 _gc_is_collecting_memo.store(false, std::memory_order_release);
 
                 // 4. OK, All unit has been marked. reduce gcunits
@@ -694,8 +692,6 @@ namespace wo
 
                 womem_tidy_pages(fullgc);
 
-                _gc_is_recycling.store(false, std::memory_order_release);
-
                 // All jobs done.
                 return get_alive_unit_count() != 0;
             }
@@ -703,7 +699,7 @@ namespace wo
             {
                 do
                 {
-                    if (_gc_round_count.load(std::memory_order_acquire) == 0)
+                    if (_gc_round_count == 0)
                         _gc_advise_to_full_gc = true;
 
                     if (_gc_pause.load() == false)
@@ -831,7 +827,7 @@ namespace wo
                         alloc_dur_current_gc_attrib_mask.m_alloc_mask = (uint8_t)0x01;
                         alloc_dur_current_gc_attrib.m_gc_age = (uint8_t)0x0F;
                         alloc_dur_current_gc_attrib.m_alloc_mask = 
-                            (uint8_t)_gc_round_count.load(std::memory_order_acquire) & (uint8_t)0x01;
+                            (uint8_t)_gc_round_count & (uint8_t)0x01;
 
                         for (auto* page_head : page_list)
                         {
@@ -1141,7 +1137,7 @@ namespace wo
         for (;;)
         {
             gc::unit_attrib attr = {};
-            attr.m_alloc_mask = (uint8_t)gc::_gc_round_count.load(std::memory_order_acquire) & (uint8_t)0b01;
+            attr.m_alloc_mask = (uint8_t)gc::_gc_round_count & (uint8_t)0b01;
             if (auto* p = womem_alloc(memsz, attrib | attr.m_attr))
                 return p;
 
@@ -1183,7 +1179,7 @@ namespace wo
 
             wo_assert(unit == this);
             wo_assert(
-                (attrib->m_alloc_mask & 0b01) != (gc::_gc_round_count.load(std::memory_order_acquire) & 0b01) 
+                (attrib->m_alloc_mask & 0b01) != (gc::_gc_round_count & 0b01) 
                 || attrib->m_gc_age != 15);
         }
 
@@ -1200,13 +1196,7 @@ void wo_gc_resume(void)
     wo::gc::_gc_pause = false;
     wo_gc_immediately(WO_TRUE);
 }
-void wo_gc_wait_sync(void)
-{
-    while (wo::gc::gc_is_marking()
-        || wo::gc::gc_is_collecting_memo()
-        || wo::gc::gc_is_recycling())
-        wo::gcbase::rw_lock::spin_loop_hint();
-}
+
 void wo_gc_immediately(wo_bool_t fullgc)
 {
     std::lock_guard g1(wo::gc::_gc_work_mx);

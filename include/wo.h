@@ -347,7 +347,6 @@ WO_API void wo_finish(void (*do_after_shutdown)(void*), void* custom_data);
 
 WO_API void wo_gc_pause(void);
 WO_API void wo_gc_resume(void);
-WO_API void wo_gc_wait_sync(void);
 WO_API void wo_gc_immediately(wo_bool_t fullgc);
 
 WO_API wo_dylib_handle_t wo_fake_lib(
@@ -1206,6 +1205,7 @@ WO_API void wo_lspv2_token_info_free(wo_lspv2_token_info* info);
 #   define WO_FAIL_DEBUGGEE_FAIL 0xD00A
 #   define WO_FAIL_EXECUTE_FAIL 0xD00B
 #   define WO_FAIL_BAD_FORMAT 0xD00C
+#   define WO_FAIL_CONFLICT_GC_GUARD 0xD00D
 
 #endif
 

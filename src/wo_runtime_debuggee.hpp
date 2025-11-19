@@ -306,15 +306,6 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                 if (!type_match)
                     return "<released>";
             }
-            else
-            {
-                if (val->m_type != wo::value::valuetype::invalid
-                    && val->m_type != wo::value::valuetype::integer_type
-                    && val->m_type != wo::value::valuetype::real_type
-                    && val->m_type != wo::value::valuetype::handle_type
-                    && val->m_type != wo::value::valuetype::bool_type)
-                    return "<unexpected type>";
-            }
 
             auto result = std::string("<")
                 + wo_type_name((wo_type_t)val->m_type) + "> "
