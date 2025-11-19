@@ -3241,7 +3241,10 @@ WO_API wo_api rslib_std_macro_lexer_current_location(wo_vm vm, wo_value args)
     // ATTENTION: args might invalid after peek (
     //      if stack extension happend in recursive macro handling), 
     //  we cannot use args after peek.
+    auto leaved = wo_leave_gcguard(vm);
     auto* peek_token = lex->peek(true);
+    if (leaved)
+        wo_enter_gcguard(vm);
 
     wo_value result = wo_register(vm, WO_REG_T0);
     wo_value elem = wo_register(vm, WO_REG_T1);

@@ -43,22 +43,21 @@ void _wo_warning(
     wo::wo_stderr << "Line : " << line << wo::wo_endl;
 }
 
-struct _wo_enter_gc_guard
+struct _wo_swap_gc_guard
 {
     wo_vm _vm;
-    _wo_enter_gc_guard() = delete;
-    _wo_enter_gc_guard(const _wo_enter_gc_guard&) = delete;
-    _wo_enter_gc_guard(_wo_enter_gc_guard&&) = delete;
-    _wo_enter_gc_guard& operator = (const _wo_enter_gc_guard&) = delete;
-    _wo_enter_gc_guard& operator = (_wo_enter_gc_guard&&) = delete;
-    _wo_enter_gc_guard(wo_vm vm)
-        : _vm(wo_enter_gcguard(vm) ? vm : nullptr)
+    _wo_swap_gc_guard() = delete;
+    _wo_swap_gc_guard(const _wo_swap_gc_guard&) = delete;
+    _wo_swap_gc_guard(_wo_swap_gc_guard&&) = delete;
+    _wo_swap_gc_guard& operator = (const _wo_swap_gc_guard&) = delete;
+    _wo_swap_gc_guard& operator = (_wo_swap_gc_guard&&) = delete;
+    _wo_swap_gc_guard(wo_vm vm)
+        : _vm(wo_swap_gcguard(vm))
     {
     }
-    ~_wo_enter_gc_guard()
+    ~_wo_swap_gc_guard()
     {
-        if (_vm)
-            wo_leave_gcguard(_vm);
+        wo_swap_gcguard(_vm);
     }
 };
 struct _wo_in_thread_vm_guard
@@ -3114,13 +3113,12 @@ wo_value wo_reserve_stack(wo_vm vm, wo_size_t stack_sz, wo_value* inout_args_may
         || (WO_VAL(*inout_args_maynull) > vmbase->stack_storage
             && WO_VAL(*inout_args_maynull) <= vmbase->sb));
 
-    _wo_enter_gc_guard g(vm);
-
     if (vmbase->sp - stack_sz < vmbase->stack_storage)
     {
         // Stack is not engough to use.
         // NOTE: Make sure this_thread_vm is vm, if stack allocate failed, we 
         //      can report the correct vm.
+        _wo_swap_gc_guard g(vm);
         _wo_in_thread_vm_guard g2(vm);
 
         const size_t args_offset =
@@ -3161,7 +3159,7 @@ void wo_pop_stack(wo_vm vm, wo_size_t stack_sz)
 wo_value wo_invoke_value(
     wo_vm vm, wo_value vmfunc, wo_int_t argc, wo_value* inout_args_maynull, wo_value* inout_s_maynull)
 {
-    _wo_enter_gc_guard g(vm);
+    _wo_swap_gc_guard g(vm);
     _wo_in_thread_vm_guard g2(vm);
     _wo_reserved_stack_args_update_guard g3(vm, inout_args_maynull, inout_s_maynull);
 
@@ -3183,7 +3181,7 @@ wo_value wo_invoke_value(
 void wo_dispatch_value(
     wo_vm vm, wo_value vmfunc, wo_int_t argc, wo_value* inout_args_maynull, wo_value* inout_s_maynull)
 {
-    _wo_enter_gc_guard g(vm);
+    _wo_swap_gc_guard g(vm);
     _wo_in_thread_vm_guard g2(vm);
     _wo_reserved_stack_args_update_guard g3(vm, inout_args_maynull, inout_s_maynull);
 
@@ -3206,7 +3204,7 @@ void wo_dispatch_value(
 wo_value wo_dispatch(
     wo_vm vm, wo_value* inout_args_maynull, wo_value* inout_s_maynull)
 {
-    _wo_enter_gc_guard g(vm);
+    _wo_swap_gc_guard g(vm);
     _wo_in_thread_vm_guard g2(vm);
     _wo_reserved_stack_args_update_guard g3(vm, inout_args_maynull, inout_s_maynull);
 
@@ -3294,7 +3292,7 @@ wo_bool_t wo_load_file(wo_vm vm, wo_string_t virtual_src_path)
 
 wo_bool_t wo_jit(wo_vm vm)
 {
-    _wo_enter_gc_guard g(vm);
+    _wo_swap_gc_guard g(vm);
 
     if (wo::config::ENABLE_JUST_IN_TIME)
     {
@@ -3307,7 +3305,7 @@ wo_bool_t wo_jit(wo_vm vm)
 
 wo_value wo_run(wo_vm vm)
 {
-    _wo_enter_gc_guard g(vm);
+    _wo_swap_gc_guard g(vm);
     _wo_in_thread_vm_guard g2(vm);
 
     auto* vmm = WO_VM(vm);
@@ -4318,17 +4316,18 @@ wo_bool_t wo_enter_gcguard(wo_vm vm)
     return WO_FALSE;
 }
 
-void wo_switch_gcguard(wo_vm dst_vm, wo_vm src_vm)
+wo_vm wo_swap_gcguard(wo_vm vm_may_null)
 {
-    if (src_vm == dst_vm)
-        return;
+    auto* last_vm = _this_thread_gc_guarded_vm;
+    if (last_vm != vm_may_null)
+    {
+        if (last_vm != nullptr)
+            wo_assure(wo_leave_gcguard(last_vm));
 
-    if (WO_FALSE == wo_leave_gcguard(src_vm))
-        wo_fail(WO_FAIL_CONFLICT_GC_GUARD,
-            "VM `%p` is not in GC guard state.", src_vm);
-    if (WO_FALSE == wo_enter_gcguard(dst_vm))
-        wo_fail(WO_FAIL_CONFLICT_GC_GUARD,
-            "VM `%p` already in GC guard state.", dst_vm);
+        if (vm_may_null != nullptr)
+            wo_assure(wo_enter_gcguard(vm_may_null));
+    }
+    return last_vm;
 }
 
 wo_weak_ref wo_create_weak_ref(wo_value val)

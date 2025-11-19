@@ -1788,12 +1788,21 @@ extern func macro_entry(lexer: std::lexer)=> string
 #if WO_ENABLE_RUNTIME_CHECK
             wo_assert(found == WO_TRUE);
 #endif
-            wo_value s = wo_reserve_stack(fnd->second->_macro_action_vm, 1, nullptr);
-            wo_set_pointer(s, this);
-            wo_value result = wo_invoke_value(
-                fnd->second->_macro_action_vm, &macro_entry_function, 1, nullptr, &s);
+            wo_value result;
+            auto last_vm = wo_swap_gcguard(fnd->second->_macro_action_vm);
+            {
+                wo_value s = wo_reserve_stack(fnd->second->_macro_action_vm, 1, nullptr);
+                wo_set_pointer(s, this);
+                result = wo_invoke_value(
+                    fnd->second->_macro_action_vm, 
+                    &macro_entry_function, 
+                    1, 
+                    nullptr, 
+                    &s);
 
-            wo_pop_stack(fnd->second->_macro_action_vm, 1);
+                wo_pop_stack(fnd->second->_macro_action_vm, 1);
+            }
+            wo_swap_gcguard(last_vm);
 
             if (result == nullptr)
             {
