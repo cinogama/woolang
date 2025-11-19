@@ -4318,6 +4318,19 @@ wo_bool_t wo_enter_gcguard(wo_vm vm)
     return WO_FALSE;
 }
 
+void wo_switch_to_gcguard(wo_vm dst_vm, wo_vm src_vm)
+{
+    if (src_vm == dst_vm)
+        return;
+
+    if (WO_FALSE == wo_leave_gcguard(src_vm))
+        wo_fail(WO_FAIL_CONFLICT_GC_GUARD,
+            "VM `%p` is not in GC guard state.", src_vm);
+    if (WO_FALSE == wo_enter_gcguard(dst_vm))
+        wo_fail(WO_FAIL_CONFLICT_GC_GUARD,
+            "VM `%p` already in GC guard state.", dst_vm);
+}
+
 wo_weak_ref wo_create_weak_ref(wo_value val)
 {
     return wo::weakref::create_weak_ref(WO_VAL(val));

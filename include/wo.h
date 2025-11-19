@@ -741,6 +741,8 @@ WO_API void wo_set_val_with_write_barrier(wo_value value, wo_value val);
 // cross different GC scopes, you should use wo_set_val_migratory for this operation.
 WO_API void wo_set_val_migratory(wo_value value, wo_value val);
 
+WO_API void wo_switch_to_gcguard(wo_vm dst_vm, wo_vm src_vm);
+
 WO_API wo_bool_t wo_leave_gcguard(wo_vm vm);
 WO_API wo_bool_t wo_enter_gcguard(wo_vm vm);
 
