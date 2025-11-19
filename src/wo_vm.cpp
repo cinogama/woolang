@@ -859,8 +859,6 @@ namespace wo
     std::vector<vmbase::callstack_info> vmbase::dump_call_stack_func_info(
         size_t max_count, bool need_offset, bool* out_finished)const noexcept
     {
-        _wo_vm_stack_occupying_lock_guard vsg(this);
-
         // NOTE: When vm running, rt_ip may point to:
         // [ -- COMMAND 6bit --] [ - DR 2bit -] [ ----- OPNUM1 ------] [ ----- OPNUM2 ------]
         //                                     ^1                     ^2                     ^3
@@ -914,75 +912,81 @@ namespace wo
         size_t callstack_layer_count = 1;
         callstack_ips.push_front(callstack_ip_state(ip));
 
-        value* base_callstackinfo_ptr = (bp + 1);
-        while (base_callstackinfo_ptr <= this->sb)
+        do
         {
-            switch (base_callstackinfo_ptr->m_type)
+            _wo_vm_stack_occupying_lock_guard vsg(this);
+
+            value* base_callstackinfo_ptr = (bp + 1);
+            while (base_callstackinfo_ptr <= this->sb)
             {
-            case value::valuetype::callstack:
-            {
-                // NOTE: Tracing call stack might changed in other thread.
-                //  Check it to make sure donot reach bad place.
-                auto callstack = base_callstackinfo_ptr->m_vmcallstack;
-                auto* next_trace_place = this->sb - callstack.bp;
-
-                ++callstack_layer_count;
-                callstack_ips.push_front(callstack_ip_state(callstack.ret_ip));
-
-                if (next_trace_place < base_callstackinfo_ptr || next_trace_place > sb)
-                    goto _label_bad_callstack;
-
-                base_callstackinfo_ptr = next_trace_place + 1;
-                break;
-            }
-            case value::valuetype::far_callstack:
-            {
-                // NOTE: Tracing call stack might changed in other thread.
-                //  Check it to make sure donot reach bad place.
-                auto* next_trace_place = this->sb - base_callstackinfo_ptr->m_ext_farcallstack_bp;
-
-                ++callstack_layer_count;
-                callstack_ips.push_front(callstack_ip_state(base_callstackinfo_ptr->m_farcallstack));
-
-                if (next_trace_place < base_callstackinfo_ptr || next_trace_place > sb)
-                    goto _label_bad_callstack;
-
-                base_callstackinfo_ptr = next_trace_place + 1;
-                break;
-            }
-            case value::valuetype::native_callstack:
-            {
-                ++callstack_layer_count;
-                callstack_ips.push_front(callstack_ip_state(base_callstackinfo_ptr->m_nativecallstack));
-
-                goto _label_refind_next_callstack;
-            }
-            default:
-            {
-            _label_bad_callstack:
-                ++callstack_layer_count;
-                callstack_ips.push_front(callstack_ip_state());
-
-            _label_refind_next_callstack:
-                for (;;)
+                switch (base_callstackinfo_ptr->m_type)
                 {
-                    ++base_callstackinfo_ptr;
-                    if (base_callstackinfo_ptr <= sb)
-                    {
-                        auto ptr_value_type = base_callstackinfo_ptr->m_type;
+                case value::valuetype::callstack:
+                {
+                    // NOTE: Tracing call stack might changed in other thread.
+                    //  Check it to make sure donot reach bad place.
+                    auto callstack = base_callstackinfo_ptr->m_vmcallstack;
+                    auto* next_trace_place = this->sb - callstack.bp;
 
-                        if (ptr_value_type == value::valuetype::native_callstack
-                            || ptr_value_type == value::valuetype::callstack
-                            || ptr_value_type == value::valuetype::far_callstack)
+                    ++callstack_layer_count;
+                    callstack_ips.push_front(callstack_ip_state(callstack.ret_ip));
+
+                    if (next_trace_place < base_callstackinfo_ptr || next_trace_place > sb)
+                        goto _label_bad_callstack;
+
+                    base_callstackinfo_ptr = next_trace_place + 1;
+                    break;
+                }
+                case value::valuetype::far_callstack:
+                {
+                    // NOTE: Tracing call stack might changed in other thread.
+                    //  Check it to make sure donot reach bad place.
+                    auto* next_trace_place = this->sb - base_callstackinfo_ptr->m_ext_farcallstack_bp;
+
+                    ++callstack_layer_count;
+                    callstack_ips.push_front(callstack_ip_state(base_callstackinfo_ptr->m_farcallstack));
+
+                    if (next_trace_place < base_callstackinfo_ptr || next_trace_place > sb)
+                        goto _label_bad_callstack;
+
+                    base_callstackinfo_ptr = next_trace_place + 1;
+                    break;
+                }
+                case value::valuetype::native_callstack:
+                {
+                    ++callstack_layer_count;
+                    callstack_ips.push_front(callstack_ip_state(base_callstackinfo_ptr->m_nativecallstack));
+
+                    goto _label_refind_next_callstack;
+                }
+                default:
+                {
+                _label_bad_callstack:
+                    ++callstack_layer_count;
+                    callstack_ips.push_front(callstack_ip_state());
+
+                _label_refind_next_callstack:
+                    for (;;)
+                    {
+                        ++base_callstackinfo_ptr;
+                        if (base_callstackinfo_ptr <= sb)
+                        {
+                            auto ptr_value_type = base_callstackinfo_ptr->m_type;
+
+                            if (ptr_value_type == value::valuetype::native_callstack
+                                || ptr_value_type == value::valuetype::callstack
+                                || ptr_value_type == value::valuetype::far_callstack)
+                                break;
+                        }
+                        else
                             break;
                     }
-                    else
-                        break;
+                    break;
                 }
-                break;
+                }
             }
-            }
-        }
+
+        } while (0);
 
         std::vector<callstack_info> result(std::min(callstack_layer_count, max_count));
         auto generate_callstack_info_with_ip =

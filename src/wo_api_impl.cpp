@@ -4256,8 +4256,9 @@ void wo_gc_checkpoint(wo_vm vm)
 
     if (interrupt_state & wo::vmbase::vm_interrupt_type::GC_SYNC_BEGIN_INTERRUPT)
         vmm->gc_checkpoint_sync_begin();
-    if (interrupt_state & wo::vmbase::vm_interrupt_type::GC_INTERRUPT)
+    else if (interrupt_state & wo::vmbase::vm_interrupt_type::GC_INTERRUPT)
         vmm->gc_checkpoint_self_mark();
+
     if (interrupt_state & wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT)
     {
         if (vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT))

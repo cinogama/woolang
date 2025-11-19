@@ -1053,7 +1053,8 @@ namespace wo
                 current_vm_stack_top = current_vm_instance->sp;
                 current_vm_instance->sp = current_vm_instance->stack_storage;
 
-                need_re_entry_gc_guard = wo_leave_gcguard(std::launder(reinterpret_cast<wo_vm>(wo::vmbase::_this_thread_vm)));
+                need_re_entry_gc_guard = 
+                    wo_leave_gcguard(reinterpret_cast<wo_vm>(wo::vmbase::_this_thread_vm));
             }
 
             using namespace std;
