@@ -665,34 +665,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 
             wo_assure(!x86compiler.bind(normal));
         }
-        WO_FORCE_INLINE static wo_result_t native_do_calln_nativefunc(
-            vmbase* vm, wo_extern_native_func_t call_aim_native_func, uint32_t retip, value* rt_sp, value* rt_bp)
-        {
-            size_t sp_offset = vm->sb - rt_sp;
-            size_t bp_offset = vm->sb - rt_bp;
 
-            rt_sp->m_type = value::valuetype::callstack;
-            rt_sp->m_vmcallstack.ret_ip = retip;
-            rt_sp->m_vmcallstack.bp = (uint32_t)bp_offset;
-            rt_bp = --rt_sp;
-            vm->bp = vm->sp = rt_sp;
-
-            vm->ip = reinterpret_cast<byte_t*>(call_aim_native_func);
-
-            wo_assure(wo_leave_gcguard(reinterpret_cast<wo_vm>(vm)));
-            wo_result_t func_call_result = call_aim_native_func(reinterpret_cast<wo_vm>(vm), reinterpret_cast<wo_value>(rt_sp + 2));
-            wo_assure(wo_enter_gcguard(reinterpret_cast<wo_vm>(vm)));
-
-            if (func_call_result == WO_API_RESYNC_JIT_STATE_TO_VM_STATE)
-            {
-                vm->sp = vm->sb - sp_offset;
-                vm->bp = vm->sb - bp_offset;
-                vm->ip = vm->env->rt_codes + retip;
-
-                return WO_API_SYNC_CHANGED_VM_STATE;
-            }
-            return func_call_result;
-        }
         WO_FORCE_INLINE static wo_result_t native_do_calln_vmfunc(
             vmbase* vm, wo_extern_native_func_t call_aim_native_func, uint32_t retip, value* rt_sp, value* rt_bp)
         {
@@ -2420,7 +2393,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
         x86_do_calln_native_func_fast
             native_do_calln_vmfunc
         x86_do_calln_native_func
-            native_do_calln_nativefunc
         x86_do_calln_vm_func
             .... vm jit func ....
         */
