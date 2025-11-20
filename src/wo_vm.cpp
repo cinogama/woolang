@@ -1921,7 +1921,7 @@ namespace wo
     {
         // Must not leave when run.
         wo_assert(!check_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
-        wo_assert(_this_thread_vm == this);
+        wo_assert(_this_thread_gc_guard_vm == this);
 
         const byte_t* near_rtcode_begin = runtime_codes_begin;
         const byte_t* near_rtcode_end = runtime_codes_end;
