@@ -4272,10 +4272,8 @@ wo_bool_t wo_leave_gcguard(wo_vm vm)
 {
     auto* vmm = WO_VM(vm);
 
-    if (!vmm->check_interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT))
+    if (vmm->interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT))
     {
-        wo_assure(vmm->interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
-
         if (vm != _this_thread_gc_guarded_vm)
         {
             if (_this_thread_gc_guarded_vm != nullptr)
