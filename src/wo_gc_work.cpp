@@ -433,7 +433,7 @@ namespace wo
                             if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
                             {
                                 // NOTE: See gc_checkpoint, we have very small probability when last round
-                                // stw GC, an vm still in gc_checkpoint and mark GC_HANGUP_INTERRUPT it self,
+                                // non-stw GC, an vm still in gc_checkpoint and mark GC_HANGUP_INTERRUPT it self,
                                 // we need mark until success.
                                 while (!vmimpl->interrupt(vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT));
                             }

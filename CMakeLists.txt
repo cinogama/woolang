@@ -58,7 +58,7 @@ if (MSVC)
 elseif (MINGW)
     target_compile_definitions(woolang_options INTERFACE -DWO_BUILD_WITH_MINGW=1) 
 else()
-    target_compile_options(woolang_options INTERFACE -fno-exceptions)
+    target_compile_options(woolang_options INTERFACE -fno-exceptions -g)
 endif ()
 
 if (NOT WO_SPECIFY_PLATFORM_TYPE STREQUAL "")
